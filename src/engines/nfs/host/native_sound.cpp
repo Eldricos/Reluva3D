@@ -25,9 +25,15 @@ namespace {
 
 using x86::Cpu;
 
-float loadFloat(Cpu& c, uint32_t at) { return std::bit_cast<float>(c.read32(at)); }
-void storeFloat(Cpu& c, uint32_t at, double v) { c.write32(at, std::bit_cast<uint32_t>(float(v))); }
-uint32_t arg(Cpu& c, int n) { return c.read32(c.reg[Cpu::ESP] + 4 + 4 * uint32_t(n)); }
+float loadFloat(Cpu &c, uint32_t at) {
+    return std::bit_cast<float>(c.read32(at));
+}
+void storeFloat(Cpu &c, uint32_t at, double v) {
+    c.write32(at, std::bit_cast<uint32_t>(float(v)));
+}
+uint32_t arg(Cpu &c, int n) {
+    return c.read32(c.reg[Cpu::ESP] + 4 + 4 * uint32_t(n));
+}
 
 // The resamplers' state: a source position (whole samples, *posAt) and its
 // fraction (16.16, *fracAt), stepped by stepInt.stepFrac each sample.
@@ -42,7 +48,7 @@ struct Resampler {
 
 // resample(count, src, dst, posAt, fracAt, stepInt, stepFrac): float
 // samples, stereo (two floats a frame) or mono.
-uint32_t resample(Cpu& c, const Resampler& r, bool stereo) {
+uint32_t resample(Cpu &c, const Resampler &r, bool stereo) {
     const int32_t count = int32_t(arg(c, 0));
     const uint32_t src = arg(c, 1), posAt = arg(c, 3), fracAt = arg(c, 4), stepInt = arg(c, 5), stepFrac = arg(c, 6);
     uint32_t dst = arg(c, 2), pos = c.read32(posAt), frac = c.read32(fracAt);
@@ -92,7 +98,7 @@ struct Added {
     double c = 0, s = 0;
     bool rear = false;
 };
-uint32_t mix(Cpu& c, bool stereoSource, Side left, Side right, Added* added = nullptr) {
+uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nullptr) {
     const uint32_t gains = arg(c, 0), src = arg(c, 2), dst = arg(c, 3);
     const int32_t count = int32_t(arg(c, 1));
     const double gainLeft = loadFloat(c, gains), gainRight = loadFloat(c, gains + 4);
@@ -125,7 +131,7 @@ uint32_t mix(Cpu& c, bool stereoSource, Side left, Side right, Added* added = nu
 // float has 1.5 * 2^23 (a double at magicAt) added and is stored back over
 // itself, its low mantissa bits then the sample rounded to the nearest;
 // past 16 bits it's clipped to 32767 or -32768.
-uint32_t toInt16(Cpu& c, uint32_t magicAt) {
+uint32_t toInt16(Cpu &c, uint32_t magicAt) {
     uint64_t magicBits = c.read32(magicAt) | uint64_t(c.read32(magicAt + 4)) << 32;
     const double magic = std::bit_cast<double>(magicBits);
     uint32_t p = arg(c, 1), dst = arg(c, 2);
@@ -157,9 +163,9 @@ void GameHost::addNativeSound() {
     // The resamplers (float, linear between samples): stereo and mono.
     static const Resampler stereo{0x56b138, 0x56b130, 0x56b134, 8}, mono{0x56b148, 0x56b140, 0x56b144, 4};
     replaceRoutine(0x527330, 142, 0x3c2833f2244228b1ull, "nfs3.exe resample stereo",
-                   [](Cpu& c) { return resample(c, stereo, true); });
+                   [](Cpu &c) { return resample(c, stereo, true); });
     replaceRoutine(0x5273c0, 239, 0x274025e0e91db35full, "nfs3.exe resample mono",
-                   [](Cpu& c) { return resample(c, mono, false); });
+                   [](Cpu &c) { return resample(c, mono, false); });
 
     // The mixers, one for each pair of levels (0, 127 or between), for mono
     // sources and for stereo ones; each set chosen as a voice's levels
@@ -168,7 +174,7 @@ void GameHost::addNativeSound() {
     struct Mixer {
         uint32_t address, size;
         uint64_t hash;
-        const char* name;
+        const char *name;
         bool stereoSource;
         Side left, right;
     };
@@ -186,10 +192,10 @@ void GameHost::addNativeSound() {
         {0x5210ac, 135, 0xc7c1113b379b9734ull, "nfs3.exe mix stereo, right full", true, Side::Scaled, Side::Full},
         {0x521133, 136, 0x6a5f84d912e41e83ull, "nfs3.exe mix stereo, left full", true, Side::Full, Side::Scaled},
     };
-    for (const Mixer& m : mixers) {
+    for (const Mixer &m : mixers) {
         const bool stereoSource = m.stereoSource;
         const Side left = m.left, right = m.right;
-        replaceRoutine(m.address, m.size, m.hash, m.name, [this, stereoSource, left, right](Cpu& c) {
+        replaceRoutine(m.address, m.size, m.hash, m.name, [this, stereoSource, left, right](Cpu &c) {
             if (!voiceLog_)
                 return mix(c, stereoSource, left, right);
             Added added;
@@ -201,10 +207,10 @@ void GameHost::addNativeSound() {
 
     // The mix to 16 bits.
     replaceRoutine(0x521d00, 115, 0x25d2ab7032489a2full, "nfs3.exe mix to 16 bits",
-                   [](Cpu& c) { return toInt16(c, 0x55188c); });
+                   [](Cpu &c) { return toInt16(c, 0x55188c); });
 }
 
-void GameHost::logVoices(std::vector<VoiceEnergy>* to, uint32_t windowMs) {
+void GameHost::logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs) {
     voiceLog_ = to;
     voiceWindowMs_ = windowMs ? windowMs : 100;
     if (to && options_.mmx && !mmxVoicesHooked_)
@@ -231,12 +237,12 @@ void GameHost::hookMmxMixers() {
     static const uint8_t prologue[7] = {0x55, 0x8b, 0xec, 0x60, 0x8b, 0x75, 0x08};
     struct Mixer {
         uint32_t address;
-        const char* name;
+        const char *name;
         bool stereoSource;
     };
     static const Mixer mixers[] = {{0x51f7ad, "nfs3.exe MMX mix mono (voices)", false},
                                    {0x51f897, "nfs3.exe MMX mix stereo (voices)", true}};
-    for (const Mixer& m : mixers) {
+    for (const Mixer &m : mixers) {
         bool same = true;
         for (uint32_t i = 0; i < sizeof prologue; ++i)
             same = same && cpu_->read8(m.address + i) == prologue[i];
@@ -244,7 +250,7 @@ void GameHost::hookMmxMixers() {
             continue;
         const uint32_t address = m.address;
         const bool stereoSource = m.stereoSource;
-        const uint32_t native = cpu_->addNative(m.name, [this, address, stereoSource](Cpu& c) {
+        const uint32_t native = cpu_->addNative(m.name, [this, address, stereoSource](Cpu &c) {
             if (voiceLog_) {
                 const uint32_t levels = arg(c, 0), src = arg(c, 2);
                 const int32_t count = int32_t(arg(c, 1));
@@ -290,7 +296,7 @@ void GameHost::voiceMixed(bool rear, double c, double s, uint32_t calls) {
     const uint64_t window = process_->now() / voiceWindowMs_ * voiceWindowMs_;
     if (voiceLog_->empty() || voiceLog_->back().ms != window)
         voiceLog_->push_back({window});
-    VoiceEnergy& e = voiceLog_->back();
+    VoiceEnergy &e = voiceLog_->back();
     e.calls += calls;
     if (rear) {
         e.rearCalls += calls;

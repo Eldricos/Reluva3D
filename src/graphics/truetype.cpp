@@ -37,7 +37,9 @@ Error Font::load(std::vector<uint8_t> data) {
     return Error::success();
 }
 
-float Font::scale(float pixels) const { return info_ ? stbtt_ScaleForPixelHeight(&info_->font, pixels) : 0; }
+float Font::scale(float pixels) const {
+    return info_ ? stbtt_ScaleForPixelHeight(&info_->font, pixels) : 0;
+}
 
 int Font::lineHeight(float pixels) const {
     return int(std::ceil(float(ascent_ - descent_ + lineGap_) * scale(pixels)));
@@ -50,14 +52,16 @@ float Font::sizeForPoints(float points) const {
     return em * stbtt_ScaleForMappingEmToPixels(&info_->font, 1.0f) * float(ascent_ - descent_);
 }
 
-int Font::ascent(float pixels) const { return int(std::lround(float(ascent_) * scale(pixels))); }
+int Font::ascent(float pixels) const {
+    return int(std::lround(float(ascent_) * scale(pixels)));
+}
 
-const Font::Glyph& Font::glyph(uint32_t cp, float pixels) {
+const Font::Glyph &Font::glyph(uint32_t cp, float pixels) {
     const auto key = std::make_pair(cp, int(pixels * 16));
     auto it = glyphs_.find(key);
     if (it != glyphs_.end())
         return it->second;
-    Glyph& g = glyphs_[key];
+    Glyph &g = glyphs_[key];
     if (!info_)
         return g;
     const float s = scale(pixels);
@@ -84,19 +88,19 @@ int Font::width(std::string_view utf8, float pixels) {
     return int(std::ceil(x));
 }
 
-int Font::draw(Surface& dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha) {
+int Font::draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha) {
     if (dst.format != PixelFormat::RGBA32)
         return x;
     const int baseline = y + ascent(pixels);
     float pen = float(x);
     for (size_t i = 0; i < utf8.size();) {
-        const Glyph& g = glyph(text::nextUtf8(utf8, i), pixels);
+        const Glyph &g = glyph(text::nextUtf8(utf8, i), pixels);
         const int gx = int(std::lround(pen)) + g.xoff, gy = baseline + g.yoff;
         for (int r = 0; r < g.height; r++) {
             const int dy = gy + r;
             if (dy < 0 || dy >= dst.h)
                 continue;
-            uint8_t* row = dst.row(dy);
+            uint8_t *row = dst.row(dy);
             for (int c = 0; c < g.width; c++) {
                 const int dx = gx + c;
                 if (dx < 0 || dx >= dst.w)
@@ -104,7 +108,7 @@ int Font::draw(Surface& dst, int x, int y, std::string_view utf8, float pixels, 
                 const int a = g.coverage[size_t(r) * size_t(g.width) + size_t(c)] * alpha / 255;
                 if (!a)
                     continue;
-                uint8_t* p = row + dx * 4;
+                uint8_t *p = row + dx * 4;
                 p[0] = uint8_t((color.r * a + p[0] * (255 - a)) / 255);
                 p[1] = uint8_t((color.g * a + p[1] * (255 - a)) / 255);
                 p[2] = uint8_t((color.b * a + p[2] * (255 - a)) / 255);

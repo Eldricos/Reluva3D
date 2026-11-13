@@ -12,11 +12,11 @@ namespace reluva::idtech3 {
 
 class FileViewer : public Page {
 public:
-    explicit FileViewer(ViewerContext& ctx);
-    const char* name() const override { return "Files"; }
+    explicit FileViewer(ViewerContext &ctx);
+    const char *name() const override { return "Files"; }
     size_t count() const override { return files_.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void draw();

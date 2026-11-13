@@ -19,11 +19,11 @@ public:
         std::string text; // UTF-8
     };
 
-    Error parse(const std::vector<uint8_t>& data);
+    Error parse(const std::vector<uint8_t> &data);
 
-    const std::vector<String>& strings() const { return strings_; }
+    const std::vector<String> &strings() const { return strings_; }
     // Text for an id, or nullptr if there's none.
-    const std::string* find(uint32_t id) const;
+    const std::string *find(uint32_t id) const;
 
 private:
     std::vector<String> strings_;

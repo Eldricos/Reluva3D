@@ -15,9 +15,15 @@ namespace reluva::clue {
 
 namespace {
 
-uint16_t u16(const std::vector<uint8_t>& d, size_t o) { return uint16_t(d[o] | d[o + 1] << 8); }
-uint32_t u32(const std::vector<uint8_t>& d, size_t o) { return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16; }
-int16_t s16(const std::vector<uint8_t>& d, size_t o) { return int16_t(u16(d, o)); }
+uint16_t u16(const std::vector<uint8_t> &d, size_t o) {
+    return uint16_t(d[o] | d[o + 1] << 8);
+}
+uint32_t u32(const std::vector<uint8_t> &d, size_t o) {
+    return uint32_t(u16(d, o)) | uint32_t(u16(d, o + 2)) << 16;
+}
+int16_t s16(const std::vector<uint8_t> &d, size_t o) {
+    return int16_t(u16(d, o));
+}
 
 constexpr size_t kPackHeader = 12;
 constexpr size_t kDriveHeader = 12;
@@ -26,7 +32,7 @@ constexpr size_t kDriveName = 128;
 
 } // namespace
 
-Error unpack(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
+Error unpack(const std::vector<uint8_t> &data, std::vector<uint8_t> &out) {
     if (data.size() < 4 || std::memcmp(data.data(), "PACK", 4) != 0) {
         out = data;
         return Error::success();
@@ -39,7 +45,7 @@ Error unpack(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
     return inflateZlib(data.data() + kPackHeader, packed, size, out);
 }
 
-Error DataDrive::open(const std::filesystem::path& path) {
+Error DataDrive::open(const std::filesystem::path &path) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("can't open " + path.string());
@@ -70,7 +76,7 @@ Error DataDrive::load(std::vector<uint8_t> data) {
         entry.time = uint64_t(u32(data_, e + 4)) | uint64_t(u32(data_, e + 8)) << 32;
         entry.offset = u32(data_, e + 12);
         entry.size = u32(data_, e + 16);
-        const char* name = reinterpret_cast<const char*>(data_.data() + e + 20);
+        const char *name = reinterpret_cast<const char *>(data_.data() + e + 20);
         entry.name.assign(name, strnlen(name, kDriveName));
         if (entry.offset > data_.size())
             return Error::fail("DDRV entry " + entry.name + " lies beyond the end");
@@ -79,20 +85,20 @@ Error DataDrive::load(std::vector<uint8_t> data) {
     return Error::success();
 }
 
-const DataDrive::Entry* DataDrive::find(std::string_view name) const {
+const DataDrive::Entry *DataDrive::find(std::string_view name) const {
     const std::string want = fs::toLower(name);
-    for (const Entry& e : entries_)
+    for (const Entry &e : entries_)
         if (fs::toLower(e.name) == want)
             return &e;
     return nullptr;
 }
 
-std::vector<uint8_t> DataDrive::read(const Entry& entry) const {
+std::vector<uint8_t> DataDrive::read(const Entry &entry) const {
     const size_t end = std::min<size_t>(data_.size(), size_t(entry.offset) + entry.size);
     return {data_.begin() + entry.offset, data_.begin() + std::max<size_t>(end, entry.offset)};
 }
 
-Error decodeImage(const std::vector<uint8_t>& r, Image& out) {
+Error decodeImage(const std::vector<uint8_t> &r, Image &out) {
     if (r.size() < 52 || std::memcmp(r.data(), "EIMG", 4) != 0)
         return Error::fail("not an EIMG record");
     out = {};
@@ -132,8 +138,8 @@ Error decodeImage(const std::vector<uint8_t>& r, Image& out) {
     out.pixels.rgba.assign(size_t(w) * h * 4, 0);
     // Per row: n (1-127) pixels follow, 0x80 | n skips n, and rowEnd ends
     // the row. Pixels are RGB565.
-    const uint8_t* p = r.data() + dataAt;
-    const uint8_t* end = p + dataSize;
+    const uint8_t *p = r.data() + dataAt;
+    const uint8_t *end = p + dataSize;
     for (int y = 0; y < h && p < end; ++y) {
         int x = 0;
         while (p < end) {
@@ -150,7 +156,7 @@ Error decodeImage(const std::vector<uint8_t>& r, Image& out) {
                 if (x >= w)
                     return Error::fail("EIMG row runs past the image's width");
                 const uint16_t v = uint16_t(p[0] | p[1] << 8);
-                uint8_t* px = out.pixels.pixel(x, y);
+                uint8_t *px = out.pixels.pixel(x, y);
                 px[0] = uint8_t((v >> 11) * 255 / 31);
                 px[1] = uint8_t(((v >> 5) & 63) * 255 / 63);
                 px[2] = uint8_t((v & 31) * 255 / 31);
@@ -181,7 +187,7 @@ uint64_t Animation::onceMs() const {
     return uint64_t(frameCount()) * uint64_t(1000 / (framesPerSecond ? framesPerSecond : 10));
 }
 
-Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
+Error parseAnimation(const std::vector<uint8_t> &r, Animation &out) {
     out = {};
     size_t p = 0;
     const auto need = [&](size_t n) { return r.size() >= p && r.size() - p >= n; };
@@ -190,10 +196,10 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
     if (u16(r, 4) != 0x200)
         return Error::fail("ANIM version " + std::to_string(u16(r, 4)) + " isn't known");
     p = 6;
-    const auto text = [&](std::string& s) {
+    const auto text = [&](std::string &s) {
         if (!need(1) || !need(1 + size_t(r[p])))
             return false;
-        s.assign(reinterpret_cast<const char*>(r.data() + p + 1), r[p]);
+        s.assign(reinterpret_cast<const char *>(r.data() + p + 1), r[p]);
         p += 1 + r[p];
         return true;
     };
@@ -247,7 +253,7 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
     // The short form: 10 bytes a frame, the anchor and zeros. The long one:
     // 24 bytes and a number of 7-byte extras.
     out.shortForm = size == size_t(frameCount) * 10;
-    for (Animation::Frame& f : out.frames) {
+    for (Animation::Frame &f : out.frames) {
         if (blockEnd - p < (out.shortForm ? 10u : 24u))
             return Error::fail("ISOA frames cut short");
         f.anchorX = s16(r, p);
@@ -277,7 +283,7 @@ Error parseAnimation(const std::vector<uint8_t>& r, Animation& out) {
     return Error::success();
 }
 
-bool splitResourceName(std::string_view full, ResourceName& out) {
+bool splitResourceName(std::string_view full, ResourceName &out) {
     const size_t colon = full.find(':');
     if (colon == std::string_view::npos || colon == 0 || colon + 1 >= full.size())
         return false;

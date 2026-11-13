@@ -50,42 +50,52 @@ bool startSockets() {
     }();
     return started;
 }
-void closeSocket(SocketHandle s) { closesocket(s); }
-std::string lastError() { return "Winsock error " + std::to_string(WSAGetLastError()); }
+void closeSocket(SocketHandle s) {
+    closesocket(s);
+}
+std::string lastError() {
+    return "Winsock error " + std::to_string(WSAGetLastError());
+}
 #else
-bool startSockets() { return true; }
-void closeSocket(SocketHandle s) { close(s); }
-std::string lastError() { return std::strerror(errno); }
+bool startSockets() {
+    return true;
+}
+void closeSocket(SocketHandle s) {
+    close(s);
+}
+std::string lastError() {
+    return std::strerror(errno);
+}
 #endif
 
 class SystemSocket : public UdpSocket {
 public:
     SystemSocket(SocketHandle s, uint16_t port) : s_(s), port_(port) {}
     ~SystemSocket() override { closeSocket(s_); }
-    SystemSocket(const SystemSocket&) = delete;
-    SystemSocket& operator=(const SystemSocket&) = delete;
+    SystemSocket(const SystemSocket &) = delete;
+    SystemSocket &operator=(const SystemSocket &) = delete;
 
     uint16_t port() const override { return port_; }
 
-    bool send(const Address& to, const std::vector<uint8_t>& data) override {
+    bool send(const Address &to, const std::vector<uint8_t> &data) override {
         sockaddr_in a{};
         a.sin_family = AF_INET;
         a.sin_addr.s_addr = htonl(to.ip);
         a.sin_port = htons(to.port);
-        const auto sent = sendto(s_, reinterpret_cast<const char*>(data.data()), int(data.size()), 0,
-                                 reinterpret_cast<const sockaddr*>(&a), sizeof a);
+        const auto sent = sendto(s_, reinterpret_cast<const char *>(data.data()), int(data.size()), 0,
+                                 reinterpret_cast<const sockaddr *>(&a), sizeof a);
         return sent >= 0 && size_t(sent) == data.size();
     }
 
-    bool receive(Address& from, std::vector<uint8_t>& data) override {
+    bool receive(Address &from, std::vector<uint8_t> &data) override {
         // Datagrams that can't be read (a port that refused an earlier
         // one, on Windows) are skipped.
         for (int tries = 0; tries < 16; ++tries) {
             sockaddr_in a{};
             socklen_t length = sizeof a;
             data.resize(65536);
-            const auto got = recvfrom(s_, reinterpret_cast<char*>(data.data()), int(data.size()), 0,
-                                      reinterpret_cast<sockaddr*>(&a), &length);
+            const auto got = recvfrom(s_, reinterpret_cast<char *>(data.data()), int(data.size()), 0,
+                                      reinterpret_cast<sockaddr *>(&a), &length);
             if (got < 0) {
 #ifdef _WIN32
                 if (WSAGetLastError() == WSAECONNRESET || WSAGetLastError() == WSAEMSGSIZE)
@@ -107,20 +117,19 @@ private:
     uint16_t port_;
 };
 
-
 // The system's sockets by number (Sockets): all non-blocking.
 class SystemSockets : public Sockets {
 public:
     ~SystemSockets() override {
-        for (const auto& [n, s] : sockets_)
+        for (const auto &[n, s] : sockets_)
             closeSocket(s);
     }
 
     int open(Type type) override {
         if (!startSockets())
             return -1;
-        const SocketHandle s = socket(AF_INET, type == Stream ? SOCK_STREAM : SOCK_DGRAM,
-                                      type == Stream ? IPPROTO_TCP : IPPROTO_UDP);
+        const SocketHandle s =
+            socket(AF_INET, type == Stream ? SOCK_STREAM : SOCK_DGRAM, type == Stream ? IPPROTO_TCP : IPPROTO_UDP);
         if (s == kNoSocket)
             return -1;
         return add(s);
@@ -135,12 +144,12 @@ public:
         sockets_.erase(it);
     }
 
-    Result bind(int n, const Address& at) override {
+    Result bind(int n, const Address &at) override {
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         const sockaddr_in a = address(at);
-        return ::bind(s, reinterpret_cast<const sockaddr*>(&a), sizeof a) == 0 ? Ok : error();
+        return ::bind(s, reinterpret_cast<const sockaddr *>(&a), sizeof a) == 0 ? Ok : error();
     }
 
     Result listen(int n, int backlog) override {
@@ -150,13 +159,13 @@ public:
         return ::listen(s, backlog) == 0 ? Ok : error();
     }
 
-    Result accept(int n, int& accepted, Address& from) override {
+    Result accept(int n, int &accepted, Address &from) override {
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         sockaddr_in a{};
         socklen_t length = sizeof a;
-        const SocketHandle got = ::accept(s, reinterpret_cast<sockaddr*>(&a), &length);
+        const SocketHandle got = ::accept(s, reinterpret_cast<sockaddr *>(&a), &length);
         if (got == kNoSocket)
             return error();
         from = {ntohl(a.sin_addr.s_addr), ntohs(a.sin_port)};
@@ -164,60 +173,60 @@ public:
         return Ok;
     }
 
-    Result connect(int n, const Address& to) override {
+    Result connect(int n, const Address &to) override {
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         const sockaddr_in a = address(to);
-        if (::connect(s, reinterpret_cast<const sockaddr*>(&a), sizeof a) == 0)
+        if (::connect(s, reinterpret_cast<const sockaddr *>(&a), sizeof a) == 0)
             return Ok;
         const Result r = error();
         return r == WouldBlock ? InProgress : r;
     }
 
-    Result send(int n, const uint8_t* data, size_t size, size_t& done) override {
+    Result send(int n, const uint8_t *data, size_t size, size_t &done) override {
         done = 0;
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
-        const auto sent = ::send(s, reinterpret_cast<const char*>(data), int(size), kNoSignal);
+        const auto sent = ::send(s, reinterpret_cast<const char *>(data), int(size), kNoSignal);
         if (sent < 0)
             return error();
         done = size_t(sent);
         return Ok;
     }
 
-    Result receive(int n, uint8_t* data, size_t size, size_t& done, bool peek) override {
+    Result receive(int n, uint8_t *data, size_t size, size_t &done, bool peek) override {
         done = 0;
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
-        const auto got = ::recv(s, reinterpret_cast<char*>(data), int(size), peek ? MSG_PEEK : 0);
+        const auto got = ::recv(s, reinterpret_cast<char *>(data), int(size), peek ? MSG_PEEK : 0);
         if (got < 0)
             return error();
         done = size_t(got);
         return Ok;
     }
 
-    Result sendTo(int n, const Address& to, const uint8_t* data, size_t size) override {
+    Result sendTo(int n, const Address &to, const uint8_t *data, size_t size) override {
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         const sockaddr_in a = address(to);
-        const auto sent = ::sendto(s, reinterpret_cast<const char*>(data), int(size), kNoSignal,
-                                   reinterpret_cast<const sockaddr*>(&a), sizeof a);
+        const auto sent = ::sendto(s, reinterpret_cast<const char *>(data), int(size), kNoSignal,
+                                   reinterpret_cast<const sockaddr *>(&a), sizeof a);
         return sent >= 0 ? Ok : error();
     }
 
-    Result receiveFrom(int n, uint8_t* data, size_t size, size_t& done, Address& from, bool peek) override {
+    Result receiveFrom(int n, uint8_t *data, size_t size, size_t &done, Address &from, bool peek) override {
         done = 0;
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         sockaddr_in a{};
         socklen_t length = sizeof a;
-        const auto got = ::recvfrom(s, reinterpret_cast<char*>(data), int(size), peek ? MSG_PEEK : 0,
-                                    reinterpret_cast<sockaddr*>(&a), &length);
+        const auto got = ::recvfrom(s, reinterpret_cast<char *>(data), int(size), peek ? MSG_PEEK : 0,
+                                    reinterpret_cast<sockaddr *>(&a), &length);
         if (got < 0) {
 #ifdef _WIN32
             if (WSAGetLastError() == WSAEMSGSIZE) { // cut short, as Winsock does it
@@ -239,20 +248,33 @@ public:
             return Invalid;
         int level = SOL_SOCKET, name = 0;
         switch (option) {
-        case Broadcast: name = SO_BROADCAST; break;
-        case NoDelay: level = IPPROTO_TCP, name = TCP_NODELAY; break;
-        case ReuseAddress: name = SO_REUSEADDR; break;
-        case KeepAlive: name = SO_KEEPALIVE; break;
-        case ReceiveBuffer: name = SO_RCVBUF; break;
-        case SendBuffer: name = SO_SNDBUF; break;
+        case Broadcast:
+            name = SO_BROADCAST;
+            break;
+        case NoDelay:
+            level = IPPROTO_TCP, name = TCP_NODELAY;
+            break;
+        case ReuseAddress:
+            name = SO_REUSEADDR;
+            break;
+        case KeepAlive:
+            name = SO_KEEPALIVE;
+            break;
+        case ReceiveBuffer:
+            name = SO_RCVBUF;
+            break;
+        case SendBuffer:
+            name = SO_SNDBUF;
+            break;
         case Linger: {
             linger l{};
             l.l_onoff = value >= 0;
             l.l_linger = decltype(l.l_linger)(std::max(value, 0));
-            return setsockopt(s, SOL_SOCKET, SO_LINGER, reinterpret_cast<const char*>(&l), sizeof l) == 0 ? Ok : error();
+            return setsockopt(s, SOL_SOCKET, SO_LINGER, reinterpret_cast<const char *>(&l), sizeof l) == 0 ? Ok
+                                                                                                           : error();
         }
         }
-        return setsockopt(s, level, name, reinterpret_cast<const char*>(&value), sizeof value) == 0 ? Ok : error();
+        return setsockopt(s, level, name, reinterpret_cast<const char *>(&value), sizeof value) == 0 ? Ok : error();
     }
 
     Result shutdown(int n, int how) override {
@@ -262,10 +284,10 @@ public:
         return ::shutdown(s, how) == 0 ? Ok : error();
     }
 
-    Result localAddress(int n, Address& out) override { return name(n, out, false); }
-    Result peerAddress(int n, Address& out) override { return name(n, out, true); }
+    Result localAddress(int n, Address &out) override { return name(n, out, false); }
+    Result peerAddress(int n, Address &out) override { return name(n, out, true); }
 
-    Result pending(int n, uint32_t& bytes) override {
+    Result pending(int n, uint32_t &bytes) override {
         bytes = 0;
         SocketHandle s;
         if (!find(n, s))
@@ -308,7 +330,8 @@ public:
         // A connect that failed shows as writable with an error waiting.
         int pendingError = 0;
         socklen_t length = sizeof pendingError;
-        if (getsockopt(s, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&pendingError), &length) == 0 && pendingError) {
+        if (getsockopt(s, SOL_SOCKET, SO_ERROR, reinterpret_cast<char *>(&pendingError), &length) == 0 &&
+            pendingError) {
             r.failed = true;
             r.write = false;
         }
@@ -324,7 +347,7 @@ public:
         return name;
     }
 
-    bool resolve(const std::string& host, uint32_t& ip) override { return resolveSystemHost(host, ip); }
+    bool resolve(const std::string &host, uint32_t &ip) override { return resolveSystemHost(host, ip); }
 
 private:
 #ifdef _WIN32
@@ -348,7 +371,7 @@ private:
         return next_++;
     }
 
-    bool find(int n, SocketHandle& s) {
+    bool find(int n, SocketHandle &s) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = sockets_.find(n);
         if (it == sockets_.end())
@@ -357,7 +380,7 @@ private:
         return true;
     }
 
-    static sockaddr_in address(const Address& at) {
+    static sockaddr_in address(const Address &at) {
         sockaddr_in a{};
         a.sin_family = AF_INET;
         a.sin_addr.s_addr = htonl(at.ip);
@@ -365,14 +388,14 @@ private:
         return a;
     }
 
-    Result name(int n, Address& out, bool peer) {
+    Result name(int n, Address &out, bool peer) {
         SocketHandle s;
         if (!find(n, s))
             return Invalid;
         sockaddr_in a{};
         socklen_t length = sizeof a;
-        const int r = peer ? getpeername(s, reinterpret_cast<sockaddr*>(&a), &length)
-                           : getsockname(s, reinterpret_cast<sockaddr*>(&a), &length);
+        const int r = peer ? getpeername(s, reinterpret_cast<sockaddr *>(&a), &length)
+                           : getsockname(s, reinterpret_cast<sockaddr *>(&a), &length);
         if (r != 0)
             return error();
         out = {ntohl(a.sin_addr.s_addr), ntohs(a.sin_port)};
@@ -383,16 +406,32 @@ private:
     static Result error() {
 #ifdef _WIN32
         switch (WSAGetLastError()) {
-        case WSAEWOULDBLOCK: return WouldBlock;
-        case WSAEINPROGRESS: case WSAEALREADY: return InProgress;
-        case WSAECONNREFUSED: return Refused;
-        case WSAECONNRESET: case WSAECONNABORTED: case WSAENETRESET: return Reset;
-        case WSAENOTCONN: return NotConnected;
-        case WSAEADDRINUSE: return AddressInUse;
-        case WSAEADDRNOTAVAIL: return AddressNotAvailable;
-        case WSAENETUNREACH: case WSAEHOSTUNREACH: return Unreachable;
-        case WSAEINVAL: case WSAENOTSOCK: case WSAEISCONN: return Invalid;
-        default: return Failed;
+        case WSAEWOULDBLOCK:
+            return WouldBlock;
+        case WSAEINPROGRESS:
+        case WSAEALREADY:
+            return InProgress;
+        case WSAECONNREFUSED:
+            return Refused;
+        case WSAECONNRESET:
+        case WSAECONNABORTED:
+        case WSAENETRESET:
+            return Reset;
+        case WSAENOTCONN:
+            return NotConnected;
+        case WSAEADDRINUSE:
+            return AddressInUse;
+        case WSAEADDRNOTAVAIL:
+            return AddressNotAvailable;
+        case WSAENETUNREACH:
+        case WSAEHOSTUNREACH:
+            return Unreachable;
+        case WSAEINVAL:
+        case WSAENOTSOCK:
+        case WSAEISCONN:
+            return Invalid;
+        default:
+            return Failed;
         }
 #else
         switch (errno) {
@@ -401,15 +440,31 @@ private:
         case EWOULDBLOCK:
 #endif
             return WouldBlock;
-        case EINPROGRESS: case EALREADY: return InProgress;
-        case ECONNREFUSED: return Refused;
-        case ECONNRESET: case ECONNABORTED: case EPIPE: return Reset;
-        case ENOTCONN: return NotConnected;
-        case EADDRINUSE: return AddressInUse;
-        case EADDRNOTAVAIL: return AddressNotAvailable;
-        case ENETUNREACH: case EHOSTUNREACH: return Unreachable;
-        case EINVAL: case ENOTSOCK: case EISCONN: case EBADF: return Invalid;
-        default: return Failed;
+        case EINPROGRESS:
+        case EALREADY:
+            return InProgress;
+        case ECONNREFUSED:
+            return Refused;
+        case ECONNRESET:
+        case ECONNABORTED:
+        case EPIPE:
+            return Reset;
+        case ENOTCONN:
+            return NotConnected;
+        case EADDRINUSE:
+            return AddressInUse;
+        case EADDRNOTAVAIL:
+            return AddressNotAvailable;
+        case ENETUNREACH:
+        case EHOSTUNREACH:
+            return Unreachable;
+        case EINVAL:
+        case ENOTSOCK:
+        case EISCONN:
+        case EBADF:
+            return Invalid;
+        default:
+            return Failed;
         }
 #endif
     }
@@ -417,9 +472,11 @@ private:
 
 } // namespace
 
-std::shared_ptr<Sockets> systemSockets() { return std::make_shared<SystemSockets>(); }
+std::shared_ptr<Sockets> systemSockets() {
+    return std::make_shared<SystemSockets>();
+}
 
-std::unique_ptr<UdpSocket> openSystemUdp(uint16_t port, std::string& error) {
+std::unique_ptr<UdpSocket> openSystemUdp(uint16_t port, std::string &error) {
     if (!startSockets()) {
         error = "Cannot start the network";
         return nullptr;
@@ -436,22 +493,22 @@ std::unique_ptr<UdpSocket> openSystemUdp(uint16_t port, std::string& error) {
     fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK);
 #endif
     const int on = 1;
-    setsockopt(s, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&on), sizeof on);
+    setsockopt(s, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char *>(&on), sizeof on);
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_addr.s_addr = htonl(INADDR_ANY);
     a.sin_port = htons(port);
-    if (bind(s, reinterpret_cast<const sockaddr*>(&a), sizeof a) != 0) {
+    if (bind(s, reinterpret_cast<const sockaddr *>(&a), sizeof a) != 0) {
         error = "Cannot use port " + std::to_string(port) + ": " + lastError();
         closeSocket(s);
         return nullptr;
     }
     socklen_t length = sizeof a;
-    getsockname(s, reinterpret_cast<sockaddr*>(&a), &length);
+    getsockname(s, reinterpret_cast<sockaddr *>(&a), &length);
     return std::make_unique<SystemSocket>(s, ntohs(a.sin_port));
 }
 
-bool resolveSystemHost(const std::string& host, uint32_t& ip) {
+bool resolveSystemHost(const std::string &host, uint32_t &ip) {
     Address parsed;
     if (parseAddress(host, 0, parsed)) {
         ip = parsed.ip;
@@ -462,10 +519,10 @@ bool resolveSystemHost(const std::string& host, uint32_t& ip) {
     addrinfo hints{};
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
-    addrinfo* found = nullptr;
+    addrinfo *found = nullptr;
     if (getaddrinfo(host.c_str(), nullptr, &hints, &found) != 0 || !found)
         return false;
-    ip = ntohl(reinterpret_cast<const sockaddr_in*>(found->ai_addr)->sin_addr.s_addr);
+    ip = ntohl(reinterpret_cast<const sockaddr_in *>(found->ai_addr)->sin_addr.s_addr);
     freeaddrinfo(found);
     return true;
 }
@@ -484,32 +541,32 @@ std::vector<uint32_t> systemBroadcastAddresses() {
     ULONG result = ERROR_BUFFER_OVERFLOW;
     for (int tries = 0; tries < 3 && result == ERROR_BUFFER_OVERFLOW; ++tries) {
         buffer.resize(size);
-        result = GetAdaptersAddresses(AF_INET,
-                                      GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER,
-                                      nullptr, reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()), &size);
+        result =
+            GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER,
+                                 nullptr, reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buffer.data()), &size);
     }
     if (result != NO_ERROR)
         return out;
-    for (auto* a = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data()); a; a = a->Next) {
+    for (auto *a = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(buffer.data()); a; a = a->Next) {
         if (a->OperStatus != IfOperStatusUp || a->IfType == IF_TYPE_SOFTWARE_LOOPBACK)
             continue;
-        for (auto* u = a->FirstUnicastAddress; u; u = u->Next) {
+        for (auto *u = a->FirstUnicastAddress; u; u = u->Next) {
             if (u->Address.lpSockaddr->sa_family != AF_INET || u->OnLinkPrefixLength == 0 ||
                 u->OnLinkPrefixLength >= 32)
                 continue;
-            const uint32_t ip = ntohl(reinterpret_cast<const sockaddr_in*>(u->Address.lpSockaddr)->sin_addr.s_addr);
+            const uint32_t ip = ntohl(reinterpret_cast<const sockaddr_in *>(u->Address.lpSockaddr)->sin_addr.s_addr);
             const uint32_t mask = 0xffffffffu << (32 - u->OnLinkPrefixLength);
             add(ip | ~mask);
         }
     }
 #else
-    ifaddrs* list = nullptr;
+    ifaddrs *list = nullptr;
     if (getifaddrs(&list) != 0)
         return out;
-    for (ifaddrs* i = list; i; i = i->ifa_next)
+    for (ifaddrs *i = list; i; i = i->ifa_next)
         if (i->ifa_addr && i->ifa_addr->sa_family == AF_INET && (i->ifa_flags & IFF_BROADCAST) &&
             (i->ifa_flags & IFF_UP) && i->ifa_broadaddr)
-            add(ntohl(reinterpret_cast<const sockaddr_in*>(i->ifa_broadaddr)->sin_addr.s_addr));
+            add(ntohl(reinterpret_cast<const sockaddr_in *>(i->ifa_broadaddr)->sin_addr.s_addr));
     freeifaddrs(list);
 #endif
     return out;

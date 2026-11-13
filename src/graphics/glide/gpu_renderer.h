@@ -21,16 +21,16 @@
 namespace reluva::glide {
 
 // Null (with `error` set) if the device can't run the kernel.
-std::unique_ptr<Renderer> makeGpuRenderer(std::unique_ptr<gfx::Compute> gpu, std::string& error);
+std::unique_ptr<Renderer> makeGpuRenderer(std::unique_ptr<gfx::Compute> gpu, std::string &error);
 
 // How a frame drawn by one renderer differs from the same drawn by the
 // software reference, at a buffer swap: both 5:6:5 frames widened to 8
 // bits a channel (the top bits repeated).
 struct FrameComparison {
-    uint64_t swap = 0;          // the pipeline's swap count
-    double meanDifference = 0;  // per channel, of 255, over the frame
-    uint64_t pixelsDiffering = 0;  // any channel off at all
-    uint64_t pixelsOver24 = 0;     // any channel off by more than 24
+    uint64_t swap = 0;            // the pipeline's swap count
+    double meanDifference = 0;    // per channel, of 255, over the frame
+    uint64_t pixelsDiffering = 0; // any channel off at all
+    uint64_t pixelsOver24 = 0;    // any channel off by more than 24
     int maxDifference = 0;
 };
 
@@ -40,6 +40,6 @@ struct FrameComparison {
 // What's written into the buffers from outside (the linear frame buffer)
 // is copied to the reference's.
 std::unique_ptr<Renderer> makeComparingRenderer(std::unique_ptr<Renderer> tested,
-                                                std::function<void(const FrameComparison&)> onSwap);
+                                                std::function<void(const FrameComparison &)> onSwap);
 
 } // namespace reluva::glide

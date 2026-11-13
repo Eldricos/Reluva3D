@@ -35,13 +35,13 @@ constexpr uint32_t kGridOffset = 8; // the object's copy of the grid, a * 64 + b
 GamePathFinder::GamePathFinder() = default;
 GamePathFinder::~GamePathFinder() = default;
 
-Error GamePathFinder::load(const std::vector<uint8_t>& exe, bool single) {
+Error GamePathFinder::load(const std::vector<uint8_t> &exe, bool single) {
     cpu_ = std::make_unique<x86::Cpu>(160u << 20);
     process_ = std::make_unique<x86::Win32Process>(*cpu_, "host.exe", true);
-    const x86::Win32Process::Module* module = nullptr;
+    const x86::Win32Process::Module *module = nullptr;
     if (Error e = process_->load("motoe.exe", exe, module))
         return e;
-    for (const Entry& f : {kConstructor, kBuildTables, kSearch, kStatics, kNew, kDelete})
+    for (const Entry &f : {kConstructor, kBuildTables, kSearch, kStatics, kNew, kDelete})
         for (int i = 0; i < 8; i++)
             if (cpu_->read8(f.address + uint32_t(i)) != f.bytes[i])
                 return Error::fail("not the motoe.exe this knows (English 1.0)");
@@ -51,16 +51,16 @@ Error GamePathFinder::load(const std::vector<uint8_t>& exe, bool single) {
         cpu_->write8(from, 0xe9);
         cpu_->write32(from + 1, to - (from + 5));
     };
-    x86::Arena& mem = process_->memory();
-    jump(kNew.address, cpu_->addNative("operator new", [&mem](x86::Cpu& c) {
-             c.reg[x86::Cpu::EAX] = mem.alloc(std::max(1u, c.arg(0)));
-             return 0u;
-         }));
-    jump(kDelete.address, cpu_->addNative("operator delete", [&mem](x86::Cpu& c) {
-             if (c.arg(0))
-                 mem.free(c.arg(0));
-             return 0u;
-         }));
+    x86::Arena &mem = process_->memory();
+    jump(kNew.address, cpu_->addNative("operator new", [&mem](x86::Cpu &c) {
+        c.reg[x86::Cpu::EAX] = mem.alloc(std::max(1u, c.arg(0)));
+        return 0u;
+    }));
+    jump(kDelete.address, cpu_->addNative("operator delete", [&mem](x86::Cpu &c) {
+        if (c.arg(0))
+            mem.free(c.arg(0));
+        return 0u;
+    }));
     cpu_->setInstructionLimit(4'000'000'000ull);
     uint32_t result = 0;
     // A static of its own (2 pi, less a little), then the object as the
@@ -86,8 +86,8 @@ void GamePathFinder::setSinglePrecision(bool on) {
     cpu_->fpu.control = uint16_t((cpu_->fpu.control & ~0x300u) | (on ? 0u : 0x200u));
 }
 
-Error GamePathFinder::search(const WalkGrid& grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to,
-                             bool allowTwos, std::vector<Point>& out) {
+Error GamePathFinder::search(const WalkGrid &grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to,
+                             bool allowTwos, std::vector<Point> &out) {
     out.clear();
     if (!object_)
         return Error::fail("motoe.exe isn't loaded");
@@ -128,7 +128,7 @@ Error GamePathFinder::search(const WalkGrid& grid, bool openThrees, WalkGrid::Ce
     return e ? Error::fail("motoe.exe 0x42ef40: " + e.message) : Error::success();
 }
 
-std::vector<WalkGrid::Cell> GamePathFinder::findPath(const WalkGrid& grid, WalkGrid::Cell from, WalkGrid::Cell to,
+std::vector<WalkGrid::Cell> GamePathFinder::findPath(const WalkGrid &grid, WalkGrid::Cell from, WalkGrid::Cell to,
                                                      bool allowTwos) {
     if (grid.empty() || !from.valid() || !to.valid() || std::abs(from.a - to.a) + std::abs(from.b - to.b) < 3)
         return {};

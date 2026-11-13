@@ -168,14 +168,14 @@ public:
     // Loads nfs3.exe and binds its imports.
     Error load();
     // Runs it until it ends the process or fails.
-    Error run(uint32_t& exitCode);
+    Error run(uint32_t &exitCode);
 
-    x86::Cpu& cpu() { return *cpu_; }
-    x86::Win32Process& process() { return *process_; }
-    const x86::Win32Process::Module* exe() const { return exe_; }
+    x86::Cpu &cpu() { return *cpu_; }
+    x86::Win32Process &process() { return *process_; }
+    const x86::Win32Process::Module *exe() const { return exe_; }
 
     // Lines for the report: the calls logged, files opened, messages.
-    std::function<void(const std::string& line)> log;
+    std::function<void(const std::string &line)> log;
     // How many times each native function was called.
     std::map<std::string, uint64_t> callCounts() const;
 
@@ -186,7 +186,7 @@ public:
         uint32_t threadId = 0;
         int width = 640, height = 480;
     };
-    const std::vector<Window>& windows() const { return windows_; }
+    const std::vector<Window> &windows() const { return windows_; }
 
     // THRASH's state, for reports.
     struct ThrashStats {
@@ -211,33 +211,33 @@ public:
         std::map<std::string, uint64_t> callInstructions; // run inside each function, in all
         std::map<int, uint64_t> textureFormats;           // talloc's format -> how many
     };
-    const ThrashStats& thrash() const { return thrash_; }
+    const ThrashStats &thrash() const { return thrash_; }
     // The Glide stand-in (Options::glide), if there is one: glide2x.dll's,
     // or glide3x.dll's for a DLL that loads it (Options::glideDll).
-    glide::GlideDll* glide() { return glide_.get(); }
+    glide::GlideDll *glide() { return glide_.get(); }
     // With Options::glideGpu 2: each Glide frame's difference from the
     // software reference, at its buffer swap.
-    std::function<void(const glide::FrameComparison&)> onGlideComparison;
+    std::function<void(const glide::FrameComparison &)> onGlideComparison;
     // What draws Glide's pixels ("software", or the GPU device's name).
-    const std::string& glideRenderer() const { return glideRenderer_; }
+    const std::string &glideRenderer() const { return glideRenderer_; }
     // Called after each page flip with the frame drawn so far, as RGBA.
-    std::function<void(const Surface& frame)> onFrame;
+    std::function<void(const Surface &frame)> onFrame;
     // With gpuThrash, called after each page flip with what THRASH drew
     // (DirectDraw's frames, the movies', still go to onFrame).
-    std::function<void(ThrashFrame&& frame)> onThrashFrame;
+    std::function<void(ThrashFrame &&frame)> onThrashFrame;
     // With Options::glideCompare: the native drawing of each page flip.
-    std::function<void(const Surface& frame)> onCompareFrame;
+    std::function<void(const Surface &frame)> onCompareFrame;
 
     // Input, from any thread: a key ("enter", "up", "a"...) pressed or let
     // go, applied once the game's clock reaches `atMs` (0: at once). False
     // for a name not known.
-    bool queueKey(const std::string& name, bool down, uint64_t atMs = 0);
+    bool queueKey(const std::string &name, bool down, uint64_t atMs = 0);
     // The mouse moved by (dx, dy), or its first button pressed or let go.
     void queueMouseMove(int dx, int dy, uint64_t atMs = 0);
     void queueMouseButton(bool down, uint64_t atMs = 0);
     // The joystick's state (Options::joystick), from any thread, applied
     // once the game's clock reaches `atMs` (0: at once).
-    void setJoystick(const GamepadState& state, uint64_t atMs = 0);
+    void setJoystick(const GamepadState &state, uint64_t atMs = 0);
     // What the force feedback effects the game plays add up to now
     // (Options::forceFeedback), from any thread.
     GamepadForce gamepadForce();
@@ -249,7 +249,7 @@ public:
     // written again since they last played (it fell behind).
     struct SoundStats {
         uint64_t blocks = 0, stale = 0;
-        uint64_t staleAudible = 0; // of those, the ones not silent: played as silence, if streamed
+        uint64_t staleAudible = 0;            // of those, the ones not silent: played as silence, if streamed
         std::vector<uint64_t> staleAudibleMs; // when (the game's clock), the first thousand
     };
     SoundStats soundStats() {
@@ -258,14 +258,14 @@ public:
     }
     // Fills `frames` stereo frames at `rate` with what the playing buffers
     // hold at their play cursors, from any thread.
-    void mixSound(int16_t* out, int frames, int rate);
+    void mixSound(int16_t *out, int frames, int rate);
     // Records the sound by the game's clock (-wav): each time the clock
     // passes a 10 ms step, the frames up to the next step are mixed, in
     // the emulation's thread, onto `to` (stereo, `rate` a second). Frame
     // n is then what plays at the game's millisecond n * 1000 / rate, so
     // runs with the same input line up even when their instruction counts
     // differ. Null stops it.
-    void recordSound(std::vector<int16_t>* to, int rate);
+    void recordSound(std::vector<int16_t> *to, int rate);
     // What the game's own mixer (native_sound.cpp) adds to its mix, by
     // window of the game's clock (-voices): the energy (sum of squares, in
     // 16-bit units) going to L+R and to L-R, for voices whose two levels
@@ -278,27 +278,27 @@ public:
         uint32_t calls = 0, rearCalls = 0;
         double frontC = 0, frontS = 0, rearC = 0, rearS = 0;
     };
-    void logVoices(std::vector<VoiceEnergy>* to, uint32_t windowMs);
+    void logVoices(std::vector<VoiceEnergy> *to, uint32_t windowMs);
 
 private:
     void recordSoundDue(uint64_t nowMs);
     struct Message {
         uint32_t hwnd = 0, message = 0, wParam = 0, lParam = 0, time = 0;
     };
-    void say(const std::string& line) {
+    void say(const std::string &line) {
         if (log)
             log(line);
     }
     // A stdcall stand-in of `args` arguments.
-    void provide(const char* dll, const char* name, int args, std::function<uint32_t(x86::Cpu&)> fn);
-    void addSystem();   // KERNEL32 left over, GDI32, ADVAPI32, VERSION, SHELL32, ole32
-    void addUser();     // USER32: windows and messages
-    void addNetwork();  // WSOCK32, on Options::sockets (winsock.cpp)
-    void addSerial();   // COM ports over TCP, on Options::serial (serial.cpp)
-    void addModem();    // TAPI32 for a modem, on Options::modem (serial.cpp)
+    void provide(const char *dll, const char *name, int args, std::function<uint32_t(x86::Cpu &)> fn);
+    void addSystem();  // KERNEL32 left over, GDI32, ADVAPI32, VERSION, SHELL32, ole32
+    void addUser();    // USER32: windows and messages
+    void addNetwork(); // WSOCK32, on Options::sockets (winsock.cpp)
+    void addSerial();  // COM ports over TCP, on Options::serial (serial.cpp)
+    void addModem();   // TAPI32 for a modem, on Options::modem (serial.cpp)
     // TAPI's events, delivered when the thread that started it next asks
     // for messages or sleeps (serial.cpp).
-    std::function<void(x86::Cpu&)> tapiDeliver_;
+    std::function<void(x86::Cpu &)> tapiDeliver_;
     std::function<bool()> tapiNews_; // whether there are events (a wait condition)
     uint32_t tapiThread_ = 0;        // the thread they go to: the one that started TAPI
     std::function<bool()> tapiBusy_; // whether a call is under way (or awaited)
@@ -306,13 +306,13 @@ private:
     class SerialLink;
     class ModemPort;
     friend class SerialLink;
-    void addDirectX();  // DDRAW and DINPUT
-    void addGlide();    // glide2x.dll or glide3x.dll, on Options::glide (thrash.cpp)
+    void addDirectX(); // DDRAW and DINPUT
+    void addGlide();   // glide2x.dll or glide3x.dll, on Options::glide (thrash.cpp)
     std::unique_ptr<glide::GlideDll> glide_;
     std::string glideRenderer_ = "software";
     // Options::glideCompare: THRASH's calls drawn natively too, into a buffer
     // of 640x480 5:6:5 pixels in guest memory (thrash.cpp).
-    void mirrorNative(const std::string& name, const std::vector<uint32_t>& args);
+    void mirrorNative(const std::string &name, const std::vector<uint32_t> &args);
     uint32_t compareBuffer_ = 0, compareClear_ = 0;
     std::array<int, 4> compareClip_{0, 0, 640, 480};
     void addDirectSound();
@@ -322,32 +322,32 @@ private:
     // Replaces the routine at `address` with a native function (a jump to
     // it over its first bytes), if its `size` bytes hash to `hash` (FNV-1a,
     // 64 bits): the retail code, as worked out. False if they don't.
-    bool replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char* name, x86::Cpu::Native fn);
+    bool replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char *name, x86::Cpu::Native fn);
     // A COM object whose methods (stdcall, `this` first) are native
     // functions: names and argument counts (this included), in vtable order.
     struct Method {
-        const char* name;
+        const char *name;
         int args;
-        std::function<uint32_t(x86::Cpu&)> fn; // empty: logs and returns E_NOTIMPL
+        std::function<uint32_t(x86::Cpu &)> fn; // empty: logs and returns E_NOTIMPL
     };
-    uint32_t makeVtable(const std::string& interface, const std::vector<Method>& methods);
+    uint32_t makeVtable(const std::string &interface, const std::vector<Method> &methods);
     uint32_t newObject(uint32_t vtable);
-    uint32_t makeObject(const std::string& interface, const std::vector<Method>& methods) {
+    uint32_t makeObject(const std::string &interface, const std::vector<Method> &methods) {
         return newObject(makeVtable(interface, methods));
     }
     // IDirectSound3DBuffer and IDirectSound3DListener (directx.cpp), their
     // methods made safe for the audio thread by `locked`.
-    void addDirectSound3D(const std::function<void(std::vector<Method>&)>& locked);
-    uint32_t callWindow(const Window& w, uint32_t msg, uint32_t wParam, uint32_t lParam);
-    Window* window(uint32_t handle);
-    void post(uint32_t threadId, const Message& m);
+    void addDirectSound3D(const std::function<void(std::vector<Method> &)> &locked);
+    uint32_t callWindow(const Window &w, uint32_t msg, uint32_t wParam, uint32_t lParam);
+    Window *window(uint32_t handle);
+    void post(uint32_t threadId, const Message &m);
 
     GameFolders folders_;
     Options options_;
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
     std::atomic<uint64_t> idleMs_{0}; // Options::instructionsPerMs: the milliseconds every thread waited
-    const x86::Win32Process::Module* exe_ = nullptr;
+    const x86::Win32Process::Module *exe_ = nullptr;
     int logged_ = 0;
 
     std::map<std::string, uint32_t> classes_; // class name (lower case) -> window procedure
@@ -378,11 +378,12 @@ private:
     GamepadState joystick_; // as applied
     // Each axis's range (DIPROP_RANGE), by its offset in DIJOYSTATE / 4.
     std::array<std::pair<int32_t, int32_t>, 8> axisRange_{};
-    void joystickState(x86::Cpu& c, uint32_t to, uint32_t size);
+    void joystickState(x86::Cpu &c, uint32_t to, uint32_t size);
     uint32_t joystickType() const; // DIDEVTYPE
     // Fills a DIEFFECTINFOA for the effect with that GUID; its DIEFT type.
-    uint32_t effectInfo(x86::Cpu& c, uint32_t at, uint32_t guidData1);
-    void addForceEffects(const std::function<std::vector<Method>(const std::string&, std::function<bool(uint32_t)>)>& unknown);
+    uint32_t effectInfo(x86::Cpu &c, uint32_t at, uint32_t guidData1);
+    void addForceEffects(
+        const std::function<std::vector<Method>(const std::string &, std::function<bool(uint32_t)>)> &unknown);
     // Force feedback: the effects by object, the device's gain
     // (DIPROP_FFGAIN), auto-centring (DIPROP_AUTOCENTER), and whether
     // SendForceFeedbackCommand has paused them or turned the motors off.
@@ -403,12 +404,12 @@ private:
     uint32_t nextWsSocket_ = 0x100;
     std::map<uint32_t, uint32_t> wsLastError_; // by thread
     bool wsStarted_ = false;
-    std::FILE* netLog_ = nullptr;
-    void logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size,
+    std::FILE *netLog_ = nullptr;
+    void logTraffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                     bool dropped = false);
     // Whether this packet sent is one Options::netDrop loses.
     bool dropOutgoing();
-    uint64_t netSent_ = 0; // packets sent since netDropFrom
+    uint64_t netSent_ = 0;  // packets sent since netDropFrom
     uint32_t wsBuffer_ = 0; // inet_ntoa's and gethostbyname's results
     int mouseDx_ = 0, mouseDy_ = 0;
     bool mouseButton_ = false;
@@ -420,22 +421,22 @@ private:
     // handle's exports.
     std::map<std::string, uint32_t> nativeModules_;
     std::map<uint32_t, std::map<std::string, uint32_t>> nativeExports_;
-    void addNativeModule(const std::string& name, uint32_t handle);
-    void addExport(uint32_t module, const std::string& name, int argBytes, std::function<uint32_t(x86::Cpu&)> fn);
+    void addNativeModule(const std::string &name, uint32_t handle);
+    void addExport(uint32_t module, const std::string &name, int argBytes, std::function<uint32_t(x86::Cpu &)> fn);
 
     ThrashStats thrash_;
     uint64_t lastFlip_ = 0, lastFlipRenderer_ = 0; // instructions run at the last page flip
     // The game's own DLLs, loaded on LoadLibraryA: lower-case name -> module.
-    std::map<std::string, const x86::Win32Process::Module*> gameDlls_;
+    std::map<std::string, const x86::Win32Process::Module *> gameDlls_;
     uint32_t thrashBase_ = 0;
-    uint32_t wrapThrash(const std::string& name, uint32_t address);
+    uint32_t wrapThrash(const std::string &name, uint32_t address);
     std::unique_ptr<NativeThrash> native_;
     uint32_t thrashWindow_ = 2; // THRASH_window's choice: 1 the front buffer, 2 the back
     // Each window's buffer, as THRASH_lockwindow reports it: address, pitch,
     // width, height (the renderer draws there; a page flip shows it).
     std::map<uint32_t, std::array<uint32_t, 4>> windowBuffers_;
     // Does a THRASH call natively if it can (`result`: what it returns).
-    bool nativeDraw(const std::string& name, const std::vector<uint32_t>& args, uint32_t& result);
+    bool nativeDraw(const std::string &name, const std::vector<uint32_t> &args, uint32_t &result);
     // The retail softtria.dll, known well enough that its page flips and
     // clears are done natively too (thrash.md): where it was loaded, less
     // where it asks to be; unset for any other renderer.
@@ -455,7 +456,7 @@ private:
     uint32_t surfaceVtable_ = 0, paletteVtable_ = 0, clipperVtable_ = 0;
     int modeWidth_ = 640, modeHeight_ = 480, modeBits_ = 16;
     uint32_t newSurface(int width, int height, int bits, uint32_t caps);
-    void present(const DdSurface& s);
+    void present(const DdSurface &s);
     Surface frame_;
 
     // DirectSound's buffers: played in time, not heard yet.
@@ -496,12 +497,12 @@ private:
     std::mutex soundMutex_; // soundBuffers_, between the game and the audio thread
     std::vector<int32_t> soundMix_;
     SoundStats soundStats_;
-    std::vector<VoiceEnergy>* voiceLog_ = nullptr; // logVoices'
+    std::vector<VoiceEnergy> *voiceLog_ = nullptr; // logVoices'
     uint32_t voiceWindowMs_ = 100;
     void voiceMixed(bool rear, double c, double s, uint32_t calls);
     bool mmxVoicesHooked_ = false;
-    void hookMmxMixers(); // -voices with MMX: at the MMX mixers' entries (native_sound.cpp)
-    std::vector<int16_t>* soundRecord_ = nullptr; // recordSound's
+    void hookMmxMixers();                         // -voices with MMX: at the MMX mixers' entries (native_sound.cpp)
+    std::vector<int16_t> *soundRecord_ = nullptr; // recordSound's
     int soundRecordRate_ = 0;
     uint64_t soundRecordNextMs_ = 0; // when the next step is due
     std::map<uint32_t, DsBuffer> soundBuffers_;

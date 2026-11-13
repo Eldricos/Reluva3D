@@ -22,14 +22,14 @@ namespace reluva::awe {
 // with none. The game adds the mesh's world translation to the lights'
 // sum (but not to their count); it's 0 for a skinned mesh, and `origin`
 // for a rigid one.
-std::array<float, 3> shadowLight(const Ac2Scene& scene, const float origin[3] = nullptr);
+std::array<float, 3> shadowLight(const Ac2Scene &scene, const float origin[3] = nullptr);
 
 // Where the line from the light through a point meets the floor
 // (D3DXMatrixShadow with the plane y = 0). The point must be below the
 // light.
-std::array<float, 3> flattenOntoFloor(const std::array<float, 3>& light, const float point[3]);
+std::array<float, 3> flattenOntoFloor(const std::array<float, 3> &light, const float point[3]);
 // The same onto the plane y = `height`.
-std::array<float, 3> flattenOntoPlane(const std::array<float, 3>& light, float height, const float point[3]);
+std::array<float, 3> flattenOntoPlane(const std::array<float, 3> &light, float height, const float point[3]);
 
 // A screen's coverage, triangles filled in (pixel centres inside, edges
 // shared without gaps). Tracks the box it covers.
@@ -71,10 +71,10 @@ public:
     void fillTriangle(const float a[3], const float b[3], const float c[3], uint8_t ref, bool writeDepth);
     // Stencil 0 wherever `cover` (a byte a pixel) isn't 0: a picture
     // drawn over.
-    void reset(const std::vector<uint8_t>& cover);
+    void reset(const std::vector<uint8_t> &cover);
     uint8_t at(int x, int y) const { return stencil_[size_t(y) * size_t(w_) + size_t(x)]; }
     // The pixels whose stencil is `ref`, into `out` (cleared first).
-    void select(uint8_t ref, CoverageMask& out) const;
+    void select(uint8_t ref, CoverageMask &out) const;
 
 private:
     static constexpr float kFar = 3.0e38f;

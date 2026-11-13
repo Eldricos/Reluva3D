@@ -46,11 +46,11 @@ const std::vector<GameVariant> kExecutables = {
     {"clue", "2.2", "", "windows", {{"Clue.exe", "cb43d1d845b786193353ac221e5f0ac1", 391168}}},
     {"clue", "2.0", "", "windows", {{"Clue.exe", "7ddb4f359cfd8827b4f7b054e95b1cba", 386048}}},
 };
-constexpr const char* kUkOnlyFile = "Sounds/end turn.wav";
+constexpr const char *kUkOnlyFile = "Sounds/end turn.wav";
 
 class ClueEngine : public Engine {
 public:
-    ClueEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    ClueEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
         const auto language = target_.gameId == "clue-uk" ? clue::Language::UK : clue::Language::US;
@@ -64,7 +64,7 @@ public:
         mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
-            System& sys;
+            System &sys;
             bool on;
             ~AudioStop() {
                 if (on)
@@ -88,8 +88,8 @@ public:
         // animations, 3 images, 4 sounds, 5 text; Tab moves to the next one
         // that has something to show.
         constexpr int kViewers = 6;
-        const size_t counts[kViewers] = {1, videos.count(), animations.count(), images.count(), sounds.count(),
-                                         texts.count()};
+        const size_t counts[kViewers] = {
+            1, videos.count(), animations.count(), images.count(), sounds.count(), texts.count()};
         int viewer = 0;
         const auto activate = [&] {
             if (viewer == 0)
@@ -188,7 +188,7 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
     Surface screen_;
     clue::GameData data_;
@@ -196,10 +196,10 @@ private:
 
 class ClueMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "clue"; }
-    const char* name() const override { return "Clue"; }
+    const char *id() const override { return "clue"; }
+    const char *name() const override { return "Clue"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         std::vector<DetectedGame> found;
         if (!fs::findFile(dir, "Clue.exe"))
             return found;
@@ -227,14 +227,14 @@ public:
         return found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<ClueEngine>(system, target);
     }
 };
 
 } // namespace
 
-const MetaEngine& clueMetaEngine() {
+const MetaEngine &clueMetaEngine() {
     static const ClueMetaEngine instance;
     return instance;
 }

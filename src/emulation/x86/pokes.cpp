@@ -11,7 +11,7 @@ namespace reluva::x86 {
 namespace {
 
 // The fields of "a:b:c...", at most `max` (the last takes the rest).
-std::vector<std::string> fields(const std::string& text, size_t max) {
+std::vector<std::string> fields(const std::string &text, size_t max) {
     std::vector<std::string> out;
     size_t at = 0;
     while (out.size() + 1 < max) {
@@ -25,10 +25,10 @@ std::vector<std::string> fields(const std::string& text, size_t max) {
     return out;
 }
 
-bool number(const std::string& s, uint64_t& value, bool allowNegative = false) {
+bool number(const std::string &s, uint64_t &value, bool allowNegative = false) {
     if (s.empty())
         return false;
-    char* end = nullptr;
+    char *end = nullptr;
     if (allowNegative && s[0] == '-')
         value = uint64_t(std::strtoll(s.c_str(), &end, 0));
     else if (s[0] != '-')
@@ -38,7 +38,7 @@ bool number(const std::string& s, uint64_t& value, bool allowNegative = false) {
     return end && *end == 0;
 }
 
-bool parseWhen(const std::string& s, Poke& poke, std::string& error) {
+bool parseWhen(const std::string &s, Poke &poke, std::string &error) {
     uint64_t v = 0;
     if (s.rfind("ms=", 0) == 0) {
         if (!number(s.substr(3), v))
@@ -64,7 +64,7 @@ bool parseWhen(const std::string& s, Poke& poke, std::string& error) {
     return error = "the moment should be ms=N or at=ADDR[#N]: " + s, false;
 }
 
-bool parseAddress(const std::string& s, uint32_t& address, std::string& error) {
+bool parseAddress(const std::string &s, uint32_t &address, std::string &error) {
     uint64_t v = 0;
     if (!number(s, v) || v > 0xffffffffu)
         return error = "not an address: " + s, false;
@@ -72,7 +72,7 @@ bool parseAddress(const std::string& s, uint32_t& address, std::string& error) {
     return true;
 }
 
-std::string hex(const std::vector<uint8_t>& bytes) {
+std::string hex(const std::vector<uint8_t> &bytes) {
     std::string out;
     char b[4];
     for (uint8_t x : bytes) {
@@ -84,7 +84,7 @@ std::string hex(const std::vector<uint8_t>& bytes) {
 
 } // namespace
 
-bool parsePoke(const std::string& text, bool every, Poke& poke, std::string& error) {
+bool parsePoke(const std::string &text, bool every, Poke &poke, std::string &error) {
     poke = Poke{};
     poke.every = every;
     const auto f = fields(text, 4);
@@ -97,7 +97,7 @@ bool parsePoke(const std::string& text, bool every, Poke& poke, std::string& err
         if (h.empty() || h.size() % 2 || f.size() > 3)
             return error = "bytes= takes an even number of hex digits, and no size: " + text, false;
         for (size_t i = 0; i < h.size(); i += 2) {
-            char* end = nullptr;
+            char *end = nullptr;
             const std::string pair = h.substr(i, 2);
             const unsigned long b = std::strtoul(pair.c_str(), &end, 16);
             if (!end || *end)
@@ -116,7 +116,7 @@ bool parsePoke(const std::string& text, bool every, Poke& poke, std::string& err
     return true;
 }
 
-bool parseDump(const std::string& text, Poke& poke, std::string& error) {
+bool parseDump(const std::string &text, Poke &poke, std::string &error) {
     poke = Poke{};
     const auto f = fields(text, 4);
     if (f.size() < 4 || f[3].empty())
@@ -132,25 +132,25 @@ bool parseDump(const std::string& text, Poke& poke, std::string& error) {
 }
 
 bool Pokes::needsTrace() const {
-    for (const auto& p : list)
+    for (const auto &p : list)
         if (p.atAddress)
             return true;
     return false;
 }
 
-void Pokes::instruction(Cpu& cpu, uint64_t nowMs) {
-    for (auto& p : list)
+void Pokes::instruction(Cpu &cpu, uint64_t nowMs) {
+    for (auto &p : list)
         if (p.atAddress == cpu.eip && ++p.reached >= p.nth && (p.every || !p.applied))
             apply(p, cpu, nowMs);
 }
 
-void Pokes::time(Cpu& cpu, uint64_t nowMs) {
-    for (auto& p : list)
+void Pokes::time(Cpu &cpu, uint64_t nowMs) {
+    for (auto &p : list)
         if (!p.atAddress && nowMs >= p.ms && (p.every || !p.applied))
             apply(p, cpu, nowMs);
 }
 
-void Pokes::apply(Poke& p, Cpu& cpu, uint64_t nowMs) {
+void Pokes::apply(Poke &p, Cpu &cpu, uint64_t nowMs) {
     ++p.applied;
     char line[256];
     char when[64];
@@ -161,8 +161,8 @@ void Pokes::apply(Poke& p, Cpu& cpu, uint64_t nowMs) {
     if (!p.dumpFile.empty()) {
         const bool ok = cpu.valid(p.address, p.dumpSize);
         if (ok && save)
-            save(p.dumpFile, std::vector<uint8_t>(cpu.memory().begin() + p.address,
-                                                  cpu.memory().begin() + p.address + p.dumpSize));
+            save(p.dumpFile,
+                 std::vector<uint8_t>(cpu.memory().begin() + p.address, cpu.memory().begin() + p.address + p.dumpSize));
         std::snprintf(line, sizeof line, "  dumpmem %08x, %u bytes -> %s at %llu ms, %s%s", p.address, p.dumpSize,
                       p.dumpFile.c_str(), (unsigned long long)nowMs, when, ok ? "" : ": not in memory");
         if (log)
@@ -180,7 +180,9 @@ void Pokes::apply(Poke& p, Cpu& cpu, uint64_t nowMs) {
     if (log && (p.applied <= 3 || !ok)) {
         std::snprintf(line, sizeof line, "  poke %08x <- %s (%u bytes, was %s) at %llu ms, %s%s", p.address,
                       hex(p.bytes).c_str(), size, ok ? hex(was).c_str() : "-", (unsigned long long)nowMs, when,
-                      !ok ? ": not in memory" : p.applied == 3 && p.every ? "; further times not logged" : "");
+                      !ok                         ? ": not in memory"
+                      : p.applied == 3 && p.every ? "; further times not logged"
+                                                  : "");
         log(line);
     }
 }

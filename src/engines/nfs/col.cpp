@@ -10,26 +10,30 @@ namespace reluva::nfs {
 
 namespace {
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) {
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
-float f32(const uint8_t* p) {
+float f32(const uint8_t *p) {
     const uint32_t v = le32(p);
     float f;
     std::memcpy(&f, &v, 4);
     return f;
 }
-float fixed(const uint8_t* p) { return static_cast<float>(static_cast<int32_t>(le32(p))) / 65536.0f; }
-TrackCollision::Vec3 unit(const uint8_t* p) {
+float fixed(const uint8_t *p) {
+    return static_cast<float>(static_cast<int32_t>(le32(p))) / 65536.0f;
+}
+TrackCollision::Vec3 unit(const uint8_t *p) {
     return {static_cast<int8_t>(p[0]) / 128.0f, static_cast<int8_t>(p[1]) / 128.0f, static_cast<int8_t>(p[2]) / 128.0f};
 }
 
 constexpr uint16_t kTextures = 2, kObjects = 7, kStructures = 8, kRoad = 15, kObjects2 = 18;
 constexpr size_t kRoadPointSize = 36, kKeySize = 20;
 
-Error readObjects(const uint8_t* p, const uint8_t* end, uint32_t count, std::vector<TrackCollision::Object>& out) {
+Error readObjects(const uint8_t *p, const uint8_t *end, uint32_t count, std::vector<TrackCollision::Object> &out) {
     for (uint32_t i = 0; i < count; ++i) {
         if (end - p < 4)
             return Error::fail("an object runs past its block");
@@ -47,7 +51,7 @@ Error readObjects(const uint8_t* p, const uint8_t* end, uint32_t count, std::vec
             if (8 + keys * kKeySize > size)
                 return Error::fail("an object's keys run past it");
             for (uint16_t k = 0; k < keys; ++k) {
-                const uint8_t* q = p + 8 + k * kKeySize;
+                const uint8_t *q = p + 8 + k * kKeySize;
                 TrackCollision::Object::Key key;
                 for (int c = 0; c < 3; ++c)
                     key.position[c] = static_cast<int32_t>(le32(q + 4 * c));
@@ -64,12 +68,12 @@ Error readObjects(const uint8_t* p, const uint8_t* end, uint32_t count, std::vec
 
 } // namespace
 
-Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out) {
+Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out) {
     out = {};
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .col file: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .col file: " + why); };
     if (data.size() < 16 || std::memcmp(data.data(), "COLL", 4) != 0)
         return bad("no COLL header");
-    const uint8_t* d = data.data();
+    const uint8_t *d = data.data();
     const uint32_t blocks = le32(d + 12);
     if (16 + 4ull * blocks > data.size())
         return bad("its block table runs past the end");
@@ -83,8 +87,8 @@ Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out) {
         const uint16_t id = le16(d + at + 4), count = le16(d + at + 6);
         if (size < 8 || at + size > data.size())
             return bad("a block runs past the end");
-        const uint8_t* p = d + at + 8;
-        const uint8_t* end = d + at + size;
+        const uint8_t *p = d + at + 8;
+        const uint8_t *end = d + at + size;
         const size_t room = size - 8;
 
         if (id == kTextures) {
@@ -105,12 +109,12 @@ Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out) {
                     return bad("a structure runs past its block");
                 TrackCollision::Structure s;
                 for (uint16_t v = 0; v < nv; ++v) {
-                    const uint8_t* q = p + 8 + 16 * v;
+                    const uint8_t *q = p + 8 + 16 * v;
                     s.vertices.push_back({f32(q), f32(q + 4), f32(q + 8)});
                     s.vertexUnknown.push_back(le32(q + 12));
                 }
                 for (uint16_t k = 0; k < np; ++k) {
-                    const uint8_t* q = p + 8 + 16 * nv + 6 * k;
+                    const uint8_t *q = p + 8 + 16 * nv + 6 * k;
                     TrackCollision::Structure::Polygon poly;
                     poly.texture = le16(q);
                     for (int c = 0; c < 4; ++c) {
@@ -130,7 +134,7 @@ Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out) {
             if (kRoadPointSize * count > room)
                 return bad("its road runs past its block");
             for (uint16_t i = 0; i < count; ++i) {
-                const uint8_t* q = p + kRoadPointSize * i;
+                const uint8_t *q = p + kRoadPointSize * i;
                 TrackCollision::RoadPoint r;
                 r.position = {fixed(q), fixed(q + 4), fixed(q + 8)};
                 r.unknown = le32(q + 12);
@@ -145,7 +149,7 @@ Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out) {
         }
         // Other blocks aren't known; they're skipped.
     }
-    for (const TrackCollision::Object& o : out.objects)
+    for (const TrackCollision::Object &o : out.objects)
         if (o.structure >= out.structures.size())
             return bad("an object uses a structure that isn't there");
     return Error::success();

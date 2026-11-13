@@ -17,9 +17,11 @@ namespace reluva::nfs {
 namespace {
 
 constexpr int kFrameW = 640, kFrameH = 480;
-constexpr const char* kLevelNames[] = {"high", "medium", "small", "tiny", "all"};
+constexpr const char *kLevelNames[] = {"high", "medium", "small", "tiny", "all"};
 
-std::string lower(const std::string& s) { return fs::toLower(s); }
+std::string lower(const std::string &s) {
+    return fs::toLower(s);
+}
 
 // A part's level of detail, by its place in the model: the parts' names
 // can't be relied on (fce.md). With 12 or more parts: 0-4 high, 5-9
@@ -34,22 +36,26 @@ int partLevel(size_t part, size_t parts) {
 }
 
 // The part of a path after its last '/', and that without its extension.
-std::string baseName(const std::string& path) {
+std::string baseName(const std::string &path) {
     const size_t slash = path.rfind('/');
     return slash == std::string::npos ? path : path.substr(slash + 1);
 }
-std::string stem(const std::string& path) {
+std::string stem(const std::string &path) {
     const std::string base = baseName(path);
     return base.substr(0, base.rfind('.'));
 }
 
 } // namespace
 
-CarPage::CarPage(const GameFiles& files) : files_(files) { models_ = files.withExtensions({".fce"}); }
+CarPage::CarPage(const GameFiles &files) : files_(files) {
+    models_ = files.withExtensions({".fce"});
+}
 
-CarPage::~CarPage() { release(); }
+CarPage::~CarPage() {
+    release();
+}
 
-void CarPage::activate(System& sys) {
+void CarPage::activate(System &sys) {
     if (Error err = sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
         unavailable_ = err.message;
@@ -61,7 +67,7 @@ void CarPage::activate(System& sys) {
     // that model (its number on the page less 1), seen from there
     // (radians; the distance in the model's radii, 2.6 by default), for
     // screenshots that can be repeated.
-    const char* view = std::getenv("RELUVA_NFS_CARS_VIEW");
+    const char *view = std::getenv("RELUVA_NFS_CARS_VIEW");
     int wanted = index_;
     float yaw = 0, pitch = 0, distance = 0;
     const int got = view ? std::sscanf(view, "%d %f %f %f", &wanted, &yaw, &pitch, &distance) : 0;
@@ -79,7 +85,7 @@ void CarPage::activate(System& sys) {
 void CarPage::deactivate() {
     release();
     if (renderer_)
-        for (const auto& [name, id] : skies_)
+        for (const auto &[name, id] : skies_)
             renderer_->destroyTexture(id);
     skies_.clear();
     renderer_ = nullptr;
@@ -119,7 +125,7 @@ void CarPage::load(int index) {
     error_.clear();
     skinName_.clear();
     partLevels_.clear();
-    const FileRef& ref = models_[index];
+    const FileRef &ref = models_[index];
 
     std::vector<uint8_t> data;
     if (Error err = files_.read(ref, data)) {
@@ -136,14 +142,14 @@ void CarPage::load(int index) {
     // A Render/pc model's pages: its .art, a picture for each page
     // (fce.md), used in place of a skin.
     const std::string folder = ref.name.substr(0, ref.name.size() - baseName(ref.name).size());
-    for (const FileRef& f : files_.files()) {
+    for (const FileRef &f : files_.files()) {
         if (lower(f.name) != lower(folder + stem(ref.name) + ".art"))
             continue;
         std::vector<uint8_t> art;
         std::vector<image::Image> images;
         if (files_.read(f, art) || parseArt(art, images))
             break;
-        for (const image::Image& img : images) {
+        for (const image::Image &img : images) {
             gfx::TextureId id = 0;
             renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), id);
             pages_.push_back(id);
@@ -156,15 +162,16 @@ void CarPage::load(int index) {
     // cone.tga beside cone.fce.
     const std::string wanted[] = {folder + "car00.tga", folder + stem(ref.name) + "00.tga",
                                   folder + stem(ref.name) + ".tga"};
-    for (const std::string& name : pages_.empty() ? std::vector<std::string>(std::begin(wanted), std::end(wanted))
-                                                  : std::vector<std::string>{}) {
-        for (const FileRef& f : files_.files()) {
+    for (const std::string &name :
+         pages_.empty() ? std::vector<std::string>(std::begin(wanted), std::end(wanted)) : std::vector<std::string>{}) {
+        for (const FileRef &f : files_.files()) {
             if (lower(f.name) != lower(name))
                 continue;
             std::vector<uint8_t> tga;
             image::Image img;
             if (!files_.read(f, tga) && !image::decode(tga, img) &&
-                (skinRowsAsStored(tga, img), !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), skin_))) {
+                (skinRowsAsStored(tga, img),
+                 !renderer_->createTexture(img.w, img.h, img.rgba.data(), glideTextureParams(), skin_))) {
                 skinName_ = baseName(f.name);
             }
             break;
@@ -180,21 +187,20 @@ void CarPage::load(int index) {
     // two-sided, unlit), so that each run is one range of indices.
     std::vector<gfx::Vertex> vertices;
     std::vector<uint32_t> indices, envIndices;
-    for (const Model::Part& part : model_.parts) {
+    for (const Model::Part &part : model_.parts) {
         partLevels_.push_back(partLevel(partLevels_.size(), model_.parts.size()));
         std::vector<uint32_t> order(part.triangleCount);
         for (uint32_t i = 0; i < part.triangleCount; ++i)
             order[i] = part.firstTriangle + i;
         auto drawnAs = [&](uint32_t t) {
-            const Model::Triangle& tri = model_.triangles[t];
-            return std::make_tuple(pages_.empty() ? 0u : tri.texturePage,
-                                   (tri.flags & Model::Triangle::kTwoSided) != 0,
+            const Model::Triangle &tri = model_.triangles[t];
+            return std::make_tuple(pages_.empty() ? 0u : tri.texturePage, (tri.flags & Model::Triangle::kTwoSided) != 0,
                                    (tri.flags & Model::Triangle::kUnlit) != 0);
         };
         std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return drawnAs(a) < drawnAs(b); });
         std::vector<Run> runs, envRuns;
         for (uint32_t t : order) {
-            const Model::Triangle& tri = model_.triangles[t];
+            const Model::Triangle &tri = model_.triangles[t];
             const auto [page, twoSided, unlit] = drawnAs(t);
             if (runs.empty() || runs.back().page != page || runs.back().twoSided != twoSided ||
                 runs.back().unlit != unlit)
@@ -207,8 +213,8 @@ void CarPage::load(int index) {
             if (reflects)
                 envRuns.back().indexCount += 3;
             for (int k = 0; k < 3; ++k) {
-                const Model::Vec3& p = model_.vertices[tri.vertices[k]];
-                const Model::Vec3& n = model_.normals[tri.vertices[k]];
+                const Model::Vec3 &p = model_.vertices[tri.vertices[k]];
+                const Model::Vec3 &n = model_.normals[tri.vertices[k]];
                 gfx::Vertex v{};
                 v.pos[0] = p[0] + part.position[0];
                 v.pos[1] = p[1] + part.position[1];
@@ -248,15 +254,15 @@ void CarPage::load(int index) {
 void CarPage::loadSkies() {
     if (!skies_.empty())
         return;
-    for (const FileRef& f : files_.files()) {
+    for (const FileRef &f : files_.files()) {
         if (lower(f.name) != "gamedata/tracks/trk000/sky.fsh")
             continue;
         std::vector<uint8_t> data;
         ShapeBank bank;
         if (files_.read(f, data) || parseShapeBank(std::move(data), bank))
             break;
-        for (const char* name : {"CHRD", "CHRN", "CHRW", "CHNW"})
-            for (const Shape& shape : bank.shapes) {
+        for (const char *name : {"CHRD", "CHRN", "CHRW", "CHNW"})
+            for (const Shape &shape : bank.shapes) {
                 image::Image img;
                 gfx::TextureId id = 0;
                 if (shape.name == name && !decodeShape(shape, img) &&
@@ -267,7 +273,7 @@ void CarPage::loadSkies() {
     }
 }
 
-void CarPage::handleEvent(const Event& ev) {
+void CarPage::handleEvent(const Event &ev) {
     const int n = static_cast<int>(models_.size());
     if (ev.type == EventType::KeyDown) {
         switch (ev.key) {
@@ -283,20 +289,45 @@ void CarPage::handleEvent(const Event& ev) {
             else
                 index_ = (index_ + n - 1) % n;
             break;
-        case 'a': yaw_ -= 0.15f; break;
-        case 'd': yaw_ += 0.15f; break;
-        case 'w': pitch_ = std::min(pitch_ + 0.1f, 1.5f); break;
-        case 's': pitch_ = std::max(pitch_ - 0.1f, -1.5f); break;
+        case 'a':
+            yaw_ -= 0.15f;
+            break;
+        case 'd':
+            yaw_ += 0.15f;
+            break;
+        case 'w':
+            pitch_ = std::min(pitch_ + 0.1f, 1.5f);
+            break;
+        case 's':
+            pitch_ = std::max(pitch_ - 0.1f, -1.5f);
+            break;
         case '+':
-        case '=': distance_ = std::max(radius_ * 0.6f, distance_ * 0.9f); break;
-        case '-': distance_ /= 0.9f; break;
-        case 'l': level_ = (level_ + 1) % 5; break;
-        case 't': textures_ = !textures_; break;
-        case 'c': cullBack_ = !cullBack_; break;
-        case 'e': sky_ = (sky_ + 1) % static_cast<int>(skies_.size() + 1); break;
-        case ' ': spin_ = !spin_; break;
-        case 'r': resetView(); break;
-        default: break;
+        case '=':
+            distance_ = std::max(radius_ * 0.6f, distance_ * 0.9f);
+            break;
+        case '-':
+            distance_ /= 0.9f;
+            break;
+        case 'l':
+            level_ = (level_ + 1) % 5;
+            break;
+        case 't':
+            textures_ = !textures_;
+            break;
+        case 'c':
+            cullBack_ = !cullBack_;
+            break;
+        case 'e':
+            sky_ = (sky_ + 1) % static_cast<int>(skies_.size() + 1);
+            break;
+        case ' ':
+            spin_ = !spin_;
+            break;
+        case 'r':
+            resetView();
+            break;
+        default:
+            break;
         }
     } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
         dragging_ = true;
@@ -314,7 +345,7 @@ void CarPage::handleEvent(const Event& ev) {
     }
 }
 
-void CarPage::draw(Surface& s) {
+void CarPage::draw(Surface &s) {
     // Only shown when the renderer couldn't be had.
     std::fill(s.pixels.begin(), s.pixels.end(), uint8_t(0));
     font::drawText(s, 16, 16, "The Cars page needs 3D rendering, which isn't available:", {255, 120, 100});
@@ -330,9 +361,8 @@ void CarPage::update(uint64_t nowMs) {
 
     const gfx::Vec3 offset{std::cos(pitch_) * std::sin(yaw_), std::sin(pitch_), std::cos(pitch_) * std::cos(yaw_)};
     const gfx::Vec3 eye{offset[0] * distance_, offset[1] * distance_, offset[2] * distance_};
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), 0.05f, 500.0f),
-                      gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
+    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(0.8f, float(kFrameW) / float(kFrameH), 0.05f, 500.0f),
+                                             gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 1, 0}));
     renderer_->beginFrame(viewProj, eye, {70, 74, 82});
 
     size_t triangles = 0;
@@ -350,7 +380,7 @@ void CarPage::update(uint64_t nowMs) {
         for (size_t p = 0; p < model_.parts.size(); ++p) {
             if (!shown(p))
                 continue;
-            for (const Run& r : runs_[p]) {
+            for (const Run &r : runs_[p]) {
                 if (!pages_.empty())
                     call.texture = textures_ && r.page < pages_.size() ? pages_[r.page] : 0;
                 call.state.cull = cullBack_ && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
@@ -375,7 +405,7 @@ void CarPage::update(uint64_t nowMs) {
             const gfx::Vec3 dn{ahead[1] * right[2] - ahead[2] * right[1], ahead[2] * right[0] - ahead[0] * right[2],
                                ahead[0] * right[1] - ahead[1] * right[0]};
             for (size_t i = 0; i < envVertices_.size(); ++i) {
-                const auto& n = envNormals_[i];
+                const auto &n = envNormals_[i];
                 const auto uv = reflectionUv(n[0] * right[0] + n[1] * right[1] + n[2] * right[2],
                                              n[0] * dn[0] + n[1] * dn[1] + n[2] * dn[2],
                                              n[0] * ahead[0] + n[1] * ahead[1] + n[2] * ahead[2]);
@@ -393,7 +423,7 @@ void CarPage::update(uint64_t nowMs) {
             for (size_t p = 0; p < model_.parts.size(); ++p) {
                 if (!shown(p))
                     continue;
-                for (const Run& r : envRuns_[p]) {
+                for (const Run &r : envRuns_[p]) {
                     env.state.cull = cullBack_ && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
                     env.firstIndex = r.firstIndex;
                     env.indexCount = r.indexCount;
@@ -415,13 +445,16 @@ void CarPage::update(uint64_t nowMs) {
                         (sky_ < static_cast<int>(skies_.size()) ? skies_[size_t(sky_)].first : "off") +
                         (cullBack_ ? "" : "  back faces"));
     }
-    lines.push_back("Left/Right: model  drag/WASD: turn  wheel: zoom  L: detail  T: skin  C: faces  E: sky  Space: spin");
+    lines.push_back(
+        "Left/Right: model  drag/WASD: turn  wheel: zoom  L: detail  T: skin  C: faces  E: sky  Space: spin");
     for (size_t i = 0; i < lines.size(); ++i) {
-        const int y = i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
+        const int y =
+            i + 1 == lines.size() ? kFrameH - font::kLineHeight - 4 : 4 + static_cast<int>(i) * font::kLineHeight;
         for (int yy = y - 2; yy < y + font::kLineHeight - 1; ++yy)
             for (int x = 0; x < kFrameW; ++x)
                 overlay_.row(yy)[x * 4 + 3] = 140;
-        font::drawText(overlay_, 6, y, lines[i], i == 1 && !error_.empty() ? Color{255, 120, 100} : Color{230, 230, 230});
+        font::drawText(overlay_, 6, y, lines[i],
+                       i == 1 && !error_.empty() ? Color{255, 120, 100} : Color{230, 230, 230});
     }
     renderer_->endFrame(&overlay_);
 }

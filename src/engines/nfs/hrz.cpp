@@ -22,7 +22,8 @@ std::vector<int> numbers(std::string_view text) {
             i = end == std::string_view::npos ? text.size() : end + 2;
             continue;
         }
-        const bool minus = text[i] == '-' && i + 1 < text.size() && std::isdigit(static_cast<unsigned char>(text[i + 1]));
+        const bool minus =
+            text[i] == '-' && i + 1 < text.size() && std::isdigit(static_cast<unsigned char>(text[i + 1]));
         if (minus || std::isdigit(static_cast<unsigned char>(text[i]))) {
             size_t j = i + (minus ? 1 : 0);
             long v = 0;
@@ -42,7 +43,7 @@ constexpr int kMaxRegions = 64;
 
 } // namespace
 
-Error parseHorizon(std::string_view text, Horizon& out) {
+Error parseHorizon(std::string_view text, Horizon &out) {
     out = {};
     const std::vector<int> n = numbers(text);
     if (n.size() < 6 || n[5] < 0 || n[5] > kMaxRegions || n.size() != 6 + 15 * size_t(n[5]) + kAfterRegions)
@@ -51,7 +52,7 @@ Error parseHorizon(std::string_view text, Horizon& out) {
     auto next = [&] { return n[i++]; };
     auto rgb = [&] {
         Horizon::Rgb c;
-        for (int& v : c)
+        for (int &v : c)
             v = next();
         return c;
     };
@@ -65,7 +66,7 @@ Error parseHorizon(std::string_view text, Horizon& out) {
     out.fogDensity = next();
     out.fogOnPixmap = next();
     out.fogRegions.resize(next());
-    for (Horizon::FogRegion& r : out.fogRegions) {
+    for (Horizon::FogRegion &r : out.fogRegions) {
         r.start = point();
         r.apex = point();
         r.end = point();
@@ -99,7 +100,7 @@ Error parseHorizon(std::string_view text, Horizon& out) {
     out.skyTop = rgb();
     out.skyBaseSun = rgb();
     out.skyBaseOpposite = rgb();
-    Horizon::Weather& w = out.weather;
+    Horizon::Weather &w = out.weather;
     w.type = next();
     w.startSlice = next();
     w.endSlice = next();
@@ -114,16 +115,16 @@ Error parseHorizon(std::string_view text, Horizon& out) {
 
 // From nfs3.exe (0x470ad0 and 0x470b20, with the multiplier made as the
 // .hrz is read, 0x47a88e): 5 x (100 - density), clamped to 5..500.
-Horizon::FogPoint fogAtSlice(const Horizon& h, int slice) {
+Horizon::FogPoint fogAtSlice(const Horizon &h, int slice) {
     Horizon::FogPoint out{h.fogColour, h.fogDensity};
-    for (const Horizon::FogRegion& r : h.fogRegions) {
+    for (const Horizon::FogRegion &r : h.fogRegions) {
         if (slice < r.beforeSlice || slice > r.afterSlice)
             continue;
         // f, the share of the far point: (centre - slice) / (centre -
         // before) of the start before the centre, (slice - centre) /
         // (after - centre) of the end past it; the apex's own at the
         // centre or with no slices to go.
-        const Horizon::FogPoint* far = nullptr;
+        const Horizon::FogPoint *far = nullptr;
         float f = 0;
         if (slice < r.centreSlice && r.centreSlice != r.beforeSlice) {
             far = &r.start;
@@ -152,7 +153,7 @@ int sceneryFogValue(int density) {
 
 // The sky's: times (1 - pixmap effect) x radius / 100, rounded as the x87
 // rounds (to the nearest, halves to even), from the float the game keeps.
-int skyFogValue(const Horizon& h, int density) {
+int skyFogValue(const Horizon &h, int density) {
     const float effect = static_cast<float>(std::clamp(h.fogOnPixmap, 1, 100)) * 0.01f;
     const double times = std::nearbyint((1.0 - double(effect)) * double(h.radius) * 0.01);
     return 5 * std::clamp(100 - density, 1, 100) * static_cast<int>(times);
@@ -160,7 +161,7 @@ int skyFogValue(const Horizon& h, int density) {
 
 // The rotation as the game keeps it (0x47877e): degrees x 65536 / 360,
 // in 16.16 turns, wrapped to 0..1.
-float horizonTurn(const Horizon& h) {
+float horizonTurn(const Horizon &h) {
     float turn = static_cast<float>(h.rotation * 65536 / 360) / 65536.0f;
     while (turn < 0)
         turn += 1;
@@ -170,7 +171,7 @@ float horizonTurn(const Horizon& h) {
 }
 
 // 0x478a34: the steps in 16.16, truncated.
-std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h) {
+std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon &h) {
     std::array<Horizon::Rgb, 16> out{};
     for (int k = 0; k < 8; ++k)
         for (size_t c = 0; c < 3; ++c) {
@@ -188,7 +189,7 @@ std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h) {
 // moves them 4 slots and the heading's fraction of a slot left, then
 // steps 8 slots right from there (0x4792e0). The slot of the first quad
 // is the heading x 16 rounded (the FPU's rounding, to nearest).
-SkyRow skyRow(const Horizon& h, const std::array<float, 3>& forward, float bottom, float height) {
+SkyRow skyRow(const Horizon &h, const std::array<float, 3> &forward, float bottom, float height) {
     constexpr double kTau = 6.283185307179586;
     double fx = forward[0], fz = forward[2];
     const double length = std::sqrt(fx * fx + fz * fz);
@@ -218,7 +219,7 @@ SkyRow skyRow(const Horizon& h, const std::array<float, 3>& forward, float botto
     return row;
 }
 
-int horizonTile(const Horizon& h, int slot, bool* flipped) {
+int horizonTile(const Horizon &h, int slot, bool *flipped) {
     slot = (slot % 16 + 16) % 16;
     const bool mirror = h.mirror && slot >= 8;
     if (flipped)
@@ -226,14 +227,14 @@ int horizonTile(const Horizon& h, int slot, bool* flipped) {
     return (mirror ? 15 - slot : slot) % 8;
 }
 
-bool skyBlack(const Horizon& h, int track, int roadSlice) {
+bool skyBlack(const Horizon &h, int track, int roadSlice) {
     return h.blackHorizon || (track == 5 && roadSlice > 0x389 && roadSlice < 0x429);
 }
 
 // 0x47adc0: off1 + 3 off2 cos(r / 3000 quarter turns); less, for the
 // nimbus (0x47b2b6), brightness / 255 x 3 off2 / 2 x (nimbus / 100,
 // rounded down: only 100 counts).
-float cloudHeight(const Horizon& h, float r, int brightness) {
+float cloudHeight(const Horizon &h, float r, int brightness) {
     constexpr float kTau = 6.28318530718f;
     const float arch = 3.0f * static_cast<float>(h.cloudDomeOffset[1]);
     const float nimbus = static_cast<float>(std::max(h.nimbus, 0) / 100);
@@ -246,7 +247,7 @@ float cloudHeight(const Horizon& h, float r, int brightness) {
 // passes that move each towards its neighbours within two points, by half
 // the mean of (neighbour - it) x |neighbour - 128| / 128, kept within
 // 0..bright.
-uint8_t cloudAlpha(const Horizon& h, uint8_t brightness, bool direct3d) {
+uint8_t cloudAlpha(const Horizon &h, uint8_t brightness, bool direct3d) {
     if (!direct3d)
         return brightness;
     return static_cast<uint8_t>((h.cloudBright - (h.cloudVariance >> 1)) & 0xff);
@@ -284,19 +285,19 @@ uint32_t GameRandom::next() {
     return out;
 }
 
-std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed) {
+std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &h, uint32_t seed) {
     constexpr int n = kCloudPoints;
     std::array<float, n * n> b{};
     // Along x, then the next row along z (0x47ae10's loops); the amount is
     // the generator's number modulo the variance, unsigned (0x47af0b).
     GameRandom random(seed);
-    for (float& v : b) {
+    for (float &v : b) {
         int value = h.cloudBright;
         if (h.cloudVariance > 0)
             value -= static_cast<int>(random.next() % static_cast<uint32_t>(h.cloudVariance));
         v = static_cast<float>(value);
     }
-    for (float& v : b) {
+    for (float &v : b) {
         const float x = (v - 128.0f) / 128.0f;
         const float signedRoot = x < 0 ? -std::sqrt(-x) : std::sqrt(x);
         v = (1 + signedRoot) * 0.5f * 255.0f;
@@ -332,7 +333,7 @@ std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& 
 
 // 0x47b88a: the camera's x and z over the visual height (its reciprocal
 // kept at 0x55d208, 0x47866b), added to the drift.
-std::array<float, 2> cloudOffset(const Horizon& h, float x, float z) {
+std::array<float, 2> cloudOffset(const Horizon &h, float x, float z) {
     if (h.visualHeight == 0)
         return {0, 0};
     return {x / static_cast<float>(h.visualHeight), z / static_cast<float>(h.visualHeight)};
@@ -340,7 +341,7 @@ std::array<float, 2> cloudOffset(const Horizon& h, float x, float z) {
 
 // 0x478701: speed x 0.00003 tiles a tick, towards the direction (degrees,
 // from x towards z).
-std::array<float, 2> cloudDrift(const Horizon& h) {
+std::array<float, 2> cloudDrift(const Horizon &h) {
     constexpr float kTau = 6.28318530718f;
     const float turn = static_cast<float>(h.windDirection) / 360.0f * kTau;
     const float speed = static_cast<float>(h.windSpeed) * 3e-5f;
@@ -349,7 +350,7 @@ std::array<float, 2> cloudDrift(const Horizon& h) {
 
 // 0x47b5f9: on ticks that are a multiple of the second value, rand() %
 // 100 below the first.
-bool lightningStarts(const Horizon& h, uint64_t tick, SkyRandom& random) {
+bool lightningStarts(const Horizon &h, uint64_t tick, SkyRandom &random) {
     if (h.lightning <= 0 || h.lightningChance <= 0 || tick % uint64_t(h.lightningChance) != 0)
         return false;
     return random.next() % 100 < h.lightning;
@@ -360,11 +361,11 @@ namespace {
 constexpr int kBoltPoints = 240; // the game's pool of points (0x79c570)
 
 // 0x494420: n more points from `parent`, forking where n reaches `fork`.
-void growBolt(const Horizon& h, LightningBolt& bolt, int parent, int n, int fork, float spread, SkyRandom& random) {
+void growBolt(const Horizon &h, LightningBolt &bolt, int parent, int n, int fork, float spread, SkyRandom &random) {
     constexpr float kTau = 6.28318530718f;
     if (n == 0 || static_cast<int>(bolt.points.size()) >= kBoltPoints)
         return;
-    const LightningBolt::Point& from = bolt.points[size_t(parent)];
+    const LightningBolt::Point &from = bolt.points[size_t(parent)];
     LightningBolt::Point p;
     p.parent = parent;
     p.angle = from.angle + spread / 360.0f * static_cast<float>(random.next() % 5 - 2);
@@ -386,7 +387,7 @@ void growBolt(const Horizon& h, LightningBolt& bolt, int parent, int n, int fork
 
 // 0x47b620, 0x4945a0: starting within 750 of the camera on x and z, on
 // the dome, heading away from the camera; 40 points, forking at 30.
-LightningBolt makeBolt(const Horizon& h, SkyRandom& random) {
+LightningBolt makeBolt(const Horizon &h, SkyRandom &random) {
     constexpr float kTau = 6.28318530718f;
     LightningBolt bolt;
     LightningBolt::Point first;
@@ -400,8 +401,8 @@ LightningBolt makeBolt(const Horizon& h, SkyRandom& random) {
 }
 
 // 0x494630: each point moves -1, 0 or 1 times its jitter on x and z.
-void tickBolt(LightningBolt& bolt, SkyRandom& random) {
-    for (LightningBolt::Point& p : bolt.points) {
+void tickBolt(LightningBolt &bolt, SkyRandom &random) {
+    for (LightningBolt::Point &p : bolt.points) {
         const int dx = random.next() % 3 - 1, dz = random.next() % 3 - 1;
         p.at[0] += static_cast<float>(dx) * p.jitter;
         p.at[2] += static_cast<float>(dz) * p.jitter;
@@ -410,7 +411,7 @@ void tickBolt(LightningBolt& bolt, SkyRandom& random) {
 }
 
 // 0x494390.
-int boltFlash(const LightningBolt& bolt) {
+int boltFlash(const LightningBolt &bolt) {
     return std::clamp(bolt.life * 510 / 24, 0, 255);
 }
 

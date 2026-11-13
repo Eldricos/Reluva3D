@@ -9,7 +9,7 @@ namespace reluva::nfs {
 
 namespace {
 
-uint32_t le32(const uint8_t* p) {
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
@@ -22,7 +22,7 @@ constexpr uint16_t kHigh[32] = {
     0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0,      0x017e, 0x0178,
 };
 
-void appendUtf8(std::string& out, uint32_t cp) {
+void appendUtf8(std::string &out, uint32_t cp) {
     if (cp < 0x80) {
         out += static_cast<char>(cp);
     } else if (cp < 0x800) {
@@ -37,7 +37,7 @@ void appendUtf8(std::string& out, uint32_t cp) {
 
 } // namespace
 
-Error parseTextTable(const std::vector<uint8_t>& data, TextTable& out) {
+Error parseTextTable(const std::vector<uint8_t> &data, TextTable &out) {
     out = {};
     // A table of u32 offsets, one per string, then the strings, each ended
     // by a 0. The first offset is where the table ends.

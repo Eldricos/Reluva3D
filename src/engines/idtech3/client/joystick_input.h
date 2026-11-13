@@ -25,10 +25,10 @@ namespace reluva::idtech3 {
 class JoystickInput {
 public:
     // The original's settings, at its defaults.
-    static void registerCvars(CvarStore& cvars);
+    static void registerCvars(CvarStore &cvars);
 
     // A joystick event from the system (the rest are ignored).
-    void event(const Event& ev);
+    void event(const Event &ev);
 
     // This frame's reading: the keys that went down or up since the last
     // (Quake III key numbers), and the analog axes, -127 to 127 (x right
@@ -37,7 +37,7 @@ public:
         std::vector<std::pair<int32_t, bool>> keys;
         int32_t x = 0, y = 0;
     };
-    Frame frame(const CvarStore& cvars);
+    Frame frame(const CvarStore &cvars);
 
 private:
     uint32_t buttons_ = 0, lastButtons_ = 0; // JOY1 to JOY32 held

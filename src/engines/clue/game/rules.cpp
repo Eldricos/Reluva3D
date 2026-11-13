@@ -15,15 +15,15 @@ namespace {
 
 // Shuffles with the rng's own numbers, so that a seed deals the same cards
 // whatever the standard library (std::shuffle's draws are its own).
-template <typename T>
-void shuffle(std::vector<T>& v, Rng& rng) {
+template<typename T>
+void shuffle(std::vector<T> &v, Rng &rng) {
     for (size_t i = v.size(); i > 1; --i)
         std::swap(v[i - 1], v[rng() % i]);
 }
 
 } // namespace
 
-Error Game::start(const Board& board, const std::array<bool, kSuspectCount>& playing, bool noDieRoll, uint32_t seed) {
+Error Game::start(const Board &board, const std::array<bool, kSuspectCount> &playing, bool noDieRoll, uint32_t seed) {
     if (std::count(playing.begin(), playing.end(), true) < 3)
         return Error::fail("Clue needs three players");
     board_ = &board;
@@ -53,7 +53,7 @@ Error Game::start(const Board& board, const std::array<bool, kSuspectCount>& pla
         seats_[size_t(s)].hand.push_back(card);
         s = (s + 1) % kSuspectCount;
     }
-    for (Seat& seat : seats_)
+    for (Seat &seat : seats_)
         std::sort(seat.hand.begin(), seat.hand.end());
 
     // Miss Scarlet plays first, or the first suspect played after her.
@@ -75,7 +75,7 @@ void Game::beginTurn() {
     passed_.clear();
 }
 
-bool Game::occupied(const Square& s, int except) const {
+bool Game::occupied(const Square &s, int except) const {
     for (int k = 0; k < kSuspectCount; ++k)
         if (k != except && !places_[size_t(k)].inRoom() && places_[size_t(k)].square == s)
             return true;
@@ -83,10 +83,10 @@ bool Game::occupied(const Square& s, int except) const {
 }
 
 bool Game::trapped() const {
-    const Place& p = places_[size_t(turn_)];
+    const Place &p = places_[size_t(turn_)];
     if (!p.inRoom() || board_->passage(p.room) != kNoRoom)
         return false;
-    for (const Board::Door& d : board_->doors())
+    for (const Board::Door &d : board_->doors())
         if (d.room == p.room && !occupied(d.outside, turn_))
             return false;
     return true;
@@ -96,16 +96,18 @@ bool Game::canMove() const {
     return phase_ == Phase::Moving || (noDieRoll_ && phase_ == Phase::Start && moves_ >= 1 && !trapped());
 }
 
-bool Game::canRoll() const { return !noDieRoll_ && phase_ == Phase::Start && !trapped(); }
+bool Game::canRoll() const {
+    return !noDieRoll_ && phase_ == Phase::Start && !trapped();
+}
 
 bool Game::canTakePassage() const {
-    const Place& p = places_[size_t(turn_)];
+    const Place &p = places_[size_t(turn_)];
     return phase_ == Phase::Start && p.inRoom() && board_->passage(p.room) != kNoRoom &&
            (!noDieRoll_ || moves_ >= kActionCost);
 }
 
 bool Game::canSuggest() const {
-    const Place& p = places_[size_t(turn_)];
+    const Place &p = places_[size_t(turn_)];
     if (!p.inRoom() || suggestedThisTurn_ || (noDieRoll_ && moves_ < kActionCost))
         return false;
     if (phase_ == Phase::Start)
@@ -135,9 +137,11 @@ int Game::rollDie() {
     return roll_;
 }
 
-int Game::stepLimit() const { return noDieRoll_ ? moves_ : roll_; }
+int Game::stepLimit() const {
+    return noDieRoll_ ? moves_ : roll_;
+}
 
-bool Game::stepAllowed(const std::vector<Place>& path, const Place& next) const {
+bool Game::stepAllowed(const std::vector<Place> &path, const Place &next) const {
     if (int(path.size()) >= stepLimit())
         return false;
     if (!path.empty() && path.back().inRoom())
@@ -146,28 +150,28 @@ bool Game::stepAllowed(const std::vector<Place>& path, const Place& next) const 
         return next.room != startRoom_;
     if (occupied(next.square, turn_))
         return false;
-    for (const Place& p : path)
+    for (const Place &p : path)
         if (!p.inRoom() && p.square == next.square)
             return false;
     return places_[size_t(turn_)].inRoom() || places_[size_t(turn_)].square != next.square;
 }
 
-std::vector<Place> Game::nextSteps(const std::vector<Place>& path) const {
+std::vector<Place> Game::nextSteps(const std::vector<Place> &path) const {
     std::vector<Place> out;
     if (!canMove())
         return out;
-    const Place& from = path.empty() ? places_[size_t(turn_)] : path.back();
-    for (const Place& n : board_->neighbours(from))
+    const Place &from = path.empty() ? places_[size_t(turn_)] : path.back();
+    for (const Place &n : board_->neighbours(from))
         if (stepAllowed(path, n))
             out.push_back(n);
     return out;
 }
 
-bool Game::canWalk(const std::vector<Place>& path) const {
+bool Game::canWalk(const std::vector<Place> &path) const {
     if (!canMove() || path.empty())
         return false;
     std::vector<Place> sofar;
-    for (const Place& p : path) {
+    for (const Place &p : path) {
         const auto next = nextSteps(sofar);
         if (std::find(next.begin(), next.end(), p) == next.end())
             return false;
@@ -184,7 +188,7 @@ std::vector<std::vector<Place>> Game::destinations() const {
         return found;
     const Place from = places_[size_t(turn_)];
     const int limit = stepLimit();
-    const auto allowed = [&](const Place& n, const std::set<Square>& visited) {
+    const auto allowed = [&](const Place &n, const std::set<Square> &visited) {
         if (n.inRoom())
             return n.room != startRoom_;
         return !occupied(n.square, turn_) && !visited.count(n.square) && (from.inRoom() || n.square != from.square);
@@ -196,8 +200,8 @@ std::vector<std::vector<Place>> Game::destinations() const {
         std::set<int> rooms;
         for (int depth = 0; depth < limit && !frontier.empty(); ++depth) {
             std::vector<std::vector<Place>> next;
-            for (const auto& path : frontier)
-                for (const Place& n : board_->neighbours(path.empty() ? from : path.back())) {
+            for (const auto &path : frontier)
+                for (const Place &n : board_->neighbours(path.empty() ? from : path.back())) {
                     if (!allowed(n, seen) || (n.inRoom() && rooms.count(n.room)))
                         continue;
                     auto longer = path;
@@ -219,7 +223,7 @@ std::vector<std::vector<Place>> Game::destinations() const {
     std::vector<Place> path;
     std::set<Square> visited;
     const auto keep = [&]() {
-        for (auto& f : found)
+        for (auto &f : found)
             if (f.back() == path.back()) {
                 if (path.size() < f.size())
                     f = path;
@@ -228,7 +232,7 @@ std::vector<std::vector<Place>> Game::destinations() const {
         found.push_back(path);
     };
     std::function<void()> visit = [&]() {
-        for (const Place& n : board_->neighbours(path.empty() ? from : path.back())) {
+        for (const Place &n : board_->neighbours(path.empty() ? from : path.back())) {
             if (!allowed(n, visited))
                 continue;
             path.push_back(n);
@@ -246,12 +250,12 @@ std::vector<std::vector<Place>> Game::destinations() const {
     return found;
 }
 
-Error Game::walk(const std::vector<Place>& path) {
+Error Game::walk(const std::vector<Place> &path) {
     if (!canWalk(path))
         return Error::fail("not a move the rules allow");
     if (noDieRoll_)
         moves_ -= int(path.size());
-    Place& at = places_[size_t(turn_)];
+    Place &at = places_[size_t(turn_)];
     if (at.inRoom())
         suggestedIn_[size_t(turn_)] = kNoRoom; // left it
     at = path.back();
@@ -265,7 +269,7 @@ Error Game::takePassage() {
         return Error::fail("no secret passage to take");
     if (noDieRoll_)
         moves_ -= kActionCost;
-    Place& at = places_[size_t(turn_)];
+    Place &at = places_[size_t(turn_)];
     suggestedIn_[size_t(turn_)] = kNoRoom;
     at = {{}, board_->passage(at.room)};
     enteredRoom_ = true;
@@ -298,7 +302,7 @@ Error Game::suggest(int suspect, int weapon) {
         const int s = (turn_ + k) % kSuspectCount;
         if (!seats_[size_t(s)].playing)
             continue;
-        const auto& hand = seats_[size_t(s)].hand;
+        const auto &hand = seats_[size_t(s)].hand;
         if (std::any_of(hand.begin(), hand.end(), [&](int c) { return suggestion_.has(c); })) {
             disprover_ = s;
             break;
@@ -328,7 +332,7 @@ Error Game::show(int card) {
     return Error::success();
 }
 
-Error Game::accuse(const Accusation& a) {
+Error Game::accuse(const Accusation &a) {
     if (!canAccuse())
         return Error::fail("no accusation can be made now");
     if (noDieRoll_)
@@ -340,14 +344,14 @@ Error Game::accuse(const Accusation& a) {
     }
     seats_[size_t(turn_)].out = true;
     // Off a doorway, into its room, so as not to block it.
-    Place& at = places_[size_t(turn_)];
+    Place &at = places_[size_t(turn_)];
     if (!at.inRoom())
-        for (const Board::Door& d : board_->doors())
+        for (const Board::Door &d : board_->doors())
             if (d.outside == at.square) {
                 at = {{}, d.room};
                 break;
             }
-    if (std::none_of(seats_.begin(), seats_.end(), [](const Seat& s) { return s.playing && !s.out; })) {
+    if (std::none_of(seats_.begin(), seats_.end(), [](const Seat &s) { return s.playing && !s.out; })) {
         phase_ = Phase::Over;
         return Error::success();
     }
@@ -367,22 +371,24 @@ Error Game::endTurn() {
 }
 
 Square Game::standingSquare(int suspect) const {
-    const Place& p = places_[size_t(suspect)];
+    const Place &p = places_[size_t(suspect)];
     if (!p.inRoom())
         return p.square;
     // The k-th suspect in the room (in the game's order) on its k-th square.
     size_t k = 0;
     for (int s = 0; s < suspect; ++s)
         k += places_[size_t(s)].inRoom() && places_[size_t(s)].room == p.room;
-    const auto& squares = board_->standing(p.room);
+    const auto &squares = board_->standing(p.room);
     return squares.empty() ? Square{} : squares[std::min(k, squares.size() - 1)];
 }
 
 namespace saveio {
 
-void putString(std::ostream& out, const std::string& s) { out << s.size() << ' ' << s << ' '; }
+void putString(std::ostream &out, const std::string &s) {
+    out << s.size() << ' ' << s << ' ';
+}
 
-bool getString(std::istream& in, std::string& s) {
+bool getString(std::istream &in, std::string &s) {
     size_t n = 0;
     if (!(in >> n) || n > 4096 || in.get() != ' ')
         return false;
@@ -392,9 +398,11 @@ bool getString(std::istream& in, std::string& s) {
 
 } // namespace saveio
 
-void Rng::save(std::ostream& out) const { out << seed_ << ' ' << draws_; }
+void Rng::save(std::ostream &out) const {
+    out << seed_ << ' ' << draws_;
+}
 
-bool Rng::load(std::istream& in) {
+bool Rng::load(std::istream &in) {
     uint32_t s = 0;
     uint64_t n = 0;
     // A game draws a few hundred numbers; far more is a damaged file.
@@ -406,9 +414,9 @@ bool Rng::load(std::istream& in) {
     return true;
 }
 
-void Game::save(std::ostream& out) const {
+void Game::save(std::ostream &out) const {
     out << "game 2\n";
-    for (const Seat& seat : seats_) {
+    for (const Seat &seat : seats_) {
         out << seat.playing << ' ' << seat.out << ' ' << seat.hand.size();
         for (int c : seat.hand)
             out << ' ' << c;
@@ -428,23 +436,23 @@ void Game::save(std::ostream& out) const {
     out << '\n';
 }
 
-Error Game::load(std::istream& in, const Board& board) {
+Error Game::load(std::istream &in, const Board &board) {
     std::string tag;
     int version = 0;
     if (!(in >> tag >> version) || tag != "game" || version != 2)
         return Error::fail("not a saved game of this kind");
     const auto valid = [](int v, int lo, int hi) { return v >= lo && v < hi; };
-    for (Seat& seat : seats_) {
+    for (Seat &seat : seats_) {
         size_t n = 0;
         if (!(in >> seat.playing >> seat.out >> n) || n > size_t(kCardCount))
             return Error::fail("a saved game's seats are damaged");
         seat.hand.assign(n, 0);
-        for (int& c : seat.hand)
+        for (int &c : seat.hand)
             if (!(in >> c) || !valid(c, 0, kCardCount))
                 return Error::fail("a saved game's cards are damaged");
     }
     for (int s = 0; s < kSuspectCount; ++s) {
-        Place& p = places_[size_t(s)];
+        Place &p = places_[size_t(s)];
         bool brought = false;
         if (!(in >> p.square.x >> p.square.y >> p.room >> brought >> suggestedIn_[size_t(s)]) ||
             !valid(p.room, kNoRoom, kRoomCount))
@@ -462,7 +470,7 @@ Error Game::load(std::istream& in, const Board& board) {
         return Error::fail("a saved game's turn is damaged");
     phase_ = Phase(phase);
     passed_.assign(passed, 0);
-    for (int& p : passed_)
+    for (int &p : passed_)
         if (!(in >> p))
             return Error::fail("a saved game's turn is damaged");
     if (!rng_.load(in))

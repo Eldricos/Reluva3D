@@ -120,25 +120,33 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         trap_LinkEntity(&entities[player]);
         trap_SendServerCommand(-1, "print \"Reluva entered the game\n\"");
         return 0;
-    case 31: return player;
+    case 31:
+        return player;
     case 7: /* client think(clientNum): its command moves it along x */
         trap_GetUsercmd(arg0, &ucmd);
         if (player >= 0)
             entities[player].currentOrigin[0] += ucmd.forwardmove;
         return 0;
-    case 32: return ucmd.serverTime * 10 + ucmd.buttons;
-    case 33: return ucmd.angles[0] + ucmd.angles[1] * 100000;
-    case 34: return ucmd.weapon * 1000000 + (ucmd.forwardmove + 128) * 10000 + (ucmd.rightmove + 128) * 100 + ucmd.upmove + 50;
+    case 32:
+        return ucmd.serverTime * 10 + ucmd.buttons;
+    case 33:
+        return ucmd.angles[0] + ucmd.angles[1] * 100000;
+    case 34:
+        return ucmd.weapon * 1000000 + (ucmd.forwardmove + 128) * 10000 + (ucmd.rightmove + 128) * 100 + ucmd.upmove +
+               50;
     case 8: /* run a frame(levelTime) */
         frames++;
         return frames;
-    case 20: return numEntities;
+    case 20:
+        return numEntities;
     case 21: /* an entity's classname, back through a configstring */
         trap_SetConfigstring(300 + arg0, entities[arg0].classname);
         trap_GetConfigstring(300 + arg0, text, sizeof(text));
         return text[0] * 1000 + text[1];
-    case 22: return trap_Cvar_VariableIntegerValue("sv_maxclients") * 100 + (int)ceil(2.25f);
-    case 23: return frames;
+    case 22:
+        return trap_Cvar_VariableIntegerValue("sv_maxclients") * 100 + (int)ceil(2.25f);
+    case 23:
+        return frames;
     case 24: /* trace straight down 1000 from (arg0, arg1, arg2), a point or (arg3: half-size) a box: what's hit */
         start[0] = end[0] = arg0;
         start[1] = end[1] = arg1;
@@ -148,9 +156,12 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         maxs[0] = maxs[1] = maxs[2] = arg3;
         trap_Trace(&tr, start, arg3 ? mins : 0, arg3 ? maxs : 0, end, arg4, -1);
         return tr.entityNum;
-    case 25: return (int)(tr.endpos[2] * 8); /* where the last trace stopped, in eighths */
-    case 26: return tr.allsolid * 10 + tr.startsolid * 100 + (tr.fraction == 1) + (int)tr.normal[2] * 1000;
-    case 27: return (int)entities[arg0].absmin[2] * 1000 + (int)entities[arg0].absmax[2];
+    case 25:
+        return (int)(tr.endpos[2] * 8); /* where the last trace stopped, in eighths */
+    case 26:
+        return tr.allsolid * 10 + tr.startsolid * 100 + (tr.fraction == 1) + (int)tr.normal[2] * 1000;
+    case 27:
+        return (int)entities[arg0].absmin[2] * 1000 + (int)entities[arg0].absmax[2];
     case 28:
         start[0] = arg0;
         start[1] = arg1;
@@ -165,7 +176,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         maxs[2] = arg2 + 1;
         r = trap_EntitiesInBox(mins, maxs, list, 16);
         return r ? r * 100 + list[0] : 0;
-    case 30: return entities[arg0].modelindex * 100 + entities[arg0].bmodel * 10 + entities[arg0].linked;
+    case 30:
+        return entities[arg0].modelindex * 100 + entities[arg0].bmodel * 10 + entities[arg0].linked;
     }
     return -1;
 }

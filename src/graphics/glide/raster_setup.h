@@ -38,7 +38,7 @@ struct Values {
 
 // A vertex's values, s, t and 1/w per TMU read as the stw hints say
 // (Glide 2.4 Reference Manual, grHints).
-void load(const State& s, const Vertex& v, Values& out);
+void load(const State &s, const Vertex &v, Values &out);
 
 struct Triangle {
     // The pixel rectangle the triangle may cover, within the clip window
@@ -50,7 +50,7 @@ struct Triangle {
     double fx0 = 0, fy0 = 0;
     float dx[kParams] = {}, dy[kParams] = {};
     // Row y's pixels xs..xe (inclusive): false if none.
-    bool span(int y, int& xs, int& xe) const;
+    bool span(int y, int &xs, int &xe) const;
 
     struct Edge {
         int64_t a, b, c; // E(X, Y) = a * X + b * Y + c, X and Y in 1/16 pixel
@@ -61,15 +61,15 @@ struct Triangle {
 // Sets up a triangle for drawing: false if it draws nothing (no area,
 // culled, outside the clip window). Counts it in `stats` as the hardware
 // does (in, and out if not culled).
-bool setupTriangle(const State& s, int width, int height, const Vertex& a, const Vertex& b, const Vertex& c,
-                   Triangle& out, PixelStats& stats);
+bool setupTriangle(const State &s, int width, int height, const Vertex &a, const Vertex &b, const Vertex &c,
+                   Triangle &out, PixelStats &stats);
 
 // A line's pixels: one a step along the longer axis, at each pixel centre
 // the line crosses, the values linear between the ends; `pixel` gets the
 // pixel (drawing coordinates, inside the clip window and screen) and its
 // values.
-template <class F>
-void forLinePixels(const State& s, int width, int height, const Vertex& a, const Vertex& b, F&& pixel) {
+template<class F>
+void forLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, F &&pixel) {
     Values va, vb;
     load(s, a, va);
     load(s, b, vb);
@@ -99,7 +99,7 @@ void forLinePixels(const State& s, int width, int height, const Vertex& a, const
 }
 
 // A point's pixel: false if outside the clip window or screen.
-inline bool pointPixel(const State& s, int width, int height, const Vertex& a, int& x, int& y) {
+inline bool pointPixel(const State &s, int width, int height, const Vertex &a, int &x, int &y) {
     if (!std::isfinite(a.x) || !std::isfinite(a.y))
         return false;
     x = int(std::floor(a.x));
@@ -127,9 +127,9 @@ struct Fragments {
 // pixel within a pixel of it; for a point the four round it. Each value
 // from the primitive's plane at the pixel's centre, alpha times the
 // coverage.
-void aaTriangleFringe(const State& s, int width, int height, const Vertex& a, const Vertex& b, const Vertex& c,
-                      const bool aa[3], Fragments& out);
-void aaLinePixels(const State& s, int width, int height, const Vertex& a, const Vertex& b, Fragments& out);
-void aaPointPixels(const State& s, int width, int height, const Vertex& a, Fragments& out);
+void aaTriangleFringe(const State &s, int width, int height, const Vertex &a, const Vertex &b, const Vertex &c,
+                      const bool aa[3], Fragments &out);
+void aaLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, Fragments &out);
+void aaPointPixels(const State &s, int width, int height, const Vertex &a, Fragments &out);
 
 } // namespace reluva::glide::raster

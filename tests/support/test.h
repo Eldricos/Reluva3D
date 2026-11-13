@@ -31,7 +31,7 @@
 
 namespace reluva::test {
 
-using Case = std::pair<std::string, std::function<void(const std::filesystem::path& tmp)>>;
+using Case = std::pair<std::string, std::function<void(const std::filesystem::path &tmp)>>;
 
 struct SuiteInfo {
     std::string name;
@@ -39,7 +39,7 @@ struct SuiteInfo {
 };
 
 // Every suite registered, in no particular order.
-std::vector<SuiteInfo>& suites();
+std::vector<SuiteInfo> &suites();
 
 // Registers a suite (as a static object in its test file).
 struct Suite {
@@ -47,19 +47,19 @@ struct Suite {
 };
 
 // Failures counted so far by CHECK and fail().
-int& failures();
+int &failures();
 // A failure with its own message.
-void fail(const std::string& message);
+void fail(const std::string &message);
 // Whether an option was given on the command line (option("update") for
 // --update).
-bool option(const std::string& name);
+bool option(const std::string &name);
 
 } // namespace reluva::test
 
-#define CHECK(cond)                                                                             \
-    do {                                                                                        \
-        if (!(cond)) {                                                                          \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);       \
-            ++::reluva::test::failures();                                                       \
-        }                                                                                       \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++::reluva::test::failures();                                                                              \
+        }                                                                                                              \
     } while (0)

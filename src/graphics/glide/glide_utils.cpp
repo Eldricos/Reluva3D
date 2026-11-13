@@ -17,12 +17,12 @@ namespace {
 // argb8888 is in the table "for archiving purposes only" ("The Voodoo
 // Graphics hardware can not use this color format"): not read.
 struct FormatName {
-    const char* name;
+    const char *name;
     int format;
 };
 constexpr FormatName kFormats[] = {
-    {"i8", kTexIntensity8},     {"a8", kTexAlpha8},          {"ai44", kTexAlphaIntensity44}, {"yiq", kTexYiq422},
-    {"rgb332", kTexRgb332},     {"rgb565", kTexRgb565},      {"argb8332", kTexArgb8332},     {"argb1555", kTexArgb1555},
+    {"i8", kTexIntensity8},     {"a8", kTexAlpha8},         {"ai44", kTexAlphaIntensity44}, {"yiq", kTexYiq422},
+    {"rgb332", kTexRgb332},     {"rgb565", kTexRgb565},     {"argb8332", kTexArgb8332},     {"argb1555", kTexArgb1555},
     {"ayiq8422", kTexAyiq8422}, {"argb4444", kTexArgb4444}, {"ai88", kTexAlphaIntensity88},
 };
 
@@ -33,7 +33,7 @@ int log2Of(int v) {
     return (1 << l) == v ? l : -1;
 }
 
-bool fail(std::string* error, const char* why) {
+bool fail(std::string *error, const char *why) {
     if (error)
         *error = why;
     return false;
@@ -41,9 +41,9 @@ bool fail(std::string* error, const char* why) {
 
 } // namespace
 
-bool parse3dfHeader(const uint8_t* file, size_t size, File3df& out, std::string* error) {
+bool parse3dfHeader(const uint8_t *file, size_t size, File3df &out, std::string *error) {
     size_t at = 0;
-    auto line = [&](std::string& s) {
+    auto line = [&](std::string &s) {
         s.clear();
         while (at < size && file[at] != '\n')
             s += char(file[at++]);
@@ -66,7 +66,7 @@ bool parse3dfHeader(const uint8_t* file, size_t size, File3df& out, std::string*
     if (std::sscanf(s.c_str(), "color format: %31s", name) != 1)
         return fail(error, "no colour format line");
     out.format = -1;
-    for (const FormatName& f : kFormats)
+    for (const FormatName &f : kFormats)
         if (std::strcmp(f.name, name) == 0)
             out.format = f.format;
     if (out.format < 0)
@@ -103,10 +103,10 @@ bool parse3dfHeader(const uint8_t* file, size_t size, File3df& out, std::string*
     return true;
 }
 
-bool load3dfData(const uint8_t* file, size_t size, const File3df& info, uint8_t* out) {
+bool load3dfData(const uint8_t *file, size_t size, const File3df &info, uint8_t *out) {
     if (info.dataOffset > size || size - info.dataOffset < info.dataBytes)
         return false;
-    const uint8_t* src = file + info.dataOffset;
+    const uint8_t *src = file + info.dataOffset;
     if (texelBytes(info.format) == 1) {
         std::memcpy(out, src, info.dataBytes);
         return true;
@@ -118,10 +118,10 @@ bool load3dfData(const uint8_t* file, size_t size, const File3df& info, uint8_t*
     return true;
 }
 
-uint32_t encodeRle16(uint8_t* dst, const uint16_t* src, uint32_t width, uint32_t height) {
+uint32_t encodeRle16(uint8_t *dst, const uint16_t *src, uint32_t width, uint32_t height) {
     uint32_t bytes = 0;
     for (uint32_t y = 0; y < height; ++y) {
-        const uint16_t* row = src + size_t(y) * width;
+        const uint16_t *row = src + size_t(y) * width;
         for (uint32_t x = 0; x < width;) {
             uint32_t n = 1;
             while (x + n < width && row[x + n] == row[x] && n < 0x7fff)

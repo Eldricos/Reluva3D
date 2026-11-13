@@ -27,12 +27,12 @@ namespace reluva::x86 {
 class A3d {
 public:
     // Stands in for the class in `process` (its createComObject).
-    explicit A3d(Win32Process& process);
+    explicit A3d(Win32Process &process);
     ~A3d();
 
     // Where sound goes; none, and sources play in silence (their positions
     // still move).
-    audio::Mixer* mixer = nullptr;
+    audio::Mixer *mixer = nullptr;
     // Sources made, and those playing.
     size_t sourcesMade() const;
     size_t sourcesPlaying() const;

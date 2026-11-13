@@ -16,13 +16,13 @@ namespace reluva {
 
 namespace {
 
-uint32_t le32(const std::vector<uint8_t>& d, size_t at) {
-    return at + 4 <= d.size() ? uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 |
-                                    uint32_t(d[at + 3]) << 24
-                              : 0;
+uint32_t le32(const std::vector<uint8_t> &d, size_t at) {
+    return at + 4 <= d.size()
+               ? uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24
+               : 0;
 }
 
-bool readAll(const std::filesystem::path& file, std::vector<uint8_t>& data) {
+bool readAll(const std::filesystem::path &file, std::vector<uint8_t> &data) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
         return false;
@@ -32,7 +32,7 @@ bool readAll(const std::filesystem::path& file, std::vector<uint8_t>& data) {
 
 } // namespace
 
-Error readWiseInstaller(const std::filesystem::path& file, std::vector<WiseStream>& out) {
+Error readWiseInstaller(const std::filesystem::path &file, std::vector<WiseStream> &out) {
     out.clear();
     std::vector<uint8_t> d;
     if (!readAll(file, d))
@@ -54,7 +54,7 @@ Error readWiseInstaller(const std::filesystem::path& file, std::vector<WiseStrea
         return Error::fail(file.filename().string() + " isn't a Wise installer");
     // Its header (settings, the title) is followed by the first stream:
     // the first place a deflate stream starts whose CRC follows it.
-    auto streamAt = [&](size_t at, WiseStream& s) {
+    auto streamAt = [&](size_t at, WiseStream &s) {
         std::vector<uint8_t> bytes;
         size_t used = 0;
         if (inflateStream(d.data() + at, d.size() - at, bytes, used) || at + used + 4 > d.size())
@@ -86,11 +86,11 @@ Error readWiseInstaller(const std::filesystem::path& file, std::vector<WiseStrea
     return Error::success();
 }
 
-Error extractWiseStream(const std::filesystem::path& file, const WiseStream& stream, std::vector<uint8_t>& out) {
+Error extractWiseStream(const std::filesystem::path &file, const WiseStream &stream, std::vector<uint8_t> &out) {
     std::ifstream in(file, std::ios::binary);
     std::vector<uint8_t> packed(size_t(stream.packedSize));
     if (!in || !in.seekg(std::streamoff(stream.offset)) ||
-        !in.read(reinterpret_cast<char*>(packed.data()), std::streamsize(packed.size())))
+        !in.read(reinterpret_cast<char *>(packed.data()), std::streamsize(packed.size())))
         return Error::fail("Couldn't read " + file.string());
     if (Error err = inflateRaw(packed.data(), packed.size(), size_t(stream.size), out))
         return Error::fail(file.filename().string() + ": " + err.message);

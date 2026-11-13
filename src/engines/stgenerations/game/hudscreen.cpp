@@ -26,7 +26,7 @@ Rect inclusive(int x1, int y1, int x2, int y2) {
 // The console's parts, as the original lays them out (see
 // docs/engines/stgenerations/formats/scripts.md, "The away-team screen").
 const Rect kLeftPanel = inclusive(0, 253, 205, 458);
-const Rect kTabs[3] = { inclusive(6, 261, 28, 312), inclusive(6, 331, 28, 382), inclusive(6, 401, 28, 452) };
+const Rect kTabs[3] = {inclusive(6, 261, 28, 312), inclusive(6, 331, 28, 382), inclusive(6, 401, 28, 452)};
 const Rect kMap = inclusive(39, 267, 192, 414);
 const Rect kViewer = inclusive(223, 311, 433, 458);
 const Rect kAuxCycle = inclusive(207, 425, 219, 459);
@@ -36,21 +36,20 @@ const Rect kInventory = inclusive(435, 256, 639, 457);
 const Rect kLevelsButton = Rect(43, 415, 43 + 29, 415 + 27);
 const Rect kZoomButton = Rect(74, 415, 74 + 29, 415 + 27);
 // The scan filters: life, energy, trilithium (s-life, s-energ, s-lith.bmp).
-const Rect kFilterButtons[3] = { Rect(117, 415, 117 + 25, 415 + 27),
-                                         Rect(141, 415, 141 + 25, 415 + 27),
-                                         Rect(165, 415, 165 + 25, 415 + 27) };
-const char* const kFilterImages[3] = { "s-life.bmp", "s-energ.bmp", "s-lith.bmp" };
+const Rect kFilterButtons[3] = {Rect(117, 415, 117 + 25, 415 + 27), Rect(141, 415, 141 + 25, 415 + 27),
+                                Rect(165, 415, 165 + 25, 415 + 27)};
+const char *const kFilterImages[3] = {"s-life.bmp", "s-energ.bmp", "s-lith.bmp"};
 const int kButtonHeight = 27;
 // Markers are 7 x 7, four frames blinking.
 const int kMarkerFrames = 4;
-const int kSlotX[3] = { 436, 505, 574 };
-const int kSlotY[4] = { 257, 308, 359, 410 };
+const int kSlotX[3] = {436, 505, 574};
+const int kSlotY[4] = {257, 308, 359, 410};
 const int kIconWidth = 64, kIconHeight = 46;
 // The rectangle round the item in use: palette index 0x22.
 const uint8_t kActiveColour = 0x22;
-const char* const kMarkerStyles[] = { "romu", "sorn", "injr", "klng", "chod", "fish", "fuzy", "pred" };
+const char *const kMarkerStyles[] = {"romu", "sorn", "injr", "klng", "chod", "fish", "fuzy", "pred"};
 
-std::string normalise(const std::string& name) {
+std::string normalise(const std::string &name) {
     std::string s = text::toLower(name);
     std::replace(s.begin(), s.end(), '\\', '/');
     return s;
@@ -61,15 +60,16 @@ std::string normalise(const std::string& name) {
 const Rect HudScreen::kView = Rect(0, 0, 640, 252);
 const Rect HudScreen::kTextLine = inclusive(10, 461, 639, 477);
 
-HudScreen::HudScreen(const ResourceManager& resources, const ResourceRef& level, const ScriptFile& script,
-                     const Palette& palette)
+HudScreen::HudScreen(const ResourceManager &resources, const ResourceRef &level, const ScriptFile &script,
+                     const Palette &palette)
     : _resources(resources), _level(level), _script(script), _palette(palette) {
     _console = load("actionx.bmp", kGlobal);
 }
 
-HudScreen::~HudScreen() {}
+HudScreen::~HudScreen() {
+}
 
-const HudScreen::Image* HudScreen::load(const std::string& name, Scope scope, int frameHeight) {
+const HudScreen::Image *HudScreen::load(const std::string &name, Scope scope, int frameHeight) {
     std::string key = std::string(scope == kGlobal ? "g:" : "m:") + normalise(name);
     auto it = _images.find(key);
     if (it != _images.end())
@@ -80,8 +80,8 @@ const HudScreen::Image* HudScreen::load(const std::string& name, Scope scope, in
     std::string wanted = normalise(name);
     size_t slash = _level.name.find_last_of("/\\");
     std::string folder = slash == std::string::npos ? "" : normalise(_level.name.substr(0, slash + 1));
-    const ResourceRef* found = nullptr;
-    for (const ResourceRef& ref : _resources.getImages()) {
+    const ResourceRef *found = nullptr;
+    for (const ResourceRef &ref : _resources.getImages()) {
         std::string candidate = normalise(ref.name);
         bool match;
         if (scope == kGlobal) {
@@ -101,28 +101,27 @@ const HudScreen::Image* HudScreen::load(const std::string& name, Scope scope, in
         image.reset(new Image());
         image->set(decoder, _palette, frameHeight);
     }
-    const Image* result = image.get();
+    const Image *result = image.get();
     _images[key] = std::move(image);
     return result;
 }
 
-const HudScreen::Image* HudScreen::loadScriptImage(int16_t index, int frameHeight) {
-    const std::vector<std::string>& names = _script.getResourceNames();
+const HudScreen::Image *HudScreen::loadScriptImage(int16_t index, int frameHeight) {
+    const std::vector<std::string> &names = _script.getResourceNames();
     if (index < 0 || index >= (int16_t)names.size())
         return nullptr;
-    const std::string& name = names[index];
+    const std::string &name = names[index];
     if (!name.empty() && name[0] == '*')
         return load(name.substr(1), kGlobal, frameHeight);
     return load(name, kMission, frameHeight);
 }
 
-void HudScreen::blit(Canvas& dst, const Image& image, int frame, int x, int y, int key,
-                     const Rect* clip) {
+void HudScreen::blit(Canvas &dst, const Image &image, int frame, int x, int y, int key, const Rect *clip) {
     image.draw(dst, frame, x, y, key, clip);
 }
 
-void HudScreen::draw(Canvas& screen, Mission& mission, const LevelFile& level, double playerX,
-                     double playerY, double playerZ, double yaw, uint32_t time) {
+void HudScreen::draw(Canvas &screen, Mission &mission, const LevelFile &level, double playerX, double playerY,
+                     double playerZ, double yaw, uint32_t time) {
     if (!_console)
         return;
     switch (mission.takeLeftPanelRequest()) {
@@ -140,8 +139,8 @@ void HudScreen::draw(Canvas& screen, Mission& mission, const LevelFile& level, d
     screen.fillRect(Rect(0, kView.bottom, screen.w, screen.h), black);
     blit(screen, *_console, 0, 206, 252);
     // Its frames: off, object, map, life (0x4434B1).
-    static const int kLeftFrames[] = { 0, 3, 2, 1 };
-    if (const Image* left = load("l-m-m-o.bmp", kGlobal, 206))
+    static const int kLeftFrames[] = {0, 3, 2, 1};
+    if (const Image *left = load("l-m-m-o.bmp", kGlobal, 206))
         blit(screen, *left, kLeftFrames[_leftMode], kLeftPanel.left, kLeftPanel.top);
 
     switch (_leftMode) {
@@ -152,34 +151,35 @@ void HudScreen::draw(Canvas& screen, Mission& mission, const LevelFile& level, d
         drawMap(screen, mission, level, playerX, playerY, playerZ, yaw, time);
         break;
     case kLeftObject:
-        if (const Image* object = load("OBJECT.BMP", kMission))
+        if (const Image *object = load("OBJECT.BMP", kMission))
             blit(screen, *object, 0, 39, 267);
         break;
     default:
         break;
     }
 
-    if (const Image* cycle = load("wepcycle.bmp", kGlobal))
+    if (const Image *cycle = load("wepcycle.bmp", kGlobal))
         blit(screen, *cycle, 0, kWeaponCycle.left, kWeaponCycle.top);
     drawWeaponDisplay(screen, mission);
     drawPanel(screen, mission, time);
     drawInventory(screen, mission);
 }
 
-void HudScreen::drawWeaponDisplay(Canvas& screen, Mission& mission) {
+void HudScreen::drawWeaponDisplay(Canvas &screen, Mission &mission) {
     // The weapon in use shows its display (0x439F9E); the phaser's is
     // weapphas.bmp with an arrow at its power level (0x44B721) and a gauge
     // of 59 ticks, 3 pixels apart, whose empty part is wiped from the right
     // (0x44BA38).
-    const Mission::Item* item = mission.getItem(mission.getActiveItem());
+    const Mission::Item *item = mission.getItem(mission.getActiveItem());
     if (!item || item->kind != 2)
         return;
-    const Image* display = load("weapphas.bmp", kGlobal);
+    const Image *display = load("weapphas.bmp", kGlobal);
     if (!display)
         return;
     blit(screen, *display, 0, kWeaponDisplay.left, kWeaponDisplay.top);
-    if (const Image* arrow = load("p-arrow.bmp", kGlobal, 14))
-        blit(screen, *arrow, 0, kWeaponDisplay.left + 11 * item->level - 4, kWeaponDisplay.top, kFirstPixel, &kWeaponDisplay);
+    if (const Image *arrow = load("p-arrow.bmp", kGlobal, 14))
+        blit(screen, *arrow, 0, kWeaponDisplay.left + 11 * item->level - 4, kWeaponDisplay.top, kFirstPixel,
+             &kWeaponDisplay);
     int full = item->maxCharge > 0 ? (59 * item->charge + item->maxCharge - 1) / item->maxCharge : 0;
     for (int k = 0; k < 59 - full; k++) {
         int x = kWeaponDisplay.left + 191 - 3 * k;
@@ -187,19 +187,19 @@ void HudScreen::drawWeaponDisplay(Canvas& screen, Mission& mission) {
     }
 }
 
-void HudScreen::drawLifePanel(Canvas& screen, Mission& mission) {
-    const Hud& hud = mission.getHud();
-    const Image* body = hud.getBodyImage() < 0 ? load("BODY.BMP", kMission, 177)
-                                               : loadScriptImage(hud.getBodyImage(), 177);
+void HudScreen::drawLifePanel(Canvas &screen, Mission &mission) {
+    const Hud &hud = mission.getHud();
+    const Image *body =
+        hud.getBodyImage() < 0 ? load("BODY.BMP", kMission, 177) : loadScriptImage(hud.getBodyImage(), 177);
     if (body)
         blit(screen, *body, hud.getBodyFrame(), 40, 269);
 
     // The health bar (0x445AFE): a background by how low it is, then a
     // stack of units, 3 rows apart with a gap above the first 15.
     int health = mission.getHealth();
-    if (const Image* bar = load("3health.bmp", kGlobal, 50))
+    if (const Image *bar = load("3health.bmp", kGlobal, 50))
         blit(screen, *bar, health > 15 ? 2 : health > 5 ? 1 : 0, 118, 393, kFirstPixel);
-    if (const Image* unit = load("unithlt0.bmp", kGlobal)) {
+    if (const Image *unit = load("unithlt0.bmp", kGlobal)) {
         for (int k = 0; k < health; k++) {
             int y = 442 - unit->surface.h - 1 - 3 * k - (k >= 15 ? 7 : 0);
             if (y < 270)
@@ -209,24 +209,24 @@ void HudScreen::drawLifePanel(Canvas& screen, Mission& mission) {
     }
 }
 
-void HudScreen::drawMap(Canvas& screen, Mission& mission, const LevelFile& level, double playerX,
-                        double playerY, double playerZ, double yaw, uint32_t time) {
+void HudScreen::drawMap(Canvas &screen, Mission &mission, const LevelFile &level, double playerX, double playerY,
+                        double playerZ, double yaw, uint32_t time) {
     // Over the left panel's blue map frame (l-m-m-o.bmp), in cyan, as the
     // original draws it.
-    const Palette& palette = level.getPalette();
+    const Palette &palette = level.getPalette();
     uint8_t wallColour = palette.findBestColor(104, 252, 252);
     double cx = (kMap.left + kMap.right) / 2.0, cy = (kMap.top + kMap.bottom) / 2.0;
     double scale = mission.getHud().getMapZoom(_mapZoom);
-    auto toScreen = [&](double x, double y, int& sx, int& sy) {
+    auto toScreen = [&](double x, double y, int &sx, int &sy) {
         sx = (int)std::lround(cx + (x - playerX) * scale);
         sy = (int)std::lround(cy - (y - playerY) * scale);
     };
 
     // Walls marked for the map, in the height band shown (relative to the player).
-    const double* levels = mission.getHud().getMapLevels();
+    const double *levels = mission.getHud().getMapLevels();
     double low = playerZ + levels[_mapBand * 2], high = playerZ + levels[_mapBand * 2 + 1];
-    const std::vector<LevelFile::Vertex>& vertices = level.getVertices();
-    for (const LevelFile::Wall& wall : level.getWalls()) {
+    const std::vector<LevelFile::Vertex> &vertices = level.getVertices();
+    for (const LevelFile::Wall &wall : level.getWalls()) {
         if (!(wall.flags & LevelFile::kWallOnMap))
             continue;
         if (wall.top / 65536.0 < low || wall.bottom / 65536.0 > high)
@@ -243,7 +243,7 @@ void HudScreen::drawMap(Canvas& screen, Mission& mission, const LevelFile& level
         }
     }
 
-    for (const auto& entry : mission.getHud().getMarkers()) {
+    for (const auto &entry : mission.getHud().getMarkers()) {
         double x, y, z;
         if (!mission.locate(entry.first, x, y, z))
             continue;
@@ -252,7 +252,7 @@ void HudScreen::drawMap(Canvas& screen, Mission& mission, const LevelFile& level
         // Each kind shows only while its filter is on.
         if (!_filters[entry.second.kind])
             continue;
-        const Image* dot = nullptr;
+        const Image *dot = nullptr;
         if (entry.second.kind == Hud::kMarkerLife && entry.second.style >= 0 && entry.second.style < 8)
             dot = load(std::string("map/dot-") + kMarkerStyles[entry.second.style] + ".bmp", kGlobal, -kMarkerFrames);
         else if (entry.second.kind == Hud::kMarkerEnergy)
@@ -275,52 +275,51 @@ void HudScreen::drawMap(Canvas& screen, Mission& mission, const LevelFile& level
 
     // The player, an arrow in eight headings (agpface2.bmp).
     int octant = (int)std::lround(yaw / (kPi / 4)) & 7;
-    if (const Image* face = load("agpface2.bmp", kGlobal, -8)) {
+    if (const Image *face = load("agpface2.bmp", kGlobal, -8)) {
         blit(screen, *face, octant, (int)cx - face->surface.w / 2, (int)cy - face->frameHeight / 2, kFirstPixel, &kMap);
     } else {
-        screen.fillRect(Rect((int)cx - 1, (int)cy - 1, (int)cx + 2, (int)cy + 2),
-                        palette.findBestColor(255, 255, 255));
+        screen.fillRect(Rect((int)cx - 1, (int)cy - 1, (int)cx + 2, (int)cy + 2), palette.findBestColor(255, 255, 255));
     }
 
     // The buttons are strips of 27-row frames: the height band lit, the
     // zoom, and each filter dim (0) or lit (1).
-    if (const Image* levelsButton = load("levels.bmp", kGlobal, kButtonHeight))
+    if (const Image *levelsButton = load("levels.bmp", kGlobal, kButtonHeight))
         blit(screen, *levelsButton, _mapBand, kLevelsButton.left, kLevelsButton.top);
-    if (const Image* zoom = load("zoomz.bmp", kGlobal, kButtonHeight))
+    if (const Image *zoom = load("zoomz.bmp", kGlobal, kButtonHeight))
         blit(screen, *zoom, _mapZoom, kZoomButton.left, kZoomButton.top);
     for (int i = 0; i < 3; i++) {
-        if (const Image* filter = load(kFilterImages[i], kGlobal, kButtonHeight))
+        if (const Image *filter = load(kFilterImages[i], kGlobal, kButtonHeight))
             blit(screen, *filter, _filters[i] ? 1 : 0, kFilterButtons[i].left, kFilterButtons[i].top);
     }
 }
 
-void HudScreen::drawPanel(Canvas& screen, Mission& mission, uint32_t time) {
-    const Hud& hud = mission.getHud();
-    const Hud::Panel* panel = hud.getVisiblePanel();
+void HudScreen::drawPanel(Canvas &screen, Mission &mission, uint32_t time) {
+    const Hud &hud = mission.getHud();
+    const Hud::Panel *panel = hud.getVisiblePanel();
     if (!panel) {
-        if (const Image* background = load("AUXDEF.BMP", kMission))
+        if (const Image *background = load("AUXDEF.BMP", kMission))
             blit(screen, *background, 0, kViewer.left, kViewer.top);
     } else {
-        if (const Image* image = loadScriptImage(panel->image, Hud::kPanelHeight))
+        if (const Image *image = loadScriptImage(panel->image, Hud::kPanelHeight))
             blit(screen, *image, panel->frame, kViewer.left, kViewer.top, -1, &kViewer);
-        for (const Hud::Button& button : panel->buttons) {
+        for (const Hud::Button &button : panel->buttons) {
             if (button.hotspot)
                 continue;
-            if (const Image* image = loadScriptImage(button.image, button.rect.height()))
+            if (const Image *image = loadScriptImage(button.image, button.rect.height()))
                 blit(screen, *image, button.frame, kViewer.left + button.rect.left, kViewer.top + button.rect.top,
                      button.keyed ? kFirstPixel : kOpaque, &kViewer);
         }
     }
     // The cycle button blinks while there is more than one panel.
-    if (const Image* cycle = load("auxcycle.bmp", kGlobal, kAuxCycle.height())) {
+    if (const Image *cycle = load("auxcycle.bmp", kGlobal, kAuxCycle.height())) {
         int frame = hud.getPanelCount() > 1 && (time / 500) % 2 ? 1 : 0;
         blit(screen, *cycle, frame, kAuxCycle.left, kAuxCycle.top);
     }
 }
 
-void HudScreen::drawInventory(Canvas& screen, Mission& mission) {
-    const Image* icons = load("INVENT.BMP", kMission, kIconHeight);
-    const Hud& hud = mission.getHud();
+void HudScreen::drawInventory(Canvas &screen, Mission &mission) {
+    const Image *icons = load("INVENT.BMP", kMission, kIconHeight);
+    const Hud &hud = mission.getHud();
     for (int slot = 0; slot < Hud::kSlots; slot++) {
         uint16_t id = hud.getSlot(slot);
         if (!id)
@@ -333,7 +332,7 @@ void HudScreen::drawInventory(Canvas& screen, Mission& mission) {
             blit(screen, *icons, icon, x, y, kFirstPixel);
         // Greyed out (grayout.bmp, its checks see-through), or framed if in use.
         if (!hud.isSlotEnabled(slot)) {
-            if (const Image* grey = load("grayout.bmp", kGlobal))
+            if (const Image *grey = load("grayout.bmp", kGlobal))
                 blit(screen, *grey, 0, x, y, kFirstPixel);
         } else if (id == mission.getActiveItem()) {
             screen.frameRect(Rect(x + 1, y + 1, x + 63, y + 45), kActiveColour);
@@ -350,7 +349,7 @@ int HudScreen::findSlot(int x, int y) {
     return -1;
 }
 
-bool HudScreen::mouseDown(Mission& mission, int x, int y, bool right) {
+bool HudScreen::mouseDown(Mission &mission, int x, int y, bool right) {
     if (!_console || y < kView.bottom)
         return false;
     for (int i = 0; i < 3; i++) {
@@ -375,7 +374,7 @@ bool HudScreen::mouseDown(Mission& mission, int x, int y, bool right) {
             return true;
         }
     }
-    Hud& hud = mission.getHud();
+    Hud &hud = mission.getHud();
     int slot = findSlot(x, y);
     if (slot >= 0 && !hud.isSlotEnabled(slot))
         return true;
@@ -393,7 +392,7 @@ bool HudScreen::mouseDown(Mission& mission, int x, int y, bool right) {
     }
     if (kWeaponDisplay.contains(x, y)) {
         // 0x44B896: the phaser's display sets the power level.
-        const Mission::Item* item = mission.getItem(mission.getActiveItem());
+        const Mission::Item *item = mission.getItem(mission.getActiveItem());
         if (item && item->kind == 2)
             mission.setItemLevel((x - 239) / 11 + 1);
         return true;
@@ -432,7 +431,7 @@ void HudScreen::mouseMove(int x, int y) {
         _dragging = true;
 }
 
-bool HudScreen::mouseUp(Mission& mission, int x, int y) {
+bool HudScreen::mouseUp(Mission &mission, int x, int y) {
     if (_pressedSlot < 0)
         return false;
     int slot = _pressedSlot;
@@ -451,14 +450,13 @@ bool HudScreen::mouseUp(Mission& mission, int x, int y) {
     return true;
 }
 
-void HudScreen::drawDrag(Canvas& screen, Mission& mission) {
+void HudScreen::drawDrag(Canvas &screen, Mission &mission) {
     if (!_dragging || _pressedSlot < 0)
         return;
-    const Image* icons = load("INVENT.BMP", kMission, kIconHeight);
+    const Image *icons = load("INVENT.BMP", kMission, kIconHeight);
     uint16_t id = mission.getHud().getSlot(_pressedSlot);
     if (icons && id && mission.getItemIcon(id) >= 0)
-        blit(screen, *icons, mission.getItemIcon(id), _mouseX - kIconWidth / 2, _mouseY - kIconHeight / 2,
-             kFirstPixel);
+        blit(screen, *icons, mission.getItemIcon(id), _mouseX - kIconWidth / 2, _mouseY - kIconHeight / 2, kFirstPixel);
 }
 
 } // namespace reluva::stgenerations

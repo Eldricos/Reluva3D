@@ -18,8 +18,6 @@ namespace {
 
 using namespace reluva::audio;
 
-
-
 namespace {
 
 constexpr int kRate = 44100;
@@ -142,7 +140,7 @@ void testNoDominance() {
     std::mt19937 rng(1);
     std::normal_distribution<float> n(0, 0.1f);
     std::vector<float> in(2 * kRate), out(4 * kRate);
-    for (float& v : in)
+    for (float &v : in)
         v = n(rng);
     dec.process(in.data(), out.data(), kRate);
     CHECK(dec.dominance() < 0.2);
@@ -165,8 +163,8 @@ void testSwitch() {
         dec.process(in.data() + 2 * i, out.data() + 4 * i, 441);
         dirs.push_back(dec.direction());
     }
-    CHECK(std::fabs(dirs[45] - 45) < 1);                    // 0.45 s: centre
-    CHECK(std::fabs(dirs[50 + 10] - 135) < 2);               // 0.1 s after the switch: surround
+    CHECK(std::fabs(dirs[45] - 45) < 1);       // 0.45 s: centre
+    CHECK(std::fabs(dirs[50 + 10] - 135) < 2); // 0.1 s after the switch: surround
 }
 
 void testLayout() {
@@ -185,13 +183,14 @@ void testLayout() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.prologic", {
-    {"centre", [](const std::filesystem::path&) { testCentre(); }},
-    {"left", [](const std::filesystem::path&) { testLeft(); }},
-    {"surround", [](const std::filesystem::path&) { testSurround(); }},
-    {"surround delay", [](const std::filesystem::path&) { testSurroundDelay(); }},
-    {"panned", [](const std::filesystem::path&) { testPanned(); }},
-    {"no dominance", [](const std::filesystem::path&) { testNoDominance(); }},
-    {"switch", [](const std::filesystem::path&) { testSwitch(); }},
-    {"layout", [](const std::filesystem::path&) { testLayout(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.prologic", {
+                                       {"centre", [](const std::filesystem::path &) { testCentre(); }},
+                                       {"left", [](const std::filesystem::path &) { testLeft(); }},
+                                       {"surround", [](const std::filesystem::path &) { testSurround(); }},
+                                       {"surround delay", [](const std::filesystem::path &) { testSurroundDelay(); }},
+                                       {"panned", [](const std::filesystem::path &) { testPanned(); }},
+                                       {"no dominance", [](const std::filesystem::path &) { testNoDominance(); }},
+                                       {"switch", [](const std::filesystem::path &) { testSwitch(); }},
+                                       {"layout", [](const std::filesystem::path &) { testLayout(); }},
+                                   });

@@ -34,23 +34,34 @@ constexpr uint32_t kEINTR = 10004, kEFAULT = 10014, kEINVAL = 10022, kEMFILE = 1
 
 uint32_t wsError(Result r) {
     switch (r) {
-    case Result::Ok: return 0;
-    case Result::WouldBlock: return kEWOULDBLOCK;
-    case Result::InProgress: return kEWOULDBLOCK; // Winsock 1.1's for a non-blocking connect
-    case Result::Refused: return kECONNREFUSED;
-    case Result::Reset: return kECONNRESET;
-    case Result::NotConnected: return kENOTCONN;
-    case Result::AddressInUse: return kEADDRINUSE;
-    case Result::AddressNotAvailable: return kEADDRNOTAVAIL;
-    case Result::Unreachable: return kENETUNREACH;
-    case Result::Invalid: return kEINVAL;
-    case Result::Failed: return kEFAULT;
+    case Result::Ok:
+        return 0;
+    case Result::WouldBlock:
+        return kEWOULDBLOCK;
+    case Result::InProgress:
+        return kEWOULDBLOCK; // Winsock 1.1's for a non-blocking connect
+    case Result::Refused:
+        return kECONNREFUSED;
+    case Result::Reset:
+        return kECONNRESET;
+    case Result::NotConnected:
+        return kENOTCONN;
+    case Result::AddressInUse:
+        return kEADDRINUSE;
+    case Result::AddressNotAvailable:
+        return kEADDRNOTAVAIL;
+    case Result::Unreachable:
+        return kENETUNREACH;
+    case Result::Invalid:
+        return kEINVAL;
+    case Result::Failed:
+        return kEFAULT;
     }
     return kEFAULT;
 }
 
 // sockaddr_in: family (2), port and address in network order.
-bool readAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
+bool readAddress(Cpu &c, uint32_t at, uint32_t length, net::Address &out) {
     if (!at || length < 8 || c.read16(at) != 2) // AF_INET
         return false;
     out.port = uint16_t(c.read8(at + 2) << 8 | c.read8(at + 3));
@@ -62,7 +73,7 @@ bool readAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
 // SOCKADDR_IPX: family (6), network (4 bytes), node (6), socket (in
 // network order); 14 bytes. The node's first four bytes are the IPv4
 // address carrying it (all FF: broadcast), the socket the UDP port.
-bool readIpxAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
+bool readIpxAddress(Cpu &c, uint32_t at, uint32_t length, net::Address &out) {
     if (!at || length < 14 || c.read16(at) != 6) // AF_IPX
         return false;
     bool broadcast = true;
@@ -75,7 +86,7 @@ bool readIpxAddress(Cpu& c, uint32_t at, uint32_t length, net::Address& out) {
     return true;
 }
 
-void writeIpxAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a) {
+void writeIpxAddress(Cpu &c, uint32_t at, uint32_t lengthAt, const net::Address &a) {
     if (!at || (lengthAt && c.read32(lengthAt) < 14))
         return;
     c.write16(at, 6);
@@ -91,7 +102,7 @@ void writeIpxAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address&
         c.write32(lengthAt, 14);
 }
 
-void writeAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a) {
+void writeAddress(Cpu &c, uint32_t at, uint32_t lengthAt, const net::Address &a) {
     if (!at)
         return;
     if (lengthAt && c.read32(lengthAt) < 16)
@@ -111,13 +122,16 @@ void writeAddress(Cpu& c, uint32_t at, uint32_t lengthAt, const net::Address& a)
 
 } // namespace
 
-void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address& peer, const uint8_t* data, size_t size,
+void GameHost::logTraffic(bool sent, uint32_t handle, const net::Address &peer, const uint8_t *data, size_t size,
                           bool dropped) {
     if (!netLog_ || !size)
         return;
     const uint32_t ms = process_->milliseconds ? process_->milliseconds() : 0;
-    std::fprintf(netLog_, "%u %c %u %s %zu ", ms, dropped ? 'x' : sent ? '>' : '<', handle, peer.toString().c_str(),
-                 size);
+    std::fprintf(netLog_, "%u %c %u %s %zu ", ms,
+                 dropped ? 'x'
+                 : sent  ? '>'
+                         : '<',
+                 handle, peer.toString().c_str(), size);
     for (size_t i = 0; i < size; ++i)
         std::fprintf(netLog_, "%02x", data[i]);
     std::fprintf(netLog_, "\n");
@@ -134,14 +148,14 @@ bool GameHost::dropOutgoing() {
 void GameHost::addNetwork() {
     if (!options_.netLog.empty() && !netLog_)
         netLog_ = std::fopen(options_.netLog.c_str(), "w");
-    const char* w = "WSOCK32.dll";
-    net::Sockets* net = options_.sockets.get();
+    const char *w = "WSOCK32.dll";
+    net::Sockets *net = options_.sockets.get();
     auto self = [this] { return process_->currentThread() ? process_->currentThread()->id : 0u; };
     auto fail = [this, self](uint32_t error) {
         wsLastError_[self()] = error;
         return kSocketError;
     };
-    auto find = [this](uint32_t handle) -> WsSocket* {
+    auto find = [this](uint32_t handle) -> WsSocket * {
         auto it = wsSockets_.find(handle);
         return it == wsSockets_.end() ? nullptr : &it->second;
     };
@@ -153,7 +167,7 @@ void GameHost::addNetwork() {
     };
     // A socket not yet bound, given Options::netAddress before it's used,
     // so what it sends comes from there.
-    auto bindIfNeeded = [this, net](WsSocket& s) {
+    auto bindIfNeeded = [this, net](WsSocket &s) {
         if (s.bound || !options_.netAddress)
             return;
         net->bind(s.socket, {options_.netAddress, 0});
@@ -162,7 +176,7 @@ void GameHost::addNetwork() {
     // Calls again while it would block, if the socket blocks: waiting for
     // it to be readable (or writable), the game's other threads running.
     // (By the socket's number, in case another thread closes it meanwhile.)
-    auto blocking = [this, net](const WsSocket& s, bool forWrite, const std::function<Result()>& call) {
+    auto blocking = [this, net](const WsSocket &s, bool forWrite, const std::function<Result()> &call) {
         const int socket = s.socket;
         const bool nonBlocking = s.nonBlocking;
         Result r = call();
@@ -179,13 +193,13 @@ void GameHost::addNetwork() {
         }
         return r;
     };
-    auto log = [this](const std::string& line) {
+    auto log = [this](const std::string &line) {
         if (options_.callLog)
             say("  winsock: " + line);
     };
 
     // WSAStartup(version, WSADATA*): version 1.1, if there's a network.
-    provide(w, "#115", 2, [this, net](Cpu& c) {
+    provide(w, "#115", 2, [this, net](Cpu &c) {
         if (!net)
             return kSYSNOTREADY;
         const uint32_t d = c.arg(1);
@@ -202,24 +216,24 @@ void GameHost::addNetwork() {
         wsStarted_ = true;
         return 0u;
     });
-    provide(w, "#116", 0, [this, net](Cpu&) { // WSACleanup: the sockets left closed
-        for (const auto& entry : wsSockets_) // (not a structured binding: Visual Studio wants it captured)
+    provide(w, "#116", 0, [this, net](Cpu &) { // WSACleanup: the sockets left closed
+        for (const auto &entry : wsSockets_)   // (not a structured binding: Visual Studio wants it captured)
             net->close(entry.second.socket);
         wsSockets_.clear();
         wsStarted_ = false;
         return 0u;
     });
-    provide(w, "#111", 0, [this, net, self](Cpu&) { // WSAGetLastError
+    provide(w, "#111", 0, [this, net, self](Cpu &) { // WSAGetLastError
         return net ? wsLastError_[self()] : kSYSNOTREADY;
     });
-    provide(w, "#112", 1, [this, self](Cpu& c) { // WSASetLastError
+    provide(w, "#112", 1, [this, self](Cpu &c) { // WSASetLastError
         wsLastError_[self()] = c.arg(0);
         return 0u;
     });
 
     // socket(af, type, protocol): TCP and UDP over IPv4, and IPX datagrams
     // (AF_IPX 6, SOCK_DGRAM, NSPROTO_IPX 1000-1255) over UDP; not SPX.
-    provide(w, "#23", 3, [this, net, fail, log](Cpu& c) {
+    provide(w, "#23", 3, [this, net, fail, log](Cpu &c) {
         if (!wsStarted_)
             return fail(kNOTINITIALISED);
         const bool ipx = c.arg(0) == 6;
@@ -240,16 +254,16 @@ void GameHost::addNetwork() {
         log("socket " + std::to_string(handle) + (s.stream ? " (TCP)" : s.ipx ? " (IPX)" : " (UDP)"));
         return handle;
     });
-    provide(w, "#3", 1, [this, net, find, fail](Cpu& c) { // closesocket
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#3", 1, [this, net, find, fail](Cpu &c) { // closesocket
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         net->close(s->socket);
         wsSockets_.erase(c.arg(0));
         return 0u;
     });
-    provide(w, "#2", 3, [net, find, fail, ours, log](Cpu& c) { // bind(s, name, namelen)
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#2", 3, [net, find, fail, ours, log](Cpu &c) { // bind(s, name, namelen)
+        WsSocket *s = find(c.arg(0));
         net::Address a;
         if (!s)
             return fail(kENOTSOCK);
@@ -263,15 +277,15 @@ void GameHost::addNetwork() {
         s->bound = true;
         return 0u;
     });
-    provide(w, "#13", 2, [net, find, fail](Cpu& c) { // listen(s, backlog)
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#13", 2, [net, find, fail](Cpu &c) { // listen(s, backlog)
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         const Result r = net->listen(s->socket, int(c.arg(1)));
         return r == Result::Ok ? 0u : fail(wsError(r));
     });
-    provide(w, "#1", 3, [this, net, find, fail, blocking, log](Cpu& c) { // accept(s, addr, addrlen)
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#1", 3, [this, net, find, fail, blocking, log](Cpu &c) { // accept(s, addr, addrlen)
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         int accepted = -1;
@@ -294,8 +308,8 @@ void GameHost::addNetwork() {
     });
     // connect(s, name, namelen): a non-blocking one is under way
     // (WSAEWOULDBLOCK) until select says it's writable.
-    provide(w, "#4", 3, [net, find, fail, bindIfNeeded, blocking, log](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#4", 3, [net, find, fail, bindIfNeeded, blocking, log](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         net::Address to;
         if (!s)
             return fail(kENOTSOCK);
@@ -311,11 +325,13 @@ void GameHost::addNetwork() {
             });
         }
         log("connect " + std::to_string(c.arg(0)) + " to " + to.toString() +
-            (r == Result::Ok ? "" : r == Result::InProgress ? ": under way" : ": failed"));
+            (r == Result::Ok           ? ""
+             : r == Result::InProgress ? ": under way"
+                                       : ": failed"));
         return r == Result::Ok ? 0u : fail(wsError(r));
     });
-    provide(w, "#22", 2, [net, find, fail](Cpu& c) { // shutdown(s, how)
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#22", 2, [net, find, fail](Cpu &c) { // shutdown(s, how)
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         const Result r = net->shutdown(s->socket, int(c.arg(1)));
@@ -330,8 +346,8 @@ void GameHost::addNetwork() {
         return ip;
     };
     for (const bool peer : {true, false}) // getpeername (5), getsockname (6)
-        provide(w, peer ? "#5" : "#6", 3, [net, find, fail, peer, ipxNode](Cpu& c) {
-            WsSocket* s = find(c.arg(0));
+        provide(w, peer ? "#5" : "#6", 3, [net, find, fail, peer, ipxNode](Cpu &c) {
+            WsSocket *s = find(c.arg(0));
             if (!s)
                 return fail(kENOTSOCK);
             net::Address a;
@@ -349,8 +365,8 @@ void GameHost::addNetwork() {
         });
 
     // send(s, buf, len, flags), recv(s, buf, len, flags): MSG_PEEK (2).
-    provide(w, "#19", 4, [this, net, find, fail, blocking](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#19", 4, [this, net, find, fail, blocking](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         std::vector<uint8_t> data(c.arg(2));
@@ -372,8 +388,8 @@ void GameHost::addNetwork() {
         }
         return r == Result::Ok ? uint32_t(done) : fail(wsError(r));
     });
-    provide(w, "#16", 4, [this, net, find, fail, blocking](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#16", 4, [this, net, find, fail, blocking](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         std::vector<uint8_t> data(c.arg(2));
@@ -394,8 +410,8 @@ void GameHost::addNetwork() {
     });
     // sendto(s, buf, len, flags, to, tolen): a broadcast to each of
     // Options::broadcastTo if given.
-    provide(w, "#20", 6, [this, net, find, fail, bindIfNeeded](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#20", 6, [this, net, find, fail, bindIfNeeded](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         net::Address to;
         if (!s)
             return fail(kENOTSOCK);
@@ -421,15 +437,15 @@ void GameHost::addNetwork() {
             return c.arg(2);
         }
         Result r = Result::Ok;
-        for (const net::Address& t : targets)
+        for (const net::Address &t : targets)
             if (!(options_.netAddress && t.ip == options_.netAddress)) // not to itself
                 r = net->sendTo(s->socket, t, data.data(), data.size());
         logTraffic(true, c.arg(0), to, data.data(), data.size());
         return r == Result::Ok ? c.arg(2) : fail(wsError(r));
     });
     // recvfrom(s, buf, len, flags, from, fromlen).
-    provide(w, "#17", 6, [this, net, find, fail, blocking](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#17", 6, [this, net, find, fail, blocking](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         std::vector<uint8_t> data(c.arg(2));
@@ -450,8 +466,8 @@ void GameHost::addNetwork() {
     });
 
     // ioctlsocket(s, cmd, argp): FIONBIO, FIONREAD, SIOCATMARK.
-    provide(w, "#12", 3, [net, find, fail](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#12", 3, [net, find, fail](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         switch (c.arg(1)) {
@@ -472,12 +488,14 @@ void GameHost::addNetwork() {
         }
     });
     // setsockopt(s, level, name, value, length), getsockopt(...).
-    provide(w, "#21", 5, [net, find, fail, log](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#21", 5, [net, find, fail, log](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         const uint32_t level = c.arg(1), name = c.arg(2);
-        const int value = c.arg(3) && c.arg(4) >= 4 ? int(c.read32(c.arg(3))) : c.arg(3) && c.arg(4) ? c.read8(c.arg(3)) : 0;
+        const int value = c.arg(3) && c.arg(4) >= 4 ? int(c.read32(c.arg(3)))
+                          : c.arg(3) && c.arg(4)    ? c.read8(c.arg(3))
+                                                    : 0;
         using O = net::Sockets::Option;
         O option;
         int v = value;
@@ -506,8 +524,8 @@ void GameHost::addNetwork() {
     // getsockopt: zeros (SO_ERROR none, SO_TYPE from the socket); for IPX
     // (NSPROTO_IPX), one adapter (IPX_MAX_ADAPTER_NUM) and its address
     // (IPX_ADDRESS: network 0, node this machine's address).
-    provide(w, "#7", 5, [find, fail, ipxNode, log](Cpu& c) {
-        WsSocket* s = find(c.arg(0));
+    provide(w, "#7", 5, [find, fail, ipxNode, log](Cpu &c) {
+        WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         if (!c.arg(3) || !c.arg(4))
@@ -527,9 +545,9 @@ void GameHost::addNetwork() {
             c.write8(at + 9, uint8_t(ip >> 16));
             c.write8(at + 10, uint8_t(ip >> 8));
             c.write8(at + 11, uint8_t(ip));
-            c.write8(at + 15, 1);         // status: up
-            c.write32(at + 16, 1470);     // the largest packet: what a UDP datagram carries safely
-            c.write32(at + 20, 100000);   // link speed, in 100 bit/s units: 10 Mbit/s
+            c.write8(at + 15, 1);       // status: up
+            c.write32(at + 16, 1470);   // the largest packet: what a UDP datagram carries safely
+            c.write32(at + 20, 100000); // link speed, in 100 bit/s units: 10 Mbit/s
             c.write32(c.arg(4), 24);
             return 0u;
         }
@@ -544,7 +562,7 @@ void GameHost::addNetwork() {
     // select(nfds, readfds, writefds, exceptfds, timeout): fd_set is a count
     // and up to 64 sockets; each set is left with those ready. A null
     // timeout waits for ever.
-    provide(w, "#18", 5, [this, net, find, fail](Cpu& c) {
+    provide(w, "#18", 5, [this, net, find, fail](Cpu &c) {
         struct Entry {
             uint32_t handle;
             int socket;
@@ -558,7 +576,7 @@ void GameHost::addNetwork() {
             const uint32_t count = std::min<uint32_t>(c.read32(at), 64);
             for (uint32_t i = 0; i < count; ++i) {
                 const uint32_t handle = c.read32(at + 4 + 4 * i);
-                WsSocket* s = find(handle);
+                WsSocket *s = find(handle);
                 if (!s)
                     return fail(kENOTSOCK);
                 entries.push_back({handle, s->socket, set});
@@ -597,7 +615,7 @@ void GameHost::addNetwork() {
         }
         return total;
     });
-    provide(w, "#151", 2, [](Cpu& c) { // __WSAFDIsSet(s, fd_set)
+    provide(w, "#151", 2, [](Cpu &c) { // __WSAFDIsSet(s, fd_set)
         const uint32_t at = c.arg(1), count = std::min<uint32_t>(c.read32(at), 64);
         for (uint32_t i = 0; i < count; ++i)
             if (c.read32(at + 4 + 4 * i) == c.arg(0))
@@ -608,11 +626,11 @@ void GameHost::addNetwork() {
     // Byte order and dotted addresses.
     auto swap16 = [](uint32_t v) { return ((v & 0xff) << 8) | ((v >> 8) & 0xff); };
     auto swap32 = [](uint32_t v) { return (v >> 24) | ((v >> 8) & 0xff00) | ((v << 8) & 0xff0000) | (v << 24); };
-    provide(w, "#9", 1, [swap16](Cpu& c) { return swap16(c.arg(0)); });  // htons
-    provide(w, "#15", 1, [swap16](Cpu& c) { return swap16(c.arg(0)); }); // ntohs
-    provide(w, "#8", 1, [swap32](Cpu& c) { return swap32(c.arg(0)); });  // htonl
-    provide(w, "#14", 1, [swap32](Cpu& c) { return swap32(c.arg(0)); }); // ntohl
-    provide(w, "#10", 1, [](Cpu& c) {                                     // inet_addr
+    provide(w, "#9", 1, [swap16](Cpu &c) { return swap16(c.arg(0)); });  // htons
+    provide(w, "#15", 1, [swap16](Cpu &c) { return swap16(c.arg(0)); }); // ntohs
+    provide(w, "#8", 1, [swap32](Cpu &c) { return swap32(c.arg(0)); });  // htonl
+    provide(w, "#14", 1, [swap32](Cpu &c) { return swap32(c.arg(0)); }); // ntohl
+    provide(w, "#10", 1, [](Cpu &c) {                                    // inet_addr
         unsigned a = 0, b = 0, d = 0, e = 0;
         char extra = 0;
         if (std::sscanf(c.string(c.arg(0), 32).c_str(), "%u.%u.%u.%u%c", &a, &b, &d, &e, &extra) != 4 || a > 255 ||
@@ -628,7 +646,7 @@ void GameHost::addNetwork() {
             wsBuffer_ = process_->memory().alloc(384);
         return wsBuffer_;
     };
-    provide(w, "#11", 1, [buffer](Cpu& c) { // inet_ntoa
+    provide(w, "#11", 1, [buffer](Cpu &c) { // inet_ntoa
         const uint32_t v = c.arg(0), at = buffer();
         char text[16];
         std::snprintf(text, sizeof text, "%u.%u.%u.%u", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >> 24);
@@ -645,7 +663,7 @@ void GameHost::addNetwork() {
         }
         return net ? net->hostName() : std::string("localhost");
     };
-    provide(w, "#57", 2, [this, ourName, fail](Cpu& c) {
+    provide(w, "#57", 2, [this, ourName, fail](Cpu &c) {
         if (!wsStarted_)
             return fail(kNOTINITIALISED);
         const std::string name = ourName();
@@ -656,7 +674,7 @@ void GameHost::addNetwork() {
     });
     // gethostbyname(name): one IPv4 address; this machine's own name as
     // Options::netAddress if set.
-    provide(w, "#52", 1, [this, net, buffer, ourName, self, log](Cpu& c) -> uint32_t {
+    provide(w, "#52", 1, [this, net, buffer, ourName, self, log](Cpu &c) -> uint32_t {
         if (!wsStarted_) {
             wsLastError_[self()] = kNOTINITIALISED;
             return 0;
@@ -672,11 +690,11 @@ void GameHost::addNetwork() {
         }
         const uint32_t at = buffer(), h = at + 32;
         c.writeString(at + 64, name, 256);
-        c.write32(h, at + 64);       // h_name
-        c.write32(h + 4, at + 60);   // h_aliases: none
-        c.write16(h + 8, 2);         // AF_INET
+        c.write32(h, at + 64);     // h_name
+        c.write32(h + 4, at + 60); // h_aliases: none
+        c.write16(h + 8, 2);       // AF_INET
         c.write16(h + 10, 4);
-        c.write32(h + 12, at + 48);  // h_addr_list
+        c.write32(h + 12, at + 48); // h_addr_list
         c.write32(at + 48, at + 56);
         c.write32(at + 52, 0);
         c.write8(at + 56, uint8_t(ip >> 24));

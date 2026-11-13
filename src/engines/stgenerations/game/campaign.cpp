@@ -12,30 +12,34 @@ namespace reluva::stgenerations {
 
 namespace {
 
-int toInt(const std::vector<std::string>& words, size_t i) {
+int toInt(const std::vector<std::string> &words, size_t i) {
     return i < words.size() ? std::atoi(words[i].c_str()) : 0;
 }
 
-std::string word(const std::vector<std::string>& words, size_t i) {
+std::string word(const std::vector<std::string> &words, size_t i) {
     return i < words.size() ? text::toLower(words[i]) : std::string();
 }
 
 template<typename T>
-void syncSet(Serializer& s, std::set<T>& values, void (*sync)(Serializer &, T&)) {
+void syncSet(Serializer &s, std::set<T> &values, void (*sync)(Serializer &, T &)) {
     std::vector<T> list(values.begin(), values.end());
     s.syncVector(list, sync);
     if (s.isLoading())
         values = std::set<T>(list.begin(), list.end());
 }
 
-void syncInt(Serializer& s, int& v) { s.syncAsInt(v); }
-void syncString(Serializer& s, std::string& v) { s.syncString(v); }
+void syncInt(Serializer &s, int &v) {
+    s.syncAsInt(v);
+}
+void syncString(Serializer &s, std::string &v) {
+    s.syncString(v);
+}
 
 } // namespace
 
-bool Campaign::load(const std::string& text) {
+bool Campaign::load(const std::string &text) {
     _sections.clear();
-    std::vector<std::vector<std::string>>* section = nullptr;
+    std::vector<std::vector<std::string>> *section = nullptr;
     for (std::string line : text::split(text, '\n')) {
         size_t comment = line.find(';');
         if (comment != std::string::npos)
@@ -72,12 +76,12 @@ bool Campaign::load(const std::string& text) {
 
 std::vector<std::string> Campaign::getSectionNames() const {
     std::vector<std::string> names;
-    for (const auto& section : _sections)
+    for (const auto &section : _sections)
         names.push_back(section.first);
     return names;
 }
 
-void Campaign::start(const std::string& section) {
+void Campaign::start(const std::string &section) {
     _flags.clear();
     _played.clear();
     _won.clear();
@@ -96,7 +100,7 @@ void Campaign::start(const std::string& section) {
     jump(section);
 }
 
-void Campaign::jump(const std::string& section) {
+void Campaign::jump(const std::string &section) {
     _section = text::toLower(section);
     _line = 0;
     if (!_sections.count(_section)) {
@@ -129,7 +133,7 @@ Campaign::Action Campaign::next() {
     }
     // A bound on lines run without an action, in case of a loop.
     for (int steps = 0; _running && !_mission && !_combat && steps < 10000; steps++) {
-        const std::vector<std::vector<std::string>>& lines = _sections[_section];
+        const std::vector<std::vector<std::string>> &lines = _sections[_section];
         if (_line >= lines.size()) {
             // The original waits on the bridge here, for the player to
             // beam down or engage; with no bridge, nothing more can happen.
@@ -189,9 +193,9 @@ void Campaign::combatEnded(CombatResult result) {
         // A fleet beaten stays beaten; a roaming one that got away attacks
         // next time.
         if (result == kCombatWon)
-            _world->bridgeCommand("setfleetflag", { std::to_string(fleet), "8", "TRUE" });
+            _world->bridgeCommand("setfleetflag", {std::to_string(fleet), "8", "TRUE"});
         if (fleet > 12 && fleet < 25)
-            _world->bridgeCommand("fleetalert", { std::to_string(fleet), "Red" });
+            _world->bridgeCommand("fleetalert", {std::to_string(fleet), "Red"});
     }
     jump(result == kCombatWon ? _wonSection : _lostSection);
 }
@@ -208,14 +212,14 @@ void Campaign::startCombat(int fleet) {
     } else if (fleet > 12 && fleet < 25) {
         // The roaming fleets' sections end with Pop, back to the line the
         // script was on (0x41447D).
-        _stack.push_back({ _section, (int)_line });
+        _stack.push_back({_section, (int)_line});
         jump(text::format("FightFleet%d", fleet));
     } else {
         jump(text::format("SpaceCombat%d", fleet));
     }
 }
 
-bool Campaign::isWaitOver(const std::string& kind) const {
+bool Campaign::isWaitOver(const std::string &kind) const {
     // Without the bridge every Wait passes (0x4183E1).
     if (!_world || !_world->isBridgeShown())
         return true;
@@ -230,7 +234,7 @@ bool Campaign::isWaitOver(const std::string& kind) const {
     return false;
 }
 
-bool Campaign::test(const std::vector<std::string>& words, size_t& i) const {
+bool Campaign::test(const std::vector<std::string> &words, size_t &i) const {
     while (i < words.size()) {
         std::string w = word(words, i);
         if (w.compare(0, 2, "if") != 0)
@@ -245,9 +249,9 @@ bool Campaign::test(const std::vector<std::string>& words, size_t& i) const {
         } else if (w == "ifactiongameplayed" || w == "ifactiongamewon" || w == "ifactiongamelost" ||
                    w == "ifspacecombatplayed" || w == "ifspacecombatwon" || w == "ifspacecombatlost") {
             int n = toInt(words, i + 1) + (w.compare(2, 5, "space") == 0 ? 100 : 0);
-            const std::set<int>& set = text::hasSuffixIgnoreCase(w, "played") ? _played
+            const std::set<int> &set = text::hasSuffixIgnoreCase(w, "played") ? _played
                                        : text::hasSuffixIgnoreCase(w, "won")  ? _won
-                                                                                : _lost;
+                                                                              : _lost;
             pass = set.count(n) != 0;
             i += 2;
         } else if (w == "ifsunsdestroyed") {
@@ -276,7 +280,7 @@ bool Campaign::test(const std::vector<std::string>& words, size_t& i) const {
     return true;
 }
 
-Campaign::Result Campaign::execute(const std::vector<std::string>& words, Action& action) {
+Campaign::Result Campaign::execute(const std::vector<std::string> &words, Action &action) {
     size_t i = 0;
     if (!test(words, i) || i >= words.size())
         return kNext;
@@ -292,7 +296,7 @@ Campaign::Result Campaign::execute(const std::vector<std::string>& words, Action
             jump(words[a + (_random ? _random(count) : 0)]);
     } else if (command == "call") {
         // The caller's place stays on the Call (0x4118E9 doesn't advance it).
-        _stack.push_back({ _section, (int)_line - 1 });
+        _stack.push_back({_section, (int)_line - 1});
         jump(words.size() > a ? words[a] : std::string());
     } else if (command == "pop" || command == "return") {
         if (_stack.empty()) {
@@ -381,7 +385,7 @@ Campaign::Result Campaign::execute(const std::vector<std::string>& words, Action
     return kNext;
 }
 
-void Campaign::sync(Serializer& s) {
+void Campaign::sync(Serializer &s) {
     if (s.isLoading())
         _replayCombat = false;
     s.syncString(_section);
@@ -399,7 +403,7 @@ void Campaign::sync(Serializer& s) {
     syncSet<int>(s, _lost, syncInt);
     syncSet<std::string>(s, _destroyed, syncString);
     syncSet<std::string>(s, _objectFlags, syncString);
-    s.syncVector(_stack, [](Serializer& ser, std::pair<std::string, int>& entry) {
+    s.syncVector(_stack, [](Serializer &ser, std::pair<std::string, int> &entry) {
         ser.syncString(entry.first);
         ser.syncAsInt(entry.second);
     });

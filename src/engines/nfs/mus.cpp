@@ -12,13 +12,13 @@ namespace reluva::nfs {
 
 namespace {
 
-uint32_t le32(const uint8_t* p) {
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
-uint32_t be32(const uint8_t* p) {
-    return static_cast<uint32_t>(p[0]) << 24 | static_cast<uint32_t>(p[1]) << 16 |
-           static_cast<uint32_t>(p[2]) << 8 | p[3];
+uint32_t be32(const uint8_t *p) {
+    return static_cast<uint32_t>(p[0]) << 24 | static_cast<uint32_t>(p[1]) << 16 | static_cast<uint32_t>(p[2]) << 8 |
+           p[3];
 }
 
 constexpr size_t kMapHeader = 12, kSectionSize = 28, kEventSize = 16;
@@ -28,15 +28,15 @@ constexpr size_t kMapHeader = 12, kSectionSize = 28, kEventSize = 16;
 Error MusicStream::open(std::vector<uint8_t> data) {
     data_ = std::move(data);
     segments_.clear();
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .mus file: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .mus file: " + why); };
     // Chunks: 4-character tag, u32 size (the 8 bytes included).
     size_t at = 0;
-    Segment* current = nullptr;
+    Segment *current = nullptr;
     while (at + 8 <= data_.size()) {
         const uint32_t size = le32(&data_[at + 4]);
         if (size < 8 || at + size > data_.size())
             return bad("a chunk runs past the end");
-        const char* tag = reinterpret_cast<const char*>(&data_[at]);
+        const char *tag = reinterpret_cast<const char *>(&data_[at]);
         if (std::memcmp(tag, "SCHl", 4) == 0) {
             Segment s;
             s.offset = static_cast<uint32_t>(at);
@@ -66,18 +66,18 @@ int MusicStream::segmentAt(uint32_t offset) const {
     return -1;
 }
 
-Error MusicStream::decode(size_t index, audio::Sound& out) const {
+Error MusicStream::decode(size_t index, audio::Sound &out) const {
     out = {};
     if (index >= segments_.size())
         return Error::fail("no segment " + std::to_string(index));
-    const Segment& s = segments_[index];
+    const Segment &s = segments_[index];
     out.rate = s.header.rate;
     out.channels = s.header.channels;
     if (s.header.channels != 2)
         return Error::fail("only stereo music is known");
     out.samples.reserve(size_t(s.header.samples) * 2);
-    for (const auto& [offset, size] : s.blocks) {
-        const uint8_t* p = data_.data() + offset;
+    for (const auto &[offset, size] : s.blocks) {
+        const uint8_t *p = data_.data() + offset;
         if (s.header.compression == SoundHeader::kEaXa) {
             out.format = audio::kFormatEaXa;
             if (Error err = audio::decodeEaXaStereoBlock(p, size, out.samples))
@@ -99,9 +99,9 @@ Error MusicStream::decode(size_t index, audio::Sound& out) const {
     return Error::success();
 }
 
-Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out) {
+Error parseMusicMap(const std::vector<uint8_t> &data, MusicMap &out) {
     out = {};
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid Pathfinder map: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid Pathfinder map: " + why); };
     if (data.size() < kMapHeader || std::memcmp(data.data(), "PFDx", 4) != 0)
         return bad("no PFDx header");
     out.version = data[4];
@@ -114,7 +114,7 @@ Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out) {
     if (data.size() != kMapHeader + sections * (kSectionSize + 4) + events * kEventSize)
         return bad("its size doesn't fit its counts");
     for (size_t i = 0; i < sections; ++i) {
-        const uint8_t* r = &data[kMapHeader + i * kSectionSize];
+        const uint8_t *r = &data[kMapHeader + i * kSectionSize];
         MusicMap::Section s;
         std::memcpy(s.raw.data(), r, kSectionSize);
         s.part = r[0];
@@ -145,7 +145,7 @@ int MusicMap::next(int section, int value) const {
         return -1;
     if (sections[section].routes.empty())
         return -1;
-    for (const Route& r : sections[section].routes)
+    for (const Route &r : sections[section].routes)
         if (value >= r.low && value <= r.high)
             return r.next;
     return section; // no route for the value: 0x4e6cd2 keeps the section

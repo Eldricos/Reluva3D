@@ -7,7 +7,7 @@
 
 // Runs the command named by argv[1] and returns its exit code, or -1 if
 // it isn't one of these.
-int runNfsCommand(int argc, char** argv);
+int runNfsCommand(int argc, char **argv);
 
 // Their lines of reluva-tool's usage text.
-extern const char* const kNfsUsage;
+extern const char *const kNfsUsage;

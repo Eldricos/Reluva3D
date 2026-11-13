@@ -25,7 +25,7 @@ constexpr double kPi = 3.14159265358979323846; // not M_PI: MSVC only has it wit
 constexpr uint32_t kAlphaFlag = 0x00100000;
 constexpr uint16_t kAudioDct = 0x1000, kAudioStereo = 0x2000;
 
-uint32_t le32(const uint8_t* p) {
+uint32_t le32(const uint8_t *p) {
     return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
 }
 
@@ -36,14 +36,16 @@ int log2Floor(uint32_t v) {
     return n;
 }
 
-uint8_t clampByte(int v) { return uint8_t(std::clamp(v, 0, 255)); }
+uint8_t clampByte(int v) {
+    return uint8_t(std::clamp(v, 0, 255));
+}
 
 // The 8x8 inverse DCT the format is coded for, in its fixed-point form
 // (constants 1/sqrt(2) and the rotations, << 11).
 constexpr int kA1 = 2896, kA2 = 2217, kA3 = 3784, kA4 = -5352;
 
-template <typename Out, typename Munge>
-void idct8(const int32_t* s, int step, Out* d, int dstep, Munge munge) {
+template<typename Out, typename Munge>
+void idct8(const int32_t *s, int step, Out *d, int dstep, Munge munge) {
     const int a0 = s[0] + s[4 * step], a1 = s[0] - s[4 * step];
     const int a2 = s[2 * step] + s[6 * step], a3 = (kA1 * (s[2 * step] - s[6 * step])) >> 11;
     const int a4 = s[5 * step] + s[3 * step], a5 = s[5 * step] - s[3 * step];
@@ -66,7 +68,7 @@ void idct8(const int32_t* s, int step, Out* d, int dstep, Munge munge) {
 void idct(const int32_t in[64], int32_t out[64]) {
     int32_t tmp[64];
     for (int c = 0; c < 8; ++c) {
-        const int32_t* s = in + c;
+        const int32_t *s = in + c;
         if (!(s[8] | s[16] | s[24] | s[32] | s[40] | s[48] | s[56])) {
             for (int r = 0; r < 8; ++r)
                 tmp[c + 8 * r] = s[0];
@@ -79,7 +81,7 @@ void idct(const int32_t in[64], int32_t out[64]) {
 }
 
 // An inverse FFT (e^+i) in place, n a power of two.
-void inverseFft(std::vector<std::complex<double>>& a) {
+void inverseFft(std::vector<std::complex<double>> &a) {
     const size_t n = a.size();
     for (size_t i = 1, j = 0; i < n; ++i) {
         size_t bit = n >> 1;
@@ -104,7 +106,7 @@ void inverseFft(std::vector<std::complex<double>>& a) {
 }
 
 // DCT-III of n values in place: x[m] = X[0] / 2 + sum X[k] cos(pi k (m + 1/2) / n).
-void dct3(float* x, int n) {
+void dct3(float *x, int n) {
     std::vector<std::complex<double>> z(size_t(2 * n));
     for (int k = 0; k < n; ++k)
         // (Not std::polar: its magnitude must not be negative.)
@@ -117,7 +119,7 @@ void dct3(float* x, int n) {
 // The real inverse DFT of a packed spectrum (re 0, re n/2, then re and im
 // of 1 .. n/2-1, the imaginary parts as Bink stores them, negated) in
 // place: x[m] = (X0 + Xn/2 (-1)^m) / 2 + sum Re(conj(Xk) e^(2 pi i k m / n)).
-void inverseRealDft(float* x, int n) {
+void inverseRealDft(float *x, int n) {
     std::vector<std::complex<double>> z(static_cast<size_t>(n));
     z[0] = x[0] * 0.5;
     z[size_t(n / 2)] = x[1] * 0.5;
@@ -151,7 +153,7 @@ uint32_t Movie::Bits::get(int n) {
 
 Error Movie::open(std::vector<uint8_t> file) {
     file_ = std::move(file);
-    const uint8_t* p = file_.data();
+    const uint8_t *p = file_.data();
     if (file_.size() < 44 || p[0] != 'B' || p[1] != 'I' || p[2] != 'K')
         return Error::fail("Not a Bink movie");
     revision_ = char(p[3]);
@@ -196,7 +198,7 @@ Error Movie::open(std::vector<uint8_t> file) {
 
     // The audio: blocks of 2^9 to 2^11 samples (by rate), overlapping by a
     // sixteenth; the spectrum in bands of the critical frequencies.
-    for (Audio& a : audio_) {
+    for (Audio &a : audio_) {
         int bits = a.rate < 22050 ? 9 : a.rate < 44100 ? 10 : 11;
         int rate = a.rate;
         a.frameLength = 1 << bits;
@@ -220,7 +222,7 @@ Error Movie::open(std::vector<uint8_t> file) {
         for (int i = 1; i < a.bandCount; ++i)
             a.bands[size_t(i)] = kCriticalFrequencies[i - 1] * (a.frameLength / 2) / half;
         a.bands[size_t(a.bandCount)] = a.frameLength / 2;
-        for (auto& c : a.coeffs)
+        for (auto &c : a.coeffs)
             c.assign(size_t(a.frameLength), 0);
         a.previous.assign(size_t(a.overlap * a.channels), 0);
     }
@@ -233,7 +235,7 @@ Error Movie::open(std::vector<uint8_t> file) {
     clearPictures();
     // How many bits count each bundle's values for a row.
     const size_t blocks = size_t((width_ + 7) >> 3) * size_t((height_ + 7) >> 3);
-    for (Bundle& b : bundles_)
+    for (Bundle &b : bundles_)
         b.data.assign(blocks * 64, 0);
     const int cbw[2] = {(width_ + 7) >> 3, (width_ + 15) >> 4};
     const int cw[2] = {width_, width_ >> 1};
@@ -254,14 +256,14 @@ Error Movie::open(std::vector<uint8_t> file) {
     return Error::success();
 }
 
-Error Movie::nextFrame(bool& more, std::vector<int16_t>* sound) {
+Error Movie::nextFrame(bool &more, std::vector<int16_t> *sound) {
     more = next_ < int(frames_.size());
     if (!more)
         return Error::success();
-    const Frame& f = frames_[size_t(next_++)];
+    const Frame &f = frames_[size_t(next_++)];
     if (size_t(f.offset) + f.size > file_.size())
         return Error::fail("A Bink frame runs past the end of the file");
-    const uint8_t* p = file_.data() + f.offset;
+    const uint8_t *p = file_.data() + f.offset;
     size_t left = f.size;
     // Each audio track's packet: its length, then (if any) the decoded
     // size and the blocks.
@@ -298,13 +300,13 @@ Error Movie::nextFrame(bool& more, std::vector<int16_t>* sound) {
     return Error::success();
 }
 
-Error Movie::decodeAllAudio(std::vector<int16_t>& sound) {
+Error Movie::decodeAllAudio(std::vector<int16_t> &sound) {
     if (audio_.empty())
         return Error::success();
-    for (const Frame& f : frames_) {
+    for (const Frame &f : frames_) {
         if (size_t(f.offset) + f.size > file_.size() || f.size < 4)
             break;
-        const uint8_t* p = file_.data() + f.offset;
+        const uint8_t *p = file_.data() + f.offset;
         const uint32_t length = le32(p);
         if (length > f.size - 4)
             return Error::fail("A Bink audio packet runs past its frame");
@@ -333,19 +335,19 @@ void Movie::rewind() {
 
 uint32_t Movie::largestFrame() const {
     uint32_t most = 0;
-    for (const Frame& f : frames_)
+    for (const Frame &f : frames_)
         most = std::max(most, f.size);
     return most;
 }
 
 std::vector<Movie::Track> Movie::audioTracks() const {
     std::vector<Track> out;
-    for (const Audio& a : audio_)
+    for (const Audio &a : audio_)
         out.push_back({a.rate, a.outChannels, a.dct});
     return out;
 }
 
-void Movie::decodePacket(Audio& a, const uint8_t* packet, uint32_t length, std::vector<int16_t>& sound) {
+void Movie::decodePacket(Audio &a, const uint8_t *packet, uint32_t length, std::vector<int16_t> &sound) {
     // The packet starts with the size it decodes to, in bytes: the last
     // block of a movie runs past it, and is cut there (so the sound lasts
     // as long as the frames).
@@ -357,12 +359,12 @@ void Movie::decodePacket(Audio& a, const uint8_t* packet, uint32_t length, std::
         sound.resize(before + decoded / 2);
 }
 
-void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
+void Movie::toRgba(std::vector<uint8_t> &out, Rgb how) const {
     // The newest frame is in old_ once swapped.
-    const auto& y = old_[0];
-    const auto& u = old_[1];
-    const auto& v = old_[2];
-    const auto& a = old_[3];
+    const auto &y = old_[0];
+    const auto &u = old_[1];
+    const auto &v = old_[2];
+    const auto &a = old_[3];
     out.resize(size_t(width_) * size_t(height_) * 4);
     if (how == Rgb::Binkw32) {
         // As binkw32.dll converts (its MMX path, 0x30013d00 in the AWE
@@ -386,10 +388,11 @@ void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
         static const Tables t;
         for (int row = 0; row < height_; ++row)
             for (int col = 0; col < width_; ++col) {
-                const int l = ((std::max(y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
+                const int l =
+                    ((std::max(y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16, 0) << 2) * 0x4a85) >> 16;
                 const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
                 const int U = u[c], V = v[c];
-                uint8_t* o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
+                uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
                 o[0] = clampByte(l + t.r[V]);
                 o[1] = clampByte(l + t.gu[U] + t.gv[V]);
                 o[2] = clampByte(l + t.b[U]);
@@ -402,7 +405,7 @@ void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
             const int Y = (y[size_t(row) * size_t(lumaPitch_) + size_t(col)] - 16) * 298;
             const size_t c = size_t(row / 2) * size_t(chromaPitch_) + size_t(col / 2);
             const int U = u[c] - 128, V = v[c] - 128;
-            uint8_t* o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
+            uint8_t *o = &out[(size_t(row) * size_t(width_) + size_t(col)) * 4];
             o[0] = clampByte((Y + 409 * V + 128) >> 8);
             o[1] = clampByte((Y - 100 * U - 208 * V + 128) >> 8);
             o[2] = clampByte((Y + 516 * U + 128) >> 8);
@@ -412,7 +415,7 @@ void Movie::toRgba(std::vector<uint8_t>& out, Rgb how) const {
 
 // --- Video ----------------------------------------------------------------------
 
-void Movie::readTree(Bits& b, Tree& t) {
+void Movie::readTree(Bits &b, Tree &t) {
     // Which of the 16 code trees, and in what order its symbols come: a
     // list of the first few (the rest after in order), or a merge of
     // halves, quarters... as told bit by bit.
@@ -460,7 +463,7 @@ void Movie::readTree(Bits& b, Tree& t) {
     t.symbols = in;
 }
 
-int Movie::symbol(Bits& b, const Tree& t) {
+int Movie::symbol(Bits &b, const Tree &t) {
     uint32_t code = 0;
     for (int length = 1; length <= 8; ++length) {
         code |= b.bit() << (length - 1);
@@ -471,9 +474,9 @@ int Movie::symbol(Bits& b, const Tree& t) {
     return 0;
 }
 
-void Movie::readBundle(Bits& b, Source s) {
+void Movie::readBundle(Bits &b, Source s) {
     if (s == Colors) {
-        for (Tree& t : colorHigh_)
+        for (Tree &t : colorHigh_)
             readTree(b, t);
         lastColorHigh_ = 0;
     }
@@ -483,7 +486,7 @@ void Movie::readBundle(Bits& b, Source s) {
     bundles_[s].finished = false;
 }
 
-uint32_t Movie::bundleCount(Bits& b, Bundle& bundle) {
+uint32_t Movie::bundleCount(Bits &b, Bundle &bundle) {
     // More values only once those decoded are used up.
     if (bundle.finished || bundle.decoded > bundle.read)
         return 0;
@@ -494,22 +497,22 @@ uint32_t Movie::bundleCount(Bits& b, Bundle& bundle) {
 }
 
 int Movie::value(Source s) {
-    Bundle& b = bundles_[s];
+    Bundle &b = bundles_[s];
     return b.read < b.data.size() ? b.data[b.read++] : 0;
 }
 
-void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
+void Movie::decodePlane(Bits &b, int planeIndex, bool chroma) {
     const int blocksW = chroma ? (width_ + 15) >> 4 : (width_ + 7) >> 3;
     const int blocksH = chroma ? (height_ + 15) >> 4 : (height_ + 7) >> 3;
     const int pitch = blocksW * 8;
-    uint8_t* const dst = cur_[size_t(planeIndex)].data();
-    const uint8_t* const prev = old_[size_t(planeIndex)].data();
+    uint8_t *const dst = cur_[size_t(planeIndex)].data();
+    const uint8_t *const prev = old_[size_t(planeIndex)].data();
     const int size = pitch * blocksH * 8;
     for (int s = 0; s < SourceCount; ++s) {
         bundles_[size_t(s)].bits = bundles_[size_t(s)].countBits[chroma ? 1 : 0];
         readBundle(b, Source(s));
     }
-    auto push = [](Bundle& bundle, int v) {
+    auto push = [](Bundle &bundle, int v) {
         if (bundle.decoded < bundle.data.size())
             bundle.data[bundle.decoded++] = int16_t(v);
     };
@@ -518,7 +521,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
     for (int by = 0; by < blocksH; ++by) {
         // This row's values, for those bundles that need more.
         for (Source s : {BlockTypes, SubBlockTypes}) {
-            Bundle& bundle = bundles_[s];
+            Bundle &bundle = bundles_[s];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -544,7 +547,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
         {
             // Colours: a high nibble from a tree chosen by the last one,
             // then a low nibble (before revision i, signed around 128).
-            Bundle& bundle = bundles_[Colors];
+            Bundle &bundle = bundles_[Colors];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 auto colour = [&]() {
@@ -567,7 +570,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
             }
         }
         {
-            Bundle& bundle = bundles_[Pattern];
+            Bundle &bundle = bundles_[Pattern];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 while (bundle.decoded < end) {
@@ -577,7 +580,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
             }
         }
         for (Source s : {XOff, YOff}) {
-            Bundle& bundle = bundles_[s];
+            Bundle &bundle = bundles_[s];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -593,7 +596,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
         for (Source s : {IntraDC, InterDC}) {
             // The first in 11 bits (inter: 10 and a sign), then deltas in
             // groups of 8, each group's width in 4 bits.
-            Bundle& bundle = bundles_[s];
+            Bundle &bundle = bundles_[s];
             uint32_t n = bundleCount(b, bundle);
             if (!n)
                 continue;
@@ -611,7 +614,7 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
             }
         }
         {
-            Bundle& bundle = bundles_[Run];
+            Bundle &bundle = bundles_[Run];
             if (const uint32_t n = bundleCount(b, bundle)) {
                 const size_t end = bundle.decoded + n;
                 if (b.bit()) {
@@ -627,15 +630,15 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
 
         for (int bx = 0; bx < blocksW; ++bx) {
             const int at = by * 8 * pitch + bx * 8;
-            uint8_t* d = dst + at;
-            const uint8_t* old = prev + at;
+            uint8_t *d = dst + at;
+            const uint8_t *old = prev + at;
             int type = value(BlockTypes);
             // A 16x16 block's second row of 8x8 blocks: done already.
             if ((by & 1) && type == Scaled) {
                 ++bx;
                 continue;
             }
-            auto copyFrom = [&](const uint8_t* src, int n) {
+            auto copyFrom = [&](const uint8_t *src, int n) {
                 for (int r = 0; r < n; ++r)
                     std::memcpy(d + r * pitch, src + r * pitch, size_t(n));
             };
@@ -653,12 +656,12 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
                 if (!scaled) {
                     d[y * pitch + x] = uint8_t(v);
                 } else {
-                    uint8_t* q = d + 2 * y * pitch + 2 * x;
+                    uint8_t *q = d + 2 * y * pitch + 2 * x;
                     q[0] = q[1] = q[pitch] = q[pitch + 1] = uint8_t(v);
                 }
             };
             auto runs = [&](bool scaled) {
-                const uint8_t* scan = kPatterns[b.get(4)];
+                const uint8_t *scan = kPatterns[b.get(4)];
                 int i = 0;
                 do {
                     const int run = value(Run) + 1;
@@ -699,27 +702,42 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
             };
 
             switch (type) {
-            case Skip: copyFrom(old, 8); break;
+            case Skip:
+                copyFrom(old, 8);
+                break;
             case Scaled: {
                 const int sub = value(SubBlockTypes);
                 switch (sub) {
-                case RunBlock: runs(true); break;
-                case Intra: intra(true); break;
+                case RunBlock:
+                    runs(true);
+                    break;
+                case Intra:
+                    intra(true);
+                    break;
                 case Fill: {
                     const int v = value(Colors);
                     for (int r = 0; r < 16; ++r)
                         std::memset(d + r * pitch, v, 16);
                     break;
                 }
-                case PatternBlock: pattern(true); break;
-                case Raw: raw(true); break;
-                default: break;
+                case PatternBlock:
+                    pattern(true);
+                    break;
+                case Raw:
+                    raw(true);
+                    break;
+                default:
+                    break;
                 }
                 ++bx;
                 break;
             }
-            case Motion: motion(); break;
-            case RunBlock: runs(false); break;
+            case Motion:
+                motion();
+                break;
+            case RunBlock:
+                runs(false);
+                break;
             case Residue: {
                 motion();
                 const int masks = int(b.get(7));
@@ -729,7 +747,9 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
                     d[(i >> 3) * pitch + (i & 7)] = uint8_t(d[(i >> 3) * pitch + (i & 7)] + block[i]);
                 break;
             }
-            case Intra: intra(false); break;
+            case Intra:
+                intra(false);
+                break;
             case Fill: {
                 const int v = value(Colors);
                 for (int r = 0; r < 8; ++r)
@@ -746,16 +766,21 @@ void Movie::decodePlane(Bits& b, int planeIndex, bool chroma) {
                     d[(i >> 3) * pitch + (i & 7)] = uint8_t(d[(i >> 3) * pitch + (i & 7)] + out[i]);
                 break;
             }
-            case PatternBlock: pattern(false); break;
-            case Raw: raw(false); break;
-            default: break;
+            case PatternBlock:
+                pattern(false);
+                break;
+            case Raw:
+                raw(false);
+                break;
+            default:
+                break;
             }
         }
     }
     b.align32();
 }
 
-void Movie::readDCTCoefficients(Bits& b, int32_t block[64], bool intra) {
+void Movie::readDCTCoefficients(Bits &b, int32_t block[64], bool intra) {
     // Coefficients by bit planes, from the top: groups of four split as
     // the bits say (a list of groups to look at, and single ones found).
     int found[64], foundCount = 0;
@@ -820,7 +845,7 @@ void Movie::readDCTCoefficients(Bits& b, int32_t block[64], bool intra) {
     }
     // Dequantised (<< 11) with the block's quantiser.
     const int q = int(b.get(4));
-    const int32_t* quant = intra ? kIntraQuant[q] : kInterQuant[q];
+    const int32_t *quant = intra ? kIntraQuant[q] : kInterQuant[q];
     block[0] = (block[0] * quant[0]) >> 11;
     for (int i = 0; i < foundCount; ++i) {
         const int c = found[i];
@@ -828,7 +853,7 @@ void Movie::readDCTCoefficients(Bits& b, int32_t block[64], bool intra) {
     }
 }
 
-void Movie::readResidue(Bits& b, int32_t block[64], int masks) {
+void Movie::readResidue(Bits &b, int32_t block[64], int masks) {
     // The difference after motion, bit plane by bit plane from a mask of
     // 1 << (3 bits): first refining those found, then finding more as
     // for the DCT; at most `masks` values in all.
@@ -852,7 +877,7 @@ void Movie::readResidue(Bits& b, int32_t block[64], int masks) {
         for (int i = 0; i < foundCount; ++i) {
             if (!b.bit())
                 continue;
-            int32_t& v = block[found[i]];
+            int32_t &v = block[found[i]];
             v += v < 0 ? -mask : mask;
             if (--masks < 0)
                 return;
@@ -899,7 +924,7 @@ void Movie::readResidue(Bits& b, int32_t block[64], int masks) {
 
 // --- Audio ----------------------------------------------------------------------
 
-void Movie::readAudioCoefficients(Audio& a, Bits& b, float* coeffs) {
+void Movie::readAudioCoefficients(Audio &a, Bits &b, float *coeffs) {
     // Two floats (5-bit exponent, 23-bit mantissa, sign), each band's
     // quantiser, then runs of 8 (or a coded multiple) coefficients of a
     // given width.
@@ -937,7 +962,7 @@ void Movie::readAudioCoefficients(Audio& a, Bits& b, float* coeffs) {
     }
 }
 
-void Movie::decodeAudio(Audio& a, Bits& b, std::vector<int16_t>* sound) {
+void Movie::decodeAudio(Audio &a, Bits &b, std::vector<int16_t> *sound) {
     // Blocks from each 32-bit boundary: a transform per channel, then the
     // first sixteenth faded in over the last block's tail.
     std::vector<int16_t> out(size_t(a.frameLength * a.channels));
@@ -945,7 +970,7 @@ void Movie::decodeAudio(Audio& a, Bits& b, std::vector<int16_t>* sound) {
         if (a.dct)
             b.skip(2);
         for (int c = 0; c < a.channels; ++c) {
-            float* coeffs = a.coeffs[c].data();
+            float *coeffs = a.coeffs[c].data();
             readAudioCoefficients(a, b, coeffs);
             if (a.dct) {
                 coeffs[0] *= 2.0f;

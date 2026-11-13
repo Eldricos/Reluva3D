@@ -51,7 +51,7 @@ public:
 
 class GameHost::SerialLink : public CommPort {
 public:
-    SerialLink(GameHost& host, net::Sockets& net) : host_(host), net_(net) {}
+    SerialLink(GameHost &host, net::Sockets &net) : host_(host), net_(net) {}
     ~SerialLink() override {
         if (stream_ >= 0)
             net_.close(stream_);
@@ -60,7 +60,7 @@ public:
     }
 
     // Starts listening on `at` or connecting to it.
-    bool start(bool listen, const net::Address& at) {
+    bool start(bool listen, const net::Address &at) {
         if (listen) {
             listener_ = net_.open(net::Sockets::Stream);
             if (listener_ < 0)
@@ -131,7 +131,7 @@ public:
     // for ever). Overlapped, it returns what's there at once: the game reads
     // overlapped holding a lock its other thread wants, which a read that
     // waited would keep from it.
-    bool read(Cpu& c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) override {
+    bool read(Cpu &c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) override {
         done = 0;
         error = 0;
         const bool immediate = overlapped || (timeouts_[0] == kMaxDword && timeouts_[1] == 0 && timeouts_[2] == 0);
@@ -158,7 +158,7 @@ public:
         return true;
     }
 
-    bool write(Cpu& c, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) override {
+    bool write(Cpu &c, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) override {
         done = 0;
         error = 0;
         if (!connected()) { // nothing at the other end of the cable: the bytes are lost
@@ -217,8 +217,8 @@ public:
     }
 
 private:
-    GameHost& host_;
-    net::Sockets& net_;
+    GameHost &host_;
+    net::Sockets &net_;
     int listener_ = -1, stream_ = -1;
     bool connecting_ = false, connected_ = false;
     net::Address target_; // where a connecting link connects to
@@ -227,7 +227,7 @@ private:
 
 // "listen:port" (or ":port") or "host:port" to an address; false if the
 // host can't be found.
-bool parseLink(net::Sockets& net, const std::string& option, uint32_t netAddress, bool& listen, net::Address& at) {
+bool parseLink(net::Sockets &net, const std::string &option, uint32_t netAddress, bool &listen, net::Address &at) {
     std::string text = option;
     listen = text.rfind("listen:", 0) == 0 || text.rfind(":", 0) == 0;
     if (listen)
@@ -245,8 +245,8 @@ bool parseLink(net::Sockets& net, const std::string& option, uint32_t netAddress
 }
 
 void GameHost::addSerial() {
-    const char* k = "KERNEL32.dll";
-    net::Sockets* net = options_.sockets.get();
+    const char *k = "KERNEL32.dll";
+    net::Sockets *net = options_.sockets.get();
     // "listen:port" (or ":port"), or "host:port": the link every COM port
     // is. Without a network or the option there are no ports.
     if (net && !options_.serial.empty()) {
@@ -267,7 +267,7 @@ void GameHost::addSerial() {
     auto find = [this](uint32_t handle) { return process_->object<CommPort>(handle); };
 
     // GetCommState(handle, DCB*): the DCB last set, else 9600 8N1, binary.
-    provide(k, "GetCommState", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "GetCommState", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -277,14 +277,14 @@ void GameHost::addSerial() {
         } else {
             for (uint32_t i = 0; i < 28; ++i)
                 c.write8(c.arg(1) + i, 0);
-            c.write32(c.arg(1), 28);     // DCBlength
+            c.write32(c.arg(1), 28);       // DCBlength
             c.write32(c.arg(1) + 4, 9600); // BaudRate
-            c.write32(c.arg(1) + 8, 1);  // fBinary
-            c.write8(c.arg(1) + 18, 8);  // ByteSize
+            c.write32(c.arg(1) + 8, 1);    // fBinary
+            c.write8(c.arg(1) + 18, 8);    // ByteSize
         }
         return 1;
     });
-    provide(k, "SetCommState", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "SetCommState", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -294,7 +294,7 @@ void GameHost::addSerial() {
         return 1;
     });
     // SetCommTimeouts(handle, COMMTIMEOUTS*): five DWORDs, kept for ReadFile.
-    provide(k, "SetCommTimeouts", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "SetCommTimeouts", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -303,7 +303,7 @@ void GameHost::addSerial() {
         return 1;
     });
     // GetCommProperties(handle, COMMPROP*): an RS-232 port, any speed.
-    provide(k, "GetCommProperties", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "GetCommProperties", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -326,7 +326,7 @@ void GameHost::addSerial() {
     });
     // GetCommModemStatus(handle, DWORD*): CTS and DSR on, and the carrier
     // (RLSD) while the other end is connected.
-    provide(k, "GetCommModemStatus", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "GetCommModemStatus", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -334,7 +334,7 @@ void GameHost::addSerial() {
         return 1;
     });
     // PurgeComm(handle, flags): PURGE_RXCLEAR (8) throws away what's waiting.
-    provide(k, "PurgeComm", 2, [find](Cpu& c) -> uint32_t {
+    provide(k, "PurgeComm", 2, [find](Cpu &c) -> uint32_t {
         auto link = find(c.arg(0));
         if (!link)
             return 0;
@@ -343,7 +343,7 @@ void GameHost::addSerial() {
         return 1;
     });
     // EscapeCommFunction(handle, function): DTR, RTS, breaks; nothing to do.
-    provide(k, "EscapeCommFunction", 2, [find](Cpu& c) -> uint32_t { return find(c.arg(0)) ? 1u : 0u; });
+    provide(k, "EscapeCommFunction", 2, [find](Cpu &c) -> uint32_t { return find(c.arg(0)) ? 1u : 0u; });
     if (net && !options_.modem.empty())
         addModem();
 }
@@ -359,14 +359,14 @@ public:
             call->purge();
     }
     bool readable() override { return call && call->readable(); }
-    bool read(Cpu& c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) override {
+    bool read(Cpu &c, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) override {
         done = error = 0;
         if (!call)
             return true;
         call->timeouts_ = timeouts_;
         return call->read(c, buffer, size, overlapped, done, error);
     }
-    bool write(Cpu& c, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) override {
+    bool write(Cpu &c, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) override {
         error = 0;
         done = size; // no call: the bytes go nowhere, as to a modem on hook
         return !call || call->write(c, buffer, size, done, error);
@@ -374,8 +374,8 @@ public:
 };
 
 void GameHost::addModem() {
-    const char* t = "TAPI32.DLL";
-    net::Sockets* net = options_.sockets.get();
+    const char *t = "TAPI32.DLL";
+    net::Sockets *net = options_.sockets.get();
     constexpr uint32_t kLine = 0x4c494e45, kCall = 0x43414c4c; // the line's and the call's handles
     constexpr uint32_t kLineCallState = 2, kLineReply = 12;
     constexpr uint32_t kIdle = 0x1, kOffering = 0x2, kConnected = 0x100, kDisconnected = 0x4000;
@@ -432,7 +432,7 @@ void GameHost::addModem() {
     };
     tapiNews_ = news;
     tapiBusy_ = [m] { return m->call != nullptr || m->listener != nullptr; };
-    auto deliver = [this, m, news](Cpu& c) {
+    auto deliver = [this, m, news](Cpu &c) {
         if (process_->currentThread() && process_->currentThread()->id != m->thread)
             return;
         news();
@@ -451,7 +451,7 @@ void GameHost::addModem() {
         queue(0, kLineReply, id, result);
         return id;
     };
-    auto sizeOk = [](Cpu& c, uint32_t at, uint32_t needed) {
+    auto sizeOk = [](Cpu &c, uint32_t at, uint32_t needed) {
         // A TAPI structure: dwTotalSize, dwNeededSize, dwUsedSize first.
         const uint32_t total = c.read32(at);
         c.write32(at + 4, needed);
@@ -466,7 +466,7 @@ void GameHost::addModem() {
     };
 
     // lineInitialize(LPHLINEAPP, hInstance, callback, appName, LPDWORD devices)
-    provide(t, "lineInitialize", 5, [this, m](Cpu& c) {
+    provide(t, "lineInitialize", 5, [this, m](Cpu &c) {
         m->callback = c.arg(2);
         m->thread = process_->currentThread() ? process_->currentThread()->id : 0;
         tapiThread_ = m->thread;
@@ -476,7 +476,7 @@ void GameHost::addModem() {
         return 0u;
     });
     // lineNegotiateAPIVersion(app, device, low, high, LPDWORD version, LPLINEEXTENSIONID)
-    provide(t, "lineNegotiateAPIVersion", 6, [](Cpu& c) {
+    provide(t, "lineNegotiateAPIVersion", 6, [](Cpu &c) {
         c.write32(c.arg(4), std::min<uint32_t>(c.arg(3), 0x00010004));
         for (uint32_t i = 0; i < 16; ++i)
             c.write8(c.arg(5) + i, 0);
@@ -484,38 +484,38 @@ void GameHost::addModem() {
     });
     // lineGetDevCaps(app, device, version, extVersion, LPLINEDEVCAPS): a
     // data modem, named.
-    provide(t, "lineGetDevCaps", 5, [sizeOk](Cpu& c) {
+    provide(t, "lineGetDevCaps", 5, [sizeOk](Cpu &c) {
         const uint32_t at = c.arg(4);
         const std::string name = "Reluva TCP modem";
         constexpr uint32_t kFixed = 236;
         if (!sizeOk(c, at, kFixed + uint32_t(name.size()) + 1))
             return 0u;
-        c.write32(at + 28, 1);                   // dwPermanentLineID
+        c.write32(at + 28, 1);                         // dwPermanentLineID
         c.write32(at + 32, uint32_t(name.size()) + 1); // dwLineNameSize
-        c.write32(at + 36, kFixed);              // dwLineNameOffset
-        c.write32(at + 40, 1);                   // dwStringFormat: ASCII
-        c.write32(at + 44, 1);                   // dwAddressModes: LINEADDRESSMODE_ADDRESSID
-        c.write32(at + 48, 1);                   // dwNumAddresses
-        c.write32(at + 52, 0x4);                 // dwBearerModes: VOICE
-        c.write32(at + 56, 28800);               // dwMaxRate
-        c.write32(at + 60, 0x10);                // dwMediaModes: DATAMODEM
-        c.write32(at + 100, 1);                  // dwMaxNumActiveCalls
+        c.write32(at + 36, kFixed);                    // dwLineNameOffset
+        c.write32(at + 40, 1);                         // dwStringFormat: ASCII
+        c.write32(at + 44, 1);                         // dwAddressModes: LINEADDRESSMODE_ADDRESSID
+        c.write32(at + 48, 1);                         // dwNumAddresses
+        c.write32(at + 52, 0x4);                       // dwBearerModes: VOICE
+        c.write32(at + 56, 28800);                     // dwMaxRate
+        c.write32(at + 60, 0x10);                      // dwMediaModes: DATAMODEM
+        c.write32(at + 100, 1);                        // dwMaxNumActiveCalls
         c.writeString(at + kFixed, name, uint32_t(name.size()) + 1);
         return 0u;
     });
     // lineGetDevConfig(device, LPVARSTRING, class), lineSetDevConfig: a
     // config of no bytes, taken and kept as nothing.
-    provide(t, "lineGetDevConfig", 3, [sizeOk](Cpu& c) {
+    provide(t, "lineGetDevConfig", 3, [sizeOk](Cpu &c) {
         if (!sizeOk(c, c.arg(1), 24))
             return 0u;
         c.write32(c.arg(1) + 12, 4); // dwStringFormat: STRINGFORMAT_BINARY
         return 0u;
     });
-    provide(t, "lineSetDevConfig", 4, [](Cpu&) { return 0u; });
+    provide(t, "lineSetDevConfig", 4, [](Cpu &) { return 0u; });
     // lineOpen(app, device, LPHLINE, version, extVersion, instance,
     // privileges, mediaModes, callParams): owning it (privilege 4) answers
     // calls: the link listens.
-    provide(t, "lineOpen", 9, [this, net, m](Cpu& c) {
+    provide(t, "lineOpen", 9, [this, net, m](Cpu &c) {
         c.write32(c.arg(2), kLine);
         m->instance = c.arg(5);
         m->answering = (c.arg(6) & 4) != 0;
@@ -530,16 +530,16 @@ void GameHost::addModem() {
         }
         return 0u;
     });
-    provide(t, "lineSetStatusMessages", 3, [](Cpu&) { return 0u; });
+    provide(t, "lineSetStatusMessages", 3, [](Cpu &) { return 0u; });
     // lineGetLineDevStatus(line, LPLINEDEVSTATUS): nothing to report.
-    provide(t, "lineGetLineDevStatus", 2, [sizeOk](Cpu& c) {
+    provide(t, "lineGetLineDevStatus", 2, [sizeOk](Cpu &c) {
         sizeOk(c, c.arg(1), 104);
         return 0u;
     });
     // lineMakeCall(line, LPHCALL, number, country, callParams): the number
     // as an address ("127.0.0.2:2300", or with * for the dots, as a phone
     // keypad has), else the option's host.
-    provide(t, "lineMakeCall", 5, [this, net, m, request, deliver](Cpu& c) {
+    provide(t, "lineMakeCall", 5, [this, net, m, request, deliver](Cpu &c) {
         deliver(c);
         std::string number = c.arg(2) ? c.string(c.arg(2), 128) : "";
         std::string text;
@@ -564,7 +564,7 @@ void GameHost::addModem() {
         return request();
     });
     // lineAnswer(call, userInfo, size): the call coming in, answered.
-    provide(t, "lineAnswer", 3, [this, m, request, queue](Cpu& c) {
+    provide(t, "lineAnswer", 3, [this, m, request, queue](Cpu &c) {
         if (!m->offered || !m->listener)
             return kInvalCallHandle;
         m->call = m->listener;
@@ -580,7 +580,7 @@ void GameHost::addModem() {
     // lineGetID(line, address, call, select, LPVARSTRING, class): for
     // "comm/datamodem", a handle to the modem's port (and its name), the
     // line's or the call's: the same port, which is the call's link.
-    provide(t, "lineGetID", 6, [this, m, sizeOk](Cpu& c) -> uint32_t {
+    provide(t, "lineGetID", 6, [this, m, sizeOk](Cpu &c) -> uint32_t {
         const std::string cls = c.string(c.arg(5), 64);
         if (cls != "comm/datamodem")
             return kOperationUnavailable;
@@ -595,7 +595,7 @@ void GameHost::addModem() {
         return 0u;
     });
     // lineDrop(call, userInfo, size): hung up.
-    provide(t, "lineDrop", 3, [this, m, request, queue](Cpu&) {
+    provide(t, "lineDrop", 3, [this, m, request, queue](Cpu &) {
         m->call.reset();
         m->port->call.reset();
         m->dialing = m->connected = m->offered = false;
@@ -604,15 +604,15 @@ void GameHost::addModem() {
         say("  modem: hung up");
         return id;
     });
-    provide(t, "lineDeallocateCall", 1, [](Cpu&) { return 0u; });
-    provide(t, "lineClose", 1, [m](Cpu&) {
+    provide(t, "lineDeallocateCall", 1, [](Cpu &) { return 0u; });
+    provide(t, "lineClose", 1, [m](Cpu &) {
         m->listener.reset();
         m->call.reset();
         m->port->call.reset();
         m->answering = m->offered = m->dialing = m->connected = false;
         return 0u;
     });
-    provide(t, "lineShutdown", 1, [m](Cpu&) {
+    provide(t, "lineShutdown", 1, [m](Cpu &) {
         m->callback = 0;
         m->events.clear();
         return 0u;

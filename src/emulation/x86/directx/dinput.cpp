@@ -17,19 +17,19 @@ namespace reluva::x86 {
 
 namespace {
 
-const char* const kIidDirectInput = "{89521360-aa8a-11cf-bfc7-444553540000}";
-const char* const kIidDirectInput2 = "{5944e662-aa8a-11cf-bfc7-444553540000}";
-const char* const kIidDirectInput7 = "{9a4cb684-236d-11d3-8e9d-00c04f6844ae}";
-const char* const kIidDevice = "{5944e680-c92e-11cf-bfc7-444553540000}";
-const char* const kIidDevice2 = "{5944e682-c92e-11cf-bfc7-444553540000}";
-const char* const kIidDevice7 = "{57d7c6bc-2356-11d3-8e9d-00c04f6844ae}";
-const char* const kSysMouse = "{6f1d2b60-d5a0-11cf-bfc7-444553540000}";
-const char* const kSysKeyboard = "{6f1d2b61-d5a0-11cf-bfc7-444553540000}";
-const char* const kXAxis = "{a36d02e0-c9f3-11cf-bfc7-444553540000}";
-const char* const kYAxis = "{a36d02e1-c9f3-11cf-bfc7-444553540000}";
-const char* const kZAxis = "{a36d02e2-c9f3-11cf-bfc7-444553540000}";
-const char* const kButton = "{a36d02f0-c9f3-11cf-bfc7-444553540000}";
-const char* const kKey = "{55728220-d33c-11cf-bfc7-444553540000}";
+const char *const kIidDirectInput = "{89521360-aa8a-11cf-bfc7-444553540000}";
+const char *const kIidDirectInput2 = "{5944e662-aa8a-11cf-bfc7-444553540000}";
+const char *const kIidDirectInput7 = "{9a4cb684-236d-11d3-8e9d-00c04f6844ae}";
+const char *const kIidDevice = "{5944e680-c92e-11cf-bfc7-444553540000}";
+const char *const kIidDevice2 = "{5944e682-c92e-11cf-bfc7-444553540000}";
+const char *const kIidDevice7 = "{57d7c6bc-2356-11d3-8e9d-00c04f6844ae}";
+const char *const kSysMouse = "{6f1d2b60-d5a0-11cf-bfc7-444553540000}";
+const char *const kSysKeyboard = "{6f1d2b61-d5a0-11cf-bfc7-444553540000}";
+const char *const kXAxis = "{a36d02e0-c9f3-11cf-bfc7-444553540000}";
+const char *const kYAxis = "{a36d02e1-c9f3-11cf-bfc7-444553540000}";
+const char *const kZAxis = "{a36d02e2-c9f3-11cf-bfc7-444553540000}";
+const char *const kButton = "{a36d02f0-c9f3-11cf-bfc7-444553540000}";
+const char *const kKey = "{55728220-d33c-11cf-bfc7-444553540000}";
 
 constexpr uint32_t kOk = 0, kNoEffect = 1, kBufferOverflow = 1;
 constexpr uint32_t kErrInvalidParam = 0x80070057u, kErrNotAcquired = 0x8007000cu, kErrDeviceNotReg = 0x80040154u,
@@ -44,31 +44,53 @@ std::vector<ComInterface::Method> with(std::vector<ComInterface::Method> m) {
     m.insert(m.begin(), kUnknown.begin(), kUnknown.end());
     return m;
 }
-std::vector<ComInterface::Method> first(const std::vector<ComInterface::Method>& m, size_t n) {
+std::vector<ComInterface::Method> first(const std::vector<ComInterface::Method> &m, size_t n) {
     return {m.begin(), m.begin() + long(n)};
 }
 
 const std::vector<ComInterface::Method> kDirectInput7 = with({
-    {"CreateDevice", 3}, {"EnumDevices", 4}, {"GetDeviceStatus", 1}, {"RunControlPanel", 2}, {"Initialize", 2},
+    {"CreateDevice", 3},
+    {"EnumDevices", 4},
+    {"GetDeviceStatus", 1},
+    {"RunControlPanel", 2},
+    {"Initialize", 2},
     {"FindDevice", 3},     // 2
     {"CreateDeviceEx", 4}, // 7
 });
 const std::vector<ComInterface::Method> kDevice7 = with({
-    {"GetCapabilities", 1}, {"EnumObjects", 3}, {"GetProperty", 2}, {"SetProperty", 2}, {"Acquire", 0},
-    {"Unacquire", 0}, {"GetDeviceState", 2}, {"GetDeviceData", 4}, {"SetDataFormat", 1},
-    {"SetEventNotification", 1}, {"SetCooperativeLevel", 2}, {"GetObjectInfo", 3}, {"GetDeviceInfo", 1},
-    {"RunControlPanel", 2}, {"Initialize", 3},
-    {"CreateEffect", 4}, {"EnumEffects", 3}, {"GetEffectInfo", 2}, {"GetForceFeedbackState", 1},
-    {"SendForceFeedbackCommand", 1}, {"EnumCreatedEffectObjects", 3}, {"Escape", 1}, {"Poll", 0},
+    {"GetCapabilities", 1},
+    {"EnumObjects", 3},
+    {"GetProperty", 2},
+    {"SetProperty", 2},
+    {"Acquire", 0},
+    {"Unacquire", 0},
+    {"GetDeviceState", 2},
+    {"GetDeviceData", 4},
+    {"SetDataFormat", 1},
+    {"SetEventNotification", 1},
+    {"SetCooperativeLevel", 2},
+    {"GetObjectInfo", 3},
+    {"GetDeviceInfo", 1},
+    {"RunControlPanel", 2},
+    {"Initialize", 3},
+    {"CreateEffect", 4},
+    {"EnumEffects", 3},
+    {"GetEffectInfo", 2},
+    {"GetForceFeedbackState", 1},
+    {"SendForceFeedbackCommand", 1},
+    {"EnumCreatedEffectObjects", 3},
+    {"Escape", 1},
+    {"Poll", 0},
     {"SendDeviceData", 4}, // 2
-    {"EnumEffectsInFile", 4}, {"WriteEffectToFile", 4}, // 7
+    {"EnumEffectsInFile", 4},
+    {"WriteEffectToFile", 4}, // 7
 });
 
 } // namespace
 
 struct DirectInput::State {
-    Win32Process& process;
-    Cpu& cpu;
+    Win32Process &process;
+    Cpu &cpu;
     ComHost com;
     ComInterface directInput{"IDirectInputA", kIidDirectInput, first(kDirectInput7, 8)};
     ComInterface directInput2{"IDirectInput2A", kIidDirectInput2, first(kDirectInput7, 9)};
@@ -76,7 +98,7 @@ struct DirectInput::State {
     ComInterface device{"IDirectInputDeviceA", kIidDevice, first(kDevice7, 18)};
     ComInterface device2{"IDirectInputDevice2A", kIidDevice2, first(kDevice7, 27)};
     ComInterface device7{"IDirectInputDevice7A", kIidDevice7, kDevice7};
-    explicit State(Win32Process& p) : process(p), cpu(p.cpu()), com(p) {}
+    explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
 };
 
 namespace {
@@ -84,7 +106,7 @@ namespace {
 // The system mouse (3 axes, 4 buttons) or keyboard (256 keys by scan code).
 class Device : public ComObject {
 public:
-    DirectInput::State* s = nullptr;
+    DirectInput::State *s = nullptr;
     bool mouse = false;
     bool acquired = false;
     // The data format: each object's place in the program's data.
@@ -108,14 +130,14 @@ public:
     uint32_t bufferSize = 0, sequence = 0;
     bool overflowed = false;
 
-    const ComInterface* query(const std::string& iid) override {
-        for (ComInterface* f : {&s->device7, &s->device2, &s->device})
+    const ComInterface *query(const std::string &iid) override {
+        for (ComInterface *f : {&s->device7, &s->device2, &s->device})
             if (iid == f->iid)
                 return f;
         return nullptr;
     }
 
-    void hear(const Win32Process::RawInput& r) {
+    void hear(const Win32Process::RawInput &r) {
         using Kind = Win32Process::RawInput::Kind;
         if (mouse) {
             if (r.kind == Kind::Motion) {
@@ -142,7 +164,7 @@ public:
     void record(Object::Kind kind, int index, uint32_t data) {
         if (!acquired || !bufferSize)
             return;
-        for (const Object& o : objects)
+        for (const Object &o : objects)
             if (o.kind == kind && o.index == index) {
                 if (buffer.size() >= bufferSize) {
                     buffer.pop_front();
@@ -154,10 +176,11 @@ public:
 
     // SetDataFormat(DIDATAFORMAT*): size, object size, flags, data size,
     // object count, objects (GUID*, offset, type, flags).
-    uint32_t setFormat(Cpu& c, uint32_t p) {
+    uint32_t setFormat(Cpu &c, uint32_t p) {
         if (!c.valid(p, 24))
             return kErrInvalidParam;
-        const uint32_t objSize = c.read32(p + 4), flags = c.read32(p + 8), count = c.read32(p + 16), list = c.read32(p + 20);
+        const uint32_t objSize = c.read32(p + 4), flags = c.read32(p + 8), count = c.read32(p + 16),
+                       list = c.read32(p + 20);
         if (!c.valid(list, objSize * count))
             return kErrInvalidParam;
         std::vector<Object> found;
@@ -220,7 +243,7 @@ public:
     }
 
     // DIDEVICEINSTANCEA: size, instance and product GUIDs, type, names.
-    void writeInstance(Cpu& c, uint32_t p) const {
+    void writeInstance(Cpu &c, uint32_t p) const {
         const uint32_t size = c.read32(p) >= 580 ? 580 : 560;
         std::memset(c.memory().data() + p + 4, 0, size - 4);
         c.write32(p, size);
@@ -231,7 +254,7 @@ public:
         c.writeString(p + 300, mouse ? "Mouse" : "Keyboard", 260);
     }
 
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         if (m == "SetDataFormat")
             return setFormat(c, c.arg(1));
@@ -246,7 +269,7 @@ public:
             return kOk;
         }
         if (m == "Poll")
-            return kNoEffect; // these devices aren't polled
+            return kNoEffect;         // these devices aren't polled
         if (m == "GetCapabilities") { // DIDEVCAPS: size, flags, type, axes, buttons, POVs
             const uint32_t p = c.arg(1);
             const uint32_t size = std::min<uint32_t>(c.read32(p), 44);
@@ -270,13 +293,17 @@ public:
             if (!c.valid(p, size) || size < dataSize)
                 return kErrInvalidParam;
             std::memset(c.memory().data() + p, 0, size);
-            for (const Object& o : objects) {
+            for (const Object &o : objects) {
                 switch (o.kind) {
                 case Object::Kind::Axis:
                     c.write32(p + o.offset, uint32_t(relative ? motion[o.index] : axes[o.index]));
                     break;
-                case Object::Kind::Button: c.write8(p + o.offset, buttons[o.index] ? 0x80 : 0); break;
-                case Object::Kind::Key: c.write8(p + o.offset, keys[o.index] ? 0x80 : 0); break;
+                case Object::Kind::Button:
+                    c.write8(p + o.offset, buttons[o.index] ? 0x80 : 0);
+                    break;
+                case Object::Kind::Key:
+                    c.write8(p + o.offset, keys[o.index] ? 0x80 : 0);
+                    break;
                 }
             }
             std::fill(std::begin(motion), std::end(motion), 0);
@@ -296,7 +323,7 @@ public:
             for (; n < want && n < buffer.size(); ++n) {
                 if (!p)
                     continue;
-                const Event& e = buffer[n];
+                const Event &e = buffer[n];
                 const uint32_t at = p + n * objSize;
                 if (!c.valid(at, 16))
                     return kErrInvalidParam;
@@ -344,27 +371,27 @@ public:
 // The DirectInput object.
 class Input : public ComObject {
 public:
-    DirectInput::State* s = nullptr;
-    const ComInterface* query(const std::string& iid) override {
-        for (ComInterface* f : {&s->directInput7, &s->directInput2, &s->directInput})
+    DirectInput::State *s = nullptr;
+    const ComInterface *query(const std::string &iid) override {
+        for (ComInterface *f : {&s->directInput7, &s->directInput2, &s->directInput})
             if (iid == f->iid)
                 return f;
         return nullptr;
     }
-    std::shared_ptr<Device> make(const std::string& guid) {
+    std::shared_ptr<Device> make(const std::string &guid) {
         if (guid != kSysMouse && guid != kSysKeyboard)
             return nullptr;
         auto d = std::make_shared<Device>();
         d->s = s;
         d->mouse = guid == kSysMouse;
         std::weak_ptr<Device> weak = d;
-        s->process.rawInput.push_back([weak](const Win32Process::RawInput& r) {
+        s->process.rawInput.push_back([weak](const Win32Process::RawInput &r) {
             if (auto device = weak.lock())
                 device->hear(r);
         });
         return d;
     }
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         // CreateDevice(guid, out, outer); CreateDeviceEx(guid, iid, out, outer)
         if (m == "CreateDevice" || m == "CreateDeviceEx") {
@@ -377,7 +404,7 @@ public:
                 c.write32(out, 0);
                 return kErrDeviceNotReg;
             }
-            const ComInterface* f = ex ? d->query(ComHost::guid(c, c.arg(2)))
+            const ComInterface *f = ex                           ? d->query(ComHost::guid(c, c.arg(2)))
                                     : &iface == &s->directInput7 ? &s->device7
                                     : &iface == &s->directInput2 ? &s->device2
                                                                  : &s->device;
@@ -421,9 +448,9 @@ public:
 
 DirectInput::~DirectInput() = default;
 
-DirectInput::DirectInput(Win32Process& process) : s_(std::make_unique<State>(process)) {
-    State* s = s_.get();
-    for (ComInterface* f : {&s->directInput, &s->directInput2, &s->directInput7, &s->device, &s->device2, &s->device7})
+DirectInput::DirectInput(Win32Process &process) : s_(std::make_unique<State>(process)) {
+    State *s = s_.get();
+    for (ComInterface *f : {&s->directInput, &s->directInput2, &s->directInput7, &s->device, &s->device2, &s->device7})
         s->com.define(*f);
     auto make = [s] {
         auto input = std::make_shared<Input>();
@@ -431,18 +458,18 @@ DirectInput::DirectInput(Win32Process& process) : s_(std::make_unique<State>(pro
         return input;
     };
     // DirectInputCreateA(instance, version, out, outer): an IDirectInputA.
-    process.provideStdcall("DINPUT.dll", "DirectInputCreateA", 4, [s, make](Cpu& c) {
+    process.provideStdcall("DINPUT.dll", "DirectInputCreateA", 4, [s, make](Cpu &c) {
         if (!c.valid(c.arg(2), 4))
             return kErrInvalidParam;
         c.write32(c.arg(2), s->com.pointer(make(), s->directInput));
         return kOk;
     });
     // DirectInputCreateEx(instance, version, iid, out, outer)
-    process.provideStdcall("DINPUT.dll", "DirectInputCreateEx", 5, [s, make](Cpu& c) {
+    process.provideStdcall("DINPUT.dll", "DirectInputCreateEx", 5, [s, make](Cpu &c) {
         if (!c.valid(c.arg(3), 4))
             return kErrInvalidParam;
         auto input = make();
-        const ComInterface* f = input->query(ComHost::guid(c, c.arg(2)));
+        const ComInterface *f = input->query(ComHost::guid(c, c.arg(2)));
         if (!f) {
             c.write32(c.arg(3), 0);
             return 0x80004002u; // E_NOINTERFACE

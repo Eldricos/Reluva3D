@@ -19,7 +19,7 @@ struct TextTable {
     std::vector<std::string> strings;
 };
 
-Error parseTextTable(const std::vector<uint8_t>& data, TextTable& out);
+Error parseTextTable(const std::vector<uint8_t> &data, TextTable &out);
 
 // Windows-1252 text as UTF-8 (the five unassigned bytes become U+FFFD).
 std::string cp1252ToUtf8(std::string_view text);

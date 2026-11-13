@@ -9,7 +9,7 @@
 
 namespace reluva::stgenerations {
 
-Screen::Screen(Platform* system) : _system(system) {
+Screen::Screen(Platform *system) : _system(system) {
 }
 
 void Screen::init() {
@@ -25,7 +25,7 @@ void Screen::applyPalette() {
     _system->setPalette(_palette.data(), 0, 256);
 }
 
-void Screen::drawCentered(const Canvas& image) {
+void Screen::drawCentered(const Canvas &image) {
     int x = (kWidth - image.w) / 2;
     int y = (kHeight - image.h) / 2;
 
@@ -44,7 +44,7 @@ void Screen::drawCentered(const Canvas& image) {
     }
 }
 
-void Screen::drawImage(const Canvas& image, int areaHeight) {
+void Screen::drawImage(const Canvas &image, int areaHeight) {
     if (image.w <= 0 || image.h <= 0)
         return;
     int scale = std::min(kWidth / image.w, areaHeight / image.h);
@@ -63,7 +63,7 @@ void Screen::drawImage(const Canvas& image, int areaHeight) {
     int x0 = (kWidth - image.w * scale) / 2;
     int y0 = (areaHeight - image.h * scale) / 2;
     for (int y = 0; y < image.h * scale; y++) {
-        const uint8_t* src = (const uint8_t*)image.getBasePtr(0, y / scale);
+        const uint8_t *src = (const uint8_t *)image.getBasePtr(0, y / scale);
         for (int x = 0; x < image.w * scale; x++)
             _surface.setPixel(x0 + x, y0 + y, src[x / scale]);
     }

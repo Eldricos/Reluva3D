@@ -43,30 +43,30 @@ struct Md3Surface {
     std::vector<std::string> shaders; // usually one
     std::vector<uint32_t> indices;    // three per triangle, into one frame's vertices
     std::vector<std::array<float, 2>> st;
-    int vertexCount = 0;              // per frame
-    std::vector<Md3Vertex> vertices;  // frame by frame: frame f's vertex i is [f * vertexCount + i]
+    int vertexCount = 0;             // per frame
+    std::vector<Md3Vertex> vertices; // frame by frame: frame f's vertex i is [f * vertexCount + i]
 };
 
 struct Md3Model {
     std::string name;
     std::vector<Md3Frame> frames;
-    int tagCount = 0;          // per frame
-    std::vector<Md3Tag> tags;  // frame by frame
+    int tagCount = 0;         // per frame
+    std::vector<Md3Tag> tags; // frame by frame
     std::vector<Md3Surface> surfaces;
 
     // The tag of that name in a frame, or nullptr.
-    const Md3Tag* tag(int frame, std::string_view name) const;
+    const Md3Tag *tag(int frame, std::string_view name) const;
 };
 
 // Parse a whole .md3 file, checking every count and offset.
-Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out);
+Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out);
 // Parse a whole .mdr file (Raven's skeletal models, "RDM5" version 2;
 // see docs/engines/idtech3/formats/mdr.md), posed into an Md3Model: each frame's
 // vertices placed by their bones, each frame's tags from theirs. `lod`
 // picks the level of detail (0 the most detailed; past the last, the last).
-Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod = 0);
+Error parseMdr(const std::vector<uint8_t> &data, Md3Model &out, int lod = 0);
 // Either, by the file's first bytes.
-Error parseModel(const std::vector<uint8_t>& data, Md3Model& out, int lod = 0);
+Error parseModel(const std::vector<uint8_t> &data, Md3Model &out, int lod = 0);
 
 // A .skin file: which shader each surface uses, as lines of
 // "surfacename,shader" (tag lines and empty shaders are ignored).

@@ -40,25 +40,24 @@ namespace stdfs = std::filesystem;
 
 static int failures = 0;
 
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++failures;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
 namespace {
 
-void touch(const stdfs::path& file, const std::string& contents = "x") {
+void touch(const stdfs::path &file, const std::string &contents = "x") {
     stdfs::create_directories(file.parent_path());
     std::ofstream(file, std::ios::binary) << contents;
 }
 
 // An install as the game's installer lays it out (mixed case), without the
 // CD's music and movies.
-void makeInstall(const stdfs::path& dir) {
+void makeInstall(const stdfs::path &dir) {
     touch(dir / "nfs3.exe");
     touch(dir / "GameData/Tracks/trk000/tr00.frd");
     touch(dir / "GameData/Tracks/trk001/tr01.frd");
@@ -70,7 +69,7 @@ void makeInstall(const stdfs::path& dir) {
 }
 
 // The CD, in its lower-case spelling, with the music and movies.
-void makeCd(const stdfs::path& dir) {
+void makeCd(const stdfs::path &dir) {
     touch(dir / "nfs3.exe");
     touch(dir / "gamedata/tracks/trk000/tr00.frd");
     touch(dir / "gamedata/audio/pc/alpirock.mus");
@@ -79,7 +78,7 @@ void makeCd(const stdfs::path& dir) {
     touch(dir / "fedata/movies/titleav.mad");
 }
 
-void testDetection(const stdfs::path& tmp) {
+void testDetection(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "detect/Need For Speed III";
     makeInstall(install);
 
@@ -105,7 +104,7 @@ void testDetection(const stdfs::path& tmp) {
     CHECK(findGame("nfs4") == nullptr);
 }
 
-void testFolders(const stdfs::path& tmp) {
+void testFolders(const stdfs::path &tmp) {
     const stdfs::path root = tmp / "folders";
     const stdfs::path install = root / "Need For Speed III";
     makeInstall(install);
@@ -147,7 +146,7 @@ void testFolders(const stdfs::path& tmp) {
     CHECK(f.cdSource == "install folder");
 }
 
-void testListings(const stdfs::path& tmp) {
+void testListings(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "listings";
     makeInstall(install);
 
@@ -173,27 +172,28 @@ void testListings(const stdfs::path& tmp) {
 
 using Bytes = std::vector<uint8_t>;
 
-void put16(Bytes& b, unsigned v) {
+void put16(Bytes &b, unsigned v) {
     b.push_back(uint8_t(v));
     b.push_back(uint8_t(v >> 8));
 }
-void put32(Bytes& b, uint32_t v) {
+void put32(Bytes &b, uint32_t v) {
     put16(b, v & 0xffff);
     put16(b, v >> 16);
 }
-void put32be(Bytes& b, uint32_t v) {
+void put32be(Bytes &b, uint32_t v) {
     for (int s = 24; s >= 0; s -= 8)
         b.push_back(uint8_t(v >> s));
 }
-void putText(Bytes& b, const char* s, size_t n) { b.insert(b.end(), s, s + n); }
+void putText(Bytes &b, const char *s, size_t n) {
+    b.insert(b.end(), s, s + n);
+}
 
 void testRefPack() {
     // The three copy forms and both literal forms, by hand (refpack.md).
-    const Bytes small = {0x10, 0xfb, 0x00, 0x00, 0x0c,
-                         0xe0, 'a', 'b', 'c', 'd', // 4 literals
-                         0x01, 0x04, 'e',          // 1 literal, then 3 from 5 back
-                         0x80, 0x00, 0x00,         // 4 from 1 back (overlapping)
-                         0xfc};                    // end, no literals
+    const Bytes small = {0x10, 0xfb, 0x00, 0x00, 0x0c, 0xe0, 'a', 'b', 'c', 'd', // 4 literals
+                         0x01, 0x04, 'e',                                        // 1 literal, then 3 from 5 back
+                         0x80, 0x00, 0x00,                                       // 4 from 1 back (overlapping)
+                         0xfc};                                                  // end, no literals
     Bytes out;
     CHECK(isRefPack(small));
     CHECK(!decompressRefPack(small, out));
@@ -267,9 +267,9 @@ void testRefPack() {
     CHECK(plain.size() == 5);
 }
 
-Bytes makeViv(const std::vector<std::pair<std::string, std::string>>& files) {
+Bytes makeViv(const std::vector<std::pair<std::string, std::string>> &files) {
     uint32_t dirSize = 16;
-    for (const auto& f : files)
+    for (const auto &f : files)
         dirSize += 8 + uint32_t(f.first.size()) + 1;
     const uint32_t first = (dirSize + 3) & ~3u;
     Bytes b = {'B', 'I', 'G', 'F'};
@@ -277,13 +277,13 @@ Bytes makeViv(const std::vector<std::pair<std::string, std::string>>& files) {
     put32be(b, uint32_t(files.size()));
     put32be(b, first);
     uint32_t offset = first;
-    for (const auto& f : files) {
+    for (const auto &f : files) {
         put32be(b, offset);
         put32be(b, uint32_t(f.second.size()));
         putText(b, f.first.c_str(), f.first.size() + 1);
         offset += (uint32_t(f.second.size()) + 3) & ~3u;
     }
-    for (const auto& f : files) {
+    for (const auto &f : files) {
         b.resize((b.size() + 3) & ~size_t(3));
         putText(b, f.second.data(), f.second.size());
     }
@@ -324,7 +324,8 @@ void testViv() {
     // Read from disk too.
     const stdfs::path file = stdfs::temp_directory_path() / "reluva_nfs_test.viv";
     const Bytes disk = makeViv({{"x.bin", "xyz"}});
-    std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(disk.data()), std::streamsize(disk.size()));
+    std::ofstream(file, std::ios::binary)
+        .write(reinterpret_cast<const char *>(disk.data()), std::streamsize(disk.size()));
     CHECK(!viv.open(file));
     CHECK(viv.has("x.bin"));
     stdfs::remove(file);
@@ -333,7 +334,7 @@ void testViv() {
 
 // A shape block: the type, the offset to the next block (0: last), then
 // width, height, centre and position.
-void putShapeHeader(Bytes& b, uint8_t type, uint32_t next, int w, int h, int cx, int cy, int x, int y) {
+void putShapeHeader(Bytes &b, uint8_t type, uint32_t next, int w, int h, int cx, int cy, int x, int y) {
     b.push_back(type);
     b.push_back(uint8_t(next));
     b.push_back(uint8_t(next >> 8));
@@ -346,18 +347,18 @@ void putShapeHeader(Bytes& b, uint8_t type, uint32_t next, int w, int h, int cx,
     put16(b, unsigned(y) & 0xffff);
 }
 
-Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>>& shapes) {
+Bytes makeShapeBank(const std::vector<std::pair<std::string, Bytes>> &shapes) {
     Bytes b = {'S', 'H', 'P', 'I'};
     put32(b, 0);
     put32(b, uint32_t(shapes.size()));
     putText(b, "GIMX", 4);
     uint32_t offset = 16 + 8 * uint32_t(shapes.size());
-    for (const auto& s : shapes) {
+    for (const auto &s : shapes) {
         putText(b, s.first.c_str(), 4);
         put32(b, offset);
         offset += uint32_t(s.second.size());
     }
-    for (const auto& s : shapes)
+    for (const auto &s : shapes)
         b.insert(b.end(), s.second.begin(), s.second.end());
     const uint32_t total = uint32_t(b.size());
     for (int i = 0; i < 4; ++i)
@@ -371,7 +372,7 @@ void testShapes() {
     putShapeHeader(indexed, 0x7b, 16 + 4, 2, 1, -256, 3, 10, -20); // pixels padded to 4
     indexed.insert(indexed.end(), {1, 0, 0, 0});
     putShapeHeader(indexed, 0x2d, 16 + 4, 2, 1, 0, 0, 0, 0);
-    put16(indexed, 0x7c00);         // red, alpha bit clear
+    put16(indexed, 0x7c00);          // red, alpha bit clear
     put16(indexed, 0x8000 | 0x03e0); // green, opaque
     indexed.push_back(0x6f);
     indexed.insert(indexed.end(), {0, 0, 0});
@@ -400,7 +401,7 @@ void testShapes() {
     if (bank.shapes.size() != 4)
         return;
 
-    const Shape& s = bank.shapes[0];
+    const Shape &s = bank.shapes[0];
     CHECK(s.name == "pal8" && s.type == kShape8Bit && s.width == 2 && s.height == 1);
     CHECK(s.centerX == -256 && s.centerY == 3 && s.x == 10 && s.y == -20);
     CHECK(s.pixels.size() == 2);
@@ -496,7 +497,8 @@ void testCockpit() {
     n = needle(reversed, c.width, 100);
     CHECK(near((n.x[2] + n.x[3]) / 2, 100) && near((n.y[2] + n.y[3]) / 2, 110));
     // The wheel: a quarter turn at full lock standing still, none at 800/2.2369 m/s.
-    CHECK(near(wheelTurns(128, 0), 0.25f) && near(wheelTurns(-64, 0), -0.125f) && near(wheelTurns(128, 800 / 2.2369f / 2), 0));
+    CHECK(near(wheelTurns(128, 0), 0.25f) && near(wheelTurns(-64, 0), -0.125f) &&
+          near(wheelTurns(128, 800 / 2.2369f / 2), 0));
     CHECK(near(metresPerSecond(c.speedometer, 36), 10));
     // Fewer than 12 pairs: not read.
     dash.unknown[0].data.resize(40);
@@ -569,9 +571,9 @@ void testFont() {
     s.create(6, 4, PixelFormat::RGBA32);
     CHECK(font.draw(s, 0, 2, "AB", {200, 100, 50}) == 5);
     CHECK(s.row(1)[4] == 200 && s.row(1)[5] == 100 && s.row(1)[6] == 50); // full coverage
-    CHECK(s.row(1)[8] == 200 * 136 / 255);                                 // partial
-    CHECK(s.row(2)[4 + 1] == 0 && s.row(2)[8] == 200);                     // (1, 2) clear, (2, 2) solid
-    CHECK(s.row(2)[3 * 4] == 200);                                         // 'B'
+    CHECK(s.row(1)[8] == 200 * 136 / 255);                                // partial
+    CHECK(s.row(2)[4 + 1] == 0 && s.row(2)[8] == 200);                    // (1, 2) clear, (2, 2) solid
+    CHECK(s.row(2)[3 * 4] == 200);                                        // 'B'
 
     CHECK(font.penX == 0 && font.penY == 0 && font.lineStep() == 9);
 
@@ -596,13 +598,13 @@ void testFont() {
     CHECK(parseFont(Bytes(b.begin(), b.end() - 1), font)); // atlas cut short
 }
 
-void putFloat(Bytes& b, size_t at, float f) {
+void putFloat(Bytes &b, size_t at, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
     for (int i = 0; i < 4; ++i)
         b[at + i] = uint8_t(v >> (8 * i));
 }
-void putU32(Bytes& b, size_t at, uint32_t v) {
+void putU32(Bytes &b, size_t at, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         b[at + i] = uint8_t(v >> (8 * i));
 }
@@ -614,13 +616,16 @@ void testModel() {
                              tiny = carDetailParts(3, 13);
         CHECK(near.body == (std::vector<int>{0, 1, 2, 3, 4}) && near.headlights);
         CHECK(mid.body == (std::vector<int>{5, 6, 7, 8, 9}) && mid.headlights);
-        CHECK(small.body == (std::vector<int>{10}) && !small.headlights && tiny.body == (std::vector<int>{11}) && !tiny.headlights);
+        CHECK(small.body == (std::vector<int>{10}) && !small.headlights && tiny.body == (std::vector<int>{11}) &&
+              !tiny.headlights);
         // 12 parts: no headlights; traffic and police (6 parts): 0-4 then 5.
         CHECK(!carDetailParts(0, 12).headlights && carDetailParts(0, 12).body.size() == 5);
-        CHECK(carDetailParts(2, 6).body == (std::vector<int>{0, 1, 2, 3, 4}) && carDetailParts(3, 6).body == (std::vector<int>{5}));
+        CHECK(carDetailParts(2, 6).body == (std::vector<int>{0, 1, 2, 3, 4}) &&
+              carDetailParts(3, 6).body == (std::vector<int>{5}));
         CHECK(carDetailParts(-1, 13).body.empty() && carDetailParts(4, 13).body.empty());
         // A two-sided triangle (flag 0x4) both ways round, the rest as stored.
-        CHECK(carTriangleCorners(0) == (std::vector<int>{0, 1, 2}) && carTriangleCorners(1) == (std::vector<int>{0, 1, 2}));
+        CHECK(carTriangleCorners(0) == (std::vector<int>{0, 1, 2}) &&
+              carTriangleCorners(1) == (std::vector<int>{0, 1, 2}));
         CHECK(carTriangleCorners(5) == (std::vector<int>{0, 1, 2, 0, 2, 1}));
     }
     // Two parts: a triangle and a quad (two triangles), 7 vertices.
@@ -693,13 +698,13 @@ void testModel() {
     CHECK(parseModel(Bytes(100, 0), m));
 }
 
-void putF(Bytes& b, float f) {
+void putF(Bytes &b, float f) {
     uint32_t v;
     std::memcpy(&v, &f, 4);
     put32(b, v);
 }
 
-void putPolygon(Bytes& b, std::array<uint16_t, 4> v, uint16_t texture) {
+void putPolygon(Bytes &b, std::array<uint16_t, 4> v, uint16_t texture) {
     for (uint16_t i : v)
         put16(b, i);
     put16(b, texture);
@@ -921,7 +926,7 @@ void testWeather() {
     ParticleRandom random;
     w.start(rain, {0, 0, 0}, 100, random);
     for (int i = 0; i < rain.count; ++i) {
-        const ParticleVec& p = w.drops()[size_t(i)].position;
+        const ParticleVec &p = w.drops()[size_t(i)].position;
         CHECK(std::fabs(p[0]) <= 25 && std::fabs(p[2]) <= 25 && p[1] >= -5 && p[1] <= 15);
     }
     CHECK(w.drops()[400].position == (ParticleVec{0, 0, 0}));
@@ -949,7 +954,7 @@ void testWeather() {
     view.forward = {0, 0, 1};
     Weather d;
     d.start(rain, {0, 0, 0}, 0, random);
-    for (auto& drop : d.drops())
+    for (auto &drop : d.drops())
         drop.position = {0, 100, -100}; // out of sight
     d.drops()[0].position = {1, 2, 10};
     std::vector<WeatherPoly> polys;
@@ -976,8 +981,9 @@ void testWeather() {
     random.script = {5, 0xffff, 0x4000}; // life 16 - 5 % 4, size all, angle a quarter
     d.draw(view, 400, true, random, polys);
     CHECK(polys.size() == 1 && polys[0].splash && polys[0].corners == 4);
-    const Weather::Splash& sp = d.splashes()[0];
-    CHECK(sp.life == 15 && std::fabs(sp.x - 0.25f) < 1e-6f && sp.y == 0 && std::fabs(sp.size - 0.2f * 0xffff / 65536) < 1e-5f);
+    const Weather::Splash &sp = d.splashes()[0];
+    CHECK(sp.life == 15 && std::fabs(sp.x - 0.25f) < 1e-6f && sp.y == 0 &&
+          std::fabs(sp.size - 0.2f * 0xffff / 65536) < 1e-5f);
     CHECK(polys[0].colour == 0x78787878u); // 128 x 15 / 16
     CHECK(d.drops()[0].position[1] == 15); // the drop back at the top
     // The rain's splash plays a sound (0x414f90), once.
@@ -1015,7 +1021,7 @@ void testWeather() {
     // Snow: a square from the point, its side by the depth.
     Weather s;
     s.start(snow, {0, 0, 0}, 0, random);
-    for (auto& flake : s.drops())
+    for (auto &flake : s.drops())
         flake.position = {0, 100, -100};
     s.drops()[0].position = {0, 0, 10};
     polys.clear();
@@ -1047,7 +1053,7 @@ void testCarEffects() {
     float level = wheelSpray(sys, 2, 0, 1, 1, {0, 0, 0}, {10, 0, 0}, {0, 0, 1}, 10, 0, random);
     CHECK(level == 1.25f && sys.live() == 1);
     {
-        const Particle& q = sys.particles()[0];
+        const Particle &q = sys.particles()[0];
         CHECK(q.kind == 10 && q.life == 32 && q.colour == 0x7fffffff);
         CHECK(std::fabs(q.velocity[0] - (0.4f + 0.9f * 5)) < 1e-5f && std::fabs(q.velocity[1] - 0.62f) < 1e-5f &&
               std::fabs(q.velocity[2] - 0.7f) < 1e-5f);
@@ -1071,7 +1077,7 @@ void testCarEffects() {
     CHECK(sys.live() == 0);
     carHitParticles(sys, {0, 1, 0}, {1, 1, 0}, {0, 0, 10}, 10, 0, random);
     int sparks = 0, dust = 0;
-    for (const Particle& q : sys.particles())
+    for (const Particle &q : sys.particles())
         if (q.life != 0)
             (q.kind == 3 ? sparks : dust) += q.kind == 3 || q.kind == 2 ? 1 : 0;
     CHECK(sparks == 30 && dust == 1);
@@ -1122,7 +1128,7 @@ void testCarEffects() {
     // back past a quarter turn.
     sys.clear();
     random.script.assign(10, 0x8000);
-    Particle* p = sys.spawn(12, {}, 1, {1, 0, 0}, {0, 0, 1}, {}, 0, random);
+    Particle *p = sys.spawn(12, {}, 1, {1, 0, 0}, {0, 0, 1}, {}, 0, random);
     CHECK(p && p->colour == 0xffffbf7f);
     p->angle = 0.3f;
     p->spin = 0.1f;
@@ -1144,7 +1150,7 @@ void testCarEffects() {
     CHECK(!lens.hit(3, 0.2f, 0.1f, 2, false, random) && !lens.hit(11, 0.2f, 0.1f, 2, true, random));
     random.script = {0x8000, 0x8000, 10, 0, 0, 0x8000, 0x8000};
     CHECK(lens.hit(11, 0.2f, 0.1f, 2, false, random) && lens.live() == 1);
-    const Splat& mud = lens.splats()[0];
+    const Splat &mud = lens.splats()[0];
     CHECK(mud.kind == 11 && mud.life == 1014 && std::fabs(mud.x - 0.1f) < 1e-6f && std::fabs(mud.y - 0.05f) < 1e-6f &&
           std::fabs(mud.size - 0.2f) < 1e-6f && std::fabs(mud.corners[0][1] - 0.25f) < 1e-6f &&
           std::fabs(mud.corners[1][0] - 0.3f) < 1e-6f && mud.colour == 0x7fffffff && mud.flags == 0);
@@ -1172,7 +1178,7 @@ void testCarEffects() {
     CHECK(lens.hit(4, 0.5f, 0.5f, 1, false, random) && lens.live() == 2);
     CHECK(lens.takeSounds() == 1 && lens.takeSounds() == 0 && SplatScreen::kSoundSlot == 15);
     // No free slot: not taken.
-    for (Splat& s : lens.splats())
+    for (Splat &s : lens.splats())
         s.life = 5;
     CHECK(!lens.hit(1, 0, 0, 1, false, random));
 }
@@ -1184,7 +1190,7 @@ void testParticles() {
     CHECK(wallParticleKind(0) == 0 && wallParticleKind(6) == 0 && wallParticleKind(9) == 0);
     CHECK(burstCount(20) == 30 && burstCount(30) == 30 && burstCount(11) == 16 && burstCount(15) == 22);
     // Sparks: white, to orange and clear (bytes rounded as fistp, halves to even).
-    const ParticleTemplate& sparks = *particleTemplate(3);
+    const ParticleTemplate &sparks = *particleTemplate(3);
     CHECK(particleColour(sparks, 0) == 0xffffffff && particleColour(sparks, 1) == 0x00ff3900);
     CHECK(particleColour(sparks, 0.5f) == 0x7fff9c7f);
     CHECK(particleColour(*particleTemplate(2), 1) == 0x00dfdfdf);
@@ -1201,7 +1207,7 @@ void testParticles() {
     random.script = {1, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
     sys.spawnOne(2, {10, 20, 30}, 0, random);
     CHECK(sys.live() == 1);
-    const Particle* p = &sys.particles()[0];
+    const Particle *p = &sys.particles()[0];
     CHECK(p->kind == 2 && p->life == 128 && p->lifeMax == 128 && p->colour == 0x7fdfdfdf);
     CHECK(p->velocity[0] == 0 && std::fabs(p->velocity[1] - 3.1f) < 1e-6f && p->velocity[2] == 0);
     CHECK(p->size == 0.9375f && p->spin == 0.5f && p->growth == 3.0f && p->angle == 0.5f);
@@ -1225,7 +1231,8 @@ void testParticles() {
     // Only rear wheels over 5, on the dry surfaces marked for skid marks
     // (0x553090: 1, 4, 7, 10, 11, 12), none in rain or snow.
     CHECK(wheelSmokes(2, 10, 1, 0) && wheelSmokes(3, 5.5f, 12, 0) && !wheelSmokes(3, 5, 1, 0));
-    CHECK(!wheelSmokes(0, 10, 1, 0) && !wheelSmokes(2, 10, 2, 0) && !wheelSmokes(2, 10, 1, 1) && !wheelSmokes(2, 10, 14, 0));
+    CHECK(!wheelSmokes(0, 10, 1, 0) && !wheelSmokes(2, 10, 2, 0) && !wheelSmokes(2, 10, 1, 1) &&
+          !wheelSmokes(2, 10, 14, 0));
     CHECK(skidMarkSurface(4, 0) && skidMarkSurface(0x41, 0) && !skidMarkSurface(5, 0) && !skidMarkSurface(1, 2));
     // A left rear wheel's puff: along the velocity made a unit vector, out
     // to the left (against the right row), half the velocity inherited
@@ -1235,7 +1242,7 @@ void testParticles() {
     tyreSmoke(sys, 3, {1303, 0, 950}, {4, 0, 0}, {0, 0, 1}, 0, random);
     CHECK(sys.live() == 1);
     {
-        const Particle& q = sys.particles()[0];
+        const Particle &q = sys.particles()[0];
         CHECK(q.kind == 6 && q.life == 256 && q.position[0] == 1303 && q.colour == 0x7fffffff);
         CHECK(std::fabs(q.velocity[0] - 1.5f) < 1e-6f && std::fabs(q.velocity[1] - 1.5f) < 1e-6f &&
               std::fabs(q.velocity[2] + 0.5f) < 1e-6f && std::fabs(q.spin + 0.1f) < 1e-6f);
@@ -1256,7 +1263,7 @@ void testParticles() {
     // its velocity a game tick, the rest every other tick.
     sys.clear();
     random.script = {0x8000, 0x8000, 0x8000, 0x8000, 0x8000, 0x8000};
-    Particle* s = sys.spawn(3, {0, 0, 0}, 1, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}, 0, random);
+    Particle *s = sys.spawn(3, {0, 0, 0}, 1, {0, 0, 1}, {1, 0, 0}, {0, 0, 0}, 0, random);
     CHECK(s && s->velocity[0] == 2 && s->velocity[1] == 2 && s->velocity[2] == 5);
     sys.step(0, random); // even: moves only
     CHECK(s->life == 16 && s->position[2] == 5 / 64.0f && s->velocity[1] == 2);
@@ -1302,7 +1309,7 @@ void testParticles() {
         ParticleSystem hits;
         hits.burst({0, 0, 0}, {-1, 0, 0}, {0, 0, 40}, 20, 0, random);
         bool ok = hits.live() == 30;
-        for (const Particle& q : hits.particles())
+        for (const Particle &q : hits.particles())
             if (q.life)
                 ok = ok && q.life >= 9 && q.life <= 16 && q.children >= 0 && q.children <= 2 && q.velocity[2] > 10;
         CHECK(ok);
@@ -1321,7 +1328,7 @@ void testParticles() {
     // above; with the game's aspect the sine's part is longer.
     d.angle = 0.25f;
     corners = pictureCorners(d, right, up, 2);
-    auto close3 = [](const ParticleVec& a, const ParticleVec& b) {
+    auto close3 = [](const ParticleVec &a, const ParticleVec &b) {
         return std::fabs(a[0] - b[0]) < 1e-5f && std::fabs(a[1] - b[1]) < 1e-5f && std::fabs(a[2] - b[2]) < 1e-5f;
     };
     CHECK(close3(corners[0], ParticleVec{7, 5, 5}) && close3(corners[1], ParticleVec{5, 7, 5}) &&
@@ -1330,11 +1337,13 @@ void testParticles() {
     CHECK(close3(corners[0], ParticleVec{5 + 2 * 330.332f / 320, 5, 5}) && close3(corners[1], ParticleVec{5, 7, 5}));
     d.angle = 0;
     corners = streakCorners(d, right, up, 0.5f, 0.1f); // held to half a pixel
-    CHECK(d.tailSet && d.tail == d.position && corners[0] == d.position && corners[2] == (ParticleVec{5.25f, 4.75f, 5}));
+    CHECK(d.tailSet && d.tail == d.position && corners[0] == d.position &&
+          corners[2] == (ParticleVec{5.25f, 4.75f, 5}));
     d.position = {9, 5, 5};
     corners = streakCorners(d, right, up, 0.5f, 3); // held to a pixel
-    CHECK(corners[0] == (ParticleVec{5, 5, 5}) && corners[1] == corners[0] && corners[2] == (ParticleVec{9.5f, 4.5f, 5}) &&
-          corners[3] == (ParticleVec{8.5f, 5.5f, 5}) && d.tail == (ParticleVec{7, 5, 5}));
+    CHECK(corners[0] == (ParticleVec{5, 5, 5}) && corners[1] == corners[0] &&
+          corners[2] == (ParticleVec{9.5f, 4.5f, 5}) && corners[3] == (ParticleVec{8.5f, 5.5f, 5}) &&
+          d.tail == (ParticleVec{7, 5, 5}));
 }
 
 void testViewAndRoadFrame() {
@@ -1393,7 +1402,7 @@ void testTrack() {
     CHECK(!parseTrack(file, t));
     CHECK(t.blocks.size() == 1 && t.textures.size() == 2 && t.extraObjects.size() == 5);
     if (t.blocks.size() == 1) {
-        const Track::Block& b = t.blocks[0];
+        const Track::Block &b = t.blocks[0];
         CHECK(b.centre[2] == 20.f && b.corners[3][2] == 11.f);
         CHECK(b.vertices.size() == 5 && b.vertices[3][2] == -3.f && b.colours[1] == 0xff102031u);
         CHECK(b.objectVertices == 1 && b.highResVertices == 4);
@@ -1402,7 +1411,8 @@ void testTrack() {
         CHECK(b.polygons[4].size() == 2 && b.polygons[6].size() == 1 && b.polygons[0].empty());
         if (b.polygons[4].size() == 2) {
             CHECK(b.polygons[4][1].vertices == (std::array<uint16_t, 4>{1, 3, 4, 4}));
-            CHECK(b.polygons[4][1].texture == 1 && b.polygons[4][1].flags == 0x10 && b.polygons[4][1].animation == 0xf9);
+            CHECK(b.polygons[4][1].texture == 1 && b.polygons[4][1].flags == 0x10 &&
+                  b.polygons[4][1].animation == 0xf9);
         }
         CHECK(b.objectLayers[0].size() == 2 && b.objectLayers[1].empty());
         if (b.objectLayers[0].size() == 2)
@@ -1410,9 +1420,10 @@ void testTrack() {
                   b.objectLayers[0][1].polygons.empty());
     }
     if (t.extraObjects.size() == 5 && t.extraObjects[0].size() == 2) {
-        const auto& still = t.extraObjects[0][0];
-        CHECK(still.type == 4 && still.reference[2] == 300.f && still.vertices.size() == 3 && still.polygons.size() == 1);
-        const auto& moving = t.extraObjects[0][1];
+        const auto &still = t.extraObjects[0][0];
+        CHECK(still.type == 4 && still.reference[2] == 300.f && still.vertices.size() == 3 &&
+              still.polygons.size() == 1);
+        const auto &moving = t.extraObjects[0][1];
         CHECK(moving.type == 3 && moving.keys.size() == 2 && moving.keys[1].position[0] == 65536 &&
               moving.keys[1].rotation[2] == 100 && moving.vertices.size() == 1);
     }
@@ -1450,11 +1461,11 @@ void testTrack() {
     // (b - a) x (c - a) as for the Taco Den sign's block polygon that reads
     // the right way round from the start, faces the oncoming traffic
     // (-x, -z), and corner 0 (u = 0) is vertex 1.
-    const Track::Vec3 sign[4] = {{884.5f, 25.6f, -123.3f}, {883.1f, 25.6f, -122.2f}, {883.1f, 23.2f, -122.2f},
-                                 {884.5f, 23.2f, -123.3f}};
-    const Track::Vec3& a = sign[polygonSlot(0, true)];
-    const Track::Vec3& b = sign[polygonSlot(1, true)];
-    const Track::Vec3& c = sign[polygonSlot(2, true)];
+    const Track::Vec3 sign[4] = {
+        {884.5f, 25.6f, -123.3f}, {883.1f, 25.6f, -122.2f}, {883.1f, 23.2f, -122.2f}, {884.5f, 23.2f, -123.3f}};
+    const Track::Vec3 &a = sign[polygonSlot(0, true)];
+    const Track::Vec3 &b = sign[polygonSlot(1, true)];
+    const Track::Vec3 &c = sign[polygonSlot(2, true)];
     const float e1[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]}, e2[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
     const float nx = e1[1] * e2[2] - e1[2] * e2[1], nz = e1[0] * e2[1] - e1[1] * e2[0];
     CHECK(nx < 0 && nz < 0 && &a == &sign[1]);
@@ -1466,7 +1477,8 @@ void testTrack() {
     CHECK(blockDetailAt(150, false) == 1 && blockDetailAt(151, false) == 0 && blockDetailAt(500, false) == 0);
     CHECK(blockDetailAt(501, false) == -1 && blockDetailAt(376, true) == -1 && blockDetailAt(374, true) == 0);
     CHECK(blockDetailAt(83, true) == 1 && blockDetailAt(82, true) == 2);
-    CHECK(blockDetailAt(276, false, 2) == -1 && blockDetailAt(274, false, 2) == 0 && blockDetailAt(201, false, 3) == -1);
+    CHECK(blockDetailAt(276, false, 2) == -1 && blockDetailAt(274, false, 2) == 0 &&
+          blockDetailAt(201, false, 3) == -1);
     CHECK(blockDetailAt(499, false, 0) == 2 && blockDetailAt(501, false, 0) == -1);
 }
 
@@ -1483,7 +1495,7 @@ void testHeadlights() {
     CHECK(std::fabs(low.forward[1] + std::sin(kTilt)) < 1e-5f && std::fabs(low.forward[2] - std::cos(kTilt)) < 1e-5f);
     CHECK(std::fabs(low.up[1] - std::cos(kTilt)) < 1e-5f && std::fabs(low.up[2] - std::sin(kTilt)) < 1e-5f);
     CHECK(low.right[0] == 1 && low.right[2] == 0);
-    auto along = [&](const Headlight& h, float z, float x = 0) {
+    auto along = [&](const Headlight &h, float z, float x = 0) {
         return std::array<float, 3>{h.at[0] + h.forward[0] * z + h.right[0] * x, h.at[1] + h.forward[1] * z,
                                     h.at[2] + h.forward[2] * z + h.right[2] * x};
     };
@@ -1563,8 +1575,10 @@ void testHeadlights() {
     // behind too, unless the light shines both ways (0x41bc90).
     const Headlight flat = carHeadlight(1, true, {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1});
     auto square = [](float x, float z, float half) {
-        return std::array<std::array<float, 3>, 4>{std::array<float, 3>{x - half, 0, z - half}, {x + half, 0, z - half},
-                                                   {x + half, 0, z + half}, {x - half, 0, z + half}};
+        return std::array<std::array<float, 3>, 4>{std::array<float, 3>{x - half, 0, z - half},
+                                                   {x + half, 0, z - half},
+                                                   {x + half, 0, z + half},
+                                                   {x - half, 0, z + half}};
     };
     CHECK(!lightMissesBlock(flat, square(0, 30, 10)));
     CHECK(lightMissesBlock(flat, square(60, 20, 10)) && lightMissesBlock(flat, square(-60, 20, 10)));
@@ -1581,7 +1595,7 @@ void testHeadlights() {
     behind.headlightOn = true;
     const std::array<float, 3> ahead{0, -0.8f, 30}; // in the beam's frame roughly 30 along
     const uint32_t lit = carLitBy(0xff101010u, ahead, {behind});
-    CHECK(lit == 0xff919191u); // 0x10 + 255 x (1 - 29.6 / 60)
+    CHECK(lit == 0xff919191u);                                         // 0x10 + 255 x (1 - 29.6 / 60)
     CHECK(carLitBy(0xff101010u, {0, 0, -5}, {behind}) == 0xff101010u); // behind it
     CarLights cop;
     cop.siren = roof;
@@ -1609,7 +1623,7 @@ void testHeadlights() {
     // Slice 12 (block 1): slices 9-15 are all in block 1, so the light
     // counts seven times, its mean the same.
     CHECK(carLitByTrackLights(0xff101010u, {0, 0, 0}, 12, 24, lights, 0, false) == 0xff7f1b1bu);
-    CHECK(carLitByTrackLights(0xff101010u, {0, 0, 0}, 12, 24, lights, 0, true) == 0xff101010u); // effects off
+    CHECK(carLitByTrackLights(0xff101010u, {0, 0, 0}, 12, 24, lights, 0, true) == 0xff101010u);   // effects off
     CHECK(carLitByTrackLights(0xff101010u, {0, 0, 24}, 12, 24, lights, 0, false) == 0xff101010u); // 16 away
     Track::Block::Light white = red;
     white.type = 2; // 0xffffffd2
@@ -1627,7 +1641,8 @@ void testHeadlights() {
     // The detail a car is drawn at (0x4bb5d0): the nearest only with the
     // car detail option 0, its distances x 0.75 by night.
     CHECK(carDetailLevel(25, 0, false) == 0 && carDetailLevel(25, 0, true) == 1 && carDetailLevel(25, 1, false) == 1 &&
-          carDetailLevel(10, 2, false) == 1 && carDetailLevel(250, 0, true) == 3 && carDetailLevel(301, 0, false) == -1);
+          carDetailLevel(10, 2, false) == 1 && carDetailLevel(250, 0, true) == 3 &&
+          carDetailLevel(301, 0, false) == -1);
 
     // The speed tables: a byte per two slices from the file's first byte
     // (0x40e080; Hometown's speedsF.bin is 1,439 bytes, 480 speeds and 959
@@ -1662,7 +1677,8 @@ void testCarLighting() {
     CarGlow g = carLightGlow("TRLN", -1, 1, false, false, 0, 1);
     CHECK(g.shown && g.colour == 0x80ff0000u && std::fabs(g.size - 0.8f) < 1e-6f && g.nearer == 0);
     CHECK(carLightGlow("TRLN", -1, 0, true, false, 0, 1).colour == 0xc6ff0000u);
-    CHECK(!carLightGlow("TRLN", -1, 0, false, false, 0, 1).shown && !carLightGlow("TRLN", 1, 1, false, false, 0, 1).shown);
+    CHECK(!carLightGlow("TRLN", -1, 0, false, false, 0, 1).shown &&
+          !carLightGlow("TRLN", 1, 1, false, false, 0, 1).shown);
     // Seen from the side: dimmer under a quarter, the size kept at 0.25 of it.
     g = carLightGlow("TRRN", -0.1f, 1, false, false, 0, 0.7f);
     CHECK(g.colour == ((uint32_t(std::lrint(128 * 0.4f * 0.7f)) << 24) | 0xff0000u));
@@ -1672,7 +1688,8 @@ void testCarLighting() {
     CHECK(g.shown && g.colour == 0xffffffffu && std::fabs(g.size - 1.2f) < 1e-6f);
     // A police car's: flashing in turn with the siren on, lights off.
     CHECK(carLightGlow("HFLO", 1, 0, false, true, 4, 1).shown && !carLightGlow("HFRE", 1, 0, false, true, 4, 1).shown);
-    CHECK(!carLightGlow("HFLO", 1, 0, false, true, 20, 1).shown && carLightGlow("HFRE", 1, 0, false, true, 20, 1).shown);
+    CHECK(!carLightGlow("HFLO", 1, 0, false, true, 20, 1).shown &&
+          carLightGlow("HFRE", 1, 0, false, true, 20, 1).shown);
     // The roof lights: blue left, red right, rising and falling in turn.
     g = carLightGlow("SMLN", 0, 0, false, true, 8, 1); // phase 1/4: share 1/2
     CHECK(g.shown && g.colour == 0x808080ffu && std::fabs(g.size - 0.75f) < 1e-6f && g.nearer == 0.75f);
@@ -1689,7 +1706,8 @@ void testCarReflection() {
     CHECK((rgbToHsv({100, 150, 200}) == std::array<int, 3>{149, 128, 200}));
     CHECK((hsvToRgb({0, 255, 255}) == std::array<int, 3>{255, 0, 0}));
     CHECK((hsvToRgb({85, 255, 255}) == std::array<int, 3>{2, 255, 0}));
-    CHECK((hsvToRgb({40, 0, 90}) == std::array<int, 3>{90, 90, 90}) && (hsvToRgb({40, 200, 0}) == std::array<int, 3>{0, 0, 0}));
+    CHECK((hsvToRgb({40, 0, 90}) == std::array<int, 3>{90, 90, 90}) &&
+          (hsvToRgb({40, 200, 0}) == std::array<int, 3>{0, 0, 0}));
     // 0x4ba350: the sky's hue; value 128 + 200 x 127 / 512 = 177, less a
     // quarter of the paint's value (112) for the normal one; all x 255 / 256.
     CarReflection r = carReflection(0xff7f7f7fu, {100, 150, 200}, 112, 0);
@@ -1712,7 +1730,8 @@ void testLightEffects() {
     // 0x491190: glw0 fading with the depth, glw3 at full colour; none
     // nearer than 1 or past 256, nor blinking off.
     const LightLook white{0xffffffffu, 4, true};
-    CHECK(!lightQuads(white, 0.5f).shown && !lightQuads(white, 300).shown && !lightQuads({0xffffffffu, 4, false}, 10).shown);
+    CHECK(!lightQuads(white, 0.5f).shown && !lightQuads(white, 300).shown &&
+          !lightQuads({0xffffffffu, 4, false}, 10).shown);
     LightQuads q = lightQuads(white, 1);
     CHECK(q.shown && q.glowColour == 0xfefefefeu && q.flareColour == 0xffffffffu);
     CHECK(std::fabs(q.screenHalf - 0.1f) < 1e-6f && std::fabs(q.worldHalf - 1.05f) < 1e-6f);
@@ -1751,10 +1770,11 @@ void testLightEffects() {
     const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, ahead{0, 0, 1};
     FogBeam b = fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -50}, 0x80ffffffu);
     CHECK(b.shown && b.nearRing.size() == 7 && b.farRing.size() == 7 && b.colour == 0x80ffffffu);
-    CHECK(std::fabs(b.farRing[0][2] - 6) < 1e-5f && std::fabs(std::hypot(b.farRing[2][0], b.farRing[2][1]) - 0.75f) < 1e-5f);
+    CHECK(std::fabs(b.farRing[0][2] - 6) < 1e-5f &&
+          std::fabs(std::hypot(b.farRing[2][0], b.farRing[2][1]) - 0.75f) < 1e-5f);
     CHECK(std::fabs(std::hypot(b.nearRing[3][0], b.nearRing[3][1]) - 0.1f) < 1e-5f && b.nearRing[3][2] == 0);
     CHECK(fogBeam({0, 0, 0}, right, up, ahead, {0, 0, 98}, 0x80ffffffu).nearRing.size() == 4); // 3 quads at least
-    CHECK(fogBeam({0, 0, 0}, right, up, ahead, {0, 0, 30}, 0x80ffffffu).colour == 0); // looking into it
+    CHECK(fogBeam({0, 0, 0}, right, up, ahead, {0, 0, 30}, 0x80ffffffu).colour == 0);          // looking into it
     CHECK(!fogBeam({0, 0, 0}, right, up, ahead, {0, 0, -150}, 0x80ffffffu).shown);
 }
 
@@ -1783,7 +1803,7 @@ TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
 // straight level road along z, the road's frame set as aiRoadFrame would.
 void testComputerAir() {
     const TrackCollision col = straightRoad(60);
-    auto make = [&](float lift, const std::array<float, 3>& vel) {
+    auto make = [&](float lift, const std::array<float, 3> &vel) {
         AiCar c;
         c.slice = c.velSlice = 20;
         c.along = 0.5f;
@@ -1903,10 +1923,10 @@ void testComputerAir() {
     // aiSetFrame: any forward and up come back from the yaw, roll and pitch.
     {
         AiCar c = make(0, {0, 0, 0});
-        auto dot3 = [](const std::array<float, 3>& a, const std::array<float, 3>& b) {
+        auto dot3 = [](const std::array<float, 3> &a, const std::array<float, 3> &b) {
             return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
         };
-        auto unit3 = [&](const std::array<float, 3>& a) {
+        auto unit3 = [&](const std::array<float, 3> &a) {
             const float l = std::sqrt(dot3(a, a));
             return std::array<float, 3>{a[0] / l, a[1] / l, a[2] / l};
         };
@@ -1935,7 +1955,7 @@ void testComputerAir() {
         std::array<float, 3> f1{}, r1{}, u1{};
         aiTiltedAxes(col, c, f1, r1, u1);
         const float a = 0.5f * 2 * 3.14159265f / 32;
-        auto turnX = [&](const std::array<float, 3>& v) {
+        auto turnX = [&](const std::array<float, 3> &v) {
             return std::array<float, 3>{v[0], v[1] * std::cos(a) - v[2] * std::sin(a),
                                         v[1] * std::sin(a) + v[2] * std::cos(a)};
         };
@@ -1978,9 +1998,9 @@ void testComputerAir() {
         CHECK(v[0].resetTimer == 691 && v[0].yawRate == 0.5f - 0.5f * 0.015625f);
         for (int k = 6; v[0].resets == 0 && k < 400; k += 2)
             aiImpacts(v, col, k);
-        CHECK(v[0].resets == 1 && v[0].slice == 25 && v[0].resetTimer == 0 && v[0].airTicks == 1 &&
-              v[0].lift == 1.5f && v[0].vel == (std::array<float, 3>{0, 0, 0}) && v[0].roll == 0 &&
-              v[0].ghostTicks == 64 && v[0].yawRate == 0);
+        CHECK(v[0].resets == 1 && v[0].slice == 25 && v[0].resetTimer == 0 && v[0].airTicks == 1 && v[0].lift == 1.5f &&
+              v[0].vel == (std::array<float, 3>{0, 0, 0}) && v[0].roll == 0 && v[0].ghostTicks == 64 &&
+              v[0].yawRate == 0);
         // Upright now: no new timer.
         aiImpacts(v, col, 400);
         CHECK(v[0].resetTimer == 0);
@@ -2059,7 +2079,7 @@ void testComputerGears() {
 
 void testComputerDriving() {
     TrackCollision col = straightRoad(200);
-    const auto& p = col.road[0];
+    const auto &p = col.road[0];
     // 0x40e2b0: 7 + offset / width, rounded to the nearest (even on a tie).
     CHECK(aiLaneAt(p, 1) == 7 && aiLaneAt(p, 2) == 7 && aiLaneAt(p, 2.1f) == 8 && aiLaneAt(p, 6) == 9);
     CHECK(aiLaneAt(p, -1) == 6 && aiLaneAt(p, -3) == 5 && aiLaneAt(p, 100) == 13);
@@ -2084,7 +2104,8 @@ void testComputerDriving() {
     CHECK(aiLineLane(speeds, 3, 200) == 8 && aiLineLane(speeds, 4, 200) == 5 && aiLineLane({}, 3, 200) == 7);
     CHECK(aiLineLane(speeds, 4, 199) == 5); // (199 + 1) / 2 speeds
     // The drivers' factors (0x408dc0) and the tracks' (0x40e410).
-    CHECK(aiDriverFactor({2, false, 2}, 0) == 1 && std::fabs(aiDriverFactor({0, true, 4}, 128) - 0.94f * 1.05f) < 1e-6f);
+    CHECK(aiDriverFactor({2, false, 2}, 0) == 1 &&
+          std::fabs(aiDriverFactor({0, true, 4}, 128) - 0.94f * 1.05f) < 1e-6f);
     CHECK(std::fabs(aiDriverFactor({1, true, 0}, 384) - 0.97f * 0.95f * 0.95f) < 1e-6f);
     CHECK(aiTrackFactor(0) == 0.82f && aiTrackFactor(1) == 0.84f);
 
@@ -2097,8 +2118,8 @@ void testComputerDriving() {
     // towards the lane's middle; there it stays. Its driver acts on the
     // steps the gate lets through (0x401240): (step / 2 + phase) mod 4 = 0
     // on the even ones, every 8 steps.
-    CHECK(aiDriverActs(AiCar{}, 0) && aiDriverActs(AiCar{}, 8) && !aiDriverActs(AiCar{}, 1) && !aiDriverActs(AiCar{}, 2) &&
-          !aiDriverActs(AiCar{}, 9));
+    CHECK(aiDriverActs(AiCar{}, 0) && aiDriverActs(AiCar{}, 8) && !aiDriverActs(AiCar{}, 1) &&
+          !aiDriverActs(AiCar{}, 2) && !aiDriverActs(AiCar{}, 9));
     AiCar car;
     car.slice = 10;
     car.halfWidth = 1;
@@ -2114,7 +2135,8 @@ void testComputerDriving() {
         aiStep(cars, 0, col, speeds, data, step, 1, false);
     // At the race's start (0x40f050): 400 slices with 5 or more racers,
     // 200 with 2-4, 50 with one, 26 less backwards, the place x 14 added.
-    CHECK(aiAtRaceStart(400, 0, 8) && !aiAtRaceStart(401, 0, 8) && aiAtRaceStart(302, 7, 8) && !aiAtRaceStart(303, 7, 8));
+    CHECK(aiAtRaceStart(400, 0, 8) && !aiAtRaceStart(401, 0, 8) && aiAtRaceStart(302, 7, 8) &&
+          !aiAtRaceStart(303, 7, 8));
     CHECK(aiAtRaceStart(200, 0, 2) && !aiAtRaceStart(201, 0, 4) && !aiAtRaceStart(51, 0, 1));
     CHECK(!aiAtRaceStart(375, 0, 8, true) && aiAtRaceStart(374, 0, 8, true) && aiAtRaceStart(474, 0, 8, false, 100));
     {
@@ -2184,7 +2206,7 @@ void testComputerDriving() {
         // the way the car runs: lined up with a 10 % slope it loses 0.0306
         // m/s more a tick, running the other way it gains it.
         TrackCollision hill = col;
-        for (auto& point : hill.road) {
+        for (auto &point : hill.road) {
             const float k = 1 / std::sqrt(1.01f);
             point.forward = {0, 0.1f * k, k};
             point.normal = {0, k, -0.1f * k};
@@ -2201,7 +2223,7 @@ void testComputerDriving() {
         // climbs (within 0.02 of it, car_on_road 0x4a1610 doesn't turn it)
         // is pulled by its own forward's rise, not the road's.
         TrackCollision gentle = col;
-        for (auto& point : gentle.road) {
+        for (auto &point : gentle.road) {
             const float k = 1 / std::sqrt(1 + 0.015f * 0.015f);
             point.forward = {0, 0.015f * k, k};
             point.normal = {0, k, -0.015f * k};
@@ -2219,7 +2241,7 @@ void testComputerDriving() {
         // Past 0.02 the body turns towards the road (car_on_road 0x4a1b18):
         // level on a 5 % slope, its pitch against the road shrinks.
         TrackCollision steep = col;
-        for (auto& point : steep.road) {
+        for (auto &point : steep.road) {
             const float k = 1 / std::sqrt(1 + 0.05f * 0.05f);
             point.forward = {0, 0.05f * k, k};
             point.normal = {0, k, -0.05f * k};
@@ -2277,7 +2299,8 @@ void testComputerDriving() {
     for (int i = 10; i <= 20; ++i)
         tunnel.road[size_t(i)].unknown = (tunnel.road[size_t(i)].unknown & 0xffff) | 0x22u << 16;
     CHECK(pointCovered(tunnel.road[15], {1, 0, 60}) && !pointCovered(tunnel.road[5], {1, 0, 20}));
-    CHECK(coverDepth(tunnel, 15, {1, 0, 60}) == 6 && coverDepth(tunnel, 11, {1, 0, 44}) == 2 && coverDepth(tunnel, 5, {1, 0, 20}) == 0);
+    CHECK(coverDepth(tunnel, 15, {1, 0, 60}) == 6 && coverDepth(tunnel, 11, {1, 0, 44}) == 2 &&
+          coverDepth(tunnel, 5, {1, 0, 20}) == 0);
     TrackCollision::RoadPoint half = col.road[0];
     half.unknown = 0x20u << 16; // covered on the left only; the right's 0 takes the left's
     CHECK(pointCovered(half, {-1, 0, 0}) && pointCovered(half, {1, 0, 0}));
@@ -2293,7 +2316,7 @@ void testComputerDriving() {
     // is the one it shares with i - 1, 1-2 with i + 1.
     Track runTrack;
     runTrack.blocks.resize(1);
-    Track::Block& run = runTrack.blocks[0];
+    Track::Block &run = runTrack.blocks[0];
     for (int i = 0; i < 4; ++i) {
         const float x = -6.0f + 4.0f * static_cast<float>(i);
         run.vertices.push_back({x, 0, 4}); // front
@@ -2335,7 +2358,7 @@ void testComputerDriving() {
         // 3, which holds the point.
         Track far;
         far.blocks.resize(1);
-        Track::Block& fb = far.blocks[0];
+        Track::Block &fb = far.blocks[0];
         for (float x : {-2.0f, 2.0f, 6.0f, 20.0f, 24.0f, -6.0f}) {
             fb.vertices.push_back({x, 0, 4});
             fb.vertices.push_back({x, 0, 0});
@@ -2350,7 +2373,8 @@ void testComputerDriving() {
         quad(3, 4); // 20..24, surface 14
         quad(5, 0); // -6..-2
         fb.positions = {0, 0, 4, 0, 0xff, 0xff, 0xff, 0xff};
-        fb.polygonRoad = {0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+        fb.polygonRoad = {0, 1,  0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+                          0, 14, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
         rs = {};
         CHECK(roadSearch(far, rs, -4, 2) && rs.polygon == 3 && rs.foundSlice == 0);
         fb.polygonRoad[17] = 4; // the far polygon a road one: the walk stops there
@@ -2362,7 +2386,7 @@ void testComputerDriving() {
         // slice 2's first, and finds the point there.
         Track rows;
         rows.blocks.resize(1);
-        Track::Block& rb = rows.blocks[0];
+        Track::Block &rb = rows.blocks[0];
         auto rowQuad = [&](float x0, float x1, float z0) {
             const uint16_t v = static_cast<uint16_t>(rb.vertices.size());
             rb.vertices.push_back({x0, 0, z0 + 4});
@@ -2379,7 +2403,8 @@ void testComputerDriving() {
             rowQuad(-10.0f + 4.0f * static_cast<float>(i), -6.0f + 4.0f * static_cast<float>(i), 0);
         rowQuad(-2, 2, 4);
         rowQuad(-2, 2, 8);
-        rb.positions = {0, 0, 5, 0, 0xff, 0xff, 0xff, 0xff, 5, 0, 1, 0, 0xff, 0xff, 0xff, 0xff, 6, 0, 1, 0, 0xff, 0xff, 0xff, 0xff};
+        rb.positions = {0,    0,    5,    0,    0xff, 0xff, 0xff, 0xff, 5,    0,    1,    0,
+                        0xff, 0xff, 0xff, 0xff, 6,    0,    1,    0,    0xff, 0xff, 0xff, 0xff};
         rs = {};
         CHECK(roadSearch(rows, rs, 0, 10) && rs.foundSlice == 1 && rs.polygon == 6 && rs.index == 1 && rs.pastRun == 1);
         // From slice 2 itself it is found where it is.
@@ -2396,7 +2421,7 @@ void testComputerDriving() {
     // surface not 0 or 14, its road vector's up y above 0.
     {
         Track spot = runTrack;
-        Track::Block& sb = spot.blocks[0];
+        Track::Block &sb = spot.blocks[0];
         sb.virtualRoad.assign(24, 0);
         sb.virtualRoad[2] = 0xff; // record 0: up (0, 0x7FFF, 0), forward (0, 0, 0x7FFF)
         sb.virtualRoad[3] = 0x7f;
@@ -2414,7 +2439,8 @@ void testComputerDriving() {
     }
 
     // carp.txt's fields for the computer.
-    std::string carp = "maximum velocity of car [m/s](14)\n77.5\ntop speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
+    std::string carp =
+        "maximum velocity of car [m/s](14)\n77.5\ntop speed cap [m/s](15)\n78.23\nmaximum braking deceleration(18)\n10.06\n";
     for (int row = 0; row < 8; ++row) {
         carp += "AI ACC" + std::to_string(row) + " acceleration table section(" + std::to_string(67 + row) + ")\n";
         for (int i = 0; i < 14; ++i)
@@ -2422,7 +2448,8 @@ void testComputerDriving() {
         carp += "\n";
     }
     AiCarData parsed;
-    CHECK(parseCarpAi(carp, parsed) && std::fabs(parsed.topSpeedCap - 78.23f) < 1e-4f && std::fabs(parsed.maxBrake - 10.06f) < 1e-4f);
+    CHECK(parseCarpAi(carp, parsed) && std::fabs(parsed.topSpeedCap - 78.23f) < 1e-4f &&
+          std::fabs(parsed.maxBrake - 10.06f) < 1e-4f);
     CHECK(parsed.accel[0] == 0.5f && parsed.accel[111] == 111.5f);
     CHECK(parsed.latGrip == 0); // field 30 left out: no drive loss over 44.703 m/s by it
     CHECK(parseCarpAi(carp + "lateral acceleration grip multiplier(30)\n3.300000\n", parsed) &&
@@ -2433,7 +2460,8 @@ void testComputerDriving() {
 void testComputerCatchUpAndCops() {
     // The track sections' speeds (0x40ed40), the switch falling through.
     CHECK(trackSectionSpeed(0, 0x200) == 13.4109f && trackSectionSpeed(0, 10) == 22.3515f);
-    CHECK(trackSectionSpeed(1, 0x317) == 31.2921f && trackSectionSpeed(1, 0xab) == 29.05695f && trackSectionSpeed(1, 5) == 24.58665f);
+    CHECK(trackSectionSpeed(1, 0x317) == 31.2921f && trackSectionSpeed(1, 0xab) == 29.05695f &&
+          trackSectionSpeed(1, 5) == 24.58665f);
     CHECK(trackSectionSpeed(4, 0x130) == 8.9406f && trackSectionSpeed(4, 5) == 22.3515f);
     CHECK(trackSectionSpeed(8, 500) == 15.64605f && trackSectionSpeed(8, 5) == 20.11635f);
     // The catch-up (0x4090a0), as nfs-host's dumps of Hometown have it
@@ -2451,7 +2479,8 @@ void testComputerCatchUpAndCops() {
     race = {};
     race.humanDistance = 230;
     race.ahead = 1;
-    CHECK(aiCatchUpFactor(race, 236, 1) == 1 && aiCatchUpFactor(race, 280, 1) == 0.85f && aiCatchUpFactor(race, 279, 1) == 1);
+    CHECK(aiCatchUpFactor(race, 236, 1) == 1 && aiCatchUpFactor(race, 280, 1) == 0.85f &&
+          aiCatchUpFactor(race, 279, 1) == 1);
     race.ahead = 0;
     race.humanDistance = 196;
     CHECK(aiCatchUpFactor(race, 40, 8) == 1.1f && aiCatchUpFactor(race, 181, 2) == 1);
@@ -2590,8 +2619,9 @@ void testComputerCatchUpAndCops() {
     put32(0x164, 3);
     const std::vector<DumpedCar> parsedCars = parseCarDump(dump);
     CHECK(parsedCars[1].frontSkid == 0.5f && parsedCars[1].rearSkid == 12.0f && parsedCars[1].upright == 1 &&
-          !parsedCars[1].airborne && parsedCars[0].airborne && parsedCars[1].surface == 1 && parsedCars[1].velocity[0] == 3 &&
-          parsedCars[1].wheelAt[2][0] == 1302.5f && parsedCars[1].wheelAt[2][2] == -951.0f);
+          !parsedCars[1].airborne && parsedCars[0].airborne && parsedCars[1].surface == 1 &&
+          parsedCars[1].velocity[0] == 3 && parsedCars[1].wheelAt[2][0] == 1302.5f &&
+          parsedCars[1].wheelAt[2][2] == -951.0f);
     // The particles' slots (0x7ddfd0, 128 bytes each): the live ones.
     {
         std::vector<uint8_t> parts(3 * 128, 0);
@@ -2606,12 +2636,15 @@ void testComputerCatchUpAndCops() {
         parts[128 + 0x7d] = 1;
         const std::vector<Particle> live = parseParticleDump(parts);
         CHECK(live.size() == 1 && live[0].life == 199 && live[0].kind == 6 && live[0].lifeMax == 256 &&
-              live[0].position[0] == 1303.25f && live[0].size == 1.5f && live[0].colour == 0x64f1f1f1 && live[0].halved);
+              live[0].position[0] == 1303.25f && live[0].size == 1.5f && live[0].colour == 0x64f1f1f1 &&
+              live[0].halved);
     }
     CHECK(!parsedCars[0].officer && parsedCars[1].officer && parsedCars[1].officerAt[0] == 742.75f &&
-          parsedCars[1].officerAt[2] == -266.25f && parsedCars[1].officerForward[2] == 1 && parsedCars[1].officerRight[0] == 1);
+          parsedCars[1].officerAt[2] == -266.25f && parsedCars[1].officerForward[2] == 1 &&
+          parsedCars[1].officerRight[0] == 1);
     CHECK(parsedCars.size() == 2 && parsedCars[0].human && !parsedCars[0].cop && parsedCars[0].slice == 230);
-    CHECK(parsedCars[0].at[0] == 472.5f && parsedCars[0].forward[2] == 1 && parsedCars[0].beams == 2 && !parsedCars[0].siren);
+    CHECK(parsedCars[0].at[0] == 472.5f && parsedCars[0].forward[2] == 1 && parsedCars[0].beams == 2 &&
+          !parsedCars[0].siren);
     CHECK(parsedCars[1].cop && parsedCars[1].siren && parsedCars[1].braking && parsedCars[1].beamScroll == 1 &&
           parsedCars[1].speed == 31.5f && !parsedCars[1].human);
 }
@@ -2621,9 +2654,9 @@ void testHorizon() {
     // region, then the 48 values after the regions.
     std::string text = "/*Fog Color (r,g,b) and Density (%)*/\n134,134,140,\t5,\t70,\n/*regions*/\n1,\n"
                        "10,11,12, 5,\n20,21,22, 55,\n30,31,32, 70,\n150,\n175,\n200,\n";
-    const int after[48] = {1, 1, 0, 0, 500, -100, 250, 235, 208, 80, 10, 100, 0, 1, 1500, 0, 1,
-                           -1200, 1800, 1200, 1350, 1150, 117, 106, 15, 207, 153, 98, 120, 182, 239,
-                           223, 210, 151, 120, 171, 204, 0, 0, 0, 0, 0, 0, 0, 0, 100, 90, 80};
+    const int after[48] = {1,   1,     0,    0,    500,  -100, 250, 235, 208, 80,  10,  100, 0,   1,   1500, 0,
+                           1,   -1200, 1800, 1200, 1350, 1150, 117, 106, 15,  207, 153, 98,  120, 182, 239,  223,
+                           210, 151,   120,  171,  204,  0,    0,   0,   0,   0,   0,   0,   0,   100, 90,   80};
     for (int i = 0; i < 48; ++i) {
         text += std::to_string(after[i]) + ",";
         if (i == 33)
@@ -2654,15 +2687,16 @@ void testHorizon() {
         CHECK(fogAtSlice(lc, 850).density == 50 && fogAtSlice(lc, 910).density == 10);
         const Horizon::FogPoint mid = fogAtSlice(lc, 880);
         CHECK(mid.density == 30 && mid.colour == (Horizon::Rgb{22, 14, 19}));
-        CHECK(fogAtSlice(lc, 955).density == 15 && fogAtSlice(lc, 1000).density == 20 && fogAtSlice(lc, 1001).density == 50);
+        CHECK(fogAtSlice(lc, 955).density == 15 && fogAtSlice(lc, 1000).density == 20 &&
+              fogAtSlice(lc, 1001).density == 50);
     }
     CHECK(h.cloudType == 1 && h.visualHeight == 500 && h.cloudDomeOffset == (std::array<int, 2>{-100, 250}));
     CHECK(h.mirror && !h.blackHorizon && h.radius == 1500 && h.hasPixmap);
     CHECK(h.shadedBase == -1200 && h.shadedHeight == 1800 && h.pixmapBottom == 1150);
     CHECK(h.skyBaseSun == (Horizon::Rgb{223, 210, 151}) && h.skyBaseOpposite == (Horizon::Rgb{120, 171, 204}));
     CHECK(h.ambient == (Horizon::Rgb{100, 90, 80}));
-    CHECK(parseHorizon(text + "7,", h));                      // a number too many
-    CHECK(parseHorizon("1,2,3,4,5,99,", h));                  // regions that aren't there
+    CHECK(parseHorizon(text + "7,", h));     // a number too many
+    CHECK(parseHorizon("1,2,3,4,5,99,", h)); // regions that aren't there
     CHECK(parseHorizon("/* only a comment */", h));
 
     // The fog values the game sent for Hometown's day (density 5, pixmap
@@ -2771,7 +2805,8 @@ void testHorizon() {
         Horizon weather = hometown;
         weather.cloudBright = 250;
         weather.cloudVariance = 235;
-        for (const auto& [seed, low, high, sum] : {std::tuple{5992u, 88, 200, 27258}, std::tuple{5991u, 56, 201, 20281}}) {
+        for (const auto &[seed, low, high, sum] :
+             {std::tuple{5992u, 88, 200, 27258}, std::tuple{5991u, 56, 201, 20281}}) {
             const auto b = cloudBrightness(weather, seed);
             int total = 0;
             for (uint8_t v : b)
@@ -2811,8 +2846,8 @@ void testHorizon() {
     CHECK(std::fabs(bolt.points[0].at[0]) <= 750 && std::fabs(bolt.points[0].at[2]) <= 750);
     bool onDome = true, apart = true;
     for (size_t i = 1; i < bolt.points.size(); ++i) {
-        const auto& p = bolt.points[i];
-        const auto& q = bolt.points[size_t(p.parent)];
+        const auto &p = bolt.points[i];
+        const auto &q = bolt.points[size_t(p.parent)];
         onDome = onDome && std::fabs(p.at[1] - cloudHeight(hometown, std::hypot(p.at[0], p.at[2]))) < 0.5f;
         apart = apart && std::fabs(std::hypot(p.at[0] - q.at[0], p.at[2] - q.at[2]) - 40) < 0.01f;
     }
@@ -2831,7 +2866,7 @@ void testCollision() {
     put32(b, 4);
     const size_t table = b.size();
     b.resize(table + 16, 0);
-    auto block = [&](int i, uint16_t id, uint16_t count, const Bytes& body) {
+    auto block = [&](int i, uint16_t id, uint16_t count, const Bytes &body) {
         putU32(b, table + 4 * i, uint32_t(b.size() - table));
         put32(b, uint32_t(8 + body.size()));
         put16(b, id);
@@ -2886,7 +2921,7 @@ void testCollision() {
               c.objects[0].keys[0].position[2] == -(515 << 16) && c.objects[0].keys[0].rotation[3] == 16384);
     CHECK(c.road.size() == 1);
     if (!c.road.empty()) {
-        const auto& r = c.road[0];
+        const auto &r = c.road[0];
         // The vectors' bytes as every reader of them in the game takes them:
         // byte << 9 as 16.16 (e.g. 0x406a80, 0x420230, 0x4a0aa0), byte / 128.
         CHECK(r.position[0] == 829.5f && r.position[2] == 136.25f && r.normal[1] == 127 / 128.0f);
@@ -2949,9 +2984,9 @@ void testSoundBank() {
     CHECK(bank.slots[0] && !bank.slots[1] && bank.slots[2] && !bank.slots[3]);
     if (!bank.slots[0] || !bank.slots[2])
         return;
-    const SoundHeader& p = *bank.slots[0];
+    const SoundHeader &p = *bank.slots[0];
     CHECK(p.compression == SoundHeader::kPcm16 && p.channels == 1 && p.rate == 16000 && p.samples == 3);
-    const SoundHeader& x = *bank.slots[2];
+    const SoundHeader &x = *bank.slots[2];
     CHECK(x.compression == SoundHeader::kEaXa && x.rate == 22050 && x.samples == 30 && x.dataOffset == 134);
     CHECK(x.loopStart == 2 && x.loopEnd == 20 && x.tags.at(0x92) == 1 && x.tags.at(0x06) == 25);
 
@@ -2981,7 +3016,8 @@ void testSoundBank() {
     put32(v4, 0xffffffffu);
     v4.insert(v4.end(), b.begin() + 12, b.end()); // offsets count from each slot, so they still hold
     CHECK(!parseSoundBank(v4, bank));
-    CHECK(bank.version == 4 && bank.slots.size() == 4 && bank.slots[0] && !bank.slots[1] && bank.slots[2] && !bank.slots[3]);
+    CHECK(bank.version == 4 && bank.slots.size() == 4 && bank.slots[0] && !bank.slots[1] && bank.slots[2] &&
+          !bank.slots[3]);
 
     // Engines as the game pitches them, against its voices: the Corvette's
     // engine (root key 74, fine tune 28, range 15) idling at 900 of a
@@ -3003,7 +3039,7 @@ void testSoundBank() {
 void testMusic() {
     // A stream of two segments: EA-XA stereo (one block of 30 samples:
     // two groups) and PCM stereo (2 samples).
-    auto chunk = [](Bytes& out, const char* tag, const Bytes& body) {
+    auto chunk = [](Bytes &out, const char *tag, const Bytes &body) {
         out.insert(out.end(), tag, tag + 4);
         put32(out, uint32_t(8 + body.size()));
         out.insert(out.end(), body.begin(), body.end());
@@ -3082,7 +3118,7 @@ void testMusic() {
     CHECK(m.sections.size() == 3 && m.events.size() == 2 && m.offsets.size() == 3);
     CHECK(m.offsets[1] == second && m.offsets[2] == 0x01020304u);
     CHECK(m.next(0, 10) == 1 && m.next(0, 60) == 2 && m.next(0, 100) == 2 && m.next(1, 70) == 0);
-    CHECK(m.next(0, 55) == 0);                                  // no route for 55: the section again
+    CHECK(m.next(0, 55) == 0); // no route for 55: the section again
     CHECK(m.next(2, 0) == -1 && m.next(5, 0) == -1 && m.sections[2].part == 1);
     CHECK(m.event(0, 4) == 2 && m.event(1, 4) == 0 && m.event(2, 4) == 0);
     CHECK(m.event(0, 9) == -1 && m.event(0, 16) == -1 && m.event(7, 4) == -1);
@@ -3092,7 +3128,7 @@ void testMusic() {
     CHECK(parseMusicMap(Bytes(map.begin(), map.end() - 1), m));
 }
 
-void testGameFiles(const stdfs::path& tmp) {
+void testGameFiles(const stdfs::path &tmp) {
     const stdfs::path install = tmp / "files/install", cd = tmp / "files/cd";
     touch(install / "FeData/text/text.eng", "eng");
     touch(install / "FeData/art/title.qfs", "install's");
@@ -3109,9 +3145,9 @@ void testGameFiles(const stdfs::path& tmp) {
     GameFiles files;
     files.scan(folders);
 
-    auto names = [](const std::vector<FileRef>& refs) {
+    auto names = [](const std::vector<FileRef> &refs) {
         std::vector<std::string> out;
-        for (const auto& r : refs)
+        for (const auto &r : refs)
             out.push_back(r.name);
         return out;
     };
@@ -3124,7 +3160,7 @@ void testGameFiles(const stdfs::path& tmp) {
     CHECK(names(files.withExtensions({".viv"})).size() == 2); // the broken one is listed, with nothing in it
 
     Bytes data;
-    for (const auto& ref : files.withExtensions({".qfs", ".txt"})) {
+    for (const auto &ref : files.withExtensions({".qfs", ".txt"})) {
         CHECK(!files.read(ref, data));
         const std::string s(data.begin(), data.end());
         CHECK(s == "install's" || s == "dash" || s == "Serial");
@@ -3141,7 +3177,7 @@ struct MadBits {
         for (int i = n - 1; i >= 0; --i)
             bits.push_back((v >> i) & 1);
     }
-    void code(const char* s) {
+    void code(const char *s) {
         for (; *s; ++s)
             bits.push_back(*s == '1');
     }
@@ -3157,7 +3193,7 @@ struct MadBits {
     }
 };
 
-Bytes madFrame(char kind, const MadBits& bits, int qscale = 1, int width = 16) {
+Bytes madFrame(char kind, const MadBits &bits, int qscale = 1, int width = 16) {
     Bytes f = {'M', 'A', 'D', uint8_t(kind)};
     const Bytes body = bits.bytes();
     put32(f, uint32_t(24 + body.size()));
@@ -3218,7 +3254,8 @@ void testMovie() {
         auto widen5 = [](int q) { return q << 3 | q >> 2; };
         auto widen6 = [](int q) { return q << 2 | q >> 4; };
         // Column 0 rounded, column 1 truncated.
-        CHECK(shown.row(0)[0] == widen5(std::min((r + 4) >> 3, 31)) && shown.row(0)[1] == widen6(std::min((g + 2) >> 2, 63)) &&
+        CHECK(shown.row(0)[0] == widen5(std::min((r + 4) >> 3, 31)) &&
+              shown.row(0)[1] == widen6(std::min((g + 2) >> 2, 63)) &&
               shown.row(0)[2] == widen5(std::min((b + 4) >> 3, 31)));
         CHECK(shown.row(0)[4] == widen5(r >> 3) && shown.row(0)[6] == widen5(b >> 3));
     }
@@ -3253,7 +3290,9 @@ void testMovie() {
     // source would read past the picture, so it stays.
     MadBits all;
     all.code("1");
-    all.code("1" "0" "0000"); // x +1
+    all.code("1"
+             "0"
+             "0000"); // x +1
     all.code("0");
     for (int i = 0; i < 6; ++i)
         all.code("0");
@@ -3330,11 +3369,12 @@ void testMovie() {
         two.code("10");
     }
     MadBits left;
-    left.code("1" "00"); // the first macroblock copied, vector 0, 0
+    left.code("1"
+              "00"); // the first macroblock copied, vector 0, 0
     for (int j = 0; j < 6; ++j)
         left.code("0");
     left.code("01");
-    left.put(16, 6);      // U alone copied
+    left.put(16, 6);     // U alone copied
     left.code("111111"); // x -1
     left.code("0");      // y 0
     for (int j = 0; j < 6; ++j) {
@@ -3346,7 +3386,7 @@ void testMovie() {
         left.code("10");
     }
     const Bytes twoFrame = madFrame('k', two, 1, 32), leftFrame = madFrame('m', left, 1, 32);
-    auto gu = [&](MadDecoder& dec, int x) { return dec.plane(1)[x]; };
+    auto gu = [&](MadDecoder &dec, int x) { return dec.plane(1)[x]; };
     CHECK(!g.decode(twoFrame.data(), twoFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 64);
     CHECK(!g.decode(leftFrame.data(), leftFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 74 && gu(g, 9) == 64);
     MadDecoder r;
@@ -3359,7 +3399,7 @@ void testMovie() {
     CHECK(d.decode(bad.data(), bad.size()));
 
     // A movie: frames interleaved with stereo EA-XA audio.
-    auto chunk = [](Bytes& out, const char* tag, const Bytes& body) {
+    auto chunk = [](Bytes &out, const char *tag, const Bytes &body) {
         out.insert(out.end(), tag, tag + 4);
         put32(out, uint32_t(8 + body.size()));
         out.insert(out.end(), body.begin(), body.end());
@@ -3425,8 +3465,8 @@ void testThrashFog() {
     };
     t.setState(0xf, 0xffff0000u);
     t.setState(0xe, 5);
-    CHECK(draw(50000) == 0xf800); // all fog
-    const uint16_t near = draw(1);   // 18% of it, by entry 0 of the table
+    CHECK(draw(50000) == 0xf800);  // all fog
+    const uint16_t near = draw(1); // 18% of it, by entry 0 of the table
     CHECK((near >> 11) >= 4 && (near >> 11) <= 6 && (near & 0x7ff) == 0);
     t.setState(0x15, 0);
     CHECK(draw(50000) == 0); // off
@@ -3496,13 +3536,13 @@ void testThrashDirect3D() {
     corner(1, 40, 0);
     corner(2, 40, 40);
     corner(3, 0, 40);
-    auto red = [&](NativeThrash& t, int x, int y) {
+    auto red = [&](NativeThrash &t, int x, int y) {
         t.quad(verts, verts + 32, verts + 64, verts + 96);
         uint16_t p;
         std::memcpy(&p, cpu.memory().data() + target + y * 1280 + x * 2, 2);
         return int(p >> 11);
     };
-    auto setUp = [&](NativeThrash& t) {
+    auto setUp = [&](NativeThrash &t) {
         t.setTarget(target, 640 * 2, 640, 480);
         t.talloc(7, 2, 2, 4);
         t.tupdate(7, texels, 0);
@@ -3659,9 +3699,9 @@ void testForceEffects() {
         memory[0x134] = 0;
     };
     effect(0x2 | 0x10, 1, 4);
-    memory[0x180] = 0;                  // X, by offset
-    memory[0x190] = uint32_t(-1);       // from -X
-    memory[0x200] = 5000;               // magnitude
+    memory[0x180] = 0;            // X, by offset
+    memory[0x190] = uint32_t(-1); // from -X
+    memory[0x200] = 5000;         // magnitude
     DiEffect push;
     CHECK(DiEffect::kindOf(0x13541c20, push.kind) && push.kind == DiEffect::Constant);
     CHECK(!DiEffect::kindOf(0x6f1d2b60, push.kind));
@@ -3721,10 +3761,10 @@ void testForceEffects() {
     sine.playing = true;
     sine.durationUs = DiEffect::kInfinite;
     effect(0x2 | 0x10, 1, 24);
-    memory[0x200] = 1000;   // offset
-    memory[0x204] = 7000;   // + coefficient
-    memory[0x208] = 7000;   // - coefficient
-    memory[0x20c] = 9500;   // + saturation
+    memory[0x200] = 1000; // offset
+    memory[0x204] = 7000; // + coefficient
+    memory[0x208] = 7000; // - coefficient
+    memory[0x20c] = 9500; // + saturation
     memory[0x210] = 9500;
     DiEffect spring;
     spring.kind = DiEffect::Spring;
@@ -3885,7 +3925,7 @@ void testCarHits() {
     // straight road, the right one moving across into the left one.
     const TrackCollision road = straightRoad(60);
     AiCar left, right;
-    for (AiCar* c : {&left, &right}) {
+    for (AiCar *c : {&left, &right}) {
         c->slice = 20;
         c->along = 0.5f;
         c->speed = 30;
@@ -3986,7 +4026,7 @@ void testCarHits() {
     // 10) starts it for 128 steps, and a second hit before that leaves it on.
     CHECK(!pair[0].reversing && !pair[1].reversing);
     pair = {left, right};
-    for (AiCar& c : pair)
+    for (AiCar &c : pair)
         c.speed = 8;
     aiCollide(pair, road, 200);
     CHECK(pair[0].reversing && pair[0].reverseTimed && pair[0].reverseUntil == 328 && pair[0].reverseCount == 1);
@@ -4072,7 +4112,7 @@ void testCarHits() {
     // cos 10 of it and the rest goes along the road.
     {
         AiCar a, b;
-        for (AiCar* c : {&a, &b}) {
+        for (AiCar *c : {&a, &b}) {
             c->slice = 20;
             c->speed = 30;
             c->sideKept = true;
@@ -4181,7 +4221,7 @@ void testCarHits() {
     // car smokes and stops once the car is down and still.
     {
         AiCar racer, cop;
-        for (AiCar* c : {&racer, &cop}) {
+        for (AiCar *c : {&racer, &cop}) {
             c->slice = 20;
             c->along = 0.5f;
             c->speed = 20;
@@ -4200,11 +4240,11 @@ void testCarHits() {
         aiCollide(block, road, 100, &hits);
         CHECK(!hits.empty());
         bool over5 = false;
-        for (const AiHit& h : hits) {
+        for (const AiHit &h : hits) {
             over5 = over5 || h.strength > 5;
             CHECK(h.strength <= 30);
             CarSmoke smoke;
-            const AiCar& c = block[h.car];
+            const AiCar &c = block[h.car];
             CHECK(!startCarSmoke(smoke, h.strength, !c.racer && !c.cop, {h.point[0], h.point[1], h.point[2]}, {},
                                  {1, 0, 0}, {0, 1, 0}, {0, 0, 1}));
             ParticleSystem none;
@@ -4529,7 +4569,8 @@ void testComputerPursuits() {
     measured.speed = measured.wanted = 30;
     std::vector<AiCar> one{measured};
     aiStep(one, 0, bent, flat, data, 0, 1, false);
-    CHECK(one[0].along > 0.5f && std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
+    CHECK(one[0].along > 0.5f &&
+          std::fabs(one[0].side - one[0].lateral - one[0].along * 0.5f) < 1e-4f); // the line's 0.5 x along
 
     // A strip (spike_lay 0x4c9dd0): across lane 7's middle, 1.5 lanes long.
     float from = 0, to = 0;
@@ -4563,7 +4604,8 @@ void testComputerPursuits() {
         if (cars[1].stripOn)
             laid = step;
     }
-    CHECK(laid > 0 && cars[1].copState == 4 && cars[1].way == -1 && cars[1].stripLane == 7 && cars[1].radio == 0x40b9c0);
+    CHECK(laid > 0 && cars[1].copState == 4 && cars[1].way == -1 && cars[1].stripLane == 7 &&
+          cars[1].radio == 0x40b9c0);
     // Laid where it gets off the lanes, from the range's start on along its
     // way: turning out at 6.5 m/s (ai_ctl_slow) takes it a few seconds,
     // and this loop moves it on a slice each 16 steps.
@@ -4660,8 +4702,8 @@ void testSkinPaint() {
     // t = 104 / 127, the value trunc(128 t) = 104, at hue 44 and saturation
     // 12, to 5 bits.
     const auto expect = hsvToRgb({44, 12, 104});
-    CHECK(painted[0] == ((expect[0] >> 3) << 3) && painted[1] == ((expect[1] >> 3) << 3) && painted[2] == ((expect[2] >> 3) << 3) &&
-          painted[3] == 255);
+    CHECK(painted[0] == ((expect[0] >> 3) << 3) && painted[1] == ((expect[1] >> 3) << 3) &&
+          painted[2] == ((expect[2] >> 3) << 3) && painted[3] == 255);
     const auto window = skinTexel({120, 117, 116, 200}, &paint, &second);
     const auto expectWindow = hsvToRgb({126, 48, 33}); // trunc(38 x 112 / 127)
     CHECK(window[2] == ((expectWindow[2] >> 3) << 3) && window[0] == ((expectWindow[0] >> 3) << 3));
@@ -4703,10 +4745,10 @@ void testCopCalls() {
     // spike_hit_test (0x4ca160): the wheels within 0.5 m of it, a bit each.
     const std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1};
     const std::array<std::array<float, 2>, 4> wheels{{{-0.8f, 1.3f}, {0.8f, 1.3f}, {-0.8f, -1.3f}, {0.8f, -1.3f}}};
-    CHECK(aiStripWheels(quad, {2, 0, 39}, right, up, forward, wheels) == 3);   // the front ones 0.3 m past it
-    CHECK(aiStripWheels(quad, {2, 0, 38.1f}, right, up, forward, wheels) == 0); // 0.6 m short
-    CHECK(aiStripWheels(quad, {2, 0, 41.2f}, right, up, forward, wheels) == 12); // the rear ones on it
-    CHECK(aiStripWheels(quad, {7, 0, 38.7f}, right, up, forward, wheels) == 0);  // beside it
+    CHECK(aiStripWheels(quad, {2, 0, 39}, right, up, forward, wheels) == 3);       // the front ones 0.3 m past it
+    CHECK(aiStripWheels(quad, {2, 0, 38.1f}, right, up, forward, wheels) == 0);    // 0.6 m short
+    CHECK(aiStripWheels(quad, {2, 0, 41.2f}, right, up, forward, wheels) == 12);   // the rear ones on it
+    CHECK(aiStripWheels(quad, {7, 0, 38.7f}, right, up, forward, wheels) == 0);    // beside it
     CHECK(aiStripWheels(quad, {5.6f, 0, 38.7f}, right, up, forward, wheels) == 1); // the left front at its end
 
     // The calls for help (0x4032e5, cop_ai_call_strip 0x4039c0): a cop
@@ -4826,7 +4868,7 @@ void testCopCalls() {
             aiSteerStep(edge, col, k);
         CHECK(edge.side > 8.5f && edge.steer == AiCar::Rails);
         TrackCollision oneSided = straightRoad(200);
-        for (auto& q : oneSided.road)
+        for (auto &q : oneSided.road)
             q.extra[0] = 0x20; // two lanes left, none right
         AiCar right = steer;
         aiSteerStep(right, oneSided, 0);
@@ -4909,8 +4951,8 @@ void testCopCalls() {
         m.sideKept = true;
         const std::array<float, 3> at{9, 0, 4 * 31.0f + 0.2f};
         aiLocate(m, kink, at);
-        const auto& a = kink.road[30];
-        const auto& b = kink.road[31];
+        const auto &a = kink.road[30];
+        const auto &b = kink.road[31];
         CHECK(m.slice == 30 && m.along > 1 && std::fabs(m.lateral - 9) < 1e-4f &&
               std::fabs(a.position[2] + (b.position[2] - a.position[2]) * m.along - at[2]) < 1e-4f);
         aiLocate(m, kink, {9, 0, 4 * 31.0f + 2});

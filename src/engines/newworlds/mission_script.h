@@ -69,12 +69,12 @@ struct MissionScript {
 };
 
 // Reads scripts; one text may hold several missions.
-Error parseMissionScripts(std::string_view text, std::vector<MissionScript>& out);
+Error parseMissionScripts(std::string_view text, std::vector<MissionScript> &out);
 
 // The scripts Reluva has (mission_scripts.cpp): the missions' own, and the
 // rules every mission shares ("generic").
-const std::vector<MissionScript>& missionScripts();
-const MissionScript* findMissionScript(std::string_view shortName, char side);
+const std::vector<MissionScript> &missionScripts();
+const MissionScript *findMissionScript(std::string_view shortName, char side);
 
 // A mission being played: feed it events, get back what happens.
 class MissionRun {
@@ -82,14 +82,14 @@ public:
     struct Output {
         enum Kind { Message, Completed, Revealed, Won, Lost } kind;
         std::string sender, text; // a message
-        uint32_t objective = 0;    // Completed, Revealed, Lost: the string id
+        uint32_t objective = 0;   // Completed, Revealed, Lost: the string id
     };
     enum class State { Incomplete, Complete, Hidden };
 
     // generic: rules added after the mission's own (may be null).
-    MissionRun(const MissionScript& script, const MissionScript* generic);
+    MissionRun(const MissionScript &script, const MissionScript *generic);
 
-    std::vector<Output> fire(const ScriptEvent& event);
+    std::vector<Output> fire(const ScriptEvent &event);
     // Moves time on, firing timers that run out.
     std::vector<Output> advance(double seconds);
     bool finished() const { return won_ || lost_; }
@@ -104,16 +104,16 @@ public:
 
 private:
     struct Rule {
-        const MissionScript::Handler* handler;
+        const MissionScript::Handler *handler;
         bool fired = false;
     };
-    bool matches(const ScriptEvent& want, const ScriptEvent& got);
-    bool requirementsMet(const ScriptEvent& want) const;
-    void run(const MissionScript::Handler& h, const ScriptEvent& ev, std::vector<Output>& out);
-    std::string expand(const std::string& text, const ScriptEvent& ev) const;
-    void checkAllCompleted(std::vector<Output>& out);
+    bool matches(const ScriptEvent &want, const ScriptEvent &got);
+    bool requirementsMet(const ScriptEvent &want) const;
+    void run(const MissionScript::Handler &h, const ScriptEvent &ev, std::vector<Output> &out);
+    std::string expand(const std::string &text, const ScriptEvent &ev) const;
+    void checkAllCompleted(std::vector<Output> &out);
 
-    const MissionScript& script_;
+    const MissionScript &script_;
     std::vector<Rule> rules_;
     std::map<std::string, int> built_;
     std::set<uint32_t> completed_, revealed_;
@@ -127,6 +127,6 @@ private:
 // met, power low, production held up (Federation), a building finished
 // (its name, B_f...com, A_k...com, B_r...com); the first of these that
 // applies, or empty. Matched in recordings (docs/engines/newworlds/media.md).
-std::string announcementFor(const ScriptEvent& event, const std::vector<MissionRun::Output>& out, char side);
+std::string announcementFor(const ScriptEvent &event, const std::vector<MissionRun::Output> &out, char side);
 
 } // namespace reluva::newworlds

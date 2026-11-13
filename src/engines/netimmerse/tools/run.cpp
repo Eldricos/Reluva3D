@@ -37,15 +37,13 @@
 
 namespace {
 
-
-
 // LoadComp's interface buttons (DDUIManager::Buttons, an NiTArray of
 // DDUIButton pointers: its items at +4, its count at +0xc). A button's name
 // is at +8; its rectangle at +0x40 (x0, y0, x1, y1, 0..1 from the bottom
 // left); whether it's enabled and clickable at +0x50 and +0x51.
-void printButtons(reluva::x86::Win32Process& p, int width, int height) {
-    reluva::x86::Cpu& cpu = p.cpu();
-    const auto* load = p.module("LoadComp.dll");
+void printButtons(reluva::x86::Win32Process &p, int width, int height) {
+    reluva::x86::Cpu &cpu = p.cpu();
+    const auto *load = p.module("LoadComp.dll");
     const uint32_t array =
         load ? load->exportAddress("?Buttons@DDUIManager@@1V?$NiTArray@V?$NiPointer@VDDUIButton@@@@@@A") : 0;
     if (!array || !cpu.valid(array, 16)) {
@@ -66,10 +64,10 @@ void printButtons(reluva::x86::Win32Process& p, int width, int height) {
         const uint32_t name = cpu.read32(b + 8);
         const float x0 = f32(b + 0x40), y0 = f32(b + 0x44), x1 = f32(b + 0x48), y1 = f32(b + 0x4c);
         std::printf("button %08x %-28s %s%s at %d,%d (%d..%d x %d..%d)\n", b,
-                    name && cpu.valid(name, 1) ? cpu.string(name).c_str() : "?", cpu.read8(b + 0x50) ? "enabled" : "disabled",
-                    cpu.read8(b + 0x51) ? " clickable" : "", int((x0 + x1) / 2 * float(width)),
-                    int((1 - (y0 + y1) / 2) * float(height)), int(x0 * float(width)), int(x1 * float(width)),
-                    int((1 - y1) * float(height)), int((1 - y0) * float(height)));
+                    name && cpu.valid(name, 1) ? cpu.string(name).c_str() : "?",
+                    cpu.read8(b + 0x50) ? "enabled" : "disabled", cpu.read8(b + 0x51) ? " clickable" : "",
+                    int((x0 + x1) / 2 * float(width)), int((1 - (y0 + y1) / 2) * float(height)), int(x0 * float(width)),
+                    int(x1 * float(width)), int((1 - y1) * float(height)), int((1 - y0) * float(height)));
     }
 }
 
@@ -81,8 +79,8 @@ void printButtons(reluva::x86::Win32Process& p, int width, int height) {
 // DDTransition: 8 getToObj, 9 getNumTriggers, 11 getTrigger, 13 getType).
 // Each node and transition is printed with its vtable, which names its
 // generated class in the behaviour DLL.
-void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots,
-                       const std::vector<std::pair<uint32_t, uint32_t>>& scans) {
+void printGraph(reluva::x86::Cpu &cpu, const std::vector<uint32_t> &roots,
+                const std::vector<std::pair<uint32_t, uint32_t>> &scans) {
     using reluva::x86::Cpu;
     auto vcall = [&](uint32_t object, int slot, std::vector<uint32_t> args = {}) -> uint32_t {
         if (!object || !cpu.valid(object, 4) || !cpu.valid(cpu.read32(object) + 4 * uint32_t(slot), 4))
@@ -101,7 +99,7 @@ void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots,
     // transitions and parents instead).
     if (!roots.empty() && cpu.valid(roots[0], 4)) {
         const uint32_t known = cpu.read32(roots[0]);
-        for (const auto& [lo, hi] : scans)
+        for (const auto &[lo, hi] : scans)
             for (uint32_t a = lo & ~3u; a + 4 <= hi; a += 4) {
                 const uint32_t vt = cpu.valid(a, 4) ? cpu.read32(a) : 0;
                 if (!vt || !cpu.valid(vt, 28) || vt == known)
@@ -122,7 +120,11 @@ void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots,
         const bool port = vcall(node, 3) & 0xff, state = vcall(node, 4) & 0xff, machine = vcall(node, 5) & 0xff;
         const uint32_t parent = vcall(node, 6);
         std::printf("node %08x vt %08x %s parent %08x\n", node, cpu.read32(node),
-                    machine ? "machine" : state ? "state" : port ? "port" : "other", parent);
+                    machine ? "machine"
+                    : state ? "state"
+                    : port  ? "port"
+                            : "other",
+                    parent);
         todo.push_back(parent);
         std::vector<uint32_t> transitions;
         if (port) {
@@ -148,7 +150,7 @@ void printGraph(reluva::x86::Cpu& cpu, const std::vector<uint32_t>& roots,
 
 // The mission the first Adventure is on in a saved Game.txt ("P0Space"),
 // or "" if there's none.
-std::string savedSpace(const std::filesystem::path& gameTxt) {
+std::string savedSpace(const std::filesystem::path &gameTxt) {
     std::ifstream in(gameTxt);
     std::string line;
     while (std::getline(in, line)) {
@@ -163,8 +165,8 @@ std::string savedSpace(const std::filesystem::path& gameTxt) {
 // Writes a copy of the install's Etc.pac in which <space>.PUZ's entry
 // points at <space>_SOLVED.PUZ's data (the directory's offset and size;
 // the data itself is shared), for `at-run -solved`.
-reluva::Error writeSolvedEtcPac(const std::filesystem::path& game, const std::string& space,
-                                       const std::filesystem::path& out) {
+reluva::Error writeSolvedEtcPac(const std::filesystem::path &game, const std::string &space,
+                                const std::filesystem::path &out) {
     const auto path = reluva::fs::findFile(game, "Etc.pac");
     if (!path)
         return reluva::Error::fail("no Etc.pac in " + game.string());
@@ -172,10 +174,12 @@ reluva::Error writeSolvedEtcPac(const std::filesystem::path& game, const std::st
     std::vector<uint8_t> d((std::istreambuf_iterator<char>(in)), {});
     if (d.size() < 20 || std::memcmp(d.data(), "PACK", 4) != 0)
         return reluva::Error::fail("Etc.pac isn't a .pac archive");
-    auto le32 = [&](size_t at) { return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24; };
+    auto le32 = [&](size_t at) {
+        return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24;
+    };
     const uint32_t count = le32(16), dataStart = le32(12);
     std::string upper = space;
-    for (char& c : upper)
+    for (char &c : upper)
         c = char(std::toupper(static_cast<unsigned char>(c)));
     const std::string puzzle = upper + ".PUZ", solved = upper + "_SOLVED.PUZ";
     size_t puzzleAt = 0, at = 20;
@@ -199,7 +203,7 @@ reluva::Error writeSolvedEtcPac(const std::filesystem::path& game, const std::st
         d[puzzleAt + 8 + size_t(k)] = uint8_t(solvedSize >> (8 * k));
     }
     std::ofstream o(out, std::ios::binary);
-    o.write(reinterpret_cast<const char*>(d.data()), std::streamsize(d.size()));
+    o.write(reinterpret_cast<const char *>(d.data()), std::streamsize(d.size()));
     return o ? reluva::Error::success() : reluva::Error::fail("can't write " + out.string());
 }
 
@@ -211,10 +215,12 @@ reluva::Error writeSolvedEtcPac(const std::filesystem::path& game, const std::st
 // With -solved, each mission's puzzle is its _SOLVED.PUZ (the parts where
 // they solve it), and a mission passes when the Adventure moves on from it
 // (the game saves the next mission) by the frame (12000).
-int cmdAtSweep(int argc, char** argv) {
+int cmdAtSweep(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool netimmerse at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] "
-                             "[-solved] [mission...]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool netimmerse at-sweep <game folder> <out folder> [-jobs n] [-quit frame] [-shots] "
+            "[-solved] [mission...]\n");
         return 2;
     }
     const std::filesystem::path game = argv[2], out = argv[3];
@@ -240,10 +246,11 @@ int cmdAtSweep(int argc, char** argv) {
     if (missions.empty()) { // the three later training missions (which have no _SOLVED.PUZ), then the Adventure's 50
         if (!solved)
             missions = {"M0020", "M0030", "M0040"};
-        for (const auto& [first, last] : std::vector<std::pair<int, int>>{{1010, 1140}, {2010, 2160}, {3010, 3100}, {4010, 4070}})
+        for (const auto &[first, last] :
+             std::vector<std::pair<int, int>>{{1010, 1140}, {2010, 2160}, {3010, 3100}, {4010, 4070}})
             for (int m = first; m <= last; m += 10)
                 missions.push_back("M" + std::to_string(m));
-        for (const char* odd : {"M1065", "M1085", "M1095", "M1135"})
+        for (const char *odd : {"M1065", "M1085", "M1095", "M1135"})
             missions.push_back(odd);
         std::sort(missions.begin(), missions.end());
     }
@@ -253,14 +260,14 @@ int cmdAtSweep(int argc, char** argv) {
     const std::string route = "-limit 0 -fixed-clock -present-late -click 25 -point 1510@320,128 -click 1512 "
                               "-point 1600@180,124 -click 1602 -click 2400 -click 2500 -click 3000 -point 3196@572,434 "
                               "-click 3200";
-    auto quoted = [](const std::filesystem::path& p) { return "\"" + p.string() + "\""; };
+    auto quoted = [](const std::filesystem::path &p) { return "\"" + p.string() + "\""; };
     std::vector<std::string> results(missions.size());
     std::vector<double> seconds(missions.size());
     std::atomic<size_t> next{0};
     const auto start = std::chrono::steady_clock::now();
     auto work = [&] {
         for (size_t i; (i = next++) < missions.size();) {
-            const std::string& m = missions[i];
+            const std::string &m = missions[i];
             const std::filesystem::path dir = out / m;
             std::error_code ec;
             std::filesystem::remove_all(dir, ec);
@@ -269,8 +276,8 @@ int cmdAtSweep(int argc, char** argv) {
                 std::ofstream g(dir / "save" / "Game.txt", std::ios::binary);
                 g << "##  Game.txt\r\n\r\nP0Space  " << m << "\r\nP0Time  1793119257\r\n\r\n##  End\r\n";
             }
-            std::string cmd = quoted(reluva::tool::programPath()) + " netimmerse at-run " + quoted(game) + " " + route + " -quit " + std::to_string(quit) +
-                              " -save " + quoted(dir / "save");
+            std::string cmd = quoted(reluva::tool::programPath()) + " netimmerse at-run " + quoted(game) + " " + route +
+                              " -quit " + std::to_string(quit) + " -save " + quoted(dir / "save");
             if (solved)
                 cmd += " -solved " + m + " -until-advance";
             if (shots) {
@@ -301,7 +308,7 @@ int cmdAtSweep(int argc, char** argv) {
     std::vector<std::thread> pool;
     for (unsigned j = 0; j < std::min<size_t>(jobs, missions.size()); ++j)
         pool.emplace_back(work);
-    for (auto& t : pool)
+    for (auto &t : pool)
         t.join();
     const std::string expected = solved ? "advanced from" : "stopped at frame " + std::to_string(quit) + ",";
     size_t passed = 0;
@@ -322,12 +329,14 @@ int cmdAtSweep(int argc, char** argv) {
     return passed == missions.size() ? 0 : 1;
 }
 
-int cmdAtRun(int argc, char** argv) {
+int cmdAtRun(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool netimmerse at-run <game folder> [-v] [-limit instructions] [-trace count] "
-                             "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-profile-addresses] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
-                             "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
-                             "[-calls frame@dll!export] [-dump frame@address,bytes]... [-solved space] [-until-advance]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool netimmerse at-run <game folder> [-v] [-limit instructions] [-trace count] "
+            "[-memory MB] [-log] [-files] [-save folder] [-from frame] [-profile from-to] [-profile-addresses] [-present-late] [-shots folder] [-every frames] [-click frame[@x,y]]... [-move frame@dx,dy]... "
+            "[-key frame@vk]... [-quit frame] [-fixed-clock] [-clock-rate frame@n] [-watch dll!export]... [-point frame@x,y]... "
+            "[-calls frame@dll!export] [-dump frame@address,bytes]... [-solved space] [-until-advance]\n");
         return 2;
     }
     bool verbose = false;
@@ -338,7 +347,7 @@ int cmdAtRun(int argc, char** argv) {
     // instructions a millisecond instead of 40,000 (the time it has
     // reached carries on).
     uint64_t clockFrom = 0, clockRate = 40000;
-    bool files = false; // -files: each path the program asks for, and where it was found
+    bool files = false;  // -files: each path the program asks for, and where it was found
     std::string saveDir; // -save: where what the program writes goes (else it may write nothing)
     // -solved <space>: the game reads <space>_SOLVED.PUZ (the puzzle with
     // its parts where they solve it) in place of <space>.PUZ.
@@ -446,22 +455,22 @@ int cmdAtRun(int argc, char** argv) {
             shots = argv[++a];
         else if (arg == "-click" && a + 1 < argc) {
             Click k{std::strtoull(argv[++a], nullptr, 0)};
-            if (const char* at = std::strchr(argv[a], '@'))
+            if (const char *at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
             clicks.push_back(k);
         } else if (arg == "-move" && a + 1 < argc) {
             Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
-            if (const char* at = std::strchr(argv[a], '@'))
+            if (const char *at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
             moves.push_back(k);
         } else if (arg == "-key" && a + 1 < argc) {
             Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
-            if (const char* at = std::strchr(argv[a], '@'))
+            if (const char *at = std::strchr(argv[a], '@'))
                 k.x = int(std::strtol(at + 1, nullptr, 0));
             keys.push_back(k);
         } else if (arg == "-point" && a + 1 < argc) {
             Click k{std::strtoull(argv[++a], nullptr, 0), 0, 0};
-            if (const char* at = std::strchr(argv[a], '@'))
+            if (const char *at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%d,%d", &k.x, &k.y);
             points.push_back(k);
         } else if (arg == "-quit" && a + 1 < argc)
@@ -479,18 +488,17 @@ int cmdAtRun(int argc, char** argv) {
         else if (arg == "-profile" && a + 1 < argc) {
             const std::string v = argv[++a];
             profileFrom = std::strtoull(v.c_str(), nullptr, 0);
-            profileTo = v.find('-') == std::string::npos ? UINT64_MAX : std::strtoull(v.c_str() + v.find('-') + 1, nullptr, 0);
-        }
-        else if (arg == "-clock-rate" && a + 1 < argc) {
+            profileTo =
+                v.find('-') == std::string::npos ? UINT64_MAX : std::strtoull(v.c_str() + v.find('-') + 1, nullptr, 0);
+        } else if (arg == "-clock-rate" && a + 1 < argc) {
             const std::string v = argv[++a];
             clockFrom = std::strtoull(v.c_str(), nullptr, 0);
             clockRate = std::max<uint64_t>(1, std::strtoull(v.c_str() + v.find('@') + 1, nullptr, 0));
-        }
-        else if (arg == "-watch" && a + 1 < argc)
+        } else if (arg == "-watch" && a + 1 < argc)
             watches.push_back(argv[++a]);
         else if (arg == "-dump" && a + 1 < argc) {
             Dump d{std::strtoull(argv[++a], nullptr, 0), 0, 64};
-            if (const char* at = std::strchr(argv[a], '@'))
+            if (const char *at = std::strchr(argv[a], '@'))
                 std::sscanf(at + 1, "%x,%x", &d.address, &d.bytes);
             dumps.push_back(d);
         } else if (arg == "-step" && a + 1 < argc) {
@@ -526,7 +534,7 @@ int cmdAtRun(int argc, char** argv) {
             // Roots, or lo-hi: every object there whose vtable's first
             // seven entries are the vtable at the first root's.
             for (size_t at = v.find('@'); at != std::string::npos; at = v.find(',', at + 1)) {
-                char* end = nullptr;
+                char *end = nullptr;
                 const uint32_t lo = uint32_t(std::strtoul(v.c_str() + at + 1, &end, 16));
                 if (*end == '-') {
                     graphScan.push_back({lo, uint32_t(std::strtoul(end + 1, nullptr, 16))});
@@ -538,8 +546,7 @@ int cmdAtRun(int argc, char** argv) {
             const std::string v = argv[++a];
             callsFrame = std::strtoull(v.c_str(), nullptr, 0);
             callsOf = v.substr(v.find('@') + 1);
-        }
-        else if (arg == "-every" && a + 1 < argc)
+        } else if (arg == "-every" && a + 1 < argc)
             every = std::max<uint64_t>(1, std::strtoull(argv[++a], nullptr, 0));
         else if (arg == "-limit" && a + 1 < argc)
             limit = std::strtoull(argv[++a], nullptr, 0);
@@ -551,23 +558,24 @@ int cmdAtRun(int argc, char** argv) {
     using reluva::netimmerse::alphateam::GameProcess;
     using reluva::x86::Cpu;
     GameProcess game(argv[2], std::min<uint32_t>(memoryMb, 3072));
-    Cpu& cpu = game.cpu();
+    Cpu &cpu = game.cpu();
     if (!saveDir.empty())
         game.setSaveFolder(saveDir);
     cpu.setInstructionLimit(limit);
-    game.process().output = [](const std::string& text) { std::printf("[program] %s\n", text.c_str()); };
+    game.process().output = [](const std::string &text) { std::printf("[program] %s\n", text.c_str()); };
     const std::string startSpace = saveDir.empty() ? "" : savedSpace(std::filesystem::path(saveDir) / "Game.txt");
     if (!solvedSpace.empty()) {
         // A copy of Etc.pac whose <space>.PUZ entry points at the solved
         // puzzle's data, put where the program reads Etc.pac from.
-        const std::filesystem::path etc = saveDir.empty() ? std::filesystem::temp_directory_path() / "reluva_etc_solved.pac"
-                                                         : std::filesystem::path(saveDir) / "Etc_solved.pac";
+        const std::filesystem::path etc = saveDir.empty()
+                                              ? std::filesystem::temp_directory_path() / "reluva_etc_solved.pac"
+                                              : std::filesystem::path(saveDir) / "Etc_solved.pac";
         if (reluva::Error err = writeSolvedEtcPac(argv[2], solvedSpace, etc)) {
             std::fprintf(stderr, "-solved: %s\n", err.message.c_str());
             return 1;
         }
-        game.process().mapPath = [map = game.process().mapPath, etc](const std::string& path, bool writing)
-            -> std::optional<std::filesystem::path> {
+        game.process().mapPath = [map = game.process().mapPath,
+                                  etc](const std::string &path, bool writing) -> std::optional<std::filesystem::path> {
             const auto host = map(path, writing);
             if (host && !writing && reluva::fs::toLower(host->filename().string()) == "etc.pac")
                 return etc;
@@ -575,14 +583,14 @@ int cmdAtRun(int argc, char** argv) {
         };
     }
     if (files)
-        game.process().mapPath = [map = game.process().mapPath](const std::string& path, bool writing) {
+        game.process().mapPath = [map = game.process().mapPath](const std::string &path, bool writing) {
             const auto host = map(path, writing);
             std::printf("file %s %s -> %s\n", writing ? "write" : "read", path.c_str(),
                         host ? host->string().c_str() : "(none)");
             return host;
         };
     if (files)
-        game.process().registryWritten = [&game](const std::string& key, const std::string& name) {
+        game.process().registryWritten = [&game](const std::string &key, const std::string &name) {
             uint32_t type = 0;
             const auto value = game.process().registryValue(key, name, &type);
             std::string shown;
@@ -605,10 +613,10 @@ int cmdAtRun(int argc, char** argv) {
         };
     // -shots: the first frame shown and every `every`th, as TGA files.
     uint64_t framesShown = 0;
-    auto saveFrame = [&shots](const reluva::x86::DirectX::Frame& f) {
+    auto saveFrame = [&shots](const reluva::x86::DirectX::Frame &f) {
         char name[64];
         std::snprintf(name, sizeof name, "/frame%05llu.tga", (unsigned long long)f.number);
-        std::FILE* out = std::fopen((shots + name).c_str(), "wb");
+        std::FILE *out = std::fopen((shots + name).c_str(), "wb");
         if (!out)
             return;
         uint8_t header[18] = {};
@@ -624,10 +632,10 @@ int cmdAtRun(int argc, char** argv) {
     struct Watch {
         std::string name;
         uint32_t address = 0;
-        std::map<uint32_t, unsigned> results; // this frame's
+        std::map<uint32_t, unsigned> results;               // this frame's
         std::vector<std::pair<uint32_t, uint32_t>> pending; // return address, esp
-        std::vector<std::array<uint32_t, 6>> args;           // this frame's first calls': ecx, the stack's, the caller
-        std::vector<double> st0;                              // this frame's first returns' x87 top of stack
+        std::vector<std::array<uint32_t, 6>> args;          // this frame's first calls': ecx, the stack's, the caller
+        std::vector<double> st0;                            // this frame's first returns' x87 top of stack
     };
     // An argument, as text if it points to some.
     auto argText = [&cpu](uint32_t v) {
@@ -648,16 +656,17 @@ int cmdAtRun(int argc, char** argv) {
     };
     std::vector<Watch> watched;
     std::function<std::string(uint32_t)> symbolOf; // `symbol` below
-    std::function<void(Cpu&)> traceFn;             // installed from frame `traceFrom`
+    std::function<void(Cpu &)> traceFn;            // installed from frame `traceFrom`
     game.directX().presentLate = presentLate;
-    game.directX().presented = [&](const reluva::x86::DirectX::Frame& f) {
+    game.directX().presented = [&](const reluva::x86::DirectX::Frame &f) {
         ++framesShown;
         if (profileFrom && framesShown == profileFrom && !profiler.joinable()) {
             profiling = true;
             profiler = std::thread([&] {
                 while (!profileDone) {
                     if (profiling)
-                        profileSamples.push_back(uint32_t(*static_cast<volatile uint32_t*>(&cpu.eip))); // racy, as a sample may be
+                        profileSamples.push_back(
+                            uint32_t(*static_cast<volatile uint32_t *>(&cpu.eip))); // racy, as a sample may be
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 }
             });
@@ -671,14 +680,14 @@ int cmdAtRun(int argc, char** argv) {
             clockBaseInstructions = cpu.executed();
             clockPerMs = clockRate;
         }
-        for (Watch& w : watched) {
+        for (Watch &w : watched) {
             if (w.results.empty())
                 continue;
             std::printf("frame %llu: %s returned", (unsigned long long)f.number, w.name.c_str());
-            for (const auto& [value, count] : w.results)
+            for (const auto &[value, count] : w.results)
                 std::printf(" 0x%x (x%u)", value, count);
             std::printf(", given");
-            for (const auto& a : w.args)
+            for (const auto &a : w.args)
                 std::printf(" (this %x: %s %s %s %s; from %s)", a[0], argText(a[1]).c_str(), argText(a[2]).c_str(),
                             argText(a[3]).c_str(), argText(a[4]).c_str(), symbolOf(a[5]).c_str());
             std::printf(", st(0)");
@@ -689,11 +698,11 @@ int cmdAtRun(int argc, char** argv) {
             w.results.clear();
             w.args.clear();
         }
-        reluva::x86::Win32Process& p = game.process();
-        for (const Click& k : moves)
+        reluva::x86::Win32Process &p = game.process();
+        for (const Click &k : moves)
             if (f.number == k.frame)
                 p.mouseMoveTo(p.cursorX + k.x, p.cursorY + k.y);
-        for (Retry& r : retries) { // stopped by any state since
+        for (Retry &r : retries) { // stopped by any state since
             if (r.left <= 0 || f.number != r.next)
                 continue;
             if (lastRegistered > r.since) {
@@ -706,13 +715,13 @@ int cmdAtRun(int argc, char** argv) {
             --r.left;
             r.next = f.number + 40;
         }
-        for (const Hold& h : holds) { // a drag: the button held from frame to frame + frames
+        for (const Hold &h : holds) { // a drag: the button held from frame to frame + frames
             if (f.number == h.frame)
                 p.mouseButton(0, true);
             else if (f.number == h.frame + h.frames)
                 p.mouseButton(0, false);
         }
-        for (const Click& k : clicks) {
+        for (const Click &k : clicks) {
             if (f.number == k.frame) {
                 if (k.x >= 0 && k.y >= 0)
                     p.mouseMoveTo(k.x, k.y);
@@ -722,10 +731,10 @@ int cmdAtRun(int argc, char** argv) {
                 p.mouseButton(0, false);
             }
         }
-        for (const Click& k : points) {
+        for (const Click &k : points) {
             if (f.number != k.frame)
                 continue;
-            const auto* load = p.module("LoadComp.dll");
+            const auto *load = p.module("LoadComp.dll");
             const uint32_t setPosition = load ? load->exportAddress("?SetPosition@DDMouse@@SAXABVNiPoint3@@@Z") : 0;
             const uint32_t point = p.memory().alloc(12);
             const float xyz[3] = {float(k.x) / float(f.width), 1 - float(k.y) / float(f.height), 0};
@@ -738,7 +747,7 @@ int cmdAtRun(int argc, char** argv) {
             printButtons(game.process(), f.width, f.height);
         if (graphFrame && f.number == graphFrame)
             printGraph(cpu, graphRoots, graphScan);
-        for (const Dump& d : dumps) {
+        for (const Dump &d : dumps) {
             if (f.number != d.frame)
                 continue;
             for (uint32_t at = d.address; at < d.address + d.bytes; at += 16) {
@@ -755,7 +764,7 @@ int cmdAtRun(int argc, char** argv) {
                 std::printf("\n");
             }
         }
-        for (const Click& k : keys)
+        for (const Click &k : keys)
             if (f.number == k.frame || f.number == k.frame + 1)
                 p.key(uint32_t(k.x), 0, f.number == k.frame);
         if (!shots.empty() && (f.number == 1 || f.number % every == 0))
@@ -778,17 +787,17 @@ int cmdAtRun(int argc, char** argv) {
         return 1;
     }
     std::printf("loaded:");
-    for (const std::string& m : game.loadOrder())
+    for (const std::string &m : game.loadOrder())
         std::printf(" %s@%08x", m.c_str(), game.process().module(m)->base);
     std::printf("\n");
     // What nothing stands in for yet, by DLL.
     std::map<std::string, std::vector<std::string>> missing;
-    for (const std::string& m : game.process().missingImports())
+    for (const std::string &m : game.process().missingImports())
         missing[m.substr(0, m.find('!'))].push_back(m.substr(m.find('!') + 1));
-    for (const auto& [dll, names] : missing) {
+    for (const auto &[dll, names] : missing) {
         std::printf("not stood in for: %s, %zu imports\n", dll.c_str(), names.size());
         if (verbose)
-            for (const std::string& n : names)
+            for (const std::string &n : names)
                 std::printf("    %s\n", n.c_str());
     }
 
@@ -808,14 +817,14 @@ int cmdAtRun(int argc, char** argv) {
     // An address as module!export+offset (the nearest export at or below it).
     std::map<std::string, std::vector<std::pair<uint32_t, std::string>>> exportsOf;
     auto symbol = [&](uint32_t a) {
-        if (const std::string* n = cpu.nativeName(a))
+        if (const std::string *n = cpu.nativeName(a))
             return "[" + *n + "]";
-        for (const auto* m : game.process().modules()) {
+        for (const auto *m : game.process().modules()) {
             if (a < m->base || a >= m->base + m->size)
                 continue;
-            auto& list = exportsOf[m->name];
+            auto &list = exportsOf[m->name];
             if (list.empty()) {
-                for (const auto& e : m->image.exports)
+                for (const auto &e : m->image.exports)
                     if (!e.name.empty() && e.forwarder.empty())
                         list.push_back({m->base + e.rva, e.name});
                 std::sort(list.begin(), list.end());
@@ -843,7 +852,7 @@ int cmdAtRun(int argc, char** argv) {
             if (a >= base + size)
                 break;
             std::string name = "image@" + std::to_string(base);
-            auto& list = exportsOf[name];
+            auto &list = exportsOf[name];
             if (list.empty() && exportRva && cpu.valid(base + exportRva, 40)) {
                 const uint32_t dir = base + exportRva;
                 char n[64] = {};
@@ -863,7 +872,7 @@ int cmdAtRun(int argc, char** argv) {
             }
             const std::string dll = list.empty() ? name : list[0].second;
             char b[64];
-            const std::pair<uint32_t, std::string>* best = nullptr;
+            const std::pair<uint32_t, std::string> *best = nullptr;
             for (size_t i = 1; i < list.size(); ++i)
                 if (list[i].first <= a)
                     best = &list[i];
@@ -882,7 +891,7 @@ int cmdAtRun(int argc, char** argv) {
     uint32_t callsAddress = 0;
     if (!callsOf.empty()) {
         const size_t bang = callsOf.find('!');
-        const auto* m = bang == std::string::npos ? nullptr : game.process().module(callsOf.substr(0, bang));
+        const auto *m = bang == std::string::npos ? nullptr : game.process().module(callsOf.substr(0, bang));
         callsAddress = m ? m->exportAddress(callsOf.substr(bang + 1)) : 0;
         if (!callsAddress)
             std::printf("-calls: no %s\n", callsOf.c_str());
@@ -894,7 +903,7 @@ int cmdAtRun(int argc, char** argv) {
     uint32_t lastEip = 0, lastEsp = 0;
     std::string lastLine;
     unsigned lineRepeats = 0, linesPrinted = 0;
-    auto treeLine = [&](const std::string& line) {
+    auto treeLine = [&](const std::string &line) {
         if (line == lastLine) {
             ++lineRepeats;
             return;
@@ -906,19 +915,19 @@ int cmdAtRun(int argc, char** argv) {
         if (++linesPrinted <= 20000)
             std::printf("%s\n", line.c_str());
     };
-    for (const std::string& name : watches) {
+    for (const std::string &name : watches) {
         const size_t bang = name.find('!');
-        const auto* m = bang == std::string::npos ? nullptr : game.process().module(name.substr(0, bang));
+        const auto *m = bang == std::string::npos ? nullptr : game.process().module(name.substr(0, bang));
         // dll!export, or an address (0x...) for code the program loaded itself.
         const uint32_t address = name.rfind("0x", 0) == 0 ? uint32_t(std::strtoul(name.c_str(), nullptr, 16))
-                                 : m                       ? m->exportAddress(name.substr(bang + 1))
-                                                           : 0;
+                                 : m                      ? m->exportAddress(name.substr(bang + 1))
+                                                          : 0;
         if (!address)
             std::printf("-watch: no %s\n", name.c_str());
         else
             watched.push_back({name, address, {}, {}, {}, {}});
     }
-    const auto* behaviorComp = game.process().module("BehaviorComp.dll");
+    const auto *behaviorComp = game.process().module("BehaviorComp.dll");
     const uint32_t registerEvent =
         stepActions.empty() || !behaviorComp
             ? 0
@@ -926,7 +935,7 @@ int cmdAtRun(int argc, char** argv) {
     if (!stepActions.empty() && !registerEvent)
         std::printf("-step: no DDBehavior::registerEvent\n");
     if (traceCount > 0 || log || !watched.empty() || callsAddress || registerEvent)
-        traceFn = [&](Cpu& c) {
+        traceFn = [&](Cpu &c) {
             // -step: registerEvent(machine, event, transition), thiscall.
             if (registerEvent && c.eip == registerEvent) {
                 const uint32_t event = c.read32(c.reg[Cpu::ESP] + 8);
@@ -997,16 +1006,15 @@ int cmdAtRun(int argc, char** argv) {
                 lastEip = c.eip;
                 lastEsp = sp;
             }
-            for (Watch& w : watched) { // a call, or a return from one
+            for (Watch &w : watched) { // a call, or a return from one
                 if (c.eip == w.address) {
                     const uint32_t sp = c.reg[Cpu::ESP];
                     w.pending.push_back({c.read32(sp), sp + 4});
                     if (w.args.size() < 256)
                         w.args.push_back({c.reg[Cpu::ECX], c.read32(sp + 4), c.read32(sp + 8), c.read32(sp + 12),
                                           c.read32(sp + 16), c.read32(sp)});
-                }
-                else if (!w.pending.empty() && c.eip == w.pending.back().first &&
-                         c.reg[Cpu::ESP] >= w.pending.back().second) {
+                } else if (!w.pending.empty() && c.eip == w.pending.back().first &&
+                           c.reg[Cpu::ESP] >= w.pending.back().second) {
                     ++w.results[c.reg[Cpu::EAX]];
                     if (w.st0.size() < 8)
                         w.st0.push_back(c.fpu.regs[c.fpu.top & 7]);
@@ -1014,7 +1022,7 @@ int cmdAtRun(int argc, char** argv) {
                 }
             }
             recent[recentAt++ % recent.size()] = c.eip;
-            if (const std::string* n = c.nativeName(c.eip)) {
+            if (const std::string *n = c.nativeName(c.eip)) {
                 calls[callsAt++ % calls.size()] = *n;
                 if (log) {
                     if (*n == lastLogged) {
@@ -1031,8 +1039,8 @@ int cmdAtRun(int argc, char** argv) {
     if (traceFn && !traceFrom)
         cpu.trace = traceFn;
     auto where = [&](uint32_t a) {
-        for (const std::string& name : game.loadOrder()) {
-            const auto* m = game.process().module(name);
+        for (const std::string &name : game.loadOrder()) {
+            const auto *m = game.process().module(name);
             if (a >= m->base && a < m->base + m->size) {
                 char b[96];
                 std::snprintf(b, sizeof b, "%s+%x", name.c_str(), a - m->base);
@@ -1043,9 +1051,9 @@ int cmdAtRun(int argc, char** argv) {
         std::snprintf(b, sizeof b, "%08x", a);
         return std::string(b);
     };
-    auto failed = [&](const reluva::Error& e) {
-        std::printf("failed after %llu instructions: %s, at %s\nlast instructions:",
-                    (unsigned long long)cpu.executed(), e.message.c_str(), where(cpu.faultEip).c_str());
+    auto failed = [&](const reluva::Error &e) {
+        std::printf("failed after %llu instructions: %s, at %s\nlast instructions:", (unsigned long long)cpu.executed(),
+                    e.message.c_str(), where(cpu.faultEip).c_str());
         for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
             std::printf(" %s", where(recent[i % recent.size()]).c_str());
         std::printf("\nlast calls to stand-ins:");
@@ -1087,24 +1095,26 @@ int cmdAtRun(int argc, char** argv) {
         for (uint32_t a : profileSamples) {
             std::string name = symbol(a);
             const size_t bang = name.find('!');
-            if (const size_t plus = name.find('+', bang == std::string::npos ? 0 : bang); plus != std::string::npos && bang != std::string::npos)
+            if (const size_t plus = name.find('+', bang == std::string::npos ? 0 : bang);
+                plus != std::string::npos && bang != std::string::npos)
                 name.resize(plus);
             ++byFunction[name];
         }
         std::vector<std::pair<size_t, std::string>> top;
-        for (const auto& [name, n] : byFunction)
+        for (const auto &[name, n] : byFunction)
             top.push_back({n, name});
         std::sort(top.rbegin(), top.rend());
         std::printf("profile: %zu samples\n", profileSamples.size());
         for (size_t i = 0; i < top.size() && i < 60; ++i)
-            std::printf("  %5.1f%%  %s\n", 100.0 * double(top[i].first) / double(profileSamples.size()), top[i].second.c_str());
+            std::printf("  %5.1f%%  %s\n", 100.0 * double(top[i].first) / double(profileSamples.size()),
+                        top[i].second.c_str());
         if (profileAddresses) {
             // The busiest 64-byte stretches of code, for functions no export names.
             std::map<uint32_t, size_t> byBlock;
             for (uint32_t a : profileSamples)
                 ++byBlock[a & ~63u];
             std::vector<std::pair<size_t, uint32_t>> blocks;
-            for (const auto& [a, n] : byBlock)
+            for (const auto &[a, n] : byBlock)
                 blocks.push_back({n, a});
             std::sort(blocks.rbegin(), blocks.rend());
             std::printf("profile by address:\n");
@@ -1119,9 +1129,9 @@ int cmdAtRun(int argc, char** argv) {
             saveFrame(game.directX().frame());
     }
     // The program's window, if it made one.
-    if (const auto* w = game.process().window(game.process().mainWindow()))
-        std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(),
-                    w->width, w->height, w->x, w->y, w->visible ? "shown" : "hidden");
+    if (const auto *w = game.process().window(game.process().mainWindow()))
+        std::printf("window: \"%s\" (class %s), %dx%d at %d,%d, %s\n", w->title.c_str(), w->className.c_str(), w->width,
+                    w->height, w->x, w->y, w->visible ? "shown" : "hidden");
     if (ran && !(quitAt && framesShown >= quitAt) && !advancedAt)
         return failed(ran);
     if (ran) {
@@ -1135,16 +1145,18 @@ int cmdAtRun(int argc, char** argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands("netimmerse", {
-    {"at-run", "<game folder> [options]",
-     "run LEGO Alpha Team's own code in the x86 emulator, headless: with -fixed-clock and scripted input "
-     "(-click, -point, -key) a run repeats exactly; -shots saves frames, -watch, -calls, -trace, -log, -files "
-     "and -dump show what the game does. Run it without arguments for every option.",
-     cmdAtRun},
-    {"at-sweep", "<game folder> <out folder> [-jobs n] [-quit frame] [-shots] [-solved] [mission...]",
-     "run every mission (or those named) past Go, several at once (an at-run each), and report which ran to "
-     "the end; with -solved, each with its solved layout until the Adventure moves on",
-     cmdAtSweep},
-});
+const reluva::tool::Commands commands(
+    "netimmerse",
+    {
+        {"at-run", "<game folder> [options]",
+         "run LEGO Alpha Team's own code in the x86 emulator, headless: with -fixed-clock and scripted input "
+         "(-click, -point, -key) a run repeats exactly; -shots saves frames, -watch, -calls, -trace, -log, -files "
+         "and -dump show what the game does. Run it without arguments for every option.",
+         cmdAtRun},
+        {"at-sweep", "<game folder> <out folder> [-jobs n] [-quit frame] [-shots] [-solved] [mission...]",
+         "run every mission (or those named) past Go, several at once (an at-run each), and report which ran to "
+         "the end; with -solved, each with its solved layout until the Adventure moves on",
+         cmdAtSweep},
+    });
 
 } // namespace

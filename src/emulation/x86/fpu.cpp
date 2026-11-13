@@ -20,7 +20,7 @@ namespace {
 constexpr uint16_t C0 = 1u << 8, C1 = 1u << 9, C2 = 1u << 10, C3 = 1u << 14;
 constexpr uint16_t kTopMask = 7u << 11;
 
-double fromExtended(const uint8_t* p) {
+double fromExtended(const uint8_t *p) {
     uint64_t mantissa;
     std::memcpy(&mantissa, p, 8);
     const uint16_t se = uint16_t(p[8] | p[9] << 8);
@@ -37,7 +37,7 @@ double fromExtended(const uint8_t* p) {
 }
 
 // A 64-bit integer as an 80-bit value, exactly (its mantissa holds 64 bits).
-void integerToExtended(int64_t v, uint8_t* p) {
+void integerToExtended(int64_t v, uint8_t *p) {
     uint64_t mantissa = v < 0 ? uint64_t(0) - uint64_t(v) : uint64_t(v);
     uint16_t se = v < 0 ? 0x8000 : 0;
     if (mantissa) {
@@ -54,7 +54,7 @@ void integerToExtended(int64_t v, uint8_t* p) {
 }
 
 // The 80-bit value as a 64-bit integer, if it is one exactly.
-bool extendedToInteger(const uint8_t* p, int64_t& out) {
+bool extendedToInteger(const uint8_t *p, int64_t &out) {
     uint64_t mantissa;
     std::memcpy(&mantissa, p, 8);
     const uint16_t se = uint16_t(p[8] | p[9] << 8);
@@ -70,7 +70,7 @@ bool extendedToInteger(const uint8_t* p, int64_t& out) {
     return true;
 }
 
-void toExtended(double v, uint8_t* p) {
+void toExtended(double v, uint8_t *p) {
     uint64_t mantissa = 0;
     uint16_t se = std::signbit(v) ? 0x8000 : 0;
     if (std::isnan(v)) {
@@ -98,7 +98,6 @@ void Cpu::copyExact(int to, int from) {
     fpu.exactValid = uint8_t((fpu.exactValid & ~(1u << t)) | (((fpu.exactValid >> f) & 1u) << t));
 }
 
-
 void Cpu::fpuCompare(double a, double b, bool setEflags, bool) {
     uint16_t c = 0;
     if (std::isnan(a) || std::isnan(b))
@@ -125,10 +124,14 @@ namespace {
 // To an integer by the rounding control's mode.
 double roundByMode(double v, uint16_t control) {
     switch ((control >> 10) & 3) {
-    case 0: return std::nearbyint(v); // the default mode: nearest, ties to even
-    case 1: return std::floor(v);
-    case 2: return std::ceil(v);
-    default: return std::trunc(v);
+    case 0:
+        return std::nearbyint(v); // the default mode: nearest, ties to even
+    case 1:
+        return std::floor(v);
+    case 2:
+        return std::ceil(v);
+    default:
+        return std::trunc(v);
     }
 }
 
@@ -147,17 +150,31 @@ void Cpu::x87(uint8_t op) {
     decodeModrm();
     const int r = d_.regField;
     const uint32_t a = d_.address;
-    auto arith = [&](int kind, double& dst, double x, double y) {
+    auto arith = [&](int kind, double &dst, double x, double y) {
         // dst = x op y for the eight arithmetic forms (2, 3 compare x, y)
         switch (kind) {
-        case 0: dst = fpuRound(x + y); break;
-        case 1: dst = fpuRound(x * y); break;
+        case 0:
+            dst = fpuRound(x + y);
+            break;
+        case 1:
+            dst = fpuRound(x * y);
+            break;
         case 2:
-        case 3: fpuCompare(x, y, false, false); break;
-        case 4: dst = fpuRound(x - y); break;
-        case 5: dst = fpuRound(y - x); break;
-        case 6: dst = fpuRound(x / y); break;
-        case 7: dst = fpuRound(y / x); break;
+        case 3:
+            fpuCompare(x, y, false, false);
+            break;
+        case 4:
+            dst = fpuRound(x - y);
+            break;
+        case 5:
+            dst = fpuRound(y - x);
+            break;
+        case 6:
+            dst = fpuRound(x / y);
+            break;
+        case 7:
+            dst = fpuRound(y / x);
+            break;
         }
     };
     auto store16 = [&](int64_t v) { store(a, uint32_t(v), 2); };
@@ -240,29 +257,69 @@ void Cpu::x87(uint8_t op) {
 
     if (d_.memoryOperand) {
         switch (op) {
-        case 0xd8: arith(r, st(0), st(0), loadFloat()); if (r == 3) fpuPop(); return;
-        case 0xdc: arith(r, st(0), st(0), loadDouble()); if (r == 3) fpuPop(); return;
-        case 0xda: arith(r, st(0), st(0), double(int32_t(load(a, 4)))); if (r == 3) fpuPop(); return;
-        case 0xde: arith(r, st(0), st(0), double(int16_t(load(a, 2)))); if (r == 3) fpuPop(); return;
+        case 0xd8:
+            arith(r, st(0), st(0), loadFloat());
+            if (r == 3)
+                fpuPop();
+            return;
+        case 0xdc:
+            arith(r, st(0), st(0), loadDouble());
+            if (r == 3)
+                fpuPop();
+            return;
+        case 0xda:
+            arith(r, st(0), st(0), double(int32_t(load(a, 4))));
+            if (r == 3)
+                fpuPop();
+            return;
+        case 0xde:
+            arith(r, st(0), st(0), double(int16_t(load(a, 2))));
+            if (r == 3)
+                fpuPop();
+            return;
         case 0xd9:
             switch (r) {
-            case 0: fpuPush(loadFloat()); return;
-            case 2: storeFloat(st(0)); return;
-            case 3: storeFloat(fpuPop()); return;
-            case 4: loadEnvironment(); return;
-            case 5: fpu.control = uint16_t(load(a, 2)); return;
-            case 6: storeEnvironment(); return;
-            case 7: store(a, fpu.control, 2); return;
+            case 0:
+                fpuPush(loadFloat());
+                return;
+            case 2:
+                storeFloat(st(0));
+                return;
+            case 3:
+                storeFloat(fpuPop());
+                return;
+            case 4:
+                loadEnvironment();
+                return;
+            case 5:
+                fpu.control = uint16_t(load(a, 2));
+                return;
+            case 6:
+                storeEnvironment();
+                return;
+            case 7:
+                store(a, fpu.control, 2);
+                return;
             }
             break;
         case 0xdb:
             switch (r) {
-            case 0: fpuPush(double(int32_t(load(a, 4)))); return;
-            case 1: store(a, uint32_t(toInteger(std::trunc(st(0)), 32)), 4); fpuPop(); return;
-            case 2: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); return;
-            case 3: store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4); fpuPop(); return;
+            case 0:
+                fpuPush(double(int32_t(load(a, 4))));
+                return;
+            case 1:
+                store(a, uint32_t(toInteger(std::trunc(st(0)), 32)), 4);
+                fpuPop();
+                return;
+            case 2:
+                store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4);
+                return;
+            case 3:
+                store(a, uint32_t(toInteger(roundByMode(st(0), fpu.control), 32)), 4);
+                fpuPop();
+                return;
             case 5: { // FLD m80: the mantissa kept whole, for MMX
-                const uint8_t* e = at(a, 10);
+                const uint8_t *e = at(a, 10);
                 fpuPush(fromExtended(e));
                 std::memcpy(&fpu.mm[fpu.top], e, 8);
                 std::memcpy(&fpu.mmDouble[fpu.top], &st(0), 8);
@@ -270,7 +327,7 @@ void Cpu::x87(uint8_t op) {
                 return;
             }
             case 7: { // FSTP m80 (an MMX register's 64 bits whole)
-                uint8_t* e = atWrite(a, 10);
+                uint8_t *e = atWrite(a, 10);
                 uint64_t doubleBits;
                 std::memcpy(&doubleBits, &st(0), 8);
                 const bool mmx = ((fpu.mmValid >> fpu.top) & 1) && fpu.mmDouble[fpu.top] == doubleBits;
@@ -286,14 +343,23 @@ void Cpu::x87(uint8_t op) {
             break;
         case 0xdd:
             switch (r) {
-            case 0: fpuPush(loadDouble()); return;
-            case 1: store64(uint64_t(toInteger(std::trunc(st(0)), 64))); fpuPop(); return;
-            case 2: storeDouble(st(0)); return;
-            case 3: storeDouble(fpuPop()); return;
+            case 0:
+                fpuPush(loadDouble());
+                return;
+            case 1:
+                store64(uint64_t(toInteger(std::trunc(st(0)), 64)));
+                fpuPop();
+                return;
+            case 2:
+                storeDouble(st(0));
+                return;
+            case 3:
+                storeDouble(fpuPop());
+                return;
             case 4: { // FRSTOR
                 loadEnvironment();
                 for (int i = 0; i < 8; ++i) {
-                    const uint8_t* e = at(a + 28 + 10 * uint32_t(i), 10);
+                    const uint8_t *e = at(a + 28 + 10 * uint32_t(i), 10);
                     st(i) = fromExtended(e);
                     const unsigned phys = unsigned(fpu.top + i) & 7u;
                     int64_t v;
@@ -316,7 +382,7 @@ void Cpu::x87(uint8_t op) {
                     if (((fpu.mmValid >> phys) & 1) && fpu.mmDouble[phys] == doubleBits) { // an MMX register's
                         // Written by MMX: its exponent and sign all ones; loaded by
                         // FRSTOR: the double's exponent and sign, the mantissa whole.
-                        uint8_t* e = atWrite(a + 28 + 10 * uint32_t(i), 10);
+                        uint8_t *e = atWrite(a + 28 + 10 * uint32_t(i), 10);
                         toExtended(st(i), e);
                         if (doubleBits >> 32 == 0xfff84d4du)
                             e[8] = e[9] = 0xff;
@@ -329,15 +395,27 @@ void Cpu::x87(uint8_t op) {
                 init();
                 return;
             }
-            case 7: store(a, statusWord(), 2); return;
+            case 7:
+                store(a, statusWord(), 2);
+                return;
             }
             break;
         case 0xdf:
             switch (r) {
-            case 0: fpuPush(double(int16_t(load(a, 2)))); return;
-            case 1: store16(toInteger(std::trunc(st(0)), 16)); fpuPop(); return;
-            case 2: store16(toInteger(roundByMode(st(0), fpu.control), 16)); return;
-            case 3: store16(toInteger(roundByMode(st(0), fpu.control), 16)); fpuPop(); return;
+            case 0:
+                fpuPush(double(int16_t(load(a, 2))));
+                return;
+            case 1:
+                store16(toInteger(std::trunc(st(0)), 16));
+                fpuPop();
+                return;
+            case 2:
+                store16(toInteger(roundByMode(st(0), fpu.control), 16));
+                return;
+            case 3:
+                store16(toInteger(roundByMode(st(0), fpu.control), 16));
+                fpuPop();
+                return;
             case 5: { // FILD m64: exactly, besides the double
                 const int64_t v = int64_t(load64());
                 fpuPush(double(v));
@@ -361,7 +439,11 @@ void Cpu::x87(uint8_t op) {
     const int i = d_.rm;
     const uint8_t modrm = uint8_t(0xc0 | r << 3 | i);
     switch (op) {
-    case 0xd8: arith(r, st(0), st(0), st(i)); if (r == 3) fpuPop(); return;
+    case 0xd8:
+        arith(r, st(0), st(0), st(i));
+        if (r == 3)
+            fpuPop();
+        return;
     case 0xdc:
     case 0xde: {
         // st(i) = st(i) op st(0); here the reversed forms come first.
@@ -404,10 +486,17 @@ void Cpu::x87(uint8_t op) {
             return;
         }
         switch (modrm) {
-        case 0xd0: return; // FNOP
-        case 0xe0: st(0) = -st(0); return;
-        case 0xe1: st(0) = std::fabs(st(0)); return;
-        case 0xe4: fpuCompare(st(0), 0.0, false, false); return;
+        case 0xd0:
+            return; // FNOP
+        case 0xe0:
+            st(0) = -st(0);
+            return;
+        case 0xe1:
+            st(0) = std::fabs(st(0));
+            return;
+        case 0xe4:
+            fpuCompare(st(0), 0.0, false, false);
+            return;
         case 0xe5: { // FXAM
             const double v = st(0);
             uint16_t c = std::signbit(v) ? C1 : 0;
@@ -426,14 +515,30 @@ void Cpu::x87(uint8_t op) {
             setC(c);
             return;
         }
-        case 0xe8: fpuPush(1.0); return;
-        case 0xe9: fpuPush(3.321928094887362347870); return; // log2(10)
-        case 0xea: fpuPush(1.442695040888963407360); return; // log2(e)
-        case 0xeb: fpuPush(3.141592653589793238463); return;
-        case 0xec: fpuPush(0.301029995663981195214); return; // log10(2)
-        case 0xed: fpuPush(0.693147180559945309417); return; // ln(2)
-        case 0xee: fpuPush(0.0); return;
-        case 0xf0: st(0) = std::exp2(st(0)) - 1.0; return;
+        case 0xe8:
+            fpuPush(1.0);
+            return;
+        case 0xe9:
+            fpuPush(3.321928094887362347870);
+            return; // log2(10)
+        case 0xea:
+            fpuPush(1.442695040888963407360);
+            return; // log2(e)
+        case 0xeb:
+            fpuPush(3.141592653589793238463);
+            return;
+        case 0xec:
+            fpuPush(0.301029995663981195214);
+            return; // log10(2)
+        case 0xed:
+            fpuPush(0.693147180559945309417);
+            return; // ln(2)
+        case 0xee:
+            fpuPush(0.0);
+            return;
+        case 0xf0:
+            st(0) = std::exp2(st(0)) - 1.0;
+            return;
         case 0xf1: { // FYL2X
             const double x = st(0);
             fpuPop();
@@ -459,7 +564,7 @@ void Cpu::x87(uint8_t op) {
             fpuPush(v == 0.0 ? v : f * 2.0);
             return;
         }
-        case 0xf5: // FPREM1
+        case 0xf5:   // FPREM1
         case 0xf8: { // FPREM
             const double x = st(0), y = st(1);
             const double q = modrm == 0xf8 ? std::trunc(x / y) : std::nearbyint(x / y);
@@ -468,15 +573,21 @@ void Cpu::x87(uint8_t op) {
             setC(uint16_t(((qi & 4) ? C0 : 0) | ((qi & 2) ? C3 : 0) | ((qi & 1) ? C1 : 0)));
             return;
         }
-        case 0xf6: fpu.top = uint8_t((fpu.top - 1) & 7); return;
-        case 0xf7: fpu.top = uint8_t((fpu.top + 1) & 7); return;
+        case 0xf6:
+            fpu.top = uint8_t((fpu.top - 1) & 7);
+            return;
+        case 0xf7:
+            fpu.top = uint8_t((fpu.top + 1) & 7);
+            return;
         case 0xf9: { // FYL2XP1
             const double x = st(0);
             fpuPop();
             st(0) = st(0) * std::log1p(x) / std::log(2.0);
             return;
         }
-        case 0xfa: st(0) = fpuRound(std::sqrt(st(0))); return;
+        case 0xfa:
+            st(0) = fpuRound(std::sqrt(st(0)));
+            return;
         case 0xfb: { // FSINCOS
             const double v = st(0);
             st(0) = std::sin(v);
@@ -484,18 +595,36 @@ void Cpu::x87(uint8_t op) {
             setC(0);
             return;
         }
-        case 0xfc: st(0) = roundByMode(st(0), fpu.control); return;
-        case 0xfd: st(0) = fpuRound(std::ldexp(st(0), int(std::trunc(st(1))))); return;
-        case 0xfe: st(0) = std::sin(st(0)); setC(0); return;
-        case 0xff: st(0) = std::cos(st(0)); setC(0); return;
+        case 0xfc:
+            st(0) = roundByMode(st(0), fpu.control);
+            return;
+        case 0xfd:
+            st(0) = fpuRound(std::ldexp(st(0), int(std::trunc(st(1)))));
+            return;
+        case 0xfe:
+            st(0) = std::sin(st(0));
+            setC(0);
+            return;
+        case 0xff:
+            st(0) = std::cos(st(0));
+            setC(0);
+            return;
         }
         break;
     case 0xda:
         switch (r) {
-        case 0: fcmov(eflags & CF); return;
-        case 1: fcmov(eflags & ZF); return;
-        case 2: fcmov(eflags & (CF | ZF)); return;
-        case 3: fcmov(eflags & PF); return;
+        case 0:
+            fcmov(eflags & CF);
+            return;
+        case 1:
+            fcmov(eflags & ZF);
+            return;
+        case 2:
+            fcmov(eflags & (CF | ZF));
+            return;
+        case 3:
+            fcmov(eflags & PF);
+            return;
         case 5:
             if (i == 1) { // FUCOMPP
                 fpuCompare(st(0), st(1), false, true);
@@ -508,10 +637,18 @@ void Cpu::x87(uint8_t op) {
         break;
     case 0xdb:
         switch (r) {
-        case 0: fcmov(!(eflags & CF)); return;
-        case 1: fcmov(!(eflags & ZF)); return;
-        case 2: fcmov(!(eflags & (CF | ZF))); return;
-        case 3: fcmov(!(eflags & PF)); return;
+        case 0:
+            fcmov(!(eflags & CF));
+            return;
+        case 1:
+            fcmov(!(eflags & ZF));
+            return;
+        case 2:
+            fcmov(!(eflags & (CF | ZF)));
+            return;
+        case 3:
+            fcmov(!(eflags & PF));
+            return;
         case 4:
             if (modrm == 0xe2) { // FNCLEX
                 fpu.status &= 0x7f00;
@@ -532,16 +669,33 @@ void Cpu::x87(uint8_t op) {
         break;
     case 0xdd:
         switch (r) {
-        case 0: fpu.tags |= uint8_t(1u << ((fpu.top + i) & 7)); return; // FFREE
-        case 2: st(i) = st(0); copyExact(i, 0); return;                 // FST st(i)
-        case 3: st(i) = st(0); copyExact(i, 0); fpuPop(); return;       // FSTP st(i)
-        case 4: fpuCompare(st(0), st(i), false, true); return;          // FUCOM
-        case 5: fpuCompare(st(0), st(i), false, true); fpuPop(); return; // FUCOMP
+        case 0:
+            fpu.tags |= uint8_t(1u << ((fpu.top + i) & 7));
+            return; // FFREE
+        case 2:
+            st(i) = st(0);
+            copyExact(i, 0);
+            return; // FST st(i)
+        case 3:
+            st(i) = st(0);
+            copyExact(i, 0);
+            fpuPop();
+            return; // FSTP st(i)
+        case 4:
+            fpuCompare(st(0), st(i), false, true);
+            return; // FUCOM
+        case 5:
+            fpuCompare(st(0), st(i), false, true);
+            fpuPop();
+            return; // FUCOMP
         }
         break;
     case 0xdf:
         switch (r) {
-        case 0: fpu.tags |= uint8_t(1u << ((fpu.top + i) & 7)); fpuPop(); return; // FFREEP
+        case 0:
+            fpu.tags |= uint8_t(1u << ((fpu.top + i) & 7));
+            fpuPop();
+            return; // FFREEP
         case 4:
             if (i == 0) { // FNSTSW AX
                 writeReg(2, EAX, statusWord());

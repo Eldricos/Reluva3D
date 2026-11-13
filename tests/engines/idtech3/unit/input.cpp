@@ -144,7 +144,7 @@ void testKeyBindings() {
     reluva::idtech3::CvarStore cvars;
     KeyBindings b;
     int ignored = 0;
-    auto readFile = [](const std::string& name, std::string& out) {
+    auto readFile = [](const std::string &name, std::string &out) {
         if (name != "more.cfg")
             return false;
         out = "bind x \"say hi\"\n";
@@ -202,8 +202,9 @@ void testVideoSettings() {
     CHECK(coarse >= 2 && fine > coarse && fine <= 16);
 }
 
-static const reluva::test::Suite suite("idtech3.unit.input", {
-    {"joystick", [](const std::filesystem::path&) { testJoystick(); }},
-    {"key bindings", [](const std::filesystem::path&) { testKeyBindings(); }},
-    {"video settings", [](const std::filesystem::path&) { testVideoSettings(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.input", {
+                                    {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
+                                    {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
+                                    {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},
+                                });

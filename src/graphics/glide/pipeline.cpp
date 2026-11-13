@@ -55,7 +55,9 @@ Board voodooRushBoard() {
 // Board's defaults: chroma range ("Source and Destination Chroma-range
 // functionality") and mirroring ("Texture coordinate clamping, wrapping,
 // and mirroring", Voodoo2 specification, Features) among them.
-Board voodoo2Board() { return Board{}; }
+Board voodoo2Board() {
+    return Board{};
+}
 
 Board voodoo3Board() {
     // A Voodoo3 with 16 MB, unified: the frame buffer at the bottom, the
@@ -102,7 +104,7 @@ Board bansheeBoard() {
     return b;
 }
 
-bool boardByName(const std::string& spec, Board& out, bool* desktopClamped) {
+bool boardByName(const std::string &spec, Board &out, bool *desktopClamped) {
     // The name, then ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N" to change
     // the sizes ("voodoo1,tmu=4": the 6 MB card).
     if (desktopClamped)
@@ -157,7 +159,7 @@ bool boardByName(const std::string& spec, Board& out, bool* desktopClamped) {
     return true;
 }
 
-bool setDesktop(Board& board, int width, int height, int bits, bool* clamped) {
+bool setDesktop(Board &board, int width, int height, int bits, bool *clamped) {
     if (clamped)
         *clamped = false;
     if (!board.windowed)
@@ -166,12 +168,17 @@ bool setDesktop(Board& board, int width, int height, int bits, bool* clamped) {
         return false;
     int depth = 0;
     switch (bits) {
-    case 8: depth = 8; break;
+    case 8:
+        depth = 8;
+        break;
     case 15:
     case 16:
     case 24:
-    case 32: depth = 16; break;
-    default: return false;
+    case 32:
+        depth = 16;
+        break;
+    default:
+        return false;
     }
     // The tables' desktops (SST-96 specification, System Resolutions):
     // 1600x1200 down to 1024x768 at 8 bits, from 1280x1024 at 16.
@@ -216,8 +223,8 @@ uint64_t Pipeline::bufferBytes(int width, int height, int colorBuffers, int auxB
     // (two off-screen 3D buffers)"). Its tables' totals add up so, for
     // instance 1,572,864 + 614,400 for 640x480 double buffered on a
     // 16-bit 1024x768 desktop (its 2,187,264).
-    const uint64_t desktop = uint64_t(board_.desktopWidth) * uint64_t(board_.desktopHeight) *
-                             uint64_t(board_.desktopBits / 8);
+    const uint64_t desktop =
+        uint64_t(board_.desktopWidth) * uint64_t(board_.desktopHeight) * uint64_t(board_.desktopBits / 8);
     const int offScreen = board_.desktopBits == 16 ? colorBuffers - 1 : colorBuffers;
     return desktop + buffer * uint64_t(offScreen + (auxBuffers > 0 ? 1 : 0));
 }
@@ -311,22 +318,22 @@ void Pipeline::swap() {
     renderer_->swapped(*this);
 }
 
-void Pipeline::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
+void Pipeline::triangle(const Vertex &a, const Vertex &b, const Vertex &c) {
     if (open_)
         renderer_->triangle(*this, a, b, c);
 }
 
-void Pipeline::line(const Vertex& a, const Vertex& b) {
+void Pipeline::line(const Vertex &a, const Vertex &b) {
     if (open_)
         renderer_->line(*this, a, b);
 }
 
-void Pipeline::point(const Vertex& a) {
+void Pipeline::point(const Vertex &a) {
     if (open_)
         renderer_->point(*this, a);
 }
 
-void Pipeline::aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca) {
+void Pipeline::aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca) {
     if (!open_)
         return;
     renderer_->triangle(*this, a, b, c);
@@ -337,7 +344,7 @@ void Pipeline::aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, boo
         renderer_->fragments(*this, f);
 }
 
-void Pipeline::aaLine(const Vertex& a, const Vertex& b) {
+void Pipeline::aaLine(const Vertex &a, const Vertex &b) {
     if (!open_)
         return;
     raster::Fragments f;
@@ -346,7 +353,7 @@ void Pipeline::aaLine(const Vertex& a, const Vertex& b) {
         renderer_->fragments(*this, f);
 }
 
-void Pipeline::aaPoint(const Vertex& a) {
+void Pipeline::aaPoint(const Vertex &a) {
     if (!open_)
         return;
     raster::Fragments f;
@@ -355,7 +362,7 @@ void Pipeline::aaPoint(const Vertex& a) {
         renderer_->fragments(*this, f);
 }
 
-void Pipeline::fragments(const raster::Fragments& f) {
+void Pipeline::fragments(const raster::Fragments &f) {
     if (open_ && !f.list.empty())
         renderer_->fragments(*this, f);
 }
@@ -365,19 +372,26 @@ void Pipeline::clear(uint32_t argb, int alpha, int depth) {
         renderer_->clear(*this, argb, alpha, depth);
 }
 
-void Pipeline::sync() { renderer_->sync(*this); }
+void Pipeline::sync() {
+    renderer_->sync(*this);
+}
 
-uint16_t* Pipeline::buffer(int id) {
+uint16_t *Pipeline::buffer(int id) {
     if (!open_)
         return nullptr;
     switch (id) {
-    case kBufferFront: return color_[size_t(front_)].data();
-    case kBufferBack: return color_[size_t(back_)].data();
-    case kBufferTriple: return colorBuffers_ >= 3 ? color_[size_t(triple_)].data() : nullptr;
+    case kBufferFront:
+        return color_[size_t(front_)].data();
+    case kBufferBack:
+        return color_[size_t(back_)].data();
+    case kBufferTriple:
+        return colorBuffers_ >= 3 ? color_[size_t(triple_)].data() : nullptr;
     case kBufferAux:
     case kBufferDepth:
-    case kBufferAlpha: return hasAux_ ? aux_.data() : nullptr;
-    default: return nullptr;
+    case kBufferAlpha:
+        return hasAux_ ? aux_.data() : nullptr;
+    default:
+        return nullptr;
     }
 }
 
@@ -385,26 +399,33 @@ int Pipeline::slotOf(int id) const {
     if (!open_)
         return -1;
     switch (id) {
-    case kBufferFront: return front_;
-    case kBufferBack: return back_;
-    case kBufferTriple: return colorBuffers_ >= 3 ? triple_ : -1;
+    case kBufferFront:
+        return front_;
+    case kBufferBack:
+        return back_;
+    case kBufferTriple:
+        return colorBuffers_ >= 3 ? triple_ : -1;
     case kBufferAux:
     case kBufferDepth:
-    case kBufferAlpha: return hasAux_ ? 3 : -1;
-    default: return -1;
+    case kBufferAlpha:
+        return hasAux_ ? 3 : -1;
+    default:
+        return -1;
     }
 }
 
-uint16_t* Pipeline::slotPixels(int slot) {
+uint16_t *Pipeline::slotPixels(int slot) {
     if (!open_ || slot < 0 || slot >= kSlots)
         return nullptr;
     return slot == 3 ? (hasAux_ ? aux_.data() : nullptr) : color_[size_t(slot)].data();
 }
 
-const uint16_t* Pipeline::buffer(int id) const { return const_cast<Pipeline*>(this)->buffer(id); }
+const uint16_t *Pipeline::buffer(int id) const {
+    return const_cast<Pipeline *>(this)->buffer(id);
+}
 
-void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, int evenOdd, int lod,
-                             const uint8_t* data, int firstRow, int lastRow) {
+void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo &info, int evenOdd, int lod,
+                             const uint8_t *data, int firstRow, int lastRow) {
     if (tmu < 0 || tmu >= board_.tmus || !data || !knownFormat(info.format))
         return;
     int w = 0, h = 0;
@@ -416,7 +437,7 @@ void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, i
     const size_t rowBytes = size_t(w) * size_t(texelBytes(info.format));
     const uint32_t at = start + levelOffset(info, evenOdd, lod) + uint32_t(size_t(firstRow) * rowBytes);
     const size_t bytes = size_t(lastRow - firstRow + 1) * rowBytes;
-    std::vector<uint8_t>& mem = tmuMemory_[size_t(tmu)];
+    std::vector<uint8_t> &mem = tmuMemory_[size_t(tmu)];
     if (at >= mem.size())
         return;
     const size_t n = std::min(bytes, mem.size() - at);
@@ -429,7 +450,7 @@ void Pipeline::downloadLevel(int tmu, uint32_t start, const TextureInfo& info, i
     }
 }
 
-void Pipeline::writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t bytes) {
+void Pipeline::writeTmuMemory(int tmu, uint32_t at, const uint8_t *data, size_t bytes) {
     if (tmu < 0 || tmu >= board_.tmus || at >= board_.tmuMemory)
         return;
     const size_t n = std::min(bytes, size_t(board_.tmuMemory - at));
@@ -441,7 +462,7 @@ void Pipeline::writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t 
     }
 }
 
-void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries) {
+void Pipeline::setPalette(int tmu, int first, int last, const uint32_t *entries) {
     if (tmu < 0 || tmu >= board_.tmus)
         return;
     first = std::clamp(first, 0, 255);
@@ -452,7 +473,7 @@ void Pipeline::setPalette(int tmu, int first, int last, const uint32_t* entries)
     renderer_->tablesChanged(*this, tmu);
 }
 
-void Pipeline::setPalette6666(int tmu, int first, int last, const uint32_t* entries) {
+void Pipeline::setPalette6666(int tmu, int first, int last, const uint32_t *entries) {
     if (tmu < 0 || tmu >= board_.tmus)
         return;
     first = std::clamp(first, 0, 255);
@@ -471,7 +492,7 @@ int Pipeline::textureFormat(int tmu) const {
     return format == kTexP8 && tmu >= 0 && tmu < board_.tmus && palette6666_[size_t(tmu)] ? 6 : format;
 }
 
-void Pipeline::setNcc(int tmu, int which, const NccTable& table) {
+void Pipeline::setNcc(int tmu, int which, const NccTable &table) {
     if (tmu < 0 || tmu >= board_.tmus)
         return;
     ncc_[size_t(tmu)][size_t(which & 1)] = table;
@@ -479,7 +500,7 @@ void Pipeline::setNcc(int tmu, int which, const NccTable& table) {
 }
 
 uint32_t Pipeline::levelAddress(int tmu, int lod) const {
-    const TmuState& t = state_.tmus[size_t(tmu)];
+    const TmuState &t = state_.tmus[size_t(tmu)];
     if (!t.multibase)
         return t.start + levelOffset(t.info, t.evenOdd, lod);
     if (lod >= 8)
@@ -508,28 +529,58 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
         return Rgba{r << 3 | r >> 2, g << 3 | g >> 2, b << 3 | b >> 2, 255};
     };
     switch (mode) {
-    case kLfb565: c = from565(uint16_t(value)); c.a = state_.lfbConstantAlpha; break;
-    case kLfb555: c = from555(value); c.a = state_.lfbConstantAlpha; break;
-    case kLfb1555: c = from555(value); c.a = value & 0x8000 ? 255 : 0; break;
-    case kLfb888: c = unpackArgb(value); c.a = state_.lfbConstantAlpha; break;
-    case kLfb8888: c = unpackArgb(value); break;
-    case kLfb565Depth: c = from565(uint16_t(value >> 16)); c.a = state_.lfbConstantAlpha; depth = int(value & 0xffff); break;
-    case kLfb555Depth: c = from555(value >> 16); c.a = state_.lfbConstantAlpha; depth = int(value & 0xffff); break;
-    case kLfb1555Depth: c = from555(value >> 16); c.a = value & 0x80000000u ? 255 : 0; depth = int(value & 0xffff); break;
-    case kLfbZA16: hasColor = false; depth = int(value & 0xffff); break;
-    default: return;
+    case kLfb565:
+        c = from565(uint16_t(value));
+        c.a = state_.lfbConstantAlpha;
+        break;
+    case kLfb555:
+        c = from555(value);
+        c.a = state_.lfbConstantAlpha;
+        break;
+    case kLfb1555:
+        c = from555(value);
+        c.a = value & 0x8000 ? 255 : 0;
+        break;
+    case kLfb888:
+        c = unpackArgb(value);
+        c.a = state_.lfbConstantAlpha;
+        break;
+    case kLfb8888:
+        c = unpackArgb(value);
+        break;
+    case kLfb565Depth:
+        c = from565(uint16_t(value >> 16));
+        c.a = state_.lfbConstantAlpha;
+        depth = int(value & 0xffff);
+        break;
+    case kLfb555Depth:
+        c = from555(value >> 16);
+        c.a = state_.lfbConstantAlpha;
+        depth = int(value & 0xffff);
+        break;
+    case kLfb1555Depth:
+        c = from555(value >> 16);
+        c.a = value & 0x80000000u ? 255 : 0;
+        depth = int(value & 0xffff);
+        break;
+    case kLfbZA16:
+        hasColor = false;
+        depth = int(value & 0xffff);
+        break;
+    default:
+        return;
     }
     const size_t at = size_t(y) * size_t(width_) + size_t(x);
     if (!pipeline)
         renderer_->sync(*this); // what's drawn is in the buffers before they're written
-    if (!hasColor) { // the auxiliary buffer's 16 bits
+    if (!hasColor) {            // the auxiliary buffer's 16 bits
         if (bufferId == kBufferAux || bufferId == kBufferDepth || bufferId == kBufferAlpha) {
             aux_[at] = uint16_t(depth);
             renderer_->hostWrote(*this, 3, x, y);
         }
         return;
     }
-    uint16_t* target = buffer(bufferId);
+    uint16_t *target = buffer(bufferId);
     if (!target)
         return;
     if (!pipeline) {
@@ -538,7 +589,8 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
         if (mode == kLfb565 || mode == kLfb565Depth)
             target[at] = uint16_t(mode == kLfb565 ? value : value >> 16);
         else
-            target[at] = to565(c.r, c.g, c.b, x, y, mode == kLfb888 || mode == kLfb8888 ? state_.dither : kDitherDisable);
+            target[at] =
+                to565(c.r, c.g, c.b, x, y, mode == kLfb888 || mode == kLfb8888 ? state_.dither : kDitherDisable);
         renderer_->hostWrote(*this, slotOf(bufferId), x, y);
         // A mode with alpha (1555, 8888, 1555 with depth) writes it into the
         // alpha buffer when alpha buffering is on, and then 1555 with depth
@@ -573,11 +625,11 @@ void Pipeline::lfbWrite(int bufferId, int x, int y, int mode, uint32_t value, bo
     state_.renderBuffer = savedBuffer;
 }
 
-void Pipeline::loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const uint32_t* b) {
+void Pipeline::loadGammaTable(int n, const uint32_t *r, const uint32_t *g, const uint32_t *b) {
     const int size = std::max(board_.gammaTableEntries, 2);
-    const uint32_t* channel[3] = {r, g, b};
+    const uint32_t *channel[3] = {r, g, b};
     for (size_t ch = 0; ch < 3; ++ch) {
-        std::vector<uint8_t>& t = gammaTable_[ch];
+        std::vector<uint8_t> &t = gammaTable_[ch];
         if (!gammaLoaded_ || int(t.size()) != size) {
             // Starting from the table the current gamma gives.
             t.resize(size_t(size));
@@ -595,7 +647,7 @@ void Pipeline::loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const
     gammaLoaded_ = true;
 }
 
-void Pipeline::present(Surface& out) {
+void Pipeline::present(Surface &out) {
     if (open_)
         renderer_->syncBuffer(*this, kBufferFront);
     if (!open_)
@@ -608,7 +660,7 @@ void Pipeline::present(Surface& out) {
         for (int i = 0; i < 256; ++i)
             gamma[ch][size_t(i)] = uint8_t(std::clamp(std::lround(std::pow(i / 255.0, 1.0 / g) * 255.0), 0L, 255L));
         if (gammaLoaded_) {
-            const std::vector<uint8_t>& t = gammaTable_[ch];
+            const std::vector<uint8_t> &t = gammaTable_[ch];
             const int n = int(t.size());
             for (int i = 0; i < 256; ++i) {
                 const int pos = i * (n - 1); // in 255ths of an entry
@@ -617,14 +669,14 @@ void Pipeline::present(Surface& out) {
             }
         }
     }
-    const uint16_t* src = color_[size_t(front_)].data();
+    const uint16_t *src = color_[size_t(front_)].data();
     if (outputFilter) {
         outputFilter(src, width_, height_, gamma, out);
         return;
     }
     for (int y = 0; y < height_; ++y) {
-        uint8_t* dst = out.row(y);
-        const uint16_t* row = src + size_t(y) * size_t(width_);
+        uint8_t *dst = out.row(y);
+        const uint16_t *row = src + size_t(y) * size_t(width_);
         for (int x = 0; x < width_; ++x, dst += 4) {
             const Rgba c = from565(row[x]);
             dst[0] = gamma[0][size_t(c.r)];

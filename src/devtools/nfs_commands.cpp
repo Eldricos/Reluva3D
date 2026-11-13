@@ -51,7 +51,7 @@ using reluva::nfs::ShapeBank;
 using reluva::nfs::VivArchive;
 namespace stdfs = std::filesystem;
 
-const char* const kUsageLines =
+const char *const kUsageLines =
     "  reluva-tool viv-list <file.viv>\n"
     "  reluva-tool viv-extract <file.viv> <output dir>\n"
     "  reluva-tool fsh-info <file.fsh | file.qfs | file.viv name>\n"
@@ -118,24 +118,24 @@ const char* const kUsageLines =
     "  reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n";
 
 std::string lowerAscii(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
-std::string safeObjName(const std::string& s) {
+std::string safeObjName(const std::string &s) {
     std::string out;
     for (char c : s)
         out += std::isalnum(static_cast<unsigned char>(c)) ? c : '_';
     return out;
 }
 
-int fail(const Error& err) {
+int fail(const Error &err) {
     std::fprintf(stderr, "%s\n", err.message.c_str());
     return 1;
 }
 
-bool readFile(const stdfs::path& path, std::vector<uint8_t>& out) {
+bool readFile(const stdfs::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return false;
@@ -143,28 +143,28 @@ bool readFile(const stdfs::path& path, std::vector<uint8_t>& out) {
     return true;
 }
 
-bool writeFile(const stdfs::path& path, const std::vector<uint8_t>& data) {
+bool writeFile(const stdfs::path &path, const std::vector<uint8_t> &data) {
     std::error_code ec;
     stdfs::create_directories(path.parent_path(), ec);
     std::ofstream f(path, std::ios::binary);
-    f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+    f.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
     return static_cast<bool>(f);
 }
 
 // A name from an archive as a file name in an output folder, or empty if
 // it could escape it.
-stdfs::path safeName(const std::string& name) {
+stdfs::path safeName(const std::string &name) {
     const stdfs::path rel(name);
     if (rel.empty() || rel.is_absolute() || rel.has_root_name())
         return {};
-    for (const auto& part : rel)
+    for (const auto &part : rel)
         if (part == "..")
             return {};
     return rel;
 }
 
 // A file's contents, or a file's in a .viv when `inner` is given.
-Error load(const char* file, const char* inner, std::vector<uint8_t>& out) {
+Error load(const char *file, const char *inner, std::vector<uint8_t> &out) {
     if (!inner) {
         if (!readFile(file, out))
             return Error::fail(std::string("Can't read ") + file);
@@ -176,7 +176,7 @@ Error load(const char* file, const char* inner, std::vector<uint8_t>& out) {
     return viv.read(inner, out);
 }
 
-int cmdVivList(int argc, char** argv) {
+int cmdVivList(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool viv-list <file.viv>\n");
         return 2;
@@ -184,13 +184,13 @@ int cmdVivList(int argc, char** argv) {
     VivArchive viv;
     if (Error err = viv.open(argv[2]))
         return fail(err);
-    for (const auto& e : viv.entries())
+    for (const auto &e : viv.entries())
         std::printf("%9u %9u  %s\n", e.offset, e.size, e.name.c_str());
     std::printf("%zu files\n", viv.entries().size());
     return 0;
 }
 
-int cmdVivExtract(int argc, char** argv) {
+int cmdVivExtract(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool viv-extract <file.viv> <output dir>\n");
         return 2;
@@ -199,7 +199,7 @@ int cmdVivExtract(int argc, char** argv) {
     if (Error err = viv.open(argv[2]))
         return fail(err);
     std::vector<uint8_t> data;
-    for (const auto& e : viv.entries()) {
+    for (const auto &e : viv.entries()) {
         const stdfs::path rel = safeName(e.name);
         if (rel.empty()) {
             std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
@@ -216,7 +216,7 @@ int cmdVivExtract(int argc, char** argv) {
     return 0;
 }
 
-int cmdFshInfo(int argc, char** argv) {
+int cmdFshInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool fsh-info <file.fsh | file.qfs | file.viv name>\n");
         return 2;
@@ -228,21 +228,21 @@ int cmdFshInfo(int argc, char** argv) {
     if (Error err = reluva::nfs::parseShapeBank(std::move(data), bank))
         return fail(err);
     std::printf("%s, %zu shapes\n", bank.id.c_str(), bank.shapes.size());
-    for (const auto& s : bank.shapes) {
-        std::printf("  %-4s %-15s %4dx%-4d centre %d,%d pos %d,%d", s.name.c_str(),
-                    reluva::nfs::shapeTypeName(s.type), s.width, s.height, s.centerX, s.centerY, s.x, s.y);
+    for (const auto &s : bank.shapes) {
+        std::printf("  %-4s %-15s %4dx%-4d centre %d,%d pos %d,%d", s.name.c_str(), reluva::nfs::shapeTypeName(s.type),
+                    s.width, s.height, s.centerX, s.centerY, s.x, s.y);
         if (!s.palette.empty())
             std::printf(" palette %zu", s.palette.size() / 4);
-        for (const auto& t : s.texts)
+        for (const auto &t : s.texts)
             std::printf(" \"%s\"", t.c_str());
-        for (const auto& b : s.unknown)
+        for (const auto &b : s.unknown)
             std::printf(" [block 0x%02x, %zu bytes]", b.type, b.data.size());
         std::printf("\n");
     }
     return 0;
 }
 
-int cmdFshDump(int argc, char** argv) {
+int cmdFshDump(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool fsh-dump <file.fsh | file.qfs | file.viv name> <output dir>\n");
         return 2;
@@ -257,7 +257,7 @@ int cmdFshDump(int argc, char** argv) {
     const stdfs::path outDir = argv[inViv ? 4 : 3];
     int written = 0;
     for (size_t i = 0; i < bank.shapes.size(); ++i) {
-        const auto& s = bank.shapes[i];
+        const auto &s = bank.shapes[i];
         reluva::image::Image img;
         if (Error err = reluva::nfs::decodeShape(s, img)) {
             std::fprintf(stderr, "%s\n", err.message.c_str());
@@ -278,7 +278,7 @@ int cmdFshDump(int argc, char** argv) {
     return 0;
 }
 
-int cmdTextDump(int argc, char** argv) {
+int cmdTextDump(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool text-dump <text.eng>\n");
         return 2;
@@ -298,7 +298,7 @@ int cmdTextDump(int argc, char** argv) {
 
 // Draws the font's every character (or the text given) on a dark
 // background, for checking its glyphs and spacing.
-int cmdFfnRender(int argc, char** argv) {
+int cmdFfnRender(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool ffn-render <file.ffn> <out.tga> [text]\n");
         return 2;
@@ -324,7 +324,7 @@ int cmdFfnRender(int argc, char** argv) {
         }
     }
     int width = 0;
-    for (const auto& l : lines)
+    for (const auto &l : lines)
         width = std::max(width, font.measure(l));
     reluva::Surface surface;
     surface.create(width + 16, font.lineStep() * int(lines.size()) + 16, reluva::PixelFormat::RGBA32);
@@ -343,14 +343,14 @@ int cmdFfnRender(int argc, char** argv) {
         std::fprintf(stderr, "can't write %s\n", argv[3]);
         return 1;
     }
-    std::printf("line height %d, gap %d, pen %d,%d, flags %d, atlas %dx%d\n", font.lineHeight, font.lineGap,
-                font.penX, font.penY, font.flags, font.atlasWidth, font.atlasHeight);
+    std::printf("line height %d, gap %d, pen %d,%d, flags %d, atlas %dx%d\n", font.lineHeight, font.lineGap, font.penX,
+                font.penY, font.flags, font.atlasWidth, font.atlasHeight);
     return 0;
 }
 
 // Opens every file of the kinds Reluva reads under the folders given,
 // .viv archives' contents included, and reports any that fail.
-int cmdNfsSurvey(int argc, char** argv) {
+int cmdNfsSurvey(int argc, char **argv) {
     std::vector<stdfs::path> roots;
     bool verbose = false;
     for (int i = 2; i < argc; ++i) {
@@ -371,11 +371,11 @@ int cmdNfsSurvey(int argc, char** argv) {
         segments, maps, movies, frames, movieAudio;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
-        for (char& c : s)
+        for (char &c : s)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         return s;
     };
-    auto report = [&](Count& count, const std::string& what, const Error& err) {
+    auto report = [&](Count &count, const std::string &what, const Error &err) {
         if (err) {
             ++count.failed;
             std::printf("FAILED %s: %s\n", what.c_str(), err.message.c_str());
@@ -386,7 +386,7 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     };
     // One file, by its extension; `what` names it in messages.
-    auto check = [&](const std::string& name, std::vector<uint8_t> data, const std::string& what) {
+    auto check = [&](const std::string &name, std::vector<uint8_t> data, const std::string &what) {
         const std::string ext = lower(stdfs::path(name).extension().string());
         const std::string stem = lower(stdfs::path(name).stem().string());
         if (ext == ".fsh" || ext == ".qfs") {
@@ -397,7 +397,7 @@ int cmdNfsSurvey(int argc, char** argv) {
             ShapeBank bank;
             const Error err = reluva::nfs::parseShapeBank(std::move(data), bank);
             report(banks, what, err);
-            for (const auto& shape : bank.shapes) {
+            for (const auto &shape : bank.shapes) {
                 reluva::image::Image img;
                 report(pictures, what + ":" + shape.name, reluva::nfs::decodeShape(shape, img));
             }
@@ -420,7 +420,8 @@ int cmdNfsSurvey(int argc, char** argv) {
             for (size_t i = 0; i < bank.slots.size(); ++i)
                 if (bank.slots[i]) {
                     reluva::audio::Sound sound;
-                    report(sounds, what + ":" + std::to_string(i), reluva::nfs::decodeBankSound(data, *bank.slots[i], sound));
+                    report(sounds, what + ":" + std::to_string(i),
+                           reluva::nfs::decodeBankSound(data, *bank.slots[i], sound));
                 }
         } else if (ext == ".mus") {
             reluva::nfs::MusicStream stream;
@@ -466,12 +467,12 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     };
 
-    for (const auto& root : roots) {
+    for (const auto &root : roots) {
         std::error_code ec;
-        for (const auto& entry : stdfs::recursive_directory_iterator(root, ec)) {
+        for (const auto &entry : stdfs::recursive_directory_iterator(root, ec)) {
             if (!entry.is_regular_file(ec))
                 continue;
-            const stdfs::path& path = entry.path();
+            const stdfs::path &path = entry.path();
             const std::string ext = lower(path.extension().string());
             if (ext == ".viv") {
                 VivArchive viv;
@@ -480,7 +481,7 @@ int cmdNfsSurvey(int argc, char** argv) {
                 if (err)
                     continue;
                 std::vector<uint8_t> data;
-                for (const auto& e : viv.entries())
+                for (const auto &e : viv.entries())
                     if (!viv.read(e.name, data))
                         check(e.name, std::move(data), path.string() + ":" + e.name);
             } else if (ext == ".fsh" || ext == ".qfs" || ext == ".ffn" || ext == ".fce" || ext == ".frd" ||
@@ -496,13 +497,12 @@ int cmdNfsSurvey(int argc, char** argv) {
         }
     }
 
-    const Count* all[] = {&vivs,       &banks,      &pictures, &tables,  &fonts,    &models, &tracks,
-                          &collisions, &horizons,   &soundBanks, &sounds, &streams, &segments, &maps,
-                          &movies,     &frames,     &movieAudio};
-    const char* names[] = {".viv archives", ".fsh/.qfs banks", "pictures",    "text tables", "fonts",
-                           ".fce models",   ".frd tracks",     ".col files",  ".hrz files",  ".bnk banks",
-                           "sounds",        ".mus streams",    "music segments", ".map/.lin maps",
-                           ".mad movies",   "movie frames",    "movie audio"};
+    const Count *all[] = {&vivs,       &banks,  &pictures, &tables,   &fonts, &models, &tracks, &collisions, &horizons,
+                          &soundBanks, &sounds, &streams,  &segments, &maps,  &movies, &frames, &movieAudio};
+    const char *names[] = {".viv archives", ".fsh/.qfs banks", "pictures",       "text tables",    "fonts",
+                           ".fce models",   ".frd tracks",     ".col files",     ".hrz files",     ".bnk banks",
+                           "sounds",        ".mus streams",    "music segments", ".map/.lin maps", ".mad movies",
+                           "movie frames",  "movie audio"};
     int failed = 0;
     for (int i = 0; i < 17; ++i) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
@@ -511,13 +511,13 @@ int cmdNfsSurvey(int argc, char** argv) {
     // Known and documented (docs/formats/nfs/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
-        for (const auto& u : unsupported)
+        for (const auto &u : unsupported)
             std::printf("  %s\n", u.c_str());
     }
     return failed ? 1 : 0;
 }
 
-int cmdFceInfo(int argc, char** argv) {
+int cmdFceInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool fce-info <file.fce | file.viv name>\n");
         return 2;
@@ -531,32 +531,32 @@ int cmdFceInfo(int argc, char** argv) {
     std::printf("%zu vertices, %zu triangles, half size %.3f %.3f %.3f\n", model.vertices.size(),
                 model.triangles.size(), model.halfSize[0], model.halfSize[1], model.halfSize[2]);
     for (size_t i = 0; i < model.parts.size(); ++i) {
-        const auto& p = model.parts[i];
+        const auto &p = model.parts[i];
         std::printf("  part %2zu %-26s at %6.2f %6.2f %6.2f  %4u vertices %4u triangles\n", i, p.name.c_str(),
                     p.position[0], p.position[1], p.position[2], p.vertexCount, p.triangleCount);
     }
-    for (const auto& dm : model.dummies)
+    for (const auto &dm : model.dummies)
         std::printf("  dummy %-8s at %6.2f %6.2f %6.2f\n", dm.name.c_str(), dm.position[0], dm.position[1],
                     dm.position[2]);
     for (size_t i = 0; i < model.primaryColours.size(); ++i) {
-        const auto& a = model.primaryColours[i].hsbx;
+        const auto &a = model.primaryColours[i].hsbx;
         std::printf("  colour %zu: %u %u %u %u", i, a[0], a[1], a[2], a[3]);
         if (i < model.secondaryColours.size()) {
-            const auto& b = model.secondaryColours[i].hsbx;
+            const auto &b = model.secondaryColours[i].hsbx;
             std::printf(", second %u %u %u %u", b[0], b[1], b[2], b[3]);
         }
         std::printf("\n");
     }
     std::map<uint32_t, int> pages, flags;
-    for (const auto& t : model.triangles) {
+    for (const auto &t : model.triangles) {
         ++pages[t.texturePage];
         ++flags[t.flags];
     }
     std::printf("  triangles by texture page:");
-    for (const auto& [k, n] : pages)
+    for (const auto &[k, n] : pages)
         std::printf(" %u:%d", k, n);
     std::printf("\n  triangles by flags:");
-    for (const auto& [k, n] : flags)
+    for (const auto &[k, n] : flags)
         std::printf(" 0x%x:%d", k, n);
     std::printf("\n");
     return 0;
@@ -564,7 +564,7 @@ int cmdFceInfo(int argc, char** argv) {
 
 // Writes a model as Wavefront OBJ, one group per part, placed and turned
 // right-handed (z mirrored) as Reluva draws it.
-int cmdFceObj(int argc, char** argv) {
+int cmdFceObj(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool fce-obj <file.fce | file.viv name> <out.obj>\n");
         return 2;
@@ -578,20 +578,21 @@ int cmdFceObj(int argc, char** argv) {
         return fail(err);
     std::ofstream out(argv[inViv ? 4 : 3]);
     out << "# " << argv[2] << (inViv ? std::string(" ") + argv[3] : "") << "\n";
-    for (const auto& p : model.parts)
+    for (const auto &p : model.parts)
         for (uint32_t i = p.firstVertex; i < p.firstVertex + p.vertexCount; ++i) {
-            const auto& v = model.vertices[i];
-            out << "v " << v[0] + p.position[0] << ' ' << v[1] + p.position[1] << ' ' << -(v[2] + p.position[2]) << "\n";
+            const auto &v = model.vertices[i];
+            out << "v " << v[0] + p.position[0] << ' ' << v[1] + p.position[1] << ' ' << -(v[2] + p.position[2])
+                << "\n";
         }
-    for (const auto& t : model.triangles)
+    for (const auto &t : model.triangles)
         for (int k = 0; k < 3; ++k)
             out << "vt " << t.u[k] << ' ' << 1 - t.v[k] << "\n";
     size_t uv = 1;
     for (size_t i = 0; i < model.parts.size(); ++i) {
-        const auto& p = model.parts[i];
+        const auto &p = model.parts[i];
         out << "g part" << i << (p.name.empty() ? "" : "_") << safeObjName(p.name) << "\n";
         for (uint32_t t = p.firstTriangle; t < p.firstTriangle + p.triangleCount; ++t, uv += 3) {
-            const auto& tri = model.triangles[t];
+            const auto &tri = model.triangles[t];
             out << "f";
             for (int k = 0; k < 3; ++k)
                 out << ' ' << tri.vertices[k] + 1 << '/' << uv + k;
@@ -605,7 +606,7 @@ int cmdFceObj(int argc, char** argv) {
     return 0;
 }
 
-int cmdFrdCheck(int argc, char** argv) {
+int cmdFrdCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool frd-check <file.frd>...\n");
         return 2;
@@ -621,18 +622,18 @@ int cmdFrdCheck(int argc, char** argv) {
             continue;
         }
         size_t vertices = 0, road = 0, lanes = 0, objects = 0, extras = 0, moving = 0, lights = 0, sounds = 0;
-        for (const auto& b : track.blocks) {
+        for (const auto &b : track.blocks) {
             vertices += b.vertices.size();
             road += b.polygons[4].size();
             lanes += b.polygons[6].size();
-            for (const auto& layer : b.objectLayers)
-                for (const auto& o : layer)
+            for (const auto &layer : b.objectLayers)
+                for (const auto &o : layer)
                     objects += o.polygons.size();
             lights += b.lights.size() / 16;
             sounds += b.sounds.size() / 16;
         }
-        for (const auto& g : track.extraObjects)
-            for (const auto& o : g) {
+        for (const auto &g : track.extraObjects)
+            for (const auto &o : g) {
                 ++extras;
                 moving += o.type == 3;
             }
@@ -646,7 +647,7 @@ int cmdFrdCheck(int argc, char** argv) {
 
 // Writes a track's road and objects as Wavefront OBJ, mirrored as Reluva
 // draws it, for checking its shape in other programs.
-int cmdFrdObj(int argc, char** argv) {
+int cmdFrdObj(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool frd-obj <file.frd> <out.obj> [detail 0-2]\n");
         return 2;
@@ -667,13 +668,13 @@ int cmdFrdObj(int argc, char** argv) {
     // k with the texture's u, v k; written last to first, since with z
     // mirrored the game's front faces turn the other way (as the Tracks
     // page winds them), so OBJ's counter-clockwise front is the game's.
-    auto emit = [&](const std::vector<reluva::nfs::Track::Vec3>& verts, const reluva::nfs::Track::Vec3& offset,
-                    const std::vector<reluva::nfs::Track::Polygon>& polys, const char* group, bool placed) {
+    auto emit = [&](const std::vector<reluva::nfs::Track::Vec3> &verts, const reluva::nfs::Track::Vec3 &offset,
+                    const std::vector<reluva::nfs::Track::Polygon> &polys, const char *group, bool placed) {
         out << "g " << group << "\n";
-        for (const auto& v : verts)
+        for (const auto &v : verts)
             out << "v " << v[0] + offset[0] << ' ' << v[1] + offset[1] << ' ' << -(v[2] + offset[2]) << "\n";
-        for (const auto& p : polys) {
-            const auto& t = track.textures[p.texture];
+        for (const auto &p : polys) {
+            const auto &t = track.textures[p.texture];
             for (int k = 0; k < 4; ++k)
                 out << "vt " << t.corners[2 * k] << ' ' << 1 - t.corners[2 * k + 1] << "\n";
             out << "f";
@@ -685,15 +686,15 @@ int cmdFrdObj(int argc, char** argv) {
         base += verts.size();
     };
     for (size_t i = 0; i < track.blocks.size(); ++i) {
-        const auto& b = track.blocks[i];
+        const auto &b = track.blocks[i];
         std::vector<reluva::nfs::Track::Polygon> polys = b.polygons[2 * detail];
-        for (const auto& layer : b.objectLayers)
-            for (const auto& o : layer)
+        for (const auto &layer : b.objectLayers)
+            for (const auto &o : layer)
                 polys.insert(polys.end(), o.polygons.begin(), o.polygons.end());
         emit(b.vertices, {0, 0, 0}, polys, ("block" + std::to_string(i)).c_str(), false);
     }
-    for (const auto& g : track.extraObjects)
-        for (const auto& o : g)
+    for (const auto &g : track.extraObjects)
+        for (const auto &o : g)
             if (o.type == 4)
                 emit(o.vertices, o.reference, o.polygons, "object", true);
     if (!out) {
@@ -704,7 +705,7 @@ int cmdFrdObj(int argc, char** argv) {
 }
 
 // A sound as a 16-bit PCM WAV file.
-std::vector<uint8_t> wavFile(const reluva::audio::Sound& s) {
+std::vector<uint8_t> wavFile(const reluva::audio::Sound &s) {
     std::vector<uint8_t> out;
     auto u32 = [&](uint32_t v) {
         for (int i = 0; i < 4; ++i)
@@ -732,16 +733,20 @@ std::vector<uint8_t> wavFile(const reluva::audio::Sound& s) {
     return out;
 }
 
-const char* compressionName(int c) {
+const char *compressionName(int c) {
     switch (c) {
-    case reluva::nfs::SoundHeader::kPcm16: return "PCM";
-    case reluva::nfs::SoundHeader::kEaXa: return "EA-XA";
-    case reluva::nfs::SoundHeader::kMicroTalk: return "MicroTalk";
-    default: return "?";
+    case reluva::nfs::SoundHeader::kPcm16:
+        return "PCM";
+    case reluva::nfs::SoundHeader::kEaXa:
+        return "EA-XA";
+    case reluva::nfs::SoundHeader::kMicroTalk:
+        return "MicroTalk";
+    default:
+        return "?";
     }
 }
 
-int cmdBnkInfo(int argc, char** argv) {
+int cmdBnkInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool bnk-info <file.bnk | file.viv name>\n");
         return 2;
@@ -756,13 +761,13 @@ int cmdBnkInfo(int argc, char** argv) {
     for (size_t i = 0; i < bank.slots.size(); ++i) {
         if (!bank.slots[i])
             continue;
-        const auto& h = *bank.slots[i];
+        const auto &h = *bank.slots[i];
         std::printf("  %3zu %-9s %d ch %5d Hz %8u samples (%.2f s) at %u", i, compressionName(h.compression),
                     h.channels, h.rate, h.samples, double(h.samples) / h.rate, h.dataOffset);
         if (h.loopEnd)
             std::printf(" loop %u-%u", h.loopStart, h.loopEnd);
         std::printf("  tags");
-        for (const auto& [tag, value] : h.tags)
+        for (const auto &[tag, value] : h.tags)
             if (tag < 0x82 || tag > 0x88)
                 std::printf(" %02x=%u", tag, value);
         std::printf("\n");
@@ -770,7 +775,7 @@ int cmdBnkInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdBnkWav(int argc, char** argv) {
+int cmdBnkWav(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool bnk-wav <file.bnk | file.viv name> <output dir>\n");
         return 2;
@@ -805,7 +810,7 @@ int cmdBnkWav(int argc, char** argv) {
     return failed ? 1 : 0;
 }
 
-int cmdMusInfo(int argc, char** argv) {
+int cmdMusInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool mus-info <file.mus> [file.map | file.lin]\n");
         return 2;
@@ -832,16 +837,16 @@ int cmdMusInfo(int argc, char** argv) {
     std::printf("%zu segments\n", stream.segments().size());
     int mismatched = 0;
     for (size_t i = 0; i < stream.segments().size(); ++i) {
-        const auto& s = stream.segments()[i];
+        const auto &s = stream.segments()[i];
         std::printf("  %3zu at %9u  %-5s %d ch %5d Hz %7u samples (%.2f s), %zu blocks", i, s.offset,
                     compressionName(s.header.compression), s.header.channels, s.header.rate, s.header.samples,
                     double(s.header.samples) / s.header.rate, s.blocks.size());
         if (haveMap && i < map.sections.size()) {
-            const auto& sec = map.sections[i];
+            const auto &sec = map.sections[i];
             if (map.offsets[i] != s.offset)
                 ++mismatched;
             std::printf("  part %d", sec.part);
-            for (const auto& r : sec.routes)
+            for (const auto &r : sec.routes)
                 std::printf("  %d-%d: %d", r.low, r.high, r.next);
             if (sec.routes.empty())
                 std::printf("  (no route)");
@@ -856,7 +861,7 @@ int cmdMusInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdMusWav(int argc, char** argv) {
+int cmdMusWav(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool mus-wav <file.mus> <segment | all> <output dir>\n");
         return 2;
@@ -890,7 +895,7 @@ int cmdMusWav(int argc, char** argv) {
     return 0;
 }
 
-int cmdMadInfo(int argc, char** argv) {
+int cmdMadInfo(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool mad-info <file.mad>\n");
         return 2;
@@ -904,14 +909,14 @@ int cmdMadInfo(int argc, char** argv) {
     if (Error err = movie.open(std::move(data)))
         return fail(err);
     std::map<char, int> kinds;
-    for (const auto& f : movie.frames())
+    for (const auto &f : movie.frames())
         ++kinds[f.kind];
     const double ms = movie.frameDuration() / 65536.0;
     std::printf("%dx%d, %zu frames (%d intra, %d inter, %d unreferenced), %.3f ms each (%.3f fps), %.2f s\n",
                 movie.width(), movie.height(), movie.frames().size(), kinds['k'], kinds['m'], kinds['e'], ms,
                 ms > 0 ? 1000 / ms : 0.0, ms * movie.frames().size() / 1000);
     if (movie.hasAudio()) {
-        const auto& h = movie.audioHeader();
+        const auto &h = movie.audioHeader();
         std::printf("audio: %s, %d ch, %d Hz, %u samples (%.2f s)\n", compressionName(h.compression), h.channels,
                     h.rate, h.samples, double(h.samples) / h.rate);
     }
@@ -926,7 +931,7 @@ int cmdMadInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdMadFrames(int argc, char** argv) {
+int cmdMadFrames(int argc, char **argv) {
     // Options last: -game, nfs3.exe's own arithmetic (mad.md, The game's
     // decoder); -display 1-3, shown at twice the size as the game shows it
     // in that mode (The game's display step).
@@ -944,7 +949,9 @@ int cmdMadFrames(int argc, char** argv) {
         }
     }
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool mad-frames <file.mad> <output dir> [first frame] [count] [-game] [-display 1-3]\n");
         return 2;
     }
     std::vector<uint8_t> data;
@@ -988,7 +995,7 @@ int cmdMadFrames(int argc, char** argv) {
     return 0;
 }
 
-int cmdMadWav(int argc, char** argv) {
+int cmdMadWav(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool mad-wav <file.mad> <out.wav>\n");
         return 2;
@@ -1015,7 +1022,7 @@ int cmdMadWav(int argc, char** argv) {
 // Runs the retail nfs3.exe in the x86 interpreter (Phase 4's spike) and
 // reports how far it gets: the system calls it makes, the files it opens,
 // what it asks of THRASH, and where it stops.
-int cmdNfsHost(int argc, char** argv) {
+int cmdNfsHost(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs-host <game folder> [-args \"nfs3.exe -d3d\"] [-limit N] [-log N] "
                              "[-save dir] [-trace N]\n");
@@ -1027,27 +1034,27 @@ int cmdNfsHost(int argc, char** argv) {
     // and fog (docs/engines/nfs.md, Sky and fog).
     options.presentedRenderer = "voodoo2a.dll";
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
-    std::vector<uint32_t> watch; // addresses at which to print the registers
+    std::vector<uint32_t> watch;    // addresses at which to print the registers
     std::vector<std::pair<uint32_t, uint64_t>> counted; // addresses whose runs are counted (-count)
-    int watchLimit = 50;         // how many times, at most
-    std::vector<std::pair<int, uint32_t>> watchReads; // dwords printed at each watch: register (-1 none) + offset
-    std::string dumpFile;        // the emulated memory, written at the end
-    uint32_t slice = 0;          // instructions between thread changes (0: the default)
-    uint32_t watchMem = 0, watchMemSize = 0; // memory whose stores are printed
-    std::string keyScript;                   // "ms:key,ms:key...": each pressed for 100 ms
-    std::string frameLogFile;                // each frame's time and instructions, as CSV
-    std::string wavFile;                     // what the game's sound buffers played
-    std::string voicesFile; // what the game's mixer adds, front and behind, each 100 ms (CSV)
-    uint64_t hotFrom = 0, hotTo = 0;         // instructions counted by where they run, over this range
+    int watchLimit = 50;                                // how many times, at most
+    std::vector<std::pair<int, uint32_t>> watchReads;   // dwords printed at each watch: register (-1 none) + offset
+    std::string dumpFile;                               // the emulated memory, written at the end
+    uint32_t slice = 0;                                 // instructions between thread changes (0: the default)
+    uint32_t watchMem = 0, watchMemSize = 0;            // memory whose stores are printed
+    std::string keyScript;                              // "ms:key,ms:key...": each pressed for 100 ms
+    std::string frameLogFile;                           // each frame's time and instructions, as CSV
+    std::string wavFile;                                // what the game's sound buffers played
+    std::string voicesFile;          // what the game's mixer adds, front and behind, each 100 ms (CSV)
+    uint64_t hotFrom = 0, hotTo = 0; // instructions counted by where they run, over this range
     bool gpuLog = false;
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
     std::string gpuDumpDir;
     std::string framesDir;
-    std::string glideCompareFile; // each flip's Glide frame against the native one, as CSV
+    std::string glideCompareFile;    // each flip's Glide frame against the native one, as CSV
     std::string glideGpuCompareFile; // each Glide frame on the GPU against the software reference, as CSV
-    uint64_t framesFrom = 0; // the first frame shown that -frames writes
-    std::string forceLogFile; // the forces the game asks for, each time they change, as CSV
-    reluva::x86::Pokes pokes; // memory written, or saved, at moments of the run
+    uint64_t framesFrom = 0;         // the first frame shown that -frames writes
+    std::string forceLogFile;        // the forces the game asks for, each time they change, as CSV
+    reluva::x86::Pokes pokes;        // memory written, or saved, at moments of the run
     // -drive: a human's car steered at another car, its controls written as
     // the game unpacks them (0x4314c9, after the steering and pedals): a
     // steady pair of hands for scripted chases.
@@ -1085,7 +1092,7 @@ int cmdNfsHost(int argc, char** argv) {
             watch.push_back(uint32_t(std::strtoul(argv[++a], nullptr, 0)));
         else if (arg == "-drive" && a + 1 < argc) {
             Driver d;
-            char* at = argv[++a];
+            char *at = argv[++a];
             d.car = uint32_t(std::strtoul(at, &at, 0));
             if (*at == ':' && std::strncmp(at + 1, "road", 4) == 0) {
                 d.road = true;
@@ -1107,7 +1114,7 @@ int cmdNfsHost(int argc, char** argv) {
             counted.push_back({uint32_t(std::strtoul(argv[++a], nullptr, 0)), 0});
         else if (arg == "-watchread" && a + 1 < argc) { // ADDR, or reg+OFF / reg-OFF (eax ... edi)
             const std::string spec = lowerAscii(argv[++a]);
-            static const char* const kRegs[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
+            static const char *const kRegs[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
             int r = -1;
             for (int i = 0; i < 8; ++i)
                 if (spec.rfind(kRegs[i], 0) == 0)
@@ -1119,8 +1126,7 @@ int cmdNfsHost(int argc, char** argv) {
                 off = spec[3] == '-' ? 0u - uint32_t(std::strtoul(spec.c_str() + 4, nullptr, 0))
                                      : uint32_t(std::strtoul(spec.c_str() + 4, nullptr, 0));
             watchReads.push_back({r, off});
-        }
-        else if (arg == "-thrashlog" && a + 2 < argc) {
+        } else if (arg == "-thrashlog" && a + 2 < argc) {
             options.thrashLogFrom = std::strtoull(argv[++a], nullptr, 0);
             options.thrashLogTo = std::strtoull(argv[++a], nullptr, 0);
         } else if (arg == "-present" && a + 1 < argc) {
@@ -1194,7 +1200,7 @@ int cmdNfsHost(int argc, char** argv) {
         else if (arg == "-netlog" && a + 1 < argc)
             options.netLog = argv[++a];
         else if (arg == "-netdrop" && a + 1 < argc) { // N[:fromMs[-toMs]]
-            char* end = nullptr;
+            char *end = nullptr;
             options.netDrop = uint32_t(std::strtoul(argv[++a], &end, 10));
             if (end && *end == ':')
                 options.netDropFrom = uint32_t(std::strtoul(end + 1, &end, 10));
@@ -1240,8 +1246,7 @@ int cmdNfsHost(int argc, char** argv) {
             if (!ok)
                 return fail(Error::fail(arg + ": " + error));
             pokes.list.push_back(std::move(p));
-        }
-        else if (arg == "-every" && a + 1 < argc)
+        } else if (arg == "-every" && a + 1 < argc)
             every = std::max(1, std::atoi(argv[++a]));
         else if (arg == "-framesfrom" && a + 1 < argc)
             framesFrom = std::strtoull(argv[++a], nullptr, 10);
@@ -1250,7 +1255,7 @@ int cmdNfsHost(int argc, char** argv) {
     std::printf("install %s, CD %s, writes to %s\n", folders.install.string().c_str(),
                 folders.cd.empty() ? "(none)" : folders.cd.string().c_str(), options.saveFolder.string().c_str());
     reluva::nfs::GameHost host(folders, options);
-    host.log = [](const std::string& line) { std::printf("%s\n", line.c_str()); };
+    host.log = [](const std::string &line) { std::printf("%s\n", line.c_str()); };
     // Frames shown: every so many written as pictures.
     int shown = 0;
     // The forces, as each frame finds them: a row whenever they change.
@@ -1259,7 +1264,7 @@ int cmdNfsHost(int argc, char** argv) {
     int forceChanges = 0;
     float strongestPush = 0, strongestVibration = 0;
     reluva::Surface lastShown; // -glidecompare: the Glide frame of the flip under way
-    host.onFrame = [&](const reluva::Surface& frame) {
+    host.onFrame = [&](const reluva::Surface &frame) {
         if (options.forceFeedback) {
             const reluva::GamepadForce f = host.gamepadForce();
             if (!(f == lastForce) || forceChanges == 0) {
@@ -1293,7 +1298,7 @@ int cmdNfsHost(int argc, char** argv) {
     double gpuCompareSum = 0;
     uint64_t gpuCompared = 0;
     if (!glideGpuCompareFile.empty())
-        host.onGlideComparison = [&](const reluva::glide::FrameComparison& f) {
+        host.onGlideComparison = [&](const reluva::glide::FrameComparison &f) {
             char row[160];
             std::snprintf(row, sizeof row, "%llu,%.4f,%llu,%llu,%d\n", (unsigned long long)f.swap, f.meanDifference,
                           (unsigned long long)f.pixelsDiffering, (unsigned long long)f.pixelsOver24, f.maxDifference);
@@ -1307,14 +1312,14 @@ int cmdNfsHost(int argc, char** argv) {
     std::string compareCsv = "frame,dr,dg,db,over24\n";
     int compared = 0;
     if (!glideCompareFile.empty())
-        host.onCompareFrame = [&](const reluva::Surface& native) {
+        host.onCompareFrame = [&](const reluva::Surface &native) {
             if (lastShown.w != native.w || lastShown.h != native.h)
                 return;
             double d[3] = {0, 0, 0};
             int over = 0;
             for (int y = 0; y < native.h; ++y) {
-                const uint8_t* a = lastShown.row(y);
-                const uint8_t* b = native.row(y);
+                const uint8_t *a = lastShown.row(y);
+                const uint8_t *b = native.row(y);
                 for (int x = 0; x < native.w; ++x) {
                     int worst = 0;
                     for (int ch = 0; ch < 3; ++ch) {
@@ -1347,10 +1352,10 @@ int cmdNfsHost(int argc, char** argv) {
     std::map<uint32_t, reluva::nfs::ThrashFrame::Texture> dumpTextures;
     uint64_t lists = 0;
     if (gpuLog || gpuDumpList)
-        host.onThrashFrame = [&](reluva::nfs::ThrashFrame&& f) {
+        host.onThrashFrame = [&](reluva::nfs::ThrashFrame &&f) {
             if (f.resetTextures)
                 dumpTextures.clear();
-            for (auto& t : f.textures)
+            for (auto &t : f.textures)
                 dumpTextures[t.handle] = t;
             if (++lists == gpuDumpList) {
                 // batch,texture,width,height,blend,mode,cull,fog,fogcolour,filter then x,y,z,rhw,diffuse,u,v
@@ -1361,17 +1366,17 @@ int cmdNfsHost(int argc, char** argv) {
                 char line[256];
                 std::set<uint32_t> used;
                 for (size_t i = 0; i < f.batches.size(); ++i) {
-                    const auto& b = f.batches[i];
+                    const auto &b = f.batches[i];
                     auto t = dumpTextures.find(b.texture);
                     const int w = t == dumpTextures.end() ? 0 : t->second.width;
                     const int h = t == dumpTextures.end() ? 0 : t->second.height;
                     used.insert(b.texture);
                     for (uint32_t v = b.first; v < b.first + b.count; ++v) {
-                        const auto& x = f.vertices[v];
-                        std::snprintf(line, sizeof line, "%zu,%u,%d,%d,%d,%d,%d,%g,%06x,%d,%g,%g,%g,%g,%08x,%g,%g\n",
-                                      i, b.texture, w, h, int(b.blend), b.blendMode, b.cull, double(b.fog),
-                                      b.fogColour, b.filter, double(x.x), double(x.y), double(x.z), double(x.rhw), x.diffuse, double(x.u),
-                                      double(x.v));
+                        const auto &x = f.vertices[v];
+                        std::snprintf(line, sizeof line, "%zu,%u,%d,%d,%d,%d,%d,%g,%06x,%d,%g,%g,%g,%g,%08x,%g,%g\n", i,
+                                      b.texture, w, h, int(b.blend), b.blendMode, b.cull, double(b.fog), b.fogColour,
+                                      b.filter, double(x.x), double(x.y), double(x.z), double(x.rhw), x.diffuse,
+                                      double(x.u), double(x.v));
                         csv += line;
                     }
                 }
@@ -1400,21 +1405,21 @@ int cmdNfsHost(int argc, char** argv) {
             if (!gpuLog)
                 return;
             size_t textured = 0;
-            for (const auto& b : f.batches)
+            for (const auto &b : f.batches)
                 textured += b.texture ? b.count : 0;
-            std::printf("  list at %llu ms: %zu batches, %zu vertices (%zu textured), %zu textures%s, flip %d,%d-%d,%d\n",
-                        (unsigned long long)host.process().now(), f.batches.size(), f.vertices.size(), textured,
-                        f.textures.size(), f.resetTextures ? " after a reset" : "", f.flip[0], f.flip[1], f.flip[2],
-                        f.flip[3]);
+            std::printf(
+                "  list at %llu ms: %zu batches, %zu vertices (%zu textured), %zu textures%s, flip %d,%d-%d,%d\n",
+                (unsigned long long)host.process().now(), f.batches.size(), f.vertices.size(), textured,
+                f.textures.size(), f.resetTextures ? " after a reset" : "", f.flip[0], f.flip[1], f.flip[2], f.flip[3]);
         };
     // Where instructions run, by 16-byte block, over a range of the run.
     std::map<uint32_t, uint64_t> hot;
     // Tracing every instruction costs: only when asked for.
     const bool hotspots = hotTo > hotFrom, tracePokes = pokes.needsTrace();
     if (hotspots || traceCount > 0 || !watch.empty() || tracePokes || !counted.empty() || !drivers.empty())
-        host.cpu().trace = [&](reluva::x86::Cpu& c) {
+        host.cpu().trace = [&](reluva::x86::Cpu &c) {
             if (c.eip == 0x4314c9)
-                for (auto& d : drivers) {
+                for (auto &d : drivers) {
                     const uint64_t now = host.process().now();
                     if (c.reg[reluva::x86::Cpu::ECX] != d.car || now < d.from || now >= d.to)
                         continue;
@@ -1429,7 +1434,8 @@ int cmdNfsHost(int argc, char** argv) {
                             continue;
                         const float vx = f(d.car + 0xa4), vz = f(d.car + 0xac);
                         // About 18 m and 0.6 s ahead.
-                        const uint32_t k = uint32_t(std::clamp(3.0f + std::sqrt(vx * vx + vz * vz) * 0.1f, 3.0f, 12.0f));
+                        const uint32_t k =
+                            uint32_t(std::clamp(3.0f + std::sqrt(vx * vx + vz * vz) * 0.1f, 3.0f, 12.0f));
                         const uint32_t p = roadPoints + 36 * ((slice + k) % n), p0 = roadPoints + 36 * (slice % n);
                         for (int i = 0; i < 3; ++i)
                             fwd0[i] = s8(p0 + 20 + i);
@@ -1475,12 +1481,13 @@ int cmdNfsHost(int argc, char** argv) {
                     c.write8(d.car + 0x505, uint8_t(brake));
                     if (now >= d.logged + 500) {
                         d.logged = now;
-                        std::printf("  drive %08x at %08x ms %llu: %.1f m, %.2f rad, %.1f against %.1f m/s, steer %d gas %d"
-                                    " brake %d slice %u\n",
-                                    d.car, d.target, (unsigned long long)now, dist, angle, v, vt, steer, gas, brake, slice);
+                        std::printf(
+                            "  drive %08x at %08x ms %llu: %.1f m, %.2f rad, %.1f against %.1f m/s, steer %d gas %d"
+                            " brake %d slice %u\n",
+                            d.car, d.target, (unsigned long long)now, dist, angle, v, vt, steer, gas, brake, slice);
                     }
                 }
-            for (auto& [address, n] : counted)
+            for (auto &[address, n] : counted)
                 n += c.eip == address;
             if (hotspots && c.executed() >= hotFrom && c.executed() < hotTo)
                 ++hot[c.eip & ~0xfu];
@@ -1489,13 +1496,14 @@ int cmdNfsHost(int argc, char** argv) {
             recent[recentAt++ % recent.size()] = c.eip;
             if (!watch.empty() && watched < watchLimit && std::find(watch.begin(), watch.end(), c.eip) != watch.end()) {
                 ++watched;
-                std::printf("  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x [esp] %08x"
-                            " ms %llu\n",
-                            c.eip, c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7],
-                            c.valid(c.reg[4], 4) ? c.read32(c.reg[4]) : 0u, (unsigned long long)host.process().now());
+                std::printf(
+                    "  at %08x: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x [esp] %08x"
+                    " ms %llu\n",
+                    c.eip, c.reg[0], c.reg[1], c.reg[2], c.reg[3], c.reg[4], c.reg[5], c.reg[6], c.reg[7],
+                    c.valid(c.reg[4], 4) ? c.read32(c.reg[4]) : 0u, (unsigned long long)host.process().now());
                 if (!watchReads.empty()) {
                     std::string line = "   read";
-                    for (const auto& [r, off] : watchReads) {
+                    for (const auto &[r, off] : watchReads) {
                         const uint32_t at = (r < 0 ? 0u : c.reg[r]) + off;
                         char item[32];
                         std::snprintf(item, sizeof item, " %08x", c.valid(at, 4) ? c.read32(at) : 0u);
@@ -1506,9 +1514,9 @@ int cmdNfsHost(int argc, char** argv) {
             }
         };
     if (!pokes.empty()) {
-        pokes.log = [](const std::string& line) { std::printf("%s\n", line.c_str()); };
-        pokes.save = [](const std::string& file, const std::vector<uint8_t>& bytes) { writeFile(file, bytes); };
-        host.process().onSlice = [&](reluva::x86::Cpu& c) { pokes.time(c, host.process().now()); };
+        pokes.log = [](const std::string &line) { std::printf("%s\n", line.c_str()); };
+        pokes.save = [](const std::string &file, const std::vector<uint8_t> &bytes) { writeFile(file, bytes); };
+        host.process().onSlice = [&](reluva::x86::Cpu &c) { pokes.time(c, host.process().now()); };
     }
     if (slice)
         host.process().slice = slice;
@@ -1547,8 +1555,8 @@ int cmdNfsHost(int argc, char** argv) {
     if (watchMemSize) {
         host.cpu().watchStart = watchMem;
         host.cpu().watchEnd = watchMem + watchMemSize;
-        host.cpu().onWatchedStore = [&host](reluva::x86::Cpu& c, uint32_t address, uint32_t value, int size) {
-            const auto* t = host.process().currentThread();
+        host.cpu().onWatchedStore = [&host](reluva::x86::Cpu &c, uint32_t address, uint32_t value, int size) {
+            const auto *t = host.process().currentThread();
             std::printf("  store %08x <- %08x (%d bytes) at %08x [thread %u] esp %08x\n", address, value, size, c.eip,
                         t ? t->id : 0, c.reg[reluva::x86::Cpu::ESP]);
         };
@@ -1574,14 +1582,14 @@ int cmdNfsHost(int argc, char** argv) {
         std::printf("glide on the GPU against the software reference: %llu frames, mean difference %.4f of 255\n",
                     (unsigned long long)gpuCompared, gpuCompared ? gpuCompareSum / double(gpuCompared) : 0.0);
     }
-    if (auto* g = host.glide()) {
+    if (auto *g = host.glide()) {
         std::string list;
-        for (const auto& [name, count] : g->calls())
+        for (const auto &[name, count] : g->calls())
             list += (list.empty() ? "" : ", ") + name + " " + std::to_string(count);
         std::printf("%s: %s\n", g->dllName().c_str(), list.c_str());
-        for (const auto& [name, counts] : g->modes()) {
+        for (const auto &[name, counts] : g->modes()) {
             std::string line;
-            for (const auto& [value, count] : counts)
+            for (const auto &[value, count] : counts)
                 line += " " + std::to_string(value) + " x" + std::to_string(count);
             std::printf("  %s:%s\n", name.c_str(), line.c_str());
         }
@@ -1600,7 +1608,7 @@ int cmdNfsHost(int argc, char** argv) {
             ++bySecond[ms / 1000];
         if (!bySecond.empty()) {
             std::printf("  not silent, by second of the game's clock:");
-            for (const auto& [second, n] : bySecond)
+            for (const auto &[second, n] : bySecond)
                 std::printf(" %llus:%d", (unsigned long long)second, n);
             std::printf("\n");
         }
@@ -1609,7 +1617,7 @@ int cmdNfsHost(int argc, char** argv) {
         host.logVoices(nullptr, 0);
         std::string csv = "ms,calls,rear calls,front L+R,front L-R,rear L+R,rear L-R\n";
         char line[200];
-        for (const auto& v : voices) {
+        for (const auto &v : voices) {
             std::snprintf(line, sizeof line, "%llu,%u,%u,%.4g,%.4g,%.4g,%.4g\n", (unsigned long long)v.ms, v.calls,
                           v.rearCalls, v.frontC, v.frontS, v.rearC, v.rearS);
             csv += line;
@@ -1638,7 +1646,7 @@ int cmdNfsHost(int argc, char** argv) {
         std::printf("stopped: %s\nlast instructions:", err.message.c_str());
         for (size_t i = recentAt > recent.size() ? recentAt - recent.size() : 0; i < recentAt; ++i)
             std::printf(" %08x", recent[i % recent.size()]);
-        const auto& r = host.cpu().faultReg;
+        const auto &r = host.cpu().faultReg;
         std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n", r[0],
                     r[1], r[2], r[3], r[4], r[5], r[6], r[7]);
     } else {
@@ -1650,49 +1658,50 @@ int cmdNfsHost(int argc, char** argv) {
     std::printf("%llu instructions in %.1f s (%.1f million a second)\n", (unsigned long long)n, seconds,
                 seconds > 0 ? n / seconds / 1e6 : 0.0);
     std::vector<std::pair<uint64_t, std::string>> counts;
-    for (const auto& [name, count] : host.callCounts())
+    for (const auto &[name, count] : host.callCounts())
         counts.push_back({count, name});
     std::sort(counts.rbegin(), counts.rend());
     std::printf("system calls (%zu kinds):", counts.size());
     for (size_t i = 0; i < counts.size() && i < 400; ++i)
         std::printf("%s %s %llu", i ? "," : "", counts[i].second.c_str(), (unsigned long long)counts[i].first);
     std::printf("\n");
-    for (const auto& [address, n] : counted)
+    for (const auto &[address, n] : counted)
         std::printf("%08x ran %llu times\n", address, (unsigned long long)n);
     if (!hot.empty()) {
         std::vector<std::pair<uint64_t, uint32_t>> ranked;
         uint64_t total = 0;
-        for (const auto& [block, n] : hot) {
+        for (const auto &[block, n] : hot) {
             ranked.push_back({n, block});
             total += n;
         }
         std::sort(ranked.rbegin(), ranked.rend());
         std::printf("hot spots (%llu instructions):\n", (unsigned long long)total);
         for (size_t i = 0; i < ranked.size() && i < 40; ++i) {
-            const auto* m = host.process().moduleContaining(ranked[i].second);
+            const auto *m = host.process().moduleContaining(ranked[i].second);
             std::printf("  %08x %5.1f%%  %s\n", ranked[i].second, 100.0 * double(ranked[i].first) / double(total),
                         m ? m->name.c_str() : "");
         }
     }
-    const auto& t = host.thrash();
+    const auto &t = host.thrash();
     if (!t.dll.empty() || !t.calls.empty()) {
         std::printf("THRASH (%s): %llu frames, %llu textures; %.0f%% of all instructions in its functions\n  calls:",
                     t.dll.c_str(), (unsigned long long)t.frames, (unsigned long long)t.textures,
                     100.0 * double(t.rendererInstructions) / double(std::max<uint64_t>(host.cpu().executed(), 1)));
-        for (const auto& [name, count] : t.calls) {
+        for (const auto &[name, count] : t.calls) {
             auto it = t.callInstructions.find(name);
             std::printf(" %s %llu", name.c_str(), (unsigned long long)count);
             if (it != t.callInstructions.end() && it->second > 1000000)
                 std::printf(" (%.0fM)", it->second / 1e6);
         }
         std::printf("\n  texture formats:");
-        for (const auto& [format, count] : t.textureFormats)
+        for (const auto &[format, count] : t.textureFormats)
             std::printf(" %d: %llu", format, (unsigned long long)count);
         std::printf("\n");
         if (!frameLogFile.empty()) {
             std::string csv = "ms,instructions,renderer\n";
-            for (const auto& f : t.frameLog)
-                csv += std::to_string(f.ms) + "," + std::to_string(f.instructions) + "," + std::to_string(f.renderer) + "\n";
+            for (const auto &f : t.frameLog)
+                csv += std::to_string(f.ms) + "," + std::to_string(f.instructions) + "," + std::to_string(f.renderer) +
+                       "\n";
             writeFile(frameLogFile, std::vector<uint8_t>(csv.begin(), csv.end()));
         }
         // The frames in one-second steps: how many, and their instructions.
@@ -1702,14 +1711,15 @@ int cmdNfsHost(int argc, char** argv) {
                  timer = 0;
         auto flush = [&] {
             if (frames)
-                std::printf("  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's,"
-                            " idle %4llu ms (%llu waits); game thread %2.0f%%, timer %2.0f%%\n",
-                            (unsigned long long)second, (unsigned long long)frames, instructions / double(frames) / 1e6,
-                            renderer / double(frames) / 1e6, (unsigned long long)(idleMicros / 1000),
-                            (unsigned long long)idleWaits, 100.0 * double(own) / double(std::max<uint64_t>(instructions, 1)),
-                            100.0 * double(timer) / double(std::max<uint64_t>(instructions, 1)));
+                std::printf(
+                    "  second %3llu: %3llu frames, %6.2f million instructions each, %6.2f of them the renderer's,"
+                    " idle %4llu ms (%llu waits); game thread %2.0f%%, timer %2.0f%%\n",
+                    (unsigned long long)second, (unsigned long long)frames, instructions / double(frames) / 1e6,
+                    renderer / double(frames) / 1e6, (unsigned long long)(idleMicros / 1000),
+                    (unsigned long long)idleWaits, 100.0 * double(own) / double(std::max<uint64_t>(instructions, 1)),
+                    100.0 * double(timer) / double(std::max<uint64_t>(instructions, 1)));
         };
-        for (const auto& f : t.frameLog) {
+        for (const auto &f : t.frameLog) {
             if (f.ms / 1000 != second) {
                 flush();
                 second = f.ms / 1000;
@@ -1736,7 +1746,7 @@ int cmdNfsHost(int argc, char** argv) {
 // compressed in the game's folders, decompressed by the game's own routine
 // (0x50ed50, run in the interpreter) and by Reluva's, which must agree; the
 // game's results written to `out dir` if given.
-int cmdNfsHuffCheck(int argc, char** argv) {
+int cmdNfsHuffCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs-huff-check <game folder> [out dir]\n");
         return 2;
@@ -1749,10 +1759,10 @@ int cmdNfsHuffCheck(int argc, char** argv) {
     reluva::nfs::GameHost host(folders, options);
     if (reluva::Error e = host.load())
         return fail(e);
-    auto& c = host.cpu();
+    auto &c = host.cpu();
     const uint32_t stack = host.process().memory().alloc(1 << 16);
     int checked = 0, mismatches = 0;
-    for (const reluva::nfs::FileRef& f : files.files()) {
+    for (const reluva::nfs::FileRef &f : files.files()) {
         std::vector<uint8_t> data;
         if (files.read(f, data) || !reluva::nfs::isEaHuffman(data))
             continue;
@@ -1785,11 +1795,12 @@ int cmdNfsHuffCheck(int argc, char** argv) {
                     same ? "the same as the game's"
                          : (err ? err.message.c_str()
                                 : ("DIFFERENT (" + std::to_string(ours.size()) + " bytes, " + std::to_string(differ) +
-                                   " differ)").c_str()));
+                                   " differ)")
+                                      .c_str()));
         mismatches += !same;
         if (argc > 3) {
             std::string name = f.name;
-            for (char& ch : name)
+            for (char &ch : name)
                 if (ch == '/' || ch == '\\')
                     ch = '_';
             writeFile(stdfs::path(argv[3]) / (name + ".out"), game);
@@ -1800,7 +1811,7 @@ int cmdNfsHuffCheck(int argc, char** argv) {
     return mismatches ? 1 : 0;
 }
 
-int cmdNfsNativeCheck(int argc, char** argv) {
+int cmdNfsNativeCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs-native-check <game folder> [trials]\n");
         return 2;
@@ -1816,13 +1827,13 @@ int cmdNfsNativeCheck(int argc, char** argv) {
     if (reluva::Error e = b.load())
         return fail(e);
     // The same memory in each: a stack, and room for a routine's buffers.
-    reluva::nfs::GameHost* hosts[2] = {&a, &b};
+    reluva::nfs::GameHost *hosts[2] = {&a, &b};
     uint32_t stack = 0, area = 0;
-    for (auto* h : hosts) {
+    for (auto *h : hosts) {
         stack = h->process().memory().alloc(1 << 16);
         area = h->process().memory().alloc(1 << 16);
     }
-    for (auto* h : hosts)
+    for (auto *h : hosts)
         if (h->process().memory().alloc(16) == 0)
             return fail(reluva::Error::fail("no memory"));
     uint64_t seed = 0x9e3779b97f4a7c15ull;
@@ -1832,27 +1843,34 @@ int cmdNfsNativeCheck(int argc, char** argv) {
     };
     auto randomFloat = [&](double range) { return float((double(random() % 2000001) / 1000000.0 - 1.0) * range); };
     struct Routine {
-        const char* name;
+        const char *name;
         uint32_t address;
         int kind; // 0 resample stereo, 1 resample mono, 2 mix, 3 to 16 bits
         uint32_t scratch;
         bool stereoSource;
     };
     const Routine routines[] = {
-        {"resample stereo", 0x527330, 0, 0x56b138, false}, {"resample mono", 0x5273c0, 1, 0x56b148, false},
-        {"mix mono", 0x520aee, 2, 0, false},               {"mix mono full", 0x520b7e, 2, 0, false},
-        {"mix mono left", 0x520bed, 2, 0, false},          {"mix mono right", 0x520c69, 2, 0, false},
-        {"mix mono, right full", 0x520ce6, 2, 0, false},   {"mix mono, left full", 0x520d6b, 2, 0, false},
-        {"mix stereo", 0x520eae, 2, 0, true},              {"mix stereo full", 0x520f40, 2, 0, true},
-        {"mix stereo left", 0x520fb1, 2, 0, true},         {"mix stereo right", 0x52102d, 2, 0, true},
-        {"mix stereo, right full", 0x5210ac, 2, 0, true},  {"mix stereo, left full", 0x521133, 2, 0, true},
+        {"resample stereo", 0x527330, 0, 0x56b138, false},
+        {"resample mono", 0x5273c0, 1, 0x56b148, false},
+        {"mix mono", 0x520aee, 2, 0, false},
+        {"mix mono full", 0x520b7e, 2, 0, false},
+        {"mix mono left", 0x520bed, 2, 0, false},
+        {"mix mono right", 0x520c69, 2, 0, false},
+        {"mix mono, right full", 0x520ce6, 2, 0, false},
+        {"mix mono, left full", 0x520d6b, 2, 0, false},
+        {"mix stereo", 0x520eae, 2, 0, true},
+        {"mix stereo full", 0x520f40, 2, 0, true},
+        {"mix stereo left", 0x520fb1, 2, 0, true},
+        {"mix stereo right", 0x52102d, 2, 0, true},
+        {"mix stereo, right full", 0x5210ac, 2, 0, true},
+        {"mix stereo, left full", 0x521133, 2, 0, true},
         {"mix to 16 bits", 0x521d00, 3, 0, false},
     };
     // Where things go in the area: the source, the destination, then the
     // routine's position, fraction and gains.
     const uint32_t src = area, dst = area + 0x4000, posAt = area + 0x8000, fracAt = posAt + 4, gains = posAt + 8;
     int failed = 0;
-    for (const Routine& r : routines) {
+    for (const Routine &r : routines) {
         if (!b.cpu().nativeName(b.cpu().read32(r.address + 1) + r.address + 5) || b.cpu().read8(r.address) != 0xe9) {
             std::printf("%-24s not replaced (its code isn't the retail one)\n", r.name);
             ++failed;
@@ -1863,9 +1881,9 @@ int cmdNfsNativeCheck(int argc, char** argv) {
             // The inputs, the same in both.
             std::vector<uint32_t> source(0x1000), dest(0x1000);
             const double range = r.kind == 3 ? 40000.0 : t % 3 == 0 ? 1.0 : 32768.0;
-            for (auto& v : source)
+            for (auto &v : source)
                 v = std::bit_cast<uint32_t>(randomFloat(range));
-            for (auto& v : dest)
+            for (auto &v : dest)
                 v = std::bit_cast<uint32_t>(randomFloat(32768.0));
             const int32_t count = int32_t(random() % 44) - 3;
             const uint32_t pos = uint32_t(random() % 100), frac = uint32_t(random()), stepInt = uint32_t(random() % 3),
@@ -1873,20 +1891,26 @@ int cmdNfsNativeCheck(int argc, char** argv) {
             const uint32_t high = t % 4 == 0 ? uint32_t(random() & 0xffff) : 0;
             const float gainLeft = randomFloat(1.5f), gainRight = randomFloat(1.5f);
             uint32_t regs[8];
-            for (auto& v : regs)
+            for (auto &v : regs)
                 v = uint32_t(random());
             std::vector<uint32_t> args;
             switch (r.kind) {
             case 0:
-            case 1: args = {uint32_t(count), src, dst, posAt, fracAt, stepInt, stepFrac}; break;
-            case 2: args = {gains, uint32_t(count), src, dst}; break;
-            default: args = {uint32_t(std::max(count, 0)), src, dst}; break;
+            case 1:
+                args = {uint32_t(count), src, dst, posAt, fracAt, stepInt, stepFrac};
+                break;
+            case 2:
+                args = {gains, uint32_t(count), src, dst};
+                break;
+            default:
+                args = {uint32_t(std::max(count, 0)), src, dst};
+                break;
             }
             std::vector<uint8_t> after[2];
             uint32_t regsAfter[2][8];
             std::string error[2];
             for (int i = 0; i < 2; ++i) {
-                auto& c = hosts[i]->cpu();
+                auto &c = hosts[i]->cpu();
                 for (size_t k = 0; k < source.size(); ++k) {
                     c.write32(src + 4 * uint32_t(k), source[k]);
                     c.write32(dst + 4 * uint32_t(k), dest[k]);
@@ -1929,7 +1953,8 @@ int cmdNfsNativeCheck(int argc, char** argv) {
                 std::printf("%-24s trial %d (count %d): %s\n", r.name, t, count, why.c_str());
             }
         }
-        std::printf("%-24s %s\n", r.name, mismatches ? "DIFFERS" : ("the same in " + std::to_string(trials) + " trials").c_str());
+        std::printf("%-24s %s\n", r.name,
+                    mismatches ? "DIFFERS" : ("the same in " + std::to_string(trials) + " trials").c_str());
         failed += mismatches ? 1 : 0;
     }
     return failed ? 1 : 0;
@@ -1941,7 +1966,7 @@ int cmdNfsNativeCheck(int argc, char** argv) {
 // iSNDmixstart (0x5000b8) and mixes with 0x500864, as the game does, after
 // setting the mixer up (0x4fff18) with the MMX flag (0x5643b4) clear or
 // set; then compares the outputs sample by sample.
-int cmdNfsMmxCheck(int argc, char** argv) {
+int cmdNfsMmxCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool nfs-mmx-check <game folder> [trials]\n");
         return 2;
@@ -1953,7 +1978,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     options.nativeRoutines = false;
     options.saveFolder = stdfs::temp_directory_path() / "reluva-mmx-check";
     reluva::nfs::GameHost floatHost(folders, options), mmxHost(folders, options);
-    reluva::nfs::GameHost* hosts[2] = {&floatHost, &mmxHost};
+    reluva::nfs::GameHost *hosts[2] = {&floatHost, &mmxHost};
     constexpr uint32_t kDataSize = 1 << 22, kOutSize = 1 << 16;
     uint32_t stack[2], data[2], out[2];
     for (int i = 0; i < 2; ++i) {
@@ -1966,7 +1991,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
             return fail(reluva::Error::fail("no memory"));
     }
     // The MMX routines' entries, counted as they run.
-    const std::pair<uint32_t, const char*> watched[] = {
+    const std::pair<uint32_t, const char *> watched[] = {
         {0x51f5dd, "mix 8-bit mono"},       {0x51f6c7, "mix 8-bit stereo"},       {0x51f7ad, "mix 16-bit mono"},
         {0x51f897, "mix 16-bit stereo"},    {0x5270f0, "resample 8-bit mono"},    {0x527170, "resample 8-bit stereo"},
         {0x51f9de, "8-bit resample edge"},  {0x527210, "resample 16-bit mono"},   {0x527290, "resample 16-bit stereo"},
@@ -1975,7 +2000,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     };
     constexpr size_t kWatched = std::size(watched);
     uint64_t runs[kWatched] = {};
-    mmxHost.cpu().trace = [&](Cpu& c) {
+    mmxHost.cpu().trace = [&](Cpu &c) {
         if (c.eip < 0x51f5dd || c.eip > 0x52d1a0)
             return;
         for (size_t k = 0; k < kWatched; ++k)
@@ -1995,8 +2020,8 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     // The mix of `voices` in `frames` frames of output format `outFormat`
     // (the same flags), by the float (0) or MMX (1) routines, as signed
     // values (8-bit outputs centred).
-    auto render = [&](int i, const std::vector<Voice>& voices, int frames, int outFormat, std::vector<int>& result) {
-        auto& c = hosts[i]->cpu();
+    auto render = [&](int i, const std::vector<Voice> &voices, int frames, int outFormat, std::vector<int> &result) {
+        auto &c = hosts[i]->cpu();
         const uint32_t top = stack[i] + (1 << 16) - 64;
         uint32_t ignored = 0;
         c.write32(0x5643b4, uint32_t(i));
@@ -2007,7 +2032,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
             return e;
         uint32_t at = data[i];
         for (size_t k = 0; k < voices.size(); ++k) {
-            const Voice& v = voices[k];
+            const Voice &v = voices[k];
             if (at + v.bytes.size() > data[i] + kDataSize)
                 return reluva::Error::fail("voices too long");
             for (size_t n = 0; n < v.bytes.size(); ++n)
@@ -2063,7 +2088,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
             if (std::abs(f) < limit - 1000 && std::abs(m) < limit - 1000)
                 mf += double(m) * f, ff += double(f) * f;
         }
-        void print(const char* name) const {
+        void print(const char *name) const {
             if (!n) {
                 std::printf("%-34s no samples\n", name);
                 return;
@@ -2077,14 +2102,14 @@ int cmdNfsMmxCheck(int argc, char** argv) {
         }
         void printHist() const {
             std::printf("%36s", "m - f x 127/128, rounded:");
-            for (const auto& [k, c] : hist)
+            for (const auto &[k, c] : hist)
                 std::printf(" %s%d %.1f%%", k == -5 ? "<=" : k == 5 ? ">=" : "", k, 100.0 * c / n);
             std::printf("\n");
         }
     };
     int failures = 0;
-    auto compare = [&](const std::vector<Voice>& voices, int frames, int outFormat, Diff& diff,
-                       std::vector<int>* floatOut = nullptr, std::vector<int>* mmxOut = nullptr) {
+    auto compare = [&](const std::vector<Voice> &voices, int frames, int outFormat, Diff &diff,
+                       std::vector<int> *floatOut = nullptr, std::vector<int> *mmxOut = nullptr) {
         std::vector<int> r[2];
         for (int i = 0; i < 2; ++i)
             if (reluva::Error e = render(i, voices, frames, outFormat, r[i])) {
@@ -2108,7 +2133,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     };
     // The data of a voice from 16-bit samples (interleaved when stereo):
     // as 16-bit or as signed 8-bit (the high byte).
-    auto pcm = [](const std::vector<int16_t>& s, int channels, bool eightBit) {
+    auto pcm = [](const std::vector<int16_t> &s, int channels, bool eightBit) {
         Voice v;
         v.format = eightBit ? (channels == 2 ? 2 : 1) : (channels == 2 ? 8 : 4);
         v.samples = uint32_t(s.size() / size_t(channels));
@@ -2131,7 +2156,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
         uint32_t count = 0;
     };
     std::vector<Real> real;
-    auto addBank = [&](const std::vector<uint8_t>& bankData, const std::string& name,
+    auto addBank = [&](const std::vector<uint8_t> &bankData, const std::string &name,
                        std::initializer_list<int> slots) {
         reluva::nfs::SoundBank bank;
         if (reluva::nfs::parseSoundBank(bankData, bank))
@@ -2139,7 +2164,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
         for (int s : slots) {
             if (s >= int(bank.slots.size()) || !bank.slots[size_t(s)])
                 continue;
-            const auto& h = *bank.slots[size_t(s)];
+            const auto &h = *bank.slots[size_t(s)];
             reluva::audio::Sound sound;
             if (reluva::nfs::decodeBankSound(bankData, h, sound) || sound.samples.empty())
                 continue;
@@ -2162,13 +2187,13 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     if (real.empty())
         return fail(reluva::Error::fail("no Gen.bnk or Corvette car.bnk in the install"));
     std::printf("sounds:");
-    for (const Real& r : real)
+    for (const Real &r : real)
         std::printf(" %s (%zu samples%s)", r.name.c_str(), r.samples.size(), r.eaxa.empty() ? "" : ", EA-XA");
     std::printf("\n");
     // `count` samples of a real sound from `offset`, repeated as needed,
     // scaled by `scale` (saturated).
     auto realSamples = [&](size_t which, size_t offset, size_t count, double scale = 1.0) {
-        const auto& s = real[which % real.size()].samples;
+        const auto &s = real[which % real.size()].samples;
         std::vector<int16_t> v(count);
         for (size_t k = 0; k < count; ++k)
             v[k] = int16_t(std::clamp(std::lround(s[(offset + k) % s.size()] * scale), -32768l, 32767l));
@@ -2181,7 +2206,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
         std::vector<int> ignored;
         if (reluva::Error e = render(0, {}, 256, 8, ignored))
             return fail(e);
-        auto& c = floatHost.cpu();
+        auto &c = floatHost.cpu();
         auto f = [&](int k) { return std::bit_cast<float>(c.read32(0xa0c2a0 + 4 * uint32_t(k))); };
         std::printf("float 8-bit table: 0x00 %g, 0x7f %g, 0x80 %g, 0xff %g\n", f(0), f(0x7f), f(0x80), f(0xff));
     }
@@ -2251,7 +2276,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
                 const uint32_t step = random() % 4 == 0 ? 0x10000 : 0x2000 + uint32_t(random() % 0x7e000);
                 const bool stereo = random() % 2 == 0;
                 std::vector<int16_t> s(need(step) * (stereo ? 2 : 1));
-                for (auto& x : s)
+                for (auto &x : s)
                     x = int16_t(random());
                 Voice v = pcm(s, stereo ? 2 : 1, false);
                 v.left = int(random() % 256) - 128, v.right = int(random() % 256) - 128;
@@ -2339,7 +2364,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
             }
             compare(voices, frames, outFormat, d);
         }
-        static const char* const names[9] = {"", "  8-bit mono",   "  8-bit stereo", "", "  16-bit mono", "", "",
+        static const char *const names[9] = {"", "  8-bit mono",   "  8-bit stereo", "", "  16-bit mono", "", "",
                                              "", "  16-bit stereo"};
         d.print(names[outFormat]);
     }
@@ -2377,7 +2402,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
     }
     // 9. The MMX mix down by itself (0x520920) on random bus words.
     {
-        auto& c = mmxHost.cpu();
+        auto &c = mmxHost.cpu();
         c.write32(0x5643b4, 1);
         int bad = 0;
         for (int t = 0; t < 8; ++t) {
@@ -2408,7 +2433,7 @@ int cmdNfsMmxCheck(int argc, char** argv) {
 // Draws one of the engine's viewer pages after the keys given, as the
 // engine would, without a window: for checking pages and taking pictures
 // of them.
-int cmdNfsPage(int argc, char** argv) {
+int cmdNfsPage(int argc, char **argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: reluva-tool nfs-page <game folder> <out.tga> <page> [key...]\n"
                              "  keys: left right up down pgup pgdn home end enter esc, or a letter or symbol;\n"
@@ -2420,25 +2445,25 @@ int cmdNfsPage(int argc, char** argv) {
     reluva::nfs::GameFiles files;
     files.scan(folders);
     auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files, nullptr, "nfs-page-save");
-    reluva::nfs::Page* page = nullptr;
-    for (auto& p : pages)
+    reluva::nfs::Page *page = nullptr;
+    for (auto &p : pages)
         if (lowerAscii(p->name()) == lowerAscii(argv[4]))
             page = p.get();
     if (!page) {
         std::fprintf(stderr, "no page '%s'; there are:", argv[4]);
-        for (auto& p : pages)
+        for (auto &p : pages)
             std::fprintf(stderr, " %s", p->name());
         std::fprintf(stderr, "\n");
         return 1;
     }
     // The Play page's game starts at once, as it would when shown.
-    if (auto* play = dynamic_cast<reluva::nfs::PlayPage*>(page))
+    if (auto *play = dynamic_cast<reluva::nfs::PlayPage *>(page))
         play->start();
-    const std::pair<const char*, uint32_t> names[] = {
-        {"left", reluva::key::Left},  {"right", reluva::key::Right},   {"up", reluva::key::Up},
-        {"down", reluva::key::Down},  {"pgup", reluva::key::PageUp},   {"pgdn", reluva::key::PageDown},
-        {"home", reluva::key::Home},  {"end", reluva::key::End},       {"enter", reluva::key::Return},
-        {"esc", reluva::key::Escape}};
+    const std::pair<const char *, uint32_t> names[] = {{"left", reluva::key::Left},    {"right", reluva::key::Right},
+                                                       {"up", reluva::key::Up},        {"down", reluva::key::Down},
+                                                       {"pgup", reluva::key::PageUp},  {"pgdn", reluva::key::PageDown},
+                                                       {"home", reluva::key::Home},    {"end", reluva::key::End},
+                                                       {"enter", reluva::key::Return}, {"esc", reluva::key::Escape}};
     int mouseX = 320, mouseY = 240;
     auto mouse = [&](reluva::EventType type) {
         reluva::Event ev;
@@ -2475,7 +2500,7 @@ int cmdNfsPage(int argc, char** argv) {
         const bool press = arg[0] != '-', release = arg[0] != '+';
         const std::string keyArg = arg.size() > 1 && (arg[0] == '+' || arg[0] == '-') ? arg.substr(1) : arg;
         uint32_t key = 0;
-        for (const auto& [name, code] : names)
+        for (const auto &[name, code] : names)
             if (keyArg == name)
                 key = code;
         if (!key && keyArg.size() == 1)
@@ -2511,12 +2536,12 @@ int cmdNfsPage(int argc, char** argv) {
 
 } // namespace
 
-const char* const kNfsUsage = kUsageLines;
+const char *const kNfsUsage = kUsageLines;
 
-int runNfsCommand(int argc, char** argv) {
+int runNfsCommand(int argc, char **argv) {
     if (argc < 2)
         return -1;
-    const char* cmd = argv[1];
+    const char *cmd = argv[1];
     if (std::strcmp(cmd, "viv-list") == 0)
         return cmdVivList(argc, argv);
     if (std::strcmp(cmd, "viv-extract") == 0)

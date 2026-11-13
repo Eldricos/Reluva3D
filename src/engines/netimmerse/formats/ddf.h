@@ -43,21 +43,21 @@ struct DdfFont {
     int spaceAdvance = 0;
     std::vector<Glyph> glyphs; // first..last
 
-    Error parse(const std::vector<uint8_t>& data);
+    Error parse(const std::vector<uint8_t> &data);
     int ascent() const { return lineHeight - descent; }
     // How much a page's glyphs are scaled to come out at the font's line
     // height, as the game scales them.
     double pageScale(int page) const;
     // The character's glyph, or nullptr if it isn't drawn (the space).
-    const Glyph* glyph(uint8_t c) const;
+    const Glyph *glyph(uint8_t c) const;
     // The page images' file names, beside `file` ("ARIAL.DDF").
-    static std::string pageName(const std::string& file, int page);
+    static std::string pageName(const std::string &file, int page);
     // How wide the text is, in Windows-1252.
     int measure(std::string_view text) const;
     // Draws the text (Windows-1252) with the top of its line at (x, y) on an
     // RGBA32 surface, the pages' alpha blending the colour over it; returns
     // the pen's x after it.
-    int draw(Surface& surface, const std::vector<image::Image>& pageImages, int x, int y, std::string_view text,
+    int draw(Surface &surface, const std::vector<image::Image> &pageImages, int x, int y, std::string_view text,
              Color color) const;
 };
 

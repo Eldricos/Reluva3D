@@ -67,7 +67,7 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         shader = trap_R_RegisterShader("powerups/quad");
         trap_S_StartBackgroundTrack("music/intro", "music/loop");
         return arg2; /* the client number */
-    case 2: /* a console command: handled if it's weapnext */
+    case 2:          /* a console command: handled if it's weapnext */
         trap_Argv(0, word, sizeof(word));
         return word[0] == 'w' && word[4] == 'n';
     case 20: /* configstring arg0: its first two characters */
@@ -78,17 +78,23 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         for (n = 0; s[n]; n++)
             ;
         return n;
-    case 22: return gameState.dataCount;
-    case 23: return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
-    case 24: return model * 100 + shader;
+    case 22:
+        return gameState.dataCount;
+    case 23:
+        return glconfig[1281 + 10] * 1000 + glconfig[1281 + 11]; /* vidWidth, vidHeight */
+    case 24:
+        return model * 100 + shader;
     case 25: /* the latest snapshot: its server time, or -1 if it isn't there */
         trap_GetCurrentSnapshotNumber(&n, &arg0);
         if (!trap_GetSnapshot(n, &snap))
             return -1;
         return snap.serverTime;
-    case 26: return snap.numEntities * 1000 + snap.serverCommandSequence;
-    case 27: return snap.ps[0] + snap.ps[114]; /* the player state's first and last words */
-    case 28: return snap.entities[arg0][0] * 1000 + snap.entities[arg0][50];
+    case 26:
+        return snap.numEntities * 1000 + snap.serverCommandSequence;
+    case 27:
+        return snap.ps[0] + snap.ps[114]; /* the player state's first and last words */
+    case 28:
+        return snap.entities[arg0][0] * 1000 + snap.entities[arg0][50];
     case 30: /* the latest command: its number * 1000 + its forward byte */
         n = trap_GetCurrentCmdNumber();
         if (!trap_GetUserCmd(n, ucmd))
@@ -112,7 +118,8 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
     case 32: /* a tag between frames 0 and 1, half way: its origin's z, and whether found */
         n = trap_R_LerpTag(tag, arg0, 0, 1, 0.5f, "tag_top");
         return (int)tag[2] * 10 + n;
-    case 33: return trap_R_RegisterModel("models/test/box.md3");
+    case 33:
+        return trap_R_RegisterModel("models/test/box.md3");
     case 29: /* server command arg0: how many words, and the first letter of word arg1 */
         if (!trap_GetServerCommand(arg0))
             return -1;

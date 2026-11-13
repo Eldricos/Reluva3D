@@ -23,10 +23,10 @@ class SdlSystem;
 // The game list UI, drawn with Dear ImGui on the SDL renderer.
 class Launcher {
 public:
-    Launcher(SdlSystem& system, Config& config);
+    Launcher(SdlSystem &system, Config &config);
     ~Launcher();
-    Launcher(const Launcher&) = delete;
-    Launcher& operator=(const Launcher&) = delete;
+    Launcher(const Launcher &) = delete;
+    Launcher &operator=(const Launcher &) = delete;
 
     // Show the launcher until the user starts a game (returned) or quits.
     std::optional<GameTarget> run();
@@ -37,22 +37,22 @@ public:
     void setLibraryDir(std::filesystem::path dir) { libraryDir_ = std::move(dir); }
 
 private:
-    void drawUi(std::optional<GameTarget>& launch, bool& quit);
+    void drawUi(std::optional<GameTarget> &launch, bool &quit);
     void handlePickedFolder();
-    void addGame(const DetectedGame& game, const std::string& path);
-    GameTarget targetFromConfig(const std::string& name) const;
+    void addGame(const DetectedGame &game, const std::string &path);
+    GameTarget targetFromConfig(const std::string &name) const;
     // The target as stored, its description first brought up to date with
     // what's in its folder now (a patch added since, say).
-    GameTarget launchTarget(const std::string& name);
-    void offerImport(std::vector<ImportPlan> plans, const std::string& source);
+    GameTarget launchTarget(const std::string &name);
+    void offerImport(std::vector<ImportPlan> plans, const std::string &source);
     void drawImport();
     void startImport();
     void finishImport();
 
-    static void pickFolderCallback(void* userdata, const char* const* files, int filter);
+    static void pickFolderCallback(void *userdata, const char *const *files, int filter);
 
-    SdlSystem& sys_;
-    Config& config_;
+    SdlSystem &sys_;
+    Config &config_;
     std::string selected_;
     std::string status_;
 
@@ -93,7 +93,7 @@ private:
     void drawOptions();
     // Every game's options, for the list (found once per game).
     std::map<std::string, std::vector<GameOption>> listOptions_;
-    std::string listLabel(const std::string& name);
+    std::string listLabel(const std::string &name);
 
     // Settings at three levels (common/settings.h): for every game, for an
     // engine's games, and with each game. The Settings window edits the
@@ -103,10 +103,10 @@ private:
     void drawSettingsWindow();
     // One setting kept in `section`: its value there, or the one above it
     // (`engineId`'s, then every game's, then the default) when unset.
-    void drawSetting(const std::string& section, const std::string& engineId, const GameOption& option);
+    void drawSetting(const std::string &section, const std::string &engineId, const GameOption &option);
     // `from`: where it comes from ("default", "every game's", "engine's").
-    std::string inheritedValue(const std::string& section, const std::string& engineId, const GameOption& option,
-                               std::string* from = nullptr) const;
+    std::string inheritedValue(const std::string &section, const std::string &engineId, const GameOption &option,
+                               std::string *from = nullptr) const;
 };
 
 } // namespace reluva

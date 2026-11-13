@@ -21,43 +21,43 @@ namespace {
 
 using namespace reluva;
 
-
-
-#define CHECK_EQ(a, b)                                                                               \
-    do {                                                                                             \
-        const uint64_t a_ = (a), b_ = (b);                                                           \
-        if (a_ != b_) {                                                                              \
-            std::fprintf(stderr, "%s:%d: %s: %016llx, expected %016llx\n", __FILE__, __LINE__, #a,  \
-                         (unsigned long long)a_, (unsigned long long)b_);                            \
+#define CHECK_EQ(a, b)                                                                                                 \
+    do {                                                                                                               \
+        const uint64_t a_ = (a), b_ = (b);                                                                             \
+        if (a_ != b_) {                                                                                                \
+            std::fprintf(stderr, "%s:%d: %s: %016llx, expected %016llx\n", __FILE__, __LINE__, #a,                     \
+                         (unsigned long long)a_, (unsigned long long)b_);                                              \
             ++::reluva::test::failures();                                                                              \
-        }                                                                                            \
+        }                                                                                                              \
     } while (0)
 
 namespace {
 
 constexpr uint32_t kCode = 0x2000, kA = 0x3000, kB = 0x3008, kOut = 0x3010;
 
-void put(std::vector<uint8_t>& code, std::initializer_list<int> bytes) {
+void put(std::vector<uint8_t> &code, std::initializer_list<int> bytes) {
     for (int b : bytes)
         code.push_back(uint8_t(b));
 }
-void put32(std::vector<uint8_t>& code, uint32_t v) {
+void put32(std::vector<uint8_t> &code, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         code.push_back(uint8_t(v >> (8 * i)));
 }
 // 0f op modrm disp32 (an absolute memory operand) for register r.
-void withMemory(std::vector<uint8_t>& code, int op, int r, uint32_t address) {
+void withMemory(std::vector<uint8_t> &code, int op, int r, uint32_t address) {
     put(code, {0x0f, op, (r << 3) | 5});
     put32(code, address);
 }
 
-uint64_t read64(x86::Cpu& cpu, uint32_t a) { return cpu.read32(a) | uint64_t(cpu.read32(a + 4)) << 32; }
-void write64(x86::Cpu& cpu, uint32_t a, uint64_t v) {
+uint64_t read64(x86::Cpu &cpu, uint32_t a) {
+    return cpu.read32(a) | uint64_t(cpu.read32(a + 4)) << 32;
+}
+void write64(x86::Cpu &cpu, uint32_t a, uint64_t v) {
     cpu.write32(a, uint32_t(v));
     cpu.write32(a + 4, uint32_t(v >> 32));
 }
 
-bool run(x86::Cpu& cpu, std::vector<uint8_t> code) {
+bool run(x86::Cpu &cpu, std::vector<uint8_t> code) {
     code.push_back(0xc3); // ret
     std::copy(code.begin(), code.end(), cpu.memory().begin() + kCode);
     uint32_t result = 0;
@@ -69,7 +69,7 @@ bool run(x86::Cpu& cpu, std::vector<uint8_t> code) {
 
 // movq mm0, [A]; movq mm1, [B]; op mm0, mm1; movq [OUT], mm0: the result.
 // With fromMemory the source is [B] itself.
-uint64_t binary(x86::Cpu& cpu, int op, uint64_t a, uint64_t b, bool fromMemory = false) {
+uint64_t binary(x86::Cpu &cpu, int op, uint64_t a, uint64_t b, bool fromMemory = false) {
     write64(cpu, kA, a);
     write64(cpu, kB, b);
     std::vector<uint8_t> code;
@@ -87,7 +87,7 @@ uint64_t binary(x86::Cpu& cpu, int op, uint64_t a, uint64_t b, bool fromMemory =
 }
 
 // movq mm2, [A]; op mm2, imm8 (group /r); movq [OUT], mm2.
-uint64_t shiftImm(x86::Cpu& cpu, int op, int r, uint64_t a, int count) {
+uint64_t shiftImm(x86::Cpu &cpu, int op, int r, uint64_t a, int count) {
     write64(cpu, kA, a);
     std::vector<uint8_t> code;
     withMemory(code, 0x6f, 2, kA);
@@ -99,7 +99,7 @@ uint64_t shiftImm(x86::Cpu& cpu, int op, int r, uint64_t a, int count) {
     return read64(cpu, kOut);
 }
 
-void testMoves(x86::Cpu& cpu) {
+void testMoves(x86::Cpu &cpu) {
     // movd mm3, eax (zero-extended); movd ecx, mm3; movd [OUT], mm3; movq mm4, mm3; movq [OUT+8], mm4.
     write64(cpu, kOut, ~0ull);
     write64(cpu, kOut + 8, ~0ull);
@@ -109,9 +109,9 @@ void testMoves(x86::Cpu& cpu) {
     put(code, {0x0f, 0x7e, 0xd9});             // movd ecx, mm3
     put(code, {0x0f, 0x6f, 0xe3});             // movq mm4, mm3
     withMemory(code, 0x7f, 4, kOut + 8);
-    withMemory(code, 0x7e, 3, kOut);           // movd [OUT], mm3 (4 bytes only)
+    withMemory(code, 0x7e, 3, kOut); // movd [OUT], mm3 (4 bytes only)
     put(code, {0x0f, 0x77});
-    put(code, {0x89, 0xc8});                   // mov eax, ecx
+    put(code, {0x89, 0xc8}); // mov eax, ecx
     CHECK(run(cpu, code));
     CHECK_EQ(cpu.reg[x86::Cpu::EAX], 0x12345678u);
     CHECK_EQ(read64(cpu, kOut), 0xffffffff12345678ull);
@@ -127,11 +127,11 @@ void testMoves(x86::Cpu& cpu) {
     CHECK_EQ(read64(cpu, kOut), 0x87654321ull);
 }
 
-void testArithmetic(x86::Cpu& cpu) {
+void testArithmetic(x86::Cpu &cpu) {
     const uint64_t a = 0x7f80ff017fff8000ull, b = 0x0180ff0200018000ull;
     // Wrapping.
-    CHECK_EQ(binary(cpu, 0xfc, a, b), 0x8000fe037f000000ull);  // paddb
-    CHECK_EQ(binary(cpu, 0xfd, a, b), 0x8100fe0380000000ull);  // paddw
+    CHECK_EQ(binary(cpu, 0xfc, a, b), 0x8000fe037f000000ull);                                         // paddb
+    CHECK_EQ(binary(cpu, 0xfd, a, b), 0x8100fe0380000000ull);                                         // paddw
     CHECK_EQ(binary(cpu, 0xfe, 0xffffffff7fffffffull, 0x0000000200000001ull), 0x0000000180000000ull); // paddd
     CHECK_EQ(binary(cpu, 0xf8, 0x0001020300000000ull, 0x0102030401010101ull), 0xffffffffffffffffull); // psubb
     CHECK_EQ(binary(cpu, 0xf9, 0x0000800000010000ull, 0x0001000100020001ull), 0xffff7fffffffffffull); // psubw
@@ -158,7 +158,7 @@ void testArithmetic(x86::Cpu& cpu) {
     CHECK_EQ(binary(cpu, 0xfd, 0x0001000200030004ull, 0x0010002000300040ull, true), 0x0011002200330044ull);
 }
 
-void testLogicAndCompare(x86::Cpu& cpu) {
+void testLogicAndCompare(x86::Cpu &cpu) {
     const uint64_t a = 0xf0f0ff00aaaa1234ull, b = 0x0ff0f0f05555ffffull;
     CHECK_EQ(binary(cpu, 0xdb, a, b), a & b);  // pand
     CHECK_EQ(binary(cpu, 0xdf, a, b), ~a & b); // pandn
@@ -175,21 +175,21 @@ void testLogicAndCompare(x86::Cpu& cpu) {
     CHECK_EQ(binary(cpu, 0x66, 0x8000000000000000ull, 0x7fffffff00000000ull), 0);
 }
 
-void testShifts(x86::Cpu& cpu) {
+void testShifts(x86::Cpu &cpu) {
     const uint64_t v = 0x8001400220047008ull;
     // By register (the count a whole 64-bit value).
-    CHECK_EQ(binary(cpu, 0xf1, v, 4), 0x0010002000400080ull);   // psllw
-    CHECK_EQ(binary(cpu, 0xd1, v, 4), 0x0800040002000700ull);   // psrlw
-    CHECK_EQ(binary(cpu, 0xe1, v, 4), 0xf800040002000700ull);   // psraw
-    CHECK_EQ(binary(cpu, 0xf1, v, 15), 0x8000000000000000ull);  // psllw 15
-    CHECK_EQ(binary(cpu, 0xf1, v, 16), 0);                      // psllw past the width
-    CHECK_EQ(binary(cpu, 0xd1, v, 16), 0);                      // psrlw past the width
-    CHECK_EQ(binary(cpu, 0xe1, v, 16), 0xffff000000000000ull);  // psraw past: the sign
+    CHECK_EQ(binary(cpu, 0xf1, v, 4), 0x0010002000400080ull);              // psllw
+    CHECK_EQ(binary(cpu, 0xd1, v, 4), 0x0800040002000700ull);              // psrlw
+    CHECK_EQ(binary(cpu, 0xe1, v, 4), 0xf800040002000700ull);              // psraw
+    CHECK_EQ(binary(cpu, 0xf1, v, 15), 0x8000000000000000ull);             // psllw 15
+    CHECK_EQ(binary(cpu, 0xf1, v, 16), 0);                                 // psllw past the width
+    CHECK_EQ(binary(cpu, 0xd1, v, 16), 0);                                 // psrlw past the width
+    CHECK_EQ(binary(cpu, 0xe1, v, 16), 0xffff000000000000ull);             // psraw past: the sign
     CHECK_EQ(binary(cpu, 0xe1, v, 0x100000000ull), 0xffff000000000000ull); // a count in the high dword
     CHECK_EQ(binary(cpu, 0xf1, v, 0x100000000ull), 0);
-    CHECK_EQ(binary(cpu, 0xf2, 0x8000000100000003ull, 1), 0x0000000200000006ull); // pslld
-    CHECK_EQ(binary(cpu, 0xd2, 0x8000000100000003ull, 1), 0x4000000000000001ull); // psrld
-    CHECK_EQ(binary(cpu, 0xe2, 0x8000000100000003ull, 1), 0xc000000000000001ull); // psrad
+    CHECK_EQ(binary(cpu, 0xf2, 0x8000000100000003ull, 1), 0x0000000200000006ull);  // pslld
+    CHECK_EQ(binary(cpu, 0xd2, 0x8000000100000003ull, 1), 0x4000000000000001ull);  // psrld
+    CHECK_EQ(binary(cpu, 0xe2, 0x8000000100000003ull, 1), 0xc000000000000001ull);  // psrad
     CHECK_EQ(binary(cpu, 0xe2, 0x8000000070000000ull, 32), 0xffffffff00000000ull); // psrad past
     CHECK_EQ(binary(cpu, 0xd2, 0x8000000070000000ull, 32), 0);
     CHECK_EQ(binary(cpu, 0xf3, 0x0123456789abcdefull, 4), 0x123456789abcdef0ull); // psllq
@@ -214,7 +214,7 @@ void testShifts(x86::Cpu& cpu) {
     CHECK_EQ(shiftImm(cpu, 0x73, 2, 0x0123456789abcdefull, 64), 0);
 }
 
-void testPackUnpack(x86::Cpu& cpu) {
+void testPackUnpack(x86::Cpu &cpu) {
     // packsswb: dst words 0x0080 (128 -> 127), 0xff7f (-129 -> -128), 5, -1; src 0x7fff, 0x8000, 0x0100, 0.
     CHECK_EQ(binary(cpu, 0x63, 0x0080ff7f0005ffffull, 0x7fff800001000000ull), 0x7f807f007f8005ffull);
     // packuswb: negative to 0, past 255 to 255.
@@ -249,7 +249,7 @@ void testPackUnpack(x86::Cpu& cpu) {
     CHECK(!run(small, code));
 }
 
-void testAliasing(x86::Cpu& cpu) {
+void testAliasing(x86::Cpu &cpu) {
     // fninit; fld1: 1.0 in physical register 7; movq [OUT], mm7: its mantissa.
     std::vector<uint8_t> code;
     put(code, {0xdb, 0xe3, 0xd9, 0xe8});
@@ -335,7 +335,7 @@ void testAliasing(x86::Cpu& cpu) {
     CHECK(!run(cpu, {0x66, 0x0f, 0xef, 0xc0}));
 }
 
-void testCpuid(x86::Cpu& cpu) {
+void testCpuid(x86::Cpu &cpu) {
     // mov eax, 1; cpuid; mov eax, edx
     const std::vector<uint8_t> code = {0xb8, 1, 0, 0, 0, 0x0f, 0xa2, 0x89, 0xd0};
     CHECK(run(cpu, code));
@@ -363,5 +363,5 @@ static void runAll() {
 } // namespace
 
 static const reluva::test::Suite kSuite("common.unit.mmx", {
-    {"all", [](const std::filesystem::path&) { runAll(); }},
-});
+                                                               {"all", [](const std::filesystem::path &) { runAll(); }},
+                                                           });

@@ -27,20 +27,20 @@ namespace reluva::glide::raster {
 
 namespace {
 
-bool inClip(const State& s, int width, int height, int x, int y) {
+bool inClip(const State &s, int width, int height, int x, int y) {
     return x >= std::max(s.clip[0], 0) && x < std::min(s.clip[2], width) && y >= std::max(s.clip[1], 0) &&
            y < std::min(s.clip[3], height);
 }
 
 } // namespace
 
-void aaTriangleFringe(const State& s, int width, int height, const Vertex& va, const Vertex& vb, const Vertex& vc,
-                      const bool aaIn[3], Fragments& out) {
+void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, const Vertex &vb, const Vertex &vc,
+                      const bool aaIn[3], Fragments &out) {
     out.list.clear();
     out.derivatives = false;
     // Snapped to 1/16 pixel as the triangle itself is (setupTriangle).
     auto snap = [](float f) { return std::isfinite(f) ? int64_t(std::llround(double(f) * 16.0)) : int64_t(0); };
-    const Vertex* v[3] = {&va, &vb, &vc};
+    const Vertex *v[3] = {&va, &vb, &vc};
     int64_t X[3], Y[3];
     for (int i = 0; i < 3; ++i) {
         X[i] = snap(v[i]->x);
@@ -133,7 +133,7 @@ void aaTriangleFringe(const State& s, int width, int height, const Vertex& va, c
     out.dx[kA] = out.dy[kA] = 0;
 }
 
-void aaLinePixels(const State& s, int width, int height, const Vertex& a, const Vertex& b, Fragments& out) {
+void aaLinePixels(const State &s, int width, int height, const Vertex &a, const Vertex &b, Fragments &out) {
     out.list.clear();
     out.derivatives = false;
     const double dx = double(b.x) - a.x, dy = double(b.y) - a.y;
@@ -170,7 +170,7 @@ void aaLinePixels(const State& s, int width, int height, const Vertex& a, const 
         }
 }
 
-void aaPointPixels(const State& s, int width, int height, const Vertex& a, Fragments& out) {
+void aaPointPixels(const State &s, int width, int height, const Vertex &a, Fragments &out) {
     out.list.clear();
     out.derivatives = false;
     if (!std::isfinite(a.x) || !std::isfinite(a.y))

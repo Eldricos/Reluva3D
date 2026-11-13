@@ -138,7 +138,7 @@ Board voodoo3Board();
 // applied after the other options; "desktop=0" for none)
 // ("voodoo1,tmu=4"); false for another. `desktopClamped`, if given, is set
 // when setDesktop didn't take the desktop as given.
-bool boardByName(const std::string& spec, Board& out, bool* desktopClamped = nullptr);
+bool boardByName(const std::string &spec, Board &out, bool *desktopClamped = nullptr);
 // The 2D desktop a windowed board (the Voodoo Rush) shares its memory
 // with, as the host's desktop is: width x height at `bits` per pixel (8,
 // 15, 16, 24 or 32). The SST-96 specification's windowed tables (System
@@ -155,13 +155,13 @@ bool boardByName(const std::string& spec, Board& out, bool* desktopClamped = nul
 // depth or a size of 0 or less; sets `clamped` when the desktop isn't
 // taken as given. Takes nothing on a board without a shared desktop
 // (Board::windowed false), and returns true.
-bool setDesktop(Board& board, int width, int height, int bits, bool* clamped = nullptr);
+bool setDesktop(Board &board, int width, int height, int bits, bool *clamped = nullptr);
 
 // A vertex as the pipeline takes it, whatever the API's layout.
 struct Vertex {
-    float x = 0, y = 0; // pixels, the origin as grSstOrigin says
-    float ooz = 0;      // the z buffer's value (0-65535)
-    float oow = 1;      // 1/w for the w buffer and table fog
+    float x = 0, y = 0;               // pixels, the origin as grSstOrigin says
+    float ooz = 0;                    // the z buffer's value (0-65535)
+    float oow = 1;                    // 1/w for the w buffer and table fog
     float r = 0, g = 0, b = 0, a = 0; // 0-255
     struct Tmu {
         float sow = 0, tow = 0, oow = 1; // s/w and t/w (s, t 0-256 across the texture) and 1/w
@@ -253,27 +253,27 @@ struct Fragments; // raster_setup.h
 class Renderer {
 public:
     virtual ~Renderer() = default;
-    virtual void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) = 0;
-    virtual void line(Pipeline& p, const Vertex& a, const Vertex& b) = 0;
-    virtual void point(Pipeline& p, const Vertex& a) = 0;
+    virtual void triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) = 0;
+    virtual void line(Pipeline &p, const Vertex &a, const Vertex &b) = 0;
+    virtual void point(Pipeline &p, const Vertex &a) = 0;
     // Single pixels each with its own values (drawing coordinates), and the
     // gradients for the texture LOD if `derivatives`: the coverage pixels
     // of the anti-aliased primitives (Pipeline::aaTriangle...).
-    virtual void fragments(Pipeline& p, const raster::Fragments& f) = 0;
-    virtual void clear(Pipeline& p, uint32_t argb, int alpha, int depth) = 0;
-    virtual void sync(Pipeline&) {}
+    virtual void fragments(Pipeline &p, const raster::Fragments &f) = 0;
+    virtual void clear(Pipeline &p, uint32_t argb, int alpha, int depth) = 0;
+    virtual void sync(Pipeline &) {}
     // The same for one buffer (kBufferFront...), when only it is read (a
     // presented frame).
-    virtual void syncBuffer(Pipeline& p, int /*buffer*/) { sync(p); }
+    virtual void syncBuffer(Pipeline &p, int /*buffer*/) { sync(p); }
     // A TMU's texture memory changed, `bytes` from `start`.
-    virtual void textureMemoryChanged(Pipeline&, int /*tmu*/, uint32_t /*start*/, uint32_t /*bytes*/) {}
+    virtual void textureMemoryChanged(Pipeline &, int /*tmu*/, uint32_t /*start*/, uint32_t /*bytes*/) {}
     // A TMU's palette or NCC tables changed.
-    virtual void tablesChanged(Pipeline&, int /*tmu*/) {}
+    virtual void tablesChanged(Pipeline &, int /*tmu*/) {}
     // The front and back buffers were swapped (after the swap).
-    virtual void swapped(Pipeline&) {}
+    virtual void swapped(Pipeline &) {}
     // A pixel was written straight into a buffer (slot, x, y), by the
     // linear frame buffer (Pipeline::lfbWrite), after a sync.
-    virtual void hostWrote(Pipeline&, int /*slot*/, int /*x*/, int /*y*/) {}
+    virtual void hostWrote(Pipeline &, int /*slot*/, int /*x*/, int /*y*/) {}
 };
 
 // The software reference rasterizer, drawing into the pipeline's buffers.
@@ -283,14 +283,14 @@ class Pipeline {
 public:
     explicit Pipeline(Board board = {});
     ~Pipeline();
-    Pipeline(Pipeline&&) noexcept = default;
-    Pipeline& operator=(Pipeline&&) noexcept = default;
+    Pipeline(Pipeline &&) noexcept = default;
+    Pipeline &operator=(Pipeline &&) noexcept = default;
 
-    const Board& board() const { return board_; }
+    const Board &board() const { return board_; }
     // The renderer from now on. Call it before drawing (with the buffers
     // and texture memory as they are, a GPU backend copies them over).
     void setRenderer(std::unique_ptr<Renderer> renderer) { renderer_ = std::move(renderer); }
-    Renderer& renderer() { return *renderer_; }
+    Renderer &renderer() { return *renderer_; }
 
     // --- The display ------------------------------------------------------
     // Sets up the buffers for a resolution and resets the state to Glide's
@@ -325,16 +325,16 @@ public:
     void swap();
     uint64_t swaps() const { return swaps_; }
 
-    State& state() { return state_; }
-    const State& state() const { return state_; }
+    State &state() { return state_; }
+    const State &state() const { return state_; }
     // Glide's defaults for the state (grSstWinOpen), the clip window the
     // screen.
     void resetState();
 
     // --- Drawing ----------------------------------------------------------
-    void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
-    void line(const Vertex& a, const Vertex& b);
-    void point(const Vertex& a);
+    void triangle(const Vertex &a, const Vertex &b, const Vertex &c);
+    void line(const Vertex &a, const Vertex &b);
+    void point(const Vertex &a);
     // Anti-aliased primitives (Glide 2's grAADraw*, Glide 3's
     // GR_AA_ORDERED): drawn with the alpha iterator standing for the
     // pixel's coverage (docs/common/graphics/glide.md, Anti-aliasing). A triangle:
@@ -343,10 +343,10 @@ public:
     // 0 a pixel out. A line: the pixels within a pixel of it, alpha falling
     // with the distance. A point: the four pixels round it, by their share
     // of a pixel-sized square.
-    void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
-    void aaLine(const Vertex& a, const Vertex& b);
-    void aaPoint(const Vertex& a);
-    void fragments(const raster::Fragments& f);
+    void aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca);
+    void aaLine(const Vertex &a, const Vertex &b);
+    void aaPoint(const Vertex &a);
+    void fragments(const raster::Fragments &f);
     // grBufferClear: the clip window of the render buffer, and of the
     // auxiliary buffer when depth (or alpha) buffering is on and writable.
     void clear(uint32_t argb, int alpha, int depth);
@@ -360,24 +360,24 @@ public:
     // One level (rows firstRow-lastRow of it) of a texture whose largest
     // level `evenOdd` includes starts at `start`, from `data` (the level's
     // rows, tightly packed).
-    void downloadLevel(int tmu, uint32_t start, const TextureInfo& info, int evenOdd, int lod, const uint8_t* data,
+    void downloadLevel(int tmu, uint32_t start, const TextureInfo &info, int evenOdd, int lod, const uint8_t *data,
                        int firstRow, int lastRow);
-    void setPalette(int tmu, int first, int last, const uint32_t* entries); // 0x00RRGGBB
+    void setPalette(int tmu, int first, int last, const uint32_t *entries); // 0x00RRGGBB
     // Glide 3's PALETTE6666 extension: entries `first`-`last` from
     // 0xAARRGGBB words, each channel's top 6 bits packed into the
     // palette's 24 (alpha 23-18, red 17-12, green 11-6, blue 5-0), and the
     // TMU's GR_TEXFMT_P_8 textures read through it as texture format 6,
     // "8 bit Palette to RGBA" (Banshee specification, textureMode's
     // formats). A plain palette download (setPalette) ends it.
-    void setPalette6666(int tmu, int first, int last, const uint32_t* entries);
+    void setPalette6666(int tmu, int first, int last, const uint32_t *entries);
     bool palette6666(int tmu) const { return palette6666_[size_t(tmu)]; }
     // The format a TMU's source is read in: its own, or format 6 for a P_8
     // texture with the 6666 palette.
     int textureFormat(int tmu) const;
-    void setNcc(int tmu, int which, const NccTable& table);
-    const uint8_t* tmuMemory(int tmu) const { return tmuMemory_[size_t(tmu)].data(); }
-    const uint32_t* palette(int tmu) const { return palettes_[size_t(tmu)].data(); }
-    const NccTable& ncc(int tmu, int which) const { return ncc_[size_t(tmu)][size_t(which & 1)]; }
+    void setNcc(int tmu, int which, const NccTable &table);
+    const uint8_t *tmuMemory(int tmu) const { return tmuMemory_[size_t(tmu)].data(); }
+    const uint32_t *palette(int tmu) const { return palettes_[size_t(tmu)].data(); }
+    const NccTable &ncc(int tmu, int which) const { return ncc_[size_t(tmu)][size_t(which & 1)]; }
     // Where a level of the TMU's current source is (grTexMultibase's
     // addresses if set), its first byte.
     uint32_t levelAddress(int tmu, int lod) const;
@@ -386,18 +386,18 @@ public:
     // The pixels of a buffer (kBufferFront, kBufferBack, kBufferTriple,
     // kBufferAux), `width()` pixels a row, row 0 the top of the screen;
     // null if there's no such buffer.
-    uint16_t* buffer(int id);
-    const uint16_t* buffer(int id) const;
+    uint16_t *buffer(int id);
+    const uint16_t *buffer(int id) const;
     // Where a buffer's pixels are kept: colour buffers in slots 0-2 (a swap
     // changes which slot is the front, not the pixels), the auxiliary
     // buffer in slot 3; -1 if there's no such buffer. A renderer that keeps
     // its own copies (the GPU's) keeps them by slot.
     static constexpr int kSlots = 4;
     int slotOf(int id) const;
-    uint16_t* slotPixels(int slot);
+    uint16_t *slotPixels(int slot);
     // TMU memory written from outside a download (a renderer's copy, a
     // comparison's), the renderer told.
-    void writeTmuMemory(int tmu, uint32_t at, const uint8_t* data, size_t bytes);
+    void writeTmuMemory(int tmu, uint32_t at, const uint8_t *data, size_t bytes);
     // Writes one pixel the linear frame buffer way (grLfbLock's pointer,
     // grLfbWriteRegion): `value` in write mode `mode` (32-bit modes in
     // ARGB order), at (x, y) from the top left. Through the pixel pipeline
@@ -412,7 +412,7 @@ public:
     // The front buffer as the monitor would show it: widened to 8 bits a
     // channel, through the gamma table. outputFilter, if set, takes over
     // the conversion (a later Voodoo2/3 video filter belongs there).
-    void present(Surface& out);
+    void present(Surface &out);
     using GammaTables = std::array<std::array<uint8_t, 256>, 3>; // red, green, blue
     // grLoadGammaTable: the hardware table's first `n` entries per channel
     // (0-255), the rest kept; the table has the board's
@@ -420,9 +420,9 @@ public:
     // Reference Manual: values "interpolated to generate an output gamma
     // value"; the Voodoo2's clutData). A gamma value (state().gamma) set
     // afterwards replaces it (setGammaValue).
-    void loadGammaTable(int n, const uint32_t* r, const uint32_t* g, const uint32_t* b);
+    void loadGammaTable(int n, const uint32_t *r, const uint32_t *g, const uint32_t *b);
     void setGammaValue() { gammaLoaded_ = false; }
-    std::function<void(const uint16_t* pixels, int width, int height, const GammaTables& gamma, Surface& out)>
+    std::function<void(const uint16_t *pixels, int width, int height, const GammaTables &gamma, Surface &out)>
         outputFilter;
 
     PixelStats stats;

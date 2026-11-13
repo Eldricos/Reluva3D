@@ -14,15 +14,15 @@ namespace reluva::idtech3::botlib {
 namespace {
 
 // Punctuation, longest first so the longest match wins.
-const char* const kPunctuation[] = {">>=", "<<=", "...", "##", "&&", "||", ">=", "<=", "==", "!=", "*=", "/=", "%=",
-                                    "+=", "-=", "++", "--", "&=", "|=", "^=", ">>", "<<", "->", "::", ".*", ";", ",",
-                                    "(", ")", "{", "}", "[", "]", "#", "$", "+", "-", "*", "/", "%", "&", "|", "^",
-                                    "~", "!", "=", "<", ">", "?", ":", ".", "\\", "@", "`"};
+const char *const kPunctuation[] = {
+    ">>=", "<<=", "...", "##", "&&", "||", ">=", "<=", "==", "!=", "*=", "/=", "%=", "+=", "-=", "++", "--", "&=",
+    "|=",  "^=",  ">>",  "<<", "->", "::", ".*", ";",  ",",  "(",  ")",  "{",  "}",  "[",  "]",  "#",  "$",  "+",
+    "-",   "*",   "/",   "%",  "&",  "|",  "^",  "~",  "!",  "=",  "<",  ">",  "?",  ":",  ".",  "\\", "@",  "`"};
 
-const char* const kEndOfLine = "\n#end"; // marks the end of a directive's tokens
+const char *const kEndOfLine = "\n#end"; // marks the end of a directive's tokens
 
 // Splits a file's text into tokens, with their lines.
-bool lex(const std::string& name, const std::string& s, std::vector<BotToken>& out, std::string& error) {
+bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &out, std::string &error) {
     size_t i = 0;
     int line = 1;
     bool lineStart = true, space = true;
@@ -40,7 +40,8 @@ bool lex(const std::string& name, const std::string& s, std::vector<BotToken>& o
             continue;
         }
         // A backslash ending a line carries it on.
-        if (c == '\\' && (i + 1 < s.size()) && (s[i + 1] == '\n' || (s[i + 1] == '\r' && i + 2 < s.size() && s[i + 2] == '\n'))) {
+        if (c == '\\' && (i + 1 < s.size()) &&
+            (s[i + 1] == '\n' || (s[i + 1] == '\r' && i + 2 < s.size() && s[i + 2] == '\n'))) {
             i += s[i + 1] == '\n' ? 2 : 3;
             ++line;
             space = true;
@@ -84,13 +85,27 @@ bool lex(const std::string& name, const std::string& s, std::vector<BotToken>& o
                     if (s[i] == '\\' && i + 1 < s.size()) {
                         ++i;
                         switch (s[i]) {
-                        case 'n': t.text += '\n'; break;
-                        case 'r': t.text += '\r'; break;
-                        case 't': t.text += '\t'; break;
-                        case 'v': t.text += '\v'; break;
-                        case 'b': t.text += '\b'; break;
-                        case 'f': t.text += '\f'; break;
-                        case 'a': t.text += '\a'; break;
+                        case 'n':
+                            t.text += '\n';
+                            break;
+                        case 'r':
+                            t.text += '\r';
+                            break;
+                        case 't':
+                            t.text += '\t';
+                            break;
+                        case 'v':
+                            t.text += '\v';
+                            break;
+                        case 'b':
+                            t.text += '\b';
+                            break;
+                        case 'f':
+                            t.text += '\f';
+                            break;
+                        case 'a':
+                            t.text += '\a';
+                            break;
                         case 'x': {
                             int v = 0;
                             while (i + 1 < s.size() && std::isxdigit(static_cast<unsigned char>(s[i + 1])))
@@ -164,7 +179,8 @@ bool lex(const std::string& name, const std::string& s, std::vector<BotToken>& o
             }
             t.text = s.substr(start, i - start);
             // Suffixes (f, l, u) left off.
-            while (i < s.size() && (s[i] == 'f' || s[i] == 'F' || s[i] == 'l' || s[i] == 'L' || s[i] == 'u' || s[i] == 'U'))
+            while (i < s.size() &&
+                   (s[i] == 'f' || s[i] == 'F' || s[i] == 'l' || s[i] == 'L' || s[i] == 'u' || s[i] == 'U'))
                 ++i;
             out.push_back(std::move(t));
             continue;
@@ -177,7 +193,7 @@ bool lex(const std::string& name, const std::string& s, std::vector<BotToken>& o
             continue;
         }
         t.type = BotToken::Type::Punctuation;
-        for (const char* p : kPunctuation)
+        for (const char *p : kPunctuation)
             if (s.compare(i, std::char_traits<char>::length(p), p) == 0) {
                 t.text = p;
                 break;
@@ -205,14 +221,14 @@ struct BotScript::Macro {
     std::vector<BotToken> body;
 };
 
-BotScript::BotScript(Loader load, const std::vector<std::string>& defines) : load_(std::move(load)) {
-    for (const std::string& d : defines)
+BotScript::BotScript(Loader load, const std::vector<std::string> &defines) : load_(std::move(load)) {
+    for (const std::string &d : defines)
         define(d);
 }
 
 BotScript::~BotScript() = default;
 
-void BotScript::define(const std::string& line) {
+void BotScript::define(const std::string &line) {
     std::vector<BotToken> tokens;
     std::string error;
     if (!lex("(define)", line, tokens, error) || tokens.empty() || tokens[0].type != BotToken::Type::Name)
@@ -222,7 +238,7 @@ void BotScript::define(const std::string& line) {
     macros_[tokens[0].text] = m;
 }
 
-bool BotScript::open(const std::string& path) {
+bool BotScript::open(const std::string &path) {
     std::string text;
     if (!load_ || !load_(path, text)) {
         fail("couldn't load " + path);
@@ -232,7 +248,7 @@ bool BotScript::open(const std::string& path) {
     return error_.empty();
 }
 
-void BotScript::openText(const std::string& name, const std::string& text) {
+void BotScript::openText(const std::string &name, const std::string &text) {
     auto source = std::make_unique<Source>();
     std::string error;
     if (!lex(name, text, source->tokens, error)) {
@@ -243,21 +259,23 @@ void BotScript::openText(const std::string& name, const std::string& text) {
     sources_.push_back(std::move(source));
 }
 
-void BotScript::fail(const std::string& message) {
+void BotScript::fail(const std::string &message) {
     if (error_.empty())
         error_ = where() + ": " + message;
 }
 
-std::string BotScript::where() const { return last_.file + ":" + std::to_string(last_.line); }
+std::string BotScript::where() const {
+    return last_.file + ":" + std::to_string(last_.line);
+}
 
-bool BotScript::raw(BotToken& token) {
+bool BotScript::raw(BotToken &token) {
     if (!pushed_.empty()) {
         token = pushed_.back();
         pushed_.pop_back();
         return true;
     }
     while (!sources_.empty()) {
-        Source& s = *sources_.back();
+        Source &s = *sources_.back();
         if (s.pos < s.tokens.size()) {
             token = s.tokens[s.pos++];
             if (!s.file)
@@ -270,11 +288,15 @@ bool BotScript::raw(BotToken& token) {
     return false;
 }
 
-bool BotScript::skipping() const { return !conditionals_.empty() && !conditionals_.back().taking; }
+bool BotScript::skipping() const {
+    return !conditionals_.empty() && !conditionals_.back().taking;
+}
 
-void BotScript::unread(const BotToken& token) { pushed_.push_back(token); }
+void BotScript::unread(const BotToken &token) {
+    pushed_.push_back(token);
+}
 
-bool BotScript::readLine(std::vector<BotToken>& out) {
+bool BotScript::readLine(std::vector<BotToken> &out) {
     // The rest of a directive's line: up to a token starting a line, or
     // the end of the file it's in.
     while (true) {
@@ -284,7 +306,7 @@ bool BotScript::readLine(std::vector<BotToken>& out) {
         } else {
             if (sources_.empty())
                 break;
-            const Source& s = *sources_.back();
+            const Source &s = *sources_.back();
             if (s.pos >= s.tokens.size() || (s.file && s.tokens[s.pos].lineStart))
                 break;
         }
@@ -296,7 +318,7 @@ bool BotScript::readLine(std::vector<BotToken>& out) {
     return true;
 }
 
-bool BotScript::next(BotToken& token) {
+bool BotScript::next(BotToken &token) {
     while (error_.empty()) {
         if (!raw(token))
             return false;
@@ -309,7 +331,8 @@ bool BotScript::next(BotToken& token) {
             continue;
         if (token.is("$")) {
             BotToken name;
-            if (raw(name) && name.type == BotToken::Type::Name && (name.text == "evalint" || name.text == "evalfloat")) {
+            if (raw(name) && name.type == BotToken::Type::Name &&
+                (name.text == "evalint" || name.text == "evalfloat")) {
                 // $evalint(expression), $evalfloat(expression): the value.
                 BotToken t;
                 if (!next(t) || !t.is("(")) {
@@ -342,7 +365,7 @@ bool BotScript::next(BotToken& token) {
         if (token.type == BotToken::Type::Name) {
             if (const auto it = macros_.find(token.text); it != macros_.end()) {
                 bool active = false;
-                for (const auto& s : sources_)
+                for (const auto &s : sources_)
                     active |= !s->file && s->macro == token.text && s->pos <= s->tokens.size();
                 if (!active) {
                     if (!expand(token, *it->second))
@@ -356,7 +379,7 @@ bool BotScript::next(BotToken& token) {
     return false;
 }
 
-bool BotScript::expand(const BotToken& name, const Macro& m) {
+bool BotScript::expand(const BotToken &name, const Macro &m) {
     std::vector<std::vector<BotToken>> args;
     if (m.function) {
         BotToken t;
@@ -395,7 +418,7 @@ bool BotScript::expand(const BotToken& name, const Macro& m) {
             return false;
         }
     }
-    auto param = [&](const std::string& text) -> int {
+    auto param = [&](const std::string &text) -> int {
         for (size_t i = 0; i < m.params.size(); ++i)
             if (m.params[i] == text)
                 return int(i);
@@ -403,27 +426,27 @@ bool BotScript::expand(const BotToken& name, const Macro& m) {
     };
     std::vector<BotToken> out;
     for (size_t i = 0; i < m.body.size(); ++i) {
-        const BotToken& t = m.body[i];
+        const BotToken &t = m.body[i];
         if (m.function && t.is("#") && i + 1 < m.body.size() && param(m.body[i + 1].text) >= 0) {
             // #param: the argument as a string.
             BotToken s = t;
             s.type = BotToken::Type::String;
             s.text.clear();
-            for (const BotToken& a : args[size_t(param(m.body[++i].text))])
+            for (const BotToken &a : args[size_t(param(m.body[++i].text))])
                 s.text += (s.text.empty() || !a.spaceBefore ? "" : " ") + a.text;
             out.push_back(s);
             continue;
         }
         if (t.is("##") && !out.empty() && i + 1 < m.body.size()) {
             // a ## b: the two pasted into one.
-            const BotToken& n = m.body[++i];
+            const BotToken &n = m.body[++i];
             std::string text = n.text;
             if (const int p = param(n.text); p >= 0) {
                 text.clear();
-                for (const BotToken& a : args[size_t(p)])
+                for (const BotToken &a : args[size_t(p)])
                     text += a.text;
             }
-            BotToken& l = out.back();
+            BotToken &l = out.back();
             l.text += text;
             const bool digits = !l.text.empty() && std::isdigit(static_cast<unsigned char>(l.text[0]));
             l.type = digits ? BotToken::Type::Number : BotToken::Type::Name;
@@ -461,8 +484,8 @@ bool BotScript::directive() {
         return true; // a lone #
     const BotToken name = words.front();
     std::vector<BotToken> line(words.begin() + 1, words.end());
-    const std::string& d = name.text;
-    auto condition = [&](bool& value) {
+    const std::string &d = name.text;
+    auto condition = [&](bool &value) {
         // `defined NAME` and `defined(NAME)` answered before the macros
         // are expanded, then the line evaluated.
         std::vector<BotToken> tokens;
@@ -562,7 +585,7 @@ bool BotScript::directive() {
             fail("#include without a file name");
             return false;
         }
-        for (char& c : path)
+        for (char &c : path)
             if (c == '\\')
                 c = '/';
         return open(path);
@@ -593,7 +616,7 @@ bool BotScript::directive() {
     }
     if (d == "error") {
         std::string text;
-        for (const BotToken& t : line)
+        for (const BotToken &t : line)
             text += t.text + " ";
         fail("#error " + text);
         return false;
@@ -602,7 +625,7 @@ bool BotScript::directive() {
     return true;
 }
 
-bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, bool& isFloat) {
+bool BotScript::evaluate(const std::vector<BotToken> &tokens, double &value, bool &isFloat) {
     // Recursive descent over C's operators, by precedence.
     size_t i = 0;
     bool ok = true;
@@ -613,7 +636,7 @@ bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, boo
             ok = false;
             return 0;
         }
-        const BotToken& t = tokens[i++];
+        const BotToken &t = tokens[i++];
         if (t.is("-"))
             return -unary();
         if (t.is("+"))
@@ -642,16 +665,16 @@ bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, boo
         return 0;
     };
     struct Op {
-        const char* text;
+        const char *text;
         int precedence;
     };
-    static const Op ops[] = {{"||", 1}, {"&&", 2}, {"|", 3},  {"^", 4},  {"&", 5},  {"==", 6}, {"!=", 6},
-                             {"<", 7},  {"<=", 7}, {">", 7},  {">=", 7}, {"<<", 8}, {">>", 8}, {"+", 9},
-                             {"-", 9},  {"*", 10}, {"/", 10}, {"%", 10}};
+    static const Op ops[] = {{"||", 1}, {"&&", 2}, {"|", 3},  {"^", 4},  {"&", 5},  {"==", 6},
+                             {"!=", 6}, {"<", 7},  {"<=", 7}, {">", 7},  {">=", 7}, {"<<", 8},
+                             {">>", 8}, {"+", 9},  {"-", 9},  {"*", 10}, {"/", 10}, {"%", 10}};
     binary = [&](int minimum) -> double {
         double left = unary();
         while (ok && i < tokens.size()) {
-            const BotToken& t = tokens[i];
+            const BotToken &t = tokens[i];
             if (t.is("?") && minimum == 0) {
                 ++i;
                 const double a = binary(0);
@@ -661,8 +684,8 @@ bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, boo
                 left = left != 0 ? a : b;
                 continue;
             }
-            const Op* op = nullptr;
-            for (const Op& o : ops)
+            const Op *op = nullptr;
+            for (const Op &o : ops)
                 if (t.is(o.text))
                     op = &o;
             if (!op || op->precedence <= minimum)
@@ -671,24 +694,42 @@ bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, boo
             const double right = binary(op->precedence);
             const std::string o = op->text;
             const auto li = int64_t(left), ri = int64_t(right);
-            if (o == "||") left = left != 0 || right != 0;
-            else if (o == "&&") left = left != 0 && right != 0;
-            else if (o == "|") left = double(li | ri);
-            else if (o == "^") left = double(li ^ ri);
-            else if (o == "&") left = double(li & ri);
-            else if (o == "==") left = left == right;
-            else if (o == "!=") left = left != right;
-            else if (o == "<") left = left < right;
-            else if (o == "<=") left = left <= right;
-            else if (o == ">") left = left > right;
-            else if (o == ">=") left = left >= right;
-            else if (o == "<<") left = double(li << ri);
-            else if (o == ">>") left = double(li >> ri);
-            else if (o == "+") left = left + right;
-            else if (o == "-") left = left - right;
-            else if (o == "*") left = left * right;
-            else if (o == "/") left = right == 0 ? 0 : isFloat ? left / right : double(li / (ri ? ri : 1));
-            else if (o == "%") left = ri == 0 ? 0 : double(li % ri);
+            if (o == "||")
+                left = left != 0 || right != 0;
+            else if (o == "&&")
+                left = left != 0 && right != 0;
+            else if (o == "|")
+                left = double(li | ri);
+            else if (o == "^")
+                left = double(li ^ ri);
+            else if (o == "&")
+                left = double(li & ri);
+            else if (o == "==")
+                left = left == right;
+            else if (o == "!=")
+                left = left != right;
+            else if (o == "<")
+                left = left < right;
+            else if (o == "<=")
+                left = left <= right;
+            else if (o == ">")
+                left = left > right;
+            else if (o == ">=")
+                left = left >= right;
+            else if (o == "<<")
+                left = double(li << ri);
+            else if (o == ">>")
+                left = double(li >> ri);
+            else if (o == "+")
+                left = left + right;
+            else if (o == "-")
+                left = left - right;
+            else if (o == "*")
+                left = left * right;
+            else if (o == "/")
+                left = right == 0 ? 0 : isFloat ? left / right : double(li / (ri ? ri : 1));
+            else if (o == "%")
+                left = ri == 0 ? 0 : double(li % ri);
         }
         return left;
     };
@@ -700,7 +741,7 @@ bool BotScript::evaluate(const std::vector<BotToken>& tokens, double& value, boo
     return true;
 }
 
-bool BotScript::check(const char* text) {
+bool BotScript::check(const char *text) {
     BotToken t;
     if (!next(t))
         return false;
@@ -710,7 +751,7 @@ bool BotScript::check(const char* text) {
     return false;
 }
 
-bool BotScript::expect(const char* text) {
+bool BotScript::expect(const char *text) {
     BotToken t;
     if (!next(t)) {
         fail(std::string("expected ") + text + " at the end");
@@ -723,7 +764,7 @@ bool BotScript::expect(const char* text) {
     return true;
 }
 
-bool BotScript::readNumber(double& value, bool* isFloat) {
+bool BotScript::readNumber(double &value, bool *isFloat) {
     BotToken t;
     if (!next(t)) {
         fail("expected a number at the end");
@@ -747,7 +788,7 @@ bool BotScript::readNumber(double& value, bool* isFloat) {
     return true;
 }
 
-bool BotScript::readString(std::string& value) {
+bool BotScript::readString(std::string &value) {
     BotToken t;
     if (!next(t) || t.type != BotToken::Type::String) {
         fail("expected a string" + (t.text.empty() ? std::string() : ", found " + t.text));

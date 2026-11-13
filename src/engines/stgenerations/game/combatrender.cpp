@@ -32,7 +32,7 @@ uint32_t addColour(uint32_t a, uint32_t b) {
 } // namespace
 
 void Mat3::rotate(double yaw, double pitch, double roll) {
-    auto turn = [](Vec3& a, Vec3& b, double angle) {
+    auto turn = [](Vec3 &a, Vec3 &b, double angle) {
         double c = std::cos(angle), s = std::sin(angle);
         Vec3 na = a * c + b * s, nb = b * c - a * s;
         a = na;
@@ -57,7 +57,7 @@ Mat3 Mat3::fromYawPitch(double yaw, double pitch) {
     return lookAlong(forward);
 }
 
-Mat3 Mat3::lookAlong(const Vec3& forward, const Vec3& upHint) {
+Mat3 Mat3::lookAlong(const Vec3 &forward, const Vec3 &upHint) {
     Mat3 m;
     m.forward = forward.normalized();
     Vec3 hint = std::fabs(m.forward.dot(upHint.normalized())) > 0.99 ? Vec3(0, 0, 1) : upHint;
@@ -73,19 +73,19 @@ void CombatRenderer::setViewport(int w, int h, double fovDegrees) {
     _depth.assign((size_t)w * h, 1e30f);
 }
 
-void CombatRenderer::setCamera(const Vec3& position, const Mat3& orientation) {
+void CombatRenderer::setCamera(const Vec3 &position, const Mat3 &orientation) {
     _cameraPos = position;
     _camera = orientation;
 }
 
-void CombatRenderer::begin(Canvas& target, int x, int y) {
+void CombatRenderer::begin(Canvas &target, int x, int y) {
     _target = &target;
     _ox = x;
     _oy = y;
     std::fill(_depth.begin(), _depth.end(), 1e30f);
 }
 
-bool CombatRenderer::project(const Vec3& world, double& sx, double& sy, double& depth) const {
+bool CombatRenderer::project(const Vec3 &world, double &sx, double &sy, double &depth) const {
     Vec3 v = _camera.inverse(world - _cameraPos);
     depth = v.z;
     if (v.z < kNear)
@@ -98,28 +98,28 @@ bool CombatRenderer::project(const Vec3& world, double& sx, double& sy, double& 
 void CombatRenderer::plot(int x, int y, uint32_t colour) {
     if (!_target || x < 0 || y < 0 || x >= _w || y >= _h)
         return;
-    *(uint32_t*)_target->getBasePtr(_ox + x, _oy + y) = colour;
+    *(uint32_t *)_target->getBasePtr(_ox + x, _oy + y) = colour;
 }
 
-void CombatRenderer::drawModel(const Model3D& model, const std::vector<CombatMaterial>& materials,
-                               const TextureLookup& textures, const Vec3& position, const Mat3& orientation,
+void CombatRenderer::drawModel(const Model3D &model, const std::vector<CombatMaterial> &materials,
+                               const TextureLookup &textures, const Vec3 &position, const Mat3 &orientation,
                                double scale) {
     if (!_target)
         return;
     Vec3 light = Vec3(0, 1, 1).normalized(); // towards the light at (0, -1, -1)
-    for (const Model3D::Part& part : model.parts) {
+    for (const Model3D::Part &part : model.parts) {
         std::vector<Vec3> view(part.vertices.size());
         for (size_t i = 0; i < part.vertices.size(); i++) {
-            const Model3D::Vertex& v = part.vertices[i];
+            const Model3D::Vertex &v = part.vertices[i];
             Vec3 world = position + orientation.apply(Vec3(v.x, v.y, v.z) * scale);
             view[i] = _camera.inverse(world - _cameraPos);
         }
-        for (const Model3D::Triangle& t : part.triangles) {
+        for (const Model3D::Triangle &t : part.triangles) {
             // The top bit of a face's material is a flag (shields, debris,
             // the phaser beam); the rest is the index.
             uint16_t index = t.material & 0x7FFF;
-            const CombatMaterial* m = index < materials.size() ? &materials[index] : nullptr;
-            const CombatImage* texture =
+            const CombatMaterial *m = index < materials.size() ? &materials[index] : nullptr;
+            const CombatImage *texture =
                 m && part.textured && !m->texture.empty() && (m->flags & 3) != 3 ? textures(m->texture) : nullptr;
             Vec3 normal = orientation.apply(Vec3(t.nx, t.ny, t.nz));
             double shade = kAmbient + (1 - kAmbient) * std::max(0.0, normal.dot(light));
@@ -134,7 +134,7 @@ void CombatRenderer::drawModel(const Model3D& model, const std::vector<CombatMat
                     continue;
             }
             ClipVertex v[3];
-            const uint16_t idx[3] = { t.a, t.b, t.c };
+            const uint16_t idx[3] = {t.a, t.b, t.c};
             for (int k = 0; k < 3; k++) {
                 v[k].view = view[idx[k]];
                 v[k].u = part.vertices[idx[k]].u;
@@ -145,13 +145,13 @@ void CombatRenderer::drawModel(const Model3D& model, const std::vector<CombatMat
     }
 }
 
-void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatImage* texture, uint32_t colour,
+void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatImage *texture, uint32_t colour,
                                   double shade, bool keyBlack, bool blend) {
     // Clip against the near plane.
     ClipVertex poly[8];
     int n = 0;
     for (int i = 0; i < count; i++) {
-        const ClipVertex& a = in[i], &b = in[(i + 1) % count];
+        const ClipVertex &a = in[i], &b = in[(i + 1) % count];
         bool aIn = a.view.z >= kNear, bIn = b.view.z >= kNear;
         if (aIn)
             poly[n++] = a;
@@ -180,7 +180,7 @@ void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatI
     }
     uint32_t flat = shadeColour(colour, shade);
     for (int f = 1; f + 1 < n; f++) {
-        const Screen& a = s[0], &b = s[f], &c = s[f + 1];
+        const Screen &a = s[0], &b = s[f], &c = s[f + 1];
         double area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if (std::fabs(area) < 1e-6)
             continue;
@@ -193,8 +193,8 @@ void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatI
         double inv = 1 / area;
         for (int y = y0; y <= y1; y++) {
             double py = y + 0.5;
-            uint32_t* row = (uint32_t*)_target->getBasePtr(_ox, _oy + y);
-            float* depth = &_depth[(size_t)y * _w];
+            uint32_t *row = (uint32_t *)_target->getBasePtr(_ox, _oy + y);
+            float *depth = &_depth[(size_t)y * _w];
             for (int x = x0; x <= x1; x++) {
                 double px = x + 0.5;
                 double w0 = ((b.x - px) * (c.y - py) - (b.y - py) * (c.x - px)) * inv;
@@ -228,8 +228,8 @@ void CombatRenderer::drawTriangle(const ClipVertex* in, int count, const CombatI
     }
 }
 
-void CombatRenderer::drawBillboard(const Vec3& world, double size, int w, int h,
-                                   const std::function<uint32_t(int, int)>& pixel, bool additive) {
+void CombatRenderer::drawBillboard(const Vec3 &world, double size, int w, int h,
+                                   const std::function<uint32_t(int, int)> &pixel, bool additive) {
     double sx, sy, depth;
     if (!_target || !project(world, sx, sy, depth))
         return;
@@ -237,7 +237,7 @@ void CombatRenderer::drawBillboard(const Vec3& world, double size, int w, int h,
     int dw = std::max(1, (int)pixels), dh = std::max(1, (int)(pixels * h / std::max(1, w)));
     int x0 = (int)(sx - dw / 2.0), y0 = (int)(sy - dh / 2.0);
     for (int y = std::max(0, y0); y < std::min(_h, y0 + dh); y++) {
-        uint32_t* row = (uint32_t*)_target->getBasePtr(_ox, _oy + y);
+        uint32_t *row = (uint32_t *)_target->getBasePtr(_ox, _oy + y);
         for (int x = std::max(0, x0); x < std::min(_w, x0 + dw); x++) {
             if (depth > _depth[(size_t)y * _w + x])
                 continue;
@@ -249,7 +249,7 @@ void CombatRenderer::drawBillboard(const Vec3& world, double size, int w, int h,
     }
 }
 
-void CombatRenderer::drawLine(const Vec3& a, const Vec3& b, uint32_t colour, int thickness) {
+void CombatRenderer::drawLine(const Vec3 &a, const Vec3 &b, uint32_t colour, int thickness) {
     // Clip the line to the near plane, then step along it.
     Vec3 va = _camera.inverse(a - _cameraPos), vb = _camera.inverse(b - _cameraPos);
     if (va.z < kNear && vb.z < kNear)

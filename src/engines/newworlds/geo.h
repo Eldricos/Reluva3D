@@ -18,11 +18,11 @@ struct GeoModel {
         float x, y, z;
     };
     struct Corner {
-        uint32_t vertex;    // index into the face's part's vertices
-        float u, v;         // texture coordinates, 0..1
-        uint32_t extra[5];  // extra[0]: the corner's normal, in the part's second
-                            // normal list; in parts above 0, extra[4] is the part
-                            // number except in a face's last corner
+        uint32_t vertex;   // index into the face's part's vertices
+        float u, v;        // texture coordinates, 0..1
+        uint32_t extra[5]; // extra[0]: the corner's normal, in the part's second
+                           // normal list; in parts above 0, extra[4] is the part
+                           // number except in a face's last corner
     };
     struct Face {
         uint32_t groupA = 0, groupB = 0; // header values: the previous face's part, and unknown
@@ -44,7 +44,7 @@ struct GeoModel {
     // A named point (a turret's axis, a gun's muzzle, a docking point); the
     // .mdl names them in order (see docs/engines/newworlds/mdl.md).
     struct Attachment {
-        float frame[10];  // its orientation (9 floats, row by row) and a scale (1), as in .arf frames
+        float frame[10]; // its orientation (9 floats, row by row) and a scale (1), as in .arf frames
         Vec3 position;
     };
 
@@ -56,7 +56,7 @@ struct GeoModel {
     std::vector<Part> parts;
 };
 
-Error parseGeo(const std::vector<uint8_t>& data, GeoModel& out);
+Error parseGeo(const std::vector<uint8_t> &data, GeoModel &out);
 
 // A ground tile model's heights along its four sides (0 east, 1 north,
 // 2 west, 3 south, after turning it rotation quarter turns anticlockwise),
@@ -68,6 +68,6 @@ struct TileSides {
     float z[4][5] = {};
 };
 constexpr float kGroundTileSize = 8192; // ground models span -4096..4096 in x and y
-TileSides tileSides(const GeoModel& geo, int rotation);
+TileSides tileSides(const GeoModel &geo, int rotation);
 
 } // namespace reluva::newworlds

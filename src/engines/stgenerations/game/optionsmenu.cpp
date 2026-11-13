@@ -11,7 +11,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-const char* const kArchive = "OPTIONS.DAT";
+const char *const kArchive = "OPTIONS.DAT";
 
 // The panels' corner on the screen.
 const int kPanelX = 227, kPanelY = 29;
@@ -31,48 +31,37 @@ const int kKeyHighX = -3, kKeyHighY = -6;
 
 // Rectangles from 0x47DCBB; panel widgets are relative to the panel.
 const OptionsMenu::WidgetInfo OptionsMenu::kWidgets[kWidgetCount] = {
-    { "LOAD.BMP", 3, Rect(107, 32, 227, 59), false },
-    { "SAVE.BMP", 3, Rect(107, 62, 227, 89), false },
-    { "NEW.BMP", 3, Rect(107, 92, 227, 119), false },
-    { "QUIT.BMP", 3, Rect(107, 122, 227, 149), false },
-    { "SETTINGS.BMP", 3, Rect(107, 152, 227, 179), false },
-    { "CONTROLS.BMP", 3, Rect(107, 182, 227, 209), false },
-    { "RETURN.BMP", 3, Rect(378, 389, 542, 422), false },
-    { "ACCEPT.BMP", 2, Rect(378, 389, 460, 422), false },
-    { "CANCEL.BMP", 2, Rect(459, 389, 541, 422), false },
-    { "AUTOSAVE.BMP", 1, Rect(6, 303, 231, 331), true },
-    { "DIFFICUL.BMP", 3, Rect(3, 182, 151, 211), true },
-    { "DIF-OPS.BMP", 3, Rect(151, 182, 234, 211), true },
-    { "WINDOW.BMP", 2, Rect(3, 212, 151, 241), true },
-    { "WIN-OPS.BMP", 2, Rect(151, 212, 234, 241), true },
-    { "SUBTITL.BMP", 2, Rect(3, 242, 151, 271), true },
-    { "SUB-OPS.BMP", 2, Rect(151, 242, 234, 271), true },
-    { "STARBTTN.BMP", 2, Rect(170, 0, 319, 32), true },
-    { "AWAYBTTN.BMP", 2, Rect(3, 0, 152, 32), true },
-    { "LKSPRING.BMP", 2, Rect(171, 300, 285, 333), true },
-    { "LKSONOFF.BMP", 2, Rect(286, 300, 316, 333), true }
-};
+    {"LOAD.BMP", 3, Rect(107, 32, 227, 59), false},       {"SAVE.BMP", 3, Rect(107, 62, 227, 89), false},
+    {"NEW.BMP", 3, Rect(107, 92, 227, 119), false},       {"QUIT.BMP", 3, Rect(107, 122, 227, 149), false},
+    {"SETTINGS.BMP", 3, Rect(107, 152, 227, 179), false}, {"CONTROLS.BMP", 3, Rect(107, 182, 227, 209), false},
+    {"RETURN.BMP", 3, Rect(378, 389, 542, 422), false},   {"ACCEPT.BMP", 2, Rect(378, 389, 460, 422), false},
+    {"CANCEL.BMP", 2, Rect(459, 389, 541, 422), false},   {"AUTOSAVE.BMP", 1, Rect(6, 303, 231, 331), true},
+    {"DIFFICUL.BMP", 3, Rect(3, 182, 151, 211), true},    {"DIF-OPS.BMP", 3, Rect(151, 182, 234, 211), true},
+    {"WINDOW.BMP", 2, Rect(3, 212, 151, 241), true},      {"WIN-OPS.BMP", 2, Rect(151, 212, 234, 241), true},
+    {"SUBTITL.BMP", 2, Rect(3, 242, 151, 271), true},     {"SUB-OPS.BMP", 2, Rect(151, 242, 234, 271), true},
+    {"STARBTTN.BMP", 2, Rect(170, 0, 319, 32), true},     {"AWAYBTTN.BMP", 2, Rect(3, 0, 152, 32), true},
+    {"LKSPRING.BMP", 2, Rect(171, 300, 285, 333), true},  {"LKSONOFF.BMP", 2, Rect(286, 300, 316, 333), true}};
 
-OptionsMenu::OptionsMenu(const ResourceManager& resources) : _resources(resources) {
+OptionsMenu::OptionsMenu(const ResourceManager &resources) : _resources(resources) {
     _slots.resize(kSlots + 1);
 }
 
-const FramedImage* OptionsMenu::image(const std::string& name, int frames) {
+const FramedImage *OptionsMenu::image(const std::string &name, int frames) {
     auto it = _images.find(name);
     if (it != _images.end())
         return it->second.get();
     std::unique_ptr<FramedImage> result;
     BitmapDecoder decoder;
-    if (_resources.loadImage({ kArchive, name }, decoder) && decoder.hasPalette()) {
+    if (_resources.loadImage({kArchive, name}, decoder) && decoder.hasPalette()) {
         result.reset(new FramedImage());
         result->set(decoder, _palette, -frames);
     }
-    const FramedImage* found = result.get();
+    const FramedImage *found = result.get();
     _images[name] = std::move(result);
     return found;
 }
 
-const FramedImage* OptionsMenu::find(const std::string& name) const {
+const FramedImage *OptionsMenu::find(const std::string &name) const {
     auto it = _images.find(name);
     return it == _images.end() ? nullptr : it->second.get();
 }
@@ -80,7 +69,7 @@ const FramedImage* OptionsMenu::find(const std::string& name) const {
 bool OptionsMenu::load() {
     // Every picture is matched to the menu's own palette.
     BitmapDecoder decoder;
-    if (!_resources.loadImage({ kArchive, "CAPTAINS.BMP" }, decoder) || !decoder.hasPalette())
+    if (!_resources.loadImage({kArchive, "CAPTAINS.BMP"}, decoder) || !decoder.hasPalette())
         return false;
     _palette = decoder.getPalette();
     for (int i = 0; i < 256; i++) {
@@ -90,20 +79,20 @@ bool OptionsMenu::load() {
     }
     _images.clear();
     image("CAPTAINS.BMP");
-    for (const WidgetInfo& w : kWidgets)
+    for (const WidgetInfo &w : kWidgets)
         image(w.image, w.frames);
-    for (const char* name : { "OPTSAVE.BMP", "OPTSET.BMP", "OPTNEW.BMP", "OPTQUIT.BMP", "AWAY.BMP", "STARSHIP.BMP",
-                              "NAMEBAR.BMP", "VOL-ON.BMP", "KEYHIGH.BMP" })
+    for (const char *name : {"OPTSAVE.BMP", "OPTSET.BMP", "OPTNEW.BMP", "OPTQUIT.BMP", "AWAY.BMP", "STARSHIP.BMP",
+                             "NAMEBAR.BMP", "VOL-ON.BMP", "KEYHIGH.BMP"})
         image(name);
     image("SAVELOAD.BMP", 4);
 
-    std::unique_ptr<SeekableReadStream> font = _resources.open({ kArchive, "OPTIONS.FNT" });
+    std::unique_ptr<SeekableReadStream> font = _resources.open({kArchive, "OPTIONS.FNT"});
     if (font)
         _font.load(*font);
     return find("CAPTAINS.BMP") != nullptr;
 }
 
-void OptionsMenu::open(const GameSettings& settings, bool canReturn, bool canSave, bool canChangeDifficulty) {
+void OptionsMenu::open(const GameSettings &settings, bool canReturn, bool canSave, bool canChangeDifficulty) {
     _settings = _working = settings;
     _encounter = false;
     _canReturn = canReturn;
@@ -218,7 +207,7 @@ void OptionsMenu::mouseUp(int x, int y) {
         click(pressed);
 }
 
-void OptionsMenu::keyDown(const KeyState& key) {
+void OptionsMenu::keyDown(const KeyState &key) {
     if (_captureCell >= 0) {
         // The original takes Escape as a key here too; this lets it cancel.
         if (key.keycode == reluva::key::Escape)
@@ -281,8 +270,8 @@ int OptionsMenu::hitCell(int x, int y) const {
 
 void OptionsMenu::fillCells() {
     for (int page = 0; page < 2; page++) {
-        const KeyMap& map = page ? _working.starshipKeys : _working.awayKeys;
-        const uint8_t* actions = page ? KeyMap::kStarshipPanel : KeyMap::kAwayPanel;
+        const KeyMap &map = page ? _working.starshipKeys : _working.awayKeys;
+        const uint8_t *actions = page ? KeyMap::kStarshipPanel : KeyMap::kAwayPanel;
         int count = page ? KeyMap::kStarshipActions : KeyMap::kAwayActions;
         for (int i = 0; i < count; i++)
             map.findKeys(actions[i], _cellKeys[page][2 * i], _cellKeys[page][2 * i + 1]);
@@ -300,8 +289,8 @@ void OptionsMenu::assignKey(int vk) {
         return;
     // 0x483CAB: the cell's old key does nothing now, the new key does the
     // cell's action, and any other cell showing the new key is cleared.
-    KeyMap& map = page ? _working.starshipKeys : _working.awayKeys;
-    int& cell = _cellKeys[page][_captureCell];
+    KeyMap &map = page ? _working.starshipKeys : _working.awayKeys;
+    int &cell = _cellKeys[page][_captureCell];
     if (cell >= 0)
         map.set(cell, KeyMap::kNone);
     map.set(vk, action);
@@ -434,7 +423,7 @@ bool OptionsMenu::clickPanel(int x, int y, bool drag) {
     int px = x - kPanelX, py = y - kPanelY;
     if (_panel == kPanelSettings) {
         for (int i = 0; i < 2; i++) {
-            const Rect& slider = i == 0 ? kEffectsSlider : kMusicSlider;
+            const Rect &slider = i == 0 ? kEffectsSlider : kMusicSlider;
             // While dragging, any height will do.
             if (px < slider.left - (drag ? 20 : 0) || px >= slider.right + (drag ? 20 : 0) ||
                 (!drag && (py < slider.top || py >= slider.bottom)))
@@ -472,8 +461,8 @@ bool OptionsMenu::clickPanel(int x, int y, bool drag) {
     return false;
 }
 
-void OptionsMenu::drawWidget(Canvas& screen, int widget, int frame) const {
-    const FramedImage* img = find(kWidgets[widget].image);
+void OptionsMenu::drawWidget(Canvas &screen, int widget, int frame) const {
+    const FramedImage *img = find(kWidgets[widget].image);
     if (!img)
         return;
     Rect r = screenRect(widget);
@@ -482,20 +471,20 @@ void OptionsMenu::drawWidget(Canvas& screen, int widget, int frame) const {
         // Dimmed: it does nothing here.
         r.clip(Rect(0, 0, screen.w, screen.h));
         for (int y = r.top; y < r.bottom; y++) {
-            uint8_t* row = (uint8_t*)screen.getBasePtr(0, y);
+            uint8_t *row = (uint8_t *)screen.getBasePtr(0, y);
             for (int x = r.left; x < r.right; x++)
                 row[x] = _dim[row[x]];
         }
     }
 }
 
-void OptionsMenu::drawText(Canvas& screen, const std::string& text, int x, int y) const {
+void OptionsMenu::drawText(Canvas &screen, const std::string &text, int x, int y) const {
     // The font is drawn in the menu's palette as it is.
     _font.drawString(screen, text, x, y);
 }
 
-void OptionsMenu::drawSlider(Canvas& screen, const Rect& rect, int value) const {
-    const FramedImage* on = find("VOL-ON.BMP");
+void OptionsMenu::drawSlider(Canvas &screen, const Rect &rect, int value) const {
+    const FramedImage *on = find("VOL-ON.BMP");
     if (!on)
         return;
     int lit = value + 1;
@@ -503,12 +492,12 @@ void OptionsMenu::drawSlider(Canvas& screen, const Rect& rect, int value) const 
         on->draw(screen, 0, kPanelX + rect.left + 2 + i * 7, kPanelY + rect.top);
 }
 
-void OptionsMenu::draw(Canvas& screen) const {
-    if (const FramedImage* background = find("CAPTAINS.BMP"))
+void OptionsMenu::draw(Canvas &screen) const {
+    if (const FramedImage *background = find("CAPTAINS.BMP"))
         background->draw(screen, 0, 0, 0);
 
     // The panel over the picture.
-    const char* panelImage = nullptr;
+    const char *panelImage = nullptr;
     switch (_panel) {
     case kPanelLoad:
     case kPanelSave:
@@ -530,17 +519,17 @@ void OptionsMenu::draw(Canvas& screen) const {
         break;
     }
     if (panelImage) {
-        if (const FramedImage* panel = find(panelImage))
+        if (const FramedImage *panel = find(panelImage))
             panel->draw(screen, 0, kPanelX, kPanelY);
     }
 
     if (_panel == kPanelLoad || _panel == kPanelSave) {
-        if (const FramedImage* title = find("SAVELOAD.BMP"))
+        if (const FramedImage *title = find("SAVELOAD.BMP"))
             // Load, Save, Save at start of current mission (unused: missions
             // are saved as they are), Save at start of current encounter.
             title->draw(screen, _panel == kPanelLoad ? 0 : _encounter ? 3 : 1, kPanelX + 3, kPanelY + 3);
         if (_selected >= 0) {
-            if (const FramedImage* bar = find("NAMEBAR.BMP"))
+            if (const FramedImage *bar = find("NAMEBAR.BMP"))
                 bar->draw(screen, 0, kPanelX + 4, kPanelY + kSlotTop + kSlotPitch * _selected - 3,
                           FramedImage::kFirstPixel);
         }
@@ -564,7 +553,7 @@ void OptionsMenu::draw(Canvas& screen) const {
         // Two cells for each action, down two columns.
         int page = _starshipPage ? 1 : 0;
         if (_captureCell >= 0) {
-            if (const FramedImage* high = find("KEYHIGH.BMP")) {
+            if (const FramedImage *high = find("KEYHIGH.BMP")) {
                 Rect r = cellRect(_captureCell);
                 high->draw(screen, 0, kPanelX + r.left + kKeyHighX, kPanelY + r.top + kKeyHighY,
                            FramedImage::kFirstPixel);

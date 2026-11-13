@@ -20,9 +20,9 @@ namespace reluva::nfs {
 struct Model {
     using Vec3 = std::array<float, 3>;
     struct Triangle {
-        uint32_t texturePage = 0; // 0: car00.tga, 1: car01.tga...
+        uint32_t texturePage = 0;           // 0: car00.tga, 1: car01.tga...
         std::array<uint32_t, 3> vertices{}; // into the model's vertices (not the part's)
-        uint32_t flags = 0; // the k* below (fce.md, Triangles)
+        uint32_t flags = 0;                 // the k* below (fce.md, Triangles)
         std::array<float, 3> u{}, v{};
         static constexpr uint32_t kNoReflection = 0x1, kStrongReflection = 0x2, kTwoSided = 0x4, kUnlit = 0x8;
     };
@@ -49,7 +49,7 @@ struct Model {
     std::vector<Colour> primaryColours, secondaryColours;
 };
 
-Error parseModel(const std::vector<uint8_t>& data, Model& out);
+Error parseModel(const std::vector<uint8_t> &data, Model &out);
 
 // Where a corner falls on the reflection's sphere map, from its normal
 // turned into the camera's space (x right, y down, z ahead), as nfs3.exe
@@ -65,8 +65,8 @@ std::array<float, 2> reflectionUv(float x, float y, float z);
 struct CarShade {
     std::array<int, 3> base{}, top{}; // r, g, b
 };
-CarShade carShade(uint32_t colour); // 0xAARRGGBB, alpha ignored
-uint32_t carVertexColour(const CarShade& shade, float normalDotLight); // 0xFFRRGGBB
+CarShade carShade(uint32_t colour);                                    // 0xAARRGGBB, alpha ignored
+uint32_t carVertexColour(const CarShade &shade, float normalDotLight); // 0xFFRRGGBB
 // The direction the light comes from, in the track's coordinates, from
 // the horizon's rotation in degrees (0x478340, kept at 0x55d2a8): its
 // sine and cosine (of rotation x 65536 / 360, the game's 16.16 table) for
@@ -76,8 +76,8 @@ std::array<float, 3> carLightDirection(int rotationDegrees);
 // (truncated) of the four corners of the road polygon it is on, alpha
 // 255; FF7F7F7F without one. The corners' colours as the game keeps
 // them, already scaled by the horizon's ambient light (0x419660).
-uint32_t carShadeColour(const std::array<uint32_t, 4>& corners);
-uint32_t ambientScaled(uint32_t colour, const std::array<int, 3>& ambientPercent); // 0x419660
+uint32_t carShadeColour(const std::array<uint32_t, 4> &corners);
+uint32_t ambientScaled(uint32_t colour, const std::array<int, 3> &ambientPercent); // 0x419660
 
 // A car's light glows (0x4b8740): each dummy (fce.md) by its name's
 // letters: the first H (a headlight), T (a tail light) or S (a roof
@@ -99,13 +99,13 @@ float carGlowBrightness(uint32_t colour);
 // camera. beams: the car's light state (0-2); braking +0x509; siren: a
 // police car with its siren on (+0x200 bit 0x20, +0x734); step the game's
 // step count (64 a second); brightness carGlowBrightness().
-CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool braking, bool siren, int step,
+CarGlow carLightGlow(const std::string &dummy, float facing, int beams, bool braking, bool siren, int step,
                      float brightness);
 
 // nfs3.exe's colour conversions (0x49c880, 0x49ca50), every value 0-255
 // and the hue a full turn in 256, in its integer steps.
-std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb);
-std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv);
+std::array<int, 3> rgbToHsv(const std::array<int, 3> &rgb);
+std::array<int, 3> hsvToRgb(const std::array<int, 3> &hsv);
 // A car skin's rows as the game's loader takes them (0x49d320 ->
 // 0x49cd00): in the order the file stores them, from the start of the
 // pixel data, whatever the header's origin bit; texture row 0 is the
@@ -113,7 +113,7 @@ std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv);
 // bit 5 clear (stored from the bottom, as every car00.tga but Knoc's)
 // is turned back over. Before November 2026 Reluva drew the skins the
 // other way up: the Corvette without its tail lights.
-void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img);
+void skinRowsAsStored(const std::vector<uint8_t> &tga, image::Image &img);
 
 // A car skin's texel as the car loader makes it (0x49d320 -> 0x49cea0 ->
 // 0x49cd00, each texel to 1:5:5:5): alpha 0 transparent; alpha 1-127
@@ -123,15 +123,15 @@ void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img);
 // unless that is 255; the value min(trunc(brightness x t), 255); then
 // the colour's hue and saturation at that value (hsvToRgb), to 5 bits.
 // RGBA in and out; a null colour keeps those texels as they are.
-std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4>& rgba, const Model::Colour* paint,
-                                 const Model::Colour* secondary);
+std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4> &rgba, const Model::Colour *paint,
+                                 const Model::Colour *secondary);
 // The secondary colour going with a paint (0x49d240): that of the
 // model's primary colour nearest to it, by the RGB of the two in HSV
 // (hsvToRgb) and the distance between them; 0 without colours.
-size_t secondaryFor(const Model& model, const std::array<int, 3>& paintHsv);
+size_t secondaryFor(const Model &model, const std::array<int, 3> &paintHsv);
 // The model's primary colour nearest a paint in HSV (as secondaryFor), so
 // that its fourth value goes with the paint the game keeps (+0x8A8).
-size_t primaryFor(const Model& model, const std::array<int, 3>& paintHsv);
+size_t primaryFor(const Model &model, const std::array<int, 3> &paintHsv);
 
 // The reflection's two corner colours for a car (0x4ba350, kept by
 // 0x49d800 at 0x55e6dc and 0x55e6e0; fce.md, Lighting), ARGB, from the
@@ -147,13 +147,13 @@ size_t primaryFor(const Model& model, const std::array<int, 3>& paintHsv);
 struct CarReflection {
     uint32_t normal = 0x7f7f7f7f, strong = 0xffffffff;
 };
-CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, int paintValue, int coverDepth);
+CarReflection carReflection(uint32_t carColour, const std::array<int, 3> &sky, int paintValue, int coverDepth);
 // The frame a car's normals (in the track) are turned into for the
 // sphere map (0x49d780, 0x49de20): the car's view from the camera, yaw
 // atan2(dx, dz) - 1/2 turn and pitch atan2(sqrt(dx^2 + dz^2), dy) - 1/4
 // turn of d = camera - car, without roll; its x, y and z axes in the
 // track. Then reflectionUv(n . x, n . y, n . z).
-std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3>& toCamera);
+std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3> &toCamera);
 
 // A car light's flare on the wet road (0x491bc0, in the weather, for
 // the T and H glows whose dummy's fifth letter isn't N): glw4 of sfx.fsh
@@ -171,8 +171,8 @@ struct RainFlare {
     uint32_t colour = 0;
     float depth = 0;
 };
-RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3>& camera,
-                    const std::array<float, 3>& facing, float size, uint32_t glowColour);
+RainFlare rainFlare(const std::array<float, 3> &light, const std::array<float, 3> &camera,
+                    const std::array<float, 3> &facing, float size, uint32_t glowColour);
 // A car's shadow (0x4b81a0, drawn with each car at every detail): the
 // four bottom corners of its box (0x4b7f80: -+half width, -half height,
 // +-half length turned into the track, front left, front right, back
@@ -185,8 +185,8 @@ RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3
 // car's half height when e . L < 0. Then each is raised 0.125 (0x53ffc0).
 // Drawn with sfx.fsh's shad (0x8b4898) in 0x6FFFFFFF, blended by source
 // alpha over the road, its corners texel centre to texel centre.
-std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4>& onRoad,
-                                                  const std::array<float, 3>& light, float halfHeight, bool cast);
+std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4> &onRoad,
+                                                  const std::array<float, 3> &light, float halfHeight, bool cast);
 constexpr uint32_t kCarShadowColour = 0x6fffffffu;
 
 // A headlight's beam in the fog (0x492980, for each H dummy while the fog
@@ -202,10 +202,10 @@ constexpr uint32_t kCarShadowColour = 0x6fffffffu;
 struct FogBeam {
     bool shown = false;
     std::vector<std::array<float, 3>> nearRing, farRing; // n + 1 points each
-    uint32_t colour = 0;                                   // the near ring's
+    uint32_t colour = 0;                                 // the near ring's
 };
-FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& right, const std::array<float, 3>& up,
-                const std::array<float, 3>& forward, const std::array<float, 3>& camera, uint32_t colour);
+FogBeam fogBeam(const std::array<float, 3> &lamp, const std::array<float, 3> &right, const std::array<float, 3> &up,
+                const std::array<float, 3> &forward, const std::array<float, 3> &camera, uint32_t colour);
 // The beam's colour (0x4b8740): white, alpha 228 x min((fog - 30) / 30,
 // 1), half that on low beams; nothing with the fog at 30 or less.
 uint32_t fogBeamColour(float fogPercent, int beams);
@@ -256,11 +256,11 @@ bool skidMarkSurface(int surface, int weather);
 // its right row (+0xC0) for the right wheels and against it for the left
 // (0 and 3, whose particles also spin the other way), and with half the
 // velocity to inherit (x the template's 0.5).
-void tyreSmoke(ParticleSystem& system, int wheel, const ParticleVec& at, const ParticleVec& velocity,
-               const ParticleVec& right, uint32_t tick, ParticleRandom& random, int horizon = 0);
+void tyreSmoke(ParticleSystem &system, int wheel, const ParticleVec &at, const ParticleVec &velocity,
+               const ParticleVec &right, uint32_t tick, ParticleRandom &random, int horizon = 0);
 
 // The texture pages of a GameData/Render/pc model (cone.art, copN.art):
 // one image each, in page order (fce.md).
-Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& pages);
+Error parseArt(const std::vector<uint8_t> &data, std::vector<image::Image> &pages);
 
 } // namespace reluva::nfs

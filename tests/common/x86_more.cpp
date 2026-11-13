@@ -23,7 +23,7 @@ using namespace reluva;
 
 namespace {
 
-uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
+uint32_t runX86(x86::Cpu &cpu, std::vector<uint8_t> code, bool *ok = nullptr) {
     const uint32_t at = 0x2000;
     std::copy(code.begin(), code.end(), cpu.memory().begin() + at);
     uint32_t result = 0;
@@ -35,7 +35,7 @@ uint32_t runX86(x86::Cpu& cpu, std::vector<uint8_t> code, bool* ok = nullptr) {
     return result;
 }
 
-void testExact(x86::Cpu& cpu) {
+void testExact(x86::Cpu &cpu) {
     // FILD/FISTP of 64-bit integers copy them exactly (a memcpy trick):
     // fild qword [0x3000]; fild qword [0x3010]; fxch st1; fistp qword [0x3018];
     // fistp qword [0x3020]; ret. Both values need more than a double's 53 bits.
@@ -43,13 +43,13 @@ void testExact(x86::Cpu& cpu) {
     cpu.write32(0x3004, 0x4853e428);
     cpu.write32(0x3010, 0x89abcdef);
     cpu.write32(0x3014, 0xf1234567);
-    runX86(cpu, {0xdf, 0x2d, 0, 0x30, 0, 0, 0xdf, 0x2d, 0x10, 0x30, 0, 0, 0xd9, 0xc9, 0xdf, 0x3d, 0x18, 0x30, 0, 0,
-                 0xdf, 0x3d, 0x20, 0x30, 0, 0, 0xc3});
+    runX86(cpu, {0xdf, 0x2d, 0,    0x30, 0, 0, 0xdf, 0x2d, 0x10, 0x30, 0, 0, 0xd9, 0xc9,
+                 0xdf, 0x3d, 0x18, 0x30, 0, 0, 0xdf, 0x3d, 0x20, 0x30, 0, 0, 0xc3});
     CHECK(cpu.read32(0x3018) == 0x6009fb10 && cpu.read32(0x301c) == 0x4853e428);
     CHECK(cpu.read32(0x3020) == 0x89abcdef && cpu.read32(0x3024) == 0xf1234567);
 }
 
-void testWrittenOver(x86::Cpu& cpu) {
+void testWrittenOver(x86::Cpu &cpu) {
     // Code written over runs as written: mov eax, [0x3000]; ret, then its
     // displacement changed to 0x3004 from outside; then by the program
     // itself: mov byte [0x2009], n; mov eax, [0x3000]; ret.
@@ -62,12 +62,12 @@ void testWrittenOver(x86::Cpu& cpu) {
     CHECK(runX86(cpu, {0xc6, 0x05, 0x09, 0x20, 0, 0, 0x08, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 333);
 }
 
-void testSegments(x86::Cpu& cpu) {
+void testSegments(x86::Cpu &cpu) {
     // Segment registers in a flat model: push es; pop es; mov eax, 0; mov ax, ds; ret
     CHECK(runX86(cpu, {0x06, 0x07, 0xb8, 0, 0, 0, 0, 0x66, 0x8c, 0xd8, 0xc3}) == 0x23);
 }
 
-void testFirstPage(x86::Cpu& cpu) {
+void testFirstPage(x86::Cpu &cpu) {
     // mov eax, [0x10]; ret: a fault, then 0 with the first page readable,
     // run enough times for the block's native code to be made; a write
     // there still faults.
@@ -115,13 +115,13 @@ void testPokes() {
     cpu.setStack(0x100000);
     x86::Pokes pokes;
     int lines = 0;
-    pokes.log = [&](const std::string&) { ++lines; };
+    pokes.log = [&](const std::string &) { ++lines; };
     CHECK(x86::parsePoke("at=0x2001:0x3000:42", false, p, error));
     pokes.list.push_back(p);
     CHECK(x86::parsePoke("ms=50:0x3004:7:1", false, p, error));
     pokes.list.push_back(p);
     CHECK(pokes.needsTrace());
-    cpu.trace = [&](x86::Cpu& c) { pokes.instruction(c, 0); };
+    cpu.trace = [&](x86::Cpu &c) { pokes.instruction(c, 0); };
     // nop; mov eax, [0x3000]; ret
     CHECK(runX86(cpu, {0x90, 0xa1, 0x00, 0x30, 0x00, 0x00, 0xc3}) == 42);
     cpu.trace = nullptr;
@@ -134,7 +134,8 @@ void testPokes() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.x86_more", {
-    {"instructions", [](const std::filesystem::path&) { runAll(); }},
-    {"pokes", [](const std::filesystem::path&) { testPokes(); }},
-});
+static const reluva::test::Suite kSuite("common.unit.x86_more",
+                                        {
+                                            {"instructions", [](const std::filesystem::path &) { runAll(); }},
+                                            {"pokes", [](const std::filesystem::path &) { testPokes(); }},
+                                        });

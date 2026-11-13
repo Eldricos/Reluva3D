@@ -17,7 +17,7 @@ struct TextureInfo {
     int smallLod = 0; // the smallest level in the mipmap
     int largeLod = 8; // the largest
     int aspect = 0;
-    int format = 0;   // TextureFormat
+    int format = 0; // TextureFormat
 };
 
 // The Voodoo2's NCC table (narrow channel compression, the YIQ formats):
@@ -34,7 +34,7 @@ int texelBytes(int format);
 bool knownFormat(int format);
 
 // A level's width and height in texels.
-void levelSize(int lod, int aspect, int& width, int& height);
+void levelSize(int lod, int aspect, int &width, int &height);
 // Whether `lod` is among the levels `evenOdd` names.
 bool levelIncluded(int lod, int evenOdd);
 // A level's size in texture memory, in bytes. The Voodoo2 specification's
@@ -44,15 +44,15 @@ bool levelIncluded(int lod, int evenOdd);
 uint32_t levelBytes(int lod, int aspect, int format);
 // Where level `lod` starts, in bytes from the texture's start address (the
 // address of its largest level that `evenOdd` includes).
-uint32_t levelOffset(const TextureInfo& info, int evenOdd, int lod);
+uint32_t levelOffset(const TextureInfo &info, int evenOdd, int lod);
 // The memory the texture takes, rounded up to 8 bytes (grTexCalcMemRequired
 // for kLevelsBoth, grTexTextureMemRequired otherwise).
-uint32_t textureBytes(const TextureInfo& info, int evenOdd);
+uint32_t textureBytes(const TextureInfo &info, int evenOdd);
 
 // One texel as stored (8 or 16 bits) widened to 0xAARRGGBB as the TMU
 // widens it (Voodoo2 specification, textureMode's format table): fields
 // repeated to fill 8 bits, palette and NCC lookups. `palette` holds 256
 // 0x00RRGGBB entries.
-uint32_t decodeTexel(int format, uint32_t raw, const uint32_t* palette, const NccTable& ncc);
+uint32_t decodeTexel(int format, uint32_t raw, const uint32_t *palette, const NccTable &ncc);
 
 } // namespace reluva::glide

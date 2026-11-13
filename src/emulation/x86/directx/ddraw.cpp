@@ -17,8 +17,15 @@ namespace reluva::x86::dx {
 namespace {
 
 enum : uint32_t {
-    kSdCaps = 0x1, kSdHeight = 0x2, kSdWidth = 0x4, kSdPitch = 0x8, kSdBackBufferCount = 0x20,
-    kSdZBufferBitDepth = 0x40, kSdPixelFormat = 0x1000, kSdCkSrcBlt = 0x10000, kSdMipMapCount = 0x20000,
+    kSdCaps = 0x1,
+    kSdHeight = 0x2,
+    kSdWidth = 0x4,
+    kSdPitch = 0x8,
+    kSdBackBufferCount = 0x20,
+    kSdZBufferBitDepth = 0x40,
+    kSdPixelFormat = 0x1000,
+    kSdCkSrcBlt = 0x10000,
+    kSdMipMapCount = 0x20000,
     kSdRefreshRate = 0x40000
 };
 constexpr uint32_t kScExclusive = 0x10;
@@ -31,8 +38,9 @@ constexpr uint32_t kDdCaps = 0x1 /* 3D */ | 0x40 /* BLT */ | 0x200 /* BLTSTRETCH
 constexpr uint32_t kDdCaps2 = 0x1000 /* WIDESURFACES */ | 0x80000 /* CANRENDERWINDOWED */ |
                               0x02000000 /* FLIPNOVSYNC */ | 0x00020000 /* PRIMARYGAMMA */;
 constexpr uint32_t kSurfaceCaps = kCapsBackBuffer | kCapsComplex | kCapsFlip | kCapsFrontBuffer | kCapsOffscreenPlain |
-                                  kCapsPalette | kCapsPrimarySurface | kCapsSystemMemory | kCapsTexture | kCaps3DDevice |
-                                  kCapsVideoMemory | kCapsVisible | kCapsZBuffer | kCapsMipMap | kCapsLocalVidMem;
+                                  kCapsPalette | kCapsPrimarySurface | kCapsSystemMemory | kCapsTexture |
+                                  kCaps3DDevice | kCapsVideoMemory | kCapsVisible | kCapsZBuffer | kCapsMipMap |
+                                  kCapsLocalVidMem;
 
 int log2Size(int n) {
     int l = 0;
@@ -43,15 +51,15 @@ int log2Size(int n) {
 
 } // namespace
 
-const ComInterface* DirectDraw::query(const std::string& iid) {
-    Interfaces& i = s->interfaces;
-    for (ComInterface* f : {&i.directDraw7, &i.directDraw4, &i.directDraw2, &i.directDraw, &i.direct3d7})
+const ComInterface *DirectDraw::query(const std::string &iid) {
+    Interfaces &i = s->interfaces;
+    for (ComInterface *f : {&i.directDraw7, &i.directDraw4, &i.directDraw2, &i.directDraw, &i.direct3d7})
         if (iid == f->iid)
             return f;
     return nullptr;
 }
 
-void DirectDraw::writeCaps(Cpu& c, uint32_t p, bool hardware) {
+void DirectDraw::writeCaps(Cpu &c, uint32_t p, bool hardware) {
     const uint32_t size = c.read32(p);
     if (size < 8 || !c.valid(p, size))
         return;
@@ -62,8 +70,8 @@ void DirectDraw::writeCaps(Cpu& c, uint32_t p, bool hardware) {
     };
     put(4, kDdCaps);
     put(8, kDdCaps2);
-    put(12, 0x200); // dwCKeyCaps: DDCKEYCAPS_SRCBLT
-    put(24, 0x4);   // dwPalCaps: DDPCAPS_8BIT
+    put(12, 0x200);                 // dwCKeyCaps: DDCKEYCAPS_SRCBLT
+    put(24, 0x4);                   // dwPalCaps: DDPCAPS_8BIT
     put(56, 0x400 | 0x200 | 0x100); // dwZBufferBitDepths: 16, 24, 32
     const uint32_t total = hardware ? s->owner.videoMemory : 0;
     put(60, total);
@@ -72,13 +80,13 @@ void DirectDraw::writeCaps(Cpu& c, uint32_t p, bool hardware) {
     put(364, kSurfaceCaps); // ddsCaps
 }
 
-uint32_t DirectDraw::enumModes(Cpu& c, const ComInterface& iface) {
+uint32_t DirectDraw::enumModes(Cpu &c, const ComInterface &iface) {
     const uint32_t filter = c.arg(2), context = c.arg(3), callback = c.arg(4);
     const bool v2 = &iface == &s->interfaces.directDraw7 || &iface == &s->interfaces.directDraw4;
     const uint32_t size = v2 ? 124 : 108;
     const uint32_t desc = s->process.memory().alloc(size);
     uint32_t result = kDDOk;
-    for (const DirectX::Mode& mode : s->owner.modes) {
+    for (const DirectX::Mode &mode : s->owner.modes) {
         if (filter) {
             const uint32_t f = c.read32(filter + 4);
             if (((f & kSdWidth) && c.read32(filter + 12) != uint32_t(mode.width)) ||
@@ -110,16 +118,16 @@ uint32_t DirectDraw::enumModes(Cpu& c, const ComInterface& iface) {
 // CreateSurface(desc, out, outer): a primary surface (with back buffers if
 // it flips), a Z buffer, or an off-screen surface or texture (with its
 // smaller mip levels).
-uint32_t DirectDraw::createSurface(Cpu& c, const ComInterface& iface) {
+uint32_t DirectDraw::createSurface(Cpu &c, const ComInterface &iface) {
     const uint32_t p = c.arg(1), out = c.arg(2);
     if (!c.valid(p, 108) || !c.valid(out, 4))
         return kDDErrInvalidParams;
     const bool desc2 = c.read32(p) == 124;
     const uint32_t flags = c.read32(p + 4);
     std::array<uint32_t, 4> caps{c.read32(p + 104), desc2 ? c.read32(p + 108) : 0, 0, 0};
-    const ComInterface& surfaceIface = &iface == &s->interfaces.directDraw7   ? s->interfaces.surface7
+    const ComInterface &surfaceIface = &iface == &s->interfaces.directDraw7   ? s->interfaces.surface7
                                        : &iface == &s->interfaces.directDraw4 ? s->interfaces.surface4
-                                                                             : s->interfaces.surface;
+                                                                              : s->interfaces.surface;
     const int displayBits = s->bits ? s->bits : s->process.screenBits;
     int width = int(c.read32(p + 12)), height = int(c.read32(p + 8));
     PixelFormat format = (flags & kSdPixelFormat) ? PixelFormat::read(c, p + 72) : rgbFormat(displayBits);
@@ -139,7 +147,7 @@ uint32_t DirectDraw::createSurface(Cpu& c, const ComInterface& iface) {
         if (!surface)
             return kDDErrOutOfMemory;
         surface->chain.push_back(surface.get());
-        Surface* previous = surface.get();
+        Surface *previous = surface.get();
         for (int i = 0; i < backs; ++i) {
             std::array<uint32_t, 4> backCaps = caps;
             backCaps[0] &= ~(kCapsPrimarySurface | kCapsFrontBuffer | kCapsVisible);
@@ -166,7 +174,7 @@ uint32_t DirectDraw::createSurface(Cpu& c, const ComInterface& iface) {
         surface = s->makeSurface(width, height, format, caps);
         if (!surface)
             return kDDErrOutOfMemory;
-        Surface* previous = surface.get();
+        Surface *previous = surface.get();
         for (int l = 1; l < levels; ++l) {
             std::array<uint32_t, 4> levelCaps = caps;
             levelCaps[1] |= kCaps2MipMapSubLevel;
@@ -186,7 +194,7 @@ uint32_t DirectDraw::createSurface(Cpu& c, const ComInterface& iface) {
     return kDDOk;
 }
 
-std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index, Cpu& c) {
+std::optional<uint32_t> DirectDraw::invoke(const ComInterface &iface, int index, Cpu &c) {
     if (&iface == &s->interfaces.direct3d7)
         return invoke3d(iface, index, c);
     s->finishDraws(); // seldom called, and some change the surfaces (the mode, restoring them)
@@ -224,14 +232,15 @@ std::optional<uint32_t> DirectDraw::invoke(const ComInterface& iface, int index,
         s->window = c.arg(1);
         s->exclusive = (c.arg(2) & kScExclusive) != 0;
         s->noWindowChanges = (c.arg(2) & 0x4) != 0; // DDSCL_NOWINDOWCHANGES
-        s->fpuPreserve = (c.arg(2) & 0x1000) != 0; // DDSCL_FPUPRESERVE
+        s->fpuPreserve = (c.arg(2) & 0x1000) != 0;  // DDSCL_FPUPRESERVE
         return kDDOk;
     }
     if (m == "SetDisplayMode") {
         const int w = int(c.arg(1)), h = int(c.arg(2)), bits = int(c.arg(3));
-        const auto& modes = s->owner.modes;
-        if (std::none_of(modes.begin(), modes.end(),
-                         [&](const DirectX::Mode& mode) { return mode.width == w && mode.height == h && mode.bits == bits; }))
+        const auto &modes = s->owner.modes;
+        if (std::none_of(modes.begin(), modes.end(), [&](const DirectX::Mode &mode) {
+                return mode.width == w && mode.height == h && mode.bits == bits;
+            }))
             return kDDErrInvalidMode;
         // The desktop becomes the mode, and a fullscreen program's window
         // covers it.
@@ -322,27 +331,29 @@ namespace reluva::x86 {
 
 DirectX::~DirectX() = default;
 
-const DirectX::Frame& DirectX::frame() const { return s_->frame; }
+const DirectX::Frame &DirectX::frame() const {
+    return s_->frame;
+}
 
-DirectX::DirectX(Win32Process& process) : s_(std::make_unique<State>(*this, process)) {
-    State* s = s_.get();
-    dx::Interfaces& i = s->interfaces;
-    for (ComInterface* f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
-                            &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl, &i.direct3d7, &i.device7,
-                            &i.vertexBuffer7})
+DirectX::DirectX(Win32Process &process) : s_(std::make_unique<State>(*this, process)) {
+    State *s = s_.get();
+    dx::Interfaces &i = s->interfaces;
+    for (ComInterface *f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
+                            &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl,
+                            &i.direct3d7, &i.device7, &i.vertexBuffer7})
         s->com.define(*f);
-    const char* dll = "DDRAW.dll";
-    Cpu& c = process.cpu();
+    const char *dll = "DDRAW.dll";
+    Cpu &c = process.cpu();
     // Called every frame, many times over, and writing the process's memory
     // only through Cpu::write32 or not at all (the draws fill surfaces later,
     // on the drawing threads), so the instruction cache needn't check its
     // code after each (Cpu::setWritesTracked).
-    for (const char* m : {"SetRenderState", "SetTextureStageState", "SetTexture", "SetTransform", "MultiplyTransform",
+    for (const char *m : {"SetRenderState", "SetTextureStageState", "SetTexture", "SetTransform", "MultiplyTransform",
                           "SetViewport", "SetMaterial", "SetLight", "LightEnable", "BeginScene", "EndScene",
                           "DrawPrimitive", "DrawIndexedPrimitive", "DrawPrimitiveVB", "DrawIndexedPrimitiveVB"})
         c.setWritesTracked(i.device7.name + "::" + m);
     c.setWritesTracked(i.surface7.name + "::IsLost");
-    auto text = [&](const std::string& t) {
+    auto text = [&](const std::string &t) {
         const uint32_t a = process.memory().alloc(uint32_t(t.size() + 1));
         c.writeString(a, t, uint32_t(t.size() + 1));
         return a;
@@ -357,14 +368,14 @@ DirectX::DirectX(Win32Process& process) : s_(std::make_unique<State>(*this, proc
         return dd;
     };
     // DirectDrawCreate(guid, out, outer): an IDirectDraw.
-    process.provideStdcall(dll, "DirectDrawCreate", 3, [s, create](Cpu& c) {
+    process.provideStdcall(dll, "DirectDrawCreate", 3, [s, create](Cpu &c) {
         if (!c.valid(c.arg(1), 4))
             return dx::kDDErrInvalidParams;
         c.write32(c.arg(1), s->com.pointer(create(c.arg(0)), s->interfaces.directDraw));
         return dx::kDDOk;
     });
     // DirectDrawCreateEx(guid, out, iid, outer): an IDirectDraw7.
-    process.provideStdcall(dll, "DirectDrawCreateEx", 4, [s, create](Cpu& c) {
+    process.provideStdcall(dll, "DirectDrawCreateEx", 4, [s, create](Cpu &c) {
         if (!c.valid(c.arg(1), 4))
             return dx::kDDErrInvalidParams;
         if (ComHost::guid(c, c.arg(2)) != dx::kIidDirectDraw7)
@@ -373,12 +384,12 @@ DirectX::DirectX(Win32Process& process) : s_(std::make_unique<State>(*this, proc
         return dx::kDDOk;
     });
     // The one adapter, as the primary display (no GUID).
-    process.provideStdcall(dll, "DirectDrawEnumerateA", 2, [description, name](Cpu& c) {
+    process.provideStdcall(dll, "DirectDrawEnumerateA", 2, [description, name](Cpu &c) {
         uint32_t r = 0;
         (void)c.call(c.arg(0), {0, description, name, c.arg(1)}, r);
         return dx::kDDOk;
     });
-    process.provideStdcall(dll, "DirectDrawEnumerateExA", 3, [description, name](Cpu& c) {
+    process.provideStdcall(dll, "DirectDrawEnumerateExA", 3, [description, name](Cpu &c) {
         uint32_t r = 0;
         (void)c.call(c.arg(0), {0, description, name, c.arg(1), 0}, r);
         return dx::kDDOk;

@@ -34,7 +34,7 @@ using namespace reluva::tool;
 
 // An AVI's streams, and its video decoded from start to end, timed; the
 // frames asked for written as frame_NNNN.tga.
-int cmdAviFrames(int argc, char** argv) {
+int cmdAviFrames(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool avi-frames <file.avi> [output dir] [frame number... | all]\n");
         return 2;
@@ -81,7 +81,7 @@ int cmdAviFrames(int argc, char** argv) {
         const int f = movie.currentFrame();
         if (dir.empty() || !(all || wanted.count(f)))
             continue;
-        const reluva::Surface& s = movie.surface();
+        const reluva::Surface &s = movie.surface();
         reluva::image::Image picture;
         picture.w = s.w;
         picture.h = s.h;
@@ -92,7 +92,7 @@ int cmdAviFrames(int argc, char** argv) {
         std::snprintf(name, sizeof name, "frame_%04d.tga", f);
         const std::vector<uint8_t> tga = reluva::image::encodeTga(picture);
         std::ofstream(dir / name, std::ios::binary)
-            .write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+            .write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
         ++written;
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -102,7 +102,7 @@ int cmdAviFrames(int argc, char** argv) {
 
 // A CD image's tracks, and its audio tracks written as track02.wav ... in
 // the output folder, the names games' CD music is looked for under.
-int cmdCueRip(int argc, char** argv) {
+int cmdCueRip(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool cue-rip <file.cue> [output dir]\n");
         return 2;
@@ -112,7 +112,7 @@ int cmdCueRip(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    for (const reluva::CueTrack& t : tracks) {
+    for (const reluva::CueTrack &t : tracks) {
         const uint64_t frames = t.size / uint64_t(t.sectorSize);
         std::printf("track %02d  %-10s %8llu sectors  %2llu:%05.2f  %s @ %llu\n", t.number, t.mode.c_str(),
                     static_cast<unsigned long long>(frames), static_cast<unsigned long long>(frames / 75 / 60),
@@ -125,7 +125,7 @@ int cmdCueRip(int argc, char** argv) {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     int written = 0;
-    for (const reluva::CueTrack& t : tracks) {
+    for (const reluva::CueTrack &t : tracks) {
         if (!t.audio)
             continue;
         char name[32];
@@ -144,7 +144,7 @@ int cmdCueRip(int argc, char** argv) {
 // (audio/prologic.h): the four channels as mono WAV files
 // (<prefix>-L.wav, -C, -R, -S), and the levels window by window, with a
 // passive decode alongside for comparison.
-int cmdProLogic(int argc, char** argv) {
+int cmdProLogic(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool prologic <in.wav> <out prefix> [-passive] [-window ms] [-delay ms]\n"
                              "                            [-csv windows.csv] [-quiet]\n");
@@ -152,7 +152,7 @@ int cmdProLogic(int argc, char** argv) {
     }
     reluva::audio::ProLogicOptions options;
     double windowMs = 1000;
-    const char* csvPath = nullptr;
+    const char *csvPath = nullptr;
     bool quiet = false;
     for (int a = 4; a < argc; ++a) {
         const std::string arg = argv[a];
@@ -192,7 +192,7 @@ int cmdProLogic(int argc, char** argv) {
     const size_t frames = in.frames();
     std::vector<float> out(4 * frames), outPassive(4);
     const size_t window = std::max<size_t>(1, size_t(windowMs * in.rate / 1000));
-    FILE* csv = csvPath ? std::fopen(csvPath, "w") : nullptr;
+    FILE *csv = csvPath ? std::fopen(csvPath, "w") : nullptr;
     if (csvPath && !csv) {
         std::fprintf(stderr, "cannot write %s\n", csvPath);
         return 1;
@@ -210,7 +210,7 @@ int cmdProLogic(int argc, char** argv) {
         double e[7] = {}, steer = 0, dirX = 0, dirY = 0; // the direction: a mean of 2 theta, by steering
         size_t rear = 0;
         for (size_t i = start; i < start + n; ++i) {
-            float* o = &out[4 * i];
+            float *o = &out[4 * i];
             dec.process(&in.samples[2 * i], o, 1);
             passive.process(&in.samples[2 * i], outPassive.data(), 1);
             for (int c = 0; c < 4; ++c)
@@ -242,19 +242,20 @@ int cmdProLogic(int argc, char** argv) {
         if (direction < 0)
             direction += 180;
         if (!quiet)
-            std::printf("%8.1f %5.1f %5.1f | %5.1f %5.1f %5.1f %5.1f %6.1f | %5.2f %5.1f %5.1f\n", ms / 1000, db(e[5], n),
-                        db(e[6], n), db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n),
+            std::printf("%8.1f %5.1f %5.1f | %5.1f %5.1f %5.1f %5.1f %6.1f | %5.2f %5.1f %5.1f\n", ms / 1000,
+                        db(e[5], n), db(e[6], n), db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n),
                         steer / double(n), direction, rearPct);
         if (csv)
             std::fprintf(csv, "%.0f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.1f,%.1f\n", ms, db(e[5], n), db(e[6], n),
-                         db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n), steer / double(n), direction, rearPct);
+                         db(e[0], n), db(e[1], n), db(e[2], n), db(e[3], n), db(e[4], n), steer / double(n), direction,
+                         rearPct);
     }
     if (csv)
         std::fclose(csv);
     const double front = total[0] + total[1] + total[2];
     auto rel = [](double a, double b) { return 10 * std::log10((a + 1e-20) / (b + 1e-20)); };
-    std::printf("%s: %.1f s at %d Hz, %s decode, surround delay %.0f ms\n", argv[2], double(frames) / in.rate,
-                in.rate, options.active ? "active" : "passive", options.surroundDelayMs);
+    std::printf("%s: %.1f s at %d Hz, %s decode, surround delay %.0f ms\n", argv[2], double(frames) / in.rate, in.rate,
+                options.active ? "active" : "passive", options.surroundDelayMs);
     std::printf("side/mid %.1f dB; surround/front %.1f dB (passive %.1f dB); C/(L+R) %.1f dB\n",
                 rel(total[6], total[5]), rel(total[3], front), rel(total[4], front),
                 rel(total[1], total[0] + total[2]));
@@ -263,7 +264,7 @@ int cmdProLogic(int argc, char** argv) {
                 100.0 * double(steeredFrames) / double(std::max<size_t>(1, frames)),
                 100.0 * double(rearFrames) / double(std::max<size_t>(1, frames)), loudRearWindows, windows);
 
-    static const char* const kNames[4] = {"L", "C", "R", "S"};
+    static const char *const kNames[4] = {"L", "C", "R", "S"};
     for (int c = 0; c < 4; ++c) {
         reluva::audio::Sound s;
         s.rate = in.rate;
@@ -271,11 +272,12 @@ int cmdProLogic(int argc, char** argv) {
         s.format = 1;
         s.samples.resize(frames);
         for (size_t i = 0; i < frames; ++i)
-            s.samples[i] = static_cast<int16_t>(std::clamp<long>(std::lround(out[4 * i + c] * 32768.0), -32768L, 32767L));
+            s.samples[i] =
+                static_cast<int16_t>(std::clamp<long>(std::lround(out[4 * i + c] * 32768.0), -32768L, 32767L));
         const std::string path = std::string(argv[3]) + "-" + kNames[c] + ".wav";
         const std::vector<uint8_t> bytes = reluva::audio::encodePcmWav(s);
         std::ofstream f(path, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+        f.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", path.c_str());
             return 1;
@@ -285,14 +287,16 @@ int cmdProLogic(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("", {
-    {"avi-frames", "<file.avi> [output dir] [frame number... | all]",
-     "an AVI's streams; decode every frame (Cinepak), timed, writing those asked for as TGA files", cmdAviFrames},
-    {"cue-rip", "<file.cue> [output dir]",
-     "list a CD image's tracks; write each audio track as trackNN.wav (games' CD music)", cmdCueRip},
-    {"prologic", "<in.wav> <out prefix> [-passive] [-window ms] [-delay ms] [-csv file] [-quiet]",
-     "a stereo recording through the Pro Logic decoder model: four mono WAVs (L, C, R, S) and levels by window",
-     cmdProLogic},
-});
+const Commands commands(
+    "",
+    {
+        {"avi-frames", "<file.avi> [output dir] [frame number... | all]",
+         "an AVI's streams; decode every frame (Cinepak), timed, writing those asked for as TGA files", cmdAviFrames},
+        {"cue-rip", "<file.cue> [output dir]",
+         "list a CD image's tracks; write each audio track as trackNN.wav (games' CD music)", cmdCueRip},
+        {"prologic", "<in.wav> <out prefix> [-passive] [-window ms] [-delay ms] [-csv file] [-quiet]",
+         "a stereo recording through the Pro Logic decoder model: four mono WAVs (L, C, R, S) and levels by window",
+         cmdProLogic},
+    });
 
 } // namespace

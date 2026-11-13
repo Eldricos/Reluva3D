@@ -11,22 +11,24 @@ namespace reluva::nfs {
 
 namespace {
 
-uint32_t le32(const uint8_t* p) {
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
 
-float f32(const uint8_t* p) {
+float f32(const uint8_t *p) {
     const uint32_t v = le32(p);
     float f;
     std::memcpy(&f, &v, 4);
     return f;
 }
 
-Model::Vec3 vec3(const uint8_t* p) { return {f32(p), f32(p + 4), f32(p + 8)}; }
+Model::Vec3 vec3(const uint8_t *p) {
+    return {f32(p), f32(p + 4), f32(p + 8)};
+}
 
-std::string name(const uint8_t* p) {
-    return std::string(reinterpret_cast<const char*>(p), std::find(p, p + 64, 0) - p);
+std::string name(const uint8_t *p) {
+    return std::string(reinterpret_cast<const char *>(p), std::find(p, p + 64, 0) - p);
 }
 
 // The header's fields (docs/formats/nfs/fce.md).
@@ -43,12 +45,12 @@ constexpr uint32_t kMaxParts = 64, kMaxDummies = 16, kMaxColours = 16;
 
 } // namespace
 
-Error parseModel(const std::vector<uint8_t>& data, Model& out) {
+Error parseModel(const std::vector<uint8_t> &data, Model &out) {
     out = {};
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .fce model: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .fce model: " + why); };
     if (data.size() < kDataStart)
         return bad("too short");
-    const uint8_t* d = data.data();
+    const uint8_t *d = data.data();
     const uint32_t triangles = le32(d + kTriangles), vertices = le32(d + kVertices);
     const uint32_t parts = le32(d + kPartCount), dummies = le32(d + kDummyCount);
     if (parts > kMaxParts || dummies > kMaxDummies)
@@ -85,10 +87,10 @@ Error parseModel(const std::vector<uint8_t>& data, Model& out) {
     // Triangles index their part's vertices; they're made to index the
     // model's here.
     out.triangles.resize(triangles);
-    for (const Model::Part& part : out.parts)
+    for (const Model::Part &part : out.parts)
         for (uint32_t t = part.firstTriangle; t < part.firstTriangle + part.triangleCount; ++t) {
-            const uint8_t* p = d + triangleTable + kTriangleSize * t;
-            Model::Triangle& tri = out.triangles[t];
+            const uint8_t *p = d + triangleTable + kTriangleSize * t;
+            Model::Triangle &tri = out.triangles[t];
             tri.texturePage = le32(p);
             for (int k = 0; k < 3; ++k) {
                 const uint32_t index = le32(p + 4 + 4 * k);
@@ -103,7 +105,7 @@ Error parseModel(const std::vector<uint8_t>& data, Model& out) {
 
     for (uint32_t k = 0; k < dummies; ++k)
         out.dummies.push_back({name(d + kDummyNames + 64 * k), vec3(d + kDummies + 12 * k)});
-    auto colours = [&](size_t countAt, size_t at, std::vector<Model::Colour>& list) {
+    auto colours = [&](size_t countAt, size_t at, std::vector<Model::Colour> &list) {
         const uint32_t n = std::min(le32(d + countAt), kMaxColours);
         for (uint32_t i = 0; i < n; ++i) {
             Model::Colour c;
@@ -119,7 +121,7 @@ Error parseModel(const std::vector<uint8_t>& data, Model& out) {
 
 // One image after another, to the end: u32 width, u32 height, then the
 // pixels, 4 bytes each (blue, green, red, alpha), top row first.
-Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& pages) {
+Error parseArt(const std::vector<uint8_t> &data, std::vector<image::Image> &pages) {
     pages.clear();
     size_t at = 0;
     while (at < data.size()) {
@@ -136,7 +138,7 @@ Error parseArt(const std::vector<uint8_t>& data, std::vector<image::Image>& page
         img.h = int(h);
         img.rgba.resize(size_t(w) * h * 4);
         for (size_t i = 0; i < size_t(w) * h; ++i) {
-            const uint8_t* p = data.data() + at + 4 * i;
+            const uint8_t *p = data.data() + at + 4 * i;
             img.rgba[4 * i] = p[2];
             img.rgba[4 * i + 1] = p[1];
             img.rgba[4 * i + 2] = p[0];
@@ -157,7 +159,7 @@ CarShade carShade(uint32_t colour) {
     return s;
 }
 
-uint32_t carVertexColour(const CarShade& shade, float normalDotLight) {
+uint32_t carVertexColour(const CarShade &shade, float normalDotLight) {
     uint32_t out = 0xff000000u;
     const int k = normalDotLight > 0 ? static_cast<int>(std::lrint(normalDotLight * 65536.0f)) : 0;
     for (int i = 0; i < 3; ++i) {
@@ -165,7 +167,8 @@ uint32_t carVertexColour(const CarShade& shade, float normalDotLight) {
         if (k > 0) {
             const uint32_t add =
                 static_cast<uint32_t>(k) * static_cast<uint32_t>(shade.top[size_t(i)] - shade.base[size_t(i)]) >> 16;
-            c = static_cast<int>(std::min<uint32_t>(static_cast<uint32_t>(c) + add, static_cast<uint32_t>(shade.top[size_t(i)])));
+            c = static_cast<int>(
+                std::min<uint32_t>(static_cast<uint32_t>(c) + add, static_cast<uint32_t>(shade.top[size_t(i)])));
         }
         out |= static_cast<uint32_t>(std::clamp(c, 0, 255)) << (16 - 8 * i);
     }
@@ -179,12 +182,12 @@ std::array<float, 3> carLightDirection(int rotationDegrees) {
     const double turn = static_cast<double>(units) / 65536.0 * 6.283185307179586;
     std::array<float, 3> d{static_cast<float>(std::sin(turn)), 0.5f, static_cast<float>(std::cos(turn))};
     const float length = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
-    for (float& v : d)
+    for (float &v : d)
         v /= length;
     return d;
 }
 
-uint32_t carShadeColour(const std::array<uint32_t, 4>& corners) {
+uint32_t carShadeColour(const std::array<uint32_t, 4> &corners) {
     uint32_t out = 0xff000000u;
     for (int shift = 0; shift < 24; shift += 8) {
         uint32_t sum = 0;
@@ -195,7 +198,7 @@ uint32_t carShadeColour(const std::array<uint32_t, 4>& corners) {
     return out;
 }
 
-uint32_t ambientScaled(uint32_t colour, const std::array<int, 3>& ambientPercent) {
+uint32_t ambientScaled(uint32_t colour, const std::array<int, 3> &ambientPercent) {
     uint32_t out = colour & 0xff000000u;
     for (int i = 0; i < 3; ++i) {
         const int shift = 16 - 8 * i;
@@ -219,7 +222,7 @@ uint32_t glowAlpha(float value) {
 }
 } // namespace
 
-CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool braking, bool siren, int step,
+CarGlow carLightGlow(const std::string &dummy, float facing, int beams, bool braking, bool siren, int step,
                      float brightness) {
     CarGlow g;
     auto letter = [&](size_t i) { return i < dummy.size() ? dummy[i] : '\0'; };
@@ -248,8 +251,12 @@ CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool bra
         }
     }
     switch (letter(0)) {
-    case 'T': g.shown = (beams != 0 || braking) && seen > 0; break;
-    case 'H': g.shown = (beams != 0 || (flash != '\0' && flash == letter(3))) && seen > 0; break;
+    case 'T':
+        g.shown = (beams != 0 || braking) && seen > 0;
+        break;
+    case 'H':
+        g.shown = (beams != 0 || (flash != '\0' && flash == letter(3))) && seen > 0;
+        break;
     case 'S':
         if (siren) {
             // Blue on the left (+0x7A4), red on the right (+0x7A8), in turn.
@@ -260,7 +267,8 @@ CarGlow carLightGlow(const std::string& dummy, float facing, int beams, bool bra
             g.shown = true;
         }
         break;
-    default: break;
+    default:
+        break;
     }
     return g;
 }
@@ -270,7 +278,7 @@ std::array<float, 2> reflectionUv(float x, float y, float z) {
     return {x * k + 0.5f, y * k + 0.5f};
 }
 
-std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb) {
+std::array<int, 3> rgbToHsv(const std::array<int, 3> &rgb) {
     const int r = rgb[0], g = rgb[1], b = rgb[2];
     const int mx = std::max({r, g, b}), mn = std::min({r, g, b}), d = mx - mn;
     int64_t h = 0;
@@ -294,7 +302,7 @@ std::array<int, 3> rgbToHsv(const std::array<int, 3>& rgb) {
     return {std::clamp(hue, 0, 255), std::clamp(s, 0, 255), std::clamp(mx, 0, 255)};
 }
 
-std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv) {
+std::array<int, 3> hsvToRgb(const std::array<int, 3> &hsv) {
     const int h = hsv[0], s = hsv[1], v = hsv[2];
     if (v < 1)
         return {0, 0, 0};
@@ -308,20 +316,33 @@ std::array<int, 3> hsvToRgb(const std::array<int, 3>& hsv) {
     const int p = v * (256 - s) >> 8;
     std::array<int, 3> out{};
     switch (sector) {
-    case 0: out = {v, t, p}; break;
-    case 1: out = {q, v, p}; break;
-    case 2: out = {p, v, t}; break;
-    case 3: out = {p, q, v}; break;
-    case 4: out = {t, p, v}; break;
-    case 5: out = {v, p, q}; break;
-    default: break;
+    case 0:
+        out = {v, t, p};
+        break;
+    case 1:
+        out = {q, v, p};
+        break;
+    case 2:
+        out = {p, v, t};
+        break;
+    case 3:
+        out = {p, q, v};
+        break;
+    case 4:
+        out = {t, p, v};
+        break;
+    case 5:
+        out = {v, p, q};
+        break;
+    default:
+        break;
     }
-    for (int& c : out)
+    for (int &c : out)
         c = std::clamp(c, 0, 255);
     return out;
 }
 
-void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img) {
+void skinRowsAsStored(const std::vector<uint8_t> &tga, image::Image &img) {
     if (tga.size() < 18 || (tga[17] & 0x20) != 0 || img.w <= 0 || img.h <= 1)
         return;
     const size_t row = static_cast<size_t>(img.w) * 4;
@@ -331,11 +352,11 @@ void skinRowsAsStored(const std::vector<uint8_t>& tga, image::Image& img) {
                          img.rgba.begin() + static_cast<std::ptrdiff_t>(bottom * row));
 }
 
-std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4>& rgba, const Model::Colour* paint,
-                                 const Model::Colour* secondary) {
+std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4> &rgba, const Model::Colour *paint,
+                                 const Model::Colour *secondary) {
     if (rgba[3] == 0)
         return {rgba[0], rgba[1], rgba[2], 0};
-    const Model::Colour* with = rgba[3] < 0x80 ? paint : rgba[3] < 0xff ? secondary : nullptr;
+    const Model::Colour *with = rgba[3] < 0x80 ? paint : rgba[3] < 0xff ? secondary : nullptr;
     if (!with)
         return {rgba[0], rgba[1], rgba[2], 255};
     float t = static_cast<float>((rgba[2] >> 3) << 3);
@@ -350,13 +371,14 @@ std::array<uint8_t, 4> skinTexel(const std::array<uint8_t, 4>& rgba, const Model
 }
 
 namespace {
-size_t nearestColour(const std::vector<Model::Colour>& list, const std::array<int, 3>& paintHsv) {
+size_t nearestColour(const std::vector<Model::Colour> &list, const std::array<int, 3> &paintHsv) {
     const std::array<int, 3> want = hsvToRgb(paintHsv);
     size_t best = 0;
     float bestDistance = 1000;
     for (size_t i = 0; i < list.size(); ++i) {
-        const std::array<int, 3> rgb = hsvToRgb({static_cast<int>(list[i].hsbx[0] & 0xff), static_cast<int>(list[i].hsbx[1] & 0xff),
-                                                 static_cast<int>(list[i].hsbx[2] & 0xff)});
+        const std::array<int, 3> rgb =
+            hsvToRgb({static_cast<int>(list[i].hsbx[0] & 0xff), static_cast<int>(list[i].hsbx[1] & 0xff),
+                      static_cast<int>(list[i].hsbx[2] & 0xff)});
         float d = 0;
         for (size_t k = 0; k < 3; ++k)
             d += static_cast<float>((rgb[k] - want[k]) * (rgb[k] - want[k]));
@@ -370,11 +392,11 @@ size_t nearestColour(const std::vector<Model::Colour>& list, const std::array<in
 }
 } // namespace
 
-size_t primaryFor(const Model& model, const std::array<int, 3>& paintHsv) {
+size_t primaryFor(const Model &model, const std::array<int, 3> &paintHsv) {
     return nearestColour(model.primaryColours, paintHsv);
 }
 
-size_t secondaryFor(const Model& model, const std::array<int, 3>& paintHsv) {
+size_t secondaryFor(const Model &model, const std::array<int, 3> &paintHsv) {
     // 0x49d240 walks the primary colours (+0x800, up to the secondaries'
     // count +0x900) and gives the nearest one's index into +0x904.
     std::vector<Model::Colour> list = model.primaryColours;
@@ -383,7 +405,7 @@ size_t secondaryFor(const Model& model, const std::array<int, 3>& paintHsv) {
     return nearestColour(list, paintHsv);
 }
 
-CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, int paintValue, int coverDepth) {
+CarReflection carReflection(uint32_t carColour, const std::array<int, 3> &sky, int paintValue, int coverDepth) {
     const std::array<int, 3> car{static_cast<int>(carColour >> 16 & 0xff), static_cast<int>(carColour >> 8 & 0xff),
                                  static_cast<int>(carColour & 0xff)};
     const std::array<int, 3> carHsv = rgbToHsv(car);
@@ -399,11 +421,12 @@ CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, i
     const int value = skyHsv[2] * carHsv[2] / 512 + 0x80;
     const int normalValue = std::clamp(value - (paintValue >> 2), 0x7f, 0xff);
     const int strongValue = std::clamp(value, 0x7f, 0xff);
-    auto argb = [](int alpha, const std::array<int, 3>& c) {
-        return static_cast<uint32_t>(alpha) << 24 | static_cast<uint32_t>(c[0]) << 16 | static_cast<uint32_t>(c[1]) << 8 |
-               static_cast<uint32_t>(c[2]);
+    auto argb = [](int alpha, const std::array<int, 3> &c) {
+        return static_cast<uint32_t>(alpha) << 24 | static_cast<uint32_t>(c[0]) << 16 |
+               static_cast<uint32_t>(c[1]) << 8 | static_cast<uint32_t>(c[2]);
     };
-    const uint32_t normal = argb(normalValue, hsvToRgb({skyHsv[0], std::clamp(skyHsv[1] * 0x60 / 256, 0, 255), normalValue}));
+    const uint32_t normal =
+        argb(normalValue, hsvToRgb({skyHsv[0], std::clamp(skyHsv[1] * 0x60 / 256, 0, 255), normalValue}));
     const uint32_t strong = argb(strongValue, hsvToRgb({skyHsv[0], std::clamp(skyHsv[1] >> 1, 0, 255), strongValue}));
     const uint32_t k = static_cast<uint32_t>(std::min(dim * 0x100, 0xffff) >> 8 & 0xff);
     auto scale = [&](uint32_t c) {
@@ -412,7 +435,7 @@ CarReflection carReflection(uint32_t carColour, const std::array<int, 3>& sky, i
     return {scale(normal), scale(strong)};
 }
 
-std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3>& d) {
+std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3> &d) {
     constexpr float kTurn = 6.28318530718f;
     const float yaw = (std::atan2(d[0], d[2]) / kTurn - 0.5f) * kTurn;
     const float pitch = (std::atan2(std::sqrt(d[0] * d[0] + d[2] * d[2]), d[1]) / kTurn - 0.25f) * kTurn;
@@ -421,8 +444,8 @@ std::array<std::array<float, 3>, 3> reflectionFrame(const std::array<float, 3>& 
     return {{{c, 0, s}, {s * sp, cp, -c * sp}, {-s * cp, sp, c * cp}}};
 }
 
-RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3>& camera,
-                    const std::array<float, 3>& facing, float size, uint32_t glowColour) {
+RainFlare rainFlare(const std::array<float, 3> &light, const std::array<float, 3> &camera,
+                    const std::array<float, 3> &facing, float size, uint32_t glowColour) {
     RainFlare f;
     float dx = light[0] - camera[0], dz = light[2] - camera[2];
     const float length = std::sqrt(dx * dx + dz * dz);
@@ -439,14 +462,15 @@ RainFlare rainFlare(const std::array<float, 3>& light, const std::array<float, 3
                   {light[0] + sx, light[2] + sz},
                   {light[0] + sx + tx, light[2] + sz + tz},
                   {light[0] - sx + tx, light[2] - sz + tz}}};
-    f.colour = (((glowColour & 0xff00ff00u) >> 8) * 0xa6 & 0xff00ff00u) | ((glowColour & 0x00ff00ffu) * 0xa6 >> 8 & 0x00ff00ffu);
+    f.colour = (((glowColour & 0xff00ff00u) >> 8) * 0xa6 & 0xff00ff00u) |
+               ((glowColour & 0x00ff00ffu) * 0xa6 >> 8 & 0x00ff00ffu);
     f.depth = seen;
     f.shown = true;
     return f;
 }
 
-std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4>& onRoad,
-                                                  const std::array<float, 3>& light, float halfHeight, bool cast) {
+std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<float, 3>, 4> &onRoad,
+                                                  const std::array<float, 3> &light, float halfHeight, bool cast) {
     std::array<std::array<float, 3>, 4> out = onRoad;
     if (cast) {
         // 0x4b7a30: corner i's neighbours (3, 1), (0, 2), (1, 3), (2, 0).
@@ -459,7 +483,7 @@ std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<fl
                 const float length = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
                 if (length <= 0)
                     continue;
-                for (float& c : e)
+                for (float &c : e)
                     c /= length;
                 const float d = e[0] * light[0] + e[1] * light[1] + e[2] * light[2];
                 const float push = d < 0 ? -d * halfHeight : 0.0f;
@@ -467,22 +491,22 @@ std::array<std::array<float, 3>, 4> carShadowQuad(const std::array<std::array<fl
                     out[size_t(i)][k] += e[k] * push;
             }
     }
-    for (auto& c : out)
+    for (auto &c : out)
         c[1] += 0.125f;
     return out;
 }
 
-FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& right, const std::array<float, 3>& up,
-                const std::array<float, 3>& forward, const std::array<float, 3>& camera, uint32_t colour) {
+FogBeam fogBeam(const std::array<float, 3> &lamp, const std::array<float, 3> &right, const std::array<float, 3> &up,
+                const std::array<float, 3> &forward, const std::array<float, 3> &camera, uint32_t colour) {
     FogBeam b;
     constexpr float kTurn = 6.28318530718f;
     std::array<float, 3> d{camera[0] - lamp[0], camera[1] - lamp[1], camera[2] - lamp[2]};
     const float distance = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
     if (distance == 0 || distance > 100 || (colour & 0x7fffffff) == 0)
         return b;
-    for (float& c : d)
+    for (float &c : d)
         c /= distance;
-    auto dot = [](const std::array<float, 3>& a, const std::array<float, 3>& x) {
+    auto dot = [](const std::array<float, 3> &a, const std::array<float, 3> &x) {
         return a[0] * x[0] + a[1] * x[1] + a[2] * x[2];
     };
     const float f = dot(d, forward), r = dot(d, right), u = dot(d, up);
@@ -495,7 +519,8 @@ FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& ri
         const float k = 1 - (f - 1 + w) / w;
         uint32_t out = 0;
         for (int shift = 0; shift < 32; shift += 8)
-            out |= static_cast<uint32_t>(std::clamp(static_cast<int>(static_cast<float>((colour >> shift) & 0xff) * k), 0, 255))
+            out |= static_cast<uint32_t>(
+                       std::clamp(static_cast<int>(static_cast<float>((colour >> shift) & 0xff) * k), 0, 255))
                    << shift;
         colour = out;
     }
@@ -506,8 +531,8 @@ FogBeam fogBeam(const std::array<float, 3>& lamp, const std::array<float, 3>& ri
             const float radius = ring ? 0.75f : 0.1f, ahead = ring ? 6.0f : 0.0f;
             std::array<float, 3> p{};
             for (int k = 0; k < 3; ++k)
-                p[size_t(k)] = lamp[size_t(k)] + right[size_t(k)] * std::cos(a) * radius + up[size_t(k)] * std::sin(a) * radius +
-                               forward[size_t(k)] * ahead;
+                p[size_t(k)] = lamp[size_t(k)] + right[size_t(k)] * std::cos(a) * radius +
+                               up[size_t(k)] * std::sin(a) * radius + forward[size_t(k)] * ahead;
             (ring ? b.farRing : b.nearRing).push_back(p);
         }
     }
@@ -557,8 +582,8 @@ float wheelSkidLevel(int wheel, float frontSkid, float rearSkid, bool airborne, 
 
 bool skidMarkSurface(int surface, int weather) {
     // +0x10 of the rows at 0x553080, dry; every row of rain and snow is 0.
-    static constexpr bool kDry[16] = {false, true, false, false, true, false, false, true,
-                                      false, false, true, true,  true,  false, false, false};
+    static constexpr bool kDry[16] = {false, true,  false, false, true, false, false, true,
+                                      false, false, true,  true,  true, false, false, false};
     return weather == 0 && kDry[surface & 0xf];
 }
 
@@ -566,21 +591,21 @@ bool wheelSmokes(int wheel, float level, int surface, int weather) {
     return level != 0 && skidMarkSurface(surface, weather) && wheel >= 2 && level > 5;
 }
 
-void tyreSmoke(ParticleSystem& system, int wheel, const ParticleVec& at, const ParticleVec& velocity,
-               const ParticleVec& right, uint32_t tick, ParticleRandom& random, int horizon) {
-    const ParticleTemplate* t = particleTemplate(6);
+void tyreSmoke(ParticleSystem &system, int wheel, const ParticleVec &at, const ParticleVec &velocity,
+               const ParticleVec &right, uint32_t tick, ParticleRandom &random, int horizon) {
+    const ParticleTemplate *t = particleTemplate(6);
     if (!t)
         return;
     ParticleVec along = velocity;
     const float length = std::sqrt(along[2] * along[2] + along[0] * along[0] + along[1] * along[1]);
     if (length != 0)
-        for (float& v : along)
+        for (float &v : along)
             v *= 1.0f / length;
     const float side = wheel == 0 || wheel == 3 ? -1.0f : 1.0f;
     const ParticleVec across{right[0] * side, right[1] * side, right[2] * side};
     const ParticleVec half{velocity[0] * 0.5f, velocity[1] * 0.5f, velocity[2] * 0.5f};
     for (int i = 0; i < t->count; ++i)
-        if (Particle* p = system.spawn(6, at, 1.0f, along, across, half, tick, random, horizon))
+        if (Particle *p = system.spawn(6, at, 1.0f, along, across, half, tick, random, horizon))
             p->spin *= side;
 }
 

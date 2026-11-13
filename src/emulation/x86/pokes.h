@@ -38,28 +38,28 @@ struct Poke {
 // "WHEN:ADDR:VALUE[:SIZE]": WHEN is ms=N or at=ADDR[#N]; VALUE a number of
 // SIZE bytes (1, 2 or 4; 4 if not given) or bytes=hex ("bytes=0a0b0c").
 // False, with `error` set, if it isn't one.
-bool parsePoke(const std::string& text, bool every, Poke& poke, std::string& error);
+bool parsePoke(const std::string &text, bool every, Poke &poke, std::string &error);
 // "WHEN:ADDR:SIZE:file", for a dump.
-bool parseDump(const std::string& text, Poke& poke, std::string& error);
+bool parseDump(const std::string &text, Poke &poke, std::string &error);
 
 class Pokes {
 public:
     std::vector<Poke> list;
     // A line for each poke applied (the first few times of an `every`).
-    std::function<void(const std::string& line)> log;
+    std::function<void(const std::string &line)> log;
     // Writes `bytes` to the file (for dumps).
-    std::function<void(const std::string& file, const std::vector<uint8_t>& bytes)> save;
+    std::function<void(const std::string &file, const std::vector<uint8_t> &bytes)> save;
 
     bool empty() const { return list.empty(); }
     // Whether any waits on an instruction (and so needs a trace).
     bool needsTrace() const;
     // Before the instruction at cpu.eip runs.
-    void instruction(Cpu& cpu, uint64_t nowMs);
+    void instruction(Cpu &cpu, uint64_t nowMs);
     // Now and then (each thread slice), with the clock.
-    void time(Cpu& cpu, uint64_t nowMs);
+    void time(Cpu &cpu, uint64_t nowMs);
 
 private:
-    void apply(Poke& p, Cpu& cpu, uint64_t nowMs);
+    void apply(Poke &p, Cpu &cpu, uint64_t nowMs);
 };
 
 } // namespace reluva::x86

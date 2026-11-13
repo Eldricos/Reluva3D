@@ -36,10 +36,12 @@ SDL_HapticEffect effectOf(uint16_t type) {
     return e;
 }
 
-int16_t level(float v) { return int16_t(std::lround(std::clamp(v, -1.0f, 1.0f) * 32767)); }
+int16_t level(float v) {
+    return int16_t(std::lround(std::clamp(v, -1.0f, 1.0f) * 32767));
+}
 
 // Makes the effect if it isn't yet (and runs it, for ever), else changes it.
-void apply(SDL_Haptic* haptic, int& id, const SDL_HapticEffect& e) {
+void apply(SDL_Haptic *haptic, int &id, const SDL_HapticEffect &e) {
     if (id < 0) {
         id = SDL_CreateHapticEffect(haptic, &e);
         if (id >= 0)
@@ -54,7 +56,7 @@ void apply(SDL_Haptic* haptic, int& id, const SDL_HapticEffect& e) {
 void SdlSystem::closeController() {
     if (!controller_)
         return;
-    Controller& c = *controller_;
+    Controller &c = *controller_;
     if (c.haptic)
         SDL_CloseHaptic(c.haptic); // its effects with it
     if (c.gamepad) {
@@ -77,22 +79,22 @@ void SdlSystem::setWheelPedals(int accelerator, int brake) {
     controller_->pedalAxis[0] = controller_->pedalAxis[1] = -1;
 }
 
-bool SdlSystem::readGamepad(GamepadState& out) {
+bool SdlSystem::readGamepad(GamepadState &out) {
     out = GamepadState{};
     if (!controller_)
         controller_ = std::make_unique<Controller>();
     if ((controller_->gamepad || controller_->wheel) && !controller_->connected())
         closeController();
-    Controller& c = *controller_;
+    Controller &c = *controller_;
     if (!c.gamepad && !c.wheel) {
         int count = 0;
-        if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
+        if (SDL_JoystickID *ids = SDL_GetGamepads(&count)) {
             if (count > 0)
                 c.gamepad = SDL_OpenGamepad(ids[0]);
             SDL_free(ids);
         }
         if (!c.gamepad)
-            if (SDL_JoystickID* ids = SDL_GetJoysticks(&count)) {
+            if (SDL_JoystickID *ids = SDL_GetJoysticks(&count)) {
                 for (int i = 0; i < count && !c.wheel; ++i)
                     if (SDL_GetJoystickTypeForID(ids[i]) == SDL_JOYSTICK_TYPE_WHEEL)
                         c.wheel = SDL_OpenJoystick(ids[i]);
@@ -100,7 +102,7 @@ bool SdlSystem::readGamepad(GamepadState& out) {
             }
         if (!c.gamepad && !c.wheel)
             return false;
-        SDL_Joystick* j = c.joystick();
+        SDL_Joystick *j = c.joystick();
         c.isWheel = c.wheel || SDL_GetJoystickType(j) == SDL_JOYSTICK_TYPE_WHEEL;
         if (SDL_IsJoystickHaptic(j) && (SDL_WasInit(SDL_INIT_HAPTIC) || SDL_InitSubSystem(SDL_INIT_HAPTIC)))
             c.haptic = SDL_OpenHapticFromJoystick(j);
@@ -110,7 +112,7 @@ bool SdlSystem::readGamepad(GamepadState& out) {
                 SDL_SetHapticGain(c.haptic, 100);
         }
         c.rumble = c.gamepad && SDL_GetBooleanProperty(SDL_GetGamepadProperties(c.gamepad),
-                                                        SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
+                                                       SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
     }
     out.wheel = c.isWheel;
     out.forceFeedback = c.haptic || c.rumble;
@@ -121,8 +123,9 @@ bool SdlSystem::readGamepad(GamepadState& out) {
     }
 
     if (c.gamepad) {
-        const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,  SDL_GAMEPAD_AXIS_LEFTY,        SDL_GAMEPAD_AXIS_RIGHTX,
-                                         SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
+        const SDL_GamepadAxis axes[6] = {SDL_GAMEPAD_AXIS_LEFTX,        SDL_GAMEPAD_AXIS_LEFTY,
+                                         SDL_GAMEPAD_AXIS_RIGHTX,       SDL_GAMEPAD_AXIS_RIGHTY,
+                                         SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER};
         for (int i = 0; i < 6; ++i)
             out.axes[i] = std::max(-1.0f, float(SDL_GetGamepadAxis(c.gamepad, axes[i])) / 32767.0f);
         const SDL_GamepadButton buttons[kPadButtons] = {
@@ -134,7 +137,7 @@ bool SdlSystem::readGamepad(GamepadState& out) {
         for (int i = 0; i < kPadButtons; ++i)
             if (SDL_GetGamepadButton(c.gamepad, buttons[i]))
                 out.buttons |= 1u << i;
-        if (const char* name = SDL_GetGamepadName(c.gamepad))
+        if (const char *name = SDL_GetGamepadName(c.gamepad))
             out.name = name;
         return true;
     }
@@ -142,7 +145,7 @@ bool SdlSystem::readGamepad(GamepadState& out) {
     // A wheel by its axes: the wheel on the first; the pedals as set, or
     // the first two after it found resting at an end (pressed, they move
     // to the other). Each pedal 0 up to 1 pressed.
-    SDL_Joystick* j = c.wheel;
+    SDL_Joystick *j = c.wheel;
     const int axisCount = SDL_GetNumJoystickAxes(j);
     auto axis = [&](int i) { return i >= 0 && i < axisCount ? float(SDL_GetJoystickAxis(j, i)) / 32767.0f : 0.0f; };
     out.axes[0] = std::max(-1.0f, axis(0));
@@ -184,15 +187,15 @@ bool SdlSystem::readGamepad(GamepadState& out) {
         if (hat & SDL_HAT_RIGHT)
             out.buttons |= 1u << PadRight;
     }
-    if (const char* name = SDL_GetJoystickName(j))
+    if (const char *name = SDL_GetJoystickName(j))
         out.name = name;
     return true;
 }
 
-void SdlSystem::setGamepadForce(const GamepadForce& f) {
+void SdlSystem::setGamepadForce(const GamepadForce &f) {
     if (!controller_)
         return;
-    Controller& c = *controller_;
+    Controller &c = *controller_;
     if (c.haptic) {
         if (c.features & SDL_HAPTIC_AUTOCENTER && f.autoCentre != c.autoCentre)
             SDL_SetHapticAutocenter(c.haptic, f.autoCentre ? 100 : 0);
@@ -208,7 +211,8 @@ void SdlSystem::setGamepadForce(const GamepadForce& f) {
                 continue;
             SDL_HapticEffect e = effectOf(uint16_t(type));
             const int16_t k = level(isSpring ? f.spring : f.damper);
-            const uint16_t saturation = uint16_t(std::lround(std::clamp(isSpring ? f.springSaturation : 1.0f, 0.0f, 1.0f) * 65535));
+            const uint16_t saturation =
+                uint16_t(std::lround(std::clamp(isSpring ? f.springSaturation : 1.0f, 0.0f, 1.0f) * 65535));
             e.condition.right_coeff[0] = e.condition.left_coeff[0] = k;
             e.condition.right_sat[0] = e.condition.left_sat[0] = saturation;
             if (isSpring)

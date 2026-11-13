@@ -38,7 +38,7 @@ using namespace reluva::clue::testing;
 // About one datagram in three lost, by a hash of its number: not every
 // third, whose rhythm can meet the resends' and lose the same message each
 // time, as no real network would.
-static bool dropAboutAThird(const net::Address&, const net::Address&, size_t index) {
+static bool dropAboutAThird(const net::Address &, const net::Address &, size_t index) {
     return (uint32_t(index) * 2654435761u >> 16) % 3 == 0;
 }
 
@@ -50,11 +50,11 @@ static void testNetplay(bool lossy) {
     auto host = Session::host(network->open(kDefaultPort), "Boddy", "Hostess", 4);
     auto browser = Session::browse(network->open(0), {net::Address::broadcast(kDefaultPort)});
     uint64_t now = 1000;
-    std::vector<Session*> all{host.get(), browser.get()};
+    std::vector<Session *> all{host.get(), browser.get()};
     const auto run = [&](int ms) {
         for (int t = 0; t < ms; t += 20) {
             now += 20;
-            for (Session* s : all)
+            for (Session *s : all)
                 s->update(now);
         }
     };
@@ -82,20 +82,20 @@ static void testNetplay(bool lossy) {
     host->setSeat(Mustard, Seat::Computer, 0); // Anne's: not the host's to change
     host->setNoDieRoll(true);
     run(2000);
-    for (Session* s : all) {
-        const Lobby& l = s->lobby();
-        CHECK(l.seats[Scarlet].kind == Seat::Human && l.seats[Scarlet].owner == 0 && l.seats[Scarlet].name == "Hostess");
+    for (Session *s : all) {
+        const Lobby &l = s->lobby();
+        CHECK(l.seats[Scarlet].kind == Seat::Human && l.seats[Scarlet].owner == 0 &&
+              l.seats[Scarlet].name == "Hostess");
         CHECK(l.seats[Mustard].kind == Seat::Human && l.seats[Mustard].name == "Anne");
         CHECK(l.seats[White].kind == Seat::Human && l.seats[White].name == "Bob");
         CHECK(l.seats[Plum].kind == Seat::Computer && l.seats[Plum].level == 2 && l.noDieRoll);
     }
     // Chat goes to everyone, said by its speaker.
     std::string line;
-    while (anne->nextChat(line) || bob->nextChat(line) || host->nextChat(line)) {
-    }
+    while (anne->nextChat(line) || bob->nextChat(line) || host->nextChat(line)) {}
     anne->chat("Hello");
     run(1000);
-    for (Session* s : all)
+    for (Session *s : all)
         CHECK(s->nextChat(line) && line == "Anne: Hello");
     // The start, and the players' actions: in the host's order, the same
     // for everyone; one for a suspect not theirs is dropped.
@@ -130,7 +130,7 @@ static void testNetplay(bool lossy) {
         while (all[i]->nextCommand(c))
             got[i].push_back(c);
     CHECK(got[0].size() == 23);
-    CHECK(std::any_of(got[0].begin(), got[0].end(), [](const Command& k) {
+    CHECK(std::any_of(got[0].begin(), got[0].end(), [](const Command &k) {
         return k.type == Command::RoomWalk && k.args == std::vector<int16_t>{1900, -2100};
     }));
     for (size_t i = 1; i < all.size(); ++i) {
@@ -141,7 +141,7 @@ static void testNetplay(bool lossy) {
     }
     // Bob's shows in the order he sent them.
     int expect = 0;
-    for (const Command& k : got[0])
+    for (const Command &k : got[0])
         if (k.type == Command::Show)
             CHECK(k.args[0] == expect++);
     // Bob goes quiet: the host gives Mrs. White to the computer, for everyone.
@@ -162,7 +162,8 @@ static void testNetplay(bool lossy) {
     CHECK(decodeCommand(bytes, offset, decoded) && decoded.type == Command::Accuse && decoded.args.size() == 3);
 }
 
-static const reluva::test::Suite suite("clue.unit.network", {
-    {"network", [](const std::filesystem::path&) { testNetplay(false); }},
-    {"lossy network", [](const std::filesystem::path&) { testNetplay(true); }},
-});
+static const reluva::test::Suite suite("clue.unit.network",
+                                       {
+                                           {"network", [](const std::filesystem::path &) { testNetplay(false); }},
+                                           {"lossy network", [](const std::filesystem::path &) { testNetplay(true); }},
+                                       });

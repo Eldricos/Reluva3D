@@ -51,7 +51,7 @@ public:
     // Direct3D path (no fog, the clouds' constant alpha, the dimming by the
     // effects intensity), drawn natively as d3da's device draws (bilinear,
     // undithered; docs/formats/nfs/hrz.md, The Direct3D renderer).
-    PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale = 2,
+    PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer, int renderScale = 2,
              bool smoothTextures = true, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},
              std::string modem = {}, bool glide = false, bool direct3d = false, bool glideSoftware = false,
@@ -61,21 +61,21 @@ public:
     // before the page is first shown; every player needs the same.
     void setPositionalUpdates(bool on) { positionalUpdates_ = on; }
     ~PlayPage() override;
-    const char* name() const override { return "Play"; }
+    const char *name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
     bool finished() const override { return exited_; }
-    void activate(System& sys) override;
+    void activate(System &sys) override;
     void deactivate() override;
     bool uses3D() const override { return gpu_; }
     void update(uint64_t nowMs) override;
-    void handleEvent(const Event& ev) override;
-    void draw(Surface& screen) override;
+    void handleEvent(const Event &ev) override;
+    void draw(Surface &screen) override;
     bool tick(uint64_t nowMs) override;
     // Starts the game, if it isn't running (activate() does this).
     void start();
 
 private:
-    void say(const std::string& line);
+    void say(const std::string &line);
     // The game controller's state passed on to the game, when it changes.
     void pollGamepad();
     // The forces the game's effects add up to, passed on when they change;
@@ -83,27 +83,27 @@ private:
     void passForces();
     void stopForces();
     // The title, how the run is going and the log's last lines (mutex_ held).
-    void drawStatus(Surface& screen);
+    void drawStatus(Surface &screen);
 
     GameFolders folders_;
     std::filesystem::path saveFolder_;
-    audio::Mixer* mixer_;
+    audio::Mixer *mixer_;
     std::unique_ptr<GameHost> host_;
     std::thread thread_;
     audio::SoundHandle sound_ = audio::kNoSound;
-    System* sys_ = nullptr;
-    GamepadState pad_;       // as last passed on
+    System *sys_ = nullptr;
+    GamepadState pad_; // as last passed on
     bool offerJoystick_ = true;
     bool forceFeedback_ = true;
     bool smoothTextures_ = true;
     bool positionalUpdates_ = false;
-    bool network_ = true; // the game's sockets on the machine's (System::sockets)
+    bool network_ = true;        // the game's sockets on the machine's (System::sockets)
     std::string serial_, modem_; // its COM ports' and modem's links (GameHost::Options)
-    bool fillMovies_ = true; // the black lines between a movie's filled in
+    bool fillMovies_ = true;     // the black lines between a movie's filled in
     std::string wheelPedals_;
-    GamepadForce force_;     // as last passed on
+    GamepadForce force_; // as last passed on
     bool forceShown_ = false;
-    bool padOffered_ = false; // a joystick offered to the game at its start
+    bool padOffered_ = false;               // a joystick offered to the game at its start
     float mouseLeftX_ = 0, mouseLeftY_ = 0; // the mouse's moves not yet passed on (fractions)
 
     // Shared with the game's thread.
@@ -114,13 +114,13 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> exited_{false}; // the game ended itself (not failed)
     int renderScale_ = 2;
-    bool gpu_ = false; // drawing with the GPU: decided when the game starts
-    bool glide_ = false; // voodoo2a.dll on the Glide stand-in (not THRASH's GPU drawing)
+    bool gpu_ = false;           // drawing with the GPU: decided when the game starts
+    bool glide_ = false;         // voodoo2a.dll on the Glide stand-in (not THRASH's GPU drawing)
     bool glideSoftware_ = false; // ... in its software rasterizer rather than its GPU backend
     std::string glideDll_;       // ... with this THRASH DLL file instead of the install's
     std::string glideBoard_;     // ... on this board
-    bool direct3d_ = false; // the game told of d3da.dll (its Direct3D look)
-    ThrashGpu gpuDraw_; // on the engine's thread
+    bool direct3d_ = false;      // the game told of d3da.dll (its Direct3D look)
+    ThrashGpu gpuDraw_;          // on the engine's thread
     // THRASH's frames not drawn yet, in order: each is drawn (some add to
     // what the one before left), with the textures it brought, then kept.
     struct Pending {
@@ -128,7 +128,7 @@ private:
         std::shared_ptr<const Surface> software; // comparing: the software rasterizer's of the same flip
     };
     std::deque<Pending> pending_;
-    bool thrashLatest_ = false;                      // whether the last frame was THRASH's (else frame_)
+    bool thrashLatest_ = false; // whether the last frame was THRASH's (else frame_)
     // The screen as DirectDraw last left it (a loading screen's picture),
     // shown over THRASH's frames until a page flip covers all of it: clear
     // (alpha 0) where flips have shown THRASH's frame since.

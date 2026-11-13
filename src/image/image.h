@@ -16,30 +16,30 @@ struct Image {
     int w = 0, h = 0;
     std::vector<uint8_t> rgba;
 
-    uint8_t* pixel(int x, int y) { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
-    const uint8_t* pixel(int x, int y) const { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
+    uint8_t *pixel(int x, int y) { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
+    const uint8_t *pixel(int x, int y) const { return rgba.data() + (static_cast<size_t>(y) * w + x) * 4; }
 };
 
 // Decode a TGA (uncompressed or RLE; true-colour, grey or colour-mapped,
 // either row order), JPEG (baseline or progressive), PNG or BMP file, told
 // apart by their contents. Uses stb_image (third_party/stb).
-Error decode(const std::vector<uint8_t>& data, Image& out);
+Error decode(const std::vector<uint8_t> &data, Image &out);
 
 // Encode the image as an uncompressed TGA (bottom row first, as most
 // programs write them): 24-bit, alpha dropped, or 32-bit keeping it.
-std::vector<uint8_t> encodeTga(const Image& img, bool alpha = false);
+std::vector<uint8_t> encodeTga(const Image &img, bool alpha = false);
 
 // Encode the image as a PNG (8-bit RGBA, its rows stored without
 // compression: larger than a compressing encoder's, read by every program).
-std::vector<uint8_t> encodePng(const Image& img);
+std::vector<uint8_t> encodePng(const Image &img);
 
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there; opacity (0-255) makes
 // the whole image that much see-through on top.
-void blit(Surface& dst, const Image& img, int x, int y, int opacity = 255);
+void blit(Surface &dst, const Image &img, int x, int y, int opacity = 255);
 // The same over a surface that may be transparent (an overlay): blended
 // by both alphas, the result's kept, so it can go over something else.
 // Over an opaque surface it comes to blit's.
-void blitOver(Surface& dst, const Image& img, int x, int y);
+void blitOver(Surface &dst, const Image &img, int x, int y);
 
 } // namespace reluva::image

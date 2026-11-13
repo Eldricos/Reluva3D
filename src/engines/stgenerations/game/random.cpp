@@ -12,7 +12,9 @@ namespace {
 std::atomic<uint32_t> fixedSeed{0};
 }
 
-void RandomSource::setFixedSeed(uint32_t seed) { fixedSeed = seed; }
+void RandomSource::setFixedSeed(uint32_t seed) {
+    fixedSeed = seed;
+}
 
 RandomSource::RandomSource(uint32_t seed) {
     if (!seed)

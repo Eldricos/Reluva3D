@@ -44,14 +44,14 @@ struct BriefingStep {
 // pages and empty ones), the first over the galaxy, the second over the
 // star system, the rest over the map; clips left over play over the emblem.
 // clips: the mission's voice clips (stems), sorted.
-std::vector<BriefingStep> briefingScript(std::string_view shortName, char side, const StringTable& table,
-                                         const std::vector<std::string>& clips);
+std::vector<BriefingStep> briefingScript(std::string_view shortName, char side, const StringTable &table,
+                                         const std::vector<std::string> &clips);
 
 // Whether a mission's briefing was scripted from a recording.
 bool hasRecordedBriefing(std::string_view shortName, char side);
 
 // The order clips play in: by number, a lettered clip right after its
 // number (K12009 before K12009A before K12010).
-bool clipBefore(const std::string& a, const std::string& b);
+bool clipBefore(const std::string &a, const std::string &b);
 
 } // namespace reluva::newworlds

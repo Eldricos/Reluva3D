@@ -23,7 +23,7 @@ namespace {
 using x86::Cpu;
 
 std::string lower(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
@@ -35,7 +35,7 @@ std::string hex(uint32_t v) {
 }
 
 // An argument as a number, and as text where it points at some.
-std::string describe(const Cpu& c, uint32_t v) {
+std::string describe(const Cpu &c, uint32_t v) {
     std::string out = hex(v);
     if (v < 0x10000)
         return out;
@@ -60,7 +60,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     cpu_->setInstructionLimit(options_.instructionLimit);
     cpu_->reportMmx = options_.mmx;
     process_ = std::make_unique<x86::Win32Process>(*cpu_);
-    process_->output = [this](const std::string& s) { say("[program] " + s); };
+    process_->output = [this](const std::string &s) { say("[program] " + s); };
     if (options_.instructionsPerMs) {
         const uint64_t perMs = options_.instructionsPerMs;
         process_->milliseconds = [this, perMs] { return uint32_t(cpu_->executed() / perMs + idleMs_); };
@@ -69,7 +69,8 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         const auto start = std::chrono::steady_clock::now();
         const double scale = options_.timeScale;
         process_->milliseconds = [start, scale] {
-            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+            const double ms =
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
             return uint32_t(ms * scale);
         };
     }
@@ -82,7 +83,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         last = std::max(last + 1, uint64_t(process_->now()) * perMs);
         return last;
     };
-    process_->fileOpened = [this](const std::string& path, bool found) {
+    process_->fileOpened = [this](const std::string &path, bool found) {
         if (options_.callLog)
             say(std::string(found ? "  file " : "  no file ") + path);
     };
@@ -106,7 +107,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     process_->setProgram("C:\\nfs3.exe", options_.commandLine);
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.
-    cpu_->nativeTrace = [this](Cpu& cpu, const std::string& name) {
+    cpu_->nativeTrace = [this](Cpu &cpu, const std::string &name) {
         if (inputQueued_.load(std::memory_order_relaxed))
             applyInput();
         if (soundRecord_) {
@@ -116,8 +117,9 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         }
         if (logged_ >= options_.callLog)
             return;
-        const bool routine = name.find("CriticalSection") != std::string::npos || name.find("Tls") != std::string::npos ||
-                             name.ends_with("GetTickCount") || name.ends_with("timeGetTime");
+        const bool routine = name.find("CriticalSection") != std::string::npos ||
+                             name.find("Tls") != std::string::npos || name.ends_with("GetTickCount") ||
+                             name.ends_with("timeGetTime");
         if (!routine) {
             ++logged_;
             std::string line = "  " + name + "(";
@@ -154,44 +156,107 @@ namespace {
 // Keys by name: Windows' virtual-key code and the keyboard's scan code (as
 // DirectInput numbers them).
 struct KeyName {
-    const char* name;
+    const char *name;
     uint8_t vk, scan;
 };
 constexpr KeyName kKeys[] = {
-    {"enter", 0x0d, 0x1c}, {"esc", 0x1b, 0x01},   {"space", 0x20, 0x39}, {"tab", 0x09, 0x0f},
-    {"up", 0x26, 0xc8},    {"down", 0x28, 0xd0},  {"left", 0x25, 0xcb},  {"right", 0x27, 0xcd},
-    {"backspace", 0x08, 0x0e}, {"shift", 0x10, 0x2a}, {"ctrl", 0x11, 0x1d}, {"alt", 0x12, 0x38},
-    {"f1", 0x70, 0x3b},    {"f2", 0x71, 0x3c},    {"f3", 0x72, 0x3d},    {"f4", 0x73, 0x3e},
-    {"a", 'A', 0x1e}, {"b", 'B', 0x30}, {"c", 'C', 0x2e}, {"d", 'D', 0x20}, {"e", 'E', 0x12}, {"f", 'F', 0x21},
-    {"g", 'G', 0x22}, {"h", 'H', 0x23}, {"i", 'I', 0x17}, {"j", 'J', 0x24}, {"k", 'K', 0x25}, {"l", 'L', 0x26},
-    {"m", 'M', 0x32}, {"n", 'N', 0x31}, {"o", 'O', 0x18}, {"p", 'P', 0x19}, {"q", 'Q', 0x10}, {"r", 'R', 0x13},
-    {"s", 'S', 0x1f}, {"t", 'T', 0x14}, {"u", 'U', 0x16}, {"v", 'V', 0x2f}, {"w", 'W', 0x11}, {"x", 'X', 0x2d},
-    {"y", 'Y', 0x15}, {"z", 'Z', 0x2c},
-    {"1", '1', 0x02}, {"2", '2', 0x03}, {"3", '3', 0x04}, {"4", '4', 0x05}, {"5", '5', 0x06}, {"6", '6', 0x07},
-    {"7", '7', 0x08}, {"8", '8', 0x09}, {"9", '9', 0x0a}, {"0", '0', 0x0b},
-    {"f5", 0x74, 0x3f}, {"f6", 0x75, 0x40}, {"f7", 0x76, 0x41}, {"f8", 0x77, 0x42}, {"f9", 0x78, 0x43},
-    {"f10", 0x79, 0x44}, {"home", 0x24, 0xc7}, {"end", 0x23, 0xcf}, {"pageup", 0x21, 0xc9},
-    {"pagedown", 0x22, 0xd1}, {"insert", 0x2d, 0xd2}, {"delete", 0x2e, 0xd3},
+    {"enter", 0x0d, 0x1c},
+    {"esc", 0x1b, 0x01},
+    {"space", 0x20, 0x39},
+    {"tab", 0x09, 0x0f},
+    {"up", 0x26, 0xc8},
+    {"down", 0x28, 0xd0},
+    {"left", 0x25, 0xcb},
+    {"right", 0x27, 0xcd},
+    {"backspace", 0x08, 0x0e},
+    {"shift", 0x10, 0x2a},
+    {"ctrl", 0x11, 0x1d},
+    {"alt", 0x12, 0x38},
+    {"f1", 0x70, 0x3b},
+    {"f2", 0x71, 0x3c},
+    {"f3", 0x72, 0x3d},
+    {"f4", 0x73, 0x3e},
+    {"a", 'A', 0x1e},
+    {"b", 'B', 0x30},
+    {"c", 'C', 0x2e},
+    {"d", 'D', 0x20},
+    {"e", 'E', 0x12},
+    {"f", 'F', 0x21},
+    {"g", 'G', 0x22},
+    {"h", 'H', 0x23},
+    {"i", 'I', 0x17},
+    {"j", 'J', 0x24},
+    {"k", 'K', 0x25},
+    {"l", 'L', 0x26},
+    {"m", 'M', 0x32},
+    {"n", 'N', 0x31},
+    {"o", 'O', 0x18},
+    {"p", 'P', 0x19},
+    {"q", 'Q', 0x10},
+    {"r", 'R', 0x13},
+    {"s", 'S', 0x1f},
+    {"t", 'T', 0x14},
+    {"u", 'U', 0x16},
+    {"v", 'V', 0x2f},
+    {"w", 'W', 0x11},
+    {"x", 'X', 0x2d},
+    {"y", 'Y', 0x15},
+    {"z", 'Z', 0x2c},
+    {"1", '1', 0x02},
+    {"2", '2', 0x03},
+    {"3", '3', 0x04},
+    {"4", '4', 0x05},
+    {"5", '5', 0x06},
+    {"6", '6', 0x07},
+    {"7", '7', 0x08},
+    {"8", '8', 0x09},
+    {"9", '9', 0x0a},
+    {"0", '0', 0x0b},
+    {"f5", 0x74, 0x3f},
+    {"f6", 0x75, 0x40},
+    {"f7", 0x76, 0x41},
+    {"f8", 0x77, 0x42},
+    {"f9", 0x78, 0x43},
+    {"f10", 0x79, 0x44},
+    {"home", 0x24, 0xc7},
+    {"end", 0x23, 0xcf},
+    {"pageup", 0x21, 0xc9},
+    {"pagedown", 0x22, 0xd1},
+    {"insert", 0x2d, 0xd2},
+    {"delete", 0x2e, 0xd3},
     // The keypad's digits (Num Lock off: the game reads their scan codes),
     // its default steering, gas and brake.
-    {"kp0", 0x60, 0x52}, {"kp1", 0x61, 0x4f}, {"kp2", 0x62, 0x50}, {"kp3", 0x63, 0x51}, {"kp4", 0x64, 0x4b},
-    {"kp5", 0x65, 0x4c}, {"kp6", 0x66, 0x4d}, {"kp7", 0x67, 0x47}, {"kp8", 0x68, 0x48}, {"kp9", 0x69, 0x49},
+    {"kp0", 0x60, 0x52},
+    {"kp1", 0x61, 0x4f},
+    {"kp2", 0x62, 0x50},
+    {"kp3", 0x63, 0x51},
+    {"kp4", 0x64, 0x4b},
+    {"kp5", 0x65, 0x4c},
+    {"kp6", 0x66, 0x4d},
+    {"kp7", 0x67, 0x47},
+    {"kp8", 0x68, 0x48},
+    {"kp9", 0x69, 0x49},
     // Punctuation (OEM keys, a US keyboard's), for typing addresses and names.
-    {".", 0xbe, 0x34}, {",", 0xbc, 0x33}, {"-", 0xbd, 0x0c}, {"/", 0xbf, 0x35}, {";", 0xba, 0x27},
+    {".", 0xbe, 0x34},
+    {",", 0xbc, 0x33},
+    {"-", 0xbd, 0x0c},
+    {"/", 0xbf, 0x35},
+    {";", 0xba, 0x27},
 };
 
 // The character a key types, as TranslateMessage gives it (no shift): 0
 // for none.
 // Queues an event at its time: after those due no later, before those due
 // after it, so a script's events needn't be written in time order.
-template <typename Queue, typename Event> void queueInOrder(Queue& queue, Event event) {
+template<typename Queue, typename Event>
+void queueInOrder(Queue &queue, Event event) {
     auto at = queue.end();
     while (at != queue.begin() && std::prev(at)->atMs > event.atMs)
         --at;
     queue.insert(at, event);
 }
 
-char keyChar(const KeyName& k) {
+char keyChar(const KeyName &k) {
     if (k.name[0] && !k.name[1] && k.name[0] >= 0x20 && k.name[0] < 0x7f)
         return k.name[0];
     return k.vk == 0x20 ? ' ' : k.vk == 0x0d ? '\r' : k.vk == 0x08 ? '\b' : 0;
@@ -199,8 +264,8 @@ char keyChar(const KeyName& k) {
 
 } // namespace
 
-bool GameHost::queueKey(const std::string& name, bool down, uint64_t atMs) {
-    for (const KeyName& k : kKeys)
+bool GameHost::queueKey(const std::string &name, bool down, uint64_t atMs) {
+    for (const KeyName &k : kKeys)
         if (lower(name) == k.name) {
             std::lock_guard<std::mutex> lock(inputMutex_);
             queueInOrder(pendingKeys_, KeyEvent{k.vk, k.scan, down, atMs, keyChar(k)});
@@ -219,7 +284,7 @@ void GameHost::queueMouseMove(int dx, int dy, uint64_t atMs) {
     inputQueued_ = true;
 }
 
-void GameHost::setJoystick(const GamepadState& state, uint64_t atMs) {
+void GameHost::setJoystick(const GamepadState &state, uint64_t atMs) {
     std::lock_guard<std::mutex> lock(inputMutex_);
     pendingJoystick_.emplace_back(atMs, state);
     inputQueued_ = true;
@@ -233,7 +298,7 @@ void GameHost::queueMouseButton(bool down, uint64_t atMs) {
 
 std::map<std::string, uint64_t> GameHost::callCounts() const {
     std::map<std::string, uint64_t> out;
-    for (auto& [name, count] : cpu_->nativeCallCounts())
+    for (auto &[name, count] : cpu_->nativeCallCounts())
         out[name] += count;
     return out;
 }
@@ -258,7 +323,7 @@ void GameHost::applyInput() {
         }
         inputQueued_ = !pendingKeys_.empty() || !pendingJoystick_.empty() || !pendingMouse_.empty();
     }
-    for (const MouseEvent& m : mouse) {
+    for (const MouseEvent &m : mouse) {
         if (m.offset == 0)
             mouseDx_ += int32_t(m.data);
         else if (m.offset == 4)
@@ -273,7 +338,7 @@ void GameHost::applyInput() {
         process_->setEvent(mouseEvent_);
     if (!due.empty() && keyboardEvent_)
         process_->setEvent(keyboardEvent_);
-    for (const KeyEvent& e : due) {
+    for (const KeyEvent &e : due) {
         keys_[e.scan] = e.down ? 0x80 : 0;
         vkDown_[e.vk] = e.down;
         bufferedKeys_.push_back(e);
@@ -282,8 +347,8 @@ void GameHost::applyInput() {
         // WM_KEYDOWN / WM_KEYUP to the game's window: the scan code in
         // bits 16-23, the previous state and transition bits for a release.
         if (!windows_.empty()) {
-            const uint32_t lParam = 1u | uint32_t(e.scan & 0x7f) << 16 | (e.scan & 0x80 ? 1u << 24 : 0u) |
-                                    (e.down ? 0u : 0xc0000000u);
+            const uint32_t lParam =
+                1u | uint32_t(e.scan & 0x7f) << 16 | (e.scan & 0x80 ? 1u << 24 : 0u) | (e.down ? 0u : 0xc0000000u);
             queues_[windows_.front().threadId].push_back(
                 {windows_.front().handle, e.down ? 0x100u : 0x101u, e.vk, lParam, uint32_t(process_->now())});
             if (e.down && e.ch) // WM_CHAR, as TranslateMessage would make
@@ -293,9 +358,9 @@ void GameHost::applyInput() {
     }
 }
 
-void GameHost::provide(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn) {
+void GameHost::provide(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn) {
     const uint32_t pop = uint32_t(args) * 4;
-    const uint32_t address = process_->provide(dll, name, [fn = std::move(fn), pop](Cpu& c) {
+    const uint32_t address = process_->provide(dll, name, [fn = std::move(fn), pop](Cpu &c) {
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     });
@@ -306,11 +371,13 @@ void GameHost::provide(const char* dll, const char* name, int args, std::functio
     nativeExports_[nativeModules_[key]][name] = address;
 }
 
-void GameHost::addNativeModule(const std::string& name, uint32_t handle) { nativeModules_[lower(name)] = handle; }
+void GameHost::addNativeModule(const std::string &name, uint32_t handle) {
+    nativeModules_[lower(name)] = handle;
+}
 
-void GameHost::addExport(uint32_t module, const std::string& name, int argBytes, std::function<uint32_t(Cpu&)> fn) {
+void GameHost::addExport(uint32_t module, const std::string &name, int argBytes, std::function<uint32_t(Cpu &)> fn) {
     const uint32_t pop = uint32_t(argBytes);
-    nativeExports_[module][name] = cpu_->addNative(name, [fn = std::move(fn), pop](Cpu& c) {
+    nativeExports_[module][name] = cpu_->addNative(name, [fn = std::move(fn), pop](Cpu &c) {
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     });
@@ -325,7 +392,7 @@ Error GameHost::load() {
     if (Error e = process_->load("nfs3.exe", file, exe_))
         return e;
     say("nfs3.exe loaded at " + hex(exe_->base));
-    for (const std::string& m : process_->missingImports())
+    for (const std::string &m : process_->missingImports())
         say("  not stood in for: " + m);
     if (options_.nativeRoutines) {
         addNativeRoutines();
@@ -354,14 +421,14 @@ void GameHost::choosePositionalUpdates() {
         say("positional updates: nfs3.exe's network dialog isn't the expected code; left as it is");
         return;
     }
-    cpu_->write8(0x43f43f, 0x35); // mov [0x6fd50c], esi (1)
+    cpu_->write8(0x43f43f, 0x35);                                     // mov [0x6fd50c], esi (1)
     const uint8_t storeEax[6] = {0xa3, 0x0c, 0xd5, 0x6f, 0x00, 0x90}; // mov [0x6fd50c], eax (1); nop
     for (uint32_t i = 0; i < 6; ++i)
         cpu_->write8(0x43f451 + i, storeEax[i]);
     say("positional updates chosen for network races");
 }
 
-bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char* name, Cpu::Native fn) {
+bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, const char *name, Cpu::Native fn) {
     uint64_t h = 0xcbf29ce484222325ull;
     for (uint32_t i = 0; i < size; ++i)
         h = (h ^ cpu_->read8(address + i)) * 0x100000001b3ull;
@@ -379,7 +446,7 @@ void GameHost::addNativeRoutines() {
     // the native function over the routine's first bytes. Each uses
     // Watcom's register convention (arguments in EAX, EDX...; the result
     // in EAX) and returns as the routine would.
-    auto replace = [this](uint32_t address, std::vector<uint8_t> expected, const char* name, Cpu::Native fn) {
+    auto replace = [this](uint32_t address, std::vector<uint8_t> expected, const char *name, Cpu::Native fn) {
         for (size_t i = 0; i < expected.size(); ++i)
             if (cpu_->read8(address + uint32_t(i)) != expected[i])
                 return;
@@ -388,7 +455,7 @@ void GameHost::addNativeRoutines() {
         cpu_->write32(address + 1, native - (address + 5));
     };
     // strcmp(EAX, EDX): -1, 0 or 1, the bytes compared unsigned.
-    replace(0x4ee310, {0x53, 0x51, 0x89, 0xc3, 0x39, 0xd0, 0x74, 0x6c}, "nfs3.exe strcmp", [](Cpu& c) {
+    replace(0x4ee310, {0x53, 0x51, 0x89, 0xc3, 0x39, 0xd0, 0x74, 0x6c}, "nfs3.exe strcmp", [](Cpu &c) {
         uint32_t a = c.reg[Cpu::EAX], b = c.reg[Cpu::EDX];
         int result = 0;
         for (;; ++a, ++b) {
@@ -407,8 +474,8 @@ void GameHost::addNativeRoutines() {
     // chop, then put back), everything else as it was. Images are scaled
     // with it a pixel at a time as a track loads.
     replace(0x4dfd56, {0x50, 0x9b, 0xd9, 0x3c, 0x24, 0x9b, 0xff, 0x34, 0x24, 0xc6, 0x44, 0x24, 0x01, 0x1f},
-            "nfs3.exe __CHP", [](Cpu& c) {
-                double& top = c.fpu.regs[c.fpu.top];
+            "nfs3.exe __CHP", [](Cpu &c) {
+                double &top = c.fpu.regs[c.fpu.top];
                 const double chopped = std::trunc(top);
                 if (chopped != top || std::signbit(chopped) != std::signbit(top)) {
                     top = chopped;
@@ -418,7 +485,7 @@ void GameHost::addNativeRoutines() {
             });
 }
 
-Error GameHost::run(uint32_t& exitCode) {
+Error GameHost::run(uint32_t &exitCode) {
     if (!exe_)
         return Error::fail("nfs3.exe isn't loaded");
     return process_->run(*exe_, exitCode);
@@ -431,19 +498,19 @@ uint32_t GameHost::newObject(uint32_t vtable) {
     return object;
 }
 
-uint32_t GameHost::makeVtable(const std::string& interface, const std::vector<Method>& methods) {
+uint32_t GameHost::makeVtable(const std::string &interface, const std::vector<Method> &methods) {
     const uint32_t vtable = process_->memory().alloc(uint32_t(methods.size()) * 4);
     for (size_t i = 0; i < methods.size(); ++i) {
-        const Method& m = methods[i];
+        const Method &m = methods[i];
         const std::string name = interface + "::" + m.name;
         auto fn = m.fn;
         if (!fn)
-            fn = [this, name](Cpu&) {
+            fn = [this, name](Cpu &) {
                 say("  " + name + " isn't stood in for: E_NOTIMPL");
                 return 0x80004001u;
             };
         const uint32_t pop = uint32_t(m.args) * 4;
-        cpu_->write32(vtable + 4 * uint32_t(i), cpu_->addNative(name, [fn, pop](Cpu& c) {
+        cpu_->write32(vtable + 4 * uint32_t(i), cpu_->addNative(name, [fn, pop](Cpu &c) {
             c.reg[Cpu::EAX] = fn(c);
             return pop;
         }));
@@ -452,9 +519,9 @@ uint32_t GameHost::makeVtable(const std::string& interface, const std::vector<Me
 }
 
 void GameHost::addSystem() {
-    const char* k = "KERNEL32.dll";
+    const char *k = "KERNEL32.dll";
     // Native modules first: LoadLibraryA answers for them.
-    provide(k, "LoadLibraryA", 1, [this](Cpu& c) -> uint32_t {
+    provide(k, "LoadLibraryA", 1, [this](Cpu &c) -> uint32_t {
         std::string name = lower(c.string(c.arg(0)));
         const size_t slash = name.find_last_of("\\/");
         if (slash != std::string::npos)
@@ -465,9 +532,8 @@ void GameHost::addSystem() {
         if (name.find("kernel32") == std::string::npos && name.find("user32") == std::string::npos &&
             !nativeModules_.count(name)) {
             // Told of another renderer, the game asks for it: renderer it is.
-            const std::string dllFile = !options_.presentedRenderer.empty() && name == options_.presentedRenderer
-                                            ? options_.renderer
-                                            : name;
+            const std::string dllFile =
+                !options_.presentedRenderer.empty() && name == options_.presentedRenderer ? options_.renderer : name;
             // Options::glideDll: the renderer from outside the install.
             const bool outside = options_.glide && !options_.glideDll.empty() && dllFile == options_.renderer;
             std::ifstream in(outside ? std::filesystem::path(options_.glideDll)
@@ -475,7 +541,7 @@ void GameHost::addSystem() {
                              std::ios::binary);
             if (in) {
                 const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
-                const x86::Win32Process::Module* m = nullptr;
+                const x86::Win32Process::Module *m = nullptr;
                 if (Error e = process_->load(name, file, m)) {
                     say("  LoadLibraryA(\"" + name + "\"): " + e.message);
                     return 0u;
@@ -488,7 +554,8 @@ void GameHost::addSystem() {
                     softtriaKnown_ = dllFile == "softtria.dll" && m->image.timestamp == 0x35e4344f &&
                                      m->image.imageBase == 0x60000000;
                 }
-                say("  " + name + (dllFile != name ? " (" + dllFile + ")" : std::string()) + " loaded at " + hex(m->base));
+                say("  " + name + (dllFile != name ? " (" + dllFile + ")" : std::string()) + " loaded at " +
+                    hex(m->base));
                 if (Error e = process_->attach(*m)) {
                     say("  " + name + ": " + e.message);
                     return 0u;
@@ -498,17 +565,17 @@ void GameHost::addSystem() {
         }
         if (auto it = nativeModules_.find(name); it != nativeModules_.end())
             return it->second;
-        if (const auto* m = process_->module(name))
+        if (const auto *m = process_->module(name))
             return m->base;
         say("  LoadLibraryA(\"" + name + "\"): not there");
         process_->setLastError(126);
         return 0u;
     });
-    provide(k, "FreeLibrary", 1, [](Cpu&) { return 1u; });
+    provide(k, "FreeLibrary", 1, [](Cpu &) { return 1u; });
     // CompareString(locale, flags, a, aLength, b, bLength): 1, 2 or 3 for
     // less, equal, greater, by code unit (case folded for
     // NORM_IGNORECASE). The C library of the CD's Voodoo3 patch DLL asks.
-    auto compareStrings = [](Cpu& c, int unit) -> uint32_t {
+    auto compareStrings = [](Cpu &c, int unit) -> uint32_t {
         auto read = [&](uint32_t at, int32_t n) {
             std::vector<uint32_t> s;
             for (int32_t i = 0; n < 0 || i < n; ++i) {
@@ -522,14 +589,14 @@ void GameHost::addSystem() {
         const std::vector<uint32_t> a = read(c.arg(2), int32_t(c.arg(3))), b = read(c.arg(4), int32_t(c.arg(5)));
         return a < b ? 1u : a == b ? 2u : 3u;
     };
-    provide(k, "CompareStringA", 6, [compareStrings](Cpu& c) { return compareStrings(c, 1); });
-    provide(k, "CompareStringW", 6, [compareStrings](Cpu& c) { return compareStrings(c, 2); });
-    provide(k, "IsProcessorFeaturePresent", 1, [](Cpu&) { return 0u; });
-    provide(k, "GetProcAddress", 2, [this](Cpu& c) -> uint32_t {
+    provide(k, "CompareStringA", 6, [compareStrings](Cpu &c) { return compareStrings(c, 1); });
+    provide(k, "CompareStringW", 6, [compareStrings](Cpu &c) { return compareStrings(c, 2); });
+    provide(k, "IsProcessorFeaturePresent", 1, [](Cpu &) { return 0u; });
+    provide(k, "GetProcAddress", 2, [this](Cpu &c) -> uint32_t {
         const uint32_t handle = c.arg(0), name = c.arg(1);
         const std::string function = name < 0x10000 ? "#" + std::to_string(name) : c.string(name);
-        if (const auto* m = process_->moduleAt(handle)) {
-            for (const PeImage::Export& e : m->image.exports)
+        if (const auto *m = process_->moduleAt(handle)) {
+            for (const PeImage::Export &e : m->image.exports)
                 if ((name < 0x10000 ? e.ordinal == name : e.name == function) && e.forwarder.empty())
                     return handle == thrashBase_ ? wrapThrash(function, m->base + e.rva) : m->base + e.rva;
             say("  GetProcAddress: " + m->name + " has no " + function);
@@ -550,8 +617,8 @@ void GameHost::addSystem() {
     // Windows 98, which the game was made for (4.10, build 1998): it then
     // reads low memory to tell, as that allows.
     cpu_->readableFirstPage = true;
-    provide(k, "GetVersion", 0, [](Cpu&) { return 0xc0000a04u; });
-    provide(k, "GetVersionExA", 1, [](Cpu& c) {
+    provide(k, "GetVersion", 0, [](Cpu &) { return 0xc0000a04u; });
+    provide(k, "GetVersionExA", 1, [](Cpu &c) {
         const uint32_t p = c.arg(0);
         if (c.read32(p) < 148)
             return 0u;
@@ -564,7 +631,7 @@ void GameHost::addSystem() {
     });
 
     // The machine: a Pentium of the time, with 64 MB.
-    provide(k, "GetSystemInfo", 1, [](Cpu& c) {
+    provide(k, "GetSystemInfo", 1, [](Cpu &c) {
         const uint32_t p = c.arg(0);
         const uint32_t v[] = {0, 4096, 0x10000, 0x7ffeffff, 1, 1, 586, 0x10000};
         for (uint32_t i = 0; i < 8; ++i)
@@ -573,14 +640,14 @@ void GameHost::addSystem() {
         c.write16(p + 34, 0);
         return 0u;
     });
-    provide(k, "GlobalMemoryStatus", 1, [](Cpu& c) {
+    provide(k, "GlobalMemoryStatus", 1, [](Cpu &c) {
         const uint32_t p = c.arg(0);
         const uint32_t v[] = {32, 20, 64u << 20, 48u << 20, 128u << 20, 100u << 20, 0x7ffe0000, 0x7f000000};
         for (uint32_t i = 0; i < 8; ++i)
             c.write32(p + 4 * i, v[i]);
         return 0u;
     });
-    provide(k, "GetLocalTime", 1, [](Cpu& c) {
+    provide(k, "GetLocalTime", 1, [](Cpu &c) {
         const std::time_t t = std::time(nullptr);
         std::tm tm{};
 #ifdef _WIN32
@@ -588,31 +655,31 @@ void GameHost::addSystem() {
 #else
         localtime_r(&t, &tm);
 #endif
-        const uint16_t v[] = {uint16_t(tm.tm_year + 1900), uint16_t(tm.tm_mon + 1), uint16_t(tm.tm_wday),
-                              uint16_t(tm.tm_mday), uint16_t(tm.tm_hour), uint16_t(tm.tm_min),
-                              uint16_t(tm.tm_sec), 0};
+        const uint16_t v[] = {
+            uint16_t(tm.tm_year + 1900), uint16_t(tm.tm_mon + 1), uint16_t(tm.tm_wday), uint16_t(tm.tm_mday),
+            uint16_t(tm.tm_hour),        uint16_t(tm.tm_min),     uint16_t(tm.tm_sec),  0};
         for (uint32_t i = 0; i < 8; ++i)
             c.write16(c.arg(0) + 2 * i, v[i]);
         return 0u;
     });
-    provide(k, "GetTimeZoneInformation", 1, [](Cpu& c) {
+    provide(k, "GetTimeZoneInformation", 1, [](Cpu &c) {
         for (uint32_t i = 0; i < 172; i += 4)
             c.write32(c.arg(0) + i, 0);
         return 0u; // TIME_ZONE_ID_UNKNOWN
     });
     // VirtualQuery(address, info*, size): committed, read-write memory.
-    provide(k, "VirtualQuery", 3, [](Cpu& c) {
+    provide(k, "VirtualQuery", 3, [](Cpu &c) {
         const uint32_t a = c.arg(0) & ~0xfffu, p = c.arg(1);
         const uint32_t v[] = {a, a, 4, 0x1000, 0x1000, 4, 0x20000};
         for (uint32_t i = 0; i < 7; ++i)
             c.write32(p + 4 * i, v[i]);
         return 28u;
     });
-    provide(k, "DebugBreak", 0, [](Cpu& c) {
+    provide(k, "DebugBreak", 0, [](Cpu &c) {
         c.abort("the program called DebugBreak");
         return 0u;
     });
-    provide(k, "GetCommandLineW", 0, [this](Cpu& c) {
+    provide(k, "GetCommandLineW", 0, [this](Cpu &c) {
         static uint32_t wide = 0;
         if (!wide) {
             const std::string s = options_.commandLine;
@@ -622,7 +689,7 @@ void GameHost::addSystem() {
         }
         return wide;
     });
-    provide(k, "GetModuleFileNameW", 3, [](Cpu& c) {
+    provide(k, "GetModuleFileNameW", 3, [](Cpu &c) {
         const std::string s = "C:\\nfs3.exe";
         const uint32_t n = std::min<uint32_t>(uint32_t(s.size()), c.arg(2) ? c.arg(2) - 1 : 0);
         for (uint32_t i = 0; i < n; ++i)
@@ -630,24 +697,24 @@ void GameHost::addSystem() {
         c.write16(c.arg(1) + 2 * n, 0);
         return n;
     });
-    provide(k, "SetEnvironmentVariableA", 2, [](Cpu&) { return 1u; });
-    provide(k, "SetEnvironmentVariableW", 2, [](Cpu&) { return 1u; });
+    provide(k, "SetEnvironmentVariableA", 2, [](Cpu &) { return 1u; });
+    provide(k, "SetEnvironmentVariableW", 2, [](Cpu &) { return 1u; });
     // No console: the game is a window.
-    for (const char* name : {"GetConsoleMode", "SetConsoleMode"})
-        provide(k, name, 2, [](Cpu&) { return 0u; });
+    for (const char *name : {"GetConsoleMode", "SetConsoleMode"})
+        provide(k, name, 2, [](Cpu &) { return 0u; });
     // The console's keyboard: never anything waiting, and saying so (the C
     // library's kbhit, as the game drains the keyboard when it ends, reads
     // the count of events; left unwritten it was taken as a key waiting
     // for ever).
-    auto noInput = [](Cpu& c) {
+    auto noInput = [](Cpu &c) {
         if (c.arg(3))
             c.write32(c.arg(3), 0);
         return 1u;
     };
     provide(k, "PeekConsoleInputA", 4, noInput);
     provide(k, "ReadConsoleInputA", 4, noInput);
-    provide(k, "WriteConsoleA", 5, [this](Cpu& c) {
-        say("[console] " + std::string(reinterpret_cast<const char*>(c.memory().data() + c.arg(1)),
+    provide(k, "WriteConsoleA", 5, [this](Cpu &c) {
+        say("[console] " + std::string(reinterpret_cast<const char *>(c.memory().data() + c.arg(1)),
                                        std::min<uint32_t>(c.arg(2), 4096)));
         if (c.arg(3))
             c.write32(c.arg(3), c.arg(2));
@@ -655,17 +722,23 @@ void GameHost::addSystem() {
     });
 
     // Display settings: GDI32.
-    provide("GDI32.dll", "GetDeviceCaps", 2, [](Cpu& c) -> uint32_t {
+    provide("GDI32.dll", "GetDeviceCaps", 2, [](Cpu &c) -> uint32_t {
         switch (c.arg(1)) {
-        case 8: return 640;  // HORZRES
-        case 10: return 480; // VERTRES
-        case 12: return 16;  // BITSPIXEL
-        case 14: return 1;   // PLANES
-        case 116: return 60; // VREFRESH
-        default: return 0;
+        case 8:
+            return 640; // HORZRES
+        case 10:
+            return 480; // VERTRES
+        case 12:
+            return 16; // BITSPIXEL
+        case 14:
+            return 1; // PLANES
+        case 116:
+            return 60; // VREFRESH
+        default:
+            return 0;
         }
     });
-    provide("GDI32.dll", "GetStockObject", 1, [](Cpu& c) { return 0x50000u + c.arg(0); });
+    provide("GDI32.dll", "GetStockObject", 1, [](Cpu &c) { return 0x50000u + c.arg(0); });
 
     // The registry: the key the game's installer writes, with the
     // renderer chosen (as 3dSetup would set it). The game only reads it.
@@ -687,8 +760,8 @@ void GameHost::addSystem() {
     if (lower(options_.presentedRenderer.empty() ? options_.renderer : options_.presentedRenderer) == "d3da.dll")
         (*registry)["software\\electronic arts\\need for speed iii"]["3d device description"] = {1, "Direct3D HAL"};
     auto keys = std::make_shared<std::map<uint32_t, std::string>>();
-    const char* a = "ADVAPI32.dll";
-    provide(a, "RegOpenKeyExA", 5, [this, registry, keys](Cpu& c) {
+    const char *a = "ADVAPI32.dll";
+    provide(a, "RegOpenKeyExA", 5, [this, registry, keys](Cpu &c) {
         const std::string name = lower(c.string(c.arg(1)));
         if (!registry->count(name)) {
             say("  registry: no key " + c.string(c.arg(1)));
@@ -700,11 +773,11 @@ void GameHost::addSystem() {
         return 0u;
     });
     // RegQueryValueExA(key, name, reserved, type*, data*, size*)
-    provide(a, "RegQueryValueExA", 6, [this, registry, keys](Cpu& c) {
+    provide(a, "RegQueryValueExA", 6, [this, registry, keys](Cpu &c) {
         auto k = keys->find(c.arg(0));
         if (k == keys->end())
             return 6u; // ERROR_INVALID_HANDLE
-        const auto& values = (*registry)[k->second];
+        const auto &values = (*registry)[k->second];
         auto v = values.find(lower(c.string(c.arg(1))));
         if (v == values.end()) {
             say("  registry: no value " + c.string(c.arg(1)));
@@ -731,16 +804,16 @@ void GameHost::addSystem() {
             c.write8(c.arg(4) + uint32_t(i), data[i]);
         return 0u;
     });
-    provide(a, "RegCloseKey", 1, [keys](Cpu& c) {
+    provide(a, "RegCloseKey", 1, [keys](Cpu &c) {
         keys->erase(c.arg(0));
         return 0u;
     });
-    provide(a, "RegFlushKey", 1, [](Cpu&) { return 0u; });
+    provide(a, "RegFlushKey", 1, [](Cpu &) { return 0u; });
 
     // File versions, from the files' version resources. The size asked for
     // is twice the resource's: VerQueryValueA writes text values, converted
     // to ANSI, into the second half, as Windows NT does.
-    auto versionInfo = [this](const std::string& windowsPath) {
+    auto versionInfo = [this](const std::string &windowsPath) {
         std::ifstream in(process_->hostPath(windowsPath, false), std::ios::binary);
         const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), {});
         PeImage pe;
@@ -748,12 +821,12 @@ void GameHost::addSystem() {
             return std::vector<uint8_t>{};
         return findResource(pe, file, 16);
     };
-    provide("VERSION.dll", "GetFileVersionInfoSizeA", 2, [versionInfo](Cpu& c) {
+    provide("VERSION.dll", "GetFileVersionInfoSizeA", 2, [versionInfo](Cpu &c) {
         if (c.arg(1))
             c.write32(c.arg(1), 0);
         return uint32_t(versionInfo(c.string(c.arg(0))).size() * 2);
     });
-    provide("VERSION.dll", "GetFileVersionInfoA", 4, [versionInfo](Cpu& c) {
+    provide("VERSION.dll", "GetFileVersionInfoA", 4, [versionInfo](Cpu &c) {
         const std::vector<uint8_t> v = versionInfo(c.string(c.arg(0)));
         if (v.empty() || !c.valid(c.arg(3), c.arg(2)))
             return 0u;
@@ -763,7 +836,7 @@ void GameHost::addSystem() {
     // VerQueryValueA(block, path, value**, length*): the tree's nodes are
     // length, value length, type (1 text), a UTF-16 key, the value and the
     // children, each 4-byte aligned.
-    provide("VERSION.dll", "VerQueryValueA", 4, [](Cpu& c) {
+    provide("VERSION.dll", "VerQueryValueA", 4, [](Cpu &c) {
         const uint32_t block = c.arg(0);
         std::string path = c.string(c.arg(1));
         std::vector<std::string> want;
@@ -775,7 +848,7 @@ void GameHost::addSystem() {
             at = end + 1;
         }
         auto align = [](uint32_t v) { return (v + 3) & ~3u; };
-        auto key = [&](uint32_t node, uint32_t& end) {
+        auto key = [&](uint32_t node, uint32_t &end) {
             std::string k;
             uint32_t p = node + 6;
             for (uint16_t ch; (ch = c.read16(p)) != 0; p += 2)
@@ -785,7 +858,7 @@ void GameHost::addSystem() {
         };
         uint32_t node = block, valueAt = 0;
         key(node, valueAt);
-        for (const std::string& part : want) {
+        for (const std::string &part : want) {
             const uint32_t length = c.read16(node);
             const uint32_t valueBytes = c.read16(node + 2) * (c.read16(node + 4) == 1 ? 2u : 1u);
             uint32_t child = align(valueAt + valueBytes), found = 0;
@@ -818,11 +891,11 @@ void GameHost::addSystem() {
         }
         return valueLength ? 1u : 0u;
     });
-    provide("SHELL32.dll", "ShellExecuteA", 6, [this](Cpu& c) {
+    provide("SHELL32.dll", "ShellExecuteA", 6, [this](Cpu &c) {
         say("  ShellExecuteA(" + c.string(c.arg(2)) + "): not done");
         return 2u;
     });
-    provide("ole32.dll", "CoCreateGuid", 1, [](Cpu& c) {
+    provide("ole32.dll", "CoCreateGuid", 1, [](Cpu &c) {
         static std::mt19937 random(1998);
         for (uint32_t i = 0; i < 16; i += 4)
             c.write32(c.arg(0) + i, random());
@@ -830,38 +903,38 @@ void GameHost::addSystem() {
     });
 }
 
-uint32_t GameHost::callWindow(const Window& w, uint32_t msg, uint32_t wParam, uint32_t lParam) {
+uint32_t GameHost::callWindow(const Window &w, uint32_t msg, uint32_t wParam, uint32_t lParam) {
     uint32_t result = 0;
     if (Error e = cpu_->call(w.wndProc, {w.handle, msg, wParam, lParam}, result))
         cpu_->abort("the window procedure failed: " + e.message);
     return result;
 }
 
-GameHost::Window* GameHost::window(uint32_t handle) {
-    for (Window& w : windows_)
+GameHost::Window *GameHost::window(uint32_t handle) {
+    for (Window &w : windows_)
         if (w.handle == handle)
             return &w;
     return nullptr;
 }
 
-void GameHost::post(uint32_t threadId, const Message& m) {
+void GameHost::post(uint32_t threadId, const Message &m) {
     queues_[threadId].push_back(m);
     process_->preempt();
 }
 
 void GameHost::addUser() {
-    const char* u = "USER32.dll";
+    const char *u = "USER32.dll";
     auto self = [this]() { return process_->currentThread() ? process_->currentThread()->id : 0x104u; };
 
     // RegisterClassA(WNDCLASSA*): the procedure at +4, the name at +36.
-    provide(u, "RegisterClassA", 1, [this](Cpu& c) {
+    provide(u, "RegisterClassA", 1, [this](Cpu &c) {
         const uint32_t p = c.arg(0);
         const std::string name = c.read32(p + 36) < 0x10000 ? hex(c.read32(p + 36)) : c.string(c.read32(p + 36));
         classes_[lower(name)] = c.read32(p + 4);
         return 0xc000u + uint32_t(classes_.size());
     });
     // CreateWindowExA(exStyle, class, title, style, x, y, w, h, parent, menu, instance, param)
-    provide(u, "CreateWindowExA", 12, [this, self](Cpu& c) -> uint32_t {
+    provide(u, "CreateWindowExA", 12, [this, self](Cpu &c) -> uint32_t {
         const std::string cls = c.arg(1) < 0x10000 ? hex(c.arg(1)) : c.string(c.arg(1));
         auto it = classes_.find(lower(cls));
         if (it == classes_.end()) {
@@ -891,90 +964,95 @@ void GameHost::addUser() {
             return 0u;
         return w.handle;
     });
-    provide(u, "DefWindowProcA", 4, [this](Cpu& c) -> uint32_t {
+    provide(u, "DefWindowProcA", 4, [this](Cpu &c) -> uint32_t {
         switch (c.arg(1)) {
-        case 0x81: return 1; // WM_NCCREATE: go ahead
-        case 0x10:           // WM_CLOSE: destroy it
-            if (Window* w = window(c.arg(0)))
+        case 0x81:
+            return 1; // WM_NCCREATE: go ahead
+        case 0x10:    // WM_CLOSE: destroy it
+            if (Window *w = window(c.arg(0)))
                 callWindow(*w, 0x02, 0, 0);
             return 0;
-        default: return 0;
+        default:
+            return 0;
         }
     });
-    provide(u, "DestroyWindow", 1, [this](Cpu& c) {
-        if (Window* w = window(c.arg(0))) {
+    provide(u, "DestroyWindow", 1, [this](Cpu &c) {
+        if (Window *w = window(c.arg(0))) {
             const Window copy = *w;
             callWindow(copy, 0x02, 0, 0); // WM_DESTROY
-            std::erase_if(windows_, [&](const Window& x) { return x.handle == copy.handle; });
+            std::erase_if(windows_, [&](const Window &x) { return x.handle == copy.handle; });
         }
         return 1u;
     });
-    provide(u, "ShowWindow", 2, [](Cpu&) { return 0u; });
-    provide(u, "SetWindowPos", 7, [](Cpu&) { return 1u; });
-    provide(u, "SetActiveWindow", 1, [](Cpu& c) { return c.arg(0); });
-    provide(u, "SetForegroundWindow", 1, [](Cpu&) { return 1u; });
+    provide(u, "ShowWindow", 2, [](Cpu &) { return 0u; });
+    provide(u, "SetWindowPos", 7, [](Cpu &) { return 1u; });
+    provide(u, "SetActiveWindow", 1, [](Cpu &c) { return c.arg(0); });
+    provide(u, "SetForegroundWindow", 1, [](Cpu &) { return 1u; });
     // GetWindowThreadProcessId(window, processId): the thread that made it
     // (the CD's Voodoo3 patch DLL asks, to post to the window's thread).
-    provide(u, "GetWindowThreadProcessId", 2, [this](Cpu& c) {
+    provide(u, "GetWindowThreadProcessId", 2, [this](Cpu &c) {
         if (c.arg(1))
             c.write32(c.arg(1), 0x100u); // GetCurrentProcessId's
-        for (const Window& w : windows_)
+        for (const Window &w : windows_)
             if (w.handle == c.arg(0))
                 return w.threadId;
         return 0u;
     });
-    provide(u, "IsIconic", 1, [](Cpu&) { return 0u; });
-    provide(u, "FindWindowA", 2, [](Cpu&) { return 0u; }); // no other copy running
-    provide(u, "GetDesktopWindow", 0, [](Cpu&) { return 0x10010u; });
-    provide(u, "GetWindowDC", 1, [](Cpu&) { return 0x20000u; });
+    provide(u, "IsIconic", 1, [](Cpu &) { return 0u; });
+    provide(u, "FindWindowA", 2, [](Cpu &) { return 0u; }); // no other copy running
+    provide(u, "GetDesktopWindow", 0, [](Cpu &) { return 0x10010u; });
+    provide(u, "GetWindowDC", 1, [](Cpu &) { return 0x20000u; });
     // GetWindowLongA(hwnd, index): the procedure (-4), style (-16), user data (-21).
-    provide(u, "GetWindowLongA", 2, [this](Cpu& c) -> uint32_t {
-        Window* w = window(c.arg(0));
+    provide(u, "GetWindowLongA", 2, [this](Cpu &c) -> uint32_t {
+        Window *w = window(c.arg(0));
         if (!w)
             return 0;
         switch (int32_t(c.arg(1))) {
-        case -4: return w->wndProc;
-        case -16: return w->style;
-        case -21: return w->userData;
-        default: return 0;
+        case -4:
+            return w->wndProc;
+        case -16:
+            return w->style;
+        case -21:
+            return w->userData;
+        default:
+            return 0;
         }
     });
-    auto rect = [](Cpu& c, uint32_t p, int l, int t, int r, int b) {
+    auto rect = [](Cpu &c, uint32_t p, int l, int t, int r, int b) {
         c.write32(p, uint32_t(l));
         c.write32(p + 4, uint32_t(t));
         c.write32(p + 8, uint32_t(r));
         c.write32(p + 12, uint32_t(b));
     };
-    provide(u, "GetClientRect", 2, [this, rect](Cpu& c) {
-        Window* w = window(c.arg(0));
+    provide(u, "GetClientRect", 2, [this, rect](Cpu &c) {
+        Window *w = window(c.arg(0));
         rect(c, c.arg(1), 0, 0, w ? w->width : 640, w ? w->height : 480);
         return 1u;
     });
-    provide(u, "AdjustWindowRect", 3, [](Cpu&) { return 1u; });
-    provide(u, "ClientToScreen", 2, [](Cpu&) { return 1u; });
-    provide(u, "BeginPaint", 2, [](Cpu& c) {
+    provide(u, "AdjustWindowRect", 3, [](Cpu &) { return 1u; });
+    provide(u, "ClientToScreen", 2, [](Cpu &) { return 1u; });
+    provide(u, "BeginPaint", 2, [](Cpu &c) {
         for (uint32_t i = 0; i < 64; i += 4)
             c.write32(c.arg(1) + i, 0);
         c.write32(c.arg(1), 0x20000);
         return 0x20000u;
     });
-    provide(u, "EndPaint", 2, [](Cpu&) { return 1u; });
+    provide(u, "EndPaint", 2, [](Cpu &) { return 1u; });
 
     // Messages: each thread's queue.
-    auto writeMsg = [](Cpu& c, uint32_t p, const Message& m) {
+    auto writeMsg = [](Cpu &c, uint32_t p, const Message &m) {
         const uint32_t v[] = {m.hwnd, m.message, m.wParam, m.lParam, m.time, 320, 240};
         for (uint32_t i = 0; i < 7; ++i)
             c.write32(p + 4 * i, v[i]);
     };
-    provide(u, "GetMessageA", 4, [this, self, writeMsg](Cpu& c) {
-        auto& q = queues_[self()];
+    provide(u, "GetMessageA", 4, [this, self, writeMsg](Cpu &c) {
+        auto &q = queues_[self()];
         if (tapiDeliver_)
             tapiDeliver_(c);
         // While a call is under way, TAPI's window gets status messages:
         // the game's loop waiting on it comes round at least every 100 ms.
         const bool tapi = tapiNews_ && tapiThread_ == self();
-        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); },
-                       tapi && tapiBusy_() ? 100u : 0xffffffffu);
+        process_->wait([&] { return !q.empty() || (tapi && tapiNews_()); }, tapi && tapiBusy_() ? 100u : 0xffffffffu);
         if (process_->ending()) {
             c.abort("the process is ending");
             return 0u;
@@ -991,8 +1069,8 @@ void GameHost::addUser() {
         writeMsg(c, c.arg(0), m);
         return m.message == 0x12 ? 0u : 1u; // WM_QUIT
     });
-    provide(u, "PeekMessageA", 5, [this, self, writeMsg](Cpu& c) {
-        auto& q = queues_[self()];
+    provide(u, "PeekMessageA", 5, [this, self, writeMsg](Cpu &c) {
+        auto &q = queues_[self()];
         if (tapiDeliver_)
             tapiDeliver_(c);
         if (q.empty()) {
@@ -1004,21 +1082,21 @@ void GameHost::addUser() {
             q.pop_front();
         return 1u;
     });
-    provide(u, "TranslateMessage", 1, [](Cpu&) { return 0u; });
-    provide(u, "DispatchMessageA", 1, [this](Cpu& c) {
-        Window* w = window(c.read32(c.arg(0)));
+    provide(u, "TranslateMessage", 1, [](Cpu &) { return 0u; });
+    provide(u, "DispatchMessageA", 1, [this](Cpu &c) {
+        Window *w = window(c.read32(c.arg(0)));
         if (!w)
             return 0u;
         const Window copy = *w;
         return callWindow(copy, c.read32(c.arg(0) + 4), c.read32(c.arg(0) + 8), c.read32(c.arg(0) + 12));
     });
-    provide(u, "PostMessageA", 4, [this](Cpu& c) {
-        Window* w = window(c.arg(0));
+    provide(u, "PostMessageA", 4, [this](Cpu &c) {
+        Window *w = window(c.arg(0));
         post(w ? w->threadId : 0x104u, {c.arg(0), c.arg(1), c.arg(2), c.arg(3), uint32_t(process_->now())});
         return 1u;
     });
-    provide(u, "SendNotifyMessageA", 4, [this, self](Cpu& c) {
-        Window* w = window(c.arg(0));
+    provide(u, "SendNotifyMessageA", 4, [this, self](Cpu &c) {
+        Window *w = window(c.arg(0));
         if (w && w->threadId == self()) {
             const Window copy = *w;
             callWindow(copy, c.arg(1), c.arg(2), c.arg(3));
@@ -1027,38 +1105,38 @@ void GameHost::addUser() {
         }
         return 1u;
     });
-    provide(u, "PostThreadMessageA", 4, [this](Cpu& c) {
+    provide(u, "PostThreadMessageA", 4, [this](Cpu &c) {
         post(c.arg(0), {0, c.arg(1), c.arg(2), c.arg(3), uint32_t(process_->now())});
         return 1u;
     });
-    provide(u, "PostQuitMessage", 1, [this, self](Cpu& c) {
+    provide(u, "PostQuitMessage", 1, [this, self](Cpu &c) {
         post(self(), {0, 0x12, c.arg(0), 0, uint32_t(process_->now())});
         return 0u;
     });
 
     // Input: keys from Reluva's events (none yet), the cursor.
-    provide(u, "GetAsyncKeyState", 1, [this](Cpu& c) { return vkDown_[c.arg(0) & 0xff] ? 0x8000u : 0u; });
-    provide(u, "GetKeyState", 1, [this](Cpu& c) { return vkDown_[c.arg(0) & 0xff] ? 0xff80u : 0u; });
-    provide(u, "GetKeyboardType", 1, [](Cpu& c) -> uint32_t { return c.arg(0) == 0 ? 4 : c.arg(0) == 2 ? 12 : 0; });
-    provide(u, "keybd_event", 4, [](Cpu&) { return 0u; });
-    provide(u, "SetCursor", 1, [](Cpu&) { return 0u; });
-    provide(u, "SetCursorPos", 2, [](Cpu&) { return 1u; });
-    provide(u, "ShowCursor", 1, [this](Cpu& c) { return uint32_t(cursorCount_ += c.arg(0) ? 1 : -1); });
-    provide(u, "SwapMouseButton", 1, [](Cpu&) { return 0u; });
-    provide(u, "LoadIconA", 2, [](Cpu&) { return 0x30001u; });
+    provide(u, "GetAsyncKeyState", 1, [this](Cpu &c) { return vkDown_[c.arg(0) & 0xff] ? 0x8000u : 0u; });
+    provide(u, "GetKeyState", 1, [this](Cpu &c) { return vkDown_[c.arg(0) & 0xff] ? 0xff80u : 0u; });
+    provide(u, "GetKeyboardType", 1, [](Cpu &c) -> uint32_t { return c.arg(0) == 0 ? 4 : c.arg(0) == 2 ? 12 : 0; });
+    provide(u, "keybd_event", 4, [](Cpu &) { return 0u; });
+    provide(u, "SetCursor", 1, [](Cpu &) { return 0u; });
+    provide(u, "SetCursorPos", 2, [](Cpu &) { return 1u; });
+    provide(u, "ShowCursor", 1, [this](Cpu &c) { return uint32_t(cursorCount_ += c.arg(0) ? 1 : -1); });
+    provide(u, "SwapMouseButton", 1, [](Cpu &) { return 0u; });
+    provide(u, "LoadIconA", 2, [](Cpu &) { return 0x30001u; });
     // The screen's size; SM_NETWORK (63) when there's a network.
-    provide(u, "GetSystemMetrics", 1, [this](Cpu& c) -> uint32_t {
+    provide(u, "GetSystemMetrics", 1, [this](Cpu &c) -> uint32_t {
         return c.arg(0) == 0 ? 640 : c.arg(0) == 1 ? 480 : c.arg(0) == 63 ? (options_.sockets ? 1 : 0) : 0;
     });
-    provide(u, "SystemParametersInfoA", 4, [](Cpu&) { return 1u; });
-    provide(u, "SetWindowsHookExA", 4, [](Cpu&) { return 0x40001u; });
-    provide(u, "UnhookWindowsHookEx", 1, [](Cpu&) { return 1u; });
-    provide(u, "CallNextHookEx", 4, [](Cpu&) { return 0u; });
-    provide(u, "MessageBoxA", 4, [this](Cpu& c) {
+    provide(u, "SystemParametersInfoA", 4, [](Cpu &) { return 1u; });
+    provide(u, "SetWindowsHookExA", 4, [](Cpu &) { return 0x40001u; });
+    provide(u, "UnhookWindowsHookEx", 1, [](Cpu &) { return 1u; });
+    provide(u, "CallNextHookEx", 4, [](Cpu &) { return 0u; });
+    provide(u, "MessageBoxA", 4, [this](Cpu &c) {
         say("  message box \"" + c.string(c.arg(2)) + "\": " + c.string(c.arg(1)));
         return 1u; // IDOK
     });
-    provide(u, "CharUpperA", 1, [](Cpu& c) -> uint32_t {
+    provide(u, "CharUpperA", 1, [](Cpu &c) -> uint32_t {
         const uint32_t p = c.arg(0);
         if (p < 0x10000)
             return uint32_t(std::toupper(int(p & 0xff)));
@@ -1066,35 +1144,35 @@ void GameHost::addUser() {
             c.write8(a, uint8_t(std::toupper(c.read8(a))));
         return p;
     });
-    provide(u, "CharUpperBuffA", 2, [](Cpu& c) {
+    provide(u, "CharUpperBuffA", 2, [](Cpu &c) {
         for (uint32_t i = 0; i < c.arg(1); ++i)
             c.write8(c.arg(0) + i, uint8_t(std::toupper(c.read8(c.arg(0) + i))));
         return c.arg(1);
     });
     // wsprintfA(buffer, format, ...): cdecl.
-    process_->provide(u, "wsprintfA", [](Cpu& c) {
+    process_->provide(u, "wsprintfA", [](Cpu &c) {
         const std::string s = x86::formatPrintf(c, c.arg(1), c.reg[Cpu::ESP] + 12);
         c.writeString(c.arg(0), s, 1024);
         c.reg[Cpu::EAX] = uint32_t(std::min<size_t>(s.size(), 1023));
         return 0u;
     });
-    provide(u, "SetRect", 5, [rect](Cpu& c) {
+    provide(u, "SetRect", 5, [rect](Cpu &c) {
         rect(c, c.arg(0), int(c.arg(1)), int(c.arg(2)), int(c.arg(3)), int(c.arg(4)));
         return 1u;
     });
-    provide(u, "OffsetRect", 3, [](Cpu& c) {
+    provide(u, "OffsetRect", 3, [](Cpu &c) {
         for (uint32_t i = 0; i < 16; i += 4)
             c.write32(c.arg(0) + i, c.read32(c.arg(0) + i) + ((i / 4) % 2 ? c.arg(2) : c.arg(1)));
         return 1u;
     });
     // DDE (the online lobby's): not there.
-    provide(u, "DdeInitializeA", 4, [](Cpu&) { return 0x4009u; }); // DMLERR_SYS_ERROR
-    provide(u, "DdeUninitialize", 1, [](Cpu&) { return 1u; });
-    provide(u, "DdeConnect", 4, [](Cpu&) { return 0u; });
-    provide(u, "DdeCreateStringHandleA", 3, [](Cpu&) { return 0u; });
-    provide(u, "DdeClientTransaction", 8, [](Cpu&) { return 0u; });
-    provide(u, "DdeGetLastError", 1, [](Cpu&) { return 0x4009u; });
-    provide(u, "DdeQueryStringA", 5, [](Cpu&) { return 0u; });
+    provide(u, "DdeInitializeA", 4, [](Cpu &) { return 0x4009u; }); // DMLERR_SYS_ERROR
+    provide(u, "DdeUninitialize", 1, [](Cpu &) { return 1u; });
+    provide(u, "DdeConnect", 4, [](Cpu &) { return 0u; });
+    provide(u, "DdeCreateStringHandleA", 3, [](Cpu &) { return 0u; });
+    provide(u, "DdeClientTransaction", 8, [](Cpu &) { return 0u; });
+    provide(u, "DdeGetLastError", 1, [](Cpu &) { return 0x4009u; });
+    provide(u, "DdeQueryStringA", 5, [](Cpu &) { return 0u; });
 }
 
 } // namespace reluva::nfs

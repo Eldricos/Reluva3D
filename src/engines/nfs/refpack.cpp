@@ -8,15 +8,15 @@
 
 namespace reluva::nfs {
 
-bool isRefPack(const std::vector<uint8_t>& data) {
+bool isRefPack(const std::vector<uint8_t> &data) {
     return data.size() >= 5 && (data[0] & 0x7e) == 0x10 && data[1] == 0xfb;
 }
 
-bool isOtherEaCompression(const std::vector<uint8_t>& data) {
+bool isOtherEaCompression(const std::vector<uint8_t> &data) {
     return data.size() >= 2 && data[1] == 0xfb && !isRefPack(data) && !isEaHuffman(data);
 }
 
-Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
+Error decompressRefPack(const std::vector<uint8_t> &data, std::vector<uint8_t> &out) {
     out.clear();
     if (!isRefPack(data))
         return Error::fail("not RefPack data");
@@ -31,7 +31,7 @@ Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& 
         size = size << 8 | data[pos++];
     out.reserve(size);
 
-    auto damaged = [&](const char* why) {
+    auto damaged = [&](const char *why) {
         out.clear();
         return Error::fail(std::string("RefPack data damaged: ") + why);
     };
@@ -94,16 +94,17 @@ Error decompressRefPack(const std::vector<uint8_t>& data, std::vector<uint8_t>& 
     return Error::success();
 }
 
-bool isEaHuffman(const std::vector<uint8_t>& data) {
-    return data.size() >= 5 && data[1] == 0xfb && (data[0] == 0x30 || data[0] == 0x32 || data[0] == 0x34 ||
-                                                   data[0] == 0x31 || data[0] == 0x33 || data[0] == 0x35);
+bool isEaHuffman(const std::vector<uint8_t> &data) {
+    return data.size() >= 5 && data[1] == 0xfb &&
+           (data[0] == 0x30 || data[0] == 0x32 || data[0] == 0x34 || data[0] == 0x31 || data[0] == 0x33 ||
+            data[0] == 0x35);
 }
 
 // Worked out from nfs3.exe's own routine (0x50ed50) and checked against it
 // on every file so compressed (reluva-tool nfs-huff-check): refpack.md.
-Error decompressEaHuffman(const std::vector<uint8_t>& data, std::vector<uint8_t>& out) {
+Error decompressEaHuffman(const std::vector<uint8_t> &data, std::vector<uint8_t> &out) {
     out.clear();
-    auto damaged = [](const char* why) { return Error::fail(std::string("EA Huffman data is damaged: ") + why); };
+    auto damaged = [](const char *why) { return Error::fail(std::string("EA Huffman data is damaged: ") + why); };
     // Bits most significant first, past the end reading as 0.
     size_t bit = 0;
     const size_t bits = data.size() * 8;
@@ -214,7 +215,7 @@ Error decompressEaHuffman(const std::vector<uint8_t>& data, std::vector<uint8_t>
     const uint32_t kind = type >> 8 & 0xfe;
     if (kind == 0x32 || kind == 0x34) {
         uint8_t sum = 0, sum2 = 0;
-        for (uint8_t& b : out) {
+        for (uint8_t &b : out) {
             sum = static_cast<uint8_t>(sum + b);
             if (kind == 0x34) {
                 sum2 = static_cast<uint8_t>(sum2 + sum);
@@ -227,7 +228,7 @@ Error decompressEaHuffman(const std::vector<uint8_t>& data, std::vector<uint8_t>
     return Error::success();
 }
 
-Error unpackIfRefPack(std::vector<uint8_t>& data) {
+Error unpackIfRefPack(std::vector<uint8_t> &data) {
     if (isEaHuffman(data)) {
         std::vector<uint8_t> out;
         if (Error err = decompressEaHuffman(data, out))

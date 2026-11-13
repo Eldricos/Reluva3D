@@ -28,7 +28,7 @@ namespace reluva::x86 {
 // aligned, freed blocks joined with their neighbours. New blocks are zeroed.
 class Arena {
 public:
-    Arena(Cpu& cpu, uint32_t start, uint32_t end);
+    Arena(Cpu &cpu, uint32_t start, uint32_t end);
     // 0 if there's no room.
     uint32_t alloc(uint32_t size, uint32_t align = 16);
     // Allocates exactly [address, address + size) if it's all free.
@@ -39,7 +39,7 @@ public:
     uint32_t freeBytes() const;
 
 private:
-    Cpu& cpu_;
+    Cpu &cpu_;
     std::map<uint32_t, uint32_t> free_, used_; // start -> size
     // The free blocks' starts again, by their size's power of two (bucket
     // b: sizes from 2^b up to 2^(b+1)), to find the first fit without
@@ -57,7 +57,7 @@ private:
 // A key (events.h's codes) as Windows knows it: its virtual-key code and
 // its scan code (set 1, with 0x100 for the extended keys). False for keys
 // Windows has none of.
-bool windowsKey(uint32_t key, uint32_t& virtualKey, uint32_t& scanCode);
+bool windowsKey(uint32_t key, uint32_t &virtualKey, uint32_t &scanCode);
 
 // Something a handle refers to (Win32Process::addHandle): a file, an
 // event, a thread...
@@ -73,9 +73,9 @@ struct KernelObject {
 // pending (ERROR_IO_PENDING), its event signalled once readable() and the
 // bytes taken by GetOverlappedResult.
 struct DeviceObject : KernelObject {
-    virtual bool read(Cpu& cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t& done, uint32_t& error) = 0;
+    virtual bool read(Cpu &cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) = 0;
     virtual bool readable() = 0;
-    virtual bool write(Cpu& cpu, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t& error) = 0;
+    virtual bool write(Cpu &cpu, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) = 0;
 };
 
 // A Windows process for 32-bit DLLs built for Windows 95 to XP (the C
@@ -98,67 +98,67 @@ public:
     // `stackAtTop`: the stack and the thread's block at the top of memory,
     // below the native functions, so the whole bottom is free for images
     // (LEGO Alpha Team's layout, which its references were recorded with).
-    explicit Win32Process(Cpu& cpu, std::string exeName = "host.exe", bool loadsExe = false,
-                          bool stackAtTop = false);
-    Cpu& cpu() { return cpu_; }
-    Arena& memory() { return *arena_; }
+    explicit Win32Process(Cpu &cpu, std::string exeName = "host.exe", bool loadsExe = false, bool stackAtTop = false);
+    Cpu &cpu() { return cpu_; }
+    Arena &memory() { return *arena_; }
 
     struct Module {
         std::string name;
         uint32_t base = 0, size = 0;
         uint32_t entry = 0; // the address of DllMain (its C runtime's start-up); 0 if none
         PeImage image;
-        uint32_t exportAddress(const std::string& name) const;
+        uint32_t exportAddress(const std::string &name) const;
     };
     // Maps a DLL into memory (where it asks if that's free, else wherever
     // there's room, relocated) and binds its imports: functions provide()d
     // and the stand-ins first, the exports of modules already loaded next;
     // others are bound to a function that fails the run, naming them.
-    Error load(const std::string& name, const std::vector<uint8_t>& file, const Module*& out);
+    Error load(const std::string &name, const std::vector<uint8_t> &file, const Module *&out);
     // The modules loaded, in order.
-    std::vector<const Module*> modules() const {
-        std::vector<const Module*> all;
-        for (const auto& m : modules_)
+    std::vector<const Module *> modules() const {
+        std::vector<const Module *> all;
+        for (const auto &m : modules_)
             all.push_back(m.get());
         return all;
     }
     // Calls its DllMain for DLL_PROCESS_ATTACH: false (with why) if it
     // faulted or said no.
-    Error attach(const Module& module);
+    Error attach(const Module &module);
     // Runs an EXE's entry point (its C runtime's start-up, which calls
     // WinMain), returning what it returns; fails if it faults, or ends the
     // process (exitCode then holds the code it gave).
-    Error start(const Module& exe, uint32_t& exitCode);
-    const Module* module(const std::string& name) const;
+    Error start(const Module &exe, uint32_t &exitCode);
+    const Module *module(const std::string &name) const;
     // The module loaded at `base`, if any.
-    const Module* moduleAt(uint32_t base) const;
+    const Module *moduleAt(uint32_t base) const;
     // The module an address is in, if any.
-    const Module* moduleContaining(uint32_t address) const;
+    const Module *moduleContaining(uint32_t address) const;
 
     // Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
     // stand-in. `dll` is matched ignoring case. Returns its address.
-    uint32_t provide(const std::string& dll, const std::string& function, Cpu::Native fn);
+    uint32_t provide(const std::string &dll, const std::string &function, Cpu::Native fn);
     // A stdcall function of `args` 32-bit arguments returning `fn`'s result.
-    void provideStdcall(const std::string& dll, const std::string& function, int args, std::function<uint32_t(Cpu&)> fn);
+    void provideStdcall(const std::string &dll, const std::string &function, int args,
+                        std::function<uint32_t(Cpu &)> fn);
     // A cdecl function returning `fn`'s result in EAX.
-    void provideCdecl(const std::string& dll, const std::string& function, std::function<uint32_t(Cpu&)> fn);
+    void provideCdecl(const std::string &dll, const std::string &function, std::function<uint32_t(Cpu &)> fn);
     // Supplies a data import: the importer's table gets `address` (a
     // variable's, in the process's memory) instead of a function's.
-    void provideData(const std::string& dll, const std::string& name, uint32_t address);
+    void provideData(const std::string &dll, const std::string &name, uint32_t address);
     // Whether something is supplied for dll!name already.
-    bool provides(const std::string& dll, const std::string& name) const;
+    bool provides(const std::string &dll, const std::string &name) const;
     // The address supplied for dll!name (a function's or a variable's); 0
     // if none.
-    uint32_t provided(const std::string& dll, const std::string& name) const;
+    uint32_t provided(const std::string &dll, const std::string &name) const;
     // The same, for a stand-in's address (for calling it from tests).
-    uint32_t standIn(const std::string& dll, const std::string& name) const { return provided(dll, name); }
+    uint32_t standIn(const std::string &dll, const std::string &name) const { return provided(dll, name); }
     // The imports the loaded modules have that nothing stands in for
     // ("DLL!function"); calling one fails the run.
-    const std::vector<std::string>& missingImports() const { return missing_; }
+    const std::vector<std::string> &missingImports() const { return missing_; }
 
     // What the program writes for a debugger, or to its standard output
     // and error (its C runtime's messages).
-    std::function<void(const std::string& text)> output;
+    std::function<void(const std::string &text)> output;
     // Milliseconds for timeGetTime and GetTickCount (default: since start).
     std::function<uint32_t()> milliseconds;
     // The milliseconds the main thread has asked to Sleep, in all. It
@@ -185,16 +185,16 @@ public:
     // ("LEGOATeam.exe", "C:\\LEGO Alpha Team\\"), for its command line and
     // GetModuleFileNameA. Default: Elite Force's.
     // Also makes the folder current.
-    void setProgram(const std::string& exeName, const std::string& folder);
+    void setProgram(const std::string &exeName, const std::string &folder);
     // RDTSC reads a 1 GHz processor's count by the process's clock
     // (milliseconds), not the instructions run (Cpu::timeStamp's default).
     void timeStampFromClock();
-    const std::string& programFolder() const { return programFolder_; }
-    const std::string& programName() const { return exeName_; }
+    const std::string &programFolder() const { return programFolder_; }
+    const std::string &programName() const { return exeName_; }
     // Where the command line is, as GetCommandLineA returns it.
     uint32_t commandLineAddress() const { return commandLine_; }
     // Replaces the command line setProgram made ("nfs3.exe -d3d").
-    void setCommandLine(const std::string& line);
+    void setCommandLine(const std::string &line);
 
     // The last error, for stand-ins added from outside (SetLastError).
     void setLastError(uint32_t e) { lastError_ = e; }
@@ -204,7 +204,7 @@ public:
     // Kernel objects by handle, for the stand-ins of drives and host threads
     // (below) and the engine's own (a serial port, say).
     uint32_t addHandle(std::shared_ptr<KernelObject> object);
-    template <typename T>
+    template<typename T>
     std::shared_ptr<T> object(uint32_t handle) const {
         auto it = handles_.find(handle);
         return it == handles_.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
@@ -216,13 +216,13 @@ public:
     // as a path on this machine, or nothing if the program may not reach
     // it. `forWriting` asks for a file to be created or changed. Without
     // it, the program finds no files (as before files were stood in for).
-    std::function<std::optional<std::filesystem::path>(const std::string& windowsPath, bool forWriting)> mapPath;
+    std::function<std::optional<std::filesystem::path>(const std::string &windowsPath, bool forWriting)> mapPath;
     // A path as the program gave it, made full: relative ones are taken from
     // the current folder (the program's own folder, until SetCurrentDirectory
     // or _chdir changes it).
-    std::string fullPath(const std::string& path) const;
+    std::string fullPath(const std::string &path) const;
     std::string currentFolder() const { return currentFolder_; }
-    void setCurrentFolder(const std::string& folder);
+    void setCurrentFolder(const std::string &folder);
     // The drives the program sees: their letters, and the volume label of
     // the CD-ROM drive, if any ("LEGOATEN").
     std::string cdDrive = "D", cdLabel;
@@ -230,13 +230,13 @@ public:
     // An open file, for the stand-ins that work with files (KERNEL32's
     // handles and the C library's FILE).
     struct OpenFile {
-        std::FILE* file = nullptr;
+        std::FILE *file = nullptr;
         std::string windowsPath;
     };
     // Opens a file for a handle; 0 if it can't be (lastError set). `mode`
     // as fopen's ("rb", "wb", "r+b", "ab").
-    uint32_t openFile(const std::string& windowsPath, const char* mode);
-    OpenFile* file(uint32_t handle);
+    uint32_t openFile(const std::string &windowsPath, const char *mode);
+    OpenFile *file(uint32_t handle);
     bool closeFile(uint32_t handle);
 
     // The exit code the program ended itself with (exit, ExitProcess), if it
@@ -262,9 +262,9 @@ public:
     // The host file a Windows path names on the drives: for reading, the
     // writable copy if there is one, else the drive's (empty if the drive
     // isn't there).
-    std::filesystem::path hostPath(const std::string& windowsPath, bool forWriting) const;
+    std::filesystem::path hostPath(const std::string &windowsPath, bool forWriting) const;
     // Each file the program opens, and whether it was there.
-    std::function<void(const std::string& windowsPath, bool found)> fileOpened;
+    std::function<void(const std::string &windowsPath, bool found)> fileOpened;
     // A device the program opens by name: "COM1" to "COM9" (also as
     // "\\.\COM1"), its number given; null if there's none (the open fails
     // with ERROR_FILE_NOT_FOUND).
@@ -283,7 +283,7 @@ public:
     // Runs an executable's start-up (its entry point, which never returns)
     // on the main thread until the program ends the process, with the
     // threads it starts: its exit code if it did, else why it stopped.
-    Error run(const Module& exe, uint32_t& exitCode);
+    Error run(const Module &exe, uint32_t &exitCode);
     struct Thread : KernelObject {
         uint32_t id = 0, stackTop = 0, tib = 0;
         Cpu::Context context;
@@ -307,8 +307,8 @@ public:
     // A thread running `body` (which calls into the emulated code), with a
     // stack and information block of its own; suspended if asked.
     std::shared_ptr<Thread> createThread(std::function<uint32_t()> body, bool suspended, std::string name);
-    void resumeThread(Thread& t);
-    Thread* currentThread() const { return running_; }
+    void resumeThread(Thread &t);
+    Thread *currentThread() const { return running_; }
     // From the running thread: waits until `ready` is true or `timeoutMs`
     // passes (0xffffffff: never), letting the others run. False if it timed
     // out; ends the run (with abort()) if the process is ending.
@@ -333,21 +333,21 @@ public:
     uint32_t slice = 20000;
     // Called at each thread change, on the thread that ran (for checks by
     // the clock, such as memory written at a moment).
-    std::function<void(Cpu& cpu)> onSlice;
+    std::function<void(Cpu &cpu)> onSlice;
     // Called when every thread waits, instead of sleeping a millisecond: for
     // a clock that isn't the real one (it should move that clock on).
     std::function<void()> idleTick;
     // Called when a thread of the program calls Sleep or SleepEx, before it
     // sleeps: for the host's own deliveries to a thread that polls so
     // (TAPI's callbacks, say).
-    std::function<void(Cpu& cpu)> beforeSleep;
+    std::function<void(Cpu &cpu)> beforeSleep;
     // How often every thread waited at once, and for how long in all
     // (microseconds): time the processor stood idle.
     std::atomic<uint64_t> idleWaits{0}, idleMicros{0};
     // From the running thread: the instructions run on `t` so far (its
     // turn now included), and on the multimedia timer's thread (0 if
     // there's none).
-    uint64_t instructionsOn(const Thread* t) const {
+    uint64_t instructionsOn(const Thread *t) const {
         return t ? t->instructions + (t == running_ ? cpu_.executed() - turnStart_ : 0) : 0;
     }
     uint64_t timerInstructions() const { return instructionsOn(timerThread_.get()); }
@@ -383,7 +383,7 @@ public:
         bool visible = false;
         uint32_t classStyle = 0; // its class's (CS_DBLCLKS: it gets double clicks)
     };
-    const Window* window(uint32_t handle) const;
+    const Window *window(uint32_t handle) const;
     // A window's client area on the screen: left, top, width, height.
     std::optional<std::array<int, 4>> clientArea(uint32_t handle) const;
     // Moves and sizes a window (as SetWindowPos does).
@@ -416,29 +416,29 @@ public:
         enum class Kind { Motion, Button, Wheel, Key } kind;
         int a = 0, b = 0; // Motion: dx, dy; Button: button, down; Wheel: delta; Key: scan code, down
     };
-    std::vector<std::function<void(const RawInput&)>> rawInput;
+    std::vector<std::function<void(const RawInput &)>> rawInput;
 
     // What MessageBoxA shows: by default, passed to `output`.
-    std::function<void(const std::string& caption, const std::string& text)> messageBox;
+    std::function<void(const std::string &caption, const std::string &text)> messageBox;
 
     // --- The registry (ADVAPI32) ------------------------------------------------
     // Keys are full paths from a root ("HKEY_LOCAL_MACHINE\\Software\\..."),
     // matched ignoring case. Values set by the program stay in memory;
     // `registryWritten` tells the engine, to keep them if it wants.
-    void setRegistryValue(const std::string& key, const std::string& name, uint32_t type, std::vector<uint8_t> data);
-    void setRegistryString(const std::string& key, const std::string& name, const std::string& text);
-    std::optional<std::vector<uint8_t>> registryValue(const std::string& key, const std::string& name,
-                                                      uint32_t* type = nullptr) const;
-    std::function<void(const std::string& key, const std::string& name)> registryWritten;
+    void setRegistryValue(const std::string &key, const std::string &name, uint32_t type, std::vector<uint8_t> data);
+    void setRegistryString(const std::string &key, const std::string &name, const std::string &text);
+    std::optional<std::vector<uint8_t>> registryValue(const std::string &key, const std::string &name,
+                                                      uint32_t *type = nullptr) const;
+    std::function<void(const std::string &key, const std::string &name)> registryWritten;
 
     // --- COM (ole32) --------------------------------------------------------------
     // Makes the object CoCreateInstance asks for (its class and interface as
     // "{xxxxxxxx-...}"), writing its address to `out`; returns the HRESULT.
     // Without it, no class is registered.
-    std::function<uint32_t(const std::string& clsid, const std::string& iid, uint32_t out)> createComObject;
+    std::function<uint32_t(const std::string &clsid, const std::string &iid, uint32_t out)> createComObject;
 
 private:
-    Cpu& cpu_;
+    Cpu &cpu_;
     std::unique_ptr<Arena> arena_;
     std::vector<std::unique_ptr<Module>> modules_;
     // "dll!function" (lower-case dll) -> native address
@@ -452,7 +452,7 @@ private:
         bool finished = false;
     };
     std::vector<TurnThread> turnThreads_;
-    int current_ = -1;       // the thread running (-1: the main one)
+    int current_ = -1;          // the thread running (-1: the main one)
     uint32_t threadReturn_ = 0; // where a thread's function returns to: a native that ends it
     std::string exeName_, programFolder_ = "C:\\STVEF\\";
     uint32_t commandLine_ = 0, environment_ = 0, environmentW_ = 0;
@@ -469,13 +469,13 @@ private:
         uint32_t proc = 0, style = 0;
     };
     std::map<std::string, WindowClass> classes_; // by lower-case name
-    uint32_t buttons_ = 0;                      // MK_ flags held
+    uint32_t buttons_ = 0;                       // MK_ flags held
     std::array<uint8_t, 256> keysDown_{};        // by virtual key
     std::optional<std::array<int, 4>> clip_;     // ClipCursor's: left, top, right, bottom
     uint32_t lastClickTime_ = 0;
     int lastClickButton_ = -1, lastClickX_ = 0, lastClickY_ = 0;
-    void notify(const RawInput& r) {
-        for (const auto& f : rawInput)
+    void notify(const RawInput &r) {
+        for (const auto &f : rawInput)
             f(r);
     }
     std::map<uint32_t, Window> windows_;
@@ -512,13 +512,13 @@ private:
         size_t next = 0;
     };
     std::map<uint32_t, Search> searches_;
-    uint32_t bind(const std::string& dll, const std::string& function, uint32_t ordinal);
-    uint32_t moduleHandle(const std::string& name) const;
+    uint32_t bind(const std::string &dll, const std::string &function, uint32_t ordinal);
+    uint32_t moduleHandle(const std::string &name) const;
     // A DLL from the program's files, loaded and started (LoadLibraryA's).
-    const Module* loadFromDisk(const std::string& name);
+    const Module *loadFromDisk(const std::string &name);
     mutable std::vector<std::string> standInDlls_; // lower-case names, by handle
     std::map<uint32_t, uint32_t> virtualBlocks_;   // VirtualAlloc's: start -> size
-    void stdcall(const char* dll, const char* name, int args, std::function<uint32_t(Cpu&)> fn);
+    void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn);
     // The executable's base: the first module loaded that isn't a DLL.
     uint32_t exeBase() const;
 
@@ -531,7 +531,7 @@ private:
     void addDriveStandIns();
     // A Windows path made full ("C:\\NFS3\\GameData"): "." and ".."
     // resolved, a drive's own current folder for "D:name".
-    std::string drivePath(const std::string& windowsPath) const;
+    std::string drivePath(const std::string &windowsPath) const;
     std::string driveCurrent() const; // the current folder, without its last backslash
     // Overlapped device reads left pending, by OVERLAPPED address.
     struct PendingRead {
@@ -544,12 +544,12 @@ private:
     bool setHostEvent(uint32_t handle); // an event of theirs (setEvent)
     void addThreadStandIns();
     // Hands the processor to the next thread that can run (or keeps it).
-    bool schedule(std::unique_lock<std::mutex>& lock);
+    bool schedule(std::unique_lock<std::mutex> &lock);
     void runThread(std::shared_ptr<Thread> t);
-    void exitAll(std::unique_lock<std::mutex>& lock);
+    void exitAll(std::unique_lock<std::mutex> &lock);
     uint32_t allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_t id);
     std::vector<std::shared_ptr<Thread>> threads_;
-    Thread* running_ = nullptr;
+    Thread *running_ = nullptr;
     std::mutex mutex_;
     std::atomic<bool> exiting_{false}; // set from other threads too (requestExit)
     uint32_t exitCode_ = 0;

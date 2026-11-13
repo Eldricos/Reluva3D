@@ -9,7 +9,7 @@
 
 namespace reluva::x86 {
 
-Error loadMsvcp60(Win32Process& process, const Win32Process::Module*& out) {
+Error loadMsvcp60(Win32Process &process, const Win32Process::Module *&out) {
     const std::vector<uint8_t> file(kMsvcp60Dll, kMsvcp60Dll + sizeof kMsvcp60Dll);
     return process.load("MSVCP60.dll", file, out);
 }

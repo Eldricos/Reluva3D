@@ -39,12 +39,7 @@ public:
         kFlagMuted = 0x100
     };
 
-    enum PositionMode {
-        kPositionNone = 0,
-        kPositionFixed = 1,
-        kPositionBillboard = 2,
-        kPositionActor = 3
-    };
+    enum PositionMode { kPositionNone = 0, kPositionFixed = 1, kPositionBillboard = 2, kPositionActor = 3 };
 
     // A sound table entry (56 bytes).
     struct Definition {
@@ -78,10 +73,9 @@ public:
     };
 
     // Opens a sound's .WAV or .TXT by file name.
-    typedef std::function<std::unique_ptr<SeekableReadStream>(const std::string& name, Location where)>
-        FileOpener;
+    typedef std::function<std::unique_ptr<SeekableReadStream>(const std::string &name, Location where)> FileOpener;
     // Where a billboard or actor is, for sounds that follow one.
-    typedef std::function<bool(int mode, uint16_t object, double& x, double& y, double& z)> ObjectLocator;
+    typedef std::function<bool(int mode, uint16_t object, double &x, double &y, double &z)> ObjectLocator;
 
     struct Listener {
         double x, y, z;
@@ -97,15 +91,15 @@ public:
     static const int kChannels = 8;
     static const uint16_t kEventFinished = 46;
 
-    MissionSound(const ScriptFile& script, Mixer* mixer, const FileOpener& opener, const ObjectLocator& locator);
+    MissionSound(const ScriptFile &script, Mixer *mixer, const FileOpener &opener, const ObjectLocator &locator);
     ~MissionSound();
 
     int getSoundCount() const { return (int)_sounds.size(); }
-    const Definition& getDefinition(int sound) const { return _sounds[sound]; }
+    const Definition &getDefinition(int sound) const { return _sounds[sound]; }
     int getCueCount() const { return (int)_cues.size(); }
 
     // The file name of an entry, e.g. "RIKE0107.WAV", and where it is.
-    static std::string getFileName(uint32_t key, const char* extension, Location& where);
+    static std::string getFileName(uint32_t key, const char *extension, Location &where);
 
     // The scripts' sound natives. A reference is an index with high word 0,
     // an index with high word 0xFFFF for all its playing copies, or (handle
@@ -138,13 +132,13 @@ public:
     // Advance by ms: start delayed sounds, run fades, repeats and cue
     // chains, and place positional sounds around the listener. Objects
     // whose sounds finished are added to finished.
-    void update(uint32_t ms, const Listener& listener, std::vector<Finished>& finished);
+    void update(uint32_t ms, const Listener &listener, std::vector<Finished> &finished);
 
     // A subtitle to show, if one started since the last call, and for how long.
-    bool takeSubtitle(std::string& text, uint32_t& durationMs);
+    bool takeSubtitle(std::string &text, uint32_t &durationMs);
 
     // Strip the subtitle files' escapes (\T<colour>\, \W<delay>\, \B..\, \\).
-    static std::string cleanSubtitle(const std::string& text);
+    static std::string cleanSubtitle(const std::string &text);
 
     void stopAll();
     // Pause or resume everything playing, e.g. while the level isn't shown.
@@ -162,15 +156,15 @@ private:
     struct Voice;
 
     int startVoice(int sound, uint16_t requester, std::vector<int32_t> chain, uint32_t extraDelay);
-    void beginPlayback(Voice& voice, const Listener& listener);
-    void finishVoice(size_t index, std::vector<Finished>& finished);
+    void beginPlayback(Voice &voice, const Listener &listener);
+    void finishVoice(size_t index, std::vector<Finished> &finished);
     std::vector<int> findVoices(uint32_t reference) const;
     int definitionOf(uint32_t reference) const;
-    bool placeVoice(Voice& voice, const Listener& listener, int& volume, int8_t& balance) const;
+    bool placeVoice(Voice &voice, const Listener &listener, int &volume, int8_t &balance) const;
     void stealChannel();
     uint32_t random(uint32_t n);
 
-    Mixer* _mixer;
+    Mixer *_mixer;
     FileOpener _opener;
     ObjectLocator _locator;
     std::vector<Definition> _sounds;
@@ -179,11 +173,10 @@ private:
     uint32_t _nextSerial = 1;
     uint32_t _time = 0;
     uint32_t _seed = 0x5347;
-    Listener _listener = { 0, 0, 0, 0 };
+    Listener _listener = {0, 0, 0, 0};
     std::string _subtitle;
     uint32_t _subtitleDuration = 0;
     bool _hasSubtitle = false;
 };
 
 } // namespace reluva::stgenerations
-

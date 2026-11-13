@@ -31,17 +31,21 @@ std::string seconds(double s) {
     return buf;
 }
 
-const char* compressionName(int c) {
+const char *compressionName(int c) {
     switch (c) {
-    case SoundHeader::kPcm16: return "PCM";
-    case SoundHeader::kEaXa: return "EA-XA";
-    case SoundHeader::kMicroTalk: return "MicroTalk";
-    default: return "?";
+    case SoundHeader::kPcm16:
+        return "PCM";
+    case SoundHeader::kEaXa:
+        return "EA-XA";
+    case SoundHeader::kMicroTalk:
+        return "MicroTalk";
+    default:
+        return "?";
     }
 }
 
 // A bar showing `done` of `total`.
-void progress(Surface& s, int x, int y, int w, double done, double total) {
+void progress(Surface &s, int x, int y, int w, double done, double total) {
     fill(s, x, y, w, 6, kBarColor);
     if (total > 0)
         fill(s, x, y, static_cast<int>(w * std::clamp(done / total, 0.0, 1.0)), 6, kFillColor);
@@ -49,24 +53,24 @@ void progress(Surface& s, int x, int y, int w, double done, double total) {
 
 // A file's name without its extension, lower case: for finding the files
 // that go with it.
-std::string withoutExtension(const std::string& name) {
+std::string withoutExtension(const std::string &name) {
     const size_t dot = name.rfind('.');
     return fs::toLower(dot == std::string::npos ? name : name.substr(0, dot));
 }
 
 // The part of a path after its last '/'.
-std::string baseName(const std::string& path) {
+std::string baseName(const std::string &path) {
     const size_t slash = path.rfind('/');
     return slash == std::string::npos ? path : path.substr(slash + 1);
 }
 
-const char* const kNoAudio = "No audio output: sounds can't be played";
+const char *const kNoAudio = "No audio output: sounds can't be played";
 
 } // namespace
 
 // --- Sounds -------------------------------------------------------------------
 
-SoundPage::SoundPage(const GameFiles& files, audio::Mixer* mixer) : files_(files), mixer_(mixer) {
+SoundPage::SoundPage(const GameFiles &files, audio::Mixer *mixer) : files_(files), mixer_(mixer) {
     banks_ = files.withExtensions({".bnk"});
 }
 
@@ -91,15 +95,15 @@ void SoundPage::load(int bank) {
     // A car's banks sit in its car.viv with its carp.txt: the engine's
     // revs, from idle ("engine minimum rpm") to "engine redline in rpm".
     minRpm_ = redline_ = rpm_ = 0;
-    const FileRef& bankFile = banks_[bank_];
+    const FileRef &bankFile = banks_[bank_];
     if (!bankFile.inner.empty())
-        for (const FileRef& f : files_.files())
+        for (const FileRef &f : files_.files())
             if (f.file == bankFile.file && fs::toLower(f.inner) == "carp.txt") {
                 std::vector<uint8_t> carp;
                 if (files_.read(f, carp))
                     break;
                 const std::string text(carp.begin(), carp.end());
-                auto value = [&](const std::string& name) {
+                auto value = [&](const std::string &name) {
                     const size_t at = text.find(name);
                     const size_t line = at == std::string::npos ? at : text.find('\n', at);
                     return line == std::string::npos ? 0 : std::atoi(text.c_str() + line + 1);
@@ -122,7 +126,7 @@ bool SoundPage::engine() const {
 // The key a sound is played at: 60 for a car's sounds, as the game plays
 // its engine; elsewhere the sound's own root key (0x07), the key a caller
 // would play isn't known.
-static int keyFor(const SoundHeader& h, bool car) {
+static int keyFor(const SoundHeader &h, bool car) {
     auto root = h.tags.find(0x07);
     return car || root == h.tags.end() ? 60 : static_cast<int>(root->second);
 }
@@ -130,18 +134,17 @@ static int keyFor(const SoundHeader& h, bool car) {
 double SoundPage::rate() const {
     if (!engine())
         return std::pow(2.0, semitones_ / 12.0);
-    const SoundHeader& h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
+    const SoundHeader &h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
     const int bend = redline_ ? engineBend(rpm_, redline_) : bend_;
     return std::pow(2.0, patchCents(h, keyFor(h, redline_ != 0), bend) / 1200.0);
 }
 
 std::string SoundPage::engineText() const {
-    const SoundHeader& h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
+    const SoundHeader &h = *loaded_.slots[size_t(sounds_[size_t(sound_)])];
     const int bend = redline_ ? engineBend(rpm_, redline_) : bend_;
-    std::string out = redline_ ? "   " + std::to_string(rpm_) + " rpm (redline " + std::to_string(redline_) + "), bend "
-                               : "   bend ";
-    return out + std::to_string(bend) + ", " + std::to_string(patchCents(h, keyFor(h, redline_ != 0), bend)) +
-           " cents";
+    std::string out =
+        redline_ ? "   " + std::to_string(rpm_) + " rpm (redline " + std::to_string(redline_) + "), bend " : "   bend ";
+    return out + std::to_string(bend) + ", " + std::to_string(patchCents(h, keyFor(h, redline_ != 0), bend)) + " cents";
 }
 
 void SoundPage::select(int sound) {
@@ -176,16 +179,34 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
         load(0);
     const int count = static_cast<int>(sounds_.size());
     switch (k) {
-    case key::Up: select(sound_ - 1); break;
-    case key::Down: select(sound_ + 1); break;
-    case key::Home: select(0); break;
-    case key::End: select(count - 1); break;
-    case key::PageUp: load(bank_ - 1); break;
-    case key::PageDown: load(bank_ + 1); break;
+    case key::Up:
+        select(sound_ - 1);
+        break;
+    case key::Down:
+        select(sound_ + 1);
+        break;
+    case key::Home:
+        select(0);
+        break;
+    case key::End:
+        select(count - 1);
+        break;
+    case key::PageUp:
+        load(bank_ - 1);
+        break;
+    case key::PageDown:
+        load(bank_ + 1);
+        break;
     case key::Space:
-    case key::Return: play(); break;
-    case 's': deactivate(); break;
-    case 'p': autoPlay_ = !autoPlay_; break;
+    case key::Return:
+        play();
+        break;
+    case 's':
+        deactivate();
+        break;
+    case 'p':
+        autoPlay_ = !autoPlay_;
+        break;
     case key::Left:
     case key::Right:
         // An engine's revs (250 at a time) or bend (4); else the pitch, a
@@ -199,7 +220,8 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
         if (mixer_ && playing_ != audio::kNoSound)
             mixer_->setRate(playing_, rate());
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -212,7 +234,7 @@ bool SoundPage::tick(uint64_t) {
     return true;
 }
 
-void SoundPage::draw(Surface& s) {
+void SoundPage::draw(Surface &s) {
     if (bank_ < 0)
         load(0);
     frame(s, "Sounds  " + std::to_string(bank_ + 1) + "/" + std::to_string(banks_.size()) + "  " + banks_[bank_].name,
@@ -225,9 +247,10 @@ void SoundPage::draw(Surface& s) {
     text(s, kMargin, y,
          "Version " + std::to_string(loaded_.version) + ", " + std::to_string(loaded_.slots.size()) + " slots, " +
              std::to_string(sounds_.size()) + " sounds" + (autoPlay_ ? "   (plays when selected)" : "") +
-             (engine() ? engineText() : semitones_ ? "   pitch " + std::string(semitones_ > 0 ? "+" : "") +
-                                                          std::to_string(semitones_) + " semitones"
-                                                    : std::string()),
+             (engine() ? engineText()
+              : semitones_
+                  ? "   pitch " + std::string(semitones_ > 0 ? "+" : "") + std::to_string(semitones_) + " semitones"
+                  : std::string()),
          kLabelColor);
     y += font::kLineHeight;
     if (!mixer_) {
@@ -243,10 +266,11 @@ void SoundPage::draw(Surface& s) {
     const int count = static_cast<int>(sounds_.size());
     const int top = std::clamp(sound_ - rows / 2, 0, std::max(0, count - rows));
     for (int i = top; i < std::min(count, top + rows); ++i, y += font::kLineHeight) {
-        const SoundHeader& h = *loaded_.slots[sounds_[i]];
+        const SoundHeader &h = *loaded_.slots[sounds_[i]];
         char line[160];
-        std::snprintf(line, sizeof line, "%4d  %-9s  %2d  %5d  %8u  %7s  %s", sounds_[i], compressionName(h.compression),
-                      h.channels, h.rate, h.samples, seconds(double(h.samples) / h.rate).c_str(),
+        std::snprintf(line, sizeof line, "%4d  %-9s  %2d  %5d  %8u  %7s  %s", sounds_[i],
+                      compressionName(h.compression), h.channels, h.rate, h.samples,
+                      seconds(double(h.samples) / h.rate).c_str(),
                       h.loopEnd ? (std::to_string(h.loopStart) + "-" + std::to_string(h.loopEnd)).c_str() : "");
         const bool selected = i == sound_;
         if (selected)
@@ -262,7 +286,7 @@ void SoundPage::draw(Surface& s) {
     if (!decoded_ || decoded_->frames() == 0)
         return;
     // Each column: the first channel's lowest and highest sample there.
-    const audio::Sound& snd = *decoded_;
+    const audio::Sound &snd = *decoded_;
     const size_t frames = snd.frames();
     fill(s, kMargin, waveY + kWaveH / 2, waveW, 1, kBarColor);
     for (int x = 0; x < waveW; ++x) {
@@ -290,11 +314,13 @@ void SoundPage::draw(Surface& s) {
 
 // --- Music --------------------------------------------------------------------
 
-MusicPage::MusicPage(const GameFiles& files, audio::Mixer* mixer) : files_(files), mixer_(mixer) {
+MusicPage::MusicPage(const GameFiles &files, audio::Mixer *mixer) : files_(files), mixer_(mixer) {
     streams_ = files.withExtensions({".mus"});
 }
 
-void MusicPage::deactivate() { stop(); }
+void MusicPage::deactivate() {
+    stop();
+}
 
 void MusicPage::stop() {
     if (mixer_ && playing_ != audio::kNoSound)
@@ -306,7 +332,7 @@ void MusicPage::stop() {
 }
 
 std::shared_ptr<audio::Sound> MusicPage::decodeSection(int section) {
-    const MusicMap* m = activeMap();
+    const MusicMap *m = activeMap();
     const int segment = m ? loaded_.segmentAt(m->offsets[section]) : section;
     auto sound = std::make_shared<audio::Sound>();
     if (Error err = loaded_.decode(segment, *sound)) {
@@ -337,11 +363,11 @@ void MusicPage::load(int stream) {
     }
     // The maps beside it, by name; each must name this stream's segments.
     const std::string base = withoutExtension(streams_[stream_].name);
-    for (const FileRef& ref : files_.withExtensions({".map", ".lin"})) {
+    for (const FileRef &ref : files_.withExtensions({".map", ".lin"})) {
         if (withoutExtension(ref.name) != base)
             continue;
         const bool linear = fs::toLower(ref.name).ends_with(".lin");
-        MusicMap& m = linear ? linear_ : map_;
+        MusicMap &m = linear ? linear_ : map_;
         Error err = files_.read(ref, data);
         if (!err)
             err = parseMusicMap(data, m);
@@ -356,7 +382,7 @@ void MusicPage::load(int stream) {
     useLinear_ = !haveMap_ && haveLinear_;
 }
 
-const MusicMap* MusicPage::activeMap() const {
+const MusicMap *MusicPage::activeMap() const {
     if (useLinear_ ? haveLinear_ : haveMap_)
         return useLinear_ ? &linear_ : &map_;
     return nullptr;
@@ -365,14 +391,14 @@ const MusicMap* MusicPage::activeMap() const {
 // Where the music starts: the map's start section (a race's intro), or
 // the first.
 int MusicPage::firstSection() const {
-    if (const MusicMap* m = activeMap())
+    if (const MusicMap *m = activeMap())
         if (m->start >= 0 && m->start < static_cast<int>(m->sections.size()))
             return m->start;
     return 0;
 }
 
 int MusicPage::following(int section) {
-    if (const MusicMap* m = activeMap()) {
+    if (const MusicMap *m = activeMap()) {
         // An event pending goes first, to its section for this part
         // (nfs3.exe 0x4e6be3); else the route for the intensity.
         if (pendingEvent_ >= 0) {
@@ -414,20 +440,40 @@ void MusicPage::handleKey(uint32_t k, uint16_t) {
     if (stream_ < 0)
         load(0);
     switch (k) {
-    case key::Up: load(stream_ - 1); break;
-    case key::Down: load(stream_ + 1); break;
-    case key::Left: intensity_ = std::max(0, intensity_ - 10); break;
-    case key::Right: intensity_ = std::min(100, intensity_ + 10); break;
+    case key::Up:
+        load(stream_ - 1);
+        break;
+    case key::Down:
+        load(stream_ + 1);
+        break;
+    case key::Left:
+        intensity_ = std::max(0, intensity_ - 10);
+        break;
+    case key::Right:
+        intensity_ = std::min(100, intensity_ + 10);
+        break;
     case key::Space:
         if (playing_ != audio::kNoSound || (!mixer_ && section_ >= 0))
             stop(), section_ = -1;
         else
             start(firstSection());
         break;
-    case key::Home: start(firstSection()); break;
-    case 'n': start(section_ < 0 ? firstSection() : following(section_)); break;
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
+    case key::Home:
+        start(firstSection());
+        break;
+    case 'n':
+        start(section_ < 0 ? firstSection() : following(section_));
+        break;
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
         pendingEvent_ = static_cast<int>(k - '0');
         break;
     case 'l':
@@ -438,7 +484,8 @@ void MusicPage::handleKey(uint32_t k, uint16_t) {
             history_.clear();
         }
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -475,21 +522,22 @@ bool MusicPage::tick(uint64_t nowMs) {
     return true;
 }
 
-void MusicPage::draw(Surface& s) {
+void MusicPage::draw(Surface &s) {
     if (stream_ < 0)
         load(0);
-    frame(s, "Music  " + std::to_string(stream_ + 1) + "/" + std::to_string(streams_.size()) + "  " +
-                 streams_[stream_].name,
+    frame(s,
+          "Music  " + std::to_string(stream_ + 1) + "/" + std::to_string(streams_.size()) + "  " +
+              streams_[stream_].name,
           "Up/Down: stream  Space: play  Left/Right: intensity  N: next  0-9: event");
     int y = 8 + font::kLineHeight * 2;
     if (!error_.empty()) {
         text(s, kMargin, y, error_, kWarnColor);
         return;
     }
-    const MusicMap* m = activeMap();
-    std::string order = m ? std::string(useLinear_ ? "linear order (.lin)" : "Pathfinder map (.map)") +
-                                ", " + std::to_string(m->sections.size()) + " sections, " +
-                                std::to_string(m->events.size()) + " events"
+    const MusicMap *m = activeMap();
+    std::string order = m ? std::string(useLinear_ ? "linear order (.lin)" : "Pathfinder map (.map)") + ", " +
+                                std::to_string(m->sections.size()) + " sections, " + std::to_string(m->events.size()) +
+                                " events"
                           : "no map: segments in order";
     if (m && firstSection() != 0)
         order += ", starting at section " + std::to_string(firstSection());
@@ -516,7 +564,7 @@ void MusicPage::draw(Surface& s) {
         return;
     }
     const int segment = m ? loaded_.segmentAt(m->offsets[section_]) : section_;
-    const auto& header = loaded_.segments()[segment].header;
+    const auto &header = loaded_.segments()[segment].header;
     const double length = double(header.samples) / header.rate;
     const double at = mixer_ && playing_ != audio::kNoSound ? mixer_->position(playing_) / header.rate : 0;
     text(s, kMargin, y,
@@ -528,12 +576,12 @@ void MusicPage::draw(Surface& s) {
     y += font::kLineHeight + 4;
 
     if (m) {
-        const MusicMap::Section& sec = m->sections[section_];
+        const MusicMap::Section &sec = m->sections[section_];
         text(s, kMargin, y, "Routes from here (part " + std::to_string(sec.part) + "):", kLabelColor);
         y += font::kLineHeight;
         if (sec.routes.empty())
             text(s, kMargin + 2 * font::kAdvance, y, "none: the music ends here", kTextColor), y += font::kLineHeight;
-        for (const auto& r : sec.routes) {
+        for (const auto &r : sec.routes) {
             const bool taken = intensity_ >= r.low && intensity_ <= r.high;
             char line[64];
             std::snprintf(line, sizeof line, "%3d-%3d  ->  section %d", r.low, r.high, r.next);
@@ -575,7 +623,7 @@ void MusicPage::draw(Surface& s) {
 
 // --- Movies -------------------------------------------------------------------
 
-MoviePage::MoviePage(const GameFiles& files, audio::Mixer* mixer) : files_(files), mixer_(mixer) {
+MoviePage::MoviePage(const GameFiles &files, audio::Mixer *mixer) : files_(files), mixer_(mixer) {
     movies_ = files.withExtensions({".mad"});
 }
 
@@ -590,7 +638,7 @@ void MoviePage::stopSound() {
     playing_ = audio::kNoSound;
 }
 
-void MoviePage::activate(System& sys) {
+void MoviePage::activate(System &sys) {
     nowMs_ = sys.getMillis();
     if (movie_ >= 0 && !paused_)
         seek(decoded_, nowMs_);
@@ -674,11 +722,21 @@ void MoviePage::handleKey(uint32_t k, uint16_t) {
         load(0);
     const int step = static_cast<int>(std::lround(5000 / frameMs()));
     switch (k) {
-    case key::Up: load(movie_ - 1); break;
-    case key::Down: load(movie_ + 1); break;
-    case key::Home: seek(0, nowMs_); break;
-    case key::Left: seek(decoded_ - step, nowMs_); break;
-    case key::Right: seek(decoded_ + step, nowMs_); break;
+    case key::Up:
+        load(movie_ - 1);
+        break;
+    case key::Down:
+        load(movie_ + 1);
+        break;
+    case key::Home:
+        seek(0, nowMs_);
+        break;
+    case key::Left:
+        seek(decoded_ - step, nowMs_);
+        break;
+    case key::Right:
+        seek(decoded_ + step, nowMs_);
+        break;
     case key::Space:
         paused_ = !paused_;
         if (paused_)
@@ -707,7 +765,8 @@ void MoviePage::handleKey(uint32_t k, uint16_t) {
         showFrame(std::max(frame, 0));
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -741,11 +800,11 @@ bool MoviePage::tick(uint64_t nowMs) {
     return true;
 }
 
-void MoviePage::draw(Surface& s) {
+void MoviePage::draw(Surface &s) {
     if (movie_ < 0)
         load(0);
-    frame(s, "Movies  " + std::to_string(movie_ + 1) + "/" + std::to_string(movies_.size()) + "  " +
-                 movies_[movie_].name,
+    frame(s,
+          "Movies  " + std::to_string(movie_ + 1) + "/" + std::to_string(movies_.size()) + "  " + movies_[movie_].name,
           "Up/Down: movie  Space: pause  Left/Right: 5 s  PgUp/PgDn: frame  G: display");
     int y = 8 + font::kLineHeight * 2;
     if (!error_.empty()) {
@@ -755,8 +814,7 @@ void MoviePage::draw(Surface& s) {
     const int count = static_cast<int>(loaded_.frames().size());
     const double total = count * frameMs() / 1000;
     char info[160];
-    static constexpr const char* kDisplays[] = {"Reluva's conversion", "game mode 1", "game mode 2",
-                                                "game mode 3"};
+    static constexpr const char *kDisplays[] = {"Reluva's conversion", "game mode 1", "game mode 2", "game mode 3"};
     std::snprintf(info, sizeof info, "%dx%d  %.0f fps  frame %d/%d (%s)  %s / %s  %s%s  %s", loaded_.width(),
                   loaded_.height(), 1000 / frameMs(), decoded_ + 1, count,
                   decoded_ >= 0 && loaded_.frames()[decoded_].kind == 'k' ? "key" : "inter",
@@ -773,8 +831,8 @@ void MoviePage::draw(Surface& s) {
         const int w = static_cast<int>(picture_.w * scale), h = static_cast<int>(picture_.h * scale);
         const int x0 = kMargin + (areaW - w) / 2;
         for (int dy = 0; dy < h; ++dy) {
-            const uint8_t* src = picture_.row(std::min(picture_.h - 1, static_cast<int>(dy / scale)));
-            uint8_t* dst = s.row(y + dy) + x0 * 4;
+            const uint8_t *src = picture_.row(std::min(picture_.h - 1, static_cast<int>(dy / scale)));
+            uint8_t *dst = s.row(y + dy) + x0 * 4;
             for (int dx = 0; dx < w; ++dx)
                 std::copy_n(src + std::min(picture_.w - 1, static_cast<int>(dx / scale)) * 4, 4, dst + dx * 4);
         }

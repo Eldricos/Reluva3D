@@ -19,11 +19,11 @@ struct Field {
 
 // Entity state fields in the order the protocol numbers them.
 constexpr std::array<Field, 50> kEntityFields{{
-    {4, 8},    {8, 24},   {12, 8},   {16, 32},  {20, 32},  {24, 0},   {28, 0},   {32, 0},   {36, 0},   {40, 0},
-    {44, 0},   {48, 8},   {52, 32},  {56, 32},  {60, 0},   {64, 0},   {68, 0},   {72, 0},   {76, 0},   {80, 0},
-    {84, 32},  {88, 32},  {92, 0},   {96, 0},   {100, 0},  {104, 0},  {108, 0},  {112, 0},  {116, 0},  {120, 0},
-    {124, 0},  {128, 0},  {132, 0},  {136, 0},  {140, 10}, {144, 10}, {148, 10}, {156, 16}, {152, 32}, {160, 8},
-    {164, 8},  {172, 16}, {168, 8},  {176, 24}, {180, 10}, {184, 8},  {188, 16}, {192, 8},  {196, 8},  {200, 8},
+    {4, 8},   {8, 24},   {12, 8},  {16, 32},  {20, 32},  {24, 0},   {28, 0},   {32, 0},   {36, 0},   {40, 0},
+    {44, 0},  {48, 8},   {52, 32}, {56, 32},  {60, 0},   {64, 0},   {68, 0},   {72, 0},   {76, 0},   {80, 0},
+    {84, 32}, {88, 32},  {92, 0},  {96, 0},   {100, 0},  {104, 0},  {108, 0},  {112, 0},  {116, 0},  {120, 0},
+    {124, 0}, {128, 0},  {132, 0}, {136, 0},  {140, 10}, {144, 10}, {148, 10}, {156, 16}, {152, 32}, {160, 8},
+    {164, 8}, {172, 16}, {168, 8}, {176, 24}, {180, 10}, {184, 8},  {188, 16}, {192, 8},  {196, 8},  {200, 8},
 }};
 
 // The change vectors the protocol names by a 5-bit number (31: the
@@ -46,11 +46,11 @@ constexpr uint32_t kExplicitVector = 31;
 
 // Player state fields in protocol order (patch 1.2's layout).
 constexpr std::array<Field, 48> kPlayerFields{{
-    {0, 32},   {4, 8},    {8, 8},    {12, 16},  {16, -16}, {20, 0},   {24, 0},   {28, 0},   {32, 0},   {36, 0},
-    {40, 0},   {44, -16}, {60, 16},  {64, 16},  {68, 16},  {72, 16},  {76, 16},  {80, 10},  {84, 8},   {92, 12},
-    {88, 8},   {96, 8},   {100, 4},  {104, 16}, {108, 16}, {112, 8},  {116, 8},  {120, 8},  {124, 8},  {128, 8},
-    {132, 8},  {136, 8},  {140, 8},  {144, 10}, {148, 8},  {156, 8},  {160, 5},  {164, 4},  {168, 0},  {172, 0},
-    {176, 0},  {180, -8}, {184, 8},  {188, 8},  {192, 8},  {196, 8},  {200, 8},  {56, 32},
+    {0, 32},  {4, 8},    {8, 8},   {12, 16},  {16, -16}, {20, 0},  {24, 0},  {28, 0},  {32, 0},  {36, 0},
+    {40, 0},  {44, -16}, {60, 16}, {64, 16},  {68, 16},  {72, 16}, {76, 16}, {80, 10}, {84, 8},  {92, 12},
+    {88, 8},  {96, 8},   {100, 4}, {104, 16}, {108, 16}, {112, 8}, {116, 8}, {120, 8}, {124, 8}, {128, 8},
+    {132, 8}, {136, 8},  {140, 8}, {144, 10}, {148, 8},  {156, 8}, {160, 5}, {164, 4}, {168, 0}, {172, 0},
+    {176, 0}, {180, -8}, {184, 8}, {188, 8},  {192, 8},  {196, 8}, {200, 8}, {56, 32},
 }};
 // The arrays, in the order they're sent: stats, persistant, ammo (16-bit
 // elements), powerups (32-bit); 16 elements each.
@@ -61,14 +61,14 @@ struct ArrayGroup {
 constexpr std::array<ArrayGroup, 4> kPlayerArrays{{{204, 16}, {268, 16}, {396, 16}, {332, 32}}};
 constexpr int kArrayLength = 16;
 
-int32_t wordAt(const std::vector<uint8_t>& s, int32_t offset) {
+int32_t wordAt(const std::vector<uint8_t> &s, int32_t offset) {
     if (s.size() < size_t(offset) + 4)
         return 0;
     int32_t v;
     std::memcpy(&v, s.data() + offset, 4);
     return v;
 }
-void setWord(std::vector<uint8_t>& s, int32_t offset, int32_t v) {
+void setWord(std::vector<uint8_t> &s, int32_t offset, int32_t v) {
     if (s.size() >= size_t(offset) + 4)
         std::memcpy(s.data() + offset, &v, 4);
 }
@@ -83,13 +83,13 @@ int32_t bitsOf(float f) {
     return v;
 }
 
-void writeField(wire::MessageWriter& w, const Field& f, int32_t value) {
+void writeField(wire::MessageWriter &w, const Field &f, int32_t value) {
     if (f.bits == 0)
         w.smallFloat(floatOf(value));
     else
         w.bits(uint32_t(value), f.bits < 0 ? -f.bits : f.bits);
 }
-int32_t readField(wire::MessageReader& r, const Field& f) {
+int32_t readField(wire::MessageReader &r, const Field &f) {
     if (f.bits == 0)
         return bitsOf(r.smallFloat());
     if (f.bits < 0)
@@ -97,7 +97,7 @@ int32_t readField(wire::MessageReader& r, const Field& f) {
     return int32_t(r.bits(f.bits));
 }
 
-std::vector<uint8_t> sized(const std::vector<uint8_t>& from, int32_t size) {
+std::vector<uint8_t> sized(const std::vector<uint8_t> &from, int32_t size) {
     std::vector<uint8_t> s = from;
     s.resize(size_t(size), 0);
     return s;
@@ -105,12 +105,12 @@ std::vector<uint8_t> sized(const std::vector<uint8_t>& from, int32_t size) {
 
 } // namespace
 
-void writeEntityRemoved(wire::MessageWriter& w, int32_t number) {
+void writeEntityRemoved(wire::MessageWriter &w, int32_t number) {
     w.bits(uint32_t(number), kEntityNumberBits);
     w.bits(1, 1);
 }
 
-void writeEntityDelta(wire::MessageWriter& w, const std::vector<uint8_t>& from, const std::vector<uint8_t>& to,
+void writeEntityDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to,
                       bool force) {
     uint8_t vector[8] = {};
     bool any = false;
@@ -145,8 +145,8 @@ void writeEntityDelta(wire::MessageWriter& w, const std::vector<uint8_t>& from, 
             writeField(w, kEntityFields[i], wordAt(to, kEntityFields[i].offset));
 }
 
-bool readEntityDelta(wire::MessageReader& r, int32_t number, const std::vector<uint8_t>& from,
-                     std::vector<uint8_t>& to) {
+bool readEntityDelta(wire::MessageReader &r, int32_t number, const std::vector<uint8_t> &from,
+                     std::vector<uint8_t> &to) {
     if (r.bits(1)) {
         to.clear();
         return true;
@@ -170,8 +170,8 @@ bool readEntityDelta(wire::MessageReader& r, int32_t number, const std::vector<u
     return false;
 }
 
-void writePlayerDelta(wire::MessageWriter& w, const std::vector<uint8_t>& from, const std::vector<uint8_t>& to) {
-    for (const Field& f : kPlayerFields) {
+void writePlayerDelta(wire::MessageWriter &w, const std::vector<uint8_t> &from, const std::vector<uint8_t> &to) {
+    for (const Field &f : kPlayerFields) {
         const int32_t value = wordAt(to, f.offset);
         if (value == wordAt(from, f.offset)) {
             w.bits(0, 1);
@@ -180,7 +180,7 @@ void writePlayerDelta(wire::MessageWriter& w, const std::vector<uint8_t>& from, 
         w.bits(1, 1);
         writeField(w, f, value);
     }
-    for (const ArrayGroup& g : kPlayerArrays) {
+    for (const ArrayGroup &g : kPlayerArrays) {
         uint32_t mask = 0;
         for (int i = 0; i < kArrayLength; ++i)
             if (wordAt(to, g.offset + 4 * i) != wordAt(from, g.offset + 4 * i))
@@ -195,12 +195,12 @@ void writePlayerDelta(wire::MessageWriter& w, const std::vector<uint8_t>& from, 
     }
 }
 
-void readPlayerDelta(wire::MessageReader& r, const std::vector<uint8_t>& from, std::vector<uint8_t>& to) {
+void readPlayerDelta(wire::MessageReader &r, const std::vector<uint8_t> &from, std::vector<uint8_t> &to) {
     to = sized(from, kNetPlayerStateSize);
-    for (const Field& f : kPlayerFields)
+    for (const Field &f : kPlayerFields)
         if (r.bits(1))
             setWord(to, f.offset, readField(r, f));
-    for (const ArrayGroup& g : kPlayerArrays) {
+    for (const ArrayGroup &g : kPlayerArrays) {
         if (!r.bits(1))
             continue;
         const uint32_t mask = r.bits(kArrayLength);
@@ -210,7 +210,7 @@ void readPlayerDelta(wire::MessageReader& r, const std::vector<uint8_t>& from, s
     }
 }
 
-void writeUserCommand(wire::MessageWriter& w, const GameHost::UserCommand& from, const GameHost::UserCommand& to) {
+void writeUserCommand(wire::MessageWriter &w, const GameHost::UserCommand &from, const GameHost::UserCommand &to) {
     const int32_t step = to.serverTime - from.serverTime;
     if (step >= 0 && step < 256) {
         w.bits(1, 1);
@@ -236,7 +236,7 @@ void writeUserCommand(wire::MessageWriter& w, const GameHost::UserCommand& from,
     field(from.weapon, to.weapon, 8);
 }
 
-GameHost::UserCommand readUserCommand(wire::MessageReader& r, const GameHost::UserCommand& from) {
+GameHost::UserCommand readUserCommand(wire::MessageReader &r, const GameHost::UserCommand &from) {
     GameHost::UserCommand to = from;
     if (r.bits(1))
         to.serverTime = from.serverTime + int32_t(r.bits(8));

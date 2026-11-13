@@ -30,16 +30,16 @@ class Glide2Dll : public GlideDll {
 public:
     // `memory` is where guest-visible buffers (linear frame buffer locks)
     // are allocated.
-    Glide2Dll(x86::Cpu& cpu, x86::Arena& memory, Board board = {});
+    Glide2Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = {});
 
-    Glide2& glide() { return glide_; }
+    Glide2 &glide() { return glide_; }
 
 private:
     void addAll();
     Glide2Vertex vertex(uint32_t address) const;
     Glide2TexInfo texInfo(uint32_t address) const;
     // guTexGetMipMapInfo's GrMipMapInfo in guest memory, filled in now.
-    uint32_t mipMapInfo(const Glide2& g, uint32_t id);
+    uint32_t mipMapInfo(const Glide2 &g, uint32_t id);
 
     Glide2 glide_;
     std::map<uint32_t, uint32_t> mipMapInfos_; // by handle

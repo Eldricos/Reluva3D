@@ -27,8 +27,6 @@ namespace {
 
 using namespace reluva::glide;
 
-
-
 namespace {
 
 Glide2 openGlide2(int colorFormat = kColorArgb) {
@@ -111,7 +109,7 @@ void testLfbFormats() {
     // Regions take the colour format too.
     g.lfbWriteColorFormat(kColorArgb);
     const uint32_t px = 0x00ff0000u;
-    CHECK(g.lfbWriteRegion(kBufferBack, 5, 5, kLfb888, 1, 1, 4, reinterpret_cast<const uint8_t*>(&px)));
+    CHECK(g.lfbWriteRegion(kBufferBack, 5, 5, kLfb888, 1, 1, 4, reinterpret_cast<const uint8_t *>(&px)));
     CHECK(g.lfbRead(kBufferBack, 5, 5, false) == red565);
 }
 
@@ -168,14 +166,16 @@ Glide2Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, 
 
 // The Programming Guide's recipe (Example 4.2, back to front): the alpha
 // combine giving iterated alpha, blending by source alpha.
-void aaSetup(Glide2& g) {
+void aaSetup(Glide2 &g) {
     g.colorCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
     g.alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
     g.alphaBlendFunction(kBlendSrcAlpha, kBlendOneMinusSrcAlpha, kBlendZero, kBlendZero);
     g.bufferClear(0, 0, 0);
 }
 
-int green(const Glide2& g, int x, int y) { return g.lfbRead(kBufferBack, x, y, false) >> 5 & 63; }
+int green(const Glide2 &g, int x, int y) {
+    return g.lfbRead(kBufferBack, x, y, false) >> 5 & 63;
+}
 
 void testAntialiasing() {
     Glide2 g = openGlide2();
@@ -204,8 +204,8 @@ void testAntialiasing() {
     // Only edge a-b (the top, y 10 to 12): the fringe is above it alone.
     aa.bufferClear(0, 0, 0);
     aa.aaDrawTriangle(vtx(10, 10), vtx(60, 12), vtx(20, 50), true, false, false);
-    CHECK(green(aa, 30, 10) > 0);   // above the top edge (at y ~10.8)
-    CHECK(green(aa, 5, 30) == 0);   // left of the c-a edge: not anti-aliased
+    CHECK(green(aa, 30, 10) > 0); // above the top edge (at y ~10.8)
+    CHECK(green(aa, 5, 30) == 0); // left of the c-a edge: not anti-aliased
     // The same with the vertices given the other way round (b and c
     // swapped): the a-c edge is then the one asked for.
     aa.bufferClear(0, 0, 0);
@@ -248,7 +248,7 @@ void testAntialiasing() {
         float x, y;
         uint32_t argb;
     } tri[3] = {{10, 10, 0xffffffffu}, {60, 10, 0xffffffffu}, {35, 50, 0xffffffffu}};
-    auto bytes = [&](int i) { return reinterpret_cast<const uint8_t*>(&tri[i]); };
+    auto bytes = [&](int i) { return reinterpret_cast<const uint8_t *>(&tri[i]); };
     g3x.drawTriangle(bytes(0), bytes(1), bytes(2));
     CHECK((g3x.core().lfbRead(kBufferBack, 35, 9, false) >> 5 & 63) == 0);
     g3x.enable(g3::kAaOrdered);
@@ -264,8 +264,8 @@ void testTextureManager() {
     // level, then 64x64 8-bit), the free memory going down by their sizes.
     const uint32_t avail = g.guTexMemQueryAvail(0);
     CHECK(avail == 4u << 20);
-    const uint32_t a = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapNearest, 8, 0, 3,
-                                             kClampClamp, kClampWrap, kFilterBilinear, kFilterPoint, 0.5f, false);
+    const uint32_t a = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapNearest, 8, 0, 3, kClampClamp,
+                                             kClampWrap, kFilterBilinear, kFilterPoint, 0.5f, false);
     CHECK(a == 0);
     const uint32_t sizeA = g.texCalcMemRequired(8, 0, 3, kTexRgb565);
     CHECK(g.guTexMemQueryAvail(0) == avail - sizeA);
@@ -275,7 +275,7 @@ void testTextureManager() {
     CHECK(g.guTexGetCurrentMipMap(0) == Glide2::kNullMipMap);
     // Making one current sets its attributes too.
     g.guTexSource(a);
-    const TmuState& t = g.pipeline().state().tmus[0];
+    const TmuState &t = g.pipeline().state().tmus[0];
     CHECK(g.guTexGetCurrentMipMap(0) == a);
     CHECK(t.hasSource && t.start == 0 && t.clampS && !t.clampT && t.minFilter == kFilterBilinear);
     CHECK(t.mipmapMode == kMipmapNearest && t.lodBias == 0.5f);
@@ -293,14 +293,14 @@ void testTextureManager() {
     CHECK(g.guTexGetMipMapInfo(b)->clampS == kClampClamp && g.guTexGetMipMapInfo(b)->info.format == kTexP8);
     CHECK(!g.guTexChangeAttributes(b, -1, -1, kTexRgb565, -1, -1, -1, -1, -1, -1, -1, -1));
     // A mipmap that would cross the 2 MB line starts on it.
-    const uint32_t c = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapDisable, 0, 0, 3,
-                                             kClampWrap, kClampWrap, kFilterPoint, kFilterPoint, 0, false);
-    const uint32_t d = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapDisable, 0, 0, 3,
-                                             kClampWrap, kClampWrap, kFilterPoint, kFilterPoint, 0, false);
+    const uint32_t c = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapDisable, 0, 0, 3, kClampWrap,
+                                             kClampWrap, kFilterPoint, kFilterPoint, 0, false);
+    const uint32_t d = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapDisable, 0, 0, 3, kClampWrap,
+                                             kClampWrap, kFilterPoint, kFilterPoint, 0, false);
     CHECK(c != Glide2::kNullMipMap && d != Glide2::kNullMipMap);
     uint32_t last = d;
     for (int i = 0; i < 40 && last != Glide2::kNullMipMap; ++i) {
-        const Glide2::MipMap* m = g.guTexGetMipMapInfo(last);
+        const Glide2::MipMap *m = g.guTexGetMipMapInfo(last);
         CHECK(m->start / (2u << 20) == (m->start + m->size - 1) / (2u << 20));
         last = g.guTexAllocateMemory(0, kLevelsBoth, 256, 256, kTexRgb565, kMipmapDisable, 0, 0, 3, kClampWrap,
                                      kClampWrap, kFilterPoint, kFilterPoint, 0, false);
@@ -329,17 +329,17 @@ void testUtilities() {
     const std::string file = make3df();
     File3df f;
     std::string why;
-    CHECK(parse3dfHeader(reinterpret_cast<const uint8_t*>(file.data()), file.size(), f, &why));
+    CHECK(parse3dfHeader(reinterpret_cast<const uint8_t *>(file.data()), file.size(), f, &why));
     CHECK(f.format == kTexArgb4444 && f.largeLodLog2 == 2 && f.smallLodLog2 == 0 && f.aspectLog2 == 1);
     CHECK(f.width == 4 && f.height == 2 && f.dataBytes == 22);
     std::vector<uint8_t> texels(f.dataBytes);
-    CHECK(load3dfData(reinterpret_cast<const uint8_t*>(file.data()), file.size(), f, texels.data()));
+    CHECK(load3dfData(reinterpret_cast<const uint8_t *>(file.data()), file.size(), f, texels.data()));
     CHECK(texels[0] == 0 && texels[1] == 0xf0 && texels[2] == 1 && texels[3] == 0xf1);
-    CHECK(!load3dfData(reinterpret_cast<const uint8_t*>(file.data()), file.size() - 1, f, texels.data()));
+    CHECK(!load3dfData(reinterpret_cast<const uint8_t *>(file.data()), file.size() - 1, f, texels.data()));
     const std::string notOne = "3dx v1.0\n";
-    CHECK(!parse3dfHeader(reinterpret_cast<const uint8_t*>(notOne.data()), notOne.size(), f, &why));
+    CHECK(!parse3dfHeader(reinterpret_cast<const uint8_t *>(notOne.data()), notOne.size(), f, &why));
     const std::string ncc = "3df v1.0\ncolor format: yiq\nlod range: 8 8\naspect ratio: 1 1\n";
-    CHECK(!parse3dfHeader(reinterpret_cast<const uint8_t*>(ncc.data()), ncc.size(), f, &why));
+    CHECK(!parse3dfHeader(reinterpret_cast<const uint8_t *>(ncc.data()), ncc.size(), f, &why));
 
     // RLE16: runs within each row, read back by grLfbWriteRegion.
     const uint16_t image[2 * 5] = {1, 1, 1, 2, 3, 4, 4, 4, 4, 4};
@@ -360,14 +360,14 @@ void testUtilities() {
     cpu.setStack(0x100000);
     reluva::x86::Arena arena(cpu, 0x200000, 0x800000);
     Glide2Dll dll(cpu, arena);
-    dll.readFile = [&](const std::string& path, std::vector<uint8_t>& out) {
+    dll.readFile = [&](const std::string &path, std::vector<uint8_t> &out) {
         if (path != "C:\\TEX\\TEST.3DF")
             return false;
         out.assign(file.begin(), file.end());
         return true;
     };
     uint32_t r = 0;
-    auto call = [&](const char* name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, std::vector<uint32_t> args) {
         r = 0xdeadbeef;
         CHECK(!cpu.call(dll.exports().at(name), args, r));
         return r;
@@ -378,7 +378,7 @@ void testUtilities() {
     const uint32_t info = arena.alloc(1056);
     CHECK(call("_gu3dfGetInfo@8", {name, info}) == 1);
     CHECK(cpu.read32(info) == 4 && cpu.read32(info + 4) == 2);
-    CHECK(cpu.read32(info + 8) == 8 && cpu.read32(info + 12) == 6); // GR_LOD_1, GR_LOD_4
+    CHECK(cpu.read32(info + 8) == 8 && cpu.read32(info + 12) == 6);                       // GR_LOD_1, GR_LOD_4
     CHECK(cpu.read32(info + 16) == 2 && cpu.read32(info + 20) == uint32_t(kTexArgb4444)); // GR_ASPECT_2x1
     CHECK(cpu.read32(info + 1052) == 22);
     const uint32_t data = arena.alloc(22);
@@ -392,8 +392,8 @@ void testUtilities() {
     float bias = 0;
     uint32_t biasBits = 0;
     std::memcpy(&biasBits, &bias, 4);
-    const uint32_t id = call("_guTexAllocateMemory@60", {0, 3, 4, 2, uint32_t(kTexArgb4444), 0, 8, 6, 2, 1, 1, 0, 0,
-                                                         biasBits, 0});
+    const uint32_t id =
+        call("_guTexAllocateMemory@60", {0, 3, 4, 2, uint32_t(kTexArgb4444), 0, 8, 6, 2, 1, 1, 0, 0, biasBits, 0});
     CHECK(id == 0);
     CHECK(call("_guTexDownloadMipMap@12", {id, data, 0}) == 0);
     call("_guTexSource@4", {id});
@@ -445,19 +445,19 @@ void testBoards() {
     Glide2 r0(rev0);
     r0.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
     std::vector<uint32_t> pal(256, 0x00ff0000u);
-    r0.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(pal.data()));
+    r0.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t *>(pal.data()));
     CHECK(r0.pipeline().palette(0)[5] == 0);
 
     // Voodoo Rush: windowed Glide, the window's size.
     Glide2 rush(voodooRushBoard());
-    rush.windowSize = [](uint32_t hwnd, int& w, int& h) {
+    rush.windowSize = [](uint32_t hwnd, int &w, int &h) {
         w = 320;
         h = 200;
         return hwnd == 7;
     };
     CHECK(rush.sstWinOpen(7, Glide2::kResolutionNone, 0, kColorArgb, 0, 2, 1));
     CHECK(rush.sstScreenWidth() == 320 && rush.sstScreenHeight() == 200);
-    rush.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(pal.data()));
+    rush.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t *>(pal.data()));
     CHECK(rush.pipeline().palette(0)[5] == 0);
 
     // Voodoo3: unified memory. Textures start after the open window's
@@ -521,7 +521,7 @@ void testClipCoordinates() {
     g.vertexLayout(g3::kParamZ, 8, g3::kParamEnable);
     g.vertexLayout(g3::kParamW, 12, g3::kParamEnable);
     g.vertexLayout(g3::kParamRgb, 16, g3::kParamEnable);
-    auto at = [](const V& v) { return reinterpret_cast<const uint8_t*>(&v); };
+    auto at = [](const V &v) { return reinterpret_cast<const uint8_t *>(&v); };
     auto lit = [&](int x, int y) { return g.core().lfbRead(kBufferBack, x, y, false) != 0; };
     int count = 0;
     auto litPixels = [&] {
@@ -572,12 +572,14 @@ void testClipCoordinates() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.glide_more", {
-    {"lfb formats", [](const std::filesystem::path&) { testLfbFormats(); }},
-    {"lfb swizzle", [](const std::filesystem::path&) { testLfbSwizzle(); }},
-    {"antialiasing", [](const std::filesystem::path&) { testAntialiasing(); }},
-    {"texture manager", [](const std::filesystem::path&) { testTextureManager(); }},
-    {"utilities", [](const std::filesystem::path&) { testUtilities(); }},
-    {"boards", [](const std::filesystem::path&) { testBoards(); }},
-    {"clip coordinates", [](const std::filesystem::path&) { testClipCoordinates(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.glide_more",
+           {
+               {"lfb formats", [](const std::filesystem::path &) { testLfbFormats(); }},
+               {"lfb swizzle", [](const std::filesystem::path &) { testLfbSwizzle(); }},
+               {"antialiasing", [](const std::filesystem::path &) { testAntialiasing(); }},
+               {"texture manager", [](const std::filesystem::path &) { testTextureManager(); }},
+               {"utilities", [](const std::filesystem::path &) { testUtilities(); }},
+               {"boards", [](const std::filesystem::path &) { testBoards(); }},
+               {"clip coordinates", [](const std::filesystem::path &) { testClipCoordinates(); }},
+           });

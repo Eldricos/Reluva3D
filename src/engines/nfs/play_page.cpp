@@ -37,27 +37,45 @@ std::string keyName(uint32_t k) {
         return "f" + std::to_string(k - key::F1 + 1);
     switch (k) {
     case key::Return:
-    case key::KpEnter: return "enter";
-    case key::Escape: return "esc";
-    case key::Space: return "space";
-    case key::Backspace: return "backspace";
-    case key::Up: return "up";
-    case key::Down: return "down";
-    case key::Left: return "left";
-    case key::Right: return "right";
-    case key::Home: return "home";
-    case key::End: return "end";
-    case key::PageUp: return "pageup";
-    case key::PageDown: return "pagedown";
-    case key::Insert: return "insert";
-    case key::Delete: return "delete";
+    case key::KpEnter:
+        return "enter";
+    case key::Escape:
+        return "esc";
+    case key::Space:
+        return "space";
+    case key::Backspace:
+        return "backspace";
+    case key::Up:
+        return "up";
+    case key::Down:
+        return "down";
+    case key::Left:
+        return "left";
+    case key::Right:
+        return "right";
+    case key::Home:
+        return "home";
+    case key::End:
+        return "end";
+    case key::PageUp:
+        return "pageup";
+    case key::PageDown:
+        return "pagedown";
+    case key::Insert:
+        return "insert";
+    case key::Delete:
+        return "delete";
     case key::LShift:
-    case key::RShift: return "shift";
+    case key::RShift:
+        return "shift";
     case key::LCtrl:
-    case key::RCtrl: return "ctrl";
+    case key::RCtrl:
+        return "ctrl";
     case key::LAlt:
-    case key::RAlt: return "alt";
-    default: return "";
+    case key::RAlt:
+        return "alt";
+    default:
+        return "";
     }
 }
 
@@ -65,12 +83,12 @@ std::string keyName(uint32_t k) {
 // line, leaving the lines between black: as it looked then. Those lines
 // filled with the one above, if every odd line is black and some even one
 // isn't; false for any other frame (a menu's picture, the game's 3D).
-bool fillMovieLines(Surface& frame) {
+bool fillMovieLines(Surface &frame) {
     if (frame.h < 2 || frame.w <= 0)
         return false;
     bool picture = false;
     for (int y = 0; y < frame.h; ++y) {
-        const uint8_t* row = frame.row(y);
+        const uint8_t *row = frame.row(y);
         bool black = true;
         for (int x = 0; x < frame.w && black; ++x)
             black = !(row[4 * x] | row[4 * x + 1] | row[4 * x + 2]);
@@ -87,20 +105,20 @@ bool fillMovieLines(Surface& frame) {
 
 } // namespace
 
-PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer* mixer, int renderScale,
-                   bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals,
-                   bool network, bool fillMovies, std::string serial, std::string modem, bool glide,
-                   bool direct3d, bool glideSoftware, std::string glideDll, std::string glideBoard)
+PlayPage::PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer, int renderScale,
+                   bool smoothTextures, bool offerJoystick, bool forceFeedback, std::string wheelPedals, bool network,
+                   bool fillMovies, std::string serial, std::string modem, bool glide, bool direct3d,
+                   bool glideSoftware, std::string glideDll, std::string glideBoard)
     : folders_(std::move(folders)), saveFolder_(std::move(saveFolder)), mixer_(mixer), offerJoystick_(offerJoystick),
-      forceFeedback_(forceFeedback), smoothTextures_(smoothTextures), network_(network), serial_(std::move(serial)), modem_(std::move(modem)),
-      fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
+      forceFeedback_(forceFeedback), smoothTextures_(smoothTextures), network_(network), serial_(std::move(serial)),
+      modem_(std::move(modem)), fillMovies_(fillMovies), wheelPedals_(std::move(wheelPedals)),
       renderScale_(std::clamp(renderScale, 1, 4)), glide_(glide), glideSoftware_(glideSoftware),
       glideDll_(std::move(glideDll)), glideBoard_(std::move(glideBoard)), direct3d_(direct3d && !glide) {
     gpuDraw_.scale = renderScale_;
     gpuDraw_.nearest = !smoothTextures;
     // A debugging aid: the GPU's frames written beside the software
     // rasterizer's of the same page flip, at the game's size, every so often.
-    if (const char* folder = std::getenv("RELUVA_NFS_COMPARE")) {
+    if (const char *folder = std::getenv("RELUVA_NFS_COMPARE")) {
         compareFolder_ = folder;
         renderScale_ = 1;
         gpuDraw_.scale = 1;
@@ -117,21 +135,21 @@ PlayPage::~PlayPage() {
         thread_.join();
 }
 
-void PlayPage::say(const std::string& line) {
+void PlayPage::say(const std::string &line) {
     std::lock_guard<std::mutex> lock(mutex_);
     lines_.push_back(line);
     while (lines_.size() > 20)
         lines_.pop_front();
 }
 
-void PlayPage::activate(System& sys) {
+void PlayPage::activate(System &sys) {
     sys_ = &sys;
     // The GPU if there is one: asked for each time the page is shown (the
     // engine puts the framebuffer back when it's left). Whether the game
     // draws for it is decided once, when it starts.
     const bool starting = !host_ && result_.empty(); // started once; a failed start stays reported
     if ((starting || gpu_) && !glide_) {
-        gfx::Renderer3D* renderer = nullptr;
+        gfx::Renderer3D *renderer = nullptr;
         if (!sys.init3D(640 * renderScale_, 480 * renderScale_, renderer) && renderer) {
             gpu_ = gpu_ || starting;
             gpuDraw_.setRenderer(renderer);
@@ -206,8 +224,8 @@ void PlayPage::start() {
     int desktopW = 0, desktopH = 0, desktopBits = 0;
     if (glide_ && (boardName == "rush" || boardName == "sst96") && glideBoard_.find(",desktop=") == std::string::npos &&
         sys_ && sys_->desktopMode(desktopW, desktopH, desktopBits)) {
-        const std::string spec = glideBoard_ + ",desktop=" + std::to_string(desktopW) + "x" +
-                                 std::to_string(desktopH) + "x" + std::to_string(desktopBits);
+        const std::string spec = glideBoard_ + ",desktop=" + std::to_string(desktopW) + "x" + std::to_string(desktopH) +
+                                 "x" + std::to_string(desktopBits);
         glide::Board board;
         bool clamped = false;
         const bool taken = glide::boardByName(spec, board, &clamped); // false for a depth it can't take
@@ -241,8 +259,8 @@ void PlayPage::start() {
         }
     }
     host_ = std::make_unique<GameHost>(folders_, options);
-    host_->log = [this](const std::string& line) { say(line); };
-    host_->onFrame = [this](const Surface& frame) {
+    host_->log = [this](const std::string &line) { say(line); };
+    host_->onFrame = [this](const Surface &frame) {
         std::lock_guard<std::mutex> lock(mutex_);
         frame_ = frame;
         if (fillMovies_)
@@ -260,7 +278,7 @@ void PlayPage::start() {
             primaryShown_ = true;
         }
     };
-    host_->onThrashFrame = [this](ThrashFrame&& frame) {
+    host_->onThrashFrame = [this](ThrashFrame &&frame) {
         std::lock_guard<std::mutex> lock(mutex_);
         // A flip copies its rectangle to the screen, leaving the rest: what
         // DirectDraw drew stays outside it until a flip covers everything.
@@ -287,14 +305,14 @@ void PlayPage::start() {
         // not frames: a loading screen sends dozens of small ones that each
         // add to the last, and those are all wanted.
         size_t queued = 0;
-        for (const Pending& q : pending_)
+        for (const Pending &q : pending_)
             queued += q.frame.vertices.size();
         while (pending_.size() > 1 && queued > kMaxQueuedVertices) {
             queued -= pending_.front().frame.vertices.size();
-            Pending& next = pending_[1];
+            Pending &next = pending_[1];
             if (!next.frame.resetTextures) {
                 next.frame.resetTextures = pending_.front().frame.resetTextures;
-                auto& older = pending_.front().frame.textures;
+                auto &older = pending_.front().frame.textures;
                 next.frame.textures.insert(next.frame.textures.begin(), std::make_move_iterator(older.begin()),
                                            std::make_move_iterator(older.end()));
             }
@@ -315,13 +333,14 @@ void PlayPage::start() {
         uint32_t exitCode = 0;
         const Error err = host_->run(exitCode);
         std::lock_guard<std::mutex> lock(mutex_);
-        result_ = err ? "The game stopped: " + err.message : "The game ended (exit code " + std::to_string(exitCode) + ")";
+        result_ =
+            err ? "The game stopped: " + err.message : "The game ended (exit code " + std::to_string(exitCode) + ")";
         exited_ = !err; // the player left it: back to the launcher
         running_ = false;
     });
 }
 
-void PlayPage::handleEvent(const Event& ev) {
+void PlayPage::handleEvent(const Event &ev) {
     if (!host_ || !running_)
         return;
     switch (ev.type) {
@@ -352,7 +371,8 @@ void PlayPage::handleEvent(const Event& ev) {
         if (ev.button == MouseButton::Left)
             host_->queueMouseButton(ev.type == EventType::MouseDown);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -375,7 +395,7 @@ bool PlayPage::tick(uint64_t nowMs) {
     return newFrame_ || frame_.pixels.empty() || !running_;
 }
 
-void PlayPage::draw(Surface& screen) {
+void PlayPage::draw(Surface &screen) {
     std::lock_guard<std::mutex> lock(mutex_);
     newFrame_ = false;
     if (!frame_.pixels.empty() && running_) {
@@ -387,11 +407,11 @@ void PlayPage::draw(Surface& screen) {
     drawStatus(screen);
 }
 
-void PlayPage::drawStatus(Surface& screen) {
+void PlayPage::drawStatus(Surface &screen) {
     clear(screen);
     text(screen, kMargin, 8, "Need for Speed III", kTitleColor);
-    text(screen, kMargin, screen.h - font::kLineHeight - 4, "Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher",
-         kLabelColor);
+    text(screen, kMargin, screen.h - font::kLineHeight - 4,
+         "Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher", kLabelColor);
     int y = 8 + font::kLineHeight * 2;
     if (!result_.empty()) {
         text(screen, kMargin, y, result_, kWarnColor);
@@ -400,7 +420,7 @@ void PlayPage::drawStatus(Surface& screen) {
         text(screen, kMargin, y, "Starting nfs3.exe...", kTextColor);
         y += font::kLineHeight * 2;
     }
-    for (const std::string& line : lines_) {
+    for (const std::string &line : lines_) {
         text(screen, kMargin, y, line, kLabelColor);
         y += font::kLineHeight;
     }
@@ -426,10 +446,11 @@ void PlayPage::reportSpeed(uint64_t nowMs) {
     std::printf("Play: the game made %.1f frames a second at %.1f million instructions a second (%.2f million a "
                 "frame: main thread %.0f%%, timer %.0f%%, others %.0f%%); %s drew %.1f a second (%.1f not needed, "
                 "%.1f dropped), shown %.1f times a second\n",
-                double(frames) / seconds, double(run) / seconds / 1e6, frames ? double(run) / double(frames) / 1e6 : 0.0,
-                share(ownRun), share(timerRun), share(run - std::min(run, ownRun + timerRun)),
-                gpu_ ? "the GPU" : "software", double(statDrawn_) / seconds, double(statSkipped_) / seconds,
-                double(statDropped_) / seconds, double(statShown_) / seconds);
+                double(frames) / seconds, double(run) / seconds / 1e6,
+                frames ? double(run) / double(frames) / 1e6 : 0.0, share(ownRun), share(timerRun),
+                share(run - std::min(run, ownRun + timerRun)), gpu_ ? "the GPU" : "software",
+                double(statDrawn_) / seconds, double(statSkipped_) / seconds, double(statDropped_) / seconds,
+                double(statShown_) / seconds);
     std::fflush(stdout);
     statFrom_ = nowMs;
     statLastInstructions_ = instructions;
@@ -464,11 +485,11 @@ void PlayPage::update(uint64_t nowMs) {
         }
         newFrame_ = false;
     }
-    const Surface* over = overlay.pixels.empty() ? nullptr : &overlay;
+    const Surface *over = overlay.pixels.empty() ? nullptr : &overlay;
     // Nothing new: what was drawn shown again (drawing a frame twice would
     // blend its translucent parts twice).
     if (frames.empty() || !thrash) {
-        for (const Pending& p : frames)
+        for (const Pending &p : frames)
             gpuDraw_.updateTextures(p.frame);
         gpuDraw_.draw(ThrashFrame{}, over);
         return;
@@ -487,9 +508,9 @@ void PlayPage::update(uint64_t nowMs) {
     statSkipped_ += from;
     statDrawn_ += frames.size();
     ++statShown_;
-    std::vector<const ThrashFrame*> list;
+    std::vector<const ThrashFrame *> list;
     bool compare = false;
-    for (const Pending& p : frames) {
+    for (const Pending &p : frames) {
         list.push_back(&p.frame);
         compare = compare || (!compareFolder_.empty() && p.software && ++newFrames_ % 60 == 0);
     }
@@ -497,17 +518,17 @@ void PlayPage::update(uint64_t nowMs) {
         gpuDraw_.captureNext();
     gpuDraw_.draw(list, over);
     std::vector<uint8_t> rgba;
-    const Pending& last = frames.back();
+    const Pending &last = frames.back();
     if (compare && last.software && gpuDraw_.capture(rgba)) {
         std::error_code ec;
         std::filesystem::create_directories(compareFolder_, ec);
-        auto write = [](const std::filesystem::path& path, int w, int h, const std::vector<uint8_t>& pixels) {
+        auto write = [](const std::filesystem::path &path, int w, int h, const std::vector<uint8_t> &pixels) {
             image::Image img;
             img.w = w;
             img.h = h;
             img.rgba = pixels;
             const std::vector<uint8_t> tga = image::encodeTga(img);
-            if (std::FILE* f = std::fopen(path.string().c_str(), "wb")) {
+            if (std::FILE *f = std::fopen(path.string().c_str(), "wb")) {
                 std::fwrite(tga.data(), 1, tga.size(), f);
                 std::fclose(f);
             }

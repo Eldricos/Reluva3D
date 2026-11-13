@@ -14,8 +14,8 @@ namespace reluva::x86 {
 // ("dword ptr [ebp - 8], eax", "0x10").
 struct Instruction {
     uint32_t address = 0;
-    int size = 0;         // in bytes; 1 for one that isn't valid
-    bool valid = false;   // false: not an instruction (shown as "db")
+    int size = 0;       // in bytes; 1 for one that isn't valid
+    bool valid = false; // false: not an instruction (shown as "db")
     std::string mnemonic;
     std::string operands;
     bool hasTarget = false; // a direct call, jmp, jcc, loop or jecxz:
@@ -28,6 +28,6 @@ struct Instruction {
 // instructions (jcc, setcc, cmovcc, movzx/movsx, imul, bt*, shld/shrd,
 // bsf/bsr, the system ones), the x87 FPU and the string instructions with
 // their prefixes; not MMX, SSE or later extensions (those are invalid).
-Instruction disassemble(const uint8_t* code, size_t size, uint32_t address);
+Instruction disassemble(const uint8_t *code, size_t size, uint32_t address);
 
 } // namespace reluva::x86

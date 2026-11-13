@@ -11,7 +11,7 @@ namespace {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t>& d) : d_(d) {}
+    explicit Reader(const std::vector<uint8_t> &d) : d_(d) {}
     bool fail() const { return fail_; }
     bool need(size_t n) {
         if (fail_ || p_ > d_.size() || d_.size() - p_ < n)
@@ -29,8 +29,8 @@ public:
     int32_t i32() {
         if (!need(4))
             return 0;
-        const uint32_t v = uint32_t(d_[p_]) | uint32_t(d_[p_ + 1]) << 8 | uint32_t(d_[p_ + 2]) << 16 |
-                           uint32_t(d_[p_ + 3]) << 24;
+        const uint32_t v =
+            uint32_t(d_[p_]) | uint32_t(d_[p_ + 1]) << 8 | uint32_t(d_[p_ + 2]) << 16 | uint32_t(d_[p_ + 3]) << 24;
         p_ += 4;
         return int32_t(v);
     }
@@ -40,42 +40,42 @@ public:
         const size_t n = u8();
         if (n == 0 || !need(n + 1))
             return {};
-        std::string s(reinterpret_cast<const char*>(d_.data() + p_), n);
+        std::string s(reinterpret_cast<const char *>(d_.data() + p_), n);
         p_ += n + 1;
         return s;
     }
     size_t pos() const { return p_; }
 
 private:
-    const std::vector<uint8_t>& d_;
+    const std::vector<uint8_t> &d_;
     size_t p_ = 0;
     bool fail_ = false;
 };
 
 } // namespace
 
-const ResiControl* ResiDialog::control(int32_t want) const {
-    for (const ResiControl& c : controls)
+const ResiControl *ResiDialog::control(int32_t want) const {
+    for (const ResiControl &c : controls)
         if (c.id == want)
             return &c;
     return nullptr;
 }
 
-const ResiDialog* Resi::dialog(int32_t id) const {
-    for (const ResiDialog& d : dialogs)
+const ResiDialog *Resi::dialog(int32_t id) const {
+    for (const ResiDialog &d : dialogs)
         if (d.id == id)
             return &d;
     return nullptr;
 }
 
-const ResiFont* Resi::font(uint32_t id) const {
-    for (const ResiFont& f : fonts)
+const ResiFont *Resi::font(uint32_t id) const {
+    for (const ResiFont &f : fonts)
         if (f.id == id)
             return &f;
     return nullptr;
 }
 
-Error parseResi(const std::vector<uint8_t>& data, Resi& out) {
+Error parseResi(const std::vector<uint8_t> &data, Resi &out) {
     out = {};
     if (data.size() < 6 || std::memcmp(data.data(), "RESI", 4) != 0)
         return Error::fail("not a RESI file");
@@ -93,14 +93,14 @@ Error parseResi(const std::vector<uint8_t>& data, Resi& out) {
     }
     for (int i = 0; i < dialogs && !r.fail(); ++i) {
         ResiDialog d;
-        for (int32_t& v : d.raw)
+        for (int32_t &v : d.raw)
             v = r.i32();
         d.id = d.raw[0];
         d.background = r.text();
         const int controls = r.u8();
         for (int c = 0; c < controls && !r.fail(); ++c) {
             ResiControl k;
-            for (int32_t& v : k.raw)
+            for (int32_t &v : k.raw)
                 v = r.i32();
             k.type = k.raw[0];
             k.id = k.raw[1];

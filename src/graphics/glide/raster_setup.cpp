@@ -9,7 +9,7 @@
 
 namespace reluva::glide::raster {
 
-void load(const State& s, const Vertex& v, Values& out) {
+void load(const State &s, const Vertex &v, Values &out) {
     out.v[kR] = v.r;
     out.v[kG] = v.g;
     out.v[kB] = v.b;
@@ -37,11 +37,15 @@ void load(const State& s, const Vertex& v, Values& out) {
 
 namespace {
 // Integer division rounding down and up, for any signs.
-int64_t floorDiv(int64_t a, int64_t b) { return a / b - ((a % b != 0) && ((a < 0) != (b < 0))); }
-int64_t ceilDiv(int64_t a, int64_t b) { return -floorDiv(-a, b); }
+int64_t floorDiv(int64_t a, int64_t b) {
+    return a / b - ((a % b != 0) && ((a < 0) != (b < 0)));
+}
+int64_t ceilDiv(int64_t a, int64_t b) {
+    return -floorDiv(-a, b);
+}
 } // namespace
 
-bool Triangle::span(int y, int& xs, int& xe) const {
+bool Triangle::span(int y, int &xs, int &xe) const {
     const int64_t Yc = int64_t(y) * 16 + 8;
     // For each edge, the pixels k from x0 where E0 + 16 a k >= t (t 0 on
     // an inclusive edge, else 1).
@@ -63,13 +67,13 @@ bool Triangle::span(int y, int& xs, int& xe) const {
     return true;
 }
 
-bool setupTriangle(const State& s, int width, int height, const Vertex& va, const Vertex& vb, const Vertex& vc,
-                   Triangle& out, PixelStats& stats) {
+bool setupTriangle(const State &s, int width, int height, const Vertex &va, const Vertex &vb, const Vertex &vc,
+                   Triangle &out, PixelStats &stats) {
     ++stats.trianglesIn;
     // The vertices snapped to 1/16 pixel (the hardware takes x and y as
     // 12.4 fixed point).
     auto snap = [](float f) { return std::isfinite(f) ? int64_t(std::llround(double(f) * 16.0)) : int64_t(0); };
-    const Vertex* v[3] = {&va, &vb, &vc};
+    const Vertex *v[3] = {&va, &vb, &vc};
     int64_t X[3], Y[3];
     for (int i = 0; i < 3; ++i) {
         X[i] = snap(v[i]->x);

@@ -57,7 +57,7 @@ uint64_t mantissaOf(int64_t v) {
 }
 
 // Lanes of `bits` bits (8, 16, 32): f applied to each pair.
-template <int bits, typename F>
+template<int bits, typename F>
 uint64_t lanes(uint64_t a, uint64_t b, F f) {
     constexpr uint64_t m = bits == 64 ? ~0ull : (uint64_t(1) << bits) - 1;
     uint64_t r = 0;
@@ -66,12 +66,14 @@ uint64_t lanes(uint64_t a, uint64_t b, F f) {
     return r;
 }
 
-template <int bits>
+template<int bits>
 int64_t sx(uint64_t v) {
     return int64_t(v << (64 - bits)) >> (64 - bits);
 }
 
-int64_t clampTo(int64_t v, int64_t lo, int64_t hi) { return v < lo ? lo : v > hi ? hi : v; }
+int64_t clampTo(int64_t v, int64_t lo, int64_t hi) {
+    return v < lo ? lo : v > hi ? hi : v;
+}
 
 uint64_t unpack(uint64_t a, uint64_t b, int bits, bool high) {
     // Interleaves the low (or high) halves of a and b: a's lane first.
@@ -87,7 +89,7 @@ uint64_t unpack(uint64_t a, uint64_t b, int bits, bool high) {
 
 // Each lane shifted by `count` (the whole 64-bit count: past the lane's
 // width a logical shift gives 0, an arithmetic one the sign).
-template <int bits>
+template<int bits>
 uint64_t shiftLanes(uint64_t v, uint64_t count, int kind) { // kind 0 left, 1 logical right, 2 arithmetic right
     if (count >= uint64_t(bits)) {
         if (kind != 2)
@@ -141,8 +143,11 @@ void Cpu::mmx(uint8_t op) {
         return;
     }
     if (d_.opSize16 || d_.rep || d_.repne) // the SSE forms
-        fault("instruction " + std::string(d_.opSize16 ? "66" : d_.rep ? "f3" : "f2") + " 0f " + std::to_string(op) +
-              " (SSE) not implemented");
+        fault("instruction " +
+              std::string(d_.opSize16 ? "66"
+                          : d_.rep    ? "f3"
+                                      : "f2") +
+              " 0f " + std::to_string(op) + " (SSE) not implemented");
     decodeModrm();
     fpu.top = 0;
     fpu.tags = 0;
@@ -154,12 +159,24 @@ void Cpu::mmx(uint8_t op) {
     const uint64_t dst = mmRead(r);
     uint64_t result;
     switch (op) {
-    case 0x60: result = unpack(dst, sourceLow(), 8, false); break;  // PUNPCKLBW
-    case 0x61: result = unpack(dst, sourceLow(), 16, false); break; // PUNPCKLWD
-    case 0x62: result = unpack(dst, sourceLow(), 32, false); break; // PUNPCKLDQ
-    case 0x68: result = unpack(dst, source(), 8, true); break;      // PUNPCKHBW
-    case 0x69: result = unpack(dst, source(), 16, true); break;     // PUNPCKHWD
-    case 0x6a: result = unpack(dst, source(), 32, true); break;     // PUNPCKHDQ
+    case 0x60:
+        result = unpack(dst, sourceLow(), 8, false);
+        break; // PUNPCKLBW
+    case 0x61:
+        result = unpack(dst, sourceLow(), 16, false);
+        break; // PUNPCKLWD
+    case 0x62:
+        result = unpack(dst, sourceLow(), 32, false);
+        break; // PUNPCKLDQ
+    case 0x68:
+        result = unpack(dst, source(), 8, true);
+        break; // PUNPCKHBW
+    case 0x69:
+        result = unpack(dst, source(), 16, true);
+        break; // PUNPCKHWD
+    case 0x6a:
+        result = unpack(dst, source(), 32, true);
+        break;   // PUNPCKHDQ
     case 0x63:   // PACKSSWB
     case 0x67:   // PACKUSWB
     case 0x6b: { // PACKSSDW
@@ -175,16 +192,30 @@ void Cpu::mmx(uint8_t op) {
         }
         break;
     }
-    case 0x64: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return sx<8>(a) > sx<8>(b) ? ~0ull : 0; }); break;     // PCMPGTB
-    case 0x65: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return sx<16>(a) > sx<16>(b) ? ~0ull : 0; }); break;  // PCMPGTW
-    case 0x66: result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return sx<32>(a) > sx<32>(b) ? ~0ull : 0; }); break;  // PCMPGTD
-    case 0x74: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; }); break;  // PCMPEQB
-    case 0x75: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; }); break; // PCMPEQW
-    case 0x76: result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; }); break; // PCMPEQD
+    case 0x64:
+        result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return sx<8>(a) > sx<8>(b) ? ~0ull : 0; });
+        break; // PCMPGTB
+    case 0x65:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return sx<16>(a) > sx<16>(b) ? ~0ull : 0; });
+        break; // PCMPGTW
+    case 0x66:
+        result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return sx<32>(a) > sx<32>(b) ? ~0ull : 0; });
+        break; // PCMPGTD
+    case 0x74:
+        result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; });
+        break; // PCMPEQB
+    case 0x75:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; });
+        break; // PCMPEQW
+    case 0x76:
+        result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a == b ? ~0ull : 0; });
+        break; // PCMPEQD
     case 0x6e: // MOVD mm, r/m32
         result = d_.memoryOperand ? load(d_.address, 4) : reg[d_.rm];
         break;
-    case 0x6f: result = source(); break; // MOVQ mm, mm/m64
+    case 0x6f:
+        result = source();
+        break; // MOVQ mm, mm/m64
     case 0x7e: // MOVD r/m32, mm
         if (d_.memoryOperand)
             store(d_.address, uint32_t(dst), 4);
@@ -209,39 +240,106 @@ void Cpu::mmx(uint8_t op) {
         mmWrite(d_.rm, shiftBy(mmRead(d_.rm), count, op == 0x71 ? 16 : op == 0x72 ? 32 : 64, kind));
         return;
     }
-    case 0xd1: result = shiftBy(dst, source(), 16, 1); break; // PSRLW
-    case 0xd2: result = shiftBy(dst, source(), 32, 1); break; // PSRLD
-    case 0xd3: result = shiftBy(dst, source(), 64, 1); break; // PSRLQ
-    case 0xe1: result = shiftBy(dst, source(), 16, 2); break; // PSRAW
-    case 0xe2: result = shiftBy(dst, source(), 32, 2); break; // PSRAD
-    case 0xf1: result = shiftBy(dst, source(), 16, 0); break; // PSLLW
-    case 0xf2: result = shiftBy(dst, source(), 32, 0); break; // PSLLD
-    case 0xf3: result = shiftBy(dst, source(), 64, 0); break; // PSLLQ
-    case 0xd5: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(sx<16>(a) * sx<16>(b)); }); break;       // PMULLW
-    case 0xe5: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t((sx<16>(a) * sx<16>(b)) >> 16); }); break; // PMULHW
+    case 0xd1:
+        result = shiftBy(dst, source(), 16, 1);
+        break; // PSRLW
+    case 0xd2:
+        result = shiftBy(dst, source(), 32, 1);
+        break; // PSRLD
+    case 0xd3:
+        result = shiftBy(dst, source(), 64, 1);
+        break; // PSRLQ
+    case 0xe1:
+        result = shiftBy(dst, source(), 16, 2);
+        break; // PSRAW
+    case 0xe2:
+        result = shiftBy(dst, source(), 32, 2);
+        break; // PSRAD
+    case 0xf1:
+        result = shiftBy(dst, source(), 16, 0);
+        break; // PSLLW
+    case 0xf2:
+        result = shiftBy(dst, source(), 32, 0);
+        break; // PSLLD
+    case 0xf3:
+        result = shiftBy(dst, source(), 64, 0);
+        break; // PSLLQ
+    case 0xd5:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(sx<16>(a) * sx<16>(b)); });
+        break; // PMULLW
+    case 0xe5:
+        result =
+            lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t((sx<16>(a) * sx<16>(b)) >> 16); });
+        break; // PMULHW
     case 0xf5: // PMADDWD: two products of words summed into each dword (0x8000 * 0x8000 twice wraps to 0x80000000)
         result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) {
             return uint64_t(sx<16>(a) * sx<16>(b) + sx<16>(a >> 16) * sx<16>(b >> 16));
         });
         break;
-    case 0xdb: result = dst & source(); break;  // PAND
-    case 0xdf: result = ~dst & source(); break; // PANDN
-    case 0xeb: result = dst | source(); break;  // POR
-    case 0xef: result = dst ^ source(); break;  // PXOR
-    case 0xfc: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; }); break;  // PADDB
-    case 0xfd: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; }); break; // PADDW
-    case 0xfe: result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; }); break; // PADDD
-    case 0xf8: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; }); break;  // PSUBB
-    case 0xf9: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; }); break; // PSUBW
-    case 0xfa: result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; }); break; // PSUBD
-    case 0xec: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<8>(a) + sx<8>(b), -128, 127)); }); break;          // PADDSB
-    case 0xed: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<16>(a) + sx<16>(b), -32768, 32767)); }); break;   // PADDSW
-    case 0xe8: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<8>(a) - sx<8>(b), -128, 127)); }); break;          // PSUBSB
-    case 0xe9: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<16>(a) - sx<16>(b), -32768, 32767)); }); break;   // PSUBSW
-    case 0xdc: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a + b), 0, 255)); }); break;                  // PADDUSB
-    case 0xdd: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a + b), 0, 65535)); }); break;               // PADDUSW
-    case 0xd8: result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a) - int64_t(b), 0, 255)); }); break;        // PSUBUSB
-    case 0xd9: result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a) - int64_t(b), 0, 65535)); }); break;     // PSUBUSW
+    case 0xdb:
+        result = dst & source();
+        break; // PAND
+    case 0xdf:
+        result = ~dst & source();
+        break; // PANDN
+    case 0xeb:
+        result = dst | source();
+        break; // POR
+    case 0xef:
+        result = dst ^ source();
+        break; // PXOR
+    case 0xfc:
+        result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; });
+        break; // PADDB
+    case 0xfd:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; });
+        break; // PADDW
+    case 0xfe:
+        result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a + b; });
+        break; // PADDD
+    case 0xf8:
+        result = lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; });
+        break; // PSUBB
+    case 0xf9:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; });
+        break; // PSUBW
+    case 0xfa:
+        result = lanes<32>(dst, source(), [](uint64_t a, uint64_t b) { return a - b; });
+        break; // PSUBD
+    case 0xec:
+        result = lanes<8>(dst, source(),
+                          [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<8>(a) + sx<8>(b), -128, 127)); });
+        break; // PADDSB
+    case 0xed:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) {
+            return uint64_t(clampTo(sx<16>(a) + sx<16>(b), -32768, 32767));
+        });
+        break; // PADDSW
+    case 0xe8:
+        result = lanes<8>(dst, source(),
+                          [](uint64_t a, uint64_t b) { return uint64_t(clampTo(sx<8>(a) - sx<8>(b), -128, 127)); });
+        break; // PSUBSB
+    case 0xe9:
+        result = lanes<16>(dst, source(), [](uint64_t a, uint64_t b) {
+            return uint64_t(clampTo(sx<16>(a) - sx<16>(b), -32768, 32767));
+        });
+        break; // PSUBSW
+    case 0xdc:
+        result =
+            lanes<8>(dst, source(), [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a + b), 0, 255)); });
+        break; // PADDUSB
+    case 0xdd:
+        result = lanes<16>(dst, source(),
+                           [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a + b), 0, 65535)); });
+        break; // PADDUSW
+    case 0xd8:
+        result = lanes<8>(dst, source(),
+                          [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a) - int64_t(b), 0, 255)); });
+        break; // PSUBUSB
+    case 0xd9:
+        result = lanes<16>(dst, source(),
+                           [](uint64_t a, uint64_t b) { return uint64_t(clampTo(int64_t(a) - int64_t(b), 0, 65535)); });
+        break; // PSUBUSW
     default:
         fault("instruction 0f " + std::to_string(op) + " not implemented (not an MMX instruction of the Pentium MMX)");
     }

@@ -16,20 +16,32 @@ constexpr double kPi = 3.14159265358979323846;
 struct V {
     double x = 0, y = 0, z = 0;
 };
-V of(const float* f) { return {f[0], f[1], f[2]}; }
-V operator-(V a, V b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
-double dot(V a, V b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-V cross(V a, V b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
-double length(V a) { return std::sqrt(dot(a, a)); }
+V of(const float *f) {
+    return {f[0], f[1], f[2]};
+}
+V operator-(V a, V b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+double dot(V a, V b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+V cross(V a, V b) {
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+double length(V a) {
+    return std::sqrt(dot(a, a));
+}
 V unit(V a, V otherwise) {
     const double l = length(a);
     return l > 1e-9 ? V{a.x / l, a.y / l, a.z / l} : otherwise;
 }
-double fromDecibels(double hundredths) { return std::pow(10.0, std::min(hundredths, 0.0) / 2000.0); }
+double fromDecibels(double hundredths) {
+    return std::pow(10.0, std::min(hundredths, 0.0) / 2000.0);
+}
 
 } // namespace
 
-Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source) {
+Ds3dResult spatialize(const Ds3dListener &listener, const Ds3dSource &source) {
     Ds3dResult r;
     if (source.mode == 2) // DS3DMODE_DISABLE
         return r;
@@ -56,8 +68,8 @@ Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source) {
 
     // The cone, by the angle between where it points and the listener.
     if (source.outsideCone < 360 && d > 1e-9) {
-        const V toListener = source.mode == 1 ? V{-local.x, -local.y, -local.z}
-                                              : of(listener.position) - of(source.position);
+        const V toListener =
+            source.mode == 1 ? V{-local.x, -local.y, -local.z} : of(listener.position) - of(source.position);
         const double c = dot(unit(of(source.coneOrientation), {0, 0, 1}), unit(toListener, {0, 0, 1}));
         const double angle = std::acos(std::clamp(c, -1.0, 1.0)) * 180 / kPi * 2; // the cone's full angle
         const double inside = std::min<double>(source.insideCone, source.outsideCone);
@@ -92,9 +104,13 @@ Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source) {
     return r;
 }
 
-double rearGain(double behind) { return std::pow(10.0, -3.0 * std::clamp(behind, 0.0, 1.0) / 20); }
+double rearGain(double behind) {
+    return std::pow(10.0, -3.0 * std::clamp(behind, 0.0, 1.0) / 20);
+}
 
-double rearCutoff(double behind) { return 20000 - 16000 * std::clamp(behind, 0.0, 1.0); }
+double rearCutoff(double behind) {
+    return 20000 - 16000 * std::clamp(behind, 0.0, 1.0);
+}
 
 double lowPassCoefficient(double cutoff, double rate) {
     return rate > 0 ? 1 - std::exp(-2 * kPi * cutoff / rate) : 1.0;

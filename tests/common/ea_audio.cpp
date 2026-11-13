@@ -74,7 +74,8 @@ void testMicroTalk() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.ea_audio", {
-    {"ea-xa", [](const std::filesystem::path&) { testEaXa(); }},
-    {"microtalk", [](const std::filesystem::path&) { testMicroTalk(); }},
-});
+static const reluva::test::Suite kSuite("common.unit.ea_audio",
+                                        {
+                                            {"ea-xa", [](const std::filesystem::path &) { testEaXa(); }},
+                                            {"microtalk", [](const std::filesystem::path &) { testMicroTalk(); }},
+                                        });

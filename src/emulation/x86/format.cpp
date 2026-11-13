@@ -9,7 +9,7 @@
 
 namespace reluva::x86 {
 
-std::string formatPrintf(const Cpu& cpu, uint32_t format, uint32_t args) {
+std::string formatPrintf(const Cpu &cpu, uint32_t format, uint32_t args) {
     const std::string f = cpu.string(format, 8192);
     std::string out;
     uint32_t next = args;
@@ -59,7 +59,9 @@ std::string formatPrintf(const Cpu& cpu, uint32_t format, uint32_t args) {
         char buf[512];
         buf[0] = 0;
         switch (c) {
-        case '%': std::strcpy(buf, "%"); break;
+        case '%':
+            std::strcpy(buf, "%");
+            break;
         case 'd':
         case 'i':
             if (wide) {
@@ -80,8 +82,12 @@ std::string formatPrintf(const Cpu& cpu, uint32_t format, uint32_t args) {
                 std::snprintf(buf, sizeof buf, (spec + c).c_str(), unsigned(word()));
             }
             break;
-        case 'p': std::snprintf(buf, sizeof buf, "%08X", unsigned(word())); break;
-        case 'c': std::snprintf(buf, sizeof buf, (spec + "c").c_str(), int(word() & 0xff)); break;
+        case 'p':
+            std::snprintf(buf, sizeof buf, "%08X", unsigned(word()));
+            break;
+        case 'c':
+            std::snprintf(buf, sizeof buf, (spec + "c").c_str(), int(word() & 0xff));
+            break;
         case 's': {
             const uint32_t p = word();
             const std::string s = p ? cpu.string(p, 8192) : "(null)";
@@ -108,8 +114,12 @@ std::string formatPrintf(const Cpu& cpu, uint32_t format, uint32_t args) {
             std::snprintf(buf, sizeof buf, (spec + c).c_str(), d);
             break;
         }
-        case 'n': word(); break;
-        default: out += spec + c; break;
+        case 'n':
+            word();
+            break;
+        default:
+            out += spec + c;
+            break;
         }
         out += buf;
         i = j;

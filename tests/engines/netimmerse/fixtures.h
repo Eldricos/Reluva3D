@@ -23,21 +23,21 @@ struct PacFile {
     uint32_t offsetHigh = 0; // the data offset's high half
 };
 
-inline void put32(std::vector<uint8_t>& b, uint32_t v) {
+inline void put32(std::vector<uint8_t> &b, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         b.push_back(uint8_t(v >> (8 * i)));
 }
-inline void set32(std::vector<uint8_t>& b, size_t at, uint32_t v) {
+inline void set32(std::vector<uint8_t> &b, size_t at, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         b[at + size_t(i)] = uint8_t(v >> (8 * i));
 }
 
 // An archive laid out as the retail ones: header, directory, 4 zero
 // bytes, then the files in the directory's order.
-inline std::vector<uint8_t> buildPac(const std::vector<PacFile>& files) {
+inline std::vector<uint8_t> buildPac(const std::vector<PacFile> &files) {
     std::vector<uint8_t> dir;
     std::vector<size_t> offsetAt;
-    for (const PacFile& f : files) {
+    for (const PacFile &f : files) {
         dir.insert(dir.end(), f.name.begin(), f.name.end());
         dir.push_back(0);
         put32(dir, f.offsetHigh);
@@ -60,23 +60,25 @@ inline std::vector<uint8_t> buildPac(const std::vector<PacFile>& files) {
     put32(out, dataStart);
     put32(out, uint32_t(files.size()));
     out.insert(out.end(), dir.begin(), dir.end());
-    for (const PacFile& f : files)
+    for (const PacFile &f : files)
         out.insert(out.end(), f.data.begin(), f.data.end());
     return out;
 }
 
-inline std::filesystem::path writeFile(const std::filesystem::path& path, const std::vector<uint8_t>& bytes) {
+inline std::filesystem::path writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &bytes) {
     std::ofstream f(path, std::ios::binary | std::ios::trunc);
-    f.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+    f.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
     return path;
 }
 
-inline std::string asString(const std::vector<uint8_t>& v) { return std::string(v.begin(), v.end()); }
+inline std::string asString(const std::vector<uint8_t> &v) {
+    return std::string(v.begin(), v.end());
+}
 
 // 2000-08-21 12:00:00 UTC.
 inline constexpr uint64_t kFileTime = 116444736000000000ULL + 966859200ULL * 10000000ULL;
 
-inline void putFloat(std::vector<uint8_t>& b, float f) {
+inline void putFloat(std::vector<uint8_t> &b, float f) {
     uint32_t u;
     std::memcpy(&u, &f, 4);
     put32(b, u);
@@ -86,20 +88,20 @@ inline void putFloat(std::vector<uint8_t>& b, float f) {
 // (roots) over a node with a collision box, holding a textured triangle.
 struct FinWriter {
     std::vector<uint8_t> b;
-    void str(const std::string& s) {
+    void str(const std::string &s) {
         put32(b, uint32_t(s.size()));
         b.insert(b.end(), s.begin(), s.end());
     }
-    void object(const std::string& type, uint32_t id) {
+    void object(const std::string &type, uint32_t id) {
         str(type);
         put32(b, id);
     }
-    void objectNet(const std::string& name, uint8_t flags = 0) {
+    void objectNet(const std::string &name, uint8_t flags = 0) {
         str(name);
         put32(b, 0); // no extra data
         b.push_back(flags);
     }
-    void avObject(const std::string& name, std::array<float, 3> t, std::vector<uint32_t> props, bool box,
+    void avObject(const std::string &name, std::array<float, 3> t, std::vector<uint32_t> props, bool box,
                   uint8_t flags = 0) {
         objectNet(name, flags);
         for (float f : t)
@@ -278,7 +280,7 @@ inline std::vector<uint8_t> buildAnimatedFin() {
     // No node; looping, placed, muted beyond its maximum distance; no delay.
     w.b.insert(w.b.end(), {0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0});
     floats({0.5f, 20, 1000, 300}); // volume, falloff, distances
-    put32(w.b, 2); // its lists: two numbers, then none, none
+    put32(w.b, 2);                 // its lists: two numbers, then none, none
     w.b.insert(w.b.end(), {0, 0, 1, 0});
     put32(w.b, 0);
     put32(w.b, 0);
@@ -340,10 +342,10 @@ inline std::vector<uint8_t> buildAnimatedFin() {
     put32(w.b, 0);
     floats({1, 0, 0, 3200});
     w.b.insert(w.b.end(), {0, 1}); // normals updated
-    put32(w.b, 2); // targets
-    put32(w.b, 2); // keys
-    floats({0, 0, 0, 1}); // its bounding sphere
-    put32(w.b, 5); // NiBaryMorphKey
+    put32(w.b, 2);                 // targets
+    put32(w.b, 2);                 // keys
+    floats({0, 0, 0, 1});          // its bounding sphere
+    put32(w.b, 5);                 // NiBaryMorphKey
     for (float t : {0.f, 3200.f}) {
         floats({t, 1, 0.5f, 0, 0, -1, -1});
         put32(w.b, 2);

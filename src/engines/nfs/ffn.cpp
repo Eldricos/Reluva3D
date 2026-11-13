@@ -9,8 +9,10 @@ namespace reluva::nfs {
 
 namespace {
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) {
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
@@ -21,9 +23,9 @@ constexpr uint8_t kAtlas4Bit = 0x7a;
 
 } // namespace
 
-Error parseFont(const std::vector<uint8_t>& data, Font& out) {
+Error parseFont(const std::vector<uint8_t> &data, Font &out) {
     out = {};
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .ffn font: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .ffn font: " + why); };
     if (data.size() < kHeaderSize || std::memcmp(data.data(), "FNTF", 4) != 0)
         return bad("no FNTF header");
     const unsigned count = le16(&data[10]);
@@ -53,7 +55,7 @@ Error parseFont(const std::vector<uint8_t>& data, Font& out) {
     // Each glyph: code (u16), width, height, x (u16), y (u16), advance,
     // x offset, y offset (signed).
     for (unsigned i = 0; i < count; ++i) {
-        const uint8_t* g = &data[kHeaderSize + i * kGlyphSize];
+        const uint8_t *g = &data[kHeaderSize + i * kGlyphSize];
         const unsigned code = le16(g);
         Font::Glyph glyph;
         glyph.width = g[2];
@@ -79,23 +81,23 @@ int Font::measure(std::string_view text) const {
     return w;
 }
 
-int Font::draw(Surface& surface, int x, int y, std::string_view text, Color color) const {
+int Font::draw(Surface &surface, int x, int y, std::string_view text, Color color) const {
     x += penX;
     y += penY;
     for (char c : text) {
-        const Glyph& g = glyphs[static_cast<uint8_t>(c)];
+        const Glyph &g = glyphs[static_cast<uint8_t>(c)];
         for (int gy = 0; gy < g.height; ++gy) {
             const int sy = y + g.offsetY + gy;
             if (sy < 0 || sy >= surface.h)
                 continue;
-            uint8_t* row = surface.row(sy);
-            const uint8_t* src = &coverage[static_cast<size_t>(g.y + gy) * atlasWidth + g.x];
+            uint8_t *row = surface.row(sy);
+            const uint8_t *src = &coverage[static_cast<size_t>(g.y + gy) * atlasWidth + g.x];
             for (int gx = 0; gx < g.width; ++gx) {
                 const int sx = x + g.offsetX + gx;
                 const unsigned a = src[gx];
                 if (sx < 0 || sx >= surface.w || a == 0)
                     continue;
-                uint8_t* p = row + sx * 4;
+                uint8_t *p = row + sx * 4;
                 p[0] = static_cast<uint8_t>((color.r * a + p[0] * (255 - a)) / 255);
                 p[1] = static_cast<uint8_t>((color.g * a + p[1] * (255 - a)) / 255);
                 p[2] = static_cast<uint8_t>((color.b * a + p[2] * (255 - a)) / 255);

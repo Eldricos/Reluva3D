@@ -82,7 +82,7 @@ using namespace reluva::idtech3::fixtures;
 // the general set's loop and occasional sounds, cross-fading, and local
 // and brush model sets.
 static void testAmbientSets() {
-    const char* text = "amsdir ambience\r\n"
+    const char *text = "amsdir ambience\r\n"
                        "type ambientSet\r\n"
                        "\r\n"
                        "generalSet hum\r\n"
@@ -102,17 +102,17 @@ static void testAmbientSets() {
                        "bmodelSet door\r\n"
                        "subWaves doors start move stop\r\n";
     raven::AmbientSets sets;
-    for (const char* name : {"hum", "Quiet", "drip", "door", "missing"})
+    for (const char *name : {"hum", "Quiet", "drip", "door", "missing"})
         sets.addPrecacheEntry(name);
     std::vector<std::string> warnings;
     CHECK(sets.parse(text, warnings));
     CHECK(sets.size() == 4 && !sets.find("unused"));
     CHECK(warnings.size() == 2); // "bogus", and "missing" not found
-    const auto* hum = sets.find("HUM");
+    const auto *hum = sets.find("HUM");
     CHECK(hum && hum->timeStart == 2 && hum->timeEnd == 5 && hum->volumeMin == 50 && hum->volumeMax == 100);
     CHECK(hum->subWaves.size() == 2 && hum->subWaves[1] == "sound/borg/clank2.wav");
     CHECK(hum->loopedWave == "sound/ambience/borg/hum.wav");
-    const auto* drip = sets.find("drip");
+    const auto *drip = sets.find("drip");
     CHECK(drip && drip->kind == raven::AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
     CHECK(sets.bmodelSound("door", 2) == "sound/doors/stop.wav" && sets.bmodelSound("door", 3).empty());
 
@@ -143,7 +143,7 @@ static void testAmbientSets() {
 }
 
 // Sounds by name: decoded once, missing and broken ones remembered.
-static void testSoundLibrary(const std::filesystem::path& tmp) {
+static void testSoundLibrary(const std::filesystem::path &tmp) {
     using test::toBytes;
     audio::Sound tone;
     tone.rate = 22050;
@@ -168,18 +168,17 @@ static void testSoundLibrary(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static void testSoundSystem(const std::filesystem::path& tmp) {
+static void testSoundSystem(const std::filesystem::path &tmp) {
     audio::Sound tone;
     tone.rate = 22050;
     tone.channels = 1;
     tone.format = 1;
     tone.samples.assign(2205, 4000); // a tenth of a second
     std::filesystem::remove_all(tmp);
-    test::writeFile(tmp / "BaseEF" / "pak0.pk3",
-                    test::buildZip({{"sound/a.wav", audio::encodePcmWav(tone), {}},
-                                    {"sound/b.wav", audio::encodePcmWav(tone), {}},
-                                    {"music/intro.wav", audio::encodePcmWav(tone), {}},
-                                    {"music/loop.wav", audio::encodePcmWav(tone), {}}}));
+    test::writeFile(tmp / "BaseEF" / "pak0.pk3", test::buildZip({{"sound/a.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"sound/b.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"music/intro.wav", audio::encodePcmWav(tone), {}},
+                                                                 {"music/loop.wav", audio::encodePcmWav(tone), {}}}));
     SearchSet set;
     std::vector<std::string> warnings;
     CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
@@ -205,8 +204,8 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     sounds.startSound(std::nullopt, 3, 2, "sound/a.wav"); // but this is
     sounds.startSound(std::nullopt, 4, 1, "sound/a.wav");
     sounds.startSound(std::nullopt, 3, 1, "sound/missing.wav"); // nothing, and nothing stopped
-    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");   // a repeat at the same spot
-    sounds.startSound(Vec3f{64, 0, 0}, 3, 0, "sound/a.wav");  // elsewhere: not one
+    sounds.startSound(Vec3f{0, 0, 0}, 3, 0, "sound/a.wav");     // a repeat at the same spot
+    sounds.startSound(Vec3f{64, 0, 0}, 3, 0, "sound/a.wav");    // elsewhere: not one
     sounds.setTime(1100);
     sounds.startSound(std::nullopt, 3, 1, "sound/a.wav"); // no longer a repeat
     mixer.mix(out.data(), 64);
@@ -249,8 +248,10 @@ static void testSoundSystem(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static const reluva::test::Suite suite("idtech3.unit.sound", {
-    {"sound library", [](const std::filesystem::path& tmp) { testSoundLibrary(tmp / "sounds"); }},
-    {"sound system", [](const std::filesystem::path& tmp) { testSoundSystem(tmp / "soundsystem"); }},
-    {"ambient sets", [](const std::filesystem::path&) { testAmbientSets(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.sound",
+          {
+              {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
+              {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
+              {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
+          });

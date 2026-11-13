@@ -19,14 +19,14 @@ constexpr uint32_t kDuration = 0x1, kGain = 0x4, kAxes = 0x20, kDirection = 0x40
 
 } // namespace
 
-bool DiEffect::kindOf(uint32_t guidData1, Kind& kind) {
+bool DiEffect::kindOf(uint32_t guidData1, Kind &kind) {
     if (guidData1 < 0x13541c20 || guidData1 > 0x13541c2b)
         return false;
     kind = Kind(guidData1 - 0x13541c20);
     return true;
 }
 
-void DiEffect::set(const std::function<uint32_t(uint32_t)>& read32, uint32_t at, uint32_t which) {
+void DiEffect::set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at, uint32_t which) {
     const uint32_t size = read32(at), flags = read32(at + 4);
     if (which & kDuration)
         durationUs = read32(at + 8);
@@ -74,12 +74,19 @@ void DiEffect::set(const std::function<uint32_t(uint32_t)>& read32, uint32_t at,
         magnitude = int32_t(read32(p));
         rampEnd = int32_t(read32(p + 4));
         break;
-    case Square: case Sine: case Triangle: case SawUp: case SawDown: // DIPERIODIC
+    case Square:
+    case Sine:
+    case Triangle:
+    case SawUp:
+    case SawDown: // DIPERIODIC
         magnitude = int32_t(std::min<uint32_t>(read32(p), 10000));
         offset = int32_t(read32(p + 4));
         periodUs = read32(p + 12);
         break;
-    case Spring: case Damper: case Inertia: case Friction: { // DICONDITION, one for each axis or one for all
+    case Spring:
+    case Damper:
+    case Inertia:
+    case Friction: { // DICONDITION, one for each axis or one for all
         const uint32_t c = p + (bytes >= 24 * uint32_t(std::max(xAxis, 0) + 1) ? 24 * uint32_t(std::max(xAxis, 0)) : 0);
         offset = int32_t(read32(c));
         positiveCoefficient = int32_t(read32(c + 4));
@@ -117,15 +124,16 @@ bool DiEffect::active(uint64_t nowMs) const {
     return (nowMs - from) * 1000 < uint64_t(durationUs) * iterations;
 }
 
-GamepadForce sumForces(const std::vector<const DiEffect*>& effects, uint32_t deviceGain, uint64_t nowMs) {
+GamepadForce sumForces(const std::vector<const DiEffect *> &effects, uint32_t deviceGain, uint64_t nowMs) {
     GamepadForce f;
     float strongestVibration = 0, strongestSpring = 0;
-    for (const DiEffect* e : effects) {
+    for (const DiEffect *e : effects) {
         if (!e || !e->active(nowMs))
             continue;
         const double g = e->gain / kMax * std::min<uint32_t>(deviceGain, 10000) / kMax;
         // Where it is in its iteration, for ramps and envelopes.
-        const uint64_t elapsedUs = (nowMs - e->startedMs) * 1000 - std::min<uint64_t>(e->startDelayUs, (nowMs - e->startedMs) * 1000);
+        const uint64_t elapsedUs =
+            (nowMs - e->startedMs) * 1000 - std::min<uint64_t>(e->startDelayUs, (nowMs - e->startedMs) * 1000);
         const bool finite = e->durationUs != DiEffect::kInfinite && e->durationUs > 0;
         const double t = finite ? double(elapsedUs % e->durationUs) : double(elapsedUs);
         // A level through its envelope: from the attack level to the
@@ -150,7 +158,11 @@ GamepadForce sumForces(const std::vector<const DiEffect*>& effects, uint32_t dev
             f.constant += float(shaped(level) / kMax * g * x);
             break;
         }
-        case DiEffect::Square: case DiEffect::Sine: case DiEffect::Triangle: case DiEffect::SawUp: case DiEffect::SawDown: {
+        case DiEffect::Square:
+        case DiEffect::Sine:
+        case DiEffect::Triangle:
+        case DiEffect::SawUp:
+        case DiEffect::SawDown: {
             f.constant += float(e->offset / kMax * g * x);
             const float size = float(std::fabs(shaped(e->magnitude)) / kMax * g * std::fabs(x));
             f.vibration += size;
@@ -164,19 +176,24 @@ GamepadForce sumForces(const std::vector<const DiEffect*>& effects, uint32_t dev
         case DiEffect::Spring: {
             if (e->xAxis < 0)
                 break;
-            const float stiffness = float((std::abs(e->positiveCoefficient) + std::abs(e->negativeCoefficient)) / 2.0 / kMax * g);
+            const float stiffness =
+                float((std::abs(e->positiveCoefficient) + std::abs(e->negativeCoefficient)) / 2.0 / kMax * g);
             f.spring += stiffness;
             if (stiffness > strongestSpring) {
                 strongestSpring = stiffness;
                 f.springCentre = float(std::clamp(e->offset / kMax, -1.0, 1.0));
-                f.springSaturation = float(std::min<uint32_t>(std::max(e->positiveSaturation, e->negativeSaturation), 10000) / kMax);
+                f.springSaturation =
+                    float(std::min<uint32_t>(std::max(e->positiveSaturation, e->negativeSaturation), 10000) / kMax);
             }
             break;
         }
-        case DiEffect::Damper: case DiEffect::Inertia: case DiEffect::Friction:
+        case DiEffect::Damper:
+        case DiEffect::Inertia:
+        case DiEffect::Friction:
             // All taken as a damper: each resists the wheel's turning.
             if (e->xAxis >= 0)
-                f.damper += float((std::abs(e->positiveCoefficient) + std::abs(e->negativeCoefficient)) / 2.0 / kMax * g);
+                f.damper +=
+                    float((std::abs(e->positiveCoefficient) + std::abs(e->negativeCoefficient)) / 2.0 / kMax * g);
             break;
         case DiEffect::Custom:
             break;

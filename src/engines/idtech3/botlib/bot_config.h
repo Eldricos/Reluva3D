@@ -24,21 +24,21 @@ namespace reluva::idtech3::botlib {
 //
 // a case applying while the inventory count is below its value.
 struct FuzzySwitch {
-    int index = 0;     // inventory slot tested
-    int value = 0;     // applies below this (the default: always)
-    float weight = 0;  // what it returns, unless it switches further
+    int index = 0;    // inventory slot tested
+    int value = 0;    // applies below this (the default: always)
+    float weight = 0; // what it returns, unless it switches further
     std::unique_ptr<FuzzySwitch> child, next;
 };
 struct WeightConfig {
     std::string file;
     std::vector<std::pair<std::string, std::unique_ptr<FuzzySwitch>>> weights;
     // The weight's number for a name, -1 if none.
-    int find(const std::string& name) const;
+    int find(const std::string &name) const;
     // A weight's value for an inventory (counts by slot).
-    float evaluate(int weight, const std::vector<int>& inventory) const;
+    float evaluate(int weight, const std::vector<int> &inventory) const;
 };
-std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader& load, const std::string& file,
-                                               std::string* error = nullptr);
+std::unique_ptr<WeightConfig> readWeightConfig(const BotScript::Loader &load, const std::string &file,
+                                               std::string *error = nullptr);
 
 // Item descriptions (items.c): `iteminfo "classname" { name ... }`.
 struct ItemInfo {
@@ -47,8 +47,8 @@ struct ItemInfo {
     float respawnTime = 0;
     Vec3f mins{}, maxs{};
 };
-bool readItemConfig(const BotScript::Loader& load, const std::string& file, std::vector<ItemInfo>& out,
-                    std::string* error = nullptr);
+bool readItemConfig(const BotScript::Loader &load, const std::string &file, std::vector<ItemInfo> &out,
+                    std::string *error = nullptr);
 
 // Weapon and projectile descriptions (weapons.c): `weaponinfo { ... }`
 // and `projectileinfo { ... }`, each weapon with its projectile's.
@@ -67,7 +67,7 @@ struct WeaponInfo {
     Vec3f recoil{}, offset{}, angleOffset{};
     ProjectileInfo proj;
 };
-bool readWeaponConfig(const BotScript::Loader& load, const std::string& file, std::vector<WeaponInfo>& out,
-                      std::string* error = nullptr);
+bool readWeaponConfig(const BotScript::Loader &load, const std::string &file, std::vector<WeaponInfo> &out,
+                      std::string *error = nullptr);
 
 } // namespace reluva::idtech3::botlib

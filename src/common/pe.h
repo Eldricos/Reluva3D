@@ -31,7 +31,8 @@ struct PeImage {
         std::string name;
         uint32_t virtualAddress = 0, virtualSize = 0;
         uint32_t rawOffset = 0, rawSize = 0;
-        uint32_t characteristics = 0; // 0x20 code, 0x40 data, 0x80 bss; 0x20000000 exec, 0x40000000 read, 0x80000000 write
+        uint32_t characteristics =
+            0; // 0x20 code, 0x40 data, 0x80 bss; 0x20000000 exec, 0x40000000 read, 0x80000000 write
     };
     std::vector<Section> sections;
 
@@ -55,20 +56,20 @@ struct PeImage {
     };
     std::vector<ImportedDll> imports;
 
-    uint32_t relocationCount = 0; // base relocations (to load it at another address)
-    std::vector<uint32_t> relocations; // the RVAs of the 32-bit ones (HIGHLOW), which are all a PE32 has
-    bool hasTls = false;          // thread-local storage callbacks
+    uint32_t relocationCount = 0;               // base relocations (to load it at another address)
+    std::vector<uint32_t> relocations;          // the RVAs of the 32-bit ones (HIGHLOW), which are all a PE32 has
+    bool hasTls = false;                        // thread-local storage callbacks
     uint32_t resourceRva = 0, resourceSize = 0; // the resource directory
-    std::vector<std::string> otherDirectories; // data directories present besides those above
+    std::vector<std::string> otherDirectories;  // data directories present besides those above
 
     // The file offset of an RVA, or -1 if it's in no section's file data.
     int64_t fileOffset(uint32_t rva) const;
 };
 
-Error parsePe(const std::vector<uint8_t>& file, PeImage& out);
+Error parsePe(const std::vector<uint8_t> &file, PeImage &out);
 
 // The data of the first resource of a type (16: the version information),
 // whatever its name and language; empty if there's none.
-std::vector<uint8_t> findResource(const PeImage& pe, const std::vector<uint8_t>& file, uint32_t type);
+std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> &file, uint32_t type);
 
 } // namespace reluva

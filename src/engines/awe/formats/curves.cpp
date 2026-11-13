@@ -18,16 +18,16 @@ namespace reluva::awe {
 
 namespace {
 
-const char* const kFormatNames[] = {
-    "DaKeyframes32f", "DaK32fC32f",  "DaIdentity",   "DaConstant32f", "D3Constant32f", "D4Constant32f",
-    "DaK16uC16u",     "DaK8uC8u",    "D4nK16uC15u",  "D4nK8uC7u",     "D3K16uC16u",    "D3K8uC8u",
-    "D9I1K16uC16u",   "D9I3K16uC16u", "D9I1K8uC8u",  "D9I3K8uC8u"};
+const char *const kFormatNames[] = {"DaKeyframes32f", "DaK32fC32f",    "DaIdentity", "DaConstant32f",
+                                    "D3Constant32f",  "D4Constant32f", "DaK16uC16u", "DaK8uC8u",
+                                    "D4nK16uC15u",    "D4nK8uC7u",     "D3K16uC16u", "D3K8uC8u",
+                                    "D9I1K16uC16u",   "D9I3K16uC16u",  "D9I1K8uC8u", "D9I3K8uC8u"};
 
 // A member's floats: an inline array (real32[3]) or a reference to an
 // array of Real32 objects.
-std::vector<float> readFloats(const Gr2File& file, const Gr2Object& o, const char* name) {
+std::vector<float> readFloats(const Gr2File &file, const Gr2Object &o, const char *name) {
     std::vector<float> out;
-    const Gr2Member* m = o.member(name);
+    const Gr2Member *m = o.member(name);
     if (!m)
         return out;
     if (m->type == Gr2Type::Real32) {
@@ -51,15 +51,15 @@ struct Range {
 };
 Range quaternionRange(unsigned entry) {
     const float h = 0.70710677f; // √½ as a float, 0x3f3504f3
-    static const Range ranges[8] = {{2 * h, -h},     {h, -h / 2},     {h / 2, -h * 0.75f}, {h / 2, -h / 4},
-                                    {h / 2, h / 4},  {h / 4, -h / 4}, {h / 4, -h / 8},     {h / 4, 0}};
+    static const Range ranges[8] = {{2 * h, -h},    {h, -h / 2},     {h / 2, -h * 0.75f}, {h / 2, -h / 4},
+                                    {h / 2, h / 4}, {h / 4, -h / 4}, {h / 4, -h / 8},     {h / 4, 0}};
     const Range r = ranges[entry & 7];
     return entry & 8 ? Range{-r.scale, -r.offset} : r;
 }
 
 // KnotsControls: n knots then the controls, in one array of 8- or 16-bit
 // values (as the format's name says).
-Error readKnotsControls(const Gr2File& file, const Gr2Object& data, CurveData& out) {
+Error readKnotsControls(const Gr2File &file, const Gr2Object &data, CurveData &out) {
     const CurveFormat f = CurveFormat(out.format);
     const uint32_t size = f == CurveFormat::D4nK16uC15u || f == CurveFormat::D3K16uC16u ? 2 : 1;
     const Gr2Object::Array a = data.array("KnotsControls");
@@ -74,11 +74,11 @@ Error readKnotsControls(const Gr2File& file, const Gr2Object& data, CurveData& o
 
 } // namespace
 
-const char* curveFormatName(uint8_t format) {
+const char *curveFormatName(uint8_t format) {
     return format < std::size(kFormatNames) ? kFormatNames[format] : "";
 }
 
-Error readCurveData(const Gr2File& file, const Gr2Object& curve, CurveData& out) {
+Error readCurveData(const Gr2File &file, const Gr2Object &curve, CurveData &out) {
     out = CurveData();
     const Gr2Object data = curve.object("CurveData");
     if (!data.valid() || data.members().empty() || data.members()[0].type != Gr2Type::Inline)
@@ -123,7 +123,7 @@ Error readCurveData(const Gr2File& file, const Gr2Object& curve, CurveData& out)
     return Error::success();
 }
 
-Error expandCurve(const CurveData& data, const std::vector<float>& identity, Curve& out) {
+Error expandCurve(const CurveData &data, const std::vector<float> &identity, Curve &out) {
     out = Curve();
     out.degree = data.degree;
     switch (CurveFormat(data.format)) {
@@ -154,7 +154,7 @@ Error expandCurve(const CurveData& data, const std::vector<float>& identity, Cur
         // the others leave of 1.
         const bool wide = CurveFormat(data.format) == CurveFormat::D4nK16uC15u;
         const unsigned bits = wide ? 15 : 7, mask = (1u << bits) - 1;
-        const std::vector<uint16_t>& kc = data.knotsControls;
+        const std::vector<uint16_t> &kc = data.knotsControls;
         const size_t n = kc.size() / 4;
         const float knotScale = float(1.0 / double(data.oneOverKnotScale));
         // Each component's range: four 4-bit entries of the table, x's in
@@ -170,9 +170,9 @@ Error expandCurve(const CurveData& data, const std::vector<float>& identity, Cur
         out.controls.resize(n * 4);
         for (size_t k = 0; k < n; k++) {
             out.knots[k] = float(double(kc[k]) * double(knotScale));
-            const uint16_t* v = &kc[n + 3 * k];
+            const uint16_t *v = &kc[n + 3 * k];
             const unsigned missing = ((v[1] >> bits) << 1) | (v[2] >> bits);
-            float* q = &out.controls[4 * k];
+            float *q = &out.controls[4 * k];
             double sum = 0;
             unsigned c = missing;
             for (int i = 0; i < 3; i++) {
@@ -190,7 +190,7 @@ Error expandCurve(const CurveData& data, const std::vector<float>& identity, Cur
     case CurveFormat::D3K8uC8u: {
         // n knots, then 3 values a knot, each scaled and offset. The
         // knots' scale is stored as the top 16 bits of a float.
-        const std::vector<uint16_t>& kc = data.knotsControls;
+        const std::vector<uint16_t> &kc = data.knotsControls;
         const size_t n = kc.size() / 4;
         const uint32_t bits = uint32_t(data.packed) << 16;
         float oneOverKnotScale;

@@ -44,7 +44,7 @@ void testWin32Files() {
     CHECK(process.hostPath("D:\\x", false).empty());
     // A new file goes into a folder only if the folder is there, in the
     // game's files or in the writes (NFS III tests folders so).
-    auto call = [&](const char* name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, std::vector<uint32_t> args) {
         uint32_t r = 0;
         CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
         return r;
@@ -66,14 +66,14 @@ void testWin32Files() {
 void testWin32SerialPort() {
     struct Port : x86::DeviceObject {
         std::string incoming, written;
-        bool read(x86::Cpu& c, uint32_t buffer, uint32_t size, bool, uint32_t& done, uint32_t&) override {
+        bool read(x86::Cpu &c, uint32_t buffer, uint32_t size, bool, uint32_t &done, uint32_t &) override {
             done = uint32_t(std::min<size_t>(size, incoming.size()));
             for (uint32_t i = 0; i < done; ++i)
                 c.write8(buffer + i, uint8_t(incoming[i]));
             incoming.erase(0, done);
             return true;
         }
-        bool write(x86::Cpu& c, uint32_t buffer, uint32_t size, uint32_t& done, uint32_t&) override {
+        bool write(x86::Cpu &c, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &) override {
             for (uint32_t i = 0; i < size; ++i)
                 written += char(c.read8(buffer + i));
             done = size;
@@ -94,7 +94,7 @@ void testWin32SerialPort() {
         opened = n;
         return n == 2 ? port : nullptr;
     };
-    auto call = [&](const char* name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, std::vector<uint32_t> args) {
         uint32_t r = 0;
         CHECK(!cpu.call(process.standIn("KERNEL32.dll", name), args, r));
         return r;
@@ -121,13 +121,15 @@ void testWin32SerialPort() {
     CHECK(call("GetOverlappedResult", {h, overlapped, done, 0}) == 0 && process.lastError() == 996);
     port->incoming = "xyz";
     CHECK(call("WaitForSingleObject", {event, 0}) == 0);
-    CHECK(call("GetOverlappedResult", {h, overlapped, done, 0}) == 1 && cpu.read32(done) == 3 && cpu.read8(buffer + 2) == 'z');
+    CHECK(call("GetOverlappedResult", {h, overlapped, done, 0}) == 1 && cpu.read32(done) == 3 &&
+          cpu.read8(buffer + 2) == 'z');
     CHECK(call("CloseHandle", {h}) == 1);
 }
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.drives", {
-    {"files", [](const std::filesystem::path&) { testWin32Files(); }},
-    {"serial port", [](const std::filesystem::path&) { testWin32SerialPort(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.drives", {
+                                     {"files", [](const std::filesystem::path &) { testWin32Files(); }},
+                                     {"serial port", [](const std::filesystem::path &) { testWin32SerialPort(); }},
+                                 });

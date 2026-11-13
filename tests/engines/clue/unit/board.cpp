@@ -42,7 +42,7 @@ static void testBoard() {
     }
     CHECK((board.roomAt({2, 0}) == kNoRoom && board.isCorridor({2, 2}) && !board.isCorridor({2, 1})));
     CHECK((board.doors()[0].room == Hall && board.doors()[0].inside == Square{0, 1} &&
-          board.doors()[0].outside == Square{0, 2}));
+           board.doors()[0].outside == Square{0, 2}));
     CHECK((board.start(Plum) == Square{25, 3}));
     CHECK(board.passage(Kitchen) == Study && board.passage(Study) == Kitchen && board.passage(Hall) == kNoRoom);
     // The chair's square comes last of a room's places to stand.
@@ -57,14 +57,14 @@ static void testBoard() {
     CHECK((board.neighbours({{}, Lounge}) == std::vector<Place>({{{3, 2}, kNoRoom}})));
     // Without one of the rooms the board can't be made.
     Level partial = boardLevel();
-    partial.placements.erase(std::remove_if(partial.placements.begin(), partial.placements.end(),
-                                            [&](const Placement& p) {
-                                                return partial.objects[p.object] == "study:Ochair";
-                                            }),
-                             partial.placements.end());
+    partial.placements.erase(
+        std::remove_if(partial.placements.begin(), partial.placements.end(),
+                       [&](const Placement &p) { return partial.objects[p.object] == "study:Ochair"; }),
+        partial.placements.end());
     CHECK(board.build(partial));
 }
 
-static const reluva::test::Suite suite("clue.unit.board", {
-    {"board", [](const std::filesystem::path&) { testBoard(); }},
-});
+static const reluva::test::Suite suite("clue.unit.board",
+                                       {
+                                           {"board", [](const std::filesystem::path &) { testBoard(); }},
+                                       });

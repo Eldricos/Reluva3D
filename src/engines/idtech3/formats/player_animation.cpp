@@ -10,7 +10,7 @@
 
 namespace reluva::idtech3 {
 
-void PlayerAnimation::frameAt(float seconds, int& frame, int& next, float& fraction) const {
+void PlayerAnimation::frameAt(float seconds, int &frame, int &next, float &fraction) const {
     const float f = std::max(seconds, 0.0f) * fps;
     int n = int(std::floor(f));
     fraction = f - float(n);
@@ -57,14 +57,14 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
     }
     // The legs model has no torso frames: its animations come that much earlier.
     int firstTorso = -1, firstLegs = -1;
-    for (const PlayerAnimation& a : out) {
+    for (const PlayerAnimation &a : out) {
         if (a.part == PlayerAnimation::Part::Torso && firstTorso < 0)
             firstTorso = a.first;
         if (a.part == PlayerAnimation::Part::Legs && firstLegs < 0)
             firstLegs = a.first;
     }
     if (firstTorso >= 0 && firstLegs > firstTorso)
-        for (PlayerAnimation& a : out)
+        for (PlayerAnimation &a : out)
             if (a.part == PlayerAnimation::Part::Legs)
                 a.first -= firstLegs - firstTorso;
     return out;

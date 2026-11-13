@@ -19,7 +19,7 @@ struct DiEffect {
     // Its kind, from the first part of its GUID (GUID_ConstantForce...,
     // 13541C2x-8E33-11D0-9AD0-00A0C9A06E35).
     enum Kind { Constant, Ramp, Square, Sine, Triangle, SawUp, SawDown, Spring, Damper, Inertia, Friction, Custom };
-    static bool kindOf(uint32_t guidData1, Kind& kind);
+    static bool kindOf(uint32_t guidData1, Kind &kind);
     Kind kind = Constant;
 
     static constexpr uint32_t kInfinite = 0xffffffffu;
@@ -52,7 +52,7 @@ struct DiEffect {
     // Reads what DIEFFECT at `at` gives, for the DIEP_ parts in `which`
     // (SetParameters' flags; CreateEffect sets all). `read32` reads the
     // game's memory.
-    void set(const std::function<uint32_t(uint32_t)>& read32, uint32_t at, uint32_t which);
+    void set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at, uint32_t which);
     // Whether it plays at `nowMs`: started, past its delay and not past
     // its iterations.
     bool active(uint64_t nowMs) const;
@@ -60,6 +60,6 @@ struct DiEffect {
 
 // What the effects playing add up to at `nowMs`, with the device's gain
 // (DIPROP_FFGAIN, 0..10000).
-GamepadForce sumForces(const std::vector<const DiEffect*>& effects, uint32_t deviceGain, uint64_t nowMs);
+GamepadForce sumForces(const std::vector<const DiEffect *> &effects, uint32_t deviceGain, uint64_t nowMs);
 
 } // namespace reluva::nfs

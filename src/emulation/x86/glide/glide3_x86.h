@@ -22,16 +22,16 @@ class Glide3Dll : public GlideDll {
 public:
     // `memory` is where guest-visible buffers (linear frame buffer locks,
     // grGetString's strings) are allocated.
-    Glide3Dll(x86::Cpu& cpu, x86::Arena& memory, Board board = voodoo3Board());
+    Glide3Dll(x86::Cpu &cpu, x86::Arena &memory, Board board = voodoo3Board());
 
-    Glide3& glide() { return glide_; }
+    Glide3 &glide() { return glide_; }
 
 private:
     void addAll();
     // A vertex's bytes as the layout reads them (null if not all there).
-    const uint8_t* vertex(uint32_t address) const;
+    const uint8_t *vertex(uint32_t address) const;
     Glide3TexInfo texInfo(uint32_t address) const;
-    uint32_t guestString(const std::string& s);
+    uint32_t guestString(const std::string &s);
 
     Glide3 glide_;
     std::map<std::string, uint32_t> strings_; // grGetString's, in guest memory

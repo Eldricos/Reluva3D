@@ -13,6 +13,6 @@ namespace reluva::x86 {
 // that import it. Its imports are MSVCRT's, so addMsvcrt() comes first;
 // load it before the modules that import from it, and attach it before
 // theirs too.
-Error loadMsvcp60(Win32Process& process, const Win32Process::Module*& out);
+Error loadMsvcp60(Win32Process &process, const Win32Process::Module *&out);
 
 } // namespace reluva::x86

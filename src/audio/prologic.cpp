@@ -28,7 +28,7 @@ double coefficient(double ms, int rate) {
 
 // How strongly one direction dominates powers (Lt, Rt, Lt+Rt, Lt-Rt), and
 // its angle: twice the direction's angle is that of (Lt^2 - Rt^2, 2 Lt Rt).
-void dominanceOf(const double* p, double& x, double& y, double& m) {
+void dominanceOf(const double *p, double &x, double &y, double &m) {
     x = p[0] - p[1];
     y = (p[2] - p[3]) / 2;
     const double total = p[0] + p[1];
@@ -37,7 +37,7 @@ void dominanceOf(const double* p, double& x, double& y, double& m) {
 
 } // namespace
 
-ProLogicDecoder::ProLogicDecoder(int rate, const ProLogicOptions& options) : options_(options), rate_(rate) {
+ProLogicDecoder::ProLogicDecoder(int rate, const ProLogicOptions &options) : options_(options), rate_(rate) {
     fastCoef_ = coefficient(options_.fastMs, rate_);
     slowCoef_ = coefficient(options_.slowMs, rate_);
     // A second-order Butterworth low-pass (the bilinear transform's usual
@@ -66,17 +66,17 @@ void ProLogicDecoder::reset() {
     delayPos_ = 0;
 }
 
-void ProLogicDecoder::process(const float* in, float* out, int frames) {
+void ProLogicDecoder::process(const float *in, float *out, int frames) {
     for (int i = 0; i < frames; ++i)
         frame(in[2 * i], in[2 * i + 1], out + 4 * i);
 }
 
-void ProLogicDecoder::process(const int16_t* in, float* out, int frames) {
+void ProLogicDecoder::process(const int16_t *in, float *out, int frames) {
     for (int i = 0; i < frames; ++i)
         frame(in[2 * i] / 32768.0f, in[2 * i + 1] / 32768.0f, out + 4 * i);
 }
 
-void ProLogicDecoder::frame(float ltf, float rtf, float* out) {
+void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
     const double lt = ltf, rt = rtf;
     double o[4];
     for (int s = 0; s < 4; ++s)
@@ -137,13 +137,13 @@ void ProLogicDecoder::frame(float ltf, float rtf, float* out) {
     out[S] = delay_[delayPos_]; // the oldest: delay_.size() - 1 frames ago
 }
 
-void layOutChannels(const float* lcrs, int frames, int channels, int16_t* out) {
+void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out) {
     auto put = [](double v) {
         return static_cast<int16_t>(std::clamp<long>(std::lround(v * 32768.0), -32768L, 32767L));
     };
     for (int i = 0; i < frames; ++i) {
-        const float* f = lcrs + 4 * i;
-        int16_t* o = out + size_t(i) * size_t(channels);
+        const float *f = lcrs + 4 * i;
+        int16_t *o = out + size_t(i) * size_t(channels);
         std::fill(o, o + channels, int16_t(0));
         const double l = f[ProLogicDecoder::L], c = f[ProLogicDecoder::C], r = f[ProLogicDecoder::R],
                      s = f[ProLogicDecoder::S];

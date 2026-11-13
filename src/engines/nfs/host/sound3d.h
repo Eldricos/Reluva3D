@@ -65,6 +65,6 @@ double lowPassCoefficient(double cutoff, double rate);
 //   along the line from the listener to the source, c 343.3 m/s; within
 //   half to twice the frequency;
 // - behind: rearGain on both speakers (and `behind` for the muffling).
-Ds3dResult spatialize(const Ds3dListener& listener, const Ds3dSource& source);
+Ds3dResult spatialize(const Ds3dListener &listener, const Ds3dSource &source);
 
 } // namespace reluva::nfs

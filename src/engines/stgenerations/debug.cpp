@@ -13,24 +13,24 @@ namespace reluva::stgenerations {
 namespace {
 
 std::mutex channelsMutex;
-std::set<std::string>& channels() {
+std::set<std::string> &channels() {
     static std::set<std::string> c;
     return c;
 }
 
 } // namespace
 
-void enableDebugChannel(const std::string& name) {
+void enableDebugChannel(const std::string &name) {
     std::lock_guard<std::mutex> lock(channelsMutex);
     channels().insert(name);
 }
 
-bool isDebugChannelEnabled(const char* name) {
+bool isDebugChannelEnabled(const char *name) {
     std::lock_guard<std::mutex> lock(channelsMutex);
     return channels().count(name) || channels().count("all");
 }
 
-void debugC(int level, const char* channel, const char* fmt, ...) {
+void debugC(int level, const char *channel, const char *fmt, ...) {
     if (level > log::debugLevel() || !isDebugChannelEnabled(channel))
         return;
     char buffer[1024];

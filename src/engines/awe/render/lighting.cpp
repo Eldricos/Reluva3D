@@ -12,15 +12,15 @@ namespace {
 
 // A colour through D3DRS_AMBIENT: each channel times 255, truncated, in a
 // byte (0x427160).
-Rgb throughByte(const Rgb& c) {
+Rgb throughByte(const Rgb &c) {
     Rgb out;
     for (size_t k = 0; k < 3; k++)
         out[k] = float(int(c[k] * 255.0f) & 0xff) / 255.0f;
     return out;
 }
 
-int sceneFlag(const Ac2Scene& scene, const char* tag) {
-    for (const Ac2Record& r : scene.records)
+int sceneFlag(const Ac2Scene &scene, const char *tag) {
+    for (const Ac2Record &r : scene.records)
         if (r.tag == tag)
             return r.i("value");
     return 0;
@@ -28,31 +28,31 @@ int sceneFlag(const Ac2Scene& scene, const char* tag) {
 
 // A field, or what the object's constructor leaves when the record ends
 // before it.
-float num(const Ac2Record& r, const char* name, float otherwise) {
-    const Ac2Value* v = r.field(name);
+float num(const Ac2Record &r, const char *name, float otherwise) {
+    const Ac2Value *v = r.field(name);
     return v ? v->f() : otherwise;
 }
 
-Rgb rgb(const Ac2Record& r, const char* red, const char* green, const char* blue, const Rgb& otherwise) {
+Rgb rgb(const Ac2Record &r, const char *red, const char *green, const char *blue, const Rgb &otherwise) {
     return {num(r, red, otherwise[0]), num(r, green, otherwise[1]), num(r, blue, otherwise[2])};
 }
 
 } // namespace
 
-bool nightLighting(const Ac2Scene& scene, int timeOfDay) {
+bool nightLighting(const Ac2Scene &scene, int timeOfDay) {
     if (sceneFlag(scene, "NVNT"))
         return false;
     return timeOfDay == 2 || (timeOfDay == 1 && sceneFlag(scene, "OUTD"));
 }
 
-std::vector<bool> lightConditions(const Ac2Scene& scene, const GameState& state) {
+std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state) {
     std::vector<bool> out;
-    for (const Ac2Record* o : scene.objects())
+    for (const Ac2Record *o : scene.objects())
         out.push_back(testCondition(o->text("condition"), state));
     return out;
 }
 
-SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state, const std::vector<bool>& conditions) {
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions) {
     const auto time = state.values.find("time");
     const bool night = nightLighting(scene, time == state.values.end() ? 0 : time->second);
     SceneLighting out;
@@ -62,8 +62,8 @@ SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state, const
     // and keep its lights at night; none does.)
     const Rgb fallback{0.3125f, 0.3125f, 0.3125f};
     if (!night)
-        out.ambient = throughByte(scene.camera() ? rgb(*scene.camera(), "ambientR", "ambientG", "ambientB", fallback)
-                                                 : fallback);
+        out.ambient =
+            throughByte(scene.camera() ? rgb(*scene.camera(), "ambientR", "ambientG", "ambientB", fallback) : fallback);
     else if (sceneFlag(scene, "OUTD"))
         out.ambient = throughByte({0.2734375f, 0.3515625f, 0.546875f});
     else
@@ -73,14 +73,14 @@ SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state, const
     // fields keep the LITE constructor's values (0x420cb0).
     if (night)
         return out;
-    const std::vector<const Ac2Record*> objects = scene.objects();
+    const std::vector<const Ac2Record *> objects = scene.objects();
     for (size_t i = 0; i < objects.size(); i++) {
-        const Ac2Record* o = objects[i];
-        const Ac2Value* on = o->field("on");
+        const Ac2Record *o = objects[i];
+        const Ac2Value *on = o->field("on");
         if (o->tag != "LITE" || (on && on->i() == 0) || o->i("shadowOnly") != 0 ||
             !(i < conditions.size() ? conditions[i] : testCondition(o->text("condition"), state)))
             continue;
-        const Ac2Value* type = o->field("type");
+        const Ac2Value *type = o->field("type");
         const int t = type ? type->i() : 1;
         if (t < 1 || t > 3)
             continue;
@@ -104,7 +104,7 @@ SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state, const
     return out;
 }
 
-Material materialOf(const Ac2Record& object) {
+Material materialOf(const Ac2Record &object) {
     Material m;
     m.diffuse = rgb(object, "diffuseR", "diffuseG", "diffuseB", m.diffuse);
     m.ambient = rgb(object, "ambientR", "ambientG", "ambientB", m.ambient);
@@ -115,8 +115,8 @@ Material materialOf(const Ac2Record& object) {
     return m;
 }
 
-Rgb lightVertex(const SceneLighting& lighting, const Material& material, const float position[3],
-                const float normal[3], Rgb* specular) {
+Rgb lightVertex(const SceneLighting &lighting, const Material &material, const float position[3], const float normal[3],
+                Rgb *specular) {
     Rgb shine{};
     if (specular)
         *specular = shine;
@@ -128,12 +128,12 @@ Rgb lightVertex(const SceneLighting& lighting, const Material& material, const f
         eye[k] = lighting.eye[k] - position[k];
     const float eyeLen = std::sqrt(eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2]);
     if (eyeLen > 0)
-        for (float& v : eye)
+        for (float &v : eye)
             v /= eyeLen;
     Rgb c;
     for (size_t k = 0; k < 3; k++)
         c[k] = material.emissive[k] + lighting.ambient[k] * material.ambient[k];
-    for (const SceneLight& l : lighting.lights) {
+    for (const SceneLight &l : lighting.lights) {
         // The direction towards the light, and how much of it arrives.
         float to[3];
         float strength = 1;
@@ -151,7 +151,7 @@ Rgb lightVertex(const SceneLighting& lighting, const Material& material, const f
         const float len = std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
         if (len <= 0)
             continue;
-        for (float& v : to)
+        for (float &v : to)
             v /= len;
         if (l.type == SceneLight::Type::Spot) {
             // Full inside theta, none outside phi, linear between (falloff 1).
@@ -182,7 +182,7 @@ Rgb lightVertex(const SceneLighting& lighting, const Material& material, const f
             }
         }
     }
-    for (float& v : c)
+    for (float &v : c)
         v = std::clamp(v, 0.0f, 1.0f);
     if (specular)
         for (size_t k = 0; k < 3; k++)

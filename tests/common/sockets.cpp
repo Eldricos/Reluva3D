@@ -18,13 +18,11 @@ namespace {
 using namespace reluva;
 using Result = net::Sockets::Result;
 
-
-
 namespace {
 
 constexpr uint32_t kLoopback = 0x7f000001;
 
-void testStream(net::Sockets& s) {
+void testStream(net::Sockets &s) {
     const int listener = s.open(net::Sockets::Stream);
     CHECK(listener >= 0);
     CHECK(s.bind(listener, {kLoopback, 0}) == Result::Ok);
@@ -76,7 +74,7 @@ void testStream(net::Sockets& s) {
     s.close(lonely);
 }
 
-void testDatagrams(net::Sockets& s) {
+void testDatagrams(net::Sockets &s) {
     const int a = s.open(net::Sockets::Datagram), b = s.open(net::Sockets::Datagram);
     CHECK(s.bind(a, {kLoopback, 0}) == Result::Ok && s.bind(b, {kLoopback, 0}) == Result::Ok);
     CHECK(s.setOption(a, net::Sockets::Broadcast, 1) == Result::Ok);
@@ -109,6 +107,7 @@ static void runAll() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.sockets", {
-    {"all", [](const std::filesystem::path&) { runAll(); }},
-});
+static const reluva::test::Suite kSuite("common.unit.sockets",
+                                        {
+                                            {"all", [](const std::filesystem::path &) { runAll(); }},
+                                        });

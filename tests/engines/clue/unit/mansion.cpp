@@ -63,9 +63,9 @@ static void testDepth() {
 static void testLighting() {
     // ImageRLE16.dll's shades, on a colour's 5 bits (31: 248 in 8 bits).
     CHECK(shade(248, kShadeNone) == 248);
-    CHECK(shade(248, 6) == ((28 << 3) | (28 >> 2)));  // 31 - 3
-    CHECK(shade(248, 12) == ((15 << 3) | (15 >> 2))); // 31 / 2
-    CHECK(shade(248, 16) == ((7 << 3) | (7 >> 2)));   // 31 / 4
+    CHECK(shade(248, 6) == ((28 << 3) | (28 >> 2)));         // 31 - 3
+    CHECK(shade(248, 12) == ((15 << 3) | (15 >> 2)));        // 31 / 2
+    CHECK(shade(248, 16) == ((7 << 3) | (7 >> 2)));          // 31 / 4
     CHECK(shade(248, kShadeUnlit) == ((6 << 3) | (6 >> 2))); // 7 - 1
     // Clue.exe's steps: max + min / 2, full within 80, then each 16 a step.
     CHECK(lightShade(0, 0, 79, 0) == kShadeNone);
@@ -76,19 +76,19 @@ static void testLighting() {
     CHECK(lightShade(0, 0, 1000, 1000) == 16);
 }
 
-static void testMansion(const std::filesystem::path& tmp) {
+static void testMansion(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     const auto res = tmp / "Data" / "Classic" / "Resource";
     test::writeFile(res / "test.res", pack(drive({{"Ia", image200()}, {"Ib", image100()}})));
-    test::writeFile(res / "test.a", pack(drive({{"Awalk", animation(false)}, {"Afloor", animation(false, -1, 64, 64)}})));
+    test::writeFile(res / "test.a",
+                    pack(drive({{"Awalk", animation(false)}, {"Afloor", animation(false, -1, 64, 64)}})));
     test::writeFile(res / "test.o", drive({{"Obench", objectRecord("test:Obench", 3, {{0, "test:Awalk"}})},
-                                          {"Ofloor", objectRecord("test:Ofloor", 1, {{0, "test:Afloor"}})},
-                                          {"Obroken", objectRecord("test:Obroken", 3, {{0, "test:Anothere"}})}}));
-    test::writeFile(tmp / "Data" / "Classic" / "Levels" / "clue.lvl",
-                    levelFile({"test:Obench", "test:Ofloor", "test:Obroken"},
-                              {{0x40, 0, 0, 200, 100, 1, 5, {}},
-                               {0x40, 0, 1, 0, 0, -1, 1, {}},
-                               {0x40, 0, 2, 0, 0, 1, 5, {}}}));
+                                           {"Ofloor", objectRecord("test:Ofloor", 1, {{0, "test:Afloor"}})},
+                                           {"Obroken", objectRecord("test:Obroken", 3, {{0, "test:Anothere"}})}}));
+    test::writeFile(
+        tmp / "Data" / "Classic" / "Levels" / "clue.lvl",
+        levelFile({"test:Obench", "test:Ofloor", "test:Obroken"},
+                  {{0x40, 0, 0, 200, 100, 1, 5, {}}, {0x40, 0, 1, 0, 0, -1, 1, {}}, {0x40, 0, 2, 0, 0, 1, 5, {}}}));
     GameData data;
     CHECK(!data.open(tmp, Language::US));
     DataDrive file;
@@ -97,7 +97,7 @@ static void testMansion(const std::filesystem::path& tmp) {
     CHECK(!file.open(*data.find("clue.lvl")) && !parseLevel(file, level) && !m.build(data, level));
     CHECK(m.items().size() == 2 && m.problems().size() == 1); // the broken one is left out
     if (m.items().size() == 2) {
-        const Mansion::Item& bench = m.items()[0];
+        const Mansion::Item &bench = m.items()[0];
         // The box from the anchor by the frame's offsets (its bytes 10-13: 3, 4).
         CHECK(!bench.flat && bench.box.x == 203 && bench.box.y == 104 && bench.box.sizeX == 16);
         CHECK(bench.box.z == 1 && bench.anchorX == 100 && bench.anchorY == 149); // x - y, (x + y) / 2 - z
@@ -115,7 +115,7 @@ static void testMansion(const std::filesystem::path& tmp) {
         // In front by the boxes (beyond the bench's along x), its picture
         // put over the bench's.
         Mansion::Frame over = *actor.frame;
-        for (Mansion::Piece& p : over) {
+        for (Mansion::Piece &p : over) {
             p.dx -= 29; // the bench's anchor is 29 left of this one's on screen,
             p.dy -= 16; // 16 above
         }
@@ -165,8 +165,9 @@ static void testMansion(const std::filesystem::path& tmp) {
     std::filesystem::remove_all(tmp);
 }
 
-static const reluva::test::Suite suite("clue.unit.mansion", {
-    {"depth and hot spots", [](const std::filesystem::path&) { testDepth(); }},
-    {"lighting", [](const std::filesystem::path&) { testLighting(); }},
-    {"mansion", [](const std::filesystem::path& tmp) { testMansion(tmp / "mansion"); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.mansion", {
+                                   {"depth and hot spots", [](const std::filesystem::path &) { testDepth(); }},
+                                   {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                   {"mansion", [](const std::filesystem::path &tmp) { testMansion(tmp / "mansion"); }},
+                               });

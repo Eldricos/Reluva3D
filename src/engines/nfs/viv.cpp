@@ -11,14 +11,14 @@ namespace reluva::nfs {
 
 namespace {
 
-uint32_t be32(const uint8_t* p) {
-    return static_cast<uint32_t>(p[0]) << 24 | static_cast<uint32_t>(p[1]) << 16 |
-           static_cast<uint32_t>(p[2]) << 8 | p[3];
+uint32_t be32(const uint8_t *p) {
+    return static_cast<uint32_t>(p[0]) << 24 | static_cast<uint32_t>(p[1]) << 16 | static_cast<uint32_t>(p[2]) << 8 |
+           p[3];
 }
 
 } // namespace
 
-Error VivArchive::open(const std::filesystem::path& path) {
+Error VivArchive::open(const std::filesystem::path &path) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("Can't open " + path.string());
@@ -32,7 +32,7 @@ Error VivArchive::open(std::vector<uint8_t> data, std::string name) {
     entries_.clear();
     byName_.clear();
 
-    auto bad = [&](const std::string& why) { return Error::fail(name_ + " is not a valid .viv archive: " + why); };
+    auto bad = [&](const std::string &why) { return Error::fail(name_ + " is not a valid .viv archive: " + why); };
     if (data_.size() < 16 || std::memcmp(data_.data(), "BIGF", 4) != 0)
         return bad("no BIGF header");
     const uint32_t count = be32(&data_[8]);
@@ -49,10 +49,10 @@ Error VivArchive::open(std::vector<uint8_t> data, std::string name) {
         e.offset = be32(&data_[pos]);
         e.size = be32(&data_[pos + 4]);
         pos += 8;
-        const uint8_t* end = static_cast<const uint8_t*>(std::memchr(&data_[pos], 0, firstFile - pos));
+        const uint8_t *end = static_cast<const uint8_t *>(std::memchr(&data_[pos], 0, firstFile - pos));
         if (!end)
             return bad("an unterminated name");
-        e.name.assign(reinterpret_cast<const char*>(&data_[pos]), end - &data_[pos]);
+        e.name.assign(reinterpret_cast<const char *>(&data_[pos]), end - &data_[pos]);
         pos += e.name.size() + 1;
         if (static_cast<uint64_t>(e.offset) + e.size > data_.size())
             return bad(e.name + " runs past the end");
@@ -65,18 +65,20 @@ Error VivArchive::open(std::vector<uint8_t> data, std::string name) {
 std::vector<std::string> VivArchive::list() const {
     std::vector<std::string> names;
     names.reserve(entries_.size());
-    for (const Entry& e : entries_)
+    for (const Entry &e : entries_)
         names.push_back(e.name);
     return names;
 }
 
-bool VivArchive::has(std::string_view name) const { return byName_.count(normalizeArchiveName(name)) != 0; }
+bool VivArchive::has(std::string_view name) const {
+    return byName_.count(normalizeArchiveName(name)) != 0;
+}
 
-Error VivArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
+Error VivArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     auto it = byName_.find(normalizeArchiveName(name));
     if (it == byName_.end())
         return Error::fail(std::string(name) + " is not in " + name_);
-    const Entry& e = entries_[it->second];
+    const Entry &e = entries_[it->second];
     out.assign(data_.begin() + e.offset, data_.begin() + e.offset + e.size);
     return Error::success();
 }

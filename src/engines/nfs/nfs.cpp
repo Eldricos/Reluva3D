@@ -37,7 +37,7 @@ constexpr int kScreenH = 480;
 
 class NfsEngine : public Engine {
 public:
-    NfsEngine(System& system, GameTarget target, const GameInfo& game)
+    NfsEngine(System &system, GameTarget target, const GameInfo &game)
         : sys_(system), target_(std::move(target)), game_(game) {}
 
     Error run() override {
@@ -60,11 +60,11 @@ public:
             sys_, mixer,
             audio::surroundFromSetting(surround == target_.settings.end() ? std::string() : surround->second));
         struct AudioOff { // stops the output before the mixer goes
-            System& sys;
+            System &sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
-        auto pages = nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath,
-                                    target_.settings);
+        auto pages =
+            nfs::makePages(game_.name, folders, files, audioOut ? &mixer : nullptr, target_.savePath, target_.settings);
 
         size_t page = 0;
         bool dirty = true;
@@ -125,24 +125,24 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
-    const GameInfo& game_;
+    const GameInfo &game_;
     Surface screen_;
 };
 
 class NfsMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "nfs"; }
-    const char* name() const override { return "Need for Speed"; }
+    const char *id() const override { return "nfs"; }
+    const char *name() const override { return "Need for Speed"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         auto found = detectFromTable(id(), nfs::detectionTable(), dir);
         return found.empty() ? detectFromTable(id(), nfs::fallbackTable(), dir) : found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
-        const GameInfo* game = nfs::findGame(target.gameId);
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
+        const GameInfo *game = nfs::findGame(target.gameId);
         if (!game)
             game = &nfs::games().front();
         return std::make_unique<NfsEngine>(system, target, *game);
@@ -151,7 +151,7 @@ public:
 
 } // namespace
 
-const MetaEngine& nfsMetaEngine() {
+const MetaEngine &nfsMetaEngine() {
     static const NfsMetaEngine instance;
     return instance;
 }

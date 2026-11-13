@@ -27,15 +27,15 @@ const int kSlots = 300; // animation, hotspot, timer and dialogue slots
 const int kNumGlobals = 3000;
 const uint16_t kNone16 = 0xFFFF;
 const uint32_t kNone32 = 0xFFFF;
-const char* const kSettingsFile = "dlas.ds9";
+const char *const kSettingsFile = "dlas.ds9";
 
 // Reads the little-endian fields of a save, failing softly at the end.
 struct SaveReader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     size_t pos = 0;
     bool bad = false;
 
-    explicit SaveReader(const std::vector<uint8_t>& data) : d(data) {}
+    explicit SaveReader(const std::vector<uint8_t> &data) : d(data) {}
     bool need(size_t n) {
         if (pos + n > d.size())
             bad = true;
@@ -61,16 +61,16 @@ struct SaveReader {
             pos++;
         return s;
     }
-    const uint8_t* bytes(size_t n) {
+    const uint8_t *bytes(size_t n) {
         if (!need(n))
             return nullptr;
-        const uint8_t* p = d.data() + pos;
+        const uint8_t *p = d.data() + pos;
         pos += n;
         return p;
     }
 };
 
-int findName(const std::vector<std::string>& names, const std::string& name) {
+int findName(const std::vector<std::string> &names, const std::string &name) {
     for (size_t i = 0; i < names.size(); i++)
         if (text::equalsIgnoreCase(names[i], name))
             return int(i);
@@ -82,7 +82,9 @@ int findName(const std::vector<std::string>& names, const std::string& name) {
 // As in the game's folder: settings in dlas.ds9, saved games in savegame/
 // (original saves can be copied there), in the game's own folder of
 // Reluva's (GameTarget::savePath).
-static std::string settingsDirectory(Platform* system) { return system->getSavePath(); }
+static std::string settingsDirectory(Platform *system) {
+    return system->getSavePath();
+}
 
 std::string Game::getSaveDirectory() const {
     std::string base = settingsDirectory(system_);
@@ -126,13 +128,13 @@ void Game::saveSettings() {
 
 // ---- Saving --------------------------------------------------------------------
 
-bool Game::saveGame(const std::string& fileName, const std::string& description, uint32_t resumePc) {
+bool Game::saveGame(const std::string &fileName, const std::string &description, uint32_t resumePc) {
     std::string dir = getSaveDirectory();
     if (dir.empty() || !scene_)
         return false;
-    const auto& linkScenes = resources_.getLinkScenes();
-    const auto& linkVars = resources_.getLinkVariables();
-    const auto& linkDialogues = resources_.getLinkDialogues();
+    const auto &linkScenes = resources_.getLinkScenes();
+    const auto &linkVars = resources_.getLinkVariables();
+    const auto &linkDialogues = resources_.getLinkDialogues();
     int linkScene = findName(linkScenes, scene_->name);
     if (linkScene < 0) {
         log::warning("Cannot save: scene %s is not in DS9.LCC", scene_->name.c_str());
@@ -165,7 +167,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
 
     // Dialogue slots, by DS9.LDM index.
     std::vector<int> slotDialogue(kSlots, -1);
-    for (const auto& d : dialogues_) {
+    for (const auto &d : dialogues_) {
         int slot = findName(linkDialogues, getDialogueName(d.first));
         if (slot >= 0 && slot < kSlots)
             slotDialogue[slot] = d.first;
@@ -175,7 +177,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
             w.writeByte(0xFF);
             continue;
         }
-        const DialogueState& st = dialogues_[slotDialogue[slot]];
+        const DialogueState &st = dialogues_[slotDialogue[slot]];
         w.writeByte(0);
         w.write(linkDialogues[slot].c_str(), uint32_t(linkDialogues[slot].size() + 1));
         w.writeUint16LE(uint16_t(st.cur));
@@ -187,22 +189,22 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
         w.write(st.done, kMaxGroups);
         w.write(st.emptyGoto, kMaxGroups);
         w.write(st.emptyReply, kMaxGroups);
-        for (const auto* flags : {&st.npcFlags, &st.choiceFlags}) {
+        for (const auto *flags : {&st.npcFlags, &st.choiceFlags}) {
             for (int g = 0; g < kMaxGroups; g++) {
                 if (g >= int(flags->size()) || (*flags)[g].empty()) {
                     w.writeByte(0xFF);
                     continue;
                 }
                 w.writeByte(uint8_t((*flags)[g].size()));
-                for (const auto& f : (*flags)[g]) {
+                for (const auto &f : (*flags)[g]) {
                     w.writeByte(f.on ? 1 : 0);
                     w.writeByte(f.said ? 1 : 0);
                 }
             }
         }
-        for (const auto* table : {st.doneX, st.emptyXGoto, st.emptyXReply}) {
+        for (const auto *table : {st.doneX, st.emptyXGoto, st.emptyXReply}) {
             for (int g = 0; g < kMaxGroups; g++) {
-                const DialogueState::Redirect& r = table[g];
+                const DialogueState::Redirect &r = table[g];
                 if (r.target < 0) {
                     w.writeByte(0xFF);
                     continue;
@@ -221,7 +223,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
             w.writeByte(g < int(st.current.size()) ? uint8_t(st.current[g]) : 0);
         for (int g = 0; g < kMaxGroups; g++) {
             w.writeByte(uint8_t(st.hooks[g].size()));
-            for (const auto& h : st.hooks[g]) {
+            for (const auto &h : st.hooks[g]) {
                 w.writeByte(h.state == 2 ? 0xFF : uint8_t(h.state));
                 w.writeByte(uint8_t(h.group));
             }
@@ -230,7 +232,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
 
     // Global variables by DS9.LVM index.
     std::vector<uint16_t> globals(kNumGlobals, 0);
-    for (const auto& v : variables_) {
+    for (const auto &v : variables_) {
         int i = findName(linkVars, v.first);
         if (i >= 0 && i < kNumGlobals)
             globals[i] = v.second;
@@ -245,7 +247,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
             w.writeByte(0xFF);
             continue;
         }
-        const Anim& a = anims_[i];
+        const Anim &a = anims_[i];
         w.writeByte(a.lazy ? 1 : 0);
         uint8_t rec[0x34] = {};
         auto put16 = [&](int off, int v) {
@@ -274,7 +276,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
             w.writeByte(0xFF);
             continue;
         }
-        const Hotspot& h = hotspots_[i];
+        const Hotspot &h = hotspots_[i];
         w.writeByte(0);
         w.writeUint16LE(uint16_t(h.x));
         w.writeUint16LE(uint16_t(h.y));
@@ -292,7 +294,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
             w.writeByte(0xFF);
             continue;
         }
-        const Timer& t = timers_[i];
+        const Timer &t = timers_[i];
         w.writeByte(0);
         w.writeUint16LE(t.reload);
         w.writeUint16LE(t.count);
@@ -313,7 +315,7 @@ bool Game::saveGame(const std::string& fileName, const std::string& description,
 
 // ---- Loading -------------------------------------------------------------------
 
-bool Game::readSaveInfo(const std::string& path, SaveInfo& info) {
+bool Game::readSaveInfo(const std::string &path, SaveInfo &info) {
     std::vector<uint8_t> d;
     if (!readFile(path, d))
         return false;
@@ -325,8 +327,8 @@ bool Game::readSaveInfo(const std::string& path, SaveInfo& info) {
     r.u32();
     r.cstr();
     info.description = r.cstr();
-    const uint8_t* shot = r.bytes(640 * 480);
-    const uint8_t* pal = r.bytes(768);
+    const uint8_t *shot = r.bytes(640 * 480);
+    const uint8_t *pal = r.bytes(768);
     if (r.bad)
         return false;
     info.screenshot.assign(shot, shot + 640 * 480);
@@ -335,15 +337,15 @@ bool Game::readSaveInfo(const std::string& path, SaveInfo& info) {
     return true;
 }
 
-bool Game::loadGame(const std::string& fileName) {
+bool Game::loadGame(const std::string &fileName) {
     std::vector<uint8_t> d;
     std::string dir = getSaveDirectory();
     if (dir.empty() || !readFile((std::filesystem::path(dir) / fileName), d)) {
         log::warning("Cannot read saved game %s", fileName.c_str());
         return false;
     }
-    const auto& linkScenes = resources_.getLinkScenes();
-    const auto& linkVars = resources_.getLinkVariables();
+    const auto &linkScenes = resources_.getLinkScenes();
+    const auto &linkVars = resources_.getLinkVariables();
     SaveReader r(d);
     int disc = r.u16();
     bool tricorder = r.u32() != 0;
@@ -353,7 +355,7 @@ bool Game::loadGame(const std::string& fileName) {
     r.cstr();
     r.cstr();
     r.bytes(640 * 480);
-    const uint8_t* pal = r.bytes(768);
+    const uint8_t *pal = r.bytes(768);
     int paletteBackground = int(r.u32());
     int linkScene = r.u16();
     if (r.bad || linkScene >= int(linkScenes.size())) {
@@ -376,7 +378,7 @@ bool Game::loadGame(const std::string& fileName) {
     arcade_.reset();
     if (scene_)
         leaveScene();
-    if (audio::Mixer* mixer = system_->getMixer())
+    if (audio::Mixer *mixer = system_->getMixer())
         mixer->stopAll();
     sceneIndex_ = sceneIndex;
     scene_ = &scenes_[sceneIndex];
@@ -398,7 +400,7 @@ bool Game::loadGame(const std::string& fileName) {
             continue;
         std::string name = r.cstr();
         DialogueState scratch;
-        DialogueState* st = getDialogueState(findDialogue(name));
+        DialogueState *st = getDialogueState(findDialogue(name));
         if (!st)
             st = &scratch; // unknown: read and drop
         st->cur = r.u16();
@@ -407,10 +409,10 @@ bool Game::loadGame(const std::string& fileName) {
         st->rude = r.u8() != 0;
         st->backGroup = r.u8();
         st->exit = r.u8() != 0;
-        for (uint8_t* table : {st->done, st->emptyGoto, st->emptyReply})
-            if (const uint8_t* p = r.bytes(kMaxGroups))
+        for (uint8_t *table : {st->done, st->emptyGoto, st->emptyReply})
+            if (const uint8_t *p = r.bytes(kMaxGroups))
                 std::memcpy(table, p, kMaxGroups);
-        for (auto* flags : {&st->npcFlags, &st->choiceFlags}) {
+        for (auto *flags : {&st->npcFlags, &st->choiceFlags}) {
             for (int g = 0; g < kMaxGroups; g++) {
                 uint8_t n = r.u8();
                 if (n == 0xFF)
@@ -422,7 +424,7 @@ bool Game::loadGame(const std::string& fileName) {
                 }
             }
         }
-        for (DialogueState::Redirect* table : {st->doneX, st->emptyXGoto, st->emptyXReply}) {
+        for (DialogueState::Redirect *table : {st->doneX, st->emptyXGoto, st->emptyXReply}) {
             for (int g = 0; g < kMaxGroups; g++) {
                 uint8_t target = r.u8();
                 if (target == 0xFF) {
@@ -460,7 +462,7 @@ bool Game::loadGame(const std::string& fileName) {
     int background = r.u16();
 
     auto labelAt = [&](uint32_t pc) {
-        for (const auto& l : labels_)
+        for (const auto &l : labels_)
             if (l.second == pc)
                 return int(l.first);
         return -1;
@@ -469,7 +471,7 @@ bool Game::loadGame(const std::string& fileName) {
         uint8_t kind = r.u8();
         if (kind == 0xFF)
             continue;
-        const uint8_t* rec = r.bytes(0x34);
+        const uint8_t *rec = r.bytes(0x34);
         uint32_t frame = r.u32(), drawn = r.u32(), endPc = r.u32();
         r.u32();
         uint8_t nodes = r.u8();
@@ -479,7 +481,7 @@ bool Game::loadGame(const std::string& fileName) {
             continue;
         if (!anims_[i].loaded)
             loadAnim(i, kind == 1);
-        Anim& a = anims_[i];
+        Anim &a = anims_[i];
         a.x = int16_t(rec[0] | (rec[1] << 8));
         a.y = int16_t(rec[2] | (rec[3] << 8));
         a.rate = rec[4] | (rec[5] << 8);
@@ -608,8 +610,8 @@ void Game::autosave(int type) {
     // Before some action sequences, as savegame\<name>save.ds9 (option on by default).
     static const struct {
         int type;
-        const char* file;
-        const char* title;
+        const char *file;
+        const char *title;
     } kAutosaves[] = {
         {0x04, "holosave.ds9", "Holosuite Simulation: Citadel Run"},
         {0x05, "adr2save.ds9", "Drones attack Deep Space Nine"},
@@ -619,7 +621,7 @@ void Game::autosave(int type) {
     };
     if (!autosave_)
         return;
-    for (const auto& a : kAutosaves) {
+    for (const auto &a : kAutosaves) {
         if (a.type != type)
             continue;
         draw::create(menuGameScreen_, kScreenWidth, kScreenHeight);

@@ -26,8 +26,6 @@ namespace {
 
 using namespace reluva::glide;
 
-
-
 namespace {
 
 void testDither() {
@@ -104,10 +102,10 @@ void testLayout() {
     // The Voodoo2 specification's table, in 8-byte units for 16-bit texels.
     CHECK(levelBytes(8, 0, kTexRgb565) == (1u << 14) * 8);
     CHECK(levelBytes(8, 3, kTexRgb565) == (1u << 11) * 8);
-    CHECK(levelBytes(3, 3, kTexRgb565) == 4u * 8);  // 8x1: 2^2
-    CHECK(levelBytes(2, 2, kTexRgb565) == 2u * 8);  // 4x1: 2^1
-    CHECK(levelBytes(1, 0, kTexRgb565) == 1u * 8);  // 2x2
-    CHECK(levelBytes(0, 0, kTexRgb565) == 1u * 8);  // 1x1
+    CHECK(levelBytes(3, 3, kTexRgb565) == 4u * 8);        // 8x1: 2^2
+    CHECK(levelBytes(2, 2, kTexRgb565) == 2u * 8);        // 4x1: 2^1
+    CHECK(levelBytes(1, 0, kTexRgb565) == 1u * 8);        // 2x2
+    CHECK(levelBytes(0, 0, kTexRgb565) == 1u * 8);        // 1x1
     CHECK(levelBytes(5, 0, kTexRgb565) == (1u << 8) * 8); // 32x32
     // Its first example: 16-bit 1:1 levels 128 and 64. Its second and third
     // (8-bit 8:1 levels 16-1) count 8x1 and 4x1 levels as 2 and 1 units
@@ -177,9 +175,9 @@ void testFogAndDepth() {
     for (int i = 0; i < 64; ++i)
         table[i] = uint8_t(i * 4);
     CHECK(fogTableFactor(table, floatDepth(1.0)) == 0);
-    CHECK(std::abs(fogTableFactor(table, floatDepth(1.0 / 2.0)) - 16) <= 1); // w 2: entry 4
+    CHECK(std::abs(fogTableFactor(table, floatDepth(1.0 / 2.0)) - 16) <= 1);  // w 2: entry 4
     CHECK(std::abs(fogTableFactor(table, floatDepth(1.0 / 16.0)) - 64) <= 1); // w 16: entry 16
-    CHECK(std::abs(fogTableFactor(table, floatDepth(7.0 / 8.0)) - 4) <= 1);  // w 8/7: entry 1
+    CHECK(std::abs(fogTableFactor(table, floatDepth(7.0 / 8.0)) - 4) <= 1);   // w 8/7: entry 1
     // Half way between entries 4 and 5 (w 2 and 16/7).
     const int mid = fogTableFactor(table, floatDepth(1.0 / 2.12));
     CHECK(mid > 16 && mid < 20);
@@ -189,13 +187,15 @@ void testFogAndDepth() {
     CHECK(applyFog({0, 100, 200, 77}, {255, 255, 255, 0}, 0, kFogWithTable).g == 100);
     CHECK(applyFog({100, 100, 100, 0}, {255, 255, 255, 0}, 255, kFogWithTable | kFogMult2).r == 255);
     CHECK(applyFog({100, 100, 100, 0}, {255, 255, 255, 0}, 255, kFogWithTable | kFogAdd2).r == 0);
-    CHECK(compare(kCmpLess, 1, 2) && !compare(kCmpLess, 2, 2) && compare(kCmpGequal, 2, 2) && !compare(kCmpNever, 0, 0));
+    CHECK(compare(kCmpLess, 1, 2) && !compare(kCmpLess, 2, 2) && compare(kCmpGequal, 2, 2) &&
+          !compare(kCmpNever, 0, 0));
     // Blending: source alpha over.
     const Rgba blended = blendPixel({255, 0, 0, 128}, {0, 0, 255, 255}, {}, kBlendSrcAlpha, kBlendOneMinusSrcAlpha,
                                     kBlendOne, kBlendZero);
     CHECK(std::abs(blended.r - 128) <= 1 && std::abs(blended.b - 127) <= 1);
     // DST_COLOR as the source factor: a multiply.
-    CHECK(blendPixel({128, 0, 0, 255}, {128, 0, 0, 255}, {}, kBlendSrcColor, kBlendZero, kBlendOne, kBlendZero).r == 64);
+    CHECK(blendPixel({128, 0, 0, 255}, {128, 0, 0, 255}, {}, kBlendSrcColor, kBlendZero, kBlendOne, kBlendZero).r ==
+          64);
 }
 
 Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, float a = 255) {
@@ -207,7 +207,7 @@ Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, float 
     v.b = b;
     v.a = a;
     v.oow = 1;
-    for (auto& t : v.tmu)
+    for (auto &t : v.tmu)
         t.oow = 1;
     return v;
 }
@@ -216,7 +216,7 @@ Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, float 
 Pipeline flatPipeline() {
     Pipeline p;
     p.open(64, 32, 2, 1);
-    State& s = p.state();
+    State &s = p.state();
     s.color = {{kFuncLocal, kFactorZero, false}, kLocalIterated, kOtherIterated};
     s.alpha = {{kFuncLocal, kFactorZero, false}, kLocalIterated, kOtherIterated};
     s.dither = kDitherDisable;
@@ -226,13 +226,13 @@ Pipeline flatPipeline() {
 void testRasterizer() {
     // Two triangles sharing an edge, added together: each pixel drawn once.
     Pipeline p = flatPipeline();
-    State& s = p.state();
+    State &s = p.state();
     s.blendRgbSrc = kBlendOne;
     s.blendRgbDst = kBlendOne;
     p.clear(0, 0, 0);
     p.triangle(vtx(3, 2, 0, 0, 40), vtx(40, 5, 0, 0, 40), vtx(10, 30, 0, 0, 40));
     p.triangle(vtx(40, 5, 0, 0, 40), vtx(50, 31, 0, 0, 40), vtx(10, 30, 0, 0, 40));
-    const uint16_t* back = p.buffer(kBufferBack);
+    const uint16_t *back = p.buffer(kBufferBack);
     int once = 0, twice = 0;
     for (int i = 0; i < 64 * 32; ++i) {
         const int b = from565(back[i]).b;
@@ -271,7 +271,7 @@ void testRasterizer() {
 
 void testDepthAndChroma() {
     Pipeline p = flatPipeline();
-    State& s = p.state();
+    State &s = p.state();
     s.depthMode = kDepthZBuffer;
     s.depthFunc = kCmpLess;
     s.depthMask = true;
@@ -327,7 +327,7 @@ void testDepthAndChroma() {
 
 void testTableFog() {
     Pipeline p = flatPipeline();
-    State& s = p.state();
+    State &s = p.state();
     s.fogMode = kFogWithTable;
     s.fogColor = 0x0000ff;
     for (int i = 0; i < 64; ++i)
@@ -357,7 +357,7 @@ void testTextures() {
     Glide2TexInfo info{5, 5, 3, kTexRgb565}; // GR_LOD_8, GR_ASPECT_1x1
     CHECK(g.texCalcMemRequired(5, 5, 3, kTexRgb565) == 128);
     const uint32_t at = g.texMinAddress(0) + 256;
-    g.texDownloadMipMap(0, at, kLevelsBoth, info, reinterpret_cast<const uint8_t*>(texels.data()));
+    g.texDownloadMipMap(0, at, kLevelsBoth, info, reinterpret_cast<const uint8_t *>(texels.data()));
     g.texSource(0, at, kLevelsBoth, info);
     g.texCombine(0, kFuncLocal, kFactorZero, kFuncLocal, kFactorZero, false, false);
     g.colorCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
@@ -377,7 +377,7 @@ void testTextures() {
     };
     g.drawTriangle(gv(0, 0, 0, 0), gv(64, 0, 256, 0), gv(64, 64, 256, 256));
     g.drawTriangle(gv(0, 0, 0, 0), gv(64, 64, 256, 256), gv(0, 64, 0, 256));
-    const uint16_t* back = g.pipeline().buffer(kBufferBack);
+    const uint16_t *back = g.pipeline().buffer(kBufferBack);
     CHECK(back[10 * 640 + 5] == 0xf800);
     CHECK(back[10 * 640 + 40] == 0x001f);
     // Point sampling: the texel boundary at s = 128, pixel 32.
@@ -398,7 +398,7 @@ void testTextures() {
     // A palette texture.
     uint32_t palette[256] = {};
     palette[3] = 0x0000ff00;
-    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(palette));
+    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t *>(palette));
     std::vector<uint8_t> indices(64, 3);
     Glide2TexInfo p8{5, 5, 3, kTexP8};
     g.texDownloadMipMap(0, 4096, kLevelsBoth, p8, indices.data());
@@ -433,9 +433,9 @@ void testLfb() {
     CHECK(g.pipeline().buffer(kBufferAux)[3 * 640 + 3] == 0xbeef);
     // Regions.
     const uint16_t region[4] = {0x0001, 0x0002, 0x0003, 0x0004};
-    CHECK(g.lfbWriteRegion(kBufferFront, 100, 100, kLfb565, 2, 2, 4, reinterpret_cast<const uint8_t*>(region)));
+    CHECK(g.lfbWriteRegion(kBufferFront, 100, 100, kLfb565, 2, 2, 4, reinterpret_cast<const uint8_t *>(region)));
     uint16_t back[4] = {};
-    CHECK(g.lfbReadRegion(kBufferFront, 100, 100, 2, 2, 4, reinterpret_cast<uint8_t*>(back)));
+    CHECK(g.lfbReadRegion(kBufferFront, 100, 100, 2, 2, 4, reinterpret_cast<uint8_t *>(back)));
     CHECK(std::memcmp(back, region, 8) == 0);
     // Through the pixel pipeline: blended over what's there.
     g.alphaBlendFunction(kBlendOne, kBlendOne, kBlendOne, kBlendZero);
@@ -475,22 +475,68 @@ void testBinding() {
     cpu.setStack(0x100000);
     reluva::x86::Arena arena(cpu, 0x200000, 0x800000);
     Glide2Dll dll(cpu, arena);
-    const char* wanted[] = {
-        "_grAADrawLine@8", "_grAADrawTriangle@24", "_grAlphaBlendFunction@16", "_grAlphaCombine@20",
-        "_grAlphaTestFunction@4", "_grAlphaTestReferenceValue@4", "_grBufferClear@12", "_grBufferNumPending@0",
-        "_grBufferSwap@4", "_grChromakeyMode@4", "_grChromakeyValue@4", "_grClipWindow@16", "_grColorCombine@20",
-        "_grCullMode@4", "_grDepthBiasLevel@4", "_grDepthBufferFunction@4", "_grDepthBufferMode@4", "_grDepthMask@4",
-        "_grDitherMode@4", "_grDrawLine@8", "_grDrawPoint@4", "_grDrawTriangle@12", "_grFogColorValue@4",
-        "_grFogMode@4", "_grFogTable@4", "_grGammaCorrectionValue@4", "_grGlideGetVersion@4", "_grGlideInit@0",
-        "_grGlideShutdown@0", "_grHints@8", "_grLfbLock@24", "_grLfbReadRegion@28", "_grLfbUnlock@8",
-        "_grLfbWriteRegion@32", "_grRenderBuffer@4", "_grSstControl@4", "_grSstIdle@0", "_grSstIsBusy@0",
-        "_grSstQueryBoards@4", "_grSstQueryHardware@4", "_grSstScreenHeight@0", "_grSstScreenWidth@0",
-        "_grSstSelect@4", "_grSstStatus@0", "_grSstVRetraceOn@0", "_grSstWinClose@0", "_grSstWinOpen@28",
-        "_grTexCalcMemRequired@16", "_grTexClampMode@12", "_grTexCombine@28", "_grTexCombineFunction@8",
-        "_grTexDownloadMipMap@16", "_grTexDownloadTable@12", "_grTexFilterMode@12", "_grTexLodBiasValue@8",
-        "_grTexMaxAddress@4", "_grTexMinAddress@4", "_grTexMipMapMode@12", "_grTexSource@16",
+    const char *wanted[] = {
+        "_grAADrawLine@8",
+        "_grAADrawTriangle@24",
+        "_grAlphaBlendFunction@16",
+        "_grAlphaCombine@20",
+        "_grAlphaTestFunction@4",
+        "_grAlphaTestReferenceValue@4",
+        "_grBufferClear@12",
+        "_grBufferNumPending@0",
+        "_grBufferSwap@4",
+        "_grChromakeyMode@4",
+        "_grChromakeyValue@4",
+        "_grClipWindow@16",
+        "_grColorCombine@20",
+        "_grCullMode@4",
+        "_grDepthBiasLevel@4",
+        "_grDepthBufferFunction@4",
+        "_grDepthBufferMode@4",
+        "_grDepthMask@4",
+        "_grDitherMode@4",
+        "_grDrawLine@8",
+        "_grDrawPoint@4",
+        "_grDrawTriangle@12",
+        "_grFogColorValue@4",
+        "_grFogMode@4",
+        "_grFogTable@4",
+        "_grGammaCorrectionValue@4",
+        "_grGlideGetVersion@4",
+        "_grGlideInit@0",
+        "_grGlideShutdown@0",
+        "_grHints@8",
+        "_grLfbLock@24",
+        "_grLfbReadRegion@28",
+        "_grLfbUnlock@8",
+        "_grLfbWriteRegion@32",
+        "_grRenderBuffer@4",
+        "_grSstControl@4",
+        "_grSstIdle@0",
+        "_grSstIsBusy@0",
+        "_grSstQueryBoards@4",
+        "_grSstQueryHardware@4",
+        "_grSstScreenHeight@0",
+        "_grSstScreenWidth@0",
+        "_grSstSelect@4",
+        "_grSstStatus@0",
+        "_grSstVRetraceOn@0",
+        "_grSstWinClose@0",
+        "_grSstWinOpen@28",
+        "_grTexCalcMemRequired@16",
+        "_grTexClampMode@12",
+        "_grTexCombine@28",
+        "_grTexCombineFunction@8",
+        "_grTexDownloadMipMap@16",
+        "_grTexDownloadTable@12",
+        "_grTexFilterMode@12",
+        "_grTexLodBiasValue@8",
+        "_grTexMaxAddress@4",
+        "_grTexMinAddress@4",
+        "_grTexMipMapMode@12",
+        "_grTexSource@16",
     };
-    for (const char* name : wanted)
+    for (const char *name : wanted)
         CHECK(dll.exports().count(name) == 1);
     CHECK(dll.exports().size() > 100);
     CHECK(!dll.stubs().empty());
@@ -560,9 +606,9 @@ void testGlide3() {
     g.core().ditherMode(kDitherDisable);
     g.core().bufferClear(0, 0, 0);
     const GameVertex a = gv(10, 10, 0xffff0000), b = gv(50, 10, 0xffff0000), c = gv(10, 50, 0xffff0000);
-    g.drawTriangle(reinterpret_cast<const uint8_t*>(&a), reinterpret_cast<const uint8_t*>(&b),
-                   reinterpret_cast<const uint8_t*>(&c));
-    const uint16_t* back = g.pipeline().buffer(kBufferBack);
+    g.drawTriangle(reinterpret_cast<const uint8_t *>(&a), reinterpret_cast<const uint8_t *>(&b),
+                   reinterpret_cast<const uint8_t *>(&c));
+    const uint16_t *back = g.pipeline().buffer(kBufferBack);
     CHECK(back[20 * 640 + 20] == 0xf800);
     CHECK(back[45 * 640 + 45] == 0);
     // A strip of four vertices: two triangles, both drawn whatever the
@@ -570,8 +616,9 @@ void testGlide3() {
     g.core().cullMode(kCullNegative);
     const GameVertex s0 = gv(100, 100, 0xff00ff00), s1 = gv(100, 140, 0xff00ff00), s2 = gv(140, 100, 0xff00ff00),
                      s3 = gv(140, 140, 0xff00ff00);
-    g.drawVertexArray(g3::kTriangleStrip, {reinterpret_cast<const uint8_t*>(&s0), reinterpret_cast<const uint8_t*>(&s1),
-                                           reinterpret_cast<const uint8_t*>(&s2), reinterpret_cast<const uint8_t*>(&s3)});
+    g.drawVertexArray(g3::kTriangleStrip,
+                      {reinterpret_cast<const uint8_t *>(&s0), reinterpret_cast<const uint8_t *>(&s1),
+                       reinterpret_cast<const uint8_t *>(&s2), reinterpret_cast<const uint8_t *>(&s3)});
     const bool firstDrawn = back[110 * 640 + 105] == 0x07e0, secondDrawn = back[135 * 640 + 135] == 0x07e0;
     CHECK(firstDrawn == secondDrawn);
     g.core().cullMode(kCullDisable);
@@ -581,7 +628,7 @@ void testGlide3() {
     // One palette for every TMU.
     uint32_t palette[256] = {};
     palette[1] = 0x123456;
-    g.texDownloadTablePartial(kTablePalette, reinterpret_cast<const uint8_t*>(palette), 0, 255);
+    g.texDownloadTablePartial(kTablePalette, reinterpret_cast<const uint8_t *>(palette), 0, 255);
     CHECK(g.pipeline().palette(0)[1] == 0x123456 && g.pipeline().palette(1)[1] == 0x123456);
     // Fog modes renumbered: Glide 3's table on q is the core's table fog.
     g.fogMode(g3::kFogWithTableOnQ);
@@ -601,7 +648,7 @@ void testGlide3() {
     g.vertexLayout(g3::kParamW, 12, g3::kParamEnable);
     g.vertexLayout(g3::kParamQ, 0, g3::kParamDisable);
     const GameVertex cv{0.5f, -0.5f, 0, 2, 0xffffffff, 0, 0, 0}; // w 2: (0.25, -0.25)
-    const Vertex out = g.readVertex(reinterpret_cast<const uint8_t*>(&cv));
+    const Vertex out = g.readVertex(reinterpret_cast<const uint8_t *>(&cv));
     CHECK(std::fabs(out.x - 400) < 0.01f && std::fabs(out.y - 180) < 0.01f && std::fabs(out.oow - 0.5f) < 1e-6f);
 }
 
@@ -613,24 +660,67 @@ void testGlide3Binding() {
     CHECK(dll.dllName() == "glide3x.dll");
     // Every Glide 3 function the CD's Voodoo3 patch DLL looks up (its names,
     // read from the DLL).
-    const char* wanted[] = {
-        "_grAADrawTriangle@24", "_grAlphaBlendFunction@16", "_grAlphaCombine@20", "_grAlphaTestFunction@4",
-        "_grAlphaTestReferenceValue@4", "_grBufferClear@12", "_grBufferSwap@4", "_grChromakeyMode@4",
-        "_grChromakeyValue@4", "_grClipWindow@16", "_grColorCombine@20", "_grCoordinateSpace@4", "_grCullMode@4",
-        "_grDepthBiasLevel@4", "_grDepthBufferFunction@4", "_grDepthBufferMode@4", "_grDepthMask@4", "_grDisable@4",
-        "_grDitherMode@4", "_grDrawLine@8", "_grDrawPoint@4", "_grDrawTriangle@12", "_grEnable@4",
-        "_grErrorSetCallback@4", "_grFinish@0", "_grFogColorValue@4", "_grFogMode@4", "_grFogTable@4", "_grGet@12",
-        "_grGetString@4", "_grGlideInit@0", "_grGlideShutdown@0", "_grLfbLock@24", "_grLfbReadRegion@28",
-        "_grLfbUnlock@8", "_grLfbWriteRegion@36", "_grQueryResolutions@8", "_grRenderBuffer@4", "_grSstSelect@4",
-        "_grSstWinClose@4", "_grSstWinOpen@28", "_grTexCalcMemRequired@16", "_grTexClampMode@12",
-        "_grTexCombine@28", "_grTexDownloadMipMap@16", "_grTexDownloadMipMapLevelPartial@40",
-        "_grTexDownloadTable@8", "_grTexFilterMode@12", "_grTexLodBiasValue@8", "_grTexMaxAddress@4",
-        "_grTexMinAddress@4", "_grTexMipMapMode@12", "_grTexSource@16", "_grVertexLayout@12",
+    const char *wanted[] = {
+        "_grAADrawTriangle@24",
+        "_grAlphaBlendFunction@16",
+        "_grAlphaCombine@20",
+        "_grAlphaTestFunction@4",
+        "_grAlphaTestReferenceValue@4",
+        "_grBufferClear@12",
+        "_grBufferSwap@4",
+        "_grChromakeyMode@4",
+        "_grChromakeyValue@4",
+        "_grClipWindow@16",
+        "_grColorCombine@20",
+        "_grCoordinateSpace@4",
+        "_grCullMode@4",
+        "_grDepthBiasLevel@4",
+        "_grDepthBufferFunction@4",
+        "_grDepthBufferMode@4",
+        "_grDepthMask@4",
+        "_grDisable@4",
+        "_grDitherMode@4",
+        "_grDrawLine@8",
+        "_grDrawPoint@4",
+        "_grDrawTriangle@12",
+        "_grEnable@4",
+        "_grErrorSetCallback@4",
+        "_grFinish@0",
+        "_grFogColorValue@4",
+        "_grFogMode@4",
+        "_grFogTable@4",
+        "_grGet@12",
+        "_grGetString@4",
+        "_grGlideInit@0",
+        "_grGlideShutdown@0",
+        "_grLfbLock@24",
+        "_grLfbReadRegion@28",
+        "_grLfbUnlock@8",
+        "_grLfbWriteRegion@36",
+        "_grQueryResolutions@8",
+        "_grRenderBuffer@4",
+        "_grSstSelect@4",
+        "_grSstWinClose@4",
+        "_grSstWinOpen@28",
+        "_grTexCalcMemRequired@16",
+        "_grTexClampMode@12",
+        "_grTexCombine@28",
+        "_grTexDownloadMipMap@16",
+        "_grTexDownloadMipMapLevelPartial@40",
+        "_grTexDownloadTable@8",
+        "_grTexFilterMode@12",
+        "_grTexLodBiasValue@8",
+        "_grTexMaxAddress@4",
+        "_grTexMinAddress@4",
+        "_grTexMipMapMode@12",
+        "_grTexSource@16",
+        "_grVertexLayout@12",
         "_guGammaCorrectionRGB@12",
     };
-    for (const char* name : wanted)
+    for (const char *name : wanted)
         CHECK(dll.exports().count(name) == 1);
-    CHECK(dll.exports().count("_grDrawVertexArray@12") == 1 && dll.exports().count("_grDrawVertexArrayContiguous@16") == 1);
+    CHECK(dll.exports().count("_grDrawVertexArray@12") == 1 &&
+          dll.exports().count("_grDrawVertexArrayContiguous@16") == 1);
     uint32_t result = 0;
     // grGet through the interpreter.
     const uint32_t buf = arena.alloc(16);
@@ -643,8 +733,8 @@ void testGlide3Binding() {
     CHECK(!cpu.call(dll.exports().at("_grSstWinOpen@28"), {0, 7, 0, 0, 0, 2, 1}, result) && result != 0);
     CHECK(!cpu.call(dll.exports().at("_grVertexLayout@12"), {g3::kParamXy, 0, 1}, result));
     CHECK(!cpu.call(dll.exports().at("_grVertexLayout@12"), {g3::kParamPargb, 8, 1}, result));
-    CHECK(!cpu.call(dll.exports().at("_grColorCombine@20"), {kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, 0},
-                    result));
+    CHECK(!cpu.call(dll.exports().at("_grColorCombine@20"),
+                    {kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, 0}, result));
     CHECK(!cpu.call(dll.exports().at("_grDitherMode@4"), {kDitherDisable}, result));
     const uint32_t verts = arena.alloc(36);
     const float xy[6] = {10, 10, 50, 10, 10, 50};
@@ -674,18 +764,19 @@ void testGlide3Binding() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.glide", {
-    {"dither", [](const std::filesystem::path&) { testDither(); }},
-    {"formats", [](const std::filesystem::path&) { testFormats(); }},
-    {"layout", [](const std::filesystem::path&) { testLayout(); }},
-    {"combine", [](const std::filesystem::path&) { testCombine(); }},
-    {"fog and depth", [](const std::filesystem::path&) { testFogAndDepth(); }},
-    {"rasterizer", [](const std::filesystem::path&) { testRasterizer(); }},
-    {"depth and chroma", [](const std::filesystem::path&) { testDepthAndChroma(); }},
-    {"table fog", [](const std::filesystem::path&) { testTableFog(); }},
-    {"textures", [](const std::filesystem::path&) { testTextures(); }},
-    {"lfb", [](const std::filesystem::path&) { testLfb(); }},
-    {"binding", [](const std::filesystem::path&) { testBinding(); }},
-    {"glide3", [](const std::filesystem::path&) { testGlide3(); }},
-    {"glide3 binding", [](const std::filesystem::path&) { testGlide3Binding(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.glide", {
+                                    {"dither", [](const std::filesystem::path &) { testDither(); }},
+                                    {"formats", [](const std::filesystem::path &) { testFormats(); }},
+                                    {"layout", [](const std::filesystem::path &) { testLayout(); }},
+                                    {"combine", [](const std::filesystem::path &) { testCombine(); }},
+                                    {"fog and depth", [](const std::filesystem::path &) { testFogAndDepth(); }},
+                                    {"rasterizer", [](const std::filesystem::path &) { testRasterizer(); }},
+                                    {"depth and chroma", [](const std::filesystem::path &) { testDepthAndChroma(); }},
+                                    {"table fog", [](const std::filesystem::path &) { testTableFog(); }},
+                                    {"textures", [](const std::filesystem::path &) { testTextures(); }},
+                                    {"lfb", [](const std::filesystem::path &) { testLfb(); }},
+                                    {"binding", [](const std::filesystem::path &) { testBinding(); }},
+                                    {"glide3", [](const std::filesystem::path &) { testGlide3(); }},
+                                    {"glide3 binding", [](const std::filesystem::path &) { testGlide3Binding(); }},
+                                });

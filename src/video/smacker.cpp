@@ -36,11 +36,11 @@ const int kBlockRuns[64] = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,  13,
 
 // Bits are read least significant first.
 struct Decoder::BitReader {
-    const uint8_t* data;
+    const uint8_t *data;
     uint32_t size;
     uint32_t bit = 0;
 
-    BitReader(const uint8_t* d, uint32_t s) : data(d), size(s) {}
+    BitReader(const uint8_t *d, uint32_t s) : data(d), size(s) {}
 
     bool overrun() const { return bit > size * 8; }
     uint32_t getBit() {
@@ -70,7 +70,8 @@ struct SmallTree {
     };
     std::vector<Node> nodes; // empty: always 0
 
-    template <class Reader> bool read(Reader& br) {
+    template<class Reader>
+    bool read(Reader &br) {
         nodes.clear();
         if (!br.getBit())
             return true; // not present
@@ -80,7 +81,8 @@ struct SmallTree {
         return !br.overrun();
     }
 
-    template <class Reader> bool readNode(Reader& br, int depth) {
+    template<class Reader>
+    bool readNode(Reader &br, int depth) {
         if (depth > 32 || br.overrun() || nodes.size() > 512)
             return false;
         int index = int(nodes.size());
@@ -100,7 +102,8 @@ struct SmallTree {
         return true;
     }
 
-    template <class Reader> uint8_t decode(Reader& br) const {
+    template<class Reader>
+    uint8_t decode(Reader &br) const {
         if (nodes.empty())
             return 0;
         int i = 0;
@@ -122,7 +125,7 @@ struct Decoder::BigTree {
     std::vector<Node> nodes;
     int last[3] = {-1, -1, -1}; // the escape leaves
 
-    bool read(BitReader& br, uint32_t maxNodes) {
+    bool read(BitReader &br, uint32_t maxNodes) {
         nodes.clear();
         last[0] = last[1] = last[2] = -1;
         if (!br.getBit()) {
@@ -149,7 +152,7 @@ struct Decoder::BigTree {
         return !br.overrun();
     }
 
-    bool readNode(BitReader& br, const SmallTree& lo, const SmallTree& hi, const uint16_t* escapes, int depth,
+    bool readNode(BitReader &br, const SmallTree &lo, const SmallTree &hi, const uint16_t *escapes, int depth,
                   uint32_t maxNodes) {
         if (depth > 64 || br.overrun() || nodes.size() >= maxNodes)
             return false;
@@ -184,7 +187,7 @@ struct Decoder::BigTree {
                 nodes[last[i]].value = 0;
     }
 
-    uint16_t decode(BitReader& br) {
+    uint16_t decode(BitReader &br) {
         int i = 0;
         while (nodes[i].child[0] >= 0)
             i = nodes[i].child[br.getBit()];
@@ -198,9 +201,11 @@ struct Decoder::BigTree {
     }
 };
 
-Decoder::Decoder() {}
+Decoder::Decoder() {
+}
 
-Decoder::~Decoder() {}
+Decoder::~Decoder() {
+}
 
 void Decoder::close() {
     stream_.reset();
@@ -257,7 +262,7 @@ bool Decoder::load(std::unique_ptr<SeekableReadStream> stream) {
     type_.reset(new BigTree());
     BitReader br(trees.data(), treesSize);
     // The header gives each tree's allocation in bytes (4 per node in RAD's decoder).
-    BigTree* bigTrees[4] = {mmap_.get(), mclr_.get(), full_.get(), type_.get()};
+    BigTree *bigTrees[4] = {mmap_.get(), mclr_.get(), full_.get(), type_.get()};
     for (int i = 0; i < 4; i++) {
         if (!bigTrees[i]->read(br, std::max<uint32_t>(treeAlloc[i] / 4, 16) + 16)) {
             log::warning("Smacker: bad Huffman tree %d", i);
@@ -274,9 +279,13 @@ bool Decoder::load(std::unique_ptr<SeekableReadStream> stream) {
     return true;
 }
 
-int Decoder::audioRate() const { return audioTrack_ >= 0 ? int(audioRates_[audioTrack_] & 0xFFFFFF) : 0; }
+int Decoder::audioRate() const {
+    return audioTrack_ >= 0 ? int(audioRates_[audioTrack_] & 0xFFFFFF) : 0;
+}
 
-bool Decoder::audioStereo() const { return audioTrack_ >= 0 && (audioRates_[audioTrack_] & kAudioStereo); }
+bool Decoder::audioStereo() const {
+    return audioTrack_ >= 0 && (audioRates_[audioTrack_] & kAudioStereo);
+}
 
 std::vector<int16_t> Decoder::takeAudio() {
     std::vector<int16_t> out;
@@ -295,8 +304,8 @@ bool Decoder::decodeNextFrame() {
         return false;
     nextFramePos_ += size;
 
-    const uint8_t* p = data.data();
-    const uint8_t* end = p + size;
+    const uint8_t *p = data.data();
+    const uint8_t *end = p + size;
     uint8_t type = frameTypes_[curFrame_];
     paletteChanged_ = false;
     if (type & 1) {
@@ -323,7 +332,7 @@ bool Decoder::decodeNextFrame() {
     return decodeVideo(p, uint32_t(end - p));
 }
 
-void Decoder::decodePalette(const uint8_t* data, uint32_t size) {
+void Decoder::decodePalette(const uint8_t *data, uint32_t size) {
     uint8_t old[768];
     std::memcpy(old, palette_, sizeof(old));
     const uint8_t *p = data, *end = data + size;
@@ -356,7 +365,7 @@ void Decoder::decodePalette(const uint8_t* data, uint32_t size) {
     }
 }
 
-void Decoder::decodeAudio(const uint8_t* data, uint32_t size) {
+void Decoder::decodeAudio(const uint8_t *data, uint32_t size) {
     uint32_t rate = audioRates_[audioTrack_];
     bool stereo = (rate & kAudioStereo) != 0;
     bool bits16 = (rate & kAudio16Bit) != 0;
@@ -416,7 +425,7 @@ void Decoder::decodeAudio(const uint8_t* data, uint32_t size) {
     }
 }
 
-bool Decoder::decodeVideo(const uint8_t* data, uint32_t size) {
+bool Decoder::decodeVideo(const uint8_t *data, uint32_t size) {
     BitReader br(data, size);
     mmap_->resetCache();
     mclr_->resetCache();
@@ -437,7 +446,7 @@ bool Decoder::decodeVideo(const uint8_t* data, uint32_t size) {
             while (run-- && blk < blocks) {
                 uint16_t clr = mclr_->decode(br);
                 uint16_t map = mmap_->decode(br);
-                uint8_t* out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
+                uint8_t *out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
                 uint8_t hi = uint8_t(clr >> 8), lo = uint8_t(clr & 0xFF);
                 for (int y = 0; y < 4; y++) {
                     for (int x = 0; x < 4; x++)
@@ -457,7 +466,7 @@ bool Decoder::decodeVideo(const uint8_t* data, uint32_t size) {
                     mode = 2;
             }
             while (run-- && blk < blocks) {
-                uint8_t* out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
+                uint8_t *out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
                 if (mode == 0) {
                     for (int y = 0; y < 4; y++) {
                         uint16_t pix = full_->decode(br);
@@ -503,7 +512,7 @@ bool Decoder::decodeVideo(const uint8_t* data, uint32_t size) {
         case kBlockFill: {
             uint8_t color = uint8_t(type >> 8);
             while (run-- && blk < blocks) {
-                uint8_t* out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
+                uint8_t *out = draw::at(frame_, (blk % bw) * 4, (blk / bw) * 4);
                 for (int y = 0; y < 4; y++) {
                     std::memset(out, color, 4);
                     out += stride;

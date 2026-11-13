@@ -21,9 +21,9 @@ struct BotToken {
     bool isFloat = false; // a number with a point or exponent
     std::string file;
     int line = 0;
-    bool lineStart = false; // the first on its line
+    bool lineStart = false;   // the first on its line
     bool spaceBefore = false; // white space just before it
-    bool is(const char* t) const { return type != Type::String && text == t; }
+    bool is(const char *t) const { return type != Type::String && text == t; }
 };
 
 // Reads the bot library's scripts the way its preprocessor does, a C-like
@@ -35,43 +35,43 @@ struct BotToken {
 // library's base folder, botfiles/, is the loader's business).
 class BotScript {
 public:
-    using Loader = std::function<bool(const std::string& path, std::string& text)>;
+    using Loader = std::function<bool(const std::string &path, std::string &text)>;
     // `defines`: lines of "NAME value" defined before the file is read
     // (the game's global defines).
-    BotScript(Loader load, const std::vector<std::string>& defines = {});
+    BotScript(Loader load, const std::vector<std::string> &defines = {});
     ~BotScript();
 
-    bool open(const std::string& path);
+    bool open(const std::string &path);
     // Reads text directly, as if from a file named `name`.
-    void openText(const std::string& name, const std::string& text);
+    void openText(const std::string &name, const std::string &text);
 
     // The next token, false at the end or on an error.
-    bool next(BotToken& token);
-    void unread(const BotToken& token);
+    bool next(BotToken &token);
+    void unread(const BotToken &token);
     // The next token if it is `text`.
-    bool check(const char* text);
+    bool check(const char *text);
     // The next token, which must be `text` (else an error).
-    bool expect(const char* text);
+    bool expect(const char *text);
     // A number with an optional sign before it.
-    bool readNumber(double& value, bool* isFloat = nullptr);
-    bool readString(std::string& value);
+    bool readNumber(double &value, bool *isFloat = nullptr);
+    bool readString(std::string &value);
     // Skips a { ... } block whose opening brace was read.
     bool skipBlock();
 
     // The first error, with where it is ("file:line: ...").
-    const std::string& error() const { return error_; }
-    void fail(const std::string& message);
+    const std::string &error() const { return error_; }
+    void fail(const std::string &message);
     std::string where() const;
 
 private:
     struct Source;
     struct Macro;
-    bool raw(BotToken& token);
+    bool raw(BotToken &token);
     bool directive();
-    bool expand(const BotToken& name, const Macro& m);
-    bool readLine(std::vector<BotToken>& out);
-    bool evaluate(const std::vector<BotToken>& tokens, double& value, bool& isFloat);
-    void define(const std::string& line);
+    bool expand(const BotToken &name, const Macro &m);
+    bool readLine(std::vector<BotToken> &out);
+    bool evaluate(const std::vector<BotToken> &tokens, double &value, bool &isFloat);
+    void define(const std::string &line);
     bool skipping() const;
 
     Loader load_;
@@ -79,9 +79,9 @@ private:
     std::vector<BotToken> pushed_;
     std::map<std::string, std::shared_ptr<Macro>> macros_;
     struct Conditional {
-        bool taking;  // this branch's tokens are read
-        bool taken;   // some branch was
-        bool outer;   // the enclosing one is being read
+        bool taking; // this branch's tokens are read
+        bool taken;  // some branch was
+        bool outer;  // the enclosing one is being read
     };
     std::vector<Conditional> conditionals_;
     std::string error_;

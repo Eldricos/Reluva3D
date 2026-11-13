@@ -24,17 +24,17 @@ constexpr size_t kEaXaFrameBytes = 15;
 constexpr int kEaXaFrameSamples = 28;
 
 // Decodes one frame into `count` (at most 28) samples, `stride` apart.
-void decodeEaXaFrame(const uint8_t* frame, EaXaChannel& channel, int16_t* out, int count, int stride = 1);
+void decodeEaXaFrame(const uint8_t *frame, EaXaChannel &channel, int16_t *out, int count, int stride = 1);
 
 // A mono stream of frames, `samples` long; fails if the data is short.
-Error decodeEaXa(const uint8_t* data, size_t size, size_t samples, std::vector<int16_t>& out);
+Error decodeEaXa(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out);
 
 // A stereo data block of EA's SCxl streams (SCDl): u32 samples, each
 // channel's starting history (s16 previous, s16 the one before), then per
 // 28 samples a filter byte and a shift byte (left in the high nibbles) and
 // 28 bytes of residuals (left high nibble, right low). Appends the
 // interleaved samples to `out`.
-Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_t>& out);
+Error decodeEaXaStereoBlock(const uint8_t *data, size_t size, std::vector<int16_t> &out);
 
 // EA MicroTalk ("UTalk", "UTK"), a linear-predictive speech codec: mono,
 // 22,050 Hz, 432 samples a frame. The stream starts with a few header bits
@@ -44,12 +44,12 @@ class MicroTalkDecoder {
 public:
     static constexpr int kFrameSamples = 432;
 
-    MicroTalkDecoder(const uint8_t* data, size_t size);
-    MicroTalkDecoder(const MicroTalkDecoder&) = delete; // points into its own state
-    MicroTalkDecoder& operator=(const MicroTalkDecoder&) = delete;
+    MicroTalkDecoder(const uint8_t *data, size_t size);
+    MicroTalkDecoder(const MicroTalkDecoder &) = delete; // points into its own state
+    MicroTalkDecoder &operator=(const MicroTalkDecoder &) = delete;
     // The next frame's samples (unrounded). Past the end of the data the
     // decoder reads zeros, as the original does.
-    const float* decodeFrame();
+    const float *decodeFrame();
     // Whether the decoder has read past the end of its data.
     bool overrun() const { return overrun_; }
 
@@ -57,11 +57,11 @@ private:
     int readByte();
     int readBits(int count);
     void parseHeader();
-    void decodeExcitation(bool multipulse, float* out, int stride);
+    void decodeExcitation(bool multipulse, float *out, int stride);
     void synthesise(int offset, int blocks);
 
-    const uint8_t* p_;
-    const uint8_t* end_;
+    const uint8_t *p_;
+    const uint8_t *end_;
     bool overrun_ = false;
     unsigned bitsValue_ = 0;
     int bitsCount_ = 0;
@@ -73,14 +73,14 @@ private:
     // history reads into the arrays before it, which the decoded audio must
     // match the original's for.
     float state_[64 + 12 + 12 + 324 + kFrameSamples] = {};
-    float* const fixedGains_ = state_;
-    float* const reflection_ = state_ + 64;
-    float* const history_ = state_ + 76;
-    float* const adaptive_ = state_ + 88;
-    float* const frame_ = state_ + 88 + 324;
+    float *const fixedGains_ = state_;
+    float *const reflection_ = state_ + 64;
+    float *const history_ = state_ + 76;
+    float *const adaptive_ = state_ + 88;
+    float *const frame_ = state_ + 88 + 324;
 };
 
 // A mono MicroTalk stream, `samples` long, rounded to 16 bits.
-Error decodeMicroTalk(const uint8_t* data, size_t size, size_t samples, std::vector<int16_t>& out);
+Error decodeMicroTalk(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out);
 
 } // namespace reluva::audio

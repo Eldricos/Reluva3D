@@ -21,15 +21,15 @@ public:
         height_ = height;
         return Error::success();
     }
-    void setPalette(const Color*, int, int) override {}
-    void updateScreen(const Surface&) override { ++frames_; }
-    void setWindowTitle(const std::string& title) override { title_ = title; }
+    void setPalette(const Color *, int, int) override {}
+    void updateScreen(const Surface &) override { ++frames_; }
+    void setWindowTitle(const std::string &title) override { title_ = title; }
     void setMouseCursorVisible(bool visible) override { cursorVisible_ = visible; }
-    void setMouseCursor(const Cursor* cursor) override {
+    void setMouseCursor(const Cursor *cursor) override {
         cursor_ = cursor ? *cursor : Cursor{};
         ++cursorChanges_;
     }
-    bool pollEvent(Event&) override { return false; }
+    bool pollEvent(Event &) override { return false; }
     uint64_t getMillis() const override { return millis_; }
     void delayMillis(uint32_t ms) override { millis_ += ms; }
     Error startAudio(AudioCallback) override { return Error::fail("no sound output"); }
@@ -39,10 +39,10 @@ public:
     int width() const { return width_; }
     int height() const { return height_; }
     int frames() const { return frames_; }
-    const std::string& title() const { return title_; }
+    const std::string &title() const { return title_; }
     // The game's cursor (empty: the system's), whether it's shown, and how
     // many times it was set.
-    const Cursor& cursor() const { return cursor_; }
+    const Cursor &cursor() const { return cursor_; }
     bool cursorVisible() const { return cursorVisible_; }
     int cursorChanges() const { return cursorChanges_; }
 

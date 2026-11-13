@@ -31,43 +31,43 @@ namespace reluva::idtech3 {
 
 class PlayViewer : public Page {
 public:
-    explicit PlayViewer(ViewerContext& ctx);
+    explicit PlayViewer(ViewerContext &ctx);
     ~PlayViewer() override;
-    const char* name() const override { return "Play"; }
+    const char *name() const override { return "Play"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     void start(int index);
-    void stop(const std::string& why);
+    void stop(const std::string &why);
     void reset();
     // The level's drawing (and its light grid) from a map file; false
     // (stopped, with why) if it can't be loaded.
-    bool loadLevel(const std::string& path, std::shared_ptr<Bsp>& bsp);
+    bool loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp);
     // The player's client game, with the server's configstrings, the
     // message its game state came in and the command sequence it starts at.
-    Error startClientGame(const std::map<int32_t, std::string>& configstrings, int32_t serverMessage,
+    Error startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                           int32_t commandSequence);
     // The player's settings as the server is told them (name, model...).
     std::string userinfo() const;
     // Opening the level to players on other machines (patch 1.2's game only).
     void startHosting();
     // Joining a server on another machine instead of running one.
-    void connect(const std::string& address);
+    void connect(const std::string &address);
     // Plays demos/<name> (.efdemo added if not given).
-    void playDemo(const std::string& name);
+    void playDemo(const std::string &name);
     bool playingDemo() const;
     void endDemo();
     // The paks the server's level uses that this player is missing:
     // whether they're being downloaded; and one that has finished
     // (false: stopped).
     bool startDownloads();
-    bool finishDownload(const std::string& name, const std::vector<uint8_t>& data);
+    bool finishDownload(const std::string &name, const std::vector<uint8_t> &data);
     std::vector<std::pair<std::string, int32_t>> downloads_; // name, checksum
     void runGame(uint64_t nowMs);
     bool runLocal(uint64_t nowMs, int32_t dt);
@@ -85,9 +85,9 @@ private:
     size_t localCommandsSeen_ = 0; // of the game's serverCommands()
     int localRestartsSeen_ = 0;    // of the game's map_restarts
     // Loading the level the game asked for (false: this frame is over).
-    bool changeLevel(const std::string& map);
-    void consoleCommand(const std::string& text);
-    void setFromConsole(const std::string& name, const std::string& value);
+    bool changeLevel(const std::string &map);
+    void consoleCommand(const std::string &text);
+    void setFromConsole(const std::string &name, const std::string &value);
     void runClientGameCommands();
     int execDepth_ = 0;
     // The game's menus over the match (the original's in-game menu): Esc
@@ -103,13 +103,13 @@ private:
     void closeMenu();
     void runMenuCommands();
     std::string matchConfigstring(int32_t index) const;
-    void runBinding(const std::string& line, int32_t key, bool down);
+    void runBinding(const std::string &line, int32_t key, bool down);
     void stopSounds();
     void drawOverlay(uint64_t nowMs, bool haveView);
     // What the games print: kept for the console, and the client game's
     // (chat, kills, joins) shown at the top for a few seconds, as the
     // original's console does with its last lines.
-    void addPrint(const std::string& text, bool notify);
+    void addPrint(const std::string &text, bool notify);
     std::deque<std::pair<uint64_t, std::string>> notify_;
     std::string printPartial_[2]; // a line not yet ended, per game
     std::deque<std::string> consoleLines_;
@@ -121,18 +121,18 @@ private:
     int32_t tellClient_ = -1;
     uint32_t swallowChar_ = 0;    // the character of the key that opened the typing
     uint32_t bindingKeyChar_ = 0; // the character of the key whose binding is running
-    int consoleScroll_ = 0;    // lines back from the newest
+    int consoleScroll_ = 0;       // lines back from the newest
     std::vector<std::string> history_;
     size_t historyPos_ = 0;
     void openTyping(Typing t, int32_t client = -1, uint32_t key = 0);
     void closeTyping();
-    void typingEvent(const Event& ev);
+    void typingEvent(const Event &ev);
     void submitTyping();
-    void drawColoured(int x, int y, const std::string& line);
+    void drawColoured(int x, int y, const std::string &line);
 
     std::vector<std::string> names_; // maps
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     int frameW_ = 960, frameH_ = 720; // r_mode
     std::unique_ptr<WorldRenderer> world_;
@@ -161,12 +161,12 @@ private:
     std::deque<FrameNote> recentFrames_; // the last two seconds'
     SoundLibrary soundLibrary_{ctx_.files};
     std::unique_ptr<SoundSystem> soundSystem_; // while a level runs, with audio output
-    CvarStore& cvars_ = ctx_.cvars;
+    CvarStore &cvars_ = ctx_.cvars;
     MenuLayer menus_{ctx_, ctx_.cvars}; // the in-game menu, kept for the page's life
     bool menuOpen_ = false;
-    bool videoRestart_ = false; // vid_restart asked for: done before the next frame
-    bool menuCaught_ = false;   // they've taken the keys (and will let go to close)
-    int32_t playerNumber_ = 0;  // the player's client number in the match
+    bool videoRestart_ = false;   // vid_restart asked for: done before the next frame
+    bool menuCaught_ = false;     // they've taken the keys (and will let go to close)
+    int32_t playerNumber_ = 0;    // the player's client number in the match
     std::string lastMenuCommand_; // what the in-game menu last ran, shown a while
     uint64_t lastMenuCommandMs_ = 0;
     std::unique_ptr<eliteforce::GameHost> game_;

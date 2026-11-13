@@ -14,10 +14,10 @@ namespace {
 namespace stdfs = std::filesystem;
 
 // The names of a folder's entries that are folders (or not), sorted.
-std::vector<std::string> entries(const stdfs::path& dir, bool folders) {
+std::vector<std::string> entries(const stdfs::path &dir, bool folders) {
     std::vector<std::string> names;
     std::error_code ec;
-    for (const auto& e : stdfs::directory_iterator(dir, ec))
+    for (const auto &e : stdfs::directory_iterator(dir, ec))
         if (e.is_directory(ec) == folders)
             names.push_back(e.path().filename().string());
     std::sort(names.begin(), names.end());
@@ -26,12 +26,12 @@ std::vector<std::string> entries(const stdfs::path& dir, bool folders) {
 
 } // namespace
 
-bool hasCdFiles(const stdfs::path& dir) {
+bool hasCdFiles(const stdfs::path &dir) {
     return !filesWithExtension(dir, "GameData/Audio/pc", ".mus").empty();
 }
 
-GameFolders findFolders(const stdfs::path& install, const std::map<std::string, std::string>& settings,
-                        const char* executable) {
+GameFolders findFolders(const stdfs::path &install, const std::map<std::string, std::string> &settings,
+                        const char *executable) {
     GameFolders out;
     out.install = install;
 
@@ -58,7 +58,7 @@ GameFolders findFolders(const stdfs::path& install, const std::map<std::string, 
     std::error_code ec;
     const stdfs::path self = stdfs::weakly_canonical(install, ec);
     const stdfs::path parent = (ec ? install : self).parent_path();
-    for (const std::string& name : entries(parent, true)) {
+    for (const std::string &name : entries(parent, true)) {
         const stdfs::path dir = parent / name;
         if (stdfs::equivalent(dir, install, ec))
             continue;
@@ -71,10 +71,10 @@ GameFolders findFolders(const stdfs::path& install, const std::map<std::string, 
     return out;
 }
 
-std::vector<std::string> trackFolders(const stdfs::path& install) {
+std::vector<std::string> trackFolders(const stdfs::path &install) {
     std::vector<std::string> out;
     if (auto dir = fs::findDirectory(install, "GameData/Tracks"))
-        for (const std::string& name : entries(*dir, true)) {
+        for (const std::string &name : entries(*dir, true)) {
             const std::string lower = fs::toLower(name);
             if (lower.size() == 6 && lower.compare(0, 3, "trk") == 0 &&
                 std::all_of(lower.begin() + 3, lower.end(), [](char c) { return c >= '0' && c <= '9'; }))
@@ -83,21 +83,21 @@ std::vector<std::string> trackFolders(const stdfs::path& install) {
     return out;
 }
 
-std::vector<std::string> carFolders(const stdfs::path& install) {
+std::vector<std::string> carFolders(const stdfs::path &install) {
     std::vector<std::string> out;
     if (auto dir = fs::findDirectory(install, "GameData/CarModel"))
-        for (const std::string& name : entries(*dir, true))
+        for (const std::string &name : entries(*dir, true))
             if (fs::toLower(name) != "traffic" && fs::findFile(*dir / name, "car.viv"))
                 out.push_back(name);
     return out;
 }
 
-std::vector<std::string> filesWithExtension(const stdfs::path& dir, const char* relative, const char* extension) {
+std::vector<std::string> filesWithExtension(const stdfs::path &dir, const char *relative, const char *extension) {
     std::vector<std::string> out;
     if (dir.empty())
         return out;
     if (auto folder = fs::findDirectory(dir, relative))
-        for (const std::string& name : entries(*folder, false))
+        for (const std::string &name : entries(*folder, false))
             if (fs::toLower(stdfs::path(name).extension().string()) == extension)
                 out.push_back(name);
     return out;

@@ -32,14 +32,14 @@ struct PickCandidate {
 // rectangle; then the characters (those with only a rectangle by their
 // bones' boxes, if they can be clicked or an item is in hand); then
 // everything.
-int pick(const std::vector<PickCandidate>& candidates, bool itemInHand);
+int pick(const std::vector<PickCandidate> &candidates, bool itemInHand);
 
 // Whether the pixel (x, y) is in the polygon, filled by winding (as
 // CreatePolygonRgn with WINDING, then PtInRegion).
-bool inPolygon(const std::vector<std::pair<uint32_t, uint32_t>>& points, int x, int y);
+bool inPolygon(const std::vector<std::pair<uint32_t, uint32_t>> &points, int x, int y);
 
 // Whether a ray (from, along dir) meets a box (lo..hi) in the axes the
 // affine `m` puts in the world (GrannyRayIntersectsBox).
-bool rayHitsBox(const gfx::Mat4& m, const float lo[3], const float hi[3], const gfx::Vec3& from, const gfx::Vec3& dir);
+bool rayHitsBox(const gfx::Mat4 &m, const float lo[3], const float hi[3], const gfx::Vec3 &from, const gfx::Vec3 &dir);
 
 } // namespace reluva::awe

@@ -14,21 +14,25 @@ namespace reluva::nfs {
 
 namespace {
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) {
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
 
 // The tags known (bnk.md).
-constexpr int kChannels = 0x82, kCompression = 0x83, kRate = 0x84, kSamples = 0x85, kLoopStart = 0x86,
-              kLoopEnd = 0x87, kDataOffset = 0x88;
+constexpr int kChannels = 0x82, kCompression = 0x83, kRate = 0x84, kSamples = 0x85, kLoopStart = 0x86, kLoopEnd = 0x87,
+              kDataOffset = 0x88;
 // Bytes that open a section of tags rather than being one.
-bool isSection(uint8_t b) { return b == 0xfc || b == 0xfd || b == 0xfe; }
+bool isSection(uint8_t b) {
+    return b == 0xfc || b == 0xfd || b == 0xfe;
+}
 
 } // namespace
 
-Error parseSoundHeader(const uint8_t* data, size_t size, size_t at, SoundHeader& out, size_t* end) {
+Error parseSoundHeader(const uint8_t *data, size_t size, size_t at, SoundHeader &out, size_t *end) {
     out = {};
     if (at + 4 > size || std::memcmp(data + at, "PT\0\0", 4) != 0)
         return Error::fail("no PT header");
@@ -53,7 +57,7 @@ Error parseSoundHeader(const uint8_t* data, size_t size, size_t at, SoundHeader&
     }
     if (end)
         *end = p;
-    auto get = [&](int tag, auto& field) {
+    auto get = [&](int tag, auto &field) {
         if (auto it = out.tags.find(tag); it != out.tags.end())
             field = static_cast<std::remove_reference_t<decltype(field)>>(it->second);
     };
@@ -71,7 +75,7 @@ Error parseSoundHeader(const uint8_t* data, size_t size, size_t at, SoundHeader&
     return Error::success();
 }
 
-Error parseSoundBank(const std::vector<uint8_t>& data, SoundBank& out) {
+Error parseSoundBank(const std::vector<uint8_t> &data, SoundBank &out) {
     out = {};
     if (data.size() < 12 || std::memcmp(data.data(), "BNKl", 4) != 0)
         return Error::fail("Not a valid .bnk bank: no BNKl header");
@@ -102,7 +106,7 @@ Error parseSoundBank(const std::vector<uint8_t>& data, SoundBank& out) {
     return Error::success();
 }
 
-Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& h, audio::Sound& out) {
+Error decodeBankSound(const std::vector<uint8_t> &data, const SoundHeader &h, audio::Sound &out) {
     out = {};
     out.rate = h.rate;
     out.channels = h.channels;
@@ -114,7 +118,7 @@ Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& h, au
     }
     if (h.dataOffset > data.size())
         return Error::fail("the sound's data starts past the end of its bank");
-    const uint8_t* p = data.data() + h.dataOffset;
+    const uint8_t *p = data.data() + h.dataOffset;
     const size_t room = data.size() - h.dataOffset;
     switch (h.compression) {
     case SoundHeader::kPcm16: {
@@ -143,7 +147,7 @@ Error decodeBankSound(const std::vector<uint8_t>& data, const SoundHeader& h, au
 }
 
 // 0x501b1f (the voice's base pitch) and 0x502cb0 (with the bend).
-int patchCents(const SoundHeader& h, int key, int bend) {
+int patchCents(const SoundHeader &h, int key, int bend) {
     auto tag = [&](int t, int otherwise) {
         auto it = h.tags.find(t);
         return it == h.tags.end() ? otherwise : static_cast<int>(it->second);

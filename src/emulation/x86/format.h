@@ -16,6 +16,6 @@ namespace reluva::x86 {
 // 8, as C promotes floats). The conversions d i u x X o c s f F e E g G p %
 // with flags, width and precision (and *), and the size prefixes h l ll
 // I64. %n is ignored.
-std::string formatPrintf(const Cpu& cpu, uint32_t format, uint32_t args);
+std::string formatPrintf(const Cpu &cpu, uint32_t format, uint32_t args);
 
 } // namespace reluva::x86

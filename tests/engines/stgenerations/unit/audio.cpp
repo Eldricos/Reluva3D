@@ -26,7 +26,7 @@ static std::vector<uint8_t> makePCM16(int frames, int16_t value) {
     return data;
 }
 
-static std::vector<uint8_t> makeWav(const std::vector<uint8_t>& pcm, bool junk = true) {
+static std::vector<uint8_t> makeWav(const std::vector<uint8_t> &pcm, bool junk = true) {
     MemoryWriteStream w;
     w.writeUint32BE(tagBE('R', 'I', 'F', 'F'));
     w.writeUint32LE(4 + 8 + 16 + (junk ? 8 + 2 : 0) + 8 + uint32_t(pcm.size()));
@@ -163,7 +163,8 @@ static void mixer_kinds() {
 
     mixer.stopAll();
     SoundHandle music, speech;
-    mixer.playStream(Mixer::kMusicSoundType, &music, makeRawStream(makePCM16(100, 1), 22050, kRaw16Bits | kRawLittleEndian));
+    mixer.playStream(Mixer::kMusicSoundType, &music,
+                     makeRawStream(makePCM16(100, 1), 22050, kRaw16Bits | kRawLittleEndian));
     mixer.playStream(Mixer::kSpeechSoundType, &speech,
                      makeRawStream(makePCM16(100, 1), 22050, kRaw16Bits | kRawLittleEndian));
     CHECK(mixer.isSoundTypeActive(Mixer::kMusicSoundType) && mixer.isSoundTypeActive(Mixer::kSpeechSoundType));
@@ -212,12 +213,14 @@ static void platform_input() {
     CHECK(platform.pollEvent(got) && got.type == kEventKeydown && got.kbd.ascii == 'b' && got.kbd.keycode == 0);
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.audio", {
-    {"no sound output", [](const std::filesystem::path&) { no_sound_output(); }},
-    {"platform input", [](const std::filesystem::path&) { platform_input(); }},
-    {"raw stream formats", [](const std::filesystem::path&) { raw_stream_formats(); }},
-    {"looping stream", [](const std::filesystem::path&) { looping_stream(); }},
-    {"wave parsing", [](const std::filesystem::path&) { wave_parsing(); }},
-    {"mixer volume and balance", [](const std::filesystem::path&) { mixer_volume_and_balance(); }},
-    {"mixer kinds", [](const std::filesystem::path&) { mixer_kinds(); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.unit.audio",
+          {
+              {"no sound output", [](const std::filesystem::path &) { no_sound_output(); }},
+              {"platform input", [](const std::filesystem::path &) { platform_input(); }},
+              {"raw stream formats", [](const std::filesystem::path &) { raw_stream_formats(); }},
+              {"looping stream", [](const std::filesystem::path &) { looping_stream(); }},
+              {"wave parsing", [](const std::filesystem::path &) { wave_parsing(); }},
+              {"mixer volume and balance", [](const std::filesystem::path &) { mixer_volume_and_balance(); }},
+              {"mixer kinds", [](const std::filesystem::path &) { mixer_kinds(); }},
+          });

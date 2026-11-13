@@ -21,7 +21,7 @@ struct Rgba {
 inline Rgba unpackArgb(uint32_t v) {
     return {int(v >> 16 & 255), int(v >> 8 & 255), int(v & 255), int(v >> 24)};
 }
-inline uint32_t packArgb(const Rgba& c) {
+inline uint32_t packArgb(const Rgba &c) {
     return uint32_t(c.a) << 24 | uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | uint32_t(c.b);
 }
 
@@ -29,7 +29,9 @@ inline uint32_t packArgb(const Rgba& c) {
 // combine units' multiply (Voodoo2 specification, fbzColorPath and
 // textureMode figures: the factor plus one, the low bits truncated, not
 // rounded). Factor 255 gives v, 0 gives 0 for |v| < 256.
-inline int scaleBy(int v, int factor) { return (v * (factor + 1)) >> 8; }
+inline int scaleBy(int v, int factor) {
+    return (v * (factor + 1)) >> 8;
+}
 
 // One unit's settings (grColorCombine, grAlphaCombine, grTexCombine).
 struct CombineSettings {
@@ -42,7 +44,7 @@ struct CombineSettings {
 // local alpha (for the *_ADD_LOCAL_ALPHA functions) and the factor's value
 // (0-255), already chosen. The result clamped to 0-255, then inverted if
 // asked.
-int combineChannel(const CombineSettings& s, int local, int other, int localAlpha, int factor);
+int combineChannel(const CombineSettings &s, int local, int other, int localAlpha, int factor);
 
 // The factor's value (0-255) for one channel of the colour or alpha
 // combine unit (grColorCombine/grAlphaCombine's table): `local`, `otherAlpha`,
@@ -61,14 +63,14 @@ int textureCombineFactor(int factor, int local, int otherAlpha, int localAlpha, 
 struct PixelCombine {
     CombineSettings color, alpha;
     int colorLocal = 0, colorOther = 0, alphaLocal = 0, alphaOther = 0; // CombineLocal/CombineOther
-    bool alphaControlsLighting = false; // grAlphaControlsITRGBLighting
+    bool alphaControlsLighting = false;                                 // grAlphaControlsITRGBLighting
 };
-Rgba combinePixel(const PixelCombine& p, const Rgba& iterated, const Rgba& texture, const Rgba& constant, int depth8,
-                  Rgba* chromaOther);
+Rgba combinePixel(const PixelCombine &p, const Rgba &iterated, const Rgba &texture, const Rgba &constant, int depth8,
+                  Rgba *chromaOther);
 
 // One TMU's combine (grTexCombine): its own filtered texel (`local`) with
 // what the TMU upstream of it gives (`other`).
-Rgba combineTexture(const CombineSettings& rgb, const CombineSettings& alpha, const Rgba& local, const Rgba& other,
+Rgba combineTexture(const CombineSettings &rgb, const CombineSettings &alpha, const Rgba &local, const Rgba &other,
                     int detail, int lodFraction);
 
 // The Voodoo's 16-bit floating-point depth from a 1/w (Voodoo2
@@ -78,12 +80,12 @@ Rgba combineTexture(const CombineSettings& rgb, const CombineSettings& alpha, co
 // gives larger values. 1/w of 1 or more gives 0, below 2^-16 0xffff.
 inline uint16_t floatDepth(double oow) {
     if (!(oow < 1.0))
-        return 0; // integer bits set (or not a number): the nearest
+        return 0;                             // integer bits set (or not a number): the nearest
     const double scaled = oow * 4294967296.0; // the fraction's 32 bits
     if (!(scaled >= 65536.0))
         return 0xffff; // below 2^-16: the farthest
     const uint32_t f = uint32_t(scaled);
-    const int exponent = std::countl_zero(f); // at most 15 here
+    const int exponent = std::countl_zero(f);              // at most 15 here
     const uint32_t mantissa = (f << (exponent + 1)) >> 20; // the 12 bits after the leading one
     return uint16_t(exponent << 12 | (0xfff - mantissa));
 }
@@ -100,9 +102,11 @@ inline int fogTableFactor(const uint8_t table[64], uint16_t wfloat) {
 
 // The fog unit: `c` moved towards `fogColor` by f (0-255) as grFogMode's
 // mode says (kFogMult2, kFogAdd2 or the plain mix). Alpha untouched.
-inline Rgba applyFog(const Rgba& c, const Rgba& fogColor, int f, int mode) {
+inline Rgba applyFog(const Rgba &c, const Rgba &fogColor, int f, int mode) {
     auto mix = [&](int in, int fog) {
-        const int v = (mode & 0x100) ? scaleBy(fog, f) : (mode & 0x200) ? in - scaleBy(in, f) : in + scaleBy(fog - in, f);
+        const int v = (mode & 0x100)   ? scaleBy(fog, f)
+                      : (mode & 0x200) ? in - scaleBy(in, f)
+                                       : in + scaleBy(fog - in, f);
         return v < 0 ? 0 : v > 255 ? 255 : v;
     };
     return {mix(c.r, fogColor.r), mix(c.g, fogColor.g), mix(c.b, fogColor.b), c.a};
@@ -111,20 +115,28 @@ inline Rgba applyFog(const Rgba& c, const Rgba& fogColor, int f, int mode) {
 // grAlphaBlendFunction's equation for one pixel: `src` (after fog) over
 // `dst` (read back from the buffer), `prefog` the colour before fog (for
 // GR_BLEND_PREFOG_COLOR as the destination factor).
-Rgba blendPixel(const Rgba& src, const Rgba& dst, const Rgba& prefog, int rgbSrc, int rgbDst, int alphaSrc,
+Rgba blendPixel(const Rgba &src, const Rgba &dst, const Rgba &prefog, int rgbSrc, int rgbDst, int alphaSrc,
                 int alphaDst);
 
 // a `func` b (CmpFunc).
 inline bool compare(int func, int a, int b) {
     switch (func) {
-    case 0: return false;  // never
-    case 1: return a < b;  // less
-    case 2: return a == b; // equal
-    case 3: return a <= b; // less or equal
-    case 4: return a > b;  // greater
-    case 5: return a != b; // not equal
-    case 6: return a >= b; // greater or equal
-    default: return true;  // always
+    case 0:
+        return false; // never
+    case 1:
+        return a < b; // less
+    case 2:
+        return a == b; // equal
+    case 3:
+        return a <= b; // less or equal
+    case 4:
+        return a > b; // greater
+    case 5:
+        return a != b; // not equal
+    case 6:
+        return a >= b; // greater or equal
+    default:
+        return true; // always
     }
 }
 
@@ -143,7 +155,7 @@ extern const DitherTables kDitherTables;
 inline uint16_t to565(int r, int g, int b, int x, int y, int ditherMode) {
     if (ditherMode == 2 || ditherMode == 1) { // GR_DITHER_4x4, GR_DITHER_2x2
         const int m = ditherMode == 2 ? 0 : 1, pos = (y & 3) * 4 + (x & 3);
-        const DitherTables& d = kDitherTables;
+        const DitherTables &d = kDitherTables;
         return uint16_t(d.five[m][pos][r] << 11 | d.six[m][pos][g] << 5 | d.five[m][pos][b]);
     }
     return uint16_t((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));

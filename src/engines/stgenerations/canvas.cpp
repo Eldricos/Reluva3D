@@ -9,7 +9,7 @@
 
 namespace reluva::stgenerations {
 
-Canvas& Canvas::operator=(Canvas&& other) noexcept {
+Canvas &Canvas::operator=(Canvas &&other) noexcept {
     if (this != &other) {
         w = other.w;
         h = other.h;
@@ -42,7 +42,7 @@ void Canvas::free() {
 }
 
 uint32_t Canvas::getPixel(int x, int y) const {
-    const uint8_t* p = static_cast<const uint8_t*>(getBasePtr(x, y));
+    const uint8_t *p = static_cast<const uint8_t *>(getBasePtr(x, y));
     if (format_ == kClut8)
         return *p;
     uint32_t v;
@@ -53,7 +53,7 @@ uint32_t Canvas::getPixel(int x, int y) const {
 void Canvas::setPixel(int x, int y, uint32_t color) {
     if (x < 0 || y < 0 || x >= w || y >= h)
         return;
-    uint8_t* p = static_cast<uint8_t*>(getBasePtr(x, y));
+    uint8_t *p = static_cast<uint8_t *>(getBasePtr(x, y));
     if (format_ == kClut8)
         *p = uint8_t(color);
     else
@@ -74,7 +74,7 @@ void Canvas::fillRect(Rect r, uint32_t color) {
     }
 }
 
-void Canvas::frameRect(const Rect& r, uint32_t color) {
+void Canvas::frameRect(const Rect &r, uint32_t color) {
     hLine(r.left, r.top, r.right - 1, color);
     hLine(r.left, r.bottom - 1, r.right - 1, color);
     vLine(r.left, r.top, r.bottom - 1, color);
@@ -114,7 +114,7 @@ void Canvas::drawLine(int x0, int y0, int x1, int y1, uint32_t color) {
     }
 }
 
-void Canvas::fillPolygon(const Point* points, int count, uint32_t color) {
+void Canvas::fillPolygon(const Point *points, int count, uint32_t color) {
     if (count < 3)
         return;
     int minY = points[0].y, maxY = points[0].y;
@@ -142,8 +142,8 @@ void Canvas::fillPolygon(const Point* points, int count, uint32_t color) {
     }
 }
 
-void Canvas::copyRectToSurface(const void* buffer, int srcPitch, int destX, int destY, int width, int height) {
-    const uint8_t* src = static_cast<const uint8_t*>(buffer);
+void Canvas::copyRectToSurface(const void *buffer, int srcPitch, int destX, int destY, int width, int height) {
+    const uint8_t *src = static_cast<const uint8_t *>(buffer);
     const int bpp = bytesPerPixel();
     // Clipped, the source's corner moved with it.
     if (destX < 0) {
@@ -166,7 +166,7 @@ void Canvas::copyRectToSurface(const void* buffer, int srcPitch, int destX, int 
         std::memcpy(getBasePtr(destX, destY + y), src + ptrdiff_t(y) * srcPitch, size_t(width) * bpp);
 }
 
-void Canvas::copyRectToSurface(const Canvas& src, int destX, int destY, const Rect& subRect) {
+void Canvas::copyRectToSurface(const Canvas &src, int destX, int destY, const Rect &subRect) {
     Rect r = subRect;
     r.clip(Rect(0, 0, src.w, src.h));
     if (r.isEmpty())
@@ -174,7 +174,7 @@ void Canvas::copyRectToSurface(const Canvas& src, int destX, int destY, const Re
     copyRectToSurface(src.getBasePtr(r.left, r.top), src.pitch, destX, destY, r.width(), r.height());
 }
 
-void Canvas::transBlitFrom(const Canvas& src, int destX, int destY, uint32_t transColor) {
+void Canvas::transBlitFrom(const Canvas &src, int destX, int destY, uint32_t transColor) {
     for (int y = 0; y < src.h; y++) {
         const int dy = destY + y;
         if (dy < 0 || dy >= h)

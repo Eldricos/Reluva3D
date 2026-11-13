@@ -24,10 +24,12 @@ struct Bitmap {
 };
 
 // A .bmp file (its BITMAPFILEHEADER first).
-Error decodeBmp(const uint8_t* data, size_t size, Bitmap& out);
-inline Error decodeBmp(const std::vector<uint8_t>& data, Bitmap& out) { return decodeBmp(data.data(), data.size(), out); }
+Error decodeBmp(const uint8_t *data, size_t size, Bitmap &out);
+inline Error decodeBmp(const std::vector<uint8_t> &data, Bitmap &out) {
+    return decodeBmp(data.data(), data.size(), out);
+}
 // A bitmap without the file header, from its BITMAPINFOHEADER on, with the
 // pixels straight after the palette (as resources in executables keep it).
-Error decodeDib(const uint8_t* data, size_t size, Bitmap& out);
+Error decodeDib(const uint8_t *data, size_t size, Bitmap &out);
 
 } // namespace reluva::image

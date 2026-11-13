@@ -26,16 +26,16 @@ struct FileRef {
 // install doesn't have), .viv archives' contents included.
 class GameFiles {
 public:
-    void scan(const GameFolders& folders);
+    void scan(const GameFolders &folders);
 
-    const std::vector<FileRef>& files() const { return files_; }
+    const std::vector<FileRef> &files() const { return files_; }
     // The files whose name (the part after the last '/') ends with one of
     // the extensions given (".fsh"), ignoring case, in scan order.
-    std::vector<FileRef> withExtensions(std::initializer_list<const char*> extensions) const;
+    std::vector<FileRef> withExtensions(std::initializer_list<const char *> extensions) const;
     // The front-end string tables (FeData/text/text.*).
     std::vector<FileRef> textTables() const;
 
-    Error read(const FileRef& ref, std::vector<uint8_t>& out) const;
+    Error read(const FileRef &ref, std::vector<uint8_t> &out) const;
 
 private:
     std::vector<FileRef> files_;

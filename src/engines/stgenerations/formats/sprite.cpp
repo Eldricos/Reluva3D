@@ -9,7 +9,7 @@
 
 namespace reluva::stgenerations {
 
-bool SpriteSet::load(SeekableReadStream& stream) {
+bool SpriteSet::load(SeekableReadStream &stream) {
     _frames.clear();
     _sequences.clear();
 
@@ -69,7 +69,7 @@ bool SpriteSet::load(SeekableReadStream& stream) {
         frame.halfWidth = width / 65536.0;
         frame.surface.create((int16_t)columnCount, (int16_t)height, Canvas::kClut8);
         for (uint32_t x = 0; x < columnCount; x++) {
-            const uint8_t* column = &columns[x * height];
+            const uint8_t *column = &columns[x * height];
             bool empty = tables[2 * columnCount + x] == 0;
             for (uint32_t y = 0; y < height; y++)
                 frame.surface.setPixel(x, height - 1 - y, empty ? kTransparent : column[y]);
@@ -81,14 +81,14 @@ bool SpriteSet::load(SeekableReadStream& stream) {
 
 int SpriteSet::getMaxWidth() const {
     int width = 0;
-    for (const Frame& frame : _frames)
+    for (const Frame &frame : _frames)
         width = std::max<int>(width, frame.surface.w);
     return width;
 }
 
 int SpriteSet::getMaxHeight() const {
     int height = 0;
-    for (const Frame& frame : _frames)
+    for (const Frame &frame : _frames)
         height = std::max<int>(height, frame.surface.h);
     return height;
 }

@@ -20,13 +20,13 @@ namespace reluva::nfs {
 
 using x86::Cpu;
 
-uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
+uint32_t GameHost::wrapThrash(const std::string &name, uint32_t address) {
     const size_t at = name.rfind('@');
     const int argBytes = at == std::string::npos ? 0 : std::atoi(name.c_str() + at + 1);
     std::string shortName = name;
     if (shortName.rfind("_THRASH_", 0) == 0)
         shortName = shortName.substr(8, at == std::string::npos ? std::string::npos : at - 8);
-    return cpu_->addNative("THRASH " + shortName, [this, shortName, address, argBytes](Cpu& c) {
+    return cpu_->addNative("THRASH " + shortName, [this, shortName, address, argBytes](Cpu &c) {
         ++thrash_.calls[shortName];
         std::vector<uint32_t> args;
         for (int i = 0; i < argBytes / 4; ++i)
@@ -34,8 +34,7 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
         if (shortName == "talloc") {
             ++thrash_.textures;
             ++thrash_.textureFormats[int(args[2])];
-        }
-        else if (shortName == "setvideomode") {
+        } else if (shortName == "setvideomode") {
             say("  THRASH_setvideomode(" + std::to_string(args[0]) + ", " + std::to_string(args[1]) + ", " +
                 std::to_string(args[2]) + ")");
         } else if (shortName == "pageflip") {
@@ -45,10 +44,10 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
             const uint64_t idleMicros = process_->idleMicros, idleWaits = process_->idleWaits;
             const uint64_t own = process_->instructionsOn(process_->currentThread()),
                            timer = process_->timerInstructions();
-            thrash_.frameLog.push_back({process_->now(), thrash_.lastFrameInstructions,
-                                        thrash_.rendererInstructions - lastFlipRenderer_,
-                                        idleMicros - thrash_.lastIdleMicros, idleWaits - thrash_.lastIdleWaits,
-                                        own - std::min(own, thrash_.lastOwn), timer - std::min(timer, thrash_.lastTimer)});
+            thrash_.frameLog.push_back(
+                {process_->now(), thrash_.lastFrameInstructions, thrash_.rendererInstructions - lastFlipRenderer_,
+                 idleMicros - thrash_.lastIdleMicros, idleWaits - thrash_.lastIdleWaits,
+                 own - std::min(own, thrash_.lastOwn), timer - std::min(timer, thrash_.lastTimer)});
             thrash_.lastOwn = own;
             thrash_.lastTimer = timer;
             thrash_.lastIdleMicros = idleMicros;
@@ -98,7 +97,8 @@ uint32_t GameHost::wrapThrash(const std::string& name, uint32_t address) {
                 onFrame(frame_);
         }
         c.reg[Cpu::EAX] = result;
-        if (options_.thrashLogTo && thrash_.frames >= options_.thrashLogFrom && thrash_.frames <= options_.thrashLogTo) {
+        if (options_.thrashLogTo && thrash_.frames >= options_.thrashLogFrom &&
+            thrash_.frames <= options_.thrashLogTo) {
             // The call, then up to 64 bytes at each argument that points
             // into memory.
             char buf[64];
@@ -133,7 +133,7 @@ void GameHost::addGlide() {
     if (!options_.glideDll.empty()) {
         std::ifstream in(options_.glideDll, std::ios::binary);
         std::string file((std::istreambuf_iterator<char>(in)), {});
-        for (char& ch : file)
+        for (char &ch : file)
             ch = char(std::tolower(uint8_t(ch)));
         glide3 = file.find("glide3x.dll") != std::string::npos;
     }
@@ -146,10 +146,10 @@ void GameHost::addGlide() {
         glide_ = std::make_unique<glide::Glide3Dll>(*cpu_, process_->memory(), board);
     else
         glide_ = std::make_unique<glide::Glide2Dll>(*cpu_, process_->memory(), board);
-    glide::Glide2& g = glide_->core();
-    g.log = [this](const std::string& line) { say("  " + line); };
+    glide::Glide2 &g = glide_->core();
+    g.log = [this](const std::string &line) { say("  " + line); };
     // gu3dfLoad's files, by the program's own paths.
-    glide_->readFile = [this](const std::string& path, std::vector<uint8_t>& bytes) {
+    glide_->readFile = [this](const std::string &path, std::vector<uint8_t> &bytes) {
         std::ifstream in(process_->hostPath(path, false), std::ios::binary);
         if (!in)
             return false;
@@ -165,7 +165,7 @@ void GameHost::addGlide() {
         if (renderer) {
             glideRenderer_ = "GPU (" + device + ")";
             if (options_.glideGpu == 2) {
-                renderer = glide::makeComparingRenderer(std::move(renderer), [this](const glide::FrameComparison& f) {
+                renderer = glide::makeComparingRenderer(std::move(renderer), [this](const glide::FrameComparison &f) {
                     if (onGlideComparison)
                         onGlideComparison(f);
                 });
@@ -176,7 +176,7 @@ void GameHost::addGlide() {
             say("  Glide on the GPU: " + error + "; drawn in software");
         }
     }
-    static const char* const kGenerations[] = {"Voodoo Graphics", "Voodoo Rush", "Voodoo2", "Voodoo Banshee",
+    static const char *const kGenerations[] = {"Voodoo Graphics", "Voodoo Rush", "Voodoo2", "Voodoo Banshee",
                                                "Voodoo3"};
     say("  " + glide_->dllName() + " stood in for on a " + kGenerations[int(board.generation)] + ", drawn by " +
         glideRenderer_);
@@ -187,20 +187,20 @@ void GameHost::addGlide() {
     };
     const uint32_t handle = 0x6c000000u;
     addNativeModule(glide_->dllName(), handle);
-    for (const auto& [name, address] : glide_->exports())
+    for (const auto &[name, address] : glide_->exports())
         nativeExports_[handle][name] = address;
     // For comparisons: the texture filter held to one mode whatever the
     // DLL asks (it asks for bilinear, thrash.md, Texture filtering).
     if (options_.glideFilter >= 0)
         nativeExports_[handle]["_grTexFilterMode@12"] =
-            cpu_->addNative(glide_->dllName() + " grTexFilterMode (held)", [this](Cpu& c) {
+            cpu_->addNative(glide_->dllName() + " grTexFilterMode (held)", [this](Cpu &c) {
                 glide_->core().texFilterMode(int(c.arg(0)), options_.glideFilter, options_.glideFilter);
                 c.reg[Cpu::EAX] = 0;
                 return 12u;
             });
 }
 
-void GameHost::mirrorNative(const std::string& name, const std::vector<uint32_t>& args) {
+void GameHost::mirrorNative(const std::string &name, const std::vector<uint32_t> &args) {
     // The native rasterizer's own 640x480 5:6:5 buffer, for both windows.
     if (!compareBuffer_) {
         compareBuffer_ = process_->memory().alloc(640 * 480 * 2);
@@ -224,7 +224,7 @@ void GameHost::mirrorNative(const std::string& name, const std::vector<uint32_t>
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
                 const uint16_t v = cpu_->read16(compareBuffer_ + uint32_t(y * 1280 + x * 2));
-                uint8_t* d = native.row(y) + x * 4;
+                uint8_t *d = native.row(y) + x * 4;
                 // Widened as the Glide frame is (the top bits repeated), so
                 // that only the drawing differs.
                 const glide::Rgba w = glide::from565(v);
@@ -241,7 +241,9 @@ void GameHost::mirrorNative(const std::string& name, const std::vector<uint32_t>
     }
 }
 
-uint32_t GameHost::softtria(uint32_t address) const { return cpu_->read32(address - 0x60000000 + thrashBase_); }
+uint32_t GameHost::softtria(uint32_t address) const {
+    return cpu_->read32(address - 0x60000000 + thrashBase_);
+}
 
 void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int width, int height) {
     if (frame_.w != modeWidth_ || frame_.h != modeHeight_)
@@ -253,8 +255,8 @@ void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int wid
     if (width <= 0 || height <= 0 || !cpu_->valid(buffer + uint32_t(y0 * pitch), uint32_t(height * pitch)))
         return;
     for (int y = y0; y < y0 + height; ++y) {
-        const uint8_t* src = cpu_->memory().data() + buffer + size_t(y) * size_t(pitch) + size_t(x0) * 2;
-        uint8_t* dst = frame_.row(y) + size_t(x0) * 4;
+        const uint8_t *src = cpu_->memory().data() + buffer + size_t(y) * size_t(pitch) + size_t(x0) * 2;
+        uint8_t *dst = frame_.row(y) + size_t(x0) * 4;
         for (int x = 0; x < width; ++x, dst += 4) {
             const uint16_t v = uint16_t(src[2 * x] | src[2 * x + 1] << 8);
             dst[0] = uint8_t(((v >> 11) & 31) * 255 / 31);
@@ -267,7 +269,7 @@ void GameHost::presentBuffer(uint32_t buffer, int pitch, int x0, int y0, int wid
         onFrame(frame_);
 }
 
-bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& args, uint32_t& result) {
+bool GameHost::nativeDraw(const std::string &name, const std::vector<uint32_t> &args, uint32_t &result) {
     // Texture uploads: only the native copy is kept, as the DLL's drawing
     // (the one user of its own) isn't called.
     if (name == "tupdate" && args.size() >= 2) {
@@ -282,8 +284,8 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
         const int width = (int(softtria(0x6003e0c0)) >> 4) * 16, height = int(softtria(0x6003e0c4));
         if (name == "clearwindow" && options_.gpuThrash) {
             const uint32_t v = softtria(0x6003e11c) & 0xffff; // 5:6:5
-            const uint32_t argb = 0xff000000u | ((v >> 11) & 31) * 255 / 31 << 16 | ((v >> 5) & 63) * 255 / 63 << 8 |
-                                  (v & 31) * 255 / 31;
+            const uint32_t argb =
+                0xff000000u | ((v >> 11) & 31) * 255 / 31 << 16 | ((v >> 5) & 63) * 255 / 63 << 8 | (v & 31) * 255 / 31;
             native_->fill(x0, y0, x0 + width, y0 + height, argb);
             if (!options_.gpuAndSoftware)
                 return true;
@@ -292,7 +294,7 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
             const uint32_t fill = softtria(0x6003e11c); // the clear colour, two pixels of it
             if (width > 0 && height > 0 && cpu_->valid(buffer + uint32_t(y0) * pitch, uint32_t(height) * pitch))
                 for (int y = y0; y < y0 + height; ++y) {
-                    uint8_t* row = cpu_->memory().data() + buffer + size_t(y) * pitch + size_t(x0) * 2;
+                    uint8_t *row = cpu_->memory().data() + buffer + size_t(y) * pitch + size_t(x0) * 2;
                     for (int x = 0; x < width; x += 2)
                         std::memcpy(row + 2 * x, &fill, 4);
                 }
@@ -330,9 +332,9 @@ bool GameHost::nativeDraw(const std::string& name, const std::vector<uint32_t>& 
     auto buffer = windowBuffers_.find(thrashWindow_);
     if (buffer == windowBuffers_.end())
         return true; // nothing known to draw into: as if drawn
-    const auto& [address, pitch, width, height] = buffer->second;
+    const auto &[address, pitch, width, height] = buffer->second;
     native_->setTarget(address, int(pitch), int(width), int(height));
-    NativeThrash& n = *native_;
+    NativeThrash &n = *native_;
     auto at = [&](uint32_t base, uint32_t i) { return base + 32 * i; };
     auto index = [&](uint32_t list, uint32_t i) { return cpu_->read32(list + 4 * i); };
     const uint32_t count = args.empty() ? 0 : std::min<uint32_t>(args[0], 65536);

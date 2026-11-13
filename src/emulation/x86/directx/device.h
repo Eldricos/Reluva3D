@@ -24,7 +24,7 @@ namespace reluva::x86::dx {
 
 using Matrix = std::array<float, 16>; // row-major, row vectors (D3DMATRIX)
 Matrix identity();
-Matrix multiply(const Matrix& a, const Matrix& b);
+Matrix multiply(const Matrix &a, const Matrix &b);
 
 struct Color {
     float r = 0, g = 0, b = 0, a = 0;
@@ -47,7 +47,7 @@ struct Material {
 
 // A vertex on its way through the pipeline.
 struct ClipVertex {
-    float x, y, z, w;     // clip space; after projection, screen x, y, z and 1/w
+    float x, y, z, w;        // clip space; after projection, screen x, y, z and 1/w
     Color diffuse, specular; // 0..1; specular's alpha is the fog factor
     float tex[8][2];
 };
@@ -103,16 +103,16 @@ struct Draw {
         double zMax = 0;
         uint32_t zBytes = 0, zMask = 0;
         // Where the target and the depth buffer are, for this draw.
-        uint8_t* targetAt = nullptr;
-        uint8_t* depthAt = nullptr;
+        uint8_t *targetAt = nullptr;
+        uint8_t *depthAt = nullptr;
         int targetWidth = 0, targetHeight = 0, targetPitch = 0, depthWidth = 0, depthHeight = 0, depthPitch = 0;
         uint32_t targetBytes = 0;
     };
     // Each stage's texture as it's sampled for the triangle being drawn
     // (its mip level, by `lod`), set by prepareSamplers.
     struct Sampler {
-        const uint32_t* argb = nullptr; // none: no texture
-        const uint8_t* keyed = nullptr;
+        const uint32_t *argb = nullptr; // none: no texture
+        const uint8_t *keyed = nullptr;
         int width = 0, height = 0;
         float fw = 0, fh = 0;
         bool linear = false;
@@ -131,27 +131,27 @@ struct Draw {
 
     PixelConfig cfg_;
     int stages = 0; // texture stages in use
-    const DecodedTexture* bound[8]{};
+    const DecodedTexture *bound[8]{};
     Viewport viewport;
     std::shared_ptr<Surface> target, depth;
 
     // Fills a projected triangle.
-    void rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) const;
+    void rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) const;
     // One pixel: depth test, texture stages, alpha test, fog, blending.
     // `attributes` are the vertex attributes there (diffuse, specular, then
     // each stage's u and v).
-    void pixel(Raster& r, int x, int y, float z, float eyeW, const float* attributes) const;
-    void prepareSamplers(Raster& r) const;
+    void pixel(Raster &r, int x, int y, float z, float eyeW, const float *attributes) const;
+    void prepareSamplers(Raster &r) const;
 
 private:
-    bool depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const;
-    void shade(const Raster& r, int x, int y, float z, float eyeW, const float* attributes, uint8_t* zAt,
+    bool depthTest(int x, int y, float z, uint8_t *&zAt, uint32_t &zNew) const;
+    void shade(const Raster &r, int x, int y, float z, float eyeW, const float *attributes, uint8_t *zAt,
                uint32_t zNew) const;
-    void finish(int x, int y, float z, float eyeW, const float* attributes, Color current, uint8_t* zAt,
+    void finish(int x, int y, float z, float eyeW, const float *attributes, Color current, uint8_t *zAt,
                 uint32_t zNew) const;
     // A texel of a stage's texture at u, v (0xffffffff without one); with
     // `keyed`, whether it's keyed out by the colour key.
-    uint32_t sample(const Raster& r, int stage, float u, float v, bool* keyed) const;
+    uint32_t sample(const Raster &r, int stage, float u, float v, bool *keyed) const;
     // Whether span4 can draw this draw's pixels: quick stages, no colour
     // key, a 16- or 32-bit RGB target, the usual blend or none, linear or
     // vertex fog or none.
@@ -159,10 +159,10 @@ private:
     // Pixels x on of row y four at a time, while four fit up to `last`,
     // exactly as one at a time: `row` (z, 1/w, the attributes over w) is
     // stepped by `fx` for each. Returns where it stopped.
-    int span4(const Raster& r, int x, int last, int y, float* row, const float* fx, int n, int count,
-              const float* flatColors) const;
+    int span4(const Raster &r, int x, int last, int y, float *row, const float *fx, int n, int count,
+              const float *flatColors) const;
 #if defined(__SSE2__) || defined(_M_X64)
-    bool sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out) const;
+    bool sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out) const;
 #endif
 };
 
@@ -171,15 +171,15 @@ struct DrawQueue;
 class VertexBuffer : public ComObject {
 public:
     uint32_t fvf = 0, count = 0, memory = 0, caps = 0;
-    DirectX::State* s = nullptr;
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override;
-    const ComInterface* query(const std::string& iid) override;
+    DirectX::State *s = nullptr;
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
+    const ComInterface *query(const std::string &iid) override;
     ~VertexBuffer() override;
 };
 
 class Device : public ComObject {
 public:
-    DirectX::State* s = nullptr;
+    DirectX::State *s = nullptr;
     std::shared_ptr<Surface> target, depth;
     std::array<uint32_t, 256> renderStates{};
     std::array<std::array<uint32_t, 32>, 8> stageStates{};
@@ -205,9 +205,9 @@ public:
     std::optional<StateBlock> recording;
     uint32_t nextBlock = 1;
 
-    std::unordered_map<const Surface*, DecodedTexture> decoded;
+    std::unordered_map<const Surface *, DecodedTexture> decoded;
 
-    Device(DirectX::State* state, std::shared_ptr<Surface> renderTarget);
+    Device(DirectX::State *state, std::shared_ptr<Surface> renderTarget);
     ~Device() override;
     // Waits for the draws given so far to be drawn (they may be drawing on
     // another thread): before anything else reads or writes the surfaces.
@@ -215,8 +215,8 @@ public:
     // Draws (and clears) queued so far, and waiting for the first so many.
     uint64_t drawsQueued();
     void finishDrawsThrough(uint64_t count);
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override;
-    const ComInterface* query(const std::string& iid) override;
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
+    const ComInterface *query(const std::string &iid) override;
 
     // Draws vertices in the program's memory (FVF layout, `stride` apart);
     // `indices` are 16-bit, or none.
@@ -226,13 +226,13 @@ public:
 
 private:
     void setRenderState(uint32_t state, uint32_t value);
-    void transformAndLight(const VertexLayout& layout, uint32_t vertices, uint32_t stride, uint32_t count,
-                           std::vector<ClipVertex>& out);
-    void triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c);
-    void line(const ClipVertex& a, const ClipVertex& b);
-    void point(const ClipVertex& a);
-    ClipVertex project(const ClipVertex& v) const;
-    const DecodedTexture* texture(int stage);
+    void transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
+                           std::vector<ClipVertex> &out);
+    void triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c);
+    void line(const ClipVertex &a, const ClipVertex &b);
+    void point(const ClipVertex &a);
+    ClipVertex project(const ClipVertex &v) const;
+    const DecodedTexture *texture(int stage);
     // The draw as the states are now.
     Draw current() const;
     // A draw's triangles, projected: drawn by rows on several threads, and
@@ -242,9 +242,9 @@ private:
     bool batching_ = false;
     void drawBatch();
     std::shared_ptr<DrawQueue> queue_; // (shared: its type is raster.cpp's alone)
-    bool projected = false; // the vertices being drawn came transformed (XYZRHW)
-    int stages = 0;         // texture stages in use
-    const DecodedTexture* bound[8]{};
+    bool projected = false;            // the vertices being drawn came transformed (XYZRHW)
+    int stages = 0;                    // texture stages in use
+    const DecodedTexture *bound[8]{};
     using PixelConfig = Draw::PixelConfig;
     using StageConfig = Draw::StageConfig;
     PixelConfig cfg_;
@@ -253,7 +253,7 @@ private:
 
 // D3DFVF layout of one vertex.
 struct VertexLayout {
-    int position = 0;  // floats: 3 (XYZ), 4 (XYZRHW), 3 + blend weights
+    int position = 0; // floats: 3 (XYZ), 4 (XYZRHW), 3 + blend weights
     bool rhw = false, normal = false, reserved = false, diffuse = false, specular = false;
     int texSets = 0;
     int texSize[8]{};
@@ -263,6 +263,6 @@ struct VertexLayout {
 };
 
 // The D3DDEVICEDESC7 we describe ourselves with.
-void writeDeviceDesc(Cpu& c, uint32_t p, const std::string& iid);
+void writeDeviceDesc(Cpu &c, uint32_t p, const std::string &iid);
 
 } // namespace reluva::x86::dx

@@ -30,9 +30,9 @@ std::string_view withoutIsoVersion(std::string_view name);
 // Find a file under `dir` ignoring case, as old Windows/DOS games expect.
 // `relative` may contain '/' separated components ("data/sound.bin"); a
 // name with a CD's ";1" version is found too, if there's none without.
-std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative);
+std::optional<stdfs::path> findFile(const stdfs::path &dir, std::string_view relative);
 // The same for a folder.
-std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative);
+std::optional<stdfs::path> findDirectory(const stdfs::path &dir, std::string_view relative);
 
 // A path as a DOS game names it, for comparing: upper case, '/' between
 // folders (none doubled, none at the end), and without the ";1" version
@@ -41,6 +41,6 @@ std::string normalizeDosPath(std::string_view path);
 
 // MD5 (hex) of the first `maxBytes` bytes of a file, or of the whole file
 // when maxBytes is 0. Returns nullopt if the file can't be read.
-std::optional<std::string> md5File(const stdfs::path& file, uint64_t maxBytes);
+std::optional<std::string> md5File(const stdfs::path &file, uint64_t maxBytes);
 
 } // namespace reluva::fs

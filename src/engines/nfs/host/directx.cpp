@@ -39,7 +39,7 @@ constexpr uint32_t kHardwareBuffers = 64;
 // DDSCAPS bits.
 constexpr uint32_t kBackBuffer = 0x4, kFlip = 0x10, kPrimary = 0x200;
 
-std::string guid(const Cpu& c, uint32_t p) {
+std::string guid(const Cpu &c, uint32_t p) {
     char buf[48];
     std::snprintf(buf, sizeof buf, "%08x-%04x-%04x", c.read32(p), c.read16(p + 4), c.read16(p + 6));
     return buf;
@@ -47,7 +47,7 @@ std::string guid(const Cpu& c, uint32_t p) {
 
 // A DDSURFACEDESC (108 bytes): size, flags, height, width, pitch, the
 // surface's memory at 36, the pixel format at 72, the caps at 104.
-void writeDesc(Cpu& c, uint32_t p, int w, int h, int bits, int pitch, uint32_t memory, uint32_t caps) {
+void writeDesc(Cpu &c, uint32_t p, int w, int h, int bits, int pitch, uint32_t memory, uint32_t caps) {
     for (uint32_t i = 0; i < 108; i += 4)
         c.write32(p + i, 0);
     c.write32(p, 108);
@@ -71,23 +71,23 @@ void writeDesc(Cpu& c, uint32_t p, int w, int h, int bits, int pitch, uint32_t m
     c.write32(p + 104, caps);
 }
 
-
 // The joystick offered (GameHost::Options::joystick), as DirectInput
 // describes a pad's objects in DIJOYSTATE (c_dfDIJoystick, the data format
 // the game sets): five axes (X and Y the left stick, Z the triggers, Rx
 // and Ry the right stick), a hat (the d-pad) and twelve buttons.
-constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001, kJoystickFFDriver = 0x52e1a002; // Reluva's own
+constexpr uint32_t kJoystickInstance = 0x52e1a000, kJoystickProduct = 0x52e1a001,
+                   kJoystickFFDriver = 0x52e1a002; // Reluva's own
 constexpr int kJoystickAxes = 5, kJoystickButtons = 12;
 constexpr uint32_t kPovOffset = 32, kButtonsOffset = 48, kJoyStateSize = 80;
 // DirectInput's GUID_XAxis... (all A36D02xx-C9F3-11CF-BFC7-444553540000).
 constexpr uint32_t kAxisGuids[kJoystickAxes] = {0xa36d02e0, 0xa36d02e1, 0xa36d02e2, 0xa36d02f4, 0xa36d02f5};
 constexpr uint32_t kButtonGuid = 0xa36d02f0, kPovGuid = 0xa36d02f2;
 // DI buttons from SDL's pad: A B X Y, the shoulders, Back, Start, the sticks, Guide.
-constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {PadSouth,         PadEast, PadWest,  PadNorth,
-                                                               PadLeftShoulder, PadRightShoulder, PadBack, PadStart,
-                                                               PadLeftStick,    PadRightStick,    PadGuide};
+constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {PadSouth,        PadEast,          PadWest, PadNorth,
+                                                              PadLeftShoulder, PadRightShoulder, PadBack, PadStart,
+                                                              PadLeftStick,    PadRightStick,    PadGuide};
 
-void writeGuid(Cpu& c, uint32_t at, uint32_t data1) {
+void writeGuid(Cpu &c, uint32_t at, uint32_t data1) {
     c.write32(at, data1);
     c.write16(at + 4, 0xc9f3);
     c.write16(at + 6, 0x11cf);
@@ -98,8 +98,8 @@ void writeGuid(Cpu& c, uint32_t at, uint32_t data1) {
 
 // The object at a DIJOYSTATE offset: its GUID, DIDFT type and name; false
 // if the pad has none there.
-bool joystickObject(uint32_t offset, uint32_t& guid, uint32_t& type, std::string& name) {
-    static const char* const axisNames[kJoystickAxes] = {"X Axis", "Y Axis", "Z Axis", "X Rotation", "Y Rotation"};
+bool joystickObject(uint32_t offset, uint32_t &guid, uint32_t &type, std::string &name) {
+    static const char *const axisNames[kJoystickAxes] = {"X Axis", "Y Axis", "Z Axis", "X Rotation", "Y Rotation"};
     if (offset < 4 * kJoystickAxes && offset % 4 == 0) {
         guid = kAxisGuids[offset / 4];
         type = 0x2 | (offset / 4) << 8; // DIDFT_ABSAXIS
@@ -137,16 +137,16 @@ uint32_t GameHost::newSurface(int width, int height, int bits, uint32_t caps) {
     return object;
 }
 
-void GameHost::present(const DdSurface& s) {
+void GameHost::present(const DdSurface &s) {
     if (!s.memory)
         return;
     frame_.create(s.width, s.height, PixelFormat::RGBA32);
-    const std::array<uint32_t, 256>* palette = nullptr;
+    const std::array<uint32_t, 256> *palette = nullptr;
     if (auto it = palettes_.find(s.palette); it != palettes_.end())
         palette = &it->second;
     for (int y = 0; y < s.height; ++y) {
-        const uint8_t* src = cpu_->memory().data() + s.memory + size_t(y) * size_t(s.pitch);
-        uint8_t* dst = frame_.row(y);
+        const uint8_t *src = cpu_->memory().data() + s.memory + size_t(y) * size_t(s.pitch);
+        uint8_t *dst = frame_.row(y);
         for (int x = 0; x < s.width; ++x, dst += 4) {
             if (s.bits == 16) {
                 const uint16_t v = uint16_t(src[2 * x] | src[2 * x + 1] << 8);
@@ -175,7 +175,7 @@ void GameHost::addDirectX() {
     const uint32_t description = process_->memory().alloc(32), driver = process_->memory().alloc(16);
     cpu_->writeString(description, "Primary Display Driver", 32);
     cpu_->writeString(driver, "display", 16);
-    provide("DDRAW.dll", "DirectDrawEnumerateA", 2, [description, driver](Cpu& c) {
+    provide("DDRAW.dll", "DirectDrawEnumerateA", 2, [description, driver](Cpu &c) {
         uint32_t result = 0;
         if (Error e = c.call(c.arg(0), {0, description, driver, c.arg(1)}, result))
             c.abort(e.message);
@@ -184,10 +184,10 @@ void GameHost::addDirectX() {
 
     // QueryInterface, AddRef, Release; QueryInterface giving the object
     // itself unless `refuse` says no to the interface.
-    auto unknown = [this](const std::string& name, std::function<bool(uint32_t data1)> refuse = {}) {
+    auto unknown = [this](const std::string &name, std::function<bool(uint32_t data1)> refuse = {}) {
         return std::vector<Method>{
             {"QueryInterface", 3,
-             [this, name, refuse](Cpu& c) {
+             [this, name, refuse](Cpu &c) {
                  const uint32_t data1 = c.read32(c.arg(1));
                  if (refuse && refuse(data1)) {
                      say("  " + name + "::QueryInterface(" + guid(c, c.arg(1)) + "): no");
@@ -197,17 +197,17 @@ void GameHost::addDirectX() {
                  c.write32(c.arg(2), c.arg(0));
                  return kOk;
              }},
-            {"AddRef", 1, [](Cpu&) { return 2u; }},
-            {"Release", 1, [](Cpu&) { return 0u; }},
+            {"AddRef", 1, [](Cpu &) { return 2u; }},
+            {"Release", 1, [](Cpu &) { return 0u; }},
         };
     };
-    auto ok = [](Cpu&) { return kOk; };
+    auto ok = [](Cpu &) { return kOk; };
 
     // Surfaces.
     {
         std::vector<Method> m = unknown("IDirectDrawSurface3");
-        auto add = [&](const char* n, int args, std::function<uint32_t(Cpu&)> fn = {}) { m.push_back({n, args, fn}); };
-        auto surface = [this](Cpu& c, uint32_t object) -> DdSurface* {
+        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { m.push_back({n, args, fn}); };
+        auto surface = [this](Cpu &c, uint32_t object) -> DdSurface * {
             auto it = surfaces_.find(object);
             if (it == surfaces_.end()) {
                 c.abort("not a surface: " + std::to_string(object));
@@ -216,7 +216,7 @@ void GameHost::addDirectX() {
             return &it->second;
         };
         // A rectangle argument, or the whole surface.
-        auto rectOf = [](Cpu& c, uint32_t p, const DdSurface& s, int& l, int& t, int& r, int& b) {
+        auto rectOf = [](Cpu &c, uint32_t p, const DdSurface &s, int &l, int &t, int &r, int &b) {
             if (p) {
                 l = int32_t(c.read32(p));
                 t = int32_t(c.read32(p + 4));
@@ -230,12 +230,12 @@ void GameHost::addDirectX() {
         };
         // Copies src's rectangle into dst's, scaled to fit, skipping the
         // source's colour key if asked.
-        auto blit = [this](const DdSurface& dst, int dl, int dt, int dr, int db, const DdSurface& src, int sl, int st,
+        auto blit = [this](const DdSurface &dst, int dl, int dt, int dr, int db, const DdSurface &src, int sl, int st,
                            int sr, int sb, bool keyed) {
             const int bpp = dst.bits / 8;
             if (src.bits != dst.bits || dr <= dl || db <= dt || sr <= sl || sb <= st)
                 return;
-            uint8_t* mem = cpu_->memory().data();
+            uint8_t *mem = cpu_->memory().data();
             for (int y = std::max(dt, 0); y < std::min(db, dst.height); ++y) {
                 const int sy = st + (y - dt) * (sb - st) / (db - dt);
                 if (sy < 0 || sy >= src.height)
@@ -244,7 +244,7 @@ void GameHost::addDirectX() {
                     const int sx = sl + (x - dl) * (sr - sl) / (dr - dl);
                     if (sx < 0 || sx >= src.width)
                         continue;
-                    const uint8_t* from = mem + src.memory + size_t(sy) * size_t(src.pitch) + size_t(sx * bpp);
+                    const uint8_t *from = mem + src.memory + size_t(sy) * size_t(src.pitch) + size_t(sx * bpp);
                     uint32_t v = 0;
                     std::memcpy(&v, from, size_t(bpp));
                     if (keyed && v == src.colorKey)
@@ -253,16 +253,16 @@ void GameHost::addDirectX() {
                 }
             }
         };
-        auto fill = [this](const DdSurface& dst, int l, int t, int r, int b, uint32_t colour) {
+        auto fill = [this](const DdSurface &dst, int l, int t, int r, int b, uint32_t colour) {
             const int bpp = dst.bits / 8;
-            uint8_t* mem = cpu_->memory().data();
+            uint8_t *mem = cpu_->memory().data();
             for (int y = std::max(t, 0); y < std::min(b, dst.height); ++y)
                 for (int x = std::max(l, 0); x < std::min(r, dst.width); ++x)
                     std::memcpy(mem + dst.memory + size_t(y) * size_t(dst.pitch) + size_t(x * bpp), &colour,
                                 size_t(bpp));
         };
-        add("AddAttachedSurface", 2, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0)))
+        add("AddAttachedSurface", 2, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0)))
                 s->back = c.arg(1);
             return kOk;
         });
@@ -270,8 +270,8 @@ void GameHost::addDirectX() {
         // Blt(this, destRect*, source, sourceRect*, flags, fx*): DDBLT_COLORFILL
         // (0x400) fills with fx's colour (+80); DDBLT_KEYSRC (0x8000) skips
         // the source's colour key.
-        add("Blt", 6, [this, surface, rectOf, blit, fill](Cpu& c) {
-            DdSurface* d = surface(c, c.arg(0));
+        add("Blt", 6, [this, surface, rectOf, blit, fill](Cpu &c) {
+            DdSurface *d = surface(c, c.arg(0));
             if (!d)
                 return kOk;
             int l, t, r, b;
@@ -279,7 +279,7 @@ void GameHost::addDirectX() {
             if (c.arg(4) & 0x400) {
                 fill(*d, l, t, r, b, c.read32(c.arg(5) + 80));
             } else if (c.arg(2)) {
-                DdSurface* s = surface(c, c.arg(2));
+                DdSurface *s = surface(c, c.arg(2));
                 if (!s)
                     return kOk;
                 int sl, st, sr, sb;
@@ -292,9 +292,9 @@ void GameHost::addDirectX() {
         });
         add("BltBatch", 4, ok);
         // BltFast(this, x, y, source, sourceRect*, flags): DDBLTFAST_SRCCOLORKEY (1).
-        add("BltFast", 6, [this, surface, rectOf, blit](Cpu& c) {
-            DdSurface* d = surface(c, c.arg(0));
-            DdSurface* s = surface(c, c.arg(3));
+        add("BltFast", 6, [this, surface, rectOf, blit](Cpu &c) {
+            DdSurface *d = surface(c, c.arg(0));
+            DdSurface *s = surface(c, c.arg(3));
             if (!d || !s)
                 return kOk;
             int sl, st, sr, sb;
@@ -310,18 +310,18 @@ void GameHost::addDirectX() {
         add("EnumOverlayZOrders", 4, ok);
         // Flip(this, target, flags): the back buffer's memory and the front's
         // change places, and the frame is shown.
-        add("Flip", 3, [this, surface](Cpu& c) {
-            DdSurface* front = surface(c, c.arg(0));
+        add("Flip", 3, [this, surface](Cpu &c) {
+            DdSurface *front = surface(c, c.arg(0));
             if (!front)
                 return kOk;
             if (front->back)
-                if (DdSurface* back = surface(c, front->back))
+                if (DdSurface *back = surface(c, front->back))
                     std::swap(front->memory, back->memory);
             present(*front);
             return kOk;
         });
-        add("GetAttachedSurface", 3, [this, surface](Cpu& c) {
-            DdSurface* s = surface(c, c.arg(0));
+        add("GetAttachedSurface", 3, [this, surface](Cpu &c) {
+            DdSurface *s = surface(c, c.arg(0));
             if (!s || !s->back) {
                 c.write32(c.arg(2), 0);
                 return 0x887600ffu; // DDERR_NOTFOUND
@@ -330,29 +330,29 @@ void GameHost::addDirectX() {
             return kOk;
         });
         add("GetBltStatus", 2, ok);
-        add("GetCaps", 2, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0)))
+        add("GetCaps", 2, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0)))
                 c.write32(c.arg(1), s->caps);
             return kOk;
         });
         add("GetClipper", 2);
-        add("GetColorKey", 3, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0))) {
+        add("GetColorKey", 3, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0))) {
                 c.write32(c.arg(2), s->colorKey);
                 c.write32(c.arg(2) + 4, s->colorKey);
             }
             return kOk;
         });
-        add("GetDC", 2, [](Cpu&) { return 0x88760000u + 9; }); // no GDI drawing
+        add("GetDC", 2, [](Cpu &) { return 0x88760000u + 9; }); // no GDI drawing
         add("GetFlipStatus", 2, ok);
         add("GetOverlayPosition", 3);
-        add("GetPalette", 2, [this, surface](Cpu& c) {
-            DdSurface* s = surface(c, c.arg(0));
+        add("GetPalette", 2, [this, surface](Cpu &c) {
+            DdSurface *s = surface(c, c.arg(0));
             c.write32(c.arg(1), s ? s->palette : 0);
             return s && s->palette ? kOk : 0x887600f1u; // DDERR_NOPALETTEATTACHED
         });
-        add("GetPixelFormat", 2, [this, surface](Cpu& c) {
-            DdSurface* s = surface(c, c.arg(0));
+        add("GetPixelFormat", 2, [this, surface](Cpu &c) {
+            DdSurface *s = surface(c, c.arg(0));
             if (!s)
                 return kOk;
             const uint32_t scratch = process_->memory().alloc(108);
@@ -361,16 +361,16 @@ void GameHost::addDirectX() {
             process_->memory().free(scratch);
             return kOk;
         });
-        add("GetSurfaceDesc", 2, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0)))
+        add("GetSurfaceDesc", 2, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0)))
                 writeDesc(c, c.arg(1), s->width, s->height, s->bits, s->pitch, 0, s->caps);
             return kOk;
         });
         add("Initialize", 3, ok);
         add("IsLost", 1, ok);
         // Lock(this, rect*, desc*, flags, event): the memory, at the rectangle.
-        add("Lock", 5, [this, surface](Cpu& c) {
-            DdSurface* s = surface(c, c.arg(0));
+        add("Lock", 5, [this, surface](Cpu &c) {
+            DdSurface *s = surface(c, c.arg(0));
             if (!s)
                 return kInvalidParams;
             uint32_t memory = s->memory;
@@ -382,22 +382,22 @@ void GameHost::addDirectX() {
         add("ReleaseDC", 2, ok);
         add("Restore", 1, ok);
         add("SetClipper", 2, ok);
-        add("SetColorKey", 3, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0))) {
+        add("SetColorKey", 3, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0))) {
                 s->hasColorKey = c.arg(2) != 0;
                 s->colorKey = c.arg(2) ? c.read32(c.arg(2)) : 0;
             }
             return kOk;
         });
         add("SetOverlayPosition", 3, ok);
-        add("SetPalette", 2, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0)))
+        add("SetPalette", 2, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0)))
                 s->palette = c.arg(1);
             return kOk;
         });
         // Unlock: drawing straight onto the primary surface shows at once.
-        add("Unlock", 2, [this, surface](Cpu& c) {
-            if (DdSurface* s = surface(c, c.arg(0)))
+        add("Unlock", 2, [this, surface](Cpu &c) {
+            if (DdSurface *s = surface(c, c.arg(0)))
                 if (s->primary && !s->back)
                     present(*s);
             return kOk;
@@ -415,19 +415,19 @@ void GameHost::addDirectX() {
     // Palettes: 256 entries of PALETTEENTRY (red, green, blue, flags).
     {
         std::vector<Method> m = unknown("IDirectDrawPalette");
-        m.push_back({"GetCaps", 2, [](Cpu& c) {
+        m.push_back({"GetCaps", 2, [](Cpu &c) {
                          c.write32(c.arg(1), 0x4); // DDPCAPS_8BIT
                          return kOk;
                      }});
-        m.push_back({"GetEntries", 5, [this](Cpu& c) {
-                         auto& p = palettes_[c.arg(0)];
+        m.push_back({"GetEntries", 5, [this](Cpu &c) {
+                         auto &p = palettes_[c.arg(0)];
                          for (uint32_t i = 0; i < c.arg(3) && c.arg(2) + i < 256; ++i)
                              c.write32(c.arg(4) + 4 * i, p[c.arg(2) + i] & 0xffffff);
                          return kOk;
                      }});
         m.push_back({"Initialize", 4, ok});
-        m.push_back({"SetEntries", 5, [this](Cpu& c) {
-                         auto& p = palettes_[c.arg(0)];
+        m.push_back({"SetEntries", 5, [this](Cpu &c) {
+                         auto &p = palettes_[c.arg(0)];
                          for (uint32_t i = 0; i < c.arg(3) && c.arg(2) + i < 256; ++i)
                              p[c.arg(2) + i] = c.read32(c.arg(4) + 4 * i) | 0xff000000u;
                          return kOk;
@@ -436,8 +436,12 @@ void GameHost::addDirectX() {
     }
     {
         std::vector<Method> m = unknown("IDirectDrawClipper");
-        for (auto [n, args] : {std::pair{"GetClipList", 4}, {"GetHWnd", 2}, {"Initialize", 3}, {"IsClipListChanged", 2},
-                               {"SetClipList", 3}, {"SetHWnd", 3}})
+        for (auto [n, args] : {std::pair{"GetClipList", 4},
+                               {"GetHWnd", 2},
+                               {"Initialize", 3},
+                               {"IsClipListChanged", 2},
+                               {"SetClipList", 3},
+                               {"SetHWnd", 3}})
             m.push_back({n, args, ok});
         clipperVtable_ = makeVtable("IDirectDrawClipper", m);
     }
@@ -448,15 +452,15 @@ void GameHost::addDirectX() {
     std::vector<Method> dd = unknown("IDirectDraw2", [](uint32_t data1) {
         return data1 == 0x3bba0080 || data1 == 0x6aae1ec1 || data1 == 0xbb223240; // IDirect3D, 2, 3
     });
-    auto add = [&](const char* n, int args, std::function<uint32_t(Cpu&)> fn = {}) { dd.push_back({n, args, fn}); };
+    auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { dd.push_back({n, args, fn}); };
     add("Compact", 1, ok);
-    add("CreateClipper", 4, [this](Cpu& c) {
+    add("CreateClipper", 4, [this](Cpu &c) {
         c.write32(c.arg(2), newObject(clipperVtable_));
         return kOk;
     });
-    add("CreatePalette", 5, [this](Cpu& c) {
+    add("CreatePalette", 5, [this](Cpu &c) {
         const uint32_t object = newObject(paletteVtable_);
-        auto& p = palettes_[object];
+        auto &p = palettes_[object];
         for (uint32_t i = 0; i < 256; ++i)
             p[i] = c.arg(2) ? c.read32(c.arg(2) + 4 * i) | 0xff000000u : 0xff000000u;
         c.write32(c.arg(3), object);
@@ -465,7 +469,7 @@ void GameHost::addDirectX() {
     // CreateSurface(this, desc*, surface**, outer): a primary surface (with
     // its back buffers if it flips) at the display mode's size, or one of
     // the size asked for.
-    add("CreateSurface", 4, [this](Cpu& c) {
+    add("CreateSurface", 4, [this](Cpu &c) {
         const uint32_t desc = c.arg(1), flags = c.read32(desc + 4);
         const uint32_t caps = flags & 1 ? c.read32(desc + 104) : 0;
         int w = modeWidth_, h = modeHeight_, bits = modeBits_;
@@ -488,10 +492,11 @@ void GameHost::addDirectX() {
         return kOk;
     });
     add("DuplicateSurface", 3);
-    add("EnumDisplayModes", 5, [this](Cpu& c) {
+    add("EnumDisplayModes", 5, [this](Cpu &c) {
         const uint32_t desc = process_->memory().alloc(108);
         for (int bits : {8, 16})
-            for (const std::pair<int, int>& size : {std::pair{320, 200}, {512, 384}, {640, 480}, {800, 600}, {1024, 768}}) {
+            for (const std::pair<int, int> &size :
+                 {std::pair{320, 200}, {512, 384}, {640, 480}, {800, 600}, {1024, 768}}) {
                 const int w = size.first, h = size.second;
                 writeDesc(c, desc, w, h, bits, w * bits / 8, 0, 0);
                 uint32_t more = 0;
@@ -506,7 +511,7 @@ void GameHost::addDirectX() {
     });
     add("EnumSurfaces", 5, ok);
     add("FlipToGDISurface", 1, ok);
-    add("GetCaps", 3, [](Cpu& c) {
+    add("GetCaps", 3, [](Cpu &c) {
         // DDCAPS: its size kept, the rest nothing but video memory (60, 64).
         for (int i = 1; i <= 2; ++i)
             if (c.arg(i)) {
@@ -518,28 +523,28 @@ void GameHost::addDirectX() {
             }
         return kOk;
     });
-    add("GetDisplayMode", 2, [this](Cpu& c) {
+    add("GetDisplayMode", 2, [this](Cpu &c) {
         writeDesc(c, c.arg(1), modeWidth_, modeHeight_, modeBits_, modeWidth_ * modeBits_ / 8, 0, 0);
         return kOk;
     });
-    add("GetFourCCCodes", 3, [](Cpu& c) {
+    add("GetFourCCCodes", 3, [](Cpu &c) {
         c.write32(c.arg(1), 0);
         return kOk;
     });
     add("GetGDISurface", 2);
-    add("GetMonitorFrequency", 2, [](Cpu& c) {
+    add("GetMonitorFrequency", 2, [](Cpu &c) {
         c.write32(c.arg(1), 60);
         return kOk;
     });
     add("GetScanLine", 2);
-    add("GetVerticalBlankStatus", 2, [](Cpu& c) {
+    add("GetVerticalBlankStatus", 2, [](Cpu &c) {
         c.write32(c.arg(1), 1);
         return kOk;
     });
     add("Initialize", 2, ok);
     add("RestoreDisplayMode", 1, ok);
     add("SetCooperativeLevel", 3, ok);
-    add("SetDisplayMode", 6, [this](Cpu& c) {
+    add("SetDisplayMode", 6, [this](Cpu &c) {
         modeWidth_ = int(c.arg(1));
         modeHeight_ = int(c.arg(2));
         modeBits_ = int(c.arg(3));
@@ -548,7 +553,7 @@ void GameHost::addDirectX() {
         return kOk;
     });
     add("WaitForVerticalBlank", 3, ok);
-    add("GetAvailableVidMem", 4, [](Cpu& c) {
+    add("GetAvailableVidMem", 4, [](Cpu &c) {
         if (c.arg(2))
             c.write32(c.arg(2), 8u << 20);
         if (c.arg(3))
@@ -556,19 +561,19 @@ void GameHost::addDirectX() {
         return kOk;
     });
     const uint32_t ddrawVtable = makeVtable("IDirectDraw2", dd);
-    provide("DDRAW.dll", "DirectDrawCreate", 3, [this, ddrawVtable](Cpu& c) {
+    provide("DDRAW.dll", "DirectDrawCreate", 3, [this, ddrawVtable](Cpu &c) {
         c.write32(c.arg(1), newObject(ddrawVtable));
         return kOk;
     });
 
     // DirectInput: the keyboard and mouse, by their GUIDs.
-    auto makeDevice = [this, unknown, ok](const std::string& kind) {
+    auto makeDevice = [this, unknown, ok](const std::string &kind) {
         std::vector<Method> m = unknown("IDirectInputDevice(" + kind + ")");
-        auto add = [&](const char* n, int args, std::function<uint32_t(Cpu&)> fn = {}) { m.push_back({n, args, fn}); };
+        auto add = [&](const char *n, int args, std::function<uint32_t(Cpu &)> fn = {}) { m.push_back({n, args, fn}); };
         // DIDEVCAPS: attached, a gamepad, its axes, buttons and hats.
         // With force feedback (DIDC_FORCEFEEDBACK), its timings in
         // microseconds: samples every millisecond.
-        add("GetCapabilities", 2, [this, kind](Cpu& c) {
+        add("GetCapabilities", 2, [this, kind](Cpu &c) {
             const uint32_t p = c.arg(1), size = c.read32(p);
             for (uint32_t o = 4; o + 4 <= size && o < 44; o += 4)
                 c.write32(p + o, 0);
@@ -592,15 +597,16 @@ void GameHost::addDirectX() {
         // Properties (DIPROPHEADER: size, header size, object, how): an
         // axis's range (DIPROP_RANGE, 4), by offset (how 1) or for all
         // (how 0); the rest taken and ignored.
-        auto axes = [](Cpu& c) {
+        auto axes = [](Cpu &c) {
             const uint32_t header = c.arg(2), object = c.read32(header + 8), how = c.read32(header + 12);
             std::vector<size_t> out;
             for (uint32_t a = 0; a < kJoystickAxes; ++a)
-                if (how == 0 || (how == 1 && object == 4 * a) || (how == 2 && (object & 0xff00) >> 8 == a && (object & 3)))
+                if (how == 0 || (how == 1 && object == 4 * a) ||
+                    (how == 2 && (object & 0xff00) >> 8 == a && (object & 3)))
                     out.push_back(a);
             return out;
         };
-        add("GetProperty", 3, [this, kind, axes](Cpu& c) {
+        add("GetProperty", 3, [this, kind, axes](Cpu &c) {
             if (kind != "joystick" || c.arg(1) != 4)
                 return 0x80004001u; // E_NOTIMPL
             for (size_t a : axes(c)) {
@@ -611,7 +617,7 @@ void GameHost::addDirectX() {
         });
         // ... and the force feedback gain (DIPROP_FFGAIN, 7) and
         // auto-centring (DIPROP_AUTOCENTER, 9), DIPROPDWORDs.
-        add("SetProperty", 3, [this, kind, axes](Cpu& c) {
+        add("SetProperty", 3, [this, kind, axes](Cpu &c) {
             if (kind == "joystick" && c.arg(1) == 4)
                 for (size_t a : axes(c))
                     axisRange_[a] = {int32_t(c.read32(c.arg(2) + 16)), int32_t(c.read32(c.arg(2) + 20))};
@@ -629,7 +635,7 @@ void GameHost::addDirectX() {
         add("Unacquire", 1, ok);
         // GetDeviceState: the keys' states, or the mouse's movement since
         // last asked and its buttons (DIMOUSESTATE).
-        add("GetDeviceState", 3, [this, kind](Cpu& c) {
+        add("GetDeviceState", 3, [this, kind](Cpu &c) {
             if (kind == "joystick") {
                 joystickState(c, c.arg(2), c.arg(1));
                 return kOk;
@@ -647,12 +653,12 @@ void GameHost::addDirectX() {
         // GetDeviceData(this, objectSize, data*, count*, flags): the keyboard's
         // presses and releases since last asked (DIDEVICEOBJECTDATA: scan
         // code, 0x80 or 0, time, sequence); DIGDD_PEEK (1) leaves them.
-        add("GetDeviceData", 5, [this, kind](Cpu& c) {
+        add("GetDeviceData", 5, [this, kind](Cpu &c) {
             const uint32_t room = c.arg(3) ? c.read32(c.arg(3)) : 0, size = std::max(c.arg(1), 16u);
             uint32_t n = 0;
             if (kind == "mouse") {
                 for (; n < room && n < bufferedMouse_.size(); ++n) {
-                    const MouseEvent& e = bufferedMouse_[n];
+                    const MouseEvent &e = bufferedMouse_[n];
                     if (c.arg(2)) {
                         const uint32_t p = c.arg(2) + n * size;
                         c.write32(p, e.offset);
@@ -665,7 +671,7 @@ void GameHost::addDirectX() {
                     bufferedMouse_.erase(bufferedMouse_.begin(), bufferedMouse_.begin() + n);
             } else if (kind == "keyboard") {
                 for (; n < room && n < bufferedKeys_.size(); ++n) {
-                    const KeyEvent& e = bufferedKeys_[n];
+                    const KeyEvent &e = bufferedKeys_[n];
                     if (c.arg(2)) {
                         const uint32_t p = c.arg(2) + n * size;
                         c.write32(p, e.scan);
@@ -682,7 +688,7 @@ void GameHost::addDirectX() {
             return kOk;
         });
         add("SetDataFormat", 2, ok);
-        add("SetEventNotification", 2, [this, kind](Cpu& c) {
+        add("SetEventNotification", 2, [this, kind](Cpu &c) {
             (kind == "mouse" ? mouseEvent_ : keyboardEvent_) = c.arg(1);
             return kOk;
         });
@@ -691,7 +697,7 @@ void GameHost::addDirectX() {
         // joystick's objects by their offset (how 1) in DIJOYSTATE.
         // With force feedback, X is the axis forces act on (DIDFT_FFACTUATOR,
         // DIDOI_FFACTUATOR), as a wheel's is.
-        add("GetObjectInfo", 4, [this, kind](Cpu& c) {
+        add("GetObjectInfo", 4, [this, kind](Cpu &c) {
             uint32_t guid = 0, type = 0;
             std::string name;
             if (kind != "joystick" || c.arg(3) != 1 || !joystickObject(c.arg(2), guid, type, name))
@@ -716,7 +722,7 @@ void GameHost::addDirectX() {
         add("Initialize", 4, ok);
         // Force feedback (IDirectInputDevice2), when it's offered.
         // CreateEffect(this, guid, DIEFFECT*, effect**, outer).
-        add("CreateEffect", 5, [this, kind](Cpu& c) {
+        add("CreateEffect", 5, [this, kind](Cpu &c) {
             DiEffect e;
             if (kind != "joystick" || !options_.forceFeedback)
                 return 0x80040154u; // DIERR_DEVICENOTREG
@@ -734,7 +740,7 @@ void GameHost::addDirectX() {
         });
         // EnumEffects(this, callback, ref, type): the kinds stood in for,
         // as DIEFFECTINFOA, all (DIEFT_ALL, 0) or one type's.
-        add("EnumEffects", 4, [this, kind](Cpu& c) {
+        add("EnumEffects", 4, [this, kind](Cpu &c) {
             if (kind != "joystick" || !options_.forceFeedback)
                 return kOk;
             const uint32_t info = process_->memory().alloc(292);
@@ -752,7 +758,7 @@ void GameHost::addDirectX() {
             return kOk;
         });
         // GetEffectInfo(this, DIEFFECTINFOA*, guid).
-        add("GetEffectInfo", 3, [this](Cpu& c) {
+        add("GetEffectInfo", 3, [this](Cpu &c) {
             DiEffect::Kind k;
             if (!options_.forceFeedback || !DiEffect::kindOf(c.read32(c.arg(2)), k) || k == DiEffect::Custom)
                 return 0x80040154u;
@@ -761,10 +767,10 @@ void GameHost::addDirectX() {
         });
         // GetForceFeedbackState: DIGFFS_ flags (stopped, paused, actuators
         // on or off, powered).
-        add("GetForceFeedbackState", 2, [this](Cpu& c) {
+        add("GetForceFeedbackState", 2, [this](Cpu &c) {
             std::lock_guard<std::mutex> lock(forceMutex_);
             bool playing = false;
-            for (const auto& entry : effects_) // (not a structured binding: Visual Studio wants it captured)
+            for (const auto &entry : effects_) // (not a structured binding: Visual Studio wants it captured)
                 playing = playing || entry.second.active(process_->now());
             c.write32(c.arg(1), (effects_.empty() ? 0x1 : 0) | (playing ? 0 : 0x2) | (forcePaused_ ? 0x4 : 0) |
                                     (actuatorsOff_ ? 0x20 : 0x10) | 0x40);
@@ -773,11 +779,11 @@ void GameHost::addDirectX() {
         // SendForceFeedbackCommand(this, DISFFC_): reset (1, every effect
         // stopped), stop all (2), pause (4) and go on (8), the motors on
         // (0x10) or off (0x20).
-        add("SendForceFeedbackCommand", 2, [this](Cpu& c) {
+        add("SendForceFeedbackCommand", 2, [this](Cpu &c) {
             std::lock_guard<std::mutex> lock(forceMutex_);
             const uint32_t command = c.arg(1);
             if (command & 0x3)
-                for (auto& entry : effects_)
+                for (auto &entry : effects_)
                     entry.second.playing = false;
             if (command & 0x1)
                 forcePaused_ = actuatorsOff_ = false;
@@ -801,7 +807,7 @@ void GameHost::addDirectX() {
     addForceEffects(unknown);
     axisRange_.fill({0, 65535});
     std::vector<Method> di = unknown("IDirectInput");
-    di.push_back({"CreateDevice", 4, [this, keyboard, mouse, joystick](Cpu& c) {
+    di.push_back({"CreateDevice", 4, [this, keyboard, mouse, joystick](Cpu &c) {
                       const uint32_t id = c.read32(c.arg(1));
                       if (id == kJoystickInstance && !options_.joystick.empty()) {
                           c.write32(c.arg(2), joystick);
@@ -816,7 +822,7 @@ void GameHost::addDirectX() {
                   }});
     // EnumDevices(this, type, callback, ref, flags): the joystick, if one is
     // offered, for all devices (0) or joysticks (4), as a DIDEVICEINSTANCEA.
-    di.push_back({"EnumDevices", 5, [this](Cpu& c) {
+    di.push_back({"EnumDevices", 5, [this](Cpu &c) {
                       if (options_.joystick.empty() || (c.arg(1) != 0 && c.arg(1) != 4) ||
                           (c.arg(4) & 0x100 && !options_.forceFeedback)) // DIEDFL_FORCEFEEDBACK
                           return kOk;
@@ -837,16 +843,15 @@ void GameHost::addDirectX() {
                       process_->memory().free(d);
                       return kOk;
                   }});
-    di.push_back({"GetDeviceStatus", 2, [](Cpu&) { return 1u; }}); // DI_NOTATTACHED
+    di.push_back({"GetDeviceStatus", 2, [](Cpu &) { return 1u; }}); // DI_NOTATTACHED
     di.push_back({"RunControlPanel", 3, {}});
     di.push_back({"Initialize", 3, ok});
     const uint32_t input = makeObject("IDirectInput", di);
-    provide("DINPUT.dll", "DirectInputCreateA", 4, [input](Cpu& c) {
+    provide("DINPUT.dll", "DirectInputCreateA", 4, [input](Cpu &c) {
         c.write32(c.arg(2), input);
         return kOk;
     });
 }
-
 
 uint32_t GameHost::joystickType() const {
     // DIDEVTYPE_JOYSTICK, and a wheel (DIDEVTYPEJOYSTICK_WHEEL, 6) or a
@@ -856,9 +861,9 @@ uint32_t GameHost::joystickType() const {
     return 4 | (options_.joystickWheel ? 6 : 2) << 8;
 }
 
-uint32_t GameHost::effectInfo(Cpu& c, uint32_t at, uint32_t guidData1) {
-    static const char* const names[] = {"Constant Force", "Ramp Force", "Square", "Sine", "Triangle", "Sawtooth Up",
-                                        "Sawtooth Down", "Spring", "Damper", "Inertia", "Friction"};
+uint32_t GameHost::effectInfo(Cpu &c, uint32_t at, uint32_t guidData1) {
+    static const char *const names[] = {"Constant Force", "Ramp Force", "Square", "Sine",    "Triangle", "Sawtooth Up",
+                                        "Sawtooth Down",  "Spring",     "Damper", "Inertia", "Friction"};
     DiEffect::Kind k = DiEffect::Constant;
     DiEffect::kindOf(guidData1, k);
     // DIEFT_CONSTANTFORCE 1, RAMPFORCE 2, PERIODIC 3, CONDITION 4; with
@@ -885,32 +890,33 @@ uint32_t GameHost::effectInfo(Cpu& c, uint32_t at, uint32_t guidData1) {
     return type;
 }
 
-void GameHost::addForceEffects(const std::function<std::vector<Method>(const std::string&, std::function<bool(uint32_t)>)>& unknown) {
+void GameHost::addForceEffects(
+    const std::function<std::vector<Method>(const std::string &, std::function<bool(uint32_t)>)> &unknown) {
     // IDirectInputEffect: each effect's parameters (DIEFFECT, force_effects.h)
     // and whether it plays. Release ends it.
     std::vector<Method> m = unknown("IDirectInputEffect", {});
-    m[2] = {"Release", 1, [this](Cpu& c) {
+    m[2] = {"Release", 1, [this](Cpu &c) {
                 std::lock_guard<std::mutex> lock(forceMutex_);
                 effects_.erase(c.arg(0));
                 return 0u;
             }};
-    auto ok = [](Cpu&) { return kOk; };
-    auto withEffect = [this](Cpu& c, const std::function<uint32_t(DiEffect&)>& fn) {
+    auto ok = [](Cpu &) { return kOk; };
+    auto withEffect = [this](Cpu &c, const std::function<uint32_t(DiEffect &)> &fn) {
         std::lock_guard<std::mutex> lock(forceMutex_);
         auto it = effects_.find(c.arg(0));
         return it == effects_.end() ? 0x80070057u : fn(it->second); // E_INVALIDARG
     };
-    auto start = [this](DiEffect& e, uint32_t iterations, uint32_t flags) {
+    auto start = [this](DiEffect &e, uint32_t iterations, uint32_t flags) {
         if (flags & 1) // DIES_SOLO: the others stop
-            for (auto& entry : effects_)
+            for (auto &entry : effects_)
                 entry.second.playing = false;
         e.playing = true;
         e.startedMs = process_->now();
         e.iterations = iterations;
     };
     m.push_back({"Initialize", 4, ok});
-    m.push_back({"GetEffectGuid", 2, [withEffect](Cpu& c) {
-                     return withEffect(c, [&c](DiEffect& e) {
+    m.push_back({"GetEffectGuid", 2, [withEffect](Cpu &c) {
+                     return withEffect(c, [&c](DiEffect &e) {
                          c.write32(c.arg(1), 0x13541c20 + uint32_t(e.kind));
                          c.write16(c.arg(1) + 4, 0x8e33);
                          c.write16(c.arg(1) + 6, 0x11d0);
@@ -922,8 +928,8 @@ void GameHost::addForceEffects(const std::function<std::vector<Method>(const std
                  }});
     // GetParameters(this, DIEFFECT*, DIEP_ flags): its duration, gain and
     // start delay; the rest left as given.
-    m.push_back({"GetParameters", 3, [withEffect](Cpu& c) {
-                     return withEffect(c, [&c](DiEffect& e) {
+    m.push_back({"GetParameters", 3, [withEffect](Cpu &c) {
+                     return withEffect(c, [&c](DiEffect &e) {
                          const uint32_t p = c.arg(1), which = c.arg(2);
                          if (which & 0x1)
                              c.write32(p + 8, e.durationUs);
@@ -936,8 +942,8 @@ void GameHost::addForceEffects(const std::function<std::vector<Method>(const std
                  }});
     // SetParameters(this, DIEFFECT*, DIEP_ flags): DIEP_START (0x20000000)
     // starts it over as well.
-    m.push_back({"SetParameters", 3, [withEffect, start](Cpu& c) {
-                     return withEffect(c, [&](DiEffect& e) {
+    m.push_back({"SetParameters", 3, [withEffect, start](Cpu &c) {
+                     return withEffect(c, [&](DiEffect &e) {
                          e.set([&c](uint32_t a) { return c.read32(a); }, c.arg(1), c.arg(2));
                          if (c.arg(2) & 0x20000000)
                              start(e, 1, 0);
@@ -945,28 +951,28 @@ void GameHost::addForceEffects(const std::function<std::vector<Method>(const std
                      });
                  }});
     // Start(this, iterations, DIES_ flags), Stop(this).
-    m.push_back({"Start", 3, [withEffect, start](Cpu& c) {
-                     return withEffect(c, [&](DiEffect& e) {
+    m.push_back({"Start", 3, [withEffect, start](Cpu &c) {
+                     return withEffect(c, [&](DiEffect &e) {
                          start(e, c.arg(1), c.arg(2));
                          return kOk;
                      });
                  }});
-    m.push_back({"Stop", 1, [withEffect](Cpu& c) {
-                     return withEffect(c, [](DiEffect& e) {
+    m.push_back({"Stop", 1, [withEffect](Cpu &c) {
+                     return withEffect(c, [](DiEffect &e) {
                          e.playing = false;
                          return kOk;
                      });
                  }});
     // GetEffectStatus: DIEGES_PLAYING (1) while it plays.
-    m.push_back({"GetEffectStatus", 2, [this, withEffect](Cpu& c) {
-                     return withEffect(c, [&](DiEffect& e) {
+    m.push_back({"GetEffectStatus", 2, [this, withEffect](Cpu &c) {
+                     return withEffect(c, [&](DiEffect &e) {
                          c.write32(c.arg(1), e.active(process_->now()) ? 1 : 0);
                          return kOk;
                      });
                  }});
     m.push_back({"Download", 1, ok});
-    m.push_back({"Unload", 1, [withEffect](Cpu& c) {
-                     return withEffect(c, [](DiEffect& e) {
+    m.push_back({"Unload", 1, [withEffect](Cpu &c) {
+                     return withEffect(c, [](DiEffect &e) {
                          e.playing = false;
                          return kOk;
                      });
@@ -981,8 +987,8 @@ GamepadForce GameHost::gamepadForce() {
     if (!options_.forceFeedback || !process_ || actuatorsOff_)
         return f;
     if (!forcePaused_) {
-        std::vector<const DiEffect*> playing;
-        for (const auto& [object, e] : effects_)
+        std::vector<const DiEffect *> playing;
+        for (const auto &[object, e] : effects_)
             playing.push_back(&e);
         f = sumForces(playing, forceGain_, process_->now());
     }
@@ -990,12 +996,12 @@ GamepadForce GameHost::gamepadForce() {
     return f;
 }
 
-void GameHost::joystickState(Cpu& c, uint32_t to, uint32_t size) {
+void GameHost::joystickState(Cpu &c, uint32_t to, uint32_t size) {
     for (uint32_t i = 0; i < size; ++i)
         c.write8(to + i, 0);
     if (size < kJoyStateSize)
         return;
-    const GamepadState& j = joystick_;
+    const GamepadState &j = joystick_;
     // Axes: -1..1, a dead zone round the middle, over the range the game set.
     // A wheel's pedals are on Y as well, together as a wheel's were then:
     // the accelerator up (forward, as a stick's), the brake down.
@@ -1014,7 +1020,8 @@ void GameHost::joystickState(Cpu& c, uint32_t to, uint32_t size) {
     uint32_t pov = 0xffffffffu;
     if (up || down || left || right) {
         const int dx = int(right) - int(left), dy = int(down) - int(up);
-        pov = uint32_t(std::lround(std::fmod(std::atan2(double(dx), double(-dy)) * 18000 / 3.14159265358979 + 36000, 36000)));
+        pov = uint32_t(
+            std::lround(std::fmod(std::atan2(double(dx), double(-dy)) * 18000 / 3.14159265358979 + 36000, 36000)));
     }
     for (uint32_t i = 0; i < 4; ++i)
         c.write32(to + kPovOffset + 4 * i, i == 0 ? pov : 0xffffffffu);
@@ -1039,29 +1046,33 @@ namespace {
 
 class SoundStream : public audio::Stream {
 public:
-    explicit SoundStream(GameHost& host) : host_(host) {}
-    void read(int16_t* out, int frames, int rate) override { host_.mixSound(out, frames, rate); }
+    explicit SoundStream(GameHost &host) : host_(host) {}
+    void read(int16_t *out, int frames, int rate) override { host_.mixSound(out, frames, rate); }
 
 private:
-    GameHost& host_;
+    GameHost &host_;
 };
 
 // DirectSound's attenuation, in hundredths of a decibel (0 down to
 // -10000), as a gain.
-double decibels(int32_t hundredths) { return std::pow(10.0, std::min(hundredths, 0) / 2000.0); }
+double decibels(int32_t hundredths) {
+    return std::pow(10.0, std::min(hundredths, 0) / 2000.0);
+}
 
 } // namespace
 
-std::shared_ptr<audio::Stream> GameHost::soundStream() { return std::make_shared<SoundStream>(*this); }
+std::shared_ptr<audio::Stream> GameHost::soundStream() {
+    return std::make_shared<SoundStream>(*this);
+}
 
-void GameHost::mixSound(int16_t* out, int frames, int rate) {
+void GameHost::mixSound(int16_t *out, int frames, int rate) {
     if (frames <= 0)
         return;
     std::lock_guard<std::mutex> lock(soundMutex_);
     soundMix_.assign(size_t(frames) * 2, 0);
     const uint64_t now = process_->now();
-    const uint8_t* memory = cpu_->memory().data();
-    for (auto& [object, b] : soundBuffers_) {
+    const uint8_t *memory = cpu_->memory().data();
+    for (auto &[object, b] : soundBuffers_) {
         if (b.primary || !b.size || b.blockAlign <= 0 || rate <= 0)
             continue;
         const uint32_t at = b.position(now);
@@ -1083,7 +1094,7 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
         double left = gain * (b.pan > 0 ? decibels(-b.pan) : 1.0);
         double right = gain * (b.pan < 0 ? decibels(b.pan) : 1.0);
         double step = double(b.rate) / double(rate);
-        double muffle = 1; // the rear's low-pass coefficient; 1 passes all
+        double muffle = 1;       // the rear's low-pass coefficient; 1 passes all
         if (b.flags & kCtrl3d) { // placed by DirectSound 3D, not panned
             const Ds3dResult placed = spatialize(listener_, b.place);
             left = gain * placed.left;
@@ -1093,7 +1104,7 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
                 muffle = lowPassCoefficient(rearCutoff(placed.behind), rate);
         }
         auto sample = [&](uint32_t frame, int channel) {
-            const uint8_t* p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
+            const uint8_t *p = memory + b.memory + frame * uint32_t(b.blockAlign) + uint32_t(channel * bytes);
             return bytes == 1 ? (int(p[0]) - 128) << 8 : int(int16_t(p[0] | p[1] << 8));
         };
         for (int i = 0; i < frames; ++i) {
@@ -1115,10 +1126,11 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
                 ++soundStats_.blocks;
                 if (!b.fresh[block]) {
                     ++soundStats_.stale;
-                    const uint8_t* p = memory + b.memory + block * 256;
+                    const uint8_t *p = memory + b.memory + block * 256;
                     const uint32_t n = std::min(256u, b.size - block * 256) / uint32_t(bytes);
                     for (uint32_t k = 0; k < n; ++k)
-                        if (std::abs(bytes == 1 ? (int(p[k]) - 128) << 8 : int(int16_t(p[2 * k] | p[2 * k + 1] << 8))) > 64) {
+                        if (std::abs(bytes == 1 ? (int(p[k]) - 128) << 8 : int(int16_t(p[2 * k] | p[2 * k + 1] << 8))) >
+                            64) {
                             ++soundStats_.staleAudible;
                             if (soundStats_.staleAudibleMs.size() < 1000)
                                 soundStats_.staleAudibleMs.push_back(now);
@@ -1149,7 +1161,7 @@ void GameHost::mixSound(int16_t* out, int frames, int rate) {
         out[i] = int16_t(std::clamp<int32_t>(soundMix_[i], -32768, 32767));
 }
 
-void GameHost::recordSound(std::vector<int16_t>* to, int rate) {
+void GameHost::recordSound(std::vector<int16_t> *to, int rate) {
     soundRecord_ = to;
     soundRecordRate_ = rate;
     soundRecordNextMs_ = 0;
@@ -1187,16 +1199,16 @@ uint32_t floatBits(float f) {
     std::memcpy(&bits, &f, 4);
     return bits;
 }
-void readVector(const Cpu& c, uint32_t p, float* v) {
+void readVector(const Cpu &c, uint32_t p, float *v) {
     for (int i = 0; i < 3; ++i)
         v[i] = asFloat(c.read32(p + 4 * uint32_t(i)));
 }
-void writeVector(Cpu& c, uint32_t p, const float* v) {
+void writeVector(Cpu &c, uint32_t p, const float *v) {
     for (int i = 0; i < 3; ++i)
         c.write32(p + 4 * uint32_t(i), floatBits(v[i]));
 }
 // Three float arguments from `first` on, as a vector.
-void argVector(const Cpu& c, int first, float* v) {
+void argVector(const Cpu &c, int first, float *v) {
     for (int i = 0; i < 3; ++i)
         v[i] = asFloat(c.arg(first + i));
 }
@@ -1207,9 +1219,9 @@ void argVector(const Cpu& c, int first, float* v) {
 // DS3D_DEFERRED (1) waits for the listener's CommitDeferredSettings; one
 // made with DS3D_IMMEDIATE (0) is heard at once. The Get methods give what
 // was last set, deferred or not.
-void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>& locked) {
+void GameHost::addDirectSound3D(const std::function<void(std::vector<Method> &)> &locked) {
     // The sound buffer a 3D buffer places.
-    auto placed = [this](Cpu& c) -> DsBuffer* {
+    auto placed = [this](Cpu &c) -> DsBuffer * {
         auto it = sound3dBuffers_.find(c.arg(0));
         if (it == sound3dBuffers_.end())
             return nullptr;
@@ -1217,8 +1229,8 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
         return b == soundBuffers_.end() ? nullptr : &b->second;
     };
     // Changes a 3D buffer's parameters, now or deferred.
-    auto set = [placed](Cpu& c, uint32_t apply, const std::function<void(Ds3dSource&)>& change) {
-        DsBuffer* b = placed(c);
+    auto set = [placed](Cpu &c, uint32_t apply, const std::function<void(Ds3dSource &)> &change) {
+        DsBuffer *b = placed(c);
         if (!b)
             return kInvalidParams;
         change(b->deferredPlace);
@@ -1227,15 +1239,16 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
         return kOk;
     };
     // Reads a 3D buffer's parameters into the game's memory.
-    auto get = [placed](Cpu& c, const std::function<void(const Ds3dSource&)>& read) {
-        DsBuffer* b = placed(c);
+    auto get = [placed](Cpu &c, const std::function<void(const Ds3dSource &)> &read) {
+        DsBuffer *b = placed(c);
         if (!b || !c.arg(1))
             return kInvalidParams;
         read(b->deferredPlace);
         return kOk;
     };
     std::vector<Method> b = {
-        {"QueryInterface", 3, [this](Cpu& c) {
+        {"QueryInterface", 3,
+         [this](Cpu &c) {
              const uint32_t iid = c.read32(c.arg(1));
              auto it = sound3dBuffers_.find(c.arg(0));
              if (iid == kIidDirectSound3DBuffer) {
@@ -1250,16 +1263,18 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
              c.write32(c.arg(2), 0);
              return kNoInterface;
          }},
-        {"AddRef", 1, [](Cpu&) { return 2u; }},
-        {"Release", 1, [this](Cpu& c) {
+        {"AddRef", 1, [](Cpu &) { return 2u; }},
+        {"Release", 1,
+         [this](Cpu &c) {
              sound3dBuffers_.erase(c.arg(0));
              return 0u;
          }},
         // DS3DBUFFER: size, position (+4), velocity (+16), the cone's inside
         // and outside angles (+28), orientation (+36) and outside volume
         // (+48), the least and most distances (+52), the mode (+60).
-        {"GetAllParameters", 2, [get](Cpu& c) {
-             return get(c, [&](const Ds3dSource& s) {
+        {"GetAllParameters", 2,
+         [get](Cpu &c) {
+             return get(c, [&](const Ds3dSource &s) {
                  const uint32_t p = c.arg(1);
                  writeVector(c, p + 4, s.position);
                  writeVector(c, p + 16, s.velocity);
@@ -1272,8 +1287,9 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
                  c.write32(p + 60, s.mode);
              });
          }},
-        {"GetConeAngles", 3, [placed](Cpu& c) {
-             DsBuffer* b = placed(c);
+        {"GetConeAngles", 3,
+         [placed](Cpu &c) {
+             DsBuffer *b = placed(c);
              if (!b)
                  return kInvalidParams;
              if (c.arg(1))
@@ -1283,23 +1299,25 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
              return kOk;
          }},
         {"GetConeOrientation", 2,
-         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.coneOrientation); }); }},
-        {"GetConeOutsideVolume", 2, [get](Cpu& c) {
-             return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), uint32_t(s.coneOutsideVolume)); });
+         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.coneOrientation); }); }},
+        {"GetConeOutsideVolume", 2,
+         [get](Cpu &c) {
+             return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), uint32_t(s.coneOutsideVolume)); });
          }},
         {"GetMaxDistance", 2,
-         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), floatBits(s.maxDistance)); }); }},
+         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.maxDistance)); }); }},
         {"GetMinDistance", 2,
-         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), floatBits(s.minDistance)); }); }},
-        {"GetMode", 2, [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { c.write32(c.arg(1), s.mode); }); }},
+         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), floatBits(s.minDistance)); }); }},
+        {"GetMode", 2, [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { c.write32(c.arg(1), s.mode); }); }},
         {"GetPosition", 2,
-         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.position); }); }},
+         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.position); }); }},
         {"GetVelocity", 2,
-         [get](Cpu& c) { return get(c, [&](const Ds3dSource& s) { writeVector(c, c.arg(1), s.velocity); }); }},
-        {"SetAllParameters", 3, [set](Cpu& c) {
+         [get](Cpu &c) { return get(c, [&](const Ds3dSource &s) { writeVector(c, c.arg(1), s.velocity); }); }},
+        {"SetAllParameters", 3,
+         [set](Cpu &c) {
              if (!c.arg(1))
                  return kInvalidParams;
-             return set(c, c.arg(2), [&](Ds3dSource& s) {
+             return set(c, c.arg(2), [&](Ds3dSource &s) {
                  const uint32_t p = c.arg(1);
                  readVector(c, p + 4, s.position);
                  readVector(c, p + 16, s.velocity);
@@ -1312,44 +1330,46 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
                  s.mode = c.read32(p + 60);
              });
          }},
-        {"SetConeAngles", 4, [set](Cpu& c) {
-             return set(c, c.arg(3), [&](Ds3dSource& s) {
+        {"SetConeAngles", 4,
+         [set](Cpu &c) {
+             return set(c, c.arg(3), [&](Ds3dSource &s) {
                  s.insideCone = c.arg(1);
                  s.outsideCone = c.arg(2);
              });
          }},
         {"SetConeOrientation", 5,
-         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.coneOrientation); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.coneOrientation); }); }},
         {"SetConeOutsideVolume", 3,
-         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.coneOutsideVolume = int32_t(c.arg(1)); }); }},
+         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.coneOutsideVolume = int32_t(c.arg(1)); }); }},
         {"SetMaxDistance", 3,
-         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.maxDistance = asFloat(c.arg(1)); }); }},
+         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.maxDistance = asFloat(c.arg(1)); }); }},
         {"SetMinDistance", 3,
-         [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.minDistance = asFloat(c.arg(1)); }); }},
-        {"SetMode", 3, [set](Cpu& c) { return set(c, c.arg(2), [&](Ds3dSource& s) { s.mode = c.arg(1); }); }},
+         [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.minDistance = asFloat(c.arg(1)); }); }},
+        {"SetMode", 3, [set](Cpu &c) { return set(c, c.arg(2), [&](Ds3dSource &s) { s.mode = c.arg(1); }); }},
         {"SetPosition", 5,
-         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.position); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.position); }); }},
         {"SetVelocity", 5,
-         [set](Cpu& c) { return set(c, c.arg(4), [&](Ds3dSource& s) { argVector(c, 1, s.velocity); }); }},
+         [set](Cpu &c) { return set(c, c.arg(4), [&](Ds3dSource &s) { argVector(c, 1, s.velocity); }); }},
     };
     locked(b);
     sound3dBufferVtable_ = makeVtable("IDirectSound3DBuffer", b);
 
     // The listener: one, the primary buffer's.
-    auto setListener = [this](uint32_t apply, const std::function<void(Ds3dListener&)>& change) {
+    auto setListener = [this](uint32_t apply, const std::function<void(Ds3dListener &)> &change) {
         change(deferredListener_);
         if (!(apply & 1))
             listener_ = deferredListener_;
         return kOk;
     };
-    auto getListener = [this](Cpu& c, const std::function<void(const Ds3dListener&)>& read) {
+    auto getListener = [this](Cpu &c, const std::function<void(const Ds3dListener &)> &read) {
         if (!c.arg(1))
             return kInvalidParams;
         read(deferredListener_);
         return kOk;
     };
     std::vector<Method> l = {
-        {"QueryInterface", 3, [this](Cpu& c) {
+        {"QueryInterface", 3,
+         [this](Cpu &c) {
              if (c.read32(c.arg(1)) == kIidDirectSound3DListener) {
                  c.write32(c.arg(2), c.arg(0));
                  return kOk;
@@ -1358,12 +1378,13 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
              c.write32(c.arg(2), 0);
              return kNoInterface;
          }},
-        {"AddRef", 1, [](Cpu&) { return 2u; }},
-        {"Release", 1, [](Cpu&) { return 0u; }},
+        {"AddRef", 1, [](Cpu &) { return 2u; }},
+        {"Release", 1, [](Cpu &) { return 0u; }},
         // DS3DLISTENER: size, position (+4), velocity (+16), front (+28),
         // top (+40), the distance, rolloff and Doppler factors (+52).
-        {"GetAllParameters", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) {
+        {"GetAllParameters", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) {
                  const uint32_t p = c.arg(1);
                  writeVector(c, p + 4, s.position);
                  writeVector(c, p + 16, s.velocity);
@@ -1374,32 +1395,39 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
                  c.write32(p + 60, floatBits(s.dopplerFactor));
              });
          }},
-        {"GetDistanceFactor", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.distanceFactor)); });
+        {"GetDistanceFactor", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.distanceFactor)); });
          }},
-        {"GetDopplerFactor", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.dopplerFactor)); });
+        {"GetDopplerFactor", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.dopplerFactor)); });
          }},
-        {"GetOrientation", 3, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) {
+        {"GetOrientation", 3,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) {
                  writeVector(c, c.arg(1), s.front);
                  if (c.arg(2))
                      writeVector(c, c.arg(2), s.top);
              });
          }},
-        {"GetPosition", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) { writeVector(c, c.arg(1), s.position); });
+        {"GetPosition", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) { writeVector(c, c.arg(1), s.position); });
          }},
-        {"GetRolloffFactor", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) { c.write32(c.arg(1), floatBits(s.rolloffFactor)); });
+        {"GetRolloffFactor", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) { c.write32(c.arg(1), floatBits(s.rolloffFactor)); });
          }},
-        {"GetVelocity", 2, [getListener](Cpu& c) {
-             return getListener(c, [&](const Ds3dListener& s) { writeVector(c, c.arg(1), s.velocity); });
+        {"GetVelocity", 2,
+         [getListener](Cpu &c) {
+             return getListener(c, [&](const Ds3dListener &s) { writeVector(c, c.arg(1), s.velocity); });
          }},
-        {"SetAllParameters", 3, [setListener](Cpu& c) {
+        {"SetAllParameters", 3,
+         [setListener](Cpu &c) {
              if (!c.arg(1))
                  return kInvalidParams;
-             return setListener(c.arg(2), [&](Ds3dListener& s) {
+             return setListener(c.arg(2), [&](Ds3dListener &s) {
                  const uint32_t p = c.arg(1);
                  readVector(c, p + 4, s.position);
                  readVector(c, p + 16, s.velocity);
@@ -1410,33 +1438,38 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
                  s.dopplerFactor = asFloat(c.read32(p + 60));
              });
          }},
-        {"SetDistanceFactor", 3, [setListener](Cpu& c) {
-             return setListener(c.arg(2), [&](Ds3dListener& s) { s.distanceFactor = asFloat(c.arg(1)); });
+        {"SetDistanceFactor", 3,
+         [setListener](Cpu &c) {
+             return setListener(c.arg(2), [&](Ds3dListener &s) { s.distanceFactor = asFloat(c.arg(1)); });
          }},
-        {"SetDopplerFactor", 3, [setListener](Cpu& c) {
-             return setListener(c.arg(2), [&](Ds3dListener& s) { s.dopplerFactor = asFloat(c.arg(1)); });
+        {"SetDopplerFactor", 3,
+         [setListener](Cpu &c) {
+             return setListener(c.arg(2), [&](Ds3dListener &s) { s.dopplerFactor = asFloat(c.arg(1)); });
          }},
-        {"SetOrientation", 8, [setListener](Cpu& c) {
-             return setListener(c.arg(7), [&](Ds3dListener& s) {
+        {"SetOrientation", 8,
+         [setListener](Cpu &c) {
+             return setListener(c.arg(7), [&](Ds3dListener &s) {
                  argVector(c, 1, s.front);
                  argVector(c, 4, s.top);
              });
          }},
         {"SetPosition", 5,
-         [setListener](Cpu& c) {
-             return setListener(c.arg(4), [&](Ds3dListener& s) { argVector(c, 1, s.position); });
+         [setListener](Cpu &c) {
+             return setListener(c.arg(4), [&](Ds3dListener &s) { argVector(c, 1, s.position); });
          }},
-        {"SetRolloffFactor", 3, [setListener](Cpu& c) {
-             return setListener(c.arg(2), [&](Ds3dListener& s) { s.rolloffFactor = asFloat(c.arg(1)); });
+        {"SetRolloffFactor", 3,
+         [setListener](Cpu &c) {
+             return setListener(c.arg(2), [&](Ds3dListener &s) { s.rolloffFactor = asFloat(c.arg(1)); });
          }},
         {"SetVelocity", 5,
-         [setListener](Cpu& c) {
-             return setListener(c.arg(4), [&](Ds3dListener& s) { argVector(c, 1, s.velocity); });
+         [setListener](Cpu &c) {
+             return setListener(c.arg(4), [&](Ds3dListener &s) { argVector(c, 1, s.velocity); });
          }},
         // CommitDeferredSettings: the listener's and every buffer's.
-        {"CommitDeferredSettings", 1, [this](Cpu&) {
+        {"CommitDeferredSettings", 1,
+         [this](Cpu &) {
              listener_ = deferredListener_;
-             for (auto& [object, buffer] : soundBuffers_)
+             for (auto &[object, buffer] : soundBuffers_)
                  buffer.place = buffer.deferredPlace;
              return kOk;
          }},
@@ -1446,8 +1479,8 @@ void GameHost::addDirectSound3D(const std::function<void(std::vector<Method>&)>&
 }
 
 void GameHost::addDirectSound() {
-    auto ok = [](Cpu&) { return kOk; };
-    auto buffer = [this](Cpu& c) -> DsBuffer* {
+    auto ok = [](Cpu &) { return kOk; };
+    auto buffer = [this](Cpu &c) -> DsBuffer * {
         auto it = soundBuffers_.find(c.arg(0));
         if (it == soundBuffers_.end()) {
             c.abort("not a sound buffer");
@@ -1456,7 +1489,7 @@ void GameHost::addDirectSound() {
         return &it->second;
     };
     // A WAVEFORMATEX: tag, channels, rate, bytes a second, block align, bits.
-    auto readFormat = [](Cpu& c, uint32_t p, DsBuffer& b) {
+    auto readFormat = [](Cpu &c, uint32_t p, DsBuffer &b) {
         if (!p)
             return;
         b.channels = c.read16(p + 2);
@@ -1468,8 +1501,9 @@ void GameHost::addDirectSound() {
         // QueryInterface: IDirectSound3DBuffer of a buffer made with
         // DSBCAPS_CTRL3D, IDirectSound3DListener of a primary one. Nothing
         // else, IKsPropertySet (EAX's property sets) included.
-        {"QueryInterface", 3, [this, buffer](Cpu& c) {
-             DsBuffer* b = buffer(c);
+        {"QueryInterface", 3,
+         [this, buffer](Cpu &c) {
+             DsBuffer *b = buffer(c);
              const uint32_t iid = c.read32(c.arg(1));
              c.write32(c.arg(2), 0);
              if (!b)
@@ -1491,23 +1525,25 @@ void GameHost::addDirectSound() {
              say("  IDirectSoundBuffer::QueryInterface(" + guid(c, c.arg(1)) + "): no");
              return kNoInterface;
          }},
-        {"AddRef", 1, [](Cpu&) { return 2u; }},
+        {"AddRef", 1, [](Cpu &) { return 2u; }},
         // Release: the buffer goes, its memory with the last buffer sharing
         // it (DuplicateSoundBuffer).
-        {"Release", 1, [this](Cpu& c) {
+        {"Release", 1,
+         [this](Cpu &c) {
              auto it = soundBuffers_.find(c.arg(0));
              if (it != soundBuffers_.end() && !it->second.primary) {
                  if (--soundMemoryUsers_[it->second.memory] <= 0) {
                      soundMemoryUsers_.erase(it->second.memory);
                      process_->memory().free(it->second.memory);
                  }
-                 std::erase_if(sound3dBuffers_, [&](const auto& p) { return p.second == c.arg(0); });
+                 std::erase_if(sound3dBuffers_, [&](const auto &p) { return p.second == c.arg(0); });
                  soundBuffers_.erase(it);
              }
              return 0u;
          }},
-        {"GetCaps", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"GetCaps", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  // DSBCAPS_PRIMARYBUFFER, or as created, in software unless
                  // asked for in hardware.
                  const uint32_t f = b->flags & ~(kLocHardware | kLocSoftware);
@@ -1517,8 +1553,9 @@ void GameHost::addDirectSound() {
              }
              return kOk;
          }},
-        {"GetCurrentPosition", 3, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"GetCurrentPosition", 3,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  const uint32_t at = b->position(process_->now());
                  if (c.arg(1))
                      c.write32(c.arg(1), at);
@@ -1527,8 +1564,9 @@ void GameHost::addDirectSound() {
              }
              return kOk;
          }},
-        {"GetFormat", 4, [buffer](Cpu& c) {
-             DsBuffer* b = buffer(c);
+        {"GetFormat", 4,
+         [buffer](Cpu &c) {
+             DsBuffer *b = buffer(c);
              if (!b)
                  return kOk;
              if (c.arg(1) && c.arg(2) >= 16) {
@@ -1543,23 +1581,27 @@ void GameHost::addDirectSound() {
                  c.write32(c.arg(3), 16);
              return kOk;
          }},
-        {"GetVolume", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"GetVolume", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c))
                  c.write32(c.arg(1), uint32_t(b->volume));
              return kOk;
          }},
-        {"GetPan", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"GetPan", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c))
                  c.write32(c.arg(1), uint32_t(b->pan));
              return kOk;
          }},
-        {"GetFrequency", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"GetFrequency", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c))
                  c.write32(c.arg(1), uint32_t(b->rate));
              return kOk;
          }},
-        {"GetStatus", 2, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"GetStatus", 2,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  b->position(process_->now());
                  c.write32(c.arg(1), (b->playing ? 1u : 0u) | (b->looping && b->playing ? 4u : 0u));
              }
@@ -1568,8 +1610,9 @@ void GameHost::addDirectSound() {
         {"Initialize", 3, ok},
         // Lock(this, offset, bytes, part1**, size1*, part2**, size2*, flags):
         // the bytes asked for, wrapping round the end as a second part.
-        {"Lock", 8, [this, buffer](Cpu& c) {
-             DsBuffer* b = buffer(c);
+        {"Lock", 8,
+         [this, buffer](Cpu &c) {
+             DsBuffer *b = buffer(c);
              if (!b || !b->size)
                  return kInvalidParams;
              uint32_t offset = c.arg(1), bytes = c.arg(2);
@@ -1588,8 +1631,9 @@ void GameHost::addDirectSound() {
                  c.write32(c.arg(6), bytes - first);
              return kOk;
          }},
-        {"Play", 4, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"Play", 4,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  b->startPosition = b->position(process_->now());
                  b->startMs = process_->now();
                  b->playing = true;
@@ -1598,34 +1642,39 @@ void GameHost::addDirectSound() {
              }
              return kOk;
          }},
-        {"SetCurrentPosition", 2, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"SetCurrentPosition", 2,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  b->startPosition = b->size ? c.arg(1) % b->size : 0;
                  b->startMs = process_->now();
                  b->outSynced = false;
              }
              return kOk;
          }},
-        {"SetFormat", 2, [this, readFormat, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"SetFormat", 2,
+         [this, readFormat, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  readFormat(c, c.arg(1), *b);
                  say("  SetFormat: " + std::to_string(b->rate) + " Hz, " + std::to_string(b->channels) + " channels, " +
                      std::to_string(b->bits) + " bits" + (b->primary ? " (primary)" : ""));
              }
              return kOk;
          }},
-        {"SetVolume", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"SetVolume", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c))
                  b->volume = int32_t(c.arg(1));
              return kOk;
          }},
-        {"SetPan", 2, [buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c))
+        {"SetPan", 2,
+         [buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c))
                  b->pan = int32_t(c.arg(1));
              return kOk;
          }},
-        {"SetFrequency", 2, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"SetFrequency", 2,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  b->startPosition = b->position(process_->now());
                  b->startMs = process_->now();
                  if (c.arg(1))
@@ -1633,8 +1682,9 @@ void GameHost::addDirectSound() {
              }
              return kOk;
          }},
-        {"Stop", 1, [this, buffer](Cpu& c) {
-             if (DsBuffer* b = buffer(c)) {
+        {"Stop", 1,
+         [this, buffer](Cpu &c) {
+             if (DsBuffer *b = buffer(c)) {
                  b->startPosition = b->position(process_->now());
                  b->playing = false;
              }
@@ -1642,8 +1692,9 @@ void GameHost::addDirectSound() {
          }},
         // Unlock(this, part1, size1, part2, size2): what was written, marked
         // as new.
-        {"Unlock", 5, [buffer](Cpu& c) {
-             DsBuffer* b = buffer(c);
+        {"Unlock", 5,
+         [buffer](Cpu &c) {
+             DsBuffer *b = buffer(c);
              if (!b || !b->size)
                  return kOk;
              b->fresh.resize((b->size + 255) / 256);
@@ -1662,10 +1713,10 @@ void GameHost::addDirectSound() {
         {"Restore", 1, ok},
     };
     // The audio thread reads the buffers and the listener too (mixSound).
-    auto locked = [this](std::vector<Method>& methods) {
-        for (Method& method : methods)
+    auto locked = [this](std::vector<Method> &methods) {
+        for (Method &method : methods)
             if (method.fn)
-                method.fn = [this, fn = std::move(method.fn)](Cpu& c) {
+                method.fn = [this, fn = std::move(method.fn)](Cpu &c) {
                     std::lock_guard<std::mutex> lock(soundMutex_);
                     return fn(c);
                 };
@@ -1675,12 +1726,13 @@ void GameHost::addDirectSound() {
     addDirectSound3D(locked);
 
     std::vector<Method> ds = {
-        {"QueryInterface", 3, [](Cpu&) { return kNoInterface; }},
-        {"AddRef", 1, [](Cpu&) { return 2u; }},
-        {"Release", 1, [](Cpu&) { return 0u; }},
+        {"QueryInterface", 3, [](Cpu &) { return kNoInterface; }},
+        {"AddRef", 1, [](Cpu &) { return 2u; }},
+        {"Release", 1, [](Cpu &) { return 0u; }},
         // CreateSoundBuffer(this, desc*, buffer**, outer): DSBUFFERDESC's
         // flags (+4; DSBCAPS_PRIMARYBUFFER 1), size (+8) and format (+16).
-        {"CreateSoundBuffer", 4, [this, readFormat](Cpu& c) {
+        {"CreateSoundBuffer", 4,
+         [this, readFormat](Cpu &c) {
              const uint32_t desc = c.arg(1);
              DsBuffer b;
              b.flags = c.read32(desc + 4);
@@ -1705,7 +1757,8 @@ void GameHost::addDirectSound() {
         // static and streaming, the most and those free; from +0x2c the 3D
         // ones likewise). eacsnd.dll gives the game 3D sound only if the
         // most 3D buffers (+0x2c) isn't 0.
-        {"GetCaps", 2, [this](Cpu& c) {
+        {"GetCaps", 2,
+         [this](Cpu &c) {
              const uint32_t p = c.arg(1), size = c.read32(p);
              for (uint32_t o = 4; o < size && o < 96; o += 4)
                  c.write32(p + o, 0);
@@ -1715,7 +1768,7 @@ void GameHost::addDirectSound() {
              uint32_t used = 0, used3d = 0;
              {
                  std::lock_guard<std::mutex> lock(soundMutex_);
-                 for (const auto& [object, b] : soundBuffers_)
+                 for (const auto &[object, b] : soundBuffers_)
                      if (!b.primary && (b.flags & kLocHardware)) {
                          ++used;
                          used3d += (b.flags & kCtrl3d) ? 1 : 0;
@@ -1732,13 +1785,14 @@ void GameHost::addDirectSound() {
         // DuplicateSoundBuffer(this, original, duplicate**): a buffer of its
         // own sharing the original's memory, as it is set but stopped at
         // the start.
-        {"DuplicateSoundBuffer", 3, [this](Cpu& c) {
+        {"DuplicateSoundBuffer", 3,
+         [this](Cpu &c) {
              std::lock_guard<std::mutex> lock(soundMutex_);
              auto it = soundBuffers_.find(c.arg(1));
              if (it == soundBuffers_.end() || it->second.primary || !c.arg(2))
                  return kInvalidParams;
              DsBuffer d;
-             const DsBuffer& o = it->second;
+             const DsBuffer &o = it->second;
              d.memory = o.memory;
              d.size = o.size;
              d.rate = o.rate;
@@ -1759,7 +1813,8 @@ void GameHost::addDirectSound() {
          }},
         {"SetCooperativeLevel", 3, ok},
         {"Compact", 1, ok},
-        {"GetSpeakerConfig", 2, [](Cpu& c) {
+        {"GetSpeakerConfig", 2,
+         [](Cpu &c) {
              c.write32(c.arg(1), 4); // DSSPEAKER_STEREO
              return kOk;
          }},
@@ -1767,7 +1822,7 @@ void GameHost::addDirectSound() {
         {"Initialize", 2, ok},
     };
     const uint32_t sound = makeObject("IDirectSound", ds);
-    provide("DSOUND.dll", "DirectSoundCreate", 3, [sound](Cpu& c) {
+    provide("DSOUND.dll", "DirectSoundCreate", 3, [sound](Cpu &c) {
         c.write32(c.arg(1), sound);
         return kOk;
     });

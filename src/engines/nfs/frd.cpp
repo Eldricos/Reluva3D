@@ -15,33 +15,33 @@ namespace {
 // Reads little-endian values in order, failing (once) past the end.
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t>& data) : d_(data) {}
+    explicit Reader(const std::vector<uint8_t> &data) : d_(data) {}
 
     bool ok() const { return ok_; }
     size_t pos() const { return pos_; }
     bool has(size_t n) const { return ok_ && pos_ + n <= d_.size(); }
 
-    const uint8_t* take(size_t n) {
+    const uint8_t *take(size_t n) {
         if (!has(n)) {
             ok_ = false;
             return nullptr;
         }
-        const uint8_t* p = d_.data() + pos_;
+        const uint8_t *p = d_.data() + pos_;
         pos_ += n;
         return p;
     }
     uint32_t u32() {
-        const uint8_t* p = take(4);
+        const uint8_t *p = take(4);
         return p ? p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
                        static_cast<uint32_t>(p[3]) << 24
                  : 0;
     }
     uint16_t u16() {
-        const uint8_t* p = take(2);
+        const uint8_t *p = take(2);
         return p ? static_cast<uint16_t>(p[0] | p[1] << 8) : 0;
     }
     uint8_t u8() {
-        const uint8_t* p = take(1);
+        const uint8_t *p = take(1);
         return p ? *p : 0;
     }
     float f32() {
@@ -55,7 +55,7 @@ public:
         return {x, y, z};
     }
     std::vector<uint8_t> bytes(size_t n) {
-        const uint8_t* p = take(n);
+        const uint8_t *p = take(n);
         return p ? std::vector<uint8_t>(p, p + n) : std::vector<uint8_t>{};
     }
     // A count about to be followed by `size`-byte records: fails rather
@@ -68,7 +68,7 @@ public:
     }
 
 private:
-    const std::vector<uint8_t>& d_;
+    const std::vector<uint8_t> &d_;
     size_t pos_ = 0;
     bool ok_ = true;
 };
@@ -77,10 +77,10 @@ constexpr size_t kHeaderSize = 28;
 constexpr size_t kPolygonSize = 14;
 constexpr int kNeighbours = 300;
 
-void readPolygons(Reader& r, uint32_t n, std::vector<Track::Polygon>& out) {
+void readPolygons(Reader &r, uint32_t n, std::vector<Track::Polygon> &out) {
     out.resize(n);
-    for (Track::Polygon& p : out) {
-        for (uint16_t& v : p.vertices)
+    for (Track::Polygon &p : out) {
+        for (uint16_t &v : p.vertices)
             v = r.u16();
         p.texture = r.u16();
         p.animationBase = r.u16();
@@ -91,9 +91,9 @@ void readPolygons(Reader& r, uint32_t n, std::vector<Track::Polygon>& out) {
 
 } // namespace
 
-Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
+Error parseTrack(const std::vector<uint8_t> &data, Track &out) {
     out = {};
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .frd track: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .frd track: " + why); };
     Reader r(data);
     r.take(kHeaderSize);
     const uint32_t blocks = r.count(84) + 1; // stored as one less
@@ -102,9 +102,9 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
 
     // The blocks: geometry, neighbours and their records.
     out.blocks.resize(blocks);
-    for (Track::Block& b : out.blocks) {
+    for (Track::Block &b : out.blocks) {
         b.centre = r.vec3();
-        for (Track::Vec3& c : b.corners)
+        for (Track::Vec3 &c : b.corners)
             c = r.vec3();
         const uint32_t vertices = r.u32();
         b.highResVertices = r.u32();
@@ -115,10 +115,10 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
         if (!r.has(16ull * vertices))
             return bad("a block's vertices run past the end");
         b.vertices.resize(vertices);
-        for (Track::Vec3& v : b.vertices)
+        for (Track::Vec3 &v : b.vertices)
             v = r.vec3();
         b.colours.resize(vertices);
-        for (uint32_t& c : b.colours)
+        for (uint32_t &c : b.colours)
             c = r.u32();
         for (int i = 0; i < kNeighbours; ++i) {
             const auto block = static_cast<int16_t>(r.u16());
@@ -143,7 +143,7 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
             return bad("a block runs past the end");
         // Lights and sounds: a position (3 x s32, 16.16), then the type, or
         // the slot and a flag.
-        auto position = [](const std::vector<uint8_t>& bytes, size_t at) {
+        auto position = [](const std::vector<uint8_t> &bytes, size_t at) {
             Track::Vec3 v;
             for (int i = 0; i < 3; ++i) {
                 int32_t fixed;
@@ -171,8 +171,8 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
     // the count again and the polygons; then four object layers, each a
     // polygon total, then (if not 0) the objects.
     for (size_t bi = 0; bi < out.blocks.size(); ++bi) {
-        Track::Block& b = out.blocks[bi];
-        for (auto& list : b.polygons) {
+        Track::Block &b = out.blocks[bi];
+        for (auto &list : b.polygons) {
             const uint32_t n = r.count(kPolygonSize);
             if (n) {
                 if (r.u32() != n)
@@ -180,29 +180,29 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
                 readPolygons(r, n, list);
             }
         }
-        for (auto& layer : b.objectLayers) {
+        for (auto &layer : b.objectLayers) {
             if (!r.u32())
                 continue;
             const uint32_t objects = r.count(4);
             layer.resize(objects);
-            for (Track::BlockObject& o : layer) {
+            for (Track::BlockObject &o : layer) {
                 o.type = r.u32();
                 if (o.type == 1)
                     readPolygons(r, r.count(kPolygonSize), o.polygons);
             }
         }
-        auto inside = [&](const std::vector<Track::Polygon>& list) {
-            for (const Track::Polygon& p : list)
+        auto inside = [&](const std::vector<Track::Polygon> &list) {
+            for (const Track::Polygon &p : list)
                 for (uint16_t v : p.vertices)
                     if (v >= b.vertices.size())
                         return false;
             return true;
         };
-        for (const auto& list : b.polygons)
+        for (const auto &list : b.polygons)
             if (!inside(list))
                 return bad("block " + std::to_string(bi) + " has a polygon outside its vertices");
-        for (const auto& layer : b.objectLayers)
-            for (const Track::BlockObject& o : layer)
+        for (const auto &layer : b.objectLayers)
+            for (const Track::BlockObject &o : layer)
                 if (!inside(o.polygons))
                     return bad("block " + std::to_string(bi) + " has an object polygon outside its vertices");
         if (!r.ok())
@@ -211,9 +211,9 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
 
     // Objects placed on the track: four groups per block and one more.
     out.extraObjects.resize(4ull * blocks + 1);
-    for (auto& group : out.extraObjects) {
+    for (auto &group : out.extraObjects) {
         group.resize(r.count(28));
-        for (Track::ExtraObject& o : group) {
+        for (Track::ExtraObject &o : group) {
             o.type = r.u32();
             if (o.type == 4) {
                 r.take(8);
@@ -224,10 +224,10 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
                 const uint16_t keys = r.u16();
                 o.keyDelay = static_cast<int16_t>(r.u16());
                 o.keys.resize(keys);
-                for (auto& k : o.keys) {
-                    for (int32_t& p : k.position)
+                for (auto &k : o.keys) {
+                    for (int32_t &p : k.position)
                         p = static_cast<int32_t>(r.u32());
-                    for (int16_t& q : k.rotation)
+                    for (int16_t &q : k.rotation)
                         q = static_cast<int16_t>(r.u16());
                 }
             } else {
@@ -235,13 +235,13 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
             }
             const uint32_t vertices = r.count(16);
             o.vertices.resize(vertices);
-            for (Track::Vec3& v : o.vertices)
+            for (Track::Vec3 &v : o.vertices)
                 v = r.vec3();
             o.colours.resize(vertices);
-            for (uint32_t& c : o.colours)
+            for (uint32_t &c : o.colours)
                 c = r.u32();
             readPolygons(r, r.count(kPolygonSize), o.polygons);
-            for (const Track::Polygon& p : o.polygons)
+            for (const Track::Polygon &p : o.polygons)
                 for (uint16_t v : p.vertices)
                     if (v >= o.vertices.size())
                         return bad("an object has a polygon outside its vertices");
@@ -252,11 +252,11 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
 
     // The texture table, to the end of the file.
     out.textures.resize(r.count(47));
-    for (Track::Texture& t : out.textures) {
+    for (Track::Texture &t : out.textures) {
         t.width = r.u16();
         t.height = r.u16();
         t.handle = r.u32();
-        for (float& c : t.corners)
+        for (float &c : t.corners)
             c = r.f32();
         t.flags = r.u32();
         t.lane = r.u8() != 0;
@@ -266,9 +266,9 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out) {
         return bad("the texture table runs past the end");
     if (r.pos() != data.size())
         return bad(std::to_string(data.size() - r.pos()) + " bytes left after the texture table");
-    for (const Track::Block& b : out.blocks)
-        for (const auto& list : b.polygons)
-            for (const Track::Polygon& p : list)
+    for (const Track::Block &b : out.blocks)
+        for (const auto &list : b.polygons)
+            for (const Track::Polygon &p : list)
                 if (p.texture >= out.textures.size())
                     return bad("a polygon uses a texture past the table");
     return Error::success();
@@ -303,8 +303,8 @@ uint32_t scaleArgb(uint32_t colour, uint32_t k) {
     return (((colour & 0xff00ff00u) >> 8) * k & 0xff00ff00u) | ((colour & 0x00ff00ffu) * k >> 8 & 0x00ff00ffu);
 }
 
-Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, const std::array<float, 3>& right,
-                       const std::array<float, 3>& up, const std::array<float, 3>& forward, float intensity) {
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3> &at, const std::array<float, 3> &right,
+                       const std::array<float, 3> &up, const std::array<float, 3> &forward, float intensity) {
     Headlight h;
     h.at = at;
     // 0x42d253-0x42d31b.
@@ -337,14 +337,14 @@ Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at
     return h;
 }
 
-Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading, float intensity) {
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3> &at, float heading, float intensity) {
     const std::array<float, 3> forward{std::sin(heading), 0, std::cos(heading)};
     // Left-handed: the right of a forward (x, 0, z) is (z, 0, -x).
     return carHeadlight(beams, projected, at, {forward[2], 0, -forward[0]}, {0, 1, 0}, forward, intensity);
 }
 
-Headlight sirenLight(const std::array<float, 3>& carAt, const std::array<float, 3>& right,
-                     const std::array<float, 3>& up, const std::array<float, 3>& forward, int step) {
+Headlight sirenLight(const std::array<float, 3> &carAt, const std::array<float, 3> &right,
+                     const std::array<float, 3> &up, const std::array<float, 3> &forward, int step) {
     Headlight h;
     // 0x42d020: the place, the car's position plus its up row (0x4dffb0).
     for (int i = 0; i < 3; ++i)
@@ -395,13 +395,13 @@ ViewScreen viewScreen(int left, int top, int width, int height, int viewAngle, b
     return s;
 }
 
-bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners, float zoom,
-                      bool bothWays, const ViewScreen& screen) {
+bool lightMissesBlock(const Headlight &light, const std::array<std::array<float, 3>, 4> &corners, float zoom,
+                      bool bothWays, const ViewScreen &screen) {
     zoom = std::min(zoom, 1.0f);
     uint8_t shared = 0xff;
-    for (const auto& corner : corners) {
+    for (const auto &corner : corners) {
         const std::array<float, 3> d{corner[0] - light.at[0], corner[1] - light.at[1], corner[2] - light.at[2]};
-        auto dot = [&](const std::array<float, 3>& v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
+        auto dot = [&](const std::array<float, 3> &v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
         const float x = dot(light.right), y = dot(light.up);
         float z = dot(light.forward);
         if (std::fabs(z) == 0)
@@ -432,8 +432,8 @@ bool lightMissesBlock(const Headlight& light, const std::array<std::array<float,
     return shared != 0;
 }
 
-std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt,
-                                    const std::array<float, 3>& carUp, float halfLength, float upright) {
+std::array<float, 3> headlightPlace(const Headlight &light, const std::array<float, 3> &carAt,
+                                    const std::array<float, 3> &carUp, float halfLength, float upright) {
     const float along = halfLength * 0.25f; // 0x5373b0
     std::array<float, 3> out{};
     for (int i = 0; i < 3; ++i)
@@ -441,14 +441,14 @@ std::array<float, 3> headlightPlace(const Headlight& light, const std::array<flo
     return out;
 }
 
-std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
+std::array<float, 3> headlightPlace(const Headlight &light, const std::array<float, 3> &carAt, float halfLength,
                                     float upright) {
     return headlightPlace(light, carAt, {0, 1, 0}, halfLength, upright);
 }
 
-HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point) {
+HeadlightPoint headlightAt(const Headlight &light, const std::array<float, 3> &point) {
     const std::array<float, 3> d{point[0] - light.at[0], point[1] - light.at[1], point[2] - light.at[2]};
-    auto dot = [&](const std::array<float, 3>& v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
+    auto dot = [&](const std::array<float, 3> &v) { return d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; };
     float x = dot(light.right), y = dot(light.up), z = dot(light.forward);
     HeadlightPoint p;
     if (std::fabs(z) == 0)
@@ -492,26 +492,26 @@ HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& p
     return p;
 }
 
-bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const HeadlightPoint& c) {
+bool headlightTriangle(const HeadlightPoint &a, const HeadlightPoint &b, const HeadlightPoint &c) {
     if ((a.outside & b.outside & c.outside) != 0 || ((a.outside | b.outside | c.outside) & 0x20) != 0)
         return false;
     return ((a.colour | b.colour | c.colour) >> 24) >= 8;
 }
 
-uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std::vector<CarLights>& others) {
+uint32_t carLitBy(uint32_t colour, const std::array<float, 3> &carAt, const std::vector<CarLights> &others) {
     int sum[3] = {0, 0, 0}, count = 0;
     auto add = [&](uint32_t c, float k) {
         ++count;
         for (int i = 0; i < 3; ++i)
             sum[i] += static_cast<int>(std::lrint(static_cast<float>((c >> (16 - 8 * i)) & 0xff) * k));
     };
-    auto inFrame = [&](const Headlight& l, float& x, float& y, float& z) {
+    auto inFrame = [&](const Headlight &l, float &x, float &y, float &z) {
         const std::array<float, 3> d{carAt[0] - l.at[0], carAt[1] - l.at[1], carAt[2] - l.at[2]};
         x = d[0] * l.right[0] + d[1] * l.right[1] + d[2] * l.right[2];
         y = d[0] * l.up[0] + d[1] * l.up[1] + d[2] * l.up[2];
         z = d[0] * l.forward[0] + d[1] * l.forward[1] + d[2] * l.forward[2];
     };
-    for (const CarLights& o : others) {
+    for (const CarLights &o : others) {
         bool headlights = true;
         if (o.sirenOn) {
             headlights = false;
@@ -528,7 +528,7 @@ uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std:
             }
         }
         if (headlights && o.headlightOn) {
-            const Headlight& l = o.headlight;
+            const Headlight &l = o.headlight;
             float x, y, z;
             inFrame(l, x, y, z);
             if (l.nearPlane <= z && z <= l.reach && std::fabs(x) <= z && std::fabs(y) <= z)
@@ -546,7 +546,7 @@ uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std:
     return out;
 }
 
-int lightDistance(const std::array<int32_t, 3>& a, const std::array<int32_t, 3>& b) {
+int lightDistance(const std::array<int32_t, 3> &a, const std::array<int32_t, 3> &b) {
     // 0x496550: with its own abs (x < 1 negated) on each difference.
     auto absd = [](int32_t x) { return x < 1 ? -x : x; };
     int dx = absd(a[0] - b[0]), dy = absd(a[1] - b[1]), dz = absd(a[2] - b[2]);
@@ -558,8 +558,8 @@ int lightDistance(const std::array<int32_t, 3>& a, const std::array<int32_t, 3>&
     return m + dz;
 }
 
-uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt, int slice, int slices,
-                             const Track& track, uint64_t tick, bool effectsOff) {
+uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3> &carAt, int slice, int slices,
+                             const Track &track, uint64_t tick, bool effectsOff) {
     if (slices <= 0 || effectsOff)
         return colour;
     const std::array<int32_t, 3> at{static_cast<int32_t>(std::lrint(double(carAt[0]) * 65536.0)),
@@ -575,7 +575,7 @@ uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt,
         const size_t block = static_cast<size_t>(s >> 3);
         if (block >= track.blocks.size())
             continue;
-        for (const Track::Block::Light& l : track.blocks[block].lightList) {
+        for (const Track::Block::Light &l : track.blocks[block].lightList) {
             const LightLook look = lightLook(l.type & 0xffff, tick);
             if (!look.shown || look.color == 0)
                 continue;
@@ -622,7 +622,7 @@ int carDetailLevel(float meanDepth, int option, bool night, bool mirror) {
     return -1;
 }
 
-float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice) {
+float aiSlicesSpeed(const std::vector<uint8_t> &speeds, int slice) {
     // 0x40e080: the loaded file's byte at slice / 2; the file has no header
     // (0x40e000 keeps the loaded file's own address at 0x552558).
     const size_t at = static_cast<size_t>(std::max(slice, 0) / 2);
@@ -637,14 +637,14 @@ LightLook lightLook(uint32_t type, uint64_t tick) {
         float size;
     };
     static constexpr Entry kTypes[16] = {
-        {0xffdeeaeb, false, 0, 0, 5},     {0xb9ffffff, false, 0, 0, 4.5f}, {0xffffffd2, false, 0, 0, 5},
-        {0xff80e5f0, false, 0, 0, 4.5f},  {0xffd9c45e, false, 0, 0, 5},    {0xffdf1616, true, 6, 0, 5},
-        {0xffdf1616, true, 5, 27, 5},     {0xffff0000, true, 6, 0, 3.125f}, {0xffa3b1be, false, 0, 0, 3.75f},
-        {0xffdf1616, false, 0, 0, 3.125f}, {0xbadf1616, false, 0, 0, 2.5f}, {0xff1e95e3, false, 0, 0, 2.5f},
-        {0xff1e95e3, true, 6, 0, 3.125f}, {0xffe0e027, false, 0, 0, 3.75f}, {0xffdeeaeb, false, 0, 0, 5},
+        {0xffdeeaeb, false, 0, 0, 5},      {0xb9ffffff, false, 0, 0, 4.5f},  {0xffffffd2, false, 0, 0, 5},
+        {0xff80e5f0, false, 0, 0, 4.5f},   {0xffd9c45e, false, 0, 0, 5},     {0xffdf1616, true, 6, 0, 5},
+        {0xffdf1616, true, 5, 27, 5},      {0xffff0000, true, 6, 0, 3.125f}, {0xffa3b1be, false, 0, 0, 3.75f},
+        {0xffdf1616, false, 0, 0, 3.125f}, {0xbadf1616, false, 0, 0, 2.5f},  {0xff1e95e3, false, 0, 0, 2.5f},
+        {0xff1e95e3, true, 6, 0, 3.125f},  {0xffe0e027, false, 0, 0, 3.75f}, {0xffdeeaeb, false, 0, 0, 5},
         {0xffdeeaeb, false, 0, 0, 5},
     };
-    const Entry& e = kTypes[type & 15];
+    const Entry &e = kTypes[type & 15];
     // Hidden while bit `shift` of the tick plus the phase is set (0x4911d9).
     return {e.color, e.size, !(e.blinks && ((tick + e.phase) >> e.shift) & 1)};
 }
@@ -659,7 +659,7 @@ uint32_t dimLight(uint32_t color, float intensity) {
     return out;
 }
 
-LightQuads lightQuads(const LightLook& look, float depth) {
+LightQuads lightQuads(const LightLook &look, float depth) {
     LightQuads q;
     // 0x49126b: the depth's bits between 1.0 and 256.0, as integers.
     if (!look.shown || !(depth >= 1.0f && depth <= 256.0f))
@@ -674,7 +674,7 @@ LightQuads lightQuads(const LightLook& look, float depth) {
     return q;
 }
 
-bool pointCovered(const TrackCollision::RoadPoint& p, const std::array<float, 3>& at) {
+bool pointCovered(const TrackCollision::RoadPoint &p, const std::array<float, 3> &at) {
     const uint8_t codes = static_cast<uint8_t>(p.unknown >> 16);
     float side = 0;
     for (int k = 0; k < 3; ++k)
@@ -685,11 +685,11 @@ bool pointCovered(const TrackCollision::RoadPoint& p, const std::array<float, 3>
     return (left != 0 ? left : right) == 2;
 }
 
-int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>& at) {
+int coverDepth(const TrackCollision &col, int slice, const std::array<float, 3> &at) {
     const int n = static_cast<int>(col.road.size());
     if (n == 0)
         return 0;
-    auto point = [&](int s) -> const TrackCollision::RoadPoint& { return col.road[size_t(((s % n) + n) % n)]; };
+    auto point = [&](int s) -> const TrackCollision::RoadPoint & { return col.road[size_t(((s % n) + n) % n)]; };
     if (!pointCovered(point(slice), at))
         return 0;
     int i = 1;
@@ -700,24 +700,24 @@ int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>&
     return i;
 }
 
-int roadSurface(const Track::Block& b, size_t index) {
+int roadSurface(const Track::Block &b, size_t index) {
     return 8 * index + 1 < b.polygonRoad.size() ? b.polygonRoad[8 * index + 1] & 0x3f : 0;
 }
 
-int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float, 3>& point, size_t& polygon) {
+int sliceRunSide(const Track::Block &b, int sliceInBlock, const std::array<float, 3> &point, size_t &polygon) {
     const size_t at = 8 * static_cast<size_t>(sliceInBlock);
     if (sliceInBlock < 0 || at + 3 > b.positions.size())
         return -1;
     const int first = b.positions[at] | b.positions[at + 1] << 8, count = b.positions[at + 2];
-    const auto& list = b.polygons[4];
+    const auto &list = b.polygons[4];
     if (count <= 0 || first + count > static_cast<int>(list.size()))
         return -1;
     // Which side of the line a-b a point is on, in plan.
-    auto cross = [](const Track::Vec3& a, const Track::Vec3& c, float x, float z) {
+    auto cross = [](const Track::Vec3 &a, const Track::Vec3 &c, float x, float z) {
         return (c[0] - a[0]) * (z - a[2]) - (c[2] - a[2]) * (x - a[0]);
     };
-    auto past = [&](const Track::Polygon& p, int e0, int e1, int o0, int o1) {
-        const auto& v = b.vertices;
+    auto past = [&](const Track::Polygon &p, int e0, int e1, int o0, int o1) {
+        const auto &v = b.vertices;
         const auto &a = v[p.vertices[size_t(e0)]], &c = v[p.vertices[size_t(e1)]];
         const float inside = cross(a, c, v[p.vertices[size_t(o0)]][0], v[p.vertices[size_t(o0)]][2]) +
                              cross(a, c, v[p.vertices[size_t(o1)]][0], v[p.vertices[size_t(o1)]][2]);
@@ -726,7 +726,7 @@ int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float
     };
     int i = first + count / 2;
     for (int steps = 0; steps <= count; ++steps) {
-        const Track::Polygon& p = list[size_t(i)];
+        const Track::Polygon &p = list[size_t(i)];
         bool whole = true;
         for (uint16_t vi : p.vertices)
             whole = whole && vi < b.vertices.size();
@@ -748,7 +748,7 @@ int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float
     return -1;
 }
 
-bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
+bool roadSearch(const Track &track, RoadSearch &s, float x, float z) {
     s.found = false;
     s.foundSlice = s.polygon = -1;
     s.beyondBlock = false;
@@ -756,12 +756,12 @@ bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
     if (slices <= 0)
         return false;
     struct Run {
-        const Track::Block* block = nullptr;
+        const Track::Block *block = nullptr;
         int first = 0, count = 0;
     };
     auto runOf = [&](int slice) {
         Run r;
-        const Track::Block& b = track.blocks[size_t(slice >> 3)];
+        const Track::Block &b = track.blocks[size_t(slice >> 3)];
         const size_t at = 8 * static_cast<size_t>(slice & 7);
         if (at + 3 <= b.positions.size()) {
             r.block = &b;
@@ -776,12 +776,12 @@ bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
         std::array<Track::Vec3, 4> c{};
         int surface = 0;
     };
-    auto polyOf = [&](const Run& r, int index, Poly& out) {
-        const auto& list = r.block->polygons[4];
+    auto polyOf = [&](const Run &r, int index, Poly &out) {
+        const auto &list = r.block->polygons[4];
         const int at = r.first + index;
         if (at < 0 || at >= static_cast<int>(list.size()))
             return false;
-        const Track::Polygon& p = list[size_t(at)];
+        const Track::Polygon &p = list[size_t(at)];
         static constexpr int kOrder[4] = {1, 0, 3, 2};
         for (int k = 0; k < 4; ++k) {
             const uint16_t v = p.vertices[size_t(kOrder[k])];
@@ -789,18 +789,19 @@ bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
                 return false;
             out.c[size_t(k)] = r.block->vertices[v];
         }
-        out.surface = 8 * size_t(at) + 1 < r.block->polygonRoad.size() ? r.block->polygonRoad[8 * size_t(at) + 1] & 0xf : 0;
+        out.surface =
+            8 * size_t(at) + 1 < r.block->polygonRoad.size() ? r.block->polygonRoad[8 * size_t(at) + 1] & 0xf : 0;
         return true;
     };
     // The point on the inner side of the edge from a to b (the x87
     // compares as 0x41ea86 does).
-    auto inner = [&](const Track::Vec3& a, const Track::Vec3& b) {
+    auto inner = [&](const Track::Vec3 &a, const Track::Vec3 &b) {
         return (b[2] - a[2]) * (x - a[0]) >= (b[0] - a[0]) * (z - a[2]);
     };
-    auto inside = [&](const Poly& p) {
+    auto inside = [&](const Poly &p) {
         return inner(p.c[2], p.c[1]) && inner(p.c[1], p.c[0]) && inner(p.c[3], p.c[2]) && inner(p.c[0], p.c[3]);
     };
-    auto distance = [&](const Poly& p) {
+    auto distance = [&](const Poly &p) {
         // +0x54 and +0x5C: the polygon's vertices 1 and 3.
         return static_cast<int>(std::fabs(z - p.c[0][2]) + std::fabs(x - p.c[0][0]) + std::fabs(z - p.c[2][2]) +
                                 std::fabs(x - p.c[2][0]));
@@ -875,10 +876,10 @@ bool roadSearch(const Track& track, RoadSearch& s, float x, float z) {
     return false;
 }
 
-bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point) {
+bool officerSpotOnRoad(const Track &track, int slice, const std::array<float, 3> &point) {
     if (slice < 0 || static_cast<size_t>(slice >> 3) >= track.blocks.size())
         return false;
-    const Track::Block& b = track.blocks[size_t(slice >> 3)];
+    const Track::Block &b = track.blocks[size_t(slice >> 3)];
     size_t polygon = 0;
     if (sliceRunSide(b, slice & 7, point, polygon) != 0 || 8 * polygon + 1 >= b.polygonRoad.size())
         return false;
@@ -886,13 +887,13 @@ bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>
     return surface != 0 && surface != 14;
 }
 
-bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
+bool polygonRoadFrame(const Track::Block &b, size_t index, RoadFrame &out) {
     if (8 * index >= b.polygonRoad.size() || index >= b.polygons[4].size())
         return false;
     const size_t record = b.polygonRoad[8 * index];
     if (12 * record + 12 > b.virtualRoad.size())
         return false;
-    const Track::Polygon& p = b.polygons[4][index];
+    const Track::Polygon &p = b.polygons[4][index];
     if (p.vertices[1] >= b.vertices.size())
         return false;
     // trackpos_road_frame (0x420230): the up and forward are the record's
@@ -920,7 +921,7 @@ bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out) {
     return true;
 }
 
-float roadFrameHeight(const RoadFrame& f, const std::array<float, 3>& p) {
+float roadFrameHeight(const RoadFrame &f, const std::array<float, 3> &p) {
     const std::array<float, 3> d{p[0] - f.point[0], p[1] - f.point[1], p[2] - f.point[2]};
     const float along = d[0] * f.right[0] + d[1] * f.right[1] + d[2] * f.right[2];
     const float ahead = d[0] * f.forward[0] + d[1] * f.forward[1] + d[2] * f.forward[2];
@@ -933,9 +934,9 @@ bool wetSurface(int surface) {
     return surface >= 0 && surface < 16 && kWet[surface] == 10;
 }
 
-bool parseCarpAi(const std::string& text, AiCarData& out) {
+bool parseCarpAi(const std::string &text, AiCarData &out) {
     // Each field is a line "name(n)" and its values on the next line.
-    auto values = [&](int number, std::vector<float>& into) {
+    auto values = [&](int number, std::vector<float> &into) {
         const std::string tag = "(" + std::to_string(number) + ")";
         for (size_t at = text.find(tag); at != std::string::npos; at = text.find(tag, at + 1)) {
             const size_t eol = text.find('\n', at);
@@ -946,9 +947,9 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
             const size_t end = text.find('\n', eol + 1);
             std::string line = text.substr(eol + 1, end == std::string::npos ? std::string::npos : end - eol - 1);
             into.clear();
-            const char* c = line.c_str();
+            const char *c = line.c_str();
             while (*c) {
-                char* next = nullptr;
+                char *next = nullptr;
                 const float v = std::strtof(c, &next);
                 if (next == c) {
                     ++c;
@@ -1002,7 +1003,7 @@ bool parseCarpAi(const std::string& text, AiCarData& out) {
     return true;
 }
 
-void aiGearRpm(AiGearbox& box, const AiCarData::Gears& data, float speedWanted, float speed, float sectionSpeed,
+void aiGearRpm(AiGearbox &box, const AiCarData::Gears &data, float speedWanted, float speed, float sectionSpeed,
                bool reversing) {
     // 0x4061bd-0x4062a1: the rpm aimed at (`aim`) and the one held while
     // shifting (`held`), from the redline (an int) x the doubles 0.5, 0.2
@@ -1053,7 +1054,7 @@ void aiGearRpm(AiGearbox& box, const AiCarData::Gears& data, float speedWanted, 
         box.rpm -= (box.rpm - target) >> 3;
 }
 
-float aiDriverFactor(const AiDriver& d, int step) {
+float aiDriverFactor(const AiDriver &d, int step) {
     float f = d.skill == 0 ? 0.94f : d.skill < 2 ? 0.97f : 1.0f;
     const int quarter = (step >> 7) & 3;
     if (d.surges && quarter == 1)
@@ -1071,7 +1072,7 @@ float aiTrackFactor(int track) {
     return track == 0 || track == 3 || track == 5 || track == 7 ? 0.82f : 0.84f;
 }
 
-int aiLaneAt(const TrackCollision::RoadPoint& p, float offset) {
+int aiLaneAt(const TrackCollision::RoadPoint &p, float offset) {
     const bool right = offset >= 0;
     const int width = right ? p.extra[2] : p.extra[1];
     // 1 / (k / 4), k the lane width in quarters (0x56f0e0, 0 for none).
@@ -1083,17 +1084,18 @@ int aiLaneAt(const TrackCollision::RoadPoint& p, float offset) {
     return std::clamp(lane, 0, 13);
 }
 
-bool aiLaneOpen(const TrackCollision::RoadPoint& p, int lane) {
+bool aiLaneOpen(const TrackCollision::RoadPoint &p, int lane) {
     const int bit = 15 - std::clamp(lane + 1, 0, 15);
     return ((p.unknown & 0xffff) >> bit & 1) != 0;
 }
 
-float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth, int nudge) {
+float aiLaneOffset(const TrackCollision::RoadPoint &p, int lane, float halfWidth, int nudge) {
     const int left = p.leftLanes(), right = p.rightLanes();
     const float leftWidth = static_cast<float>(p.extra[1]) * 0.5f, rightWidth = static_cast<float>(p.extra[2]) * 0.5f;
     float t = 0;
     if (lane == 6 - left || lane == right + 7)
-        t = lane < 7 ? -static_cast<float>(6 - lane) * leftWidth - halfWidth : static_cast<float>(lane - 7) * rightWidth + halfWidth;
+        t = lane < 7 ? -static_cast<float>(6 - lane) * leftWidth - halfWidth
+                     : static_cast<float>(lane - 7) * rightWidth + halfWidth;
     else
         t = lane < 7 ? -static_cast<float>(6 - lane) * leftWidth - leftWidth * 0.5f
                      : static_cast<float>(lane - 7) * rightWidth + rightWidth * 0.5f;
@@ -1102,7 +1104,7 @@ float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth
     return t + static_cast<float>(nudge) * halfWidth;
 }
 
-int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount) {
+int aiLineLane(const std::vector<uint8_t> &speeds, int slice, int sliceCount) {
     // 0x40e0c0: the byte at the file's start + (slices + 1) / 2 + slice
     // (0x55255c, set at 0x40e040-0x40e057).
     const size_t at = static_cast<size_t>((sliceCount + 1) / 2) + static_cast<size_t>(std::max(slice, 0));
@@ -1138,16 +1140,18 @@ constexpr float kPi = 3.14159265358979f;
 // look-ahead slice as it is (0x4069c2-0x4069dc).
 } // namespace
 
-int aiSlice(const AiCar& c) { return c.roadSlice >= 0 ? c.roadSlice : c.slice; }
+int aiSlice(const AiCar &c) {
+    return c.roadSlice >= 0 ? c.roadSlice : c.slice;
+}
 
 namespace {
 
-int aiSteerSlice(const TrackCollision& col, const AiCar& me, int track) {
+int aiSteerSlice(const TrackCollision &col, const AiCar &me, int track) {
     const int n = static_cast<int>(col.road.size());
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
-    auto at = [&](int s) -> const TrackCollision::RoadPoint& { return col.road[size_t(wrap(s))]; };
+    auto at = [&](int s) -> const TrackCollision::RoadPoint & { return col.road[size_t(wrap(s))]; };
     const int slice = aiSlice(me);
-    const auto& here = at(slice);
+    const auto &here = at(slice);
     int count = std::clamp(static_cast<int>(std::nearbyint(me.speed * 1.7f / 6.0f)), 4, 20);
     if (me.reversing)
         count = -count;
@@ -1158,25 +1162,25 @@ int aiSteerSlice(const TrackCollision& col, const AiCar& me, int track) {
     float d = 1;
     for (int guard = 0; guard < n && k != far && std::fabs(d) > 0.7f; ++guard) {
         k = wrap(k + me.way);
-        const auto& f = at(k).forward;
+        const auto &f = at(k).forward;
         d = f[0] * here.forward[0] + f[2] * here.forward[2];
     }
     return k;
 }
 
-float dot3(const std::array<float, 3>& a, const std::array<float, 3>& b) {
+float dot3(const std::array<float, 3> &a, const std::array<float, 3> &b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
 std::array<float, 3> unit3(std::array<float, 3> v) {
     const float l = std::sqrt(dot3(v, v));
     if (l > 0)
-        for (float& x : v)
+        for (float &x : v)
             x /= l;
     return v;
 }
 
-std::array<float, 3> cross3(const std::array<float, 3>& a, const std::array<float, 3>& b) {
+std::array<float, 3> cross3(const std::array<float, 3> &a, const std::array<float, 3> &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
 
@@ -1184,10 +1188,10 @@ std::array<float, 3> cross3(const std::array<float, 3>& a, const std::array<floa
 // its up, and the way's right square to both (up x forward, as the
 // road polygons' and the boxes' are), so a heading of h faces
 // forward cos h + right sin h.
-void aiWayFrame(const TrackCollision& col, int slice, int way, std::array<float, 3>& f, std::array<float, 3>& r,
-                std::array<float, 3>& u) {
+void aiWayFrame(const TrackCollision &col, int slice, int way, std::array<float, 3> &f, std::array<float, 3> &r,
+                std::array<float, 3> &u) {
     const int n = static_cast<int>(col.road.size());
-    const auto& a = col.road[size_t(((slice % n) + n) % n)];
+    const auto &a = col.road[size_t(((slice % n) + n) % n)];
     u = unit3(a.normal);
     if (dot3(u, u) == 0)
         u = {0, 1, 0};
@@ -1199,14 +1203,14 @@ void aiWayFrame(const TrackCollision& col, int slice, int way, std::array<float,
 }
 
 // The heading as a view: the body's yaw against the slice's way.
-float aiHeadingOf(const TrackCollision& col, const AiCar& c, float yaw) {
+float aiHeadingOf(const TrackCollision &col, const AiCar &c, float yaw) {
     std::array<float, 3> f{}, r{}, u{};
     aiWayFrame(col, c.slice, c.way, f, r, u);
     const std::array<float, 3> h{std::sin(yaw), 0, std::cos(yaw)};
     return std::atan2(dot3(h, r), dot3(h, f));
 }
 
-float aiYawOf(const TrackCollision& col, const AiCar& c, float heading) {
+float aiYawOf(const TrackCollision &col, const AiCar &c, float heading) {
     std::array<float, 3> f{}, r{}, u{};
     aiWayFrame(col, c.slice, c.way, f, r, u);
     const float ch = std::cos(heading), sh = std::sin(heading);
@@ -1215,15 +1219,15 @@ float aiYawOf(const TrackCollision& col, const AiCar& c, float heading) {
 
 // Whether the views were written since they were last taken from the
 // world state (or it was never set).
-bool aiViewsWritten(const AiCar& c) {
+bool aiViewsWritten(const AiCar &c) {
     return !c.worldKept || c.speed != c.keptSpeed || c.sideSpeed != c.keptSide || c.way != c.keptWay;
 }
 
-std::array<float, 3> aiVelocityFromViews(const TrackCollision& col, const AiCar& c) {
+std::array<float, 3> aiVelocityFromViews(const TrackCollision &col, const AiCar &c) {
     // The inverse of aiViews: along the road's forward the speed, and
     // square to it, along the slice's right, what gives the side speed.
     const int n = static_cast<int>(col.road.size());
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
     const float w = c.way < 0 ? -1.0f : 1.0f;
     const std::array<float, 3> rf = unit3(c.roadRightSet ? c.roadForward : a.forward);
     const float k = dot3(a.right, rf);
@@ -1239,11 +1243,11 @@ std::array<float, 3> aiVelocityFromViews(const TrackCollision& col, const AiCar&
 // The views from the world state: +0x7C0 (0x42cdd0, the velocity along
 // the road polygon's forward +0x13C) along the way, the velocity along
 // the slice's right, and the heading.
-void aiViews(const TrackCollision& col, AiCar& c) {
+void aiViews(const TrackCollision &col, AiCar &c) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return;
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
     const float w = c.way < 0 ? -1.0f : 1.0f;
     const std::array<float, 3> rf = unit3(c.roadRightSet ? c.roadForward : a.forward);
     c.speed = w * dot3(c.vel, rf);
@@ -1258,7 +1262,7 @@ void aiViews(const TrackCollision& col, AiCar& c) {
 }
 
 // The world state from views written since (see AiCar::vel).
-void aiWorldIn(const TrackCollision& col, AiCar& c) {
+void aiWorldIn(const TrackCollision &col, AiCar &c) {
     if (col.road.size() < 2)
         return;
     const bool velocity = aiViewsWritten(c);
@@ -1274,8 +1278,8 @@ void aiWorldIn(const TrackCollision& col, AiCar& c) {
 
 // The body's axes from its yaw on the slice's up (the roll and pitch a hit
 // leaves are turned in by whoever needs them).
-void aiBodyAxesOf(const TrackCollision& col, const AiCar& c, float yaw, std::array<float, 3>& forward,
-                  std::array<float, 3>& right, std::array<float, 3>& up) {
+void aiBodyAxesOf(const TrackCollision &col, const AiCar &c, float yaw, std::array<float, 3> &forward,
+                  std::array<float, 3> &right, std::array<float, 3> &up) {
     std::array<float, 3> f{}, r{};
     aiWayFrame(col, c.slice, c.way, f, r, up);
     const std::array<float, 3> h{std::sin(yaw), 0, std::cos(yaw)};
@@ -1290,18 +1294,18 @@ void aiBodyAxesOf(const TrackCollision& col, const AiCar& c, float yaw, std::arr
 // 0x56ec58 1/32 s, so the aim moves 0.2 every other step (3.2 in the
 // half second, as t6-log's dumps have it). The car's own motion (its
 // side offset, heading) every step.
-float aiChord(const TrackCollision& col, int slice);
+float aiChord(const TrackCollision &col, int slice);
 
 } // namespace
 
-std::array<float, 3> aiVelocity(const TrackCollision& col, const AiCar& c) {
+std::array<float, 3> aiVelocity(const TrackCollision &col, const AiCar &c) {
     if (col.road.size() < 2)
         return {};
     return aiViewsWritten(c) ? aiVelocityFromViews(col, c) : c.vel;
 }
 
-void aiBodyAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>& forward, std::array<float, 3>& right,
-                std::array<float, 3>& up) {
+void aiBodyAxes(const TrackCollision &col, const AiCar &c, std::array<float, 3> &forward, std::array<float, 3> &right,
+                std::array<float, 3> &up) {
     if (col.road.size() < 2) {
         forward = {0, 0, 1};
         right = {1, 0, 0};
@@ -1312,8 +1316,8 @@ void aiBodyAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>&
     aiBodyAxesOf(col, c, heading ? aiYawOf(col, c, c.heading) : c.yaw, forward, right, up);
 }
 
-void aiSetWorld(AiCar& c, const TrackCollision& col, const std::array<float, 3>& velocity,
-                const std::array<float, 3>& forward) {
+void aiSetWorld(AiCar &c, const TrackCollision &col, const std::array<float, 3> &velocity,
+                const std::array<float, 3> &forward) {
     if (col.road.size() < 2)
         return;
     c.vel = velocity;
@@ -1321,14 +1325,14 @@ void aiSetWorld(AiCar& c, const TrackCollision& col, const std::array<float, 3>&
     aiViews(col, c);
 }
 
-void aiSetWorld(AiCar& c, const TrackCollision& col, const std::array<float, 3>& velocity,
-                const std::array<float, 3>& forward, const std::array<float, 3>& up) {
+void aiSetWorld(AiCar &c, const TrackCollision &col, const std::array<float, 3> &velocity,
+                const std::array<float, 3> &forward, const std::array<float, 3> &up) {
     aiSetWorld(c, col, velocity, forward);
     if (col.road.size() >= 2)
         aiSetTilt(c, col, up);
 }
 
-void aiLocate(AiCar& c, const TrackCollision& col, const std::array<float, 3>& p) {
+void aiLocate(AiCar &c, const TrackCollision &col, const std::array<float, 3> &p) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return;
@@ -1339,15 +1343,15 @@ void aiLocate(AiCar& c, const TrackCollision& col, const std::array<float, 3>& p
     // between them: a place in the gap is past the one run's end and
     // before the next's start, and stays on the first (along over 1)
     // until it is in the next.
-    auto solve = [&](int slice, float& along, float& lateral) {
-        const auto& s0 = col.road[size_t(slice)];
-        const auto& s1 = col.road[size_t(wrap(slice + 1))];
+    auto solve = [&](int slice, float &along, float &lateral) {
+        const auto &s0 = col.road[size_t(slice)];
+        const auto &s1 = col.road[size_t(wrap(slice + 1))];
         std::array<float, 3> e2{}, w{};
         for (size_t k = 0; k < 3; ++k) {
             e2[k] = s1.position[k] - s0.position[k];
             w[k] = p[k] - s0.position[k];
         }
-        const auto& e1 = s0.right;
+        const auto &e1 = s0.right;
         const float a11 = dot3(e1, e1), a12 = dot3(e1, e2), a22 = dot3(e2, e2);
         const float det = a11 * a22 - a12 * a12;
         if (det == 0)
@@ -1389,12 +1393,12 @@ void aiLocate(AiCar& c, const TrackCollision& col, const std::array<float, 3>& p
     c.along = along;
     c.lateral = lateral;
 }
-float aiSegmentLength(const TrackCollision& col, int slice, float lateral) {
+float aiSegmentLength(const TrackCollision &col, int slice, float lateral) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return 1;
-    const auto& a = col.road[size_t(((slice % n) + n) % n)];
-    const auto& b = col.road[size_t((((slice + 1) % n) + n) % n)];
+    const auto &a = col.road[size_t(((slice % n) + n) % n)];
+    const auto &b = col.road[size_t((((slice + 1) % n) + n) % n)];
     std::array<float, 3> d{};
     for (size_t k = 0; k < 3; ++k)
         d[k] = b.position[k] - a.position[k] + lateral * (b.right[k] - a.right[k]);
@@ -1402,18 +1406,18 @@ float aiSegmentLength(const TrackCollision& col, int slice, float lateral) {
 }
 
 namespace {
-float aiCentreLift(const TrackCollision& col, const AiCar& c);
+float aiCentreLift(const TrackCollision &col, const AiCar &c);
 }
 
-float aiMeasuredSide(const TrackCollision& col, const AiCar& c) {
+float aiMeasuredSide(const TrackCollision &col, const AiCar &c) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return c.lateral;
     if (!c.roadRightSet)
         return c.lateral + c.along * aiChord(col, c.slice);
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
-    const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
-    const auto& o = col.road[size_t(((aiSlice(c) % n) + n) % n)]; // +0x1C's point
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    const auto &o = col.road[size_t(((aiSlice(c) % n) + n) % n)]; // +0x1C's point
     float k1 = 0, k2 = 0, k0 = 0;
     for (size_t k = 0; k < 3; ++k) {
         k0 += (a.position[k] - o.position[k]) * c.roadRight[k];
@@ -1423,15 +1427,15 @@ float aiMeasuredSide(const TrackCollision& col, const AiCar& c) {
     return k0 + c.lateral * k1 + c.along * k2 + aiCentreLift(col, c);
 }
 
-float aiLateralFor(const TrackCollision& col, const AiCar& c, float side) {
+float aiLateralFor(const TrackCollision &col, const AiCar &c, float side) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return side;
     if (!c.roadRightSet)
         return side - c.along * aiChord(col, c.slice);
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
-    const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
-    const auto& o = col.road[size_t(((aiSlice(c) % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    const auto &o = col.road[size_t(((aiSlice(c) % n) + n) % n)];
     float k1 = 0, k2 = 0, k0 = 0;
     for (size_t k = 0; k < 3; ++k) {
         k0 += (a.position[k] - o.position[k]) * c.roadRight[k];
@@ -1447,8 +1451,8 @@ float aiLateralFor(const TrackCollision& col, const AiCar& c, float side) {
 // by what a hit left (+0xC0, +0xCC, +0xD8).
 namespace {
 // The unit axes (the rows' orthonormal part, Q).
-void aiUnitAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>& f1, std::array<float, 3>& r1,
-                std::array<float, 3>& u1) {
+void aiUnitAxes(const TrackCollision &col, const AiCar &c, std::array<float, 3> &f1, std::array<float, 3> &r1,
+                std::array<float, 3> &u1) {
     constexpr float kTurn = 2 * 3.14159265358979f;
     std::array<float, 3> forward{}, up{}, right{};
     aiBodyAxes(col, c, forward, right, up);
@@ -1477,10 +1481,10 @@ void aiUnitAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>&
 }
 
 // The rows as the game has them: P times the unit rows (AiCar::rowShape).
-void aiShapeRows(const AiCar& c, std::array<float, 3>& f, std::array<float, 3>& r, std::array<float, 3>& u) {
+void aiShapeRows(const AiCar &c, std::array<float, 3> &f, std::array<float, 3> &r, std::array<float, 3> &u) {
     if (!c.rowsShaped)
         return;
-    const auto& p = c.rowShape;
+    const auto &p = c.rowShape;
     std::array<float, 3> r2{}, u2{}, f2{};
     for (size_t k = 0; k < 3; ++k) {
         r2[k] = p[0] * r[k] + p[1] * u[k] + p[2] * f[k];
@@ -1493,8 +1497,8 @@ void aiShapeRows(const AiCar& c, std::array<float, 3>& f, std::array<float, 3>& 
 }
 } // namespace
 
-void aiTiltedAxes(const TrackCollision& col, const AiCar& c, std::array<float, 3>& f1, std::array<float, 3>& r1,
-                  std::array<float, 3>& u1) {
+void aiTiltedAxes(const TrackCollision &col, const AiCar &c, std::array<float, 3> &f1, std::array<float, 3> &r1,
+                  std::array<float, 3> &u1) {
     aiUnitAxes(col, c, f1, r1, u1);
     aiShapeRows(c, f1, r1, u1);
 }
@@ -1514,13 +1518,13 @@ namespace {
 // The body's centre over the page's place, along the normal `m` of the
 // slice's plane: the place + H x m puts the box's lowest corner on the
 // road polygon's plane (car_clearance 0x4a0440 at 0). 0 unset.
-float aiCentreHeight(const TrackCollision& col, const AiCar& c, std::array<float, 3>& m) {
+float aiCentreHeight(const TrackCollision &col, const AiCar &c, std::array<float, 3> &m) {
     const int n = static_cast<int>(col.road.size());
     m = {0, 1, 0};
     if (n < 2 || !c.roadUpSet || !c.roadRightSet)
         return 0;
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
-    const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
     const std::array<float, 3> chord{b.position[0] - a.position[0], b.position[1] - a.position[1],
                                      b.position[2] - a.position[2]};
     m = unit3(cross3(chord, a.right));
@@ -1540,33 +1544,33 @@ float aiCentreHeight(const TrackCollision& col, const AiCar& c, std::array<float
     return (reach - dot3(d, c.roadUp)) / mn;
 }
 
-float aiCentreLift(const TrackCollision& col, const AiCar& c) {
+float aiCentreLift(const TrackCollision &col, const AiCar &c) {
     std::array<float, 3> m{};
     const float h = aiCentreHeight(col, c, m);
     return h * dot3(m, c.roadRight);
 }
 } // namespace
 
-float aiCarExtent(const TrackCollision& col, const AiCar& c) {
+float aiCarExtent(const TrackCollision &col, const AiCar &c) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return c.halfWidth;
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
     std::array<float, 3> r1{}, u1{}, f1{};
     aiTiltedAxes(col, c, f1, r1, u1);
-    const std::array<float, 3>& road = c.roadRightSet ? c.roadRight : a.right;
-    auto dot = [](const std::array<float, 3>& x, const std::array<float, 3>& y) {
+    const std::array<float, 3> &road = c.roadRightSet ? c.roadRight : a.right;
+    auto dot = [](const std::array<float, 3> &x, const std::array<float, 3> &y) {
         return x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
     };
     return std::fabs(dot(road, r1)) * c.halfWidth + std::fabs(dot(road, u1)) * c.halfHeight +
            std::fabs(dot(road, f1)) * c.halfLength;
 }
 
-void aiRaceTick(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
+void aiRaceTick(std::vector<AiCar> &cars, const TrackCollision &col, int step) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || (step & 1) != 0)
         return;
-    for (AiCar& c : cars) {
+    for (AiCar &c : cars) {
         // +0x7C0 / +0x7C4 from the velocity along the road polygon's
         // forward as it is now (0x42cdd0).
         if (c.sideKept) {
@@ -1580,12 +1584,12 @@ void aiRaceTick(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
     }
 }
 
-void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
+void aiRoadFrame(const Track &track, const TrackCollision &col, AiCar &c) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || track.blocks.empty())
         return;
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
-    const auto& b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &b = col.road[size_t((((c.slice + 1) % n) + n) % n)];
     c.roadTrack = &track;
     const float lateral = c.sideKept ? c.lateral : aiLateralFor(col, c, c.offset);
     std::array<float, 3> at{};
@@ -1617,7 +1621,7 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
     // vectors and point (its bytes +0x0D-+0x17), as car_road_frame
     // (0x49ffa0) does for +0x124 and +0x148; the polygon found before
     // doesn't stay.
-    const auto& from = col.road[size_t(((c.road.slice % n) + n) % n)];
+    const auto &from = col.road[size_t(((c.road.slice % n) + n) % n)];
     c.roadRight = from.right;
     c.roadForward = from.forward;
     c.roadUp = from.normal;
@@ -1629,7 +1633,7 @@ void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c) {
 
 namespace {
 
-std::array<float, 3> aiPlace(const TrackCollision& col, const AiCar& c);
+std::array<float, 3> aiPlace(const TrackCollision &col, const AiCar &c);
 
 // What the dynamics and car_ai_physics hand the model on an even step:
 // whether it ran, the velocity along the body's forward (+0x4F4) and the
@@ -1658,7 +1662,7 @@ using AiRows = std::array<float, 9>;
 
 // 0x4b73c0: a quaternion (x, y, z, w) from the rows, the trace's way, else
 // from the largest diagonal (next axis 1, 2, 0: 0x4b6a1c).
-std::array<float, 4> aiQuatOfRows(const AiRows& m) {
+std::array<float, 4> aiQuatOfRows(const AiRows &m) {
     std::array<float, 4> q{};
     const float trace = m[0] + m[4] + m[8];
     if (trace > 0) {
@@ -1689,11 +1693,11 @@ std::array<float, 4> aiQuatOfRows(const AiRows& m) {
 // 0x4b71e0: the turn t of the way from a to b, the shorter way round; when
 // the two are within 1e-4 (0x53ff60) of each other, straight between them
 // (not brought back to a unit quaternion).
-std::array<float, 4> aiQuatBetween(const std::array<float, 4>& a, std::array<float, 4> b, float t) {
+std::array<float, 4> aiQuatBetween(const std::array<float, 4> &a, std::array<float, 4> b, float t) {
     double c = double(a[3] * b[3] + a[2] * b[2] + a[0] * b[0] + a[1] * b[1]);
     if (c < 0) {
         c = -c;
-        for (float& x : b)
+        for (float &x : b)
             x = -x;
     }
     double wa = 1.0 - t, wb = t;
@@ -1707,7 +1711,7 @@ std::array<float, 4> aiQuatBetween(const std::array<float, 4>& a, std::array<flo
 }
 
 // 0x4b7590: the rows of a quaternion.
-AiRows aiRowsOfQuat(const std::array<float, 4>& q) {
+AiRows aiRowsOfQuat(const std::array<float, 4> &q) {
     const float y2 = q[1] * 2, z2 = q[2] * 2, wx2 = q[3] * q[0] * 2, xx = 1.0f - q[0] * q[0] * 2;
     AiRows m{};
     m[1] = q[0] * y2 + q[3] * z2;
@@ -1724,11 +1728,11 @@ AiRows aiRowsOfQuat(const std::array<float, 4>& q) {
 
 } // namespace
 
-std::array<float, 9> aiHalfTurn(const std::array<float, 9>& from, const std::array<float, 9>& to) {
+std::array<float, 9> aiHalfTurn(const std::array<float, 9> &from, const std::array<float, 9> &to) {
     return aiRowsOfQuat(aiQuatBetween(aiQuatOfRows(from), aiQuatOfRows(to), 0.5f));
 }
 
-std::array<float, 3> aiContactVelocity(const std::array<float, 3>& v, const std::array<float, 9>& rows) {
+std::array<float, 3> aiContactVelocity(const std::array<float, 3> &v, const std::array<float, 9> &rows) {
     const float a = v[0] * rows[0] + v[1] * rows[1] + v[2] * rows[2];
     float into = v[0] * rows[3] + v[1] * rows[4] + v[2] * rows[5];
     const float b = v[0] * rows[6] + v[1] * rows[7] + v[2] * rows[8];
@@ -1757,7 +1761,7 @@ namespace {
 // (1 - |n.y - n'.y| under 0x5efdd8, 0.87), the velocity into the road
 // ahead and its up lower (then 0x42efe0 pushes the car over the crest,
 // not ported, and the car's rows stay). Not found, the car's rows.
-bool aiContactFrame(const TrackCollision& col, const AiCar& c, AiRows& out) {
+bool aiContactFrame(const TrackCollision &col, const AiCar &c, AiRows &out) {
     if (!c.roadUpSet || !c.roadRightSet)
         return false;
     for (size_t k = 0; k < 3; ++k) {
@@ -1775,7 +1779,7 @@ bool aiContactFrame(const TrackCollision& col, const AiCar& c, AiRows& out) {
     std::array<float, 3> v = c.vel;
     const float speed = std::sqrt(dot3(v, v));
     if (speed != 0)
-        for (float& x : v)
+        for (float &x : v)
             x /= speed;
     std::array<float, 3> f1{}, r1{}, u1{};
     aiTiltedAxes(col, c, f1, r1, u1);
@@ -1796,7 +1800,7 @@ bool aiContactFrame(const TrackCollision& col, const AiCar& c, AiRows& out) {
     const size_t block = static_cast<size_t>(search.foundSlice >> 3);
     if (block >= c.roadTrack->blocks.size())
         return true;
-    const Track::Block& b = c.roadTrack->blocks[block];
+    const Track::Block &b = c.roadTrack->blocks[block];
     const size_t index = static_cast<size_t>(search.polygon);
     if (8 * index + 1 >= b.polygonRoad.size())
         return true;
@@ -1823,7 +1827,7 @@ bool aiContactFrame(const TrackCollision& col, const AiCar& c, AiRows& out) {
 // its x and z (up to 2e-4 a call). car_integrate_turn (0x4a2e20) turns the
 // body by all three before car_on_road sets the last two again (aiTilt),
 // so those turn the roll and pitch here (as aiTilt's rates do).
-void aiYawForce(AiCar& me, const std::array<float, 3>& f, const std::array<float, 3>& r, const std::array<float, 3>& up,
+void aiYawForce(AiCar &me, const std::array<float, 3> &f, const std::array<float, 3> &r, const std::array<float, 3> &up,
                 float force) {
     me.yawRate += force * up[1] / 32.0f;
     const float wx = force * up[0] / 32.0f, wz = force * up[2] / 32.0f;
@@ -1840,8 +1844,8 @@ void aiYawForce(AiCar& me, const std::array<float, 3>& f, const std::array<float
 // and the spin about its normal x 0.98; in the air (+0x164 set) x 0.98 and
 // x 0.998, unless each two of |up . n|, |right . n| and |forward . n| sum
 // to at most 0.9 (0x53dccc), which rows of unit length never do.
-void aiBodyFriction(AiCar& me, const std::array<float, 3>& n, const std::array<float, 3>& r,
-                    const std::array<float, 3>& u, const std::array<float, 3>& f) {
+void aiBodyFriction(AiCar &me, const std::array<float, 3> &n, const std::array<float, 3> &r,
+                    const std::array<float, 3> &u, const std::array<float, 3> &f) {
     if (!(me.lift < 0.2f) || n[1] < 0.5f)
         return;
     float slide = 0.94f, turn = 0.98f;
@@ -1864,7 +1868,7 @@ void aiBodyFriction(AiCar& me, const std::array<float, 3>& n, const std::array<f
     me.spinZ = spin[2];
 }
 
-float carBoxImpulse(CarBox& c, std::array<float, 3> j, const std::array<float, 3>& r, float f);
+float carBoxImpulse(CarBox &c, std::array<float, 3> j, const std::array<float, 3> &r, float f);
 
 // car_contact_impulse (0x42ee10) for a point of the body against the road
 // (from car_body_under_road 0x4a1210): a point under the plane (n through
@@ -1878,9 +1882,9 @@ float carBoxImpulse(CarBox& c, std::array<float, 3> j, const std::array<float, 3
 // x 0.958 (0x5537b4), the forward x 0.975 (0x5373d4) instead with the
 // body's up . n over 0.9 (0x5373cc); the spin's part along n x 0.958.
 // True when the point's momentum went into the plane (the routine's 1).
-bool aiRoadContact(AiCar& me, std::array<float, 3>& centre, const std::array<float, 3>& point,
-                   const std::array<float, 3>& n, const std::array<float, 3>& q, const std::array<float, 3>& r,
-                   const std::array<float, 3>& u, const std::array<float, 3>& f) {
+bool aiRoadContact(AiCar &me, std::array<float, 3> &centre, const std::array<float, 3> &point,
+                   const std::array<float, 3> &n, const std::array<float, 3> &q, const std::array<float, 3> &r,
+                   const std::array<float, 3> &u, const std::array<float, 3> &f) {
     const float depth = dot3({point[0] - q[0], point[1] - q[1], point[2] - q[2]}, n);
     if (depth < 0)
         for (size_t k = 0; k < 3; ++k)
@@ -1908,7 +1912,7 @@ bool aiRoadContact(AiCar& me, std::array<float, 3>& centre, const std::array<flo
     me.spinZ = box.spin[2];
     if (strength == 0)
         return true;
-    auto into3 = [&](const std::array<float, 3>& v) {
+    auto into3 = [&](const std::array<float, 3> &v) {
         return std::array<float, 3>{dot3(v, r), dot3(v, u), dot3(v, f)};
     };
     const std::array<float, 3> nb = into3(n);
@@ -1941,9 +1945,9 @@ bool aiRoadContact(AiCar& me, std::array<float, 3>& centre, const std::array<flo
 // through its point) it takes aiRoadContact. Without the track's
 // polygons the page tests every point against the car's own plane. The
 // pushes' total along `planeUp` comes back in `raised`.
-bool aiBodyUnderRoad(AiCar& me, std::array<float, 3>& centre, const std::array<float, 3>& planeUp,
-                     const std::array<float, 3>& planePoint, const std::array<float, 3>& r,
-                     const std::array<float, 3>& u, const std::array<float, 3>& f, float& raised) {
+bool aiBodyUnderRoad(AiCar &me, std::array<float, 3> &centre, const std::array<float, 3> &planeUp,
+                     const std::array<float, 3> &planePoint, const std::array<float, 3> &r,
+                     const std::array<float, 3> &u, const std::array<float, 3> &f, float &raised) {
     const float w = me.halfWidth, h = me.halfHeight, l = me.halfLength;
     const std::array<std::array<float, 3>, 8> points{{{-w, -h, l},
                                                       {w, -h, l},
@@ -1955,7 +1959,7 @@ bool aiBodyUnderRoad(AiCar& me, std::array<float, 3>& centre, const std::array<f
                                                       {-w, h, -l * 0.8f}}};
     bool under = false;
     raised = 0;
-    for (const auto& o : points) {
+    for (const auto &o : points) {
         std::array<float, 3> p{};
         for (size_t k = 0; k < 3; ++k)
             p[k] = centre[k] + o[0] * r[k] + o[1] * u[k] + o[2] * f[k];
@@ -1969,7 +1973,7 @@ bool aiBodyUnderRoad(AiCar& me, std::array<float, 3>& centre, const std::array<f
             const size_t block = static_cast<size_t>(search.foundSlice >> 3);
             if (block >= me.roadTrack->blocks.size())
                 continue;
-            const Track::Block& b = me.roadTrack->blocks[block];
+            const Track::Block &b = me.roadTrack->blocks[block];
             const size_t index = static_cast<size_t>(search.polygon);
             if (8 * index + 1 >= b.polygonRoad.size())
                 continue;
@@ -1994,8 +1998,8 @@ bool aiBodyUnderRoad(AiCar& me, std::array<float, 3>& centre, const std::array<f
 // set): x and z only, each less its own square x (0.006 x |the up row's
 // part along it| + 0.004 x |the right's| + k x |the forward's|) / 32
 // (0x53c8b4), towards 0; k 0.002, 0.004 for traffic (+0x200 bit 0x10).
-void aiAirDrag(std::array<float, 3>& v, const std::array<float, 3>& r, const std::array<float, 3>& u,
-               const std::array<float, 3>& f, bool traffic) {
+void aiAirDrag(std::array<float, 3> &v, const std::array<float, 3> &r, const std::array<float, 3> &u,
+               const std::array<float, 3> &f, bool traffic) {
     const float k = traffic ? 0.004f : 0.002f;
     float dx = v[0] * v[0] * (k * std::fabs(f[0]) + std::fabs(r[0]) * 0.004f + std::fabs(u[0]) * 0.006f) * 0.03125f;
     float dz = v[2] * v[2] * (k * std::fabs(f[2]) + std::fabs(r[2]) * 0.004f + std::fabs(u[2]) * 0.006f) * 0.03125f;
@@ -2013,7 +2017,7 @@ void aiAirDrag(std::array<float, 3>& v, const std::array<float, 3>& r, const std
 // as the hits, the landing and the road's impulses left them; here those
 // about x and z as rates about its forward and right (the yaw's in
 // aiAdvance).
-void aiAirTurn(AiCar& car, const TrackCollision& col) {
+void aiAirTurn(AiCar &car, const TrackCollision &col) {
     std::array<float, 3> f{}, r{}, u{};
     aiTiltedAxes(col, car, f, r, u);
     const std::array<float, 3> w{car.spinX, 0, car.spinZ};
@@ -2032,7 +2036,7 @@ void aiAirTurn(AiCar& car, const TrackCollision& col) {
     if (angle > 0) {
         const std::array<float, 3> axis = unit3(w);
         const float c = std::cos(angle), s = std::sin(angle);
-        auto turn = [&](const std::array<float, 3>& v) {
+        auto turn = [&](const std::array<float, 3> &v) {
             const std::array<float, 3> x = cross3(axis, v);
             const float a = dot3(axis, v) * (1 - c);
             return std::array<float, 3>{v[0] * c + x[0] * s + axis[0] * a, v[1] * c + x[1] * s + axis[1] * a,
@@ -2067,9 +2071,9 @@ void aiAirTurn(AiCar& car, const TrackCollision& col) {
 // clearance (`lift`) over it along the polygon's up `up`; with no polygon
 // set, the box's reach and the clearance along `up` from the place. The
 // plane's point comes back in `point`.
-std::array<float, 3> aiBodyCentre(const TrackCollision& col, const AiCar& me, const std::array<float, 3>& up,
-                                  const std::array<float, 3>& r, const std::array<float, 3>& u,
-                                  const std::array<float, 3>& f, std::array<float, 3>& point) {
+std::array<float, 3> aiBodyCentre(const TrackCollision &col, const AiCar &me, const std::array<float, 3> &up,
+                                  const std::array<float, 3> &r, const std::array<float, 3> &u,
+                                  const std::array<float, 3> &f, std::array<float, 3> &point) {
     std::array<float, 3> m{};
     const float h = aiCentreHeight(col, me, m);
     std::array<float, 3> centre = aiPlace(col, me);
@@ -2092,8 +2096,8 @@ std::array<float, 3> aiBodyCentre(const TrackCollision& col, const AiCar& me, co
 // rest moves the place across the slice's plane (aiLocate drops the part
 // along that plane's normal), which keeps the box's corner where it was
 // against the polygon's plane.
-void aiMoveCentre(AiCar& me, const TrackCollision& col, const std::array<float, 3>& up,
-                  const std::array<float, 3>& moved) {
+void aiMoveCentre(AiCar &me, const TrackCollision &col, const std::array<float, 3> &up,
+                  const std::array<float, 3> &moved) {
     if (moved == std::array<float, 3>{0, 0, 0})
         return;
     me.lift += dot3(moved, up);
@@ -2101,10 +2105,10 @@ void aiMoveCentre(AiCar& me, const TrackCollision& col, const std::array<float, 
     aiLocate(me, col, {place[0] + moved[0], place[1] + moved[1], place[2] + moved[2]});
 }
 
-void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>& nu, float upright,
-               const std::array<float, 3>& r, const std::array<float, 3>& u, const std::array<float, 3>& f) {
+void aiLanding(AiCar &me, const TrackCollision &col, const std::array<float, 3> &nu, float upright,
+               const std::array<float, 3> &r, const std::array<float, 3> &u, const std::array<float, 3> &f) {
     const int n = static_cast<int>(col.road.size());
-    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const auto &here = col.road[size_t(((me.slice % n) + n) % n)];
     const std::array<float, 3> up = me.roadUpSet ? me.roadUp : nu;
     std::array<float, 3> point{};
     std::array<float, 3> centre = aiBodyCentre(col, me, up, r, u, f, point);
@@ -2154,17 +2158,17 @@ void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>&
 // ai_integrate 0x4071a0's side and yaw parts), on the world velocity.
 // `ramp`: ai_lane_ramp (0x408870) and ai_reverse_end (0x4060d0) first, as
 // car_ai_model calls them before the heading error.
-AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int track, bool ramp) {
+AiDynamics aiModelSteer(AiCar &me, const TrackCollision &col, int step, int track, bool ramp) {
     AiDynamics out;
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return out;
-    const TrackCollision::RoadPoint* here = &col.road[size_t(((me.slice % n) + n) % n)];
+    const TrackCollision::RoadPoint *here = &col.road[size_t(((me.slice % n) + n) % n)];
     if (!me.sideKept) {
         me.side = me.offset;
         me.lateral = aiLateralFor(col, me, me.side);
         me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
-                    me.worldKept = false;
+        me.worldKept = false;
         me.velSlice = me.slice;
         me.sideKept = true;
         me.worldKept = false;
@@ -2313,12 +2317,13 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             me.liftPlaneSet = true;
             me.lift += dot3(me.liftMove, me.roadUp);
             if (me.liftRowsSet) {
-                auto reach = [&](const std::array<float, 3>& r, const std::array<float, 3>& u,
-                                 const std::array<float, 3>& f) {
-                    return std::fabs(dot3(me.roadUp, r)) * me.halfWidth + std::fabs(dot3(me.roadUp, u)) * me.halfHeight +
+                auto reach = [&](const std::array<float, 3> &r, const std::array<float, 3> &u,
+                                 const std::array<float, 3> &f) {
+                    return std::fabs(dot3(me.roadUp, r)) * me.halfWidth +
+                           std::fabs(dot3(me.roadUp, u)) * me.halfHeight +
                            std::fabs(dot3(me.roadUp, f)) * me.halfLength;
                 };
-                const auto& w = me.liftRows;
+                const auto &w = me.liftRows;
                 me.lift -= reach(gr, gu, gf) - reach({w[0], w[1], w[2]}, {w[3], w[4], w[5]}, {w[6], w[7], w[8]});
             }
         }
@@ -2332,7 +2337,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
             // spin is held within +-2.4 (car_air_spin_clamp 0x4a20c0).
             me.contactUpSet = false;
             ++me.airTicks;
-            for (float* s : {&me.spinX, &me.yawRate, &me.spinZ})
+            for (float *s : {&me.spinX, &me.yawRate, &me.spinZ})
                 *s = std::clamp(*s, -2.4f, 2.4f);
         } else if (me.airTicks != 0) {
             me.contactUpSet = false;
@@ -2420,13 +2425,15 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         me.braking = true;
         me.carSide = coast.right;
         // car_ai_model (0x408639): ai_gear_rpm after the coast.
-        aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)), me.reversing);
+        aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)),
+                  me.reversing);
         out.coast = true;
         return out;
     }
     // ai_gear_rpm (0x4061b0), after ai_lane_ramp and before
     // ai_reverse_end: neither reads what the other writes.
-    aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)), me.reversing);
+    aiGearRpm(me.gearbox, me.gears, me.wanted, std::fabs(me.speed), trackSectionSpeed(track, aiSlice(me)),
+              me.reversing);
     if (ramp) {
         // ai_lane_ramp (0x408870): the aim 0.2 a call towards the offset
         // wanted; ai_reverse_end (0x4060d0): reversing, the aim is the
@@ -2455,7 +2462,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // lanes it steers at its own slice's point.
     bool ownSlice = false;
     if (me.chasing < 0) {
-        const auto& lanesAt = col.road[size_t(((aiSlice(me) % n) + n) % n)];
+        const auto &lanesAt = col.road[size_t(((aiSlice(me) % n) + n) % n)];
         const int lo = 6 - lanesAt.leftLanes(), hi = lanesAt.rightLanes() + 7;
         auto on = [&](int l) { return l >= lo && l <= hi && l >= 0 && l < 14; };
         const bool offRoad = me.lane < 0 || me.lane >= 14 || !(on(me.lane) || on(me.lane - 1) || on(me.lane + 1));
@@ -2489,11 +2496,11 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     // 0x4dfd56's chop), as h / 1024 for h over 0 and (h + 512) / 1024 +
     // 0.5 else; the error kept within +-0.5.
     const int k = ownSlice ? (((aiSlice(me) % n) + n) % n) : aiSteerSlice(col, me, track);
-    const auto& p = col.road[size_t(k)];
-    const auto& next = col.road[size_t((((me.slice + 1) % n) + n) % n)];
+    const auto &p = col.road[size_t(k)];
+    const auto &next = col.road[size_t((((me.slice + 1) % n) + n) % n)];
     const float aim =
         ownSlice ? 0.0f : me.offset + (track == 0 && k > 0x204 && k < 0x210 && me.offset < 0 ? -10.0f : 0.0f);
-    const std::array<float, 3>& aimRight = me.roadRightSet ? me.roadRight : here->right;
+    const std::array<float, 3> &aimRight = me.roadRightSet ? me.roadRight : here->right;
     std::array<float, 3> d{};
     for (size_t c = 0; c < 3; ++c) {
         const float car =
@@ -2504,15 +2511,15 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     if (toward < 0)
         toward += 1;
     const int h1024 = static_cast<int>(std::atan2(bf[0], bf[2]) * 0.159154958f * 1024.0f); // chopped
-    const float headingTurns = h1024 > 0 ? static_cast<float>(h1024) * 0.00097656f
-                                         : static_cast<float>(h1024 + 512) * 0.0009765625f + 0.5f;
+    const float headingTurns =
+        h1024 > 0 ? static_cast<float>(h1024) * 0.00097656f : static_cast<float>(h1024 + 512) * 0.0009765625f + 0.5f;
     float error = headingTurns - toward;
     if (error < -0.5f)
         error += 1;
     if (error > 0.5f)
         error -= 1;
     me.headingError = error;
-    const auto& lanesAt = col.road[size_t(((aiSlice(me) % n) + n) % n)]; // +0x1C's
+    const auto &lanesAt = col.road[size_t(((aiSlice(me) % n) + n) % n)]; // +0x1C's
     // car_ai_model's "off the lanes" (0x408703-0x40876f): the lanes x the
     // width byte x 0x8000, the edge in 16.16, loaded as an integer (fild)
     // and compared with +0x7B8 in metres: never true but on a side with
@@ -2524,8 +2531,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
     const float ground = out.ground;
     if (me.reversing || out.forward < 0) {
         me.steer = AiCar::Slow;
-    } else if (offLanes || std::fabs(error) > 0.04f || std::fabs(me.speed) < 0.5f || step < me.slideUntil ||
-               slipping) {
+    } else if (offLanes || std::fabs(error) > 0.04f || std::fabs(me.speed) < 0.5f || step < me.slideUntil || slipping) {
         me.steer = AiCar::Slide;
     } else if (std::fabs(me.speed) < 13.4109f) {
         me.steer = AiCar::Slow;
@@ -2538,7 +2544,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         // +-32 and +-half the ground speed (under 22.35 m/s +-0.129 x
         // the speed), against the velocity along the right of the road 2
         // slices on (0x406a80); the force through the road's rows.
-        const auto& two = col.road[size_t((((aiSlice(me) + 2 * me.way) % n) + n) % n)];
+        const auto &two = col.road[size_t((((aiSlice(me) + 2 * me.way) % n) + n) % n)];
         const float a4 = dot3(me.vel, two.right);
         out.railsSide = a4;
         float wantedSide = clampTo(clampTo(-(me.side - me.offset) * 5.0f, 32.0f), ground * 0.5f);
@@ -2553,7 +2559,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
         const float force = clampTo(-(a4 - wantedSide) * 4.0f * k15, 38.0f * k15);
         me.sideForce = force;
         // Along the road polygon's right (+0x124, ai_integrate 0x4071a0).
-        const std::array<float, 3>& rr = me.roadRightSet ? me.roadRight : here->right;
+        const std::array<float, 3> &rr = me.roadRightSet ? me.roadRight : here->right;
         for (size_t c = 0; c < 3; ++c)
             me.vel[c] += force / 32.0f * rr[c];
         aiYawForce(me, tf, tr, tu, clampTo(-(spinUp - wantedYaw) * 5.0f, 0.8f));
@@ -2587,7 +2593,7 @@ AiDynamics aiModelSteer(AiCar& me, const TrackCollision& col, int step, int trac
 
 } // namespace
 
-void aiAdvance(AiCar& me, const TrackCollision& col) {
+void aiAdvance(AiCar &me, const TrackCollision &col) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || !me.sideKept)
         return;
@@ -2616,7 +2622,7 @@ void aiAdvance(AiCar& me, const TrackCollision& col) {
     // Not through the walls (the car against the track, 0x4304b0 with
     // 0x430210): its sides kept within the slice's walls, the velocity
     // across the slice taken out.
-    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const auto &here = col.road[size_t(((me.slice % n) + n) % n)];
     const float low = me.halfWidth - here.leftWall, high = here.rightWall - me.halfWidth;
     if (low < high && (me.lateral < low || me.lateral > high)) {
         me.lateral = std::clamp(me.lateral, low, high);
@@ -2664,7 +2670,7 @@ void aiAdvance(AiCar& me, const TrackCollision& col) {
     }
 }
 
-void aiSteerStep(AiCar& me, const TrackCollision& col, int step, int track) {
+void aiSteerStep(AiCar &me, const TrackCollision &col, int step, int track) {
     const bool kept = me.sideKept;
     aiModelSteer(me, col, step, track, false);
     if (kept)
@@ -2678,7 +2684,7 @@ void aiSteerStep(AiCar& me, const TrackCollision& col, int step, int track) {
 // ai_ctl_slide (0x408467-0x4084ba): `side` the velocity along the car's
 // right (+0x4EC); both the excess over 7. ai_ctl_slow (0x407c30) leaves
 // them as they were.
-void aiSkid(AiCar& me, float side, bool braking) {
+void aiSkid(AiCar &me, float side, bool braking) {
     const float over = std::fabs(side) - 7.0f;
     if (me.steer == AiCar::Rails) {
         me.skidFront = over > 0 ? over * 0.15f : 0.0f;
@@ -2710,7 +2716,7 @@ int AiStartRandom::pick() {
     return static_cast<int>(((s & 0xffff00) >> 8) * 14 >> 16);
 }
 
-AiStartRandom& aiStartRandom() {
+AiStartRandom &aiStartRandom() {
     static AiStartRandom random = [] {
         AiStartRandom r;
         r.seed(0x2b5d1e0u); // any start-up tick count
@@ -2719,13 +2725,13 @@ AiStartRandom& aiStartRandom() {
     return random;
 }
 
-bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRandom& random) {
+bool aiStartSpin(const AiCar &car, const AiCarData &data, float accel, AiStartRandom &random) {
     if (!car.racer || car.cop || car.distance >= 20 || accel != data.accel[0])
         return false;
     return random.pick() == car.slot;
 }
 
-void aiFinishedCoast(AiCoast& c) {
+void aiFinishedCoast(AiCoast &c) {
     c.skidFront = c.skidRear = 0;
     c.forward = static_cast<float>(static_cast<double>(c.forward) * (c.ground >= 22.3515 ? 0.98 : 0.95));
     c.right = static_cast<float>(static_cast<double>(c.right) * 0.85);
@@ -2742,7 +2748,7 @@ void aiFinishedCoast(AiCoast& c) {
     }
 }
 
-void aiLaps(AiCar& c, int slices, int step, bool backward) {
+void aiLaps(AiCar &c, int slices, int step, bool backward) {
     if (c.laps <= 0 || slices <= 0)
         return;
     const int slice = aiSlice(c);
@@ -2793,7 +2799,7 @@ int aiGridSlice(int index, int cars, int slices, bool backward) {
     return slices > 0 ? s % slices : s;
 }
 
-float aiGridOffset(const TrackCollision::RoadPoint& p, int index, bool backward) {
+float aiGridOffset(const TrackCollision::RoadPoint &p, int index, bool backward) {
     // 0x42ba00 with 0x40eca0 0 (t_ai_track_rows +8, 0 on every track):
     // int(-byte 0x17 x 0x8000) / 2 or int(byte 0x1B << 15) / 2, 16.16.
     bool right = (index & 1) != 0;
@@ -2805,7 +2811,7 @@ float aiGridOffset(const TrackCollision::RoadPoint& p, int index, bool backward)
 
 namespace {
 using Mat3 = std::array<float, 9>;
-Mat3 aiMatMul(const Mat3& a, const Mat3& b) {
+Mat3 aiMatMul(const Mat3 &a, const Mat3 &b) {
     Mat3 m{};
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
@@ -2815,8 +2821,8 @@ Mat3 aiMatMul(const Mat3& a, const Mat3& b) {
 }
 } // namespace
 
-void aiSetRows(AiCar& c, const TrackCollision& col, const std::array<float, 3>& velocity,
-               const std::array<float, 3>& right, const std::array<float, 3>& up, const std::array<float, 3>& forward) {
+void aiSetRows(AiCar &c, const TrackCollision &col, const std::array<float, 3> &velocity,
+               const std::array<float, 3> &right, const std::array<float, 3> &up, const std::array<float, 3> &forward) {
     // M = P Q with P = (M M^T)^(1/2) (symmetric) and Q orthonormal, by the
     // series of (I + E)^(1/2) and (I + E)^(-1/2), E = M M^T - I (about 1e-4
     // for the 16.16 rows; the terms to E^3 leave 1e-16).
@@ -2843,7 +2849,7 @@ void aiSetRows(AiCar& c, const TrackCollision& col, const std::array<float, 3>& 
         c.rowsShaped = c.rowsShaped || p[k] != ((k % 4 == 0) ? 1.0f : 0.0f);
 }
 
-void aiPutOnGrid(AiCar& c, const Track& track, const TrackCollision& col, int slice, float offset, bool backward) {
+void aiPutOnGrid(AiCar &c, const Track &track, const TrackCollision &col, int slice, float offset, bool backward) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return;
@@ -2886,7 +2892,7 @@ void aiPutOnGrid(AiCar& c, const Track& track, const TrackCollision& col, int sl
         aiSetRows(c, col, {0, 0, 0}, {c.roadRight[0] * w, c.roadRight[1] * w, c.roadRight[2] * w}, c.roadUp,
                   {c.roadForward[0] * w, c.roadForward[1] * w, c.roadForward[2] * w});
     } else {
-        const auto& p = col.road[size_t(slice)];
+        const auto &p = col.road[size_t(slice)];
         aiSetWorld(c, col, {0, 0, 0}, {p.forward[0] * w, p.forward[1] * w, p.forward[2] * w});
     }
     c.side = aiMeasuredSide(col, c);
@@ -2903,7 +2909,7 @@ void aiPutOnGrid(AiCar& c, const Track& track, const TrackCollision& col, int sl
 
 namespace {
 
-void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const TrackCollision& col, int track) {
+void aiMove(AiCar &me, const AiCarData &data, bool weather, int step, const TrackCollision &col, int track) {
     // +0x7C4 as the race task took it (0x42ce70), before this tick's
     // gravity and forces.
     const float raceSpeed = me.speed;
@@ -3038,7 +3044,7 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
     } else if (n > 0) {
         // ai_ctl_rails' forward force goes along the road polygon's forward
         // (+0x13C, 0x56ec74 through ai_integrate's rows), the way it runs.
-        const auto& a = col.road[size_t(((me.slice % n) + n) % n)];
+        const auto &a = col.road[size_t(((me.slice % n) + n) % n)];
         const std::array<float, 3> rf = unit3(me.roadRightSet ? me.roadForward : a.forward);
         for (size_t c = 0; c < 3; ++c)
             me.vel[c] += way * force / 32.0f * rf[c];
@@ -3048,12 +3054,12 @@ void aiMove(AiCar& me, const AiCarData& data, bool weather, int step, const Trac
 // How far the road's line moves across from a slice's point to the
 // next's, along the slice's right (unit): the measured side offset of a
 // car going straight on gains that much over the slice.
-float aiChord(const TrackCollision& col, int slice) {
+float aiChord(const TrackCollision &col, int slice) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return 0;
-    const auto& a = col.road[size_t(((slice % n) + n) % n)];
-    const auto& b = col.road[size_t(((slice + 1) % n + n) % n)];
+    const auto &a = col.road[size_t(((slice % n) + n) % n)];
+    const auto &b = col.road[size_t(((slice + 1) % n + n) % n)];
     float d = 0, r = 0;
     for (size_t k = 0; k < 3; ++k) {
         d += (b.position[k] - a.position[k]) * a.right[k];
@@ -3079,17 +3085,17 @@ struct CopCall {
 
 // One step of the computer's driving: as a racer (cop null), or a cop's
 // driver's call.
-void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-             const AiCarData& data, int step, int track, bool /*weather*/, const CopCall* cop) {
+void aiDrive(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const std::vector<uint8_t> &speeds,
+             const AiCarData &data, int step, int track, bool /*weather*/, const CopCall *cop) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
-    auto point = [&](int s) -> const TrackCollision::RoadPoint& { return col.road[size_t(wrap(s))]; };
-    const int mySlice = aiSlice(me); // +0x1C: the track position's
+    auto point = [&](int s) -> const TrackCollision::RoadPoint & { return col.road[size_t(wrap(s))]; };
+    const int mySlice = aiSlice(me);                                // +0x1C: the track position's
     auto ahead = [&](int k) { return wrap(mySlice + me.way * k); }; // slice_ahead (0x40e160)
-    auto sliceDiff = [&](int a, int b) { // 0x40e120
+    auto sliceDiff = [&](int a, int b) {                            // 0x40e120
         int d = a - b;
         if (d > n / 2)
             d -= n;
@@ -3097,7 +3103,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             d += n;
         return d;
     };
-    const TrackCollision::RoadPoint& here = point(mySlice);
+    const TrackCollision::RoadPoint &here = point(mySlice);
     const int leftLanes = here.leftLanes(), rightLanes = here.rightLanes();
     int votes[14][3] = {}; // 0x56ee90: left, same, right of the car's lane, by rule
     auto vote = [&](int row, int column, int amount) { votes[row][column] += amount; };
@@ -3137,13 +3143,13 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     // 0x40cfd0: +0x7C4 (the speed's size) x 2 x 0.1667 rounded towards 0
     // (0x4dfd56 sets the chop mode for its frndint), at least 10.
     const int reach = std::max(static_cast<int>(std::fabs(me.speed) * 2.0 * 0.1667), 10);
-    std::array<const AiCar*, 3> carAhead{}, carBehind{};
+    std::array<const AiCar *, 3> carAhead{}, carBehind{};
     std::array<int, 3> aheadBy{reach, reach, reach}, behindBy{-reach, -reach, -reach};
     std::array<bool, 3> aheadCentre{}, behindCentre{};
     for (size_t i = 0; i < cars.size(); ++i) {
         if (i == self)
             continue;
-        const AiCar& o = cars[i];
+        const AiCar &o = cars[i];
         const int d = sliceDiff(aiSlice(o), mySlice) * me.way;
         if (std::abs(d) > reach)
             continue;
@@ -3171,13 +3177,13 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
             }
         }
     }
-    auto along = [](const AiCar& c) { return static_cast<float>(c.way) * c.speed; }; // +0x7C0
+    auto along = [](const AiCar &c) { return static_cast<float>(c.way) * c.speed; }; // +0x7C0
     const CopCall::Kind kind = cop ? cop->kind : CopCall::Section;
     // The lane picked from the sums (lane_choose_best 0x40da30, the same
     // lane on a tie) and its aim (0x40daf0).
     auto choose = [&](int nudge) {
         int sum[3] = {};
-        for (const auto& row : votes)
+        for (const auto &row : votes)
             for (int c = 0; c < 3; ++c)
                 sum[c] += row[c];
         int pick = lane, best = sum[1];
@@ -3202,12 +3208,12 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
 
     // A cop's chase (0x401780): the slices to its target along its way,
     // which lane it is in (0x56ea64: 0 left, 1 the same, 2 right).
-    const AiCar* target = cop && me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)]
-                                                                                               : nullptr;
+    const AiCar *target =
+        cop && me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)] : nullptr;
     const int toTarget = target ? sliceDiff(aiSlice(*target), mySlice) * me.way : 0;
     const int targetSide = target ? (target->lane < lane ? 0 : target->lane == lane ? 1 : 2) : 1;
     const float top = data.maxVelocity * (me.copFast ? 1.1f : 1.0f); // 0x401370
-    bool chaseSection = false; // cop_ai_chase gave the section's speed x 1.19
+    bool chaseSection = false;                                       // cop_ai_chase gave the section's speed x 1.19
     if (kind == CopCall::Chase && target) {
         // cop_ai_chase (0x4025c0): within 16 slices, or with the target
         // pulled over, 0x402420; else behind it the top speed, reversing
@@ -3251,11 +3257,13 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         // nearer, its speed less 10 x the share of that reach it is in;
         // one coming at it x 0.4.
         if (carAhead[1]) {
-            const AiCar& o = *carAhead[1];
+            const AiCar &o = *carAhead[1];
             if (o.way == me.way) {
-                const int reachOf = std::max(std::abs(static_cast<int>(std::nearbyint(o.speed * 0.5793742757821553 - 0.5))), 4);
+                const int reachOf =
+                    std::max(std::abs(static_cast<int>(std::nearbyint(o.speed * 0.5793742757821553 - 0.5))), 4);
                 if (me.wanted - o.speed > 0 && reachOf >= aheadBy[1] && o.speed >= 3.0f)
-                    me.wanted = o.speed - static_cast<float>(reachOf - aheadBy[1]) * 10.0f / static_cast<float>(reachOf);
+                    me.wanted =
+                        o.speed - static_cast<float>(reachOf - aheadBy[1]) * 10.0f / static_cast<float>(reachOf);
             } else {
                 me.wanted *= 0.4f;
             }
@@ -3318,10 +3326,11 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     // 0x409920 (personality under 3): against the lanes of slower cars.
     if (!cop && me.driver.personality < 3)
         for (int c = 0; c < 3; ++c) {
-            const AiCar* o = carAhead[size_t(c)];
+            const AiCar *o = carAhead[size_t(c)];
             if (!o)
                 continue;
-            const float closing = along(me) - along(*o), wantedOver = static_cast<float>(me.way) * me.wanted - along(*o);
+            const float closing = along(me) - along(*o),
+                        wantedOver = static_cast<float>(me.way) * me.wanted - along(*o);
             if (closing > 0)
                 vote(8, c, static_cast<int>(std::nearbyint(closing * -0.5f)));
             if (wantedOver > 0)
@@ -3358,7 +3367,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     if (look < 10)
         look = 9;
     const int far = ahead(look);
-    const TrackCollision::RoadPoint& there = point(far);
+    const TrackCollision::RoadPoint &there = point(far);
     const bool roadside = kind == CopCall::Roadside;
     if (roadside) {
         // 0x402d90: +100 for the nearer road edge's lane (its own off the
@@ -3421,7 +3430,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     }
     // 0x40d720: a lane with a strip laid 1-5 slices ahead (0x7dd850's
     // records, by its cop) -50; in its own lane the speed wanted x 0.9.
-    for (const AiCar& c : cars) {
+    for (const AiCar &c : cars) {
         if (!c.stripOn)
             continue;
         const int d = sliceDiff(c.stripSlice, mySlice) * me.way;
@@ -3437,7 +3446,7 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
     // 0x40d800: against lanes with slower cars ahead within 10, and cars
     // coming the other way, by the time to meet them.
     for (int c = 0; c < 3; ++c) {
-        const AiCar* o = carAhead[size_t(c)];
+        const AiCar *o = carAhead[size_t(c)];
         if (!o)
             continue;
         if (o->way == me.way) {
@@ -3453,7 +3462,8 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
         } else {
             const float closing = along(me) - along(*o);
             if (std::fabs(closing) > 1) {
-                const float t = static_cast<float>(static_cast<int>(aheadBy[size_t(c)] * 6.0f * 65536.0f)) / 65536.0f / closing;
+                const float t =
+                    static_cast<float>(static_cast<int>(aheadBy[size_t(c)] * 6.0f * 65536.0f)) / 65536.0f / closing;
                 int v = -35 - static_cast<int>(std::nearbyint(t * -35.0f * 0.125f - 0.5f));
                 if (!aheadCentre[size_t(c)])
                     v /= 2;
@@ -3508,8 +3518,8 @@ void aiDrive(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, c
 
 } // namespace
 
-void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-            const AiCarData& data, int step, int track, bool weather, AiPhase phase) {
+void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const std::vector<uint8_t> &speeds,
+            const AiCarData &data, int step, int track, bool weather, AiPhase phase) {
     if (self >= cars.size())
         return;
     if (phase == AiPhase::Move) {
@@ -3521,11 +3531,11 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
     // car_driver_ai (0x409c00) goes through the same gate as the cops'
     // driver (0x40df10 -> 0x401240): a 32 Hz task let through when
     // (step / 2 + car +0) mod 4 is 0, so it acts every 8 steps.
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     if (aiDriverActs(me, step)) {
         auto copsOn = [&]() {
             int on = 0;
-            for (const AiCar& c : cars)
+            for (const AiCar &c : cars)
                 on += c.cop && c.chasing == static_cast<int>(self) ? 1 : 0;
             return on;
         };
@@ -3568,7 +3578,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
             const int n = static_cast<int>(col.road.size());
             if (n > 0) {
                 const int at = ((aiSlice(me) % n) + n) % n;
-                const auto& p = col.road[size_t(at)];
+                const auto &p = col.road[size_t(at)];
                 const bool past = me.raceBackward ? at < n - 20 : at > 20;
                 const int lo = -(static_cast<int>(p.extra[1]) * 0x8000 * p.leftLanes());
                 const int hi = static_cast<int>(p.extra[2]) * 0x8000 * p.rightLanes();
@@ -3600,7 +3610,7 @@ bool aiAtRaceStart(int distance, int place, int racers, bool backward, int extra
     return start + extra >= place * 14 + distance;
 }
 
-bool aiDriverActs(const AiCar& car, int step) {
+bool aiDriverActs(const AiCar &car, int step) {
     return (step & 1) == 0 && ((step / 2 + car.phase) & 3) == 0;
 }
 
@@ -3641,7 +3651,7 @@ float trackSectionSpeed(int track, int slice) {
     }
 }
 
-int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances) {
+int aiRacersAhead(int humanDistance, const std::vector<int> &racerDistances) {
     if (racerDistances.empty())
         return 0;
     size_t ahead = 0;
@@ -3650,7 +3660,7 @@ int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances) {
     return ahead == 0 ? 0 : ahead == racerDistances.size() ? 2 : 1;
 }
 
-float aiCatchUpFactor(const AiRace& race, int distance, int place) {
+float aiCatchUpFactor(const AiRace &race, int distance, int place) {
     if (!race.human)
         return 1;
     const bool cup = race.raceType == 1 || race.raceType == 2; // Tournament, Knockout
@@ -3687,59 +3697,74 @@ namespace {
 struct TicketTimes {
     int giveUp, giveUpFast, free, wait;
 };
-constexpr TicketTimes kTicketTimes[8] = {{50, 65, 960, 384}, {50, 65, 960, 384}, {70, 75, 896, 384}, {70, 85, 768, 384},
-                                         {90, 105, 640, 384}, {90, 105, 576, 448}, {90, 115, 512, 448}, {90, 115, 512, 448}};
-const TicketTimes& ticketTimes(int tickets) { return kTicketTimes[std::clamp(tickets, 0, 7)]; }
+constexpr TicketTimes kTicketTimes[8] = {{50, 65, 960, 384},  {50, 65, 960, 384},  {70, 75, 896, 384},
+                                         {70, 85, 768, 384},  {90, 105, 640, 384}, {90, 105, 576, 448},
+                                         {90, 115, 512, 448}, {90, 115, 512, 448}};
+const TicketTimes &ticketTimes(int tickets) {
+    return kTicketTimes[std::clamp(tickets, 0, 7)];
+}
 
 // A car's place in the track (its slice's point, on towards the next by
 // `along`, its side offset along the right), for the distances the cops'
 // tests take (dist_approx).
-std::array<float, 3> aiPlace(const TrackCollision& col, const AiCar& c) {
+std::array<float, 3> aiPlace(const TrackCollision &col, const AiCar &c) {
     const int n = static_cast<int>(col.road.size());
-    const auto& a = col.road[size_t(((c.slice % n) + n) % n)];
-    const auto& b = col.road[size_t(((c.slice + 1) % n + n) % n)];
+    const auto &a = col.road[size_t(((c.slice % n) + n) % n)];
+    const auto &b = col.road[size_t(((c.slice + 1) % n + n) % n)];
     std::array<float, 3> out{};
     for (size_t k = 0; k < 3; ++k)
         out[k] = a.position[k] + (b.position[k] - a.position[k]) * c.along + a.right[k] * c.lateral;
     return out;
 }
 
-float aiDistance(const TrackCollision& col, const AiCar& a, const AiCar& b) {
+float aiDistance(const TrackCollision &col, const AiCar &a, const AiCar &b) {
     const auto p = aiPlace(col, a), q = aiPlace(col, b);
     return std::sqrt((p[0] - q[0]) * (p[0] - q[0]) + (p[1] - q[1]) * (p[1] - q[1]) + (p[2] - q[2]) * (p[2] - q[2]));
 }
 
-void radioCall(AiCar& cop, uint32_t call, int step) {
+void radioCall(AiCar &cop, uint32_t call, int step) {
     cop.radio = call;
     cop.radioStep = step;
 }
 
 } // namespace
 
-const char* aiRadioCall(uint32_t call) {
+const char *aiRadioCall(uint32_t call) {
     switch (call) {
-    case 0x40b220: return "in pursuit (a cop takes a target)";
-    case 0x40b670: return "suspect ticketed";
-    case 0x40b720: return "requesting backup";
-    case 0x40b910: return "requesting a spike strip";
-    case 0x40b860: return "requesting a roadblock";
-    case 0x40b9c0: return "spike strip laid";
-    case 0x40bac0: return "roadblock in place";
-    case 0x40bca0: return "suspect missed the strip";
-    case 0x40bd00: return "suspect ran the roadblock";
-    case 0x40b480: return "lost him";
-    default: return "";
+    case 0x40b220:
+        return "in pursuit (a cop takes a target)";
+    case 0x40b670:
+        return "suspect ticketed";
+    case 0x40b720:
+        return "requesting backup";
+    case 0x40b910:
+        return "requesting a spike strip";
+    case 0x40b860:
+        return "requesting a roadblock";
+    case 0x40b9c0:
+        return "spike strip laid";
+    case 0x40bac0:
+        return "roadblock in place";
+    case 0x40bca0:
+        return "suspect missed the strip";
+    case 0x40bd00:
+        return "suspect ran the roadblock";
+    case 0x40b480:
+        return "lost him";
+    default:
+        return "";
     }
 }
 
-void aiStripSpan(const TrackCollision::RoadPoint& p, int lane, float& from, float& to) {
+void aiStripSpan(const TrackCollision::RoadPoint &p, int lane, float &from, float &to) {
     const float width = static_cast<float>(lane < 7 ? p.extra[1] : p.extra[2]) * 0.5f;
-    const float middle = lane < 7 ? -(static_cast<float>(6 - lane) + 0.5f) * width : (static_cast<float>(lane - 7) + 0.5f) * width;
+    const float middle =
+        lane < 7 ? -(static_cast<float>(6 - lane) + 0.5f) * width : (static_cast<float>(lane - 7) + 0.5f) * width;
     from = middle - 0.75f * width;
     to = middle + 0.75f * width;
 }
 
-std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint& p, int lane) {
+std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint &p, int lane) {
     float from = 0, to = 0;
     aiStripSpan(p, lane, from, to);
     std::array<std::array<float, 3>, 4> quad{};
@@ -3754,10 +3779,10 @@ std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint&
     return quad;
 }
 
-unsigned aiStripWheels(const std::array<std::array<float, 3>, 4>& quad, const std::array<float, 3>& at,
-                       const std::array<float, 3>& right, const std::array<float, 3>& up,
-                       const std::array<float, 3>& forward, const std::array<std::array<float, 2>, 4>& wheels) {
-    auto dot = [](const std::array<float, 3>& a, const std::array<float, 3>& b) {
+unsigned aiStripWheels(const std::array<std::array<float, 3>, 4> &quad, const std::array<float, 3> &at,
+                       const std::array<float, 3> &right, const std::array<float, 3> &up,
+                       const std::array<float, 3> &forward, const std::array<std::array<float, 2>, 4> &wheels) {
+    auto dot = [](const std::array<float, 3> &a, const std::array<float, 3> &b) {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     };
     unsigned hit = 0;
@@ -3766,7 +3791,7 @@ unsigned aiStripWheels(const std::array<std::array<float, 3>, 4>& quad, const st
         for (size_t k = 0; k < 3; ++k)
             wheel[k] = at[k] + right[k] * wheels[w][0] + forward[k] * wheels[w][1];
         unsigned all = 0x3f;
-        for (const auto& corner : quad) {
+        for (const auto &corner : quad) {
             const std::array<float, 3> d{corner[0] - wheel[0], corner[1] - wheel[1], corner[2] - wheel[2]};
             const float c[3] = {dot(d, right), dot(d, up), dot(d, forward)};
             unsigned code = 0;
@@ -3794,7 +3819,7 @@ int aiStopHold(bool humanTarget, int raceDistance) {
     return 192;
 }
 
-void aiOrderStrip(AiCar& cop, int racer, int sliceCount) {
+void aiOrderStrip(AiCar &cop, int racer, int sliceCount) {
     int from = cop.slice - 6;
     if (from < 0)
         from += sliceCount;
@@ -3808,7 +3833,7 @@ void aiOrderStrip(AiCar& cop, int racer, int sliceCount) {
     cop.stripWanted = true;
 }
 
-void aiOrderRoadblock(AiCar& cop, int racer, int slice) {
+void aiOrderRoadblock(AiCar &cop, int racer, int slice) {
     cop.orderKind = 4;
     cop.orderTaken = false;
     cop.orderFrom = slice;
@@ -3819,7 +3844,7 @@ void aiOrderRoadblock(AiCar& cop, int racer, int slice) {
     cop.blockWatch = true;
 }
 
-void aiOrderPatrol(AiCar& cop) {
+void aiOrderPatrol(AiCar &cop) {
     cop.orderKind = 2;
     cop.orderTaken = false;
     cop.orderFrom = cop.orderLength = 0;
@@ -3830,25 +3855,35 @@ void aiOrderPatrol(AiCar& cop) {
 namespace {
 
 using Vec3 = std::array<float, 3>;
-Vec3 vAdd(const Vec3& a, const Vec3& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3 vSub(const Vec3& a, const Vec3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3 vScale(const Vec3& a, float k) { return {a[0] * k, a[1] * k, a[2] * k}; }
-float vDot(const Vec3& a, const Vec3& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-float vLength(const Vec3& a) { return std::sqrt(vDot(a, a)); }
+Vec3 vAdd(const Vec3 &a, const Vec3 &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec3 vSub(const Vec3 &a, const Vec3 &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec3 vScale(const Vec3 &a, float k) {
+    return {a[0] * k, a[1] * k, a[2] * k};
+}
+float vDot(const Vec3 &a, const Vec3 &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+float vLength(const Vec3 &a) {
+    return std::sqrt(vDot(a, a));
+}
 // 0x4e0160: a x b.
-Vec3 vCross(const Vec3& a, const Vec3& b) {
+Vec3 vCross(const Vec3 &a, const Vec3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-float boxDiagonal(const CarBox& c) { // +0x120 (0x4a0d20)
+float boxDiagonal(const CarBox &c) { // +0x120 (0x4a0d20)
     return std::sqrt(c.half[0] * c.half[0] + c.half[1] * c.half[1] + c.half[2] * c.half[2]);
 }
 
 // 0x42e820 with 0x42e720: one car's share of a hit, its strength.
-float carBoxImpulse(CarBox& c, Vec3 j, const Vec3& r, float f) {
+float carBoxImpulse(CarBox &c, Vec3 j, const Vec3 &r, float f) {
     const float invMass = 1.0f / c.mass; // +0xB4
-    if (c.mass * 5.0f < vLength(j)) // 0x5373bc
-        j = vScale(j, 0.75f);        // 0x5537ac
-    const float length = vLength(r); // 0x4972f0
+    if (c.mass * 5.0f < vLength(j))      // 0x5373bc
+        j = vScale(j, 0.75f);            // 0x5537ac
+    const float length = vLength(r);     // 0x4972f0
     const Vec3 unit = length > 0 ? vScale(r, 1.0f / length) : r;
     float push = -vDot(j, unit) * f * invMass;
     if (push > 0) {
@@ -3865,16 +3900,16 @@ float carBoxImpulse(CarBox& c, Vec3 j, const Vec3& r, float f) {
         const float k = f / boxDiagonal(c) * 0.159154958f * invMass; // 1/2 pi, 0x5373c4
         c.spin = vAdd(c.spin, vScale(lever, k));
     }
-    for (float& w : c.spin) // 0x42e720: +-1.8 (0x5537b0)
+    for (float &w : c.spin) // 0x42e720: +-1.8 (0x5537b0)
         w = std::clamp(w, -1.8f, 1.8f);
     return push + turn;
 }
 
 } // namespace
 
-bool carBoxTouch(CarBox& a, CarBox& b, Vec3& point) {
-    const Vec3* ar[3] = {&a.right, &a.up, &a.forward};
-    const Vec3* br[3] = {&b.right, &b.up, &b.forward};
+bool carBoxTouch(CarBox &a, CarBox &b, Vec3 &point) {
+    const Vec3 *ar[3] = {&a.right, &a.up, &a.forward};
+    const Vec3 *br[3] = {&b.right, &b.up, &b.forward};
     float m[3][3]; // a's rows . b's rows (0x5efebc-0x5efedc)
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 3; ++k)
@@ -3891,7 +3926,7 @@ bool carBoxTouch(CarBox& a, CarBox& b, Vec3& point) {
             db[i] = vDot(*br[i], d);
         }
         // b's point (s x its half sizes) inside a's box (0x42dd60, 0x42e2c0).
-        auto bInA = [&](const int* s) {
+        auto bInA = [&](const int *s) {
             for (int i = 0; i < 3; ++i) {
                 float p = da[i];
                 for (int k = 0; k < 3; ++k)
@@ -3905,7 +3940,7 @@ bool carBoxTouch(CarBox& a, CarBox& b, Vec3& point) {
             return true;
         };
         // a's point inside b's box (0x42e010, 0x42e4f0).
-        auto aInB = [&](const int* s) {
+        auto aInB = [&](const int *s) {
             for (int k = 0; k < 3; ++k) {
                 float q = -db[k];
                 for (int i = 0; i < 3; ++i)
@@ -3941,7 +3976,7 @@ bool carBoxTouch(CarBox& a, CarBox& b, Vec3& point) {
     return found;
 }
 
-void carBoxHit(CarBox& a, CarBox& b, const Vec3& point) {
+void carBoxHit(CarBox &a, CarBox &b, const Vec3 &point) {
     constexpr float kTurn = 6.2831845f; // 0x40c90fd9
     const Vec3 ra = vSub(point, a.at), rb = vSub(point, b.at);
     const Vec3 va = vAdd(vCross(vScale(a.spin, kTurn), ra), a.velocity);
@@ -3963,7 +3998,7 @@ void carBoxHit(CarBox& a, CarBox& b, const Vec3& point) {
     }
 }
 
-bool carBoxCollide(CarBox& a, CarBox& b) {
+bool carBoxCollide(CarBox &a, CarBox &b) {
     Vec3 point{}, last{};
     bool touched = false;
     for (int k = 0; k < 33 && carBoxTouch(a, b, point); ++k) {
@@ -3975,16 +4010,16 @@ bool carBoxCollide(CarBox& a, CarBox& b) {
     return touched;
 }
 
-int carBoxCollisions(std::vector<CarBox>& cars, const std::vector<bool>& in) {
+int carBoxCollisions(std::vector<CarBox> &cars, const std::vector<bool> &in) {
     int hits = 0;
     std::vector<size_t> list; // 0x5efe10
     for (size_t i = 0; i < cars.size(); ++i) {
         if (i < in.size() && !in[i])
             continue;
-        CarBox& me = cars[i];
+        CarBox &me = cars[i];
         const float mine = boxDiagonal(me);
         for (size_t k : list) {
-            CarBox& other = cars[k];
+            CarBox &other = cars[k];
             const float reach = mine + boxDiagonal(other);
             if (std::fabs(me.at[2] - other.at[2]) < reach && std::fabs(me.at[0] - other.at[0]) < reach &&
                 std::fabs(me.at[1] - other.at[1]) < reach)
@@ -3995,7 +4030,7 @@ int carBoxCollisions(std::vector<CarBox>& cars, const std::vector<bool>& in) {
     return hits;
 }
 
-void aiReverseSet(AiCar& car, int mode, int steps, int step) {
+void aiReverseSet(AiCar &car, int mode, int steps, int step) {
     auto start = [&]() {
         car.reversing = true;
         ++car.reverseCount;
@@ -4016,7 +4051,7 @@ void aiReverseSet(AiCar& car, int mode, int steps, int step) {
     }
 }
 
-bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point) {
+bool aiSpotOnRoad(const Track &track, int slice, const std::array<float, 3> &point) {
     // 0x428ad0 after the lane and the cars: trackpos_at_point (0x4205a0)
     // builds a track position at the point from the slice; it must be in
     // a polygon (+0x14), whose record byte 1 (trackpos_surface 0x4207e0)
@@ -4030,7 +4065,7 @@ bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& poi
     const size_t block = static_cast<size_t>(search.foundSlice >> 3);
     if (block >= track.blocks.size())
         return false;
-    const Track::Block& b = track.blocks[block];
+    const Track::Block &b = track.blocks[block];
     const size_t index = static_cast<size_t>(search.polygon);
     if (8 * index + 1 >= b.polygonRoad.size())
         return false;
@@ -4045,7 +4080,7 @@ namespace {
 // The surface of the road polygon a car's track position is in
 // (trackpos_surface 0x4207e0: byte 1 of its record & 0x3F); -1 when it is
 // in none (+0x20 or +0x24 0). Without the track searched, 1 (the road).
-int aiRoadSurfaceAt(const AiCar& c) {
+int aiRoadSurfaceAt(const AiCar &c) {
     if (!c.roadTrack)
         return 1;
     if (!c.road.found || c.road.polygon < 0)
@@ -4057,19 +4092,19 @@ int aiRoadSurfaceAt(const AiCar& c) {
 }
 } // namespace
 
-bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset) {
+bool aiSpotFree(const std::vector<AiCar> &cars, size_t self, const TrackCollision &col, int slice, float offset) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2)
         return false;
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
-    const auto& p = col.road[size_t(wrap(slice))];
+    const auto &p = col.road[size_t(wrap(slice))];
     const int lane = aiLaneAt(p, offset);
     if (!aiLaneOpen(p, lane))
         return false;
     for (size_t i = 0; i < cars.size(); ++i) {
         if (i == self)
             continue;
-        const AiCar& o = cars[i];
+        const AiCar &o = cars[i];
         if (std::abs(o.lane - lane) > 1)
             continue;
         const int at = wrap(aiSlice(o));
@@ -4098,18 +4133,19 @@ namespace {
 // +0x164 1, +0x524 0, the lane (+0x638) of the new place, the strip's
 // catch (+0x621 bit 0x40) cleared; then a ghost to the hits for 64 ticks
 // (+0x174).
-void aiPlaceAhead(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int from) {
+void aiPlaceAhead(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, int from) {
     const int n = static_cast<int>(col.road.size());
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     auto wrap = [&](int s) { return ((s % n) + n) % n; };
     const int way = me.raceBackward ? -1 : 1;
     int slice = from;
     float offset = 0;
     bool found = aiSpotFree(cars, self, col, from, 0);
     for (int tries = 0, s = from; !found && tries < 10; ++tries, s = wrap(s + way)) {
-        const auto& p = col.road[size_t(s)];
+        const auto &p = col.road[size_t(s)];
         const int left = p.leftLanes(), right = p.rightLanes();
-        const float leftWidth = static_cast<float>(p.extra[1]) * 0.5f, rightWidth = static_cast<float>(p.extra[2]) * 0.5f;
+        const float leftWidth = static_cast<float>(p.extra[1]) * 0.5f,
+                    rightWidth = static_cast<float>(p.extra[2]) * 0.5f;
         for (int i = 0; i < std::max(left, right) && !found; ++i) {
             const float r = rightWidth * static_cast<float>(i) + rightWidth * 0.5f;
             const float l = -(leftWidth * static_cast<float>(i)) - leftWidth * 0.5f;
@@ -4158,7 +4194,7 @@ void aiPlaceAhead(std::vector<AiCar>& cars, size_t self, const TrackCollision& c
     // On the plane (0x4a0aa0), then +0x9C gains 1.5 (0x5efdd0), halved
     // under cover (0x5371d0 in 0x428f90, 0x5371d4 in 0x429100, both 0.5):
     // the clearance gains that rise along the road polygon's up (+0x130).
-    const auto& p = col.road[size_t(slice)];
+    const auto &p = col.road[size_t(slice)];
     float rise = 1.5f;
     if (pointCovered(p, aiPlace(col, me)))
         rise *= 0.5f;
@@ -4166,17 +4202,18 @@ void aiPlaceAhead(std::vector<AiCar>& cars, size_t self, const TrackCollision& c
 }
 } // namespace
 
-void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+void aiPutBack(std::vector<AiCar> &cars, size_t self, const TrackCollision &col) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     me.putBackDue = false;
     // 0x429100: not while +0x524 runs (a put back in the last 32 ticks);
     // not while it (or, for a cop, its target) is pulled over.
     if (me.putBackHold != 0)
         return;
-    if (me.pulledOver || (me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() && cars[size_t(me.chasing)].pulledOver))
+    if (me.pulledOver ||
+        (me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() && cars[size_t(me.chasing)].pulledOver))
         return;
     // The race's way (0x429100: +1, -1 on a backward track g_backward), not
     // the car's: 5 slices on (0x5efdcc), and on from there (0x428d60).
@@ -4185,15 +4222,15 @@ void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col)
     me.putBackHold = 0x20;
 }
 
-void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+void aiResetTipped(std::vector<AiCar> &cars, size_t self, const TrackCollision &col) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     ++me.resets; // +0x2C0
     std::array<float, 3> f{}, r{}, u{};
     aiTiltedAxes(col, me, f, r, u);
-    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const auto &here = col.road[size_t(((me.slice % n) + n) % n)];
     const std::array<float, 3> up = me.roadUpSet ? me.roadUp : unit3(here.normal);
     const float upright = dot3(u, up);
     const int surface = aiRoadSurfaceAt(me) < 0 ? 1 : aiRoadSurfaceAt(me);
@@ -4207,16 +4244,16 @@ void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& 
     aiPlaceAhead(cars, self, col, ((aiSlice(me) + way * 5) % n + n) % n);
 }
 
-void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& col) {
+void aiResetTimer(std::vector<AiCar> &cars, size_t self, const TrackCollision &col) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     const int surface = aiRoadSurfaceAt(me);
     const bool inPolygon = surface >= 0;
     std::array<float, 3> f{}, r{}, u{};
     aiTiltedAxes(col, me, f, r, u);
-    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const auto &here = col.road[size_t(((me.slice % n) + n) % n)];
     const std::array<float, 3> up = me.roadUpSet ? me.roadUp : unit3(here.normal);
     // +0x10C: the body's up row . the road polygon's up (car_road_dots
     // 0x4a2690, at the end of car_integrate_turn, before this task).
@@ -4257,7 +4294,7 @@ void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& c
         me.resetTimer = 700;
 }
 
-void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
+void aiImpacts(std::vector<AiCar> &cars, const TrackCollision &col, int step) {
     if ((step & 1) != 0)
         return;
     // car_impacts_task (0x42b900) for each car: +0x524 down, ...,
@@ -4269,7 +4306,7 @@ void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step) {
     }
 }
 
-void aiTilt(AiCar& car, int step) {
+void aiTilt(AiCar &car, int step) {
     if ((step & 1) != 0)
         return;
     constexpr float kTurn = 2 * 3.14159265358979f;
@@ -4292,7 +4329,7 @@ void aiTilt(AiCar& car, int step) {
     car.pitch -= std::nearbyint(car.pitch);
 }
 
-void aiTilt(AiCar& car, int step, const TrackCollision& col) {
+void aiTilt(AiCar &car, int step, const TrackCollision &col) {
     if ((step & 1) != 0)
         return;
     if (col.road.size() < 2) {
@@ -4311,7 +4348,7 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     // 0x53c83c). car_integrate_turn (0x4a2e20) turns the body by them
     // about the world's axes; here as rates about its forward and right.
     const int n = static_cast<int>(col.road.size());
-    const auto& a = col.road[size_t(((car.slice % n) + n) % n)];
+    const auto &a = col.road[size_t(((car.slice % n) + n) % n)];
     const std::array<float, 3> rf = unit3(car.roadRightSet ? car.roadForward : a.forward);
     std::array<float, 3> nu = unit3(cross3(rf, car.roadRightSet ? car.roadRight : a.right));
     if (nu[1] < 0)
@@ -4346,7 +4383,7 @@ void aiTilt(AiCar& car, int step, const TrackCollision& col) {
     car.pitch -= std::nearbyint(car.pitch);
 }
 
-void aiSetTilt(AiCar& c, const TrackCollision& col, const std::array<float, 3>& up) {
+void aiSetTilt(AiCar &c, const TrackCollision &col, const std::array<float, 3> &up) {
     // The roll and pitch that give the body this up in the world, against
     // its yaw on the slice's up (aiTiltedAxes): up = u cr cp - r sr cp - f sp.
     constexpr float kTurn = 2 * 3.14159265358979f;
@@ -4359,8 +4396,8 @@ void aiSetTilt(AiCar& c, const TrackCollision& col, const std::array<float, 3>& 
     c.roll = cp > 1e-6f ? std::atan2(-dot3(b, r) / cp, dot3(b, u) / cp) / kTurn : 0;
 }
 
-void aiSetFrame(AiCar& c, const TrackCollision& col, const std::array<float, 3>& forward,
-                const std::array<float, 3>& up) {
+void aiSetFrame(AiCar &c, const TrackCollision &col, const std::array<float, 3> &forward,
+                const std::array<float, 3> &up) {
     if (col.road.size() < 2)
         return;
     // The model's forward is its yaw's line laid on its tilted up
@@ -4383,7 +4420,7 @@ float aiCarMass(float carpMass, bool racer) {
     return racer ? carpMass * (1.0f / 1.2f) : carpMass; // 1 / 0x5efdb8 (1.2, 0x3f99999a), kept as a float
 }
 
-void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, std::vector<AiHit>* hits) {
+void aiCollide(std::vector<AiCar> &cars, const TrackCollision &col, int step, std::vector<AiHit> *hits) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || (step & 1) != 0)
         return;
@@ -4399,12 +4436,12 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
     }
     std::vector<CarBox> boxes(in.size()), before;
     for (size_t j = 0; j < in.size(); ++j) {
-        AiCar& c = cars[in[j]];
-        const auto& a = col.road[size_t(wrap(c.slice))];
-        const auto& b = col.road[size_t(wrap(c.slice + 1))];
+        AiCar &c = cars[in[j]];
+        const auto &a = col.road[size_t(wrap(c.slice))];
+        const auto &b = col.road[size_t(wrap(c.slice + 1))];
         if (!c.sideKept)
             c.lateral = aiLateralFor(col, c, c.offset);
-        CarBox& box = boxes[j];
+        CarBox &box = boxes[j];
         // Its world velocity and body (+0xC0 rows: aiTiltedAxes, its yaw on
         // the road's up turned by its roll and pitch; left-handed, right =
         // up x forward), its centre (+0x98) over the road by its clearance
@@ -4428,9 +4465,9 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
     if (carBoxCollisions(boxes) == 0)
         return;
     for (size_t j = 0; j < in.size(); ++j) {
-        AiCar& c = cars[in[j]];
-        const CarBox& was = before[j];
-        CarBox& now = boxes[j];
+        AiCar &c = cars[in[j]];
+        const CarBox &was = before[j];
+        CarBox &now = boxes[j];
         if (now.at == was.at && now.velocity == was.velocity && now.spin == was.spin && now.strength == 0)
             continue;
         aiWorldIn(col, c);
@@ -4466,12 +4503,12 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
     }
 }
 
-void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
+void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const AiCarData &data, int step,
                int track, bool weather, AiPhase phase) {
     const int n = static_cast<int>(col.road.size());
     if (n < 2 || self >= cars.size())
         return;
-    AiCar& me = cars[self];
+    AiCar &me = cars[self];
     if (phase == AiPhase::Move) {
         aiMove(me, data, weather, step, col, track);
         if (me.putBackDue)
@@ -4505,18 +4542,18 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             me.way = way;
             me.speed = 0;
             me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
-                    me.worldKept = false;
+            me.worldKept = false;
             me.reversing = false;
         }
     };
     auto head = [&]() { face(sliceDiff(me.orderFrom, me.slice) < 0); };
-    auto target = [&]() -> AiCar* {
+    auto target = [&]() -> AiCar * {
         return me.chasing >= 0 && static_cast<size_t>(me.chasing) < cars.size() ? &cars[size_t(me.chasing)] : nullptr;
     };
     // The cops chasing a racer (its record's +0x2C).
     auto copsOn = [&](size_t racer) {
         int on = 0;
-        for (const AiCar& c : cars)
+        for (const AiCar &c : cars)
             on += c.cop && c.chasing == static_cast<int>(racer) ? 1 : 0;
         return on;
     };
@@ -4525,7 +4562,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
     // on it closes the record and counts a chase lost (+0x14), unless a
     // strip caught it (+0x621 bit 0x40).
     auto lose = [&]() {
-        AiCar* t = target();
+        AiCar *t = target();
         if (t && t->pulledOver)
             return false;
         me.chasing = -1;
@@ -4553,7 +4590,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
                 me.stripOn = me.stripNear = false;
             }
         }
-        AiCar& t = cars[size_t(racer)];
+        AiCar &t = cars[size_t(racer)];
         if (!t.recordOpen) {
             t.recordOpen = true;
             t.recordStep = 0;
@@ -4571,7 +4608,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
     };
     // racer_overspeed_update (0x4014b0): +0x6F0 the most over the
     // section's speed.
-    auto overspeed = [&](AiCar& o) {
+    auto overspeed = [&](AiCar &o) {
         o.overspeed = std::max(o.overspeed, o.speed - trackSectionSpeed(track, o.slice));
     };
     // The strip's hits (car_spike_check 0x4297d0 each step,
@@ -4586,10 +4623,10 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         const int at = ((me.stripSlice % n) + n) % n;
         const auto quad = aiStripQuad(col.road[size_t(at)], me.stripLane);
         for (size_t i = 0; i < cars.size(); ++i) {
-            AiCar& o = cars[i];
+            AiCar &o = cars[i];
             if (!o.racer || std::abs(sliceDiff(o.slice, at)) > 1)
                 continue;
-            const auto& p = col.road[size_t(((o.slice % n) + n) % n)];
+            const auto &p = col.road[size_t(((o.slice % n) + n) % n)];
             const float w = static_cast<float>(o.way);
             const std::array<float, 3> right{p.right[0] * w, p.right[1] * w, p.right[2] * w};
             const std::array<float, 3> forward{p.forward[0] * w, p.forward[1] * w, p.forward[2] * w};
@@ -4617,7 +4654,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // game counts the slices the race's way (negated with g_backward);
         // the page's racers may go either way, so by the racer's.
         if (me.stripOn && me.watching >= 0 && static_cast<size_t>(me.watching) < cars.size()) {
-            const AiCar& w = cars[size_t(me.watching)];
+            const AiCar &w = cars[size_t(me.watching)];
             const int d = sliceDiff(me.stripSlice, w.slice) * w.way;
             if (d < 0 && d > -30 && !me.stripNear) {
                 me.stripNear = true;
@@ -4630,7 +4667,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         }
         // cop_ai_block_watch (0x403ed0): the watched racer 5 slices past.
         if (me.blockWatch && me.watching >= 0 && static_cast<size_t>(me.watching) < cars.size()) {
-            const AiCar& w = cars[size_t(me.watching)];
+            const AiCar &w = cars[size_t(me.watching)];
             const int d = sliceDiff(me.slice, w.slice) * w.way;
             if (d < -4 && d > -(n / 4)) {
                 if (d > -20 && me.copState == 10)
@@ -4698,9 +4735,10 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // slices for 256 steps.
         auto pick = [&]() {
             int best = -1, bestScore = 0, bestBy = 0;
-            const int cops = static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar& c) { return c.cop; }));
+            const int cops =
+                static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar &c) { return c.cop; }));
             for (size_t i = 0; i < cars.size(); ++i) {
-                const AiCar& o = cars[i];
+                const AiCar &o = cars[i];
                 if (i == self || !o.racer || o.chaseFree >= step)
                     continue;
                 const int by = sliceDiff(o.slice, me.slice);
@@ -4742,7 +4780,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // less: held aiStopHold's steps (0x40237a: 160, 192 or 224 by its
         // race distance from the leading human's), then the record's +0x1C
         // = 2, +0x28 = step + 320.
-        auto stopCheck = [&](AiCar& t) {
+        auto stopCheck = [&](AiCar &t) {
             const bool stopped = t.pursuit == 6;
             const float d = aiDistance(col, me, t);
             if (t.pulledOver && stopped && d < 16.0f)
@@ -4771,9 +4809,10 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // side within twice t_ticket_times' slices, and any free cop with
         // +0x711 bit 1 ahead of it within 8 times them, each on a run with
         // the siren (kind 3, 0x404340) to halfway between it and the target.
-        auto backup = [&](AiCar& t) {
+        auto backup = [&](AiCar &t) {
             const size_t ti = size_t(&t - cars.data());
-            const int cops = static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar& c) { return c.cop; }));
+            const int cops =
+                static_cast<int>(std::count_if(cars.begin(), cars.end(), [](const AiCar &c) { return c.cop; }));
             if (t.chasesLost == 0 && t.speed <= trackSectionSpeed(track, t.slice) + 6.70545f && t.overspeed <= 2.0f)
                 return;
             if (std::max(cops / 3, 1) - copsOn(ti) <= 0)
@@ -4782,7 +4821,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
                 radioCall(me, 0x40b720, step);
                 t.calls |= 1;
             }
-            auto send = [&](AiCar& c) {
+            auto send = [&](AiCar &c) {
                 const int half = sliceDiff(t.slice, c.slice) / 2;
                 c.orderKind = 3;
                 c.orderTaken = false;
@@ -4792,10 +4831,10 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
                 c.watching = static_cast<int>(ti);
             };
             const int mine = sliceDiff(me.slice, t.slice), give = ticketTimes(t.tickets).giveUp;
-            AiCar* nearest = nullptr;
+            AiCar *nearest = nullptr;
             int best = 200;
             for (size_t i = 0; i < cars.size(); ++i) {
-                AiCar& c = cars[i];
+                AiCar &c = cars[i];
                 if (i == self || !c.cop || c.chasing >= 0 || c.stripWanted || c.blockWatch)
                     continue;
                 const int d = sliceDiff(c.slice, t.slice);
@@ -4818,10 +4857,9 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // that the free cop nearest ahead of it, 51 slices to 3/4 of the
         // track by slice number, is ordered to the roadside from its slice
         // - 6 to lay a strip (aiOrderStrip) and noted in +0x58.
-        auto callStrip = [&](AiCar& t) {
+        auto callStrip = [&](AiCar &t) {
             const size_t ti = size_t(&t - cars.data());
-            if (t.stripCop >= 0 ||
-                t.chasesLost + copsOn(ti) + t.tickets - 3 + ((step - t.chaseFrom) >> 11) <= 3)
+            if (t.stripCop >= 0 || t.chasesLost + copsOn(ti) + t.tickets - 3 + ((step - t.chaseFrom) >> 11) <= 3)
                 return false;
             if ((t.calls & 2) == 0) {
                 radioCall(me, 0x40b910, step);
@@ -4831,7 +4869,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             }
             int pickCop = -1, best = n * 3 / 4;
             for (size_t i = 0; i < cars.size(); ++i) {
-                const AiCar& c = cars[i];
+                const AiCar &c = cars[i];
                 if (!c.cop || c.chasing >= 0 || c.stripWanted)
                     continue;
                 const int d = (c.slice - t.slice) * t.way; // g_backward: by its way
@@ -4851,7 +4889,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
         // asked last only lets another ask; a cop asks for a strip, else a
         // roadblock (0x403b20: for a human target only, so never here),
         // else backup.
-        auto callForHelp = [&](AiCar& t) {
+        auto callForHelp = [&](AiCar &t) {
             if (step - t.callAt < 0x141)
                 return;
             t.callAt = step;
@@ -4887,7 +4925,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             call.kind = CopCall::Roadside;
             aiDrive(cars, self, col, {}, data, step, track, weather, &call);
             {
-                const auto& p = col.road[size_t(((me.slice % n) + n) % n)];
+                const auto &p = col.road[size_t(((me.slice % n) + n) % n)];
                 // car_off_lanes (0x402f70), then the strip (cop_ai_lay_spikes
                 // 0x403d30): lane 7 for an even cop, 6 for an odd one.
                 if (me.lane < 7 - p.leftLanes() || me.lane > p.rightLanes() + 6) {
@@ -4918,7 +4956,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             }
             break;
         case 5: {
-            AiCar* t = target();
+            AiCar *t = target();
             const int give = t ? (me.copFast ? ticketTimes(t->tickets).giveUpFast : ticketTimes(t->tickets).giveUp) : 0;
             if (!t) {
                 me.copState = 1;
@@ -4934,7 +4972,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
                 me.way = t->way;
                 me.speed = 0;
                 me.sideSpeed = me.carSide = me.heading = me.yawRate = 0;
-                    me.worldKept = false;
+                me.worldKept = false;
                 me.reversing = false;
             }
             call.kind = CopCall::Chase;
@@ -4959,7 +4997,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
             me.wanted = 0;
             me.speed *= 0.5f;
             me.sideSpeed *= 0.5f;
-            AiCar* t = target();
+            AiCar *t = target();
             if (t && step <= t->recordStep)
                 break;
             if (t) {
@@ -4982,7 +5020,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
                 t->chaseFree = step + ticketTimes(t->tickets).free;
                 radioCall(me, 0x40b670, step);
                 for (size_t i = 0; i < cars.size(); ++i) {
-                    AiCar& c = cars[i];
+                    AiCar &c = cars[i];
                     if (!c.cop || (c.watching != ti && c.chasing != ti))
                         continue;
                     if (c.watching == ti && c.stripWanted) {
@@ -5085,7 +5123,7 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
     aiAdvance(me, col); // AiPhase::Both: the place moved too (car_move)
 }
 
-std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
+std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t> &bytes) {
     constexpr size_t kStride = 0x9ac;
     std::vector<DumpedCar> out;
     auto u32 = [&](size_t at) {
@@ -5138,13 +5176,14 @@ std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes) {
         c.surface = static_cast<int>(u32(base + 0x18c) & 0x3f);
         for (size_t w = 0; w < 4; ++w)
             for (size_t k = 0; k < 3; ++k)
-                c.wheelAt[w][k] = static_cast<float>(static_cast<int32_t>(u32(base + 0x304 + 0x78 * w + 4 * k))) / 65536.0f;
+                c.wheelAt[w][k] =
+                    static_cast<float>(static_cast<int32_t>(u32(base + 0x304 + 0x78 * w + 4 * k))) / 65536.0f;
         out.push_back(c);
     }
     return out;
 }
 
-std::vector<Particle> parseParticleDump(const std::vector<uint8_t>& bytes) {
+std::vector<Particle> parseParticleDump(const std::vector<uint8_t> &bytes) {
     std::vector<Particle> out;
     auto i32 = [&](size_t at) {
         int32_t v = 0;

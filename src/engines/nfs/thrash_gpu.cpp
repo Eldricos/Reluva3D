@@ -15,8 +15,8 @@ namespace {
 // software renderer does; depth is the same throughout (no depth test).
 gfx::Mat4 screenToClip(int x0, int y0, int w, int h) {
     gfx::Mat4 m{};
-    m[0 * 4 + 0] = 2.0f / float(w);                     // x from X
-    m[1 * 4 + 1] = -2.0f / float(h);                    // y from Y (clip +y is up)
+    m[0 * 4 + 0] = 2.0f / float(w);                    // x from X
+    m[1 * 4 + 1] = -2.0f / float(h);                   // y from Y (clip +y is up)
     m[2 * 4 + 0] = -(2.0f * float(x0) / float(w) + 1); // ... and from W
     m[2 * 4 + 1] = 2.0f * float(y0) / float(h) + 1;
     m[2 * 4 + 2] = 0.5f; // depth 0.5
@@ -26,11 +26,11 @@ gfx::Mat4 screenToClip(int x0, int y0, int w, int h) {
 
 } // namespace
 
-void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
+void ThrashGpu::setRenderer(gfx::Renderer3D *renderer) {
     if (renderer_ && renderer_ != renderer) {
         renderer_->setKeepFrame(false); // as the next user expects it
         renderer_->setFrameAlphaUnused(false);
-        for (const auto& [key, id] : gpuTextures_)
+        for (const auto &[key, id] : gpuTextures_)
             renderer_->destroyTexture(id);
         for (gfx::TextureId id : retired_)
             renderer_->destroyTexture(id);
@@ -52,7 +52,7 @@ void ThrashGpu::setRenderer(gfx::Renderer3D* renderer) {
     }
 }
 
-void ThrashGpu::updateTextures(const ThrashFrame& frame) {
+void ThrashGpu::updateTextures(const ThrashFrame &frame) {
     auto drop = [this](uint32_t handle) {
         for (bool wrap : {false, true})
             for (bool point : {false, true})
@@ -62,11 +62,11 @@ void ThrashGpu::updateTextures(const ThrashFrame& frame) {
                 }
     };
     if (frame.resetTextures) {
-        for (const auto& [handle, t] : textures_)
+        for (const auto &[handle, t] : textures_)
             drop(handle);
         textures_.clear();
     }
-    for (const ThrashFrame::Texture& t : frame.textures) {
+    for (const ThrashFrame::Texture &t : frame.textures) {
         drop(t.handle);
         textures_[t.handle] = t;
     }
@@ -97,21 +97,22 @@ gfx::TextureId ThrashGpu::texture(uint32_t handle, bool wrap, bool point) {
     return id;
 }
 
-void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surface* overlay) {
+void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surface *overlay) {
     if (!renderer_ || frames.empty())
         return;
     // All the frames' vertices in the one mesh, each frame's after the last's.
     std::vector<uint32_t> base;
     vertices_.clear();
-    for (const ThrashFrame* frame : frames) {
+    for (const ThrashFrame *frame : frames) {
         base.push_back(uint32_t(vertices_.size()));
         for (size_t i = 0; i < frame->vertices.size(); ++i) {
-            const ThrashFrame::Vertex& v = frame->vertices[i];
+            const ThrashFrame::Vertex &v = frame->vertices[i];
             // 1/w as given, for perspective; but a triangle whose three are
             // the same is flat on the screen and needs none (2D pictures
             // come with 1/65536, which would make w huge for nothing).
-            const ThrashFrame::Vertex* tri = &frame->vertices[i - i % 3];
-            const bool flat = i - i % 3 + 2 < frame->vertices.size() && tri[0].rhw == tri[1].rhw && tri[1].rhw == tri[2].rhw;
+            const ThrashFrame::Vertex *tri = &frame->vertices[i - i % 3];
+            const bool flat =
+                i - i % 3 + 2 < frame->vertices.size() && tri[0].rhw == tri[1].rhw && tri[1].rhw == tri[2].rhw;
             const float w = flat || v.rhw <= 0 ? 1.0f : 1.0f / v.rhw;
             gfx::Vertex o{};
             o.pos[0] = v.x * w;
@@ -144,16 +145,16 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
         ok = !renderer_->setMeshVertices(mesh_, vertices_);
     }
 
-    const ThrashFrame& first = *frames.front();
+    const ThrashFrame &first = *frames.front();
     renderer_->beginFrame(screenToClip(0, 0, first.width, first.height), {0, 0, 0}, Color{0, 0, 0});
     for (size_t f = 0; f < frames.size(); ++f) {
-        const ThrashFrame& frame = *frames[f];
+        const ThrashFrame &frame = *frames[f];
         // Textures as this frame has them: a draw already made keeps the
         // texture it was given, even one replaced here.
         updateTextures(frame);
         if (!ok)
             continue;
-        for (const ThrashFrame::Batch& b : frame.batches) {
+        for (const ThrashFrame::Batch &b : frame.batches) {
             const int w = b.clip[2] - b.clip[0], h = b.clip[3] - b.clip[1];
             if (!b.count || w <= 0 || h <= 0)
                 continue;
@@ -171,7 +172,7 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
                 call.tableFogColor = {float((b.fogColour >> 16) & 255) / 255, float((b.fogColour >> 8) & 255) / 255,
                                       float(b.fogColour & 255) / 255};
             }
-            gfx::DrawState& s = call.state;
+            gfx::DrawState &s = call.state;
             s.depthTest = false;
             s.depthWrite = false;
             // Cull 1 leaves out triangles turning counter-clockwise as shown,
@@ -200,8 +201,8 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame*>& frames, const Surfac
         overlay->h > 0) {
         scaledOverlay_.create(renderer_->width(), renderer_->height(), PixelFormat::RGBA32);
         for (int y = 0; y < scaledOverlay_.h; ++y) {
-            const uint32_t* src = reinterpret_cast<const uint32_t*>(overlay->row(y * overlay->h / scaledOverlay_.h));
-            uint32_t* dst = reinterpret_cast<uint32_t*>(scaledOverlay_.row(y));
+            const uint32_t *src = reinterpret_cast<const uint32_t *>(overlay->row(y * overlay->h / scaledOverlay_.h));
+            uint32_t *dst = reinterpret_cast<uint32_t *>(scaledOverlay_.row(y));
             for (int x = 0; x < scaledOverlay_.w; ++x)
                 dst[x] = src[x * overlay->w / scaledOverlay_.w];
         }

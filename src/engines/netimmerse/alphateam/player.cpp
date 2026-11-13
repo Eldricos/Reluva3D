@@ -10,8 +10,9 @@
 
 namespace reluva::netimmerse::alphateam {
 
-Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer* mixer)
-    : dir_(std::move(gameDir)), saveDir_(std::move(saveDir)), mixer_(mixer) {}
+Player::Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer)
+    : dir_(std::move(gameDir)), saveDir_(std::move(saveDir)), mixer_(mixer) {
+}
 
 Player::~Player() {
     {
@@ -25,14 +26,16 @@ Player::~Player() {
         thread_.join();
 }
 
-void Player::start() { thread_ = std::thread([this] { work(); }); }
+void Player::start() {
+    thread_ = std::thread([this] { work(); });
+}
 
-void Player::input(const Event& event) {
+void Player::input(const Event &event) {
     std::lock_guard<std::mutex> lock(mutex_);
     events_.push_back(event);
 }
 
-bool Player::frame(std::vector<uint32_t>& pixels, int& width, int& height) {
+bool Player::frame(std::vector<uint32_t> &pixels, int &width, int &height) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (frameNumber_ == frameTaken_)
         return false;
@@ -55,7 +58,7 @@ void Player::pause(bool paused) {
     resume_.notify_all();
 }
 
-bool Player::finished(bool& ended, std::string& error) {
+bool Player::finished(bool &ended, std::string &error) {
     std::lock_guard<std::mutex> lock(mutex_);
     ended = ended_;
     error = error_;
@@ -73,8 +76,8 @@ void Player::work() {
     GameProcess game(dir_);
     game.setSaveFolder(saveDir_);
     game.a3d().mixer = mixer_;
-    x86::Win32Process& process = game.process();
-    process.output = [this](const std::string& text) {
+    x86::Win32Process &process = game.process();
+    process.output = [this](const std::string &text) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (output_.size() < (1u << 20))
             output_ += text + (text.empty() || text.back() != '\n' ? "\n" : "");
@@ -85,7 +88,7 @@ void Player::work() {
     // Frames shown a flip late: a frame's drawing goes on while the program
     // works out the next, about a quarter quicker, for a frame's delay.
     game.directX().presentLate = true;
-    game.directX().presented = [this](const x86::DirectX::Frame& f) {
+    game.directX().presented = [this](const x86::DirectX::Frame &f) {
         // A flip waits for the display's vertical blank, as the game's
         // (DDFLIP_WAIT) did on a 60 Hz display: no more frames than are
         // shown, rather than the processor's fill drawing ones nobody sees.
@@ -136,8 +139,8 @@ void Player::drain() {
     }
     if (!game_ || events.empty())
         return;
-    x86::Win32Process& p = game_->process();
-    for (const Event& ev : events) {
+    x86::Win32Process &p = game_->process();
+    for (const Event &ev : events) {
         switch (ev.type) {
         case EventType::MouseMove: {
             // The game reads the pointer's movement, so that's what's
@@ -153,15 +156,17 @@ void Player::drain() {
         }
         case EventType::MouseDown:
         case EventType::MouseUp: {
-            const int button = ev.button == MouseButton::Left    ? 0
-                               : ev.button == MouseButton::Right ? 1
+            const int button = ev.button == MouseButton::Left     ? 0
+                               : ev.button == MouseButton::Right  ? 1
                                : ev.button == MouseButton::Middle ? 2
                                                                   : -1;
             if (button >= 0)
                 p.mouseButton(button, ev.type == EventType::MouseDown);
             break;
         }
-        case EventType::MouseWheel: p.mouseWheel(ev.wheelY * 120); break;
+        case EventType::MouseWheel:
+            p.mouseWheel(ev.wheelY * 120);
+            break;
         case EventType::KeyDown:
         case EventType::KeyUp: {
             uint32_t vk = 0, scan = 0;
@@ -169,7 +174,8 @@ void Player::drain() {
                 p.key(vk, scan, ev.type == EventType::KeyDown);
             break;
         }
-        default: break;
+        default:
+            break;
         }
     }
 }

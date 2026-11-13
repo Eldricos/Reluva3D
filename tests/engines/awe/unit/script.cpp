@@ -84,7 +84,7 @@ void testScript() {
 
     // The door macros, and a script file.
     struct FileHost : FakeHost {
-        std::string scriptText(const std::string& name) override {
+        std::string scriptText(const std::string &name) override {
             return name == "door" ? "walk 40 26\nscript nested" : name == "nested" ? "tag nested 1" : "";
         }
     } files;
@@ -120,7 +120,8 @@ void testScript() {
     CHECK(state3.itemState("waterglass") == 4 && state3.itemState("passmasterman") == 5);
     r3.run("restore waterglass, remove all");
     r3.fastForward();
-    CHECK(state3.itemState("waterglass") == 7 && state3.itemState("hammer") == 7 && state3.itemState("passmasterman") == 5);
+    CHECK(state3.itemState("waterglass") == 7 && state3.itemState("hammer") == 7 &&
+          state3.itemState("passmasterman") == 5);
     state3.tags["securityunlocked"] = 1;
     r3.run("add keysmall, restore all, remove hammer");
     r3.fastForward();
@@ -154,8 +155,8 @@ void testItemSlots() {
     // have their own pages; the item just taken blinks, one at a time
     // (0x41bc10, 0x41bfb0, 0x41ba80).
     GameState s;
-    auto slotOf = [&](const std::string& name) {
-        const GameState::Item* i = s.findItem(name, {1, 2, 3});
+    auto slotOf = [&](const std::string &name) {
+        const GameState::Item *i = s.findItem(name, {1, 2, 3});
         return i ? i->slot : -1;
     };
     addItem(s, "hammer", 2);
@@ -191,12 +192,13 @@ void testStory() {
     int major = 0, minor = 0;
     CHECK(parseActName("06a", major, minor) && major == 6 && minor == 1 && actName(major, minor) == "06a");
     CHECK(!parseActName("a", major, minor));
-    const Table t = parseTable("Act\tPreLoad\tLocation to Load\tPost Load\tTime of Day\tWeather\tTrain Moving\t"
-                               "Completion Conditions\tEvent\tMusic\tWhat to do\n"
-                               "01A\t\"fade out, movie intro\"\tsirkeci.market\t\"scene sirkeci.market_01 1 0, add ticket\"\t"
-                               "day\tsnow\tNo\t0\tact 01b\t0\t0\n"
-                               "05A\t0\tSalon\tscene salon_01\tnight\tBlizzard\tYes\ttag act05a\tact 05b\t0\t0\n"
-                               "05B\t0\tsalon\t0\tday\tnone\tyes\t0\t0\t0\t0\n");
+    const Table t =
+        parseTable("Act\tPreLoad\tLocation to Load\tPost Load\tTime of Day\tWeather\tTrain Moving\t"
+                   "Completion Conditions\tEvent\tMusic\tWhat to do\n"
+                   "01A\t\"fade out, movie intro\"\tsirkeci.market\t\"scene sirkeci.market_01 1 0, add ticket\"\t"
+                   "day\tsnow\tNo\t0\tact 01b\t0\t0\n"
+                   "05A\t0\tSalon\tscene salon_01\tnight\tBlizzard\tYes\ttag act05a\tact 05b\t0\t0\n"
+                   "05B\t0\tsalon\t0\tday\tnone\tyes\t0\t0\t0\t0\n");
     const std::vector<ActRow> acts = readActs(t);
     CHECK(acts.size() == 3 && acts[0].act == "01a" && acts[0].preLoad == "fade out, movie intro");
     CHECK(acts[0].weather == 1 && acts[0].time == 0 && acts[0].moving == 0 && acts[1].location == "salon");
@@ -208,7 +210,7 @@ void testStory() {
     Story story(state, main);
     story.setActs(acts);
     std::vector<std::string> loaded;
-    story.onLoadLocation = [&](const std::string& l, bool flush) {
+    story.onLoadLocation = [&](const std::string &l, bool flush) {
         loaded.push_back(l + (flush ? " flush" : ""));
         story.locationLoaded();
     };
@@ -270,14 +272,16 @@ void testStory() {
     story.update(0.6f);
     story.update(0.6f);
     CHECK(testCondition("timer ham >50", state) && !testCondition("timer ham >51", state));
-    CHECK(testCondition("timer ham", state) && !testCondition("timer radio", state) && testCondition("timer radio <0", state));
+    CHECK(testCondition("timer ham", state) && !testCondition("timer radio", state) &&
+          testCondition("timer radio <0", state));
     // Visits and savescene.
     state.scene = "salon_01_06a.ac2";
     state.texts["salon_01_06a.ac2"] = "02a 05c";
     CHECK(testCondition("beenhere this", state) && testCondition("beenthere this ever", state));
     CHECK(testCondition("beenthere salon_01_06a 02a", state) && !testCondition("beenthere salon_02", state));
     state.lastScene = "exterior.forest_11.ac2";
-    CHECK(testCondition("lastscene exterior.forest_11", state) && !testCondition("lastscene exterior.forest_13", state));
+    CHECK(testCondition("lastscene exterior.forest_11", state) &&
+          !testCondition("lastscene exterior.forest_13", state));
     main.run("savescene this, savescene calais.hall_03 2 1");
     main.update(0.01f);
     CHECK(state.texts["savedscene"] == "salon_01_06a.ac2 -1 0");
@@ -289,8 +293,9 @@ void testStory() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.script", {
-    {"runner", [](const std::filesystem::path&) { testScript(); }},
-    {"item slots", [](const std::filesystem::path&) { testItemSlots(); }},
-    {"story", [](const std::filesystem::path&) { testStory(); }},
-});
+static const reluva::test::Suite suite("awe.unit.script",
+                                       {
+                                           {"runner", [](const std::filesystem::path &) { testScript(); }},
+                                           {"item slots", [](const std::filesystem::path &) { testItemSlots(); }},
+                                           {"story", [](const std::filesystem::path &) { testStory(); }},
+                                       });

@@ -14,15 +14,19 @@ RawStream::RawStream(std::vector<uint8_t> data, Format format, int rate, bool st
 
 int16_t RawStream::sampleAt(size_t i) const {
     switch (format_) {
-    case Format::U8: return int16_t((int(data_[i]) - 128) * 256);
-    case Format::S8: return int16_t(int(int8_t(data_[i])) * 256);
-    case Format::S16BE: return int16_t((data_[i * 2] << 8) | data_[i * 2 + 1]);
+    case Format::U8:
+        return int16_t((int(data_[i]) - 128) * 256);
+    case Format::S8:
+        return int16_t(int(int8_t(data_[i])) * 256);
+    case Format::S16BE:
+        return int16_t((data_[i * 2] << 8) | data_[i * 2 + 1]);
     case Format::S16LE:
-    default: return int16_t(data_[i * 2] | (data_[i * 2 + 1] << 8));
+    default:
+        return int16_t(data_[i * 2] | (data_[i * 2 + 1] << 8));
     }
 }
 
-int RawStream::read(int16_t* out, int samples) {
+int RawStream::read(int16_t *out, int samples) {
     int written = 0;
     while (written < samples) {
         if (pos_ >= count_) {
@@ -37,7 +41,7 @@ int RawStream::read(int16_t* out, int samples) {
     return written;
 }
 
-void QueuingStream::queue(const std::vector<int16_t>& samples) {
+void QueuingStream::queue(const std::vector<int16_t> &samples) {
     std::lock_guard<std::mutex> lock(mutex_);
     queue_.insert(queue_.end(), samples.begin(), samples.end());
 }
@@ -52,7 +56,7 @@ size_t QueuingStream::queued() const {
     return queue_.size();
 }
 
-int QueuingStream::read(int16_t* out, int samples) {
+int QueuingStream::read(int16_t *out, int samples) {
     std::lock_guard<std::mutex> lock(mutex_);
     int n = 0;
     while (n < samples && !queue_.empty()) {
@@ -70,7 +74,7 @@ bool QueuingStream::ended() const {
     return finished_ && queue_.empty();
 }
 
-std::vector<int16_t> readAll(Stream& stream, size_t maxSamples) {
+std::vector<int16_t> readAll(Stream &stream, size_t maxSamples) {
     std::vector<int16_t> out;
     int16_t buf[4096];
     while (out.size() < maxSamples) {

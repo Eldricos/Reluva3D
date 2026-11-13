@@ -14,24 +14,25 @@ namespace {
 
 // GR_RESOLUTION_* (sst1vid.h's values) by number.
 constexpr int kResolutions[][2] = {
-    {320, 200},  {320, 240},  {400, 256},   {512, 384},   {640, 200},   {640, 350},   {640, 400},
-    {640, 480},  {800, 600},  {960, 720},   {856, 480},   {512, 256},   {1024, 768},  {1280, 1024},
-    {1600, 1200}, {400, 300}, {1152, 864},  {1280, 960},  {1600, 1024}, {1792, 1344}, {1856, 1392},
-    {1920, 1440}, {2048, 1536}, {2048, 2048},
+    {320, 200},  {320, 240},  {400, 256},   {512, 384},   {640, 200},   {640, 350},   {640, 400},   {640, 480},
+    {800, 600},  {960, 720},  {856, 480},   {512, 256},   {1024, 768},  {1280, 1024}, {1600, 1200}, {400, 300},
+    {1152, 864}, {1280, 960}, {1600, 1024}, {1792, 1344}, {1856, 1392}, {1920, 1440}, {2048, 1536}, {2048, 2048},
 };
 
 constexpr uint32_t kStateMagic = 0x52474c53; // "SLGR": a GrState Reluva filled
 
 } // namespace
 
-Glide2::Glide2(Board board) : board_(board), pipeline_(board) {}
+Glide2::Glide2(Board board) : board_(board), pipeline_(board) {
+}
 
-void Glide2::notImplemented(const std::string& function, const std::string& what) {
+void Glide2::notImplemented(const std::string &function, const std::string &what) {
     if (noted_.insert(function).second && log)
         log(logName + ": " + function + ": " + what);
 }
 
-void Glide2::glideInit() {}
+void Glide2::glideInit() {
+}
 
 void Glide2::glideShutdown() {
     if (pipeline_.isOpen())
@@ -44,18 +45,26 @@ std::string Glide2::glideGetVersion() const {
     return "Glide Version 2.46";
 }
 
-bool Glide2::sstQueryBoards(Glide2HwConfig& out) const {
+bool Glide2::sstQueryBoards(Glide2HwConfig &out) const {
     out.numSst = 1;
     return true;
 }
 
-bool Glide2::sstQueryHardware(Glide2HwConfig& out) const {
+bool Glide2::sstQueryHardware(Glide2HwConfig &out) const {
     out.numSst = 1;
     switch (board_.generation) {
-    case Generation::Voodoo1: out.type = 0; break;
-    case Generation::VoodooRush: out.type = 1; break;
-    case Generation::Voodoo2: out.type = 3; break;
-    default: out.type = 4; break; // GR_SSTTYPE_Banshee
+    case Generation::Voodoo1:
+        out.type = 0;
+        break;
+    case Generation::VoodooRush:
+        out.type = 1;
+        break;
+    case Generation::Voodoo2:
+        out.type = 3;
+        break;
+    default:
+        out.type = 4;
+        break; // GR_SSTTYPE_Banshee
     }
     out.fbRamMb = int(board_.frameBufferMemory >> 20);
     out.fbiRev = board_.fbiRevision;
@@ -68,9 +77,10 @@ bool Glide2::sstQueryHardware(Glide2HwConfig& out) const {
     return true;
 }
 
-void Glide2::sstSelect(int) {}
+void Glide2::sstSelect(int) {
+}
 
-bool Glide2::resolutionSize(int resolution, int& width, int& height) {
+bool Glide2::resolutionSize(int resolution, int &width, int &height) {
     if (resolution < 0 || resolution >= int(std::size(kResolutions)))
         return false;
     width = kResolutions[resolution][0];
@@ -78,7 +88,8 @@ bool Glide2::resolutionSize(int resolution, int& width, int& height) {
     return true;
 }
 
-bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int origin, int colorBuffers, int auxBuffers) {
+bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int origin, int colorBuffers,
+                        int auxBuffers) {
     if (pipeline_.isOpen())
         return false; // "If grSstWinOpen is called on an already open window, FXFALSE will be returned."
     int w = 0, h = 0;
@@ -108,12 +119,18 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
     return true;
 }
 
-void Glide2::sstWinClose() { pipeline_.close(); }
+void Glide2::sstWinClose() {
+    pipeline_.close();
+}
 
 bool Glide2::sstControl(uint32_t code) {
     switch (code) {
-    case kControlActivate: active_ = true; return true;
-    case kControlDeactivate: active_ = false; return true;
+    case kControlActivate:
+        active_ = true;
+        return true;
+    case kControlDeactivate:
+        active_ = false;
+        return true;
     case kControlResize: {
         // "GR_CONTROL_RESIZE is ignored under DOS, SST-1, and SST-96 in
         // full screen mode. For windowed Glide applications, this call
@@ -131,13 +148,19 @@ bool Glide2::sstControl(uint32_t code) {
     }
     // "used to validate the location and clip region associated with the
     // front buffer when the user moves a window": nothing to move here.
-    case kControlMove: return true;
-    default: return true;
+    case kControlMove:
+        return true;
+    default:
+        return true;
     }
 }
 
-uint32_t Glide2::sstScreenWidth() const { return uint32_t(pipeline_.width()); }
-uint32_t Glide2::sstScreenHeight() const { return uint32_t(pipeline_.height()); }
+uint32_t Glide2::sstScreenWidth() const {
+    return uint32_t(pipeline_.width());
+}
+uint32_t Glide2::sstScreenHeight() const {
+    return uint32_t(pipeline_.height());
+}
 
 uint32_t Glide2::sstStatus() const {
     // Idle with empty FIFOs (Reference Manual, grSstStatus): PCI FIFO free
@@ -152,20 +175,28 @@ bool Glide2::sstVRetraceOn() {
     return (retraceCalls_++ & 1) != 0;
 }
 
-uint32_t Glide2::sstVideoLine() { return (retraceCalls_++ * 37) % uint32_t(std::max(pipeline_.height(), 1)); }
+uint32_t Glide2::sstVideoLine() {
+    return (retraceCalls_++ * 37) % uint32_t(std::max(pipeline_.height(), 1));
+}
 
-void Glide2::sstOrigin(int origin) { pipeline_.state().originLowerLeft = origin == 1; }
+void Glide2::sstOrigin(int origin) {
+    pipeline_.state().originLowerLeft = origin == 1;
+}
 
 uint32_t Glide2::toArgb(uint32_t c, int format) {
     switch (format & 3) {
-    case kColorAbgr: return (c & 0xff00ff00u) | (c >> 16 & 0xff) | (c & 0xff) << 16;
-    case kColorRgba: return c >> 8 | c << 24;
-    case kColorBgra: return (c & 0xff) << 24 | (c >> 8 & 0xff) << 16 | (c >> 16 & 0xff) << 8 | c >> 24;
-    default: return c;
+    case kColorAbgr:
+        return (c & 0xff00ff00u) | (c >> 16 & 0xff) | (c & 0xff) << 16;
+    case kColorRgba:
+        return c >> 8 | c << 24;
+    case kColorBgra:
+        return (c & 0xff) << 24 | (c >> 8 & 0xff) << 16 | (c >> 16 & 0xff) << 8 | c >> 24;
+    default:
+        return c;
     }
 }
 
-Vertex Glide2::convert(const Glide2Vertex& v) const {
+Vertex Glide2::convert(const Glide2Vertex &v) const {
     Vertex o;
     o.x = v.x;
     o.y = v.y;
@@ -204,57 +235,61 @@ Vertex Glide2::convert(const Glide2Vertex& v) const {
 
 // --- Drawing -------------------------------------------------------------------
 
-void Glide2::drawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c) {
+void Glide2::drawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c) {
     pipeline_.triangle(convert(a), convert(b), convert(c));
     drawn();
 }
 
-void Glide2::drawLine(const Glide2Vertex& a, const Glide2Vertex& b) {
+void Glide2::drawLine(const Glide2Vertex &a, const Glide2Vertex &b) {
     pipeline_.line(convert(a), convert(b));
     drawn();
 }
 
-void Glide2::drawPoint(const Glide2Vertex& a) {
+void Glide2::drawPoint(const Glide2Vertex &a) {
     pipeline_.point(convert(a));
     drawn();
 }
 
-void Glide2::drawPolygon(int count, const Glide2Vertex* v) {
+void Glide2::drawPolygon(int count, const Glide2Vertex *v) {
     for (int i = 1; i + 1 < count; ++i)
         drawTriangle(v[0], v[i], v[i + 1]);
 }
 
-void Glide2::aaDrawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c, bool ab, bool bc,
+void Glide2::aaDrawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c, bool ab, bool bc,
                             bool ca) {
     aaTriangle(convert(a), convert(b), convert(c), ab, bc, ca);
 }
 
-void Glide2::aaDrawLine(const Glide2Vertex& a, const Glide2Vertex& b) { aaLine(convert(a), convert(b)); }
-void Glide2::aaDrawPoint(const Glide2Vertex& a) { aaPoint(convert(a)); }
+void Glide2::aaDrawLine(const Glide2Vertex &a, const Glide2Vertex &b) {
+    aaLine(convert(a), convert(b));
+}
+void Glide2::aaDrawPoint(const Glide2Vertex &a) {
+    aaPoint(convert(a));
+}
 
-void Glide2::aaDrawPolygon(int count, const Glide2Vertex* v) {
+void Glide2::aaDrawPolygon(int count, const Glide2Vertex *v) {
     std::vector<Vertex> list;
     for (int i = 0; i < count; ++i)
         list.push_back(convert(v[i]));
     aaPolygon(count, list.data());
 }
 
-void Glide2::aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca) {
+void Glide2::aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca) {
     pipeline_.aaTriangle(a, b, c, ab, bc, ca);
     drawn();
 }
 
-void Glide2::aaLine(const Vertex& a, const Vertex& b) {
+void Glide2::aaLine(const Vertex &a, const Vertex &b) {
     pipeline_.aaLine(a, b);
     drawn();
 }
 
-void Glide2::aaPoint(const Vertex& a) {
+void Glide2::aaPoint(const Vertex &a) {
     pipeline_.aaPoint(a);
     drawn();
 }
 
-void Glide2::aaPolygon(int count, const Vertex* v, const bool* edges) {
+void Glide2::aaPolygon(int count, const Vertex *v, const bool *edges) {
     // Fan triangle (0, i, i + 1): its edge i to i + 1 is always outside;
     // 0 to i only for the first, i + 1 to 0 only for the last.
     auto edge = [edges](int i) { return !edges || edges[i]; };
@@ -262,17 +297,17 @@ void Glide2::aaPolygon(int count, const Vertex* v, const bool* edges) {
         aaTriangle(v[0], v[i], v[i + 1], i == 1 && edge(0), edge(i), i + 2 == count && edge(count - 1));
 }
 
-void Glide2::triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
+void Glide2::triangle(const Vertex &a, const Vertex &b, const Vertex &c) {
     pipeline_.triangle(a, b, c);
     drawn();
 }
 
-void Glide2::line(const Vertex& a, const Vertex& b) {
+void Glide2::line(const Vertex &a, const Vertex &b) {
     pipeline_.line(a, b);
     drawn();
 }
 
-void Glide2::point(const Vertex& a) {
+void Glide2::point(const Vertex &a) {
     pipeline_.point(a);
     drawn();
 }
@@ -304,20 +339,30 @@ void Glide2::alphaCombine(int function, int factor, int local, int other, bool i
     pipeline_.state().alpha = {{function, factor, invert}, local, other};
 }
 
-void Glide2::alphaControlsITRGBLighting(bool enable) { pipeline_.state().alphaControlsLighting = enable; }
+void Glide2::alphaControlsITRGBLighting(bool enable) {
+    pipeline_.state().alphaControlsLighting = enable;
+}
 
 void Glide2::alphaBlendFunction(int rgbSrc, int rgbDst, int alphaSrc, int alphaDst) {
-    State& s = pipeline_.state();
+    State &s = pipeline_.state();
     s.blendRgbSrc = rgbSrc;
     s.blendRgbDst = rgbDst;
     s.blendAlphaSrc = alphaSrc;
     s.blendAlphaDst = alphaDst;
 }
 
-void Glide2::alphaTestFunction(int function) { pipeline_.state().alphaTest = function & 7; }
-void Glide2::alphaTestReferenceValue(int value) { pipeline_.state().alphaRef = value & 0xff; }
-void Glide2::chromakeyMode(int mode) { pipeline_.state().chromakey = mode != 0; }
-void Glide2::chromakeyValue(uint32_t color) { pipeline_.state().chromakeyColor = toArgb(color) & 0xffffff; }
+void Glide2::alphaTestFunction(int function) {
+    pipeline_.state().alphaTest = function & 7;
+}
+void Glide2::alphaTestReferenceValue(int value) {
+    pipeline_.state().alphaRef = value & 0xff;
+}
+void Glide2::chromakeyMode(int mode) {
+    pipeline_.state().chromakey = mode != 0;
+}
+void Glide2::chromakeyValue(uint32_t color) {
+    pipeline_.state().chromakeyColor = toArgb(color) & 0xffffff;
+}
 
 void Glide2::chromaRangeMode(bool enable) {
     // "Chroma-keying must be enabled (using grChromakeyMode()) before
@@ -346,7 +391,7 @@ void Glide2::chromaRange(uint32_t color0, uint32_t color1, int mode) {
 void Glide2::clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t maxY) {
     // Values past the screen are ignored (Programming Guide, Clipping):
     // here, held to it.
-    State& s = pipeline_.state();
+    State &s = pipeline_.state();
     const uint32_t w = uint32_t(pipeline_.width()), h = uint32_t(pipeline_.height());
     s.clip[0] = int(std::min(minX, w));
     s.clip[1] = int(std::min(minY, h));
@@ -359,16 +404,24 @@ void Glide2::colorMask(bool rgb, bool alpha) {
     pipeline_.state().alphaMask = alpha;
 }
 
-void Glide2::constantColorValue(uint32_t color) { pipeline_.state().constantColor = toArgb(color); }
+void Glide2::constantColorValue(uint32_t color) {
+    pipeline_.state().constantColor = toArgb(color);
+}
 
 void Glide2::constantColorValue4(float a, float r, float g, float b) {
     auto c = [](float v) { return uint32_t(std::clamp(int(v), 0, 255)); };
     pipeline_.state().constantColor = c(a) << 24 | c(r) << 16 | c(g) << 8 | c(b);
 }
 
-void Glide2::cullMode(int mode) { pipeline_.state().cull = mode; }
-void Glide2::depthBiasLevel(int level) { pipeline_.state().depthBias = int(int16_t(level)); }
-void Glide2::depthBufferFunction(int function) { pipeline_.state().depthFunc = function & 7; }
+void Glide2::cullMode(int mode) {
+    pipeline_.state().cull = mode;
+}
+void Glide2::depthBiasLevel(int level) {
+    pipeline_.state().depthBias = int(int16_t(level));
+}
+void Glide2::depthBufferFunction(int function) {
+    pipeline_.state().depthFunc = function & 7;
+}
 void Glide2::depthBufferMode(int mode) {
     // The compare-to-bias modes "are not available in revision 1 of the
     // Pixelfx chip" (Glide 2.4 Programming Guide, Depth Buffering): there,
@@ -380,12 +433,14 @@ void Glide2::depthBufferMode(int mode) {
     }
     pipeline_.state().depthMode = mode;
 }
-void Glide2::depthMask(bool enable) { pipeline_.state().depthMask = enable; }
+void Glide2::depthMask(bool enable) {
+    pipeline_.state().depthMask = enable;
+}
 
 void Glide2::disableAllEffects() {
     // Blending, alpha test, chroma-key, fog and depth buffering off; clip,
     // dither and masks stay (Reference Manual, grDisableAllEffects).
-    State& s = pipeline_.state();
+    State &s = pipeline_.state();
     s.blendRgbSrc = s.blendAlphaSrc = kBlendOne;
     s.blendRgbDst = s.blendAlphaDst = kBlendZero;
     s.alphaTest = kCmpAlways;
@@ -394,9 +449,15 @@ void Glide2::disableAllEffects() {
     s.depthMode = kDepthDisable;
 }
 
-void Glide2::ditherMode(int mode) { pipeline_.state().dither = mode; }
-void Glide2::fogColorValue(uint32_t color) { pipeline_.state().fogColor = toArgb(color) & 0xffffff; }
-void Glide2::fogMode(int mode) { pipeline_.state().fogMode = mode; }
+void Glide2::ditherMode(int mode) {
+    pipeline_.state().dither = mode;
+}
+void Glide2::fogColorValue(uint32_t color) {
+    pipeline_.state().fogColor = toArgb(color) & 0xffffff;
+}
+void Glide2::fogMode(int mode) {
+    pipeline_.state().fogMode = mode;
+}
 
 void Glide2::fogTable(const uint8_t table[64]) {
     std::copy(table, table + 64, pipeline_.state().fogTable.begin());
@@ -452,7 +513,9 @@ TextureInfo Glide2::textureInfo(int smallLod, int largeLod, int aspect, int form
 
 // The lowest start address: 0, or on a UMA board the first after the
 // window's buffers.
-uint32_t Glide2::texMinAddress(int) const { return pipeline_.textureBase(); }
+uint32_t Glide2::texMinAddress(int) const {
+    return pipeline_.textureBase();
+}
 
 uint32_t Glide2::texMaxAddress(int) const {
     // "the highest valid texture start address and is valid only for the
@@ -468,7 +531,7 @@ uint32_t Glide2::texCalcMemRequired(int smallLod, int largeLod, int aspect, int 
     return textureBytes(textureInfo(smallLod, largeLod, aspect, format), kLevelsBoth);
 }
 
-uint32_t Glide2::texTextureMemRequired(int evenOdd, const Glide2TexInfo& info) const {
+uint32_t Glide2::texTextureMemRequired(int evenOdd, const Glide2TexInfo &info) const {
     return textureBytes(textureInfo(info.smallLod, info.largeLod, info.aspectRatio, info.format), evenOdd);
 }
 
@@ -478,7 +541,7 @@ uint32_t Glide2::levelDataBytes(int lod, int aspect, int format) {
     return uint32_t(w * h * texelBytes(format));
 }
 
-uint32_t Glide2::mipmapDataBytes(const Glide2TexInfo& info) {
+uint32_t Glide2::mipmapDataBytes(const Glide2TexInfo &info) {
     const TextureInfo t = textureInfo(info.smallLod, info.largeLod, info.aspectRatio, info.format);
     uint32_t bytes = 0;
     for (int l = t.largeLod; l >= t.smallLod; --l) {
@@ -489,10 +552,10 @@ uint32_t Glide2::mipmapDataBytes(const Glide2TexInfo& info) {
     return bytes;
 }
 
-void Glide2::texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo& info) {
+void Glide2::texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo &info) {
     if (tmu < 0 || tmu >= board_.tmus)
         return;
-    TmuState& t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
     t.hasSource = true;
     t.start = start;
     t.evenOdd = evenOdd & 3 ? evenOdd & 3 : kLevelsBoth;
@@ -504,7 +567,7 @@ void Glide2::texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo
     t.multibaseAddress[0] = start;
 }
 
-void Glide2::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo& info, const uint8_t* data) {
+void Glide2::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo &info, const uint8_t *data) {
     // The data holds every level, largest first; the levels evenOdd names
     // go to this TMU.
     const TextureInfo t = textureInfo(info.smallLod, info.largeLod, info.aspectRatio, info.format);
@@ -520,12 +583,12 @@ void Glide2::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide
 }
 
 void Glide2::texDownloadMipMapLevel(int tmu, uint32_t start, int thisLod, int largeLod, int aspect, int format,
-                                    int evenOdd, const uint8_t* data) {
+                                    int evenOdd, const uint8_t *data) {
     texDownloadMipMapLevelPartial(tmu, start, thisLod, largeLod, aspect, format, evenOdd, data, 0, 255);
 }
 
 void Glide2::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLod, int largeLod, int aspect, int format,
-                                           int evenOdd, const uint8_t* data, int firstRow, int lastRow) {
+                                           int evenOdd, const uint8_t *data, int firstRow, int lastRow) {
     // The start address is the mipmap's (its largest level's); the data
     // the level's rows from firstRow.
     TextureInfo t = textureInfo(thisLod, largeLod, aspect, format);
@@ -533,11 +596,11 @@ void Glide2::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLod,
     pipeline_.downloadLevel(tmu, start, t, eo, lodToLog2(std::clamp(thisLod, 0, 8)), data, firstRow, lastRow);
 }
 
-void Glide2::texDownloadTable(int tmu, int type, const uint8_t* data) {
+void Glide2::texDownloadTable(int tmu, int type, const uint8_t *data) {
     texDownloadTablePartial(tmu, type, data, 0, 255);
 }
 
-void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t* data, int first, int last) {
+void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t *data, int first, int last) {
     if (type == kTablePalette6666) {
         // Glide 3's GR_TEXTABLE_PALETTE_6666_EXT, where the board has the
         // format (Pipeline::setPalette6666).
@@ -588,7 +651,7 @@ void Glide2::texClampMode(int tmu, int s, int t) {
     const bool mirror = board_.extensions & kExtTexMirror;
     if ((s == kClampMirror || t == kClampMirror) && !mirror)
         notImplemented("grTexClampMode mirror", "not on this board: wrapped");
-    TmuState& ts = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &ts = pipeline_.state().tmus[size_t(tmu)];
     ts.clampS = s == kClampClamp;
     ts.clampT = t == kClampClamp;
     ts.mirrorS = s == kClampMirror && mirror;
@@ -599,7 +662,7 @@ void Glide2::texCombine(int tmu, int rgbFunction, int rgbFactor, int alphaFuncti
                         bool alphaInvert) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    TmuState& t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
     t.rgb = {rgbFunction, rgbFactor, rgbInvert};
     t.alpha = {alphaFunction, alphaFactor, alphaInvert};
 }
@@ -610,18 +673,52 @@ void Glide2::texCombineFunction(int tmu, int function) {
     int fn = kFuncLocal, rgbFactor = kFactorZero, alphaFactor = kFactorZero;
     bool invert = false;
     switch (function) {
-    case 0x0: fn = kFuncZero; break;                                        // ZERO
-    case 0x1: fn = kFuncLocal; break;                                       // DECAL
-    case 0x2: fn = kFuncScaleOther; rgbFactor = alphaFactor = kFactorOne; break; // OTHER
-    case 0x3: fn = kFuncScaleOtherAddLocal; rgbFactor = alphaFactor = kFactorOne; break; // ADD
-    case 0x4: fn = kFuncScaleOther; rgbFactor = kFactorLocal; alphaFactor = kFactorLocalAlpha; break; // MULTIPLY
-    case 0x5: fn = kFuncScaleOtherMinusLocal; rgbFactor = alphaFactor = kFactorOne; break; // SUBTRACT
-    case 0x6: fn = kFuncScaleOtherMinusLocalAddLocal; rgbFactor = alphaFactor = kFactorTextureAlpha; break; // DETAIL
-    case 0x7: fn = kFuncScaleOtherMinusLocalAddLocal; rgbFactor = alphaFactor = kFactorOneMinusTextureAlpha; break;
-    case 0x8: fn = kFuncScaleOtherMinusLocalAddLocal; rgbFactor = alphaFactor = kFactorTextureRgb; break; // TRILINEAR_ODD
-    case 0x9: fn = kFuncScaleOtherMinusLocalAddLocal; rgbFactor = alphaFactor = kFactorOneMinusLodFraction; break;
-    case 0xa: fn = kFuncZero; invert = true; break; // ONE
-    default: notImplemented("grTexCombineFunction " + std::to_string(function), "unknown function"); return;
+    case 0x0:
+        fn = kFuncZero;
+        break; // ZERO
+    case 0x1:
+        fn = kFuncLocal;
+        break; // DECAL
+    case 0x2:
+        fn = kFuncScaleOther;
+        rgbFactor = alphaFactor = kFactorOne;
+        break; // OTHER
+    case 0x3:
+        fn = kFuncScaleOtherAddLocal;
+        rgbFactor = alphaFactor = kFactorOne;
+        break; // ADD
+    case 0x4:
+        fn = kFuncScaleOther;
+        rgbFactor = kFactorLocal;
+        alphaFactor = kFactorLocalAlpha;
+        break; // MULTIPLY
+    case 0x5:
+        fn = kFuncScaleOtherMinusLocal;
+        rgbFactor = alphaFactor = kFactorOne;
+        break; // SUBTRACT
+    case 0x6:
+        fn = kFuncScaleOtherMinusLocalAddLocal;
+        rgbFactor = alphaFactor = kFactorTextureAlpha;
+        break; // DETAIL
+    case 0x7:
+        fn = kFuncScaleOtherMinusLocalAddLocal;
+        rgbFactor = alphaFactor = kFactorOneMinusTextureAlpha;
+        break;
+    case 0x8:
+        fn = kFuncScaleOtherMinusLocalAddLocal;
+        rgbFactor = alphaFactor = kFactorTextureRgb;
+        break; // TRILINEAR_ODD
+    case 0x9:
+        fn = kFuncScaleOtherMinusLocalAddLocal;
+        rgbFactor = alphaFactor = kFactorOneMinusLodFraction;
+        break;
+    case 0xa:
+        fn = kFuncZero;
+        invert = true;
+        break; // ONE
+    default:
+        notImplemented("grTexCombineFunction " + std::to_string(function), "unknown function");
+        return;
     }
     texCombine(tmu, fn, rgbFactor, fn, alphaFactor, invert, invert);
 }
@@ -629,7 +726,7 @@ void Glide2::texCombineFunction(int tmu, int function) {
 void Glide2::texDetailControl(int tmu, int lodBias, int detailScale, float detailMax) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    TmuState& t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
     t.detailBias = lodBias;
     t.detailScale = std::clamp(detailScale, 0, 7);
     t.detailMax = std::clamp(detailMax, 0.0f, 1.0f);
@@ -659,7 +756,7 @@ void Glide2::texMultibase(int tmu, bool enable) {
         pipeline_.state().tmus[size_t(tmu)].multibase = enable;
 }
 
-void Glide2::texMultibaseAddress(int tmu, int range, uint32_t start, int, const Glide2TexInfo&) {
+void Glide2::texMultibaseAddress(int tmu, int range, uint32_t start, int, const Glide2TexInfo &) {
     if (tmu >= 0 && tmu < kMaxTmus && range >= 0 && range < 4)
         pipeline_.state().tmus[size_t(tmu)].multibaseAddress[size_t(range)] = start;
 }
@@ -671,34 +768,74 @@ void Glide2::guColorCombineFunction(int function) {
         colorCombine(fn, factor, local, other, invert);
     };
     switch (function) {
-    case 0x0: set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant); break;
-    case 0x1: set(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant); break; // CCRGB
-    case 0x2: // ITRGB
-    case 0x3: set(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant); break; // ITRGB_DELTA0
-    case 0x4: set(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture); break; // DECAL_TEXTURE
-    case 0x5: set(kFuncScaleOther, kFactorLocal, kLocalConstant, kOtherTexture); break; // TEXTURE_TIMES_CCRGB
+    case 0x0:
+        set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant);
+        break;
+    case 0x1:
+        set(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant);
+        break; // CCRGB
+    case 0x2:  // ITRGB
+    case 0x3:
+        set(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant);
+        break; // ITRGB_DELTA0
+    case 0x4:
+        set(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture);
+        break; // DECAL_TEXTURE
+    case 0x5:
+        set(kFuncScaleOther, kFactorLocal, kLocalConstant, kOtherTexture);
+        break; // TEXTURE_TIMES_CCRGB
     case 0x6:
-    case 0x7: set(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture); break; // TEXTURE_TIMES_ITRGB(_DELTA0)
-    case 0x8: set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture); break;
-    case 0x9: set(kFuncScaleOther, kFactorLocalAlpha, kLocalIterated, kOtherTexture); break; // TEXTURE_TIMES_ALPHA
-    case 0xa: // TEXTURE_TIMES_ALPHA_ADD_ITRGB
-    case 0xe: set(kFuncScaleOtherAddLocal, kFactorLocalAlpha, kLocalIterated, kOtherTexture); break; // DIFF_SPEC_A
-    case 0xb: set(kFuncScaleOtherAddLocal, kFactorOne, kLocalIterated, kOtherTexture); break; // TEXTURE_ADD_ITRGB
-    case 0xc: set(kFuncScaleOtherMinusLocal, kFactorOne, kLocalIterated, kOtherTexture); break; // TEXTURE_SUB_ITRGB
-    case 0xd: set(kFuncScaleOtherMinusLocalAddLocal, kFactorTextureAlpha, kLocalConstant, kOtherIterated); break;
-    case 0xf: set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture); break; // DIFF_SPEC_B
-    case 0x10: set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant, true); break; // ONE
-    default: notImplemented("guColorCombineFunction " + std::to_string(function), "unknown function"); break;
+    case 0x7:
+        set(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture);
+        break; // TEXTURE_TIMES_ITRGB(_DELTA0)
+    case 0x8:
+        set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture);
+        break;
+    case 0x9:
+        set(kFuncScaleOther, kFactorLocalAlpha, kLocalIterated, kOtherTexture);
+        break; // TEXTURE_TIMES_ALPHA
+    case 0xa:  // TEXTURE_TIMES_ALPHA_ADD_ITRGB
+    case 0xe:
+        set(kFuncScaleOtherAddLocal, kFactorLocalAlpha, kLocalIterated, kOtherTexture);
+        break; // DIFF_SPEC_A
+    case 0xb:
+        set(kFuncScaleOtherAddLocal, kFactorOne, kLocalIterated, kOtherTexture);
+        break; // TEXTURE_ADD_ITRGB
+    case 0xc:
+        set(kFuncScaleOtherMinusLocal, kFactorOne, kLocalIterated, kOtherTexture);
+        break; // TEXTURE_SUB_ITRGB
+    case 0xd:
+        set(kFuncScaleOtherMinusLocalAddLocal, kFactorTextureAlpha, kLocalConstant, kOtherIterated);
+        break;
+    case 0xf:
+        set(kFuncScaleOtherAddLocalAlpha, kFactorLocal, kLocalIterated, kOtherTexture);
+        break; // DIFF_SPEC_B
+    case 0x10:
+        set(kFuncZero, kFactorZero, kLocalConstant, kOtherConstant, true);
+        break; // ONE
+    default:
+        notImplemented("guColorCombineFunction " + std::to_string(function), "unknown function");
+        break;
     }
 }
 
 void Glide2::guAlphaSource(int mode) {
     switch (mode) {
-    case 0x0: alphaCombine(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant, false); break; // CC_ALPHA
-    case 0x1: alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant, false); break; // ITERATED
-    case 0x2: alphaCombine(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture, false); break; // TEXTURE
-    case 0x3: alphaCombine(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture, false); break;
-    default: notImplemented("guAlphaSource " + std::to_string(mode), "unknown mode"); break;
+    case 0x0:
+        alphaCombine(kFuncLocal, kFactorZero, kLocalConstant, kOtherConstant, false);
+        break; // CC_ALPHA
+    case 0x1:
+        alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherConstant, false);
+        break; // ITERATED
+    case 0x2:
+        alphaCombine(kFuncScaleOther, kFactorOne, kLocalConstant, kOtherTexture, false);
+        break; // TEXTURE
+    case 0x3:
+        alphaCombine(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture, false);
+        break;
+    default:
+        notImplemented("guAlphaSource " + std::to_string(mode), "unknown mode");
+        break;
     }
 }
 
@@ -745,7 +882,7 @@ bool Glide2::guTexChangeAttributes(uint32_t id, int width, int height, int forma
     if (id >= mipmaps_.size() || !mipmaps_[id].valid)
         return false;
     MipMap m = mipmaps_[id];
-    auto set = [](int& field, int value) {
+    auto set = [](int &field, int value) {
         if (value != -1)
             field = value;
     };
@@ -769,10 +906,10 @@ bool Glide2::guTexChangeAttributes(uint32_t id, int width, int height, int forma
     return true;
 }
 
-void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t* data, const uint8_t* ncc) {
+void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t *data, const uint8_t *ncc) {
     if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
         return;
-    MipMap& m = mipmaps_[id];
+    MipMap &m = mipmaps_[id];
     if (ncc && (m.info.format == kTexYiq422 || m.info.format == kTexAyiq8422)) {
         std::memcpy(m.ncc.y, ncc, 16);
         std::memcpy(m.ncc.i, ncc + 16, 24);
@@ -782,10 +919,10 @@ void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t* data, const uint8_t
     texDownloadMipMap(m.tmu, m.start, m.evenOdd, m.info, data);
 }
 
-uint32_t Glide2::guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t* data) {
+uint32_t Glide2::guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t *data) {
     if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
         return 0;
-    const MipMap& m = mipmaps_[id];
+    const MipMap &m = mipmaps_[id];
     // "lod must lie between mmid's smallLod and largeLod" (Glide 2's
     // numbers count down: GR_LOD_256 is 0).
     if (lod < m.info.largeLod || lod > m.info.smallLod)
@@ -798,7 +935,7 @@ uint32_t Glide2::guTexGetCurrentMipMap(int tmu) const {
     return tmu >= 0 && tmu < kMaxTmus ? texCurrent_[size_t(tmu)] : kNullMipMap;
 }
 
-const Glide2::MipMap* Glide2::guTexGetMipMapInfo(uint32_t id) const {
+const Glide2::MipMap *Glide2::guTexGetMipMapInfo(uint32_t id) const {
     return id < mipmaps_.size() && mipmaps_[id].valid ? &mipmaps_[id] : nullptr;
 }
 
@@ -820,7 +957,7 @@ void Glide2::guTexMemReset() {
 void Glide2::guTexSource(uint32_t id) {
     if (id >= mipmaps_.size() || !mipmaps_[id].valid)
         return;
-    const MipMap& m = mipmaps_[id];
+    const MipMap &m = mipmaps_[id];
     // "When a mipmap is made current, all of its attributes take effect."
     texSource(m.tmu, m.start, m.evenOdd, m.info);
     texClampMode(m.tmu, m.clampS, m.clampT);
@@ -840,10 +977,9 @@ void Glide2::guTexSource(uint32_t id) {
     texCurrent_[size_t(m.tmu)] = id;
 }
 
-
 // --- The linear frame buffer -----------------------------------------------------
 
-bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock& out) {
+bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock &out) {
     if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
         return false;
     pipeline_.sync();
@@ -868,13 +1004,18 @@ bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixel
     case kLfb565:
     case kLfb555:
     case kLfb1555:
-    case kLfbZA16: out.bytesPerPixel = 2; break;
+    case kLfbZA16:
+        out.bytesPerPixel = 2;
+        break;
     case kLfb888:
     case kLfb8888:
     case kLfb565Depth:
     case kLfb555Depth:
-    case kLfb1555Depth: out.bytesPerPixel = 4; break;
-    default: return false; // a mode the board doesn't take: the lock fails
+    case kLfb1555Depth:
+        out.bytesPerPixel = 4;
+        break;
+    default:
+        return false; // a mode the board doesn't take: the lock fails
     }
     if (aux != (writeMode == kLfbZA16))
         return false;
@@ -891,8 +1032,12 @@ bool Glide2::lfbUnlock(int, int) {
     return true;
 }
 
-void Glide2::lfbConstantAlpha(int alpha) { pipeline_.state().lfbConstantAlpha = alpha & 0xff; }
-void Glide2::lfbConstantDepth(int depth) { pipeline_.state().lfbConstantDepth = depth & 0xffff; }
+void Glide2::lfbConstantAlpha(int alpha) {
+    pipeline_.state().lfbConstantAlpha = alpha & 0xff;
+}
+void Glide2::lfbConstantDepth(int depth) {
+    pipeline_.state().lfbConstantDepth = depth & 0xffff;
+}
 
 void Glide2::lfbWriteColorFormat(int format) {
     if (format >= kColorArgb && format <= kColorBgra)
@@ -936,17 +1081,22 @@ uint32_t Glide2::lfbCanonical(int mode, uint32_t v) const {
     switch (mode) {
     case kLfb565:
     case kLfb555:
-    case kLfb1555: return color16(v & 0xffff, mode == kLfb565 ? kLfb565 : kLfb555);
+    case kLfb1555:
+        return color16(v & 0xffff, mode == kLfb565 ? kLfb565 : kLfb555);
     case kLfb565Depth:
     case kLfb555Depth:
-    case kLfb1555Depth: return color16(v >> 16, mode == kLfb565Depth ? kLfb565 : kLfb555) << 16 | (v & 0xffff);
-    case kLfb888: return toArgb(v, format) & 0xffffffu;
-    case kLfb8888: return toArgb(v, format);
-    default: return v;
+    case kLfb1555Depth:
+        return color16(v >> 16, mode == kLfb565Depth ? kLfb565 : kLfb555) << 16 | (v & 0xffff);
+    case kLfb888:
+        return toArgb(v, format) & 0xffffffu;
+    case kLfb8888:
+        return toArgb(v, format);
+    default:
+        return v;
     }
 }
 
-void Glide2::lfbWrite(const Glide2LfbLock& lock, int x, int y, uint32_t value) {
+void Glide2::lfbWrite(const Glide2LfbLock &lock, int x, int y, uint32_t value) {
     const int row = lock.originLowerLeft ? pipeline_.height() - 1 - y : y;
     const uint32_t v = lfbCanonical(lock.writeMode, value);
     pipeline_.lfbWrite(lock.buffer, x, row, lock.writeMode, v, lock.pixelPipeline);
@@ -954,15 +1104,15 @@ void Glide2::lfbWrite(const Glide2LfbLock& lock, int x, int y, uint32_t value) {
 }
 
 uint16_t Glide2::lfbRead(int buffer, int x, int y, bool originLowerLeft) const {
-    const uint16_t* b = pipeline_.buffer(buffer);
+    const uint16_t *b = pipeline_.buffer(buffer);
     if (!b || x < 0 || y < 0 || x >= pipeline_.width() || y >= pipeline_.height())
         return 0;
     const int row = originLowerLeft ? pipeline_.height() - 1 - y : y;
     return b[size_t(row) * size_t(pipeline_.width()) + size_t(x)];
 }
 
-bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height,
-                            int stride, const uint8_t* data, size_t dataBytes, bool pixelPipeline) {
+bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height, int stride,
+                            const uint8_t *data, size_t dataBytes, bool pixelPipeline) {
     if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
         return false;
     // "The grLfbWriteRegion function will fail, returning FXFALSE, if pixel
@@ -977,15 +1127,15 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
         return false;
     pipeline_.sync();
     const int bpp = format == kLfb565 || format == kLfb555 || format == kLfb1555 || format == kLfbZA16 ? 2
-                    : format == kLfbRle16                                                            ? 0
-                                                                                                     : 4;
+                    : format == kLfbRle16                                                              ? 0
+                                                                                                       : 4;
     if (format == kLfbRle16) {
         // A 16-bit count, then a 16-bit colour (Reference Manual,
         // grLfbWriteRegion): runs across the rows, stride ignored.
         notImplemented("grLfbWriteRegion RLE16", "runs read across rows as Reluva's reading");
         uint32_t px = 0, py = 0;
-        const uint8_t* p = data;
-        const uint8_t* end = dataBytes == SIZE_MAX ? nullptr : data + dataBytes;
+        const uint8_t *p = data;
+        const uint8_t *end = dataBytes == SIZE_MAX ? nullptr : data + dataBytes;
         while (py < height && (!end || end - p >= 4)) {
             const int16_t count = int16_t(p[0] | p[1] << 8);
             const uint16_t color = uint16_t(p[2] | p[3] << 8);
@@ -1006,7 +1156,7 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
         format != kLfb565Depth && format != kLfb555Depth && format != kLfb1555Depth && format != kLfbZA16)
         return false;
     for (uint32_t row = 0; row < height; ++row) {
-        const uint8_t* p = data + int64_t(row) * stride;
+        const uint8_t *p = data + int64_t(row) * stride;
         for (uint32_t col = 0; col < width; ++col) {
             uint32_t v = 0;
             std::memcpy(&v, p + size_t(col) * size_t(bpp), size_t(bpp));
@@ -1021,7 +1171,7 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
 }
 
 bool Glide2::lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t stride,
-                           uint8_t* data) {
+                           uint8_t *data) {
     if (!pipeline_.isOpen() || !pipeline_.buffer(buffer) || stride < width * 2)
         return false;
     pipeline_.sync();
@@ -1036,19 +1186,19 @@ bool Glide2::lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, u
 // --- Statistics ------------------------------------------------------------------
 
 void Glide2::sstPerfStats(uint32_t out[5]) const {
-    const PixelStats& s = pipeline_.stats;
+    const PixelStats &s = pipeline_.stats;
     const uint64_t v[5] = {s.pixelsIn, s.chromaFail, s.depthFail, s.alphaFail, s.pixelsOut};
     for (int i = 0; i < 5; ++i)
         out[i] = uint32_t((v[i] - statsBase_[i]) & 0xffffff); // 24-bit counters
 }
 
 void Glide2::sstResetPerfStats() {
-    const PixelStats& s = pipeline_.stats;
+    const PixelStats &s = pipeline_.stats;
     const uint64_t v[5] = {s.pixelsIn, s.chromaFail, s.depthFail, s.alphaFail, s.pixelsOut};
     std::copy(v, v + 5, statsBase_);
 }
 
-void Glide2::triStats(uint32_t& processed, uint32_t& drawn) const {
+void Glide2::triStats(uint32_t &processed, uint32_t &drawn) const {
     processed = uint32_t(pipeline_.stats.trianglesIn - triBase_[0]);
     drawn = uint32_t(pipeline_.stats.trianglesOut - triBase_[1]);
 }

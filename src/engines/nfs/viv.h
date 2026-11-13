@@ -23,16 +23,16 @@ public:
         uint32_t offset = 0, size = 0;
     };
 
-    Error open(const std::filesystem::path& path);
+    Error open(const std::filesystem::path &path);
     // An archive already in memory; `name` is for messages.
     Error open(std::vector<uint8_t> data, std::string name);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return name_; }
 
-    const std::vector<Entry>& entries() const { return entries_; }
+    const std::vector<Entry> &entries() const { return entries_; }
 
 private:
     std::string name_;

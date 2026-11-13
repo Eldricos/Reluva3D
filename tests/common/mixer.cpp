@@ -84,7 +84,7 @@ void testOutputStream() {
     std::vector<int16_t> out(40);
     struct Ramp : OutputStream {
         int16_t next = 0, rate = 0;
-        void read(int16_t* o, int frames, int r) override {
+        void read(int16_t *o, int frames, int r) override {
             rate = int16_t(r);
             for (int i = 0; i < frames; ++i, next += 100)
                 o[2 * i] = o[2 * i + 1] = next;
@@ -101,8 +101,9 @@ void testOutputStream() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.mixer", {
-    {"sound queue", [](const std::filesystem::path&) { testSoundQueue(); }},
-    {"loop and rate", [](const std::filesystem::path&) { testLoopAndRate(); }},
-    {"output stream", [](const std::filesystem::path&) { testOutputStream(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.mixer", {
+                                    {"sound queue", [](const std::filesystem::path &) { testSoundQueue(); }},
+                                    {"loop and rate", [](const std::filesystem::path &) { testLoopAndRate(); }},
+                                    {"output stream", [](const std::filesystem::path &) { testOutputStream(); }},
+                                });

@@ -26,10 +26,10 @@ public:
     };
 
     Error open(std::vector<uint8_t> data);
-    const std::vector<Segment>& segments() const { return segments_; }
+    const std::vector<Segment> &segments() const { return segments_; }
     // The segment starting at a file offset (as a map gives them), or -1.
     int segmentAt(uint32_t offset) const;
-    Error decode(size_t segment, audio::Sound& out) const;
+    Error decode(size_t segment, audio::Sound &out) const;
 
 private:
     std::vector<uint8_t> data_;
@@ -45,7 +45,7 @@ struct MusicMap {
         int next = 0;          // section
     };
     struct Section {
-        int part = 0; // the first byte: its row of events
+        int part = 0;              // the first byte: its row of events
         std::vector<Route> routes; // none: the music stops after it, unless an event is pending
         std::array<uint8_t, 28> raw{};
     };
@@ -68,6 +68,6 @@ struct MusicMap {
     int event(int section, int e) const;
 };
 
-Error parseMusicMap(const std::vector<uint8_t>& data, MusicMap& out);
+Error parseMusicMap(const std::vector<uint8_t> &data, MusicMap &out);
 
 } // namespace reluva::nfs

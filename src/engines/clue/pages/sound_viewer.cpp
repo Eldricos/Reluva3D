@@ -21,10 +21,10 @@ constexpr int kRowH = 12;
 
 } // namespace
 
-SoundViewer::SoundViewer(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer)
+SoundViewer::SoundViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer)
     : sys_(sys), screen_(screen), data_(data), mixer_(mixer) {
     files_ = data_.withExtension(".wav");
-    for (auto& p : data_.withExtension(".mp3")) // ripped music may be MP3
+    for (auto &p : data_.withExtension(".mp3")) // ripped music may be MP3
         files_.push_back(p);
 }
 
@@ -33,7 +33,9 @@ void SoundViewer::activate() {
     draw();
 }
 
-void SoundViewer::deactivate() { stop(); }
+void SoundViewer::deactivate() {
+    stop();
+}
 
 void SoundViewer::stop() {
     if (mixer_ && playing_ != audio::kNoSound)
@@ -45,7 +47,7 @@ void SoundViewer::play() {
     stop();
     if (files_.empty())
         return;
-    const auto& path = files_[size_t(current_)];
+    const auto &path = files_[size_t(current_)];
     std::ifstream in(path, std::ios::binary);
     const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     auto s = std::make_shared<audio::Sound>();
@@ -75,12 +77,24 @@ void SoundViewer::handleKey(uint32_t key) {
     const int n = int(files_.size());
     const int before = current_;
     switch (key) {
-    case key::Right: current_ = std::min(n - 1, current_ + 1); break;
-    case key::Left: current_ = std::max(0, current_ - 1); break;
-    case key::PageDown: current_ = std::min(n - 1, current_ + 10); break;
-    case key::PageUp: current_ = std::max(0, current_ - 10); break;
-    case key::Home: current_ = 0; break;
-    case key::End: current_ = n - 1; break;
+    case key::Right:
+        current_ = std::min(n - 1, current_ + 1);
+        break;
+    case key::Left:
+        current_ = std::max(0, current_ - 1);
+        break;
+    case key::PageDown:
+        current_ = std::min(n - 1, current_ + 10);
+        break;
+    case key::PageUp:
+        current_ = std::max(0, current_ - 10);
+        break;
+    case key::Home:
+        current_ = 0;
+        break;
+    case key::End:
+        current_ = n - 1;
+        break;
     case key::Space:
     case key::Return:
         if (mixer_ && playing_ != audio::kNoSound && mixer_->isPlaying(playing_))
@@ -88,8 +102,11 @@ void SoundViewer::handleKey(uint32_t key) {
         else
             play();
         break;
-    case 'a': autoPlay_ = !autoPlay_; break;
-    default: return;
+    case 'a':
+        autoPlay_ = !autoPlay_;
+        break;
+    default:
+        return;
     }
     if (current_ != before) {
         stop();
@@ -117,7 +134,7 @@ void SoundViewer::draw() {
     const int first = std::clamp(current_ - rows / 2, 0, std::max(0, int(files_.size()) - rows));
     for (int i = 0; i < rows && first + i < int(files_.size()); ++i) {
         const int f = first + i;
-        const std::filesystem::path& p = files_[size_t(f)];
+        const std::filesystem::path &p = files_[size_t(f)];
         const std::string where = p.parent_path().filename().string();
         if (f == current_)
             fillRect(screen_, 0, 4 + i * kRowH - 1, kScreenW, kRowH, {60, 60, 100});
@@ -137,7 +154,8 @@ void SoundViewer::draw() {
              files_[size_t(current_)].filename().string() + "   " + std::to_string(current_ + 1) + "/" +
                  std::to_string(files_.size()),
              state);
-    sys_.setWindowTitle(std::string(gameName(data_.language())) + " sounds: " + files_[size_t(current_)].filename().string());
+    sys_.setWindowTitle(std::string(gameName(data_.language())) +
+                        " sounds: " + files_[size_t(current_)].filename().string());
 }
 
 } // namespace reluva::clue

@@ -19,10 +19,10 @@ const int kScreenHeight = 480;
 // fatal(), and returned by the Engine's run() as its Error.
 class FatalError : public std::runtime_error {
 public:
-    explicit FatalError(const std::string& message) : std::runtime_error(message) {}
+    explicit FatalError(const std::string &message) : std::runtime_error(message) {}
 };
 
-[[noreturn]] void fatal(const char* fmt, ...)
+[[noreturn]] void fatal(const char *fmt, ...)
 #if defined(__GNUC__) || defined(__clang__)
     __attribute__((format(printf, 1, 2)))
 #endif
@@ -50,22 +50,22 @@ struct Options {
 // as the game (Game, the scene scripts) or the scene viewer (SceneViewer).
 class Harbinger {
 public:
-    Harbinger(Platform* system, Options options);
+    Harbinger(Platform *system, Options options);
 
     // Runs the game until the player quits; FatalError on a fault in its data.
     void run();
     // Writes what the game data holds (scenes, dialogues, credits) to stdout.
     void printInfo();
 
-    Platform* getSystem() const { return system_; }
-    const Options& getOptions() const { return options_; }
-    Resources& getResources() { return resources_; }
-    const std::vector<Scene>& getScenes() const { return scenes_; }
+    Platform *getSystem() const { return system_; }
+    const Options &getOptions() const { return options_; }
+    Resources &getResources() { return resources_; }
+    const std::vector<Scene> &getScenes() const { return scenes_; }
     bool shouldQuit() const { return system_ && system_->quitRequested(); }
 
     // Index into getScenes() of the scene with this name, SCENE number (as used
     // by NEWSCENE) or, for findScene(), CC.ALL slot number; -1 if none.
-    int findScene(const std::string& nameOrSlot) const;
+    int findScene(const std::string &nameOrSlot) const;
     int findSceneByNumber(int number) const;
 
     // Opens the game folders and loads the scene scripts (run() and
@@ -73,7 +73,7 @@ public:
     void initResources();
 
 private:
-    Platform* system_;
+    Platform *system_;
     Options options_;
     Resources resources_;
     std::vector<Scene> scenes_;

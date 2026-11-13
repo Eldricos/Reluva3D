@@ -27,25 +27,25 @@ std::vector<uint8_t> makeFakeExe() {
     exe[0x3C] = 0x80;
     exe[0x80] = 'P';
     exe[0x81] = 'E';
-    const char* title = "Star Trek Generations";
+    const char *title = "Star Trek Generations";
     for (size_t i = 0; title[i]; i++)
         exe[0x100 + i * 2] = uint8_t(title[i]);
     return exe;
 }
 
-const char* const kInstalled[] = {"COMMON.DAT", "OPTIONS.DAT", "AMARGOS1.DAT", "AMARGOS2.DAT", "ANTILIOS.DAT",
+const char *const kInstalled[] = {"COMMON.DAT",  "OPTIONS.DAT", "AMARGOS1.DAT", "AMARGOS2.DAT", "ANTILIOS.DAT",
                                   "ARVADA1.DAT", "BERSUS.DAT",  "ENTERP.DAT",   "EPSION.DAT",   "GALORN1.DAT",
                                   "GALORN2.DAT", "HALEE1.DAT",  "QURASH.DAT",   "VERID1.DAT"};
-const char* const kDisc1[] = {"COMBAT.DAT",       "STELLAR.DAT",      "MUSIC.1",          "MOVIE/MOV_01.AVI",
+const char *const kDisc1[] = {"COMBAT.DAT",       "STELLAR.DAT",      "MUSIC.1",          "MOVIE/MOV_01.AVI",
                               "MOVIE/MOV_02.AVI", "MOVIE/MOV_03.AVI", "MOVIE/MOV_05.AVI", "MOVIE/MOV_07.AVI",
                               "MOVIE/MOV_08.AVI", "MOVIE/MOV_18.AVI"};
-const char* const kDisc2[] = {"COMBAT.DAT",       "STELLAR.DAT",      "MUSIC.2",          "MOVIE/MOV_02.AVI",
+const char *const kDisc2[] = {"COMBAT.DAT",       "STELLAR.DAT",      "MUSIC.2",          "MOVIE/MOV_02.AVI",
                               "MOVIE/MOV_06.AVI", "MOVIE/MOV_09.AVI", "MOVIE/MOV_10.AVI", "MOVIE/MOV_13.AVI",
                               "MOVIE/MOV_14.AVI", "MOVIE/MOV_15.AVI", "MOVIE/MOV_16.AVI"};
 
 // The game as its setup installs it, in `dir`; COMMON.DAT a real ZIP.
-void writeInstall(const stgtest::TempDir& t, const std::string& dir) {
-    for (const char* name : kInstalled)
+void writeInstall(const stgtest::TempDir &t, const std::string &dir) {
+    for (const char *name : kInstalled)
         t.writeFile(dir + "DATA/" + name, "installed");
     t.writeFile(dir + "DATA/COMMON.DAT", test::buildZip({{"short.txt", test::toBytes("abcabcabcabc"), {}}}));
     t.writeFile(dir + "DATA/3HEALTH.BMP", "a loose bitmap");
@@ -53,19 +53,19 @@ void writeInstall(const stgtest::TempDir& t, const std::string& dir) {
 }
 
 // A CD as it is: its setup's files, and GENS/.
-void writeDisc(const stgtest::TempDir& t, const std::string& dir, int disc) {
+void writeDisc(const stgtest::TempDir &t, const std::string &dir, int disc) {
     t.writeFile(dir + "SETUP.EXE", "setup");
     t.writeFile(dir + "GENS/COMMON.DAT", "on the CD");
-    for (const char* name : disc == 1 ? std::vector<const char*>(std::begin(kDisc1), std::end(kDisc1))
-                                      : std::vector<const char*>(std::begin(kDisc2), std::end(kDisc2)))
+    for (const char *name : disc == 1 ? std::vector<const char *>(std::begin(kDisc1), std::end(kDisc1))
+                                      : std::vector<const char *>(std::begin(kDisc2), std::end(kDisc2)))
         t.writeFile(dir + "GENS/" + name, "cd" + std::to_string(disc));
 }
 
-bool plans(const ImportPlan& plan, const std::string& to) {
-    return std::any_of(plan.files.begin(), plan.files.end(), [&](const ImportPlan::File& f) { return f.to == to; });
+bool plans(const ImportPlan &plan, const std::string &to) {
+    return std::any_of(plan.files.begin(), plan.files.end(), [&](const ImportPlan::File &f) { return f.to == to; });
 }
 
-std::string read(const ResourceManager& r, const std::string& name, size_t n) {
+std::string read(const ResourceManager &r, const std::string &name, size_t n) {
     std::unique_ptr<SeekableReadStream> s = r.open({"", name});
     return s ? s->readFixedString(uint32_t(n)) : std::string("(none)");
 }
@@ -73,7 +73,7 @@ std::string read(const ResourceManager& r, const std::string& name, size_t n) {
 } // namespace
 
 static void registered_and_empty() {
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     CHECK(engine != nullptr);
     if (!engine)
         return;
@@ -105,7 +105,7 @@ static void releases() {
     CHECK(detectInstall("stgenerations", {}, bare.path()).empty());
 
     // Through the engine: found, and said to be without its CDs.
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     found = engine->detect(dir.path());
     CHECK(found.size() == 1 && found[0].gameId == "stgenerations" &&
           found[0].description.find("without its CDs") != std::string::npos);
@@ -122,12 +122,12 @@ static void import_with_both_cds() {
     const std::vector<GamePart> parts = findGameParts(t.path());
     CHECK_EQUAL(parts.size(), size_t(3));
 
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     std::vector<ImportPlan> found = engine->planImport(t.path());
     CHECK_EQUAL(found.size(), size_t(1));
     if (found.empty())
         return;
-    const ImportPlan& plan = found[0];
+    const ImportPlan &plan = found[0];
     CHECK(plans(plan, "sgens.exe") && plans(plan, "DATA/COMMON.DAT") && plans(plan, "DATA/3HEALTH.BMP"));
     CHECK(plans(plan, "disc1/GENS/MUSIC.1") && plans(plan, "disc2/GENS/MUSIC.2"));
     CHECK(plans(plan, "disc1/GENS/STELLAR.DAT") && !plans(plan, "disc2/GENS/STELLAR.DAT")); // the same: once
@@ -165,7 +165,7 @@ static void import_piece_by_piece() {
     writeInstall(t, "install/");
     writeDisc(t, "cd1/", 1);
     writeDisc(t, "cd2/", 2);
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     std::vector<ImportPlan> found = engine->planImport(t.path() / "cd2");
     CHECK_EQUAL(found.size(), size_t(1));
     if (found.empty())
@@ -198,12 +198,12 @@ static void import_takes_the_whole_copy() {
     bad[30 + 17 + 2] ^= 0x40; // a bit of the file's data: its CRC no longer matches
     t.writeFile("cd1/GENS/STELLAR.DAT", bad);
     t.writeFile("cd2/GENS/STELLAR.DAT", good);
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     std::vector<ImportPlan> found = engine->planImport(t.path());
     CHECK_EQUAL(found.size(), size_t(1));
     if (found.empty())
         return;
-    const auto it = std::find_if(found[0].files.begin(), found[0].files.end(), [](const ImportPlan::File& f) {
+    const auto it = std::find_if(found[0].files.begin(), found[0].files.end(), [](const ImportPlan::File &f) {
         return f.to.find("STELLAR.DAT") != std::string::npos;
     });
     CHECK(it != found[0].files.end() && it->to == "disc2/GENS/STELLAR.DAT" &&
@@ -228,7 +228,7 @@ static void import_takes_the_whole_installed_file() {
         writeDisc(t, "cd2/", 2);
         t.writeFile("install/DATA/GALORN1.DAT", bad);
         t.writeFile("cd2/GENS/GALORN1.DAT", good);
-        const MetaEngine* engine = findEngine("stgenerations");
+        const MetaEngine *engine = findEngine("stgenerations");
         std::vector<ImportPlan> found = engine->planImport(t.path() / (installFirst ? "install" : "cd2"));
         CHECK_EQUAL(found.size(), size_t(1));
         if (found.empty())
@@ -237,14 +237,14 @@ static void import_takes_the_whole_installed_file() {
         std::string message;
         CHECK(engine->addToImport(plan, t.path() / (installFirst ? "cd2" : "install"), message));
         const auto it = std::find_if(plan.files.begin(), plan.files.end(),
-                                     [](const ImportPlan::File& f) { return f.to == "DATA/GALORN1.DAT"; });
+                                     [](const ImportPlan::File &f) { return f.to == "DATA/GALORN1.DAT"; });
         CHECK(it != plan.files.end() && it->from.parent_path().parent_path().filename() == "cd2");
         CHECK(!plans(plan, "disc2/GENS/GALORN1.DAT")); // only in the install's place
         // Whole in both: the install's, as before.
         t.writeFile("install/DATA/GALORN1.DAT", good);
         found = engine->planImport(t.path());
         const auto again = std::find_if(found[0].files.begin(), found[0].files.end(),
-                                        [](const ImportPlan::File& f) { return f.to == "DATA/GALORN1.DAT"; });
+                                        [](const ImportPlan::File &f) { return f.to == "DATA/GALORN1.DAT"; });
         CHECK(again != found[0].files.end() && again->from.parent_path().parent_path().filename() == "install");
     }
 }
@@ -267,12 +267,15 @@ static void cd_folders_given() {
     CHECK_EQUAL(resources.getDataDirs().size(), size_t(3));
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.detection", {
-    {"registered and empty", [](const std::filesystem::path&) { registered_and_empty(); }},
-    {"releases", [](const std::filesystem::path&) { releases(); }},
-    {"import with both cds", [](const std::filesystem::path&) { import_with_both_cds(); }},
-    {"import piece by piece", [](const std::filesystem::path&) { import_piece_by_piece(); }},
-    {"import takes the whole copy", [](const std::filesystem::path&) { import_takes_the_whole_copy(); }},
-    {"import takes the whole installed file", [](const std::filesystem::path&) { import_takes_the_whole_installed_file(); }},
-    {"cd folders given", [](const std::filesystem::path&) { cd_folders_given(); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.unit.detection",
+          {
+              {"registered and empty", [](const std::filesystem::path &) { registered_and_empty(); }},
+              {"releases", [](const std::filesystem::path &) { releases(); }},
+              {"import with both cds", [](const std::filesystem::path &) { import_with_both_cds(); }},
+              {"import piece by piece", [](const std::filesystem::path &) { import_piece_by_piece(); }},
+              {"import takes the whole copy", [](const std::filesystem::path &) { import_takes_the_whole_copy(); }},
+              {"import takes the whole installed file",
+               [](const std::filesystem::path &) { import_takes_the_whole_installed_file(); }},
+              {"cd folders given", [](const std::filesystem::path &) { cd_folders_given(); }},
+          });

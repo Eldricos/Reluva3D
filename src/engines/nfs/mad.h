@@ -23,23 +23,23 @@ public:
     void setArithmetic(Arithmetic a) { arithmetic_ = a; }
     // Decodes one frame chunk (MADk, MADm or MADe, its 8-byte chunk header
     // included). The picture is kept until the next.
-    Error decode(const uint8_t* chunk, size_t size);
+    Error decode(const uint8_t *chunk, size_t size);
     int width() const { return width_; }
     int height() const { return height_; }
     // The picture as RGBA8888.
-    void toSurface(Surface& out) const;
+    void toSurface(Surface &out) const;
     // The picture at twice its size as nfs3.exe shows it on a 16-bit
     // screen (mad.md, The game's display step): its 7-bit conversion and
     // two-pixel dither, then one of its three ways of doubling, chosen by
     // the processor's clock. Lines the mode doesn't write stay black. The
     // 5:6:5 result is widened to RGBA8888 by repeating its top bits.
     enum class Display { Repeat = 1, Average = 2, Interpolate = 3 };
-    void toGameSurface(Surface& out, Display mode) const;
+    void toGameSurface(Surface &out, Display mode) const;
     // Plane access, for tests and tools: stride, then the planes (0 Y, 1 U,
     // 2 V); chroma is half size each way. With the game's arithmetic the
     // samples are its 7-bit ones (0-127), 64 the middle.
     int stride(int plane) const { return plane ? stride_ / 2 : stride_; }
-    const uint8_t* plane(int plane) const { return current_[plane].data(); }
+    const uint8_t *plane(int plane) const { return current_[plane].data(); }
 
 private:
     void decodeMacroblock(bool inter, int mbX, int mbY);
@@ -56,7 +56,7 @@ private:
     bool havePrevious_ = false;
     int quant_[64] = {};
     // The bitstream: 16-bit little-endian words, each read from its top bit.
-    const uint8_t* bits_ = nullptr;
+    const uint8_t *bits_ = nullptr;
     size_t bitCount_ = 0, bitPos_ = 0;
     bool damaged_ = false;
     uint32_t peek(int n) const;
@@ -74,15 +74,15 @@ public:
     };
 
     Error open(std::vector<uint8_t> data);
-    const std::vector<Frame>& frames() const { return frames_; }
+    const std::vector<Frame> &frames() const { return frames_; }
     // The first frame's size and frame duration (1/65536 milliseconds).
     int width() const { return width_; }
     int height() const { return height_; }
     uint32_t frameDuration() const { return duration_; }
     bool hasAudio() const { return haveAudio_; }
-    const SoundHeader& audioHeader() const { return audio_; }
-    Error decodeAudio(audio::Sound& out) const;
-    Error decodeFrame(MadDecoder& decoder, size_t index) const;
+    const SoundHeader &audioHeader() const { return audio_; }
+    Error decodeAudio(audio::Sound &out) const;
+    Error decodeFrame(MadDecoder &decoder, size_t index) const;
 
 private:
     std::vector<uint8_t> data_;

@@ -16,29 +16,29 @@ namespace reluva::idtech3 {
 
 class MenuViewer : public Page {
 public:
-    explicit MenuViewer(ViewerContext& ctx);
+    explicit MenuViewer(ViewerContext &ctx);
     ~MenuViewer() override;
-    const char* name() const override { return "Menu"; }
+    const char *name() const override { return "Menu"; }
     size_t count() const override { return available_ ? 1 : 0; }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     void start();
     void checkCommands();
 
     bool available_ = false;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     int frameW_ = 960, frameH_ = 720; // r_mode
     bool restart_ = false;            // the menus ran vid_restart
-    CvarStore& cvars_ = ctx_.cvars;
+    CvarStore &cvars_ = ctx_.cvars;
     std::unique_ptr<ServerBrowser> browser_; // the server list's, once the menus start
-    MenuLayer menus_{ctx_, ctx_.cvars};       // kept running while other pages are shown
-    JoystickInput joystick_;                  // its keys (buttons, the arrows its axes give) for the menus
+    MenuLayer menus_{ctx_, ctx_.cvars};      // kept running while other pages are shown
+    JoystickInput joystick_;                 // its keys (buttons, the arrows its axes give) for the menus
     std::string lastCommand_;                // shown for a while, to see what buttons do
     uint64_t lastCommandMs_ = 0;
     Surface overlay_;

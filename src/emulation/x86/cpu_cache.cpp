@@ -25,7 +25,7 @@
 
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 #include <xmmintrin.h>
-#define RELUVA_PREFETCH(p) _mm_prefetch(reinterpret_cast<const char*>(p), _MM_HINT_T0)
+#define RELUVA_PREFETCH(p) _mm_prefetch(reinterpret_cast<const char *>(p), _MM_HINT_T0)
 #elif defined(__GNUC__)
 #define RELUVA_PREFETCH(p) __builtin_prefetch(p)
 #else
@@ -51,7 +51,7 @@ constexpr ParityTable kParity;
 struct CachedOps {
     using Cached = Cpu::Cached;
 
-    RELUVA_FORCE_INLINE static uint32_t address(const Cpu& c, const Cached& e) {
+    RELUVA_FORCE_INLINE static uint32_t address(const Cpu &c, const Cached &e) {
         uint32_t a = e.disp;
         if (e.base >= 0)
             a += c.reg[size_t(e.base)];
@@ -59,35 +59,35 @@ struct CachedOps {
             a += c.reg[size_t(e.index)] << e.scale;
         return e.fs ? a + c.fsBase : a;
     }
-    template <int S>
-    RELUVA_FORCE_INLINE static uint32_t getReg(const Cpu& c, int r) {
+    template<int S>
+    RELUVA_FORCE_INLINE static uint32_t getReg(const Cpu &c, int r) {
         return S == 4 ? c.reg[size_t(r)] : c.readReg(S, r);
     }
-    template <int S>
-    RELUVA_FORCE_INLINE static void setReg(Cpu& c, int r, uint32_t v) {
+    template<int S>
+    RELUVA_FORCE_INLINE static void setReg(Cpu &c, int r, uint32_t v) {
         if (S == 4)
             c.reg[size_t(r)] = v;
         else
             c.writeReg(S, r, v);
     }
-    template <int S>
-    RELUVA_FORCE_INLINE static uint32_t getRm(Cpu& c, const Cached& e) {
+    template<int S>
+    RELUVA_FORCE_INLINE static uint32_t getRm(Cpu &c, const Cached &e) {
         return e.mem ? c.load(address(c, e), S) : getReg<S>(c, e.rm);
     }
-    template <int S>
-    RELUVA_FORCE_INLINE static void setRm(Cpu& c, const Cached& e, uint32_t v) {
+    template<int S>
+    RELUVA_FORCE_INLINE static void setRm(Cpu &c, const Cached &e, uint32_t v) {
         if (e.mem)
             c.store(address(c, e), v, S);
         else
             setReg<S>(c, e.rm, v);
     }
-    RELUVA_FORCE_INLINE static void next(Cpu& c, const Cached& e) { c.eip += e.length; }
+    RELUVA_FORCE_INLINE static void next(Cpu &c, const Cached &e) { c.eip += e.length; }
 
-    static void legacy(Cpu& c, const Cached&) { c.execute(); }
+    static void legacy(Cpu &c, const Cached &) { c.execute(); }
 
     // Cpu::alu and Cpu::condition, for one operation each.
-    template <int Op, int S>
-    RELUVA_FORCE_INLINE static uint32_t alu(Cpu& c, uint32_t a, uint32_t b) {
+    template<int Op, int S>
+    RELUVA_FORCE_INLINE static uint32_t alu(Cpu &c, uint32_t a, uint32_t b) {
         constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
         constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
         a &= m;
@@ -120,18 +120,18 @@ struct CachedOps {
         c.eflags = flags | logicFlags<S>(r);
         return r;
     }
-    template <int S>
+    template<int S>
     RELUVA_FORCE_INLINE static uint32_t logicFlags(uint32_t r) { // ZF, SF and PF of a result
         constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
         return (r ? 0 : Cpu::ZF) | (r & sign ? Cpu::SF : 0) | kParity.flag[r & 0xff];
     }
-    template <int S>
-    RELUVA_FORCE_INLINE static void test(Cpu& c, uint32_t r) {
+    template<int S>
+    RELUVA_FORCE_INLINE static void test(Cpu &c, uint32_t r) {
         constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
         c.eflags = (c.eflags & ~(Cpu::CF | Cpu::OF | Cpu::AF | Cpu::ZF | Cpu::SF | Cpu::PF)) | logicFlags<S>(r & m);
     }
-    template <int Cc>
-    RELUVA_FORCE_INLINE static bool condition(const Cpu& c) {
+    template<int Cc>
+    RELUVA_FORCE_INLINE static bool condition(const Cpu &c) {
         const uint32_t f = c.eflags;
         bool r;
         if constexpr (Cc >> 1 == 0)
@@ -154,8 +154,8 @@ struct CachedOps {
     }
 
     // The ALU operations (Op: ADD, OR, ADC, SBB, AND, SUB, XOR, CMP).
-    template <int Op, int S>
-    static void aluRmReg(Cpu& c, const Cached& e) {
+    template<int Op, int S>
+    static void aluRmReg(Cpu &c, const Cached &e) {
         next(c, e);
         if (e.mem) {
             const uint32_t a = address(c, e);
@@ -168,22 +168,22 @@ struct CachedOps {
                 setReg<S>(c, e.rm, r);
         }
     }
-    template <int Op, int S>
-    static void aluRegRm(Cpu& c, const Cached& e) {
+    template<int Op, int S>
+    static void aluRegRm(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t r = alu<Op, S>(c, getReg<S>(c, e.reg), getRm<S>(c, e));
         if (Op != 7)
             setReg<S>(c, e.reg, r);
     }
-    template <int Op, int S>
-    static void aluAccImm(Cpu& c, const Cached& e) {
+    template<int Op, int S>
+    static void aluAccImm(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t r = alu<Op, S>(c, getReg<S>(c, Cpu::EAX), e.imm);
         if (Op != 7)
             setReg<S>(c, Cpu::EAX, r);
     }
-    template <int Op, int S>
-    static void aluRmImm(Cpu& c, const Cached& e) {
+    template<int Op, int S>
+    static void aluRmImm(Cpu &c, const Cached &e) {
         next(c, e);
         if (e.mem) {
             const uint32_t a = address(c, e);
@@ -196,26 +196,26 @@ struct CachedOps {
                 setReg<S>(c, e.rm, r);
         }
     }
-    template <int S>
-    static void testRmReg(Cpu& c, const Cached& e) {
+    template<int S>
+    static void testRmReg(Cpu &c, const Cached &e) {
         next(c, e);
         test<S>(c, getRm<S>(c, e) & getReg<S>(c, e.reg));
     }
-    template <int S>
-    static void testAccImm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void testAccImm(Cpu &c, const Cached &e) {
         next(c, e);
         test<S>(c, getReg<S>(c, Cpu::EAX) & e.imm);
     }
     // INC (Op 0) and DEC (Op 5), which leave CF.
-    template <int Op>
-    static void incDecReg(Cpu& c, const Cached& e) {
+    template<int Op>
+    static void incDecReg(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t cf = c.eflags & Cpu::CF;
         c.reg[e.rm] = alu<Op, 4>(c, c.reg[e.rm], 1);
         c.eflags = (c.eflags & ~Cpu::CF) | cf;
     }
-    template <int Op, int S>
-    static void incDecRm(Cpu& c, const Cached& e) {
+    template<int Op, int S>
+    static void incDecRm(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t cf = c.eflags & Cpu::CF;
         if (e.mem) {
@@ -228,35 +228,35 @@ struct CachedOps {
     }
 
     // Moves.
-    template <int S>
-    static void movRmReg(Cpu& c, const Cached& e) {
+    template<int S>
+    static void movRmReg(Cpu &c, const Cached &e) {
         next(c, e);
         setRm<S>(c, e, getReg<S>(c, e.reg));
     }
-    template <int S>
-    static void movRegRm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void movRegRm(Cpu &c, const Cached &e) {
         next(c, e);
         setReg<S>(c, e.reg, getRm<S>(c, e));
     }
-    template <int S>
-    static void movRmImm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void movRmImm(Cpu &c, const Cached &e) {
         next(c, e);
         setRm<S>(c, e, e.imm);
     }
-    template <int S>
-    static void movRegImm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void movRegImm(Cpu &c, const Cached &e) {
         next(c, e);
         setReg<S>(c, e.rm, e.imm);
     }
     // MOVZX and MOVSX, from S bytes to D.
-    template <int S, int D, bool Signed>
-    static void movExtend(Cpu& c, const Cached& e) {
+    template<int S, int D, bool Signed>
+    static void movExtend(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t v = getRm<S>(c, e);
         setReg<D>(c, e.reg, !Signed ? v : S == 1 ? uint32_t(int32_t(int8_t(v))) : uint32_t(int32_t(int16_t(v))));
     }
     // LEA: the offset, without a segment's base.
-    static void lea(Cpu& c, const Cached& e) {
+    static void lea(Cpu &c, const Cached &e) {
         next(c, e);
         uint32_t a = e.disp;
         if (e.base >= 0)
@@ -267,59 +267,59 @@ struct CachedOps {
     }
 
     // The stack.
-    static void pushReg(Cpu& c, const Cached& e) {
+    static void pushReg(Cpu &c, const Cached &e) {
         next(c, e);
         c.push(c.reg[e.rm]);
     }
-    static void popReg(Cpu& c, const Cached& e) {
+    static void popReg(Cpu &c, const Cached &e) {
         next(c, e);
         c.reg[e.rm] = c.pop();
     }
-    static void pushImm(Cpu& c, const Cached& e) {
+    static void pushImm(Cpu &c, const Cached &e) {
         next(c, e);
         c.push(e.imm);
     }
-    static void pushRm(Cpu& c, const Cached& e) {
+    static void pushRm(Cpu &c, const Cached &e) {
         next(c, e);
         c.push(getRm<4>(c, e));
     }
-    static void leave(Cpu& c, const Cached& e) {
+    static void leave(Cpu &c, const Cached &e) {
         next(c, e);
         c.reg[Cpu::ESP] = c.reg[Cpu::EBP];
         c.reg[Cpu::EBP] = c.pop();
     }
 
     // Jumps, calls and returns (relative ones: e.imm from the next instruction).
-    template <int Cc>
-    static void jcc(Cpu& c, const Cached& e) {
+    template<int Cc>
+    static void jcc(Cpu &c, const Cached &e) {
         next(c, e);
         if (condition<Cc>(c))
             c.eip += e.imm;
     }
-    static void jmp(Cpu& c, const Cached& e) { c.eip += e.length + e.imm; }
-    static void jmpRm(Cpu& c, const Cached& e) {
+    static void jmp(Cpu &c, const Cached &e) { c.eip += e.length + e.imm; }
+    static void jmpRm(Cpu &c, const Cached &e) {
         next(c, e);
         c.eip = getRm<4>(c, e);
     }
-    static void call(Cpu& c, const Cached& e) {
+    static void call(Cpu &c, const Cached &e) {
         next(c, e);
         c.push(c.eip);
         c.eip += e.imm;
     }
-    static void callRm(Cpu& c, const Cached& e) {
+    static void callRm(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t target = getRm<4>(c, e);
         c.push(c.eip);
         c.eip = target;
     }
-    static void ret(Cpu& c, const Cached& e) {
+    static void ret(Cpu &c, const Cached &e) {
         c.eip = c.pop();
         c.reg[Cpu::ESP] += e.imm;
     }
 
     // Shifts and rotates (e.sub the operation): by e.imm, or by CL.
-    template <int S>
-    static void shiftImm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void shiftImm(Cpu &c, const Cached &e) {
         next(c, e);
         if (e.mem) {
             const uint32_t a = address(c, e);
@@ -328,8 +328,8 @@ struct CachedOps {
             setReg<S>(c, e.rm, c.shift(e.sub, getReg<S>(c, e.rm), e.imm, S));
         }
     }
-    template <int S>
-    static void shiftCl(Cpu& c, const Cached& e) {
+    template<int S>
+    static void shiftCl(Cpu &c, const Cached &e) {
         next(c, e);
         const uint32_t count = c.reg[Cpu::ECX] & 0xff;
         if (e.mem) {
@@ -339,24 +339,24 @@ struct CachedOps {
             setReg<S>(c, e.rm, c.shift(e.sub, getReg<S>(c, e.rm), count, S));
         }
     }
-    static void setcc(Cpu& c, const Cached& e) {
+    static void setcc(Cpu &c, const Cached &e) {
         next(c, e);
         setRm<1>(c, e, c.condition(e.sub) ? 1 : 0);
     }
-    static void cdq(Cpu& c, const Cached& e) {
+    static void cdq(Cpu &c, const Cached &e) {
         next(c, e);
         c.reg[Cpu::EDX] = (c.reg[Cpu::EAX] & 0x80000000u) ? 0xffffffffu : 0;
     }
-    static void nop(Cpu& c, const Cached& e) { next(c, e); }
+    static void nop(Cpu &c, const Cached &e) { next(c, e); }
 
-    template <int S>
-    static void testRmImm(Cpu& c, const Cached& e) {
+    template<int S>
+    static void testRmImm(Cpu &c, const Cached &e) {
         next(c, e);
         test<S>(c, getRm<S>(c, e) & e.imm);
     }
     // IMUL r, r/m (e.mem or e.rm), times e.imm when Imm.
-    template <int S, bool Imm>
-    static void imul(Cpu& c, const Cached& e) {
+    template<int S, bool Imm>
+    static void imul(Cpu &c, const Cached &e) {
         next(c, e);
         const auto extend = [](uint32_t v) { return S == 2 ? int64_t(int16_t(v)) : int64_t(int32_t(v)); };
         const int64_t p = extend(getRm<S>(c, e)) * (Imm ? int64_t(int32_t(e.imm)) : extend(getReg<S>(c, e.reg)));
@@ -368,7 +368,7 @@ struct CachedOps {
 
     // The x87 unit's commonest: loads, stores and arithmetic on memory and
     // registers, FXCH, FNSTSW AX (as Cpu::x87 does them).
-    RELUVA_FORCE_INLINE static double loadReal(Cpu& c, uint32_t a, bool wide) {
+    RELUVA_FORCE_INLINE static double loadReal(Cpu &c, uint32_t a, bool wide) {
         if (wide) {
             const uint64_t bits = uint64_t(c.load(a, 4)) | uint64_t(c.load(a + 4, 4)) << 32;
             double v;
@@ -380,7 +380,7 @@ struct CachedOps {
         std::memcpy(&f, &bits, 4);
         return double(f);
     }
-    RELUVA_FORCE_INLINE static void storeReal(Cpu& c, uint32_t a, double v, bool wide) {
+    RELUVA_FORCE_INLINE static void storeReal(Cpu &c, uint32_t a, double v, bool wide) {
         if (wide) {
             uint64_t bits;
             std::memcpy(&bits, &v, 8);
@@ -394,8 +394,8 @@ struct CachedOps {
         }
     }
     // dst = x op y, for the eight forms (2 and 3 compare x with y).
-    template <int R>
-    RELUVA_FORCE_INLINE static void arith(Cpu& c, double& dst, double x, double y) {
+    template<int R>
+    RELUVA_FORCE_INLINE static void arith(Cpu &c, double &dst, double x, double y) {
         if constexpr (R == 0)
             dst = c.fpuRound(x + y);
         else if constexpr (R == 1)
@@ -411,71 +411,71 @@ struct CachedOps {
         else
             dst = c.fpuRound(y / x);
     }
-    template <int R, bool Wide>
-    static void fArithMem(Cpu& c, const Cached& e) { // D8 /r, DC /r
+    template<int R, bool Wide>
+    static void fArithMem(Cpu &c, const Cached &e) { // D8 /r, DC /r
         next(c, e);
         arith<R>(c, c.st(0), c.st(0), loadReal(c, address(c, e), Wide));
         if (R == 3)
             c.fpuPop();
     }
-    template <int R>
-    static void fArithSt0(Cpu& c, const Cached& e) { // D8 C0+r*8+i: st(0) = st(0) op st(i)
+    template<int R>
+    static void fArithSt0(Cpu &c, const Cached &e) { // D8 C0+r*8+i: st(0) = st(0) op st(i)
         next(c, e);
         arith<R>(c, c.st(0), c.st(0), c.st(e.rm));
         if (R == 3)
             c.fpuPop();
     }
-    template <int R, bool Pop>
-    static void fArithSti(Cpu& c, const Cached& e) { // DC and DE (R 0, 1, 4-7): st(i) = st(i) op st(0)
+    template<int R, bool Pop>
+    static void fArithSti(Cpu &c, const Cached &e) { // DC and DE (R 0, 1, 4-7): st(i) = st(i) op st(0)
         next(c, e);
         constexpr int kSwap[8] = {0, 1, 2, 3, 5, 4, 7, 6};
         arith<kSwap[R]>(c, c.st(e.rm), c.st(e.rm), c.st(0));
         if (Pop)
             c.fpuPop();
     }
-    template <bool Wide>
-    static void fLoadMem(Cpu& c, const Cached& e) {
+    template<bool Wide>
+    static void fLoadMem(Cpu &c, const Cached &e) {
         next(c, e);
         c.fpuPush(loadReal(c, address(c, e), Wide));
     }
-    template <bool Wide, bool Pop>
-    static void fStoreMem(Cpu& c, const Cached& e) {
+    template<bool Wide, bool Pop>
+    static void fStoreMem(Cpu &c, const Cached &e) {
         next(c, e);
         storeReal(c, address(c, e), Pop ? c.fpuPop() : c.st(0), Wide);
     }
-    static void fLoadInt(Cpu& c, const Cached& e) { // DB /0
+    static void fLoadInt(Cpu &c, const Cached &e) { // DB /0
         next(c, e);
         c.fpuPush(double(int32_t(c.load(address(c, e), 4))));
     }
-    static void fLoadSt(Cpu& c, const Cached& e) {
+    static void fLoadSt(Cpu &c, const Cached &e) {
         next(c, e);
         c.fpuPush(c.st(e.rm));
     }
-    template <bool Pop>
-    static void fStoreSt(Cpu& c, const Cached& e) { // DD D0+i, D8+i
+    template<bool Pop>
+    static void fStoreSt(Cpu &c, const Cached &e) { // DD D0+i, D8+i
         next(c, e);
         c.st(e.rm) = c.st(0);
         if (Pop)
             c.fpuPop();
     }
-    static void fxch(Cpu& c, const Cached& e) {
+    static void fxch(Cpu &c, const Cached &e) {
         next(c, e);
         std::swap(c.st(0), c.st(e.rm));
     }
-    static void fchs(Cpu& c, const Cached& e) {
+    static void fchs(Cpu &c, const Cached &e) {
         next(c, e);
         c.st(0) = -c.st(0);
     }
-    static void fabs(Cpu& c, const Cached& e) {
+    static void fabs(Cpu &c, const Cached &e) {
         next(c, e);
         c.st(0) = std::fabs(c.st(0));
     }
-    template <int V>
-    static void fLoadConstant(Cpu& c, const Cached& e) { // FLDZ, FLD1
+    template<int V>
+    static void fLoadConstant(Cpu &c, const Cached &e) { // FLDZ, FLD1
         next(c, e);
         c.fpuPush(double(V));
     }
-    static void fnstswAx(Cpu& c, const Cached& e) {
+    static void fnstswAx(Cpu &c, const Cached &e) {
         next(c, e);
         c.writeReg(2, Cpu::EAX, uint16_t((c.fpu.status & ~(7u << 11)) | (c.fpu.top << 11)));
     }
@@ -488,8 +488,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
     if (blocks_.empty()) {
         blocks_.resize(kBlockEntries);
         if (Jit::supported()) {
-            const char* self = reinterpret_cast<const char*>(this);
-            auto at = [&](const void* member) { return size_t(static_cast<const char*>(member) - self); };
+            const char *self = reinterpret_cast<const char *>(this);
+            auto at = [&](const void *member) { return size_t(static_cast<const char *>(member) - self); };
             Jit::Layout l{};
             l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&instructionStart_), l.epoch = at(&codeEpoch_);
             l.eflags = at(&eflags);
@@ -502,7 +502,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             static_assert(sizeof(stop_) == 1, "the stop flag a byte, as the Jit reads it");
             l.stop = at(&stop_), l.runReturn = at(&run_.returnAddress), l.runNative = at(&run_.nativeStart);
             l.runEnd = at(&run_.end);
-            l.blocks = reinterpret_cast<const uint8_t*>(blocks_.data());
+            l.blocks = reinterpret_cast<const uint8_t *>(blocks_.data());
             l.blockSize = uint32_t(sizeof(Block)), l.blockMask = kBlockEntries - 1;
             l.nativeBase = nativeBase_, l.callNative = &Cpu::jitCallNative;
             jit_ = std::make_unique<Jit>(l);
@@ -510,21 +510,21 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                 jit_.reset();
         }
     }
-    Jit* const jit = jitOn ? jit_.get() : nullptr;
+    Jit *const jit = jitOn ? jit_.get() : nullptr;
     // This run's bounds, for the Jit's dispatch; the run this one is
     // inside of (a native's call back in) gets its own back after.
     struct Bounds {
-        decltype(run_)& now;
+        decltype(run_) &now;
         const decltype(run_) before;
-        Bounds(decltype(run_)& r, uint32_t ret, uint32_t natives, uint64_t end) : now(r), before(r) {
+        Bounds(decltype(run_) &r, uint32_t ret, uint32_t natives, uint64_t end) : now(r), before(r) {
             now = {ret, natives, end};
         }
         ~Bounds() { now = before; }
     } bounds{run_, returnAddress, nativeStart, eventsAt()};
     // Where events() is due: the limit, or a thread's slice.
     uint64_t end = eventsAt();
-    Block* const blocks = blocks_.data();
-    const uint8_t* const memory = memory_.data();
+    Block *const blocks = blocks_.data();
+    const uint8_t *const memory = memory_.data();
     do {
         if (stop_.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
             instructionStart_ = eip;
@@ -534,11 +534,11 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             fault("stopped");
         }
         const uint32_t pair = slotOf(eip);
-        uint8_t& recent = recent_[pair >> 1];
+        uint8_t &recent = recent_[pair >> 1];
         // The one of the pair it's in, else the one used less lately.
         const uint32_t way = blocks[pair].start == eip ? 0 : blocks[pair + 1].start == eip ? 1 : recent ^ 1;
         recent = uint8_t(way);
-        Block& b = blocks[pair + way];
+        Block &b = blocks[pair + way];
         bool fresh = b.start == eip;
         if (fresh && b.epoch != codeEpoch_) {
             uint64_t differ = 0;
@@ -570,8 +570,8 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         for (uint32_t to : b.next)
             if (to != 0xffffffffu)
                 RELUVA_PREFETCH(&blocks[slotOf(to)]);
-        const Cached* e = b.ops;
-        const Cached* const last = e + b.count - 1;
+        const Cached *e = b.ops;
+        const Cached *const last = e + b.count - 1;
         if (executed_ + b.count <= end) {
             // Counted as a whole; a fault part way through uncounts the
             // rest (uncountBlock). Only a block's last instruction reads
@@ -591,13 +591,13 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                     // Counted while it runs: native code a native's call back
                     // in made mustn't be forgotten under it (compileBlock).
                     struct Depth {
-                        int& d;
-                        explicit Depth(int& n) : d(n) { ++d; }
+                        int &d;
+                        explicit Depth(int &n) : d(n) { ++d; }
                         ~Depth() { --d; }
                     } depth{jitDepth_};
                     try {
                         jit->run(this, b.jit);
-                    } catch (FirstPageLoad&) {
+                    } catch (FirstPageLoad &) {
                         // A load from the first page, which reads 0
                         // (readableFirstPage): the instruction run from its
                         // bytes, counted already.
@@ -654,17 +654,17 @@ struct Made {
     bool lahf = true; // needs Jit::flagsOps
 };
 struct MadeTable {
-    std::unordered_map<const void*, Made> map;
-    template <class F>
-    Made& operator[](F* handler) {
-        return map[reinterpret_cast<const void*>(handler)];
+    std::unordered_map<const void *, Made> map;
+    template<class F>
+    Made &operator[](F *handler) {
+        return map[reinterpret_cast<const void *>(handler)];
     }
 };
 // By the handler's address.
-const std::unordered_map<const void*, Made>& madeWithFlags() {
+const std::unordered_map<const void *, Made> &madeWithFlags() {
     using O = CachedOps;
     using K = Jit::Kind;
-    static const std::unordered_map<const void*, Made> made = [] {
+    static const std::unordered_map<const void *, Made> made = [] {
         MadeTable m;
         auto sizes = [&]<int Op>(std::integral_constant<int, Op>) {
             m[&O::aluRmReg<Op, 1>] = {K::Alu, Op, 0, 1, 0}, m[&O::aluRmReg<Op, 4>] = {K::Alu, Op, 0, 4, 0};
@@ -715,15 +715,15 @@ const std::unordered_map<const void*, Made>& madeWithFlags() {
 }
 } // namespace
 
-void Cpu::compileBlock(Block& b) {
+void Cpu::compileBlock(Block &b) {
     using O = CachedOps;
     using K = Jit::Kind;
     static const bool flags = Jit::flagsOps();
     Jit::Op ops[kBlockOps];
     uint32_t at = b.start;
     for (int i = 0; i < b.count; ++i) {
-        const Cached& e = b.ops[i];
-        Jit::Op& o = ops[i];
+        const Cached &e = b.ops[i];
+        Jit::Op &o = ops[i];
         o.start = at;
         o.length = e.length;
         o.reg = e.reg, o.rm = e.rm, o.scale = e.scale, o.base = e.base, o.index = e.index;
@@ -760,21 +760,20 @@ void Cpu::compileBlock(Block& b) {
             // SHL (and SAL, 6), SHR, SAR by 1 to 31.
             o.kind = K::Alu, o.form = 3, o.size = 4, o.imm = e.imm & 31;
             o.alu = uint8_t(e.sub == 5 ? 12 : e.sub == 7 ? 13 : 11);
-        }
-        else if (auto it = madeWithFlags().find(reinterpret_cast<const void*>(run));
-                 it != madeWithFlags().end() && (flags || !it->second.lahf)) {
+        } else if (auto it = madeWithFlags().find(reinterpret_cast<const void *>(run));
+                   it != madeWithFlags().end() && (flags || !it->second.lahf)) {
             o.kind = it->second.kind, o.alu = it->second.alu, o.form = it->second.form;
             o.size = it->second.size, o.cc = it->second.cc;
             if (run == &O::incDecReg<0> || run == &O::incDecReg<5>)
                 o.mem = false; // INC and DEC of a register: its number in rm
         } else
-            o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
+            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         // One run from its bytes (length 0) can't be made here: it reads eip.
         if (!e.length)
-            o.kind = K::Call, o.handler = reinterpret_cast<const void*>(run), o.entry = &e;
+            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         at += e.length;
     }
-    const uint8_t* code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
+    const uint8_t *code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
     if (!code && jitDepth_ == 0) {
         jit_->reset();
         code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
@@ -783,8 +782,8 @@ void Cpu::compileBlock(Block& b) {
     b.jitGeneration = code ? jit_->generation() : 0;
 }
 
-void Cpu::jitMemoryFault(void* cpu, uint32_t address, uint32_t size) {
-    Cpu& c = *static_cast<Cpu*>(cpu);
+void Cpu::jitMemoryFault(void *cpu, uint32_t address, uint32_t size) {
+    Cpu &c = *static_cast<Cpu *>(cpu);
     if (c.readableFirstPage && address < kPageSize && address + size <= kPageSize) {
         // Perhaps a load (a store faults still): runCached runs the
         // instruction again from its bytes, as one that faulted would be
@@ -799,13 +798,13 @@ void Cpu::jitMemoryFault(void* cpu, uint32_t address, uint32_t size) {
 // out of any block's count, and with no made code under it but the
 // dispatch's (which reset() keeps), so a run it calls back into may make
 // the buffer afresh.
-int Cpu::jitCallNative(void* cpu) {
-    Cpu& c = *static_cast<Cpu*>(cpu);
+int Cpu::jitCallNative(void *cpu) {
+    Cpu &c = *static_cast<Cpu *>(cpu);
     c.counting_.ops = nullptr;
     c.instructionStart_ = c.eip;
     struct Out {
-        int& d;
-        explicit Out(int& n) : d(n) { --d; }
+        int &d;
+        explicit Out(int &n) : d(n) { --d; }
         ~Out() { ++d; }
     } out{c.jitDepth_};
     c.callNative(c.eip);
@@ -813,7 +812,7 @@ int Cpu::jitCallNative(void* cpu) {
 }
 
 void Cpu::uncountBlock() {
-    const Cached* ops = counting_.ops;
+    const Cached *ops = counting_.ops;
     if (!ops)
         return;
     counting_.ops = nullptr;
@@ -828,7 +827,7 @@ void Cpu::uncountBlock() {
 // Makes the block that starts at `at`: its instructions up to the first
 // that may go elsewhere (or runs from its bytes), at most kBlockOps of
 // them and 8 * kBlockWords bytes.
-void Cpu::build(Block& b, uint32_t at) {
+void Cpu::build(Block &b, uint32_t at) {
     b.start = at;
     b.count = 0;
     b.jit = nullptr; // made again when it runs
@@ -836,7 +835,7 @@ void Cpu::build(Block& b, uint32_t at) {
     b.runs = 0;
     uint32_t bytes = 0;
     for (;;) {
-        Cached& e = b.ops[b.count++];
+        Cached &e = b.ops[b.count++];
         decode(e, at + bytes);
         bytes += e.length;
         if (e.ends || b.count == kBlockOps || bytes + 16 > 8 * kBlockWords)
@@ -846,7 +845,7 @@ void Cpu::build(Block& b, uint32_t at) {
     // block's bytes are those before it.
     b.bytes = uint8_t(bytes);
     // Where it goes next, when that's known.
-    const Cached& last = b.ops[b.count - 1];
+    const Cached &last = b.ops[b.count - 1];
     b.next[0] = b.next[1] = 0xffffffffu;
     if (!last.ends) {
         b.next[0] = at + bytes; // full: straight on
@@ -873,17 +872,17 @@ void Cpu::build(Block& b, uint32_t at) {
     b.epoch = codeEpoch_;
 }
 
-void Cpu::rebuild(Block& b, uint32_t at) {
+void Cpu::rebuild(Block &b, uint32_t at) {
     if (b.jit && b.start != 0xffffffffu && b.start != at) { // put by for when it comes round again
         if (spare_.size() >= kSpareBlocks)
             spare_.clear();
-        auto& kept = spare_[b.start];
+        auto &kept = spare_[b.start];
         if (!kept)
             kept = std::make_unique<Block>();
         *kept = b;
     }
     if (auto it = spare_.find(at); it != spare_.end()) {
-        Block& k = *it->second;
+        Block &k = *it->second;
         bool same = valid(at, 8u * k.words);
         for (int w = 0; same && w < k.words; ++w) {
             uint64_t now;
@@ -903,25 +902,30 @@ void Cpu::rebuild(Block& b, uint32_t at) {
 
 // Makes the entry for the instruction at `at`: a handler of its own if it's
 // one of those that have one, else one that runs it from its bytes.
-void Cpu::decode(Cached& e, uint32_t at) {
+void Cpu::decode(Cached &e, uint32_t at) {
     using O = CachedOps;
     using Handler = Cached::Handler;
     // Handlers by operand size (1, 2, 4 bytes), operation and condition.
-#define RELUVA_BY_OP(name, size)                                                                              \
-    {&O::name<0, size>, &O::name<1, size>, &O::name<2, size>, &O::name<3, size>,                              \
-     &O::name<4, size>, &O::name<5, size>, &O::name<6, size>, &O::name<7, size>}
-#define RELUVA_BY_SIZE(name) {RELUVA_BY_OP(name, 1), RELUVA_BY_OP(name, 2), RELUVA_BY_OP(name, 4)}
+#define RELUVA_BY_OP(name, size)                                                                                       \
+    {                                                                                                                  \
+        &O::name<0, size>, &O::name<1, size>, &O::name<2, size>, &O::name<3, size>, &O::name<4, size>,                 \
+            &O::name<5, size>, &O::name<6, size>, &O::name<7, size>                                                    \
+    }
+#define RELUVA_BY_SIZE(name)                                                                                           \
+    { RELUVA_BY_OP(name, 1), RELUVA_BY_OP(name, 2), RELUVA_BY_OP(name, 4) }
     static constexpr Handler kAluRmReg[3][8] = RELUVA_BY_SIZE(aluRmReg);
     static constexpr Handler kAluRegRm[3][8] = RELUVA_BY_SIZE(aluRegRm);
     static constexpr Handler kAluAccImm[3][8] = RELUVA_BY_SIZE(aluAccImm);
     static constexpr Handler kAluRmImm[3][8] = RELUVA_BY_SIZE(aluRmImm);
 #undef RELUVA_BY_SIZE
 #undef RELUVA_BY_OP
-#define RELUVA_BY_R(name, ...)                                                                                \
-    {&O::name<0 __VA_ARGS__>, &O::name<1 __VA_ARGS__>, &O::name<2 __VA_ARGS__>, &O::name<3 __VA_ARGS__>,       \
-     &O::name<4 __VA_ARGS__>, &O::name<5 __VA_ARGS__>, &O::name<6 __VA_ARGS__>, &O::name<7 __VA_ARGS__>}
-    static constexpr Handler kJcc[16] = {&O::jcc<0>,  &O::jcc<1>,  &O::jcc<2>,  &O::jcc<3>,  &O::jcc<4>,  &O::jcc<5>,
-                                         &O::jcc<6>,  &O::jcc<7>,  &O::jcc<8>,  &O::jcc<9>,  &O::jcc<10>, &O::jcc<11>,
+#define RELUVA_BY_R(name, ...)                                                                                         \
+    {                                                                                                                  \
+        &O::name<0 __VA_ARGS__>, &O::name<1 __VA_ARGS__>, &O::name<2 __VA_ARGS__>, &O::name<3 __VA_ARGS__>,            \
+            &O::name<4 __VA_ARGS__>, &O::name<5 __VA_ARGS__>, &O::name<6 __VA_ARGS__>, &O::name<7 __VA_ARGS__>         \
+    }
+    static constexpr Handler kJcc[16] = {&O::jcc<0>,  &O::jcc<1>,  &O::jcc<2>,  &O::jcc<3>, &O::jcc<4>,  &O::jcc<5>,
+                                         &O::jcc<6>,  &O::jcc<7>,  &O::jcc<8>,  &O::jcc<9>, &O::jcc<10>, &O::jcc<11>,
                                          &O::jcc<12>, &O::jcc<13>, &O::jcc<14>, &O::jcc<15>};
     static constexpr Handler kFArithMem[2][8] = {RELUVA_BY_R(fArithMem, , false), RELUVA_BY_R(fArithMem, , true)};
     static constexpr Handler kFArithSt0[8] = RELUVA_BY_R(fArithSt0);
@@ -933,7 +937,7 @@ void Cpu::decode(Cached& e, uint32_t at) {
     e.ends = true;
     if (!valid(at, 16))
         return;
-    const uint8_t* p = memory_.data() + at;
+    const uint8_t *p = memory_.data() + at;
     size_t i = 0;
     bool o16 = false; // an operand-size prefix
     for (;; ++i) {
@@ -958,16 +962,26 @@ void Cpu::decode(Cached& e, uint32_t at) {
         return;
     }
     switch (op) { // other prefixes: from the bytes
-    case 0x26: case 0x2e: case 0x36: case 0x3e: case 0x64: case 0x65: case 0x66: case 0x67:
-    case 0xf0: case 0xf2: case 0xf3:
+    case 0x26:
+    case 0x2e:
+    case 0x36:
+    case 0x3e:
+    case 0x64:
+    case 0x65:
+    case 0x66:
+    case 0x67:
+    case 0xf0:
+    case 0xf2:
+    case 0xf3:
         return;
-    default: break;
+    default:
+        break;
     }
     const bool twoByte = op == 0x0f;
     if (twoByte)
         op = p[i++];
     const int wideIndex = o16 ? 1 : 2; // the handlers for a full-sized operand
-    bool sized = false; // the handler chosen heeds the operand size
+    bool sized = false;                // the handler chosen heeds the operand size
     // The ModRM operand: a register (e.rm) or memory (base, index, scale,
     // displacement).
     auto modrm = [&] {
@@ -1052,9 +1066,15 @@ void Cpu::decode(Cached& e, uint32_t at) {
         sized = true;
         switch (op & 7) {
         case 0:
-        case 1: modrm(); run = kAluRmReg[size][sub]; break;
+        case 1:
+            modrm();
+            run = kAluRmReg[size][sub];
+            break;
         case 2:
-        case 3: modrm(); run = kAluRegRm[size][sub]; break;
+        case 3:
+            modrm();
+            run = kAluRegRm[size][sub];
+            break;
         default:
             e.imm = (op & 1) ? immOsz() : imm8();
             run = kAluAccImm[size][sub];
@@ -1119,8 +1139,14 @@ void Cpu::decode(Cached& e, uint32_t at) {
         }
     } else {
         switch (op) {
-        case 0x68: e.imm = imm32(); run = &O::pushImm; break;
-        case 0x6a: e.imm = simm8(); run = &O::pushImm; break;
+        case 0x68:
+            e.imm = imm32();
+            run = &O::pushImm;
+            break;
+        case 0x6a:
+            e.imm = simm8();
+            run = &O::pushImm;
+            break;
         case 0x69:
         case 0x6b:
             modrm();
@@ -1135,19 +1161,41 @@ void Cpu::decode(Cached& e, uint32_t at) {
             run = kAluRmImm[op == 0x80 ? 0 : wideIndex][e.reg];
             sized = true;
             break;
-        case 0x84: modrm(); run = &O::testRmReg<1>; break;
-        case 0x85: modrm(); run = bySize(&O::testRmReg<2>, &O::testRmReg<4>); break;
-        case 0x88: modrm(); run = &O::movRmReg<1>; break;
-        case 0x89: modrm(); run = bySize(&O::movRmReg<2>, &O::movRmReg<4>); break;
-        case 0x8a: modrm(); run = &O::movRegRm<1>; break;
-        case 0x8b: modrm(); run = bySize(&O::movRegRm<2>, &O::movRegRm<4>); break;
+        case 0x84:
+            modrm();
+            run = &O::testRmReg<1>;
+            break;
+        case 0x85:
+            modrm();
+            run = bySize(&O::testRmReg<2>, &O::testRmReg<4>);
+            break;
+        case 0x88:
+            modrm();
+            run = &O::movRmReg<1>;
+            break;
+        case 0x89:
+            modrm();
+            run = bySize(&O::movRmReg<2>, &O::movRmReg<4>);
+            break;
+        case 0x8a:
+            modrm();
+            run = &O::movRegRm<1>;
+            break;
+        case 0x8b:
+            modrm();
+            run = bySize(&O::movRegRm<2>, &O::movRegRm<4>);
+            break;
         case 0x8d:
             modrm();
             if (e.mem)
                 run = &O::lea;
             break;
-        case 0x90: run = &O::nop; break;
-        case 0x99: run = &O::cdq; break;
+        case 0x90:
+            run = &O::nop;
+            break;
+        case 0x99:
+            run = &O::cdq;
+            break;
         case 0xa0: // MOV AL/EAX, moffs; MOV moffs, AL/EAX
         case 0xa1:
         case 0xa2:
@@ -1160,8 +1208,14 @@ void Cpu::decode(Cached& e, uint32_t at) {
                   : op == 0xa2 ? &O::movRmReg<1>
                                : bySize(&O::movRmReg<2>, &O::movRmReg<4>);
             break;
-        case 0xa8: e.imm = imm8(); run = &O::testAccImm<1>; break;
-        case 0xa9: e.imm = immOsz(); run = bySize(&O::testAccImm<2>, &O::testAccImm<4>); break;
+        case 0xa8:
+            e.imm = imm8();
+            run = &O::testAccImm<1>;
+            break;
+        case 0xa9:
+            e.imm = immOsz();
+            run = bySize(&O::testAccImm<2>, &O::testAccImm<4>);
+            break;
         case 0xc0:
         case 0xc1:
         case 0xd0:
@@ -1179,14 +1233,38 @@ void Cpu::decode(Cached& e, uint32_t at) {
             }
             break;
         }
-        case 0xc2: e.imm = imm16(); run = &O::ret; break;
-        case 0xc3: run = &O::ret; break;
-        case 0xc6: modrm(); e.imm = imm8(); run = &O::movRmImm<1>; break;
-        case 0xc7: modrm(); e.imm = immOsz(); run = bySize(&O::movRmImm<2>, &O::movRmImm<4>); break;
-        case 0xc9: run = &O::leave; break;
-        case 0xe8: e.imm = imm32(); run = &O::call; break;
-        case 0xe9: e.imm = imm32(); run = &O::jmp; break;
-        case 0xeb: e.imm = simm8(); run = &O::jmp; break;
+        case 0xc2:
+            e.imm = imm16();
+            run = &O::ret;
+            break;
+        case 0xc3:
+            run = &O::ret;
+            break;
+        case 0xc6:
+            modrm();
+            e.imm = imm8();
+            run = &O::movRmImm<1>;
+            break;
+        case 0xc7:
+            modrm();
+            e.imm = immOsz();
+            run = bySize(&O::movRmImm<2>, &O::movRmImm<4>);
+            break;
+        case 0xc9:
+            run = &O::leave;
+            break;
+        case 0xe8:
+            e.imm = imm32();
+            run = &O::call;
+            break;
+        case 0xe9:
+            e.imm = imm32();
+            run = &O::jmp;
+            break;
+        case 0xeb:
+            e.imm = simm8();
+            run = &O::jmp;
+            break;
         case 0xf6:
         case 0xf7:
             modrm();
@@ -1206,15 +1284,25 @@ void Cpu::decode(Cached& e, uint32_t at) {
             modrm();
             switch (e.reg) {
             case 0:
-            case 1: run = bySize(e.reg ? &O::incDecRm<5, 2> : &O::incDecRm<0, 2>,
-                                 e.reg ? &O::incDecRm<5, 4> : &O::incDecRm<0, 4>); break;
-            case 2: run = &O::callRm; break;
-            case 4: run = &O::jmpRm; break;
-            case 6: run = &O::pushRm; break;
-            default: break;
+            case 1:
+                run = bySize(e.reg ? &O::incDecRm<5, 2> : &O::incDecRm<0, 2>,
+                             e.reg ? &O::incDecRm<5, 4> : &O::incDecRm<0, 4>);
+                break;
+            case 2:
+                run = &O::callRm;
+                break;
+            case 4:
+                run = &O::jmpRm;
+                break;
+            case 6:
+                run = &O::pushRm;
+                break;
+            default:
+                break;
             }
             break;
-        default: break;
+        default:
+            break;
         }
     }
     if (!run && plain) {

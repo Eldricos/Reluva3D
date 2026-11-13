@@ -14,7 +14,7 @@
 
 namespace reluva::idtech3 {
 
-void MenuLayer::attach(gfx::Renderer3D* renderer, int w, int h) {
+void MenuLayer::attach(gfx::Renderer3D *renderer, int w, int h) {
     detach();
     renderer_ = renderer;
     frameW_ = w;
@@ -35,7 +35,7 @@ void MenuLayer::attach(gfx::Renderer3D* renderer, int w, int h) {
 
 void MenuLayer::detach() {
     if (ctx_.mixer)
-        for (const auto& [channel, handle] : channels_)
+        for (const auto &[channel, handle] : channels_)
             ctx_.mixer->stop(handle);
     channels_.clear();
     scene_.reset();
@@ -69,9 +69,9 @@ bool MenuLayer::start(int32_t menu) {
     if (!ctx_.homePath.empty())
         ui_->setKeyFile(ctx_.homePath / "cdkey.txt"); // whatever the mod
     if (ctx_.mixer)
-        ui_->startLocalSound = [this](const std::string& name, int channel) { playSound(name, channel); };
+        ui_->startLocalSound = [this](const std::string &name, int channel) { playSound(name, channel); };
     ui_->browser = browser;
-    ui_->resolveHost = [this](const std::string& host, uint32_t& ip) { return ctx_.sys.resolveHost(host, ip); };
+    ui_->resolveHost = [this](const std::string &host, uint32_t &ip) { return ctx_.sys.resolveHost(host, ip); };
     if (configure)
         configure(*ui_);
     Error err = ui_->load();
@@ -103,7 +103,7 @@ void MenuLayer::reset() {
     commands_.clear();
 }
 
-void MenuLayer::stop(const Error& err) {
+void MenuLayer::stop(const Error &err) {
     error_ = "The menus stopped: " + err.message;
     reportPath_.clear();
     if (ui_ && !ui_->log().empty()) {
@@ -120,7 +120,7 @@ void MenuLayer::stop(const Error& err) {
         const std::filesystem::path report = ctx_.savePath / "menus-stopped.txt";
         std::ofstream out(report);
         out << error_ << "\n\nThe last system calls, oldest first:\n";
-        for (const std::string& line : ui_->recentCalls())
+        for (const std::string &line : ui_->recentCalls())
             out << "  " << line << "\n";
         out << "\nWhat the menus printed:\n" << ui_->log();
         if (out)
@@ -167,7 +167,7 @@ void MenuLayer::syncCursor() {
 
 void MenuLayer::findCursor() {
     // The pointer is the last picture drawn with the cursor shader.
-    const auto& pictures = ui_->pictures();
+    const auto &pictures = ui_->pictures();
     for (auto it = pictures.rbegin(); it != pictures.rend(); ++it) {
         if (normalizeArchiveName(ui_->shaders().name(it->shader)).rfind("menu/common/cursor", 0) != 0)
             continue;
@@ -180,7 +180,7 @@ void MenuLayer::findCursor() {
         const float x = it->x - cursorOffsetX_, y = it->y - cursorOffsetY_;
         // How far the steps since the last frame moved it, against what
         // was expected; not at the screen's edges, where it stops.
-        auto learn = [](float& gain, float moved, float expected, float pos, float size) {
+        auto learn = [](float &gain, float moved, float expected, float pos, float size) {
             if (std::abs(expected) < 3 || pos < 2 || pos > size - 2)
                 return;
             const float ratio = moved / expected * gain;
@@ -200,7 +200,7 @@ void MenuLayer::findCursor() {
     haveCursor_ = false;
 }
 
-void MenuLayer::playSound(const std::string& name, int channel) {
+void MenuLayer::playSound(const std::string &name, int channel) {
     const auto sound = sounds_.get(name);
     if (!sound)
         return;
@@ -210,7 +210,7 @@ void MenuLayer::playSound(const std::string& name, int channel) {
             ctx_.mixer->stop(it->second);
     }
     // At s_volume, as the original (0.8 unless set).
-    const CvarStore::Cvar* volume = cvars_.find("s_volume");
+    const CvarStore::Cvar *volume = cvars_.find("s_volume");
     const float scale = volume ? std::clamp(std::strtof(volume->value.c_str(), nullptr), 0.0f, 1.0f) : 0.8f;
     const audio::SoundHandle handle =
         ctx_.mixer->play(sound, audio::SoundType::Effects, int(scale * float(audio::kMaxVolume)));
@@ -218,7 +218,7 @@ void MenuLayer::playSound(const std::string& name, int channel) {
         channels_[channel] = handle;
 }
 
-void MenuLayer::handleEvent(const Event& ev) {
+void MenuLayer::handleEvent(const Event &ev) {
     if (!ui_)
         return;
     Error err;
@@ -260,7 +260,8 @@ void MenuLayer::handleEvent(const Event& ev) {
         mouseY_ = ev.mouseY;
         haveMouse_ = true;
         break;
-    default: break;
+    default:
+        break;
     }
     if (err)
         stop(err);
@@ -275,7 +276,7 @@ void MenuLayer::key(int32_t q3key, bool down) {
 
 std::vector<std::string> MenuLayer::takeCommands() {
     if (ui_)
-        for (const auto& all = ui_->commands(); commandsSeen_ < all.size(); ++commandsSeen_)
+        for (const auto &all = ui_->commands(); commandsSeen_ < all.size(); ++commandsSeen_)
             commands_.push_back(all[commandsSeen_]);
     return std::exchange(commands_, {});
 }
@@ -302,11 +303,11 @@ void MenuLayer::frame(uint64_t nowMs) {
     // scene (the player model in Player settings...) over the pictures
     // drawn before it.
     const float seconds = float(time) / 1000.0f;
-    const auto& scene = ui_->scene();
+    const auto &scene = ui_->scene();
     scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
     size_t drawn = 0;
     bool first = true;
-    for (const auto& v : scene.views) {
+    for (const auto &v : scene.views) {
         scene_->drawPictures(pictures, drawn, v.picturesBefore, frameW_, frameH_, seconds);
         drawn = std::max(drawn, v.picturesBefore);
         scene_->drawView(scene, v, frameW_, frameH_, seconds, first, nullptr, nullptr, true);

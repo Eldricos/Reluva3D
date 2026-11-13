@@ -16,26 +16,28 @@ namespace {
 constexpr float kPi = 3.14159265358979f;
 }
 
-int32_t readInt(const std::vector<uint8_t>& bytes, size_t at) {
+int32_t readInt(const std::vector<uint8_t> &bytes, size_t at) {
     int32_t v = 0;
     if (at + 4 <= bytes.size())
         std::memcpy(&v, &bytes[at], 4);
     return v;
 }
 
-float readFloat(const std::vector<uint8_t>& bytes, size_t at) { return Qvm::asFloat(readInt(bytes, at)); }
+float readFloat(const std::vector<uint8_t> &bytes, size_t at) {
+    return Qvm::asFloat(readInt(bytes, at));
+}
 
-gfx::Vec3 readVec(const std::vector<uint8_t>& bytes, size_t at) {
+gfx::Vec3 readVec(const std::vector<uint8_t> &bytes, size_t at) {
     return {readFloat(bytes, at), readFloat(bytes, at + 4), readFloat(bytes, at + 8)};
 }
 
-void SceneDrawer::setHandles(const Handles& handles) {
+void SceneDrawer::setHandles(const Handles &handles) {
     if (handles.shaders != handles_.shaders) {
-        Caches& mine = others_[handles_.shaders];
+        Caches &mine = others_[handles_.shaders];
         mine.modelIds = std::move(modelIds_);
         mine.pictureMaterials = std::move(pictureMaterials_);
         mine.effectMaterials = std::move(effectMaterials_);
-        Caches& theirs = others_[handles.shaders];
+        Caches &theirs = others_[handles.shaders];
         modelIds_ = std::move(theirs.modelIds);
         pictureMaterials_ = std::move(theirs.pictureMaterials);
         effectMaterials_ = std::move(theirs.effectMaterials);
@@ -45,7 +47,7 @@ void SceneDrawer::setHandles(const Handles& handles) {
 }
 
 SceneDrawer::~SceneDrawer() {
-    for (const auto& generation : images_)
+    for (const auto &generation : images_)
         for (gfx::TextureId t : generation)
             r_.destroyTexture(t);
 }
@@ -58,8 +60,8 @@ void SceneDrawer::newFrame() {
     images_[0].clear();
 }
 
-void SceneDrawer::drawImage(const uint8_t* rgba, int cols, int rows, float x, float y, float w, float h,
-                            int screenW, int screenH) {
+void SceneDrawer::drawImage(const uint8_t *rgba, int cols, int rows, float x, float y, float w, float h, int screenW,
+                            int screenH) {
     if (!rgba || cols <= 0 || rows <= 0)
         return;
     gfx::TextureParams params;
@@ -131,25 +133,25 @@ int SceneDrawer::beamMaterial() {
     return beamMaterial_;
 }
 
-const std::string& SceneDrawer::name(const HandleTable* table, int32_t handle) {
+const std::string &SceneDrawer::name(const HandleTable *table, int32_t handle) {
     static const std::string none;
     return table ? table->name(handle) : none;
 }
 
-int SceneDrawer::material(std::vector<int>& cache, int32_t handle, Lighting lighting) {
+int SceneDrawer::material(std::vector<int> &cache, int32_t handle, Lighting lighting) {
     // (A handle from the program: none past those registered.)
     if (handle <= 0 || !handles_.shaders || size_t(handle) > handles_.shaders->size() + 1)
         return -1;
     if (size_t(handle) >= cache.size())
         cache.resize(size_t(handle) + 1, -2);
-    int& m = cache[size_t(handle)];
+    int &m = cache[size_t(handle)];
     if (m == -2)
         m = shaders_.material(name(handles_.shaders, handle), lighting);
     return m;
 }
 
-void SceneDrawer::drawPictures(const std::vector<Picture>& pictures, size_t first, size_t last,
-                               int screenW, int screenH, float time) {
+void SceneDrawer::drawPictures(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW,
+                               int screenH, float time) {
     last = std::min(last, pictures.size());
     if (first >= last)
         return;
@@ -159,7 +161,7 @@ void SceneDrawer::drawPictures(const std::vector<Picture>& pictures, size_t firs
     vertices.reserve((last - first) * 4);
     indices.reserve((last - first) * 6);
     for (size_t n = first; n < last; ++n) {
-        const auto& p = pictures[n];
+        const auto &p = pictures[n];
         const auto base = uint32_t(vertices.size());
         uint8_t rgba[4];
         for (int i = 0; i < 4; ++i)
@@ -219,10 +221,9 @@ void SceneDrawer::drawPictures(const std::vector<Picture>& pictures, size_t firs
     r_.destroyMesh(mesh);
 }
 
-void SceneDrawer::drawView(const Scene& scene, const View& view, int screenW, int screenH,
-                           float time, bool firstView, WorldRenderer* world, const LightGrid* grid,
-                           bool dynamicLights) {
-    const std::vector<uint8_t>& refdef = view.refdef;
+void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, int screenH, float time, bool firstView,
+                           WorldRenderer *world, const LightGrid *grid, bool dynamicLights) {
+    const std::vector<uint8_t> &refdef = view.refdef;
     mainRefdef_ = refdef;
     const bool withWorld = world && !(readInt(refdef, 76) & kNoWorldModel);
     // refdef_t: fov y at 20, the eye at 24, the axes from 36: forward,
@@ -277,7 +278,7 @@ void SceneDrawer::drawView(const Scene& scene, const View& view, int screenW, in
     drawLayers(time, world && withWorld ? world : nullptr, false);
 }
 
-void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPortal) {
+void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPortal) {
     // The level's solid surfaces and models, with the dynamic lights over
     // them, and the effects that sort with them (marks); then everything
     // else as the original sorts it: by the shaders' sorts, whether the
@@ -286,15 +287,15 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
     // player's own body (third person) is seen and their weapon (first
     // person) isn't, as the original draws them.
     constexpr float kLastOpaque = 5;
-    auto shown = [&](const Placed& p) { return throughPortal ? !p.firstPerson : !p.thirdPerson; };
-    for (Effect& fx : effects_) {
+    auto shown = [&](const Placed &p) { return throughPortal ? !p.firstPerson : !p.thirdPerson; };
+    for (Effect &fx : effects_) {
         fx.material = fx.beam ? beamMaterial() : material(effectMaterials_, fx.shader, Lighting::Effect);
         if (fx.material >= 0 && shaders_.get(fx.material).skip)
             fx.material = -1;
         fx.sort = fx.material >= 0 ? shaders_.get(fx.material).sort : 0;
     }
     auto drawModels = [&](float sortMin, float sortMax) {
-        for (const Placed& p : placed_) {
+        for (const Placed &p : placed_) {
             if (!shown(p))
                 continue;
             r_.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
@@ -305,7 +306,7 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
     };
     if (world) {
         world->drawSurfaces(time, 0, kLastOpaque, true);
-        for (const auto& [model, transform] : brushes_)
+        for (const auto &[model, transform] : brushes_)
             world->drawModel(model, transform, time, 0, kLastOpaque);
         world->drawDynamicLights(lights_);
     }
@@ -331,10 +332,10 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
     std::vector<float> sorts;
     if (world)
         sorts = world->sorts();
-    for (const Placed& p : placed_)
+    for (const Placed &p : placed_)
         if (shown(p))
             models_.addSorts(p.model, p.skin, p.shader, sorts);
-    for (const Effect& fx : effects_)
+    for (const Effect &fx : effects_)
         if (fx.material >= 0)
             sorts.push_back(fx.sort);
     std::sort(sorts.begin(), sorts.end());
@@ -344,7 +345,7 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
             continue;
         if (world) {
             world->drawSurfaces(time, sort, sort, true);
-            for (const auto& [model, transform] : brushes_)
+            for (const auto &[model, transform] : brushes_)
                 world->drawModel(model, transform, time, sort, sort);
         }
         drawModels(sort, sort);
@@ -360,22 +361,30 @@ void SceneDrawer::drawLayers(float time, WorldRenderer* world, bool throughPorta
 namespace {
 
 using V3 = gfx::Vec3;
-V3 sub3(const V3& a, const V3& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-float dot3(const V3& a, const V3& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-V3 cross3(const V3& a, const V3& b) {
+V3 sub3(const V3 &a, const V3 &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+float dot3(const V3 &a, const V3 &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+V3 cross3(const V3 &a, const V3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-V3 scale3(const V3& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-V3 add3(const V3& a, const V3& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
+V3 scale3(const V3 &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+V3 add3(const V3 &a, const V3 &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
 
 // `v` turned `degrees` about the unit axis `axis`.
-V3 rotateAbout(const V3& v, const V3& axis, float degrees) {
+V3 rotateAbout(const V3 &v, const V3 &axis, float degrees) {
     const float r = degrees * kPi / 180, c = std::cos(r), s = std::sin(r);
     return add3(add3(scale3(v, c), scale3(cross3(axis, v), s)), scale3(axis, dot3(axis, v) * (1 - c)));
 }
 
 // A 4x4 matrix's inverse (column-major), by Gauss-Jordan elimination.
-gfx::Mat4 inverse(const gfx::Mat4& m) {
+gfx::Mat4 inverse(const gfx::Mat4 &m) {
     double a[4][8] = {};
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c)
@@ -389,7 +398,7 @@ gfx::Mat4 inverse(const gfx::Mat4& m) {
                 pivot = r;
         std::swap(a[c], a[pivot]);
         const double p = a[c][c] != 0 ? a[c][c] : 1e-12;
-        for (double& v : a[c])
+        for (double &v : a[c])
             v /= p;
         for (int r = 0; r < 4; ++r)
             if (r != c) {
@@ -407,16 +416,16 @@ gfx::Mat4 inverse(const gfx::Mat4& m) {
 
 } // namespace
 
-void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t, 32>& areaMask, const gfx::Vec3& left,
-                                 float fovY, float aspect, const gfx::Mat4& mainViewProj, float time) {
+void SceneDrawer::drawPortalView(WorldRenderer &world, const std::array<uint8_t, 32> &areaMask, const gfx::Vec3 &left,
+                                 float fovY, float aspect, const gfx::Mat4 &mainViewProj, float time) {
     // As the original: the nearest mirror or portal surface in view with a
     // portal entity within 64 units of its plane; a portal (not a mirror)
     // only within its shader's range.
     const auto portals = world.visiblePortals(eye_);
-    const PortalEntity* entity = nullptr;
+    const PortalEntity *entity = nullptr;
     WorldRenderer::Portal surface;
-    for (const auto& p : portals) {
-        for (const PortalEntity& e : portalEntities_) {
+    for (const auto &p : portals) {
+        for (const PortalEntity &e : portalEntities_) {
             const float d = dot3(e.origin, p.normal) - p.dist;
             if (d > 64 || d < -64)
                 continue;
@@ -473,13 +482,13 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
             cAxis[2] = cross3(cAxis[0], cAxis[1]);
         }
     }
-    auto mirrorVector = [&](const V3& v) {
+    auto mirrorVector = [&](const V3 &v) {
         V3 out{};
         for (size_t i = 0; i < 3; ++i)
             out = add3(out, scale3(cAxis[i], dot3(v, sAxis[i])));
         return out;
     };
-    auto mirrorPoint = [&](const V3& p) { return add3(mirrorVector(sub3(p, sOrigin)), cOrigin); };
+    auto mirrorPoint = [&](const V3 &p) { return add3(mirrorVector(sub3(p, sOrigin)), cOrigin); };
     // The main view's placement taken through it.
     const V3 forward = readVec(mainRefdef_, 36), up = readVec(mainRefdef_, 60);
     const V3 eye = mirrorPoint(eye_);
@@ -547,7 +556,7 @@ void SceneDrawer::drawPortalView(WorldRenderer& world, const std::array<uint8_t,
     ++portalViews_;
 }
 
-std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t>& e) const {
+std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t> &e) const {
     // refEntity_t's colour: bytes r, g, b, a.
     std::array<float, 4> c{};
     for (size_t i = 0; i < 4; ++i)
@@ -555,7 +564,7 @@ std::array<float, 4> SceneDrawer::entityColor(const std::vector<uint8_t>& e) con
     return c;
 }
 
-float SceneDrawer::shaderTime(const std::vector<uint8_t>& e, float time) const {
+float SceneDrawer::shaderTime(const std::vector<uint8_t> &e, float time) const {
     // When the entity's shader animations start, in seconds (Quake III's
     // shaderTime): an explosion's from its first frame. Only a time that
     // has come is taken.
@@ -563,28 +572,28 @@ float SceneDrawer::shaderTime(const std::vector<uint8_t>& e, float time) const {
     return t > 0 && t <= time + 1 ? t : 0;
 }
 
-void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left, const gfx::Vec3& up, float time) {
+void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left, const gfx::Vec3 &up, float time) {
     const int32_t type = readInt(e, layout_.type);
     const int32_t shader = readInt(e, layout_.customShader);
     const bool beam = type == layout_.typeBeam;
     if (shader <= 0 && !beam)
         return;
     using V = gfx::Vec3;
-    auto add = [](const V& a, const V& b, float s) { return V{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s}; };
-    auto sub = [](const V& a, const V& b) { return V{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
-    auto cross = [](const V& a, const V& b) {
+    auto add = [](const V &a, const V &b, float s) { return V{a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s}; };
+    auto sub = [](const V &a, const V &b) { return V{a[0] - b[0], a[1] - b[1], a[2] - b[2]}; };
+    auto cross = [](const V &a, const V &b) {
         return V{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     };
     auto normalized = [](V v) {
         const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         if (len > 1e-6f)
-            for (float& c : v)
+            for (float &c : v)
                 c /= len;
         return v;
     };
     const auto first = uint32_t(effectIndices_.size());
     const int32_t rgba = readInt(e, layout_.rgba);
-    auto vertex = [&](const V& pos, float s, float t) {
+    auto vertex = [&](const V &pos, float s, float t) {
         gfx::Vertex v{};
         for (size_t k = 0; k < 3; ++k)
             v.pos[k] = pos[k];
@@ -602,8 +611,8 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
     // A ribbon through `points`, facing the eye (or lying across
     // `across`), as wide as `widths` says at each; the texture across it
     // in s and along it in t, to `repeat` at the end.
-    auto ribbon = [&](const std::vector<V>& points, const std::vector<float>& widths, float repeat,
-                      const V* across = nullptr) {
+    auto ribbon = [&](const std::vector<V> &points, const std::vector<float> &widths, float repeat,
+                      const V *across = nullptr) {
         uint32_t prevA = 0, prevB = 0;
         for (size_t i = 0; i < points.size(); ++i) {
             const V along = sub(points[std::min(i + 1, points.size() - 1)], points[i ? i - 1 : 0]);
@@ -653,8 +662,8 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         uint32_t prevA = 0, prevB = 0;
         for (int i = 0; i <= kSides; ++i) {
             const float ang = 2 * kPi * float(i % kSides) / kSides;
-            const V radial = add(V{perp[0] * std::cos(ang), perp[1] * std::cos(ang), perp[2] * std::cos(ang)}, perp2,
-                                 std::sin(ang));
+            const V radial =
+                add(V{perp[0] * std::cos(ang), perp[1] * std::cos(ang), perp[2] * std::cos(ang)}, perp2, std::sin(ang));
             const uint32_t a = vertex(add(origin, radial, 4), 0, 0), b = vertex(add(end, radial, 4), 0, 0);
             if (i)
                 quad(prevA, a, b, prevB);
@@ -729,7 +738,11 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
         ++otherEntities_;
         return;
     }
-    Effect fx{shader, first, uint32_t(effectIndices_.size()) - first, entityColor(e), shaderTime(e, time),
+    Effect fx{shader,
+              first,
+              uint32_t(effectIndices_.size()) - first,
+              entityColor(e),
+              shaderTime(e, time),
               (readInt(e, layout_.flags) & refent::DepthHack) != 0};
     if (beam) {
         fx.beam = true;
@@ -740,10 +753,10 @@ void SceneDrawer::addEffect(const std::vector<uint8_t>& e, const gfx::Vec3& left
 
 std::string SceneDrawer::effectSummary() const {
     std::map<std::string, int> counts;
-    for (const Effect& fx : effects_)
+    for (const Effect &fx : effects_)
         ++counts[name(handles_.shaders, fx.shader)];
     std::vector<std::pair<int, std::string>> order;
-    for (const auto& [n, c] : counts)
+    for (const auto &[n, c] : counts)
         order.emplace_back(-c, n.empty() ? "(none)" : n);
     std::sort(order.begin(), order.end());
     std::string out;
@@ -761,7 +774,7 @@ void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
         return;
     if (!effectMesh_ && (r_.createMesh(effectVertices_, effectIndices_, effectMesh_) || !effectMesh_))
         return;
-    for (const Effect& fx : effects_) {
+    for (const Effect &fx : effects_) {
         if (fx.material < 0 || fx.sort < sortMin || fx.sort > sortMax)
             continue;
         gfx::DrawCall call;
@@ -774,8 +787,7 @@ void SceneDrawer::drawEffects(float time, float sortMin, float sortMax) {
     r_.setDepthRange(1);
 }
 
-void SceneDrawer::placeEntities(const Scene& scene, const View& view, const LightGrid& grid,
-                                float time) {
+void SceneDrawer::placeEntities(const Scene &scene, const View &view, const LightGrid &grid, float time) {
     // The view's entities: models where the program put them, and effects
     // as quads facing the eye (refdef_t's axes: left at 48, up at 60).
     placed_.clear();
@@ -793,7 +805,7 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
     // texture coordinates and a colour (Quake III's polyVert_t, 24 bytes),
     // drawn as a fan.
     for (size_t i = view.firstPoly; i < view.firstPoly + view.polyCount && i < scene.polys.size(); ++i) {
-        const auto& poly = scene.polys[i];
+        const auto &poly = scene.polys[i];
         const size_t n = std::min(size_t(std::max(poly.vertexCount, 0)), poly.vertices.size() / 24);
         if (n < 3 || poly.shader <= 0)
             continue;
@@ -812,17 +824,19 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
         effects_.push_back({poly.shader, first, uint32_t(effectIndices_.size()) - first, {1, 1, 1, 1}, 0});
     }
     for (size_t i = view.firstEntity; i < view.firstEntity + view.entityCount && i < scene.entities.size(); ++i) {
-        const std::vector<uint8_t>& e = scene.entities[i].bytes;
+        const std::vector<uint8_t> &e = scene.entities[i].bytes;
         if (readInt(e, layout_.type) == layout_.typePortal) {
             // A mirror's or portal's camera (Quake III's portal surface,
             // its type one on in Elite Force's numbering): where it is,
             // where it looks from (the same for a mirror), its axes, and
             // how it turns (frame, old frame, skin number).
-            portalEntities_.push_back({readVec(e, layout_.origin), readVec(e, layout_.oldOrigin),
-                                       {readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
-                                        readVec(e, layout_.axes + 24)},
-                                       readInt(e, layout_.frame), readInt(e, layout_.oldFrame),
-                                       readInt(e, layout_.skinNum)});
+            portalEntities_.push_back(
+                {readVec(e, layout_.origin),
+                 readVec(e, layout_.oldOrigin),
+                 {readVec(e, layout_.axes), readVec(e, layout_.axes + 12), readVec(e, layout_.axes + 24)},
+                 readInt(e, layout_.frame),
+                 readInt(e, layout_.oldFrame),
+                 readInt(e, layout_.skinNum)});
             continue;
         }
         if (readInt(e, layout_.type) != layout_.typeModel) {
@@ -835,7 +849,7 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
         const int32_t flags = readInt(e, layout_.flags);
         // One of the level's own models (*1, *2...: doors, lifts), where the
         // game has moved it.
-        if (const std::string& n = name(handles_.models, readInt(e, layout_.model)); n.size() > 1 && n[0] == '*') {
+        if (const std::string &n = name(handles_.models, readInt(e, layout_.model)); n.size() > 1 && n[0] == '*') {
             std::array<gfx::Vec3, 3> axes{readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
                                           readVec(e, layout_.axes + 24)};
             if (axes[0] == gfx::Vec3{} && axes[1] == gfx::Vec3{} && axes[2] == gfx::Vec3{})
@@ -849,8 +863,8 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
         Placed p;
         const gfx::Vec3 origin = readVec(e, layout_.origin);
         p.model = models_.lod(model, lodLevel(model, readInt(e, layout_.frame), origin));
-        p.transform = placement(origin, {readVec(e, layout_.axes), readVec(e, layout_.axes + 12),
-                                         readVec(e, layout_.axes + 24)});
+        p.transform =
+            placement(origin, {readVec(e, layout_.axes), readVec(e, layout_.axes + 12), readVec(e, layout_.axes + 24)});
         // Between two frames, as far back towards the old one as it says.
         p.frame = readInt(e, layout_.frame);
         p.oldFrame = readInt(e, layout_.oldFrame);
@@ -873,7 +887,7 @@ void SceneDrawer::placeEntities(const Scene& scene, const View& view, const Ligh
     }
 }
 
-void SceneDrawer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const {
+void SceneDrawer::addDynamicLights(PointLight &light, const gfx::Vec3 &at) const {
     // Each dynamic light adds to a model's directed light, from its
     // direction, as the original does: 16 * radius^2 / distance^2 times
     // its colour (distances under 16 counted as 16), on the light grid's
@@ -886,13 +900,13 @@ void SceneDrawer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const
     for (size_t k = 0; k < 3; ++k)
         direction[k] = light.direction[k] * total;
     bool any = false;
-    for (const gfx::DynamicLight& l : lights_) {
+    for (const gfx::DynamicLight &l : lights_) {
         gfx::Vec3 d{l.origin[0] - at[0], l.origin[1] - at[1], l.origin[2] - at[2]};
         float dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
         if (dist >= l.radius)
             continue;
         if (dist > 0)
-            for (float& v : d)
+            for (float &v : d)
                 v /= dist;
         dist = std::max(dist, 16.0f);
         const float power = 16 * l.radius * l.radius / (dist * dist);
@@ -911,7 +925,7 @@ void SceneDrawer::addDynamicLights(PointLight& light, const gfx::Vec3& at) const
             light.direction[k] = direction[k] / len;
 }
 
-int SceneDrawer::lodLevel(int model, int frame, const gfx::Vec3& origin) const {
+int SceneDrawer::lodLevel(int model, int frame, const gfx::Vec3 &origin) const {
     // As the original: the model's radius as seen, as a share of half the
     // view's height (1 at most; 0 when it's at or behind the eye, as the
     // first-person weapon), picks the level: 1 - 5 times it, of the
@@ -919,8 +933,8 @@ int SceneDrawer::lodLevel(int model, int frame, const gfx::Vec3& origin) const {
     const int count = models_.lodCount(model);
     if (count < 2)
         return 0;
-    const float dist = (origin[0] - eye_[0]) * forward_[0] + (origin[1] - eye_[1]) * forward_[1] +
-                       (origin[2] - eye_[2]) * forward_[2];
+    const float dist =
+        (origin[0] - eye_[0]) * forward_[0] + (origin[1] - eye_[1]) * forward_[1] + (origin[2] - eye_[2]) * forward_[2];
     const float seen = dist > 0 ? std::min(models_.radius(model, frame) * focal_ / dist, 1.0f) : 0.0f;
     const float detail = seen > 0 ? 1 - seen * 5 : 0;
     const int level = std::clamp(int(detail * float(count)), 0, count - 1);
@@ -946,9 +960,10 @@ int SceneDrawer::modelId(int32_t handle) {
             unloadable_.insert(name(handles_.models, handle));
         return it->second;
     }
-    const std::string& n = name(handles_.models, handle);
+    const std::string &n = name(handles_.models, handle);
     int id = -1;
-    if (n.size() > 4 && (fs::toLower(n.substr(n.size() - 4)) == ".md3" || fs::toLower(n.substr(n.size() - 4)) == ".mdr"))
+    if (n.size() > 4 &&
+        (fs::toLower(n.substr(n.size() - 4)) == ".md3" || fs::toLower(n.substr(n.size() - 4)) == ".mdr"))
         id = models_.load(n);
     modelIds_[handle] = id;
     if (id < 0)

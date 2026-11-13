@@ -13,8 +13,10 @@ namespace reluva::nfs {
 
 namespace {
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) {
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
@@ -40,15 +42,19 @@ int bytesPerPixel(uint8_t type) {
 }
 
 // The length of text in a fixed-size field, up to its first 0.
-size_t fieldLength(const uint8_t* p, size_t size) {
+size_t fieldLength(const uint8_t *p, size_t size) {
     return static_cast<size_t>(std::find(p, p + size, 0) - p);
 }
 
-uint8_t expand5(unsigned v) { return static_cast<uint8_t>(v << 3 | v >> 2); }
-uint8_t expand6(unsigned v) { return static_cast<uint8_t>(v << 2 | v >> 4); }
+uint8_t expand5(unsigned v) {
+    return static_cast<uint8_t>(v << 3 | v >> 2);
+}
+uint8_t expand6(unsigned v) {
+    return static_cast<uint8_t>(v << 2 | v >> 4);
+}
 
 // One pixel of a picture or palette type as RGBA.
-void toRgba(uint8_t type, const uint8_t* p, uint8_t* out) {
+void toRgba(uint8_t type, const uint8_t *p, uint8_t *out) {
     switch (type) {
     case kShape16Bit565: {
         const unsigned v = le16(p);
@@ -88,7 +94,7 @@ void toRgba(uint8_t type, const uint8_t* p, uint8_t* out) {
 
 } // namespace
 
-const char* shapeTypeName(uint8_t type) {
+const char *shapeTypeName(uint8_t type) {
     switch (type) {
     case kShape8Bit:
         return "8-bit";
@@ -105,15 +111,15 @@ const char* shapeTypeName(uint8_t type) {
     }
 }
 
-Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out) {
+Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
     out = {};
     if (Error err = unpackIfRefPack(data))
         return err;
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .fsh file: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .fsh file: " + why); };
     if (data.size() < 16 || std::memcmp(data.data(), "SHPI", 4) != 0)
         return bad("no SHPI header");
     const uint32_t count = le32(&data[8]);
-    out.id.assign(reinterpret_cast<const char*>(&data[12]), 4);
+    out.id.assign(reinterpret_cast<const char *>(&data[12]), 4);
     if (16 + static_cast<uint64_t>(count) * 8 > data.size())
         return bad("its directory runs past the end");
 
@@ -127,7 +133,7 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out) {
 
     for (uint32_t i = 0; i < count; ++i) {
         Shape shape;
-        shape.name.assign(reinterpret_cast<const char*>(&data[16 + i * 8]), fieldLength(&data[16 + i * 8], 4));
+        shape.name.assign(reinterpret_cast<const char *>(&data[16 + i * 8]), fieldLength(&data[16 + i * 8], 4));
         const uint32_t limit = *std::upper_bound(sorted.begin(), sorted.end(), offsets[i]);
 
         size_t pos = offsets[i];
@@ -172,7 +178,7 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out) {
                 const uint32_t length = le32(&data[pos + 4]);
                 if (pos + 8 + length > end)
                     return bad("shape " + shape.name + "'s text runs past its block");
-                std::string s(reinterpret_cast<const char*>(&data[pos + 8]), fieldLength(&data[pos + 8], length));
+                std::string s(reinterpret_cast<const char *>(&data[pos + 8]), fieldLength(&data[pos + 8], length));
                 while (!s.empty() && (s.back() == '\r' || s.back() == '\n' || s.back() == ' '))
                     s.pop_back();
                 shape.texts.push_back(std::move(s));
@@ -188,7 +194,7 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank& out) {
     return Error::success();
 }
 
-Error decodeForGlide(const Shape& shape, image::Image& out, bool fourFour) {
+Error decodeForGlide(const Shape &shape, image::Image &out, bool fourFour) {
     if (Error err = decodeShape(shape, out))
         return err;
     if (shape.type != kShape32Bit)
@@ -197,12 +203,12 @@ Error decodeForGlide(const Shape& shape, image::Image& out, bool fourFour) {
     for (size_t i = 3; i < out.rgba.size() && !partial; i += 4)
         partial = out.rgba[i] != 0 && out.rgba[i] != 255;
     if (fourFour || partial)
-        for (uint8_t& c : out.rgba)
+        for (uint8_t &c : out.rgba)
             c = static_cast<uint8_t>((c >> 4) * 17);
     return {};
 }
 
-Error decodeShape(const Shape& shape, image::Image& out) {
+Error decodeShape(const Shape &shape, image::Image &out) {
     out.w = shape.width;
     out.h = shape.height;
     out.rgba.assign(static_cast<size_t>(out.w) * out.h * 4, 0);
@@ -226,8 +232,8 @@ Error decodeShape(const Shape& shape, image::Image& out) {
     return Error::success();
 }
 
-bool readCockpit(const Shape& shape, Cockpit& out) {
-    for (const Shape::Block& b : shape.unknown) {
+bool readCockpit(const Shape &shape, Cockpit &out) {
+    for (const Shape::Block &b : shape.unknown) {
         // A u32 count, then (x, y) pairs; the game takes 12 pairs whatever
         // the count says (0x488c41).
         if (b.type != kGauges || b.data.size() < 4 + 24 * 4)
@@ -241,7 +247,7 @@ bool readCockpit(const Shape& shape, Cockpit& out) {
         out.colorX = static_cast<int>(v[0]);
         out.colorY = static_cast<int>(v[1]);
         out.width = v[2];
-        auto gauge = [&](const float* g, Gauge& to) {
+        auto gauge = [&](const float *g, Gauge &to) {
             to = {g[0], g[1], g[2], g[3] != 0, g[4], g[5], g[6], g[7], g[8], g[9]};
         };
         gauge(v + 4, out.speedometer);
@@ -251,7 +257,7 @@ bool readCockpit(const Shape& shape, Cockpit& out) {
     return false;
 }
 
-Needle needle(const Gauge& g, float width, float reading) {
+Needle needle(const Gauge &g, float width, float reading) {
     // The two ends' directions in turns, each in [0, 1).
     auto turns = [](float dx, float dy) {
         const float a = std::atan2(dy, dx) / 6.28318531f;
@@ -267,8 +273,8 @@ Needle needle(const Gauge& g, float width, float reading) {
     }
     const float scale = g.high != g.low ? (a1 - a0) / (g.high - g.low) : 0.0f;
     const float a = (reading * scale + (a1 - g.high * scale)) * 6.28318531f;
-    const float length = (std::hypot(g.p0x - g.centerX, g.p0y - g.centerY) +
-                          std::hypot(g.p1x - g.centerX, g.p1y - g.centerY)) / 2;
+    const float length =
+        (std::hypot(g.p0x - g.centerX, g.p0y - g.centerY) + std::hypot(g.p1x - g.centerX, g.p1y - g.centerY)) / 2;
     const float ux = std::cos(a), uy = std::sin(a), nx = -uy, ny = ux;
     const float bx = g.centerX + ux * g.hub, by = g.centerY + uy * g.hub;
     const float tx = g.centerX + ux * length, ty = g.centerY + uy * length;
@@ -286,7 +292,7 @@ float wheelTurns(int steering, float speed) {
     return steering * (0.5f - std::fabs(speed) * 2.2369f * 0.00125f) / 256;
 }
 
-float metresPerSecond(const Gauge& speedometer, float reading) {
+float metresPerSecond(const Gauge &speedometer, float reading) {
     return reading * (speedometer.kmh ? 1 / 3.6f : 0.44704726f);
 }
 

@@ -25,9 +25,9 @@ struct DialogueLine {
     std::string name, act, part, thread, nest; // as written ("02a", "a", "1", "a")
     std::string speaker, target;               // "antoinette"; whom they face ("antoinette up")
     std::string text;
-    std::string condition;                     // when it can be said
+    std::string condition; // when it can be said
     std::string repeat, optional, notes;
-    std::string before, event, after;          // commands: Prevent, Event, Povent
+    std::string before, event, after; // commands: Prevent, Event, Povent
     float duration = 0;
 
     // Codes as the loader makes them (0x438f00). A part: a letter from 0
@@ -60,7 +60,7 @@ struct TalkArgs {
     int part = 100, thread = -1, nest = -1, number = -1;
     bool gen = false, plus = false, greet = true;
 };
-TalkArgs parseTalkArgs(const std::vector<std::string>& words, bool gen);
+TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen);
 
 // A conversation's part (one Name and Conver.), its threads in order.
 struct DialoguePart {
@@ -69,10 +69,10 @@ struct DialoguePart {
     struct Thread {
         int code = 0;
         std::vector<DialogueLine> lines;
-        int status = 0;         // 1: heard to its end
-        int current = -1;       // the line it resumes at (and is offered by), -1 none
-        bool borrowed = false;  // a generic thread copied in (exit, regreet, extra)
-        std::string fromName;   // borrowed: where from, for its progress
+        int status = 0;        // 1: heard to its end
+        int current = -1;      // the line it resumes at (and is offered by), -1 none
+        bool borrowed = false; // a generic thread copied in (exit, regreet, extra)
+        std::string fromName;  // borrowed: where from, for its progress
         int fromCode = 0;
     };
     std::vector<Thread> threads;
@@ -82,14 +82,14 @@ class DialogueBook {
 public:
     // Adds a table's rows: a new part whenever the Name or Conver.
     // changes, a new thread whenever the Thread does (0x438f00).
-    void add(const Table& table);
+    void add(const Table &table);
     void clear() { parts_.clear(); }
     // The first part of that name and code; null if none.
-    DialoguePart* find(std::string_view name, int code);
-    std::vector<DialoguePart>& parts() { return parts_; }
-    const std::vector<DialoguePart>& parts() const { return parts_; }
+    DialoguePart *find(std::string_view name, int code);
+    std::vector<DialoguePart> &parts() { return parts_; }
+    const std::vector<DialoguePart> &parts() const { return parts_; }
     // All the lines of a conversation, in table order.
-    std::vector<const DialogueLine*> conversation(std::string_view name) const;
+    std::vector<const DialogueLine *> conversation(std::string_view name) const;
 
 private:
     std::vector<DialoguePart> parts_;
@@ -100,24 +100,24 @@ class DialogueHost {
 public:
     virtual ~DialogueHost() = default;
     // Starts a line's recording; false if there's none.
-    virtual bool playVoice(const std::string& file) = 0;
+    virtual bool playVoice(const std::string &file) = 0;
     virtual bool voicePlaying() = 0;
     virtual void stopVoice() = 0;
     // A file's text ("" if there's none): the lines' event files.
-    virtual std::string readText(const std::string& file) = 0;
+    virtual std::string readText(const std::string &file) = 0;
     // The scene's name ("salon_01"), for the "met them here" tags.
     virtual std::string sceneName() = 0;
     // A speaker turns to look as its line's Target says ("antoinette up"),
     // or (empty) back home at the end.
-    virtual void turnHead(const std::string& speaker, const std::string& target) {
+    virtual void turnHead(const std::string &speaker, const std::string &target) {
         (void)speaker;
         (void)target;
     }
     // The speaker's talking: a line starts (talkidle1: 0x404720) and ends
     // (0x404760); the mouth moves or stops (0x4046c0, 0x4046f0).
-    virtual void lineStarted(const std::string& speaker) { (void)speaker; }
-    virtual void lineEnded(const std::string& speaker) { (void)speaker; }
-    virtual void mouth(const std::string& speaker, bool on) {
+    virtual void lineStarted(const std::string &speaker) { (void)speaker; }
+    virtual void lineEnded(const std::string &speaker) { (void)speaker; }
+    virtual void mouth(const std::string &speaker, bool on) {
         (void)speaker;
         (void)on;
     }
@@ -126,14 +126,14 @@ public:
     virtual int voiceLevel() { return -1; }
     // A conversation found and starting (not a dry run): the inventory
     // window closes and what's in hand goes back (0x43a670).
-    virtual void talkStarting(const std::string& name) { (void)name; }
+    virtual void talkStarting(const std::string &name) { (void)name; }
 };
 
 class DialogueManager {
 public:
-    DialogueManager(GameState& state, ScriptHost& scripts, DialogueHost& host);
+    DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host);
 
-    DialogueBook& book() { return book_; }
+    DialogueBook &book() { return book_; }
 
     // "talk <name> <code> [options]" (0x40ba25 -> 0x43a630): part, thread
     // and nest from the code's letters (-1 for none), `gen` to offer the
@@ -141,14 +141,13 @@ public:
     // alternative (1 on, -1 at random), `plus` to go on to the next part
     // when one runs dry, `greet` to play the opening. True if it started;
     // then `runner` hears "talk" done when it's over.
-    bool talk(ScriptRunner& runner, const std::string& name, int part, int thread, int nest, bool gen, int number,
+    bool talk(ScriptRunner &runner, const std::string &name, int part, int thread, int nest, bool gen, int number,
               bool plus, bool greet);
     // Whether that "talk" would start: the "cantalk" condition's dry run
     // (0x407f24), nothing shown or said. False while a conversation is on.
-    bool canTalk(const std::string& name, int part, int thread, int nest, bool gen, int number, bool plus,
-                 bool greet);
+    bool canTalk(const std::string &name, int part, int thread, int nest, bool gen, int number, bool plus, bool greet);
     // The "nothing to say" line (0x43a550), for an NPC with nothing left.
-    bool noTalk(ScriptRunner& runner);
+    bool noTalk(ScriptRunner &runner);
     // Moves things on by `seconds`.
     void update(float seconds);
     // A click: a choice, or the line cut short (after half a second).
@@ -176,7 +175,7 @@ public:
 
     // A tag every "met them here" tag of the scene is set to when it's
     // left (0x43aee0).
-    void leaveScene(const std::string& scene);
+    void leaveScene(const std::string &scene);
 
     // What to draw.
     bool active() const { return active_; }
@@ -187,7 +186,7 @@ public:
     bool choosing() const { return choosing_; }
     // The line being said and its colour (fonts.txt's: 8 Antoinette, 9 and
     // 10 the others).
-    const DialogueLine* line() const;
+    const DialogueLine *line() const;
     int colour() const { return colour_; }
     // Whether the line's text is drawn now (0x43cf90): not while its
     // Prevent or a Povent runs, nothing is pending, nor in the pause before
@@ -195,13 +194,13 @@ public:
     bool lineShown() const { return !waitPrevent_ && !pending_ && pause_ < 0 && povent_.idle(); }
     struct Choice {
         std::string text;
-        DialoguePart* part;
+        DialoguePart *part;
         int thread;
         // A picture shown for it too (its line's Notes, an image's path:
         // act 8's evidence), else empty.
         std::string picture;
     };
-    const std::vector<Choice>& choices() const { return choices_; }
+    const std::vector<Choice> &choices() const { return choices_; }
     int highlighted() const { return highlighted_; }
     // Where each choice is, from the box's drawing, for the mouse: its
     // text row, and its picture if it has one; a picture is tried before
@@ -212,47 +211,46 @@ public:
         bool picture = false;
     };
     void setChoiceAreas(std::vector<ChoiceArea> areas) { choiceAreas_ = std::move(areas); }
-    const std::vector<ChoiceArea>& choiceAreas() const { return choiceAreas_; }
+    const std::vector<ChoiceArea> &choiceAreas() const { return choiceAreas_; }
 
     // For a log.
-    std::function<void(const std::string& line)> onLog;
+    std::function<void(const std::string &line)> onLog;
 
 private:
     using Thread = DialoguePart::Thread;
-    bool start(const std::string& name, int part, int thread, int nest, int number, bool plus, bool greet,
-               bool retry);
-    int pickLine(Thread& t, int nest, bool forward);
-    bool available(Thread& t);
+    bool start(const std::string &name, int part, int thread, int nest, int number, bool plus, bool greet, bool retry);
+    int pickLine(Thread &t, int nest, bool forward);
+    bool available(Thread &t);
     // Whether it has a line to offer as a choice: its current line, else
     // its first nest's (set as its current line); 0x43a9d9, 0x43a4d3.
-    bool offered(Thread& t);
-    void loadProgress(DialoguePart& p);
-    void saveProgress(const DialoguePart& p, const Thread& t);
-    std::string genPrefix(const DialoguePart& p) const;
-    void addExit(DialoguePart& p);
-    void addRegreet(DialoguePart& p, int visit);
-    std::vector<std::pair<DialoguePart*, int>> extras();
+    bool offered(Thread &t);
+    void loadProgress(DialoguePart &p);
+    void saveProgress(const DialoguePart &p, const Thread &t);
+    std::string genPrefix(const DialoguePart &p) const;
+    void addExit(DialoguePart &p);
+    void addRegreet(DialoguePart &p, int visit);
+    std::vector<std::pair<DialoguePart *, int>> extras();
     bool take(int choice);
     void menu(bool first, bool keepBox);
-    void play(DialoguePart* p, int thread, int line);
+    void play(DialoguePart *p, int thread, int line);
     void startLine();
     void speak();
     void lineEnd();
     void end(bool keepBox);
     void finishTalk();
     void showBox();
-    void log(const std::string& s) {
+    void log(const std::string &s) {
         if (onLog)
             onLog(s);
     }
 
-    GameState& state_;
-    DialogueHost& host_;
+    GameState &state_;
+    DialogueHost &host_;
     DialogueBook book_;
     ScriptRunner prevent_, events_, povent_;
-    ScriptRunner* caller_ = nullptr; // the runner whose "talk" this is
+    ScriptRunner *caller_ = nullptr; // the runner whose "talk" this is
 
-    DialoguePart* part_ = nullptr;
+    DialoguePart *part_ = nullptr;
     int thread_ = -1, line_ = -1; // indices into part_
     bool active_ = false, choosing_ = false, playing_ = false;
     bool firstOffer_ = true, plus_ = false, goOn_ = false, gen_ = false, greet_ = true;
@@ -265,7 +263,7 @@ private:
     std::string lastSpeaker_;
     std::string speaker_; // whose line plays
     int level_ = -1;      // the voice's last level
-    std::string prefix_; // gen_<npc>_
+    std::string prefix_;  // gen_<npc>_
     std::vector<std::string> turned_;
     // The box.
     float boxY_ = 768;

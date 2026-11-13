@@ -7,12 +7,12 @@ namespace reluva {
 
 // Each engine exposes one accessor. The list of those built is generated
 // from engines.cfg (cmake/ReluvaEngines.cmake), the testbed's first.
-#define RELUVA_ENGINE(accessor) const MetaEngine& accessor();
+#define RELUVA_ENGINE(accessor) const MetaEngine &accessor();
 #include "engines/engine_list.inc"
 #undef RELUVA_ENGINE
 
-const std::vector<const MetaEngine*>& allEngines() {
-    static const std::vector<const MetaEngine*> engines = {
+const std::vector<const MetaEngine *> &allEngines() {
+    static const std::vector<const MetaEngine *> engines = {
 #define RELUVA_ENGINE(accessor) &accessor(),
 #include "engines/engine_list.inc"
 #undef RELUVA_ENGINE
@@ -20,25 +20,25 @@ const std::vector<const MetaEngine*>& allEngines() {
     return engines;
 }
 
-const MetaEngine* findEngine(std::string_view id) {
-    for (const MetaEngine* e : allEngines())
+const MetaEngine *findEngine(std::string_view id) {
+    for (const MetaEngine *e : allEngines())
         if (id == e->id())
             return e;
     return nullptr;
 }
 
-std::vector<DetectedGame> detectGames(const std::filesystem::path& dir) {
+std::vector<DetectedGame> detectGames(const std::filesystem::path &dir) {
     std::vector<DetectedGame> all;
-    for (const MetaEngine* e : allEngines()) {
+    for (const MetaEngine *e : allEngines()) {
         auto found = e->detect(dir);
         all.insert(all.end(), found.begin(), found.end());
     }
     return all;
 }
 
-std::vector<ImportPlan> planImports(const std::filesystem::path& source) {
+std::vector<ImportPlan> planImports(const std::filesystem::path &source) {
     std::vector<ImportPlan> all;
-    for (const MetaEngine* e : allEngines()) {
+    for (const MetaEngine *e : allEngines()) {
         auto found = e->planImport(source);
         all.insert(all.end(), found.begin(), found.end());
     }

@@ -19,8 +19,6 @@ namespace {
 
 using namespace reluva;
 
-
-
 namespace {
 
 struct Rumble {
@@ -28,15 +26,17 @@ struct Rumble {
     uint16_t low = 0, high = 0;
 };
 
-bool SDLCALL rumble(void* userdata, Uint16 low, Uint16 high) {
-    auto* r = static_cast<Rumble*>(userdata);
+bool SDLCALL rumble(void *userdata, Uint16 low, Uint16 high) {
+    auto *r = static_cast<Rumble *>(userdata);
     ++r->calls;
     r->low = low;
     r->high = high;
     return true;
 }
 
-bool near(float a, float b) { return std::fabs(a - b) < 0.01f; }
+bool near(float a, float b) {
+    return std::fabs(a - b) < 0.01f;
+}
 
 // A virtual wheel: the wheel, two pedals resting at either end and a
 // clutch half way, buttons and a hat.
@@ -52,7 +52,7 @@ void testWheel() {
     desc.name = "Test Wheel";
     const SDL_JoystickID id = SDL_AttachVirtualJoystick(&desc);
     CHECK(id != 0);
-    SDL_Joystick* j = SDL_OpenJoystick(id);
+    SDL_Joystick *j = SDL_OpenJoystick(id);
     CHECK(j != nullptr);
     auto set = [&](int axis, int16_t v) { SDL_SetJoystickVirtualAxis(j, axis, v); };
     set(0, 16384);
@@ -129,7 +129,8 @@ void testPadRumble() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.sdl_controller", {
-    {"wheel", [](const std::filesystem::path&) { testWheel(); }},
-    {"pad rumble", [](const std::filesystem::path&) { testPadRumble(); }},
-});
+static const reluva::test::Suite kSuite("common.unit.sdl_controller",
+                                        {
+                                            {"wheel", [](const std::filesystem::path &) { testWheel(); }},
+                                            {"pad rumble", [](const std::filesystem::path &) { testPadRumble(); }},
+                                        });

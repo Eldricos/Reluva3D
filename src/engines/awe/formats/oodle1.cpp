@@ -15,7 +15,7 @@ namespace {
 // byte's low bit is held back and goes in at the top of the next.
 class RangeDecoder {
 public:
-    RangeDecoder(const uint8_t* data, size_t size) : p_(data), end_(data + size) {
+    RangeDecoder(const uint8_t *data, size_t size) : p_(data), end_(data + size) {
         const uint8_t b = next();
         code_ = b >> 1;
         carry_ = b & 1;
@@ -61,8 +61,8 @@ private:
         return q;
     }
 
-    const uint8_t* p_;
-    const uint8_t* end_;
+    const uint8_t *p_;
+    const uint8_t *end_;
     uint32_t code_ = 0, carry_ = 0, range_ = 0x80, step_ = 1;
 };
 
@@ -95,7 +95,7 @@ public:
 
     // The next symbol, or kNew for one not met yet, whose value the caller
     // reads and gives to setNew(). False on data that can't be decoded.
-    bool decode(RangeDecoder& rd, int& symbol) {
+    bool decode(RangeDecoder &rd, int &symbol) {
         if (total_ >= threshold_) {
             if (threshold_ >= maxTotal_)
                 rescale();
@@ -203,14 +203,14 @@ private:
 // three header words.
 class Part {
 public:
-    void init(const uint8_t* header) {
+    void init(const uint8_t *header) {
         const uint32_t h0 = rd32(header), h1 = rd32(header + 4), h2 = rd32(header + 8);
         literalValues_ = h0 & 0x1ff;
         window_ = h0 >> 9;
         lowValues_ = std::min<uint32_t>(window_ + 1, 4);
         highValues_ = std::min<uint32_t>((window_ >> 2) + 1, 0x100);
         const uint32_t midValues = (window_ >> 10) + 1;
-        for (Model& m : literals_)
+        for (Model &m : literals_)
             m.init(literalValues_ - 1, h1 & 0x1ff);
         // Lengths are modelled after the previous one; each quarter of the
         // models takes its capacity from a byte of h2, the top one first.
@@ -219,14 +219,14 @@ public:
         low_.init(lowValues_ - 1, lowValues_);
         mid_.init(midValues - 1, (h1 >> 19) + 1);
         high_.resize(midValues);
-        for (Model& m : high_)
+        for (Model &m : high_)
             m.init(highValues_ - 1, highValues_);
         lastLength_ = 0;
         done_ = 0;
     }
 
     // Decodes a literal or a match at out[pos], and moves pos past it.
-    bool step(RangeDecoder& rd, std::vector<uint8_t>& out, size_t& pos) {
+    bool step(RangeDecoder &rd, std::vector<uint8_t> &out, size_t &pos) {
         uint32_t length = 0;
         if (!decode(lengths_[lastLength_], rd, 65, length))
             return false;
@@ -261,10 +261,10 @@ public:
     }
 
 private:
-    static uint32_t rd32(const uint8_t* p) { return uint32_t(p[0]) | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24; }
+    static uint32_t rd32(const uint8_t *p) { return uint32_t(p[0]) | p[1] << 8 | p[2] << 16 | uint32_t(p[3]) << 24; }
 
     // A symbol from a model; a new one is read as a value in [0, values).
-    static bool decode(Model& m, RangeDecoder& rd, uint32_t values, uint32_t& out) {
+    static bool decode(Model &m, RangeDecoder &rd, uint32_t values, uint32_t &out) {
         int symbol = 0;
         if (!m.decode(rd, symbol))
             return false;
@@ -290,7 +290,7 @@ constexpr size_t kSlack = 512;
 
 } // namespace
 
-Error oodle1Decompress(const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1, std::vector<uint8_t>& out) {
+Error oodle1Decompress(const std::vector<uint8_t> &in, uint32_t stop0, uint32_t stop1, std::vector<uint8_t> &out) {
     // Three part headers of three words each, then one range-coded stream
     // for all three parts.
     constexpr size_t kHeader = 36;
@@ -311,8 +311,8 @@ Error oodle1Decompress(const std::vector<uint8_t>& in, uint32_t stop0, uint32_t 
     return Error::success();
 }
 
-Error gr2Decompress(uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                    std::vector<uint8_t>& out) {
+Error gr2Decompress(uint32_t format, const std::vector<uint8_t> &in, uint32_t stop0, uint32_t stop1,
+                    std::vector<uint8_t> &out) {
     if (format == 2)
         return oodle1Decompress(in, stop0, stop1, out);
     if (format == 0) {

@@ -16,8 +16,10 @@ namespace reluva::nfs {
 
 namespace {
 
-uint16_t le16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) {
+uint16_t le16(const uint8_t *p) {
+    return static_cast<uint16_t>(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
     return p[0] | static_cast<uint32_t>(p[1]) << 8 | static_cast<uint32_t>(p[2]) << 16 |
            static_cast<uint32_t>(p[3]) << 24;
 }
@@ -30,49 +32,123 @@ constexpr size_t kFrameHeader = 24; // tag, size, then 16 bytes (mad.md)
 // throughout.
 struct AcCode {
     uint8_t run, level;
-    const char* bits;
+    const char *bits;
 };
 constexpr AcCode kAcCodes[] = {
-    {0, 1, "11"}, {0, 2, "0100"}, {0, 3, "00101"}, {0, 4, "0000110"}, {0, 5, "00100110"}, {0, 6, "00100001"},
-    {0, 7, "0000001010"}, {0, 8, "000000011101"}, {0, 9, "000000011000"}, {0, 10, "000000010011"},
-    {0, 11, "000000010000"}, {0, 12, "0000000011010"}, {0, 13, "0000000011001"}, {0, 14, "0000000011000"},
-    {0, 15, "0000000010111"}, {0, 16, "00000000011111"}, {0, 17, "00000000011110"},
-    {0, 18, "00000000011101"}, {0, 19, "00000000011100"}, {0, 20, "00000000011011"},
-    {0, 21, "00000000011010"}, {0, 22, "00000000011001"}, {0, 23, "00000000011000"},
-    {0, 24, "00000000010111"}, {0, 25, "00000000010110"}, {0, 26, "00000000010101"},
-    {0, 27, "00000000010100"}, {0, 28, "00000000010011"}, {0, 29, "00000000010010"},
-    {0, 30, "00000000010001"}, {0, 31, "00000000010000"}, {0, 32, "000000000011000"},
-    {0, 33, "000000000010111"}, {0, 34, "000000000010110"}, {0, 35, "000000000010101"},
-    {0, 36, "000000000010100"}, {0, 37, "000000000010011"}, {0, 38, "000000000010010"},
-    {0, 39, "000000000010001"}, {0, 40, "000000000010000"},
-    {1, 1, "011"}, {1, 2, "000110"}, {1, 3, "00100101"}, {1, 4, "0000001100"}, {1, 5, "000000011011"},
-    {1, 6, "0000000010110"}, {1, 7, "0000000010101"}, {1, 8, "000000000011111"}, {1, 9, "000000000011110"},
-    {1, 10, "000000000011101"}, {1, 11, "000000000011100"}, {1, 12, "000000000011011"},
-    {1, 13, "000000000011010"}, {1, 14, "000000000011001"}, {1, 15, "0000000000010011"},
-    {1, 16, "0000000000010010"}, {1, 17, "0000000000010001"}, {1, 18, "0000000000010000"},
-    {2, 1, "0101"}, {2, 2, "0000100"}, {2, 3, "0000001011"}, {2, 4, "000000010100"}, {2, 5, "0000000010100"},
-    {3, 1, "00111"}, {3, 2, "00100100"}, {3, 3, "000000011100"}, {3, 4, "0000000010011"},
-    {4, 1, "00110"}, {4, 2, "0000001111"}, {4, 3, "000000010010"},
-    {5, 1, "000111"}, {5, 2, "0000001001"}, {5, 3, "0000000010010"},
-    {6, 1, "000101"}, {6, 2, "000000011110"}, {6, 3, "0000000000010100"},
-    {7, 1, "000100"}, {7, 2, "000000010101"},
-    {8, 1, "0000111"}, {8, 2, "000000010001"},
-    {9, 1, "0000101"}, {9, 2, "0000000010001"},
-    {10, 1, "00100111"}, {10, 2, "0000000010000"},
-    {11, 1, "00100011"}, {11, 2, "0000000000011010"},
-    {12, 1, "00100010"}, {12, 2, "0000000000011001"},
-    {13, 1, "00100000"}, {13, 2, "0000000000011000"},
-    {14, 1, "0000001110"}, {14, 2, "0000000000010111"},
-    {15, 1, "0000001101"}, {15, 2, "0000000000010110"},
-    {16, 1, "0000001000"}, {16, 2, "0000000000010101"},
-    {17, 1, "000000011111"}, {18, 1, "000000011010"}, {19, 1, "000000011001"}, {20, 1, "000000010111"},
-    {21, 1, "000000010110"}, {22, 1, "0000000011111"}, {23, 1, "0000000011110"}, {24, 1, "0000000011101"},
-    {25, 1, "0000000011100"}, {26, 1, "0000000011011"}, {27, 1, "0000000000011111"},
-    {28, 1, "0000000000011110"}, {29, 1, "0000000000011101"}, {30, 1, "0000000000011100"},
+    {0, 1, "11"},
+    {0, 2, "0100"},
+    {0, 3, "00101"},
+    {0, 4, "0000110"},
+    {0, 5, "00100110"},
+    {0, 6, "00100001"},
+    {0, 7, "0000001010"},
+    {0, 8, "000000011101"},
+    {0, 9, "000000011000"},
+    {0, 10, "000000010011"},
+    {0, 11, "000000010000"},
+    {0, 12, "0000000011010"},
+    {0, 13, "0000000011001"},
+    {0, 14, "0000000011000"},
+    {0, 15, "0000000010111"},
+    {0, 16, "00000000011111"},
+    {0, 17, "00000000011110"},
+    {0, 18, "00000000011101"},
+    {0, 19, "00000000011100"},
+    {0, 20, "00000000011011"},
+    {0, 21, "00000000011010"},
+    {0, 22, "00000000011001"},
+    {0, 23, "00000000011000"},
+    {0, 24, "00000000010111"},
+    {0, 25, "00000000010110"},
+    {0, 26, "00000000010101"},
+    {0, 27, "00000000010100"},
+    {0, 28, "00000000010011"},
+    {0, 29, "00000000010010"},
+    {0, 30, "00000000010001"},
+    {0, 31, "00000000010000"},
+    {0, 32, "000000000011000"},
+    {0, 33, "000000000010111"},
+    {0, 34, "000000000010110"},
+    {0, 35, "000000000010101"},
+    {0, 36, "000000000010100"},
+    {0, 37, "000000000010011"},
+    {0, 38, "000000000010010"},
+    {0, 39, "000000000010001"},
+    {0, 40, "000000000010000"},
+    {1, 1, "011"},
+    {1, 2, "000110"},
+    {1, 3, "00100101"},
+    {1, 4, "0000001100"},
+    {1, 5, "000000011011"},
+    {1, 6, "0000000010110"},
+    {1, 7, "0000000010101"},
+    {1, 8, "000000000011111"},
+    {1, 9, "000000000011110"},
+    {1, 10, "000000000011101"},
+    {1, 11, "000000000011100"},
+    {1, 12, "000000000011011"},
+    {1, 13, "000000000011010"},
+    {1, 14, "000000000011001"},
+    {1, 15, "0000000000010011"},
+    {1, 16, "0000000000010010"},
+    {1, 17, "0000000000010001"},
+    {1, 18, "0000000000010000"},
+    {2, 1, "0101"},
+    {2, 2, "0000100"},
+    {2, 3, "0000001011"},
+    {2, 4, "000000010100"},
+    {2, 5, "0000000010100"},
+    {3, 1, "00111"},
+    {3, 2, "00100100"},
+    {3, 3, "000000011100"},
+    {3, 4, "0000000010011"},
+    {4, 1, "00110"},
+    {4, 2, "0000001111"},
+    {4, 3, "000000010010"},
+    {5, 1, "000111"},
+    {5, 2, "0000001001"},
+    {5, 3, "0000000010010"},
+    {6, 1, "000101"},
+    {6, 2, "000000011110"},
+    {6, 3, "0000000000010100"},
+    {7, 1, "000100"},
+    {7, 2, "000000010101"},
+    {8, 1, "0000111"},
+    {8, 2, "000000010001"},
+    {9, 1, "0000101"},
+    {9, 2, "0000000010001"},
+    {10, 1, "00100111"},
+    {10, 2, "0000000010000"},
+    {11, 1, "00100011"},
+    {11, 2, "0000000000011010"},
+    {12, 1, "00100010"},
+    {12, 2, "0000000000011001"},
+    {13, 1, "00100000"},
+    {13, 2, "0000000000011000"},
+    {14, 1, "0000001110"},
+    {14, 2, "0000000000010111"},
+    {15, 1, "0000001101"},
+    {15, 2, "0000000000010110"},
+    {16, 1, "0000001000"},
+    {16, 2, "0000000000010101"},
+    {17, 1, "000000011111"},
+    {18, 1, "000000011010"},
+    {19, 1, "000000011001"},
+    {20, 1, "000000010111"},
+    {21, 1, "000000010110"},
+    {22, 1, "0000000011111"},
+    {23, 1, "0000000011110"},
+    {24, 1, "0000000011101"},
+    {25, 1, "0000000011100"},
+    {26, 1, "0000000011011"},
+    {27, 1, "0000000000011111"},
+    {28, 1, "0000000000011110"},
+    {29, 1, "0000000000011101"},
+    {30, 1, "0000000000011100"},
     {31, 1, "0000000000011011"},
 };
-constexpr const char* kEscape = "000001"; // then a 10-bit signed level and a 6-bit run
-constexpr const char* kEndOfBlock = "10";
+constexpr const char *kEscape = "000001"; // then a 10-bit signed level and a 6-bit run
+constexpr const char *kEndOfBlock = "10";
 
 // A lookup by the next 16 bits: the code's length (0: no code), then the
 // run and level; level 0 is the escape, run 0xff the end of the block.
@@ -80,17 +156,17 @@ struct AcEntry {
     uint8_t length = 0, run = 0;
     int8_t level = 0;
 };
-const std::vector<AcEntry>& acTable() {
+const std::vector<AcEntry> &acTable() {
     static const std::vector<AcEntry> table = [] {
         std::vector<AcEntry> t(1 << 16);
-        auto add = [&](const char* bits, uint8_t run, int8_t level) {
+        auto add = [&](const char *bits, uint8_t run, int8_t level) {
             const size_t n = std::strlen(bits);
             const uint32_t code = static_cast<uint32_t>(std::strtoul(bits, nullptr, 2));
             const uint32_t first = code << (16 - n), count = 1u << (16 - n);
             for (uint32_t i = 0; i < count; ++i)
                 t[first + i] = {static_cast<uint8_t>(n), run, level};
         };
-        for (const AcCode& c : kAcCodes)
+        for (const AcCode &c : kAcCodes)
             add(c.bits, c.run, static_cast<int8_t>(c.level));
         add(kEscape, 0, 0);
         add(kEndOfBlock, 0xff, 0);
@@ -108,7 +184,7 @@ constexpr uint8_t kIntraMatrix[64] = {
 };
 
 // The zigzag scan: position in the scan to raster index.
-const std::array<uint8_t, 64>& zigzag() {
+const std::array<uint8_t, 64> &zigzag() {
     static const std::array<uint8_t, 64> order = [] {
         std::array<uint8_t, 64> z{};
         int n = 0;
@@ -127,7 +203,7 @@ const std::array<uint8_t, 64>& zigzag() {
 
 // The inverse of the AAN transform's scale factors, times 4096: the
 // quantiser folds them in, as the transform below leaves them out.
-const std::array<int, 64>& inverseAanScales() {
+const std::array<int, 64> &inverseAanScales() {
     static const std::array<int, 64> scales = [] {
         std::array<int, 64> s{};
         const double pi = std::acos(-1.0);
@@ -144,8 +220,8 @@ const std::array<int, 64>& inverseAanScales() {
 // fixed point: 181 is 1/sqrt(2), 669 cos(pi/8)*sqrt(2), 277 sin(pi/8)*sqrt(2)
 // and 196 sin(pi/8), in 8 and 9 fraction bits. `in` and `out` step by
 // `step`.
-template <typename In, typename Out, typename Store>
-void inverse8(const In* in, int step, Out* out, Store store) {
+template<typename In, typename Out, typename Store>
+void inverse8(const In *in, int step, Out *out, Store store) {
     auto at = [&](int k) { return static_cast<int>(in[k * step]); };
     const int sum17 = at(1) + at(7), diff17 = at(1) - at(7);
     const int sum53 = at(5) + at(3), diff53 = at(5) - at(3);
@@ -161,7 +237,7 @@ void inverse8(const In* in, int step, Out* out, Store store) {
         out[k * step] = store(v[k]);
 }
 
-void inverseTransform(int16_t block[64], uint8_t* dst, int stride) {
+void inverseTransform(int16_t block[64], uint8_t *dst, int stride) {
     // Columns into 16-bit values, then rows to pixels, rounded: the 4 added
     // to the DC term is a half in the rows' 4 fraction bits.
     block[0] = static_cast<int16_t>(block[0] + 4);
@@ -174,7 +250,7 @@ void inverseTransform(int16_t block[64], uint8_t* dst, int stride) {
 }
 
 // nfs3.exe's quantiser scales (0x56d02c): 8192 / (a(u) a(v)), rounded.
-const std::array<int64_t, 64>& gameScales() {
+const std::array<int64_t, 64> &gameScales() {
     static const std::array<int64_t, 64> scales = [] {
         std::array<int64_t, 64> s{};
         const double pi = std::acos(-1.0);
@@ -195,12 +271,14 @@ int32_t gameProduct(int64_t a, int64_t b) {
 }
 
 // x87 rounding to the nearest, halves to even, as the game's 1.5 x 2^52 does.
-int32_t gameRound(double x) { return static_cast<int32_t>(std::nearbyint(x)); }
+int32_t gameRound(double x) {
+    return static_cast<int32_t>(std::nearbyint(x));
+}
 
 // One pass of nfs3.exe's inverse transform (0x510a50, 0x510bb3): AAN with
 // the odd part's rotations in floating point and 1/sqrt(2) as a 32-bit
 // multiply, everything in 32 bits. Reads in[0..7], writes out[k * step].
-void gamePass(const int32_t* in, int32_t* out, int step) {
+void gamePass(const int32_t *in, int32_t *out, int step) {
     if (!(in[1] | in[2] | in[3] | in[4] | in[5] | in[6] | in[7])) {
         for (int k = 0; k < 8; ++k)
             out[k * step] = in[0];
@@ -260,8 +338,8 @@ int MadDecoder::readMotion() {
 }
 
 bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
-    const auto& table = acTable();
-    const auto& scan = zigzag();
+    const auto &table = acTable();
+    const auto &scan = zigzag();
     block[0] = static_cast<int16_t>((128 + readSigned(8)) * quant_[0]);
     int i = 0;
     while (true) {
@@ -300,8 +378,8 @@ bool MadDecoder::decodeIntraBlock(int16_t block[64]) {
 // neither scaled down nor made odd. In natural order (the game keeps the
 // block transposed, which its transform's order undoes).
 bool MadDecoder::gameIntraBlock(int32_t block[64]) {
-    const auto& table = acTable();
-    const auto& scan = zigzag();
+    const auto &table = acTable();
+    const auto &scan = zigzag();
     block[0] = static_cast<int32_t>(static_cast<uint32_t>(readSigned(8)) * static_cast<uint32_t>(gameQuant_[0]));
     int i = 0;
     while (true) {
@@ -333,7 +411,7 @@ bool MadDecoder::gameIntraBlock(int32_t block[64]) {
 // bits 16-23 of each value, as a signed byte, clamped to -64..63 and
 // centred on 64 (the table at 0x9f0d38).
 void MadDecoder::gamePutBlock(int index, int mbX, int mbY, int32_t block[64]) {
-    uint8_t* dst;
+    uint8_t *dst;
     int s;
     if (index < 4) {
         s = stride_;
@@ -384,8 +462,8 @@ void MadDecoder::copyBlock(int index, int mbX, int mbY, int mvX, int mvY, int ad
     const long from = static_cast<long>(y + mvY) * s + x + mvX;
     if (from < 0 || from >= static_cast<long>(rows - 7) * s - 7)
         return;
-    const uint8_t* src = previous_[plane].data() + from;
-    uint8_t* dst = current_[plane].data() + static_cast<size_t>(y) * s + x;
+    const uint8_t *src = previous_[plane].data() + from;
+    uint8_t *dst = current_[plane].data() + static_cast<size_t>(y) * s + x;
     for (int r = 0; r < 8; ++r)
         for (int c = 0; c < 8; ++c)
             // The game adds d - 64 to its 7-bit samples (0x4f3420, 0x4f34f0),
@@ -442,7 +520,7 @@ void MadDecoder::decodeMacroblock(bool inter, int mbX, int mbY) {
     }
 }
 
-Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
+Error MadDecoder::decode(const uint8_t *chunk, size_t size) {
     if (size < kFrameHeader + 2)
         return Error::fail("a video frame is too short");
     const char kind = static_cast<char>(chunk[3]);
@@ -474,7 +552,7 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
             current_[p] = previous_[p];
 
     const int qscale = chunk[21];
-    const auto& scales = inverseAanScales();
+    const auto &scales = inverseAanScales();
     quant_[0] = (scales[0] * kIntraMatrix[0]) >> 11;
     for (int i = 1; i < 64; ++i)
         quant_[i] = (scales[i] * kIntraMatrix[i] * qscale + 32) >> 10;
@@ -482,7 +560,7 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
     // Its scan (0x5688cc) is the zigzag transposed, and it looks Q up by the
     // transposed place too, so a coefficient at row u, column v takes the
     // matrix's W[v][u]: the matrix applied transposed.
-    const auto& game = gameScales();
+    const auto &game = gameScales();
     gameQuant_[0] = gameProduct(static_cast<int64_t>(kIntraMatrix[0]) << 15, game[0]);
     for (int i = 1; i < 64; ++i)
         gameQuant_[i] = gameProduct(static_cast<int64_t>(kIntraMatrix[(i & 7) * 8 + (i >> 3)] * qscale) << 12, game[i]);
@@ -507,15 +585,15 @@ Error MadDecoder::decode(const uint8_t* chunk, size_t size) {
     return Error::success();
 }
 
-void MadDecoder::toSurface(Surface& out) const {
+void MadDecoder::toSurface(Surface &out) const {
     // Full-range YCbCr (the DC term is centred on 128), BT.601 weights.
     out.create(width_, height_, PixelFormat::RGBA32);
     const int cs = stride_ / 2;
     for (int y = 0; y < height_; ++y) {
-        uint8_t* dst = out.row(y);
-        const uint8_t* yr = current_[0].data() + static_cast<size_t>(y) * stride_;
-        const uint8_t* ur = current_[1].data() + static_cast<size_t>(y / 2) * cs;
-        const uint8_t* vr = current_[2].data() + static_cast<size_t>(y / 2) * cs;
+        uint8_t *dst = out.row(y);
+        const uint8_t *yr = current_[0].data() + static_cast<size_t>(y) * stride_;
+        const uint8_t *ur = current_[1].data() + static_cast<size_t>(y / 2) * cs;
+        const uint8_t *vr = current_[2].data() + static_cast<size_t>(y / 2) * cs;
         for (int x = 0; x < width_; ++x) {
             // The game's 7-bit samples as 8-bit ones (twice, at most 127).
             auto at8 = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? std::min<int>(s, 127) * 2 : s; };
@@ -551,7 +629,7 @@ struct DisplayTables {
 
 // A pixel of 7-bit samples to RGBA8888 by way of 5:6:5: rounded in the
 // left pixel of each output pair, truncated in the right.
-void putGamePixel(uint8_t* dst, int y, int u, int v, bool rounded) {
+void putGamePixel(uint8_t *dst, int y, int u, int v, bool rounded) {
     static const DisplayTables t;
     const int l = 2 * y + 1;
     const int c[3] = {std::clamp(l + t.rv[v], 0, 255), std::clamp(l + t.gu[u] + t.gv[v], 0, 255),
@@ -566,10 +644,10 @@ void putGamePixel(uint8_t* dst, int y, int u, int v, bool rounded) {
 
 } // namespace
 
-void MadDecoder::toGameSurface(Surface& out, Display mode) const {
+void MadDecoder::toGameSurface(Surface &out, Display mode) const {
     out.create(width_ * 2, height_ * 2, PixelFormat::RGBA32);
     for (int y = 0; y < out.h; ++y) {
-        uint8_t* row = out.row(y);
+        uint8_t *row = out.row(y);
         for (int x = 0; x < out.w; ++x)
             row[4 * x] = row[4 * x + 1] = row[4 * x + 2] = 0, row[4 * x + 3] = 255;
     }
@@ -578,7 +656,7 @@ void MadDecoder::toGameSurface(Surface& out, Display mode) const {
     // 7-bit samples.
     const int pairs = width_ / 2, cs = stride_ / 2;
     auto sample = [&](uint8_t s) { return arithmetic_ == Arithmetic::Game ? s & 0xff : s >> 1; };
-    auto line = [&](int j, std::vector<int>& ys, std::vector<int>& us, std::vector<int>& vs) {
+    auto line = [&](int j, std::vector<int> &ys, std::vector<int> &us, std::vector<int> &vs) {
         ys.resize(width_);
         us.resize(pairs);
         vs.resize(pairs);
@@ -591,12 +669,12 @@ void MadDecoder::toGameSurface(Surface& out, Display mode) const {
     };
     // Two lines averaged per sample, rounded down (the packed words'
     // (a + b) >> 1 masked with 0x7F7F7F7F).
-    auto average = [](std::vector<int>& a, const std::vector<int>& b) {
+    auto average = [](std::vector<int> &a, const std::vector<int> &b) {
         for (size_t i = 0; i < a.size(); ++i)
             a[i] = ((a[i] + b[i]) >> 1) & 0x7f;
     };
-    auto put = [&](int outY, const std::vector<int>& ys, const std::vector<int>& us, const std::vector<int>& vs) {
-        uint8_t* row = out.row(outY);
+    auto put = [&](int outY, const std::vector<int> &ys, const std::vector<int> &us, const std::vector<int> &vs) {
+        uint8_t *row = out.row(outY);
         if (mode != Display::Interpolate) {
             for (int x = 0; x < width_; ++x) {
                 putGamePixel(row + 8 * x, ys[x], us[x / 2], vs[x / 2], true);
@@ -609,7 +687,7 @@ void MadDecoder::toGameSurface(Surface& out, Display mode) const {
         for (int p = 0; p + 1 < pairs; ++p) {
             const int y0 = ys[2 * p], y1 = ys[2 * p + 1], y2 = ys[2 * p + 2];
             const int u = us[p], v = vs[p], u2 = (us[p] + us[p + 1]) >> 1, v2 = (vs[p] + vs[p + 1]) >> 1;
-            uint8_t* d = row + 16 * p;
+            uint8_t *d = row + 16 * p;
             putGamePixel(d, y0, u, v, true);
             putGamePixel(d + 4, (y0 + y1) >> 1, u, v, false);
             putGamePixel(d + 8, y1, u2, v2, true);
@@ -639,14 +717,14 @@ Error MadMovie::open(std::vector<uint8_t> data) {
     haveAudio_ = false;
     width_ = height_ = 0;
     duration_ = 0;
-    auto bad = [](const std::string& why) { return Error::fail("Not a valid .mad file: " + why); };
+    auto bad = [](const std::string &why) { return Error::fail("Not a valid .mad file: " + why); };
     // Chunks as in a .mus: a tag, a u32 size with the 8 bytes included.
     size_t at = 0;
     while (at + 8 <= data_.size()) {
         const uint32_t size = le32(&data_[at + 4]);
         if (size < 8 || at + size > data_.size())
             return bad("a chunk runs past the end");
-        const uint8_t* c = &data_[at];
+        const uint8_t *c = &data_[at];
         if (std::memcmp(c, "MAD", 3) == 0 && (c[3] == 'k' || c[3] == 'm' || c[3] == 'e')) {
             if (size < kFrameHeader)
                 return bad("a frame too short for its header");
@@ -677,7 +755,7 @@ Error MadMovie::open(std::vector<uint8_t> data) {
     return Error::success();
 }
 
-Error MadMovie::decodeAudio(audio::Sound& out) const {
+Error MadMovie::decodeAudio(audio::Sound &out) const {
     out = {};
     if (!haveAudio_)
         return Error::fail("the movie has no audio");
@@ -687,13 +765,13 @@ Error MadMovie::decodeAudio(audio::Sound& out) const {
     out.channels = 2;
     out.format = audio::kFormatEaXa;
     out.samples.reserve(size_t(audio_.samples) * 2);
-    for (const auto& [offset, size] : audioBlocks_)
+    for (const auto &[offset, size] : audioBlocks_)
         if (Error err = audio::decodeEaXaStereoBlock(data_.data() + offset, size, out.samples))
             return err;
     return Error::success();
 }
 
-Error MadMovie::decodeFrame(MadDecoder& decoder, size_t index) const {
+Error MadMovie::decodeFrame(MadDecoder &decoder, size_t index) const {
     if (index >= frames_.size())
         return Error::fail("no frame " + std::to_string(index));
     return decoder.decode(data_.data() + frames_[index].offset, frames_[index].size);

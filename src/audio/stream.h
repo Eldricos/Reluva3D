@@ -25,7 +25,7 @@ public:
 
     // Fills `out` with up to `samples` signed 16-bit samples (interleaved
     // when stereo) and returns how many it wrote: fewer at the end.
-    virtual int read(int16_t* out, int samples) = 0;
+    virtual int read(int16_t *out, int samples) = 0;
     virtual bool stereo() const = 0;
     virtual int rate() const = 0;
     // No more samples will come.
@@ -43,7 +43,7 @@ public:
     };
     RawStream(std::vector<uint8_t> data, Format format, int rate, bool stereo = false, int loops = 1);
 
-    int read(int16_t* out, int samples) override;
+    int read(int16_t *out, int samples) override;
     bool stereo() const override { return stereo_; }
     int rate() const override { return rate_; }
     bool ended() const override { return pos_ >= count_ && loopsLeft_ == 1; }
@@ -68,13 +68,13 @@ public:
     QueuingStream(int rate, bool stereo) : rate_(rate), stereo_(stereo) {}
 
     // Adds samples (interleaved when stereo).
-    void queue(const std::vector<int16_t>& samples);
+    void queue(const std::vector<int16_t> &samples);
     // Nothing more will be queued.
     void finish();
     // Samples queued and not yet played.
     size_t queued() const;
 
-    int read(int16_t* out, int samples) override;
+    int read(int16_t *out, int samples) override;
     bool stereo() const override { return stereo_; }
     int rate() const override { return rate_; }
     bool ended() const override;
@@ -89,6 +89,6 @@ private:
 
 // A whole stream read into samples (interleaved when stereo); a stream
 // that never ends stops after `maxSamples`.
-std::vector<int16_t> readAll(Stream& stream, size_t maxSamples = size_t(1) << 28);
+std::vector<int16_t> readAll(Stream &stream, size_t maxSamples = size_t(1) << 28);
 
 } // namespace reluva::audio

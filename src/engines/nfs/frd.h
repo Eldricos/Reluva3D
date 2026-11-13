@@ -54,7 +54,7 @@ struct Track {
         uint32_t highResVertices = 0, lowResVertices = 0, mediumResVertices = 0, duplicateVertices = 0,
                  objectVertices = 0;
         std::vector<Vec3> vertices;
-        std::vector<uint32_t> colours; // per vertex, 0xAARRGGBB: baked lighting
+        std::vector<uint32_t> colours;   // per vertex, 0xAARRGGBB: baked lighting
         std::vector<int16_t> neighbours; // blocks drawn with this one
         // Seven polygon lists: 0, 2 and 4 the road at low, medium and high
         // detail; 1, 3 and 5 roadside polygons at the same levels (on a
@@ -91,8 +91,8 @@ struct Track {
         };
         uint32_t type = 0;
         Vec3 reference{};
-        std::vector<Key> keys; // world positions; the vertices are relative to them
-        int16_t keyDelay = 0;  // game ticks (64 a second) per key
+        std::vector<Key> keys;      // world positions; the vertices are relative to them
+        int16_t keyDelay = 0;       // game ticks (64 a second) per key
         std::vector<Vec3> vertices; // relative to the reference (still) or the key (moving)
         std::vector<uint32_t> colours;
         std::vector<Polygon> polygons;
@@ -105,8 +105,8 @@ struct Track {
         std::array<float, 8> corners{}; // u, v of polygon corners 0-3
         bool lane = false;
         uint16_t picture = 0; // the shape's number in the sheet
-        uint32_t handle = 0; // room the game fills at load; leftovers
-        uint32_t flags = 0;  // low byte: kSeeThrough, 0x04 (frd.md, Textures)
+        uint32_t handle = 0;  // room the game fills at load; leftovers
+        uint32_t flags = 0;   // low byte: kSeeThrough, 0x04 (frd.md, Textures)
         static constexpr uint32_t kSeeThrough = 0x02;
     };
 
@@ -115,7 +115,7 @@ struct Track {
     std::vector<Texture> textures;
 };
 
-Error parseTrack(const std::vector<uint8_t>& data, Track& out);
+Error parseTrack(const std::vector<uint8_t> &data, Track &out);
 
 // Which of a polygon's four vertices the game draws as corner k (0-3):
 // the corner that takes Texture::corners[k] and the k-th in its winding.
@@ -124,7 +124,9 @@ Error parseTrack(const std::vector<uint8_t>& data, Track& out);
 // and the back-face test go by the queue. So a placed object's picture is
 // flipped left to right and its winding reversed against the file's
 // (frd.md, Polygons).
-inline int polygonSlot(int k, bool placedObject) { return placedObject ? k ^ 1 : k; }
+inline int polygonSlot(int k, bool placedObject) {
+    return placedObject ? k ^ 1 : k;
+}
 
 // How a light of a type looks at a game tick (64 a second), from
 // nfs3.exe's table at 0x55e3dc (frd.md, Lights): drawn with glw0 in its
@@ -154,7 +156,7 @@ struct LightQuads {
     uint32_t flareColour = 0; // glw3
     float worldHalf = 0;
 };
-LightQuads lightQuads(const LightLook& look, float depth);
+LightQuads lightQuads(const LightLook &look, float depth);
 
 // Which road detail the game draws a block at (0 low, 1 medium, 2 high),
 // or -1 for not at all, by the distance on the ground from the camera to
@@ -173,7 +175,9 @@ int blockDetailAt(float distance, bool night, int viewLevel = 1);
 // night and at every view level it stays 500, while the blocks' reach
 // (+0x34) shrinks.
 constexpr float kPolygonReach = 500;
-inline bool polygonInReach(float depthAhead) { return depthAhead <= kPolygonReach; }
+inline bool polygonInReach(float depthAhead) {
+    return depthAhead <= kPolygonReach;
+}
 
 // A car's headlights (frd.md, the headlights), as nfs3.exe sets them up
 // (0x42d160) and projects them (0x41a550, 0x41a3e0): a light frame whose
@@ -184,7 +188,7 @@ inline bool polygonInReach(float depthAhead) { return depthAhead <= kPolygonReac
 struct Headlight {
     std::array<float, 3> at{}, right{}, up{}, forward{};
     float nearPlane = 1, fadeFrom = 10, reach = 40; // fading from fadeFrom to nothing at reach
-    uint32_t colour = 0;                             // ARGB, alpha too
+    uint32_t colour = 0;                            // ARGB, alpha too
     // The colour behind it (the light record's +0x74): 0 for a car's
     // headlights, which light nothing behind; a police car's roof light
     // shines both ways (sirenLight).
@@ -204,12 +208,11 @@ inline float headlightIntensity(int litBefore, int carCount) {
 // 0xE0E0E0E0, 1/32 of a turn; without projection 20 or 40 to 40 or 60, in
 // white. The car's heading in radians (atan2(x, z) of its forward) and
 // intensity (1 for the first car the pass lights, 0x41a800).
-Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, float heading,
-                       float intensity = 1);
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3> &at, float heading, float intensity = 1);
 // The same for a car whose rows (right, up, forward; track coordinates)
 // are given, on a sloping or banked road.
-Headlight carHeadlight(int beams, bool projected, const std::array<float, 3>& at, const std::array<float, 3>& right,
-                       const std::array<float, 3>& up, const std::array<float, 3>& forward, float intensity = 1);
+Headlight carHeadlight(int beams, bool projected, const std::array<float, 3> &at, const std::array<float, 3> &right,
+                       const std::array<float, 3> &up, const std::array<float, 3> &forward, float intensity = 1);
 // The light state a car starts a race with (0x42bcb0): off, but low beams
 // in the weather (0x6fd4cc), and by night (0x6fd4c8) high beams for a
 // human's car (+0x200 bit 4) and low beams for the others (computer
@@ -225,8 +228,8 @@ inline int startingBeams(bool night, bool weather, bool human) {
 // 0xFF8080FF (blue) ahead and 0xFFFF8080 (red) behind (+0x7A4, +0x7A8).
 // Its pass (0x41ab40) only raises vertex colours, of every polygon of the
 // lists the headlights take but the lane markings, whatever its texture.
-Headlight sirenLight(const std::array<float, 3>& carAt, const std::array<float, 3>& right,
-                     const std::array<float, 3>& up, const std::array<float, 3>& forward, int step);
+Headlight sirenLight(const std::array<float, 3> &carAt, const std::array<float, 3> &right,
+                     const std::array<float, 3> &up, const std::array<float, 3> &forward, int step);
 // The screen the game projects with (0x56009c-0x5600a8 and the clip
 // window at 0x7d34f8-0x7d350c; as an nfs-host race at 640 x 480 has them):
 // x = cx + sx x / z, y = cy + sy y / z, inside left-right and top-bottom,
@@ -250,8 +253,8 @@ struct ViewScreen {
 // sx negated on the mirrored track. So at 640 x 480 and 90 degrees the
 // view is 90 degrees across and 72 up, its pixels 330.33 / 320 tall.
 ViewScreen viewScreen(int left, int top, int width, int height, int viewAngle = 90, bool mirrored = false);
-bool lightMissesBlock(const Headlight& light, const std::array<std::array<float, 3>, 4>& corners,
-                      float zoom = 1, bool bothWays = false, const ViewScreen& screen = {});
+bool lightMissesBlock(const Headlight &light, const std::array<std::array<float, 3>, 4> &corners, float zoom = 1,
+                      bool bothWays = false, const ViewScreen &screen = {});
 // Where nfs3.exe puts a car's light (0x42d160): the car's position
 // (+0x98) plus its up row (+0xCC) times +0x10C (its up . the road's
 // normal, 1 on level road), plus a quarter of its half length (+0x11C)
@@ -260,11 +263,11 @@ bool lightMissesBlock(const Headlight& light, const std::array<std::array<float,
 // function rewrites only after taking the place: the frame of the step
 // before, the light's forward when the car turns slowly. Here the car
 // is upright: its up the track's.
-std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt, float halfLength,
+std::array<float, 3> headlightPlace(const Headlight &light, const std::array<float, 3> &carAt, float halfLength,
                                     float upright = 1);
 // The same with the car's up row (track coordinates).
-std::array<float, 3> headlightPlace(const Headlight& light, const std::array<float, 3>& carAt,
-                                    const std::array<float, 3>& carUp, float halfLength, float upright = 1);
+std::array<float, 3> headlightPlace(const Headlight &light, const std::array<float, 3> &carAt,
+                                    const std::array<float, 3> &carUp, float halfLength, float upright = 1);
 // A point in the light: its place on the picture, its colour (0 outside
 // the reach) and the game's outcodes: 1 left, 2 right, 4 below, 8 above
 // the frustum, 0x10 before the near plane or behind, 0x20 past the reach.
@@ -275,11 +278,11 @@ struct HeadlightPoint {
     uint32_t colour = 0;
     uint8_t outside = 0;
 };
-HeadlightPoint headlightAt(const Headlight& light, const std::array<float, 3>& point);
+HeadlightPoint headlightAt(const Headlight &light, const std::array<float, 3> &point);
 // Whether the game draws a triangle of the projected picture (0x41a360,
 // 0x41a120): not all its corners outside the same side, none past the
 // reach, and one at least with alpha 8 or more.
-bool headlightTriangle(const HeadlightPoint& a, const HeadlightPoint& b, const HeadlightPoint& c);
+bool headlightTriangle(const HeadlightPoint &a, const HeadlightPoint &b, const HeadlightPoint &c);
 // Each byte of an ARGB colour times k / 256 (k 0-255), as the game scales
 // light colours (0x41a3e0, 0x491223).
 uint32_t scaleArgb(uint32_t colour, uint32_t k);
@@ -299,7 +302,7 @@ struct CarLights {
     Headlight siren;
     bool sirenOn = false;
 };
-uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std::vector<CarLights>& others);
+uint32_t carLitBy(uint32_t colour, const std::array<float, 3> &carAt, const std::vector<CarLights> &others);
 // The track's lights on a near car (0x4b9550, by night, after carLitBy:
 // only for a car drawn at the nearest detail, 0x4bae00, and for the
 // officer on foot, 0x4b9bc0). For each of the seven slices from the
@@ -311,9 +314,9 @@ uint32_t carLitBy(uint32_t colour, const std::array<float, 3>& carAt, const std:
 // and |dy| plus a quarter of the other, then the same with |dz|) adds
 // its colour times 1 - d / 16 (0x10000 - (d >> 4), each channel >> 16);
 // the sums divided by their count are added, at most 255.
-int lightDistance(const std::array<int32_t, 3>& a, const std::array<int32_t, 3>& b);
-uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3>& carAt, int slice, int slices,
-                             const Track& track, uint64_t tick, bool effectsOff);
+int lightDistance(const std::array<int32_t, 3> &a, const std::array<int32_t, 3> &b);
+uint32_t carLitByTrackLights(uint32_t colour, const std::array<float, 3> &carAt, int slice, int slices,
+                             const Track &track, uint64_t tick, bool effectsOff);
 // The detail a car is drawn at (0x4bb5d0): the mean of its box's eight
 // corners' view depths against the table at 0x55fdf4 by the car detail
 // option (0x6fbc1c; 0: 30, 60, 120, 300; 1: -, 45, 90, 300; 2: -, 20, 60,
@@ -327,7 +330,7 @@ int carDetailLevel(float meanDepth, int option, bool night, bool mirror = false)
 // byte per two road slices, the speed wanted in m/s (0x40e080); then a
 // byte per slice, the best line's lane in its high nibble. 64 without the
 // file.
-float aiSlicesSpeed(const std::vector<uint8_t>& speeds, int slice);
+float aiSlicesSpeed(const std::vector<uint8_t> &speeds, int slice);
 
 // A placed sound's volume (0-127) at a distance in track units, as
 // 0x41d210 has it: 2^16 over (distance in 1/16 units)^2 / 2^10, at most 127.
@@ -338,8 +341,8 @@ int placedSoundVolume(float distance);
 // then picked afresh. One pick shared by all, from rand().
 struct OneShotTimer {
     int pick = 0;
-    template <typename Random>
-    bool fires(uint32_t frame, Random& random) {
+    template<typename Random>
+    bool fires(uint32_t frame, Random &random) {
         if (static_cast<int>((frame & 63) >> 3) != pick)
             return false;
         pick = random.next() & 7;
@@ -350,14 +353,14 @@ struct OneShotTimer {
 // Whether a point is under cover (0x420bf0): the road point's side code
 // (col.md) on the point's side of it is 2; the right side's is the low
 // nibble, unless that is 0, then the left's.
-bool pointCovered(const TrackCollision::RoadPoint& p, const std::array<float, 3>& at);
+bool pointCovered(const TrackCollision::RoadPoint &p, const std::array<float, 3> &at);
 // How far from a covered car's slice the cover ends (0x4ba350): the first
 // n from 1 at which slice + n or slice - n is not covered (at the car's
 // place), 8 when both still are at 7; 0 when the car isn't covered.
-int coverDepth(const TrackCollision& col, int slice, const std::array<float, 3>& at);
+int coverDepth(const TrackCollision &col, int slice, const std::array<float, 3> &at);
 // A road polygon's surface (the block's 8-byte record for it, byte 1
 // & 0x3F, as 0x4207e0 reads it), list 4's polygon `index`; 0 without one.
-int roadSurface(const Track::Block& b, size_t index);
+int roadSurface(const Track::Block &b, size_t index);
 // Where a point is across a slice's run of road polygons (the block's
 // positions record for the slice: a u16 first polygon of list 4 and a u8
 // count), as the track position's search has it (0x41e990 from the
@@ -365,7 +368,7 @@ int roadSurface(const Track::Block& b, size_t index);
 // 3 and to i + 1 past its edge from 1 to 2, on the ground): 0 inside
 // polygon `polygon`, 1 beyond the first polygon's outer edge, 2 beyond
 // the last's (the +0x6C side; physics.md, +0xC). -1 without a run.
-int sliceRunSide(const Track::Block& b, int sliceInBlock, const std::array<float, 3>& point, size_t& polygon);
+int sliceRunSide(const Track::Block &b, int sliceInBlock, const std::array<float, 3> &point, size_t &polygon);
 // The track position's search for the road polygon under a point, as
 // 0x41e990 does it (from trackpos_build, for a car, its corners, its
 // wheels, a light...). From the slice's run of list-4 polygons (its
@@ -400,7 +403,7 @@ struct RoadSearch {
     int pastRun = 0;
     bool beyondBlock = false;
 };
-bool roadSearch(const Track& track, RoadSearch& s, float x, float z);
+bool roadSearch(const Track &track, RoadSearch &s, float x, float z);
 
 // car_on_road's velocity step (0x4a1610, 0x4a1a3d-0x4a1b0e) for a car on
 // the road: the velocity into the rows (right, up, forward, as the car's
@@ -409,17 +412,17 @@ bool roadSearch(const Track& track, RoadSearch& s, float x, float z);
 // from the rows. Rows that aren't of unit length (a road polygon's frame
 // in 16.16 fixed point) scale what they rebuild: |forward|^2 1 - 1e-4
 // takes 0.002 m/s a call from 20 m/s.
-std::array<float, 3> aiContactVelocity(const std::array<float, 3>& v, const std::array<float, 9>& rows);
+std::array<float, 3> aiContactVelocity(const std::array<float, 3> &v, const std::array<float, 9> &rows);
 // The rows turned half way to others (0x4b7680): each made a quaternion
 // (0x4b73c0), the two blended (0x4b71e0: slerp the shorter way, straight
 // between them when within 1e-4) and made rows again (0x4b7590).
-std::array<float, 9> aiHalfTurn(const std::array<float, 9>& from, const std::array<float, 9>& to);
+std::array<float, 9> aiHalfTurn(const std::array<float, 9> &from, const std::array<float, 9> &to);
 
 // Whether the officer's spot is kept (0x401d78, after 0x4205a0 builds a
 // track position for it at the racer's slice): only inside a polygon of
 // the slice's run (+0x6C 0) with a record whose surface is neither 0 nor
 // 14; else cop_officer_place takes the other side, unchecked.
-bool officerSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point);
+bool officerSpotOnRoad(const Track &track, int slice, const std::array<float, 3> &point);
 // Whether the rain's flares (0x491bc0) are drawn on a surface: in the
 // weather, the table at 0x55308c (by surface and the weather's kind, rain
 // or snow, which agree for the 16 surfaces) says 10: surfaces 1, 4, 6, 7,
@@ -434,11 +437,11 @@ bool wetSurface(int surface);
 struct RoadFrame {
     std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1}, point{};
 };
-bool polygonRoadFrame(const Track::Block& b, size_t index, RoadFrame& out);
+bool polygonRoadFrame(const Track::Block &b, size_t index, RoadFrame &out);
 // The height 0x4968a0 (and its fixed-point twin 0x4969c0) gives a point:
 // the point taken into the frame, its part along the up dropped, and back:
 // point.y + ((p - point) . right) right.y + ((p - point) . forward) forward.y.
-float roadFrameHeight(const RoadFrame& f, const std::array<float, 3>& p);
+float roadFrameHeight(const RoadFrame &f, const std::array<float, 3> &p);
 
 // The computer's driving (physics.md: the drivers, the speed wanted, the
 // lane votes), as nfs3.exe's AI racer does it each step (64 a second,
@@ -481,12 +484,12 @@ struct AiGearbox {
     int rpm = 0;   // +0x590
     int timer = 0; // +0x64C
 };
-void aiGearRpm(AiGearbox& box, const AiCarData::Gears& data, float speedWanted, float speed, float sectionSpeed,
+void aiGearRpm(AiGearbox &box, const AiCarData::Gears &data, float speedWanted, float speed, float sectionSpeed,
                bool reversing);
 
 // The fields of a car's carp.txt the computer's driving reads; false when
 // one is missing.
-bool parseCarpAi(const std::string& text, AiCarData& out);
+bool parseCarpAi(const std::string &text, AiCarData &out);
 
 // The drivers' table (0x55226c): skill 0-2, whether they surge (+0xC 0)
 // and the personality 0-5.
@@ -498,15 +501,15 @@ struct AiDriver {
 // The driver's factor on the speed wanted (0x408dc0): skill 0 x 0.94, 1
 // x 0.97; surging x 1.05 when (step >> 7) & 3 is 1, x 0.95 when 3;
 // personality 0 x 0.95, 1 x 0.97.
-float aiDriverFactor(const AiDriver& d, int step);
+float aiDriverFactor(const AiDriver &d, int step);
 // The single race's per-track factor with ai Normal (0x40e410, 0x40ee80):
 // 0.82 on tracks 0, 3, 5 and 7, 0.84 on the others.
 float aiTrackFactor(int track);
 
 struct AiCar {
-    int slice = 0;      // the road point behind it (+0x1C)
-    int way = 1;        // +1 running the slices' way, -1 against (+0x620 bit 0x1000)
-    float offset = 0;   // the aim now (+0x7C8)
+    int slice = 0;    // the road point behind it (+0x1C)
+    int way = 1;      // +1 running the slices' way, -1 against (+0x620 bit 0x1000)
+    float offset = 0; // the aim now (+0x7C8)
     // Its side offset as driven (+0x7B8), which its lanes are taken at
     // (0x40e350): the car steered towards the aim (aiMove), lagging and
     // overshooting it a little as the game's controllers do; with
@@ -548,10 +551,10 @@ struct AiCar {
     int keptWay = 0, keptSlice = -1;
     enum Steer : uint8_t { Rails, Slow, Slide } steer = Rails;
     float sideForce = 0; // ai_ctl_rails' force across the road (0x56ec6c), for its drive's loss
-    float target = 0;   // the offset wanted (+0x7B4)
-    float speed = 0;    // m/s along its way (+0x7C4)
-    float wanted = 0;   // the speed wanted (+0x7B0), as a size
-    float scale = 1;    // the speed scale (+0x7BC): aiDriverFactor x aiTrackFactor, at most 1
+    float target = 0;    // the offset wanted (+0x7B4)
+    float speed = 0;     // m/s along its way (+0x7C4)
+    float wanted = 0;    // the speed wanted (+0x7B0), as a size
+    float scale = 1;     // the speed scale (+0x7BC): aiDriverFactor x aiTrackFactor, at most 1
     float halfWidth = 1.183f;
     // Its half extent across the road (+0x21C, 0x42cd00): the half sizes
     // (+0x114, +0x118, +0x11C) each x |the road's right . the body's axis|,
@@ -602,17 +605,17 @@ struct AiCar {
     // 32), when P is the identity again.
     std::array<float, 9> rowShape{1, 0, 0, 0, 1, 0, 0, 0, 1};
     bool rowsShaped = false;
-    float turnSum = 0;   // +0x94
-    int turnCount = 0;   // +0x8C (a byte)
+    float turnSum = 0;    // +0x94
+    int turnCount = 0;    // +0x8C (a byte)
     bool turnDue = false; // a model tick ran: car_integrate_turn after the move
     AiDriver driver;
-    bool cop = false;   // +0x200 bit 0x20: weighs more in the votes of the cars behind
+    bool cop = false;                          // +0x200 bit 0x20: weighs more in the votes of the cars behind
     int lane = 7, laneLeft = 7, laneRight = 7; // +0x638, +0x63C, +0x640
-    int beams = 0;      // +0x660
-    bool flashing = false; // +0x620 bit 8, until flashUntil (+0x644)
+    int beams = 0;                             // +0x660
+    bool flashing = false;                     // +0x620 bit 8, until flashUntil (+0x644)
     int flashUntil = 0;
     bool braking = false; // +0x509 not 0: the brake held (ai_brake's 255)
-    int pick = 7;       // the lane chosen (0x56ef74)
+    int pick = 7;         // the lane chosen (0x56ef74)
     // A computer cop's driver (car_driver_cop 0x4032e0, physics.md), for
     // a cop: its state +0x70C (1 patrol, 2 driving to its order, 3 to the
     // roadside, 4 stopped there, 5 the chase, 6 the stop, 7 a run with the
@@ -644,7 +647,7 @@ struct AiCar {
     // slice and lane, the racer near radioed (+0x711 bit 0x20).
     bool stripOn = false, stripNear = false;
     int stripSlice = 0, stripLane = 7;
-    bool reversing = false;   // +0x7D4 (ai_reverse_set)
+    bool reversing = false; // +0x7D4 (ai_reverse_set)
     // ai_reverse_set's timer: reversing until `reverseUntil` (+0x7D0) when
     // `reverseTimed` (+0x620 bit 0x40); `reverseCount` (+0x658) the times
     // it has started, cleared over 10 m/s (ai_target_point 0x406e50).
@@ -732,7 +735,7 @@ struct AiCar {
     RoadSearch road; // its track position's search (+0xC)
     // The track aiRoadFrame searched (kept for the put back's road test,
     // aiSpotOnRoad); null until then.
-    const Track* roadTrack = nullptr;
+    const Track *roadTrack = nullptr;
     // The race runs backward (g_backward): the put back goes on against
     // the slices (0x429100), whichever way the car runs.
     bool raceBackward = false;
@@ -740,8 +743,8 @@ struct AiCar {
     // road polygons it is on, which the track position's search gives;
     // `slice` and `along` place it between road points. -1: as `slice`.
     int roadSlice = -1;
-    bool holding = false;     // +0x710 bit 0x40: the stop test held since
-    int holdUntil = 0;        // +0x720
+    bool holding = false;           // +0x710 bit 0x40: the stop test held since
+    int holdUntil = 0;              // +0x720
     int waitFrom = 0, waitNear = 0; // +0x72C, +0x728: waiting for the watched racer
     // A racer's chase record (+0x628: +0x1C 2 pulled over, +0x28 the step
     // the stop or the ticket ends, +0x50 the cops stopping it), its state
@@ -786,23 +789,23 @@ struct AiCar {
 };
 // What a radio call (its routine's address, physics.md's table) says, in
 // a few words; empty for an unknown one.
-const char* aiRadioCall(uint32_t call);
+const char *aiRadioCall(uint32_t call);
 // Where a strip lies (spike_lay 0x4c9dd0 with 0x4c9bc0): across the
 // lane's middle (aiLaneOffset's, its half's lane width from bytes 0x17 or
 // 0x1B), 1.5 lane widths long: offsets `from` to `to` along the road's
 // right at the slice's point.
-void aiStripSpan(const TrackCollision::RoadPoint& p, int lane, float& from, float& to);
+void aiStripSpan(const TrackCollision::RoadPoint &p, int lane, float &from, float &to);
 // The strip's quad (spike_lay 0x4c9dd0): its two ends on the road at the
 // slice's point (aiStripSpan's), and the same two 0.5 higher (0x540360).
-std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint& p, int lane);
+std::array<std::array<float, 3>, 4> aiStripQuad(const TrackCollision::RoadPoint &p, int lane);
 // Which wheels are on a strip (spike_hit_test 0x4ca160), a bit each: the
 // quad's corners taken into the car's frame from each wheel (`right`,
 // `up`, `forward` its rows, the wheels as AiCar::wheels from `at` on the
 // road), each given an out code against a box of ±0.5 round the wheel
 // (0x540388, 0x540390); a wheel whose four codes share no side is on it.
-unsigned aiStripWheels(const std::array<std::array<float, 3>, 4>& quad, const std::array<float, 3>& at,
-                       const std::array<float, 3>& right, const std::array<float, 3>& up,
-                       const std::array<float, 3>& forward, const std::array<std::array<float, 2>, 4>& wheels);
+unsigned aiStripWheels(const std::array<std::array<float, 3>, 4> &quad, const std::array<float, 3> &at,
+                       const std::array<float, 3> &right, const std::array<float, 3> &up,
+                       const std::array<float, 3> &forward, const std::array<std::array<float, 2>, 4> &wheels);
 // How long a cop holds a slow target before it is pulled over
 // (cop_ai_stop_check 0x402110, 0x40237a): 192 steps for a human; for a
 // computer racer 160 when it is more than 60 slices ahead of the leading
@@ -813,25 +816,25 @@ int aiStopHold(bool humanTarget, int raceDistance);
 // order of kind 0 from its slice - 6, 3 slices, +0x711 bit 8), a roadblock
 // (0x403b20: kind 4 at a slice, the siren on, +0x711 bit 4) or a patrol
 // (kind 2), each watching a racer.
-void aiOrderStrip(AiCar& cop, int racer, int sliceCount);
-void aiOrderRoadblock(AiCar& cop, int racer, int slice);
-void aiOrderPatrol(AiCar& cop);
+void aiOrderStrip(AiCar &cop, int racer, int sliceCount);
+void aiOrderRoadblock(AiCar &cop, int racer, int slice);
+void aiOrderPatrol(AiCar &cop);
 // The lane at a side offset (0x40e2b0): 7 + the offset over the right
 // lanes' width rounded to the nearest (6 + over the left's, for one on
 // the left), 0-13.
-int aiLaneAt(const TrackCollision::RoadPoint& p, float offset);
+int aiLaneAt(const TrackCollision::RoadPoint &p, float offset);
 // Whether a lane has road at a point (0x40e200, 0x40e270): bit 14 - lane
 // of the point's strip mask.
-bool aiLaneOpen(const TrackCollision::RoadPoint& p, int lane);
+bool aiLaneOpen(const TrackCollision::RoadPoint &p, int lane);
 // The side offset the computer aims at for a lane (0x40daf0): a lane's
 // middle, (L - 7 + 1/2) widths right or (6 - L + 1/2) left; for the lane
 // just past the road's lanes, a half width of the car past the road's
 // edge; within the walls less the half width; then moved `nudge` half
 // widths right (0x56ef78, from the lanes' strips).
-float aiLaneOffset(const TrackCollision::RoadPoint& p, int lane, float halfWidth, int nudge = 0);
+float aiLaneOffset(const TrackCollision::RoadPoint &p, int lane, float halfWidth, int nudge = 0);
 // The speed table's best line lane for a slice (0x40e0c0): the high
 // nibble of the byte after the speeds; 7 without the table.
-int aiLineLane(const std::vector<uint8_t>& speeds, int slice, int sliceCount);
+int aiLineLane(const std::vector<uint8_t> &speeds, int slice, int sliceCount);
 // Whether a car is still at the race's start (0x40f050 with `extra`): its
 // race distance (+8) plus 14 x its place (+0x1FC) is not past 400 slices
 // with 5 or more racers (0x5efd94), 200 with 2 to 4, 50 with one, each 26
@@ -852,24 +855,24 @@ enum class AiPhase { Both, Drive, Move };
 // A car's half extent across the road (+0x21C, 0x42cd00): its half
 // width, height and length each x |the road's right (+0x124) . its right,
 // up, forward|.
-float aiCarExtent(const TrackCollision& col, const AiCar& c);
+float aiCarExtent(const TrackCollision &col, const AiCar &c);
 // The race task's part for the computer's cars (0x42ce70, Sc32: the even
 // steps, every car in play): +0x21C (aiCarExtent), +0x7B8 the side offset
 // as measured (0x4a2bc0, aiMeasuredSide) and +0x638 the lane at it on its
 // slice (0x40e2b0). Run before the cars' drivers and models, which read
 // these.
-void aiRaceTick(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+void aiRaceTick(std::vector<AiCar> &cars, const TrackCollision &col, int step);
 // Whether a car may be put at `offset` on `slice` (0x428ad0): the lane
 // there open (0x40e220) and no other car within a lane of it (+0x638) and
 // a slice (+0x1C), and, once the car has searched the track's polygons
 // (aiRoadFrame), the road under the point (aiSpotOnRoad).
-bool aiSpotFree(const std::vector<AiCar>& cars, size_t self, const TrackCollision& col, int slice, float offset);
+bool aiSpotFree(const std::vector<AiCar> &cars, size_t self, const TrackCollision &col, int slice, float offset);
 // 0x428ad0's road test at a spot: a track position built at the point from
 // the slice (0x4205a0) is in a road polygon whose record's byte 1 has no
 // 0x40 or 0x80 and a surface not 0 or 14 (0x4207e0), with its up's y above
 // 0. aiSpotFree applies it once the car has searched the track
 // (aiRoadFrame).
-bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& point);
+bool aiSpotOnRoad(const Track &track, int slice, const std::array<float, 3> &point);
 // A car put back on the road (0x429100, from ai_target_point 0x406e50
 // when it has started reversing more than 8 times at 10 m/s or less, or
 // has been off the lanes and slow for over 1000 ticks): 5 slices on the
@@ -878,12 +881,12 @@ bool aiSpotOnRoad(const Track& track, int slice, const std::array<float, 3>& poi
 // then the lanes' middles out from it, right first, then the next slices,
 // up to 10), still, lined up with the road, a ghost to the hits for 64
 // ticks. aiStep and aiCopStep call it when aiMove asked (putBackDue).
-void aiPutBack(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
+void aiPutBack(std::vector<AiCar> &cars, size_t self, const TrackCollision &col);
 // The impacts task (car_impacts_task 0x42b900, Sc32 priority 50: each even
 // step after the hits, aiCollide, for every car in turn): +0x524 taken down
 // (`putBackHold`) and the reset timer (aiResetTimer). The hits' own effects
 // on the controller (0x406120, 0x404a00) aiCollide does.
-void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step);
+void aiImpacts(std::vector<AiCar> &cars, const TrackCollision &col, int step);
 // car_reset_timer (0x429260) for a computer car: while +0x8A0 runs it loses
 // 1 a tick, 2 more off a road polygon (+0x20 or +0x24 0) or on surface 0 or
 // 14, 8 more on the ground (+0x164 0) with +0xB8 + |vy| under 1; on the
@@ -893,7 +896,7 @@ void aiImpacts(std::vector<AiCar>& cars, const TrackCollision& col, int step);
 // polygon's up (+0xCC . +0x130) is under 0.75 (0x5371dc) or the surface
 // (+0x18C) is 0 or 14. (A human's 175, 0x5efdc4, and its gas, and a
 // traffic car, which is never reset, aren't the page's.)
-void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
+void aiResetTimer(std::vector<AiCar> &cars, size_t self, const TrackCollision &col);
 // car_reset_tipped (0x428f90): +0x2C0 counted; a car upright (+0x10C over
 // 0.75), with the spins about x and z under 1 turn/s, on a surface not 0
 // or 14, at most 5 air ticks and the clearance under 0.6 is left as it is;
@@ -902,7 +905,7 @@ void aiResetTimer(std::vector<AiCar>& cars, size_t self, const TrackCollision& c
 // 0x420bf0), still, its spins and forces 0 and in the air (0x428970), a
 // ghost to the hits for 64 ticks (+0x174). Unlike 0x429100 it has no gate
 // (a pulled-over car, +0x524) and leaves +0x524 0.
-void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& col);
+void aiResetTipped(std::vector<AiCar> &cars, size_t self, const TrackCollision &col);
 // One step (of 64 a second) of the computer's driving for cars[self], as
 // an AI racer (+0x200 bit 8). Its driver
 // (car_driver_ai 0x409c00) acts only when aiDriverActs lets it, every 8
@@ -922,8 +925,8 @@ void aiResetTipped(std::vector<AiCar>& cars, size_t self, const TrackCollision& 
 // (ai_ctl_rails 0x4076b0), with gravity along the road's rise (0x4a2a0c);
 // the brake held only when more than 5 m/s too fast; its side offset
 // follows the aim every step. speeds: the table for its way.
-void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const std::vector<uint8_t>& speeds,
-            const AiCarData& data, int step, int track, bool weather, AiPhase phase = AiPhase::Both);
+void aiStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const std::vector<uint8_t> &speeds,
+            const AiCarData &data, int step, int track, bool weather, AiPhase phase = AiPhase::Both);
 // One step (64 a second) of a computer car's motion across the road, as
 // the game's model has it (car_ai_model 0x408600 on the even steps, then
 // ai_integrate 0x4071a0): its heading error to the point it steers at
@@ -946,7 +949,7 @@ void aiStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, co
 // `speed` its speed. Here the model is followed by aiAdvance (the place
 // moved by the velocity, kept within the walls; `side` comes out as the
 // game measures +0x7B8); aiStep's AiPhase::Move doesn't move the car.
-void aiSteerStep(AiCar& car, const TrackCollision& col, int step, int track = -1);
+void aiSteerStep(AiCar &car, const TrackCollision &col, int step, int track = -1);
 // The car's place moved by its world velocity, 1/64 s (car_move 0x4a2c60,
 // every step, after the models and the hits): `slice`, `along` and
 // `lateral` found again for the new place (the line from a slice's point
@@ -956,38 +959,38 @@ void aiSteerStep(AiCar& car, const TrackCollision& col, int step, int track = -1
 // and `side` measured there. aiStep and aiCopStep do it with
 // AiPhase::Both; with Drive and Move whoever runs the tick calls it for
 // every car after aiCollide.
-void aiAdvance(AiCar& car, const TrackCollision& col);
+void aiAdvance(AiCar &car, const TrackCollision &col);
 // Places a car at a world point: its slice (from `slice`, stepped either
 // way up to 6), `along` and `lateral`.
-void aiLocate(AiCar& car, const TrackCollision& col, const std::array<float, 3>& at);
+void aiLocate(AiCar &car, const TrackCollision &col, const std::array<float, 3> &at);
 // Sets a car's world velocity and its body's forward (as dumped: +0xA4,
 // +0xD8) and the views from them.
-void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
-                const std::array<float, 3>& forward);
+void aiSetWorld(AiCar &car, const TrackCollision &col, const std::array<float, 3> &velocity,
+                const std::array<float, 3> &forward);
 // The same with the body's up (+0xCC), giving its roll and pitch.
-void aiSetWorld(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
-                const std::array<float, 3>& forward, const std::array<float, 3>& up);
+void aiSetWorld(AiCar &car, const TrackCollision &col, const std::array<float, 3> &velocity,
+                const std::array<float, 3> &forward, const std::array<float, 3> &up);
 // The body's axes as the model has them (aiBodyAxes), rolled and pitched
 // by `roll` and `pitch`, times the rows' shape (AiCar::rowShape): the
 // game's +0xD8, +0xC0, +0xCC.
-void aiTiltedAxes(const TrackCollision& col, const AiCar& car, std::array<float, 3>& forward,
-                  std::array<float, 3>& right, std::array<float, 3>& up);
+void aiTiltedAxes(const TrackCollision &col, const AiCar &car, std::array<float, 3> &forward,
+                  std::array<float, 3> &right, std::array<float, 3> &up);
 // The roll and pitch that give the body this up in the world.
-void aiSetTilt(AiCar& car, const TrackCollision& col, const std::array<float, 3>& up);
+void aiSetTilt(AiCar &car, const TrackCollision &col, const std::array<float, 3> &up);
 // The yaw, roll and pitch that give the body's unit axes this forward and
 // up (orthonormal): the yaw taken again until the forward's direction
 // across the world is the one wanted, the roll and pitch from the up.
-void aiSetFrame(AiCar& car, const TrackCollision& col, const std::array<float, 3>& forward,
-                const std::array<float, 3>& up);
+void aiSetFrame(AiCar &car, const TrackCollision &col, const std::array<float, 3> &forward,
+                const std::array<float, 3> &up);
 // A car's world velocity, and its body's forward, right and up (its yaw on
 // the road's up), as the model has them.
-std::array<float, 3> aiVelocity(const TrackCollision& col, const AiCar& car);
-void aiBodyAxes(const TrackCollision& col, const AiCar& car, std::array<float, 3>& forward,
-                std::array<float, 3>& right, std::array<float, 3>& up);
+std::array<float, 3> aiVelocity(const TrackCollision &col, const AiCar &car);
+void aiBodyAxes(const TrackCollision &col, const AiCar &car, std::array<float, 3> &forward, std::array<float, 3> &right,
+                std::array<float, 3> &up);
 // Whether a computer car's driver acts on a step (0x40df10 -> 0x401240,
 // for racers and cops alike): the drivers are a 32 Hz task, on the even
 // steps, let through when (step / 2 + its phase, car +0) mod 4 is 0.
-bool aiDriverActs(const AiCar& car, int step);
+bool aiDriverActs(const AiCar &car, int step);
 
 // The track section's speed (0x40ed40): by track and slice, hard-coded
 // ranges, 8.94 to 31.29 m/s.
@@ -1006,8 +1009,8 @@ struct AiRace {
     int raceType = 0, track = 0, link = 0;
     bool aggressive = false, expert = false;
 };
-int aiRacersAhead(int humanDistance, const std::vector<int>& racerDistances);
-float aiCatchUpFactor(const AiRace& race, int distance, int place);
+int aiRacersAhead(int humanDistance, const std::vector<int> &racerDistances);
+float aiCatchUpFactor(const AiRace &race, int distance, int place);
 
 // One step of a computer cop's driver (car_driver_cop 0x4032e0) for
 // cars[self] (copState set), then its aim and speed as aiStep moves them.
@@ -1028,7 +1031,7 @@ float aiCatchUpFactor(const AiRace& race, int distance, int place);
 // steps of a chase its calls for help (a strip by the heat, 0x4039c0;
 // backup, 0x4043a0) to the free cops in `cars`. Its strip's hits are
 // tested each step (0x4297d0, 0x4ca160: the racers' wheels on its quad).
-void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col, const AiCarData& data, int step,
+void aiCopStep(std::vector<AiCar> &cars, size_t self, const TrackCollision &col, const AiCarData &data, int step,
                int track, bool weather, AiPhase phase = AiPhase::Both);
 
 // Car against car (physics.md, Rolls from car hits): car_collisions_task
@@ -1037,14 +1040,14 @@ void aiCopStep(std::vector<AiCar>& cars, size_t self, const TrackCollision& col,
 // tick whose centre is within the sum of their half diagonals on each of
 // x, y and z. A car as the contact sees it:
 struct CarBox {
-    std::array<float, 3> at{};                                       // its centre (+0x98)
+    std::array<float, 3> at{};                                          // its centre (+0x98)
     std::array<float, 3> right{1, 0, 0}, up{0, 1, 0}, forward{0, 0, 1}; // rows +0xC0, +0xCC, +0xD8
-    std::array<float, 3> half{1.183f, 0.669f, 2.406f};                // half sizes +0x114, +0x118, +0x11C
-    float mass = 1472;                                               // +0xB0
-    std::array<float, 3> velocity{};                                 // +0xA4
-    std::array<float, 3> spin{};                                     // +0xE4, in turns a second
-    float strength = 0; // +0x168: the last hit's (0x42e820's return), for the impacts task
-    int airTicks = 0;   // +0x164: one more for each hit over 5
+    std::array<float, 3> half{1.183f, 0.669f, 2.406f};                  // half sizes +0x114, +0x118, +0x11C
+    float mass = 1472;                                                  // +0xB0
+    std::array<float, 3> velocity{};                                    // +0xA4
+    std::array<float, 3> spin{};                                        // +0xE4, in turns a second
+    float strength = 0;              // +0x168: the last hit's (0x42e820's return), for the impacts task
+    int airTicks = 0;                // +0x164: one more for each hit over 5
     std::array<float, 3> hitPoint{}; // +0x178: the last hit's point (0x42f280), for its particles
 };
 // A hit aiCollide took: the car (its index), the strength and the point,
@@ -1062,7 +1065,7 @@ struct AiHit {
 // apart along the line between them, 0.25 in all, each by the other's
 // share of the two masses (0x42fe10). True when a point was found;
 // `point` (0x5efe84) is the last.
-bool carBoxTouch(CarBox& a, CarBox& b, std::array<float, 3>& point);
+bool carBoxTouch(CarBox &a, CarBox &b, std::array<float, 3> &point);
 // The hit (0x42f280 with 0x42e820 and 0x42e720) at the contact point:
 // each car's J is the other's point velocity less its own (v + 2 pi spin
 // x r) times the other's mass, taken only while closing (the centre line
@@ -1071,13 +1074,13 @@ bool carBoxTouch(CarBox& a, CarBox& b, std::array<float, 3>& point);
 // and its spin (r^ x J) / (both masses x its half diagonal x 2 pi), each
 // spin then held within +-1.8. The strength (+0x168) is the velocity's
 // part plus |r^ x J| / both masses; over 5 it adds 1 to +0x164.
-void carBoxHit(CarBox& a, CarBox& b, const std::array<float, 3>& point);
+void carBoxHit(CarBox &a, CarBox &b, const std::array<float, 3> &point);
 // 0x430c80: the box test while it finds a point, at most 33 times, then
 // the hit once at the last point found. True when they touched.
-bool carBoxCollide(CarBox& a, CarBox& b);
+bool carBoxCollide(CarBox &a, CarBox &b);
 // 0x4310c0 for each car in turn (`in` false: not in play), against those
 // before it: the pairs that touched.
-int carBoxCollisions(std::vector<CarBox>& cars, const std::vector<bool>& in = {});
+int carBoxCollisions(std::vector<CarBox> &cars, const std::vector<bool> &in = {});
 // A computer car's mass (0x42bcb0): P's mass (+4), over 1.2 (0x5efdb8) for
 // a racer (+0x200 bit 1), as it is for a cop.
 float aiCarMass(float carpMass, bool racer);
@@ -1103,7 +1106,7 @@ float aiCarMass(float carpMass, bool racer);
 // t6-log's dumps with the place a tick of 32 back (the side is measured
 // then), the polygon's right gives +0x7B8 to 1 cm in 336 of 427 samples,
 // the slice's in 58. Without aiRoadFrame, the slice's right.
-float aiMeasuredSide(const TrackCollision& col, const AiCar& c);
+float aiMeasuredSide(const TrackCollision &col, const AiCar &c);
 // How far a car `lateral` across the road goes from a slice's line to the
 // next's: |(next point - point) + lateral x (next right - right)|. The
 // page keeps a car's `lateral` as it passes from slice to slice (its place
@@ -1114,39 +1117,39 @@ float aiMeasuredSide(const TrackCollision& col, const AiCar& c);
 // slices). The centre line's length was taken for every lane until
 // November 2026, so a car on the outside of a bend ran ahead of the
 // game's and one on the inside fell behind.
-float aiSegmentLength(const TrackCollision& col, int slice, float lateral);
+float aiSegmentLength(const TrackCollision &col, int slice, float lateral);
 // The slice the driving reads (+0x1C): `roadSlice` once aiRoadFrame has
 // set it, else `slice`. The game's car is on the slice whose run of road
 // polygons it is in, from the track position's search; the road point
 // lies within the run, so this slice is often the one ahead of the point
 // behind the car (t6-log: up to 2.5 m before the point).
-int aiSlice(const AiCar& c);
+int aiSlice(const AiCar &c);
 // The `lateral` (across the line from the slice's point to the next) that
 // measures as `side`.
-float aiLateralFor(const TrackCollision& col, const AiCar& c, float side);
+float aiLateralFor(const TrackCollision &col, const AiCar &c, float side);
 // The road's right at the car (car_road_frame 0x49ffa0 through
 // trackpos_road_frame 0x420230): the track position's search (roadSearch,
 // from the car's slice) and, inside a polygon of the slice's run, that
 // polygon's frame (polygonRoadFrame); off the run's side the slice's
 // point's right; not found, the last one stays.
-void aiRoadFrame(const Track& track, const TrackCollision& col, AiCar& c);
+void aiRoadFrame(const Track &track, const TrackCollision &col, AiCar &c);
 // A car hit under 10 m/s (0x406120, from the impacts task 0x42b900 after
 // 0x42f280's hit, +0x168 not 0) also starts or ends its reversing:
 // ai_reverse_set(2, 128). Its roll and pitch are taken from the hit's spin
 // (along its forward and right) as its yaw is.
 // `hits`, if given, gets each car a hit gave a strength.
-void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, std::vector<AiHit>* hits = nullptr);
+void aiCollide(std::vector<AiCar> &cars, const TrackCollision &col, int step, std::vector<AiHit> *hits = nullptr);
 // ai_reverse_set (0x405fd0) at step `step`: mode 0 starts reversing (+1 to
 // the count; timed for `steps` when not 0), 1 ends it, 2 toggles it (a
 // timed reversing whose time isn't up stays on). ai_reverse_end
 // (0x4060d0, each tick of the model) ends a timed one once its time is
 // past.
-void aiReverseSet(AiCar& car, int mode, int steps, int step);
+void aiReverseSet(AiCar &car, int mode, int steps, int step);
 // The skid levels (+0x5C0, +0x5C4) the car's controller (`steer`) leaves,
 // for the wheels' effects (aiMove calls it each model step): rails by the
 // velocity across the road 2 slices on, the rear only while braking;
 // slide by the velocity along its own right; slow leaves them.
-void aiSkid(AiCar& car, float side, bool braking);
+void aiSkid(AiCar &car, float side, bool braking);
 // The race's random numbers the computer's code draws (0x554f10, by
 // 0x554f18; seeded by 0x4371d0 from 0x6fd3b4, GetTickCount at start-up,
 // as the race tasks are set up, 0x4c46be and 0x4c47b3): `seed` as
@@ -1158,7 +1161,7 @@ struct AiStartRandom {
 };
 // The one the page's computer cars draw from (the game's is shared with
 // the cops' code, which the page doesn't draw from it).
-AiStartRandom& aiStartRandom();
+AiStartRandom &aiStartRandom();
 // The start's wheelspin (ai_ctl_slide 0x408244-0x4082e0, 0x4084b6): an
 // AI racer (+0x200 bit 8) within race distance 20 (+8 under 0x14) whose
 // acceleration (`accel`, ai_accel 0x4064f0 as taken this tick) is its
@@ -1167,7 +1170,7 @@ AiStartRandom& aiStartRandom();
 // `AiCar::slot`) its rear skid level is set to 10 after the controller's,
 // and aiMove gives it the push (0.5 more side force, and half the side
 // force more yaw force, 0x4082dc).
-bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRandom& random);
+bool aiStartSpin(const AiCar &car, const AiCarData &data, float accel, AiStartRandom &random);
 // A car out of the race (ai_finished_coast 0x407380, from car_ai_model
 // 0x408600 for a racer, +0x200 bit 1, with +0x2C4 3 finished or 4
 // busted), on the ground and upright (+0x164 0, +0x10C at least 0.9f):
@@ -1180,9 +1183,9 @@ bool aiStartSpin(const AiCar& car, const AiCarData& data, float accel, AiStartRa
 // |right| is over |forward| both levels |right| and the right x 0.2.
 struct AiCoast {
     float forward = 0, right = 0, yawRate = 0, ground = 0; // +0x4F4, +0x4EC, +0x4FC, +0xB8
-    float skidFront = 0, skidRear = 0;                      // +0x5C0, +0x5C4
+    float skidFront = 0, skidRear = 0;                     // +0x5C0, +0x5C4
 };
-void aiFinishedCoast(AiCoast& c);
+void aiFinishedCoast(AiCoast &c);
 // The laps, each tick of 32 (the race task 0x42ce70 when the car's slice
 // changed: car_laps_owed 0x42cc20 and car_race_distance 0x42ce10; then
 // car_laps_task 0x4ce280): from a slice over 500 (0x1F5) to one of 0-50
@@ -1192,7 +1195,7 @@ void aiFinishedCoast(AiCoast& c);
 // backward), 0 while a lap is owed. A racer whose lap reaches the race's
 // laps (`laps` over 0) has finished: +0x2C4 3, +0x228 the step. Only for a
 // car with `laps` set.
-void aiLaps(AiCar& car, int slices, int step, bool backward = false);
+void aiLaps(AiCar &car, int slices, int step, bool backward = false);
 // The default grid (0x42ba00, with no TRKnnn/start.dat, which the CD has
 // none of): grid place `index` of `cars` is on slice 3 x index + 1
 // (backward, the places counted from the back), half a lane width from the
@@ -1201,26 +1204,26 @@ void aiLaps(AiCar& car, int slices, int step, bool backward = false);
 // other way round; 0.5 up (0x8000). (The other way, with the track row's
 // +8 set, puts them about the road's middle lanes; no track has it.)
 int aiGridSlice(int index, int cars, int slices, bool backward = false);
-float aiGridOffset(const TrackCollision::RoadPoint& p, int index, bool backward = false);
+float aiGridOffset(const TrackCollision::RoadPoint &p, int index, bool backward = false);
 // A car put on the grid (0x42bcb0: car_place_on_slice 0x4a0aa0, lap 0, the
 // laps owed 1 on a backward track, the slice before = the slice, the race
 // distance, everything still): on `slice` at `offset` along its right,
 // facing the race's way, its rows the road polygon's (aiRoadFrame's 16.16
 // rows, 0x4a0980; `track` searched first), +0x8C and +0x94 0 (0x4a0d20).
-void aiPutOnGrid(AiCar& car, const Track& track, const TrackCollision& col, int slice, float offset,
+void aiPutOnGrid(AiCar &car, const Track &track, const TrackCollision &col, int slice, float offset,
                  bool backward = false);
 // The body's rows as dumped (+0xC0 right, +0xCC up, +0xD8 forward, not
 // quite unit or square to each other from the grid's 16.16 rows): the
 // car's yaw, roll and pitch from their orthonormal part and `rowShape`
 // from the rest (P = (M M^T)^(1/2), M = P Q), with its velocity.
-void aiSetRows(AiCar& car, const TrackCollision& col, const std::array<float, 3>& velocity,
-               const std::array<float, 3>& right, const std::array<float, 3>& up, const std::array<float, 3>& forward);
+void aiSetRows(AiCar &car, const TrackCollision &col, const std::array<float, 3> &velocity,
+               const std::array<float, 3> &right, const std::array<float, 3> &up, const std::array<float, 3> &forward);
 // The roll and pitch over one step of 64 (0x4a1610 on the road): in the
 // air (`airTicks`) nothing sets the rates and the angles turn by them as
 // they are; on the road each rate is set to the difference of the body's
 // up from the road's (sin of the angle), held to +-0.5 turn/s, towards
 // the road, or 0 once both are within 0.02. The angles turn by the rates.
-void aiTilt(AiCar& car, int step);
+void aiTilt(AiCar &car, int step);
 // On the road (aiModelSteer), as the game does it on the world's axes:
 // the spins about x and z are the road normal's z less the body up's and
 // the body up's x less the normal's (car_on_road 0x4a1610), held to
@@ -1229,7 +1232,7 @@ void aiTilt(AiCar& car, int step);
 // `airTicks` set) nothing: aiModelSteer turns the body by its spins after
 // the dynamics (car_integrate_turn 0x4a2e20), and the landing
 // (car_landing 0x4a1ce0) ends the air ticks.
-void aiTilt(AiCar& car, int step, const TrackCollision& col);
+void aiTilt(AiCar &car, int step, const TrackCollision &col);
 
 // A car record of a dump of nfs3.exe's cars (0x5e1120, 0x9AC bytes a
 // car; physics.md): in play +0x89, flags +0x200 (4 a human, 0x20 a cop,
@@ -1243,7 +1246,7 @@ struct DumpedCar {
     int slice = 0, beams = 0, beamScroll = 0;
     float speed = 0, offset = 0;
     std::array<int, 3> paint{}; // the paint in HSV (+0x8A8, +0x8AC, +0x8B0)
-    int setup = -1; // its set-up record (+0x220 points at 0x6fd52c + 0x6C each), -1 elsewhere
+    int setup = -1;             // its set-up record (+0x220 points at 0x6fd52c + 0x6C each), -1 elsewhere
     std::array<float, 3> at{}, right{}, up{}, forward{};
     // The officer on foot beside it (+0x8E4 and +0x8E8 both set, by
     // cop_officer_place 0x401c20 until 0x401e20 clears them): his place on
@@ -1261,9 +1264,9 @@ struct DumpedCar {
     int weather = 0, surface = 0;
     std::array<std::array<float, 3>, 4> wheelAt{};
 };
-std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t>& bytes);
+std::vector<DumpedCar> parseCarDump(const std::vector<uint8_t> &bytes);
 // A dump of the particles' 600 slots (0x7ddfd0, 128 bytes each: particles.h's
 // offsets), the live ones (+0 life not 0) as they are there.
-std::vector<Particle> parseParticleDump(const std::vector<uint8_t>& bytes);
+std::vector<Particle> parseParticleDump(const std::vector<uint8_t> &bytes);
 
 } // namespace reluva::nfs

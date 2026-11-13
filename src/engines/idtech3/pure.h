@@ -20,7 +20,7 @@ namespace reluva::idtech3 {
 // little-endian words), its four words XORed together. A pure server's
 // checksum puts its checksum feed (a number it picks for each level)
 // before the CRCs.
-int32_t pakChecksum(const ZipArchive& pak, std::optional<int32_t> feed = std::nullopt);
+int32_t pakChecksum(const ZipArchive &pak, std::optional<int32_t> feed = std::nullopt);
 
 // The pure check a client answers a server's game state with (Elite
 // Force's protocol 24, docs/engines/idtech3/games/stvef/systems/network.md): "cp", the pure checksums of
@@ -29,7 +29,7 @@ int32_t pakChecksum(const ZipArchive& pak, std::optional<int32_t> feed = std::nu
 // their checksums in its sv_paks; all of them if it gives none), and the
 // feed XOR all those XOR their count. Empty if the client game or menus
 // don't come from a pak.
-std::string pureCommand(const SearchSet& files, int32_t feed, const std::string& serverPaks);
+std::string pureCommand(const SearchSet &files, int32_t feed, const std::string &serverPaks);
 
 // Whether a pure server takes a client's answer (`words`: "cp" and the
 // rest, as pureCommand makes it; a level id before the checksums, as
@@ -38,13 +38,13 @@ std::string pureCommand(const SearchSet& files, int32_t feed, const std::string&
 // the paks it reads from (none twice, each one of the server's own,
 // `serverPaks`, all with the feed), and the encoded count; six words at
 // least.
-bool pureAnswerValid(const std::vector<std::string>& words, int32_t cgame, int32_t ui,
-                     const std::set<int32_t>& serverPaks, int32_t feed);
+bool pureAnswerValid(const std::vector<std::string> &words, int32_t cgame, int32_t ui,
+                     const std::set<int32_t> &serverPaks, int32_t feed);
 
 // Whether reading `name` from a pak counts as the level using that pak,
 // for the paks a server lists (sv_referencedPaks): not for the files the
 // original reads from every pak (shaders, text, configs, bot and arena
 // lists, menus, levelshots) nor for the server's own game code.
-bool referencesPak(const std::string& name);
+bool referencesPak(const std::string &name);
 
 } // namespace reluva::idtech3

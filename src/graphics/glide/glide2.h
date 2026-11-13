@@ -45,7 +45,7 @@ struct Glide2TexInfo {
 // What grSstQueryHardware reports, one board.
 struct Glide2HwConfig {
     int numSst = 1;
-    int type = 3;        // GR_SSTTYPE_Voodoo2
+    int type = 3; // GR_SSTTYPE_Voodoo2
     int fbRamMb = 4;
     int fbiRev = 2;
     int nTexelfx = 2;
@@ -68,13 +68,13 @@ class Glide2 {
 public:
     explicit Glide2(Board board = {});
 
-    Pipeline& pipeline() { return pipeline_; }
+    Pipeline &pipeline() { return pipeline_; }
     // Lines for a log: each function not stood in for, the first time.
-    std::function<void(const std::string& line)> log;
+    std::function<void(const std::string &line)> log;
     std::string logName = "glide2x"; // the library its lines are from
     // A window's client size, for grSstWinOpen(GR_RESOLUTION_NONE) on a
     // board that allows it (the Voodoo Rush); unset, 640x480.
-    std::function<bool(uint32_t hwnd, int& width, int& height)> windowSize;
+    std::function<bool(uint32_t hwnd, int &width, int &height)> windowSize;
     // Called after each grBufferSwap, the new front buffer ready for
     // pipeline().present().
     std::function<void()> onSwap;
@@ -87,14 +87,14 @@ public:
         return changed;
     }
     // Notes, once, that `function` was called but isn't (fully) carried out.
-    void notImplemented(const std::string& function, const std::string& what = "not implemented");
+    void notImplemented(const std::string &function, const std::string &what = "not implemented");
 
     // --- Start-up and shut-down ------------------------------------------
     void glideInit();
     void glideShutdown();
     std::string glideGetVersion() const; // grGlideGetVersion's string
-    bool sstQueryBoards(Glide2HwConfig& out) const;
-    bool sstQueryHardware(Glide2HwConfig& out) const;
+    bool sstQueryBoards(Glide2HwConfig &out) const;
+    bool sstQueryHardware(Glide2HwConfig &out) const;
     void sstSelect(int which);
     bool sstWinOpen(uint32_t hwnd, int resolution, int refresh, int colorFormat, int origin, int colorBuffers,
                     int auxBuffers);
@@ -112,35 +112,35 @@ public:
     uint32_t sstVideoLine();
     void sstOrigin(int origin);
     // The width and height a GR_RESOLUTION_* constant names (false if none).
-    static bool resolutionSize(int resolution, int& width, int& height);
+    static bool resolutionSize(int resolution, int &width, int &height);
     static constexpr int kResolutionNone = 0xff; // GR_RESOLUTION_NONE
 
     // --- Drawing ------------------------------------------------------------
-    void drawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c);
-    void drawLine(const Glide2Vertex& a, const Glide2Vertex& b);
-    void drawPoint(const Glide2Vertex& a);
+    void drawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c);
+    void drawLine(const Glide2Vertex &a, const Glide2Vertex &b);
+    void drawPoint(const Glide2Vertex &a);
     // A convex polygon, a fan from its first vertex.
-    void drawPolygon(int count, const Glide2Vertex* vertices);
+    void drawPolygon(int count, const Glide2Vertex *vertices);
     // Anti-aliased (grAADrawTriangle with the edges to anti-alias,
     // grAADrawLine, grAADrawPoint; Pipeline::aaTriangle says how).
-    void aaDrawTriangle(const Glide2Vertex& a, const Glide2Vertex& b, const Glide2Vertex& c, bool ab, bool bc, bool ca);
-    void aaDrawLine(const Glide2Vertex& a, const Glide2Vertex& b);
-    void aaDrawPoint(const Glide2Vertex& a);
+    void aaDrawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c, bool ab, bool bc, bool ca);
+    void aaDrawLine(const Glide2Vertex &a, const Glide2Vertex &b);
+    void aaDrawPoint(const Glide2Vertex &a);
     // grAADrawPolygon(VertexList): a fan with its outside edges
     // anti-aliased ("All exterior polygon edges are anti-aliased").
-    void aaDrawPolygon(int count, const Glide2Vertex* vertices);
+    void aaDrawPolygon(int count, const Glide2Vertex *vertices);
     // The same with vertices already in the pipeline's form (Glide 3's
     // layouts), counted as drawn.
-    void triangle(const Vertex& a, const Vertex& b, const Vertex& c);
-    void line(const Vertex& a, const Vertex& b);
-    void point(const Vertex& a);
-    void aaTriangle(const Vertex& a, const Vertex& b, const Vertex& c, bool ab, bool bc, bool ca);
-    void aaLine(const Vertex& a, const Vertex& b);
-    void aaPoint(const Vertex& a);
+    void triangle(const Vertex &a, const Vertex &b, const Vertex &c);
+    void line(const Vertex &a, const Vertex &b);
+    void point(const Vertex &a);
+    void aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca);
+    void aaLine(const Vertex &a, const Vertex &b);
+    void aaPoint(const Vertex &a);
     // A fan of `count` vertices, its outside edges anti-aliased: all of
     // them, or with `edges`, edge i (vertex i to i + 1, the last back to 0)
     // where edges[i] is set.
-    void aaPolygon(int count, const Vertex* vertices, const bool* edges = nullptr);
+    void aaPolygon(int count, const Vertex *vertices, const bool *edges = nullptr);
     void bufferClear(uint32_t color, int alpha, int depth);
     void bufferSwap(int interval);
     int bufferNumPending() const { return 0; }
@@ -167,7 +167,7 @@ public:
     void depthBiasLevel(int level);
     void depthBufferFunction(int function);
     void depthBufferMode(int mode);
-    const Board& board() const { return board_; }
+    const Board &board() const { return board_; }
     void depthMask(bool enable);
     void disableAllEffects();
     void ditherMode(int mode);
@@ -185,23 +185,23 @@ public:
     uint32_t texMinAddress(int tmu) const;
     uint32_t texMaxAddress(int tmu) const;
     uint32_t texCalcMemRequired(int smallLod, int largeLod, int aspect, int format) const;
-    uint32_t texTextureMemRequired(int evenOdd, const Glide2TexInfo& info) const;
+    uint32_t texTextureMemRequired(int evenOdd, const Glide2TexInfo &info) const;
     // The bytes grTexDownloadMipMap reads from its data: every level, large
     // to small, rows packed.
-    static uint32_t mipmapDataBytes(const Glide2TexInfo& info);
+    static uint32_t mipmapDataBytes(const Glide2TexInfo &info);
     // ... and one level.
     static uint32_t levelDataBytes(int lod, int aspect, int format);
-    void texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo& info);
-    void texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo& info, const uint8_t* data);
+    void texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo &info);
+    void texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo &info, const uint8_t *data);
     void texDownloadMipMapLevel(int tmu, uint32_t start, int thisLod, int largeLod, int aspect, int format, int evenOdd,
-                                const uint8_t* data);
+                                const uint8_t *data);
     void texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLod, int largeLod, int aspect, int format,
-                                       int evenOdd, const uint8_t* data, int firstRow, int lastRow);
+                                       int evenOdd, const uint8_t *data, int firstRow, int lastRow);
     // `data`: 256 0x00RRGGBB entries for the palette (0xAARRGGBB for
     // Glide 3's GR_TEXTABLE_PALETTE_6666_EXT), a GuNccTable's first 64
     // bytes (yRGB, iRGB, qRGB) for an NCC table.
-    void texDownloadTable(int tmu, int type, const uint8_t* data);
-    void texDownloadTablePartial(int tmu, int type, const uint8_t* data, int first, int last);
+    void texDownloadTable(int tmu, int type, const uint8_t *data);
+    void texDownloadTablePartial(int tmu, int type, const uint8_t *data, int first, int last);
     void texNCCTable(int tmu, int table);
     void texClampMode(int tmu, int s, int t);
     void texCombine(int tmu, int rgbFunction, int rgbFactor, int alphaFunction, int alphaFactor, bool rgbInvert,
@@ -212,7 +212,7 @@ public:
     void texLodBiasValue(int tmu, float bias);
     void texMipMapMode(int tmu, int mode, bool lodBlend);
     void texMultibase(int tmu, bool enable);
-    void texMultibaseAddress(int tmu, int range, uint32_t start, int evenOdd, const Glide2TexInfo& info);
+    void texMultibaseAddress(int tmu, int range, uint32_t start, int evenOdd, const Glide2TexInfo &info);
     void guColorCombineFunction(int function);
     void guAlphaSource(int mode);
 
@@ -246,17 +246,17 @@ public:
                                int largeLod, int aspect, int clampS, int clampT, int minFilter, int magFilter);
     // Every level from `data` (largest first, as grTexDownloadMipMap
     // reads); `ncc` (a GuNccTable's first 64 bytes) kept for an NCC format.
-    void guTexDownloadMipMap(uint32_t id, const uint8_t* data, const uint8_t* ncc);
+    void guTexDownloadMipMap(uint32_t id, const uint8_t *data, const uint8_t *ncc);
     // One level; the bytes it took from `data` (0 if none).
-    uint32_t guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t* data);
+    uint32_t guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t *data);
     uint32_t guTexGetCurrentMipMap(int tmu) const;
-    const MipMap* guTexGetMipMapInfo(uint32_t id) const;
+    const MipMap *guTexGetMipMapInfo(uint32_t id) const;
     uint32_t guTexMemQueryAvail(int tmu) const;
     void guTexMemReset();
     void guTexSource(uint32_t id);
 
     // --- The linear frame buffer ----------------------------------------
-    bool lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock& out);
+    bool lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock &out);
     bool lfbUnlock(int type, int buffer);
     void lfbConstantAlpha(int alpha);
     void lfbConstantDepth(int depth);
@@ -282,23 +282,23 @@ public:
     uint32_t lfbCanonical(int mode, uint32_t value) const;
     // One pixel written through a lock (`value` as the lock's write mode
     // has it), at (x, y) from the lock's origin.
-    void lfbWrite(const Glide2LfbLock& lock, int x, int y, uint32_t value);
+    void lfbWrite(const Glide2LfbLock &lock, int x, int y, uint32_t value);
     // A pixel as a lock reads it: 5:6:5 (or the auxiliary buffer's 16 bits).
     uint16_t lfbRead(int buffer, int x, int y, bool originLowerLeft) const;
     // `dataBytes`: how much `data` may be read (it bounds RLE16's runs).
     bool lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height, int stride,
-                        const uint8_t* data, size_t dataBytes = SIZE_MAX, bool pixelPipeline = false);
+                        const uint8_t *data, size_t dataBytes = SIZE_MAX, bool pixelPipeline = false);
     bool lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t stride,
-                       uint8_t* data);
+                       uint8_t *data);
 
     // Statistics.
     void sstPerfStats(uint32_t out[5]) const;
     void sstResetPerfStats();
-    void triStats(uint32_t& processed, uint32_t& drawn) const;
+    void triStats(uint32_t &processed, uint32_t &drawn) const;
     void resetTriStats();
 
 private:
-    Vertex convert(const Glide2Vertex& v) const;
+    Vertex convert(const Glide2Vertex &v) const;
     uint32_t toArgb(uint32_t color) const { return toArgb(color, colorFormat_); } // the window's colour format
     static uint32_t toArgb(uint32_t color, int format); // a GR_COLORFORMAT_* colour to 0xAARRGGBB
     static TextureInfo textureInfo(int smallLod, int largeLod, int aspect, int format);
@@ -319,7 +319,7 @@ private:
     std::set<std::string> noted_;
     std::map<uint32_t, State> savedStates_;
     std::vector<MipMap> mipmaps_;
-    std::array<uint32_t, kMaxTmus> texNext_{};  // the texture manager's next free address
+    std::array<uint32_t, kMaxTmus> texNext_{}; // the texture manager's next free address
     std::array<uint32_t, kMaxTmus> texCurrent_{kNullMipMap, kNullMipMap, kNullMipMap};
     uint32_t nextStateToken_ = 1;
     uint64_t statsBase_[5] = {};

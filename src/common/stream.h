@@ -20,7 +20,7 @@ public:
     virtual ~ReadStream() = default;
 
     // Reads up to `size` bytes; returns how many were read.
-    virtual uint32_t read(void* data, uint32_t size) = 0;
+    virtual uint32_t read(void *data, uint32_t size) = 0;
     virtual bool eos() const = 0;
     bool err() const { return err_; }
 
@@ -61,12 +61,12 @@ public:
     explicit MemoryReadStream(std::vector<uint8_t> data);
     MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset, uint32_t size);
 
-    uint32_t read(void* data, uint32_t size) override;
+    uint32_t read(void *data, uint32_t size) override;
     bool eos() const override { return eos_; }
     int64_t pos() const override { return pos_; }
     int64_t size() const override { return size_; }
     bool seek(int64_t offset, int whence = SEEK_SET) override;
-    const uint8_t* data() const { return buffer_->data() + offset_; }
+    const uint8_t *data() const { return buffer_->data() + offset_; }
 
 private:
     std::shared_ptr<const std::vector<uint8_t>> buffer_;
@@ -77,17 +77,17 @@ private:
 // Bytes written in order, with little-endian values.
 class MemoryWriteStream {
 public:
-    void write(const void* data, uint32_t size);
+    void write(const void *data, uint32_t size);
     void writeByte(uint8_t v) { data_.push_back(v); }
     void writeUint16LE(uint16_t v);
     void writeUint32LE(uint32_t v);
     void writeUint16BE(uint16_t v);
     void writeUint32BE(uint32_t v);
     // The string's bytes, without a NUL.
-    void writeString(const std::string& s) { write(s.data(), uint32_t(s.size())); }
+    void writeString(const std::string &s) { write(s.data(), uint32_t(s.size())); }
     // A string in a field of `size` bytes, padded with NULs (cut if longer).
-    void writeFixedString(const std::string& s, uint32_t size);
-    const std::vector<uint8_t>& data() const { return data_; }
+    void writeFixedString(const std::string &s, uint32_t size);
+    const std::vector<uint8_t> &data() const { return data_; }
     uint32_t size() const { return uint32_t(data_.size()); }
 
 private:
@@ -95,7 +95,7 @@ private:
 };
 
 // A whole file into memory, and back; false if it can't be read (written).
-bool readFile(const std::filesystem::path& path, std::vector<uint8_t>& out);
-bool writeFile(const std::filesystem::path& path, const std::vector<uint8_t>& data);
+bool readFile(const std::filesystem::path &path, std::vector<uint8_t> &out);
+bool writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &data);
 
 } // namespace reluva

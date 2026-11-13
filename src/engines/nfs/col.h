@@ -19,7 +19,7 @@ struct TrackCollision {
 
     // A point along the road, about eight per track block.
     struct RoadPoint {
-        Vec3 position{};                // 16.16 fixed point in the file
+        Vec3 position{};                   // 16.16 fixed point in the file
         Vec3 normal{}, forward{}, right{}; // unit vectors (signed bytes / 127)
         float leftWall = 0, rightWall = 0; // distances from the point, along right
         uint32_t unknown = 0;
@@ -64,6 +64,6 @@ struct TrackCollision {
     std::vector<RoadPoint> road;                  // xbid 15
 };
 
-Error parseCollision(const std::vector<uint8_t>& data, TrackCollision& out);
+Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out);
 
 } // namespace reluva::nfs

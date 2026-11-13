@@ -53,7 +53,7 @@ public:
         BotAiStartFrame = 10,
     };
 
-    GameHost(const SearchSet& files, CvarStore& cvars);
+    GameHost(const SearchSet &files, CvarStore &cvars);
 
     // Reads vm/qagame.qvm.
     Error load();
@@ -61,13 +61,13 @@ public:
     // text (the BSP's entity lump) and calls Init, then runs a few frames
     // as the original server does to let things settle. The map is also
     // what things collide with.
-    Error startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed = 0);
+    Error startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed = 0);
     Error runFrame();
     // A player joining, as the original server does it: their userinfo
     // (an info string: \\name\\...\\model\\...), then ClientConnect,
     // which may refuse them (`refused` gets the game's reason), then
     // ClientBegin, which puts them in the level.
-    Error connectClient(int32_t clientNum, const std::string& userinfo, std::string& refused);
+    Error connectClient(int32_t clientNum, const std::string &userinfo, std::string &refused);
     Error beginClient(int32_t clientNum);
     // map_restart, done now: the game code restarted in place and
     // everyone back in the level (a full change to the same map, through
@@ -82,17 +82,17 @@ public:
     // room for 8), and the bots already there leave; map and devmap end a
     // solo match's game type (free for all), devmap's bots leaving too.
     // Whether the bots leave.
-    static bool applyMapCommand(CvarStore& cvars, std::string_view verb);
+    static bool applyMapCommand(CvarStore &cvars, std::string_view verb);
     bool levelRequested() const { return !requestedMap_.empty(); }
     std::string takeRequestedMap() { return std::exchange(requestedMap_, std::string()); }
     // A new level: the game code started afresh on it and everyone
     // connected again; `players` gets the players (not bots), who are put
     // in the level when they've loaded it.
-    Error changeLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
-                      std::vector<int32_t>& players);
-    const std::string& mapName() const { return mapName_; }
+    Error changeLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t randomSeed,
+                      std::vector<int32_t> &players);
+    const std::string &mapName() const { return mapName_; }
     // A player's settings changed (their userinfo, ClientUserinfoChanged).
-    Error userinfoChanged(int32_t clientNum, const std::string& userinfo);
+    Error userinfoChanged(int32_t clientNum, const std::string &userinfo);
     // A player leaving (ClientDisconnect); their slot is free again.
     Error disconnectClient(int32_t clientNum);
     // Whether no player or bot has slot `clientNum`.
@@ -115,32 +115,32 @@ public:
     // Hands the game a player's command and lets it act on it (ClientThink,
     // which reads it with GetUsercmd), as the server does for each
     // command a client sends.
-    Error clientThink(int32_t clientNum, const UserCommand& cmd);
+    Error clientThink(int32_t clientNum, const UserCommand &cmd);
     // A command a player sent the server ("say hello", "kill"...), which
     // the game reads with Argc and Argv (ClientCommand).
-    Error clientCommand(int32_t clientNum, const std::string& text);
+    Error clientCommand(int32_t clientNum, const std::string &text);
     // A command typed at the server's console that the engine doesn't
     // know ("addbot munro 3", "kick"...), handed to the game
     // (ConsoleCommand); `handled` gets whether the game knew it.
-    Error serverCommand(const std::string& text, bool* handled = nullptr);
+    Error serverCommand(const std::string &text, bool *handled = nullptr);
     // The bots (clients the game asked for with BotAllocateClient).
-    const std::set<int32_t>& botClients() const { return botClients_; }
-    botlib::BotLibrary& botLibrary() { return bots_; }
+    const std::set<int32_t> &botClients() const { return botClients_; }
+    botlib::BotLibrary &botLibrary() { return bots_; }
     // Each system call of the bot library's ranges (200 on) with its first
     // arguments the first few times it was made, for finding out what
     // Elite Force's numbers are.
-    const std::map<int, std::vector<std::vector<int32_t>>>& botCallSamples() const { return botCallSamples_; }
+    const std::map<int, std::vector<std::vector<int32_t>>> &botCallSamples() const { return botCallSamples_; }
     // Writes a command into game code's memory, laid out as usercmd_t:
     // server time 0, buttons 4 and weapon 5 (a byte each), angles 8,
     // forward, right and up moves 20-22.
-    static void writeUserCommand(Qvm& vm, int32_t address, const UserCommand& cmd);
-    Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
+    static void writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd);
+    Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
 
-    Qvm& vm() { return vm_; }
+    Qvm &vm() { return vm_; }
     int32_t levelTime() const { return levelTime_; }
     // The layout the game code was built with (1.0 or patch 1.2's), known
     // once it's loaded.
-    const GameLayout& layout() const { return layout_; }
+    const GameLayout &layout() const { return layout_; }
 
     // What the game has told the engine.
     struct GameData {
@@ -150,7 +150,7 @@ public:
         int32_t clients = 0;    // address of the client array
         int32_t clientSize = 0;
     };
-    const GameData& gameData() const { return gameData_; }
+    const GameData &gameData() const { return gameData_; }
     // A field of an entity, read from the game's memory (see the layout
     // in game_host.cpp).
     int32_t entityInt(int32_t number, int32_t offset);
@@ -165,8 +165,8 @@ public:
     // (an entity number, 1022 the world, 1023 nothing).
     std::pair<int, int> entityAreas(int32_t n);
     bool areasConnected(int area1, int area2) const;
-    TraceResult traceMove(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                          int32_t passEntity, int32_t mask, int32_t& hit, bool entities = true);
+    TraceResult traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
+                          int32_t passEntity, int32_t mask, int32_t &hit, bool entities = true);
     // What the server sends a player each frame: the level time, their
     // player state and the entities they can see, copied byte for byte
     // from the game's memory (the first 460 bytes of their client, the
@@ -204,35 +204,35 @@ public:
     // How many times each system call has been made since the start.
     std::map<int, int> callCounts() const { return callCounts_.map(); }
     // Entity numbers linked into the world (LinkEntity), not unlinked since.
-    const std::set<int32_t>& linked() const { return serverWorld_.linked(); }
+    const std::set<int32_t> &linked() const { return serverWorld_.linked(); }
     // The files the game code and its bots have read since the level
     // started (the map is handed over, not read), by name.
-    const std::set<std::string>& filesRead() const { return filesRead_; }
+    const std::set<std::string> &filesRead() const { return filesRead_; }
     // The map's areas (cut by its doors' portals), and how many times
     // InPvs said no only because a closed door stood between.
     int areaCount() const { return world_ ? world_->areaCount() : 0; }
     int closedDoorBlocks() const { return closedDoorBlocks_; }
-    const std::map<int32_t, std::string>& configstrings() const { return configstrings_; }
+    const std::map<int32_t, std::string> &configstrings() const { return configstrings_; }
     // What the game sent to clients (SendServerCommand), in order: the
     // client (-1 for all) and the command text.
-    const std::vector<std::pair<int32_t, std::string>>& serverCommands() const { return serverCommands_; }
+    const std::vector<std::pair<int32_t, std::string>> &serverCommands() const { return serverCommands_; }
     // Clients the game dropped, with its reason.
-    const std::map<int32_t, std::string>& dropped() const { return dropped_; }
+    const std::map<int32_t, std::string> &dropped() const { return dropped_; }
     // Every DropClient, in order: the client and the reason.
-    const std::vector<std::pair<int32_t, std::string>>& drops() const { return drops_; }
+    const std::vector<std::pair<int32_t, std::string>> &drops() const { return drops_; }
     // Entity `number`'s state (its first 204 bytes); empty if there's none.
     std::vector<uint8_t> entityState(int32_t number);
     // Commands the game ran (SendConsoleCommand), in order.
-    const std::vector<std::string>& consoleCommands() const { return consoleCommands_; }
+    const std::vector<std::string> &consoleCommands() const { return consoleCommands_; }
 
-    std::function<void(const std::string&)> print;
-    const std::string& log() const { return log_; }
-    const std::map<int, int>& unhandled() const { return unhandled_; }
-    std::function<void(int number, const int32_t* args)> trace;
+    std::function<void(const std::string &)> print;
+    const std::string &log() const { return log_; }
+    const std::map<int, int> &unhandled() const { return unhandled_; }
+    std::function<void(int number, const int32_t *args)> trace;
 
 private:
     bool changingLevel_ = false; // startLevel called by changeLevel
-    int32_t systemCall(Qvm& vm, int number, const int32_t* args);
+    int32_t systemCall(Qvm &vm, int number, const int32_t *args);
     // The next token of the entity text, the way the original parses it:
     // a quoted string, or anything up to white space. Empty at the end.
     std::string nextEntityToken();
@@ -241,36 +241,36 @@ private:
     void updateInfoConfigstrings();
     int32_t entityAddress(int32_t number) const;
     Vec3f readVec(int32_t address);
-    void writeVec(int32_t address, const Vec3f& v);
+    void writeVec(int32_t address, const Vec3f &v);
     void linkEntity(int32_t address);
-    void clipMove(int32_t results, const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-               int32_t passEntity, int32_t mask);
-    int32_t pointContents(const Vec3f& point, int32_t passEntity);
+    void clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
+                  int32_t passEntity, int32_t mask);
+    int32_t pointContents(const Vec3f &point, int32_t passEntity);
     // The bot library's calls (game_bots.cpp).
-    int32_t botCall(Qvm& vm, int number, const int32_t* args);
+    int32_t botCall(Qvm &vm, int number, const int32_t *args);
     void runBotFrame();
     void runQueuedConsoleCommands();
-    bool engineCommand(const std::vector<std::string>& words);
+    bool engineCommand(const std::vector<std::string> &words);
     Error reloadGame();
-    Error reconnectClients(const std::set<int32_t>& clients, bool beginHumans);
+    Error reconnectClients(const std::set<int32_t> &clients, bool beginHumans);
     std::vector<int32_t> botSnapshotEntities(int32_t clientNum);
     // What a snapshot for a player holds (in entity order), and from where
     // they look.
     std::vector<int32_t> visibleEntities(int32_t clientNum);
     Vec3f eyeOf(int32_t clientNum);
     // Entity `n` as the server's world sees it.
-    bool entityShape(int32_t n, EntityShape& out);
+    bool entityShape(int32_t n, EntityShape &out);
 
-    const SearchSet& files_;
-    CvarStore& cvars_;
+    const SearchSet &files_;
+    CvarStore &cvars_;
     Qvm vm_;
     VmFiles vmFiles_;
     std::set<std::string> filesRead_;
     std::shared_ptr<const Bsp> map_;
     std::unique_ptr<CollisionWorld> world_;
     std::unique_ptr<AreaPortals> areaPortals_; // which areas join up through open doors
-    ServerWorld serverWorld_; // the entities linked, and moves against them
-    int closedDoorBlocks_ = 0; // InPvs answers a closed door made "no"
+    ServerWorld serverWorld_;                  // the entities linked, and moves against them
+    int closedDoorBlocks_ = 0;                 // InPvs answers a closed door made "no"
     std::string entityText_;
     std::vector<std::string> args_; // the command being handled
     size_t entityPos_ = 0;
@@ -299,7 +299,7 @@ private:
     // Bots.
     botlib::BotLibrary bots_;
     std::set<int32_t> clientsInUse_, botClients_, reserved_;
-    std::map<int32_t, size_t> botMessagesRead_;           // per bot, server commands read so far
+    std::map<int32_t, size_t> botMessagesRead_;            // per bot, server commands read so far
     std::map<int32_t, std::vector<int32_t>> botSnapshots_; // per bot, the entities it sees this frame
     std::vector<Entity> bspEntities_;
     std::map<int, std::vector<std::vector<uint8_t>>> goalStacks_; // per goal state, its goals' bytes

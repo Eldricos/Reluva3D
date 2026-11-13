@@ -24,11 +24,13 @@ namespace {
 // previous sample and the one before.
 constexpr int kXaFilters[4][2] = {{0, 0}, {240, 0}, {460, -208}, {392, -220}};
 
-int16_t clamp16(int v) { return static_cast<int16_t>(std::clamp(v, -32768, 32767)); }
+int16_t clamp16(int v) {
+    return static_cast<int16_t>(std::clamp(v, -32768, 32767));
+}
 
 } // namespace
 
-void decodeEaXaFrame(const uint8_t* frame, EaXaChannel& ch, int16_t* out, int count, int stride) {
+void decodeEaXaFrame(const uint8_t *frame, EaXaChannel &ch, int16_t *out, int count, int stride) {
     // Filter numbers above 3 appear only in final, partly used frames; they
     // count as no prediction.
     const int filter = frame[0] >> 4;
@@ -45,7 +47,7 @@ void decodeEaXaFrame(const uint8_t* frame, EaXaChannel& ch, int16_t* out, int co
     }
 }
 
-Error decodeEaXa(const uint8_t* data, size_t size, size_t samples, std::vector<int16_t>& out) {
+Error decodeEaXa(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out) {
     const size_t frames = (samples + kEaXaFrameSamples - 1) / kEaXaFrameSamples;
     if (frames * kEaXaFrameBytes > size)
         return Error::fail("EA-XA data is shorter than its " + std::to_string(samples) + " samples");
@@ -59,7 +61,7 @@ Error decodeEaXa(const uint8_t* data, size_t size, size_t samples, std::vector<i
     return Error::success();
 }
 
-Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_t>& out) {
+Error decodeEaXaStereoBlock(const uint8_t *data, size_t size, std::vector<int16_t> &out) {
     if (size < 12)
         return Error::fail("EA-XA block too short");
     const uint32_t samples = data[0] | uint32_t(data[1]) << 8 | uint32_t(data[2]) << 16 | uint32_t(data[3]) << 24;
@@ -77,7 +79,7 @@ Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_
     // Each channel's group as a mono frame (filter and shift byte, then its
     // 14 bytes of nibbles), so decodeEaXaFrame does the work.
     for (size_t g = 0; g < groups; ++g) {
-        const uint8_t* p = data + 12 + g * 30;
+        const uint8_t *p = data + 12 + g * 30;
         const int count = static_cast<int>(std::min<size_t>(kEaXaFrameSamples, samples - g * kEaXaFrameSamples));
         for (int c = 0; c < 2; ++c) {
             uint8_t frame[kEaXaFrameBytes];
@@ -99,28 +101,70 @@ Error decodeEaXaStereoBlock(const uint8_t* data, size_t size, std::vector<int16_
 namespace {
 
 // The reflection coefficients' quantisation levels.
-constexpr float kReflection[64] = {
-    +0.0f, -.99677598476409912109375f, -.99032700061798095703125f, -.983879029750823974609375f,
-    -.977430999279022216796875f, -.970982015132904052734375f, -.964533984661102294921875f,
-    -.958085000514984130859375f, -.9516370296478271484375f, -.930754005908966064453125f,
-    -.904959976673126220703125f, -.879167020320892333984375f, -.853372991085052490234375f,
-    -.827579021453857421875f, -.801786005496978759765625f, -.775991976261138916015625f,
-    -.75019800662994384765625f, -.724404990673065185546875f, -.6986110210418701171875f,
-    -.6706349849700927734375f, -.61904799938201904296875f, -.567460000514984130859375f,
-    -.515873014926910400390625f, -.4642859995365142822265625f, -.4126980006694793701171875f,
-    -.361110985279083251953125f, -.309523999691009521484375f, -.257937014102935791015625f,
-    -.20634900033473968505859375f, -.1547619998455047607421875f, -.10317499935626983642578125f,
-    -.05158700048923492431640625f, +0.0f, +.05158700048923492431640625f, +.10317499935626983642578125f,
-    +.1547619998455047607421875f, +.20634900033473968505859375f, +.257937014102935791015625f,
-    +.309523999691009521484375f, +.361110985279083251953125f, +.4126980006694793701171875f,
-    +.4642859995365142822265625f, +.515873014926910400390625f, +.567460000514984130859375f,
-    +.61904799938201904296875f, +.6706349849700927734375f, +.6986110210418701171875f,
-    +.724404990673065185546875f, +.75019800662994384765625f, +.775991976261138916015625f,
-    +.801786005496978759765625f, +.827579021453857421875f, +.853372991085052490234375f,
-    +.879167020320892333984375f, +.904959976673126220703125f, +.930754005908966064453125f,
-    +.9516370296478271484375f, +.958085000514984130859375f, +.964533984661102294921875f,
-    +.970982015132904052734375f, +.977430999279022216796875f, +.983879029750823974609375f,
-    +.99032700061798095703125f, +.99677598476409912109375f};
+constexpr float kReflection[64] = {+0.0f,
+                                   -.99677598476409912109375f,
+                                   -.99032700061798095703125f,
+                                   -.983879029750823974609375f,
+                                   -.977430999279022216796875f,
+                                   -.970982015132904052734375f,
+                                   -.964533984661102294921875f,
+                                   -.958085000514984130859375f,
+                                   -.9516370296478271484375f,
+                                   -.930754005908966064453125f,
+                                   -.904959976673126220703125f,
+                                   -.879167020320892333984375f,
+                                   -.853372991085052490234375f,
+                                   -.827579021453857421875f,
+                                   -.801786005496978759765625f,
+                                   -.775991976261138916015625f,
+                                   -.75019800662994384765625f,
+                                   -.724404990673065185546875f,
+                                   -.6986110210418701171875f,
+                                   -.6706349849700927734375f,
+                                   -.61904799938201904296875f,
+                                   -.567460000514984130859375f,
+                                   -.515873014926910400390625f,
+                                   -.4642859995365142822265625f,
+                                   -.4126980006694793701171875f,
+                                   -.361110985279083251953125f,
+                                   -.309523999691009521484375f,
+                                   -.257937014102935791015625f,
+                                   -.20634900033473968505859375f,
+                                   -.1547619998455047607421875f,
+                                   -.10317499935626983642578125f,
+                                   -.05158700048923492431640625f,
+                                   +0.0f,
+                                   +.05158700048923492431640625f,
+                                   +.10317499935626983642578125f,
+                                   +.1547619998455047607421875f,
+                                   +.20634900033473968505859375f,
+                                   +.257937014102935791015625f,
+                                   +.309523999691009521484375f,
+                                   +.361110985279083251953125f,
+                                   +.4126980006694793701171875f,
+                                   +.4642859995365142822265625f,
+                                   +.515873014926910400390625f,
+                                   +.567460000514984130859375f,
+                                   +.61904799938201904296875f,
+                                   +.6706349849700927734375f,
+                                   +.6986110210418701171875f,
+                                   +.724404990673065185546875f,
+                                   +.75019800662994384765625f,
+                                   +.775991976261138916015625f,
+                                   +.801786005496978759765625f,
+                                   +.827579021453857421875f,
+                                   +.853372991085052490234375f,
+                                   +.879167020320892333984375f,
+                                   +.904959976673126220703125f,
+                                   +.930754005908966064453125f,
+                                   +.9516370296478271484375f,
+                                   +.958085000514984130859375f,
+                                   +.964533984661102294921875f,
+                                   +.970982015132904052734375f,
+                                   +.977430999279022216796875f,
+                                   +.983879029750823974609375f,
+                                   +.99032700061798095703125f,
+                                   +.99677598476409912109375f};
 
 // The multi-pulse excitation's codes: the next 8 bits pick a code, by the
 // model (after a large pulse or not); each code is so many bits long and is
@@ -130,12 +174,12 @@ struct PulseCode {
     int bits;
     float pulse;
 };
-constexpr PulseCode kPulseCodes[29] = {
-    {true, 8, 0},   {true, 7, 0},   {false, 8, 0},  {false, 7, 0},  {false, 2, 0},  {false, 2, -1},
-    {false, 2, 1},  {false, 3, -1}, {false, 3, 1},  {true, 4, -2},  {true, 4, 2},   {true, 3, -2},
-    {true, 3, 2},   {true, 5, -3},  {true, 5, 3},   {true, 4, -3},  {true, 4, 3},   {true, 6, -4},
-    {true, 6, 4},   {true, 5, -4},  {true, 5, 4},   {true, 7, -5},  {true, 7, 5},   {true, 6, -5},
-    {true, 6, 5},   {true, 8, -6},  {true, 8, 6},   {true, 7, -6},  {true, 7, 6}};
+constexpr PulseCode kPulseCodes[29] = {{true, 8, 0},   {true, 7, 0},  {false, 8, 0},  {false, 7, 0}, {false, 2, 0},
+                                       {false, 2, -1}, {false, 2, 1}, {false, 3, -1}, {false, 3, 1}, {true, 4, -2},
+                                       {true, 4, 2},   {true, 3, -2}, {true, 3, 2},   {true, 5, -3}, {true, 5, 3},
+                                       {true, 4, -3},  {true, 4, 3},  {true, 6, -4},  {true, 6, 4},  {true, 5, -4},
+                                       {true, 5, 4},   {true, 7, -5}, {true, 7, 5},   {true, 6, -5}, {true, 6, 5},
+                                       {true, 8, -6},  {true, 8, 6},  {true, 7, -6},  {true, 7, 6}};
 
 // Which code the next 8 bits make, in the normal model and after a large
 // pulse.
@@ -158,7 +202,7 @@ constexpr uint8_t kCodeTables[2][256] = {
      4, 11, 7, 15, 4, 12, 8, 19, 4, 11, 7, 16, 4, 12, 8, 24, 4, 11, 7, 15, 4, 12, 8, 20, 4, 11, 7, 16, 4, 12, 8, 3}};
 
 // The reflection coefficients as a 12th-order prediction filter.
-void reflectionToPrediction(const float* rc, float* lpc) {
+void reflectionToPrediction(const float *rc, float *lpc) {
     float a[12], b[12];
     b[0] = 1.0f;
     for (int i = 10; i >= 0; --i)
@@ -178,7 +222,8 @@ void reflectionToPrediction(const float* rc, float* lpc) {
 
 } // namespace
 
-MicroTalkDecoder::MicroTalkDecoder(const uint8_t* data, size_t size) : p_(data), end_(data + size) {}
+MicroTalkDecoder::MicroTalkDecoder(const uint8_t *data, size_t size) : p_(data), end_(data + size) {
+}
 
 int MicroTalkDecoder::readByte() {
     if (p_ < end_)
@@ -209,7 +254,7 @@ void MicroTalkDecoder::parseHeader() {
         fixedGains_[i] = fixedGains_[i - 1] * ratio;
 }
 
-void MicroTalkDecoder::decodeExcitation(bool multipulse, float* out, int stride) {
+void MicroTalkDecoder::decodeExcitation(bool multipulse, float *out, int stride) {
     constexpr int kSubframe = 108;
     if (multipulse) {
         // Pulses and runs of zeros, coded by the two models.
@@ -247,7 +292,7 @@ void MicroTalkDecoder::decodeExcitation(bool multipulse, float* out, int stride)
 void MicroTalkDecoder::synthesise(int offset, int blocks) {
     float lpc[12];
     reflectionToPrediction(reflection_, lpc);
-    float* p = frame_ + offset;
+    float *p = frame_ + offset;
     for (int b = 0; b < blocks; ++b)
         for (int j = 0; j < 12; ++j) {
             float x = *p;
@@ -260,7 +305,7 @@ void MicroTalkDecoder::synthesise(int offset, int blocks) {
         }
 }
 
-const float* MicroTalkDecoder::decodeFrame() {
+const float *MicroTalkDecoder::decodeFrame() {
     if (!bitsCount_) {
         bitsValue_ = static_cast<unsigned>(readByte());
         bitsCount_ = 8;
@@ -299,7 +344,7 @@ const float* MicroTalkDecoder::decodeFrame() {
             const int align = readBits(1);
             const bool zero = readBits(1) != 0;
             decodeExcitation(multipulse, excitation + 5 + align, 2);
-            float* other = excitation + 5 + (1 - align);
+            float *other = excitation + 5 + (1 - align);
             if (zero) {
                 for (int j = 0; j < 108; j += 2)
                     other[j] = 0;
@@ -307,8 +352,7 @@ const float* MicroTalkDecoder::decodeFrame() {
                 for (int j = 0; j < 108; j += 2)
                     other[j] = other[j - 5] * 0.01803267933428287506103515625f -
                                other[j - 3] * 0.114591561257839202880859375f +
-                               other[j - 1] * 0.597385942935943603515625f +
-                               other[j + 1] * 0.597385942935943603515625f -
+                               other[j - 1] * 0.597385942935943603515625f + other[j + 1] * 0.597385942935943603515625f -
                                other[j + 3] * 0.114591561257839202880859375f +
                                other[j + 5] * 0.01803267933428287506103515625f;
                 fixedGain *= 0.5f;
@@ -332,11 +376,11 @@ const float* MicroTalkDecoder::decodeFrame() {
     return frame_;
 }
 
-Error decodeMicroTalk(const uint8_t* data, size_t size, size_t samples, std::vector<int16_t>& out) {
+Error decodeMicroTalk(const uint8_t *data, size_t size, size_t samples, std::vector<int16_t> &out) {
     out.resize(samples);
     MicroTalkDecoder decoder(data, size);
     for (size_t done = 0; done < samples; done += MicroTalkDecoder::kFrameSamples) {
-        const float* frame = decoder.decodeFrame();
+        const float *frame = decoder.decodeFrame();
         const size_t n = std::min<size_t>(MicroTalkDecoder::kFrameSamples, samples - done);
         for (size_t i = 0; i < n; ++i)
             out[done + i] = static_cast<int16_t>(std::clamp(static_cast<int>(std::lround(frame[i])), -32768, 32767));

@@ -8,11 +8,11 @@
 namespace reluva::gfx {
 
 namespace {
-std::mutex& factoryMutex() {
+std::mutex &factoryMutex() {
     static std::mutex m;
     return m;
 }
-ComputeFactory& factory() {
+ComputeFactory &factory() {
     static ComputeFactory f;
     return f;
 }
@@ -23,7 +23,7 @@ void setComputeFactory(ComputeFactory f) {
     factory() = std::move(f);
 }
 
-std::unique_ptr<Compute> createCompute(std::string& error) {
+std::unique_ptr<Compute> createCompute(std::string &error) {
     ComputeFactory f;
     {
         std::lock_guard<std::mutex> lock(factoryMutex());

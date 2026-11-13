@@ -49,7 +49,7 @@ struct Horizon {
     Rgb ambient{}; // percent
 };
 
-Error parseHorizon(std::string_view text, Horizon& out);
+Error parseHorizon(std::string_view text, Horizon &out);
 
 // The fog value the game sends its renderer (THRASH state 0xe; thrash.md,
 // Fog) for a fog density in percent: for the scenery, and for the sky's
@@ -61,19 +61,19 @@ Error parseHorizon(std::string_view text, Horizon& out);
 // start's mixed towards the apex's by the slices from the before one to
 // the centre, then the apex's towards the end's to the after one; the
 // mix x87 floats, each value truncated (0x4dfd56).
-Horizon::FogPoint fogAtSlice(const Horizon& h, int slice);
+Horizon::FogPoint fogAtSlice(const Horizon &h, int slice);
 int sceneryFogValue(int density);
-int skyFogValue(const Horizon& h, int density);
+int skyFogValue(const Horizon &h, int density);
 
 // How nfs3.exe lays out the sky (docs/formats/nfs/hrz.md, What the game
 // does with it). The horizon has 16 slots of 22.5 degrees; the slot at a
 // heading h (in turns, atan2(x, z) / 2 pi in the track's coordinates) is
 // 16 x frac(h + 0.75 + horizonTurn(h)).
-float horizonTurn(const Horizon& h); // the rotation, in turns, 0 to 1
+float horizonTurn(const Horizon &h); // the rotation, in turns, 0 to 1
 // The sky's colour at each slot edge, just above the horizon: the sun
 // side's colour at edge 0, stepping an eighth of the way to the far
 // side's each edge, and back.
-std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon& h);
+std::array<Horizon::Rgb, 16> skyBaseColours(const Horizon &h);
 // A row of the sky as nfs3.exe lays it out each frame (0x479160,
 // 0x479500): eight flat quads side by side in one vertical plane at the
 // horizon radius along the camera's forward on the ground, each a slot
@@ -87,27 +87,27 @@ struct SkyRow {
     std::array<std::array<float, 3>, 9> bottom{}, top{};
     int firstSlot = 0;
 };
-SkyRow skyRow(const Horizon& h, const std::array<float, 3>& forward, float bottom, float height);
+SkyRow skyRow(const Horizon &h, const std::array<float, 3> &forward, float bottom, float height);
 // The horizon picture's tile for a slot (0x478bb0): slot mod 8, or with
 // the mirror flag, for slots 8-15, 15 - slot drawn flipped.
-int horizonTile(const Horizon& h, int slot, bool* flipped = nullptr);
+int horizonTile(const Horizon &h, int slot, bool *flipped = nullptr);
 // Whether the game draws no sky and clears to black (0x47a4c0): the black
 // horizon flag, or on Lost Canyons (track 5) while the camera's car is on
 // road slices 906 to 1064. Otherwise the clear colour is the sky's top.
-bool skyBlack(const Horizon& h, int track, int roadSlice);
+bool skyBlack(const Horizon &h, int track, int roadSlice);
 // The cloud dome's height above the camera at a distance r along the
 // ground, for a point of that brightness (with nimbus 100, brighter
 // points hang lower), and its grid: 13 x 13 points 450 apart, -3000 to
 // +2400 on each axis, each with a brightness (0-255; random, as the
 // game's, from `seed`), row by row along z.
-float cloudHeight(const Horizon& h, float r, int brightness = 0);
+float cloudHeight(const Horizon &h, float r, int brightness = 0);
 constexpr int kCloudPoints = 13;
 constexpr float kCloudStep = 450, kCloudFirst = -3000;
 // `seed` is the game's: its tick count at start-up (`0x6fd3b4`, from
 // `0x47242c`), which seeds its generator (GameRandom) at each race's
 // set-up; the sky's set-up draws the points' random amounts from it before
 // anything else does, so a seed gives the game's layout exactly.
-std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon& h, uint32_t seed);
+std::array<uint8_t, kCloudPoints * kCloudPoints> cloudBrightness(const Horizon &h, uint32_t seed);
 
 // The game's random numbers (`0x4e0d88`, its state six words at
 // `0x5644e0`-`0x5644f4`): an add-with-carry sum down the words, the last
@@ -122,13 +122,13 @@ struct GameRandom {
 // brightness itself with the 3dfx and software renderers; with the
 // Direct3D, Rage and PowerVR ones (renderer bits 0x1e0) the same for every
 // point, the cloud brightness less half the variance (its low byte).
-uint8_t cloudAlpha(const Horizon& h, uint8_t brightness, bool direct3d);
+uint8_t cloudAlpha(const Horizon &h, uint8_t brightness, bool direct3d);
 // The clouds' drift each game tick, in tiles along x and z.
-std::array<float, 2> cloudDrift(const Horizon& h);
+std::array<float, 2> cloudDrift(const Horizon &h);
 // The clouds' texture offset for the camera at x, z (track coordinates),
 // in tiles, added to the drift: a tile for each visual height moved, so
 // the grid, which follows the camera, shows the clouds passing over it.
-std::array<float, 2> cloudOffset(const Horizon& h, float x, float z);
+std::array<float, 2> cloudOffset(const Horizon &h, float x, float z);
 
 // Random numbers for the sky, standing in for the game's rand(): 0 to
 // 32767.
@@ -156,10 +156,10 @@ struct LightningBolt {
 };
 // Whether a bolt starts on this game tick: every `lightningChance` ticks,
 // a `lightning` percent chance.
-bool lightningStarts(const Horizon& h, uint64_t tick, SkyRandom& random);
-LightningBolt makeBolt(const Horizon& h, SkyRandom& random);
-void tickBolt(LightningBolt& bolt, SkyRandom& random);
+bool lightningStarts(const Horizon &h, uint64_t tick, SkyRandom &random);
+LightningBolt makeBolt(const Horizon &h, SkyRandom &random);
+void tickBolt(LightningBolt &bolt, SkyRandom &random);
 // How bright its flash is (0-255): full for half its life, then fading.
-int boltFlash(const LightningBolt& bolt);
+int boltFlash(const LightningBolt &bolt);
 
 } // namespace reluva::nfs

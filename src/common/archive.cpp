@@ -28,7 +28,7 @@ std::string normalizeArchiveName(std::string_view name) {
 
 // --- DirectoryArchive ------------------------------------------------------------
 
-Error DirectoryArchive::open(const std::filesystem::path& dir, int maxDepth) {
+Error DirectoryArchive::open(const std::filesystem::path &dir, int maxDepth) {
     dir_ = dir;
     files_.clear();
     std::error_code ec;
@@ -54,10 +54,11 @@ Error DirectoryArchive::open(const std::filesystem::path& dir, int maxDepth) {
 std::vector<std::string> DirectoryArchive::list() const {
     std::vector<std::string> names;
     names.reserve(files_.size());
-    for (const auto& [key, path] : files_)
+    for (const auto &[key, path] : files_)
         names.push_back(path.lexically_relative(dir_).generic_string());
     // In one order on every system (the map's is the library's own).
-    std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return fs::windowsNameLess(a, b); });
+    std::sort(names.begin(), names.end(),
+              [](const std::string &a, const std::string &b) { return fs::windowsNameLess(a, b); });
     return names;
 }
 
@@ -65,7 +66,7 @@ bool DirectoryArchive::has(std::string_view name) const {
     return files_.count(normalizeArchiveName(name)) != 0;
 }
 
-Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
+Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     auto it = files_.find(normalizeArchiveName(name));
     if (it == files_.end())
         return Error::fail(std::string(name) + " not found in " + dir_.string());
@@ -75,7 +76,7 @@ Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t>& out) c
     const std::streamoff size = in.tellg();
     out.resize(static_cast<size_t>(size));
     in.seekg(0);
-    if (size > 0 && !in.read(reinterpret_cast<char*>(out.data()), size))
+    if (size > 0 && !in.read(reinterpret_cast<char *>(out.data()), size))
         return Error::fail("Cannot read " + it->second.string());
     return Error::success();
 }
@@ -85,39 +86,39 @@ Error DirectoryArchive::read(std::string_view name, std::vector<uint8_t>& out) c
 void SearchSet::add(std::unique_ptr<Archive> archive, int priority) {
     // Before the first member of lower or equal priority: newest first
     // among equals.
-    auto at = std::find_if(members_.begin(), members_.end(),
-                           [priority](const Member& m) { return m.priority <= priority; });
+    auto at =
+        std::find_if(members_.begin(), members_.end(), [priority](const Member &m) { return m.priority <= priority; });
     members_.insert(at, Member{std::move(archive), priority});
 }
 
-const Archive* SearchSet::find(std::string_view name) const {
-    for (const Member& m : members_)
+const Archive *SearchSet::find(std::string_view name) const {
+    for (const Member &m : members_)
         if (m.archive->has(name))
             return m.archive.get();
     return nullptr;
 }
 
-Error SearchSet::read(std::string_view name, std::vector<uint8_t>& out) const {
-    if (const Archive* a = find(name))
+Error SearchSet::read(std::string_view name, std::vector<uint8_t> &out) const {
+    if (const Archive *a = find(name))
         return a->read(name, out);
     return Error::fail(std::string(name) + " not found");
 }
 
 std::vector<std::string> SearchSet::list() const {
     std::map<std::string, std::string> names; // normalized -> spelling of the first archive
-    for (const Member& m : members_)
-        for (std::string& n : m.archive->list())
+    for (const Member &m : members_)
+        for (std::string &n : m.archive->list())
             names.try_emplace(normalizeArchiveName(n), std::move(n));
     std::vector<std::string> out;
     out.reserve(names.size());
-    for (auto& [key, name] : names)
+    for (auto &[key, name] : names)
         out.push_back(std::move(name));
     return out;
 }
 
-std::vector<const Archive*> SearchSet::archives() const {
-    std::vector<const Archive*> out;
-    for (const Member& m : members_)
+std::vector<const Archive *> SearchSet::archives() const {
+    std::vector<const Archive *> out;
+    for (const Member &m : members_)
         out.push_back(m.archive.get());
     return out;
 }

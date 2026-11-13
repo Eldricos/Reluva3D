@@ -40,20 +40,78 @@ using namespace raster;
 
 // A state record's words, as rasterize.comp reads them.
 enum StateWord : int {
-    sColorFunc = 0, sColorFactor = 1, sColorInvert = 2, sColorLocal = 3, sColorOther = 4,
-    sAlphaFunc = 5, sAlphaFactor = 6, sAlphaInvert = 7, sAlphaLocal = 8, sAlphaOther = 9,
-    sAlphaLighting = 10, sConstant = 11, sChromakey = 12, sChromaColor = 13, sAlphaTest = 14, sAlphaRef = 15,
-    sDepthMode = 16, sDepthFunc = 17, sDepthMask = 18, sDepthBias = 19, sColorMask = 20, sAlphaMask = 21,
-    sDither = 22, sFogMode = 23, sFogColor = 24, sBlendRgbSrc = 25, sBlendRgbDst = 26, sBlendAlphaSrc = 27,
-    sBlendAlphaDst = 28, sTexture = 29, sTmusUsed = 30, sAlphaBuffer = 31, sBlend = 32, sColorSlot = 33,
-    sChromaRange = 34, sChromaRangeMax = 35, sFogTable = 36, sChromaRangeMin = 52, sTmu = 64, sTmuWords = 48,
+    sColorFunc = 0,
+    sColorFactor = 1,
+    sColorInvert = 2,
+    sColorLocal = 3,
+    sColorOther = 4,
+    sAlphaFunc = 5,
+    sAlphaFactor = 6,
+    sAlphaInvert = 7,
+    sAlphaLocal = 8,
+    sAlphaOther = 9,
+    sAlphaLighting = 10,
+    sConstant = 11,
+    sChromakey = 12,
+    sChromaColor = 13,
+    sAlphaTest = 14,
+    sAlphaRef = 15,
+    sDepthMode = 16,
+    sDepthFunc = 17,
+    sDepthMask = 18,
+    sDepthBias = 19,
+    sColorMask = 20,
+    sAlphaMask = 21,
+    sDither = 22,
+    sFogMode = 23,
+    sFogColor = 24,
+    sBlendRgbSrc = 25,
+    sBlendRgbDst = 26,
+    sBlendAlphaSrc = 27,
+    sBlendAlphaDst = 28,
+    sTexture = 29,
+    sTmusUsed = 30,
+    sAlphaBuffer = 31,
+    sBlend = 32,
+    sColorSlot = 33,
+    sChromaRange = 34,
+    sChromaRangeMax = 35,
+    sFogTable = 36,
+    sChromaRangeMin = 52,
+    sTmu = 64,
+    sTmuWords = 48,
 };
 enum TmuWord : int {
-    tValid = 0, tPerPixelLod = 1, tLodMin = 2, tLodMax = 3, tFormat = 4, tBytes = 5, tMemBase = 6,
-    tMemMask = 7, tPalette = 8, tNcc = 9, tClampS = 10, tClampT = 11, tMinFilter = 12, tMagFilter = 13,
-    tMipmapMode = 14, tLodBias = 15, tRgbFunc = 16, tRgbFactor = 17, tRgbInvert = 18, tAlphaFunc = 19,
-    tAlphaFactor = 20, tAlphaInvert = 21, tDetailBias = 22, tDetailScale = 23, tDetailMax = 24,
-    tSmallLod = 25, tLargeLod = 26, tBase = 27, tSize = 36, tNeedsDetail = 45,
+    tValid = 0,
+    tPerPixelLod = 1,
+    tLodMin = 2,
+    tLodMax = 3,
+    tFormat = 4,
+    tBytes = 5,
+    tMemBase = 6,
+    tMemMask = 7,
+    tPalette = 8,
+    tNcc = 9,
+    tClampS = 10,
+    tClampT = 11,
+    tMinFilter = 12,
+    tMagFilter = 13,
+    tMipmapMode = 14,
+    tLodBias = 15,
+    tRgbFunc = 16,
+    tRgbFactor = 17,
+    tRgbInvert = 18,
+    tAlphaFunc = 19,
+    tAlphaFactor = 20,
+    tAlphaInvert = 21,
+    tDetailBias = 22,
+    tDetailScale = 23,
+    tDetailMax = 24,
+    tSmallLod = 25,
+    tLargeLod = 26,
+    tBase = 27,
+    tSize = 36,
+    tNeedsDetail = 45,
 };
 constexpr uint32_t kStateWords = sTmu + sTmuWords * kMaxTmus;
 constexpr uint32_t kPrimWords = 52;
@@ -76,12 +134,12 @@ uint32_t floatBits(float f) {
     return u;
 }
 
-bool usesOther(const CombineSettings& c) {
+bool usesOther(const CombineSettings &c) {
     return (c.function >= kFuncScaleOther && c.function <= kFuncScaleOtherMinusLocalAddLocalAlpha) ||
            c.factor == kFactorOtherAlpha || c.factor == kFactorOneMinusOtherAlpha;
 }
 
-bool blendUsesDstAlpha(const State& s) {
+bool blendUsesDstAlpha(const State &s) {
     auto dst = [](int f) { return f == kBlendDstAlpha || f == kBlendOneMinusDstAlpha; };
     return dst(s.blendRgbSrc) || dst(s.blendRgbDst) || dst(s.blendAlphaSrc) || dst(s.blendAlphaDst) ||
            s.blendRgbSrc == kBlendAlphaSaturate || s.blendAlphaSrc == kBlendAlphaSaturate;
@@ -113,29 +171,29 @@ public:
         return gpu_->createKernel(code, kernel_);
     }
 
-    void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) override;
-    void line(Pipeline& p, const Vertex& a, const Vertex& b) override;
-    void point(Pipeline& p, const Vertex& a) override;
-    void fragments(Pipeline& p, const Fragments& f) override;
-    void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override;
-    void sync(Pipeline& p) override;
-    void syncBuffer(Pipeline& p, int buffer) override;
-    void textureMemoryChanged(Pipeline& p, int tmu, uint32_t start, uint32_t bytes) override;
-    void tablesChanged(Pipeline&, int tmu) override {
+    void triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) override;
+    void line(Pipeline &p, const Vertex &a, const Vertex &b) override;
+    void point(Pipeline &p, const Vertex &a) override;
+    void fragments(Pipeline &p, const Fragments &f) override;
+    void clear(Pipeline &p, uint32_t argb, int alpha, int depth) override;
+    void sync(Pipeline &p) override;
+    void syncBuffer(Pipeline &p, int buffer) override;
+    void textureMemoryChanged(Pipeline &p, int tmu, uint32_t start, uint32_t bytes) override;
+    void tablesChanged(Pipeline &, int tmu) override {
         if (tmu >= 0 && tmu < kMaxTmus)
             tableAt_[size_t(tmu)] = -1;
     }
 
 private:
-    bool ready(Pipeline& p);
-    void uploadSlotRows(Pipeline& p, int slot, int firstRow, int rows);
-    void download(Pipeline& p, int slot);
-    uint32_t stateFor(Pipeline& p);
+    bool ready(Pipeline &p);
+    void uploadSlotRows(Pipeline &p, int slot, int firstRow, int rows);
+    void download(Pipeline &p, int slot);
+    uint32_t stateFor(Pipeline &p);
     // A primitive over rows rowFirst.. of buffer rows (spans already in
     // spans_ from spanAt), its values' plane.
-    size_t addPrim(Pipeline& p, uint32_t flags, int rowFirst, int rows, uint32_t spanAt, int x0, int x1, float fx0,
-                 float fy0, const Values& base, const float* dx, const float* dy, bool writesAux);
-    void addPixel(Pipeline& p, int x, int y, const Values& v);
+    size_t addPrim(Pipeline &p, uint32_t flags, int rowFirst, int rows, uint32_t spanAt, int x0, int x1, float fx0,
+                   float fy0, const Values &base, const float *dx, const float *dy, bool writesAux);
+    void addPixel(Pipeline &p, int x, int y, const Values &v);
     void flush();
     void flushIfFull();
 
@@ -143,12 +201,12 @@ private:
     gfx::ComputeKernel kernel_ = 0;
     gfx::ComputeBuffer frame_ = 0, tex_ = 0, batchBuffer_ = 0;
     uint32_t batchCapacity_ = 0; // bytes
-    const Pipeline* pipeline_ = nullptr;
+    const Pipeline *pipeline_ = nullptr;
     uint64_t opened_ = 0;
     int width_ = 0, height_ = 0, tmus_ = 0;
     uint32_t tmuBytes_ = 0;
-    std::array<bool, Pipeline::kSlots> gpuNewer_{};   // drawn on the GPU since read back
-    std::array<bool, Pipeline::kSlots> hostKnown_{};  // the host's copy was read back (snapshot_ is it)
+    std::array<bool, Pipeline::kSlots> gpuNewer_{};  // drawn on the GPU since read back
+    std::array<bool, Pipeline::kSlots> hostKnown_{}; // the host's copy was read back (snapshot_ is it)
     std::array<std::vector<uint16_t>, Pipeline::kSlots> snapshot_;
     bool checkHost_ = false;
 
@@ -166,7 +224,7 @@ private:
     std::vector<uint32_t> scratch_;
 };
 
-bool GpuRenderer::ready(Pipeline& p) {
+bool GpuRenderer::ready(Pipeline &p) {
     if (!p.isOpen())
         return false;
     if (&p != pipeline_ || p.opened() != opened_ || p.width() != width_ || p.height() != height_) {
@@ -202,15 +260,15 @@ bool GpuRenderer::ready(Pipeline& p) {
         // differ from what was read, sent over.
         checkHost_ = false;
         for (int s = 0; s < Pipeline::kSlots; ++s) {
-            const uint16_t* host = p.slotPixels(s);
+            const uint16_t *host = p.slotPixels(s);
             if (!host || !hostKnown_[size_t(s)] || gpuNewer_[size_t(s)])
                 continue;
-            const uint16_t* known = snapshot_[size_t(s)].data();
+            const uint16_t *known = snapshot_[size_t(s)].data();
             int first = -1;
             for (int y = 0; y <= height_; ++y) {
-                const bool differs = y < height_ && std::memcmp(host + size_t(y) * size_t(width_),
-                                                                known + size_t(y) * size_t(width_),
-                                                                size_t(width_) * 2) != 0;
+                const bool differs =
+                    y < height_ && std::memcmp(host + size_t(y) * size_t(width_), known + size_t(y) * size_t(width_),
+                                               size_t(width_) * 2) != 0;
                 if (differs && first < 0)
                     first = y;
                 else if (!differs && first >= 0) {
@@ -223,8 +281,8 @@ bool GpuRenderer::ready(Pipeline& p) {
     return frame_ && tex_;
 }
 
-void GpuRenderer::uploadSlotRows(Pipeline& p, int slot, int firstRow, int rows) {
-    const uint16_t* host = p.slotPixels(slot);
+void GpuRenderer::uploadSlotRows(Pipeline &p, int slot, int firstRow, int rows) {
+    const uint16_t *host = p.slotPixels(slot);
     const size_t at = size_t(firstRow) * size_t(width_), n = size_t(rows) * size_t(width_);
     snapshot_[size_t(slot)].resize(size_t(width_) * size_t(height_));
     scratch_.resize(n);
@@ -238,8 +296,8 @@ void GpuRenderer::uploadSlotRows(Pipeline& p, int slot, int firstRow, int rows) 
     gpuNewer_[size_t(slot)] = false;
 }
 
-void GpuRenderer::download(Pipeline& p, int slot) {
-    uint16_t* host = p.slotPixels(slot);
+void GpuRenderer::download(Pipeline &p, int slot) {
+    uint16_t *host = p.slotPixels(slot);
     if (!host || !frame_)
         return;
     const uint32_t pixels = uint32_t(width_ * height_);
@@ -253,7 +311,7 @@ void GpuRenderer::download(Pipeline& p, int slot) {
     gpuNewer_[size_t(slot)] = false;
 }
 
-void GpuRenderer::sync(Pipeline& p) {
+void GpuRenderer::sync(Pipeline &p) {
     flush();
     if (&p != pipeline_ || p.opened() != opened_)
         return;
@@ -263,7 +321,7 @@ void GpuRenderer::sync(Pipeline& p) {
     checkHost_ = true;
 }
 
-void GpuRenderer::syncBuffer(Pipeline& p, int buffer) {
+void GpuRenderer::syncBuffer(Pipeline &p, int buffer) {
     flush();
     if (&p != pipeline_ || p.opened() != opened_)
         return;
@@ -273,18 +331,18 @@ void GpuRenderer::syncBuffer(Pipeline& p, int buffer) {
     checkHost_ = true;
 }
 
-void GpuRenderer::textureMemoryChanged(Pipeline& p, int tmu, uint32_t start, uint32_t bytes) {
+void GpuRenderer::textureMemoryChanged(Pipeline &p, int tmu, uint32_t start, uint32_t bytes) {
     if (&p != pipeline_ || !tex_ || tmu < 0 || tmu >= tmus_)
         return; // sent whole when the GPU's copy is made
-    flush(); // what's waiting was drawn with the old texels
+    flush();    // what's waiting was drawn with the old texels
     const uint32_t from = start & ~3u, to = std::min(tmuBytes_, (start + bytes + 3) & ~3u);
     if (to > from)
         gpu_->upload(tex_, uint32_t(tmu) * tmuBytes_ + from, p.tmuMemory(tmu) + from, to - from);
 }
 
-uint32_t GpuRenderer::stateFor(Pipeline& p) {
-    const State& s = p.state();
-    std::vector<uint32_t>& r = record_;
+uint32_t GpuRenderer::stateFor(Pipeline &p) {
+    const State &s = p.state();
+    std::vector<uint32_t> &r = record_;
     r.assign(kStateWords, 0);
     r[sColorFunc] = uint32_t(s.color.settings.function);
     r[sColorFactor] = uint32_t(s.color.settings.factor);
@@ -333,7 +391,7 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
     if (texture) {
         tmusUsed = 1;
         while (tmusUsed < p.board().tmus) {
-            const TmuState& t = s.tmus[size_t(tmusUsed - 1)];
+            const TmuState &t = s.tmus[size_t(tmusUsed - 1)];
             if (!usesOther(t.rgb) && !usesOther(t.alpha))
                 break;
             ++tmusUsed;
@@ -345,8 +403,8 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
     r[sBlend] = !(s.blendRgbSrc == kBlendOne && s.blendRgbDst == kBlendZero && s.blendAlphaSrc == kBlendOne &&
                   s.blendAlphaDst == kBlendZero);
     for (int i = 0; i < tmusUsed; ++i) {
-        const TmuState& t = s.tmus[size_t(i)];
-        uint32_t* m = r.data() + sTmu + sTmuWords * i;
+        const TmuState &t = s.tmus[size_t(i)];
+        uint32_t *m = r.data() + sTmu + sTmuWords * i;
         if (!(t.hasSource && knownFormat(t.info.format)))
             continue;
         m[tValid] = 1;
@@ -368,10 +426,10 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
         if (usesTables(format)) {
             if (tableAt_[size_t(i)] < 0) {
                 tableAt_[size_t(i)] = int(tables_.size());
-                const uint32_t* pal = p.palette(i);
+                const uint32_t *pal = p.palette(i);
                 tables_.insert(tables_.end(), pal, pal + 256);
                 for (int n = 0; n < 2; ++n) {
-                    const NccTable& nt = p.ncc(i, n);
+                    const NccTable &nt = p.ncc(i, n);
                     for (int k = 0; k < 16; ++k)
                         tables_.push_back(nt.y[k]);
                     for (int k = 0; k < 12; ++k)
@@ -419,14 +477,14 @@ uint32_t GpuRenderer::stateFor(Pipeline& p) {
     return lastState_;
 }
 
-size_t GpuRenderer::addPrim(Pipeline& p, uint32_t flags, int rowFirst, int rows, uint32_t spanAt, int x0, int x1,
-                          float fx0, float fy0, const Values& base, const float* dx, const float* dy,
-                          bool writesAux) {
-    const State& s = p.state();
+size_t GpuRenderer::addPrim(Pipeline &p, uint32_t flags, int rowFirst, int rows, uint32_t spanAt, int x0, int x1,
+                            float fx0, float fy0, const Values &base, const float *dx, const float *dy,
+                            bool writesAux) {
+    const State &s = p.state();
     const uint32_t state = stateFor(p);
     const size_t at = prims_.size();
     prims_.resize(at + kPrimWords, 0);
-    uint32_t* w = prims_.data() + at;
+    uint32_t *w = prims_.data() + at;
     w[0] = uint32_t(rowFirst);
     w[1] = uint32_t(rows);
     w[2] = spanAt;
@@ -451,21 +509,22 @@ void GpuRenderer::flushIfFull() {
         flush();
 }
 
-void GpuRenderer::addPixel(Pipeline& p, int x, int y, const Values& v) {
-    const State& s = p.state();
+void GpuRenderer::addPixel(Pipeline &p, int x, int y, const Values &v) {
+    const State &s = p.state();
     const int row = s.originLowerLeft ? height_ - 1 - y : y;
     const uint32_t spanAt = uint32_t(spans_.size());
     spans_.push_back(uint32_t(x) | uint32_t(x) << 16);
-    addPrim(p, 0, row, 1, spanAt, x, x, 0, 0, v, nullptr, nullptr, s.depthMode != kDepthDisable || blendUsesDstAlpha(s));
+    addPrim(p, 0, row, 1, spanAt, x, x, 0, 0, v, nullptr, nullptr,
+            s.depthMode != kDepthDisable || blendUsesDstAlpha(s));
     flushIfFull();
 }
 
-void GpuRenderer::triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) {
+void GpuRenderer::triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) {
     if (!ready(p)) {
         ++p.stats.trianglesIn;
         return;
     }
-    const State& s = p.state();
+    const State &s = p.state();
     Triangle t;
     if (!setupTriangle(s, width_, height_, a, b, c, t, p.stats))
         return;
@@ -502,13 +561,13 @@ void GpuRenderer::triangle(Pipeline& p, const Vertex& a, const Vertex& b, const 
     flushIfFull();
 }
 
-void GpuRenderer::line(Pipeline& p, const Vertex& a, const Vertex& b) {
+void GpuRenderer::line(Pipeline &p, const Vertex &a, const Vertex &b) {
     if (!ready(p))
         return;
-    forLinePixels(p.state(), width_, height_, a, b, [&](int x, int y, const Values& v) { addPixel(p, x, y, v); });
+    forLinePixels(p.state(), width_, height_, a, b, [&](int x, int y, const Values &v) { addPixel(p, x, y, v); });
 }
 
-void GpuRenderer::point(Pipeline& p, const Vertex& a) {
+void GpuRenderer::point(Pipeline &p, const Vertex &a) {
     if (!ready(p))
         return;
     int x = 0, y = 0;
@@ -519,12 +578,12 @@ void GpuRenderer::point(Pipeline& p, const Vertex& a) {
     addPixel(p, x, y, v);
 }
 
-void GpuRenderer::fragments(Pipeline& p, const Fragments& f) {
+void GpuRenderer::fragments(Pipeline &p, const Fragments &f) {
     if (!ready(p))
         return;
-    const State& s = p.state();
+    const State &s = p.state();
     const bool aux = s.depthMode != kDepthDisable || blendUsesDstAlpha(s);
-    for (const Fragment& frag : f.list) {
+    for (const Fragment &frag : f.list) {
         if (!f.derivatives) {
             addPixel(p, frag.x, frag.y, frag.v);
             continue;
@@ -540,10 +599,10 @@ void GpuRenderer::fragments(Pipeline& p, const Fragments& f) {
     }
 }
 
-void GpuRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {
+void GpuRenderer::clear(Pipeline &p, uint32_t argb, int alpha, int depth) {
     if (!ready(p))
         return;
-    const State& s = p.state();
+    const State &s = p.state();
     const int x0 = std::max(s.clip[0], 0), x1 = std::min(s.clip[2], width_);
     const int y0 = std::max(s.clip[1], 0), y1 = std::min(s.clip[3], height_);
     if (x0 >= x1 || y0 >= y1)
@@ -585,7 +644,7 @@ void GpuRenderer::flush() {
     const uint32_t tilesX = uint32_t((width_ + kTile - 1) / kTile), tilesY = uint32_t((height_ + kTile - 1) / kTile);
     const uint32_t tiles = tilesX * tilesY;
     std::vector<uint32_t> count(tiles + 1, 0);
-    for (const Box& b : boxes_)
+    for (const Box &b : boxes_)
         for (int ty = b.y0 / kTile; ty <= b.y1 / kTile; ++ty)
             for (int tx = b.x0 / kTile; tx <= b.x1 / kTile; ++tx)
                 ++count[uint32_t(ty) * tilesX + uint32_t(tx)];
@@ -595,7 +654,7 @@ void GpuRenderer::flush() {
     std::vector<uint32_t> list(offsets[tiles]);
     std::vector<uint32_t> fill(offsets.begin(), offsets.end() - 1);
     for (uint32_t i = 0; i < primCount; ++i) {
-        const Box& b = boxes_[i];
+        const Box &b = boxes_[i];
         for (int ty = b.y0 / kTile; ty <= b.y1 / kTile; ++ty)
             for (int tx = b.x0 / kTile; tx <= b.x1 / kTile; ++tx)
                 list[fill[uint32_t(ty) * tilesX + uint32_t(tx)]++] = i;
@@ -611,7 +670,7 @@ void GpuRenderer::flush() {
     u.height = uint32_t(height_);
     u.tilesX = tilesX;
     u.activeCount = uint32_t(active.size());
-    std::vector<uint32_t>& b = scratch_;
+    std::vector<uint32_t> &b = scratch_;
     b.clear();
     u.statesBase = uint32_t(b.size());
     b.insert(b.end(), states_.begin(), states_.end());
@@ -659,63 +718,63 @@ void GpuRenderer::flush() {
 
 class ComparingRenderer : public Renderer {
 public:
-    ComparingRenderer(std::unique_ptr<Renderer> tested, std::function<void(const FrameComparison&)> onSwap)
+    ComparingRenderer(std::unique_ptr<Renderer> tested, std::function<void(const FrameComparison &)> onSwap)
         : tested_(std::move(tested)), onSwap_(std::move(onSwap)) {}
 
-    void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) override {
+    void triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) override {
         tested_->triangle(p, a, b, c);
         if (reference(p))
             ref_->triangle(a, b, c);
     }
-    void line(Pipeline& p, const Vertex& a, const Vertex& b) override {
+    void line(Pipeline &p, const Vertex &a, const Vertex &b) override {
         tested_->line(p, a, b);
         if (reference(p))
             ref_->line(a, b);
     }
-    void point(Pipeline& p, const Vertex& a) override {
+    void point(Pipeline &p, const Vertex &a) override {
         tested_->point(p, a);
         if (reference(p))
             ref_->point(a);
     }
-    void fragments(Pipeline& p, const Fragments& f) override {
+    void fragments(Pipeline &p, const Fragments &f) override {
         tested_->fragments(p, f);
         if (reference(p))
             ref_->fragments(f);
     }
-    void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override {
+    void clear(Pipeline &p, uint32_t argb, int alpha, int depth) override {
         tested_->clear(p, argb, alpha, depth);
         if (reference(p))
             ref_->clear(argb, alpha, depth);
     }
-    void sync(Pipeline& p) override { tested_->sync(p); }
-    void syncBuffer(Pipeline& p, int buffer) override { tested_->syncBuffer(p, buffer); }
-    void hostWrote(Pipeline& p, int slot, int x, int y) override {
+    void sync(Pipeline &p) override { tested_->sync(p); }
+    void syncBuffer(Pipeline &p, int buffer) override { tested_->syncBuffer(p, buffer); }
+    void hostWrote(Pipeline &p, int slot, int x, int y) override {
         tested_->hostWrote(p, slot, x, y);
         if (ref_ && opened_ == p.opened())
-            if (const uint16_t* h = p.slotPixels(slot)) {
+            if (const uint16_t *h = p.slotPixels(slot)) {
                 const size_t at = size_t(y) * size_t(p.width()) + size_t(x);
                 ref_->slotPixels(slot)[at] = h[at];
             }
     }
-    void textureMemoryChanged(Pipeline& p, int tmu, uint32_t start, uint32_t bytes) override {
+    void textureMemoryChanged(Pipeline &p, int tmu, uint32_t start, uint32_t bytes) override {
         tested_->textureMemoryChanged(p, tmu, start, bytes);
         if (ref_ && opened_ == p.opened())
             ref_->writeTmuMemory(tmu, start, p.tmuMemory(tmu) + start, bytes);
     }
-    void tablesChanged(Pipeline& p, int tmu) override {
+    void tablesChanged(Pipeline &p, int tmu) override {
         tested_->tablesChanged(p, tmu);
         if (ref_ && opened_ == p.opened())
             copyTables(p, tmu);
     }
-    void swapped(Pipeline& p) override {
+    void swapped(Pipeline &p) override {
         tested_->swapped(p);
         if (!ref_ || opened_ != p.opened())
             return;
         // The frame just finished: the tested renderer's, read back, against
         // the reference's (its buffers not swapped yet).
         tested_->syncBuffer(p, kBufferFront);
-        const uint16_t* a = p.buffer(kBufferFront);
-        const uint16_t* b = ref_->buffer(kBufferBack);
+        const uint16_t *a = p.buffer(kBufferFront);
+        const uint16_t *b = ref_->buffer(kBufferBack);
         FrameComparison f;
         f.swap = p.swaps();
         uint64_t sum = 0;
@@ -741,7 +800,7 @@ private:
     // The reference pipeline, set up to match `p` (made when p is opened),
     // with p's state and anything the host wrote copied in: false if there
     // is none.
-    bool reference(Pipeline& p) {
+    bool reference(Pipeline &p) {
         if (!p.isOpen())
             return false;
         if (!ref_ || opened_ != p.opened()) {
@@ -760,27 +819,27 @@ private:
                 ref_->swap();
             tested_->sync(p);
             for (int s = 0; s < Pipeline::kSlots; ++s)
-                if (const uint16_t* h = p.slotPixels(s))
+                if (const uint16_t *h = p.slotPixels(s))
                     std::memcpy(ref_->slotPixels(s), h, size_t(p.width()) * size_t(p.height()) * 2);
         }
         ref_->state() = p.state();
         return true;
     }
-    void copyTables(Pipeline& p, int tmu) {
+    void copyTables(Pipeline &p, int tmu) {
         ref_->setPalette(tmu, 0, 255, p.palette(tmu));
         ref_->setNcc(tmu, 0, p.ncc(tmu, 0));
         ref_->setNcc(tmu, 1, p.ncc(tmu, 1));
     }
 
     std::unique_ptr<Renderer> tested_;
-    std::function<void(const FrameComparison&)> onSwap_;
+    std::function<void(const FrameComparison &)> onSwap_;
     std::unique_ptr<Pipeline> ref_;
     uint64_t opened_ = 0;
 };
 
 } // namespace
 
-std::unique_ptr<Renderer> makeGpuRenderer(std::unique_ptr<gfx::Compute> gpu, std::string& error) {
+std::unique_ptr<Renderer> makeGpuRenderer(std::unique_ptr<gfx::Compute> gpu, std::string &error) {
     if (!gpu) {
         error = "no GPU";
         return nullptr;
@@ -794,7 +853,7 @@ std::unique_ptr<Renderer> makeGpuRenderer(std::unique_ptr<gfx::Compute> gpu, std
 }
 
 std::unique_ptr<Renderer> makeComparingRenderer(std::unique_ptr<Renderer> tested,
-                                                std::function<void(const FrameComparison&)> onSwap) {
+                                                std::function<void(const FrameComparison &)> onSwap) {
     return std::make_unique<ComparingRenderer>(std::move(tested), std::move(onSwap));
 }
 

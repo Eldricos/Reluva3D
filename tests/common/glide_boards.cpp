@@ -30,8 +30,6 @@ namespace {
 
 using namespace reluva::glide;
 
-
-
 namespace {
 
 Glide2Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, float a = 255, float s = 0,
@@ -44,7 +42,7 @@ Glide2Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, 
     v.b = b;
     v.a = a;
     v.oow = 1;
-    for (auto& m : v.tmuvtx) {
+    for (auto &m : v.tmuvtx) {
         m.sow = s;
         m.tow = t;
         m.oow = 1;
@@ -52,8 +50,12 @@ Glide2Vertex vtx(float x, float y, float r = 255, float g = 255, float b = 255, 
     return v;
 }
 
-int green(const Glide2& g, int x, int y) { return g.lfbRead(kBufferBack, x, y, false) >> 5 & 63; }
-int red(const Glide2& g, int x, int y) { return g.lfbRead(kBufferBack, x, y, false) >> 11 & 31; }
+int green(const Glide2 &g, int x, int y) {
+    return g.lfbRead(kBufferBack, x, y, false) >> 5 & 63;
+}
+int red(const Glide2 &g, int x, int y) {
+    return g.lfbRead(kBufferBack, x, y, false) >> 11 & 31;
+}
 
 // --- The Voodoo Rush's memory, shared with the 2D desktop -------------------------
 
@@ -110,7 +112,7 @@ void testRushDesktop() {
     CHECK(boardByName("rush,desktop=1280x1024x16", b));
     Glide2 rush(b);
     int winW = 800, winH = 600;
-    rush.windowSize = [&](uint32_t, int& w, int& h) {
+    rush.windowSize = [&](uint32_t, int &w, int &h) {
         w = winW;
         h = winH;
         return true;
@@ -162,9 +164,9 @@ void testRushDesktop() {
     CHECK(r2.lfbLock(1, kBufferBack, kLfb565, 0, false, lock) && lock.strideBytes == 324 * 2);
     const uint32_t argb[2] = {0xffffffffu, 0xffffffffu};
     const uint16_t white[2] = {0xffff, 0xffff};
-    CHECK(!r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb8888, 2, 1, 8, reinterpret_cast<const uint8_t*>(argb)));
-    CHECK(r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb565, 2, 1, 4, reinterpret_cast<const uint8_t*>(white)));
-    CHECK(!r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb565, 2, 1, 4, reinterpret_cast<const uint8_t*>(white), 4, true));
+    CHECK(!r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb8888, 2, 1, 8, reinterpret_cast<const uint8_t *>(argb)));
+    CHECK(r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb565, 2, 1, 4, reinterpret_cast<const uint8_t *>(white)));
+    CHECK(!r2.lfbWriteRegion(kBufferBack, 0, 0, kLfb565, 2, 1, 4, reinterpret_cast<const uint8_t *>(white), 4, true));
     CHECK(r2.lfbRead(kBufferBack, 1, 0, false) == 0xffff);
     // Elsewhere the Voodoo2's 1024-pixel logical scan line.
     Glide2 v2;
@@ -232,7 +234,7 @@ void testBanshee() {
 
 // --- Glide 3's extensions ------------------------------------------------------------------
 
-void texturedSetup(Glide2& g) {
+void texturedSetup(Glide2 &g) {
     g.ditherMode(kDitherDisable);
     g.colorCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
     g.alphaCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
@@ -254,7 +256,7 @@ void testPalette6666() {
     std::vector<uint32_t> pal(256, 0);
     pal[1] = 0xffff0000u;
     pal[2] = 0x8000ff00u;
-    g.texDownloadTablePartial(kTablePalette6666, reinterpret_cast<const uint8_t*>(pal.data()), 0, 255);
+    g.texDownloadTablePartial(kTablePalette6666, reinterpret_cast<const uint8_t *>(pal.data()), 0, 255);
     // Packed 6:6:6:6 (alpha 23-18) and read as format 6.
     CHECK(g.pipeline().palette(0)[1] == (63u << 18 | 63u << 12));
     CHECK(g.pipeline().palette(0)[2] == (32u << 18 | 63u << 6));
@@ -272,19 +274,19 @@ void testPalette6666() {
                           vtx(0, 64, 255, 255, 255, 255, 0, 256));
     CHECK(green(g.core(), 2, 2) == 63 && red(g.core(), 2, 2) == 0);
     // A plain palette afterwards: format 5 again, opaque.
-    g.texDownloadTablePartial(kTablePalette, reinterpret_cast<const uint8_t*>(pal.data()), 0, 255);
+    g.texDownloadTablePartial(kTablePalette, reinterpret_cast<const uint8_t *>(pal.data()), 0, 255);
     CHECK(!g.pipeline().palette6666(0) && g.pipeline().textureFormat(0) == kTexP8);
     // Not on a Voodoo2 (no such format there): ignored.
     Glide3 v2(voodoo2Board());
     v2.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
-    v2.texDownloadTablePartial(kTablePalette6666, reinterpret_cast<const uint8_t*>(pal.data()), 0, 255);
+    v2.texDownloadTablePartial(kTablePalette6666, reinterpret_cast<const uint8_t *>(pal.data()), 0, 255);
     CHECK(!v2.pipeline().palette6666(0) && v2.pipeline().palette(0)[1] == 0);
 }
 
 void testMirror() {
     // An 8x1 texture whose texel i has red 4i; a 16-pixel row with s from 0
     // to 512: pixel x samples texel x of the first copy, then the second.
-    auto row = [](Board board, int clamp, int* out) {
+    auto row = [](Board board, int clamp, int *out) {
         Glide2 g(board);
         g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
         texturedSetup(g);
@@ -293,7 +295,7 @@ void testMirror() {
             tex[size_t(i)] = uint16_t((4 * i) << 11);
         const uint32_t at = g.texMinAddress(0);
         const Glide2TexInfo info{5, 5, 0, kTexRgb565}; // GR_LOD_8, GR_ASPECT_8x1
-        g.texDownloadMipMap(0, at, kLevelsBoth, info, reinterpret_cast<const uint8_t*>(tex.data()));
+        g.texDownloadMipMap(0, at, kLevelsBoth, info, reinterpret_cast<const uint8_t *>(tex.data()));
         g.texSource(0, at, kLevelsBoth, info);
         g.texClampMode(0, clamp, kClampClamp);
         g.drawTriangle(vtx(0, 0, 255, 255, 255, 255, 0, 0), vtx(16, 0, 255, 255, 255, 255, 512, 0),
@@ -381,7 +383,7 @@ struct ClipV {
 Glide3 clipAa() {
     Glide3 g(voodoo2Board());
     g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
-    Glide2& c = g.core();
+    Glide2 &c = g.core();
     c.ditherMode(kDitherDisable);
     c.colorCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
     c.alphaCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
@@ -395,7 +397,9 @@ Glide3 clipAa() {
     return g;
 }
 
-const uint8_t* at(const ClipV& v) { return reinterpret_cast<const uint8_t*>(&v); }
+const uint8_t *at(const ClipV &v) {
+    return reinterpret_cast<const uint8_t *>(&v);
+}
 
 void testClippedFringe() {
     // A triangle half through the far plane: (-0.5, -0.5) and (0.5, -0.5)
@@ -404,7 +408,7 @@ void testClippedFringe() {
     const ClipV a{-0.5f, -0.5f, 0, 1, 0xffffffffu}, b{0.5f, -0.5f, 0, 1, 0xffffffffu}, c{0, 0.5f, 2, 1, 0xffffffffu};
     Glide3 g = clipAa();
     g.aaDrawTriangle(at(a), at(b), at(c), true, true, true);
-    const Glide2& core = g.core();
+    const Glide2 &core = g.core();
     CHECK(green(core, 320, 180) == 63);
     // Outside a-b (row 119, its centre half a pixel above the edge): the
     // fringe, about half covered.
@@ -441,8 +445,7 @@ void testClippedFringe() {
     // Wholly inside, as before: the same pixels as the window-coordinate
     // triangle's.
     Glide3 inside = clipAa();
-    const ClipV ia{-0.5f, -0.5f, 0, 1, 0xffffffffu}, ib{0.5f, -0.5f, 0, 1, 0xffffffffu},
-        ic{0, 0.5f, 0, 1, 0xffffffffu};
+    const ClipV ia{-0.5f, -0.5f, 0, 1, 0xffffffffu}, ib{0.5f, -0.5f, 0, 1, 0xffffffffu}, ic{0, 0.5f, 0, 1, 0xffffffffu};
     inside.aaDrawTriangle(at(ia), at(ib), at(ic), true, true, true);
     Glide2 window;
     window.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1);
@@ -476,11 +479,13 @@ void testClippedFringe() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.glide_boards", {
-    {"rush desktop", [](const std::filesystem::path&) { testRushDesktop(); }},
-    {"banshee", [](const std::filesystem::path&) { testBanshee(); }},
-    {"palette6666", [](const std::filesystem::path&) { testPalette6666(); }},
-    {"mirror", [](const std::filesystem::path&) { testMirror(); }},
-    {"chroma range", [](const std::filesystem::path&) { testChromaRange(); }},
-    {"clipped fringe", [](const std::filesystem::path&) { testClippedFringe(); }},
-});
+static const reluva::test::Suite
+    kSuite("common.unit.glide_boards",
+           {
+               {"rush desktop", [](const std::filesystem::path &) { testRushDesktop(); }},
+               {"banshee", [](const std::filesystem::path &) { testBanshee(); }},
+               {"palette6666", [](const std::filesystem::path &) { testPalette6666(); }},
+               {"mirror", [](const std::filesystem::path &) { testMirror(); }},
+               {"chroma range", [](const std::filesystem::path &) { testChromaRange(); }},
+               {"clipped fringe", [](const std::filesystem::path &) { testClippedFringe(); }},
+           });

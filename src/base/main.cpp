@@ -23,17 +23,19 @@ using namespace reluva;
 
 static std::filesystem::path dataDir() {
     std::filesystem::path dir = ".";
-    if (char* pref = SDL_GetPrefPath("reluva", "reluva")) {
+    if (char *pref = SDL_GetPrefPath("reluva", "reluva")) {
         dir = pref;
         SDL_free(pref);
     }
     return dir;
 }
 
-static std::filesystem::path configPath() { return dataDir() / "reluva.ini"; }
+static std::filesystem::path configPath() {
+    return dataDir() / "reluva.ini";
+}
 
 // `reluva --hash <file>...` prints detection signatures for building tables.
-static int printHashes(int argc, char** argv) {
+static int printHashes(int argc, char **argv) {
     for (int i = 2; i < argc; ++i) {
         std::error_code ec;
         auto size = std::filesystem::file_size(argv[i], ec);
@@ -50,10 +52,10 @@ static int printHashes(int argc, char** argv) {
 
 // `reluva --detect <folder>...` lists the games found in each folder, as
 // the launcher's Add Game does.
-static int printDetected(int argc, char** argv) {
+static int printDetected(int argc, char **argv) {
     int found = 0;
     for (int i = 2; i < argc; ++i)
-        for (const DetectedGame& g : detectGames(argv[i])) {
+        for (const DetectedGame &g : detectGames(argv[i])) {
             std::printf("%s: %s/%s  %s  [%s, %s]\n", argv[i], g.engineId.c_str(), g.gameId.c_str(),
                         g.description.c_str(), g.language.c_str(), g.platform.c_str());
             ++found;
@@ -63,7 +65,7 @@ static int printDetected(int argc, char** argv) {
     return found ? 0 : 1;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     // GPU work for engines that ask (the Glide stand-in on the GPU), each on a
     // device of its own.
     reluva::gfx::setComputeFactory(reluva::makeSdlCompute);
@@ -76,7 +78,7 @@ int main(int argc, char** argv) {
     // them in (or it closed with the program); SDL's log goes there too.
     StderrLog log(dataDir() / "reluva.log");
     SDL_SetLogOutputFunction(
-        [](void*, int, SDL_LogPriority, const char* message) { std::fprintf(stderr, "%s\n", message); }, nullptr);
+        [](void *, int, SDL_LogPriority, const char *message) { std::fprintf(stderr, "%s\n", message); }, nullptr);
 
     SdlSystem system;
     if (Error err = system.init()) {
@@ -96,8 +98,12 @@ int main(int argc, char** argv) {
         if (name == "testbed")
             direct = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, config.settingsFor("testbed")};
         else if (config.hasSection(name) && name != Config::kGlobalSection && !Config::isEngineSection(name))
-            direct = GameTarget{name, config.get(name, "engine"), config.get(name, "gameid"),
-                                config.get(name, "description", name), config.get(name, "path"), {},
+            direct = GameTarget{name,
+                                config.get(name, "engine"),
+                                config.get(name, "gameid"),
+                                config.get(name, "description", name),
+                                config.get(name, "path"),
+                                {},
                                 config.settingsFor(name)};
         else {
             std::fprintf(stderr, "Unknown target '%s'\n", name.c_str());
@@ -108,7 +114,7 @@ int main(int argc, char** argv) {
     Launcher launcher(system, config);
     launcher.setLibraryDir(dataDir() / "library");
     while (auto target = direct ? direct : launcher.run()) {
-        const MetaEngine* meta = findEngine(target->engineId);
+        const MetaEngine *meta = findEngine(target->engineId);
         if (!meta) {
             launcher.setStatus("Unknown engine '" + target->engineId + "' for " + target->target);
             continue;
@@ -131,8 +137,7 @@ int main(int argc, char** argv) {
         }
         if (system.quitRequested())
             break;
-        launcher.setStatus(err ? target->description + ": " + err.message
-                               : "Returned from " + target->description);
+        launcher.setStatus(err ? target->description + ": " + err.message : "Returned from " + target->description);
     }
     return 0;
 }

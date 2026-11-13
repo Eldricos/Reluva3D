@@ -23,15 +23,15 @@ namespace {
 
 using namespace page;
 
-std::string join(const std::vector<std::string>& names) {
+std::string join(const std::vector<std::string> &names) {
     std::string out;
-    for (const std::string& n : names)
+    for (const std::string &n : names)
         out += (out.empty() ? "" : " ") + n;
     return out;
 }
 
 // The part of a path after its last '/'.
-std::string baseName(const std::string& path) {
+std::string baseName(const std::string &path) {
     const size_t slash = path.rfind('/');
     return slash == std::string::npos ? path : path.substr(slash + 1);
 }
@@ -40,20 +40,19 @@ std::string baseName(const std::string& path) {
 
 // --- Info ---------------------------------------------------------------------
 
-InfoPage::InfoPage(const char* gameName, GameFolders folders)
-    : gameName_(gameName), folders_(std::move(folders)) {
+InfoPage::InfoPage(const char *gameName, GameFolders folders) : gameName_(gameName), folders_(std::move(folders)) {
     tracks_ = trackFolders(folders_.install);
     cars_ = carFolders(folders_.install);
     music_ = filesWithExtension(folders_.cd, "GameData/Audio/pc", ".mus");
     movies_ = filesWithExtension(folders_.cd, "FeData/movies", ".mad");
 }
 
-void InfoPage::draw(Surface& s) {
+void InfoPage::draw(Surface &s) {
     frame(s, gameName_, "");
     constexpr int kValueX = kMargin + 10 * font::kAdvance;
     const size_t width = static_cast<size_t>((s.w - kValueX - kMargin) / font::kAdvance);
     int y = 8 + font::kLineHeight * 2;
-    auto line = [&](const std::string& label, const std::string& value, Color color) {
+    auto line = [&](const std::string &label, const std::string &value, Color color) {
         font::drawText(s, kMargin, y, label, kLabelColor);
         for (size_t i = 0; i < value.size() || i == 0; i += width) {
             font::drawText(s, kValueX, y, value.substr(i, width), color);
@@ -79,7 +78,7 @@ void InfoPage::draw(Surface& s) {
 
 // --- Textures -----------------------------------------------------------------
 
-TexturePage::TexturePage(const GameFiles& files) : files_(files) {
+TexturePage::TexturePage(const GameFiles &files) : files_(files) {
     banks_ = files.withExtensions({".fsh", ".qfs"});
     if (!banks_.empty())
         load(0);
@@ -110,10 +109,18 @@ void TexturePage::handleKey(uint32_t key, uint16_t) {
     const int banks = static_cast<int>(banks_.size());
     const int shapes = static_cast<int>(loaded_.shapes.size());
     switch (key) {
-    case key::Down: load((bank_ + 1) % banks); break;
-    case key::Up: load((bank_ + banks - 1) % banks); break;
-    case key::PageDown: load(std::min(bank_ + 10, banks - 1)); break;
-    case key::PageUp: load(std::max(bank_ - 10, 0)); break;
+    case key::Down:
+        load((bank_ + 1) % banks);
+        break;
+    case key::Up:
+        load((bank_ + banks - 1) % banks);
+        break;
+    case key::PageDown:
+        load(std::min(bank_ + 10, banks - 1));
+        break;
+    case key::PageUp:
+        load(std::max(bank_ - 10, 0));
+        break;
     case key::Right:
         if (shapes) {
             shape_ = (shape_ + 1) % shapes;
@@ -134,15 +141,19 @@ void TexturePage::handleKey(uint32_t key, uint16_t) {
         shape_ = std::max(shapes - 1, 0);
         decodeCurrent();
         break;
-    case 'b': background_ = (background_ + 1) % 3; break;
-    case 'a': alpha_ = !alpha_; break;
-    default: break;
+    case 'b':
+        background_ = (background_ + 1) % 3;
+        break;
+    case 'a':
+        alpha_ = !alpha_;
+        break;
+    default:
+        break;
     }
 }
 
-void TexturePage::draw(Surface& s) {
-    frame(s, "Textures  " + std::to_string(bank_ + 1) + "/" + std::to_string(banks_.size()) + "  " +
-                 banks_[bank_].name,
+void TexturePage::draw(Surface &s) {
+    frame(s, "Textures  " + std::to_string(bank_ + 1) + "/" + std::to_string(banks_.size()) + "  " + banks_[bank_].name,
           "Up/Down: file  Left/Right: picture  B: background  A: alpha");
     int y = 8 + font::kLineHeight;
     if (!error_.empty()) {
@@ -153,10 +164,10 @@ void TexturePage::draw(Surface& s) {
         text(s, kMargin, y, "No pictures", kLabelColor);
         return;
     }
-    const Shape& shape = loaded_.shapes[shape_];
-    std::string info = std::to_string(shape_ + 1) + "/" + std::to_string(loaded_.shapes.size()) + "  \"" +
-                       shape.name + "\"  " + shapeTypeName(shape.type) + "  " + std::to_string(shape.width) +
-                       "x" + std::to_string(shape.height) + "  centre " + std::to_string(shape.centerX) + "," +
+    const Shape &shape = loaded_.shapes[shape_];
+    std::string info = std::to_string(shape_ + 1) + "/" + std::to_string(loaded_.shapes.size()) + "  \"" + shape.name +
+                       "\"  " + shapeTypeName(shape.type) + "  " + std::to_string(shape.width) + "x" +
+                       std::to_string(shape.height) + "  centre " + std::to_string(shape.centerX) + "," +
                        std::to_string(shape.centerY) + "  pos " + std::to_string(shape.x) + "," +
                        std::to_string(shape.y);
     if (!shape.palette.empty())
@@ -164,9 +175,9 @@ void TexturePage::draw(Surface& s) {
     text(s, kMargin, y, info, kTextColor);
     y += font::kLineHeight;
     std::string extra;
-    for (const std::string& t : shape.texts)
+    for (const std::string &t : shape.texts)
         extra += "\"" + t + "\" ";
-    for (const auto& b : shape.unknown)
+    for (const auto &b : shape.unknown)
         extra += "[block " + std::to_string(b.type) + ", " + std::to_string(b.data.size()) + " bytes] ";
     if (!extra.empty())
         text(s, kMargin, y, extra, kLabelColor);
@@ -185,12 +196,12 @@ void TexturePage::draw(Surface& s) {
     const int dw = std::max(1, static_cast<int>(w * scale)), dh = std::max(1, static_cast<int>(h * scale));
     const int x0 = kMargin + (areaW - dw) / 2, y0 = y + (areaH - dh) / 2;
     for (int dy = 0; dy < dh; ++dy) {
-        uint8_t* row = s.row(y0 + dy);
+        uint8_t *row = s.row(y0 + dy);
         const int sy = std::min(static_cast<int>(dy / scale), h - 1);
         for (int dx = 0; dx < dw; ++dx) {
             const int sx = std::min(static_cast<int>(dx / scale), w - 1);
-            const uint8_t* src = image_.pixel(sx, sy);
-            uint8_t* p = row + (x0 + dx) * 4;
+            const uint8_t *src = image_.pixel(sx, sy);
+            uint8_t *p = row + (x0 + dx) * 4;
             uint8_t bg = background_ == 1 ? 0 : background_ == 2 ? 255 : (((dx >> 3) ^ (dy >> 3)) & 1 ? 96 : 160);
             const unsigned a = alpha_ ? src[3] : 255;
             for (int c = 0; c < 3; ++c)
@@ -205,7 +216,7 @@ void TexturePage::draw(Surface& s) {
 namespace {
 
 // A convex quad, filled where a pixel's centre is inside all four edges.
-void fillQuad(Surface& s, const Needle& n, const uint8_t color[3]) {
+void fillQuad(Surface &s, const Needle &n, const uint8_t color[3]) {
     const float x0 = std::min({n.x[0], n.x[1], n.x[2], n.x[3]}), x1 = std::max({n.x[0], n.x[1], n.x[2], n.x[3]});
     const float y0 = std::min({n.y[0], n.y[1], n.y[2], n.y[3]}), y1 = std::max({n.y[0], n.y[1], n.y[2], n.y[3]});
     for (int y = std::max(0, int(std::floor(y0))); y <= std::min(s.h - 1, int(std::ceil(y1))); ++y)
@@ -219,7 +230,7 @@ void fillQuad(Surface& s, const Needle& n, const uint8_t color[3]) {
             }
             if (positive && negative)
                 continue;
-            uint8_t* p = s.row(y) + x * 4;
+            uint8_t *p = s.row(y) + x * 4;
             p[0] = color[0];
             p[1] = color[1];
             p[2] = color[2];
@@ -229,7 +240,7 @@ void fillQuad(Surface& s, const Needle& n, const uint8_t color[3]) {
 // A picture turned clockwise by `turns` about its pivot (px, py), with the
 // pivot put at (x, y) and pixels picked nearest, as the game turns the
 // wheel (fsh.md).
-void blitTurned(Surface& s, const image::Image& img, int px, int py, int x, int y, float turns) {
+void blitTurned(Surface &s, const image::Image &img, int px, int py, int x, int y, float turns) {
     const float a = turns * 6.28318531f, c = std::cos(a), sn = std::sin(a);
     const float reach = std::hypot(float(std::max(px, img.w - px)), float(std::max(py, img.h - py))) + 1;
     for (int dy = std::max(0, int(y - reach)); dy <= std::min(s.h - 1, int(y + reach)); ++dy)
@@ -239,8 +250,8 @@ void blitTurned(Surface& s, const image::Image& img, int px, int py, int x, int 
             const int sx = int(std::floor(px + ox * c + oy * sn)), sy = int(std::floor(py - ox * sn + oy * c));
             if (sx < 0 || sy < 0 || sx >= img.w || sy >= img.h)
                 continue;
-            const uint8_t* src = img.pixel(sx, sy);
-            uint8_t* d = s.row(dy) + dx * 4;
+            const uint8_t *src = img.pixel(sx, sy);
+            uint8_t *d = s.row(dy) + dx * 4;
             const int alpha = src[3];
             for (int k = 0; k < 3; ++k)
                 d[k] = static_cast<uint8_t>((src[k] * alpha + d[k] * (255 - alpha)) / 255);
@@ -248,8 +259,8 @@ void blitTurned(Surface& s, const image::Image& img, int px, int py, int x, int 
 }
 } // namespace
 
-CockpitPage::CockpitPage(const GameFiles& files) : files_(files) {
-    for (const FileRef& f : files.withExtensions({".qfs"}))
+CockpitPage::CockpitPage(const GameFiles &files) : files_(files) {
+    for (const FileRef &f : files.withExtensions({".qfs"}))
         if (fs::toLower(baseName(f.name)) == "dash.qfs")
             dashes_.push_back(f);
     if (!dashes_.empty())
@@ -275,7 +286,7 @@ void CockpitPage::load(int index) {
     // Picture 0000 is the dash, 0001 the wheel, turned about its centre
     // and placed by its position; the gear pictures all go where geaR's
     // position says.
-    for (const Shape& shape : bank.shapes) {
+    for (const Shape &shape : bank.shapes) {
         if (shape.name == "0000") {
             if (Error err = decodeShape(shape, dash_))
                 error_ = err.message;
@@ -299,9 +310,15 @@ void CockpitPage::load(int index) {
 void CockpitPage::handleKey(uint32_t key, uint16_t) {
     const int count = static_cast<int>(dashes_.size());
     switch (key) {
-    case key::Right: load((index_ + 1) % count); break;
-    case key::Left: load((index_ + count - 1) % count); break;
-    case ' ': sweeping_ = !sweeping_; break;
+    case key::Right:
+        load((index_ + 1) % count);
+        break;
+    case key::Left:
+        load((index_ + count - 1) % count);
+        break;
+    case ' ':
+        sweeping_ = !sweeping_;
+        break;
     case 'a':
         sweeping_ = false;
         steering_ = std::max(steering_ - 16, -128);
@@ -310,7 +327,9 @@ void CockpitPage::handleKey(uint32_t key, uint16_t) {
         sweeping_ = false;
         steering_ = std::min(steering_ + 16, 127);
         break;
-    case 'g': gear_ = (gear_ + 1) % static_cast<int>(gears_.size()); break;
+    case 'g':
+        gear_ = (gear_ + 1) % static_cast<int>(gears_.size());
+        break;
     case key::Up:
         sweeping_ = false;
         position_ = std::min(position_ + 0.05f, 1.0f);
@@ -319,7 +338,8 @@ void CockpitPage::handleKey(uint32_t key, uint16_t) {
         sweeping_ = false;
         position_ = std::max(position_ - 0.05f, 0.0f);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -338,12 +358,11 @@ bool CockpitPage::tick(uint64_t nowMs) {
     return true;
 }
 
-void CockpitPage::draw(Surface& s) {
+void CockpitPage::draw(Surface &s) {
     const std::string keys = "Left/Right: car  Space: sweep  Up/Down: needles  A/D: steer  G: gear";
     std::string title = "Cockpits";
     if (index_ >= 0)
-        title += "  " + std::to_string(index_ + 1) + "/" + std::to_string(dashes_.size()) + "  " +
-                 dashes_[index_].name;
+        title += "  " + std::to_string(index_ + 1) + "/" + std::to_string(dashes_.size()) + "  " + dashes_[index_].name;
     frame(s, title, keys);
     if (!error_.empty()) {
         text(s, kMargin, 8 + font::kLineHeight, error_, kWarnColor);
@@ -360,7 +379,7 @@ void CockpitPage::draw(Surface& s) {
         if (cockpit_.colorX >= 0 && cockpit_.colorY >= 0 && cockpit_.colorX < dash_.w && cockpit_.colorY < dash_.h)
             std::copy_n(dash_.pixel(cockpit_.colorX, cockpit_.colorY), 3, color);
         char line[96] = "";
-        for (const Gauge* g : {&cockpit_.speedometer, &cockpit_.tachometer})
+        for (const Gauge *g : {&cockpit_.speedometer, &cockpit_.tachometer})
             if (g->shown()) {
                 const float reading = g->low + (g->high - g->low) * t;
                 fillQuad(s, needle(*g, cockpit_.width, reading), color);
@@ -394,9 +413,9 @@ void CockpitPage::draw(Surface& s) {
 
 // --- Strings ------------------------------------------------------------------
 
-StringPage::StringPage(const GameFiles& files) : files_(files) {
+StringPage::StringPage(const GameFiles &files) : files_(files) {
     tables_ = files.textTables();
-    for (const FileRef& f : files.withExtensions({"arial10b.ffn"})) {
+    for (const FileRef &f : files.withExtensions({"arial10b.ffn"})) {
         std::vector<uint8_t> data;
         Font font;
         if (!files.read(f, data) && !parseFont(data, font)) {
@@ -434,23 +453,40 @@ void StringPage::handleKey(uint32_t key, uint16_t) {
     const int tables = static_cast<int>(tables_.size());
     const int lastTop = std::max(0, static_cast<int>(loaded_.strings.size()) - linesPerPage());
     switch (key) {
-    case key::Right: load((table_ + 1) % tables); break;
-    case key::Left: load((table_ + tables - 1) % tables); break;
-    case key::Down: top_ = std::min(top_ + 1, lastTop); break;
-    case key::Up: top_ = std::max(top_ - 1, 0); break;
-    case key::PageDown: top_ = std::min(top_ + linesPerPage(), lastTop); break;
-    case key::PageUp: top_ = std::max(top_ - linesPerPage(), 0); break;
-    case key::Home: top_ = 0; break;
-    case key::End: top_ = lastTop; break;
+    case key::Right:
+        load((table_ + 1) % tables);
+        break;
+    case key::Left:
+        load((table_ + tables - 1) % tables);
+        break;
+    case key::Down:
+        top_ = std::min(top_ + 1, lastTop);
+        break;
+    case key::Up:
+        top_ = std::max(top_ - 1, 0);
+        break;
+    case key::PageDown:
+        top_ = std::min(top_ + linesPerPage(), lastTop);
+        break;
+    case key::PageUp:
+        top_ = std::max(top_ - linesPerPage(), 0);
+        break;
+    case key::Home:
+        top_ = 0;
+        break;
+    case key::End:
+        top_ = lastTop;
+        break;
     case 'f':
         gameFont_ = !gameFont_;
         top_ = std::min(top_, std::max(0, static_cast<int>(loaded_.strings.size()) - linesPerPage()));
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
-void StringPage::draw(Surface& s) {
+void StringPage::draw(Surface &s) {
     frame(s, "Strings  " + tables_[table_].name + "  (" + std::to_string(loaded_.strings.size()) + ")",
           "Left/Right: language  Up/Down/PgUp/PgDn: scroll  F: font");
     int y = 8 + font::kLineHeight * 2;
@@ -464,7 +500,7 @@ void StringPage::draw(Surface& s) {
     const int end = std::min(top_ + linesPerPage(), static_cast<int>(loaded_.strings.size()));
     for (int i = top_; i < end; ++i, y += lineHeight) {
         font::drawText(s, kMargin, y + (lineHeight - font::kLineHeight) / 2, std::to_string(i), kLabelColor);
-        const std::string& str = loaded_.strings[i];
+        const std::string &str = loaded_.strings[i];
         if (game) {
             // Cut at the screen's edge.
             std::string shown;
@@ -484,7 +520,7 @@ void StringPage::draw(Surface& s) {
 
 // --- Fonts --------------------------------------------------------------------
 
-FontPage::FontPage(const GameFiles& files) : files_(files) {
+FontPage::FontPage(const GameFiles &files) : files_(files) {
     fonts_ = files.withExtensions({".ffn"});
     if (!fonts_.empty())
         load(0);
@@ -504,16 +540,25 @@ void FontPage::load(int font) {
 void FontPage::handleKey(uint32_t key, uint16_t) {
     const int fonts = static_cast<int>(fonts_.size());
     switch (key) {
-    case key::Right: load((font_ + 1) % fonts); break;
-    case key::Left: load((font_ + fonts - 1) % fonts); break;
+    case key::Right:
+        load((font_ + 1) % fonts);
+        break;
+    case key::Left:
+        load((font_ + fonts - 1) % fonts);
+        break;
     case '+':
-    case '=': scale_ = std::min(scale_ + 1, 3); break;
-    case '-': scale_ = std::max(scale_ - 1, 1); break;
-    default: break;
+    case '=':
+        scale_ = std::min(scale_ + 1, 3);
+        break;
+    case '-':
+        scale_ = std::max(scale_ - 1, 1);
+        break;
+    default:
+        break;
     }
 }
 
-void FontPage::draw(Surface& s) {
+void FontPage::draw(Surface &s) {
     frame(s, "Fonts  " + std::to_string(font_ + 1) + "/" + std::to_string(fonts_.size()) + "  " + fonts_[font_].name,
           "Left/Right: font  +/-: size");
     int y = 8 + font::kLineHeight;
@@ -522,14 +567,14 @@ void FontPage::draw(Surface& s) {
         return;
     }
     int glyphs = 0;
-    for (const auto& g : loaded_.glyphs)
+    for (const auto &g : loaded_.glyphs)
         glyphs += g.width > 0;
     text(s, kMargin, y,
          std::to_string(glyphs) + " characters  line height " + std::to_string(loaded_.lineHeight) + " + " +
              std::to_string(loaded_.lineGap) + "  pen " + std::to_string(loaded_.penX) + "," +
-             std::to_string(loaded_.penY) + "  flags " +
-             std::to_string(loaded_.flags) + "  atlas " + std::to_string(loaded_.atlasWidth) + "x" +
-             std::to_string(loaded_.atlasHeight) + "  size " + std::to_string(scale_) + "x",
+             std::to_string(loaded_.penY) + "  flags " + std::to_string(loaded_.flags) + "  atlas " +
+             std::to_string(loaded_.atlasWidth) + "x" + std::to_string(loaded_.atlasHeight) + "  size " +
+             std::to_string(scale_) + "x",
          kLabelColor);
     y += font::kLineHeight + 6;
 
@@ -561,8 +606,8 @@ void FontPage::draw(Surface& s) {
     for (size_t i = 0; i < lines.size(); ++i)
         loaded_.draw(layer, 0, static_cast<int>(i) * lineHeight, lines[i], {255, 255, 255});
     for (int dy = 0; dy < layer.h * scale_ && y + dy < s.h; ++dy) {
-        const uint8_t* src = layer.row(dy / scale_);
-        uint8_t* dst = s.row(y + dy) + kMargin * 4;
+        const uint8_t *src = layer.row(dy / scale_);
+        uint8_t *dst = s.row(y + dy) + kMargin * 4;
         for (int dx = 0; dx < layer.w * scale_; ++dx)
             std::copy_n(src + (dx / scale_) * 4, 4, dst + dx * 4);
     }
@@ -570,25 +615,23 @@ void FontPage::draw(Surface& s) {
 
 // --- All pages ----------------------------------------------------------------
 
-std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFolders& folders,
-                                             const GameFiles& files, audio::Mixer* mixer,
-                                             const std::filesystem::path& saveFolder,
-                                             const std::map<std::string, std::string>& settings) {
+std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
+                                             audio::Mixer *mixer, const std::filesystem::path &saveFolder,
+                                             const std::map<std::string, std::string> &settings) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
-    auto setting = [&](const char* key) {
+    auto setting = [&](const char *key) {
         auto it = settings.find(key);
         return it == settings.end() ? std::string() : it->second;
     };
     const std::string scale = setting("renderscale");
     pagesPointSampled = setting("texturefilter") == "point";
-    auto play = std::make_unique<PlayPage>(folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()),
-                                               setting("texturefilter") != "point", setting("joystick") != "off",
-                                               setting("forcefeedback") != "off", setting("wheelpedals"),
-                                               setting("network") != "off", setting("movielines") != "keep",
-                                               setting("serial"), setting("modem"), setting("renderer") == "glide",
-                                               setting("renderer") == "direct3d", setting("glide") == "software",
-                                               setting("glidedll"), setting("glideboard"));
+    auto play = std::make_unique<PlayPage>(
+        folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()), setting("texturefilter") != "point",
+        setting("joystick") != "off", setting("forcefeedback") != "off", setting("wheelpedals"),
+        setting("network") != "off", setting("movielines") != "keep", setting("serial"), setting("modem"),
+        setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
+        setting("glidedll"), setting("glideboard"));
     play->setPositionalUpdates(setting("positionalupdates") == "on");
     pages.push_back(std::move(play));
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
@@ -600,7 +643,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char* gameName, const GameFol
     pages.push_back(std::make_unique<SoundPage>(files, mixer));
     pages.push_back(std::make_unique<MusicPage>(files, mixer));
     pages.push_back(std::make_unique<MoviePage>(files, mixer));
-    std::erase_if(pages, [](const std::unique_ptr<Page>& p) { return p->empty(); });
+    std::erase_if(pages, [](const std::unique_ptr<Page> &p) { return p->empty(); });
     return pages;
 }
 

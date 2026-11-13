@@ -41,27 +41,27 @@ public:
     explicit Glide3(Board board = voodoo3Board());
 
     // The Glide 2 front end the unchanged functions go through.
-    Glide2& core() { return core_; }
-    Pipeline& pipeline() { return core_.pipeline(); }
-    const Board& board() const { return board_; }
-    void notImplemented(const std::string& function, const std::string& what = "not implemented") {
+    Glide2 &core() { return core_; }
+    Pipeline &pipeline() { return core_.pipeline(); }
+    const Board &board() const { return board_; }
+    void notImplemented(const std::string &function, const std::string &what = "not implemented") {
         core_.notImplemented(function, what);
     }
 
     // --- Start-up, the board ------------------------------------------------
     // grGet: writes up to `bytes` / 4 values into `out`; returns the bytes
     // written, 0 for a query not answered (Reference Manual, grGet).
-    uint32_t get(uint32_t pname, uint32_t bytes, int32_t* out);
+    uint32_t get(uint32_t pname, uint32_t bytes, int32_t *out);
     // grGetString. The hardware name is what NFS III's Voodoo3 patch DLL
     // compares against for each board (RE, docs/common/graphics/glide.md); the
     // extensions the board's (Board::extensions).
     std::string getString(uint32_t pname) const;
     // Whether grGetProcAddress gives `procName`: an extension's procedure
     // (Reference Manual, grGetProcAddress's table) on a board with it.
-    bool offersProc(const std::string& procName) const;
+    bool offersProc(const std::string &procName) const;
     // grQueryResolutions: every configuration matching the template
     // (g3::kQueryAny for any value in a field).
-    std::vector<Glide3Resolution> queryResolutions(const Glide3Resolution& query) const;
+    std::vector<Glide3Resolution> queryResolutions(const Glide3Resolution &query) const;
     // grSstWinOpen: the context (nonzero), or 0.
     uint32_t sstWinOpen(uint32_t hwnd, int resolution, int refresh, int colorFormat, int origin, int colorBuffers,
                         int auxBuffers);
@@ -84,46 +84,46 @@ public:
     // pointer, valid from layoutMin() to layoutMax()), in window
     // coordinates as the pipeline takes them. Parameters the layout leaves
     // out keep their last values (Reference Manual, grVertexLayout).
-    Vertex readVertex(const uint8_t* at);
+    Vertex readVertex(const uint8_t *at);
     // The layout and coordinate space as grGlideGetVertexLayout saves them.
     struct Layout {
         std::array<int32_t, 0x60> offset{};
         std::array<bool, 0x60> enabled{};
         uint32_t space = 0;
     };
-    const Layout& layout() const { return layout_; }
-    void setLayout(const Layout& l) { layout_ = l; }
+    const Layout &layout() const { return layout_; }
+    void setLayout(const Layout &l) { layout_ = l; }
 
     // --- Drawing ----------------------------------------------------------------
-    void drawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c);
-    void drawLine(const uint8_t* a, const uint8_t* b);
-    void drawPoint(const uint8_t* a);
+    void drawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c);
+    void drawLine(const uint8_t *a, const uint8_t *b);
+    void drawPoint(const uint8_t *a);
     // grAADrawTriangle: the edges asked for anti-aliased, whether or not
     // GR_AA_ORDERED is on ("independent of the GR_AA_ORDERED mode").
-    void aaDrawTriangle(const uint8_t* a, const uint8_t* b, const uint8_t* c, bool ab, bool bc, bool ca);
+    void aaDrawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c, bool ab, bool bc, bool ca);
     // grDrawVertexArray(Contiguous): `vertices` the pointers in order.
-    void drawVertexArray(uint32_t mode, const std::vector<const uint8_t*>& vertices);
+    void drawVertexArray(uint32_t mode, const std::vector<const uint8_t *> &vertices);
 
     // --- State Glide 3 changed --------------------------------------------------
     void fogMode(int mode);
     // grFogTable: grGet(GR_FOG_TABLE_ENTRIES) entries, resampled to the
     // core's 64 when the board has more.
-    void fogTable(const uint8_t* table);
+    void fogTable(const uint8_t *table);
     void gammaCorrectionRgb(float red, float green, float blue);
     void texMipMapMode(int tmu, int mode, bool lodBlend);
 
     // --- Textures --------------------------------------------------------------
     uint32_t texCalcMemRequired(int smallLodLog2, int largeLodLog2, int aspectLog2, int format) const;
-    uint32_t texTextureMemRequired(int evenOdd, const Glide3TexInfo& info) const;
-    static uint32_t mipmapDataBytes(const Glide3TexInfo& info);
+    uint32_t texTextureMemRequired(int evenOdd, const Glide3TexInfo &info) const;
+    static uint32_t mipmapDataBytes(const Glide3TexInfo &info);
     static uint32_t levelDataBytes(int lodLog2, int aspectLog2, int format);
-    void texSource(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo& info);
-    void texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo& info, const uint8_t* data);
+    void texSource(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo &info);
+    void texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo &info, const uint8_t *data);
     void texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLodLog2, int largeLodLog2, int aspectLog2,
-                                       int format, int evenOdd, const uint8_t* data, int firstRow, int lastRow);
+                                       int format, int evenOdd, const uint8_t *data, int firstRow, int lastRow);
     // One palette and two NCC tables for every TMU (Reference Manual,
     // grTexDownloadTable).
-    void texDownloadTablePartial(int type, const uint8_t* data, int first, int last);
+    void texDownloadTablePartial(int type, const uint8_t *data, int first, int last);
     void texNCCTable(int table);
     void texMultibaseAddress(int tmu, int range, uint32_t start);
 
@@ -136,26 +136,26 @@ public:
     // coordinates (or, `window`, a window-coordinate vertex as drawn).
     struct ClipVertex {
         bool window = false;
-        Vertex v;           // colours and the parameters the layout leaves out
+        Vertex v; // colours and the parameters the layout leaves out
         float x = 0, y = 0, z = 0, w = 1, q = 1;
         bool hasZ = false;
         float s[kMaxTmus] = {}, t[kMaxTmus] = {}, qi[kMaxTmus] = {1, 1, 1};
     };
 
 private:
-    ClipVertex readClip(const uint8_t* at);
-    Vertex project(const ClipVertex& c) const;
+    ClipVertex readClip(const uint8_t *at);
+    Vertex project(const ClipVertex &c) const;
     // Drawn after clipping against the view volume (clip coordinates),
     // anti-aliased if `aa`.
-    void clipTriangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c, bool aa);
+    void clipTriangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c, bool aa);
     // An anti-aliased convex polygon (a triangle, GR_POLYGON) clipped
     // against the view volume and drawn as a fan with a fringe outside edge
     // i (vertex i to i + 1) where edges[i] is set; the edges clipping makes
     // have one too (docs/common/graphics/glide.md, Clip coordinates).
     void clipAaPolygon(std::vector<ClipVertex> polygon, std::vector<bool> edges);
-    void clipLine(const ClipVertex& a, const ClipVertex& b, bool aa);
-    void clipPoint(const ClipVertex& a, bool aa);
-    static Glide2TexInfo toGlide2(const Glide3TexInfo& info);
+    void clipLine(const ClipVertex &a, const ClipVertex &b, bool aa);
+    void clipPoint(const ClipVertex &a, bool aa);
+    static Glide2TexInfo toGlide2(const Glide3TexInfo &info);
 
     Board board_;
     Glide2 core_;

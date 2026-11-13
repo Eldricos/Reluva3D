@@ -13,18 +13,18 @@
 
 namespace reluva::stharbinger {
 
-void Resources::addGamePath(const std::string& nativePath) {
+void Resources::addGamePath(const std::string &nativePath) {
     // Each folder gets a block of priorities below the previous one.
     const int priority = nextPriority_;
     nextPriority_ -= 10;
 
-    auto dir = [&](const std::filesystem::path& path, int depth, int prio) {
+    auto dir = [&](const std::filesystem::path &path, int depth, int prio) {
         auto folder = std::make_unique<DirectoryArchive>();
         if (folder->open(path, depth))
             return;
         search_.add(std::move(folder), prio);
     };
-    auto isDir = [](const std::filesystem::path& path, const char* name) {
+    auto isDir = [](const std::filesystem::path &path, const char *name) {
         return fs::findDirectory(path, name).has_value();
     };
 
@@ -69,11 +69,11 @@ void Resources::addGamePath(const std::string& nativePath) {
     }
 }
 
-std::unique_ptr<SeekableReadStream> Resources::openFile(const std::string& name) const {
+std::unique_ptr<SeekableReadStream> Resources::openFile(const std::string &name) const {
     return stharbinger::openFile(search_, name);
 }
 
-std::shared_ptr<LstArchive> Resources::getArchive(const std::string& name) {
+std::shared_ptr<LstArchive> Resources::getArchive(const std::string &name) {
     std::string key = text::toUpper(name);
     auto it = archives_.find(key);
     if (it != archives_.end())
@@ -83,12 +83,12 @@ std::shared_ptr<LstArchive> Resources::getArchive(const std::string& name) {
     return archive;
 }
 
-bool Resources::hasResource(ListKind kind, const std::string& name) const {
+bool Resources::hasResource(ListKind kind, const std::string &name) const {
     std::string path = getResourcePath(kind, name);
     return !path.empty() && search_.has(path);
 }
 
-bool Resources::loadBackground(const std::string& name, Surface& surface, Palette& palette, bool& paletteLoaded) {
+bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) {
     paletteLoaded = false;
     auto stream = openFile(getResourcePath(kListBackgrounds, name));
     if (!stream)
@@ -104,12 +104,12 @@ bool Resources::loadBackground(const std::string& name, Surface& surface, Palett
     return true;
 }
 
-bool Resources::loadAnimation(const std::string& name, RleAnimation& anim) {
+bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) {
     auto stream = openFile(getResourcePath(kListAnims, name));
     return stream && anim.load(*stream);
 }
 
-bool Resources::loadSound(const std::string& name, std::vector<uint8_t>& data) {
+bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) {
     auto stream = openFile(getResourcePath(kListSounds, name));
     if (!stream)
         return false;
@@ -117,7 +117,7 @@ bool Resources::loadSound(const std::string& name, std::vector<uint8_t>& data) {
     return !data.empty();
 }
 
-bool Resources::loadDialogue(int index, Dialogue& dialogue, std::string& error) {
+bool Resources::loadDialogue(int index, Dialogue &dialogue, std::string &error) {
     dialogue = Dialogue();
     dialogue.index = index;
     dialogue.name = getDialogueName(index);
@@ -131,15 +131,15 @@ bool Resources::loadDialogue(int index, Dialogue& dialogue, std::string& error) 
         return false;
 
     struct TextSource {
-        const char* archive;
+        const char *archive;
         char separator;
-        std::vector<std::string>* out;
+        std::vector<std::string> *out;
     } sources[] = {
         {"CCQ", '\0', &dialogue.text},
         {"CCF", '\n', &dialogue.clips},
         {"CCR", '\0', &dialogue.menuLabels},
     };
-    for (const TextSource& src : sources) {
+    for (const TextSource &src : sources) {
         auto archive = getArchive(src.archive);
         if (archive && uint32_t(index) < archive->size()) {
             auto e = archive->getEntry(uint32_t(index));
@@ -152,7 +152,7 @@ bool Resources::loadDialogue(int index, Dialogue& dialogue, std::string& error) 
     return true;
 }
 
-bool Resources::openSpeech(const std::string& dialogueName) {
+bool Resources::openSpeech(const std::string &dialogueName) {
     // Speech archives are large: keep only the current dialogue's in memory.
     std::string name = text::toUpper(dialogueName);
     if (name != speechName_) {
@@ -165,7 +165,7 @@ bool Resources::openSpeech(const std::string& dialogueName) {
 
 namespace {
 
-bool readEntry(const std::shared_ptr<LstArchive>& archive, int line, std::vector<uint8_t>& data) {
+bool readEntry(const std::shared_ptr<LstArchive> &archive, int line, std::vector<uint8_t> &data) {
     data.clear();
     if (!archive || line < 0 || uint32_t(line) >= archive->size())
         return false;
@@ -175,9 +175,13 @@ bool readEntry(const std::shared_ptr<LstArchive>& archive, int line, std::vector
 
 } // namespace
 
-bool Resources::loadSpeech(int line, std::vector<uint8_t>& data) { return readEntry(speechArchive_, line, data); }
+bool Resources::loadSpeech(int line, std::vector<uint8_t> &data) {
+    return readEntry(speechArchive_, line, data);
+}
 
-bool Resources::loadPhonemes(int line, std::vector<uint8_t>& data) { return readEntry(phonemeArchive_, line, data); }
+bool Resources::loadPhonemes(int line, std::vector<uint8_t> &data) {
+    return readEntry(phonemeArchive_, line, data);
+}
 
 void Resources::loadLinkTables() {
     if (linkLoaded_)
@@ -192,7 +196,7 @@ void Resources::loadLinkTables() {
         }
     }
     // u16 count, then NUL-terminated names.
-    auto readNames = [&](const char* file, std::vector<std::string>& out) {
+    auto readNames = [&](const char *file, std::vector<std::string> &out) {
         auto s = openFile(file);
         if (!s)
             return;
@@ -206,17 +210,17 @@ void Resources::loadLinkTables() {
         log::warning("DS9.LCC/DS9.LVM not found: saved games will not be compatible with the original");
 }
 
-const std::vector<std::string>& Resources::getLinkScenes() {
+const std::vector<std::string> &Resources::getLinkScenes() {
     loadLinkTables();
     return linkScenes_;
 }
 
-const std::vector<std::string>& Resources::getLinkVariables() {
+const std::vector<std::string> &Resources::getLinkVariables() {
     loadLinkTables();
     return linkVariables_;
 }
 
-const std::vector<std::string>& Resources::getLinkDialogues() {
+const std::vector<std::string> &Resources::getLinkDialogues() {
     loadLinkTables();
     return linkDialogues_;
 }
@@ -273,7 +277,7 @@ std::vector<std::string> Resources::loadCredits() {
     return lines;
 }
 
-bool Resources::loadScenes(std::vector<Scene>& scenes, std::string& error) {
+bool Resources::loadScenes(std::vector<Scene> &scenes, std::string &error) {
     scenes.clear();
     auto cc = getArchive("CC");
     if (!cc) {
@@ -317,14 +321,14 @@ bool Resources::loadScenes(std::vector<Scene>& scenes, std::string& error) {
 
         // The scene is named after the .CCG file most of its names come from.
         std::map<std::string, int> sources;
-        for (const auto& list : scene.lists)
-            for (const NameEntry& n : list) {
+        for (const auto &list : scene.lists)
+            for (const NameEntry &n : list) {
                 std::string src = text::toUpper(n.source);
                 if (src.size() > 4 && src.compare(src.size() - 4, 4, ".CCG") == 0)
                     sources[src.substr(0, src.size() - 4)]++;
             }
         auto best = std::max_element(sources.begin(), sources.end(),
-                                     [](const auto& a, const auto& b) { return a.second < b.second; });
+                                     [](const auto &a, const auto &b) { return a.second < b.second; });
         scene.name = best != sources.end() ? best->first : text::format("SCENE%02u", slot);
         scenes.push_back(std::move(scene));
     }

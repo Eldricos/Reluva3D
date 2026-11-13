@@ -9,19 +9,21 @@ namespace reluva::clue {
 
 namespace {
 
-uint16_t u16(const std::vector<uint8_t>& d, size_t o) { return uint16_t(d[o] | d[o + 1] << 8); }
+uint16_t u16(const std::vector<uint8_t> &d, size_t o) {
+    return uint16_t(d[o] | d[o + 1] << 8);
+}
 
 // A NUL-terminated name in a fixed field; what follows the NUL is whatever
 // memory held.
-std::string fixedName(const std::vector<uint8_t>& d, size_t o, size_t size) {
-    const char* p = reinterpret_cast<const char*>(d.data() + o);
+std::string fixedName(const std::vector<uint8_t> &d, size_t o, size_t size) {
+    const char *p = reinterpret_cast<const char *>(d.data() + o);
     return std::string(p, strnlen(p, size));
 }
 
 constexpr size_t kObjectName = 32;
 constexpr size_t kTitle = 40;
 
-bool readTimings(const std::vector<uint8_t>& d, size_t& p, size_t end, std::vector<Timing>& out) {
+bool readTimings(const std::vector<uint8_t> &d, size_t &p, size_t end, std::vector<Timing> &out) {
     if (end - p < 2)
         return false;
     const size_t n = u16(d, p);
@@ -40,14 +42,14 @@ bool readTimings(const std::vector<uint8_t>& d, size_t& p, size_t end, std::vect
 
 } // namespace
 
-const ObjectDef::State* ObjectDef::state(uint16_t id) const {
-    for (const State& s : states)
+const ObjectDef::State *ObjectDef::state(uint16_t id) const {
+    for (const State &s : states)
         if (s.id == id)
             return &s;
     return nullptr;
 }
 
-Error parseObject(const std::vector<uint8_t>& r, ObjectDef& out) {
+Error parseObject(const std::vector<uint8_t> &r, ObjectDef &out) {
     out = {};
     if (r.size() < 44)
         return Error::fail("object record cut short");
@@ -75,15 +77,15 @@ Error parseObject(const std::vector<uint8_t>& r, ObjectDef& out) {
     return Error::success();
 }
 
-Error parseLevel(const DataDrive& drive, Level& out) {
+Error parseLevel(const DataDrive &drive, Level &out) {
     out = {};
-    const DataDrive::Entry* world = drive.find("/World.dat");
-    const DataDrive::Entry* objects = drive.find("/Objects.dat");
+    const DataDrive::Entry *world = drive.find("/World.dat");
+    const DataDrive::Entry *objects = drive.find("/Objects.dat");
     if (!world || !objects)
         return Error::fail("not a level: no /World.dat or /Objects.dat");
-    if (const DataDrive::Entry* e = drive.find("/Info.dat"))
+    if (const DataDrive::Entry *e = drive.find("/Info.dat"))
         out.info = drive.read(*e);
-    if (const DataDrive::Entry* e = drive.find("/Workspace.dat"))
+    if (const DataDrive::Entry *e = drive.find("/Workspace.dat"))
         out.workspace = drive.read(*e);
 
     // World.dat: a title, then the names of the objects placed.
@@ -96,7 +98,7 @@ Error parseLevel(const DataDrive& drive, Level& out) {
     for (size_t i = 0; i < names; ++i) {
         if (p >= w.size() || w.size() - p - 1 < w[p])
             return Error::fail("World.dat's names cut short");
-        out.objects.emplace_back(reinterpret_cast<const char*>(w.data() + p + 1), w[p]);
+        out.objects.emplace_back(reinterpret_cast<const char *>(w.data() + p + 1), w[p]);
         p += 1 + w[p];
     }
 

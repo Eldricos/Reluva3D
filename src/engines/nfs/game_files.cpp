@@ -17,14 +17,14 @@ namespace {
 
 namespace stdfs = std::filesystem;
 
-bool endsWith(const std::string& lower, const char* ext) {
+bool endsWith(const std::string &lower, const char *ext) {
     const size_t n = std::char_traits<char>::length(ext);
     return lower.size() >= n && lower.compare(lower.size() - n, n, ext) == 0;
 }
 
 } // namespace
 
-void GameFiles::scan(const GameFolders& folders) {
+void GameFiles::scan(const GameFolders &folders) {
     files_.clear();
     cached_.reset();
     cachedPath_.clear();
@@ -33,18 +33,18 @@ void GameFiles::scan(const GameFolders& folders) {
     if (!folders.cd.empty() && folders.cd != folders.install)
         roots.push_back(folders.cd);
 
-    for (const stdfs::path& root : roots) {
+    for (const stdfs::path &root : roots) {
         std::vector<std::pair<std::string, stdfs::path>> found;
         std::error_code ec;
-        for (auto it = stdfs::recursive_directory_iterator(root, ec); !ec && it != stdfs::recursive_directory_iterator();
-             it.increment(ec))
+        for (auto it = stdfs::recursive_directory_iterator(root, ec);
+             !ec && it != stdfs::recursive_directory_iterator(); it.increment(ec))
             if (it->is_regular_file(ec))
                 found.emplace_back(stdfs::relative(it->path(), root, ec).generic_string(), it->path());
-        std::sort(found.begin(), found.end(), [](const auto& a, const auto& b) {
+        std::sort(found.begin(), found.end(), [](const auto &a, const auto &b) {
             return normalizeArchiveName(a.first) < normalizeArchiveName(b.first);
         });
 
-        for (const auto& [rel, path] : found) {
+        for (const auto &[rel, path] : found) {
             if (!seen.insert(normalizeArchiveName(rel)).second)
                 continue;
             files_.push_back({rel, path, {}});
@@ -53,17 +53,17 @@ void GameFiles::scan(const GameFolders& folders) {
             VivArchive viv;
             if (viv.open(path))
                 continue; // a broken archive just adds nothing
-            for (const auto& e : viv.entries())
+            for (const auto &e : viv.entries())
                 files_.push_back({rel + "/" + e.name, path, e.name});
         }
     }
 }
 
-std::vector<FileRef> GameFiles::withExtensions(std::initializer_list<const char*> extensions) const {
+std::vector<FileRef> GameFiles::withExtensions(std::initializer_list<const char *> extensions) const {
     std::vector<FileRef> out;
-    for (const FileRef& f : files_) {
+    for (const FileRef &f : files_) {
         const std::string lower = fs::toLower(f.name);
-        for (const char* ext : extensions)
+        for (const char *ext : extensions)
             if (endsWith(lower, ext)) {
                 out.push_back(f);
                 break;
@@ -74,7 +74,7 @@ std::vector<FileRef> GameFiles::withExtensions(std::initializer_list<const char*
 
 std::vector<FileRef> GameFiles::textTables() const {
     std::vector<FileRef> out;
-    for (const FileRef& f : files_) {
+    for (const FileRef &f : files_) {
         const std::string lower = fs::toLower(f.name);
         if (f.inner.empty() && lower.rfind("fedata/text/text.", 0) == 0)
             out.push_back(f);
@@ -82,7 +82,7 @@ std::vector<FileRef> GameFiles::textTables() const {
     return out;
 }
 
-Error GameFiles::read(const FileRef& ref, std::vector<uint8_t>& out) const {
+Error GameFiles::read(const FileRef &ref, std::vector<uint8_t> &out) const {
     if (ref.inner.empty()) {
         std::ifstream in(ref.file, std::ios::binary);
         if (!in)

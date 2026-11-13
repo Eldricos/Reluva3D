@@ -11,12 +11,12 @@
 
 namespace reluva::awe {
 
-const std::string& ScriptEvent::arg(size_t i) const {
+const std::string &ScriptEvent::arg(size_t i) const {
     static const std::string none;
     return i < words.size() ? words[i] : none;
 }
 
-void addItem(GameState& state, const std::string& item, int st, int slot) {
+void addItem(GameState &state, const std::string &item, int st, int slot) {
     // 0x41bc10: a new one each time, whatever's there already; passports
     // and fingerprint cards go to their own pages.
     const std::string name = fs::toLower(item);
@@ -37,16 +37,16 @@ void addItem(GameState& state, const std::string& item, int st, int slot) {
     state.itemPage = added.slot / 16;
     // Just taken: the one before stops blinking (0x41ba80).
     if (st == 1) {
-        for (GameState::Item& i : state.items)
+        for (GameState::Item &i : state.items)
             if (i.state == 1 && &i != &state.items.back())
                 i.state = 2;
         state.fresh = name;
     }
 }
 
-void addTime(GameState& state, int seconds) {
+void addTime(GameState &state, int seconds) {
     // Timers stop at 32000 (0x4125c0).
-    for (auto& [name, value] : state.timers)
+    for (auto &[name, value] : state.timers)
         if (value < 32000)
             value = std::min(32000, value + seconds);
 }
@@ -54,8 +54,8 @@ void addTime(GameState& state, int seconds) {
 std::string_view ScriptRunner::baseOfAsync(std::string_view verb) {
     // The handlers that compare both forms (0x409ce0): the "a" form reports
     // the event done as soon as it has started what it asks.
-    static constexpr std::string_view kAsync[] = {"walka",  "runa",  "talka", "fadea", "sounda",
-                                                  "anima",  "turna", "rotatea", "playa"};
+    static constexpr std::string_view kAsync[] = {"walka", "runa",  "talka",   "fadea", "sounda",
+                                                  "anima", "turna", "rotatea", "playa"};
     for (std::string_view a : kAsync)
         if (verb == a)
             return a.substr(0, a.size() - 1);
@@ -72,9 +72,9 @@ void ScriptRunner::run(std::string_view commands) {
     // then, whether the commands after it are added, up to the next one.
     bool doIt = true, open = false;
     std::string condition;
-    for (Command& c : parseCommands(commands)) {
+    for (Command &c : parseCommands(commands)) {
         std::string text;
-        for (const std::string& w : c.words)
+        for (const std::string &w : c.words)
             text += (text.empty() ? "" : " ") + w;
         if (!open) {
             const size_t at = text.find('(');
@@ -124,10 +124,10 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
         words.resize(5);
     words.resize(std::max<size_t>(words.size(), 1));
     auto word = [&](size_t i) { return i < words.size() ? words[i] : std::string(); };
-    const std::string& verb = words.front();
+    const std::string &verb = words.front();
     if (verb == "script" && depth < 8) {
         // Another file's commands, one a line (0x409600).
-        for (Command& c : parseCommands(host_.scriptText(word(1))))
+        for (Command &c : parseCommands(host_.scriptText(word(1))))
             add(std::move(c.words), depth + 1);
         return;
     }
@@ -148,7 +148,7 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
         steps.push_back({"turn", "home"});
         if (open)
             steps.push_back({"animate", "2"});
-        for (auto& st : steps)
+        for (auto &st : steps)
             queue_.push_back(ScriptEvent{std::move(st)});
         return;
     }
@@ -158,7 +158,7 @@ void ScriptRunner::add(std::vector<std::string> words, int depth) {
 std::string ScriptRunner::current() const {
     std::string out;
     if (!queue_.empty())
-        for (const std::string& w : queue_.front().words)
+        for (const std::string &w : queue_.front().words)
             out += (out.empty() ? "" : " ") + w;
     return out;
 }
@@ -229,14 +229,14 @@ void ScriptRunner::start() {
         finished(asked.verb());
 }
 
-bool ScriptRunner::runOwn(const ScriptEvent& e) {
-    const std::string& v = e.verb();
-    auto number = [](const std::string& s) { return std::atoi(s.c_str()); };
+bool ScriptRunner::runOwn(const ScriptEvent &e) {
+    const std::string &v = e.verb();
+    auto number = [](const std::string &s) { return std::atoi(s.c_str()); };
     if (v == "tag") {
         // tag name n | +n | -n (0x40b08c); an unset tag counts as 0.
         const std::string name = fs::toLower(e.arg(1));
-        const std::string& value = e.arg(2);
-        int& t = state_.tags.try_emplace(name, 0).first->second;
+        const std::string &value = e.arg(2);
+        int &t = state_.tags.try_emplace(name, 0).first->second;
         if (!value.empty() && (value[0] == '+' || value[0] == '-'))
             t += value[0] == '+' ? number(value.substr(1)) : -number(value.substr(1));
         else
@@ -254,7 +254,7 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         if (item == "all") {
             state_.held.clear();
             state_.fresh.clear();
-            for (GameState::Item& i : state_.items)
+            for (GameState::Item &i : state_.items)
                 if (i.state >= 1 && i.state <= 3)
                     i.state = 7;
         } else {
@@ -272,7 +272,7 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
         // the small key going and "securityunlocked" with it (0x41c430).
         const std::string item = fs::toLower(e.arg(1));
         if (item == "all") {
-            for (GameState::Item& i : state_.items)
+            for (GameState::Item &i : state_.items)
                 if (i.state == 7) {
                     i.slot = state_.freeSlot();
                     i.state = 2;
@@ -284,7 +284,7 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
                 }
             state_.tags.erase("securityunlocked");
         } else if (item != "this") {
-            if (GameState::Item* i = state_.findItem(item, {4})) {
+            if (GameState::Item *i = state_.findItem(item, {4})) {
                 i->slot = state_.freeSlot();
                 i->state = 2;
             }
@@ -292,7 +292,7 @@ bool ScriptRunner::runOwn(const ScriptEvent& e) {
     } else if (v == "use") {
         // Used up, the first of the name in the bag, just taken or in hand
         // (0x41c160): kept, for "used" and "restore".
-        if (GameState::Item* i = state_.findItem(e.arg(1), {1, 2, 3})) {
+        if (GameState::Item *i = state_.findItem(e.arg(1), {1, 2, 3})) {
             if (i->state == 3)
                 state_.held.clear();
             if (i->state == 1)

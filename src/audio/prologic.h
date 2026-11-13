@@ -48,13 +48,13 @@ class ProLogicDecoder {
 public:
     enum Output { L = 0, C = 1, R = 2, S = 3 };
 
-    explicit ProLogicDecoder(int rate, const ProLogicOptions& options = {});
+    explicit ProLogicDecoder(int rate, const ProLogicOptions &options = {});
     void reset();
 
     // `frames` stereo frames in (interleaved, -1..1), four out per frame
     // (L, C, R, S).
-    void process(const float* in, float* out, int frames);
-    void process(const int16_t* in, float* out, int frames);
+    void process(const float *in, float *out, int frames);
+    void process(const int16_t *in, float *out, int frames);
 
     // The steering at the last frame: the dominant direction on the matrix's
     // circle in degrees (0 left, 45 centre, 90 right, 135 surround, 180 left
@@ -63,11 +63,11 @@ public:
     double dominance() const { return dominance_; }
     double steering() const { return steering_; }
 
-    const ProLogicOptions& options() const { return options_; }
+    const ProLogicOptions &options() const { return options_; }
     int rate() const { return rate_; }
 
 private:
-    void frame(float lt, float rt, float* out);
+    void frame(float lt, float rt, float *out);
 
     ProLogicOptions options_;
     int rate_;
@@ -93,6 +93,6 @@ private:
 // - 6 or more (FL FR FC LFE BL BR ...): as 4 with the centre on its own,
 //   the LFE and any further channels silent;
 // - 1: everything but the surround, summed.
-void layOutChannels(const float* lcrs, int frames, int channels, int16_t* out);
+void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out);
 
 } // namespace reluva::audio

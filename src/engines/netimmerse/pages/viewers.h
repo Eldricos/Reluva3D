@@ -52,45 +52,45 @@ constexpr int kScreenH = 480;
 // What every page shares: the platform, a 2D screen for the pages that
 // draw on it, and the game's archives by name ("Map.pac") and together.
 struct ViewerContext {
-    System& sys;
-    Surface& screen;
-    std::string title; // the game's, for the window
-    std::map<std::string, const PacArchive*> archives; // by file name
-    const SearchSet& files;
-    audio::Mixer* mixer; // nullptr without an audio device
+    System &sys;
+    Surface &screen;
+    std::string title;                                  // the game's, for the window
+    std::map<std::string, const PacArchive *> archives; // by file name
+    const SearchSet &files;
+    audio::Mixer *mixer; // nullptr without an audio device
 };
 
 class Page {
 public:
-    explicit Page(ViewerContext& ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
     virtual ~Page() = default;
 
     // Whether the page has anything to show; empty ones are skipped.
     virtual bool empty() const = 0;
     virtual void activate() = 0;
     virtual void deactivate() {}
-    virtual void handleEvent(const Event& ev) = 0;
+    virtual void handleEvent(const Event &ev) = 0;
     // Draws a frame (and presents it).
     virtual void update(uint64_t nowMs) = 0;
 
 protected:
-    void setTitle(const std::string& what);
+    void setTitle(const std::string &what);
     // The 2D screen, for pages that use it.
     void use2D();
     void clear(uint8_t r, uint8_t g, uint8_t b);
-    void text(int x, int y, const std::string& s, Color c = {230, 230, 230}, int scale = 1);
+    void text(int x, int y, const std::string &s, Color c = {230, 230, 230}, int scale = 1);
 
-    ViewerContext& ctx_;
+    ViewerContext &ctx_;
 };
 
 // What each archive holds.
 class ArchivesPage : public Page {
 public:
-    ArchivesPage(ViewerContext& ctx, std::vector<std::pair<std::string, std::string>> lines,
+    ArchivesPage(ViewerContext &ctx, std::vector<std::pair<std::string, std::string>> lines,
                  std::vector<std::string> errors);
     bool empty() const override { return false; }
     void activate() override;
-    void handleEvent(const Event&) override {}
+    void handleEvent(const Event &) override {}
     void update(uint64_t) override;
 
 private:
@@ -100,12 +100,12 @@ private:
 
 class ModelPage : public Page {
 public:
-    explicit ModelPage(ViewerContext& ctx);
+    explicit ModelPage(ViewerContext &ctx);
     ~ModelPage() override;
     bool empty() const override { return names_.empty(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
 
 private:
@@ -117,17 +117,17 @@ private:
     void pose(float ticks);
     void resetView();
     void clearItems();
-    gfx::TextureId texture(const std::string& name);
+    gfx::TextureId texture(const std::string &name);
     gfx::TextureId glowTexture();
     float clipTicks() const; // where the animation is
 
     std::vector<std::string> names_; // the models in Fin.pac
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     Surface overlay_;
     FinFile model_;
     std::vector<Item> items_;
-    std::map<uint32_t, size_t> itemOf_; // by shape id
+    std::map<uint32_t, size_t> itemOf_;              // by shape id
     std::map<std::string, gfx::TextureId> textures_; // by image name, lower case; 0 if it couldn't be read
     gfx::TextureId glow_ = 0;
     std::string error_;
@@ -136,17 +136,17 @@ private:
     float radius_ = 1, yaw_ = 0.8f, pitch_ = 0.5f, distance_ = 1;
     bool dragging_ = false, showInfo_ = true, useTextures_ = true, useLightmaps_ = true, showBackdrop_ = true;
     bool showHidden_ = false; // the effects the game shows on events
-    int lightMode_ = 0; // G: 0 off, 1 marked, 2 marked and lighting the shapes
+    int lightMode_ = 0;       // G: 0 off, 1 marked, 2 marked and lighting the shapes
     unsigned hiddenCount_ = 0;
     int lastX_ = 0, lastY_ = 0;
     // Animation: the actor's tracks by node, the clips (0: the whole
     // timeline), where in the clip it is and whether it's playing.
-    const FinActor* actor_ = nullptr;
+    const FinActor *actor_ = nullptr;
     std::map<uint32_t, size_t> trackOf_;
-    std::map<uint32_t, std::vector<const FinMaterialAnimator*>> animatorsOf_; // by material
-    std::map<uint32_t, const FinFlip*> flipOf_;                                // by texture property
-    std::map<const FinFlip*, uint16_t> flipNumber_; // in the file's order, as clips' lists number them
-    std::map<uint32_t, uint16_t> morphNumber_;      // likewise, by id
+    std::map<uint32_t, std::vector<const FinMaterialAnimator *>> animatorsOf_; // by material
+    std::map<uint32_t, const FinFlip *> flipOf_;                               // by texture property
+    std::map<const FinFlip *, uint16_t> flipNumber_; // in the file's order, as clips' lists number them
+    std::map<uint32_t, uint16_t> morphNumber_;       // likewise, by id
     // Where the tracks and morph shapes a clip doesn't move were left, as
     // the game leaves them: by node, the pose (and whether it's shown); by
     // morph shape, the weights.
@@ -181,10 +181,10 @@ private:
 
 class TexturePage : public Page {
 public:
-    explicit TexturePage(ViewerContext& ctx);
+    explicit TexturePage(ViewerContext &ctx);
     bool empty() const override { return entries_.empty(); }
     void activate() override { show(index_); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
@@ -198,10 +198,10 @@ private:
 
 class FontPage : public Page {
 public:
-    explicit FontPage(ViewerContext& ctx);
+    explicit FontPage(ViewerContext &ctx);
     bool empty() const override { return entries_.empty(); }
     void activate() override { show(index_); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
@@ -219,11 +219,11 @@ private:
 
 class SoundPage : public Page {
 public:
-    explicit SoundPage(ViewerContext& ctx);
+    explicit SoundPage(ViewerContext &ctx);
     bool empty() const override { return entries_.empty(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:
@@ -242,10 +242,10 @@ private:
 
 class TextPage : public Page {
 public:
-    explicit TextPage(ViewerContext& ctx);
+    explicit TextPage(ViewerContext &ctx);
     bool empty() const override { return files_.empty(); }
     void activate() override { show(index_); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t) override;
 
 private:

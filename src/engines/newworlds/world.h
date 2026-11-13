@@ -24,7 +24,7 @@ namespace reluva::newworlds {
 // and rock formations, which nothing in the recordings crosses; gmf.md),
 // and the ground's height anywhere.
 struct Terrain {
-    int width = 0, height = 0; // in tiles
+    int width = 0, height = 0;  // in tiles
     std::vector<int> moveClass; // width x height, row by row from the south
     std::function<float(float x, float y)> heightAt;
 };
@@ -51,7 +51,7 @@ struct Unit {
     char side = 'F';
     UnitKind kind;
     float x = 0, y = 0;
-    float heading = 0; // radians anticlockwise from east
+    float heading = 0;                         // radians anticlockwise from east
     std::vector<std::pair<float, float>> path; // waypoints still to reach
     bool selected = false;
     bool moving() const { return !path.empty(); }
@@ -61,7 +61,7 @@ class World {
 public:
     explicit World(Terrain terrain);
 
-    const Terrain& terrain() const { return terrain_; }
+    const Terrain &terrain() const { return terrain_; }
     bool passable(int tx, int ty) const;
     // Whether a unit can step from one tile to a neighbour (8 ways; a
     // diagonal needs both tiles beside it open).
@@ -71,13 +71,13 @@ public:
     // nearest open tile if it is closed.
     std::vector<std::pair<float, float>> findPath(float x0, float y0, float x1, float y1) const;
 
-    int addUnit(char side, const UnitKind& kind, float x, float y, float heading = 0);
-    const std::vector<Unit>& units() const { return units_; }
-    Unit* unit(int id);
+    int addUnit(char side, const UnitKind &kind, float x, float y, float heading = 0);
+    const std::vector<Unit> &units() const { return units_; }
+    Unit *unit(int id);
 
     // Selection, as the game's: a click selects one unit (or none), a box
     // the units inside it; right-click drops it.
-    void select(const std::vector<int>& ids);
+    void select(const std::vector<int> &ids);
     void clearSelection();
     std::vector<int> selection() const;
     // Orders the selected units to a point: each finds its own path to a
@@ -88,7 +88,7 @@ public:
     void setGroup(int n);
     bool selectGroup(int n);
     // The middle of group N (or of the selection, for n = 0); false if empty.
-    bool groupCentre(int n, float& x, float& y) const;
+    bool groupCentre(int n, float &x, float &y) const;
 
     // Moves time on; true if anything moved.
     bool advance(double seconds);

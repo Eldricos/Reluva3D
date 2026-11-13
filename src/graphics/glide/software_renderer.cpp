@@ -45,7 +45,7 @@ inline int mirrorIndex(int i, int size) {
 // (GR_CHROMARANGE_RGB_ALL_EXT: "If all components of the incoming pixel
 // color fall within their respective ranges, the chroma test succeeds and
 // the pixel is invalidated", Glide 3.0 Programming Guide, chapter 13).
-inline bool chromaKeyed(const State& s, const Rgba& c) {
+inline bool chromaKeyed(const State &s, const Rgba &c) {
     if (!s.chromaRange)
         return (uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | uint32_t(c.b)) == (s.chromakeyColor & 0xffffff);
     auto in = [&](int v, int shift) {
@@ -55,12 +55,12 @@ inline bool chromaKeyed(const State& s, const Rgba& c) {
 }
 
 // Whether a combine function reads its "other" input, and its "local".
-bool usesOther(const CombineSettings& c) {
+bool usesOther(const CombineSettings &c) {
     return (c.function >= kFuncScaleOther && c.function <= kFuncScaleOtherMinusLocalAddLocalAlpha) ||
            c.factor == kFactorOtherAlpha || c.factor == kFactorOneMinusOtherAlpha;
 }
 
-bool blendUsesDstAlpha(const State& s) {
+bool blendUsesDstAlpha(const State &s) {
     auto dst = [](int f) { return f == kBlendDstAlpha || f == kBlendOneMinusDstAlpha; };
     return dst(s.blendRgbSrc) || dst(s.blendRgbDst) || dst(s.blendAlphaSrc) || dst(s.blendAlphaDst) ||
            s.blendRgbSrc == kBlendAlphaSaturate || s.blendAlphaSrc == kBlendAlphaSaturate;
@@ -68,23 +68,23 @@ bool blendUsesDstAlpha(const State& s) {
 
 class SoftwareRenderer : public Renderer {
 public:
-    void triangle(Pipeline& p, const Vertex& a, const Vertex& b, const Vertex& c) override;
-    void line(Pipeline& p, const Vertex& a, const Vertex& b) override;
-    void point(Pipeline& p, const Vertex& a) override;
-    void fragments(Pipeline& p, const Fragments& f) override;
-    void clear(Pipeline& p, uint32_t argb, int alpha, int depth) override;
+    void triangle(Pipeline &p, const Vertex &a, const Vertex &b, const Vertex &c) override;
+    void line(Pipeline &p, const Vertex &a, const Vertex &b) override;
+    void point(Pipeline &p, const Vertex &a) override;
+    void fragments(Pipeline &p, const Fragments &f) override;
+    void clear(Pipeline &p, uint32_t argb, int alpha, int depth) override;
 
 private:
     // What a primitive needs, worked out once from the state.
     struct Setup {
-        Pipeline* p = nullptr;
-        const State* s = nullptr;
-        uint16_t* color = nullptr;
-        uint16_t* aux = nullptr;
+        Pipeline *p = nullptr;
+        const State *s = nullptr;
+        uint16_t *color = nullptr;
+        uint16_t *aux = nullptr;
         int width = 0, height = 0;
-        bool texture = false;      // the combine reads the TMUs
-        int tmusUsed = 0;          // how many TMUs, from TMU0 up, take part
-        bool alphaBuffer = false;  // the auxiliary buffer holds alpha
+        bool texture = false;     // the combine reads the TMUs
+        int tmusUsed = 0;         // how many TMUs, from TMU0 up, take part
+        bool alphaBuffer = false; // the auxiliary buffer holds alpha
         bool blend = false;
         PixelCombine combine;
         // Common configurations done directly (the generic units give the
@@ -104,24 +104,24 @@ private:
             bool perPixelLod = false; // mipmapping, or filters that differ by LOD
             int lodMin = 0, lodMax = 0;
             int format = 0, bytes = 2;
-            const uint8_t* mem = nullptr;
+            const uint8_t *mem = nullptr;
             uint32_t memMask = 0;
-            const uint32_t* palette = nullptr;
-            const NccTable* ncc = nullptr;
+            const uint32_t *palette = nullptr;
+            const NccTable *ncc = nullptr;
             uint32_t base[9] = {};
             int w[9] = {}, h[9] = {};
             float scale[9] = {}; // texels of the level per unit of s or t
         } tmu[kMaxTmus];
     };
-    bool prepare(Pipeline& p, Setup& su);
-    void shade(Setup& su, int x, int row, const Values& v);
-    Rgba sampleTmu(Setup& su, int tmu, const Values& v, int x, int row, int& lodFraction, float& rawLod);
+    bool prepare(Pipeline &p, Setup &su);
+    void shade(Setup &su, int x, int row, const Values &v);
+    Rgba sampleTmu(Setup &su, int tmu, const Values &v, int x, int row, int &lodFraction, float &rawLod);
 };
 
-bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
+bool SoftwareRenderer::prepare(Pipeline &p, Setup &su) {
     su.p = &p;
     su.s = &p.state();
-    const State& s = p.state();
+    const State &s = p.state();
     su.color = p.buffer(s.renderBuffer);
     su.aux = p.buffer(kBufferAux);
     su.width = p.width();
@@ -149,16 +149,16 @@ bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
     if (su.texture) {
         su.tmusUsed = 1;
         while (su.tmusUsed < p.board().tmus) {
-            const TmuState& t = s.tmus[size_t(su.tmusUsed - 1)];
+            const TmuState &t = s.tmus[size_t(su.tmusUsed - 1)];
             if (!usesOther(t.rgb) && !usesOther(t.alpha))
                 break;
             ++su.tmusUsed;
         }
     }
     if (su.tmusUsed == 1) {
-        const TmuState& t0 = s.tmus[0];
-        su.decal0 = t0.rgb.function == kFuncLocal && t0.alpha.function == kFuncLocal && !t0.rgb.invert &&
-                    !t0.alpha.invert;
+        const TmuState &t0 = s.tmus[0];
+        su.decal0 =
+            t0.rgb.function == kFuncLocal && t0.alpha.function == kFuncLocal && !t0.rgb.invert && !t0.alpha.invert;
     }
     {
         const CombineUnit &c = s.color, &a = s.alpha;
@@ -173,8 +173,8 @@ bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
     }
     su.params = kS0 + 3 * su.tmusUsed;
     for (int i = 0; i < su.tmusUsed; ++i) {
-        const TmuState& t = s.tmus[size_t(i)];
-        Setup::Tmu& m = su.tmu[i];
+        const TmuState &t = s.tmus[size_t(i)];
+        Setup::Tmu &m = su.tmu[i];
         m.valid = t.hasSource && knownFormat(t.info.format);
         if (!m.valid)
             continue;
@@ -203,11 +203,10 @@ bool SoftwareRenderer::prepare(Pipeline& p, Setup& su) {
     return true;
 }
 
-Rgba SoftwareRenderer::sampleTmu(Setup& su, int tmu, const Values& v, int x, int row, int& lodFraction,
-                                  float& rawLod) {
-    const State& s = *su.s;
-    const TmuState& t = s.tmus[size_t(tmu)];
-    const Setup::Tmu& m = su.tmu[tmu];
+Rgba SoftwareRenderer::sampleTmu(Setup &su, int tmu, const Values &v, int x, int row, int &lodFraction, float &rawLod) {
+    const State &s = *su.s;
+    const TmuState &t = s.tmus[size_t(tmu)];
+    const Setup::Tmu &m = su.tmu[tmu];
     lodFraction = 0;
     rawLod = 0;
     if (!m.valid)
@@ -278,9 +277,9 @@ Rgba SoftwareRenderer::sampleTmu(Setup& su, int tmu, const Values& v, int x, int
             mix(c00.a, c10.a, c01.a, c11.a)};
 }
 
-void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
-    const State& s = *su.s;
-    PixelStats& stats = su.p->stats;
+void SoftwareRenderer::shade(Setup &su, int x, int row, const Values &v) {
+    const State &s = *su.s;
+    PixelStats &stats = su.p->stats;
     ++stats.pixelsIn;
     const Rgba iterated{std::clamp(int(v.v[kR]), 0, 255), std::clamp(int(v.v[kG]), 0, 255),
                         std::clamp(int(v.v[kB]), 0, 255), std::clamp(int(v.v[kA]), 0, 255)};
@@ -295,7 +294,7 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
         // with what the one above gives.
         Rgba other{0, 0, 0, 0};
         for (int i = su.tmusUsed - 1; i >= 0; --i) {
-            const TmuState& t = s.tmus[size_t(i)];
+            const TmuState &t = s.tmus[size_t(i)];
             int lodFraction = 0;
             float lod = 0;
             const Rgba local = sampleTmu(su, i, v, x, row, lodFraction, lod);
@@ -305,8 +304,8 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
                 // β = min(detailMax, max(0, (bias - LOD) << scale) / 255), the
                 // LOD before grTexLodBiasValue's bias (Reference Manual,
                 // grTexDetailControl).
-                const float beta = std::min(t.detailMax, std::max(0.0f, (float(t.detailBias) - lod) *
-                                                                            float(1 << t.detailScale)) / 255.0f);
+                const float beta = std::min(
+                    t.detailMax, std::max(0.0f, (float(t.detailBias) - lod) * float(1 << t.detailScale)) / 255.0f);
                 detail = int(beta * 255.0f);
             }
             other = combineTexture(t.rgb, t.alpha, local, other, detail, lodFraction);
@@ -316,7 +315,7 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
     Rgba chromaOther;
     Rgba c;
     if (su.fast == Setup::Fast::Modulate) {
-        const Rgba& l = su.combine.colorLocal == kLocalConstant ? su.constant : iterated;
+        const Rgba &l = su.combine.colorLocal == kLocalConstant ? su.constant : iterated;
         c = {scaleBy(texture.r, l.r), scaleBy(texture.g, l.g), scaleBy(texture.b, l.b), scaleBy(texture.a, l.a)};
         chromaOther = texture;
     } else if (su.fast == Setup::Fast::Local) {
@@ -351,9 +350,15 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
     if ((s.fogMode & 3) != kFogDisable) {
         int f = 0;
         switch (s.fogMode & 3) {
-        case kFogWithIteratedAlpha: f = iterated.a; break;
-        case kFogWithTable: f = fogTableFactor(s.fogTable.data(), floatDepth(v.v[kW])); break;
-        default: f = z >> 8; break; // GR_FOG_WITH_ITERATED_Z: the iterated z's high bits
+        case kFogWithIteratedAlpha:
+            f = iterated.a;
+            break;
+        case kFogWithTable:
+            f = fogTableFactor(s.fogTable.data(), floatDepth(v.v[kW]));
+            break;
+        default:
+            f = z >> 8;
+            break; // GR_FOG_WITH_ITERATED_Z: the iterated z's high bits
         }
         c = applyFog(c, su.fogColor, f, s.fogMode);
     }
@@ -371,7 +376,7 @@ void SoftwareRenderer::shade(Setup& su, int x, int row, const Values& v) {
     ++stats.pixelsOut;
 }
 
-void SoftwareRenderer::triangle(Pipeline& p, const Vertex& va, const Vertex& vb, const Vertex& vc) {
+void SoftwareRenderer::triangle(Pipeline &p, const Vertex &va, const Vertex &vb, const Vertex &vc) {
     Setup su;
     if (!prepare(p, su)) {
         ++p.stats.trianglesIn;
@@ -403,16 +408,16 @@ void SoftwareRenderer::triangle(Pipeline& p, const Vertex& va, const Vertex& vb,
     }
 }
 
-void SoftwareRenderer::line(Pipeline& p, const Vertex& a, const Vertex& b) {
+void SoftwareRenderer::line(Pipeline &p, const Vertex &a, const Vertex &b) {
     Setup su;
     if (!prepare(p, su))
         return;
-    forLinePixels(*su.s, su.width, su.height, a, b, [&](int x, int y, const Values& v) {
+    forLinePixels(*su.s, su.width, su.height, a, b, [&](int x, int y, const Values &v) {
         shade(su, x, su.s->originLowerLeft ? su.height - 1 - y : y, v);
     });
 }
 
-void SoftwareRenderer::point(Pipeline& p, const Vertex& a) {
+void SoftwareRenderer::point(Pipeline &p, const Vertex &a) {
     Setup su;
     if (!prepare(p, su))
         return;
@@ -424,7 +429,7 @@ void SoftwareRenderer::point(Pipeline& p, const Vertex& a) {
     shade(su, x, su.s->originLowerLeft ? su.height - 1 - y : y, v);
 }
 
-void SoftwareRenderer::fragments(Pipeline& p, const Fragments& f) {
+void SoftwareRenderer::fragments(Pipeline &p, const Fragments &f) {
     Setup su;
     if (!prepare(p, su))
         return;
@@ -433,14 +438,14 @@ void SoftwareRenderer::fragments(Pipeline& p, const Fragments& f) {
         std::copy(f.dy, f.dy + kParams, su.dy);
         su.derivatives = true;
     }
-    for (const Fragment& frag : f.list)
+    for (const Fragment &frag : f.list)
         shade(su, frag.x, su.s->originLowerLeft ? su.height - 1 - frag.y : frag.y, frag.v);
 }
 
-void SoftwareRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {
-    const State& s = p.state();
-    uint16_t* color = p.buffer(s.renderBuffer);
-    uint16_t* aux = p.buffer(kBufferAux);
+void SoftwareRenderer::clear(Pipeline &p, uint32_t argb, int alpha, int depth) {
+    const State &s = p.state();
+    uint16_t *color = p.buffer(s.renderBuffer);
+    uint16_t *aux = p.buffer(kBufferAux);
     const int w = p.width(), h = p.height();
     const int x0 = std::max(s.clip[0], 0), x1 = std::min(s.clip[2], w);
     const int y0 = std::max(s.clip[1], 0), y1 = std::min(s.clip[3], h);
@@ -464,6 +469,8 @@ void SoftwareRenderer::clear(Pipeline& p, uint32_t argb, int alpha, int depth) {
 
 } // namespace
 
-std::unique_ptr<Renderer> makeSoftwareRenderer() { return std::make_unique<SoftwareRenderer>(); }
+std::unique_ptr<Renderer> makeSoftwareRenderer() {
+    return std::make_unique<SoftwareRenderer>();
+}
 
 } // namespace reluva::glide

@@ -26,7 +26,7 @@ struct ThrashFrame {
         bool wrap = true;
         bool blend = false; // alpha blending on (state 0xa), as `blendMode` (state 0x68) says
         int blendMode = 0;
-        int cull = 0;               // state 2
+        int cull = 0; // state 2
         // The texture filter: -1 as the page draws (ThrashGpu::nearest),
         // 0 point-sampled, 1 bilinear. Set only for d3da's device
         // (NativeThrash::setDirect3D), from state 7.
@@ -35,7 +35,7 @@ struct ThrashFrame {
         // colour (0x00RRGGBB). See glideFog().
         float fog = 0;
         uint32_t fogColour = 0;
-        int clip[4] = {0, 0, 0, 0}; // x0, y0, x1, y1 (exclusive)
+        int clip[4] = {0, 0, 0, 0};    // x0, y0, x1, y1 (exclusive)
         uint32_t first = 0, count = 0; // vertices, three a triangle
     };
     struct Texture {
@@ -46,7 +46,7 @@ struct ThrashFrame {
     int width = 640, height = 480;
     std::vector<Vertex> vertices;
     std::vector<Batch> batches;
-    bool resetTextures = false;     // all textures before these gone (treset)
+    bool resetTextures = false;    // all textures before these gone (treset)
     std::vector<Texture> textures; // made or changed since the last frame
     // The rectangle a page flip shows of it (x0, y0, x1, y1): outside it,
     // the screen keeps what was there.
@@ -65,7 +65,7 @@ float glideFog(float w, float value);
 // page flips); this keeps a copy of each texture as the game gave it.
 class NativeThrash {
 public:
-    explicit NativeThrash(x86::Cpu& cpu) : cpu_(cpu) {}
+    explicit NativeThrash(x86::Cpu &cpu) : cpu_(cpu) {}
 
     // Where drawing goes: 16-bit 5:6:5 pixels in emulated memory.
     void setTarget(uint32_t address, int pitch, int width, int height);
@@ -116,7 +116,7 @@ public:
 
     uint64_t pixels() const { return pixels_; }
     // Textures of a format not read yet, for reports.
-    const std::map<int, int>& unknownFormats() const { return unknownFormats_; }
+    const std::map<int, int> &unknownFormats() const { return unknownFormats_; }
 
 private:
     struct Vertex {
@@ -126,43 +126,43 @@ private:
     };
     struct Texture {
         int width = 0, height = 0, format = 0;
-        bool transparent = false; // has texels to leave out
-        std::vector<uint32_t> rgba; // 0xAARRGGBB
+        bool transparent = false;     // has texels to leave out
+        std::vector<uint32_t> rgba;   // 0xAARRGGBB
         std::vector<uint8_t> indices; // format 2's, as given
         std::array<uint32_t, 256> palette{};
     };
     Vertex vertex(uint32_t address) const;
     // A texel at (fu, fv) in texels, wrapped or clamped: the nearest, or
     // bilinear-filtered.
-    static uint32_t samplePoint(const Texture& t, float fu, float fv, bool wrap);
-    static uint32_t sampleBilinear(const Texture& t, float fu, float fv, bool wrap);
-    void rasterize(const Vertex& a, const Vertex& b, const Vertex& c);
-    void record(const Vertex& a, const Vertex& b, const Vertex& c);
+    static uint32_t samplePoint(const Texture &t, float fu, float fv, bool wrap);
+    static uint32_t sampleBilinear(const Texture &t, float fu, float fv, bool wrap);
+    void rasterize(const Vertex &a, const Vertex &b, const Vertex &c);
+    void record(const Vertex &a, const Vertex &b, const Vertex &c);
     // The batch to add to, a new one if the state changed.
-    ThrashFrame::Batch& batch();
+    ThrashFrame::Batch &batch();
     void plot(int x, int y, uint32_t argb);
     // Blends as the state says, then to 5:6:5 (dithered at (x, y) while
     // dithering is on).
-    void put(uint8_t* pixel, uint32_t argb, int x, int y);
+    void put(uint8_t *pixel, uint32_t argb, int x, int y);
 
-    x86::Cpu& cpu_;
+    x86::Cpu &cpu_;
     uint32_t target_ = 0;
     int pitch_ = 0, width_ = 0, height_ = 0;
     int clipX0_ = 0, clipY0_ = 0, clipX1_ = 640, clipY1_ = 480;
     std::map<uint32_t, Texture> textures_;
-    const Texture* texture_ = nullptr;
+    const Texture *texture_ = nullptr;
     uint32_t textureHandle_ = 0;
-    int cull_ = 0;       // state 2: 0 none, 1 counter-clockwise, 2 clockwise
+    int cull_ = 0; // state 2: 0 none, 1 counter-clockwise, 2 clockwise
     // State 5: dithering. voodoo2a.dll's setstate 5 calls grDitherMode(2)
     // (4x4) for a value not 0, else grDitherMode(0); Glide starts at 4x4.
     bool dither_ = true;
-    bool gouraud_ = true; // state 6
-    bool direct3D_ = false; // d3da's device (setDirect3D)
-    bool bilinear_ = true; // textures filtered: both DLLs' default, and d3da's state 7
+    bool gouraud_ = true;       // state 6
+    bool direct3D_ = false;     // d3da's device (setDirect3D)
+    bool bilinear_ = true;      // textures filtered: both DLLs' default, and d3da's state 7
     bool pointSampled_ = false; // held point-sampled (setPointSampled)
-    bool wrap_ = true;    // state 0xd: 1 wrap, 0 clamp
-    int blend_ = 0;       // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
-    bool alphaBlend_ = false; // state 0xa
+    bool wrap_ = true;          // state 0xd: 1 wrap, 0 clamp
+    int blend_ = 0;             // state 0x68: 0 alpha, 1 additive, 2 darken, 3 multiply
+    bool alphaBlend_ = false;   // state 0xa
     // Fog: on or off as the last of states 0xe and 0x15 said, with the
     // last nonzero 0xe's table (Glide's 64 entries, of 255) and 0xf's colour.
     bool fogOn_ = false;

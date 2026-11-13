@@ -32,8 +32,6 @@ namespace {
 
 using namespace reluva::glide;
 
-
-
 namespace {
 
 Glide2Vertex vtx(float x, float y, float r, float g, float b, float a = 255, float ooz = 0, float oow = 1, float s = 0,
@@ -47,7 +45,7 @@ Glide2Vertex vtx(float x, float y, float r, float g, float b, float a = 255, flo
     v.a = a;
     v.ooz = ooz;
     v.oow = oow;
-    for (auto& m : v.tmuvtx) {
+    for (auto &m : v.tmuvtx) {
         m.sow = s * oow;
         m.tow = t * oow;
         m.oow = oow;
@@ -56,19 +54,19 @@ Glide2Vertex vtx(float x, float y, float r, float g, float b, float a = 255, flo
 }
 
 // Textures: a 64x64 565 checker with mipmaps, a palette one, an NCC one.
-void loadTextures(Glide2& g) {
+void loadTextures(Glide2 &g) {
     std::vector<uint16_t> mip;
     for (int size = 64; size >= 1; size /= 2)
         for (int y = 0; y < size; ++y)
             for (int x = 0; x < size; ++x)
                 mip.push_back(uint16_t(((x / 4 + y / 4) & 1) ? 0xf800 | (size * 3) : 0x07e0 | (x * 31 / size)));
     Glide2TexInfo info{6, 2, 3, kTexRgb565}; // GR_LOD_1 to GR_LOD_64
-    g.texDownloadMipMap(0, 0, kLevelsBoth, info, reinterpret_cast<const uint8_t*>(mip.data()));
-    g.texDownloadMipMap(1, 0, kLevelsBoth, info, reinterpret_cast<const uint8_t*>(mip.data()));
+    g.texDownloadMipMap(0, 0, kLevelsBoth, info, reinterpret_cast<const uint8_t *>(mip.data()));
+    g.texDownloadMipMap(1, 0, kLevelsBoth, info, reinterpret_cast<const uint8_t *>(mip.data()));
     uint32_t palette[256];
     for (int i = 0; i < 256; ++i)
         palette[i] = uint32_t(i) << 16 | uint32_t(255 - i) << 8 | uint32_t((i * 7) & 255);
-    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(palette));
+    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t *>(palette));
     std::vector<uint8_t> idx(32 * 32);
     for (int i = 0; i < 32 * 32; ++i)
         idx[size_t(i)] = uint8_t(i * 13);
@@ -86,7 +84,7 @@ void loadTextures(Glide2& g) {
 }
 
 // A scene drawn through Glide 2, ending with the frame swapped to the front.
-void scene(Glide2& g) {
+void scene(Glide2 &g) {
     CHECK(g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
     loadTextures(g);
     g.bufferClear(0xff203040, 0, 0xffff);
@@ -104,9 +102,11 @@ void scene(Glide2& g) {
     g.colorCombine(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture, false);
     g.alphaCombine(kFuncScaleOther, kFactorLocal, kLocalIterated, kOtherTexture, false);
     auto quad = [&](float x0, float y0, float x1, float y1, float tiles) {
-        g.drawTriangle(vtx(x0, y0, 255, 255, 255, 255, 0, 1, 0, 0), vtx(x1, y0, 200, 255, 255, 255, 0, 0.25f, 256 * tiles, 0),
+        g.drawTriangle(vtx(x0, y0, 255, 255, 255, 255, 0, 1, 0, 0),
+                       vtx(x1, y0, 200, 255, 255, 255, 0, 0.25f, 256 * tiles, 0),
                        vtx(x1, y1, 255, 200, 255, 255, 0, 0.25f, 256 * tiles, 256 * tiles));
-        g.drawTriangle(vtx(x0, y0, 255, 255, 255, 255, 0, 1, 0, 0), vtx(x1, y1, 255, 200, 255, 255, 0, 0.25f, 256 * tiles, 256 * tiles),
+        g.drawTriangle(vtx(x0, y0, 255, 255, 255, 255, 0, 1, 0, 0),
+                       vtx(x1, y1, 255, 200, 255, 255, 0, 0.25f, 256 * tiles, 256 * tiles),
                        vtx(x0, y1, 255, 255, 200, 255, 0, 1, 0, 256 * tiles));
     };
     quad(230, 10, 330, 90, 1);
@@ -169,8 +169,10 @@ void scene(Glide2& g) {
     g.depthBufferMode(kDepthZBuffer);
     g.depthBufferFunction(kCmpGreater);
     g.depthMask(true);
-    g.drawTriangle(vtx(420, 240, 255, 0, 0, 255, 1000), vtx(620, 250, 255, 0, 0, 255, 60000), vtx(500, 340, 255, 0, 0, 255, 30000));
-    g.drawTriangle(vtx(420, 300, 0, 255, 0, 255, 50000), vtx(620, 260, 0, 255, 0, 255, 2000), vtx(520, 240, 0, 255, 0, 255, 30000));
+    g.drawTriangle(vtx(420, 240, 255, 0, 0, 255, 1000), vtx(620, 250, 255, 0, 0, 255, 60000),
+                   vtx(500, 340, 255, 0, 0, 255, 30000));
+    g.drawTriangle(vtx(420, 300, 0, 255, 0, 255, 50000), vtx(620, 260, 0, 255, 0, 255, 2000),
+                   vtx(520, 240, 0, 255, 0, 255, 30000));
     g.depthBufferMode(kDepthWBuffer);
     g.depthBufferFunction(kCmpLess);
     g.colorMask(false, false); // the depth buffer only
@@ -222,7 +224,7 @@ void scene(Glide2& g) {
 
 // On a Voodoo3: a P_8 texture through the PALETTE6666 palette (its alpha
 // blended), and the same after a plain palette.
-void scene6666(Glide2& g) {
+void scene6666(Glide2 &g) {
     CHECK(g.sstWinOpen(0, 7, 0, kColorArgb, 0, 2, 1));
     g.bufferClear(0xff406080, 0, 0);
     uint32_t palette[256];
@@ -235,7 +237,7 @@ void scene6666(Glide2& g) {
     Glide2TexInfo p8{3, 3, 3, kTexP8};
     g.texDownloadMipMap(0, at, kLevelsBoth, p8, idx.data());
     g.texSource(0, at, kLevelsBoth, p8);
-    g.texDownloadTable(0, kTablePalette6666, reinterpret_cast<const uint8_t*>(palette));
+    g.texDownloadTable(0, kTablePalette6666, reinterpret_cast<const uint8_t *>(palette));
     g.colorCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
     g.alphaCombine(kFuncScaleOther, kFactorOne, kLocalIterated, kOtherTexture, false);
     g.alphaBlendFunction(kBlendSrcAlpha, kBlendOneMinusSrcAlpha, kBlendOne, kBlendZero);
@@ -245,7 +247,7 @@ void scene6666(Glide2& g) {
         g.drawTriangle(vtx(x, 20, 255, 255, 255, 255, 0, 1, 0, 0), vtx(x + 280, 30, 255, 255, 255, 255, 0, 1, 512, 0),
                        vtx(x + 100, 300, 255, 255, 255, 255, 0, 1, 64, 512));
     }
-    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t*>(palette));
+    g.texDownloadTable(0, kTablePalette, reinterpret_cast<const uint8_t *>(palette));
     g.drawTriangle(vtx(50, 320, 255, 255, 255, 255, 0, 1, 0, 0), vtx(600, 330, 255, 255, 255, 255, 0, 1, 256, 0),
                    vtx(300, 470, 255, 255, 255, 255, 0, 1, 0, 256));
     g.bufferSwap(0);
@@ -272,7 +274,7 @@ Frames draw(std::unique_ptr<Renderer> renderer, bool voodoo3 = false) {
     return f;
 }
 
-int differing(const std::vector<uint16_t>& a, const std::vector<uint16_t>& b, int& maxChannel) {
+int differing(const std::vector<uint16_t> &a, const std::vector<uint16_t> &b, int &maxChannel) {
     int n = 0;
     maxChannel = 0;
     for (size_t i = 0; i < a.size(); ++i)
@@ -311,7 +313,7 @@ static void runAll() {
     std::vector<FrameComparison> seen;
     auto gpu2 = reluva::makeSdlCompute(error);
     draw(makeComparingRenderer(makeGpuRenderer(std::move(gpu2), error),
-                               [&](const FrameComparison& f) { seen.push_back(f); }));
+                               [&](const FrameComparison &f) { seen.push_back(f); }));
     CHECK(seen.size() == 2);
     if (seen.size() == 2) {
         std::printf("glide_gpu: compared at each swap: %llu and %llu pixels differing, mean %.4f and %.4f of 255\n",
@@ -338,10 +340,10 @@ static void runAll() {
     std::printf("glide_gpu: %d pixels drawn over the clear\n", drawn);
     CHECK(drawn > 50000);
     // To look at them: RELUVA_GLIDE_GPU_DUMP=folder writes both frames as PPM.
-    if (const char* dir = std::getenv("RELUVA_GLIDE_GPU_DUMP")) {
-        auto ppm = [&](const std::vector<uint16_t>& px, const char* name) {
+    if (const char *dir = std::getenv("RELUVA_GLIDE_GPU_DUMP")) {
+        auto ppm = [&](const std::vector<uint16_t> &px, const char *name) {
             const std::string path = std::string(dir) + "/" + name;
-            if (FILE* f = std::fopen(path.c_str(), "wb")) {
+            if (FILE *f = std::fopen(path.c_str(), "wb")) {
                 std::fprintf(f, "P6 640 480 255\n");
                 for (uint16_t v : px) {
                     const Rgba c = from565(v);
@@ -358,6 +360,7 @@ static void runAll() {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("common.unit.glide_gpu", {
-    {"all", [](const std::filesystem::path&) { runAll(); }},
-});
+static const reluva::test::Suite kSuite("common.unit.glide_gpu",
+                                        {
+                                            {"all", [](const std::filesystem::path &) { runAll(); }},
+                                        });

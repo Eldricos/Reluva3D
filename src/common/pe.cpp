@@ -11,13 +11,13 @@ namespace reluva {
 namespace {
 
 struct Reader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     bool ok(size_t at, size_t n) const { return at <= d.size() && n <= d.size() - at; }
     uint16_t u16(size_t at) const { return ok(at, 2) ? uint16_t(d[at] | d[at + 1] << 8) : 0; }
     uint32_t u32(size_t at) const {
-        return ok(at, 4) ? uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 |
-                               uint32_t(d[at + 3]) << 24
-                         : 0;
+        return ok(at, 4)
+                   ? uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24
+                   : 0;
     }
     uint64_t u64(size_t at) const { return uint64_t(u32(at)) | uint64_t(u32(at + 4)) << 32; }
     std::string str(size_t at, size_t max = 4096) const { // Visual C++ names run to 4 KB
@@ -29,22 +29,22 @@ struct Reader {
 };
 
 // The data directories' names, in the order the optional header lists them.
-const char* const kDirectories[16] = {"export",   "import",       "resource", "exception", "security",
-                                      "basereloc", "debug",       "architecture", "globalptr", "tls",
-                                      "load config", "bound import", "iat",      "delay import", "clr", "reserved"};
+const char *const kDirectories[16] = {"export", "import",       "resource",  "exception", "security",    "basereloc",
+                                      "debug",  "architecture", "globalptr", "tls",       "load config", "bound import",
+                                      "iat",    "delay import", "clr",       "reserved"};
 
 } // namespace
 
 int64_t PeImage::fileOffset(uint32_t rva) const {
     if (rva < headersSize)
         return rva;
-    for (const Section& s : sections)
+    for (const Section &s : sections)
         if (rva >= s.virtualAddress && rva < s.virtualAddress + std::max(s.virtualSize, s.rawSize))
             return rva - s.virtualAddress < s.rawSize ? int64_t(s.rawOffset) + (rva - s.virtualAddress) : -1;
     return -1;
 }
 
-Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
+Error parsePe(const std::vector<uint8_t> &file, PeImage &out) {
     out = PeImage{};
     const Reader r{file};
     if (r.u16(0) != 0x5a4d) // "MZ"
@@ -121,7 +121,7 @@ Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
                 for (uint32_t i = 0; i < named && i < 65536; ++i) {
                     const uint16_t index = r.u16(size_t(ordinals) + 2 * i);
                     const int64_t name = at(r.u32(size_t(names) + 4 * i));
-                    for (auto& x : out.exports)
+                    for (auto &x : out.exports)
                         if (x.ordinal == base + index && name >= 0)
                             x.name = r.str(size_t(name));
                 }
@@ -188,7 +188,7 @@ Error parsePe(const std::vector<uint8_t>& file, PeImage& out) {
     return Error::success();
 }
 
-std::vector<uint8_t> findResource(const PeImage& pe, const std::vector<uint8_t>& file, uint32_t type) {
+std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> &file, uint32_t type) {
     // Three levels of directories: type, name, language. Each directory:
     // 16 bytes, then 8-byte entries (named ones first); an entry's high bit
     // marks a subdirectory. Offsets count from the resource section's start.
