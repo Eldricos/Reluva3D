@@ -70,7 +70,8 @@ public:
     void rightClick(int x, int y);
     std::vector<std::string> getMenuLabels() const;
     void pickMenuEntry(int entry);
-    // Plays DS9/<path> (e.g. "INTRO/VNM.SMK") on its own, for the developer start mode "video".
+    // Plays DS9/<path> (e.g. "INTRO/VNM.SMK") on its own, for the data viewer
+    // (start_mode=video); 1 if it can't be opened.
     int playVideoFile(const std::string &path);
     // Starts a conversation by dialogue name in a scene that hosts it (after
     // that scene's entry script). For testing the dialogue scripts.

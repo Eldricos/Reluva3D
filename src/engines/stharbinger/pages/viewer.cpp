@@ -24,7 +24,7 @@ const char *const kHelp = "Scene viewer keys:\n"
                           "  A / Shift+A      next/previous animation of the scene\n"
                           "  S / Shift+S      next/previous sound of the scene\n"
                           "  Space            stop animation and sound\n"
-                          "  Esc, Q           quit\n";
+                          "  Esc, Q           leave the viewer\n";
 
 } // namespace
 

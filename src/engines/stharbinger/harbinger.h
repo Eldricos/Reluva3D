@@ -35,19 +35,17 @@ struct Options {
     std::vector<std::string> paths; // the game's folders: an install, a CD or both CDs
     // Developer: start in this scene (a name or CC.ALL slot), with every
     // variable at 0, so later scenes may not behave as in a playthrough.
+    // The viewer's one-video mode takes a video in DS9 here instead
+    // (INTRO/VNM.SMK).
     std::string startScene;
-    // Developer: "game" (or empty), "viewer" (the scene viewer: a scene's
-    // backgrounds, animations and sounds without its script) or "video"
-    // (startScene names a video in DS9, e.g. INTRO/VNM.SMK).
-    std::string mode;
     // Developer: keys and options that aren't part of the game (F2 hotspots,
     // F10 variables, the scene in the title bar).
     bool debug = false;
     bool original = false; // none of the added conveniences: exactly as the original plays
 };
 
-// Star Trek: Deep Space Nine - Harbinger: the game's data and how it is run,
-// as the game (Game, the scene scripts) or the scene viewer (SceneViewer).
+// Star Trek: Deep Space Nine - Harbinger: the game's data, and the game
+// (Game, the scene scripts) run on it.
 class Harbinger {
 public:
     Harbinger(Platform *system, Options options);
