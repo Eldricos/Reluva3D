@@ -101,8 +101,13 @@ says for the intensity, which
 linear order. For movies, **Up/Down** pick one, **Space** pauses, **Left/Right** jump 5
 seconds and **PageUp/PageDown** step a frame.
 
-The engine's settings go in the game's section of `reluva.ini`
-(`renderer=`, `surround=`, `cdpath=` and the others above).
+The settings with a few choices (`renderer`, `renderscale`,
+`texturefilter`, `surround`, `joystick`, `forcefeedback`, `network`,
+`positionalupdates`, `movielines`) are in the launcher, under
+**Settings...** for all Need for Speed games and with the game; the ones
+naming something of the machine's (`cdpath`, `serial`, `modem`,
+`wheelpedals`, `glidedll`, `glideboard`) go in the game's section of
+`reluva.ini`. The master volume is the launcher's, as every engine's.
 
 ## This folder
 
