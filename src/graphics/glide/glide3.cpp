@@ -278,7 +278,7 @@ void Glide3::sstWinClose(uint32_t) {
     core_.sstWinClose();
 }
 
-bool Glide3::selectContext(uint32_t context) {
+bool Glide3::selectContext(uint32_t context) const {
     return context && context == context_;
 }
 

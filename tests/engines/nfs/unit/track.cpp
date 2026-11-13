@@ -45,7 +45,7 @@ void testPlacedSounds() {
     // A one-shot fires in the eighth of 64 frames picked, then picks again.
     struct Fixed {
         int value;
-        int next() { return value; }
+        int next() const { return value; }
     } random{5};
     OneShotTimer t; // picks 0 first
     CHECK(t.fires(64, random) && t.pick == 5);

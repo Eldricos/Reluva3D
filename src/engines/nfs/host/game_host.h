@@ -285,7 +285,7 @@ private:
     struct Message {
         uint32_t hwnd = 0, message = 0, wParam = 0, lParam = 0, time = 0;
     };
-    void say(const std::string &line) {
+    void say(const std::string &line) const {
         if (log)
             log(line);
     }
