@@ -137,11 +137,15 @@ endfunction()
 #     HELPERS  cmake/ReluvaGamedata.cmake, the helpers every such script
 #              shares (running the tool, keeping and comparing records);
 #     STEP     the step;
+#     ENGINE, GAME  the engine and <game id>, as the launcher stores the
+#              game (its detection's id), to find the game's folder in
+#              the launcher's list;
 #     RECORDS  the folder of committed records,
 #              tests/engines/<engine>/data/gamedata/;
 #     OUTPUT   a folder in the build for each step's full output.
 #   The game's folder comes from the environment variable <variable> when
-#   the tests run; without it the steps print "SKIPPED:" and count as
+#   the tests run, or else from the launcher's entry for the game
+#   (reluva.ini); without either the steps print "SKIPPED:" and count as
 #   skipped, so anyone can run ctest. See docs/DEVELOPMENT.md (Engine tests).
 function(reluva_add_gamedata_test name)
     if(NOT RELUVA_BUILD_TESTS)
@@ -155,6 +159,7 @@ function(reluva_add_gamedata_test name)
                 -DTOOL=$<TARGET_FILE:reluva-tool>
                 -DHELPERS=${PROJECT_SOURCE_DIR}/cmake/ReluvaGamedata.cmake
                 -DSTEP=${step}
+                -DENGINE=${name}
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}
                 -DRECORDS=${PROJECT_SOURCE_DIR}/tests/engines/${name}/data/gamedata

@@ -10,14 +10,24 @@
 #   record_run(<name> <summary> <engine> <command> <args>...)
 #   gamedata_end("<release>" "<records folder>")  compares or writes the record
 #
-# Given by ctest (-D): TOOL (reluva-tool), STEP, GAME_ENV (the variable
-# naming the game's folder), RECORDS (the committed records' folder) and
-# OUTPUT (where each command's output is kept).
+# Given by ctest (-D): TOOL (reluva-tool), STEP, ENGINE and GAME (the
+# engine's and the game's ids, as the launcher stores them), GAME_ENV (the
+# variable naming the game's folder), RECORDS (the committed records'
+# folder) and OUTPUT (where each command's output is kept).
+#
+# The game's folder is GAME_ENV's; without it, the launcher's entry for the
+# game in reluva.ini, if there's one.
 #
 # Environment:
 #   RELUVA_GAMEDATA_UPDATE=1 write this run's records as the new ones
 #   RELUVA_GAMEDATA_RECORDS  a folder of records of your own, instead of the
 #                            committed ones
+#   RELUVA_GAMEDATA_RECORDS_ROOT  the same for every engine at once: each
+#                            engine's in a folder of it named after it
+#   RELUVA_GAMEDATA_TARGET   the launcher's entry to use, by its name, where
+#                            it has several for one game
+#   RELUVA_CONFIG            the launcher's reluva.ini, if not where the
+#                            launcher keeps it
 
 cmake_minimum_required(VERSION 3.24)
 
@@ -30,14 +40,78 @@ set(record "")
 macro(gamedata_begin holds)
     set(game_dir "$ENV{${GAME_ENV}}")
     if(game_dir STREQUAL "")
-        message("SKIPPED: set ${GAME_ENV} to the game's folder (${holds}) to run this step")
-        return()
+        launcher_game_dir(game_dir skip_why)
+        if(game_dir STREQUAL "")
+            message("SKIPPED: set ${GAME_ENV} to the game's folder (${holds}) to run this step${skip_why}")
+            return()
+        endif()
     endif()
     if(NOT IS_DIRECTORY "${game_dir}")
         message(FATAL_ERROR "${GAME_ENV} is \"${game_dir}\", which isn't a folder")
     endif()
     file(REAL_PATH "${game_dir}" game_dir)
 endmacro()
+
+# Where the launcher keeps reluva.ini: SDL's preferences folder for
+# "reluva" (src/base/main.cpp), unless RELUVA_CONFIG names another.
+function(launcher_config var)
+    if(NOT "$ENV{RELUVA_CONFIG}" STREQUAL "")
+        set(${var} "$ENV{RELUVA_CONFIG}" PARENT_SCOPE)
+    elseif(CMAKE_HOST_WIN32)
+        set(${var} "$ENV{APPDATA}/reluva/reluva/reluva.ini" PARENT_SCOPE)
+    elseif(CMAKE_HOST_APPLE)
+        set(${var} "$ENV{HOME}/Library/Application Support/reluva/reluva/reluva.ini" PARENT_SCOPE)
+    elseif(NOT "$ENV{XDG_DATA_HOME}" STREQUAL "")
+        set(${var} "$ENV{XDG_DATA_HOME}/reluva/reluva/reluva.ini" PARENT_SCOPE)
+    else()
+        set(${var} "$ENV{HOME}/.local/share/reluva/reluva/reluva.ini" PARENT_SCOPE)
+    endif()
+endfunction()
+
+# The folder of the launcher's entry for ENGINE's GAME, in <var>: the one
+# entry there is, or RELUVA_GAMEDATA_TARGET's among several. "" if none can
+# be picked, with why (a sentence to add to the skip message) in <why_var>.
+function(launcher_game_dir var why_var)
+    set(${var} "" PARENT_SCOPE)
+    set(${why_var} ", or add the game in the launcher" PARENT_SCOPE)
+    launcher_config(config)
+    if(NOT EXISTS "${config}")
+        return()
+    endif()
+    # [name], then its key=value lines; an entry is a section with these
+    # three keys (src/gui/launcher.cpp, Launcher::addGame).
+    file(STRINGS "${config}" lines ENCODING UTF-8)
+    set(names "")
+    set(section "")
+    foreach(line IN LISTS lines)
+        if(line MATCHES "^\\[(.*)\\]$")
+            set(section "${CMAKE_MATCH_1}")
+            list(APPEND names "${section}")
+        elseif(NOT section STREQUAL "" AND line MATCHES "^(engine|gameid|path)=(.*)$")
+            set("entry_${CMAKE_MATCH_1}_${section}" "${CMAKE_MATCH_2}")
+        endif()
+    endforeach()
+    set(found "")
+    foreach(name IN LISTS names)
+        if("${entry_engine_${name}}" STREQUAL "${ENGINE}" AND "${entry_gameid_${name}}" STREQUAL "${GAME}"
+           AND NOT "${entry_path_${name}}" STREQUAL "")
+            list(APPEND found "${name}")
+        endif()
+    endforeach()
+    set(wanted "$ENV{RELUVA_GAMEDATA_TARGET}")
+    if(NOT wanted STREQUAL "" AND wanted IN_LIST found)
+        set(found "${wanted}")
+    endif()
+    list(LENGTH found count)
+    if(count EQUAL 1)
+        message("${GAME_ENV} isn't set: the launcher's ${found}, ${entry_path_${found}}")
+        set(${var} "${entry_path_${found}}" PARENT_SCOPE)
+    elseif(count GREATER 1)
+        list(JOIN found ", " listed)
+        set(${why_var} ", or pick one of the launcher's entries for it (${listed}) with RELUVA_GAMEDATA_TARGET"
+            PARENT_SCOPE)
+    endif()
+endfunction()
 
 # The folder in `dir` named `name` in any case, in <var> ("" if none).
 function(find_folder var dir name)
@@ -121,6 +195,8 @@ macro(gamedata_end release folder)
     set(records "${RECORDS}")
     if(NOT "$ENV{RELUVA_GAMEDATA_RECORDS}" STREQUAL "")
         set(records "$ENV{RELUVA_GAMEDATA_RECORDS}")
+    elseif(NOT "$ENV{RELUVA_GAMEDATA_RECORDS_ROOT}" STREQUAL "")
+        set(records "$ENV{RELUVA_GAMEDATA_RECORDS_ROOT}/${ENGINE}")
     endif()
     set(record_file "${records}/${folder}/${STEP}.txt")
     if("$ENV{RELUVA_GAMEDATA_UPDATE}" STREQUAL "1")

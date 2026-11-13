@@ -228,8 +228,15 @@ Need for Speed III (`nfs`, `RELUVA_NFS3`, see
   ```
 
   On Windows: `set RELUVA_STVEF=C:\Games\EliteForce`, then
-  `ctest --test-dir build -C Release -L gamedata`. Without the variable the
-  steps show as skipped, so a plain `ctest` stays green for everyone.
+  `ctest --test-dir build -C Release -L gamedata`.
+- **Or from the launcher's list.** Without the variable, a step takes the
+  game's folder from the launcher's entry for it (`reluva.ini`), so a game
+  added in the launcher needs nothing set: `ctest --test-dir build -L
+  gamedata` runs every game you've added. Where there are several entries
+  for one game (two releases, say), name the one to use with
+  `RELUVA_GAMEDATA_TARGET=<its name>`; `RELUVA_CONFIG` points at another
+  `reluva.ini`. With neither the variable nor an entry the steps show as
+  skipped, so a plain `ctest` stays green for everyone.
 - **Elite Force's steps** (`tests/engines/idtech3/gamedata.cmake`, ctest
   `idtech3.gamedata.<step>`):
 
@@ -272,7 +279,9 @@ Need for Speed III (`nfs`, `RELUVA_NFS3`, see
   ```
 
   Afterwards, run with `RELUVA_GAMEDATA_RECORDS=~/ef-records` (and without
-  `UPDATE`) to compare against it.
+  `UPDATE`) to compare against it. For several engines at once,
+  `RELUVA_GAMEDATA_RECORDS_ROOT=~/records` keeps each engine's in a folder
+  of its own (`~/records/idtech3/`).
 - **Repeatable runs.** The game code reads a clock that moves only with the
   game (`reluva-tool idtech3 sp-run -fixedclock`). Floating point is the same on
   every run.
