@@ -566,7 +566,7 @@ std::string_view stringAt(const std::vector<uint8_t> &d, size_t at, size_t maxLe
 
 std::vector<uint32_t> FinFile::animatedNodes() const {
     std::vector<uint32_t> out;
-    std::vector<uint32_t> stack(roots_.rbegin(), roots_.rend());
+    std::vector<uint32_t> stack(_roots.rbegin(), _roots.rend());
     std::set<uint32_t> seen;
     while (!stack.empty()) {
         const uint32_t id = stack.back();
@@ -583,8 +583,8 @@ std::vector<uint32_t> FinFile::animatedNodes() const {
 }
 
 std::string FinFile::typeOf(uint32_t id) const {
-    auto it = byId_.find(id);
-    return it == byId_.end() ? std::string() : objects_[it->second].type;
+    auto it = _byId.find(id);
+    return it == _byId.end() ? std::string() : _objects[it->second].type;
 }
 
 Error FinFile::parse(const std::vector<uint8_t> &data) {
@@ -636,11 +636,11 @@ Error FinFile::parse(const std::vector<uint8_t> &data) {
         info.id = marks[m].id;
         info.offset = uint32_t(marks[m].fields);
         info.size = uint32_t(objectEnd - marks[m].fields);
-        if (info.id == 0 || byId_.count(info.id))
-            return Error::fail("object " + std::to_string(objects_.size()) + " (" + info.type +
+        if (info.id == 0 || _byId.count(info.id))
+            return Error::fail("object " + std::to_string(_objects.size()) + " (" + info.type +
                                ") has an id of 0 or one already used");
         if (nextIsRoot)
-            roots_.push_back(info.id);
+            _roots.push_back(info.id);
         nextIsRoot = false;
 
         Reader r{data.data() + info.offset, info.size};
@@ -720,10 +720,10 @@ Error FinFile::parse(const std::vector<uint8_t> &data) {
             info.read = false;
         }
         info.exact = info.read && r.ok && r.pos == r.size;
-        byId_[info.id] = objects_.size();
-        objects_.push_back(std::move(info));
+        _byId[info.id] = _objects.size();
+        _objects.push_back(std::move(info));
     }
-    if (roots_.empty())
+    if (_roots.empty())
         return Error::fail("no top-level object");
     return Error::success();
 }
@@ -736,10 +736,10 @@ size_t FinFlip::image(double t, size_t images) const {
     const double from = t - startTime;
     double at = 0; // into the duration
     switch (outOfBounds) {
-    case Loop:
+    case kLoop:
         at = from < 0 ? d - std::fmod(-from, d) : std::fmod(from, d);
         break;
-    case Reverse: { // odd passes backwards
+    case kReverse: { // odd passes backwards
         const double a = std::fabs(from);
         at = std::fmod(a, d);
         if (long(a / d) % 2)

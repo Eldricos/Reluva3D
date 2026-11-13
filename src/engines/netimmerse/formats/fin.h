@@ -110,8 +110,8 @@ struct FinController {
 // the duration (images × 160 ÷ rate in every file: 160 ticks, a 30th of
 // a second, an image at rate 1).
 struct FinFlip {
-    enum OutOfBounds : uint32_t { Loop = 0, Reverse = 1, Clamp = 2 }; // reverse: back and forth
-    uint32_t outOfBounds = Loop;
+    enum OutOfBounds : uint32_t { kLoop = 0, kReverse = 1, kClamp = 2 }; // reverse: back and forth
+    uint32_t outOfBounds = kLoop;
     float rate = 1, startTime = 0, duration = 0;
     uint32_t target = 0; // id of its NiTextureProperty
     // Its image at time t of n.
@@ -133,8 +133,8 @@ struct FinMaterialAnimator : FinController {
 // NiLight, as NiMain's LoadBinary reads it and NiDirect3d lights vertices
 // with it (fin.md).
 struct FinLight : FinAvObject {
-    enum Type : uint32_t { Ambient = 0, Directional = 1, Point = 2, Spot = 3 };
-    uint32_t type = Point;
+    enum Type : uint32_t { kAmbient = 0, kDirectional = 1, kPoint = 2, kSpot = 3 };
+    uint32_t type = kPoint;
     bool on = true; // the light switch
     std::array<float, 3> location{}, direction{};
     std::array<float, 3> ambient{}, diffuse{}, specular{};
@@ -229,9 +229,9 @@ class FinFile {
 public:
     Error parse(const std::vector<uint8_t> &data);
 
-    const std::vector<FinObjectInfo> &objects() const { return objects_; }
+    const std::vector<FinObjectInfo> &objects() const { return _objects; }
     // Objects saved as top-level ones, in order: the model's roots.
-    const std::vector<uint32_t> &roots() const { return roots_; }
+    const std::vector<uint32_t> &roots() const { return _roots; }
 
     // By id.
     std::map<uint32_t, FinNode> nodes;
@@ -258,9 +258,9 @@ public:
     std::vector<uint32_t> animatedNodes() const;
 
 private:
-    std::vector<FinObjectInfo> objects_;
-    std::vector<uint32_t> roots_;
-    std::map<uint32_t, size_t> byId_;
+    std::vector<FinObjectInfo> _objects;
+    std::vector<uint32_t> _roots;
+    std::map<uint32_t, size_t> _byId;
 };
 
 } // namespace reluva::netimmerse

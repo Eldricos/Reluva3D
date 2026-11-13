@@ -1171,7 +1171,7 @@ int cmdAtRun(int argc, char **argv) {
     return 0;
 }
 
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "netimmerse",
     {
         {"at-run", "<game folder> [options]",

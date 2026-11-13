@@ -31,16 +31,16 @@ Error readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
 
 } // namespace
 
-GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir_(std::move(gameDir)) {
-    cpu_ = std::make_unique<x86::Cpu>(memoryMb << 20);
-    process_ = std::make_unique<x86::Win32Process>(*cpu_, kProgram, true, true);
-    process_->setProgram(kProgram, kInstallFolder);
-    process_->timeStampFromClock();
+GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : _dir(std::move(gameDir)) {
+    _cpu = std::make_unique<x86::Cpu>(memoryMb << 20);
+    _process = std::make_unique<x86::Win32Process>(*_cpu, kProgram, true, true);
+    _process->setProgram(kProgram, kInstallFolder);
+    _process->timeStampFromClock();
     // Its files: the install folder is the game folder; the CD's label is
     // the retail CD's, so its check passes. What the program writes there
     // (Game.txt: its settings and progress) goes to the save folder, and
     // is read back from there first. Nothing else may be written.
-    process_->mapPath = [this](const std::string &windowsPath,
+    _process->mapPath = [this](const std::string &windowsPath,
                                bool forWriting) -> std::optional<std::filesystem::path> {
         const std::string folder = fs::toLower(kInstallFolder);
         const std::string path = fs::toLower(windowsPath);
@@ -51,31 +51,31 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir
         while (!rest.empty() && rest.back() == '/')
             rest.pop_back();
         if (forWriting) {
-            if (saveDir_.empty() || rest.empty())
+            if (_saveDir.empty() || rest.empty())
                 return std::nullopt;
-            if (auto file = fs::findFile(saveDir_, rest))
+            if (auto file = fs::findFile(_saveDir, rest))
                 return file;
             std::error_code ec;
-            const std::filesystem::path to = saveDir_ / rest;
+            const std::filesystem::path to = _saveDir / rest;
             std::filesystem::create_directories(to.parent_path(), ec);
             if (ec)
                 return std::nullopt;
             return to;
         }
         if (rest.empty())
-            return dir_;
-        if (!saveDir_.empty())
-            if (auto file = fs::findFile(saveDir_, rest))
+            return _dir;
+        if (!_saveDir.empty())
+            if (auto file = fs::findFile(_saveDir, rest))
                 return file;
-        if (auto file = fs::findFile(dir_, rest))
+        if (auto file = fs::findFile(_dir, rest))
             return file;
-        return fs::findDirectory(dir_, rest);
+        return fs::findDirectory(_dir, rest);
     };
-    process_->cdLabel = "LEGOATEN";
-    x86::addMsvcrt(*process_);
-    directX_ = std::make_unique<x86::DirectX>(*process_);
-    directInput_ = std::make_unique<x86::DirectInput>(*process_);
-    a3d_ = std::make_unique<x86::A3d>(*process_);
+    _process->cdLabel = "LEGOATEN";
+    x86::addMsvcrt(*_process);
+    _directX = std::make_unique<x86::DirectX>(*_process);
+    _directInput = std::make_unique<x86::DirectInput>(*_process);
+    _a3d = std::make_unique<x86::A3d>(*_process);
 }
 
 Error GameProcess::load() {
@@ -92,7 +92,7 @@ Error GameProcess::load() {
         const std::string key = fs::toLower(name);
         if (found.count(key))
             return Error::success();
-        const auto path = fs::findFile(dir_, name);
+        const auto path = fs::findFile(_dir, name);
         if (!path)
             return Error::success(); // not the game's
         Pending p;
@@ -104,7 +104,7 @@ Error GameProcess::load() {
             return Error::fail(p.name + ": " + e.message);
         found[key] = std::move(p);
         for (const PeImage::ImportedDll &dll : pe.imports) {
-            if (fs::findFile(dir_, dll.name)) {
+            if (fs::findFile(_dir, dll.name)) {
                 found[key].needs.push_back(fs::toLower(dll.name));
                 if (Error e = find(dll.name))
                     return e;
@@ -112,18 +112,18 @@ Error GameProcess::load() {
         }
         return Error::success();
     };
-    if (!fs::findFile(dir_, kProgram))
-        return Error::fail(std::string("No ") + kProgram + " in " + dir_.string());
+    if (!fs::findFile(_dir, kProgram))
+        return Error::fail(std::string("No ") + kProgram + " in " + _dir.string());
     if (Error e = find(kProgram))
         return e;
 
     // Our C++ library first (the game's DLLs import Visual C++ 6's), then
     // each module after those it imports from.
     const x86::Win32Process::Module *library = nullptr;
-    if (Error e = x86::loadMsvcp60(*process_, library))
+    if (Error e = x86::loadMsvcp60(*_process, library))
         return e;
-    order_.push_back(library->name);
-    modules_.push_back(library);
+    _order.push_back(library->name);
+    _modules.push_back(library);
     std::set<std::string> done;
     std::function<Error(const std::string &, int)> place = [&](const std::string &key, int depth) -> Error {
         if (done.count(key))
@@ -136,10 +136,10 @@ Error GameProcess::load() {
                 return e;
         done.insert(key);
         const x86::Win32Process::Module *m = nullptr;
-        if (Error e = process_->load(p.name, p.file, m))
+        if (Error e = _process->load(p.name, p.file, m))
             return e;
-        order_.push_back(p.name);
-        modules_.push_back(m);
+        _order.push_back(p.name);
+        _modules.push_back(m);
         return Error::success();
     };
     if (Error e = place(fs::toLower(kProgram), 0))
@@ -150,26 +150,26 @@ Error GameProcess::load() {
     // its Start and Stop were over a quarter of the instructions run while
     // playing. They're made to return at once (both cdecl, void); the
     // profile then reads zero.
-    if (const auto *lib = process_->module("DDPackedDirFileLib.dll"))
+    if (const auto *lib = _process->module("DDPackedDirFileLib.dll"))
         for (const char *name : {"?Start@DDCycleCounter@@SAXH@Z", "?Stop@DDCycleCounter@@SAXXZ"})
             if (const uint32_t at = lib->exportAddress(name))
-                cpu_->write8(at, 0xc3); // RET
+                _cpu->write8(at, 0xc3); // RET
     return Error::success();
 }
 
 Error GameProcess::attach() {
-    for (const x86::Win32Process::Module *m : modules_)
+    for (const x86::Win32Process::Module *m : _modules)
         if (fs::toLower(m->name) != fs::toLower(kProgram))
-            if (Error e = process_->attach(*m))
+            if (Error e = _process->attach(*m))
                 return e;
     return Error::success();
 }
 
 Error GameProcess::run(uint32_t &exitCode) {
-    const x86::Win32Process::Module *exe = process_->module(kProgram);
+    const x86::Win32Process::Module *exe = _process->module(kProgram);
     if (!exe)
         return Error::fail(std::string(kProgram) + " isn't loaded");
-    return process_->start(*exe, exitCode);
+    return _process->start(*exe, exitCode);
 }
 
 } // namespace reluva::netimmerse::alphateam

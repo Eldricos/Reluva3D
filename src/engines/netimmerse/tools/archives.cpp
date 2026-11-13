@@ -327,15 +327,15 @@ int cmdFinCheck(int argc, char **argv) {
 }
 
 const reluva::tool::Commands
-    commands("netimmerse",
-             {
-                 {"pac-list", "<file.pac>", "list a .pac archive's files: offset, size, date and name", cmdPacList},
-                 {"pac-extract", "<file.pac> <output dir> [name filter]",
-                  "extract a .pac archive's files (those whose name contains the filter)", cmdPacExtract},
-                 {"fin-check", "<Fin.pac> [file.pac...]",
-                  "read every .FIN model in Fin.pac; count the objects read, and check their links and (in the other "
-                  "archives given) their images",
-                  cmdFinCheck},
-             });
+    kCommands("netimmerse",
+              {
+                  {"pac-list", "<file.pac>", "list a .pac archive's files: offset, size, date and name", cmdPacList},
+                  {"pac-extract", "<file.pac> <output dir> [name filter]",
+                   "extract a .pac archive's files (those whose name contains the filter)", cmdPacExtract},
+                  {"fin-check", "<Fin.pac> [file.pac...]",
+                   "read every .FIN model in Fin.pac; count the objects read, and check their links and (in the other "
+                   "archives given) their images",
+                   cmdFinCheck},
+              });
 
 } // namespace
