@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
+#include "backends/graphics/sdl3/sdl_compute.h"
 #include "backends/platform/sdl3/sdl_system.h"
 #include "common/config.h"
 #include "common/detection.h"
@@ -65,6 +66,9 @@ static int printDetected(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    // GPU work for engines that ask (the Glide stand-in on the GPU), each on a
+    // device of its own.
+    reluva::gfx::setComputeFactory(reluva::makeSdlCompute);
     if (argc >= 2 && std::strcmp(argv[1], "--hash") == 0)
         return printHashes(argc, argv);
     if (argc >= 2 && std::strcmp(argv[1], "--detect") == 0)

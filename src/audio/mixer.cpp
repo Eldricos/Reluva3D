@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "audio/mixer.h"
+#include "audio/prologic.h"
 
 #include <algorithm>
 #include <cmath>
@@ -149,6 +150,37 @@ bool Mixer::allPaused() const {
     return allPaused_;
 }
 
+SoundHandle Mixer::playOutput(std::shared_ptr<OutputStream> stream, SoundType type, int volume) {
+    if (!stream)
+        return kNoSound;
+    std::lock_guard<std::mutex> lock(mutex_);
+    const SoundHandle handle = nextHandle_++;
+    if (nextHandle_ == kNoSound)
+        nextHandle_ = 1;
+    Channel c{handle, nullptr, nullptr, type, std::clamp(volume, 0, kMaxVolume), 0, true};
+    c.output = std::move(stream);
+    channels_.push_back(std::move(c));
+    return handle;
+}
+
+void Mixer::setRate(SoundHandle handle, double factor) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (Channel *c = find(handle))
+        c->rate = std::clamp(factor, 0.05, 20.0);
+}
+
+void Mixer::mixOutput(Channel &c, int frames, int64_t gain) {
+    outputBuffer_.assign(size_t(frames) * 2, 0);
+    c.output->read(outputBuffer_.data(), frames, outputRate_);
+    const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
+    const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
+    for (int i = 0; i < frames; ++i) {
+        accumulator_[size_t(i) * 2] += int32_t(int64_t(outputBuffer_[size_t(i) * 2]) * gainL / 65536);
+        accumulator_[size_t(i) * 2 + 1] += int32_t(int64_t(outputBuffer_[size_t(i) * 2 + 1]) * gainR / 65536);
+    }
+    c.position += double(frames);
+}
+
 void Mixer::setPan(SoundHandle handle, int pan) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (Channel *c = find(handle))
@@ -179,7 +211,11 @@ void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
     const Sound &s = *c.sound;
     const size_t n = s.frames();
     const size_t ch = size_t(s.channels);
-    const double step = double(s.rate) / double(outputRate_);
+    const double step = double(s.rate) * c.rate / double(outputRate_);
+    // Looping: the sound's loop, or all of it.
+    const size_t loopEnd = s.loopEnd && s.loopEnd < n ? s.loopEnd : n;
+    const size_t loopStart = s.loopStart < loopEnd ? s.loopStart : 0;
+    const size_t end = c.loop ? loopEnd : n;
     // A linear pan that keeps the louder side at full level.
     const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
     const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
@@ -188,17 +224,17 @@ void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
     const double scaleR = double(gainR) / 65536.0;
     auto sample = [&](size_t frame, size_t channel) { return double(s.samples[frame * ch + channel]); };
     for (int i = 0; i < frames; ++i) {
-        if (c.position >= double(n)) {
+        if (c.position >= double(end)) {
             if (!c.loop) {
                 c.done = true;
                 break;
             }
-            c.position = std::fmod(c.position, double(n));
+            c.position = double(loopStart) + std::fmod(c.position - double(loopStart), double(end - loopStart));
         }
-        // Linear interpolation towards the next frame (the first, when
-        // looping past the end; else the last holds).
+        // Linear interpolation towards the next frame (the loop's first,
+        // when looping past its end; else the last holds).
         const size_t f = size_t(c.position);
-        const size_t g = f + 1 < n ? f + 1 : (c.loop ? 0 : f);
+        const size_t g = f + 1 < end ? f + 1 : (c.loop ? loopStart : f);
         const double t = c.position - double(f);
         const double l = sample(f, 0) * (1 - t) + sample(g, 0) * t;
         const double r = ch > 1 ? sample(f, 1) * (1 - t) + sample(g, 1) * t : l;
@@ -300,7 +336,9 @@ void Mixer::mix(int16_t *out, int frames) {
         int64_t gain = int64_t(c.volume) * typeVolume_[int(c.type)];
         if (masterVolume_ != kMaxVolume)
             gain = gain * masterVolume_ / kMaxVolume;
-        if (c.queue)
+        if (c.output)
+            mixOutput(c, frames, gain);
+        else if (c.queue)
             mixQueue(c, frames, gain);
         else if (c.stream)
             mixStream(c, frames, gain);
@@ -315,6 +353,102 @@ void Mixer::mix(int16_t *out, int frames) {
 
 Error startMixerOutput(System &sys, Mixer &mixer) {
     return sys.startAudio([&mixer](int16_t *out, int frames) { mixer.mix(out, frames); });
+}
+
+Surround surroundFromSetting(const std::string &value) {
+    if (value == "prologic")
+        return Surround::ProLogic;
+    if (value == "passive")
+        return Surround::Passive;
+    if (value == "headphones")
+        return Surround::Headphones;
+    return Surround::Off;
+}
+
+Error startMixerOutput(System &sys, Mixer &mixer, Surround surround, int *channels) {
+    int count = 2;
+    if (surround == Surround::ProLogic || surround == Surround::Passive) {
+        const int device = sys.audioDeviceChannels();
+        count = device >= 6 ? 6 : device >= 4 ? 4 : 2;
+    }
+    if (channels)
+        *channels = 2;
+    if (surround == Surround::Off || (count == 2 && surround != Surround::Headphones))
+        return startMixerOutput(sys, mixer);
+    struct State {
+        ProLogicDecoder decoder;
+        std::vector<int16_t> stereo;
+        std::vector<float> decoded;
+    };
+    ProLogicOptions options;
+    options.active = surround != Surround::Passive;
+    auto state = std::make_shared<State>(State{ProLogicDecoder(mixer.outputRate(), options), {}, {}});
+    auto callback = [&mixer, state, count](int16_t *out, int frames) {
+        state->stereo.resize(size_t(frames) * 2);
+        state->decoded.resize(size_t(frames) * 4);
+        mixer.mix(state->stereo.data(), frames);
+        state->decoder.process(state->stereo.data(), state->decoded.data(), frames);
+        layOutChannels(state->decoded.data(), frames, count, out);
+    };
+    if (Error err = sys.startAudioChannels(count, callback)) {
+        if (count == 2)
+            return err;
+        return startMixerOutput(sys, mixer); // the device wouldn't open that way: stereo as mixed
+    }
+    if (channels)
+        *channels = count;
+    return Error::success();
+}
+
+void SoundQueue::push(std::shared_ptr<const Sound> sound, int tag) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.push_back({std::move(sound), tag});
+}
+
+int SoundQueue::playing() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.empty() ? -1 : queue_.front().tag;
+}
+
+size_t SoundQueue::queued() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size();
+}
+
+void SoundQueue::read(int16_t *out, int frames, int rate) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (int i = 0; i < frames; ++i) {
+        while (!queue_.empty() && position_ >= double(queue_.front().sound->frames())) {
+            position_ -= double(queue_.front().sound->frames());
+            queue_.pop_front();
+        }
+        if (queue_.empty()) {
+            out[2 * i] = out[2 * i + 1] = 0;
+            continue;
+        }
+        const Sound &s = *queue_.front().sound;
+        const size_t n = s.frames(), ch = size_t(s.channels);
+        const size_t f = size_t(position_);
+        const double t = position_ - double(f);
+        // Linear interpolation towards the frame after: this sound's, or
+        // the next one's first.
+        const Sound *after = &s;
+        size_t g = f + 1;
+        if (g >= n) {
+            if (queue_.size() > 1 && queue_[1].sound->frames() && queue_[1].sound->channels == s.channels) {
+                after = queue_[1].sound.get();
+                g = 0;
+            } else {
+                g = f;
+            }
+        }
+        for (size_t c = 0; c < 2; ++c) {
+            const size_t k = std::min(c, ch - 1);
+            const double v = s.samples[f * ch + k] * (1 - t) + after->samples[g * ch + k] * t;
+            out[2 * size_t(i) + c] = static_cast<int16_t>(std::clamp<long>(std::lround(v), -32768L, 32767L));
+        }
+        position_ += double(s.rate) / double(rate);
+    }
 }
 
 } // namespace reluva::audio

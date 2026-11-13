@@ -113,6 +113,10 @@ public:
     uint32_t flags() const { return eflags; }
     void setFlags(uint32_t v) { eflags = v; }
     uint32_t fsBase = 0; // the FS segment's base (Windows' thread information block)
+    // The segment registers' selectors, as Windows sets them, in the
+    // instruction set's order: ES, CS, SS, DS, FS, GS. The model is flat, so
+    // loading one changes nothing but the selector held (FS keeps its base).
+    std::array<uint16_t, 6> sreg{0x23, 0x1b, 0x23, 0x23, 0x3b, 0};
     // The x87 unit: its eight registers as a stack (st(i) is regs[(top + i) & 7]),
     // kept as doubles: Windows programs run it at 53-bit precision.
     struct Fpu {
@@ -120,12 +124,49 @@ public:
         uint8_t top = 0;
         uint8_t tags = 0xff; // a bit set for each empty register
         uint16_t control = 0x027f, status = 0;
+        // A 64-bit integer loaded with FILD, kept exactly alongside its
+        // double (which can't hold every one), so that FISTP stores it back
+        // unchanged: programs copy memory 8 bytes at a time that way. A
+        // bit set in exactValid for each register holding one.
+        std::array<int64_t, 8> exact{};
+        uint8_t exactValid = 0;
+        // The MMX registers: MMi is the 64-bit mantissa of physical register
+        // i, as on the Pentium MMX. A register an MMX instruction wrote (or
+        // FRSTOR loaded) keeps its 64 bits here; they hold while the double
+        // at regs[i] still has the bits it had then (mmDouble), else the
+        // mantissa is worked out from the double. A bit set in mmValid for
+        // each register holding one.
+        std::array<uint64_t, 8> mm{};
+        std::array<uint64_t, 8> mmDouble{};
+        uint8_t mmValid = 0;
     } fpu;
-    // A thread's registers, flags, x87 unit and FS base.
+    // The MMX register `i` (0-7) as an MMX instruction would read it, and
+    // written as one would: the exponent and sign set (a NaN to the x87),
+    // the stack top 0 and every register tagged valid.
+    uint64_t mmRead(int i) const;
+    void mmWrite(int i, uint64_t v);
+    // A thread's registers, flags, x87 unit and FS base (context(), for
+    // threads that take turns at their Sleep); and, for threads switched at
+    // any instruction (saveContext()), its segment selectors and where its
+    // runs are: their depth, limit, and the run loop's own state.
     struct Context {
         std::array<uint32_t, 8> reg{};
         uint32_t eip = 0, eflags = 0x202, fsBase = 0;
         Fpu fpu;
+        std::array<uint16_t, 6> sreg{0x23, 0x1b, 0x23, 0x23, 0x3b, 0};
+        int depth = 0, jitDepth = 0;
+        uint64_t limitAt = 0;
+        uint32_t instructionStart = 0;
+        std::string abort;
+        bool yield = false;
+        struct {
+            uint32_t returnAddress = 0, nativeStart = 0;
+            uint64_t end = 0;
+        } run;
+        struct {
+            const void *ops = nullptr;
+            uint32_t count = 0, start = 0;
+        } counting;
     };
 
     // --- Native code ---------------------------------------------------------
@@ -145,6 +186,8 @@ public:
     // again.
     void setWritesTracked(const std::string &nativeName);
     void noteWrite(uint32_t address, uint32_t size);
+    // How many times each native function has been called, by name.
+    std::vector<std::pair<std::string, uint64_t>> nativeCallCounts() const;
     // The name of the native function at `address`, if it is one.
     const std::string *nativeName(uint32_t address) const;
     // Where the reserved range begins: memory below it is the program's.
@@ -173,6 +216,25 @@ public:
     bool jitOn = true;
     // Stops a run with an error after this many more instructions (0: never).
     void setInstructionLimit(uint64_t limit) { limit_ = limit; }
+    // Reads in the first page give 0 rather than faulting, as Windows 95
+    // and 98 let programs read low memory (writes still fault).
+    bool readableFirstPage = false;
+    // The cache's native code (jit.h) leaves FLD st(i), FST st(i) and FXCH
+    // to their handlers, which keep FILD's exact integers and MMX values
+    // with their registers (Fpu::exact, Fpu::mm). For programs that copy
+    // memory through the x87 unit, or use MMX.
+    bool exactX87 = false;
+    // CPUID reports MMX (EDX bit 23); the model is 4, the Pentium MMX's,
+    // either way. Off by default: programs then take their non-MMX paths.
+    // The MMX instructions run either way.
+    bool reportMmx = false;
+    // Called when an instruction stores into [watchStart, watchEnd); for
+    // finding what changes memory (a debugging aid; instructions run one
+    // at a time while it's set).
+    uint32_t watchStart = 0, watchEnd = 0;
+    std::function<void(Cpu &cpu, uint32_t address, uint32_t value, int size)> onWatchedStore;
+    // Called before each native function runs, with its name; for logs.
+    std::function<void(Cpu &cpu, const std::string &name)> nativeTrace;
     uint64_t executed() const { return executed_; }
     // The thread running, for switching between the program's threads.
     Context context() const;
@@ -195,6 +257,23 @@ public:
     // What RDTSC reads; without it, the instructions run so far.
     std::function<uint64_t()> timeStamp;
 
+    // --- Threads switched at any instruction ---------------------------------
+    // Everything a thread of the program has of its own, for running
+    // several on the one processor, each on a host thread of its own, one
+    // at a time, the context swapped when they change over (Win32Process's
+    // host threads). Natives that wait swap it themselves; the others
+    // change over between two instructions, every `length` instructions:
+    // `fn` is called there, and returning false ends the run with
+    // stopMessage.
+    Context saveContext() const;
+    void loadContext(const Context &c);
+    void setSlice(uint32_t length, std::function<bool(Cpu &cpu)> fn) {
+        sliceLength_ = length;
+        nextSlice_ = executed_ + length;
+        slice_ = std::move(fn);
+    }
+    std::string stopMessage = "the run was stopped";
+
     // The registers as they were when the last call() failed (before they
     // were put back), for reports.
     std::array<uint32_t, 8> faultReg{};
@@ -210,6 +289,36 @@ private:
     };
     [[noreturn]] void fault(const std::string &message);
     [[noreturn]] void memoryFault(uint32_t address, uint32_t size);
+    // A load outside memory: 0 in the first page if readableFirstPage, else
+    // a fault.
+    uint32_t loadOutside(uint32_t address, int size);
+    // A load in the first page from native code (the Jit's), to be run
+    // again by the interpreter (readableFirstPage).
+    struct FirstPageLoad {};
+    // The count at which runs must stop for events(): the instruction
+    // limit, or the next slice; and those, when it's reached (false: no
+    // slice ran).
+    uint64_t eventsAt() const {
+        uint64_t at = limit_ ? limitAt_ : ~uint64_t(0);
+        if (sliceLength_ && nextSlice_ - 1 < at)
+            at = nextSlice_ - 1;
+        return at;
+    }
+    bool events();
+    void pushSegment(int s);
+    void popSegment(int s);
+    void mmx(uint8_t op); // mmx.cpp: 0f 60-7f and 0f d0-ff
+    uint64_t loadQword(uint32_t a) { return load(a, 4) | uint64_t(load(a + 4, 4)) << 32; }
+    void storeQword(uint32_t a, uint64_t v) {
+        at(a, 8);
+        store(a, uint32_t(v), 4);
+        store(a + 4, uint32_t(v >> 32), 4);
+    }
+    // Copies st(from)'s exact integer, if it has one, to st(to).
+    void copyExact(int to, int from);
+    // FXCH st(i)'s for the exact integers and MMX values: they move with
+    // their registers.
+    void exchangeExtras(int i);
     void step();
     void execute();
     void runUntil(uint32_t returnAddress);
@@ -264,6 +373,7 @@ private:
         std::string name;
         Native fn;
         bool writesTracked = false;
+        uint64_t calls = 0;
     };
     std::vector<NativeEntry> natives_;
     uint32_t nativeBase_ = 0; // natives are at nativeBase_ + 16 * index
@@ -367,6 +477,9 @@ private:
     std::string abort_;
     bool yield_ = false;
     struct Yield {};
+    uint32_t sliceLength_ = 0;
+    uint64_t nextSlice_ = 0; // when the next slice is due (in instructions run)
+    std::function<bool(Cpu &cpu)> slice_;
 };
 
 // The hot paths of running instructions, inline.
@@ -378,7 +491,9 @@ RELUVA_FORCE_INLINE uint8_t *Cpu::at(uint32_t a, uint32_t size) {
 }
 
 RELUVA_FORCE_INLINE uint32_t Cpu::load(uint32_t a, int size) {
-    const uint8_t *p = at(a, uint32_t(size));
+    if (!valid(a, uint32_t(size))) [[unlikely]]
+        return loadOutside(a, size);
+    const uint8_t *p = memory_.data() + a;
     if (size == 1)
         return p[0];
     if (size == 2)
@@ -399,6 +514,8 @@ inline uint8_t *Cpu::atWrite(uint32_t a, uint32_t size) {
 RELUVA_FORCE_INLINE void Cpu::store(uint32_t a, uint32_t v, int size) {
     uint8_t *p = at(a, uint32_t(size));
     notePageWrite(a); // a write reaching into the next page: that's marked too (build)
+    if (a < watchEnd && a + uint32_t(size) > watchStart && onWatchedStore) [[unlikely]]
+        onWatchedStore(*this, a, v, size);
     if (size == 1)
         p[0] = uint8_t(v);
     else if (size == 2) {
@@ -424,6 +541,7 @@ RELUVA_FORCE_INLINE void Cpu::fpuPush(double v) {
     fpu.top = uint8_t((fpu.top - 1) & 7);
     fpu.regs[fpu.top] = v;
     fpu.tags &= uint8_t(~(1u << fpu.top));
+    fpu.exactValid &= uint8_t(~(1u << fpu.top));
 }
 
 RELUVA_FORCE_INLINE double Cpu::fpuPop() {

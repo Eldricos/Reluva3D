@@ -2,11 +2,14 @@
 // Copyright (C) 2026 The Reluva contributors
 
 #include "backends/platform/sdl3/sdl_system.h"
+#include "backends/platform/sdl3/sdl_controller.h"
 #include "backends/graphics/sdl3/sdl_gpu.h"
 #include "backends/networking/sockets/socket_net.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <string>
 
 namespace reluva {
 
@@ -110,6 +113,7 @@ MouseButton translateButton(uint8_t b) {
 SdlSystem::SdlSystem() = default;
 
 SdlSystem::~SdlSystem() {
+    closeController();
     stopAudio();
     release3D();
     releaseCursor();
@@ -631,6 +635,21 @@ void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
         SDL_SetWindowRelativeMouseMode(window_, true);
 }
 
+bool SdlSystem::desktopMode(int &width, int &height, int &bits) {
+    SDL_DisplayID display = window_ ? SDL_GetDisplayForWindow(window_) : 0;
+    if (!display)
+        display = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode *mode = display ? SDL_GetDesktopDisplayMode(display) : nullptr;
+    if (!mode || mode->w <= 0 || mode->h <= 0)
+        return false;
+    width = mode->w;
+    height = mode->h;
+    // In memory: 32 for the usual XRGB8888 (SDL_BITSPERPIXEL's 24 bits of
+    // colour in 4 bytes), 16 for RGB565, 15 for XRGB1555.
+    bits = SDL_BYTESPERPIXEL(mode->format) == 4 ? 32 : int(SDL_BITSPERPIXEL(mode->format));
+    return bits > 0;
+}
+
 void SdlSystem::setRelativeMouse(bool on) {
     relativeMouse_ = on;
     if (window_)
@@ -675,21 +694,38 @@ void SdlSystem::delayMillis(uint32_t ms) {
 
 void SDLCALL SdlSystem::audioThunk(void *userdata, SDL_AudioStream *stream, int additional, int) {
     auto *self = static_cast<SdlSystem *>(userdata);
-    const int frames = additional / (2 * static_cast<int>(sizeof(int16_t)));
+    const int frameBytes = self->audioChannels_ * static_cast<int>(sizeof(int16_t));
+    const int frames = additional / frameBytes;
     if (frames <= 0)
         return;
-    self->audioBuffer_.resize(static_cast<size_t>(frames) * 2);
+    self->audioBuffer_.resize(static_cast<size_t>(frames) * size_t(self->audioChannels_));
     self->audioCallback_(self->audioBuffer_.data(), frames);
-    SDL_PutAudioStreamData(stream, self->audioBuffer_.data(), frames * 4);
+    SDL_PutAudioStreamData(stream, self->audioBuffer_.data(), frames * frameBytes);
 }
 
 Error SdlSystem::startAudio(AudioCallback callback) {
+    return startAudioChannels(2, std::move(callback));
+}
+
+int SdlSystem::audioDeviceChannels() const {
+    SDL_AudioSpec spec{};
+    if (!SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr) || spec.channels <= 0)
+        return 2;
+    return spec.channels;
+}
+
+Error SdlSystem::startAudioChannels(int channels, AudioCallback callback) {
     stopAudio();
+    if (channels < 1 || channels > 8)
+        return Error::fail("Cannot open audio with " + std::to_string(channels) + " channels");
     audioCallback_ = std::move(callback);
-    const SDL_AudioSpec spec{SDL_AUDIO_S16, 2, kAudioRate};
+    audioChannels_ = channels;
+    const SDL_AudioSpec spec{SDL_AUDIO_S16, channels, kAudioRate};
     audioStream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audioThunk, this);
-    if (!audioStream_)
+    if (!audioStream_) {
+        audioCallback_ = nullptr;
         return Error::fail(std::string("Cannot open audio: ") + SDL_GetError());
+    }
     SDL_ResumeAudioStreamDevice(audioStream_);
     return Error::success();
 }
@@ -714,6 +750,11 @@ bool SdlSystem::resolveHost(const std::string &host, uint32_t &ip) {
 
 std::vector<uint32_t> SdlSystem::broadcastAddresses() {
     return net::systemBroadcastAddresses();
+}
+
+std::shared_ptr<net::Sockets> SdlSystem::sockets() {
+    static const std::shared_ptr<net::Sockets> shared = net::systemSockets();
+    return shared;
 }
 
 } // namespace reluva

@@ -36,3 +36,6 @@ games/
 
 # A machine's own engine choices (see engines.cfg)
 engines.local.cfg
+
+# Python
+__pycache__/

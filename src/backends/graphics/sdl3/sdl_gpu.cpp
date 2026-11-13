@@ -40,6 +40,8 @@ struct VertexUniforms {
 };
 struct FragmentUniforms {
     float params[4];
+    float fog[4];   // rgb, and DrawCall::tableFog
+    float blend[4]; // blendOut's factors (draw)
     float lightCount[4];
     float lightPos[gfx::kMaxDynamicLights][4]; // xyz, radius
     float lightColor[gfx::kMaxDynamicLights][4];
@@ -71,6 +73,14 @@ SDL_GPUBlendFactor blendFactor(gfx::Blend b) {
     return SDL_GPU_BLENDFACTOR_ONE;
 }
 
+void waitAndRelease(SDL_GPUDevice *device, SDL_GPUFence *&fence) {
+    if (!fence)
+        return;
+    SDL_WaitForGPUFences(device, true, &fence, 1);
+    SDL_ReleaseGPUFence(device, fence);
+    fence = nullptr;
+}
+
 uint32_t packState(const gfx::DrawState &s) {
     return uint32_t(s.src) | uint32_t(s.dst) << 4 | uint32_t(s.depthTest) << 8 | uint32_t(s.depthWrite) << 9 |
            uint32_t(s.cull) << 10 | uint32_t(s.depthEqual) << 12 | uint32_t(s.depthBias) << 13;
@@ -87,6 +97,8 @@ SdlGpuRenderer::~SdlGpuRenderer() {
     }
     // Nothing may still be using the resources.
     SDL_WaitForGPUIdle(device_);
+    for (SDL_GPUFence *&f : frameFences_)
+        waitAndRelease(device_, f);
     textures_.erase(frameTexture_); // the frame itself, released below
     for (auto &[id, t] : textures_)
         SDL_ReleaseGPUTexture(device_, t.texture);
@@ -541,6 +553,12 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t *rgba, 
     SDL_EndGPUCopyPass(copy);
     SDL_SubmitGPUCommandBuffer(cmd);
     SDL_ReleaseGPUTransferBuffer(device_, tb);
+    // SDL submitted a command buffer of its own to make the texture, and
+    // the upload is another: let it take them back now and then.
+    if (++texturesUnwaited_ >= kTexturesPerWait) {
+        SDL_WaitForGPUIdle(device_);
+        texturesUnwaited_ = 0;
+    }
 
     out = nextId_++;
     textures_[out] = {tex, int(params.clamp) | int(levels > 1) << 1 | int(params.nearest) << 2 |
@@ -612,7 +630,7 @@ Error SdlGpuRenderer::setMeshVertices(gfx::MeshId id, const std::vector<gfx::Ver
         flush(); // nothing waiting for the old buffer
         SDL_GPUBufferCreateInfo bi{};
         bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-        bi.size = bytes;
+        bi.size = bytes + bytes / 2; // room to grow: geometry made anew each frame
         SDL_GPUBuffer *buffer = SDL_CreateGPUBuffer(device_, &bi);
         if (!buffer || !upload(vertices.data(), bytes, buffer)) {
             if (buffer)
@@ -621,7 +639,7 @@ Error SdlGpuRenderer::setMeshVertices(gfx::MeshId id, const std::vector<gfx::Ver
         }
         SDL_ReleaseGPUBuffer(device_, it->second.vertices);
         it->second.vertices = buffer;
-        it->second.vertexBytes = bytes;
+        it->second.vertexBytes = bi.size;
     }
     if (boundMesh_ == id)
         boundMesh_ = 0;
@@ -783,6 +801,9 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
     maxDepth_ = 1;
     viewport_ = {0, 0, float(width_), float(height_), 0, 1};
     boundMesh_ = 0;
+    // No more than kFramesInFlight frames on the GPU: each holds command
+    // buffers, whose descriptor-set caches SDL keeps.
+    waitAndRelease(device_, frameFences_[frameIndex_ % kFramesInFlight]);
     cmd_ = SDL_AcquireGPUCommandBuffer(device_);
     if (!cmd_)
         return;
@@ -794,7 +815,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
     mirrored_ = false;
     // No marks to start with.
     const SDL_FColor c = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
-    pass_ = beginPass(&c, false);
+    pass_ = beginPass(keepFrame_ ? nullptr : &c, false);
     if (pass_)
         SDL_SetGPUStencilReference(pass_, stencilRef_); // both kinds of mark, unless set
 }
@@ -806,7 +827,31 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     auto mesh = meshes_.find(call.mesh);
     if (mesh == meshes_.end())
         return;
-    SDL_GPUGraphicsPipeline *p = pipeline(call.state);
+    // With the frame's alpha unused, blends of the source alpha go through
+    // one pipeline, (one, one minus source alpha), the factors applied in
+    // the fragment shader (blendOut). Games that alternate, say, blended
+    // and added polygons (a race of Need for Speed III: about 1,500
+    // switches a frame) then don't switch pipelines, each switch taking
+    // SDL four new descriptor sets.
+    gfx::DrawState state = call.state;
+    float blendSrc = 0, blendDst = 0; // FragmentUniforms::blend
+    if (frameAlphaUnused_ && !(state.src == gfx::Blend::One && state.dst == gfx::Blend::Zero)) {
+        const int s = state.src == gfx::Blend::Zero       ? 0
+                      : state.src == gfx::Blend::One      ? 1
+                      : state.src == gfx::Blend::SrcAlpha ? 2
+                                                          : -1;
+        const int d = state.dst == gfx::Blend::Zero               ? 1
+                      : state.dst == gfx::Blend::One              ? 2
+                      : state.dst == gfx::Blend::OneMinusSrcAlpha ? 3
+                                                                  : -1;
+        if (s >= 0 && d >= 0) {
+            state.src = gfx::Blend::One;
+            state.dst = gfx::Blend::OneMinusSrcAlpha;
+            blendSrc = float(s);
+            blendDst = float(d);
+        }
+    }
+    SDL_GPUGraphicsPipeline *p = pipeline(state);
     if (!p)
         return;
     if (p != boundPipeline_) {
@@ -860,6 +905,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
     vu.mode2[2] = call.fogDepth;
+    vu.mode2[3] = call.tableFogFromDepth ? 1.0f : 0.0f;
     put(vu.fogPlane, call.fogPlane);
     for (size_t i = 0; i < call.deforms.size(); ++i) {
         const gfx::Deform &d = call.deforms[i];
@@ -883,6 +929,10 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     FragmentUniforms fu{};
     fu.params[0] = float(call.state.alphaTest);
     fu.params[3] = call.fogDepth > 0 ? 1.0f : 0.0f;
+    fu.blend[0] = blendSrc;
+    fu.blend[1] = blendDst;
+    std::copy(call.tableFogColor.begin(), call.tableFogColor.end(), fu.fog);
+    fu.fog[3] = call.tableFog;
     if (call.texture == frameTexture_) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / gamma_;
@@ -973,9 +1023,13 @@ void SdlGpuRenderer::endFrame(const Surface *overlay) {
     }
     // Submitted before the renderer's own commands, which then sample it.
     if (cmd_ && captureWanted_)
-        capture(brighten ? gammaFrame_ : color_);
-    else if (cmd_)
-        SDL_SubmitGPUCommandBuffer(cmd_);
+        capture(brighten ? gammaFrame_ : color_); // waits for it
+    else if (cmd_) {
+        SDL_GPUFence *&fence = frameFences_[frameIndex_ % kFramesInFlight];
+        waitAndRelease(device_, fence); // (none: beginFrame took it)
+        fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd_);
+    }
+    ++frameIndex_;
     cmd_ = nullptr;
     captureWanted_ = false;
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);

@@ -24,7 +24,7 @@ documentation. It's all in `src/emulation/x86/`.
 
 - Structured exception handling isn't dispatched: `RaiseException` and
   `RtlUnwind` end the run.
-- No MMX or SSE (the game DLLs predate their common use).
+- MMX, but no SSE or 3DNow! (the games of the time rarely need them).
 - The interpreter checks each memory access. Instructions are decoded
   once and kept: see [cpu.md](cpu.md#the-decoded-instruction-cache).
 
@@ -51,3 +51,6 @@ are in `tests/common/` (`common.unit.x86`, `common.unit.jit`,
   ([disasm.md](disasm.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`nfs`**: Need for Speed III's whole program, with its threads, drives,
+  DirectX of its own and its Voodoo renderers on the Glide stand-in
+  ([its README](../../engines/nfs/games/nfs3/README.md)).

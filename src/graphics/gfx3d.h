@@ -157,6 +157,14 @@ struct DrawCall {
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // > 0: the fragment's colour is blended towards tableFogColor by a 3D
+    // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
+    // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their
+    // distance along the view), as THRASH's renderers fog; or with
+    // tableFogFromDepth, w the depth along the view as projected.
+    float tableFog = 0;
+    std::array<float, 3> tableFogColor{};
+    bool tableFogFromDepth = false;
     // > 0: the fragment's alpha is instead how fogged it is in a fog
     // volume, as Quake 3 has it: by its distance along the view axis
     // over fogDepth, scaled down by how far it is under the volume's
@@ -205,6 +213,15 @@ public:
     // The GPU and driver doing the work, for diagnostics.
     virtual std::string deviceName() const = 0;
 
+    // Whether frames begin with what the last one left (true), as a
+    // software renderer's buffer does, rather than cleared (the default).
+    virtual void setKeepFrame(bool keep) { (void)keep; }
+    // That nothing reads the frame's alpha (no DstAlpha blend factors): the
+    // renderer may then leave it other than the blend factors say, and
+    // draw the blends of the source alpha (source factor zero, one or
+    // SrcAlpha; destination zero, one or OneMinusSrcAlpha) with one
+    // pipeline state, which costs less to switch between. Off by default.
+    virtual void setFrameAlphaUnused(bool unused) { (void)unused; }
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space; `eye` is the camera's position.
     virtual void beginFrame(const Mat4 &viewProj, const Vec3 &eye, Color clear) = 0;

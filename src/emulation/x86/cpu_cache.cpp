@@ -450,17 +450,20 @@ struct CachedOps {
     static void fLoadSt(Cpu &c, const Cached &e) {
         next(c, e);
         c.fpuPush(c.st(e.rm));
+        c.copyExact(0, e.rm + 1);
     }
     template<bool Pop>
     static void fStoreSt(Cpu &c, const Cached &e) { // DD D0+i, D8+i
         next(c, e);
         c.st(e.rm) = c.st(0);
+        c.copyExact(e.rm, 0);
         if (Pop)
             c.fpuPop();
     }
     static void fxch(Cpu &c, const Cached &e) {
         next(c, e);
         std::swap(c.st(0), c.st(e.rm));
+        c.exchangeExtras(e.rm);
     }
     static void fchs(Cpu &c, const Cached &e) {
         next(c, e);
@@ -520,15 +523,17 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             now = {ret, natives, end};
         }
         ~Bounds() { now = before; }
-    } bounds{run_, returnAddress, nativeStart, limit_ ? limitAt_ : ~uint64_t(0)};
-    const uint64_t end = limit_ ? limitAt_ : ~uint64_t(0);
+    } bounds{run_, returnAddress, nativeStart, eventsAt()};
+    // Where events() is due: the limit, or a thread's slice.
+    uint64_t end = eventsAt();
     Block *const blocks = blocks_.data();
     const uint8_t *const memory = memory_.data();
     do {
         if (stop_.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
             instructionStart_ = eip;
-            if (++executed_ > end)
-                fault("instruction limit reached");
+            if (executed_ + 1 > end)
+                events();
+            ++executed_;
             fault("stopped");
         }
         const uint32_t pair = slotOf(eip);
@@ -593,7 +598,16 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                         explicit Depth(int &n) : d(n) { ++d; }
                         ~Depth() { --d; }
                     } depth{jitDepth_};
-                    jit->run(this, b.jit);
+                    try {
+                        jit->run(this, b.jit);
+                    } catch (FirstPageLoad &) {
+                        // A load from the first page, which reads 0
+                        // (readableFirstPage): the instruction run from its
+                        // bytes, counted already.
+                        counting_.ops = nullptr;
+                        eip = instructionStart_;
+                        execute();
+                    }
                     counting_.ops = nullptr;
                     continue;
                 }
@@ -606,14 +620,25 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             }
             counting_.ops = nullptr;
         } else {
+            bool sliced = false;
             for (;; ++e) {
                 instructionStart_ = eip;
-                if (++executed_ > end)
-                    fault("instruction limit reached");
+                if (executed_ + 1 > end) {
+                    // Another thread may run meanwhile, and change the
+                    // table: the block is found again after.
+                    sliced = events();
+                    end = eventsAt();
+                    run_.end = end;
+                    if (sliced)
+                        break;
+                }
+                ++executed_;
                 e->run(*this, *e);
                 if (e == last)
                     break;
             }
+            if (sliced)
+                continue;
         }
         // (A native the Jit's dispatch called may have asked the thread to
         // yield: runUntil sees to it.)
@@ -746,6 +771,10 @@ void Cpu::compileBlock(Block &b) {
                 o.mem = false; // INC and DEC of a register: its number in rm
         } else
             o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
+        // The x87 unit's exact integers and MMX values move with these in
+        // their handlers only (exactX87).
+        if (exactX87 && (o.kind == K::FLoadSt || o.kind == K::FStoreSt || o.kind == K::Fxch))
+            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         // One run from its bytes (length 0) can't be made here: it reads eip.
         if (!e.length)
             o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
@@ -761,7 +790,15 @@ void Cpu::compileBlock(Block &b) {
 }
 
 void Cpu::jitMemoryFault(void *cpu, uint32_t address, uint32_t size) {
-    static_cast<Cpu *>(cpu)->memoryFault(address, size);
+    Cpu &c = *static_cast<Cpu *>(cpu);
+    if (c.readableFirstPage && address < kPageSize && address + size <= kPageSize) {
+        // Perhaps a load (a store faults still): runCached runs the
+        // instruction again from its bytes, as one that faulted would be
+        // left (uncountBlock).
+        c.uncountBlock();
+        throw FirstPageLoad{};
+    }
+    c.memoryFault(address, size);
 }
 
 // A native at eip, from the Jit's dispatch, as runUntil's step() calls it:

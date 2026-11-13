@@ -245,7 +245,7 @@ uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
     const uint32_t tib = arena_->alloc(Cpu::kPageSize + kThreadStackSize, Cpu::kPageSize);
     const uint32_t stack = tib + Cpu::kPageSize;
     const uint32_t top = stack + kThreadStackSize;
-    const uint32_t id = 0x104 + 4 * uint32_t(threads_.size() + 1);
+    const uint32_t id = 0x104 + 4 * uint32_t(turnThreads_.size() + 1);
     cpu_.write32(tib + 0x00, 0xffffffffu); // no exception handlers yet
     cpu_.write32(tib + 0x04, top);
     cpu_.write32(tib + 0x08, stack);
@@ -253,7 +253,7 @@ uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
     cpu_.write32(tib + 0x20, 0x100);
     cpu_.write32(tib + 0x24, id);
     cpu_.write32(tib + 0x30, peb_);
-    Thread t;
+    TurnThread t;
     t.handle = 0x7fc00000u + id;
     t.context.eip = start;
     t.context.fsBase = tib;
@@ -262,25 +262,25 @@ uint32_t Win32Process::startThread(uint32_t start, uint32_t arg) {
     cpu_.write32(top - 16 - 4, arg);
     t.context.fpu.control = 0x027f;
     t.wakeAt = milliseconds();
-    threads_.push_back(t);
+    turnThreads_.push_back(t);
     return t.handle;
 }
 
 void Win32Process::runThreads() {
     if (current_ >= 0)
         return;
-    for (size_t i = 0; i < threads_.size(); ++i) {
-        if (threads_[i].finished || int32_t(milliseconds() - threads_[i].wakeAt) < 0)
+    for (size_t i = 0; i < turnThreads_.size(); ++i) {
+        if (turnThreads_[i].finished || int32_t(milliseconds() - turnThreads_[i].wakeAt) < 0)
             continue;
         const Cpu::Context main = cpu_.context();
         current_ = int(i);
-        cpu_.setContext(threads_[i].context);
+        cpu_.setContext(turnThreads_[i].context);
         const Error e = cpu_.resume();
-        threads_[i].context = cpu_.context();
+        turnThreads_[i].context = cpu_.context();
         current_ = -1;
         cpu_.setContext(main);
         if (e) {
-            threads_[i].finished = true;
+            turnThreads_[i].finished = true;
             if (output)
                 output("A thread failed: " + e.message + "\n");
         }
@@ -288,17 +288,18 @@ void Win32Process::runThreads() {
 }
 
 void Win32Process::threadSleep(uint32_t ms) {
-    threads_[size_t(current_)].wakeAt = milliseconds() + ms;
+    turnThreads_[size_t(current_)].wakeAt = milliseconds() + ms;
     cpu_.yield();
 }
 
 void Win32Process::threadEnd() {
-    threads_[size_t(current_)].finished = true;
+    turnThreads_[size_t(current_)].finished = true;
     cpu_.yield();
 }
 
 size_t Win32Process::threadsRunning() const {
-    return size_t(std::count_if(threads_.begin(), threads_.end(), [](const Thread &t) { return !t.finished; }));
+    return size_t(
+        std::count_if(turnThreads_.begin(), turnThreads_.end(), [](const TurnThread &t) { return !t.finished; }));
 }
 
 const Win32Process::Module *Win32Process::module(const std::string &name) const {
@@ -306,6 +307,27 @@ const Win32Process::Module *Win32Process::module(const std::string &name) const 
         if (dllKey(m->name) == dllKey(name))
             return m.get();
     return nullptr;
+}
+
+const Win32Process::Module *Win32Process::moduleAt(uint32_t base) const {
+    for (const auto &m : modules_)
+        if (m->base == base)
+            return m.get();
+    return nullptr;
+}
+
+const Win32Process::Module *Win32Process::moduleContaining(uint32_t address) const {
+    for (const auto &m : modules_)
+        if (address >= m->base && address - m->base < m->size)
+            return m.get();
+    return nullptr;
+}
+
+uint32_t Win32Process::exeBase() const {
+    for (const auto &m : modules_)
+        if (!(m->image.characteristics & 0x2000)) // IMAGE_FILE_DLL
+            return m->base;
+    return kExeHandle;
 }
 
 const Win32Process::Module *Win32Process::loadFromDisk(const std::string &name) {
@@ -391,9 +413,30 @@ void Win32Process::timeStampFromClock() {
     };
 }
 
-void Win32Process::provide(const std::string &dll, const std::string &function, Cpu::Native fn) {
+uint32_t Win32Process::provide(const std::string &dll, const std::string &function, Cpu::Native fn) {
     const std::string key = dllKey(dll) + "!" + function;
-    provided_[key] = cpu_.addNative(dll + "!" + function, std::move(fn));
+    return provided_[key] = cpu_.addNative(dll + "!" + function, std::move(fn));
+}
+
+void Win32Process::setCommandLine(const std::string &line) {
+    uint32_t size = arena_->size(commandLine_);
+    if (line.size() + 1 > size) {
+        arena_->free(commandLine_);
+        size = uint32_t(line.size()) + 1;
+        commandLine_ = arena_->alloc(size);
+    }
+    cpu_.writeString(commandLine_, line, size);
+}
+
+uint32_t Win32Process::addHandle(std::shared_ptr<KernelObject> object) {
+    const uint32_t h = nextHandle_;
+    nextHandle_ += 4;
+    handles_[h] = std::move(object);
+    return h;
+}
+
+bool Win32Process::closeHandle(uint32_t handle) {
+    return handles_.erase(handle) > 0;
 }
 
 void Win32Process::provideStdcall(const std::string &dll, const std::string &function, int args,
@@ -472,7 +515,9 @@ Error Win32Process::load(const std::string &name, const std::vector<uint8_t> &fi
     uint8_t *image = cpu_.memory().data() + base;
     std::memcpy(image, file.data(), std::min<size_t>({file.size(), pe.headersSize, size}));
     for (const PeImage::Section &s : pe.sections) {
-        if (s.virtualAddress >= size || s.rawOffset >= file.size())
+        // Zero-filled sections (.bss) have no data in the file, whatever
+        // their raw size says (Watcom's linker gives one).
+        if (s.virtualAddress >= size || s.rawOffset >= file.size() || s.rawOffset == 0 || (s.characteristics & 0x80))
             continue;
         const uint32_t room = size - s.virtualAddress;
         const size_t n = std::min<size_t>({s.rawSize, s.virtualSize ? std::max(s.virtualSize, s.rawSize) : s.rawSize,
@@ -611,6 +656,12 @@ void Win32Process::addStandIns() {
         }
         return 1u;
     });
+    // Page protection isn't kept (every page is readable and writable).
+    stdcall(k, "VirtualProtect", 4, [](Cpu &c) {
+        if (c.arg(3))
+            c.write32(c.arg(3), 4); // PAGE_READWRITE
+        return 1u;
+    });
     stdcall(k, "IsBadReadPtr", 2, [](Cpu &c) { return c.arg(1) && !c.valid(c.arg(0), c.arg(1)) ? 1u : 0u; });
     stdcall(k, "IsBadWritePtr", 2, [](Cpu &c) { return c.arg(1) && !c.valid(c.arg(0), c.arg(1)) ? 1u : 0u; });
     stdcall(k, "IsBadCodePtr", 1, [](Cpu &c) { return c.valid(c.arg(0), 1) ? 0u : 1u; });
@@ -635,7 +686,7 @@ void Win32Process::addStandIns() {
         return 0u;
     });
     stdcall(k, "GetModuleHandleA", 1,
-            [this](Cpu &c) { return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : kExeHandle; });
+            [this](Cpu &c) { return c.arg(0) ? moduleHandle(c.string(c.arg(0))) : exeBase(); });
     stdcall(k, "GetModuleFileNameA", 3, [this](Cpu &c) {
         std::string name = exeName_;
         for (const auto &m : modules_)

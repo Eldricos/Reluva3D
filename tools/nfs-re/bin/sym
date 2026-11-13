@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "${NFSRE_PYTHON:-python3}" "$(dirname "$0")/../nfsre.py" sym "$@"

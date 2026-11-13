@@ -110,6 +110,66 @@ C++ library have pages of their own ([directx.md](directx.md),
   `mapPath`) and runs its start-up. `GetProcAddress` reports the names it
   can't find to `output`.
 
+### Drives (`addDrive`)
+
+For a program that expects drive letters of its own (Need for Speed III
+installs to C: and reads its CD on D:), instead of `mapPath`. The first
+drive added puts its own stand-ins for files, folders and drives in
+place of those above; `mapPath` then finds files on the drives too
+(`LoadLibraryA`, the C runtime's). Each drive letter the program sees is
+a host folder:
+
+- names are matched ignoring case;
+- what the program writes can be kept in a folder of its own
+  (`Drive::writable`), so the game's folder stays as it was; a file
+  changed is copied there first, and a search lists both;
+- a CD drive is read-only, with its label and serial;
+- the stand-ins cover files (`CreateFileA` with each disposition's errors,
+  a new file only in a folder that's there, `NUL`), searches, folders,
+  drives, volume labels, free space and read-only file mappings;
+- handles are kernel objects (`addHandle`, `object<T>`), from 0x10000000;
+- `COM1` to `COM9` are devices the engine provides (`openSerialPort`, a
+  `DeviceObject`), read plainly or overlapped: an overlapped read with
+  nothing there is left pending, its event signalled when there is, the
+  bytes taken by `GetOverlappedResult`.
+
+### Host threads (`useHostThreads`)
+
+For a whole program whose threads wait on each other, instead of the
+turns above. The program's threads take turns on the one processor. Each
+runs on a host thread of its own, with its own stack and information
+block; only the one holding the turn runs, and the processor's context
+(`Cpu::saveContext`) changes with it. As on Windows:
+
+- the runnable thread of highest priority runs, in turn with those of
+  the same priority;
+- one that wakes a thread of higher priority hands over at once;
+- otherwise they change over when one waits, and every few thousand
+  instructions (`slice`), so that a thread polling a variable lets the
+  others run.
+
+`useHostThreads` puts their stand-ins in place: threads, events, mutexes,
+critical sections, the waits, thread-local storage (the TLS array at the
+block's 0xE10, as Windows 95's), `Sleep`, `ExitProcess`, and the
+multimedia timer (`timeSetEvent`), whose callbacks run on one timer
+thread of time-critical priority, as WINMM's do. `run` runs an
+executable's entry point on the main thread until it ends the process.
+
+### Executables
+
+- an EXE is loaded at 0x400000, which is kept clear (`loadsExe`);
+- its name, folder and command line are set by the engine (`setProgram`,
+  `setCommandLine`);
+- zero-filled sections are left as zeros whatever raw size the file
+  gives them (Watcom's linker gives one);
+- resources can be read (`findResource` in `src/common/pe.cpp`: the
+  version information, for one);
+- `VirtualProtect` succeeds (every page is readable and writable);
+- a library a program loads can be a set of native functions under its
+  exports' names: `src/emulation/x86/glide/glide2_x86.h` serves 3dfx's
+  `glide2x.dll` so, reading the structures its arguments point at from
+  guest memory ([the Glide stand-in](../graphics/glide.md)).
+
 ## Sources and checks
 
 - **Where the facts come from:** Microsoft's published API documentation,
@@ -135,6 +195,10 @@ C++ library have pages of their own ([directx.md](directx.md),
   its movement since the last read, its buffer) and keyboard.
 - **Confidence:** published unless marked.
 
+- `tests/common/drives.cpp` (`common.unit.drives`) checks the drives'
+  paths, a new file's folder, and a serial port read plainly and
+  overlapped.
+
 ## Used by
 
 - **`idtech3`**: Star Trek: Voyager - Elite Force's single-player DLLs
@@ -143,3 +207,5 @@ C++ library have pages of their own ([directx.md](directx.md),
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`nfs`**: Need for Speed III's whole program, on drives, with host
+  threads ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).

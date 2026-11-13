@@ -44,6 +44,8 @@ public:
     int width() const override { return width_; }
     int height() const override { return height_; }
     std::string deviceName() const override;
+    void setKeepFrame(bool keep) override { keepFrame_ = keep; }
+    void setFrameAlphaUnused(bool unused) override { frameAlphaUnused_ = unused; }
     void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) override;
     void draw(const gfx::DrawCall &call) override;
     void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override {
@@ -108,6 +110,25 @@ private:
     std::vector<uint8_t> staging_;
     SDL_GPUTransferBuffer *transfer_ = nullptr;
     uint32_t transferBytes_ = 0;
+    // Command buffers in flight are kept few. SDL's Vulkan backend gives
+    // every command buffer a descriptor-set cache from a pool, and returns
+    // it only once the buffer is known to be done (when a frame is shown
+    // or a fence waited for); a cache is never freed or shrunk, and the
+    // pool hands them out in turn, so in time each grows to a whole
+    // frame's draws. With Mesa's software driver every descriptor set is
+    // a memory mapping of its own: hundreds of command buffers in flight
+    // at a load (one SDL submits for every texture it creates, and one
+    // for each texture's upload) meant hundreds of caches, and after a
+    // few races more mappings than a process may have. So after
+    // kTexturesPerWait textures made, the renderer waits for the GPU,
+    // which lets SDL take back the command buffers done; and no more than
+    // kFramesInFlight frames are on the GPU (beginFrame waits for the one
+    // that many before it).
+    static constexpr int kTexturesPerWait = 8;
+    static constexpr int kFramesInFlight = 2;
+    int texturesUnwaited_ = 0;                        // made since the last wait for everything
+    SDL_GPUFence *frameFences_[kFramesInFlight] = {}; // the last frames sent, by frameIndex_
+    unsigned frameIndex_ = 0;
     SDL_GPUGraphicsPipeline *pipeline(const gfx::DrawState &state);
 
     SDL_GPUDevice *device_;
@@ -119,6 +140,8 @@ private:
     uint8_t stencilRef_ = 3;    // kStencilMarks: both kinds of mark
     bool stencilWhole_ = false; // a reference set this frame: written and compared whole
     bool mirrored_ = false;
+    bool keepFrame_ = false;          // frames begin with the last one's contents
+    bool frameAlphaUnused_ = false;   // source-alpha blends share a pipeline (draw)
     SDL_GPUTexture *color_ = nullptr; // the frame, wrapped by colorView_ for the renderer
     SDL_GPUTexture *depth_ = nullptr;
     // Multisampling: the count wanted, the count the targets have, and

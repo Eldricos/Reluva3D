@@ -43,17 +43,24 @@ public:
     void setMouseCursorVisible(bool visible) override;
     void setMouseCursor(const Cursor *cursor) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
+    bool desktopMode(int &width, int &height, int &bits) override;
     void setRelativeMouse(bool on) override;
+    bool readGamepad(GamepadState &out) override;
+    void setGamepadForce(const GamepadForce &force) override;
+    void setWheelPedals(int accelerator, int brake) override;
     bool confirmQuit(const std::string &text, bool toLauncher) override;
     void setDisplayOptions(const DisplayOptions &options) override;
     uint64_t getMillis() const override;
     void delayMillis(uint32_t ms) override;
     Error startAudio(AudioCallback callback) override;
+    int audioDeviceChannels() const override;
+    Error startAudioChannels(int channels, AudioCallback callback) override;
     void stopAudio() override;
     int audioRate() const override { return kAudioRate; }
     Error openUdp(uint16_t port, std::unique_ptr<net::UdpSocket> &out) override;
     bool resolveHost(const std::string &host, uint32_t &ip) override;
     std::vector<uint32_t> broadcastAddresses() override;
+    std::shared_ptr<net::Sockets> sockets() override;
 
 private:
     static constexpr int kAudioRate = 44100;
@@ -70,6 +77,11 @@ private:
     void drawSoftwareCursor();
 
     SDL_Window *window_ = nullptr;
+    // The controller (sdl_controller.cpp): the first pad connected, or else
+    // the first wheel, opened when asked for; its forces.
+    struct Controller;
+    std::unique_ptr<Controller> controller_;
+    void closeController();
     SDL_Joystick *joystick_ = nullptr; // the first connected, whose events are passed on
     SDL_JoystickID joystickId_ = 0;
     bool relativeMouse_ = false; // held by setRelativeMouse, held again when the window changes
@@ -97,6 +109,7 @@ private:
 
     SDL_AudioStream *audioStream_ = nullptr;
     AudioCallback audioCallback_;
+    int audioChannels_ = 2;
     std::vector<int16_t> audioBuffer_; // audio thread only
 };
 

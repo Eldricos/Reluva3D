@@ -8,14 +8,18 @@
 #include "emulation/x86/cpu.h"
 
 #include <array>
+#include <atomic>
+#include <condition_variable>
 #include <cstdio>
 #include <filesystem>
 #include <functional>
 #include <map>
-#include <set>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace reluva::x86 {
@@ -54,6 +58,25 @@ private:
 // its scan code (set 1, with 0x100 for the extended keys). False for keys
 // Windows has none of.
 bool windowsKey(uint32_t key, uint32_t &virtualKey, uint32_t &scanCode);
+
+// Something a handle refers to (Win32Process::addHandle): a file, an
+// event, a thread...
+struct KernelObject {
+    virtual ~KernelObject() = default;
+};
+
+// A character device the host provides (a serial port): ReadFile and
+// WriteFile on its handle come here. They run on the program's thread and
+// may wait (Win32Process::wait); each returns false (and sets `error`, a
+// Windows error code) on failure. A read given an OVERLAPPED (`overlapped`)
+// mustn't wait: it takes what there is; with nothing there, the read is left
+// pending (ERROR_IO_PENDING), its event signalled once readable() and the
+// bytes taken by GetOverlappedResult.
+struct DeviceObject : KernelObject {
+    virtual bool read(Cpu &cpu, uint32_t buffer, uint32_t size, bool overlapped, uint32_t &done, uint32_t &error) = 0;
+    virtual bool readable() = 0;
+    virtual bool write(Cpu &cpu, uint32_t buffer, uint32_t size, uint32_t &done, uint32_t &error) = 0;
+};
 
 // A Windows process for 32-bit DLLs built for Windows 95 to XP (the C
 // runtime of Visual C++ 6 and its kind) to run in: their images loaded
@@ -106,10 +129,14 @@ public:
     // process (exitCode then holds the code it gave).
     Error start(const Module &exe, uint32_t &exitCode);
     const Module *module(const std::string &name) const;
+    // The module loaded at `base`, if any.
+    const Module *moduleAt(uint32_t base) const;
+    // The module an address is in, if any.
+    const Module *moduleContaining(uint32_t address) const;
 
     // Supplies an import (WINMM.dll's timeGetTime, say), or replaces a
-    // stand-in. `dll` is matched ignoring case.
-    void provide(const std::string &dll, const std::string &function, Cpu::Native fn);
+    // stand-in. `dll` is matched ignoring case. Returns its address.
+    uint32_t provide(const std::string &dll, const std::string &function, Cpu::Native fn);
     // A stdcall function of `args` 32-bit arguments returning `fn`'s result.
     void provideStdcall(const std::string &dll, const std::string &function, int args,
                         std::function<uint32_t(Cpu &)> fn);
@@ -123,6 +150,8 @@ public:
     // The address supplied for dll!name (a function's or a variable's); 0
     // if none.
     uint32_t provided(const std::string &dll, const std::string &name) const;
+    // The same, for a stand-in's address (for calling it from tests).
+    uint32_t standIn(const std::string &dll, const std::string &name) const { return provided(dll, name); }
     // The imports the loaded modules have that nothing stands in for
     // ("DLL!function"); calling one fails the run.
     const std::vector<std::string> &missingImports() const { return missing_; }
@@ -143,9 +172,11 @@ public:
     // tracked: then its state is kept, set by SetEvent or setEvent and
     // cleared by ResetEvent or, for an auto-reset event, by a wait that
     // finds it set. A tracked event that isn't set times out at once.
-    // Tracked are those something here sets (A3D's wave events).
+    // Tracked are those something here sets (A3D's wave events). With host
+    // threads, events are kernel objects and keep their state; setEvent
+    // then sets one (false if the handle isn't one).
     void trackEvent(uint32_t handle);
-    void setEvent(uint32_t handle);
+    bool setEvent(uint32_t handle);
 
     // The thread's stack and information block (FS).
     uint32_t stackTop() const { return stackTop_; }
@@ -162,9 +193,23 @@ public:
     const std::string &programName() const { return exeName_; }
     // Where the command line is, as GetCommandLineA returns it.
     uint32_t commandLineAddress() const { return commandLine_; }
+    // Replaces the command line setProgram made ("nfs3.exe -d3d").
+    void setCommandLine(const std::string &line);
 
     // The last error, for stand-ins added from outside (SetLastError).
     void setLastError(uint32_t e) { lastError_ = e; }
+    uint32_t lastError() const { return lastError_; }
+
+    // --- Handles ------------------------------------------------------------------
+    // Kernel objects by handle, for the stand-ins of drives and host threads
+    // (below) and the engine's own (a serial port, say).
+    uint32_t addHandle(std::shared_ptr<KernelObject> object);
+    template<typename T>
+    std::shared_ptr<T> object(uint32_t handle) const {
+        auto it = handles_.find(handle);
+        return it == handles_.end() ? nullptr : std::dynamic_pointer_cast<T>(it->second);
+    }
+    bool closeHandle(uint32_t handle);
 
     // --- Files ------------------------------------------------------------------
     // Where the program's files are: a full Windows path ("C:\\GAME\\A.PAC")
@@ -198,6 +243,115 @@ public:
     // did; its run then ends with an error saying so.
     std::optional<uint32_t> exited;
 
+    // --- Drives (win32_files.cpp) -------------------------------------------------
+    // Instead of mapPath, the program may see drives: each letter a folder
+    // of this machine, names matched ignoring case. Files written go under
+    // `writable` when it's set (the folder itself stays as it was), and are
+    // read from there first. Types: 3 a fixed disk, 5 a CD-ROM. The first
+    // drive added puts the stand-ins for files, folders and drives of their
+    // own in place of those above, with handles (addHandle); and devices
+    // (openSerialPort) and overlapped reads, which need host threads.
+    struct Drive {
+        char letter = 'C';
+        std::filesystem::path root, writable;
+        uint32_t type = 3;
+        std::string label;
+        uint32_t serial = 0x12345678;
+    };
+    void addDrive(Drive drive);
+    // The host file a Windows path names on the drives: for reading, the
+    // writable copy if there is one, else the drive's (empty if the drive
+    // isn't there).
+    std::filesystem::path hostPath(const std::string &windowsPath, bool forWriting) const;
+    // Each file the program opens, and whether it was there.
+    std::function<void(const std::string &windowsPath, bool found)> fileOpened;
+    // A device the program opens by name: "COM1" to "COM9" (also as
+    // "\\.\COM1"), its number given; null if there's none (the open fails
+    // with ERROR_FILE_NOT_FOUND).
+    std::function<std::shared_ptr<DeviceObject>(int port)> openSerialPort;
+
+    // --- Host threads (win32_threads.cpp) -------------------------------------------
+    // For a whole program whose threads wait on each other (events,
+    // mutexes, the multimedia timer), instead of the turns above: each of
+    // its threads runs on a host thread of its own, one at a time, and
+    // they change over when one waits and every `slice` instructions
+    // (Cpu::setSlice). useHostThreads() puts their stand-ins (threads,
+    // waits, events, mutexes, critical sections, TLS, Sleep, timeSetEvent,
+    // ExitProcess) in place of the others; run() then runs the program.
+    void useHostThreads();
+    bool hostThreads() const { return hostThreads_; }
+    // Runs an executable's start-up (its entry point, which never returns)
+    // on the main thread until the program ends the process, with the
+    // threads it starts: its exit code if it did, else why it stopped.
+    Error run(const Module &exe, uint32_t &exitCode);
+    struct Thread : KernelObject {
+        uint32_t id = 0, stackTop = 0, tib = 0;
+        Cpu::Context context;
+        std::function<uint32_t()> body; // runs on its host thread
+        std::thread host;
+        bool started = false, finished = false;
+        bool terminate = false, exitRequested = false; // TerminateThread, ExitThread
+        int suspendCount = 0;
+        uint32_t exitCode = 259; // STILL_ACTIVE
+        int priority = 0;
+        // While waiting: what it waits for (nullptr: nothing), and until when
+        // (ms; 0: no limit).
+        std::function<bool()> waitFor;
+        uint64_t waitUntil = 0;
+        std::string name;
+        uint64_t instructions = 0; // run on it, up to its last turn's end
+        // Notified when its turn comes (one each, so a change of thread
+        // wakes only the host thread whose turn it is).
+        std::condition_variable turn;
+    };
+    // A thread running `body` (which calls into the emulated code), with a
+    // stack and information block of its own; suspended if asked.
+    std::shared_ptr<Thread> createThread(std::function<uint32_t()> body, bool suspended, std::string name);
+    void resumeThread(Thread &t);
+    Thread *currentThread() const { return running_; }
+    // From the running thread: waits until `ready` is true or `timeoutMs`
+    // passes (0xffffffff: never), letting the others run. False if it timed
+    // out; ends the run (with abort()) if the process is ending.
+    bool wait(std::function<bool()> ready, uint32_t timeoutMs);
+    // From the running thread: lets the others run, if any can.
+    void yield();
+    // From the running thread, after it may have woken another: switches
+    // at once if one of higher priority can run, as Windows does.
+    void preempt();
+    // Milliseconds, as wait() counts them.
+    uint64_t now() const;
+    // Whether the process is ending (or the running thread is being
+    // terminated): native functions that waited should then abort().
+    bool ending() const;
+    // From any thread: ends the process, as ExitProcess would; run() then
+    // returns once every thread has unwound.
+    void requestExit() { exiting_ = true; }
+    // Resets an event, then signals it as soon as `condition` holds (checked
+    // whenever a thread waits on it), for overlapped I/O finishing.
+    void signalEventWhen(uint32_t handle, std::function<bool()> condition);
+    // Instructions between thread changes.
+    uint32_t slice = 20000;
+    // Called at each thread change, on the thread that ran (for checks by
+    // the clock, such as memory written at a moment).
+    std::function<void(Cpu &cpu)> onSlice;
+    // Called when every thread waits, instead of sleeping a millisecond: for
+    // a clock that isn't the real one (it should move that clock on).
+    std::function<void()> idleTick;
+    // Called when a thread of the program calls Sleep or SleepEx, before it
+    // sleeps: for the host's own deliveries to a thread that polls so
+    // (TAPI's callbacks, say).
+    std::function<void(Cpu &cpu)> beforeSleep;
+    // How often every thread waited at once, and for how long in all
+    // (microseconds): time the processor stood idle.
+    std::atomic<uint64_t> idleWaits{0}, idleMicros{0};
+    // From the running thread: the instructions run on `t` so far (its
+    // turn now included), and on the multimedia timer's thread (0 if
+    // there's none).
+    uint64_t instructionsOn(const Thread *t) const {
+        return t ? t->instructions + (t == running_ ? cpu_.executed() - turnStart_ : 0) : 0;
+    }
+    uint64_t timerInstructions() const { return instructionsOn(timerThread_.get()); }
+
     // --- Threads ---------------------------------------------------------------
     // The program's other threads take turns with its main one: when the
     // main thread sleeps or looks for messages, each thread that's due runs
@@ -215,7 +369,7 @@ public:
     void threadSleep(uint32_t ms);
     void threadEnd();
     // Threads started, and those still going.
-    size_t threadsStarted() const { return threads_.size(); }
+    size_t threadsStarted() const { return turnThreads_.size(); }
     size_t threadsRunning() const;
 
     // --- Windows and messages (USER32, GDI32) -----------------------------------
@@ -291,13 +445,13 @@ private:
     std::map<std::string, uint32_t> provided_;
     std::vector<std::string> missing_;
     uint32_t stackTop_ = 0, tib_ = 0, peb_ = 0;
-    struct Thread {
+    struct TurnThread {
         uint32_t handle = 0;
         Cpu::Context context;
         uint32_t wakeAt = 0; // in milliseconds()
         bool finished = false;
     };
-    std::vector<Thread> threads_;
+    std::vector<TurnThread> turnThreads_;
     int current_ = -1;          // the thread running (-1: the main one)
     uint32_t threadReturn_ = 0; // where a thread's function returns to: a native that ends it
     std::string exeName_, programFolder_ = "C:\\STVEF\\";
@@ -365,6 +519,53 @@ private:
     mutable std::vector<std::string> standInDlls_; // lower-case names, by handle
     std::map<uint32_t, uint32_t> virtualBlocks_;   // VirtualAlloc's: start -> size
     void stdcall(const char *dll, const char *name, int args, std::function<uint32_t(Cpu &)> fn);
+    // The executable's base: the first module loaded that isn't a DLL.
+    uint32_t exeBase() const;
+
+    // Handles (addHandle): from 0x10000000, apart from the files' and keys'.
+    std::map<uint32_t, std::shared_ptr<KernelObject>> handles_;
+    uint32_t nextHandle_ = 0x10000000;
+
+    // Drives (win32_files.cpp).
+    std::vector<Drive> drives_;
+    void addDriveStandIns();
+    // A Windows path made full ("C:\\NFS3\\GameData"): "." and ".."
+    // resolved, a drive's own current folder for "D:name".
+    std::string drivePath(const std::string &windowsPath) const;
+    std::string driveCurrent() const; // the current folder, without its last backslash
+    // Overlapped device reads left pending, by OVERLAPPED address.
+    struct PendingRead {
+        uint32_t handle = 0, buffer = 0, size = 0;
+    };
+    std::map<uint32_t, PendingRead> pendingReads_;
+
+    // Host threads (win32_threads.cpp).
+    bool hostThreads_ = false;
+    bool setHostEvent(uint32_t handle); // an event of theirs (setEvent)
+    void addThreadStandIns();
+    // Hands the processor to the next thread that can run (or keeps it).
+    bool schedule(std::unique_lock<std::mutex> &lock);
+    void runThread(std::shared_ptr<Thread> t);
+    void exitAll(std::unique_lock<std::mutex> &lock);
+    uint32_t allocTib(uint32_t stackTop, uint32_t stackBottom, uint32_t id);
+    std::vector<std::shared_ptr<Thread>> threads_;
+    Thread *running_ = nullptr;
+    std::mutex mutex_;
+    std::atomic<bool> exiting_{false}; // set from other threads too (requestExit)
+    uint32_t exitCode_ = 0;
+    std::string failure_; // a thread's fault, which ends the process
+    struct Timer {
+        uint32_t delay = 0, callback = 0, user = 0;
+        bool periodic = false;
+        uint64_t due = 0;
+    };
+    std::map<uint32_t, Timer> timers_; // by timeSetEvent's id
+    uint32_t nextTimer_ = 1;
+    std::shared_ptr<Thread> timerThread_;
+    uint64_t turnStart_ = 0; // instructions run when the running thread's turn began
+    uint32_t runTimers();
+    uint32_t nextThreadId_ = 0x104;
+    std::vector<bool> tlsUsed_ = std::vector<bool>(64);
 };
 
 } // namespace reluva::x86

@@ -157,6 +157,49 @@ void Cpu::memoryFault(uint32_t a, uint32_t size) {
     fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
 }
 
+uint32_t Cpu::loadOutside(uint32_t a, int size) {
+    if (readableFirstPage && a < kPageSize && a + uint32_t(size) <= kPageSize)
+        return 0;
+    memoryFault(a, uint32_t(size));
+}
+
+void Cpu::pushSegment(int s) {
+    if (d_.opSize16) {
+        reg[ESP] -= 2;
+        store(reg[ESP], sreg[size_t(s)], 2);
+    } else {
+        push(sreg[size_t(s)]);
+    }
+}
+
+void Cpu::popSegment(int s) {
+    if (d_.opSize16) {
+        sreg[size_t(s)] = uint16_t(load(reg[ESP], 2));
+        reg[ESP] += 2;
+    } else {
+        sreg[size_t(s)] = uint16_t(pop());
+    }
+}
+
+// What's due at eventsAt(): a thread's slice (another thread may run
+// meanwhile, with a limit of its own), then the instruction limit. Called
+// between two instructions, before the next is counted.
+bool Cpu::events() {
+    bool sliced = false;
+    if (sliceLength_ && executed_ + 1 >= nextSlice_) {
+        nextSlice_ = executed_ + 1 + sliceLength_;
+        if (!slice_(*this))
+            fault(stopMessage);
+        instructionStart_ = eip;
+        sliced = true;
+    }
+    if (limit_ && executed_ + 1 > limitAt_) {
+        ++executed_; // counted, as the instruction a limit stops at always was
+        fault("instruction limit reached");
+    }
+    return sliced;
+}
+
 void Cpu::fault(const std::string &message) {
     uncountBlock();
     throw Fault{message + " at " + hex(instructionStart_)};
@@ -555,6 +598,10 @@ void Cpu::twoByte() {
             writeReg(osz, d_.regField, v);
         return;
     }
+    if ((op >= 0x60 && op <= 0x7f) || op >= 0xd0) [[unlikely]] { // MMX (mmx.cpp)
+        mmx(op);
+        return;
+    }
     if (op >= 0xc8) { // BSWAP
         uint32_t &r = reg[op & 7];
         r = (r >> 24) | ((r >> 8) & 0xff00) | ((r << 8) & 0xff0000) | (r << 24);
@@ -563,14 +610,26 @@ void Cpu::twoByte() {
     switch (op) {
     case 0x1f:
         decodeModrm();
-        return;  // NOP r/m
+        return; // NOP r/m
+    case 0xa0:
+        pushSegment(4);
+        return; // PUSH FS
+    case 0xa1:
+        popSegment(4);
+        return; // POP FS
+    case 0xa8:
+        pushSegment(5);
+        return; // PUSH GS
+    case 0xa9:
+        popSegment(5);
+        return;  // POP GS
     case 0x31: { // RDTSC
         const uint64_t t = timeStamp ? timeStamp() : executed_;
         reg[EAX] = uint32_t(t);
         reg[EDX] = uint32_t(t >> 32);
         return;
     }
-    case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B
+    case 0xa2: { // CPUID: a Pentium with an FPU, a time stamp counter and CMPXCHG8B (and MMX if reportMmx)
         const uint32_t leaf = reg[EAX];
         if (leaf == 0) {
             reg[EAX] = 1;
@@ -578,9 +637,9 @@ void Cpu::twoByte() {
             reg[EDX] = 0x49656e69;
             reg[ECX] = 0x6c65746e;
         } else {
-            reg[EAX] = 0x543; // family 5
+            reg[EAX] = 0x543; // family 5, model 4 (the Pentium MMX's)
             reg[EBX] = reg[ECX] = 0;
-            reg[EDX] = 0x1 | 0x10 | 0x100;
+            reg[EDX] = 0x1 | 0x10 | 0x100 | (reportMmx ? 1u << 23 : 0u);
         }
         return;
     }
@@ -727,9 +786,9 @@ void Cpu::step() {
     }
     if (trace)
         trace(*this);
+    if (executed_ + 1 > eventsAt()) [[unlikely]]
+        events();
     ++executed_;
-    if (limit_ && executed_ > limitAt_)
-        fault("instruction limit reached");
     if (stop_.load(std::memory_order_relaxed))
         fault("stopped");
     execute();
@@ -948,7 +1007,44 @@ void Cpu::execute() {
     }
     case 0x90:
         return; // NOP
-    case 0x98:  // CWDE / CBW
+    // Segment registers: pushed and popped as selectors (the model is flat).
+    case 0x06:
+        pushSegment(0);
+        return; // PUSH ES
+    case 0x07:
+        popSegment(0);
+        return; // POP ES
+    case 0x0e:
+        pushSegment(1);
+        return; // PUSH CS
+    case 0x16:
+        pushSegment(2);
+        return; // PUSH SS
+    case 0x17:
+        popSegment(2);
+        return; // POP SS
+    case 0x1e:
+        pushSegment(3);
+        return; // PUSH DS
+    case 0x1f:
+        popSegment(3);
+        return; // POP DS
+    case 0x8c:  // MOV r/m16, Sreg
+        decodeModrm();
+        if (d_.regField > 5)
+            fault("MOV from segment register " + std::to_string(d_.regField));
+        if (d_.memoryOperand)
+            store(d_.address, sreg[d_.regField], 2);
+        else
+            writeReg(osz, d_.rm, sreg[d_.regField]);
+        return;
+    case 0x8e: // MOV Sreg, r/m16
+        decodeModrm();
+        if (d_.regField > 5 || d_.regField == 1)
+            fault("MOV to segment register " + std::to_string(d_.regField));
+        sreg[d_.regField] = uint16_t(readRm(2));
+        return;
+    case 0x98: // CWDE / CBW
         if (osz == 2)
             writeReg(2, EAX, uint32_t(int32_t(int8_t(reg[EAX]))));
         else
@@ -1160,6 +1256,9 @@ void Cpu::callNative(uint32_t address) {
     const uint32_t i = (address - nativeBase_) / kNativeStride;
     if (i >= natives_.size())
         fault("call to an unused native slot");
+    ++natives_[i].calls;
+    if (nativeTrace)
+        nativeTrace(*this, natives_[i].name);
     const uint32_t popBytes = natives_[i].fn(*this);
     if (!natives_[i].writesTracked)
         ++codeEpoch_; // it may have written code: blocks check theirs again
@@ -1180,7 +1279,7 @@ void Cpu::runUntil(uint32_t returnAddress) {
     // A thread that yields (a native asked, by Cpu::yield) stops here, with
     // eip where it goes on from: resume() runs it again later.
     while (eip != returnAddress && !yield_) {
-        if (eip >= nativeStart || !cacheOn || trace)
+        if (eip >= nativeStart || !cacheOn || trace || watchEnd > watchStart)
             step();
         else
             runCached(returnAddress, nativeStart);
@@ -1226,7 +1325,56 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &r
 }
 
 Cpu::Context Cpu::context() const {
-    return {reg, eip, eflags, fsBase, fpu};
+    Context c;
+    c.reg = reg;
+    c.eip = eip;
+    c.eflags = eflags;
+    c.fsBase = fsBase;
+    c.fpu = fpu;
+    return c;
+}
+
+std::vector<std::pair<std::string, uint64_t>> Cpu::nativeCallCounts() const {
+    std::vector<std::pair<std::string, uint64_t>> out;
+    for (const NativeEntry &n : natives_)
+        if (n.calls)
+            out.push_back({n.name, n.calls});
+    return out;
+}
+
+Cpu::Context Cpu::saveContext() const {
+    Context c = context();
+    c.sreg = sreg;
+    c.depth = depth_;
+    c.jitDepth = jitDepth_;
+    c.limitAt = limitAt_;
+    c.instructionStart = instructionStart_;
+    c.abort = abort_;
+    c.yield = yield_;
+    c.run.returnAddress = run_.returnAddress;
+    c.run.nativeStart = run_.nativeStart;
+    c.run.end = run_.end;
+    c.counting.ops = counting_.ops;
+    c.counting.count = counting_.count;
+    c.counting.start = counting_.start;
+    return c;
+}
+
+void Cpu::loadContext(const Context &c) {
+    setContext(c);
+    sreg = c.sreg;
+    depth_ = c.depth;
+    jitDepth_ = c.jitDepth;
+    limitAt_ = c.limitAt;
+    instructionStart_ = c.instructionStart;
+    abort_ = c.abort;
+    yield_ = c.yield;
+    run_.returnAddress = c.run.returnAddress;
+    run_.nativeStart = c.run.nativeStart;
+    run_.end = c.run.end;
+    counting_.ops = static_cast<const Cached *>(c.counting.ops);
+    counting_.count = c.counting.count;
+    counting_.start = c.counting.start;
 }
 
 void Cpu::setContext(const Context &c) {

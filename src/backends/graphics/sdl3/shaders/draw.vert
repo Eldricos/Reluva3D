@@ -18,6 +18,7 @@ layout(location = 0) out vec2 outUv;
 layout(location = 1) out vec4 outColor;
 layout(location = 2) out vec3 outWorld; // the position in the world, for dynamic lights
 layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
+layout(location = 4) out float outFogW; // w for table fog: uv2.x, or the depth (mode2.w)
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
@@ -40,7 +41,8 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
                    // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
     vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions,
-                   // z: a fog volume's depth for opaque (0: not a fog volume pass)
+                   // z: a fog volume's depth for opaque (0: not a fog volume pass),
+                   // w: table fog's w from the depth (1) rather than uv2.x
     vec4 fogPlane; // xyz: normal out of the fog volume, w: its distance
     vec4 ambient;  // xyz: ambient light for the lighting colour source
     vec4 directed; // xyz: directed light
@@ -173,6 +175,7 @@ void main() {
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
     outWorld = world;
     gl_Position = viewProj * placed;
+    outFogW = mode2.w > 0.5 ? gl_Position.w : inUv2.x;
     outFog = vec2(0.0);
     if (mode2.z > 0.0) {
         // How deep under the fog's surface the vertex and the eye are;

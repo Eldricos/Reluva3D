@@ -259,14 +259,15 @@ void Win32Process::addSystemStandIns() {
         return n;
     };
     stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
+        const SystemTime t =
+            c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now(); // (not Win32Process::now, the threads' clock)
         const std::string picture = c.arg(3)         ? c.string(c.arg(3))
                                     : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
                                                      : "M/d/yyyy";
         return formatted(c, formatPicture(picture, t));
     });
     stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu &c) {
-        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
+        const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : x86::now();
         const uint32_t flags = c.arg(1);
         std::string picture;
         if (c.arg(3)) {
@@ -287,9 +288,12 @@ void Win32Process::trackEvent(uint32_t handle) {
         it->second.tracked = true;
 }
 
-void Win32Process::setEvent(uint32_t handle) {
-    if (auto it = events_.find(handle); it != events_.end())
+bool Win32Process::setEvent(uint32_t handle) {
+    if (auto it = events_.find(handle); it != events_.end()) {
         it->second.set = true;
+        return true;
+    }
+    return setHostEvent(handle);
 }
 
 } // namespace reluva::x86

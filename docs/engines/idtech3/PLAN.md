@@ -29,6 +29,20 @@ Every game built on the Quake III Arena engine, Elite Force first (see
    draws test frames through the renderer on a GitHub macOS runner and
    compares them with references made on Vulkan (`tests/render`,
    `.github/workflows/ci.yml`); it hasn't been played on a Mac yet.
+   The backend keeps few command buffers in flight: at most two frames
+   are on the GPU (`beginFrame` waits for the one two before), and
+   after every eighth texture made it waits for the GPU. SDL's Vulkan
+   backend gives each command buffer in flight a descriptor-set cache
+   that it never frees and hands out in turn, so in time each grows to a
+   whole frame's draws, and SDL submits a command buffer of its own for
+   every texture made. With hundreds of command buffers in flight at a
+   load, under Mesa's software driver, where each descriptor set is a
+   memory mapping of its own, Need for Speed III ran out of mappings
+   (`vm.max_map_count`, 65,530) at its second race. A renderer told the
+   frame's alpha is unused (`setFrameAlphaUnused`) draws the blends of
+   the source alpha with one pipeline, the factors applied in
+   `draw.frag` (`blendOut`): each pipeline switch takes SDL four new
+   descriptor sets.
 3. **World renderer**, continued: autosprites, mirrors, culling (by the
    vis data, areas and the view) and drawing order are done, and fog volumes
    follow the original's depth model. Translucent surfaces are drawn as
