@@ -60,13 +60,13 @@ void drawImage(Surface &s, const image::Image &img, int x, int y, int scale) {
         }
 }
 
-ImageViewer::ImageViewer(System &sys, Surface &screen, const GameData &data) : sys_(sys), screen_(screen), data_(data) {
-    for (const auto &path : data_.withExtension(".res")) {
-        const DataDrive *d = data_.drive(path.stem().string(), 'I');
+ImageViewer::ImageViewer(System &sys, Surface &screen, const GameData &data) : _sys(sys), _screen(screen), _data(data) {
+    for (const auto &path : _data.withExtension(".res")) {
+        const DataDrive *d = _data.drive(path.stem().string(), 'I');
         // dialogInfo.res isn't a drive of images.
         if (d && !d->entries().empty()) {
-            files_.push_back(path);
-            total_ += d->entries().size();
+            _files.push_back(path);
+            _total += d->entries().size();
         }
     }
 }
@@ -76,44 +76,44 @@ void ImageViewer::activate() {
 }
 
 void ImageViewer::handleKey(uint32_t key) {
-    if (files_.empty())
+    if (_files.empty())
         return;
     const auto imagesIn = [&](int f) {
-        return int(data_.drive(files_[size_t(f)].stem().string(), 'I')->entries().size());
+        return int(_data.drive(_files[size_t(f)].stem().string(), 'I')->entries().size());
     };
-    const int n = imagesIn(file_);
+    const int n = imagesIn(_file);
     switch (key) {
     case key::Right:
-        image_ = std::min(n - 1, image_ + 1);
+        _image = std::min(n - 1, _image + 1);
         break;
     case key::Left:
-        image_ = std::max(0, image_ - 1);
+        _image = std::max(0, _image - 1);
         break;
     case key::PageDown:
-        image_ = std::min(n - 1, image_ + 10);
+        _image = std::min(n - 1, _image + 10);
         break;
     case key::PageUp:
-        image_ = std::max(0, image_ - 10);
+        _image = std::max(0, _image - 10);
         break;
     case key::Home:
-        image_ = 0;
+        _image = 0;
         break;
     case key::End:
-        image_ = n - 1;
+        _image = n - 1;
         break;
     case key::Down:
-        file_ = (file_ + 1) % int(files_.size());
-        image_ = 0;
+        _file = (_file + 1) % int(_files.size());
+        _image = 0;
         break;
     case key::Up:
-        file_ = (file_ + int(files_.size()) - 1) % int(files_.size());
-        image_ = 0;
+        _file = (_file + int(_files.size()) - 1) % int(_files.size());
+        _image = 0;
         break;
     case 'z':
-        zoom_ = zoom_ == 4 ? 1 : zoom_ * 2;
+        _zoom = _zoom == 4 ? 1 : _zoom * 2;
         break;
     case 'b':
-        background_ = (background_ + 1) % 3;
+        _background = (_background + 1) % 3;
         break;
     default:
         return;
@@ -123,30 +123,30 @@ void ImageViewer::handleKey(uint32_t key) {
 
 void ImageViewer::draw() {
     const int areaH = kScreenH - kInfoH;
-    if (background_ == 0)
-        drawCheckerboard(screen_, 0, areaH);
+    if (_background == 0)
+        drawCheckerboard(_screen, 0, areaH);
     else
-        fillRect(screen_, 0, 0, kScreenW, areaH, background_ == 1 ? Color{0, 0, 0} : Color{255, 255, 255});
-    if (files_.empty()) {
-        drawInfo(screen_, "No images found");
+        fillRect(_screen, 0, 0, kScreenW, areaH, _background == 1 ? Color{0, 0, 0} : Color{255, 255, 255});
+    if (_files.empty()) {
+        drawInfo(_screen, "No images found");
         return;
     }
-    const std::string drive = files_[size_t(file_)].stem().string();
-    const DataDrive *d = data_.drive(drive, 'I');
-    const DataDrive::Entry &e = d->entries()[size_t(image_)];
+    const std::string drive = _files[size_t(_file)].stem().string();
+    const DataDrive *d = _data.drive(drive, 'I');
+    const DataDrive::Entry &e = d->entries()[size_t(_image)];
     const std::string full = drive + ":" + e.name;
-    const Image *img = data_.image(full);
+    const Image *img = _data.image(full);
     std::string detail;
     if (!img) {
-        detail = data_.lastError();
+        detail = _data.lastError();
     } else {
         // Shrink the zoom to fit, then centre the image's cell.
-        int z = zoom_;
+        int z = _zoom;
         while (z > 1 && (img->cellW * z > kScreenW || img->cellH * z > areaH))
             z /= 2;
         const int x = (kScreenW - img->cellW * z) / 2 + img->offsetX * z;
         const int y = (areaH - img->cellH * z) / 2 + img->offsetY * z;
-        drawImage(screen_, img->pixels, x, y, z);
+        drawImage(_screen, img->pixels, x, y, z);
         detail = std::to_string(img->pixels.w) + "x" + std::to_string(img->pixels.h);
         if (img->version == 0x100)
             detail += " in a " + std::to_string(img->cellW) + "x" + std::to_string(img->cellH) + " cell at " +
@@ -155,12 +155,12 @@ void ImageViewer::draw() {
         if (z > 1)
             detail += "  zoom " + std::to_string(z) + "x";
     }
-    drawInfo(screen_,
-             full + "   " + std::to_string(image_ + 1) + "/" + std::to_string(d->entries().size()) + " in " +
-                 files_[size_t(file_)].filename().string() + " (file " + std::to_string(file_ + 1) + "/" +
-                 std::to_string(files_.size()) + ")",
+    drawInfo(_screen,
+             full + "   " + std::to_string(_image + 1) + "/" + std::to_string(d->entries().size()) + " in " +
+                 _files[size_t(_file)].filename().string() + " (file " + std::to_string(_file + 1) + "/" +
+                 std::to_string(_files.size()) + ")",
              detail);
-    sys_.setWindowTitle(std::string(gameName(data_.language())) + " images: " + full);
+    _sys.setWindowTitle(std::string(gameName(_data.language())) + " images: " + full);
 }
 
 } // namespace reluva::clue

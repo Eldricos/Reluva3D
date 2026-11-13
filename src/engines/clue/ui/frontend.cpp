@@ -133,7 +133,7 @@ void Preferences::save(const std::filesystem::path &file) const {
 
 FrontEnd::FrontEnd(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer,
                    std::filesystem::path prefsFile)
-    : sys_(sys), screen_(screen), data_(data), mixer_(mixer), prefsFile_(std::move(prefsFile)) {
+    : _sys(sys), _screen(screen), _data(data), _mixer(mixer), _prefsFile(std::move(prefsFile)) {
 }
 
 FrontEnd::~FrontEnd() {
@@ -142,51 +142,51 @@ FrontEnd::~FrontEnd() {
 }
 
 Error FrontEnd::open() {
-    const std::filesystem::path *resi = data_.find("dialogInfo.res");
+    const std::filesystem::path *resi = _data.find("dialogInfo.res");
     if (!resi)
         return Error::fail("no dialogInfo.res");
-    if (Error err = parseResi(readFile(*resi), resi_))
+    if (Error err = parseResi(readFile(*resi), _resi))
         return Error::fail("dialogInfo.res: " + err.message);
-    fonts_ = std::make_unique<Fonts>(data_, resi_);
-    if (!prefsFile_.empty())
-        prefs_.load(prefsFile_);
+    _fonts = std::make_unique<Fonts>(_data, _resi);
+    if (!_prefsFile.empty())
+        _prefs.load(_prefsFile);
     // The first time, the original's own preferences, if it has any.
     std::error_code ec;
-    if (prefsFile_.empty() || !std::filesystem::exists(prefsFile_, ec))
-        if (const std::filesystem::path *original = data_.find("Prefs.ini"))
-            prefs_.loadOriginal(readFile(*original));
+    if (_prefsFile.empty() || !std::filesystem::exists(_prefsFile, ec))
+        if (const std::filesystem::path *original = _data.find("Prefs.ini"))
+            _prefs.loadOriginal(readFile(*original));
     applyVolumes();
-    sys_.setWindowTitle(gameTitle(data_.language()));
-    sys_.setMouseCursorVisible(false);
-    go(Screen::Intro);
+    _sys.setWindowTitle(gameTitle(_data.language()));
+    _sys.setMouseCursorVisible(false);
+    go(Screen::kIntro);
     return Error::success();
 }
 
 void FrontEnd::leave() {
-    if (mixer_ && stormSound_ != audio::kNoSound)
-        mixer_->stop(stormSound_);
-    stormSound_ = audio::kNoSound;
-    if (play_)
-        play_->stopSounds();
+    if (_mixer && _stormSound != audio::kNoSound)
+        _mixer->stop(_stormSound);
+    _stormSound = audio::kNoSound;
+    if (_play)
+        _play->stopSounds();
     stopMovie();
     stopMusic();
-    sys_.setMouseCursorVisible(true);
+    _sys.setMouseCursorVisible(true);
 }
 
 void FrontEnd::resume() {
-    sys_.setWindowTitle(gameTitle(data_.language()));
-    sys_.setMouseCursorVisible(false);
-    if (at_ == Screen::Game || overGame())
+    _sys.setWindowTitle(gameTitle(_data.language()));
+    _sys.setMouseCursorVisible(false);
+    if (_at == Screen::kGame || overGame())
         playMusic(true);
-    else if (at_ == Screen::Picker || at_ == Screen::Setup || at_ == Screen::NetLobby || at_ == Screen::NetSetup ||
-             at_ == Screen::Prefs)
+    else if (_at == Screen::kPicker || _at == Screen::kSetup || _at == Screen::kNetLobby || _at == Screen::kNetSetup ||
+             _at == Screen::kPrefs)
         playMusic(false);
-    if (at_ == Screen::Intro || at_ == Screen::Deal)
-        go(afterMovie_);
+    if (_at == Screen::kIntro || _at == Screen::kDeal)
+        go(_afterMovie);
 }
 
 std::string FrontEnd::readText(const std::string &file) const {
-    const std::filesystem::path *p = data_.find(file);
+    const std::filesystem::path *p = _data.find(file);
     if (!p)
         return {};
     const std::vector<uint8_t> b = readFile(*p);
@@ -194,7 +194,7 @@ std::string FrontEnd::readText(const std::string &file) const {
 }
 
 void FrontEnd::applyVolumes() {
-    if (!mixer_)
+    if (!_mixer)
         return;
     // As Clue.exe's preferences set them (0x415E6D): the master volume
     // Miles' for the sounds and voices (AIL_set_digital_master_volume), the
@@ -203,204 +203,205 @@ void FrontEnd::applyVolumes() {
     // DirectShow's own renderer (AddMediaStream with MSPID_PrimaryAudio and
     // AMMSF_ADDDEFAULTRENDERER) and never sets its volume. So here Effects
     // are all that Miles plays (sounds and voices), Speech the videos.
-    const int master = prefs_.masterVolume * audio::kMaxVolume / 100;
-    mixer_->setTypeVolume(audio::SoundType::Music, prefs_.musicVolume * audio::kMaxVolume / 100);
-    mixer_->setTypeVolume(audio::SoundType::Speech, audio::kMaxVolume);
-    mixer_->setTypeVolume(audio::SoundType::Effects, master);
+    const int master = _prefs.masterVolume * audio::kMaxVolume / 100;
+    _mixer->setTypeVolume(audio::SoundType::Music, _prefs.musicVolume * audio::kMaxVolume / 100);
+    _mixer->setTypeVolume(audio::SoundType::Speech, audio::kMaxVolume);
+    _mixer->setTypeVolume(audio::SoundType::Effects, master);
 }
 
 void FrontEnd::showDialog(int id, int x, int y) {
-    dialog_.reset();
-    if (const ResiDialog *d = resi_.dialog(id))
-        dialog_ = std::make_unique<DialogView>(data_, *fonts_, *d, x, y);
+    _dialog.reset();
+    if (const ResiDialog *d = _resi.dialog(id))
+        _dialog = std::make_unique<DialogView>(_data, *_fonts, *d, x, y);
     // So that the control under the pointer shows as it.
     Event move;
     move.type = EventType::MouseMove;
-    move.mouseX = mouseX_;
-    move.mouseY = mouseY_;
-    if (dialog_)
-        dialog_->handleEvent(move);
+    move.mouseX = _mouseX;
+    move.mouseY = _mouseY;
+    if (_dialog)
+        _dialog->handleEvent(move);
 }
 
 void FrontEnd::go(Screen s) {
-    at_ = s;
-    flashClick_ = -1; // a new screen hides the lightning (Clue.exe 0x40C420)
+    _at = s;
+    _flashClick = -1; // a new screen hides the lightning (Clue.exe 0x40C420)
     // The screens without the storm stop its thunder: the character picker
     // and the network's player setup as they open (Clue.exe 0x412F30,
     // 0x411CB0), the game as it loads (0x404AC2).
-    const bool trackFive = s == Screen::Picker || s == Screen::Setup || s == Screen::NetLobby || s == Screen::NetSetup;
-    if (mixer_ && stormSound_ != audio::kNoSound &&
-        (trackFive || s == Screen::Intro || s == Screen::Loading || s == Screen::Deal || s == Screen::Game)) {
-        mixer_->stop(stormSound_);
-        stormSound_ = audio::kNoSound;
+    const bool trackFive =
+        s == Screen::kPicker || s == Screen::kSetup || s == Screen::kNetLobby || s == Screen::kNetSetup;
+    if (_mixer && _stormSound != audio::kNoSound &&
+        (trackFive || s == Screen::kIntro || s == Screen::kLoading || s == Screen::kDeal || s == Screen::kGame)) {
+        _mixer->stop(_stormSound);
+        _stormSound = audio::kNoSound;
     }
-    if (s != Screen::Loading && mixer_ && loadingSound_ != audio::kNoSound) {
-        mixer_->stop(loadingSound_); // loaded (0x404E44)
-        loadingSound_ = audio::kNoSound;
+    if (s != Screen::kLoading && _mixer && _loadingSound != audio::kNoSound) {
+        _mixer->stop(_loadingSound); // loaded (0x404E44)
+        _loadingSound = audio::kNoSound;
     }
     // Those, and Preferences (0x415810), start the CD's track 5 if it
     // isn't playing anything; the menus with the storm have none.
-    if (trackFive || s == Screen::Prefs)
+    if (trackFive || s == Screen::kPrefs)
         playMusic(false);
     switch (s) {
-    case Screen::Intro:
-        startMovie("Intro.avi", Screen::MainMenu);
+    case Screen::kIntro:
+        startMovie("Intro.avi", Screen::kMainMenu);
         break;
-    case Screen::MainMenu:
-        mansion_.reset();
+    case Screen::kMainMenu:
+        _mansion.reset();
         showDialog(kMainMenu);
         break;
-    case Screen::StartChoice:
+    case Screen::kStartChoice:
         showDialog(kStartChoice);
         break;
-    case Screen::Connection:
+    case Screen::kConnection:
         showDialog(kConnection);
         // The Internet Game Zone is gone: games by address instead.
-        dialog_->setText(0, "Internet|by address");
+        _dialog->setText(0, "Internet|by address");
         break;
-    case Screen::NetGame:
+    case Screen::kNetGame:
         showDialog(kNetGame);
         break;
-    case Screen::NetHost:
-    case Screen::NetJoin:
-    case Screen::NetAddress:
-    case Screen::NetLobby:
-    case Screen::NetSetup:
-    case Screen::NetMessage:
+    case Screen::kNetHost:
+    case Screen::kNetJoin:
+    case Screen::kNetAddress:
+    case Screen::kNetLobby:
+    case Screen::kNetSetup:
+    case Screen::kNetMessage:
         netShow(s);
         break;
-    case Screen::LoadGame:
+    case Screen::kLoadGame:
         showDialog(kLoadGame);
         // The saved games, by their names; the empty slots light up under
         // the pointer all the same, as the original's do, but do nothing.
         for (int slot = 0; slot < kSaveSlots; ++slot)
-            dialog_->setText(slot, savedName(slot));
+            _dialog->setText(slot, savedName(slot));
         break;
-    case Screen::RulesMenu:
+    case Screen::kRulesMenu:
         showDialog(kRulesMenu);
         break;
-    case Screen::Rules:
+    case Screen::kRules:
         showDialog(kRules);
-        dialog_->setVisible(rulesTopic_, true);
-        dialog_->setText(11, readText(kRulesFile[rulesTopic_]));
+        _dialog->setVisible(_rulesTopic, true);
+        _dialog->setText(11, readText(kRulesFile[_rulesTopic]));
         break;
-    case Screen::Credits:
+    case Screen::kCredits:
         showDialog(kCredits);
         break;
-    case Screen::CreditsText:
+    case Screen::kCreditsText:
         break; // shown by the Credits buttons
-    case Screen::Exit:
+    case Screen::kExit:
         showDialog(kExit);
         break;
-    case Screen::Picker:
+    case Screen::kPicker:
         showDialog(kPicker);
         refreshPicker();
         break;
-    case Screen::Setup:
-        showDialog(kSetupFirst + setupSuspect_);
+    case Screen::kSetup:
+        showDialog(kSetupFirst + _setupSuspect);
         refreshSetup();
         break;
-    case Screen::Variants:
+    case Screen::kVariants:
         showDialog(kVariants);
-        dialog_->setChosen(0, !noDieRoll_);
-        dialog_->setChosen(1, noDieRoll_);
+        _dialog->setChosen(0, !_noDieRoll);
+        _dialog->setChosen(1, _noDieRoll);
         break;
-    case Screen::Prefs:
+    case Screen::kPrefs:
         showDialog(kPrefs);
-        refreshPrefs(*dialog_, 0, 28);
+        refreshPrefs(*_dialog, 0, 28);
         break;
-    case Screen::Loading:
+    case Screen::kLoading:
         // Clue.exe 0x404AC2: the CD stopped, the loading's own loop.
         stopMusic();
-        if (mixer_ && loadingSound_ == audio::kNoSound)
-            if (const std::filesystem::path *p = data_.find("load music loop22khz.wav")) {
+        if (_mixer && _loadingSound == audio::kNoSound)
+            if (const std::filesystem::path *p = _data.find("load music loop22khz.wav")) {
                 auto loop = std::make_shared<audio::Sound>();
                 if (!audio::decodeSound(readFile(*p), *loop))
-                    loadingSound_ = mixer_->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
+                    _loadingSound = _mixer->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
             }
         showDialog(kLoading);
         break;
-    case Screen::Deal:
-        startMovie("deal.avi", Screen::Game);
+    case Screen::kDeal:
+        startMovie("deal.avi", Screen::kGame);
         break;
-    case Screen::Game: {
+    case Screen::kGame: {
         bool started = false;
-        dialog_.reset();
-        gameMenu_.reset();
-        if (!play_ && mansion_ && loadSlot_ >= 0) {
+        _dialog.reset();
+        _gameMenu.reset();
+        if (!_play && _mansion && _loadSlot >= 0) {
             // A saved game, in place of a new one.
-            const int slot = loadSlot_;
-            loadSlot_ = -1;
+            const int slot = _loadSlot;
+            _loadSlot = -1;
             started = true;
-            play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
-            play_->setLook(playLook());
+            _play = std::make_unique<Play>(_sys, _screen, _data, _mixer, _resi, *_fonts, *_mansion, _level);
+            _play->setLook(playLook());
             if (loadGame(slot)) {
-                play_.reset();
-                go(Screen::MainMenu);
+                _play.reset();
+                go(Screen::kMainMenu);
                 return;
             }
         }
-        if (!play_ && mansion_) {
+        if (!_play && _mansion) {
             started = true;
-            play_ = std::make_unique<Play>(sys_, screen_, data_, mixer_, resi_, *fonts_, *mansion_, level_);
-            play_->setLook(playLook());
-            const Error err = net_ ? play_->startNetwork(*net_)
-                                   : play_->start(players_, noDieRoll_, uint32_t(sys_.getMillis() * 2654435761u));
+            _play = std::make_unique<Play>(_sys, _screen, _data, _mixer, _resi, *_fonts, *_mansion, _level);
+            _play->setLook(playLook());
+            const Error err = _net ? _play->startNetwork(*_net)
+                                   : _play->start(_players, _noDieRoll, uint32_t(_sys.getMillis() * 2654435761u));
             if (err) {
-                play_.reset();
-                go(Screen::MainMenu);
+                _play.reset();
+                go(Screen::kMainMenu);
                 return;
             }
         }
         // A game starting, new or saved, starts on track 2 (0x404E53); back
         // from the Esc menu, the music is as it was.
         if (started) {
-            musicInGame_ = true;
+            _musicInGame = true;
             playTrack(2);
         }
         break;
     }
-    case Screen::GameMenu:
-        if (const ResiDialog *d = resi_.dialog(kGameMenu)) {
+    case Screen::kGameMenu:
+        if (const ResiDialog *d = _resi.dialog(kGameMenu)) {
             // Over the game, in the middle of the view.
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
             // Save: when it's a human's turn and nothing is going on.
-            gameMenu_->setEnabled(0, play_ && play_->canSave() && !savesFolder().empty());
+            _gameMenu->setEnabled(0, _play && _play->canSave() && !savesFolder().empty());
         }
         break;
-    case Screen::ExitConfirm:
+    case Screen::kExitConfirm:
         // "Are you sure you want to exit the current game?" Yes, No.
-        if (const ResiDialog *d = resi_.dialog(kExitConfirm)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
-            gameMenu_->setVisible(1, false); // its other question: "Would you like to save ...?"
+        if (const ResiDialog *d = _resi.dialog(kExitConfirm)) {
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
+            _gameMenu->setVisible(1, false); // its other question: "Would you like to save ...?"
         }
         break;
     // The Esc menu's Preferences and How to Play: windows of their own over
     // the game, where the original has them (dialogs 37-39; recordings show
     // them there), not the menus' screens.
-    case Screen::GamePrefs:
-        if (const ResiDialog *d = resi_.dialog(kGamePrefs)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
-            refreshPrefs(*gameMenu_, 1, 29);
+    case Screen::kGamePrefs:
+        if (const ResiDialog *d = _resi.dialog(kGamePrefs)) {
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
+            refreshPrefs(*_gameMenu, 1, 29);
         }
         break;
-    case Screen::GameRulesMenu:
-        if (const ResiDialog *d = resi_.dialog(kGameRulesMenu))
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
+    case Screen::kGameRulesMenu:
+        if (const ResiDialog *d = _resi.dialog(kGameRulesMenu))
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
         break;
-    case Screen::GameRules:
-        if (const ResiDialog *d = resi_.dialog(kGameRules)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
-            gameMenu_->setText(3, readText(kRulesFile[rulesTopic_]));
+    case Screen::kGameRules:
+        if (const ResiDialog *d = _resi.dialog(kGameRules)) {
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
+            _gameMenu->setText(3, readText(kRulesFile[_rulesTopic]));
         }
         break;
-    case Screen::SaveGame:
-        if (const ResiDialog *d = resi_.dialog(kSaveGame)) {
-            gameMenu_ = std::make_unique<DialogView>(data_, *fonts_, *d, kOverGameX, kOverGameY);
-            saveSlot_ = -1;
+    case Screen::kSaveGame:
+        if (const ResiDialog *d = _resi.dialog(kSaveGame)) {
+            _gameMenu = std::make_unique<DialogView>(_data, *_fonts, *d, kOverGameX, kOverGameY);
+            _saveSlot = -1;
             for (int slot = 0; slot < kSaveSlots; ++slot)
-                gameMenu_->setText(2 + slot, savedName(slot));
-            gameMenu_->setEnabled(1, false);
+                _gameMenu->setText(2 + slot, savedName(slot));
+            _gameMenu->setEnabled(1, false);
         }
         break;
     }
@@ -408,49 +409,49 @@ void FrontEnd::go(Screen s) {
 
 void FrontEnd::refreshPicker() {
     int count = 0;
-    for (const Player &p : players_)
-        count += p.kind != Player::None;
+    for (const Player &p : _players)
+        count += p.kind != Player::kNone;
     for (int k = 0; k < kSuspects; ++k) {
-        const Player &p = players_[size_t(k)];
-        const bool taken = p.kind != Player::None;
-        dialog_->setVisible(5 + k, !taken);
-        dialog_->setVisible(11 + k, taken);
-        dialog_->setVisible(23 + k, taken);
+        const Player &p = _players[size_t(k)];
+        const bool taken = p.kind != Player::kNone;
+        _dialog->setVisible(5 + k, !taken);
+        _dialog->setVisible(11 + k, taken);
+        _dialog->setVisible(23 + k, taken);
         if (taken)
-            dialog_->setText(23 + k, p.kind == Player::Human ? "is|" + (p.name.empty() ? "Human" : p.name)
-                                                             : std::string("is|") + kLevelName[p.level]);
+            _dialog->setText(23 + k, p.kind == Player::kHuman ? "is|" + (p.name.empty() ? "Human" : p.name)
+                                                              : std::string("is|") + kLevelName[p.level]);
     }
-    dialog_->setVisible(0, count == 0);
-    dialog_->setVisible(1, count > 0);
-    dialog_->setVisible(2, count < 3);
-    dialog_->setVisible(3, count < 3);
-    dialog_->setVisible(4, count >= 3);
-    dialog_->setEnabled(29, count >= 3);
+    _dialog->setVisible(0, count == 0);
+    _dialog->setVisible(1, count > 0);
+    _dialog->setVisible(2, count < 3);
+    _dialog->setVisible(3, count < 3);
+    _dialog->setVisible(4, count >= 3);
+    _dialog->setEnabled(29, count >= 3);
 }
 
 void FrontEnd::refreshSetup() {
-    const Player &p = setupDraft_;
-    dialog_->setChosen(0, p.kind == Player::Human);
-    dialog_->setChosen(1, p.kind == Player::Computer);
-    dialog_->setChosen(2, p.kind == Player::None);
+    const Player &p = _setupDraft;
+    _dialog->setChosen(0, p.kind == Player::kHuman);
+    _dialog->setChosen(1, p.kind == Player::kComputer);
+    _dialog->setChosen(2, p.kind == Player::kNone);
     for (int id : {3, 4, 5, 6, 7})
-        dialog_->setVisible(id, p.kind == Player::Computer);
+        _dialog->setVisible(id, p.kind == Player::kComputer);
     for (int level = 0; level < 3; ++level)
-        dialog_->setChosen(5 + level, p.level == level);
+        _dialog->setChosen(5 + level, p.level == level);
     for (int id : {8, 9, 10})
-        dialog_->setVisible(id, p.kind == Player::Human);
-    if (p.kind == Player::Human) {
-        dialog_->setText(10, p.name);
-        dialog_->focus(10);
-        sys_.setTextInput(true);
+        _dialog->setVisible(id, p.kind == Player::kHuman);
+    if (p.kind == Player::kHuman) {
+        _dialog->setText(10, p.name);
+        _dialog->focus(10);
+        _sys.setTextInput(true);
     } else {
-        dialog_->focus(-1);
-        sys_.setTextInput(false);
+        _dialog->focus(-1);
+        _sys.setTextInput(false);
     }
     int count = 0;
     for (int k = 0; k < kSuspects; ++k)
-        count += (k == setupSuspect_ ? p.kind : players_[size_t(k)].kind) != Player::None;
-    dialog_->setEnabled(12, count >= 3);
+        count += (k == _setupSuspect ? p.kind : _players[size_t(k)].kind) != Player::kNone;
+    _dialog->setEnabled(12, count >= 3);
 }
 
 void FrontEnd::refreshPrefs(DialogView &view, int first, int musicId) {
@@ -459,15 +460,15 @@ void FrontEnd::refreshPrefs(DialogView &view, int first, int musicId) {
     // first + 4k + 2 off (lit, unlit). The menus' window numbers them from
     // 0, the one over the game (dialog 37) from 1.
     for (int k = 0; k < Preferences::kSwitches; ++k) {
-        const bool on = prefs_.on[size_t(k)];
+        const bool on = _prefs.on[size_t(k)];
         const int b = first + 4 * k;
         view.setVisible(b, on);
         view.setVisible(b + 1, !on);
         view.setVisible(b + 2, !on);
         view.setVisible(b + 3, on);
     }
-    view.setValue(musicId, prefs_.musicVolume);
-    view.setValue(musicId + 1, prefs_.masterVolume);
+    view.setValue(musicId, _prefs.musicVolume);
+    view.setValue(musicId + 1, _prefs.masterVolume);
 }
 
 void FrontEnd::scrollText(DialogView &view, int textId, int knobId, int lines) {
@@ -477,256 +478,256 @@ void FrontEnd::scrollText(DialogView &view, int textId, int knobId, int lines) {
 }
 
 void FrontEnd::startGame() {
-    for (Player &p : players_)
-        if (p.kind == Player::Human && p.name.empty())
+    for (Player &p : _players)
+        if (p.kind == Player::kHuman && p.name.empty())
             p.name = "Human";
-    play_.reset();
-    go(Screen::Loading);
+    _play.reset();
+    go(Screen::kLoading);
 }
 
 PlayLook FrontEnd::playLook() const {
     PlayLook look;
-    look.suggestMovies = prefs_.on[Preferences::SuggestMovies];
-    look.autoNotes = prefs_.on[Preferences::AutoNotes];
-    look.butlerVoice = prefs_.on[Preferences::ButlerVoice];
-    look.walkAnimations = prefs_.on[Preferences::WalkAnimations];
-    look.mansion.lighting = prefs_.on[Preferences::Lighting];
+    look.suggestMovies = _prefs.on[Preferences::kSuggestMovies];
+    look.autoNotes = _prefs.on[Preferences::kAutoNotes];
+    look.butlerVoice = _prefs.on[Preferences::kButlerVoice];
+    look.walkAnimations = _prefs.on[Preferences::kWalkAnimations];
+    look.mansion.lighting = _prefs.on[Preferences::kLighting];
     // As a recording of the original shows them (docs/engines/clue/systems/playing.md):
     // "Mansion Walls" off, no walls; "Translucency": what stands in front of
     // the suspect whose turn it is see-through, or (off) left out.
-    look.mansion.walls = prefs_.on[Preferences::MansionWalls];
+    look.mansion.walls = _prefs.on[Preferences::kMansionWalls];
     look.mansion.inFront =
-        prefs_.on[Preferences::Translucency] ? MansionLook::InFront::SeeThrough : MansionLook::InFront::Hidden;
+        _prefs.on[Preferences::kTranslucency] ? MansionLook::InFront::kSeeThrough : MansionLook::InFront::kHidden;
     return look;
 }
 
 void FrontEnd::onClick(int id) {
-    switch (at_) {
-    case Screen::MainMenu:
+    switch (_at) {
+    case Screen::kMainMenu:
         if (id == 1)
-            go(Screen::StartChoice);
+            go(Screen::kStartChoice);
         else if (id == 3)
-            go(Screen::LoadGame);
+            go(Screen::kLoadGame);
         else if (id == 2) {
-            prefsReturn_ = Screen::MainMenu;
-            go(Screen::Prefs);
+            _prefsReturn = Screen::kMainMenu;
+            go(Screen::kPrefs);
         } else if (id == 0) {
-            rulesReturn_ = Screen::MainMenu;
-            go(Screen::RulesMenu);
+            _rulesReturn = Screen::kMainMenu;
+            go(Screen::kRulesMenu);
         } else if (id == 5)
-            go(Screen::Credits);
+            go(Screen::kCredits);
         else if (id == 7)
-            go(Screen::Exit);
+            go(Screen::kExit);
         break;
-    case Screen::StartChoice:
+    case Screen::kStartChoice:
         if (id == 0)
-            go(Screen::Picker);
+            go(Screen::kPicker);
         else if (id == 1)
-            go(Screen::Connection);
+            go(Screen::kConnection);
         else if (id == kReturn)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
-    case Screen::Connection:
+    case Screen::kConnection:
         if (id == kReturn)
-            go(Screen::StartChoice);
+            go(Screen::kStartChoice);
         else
             netClick(id);
         break;
-    case Screen::RulesMenu:
+    case Screen::kRulesMenu:
         if (id >= 0 && id <= 6) {
-            rulesTopic_ = id;
-            go(Screen::Rules);
+            _rulesTopic = id;
+            go(Screen::kRules);
         } else if (id == kReturn)
-            go(rulesReturn_ == Screen::GameMenu ? Screen::Game : Screen::MainMenu);
+            go(_rulesReturn == Screen::kGameMenu ? Screen::kGame : Screen::kMainMenu);
         break;
-    case Screen::Rules:
+    case Screen::kRules:
         if (id == 8)
-            scrollText(*dialog_, 11, 10, -1);
+            scrollText(*_dialog, 11, 10, -1);
         else if (id == 9)
-            scrollText(*dialog_, 11, 10, 1);
+            scrollText(*_dialog, 11, 10, 1);
         else if (id == 10) {
-            const int most = std::max(0, dialog_->lineCount(11) - dialog_->visibleLines(11));
-            dialog_->setScroll(11, dialog_->value(10) * most / 100);
+            const int most = std::max(0, _dialog->lineCount(11) - _dialog->visibleLines(11));
+            _dialog->setScroll(11, _dialog->value(10) * most / 100);
         } else if (id == 7)
-            go(Screen::RulesMenu);
+            go(Screen::kRulesMenu);
         else if (id == kReturn)
-            go(rulesReturn_ == Screen::GameMenu ? Screen::Game : Screen::MainMenu);
+            go(_rulesReturn == Screen::kGameMenu ? Screen::kGame : Screen::kMainMenu);
         break;
-    case Screen::Credits:
+    case Screen::kCredits:
         if (id == 0 || id == 1) {
             showDialog(kCreditsText);
-            dialog_->setText(3, readText(id == 0 ? "clue Credits.txt" : "EAI_credits.txt"));
-            at_ = Screen::CreditsText;
+            _dialog->setText(3, readText(id == 0 ? "clue Credits.txt" : "EAI_credits.txt"));
+            _at = Screen::kCreditsText;
         } else if (id == kReturn)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
-    case Screen::CreditsText:
+    case Screen::kCreditsText:
         if (id == 0)
-            scrollText(*dialog_, 3, 2, -1);
+            scrollText(*_dialog, 3, 2, -1);
         else if (id == 1)
-            scrollText(*dialog_, 3, 2, 1);
+            scrollText(*_dialog, 3, 2, 1);
         else if (id == 2) {
-            const int most = std::max(0, dialog_->lineCount(3) - dialog_->visibleLines(3));
-            dialog_->setScroll(3, dialog_->value(2) * most / 100);
+            const int most = std::max(0, _dialog->lineCount(3) - _dialog->visibleLines(3));
+            _dialog->setScroll(3, _dialog->value(2) * most / 100);
         } else if (id == kReturn)
-            go(Screen::Credits);
+            go(Screen::kCredits);
         break;
-    case Screen::Exit:
+    case Screen::kExit:
         if (id == kOk)
-            quit_ = true;
+            _quit = true;
         else if (id == kReturn || id == 0)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
-    case Screen::Picker:
+    case Screen::kPicker:
         if (id >= 5 && id <= 16) {
-            setupSuspect_ = (id - 5) % kSuspects;
-            setupDraft_ = players_[size_t(setupSuspect_)];
-            go(Screen::Setup);
+            _setupSuspect = (id - 5) % kSuspects;
+            _setupDraft = _players[size_t(_setupSuspect)];
+            go(Screen::kSetup);
         } else if (id == 29)
             startGame();
         else if (id == 30)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
-    case Screen::Setup:
-        if (dialog_ && setupDraft_.kind == Player::Human)
-            setupDraft_.name = dialog_->text(10);
+    case Screen::kSetup:
+        if (_dialog && _setupDraft.kind == Player::kHuman)
+            _setupDraft.name = _dialog->text(10);
         if (id == 0)
-            setupDraft_.kind = Player::Human;
+            _setupDraft.kind = Player::kHuman;
         else if (id == 1)
-            setupDraft_.kind = Player::Computer;
+            _setupDraft.kind = Player::kComputer;
         else if (id == 2)
-            setupDraft_.kind = Player::None;
+            _setupDraft.kind = Player::kNone;
         else if (id >= 5 && id <= 7)
-            setupDraft_.level = id - 5;
+            _setupDraft.level = id - 5;
         if (id <= 7) {
             refreshSetup();
             break;
         }
-        sys_.setTextInput(false);
+        _sys.setTextInput(false);
         if (id == kOk || id == 12)
-            players_[size_t(setupSuspect_)] = setupDraft_;
+            _players[size_t(_setupSuspect)] = _setupDraft;
         if (id == kOk || id == kReturn)
-            go(Screen::Picker);
+            go(Screen::kPicker);
         else if (id == 11)
-            go(Screen::Variants);
+            go(Screen::kVariants);
         else if (id == 12)
             startGame();
         break;
-    case Screen::Variants:
+    case Screen::kVariants:
         if (id == 0 || id == 1)
-            noDieRoll_ = id == 1;
+            _noDieRoll = id == 1;
         if (id == 0 || id == 1 || id == kReturn)
-            go(Screen::Setup);
+            go(Screen::kSetup);
         break;
-    case Screen::Prefs:
+    case Screen::kPrefs:
         if (id >= 0 && id < 4 * Preferences::kSwitches) {
             // The on column's buttons are 4k and 4k + 1, the off column's 4k + 2 and 4k + 3.
-            prefs_.on[size_t(id / 4)] = id % 4 < 2;
-            refreshPrefs(*dialog_, 0, 28);
+            _prefs.on[size_t(id / 4)] = id % 4 < 2;
+            refreshPrefs(*_dialog, 0, 28);
         } else if (id == 28 || id == 29) {
-            (id == 28 ? prefs_.musicVolume : prefs_.masterVolume) = dialog_->value(id);
+            (id == 28 ? _prefs.musicVolume : _prefs.masterVolume) = _dialog->value(id);
             applyVolumes();
         } else if (id == kReturn) {
             // Clue.exe 0x41650C: leaving stops the CD, in the menus or the
             // game alike.
             stopMusic();
-            prefs_.save(prefsFile_);
-            go(prefsReturn_ == Screen::GameMenu ? Screen::Game : Screen::MainMenu);
+            _prefs.save(_prefsFile);
+            go(_prefsReturn == Screen::kGameMenu ? Screen::kGame : Screen::kMainMenu);
         }
         break;
-    case Screen::GameMenu:
+    case Screen::kGameMenu:
         if (id == 4)
-            go(Screen::Game);
+            go(Screen::kGame);
         else if (id == 0)
-            go(Screen::SaveGame);
+            go(Screen::kSaveGame);
         else if (id == 3)
-            go(Screen::ExitConfirm);
+            go(Screen::kExitConfirm);
         else if (id == 1)
-            go(Screen::GamePrefs);
+            go(Screen::kGamePrefs);
         else if (id == 2)
-            go(Screen::GameRulesMenu);
+            go(Screen::kGameRulesMenu);
         break;
-    case Screen::GamePrefs:
+    case Screen::kGamePrefs:
         // As the menus' (Clue.exe 0x43F0B0 sets the volumes the same way),
         // but leaving it doesn't touch the music; Continue, back to the game.
         if (id >= 1 && id <= 4 * Preferences::kSwitches) {
-            prefs_.on[size_t((id - 1) / 4)] = (id - 1) % 4 < 2;
-            refreshPrefs(*gameMenu_, 1, 29);
-            if (play_)
-                play_->setLook(playLook());
+            _prefs.on[size_t((id - 1) / 4)] = (id - 1) % 4 < 2;
+            refreshPrefs(*_gameMenu, 1, 29);
+            if (_play)
+                _play->setLook(playLook());
         } else if (id == 29 || id == 30) {
-            (id == 29 ? prefs_.musicVolume : prefs_.masterVolume) = gameMenu_->value(id);
+            (id == 29 ? _prefs.musicVolume : _prefs.masterVolume) = _gameMenu->value(id);
             applyVolumes();
         } else if (id == 0) {
-            prefs_.save(prefsFile_);
-            go(Screen::Game);
+            _prefs.save(_prefsFile);
+            go(Screen::kGame);
         }
         break;
-    case Screen::GameRulesMenu:
+    case Screen::kGameRulesMenu:
         if (id >= 0 && id <= 6) {
-            rulesTopic_ = id;
-            go(Screen::GameRules);
+            _rulesTopic = id;
+            go(Screen::kGameRules);
         } else if (id == 7)
-            go(Screen::Game);
+            go(Screen::kGame);
         break;
-    case Screen::GameRules:
+    case Screen::kGameRules:
         if (id == 0)
-            scrollText(*gameMenu_, 3, 2, -1);
+            scrollText(*_gameMenu, 3, 2, -1);
         else if (id == 1)
-            scrollText(*gameMenu_, 3, 2, 1);
+            scrollText(*_gameMenu, 3, 2, 1);
         else if (id == 2) {
-            const int most = std::max(0, gameMenu_->lineCount(3) - gameMenu_->visibleLines(3));
-            gameMenu_->setScroll(3, gameMenu_->value(2) * most / 100);
+            const int most = std::max(0, _gameMenu->lineCount(3) - _gameMenu->visibleLines(3));
+            _gameMenu->setScroll(3, _gameMenu->value(2) * most / 100);
         } else if (id == 5)
-            go(Screen::GameRulesMenu);
+            go(Screen::kGameRulesMenu);
         else if (id == 4)
-            go(Screen::Game);
+            go(Screen::kGame);
         break;
-    case Screen::ExitConfirm:
+    case Screen::kExitConfirm:
         if (id == kOk) {
             stopMusic();
-            if (play_)
-                play_->stopSounds();
-            play_.reset();
-            if (net_)
+            if (_play)
+                _play->stopSounds();
+            _play.reset();
+            if (_net)
                 netLeave();
             else
-                go(Screen::MainMenu);
+                go(Screen::kMainMenu);
         } else if (id == kReturn)
-            go(Screen::GameMenu);
+            go(Screen::kGameMenu);
         break;
-    case Screen::SaveGame:
+    case Screen::kSaveGame:
         if (id >= 2 && id < 2 + kSaveSlots) {
             // A slot chosen: its name to type, over its button.
-            if (saveSlot_ >= 0) {
-                gameMenu_->setVisible(10 + saveSlot_, false);
-                gameMenu_->setVisible(2 + saveSlot_, true);
+            if (_saveSlot >= 0) {
+                _gameMenu->setVisible(10 + _saveSlot, false);
+                _gameMenu->setVisible(2 + _saveSlot, true);
             }
-            saveSlot_ = id - 2;
+            _saveSlot = id - 2;
             // Its name so far, to type over; an empty slot's to type afresh.
-            const std::string name = savedName(saveSlot_);
-            gameMenu_->setVisible(id, false);
-            gameMenu_->setVisible(10 + saveSlot_, true);
-            gameMenu_->setText(10 + saveSlot_, name);
-            gameMenu_->focus(10 + saveSlot_);
-            gameMenu_->setEnabled(1, true);
-            sys_.setTextInput(true);
-        } else if (id == 1 && saveSlot_ >= 0 && play_ && play_->canSave()) {
-            sys_.setTextInput(false);
-            saveGame(saveSlot_, gameMenu_->text(10 + saveSlot_));
-            go(Screen::Game);
+            const std::string name = savedName(_saveSlot);
+            _gameMenu->setVisible(id, false);
+            _gameMenu->setVisible(10 + _saveSlot, true);
+            _gameMenu->setText(10 + _saveSlot, name);
+            _gameMenu->focus(10 + _saveSlot);
+            _gameMenu->setEnabled(1, true);
+            _sys.setTextInput(true);
+        } else if (id == 1 && _saveSlot >= 0 && _play && _play->canSave()) {
+            _sys.setTextInput(false);
+            saveGame(_saveSlot, _gameMenu->text(10 + _saveSlot));
+            go(Screen::kGame);
         } else if (id == 0) {
-            sys_.setTextInput(false);
-            go(Screen::GameMenu);
+            _sys.setTextInput(false);
+            go(Screen::kGameMenu);
         }
         break;
-    case Screen::LoadGame:
+    case Screen::kLoadGame:
         if (id >= 0 && id < kSaveSlots && !savedName(id).empty()) {
-            loadSlot_ = id;
-            play_.reset();
-            go(Screen::Loading);
+            _loadSlot = id;
+            _play.reset();
+            go(Screen::kLoading);
         } else if (id == kReturn)
-            go(Screen::MainMenu);
+            go(Screen::kMainMenu);
         break;
     default:
         netClick(id);
@@ -735,7 +736,7 @@ void FrontEnd::onClick(int id) {
 }
 
 std::filesystem::path FrontEnd::savesFolder() const {
-    return prefsFile_.empty() ? std::filesystem::path() : prefsFile_.parent_path() / "saves";
+    return _prefsFile.empty() ? std::filesystem::path() : _prefsFile.parent_path() / "saves";
 }
 
 std::filesystem::path FrontEnd::saveFile(int slot) const {
@@ -755,7 +756,7 @@ std::string FrontEnd::savedName(int slot) const {
 }
 
 Error FrontEnd::saveGame(int slot, const std::string &name) {
-    if (!play_ || savesFolder().empty())
+    if (!_play || savesFolder().empty())
         return Error::fail("nothing to save");
     std::error_code ec;
     std::filesystem::create_directories(savesFolder(), ec);
@@ -767,7 +768,7 @@ Error FrontEnd::saveGame(int slot, const std::string &name) {
         out << "reluva-clue-save 1\n";
         saveio::putString(out, name);
         out << '\n';
-        play_->save(out);
+        _play->save(out);
         if (!out)
             return Error::fail("couldn't write " + part.string());
     }
@@ -783,66 +784,66 @@ Error FrontEnd::loadGame(int slot) {
     if (!(in >> tag >> version) || tag != "reluva-clue-save" || version != 1 || in.get() != '\n' ||
         !saveio::getString(in, name))
         return Error::fail("not a saved game");
-    return play_->load(in);
+    return _play->load(in);
 }
 
 void FrontEnd::handleEvent(const Event &ev) {
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
-        mouseX_ = ev.mouseX;
-        mouseY_ = ev.mouseY;
+        _mouseX = ev.mouseX;
+        _mouseY = ev.mouseY;
     }
     // Videos: a key or a click skips them.
-    if (movie_) {
+    if (_movie) {
         if (ev.type == EventType::KeyDown || ev.type == EventType::MouseDown) {
-            const Screen next = afterMovie_;
+            const Screen next = _afterMovie;
             stopMovie();
             go(next);
         }
         return;
     }
-    if (at_ == Screen::Game) {
+    if (_at == Screen::kGame) {
         if (ev.type == EventType::KeyDown && ev.key == key::Escape)
-            go(Screen::GameMenu);
-        else if (play_)
-            play_->handleEvent(ev);
+            go(Screen::kGameMenu);
+        else if (_play)
+            _play->handleEvent(ev);
         return;
     }
     if (overGame()) {
         if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-            if (at_ == Screen::SaveGame)
-                sys_.setTextInput(false);
-            go(at_ == Screen::GameMenu ? Screen::Game : Screen::GameMenu);
+            if (_at == Screen::kSaveGame)
+                _sys.setTextInput(false);
+            go(_at == Screen::kGameMenu ? Screen::kGame : Screen::kGameMenu);
             return;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Return && at_ == Screen::SaveGame) {
+        if (ev.type == EventType::KeyDown && ev.key == key::Return && _at == Screen::kSaveGame) {
             onClick(1);
             return;
         }
-        if (gameMenu_) {
-            const int id = gameMenu_->handleEvent(ev);
+        if (_gameMenu) {
+            const int id = _gameMenu->handleEvent(ev);
             if (id >= 0)
                 onClick(id);
         }
         return;
     }
-    if (flashClick_ >= 0) {
+    if (_flashClick >= 0) {
         // The lightning's second keeps the screen; what is pressed meanwhile
         // waits, as Windows queues it, and is handled afterwards.
-        heldEvents_.push_back(ev);
+        _heldEvents.push_back(ev);
         return;
     }
-    if (!dialog_)
+    if (!_dialog)
         return;
     // The network screens: Esc goes back (a lobby is left), Enter sends.
-    const bool netScreen = at_ == Screen::NetHost || at_ == Screen::NetAddress || at_ == Screen::NetJoin ||
-                           at_ == Screen::NetLobby || at_ == Screen::NetSetup || at_ == Screen::NetMessage;
+    const bool netScreen = _at == Screen::kNetHost || _at == Screen::kNetAddress || _at == Screen::kNetJoin ||
+                           _at == Screen::kNetLobby || _at == Screen::kNetSetup || _at == Screen::kNetMessage;
     if (netScreen && ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::Return)) {
         const bool esc = ev.key == key::Escape;
-        if (at_ == Screen::NetLobby)
+        if (_at == Screen::kNetLobby)
             esc ? netLeave() : netClick(60);
-        else if (at_ == Screen::NetMessage)
+        else if (_at == Screen::kNetMessage)
             netClick(kOk);
-        else if (at_ == Screen::NetHost || at_ == Screen::NetAddress)
+        else if (_at == Screen::kNetHost || _at == Screen::kNetAddress)
             netClick(esc ? kReturn : 2);
         else if (esc)
             netClick(kReturn);
@@ -850,22 +851,22 @@ void FrontEnd::handleEvent(const Event &ev) {
     }
     // Esc as each screen's way back.
     if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
-        if (at_ == Screen::MainMenu)
-            go(Screen::Exit);
-        else if (at_ == Screen::Setup || at_ == Screen::Exit || at_ == Screen::Variants || at_ == Screen::Prefs ||
-                 at_ == Screen::Credits || at_ == Screen::CreditsText || at_ == Screen::RulesMenu ||
-                 at_ == Screen::Rules || at_ == Screen::StartChoice || at_ == Screen::Connection ||
-                 at_ == Screen::NetGame || at_ == Screen::LoadGame)
-            onClick(at_ == Screen::Exit ? 0 : kReturn);
-        else if (at_ == Screen::Picker)
+        if (_at == Screen::kMainMenu)
+            go(Screen::kExit);
+        else if (_at == Screen::kSetup || _at == Screen::kExit || _at == Screen::kVariants || _at == Screen::kPrefs ||
+                 _at == Screen::kCredits || _at == Screen::kCreditsText || _at == Screen::kRulesMenu ||
+                 _at == Screen::kRules || _at == Screen::kStartChoice || _at == Screen::kConnection ||
+                 _at == Screen::kNetGame || _at == Screen::kLoadGame)
+            onClick(_at == Screen::kExit ? 0 : kReturn);
+        else if (_at == Screen::kPicker)
             onClick(30);
         return;
     }
-    if (ev.type == EventType::KeyDown && ev.key == key::Return && at_ == Screen::Setup) {
+    if (ev.type == EventType::KeyDown && ev.key == key::Return && _at == Screen::kSetup) {
         onClick(kOk);
         return;
     }
-    const int id = dialog_->handleEvent(ev);
+    const int id = _dialog->handleEvent(ev);
     if (id >= 0) {
         if (stormScreen())
             startFlash(id);
@@ -877,27 +878,27 @@ void FrontEnd::handleEvent(const Event &ev) {
 void FrontEnd::startMovie(const std::string &file, Screen after) {
     stopMovie();
     stopMusic();
-    afterMovie_ = after;
-    const std::filesystem::path *p = data_.find(file);
+    _afterMovie = after;
+    const std::filesystem::path *p = _data.find(file);
     auto player = std::make_unique<Movie>();
     if (!p || player->open(readFile(*p))) {
         go(after); // without the video, on to what follows it
         return;
     }
-    if (mixer_ && player->hasAudio()) {
+    if (_mixer && player->hasAudio()) {
         auto sound = std::make_shared<audio::Sound>();
         if (!player->audio(*sound))
-            movieSound_ = mixer_->play(sound, audio::SoundType::Speech);
+            _movieSound = _mixer->play(sound, audio::SoundType::Speech);
     }
-    movie_ = std::move(player);
-    movieStart_ = sys_.getMillis();
+    _movie = std::move(player);
+    _movieStart = _sys.getMillis();
 }
 
 void FrontEnd::stopMovie() {
-    if (mixer_ && movieSound_ != audio::kNoSound)
-        mixer_->stop(movieSound_);
-    movieSound_ = audio::kNoSound;
-    movie_.reset();
+    if (_mixer && _movieSound != audio::kNoSound)
+        _mixer->stop(_movieSound);
+    _movieSound = audio::kNoSound;
+    _movie.reset();
 }
 
 void FrontEnd::playMusic(bool inGame) {
@@ -905,24 +906,24 @@ void FrontEnd::playMusic(bool inGame) {
     // Preferences); tracks 2, 3 and 4 follow one another (the game). Either
     // only if the CD isn't playing already (Clue.exe 0x42F120). See
     // docs/engines/clue/systems/music.md.
-    if (!mixer_ || (music_ != audio::kNoSound && mixer_->isPlaying(music_)))
+    if (!_mixer || (_music != audio::kNoSound && _mixer->isPlaying(_music)))
         return;
-    musicInGame_ = inGame;
+    _musicInGame = inGame;
     playTrack(inGame ? 2 : 5);
 }
 
 void FrontEnd::playTrack(int track) {
     stopMusic();
-    musicTrack_ = track;
-    auto it = tracks_.find(track);
-    if (it == tracks_.end()) {
+    _musicTrack = track;
+    auto it = _tracks.find(track);
+    if (it == _tracks.end()) {
         // Ripped from the CD as trackNN.wav or .mp3 (reluva-tool cue-rip);
         // without them the game is silent, as the original without its CD.
         std::shared_ptr<audio::Sound> s;
         for (const char *ext : {".wav", ".mp3"}) {
             char name[16];
             std::snprintf(name, sizeof name, "track%02d%s", track, ext);
-            if (const std::filesystem::path *p = data_.find(name)) {
+            if (const std::filesystem::path *p = _data.find(name)) {
                 auto decoded = std::make_shared<audio::Sound>();
                 if (!audio::decodeSound(readFile(*p), *decoded)) {
                     s = decoded;
@@ -930,16 +931,16 @@ void FrontEnd::playTrack(int track) {
                 }
             }
         }
-        it = tracks_.emplace(track, s).first;
+        it = _tracks.emplace(track, s).first;
     }
     if (it->second)
-        music_ = mixer_->play(it->second, audio::SoundType::Music, audio::kMaxVolume, 0, !musicInGame_);
+        _music = _mixer->play(it->second, audio::SoundType::Music, audio::kMaxVolume, 0, !_musicInGame);
 }
 
 void FrontEnd::stopMusic() {
-    if (mixer_ && music_ != audio::kNoSound)
-        mixer_->stop(music_);
-    music_ = audio::kNoSound;
+    if (_mixer && _music != audio::kNoSound)
+        _mixer->stop(_music);
+    _music = audio::kNoSound;
 }
 
 void FrontEnd::drawStorm() {
@@ -955,24 +956,24 @@ void FrontEnd::drawStorm() {
                                     {"main_anim:Art1anim", "menu:Art1flash", 421, 239},
                                     {"main_anim:Art2anim", "menu:Art2flash", 396, 317}};
     for (const Panel &p : kPanels)
-        for (const char *name : {p.animation, flashClick_ >= 0 ? p.flash : nullptr}) {
-            const Animation *a = name ? data_.animation(name) : nullptr;
+        for (const char *name : {p.animation, _flashClick >= 0 ? p.flash : nullptr}) {
+            const Animation *a = name ? _data.animation(name) : nullptr;
             if (!a || a->layers.empty() || a->frameCount() == 0)
                 continue;
-            const size_t f = a->frameAt(now_, false);
+            const size_t f = a->frameAt(_now, false);
             for (const auto &layer : a->layers) {
                 const Animation::Part &part = layer[f];
                 if (part.image >= a->images.size())
                     continue;
-                if (const Image *img = data_.image(a->images[part.image]))
-                    image::blit(screen_, img->pixels, p.x + part.x + img->offsetX, p.y + part.y + img->offsetY);
+                if (const Image *img = _data.image(a->images[part.image]))
+                    image::blit(_screen, img->pixels, p.x + part.x + img->offsetX, p.y + part.y + img->offsetY);
             }
         }
 }
 
 bool FrontEnd::stormScreen() const {
-    return dialog_ && !overGame() && at_ != Screen::Game && at_ != Screen::Loading && at_ != Screen::Picker &&
-           at_ != Screen::Setup && at_ != Screen::NetLobby && at_ != Screen::NetSetup && at_ != Screen::NetMessage;
+    return _dialog && !overGame() && _at != Screen::kGame && _at != Screen::kLoading && _at != Screen::kPicker &&
+           _at != Screen::kSetup && _at != Screen::kNetLobby && _at != Screen::kNetSetup && _at != Screen::kNetMessage;
 }
 
 namespace {
@@ -991,10 +992,10 @@ std::shared_ptr<audio::Sound> loadSound(const GameData &data, const char *file) 
 void FrontEnd::menuThunder() {
     // Clue.exe 0x40C4A0, run as each storm screen opens: mnThndr1.wav
     // (sound 2) looping, started again only if it isn't playing.
-    if (!mixer_ || (stormSound_ != audio::kNoSound && mixer_->isPlaying(stormSound_)))
+    if (!_mixer || (_stormSound != audio::kNoSound && _mixer->isPlaying(_stormSound)))
         return;
-    if (auto s = loadSound(data_, "mnThndr1.wav"))
-        stormSound_ = mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume, 0, true);
+    if (auto s = loadSound(_data, "mnThndr1.wav"))
+        _stormSound = _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume, 0, true);
 }
 
 void FrontEnd::startFlash(int id) {
@@ -1003,19 +1004,19 @@ void FrontEnd::startFlash(int id) {
     // (controls 1004-1007) shown, 500 ms with the screen still and 500 ms
     // more with it going on; then the click is acted on, and the screen it
     // opens hides the flashes (0x40C420).
-    if (mixer_)
-        if (auto s = loadSound(data_, "mnThndr2.wav"))
-            mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume);
-    flashUntil_ = now_ + 1000;
-    flashClick_ = id;
+    if (_mixer)
+        if (auto s = loadSound(_data, "mnThndr2.wav"))
+            _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume);
+    _flashUntil = _now + 1000;
+    _flashClick = id;
 }
 
 void FrontEnd::drawCursor() {
     // The game's pointer, a gloved hand pointing up and to the left.
-    const Animation *a = data_.animation("cursors:Apointcrsr");
+    const Animation *a = _data.animation("cursors:Apointcrsr");
     if (!a || a->layers.empty() || a->layers[0].empty() || a->layers[0][0].image >= a->images.size())
         return;
-    const Image *img = data_.image(a->images[a->layers[0][0].image]);
+    const Image *img = _data.image(a->images[a->layers[0][0].image]);
     if (!img)
         return;
     // The pointer's images fill their 32x32 square, colour 0 (black) around
@@ -1025,11 +1026,11 @@ void FrontEnd::drawCursor() {
     for (int y = 0; y < p.h; ++y)
         for (int x = 0; x < p.w; ++x) {
             const uint8_t *c = p.pixel(x, y);
-            const int sx = mouseX_ + x;
-            const int sy = mouseY_ + y;
+            const int sx = _mouseX + x;
+            const int sy = _mouseY + y;
             if (c[3] == 0 || (c[0] | c[1] | c[2]) == 0 || sx < 0 || sy < 0 || sx >= kW || sy >= kH)
                 continue;
-            uint8_t *d = screen_.row(sy) + sx * 4;
+            uint8_t *d = _screen.row(sy) + sx * 4;
             d[0] = c[0];
             d[1] = c[1];
             d[2] = c[2];
@@ -1037,24 +1038,24 @@ void FrontEnd::drawCursor() {
 }
 
 void FrontEnd::update(uint64_t nowMs) {
-    now_ = nowMs;
+    _now = nowMs;
     netUpdate(); // the network's, whatever is on the screen
-    if (movie_) {
-        const double t = double(nowMs - movieStart_) / 1000.0;
-        const bool soundOn = mixer_ && movieSound_ != audio::kNoSound && mixer_->isPlaying(movieSound_);
-        if (movie_->seek(t) || (movie_->finished(t) && !soundOn)) {
-            const Screen next = afterMovie_;
+    if (_movie) {
+        const double t = double(nowMs - _movieStart) / 1000.0;
+        const bool soundOn = _mixer && _movieSound != audio::kNoSound && _mixer->isPlaying(_movieSound);
+        if (_movie->seek(t) || (_movie->finished(t) && !soundOn)) {
+            const Screen next = _afterMovie;
             stopMovie();
             go(next);
         } else {
             // Twice the size: 320x240 fills the screen.
-            const image::Image &pic = movie_->picture();
+            const image::Image &pic = _movie->picture();
             const int scale = std::max(1, std::min(kW / std::max(1, pic.w), kH / std::max(1, pic.h)));
-            fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
+            fillRect(_screen, 0, 0, kW, kH, {0, 0, 0});
             const int x0 = (kW - pic.w * scale) / 2;
             const int y0 = (kH - pic.h * scale) / 2;
             for (int y = 0; y < pic.h * scale; ++y) {
-                uint8_t *d = screen_.row(y0 + y) + x0 * 4;
+                uint8_t *d = _screen.row(y0 + y) + x0 * 4;
                 for (int x = 0; x < pic.w * scale; ++x, d += 4) {
                     const uint8_t *p = pic.pixel(x / scale, y / scale);
                     d[0] = p[0];
@@ -1066,92 +1067,92 @@ void FrontEnd::update(uint64_t nowMs) {
             return;
         }
     }
-    if (flashClick_ >= 0 && now_ >= flashUntil_) {
-        const int id = flashClick_;
-        flashClick_ = -1;
+    if (_flashClick >= 0 && _now >= _flashUntil) {
+        const int id = _flashClick;
+        _flashClick = -1;
         onClick(id);
         std::vector<Event> held;
-        held.swap(heldEvents_);
+        held.swap(_heldEvents);
         for (size_t i = 0; i < held.size(); ++i) {
             handleEvent(held[i]);
-            if (flashClick_ >= 0) { // another flash: the rest wait for it
-                heldEvents_.insert(heldEvents_.begin(), held.begin() + i + 1, held.end());
+            if (_flashClick >= 0) { // another flash: the rest wait for it
+                _heldEvents.insert(_heldEvents.begin(), held.begin() + i + 1, held.end());
                 break;
             }
         }
     }
-    if (play_)
-        if (const int cue = play_->takeMusicCue()) {
+    if (_play)
+        if (const int cue = _play->takeMusicCue()) {
             if (cue < 0)
                 stopMusic();
             else {
-                musicInGame_ = true;
+                _musicInGame = true;
                 playTrack(cue);
             }
         }
     // The game's music goes on to its next track: 2, 3, 4, 2 ...
-    if (musicInGame_ && mixer_ && music_ != audio::kNoSound && !mixer_->isPlaying(music_) &&
-        (at_ == Screen::Game || overGame()))
-        playTrack(musicTrack_ == 4 ? 2 : musicTrack_ + 1);
-    if (at_ == Screen::Loading) {
+    if (_musicInGame && _mixer && _music != audio::kNoSound && !_mixer->isPlaying(_music) &&
+        (_at == Screen::kGame || overGame()))
+        playTrack(_musicTrack == 4 ? 2 : _musicTrack + 1);
+    if (_at == Screen::kLoading) {
         // Shown while the mansion is put together, then the deal.
-        fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
-        if (dialog_)
-            dialog_->draw(screen_);
-        sys_.updateScreen(screen_);
-        if (!mansion_) {
-            mansion_ = std::make_unique<Mansion>();
-            const std::filesystem::path *lvl = data_.find("clue.lvl");
-            if (!lvl || levelFile_.open(*lvl) || parseLevel(levelFile_, level_) || mansion_->build(data_, level_)) {
-                mansion_.reset();
-                go(Screen::MainMenu);
+        fillRect(_screen, 0, 0, kW, kH, {0, 0, 0});
+        if (_dialog)
+            _dialog->draw(_screen);
+        _sys.updateScreen(_screen);
+        if (!_mansion) {
+            _mansion = std::make_unique<Mansion>();
+            const std::filesystem::path *lvl = _data.find("clue.lvl");
+            if (!lvl || _levelFile.open(*lvl) || parseLevel(_levelFile, _level) || _mansion->build(_data, _level)) {
+                _mansion.reset();
+                go(Screen::kMainMenu);
                 return;
             }
         }
         // A saved game goes straight on; a new one is dealt first.
-        go(loadSlot_ >= 0 ? Screen::Game : Screen::Deal);
+        go(_loadSlot >= 0 ? Screen::kGame : Screen::kDeal);
         return;
     }
     // The game goes on behind the Esc menu and what it opens, as the
     // original's does (its computer players play on; recordings show it).
-    const bool behind = overGame() || (prefsReturn_ == Screen::GameMenu && at_ == Screen::Prefs) ||
-                        (rulesReturn_ == Screen::GameMenu && (at_ == Screen::RulesMenu || at_ == Screen::Rules));
-    if (play_ && (at_ == Screen::Game || behind)) {
-        play_->setLook(playLook());
-        play_->update(nowMs);
+    const bool behind = overGame() || (_prefsReturn == Screen::kGameMenu && _at == Screen::kPrefs) ||
+                        (_rulesReturn == Screen::kGameMenu && (_at == Screen::kRulesMenu || _at == Screen::kRules));
+    if (_play && (_at == Screen::kGame || behind)) {
+        _play->setLook(playLook());
+        _play->update(nowMs);
     }
     // Save as the game stands now (it goes on behind the menu).
-    if (at_ == Screen::GameMenu && gameMenu_ && play_)
-        gameMenu_->setEnabled(0, play_->canSave() && !savesFolder().empty());
-    if ((at_ == Screen::Game || overGame()) && play_) {
-        if (play_->finished()) {
+    if (_at == Screen::kGameMenu && _gameMenu && _play)
+        _gameMenu->setEnabled(0, _play->canSave() && !savesFolder().empty());
+    if ((_at == Screen::kGame || overGame()) && _play) {
+        if (_play->finished()) {
             // The game over: back to the main menu, as the original.
-            play_->stopSounds();
-            play_.reset();
-            if (net_)
+            _play->stopSounds();
+            _play.reset();
+            if (_net)
                 netLeave();
             else
-                go(Screen::MainMenu);
+                go(Screen::kMainMenu);
             drawCursor();
             return;
         }
-        play_->draw();
-        if (overGame() && gameMenu_)
-            gameMenu_->draw(screen_);
+        _play->draw();
+        if (overGame() && _gameMenu)
+            _gameMenu->draw(_screen);
     } else {
-        fillRect(screen_, 0, 0, kW, kH, {0, 0, 0});
-        if (dialog_) {
+        fillRect(_screen, 0, 0, kW, kH, {0, 0, 0});
+        if (_dialog) {
             // The storm goes between the menu's background and its controls.
-            dialog_->drawBackground(screen_);
-            if (at_ == Screen::NetAddress)
-                if (const Image *cover = data_.image("menu:Iexitbgnd"))
-                    copyRect(screen_, cover->pixels, kCoverX, kCoverY, kCoverW, kCoverH);
-            if (at_ != Screen::Picker && at_ != Screen::Setup && at_ != Screen::NetLobby && at_ != Screen::NetSetup &&
-                at_ != Screen::NetMessage) {
+            _dialog->drawBackground(_screen);
+            if (_at == Screen::kNetAddress)
+                if (const Image *cover = _data.image("menu:Iexitbgnd"))
+                    copyRect(_screen, cover->pixels, kCoverX, kCoverY, kCoverW, kCoverH);
+            if (_at != Screen::kPicker && _at != Screen::kSetup && _at != Screen::kNetLobby &&
+                _at != Screen::kNetSetup && _at != Screen::kNetMessage) {
                 drawStorm();
                 menuThunder();
             }
-            dialog_->drawControls(screen_);
+            _dialog->drawControls(_screen);
         }
     }
     drawCursor();

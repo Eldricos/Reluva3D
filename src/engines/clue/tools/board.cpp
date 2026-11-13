@@ -175,20 +175,20 @@ int cmdClueBoard(int argc, char **argv) {
         int steps = 0;
         int early = 0;
         int earlySelf = 0;
-        for (; game.phase() != Game::Phase::Over && steps < 100000; ++steps) {
+        for (; game.phase() != Game::Phase::kOver && steps < 100000; ++steps) {
             ComputerPlayer &me = ai[size_t(game.turn())];
             reluva::Error e;
             switch (me.decide(game)) {
-            case ComputerPlayer::Action::Roll:
+            case ComputerPlayer::Action::kRoll:
                 game.rollDie();
                 break;
-            case ComputerPlayer::Action::Passage:
+            case ComputerPlayer::Action::kPassage:
                 e = game.takePassage();
                 break;
-            case ComputerPlayer::Action::Walk:
+            case ComputerPlayer::Action::kWalk:
                 e = game.walk(me.chooseWalk(game));
                 break;
-            case ComputerPlayer::Action::Suggest: {
+            case ComputerPlayer::Action::kSuggest: {
                 const auto a = me.chooseSuggestion(game);
                 ++suggestions;
                 selfNamed += a.suspect == game.turn();
@@ -197,24 +197,24 @@ int cmdClueBoard(int argc, char **argv) {
                     earlySelf += a.suspect == game.turn();
                 }
                 e = game.suggest(a.suspect, a.weapon);
-                if (!e && game.phase() == Game::Phase::Disprove)
+                if (!e && game.phase() == Game::Phase::kDisprove)
                     e = game.show(ai[size_t(game.disprover())].chooseShow(game, game.turn()));
                 for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
                     if (playing[size_t(s)])
                         ai[size_t(s)].observe(game);
                 break;
             }
-            case ComputerPlayer::Action::Accuse: {
+            case ComputerPlayer::Action::kAccuse: {
                 const auto a = me.chooseAccusation();
                 const int accuser = game.turn();
                 e = game.accuse(a);
-                if (!e && game.phase() != Game::Phase::Over)
+                if (!e && game.phase() != Game::Phase::kOver)
                     for (int s = 0; s < reluva::clue::kSuspectCount; ++s)
                         if (playing[size_t(s)])
                             ai[size_t(s)].observeAccusation(a, accuser);
                 break;
             }
-            case ComputerPlayer::Action::EndTurn:
+            case ComputerPlayer::Action::kEndTurn:
                 e = game.endTurn();
                 ++turns;
                 break;
@@ -224,7 +224,7 @@ int cmdClueBoard(int argc, char **argv) {
                 break;
             }
         }
-        unfinished += game.phase() != Game::Phase::Over;
+        unfinished += game.phase() != Game::Phase::kOver;
         within12 += game.winner() >= 0 && turns - turnsBefore < 12 * players;
         noSelfIn15 += early == 15 && earlySelf == 0;
         if (game.winner() >= 0)
@@ -247,11 +247,11 @@ int cmdClueBoard(int argc, char **argv) {
 }
 
 const Commands
-    commands("clue", {
-                         {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
-                         {"board", "<clue.lvl> [games [novice|normal|expert players]]",
-                          "the board a Clue level lays out; with a number, that many games of computer players on it",
-                          cmdClueBoard},
-                     });
+    kCommands("clue", {
+                          {"level", "<clue.lvl> [-v]", "a Clue level's placements (each one with -v)", cmdClueLevel},
+                          {"board", "<clue.lvl> [games [novice|normal|expert players]]",
+                           "the board a Clue level lays out; with a number, that many games of computer players on it",
+                           cmdClueBoard},
+                      });
 
 } // namespace

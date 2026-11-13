@@ -89,7 +89,7 @@ static void testDriveAndImages() {
 static void testAnimations() {
     Animation a;
     CHECK(!parseAnimation(animation(false), a));
-    CHECK(a.name.empty() && a.framesPerSecond == 6 && a.flags == Animation::BackAndForth && a.width == 75 &&
+    CHECK(a.name.empty() && a.framesPerSecond == 6 && a.flags == Animation::kBackAndForth && a.width == 75 &&
           a.height == 120);
     CHECK(a.images.size() == 2 && a.images[1] == "test:Ib");
     CHECK(a.layers.size() == 2 && a.frameCount() == 2 && a.isometric && !a.shortForm);
@@ -204,7 +204,7 @@ static void testResi() {
     CHECK(d && d->background == "menu:AexitBgnd" && d->controls.size() == 4 && !resi.dialog(1));
     if (d && d->controls.size() == 4) {
         const ResiControl *yes = d->control(10001);
-        CHECK(yes && yes->type == ResiControl::TextButton && yes->text == "Yes" &&
+        CHECK(yes && yes->type == ResiControl::kTextButton && yes->text == "Yes" &&
               yes->animation == "menu:AexitYesBtn");
         CHECK(yes && yes->left == 260 && yes->top == 185 && yes->right == 380 && yes->centreX == 1 && yes->font == 6);
         CHECK(d->controls[0].text == "Are you sure you wish|to exit Clue?" && d->controls[0].animation.empty());
@@ -221,12 +221,12 @@ static void testResi() {
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.formats",
-          {
-              {"unpack", [](const std::filesystem::path &) { testUnpack(); }},
-              {"archives and images", [](const std::filesystem::path &) { testDriveAndImages(); }},
-              {"animations", [](const std::filesystem::path &) { testAnimations(); }},
-              {"game folders", [](const std::filesystem::path &tmp) { testGameData(tmp / "gamedata"); }},
-              {"objects and levels", [](const std::filesystem::path &) { testObjectsAndLevel(); }},
-              {"dialogs", [](const std::filesystem::path &) { testResi(); }},
-          });
+    kSuite("clue.unit.formats",
+           {
+               {"unpack", [](const std::filesystem::path &) { testUnpack(); }},
+               {"archives and images", [](const std::filesystem::path &) { testDriveAndImages(); }},
+               {"animations", [](const std::filesystem::path &) { testAnimations(); }},
+               {"game folders", [](const std::filesystem::path &tmp) { testGameData(tmp / "gamedata"); }},
+               {"objects and levels", [](const std::filesystem::path &) { testObjectsAndLevel(); }},
+               {"dialogs", [](const std::filesystem::path &) { testResi(); }},
+           });

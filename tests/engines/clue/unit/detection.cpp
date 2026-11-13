@@ -52,7 +52,7 @@ void testDetection(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.unit.detection",
-                                       {
-                                           {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("clue.unit.detection",
+                                        {
+                                            {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
+                                        });

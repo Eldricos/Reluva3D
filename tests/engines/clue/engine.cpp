@@ -63,15 +63,15 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
 
 private:
-    size_t next_ = 0;
+    size_t _next = 0;
 };
 
 // The dialogs the game goes through, by their numbers in dialogInfo.res
@@ -401,7 +401,7 @@ void engineTest(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("clue.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

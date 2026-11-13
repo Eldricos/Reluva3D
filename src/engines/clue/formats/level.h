@@ -28,13 +28,13 @@ struct ObjectDef {
     // What an object is, by its type byte, as far as the objects of each
     // type tell (3, 5, 9 and 12 are all furniture of some kind).
     enum Type : uint8_t {
-        Wall = 0,
-        Floor = 1,
-        Furniture = 5,
-        Character = 6,
-        SecretPassage = 8,
-        TileNumber = 11,
-        Drapes = 12
+        kWall = 0,
+        kFloor = 1,
+        kFurniture = 5,
+        kCharacter = 6,
+        kSecretPassage = 8,
+        kTileNumber = 11,
+        kDrapes = 12
     };
     struct State {
         // 0 the usual one; 1-16 a character's eight idle and eight "mult"

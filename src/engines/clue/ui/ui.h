@@ -27,7 +27,7 @@ public:
     // Packed: each glyph's ink a pixel after the last's (the ticker), not
     // by the glyphs' cells.
     BitmapFont(const GameData &data, const ResiFont &font, bool packed = false);
-    int lineHeight() const { return lineHeight_; }
+    int lineHeight() const { return _lineHeight; }
     int width(std::string_view line) const;
     void draw(Surface &s, int x, int y, std::string_view line) const;
 
@@ -37,8 +37,8 @@ private:
         int dx = 0; // where its image goes from the pen
         int advance = 0;
     };
-    std::array<Glyph, 256> glyphs_{};
-    int lineHeight_ = 0;
+    std::array<Glyph, 256> _glyphs{};
+    int _lineHeight = 0;
 };
 
 // The game's fonts, by their number in dialogInfo.res.
@@ -48,7 +48,7 @@ public:
     const BitmapFont *get(int id) const; // nullptr if there's no such font
 
 private:
-    std::map<int, std::unique_ptr<BitmapFont>> fonts_;
+    std::map<int, std::unique_ptr<BitmapFont>> _fonts;
 };
 
 struct UiRect {
@@ -73,7 +73,7 @@ class DialogView {
 public:
     DialogView(const GameData &data, const Fonts &fonts, const ResiDialog &dialog, int x = 0, int y = 0);
 
-    const ResiDialog &info() const { return dialog_; }
+    const ResiDialog &info() const { return _dialog; }
     void setVisible(int id, bool visible);
     void setGroupVisible(int group, bool visible); // every control of that group
     bool visible(int id) const;
@@ -117,13 +117,13 @@ private:
     UiRect rectOf(const ResiControl &c) const;
     std::vector<std::string> wrapped(const ResiControl &c) const;
 
-    const GameData &data_;
-    const Fonts &fonts_;
-    const ResiDialog &dialog_;
-    int x_, y_;
-    int width_ = 0, height_ = 0; // the dialog's size, for controls reaching to its edges
-    std::vector<State> state_;   // one per control
-    int hover_ = -1, pressed_ = -1, focus_ = -1, dragging_ = -1;
+    const GameData &_data;
+    const Fonts &_fonts;
+    const ResiDialog &_dialog;
+    int _x, _y;
+    int _width = 0, _height = 0; // the dialog's size, for controls reaching to its edges
+    std::vector<State> _state;   // one per control
+    int _hover = -1, _pressed = -1, _focus = -1, _dragging = -1;
 };
 
 } // namespace reluva::clue

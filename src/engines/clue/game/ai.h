@@ -26,16 +26,16 @@ namespace reluva::clue {
 class Notebook {
 public:
     static constexpr int kCaseFile = kSuspectCount, kOwners = kSuspectCount + 1;
-    enum Mark : uint8_t { Unknown, Yes, No };
+    enum Mark : uint8_t { kUnknown, kYes, kNo };
 
     // A fresh notebook for the seat `me`: its hand known, the seats not
     // playing holding nothing, every playing seat `handSize` cards.
     void reset(const Game &game, int me, bool countCards, bool useClues);
 
-    Mark mark(int card, int owner) const { return marks_[size_t(card)][size_t(owner)]; }
+    Mark mark(int card, int owner) const { return _marks[size_t(card)][size_t(owner)]; }
     int holder(int card) const; // the owner known to hold it, or -1
-    bool inCaseFile(int card) const { return mark(card, kCaseFile) == Yes; }
-    bool outOfCaseFile(int card) const { return mark(card, kCaseFile) == No; }
+    bool inCaseFile(int card) const { return mark(card, kCaseFile) == kYes; }
+    bool outOfCaseFile(int card) const { return mark(card, kCaseFile) == kNo; }
     int solved(int kind) const; // 0 suspects, 1 weapons, 2 rooms: the card known in the case file, or -1
     bool complete() const { return solved(0) >= 0 && solved(1) >= 0 && solved(2) >= 0; }
     int unknownCount() const; // cards whose place isn't known
@@ -53,26 +53,26 @@ private:
     void set(int card, int owner, Mark m);
     void settle(); // deduce until nothing more can be
 
-    std::array<std::array<Mark, kOwners>, kCardCount> marks_{};
-    std::array<int, kOwners> handSize_{};
-    std::vector<std::pair<int, std::array<int, 3>>> oneOf_;
-    std::vector<std::array<int, 3>> notAll_;
-    bool countCards_ = true, useClues_ = true;
-    bool contradiction_ = false;
+    std::array<std::array<Mark, kOwners>, kCardCount> _marks{};
+    std::array<int, kOwners> _handSize{};
+    std::vector<std::pair<int, std::array<int, 3>>> _oneOf;
+    std::vector<std::array<int, 3>> _notAll;
+    bool _countCards = true, _useClues = true;
+    bool _contradiction = false;
 };
 
 class ComputerPlayer {
 public:
-    enum Level { Novice, Normal, Expert };
+    enum Level { kNovice, kNormal, kExpert };
 
-    void reset(const Game &game, int me, uint32_t seed, int level = Expert);
+    void reset(const Game &game, int me, uint32_t seed, int level = kExpert);
 
     // After a suggestion is answered (or not): what this player can see of
     // it. A wrong accusation: what was accused, and by whom.
     void observe(const Game &game);
     void observeAccusation(const Accusation &a, int accuser);
 
-    enum class Action { Roll, Passage, Walk, Suggest, Accuse, EndTurn };
+    enum class Action { kRoll, kPassage, kWalk, kSuggest, kAccuse, kEndTurn };
     Action decide(const Game &game);
     std::vector<Place> chooseWalk(const Game &game);
     Accusation chooseSuggestion(const Game &game);
@@ -84,7 +84,7 @@ public:
     // Saved and loaded with the game (the board's distances worked out again).
     void save(std::ostream &out) const;
     Error load(std::istream &in, const Game &game);
-    int level() const { return level_; }
+    int level() const { return _level; }
 
 private:
     // What it knows, as Clue.exe's notebook keeps it (0x42CC20 on): cards
@@ -110,13 +110,13 @@ private:
     void measure(const Board &board);
     int distance(const Place &from, int room) const;
 
-    int me_ = 0;
-    int level_ = Expert;
-    Rng rng_;
-    Mind mind_;
-    int target_ = kNoRoom; // the room it heads for this turn
+    int _me = 0;
+    int _level = kExpert;
+    Rng _rng;
+    Mind _mind;
+    int _target = kNoRoom; // the room it heads for this turn
     // The steps from each corridor square to each room.
-    std::array<std::map<Square, int>, kRoomCount> toRoom_;
+    std::array<std::map<Square, int>, kRoomCount> _toRoom;
 };
 
 } // namespace reluva::clue

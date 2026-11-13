@@ -56,48 +56,48 @@ Error DataDrive::open(const std::filesystem::path &path) {
         return Error::fail(path.filename().string() + ": " + err.message);
     if (Error err = load(std::move(data)))
         return Error::fail(path.filename().string() + ": " + err.message);
-    path_ = path;
+    _path = path;
     return Error::success();
 }
 
 Error DataDrive::load(std::vector<uint8_t> data) {
-    entries_.clear();
-    data_ = std::move(data);
-    if (data_.size() >= 4 && std::memcmp(data_.data(), "RESI", 4) == 0)
+    _entries.clear();
+    _data = std::move(data);
+    if (_data.size() >= 4 && std::memcmp(_data.data(), "RESI", 4) == 0)
         return Error::fail("a RESI file (the menus' and dialogs' layout), not a DDRV archive");
-    if (data_.size() < kDriveHeader + 4 || std::memcmp(data_.data(), "DDRV", 4) != 0)
+    if (_data.size() < kDriveHeader + 4 || std::memcmp(_data.data(), "DDRV", 4) != 0)
         return Error::fail("not a DDRV archive");
-    const uint32_t directory = u32(data_, 4);
-    const uint32_t count = u32(data_, 8);
-    if (directory > data_.size() - 4 || (data_.size() - directory - 4) / kDriveEntry < count)
+    const uint32_t directory = u32(_data, 4);
+    const uint32_t count = u32(_data, 8);
+    if (directory > _data.size() - 4 || (_data.size() - directory - 4) / kDriveEntry < count)
         return Error::fail("DDRV directory cut short");
-    entries_.reserve(count);
+    _entries.reserve(count);
     for (uint32_t i = 0; i < count; ++i) {
         const size_t e = directory + i * kDriveEntry;
         Entry entry;
-        entry.time = uint64_t(u32(data_, e + 4)) | uint64_t(u32(data_, e + 8)) << 32;
-        entry.offset = u32(data_, e + 12);
-        entry.size = u32(data_, e + 16);
-        const char *name = reinterpret_cast<const char *>(data_.data() + e + 20);
+        entry.time = uint64_t(u32(_data, e + 4)) | uint64_t(u32(_data, e + 8)) << 32;
+        entry.offset = u32(_data, e + 12);
+        entry.size = u32(_data, e + 16);
+        const char *name = reinterpret_cast<const char *>(_data.data() + e + 20);
         entry.name.assign(name, strnlen(name, kDriveName));
-        if (entry.offset > data_.size())
+        if (entry.offset > _data.size())
             return Error::fail("DDRV entry " + entry.name + " lies beyond the end");
-        entries_.push_back(std::move(entry));
+        _entries.push_back(std::move(entry));
     }
     return Error::success();
 }
 
 const DataDrive::Entry *DataDrive::find(std::string_view name) const {
     const std::string want = fs::toLower(name);
-    for (const Entry &e : entries_)
+    for (const Entry &e : _entries)
         if (fs::toLower(e.name) == want)
             return &e;
     return nullptr;
 }
 
 std::vector<uint8_t> DataDrive::read(const Entry &entry) const {
-    const size_t end = std::min<size_t>(data_.size(), size_t(entry.offset) + entry.size);
-    return {data_.begin() + entry.offset, data_.begin() + std::max<size_t>(end, entry.offset)};
+    const size_t end = std::min<size_t>(_data.size(), size_t(entry.offset) + entry.size);
+    return {_data.begin() + entry.offset, _data.begin() + std::max<size_t>(end, entry.offset)};
 }
 
 Error decodeImage(const std::vector<uint8_t> &r, Image &out) {
@@ -178,9 +178,9 @@ size_t Animation::frameAt(uint64_t ms, bool world) const {
     if (framesPerSecond == 0 && !world)
         return 0;
     const uint64_t step = ms / uint64_t(1000 / (framesPerSecond ? framesPerSecond : 10));
-    if (!world || flags == Loop)
+    if (!world || flags == kLoop)
         return size_t(step % n);
-    if (flags == BackAndForth) {
+    if (flags == kBackAndForth) {
         const uint64_t k = step % (2 * n - 2);
         return size_t(k < n ? k : 2 * n - 2 - k);
     }

@@ -21,30 +21,30 @@ constexpr int kKindCount[3] = {kSuspectCount, kWeaponCount, kRoomCount};
 // ---- The notebook --------------------------------------------------------------
 
 void Notebook::reset(const Game &game, int me, bool countCards, bool useClues) {
-    countCards_ = countCards;
-    useClues_ = useClues;
-    contradiction_ = false;
-    oneOf_.clear();
-    notAll_.clear();
-    for (auto &row : marks_)
-        row.fill(Unknown);
+    _countCards = countCards;
+    _useClues = useClues;
+    _contradiction = false;
+    _oneOf.clear();
+    _notAll.clear();
+    for (auto &row : _marks)
+        row.fill(kUnknown);
     for (int s = 0; s < kSuspectCount; ++s)
-        handSize_[size_t(s)] = int(game.seat(s).hand.size());
-    handSize_[kCaseFile] = 3;
+        _handSize[size_t(s)] = int(game.seat(s).hand.size());
+    _handSize[kCaseFile] = 3;
     for (int s = 0; s < kSuspectCount; ++s)
         if (!game.seat(s).playing)
             for (int c = 0; c < kCardCount; ++c)
-                marks_[size_t(c)][size_t(s)] = No;
+                _marks[size_t(c)][size_t(s)] = kNo;
     for (int c = 0; c < kCardCount; ++c)
-        marks_[size_t(c)][size_t(me)] = No;
+        _marks[size_t(c)][size_t(me)] = kNo;
     for (int c : game.seat(me).hand)
-        marks_[size_t(c)][size_t(me)] = Yes;
+        _marks[size_t(c)][size_t(me)] = kYes;
     settle();
 }
 
 int Notebook::holder(int card) const {
     for (int o = 0; o < kOwners; ++o)
-        if (mark(card, o) == Yes)
+        if (mark(card, o) == kYes)
             return o;
     return -1;
 }
@@ -64,34 +64,34 @@ int Notebook::unknownCount() const {
 }
 
 void Notebook::set(int card, int owner, Mark m) {
-    Mark &at = marks_[size_t(card)][size_t(owner)];
+    Mark &at = _marks[size_t(card)][size_t(owner)];
     if (at == m)
         return;
-    if (at != Unknown)
-        contradiction_ = true; // seen wrong (it can't be, but nothing is changed for it)
+    if (at != kUnknown)
+        _contradiction = true; // seen wrong (it can't be, but nothing is changed for it)
     else
         at = m;
 }
 
 void Notebook::holds(int owner, int card) {
-    set(card, owner, Yes);
+    set(card, owner, kYes);
     settle();
 }
 
 void Notebook::lacks(int owner, int card) {
-    set(card, owner, No);
+    set(card, owner, kNo);
     settle();
 }
 
 void Notebook::holdsOneOf(int owner, const std::array<int, 3> &cards) {
-    if (!useClues_)
+    if (!_useClues)
         return;
-    oneOf_.push_back({owner, cards});
+    _oneOf.push_back({owner, cards});
     settle();
 }
 
 void Notebook::notAll(const std::array<int, 3> &cards) {
-    notAll_.push_back(cards);
+    _notAll.push_back(cards);
     settle();
 }
 
@@ -99,8 +99,8 @@ void Notebook::settle() {
     for (bool changed = true; changed;) {
         changed = false;
         const auto put = [&](int card, int owner, Mark m) {
-            if (mark(card, owner) == Unknown) {
-                marks_[size_t(card)][size_t(owner)] = m;
+            if (mark(card, owner) == kUnknown) {
+                _marks[size_t(card)][size_t(owner)] = m;
                 changed = true;
             }
         };
@@ -111,16 +111,16 @@ void Notebook::settle() {
             if (h >= 0)
                 for (int o = 0; o < kOwners; ++o)
                     if (o != h)
-                        put(c, o, No);
+                        put(c, o, kNo);
             int open = -1;
             int opens = 0;
             for (int o = 0; o < kOwners; ++o)
-                if (mark(c, o) != No) {
+                if (mark(c, o) != kNo) {
                     open = o;
                     ++opens;
                 }
             if (opens == 1)
-                put(c, open, Yes);
+                put(c, open, kYes);
         }
         // The case file has one card of each kind.
         for (int k = 0; k < 3; ++k) {
@@ -128,9 +128,9 @@ void Notebook::settle() {
             int open = -1;
             int opens = 0;
             for (int c = kKindFirst[k]; c < kKindFirst[k] + kKindCount[k]; ++c) {
-                if (mark(c, kCaseFile) == Yes)
+                if (mark(c, kCaseFile) == kYes)
                     yes = c;
-                if (mark(c, kCaseFile) != No) {
+                if (mark(c, kCaseFile) != kNo) {
                     open = c;
                     ++opens;
                 }
@@ -138,33 +138,33 @@ void Notebook::settle() {
             if (yes >= 0)
                 for (int c = kKindFirst[k]; c < kKindFirst[k] + kKindCount[k]; ++c)
                     if (c != yes)
-                        put(c, kCaseFile, No);
+                        put(c, kCaseFile, kNo);
             if (opens == 1)
-                put(open, kCaseFile, Yes);
+                put(open, kCaseFile, kYes);
         }
-        if (countCards_) {
+        if (_countCards) {
             // So many cards each: all found, the rest lacked; as many left
             // open as are still to find, all held.
             for (int o = 0; o < kCaseFile; ++o) {
                 int yes = 0;
                 int open = 0;
                 for (int c = 0; c < kCardCount; ++c) {
-                    yes += mark(c, o) == Yes;
-                    open += mark(c, o) == Unknown;
+                    yes += mark(c, o) == kYes;
+                    open += mark(c, o) == kUnknown;
                 }
                 if (open == 0)
                     continue;
-                if (yes == handSize_[size_t(o)])
+                if (yes == _handSize[size_t(o)])
                     for (int c = 0; c < kCardCount; ++c)
-                        put(c, o, No);
-                else if (yes + open == handSize_[size_t(o)])
+                        put(c, o, kNo);
+                else if (yes + open == _handSize[size_t(o)])
                     for (int c = 0; c < kCardCount; ++c)
-                        put(c, o, Yes);
+                        put(c, o, kYes);
             }
         }
         // A wrong accusation: with two of its cards in the case file, the
         // third isn't.
-        for (const auto &cards : notAll_) {
+        for (const auto &cards : _notAll) {
             int in = 0;
             int other = -1;
             for (int c : cards) {
@@ -174,23 +174,23 @@ void Notebook::settle() {
                     other = c;
             }
             if (in == 2)
-                put(other, kCaseFile, No);
+                put(other, kCaseFile, kNo);
         }
         // Who showed a card not seen holds one of the three: when two are
         // lacked, the third.
-        for (const auto &[owner, cards] : oneOf_) {
+        for (const auto &[owner, cards] : _oneOf) {
             int open = -1;
             int opens = 0;
             bool held = false;
             for (int c : cards) {
-                held = held || mark(c, owner) == Yes;
-                if (mark(c, owner) == Unknown) {
+                held = held || mark(c, owner) == kYes;
+                if (mark(c, owner) == kUnknown) {
                     open = c;
                     ++opens;
                 }
             }
             if (!held && opens == 1)
-                put(open, owner, Yes);
+                put(open, owner, kYes);
         }
     }
 }
@@ -223,18 +223,18 @@ uint32_t maskOf(const Accusation &a) {
 } // namespace
 
 void ComputerPlayer::reset(const Game &game, int me, uint32_t seed, int level) {
-    me_ = me;
-    level_ = level;
-    rng_.seed(seed);
-    mind_ = {};
-    target_ = kNoRoom;
+    _me = me;
+    _level = level;
+    _rng.seed(seed);
+    _mind = {};
+    _target = kNoRoom;
     // Its own hand known, and that it holds nothing else (0x42CC90).
     uint32_t hand = 0;
     for (int c : game.seat(me).hand)
         hand |= 1u << c;
-    mind_.has[size_t(me)] = hand;
-    mind_.known = hand;
-    mind_.hasNot[size_t(me)] = ~hand & kAll;
+    _mind.has[size_t(me)] = hand;
+    _mind.known = hand;
+    _mind.hasNot[size_t(me)] = ~hand & kAll;
     measure(game.board());
 }
 
@@ -242,11 +242,11 @@ bool ComputerPlayer::takesIn() {
     // What others show each other, and what a wrong accusation tells: an
     // expert takes it in, a normal player half the time (Clue.exe's
     // rand() * 100 / 32767 > 50), a novice never (0x421C10, 0x421C80).
-    if (level_ == Novice)
+    if (_level == kNovice)
         return false;
-    if (level_ == Expert)
+    if (_level == kExpert)
         return true;
-    return int((rng_() % 32768) * 100 / 32767) > 50;
+    return int((_rng() % 32768) * 100 / 32767) > 50;
 }
 
 uint32_t ComputerPlayer::pickBit(uint32_t mask) {
@@ -254,7 +254,7 @@ uint32_t ComputerPlayer::pickBit(uint32_t mask) {
     const int n = bits(mask);
     if (n == 0)
         return 0;
-    int k = int(rng_() % uint32_t(n));
+    int k = int(_rng() % uint32_t(n));
     for (int i = 0; i < 32; ++i)
         if ((mask & (1u << i)) && k-- == 0)
             return 1u << i;
@@ -263,10 +263,10 @@ uint32_t ComputerPlayer::pickBit(uint32_t mask) {
 
 void ComputerPlayer::findSolution() {
     // Of each kind, the one card not known to be held (0x42D0B0).
-    const uint32_t open = ~mind_.known;
+    const uint32_t open = ~_mind.known;
     for (uint32_t kind : kKinds)
         if (bits(open & kind) == 1)
-            mind_.solution |= open & kind;
+            _mind.solution |= open & kind;
 }
 
 void ComputerPlayer::settle() {
@@ -277,24 +277,24 @@ void ComputerPlayer::settle() {
     while (changed) {
         changed = false;
         for (int p = 0; p < kSuspectCount; ++p) {
-            auto &list = mind_.oneOf[size_t(p)];
+            auto &list = _mind.oneOf[size_t(p)];
             for (size_t i = 0; i < list.size();) {
-                uint32_t m = list[i] & ~mind_.hasNot[size_t(p)];
+                uint32_t m = list[i] & ~_mind.hasNot[size_t(p)];
                 bool held = false;
                 for (int j = 0; j < kSuspectCount; ++j) {
                     if (j == p) {
-                        if (mind_.has[size_t(p)] & m) {
+                        if (_mind.has[size_t(p)] & m) {
                             held = true;
                             break;
                         }
                     } else
-                        m &= ~mind_.has[size_t(j)];
+                        m &= ~_mind.has[size_t(j)];
                 }
                 list[i] = m;
                 if (bits(m) == 1 && !held) {
                     list.erase(list.begin() + std::ptrdiff_t(i));
-                    mind_.has[size_t(p)] |= m;
-                    mind_.known |= m;
+                    _mind.has[size_t(p)] |= m;
+                    _mind.known |= m;
                     findSolution();
                     changed = true;
                     continue;
@@ -311,36 +311,36 @@ void ComputerPlayer::settle() {
 }
 
 bool ComputerPlayer::ready() const {
-    return bits(mind_.solution) == 3;
+    return bits(_mind.solution) == 3;
 }
 
 void ComputerPlayer::observe(const Game &game) {
     const int suggester = game.turn();
     const int disprover = game.disprover();
-    mind_.current = maskOf(game.suggestion());
+    _mind.current = maskOf(game.suggestion());
     // Who couldn't answer holds none of the three (0x418935, all levels).
     for (int p : game.passed())
-        if (p != me_) {
-            mind_.hasNot[size_t(p)] |= mind_.current;
+        if (p != _me) {
+            _mind.hasNot[size_t(p)] |= _mind.current;
             settle();
         }
     if (disprover < 0) {
         // Nobody could answer its own suggestion: what of it isn't in its
         // hand is the answer (0x42D1B0, from 0x418804).
-        if (me_ == suggester)
-            mind_.solution |= mind_.current & ~mind_.has[size_t(me_)];
+        if (_me == suggester)
+            _mind.solution |= _mind.current & ~_mind.has[size_t(_me)];
         return;
     }
     // Others: the one who answered holds one of them, as a level takes it
     // in (0x418D00).
-    if (me_ != disprover && me_ != suggester && takesIn()) {
-        mind_.oneOf[size_t(disprover)].push_back(mind_.current);
+    if (_me != disprover && _me != suggester && takesIn()) {
+        _mind.oneOf[size_t(disprover)].push_back(_mind.current);
         settle();
     }
     // Its own suggestion: the card shown (0x42CE90).
-    if (me_ == suggester && game.shown() >= 0) {
-        mind_.has[size_t(disprover)] |= 1u << game.shown();
-        mind_.known |= 1u << game.shown();
+    if (_me == suggester && game.shown() >= 0) {
+        _mind.has[size_t(disprover)] |= 1u << game.shown();
+        _mind.known |= 1u << game.shown();
         findSolution();
         settle();
     }
@@ -350,7 +350,7 @@ void ComputerPlayer::observeAccusation(const Accusation &a, int accuser) {
     // A wrong accusation: Clue.exe takes it that the accuser holds none of
     // the three (0x41B26E, as a level takes it in), which needn't be so.
     if (takesIn()) {
-        mind_.hasNot[size_t(accuser)] |= maskOf(a);
+        _mind.hasNot[size_t(accuser)] |= maskOf(a);
         settle();
     }
 }
@@ -359,13 +359,13 @@ uint32_t ComputerPlayer::fallback(uint32_t kind, const Game &game) {
     (void)game;
     // Nothing of a kind in doubt (0x42D800): one of its own, else one
     // another is known to hold, from the seat before it backwards.
-    if (const uint32_t mine = mind_.has[size_t(me_)] & kind)
+    if (const uint32_t mine = _mind.has[size_t(_me)] & kind)
         return pickBit(mine);
-    for (int j = me_ - 1; j >= 0; --j)
-        if (const uint32_t m = mind_.has[size_t(j)] & kind)
+    for (int j = _me - 1; j >= 0; --j)
+        if (const uint32_t m = _mind.has[size_t(j)] & kind)
             return pickBit(m);
-    for (int j = kSuspectCount - 1; j > me_; --j)
-        if (const uint32_t m = mind_.has[size_t(j)] & kind)
+    for (int j = kSuspectCount - 1; j > _me; --j)
+        if (const uint32_t m = _mind.has[size_t(j)] & kind)
             return pickBit(m);
     return pickBit(kind);
 }
@@ -374,12 +374,12 @@ uint32_t ComputerPlayer::pickCard(uint32_t kind, const Game &game) {
     // A suspect or weapon to name (0x42D8A0): one not known to be held, or
     // the answer; above a novice, not one a "holds one of" is about if it
     // can. By chance among them. (Itself, if it hasn't its own card.)
-    uint32_t open = (~mind_.known | mind_.solution) & kind;
+    uint32_t open = (~_mind.known | _mind.solution) & kind;
     if (!open)
         return fallback(kind, game);
-    if (level_ != Novice) {
+    if (_level != kNovice) {
         uint32_t talked = 0;
-        for (const auto &list : mind_.oneOf)
+        for (const auto &list : _mind.oneOf)
             for (uint32_t m : list)
                 talked |= m;
         if (const uint32_t fresh = open & ~talked)
@@ -391,10 +391,10 @@ uint32_t ComputerPlayer::pickCard(uint32_t kind, const Game &game) {
 int ComputerPlayer::pickRoom(const Game &game) {
     // The room to head for (0x42D900): one neither known held nor found the
     // answer; any in its first three moves; not the one it is in.
-    uint32_t open = ~(mind_.solution | mind_.known) & kRooms;
-    if (mind_.moves < 3)
+    uint32_t open = ~(_mind.solution | _mind.known) & kRooms;
+    if (_mind.moves < 3)
         open = kRooms;
-    const Place &at = game.place(me_);
+    const Place &at = game.place(_me);
     if (at.inRoom() && !game.canSuggest())
         open &= ~(1u << roomCard(at.room));
     const uint32_t bit = open ? pickBit(open) : fallback(kRooms, game);
@@ -404,7 +404,7 @@ int ComputerPlayer::pickRoom(const Game &game) {
 void ComputerPlayer::measure(const Board &board) {
     // Each room's distances: from the squares before its doors, outwards.
     for (int r = 0; r < kRoomCount; ++r) {
-        auto &d = toRoom_[size_t(r)];
+        auto &d = _toRoom[size_t(r)];
         d.clear();
         std::deque<Square> queue;
         for (const Board::Door &door : board.doors())
@@ -429,23 +429,23 @@ int ComputerPlayer::distance(const Place &from, int room) const {
         if (from.room == room)
             return 0;
         int best = INT_MAX / 2;
-        for (const auto &[square, d] : toRoom_[size_t(from.room)])
+        for (const auto &[square, d] : _toRoom[size_t(from.room)])
             if (d == 1) { // a square before one of its doors
-                auto it = toRoom_[size_t(room)].find(square);
-                if (it != toRoom_[size_t(room)].end())
+                auto it = _toRoom[size_t(room)].find(square);
+                if (it != _toRoom[size_t(room)].end())
                     best = std::min(best, it->second + 1);
             }
         return best;
     }
-    auto it = toRoom_[size_t(room)].find(from.square);
-    return it == toRoom_[size_t(room)].end() ? INT_MAX / 2 : it->second;
+    auto it = _toRoom[size_t(room)].find(from.square);
+    return it == _toRoom[size_t(room)].end() ? INT_MAX / 2 : it->second;
 }
 
 int ComputerPlayer::closestRoom(const Game &game) const {
     // GetClosestRoom with every room but its own (0x426710): through the
     // passage if it has one, else the nearest by its doors, the first in
     // the rooms' order of those as near.
-    const Place &at = game.place(me_);
+    const Place &at = game.place(_me);
     if (at.inRoom() && game.board().passage(at.room) != kNoRoom)
         return game.board().passage(at.room);
     int best = kNoRoom;
@@ -464,28 +464,28 @@ int ComputerPlayer::closestRoom(const Game &game) const {
 ComputerPlayer::Action ComputerPlayer::decide(const Game &game) {
     // As soon as it has the answer (0x42CE90, 0x422220).
     if (game.canAccuse() && ready())
-        return Action::Accuse;
+        return Action::kAccuse;
     // In a room it may suggest in (brought there, or walked in): it does
     // (0x42C740, 0x4227C6).
     if (game.canSuggest())
-        return Action::Suggest;
-    if (game.phase() == Game::Phase::Start) {
+        return Action::kSuggest;
+    if (game.phase() == Game::Phase::kStart) {
         // The room it heads for (0x422570): if it is in it, the nearest
         // other; through the passage when that is the way there.
-        target_ = pickRoom(game);
-        const Place &at = game.place(me_);
-        if (at.inRoom() && at.room == target_)
-            target_ = closestRoom(game);
-        if (game.canTakePassage() && game.board().passage(at.room) == target_)
-            return Action::Passage;
+        _target = pickRoom(game);
+        const Place &at = game.place(_me);
+        if (at.inRoom() && at.room == _target)
+            _target = closestRoom(game);
+        if (game.canTakePassage() && game.board().passage(at.room) == _target)
+            return Action::kPassage;
         if (game.canRoll())
-            return Action::Roll;
+            return Action::kRoll;
     }
     if (game.canMove() && !game.destinations().empty())
-        return Action::Walk;
+        return Action::kWalk;
     if (!game.canEndTurn() && game.canTakePassage())
-        return Action::Passage; // the only way on
-    return Action::EndTurn;
+        return Action::kPassage; // the only way on
+    return Action::kEndTurn;
 }
 
 std::vector<Place> ComputerPlayer::chooseWalk(const Game &game) {
@@ -495,7 +495,7 @@ std::vector<Place> ComputerPlayer::chooseWalk(const Game &game) {
     // Along the shortest way to the room it heads for, as far as the die
     // goes (0x42C1F0, 0x42C180); into it if it can be reached. Without the
     // die, into it only with three moves left to suggest with.
-    int room = target_ == kNoRoom ? closestRoom(game) : target_;
+    int room = _target == kNoRoom ? closestRoom(game) : _target;
     size_t best = 0;
     int bestD = INT_MAX;
     for (size_t i = 0; i < options.size(); ++i) {
@@ -509,7 +509,7 @@ std::vector<Place> ComputerPlayer::chooseWalk(const Game &game) {
             best = i;
         }
     }
-    ++mind_.moves;
+    ++_mind.moves;
     return options[best];
 }
 
@@ -517,12 +517,12 @@ Accusation ComputerPlayer::chooseSuggestion(const Game &game) {
     // A suspect and a weapon (0x42D7B0), in the room it is in (0x4227E4).
     const int s = firstBit(pickCard(kSuspects, game)) - suspectCard(0);
     const int w = firstBit(pickCard(kWeapons, game)) - weaponCard(0);
-    return {s, w, game.place(me_).room};
+    return {s, w, game.place(_me).room};
 }
 
 Accusation ComputerPlayer::chooseAccusation() const {
-    return {firstBit(mind_.solution & kSuspects) - suspectCard(0), firstBit(mind_.solution & kWeapons) - weaponCard(0),
-            firstBit(mind_.solution & kRooms) - roomCard(0)};
+    return {firstBit(_mind.solution & kSuspects) - suspectCard(0), firstBit(_mind.solution & kWeapons) - weaponCard(0),
+            firstBit(_mind.solution & kRooms) - roomCard(0)};
 }
 
 int ComputerPlayer::chooseShow(const Game &game, int suggester) {
@@ -534,32 +534,32 @@ int ComputerPlayer::chooseShow(const Game &game, int suggester) {
     if (!cards)
         return -1;
     uint32_t from = cards;
-    if (level_ != Novice) {
-        if (mind_.shownTo[size_t(suggester)] & cards)
-            from = mind_.shownTo[size_t(suggester)] & cards;
-        else if (mind_.shownAny & cards)
-            from = mind_.shownAny & cards;
+    if (_level != kNovice) {
+        if (_mind.shownTo[size_t(suggester)] & cards)
+            from = _mind.shownTo[size_t(suggester)] & cards;
+        else if (_mind.shownAny & cards)
+            from = _mind.shownAny & cards;
     }
     const uint32_t bit = pickBit(from);
-    mind_.shownTo[size_t(suggester)] |= bit;
-    mind_.shownAny |= bit;
+    _mind.shownTo[size_t(suggester)] |= bit;
+    _mind.shownAny |= bit;
     return firstBit(bit);
 }
 
 void Notebook::save(std::ostream &out) const {
-    out << "notebook 1 " << countCards_ << ' ' << useClues_ << '\n';
-    for (const auto &row : marks_) {
+    out << "notebook 1 " << _countCards << ' ' << _useClues << '\n';
+    for (const auto &row : _marks) {
         for (Mark m : row)
             out << int(m) << ' ';
         out << '\n';
     }
-    for (int n : handSize_)
+    for (int n : _handSize)
         out << n << ' ';
-    out << '\n' << oneOf_.size();
-    for (const auto &[owner, cards] : oneOf_)
+    out << '\n' << _oneOf.size();
+    for (const auto &[owner, cards] : _oneOf)
         out << ' ' << owner << ' ' << cards[0] << ' ' << cards[1] << ' ' << cards[2];
-    out << '\n' << notAll_.size();
-    for (const auto &cards : notAll_)
+    out << '\n' << _notAll.size();
+    for (const auto &cards : _notAll)
         out << ' ' << cards[0] << ' ' << cards[1] << ' ' << cards[2];
     out << '\n';
 }
@@ -567,42 +567,42 @@ void Notebook::save(std::ostream &out) const {
 Error Notebook::load(std::istream &in) {
     std::string tag;
     int version = 0;
-    if (!(in >> tag >> version >> countCards_ >> useClues_) || tag != "notebook" || version != 1)
+    if (!(in >> tag >> version >> _countCards >> _useClues) || tag != "notebook" || version != 1)
         return Error::fail("a saved notebook is damaged");
-    for (auto &row : marks_)
+    for (auto &row : _marks)
         for (Mark &m : row) {
             int v = 0;
-            if (!(in >> v) || v < Unknown || v > No)
+            if (!(in >> v) || v < kUnknown || v > kNo)
                 return Error::fail("a saved notebook is damaged");
             m = Mark(v);
         }
-    for (int &n : handSize_)
+    for (int &n : _handSize)
         if (!(in >> n))
             return Error::fail("a saved notebook is damaged");
     const auto card = [](int c) { return c >= 0 && c < kCardCount; };
     size_t n = 0;
     if (!(in >> n) || n > 1000)
         return Error::fail("a saved notebook is damaged");
-    oneOf_.assign(n, {});
-    for (auto &[owner, cards] : oneOf_)
+    _oneOf.assign(n, {});
+    for (auto &[owner, cards] : _oneOf)
         if (!(in >> owner >> cards[0] >> cards[1] >> cards[2]) || owner < 0 || owner >= kOwners || !card(cards[0]) ||
             !card(cards[1]) || !card(cards[2]))
             return Error::fail("a saved notebook is damaged");
     if (!(in >> n) || n > 100)
         return Error::fail("a saved notebook is damaged");
-    notAll_.assign(n, {});
-    for (auto &cards : notAll_)
+    _notAll.assign(n, {});
+    for (auto &cards : _notAll)
         if (!(in >> cards[0] >> cards[1] >> cards[2]) || !card(cards[0]) || !card(cards[1]) || !card(cards[2]))
             return Error::fail("a saved notebook is damaged");
-    contradiction_ = false;
+    _contradiction = false;
     return Error::success();
 }
 
 void ComputerPlayer::save(std::ostream &out) const {
-    out << "player 3 " << me_ << ' ' << level_ << ' ' << target_ << '\n';
-    rng_.save(out);
+    out << "player 3 " << _me << ' ' << _level << ' ' << _target << '\n';
+    _rng.save(out);
     out << '\n';
-    const Mind &m = mind_;
+    const Mind &m = _mind;
     out << m.current << ' ' << m.known << ' ' << m.solution << ' ' << m.shownAny << ' ' << m.moves << '\n';
     for (int p = 0; p < kSuspectCount; ++p) {
         out << m.has[size_t(p)] << ' ' << m.hasNot[size_t(p)] << ' ' << m.shownTo[size_t(p)] << ' '
@@ -616,11 +616,11 @@ void ComputerPlayer::save(std::ostream &out) const {
 Error ComputerPlayer::load(std::istream &in, const Game &game) {
     std::string tag;
     int version = 0;
-    if (!(in >> tag >> version >> me_ >> level_ >> target_) || !rng_.load(in) || tag != "player" || version != 3 ||
-        me_ < 0 || me_ >= kSuspectCount || level_ < Novice || level_ > Expert || target_ < kNoRoom ||
-        target_ >= kRoomCount)
+    if (!(in >> tag >> version >> _me >> _level >> _target) || !_rng.load(in) || tag != "player" || version != 3 ||
+        _me < 0 || _me >= kSuspectCount || _level < kNovice || _level > kExpert || _target < kNoRoom ||
+        _target >= kRoomCount)
         return Error::fail("a saved computer player is damaged");
-    Mind &m = mind_;
+    Mind &m = _mind;
     m = {};
     if (!(in >> m.current >> m.known >> m.solution >> m.shownAny >> m.moves))
         return Error::fail("a saved computer player is damaged");

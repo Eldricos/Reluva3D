@@ -59,33 +59,33 @@ public:
     static constexpr result_type min() { return 0; }
     static constexpr result_type max() { return 0xffffffffu; }
     void seed(uint32_t s) {
-        seed_ = s;
-        draws_ = 0;
-        gen_.seed(s);
+        _seed = s;
+        _draws = 0;
+        _gen.seed(s);
     }
     result_type operator()() {
-        ++draws_;
-        return result_type(gen_());
+        ++_draws;
+        return result_type(_gen());
     }
     void save(std::ostream &out) const;
     bool load(std::istream &in); // false if damaged
 
 private:
-    std::mt19937 gen_; // seeded with 5489 until seed(), as std::mt19937 is
-    uint32_t seed_ = 5489;
-    uint64_t draws_ = 0;
+    std::mt19937 _gen; // seeded with 5489 until seed(), as std::mt19937 is
+    uint32_t _seed = 5489;
+    uint64_t _draws = 0;
 };
 
 class Game {
 public:
     // Where the turn is.
     enum class Phase {
-        Start,     // before moving: roll, take a passage, suggest (if brought in by a suggestion), accuse, end
-        Moving,    // the die rolled (or, without it, the moves to spend): a move to choose
-        Moved,     // moved: suggest if in a room just entered, accuse, end
-        Disprove,  // a suggestion made: disprover() is to show a card
-        Suggested, // the suggestion answered: accuse, end
-        Over,
+        kStart,     // before moving: roll, take a passage, suggest (if brought in by a suggestion), accuse, end
+        kMoving,    // the die rolled (or, without it, the moves to spend): a move to choose
+        kMoved,     // moved: suggest if in a room just entered, accuse, end
+        kDisprove,  // a suggestion made: disprover() is to show a card
+        kSuggested, // the suggestion answered: accuse, end
+        kOver,
     };
     static constexpr int kMovesPerTurn = 9, kActionCost = 3; // No Die Roll's
 
@@ -99,16 +99,16 @@ public:
     // drawn and the rest dealt from the rng.
     Error start(const Board &board, const std::array<bool, kSuspectCount> &playing, bool noDieRoll, uint32_t seed);
 
-    const Board &board() const { return *board_; }
-    const Seat &seat(int suspect) const { return seats_[size_t(suspect)]; }
-    const Accusation &solution() const { return solution_; }
-    bool noDieRoll() const { return noDieRoll_; }
-    int turn() const { return turn_; }
-    Phase phase() const { return phase_; }
-    const Place &place(int suspect) const { return places_[size_t(suspect)]; }
-    int roll() const { return roll_; }     // the die's number, when rolled
-    int moves() const { return moves_; }   // No Die Roll: the moves left this turn
-    int winner() const { return winner_; } // -1: none (yet, or everyone accused wrongly)
+    const Board &board() const { return *_board; }
+    const Seat &seat(int suspect) const { return _seats[size_t(suspect)]; }
+    const Accusation &solution() const { return _solution; }
+    bool noDieRoll() const { return _noDieRoll; }
+    int turn() const { return _turn; }
+    Phase phase() const { return _phase; }
+    const Place &place(int suspect) const { return _places[size_t(suspect)]; }
+    int roll() const { return _roll; }     // the die's number, when rolled
+    int moves() const { return _moves; }   // No Die Roll: the moves left this turn
+    int winner() const { return _winner; } // -1: none (yet, or everyone accused wrongly)
 
     // What the player whose turn it is may do now.
     bool canRoll() const;
@@ -139,13 +139,13 @@ public:
     // brought there. Then the others, in turn from the player's left, are
     // asked: the first holding a card named must show one.
     Error suggest(int suspect, int weapon);
-    const Accusation &suggestion() const { return suggestion_; }
-    int disprover() const { return disprover_; } // -1 when nobody could
+    const Accusation &suggestion() const { return _suggestion; }
+    int disprover() const { return _disprover; } // -1 when nobody could
     std::vector<int> disproving() const;         // the disprover's cards that answer it
     Error show(int card);
-    int shown() const { return shown_; } // the card shown, -1 for none
+    int shown() const { return _shown; } // the card shown, -1 for none
     // Who was asked and couldn't answer the last suggestion, in order.
-    const std::vector<int> &passed() const { return passed_; }
+    const std::vector<int> &passed() const { return _passed; }
 
     // Right: the player wins. Wrong: the player is out (but still shows
     // cards), moved off a doorway if blocking one; the game is over when
@@ -166,28 +166,28 @@ private:
     int stepLimit() const;
     void beginTurn();
 
-    const Board *board_ = nullptr;
-    std::array<Seat, kSuspectCount> seats_;
-    std::array<Place, kSuspectCount> places_;
+    const Board *_board = nullptr;
+    std::array<Seat, kSuspectCount> _seats;
+    std::array<Place, kSuspectCount> _places;
     // Brought into a room by someone's suggestion since their last turn:
     // may suggest there without moving.
-    std::array<bool, kSuspectCount> broughtIn_{};
+    std::array<bool, kSuspectCount> _broughtIn{};
     // The room each last suggested in and hasn't left since: no second
     // suggestion there until they leave and come back.
-    std::array<int, kSuspectCount> suggestedIn_{};
-    Accusation solution_;
-    bool noDieRoll_ = false;
-    Rng rng_;
-    int turn_ = 0;
-    Phase phase_ = Phase::Over;
-    int roll_ = 0, moves_ = 0;
-    int startRoom_ = kNoRoom; // the room the player started the turn in
-    bool enteredRoom_ = false;
-    bool suggestedThisTurn_ = false;
-    Accusation suggestion_;
-    int disprover_ = -1, shown_ = -1;
-    std::vector<int> passed_;
-    int winner_ = -1;
+    std::array<int, kSuspectCount> _suggestedIn{};
+    Accusation _solution;
+    bool _noDieRoll = false;
+    Rng _rng;
+    int _turn = 0;
+    Phase _phase = Phase::kOver;
+    int _roll = 0, _moves = 0;
+    int _startRoom = kNoRoom; // the room the player started the turn in
+    bool _enteredRoom = false;
+    bool _suggestedThisTurn = false;
+    Accusation _suggestion;
+    int _disprover = -1, _shown = -1;
+    std::vector<int> _passed;
+    int _winner = -1;
 };
 
 } // namespace reluva::clue

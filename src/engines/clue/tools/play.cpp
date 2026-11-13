@@ -67,8 +67,8 @@ public:
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels.data(), s.pixels.size());
         shown++;
-        if (!shots.empty() && getMillis() / 1000 != lastShot_) {
-            lastShot_ = getMillis() / 1000;
+        if (!shots.empty() && getMillis() / 1000 != _lastShot) {
+            _lastShot = getMillis() / 1000;
             image::Image img;
             img.w = s.w;
             img.h = s.h;
@@ -85,16 +85,16 @@ public:
             titles.push_back(t);
     }
     bool pollEvent(Event &ev) override {
-        if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
-            ev = inputs[next_++].event;
+        if (_next < inputs.size() && inputs[_next].at <= getMillis()) {
+            ev = inputs[_next++].event;
             return true;
         }
         return false;
     }
 
 private:
-    size_t next_ = 0;
-    uint64_t lastShot_ = ~uint64_t(0);
+    size_t _next = 0;
+    uint64_t _lastShot = ~uint64_t(0);
 };
 
 Event keyDown(uint32_t k) {
@@ -262,7 +262,7 @@ int cmdGameRun(int argc, char **argv) {
     return err ? 1 : 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "clue",
     {
         {"game-run", "<game folder> [-uk] [-shots <folder>]",

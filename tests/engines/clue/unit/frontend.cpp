@@ -80,18 +80,18 @@ static void testDialog(const std::filesystem::path &tmp) {
 // The original's Prefs.ini, as the install has it.
 static void testOriginalPrefs() {
     Preferences p;
-    CHECK(!p.on[Preferences::AutoNotes] && p.musicVolume == 50); // the original's defaults
+    CHECK(!p.on[Preferences::kAutoNotes] && p.musicVolume == 50); // the original's defaults
     const std::vector<uint8_t> file{1, 0, 1, 1, 1, 0, 1, 0, 3, 0, 0, 0, 10, 0, 0, 0};
     CHECK(p.loadOriginal(file));
-    CHECK(p.on[Preferences::SuggestMovies] && !p.on[Preferences::Lighting] && p.on[Preferences::AutoNotes] &&
-          !p.on[Preferences::WalkAnimations] && p.on[Preferences::MansionWalls]);
+    CHECK(p.on[Preferences::kSuggestMovies] && !p.on[Preferences::kLighting] && p.on[Preferences::kAutoNotes] &&
+          !p.on[Preferences::kWalkAnimations] && p.on[Preferences::kMansionWalls]);
     CHECK(p.musicVolume == 30 && p.masterVolume == 100);
     CHECK(!p.loadOriginal({1, 2, 3}));
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.frontend",
-          {
-              {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
-              {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
-          });
+    kSuite("clue.unit.frontend",
+           {
+               {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
+               {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
+           });

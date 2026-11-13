@@ -36,16 +36,16 @@ public:
     Error open(const std::filesystem::path &path);
     Error load(std::vector<uint8_t> data); // already read and unpacked
 
-    const std::vector<Entry> &entries() const { return entries_; }
+    const std::vector<Entry> &entries() const { return _entries; }
     const Entry *find(std::string_view name) const; // ignoring case
     // An entry's bytes, cut to the end of the data where its size runs over.
     std::vector<uint8_t> read(const Entry &entry) const;
-    const std::filesystem::path &path() const { return path_; }
+    const std::filesystem::path &path() const { return _path; }
 
 private:
-    std::filesystem::path path_;
-    std::vector<uint8_t> data_;
-    std::vector<Entry> entries_;
+    std::filesystem::path _path;
+    std::vector<uint8_t> _data;
+    std::vector<Entry> _entries;
 };
 
 // An EIMG record: a 16-bit run-length image. Both versions (0x100 in the
@@ -95,9 +95,9 @@ struct Animation {
     // Its speed and how it plays, as EagleM.dll's text form of it names
     // them ("FPS", "Flags"): frames a second (0 in most of the interface),
     // and 0 once, 1 round and round, 2 to the end and back.
-    enum Flags : uint8_t { Once = 0, Loop = 1, BackAndForth = 2 };
+    enum Flags : uint8_t { kOnce = 0, kLoop = 1, kBackAndForth = 2 };
     int framesPerSecond = 0;
-    uint8_t flags = Once;
+    uint8_t flags = kOnce;
     int width = 0, height = 0;
     std::vector<std::string> images;       // "drive:Iname"
     std::vector<std::vector<Part>> layers; // [layer][frame]

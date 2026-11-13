@@ -39,11 +39,11 @@ inline const char *mansionName(Language l) {
 class GameData {
 public:
     Error open(const std::filesystem::path &gameDir, Language language);
-    Language language() const { return language_; }
+    Language language() const { return _language; }
 
     // Every file, by lower-case name, and the folders searched in order.
-    const std::map<std::string, std::filesystem::path> &files() const { return files_; }
-    const std::vector<std::filesystem::path> &folders() const { return folders_; }
+    const std::map<std::string, std::filesystem::path> &files() const { return _files; }
+    const std::vector<std::filesystem::path> &folders() const { return _folders; }
     const std::filesystem::path *find(std::string_view fileName) const; // ignoring case
     // Files with an extension (".res", ".wav", ...), in name order.
     std::vector<std::filesystem::path> withExtension(std::string_view ext) const;
@@ -57,17 +57,17 @@ public:
     const Animation *animation(std::string_view fullName) const;
     const ObjectDef *object(std::string_view fullName) const; // "ballroom:Oblcouch_ad"
     // Why the last of those failed.
-    const std::string &lastError() const { return lastError_; }
+    const std::string &lastError() const { return _lastError; }
 
 private:
-    Language language_ = Language::kUS;
-    std::vector<std::filesystem::path> folders_;
-    std::map<std::string, std::filesystem::path> files_;
-    mutable std::map<std::string, std::unique_ptr<DataDrive>> drives_; // by file name; null if it failed
-    mutable std::map<std::string, std::unique_ptr<Image>> images_;
-    mutable std::map<std::string, std::unique_ptr<Animation>> animations_;
-    mutable std::map<std::string, std::unique_ptr<ObjectDef>> objects_;
-    mutable std::string lastError_;
+    Language _language = Language::kUS;
+    std::vector<std::filesystem::path> _folders;
+    std::map<std::string, std::filesystem::path> _files;
+    mutable std::map<std::string, std::unique_ptr<DataDrive>> _drives; // by file name; null if it failed
+    mutable std::map<std::string, std::unique_ptr<Image>> _images;
+    mutable std::map<std::string, std::unique_ptr<Animation>> _animations;
+    mutable std::map<std::string, std::unique_ptr<ObjectDef>> _objects;
+    mutable std::string _lastError;
 };
 
 } // namespace reluva::clue

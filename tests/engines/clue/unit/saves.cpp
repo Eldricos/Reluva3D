@@ -47,34 +47,34 @@ static void testSaveLoad() {
                          const std::array<bool, kSuspectCount> &in) {
         ComputerPlayer &me = players[size_t(g.turn())];
         switch (me.decide(g)) {
-        case ComputerPlayer::Action::Roll:
+        case ComputerPlayer::Action::kRoll:
             g.rollDie();
             break;
-        case ComputerPlayer::Action::Passage:
+        case ComputerPlayer::Action::kPassage:
             g.takePassage();
             break;
-        case ComputerPlayer::Action::Walk:
+        case ComputerPlayer::Action::kWalk:
             g.walk(me.chooseWalk(g));
             break;
-        case ComputerPlayer::Action::Suggest: {
+        case ComputerPlayer::Action::kSuggest: {
             const Accusation a = me.chooseSuggestion(g);
             g.suggest(a.suspect, a.weapon);
-            if (g.phase() == Game::Phase::Disprove)
+            if (g.phase() == Game::Phase::kDisprove)
                 g.show(players[size_t(g.disprover())].chooseShow(g, g.turn()));
             for (int s = 0; s < kSuspectCount; ++s)
                 if (in[size_t(s)])
                     players[size_t(s)].observe(g);
             break;
         }
-        case ComputerPlayer::Action::Accuse:
+        case ComputerPlayer::Action::kAccuse:
             g.accuse(me.chooseAccusation());
             break;
-        case ComputerPlayer::Action::EndTurn:
+        case ComputerPlayer::Action::kEndTurn:
             g.endTurn();
             break;
         }
     };
-    for (int i = 0; i < 60 && game.phase() != Game::Phase::Over; ++i)
+    for (int i = 0; i < 60 && game.phase() != Game::Phase::kOver; ++i)
         step(game, ai, playing);
     std::stringstream saved;
     game.save(saved);
@@ -87,14 +87,14 @@ static void testSaveLoad() {
     for (int s = 0; s < kSuspectCount; ++s)
         if (playing[size_t(s)])
             CHECK(!copyAi[size_t(s)].load(saved, copy));
-    for (int i = 0; i < 20000 && game.phase() != Game::Phase::Over; ++i) {
+    for (int i = 0; i < 20000 && game.phase() != Game::Phase::kOver; ++i) {
         step(game, ai, playing);
         step(copy, copyAi, playing);
         CHECK(copy.turn() == game.turn() && copy.phase() == game.phase());
         for (int s = 0; s < kSuspectCount; ++s)
             CHECK(copy.place(s) == game.place(s));
     }
-    CHECK(copy.phase() == Game::Phase::Over && copy.winner() == game.winner());
+    CHECK(copy.phase() == Game::Phase::kOver && copy.winner() == game.winner());
     // Damaged saves are refused.
     std::stringstream bad("game 1\n1 0 9");
     Game broken;
@@ -136,7 +136,7 @@ static void testRandomNumbers() {
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.saves", {
-                                 {"save and load", [](const std::filesystem::path &) { testSaveLoad(); }},
-                                 {"random numbers", [](const std::filesystem::path &) { testRandomNumbers(); }},
-                             });
+    kSuite("clue.unit.saves", {
+                                  {"save and load", [](const std::filesystem::path &) { testSaveLoad(); }},
+                                  {"random numbers", [](const std::filesystem::path &) { testRandomNumbers(); }},
+                              });

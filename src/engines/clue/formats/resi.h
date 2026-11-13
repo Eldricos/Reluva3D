@@ -24,13 +24,13 @@ struct ResiFont {
 struct ResiControl {
     // The kinds, by what each kind of control is in the game's dialogs.
     enum Type : int32_t {
-        Image = 0,
-        Text = 1,
-        ImageButton = 2,
-        TextButton = 3,
-        Edit = 5,
-        Slider = 7,
-        ScrollKnob = 8,
+        kImage = 0,
+        kText = 1,
+        kImageButton = 2,
+        kTextButton = 3,
+        kEdit = 5,
+        kSlider = 7,
+        kScrollKnob = 8,
     };
 
     int32_t type = 0;

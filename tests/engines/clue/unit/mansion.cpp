@@ -158,21 +158,21 @@ static void testMansion(const std::filesystem::path &tmp) {
                         sum += s.pixels[size_t(y) * size_t(s.pitch) + size_t(x) * 4 + size_t(c)];
             return sum;
         };
-        const int solid = benchPixel(MansionLook::InFront::Solid, 190, 90, false);
+        const int solid = benchPixel(MansionLook::InFront::kSolid, 190, 90, false);
         CHECK(solid > 0);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, false) == 0);
-        const int faded = benchPixel(MansionLook::InFront::SeeThrough, 190, 90, false);
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 190, 90, false) == 0);
+        const int faded = benchPixel(MansionLook::InFront::kSeeThrough, 190, 90, false);
         CHECK(faded > 0 && faded < solid);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 190, 90, true) == solid);
-        CHECK(benchPixel(MansionLook::InFront::Hidden, 260, 90, false) == solid); // the bench behind it
-        CHECK(benchPixel(MansionLook::InFront::Hidden, -10, 90, false) == solid); // more than 208 away
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 190, 90, true) == solid);
+        CHECK(benchPixel(MansionLook::InFront::kHidden, 260, 90, false) == solid); // the bench behind it
+        CHECK(benchPixel(MansionLook::InFront::kHidden, -10, 90, false) == solid); // more than 208 away
     }
     std::filesystem::remove_all(tmp);
 }
 
 static const reluva::test::Suite
-    suite("clue.unit.mansion", {
-                                   {"depth and hot spots", [](const std::filesystem::path &) { testDepth(); }},
-                                   {"lighting", [](const std::filesystem::path &) { testLighting(); }},
-                                   {"mansion", [](const std::filesystem::path &tmp) { testMansion(tmp / "mansion"); }},
-                               });
+    kSuite("clue.unit.mansion", {
+                                    {"depth and hot spots", [](const std::filesystem::path &) { testDepth(); }},
+                                    {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                    {"mansion", [](const std::filesystem::path &tmp) { testMansion(tmp / "mansion"); }},
+                                });
