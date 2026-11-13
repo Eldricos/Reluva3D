@@ -32,7 +32,7 @@
 namespace reluva::stgenerations {
 
 const uint32_t kSaveMagic = tagBE('S', 'T', 'G', 'S');
-// 1: the viewer's place; 2: adds a mission in progress; 3: doors, lifts,
+// 1: the data viewer's place; 2: adds a mission in progress; 3: doors, lifts,
 // lights and the rest the other missions need; 4: the date saved and the
 // campaign; 5: the bridge. Missions saved by an older version can't be read.
 const uint32_t kSaveVersion = 7;
@@ -49,9 +49,8 @@ struct Options {
     std::filesystem::path cd2;
     std::string description;     // the release, as detection names it
     bool unknownVariant = false; // found by its executable alone, not by kVariants: warned about
-    // Developer: the resource viewer instead of the game; start the story
-    // at one of its sections; or straight into space combat n.
-    bool viewer = false;
+    // Developer: start the story at one of its sections, or straight into
+    // space combat n.
     std::string story;
     int combat = 0;
     // The settings' defaults, when the game's own settings file has none
@@ -71,12 +70,14 @@ struct Options {
 
 // Star Trek: Generations (MicroProse, 1997): the game, from its title to
 // the credits (the front end, the story, the bridge, away missions and
-// space combat), and the resource viewer over its data.
+// space combat). The data viewer (pages/resource_viewer.h, in reluva-viewer
+// only) is the same class without the front end: what it changes is the
+// virtual methods below.
 class Generations {
 public:
     // `mixer` may be null (no sound).
     Generations(Platform *system, Options options);
-    ~Generations();
+    virtual ~Generations();
 
     // Runs the game until the player quits.
     Error run();
@@ -97,28 +98,54 @@ public:
     // A save slot's file, in the game's folder.
     static std::string getSaveFileName(int slot);
 
-private:
-    struct Star {
-        int32_t x;
-        int32_t y;
-        int32_t z;
-    };
+protected:
+    // The palette with nothing of the game's up: black, a grey ramp (the
+    // viewer's stars), a 6x6x6 colour cube, the frame's orange and white.
+    static constexpr uint8_t kColorBlack = 0;
+    static constexpr uint8_t kColorStarFirst = 1;
+    static constexpr uint8_t kColorStarLast = 32;
+    static constexpr uint8_t kColorCubeFirst = 33; // to 248
+    static constexpr uint8_t kColorFrame = 254;
+    static constexpr uint8_t kColorWhite = 255;
+    // The status and subtitle lines under a page.
+    static constexpr int kTextPanelHeight = 60;
+    // A level's pages: its floor plan, the 3D view, then its textures.
+    static constexpr int kLevelPageMap = 0;
+    static constexpr int kLevelPage3D = 1;
+    static constexpr int kLevelPageTextures = 2;
+
+    // What run() starts once the game's files are open: the front end,
+    // or an Error saying what of it is missing.
+    virtual Error start();
+    // A key pressed with no menu, bridge, combat or walking to take it:
+    // Esc opens the menu.
+    virtual void keyDown(const KeyState &kbd);
+    // A left click off the 3D view, with nothing else to take it.
+    virtual void click(int x, int y);
+    // A frame with no 3D view, menu, bridge or combat up; false if it
+    // put the last frame back on screen unchanged (no text panel drawn).
+    virtual bool drawPage(uint32_t delta);
+    // The away mission being played is over.
+    virtual void missionOver();
+    // The level put away (a mission left): nothing on screen.
+    virtual void clearView();
+    // A saved game with neither the story nor a mission in it: the place
+    // the data viewer saved (its image and sound, -1 for none).
+    virtual Error restorePlace(int imageIndex, int soundIndex);
+    // Free the level and everything running on it.
+    void unloadLevel();
 
     void initPalette();
     void initCursor();
     void loadFont();
     void handleEvent(const Event &event);
     void drawFrame(uint32_t delta);
-    void drawStarfield(uint32_t delta);
     void drawTextPanel();
     // The 3D page with the away-team console (HudScreen).
     void drawMissionScreen(uint32_t delta);
     // Blend the screen effects into the level's palette.
     void applyScreenEffects();
 
-    void showImage(int index);
-    void showOverlay(const ResourceRef &ref);
-    void showSprites(const ResourceRef &ref);
     // Load a level; with run false its scripts are set up but not started (a saved game follows).
     void showLevel(const ResourceRef &ref, bool run = true);
     // Page 0 is the map, page 1 the 3D view, page n + 1 the n-th texture.
@@ -150,14 +177,6 @@ private:
     void proceed();
     // A mission transition's blends over the screen (0x43E13A).
     void drawTransition(const Mission::TransitionView &transition, Palette &palette);
-    // Jump to the first image of the next (direction 1) or previous (-1) archive.
-    void jumpArchive(int direction);
-    // Show the next (1) or previous (-1) 3D level, GAME.LV2.
-    void jumpLevel(int direction);
-    void showStarfield();
-    // The starfield with nothing loaded over it, where the mission list is.
-    bool isOnStarfield() const;
-    void drawMissionList();
     // Start an away mission from the list, in the 3D view.
     void playMission(int index);
     // Back to the list, saying why.
@@ -174,8 +193,6 @@ private:
     void attack();
     // Run the punch animation by delta ms and draw it over view.
     void updatePunch(uint32_t delta, Canvas &view);
-    void playSound(int index);
-    void playBeep(int frequency);
     // Play one of the movies (e.g. "MOVIE/MOV_01.AVI") full screen, with
     // its sound, until it ends or a key or click skips it. False if it
     // can't be found or read.
@@ -188,9 +205,9 @@ private:
         int gap;
         bool centred;
     };
-    // The title, then the menu, and the story from STATES.INI; false (and
-    // the resource viewer) if the data for it isn't there.
-    bool startFrontEnd();
+    // The title, then the menu, and the story from STATES.INI; an Error
+    // saying what's missing if the data for it isn't there.
+    Error startFrontEnd();
     // For testing: the story from one of its sections, as if a new game had got there.
     void startStoryAt(const std::string &section);
     void loadSettings();
@@ -247,11 +264,9 @@ private:
     std::unique_ptr<Screen> _screen;
     ResourceManager _resources;
 
-    std::vector<Star> _stars;
     Font _font;
     Palette _fontPalette;
     bool _hasFontPalette = false;
-    BitmapDecoder _image;
     // The mission's BRIEFING.BMP, for its opening transition.
     BitmapDecoder _briefing;
     bool _briefingLoaded = false;
@@ -266,14 +281,6 @@ private:
     // The game as the first phase of a transition last showed it.
     Canvas _transitionFrom;
     RandomSource _dissolveRandom;
-    bool _imageLoaded = false;
-    Overlay _overlay;
-    bool _overlayLoaded = false;
-    int _overlayFrameHeight = 0;
-    int _overlayFrame = 0;
-    uint32_t _overlayTime = 0; // also used to animate sprites
-    SpriteSet _sprites;
-    bool _spritesLoaded = false;
     std::unique_ptr<LevelFile> _level;
     std::string _levelName;
     ResourceRef _levelRef;
@@ -339,8 +346,10 @@ private:
     int _punchFrame = 0;
     uint32_t _punchTime = 0;
     int16_t _shownHealth = -1;
+    // The data viewer's place, kept in saved games (-1 in the game's).
     int _imageIndex = -1;
     int _soundIndex = -1;
+    // The data viewer's sound, whose subtitle shows while it plays.
     SoundHandle _soundHandle;
     std::string _status;   // first line of the text panel
     std::string _subtitle; // shown while the current sound plays
@@ -353,7 +362,6 @@ private:
         ResourceRef level;
     };
     std::vector<MissionEntry> _missions;
-    int _movieChoice = 0;
     int _missionChoice = 0;
     bool _playingMission = false;
     std::string _missionMessage;
@@ -361,7 +369,7 @@ private:
     std::vector<int16_t> _carriedArray;
     bool _dirty = true;
 
-    // Playing the game, rather than viewing its files.
+    // Playing the game (the front end started), not the data viewer.
     bool _frontEnd = false;
     Campaign _campaign;
     std::unique_ptr<OptionsMenu> _menu;

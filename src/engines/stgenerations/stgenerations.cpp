@@ -4,7 +4,8 @@
 // Star Trek: Generations (MicroProse, 1997, Windows, two CDs): the engine's
 // MetaEngine (its name, recognising the game and copying it with its CDs,
 // its settings, making an Engine to run it) and its Engine. The game itself
-// is Generations (game/generations.h), ported from STG-Engine.
+// is Generations (game/generations.h), ported from STG-Engine; its data
+// viewer is in pages/, for reluva-viewer.
 
 #include "audio/mixer.h"
 #include "common/fs.h"
@@ -16,6 +17,7 @@
 #include "engines/stgenerations/detection.h"
 #include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/platform.h"
+#include "engines/stgenerations/stgenerations.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -54,7 +56,6 @@ constexpr const char *kSubtitles = "subtitles";
 // (combat=1..), and the CDs' folders when they aren't in the game's
 // (cd1=..., cd2=...) have no place in the launcher: they're set in
 // reluva.ini.
-constexpr const char *kStartMode = "start_mode";
 constexpr const char *kStory = "story";
 constexpr const char *kCombat = "combat";
 constexpr const char *kCd1 = "cd1";
@@ -97,7 +98,6 @@ Options optionsFor(const GameTarget &target) {
     const std::string cd2 = setting(target, kCd2);
     o.cd1 = cd1;
     o.cd2 = cd2;
-    o.viewer = setting(target, kStartMode) == "viewer";
     o.story = setting(target, kStory);
     o.combat = std::atoi(setting(target, kCombat).c_str());
     o.fixedSaveDate = setting(target, kFixedSaveDate);
@@ -119,28 +119,9 @@ public:
     StgenerationsEngine(System &system, const GameTarget &target) : _sys(system), _target(target) {}
 
     Error run() override {
-        log::setDebugLevel(std::atoi(setting(_target, kDebugLevel).c_str()));
-        for (const std::string &channel : text::split(setting(_target, kDebugChannels), ','))
-            if (!text::trim(channel).empty())
-                enableDebugChannel(text::trim(channel));
-
-        audio::Mixer mixer(_sys.audioRate());
-        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        // No sound card shouldn't stop anyone playing.
-        const Error audioErr = audio::startMixerOutput(_sys, mixer);
-        if (audioErr)
-            log::warning("No sound: %s", audioErr.message.c_str());
-        Platform platform(_sys, &mixer, _target.savePath);
-        platform.setSoundOutput(!audioErr);
-        platform.setWindowCaption("Reluva - " + _target.description);
-        Error result;
-        {
-            Generations game(&platform, optionsFor(_target));
-            result = game.run();
-        }
-        _sys.stopAudio();
-        _sys.setMouseCursor(nullptr);
-        return result;
+        return runGame(_sys, _target, [](Platform *platform, Options options) {
+            return std::make_unique<Generations>(platform, std::move(options));
+        });
     }
 
 private:
@@ -213,12 +194,6 @@ public:
             {kSubtitles, "Subtitles", "The crew's words written under the picture", true, {}},
             // Developer settings (docs/engines/stgenerations/README.md):
             // not part of the game, for studying it.
-            {kStartMode,
-             "Developer: start with",
-             "The resource viewer shows the game's files: images, sounds, levels, overlays and sprites.\n"
-             "A section of the story to start at is story in reluva.ini (story=list names them).",
-             true,
-             {{"game", "The game"}, {"viewer", "The resource viewer"}}},
             {kDebugLevel,
              "Developer: console output",
              "Messages on the console as the game runs",
@@ -242,6 +217,28 @@ public:
 };
 
 } // namespace
+
+Error runGame(System &system, const GameTarget &target, const MakeGame &make) {
+    log::setDebugLevel(std::atoi(setting(target, kDebugLevel).c_str()));
+    for (const std::string &channel : text::split(setting(target, kDebugChannels), ','))
+        if (!text::trim(channel).empty())
+            enableDebugChannel(text::trim(channel));
+
+    audio::Mixer mixer(system.audioRate());
+    mixer.setMasterVolume(settings::volume(target.settings, settings::kMasterVolume));
+    // No sound card shouldn't stop anyone playing.
+    const Error audioErr = audio::startMixerOutput(system, mixer);
+    if (audioErr)
+        log::warning("No sound: %s", audioErr.message.c_str());
+    Platform platform(system, &mixer, target.savePath);
+    platform.setSoundOutput(!audioErr);
+    platform.setWindowCaption("Reluva - " + target.description);
+    // The game goes before the mixer it plays through.
+    Error result = make(&platform, optionsFor(target))->run();
+    system.stopAudio();
+    system.setMouseCursor(nullptr);
+    return result;
+}
 
 } // namespace reluva::stgenerations
 

@@ -137,7 +137,6 @@ Not part of the game, for studying it:
 
 | Setting | Where | What it does |
 |---|---|---|
-| Start with | launcher | The game, or the resource viewer (every image, sound, level, overlay and sprite set in the game's files; [PORTING.md](PORTING.md#the-resource-viewer) has its keys) |
 | Console output, about | launcher | Messages as the game runs, and which topics (files and archives, the missions' scripts, sound) |
 | `story=<section>` | reluva.ini | Start the story at a section of `STATES.INI`, as if a new game had got there (`story=Amargosa2`; `story=list` prints them with console output on) |
 | `combat=<n>` | reluva.ini | Start in space combat n (1-25) |
@@ -178,6 +177,7 @@ difficulty again in the menu.
 | `canvas.cpp`, `audio.cpp`, `debug.cpp` | The game's drawing surface, its sound calls on Reluva's mixer, its debug output |
 | `formats/` | The game's files: archives, bitmaps, fonts, overlays, sprite sets, levels, scripts, space combat's data |
 | `game/` | The game: the front end, the story, the bridge, missions and their scripts, actors, the HUD, space combat, the 3D renderers |
+| `pages/` | The resource viewer, `reluva-viewer`'s and never the game's: `ResourceViewer`, the game (`Generations`) without its front end and with the viewer's pages and keys ([PORTING.md](PORTING.md#the-resource-viewer)) |
 | `tools/` | `reluva-tool stgenerations` commands (`reluva-tool help stgenerations` lists them) |
 
 Shared code it brought to `src/common/`: Cinepak and AVI

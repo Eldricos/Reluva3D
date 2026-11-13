@@ -35,26 +35,22 @@ int toMixerVolume(int volume) {
 
 } // namespace
 
-bool Generations::startFrontEnd() {
-    if (_options.viewer)
-        return false;
+Error Generations::startFrontEnd() {
     _menu.reset(new OptionsMenu(_resources));
     if (!_menu->load()) {
-        log::warning("OPTIONS.DAT has no menu; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("The game's menu (CAPTAINS.BMP in OPTIONS.DAT) wasn't found in the game's folders");
     }
     std::unique_ptr<SeekableReadStream> script = _resources.open({"STELLAR.DAT", "DESIGN/STATES.INI"});
     if (!script) {
-        log::warning("STELLAR.DAT (on disc 1) wasn't found, so there's no story to play; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("STELLAR.DAT (on disc 1) wasn't found, so there's no story to play: "
+                           "import the game with its CDs");
     }
     std::vector<uint8_t> text = script->readAll();
     if (!_campaign.load(std::string(text.begin(), text.end()))) {
-        log::warning("DESIGN/STATES.INI has no [Start]; starting the resource viewer");
         _menu.reset();
-        return false;
+        return Error::fail("The story (DESIGN/STATES.INI in STELLAR.DAT) has no [Start] section");
     }
     _campaign.setRandom([this](int count) { return (int)_random.getRandomNumber(count - 1); });
     _bridge.reset(new Bridge(_resources, _mixer, _campaign, _random));
@@ -88,7 +84,7 @@ bool Generations::startFrontEnd() {
             log::warning("The story has no section [%s]; story=list names them", story.c_str());
         } else {
             startStoryAt(story);
-            return true;
+            return Error::success();
         }
     }
 
@@ -96,7 +92,7 @@ bool Generations::startFrontEnd() {
     // menu comes first, so a game can be loaded.
     showIntro();
     openMenu(false);
-    return true;
+    return Error::success();
 }
 
 void Generations::startStoryAt(const std::string &section) {
