@@ -48,11 +48,22 @@ public:
 
     // Where the Cpu keeps what the code reads and writes.
     struct Layout {
-        size_t reg, eip, start, epoch, fsBase, eflags;          // offsets into the Cpu
-        size_t fpuRegs, fpuTop, fpuTags, fpuControl, fpuStatus; // Cpu::fpu's
-        const uint8_t *memory;                                  // its memory
-        const uint8_t *pages;                                   // a byte per page, nonzero where code was cached
-        uint32_t span;                                          // the memory's size less the first page (Cpu::valid)
+        // offsets into the Cpu
+        size_t reg;
+        size_t eip;
+        size_t start;
+        size_t epoch;
+        size_t fsBase;
+        size_t eflags;
+        // Cpu::fpu's
+        size_t fpuRegs;
+        size_t fpuTop;
+        size_t fpuTags;
+        size_t fpuControl;
+        size_t fpuStatus;
+        const uint8_t *memory; // its memory
+        const uint8_t *pages;  // a byte per page, nonzero where code was cached
+        uint32_t span;         // the memory's size less the first page (Cpu::valid)
         // Throws the fault for an access outside memory: (cpu, address, size).
         void (*memoryFault)(void *, uint32_t, uint32_t);
         // For going from block to block (Jit::compile's dispatch): offsets
@@ -60,7 +71,14 @@ public:
         // their count and its start),
         // the stop flag (a byte), and the run's return address, where
         // natives start and the count's limit (runCached's);
-        size_t executed, countingOps, countingCount, countingStart, stop, runReturn, runNative, runEnd;
+        size_t executed;
+        size_t countingOps;
+        size_t countingCount;
+        size_t countingStart;
+        size_t stop;
+        size_t runReturn;
+        size_t runNative;
+        size_t runEnd;
         // Where the natives are (from here up), and what runs one at eip
         // (Cpu::callNative's way), giving whether to go on (0: the run
         // stops for the thread to yield).
@@ -70,7 +88,8 @@ public:
         // them, a power of two, in pairs, by Cpu::slotOf: eip * 0x9e3779b1's
         // top bits, the low one cleared: a block is in either of the pair).
         const uint8_t *blocks;
-        uint32_t blockSize, blockMask;
+        uint32_t blockSize;
+        uint32_t blockMask;
     };
     explicit Jit(const Layout &layout);
     ~Jit();
@@ -122,12 +141,20 @@ public:
     };
     struct Op {
         Kind kind = Kind::kCall;
-        uint8_t size = 4, length = 0;
-        uint8_t reg = 0, rm = 0, scale = 0;
-        uint8_t alu = 0, form = 0, cc = 0;
-        int8_t base = -1, index = -1;
-        bool mem = false, fs = false;
-        uint32_t disp = 0, imm = 0;
+        uint8_t size = 4;
+        uint8_t length = 0;
+        uint8_t reg = 0;
+        uint8_t rm = 0;
+        uint8_t scale = 0;
+        uint8_t alu = 0;
+        uint8_t form = 0;
+        uint8_t cc = 0;
+        int8_t base = -1;
+        int8_t index = -1;
+        bool mem = false;
+        bool fs = false;
+        uint32_t disp = 0;
+        uint32_t imm = 0;
         uint32_t start = 0;            // its address
         const void *handler = nullptr; // for Call
         const void *entry = nullptr;   // its Cached, for Call
@@ -156,14 +183,20 @@ public:
 private:
     Layout _layout;
     uint8_t *_base = nullptr;
-    size_t _size = 0, _used = 0, _bodyStart = 0;
+    size_t _size = 0;
+    size_t _used = 0;
+    size_t _bodyStart = 0;
     uint32_t _generation = 1;
     const uint8_t *_dispatch = nullptr; // where each block's code goes at its end
     // The dispatch's index of the table, 16 bytes a slot: a 32nd of the
     // blocks' size, so it stays in the processor's caches where the table
     // doesn't (its first read had been half the dispatch's time).
     struct Entry {
-        uint32_t start = 0xffffffffu, epoch = 0, code = 0, count = 0; // code: an offset into the buffer
+        // code: an offset into the buffer
+        uint32_t start = 0xffffffffu;
+        uint32_t epoch = 0;
+        uint32_t code = 0;
+        uint32_t count = 0;
     };
     std::vector<Entry> _index;
     // The blocks' copies of their decoded instructions, and their exits'
@@ -172,7 +205,8 @@ private:
     // code: writing next to code that runs costs the processor dearly.
     // Filled in order like the buffer, and forgotten with it.
     struct Link {
-        uint32_t epoch = 0xffffffffu, unused = 0;
+        uint32_t epoch = 0xffffffffu;
+        uint32_t unused = 0;
         const uint8_t *code = nullptr;
     };
     std::vector<uint8_t> _data;

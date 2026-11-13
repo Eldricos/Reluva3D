@@ -103,7 +103,9 @@ private:
     bool flush();
     struct PendingUpload {
         SDL_GPUBuffer *buffer;
-        uint32_t offset, size; // in staging_
+        // in staging_
+        uint32_t offset;
+        uint32_t size;
         bool cycle;
     };
     std::vector<PendingUpload> _pending;
@@ -133,7 +135,8 @@ private:
 
     SDL_GPUDevice *_device;
     SDL_Renderer *_renderer;
-    int _width = 0, _height = 0;
+    int _width = 0;
+    int _height = 0;
     SDL_GPUTextureFormat _depthFormat = SDL_GPU_TEXTUREFORMAT_D16_UNORM;
     bool _hasStencil = false;
     StencilMode _stencilMode = StencilMode::kNone;
@@ -183,7 +186,9 @@ private:
     gfx::Vec3 _eye{};
     SDL_GPUGraphicsPipeline *_boundPipeline = nullptr;
     gfx::MeshId _boundMesh = 0;
-    int32_t _boundOffset = 0, _boundOldOffset = 0; // the vertex buffers' bindings, in vertices
+    // the vertex buffers' bindings, in vertices
+    int32_t _boundOffset = 0;
+    int32_t _boundOldOffset = 0;
     std::vector<gfx::DynamicLight> _lights;
 };
 

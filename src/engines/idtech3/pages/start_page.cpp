@@ -11,7 +11,10 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int kChoiceTop = 200, kChoiceHeight = 56, kChoiceLeft = 70, kChoiceWidth = 500;
+constexpr int kChoiceTop = 200;
+constexpr int kChoiceHeight = 56;
+constexpr int kChoiceLeft = 70;
+constexpr int kChoiceWidth = 500;
 
 } // namespace
 

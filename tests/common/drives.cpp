@@ -65,7 +65,8 @@ void testWin32Files() {
 // reads, and overlapped ones left pending until there are bytes.
 void testWin32SerialPort() {
     struct Port : x86::DeviceObject {
-        std::string incoming, written;
+        std::string incoming;
+        std::string written;
         bool read(x86::Cpu &c, uint32_t buffer, uint32_t size, bool, uint32_t &done, uint32_t &) override {
             done = uint32_t(std::min<size_t>(size, incoming.size()));
             for (uint32_t i = 0; i < done; ++i)

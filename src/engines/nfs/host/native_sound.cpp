@@ -42,8 +42,11 @@ uint32_t arg(Cpu &c, int n) {
 // with FILD from a scratch dword two bytes into the fraction's copy, so
 // its top half is the word after it, read as it is.
 struct Resampler {
-    uint32_t scratch, oneAt, scaleAt; // the routine's globals
-    uint32_t frameBytes;              // 8 stereo, 4 mono
+    // the routine's globals
+    uint32_t scratch;
+    uint32_t oneAt;
+    uint32_t scaleAt;
+    uint32_t frameBytes; // 8 stereo, 4 mono
 };
 
 // resample(count, src, dst, posAt, fracAt, stepInt, stepFrac): float
@@ -106,7 +109,8 @@ enum class Side { kOff, kFull, kScaled };
 // What a call added, for GameHost::logVoices: the energy to L+R and L-R,
 // and whether its two gains have opposite signs.
 struct Added {
-    double c = 0, s = 0;
+    double c = 0;
+    double s = 0;
     bool rear = false;
 };
 uint32_t mix(Cpu &c, bool stereoSource, Side left, Side right, Added *added = nullptr) {
@@ -191,11 +195,13 @@ void GameHost::addNativeSound() {
     // change (0x520a5e, 0x520e1e). Those for silence on both sides do nothing
     // already.
     struct Mixer {
-        uint32_t address, size;
+        uint32_t address;
+        uint32_t size;
         uint64_t hash;
         const char *name;
         bool stereoSource;
-        Side left, right;
+        Side left;
+        Side right;
     };
     static const Mixer kMixers[] = {
         {0x520aee, 144, 0x5379f527a623ac77ull, "nfs3.exe mix mono", false, Side::kScaled, Side::kScaled},

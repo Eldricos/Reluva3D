@@ -128,7 +128,8 @@ private:
     bool _running = false;   // the front event is under way
     std::string _waitingFor; // the verb it waits on
     float _waitLeft = -1;    // a "wait"'s seconds left
-    std::string _character, _owner;
+    std::string _character;
+    std::string _owner;
     bool _fromCharacter = false;
     bool _locked = false;
     std::string _lastDone; // the verb of the event done last

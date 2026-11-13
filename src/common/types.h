@@ -29,7 +29,9 @@ struct Error {
 };
 
 struct Color {
-    uint8_t r = 0, g = 0, b = 0;
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
 };
 
 enum class PixelFormat {
@@ -43,7 +45,9 @@ inline int bytesPerPixel(PixelFormat f) {
 
 // A simple owned pixel buffer, used as the game's framebuffer.
 struct Surface {
-    int w = 0, h = 0, pitch = 0;
+    int w = 0;
+    int h = 0;
+    int pitch = 0;
     PixelFormat format = PixelFormat::kCLUT8;
     std::vector<uint8_t> pixels;
 

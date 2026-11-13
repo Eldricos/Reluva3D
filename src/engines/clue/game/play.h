@@ -57,7 +57,10 @@ struct Player {
 
 // The preferences the game looks at while it plays.
 struct PlayLook {
-    bool suggestMovies = true, autoNotes = true, butlerVoice = true, walkAnimations = true;
+    bool suggestMovies = true;
+    bool autoNotes = true;
+    bool butlerVoice = true;
+    bool walkAnimations = true;
     MansionLook mansion;
 };
 
@@ -104,8 +107,12 @@ private:
         kLoser,    // dialog 40: out; disproving by hand or not
     };
     struct Walker {
-        int x = 0, y = 0;                      // in the world
-        double fx = 0, fy = 0;                 // while walking
+        // in the world
+        int x = 0;
+        int y = 0;
+        // while walking
+        double fx = 0;
+        double fy = 0;
         int facing = 2;                        // 0 n, 1 ne, 2 e, ... 7 nw
         std::deque<std::pair<int, int>> route; // world points still to walk to
         bool walking = false;
@@ -216,12 +223,15 @@ private:
     uint32_t _seed = 0;
 
     std::deque<std::function<void()>> _steps;
-    uint64_t _now = 0, _waitUntil = 0;
+    uint64_t _now = 0;
+    uint64_t _waitUntil = 0;
     bool _finished = false;
 
     // The view.
-    int _camX = 0, _camY = 0;
-    int _mouseX = 320, _mouseY = 200;
+    int _camX = 0;
+    int _camY = 0;
+    int _mouseX = 320;
+    int _mouseY = 200;
     int _follow = -1; // the suspect the camera follows while walking
     std::array<Walker, kSuspectCount> _walkers;
     // A computer player's next step, decided, and the waits made for it.
@@ -233,7 +243,10 @@ private:
     // room, place and the way they face, 0 north ... 6 west).
     std::set<std::pair<int, int>> _blocked;
     struct Passage {
-        int room = kNoRoom, x = 0, y = 0, facing = 0;
+        int room = kNoRoom;
+        int x = 0;
+        int y = 0;
+        int facing = 0;
     };
     std::vector<Passage> _passages;
     std::vector<Place> _plan; // a human's move being planned
@@ -285,8 +298,10 @@ private:
     std::mt19937 _ambientRng{12345};
     // The weather's cycle (Clue.exe's 0x41C690): where in it, its step, the
     // ticks not yet run, the gust looping.
-    uint64_t _lastAmbience = 0, _weatherTickMs = 0;
-    int _weatherMs = 0, _weatherStep = 0;
+    uint64_t _lastAmbience = 0;
+    uint64_t _weatherTickMs = 0;
+    int _weatherMs = 0;
+    int _weatherStep = 0;
     audio::SoundHandle _gust = audio::kNoSound;
     std::array<audio::SoundHandle, 2> _ambient{audio::kNoSound, audio::kNoSound};
     audio::SoundHandle _voice = audio::kNoSound;

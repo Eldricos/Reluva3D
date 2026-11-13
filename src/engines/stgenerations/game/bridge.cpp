@@ -24,12 +24,14 @@ const char *const kArchive = "STELLAR.DAT";
 const int kMapHeight = 362;
 const int kPanelTop = 362;
 // The text and scanner display's corner (GUI (0,6)).
-const int kScannerX = 0, kScannerY = 368;
+const int kScannerX = 0;
+const int kScannerY = 368;
 const Rect kTextArea(100, 368, 253, 464);
 const Rect kStatusLine(0, 466, 640, 480);
 const Rect kMapArea(0, 0, 640, kMapHeight);
 // The stardate's digits (GUI (485,35)).
-const int kStardateX = 485, kStardateY = 397;
+const int kStardateX = 485;
+const int kStardateY = 397;
 const uint32_t kZoomMillis = 2000;
 const uint32_t kStardateStep = 500;
 const uint32_t kScanFrameMillis = 60;
@@ -62,23 +64,37 @@ std::string arg(const std::vector<std::string> &args, size_t i) {
 
 struct Bridge::Planet {
     std::string name;
-    std::string texture, scan;
+    std::string texture;
+    std::string scan;
     int size = 16;
-    double distance = 40, period = 13, pitch = 0, intersect = 0, angle = 0;
+    double distance = 40;
+    double period = 13;
+    double pitch = 0;
+    double intersect = 0;
+    double angle = 0;
     struct Moon {
         std::string texture;
         int size;
-        double distance, period, angle;
+        double distance;
+        double period;
+        double angle;
     };
     std::vector<Moon> moons;
 };
 
 struct Bridge::Sun {
     std::string name;
-    double x = 0, y = 0, z = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
     int size = 64;
-    std::string texture, destruct, destroyed;
-    int textureFrames = 6, destructFrames = 12, destroyedFrames = 6, fps = 10;
+    std::string texture;
+    std::string destruct;
+    std::string destroyed;
+    int textureFrames = 6;
+    int destructFrames = 12;
+    int destroyedFrames = 6;
+    int fps = 10;
     std::vector<Planet> planets;
     // Time into the destruction (Destroy or a simulation), in ms.
     uint32_t destructTime = 0;
@@ -103,7 +119,9 @@ struct Bridge::Fleet {
 struct Bridge::Figure {
     struct Sequence {
         std::string graphic;
-        int x, y, frames;
+        int x;
+        int y;
+        int frames;
         std::vector<std::pair<int, int>> steps; // frame (1-based), ms
     };
     std::vector<Sequence> sequences;

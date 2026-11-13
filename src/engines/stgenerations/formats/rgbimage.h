@@ -46,7 +46,10 @@ private:
     // Where frame's row y starts in _pixels.
     const uint32_t *row(int frame, int y) const;
 
-    int _w = 0, _h = 0, _frameHeight = 0, _frames = 0;
+    int _w = 0;
+    int _h = 0;
+    int _frameHeight = 0;
+    int _frames = 0;
     // Frames numbered from the bottom of the strip, as bitmaps are.
     bool _fromBottom = true;
     std::vector<uint32_t> _pixels;

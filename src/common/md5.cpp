@@ -3,6 +3,7 @@
 
 #include "common/md5.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 

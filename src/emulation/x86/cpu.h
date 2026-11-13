@@ -69,8 +69,15 @@ class Cpu {
 public:
     enum Reg { EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI };
     // EFLAGS bits.
-    static constexpr uint32_t CF = 1u << 0, PF = 1u << 2, AF = 1u << 4, ZF = 1u << 6, SF = 1u << 7, TF = 1u << 8,
-                              IF = 1u << 9, DF = 1u << 10, OF = 1u << 11;
+    static constexpr uint32_t CF = 1u << 0;
+    static constexpr uint32_t PF = 1u << 2;
+    static constexpr uint32_t AF = 1u << 4;
+    static constexpr uint32_t ZF = 1u << 6;
+    static constexpr uint32_t SF = 1u << 7;
+    static constexpr uint32_t TF = 1u << 8;
+    static constexpr uint32_t IF = 1u << 9;
+    static constexpr uint32_t DF = 1u << 10;
+    static constexpr uint32_t OF = 1u << 11;
     static constexpr uint32_t kPageSize = 4096;
 
     // `memorySize` bytes of memory (a multiple of 4096).
@@ -123,7 +130,8 @@ public:
         std::array<double, 8> regs{};
         uint8_t top = 0;
         uint8_t tags = 0xff; // a bit set for each empty register
-        uint16_t control = 0x027f, status = 0;
+        uint16_t control = 0x027f;
+        uint16_t status = 0;
         // A 64-bit integer loaded with FILD, kept exactly alongside its
         // double (which can't hold every one), so that FISTP stores it back
         // unchanged: programs copy memory 8 bytes at a time that way. A
@@ -151,21 +159,26 @@ public:
     // runs are: their depth, limit, and the run loop's own state.
     struct Context {
         std::array<uint32_t, 8> reg{};
-        uint32_t eip = 0, eflags = 0x202, fsBase = 0;
+        uint32_t eip = 0;
+        uint32_t eflags = 0x202;
+        uint32_t fsBase = 0;
         Fpu fpu;
         std::array<uint16_t, 6> sreg{0x23, 0x1b, 0x23, 0x23, 0x3b, 0};
-        int depth = 0, jitDepth = 0;
+        int depth = 0;
+        int jitDepth = 0;
         uint64_t limitAt = 0;
         uint32_t instructionStart = 0;
         std::string abort;
         bool yield = false;
         struct {
-            uint32_t returnAddress = 0, nativeStart = 0;
+            uint32_t returnAddress = 0;
+            uint32_t nativeStart = 0;
             uint64_t end = 0;
         } run;
         struct {
             const void *ops = nullptr;
-            uint32_t count = 0, start = 0;
+            uint32_t count = 0;
+            uint32_t start = 0;
         } counting;
     };
 
@@ -231,7 +244,8 @@ public:
     // Called when an instruction stores into [watchStart, watchEnd); for
     // finding what changes memory (a debugging aid; instructions run one
     // at a time while it's set).
-    uint32_t watchStart = 0, watchEnd = 0;
+    uint32_t watchStart = 0;
+    uint32_t watchEnd = 0;
     std::function<void(Cpu &cpu, uint32_t address, uint32_t value, int size)> onWatchedStore;
     // Called before each native function runs, with its name; for logs.
     std::function<void(Cpu &cpu, const std::string &name)> nativeTrace;
@@ -339,10 +353,14 @@ private:
 
     // The instruction being run: prefixes, and its ModRM operand.
     struct Decoded {
-        bool opSize16 = false, rep = false, repne = false;
+        bool opSize16 = false;
+        bool rep = false;
+        bool repne = false;
         uint32_t segment = 0; // a segment override's base (FS)
         bool hasModrm = false;
-        uint8_t mod = 0, regField = 0, rm = 0;
+        uint8_t mod = 0;
+        uint8_t regField = 0;
+        uint8_t rm = 0;
         uint32_t address = 0; // of a memory operand
         bool memoryOperand = false;
     } _d;
@@ -377,9 +395,12 @@ private:
     };
     std::vector<NativeEntry> _natives;
     uint32_t _nativeBase = 0; // natives are at nativeBase_ + 16 * index
-    static constexpr uint32_t kNativeStride = 16, kMaxNatives = 4096;
+    static constexpr uint32_t kNativeStride = 16;
+    static constexpr uint32_t kMaxNatives = 4096;
     uint32_t _instructionStart = 0;
-    uint64_t _executed = 0, _limit = 0, _limitAt = 0;
+    uint64_t _executed = 0;
+    uint64_t _limit = 0;
+    uint64_t _limitAt = 0;
     std::atomic<bool> _stop{false};
     // The decoded-instruction cache (cpu_cache.cpp): blocks of
     // instructions, direct-mapped by their first's address.
@@ -387,18 +408,28 @@ private:
     struct Cached {
         using Handler = void (*)(Cpu &, const Cached &);
         Handler run = nullptr;
-        uint32_t disp = 0, imm = 0;       // the memory operand's displacement; the immediate
-        uint8_t length = 0;               // its bytes' count (0: run from them each time)
-        uint8_t reg = 0, rm = 0, sub = 0; // ModRM's reg field, a register operand, the operation
-        int8_t base = -1, index = -1;     // the memory operand's registers (-1: none)
+        // the memory operand's displacement; the immediate
+        uint32_t disp = 0;
+        uint32_t imm = 0;
+        uint8_t length = 0; // its bytes' count (0: run from them each time)
+        // ModRM's reg field, a register operand, the operation
+        uint8_t reg = 0;
+        uint8_t rm = 0;
+        uint8_t sub = 0;
+        // the memory operand's registers (-1: none)
+        int8_t base = -1;
+        int8_t index = -1;
         uint8_t scale = 0;
-        bool mem : 1 = false, fs : 1 = false; // a memory operand; FS's base added
-        bool ends : 1 = false;                // it may go elsewhere (or runs from its bytes): its block's last
+        // a memory operand; FS's base added
+        bool mem : 1 = false;
+        bool fs : 1 = false;
+        bool ends : 1 = false; // it may go elsewhere (or runs from its bytes): its block's last
     };
     // Instructions run one after another: those up to the first that may go
     // elsewhere. Valid while its bytes are still there (code, the first
     // `words` 8-byte words from start, the last masked to `bytes`).
-    static constexpr int kBlockOps = 16, kBlockWords = 8;
+    static constexpr int kBlockOps = 16;
+    static constexpr int kBlockWords = 8;
     // What's read each time a block runs comes first, in as few cache lines
     // as can be (a profile on Visual Studio's build found the table's
     // misses a good part of the loop's time): the block's start, then its
@@ -406,7 +437,9 @@ private:
     struct alignas(64) Block {
         uint32_t start = 0xffffffffu;
         uint32_t epoch = 0; // codeEpoch_ when its bytes were last checked
-        uint8_t count = 0, bytes = 0, words = 0;
+        uint8_t count = 0;
+        uint8_t bytes = 0;
+        uint8_t words = 0;
         // Where it's likely to go next (0xffffffff: not known): a jump's
         // or call's target, both ways of a conditional jump, or straight on.
         // Their blocks are fetched into the cache while this one runs.
@@ -436,7 +469,8 @@ private:
     // runCached's bounds, for the Jit's dispatch: where the run returns,
     // where natives start, and the count's limit.
     struct {
-        uint32_t returnAddress = 0, nativeStart = 0;
+        uint32_t returnAddress = 0;
+        uint32_t nativeStart = 0;
         uint64_t end = 0;
     } _run;
     void compileBlock(Block &b);
@@ -470,7 +504,8 @@ private:
     // it began. No block: ops nullptr.
     struct {
         const Cached *ops = nullptr;
-        uint32_t count = 0, start = 0;
+        uint32_t count = 0;
+        uint32_t start = 0;
     } _counting;
     void uncountBlock(); // takes back the count of its instructions not run
     int _depth = 0;

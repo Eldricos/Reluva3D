@@ -25,11 +25,17 @@ namespace reluva::awe {
 
 struct Gr2Section {
     uint32_t compression = 0; // 0 none, 1 Oodle0, 2 Oodle1
-    uint32_t dataOffset = 0, compressedSize = 0, size = 0;
+    uint32_t dataOffset = 0;
+    uint32_t compressedSize = 0;
+    uint32_t size = 0;
     uint32_t alignment = 0;
-    uint32_t stop0 = 0, stop1 = 0; // where the compressor's three parts end
-    uint32_t fixupOffset = 0, fixupCount = 0;
-    uint32_t marshallingOffset = 0, marshallingCount = 0;
+    // where the compressor's three parts end
+    uint32_t stop0 = 0;
+    uint32_t stop1 = 0;
+    uint32_t fixupOffset = 0;
+    uint32_t fixupCount = 0;
+    uint32_t marshallingOffset = 0;
+    uint32_t marshallingCount = 0;
 };
 
 // Decompresses one section's data: `format` is Gr2Section::compression,
@@ -113,13 +119,17 @@ public:
     // elements' type, their address, how many, the size of one), for
     // reading vertex arrays in bulk.
     struct Array {
-        uint32_t type = 0, address = 0, count = 0, stride = 0;
+        uint32_t type = 0;
+        uint32_t address = 0;
+        uint32_t count = 0;
+        uint32_t stride = 0;
     };
     Array array(std::string_view name) const;
 
 private:
     const Gr2File *_file = nullptr;
-    uint32_t _type = 0, _address = 0;
+    uint32_t _type = 0;
+    uint32_t _address = 0;
 };
 
 class Gr2File {
@@ -159,8 +169,10 @@ public:
     std::string dump(uint32_t maxElements = 4, int maxDepth = 12) const;
 
 private:
-    uint32_t _version = 0, _typeTag = 0;
-    uint32_t _rootType = 0, _rootObject = 0;
+    uint32_t _version = 0;
+    uint32_t _typeTag = 0;
+    uint32_t _rootType = 0;
+    uint32_t _rootObject = 0;
     std::vector<Gr2Section> _sections;
     std::vector<uint32_t> _sectionBase;
     std::vector<uint8_t> _memory;

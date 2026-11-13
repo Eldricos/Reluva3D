@@ -15,7 +15,8 @@ constexpr uint8_t kVersion = 2; // 2: RoomWalk
 enum Datagram : uint8_t { kAsk = 1, kInfo, kConnect, kAccept, kRefuse, kData, kAck, kBye };
 // The messages a channel carries.
 enum Message : uint8_t { kLobbyState = 10, kChatLine, kTake, kStart, kOrder };
-constexpr uint64_t kConnectRetryMs = 500, kAskRetryMs = 2000;
+constexpr uint64_t kConnectRetryMs = 500;
+constexpr uint64_t kAskRetryMs = 2000;
 constexpr size_t kMaxText = 200;
 
 struct Writer {

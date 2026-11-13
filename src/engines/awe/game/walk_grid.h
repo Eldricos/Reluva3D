@@ -26,7 +26,8 @@ class WalkGrid {
 public:
     static constexpr int kSize = 64;
     struct Cell {
-        int a = -1, b = -1;
+        int a = -1;
+        int b = -1;
         bool valid() const { return a >= 0 && b >= 0; }
         bool operator==(const Cell &o) const { return a == o.a && b == o.b; }
     };
@@ -65,7 +66,9 @@ public:
     // heading of the turn into each. Returns how many, or 0 or less if
     // there's no path.
     struct Point {
-        double a = 0, b = 0, heading = 0;
+        double a = 0;
+        double b = 0;
+        double heading = 0;
     };
     int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const;
     // The x87's precision the search follows: 24 bits, as in the game

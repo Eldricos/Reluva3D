@@ -36,9 +36,11 @@ public:
         int id = 0;
         // Seconds between the occasional sounds: a random whole number in
         // [timeStart, timeEnd], drawn afresh each time it's checked.
-        int timeStart = 10, timeEnd = 25;
+        int timeStart = 10;
+        int timeEnd = 25;
         // Their volume (0-255): a random one in [volumeMin, volumeMax].
-        int volumeMin = 255, volumeMax = 255;
+        int volumeMin = 255;
+        int volumeMax = 255;
         std::vector<std::string> subWaves; // "sound/<dir>/<wave>.wav", at most 8
         std::string loopedWave;            // "sound/<name>.wav", or empty
         int radius = 250;                  // local sets
@@ -93,8 +95,10 @@ private:
     std::map<std::string, size_t> _byName; // lower case
     std::set<std::string> _precache;       // lower case
     bool _parsed = false;
-    int _current = -1, _old = -1;
-    int64_t _currentLast = 0, _oldLast = 0;
+    int _current = -1;
+    int _old = -1;
+    int64_t _currentLast = 0;
+    int64_t _oldLast = 0;
     std::mt19937 _random;
 };
 

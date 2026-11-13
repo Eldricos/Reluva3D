@@ -60,7 +60,7 @@ Notes for developers. Building and running are covered in the
 
 Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
 existing code in line is [code-style-migration.md](code-style-migration.md).
-Two tools check it, both needing version 18 of their LLVM program
+Three tools check it, all needing version 18 of their LLVM program
 (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
@@ -73,10 +73,16 @@ Two tools check it, both needing version 18 of their LLVM program
   engine enabled. `--fix --checks=-*,<check>` applies one check's fixes;
   `--rename-declared-in <folder>` renames what that folder declares to the
   guide's names, with every use (`--dry-run` lists them first).
+- **`python3 tools/split_members.py`** lists class and struct members
+  declared several to a line (`int x, y;`), which clang-tidy splits only
+  for local variables; `--fix` splits them. Reads `tidy.py`'s compile
+  database (run `tidy.py` first) with libclang's Python bindings
+  (Ubuntu: `apt install python3-clang-18`; else
+  `pip install clang==18.1.8`).
 
-Run both with `--changed` before a pull request. CI's "Code style" job
-does the same, and fails on an unformatted file or a clang-tidy finding
-in a changed file. A name that has to stay as it is (see the guide's
+Run all three with `--changed` before a pull request. CI's "Code style"
+job does the same, and fails on an unformatted file, a clang-tidy finding
+or members declared together in a changed file. A name that has to stay as it is (see the guide's
 Naming: Exceptions) gets a `// NOLINT(<check>): reason`. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run

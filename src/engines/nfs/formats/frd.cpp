@@ -661,7 +661,8 @@ LightLook lightLook(uint32_t type, uint64_t tick) {
     struct Entry {
         uint32_t color;
         bool blinks;
-        uint8_t shift, phase;
+        uint8_t shift;
+        uint8_t phase;
         float size;
     };
     static constexpr Entry kTypes[16] = {
@@ -788,7 +789,8 @@ bool roadSearch(const Track &track, RoadSearch &s, float x, float z) {
         return false;
     struct Run {
         const Track::Block *block = nullptr;
-        int first = 0, count = 0;
+        int first = 0;
+        int count = 0;
     };
     auto runOf = [&](int slice) {
         Run r;
@@ -1702,17 +1704,21 @@ struct AiDynamics {
     // car_ai_physics (0x4088f0) left the model out (tipped: the body's
     // friction instead), or car_ai_model (0x408600) coasted it out of the
     // race (ai_finished_coast): no controller, no forces.
-    bool tipped = false, coast = false;
+    bool tipped = false;
+    bool coast = false;
     // Upright with the air ticks (+0x164) set: car_ai_physics ran nothing.
     bool air = false;
-    float forward = 0, ground = 0;
+    float forward = 0;
+    float ground = 0;
     // ai_ctl_slide's side force (+0x4E0, before the start's push) and the
     // body's up's y, for the start's push (aiMove).
-    float slideSide = 0, upY = 1;
+    float slideSide = 0;
+    float upY = 1;
     // For the skid levels (aiSkid): the rails' side speed 2 slices on
     // (0x406a80) and the velocity along the car's right (+0x4EC) as the
     // controller found them.
-    float railsSide = 0, carSide = 0;
+    float railsSide = 0;
+    float carSide = 0;
 };
 
 // car_on_road's frame (0x4a1610). Rows as the game keeps them: right, up,
@@ -3193,7 +3199,8 @@ namespace {
 // (its state 5: 0x408b30, 0x408bd0).
 struct CopCall {
     enum Kind { kSection, kChase, kRoadside, kLanesOnly, kPullOver } kind = kSection;
-    float k = 1.19f, plus = 0;
+    float k = 1.19f;
+    float plus = 0;
     bool chase = false;
 };
 
@@ -3817,7 +3824,10 @@ namespace {
 // past (+4 with +0x711 bit 1), the steps a racer is then free of chases
 // (+8) and the steps a ticket takes (+0xC).
 struct TicketTimes {
-    int giveUp, giveUpFast, free, wait;
+    int giveUp;
+    int giveUpFast;
+    int free;
+    int wait;
 };
 constexpr TicketTimes kTicketTimes[8] = {{50, 65, 960, 384},  {50, 65, 960, 384},  {70, 75, 896, 384},
                                          {70, 85, 768, 384},  {90, 105, 640, 384}, {90, 105, 576, 448},

@@ -21,7 +21,9 @@ uint32_t be32(const uint8_t *p) {
            p[3];
 }
 
-constexpr size_t kMapHeader = 12, kSectionSize = 28, kEventSize = 16;
+constexpr size_t kMapHeader = 12;
+constexpr size_t kSectionSize = 28;
+constexpr size_t kEventSize = 16;
 
 } // namespace
 

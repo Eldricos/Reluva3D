@@ -385,7 +385,8 @@ int cmdAtRun(int argc, char **argv) {
     // -dump: memory as words (and as floats) when a frame is shown.
     struct Dump {
         uint64_t frame;
-        uint32_t address, bytes;
+        uint32_t address;
+        uint32_t bytes;
     };
     std::vector<Dump> dumps;
     // -graph: the behaviour state machines reachable from some of their
@@ -416,7 +417,8 @@ int cmdAtRun(int argc, char **argv) {
     // (where the pointer is if none is given).
     struct Click {
         uint64_t frame;
-        int x = -1, y = -1;
+        int x = -1;
+        int y = -1;
     };
     std::vector<Click> clicks;
     // -move: the pointer moved by (dx, dy) when a frame is shown, as a mouse
@@ -439,15 +441,21 @@ int cmdAtRun(int argc, char **argv) {
         uint32_t event;
         int delay = 3;
         char kind; // 'c'lick, 'p'oint, 'k'ey, 'd'rag, 'b'uttons (list them)
-        int x = -1, y = -1, x2 = -1, y2 = -1;
+        int x = -1;
+        int y = -1;
+        int x2 = -1;
+        int y2 = -1;
         int repeat = 1; // click:x,y*n
     };
     // A click repeated (every 40 frames, up to `left` more times) until a
     // state starts waiting for a new training step's event (0xea60..0xea7d,
     // LEGO Alpha Team's).
     struct Retry {
-        uint64_t next, since;
-        int left, x, y;
+        uint64_t next;
+        uint64_t since;
+        int left;
+        int x;
+        int y;
     };
     std::vector<Retry> retries;
     uint64_t lastRegistered = 0; // the frame a training step's event was last waited for

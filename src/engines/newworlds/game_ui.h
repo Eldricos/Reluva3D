@@ -54,7 +54,9 @@ private:
     void blit(Surface &s, const Texture &t, int dx, int dy, bool flipX, bool flipY, bool transpose) const;
     bool _loaded = false;
     char _side = 'F';
-    Texture _corner, _border, _wallpaper;
+    Texture _corner;
+    Texture _border;
+    Texture _wallpaper;
     std::map<std::string, Texture> _icons;
     std::vector<Texture> _crew;
     std::map<std::string, Texture> _faces; // by section, where known
@@ -62,7 +64,9 @@ private:
     std::vector<GameFont> _fonts;
     const GameFont *_small = nullptr;
     const GameFont *_large = nullptr;
-    Color _title{232, 170, 40}, _text{80, 160, 255}, _bright{100, 230, 230};
+    Color _title{232, 170, 40};
+    Color _text{80, 160, 255};
+    Color _bright{100, 230, 230};
 };
 
 } // namespace reluva::newworlds

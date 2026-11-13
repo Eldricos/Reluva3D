@@ -76,8 +76,10 @@ uint32_t chunkLength(const Item &it) {
 }
 
 struct Builder {
-    std::vector<uint8_t> table, data;
-    uint32_t count = 0, index = 0;
+    std::vector<uint8_t> table;
+    std::vector<uint8_t> data;
+    uint32_t count = 0;
+    uint32_t index = 0;
 
     void add(const std::vector<Item> &items) {
         for (const Item &it : items) {

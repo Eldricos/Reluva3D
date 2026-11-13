@@ -22,9 +22,15 @@ namespace {
 struct SequenceInfo {
     int type;
     const char *name;
-    int x, y, w, h;
-    int startFrame, endFrame;
-    bool torpedoes, shieldHud, overlay;
+    int x;
+    int y;
+    int w;
+    int h;
+    int startFrame;
+    int endFrame;
+    bool torpedoes;
+    bool shieldHud;
+    bool overlay;
     const char *deathVideo;
 };
 

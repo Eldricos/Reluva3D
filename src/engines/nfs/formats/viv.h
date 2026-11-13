@@ -20,7 +20,8 @@ class VivArchive : public Archive {
 public:
     struct Entry {
         std::string name; // as stored
-        uint32_t offset = 0, size = 0;
+        uint32_t offset = 0;
+        uint32_t size = 0;
     };
 
     Error open(const std::filesystem::path &path);

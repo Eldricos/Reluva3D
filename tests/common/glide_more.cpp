@@ -247,7 +247,8 @@ void testAntialiasing() {
     g3x.vertexLayout(g3::kParamXy, 0, g3::kParamEnable);
     g3x.vertexLayout(g3::kParamPargb, 8, g3::kParamEnable);
     struct V {
-        float x, y;
+        float x;
+        float y;
         uint32_t argb;
     } tri[3] = {{10, 10, 0xffffffffu}, {60, 10, 0xffffffffu}, {35, 50, 0xffffffffu}};
     auto bytes = [&](int i) { return reinterpret_cast<const uint8_t *>(&tri[i]); };
@@ -518,7 +519,13 @@ void testClipCoordinates() {
     g.core().bufferClear(0, 0, 0);
     g.coordinateSpace(g3::kClipCoords);
     struct V {
-        float x, y, z, w, r, g, b;
+        float x;
+        float y;
+        float z;
+        float w;
+        float r;
+        float g;
+        float b;
     };
     g.vertexLayout(g3::kParamXy, 0, g3::kParamEnable);
     g.vertexLayout(g3::kParamZ, 8, g3::kParamEnable);

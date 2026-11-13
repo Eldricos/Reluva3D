@@ -35,21 +35,29 @@ using reluva::tool::Bytes;
 // A 32-bit LE executable: its objects as loaded, and its fixups.
 struct LeObject {
     int n = 0;
-    uint32_t vsize = 0, base = 0, flags = 0, first = 0, count = 0;
+    uint32_t vsize = 0;
+    uint32_t base = 0;
+    uint32_t flags = 0;
+    uint32_t first = 0;
+    uint32_t count = 0;
     bool code = false;
     Bytes image;
 };
 
 struct Fixup {
-    uint32_t source, target;
+    uint32_t source;
+    uint32_t target;
     int type;
 };
 
 struct LeFile {
     long long mz = 0; // the program's own MZ stub (-1 if none was found)
     size_t le = 0;
-    uint32_t pageSize = 0, npages = 0, lastPage = 0;
-    uint32_t entryObject = 0, entryOffset = 0;
+    uint32_t pageSize = 0;
+    uint32_t npages = 0;
+    uint32_t lastPage = 0;
+    uint32_t entryObject = 0;
+    uint32_t entryOffset = 0;
     std::vector<LeObject> objects;
     std::vector<Fixup> fixups;
 

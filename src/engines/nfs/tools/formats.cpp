@@ -234,7 +234,8 @@ int cmdFfnRender(int argc, char **argv) {
 // bits), files in the order of their paths: what changes when a reader
 // does, with nothing of the game's own in it.
 struct SurveyCount {
-    int ok = 0, failed = 0;
+    int ok = 0;
+    int failed = 0;
     uint64_t hash = 0xcbf29ce484222325ull;
     void add(const void *data, size_t size) {
         const auto *b = static_cast<const uint8_t *>(data);

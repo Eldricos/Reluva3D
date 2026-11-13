@@ -25,17 +25,29 @@ namespace reluva::clue {
 namespace {
 
 constexpr int kW = 640;
-constexpr int kBarTop = 413, kTickerTop = 462;
+constexpr int kBarTop = 413;
+constexpr int kTickerTop = 462;
 // The columns over the view: the cards and the notepad on the left, the
 // choices, disproving and videos on the right.
-constexpr int kLeftX = 5, kLeftY = 5, kRightX = 434, kRightY = 4;
-constexpr int kVideoFrameX = 427, kVideoFrameY = 5, kVideoFrameW = 208, kVideoFrameH = 408;
+constexpr int kLeftX = 5;
+constexpr int kLeftY = 5;
+constexpr int kRightX = 434;
+constexpr int kRightY = 4;
+constexpr int kVideoFrameX = 427;
+constexpr int kVideoFrameY = 5;
+constexpr int kVideoFrameW = 208;
+constexpr int kVideoFrameH = 408;
 // The card shown to a human, wider: from further left.
-constexpr int kShownX = 398, kShownY = 5; // Clue.exe 0x435AA1: dialog 33
+// Clue.exe 0x435AA1: dialog 33
+constexpr int kShownX = 398;
+constexpr int kShownY = 5;
 // The drawer's three places, over the logo: the die (then the number
 // rolled, then the end of the turn), the bulb (suggest), the handcuffs.
-constexpr int kDrawerX = 511, kSlotY = 420;
-constexpr int kSlotX[3] = {535, 574, 606}, kSlotW[3] = {33, 27, 32}, kSlotH = 42;
+constexpr int kDrawerX = 511;
+constexpr int kSlotY = 420;
+constexpr int kSlotX[3] = {535, 574, 606};
+constexpr int kSlotW[3] = {33, 27, 32};
+constexpr int kSlotH = 42;
 // How fast suspects walk, in world units a second: Clue.exe's 8 units a
 // step, a step each 66 ms (0x4253C3, 1/66 at 0x451920): a square in 0.53 s.
 constexpr double kWalkSpeed = 8000.0 / 66.0;
@@ -47,8 +59,11 @@ constexpr int kTurnPanMs = 2000;
 // The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
 // a second, coming round again from the right (as in recordings), between
 // the ticker's ends.
-constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 41,
-              kTickerRight = 599; // its text: Clue.exe 0x435630, 41 in, 558 wide
+// its text: Clue.exe 0x435630, 41 in, 558 wide
+constexpr int kTickerStillMs = 8000;
+constexpr int kTickerSpeed = 35;
+constexpr int kTickerLeft = 41;
+constexpr int kTickerRight = 599;
 
 // dialogInfo.res's in-game dialogs.
 enum {
@@ -59,7 +74,8 @@ enum {
     kSolutionDialog = 34,
     kLoserDialog = 40
 };
-constexpr int kReturn = 10000, kOk = 10001;
+constexpr int kReturn = 10000;
+constexpr int kOk = 10001;
 
 // TickerStrings.txt: 663 lines a suspect, in the suspects' order.
 constexpr int kTickerBlock = 663;
@@ -121,14 +137,22 @@ const char *promptVoice(int line) {
 
 // Where cards go in the cards window (from the bottom right), and the
 // holes in the choice window's summary for the suspect, room and weapon.
-const int kHandX[6] = {111, 18, 111, 18, 111, 18}, kHandY[6] = {246, 246, 129, 129, 12, 12};
-const UiRect kSummarySuspect{8, 40, 65, 173}, kSummaryRoom{89, 104, 98, 76}, kSummaryWeapon{90, 213, 73, 86};
+const int kHandX[6] = {111, 18, 111, 18, 111, 18};
+const int kHandY[6] = {246, 246, 129, 129, 12, 12};
+const UiRect kSummarySuspect{8, 40, 65, 173};
+const UiRect kSummaryRoom{89, 104, 98, 76};
+const UiRect kSummaryWeapon{90, 213, 73, 86};
 // The notepad: its picture (UI:A...notepad) is ruled, each kind's rows 15
 // apart below its line (at 22, 131 and 240), the columns of the colour, the
 // two marks and the note's triangle 15 wide from 131: each row's cells are
 // inside those lines.
-const int kNoteRowY[3] = {23, 132, 241}, kNoteHeadY[3] = {4, 113, 223};
-constexpr int kNoteTextX = 16, kNoteColourX = 132, kNoteMarkX[2] = {147, 162}, kNoteTriangleX = 177, kNoteRowH = 14;
+const int kNoteRowY[3] = {23, 132, 241};
+const int kNoteHeadY[3] = {4, 113, 223};
+constexpr int kNoteTextX = 16;
+constexpr int kNoteColourX = 132;
+constexpr int kNoteMarkX[2] = {147, 162};
+constexpr int kNoteTriangleX = 177;
+constexpr int kNoteRowH = 14;
 int noteRowY(int kind, int row) {
     return kNoteRowY[kind] + row * 15;
 }
@@ -137,8 +161,14 @@ const char *const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:An
 
 // The board from above (UI:Aoverhead): where it goes, and its squares,
 // 13 pixels each, column 9 and row 9 at (8, 15) in it.
-constexpr int kMapX = 208, kMapY = 5, kMapW = 425, kMapH = 407;
-constexpr int kMapSquare = 13, kMapCol0X = 8, kMapRow0Y = 15, kMapFirst = 9;
+constexpr int kMapX = 208;
+constexpr int kMapY = 5;
+constexpr int kMapW = 425;
+constexpr int kMapH = 407;
+constexpr int kMapSquare = 13;
+constexpr int kMapCol0X = 8;
+constexpr int kMapRow0Y = 15;
+constexpr int kMapFirst = 9;
 
 // The sounds the objects' reactions play: Clue.exe's table of sounds from
 // its 61st (bear_g.wav) on, numbered as the objects' timings number them.
@@ -149,7 +179,8 @@ const char *const kObjectSound[] = {
     "piano_b.wav",    "blsofa_b.wav",   "pitcher.wav",      "mnky_b.wav"};
 // A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
 // sound of each is the object's timing 1500, 1600 or 1700.
-constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
+constexpr uint16_t kReactionFirst = 20;
+constexpr uint16_t kReactionLast = 22;
 // The weather, as Clue.exe has it (0x41C690, docs/engines/clue/systems/sounds.md): a
 // cycle of 300 s, run each 66 ms tick. At set times the drapes blow
 // (state 23, light; 24, heavy; 0, still) and the wind's gusts loop; between
@@ -158,7 +189,10 @@ constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
 // gust looping then (0 none, 1 light, 2 heavy, -1 unchanged), and the
 // thunders heard by chance until the next step (0 none, 1 small, 2 middle).
 struct WeatherStep {
-    int fromMs, drapes, gust, chance;
+    int fromMs;
+    int drapes;
+    int gust;
+    int chance;
 };
 constexpr WeatherStep kWeather[] = {
     {0, -1, -1, 0},      // still
@@ -172,7 +206,8 @@ constexpr WeatherStep kWeather[] = {
     {225000, 23, 1, 1},  // light gusts
     {240000, 0, 0, 0},   // still to 300 s
 };
-constexpr int kWeatherCycleMs = 300000, kTickMs = 66;
+constexpr int kWeatherCycleMs = 300000;
+constexpr int kTickMs = 66;
 const char *const kSmallThunder[] = {"SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
 const char *const kMidThunder[] = {"MidThunder1.wav", "MidThunder2.wav", "MidThunder3.wav"};
 const char *const kBigThunder[] = {"BigThunder4.wav", "BigThunder5.wav"};

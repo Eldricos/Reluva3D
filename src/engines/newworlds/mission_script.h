@@ -43,7 +43,9 @@ namespace reluva::newworlds {
 struct ScriptEvent {
     std::string kind;
     std::vector<std::string> args;
-    int a = -1, b = -1; // a map position, when the event has one
+    // a map position, when the event has one
+    int a = -1;
+    int b = -1;
 };
 
 struct MissionScript {
@@ -59,7 +61,8 @@ struct MissionScript {
     };
     struct Objective {
         uint32_t id = 0;
-        bool hidden = false, optional = false;
+        bool hidden = false;
+        bool optional = false;
     };
     std::string mission;
     char side = 'F';
@@ -81,8 +84,10 @@ class MissionRun {
 public:
     struct Output {
         enum Kind { kMessage, kCompleted, kRevealed, kWon, kLost } kind;
-        std::string sender, text; // a message
-        uint32_t objective = 0;   // Completed, Revealed, Lost: the string id
+        // a message
+        std::string sender;
+        std::string text;
+        uint32_t objective = 0; // Completed, Revealed, Lost: the string id
     };
     enum class State { kIncomplete, kComplete, kHidden };
 
@@ -116,9 +121,12 @@ private:
     const MissionScript &_script;
     std::vector<Rule> _rules;
     std::map<std::string, int> _built;
-    std::set<uint32_t> _completed, _revealed;
+    std::set<uint32_t> _completed;
+    std::set<uint32_t> _revealed;
     std::map<std::string, double> _timers;
-    bool _won = false, _lost = false, _allDone = false;
+    bool _won = false;
+    bool _lost = false;
+    bool _allDone = false;
     int _depth = 0;
 };
 

@@ -81,7 +81,8 @@ struct ViewerContext {
     KeyBindings bindings;
     // A page asking for another to be shown (by name), as when the menus
     // start a level on the Play page; `requestMap` is the level.
-    std::string requestPage, requestMap;
+    std::string requestPage;
+    std::string requestMap;
     // A server to join on the Play page (connect <address>).
     std::string requestConnect;
     // Adds a pak (one just downloaded) to the game's files.
@@ -126,11 +127,15 @@ float brightness(const ViewerContext &ctx);
 // original's default, but the size, which is Reluva's 960x720 until a
 // mode is chosen.
 struct VideoSettings {
-    int width = 960, height = 720; // r_mode (r_customwidth/height for -1)
-    bool fullscreen = false;       // r_fullscreen
-    int picmip = 0;                // r_picmip: textures halved this many times (texture detail)
+    // r_mode (r_customwidth/height for -1)
+    int width = 960;
+    int height = 720;
+    bool fullscreen = false; // r_fullscreen
+    int picmip = 0;          // r_picmip: textures halved this many times (texture detail)
     // r_texturemode: GL_{NEAREST,LINEAR}[_MIPMAP_{NEAREST,LINEAR}]
-    bool nearest = false, mipmaps = true, mipNearest = true;
+    bool nearest = false;
+    bool mipmaps = true;
+    bool mipNearest = true;
     bool anisotropic = false; // r_ext_texture_filter_anisotropic
     bool vertexLight = false; // r_vertexLight: the level lit by its vertices, not its lightmaps
     float subdivisions = 4;   // r_subdivisions: how far curves may stray from round, in units (geometric detail)

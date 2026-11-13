@@ -59,11 +59,14 @@ bool insidePolygon(const std::vector<std::pair<uint32_t, uint32_t>> &pts, float 
 
 // Torn letter: where pieces snap (0x43f210) and where they're checked
 // (0x43f3b0: one more in x).
-constexpr int kSnapX[4] = {554, 680, 805, 931}, kSnapY[5] = {82, 208, 334, 460, 586};
-constexpr int kColEdge[3] = {617, 742, 868}, kRowEdge[4] = {145, 271, 397, 523};
+constexpr int kSnapX[4] = {554, 680, 805, 931};
+constexpr int kSnapY[5] = {82, 208, 334, 460, 586};
+constexpr int kColEdge[3] = {617, 742, 868};
+constexpr int kRowEdge[4] = {145, 271, 397, 523};
 
 // Puzzle box: where its panels are drawn, its pieces' arrows.
-constexpr int kBoxX = 89, kBoxY = 130;
+constexpr int kBoxX = 89;
+constexpr int kBoxY = 130;
 const char *const kEndArrows[4] = {"arrowendl", "arrowendr", "arrowendu", "arrowendd"};
 const char *const kSideArrows[4] = {nullptr, nullptr, "arrowsideu", "arrowsided"};
 const char *const kLidArrows[4] = {"arrowtopf", "arrowtopb", nullptr, nullptr};
@@ -300,7 +303,8 @@ std::string ScenePage::boxEndPicture() const {
     if (u == 4 || l == 4)
         return "endtlbrdown.png";
     static const struct {
-        int u, l;
+        int u;
+        int l;
         const char *file;
     } kEnds[] = {{0, 0, "end.png"},   {1, 0, "endtl.png"}, {0, 2, "endbr.png"},  {1, 2, "endtlbr.png"},
                  {2, 0, "endtr.png"}, {0, 1, "endbl.png"}, {2, 1, "endtrbl.png"}};

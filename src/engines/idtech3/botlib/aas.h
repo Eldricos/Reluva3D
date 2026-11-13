@@ -23,39 +23,99 @@ namespace reluva::idtech3::botlib {
 
 // How a bot gets from one area to the next.
 namespace travel {
-constexpr int kInvalid = 1, kWalk = 2, kCrouch = 3, kBarrierJump = 4, kJump = 5, kLadder = 6, kWalkOffLedge = 7,
-              kSwim = 8, kWaterJump = 9, kTeleport = 10, kElevator = 11, kRocketJump = 12, kBfgJump = 13,
-              kGrappleHook = 14, kDoubleJump = 15, kRampJump = 16, kStrafeJump = 17, kJumpPad = 18, kFuncBob = 19;
+constexpr int kInvalid = 1;
+constexpr int kWalk = 2;
+constexpr int kCrouch = 3;
+constexpr int kBarrierJump = 4;
+constexpr int kJump = 5;
+constexpr int kLadder = 6;
+constexpr int kWalkOffLedge = 7;
+constexpr int kSwim = 8;
+constexpr int kWaterJump = 9;
+constexpr int kTeleport = 10;
+constexpr int kElevator = 11;
+constexpr int kRocketJump = 12;
+constexpr int kBfgJump = 13;
+constexpr int kGrappleHook = 14;
+constexpr int kDoubleJump = 15;
+constexpr int kRampJump = 16;
+constexpr int kStrafeJump = 17;
+constexpr int kJumpPad = 18;
+constexpr int kFuncBob = 19;
 constexpr int kTypeMask = 0xffffff;
 } // namespace travel
 
 // Travel flags: which kinds of travel and which areas a route may use.
 namespace tfl {
-constexpr int kInvalid = 0x1, kWalk = 0x2, kCrouch = 0x4, kBarrierJump = 0x8, kJump = 0x10, kLadder = 0x20,
-              kWalkOffLedge = 0x80, kSwim = 0x100, kWaterJump = 0x200, kTeleport = 0x400, kElevator = 0x800,
-              kRocketJump = 0x1000, kBfgJump = 0x2000, kGrappleHook = 0x4000, kDoubleJump = 0x8000, kRampJump = 0x10000,
-              kStrafeJump = 0x20000, kJumpPad = 0x40000, kAir = 0x80000, kWater = 0x100000, kSlime = 0x200000,
-              kLava = 0x400000, kDoNotEnter = 0x800000, kFuncBob = 0x1000000, kFlight = 0x2000000, kBridge = 0x4000000,
-              kNotTeam1 = 0x8000000, kNotTeam2 = 0x10000000;
+constexpr int kInvalid = 0x1;
+constexpr int kWalk = 0x2;
+constexpr int kCrouch = 0x4;
+constexpr int kBarrierJump = 0x8;
+constexpr int kJump = 0x10;
+constexpr int kLadder = 0x20;
+constexpr int kWalkOffLedge = 0x80;
+constexpr int kSwim = 0x100;
+constexpr int kWaterJump = 0x200;
+constexpr int kTeleport = 0x400;
+constexpr int kElevator = 0x800;
+constexpr int kRocketJump = 0x1000;
+constexpr int kBfgJump = 0x2000;
+constexpr int kGrappleHook = 0x4000;
+constexpr int kDoubleJump = 0x8000;
+constexpr int kRampJump = 0x10000;
+constexpr int kStrafeJump = 0x20000;
+constexpr int kJumpPad = 0x40000;
+constexpr int kAir = 0x80000;
+constexpr int kWater = 0x100000;
+constexpr int kSlime = 0x200000;
+constexpr int kLava = 0x400000;
+constexpr int kDoNotEnter = 0x800000;
+constexpr int kFuncBob = 0x1000000;
+constexpr int kFlight = 0x2000000;
+constexpr int kBridge = 0x4000000;
+constexpr int kNotTeam1 = 0x8000000;
+constexpr int kNotTeam2 = 0x10000000;
 constexpr int kDefault = kWalk | kCrouch | kBarrierJump | kJump | kLadder | kWalkOffLedge | kSwim | kWaterJump |
                          kTeleport | kElevator | kAir | kWater | kJumpPad | kFuncBob;
 } // namespace tfl
 
 // What an area holds (its settings' contents) and its flags.
 namespace areacontents {
-constexpr int kWater = 1, kLava = 2, kSlime = 4, kClusterPortal = 8, kTelePortal = 16, kRoutePortal = 32,
-              kTeleporter = 64, kJumpPad = 128, kDoNotEnter = 256, kViewPortal = 512, kMover = 1024, kNotTeam1 = 2048,
-              kNotTeam2 = 4096;
+constexpr int kWater = 1;
+constexpr int kLava = 2;
+constexpr int kSlime = 4;
+constexpr int kClusterPortal = 8;
+constexpr int kTelePortal = 16;
+constexpr int kRoutePortal = 32;
+constexpr int kTeleporter = 64;
+constexpr int kJumpPad = 128;
+constexpr int kDoNotEnter = 256;
+constexpr int kViewPortal = 512;
+constexpr int kMover = 1024;
+constexpr int kNotTeam1 = 2048;
+constexpr int kNotTeam2 = 4096;
 constexpr int kModelNumShift = 24;
 } // namespace areacontents
 namespace areaflag {
-constexpr int kGrounded = 1, kLadder = 2, kLiquid = 4, kDisabled = 8, kBridge = 16;
+constexpr int kGrounded = 1;
+constexpr int kLadder = 2;
+constexpr int kLiquid = 4;
+constexpr int kDisabled = 8;
+constexpr int kBridge = 16;
 } // namespace areaflag
 namespace presence {
-constexpr int kNone = 1, kNormal = 2, kCrouch = 4;
+constexpr int kNone = 1;
+constexpr int kNormal = 2;
+constexpr int kCrouch = 4;
 } // namespace presence
 namespace faceflag {
-constexpr int kSolid = 1, kLadder = 2, kGround = 4, kGap = 8, kLiquid = 16, kLiquidSurface = 32, kBridge = 64;
+constexpr int kSolid = 1;
+constexpr int kLadder = 2;
+constexpr int kGround = 4;
+constexpr int kGap = 8;
+constexpr int kLiquid = 16;
+constexpr int kLiquidSurface = 32;
+constexpr int kBridge = 64;
 } // namespace faceflag
 
 struct AasPlane {
@@ -64,22 +124,39 @@ struct AasPlane {
     int type = 0;
 };
 struct AasFace {
-    int plane = 0, flags = 0, numEdges = 0, firstEdge = 0, frontArea = 0, backArea = 0;
+    int plane = 0;
+    int flags = 0;
+    int numEdges = 0;
+    int firstEdge = 0;
+    int frontArea = 0;
+    int backArea = 0;
 };
 struct AasArea {
-    int numFaces = 0, firstFace = 0;
-    Vec3f mins{}, maxs{}, center{};
+    int numFaces = 0;
+    int firstFace = 0;
+    Vec3f mins{};
+    Vec3f maxs{};
+    Vec3f center{};
 };
 struct AasAreaSettings {
-    int contents = 0, flags = 0, presence = 0, cluster = 0, clusterArea = 0;
-    int numReach = 0, firstReach = 0; // its reachabilities
+    int contents = 0;
+    int flags = 0;
+    int presence = 0;
+    int cluster = 0;
+    int clusterArea = 0;
+    // its reachabilities
+    int numReach = 0;
+    int firstReach = 0;
 };
 // A way from one area into another: from `start` (in this area) to
 // `end` (in `area`), of a kind (travel::), taking `time` hundredths of a
 // second.
 struct AasReach {
-    int area = 0, face = 0, edge = 0;
-    Vec3f start{}, end{};
+    int area = 0;
+    int face = 0;
+    int edge = 0;
+    Vec3f start{};
+    Vec3f end{};
     int travelType = 0;
     int time = 0;
 };
@@ -154,7 +231,8 @@ private:
     std::vector<Vec3f> _vertexes;
     std::vector<AasPlane> _planes;
     std::vector<std::pair<int, int>> _edges;
-    std::vector<int> _edgeIndex, _faceIndex;
+    std::vector<int> _edgeIndex;
+    std::vector<int> _faceIndex;
     std::vector<AasFace> _faces;
     std::vector<AasArea> _areas;
     std::vector<AasAreaSettings> _settings;

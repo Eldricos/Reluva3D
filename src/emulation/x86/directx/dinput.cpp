@@ -31,13 +31,22 @@ const char *const kZAxis = "{a36d02e2-c9f3-11cf-bfc7-444553540000}";
 const char *const kButton = "{a36d02f0-c9f3-11cf-bfc7-444553540000}";
 const char *const kKey = "{55728220-d33c-11cf-bfc7-444553540000}";
 
-constexpr uint32_t kOk = 0, kNoEffect = 1, kBufferOverflow = 1;
-constexpr uint32_t kErrInvalidParam = 0x80070057u, kErrNotAcquired = 0x8007000cu, kErrDeviceNotReg = 0x80040154u,
-                   kErrNotFound = 0x80070002u, kErrUnsupported = 0x80004001u;
+constexpr uint32_t kOk = 0;
+constexpr uint32_t kNoEffect = 1;
+constexpr uint32_t kBufferOverflow = 1;
+constexpr uint32_t kErrInvalidParam = 0x80070057u;
+constexpr uint32_t kErrNotAcquired = 0x8007000cu;
+constexpr uint32_t kErrDeviceNotReg = 0x80040154u;
+constexpr uint32_t kErrNotFound = 0x80070002u;
+constexpr uint32_t kErrUnsupported = 0x80004001u;
 // Data format object types (DIDFT_).
-constexpr uint32_t kTypeAxis = 0x3, kTypeButton = 0xc, kTypeAnyInstance = 0xffff, kTypeOptional = 0x80000000u;
+constexpr uint32_t kTypeAxis = 0x3;
+constexpr uint32_t kTypeButton = 0xc;
+constexpr uint32_t kTypeAnyInstance = 0xffff;
+constexpr uint32_t kTypeOptional = 0x80000000u;
 constexpr uint32_t kRelativeAxes = 2; // DIDF_RELAXIS
-constexpr uint32_t kDevTypeMouse = 2, kDevTypeKeyboard = 3;
+constexpr uint32_t kDevTypeMouse = 2;
+constexpr uint32_t kDevTypeKeyboard = 3;
 
 const std::vector<ComInterface::Method> kUnknown = {{"QueryInterface", 2}, {"AddRef", 0}, {"Release", 0}};
 std::vector<ComInterface::Method> with(std::vector<ComInterface::Method> m) {
@@ -119,15 +128,21 @@ public:
     uint32_t dataSize = 0;
     bool relative = true;
     // The device's state.
-    int axes[3]{}, motion[3]{}; // position; movement since last read
+    // position; movement since last read
+    int axes[3]{};
+    int motion[3]{};
     bool buttons[8]{};
     bool keys[256]{};
     // Buffered changes (DIDEVICEOBJECTDATA's offset, data, time, sequence).
     struct Event {
-        uint32_t offset, data, time, sequence;
+        uint32_t offset;
+        uint32_t data;
+        uint32_t time;
+        uint32_t sequence;
     };
     std::deque<Event> buffer;
-    uint32_t bufferSize = 0, sequence = 0;
+    uint32_t bufferSize = 0;
+    uint32_t sequence = 0;
     bool overflowed = false;
 
     const ComInterface *query(const std::string &iid) override {

@@ -12,6 +12,7 @@
 #include "engines/stharbinger/harbinger.h"
 #include "engines/stharbinger/platform.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace reluva::stharbinger {
@@ -31,7 +32,8 @@ struct VideoEntry {
     const char *name;
     VideoDir dir;
     VideoKind kind;
-    int x, y;
+    int x;
+    int y;
 };
 
 // ACTIONSEQ types 0x00..0x1F (DEEP.EXE 0x24E8F names, 0x24F0F directories).

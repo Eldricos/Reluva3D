@@ -18,7 +18,8 @@ struct Codebook {
 // What a block's symbols mean: each symbol a run of zero coefficients and
 // the value after it, apart from the end-of-block and escape symbols.
 struct RunValueMap {
-    uint8_t endOfBlock, escape;
+    uint8_t endOfBlock;
+    uint8_t escape;
     uint8_t run[256];
     int8_t value[256];
 };

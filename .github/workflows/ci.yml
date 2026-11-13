@@ -233,7 +233,7 @@ jobs:
       - name: Packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18
+          sudo apt-get install -y ninja-build clang-format-18 clang-tidy-18 python3-clang-18
       - name: Formatting
         # bash with pipefail (not the default's plain -e), so | tee keeps
         # the check's exit status.
@@ -250,6 +250,16 @@ jobs:
           # window system needs none of its packages.
           python3 tools/tidy.py --changed "$BASE" --cmake -G Ninja \
             -DSDL_UNIX_CONSOLE_BUILD=ON -DSDL_X11=OFF -DSDL_WAYLAND=OFF | tee tidy.txt
+      - name: Members one to a declaration (changed files)
+        # clang-tidy splits only local variables; this, members too. Uses
+        # the compile database the step before made.
+        if: always()
+        shell: bash
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
+          python3 tools/split_members.py --changed "$BASE" | tee members.txt
       - name: Summary
         if: always()
         run: |
@@ -260,4 +270,6 @@ jobs:
             echo '```'
             grep -E '^ *[0-9]+  [a-z]|findings|No C\+\+ files' tidy.txt 2> /dev/null || echo "not run"
             echo '```'
+            echo "### Members one to a declaration (tools/split_members.py)"
+            tail -n 1 members.txt 2> /dev/null || echo "not run"
           } >> "$GITHUB_STEP_SUMMARY"

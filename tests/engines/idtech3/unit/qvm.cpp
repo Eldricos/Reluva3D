@@ -81,7 +81,8 @@ using namespace reluva::idtech3::fixtures;
 // Builds a QVM from instructions, initialised data and literals.
 struct QvmAsm {
     std::vector<std::pair<uint8_t, int32_t>> code;
-    std::vector<uint8_t> data, lit;
+    std::vector<uint8_t> data;
+    std::vector<uint8_t> lit;
     int32_t bss = 0;
     int add(uint8_t op, int32_t operand = 0) {
         code.emplace_back(op, operand);

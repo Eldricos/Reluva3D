@@ -9,6 +9,7 @@
 
 #include "common/fs.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>

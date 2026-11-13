@@ -17,11 +17,18 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint32_t kErrorBufferOverflow = 111, kErrorInsufficientBuffer = 122;
+constexpr uint32_t kErrorBufferOverflow = 111;
+constexpr uint32_t kErrorInsufficientBuffer = 122;
 constexpr uint32_t kEventHandles = 0x7fd00000;
 
 struct SystemTime { // SYSTEMTIME
-    int year, month, dayOfWeek, day, hour, minute, second;
+    int year;
+    int month;
+    int dayOfWeek;
+    int day;
+    int hour;
+    int minute;
+    int second;
 };
 
 SystemTime now() {

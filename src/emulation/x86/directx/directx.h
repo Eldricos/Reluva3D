@@ -29,7 +29,8 @@ public:
     // What's on the screen: the primary surface as of the last flip or
     // blit onto it, as 0xAARRGGBB, `width` × `height`.
     struct Frame {
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         std::vector<uint32_t> pixels;
         uint64_t number = 0; // counts the frames shown
     };
@@ -40,7 +41,9 @@ public:
     // The display modes offered (width, height, bits per pixel); the
     // desktop's comes from the process.
     struct Mode {
-        int width, height, bits;
+        int width;
+        int height;
+        int bits;
     };
     std::vector<Mode> modes = {{640, 480, 16}, {800, 600, 16}, {1024, 768, 16},
                                {640, 480, 32}, {800, 600, 32}, {1024, 768, 32}};

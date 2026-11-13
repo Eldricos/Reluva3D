@@ -47,7 +47,8 @@ std::vector<float> readFloats(const Gr2File &file, const Gr2Object &o, const cha
 // three smaller components can be); entries 8-15 are 0-7 negated. These
 // are the table at 0x500551d8 in granny2.dll.
 struct Range {
-    float scale, offset;
+    float scale;
+    float offset;
 };
 Range quaternionRange(unsigned entry) {
     const float h = 0.70710677f; // √½ as a float, 0x3f3504f3

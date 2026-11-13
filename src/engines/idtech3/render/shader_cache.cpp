@@ -21,7 +21,11 @@ namespace {
 constexpr float kPi = 3.14159265358979f;
 
 // Sort keys, as the original numbers them.
-constexpr float kSortPortal = 1, kSortOpaque = 3, kSortDecal = 4, kSortSeeThrough = 5, kSortBlend = 9;
+constexpr float kSortPortal = 1;
+constexpr float kSortOpaque = 3;
+constexpr float kSortDecal = 4;
+constexpr float kSortSeeThrough = 5;
+constexpr float kSortBlend = 9;
 
 gfx::Blend blendFactor(const std::string &gl) {
     static const std::pair<const char *, gfx::Blend> kNames[] = {
@@ -51,7 +55,8 @@ std::string stripExtension(const std::string &name) {
 
 // An affine map of texture coordinates: (u, v) -> (r0 . (u, v, 1), r1 . (u, v, 1)).
 struct Affine {
-    std::array<float, 3> r0{1, 0, 0}, r1{0, 1, 0};
+    std::array<float, 3> r0{1, 0, 0};
+    std::array<float, 3> r1{0, 1, 0};
 };
 
 // `op` applied after `m`.

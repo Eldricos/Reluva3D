@@ -22,7 +22,8 @@ namespace reluva::clue {
 
 namespace {
 
-constexpr int kW = 640, kH = 480;
+constexpr int kW = 640;
+constexpr int kH = 480;
 // The game's bar: the view of the mansion is above it.
 constexpr int kBarTop = 413;
 static_assert(kOverGameX == kW / 2 - 231 / 2 && kOverGameY == 5 + (kBarTop - 5 - 395) / 2);
@@ -30,7 +31,10 @@ static_assert(kOverGameX == kW / 2 - 231 / 2 && kOverGameY == 5 + (kBarTop - 5 -
 // picture (menu:Ihostgmbg): covered when the window joins by address, by
 // the Exit window's picture (menu:Iexitbgnd), the same circle there
 // without them (and the same around them).
-constexpr int kCoverX = 218, kCoverY = 269, kCoverW = 203, kCoverH = 29;
+constexpr int kCoverX = 218;
+constexpr int kCoverY = 269;
+constexpr int kCoverW = 203;
+constexpr int kCoverH = 29;
 
 // dialogInfo.res's dialogs, by number.
 enum Dialog {
@@ -57,7 +61,8 @@ enum Dialog {
     kExitConfirm = 44,
 };
 // Controls most dialogs share.
-constexpr int kReturn = 10000, kOk = 10001;
+constexpr int kReturn = 10000;
+constexpr int kOk = 10001;
 
 const char *const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
 // The rules' topics, in the How to Play menu's order, and their files.
@@ -948,8 +953,10 @@ void FrontEnd::drawStorm() {
     // storm over them: controls 1000-1003, placed by Clue.exe 0x40C520; while
     // a click's lightning lasts, the flashes (1004-1007) at the same places.
     struct Panel {
-        const char *animation, *flash;
-        int x, y;
+        const char *animation;
+        const char *flash;
+        int x;
+        int y;
     };
     static const Panel kPanels[] = {{"main_anim:Alt1anim", "menu:Alt1flash", 13, 239},
                                     {"main_anim:Alt2anim", "menu:Alt2flash", 13, 317},

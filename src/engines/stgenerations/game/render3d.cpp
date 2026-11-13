@@ -49,8 +49,11 @@ struct LevelRenderer::Texture {
 
 struct LevelRenderer::Vertex {
     // Camera space, then screen space after projection.
-    double x, y, z;
-    double u, v;
+    double x;
+    double y;
+    double z;
+    double u;
+    double v;
 };
 
 LevelRenderer::LevelRenderer(const LevelFile &level) : _level(level) {
@@ -650,7 +653,9 @@ void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *textur
 
 Camera LevelRenderer::getStartCamera(double eyeHeight) const {
     struct Floor {
-        double area, x, y;
+        double area;
+        double x;
+        double y;
         int32_t height;
     };
     std::vector<Floor> floors;

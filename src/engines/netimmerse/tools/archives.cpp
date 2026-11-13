@@ -138,7 +138,9 @@ int cmdFinCheck(int argc, char **argv) {
     }
 
     struct Count {
-        unsigned total = 0, read = 0, exact = 0;
+        unsigned total = 0;
+        unsigned read = 0;
+        unsigned exact = 0;
     };
     std::map<std::string, Count> counts;
     std::set<std::string> missingImages;

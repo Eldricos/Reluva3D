@@ -18,7 +18,8 @@ namespace reluva::audio {
 // per channel. The frame's first byte holds the filter (high nibble) and the
 // shift (low nibble); then 14 bytes of 4-bit residuals, high nibble first.
 struct EaXaChannel {
-    int previous = 0, beforePrevious = 0;
+    int previous = 0;
+    int beforePrevious = 0;
 };
 constexpr size_t kEaXaFrameBytes = 15;
 constexpr int kEaXaFrameSamples = 28;
@@ -65,7 +66,8 @@ private:
     bool _overrun = false;
     unsigned _bitsValue = 0;
     int _bitsCount = 0;
-    bool _headerParsed = false, _reducedBandwidth = false;
+    bool _headerParsed = false;
+    bool _reducedBandwidth = false;
     int _multipulseThreshold = 0;
     // The decoder's state in one block, in this order. The adaptive
     // codebook (the last frame's 324 samples) is read on into the frame

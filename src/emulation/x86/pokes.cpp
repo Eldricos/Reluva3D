@@ -3,6 +3,7 @@
 
 #include "emulation/x86/pokes.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 

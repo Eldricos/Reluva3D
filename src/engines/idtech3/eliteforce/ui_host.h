@@ -133,8 +133,12 @@ public:
     // connect requests were sent, the player's number, the server's name,
     // and the messages to show.
     struct ClientState {
-        int32_t connState = 1, connectPacketCount = 0, clientNum = 0;
-        std::string serverName, updateInfo, message;
+        int32_t connState = 1;
+        int32_t connectPacketCount = 0;
+        int32_t clientNum = 0;
+        std::string serverName;
+        std::string updateInfo;
+        std::string message;
     };
     ClientState clientState;
     // The configstrings GetConfigString reads (a match's, for the in-game
@@ -155,7 +159,10 @@ private:
     CvarStore &_cvars;
     Qvm _vm;
     VmFiles _vmFiles;
-    HandleTable _shaders, _models, _skins, _sounds;
+    HandleTable _shaders;
+    HandleTable _models;
+    HandleTable _skins;
+    HandleTable _sounds;
     std::vector<Picture> _pictures;
     Scene _scene;
     std::map<int32_t, std::shared_ptr<const Md3Model>> _md3s; // by model handle, for tags
@@ -163,7 +170,8 @@ private:
     std::vector<std::string> _commands;
     std::map<int, int> _unhandled;
     std::string _log;
-    int _width = 640, _height = 480;
+    int _width = 640;
+    int _height = 480;
     int32_t _time = 0;
     int32_t _glconfigWords = 5124;
     int32_t _catcher = 0;

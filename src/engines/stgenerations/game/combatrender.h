@@ -13,7 +13,9 @@
 namespace reluva::stgenerations {
 
 struct Vec3 {
-    double x = 0, y = 0, z = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
     Vec3() {}
     Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
     Vec3 operator+(const Vec3 &o) const { return Vec3(x + o.x, y + o.y, z + o.z); }
@@ -30,7 +32,9 @@ struct Vec3 {
 
 // An orientation: the columns are the object's right (x), up (y) and forward (z) axes.
 struct Mat3 {
-    Vec3 right = Vec3(1, 0, 0), up = Vec3(0, 1, 0), forward = Vec3(0, 0, 1);
+    Vec3 right = Vec3(1, 0, 0);
+    Vec3 up = Vec3(0, 1, 0);
+    Vec3 forward = Vec3(0, 0, 1);
 
     Vec3 apply(const Vec3 &v) const { return right * v.x + up * v.y + forward * v.z; }
     // World to local.
@@ -77,18 +81,21 @@ public:
 private:
     struct ClipVertex {
         Vec3 view;
-        double u, v;
+        double u;
+        double v;
     };
     // blend: see-through, mixed half and half with what is behind.
     void drawTriangle(const ClipVertex *v, int count, const CombatImage *texture, uint32_t colour, double shade,
                       bool keyBlack, bool blend = false);
 
-    int _w = 0, _h = 0;
+    int _w = 0;
+    int _h = 0;
     double _focal = 1;
     Vec3 _cameraPos;
     Mat3 _camera;
     Canvas *_target = nullptr;
-    int _ox = 0, _oy = 0;
+    int _ox = 0;
+    int _oy = 0;
     std::vector<float> _depth;
 };
 

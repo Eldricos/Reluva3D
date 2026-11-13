@@ -57,8 +57,11 @@ struct Actors::Actor {
     // The record from the level, with fields the scripts change.
     LevelFile::Actor data;
     Walker walker;
-    double x = 0, y = 0, z = 0;
-    double homeX = 0, homeY = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
+    double homeX = 0;
+    double homeY = 0;
     uint16_t heading = 0;
     int mode = kModeIdle;
     // Object to face, attack or walk to; 0 is the player.
@@ -73,18 +76,22 @@ struct Actors::Actor {
     bool turning = false;
     uint16_t goal = 0;
     bool returning = false;
-    double walked = 0, nextTurn = 0;
+    double walked = 0;
+    double nextTurn = 0;
     double centreDistance = 0;
     // SET_ACTOR_COMBAT_PARAMS: the id of what it guards (+0x70), 0 none.
     uint16_t guardTarget = 0;
     // Proximity.
-    bool near = false, inRange = false;
+    bool near = false;
+    bool inRange = false;
     // Projectile type fired in attack mode, or -1.
     int weapon = -1;
     bool firing = false;
     // ACTOR_GO_TO: mode 7 heads for this point instead of an object.
     bool toPoint = false;
-    double pointX = 0, pointY = 0, pointZ = 0;
+    double pointX = 0;
+    double pointY = 0;
+    double pointZ = 0;
     // SET_ACTOR_CLIMB_ANGLE: the share of a flyer's speed spent going across (+0x80).
     double across = 1.0;
 };

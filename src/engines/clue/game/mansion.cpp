@@ -563,7 +563,8 @@ namespace {
 // Clue.exe's test of what stands in front of an actor (at 0x428190, with 13
 // for its reach): the object's box on the floor, less 8 on its far sides,
 // overlapping the actor's anchor and the 208 units beyond it along x and y.
-constexpr int kRevealReach = 13 * 16, kRevealSlack = 8;
+constexpr int kRevealReach = 13 * 16;
+constexpr int kRevealSlack = 8;
 
 bool inFrontOf(const Mansion::Item &item, const Mansion::Actor &a) {
     // Which of Clue.exe's kinds of object it does this to (their classes'
@@ -634,7 +635,8 @@ int cellOf(int v) {
 // The light an object keeps: the nearest of those that reached it.
 struct Lit {
     bool any = false;
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     void offer(int lx, int ly, int px, int py) {
         const long long d = 1LL * (lx - px) * (lx - px) + 1LL * (ly - py) * (ly - py);
         if (!any || d < 1LL * (x - px) * (x - px) + 1LL * (y - py) * (y - py)) {

@@ -21,12 +21,16 @@ namespace reluva::glide {
 // <name>", "lod range: <min> <max>", "aspect ratio: <w> <h>"), then the
 // levels' texels.
 struct File3df {
-    int format = 0;                         // GR_TEXFMT_*
-    int smallLodLog2 = 0, largeLodLog2 = 0; // log2 of each level's longer side
-    int aspectLog2 = 0;                     // log2(width / height)
-    int width = 0, height = 0;              // the largest level's
-    uint32_t dataBytes = 0;                 // every level, largest first, rows packed
-    size_t dataOffset = 0;                  // where the texels start in the file
+    int format = 0; // GR_TEXFMT_*
+    // log2 of each level's longer side
+    int smallLodLog2 = 0;
+    int largeLodLog2 = 0;
+    int aspectLog2 = 0; // log2(width / height)
+    // the largest level's
+    int width = 0;
+    int height = 0;
+    uint32_t dataBytes = 0; // every level, largest first, rows packed
+    size_t dataOffset = 0;  // where the texels start in the file
 };
 
 // Reads a .3df file's header; false (and why in `error`) if it isn't one

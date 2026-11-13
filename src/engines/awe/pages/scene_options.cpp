@@ -26,7 +26,8 @@ constexpr const char *kNames[GameOptions::kCount] = {"Music", "Sound", "Gamma", 
 constexpr int kDefaults[GameOptions::kCount] = {7, 7, 5, 1, 1, 1, 1, 1, 0};
 
 // The sliders' thumbs: x = 694 + 23 * value (0..10).
-constexpr int kThumbLeft = 694, kThumbStep = 23;
+constexpr int kThumbLeft = 694;
+constexpr int kThumbStep = 23;
 
 } // namespace
 

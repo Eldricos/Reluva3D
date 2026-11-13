@@ -97,14 +97,18 @@ private:
     bool _forceFeedback = true;
     bool _smoothTextures = true;
     bool _positionalUpdates = false;
-    bool _network = true;        // the game's sockets on the machine's (System::sockets)
-    std::string _serial, _modem; // its COM ports' and modem's links (GameHost::Options)
-    bool _fillMovies = true;     // the black lines between a movie's filled in
+    bool _network = true; // the game's sockets on the machine's (System::sockets)
+    // its COM ports' and modem's links (GameHost::Options)
+    std::string _serial;
+    std::string _modem;
+    bool _fillMovies = true; // the black lines between a movie's filled in
     std::string _wheelPedals;
     GamepadForce _force; // as last passed on
     bool _forceShown = false;
-    bool _padOffered = false;               // a joystick offered to the game at its start
-    float _mouseLeftX = 0, _mouseLeftY = 0; // the mouse's moves not yet passed on (fractions)
+    bool _padOffered = false; // a joystick offered to the game at its start
+    // the mouse's moves not yet passed on (fractions)
+    float _mouseLeftX = 0;
+    float _mouseLeftY = 0;
 
     // Shared with the game's thread.
     std::mutex _mutex;
@@ -137,18 +141,27 @@ private:
     // Comparing the GPU's frames with the software rasterizer's (the
     // folder in RELUVA_NFS_COMPARE): the software frame of the last list.
     std::filesystem::path _compareFolder;
-    int _compared = 0, _newFrames = 0;
+    int _compared = 0;
+    int _newFrames = 0;
     std::string _result; // how the run ended
     // How fast it goes (reportSpeed): frames the game made and the
     // instructions run (counted on its thread), frames drawn, not needed
     // (a later one covered them), dropped (too many waiting) and shown.
     void reportSpeed(uint64_t nowMs);
-    std::atomic<uint64_t> _statGameFrames{0}, _statDropped{0}, _statInstructions{0};
+    std::atomic<uint64_t> _statGameFrames{0};
+    std::atomic<uint64_t> _statDropped{0};
+    std::atomic<uint64_t> _statInstructions{0};
     // Of the instructions, those on the game's main thread and on its timer
     // thread, as of the last frame.
-    std::atomic<uint64_t> _statOwn{0}, _statTimer{0};
-    uint64_t _statLastOwn = 0, _statLastTimer = 0;
-    uint64_t _statFrom = 0, _statLastInstructions = 0, _statDrawn = 0, _statSkipped = 0, _statShown = 0;
+    std::atomic<uint64_t> _statOwn{0};
+    std::atomic<uint64_t> _statTimer{0};
+    uint64_t _statLastOwn = 0;
+    uint64_t _statLastTimer = 0;
+    uint64_t _statFrom = 0;
+    uint64_t _statLastInstructions = 0;
+    uint64_t _statDrawn = 0;
+    uint64_t _statSkipped = 0;
+    uint64_t _statShown = 0;
 };
 
 } // namespace reluva::nfs

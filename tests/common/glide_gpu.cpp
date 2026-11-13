@@ -21,6 +21,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -254,7 +255,9 @@ void scene6666(Glide2 &g) {
 }
 
 struct Frames {
-    std::vector<uint16_t> front, back, aux;
+    std::vector<uint16_t> front;
+    std::vector<uint16_t> back;
+    std::vector<uint16_t> aux;
 };
 
 Frames draw(std::unique_ptr<Renderer> renderer, bool voodoo3 = false) {

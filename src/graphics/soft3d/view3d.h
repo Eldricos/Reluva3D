@@ -14,7 +14,9 @@
 namespace reluva::soft3d {
 
 struct Vec {
-    float x, y, z;
+    float x;
+    float y;
+    float z;
 };
 inline Vec operator+(Vec a, Vec b) {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
@@ -38,15 +40,25 @@ inline Vec normalize(Vec a) {
 
 // A polygon corner in view space (x right, y up, z away from the camera).
 struct ViewVertex {
-    float x, y, z, u, v;
+    float x;
+    float y;
+    float z;
+    float u;
+    float v;
     float s = 1; // light level
 };
 
 // A camera looking at `centre` from `distance` away, turned by yaw about z and
 // raised by pitch, with a perspective projection onto a w x h screen.
 struct OrbitCamera {
-    Vec eye, right, up, forward;
-    float focal, nearZ, halfW, halfH;
+    Vec eye;
+    Vec right;
+    Vec up;
+    Vec forward;
+    float focal;
+    float nearZ;
+    float halfW;
+    float halfH;
 
     OrbitCamera(Vec centre, float yaw, float pitch, float distance, int w, int h)
         : focal(float(h) * 1.2f), nearZ(distance * 0.01f), halfW(float(w) / 2), halfH(float(h) / 2) {

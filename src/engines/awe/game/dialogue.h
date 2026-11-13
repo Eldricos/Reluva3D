@@ -22,12 +22,24 @@ namespace reluva::awe {
 
 // A row of a dialogue table.
 struct DialogueLine {
-    std::string name, act, part, thread, nest; // as written ("02a", "a", "1", "a")
-    std::string speaker, target;               // "antoinette"; whom they face ("antoinette up")
+    // as written ("02a", "a", "1", "a")
+    std::string name;
+    std::string act;
+    std::string part;
+    std::string thread;
+    std::string nest;
+    // "antoinette"; whom they face ("antoinette up")
+    std::string speaker;
+    std::string target;
     std::string text;
     std::string condition; // when it can be said
-    std::string repeat, optional, notes;
-    std::string before, event, after; // commands: Prevent, Event, Povent
+    std::string repeat;
+    std::string optional;
+    std::string notes;
+    // commands: Prevent, Event, Povent
+    std::string before;
+    std::string event;
+    std::string after;
     float duration = 0;
 
     // Codes as the loader makes them (0x438f00). A part: a letter from 0
@@ -35,7 +47,9 @@ struct DialogueLine {
     // character's digit added (z1: 26); a number n as n + 0x5f (1: 0x60).
     // A nest: a letter from 0, a second letter's place added; a number
     // n + 0x5f.
-    int partCode = 0, threadCode = 0, nestCode = 0;
+    int partCode = 0;
+    int threadCode = 0;
+    int nestCode = 0;
     int repeatCode = -1; // Repeat's letter, else -1
     int alternative = 0; // 0, or one more than the line before if that has the same nest
 
@@ -57,14 +71,20 @@ int dialogueNestCode(std::string_view s);
 // number. `gen` is the default (a character was clicked; cantalk: on).
 struct TalkArgs {
     std::string name;
-    int part = 100, thread = -1, nest = -1, number = -1;
-    bool gen = false, plus = false, greet = true;
+    int part = 100;
+    int thread = -1;
+    int nest = -1;
+    int number = -1;
+    bool gen = false;
+    bool plus = false;
+    bool greet = true;
 };
 TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen);
 
 // A conversation's part (one Name and Conver.), its threads in order.
 struct DialoguePart {
-    std::string name, act;
+    std::string name;
+    std::string act;
     int code = 0;
     struct Thread {
         int code = 0;
@@ -206,7 +226,10 @@ public:
     // text row, and its picture if it has one; a picture is tried before
     // the rows (0x43c810).
     struct ChoiceArea {
-        int x = 0, y = 0, w = 0, h = 0;
+        int x = 0;
+        int y = 0;
+        int w = 0;
+        int h = 0;
         int choice = -1;
         bool picture = false;
     };
@@ -247,17 +270,32 @@ private:
     GameState &_state;
     DialogueHost &_host;
     DialogueBook _book;
-    ScriptRunner _prevent, _events, _povent;
+    ScriptRunner _prevent;
+    ScriptRunner _events;
+    ScriptRunner _povent;
     ScriptRunner *_caller = nullptr; // the runner whose "talk" this is
 
     DialoguePart *_part = nullptr;
-    int _thread = -1, _line = -1; // indices into part_
-    bool _active = false, _choosing = false, _playing = false;
-    bool _firstOffer = true, _plus = false, _goOn = false, _gen = false, _greet = true;
-    int _number = -1, _lastAlternative = -1;
+    // indices into part_
+    int _thread = -1;
+    int _line = -1;
+    bool _active = false;
+    bool _choosing = false;
+    bool _playing = false;
+    bool _firstOffer = true;
+    bool _plus = false;
+    bool _goOn = false;
+    bool _gen = false;
+    bool _greet = true;
+    int _number = -1;
+    int _lastAlternative = -1;
     bool _dry = false; // a dry run (cantalk)
-    bool _waitPrevent = false, _voice = false, _showWhilePovent = true;
-    float _textLeft = 0, _lineTime = 0, _pause = -1;
+    bool _waitPrevent = false;
+    bool _voice = false;
+    bool _showWhilePovent = true;
+    float _textLeft = 0;
+    float _lineTime = 0;
+    float _pause = -1;
     int _pending = 0; // after the Povent: 1 end the talk, 2 the next line, 3 the menu
     int _colour = 8;
     std::string _lastSpeaker;
@@ -267,12 +305,17 @@ private:
     std::vector<std::string> _turned;
     // The box.
     float _boxY = 768;
-    int _boxHeight = 160, _window = 0, _slide = 0; // slide: 1 in, 2 out
+    // slide: 1 in, 2 out
+    int _boxHeight = 160;
+    int _window = 0;
+    int _slide = 0;
     // Choices.
     std::vector<Choice> _choices;
     std::vector<ChoiceArea> _choiceAreas;
     int _highlighted = -1;
-    int _wheelX = -1, _wheelY = -1; // where the mouse was when the wheel chose
+    // where the mouse was when the wheel chose
+    int _wheelX = -1;
+    int _wheelY = -1;
     unsigned _random = 1;
     int rand();
 };

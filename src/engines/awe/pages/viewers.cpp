@@ -31,8 +31,14 @@ namespace {
 // (docs/engines/awe/README.md).
 struct FramePerf {
     bool on = std::getenv("RELUVA_PERF") != nullptr;
-    double total = 0, draw2d = 0, layers = 0, characters = 0, skin = 0, present = 0;
-    int frames = 0, draws = 0;
+    double total = 0;
+    double draw2d = 0;
+    double layers = 0;
+    double characters = 0;
+    double skin = 0;
+    double present = 0;
+    int frames = 0;
+    int draws = 0;
     std::chrono::steady_clock::time_point since = std::chrono::steady_clock::now();
     static double ms(std::chrono::steady_clock::time_point t) {
         return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t).count();

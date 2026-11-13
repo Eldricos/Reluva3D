@@ -58,7 +58,9 @@ public:
 private:
     struct TextureRef {
         EntryRef ref;
-        bool ok = false, colourKeyed = false, alpha = false;
+        bool ok = false;
+        bool colourKeyed = false;
+        bool alpha = false;
     };
 
     void classify();
@@ -127,22 +129,35 @@ private:
     std::string _status; // decode error, if any
     Metamodels _metamodels;
     MdlModel _mdl;
-    bool _hasMdl = false, _markers = true, _turret = false;
+    bool _hasMdl = false;
+    bool _markers = true;
+    bool _turret = false;
     int _selectedPoint = -1; // -1: none
     std::vector<Animation> _animations;
-    int _animation = -1, _animFrame = 0; // -1: the stored pose; animations_.size(): the turret sweep
+    // -1: the stored pose; animations_.size(): the turret sweep
+    int _animation = -1;
+    int _animFrame = 0;
     uint64_t _animMs = 0;
     static constexpr uint64_t kFrameMs = 100;
     float _centre[3] = {0, 0, 0};
     float _size = 1; // distance from the centre to the farthest vertex
 
-    float _yaw = 0, _pitch = 0, _zoom = 1;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _zoom = 1;
     int _soloPart = -1; // -1: all parts
-    bool _spin = false, _uvCheck = false, _colourByTail = false, _textured = true, _smooth = true;
-    int _outlines = 0, _faces = 0; // faces_: 0 front only, 1 both sides, 2 back only
-    int _alphaMode = 0;            // see kAlphaNames
+    bool _spin = false;
+    bool _uvCheck = false;
+    bool _colourByTail = false;
+    bool _textured = true;
+    bool _smooth = true;
+    // faces_: 0 front only, 1 both sides, 2 back only
+    int _outlines = 0;
+    int _faces = 0;
+    int _alphaMode = 0; // see kAlphaNames
     bool _dragging = false;
-    int _dragX = 0, _dragY = 0;
+    int _dragX = 0;
+    int _dragY = 0;
     bool _dirty = true;
     uint64_t _lastMs = 0;
 };
@@ -206,7 +221,8 @@ public:
     // position, turned anticlockwise by quarter turns. Cleared by showMap.
     struct Building {
         std::string model;
-        int a = 0, b = 0;
+        int a = 0;
+        int b = 0;
         int turn = 0;
         float progress = 1;  // under construction: 0 just begun, 1 built
         std::string builder; // the construction bee working on it ("geo/fed/fconbee.geo"), or none
@@ -240,11 +256,15 @@ public:
     // selected ones with the recordings' row of orange marks above them.
     struct UnitDraw {
         std::string model;
-        float x = 0, y = 0, heading = 0; // heading: radians anticlockwise from east
+        // heading: radians anticlockwise from east
+        float x = 0;
+        float y = 0;
+        float heading = 0;
         bool selected = false;
         // Its turret turned from straight ahead (anticlockwise) and its gun
         // raised, in radians, for a model with one.
-        float turretYaw = 0, gunPitch = 0;
+        float turretYaw = 0;
+        float gunPitch = 0;
     };
     void setUnits(std::vector<UnitDraw> units) {
         _units = std::move(units);
@@ -371,13 +391,25 @@ private:
     const TileModel &pavedModel(uint32_t index);
     Texture _underlay; // ground showing through tiles with GmfMap::Tile::underlay
 
-    float _targetX = 0, _targetY = 0, _targetZ = 0, _yaw = 0, _pitch = 0, _distance = 1;
-    bool _textured = true, _outlines = false, _walls = true, _scenery = true, _smooth = true;
+    float _targetX = 0;
+    float _targetY = 0;
+    float _targetZ = 0;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 1;
+    bool _textured = true;
+    bool _outlines = false;
+    bool _walls = true;
+    bool _scenery = true;
+    bool _smooth = true;
     int _colouring = 0; // see kColouringNames
     bool _dragging = false;
-    int _dragX = 0, _dragY = 0;
+    int _dragX = 0;
+    int _dragY = 0;
     bool _dirty = true;
-    unsigned _drawnTiles = 0, _drawnFaces = 0, _drawnObjects = 0;
+    unsigned _drawnTiles = 0;
+    unsigned _drawnFaces = 0;
+    unsigned _drawnObjects = 0;
     std::function<void()> _overlay;
     std::function<std::string(const std::string &)> _titleFilter;
 };
@@ -426,7 +458,9 @@ private:
     std::vector<size_t> _firstCopy;
     std::vector<size_t> _shownSounds;
     bool _showCopies = false;
-    bool _shown = false, _autoPlay = false, _wasPlaying = false;
+    bool _shown = false;
+    bool _autoPlay = false;
+    bool _wasPlaying = false;
     int _current = 0;
     std::string _status;
     std::shared_ptr<const audio::Sound> _sound; // the one shown
@@ -469,7 +503,9 @@ private:
     std::vector<GameFont> _fonts;
     int _font = -1; // index in fonts_, -1 for the built-in font
     bool _shown = false;
-    int _current = 0, _top = 0, _scale = 1;
+    int _current = 0;
+    int _top = 0;
+    int _scale = 1;
     StringTable _table;
     std::string _status;
     std::vector<Line> _lines;
@@ -490,7 +526,8 @@ private:
     System &_sys;
     Surface &_screen;
     std::vector<GameFont> _fonts;
-    int _current = 0, _scale = 2;
+    int _current = 0;
+    int _scale = 2;
     bool _boxes = false; // outline each glyph's box
 };
 
@@ -607,9 +644,22 @@ private:
     // The game folder's loose MP3s, by upper-case stem (F1005 -> its path).
     std::map<std::string, std::filesystem::path> _mediaFiles;
 
-    bool _shown = false, _hasMap = false, _dirty = true, _briefing = true, _music = false, _wasPlaying = false;
-    int _current = 0, _side = 0, _page = 0, _clip = 0;
-    std::string _mapName, _mapNote, _mapTitle, _tableName, _status, _soundStatus;
+    bool _shown = false;
+    bool _hasMap = false;
+    bool _dirty = true;
+    bool _briefing = true;
+    bool _music = false;
+    bool _wasPlaying = false;
+    int _current = 0;
+    int _side = 0;
+    int _page = 0;
+    int _clip = 0;
+    std::string _mapName;
+    std::string _mapNote;
+    std::string _mapTitle;
+    std::string _tableName;
+    std::string _status;
+    std::string _soundStatus;
     std::vector<Page> _pages;
     std::vector<std::string> _clips; // stems, in order
     StringTable _table;
@@ -623,7 +673,8 @@ private:
     StarSystemLayout _systemLayout;
     std::vector<Texture> _systemTextures; // per texture number
     Rasterizer _raster;
-    bool _running = false, _stepOnMap = false;
+    bool _running = false;
+    bool _stepOnMap = false;
     // The mission's script, being walked through.
     std::unique_ptr<MissionRun> _run;
     std::vector<ScriptEvent> _walk;
@@ -636,18 +687,31 @@ private:
     std::unique_ptr<World> _world;
     std::unique_ptr<Economy> _economy;
     std::vector<int> _structureIds; // per colony building, its economy structure
-    bool _buildMenu = false, _ghostOk = false;
-    std::string _placing;           // the type being placed, or empty
-    int _ghostA = -1, _ghostB = -1; // where its hologram stands
-    bool _playing = false, _boxing = false, _tricorderFull = false;
-    int _mouseX = 0, _mouseY = 0, _boxX = 0, _boxY = 0;
+    bool _buildMenu = false;
+    bool _ghostOk = false;
+    std::string _placing; // the type being placed, or empty
+    // where its hologram stands
+    int _ghostA = -1;
+    int _ghostB = -1;
+    bool _playing = false;
+    bool _boxing = false;
+    bool _tricorderFull = false;
+    int _mouseX = 0;
+    int _mouseY = 0;
+    int _boxX = 0;
+    int _boxY = 0;
     uint64_t _lastTickMs = 0;
     ColonySite _colonySite;
     bool _colonyShown = true;
     bool _interface = false;
-    int _step = 0, _savedColouring = 0;
-    uint64_t _nowMs = 0, _stepEndMs = 0, _lastTurnMs = 0; // stepEndMs_: when a step without a playing clip ends
-    audio::SoundHandle _clipHandle = audio::kNoSound, _musicHandle = audio::kNoSound;
+    int _step = 0;
+    int _savedColouring = 0;
+    // stepEndMs_: when a step without a playing clip ends
+    uint64_t _nowMs = 0;
+    uint64_t _stepEndMs = 0;
+    uint64_t _lastTurnMs = 0;
+    audio::SoundHandle _clipHandle = audio::kNoSound;
+    audio::SoundHandle _musicHandle = audio::kNoSound;
     std::string _musicName;
 };
 

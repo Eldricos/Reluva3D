@@ -35,7 +35,9 @@ const uint8_t kZigzag8x8[64] = {
 const uint8_t kDirect4x4[16] = {0, 1, 4, 8, 5, 2, 3, 6, 9, 12, 13, 10, 7, 11, 14, 15};
 
 struct Scans {
-    uint8_t vertical[64], horizontal[64]; // down each column in turn; along each row
+    // down each column in turn; along each row
+    uint8_t vertical[64];
+    uint8_t horizontal[64];
     Scans() {
         for (int i = 0; i < 64; ++i) {
             vertical[i] = uint8_t((i % 8) * 8 + i / 8);

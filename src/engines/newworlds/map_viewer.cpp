@@ -597,7 +597,8 @@ const MapViewer::TileEdges &MapViewer::tileEdges(uint32_t tileIndex) {
 // target. By eye from the recordings; the game's own figures aren't known.
 namespace {
 struct ViewShape {
-    float distance, pitch;
+    float distance;
+    float pitch;
 };
 constexpr ViewShape kBirdsEye{3.5f * kBlockSize, 40.0f * kPi / 180.0f};
 constexpr ViewShape kSky{14.0f * kBlockSize, 65.0f * kPi / 180.0f};

@@ -134,21 +134,28 @@ private:
     int _index = 0;
     gfx::Renderer3D *_renderer = nullptr;
     std::unique_ptr<ShaderCache> _shaders;
-    int _frameW = 960, _frameH = 720; // r_mode
+    // r_mode
+    int _frameW = 960;
+    int _frameH = 720;
     std::unique_ptr<WorldRenderer> _world;
     std::unique_ptr<ModelCache> _models;
     LightGrid _grid;
     std::unique_ptr<SceneDrawer> _scene; // the client game's scenes and pictures
     // What the player's view drew this frame, for the info line.
     struct Shown {
-        size_t models = 0, effects = 0, lights = 0;
+        size_t models = 0;
+        size_t effects = 0;
+        size_t lights = 0;
         int other = 0; // entities not drawn (kinds not done yet)
         std::set<std::string> unloadable;
         std::string effectShaders; // what the effects are drawn with
     };
     Shown _shown;
     struct Timing {
-        float server = 0, client = 0, draw = 0; // ms, the last frame's
+        // ms, the last frame's
+        float server = 0;
+        float client = 0;
+        float draw = 0;
     };
     Timing _timing;
     struct FrameNote {
@@ -177,17 +184,20 @@ private:
     eliteforce::NetClient::State _joinState = eliteforce::NetClient::State::kDisconnected;
     std::unique_ptr<eliteforce::CgameHost> _cgame;
     Surface _overlay;
-    std::string _error, _notice;
+    std::string _error;
+    std::string _notice;
     // The screenshot command waiting for its frame: whether to say so, and
     // the file's name if given.
     struct Screenshot {
-        bool wanted = false, silent = false;
+        bool wanted = false;
+        bool silent = false;
         std::string name;
     };
     Screenshot _screenshot;
     void saveScreenshot();
     bool _showInfo = true;
-    uint64_t _shownMs = 0, _lastMs = 0;
+    uint64_t _shownMs = 0;
+    uint64_t _lastMs = 0;
     int32_t _clientTime = 0; // the player's time in the level, ms
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.

@@ -25,7 +25,8 @@ struct TextStyle {
     std::string use;
     std::string fontName;
     float points = 12;
-    bool bold = false, shadow = false;
+    bool bold = false;
+    bool shadow = false;
     bool boldFace = false;     // the font file is a bold face (not drawn bold by doubling)
     ttf::Font *font = nullptr; // null if the game doesn't ship it (and Arial doesn't load)
     float pixels = 16;         // the size for font's draw calls
@@ -59,8 +60,10 @@ private:
 // A movie's subtitles: who speaks, what, and when (seconds from its start).
 struct Subtitle {
     std::string name; // the movie it's for (the Name column: the game plays a movie's by its name)
-    std::string speaker, line;
-    double start = 0, end = 0;
+    std::string speaker;
+    std::string line;
+    double start = 0;
+    double end = 0;
 };
 // Reads a movie's subtitle table (its Speaker, Line and Duration columns;
 // Duration is "start, length").

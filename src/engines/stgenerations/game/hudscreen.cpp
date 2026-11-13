@@ -44,7 +44,8 @@ const int kButtonHeight = 27;
 const int kMarkerFrames = 4;
 const int kSlotX[3] = {436, 505, 574};
 const int kSlotY[4] = {257, 308, 359, 410};
-const int kIconWidth = 64, kIconHeight = 46;
+const int kIconWidth = 64;
+const int kIconHeight = 46;
 // The rectangle round the item in use: palette index 0x22.
 const uint8_t kActiveColour = 0x22;
 const char *const kMarkerStyles[] = {"romu", "sorn", "injr", "klng", "chod", "fish", "fuzy", "pred"};

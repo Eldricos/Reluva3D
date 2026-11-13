@@ -23,7 +23,8 @@ namespace {
 
 struct Rumble {
     int calls = 0;
-    uint16_t low = 0, high = 0;
+    uint16_t low = 0;
+    uint16_t high = 0;
 };
 
 bool SDLCALL rumble(void *userdata, Uint16 low, Uint16 high) {

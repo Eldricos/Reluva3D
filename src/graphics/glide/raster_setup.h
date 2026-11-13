@@ -43,17 +43,25 @@ void load(const State &s, const Vertex &v, Values &out);
 struct Triangle {
     // The pixel rectangle the triangle may cover, within the clip window
     // and the screen: x0 <= x < x1, y0 <= y < y1 (drawing coordinates).
-    int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+    int x0 = 0;
+    int x1 = 0;
+    int y0 = 0;
+    int y1 = 0;
     // The values at vertex 0 (after the winding is made positive), its
     // snapped position in pixels, and each value's gradients.
     Values at0{};
-    double fx0 = 0, fy0 = 0;
-    float dx[kParams] = {}, dy[kParams] = {};
+    double fx0 = 0;
+    double fy0 = 0;
+    float dx[kParams] = {};
+    float dy[kParams] = {};
     // Row y's pixels xs..xe (inclusive): false if none.
     bool span(int y, int &xs, int &xe) const;
 
     struct Edge {
-        int64_t a, b, c; // E(X, Y) = a * X + b * Y + c, X and Y in 1/16 pixel
+        // E(X, Y) = a * X + b * Y + c, X and Y in 1/16 pixel
+        int64_t a;
+        int64_t b;
+        int64_t c;
         bool inclusive;
     } e[3]{};
 };
@@ -116,13 +124,15 @@ inline bool pointPixel(const State &s, int width, int height, const Vertex &a, i
 // coverage pixels of anti-aliased primitives. x and y are drawing
 // coordinates, inside the clip window and the screen.
 struct Fragment {
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     Values v{};
 };
 struct Fragments {
     std::vector<Fragment> list;
     bool derivatives = false; // dx and dy hold the primitive's gradients (for the texture LOD)
-    float dx[kParams] = {}, dy[kParams] = {};
+    float dx[kParams] = {};
+    float dy[kParams] = {};
 };
 
 // The anti-aliased primitives' coverage pixels (docs/common/graphics/glide.md,

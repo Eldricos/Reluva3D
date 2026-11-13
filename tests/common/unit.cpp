@@ -302,7 +302,8 @@ static const char kDynamic[] =
 static void testInflateAndWise(const std::filesystem::path &tmp) {
     struct Case {
         const char *data;
-        size_t size, outSize;
+        size_t size;
+        size_t outSize;
         uint32_t crc;
     };
     const Case cases[] = {{kStored, sizeof kStored - 1, 13, 0x69348c2d},

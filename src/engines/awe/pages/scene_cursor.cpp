@@ -30,7 +30,8 @@ constexpr const char *kCursors[kCursorCount] = {
     "interface/cursorkeyhole.tga", "interface/cursorback.tga",   "interface/cursoroperate.tga",
     "interface/cursorshadow.tga",  "interface/cursorup.tga",     "interface/cursordown.tga",
     "interface/cursorempty.tga"};
-constexpr int kCursorOperate = 11, kCursorEmpty = 15;
+constexpr int kCursorOperate = 11;
+constexpr int kCursorEmpty = 15;
 
 bool isCharacter(const Ac2Record &o) {
     return o.tag == "NPCX" || o.tag == "PCXX";

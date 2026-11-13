@@ -59,6 +59,7 @@
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>

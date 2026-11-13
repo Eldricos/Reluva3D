@@ -27,28 +27,49 @@ Matrix identity();
 Matrix multiply(const Matrix &a, const Matrix &b);
 
 struct Color {
-    float r = 0, g = 0, b = 0, a = 0;
+    float r = 0;
+    float g = 0;
+    float b = 0;
+    float a = 0;
 };
 
 // D3DLIGHT7
 struct Light {
     uint32_t type = 3; // POINT 1, SPOT 2, DIRECTIONAL 3
-    Color diffuse, specular, ambient;
-    float position[3]{}, direction[3]{0, 0, 1};
-    float range = 0, falloff = 0, att0 = 0, att1 = 0, att2 = 0, theta = 0, phi = 0;
+    Color diffuse;
+    Color specular;
+    Color ambient;
+    float position[3]{};
+    float direction[3]{0, 0, 1};
+    float range = 0;
+    float falloff = 0;
+    float att0 = 0;
+    float att1 = 0;
+    float att2 = 0;
+    float theta = 0;
+    float phi = 0;
     bool enabled = false;
 };
 
 // D3DMATERIAL7
 struct Material {
-    Color diffuse, ambient, specular, emissive;
+    Color diffuse;
+    Color ambient;
+    Color specular;
+    Color emissive;
     float power = 0;
 };
 
 // A vertex on its way through the pipeline.
 struct ClipVertex {
-    float x, y, z, w;        // clip space; after projection, screen x, y, z and 1/w
-    Color diffuse, specular; // 0..1; specular's alpha is the fog factor
+    // clip space; after projection, screen x, y, z and 1/w
+    float x;
+    float y;
+    float z;
+    float w;
+    // 0..1; specular's alpha is the fog factor
+    Color diffuse;
+    Color specular;
     float tex[8][2];
 };
 
@@ -56,7 +77,8 @@ struct ClipVertex {
 // until the surface changes.
 struct DecodedTexture {
     struct Level {
-        int width, height;
+        int width;
+        int height;
         std::vector<uint32_t> argb;
         std::vector<uint8_t> keyed; // 1 where the colour key matches
     };
@@ -69,8 +91,12 @@ class Device;
 struct VertexLayout;
 
 struct Viewport {
-    int x = 0, y = 0, width = 0, height = 0;
-    float minZ = 0, maxZ = 1;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    float minZ = 0;
+    float maxZ = 1;
 };
 
 // One draw's pixels: the states they go through, taken from the device
@@ -80,8 +106,18 @@ struct Viewport {
 struct Draw {
     // What the pixels go through, taken from the states once per draw.
     struct StageConfig {
-        uint32_t colorOp, colorArg1, colorArg2, alphaOp, alphaArg1, alphaArg2;
-        uint32_t addressU, addressV, border, magFilter, minFilter, mipFilter;
+        uint32_t colorOp;
+        uint32_t colorArg1;
+        uint32_t colorArg2;
+        uint32_t alphaOp;
+        uint32_t alphaArg1;
+        uint32_t alphaArg2;
+        uint32_t addressU;
+        uint32_t addressV;
+        uint32_t border;
+        uint32_t magFilter;
+        uint32_t minFilter;
+        uint32_t mipFilter;
         // For the quick path (PixelConfig::simpleStages): the arguments as
         // sources (0 diffuse, 1 current, 2 texture, 3 factor, 4 specular),
         // and whether the texture is one.
@@ -89,23 +125,43 @@ struct Draw {
         bool usesTexture;
     };
     struct PixelConfig {
-        bool zTest = false, zWrite = false, alphaTest = false, blend = false, fog = false, colorKey = false,
-             specular = false, flat = false;
-        uint32_t zFunc = 0, alphaFunc = 0, srcBlend = 0, destBlend = 0, fogTableMode = 0;
-        float alphaRef = 0, fogStart = 0, fogEnd = 0, fogDensity = 0;
+        bool zTest = false;
+        bool zWrite = false;
+        bool alphaTest = false;
+        bool blend = false;
+        bool fog = false;
+        bool colorKey = false;
+        bool specular = false;
+        bool flat = false;
+        uint32_t zFunc = 0;
+        uint32_t alphaFunc = 0;
+        uint32_t srcBlend = 0;
+        uint32_t destBlend = 0;
+        uint32_t fogTableMode = 0;
+        float alphaRef = 0;
+        float fogStart = 0;
+        float fogEnd = 0;
+        float fogDensity = 0;
         bool fogByZ = false; // table fog by depth, not by the eye's distance
-        Color fogColor, factor;
+        Color fogColor;
+        Color factor;
         StageConfig stage[8];
         // Every stage SELECTARG1, SELECTARG2 or MODULATE (alpha also
         // DISABLE) of plain arguments: they're combined the quick way.
         bool simpleStages = false;
         enum class Target { kGeneric, kRgb565, kRgb888 } target = Target::kGeneric;
         double zMax = 0;
-        uint32_t zBytes = 0, zMask = 0;
+        uint32_t zBytes = 0;
+        uint32_t zMask = 0;
         // Where the target and the depth buffer are, for this draw.
         uint8_t *targetAt = nullptr;
         uint8_t *depthAt = nullptr;
-        int targetWidth = 0, targetHeight = 0, targetPitch = 0, depthWidth = 0, depthHeight = 0, depthPitch = 0;
+        int targetWidth = 0;
+        int targetHeight = 0;
+        int targetPitch = 0;
+        int depthWidth = 0;
+        int depthHeight = 0;
+        int depthPitch = 0;
         uint32_t targetBytes = 0;
     };
     // Each stage's texture as it's sampled for the triangle being drawn
@@ -113,12 +169,16 @@ struct Draw {
     struct Sampler {
         const uint32_t *argb = nullptr; // none: no texture
         const uint8_t *keyed = nullptr;
-        int width = 0, height = 0;
-        float fw = 0, fh = 0;
+        int width = 0;
+        int height = 0;
+        float fw = 0;
+        float fh = 0;
         bool linear = false;
         bool wrapPow2 = false;  // both ways wrap, and the sizes are powers of two
         bool clampBoth = false; // both ways clamp
-        uint32_t addressU = 0, addressV = 0, border = 0;
+        uint32_t addressU = 0;
+        uint32_t addressV = 0;
+        uint32_t border = 0;
     };
     // What a thread drawing needs of its own: the triangle's mip levels
     // and samplers, and which rows are its (groups of 8, every `bands`th
@@ -126,14 +186,16 @@ struct Draw {
     struct Raster {
         float lod[8]{}; // the mip level each stage samples
         Sampler samplers[8];
-        int band = 0, bands = 1;
+        int band = 0;
+        int bands = 1;
     };
 
     PixelConfig cfg;
     int stages = 0; // texture stages in use
     const DecodedTexture *bound[8]{};
     Viewport viewport;
-    std::shared_ptr<Surface> target, depth;
+    std::shared_ptr<Surface> target;
+    std::shared_ptr<Surface> depth;
 
     // Fills a projected triangle.
     void rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) const;
@@ -170,7 +232,10 @@ struct DrawQueue;
 
 class VertexBuffer : public ComObject {
 public:
-    uint32_t fvf = 0, count = 0, memory = 0, caps = 0;
+    uint32_t fvf = 0;
+    uint32_t count = 0;
+    uint32_t memory = 0;
+    uint32_t caps = 0;
     DirectX::State *s = nullptr;
     std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override;
     const ComInterface *query(const std::string &iid) override;
@@ -180,7 +245,8 @@ public:
 class Device : public ComObject {
 public:
     DirectX::State *s = nullptr;
-    std::shared_ptr<Surface> target, depth;
+    std::shared_ptr<Surface> target;
+    std::shared_ptr<Surface> depth;
     std::array<uint32_t, 256> renderStates{};
     std::array<std::array<uint32_t, 32>, 8> stageStates{};
     std::array<std::shared_ptr<Surface>, 8> textures;
@@ -254,10 +320,17 @@ private:
 // D3DFVF layout of one vertex.
 struct VertexLayout {
     int position = 0; // floats: 3 (XYZ), 4 (XYZRHW), 3 + blend weights
-    bool rhw = false, normal = false, reserved = false, diffuse = false, specular = false;
+    bool rhw = false;
+    bool normal = false;
+    bool reserved = false;
+    bool diffuse = false;
+    bool specular = false;
     int texSets = 0;
     int texSize[8]{};
-    int normalAt = -1, diffuseAt = -1, specularAt = -1, texAt[8]{};
+    int normalAt = -1;
+    int diffuseAt = -1;
+    int specularAt = -1;
+    int texAt[8]{};
     int size = 0; // bytes
     explicit VertexLayout(uint32_t fvf);
 };

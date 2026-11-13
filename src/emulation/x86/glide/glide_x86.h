@@ -94,7 +94,8 @@ private:
     // written back (through the pixel pipeline if the lock said so).
     struct Mirror {
         Glide2LfbLock lock;
-        uint32_t address = 0, size = 0;
+        uint32_t address = 0;
+        uint32_t size = 0;
         int locks = 0;
         bool written = false;
         std::vector<uint8_t> snapshot;

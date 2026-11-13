@@ -78,7 +78,8 @@ private:
 // (frontend.cpp), each a column of buttons named by their numbers: button
 // i of a dialog from (40, 40 + 36i) to (240, 70 + 36i). The setup's name
 // box (10) and the save window's (10-17) are text boxes beside them.
-constexpr int kOk = 10001, kReturn = 10000;
+constexpr int kOk = 10001;
+constexpr int kReturn = 10000;
 const std::map<int, std::vector<int>> kDialogs = {
     {1, {0, 1, 2, 3, 5, 7}},                        // the main menu: New Game is 1, Load Game 3, Exit 7
     {2, {0, 1, kReturn}},                           // a game here (0) or over a network (1)

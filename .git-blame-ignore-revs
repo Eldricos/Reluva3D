@@ -31,3 +31,4 @@ c3ca641918d6b8665a5e89147129e22672354f26 # Rename: the nfs engine, to the coding
 006ffdaf2aeee4fbe01624f459cf9d709a7bad73 # Rename: the idtech3 engine, to the coding guide's names
 b3e7e42beb271d48a89ad68b1a1901d0f36bd7e2 # Rename: the shared code, to the coding guide's names
 afc8e38de6b72718e83f50e617e2a534933fdfa2 # Rename: the shared tests, to the coding guide's names
+ef4b761f0ae70b1b025454d9baaed21104cd0796 # Split: members declared several to a line, one each

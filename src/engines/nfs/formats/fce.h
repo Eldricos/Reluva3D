@@ -23,14 +23,20 @@ struct Model {
         uint32_t texturePage = 0;           // 0: car00.tga, 1: car01.tga...
         std::array<uint32_t, 3> vertices{}; // into the model's vertices (not the part's)
         uint32_t flags = 0;                 // the k* below (fce.md, Triangles)
-        std::array<float, 3> u{}, v{};
-        static constexpr uint32_t kNoReflection = 0x1, kStrongReflection = 0x2, kTwoSided = 0x4, kUnlit = 0x8;
+        std::array<float, 3> u{};
+        std::array<float, 3> v{};
+        static constexpr uint32_t kNoReflection = 0x1;
+        static constexpr uint32_t kStrongReflection = 0x2;
+        static constexpr uint32_t kTwoSided = 0x4;
+        static constexpr uint32_t kUnlit = 0x8;
     };
     struct Part {
         std::string name; // "high body", "left front wheel"...
         Vec3 position{};  // added to the part's vertices
-        uint32_t firstVertex = 0, vertexCount = 0;
-        uint32_t firstTriangle = 0, triangleCount = 0;
+        uint32_t firstVertex = 0;
+        uint32_t vertexCount = 0;
+        uint32_t firstTriangle = 0;
+        uint32_t triangleCount = 0;
     };
     struct Dummy {
         std::string name; // "HFLO": headlight, front left...
@@ -42,11 +48,14 @@ struct Model {
     };
 
     Vec3 halfSize{};
-    std::vector<Vec3> vertices, normals; // relative to their part's position
+    // relative to their part's position
+    std::vector<Vec3> vertices;
+    std::vector<Vec3> normals;
     std::vector<Triangle> triangles;
     std::vector<Part> parts;
     std::vector<Dummy> dummies;
-    std::vector<Colour> primaryColours, secondaryColours;
+    std::vector<Colour> primaryColours;
+    std::vector<Colour> secondaryColours;
 };
 
 Error parseModel(const std::vector<uint8_t> &data, Model &out);
@@ -63,7 +72,9 @@ std::array<float, 2> reflectionUv(float x, float y, float z);
 // (carLightDirection); base is a third of the colour's red and green and
 // half its blue, top twice the colour, at most 255 (0x49d8f0).
 struct CarShade {
-    std::array<int, 3> base{}, top{}; // r, g, b
+    // r, g, b
+    std::array<int, 3> base{};
+    std::array<int, 3> top{};
 };
 CarShade carShade(uint32_t colour);                                    // 0xAARRGGBB, alpha ignored
 uint32_t carVertexColour(const CarShade &shade, float normalDotLight); // 0xFFRRGGBB
@@ -90,7 +101,8 @@ uint32_t ambientScaled(uint32_t colour, const std::array<int, 3> &ambientPercent
 struct CarGlow {
     bool shown = false;
     uint32_t colour = 0;
-    float size = 0, nearer = 0;
+    float size = 0;
+    float nearer = 0;
 };
 // How bright a car's glows are by its shading colour (0x4b87a0):
 // 1 - 0.3 x (r + g + b) / 765, at least 0.7, at most 1.
@@ -145,7 +157,8 @@ size_t primaryFor(const Model &model, const std::array<int, 3> &paintHsv);
 // value x the car's / 512, at least 127, the normal one less a quarter of
 // the paint's value; both then x (256 - 16 n) / 256 (255 / 256 in the open).
 struct CarReflection {
-    uint32_t normal = 0x7f7f7f7f, strong = 0xffffffff;
+    uint32_t normal = 0x7f7f7f7f;
+    uint32_t strong = 0xffffffff;
 };
 CarReflection carReflection(uint32_t carColour, const std::array<int, 3> &sky, int paintValue, int coverDepth);
 // The frame a car's normals (in the track) are turned into for the
@@ -201,8 +214,10 @@ constexpr uint32_t kCarShadowColour = 0x6fffffffu;
 // from 0 to 1 round the ring. Points in the track's coordinates.
 struct FogBeam {
     bool shown = false;
-    std::vector<std::array<float, 3>> nearRing, farRing; // n + 1 points each
-    uint32_t colour = 0;                                 // the near ring's
+    // n + 1 points each
+    std::vector<std::array<float, 3>> nearRing;
+    std::vector<std::array<float, 3>> farRing;
+    uint32_t colour = 0; // the near ring's
 };
 FogBeam fogBeam(const std::array<float, 3> &lamp, const std::array<float, 3> &right, const std::array<float, 3> &up,
                 const std::array<float, 3> &forward, const std::array<float, 3> &camera, uint32_t colour);

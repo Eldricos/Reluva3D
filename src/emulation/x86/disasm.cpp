@@ -518,9 +518,12 @@ struct Decoder {
 
     Reader in;
     uint32_t address;
-    bool opsize16 = false, addrsize16 = false;
+    bool opsize16 = false;
+    bool addrsize16 = false;
     int segment = -1; // a segment override, or -1
-    bool rep = false, repne = false, lock = false;
+    bool rep = false;
+    bool repne = false;
+    bool lock = false;
     bool haveModrm = false;
     uint8_t modrm = 0;
     Instruction out;

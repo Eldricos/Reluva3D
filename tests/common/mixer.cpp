@@ -83,7 +83,8 @@ void testOutputStream() {
     Mixer m(22050);
     std::vector<int16_t> out(40);
     struct Ramp : OutputStream {
-        int16_t next = 0, rate = 0;
+        int16_t next = 0;
+        int16_t rate = 0;
         void read(int16_t *o, int frames, int r) override {
             rate = int16_t(r);
             for (int i = 0; i < frames; ++i, next += 100)

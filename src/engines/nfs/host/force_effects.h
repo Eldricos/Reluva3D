@@ -36,7 +36,9 @@ struct DiEffect {
     Kind kind = kConstant;
 
     static constexpr uint32_t kInfinite = 0xffffffffu;
-    uint32_t durationUs = kInfinite, gain = 10000, startDelayUs = 0;
+    uint32_t durationUs = kInfinite;
+    uint32_t gain = 10000;
+    uint32_t startDelayUs = 0;
     // Its axes: how many, and which of them is X (-1: none); its direction
     // (DIEFF_CARTESIAN 0x10, POLAR 0x20 or SPHERICAL 0x40, and the values).
     uint32_t axisCount = 1;
@@ -47,15 +49,21 @@ struct DiEffect {
     // the sign the side it comes from (+ from +X).
     float alongX() const;
     bool envelope = false;
-    uint32_t attackLevel = 0, attackUs = 0, fadeLevel = 0, fadeUs = 0;
+    uint32_t attackLevel = 0;
+    uint32_t attackUs = 0;
+    uint32_t fadeLevel = 0;
+    uint32_t fadeUs = 0;
     // Constant: magnitude; ramp: start and end.
-    int32_t magnitude = 0, rampEnd = 0;
+    int32_t magnitude = 0;
+    int32_t rampEnd = 0;
     // Periodic: magnitude (in `magnitude`), offset and period.
     int32_t offset = 0;
     uint32_t periodUs = 0;
     // Condition, X's: offset (in `offset`), coefficients, saturation.
-    int32_t positiveCoefficient = 0, negativeCoefficient = 0;
-    uint32_t positiveSaturation = 10000, negativeSaturation = 10000;
+    int32_t positiveCoefficient = 0;
+    int32_t negativeCoefficient = 0;
+    uint32_t positiveSaturation = 10000;
+    uint32_t negativeSaturation = 10000;
 
     // Playing since startedMs, for `iterations` times its duration.
     bool playing = false;

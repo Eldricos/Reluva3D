@@ -420,7 +420,9 @@ std::string announcementFor(const ScriptEvent &event, const std::vector<MissionR
     // Federation's accommodation block, and fcy heard as each finished).
     struct Name {
         const char *building;
-        const char *fed, *kln, *rom;
+        const char *fed;
+        const char *kln;
+        const char *rom;
     };
     static constexpr Name kNames[] = {
         {"construction-yard", "cy", "cy", "cy"},

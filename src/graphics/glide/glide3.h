@@ -28,12 +28,18 @@ namespace reluva::glide {
 
 // Glide 3's GrTexInfo without its data pointer: log2 LODs and aspect.
 struct Glide3TexInfo {
-    int smallLodLog2 = 0, largeLodLog2 = 8, aspectRatioLog2 = 0, format = 0;
+    int smallLodLog2 = 0;
+    int largeLodLog2 = 8;
+    int aspectRatioLog2 = 0;
+    int format = 0;
 };
 
 // One of grQueryResolutions' GrResolution records.
 struct Glide3Resolution {
-    int resolution = 0, refresh = 0, numColorBuffers = 2, numAuxBuffers = 1;
+    int resolution = 0;
+    int refresh = 0;
+    int numColorBuffers = 2;
+    int numAuxBuffers = 1;
 };
 
 class Glide3 {
@@ -137,9 +143,15 @@ public:
     struct ClipVertex {
         bool window = false;
         Vertex v; // colours and the parameters the layout leaves out
-        float x = 0, y = 0, z = 0, w = 1, q = 1;
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        float w = 1;
+        float q = 1;
         bool hasZ = false;
-        float s[kMaxTmus] = {}, t[kMaxTmus] = {}, qi[kMaxTmus] = {1, 1, 1};
+        float s[kMaxTmus] = {};
+        float t[kMaxTmus] = {};
+        float qi[kMaxTmus] = {1, 1, 1};
     };
 
 private:
@@ -162,7 +174,8 @@ private:
     Layout _layout;
     Vertex _last; // the values parameters left out keep
     int _viewport[4] = {0, 0, 640, 480};
-    float _depthNear = 0, _depthFar = 1;
+    float _depthNear = 0;
+    float _depthFar = 1;
     std::array<bool, 8> _enabled{};
     std::array<int, kMaxTmus> _mipmapAsked{}; // grTexMipMapMode's mode, before GR_ALLOW_MIPMAP_DITHER
     std::array<bool, kMaxTmus> _lodBlend{};

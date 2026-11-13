@@ -9,6 +9,7 @@
 #include "common/bytes.h"
 #include "common/log.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace reluva::smacker {

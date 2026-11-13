@@ -79,7 +79,8 @@ public:
         int surface = -1;
         std::array<float, 3> normal{};
         float dist = 0;
-        std::array<float, 3> mins{}, maxs{};
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
         float range = 0;
     };
     std::vector<Portal> visiblePortals(const std::array<float, 3> &eye) const;
@@ -94,21 +95,26 @@ public:
     struct Visibility {
         int cluster = -1;
         bool culling = false;
-        size_t visible = 0, potentiallyVisible = 0, total = 0; // drawn, past the vis data and doors, all
+        // drawn, past the vis data and doors, all
+        size_t visible = 0;
+        size_t potentiallyVisible = 0;
+        size_t total = 0;
         int hiddenAreas = 0;
     };
     Visibility visibility() const;
     size_t triangleCount() const { return _triangles; }
 
 private:
-    bool _vertexLight = false, _fastSky = false;
+    bool _vertexLight = false;
+    bool _fastSky = false;
     float _subdivisions = 4;
     struct Batch {
         float sort = 3;
         int material = 0;
         int lightmap = -1; // index into lightmaps_, or -1
         int fog = -1;      // index into fogs_, or -1
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
     };
     struct Fog {
@@ -130,8 +136,10 @@ private:
     // Each opaque surface's triangles (in the index buffer) and bounds,
     // for dynamic lights.
     struct LitSurface {
-        uint32_t firstIndex = 0, indexCount = 0;
-        std::array<float, 3> mins{}, maxs{};
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
         int surface = -1; // the map's
     };
     std::vector<LitSurface> _litSurfaces;
@@ -139,8 +147,11 @@ private:
     // leaves and vis data, and what the last view could see.
     struct SurfaceRange {
         int batch = -1; // -1: drawn by no batch
-        uint32_t firstIndex = 0, count = 0;
-        std::array<float, 3> mins{}, maxs{}; // its bounds
+        uint32_t firstIndex = 0;
+        uint32_t count = 0;
+        // its bounds
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
     };
     int leafAt(const std::array<float, 3> &p) const;
     std::vector<SurfaceRange> _surfaceRanges;
@@ -149,7 +160,8 @@ private:
     std::vector<BspNode> _visNodes;
     std::vector<BspLeaf> _visLeafs;
     std::vector<int32_t> _visLeafSurfaces;
-    int32_t _visClusters = 0, _visClusterBytes = 0;
+    int32_t _visClusters = 0;
+    int32_t _visClusterBytes = 0;
     std::vector<uint8_t> _visData;
     // A view's selection (setView): its cluster and area mask, the
     // surfaces past them (visibleMark == visibleStamp), and this frame's
@@ -165,7 +177,8 @@ private:
         uint32_t visibleStamp = 0;
         std::vector<int32_t> pvsSurfaces;
         gfx::Mat4 viewProj{};
-        std::vector<uint32_t> frameMark, frameFirst;
+        std::vector<uint32_t> frameMark;
+        std::vector<uint32_t> frameFirst;
         uint32_t frameStamp = 0;
         std::vector<uint32_t> frameIndices;
         size_t frameSurfaces = 0;
@@ -181,7 +194,10 @@ private:
     std::vector<Portal> _portals;
     // Its autosprite surfaces, kept as laid out and turned as drawn.
     struct Sprite {
-        int surface = -1, material = 0, lightmap = -1, fog = -1;
+        int surface = -1;
+        int material = 0;
+        int lightmap = -1;
+        int fog = -1;
         float sort = 3;
         uint8_t kind = 1; // 1 autosprite, 2 autosprite2
         std::vector<gfx::Vertex> vertices;
@@ -189,7 +205,8 @@ private:
     };
     std::vector<Sprite> _sprites;
     std::array<std::array<float, 3>, 3> _camera{}; // left, up, forward
-    bool _cameraMirrored = false, _cameraSet = false;
+    bool _cameraMirrored = false;
+    bool _cameraSet = false;
     void drawSprites(float time, float sortMin, float sortMax) const;
     size_t _triangles = 0;
 

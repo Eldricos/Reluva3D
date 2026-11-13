@@ -35,7 +35,8 @@ public:
     struct Placement {
         int frame;
         // Top left of the frame.
-        int x, y;
+        int x;
+        int y;
         // Below the gun's line the item can't be used and the cursor is an arrow.
         bool usable;
     };

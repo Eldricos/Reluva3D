@@ -10,11 +10,13 @@ namespace reluva::netimmerse {
 
 namespace {
 
-constexpr size_t kNameOffset = 4, kNameSize = 64;
+constexpr size_t kNameOffset = 4;
+constexpr size_t kNameSize = 64;
 constexpr size_t kMetricsOffset = 68;
 // After the five sizes at 68: each page's ascent and descent, then the
 // characters' records.
-constexpr size_t kPagesOffset = 78, kGlyphSize = 18;
+constexpr size_t kPagesOffset = 78;
+constexpr size_t kGlyphSize = 18;
 constexpr int kMaxPages = 16;
 
 int16_t s16(const std::vector<uint8_t> &d, size_t at) {

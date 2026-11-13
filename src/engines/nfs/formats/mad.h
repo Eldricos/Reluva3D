@@ -51,13 +51,19 @@ private:
     bool gameIntraBlock(int32_t block[64]);
     void gamePutBlock(int index, int mbX, int mbY, int32_t block[64]);
     int64_t _gameQuant[64] = {};
-    int _width = 0, _height = 0, _stride = 0, _rows = 0; // rows_: luma rows held, a multiple of 16
-    std::vector<uint8_t> _current[3], _previous[3];
+    // rows_: luma rows held, a multiple of 16
+    int _width = 0;
+    int _height = 0;
+    int _stride = 0;
+    int _rows = 0;
+    std::vector<uint8_t> _current[3];
+    std::vector<uint8_t> _previous[3];
     bool _havePrevious = false;
     int _quant[64] = {};
     // The bitstream: 16-bit little-endian words, each read from its top bit.
     const uint8_t *_bits = nullptr;
-    size_t _bitCount = 0, _bitPos = 0;
+    size_t _bitCount = 0;
+    size_t _bitPos = 0;
     bool _damaged = false;
     uint32_t peek(int n) const;
     uint32_t read(int n);
@@ -69,8 +75,10 @@ private:
 class MadMovie {
 public:
     struct Frame {
-        uint32_t offset = 0, size = 0; // the chunk, header included
-        char kind = 'k';               // k (intra), m or e (inter; an e frame isn't referred to)
+        // the chunk, header included
+        uint32_t offset = 0;
+        uint32_t size = 0;
+        char kind = 'k'; // k (intra), m or e (inter; an e frame isn't referred to)
     };
 
     Error open(std::vector<uint8_t> data);
@@ -90,7 +98,8 @@ private:
     std::vector<std::pair<uint32_t, uint32_t>> _audioBlocks; // each SCDl's payload: offset, size
     SoundHeader _audio;
     bool _haveAudio = false;
-    int _width = 0, _height = 0;
+    int _width = 0;
+    int _height = 0;
     uint32_t _duration = 0;
 };
 

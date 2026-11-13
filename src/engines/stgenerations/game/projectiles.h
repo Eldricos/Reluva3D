@@ -45,11 +45,14 @@ public:
         uint16_t texture = 0;
         uint16_t frames = 1;
         // Sprite half width and height, centred on the shot; the half width is also its radius.
-        double halfWidth = 0, height = 0;
-        bool keyed = false, translucent = false;
+        double halfWidth = 0;
+        double height = 0;
+        bool keyed = false;
+        bool translucent = false;
         // Units per millisecond.
         double speed = 0;
-        int fireSound = -1, impactSound = -1;
+        int fireSound = -1;
+        int impactSound = -1;
         int16_t damage = 0;
         int16_t team = 0;
         // Beams: trail sprites and their spacing. Bursts: sparks and the cone's half angle (radians).
@@ -69,7 +72,9 @@ public:
         Target target = kNothing;
         // Index into the level's walls, flats or billboards, or the actor's object id.
         int index = -1;
-        double x = 0, y = 0, z = 0;
+        double x = 0;
+        double y = 0;
+        double z = 0;
         int type = -1;
     };
 
@@ -86,7 +91,11 @@ public:
     // An actor as something shots can hit.
     struct Target {
         uint16_t object;
-        double x, y, bottom, top, radius;
+        double x;
+        double y;
+        double bottom;
+        double top;
+        double radius;
     };
 
     Projectiles(const LevelFile &level, const std::vector<uint8_t> &section4);
@@ -125,21 +134,33 @@ private:
     struct Shot {
         int type;
         int shooter;
-        double x, y, z;
+        double x;
+        double y;
+        double z;
         // Units per ms.
-        double vx, vy, vz;
+        double vx;
+        double vy;
+        double vz;
         uint32_t age = 0;
         uint32_t phase = 0;
         // Beams: where the head set out, how far it has gone along (dx,
         // dy, dz), and where it hit (or -1).
-        double originX = 0, originY = 0, originZ = 0;
-        double travelled = 0, hitAt = -1;
+        double originX = 0;
+        double originY = 0;
+        double originZ = 0;
+        double travelled = 0;
+        double hitAt = -1;
         bool dead = false;
     };
 
     struct Line {
-        double x1, y1, x2, y2;
-        double nx, ny, d;
+        double x1;
+        double y1;
+        double x2;
+        double y2;
+        double nx;
+        double ny;
+        double d;
     };
 
     void makeLine(int index);

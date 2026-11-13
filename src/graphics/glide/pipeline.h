@@ -51,7 +51,8 @@ struct Board {
     // SST-96 specification's texture formats leave both out).
     bool palette = true;
     bool sli = false;
-    int maxWidth = 1024, maxHeight = 768;
+    int maxWidth = 1024;
+    int maxHeight = 768;
     // GR_RESOLUTION_NONE (the application's window) allowed: the Voodoo
     // Rush (SST-96) only (Glide 2.4 Reference Manual, grSstWinOpen).
     bool windowed = false;
@@ -77,7 +78,9 @@ struct Board {
     // window, only the back buffers off screen; 8 is "out-of-place", every
     // colour buffer off screen. 0 for boards with a frame buffer of their
     // own (docs/common/graphics/glide.md, Boards).
-    int desktopWidth = 0, desktopHeight = 0, desktopBits = 0;
+    int desktopWidth = 0;
+    int desktopHeight = 0;
+    int desktopBits = 0;
     // A linear frame buffer lock's scan line in pixels (GrLfbInfo_t's
     // strideInBytes over the pixel size): the Voodoo Graphics' and
     // Voodoo2's 1024-pixel logical scan line, the Banshee's and Voodoo3's
@@ -159,19 +162,29 @@ bool setDesktop(Board &board, int width, int height, int bits, bool *clamped = n
 
 // A vertex as the pipeline takes it, whatever the API's layout.
 struct Vertex {
-    float x = 0, y = 0;               // pixels, the origin as grSstOrigin says
-    float ooz = 0;                    // the z buffer's value (0-65535)
-    float oow = 1;                    // 1/w for the w buffer and table fog
-    float r = 0, g = 0, b = 0, a = 0; // 0-255
+    // pixels, the origin as grSstOrigin says
+    float x = 0;
+    float y = 0;
+    float ooz = 0; // the z buffer's value (0-65535)
+    float oow = 1; // 1/w for the w buffer and table fog
+    // 0-255
+    float r = 0;
+    float g = 0;
+    float b = 0;
+    float a = 0;
     struct Tmu {
-        float sow = 0, tow = 0, oow = 1; // s/w and t/w (s, t 0-256 across the texture) and 1/w
+        // s/w and t/w (s, t 0-256 across the texture) and 1/w
+        float sow = 0;
+        float tow = 0;
+        float oow = 1;
     };
     std::array<Tmu, kMaxTmus> tmu{};
 };
 
 struct CombineUnit {
     CombineSettings settings;
-    int local = kLocalIterated, other = kOtherIterated;
+    int local = kLocalIterated;
+    int other = kOtherIterated;
 };
 
 struct TmuState {
@@ -181,19 +194,24 @@ struct TmuState {
     TextureInfo info;
     bool multibase = false;
     std::array<uint32_t, 4> multibaseAddress{}; // GR_TEXBASE_256, _128, _64, _32_TO_1
-    bool clampS = false, clampT = false;
+    bool clampS = false;
+    bool clampT = false;
     // Glide 3's GR_TEXTURECLAMP_MIRROR_EXT (the TEXMIRROR extension): the
     // texture repeated mirrored, every other copy turned round (Glide 3.0
     // Programming Guide, chapter 13, Figure 13.2; the Banshee's and
     // Voodoo3's tLOD tmirrors and tmirrort). Instead of wrapping.
-    bool mirrorS = false, mirrorT = false;
-    int minFilter = kFilterPoint, magFilter = kFilterPoint;
+    bool mirrorS = false;
+    bool mirrorT = false;
+    int minFilter = kFilterPoint;
+    int magFilter = kFilterPoint;
     int mipmapMode = kMipmapDisable;
     bool lodBlend = false;
     float lodBias = 0;
-    CombineSettings rgb{kFuncLocal, kFactorZero, false}, alpha{kFuncLocal, kFactorZero, false};
+    CombineSettings rgb{kFuncLocal, kFactorZero, false};
+    CombineSettings alpha{kFuncLocal, kFactorZero, false};
     int nccTable = 0;
-    int detailBias = 0, detailScale = 0;
+    int detailBias = 0;
+    int detailScale = 0;
     float detailMax = 0;
 };
 
@@ -202,7 +220,10 @@ struct State {
     CombineUnit alpha{{kFuncScaleOther, kFactorOne, false}, kLocalConstant, kOtherConstant};
     bool alphaControlsLighting = false;
     uint32_t constantColor = 0; // 0xAARRGGBB
-    int blendRgbSrc = kBlendOne, blendRgbDst = kBlendZero, blendAlphaSrc = kBlendOne, blendAlphaDst = kBlendZero;
+    int blendRgbSrc = kBlendOne;
+    int blendRgbDst = kBlendZero;
+    int blendAlphaSrc = kBlendOne;
+    int blendAlphaDst = kBlendZero;
     int alphaTest = kCmpAlways;
     int alphaRef = 0;
     bool chromakey = false;
@@ -212,12 +233,16 @@ struct State {
     // colour has every component within [min, max] is dropped, instead of
     // one equal to chromakeyColor (GR_CHROMARANGE_RGB_ALL_EXT, inclusive).
     bool chromaRange = false;
-    uint32_t chromaRangeMin = 0, chromaRangeMax = 0; // 0x00RRGGBB
+    // 0x00RRGGBB
+    uint32_t chromaRangeMin = 0;
+    uint32_t chromaRangeMax = 0;
     int cull = kCullDisable;
-    int depthMode = kDepthDisable, depthFunc = kCmpLess;
+    int depthMode = kDepthDisable;
+    int depthFunc = kCmpLess;
     bool depthMask = false;
     int depthBias = 0; // signed 16-bit
-    bool colorMask = true, alphaMask = true;
+    bool colorMask = true;
+    bool alphaMask = true;
     int dither = kDither4x4;
     int fogMode = kFogDisable;
     uint32_t fogColor = 0; // 0x00RRGGBB
@@ -237,8 +262,13 @@ struct State {
 
 // Statistics the hardware counts (grSstPerfStats).
 struct PixelStats {
-    uint64_t pixelsIn = 0, chromaFail = 0, depthFail = 0, alphaFail = 0, pixelsOut = 0;
-    uint64_t trianglesIn = 0, trianglesOut = 0;
+    uint64_t pixelsIn = 0;
+    uint64_t chromaFail = 0;
+    uint64_t depthFail = 0;
+    uint64_t alphaFail = 0;
+    uint64_t pixelsOut = 0;
+    uint64_t trianglesIn = 0;
+    uint64_t trianglesOut = 0;
 };
 
 class Pipeline;
@@ -433,7 +463,9 @@ private:
     State _state;
     bool _open = false;
     uint64_t _opened = 0;
-    int _width = 0, _height = 0, _colorBuffers = 2;
+    int _width = 0;
+    int _height = 0;
+    int _colorBuffers = 2;
     bool _hasAux = false;
     bool _windowed = false;
     bool _hasAuxAsked = false;
@@ -442,7 +474,9 @@ private:
     std::array<std::vector<uint8_t>, 3> _gammaTable;
     // Colour buffers by slot; front_ and back_ index them.
     std::vector<std::vector<uint16_t>> _color;
-    int _front = 0, _back = 1, _triple = 2;
+    int _front = 0;
+    int _back = 1;
+    int _triple = 2;
     std::vector<uint16_t> _aux;
     uint64_t _swaps = 0;
     std::vector<std::vector<uint8_t>> _tmuMemory;

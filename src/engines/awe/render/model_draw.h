@@ -42,7 +42,9 @@ struct SkinnedModel {
         std::vector<gfx::Vertex> verts; // lit, when lit
         std::vector<gfx::Vertex> shine; // the specular's, when any
         bool shiny = false;
-        gfx::MeshId id = 0, shineId = 0; // on the GPU, once uploaded
+        // on the GPU, once uploaded
+        gfx::MeshId id = 0;
+        gfx::MeshId shineId = 0;
     };
     std::vector<Mesh> meshes;
     const class GpuModel *owner = nullptr; // whose meshes the ids are

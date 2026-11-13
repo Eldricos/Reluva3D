@@ -32,10 +32,12 @@ public:
         std::shared_ptr<const Animation> animation;
         int layer = kBody;
         bool base = false;
-        int loops = 1;                      // 0: for ever
-        float clock = 0;                    // seconds since it started
-        float ease = 0;                     // the ease in, and out when stopped
-        float outStart = -1, outLength = 0; // easing out from outStart, for outLength
+        int loops = 1;   // 0: for ever
+        float clock = 0; // seconds since it started
+        float ease = 0;  // the ease in, and out when stopped
+        // easing out from outStart, for outLength
+        float outStart = -1;
+        float outLength = 0;
         int state = kPlaying;
         std::vector<float> mask;     // per model bone
         float maskWeight = 0;        // the weight it was played with
@@ -89,7 +91,8 @@ public:
     bool playing(std::string_view part) const;
     const Slot *base() const;
 
-    std::function<void(const Slot &)> onEnding, onFinished;
+    std::function<void(const Slot &)> onEnding;
+    std::function<void(const Slot &)> onFinished;
 
 private:
     // The slot's mask on `model`: its animation's track mask (`weight`

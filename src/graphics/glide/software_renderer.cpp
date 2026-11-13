@@ -81,7 +81,8 @@ private:
         const State *s = nullptr;
         uint16_t *color = nullptr;
         uint16_t *aux = nullptr;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         bool texture = false;     // the combine reads the TMUs
         int tmusUsed = 0;         // how many TMUs, from TMU0 up, take part
         bool alphaBuffer = false; // the auxiliary buffer holds alpha
@@ -93,23 +94,28 @@ private:
         // local colour alone.
         bool decal0 = false;
         enum class Fast { kNone, kModulate, kLocal } fast = Fast::kNone;
-        Rgba constant, fogColor;
+        Rgba constant;
+        Rgba fogColor;
         // Screen-space gradients of each value (for the LOD).
-        float dx[kParams] = {}, dy[kParams] = {};
+        float dx[kParams] = {};
+        float dy[kParams] = {};
         bool derivatives = false;
         int params = kS0; // how many values to iterate: colour, z, w, then the TMUs used
         // Each TMU's source, worked out once a primitive.
         struct Tmu {
             bool valid = false;
             bool perPixelLod = false; // mipmapping, or filters that differ by LOD
-            int lodMin = 0, lodMax = 0;
-            int format = 0, bytes = 2;
+            int lodMin = 0;
+            int lodMax = 0;
+            int format = 0;
+            int bytes = 2;
             const uint8_t *mem = nullptr;
             uint32_t memMask = 0;
             const uint32_t *palette = nullptr;
             const NccTable *ncc = nullptr;
             uint32_t base[9] = {};
-            int w[9] = {}, h[9] = {};
+            int w[9] = {};
+            int h[9] = {};
             float scale[9] = {}; // texels of the level per unit of s or t
         } tmu[kMaxTmus];
     };

@@ -41,7 +41,9 @@ using image::Image;
 using image::decode;
 using image::encodeTga;
 
-constexpr int kWidth = 320, kHeight = 240, kCell = 80;
+constexpr int kWidth = 320;
+constexpr int kHeight = 240;
+constexpr int kCell = 80;
 constexpr Color kClear{16, 16, 16};
 
 // Pixels to clip space: x right, y down, z (0 near, 1 far) as given.
@@ -57,14 +59,18 @@ gfx::Mat4 pixelProjection() {
 }
 
 struct Rgba {
-    uint8_t r, g, b, a;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
 };
 
 // A probe: the average of the 6x6 block around (x, y), and how far each
 // channel may stray from the reference's.
 struct Probe {
     const char *what;
-    int x, y;
+    int x;
+    int y;
     int tolerance = 12;
     bool needsStencil = false;
 };
@@ -145,8 +151,13 @@ private:
     std::vector<gfx::TextureId> _textures;
 };
 
-constexpr Rgba kRed{255, 0, 0, 255}, kGreen{0, 255, 0, 255}, kBlue{0, 0, 255, 255}, kWhite{255, 255, 255, 255},
-    kGrey{64, 64, 64, 255}, kMagenta{255, 0, 255, 255}, kBlack{0, 0, 0, 255};
+constexpr Rgba kRed{255, 0, 0, 255};
+constexpr Rgba kGreen{0, 255, 0, 255};
+constexpr Rgba kBlue{0, 0, 255, 255};
+constexpr Rgba kWhite{255, 255, 255, 255};
+constexpr Rgba kGrey{64, 64, 64, 255};
+constexpr Rgba kMagenta{255, 0, 255, 255};
+constexpr Rgba kBlack{0, 0, 0, 255};
 
 // The cell at column c, row r: its top left corner.
 float cx(int c) {

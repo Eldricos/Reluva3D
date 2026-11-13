@@ -17,7 +17,10 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint16_t kC0 = 1u << 8, kC1 = 1u << 9, kC2 = 1u << 10, kC3 = 1u << 14;
+constexpr uint16_t kC0 = 1u << 8;
+constexpr uint16_t kC1 = 1u << 9;
+constexpr uint16_t kC2 = 1u << 10;
+constexpr uint16_t kC3 = 1u << 14;
 constexpr uint16_t kTopMask = 7u << 11;
 
 double fromExtended(const uint8_t *p) {

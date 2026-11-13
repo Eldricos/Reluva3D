@@ -476,7 +476,8 @@ bool SprAnimation::load(SeekableReadStream &stream) {
     if (d.size() < 12 || std::memcmp(d.data(), "TRPS", 4) != 0)
         return false;
     struct Frame {
-        int w, h;
+        int w;
+        int h;
         size_t data;
     };
     std::vector<Frame> found;

@@ -191,8 +191,10 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     // triangles start in it and how many indices, and their bounds.
     struct Pending {
         GroupKey group;
-        uint32_t offset = 0, count = 0;
-        std::array<float, 3> mins{}, maxs{};
+        uint32_t offset = 0;
+        uint32_t count = 0;
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
         int surface = -1;
     };
     std::vector<Pending> pending;
@@ -200,8 +202,10 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     // that can be seen (setView).
     struct Placed {
         GroupKey group;
-        uint32_t offset = 0, count = 0;
-        std::array<float, 3> mins{}, maxs{};
+        uint32_t offset = 0;
+        uint32_t count = 0;
+        std::array<float, 3> mins{};
+        std::array<float, 3> maxs{};
     };
     std::vector<std::optional<Placed>> placed(bsp.surfaces.size());
     std::vector<BspVertex> patchVerts;
@@ -665,7 +669,8 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
     std::vector<uint32_t> idx;
     struct Part {
         const Sprite *sprite;
-        uint32_t first, count;
+        uint32_t first;
+        uint32_t count;
     };
     std::vector<Part> parts;
     using V = std::array<float, 3>;

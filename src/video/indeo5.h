@@ -32,29 +32,48 @@ public:
 
 private:
     struct Macroblock {
-        int x = 0, y = 0, offset = 0;
-        uint8_t type = 0, cbp = 0; // type: 0 intra, 1 inter
-        int8_t qDelta = 0, mvX = 0, mvY = 0;
+        int x = 0;
+        int y = 0;
+        int offset = 0;
+        // type: 0 intra, 1 inter
+        uint8_t type = 0;
+        uint8_t cbp = 0;
+        int8_t qDelta = 0;
+        int8_t mvX = 0;
+        int8_t mvY = 0;
     };
     struct Tile {
-        int x = 0, y = 0, width = 0, height = 0;
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
         std::vector<Macroblock> mbs;
         const std::vector<Macroblock> *ref = nullptr; // the first luma band's, for inheriting
     };
     enum class Transform : uint8_t { kSlant8x8, kRowSlant8, kColSlant8, kPut8x8, kSlant4x4 };
     struct Band {
-        int plane = 0, number = 0;
-        int width = 0, height = 0, pitch = 0, alignedHeight = 0;
+        int plane = 0;
+        int number = 0;
+        int width = 0;
+        int height = 0;
+        int pitch = 0;
+        int alignedHeight = 0;
         std::array<std::vector<int16_t>, 3> bufs;
         int16_t *buf = nullptr;
         const int16_t *ref = nullptr;
-        int mbSize = 16, blkSize = 8;
-        bool halfPel = false, inheritMv = false, inheritQDelta = false, qDeltaPresent = false;
+        int mbSize = 16;
+        int blkSize = 8;
+        bool halfPel = false;
+        bool inheritMv = false;
+        bool inheritQDelta = false;
+        bool qDeltaPresent = false;
         int globalQuant = 0;
         Transform transform = Transform::kSlant8x8;
         const uint8_t *scan = nullptr;
-        const uint16_t *intraBase = nullptr, *interBase = nullptr;
-        const uint8_t *intraScale = nullptr, *interScale = nullptr;
+        const uint16_t *intraBase = nullptr;
+        const uint16_t *interBase = nullptr;
+        const uint8_t *intraScale = nullptr;
+        const uint8_t *interScale = nullptr;
         int codebook = 7; // 0..7, or 8: the band's own
         std::array<uint8_t, 16> ownCodebook{};
         int ownRows = 0;
@@ -63,7 +82,8 @@ private:
         std::vector<Tile> tiles;
     };
     struct Plane {
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         std::vector<Band> bands;
     };
     struct Bits;
@@ -80,11 +100,20 @@ private:
     void recompose53(std::vector<uint8_t> &out) const;
 
     std::array<Plane, 3> _planes;
-    int _frameType = 0, _prevFrameType = 0;
-    int _frameFlags = 0, _gopFlags = 0;
-    bool _gopValid = false, _scalable = false, _interScalable = false;
-    int _lumaBands = 1, _chromaBands = 1, _tileSize = 0;
-    int _bufSwitch = 0, _dstBuf = 0, _refBuf = 1, _ref2Buf = 2;
+    int _frameType = 0;
+    int _prevFrameType = 0;
+    int _frameFlags = 0;
+    int _gopFlags = 0;
+    bool _gopValid = false;
+    bool _scalable = false;
+    bool _interScalable = false;
+    int _lumaBands = 1;
+    int _chromaBands = 1;
+    int _tileSize = 0;
+    int _bufSwitch = 0;
+    int _dstBuf = 0;
+    int _refBuf = 1;
+    int _ref2Buf = 2;
     bool _decoded = false; // a picture is ready
     int _mbCodebook = 7;   // as Band::codebook, for macroblock signals
     std::array<uint8_t, 16> _mbOwnCodebook{};

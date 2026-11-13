@@ -90,7 +90,8 @@ public:
 private:
     struct Playing {
         audio::SoundHandle handle = audio::kNoSound;
-        int entity = -1, channel = 0;
+        int entity = -1;
+        int channel = 0;
         std::optional<Vec3f> origin; // fixed; else the entity's
         bool local = false;
         std::string name;

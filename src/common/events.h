@@ -78,7 +78,10 @@ enum class EventType {
 };
 
 namespace joyhat {
-constexpr uint8_t kUp = 1, kRight = 2, kDown = 4, kLeft = 8;
+constexpr uint8_t kUp = 1;
+constexpr uint8_t kRight = 2;
+constexpr uint8_t kDown = 4;
+constexpr uint8_t kLeft = 8;
 } // namespace joyhat
 
 enum class MouseButton { kNone, kLeft, kRight, kMiddle };
@@ -88,8 +91,12 @@ struct Event {
     uint32_t key = key::kUnknown; // KeyDown/KeyUp
     uint16_t mods = 0;            // KeyDown/KeyUp, and the mouse events (keymod bits)
     bool repeat = false;          // KeyDown auto-repeat
-    int mouseX = 0, mouseY = 0;   // mouse events, in game framebuffer pixels
-    float moveX = 0, moveY = 0;   // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
+    // mouse events, in game framebuffer pixels
+    int mouseX = 0;
+    int mouseY = 0;
+    // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
+    float moveX = 0;
+    float moveY = 0;
     MouseButton button = MouseButton::kNone;
     int clicks = 0; // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;

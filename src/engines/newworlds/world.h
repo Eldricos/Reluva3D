@@ -24,7 +24,9 @@ namespace reluva::newworlds {
 // and rock formations, which nothing in the recordings crosses; gmf.md),
 // and the ground's height anywhere.
 struct Terrain {
-    int width = 0, height = 0;  // in tiles
+    // in tiles
+    int width = 0;
+    int height = 0;
     std::vector<int> moveClass; // width x height, row by row from the south
     std::function<float(float x, float y)> heightAt;
 };
@@ -50,7 +52,8 @@ struct Unit {
     int id = 0;
     char side = 'F';
     UnitKind kind;
-    float x = 0, y = 0;
+    float x = 0;
+    float y = 0;
     float heading = 0;                         // radians anticlockwise from east
     std::vector<std::pair<float, float>> path; // waypoints still to reach
     bool selected = false;

@@ -13,6 +13,8 @@
 #include "engines/stharbinger/harbinger.h"
 #include "engines/stharbinger/platform.h"
 
+#include <algorithm>
+
 namespace reluva::stharbinger {
 
 namespace {

@@ -54,7 +54,9 @@ std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int rate
 
 // What a WAV file's header says.
 struct WavInfo {
-    int sampleRate = 0, channels = 0, bitsPerSample = 0;
+    int sampleRate = 0;
+    int channels = 0;
+    int bitsPerSample = 0;
     uint32_t dataSize = 0;
 };
 bool readWavInfo(SeekableReadStream &file, WavInfo &info);

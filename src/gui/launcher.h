@@ -84,8 +84,11 @@ private:
     std::string _importSource;
     std::filesystem::path _importDest;
     std::thread _importThread;
-    std::atomic<bool> _importRunning{false}, _importCancel{false}, _importDone{false};
-    std::atomic<uint64_t> _importBytes{0}, _importTotal{0};
+    std::atomic<bool> _importRunning{false};
+    std::atomic<bool> _importCancel{false};
+    std::atomic<bool> _importDone{false};
+    std::atomic<uint64_t> _importBytes{0};
+    std::atomic<uint64_t> _importTotal{0};
     std::mutex _importMutex;
     std::string _importError;
     // Applying a patch to a game already added (into its own folder),

@@ -32,8 +32,11 @@ struct Camera {
 // A sprite to draw this frame, such as an actor.
 struct SpriteDraw {
     // Centre of the bottom edge, in world units.
-    double x, y, bottom;
-    double halfWidth, height;
+    double x;
+    double y;
+    double bottom;
+    double halfWidth;
+    double height;
     // Upright frame; pixels equal to 0xFF are transparent.
     const Canvas *surface;
     bool mirrored;
@@ -198,7 +201,8 @@ private:
     uint64_t _zones = ~(uint64_t)0;
     std::map<int16_t, int> _groupBrightness;
     std::vector<float> _depth;
-    int _pickX = -1, _pickY = -1;
+    int _pickX = -1;
+    int _pickY = -1;
     std::vector<LevelFile::Wall> *_mapWalls = nullptr;
     Pick _pick;
     // What is being drawn, for the pick.
@@ -206,9 +210,14 @@ private:
     bool _ownerUnpickable = false;
 
     // Per-frame view parameters.
-    double _cos = 1, _sin = 0;
-    double _camX = 0, _camY = 0, _camZ = 0;
-    double _centerX = 0, _centerY = 0, _focal = 1;
+    double _cos = 1;
+    double _sin = 0;
+    double _camX = 0;
+    double _camY = 0;
+    double _camZ = 0;
+    double _centerX = 0;
+    double _centerY = 0;
+    double _focal = 1;
 };
 
 } // namespace reluva::stgenerations

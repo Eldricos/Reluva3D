@@ -33,8 +33,15 @@ struct State {
     std::set<uint32_t> text;              // FILEs opened in text mode
     uint32_t holdrand = 1;                // rand's seed, as Visual C++ keeps it
     uint32_t strtokNext = 0;
-    uint32_t tm = 0, ctimeText = 0, fmode = 0, commode = 0, adjustFdiv = 0, acmdln = 0, errnoAt = 0;
-    uint32_t argv = 0, envp = 0;
+    uint32_t tm = 0;
+    uint32_t ctimeText = 0;
+    uint32_t fmode = 0;
+    uint32_t commode = 0;
+    uint32_t adjustFdiv = 0;
+    uint32_t acmdln = 0;
+    uint32_t errnoAt = 0;
+    uint32_t argv = 0;
+    uint32_t envp = 0;
     uint32_t exceptionVftable = 0;
 
     uint32_t alloc(uint32_t n) { return p.memory().alloc(std::max(n, 1u)); }

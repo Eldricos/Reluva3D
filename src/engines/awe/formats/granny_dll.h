@@ -44,8 +44,12 @@ public:
     // optionally where `points` (x, y, z each) land in the window (x, y in
     // pixels, z depth).
     struct Camera {
-        float fovY = 0.785f, nearPlane = 4, farPlane = 1000;
-        float position[3] = {0, 0, 0}, elevAzimRoll[3] = {0, 0, 0}, offset[3] = {0, 0, 0};
+        float fovY = 0.785f;
+        float nearPlane = 4;
+        float farPlane = 1000;
+        float position[3] = {0, 0, 0};
+        float elevAzimRoll[3] = {0, 0, 0};
+        float offset[3] = {0, 0, 0};
     };
     Error camera(const Camera &in, int width, int height, float view[16], float projection[16],
                  const std::vector<float> *points = nullptr, std::vector<float> *windowPoints = nullptr);
@@ -55,7 +59,9 @@ public:
     // `info` is its granny_file_info in the DLL's memory, laid out
     // as the file's own types describe.
     struct LoadedFile {
-        uint32_t file = 0, info = 0, bytes = 0;
+        uint32_t file = 0;
+        uint32_t info = 0;
+        uint32_t bytes = 0;
     };
     Error loadFile(const std::vector<uint8_t> &gr2, LoadedFile &out);
     void freeFile(LoadedFile &file);
@@ -73,8 +79,10 @@ public:
     // GrannyCurveExtractKnotValues; an identity or constant curve gives
     // `identity` (or its constant) at one knot.
     struct PlainCurve {
-        int degree = 0, dimension = 0;
-        std::vector<float> knots, controls;
+        int degree = 0;
+        int dimension = 0;
+        std::vector<float> knots;
+        std::vector<float> controls;
     };
     Error expandCurve(uint32_t address, const std::vector<float> &identity, PlainCurve &out);
     // Evaluates the curve at `address` in a loaded file at time `t`
@@ -98,7 +106,8 @@ private:
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     const x86::Win32Process::Module *_module = nullptr;
-    uint32_t _decompressData = 0, _binkDecompressTexture = 0;
+    uint32_t _decompressData = 0;
+    uint32_t _binkDecompressTexture = 0;
     uint32_t _curveScratch = 0; // evaluateCurve's identity and result
 };
 

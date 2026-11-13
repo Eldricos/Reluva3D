@@ -22,20 +22,28 @@ Error sdlError(const char *what) {
 
 // The layouts of draw.vert's and draw.frag's uniform blocks (std140).
 struct DeformUniforms {
-    float a[4], b[4], c[4];
+    float a[4];
+    float b[4];
+    float c[4];
 };
 struct VertexUniforms {
     float viewProj[16];
     float model[16];
     float eye[4];
-    float preRow0[4], preRow1[4], postRow0[4], postRow1[4];
+    float preRow0[4];
+    float preRow1[4];
+    float postRow0[4];
+    float postRow1[4];
     float turb[4];
-    float texVec0[4], texVec1[4];
+    float texVec0[4];
+    float texVec1[4];
     float color[4];
     float mode[4];
     float mode2[4];
     float fogPlane[4];
-    float ambient[4], directed[4], lightDir[4];
+    float ambient[4];
+    float directed[4];
+    float lightDir[4];
     DeformUniforms deforms[2];
 };
 struct FragmentUniforms {
@@ -495,7 +503,8 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t *rgba, 
     // uploaded: a level left to the GPU to fill may keep whatever the
     // memory held before.
     struct Level {
-        int w, h;
+        int w;
+        int h;
         uint32_t offset;
     };
     std::vector<Level> chain;

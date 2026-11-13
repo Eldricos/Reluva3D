@@ -19,7 +19,8 @@ namespace reluva::nfs {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
 constexpr const char *kLaneSheet = "GameData/Render/pc/sfx.fsh";
 constexpr const char *kDetailNames[] = {"low", "medium", "high", "game"};
@@ -1133,7 +1134,10 @@ void TrackPage::prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec
     _lightRuns.clear();
     const bool night = _variant == 1 || _variant == 3;
     struct Car {
-        std::array<float, 3> at{}, right{}, up{}, forward{};
+        std::array<float, 3> at{};
+        std::array<float, 3> right{};
+        std::array<float, 3> up{};
+        std::array<float, 3> forward{};
         float halfLength = 0;
         int beams = 0;
         bool siren = false;

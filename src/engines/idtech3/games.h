@@ -27,7 +27,9 @@ enum class GameCode { kNone, kEliteForce };
 
 // A player model's three parts ("model/skin").
 struct PlayerModels {
-    std::string head, torso, legs;
+    std::string head;
+    std::string torso;
+    std::string legs;
 };
 
 struct GameInfo {
@@ -37,19 +39,25 @@ struct GameInfo {
     GameCode code = GameCode::kNone;
     // How its client game lays out what it adds to the scene; single
     // player's, where it differs.
-    RefEntityLayout refEntity, spRefEntity;
+    RefEntityLayout refEntity;
+    RefEntityLayout spRefEntity;
     // The command's button bits for attacking (and the second attack,
     // where the game has one; 0 if not).
-    int32_t buttonAttack = 1, buttonAltAttack = 0;
+    int32_t buttonAttack = 1;
+    int32_t buttonAltAttack = 0;
     // Multiplayer's model for a player who hasn't chosen one.
     std::string playerModel;
     // Single player's: the player's name until one is set; its game code
     // and menus (native DLLs beside the
     // game's folder; empty if it has none), the first level, levels that
     // aren't single player's (by name prefix), and the player as each sex.
-    std::string spPlayerName, spGameDll, spUiDll, firstMap;
+    std::string spPlayerName;
+    std::string spGameDll;
+    std::string spUiDll;
+    std::string firstMap;
     std::vector<std::string> multiplayerMapPrefixes;
-    PlayerModels malePlayer, femalePlayer;
+    PlayerModels malePlayer;
+    PlayerModels femalePlayer;
     // Its movies: video/<name> and their file type.
     std::string cinematicExtension;
 };

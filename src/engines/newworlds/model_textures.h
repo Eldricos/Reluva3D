@@ -16,12 +16,15 @@ using Archives = std::vector<std::unique_ptr<CatArchive>>;
 
 // Where an item lives: archive index and entry index.
 struct EntryRef {
-    size_t archive, entry;
+    size_t archive;
+    size_t entry;
 };
 
 // A full-size texture: an .lbp, or level 0 (.mp0) of a mipmap set.
 struct TextureFile {
-    std::string stem, folder; // "k_bop_a", "kln" for lbp/txr/kln/k_bop_a.mp0
+    // "k_bop_a", "kln" for lbp/txr/kln/k_bop_a.mp0
+    std::string stem;
+    std::string folder;
     EntryRef ref;
 };
 

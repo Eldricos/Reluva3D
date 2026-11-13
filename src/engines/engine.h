@@ -36,7 +36,9 @@ struct GameTarget {
 // A choice the launcher offers for a game, stored with it as `key` = "1"
 // or "0".
 struct GameOption {
-    std::string key, label, tooltip;
+    std::string key;
+    std::string label;
+    std::string tooltip;
     bool defaultOn = true;
     // A list to pick from instead of a checkbox: each value (kept in the
     // entry's settings) and what's shown for it; the first is the default.

@@ -4,6 +4,7 @@
 #include "engines/stgenerations/game/generations.h"
 #include "common/bytes.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>

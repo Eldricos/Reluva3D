@@ -14,7 +14,9 @@ constexpr double kSpeedOfSound = 343.3; // metres a second, as DirectSound has i
 constexpr double kPi = 3.14159265358979323846;
 
 struct V {
-    double x = 0, y = 0, z = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
 };
 V of(const float *f) {
     return {f[0], f[1], f[2]};

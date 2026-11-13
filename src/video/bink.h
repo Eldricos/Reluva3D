@@ -47,7 +47,8 @@ public:
     int audioChannels() const { return _audio.empty() ? 0 : _audio[0].outChannels; }
     // Every audio track (only the first is decoded).
     struct Track {
-        int rate = 0, channels = 0;
+        int rate = 0;
+        int channels = 0;
         bool dct = false; // the DCT form, else the RDFT one
     };
     std::vector<Track> audioTracks() const;
@@ -79,7 +80,9 @@ public:
     // --- Internals (public for the decoder's helpers) -----------------------
     struct Bits {
         const uint8_t *data = nullptr;
-        size_t size = 0, pos = 0; // in bits
+        // in bits
+        size_t size = 0;
+        size_t pos = 0;
         uint32_t get(int n);
         uint32_t bit() { return get(1); }
         void skip(size_t n) { pos += n; }
@@ -94,13 +97,19 @@ public:
 
 private:
     struct Frame {
-        uint32_t offset = 0, size = 0;
+        uint32_t offset = 0;
+        uint32_t size = 0;
         bool key = false;
     };
     struct Audio {
-        int rate = 0, outChannels = 1, channels = 1;
+        int rate = 0;
+        int outChannels = 1;
+        int channels = 1;
         bool dct = false;
-        int frameLength = 0, overlap = 0, blockSize = 0, bandCount = 0;
+        int frameLength = 0;
+        int overlap = 0;
+        int blockSize = 0;
+        int bandCount = 0;
         float root = 0;
         std::vector<int> bands;
         bool first = true;
@@ -110,9 +119,11 @@ private:
     // A bundle: one kind of value for the blocks, decoded a row at a time.
     struct Bundle {
         std::vector<int16_t> data;
-        size_t decoded = 0, read = 0; // positions in data
-        bool finished = false;        // no more for this plane
-        int countBits[2] = {};        // luma, chroma
+        // positions in data
+        size_t decoded = 0;
+        size_t read = 0;
+        bool finished = false; // no more for this plane
+        int countBits[2] = {}; // luma, chroma
         int bits = 0;
         Tree tree;
     };
@@ -145,15 +156,22 @@ private:
 
     std::vector<uint8_t> _file;
     char _revision = 0;
-    int _width = 0, _height = 0;
-    uint32_t _rateNum = 0, _rateDen = 1;
+    int _width = 0;
+    int _height = 0;
+    uint32_t _rateNum = 0;
+    uint32_t _rateDen = 1;
     uint32_t _flags = 0;
-    bool _alpha = false, _swapChroma = false;
+    bool _alpha = false;
+    bool _swapChroma = false;
     std::vector<Frame> _frames;
     std::vector<Audio> _audio;
     int _next = 0;
-    int _lumaPitch = 0, _chromaPitch = 0, _lumaRows = 0, _chromaRows = 0;
-    std::array<std::vector<uint8_t>, 4> _cur, _old;
+    int _lumaPitch = 0;
+    int _chromaPitch = 0;
+    int _lumaRows = 0;
+    int _chromaRows = 0;
+    std::array<std::vector<uint8_t>, 4> _cur;
+    std::array<std::vector<uint8_t>, 4> _old;
     std::array<Bundle, kSourceCount> _bundles;
     std::array<Tree, 16> _colorHigh;
     int _lastColorHigh = 0;

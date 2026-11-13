@@ -24,7 +24,8 @@ float dot(const Vec3f &a, const Vec3f &b) {
 // A sweep of a box centred on the line start-end (the box made symmetric,
 // the line moved to its centre), and what it hit so far.
 struct CollisionWorld::Work {
-    Vec3f start{}, end{};
+    Vec3f start{};
+    Vec3f end{};
     Vec3f extents{}; // half the box's size
     Vec3f centre{};  // the box's centre relative to the traced point
     int32_t mask = 0;

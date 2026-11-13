@@ -40,7 +40,8 @@ struct Bone {
 
 struct ModelTexture {
     std::string name; // the artist's file name, for display
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     // The MIP levels its image has in the file: the game makes its texture
     // with that many (0x427de2), so 1 (every texture in the install) is
     // none to filter between.
@@ -62,7 +63,8 @@ struct ModelMesh {
     std::vector<uint32_t> indices;
     struct Group {
         int texture = -1; // index into Model::textures, -1 none
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
     };
     std::vector<Group> groups;
     // Its vertices have no bones of their own: the whole mesh follows its
@@ -73,7 +75,8 @@ struct ModelMesh {
     // the game picks a character by them (0x428c80).
     struct BoneBox {
         int bone = 0;
-        float min[3] = {0, 0, 0}, max[3] = {0, 0, 0};
+        float min[3] = {0, 0, 0};
+        float max[3] = {0, 0, 0};
     };
     std::vector<BoneBox> boxes;
 };
@@ -105,7 +108,8 @@ uint32_t binkTextureFlags(const Gr2Object &texture);
 // wraps at the start if it isn't the first and at the end if it isn't the
 // last; played once, it doesn't (it repeats its end values).
 struct CurveLoop {
-    bool back = false, forward = false;
+    bool back = false;
+    bool forward = false;
     float duration = 0; // of the animation: a loop's length
 };
 
@@ -123,12 +127,15 @@ struct Curve {
 
 struct AnimationTrack {
     std::string bone;
-    Curve position, orientation, scaleShear;
+    Curve position;
+    Curve orientation;
+    Curve scaleShear;
 };
 
 struct Animation {
     std::string name;
-    float duration = 0, timeStep = 0;
+    float duration = 0;
+    float timeStep = 0;
     std::vector<AnimationTrack> tracks;
     // How much each bone follows it, by bone name (its file's skeleton's
     // TrackMask; the game's mask for layering it over others). Empty if
@@ -154,7 +161,8 @@ Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
 // A skeleton's pose: each bone's world matrix and its skinning matrix
 // (world times inverse rest world).
 struct Pose {
-    std::vector<Mat4> world, skinning;
+    std::vector<Mat4> world;
+    std::vector<Mat4> skinning;
 };
 // A turn added to a bone on top of its animation (a head turned to look
 // at someone): a quaternion (x, y, z, w) in the bone's own axes.

@@ -25,7 +25,12 @@ namespace reluva::awe {
 
 struct ActRow {
     std::string act; // "01a"
-    std::string preLoad, location, postLoad, completion, event, music;
+    std::string preLoad;
+    std::string location;
+    std::string postLoad;
+    std::string completion;
+    std::string event;
+    std::string music;
     int time = 0;    // 1: night
     int weather = 0; // 1: snow, 2: blizzard
     int moving = 0;  // 1: the train is moving
@@ -97,8 +102,10 @@ private:
     std::vector<ActRow> _acts;
     std::optional<ActRow> _row; // the act's row, as it was read (or saved)
     bool _restoring = false;
-    std::string _location, _previousLocation;
-    bool _loading = false, _waitingLoad = false;
+    std::string _location;
+    std::string _previousLocation;
+    bool _loading = false;
+    bool _waitingLoad = false;
     float _second = 0;
 };
 

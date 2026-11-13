@@ -20,7 +20,10 @@ constexpr double kPi = 3.14159265358979323846;
 
 const char *const kArchive = "COMBAT.DAT";
 // The viewscreen: the console's hole (0x54F650).
-const int kViewX = 52, kViewY = 10, kViewW = 532, kViewH = 231;
+const int kViewX = 52;
+const int kViewY = 10;
+const int kViewW = 532;
+const int kViewH = 231;
 // Rotation at full deflection: 228 angle units a frame at about 15 frames a second.
 const double kMaxTurn = 75 * kPi / 180;
 // The AI's clock (0x47B83E) runs at 291.3 ticks a second (0x537260).
@@ -106,19 +109,26 @@ struct SpaceCombat::Ship {
     // The effects' prefix: E, K, R, C, P or _.
     char effects = '_';
     const ShipClass *cls = nullptr;
-    const Model3D *model = nullptr, *lowModel = nullptr;
-    const std::vector<CombatMaterial> *materials = nullptr, *lowMaterials = nullptr;
+    const Model3D *model = nullptr;
+    const Model3D *lowModel = nullptr;
+    const std::vector<CombatMaterial> *materials = nullptr;
+    const std::vector<CombatMaterial> *lowMaterials = nullptr;
     double radius = 100;
     Vec3 position;
     Mat3 orientation;
-    double speed = 0, setting = 0;
-    double yawIn = 0, pitchIn = 0, rollIn = 0;
+    double speed = 0;
+    double setting = 0;
+    double yawIn = 0;
+    double pitchIn = 0;
+    double rollIn = 0;
     double energy[ShipClass::kSystemCount] = {};
     double damage[ShipClass::kSystemCount] = {};
     double reload[4] = {};
     int loaded[4] = {};
     int stock = 0;
-    bool alive = true, hidden = false, gone = false;
+    bool alive = true;
+    bool hidden = false;
+    bool gone = false;
     int wave = 1;
     // 1 Soran's own ship, 2 the Q'urash.
     int soran = 0;
@@ -129,13 +139,17 @@ struct SpaceCombat::Ship {
     bool hasWaypoint = false;
     Vec3 waypoint;
     // When the next point to run to may be picked (+0xE9C), and when a swerve ends (+0xEB0).
-    uint32_t fleeAt = 0, avoidUntil = 0;
+    uint32_t fleeAt = 0;
+    uint32_t avoidUntil = 0;
     int destroyedReported = 0;
     // The model's largest extent (+0x30) and the mean of its three, which sizes the shields.
-    double size = 0, meanSize = 0;
+    double size = 0;
+    double meanSize = 0;
     // The shield hit's dome (+0xE60, SHIELD_c.3DV) and the shield facing sphere (+0x524, SHLD8k_c.3DV).
-    const Model3D *shieldModel = nullptr, *sphereModel = nullptr;
-    const std::vector<CombatMaterial> *shieldMaterials = nullptr, *sphereMaterials = nullptr;
+    const Model3D *shieldModel = nullptr;
+    const Model3D *sphereModel = nullptr;
+    const std::vector<CombatMaterial> *shieldMaterials = nullptr;
+    const std::vector<CombatMaterial> *sphereMaterials = nullptr;
     // A shield hit showing (+0xE64): how long since, and towards what.
     bool flashing = false;
     uint32_t flashTime = 0;
@@ -335,7 +349,9 @@ void SpaceCombat::addShip(const MissionShip &line) {
     // The console's names are the class names of 0x54E660; it has none of
     // its own for the Garidian ship and the starbase.
     struct Type {
-        const char *name, *model, *token;
+        const char *name;
+        const char *model;
+        const char *token;
         char effects;
         const char *display;
     };
@@ -1634,7 +1650,8 @@ void SpaceCombat::drawStar(int x, int y, int type) {
     // 0x4AE2BF: by type, a cross, a single dim pixel, an X, a plus, two
     // bars; the rest one pixel that flickers between two colours.
     struct Dot {
-        int dx, dy;
+        int dx;
+        int dy;
         uint8_t colour;
     };
     static const std::vector<Dot> kShapes[8] = {

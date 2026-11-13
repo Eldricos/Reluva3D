@@ -32,8 +32,12 @@ struct ComputeKernelCode {
     const uint8_t *spirv = nullptr;
     size_t spirvSize = 0;
     const char *msl = nullptr;
-    uint32_t readOnlyBuffers = 0, readWriteBuffers = 0, uniformBuffers = 0;
-    uint32_t threadsX = 1, threadsY = 1, threadsZ = 1;
+    uint32_t readOnlyBuffers = 0;
+    uint32_t readWriteBuffers = 0;
+    uint32_t uniformBuffers = 0;
+    uint32_t threadsX = 1;
+    uint32_t threadsY = 1;
+    uint32_t threadsZ = 1;
 };
 
 using ComputeBuffer = uint32_t; // 0 = none

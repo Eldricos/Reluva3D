@@ -16,7 +16,8 @@ namespace reluva::nfs {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr const char *kLevelNames[] = {"high", "medium", "small", "tiny", "all"};
 
 std::string lower(const std::string &s) {

@@ -57,8 +57,12 @@ struct FinShape : FinAvObject {
 };
 
 struct FinMaterial {
-    std::array<float, 3> ambient{}, diffuse{}, specular{}, emissive{};
-    float glossiness = 0, alpha = 1;
+    std::array<float, 3> ambient{};
+    std::array<float, 3> diffuse{};
+    std::array<float, 3> specular{};
+    std::array<float, 3> emissive{};
+    float glossiness = 0;
+    float alpha = 1;
 };
 
 // Ni3dsSkin: a shape whose vertices follow bones. Each vertex has its
@@ -84,9 +88,15 @@ struct FinMorph : FinShape {
     // tangents into and out of it for each target.
     struct Key {
         float time = 0; // ticks
-        float value = 0, tension = 0, continuity = 0, bias = 0;
+        float value = 0;
+        float tension = 0;
+        float continuity = 0;
+        float bias = 0;
         std::array<float, 2> derived{};
-        std::vector<float> weights, in, out; // one per target
+        // one per target
+        std::vector<float> weights;
+        std::vector<float> in;
+        std::vector<float> out;
     };
     std::vector<Key> keys;
     std::vector<std::vector<float>> targets; // each x, y, z per vertex
@@ -100,7 +110,10 @@ constexpr float kTicksPerSecond = 4800;
 // clamped between the begin and end key times (`start`, `stop`).
 struct FinController {
     uint32_t cycle = 0; // 0 loop, 1 reverse (back and forth), 2 clamp
-    float frequency = 1, phase = 0, start = 0, stop = 0;
+    float frequency = 1;
+    float phase = 0;
+    float start = 0;
+    float stop = 0;
     uint32_t target = 0; // id of what it animates
 };
 
@@ -112,7 +125,9 @@ struct FinController {
 struct FinFlip {
     enum OutOfBounds : uint32_t { kLoop = 0, kReverse = 1, kClamp = 2 }; // reverse: back and forth
     uint32_t outOfBounds = kLoop;
-    float rate = 1, startTime = 0, duration = 0;
+    float rate = 1;
+    float startTime = 0;
+    float duration = 0;
     uint32_t target = 0; // id of its NiTextureProperty
     // Its image at time t of n.
     size_t image(double t, size_t images) const;
@@ -136,14 +151,20 @@ struct FinLight : FinAvObject {
     enum Type : uint32_t { kAmbient = 0, kDirectional = 1, kPoint = 2, kSpot = 3 };
     uint32_t type = kPoint;
     bool on = true; // the light switch
-    std::array<float, 3> location{}, direction{};
-    std::array<float, 3> ambient{}, diffuse{}, specular{};
-    float spotAngle = 0, spotExponent = 0; // degrees
-    float dimmer = 1;                      // each colour is times this
+    std::array<float, 3> location{};
+    std::array<float, 3> direction{};
+    std::array<float, 3> ambient{};
+    std::array<float, 3> diffuse{};
+    std::array<float, 3> specular{};
+    // degrees
+    float spotAngle = 0;
+    float spotExponent = 0;
+    float dimmer = 1; // each colour is times this
     // When `attenuated`: falling off with distance, to 1/64 at
     // `attenuationDistance`, more steeply the higher the curve.
     bool attenuated = false;
-    float attenuationDistance = 0, attenuationCurve = 0;
+    float attenuationDistance = 0;
+    float attenuationCurve = 0;
     std::vector<uint32_t> illuminated; // ids: the nodes it lights (none in the retail files)
 };
 
@@ -154,21 +175,30 @@ struct FinLight : FinAvObject {
 struct FinActor {
     struct Clip {
         std::string name;
-        float start = 0, end = 0; // seconds
-        std::string sound;        // played with it (a .DDS in the archives), or ""
+        // seconds
+        float start = 0;
+        float end = 0;
+        std::string sound; // played with it (a .DDS in the archives), or ""
         // The sound's settings, as LoadComp gives them to its NiA3dSource:
         // the node it's placed at (none: the model's own), whether it
         // loops, is heard unplaced (A3D's native render mode) and is muted
         // beyond its maximum distance; a delay before it starts (0: at
         // once); volume, the distance model's scale and the distances.
         std::string soundNode;
-        bool loop = false, unplaced = false, muteBeyondMax = false;
+        bool loop = false;
+        bool unplaced = false;
+        bool muteBeyondMax = false;
         float delay = 0;
-        float volume = 1, falloff = 1, maxDistance = 0, minDistance = 0;
+        float volume = 1;
+        float falloff = 1;
+        float maxDistance = 0;
+        float minDistance = 0;
         // What the clip animates, the things with keys in its time: tracks
         // (by number), flip-books and morph shapes (each numbered in the
         // order the file holds them).
-        std::vector<uint16_t> tracks, flips, morphs;
+        std::vector<uint16_t> tracks;
+        std::vector<uint16_t> flips;
+        std::vector<uint16_t> morphs;
     };
     template<typename T>
     struct Key {
@@ -180,20 +210,28 @@ struct FinActor {
     // it, is value + u (out + u (a + u b)).
     struct PositionKey {
         float time = 0; // ticks
-        std::array<float, 3> value{}, out{}, a{}, b{};
+        std::array<float, 3> value{};
+        std::array<float, 3> out{};
+        std::array<float, 3> a{};
+        std::array<float, 3> b{};
         bool curve = false;
     };
     // Rotations curve by squad, through each key's control quaternions.
     struct RotationKey {
         float time = 0;
-        std::array<float, 4> value{}, in{}, out{}; // quaternions: w, x, y, z
+        // quaternions: w, x, y, z
+        std::array<float, 4> value{};
+        std::array<float, 4> in{};
+        std::array<float, 4> out{};
         bool curve = false;
     };
     // A number's curve is Hermite's, with the tangents into and out of each
     // key (already scaled to the intervals either side).
     struct FloatKey {
         float time = 0;
-        float value = 0, in = 0, out = 0;
+        float value = 0;
+        float in = 0;
+        float out = 0;
         bool curve = false;
     };
     struct Track {
@@ -204,7 +242,9 @@ struct FinActor {
         std::vector<FloatKey> scales;
         std::vector<Key<bool>> visible;
     };
-    std::string id, name, textureSet;
+    std::string id;
+    std::string name;
+    std::string textureSet;
     std::vector<Clip> clips;
     std::vector<Track> tracks;
     std::vector<std::array<float, 3>> footprint; // a polygon on the floor
@@ -214,15 +254,18 @@ struct FinActor {
 // alpha, 7 one minus source alpha...).
 struct FinAlpha {
     bool blend = false;
-    uint32_t source = 6, destination = 7;
+    uint32_t source = 6;
+    uint32_t destination = 7;
 };
 
 struct FinObjectInfo {
     std::string type;
     uint32_t id = 0;
-    uint32_t offset = 0, size = 0; // the fields, after the class name and id
-    bool read = false;             // a class the reader understands
-    bool exact = false;            // its fields read to exactly its end
+    // the fields, after the class name and id
+    uint32_t offset = 0;
+    uint32_t size = 0;
+    bool read = false;  // a class the reader understands
+    bool exact = false; // its fields read to exactly its end
 };
 
 class FinFile {

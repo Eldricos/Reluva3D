@@ -653,7 +653,10 @@ namespace {
 // The handlers the Jit makes with flags, and what each is.
 struct Made {
     Jit::Kind kind;
-    uint8_t alu, form, size, cc;
+    uint8_t alu;
+    uint8_t form;
+    uint8_t size;
+    uint8_t cc;
     bool lahf = true; // needs Jit::flagsOps
 };
 struct MadeTable {

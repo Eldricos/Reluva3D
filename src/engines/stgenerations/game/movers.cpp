@@ -153,8 +153,14 @@ bool Movers::apply(Mover &mover, int position, Walker &player, std::vector<int> 
     double f = position / (double)kOpenPosition;
     struct WallPlace {
         int index;
-        double x1, y1, x2, y2;
-        int32_t top, bottom, vStart, vLength;
+        double x1;
+        double y1;
+        double x2;
+        double y2;
+        int32_t top;
+        int32_t bottom;
+        int32_t vStart;
+        int32_t vLength;
         bool turned;
     };
     struct FlatPlace {

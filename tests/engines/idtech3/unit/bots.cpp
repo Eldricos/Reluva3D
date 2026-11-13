@@ -113,7 +113,8 @@ static std::vector<uint8_t> buildAas(bool scramble) {
             i32(lumps[8], v);
     struct R {
         int to;
-        float x0, x1;
+        float x0;
+        float x1;
     };
     const R reach[] = {{0, 0, 0}, {2, 95, 105}, {1, 105, 95}, {3, 195, 205}, {2, 205, 195}};
     for (const R &r : reach) {

@@ -31,7 +31,8 @@ namespace {
 using x86::Cpu;
 using Result = net::Sockets::Result;
 
-constexpr uint32_t kMaxDword = 0xffffffffu, kErrorGenFailure = 31;
+constexpr uint32_t kMaxDword = 0xffffffffu;
+constexpr uint32_t kErrorGenFailure = 31;
 
 } // namespace
 
@@ -219,8 +220,10 @@ public:
 private:
     GameHost &_host;
     net::Sockets &_net;
-    int _listener = -1, _stream = -1;
-    bool _connecting = false, _connected = false;
+    int _listener = -1;
+    int _stream = -1;
+    bool _connecting = false;
+    bool _connected = false;
     net::Address _target; // where a connecting link connects to
     std::chrono::steady_clock::time_point _lastDial;
 };
@@ -388,12 +391,18 @@ void GameHost::addModem() {
     constexpr uint32_t kOperationUnavailable = 0x80000048;
     constexpr uint32_t kInvalCallHandle = 0x80000018;
     struct Modem {
-        uint32_t callback = 0, instance = 0, thread = 0;
+        uint32_t callback = 0;
+        uint32_t instance = 0;
+        uint32_t thread = 0;
         uint32_t nextRequest = 1;
-        bool answering = false, offered = false, dialing = false, connected = false;
+        bool answering = false;
+        bool offered = false;
+        bool dialing = false;
+        bool connected = false;
         std::chrono::steady_clock::time_point dialedAt;
         std::optional<std::chrono::steady_clock::time_point> answeredAt; // when CONNECTED goes
-        std::shared_ptr<SerialLink> listener, call;
+        std::shared_ptr<SerialLink> listener;
+        std::shared_ptr<SerialLink> call;
         std::shared_ptr<ModemPort> port = std::make_shared<ModemPort>();
         std::deque<std::array<uint32_t, 5>> events; // device, message, param1-3
     };

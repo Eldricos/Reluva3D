@@ -14,6 +14,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_layout.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>

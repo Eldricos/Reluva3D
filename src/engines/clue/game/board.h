@@ -18,7 +18,9 @@
 namespace reluva::clue {
 
 // The cards, in the game's order (Notepad.txt's): suspects, weapons, rooms.
-constexpr int kSuspectCount = 6, kWeaponCount = 6, kRoomCount = 9;
+constexpr int kSuspectCount = 6;
+constexpr int kWeaponCount = 6;
+constexpr int kRoomCount = 9;
 enum Suspect { kScarlet, kMustard, kWhite, kGreen, kPeacock, kPlum };
 enum Weapon { kKnife, kCandlestick, kRevolver, kRope, kPipe, kWrench };
 enum Room { kHall, kLounge, kDiningRoom, kKitchen, kBallroom, kConservatory, kBilliardRoom, kLibrary, kStudy };
@@ -27,7 +29,8 @@ constexpr int kNoRoom = -1;
 // A square of the board, by its column and row in the world's 64-unit grid
 // (whose lines are at 16 + 64 n).
 struct Square {
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     bool operator<(const Square &o) const { return x != o.x ? x < o.x : y < o.y; }
     bool operator==(const Square &o) const { return x == o.x && y == o.y; }
     bool operator!=(const Square &o) const { return !(*this == o); }
@@ -45,10 +48,13 @@ class Board {
 public:
     struct Door {
         int room = kNoRoom;
-        Square inside, outside; // the room's square and the corridor's in front of it
+        // the room's square and the corridor's in front of it
+        Square inside;
+        Square outside;
     };
 
-    static constexpr int kSquareSize = 64, kGridOrigin = 16;
+    static constexpr int kSquareSize = 64;
+    static constexpr int kGridOrigin = 16;
     static Square squareAt(int worldX, int worldY);
     // Where a suspect stands on a square: as clue.lvl places them, 24 in from its corner.
     static void standingPoint(const Square &s, int &worldX, int &worldY);
@@ -73,7 +79,8 @@ public:
 private:
     std::set<Square> _corridor;
     std::map<Square, int> _rooms;
-    std::array<std::vector<Square>, kRoomCount> _roomSquares, _standing;
+    std::array<std::vector<Square>, kRoomCount> _roomSquares;
+    std::array<std::vector<Square>, kRoomCount> _standing;
     std::vector<Door> _doors;
     std::array<Square, kSuspectCount> _start{};
     std::array<int, kRoomCount> _passage{};

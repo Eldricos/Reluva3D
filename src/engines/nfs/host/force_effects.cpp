@@ -14,8 +14,13 @@ constexpr double kMax = 10000; // DI_FFNOMINALMAX
 constexpr double kPi = 3.14159265358979;
 
 // DIEFFECT's parts (SetParameters' DIEP_ flags) and its fields' offsets.
-constexpr uint32_t kDuration = 0x1, kGain = 0x4, kAxes = 0x20, kDirection = 0x40, kEnvelope = 0x80,
-                   kTypeSpecific = 0x100, kStartDelay = 0x200;
+constexpr uint32_t kDuration = 0x1;
+constexpr uint32_t kGain = 0x4;
+constexpr uint32_t kAxes = 0x20;
+constexpr uint32_t kDirection = 0x40;
+constexpr uint32_t kEnvelope = 0x80;
+constexpr uint32_t kTypeSpecific = 0x100;
+constexpr uint32_t kStartDelay = 0x200;
 
 } // namespace
 

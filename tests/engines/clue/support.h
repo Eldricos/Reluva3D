@@ -217,7 +217,12 @@ inline Bytes objectRecord(const char *name, uint8_t type, const std::vector<std:
 
 struct TestPlacement {
     uint8_t flags;
-    int tag, object, x, y, id, layer;
+    int tag;
+    int object;
+    int x;
+    int y;
+    int id;
+    int layer;
     std::vector<std::pair<int, int>> timings;
 };
 

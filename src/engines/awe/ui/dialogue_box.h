@@ -24,7 +24,10 @@ struct DialogueBoxPictures {
 };
 
 struct DialogueChoiceArea {
-    int x = 0, y = 0, w = 0, h = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
     int choice = -1;      // which
     bool picture = false; // its picture, not its text
 };

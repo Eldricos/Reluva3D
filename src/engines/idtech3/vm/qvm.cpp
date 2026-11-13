@@ -20,7 +20,8 @@ namespace reluva::idtech3 {
 
 namespace {
 
-constexpr int32_t kMagic = 0x12721444, kMagic2 = 0x12721445;
+constexpr int32_t kMagic = 0x12721444;
+constexpr int32_t kMagic2 = 0x12721445;
 constexpr int32_t kStackSize = 0x10000; // the program stack, at the top of the data
 constexpr int kOpStackSize = 1024;
 constexpr int kSyscallArgs = 16;

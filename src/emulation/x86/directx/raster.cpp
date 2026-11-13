@@ -112,7 +112,9 @@ uint32_t vertexWord(const uint8_t *p) {
 }
 // x / 255, x / 31 and x / 63 as floats, by table.
 struct Fractions {
-    float of255[256], of31[32], of63[64];
+    float of255[256];
+    float of31[32];
+    float of63[64];
     Fractions() {
         for (int i = 0; i < 256; ++i)
             of255[i] = float(i) / 255;
@@ -284,7 +286,8 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
     // The enabled lights in camera space.
     struct EyeLight {
         const Light *l;
-        float pos[3], dir[3];
+        float pos[3];
+        float dir[3];
     };
     std::vector<EyeLight> eyeLights;
     if (lighting)
@@ -640,9 +643,12 @@ private:
         }
     }
     std::mutex _mutex;
-    std::condition_variable _wake, _done;
+    std::condition_variable _wake;
+    std::condition_variable _done;
     std::deque<std::shared_ptr<const Job>> _jobs; // from job number first_ on
-    uint64_t _first = 0, _pushed = 0, _drawn = 0;
+    uint64_t _first = 0;
+    uint64_t _pushed = 0;
+    uint64_t _drawn = 0;
     std::vector<uint64_t> _passed; // by thread: the jobs it's past
     int _sleeping = 0;
     bool _quit = false;
@@ -843,7 +849,9 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
     const double sign = area > 0 ? 1 : -1;
     area *= sign;
     struct Edge {
-        double a, b, c;
+        double a;
+        double b;
+        double c;
         bool topLeft;
     } e[3];
     for (int i = 0; i < 3; ++i) {
@@ -1816,8 +1824,11 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     // are now, as the draws queued are drawn where they were.
     struct Fill {
         uint8_t *at;
-        int width, height, pitch;
-        uint32_t bytes, value;
+        int width;
+        int height;
+        int pitch;
+        uint32_t bytes;
+        uint32_t value;
     };
     std::vector<Fill> fills;
     uint8_t *mem = c.memory().data();

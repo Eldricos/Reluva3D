@@ -17,9 +17,14 @@ namespace reluva::nfs {
 // space triangles in batches of one state, in the order drawn.
 struct ThrashFrame {
     struct Vertex {
-        float x, y, z, rhw; // pixels, and 1/w for perspective-correct texturing
-        uint32_t diffuse;   // 0xAARRGGBB
-        float u, v;
+        // pixels, and 1/w for perspective-correct texturing
+        float x;
+        float y;
+        float z;
+        float rhw;
+        uint32_t diffuse; // 0xAARRGGBB
+        float u;
+        float v;
     };
     struct Batch {
         uint32_t texture = 0; // the renderer DLL's handle; 0 for none
@@ -35,15 +40,19 @@ struct ThrashFrame {
         // colour (0x00RRGGBB). See glideFog().
         float fog = 0;
         uint32_t fogColour = 0;
-        int clip[4] = {0, 0, 0, 0};    // x0, y0, x1, y1 (exclusive)
-        uint32_t first = 0, count = 0; // vertices, three a triangle
+        int clip[4] = {0, 0, 0, 0}; // x0, y0, x1, y1 (exclusive)
+        // vertices, three a triangle
+        uint32_t first = 0;
+        uint32_t count = 0;
     };
     struct Texture {
         uint32_t handle = 0;
-        int width = 0, height = 0;
+        int width = 0;
+        int height = 0;
         std::vector<uint32_t> rgba; // 0xAARRGGBB
     };
-    int width = 640, height = 480;
+    int width = 640;
+    int height = 480;
     std::vector<Vertex> vertices;
     std::vector<Batch> batches;
     bool resetTextures = false;    // all textures before these gone (treset)
@@ -120,12 +129,19 @@ public:
 
 private:
     struct Vertex {
-        float x, y, z, rhw;
-        uint32_t diffuse, specular;
-        float u, v;
+        float x;
+        float y;
+        float z;
+        float rhw;
+        uint32_t diffuse;
+        uint32_t specular;
+        float u;
+        float v;
     };
     struct Texture {
-        int width = 0, height = 0, format = 0;
+        int width = 0;
+        int height = 0;
+        int format = 0;
         bool transparent = false;     // has texels to leave out
         std::vector<uint32_t> rgba;   // 0xAARRGGBB
         std::vector<uint8_t> indices; // format 2's, as given
@@ -147,8 +163,13 @@ private:
 
     x86::Cpu &_cpu;
     uint32_t _target = 0;
-    int _pitch = 0, _width = 0, _height = 0;
-    int _clipX0 = 0, _clipY0 = 0, _clipX1 = 640, _clipY1 = 480;
+    int _pitch = 0;
+    int _width = 0;
+    int _height = 0;
+    int _clipX0 = 0;
+    int _clipY0 = 0;
+    int _clipX1 = 640;
+    int _clipY1 = 480;
     std::map<uint32_t, Texture> _textures;
     const Texture *_texture = nullptr;
     uint32_t _textureHandle = 0;

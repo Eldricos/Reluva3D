@@ -36,10 +36,13 @@ struct GameLayout {
     int32_t linked = 204;
     int32_t svFlags = -1; // -1: not known (found from the running game)
     int32_t bmodel = 216;
-    int32_t mins = 220, maxs = 232;
+    int32_t mins = 220;
+    int32_t maxs = 232;
     int32_t contents = 244;
-    int32_t absMin = 248, absMax = 260;
-    int32_t currentOrigin = 272, currentAngles = 284;
+    int32_t absMin = 248;
+    int32_t absMax = 260;
+    int32_t currentOrigin = 272;
+    int32_t currentAngles = 284;
     int32_t ownerNum = 296;
     int32_t sharedEnd = 300;
 };
@@ -56,6 +59,7 @@ inline const GameLayout &detectLayout(const Qvm &vm) {
     return kLayout10;
 }
 
-constexpr int32_t kEntityNone = 1023, kEntityWorld = 1022;
+constexpr int32_t kEntityNone = 1023;
+constexpr int32_t kEntityWorld = 1022;
 
 } // namespace reluva::idtech3::eliteforce

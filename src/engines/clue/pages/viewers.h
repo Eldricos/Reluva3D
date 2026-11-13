@@ -70,19 +70,25 @@ private:
     Level _level;
     Mansion _mansion;
     std::string _error;
-    int _camX = 0, _camY = 0;
+    int _camX = 0;
+    int _camY = 0;
     using NearWalls = MansionLook::NearWalls;
     MansionLook _look = [] {
         MansionLook l;
         l.nearWalls = MansionLook::NearWalls::kSeeThrough;
         return l;
     }();
-    bool _footprints = false, _paused = false;
+    bool _footprints = false;
+    bool _paused = false;
     bool _overview = false;
     Surface _whole; // the whole house, for the overview; made when first asked for
     bool _dragging = false;
-    int _dragX = 0, _dragY = 0, _mouseX = -1, _mouseY = -1;
-    uint64_t _now = 0, _tick = 0;
+    int _dragX = 0;
+    int _dragY = 0;
+    int _mouseX = -1;
+    int _mouseY = -1;
+    uint64_t _now = 0;
+    uint64_t _tick = 0;
     bool _dirty = true;
 };
 
@@ -117,7 +123,8 @@ private:
     std::string _error;
     bool _running = false;
     int _zoom = 0; // 0: as the video's size says; 1 or 2 when chosen with Z
-    uint64_t _startMs = 0, _now = 0;
+    uint64_t _startMs = 0;
+    uint64_t _now = 0;
     size_t _drawnFrame = size_t(-1);
 };
 
@@ -140,8 +147,10 @@ private:
     const GameData &_data;
     std::vector<std::filesystem::path> _files;
     size_t _total = 0;
-    int _file = 0, _image = 0;
-    int _zoom = 1, _background = 0;
+    int _file = 0;
+    int _image = 0;
+    int _zoom = 1;
+    int _background = 0;
 };
 
 // Every animation of every .a file, playing.
@@ -165,12 +174,15 @@ private:
     const GameData &_data;
     std::vector<std::filesystem::path> _files;
     size_t _total = 0;
-    int _file = 0, _anim = 0;
+    int _file = 0;
+    int _anim = 0;
     const Animation *_current = nullptr;
-    std::string _name, _error;
+    std::string _name;
+    std::string _error;
     size_t _frame = 0;
     uint64_t _frameStart = 0;
-    bool _paused = false, _showAnchor = true;
+    bool _paused = false;
+    bool _showAnchor = true;
     int _zoom = 1;
     int _layer = -1; // all
     bool _dirty = true;

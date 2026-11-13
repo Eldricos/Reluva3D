@@ -172,7 +172,11 @@ void CombatRenderer::drawTriangle(const ClipVertex *in, int count, const CombatI
         return;
 
     struct Screen {
-        double x, y, iz, uz, vz;
+        double x;
+        double y;
+        double iz;
+        double uz;
+        double vz;
     } s[8];
     for (int i = 0; i < n; i++) {
         double iz = 1 / poly[i].view.z;

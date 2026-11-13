@@ -4,6 +4,7 @@
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/level.h"
 #include "engines/clue/game/mansion.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>

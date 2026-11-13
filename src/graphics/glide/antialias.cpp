@@ -70,7 +70,9 @@ void aaTriangleFringe(const State &s, int width, int height, const Vertex &va, c
     if (!aa[0] && !aa[1] && !aa[2])
         return;
     struct Edge {
-        int64_t a, b, c;
+        int64_t a;
+        int64_t b;
+        int64_t c;
         bool inclusive;
         double length; // in 1/16 pixel
     } e[3];

@@ -43,14 +43,17 @@ const char *curveFormatName(uint8_t format);
 // A compressed curve's data as the file stores it. Each format uses some
 // of these members.
 struct CurveData {
-    uint8_t format = 0, degree = 0;
+    uint8_t format = 0;
+    uint8_t degree = 0;
     int dimension = 0; // DaIdentity
     // D4n*: ScaleOffsetTableEntries; D3K*: OneOverKnotScaleTrunc.
     uint16_t packed = 0;
-    float oneOverKnotScale = 0;                                        // D4n*
-    float controlScales[3] = {0, 0, 0}, controlOffsets[3] = {0, 0, 0}; // D3K*
-    std::vector<float> knots;                                          // DaK32fC32f
-    std::vector<float> controls;                                       // DaK32fC32f, DaConstant32f, D3Constant32f
+    float oneOverKnotScale = 0; // D4n*
+    // D3K*
+    float controlScales[3] = {0, 0, 0};
+    float controlOffsets[3] = {0, 0, 0};
+    std::vector<float> knots;    // DaK32fC32f
+    std::vector<float> controls; // DaK32fC32f, DaConstant32f, D3Constant32f
     // D4n* and D3K*: the knots, then the controls (8- or 16-bit values).
     std::vector<uint16_t> knotsControls;
 };

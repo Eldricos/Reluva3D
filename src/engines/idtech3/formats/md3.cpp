@@ -13,7 +13,11 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int32_t kVersion = 15;
-constexpr size_t kHeaderSize = 108, kFrameSize = 56, kTagSize = 112, kSurfaceSize = 108, kShaderSize = 68;
+constexpr size_t kHeaderSize = 108;
+constexpr size_t kFrameSize = 56;
+constexpr size_t kTagSize = 112;
+constexpr size_t kSurfaceSize = 108;
+constexpr size_t kShaderSize = 68;
 constexpr float kXyzScale = 1.0f / 64;
 constexpr float kTau = 6.28318530718f;
 

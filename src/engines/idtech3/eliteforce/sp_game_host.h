@@ -44,11 +44,22 @@ using raven::SaveWriter;
 // the game's own), as the original's server reads them: the entity
 // state (232 bytes), then these.
 struct SpEntityLayout {
-    int32_t number = 0, modelIndex = 0xa0, solid = 0xb4;
+    int32_t number = 0;
+    int32_t modelIndex = 0xa0;
+    int32_t solid = 0xb4;
     int32_t stateSize = 0xe8;
-    int32_t client = 0xe8, inUse = 0xec, linked = 0xf0, svFlags = 0xf4, bmodel = 0xf8;
-    int32_t mins = 0xfc, maxs = 0x108, contents = 0x114, absMin = 0x118, absMax = 0x124;
-    int32_t currentOrigin = 0x130, currentAngles = 0x13c;
+    int32_t client = 0xe8;
+    int32_t inUse = 0xec;
+    int32_t linked = 0xf0;
+    int32_t svFlags = 0xf4;
+    int32_t bmodel = 0xf8;
+    int32_t mins = 0xfc;
+    int32_t maxs = 0x108;
+    int32_t contents = 0x114;
+    int32_t absMin = 0x118;
+    int32_t absMax = 0x124;
+    int32_t currentOrigin = 0x130;
+    int32_t currentAngles = 0x13c;
     int32_t owner = 0x148; // a pointer to the entity, not its number
 };
 
@@ -164,12 +175,17 @@ public:
     // buttons 4, weapon 8 (a byte), angles 12 (65536 a turn), forward,
     // right and up moves 24-26 (-127..127).
     struct UserCommand {
-        int32_t serverTime = 0, buttons = 0;
+        int32_t serverTime = 0;
+        int32_t buttons = 0;
         uint8_t weapon = 0;
         std::array<int32_t, 3> angles{};
-        int8_t forward = 0, right = 0, up = 0;
+        int8_t forward = 0;
+        int8_t right = 0;
+        int8_t up = 0;
     };
-    static constexpr int32_t kPlayerStateSize = 544, kEntityStateSize = 232, kUserCmdSize = 28;
+    static constexpr int32_t kPlayerStateSize = 544;
+    static constexpr int32_t kEntityStateSize = 232;
+    static constexpr int32_t kUserCmdSize = 28;
     static constexpr int32_t kRefEntitySize = 152; // refEntity_t, as the original renderer copies it
     // Starts the client game on the level (its CG_INIT: it registers what
     // it will draw), once the player has joined.
@@ -218,7 +234,10 @@ public:
     // right way up) after so many pictures.
     std::vector<uint8_t> screenShot;
     struct ScreenShotDraw {
-        float x = 0, y = 0, w = 0, h = 0;
+        float x = 0;
+        float y = 0;
+        float w = 0;
+        float h = 0;
         size_t picturesBefore = 0;
     };
     const std::vector<ScreenShotDraw> &screenShotDraws() const { return _lastShots; }
@@ -318,7 +337,10 @@ private:
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     const x86::Win32Process::Module *_module = nullptr;
-    uint32_t _imports = 0, _exports = 0, _voiceVolume = 0, _argvBuffer = 0;
+    uint32_t _imports = 0;
+    uint32_t _exports = 0;
+    uint32_t _voiceVolume = 0;
+    uint32_t _argvBuffer = 0;
     // The Expansion Pack's game code, whose engine's table has two more
     // functions (docs/engines/idtech3/games/stvef/systems/sp-interface.md): where each goes.
     bool _expansion = false;
@@ -331,21 +353,24 @@ private:
     ServerWorld _serverWorld; // the entities linked, and moves against them
     std::vector<uint32_t> _levelText;
     struct MirroredCvar {
-        uint32_t address = 0, text = 0;
+        uint32_t address = 0;
+        uint32_t text = 0;
         int32_t modificationCount = -1;
     };
     std::map<std::string, MirroredCvar> _cvarMirrors; // by lower-case name
     uint64_t _cvarChangesSynced = ~uint64_t(0);       // the store's changes() when last synced
     GameFiles _openFiles;
     std::vector<std::string> _args;
-    std::map<int32_t, std::string> _configstrings, _userinfo;
+    std::map<int32_t, std::string> _configstrings;
+    std::map<int32_t, std::string> _userinfo;
     std::vector<std::string> _consoleCommands;
     std::vector<std::pair<int32_t, std::string>> _serverCommands;
     std::vector<size_t> _toClient; // those for the player (0, or -1: everyone), in order
     void addServerCommand(int32_t to, std::string text);
     SaveWriter *_saveWriter = nullptr;
     SaveReader *_saveReader = nullptr;
-    CallCounts _callCounts, _cgameCallCounts;
+    CallCounts _callCounts;
+    CallCounts _cgameCallCounts;
     std::map<int, int> _cgameUnhandled;
     // Voices playing (sounds on CHAN_VOICE, 3, or CHAN_VOICE_ATTEN, 4), by
     // entity: what the game reads in VoiceVolume (import slot 37) to know
@@ -361,7 +386,10 @@ private:
     void updateVoiceVolumes();
     // The client game.
     struct Snapshot {
-        int32_t number = 0, serverTime = 0, serverCommandSequence = 0, commandNumber = 0;
+        int32_t number = 0;
+        int32_t serverTime = 0;
+        int32_t serverCommandSequence = 0;
+        int32_t commandNumber = 0;
         std::array<uint8_t, 32> areaMask{};
         std::vector<uint8_t> playerState;
         std::vector<std::vector<uint8_t>> entities;
@@ -383,12 +411,18 @@ private:
     int32_t _commandNumber = 0;
     uint8_t _clientWeapon = 0;
     std::vector<std::string> _clientCommands; // AddCommand's names
-    HandleTable _models, _shaders, _skins, _sounds;
+    HandleTable _models;
+    HandleTable _shaders;
+    HandleTable _skins;
+    HandleTable _sounds;
     int32_t registerSkin(const std::string &name);
     std::map<int32_t, int> _skinFaces; // by skin handle: the -1 to -8 skins after it
-    Scene _scene, _lastScene;
-    std::vector<Picture> _pictures, _lastPictures;
-    std::vector<ScreenShotDraw> _shots, _lastShots;
+    Scene _scene;
+    Scene _lastScene;
+    std::vector<Picture> _pictures;
+    std::vector<Picture> _lastPictures;
+    std::vector<ScreenShotDraw> _shots;
+    std::vector<ScreenShotDraw> _lastShots;
     std::array<float, 4> _color{1, 1, 1, 1};
     std::map<int32_t, std::shared_ptr<Md3Model>> _md3s; // by model handle, loaded for tags and bounds
     const Md3Model *md3(int32_t handle);
@@ -414,7 +448,8 @@ uint32_t packFileList(const std::vector<std::string> &names, uint32_t size, std:
 // Saving and loading a game (docs/engines/idtech3/games/stvef/systems/sp-interface.md,
 // "Saved games"), in the original engine's two steps each.
 struct SaveHeader {
-    std::string comment, map;
+    std::string comment;
+    std::string map;
     std::vector<uint8_t> shot; // 256 x 256 RGBA, bottom row first
     bool autosave = false;
 };

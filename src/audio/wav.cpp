@@ -30,7 +30,8 @@ constexpr int16_t kStepTable[89] = {
 constexpr int kIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
 
 struct ImaChannel {
-    int sample = 0, index = 0;
+    int sample = 0;
+    int index = 0;
     int16_t decode(unsigned code) {
         const int step = kStepTable[index];
         int diff = step >> 3;

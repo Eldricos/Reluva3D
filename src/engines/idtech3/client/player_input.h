@@ -49,7 +49,9 @@ public:
     // cl_pitchspeed degrees a second, times cl_anglespeedkey with +speed;
     // with +strafe, left and right step instead of turning.
     void turn(const CvarStore &cvars, int32_t dtMs);
-    float yaw = 0, pitch = 0; // degrees
+    // degrees
+    float yaw = 0;
+    float pitch = 0;
 
     // The command for this moment: where the player looks (65536 to a
     // turn), the game's button bits held, and movement (running unless
@@ -57,7 +59,9 @@ public:
     struct Command {
         std::array<int32_t, 3> angles{};
         int32_t buttons = 0;
-        int8_t forward = 0, right = 0, up = 0;
+        int8_t forward = 0;
+        int8_t right = 0;
+        int8_t up = 0;
     };
     Command command(const CvarStore &cvars, const GameInfo &game) const;
 
@@ -66,9 +70,15 @@ public:
 
 private:
     std::map<std::string, std::set<int32_t>> _buttons; // and the keys holding each
-    float _mouseX = 0, _mouseY = 0;                    // moved since the last turn
-    float _lastMouseX = 0, _lastMouseY = 0;            // the last turn's, for m_filter
-    int32_t _joyX = 0, _joyY = 0;                      // the joystick's analog axes
+    // moved since the last turn
+    float _mouseX = 0;
+    float _mouseY = 0;
+    // the last turn's, for m_filter
+    float _lastMouseX = 0;
+    float _lastMouseY = 0;
+    // the joystick's analog axes
+    int32_t _joyX = 0;
+    int32_t _joyY = 0;
 };
 
 } // namespace reluva::idtech3

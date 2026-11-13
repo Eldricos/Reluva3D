@@ -243,7 +243,9 @@ namespace {
 // A bridge that only remembers what it's asked.
 struct FakeBridge : public CampaignWorld {
     std::vector<std::string> commands;
-    bool shown = false, audioEmpty = true, warping = false;
+    bool shown = false;
+    bool audioEmpty = true;
+    bool warping = false;
     double stardate = 100;
     void bridgeCommand(const std::string &command, const std::vector<std::string> &args) override {
         commands.push_back(command + (args.empty() ? "" : " " + args[0]));

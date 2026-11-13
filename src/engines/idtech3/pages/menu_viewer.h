@@ -33,8 +33,10 @@ private:
 
     bool _available = false;
     gfx::Renderer3D *_renderer = nullptr;
-    int _frameW = 960, _frameH = 720; // r_mode
-    bool _restart = false;            // the menus ran vid_restart
+    // r_mode
+    int _frameW = 960;
+    int _frameH = 720;
+    bool _restart = false; // the menus ran vid_restart
     CvarStore &_cvars = _ctx.cvars;
     std::unique_ptr<ServerBrowser> _browser; // the server list's, once the menus start
     MenuLayer _menus{_ctx, _ctx.cvars};      // kept running while other pages are shown

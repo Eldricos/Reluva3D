@@ -43,10 +43,12 @@ const uint32_t kFirstBridgeSaveVersion = 5;
 // How the game runs: its folders and the launcher's settings for it
 // (stgenerations.cpp lists them), or reluva-tool's options.
 struct Options {
-    std::filesystem::path gameDir;  // the installed game (or an import of it, discs in disc1/ and disc2/)
-    std::filesystem::path cd1, cd2; // the discs' folders, when not in the game's
-    std::string description;        // the release, as detection names it
-    bool unknownVariant = false;    // found by its executable alone, not by kVariants: warned about
+    std::filesystem::path gameDir; // the installed game (or an import of it, discs in disc1/ and disc2/)
+    // the discs' folders, when not in the game's
+    std::filesystem::path cd1;
+    std::filesystem::path cd2;
+    std::string description;     // the release, as detection names it
+    bool unknownVariant = false; // found by its executable alone, not by kVariants: warned about
     // Developer: the resource viewer instead of the game; start the story
     // at one of its sections; or straight into space combat n.
     bool viewer = false;
@@ -54,12 +56,17 @@ struct Options {
     int combat = 0;
     // The settings' defaults, when the game's own settings file has none
     // (its menu keeps them there): 0..256 volumes, difficulty 0..2.
-    int musicVolume = 192, effectsVolume = 192, speechVolume = 192;
+    int musicVolume = 192;
+    int effectsVolume = 192;
+    int speechVolume = 192;
     int difficulty = -1; // as the game's menu starts it
     // For tests: the date saved games are given, in place of the clock's,
     // so runs are the same whenever they're made.
     std::string fixedSaveDate;
-    int subtitles = -1, largeWindow = -1, lookspring = -1; // -1: the game's own default
+    // -1: the game's own default
+    int subtitles = -1;
+    int largeWindow = -1;
+    int lookspring = -1;
 };
 
 // Star Trek: Generations (MicroProse, 1997): the game, from its title to
@@ -92,7 +99,9 @@ public:
 
 private:
     struct Star {
-        int32_t x, y, z;
+        int32_t x;
+        int32_t y;
+        int32_t z;
     };
 
     void initPalette();
@@ -250,8 +259,10 @@ private:
     // the normal look below the pressed one) before the mission starts.
     BitmapDecoder _proceed;
     bool _proceedLoaded = false;
-    int _proceedX = 0, _proceedY = 0;
-    bool _awaitingProceed = false, _proceedPressed = false;
+    int _proceedX = 0;
+    int _proceedY = 0;
+    bool _awaitingProceed = false;
+    bool _proceedPressed = false;
     // The game as the first phase of a transition last showed it.
     Canvas _transitionFrom;
     RandomSource _dissolveRandom;
@@ -300,8 +311,12 @@ private:
     bool _jumpPressed = false;
     uint32_t _jumpWait = 0;
     // The mouse, where the weapon aims (in the view), and the view's size.
-    int _mouseX = -1, _mouseY = -1;
-    int _aimX = 0, _aimY = 0, _viewW = 1, _viewH = 1;
+    int _mouseX = -1;
+    int _mouseY = -1;
+    int _aimX = 0;
+    int _aimY = 0;
+    int _viewW = 1;
+    int _viewH = 1;
     bool _targetCursor = false;
     HeldItem _heldItem;
     // How much longer the gun shows its muzzle flash, in ms.

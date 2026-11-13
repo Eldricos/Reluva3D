@@ -54,10 +54,12 @@ private:
 
     // Fly camera, in the map's units (Z up); yaw 0 looks along +X.
     std::array<float, 3> _pos{};
-    float _yaw = 0, _pitch = 0;
+    float _yaw = 0;
+    float _pitch = 0;
     bool _held[8] = {}; // forward, back, left, right, up, down, fast, (unused)
     bool _dragging = false;
-    int _lastX = 0, _lastY = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     bool _showInfo = true;
     uint64_t _lastMs = 0;
     uint64_t _loadedMs = 0; // shader animations run from when the map was loaded
@@ -66,8 +68,10 @@ private:
     float _fps = 0;
     // Per second: average milliseconds per frame spent issuing draws, and
     // presenting (which includes waiting for vsync).
-    double _drawSum = 0, _presentSum = 0;
-    float _drawMs = 0, _presentMs = 0;
+    double _drawSum = 0;
+    double _presentSum = 0;
+    float _drawMs = 0;
+    float _presentMs = 0;
     std::string _device;
 };
 

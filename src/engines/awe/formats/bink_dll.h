@@ -39,8 +39,10 @@ private:
     const x86::Win32Process::Module *_module = nullptr;
     std::vector<uint8_t> _file; // the movie being read
     uint32_t _filePos = 0;
-    uint32_t _bink = 0, _buffer = 0;
-    int _width = 0, _height = 0;
+    uint32_t _bink = 0;
+    uint32_t _buffer = 0;
+    int _width = 0;
+    int _height = 0;
 };
 
 } // namespace reluva::awe

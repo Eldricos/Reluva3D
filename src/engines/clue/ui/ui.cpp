@@ -9,13 +9,15 @@ namespace reluva::clue {
 
 namespace {
 
-constexpr int kScreenWidth = 640, kScreenHeight = 480;
+constexpr int kScreenWidth = 640;
+constexpr int kScreenHeight = 480;
 
 // An image of the interface: an animation's frame (its first layer) or,
 // for names of images ("menu:IprefsKnob"), the image itself.
 struct Picture {
     const Image *image = nullptr;
-    int dx = 0, dy = 0;
+    int dx = 0;
+    int dy = 0;
     int frames = 0;
 };
 

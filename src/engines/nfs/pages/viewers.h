@@ -100,7 +100,10 @@ public:
 private:
     std::string _gameName;
     GameFolders _folders;
-    std::vector<std::string> _tracks, _cars, _music, _movies;
+    std::vector<std::string> _tracks;
+    std::vector<std::string> _cars;
+    std::vector<std::string> _music;
+    std::vector<std::string> _movies;
 };
 
 // Every picture in every .fsh/.qfs, loose or in a .viv.
@@ -120,7 +123,8 @@ private:
 
     const GameFiles &_files;
     std::vector<FileRef> _banks;
-    int _bank = -1, _shape = 0;
+    int _bank = -1;
+    int _shape = 0;
     ShapeBank _loaded;
     std::string _error;
     image::Image _image;
@@ -150,11 +154,18 @@ private:
     std::vector<FileRef> _dashes;
     int _index = -1;
     std::string _error;
-    image::Image _dash, _wheel;
-    int _wheelX = 0, _wheelY = 0;           // where the wheel's pivot goes
-    int _wheelPivotX = 0, _wheelPivotY = 0; // in the wheel's picture
+    image::Image _dash;
+    image::Image _wheel;
+    // where the wheel's pivot goes
+    int _wheelX = 0;
+    int _wheelY = 0;
+    // in the wheel's picture
+    int _wheelPivotX = 0;
+    int _wheelPivotY = 0;
     std::array<image::Image, std::size(kGearPictures)> _gears;
-    int _gearX = 0, _gearY = 0; // the gear indicator's top left
+    // the gear indicator's top left
+    int _gearX = 0;
+    int _gearY = 0;
     bool _haveGauges = false;
     Cockpit _cockpit;
     float _position = 0; // 0-1 of each gauge's range
@@ -181,7 +192,8 @@ private:
 
     const GameFiles &_files;
     std::vector<FileRef> _tables;
-    int _table = -1, _top = 0;
+    int _table = -1;
+    int _top = 0;
     TextTable _loaded;
     std::string _error;
     std::optional<Font> _font; // arial10b.ffn, if it reads
@@ -240,7 +252,8 @@ private:
     std::string _unavailable; // why there's no 3D
     Surface _overlay;
     Model _model;
-    std::string _error, _skinName;
+    std::string _error;
+    std::string _skinName;
     gfx::MeshId _mesh = 0;
     gfx::TextureId _skin = 0;
     // A Render/pc model's pages (its .art), and each part's runs of
@@ -248,8 +261,12 @@ private:
     // indices each.
     std::vector<gfx::TextureId> _pages;
     struct Run {
-        uint32_t firstIndex = 0, indexCount = 0, page = 0;
-        bool twoSided = false, unlit = false, strong = false;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
+        uint32_t page = 0;
+        bool twoSided = false;
+        bool unlit = false;
+        bool strong = false;
     };
     std::vector<std::vector<Run>> _runs;
     // The reflection (0x49db70, 0x43400f): the triangles without
@@ -265,9 +282,16 @@ private:
     void loadSkies();
     std::vector<int> _partLevels; // 0 high, 1 medium, 2 small, 3 tiny
     int _level = 0;               // 0-3, or 4 for all
-    bool _textures = true, _cullBack = true, _spin = false, _dragging = false;
-    float _yaw = 0, _pitch = 0, _distance = 5, _radius = 2;
-    int _lastX = 0, _lastY = 0;
+    bool _textures = true;
+    bool _cullBack = true;
+    bool _spin = false;
+    bool _dragging = false;
+    float _yaw = 0;
+    float _pitch = 0;
+    float _distance = 5;
+    float _radius = 2;
+    int _lastX = 0;
+    int _lastY = 0;
     uint64_t _lastMs = 0;
 };
 
@@ -308,7 +332,8 @@ private:
     // each, one per picture.
     struct Batch {
         gfx::TextureId texture = 0;
-        uint32_t firstIndex = 0, indexCount = 0;
+        uint32_t firstIndex = 0;
+        uint32_t indexCount = 0;
         bool additive = false;
         bool twoSided = false;   // polygon flag 0x10: never culled
         bool seeThrough = false; // texture flag 0x02: added in half grey at half alpha
@@ -329,7 +354,9 @@ private:
         std::vector<Track::ExtraObject::Key> keys;
         int keyDelay = 0;
         std::vector<Batch> batches;
-        size_t group = 0, object = 0; // in track_.extraObjects
+        // in track_.extraObjects
+        size_t group = 0;
+        size_t object = 0;
     };
     // Animated polygons of one kind with the same delay and frame count:
     // a copy of each for every frame, which drawing picks by the tick.
@@ -399,18 +426,27 @@ private:
     void updateHorizon(const gfx::Vec3 &forward);
     int roadSliceAt() const; // the virtual road's slice nearest the camera
     // The sun (or moon) and the clouds, ranges of the sky mesh's indices.
-    gfx::TextureId _sunPicture = 0, _cloudPicture = 0;
-    uint32_t _sunFirst = 0, _sunIndices = 0, _cloudFirst = 0, _cloudIndices = 0;
-    bool _sunAdditive = true, _sunInFront = false;
+    gfx::TextureId _sunPicture = 0;
+    gfx::TextureId _cloudPicture = 0;
+    uint32_t _sunFirst = 0;
+    uint32_t _sunIndices = 0;
+    uint32_t _cloudFirst = 0;
+    uint32_t _cloudIndices = 0;
+    bool _sunAdditive = true;
+    bool _sunInFront = false;
     // The sky mesh's vertices, kept to change as it goes: the sun turning
     // (ROTATE), the clouds lit by lightning.
     std::vector<gfx::Vertex> _skyVertices;
     std::vector<float> _skyHeights; // their heights as made, over the world's 0
     float _skyEyeY = 0;             // the camera's height they were last moved by
-    uint32_t _sunVertex = 0, _cloudVertex = 0;
+    uint32_t _sunVertex = 0;
+    uint32_t _cloudVertex = 0;
     std::array<uint8_t, kCloudPoints * kCloudPoints> _cloudBase{};
-    gfx::Vec3 _sunCentre{}, _sunRight{}, _sunUp{};
-    bool _sunRotate = false, _skyChanged = false;
+    gfx::Vec3 _sunCentre{};
+    gfx::Vec3 _sunRight{};
+    gfx::Vec3 _sunUp{};
+    bool _sunRotate = false;
+    bool _skyChanged = false;
     // Lightning, ticked at the game's rate, and its bolts' mesh (thin
     // quads, rebuilt each frame).
     std::vector<LightningBolt> _bolts;
@@ -452,7 +488,9 @@ private:
     // Each light as 0x491190 draws it (lightQuads): glw0 at a fixed size
     // on the screen, fading with the depth, and glw3 in perspective.
     void drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &up);
-    gfx::TextureId _glow1Picture = 0, _glow4Picture = 0; // sfx.fsh glw1 (the fog's beams), glw4 (the rain's flares)
+    // sfx.fsh glw1 (the fog's beams), glw4 (the rain's flares)
+    gfx::TextureId _glow1Picture = 0;
+    gfx::TextureId _glow4Picture = 0;
     int _sfxLevel = 0; // Q: the Special Effects option (0x6fbc30): 0 High, 1 Low, 2 Off
     // The track's placed sounds (tr3dNN.bnk of the variant), as the game
     // plays them (frd.md, Sounds): one loop at a time, one-shots at random.
@@ -472,7 +510,8 @@ private:
     // SPnn (SNnn at night) pictures.
     ParticleSystem _particles;
     ParticleRandom _particleRandom;
-    uint64_t _particleTick = 0, _particleStartMs = 0;
+    uint64_t _particleTick = 0;
+    uint64_t _particleStartMs = 0;
     bool _particlesHeld = false;       // RELUVA_NFS_TRACK_PARTICLES: a dump's, held as it has them
     std::vector<WallHit> _pendingHits; // made at the next tick
     std::string _hitText;
@@ -483,7 +522,9 @@ private:
     struct ParticleRun {
         gfx::TextureId texture = 0;
         bool added = false;
-        uint32_t first = 0, count = 0; // quads
+        // quads
+        uint32_t first = 0;
+        uint32_t count = 0;
     };
     std::vector<ParticleRun> _particleRuns;
     // Mud and water on the lens (particles.h, SplatScreen): particles of
@@ -502,7 +543,9 @@ private:
     bool _weatherStarted = false;
     int _weatherActive = 0;
     gfx::MeshId _weatherMesh = 0;
-    uint32_t _weatherDrops = 0, _weatherSplashes = 0; // quads this frame: the drops', then the splashes'
+    // quads this frame: the drops', then the splashes'
+    uint32_t _weatherDrops = 0;
+    uint32_t _weatherSplashes = 0;
     // The camera has just been moved (0x552ff4: the weather's drops put
     // back round it, 0x4dd230, and the streaks' tails forgotten, 0x4dd510).
     bool _cameraCut = false;
@@ -514,7 +557,8 @@ private:
         SoundBank bank;
         std::map<int, std::shared_ptr<audio::Sound>> decoded;
     };
-    EffectBank _rainSounds, _hitSounds;
+    EffectBank _rainSounds;
+    EffectBank _hitSounds;
     ParticleRandom _effectSoundRandom;
     int _hitSoundLast = 0; // 0x552d80
     void loadEffectBank(EffectBank &b, const std::vector<std::string> &names);
@@ -555,8 +599,13 @@ private:
     // Each car's view depths this frame (prepareCars): the box's mean (its
     // sort depth, +0x8B8) and nearest corner, and its box's screen bounds.
     struct CarSort {
-        float mean = 0, nearest = 0;
-        float x0 = 0, y0 = 0, x1 = 0, y1 = 0; // in the camera's x / z and y / z
+        float mean = 0;
+        float nearest = 0;
+        // in the camera's x / z and y / z
+        float x0 = 0;
+        float y0 = 0;
+        float x1 = 0;
+        float y1 = 0;
     };
     std::vector<CarSort> _carSort;
     bool _lightTest = true; // Ctrl+E: the game's test of each block against each light (0x41bf30)
@@ -565,9 +614,11 @@ private:
     gfx::TextureId _headlightPicture = 0; // owned by textures_
     struct LightRun {
         gfx::TextureId texture = 0;
-        bool picture = false;          // the projected picture, else a texture's colour floor
-        uint32_t first = 0, count = 0; // indices
-        bool twoSided = false;         // polygons with flag 0x10, not culled
+        bool picture = false; // the projected picture, else a texture's colour floor
+        // indices
+        uint32_t first = 0;
+        uint32_t count = 0;
+        bool twoSided = false; // polygons with flag 0x10, not culled
     };
     std::vector<LightRun> _lightRuns;
     void prepareHeadlights(int here, const gfx::Vec3 &eye, const gfx::Vec3 &forward);
@@ -592,9 +643,15 @@ private:
         std::vector<gfx::Vertex> vertices;
         std::vector<std::array<float, 3>> normals;
         struct Detail {
-            uint32_t first = 0, body = 0, lights = 0; // vertices: from first, the body's, then the lights'
-            uint32_t depthPart = 0;                   // the first body part's (its nearest corner is the glows' depth)
-            uint32_t envFirst = 0, envBody = 0, envLights = 0; // the same in envFrom
+            // vertices: from first, the body's, then the lights'
+            uint32_t first = 0;
+            uint32_t body = 0;
+            uint32_t lights = 0;
+            uint32_t depthPart = 0; // the first body part's (its nearest corner is the glows' depth)
+            // the same in envFrom
+            uint32_t envFirst = 0;
+            uint32_t envBody = 0;
+            uint32_t envLights = 0;
         };
         std::array<Detail, 4> details{};
         gfx::TextureId skin = 0; // owned by textures_
@@ -640,7 +697,10 @@ private:
         AiCar ai;           // the computer's driving (aiStep)
         int beamScroll = 0; // +0x944: the fog beams' picture, moved by the speed
         // This frame, in track coordinates: the position (+0x98) and rows.
-        std::array<float, 3> at{}, right{}, up{}, forward{};
+        std::array<float, 3> at{};
+        std::array<float, 3> right{};
+        std::array<float, 3> up{};
+        std::array<float, 3> forward{};
         uint32_t colour = 0xff7f7f7f; // its shading (carShadeColour, carLitBy)
         size_t paint = 0;             // its model's primary colour (+0x8A8 in a dump)
         int paintValue = -1;          // +0x8B0 as a dump has it; else the paint's
@@ -648,7 +708,9 @@ private:
         // cop_officer_place 0x401c20): where he stands on the road (+0x910)
         // and his rows (+0x8EC: right, up, forward).
         bool dumpedOfficer = false;
-        std::array<float, 3> officerAt{}, officerRight{1, 0, 0}, officerForward{0, 0, 1};
+        std::array<float, 3> officerAt{};
+        std::array<float, 3> officerRight{1, 0, 0};
+        std::array<float, 3> officerForward{0, 0, 1};
         // From a dump, held as it has them: each wheel's skid level
         // (wheelSkidLevel), the velocity (+0xA4), the wheels' road points
         // and surfaces and the weather, for the tyres' smoke (wheelSmokes).
@@ -658,9 +720,12 @@ private:
         std::array<int, 4> wheelSurface{};
         int weather = 0;
         CarSmoke smoke; // a hit's smoke (+0x8D4, +0x8D8: car_smoke_tick)
-        gfx::MeshId mesh = 0, envMesh = 0;
+        gfx::MeshId mesh = 0;
+        gfx::MeshId envMesh = 0;
     };
-    bool _computerCars = false, _carsMoving = true, _reflections = true;
+    bool _computerCars = false;
+    bool _carsMoving = true;
+    bool _reflections = true;
     float _aiTime = 0; // seconds not yet stepped
     int _aiStep = 0;   // the cars' steps, the game's step count for them
     // The race's laps for the computer racers (0x6fd4b4; 0: none, they race
@@ -669,12 +734,20 @@ private:
     void gridCars();
     gfx::TextureId _envPicture = 0; // sky.fsh's sphere map of the variant (CHRD, CHRN, CHRW, CHNW)
     std::vector<ComputerCar> _cars;
-    std::vector<uint8_t> _speedsForward, _speedsBackward; // speedsF.bin, speedsR.bin
+    // speedsF.bin, speedsR.bin
+    std::vector<uint8_t> _speedsForward;
+    std::vector<uint8_t> _speedsBackward;
     std::string _carError;
     gfx::TextureId _glow3Picture = 0; // sfx.fsh glw3, the cars' glows; owned by textures_
-    gfx::MeshId _carGlowMesh = 0, _carFlareMesh = 0, _carBeamMesh = 0;
-    uint32_t _carGlowQuads = 0, _carGlowCapacity = 0, _carFlareQuads = 0, _carFlareCapacity = 0, _carBeamQuads = 0,
-             _carBeamCapacity = 0;
+    gfx::MeshId _carGlowMesh = 0;
+    gfx::MeshId _carFlareMesh = 0;
+    gfx::MeshId _carBeamMesh = 0;
+    uint32_t _carGlowQuads = 0;
+    uint32_t _carGlowCapacity = 0;
+    uint32_t _carFlareQuads = 0;
+    uint32_t _carFlareCapacity = 0;
+    uint32_t _carBeamQuads = 0;
+    uint32_t _carBeamCapacity = 0;
     // Quads (4 vertices each) into a mesh of indexed quads, grown as
     // needed; the count drawn.
     uint32_t uploadQuads(std::vector<gfx::Vertex> &quads, gfx::MeshId &mesh, uint32_t &capacity);
@@ -688,7 +761,10 @@ private:
     // camera's, which may be in the cockpit or behind it).
     struct HumanPose {
         bool set = false;
-        std::array<float, 3> at{}, right{}, up{}, forward{};
+        std::array<float, 3> at{};
+        std::array<float, 3> right{};
+        std::array<float, 3> up{};
+        std::array<float, 3> forward{};
         float halfLength = 0;
     };
     HumanPose _humanPose;
@@ -701,7 +777,8 @@ private:
     int _dispatchNext = 0;
     // Shift+C: the camera behind the police car last given an order (or the
     // first), following it (-1 not).
-    int _followCop = -1, _orderedCop = -1;
+    int _followCop = -1;
+    int _orderedCop = -1;
     gfx::MeshId _stripMesh = 0;
     // The officer on foot (draw_officer 0x4b9bc0): the track's cop model
     // (0x4b7c60: Render/pc/cop0 on tracks 0 and 4, cop2 on 2 and 6, cop3 on
@@ -709,7 +786,8 @@ private:
     // of triangles a page; its half height (+0x2C).
     struct OfficerRun {
         gfx::TextureId texture = 0; // owned by textures_
-        uint32_t first = 0, count = 0;
+        uint32_t first = 0;
+        uint32_t count = 0;
     };
     gfx::MeshId _officerMesh = 0;
     std::vector<OfficerRun> _officerRuns;
@@ -728,17 +806,22 @@ private:
     // lights on the racer).
     struct OfficerShown {
         bool shown = false;
-        std::array<float, 3> at{}, right{1, 0, 0}, forward{0, 0, 1}; // track coordinates, the model's origin
+        // track coordinates, the model's origin
+        std::array<float, 3> at{};
+        std::array<float, 3> right{1, 0, 0};
+        std::array<float, 3> forward{0, 0, 1};
         uint32_t colour = 0xff7f7f7f;
     };
     OfficerShown _officer;
     void loadOfficer();
     void drawOfficers(const gfx::DrawCall &base);
-    uint32_t _stripQuads = 0, _stripCapacity = 0;
+    uint32_t _stripQuads = 0;
+    uint32_t _stripCapacity = 0;
     // The cars' shadows (0x4b81a0, carShadowQuad): sfx.fsh's shad in
     // 0x6FFFFFFF, one quad a car, blended by source alpha.
     gfx::MeshId _shadowMesh = 0;
-    uint32_t _shadowQuads = 0, _shadowCapacity = 0;
+    uint32_t _shadowQuads = 0;
+    uint32_t _shadowCapacity = 0;
     gfx::TextureId _shadowPicture = 0; // owned by textures_
     void drawShadows(const gfx::DrawCall &base);
     void carRows(ComputerCar &car) const;
@@ -769,14 +852,24 @@ private:
     long long _fixedStep = -1; // RELUVA_NFS_TRACK_STEP: the moving objects at that game step
     bool _mirrored = false;    // U: the mirrored track (0x6fd4c4), with set 1
     int _variant = 0;
-    int _detail = 3, _textureSet = 0, _block = 0; // detail 3: by distance, as the game
-    bool _allBlocks = false;                      // K: every block at once, not the game's view
-    bool _textured = true, _vertexLight = true, _lanes = true, _objects = true, _cullBack = true, _walls = false;
+    // detail 3: by distance, as the game
+    int _detail = 3;
+    int _textureSet = 0;
+    int _block = 0;
+    bool _allBlocks = false; // K: every block at once, not the game's view
+    bool _textured = true;
+    bool _vertexLight = true;
+    bool _lanes = true;
+    bool _objects = true;
+    bool _cullBack = true;
+    bool _walls = false;
     std::set<uint32_t> _held;
     bool _dragging = false;
-    int _lastX = 0, _lastY = 0;
+    int _lastX = 0;
+    int _lastY = 0;
     std::array<float, 3> _eye{};
-    float _yaw = 0, _pitch = 0;
+    float _yaw = 0;
+    float _pitch = 0;
     uint64_t _lastMs = 0;
 };
 
@@ -810,7 +903,8 @@ private:
     SoundBank _loaded;
     std::vector<int> _sounds; // the bank's slots that hold a sound
     int _sound = 0;
-    std::string _error, _soundError;
+    std::string _error;
+    std::string _soundError;
     std::shared_ptr<audio::Sound> _decoded;
     audio::SoundHandle _playing = audio::kNoSound;
     bool _autoPlay = true;
@@ -818,7 +912,10 @@ private:
     // Engines, played as the game plays them (bnk.md): at key 60, bent by
     // the revs, with the car's revs from its carp.txt when the bank has one
     // beside it (else the bend is chosen directly).
-    int _bend = 64, _rpm = 0, _minRpm = 0, _redline = 0;
+    int _bend = 64;
+    int _rpm = 0;
+    int _minRpm = 0;
+    int _redline = 0;
     bool engine() const;            // the selected sound has a bend range (0x0A)
     double rate() const;            // the rate to play it at, of its own
     std::string engineText() const; // the revs, bend and pitch, for the header
@@ -853,9 +950,13 @@ private:
     std::vector<FileRef> _streams;
     int _stream = -1;
     MusicStream _loaded;
-    MusicMap _map, _linear;
-    bool _haveMap = false, _haveLinear = false, _useLinear = false;
-    std::string _error, _mapError;
+    MusicMap _map;
+    MusicMap _linear;
+    bool _haveMap = false;
+    bool _haveLinear = false;
+    bool _useLinear = false;
+    std::string _error;
+    std::string _mapError;
     int _intensity = 50;
     int _pendingEvent = -1; // an event (0-9 keys) for the next section, as the game's SNDpathevent
     int _section = -1;      // playing
@@ -908,7 +1009,8 @@ private:
     // The clock: the audio's position while it plays, else time since
     // startMs_ from startFrame_.
     int _startFrame = 0;
-    uint64_t _startMs = 0, _nowMs = 0;
+    uint64_t _startMs = 0;
+    uint64_t _nowMs = 0;
     audio::SoundHandle _playing = audio::kNoSound;
 };
 

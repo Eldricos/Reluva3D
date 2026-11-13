@@ -30,9 +30,14 @@ enum ShapeType : uint8_t {
 struct Shape {
     std::string name; // 4 characters in the bank's directory
     uint8_t type = 0;
-    int width = 0, height = 0;
-    int centerX = 0, centerY = 0;   // the picture's centre or hot spot (may be negative)
-    int x = 0, y = 0;               // where it's placed on screen (may be negative)
+    int width = 0;
+    int height = 0;
+    // the picture's centre or hot spot (may be negative)
+    int centerX = 0;
+    int centerY = 0;
+    // where it's placed on screen (may be negative)
+    int x = 0;
+    int y = 0;
     std::vector<uint8_t> pixels;    // as stored: width * height pixels, rows top to bottom
     std::vector<uint8_t> palette;   // for 8-bit shapes: RGBA per colour
     std::vector<std::string> texts; // attached text (render hints such as "<additive>")
@@ -66,18 +71,27 @@ Error decodeForGlide(const Shape &shape, image::Image &out, bool fourFour = fals
 // A cockpit picture's gauges, from its 0x7C block (fsh.md, Gauges): in
 // the 640x480 frame of dash.qfs's picture 0000.
 struct Gauge {
-    float centerX = 0, centerY = 0;
-    float hub = 0;           // the needle starts this far from the centre
-    bool kmh = false;        // the speedometer's units: km/h, or mph
-    float low = 0, high = 0; // the readings at p0 and p1 (rpm in thousands)
-    float p0x = 0, p0y = 0, p1x = 0, p1y = 0;
+    float centerX = 0;
+    float centerY = 0;
+    float hub = 0;    // the needle starts this far from the centre
+    bool kmh = false; // the speedometer's units: km/h, or mph
+    // the readings at p0 and p1 (rpm in thousands)
+    float low = 0;
+    float high = 0;
+    float p0x = 0;
+    float p0y = 0;
+    float p1x = 0;
+    float p1y = 0;
     // A gauge whose two points are the same isn't drawn.
     bool shown() const { return p0x != p1x || p0y != p1y; }
 };
 struct Cockpit {
-    int colorX = 0, colorY = 0; // a pixel of the picture in the needles' colour
-    float width = 0;            // a needle's width at its base; the tip is half
-    Gauge speedometer, tachometer;
+    // a pixel of the picture in the needles' colour
+    int colorX = 0;
+    int colorY = 0;
+    float width = 0; // a needle's width at its base; the tip is half
+    Gauge speedometer;
+    Gauge tachometer;
 };
 // False when the shape has no gauges block, or a short one.
 bool readCockpit(const Shape &shape, Cockpit &out);
@@ -89,7 +103,8 @@ bool readCockpit(const Shape &shape, Cockpit &out);
 // distances. Readings past the range turn on past p0 or p1; the game
 // doesn't clamp them.
 struct Needle {
-    float x[4] = {}, y[4] = {};
+    float x[4] = {};
+    float y[4] = {};
 };
 Needle needle(const Gauge &gauge, float width, float reading);
 

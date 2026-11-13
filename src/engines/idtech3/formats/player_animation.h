@@ -16,7 +16,8 @@ struct PlayerAnimation {
     enum class Part { kBoth, kTorso, kLegs } part = Part::kBoth;
     // Frames in the part's own model: the legs model has no torso
     // frames, so its animations start that many earlier than the file says.
-    int first = 0, count = 1;
+    int first = 0;
+    int count = 1;
     int loop = 0; // the last this many frames repeat once played through; 0: it stops on its last
     float fps = 10;
 

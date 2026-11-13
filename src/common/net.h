@@ -96,7 +96,9 @@ public:
     // waiting, and whether it has failed (a connect refused); waits up to
     // `timeoutMs` for any of those (0: not at all).
     struct Ready {
-        bool read = false, write = false, failed = false;
+        bool read = false;
+        bool write = false;
+        bool failed = false;
     };
     virtual Ready ready(int s, int timeoutMs = 0) = 0;
     // The machine's name, and a name's address (false if not found).

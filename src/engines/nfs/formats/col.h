@@ -19,9 +19,14 @@ struct TrackCollision {
 
     // A point along the road, about eight per track block.
     struct RoadPoint {
-        Vec3 position{};                   // 16.16 fixed point in the file
-        Vec3 normal{}, forward{}, right{}; // unit vectors (signed bytes / 127)
-        float leftWall = 0, rightWall = 0; // distances from the point, along right
+        Vec3 position{}; // 16.16 fixed point in the file
+        // unit vectors (signed bytes / 127)
+        Vec3 normal{};
+        Vec3 forward{};
+        Vec3 right{};
+        // distances from the point, along right
+        float leftWall = 0;
+        float rightWall = 0;
         uint32_t unknown = 0;
         std::array<uint8_t, 3> extra{}; // the vectors' fourth bytes
 
@@ -60,8 +65,10 @@ struct TrackCollision {
 
     std::vector<std::array<uint8_t, 8>> textures; // xbid 2, not decoded yet
     std::vector<Structure> structures;            // xbid 8
-    std::vector<Object> objects, objects2;        // xbid 7 and 18
-    std::vector<RoadPoint> road;                  // xbid 15
+    // xbid 7 and 18
+    std::vector<Object> objects;
+    std::vector<Object> objects2;
+    std::vector<RoadPoint> road; // xbid 15
 };
 
 Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out);

@@ -25,7 +25,12 @@ namespace {
 // The properties in effect for a shape: its own, or the nearest
 // ancestor's, by class.
 struct Inherited {
-    uint32_t texture = 0, multiTexture = 0, material = 0, alpha = 0, vertexColor = 0, zBuffer = 0;
+    uint32_t texture = 0;
+    uint32_t multiTexture = 0;
+    uint32_t material = 0;
+    uint32_t alpha = 0;
+    uint32_t vertexColor = 0;
+    uint32_t zBuffer = 0;
 };
 
 // An object's placement from its parts: translation, then rotation (row by
@@ -258,7 +263,8 @@ gfx::Mat4 localMatrix(const FinAvObject &o) {
     return placement(o.translation, o.rotation, o.scale);
 }
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 
 // A billboard node's placement turned so its +Z axis points at the camera,
 // with +Y as near the world's up (+Z) as that allows; its position and
@@ -306,18 +312,26 @@ struct ModelPage::Item {
     mutable size_t image = 0; // the flip-book's, kept while a clip doesn't move it
     std::string lightmap;
     uint32_t material = 0;
-    std::array<float, 4> baseColor{1, 1, 1, 1}, color{1, 1, 1, 1};
-    bool vertexColors = false, lit = false;
-    bool blend = false, additive = false;
+    std::array<float, 4> baseColor{1, 1, 1, 1};
+    std::array<float, 4> color{1, 1, 1, 1};
+    bool vertexColors = false;
+    bool lit = false;
+    bool blend = false;
+    bool additive = false;
     bool backdrop = false; // under a level's "Exterior" node: its sky
     // Under an NiBillboardNode (or a glow, itself one): drawn at billboardAt
     // turned to face the camera, then `rel` (the placement below it).
     bool billboard = false;
-    gfx::Mat4 billboardAt = gfx::identity(), rel = gfx::identity();
-    gfx::Blend src = gfx::Blend::kOne, dst = gfx::Blend::kZero;
+    gfx::Mat4 billboardAt = gfx::identity();
+    gfx::Mat4 rel = gfx::identity();
+    gfx::Blend src = gfx::Blend::kOne;
+    gfx::Blend dst = gfx::Blend::kZero;
     // Depth test and write: on, unless an NiZBufferProperty turns them off.
-    bool depthTest = true, depthWrite = true;
-    gfx::Vec3 localCentre{}, centre{}; // of its vertices; in the world, for sorting what blends
+    bool depthTest = true;
+    bool depthWrite = true;
+    // of its vertices; in the world, for sorting what blends
+    gfx::Vec3 localCentre{};
+    gfx::Vec3 centre{};
 };
 
 ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
@@ -642,7 +656,8 @@ void ModelPage::walk(float ticks, bool create) {
     };
     struct Billboard {
         bool on = false;
-        gfx::Mat4 at = gfx::identity(), rel = gfx::identity();
+        gfx::Mat4 at = gfx::identity();
+        gfx::Mat4 rel = gfx::identity();
     };
 
     // The item for shape `id`: made from `s` and its properties the first
@@ -1185,10 +1200,18 @@ void ModelPage::update(uint64_t nowMs) {
     // L when attenuated, as 1 / (a L + b L^3); a spot reaches only within
     // its cone, fading to its edge.
     struct SceneLight {
-        gfx::Vec3 position{}, direction{}, color{};
-        bool directional = false, attenuated = false, spot = false;
-        float linear = 0, cubic = 0; // a and b
-        float cos2 = 0, sin2 = 1;    // a spot's angle's cosine and sine, squared
+        gfx::Vec3 position{};
+        gfx::Vec3 direction{};
+        gfx::Vec3 color{};
+        bool directional = false;
+        bool attenuated = false;
+        bool spot = false;
+        // a and b
+        float linear = 0;
+        float cubic = 0;
+        // a spot's angle's cosine and sine, squared
+        float cos2 = 0;
+        float sin2 = 1;
     };
     std::vector<SceneLight> sceneLights;
     gfx::Vec3 sceneAmbient{};

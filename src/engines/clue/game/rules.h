@@ -34,7 +34,9 @@ constexpr int roomCard(int r) {
 
 // Who, with what, where: the case file, a suggestion or an accusation.
 struct Accusation {
-    int suspect = 0, weapon = 0, room = 0;
+    int suspect = 0;
+    int weapon = 0;
+    int room = 0;
     bool has(int card) const {
         return card == suspectCard(suspect) || card == weaponCard(weapon) || card == roomCard(room);
     }
@@ -87,7 +89,9 @@ public:
         kSuggested, // the suggestion answered: accuse, end
         kOver,
     };
-    static constexpr int kMovesPerTurn = 9, kActionCost = 3; // No Die Roll's
+    // No Die Roll's
+    static constexpr int kMovesPerTurn = 9;
+    static constexpr int kActionCost = 3;
 
     struct Seat {
         bool playing = false;
@@ -180,12 +184,14 @@ private:
     Rng _rng;
     int _turn = 0;
     Phase _phase = Phase::kOver;
-    int _roll = 0, _moves = 0;
+    int _roll = 0;
+    int _moves = 0;
     int _startRoom = kNoRoom; // the room the player started the turn in
     bool _enteredRoom = false;
     bool _suggestedThisTurn = false;
     Accusation _suggestion;
-    int _disprover = -1, _shown = -1;
+    int _disprover = -1;
+    int _shown = -1;
     std::vector<int> _passed;
     int _winner = -1;
 };

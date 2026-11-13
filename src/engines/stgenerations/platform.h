@@ -153,7 +153,8 @@ private:
 
     // The game's pointer, as it gave it, and shown or not.
     Canvas _cursorImage;
-    int _cursorHotX = 0, _cursorHotY = 0;
+    int _cursorHotX = 0;
+    int _cursorHotY = 0;
     uint32_t _cursorKey = 0;
     bool _cursorSet = false;
     bool _mouseVisible = true;
