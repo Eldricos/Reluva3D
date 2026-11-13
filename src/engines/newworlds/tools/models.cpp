@@ -313,7 +313,7 @@ int cmdGeoSheet(int argc, char **argv) {
             const bool variant =
                 stem.size() > 2 && (stem.ends_with("_d") || stem.ends_with("_l") || stem.ends_with("_s") ||
                                     stem.ends_with("_p") || (stem.ends_with("d") && stem[stem.size() - 3] == '_'));
-            if (e.tag == nw::cattag::Geometry && e.name.find("/lod/") == std::string::npos && !variant &&
+            if (e.tag == nw::cattag::kGeometry && e.name.find("/lod/") == std::string::npos && !variant &&
                 e.name.find(filter) != std::string::npos)
                 names.push_back(e.name);
         }
@@ -390,7 +390,7 @@ int cmdGeoTextures(int argc, char **argv) {
     std::vector<uint8_t> data;
     for (const auto &cat : archives)
         for (const auto &e : cat->entries()) {
-            if (e.tag != nw::cattag::Geometry)
+            if (e.tag != nw::cattag::kGeometry)
                 continue;
             ++models;
             // How many textures the faces number: the highest number + 1.
@@ -453,7 +453,7 @@ int cmdGeoSurvey(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Geometry || cat.read(e, d))
+            if (e.tag != reluva::newworlds::cattag::kGeometry || cat.read(e, d))
                 continue;
             ++total;
             reluva::newworlds::GeoModel m;
@@ -515,7 +515,7 @@ int cmdMdlInfo(int argc, char **argv) {
         unsigned failed = 0;
         std::vector<uint8_t> data;
         for (const auto &e : cat.entries()) {
-            if (e.tag != nw::cattag::Mdl)
+            if (e.tag != nw::cattag::kMdl)
                 continue;
             ++count;
             nw::MdlModel m;
@@ -568,7 +568,7 @@ int cmdMdlInfo(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "newworlds",
     {
         {"geo-info", "<file.geo> [out.obj]", "decode a model; optionally export it as OBJ", cmdGeoInfo},

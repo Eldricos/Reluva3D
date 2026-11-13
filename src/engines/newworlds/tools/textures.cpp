@@ -179,7 +179,7 @@ int cmdTexSurvey(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Texture)
+            if (e.tag != reluva::newworlds::cattag::kTexture)
                 continue;
             if (cat.read(e, data))
                 continue;
@@ -268,7 +268,7 @@ int cmdTexKeys(int argc, char **argv) {
             return 1;
         }
         for (const auto &e : cat.entries()) {
-            if (e.tag != reluva::newworlds::cattag::Texture || cat.read(e, d))
+            if (e.tag != reluva::newworlds::cattag::kTexture || cat.read(e, d))
                 continue;
             reluva::newworlds::Texture tex;
             if (reluva::newworlds::decodeTexture(d, tex) || !tex.colourKeyed)
@@ -329,7 +329,7 @@ int cmdGroundTextures(int argc, char **argv) {
         std::string ext;
         nw::splitName(e.name, folder, stem, ext);
         static const char *const kScenery[] = {"tree", "tree_s", "rock", "frn_spec", "bush"};
-        if (e.tag != nw::cattag::Geometry || e.name.find("/map/") == std::string::npos ||
+        if (e.tag != nw::cattag::kGeometry || e.name.find("/map/") == std::string::npos ||
             e.name.find("/lod/") != std::string::npos ||
             std::any_of(std::begin(kScenery), std::end(kScenery), [&](const char *n) { return stem == n; }))
             continue;
@@ -339,7 +339,7 @@ int cmdGroundTextures(int argc, char **argv) {
             std::string ts;
             std::string te;
             nw::splitName(t.name, tf, ts, te);
-            if (t.tag == nw::cattag::Texture && tf == folder && (te == "mp0" || te == "lbp"))
+            if (t.tag == nw::cattag::kTexture && tf == folder && (te == "mp0" || te == "lbp"))
                 planet.push_back(ts);
         }
         nw::GeoModel m;
@@ -361,16 +361,16 @@ int cmdGroundTextures(int argc, char **argv) {
 }
 
 const Commands
-    commands("newworlds",
-             {
-                 {"lbp-info", "<file> [output prefix]",
-                  "decode a texture, show its key and colours, write <out>.bmp and <out>_alpha.bmp", cmdLbpInfo},
-                 {"tex-survey", "<file.cat>...", "group every texture by header layout", cmdTexSurvey},
-                 {"tex-keys", "<file.cat>...", "compare each colour key with the image corners", cmdTexKeys},
-                 {"ground-textures", "<planet.cat>",
-                  "show the textures the map viewer gives each ground tile model's slots, with each slot's face "
-                  "count",
-                  cmdGroundTextures},
-             });
+    kCommands("newworlds",
+              {
+                  {"lbp-info", "<file> [output prefix]",
+                   "decode a texture, show its key and colours, write <out>.bmp and <out>_alpha.bmp", cmdLbpInfo},
+                  {"tex-survey", "<file.cat>...", "group every texture by header layout", cmdTexSurvey},
+                  {"tex-keys", "<file.cat>...", "compare each colour key with the image corners", cmdTexKeys},
+                  {"ground-textures", "<planet.cat>",
+                   "show the textures the map viewer gives each ground tile model's slots, with each slot's face "
+                   "count",
+                   cmdGroundTextures},
+              });
 
 } // namespace

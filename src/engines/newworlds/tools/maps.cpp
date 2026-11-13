@@ -53,7 +53,7 @@ int cmdLevelInfo(int argc, char **argv) {
             continue;
         }
         for (const auto &e : cat.entries())
-            if (e.tag == nw::cattag::Gmf)
+            if (e.tag == nw::cattag::kGmf)
                 maps.emplace_back(e.name, std::filesystem::path(argv[a]).filename().string());
     }
     for (const auto &l : levels) {
@@ -295,9 +295,9 @@ int cmdGmfFit(int argc, char **argv) {
     std::vector<const nw::CatEntry *> geoEntries;
     std::vector<const nw::CatEntry *> maps;
     for (const auto &e : cat.entries()) {
-        if (e.tag == nw::cattag::Geometry)
+        if (e.tag == nw::cattag::kGeometry)
             geoNames.push_back(e.name), geoEntries.push_back(&e);
-        if (e.tag == nw::cattag::Gmf && (argc < 4 || e.name.find(argv[3]) != std::string::npos))
+        if (e.tag == nw::cattag::kGmf && (argc < 4 || e.name.find(argv[3]) != std::string::npos))
             maps.push_back(&e);
     }
     // -a: number the models in plain archive order instead; -o file: the
@@ -809,7 +809,7 @@ int cmdGmfDump(int argc, char **argv) {
     }
     std::vector<std::string> geoNames;
     for (const auto &e : cat.entries())
-        if (e.tag == nw::cattag::Geometry)
+        if (e.tag == nw::cattag::kGeometry)
             geoNames.push_back(e.name);
     const std::vector<size_t> order = nw::tileModelOrder(geoNames);
     const std::filesystem::path out = argv[3];
@@ -864,7 +864,7 @@ int cmdGmfDump(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "newworlds",
     {
         {"level-info", "<level.dat> [file.cat...]", "list the missions, with the archives holding their maps",

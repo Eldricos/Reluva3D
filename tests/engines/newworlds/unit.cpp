@@ -134,13 +134,13 @@ const char *const kPrefix = "c:\\prjs\\game\\stc\\bin\\rsc\\dat\\pc_win32\\";
 
 std::vector<Item> sampleItems() {
     return {
-        file(std::string(kPrefix) + "str\\eng\\miss\\rom01.stb", cattag::Strings, "strings!"),
-        container(cattag::TextureSet,
-                  {file(std::string(kPrefix) + "lbp\\txr\\rom\\rb_muzzl.mmb", cattag::Mmb, "8 bytes."),
-                   file(std::string(kPrefix) + "lbp\\txr\\rom\\rb_muzzl.mp0", cattag::Texture, "pixels")}),
-        container(cattag::FontSet,
-                  {container(cattag::FontPart, {file(std::string(kPrefix) + "gui\\font.fif", cattag::Fif, "font")})}),
-        file("c:\\prjs\\STNWSFX\\alert003.wav", cattag::Wave, "RIFF...."),
+        file(std::string(kPrefix) + "str\\eng\\miss\\rom01.stb", cattag::kStrings, "strings!"),
+        container(cattag::kTextureSet,
+                  {file(std::string(kPrefix) + "lbp\\txr\\rom\\rb_muzzl.mmb", cattag::kMmb, "8 bytes."),
+                   file(std::string(kPrefix) + "lbp\\txr\\rom\\rb_muzzl.mp0", cattag::kTexture, "pixels")}),
+        container(cattag::kFontSet,
+                  {container(cattag::kFontPart, {file(std::string(kPrefix) + "gui\\font.fif", cattag::kFif, "font")})}),
+        file("c:\\prjs\\STNWSFX\\alert003.wav", cattag::kWave, "RIFF...."),
     };
 }
 
@@ -157,7 +157,7 @@ void testRead(const std::filesystem::path &tmp) {
 
     const auto &e = cat.entries();
     CHECK(e.size() == 8);
-    CHECK(e[0].name == "str/eng/miss/rom01.stb" && e[0].tag == cattag::Strings && e[0].parent == -1);
+    CHECK(e[0].name == "str/eng/miss/rom01.stb" && e[0].tag == cattag::kStrings && e[0].parent == -1);
     CHECK(e[0].modified == 966294866);
     CHECK(e[1].container && e[1].parent == -1);
     CHECK(e[2].name == "lbp/txr/rom/rb_muzzl.mmb" && e[2].parent == 1);
@@ -643,10 +643,11 @@ void testBriefing() {
                                   {7, "~MISSION PASS~Done"}})));
     // No recording of R8: the general rule.
     auto steps = briefingScript("R8", 'R', table, {"R8007", "R8005", "R8006", "R8008"});
-    CHECK(steps.size() == 4 && steps[0].clip == "R8005" && steps[0].page == 3 && steps[0].view == BriefingView::Galaxy);
-    CHECK(steps[1].page == 4 && steps[1].view == BriefingView::StarSystem);
-    CHECK(steps[2].clip == "R8007" && steps[2].page == 6 && steps[2].view == BriefingView::Ground);
-    CHECK(steps[3].clip == "R8008" && steps[3].page == 0 && steps[3].view == BriefingView::Emblem);
+    CHECK(steps.size() == 4 && steps[0].clip == "R8005" && steps[0].page == 3 &&
+          steps[0].view == BriefingView::kGalaxy);
+    CHECK(steps[1].page == 4 && steps[1].view == BriefingView::kStarSystem);
+    CHECK(steps[2].clip == "R8007" && steps[2].page == 6 && steps[2].view == BriefingView::kGround);
+    CHECK(steps[3].clip == "R8008" && steps[3].page == 0 && steps[3].view == BriefingView::kEmblem);
     CHECK(!hasRecordedBriefing("R8", 'R') && hasRecordedBriefing("R1", 'R') && hasRecordedBriefing("k12", 'K') &&
           hasRecordedBriefing("J1", 'K'));
     // A recorded one: K12's lettered clip as its own step; a joint mission's
@@ -658,7 +659,7 @@ void testBriefing() {
     steps = briefingScript("F1", 'F', table, {});
     CHECK(steps[0].clip.empty() && steps[0].page == 3); // the silent transmission page first
     CHECK(steps[5].clip == "F1009" && steps[5].siteA == 407 && steps[5].siteB == 209); // the colony site
-    CHECK(steps[1].siteA == -1 && steps[7].view == BriefingView::Model && steps[7].model == "geo/bad/tt.geo");
+    CHECK(steps[1].siteA == -1 && steps[7].view == BriefingView::kModel && steps[7].model == "geo/bad/tt.geo");
     CHECK(missionSides("C10") == std::vector<char>{'K'} && missionSides("C11") == std::vector<char>{'R'});
 }
 
@@ -670,16 +671,16 @@ void testMissionScripts() {
                                s));
     CHECK(s.size() == 1 && s[0].sites.at("base") == std::make_pair(8, 16) && s[0].objectives.size() == 2);
     MissionRun run(s[0], nullptr);
-    CHECK(run.objectiveState(6) == MissionRun::State::Hidden);
+    CHECK(run.objectiveState(6) == MissionRun::State::kHidden);
     CHECK(run.fire({"built", {"yard"}}).empty() && run.fire({"built", {"adv"}}).empty());
     auto out = run.fire({"built", {"yard"}}); // the second yard: all built
     CHECK(out.size() == 3 && out[0].text == "Built at <008:016>." && out[0].sender == "Command");
-    CHECK(out[1].kind == MissionRun::Output::Completed && out[2].kind == MissionRun::Output::Revealed);
+    CHECK(out[1].kind == MissionRun::Output::kCompleted && out[2].kind == MissionRun::Output::kRevealed);
     CHECK(!run.finished() && run.nextTimer() == 10);
     out = run.advance(10);
-    CHECK(run.won() && out.back().kind == MissionRun::Output::Won);
+    CHECK(run.won() && out.back().kind == MissionRun::Output::kWon);
     MissionRun lost(s[0], nullptr);
-    CHECK(lost.fire({"destroyed", {"hub"}}).back().kind == MissionRun::Output::Lost && lost.finished());
+    CHECK(lost.fire({"destroyed", {"hub"}}).back().kind == MissionRun::Output::kLost && lost.finished());
     CHECK(bool(parseMissionScripts("mission T F\non start\n  frobnicate\n", s)));
     CHECK(bool(parseMissionScripts("  say command \"x\"\n", s)));
 
@@ -720,10 +721,10 @@ void testMissionScripts() {
     CHECK(announcementFor({"power-low", {}}, {}, 'K') == "klowpowr");
     CHECK(announcementFor({"short-crew", {}}, {}, 'F') == "FED002c" &&
           announcementFor({"short-crew", {}}, {}, 'K').empty());
-    CHECK(announcementFor({"built", {"vehicle-yard"}}, {{MissionRun::Output::Completed, {}, {}, 16}}, 'R') ==
+    CHECK(announcementFor({"built", {"vehicle-yard"}}, {{MissionRun::Output::kCompleted, {}, {}, 16}}, 'R') ==
           "robjmet");
     CHECK(announcementFor({"x", {}},
-                          {{MissionRun::Output::Completed, {}, {}, 16}, {MissionRun::Output::Won, {}, {}, 0}},
+                          {{MissionRun::Output::kCompleted, {}, {}, 16}, {MissionRun::Output::kWon, {}, {}, 0}},
                           'F') == "fmiswin");
 }
 
@@ -915,13 +916,13 @@ void testEconomy() {
     CHECK(yard && mine && e.available(*yard) && !e.available(*mine) && !e.available(*buildingType("colony-hub")));
     CHECK(e.order("mining-station", 0, 0, 4, 6) == 0); // no processor yet
     const int id = e.order("construction-yard", 1000, 1000, 0, 0);
-    CHECK(id != 0 && e.stock()[Thermoconc] == 2211);
+    CHECK(id != 0 && e.stock()[kThermoconc] == 2211);
     auto ev = e.advance(1);
-    CHECK(e.stock()[Thermoconc] == 2211 - 89 && e.stock()[Nitrium] == 3450 && count(ev, "built") == 0);
+    CHECK(e.stock()[kThermoconc] == 2211 - 89 && e.stock()[kNitrium] == 3450 && count(ev, "built") == 0);
     for (int i = 0; i < 40 && count(ev, "built") == 0; ++i)
         ev = e.advance(1);
     CHECK(count(ev, "built") == 1 && ev[0].args.size() == 1 && ev[0].args[0] == "construction-yard");
-    CHECK(e.capacity() == 55 && e.stock()[Thermoconc] == 2211 - 89); // paid once
+    CHECK(e.capacity() == 55 && e.stock()[kThermoconc] == 2211 - 89); // paid once
     // Six more yards: demand 70 over the hub's 60.
     for (int i = 0; i < 6; ++i)
         e.addBuilt("vehicle-yard", 0, 0);
@@ -941,7 +942,7 @@ void testEconomy() {
     e.addBuilt("resource-processor", 0, 0);
     CHECK(e.order("mining-station", 0, 0, 0, 0) == 0); // no deposit there
     CHECK(e.order("mining-station", 5 * kTile, 7 * kTile, 5, 7) != 0);
-    const int dilithium = e.stock()[Dilithium];
+    const int dilithium = e.stock()[kDilithium];
     bool dry = false;
     int at = -1;
     int bt = -1;
@@ -952,7 +953,7 @@ void testEconomy() {
     CHECK(dry && at == 3 * 8 + 4 && bt == 2 * 8 + 4);
     for (int i = 0; i < 200; ++i)
         e.advance(1);
-    CHECK(e.stock()[Dilithium] >= dilithium + 199 && e.stock()[Dilithium] <= dilithium + 200 && e.oreStock()[0] < 1);
+    CHECK(e.stock()[kDilithium] >= dilithium + 199 && e.stock()[kDilithium] <= dilithium + 200 && e.oreStock()[0] < 1);
     // The crew grows, one every 30 s, up to the capacity.
     const int crew = e.crew();
     e.advance(30);
@@ -1121,40 +1122,40 @@ void testRasterizer() {
 } // namespace
 
 static const reluva::test::Suite
-    archivesSuite("newworlds.unit.archives",
-                  {
-                      {"names", [](const std::filesystem::path &) { testNormalizeName(); }},
-                      {"read", [](const std::filesystem::path &tmp) { testRead(tmp); }},
-                      {"corruption", [](const std::filesystem::path &tmp) { testRejectsCorruption(tmp); }},
-                  });
+    kArchivesSuite("newworlds.unit.archives",
+                   {
+                       {"names", [](const std::filesystem::path &) { testNormalizeName(); }},
+                       {"read", [](const std::filesystem::path &tmp) { testRead(tmp); }},
+                       {"corruption", [](const std::filesystem::path &tmp) { testRejectsCorruption(tmp); }},
+                   });
 
 static const reluva::test::Suite
-    filesSuite("newworlds.unit.files",
+    kFilesSuite("newworlds.unit.files",
+                {
+                    {"string table", [](const std::filesystem::path &) { testStringTable(); }},
+                    {"texture", [](const std::filesystem::path &) { testTexture(); }},
+                    {"geo", [](const std::filesystem::path &) { testGeo(); }},
+                    {"gmf", [](const std::filesystem::path &) { testGmf(); }},
+                    {"mdl", [](const std::filesystem::path &) { testMdl(); }},
+                    {"arf", [](const std::filesystem::path &) { testArf(); }},
+                    {"fif", [](const std::filesystem::path &) { testFif(); }},
+                    {"levels", [](const std::filesystem::path &) { testLevels(); }},
+                    {"model textures", [](const std::filesystem::path &) { testModelTextures(); }},
+                });
+
+static const reluva::test::Suite
+    kGameSuite("newworlds.unit.game",
                {
-                   {"string table", [](const std::filesystem::path &) { testStringTable(); }},
-                   {"texture", [](const std::filesystem::path &) { testTexture(); }},
-                   {"geo", [](const std::filesystem::path &) { testGeo(); }},
-                   {"gmf", [](const std::filesystem::path &) { testGmf(); }},
-                   {"mdl", [](const std::filesystem::path &) { testMdl(); }},
-                   {"arf", [](const std::filesystem::path &) { testArf(); }},
-                   {"fif", [](const std::filesystem::path &) { testFif(); }},
-                   {"levels", [](const std::filesystem::path &) { testLevels(); }},
-                   {"model textures", [](const std::filesystem::path &) { testModelTextures(); }},
+                   {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
+                   {"mission scripts", [](const std::filesystem::path &) { testMissionScripts(); }},
+                   {"colony", [](const std::filesystem::path &) { testColony(); }},
+                   {"star system", [](const std::filesystem::path &) { testStarSystem(); }},
+                   {"model pose", [](const std::filesystem::path &) { testModelPose(); }},
+                   {"economy", [](const std::filesystem::path &) { testEconomy(); }},
+                   {"world", [](const std::filesystem::path &) { testWorld(); }},
                });
 
 static const reluva::test::Suite
-    gameSuite("newworlds.unit.game",
-              {
-                  {"briefing", [](const std::filesystem::path &) { testBriefing(); }},
-                  {"mission scripts", [](const std::filesystem::path &) { testMissionScripts(); }},
-                  {"colony", [](const std::filesystem::path &) { testColony(); }},
-                  {"star system", [](const std::filesystem::path &) { testStarSystem(); }},
-                  {"model pose", [](const std::filesystem::path &) { testModelPose(); }},
-                  {"economy", [](const std::filesystem::path &) { testEconomy(); }},
-                  {"world", [](const std::filesystem::path &) { testWorld(); }},
-              });
-
-static const reluva::test::Suite
-    renderSuite("newworlds.unit.render", {
-                                             {"rasterizer", [](const std::filesystem::path &) { testRasterizer(); }},
-                                         });
+    kRenderSuite("newworlds.unit.render", {
+                                              {"rasterizer", [](const std::filesystem::path &) { testRasterizer(); }},
+                                          });

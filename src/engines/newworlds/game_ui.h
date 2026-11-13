@@ -23,7 +23,7 @@ class GameUi {
 public:
     // side: 'F', 'K' or 'R'. False if the side's GUI archive isn't there.
     bool load(const Archives &archives, char side);
-    bool loaded() const { return loaded_; }
+    bool loaded() const { return _loaded; }
 
     // A framed panel with a title in its top bar; returns the inside's
     // top-left corner.
@@ -46,23 +46,23 @@ public:
     const Texture *icon(std::string_view name) const; // "logo32", "shldicon", ...
 
     // Colours: the panel titles, ordinary text, highlighted text.
-    Color titleColor() const { return title_; }
-    Color textColor() const { return text_; }
-    Color brightColor() const { return bright_; }
+    Color titleColor() const { return _title; }
+    Color textColor() const { return _text; }
+    Color brightColor() const { return _bright; }
 
 private:
     void blit(Surface &s, const Texture &t, int dx, int dy, bool flipX, bool flipY, bool transpose) const;
-    bool loaded_ = false;
-    char side_ = 'F';
-    Texture corner_, border_, wallpaper_;
-    std::map<std::string, Texture> icons_;
-    std::vector<Texture> crew_;
-    std::map<std::string, Texture> faces_; // by section, where known
-    std::map<std::string, Texture> natives_;
-    std::vector<GameFont> fonts_;
-    const GameFont *small_ = nullptr;
-    const GameFont *large_ = nullptr;
-    Color title_{232, 170, 40}, text_{80, 160, 255}, bright_{100, 230, 230};
+    bool _loaded = false;
+    char _side = 'F';
+    Texture _corner, _border, _wallpaper;
+    std::map<std::string, Texture> _icons;
+    std::vector<Texture> _crew;
+    std::map<std::string, Texture> _faces; // by section, where known
+    std::map<std::string, Texture> _natives;
+    std::vector<GameFont> _fonts;
+    const GameFont *_small = nullptr;
+    const GameFont *_large = nullptr;
+    Color _title{232, 170, 40}, _text{80, 160, 255}, _bright{100, 230, 230};
 };
 
 } // namespace reluva::newworlds

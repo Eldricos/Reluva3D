@@ -27,13 +27,13 @@ UnitKind groundScout(char side) {
     return {"GROUND SCOUT", "geo/fed/ffs.geo", kScoutSpeed};
 }
 
-World::World(Terrain terrain) : terrain_(std::move(terrain)) {
+World::World(Terrain terrain) : _terrain(std::move(terrain)) {
 }
 
 bool World::passable(int tx, int ty) const {
-    if (tx < 0 || ty < 0 || tx >= terrain_.width || ty >= terrain_.height)
+    if (tx < 0 || ty < 0 || tx >= _terrain.width || ty >= _terrain.height)
         return false;
-    return terrain_.moveClass[size_t(ty) * size_t(terrain_.width) + size_t(tx)] != 0;
+    return _terrain.moveClass[size_t(ty) * size_t(_terrain.width) + size_t(tx)] != 0;
 }
 
 bool World::canStep(int tx, int ty, int dx, int dy) const {
@@ -41,15 +41,15 @@ bool World::canStep(int tx, int ty, int dx, int dy) const {
         return false;
     if (dx != 0 && dy != 0 && (!passable(tx + dx, ty) || !passable(tx, ty + dy)))
         return false;
-    if (!terrain_.heightAt)
+    if (!_terrain.heightAt)
         return true;
     // The ground along the way, from one tile's middle to the other's, a
     // quarter tile at a time.
     const float x0 = (float(tx) + 0.5f) * kTile;
     const float y0 = (float(ty) + 0.5f) * kTile;
-    float last = terrain_.heightAt(x0, y0);
+    float last = _terrain.heightAt(x0, y0);
     for (int i = 1; i <= 4; ++i) {
-        const float h = terrain_.heightAt(x0 + float(dx) * kTile * float(i) / 4, y0 + float(dy) * kTile * float(i) / 4);
+        const float h = _terrain.heightAt(x0 + float(dx) * kTile * float(i) / 4, y0 + float(dy) * kTile * float(i) / 4);
         if (std::fabs(h - last) > kMaxStep / 2)
             return false;
         last = h;
@@ -58,8 +58,8 @@ bool World::canStep(int tx, int ty, int dx, int dy) const {
 }
 
 std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x1, float y1) const {
-    const int w = terrain_.width;
-    const int h = terrain_.height;
+    const int w = _terrain.width;
+    const int h = _terrain.height;
     if (w <= 0 || h <= 0)
         return {};
     auto clampT = [](int v, int n) { return std::clamp(v, 0, n - 1); };
@@ -161,34 +161,34 @@ std::vector<std::pair<float, float>> World::findPath(float x0, float y0, float x
 
 int World::addUnit(char side, const UnitKind &kind, float x, float y, float heading) {
     Unit u;
-    u.id = nextId_++;
+    u.id = _nextId++;
     u.side = side;
     u.kind = kind;
     u.x = x, u.y = y, u.heading = heading;
-    units_.push_back(std::move(u));
-    return units_.back().id;
+    _units.push_back(std::move(u));
+    return _units.back().id;
 }
 
 Unit *World::unit(int id) {
-    for (Unit &u : units_)
+    for (Unit &u : _units)
         if (u.id == id)
             return &u;
     return nullptr;
 }
 
 void World::select(const std::vector<int> &ids) {
-    for (Unit &u : units_)
+    for (Unit &u : _units)
         u.selected = std::find(ids.begin(), ids.end(), u.id) != ids.end();
 }
 
 void World::clearSelection() {
-    for (Unit &u : units_)
+    for (Unit &u : _units)
         u.selected = false;
 }
 
 std::vector<int> World::selection() const {
     std::vector<int> out;
-    for (const Unit &u : units_)
+    for (const Unit &u : _units)
         if (u.selected)
             out.push_back(u.id);
     return out;
@@ -196,7 +196,7 @@ std::vector<int> World::selection() const {
 
 void World::moveSelected(float x, float y) {
     std::vector<Unit *> sel;
-    for (Unit &u : units_)
+    for (Unit &u : _units)
         if (u.selected)
             sel.push_back(&u);
     // Spots on a small grid round the point, nearest first.
@@ -212,13 +212,13 @@ void World::moveSelected(float x, float y) {
 void World::setGroup(int n) {
     if (n < 1 || n > 9)
         return;
-    groups_[size_t(n)] = selection();
+    _groups[size_t(n)] = selection();
 }
 
 bool World::selectGroup(int n) {
     if (n < 1 || n > 9)
         return false;
-    auto &g = groups_[size_t(n)];
+    auto &g = _groups[size_t(n)];
     g.erase(std::remove_if(g.begin(), g.end(), [&](int id) { return unit(id) == nullptr; }), g.end());
     if (g.empty())
         return false;
@@ -230,12 +230,12 @@ bool World::groupCentre(int n, float &x, float &y) const {
     float sx = 0;
     float sy = 0;
     int count = 0;
-    for (const Unit &u : units_) {
+    for (const Unit &u : _units) {
         const bool in =
             n == 0
                 ? u.selected
                 : (n >= 1 && n <= 9 &&
-                   std::find(groups_[size_t(n)].begin(), groups_[size_t(n)].end(), u.id) != groups_[size_t(n)].end());
+                   std::find(_groups[size_t(n)].begin(), _groups[size_t(n)].end(), u.id) != _groups[size_t(n)].end());
         if (in)
             sx += u.x, sy += u.y, ++count;
     }
@@ -247,7 +247,7 @@ bool World::groupCentre(int n, float &x, float &y) const {
 
 bool World::advance(double seconds) {
     bool any = false;
-    for (Unit &u : units_) {
+    for (Unit &u : _units) {
         float left = u.kind.speed * float(seconds);
         while (left > 0 && !u.path.empty()) {
             const auto [tx, ty] = u.path.front();

@@ -16,24 +16,24 @@ namespace reluva::newworlds {
 
 SoundViewer::SoundViewer(System &sys, Surface &screen, const Archives &archives, audio::Mixer *mixer,
                          const std::filesystem::path &gameDir)
-    : sys_(sys), screen_(screen), archives_(archives), mixer_(mixer) {
-    for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto &entries = archives_[a]->entries();
+    : _sys(sys), _screen(screen), _archives(archives), _mixer(mixer) {
+    for (size_t a = 0; a < _archives.size(); ++a) {
+        const auto &entries = _archives[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
-            if (entries[i].tag == cattag::Wave)
-                sounds_.push_back({{a, i}, {}, entries[i].name});
+            if (entries[i].tag == cattag::kWave)
+                _sounds.push_back({{a, i}, {}, entries[i].name});
     }
     // Find the archives' copies by their size and a hash of their bytes (FNV-1a).
     std::map<std::pair<size_t, uint64_t>, size_t> seen;
-    for (size_t s = 0; s < sounds_.size(); ++s) {
+    for (size_t s = 0; s < _sounds.size(); ++s) {
         std::vector<uint8_t> data;
         if (read(s, data))
-            firstCopy_.push_back(s); // unreadable: shown on its own, with the error
+            _firstCopy.push_back(s); // unreadable: shown on its own, with the error
         else {
             uint64_t hash = 14695981039346656037ull;
             for (uint8_t b : data)
                 hash = (hash ^ b) * 1099511628211ull;
-            firstCopy_.push_back(seen.emplace(std::make_pair(data.size(), hash), s).first->second);
+            _firstCopy.push_back(seen.emplace(std::make_pair(data.size(), hash), s).first->second);
         }
     }
     // Then the game folder's loose sounds (New Worlds' Media/: voice, music),
@@ -49,18 +49,18 @@ SoundViewer::SoundViewer(System &sys, Surface &screen, const Archives &archives,
     std::sort(loose.begin(), loose.end(),
               [](const auto &x, const auto &y) { return fs::toLower(x.first) < fs::toLower(y.first); });
     for (auto &[name, path] : loose) {
-        firstCopy_.push_back(sounds_.size());
-        sounds_.push_back({{0, 0}, std::move(path), std::move(name)});
+        _firstCopy.push_back(_sounds.size());
+        _sounds.push_back({{0, 0}, std::move(path), std::move(name)});
     }
-    for (size_t s = 0; s < sounds_.size(); ++s)
-        if (showCopies_ || firstCopy_[s] == s)
-            shownSounds_.push_back(s);
+    for (size_t s = 0; s < _sounds.size(); ++s)
+        if (_showCopies || _firstCopy[s] == s)
+            _shownSounds.push_back(s);
 }
 
 Error SoundViewer::read(size_t sound, std::vector<uint8_t> &data) const {
-    const Item &item = sounds_[sound];
+    const Item &item = _sounds[sound];
     if (item.file.empty()) {
-        CatArchive &cat = *archives_[item.ref.archive];
+        CatArchive &cat = *_archives[item.ref.archive];
         return cat.read(cat.entries()[item.ref.entry], data);
     }
     std::ifstream in(item.file, std::ios::binary);
@@ -71,17 +71,17 @@ Error SoundViewer::read(size_t sound, std::vector<uint8_t> &data) const {
 }
 
 const std::string &SoundViewer::nameOf(size_t sound) const {
-    return sounds_[sound].name;
+    return _sounds[sound].name;
 }
 
 std::string SoundViewer::archiveOf(size_t sound) const {
-    const Item &item = sounds_[sound];
-    return item.file.empty() ? archives_[item.ref.archive]->path().filename().string() : "the game folder";
+    const Item &item = _sounds[sound];
+    return item.file.empty() ? _archives[item.ref.archive]->path().filename().string() : "the game folder";
 }
 
 void SoundViewer::activate() {
-    if (!shown_) {
-        shown_ = true;
+    if (!_shown) {
+        _shown = true;
         show(0);
         return;
     }
@@ -94,35 +94,35 @@ void SoundViewer::deactivate() {
 }
 
 void SoundViewer::handleKey(uint32_t k) {
-    const int n = int(shownSounds_.size());
+    const int n = int(_shownSounds.size());
     if (n == 0)
         return;
     switch (k) {
     case 'f': {
         // List every copy, or only the first of each.
-        const size_t sound = shownSounds_[size_t(current_)];
-        showCopies_ = !showCopies_;
-        shownSounds_.clear();
-        for (size_t s = 0; s < sounds_.size(); ++s)
-            if (showCopies_ || firstCopy_[s] == s)
-                shownSounds_.push_back(s);
-        const auto it = std::find(shownSounds_.begin(), shownSounds_.end(), firstCopy_[sound]);
-        const auto at = std::find(shownSounds_.begin(), shownSounds_.end(), sound);
-        current_ = int((at != shownSounds_.end() ? at : it) - shownSounds_.begin());
+        const size_t sound = _shownSounds[size_t(_current)];
+        _showCopies = !_showCopies;
+        _shownSounds.clear();
+        for (size_t s = 0; s < _sounds.size(); ++s)
+            if (_showCopies || _firstCopy[s] == s)
+                _shownSounds.push_back(s);
+        const auto it = std::find(_shownSounds.begin(), _shownSounds.end(), _firstCopy[sound]);
+        const auto at = std::find(_shownSounds.begin(), _shownSounds.end(), sound);
+        _current = int((at != _shownSounds.end() ? at : it) - _shownSounds.begin());
         updateTitle();
         break;
     }
     case key::Right:
-        show((current_ + 1) % n);
+        show((_current + 1) % n);
         break;
     case key::Left:
-        show((current_ + n - 1) % n);
+        show((_current + n - 1) % n);
         break;
     case key::PageDown:
-        show(std::min(current_ + 10, n - 1));
+        show(std::min(_current + 10, n - 1));
         break;
     case key::PageUp:
-        show(std::max(current_ - 10, 0));
+        show(std::max(_current - 10, 0));
         break;
     case key::Home:
         show(0);
@@ -138,7 +138,7 @@ void SoundViewer::handleKey(uint32_t k) {
             play();
         break;
     case 'a':
-        autoPlay_ = !autoPlay_;
+        _autoPlay = !_autoPlay;
         updateTitle();
         break;
     default:
@@ -149,69 +149,69 @@ void SoundViewer::handleKey(uint32_t k) {
 void SoundViewer::update(uint64_t) {
     // Redraw while playing, to move the play position, and once after.
     const bool now = playing();
-    if (now || wasPlaying_) {
+    if (now || _wasPlaying) {
         draw();
         updateTitle();
     }
-    wasPlaying_ = now;
+    _wasPlaying = now;
 }
 
 void SoundViewer::show(int index) {
     stop();
-    current_ = index;
-    status_.clear();
+    _current = index;
+    _status.clear();
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
-    if (Error err = read(shownSounds_[size_t(index)], data))
-        status_ = err.message;
+    if (Error err = read(_shownSounds[size_t(index)], data))
+        _status = err.message;
     else if (Error err2 = audio::decodeSound(data, *sound))
-        status_ = err2.message;
-    sound_ = status_.empty() ? sound : nullptr;
+        _status = err2.message;
+    _sound = _status.empty() ? sound : nullptr;
     draw();
     updateTitle();
-    if (autoPlay_)
+    if (_autoPlay)
         play();
 }
 
 bool SoundViewer::playing() const {
-    return mixer_ && mixer_->isPlaying(playing_);
+    return _mixer && _mixer->isPlaying(_playing);
 }
 
 void SoundViewer::play() {
-    if (!mixer_) {
-        status_ = "no audio output";
+    if (!_mixer) {
+        _status = "no audio output";
         updateTitle();
         return;
     }
-    mixer_->stop(playing_);
-    playing_ = mixer_->play(sound_, audio::SoundType::Effects);
+    _mixer->stop(_playing);
+    _playing = _mixer->play(_sound, audio::SoundType::Effects);
 }
 
 void SoundViewer::stop() {
-    if (mixer_)
-        mixer_->stop(playing_);
-    playing_ = audio::kNoSound;
+    if (_mixer)
+        _mixer->stop(_playing);
+    _playing = audio::kNoSound;
 }
 
 void SoundViewer::draw() {
-    const int w = screen_.w;
-    const int h = screen_.h;
+    const int w = _screen.w;
+    const int h = _screen.h;
     for (int y = 0; y < h; ++y) {
-        uint8_t *row = screen_.row(y);
+        uint8_t *row = _screen.row(y);
         for (int x = 0; x < w; ++x, row += 4)
             row[0] = 22, row[1] = 26, row[2] = 38, row[3] = 255;
     }
     std::shared_ptr<const audio::Sound> sound;
     double position = 0;
     bool playing = false;
-    sound = sound_;
+    sound = _sound;
     playing = this->playing();
     if (playing)
-        position = mixer_->position(playing_);
+        position = _mixer->position(_playing);
     auto plot = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
         if (x < 0 || y < 0 || x >= w || y >= h)
             return;
-        uint8_t *p = screen_.row(y) + x * 4;
+        uint8_t *p = _screen.row(y) + x * 4;
         p[0] = r, p[1] = g, p[2] = b;
     };
     const int mid = h / 2;
@@ -246,16 +246,16 @@ void SoundViewer::draw() {
 }
 
 void SoundViewer::updateTitle() {
-    if (shownSounds_.empty())
+    if (_shownSounds.empty())
         return;
-    const size_t current = shownSounds_[size_t(current_)];
-    std::string title = std::string("New Worlds sounds ") + (showCopies_ ? "[all] " : "") +
-                        std::to_string(current_ + 1) + "/" + std::to_string(shownSounds_.size()) + ": " +
+    const size_t current = _shownSounds[size_t(_current)];
+    std::string title = std::string("New Worlds sounds ") + (_showCopies ? "[all] " : "") +
+                        std::to_string(_current + 1) + "/" + std::to_string(_shownSounds.size()) + ": " +
                         nameOf(current) + " in " + archiveOf(current) + " (";
     std::shared_ptr<const audio::Sound> sound;
-    sound = sound_;
-    if (!status_.empty() || !sound) {
-        title += status_ + ")";
+    sound = _sound;
+    if (!_status.empty() || !sound) {
+        title += _status + ")";
     } else {
         char info[96];
         std::snprintf(info, sizeof info, "%d Hz, %s, %.2f s", sound->rate, sound->channels == 1 ? "mono" : "stereo",
@@ -265,8 +265,8 @@ void SoundViewer::updateTitle() {
     // Its copies: how many, and any other names or archives they're in.
     size_t copies = 0;
     std::vector<std::string> names;
-    for (size_t s = 0; s < sounds_.size(); ++s) {
-        if (firstCopy_[s] != firstCopy_[current])
+    for (size_t s = 0; s < _sounds.size(); ++s) {
+        if (_firstCopy[s] != _firstCopy[current])
             continue;
         ++copies;
         std::string where;
@@ -284,9 +284,9 @@ void SoundViewer::updateTitle() {
         title += "]";
     }
     title += playing() ? " [playing]" : " (Space: play)";
-    if (autoPlay_)
+    if (_autoPlay)
         title += " [auto-play]";
-    sys_.setWindowTitle(title);
+    _sys.setWindowTitle(title);
 }
 
 } // namespace reluva::newworlds

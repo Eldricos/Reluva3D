@@ -357,7 +357,7 @@ int cmdStbDump(int argc, char **argv) {
         Bytes d;
         for (const auto &e : cat.entries()) {
             const bool stb = e.name.size() > 4 && e.name.compare(e.name.size() - 4, 4, ".stb") == 0;
-            if (e.container || (e.tag != nw::cattag::Strings && !stb))
+            if (e.container || (e.tag != nw::cattag::kStrings && !stb))
                 continue;
             ++count;
             nw::StringTable table;
@@ -395,14 +395,14 @@ int cmdStbDump(int argc, char **argv) {
 }
 
 const Commands
-    commands("newworlds",
-             {
-                 {"cat-probe", "<file.cat> [-q]",
-                  "check a .cat file against the documented layout and work out unknown entry kinds", cmdCatProbe},
-                 {"cat-list", "<file.cat>", "list a .cat file's contents", cmdCatList},
-                 {"cat-extract", "<file.cat> <output dir> [name filter]", "extract files whose name contains filter",
-                  cmdCatExtract},
-                 {"stb-dump", "<file.stb | file.cat>", "print a string table, or list an archive's", cmdStbDump},
-             });
+    kCommands("newworlds",
+              {
+                  {"cat-probe", "<file.cat> [-q]",
+                   "check a .cat file against the documented layout and work out unknown entry kinds", cmdCatProbe},
+                  {"cat-list", "<file.cat>", "list a .cat file's contents", cmdCatList},
+                  {"cat-extract", "<file.cat> <output dir> [name filter]", "extract files whose name contains filter",
+                   cmdCatExtract},
+                  {"stb-dump", "<file.stb | file.cat>", "print a string table, or list an archive's", cmdStbDump},
+              });
 
 } // namespace

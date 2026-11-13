@@ -80,11 +80,11 @@ const MissionScript *findMissionScript(std::string_view shortName, char side);
 class MissionRun {
 public:
     struct Output {
-        enum Kind { Message, Completed, Revealed, Won, Lost } kind;
+        enum Kind { kMessage, kCompleted, kRevealed, kWon, kLost } kind;
         std::string sender, text; // a message
         uint32_t objective = 0;   // Completed, Revealed, Lost: the string id
     };
-    enum class State { Incomplete, Complete, Hidden };
+    enum class State { kIncomplete, kComplete, kHidden };
 
     // generic: rules added after the mission's own (may be null).
     MissionRun(const MissionScript &script, const MissionScript *generic);
@@ -92,8 +92,8 @@ public:
     std::vector<Output> fire(const ScriptEvent &event);
     // Moves time on, firing timers that run out.
     std::vector<Output> advance(double seconds);
-    bool finished() const { return won_ || lost_; }
-    bool won() const { return won_; }
+    bool finished() const { return _won || _lost; }
+    bool won() const { return _won; }
     State objectiveState(uint32_t id) const;
     // Seconds to the next timer, or a negative number if none is running.
     double nextTimer() const;
@@ -113,13 +113,13 @@ private:
     std::string expand(const std::string &text, const ScriptEvent &ev) const;
     void checkAllCompleted(std::vector<Output> &out);
 
-    const MissionScript &script_;
-    std::vector<Rule> rules_;
-    std::map<std::string, int> built_;
-    std::set<uint32_t> completed_, revealed_;
-    std::map<std::string, double> timers_;
-    bool won_ = false, lost_ = false, allDone_ = false;
-    int depth_ = 0;
+    const MissionScript &_script;
+    std::vector<Rule> _rules;
+    std::map<std::string, int> _built;
+    std::set<uint32_t> _completed, _revealed;
+    std::map<std::string, double> _timers;
+    bool _won = false, _lost = false, _allDone = false;
+    int _depth = 0;
 };
 
 // The game's spoken announcement (a stem in Media/Misc) for what a step

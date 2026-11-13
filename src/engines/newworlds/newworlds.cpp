@@ -53,24 +53,24 @@ constexpr int kScreenH = 480;
 
 class NewWorldsEngine : public Engine {
 public:
-    NewWorldsEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    NewWorldsEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
         if (Error err = openArchives())
             return err;
-        if (Error err = sys_.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
+        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
             return err;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-        ModelViewer models(sys_, screen_, archives_);
-        TextureViewer textures(sys_, screen_, archives_);
-        MapViewer maps(sys_, screen_, archives_);
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        ModelViewer models(_sys, _screen, _archives);
+        TextureViewer textures(_sys, _screen, _archives);
+        MapViewer maps(_sys, _screen, _archives);
         const std::vector<newworlds::Level> levels = readLevels();
         maps.setLevels(levels);
         // One mixer for every page, playing for as long as the engine runs;
         // without an audio device the pages show and don't play.
-        audio::Mixer mixer(sys_.audioRate());
-        mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(sys_, mixer);
+        audio::Mixer mixer(_sys.audioRate());
+        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
+        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioStop {
             System &sys;
             bool on;
@@ -78,12 +78,12 @@ public:
                 if (on)
                     sys.stopAudio();
             }
-        } audioStop{sys_, audioOut};
+        } audioStop{_sys, audioOut};
         audio::Mixer *const output = audioOut ? &mixer : nullptr;
-        SoundViewer sounds(sys_, screen_, archives_, output, target_.path);
-        StringViewer strings(sys_, screen_, archives_);
-        FontViewer fonts(sys_, screen_, archives_);
-        MissionViewer missions(sys_, screen_, archives_, levels, output, target_.path);
+        SoundViewer sounds(_sys, _screen, _archives, output, _target.path);
+        StringViewer strings(_sys, _screen, _archives);
+        FontViewer fonts(_sys, _screen, _archives);
+        MissionViewer missions(_sys, _screen, _archives, levels, output, _target.path);
         constexpr int kViewers = 7;
         const size_t counts[kViewers] = {missions.count(), models.count(),  textures.count(), maps.count(),
                                          sounds.count(),   strings.count(), fonts.count()};
@@ -92,7 +92,7 @@ public:
             total += c;
         if (total == 0)
             return Error::fail("No missions, models, textures, maps, sounds, strings or fonts found in " +
-                               target_.path.string());
+                               _target.path.string());
         // Viewer 0 shows missions, 1 models, 2 textures, 3 maps, 4 sounds, 5 strings, 6 fonts;
         // Tab moves to the next one that has something to show. They draw
         // into the screen, so it must exist before the first activate().
@@ -119,7 +119,7 @@ public:
 
         while (true) {
             Event ev;
-            while (sys_.pollEvent(ev)) {
+            while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
                     return Error::success();
                 // While the missions page is playing, Escape and Tab are
@@ -154,15 +154,15 @@ public:
                     fonts.handleKey(ev.key);
             }
             if (viewer == 0)
-                missions.update(sys_.getMillis());
+                missions.update(_sys.getMillis());
             else if (viewer == 1)
-                models.update(sys_.getMillis());
+                models.update(_sys.getMillis());
             else if (viewer == 3)
-                maps.update(sys_.getMillis());
+                maps.update(_sys.getMillis());
             else if (viewer == 4)
-                sounds.update(sys_.getMillis());
-            sys_.updateScreen(screen_);
-            sys_.delayMillis(10);
+                sounds.update(_sys.getMillis());
+            _sys.updateScreen(_screen);
+            _sys.delayMillis(10);
         }
     }
 
@@ -171,7 +171,7 @@ private:
     // or unreadable level.dat only loses the missions' names.
     std::vector<newworlds::Level> readLevels() const {
         std::vector<newworlds::Level> levels;
-        const auto path = fs::findFile(target_.path, "level.dat");
+        const auto path = fs::findFile(_target.path, "level.dat");
         if (!path)
             return levels;
         std::ifstream in(*path, std::ios::binary);
@@ -184,26 +184,26 @@ private:
     Error openArchives() {
         std::vector<std::filesystem::path> paths;
         std::error_code ec;
-        for (std::filesystem::directory_iterator it(target_.path, ec), end; !ec && it != end; it.increment(ec))
+        for (std::filesystem::directory_iterator it(_target.path, ec), end; !ec && it != end; it.increment(ec))
             if (fs::toLower(it->path().extension().string()) == ".cat")
                 paths.push_back(it->path());
         if (paths.empty())
-            return Error::fail("No .cat archives in " + target_.path.string());
+            return Error::fail("No .cat archives in " + _target.path.string());
         std::sort(paths.begin(), paths.end());
 
         for (const auto &p : paths) {
             auto cat = std::make_unique<CatArchive>();
             if (Error err = cat->open(p))
                 return err;
-            archives_.push_back(std::move(cat));
+            _archives.push_back(std::move(cat));
         }
         return Error::success();
     }
 
-    System &sys_;
-    GameTarget target_;
-    Surface screen_;
-    newworlds::Archives archives_;
+    System &_sys;
+    GameTarget _target;
+    Surface _screen;
+    newworlds::Archives _archives;
 };
 
 class NewWorldsMetaEngine : public MetaEngine {
@@ -223,8 +223,8 @@ public:
 } // namespace
 
 const MetaEngine &newWorldsMetaEngine() {
-    static const NewWorldsMetaEngine instance;
-    return instance;
+    static const NewWorldsMetaEngine kInstance;
+    return kInstance;
 }
 
 } // namespace reluva
