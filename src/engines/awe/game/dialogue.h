@@ -239,7 +239,7 @@ private:
     void end(bool keepBox);
     void finishTalk();
     void showBox();
-    void log(const std::string &s) {
+    void log(const std::string &s) const {
         if (onLog)
             onLog(s);
     }

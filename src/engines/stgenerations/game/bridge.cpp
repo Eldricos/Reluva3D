@@ -1498,7 +1498,7 @@ std::vector<std::string> Bridge::wrapText(const std::string &text, int width) co
     return _font.wordWrap(text::trim(text), width);
 }
 
-void Bridge::drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light) {
+void Bridge::drawDisc(Canvas &screen, const RgbImage &texture, int frame, int cx, int cy, int r, double light) const {
     // A planet: its texture wrapped round a sphere, lit from the sun's side.
     int tw = texture.getWidth();
     int th = texture.getFrameHeight();

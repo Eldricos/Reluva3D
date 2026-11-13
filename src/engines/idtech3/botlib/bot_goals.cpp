@@ -413,7 +413,7 @@ bool BotLibrary::touchingGoal(const Vec3f &origin, const BotGoal &goal) {
     return true;
 }
 
-bool BotLibrary::itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal) {
+bool BotLibrary::itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal) const {
     // In plain view, yet the item's entity hasn't been seen for half a
     // second: it has been taken.
     if (!(goal.flags & goalflag::Item) || !trace)

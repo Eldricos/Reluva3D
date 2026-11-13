@@ -88,7 +88,7 @@ bool Resources::hasResource(ListKind kind, const std::string &name) const {
     return !path.empty() && search_.has(path);
 }
 
-bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) {
+bool Resources::loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded) const {
     paletteLoaded = false;
     auto stream = openFile(getResourcePath(kListBackgrounds, name));
     if (!stream)
@@ -104,12 +104,12 @@ bool Resources::loadBackground(const std::string &name, Surface &surface, Palett
     return true;
 }
 
-bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) {
+bool Resources::loadAnimation(const std::string &name, RleAnimation &anim) const {
     auto stream = openFile(getResourcePath(kListAnims, name));
     return stream && anim.load(*stream);
 }
 
-bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) {
+bool Resources::loadSound(const std::string &name, std::vector<uint8_t> &data) const {
     auto stream = openFile(getResourcePath(kListSounds, name));
     if (!stream)
         return false;
@@ -225,7 +225,7 @@ const std::vector<std::string> &Resources::getLinkDialogues() {
     return linkDialogues_;
 }
 
-std::vector<std::string> Resources::loadCredits() {
+std::vector<std::string> Resources::loadCredits() const {
     // DEEP.EXE is the DOS/4GW extender followed by the game: an MZ stub whose
     // e_lfanew points to an LE header. LE data page offsets are relative to that
     // stub. The credits are a table of 269 offsets into the data object, each to

@@ -274,7 +274,7 @@ struct A3d::State {
     size_t made = 0;
     std::vector<std::weak_ptr<ComObject>> sources;
     explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
-    uint32_t now() { return process.milliseconds ? process.milliseconds() : 0; }
+    uint32_t now() const { return process.milliseconds ? process.milliseconds() : 0; }
     void update();
 };
 

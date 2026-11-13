@@ -59,7 +59,7 @@ const ComInterface *DirectDraw::query(const std::string &iid) {
     return nullptr;
 }
 
-void DirectDraw::writeCaps(Cpu &c, uint32_t p, bool hardware) {
+void DirectDraw::writeCaps(Cpu &c, uint32_t p, bool hardware) const {
     const uint32_t size = c.read32(p);
     if (size < 8 || !c.valid(p, size))
         return;
