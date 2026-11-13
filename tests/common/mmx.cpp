@@ -23,7 +23,8 @@ using namespace reluva;
 
 #define CHECK_EQ(a, b)                                                                                                 \
     do {                                                                                                               \
-        const uint64_t a_ = (a), b_ = (b);                                                                             \
+        const uint64_t a_ = (a);                                                                                       \
+        const uint64_t b_ = (b);                                                                                       \
         if (a_ != b_) {                                                                                                \
             std::fprintf(stderr, "%s:%d: %s: %016llx, expected %016llx\n", __FILE__, __LINE__, #a,                     \
                          (unsigned long long)a_, (unsigned long long)b_);                                              \
