@@ -7,8 +7,8 @@ their engines, in the spirit of ScummVM. Games aren't included: you point
 Reluva at your own copy, and it plays it on Windows, Linux or macOS. There's
 no emulator of the old computer and no original engine, and nothing to
 install from the game's CD. Where a game's logic is its own compiled code
-(LEGO Alpha Team's, Elite Force's game DLLs), Reluva runs that code and
-supplies the parts of Windows it calls.
+(LEGO Alpha Team's, Elite Force's game DLLs, Need for Speed III's whole
+program), Reluva runs that code and supplies the parts of Windows it calls.
 
 ## Games
 
@@ -23,6 +23,7 @@ Each engine is a module that can run a family of games.
 | `awe` | Agatha Christie: Murder on the Orient Express (English 1.0); later, AWE's other Agatha Christie games | Playable from a new game to the credits; being checked against the original | [docs/engines/awe](docs/engines/awe/README.md) |
 | `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
 | `netimmerse` | LEGO Alpha Team (English, Windows); later, other NetImmerse games | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
+| `nfs` | Need for Speed III: Hot Pursuit (US "Classics" CD); later, High Stakes | Playable: the retail game hosted, from its menus through every race type, single player and network (TCP, IPX, serial, modem); a data viewer of its files | [docs/engines/nfs](docs/engines/nfs/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements
@@ -114,8 +115,16 @@ Each engine is a module that can run a family of games.
       generation finished."* in the **Output** window, with "CMake" chosen
       in its dropdown.
 3. **Build and run.**
-   1. In the toolbar, choose **x64-Release** for a fast build (or
-      **x64-Debug** for debugging).
+   1. In the toolbar, the configuration dropdown lists the project's
+      presets (`CMakePresets.json`): choose **x64 Release (fast)** to play
+      (**x64 Debug** for debugging, which runs games' own code several
+      times slower). **x64 Release, Clang (fastest)** builds the x86
+      emulator to faster code still; it needs **C++ Clang Compiler for
+      Windows** and **MSBuild support for LLVM (clang-cl) toolset**, ticked
+      under **Individual components** in the installer. If the dropdown
+      shows Visual Studio's own **x64-Debug** and **x64-Release** instead,
+      turn on **Tools > Options > CMake > General > Use CMakePresets.json**
+      and reopen the folder.
    2. In **Select Startup Item**, next to the green ▶ button, choose
       **reluva.exe**.
    3. Press **F5** to build and run under the debugger, or **Ctrl+F5** to
@@ -165,6 +174,7 @@ stharbinger=enabled
 newworlds=disabled
 stgenerations=enabled
 clue=enabled
+nfs=enabled
 ```
 
 - **Leaving an engine out.** Set it to `disabled` (say, one that doesn't
@@ -281,13 +291,15 @@ src/
                      settings, case-insensitive file lookup, byte streams, detection, archives
                      (folders, .zip/.pk3) and search sets, PKWARE DCL, Wise installers, PE files,
                      text, hashes, logging
-  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM
+  audio/             sound decoders, streams and the mixer: WAV (PCM, IMA ADPCM), MP3, raw PCM,
+                     EA-XA and MicroTalk; a Dolby Pro Logic decoder model
   video/             video decoders: Bink, Smacker, Cinepak and Indeo 5 in AVI
   graphics/          surfaces and 8-bit drawing, palettes, fonts (built-in and TrueType),
-                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/)
+                     cursors, the 3D rendering interface (gfx3d.h) and software 3D (soft3d/),
+                     GPU compute, and the Glide stand-in's pipeline (glide/)
   image/             pictures (TGA, JPEG, PNG, BMP)
   emulation/x86/     an x86 emulator (with a JIT on x86-64) and stand-ins for Windows,
-                     DirectX and A3D, for games' native code
+                     DirectX, A3D and Glide, for games' native code
   backends/          the only code that touches SDL or the system: platform/sdl3/ (window,
                      input, audio), graphics/sdl3/ (2D and 3D on SDL's GPU API),
                      networking/sockets/

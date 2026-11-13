@@ -679,7 +679,7 @@ void testComputerCatchUpAndCops() {
           trackSectionSpeed(1, 5) == 24.58665f);
     CHECK(trackSectionSpeed(4, 0x130) == 8.9406f && trackSectionSpeed(4, 5) == 22.3515f);
     CHECK(trackSectionSpeed(8, 500) == 15.64605f && trackSectionSpeed(8, 5) == 20.11635f);
-    // The catch-up (0x4090a0), as nfs-host's dumps of Hometown have it
+    // The catch-up (0x4090a0), as nfs host's dumps of Hometown have it
     // (+0x7BC): the human behind them all, places 2-5 x 0.9 and 6-8 x
     // 0.8; some ahead, one 50 or more slices ahead x 0.85; none ahead,
     // one over 15 behind x 1.1.

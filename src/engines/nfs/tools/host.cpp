@@ -72,7 +72,7 @@ int cmdNfsHost(int argc, char **argv) {
     reluva::nfs::GameHost::Options options;
     options.saveFolder = stdfs::temp_directory_path() / "reluva_nfs3_save";
     // As the Play page: the game told of a Voodoo 2, so that it draws its sky
-    // and fog (docs/engines/nfs/PLAN.md, Sky and fog).
+    // and fog (docs/engines/nfs/games/nfs3/PLAN.md, Sky and fog).
     options.presentedRenderer = "voodoo2a.dll";
     int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
     std::vector<uint32_t> watch;    // addresses at which to print the registers

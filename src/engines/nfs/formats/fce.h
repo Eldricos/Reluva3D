@@ -15,7 +15,7 @@
 namespace reluva::nfs {
 
 // An .fce model (cars, traffic, police, the front end's track models), as
-// docs/engines/nfs/formats/fce.md describes. Coordinates are as stored: metres,
+// docs/engines/nfs/games/nfs3/formats/fce.md describes. Coordinates are as stored: metres,
 // +y up, +z the car's front, +x its right (a left-handed space).
 struct Model {
     using Vec3 = std::array<float, 3>;

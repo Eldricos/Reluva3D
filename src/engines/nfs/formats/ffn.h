@@ -12,7 +12,7 @@
 
 namespace reluva::nfs {
 
-// A bitmap font (.ffn, "FNTF"), as docs/engines/nfs/formats/ffn.md describes:
+// A bitmap font (.ffn, "FNTF"), as docs/engines/nfs/games/nfs3/formats/ffn.md describes:
 // glyphs for Windows-1252 characters cut from one 4-bit coverage atlas.
 struct Font {
     struct Glyph {

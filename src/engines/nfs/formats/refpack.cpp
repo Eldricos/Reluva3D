@@ -101,7 +101,7 @@ bool isEaHuffman(const std::vector<uint8_t> &data) {
 }
 
 // Worked out from nfs3.exe's own routine (0x50ed50) and checked against it
-// on every file so compressed (reluva-tool nfs-huff-check): refpack.md.
+// on every file so compressed (reluva-tool nfs huff-check): refpack.md.
 Error decompressEaHuffman(const std::vector<uint8_t> &data, std::vector<uint8_t> &out) {
     out.clear();
     auto damaged = [](const char *why) { return Error::fail(std::string("EA Huffman data is damaged: ") + why); };

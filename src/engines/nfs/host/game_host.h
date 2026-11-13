@@ -31,7 +31,7 @@
 
 namespace reluva::nfs {
 
-// The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/PLAN.md,
+// The retail nfs3.exe run in the x86 interpreter (docs/engines/nfs/games/nfs3/PLAN.md,
 // Phase 4): a Windows process whose C: is the install folder and D: the
 // CD, with the system's functions it calls stood in for. Its own renderer
 // (THRASH) and sound (iSND) DLLs run too, on DirectDraw and DirectSound
@@ -45,7 +45,7 @@ public:
         // card's ("voodoo2a.dll") and it draws as for that card (the sky, fog,
         // 16-bit textures), while renderer is loaded in its place and the
         // drawing is Reluva's (thrash.md). "d3da.dll" gives the game's
-        // Direct3D path (docs/engines/nfs/formats/hrz.md, The Direct3D renderer: no
+        // Direct3D path (docs/engines/nfs/games/nfs3/formats/hrz.md, The Direct3D renderer: no
         // fog, the clouds' constant alpha, the dimming by the effects
         // intensity), the registry describing a Direct3D device, and with
         // nativeThrash the drawing follows d3da's device set-up (bilinear

@@ -13,7 +13,7 @@
 namespace reluva::nfs {
 
 // A track's sky, fog and weather settings (3trNN[n][w].hrz: day, night,
-// weather), as docs/engines/nfs/formats/hrz.md describes. The file is commented
+// weather), as docs/engines/nfs/games/nfs3/formats/hrz.md describes. The file is commented
 // text; its comments name each value, and the names here follow them.
 struct Horizon {
     using Rgb = std::array<int, 3>;
@@ -65,7 +65,7 @@ Horizon::FogPoint fogAtSlice(const Horizon &h, int slice);
 int sceneryFogValue(int density);
 int skyFogValue(const Horizon &h, int density);
 
-// How nfs3.exe lays out the sky (docs/engines/nfs/formats/hrz.md, What the game
+// How nfs3.exe lays out the sky (docs/engines/nfs/games/nfs3/formats/hrz.md, What the game
 // does with it). The horizon has 16 slots of 22.5 degrees; the slot at a
 // heading h (in turns, atan2(x, z) / 2 pi in the track's coordinates) is
 // 16 x frac(h + 0.75 + horizonTurn(h)).

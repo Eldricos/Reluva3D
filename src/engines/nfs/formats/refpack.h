@@ -11,7 +11,7 @@
 namespace reluva::nfs {
 
 // Whether data starts with a RefPack header (EA's LZ77 compression, used
-// by .qfs files), as docs/engines/nfs/formats/refpack.md describes.
+// by .qfs files), as docs/engines/nfs/games/nfs3/formats/refpack.md describes.
 bool isRefPack(const std::vector<uint8_t> &data);
 
 // Whether data starts with the header of EA's Huffman compression (30 FB,

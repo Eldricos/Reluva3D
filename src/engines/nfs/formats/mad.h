@@ -12,7 +12,7 @@
 
 namespace reluva::nfs {
 
-// Electronic Arts' Madcow video (.mad), as docs/engines/nfs/formats/mad.md
+// Electronic Arts' Madcow video (.mad), as docs/engines/nfs/games/nfs3/formats/mad.md
 // describes: MPEG-1-like intra blocks and whole-block motion copies, in
 // YUV 4:2:0.
 class MadDecoder {

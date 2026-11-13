@@ -12,7 +12,7 @@
 namespace reluva::nfs {
 
 // A track's .col file: the virtual road the game drives on, and the 3D
-// structures and paths of its moving objects, as docs/engines/nfs/formats/col.md
+// structures and paths of its moving objects, as docs/engines/nfs/games/nfs3/formats/col.md
 // describes. Coordinates are the track's (.frd).
 struct TrackCollision {
     using Vec3 = std::array<float, 3>;

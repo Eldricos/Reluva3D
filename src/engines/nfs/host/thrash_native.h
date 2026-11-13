@@ -55,10 +55,10 @@ struct ThrashFrame {
 
 // How much fog covers what's at w (a vertex's 1/rhw), 0 to 1, for the
 // value setstate(0xe) gave: the curve voodoo2a.dll builds Glide's fog
-// table from (docs/engines/nfs/systems/thrash.md, Fog). 0 gives none.
+// table from (docs/engines/nfs/games/nfs3/systems/thrash.md, Fog). 0 gives none.
 float glideFog(float w, float value);
 
-// THRASH's drawing done natively (docs/engines/nfs/systems/thrash.md): the
+// THRASH's drawing done natively (docs/engines/nfs/games/nfs3/systems/thrash.md): the
 // triangles, quads, lines and points the game sends, rasterized in C++
 // into the 16-bit (5:6:5) surface the software renderer would have drawn
 // into. The renderer DLL still keeps its own books (textures, windows,
@@ -92,7 +92,7 @@ public:
 
     void setState(uint32_t id, uint32_t value);
     // Draws as d3da.dll sets up its Direct3D device and keeps it
-    // (docs/engines/nfs/systems/thrash.md, d3da's device defaults), for a game told
+    // (docs/engines/nfs/games/nfs3/systems/thrash.md, d3da's device defaults), for a game told
     // its renderer is d3da: textures bilinear-filtered (state 7 picks: 0
     // point-sampled, 1 bilinear; nothing else changes it), no dithering
     // (d3da's setstate ignores state 5). Fog, the blend modes and the

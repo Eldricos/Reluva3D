@@ -31,7 +31,7 @@ std::string name(const uint8_t *p) {
     return std::string(reinterpret_cast<const char *>(p), std::find(p, p + 64, 0) - p);
 }
 
-// The header's fields (docs/engines/nfs/formats/fce.md).
+// The header's fields (docs/engines/nfs/games/nfs3/formats/fce.md).
 constexpr size_t kTriangles = 0x04, kVertices = 0x08;
 constexpr size_t kVertexTable = 0x10, kNormalTable = 0x14, kTriangleTable = 0x18;
 constexpr size_t kHalfSize = 0x28, kDummyCount = 0x34, kDummies = 0x38;

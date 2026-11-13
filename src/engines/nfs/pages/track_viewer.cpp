@@ -27,7 +27,7 @@ constexpr const char *kDetailNames[] = {"low", "medium", "high", "game"};
 // weather, night with weather. (sky.fsh's CHRD, CHRN... are the cars'
 // reflections; the horizon picture is in the track's texture sheet.)
 constexpr const char *kVariantNames[] = {"day", "night", "weather", "night, weather"};
-// The tracks by number (text strings 102 on, docs/engines/nfs/formats/tracks.md).
+// The tracks by number (text strings 102 on, docs/engines/nfs/games/nfs3/formats/tracks.md).
 constexpr const char *kTrackNames[] = {"Hometown",     "Redrock Ridge", "Atlantica", "Rocky Pass", "Country Woods",
                                        "Lost Canyons", "Aquatica",      "Summit",    "Empire City"};
 
@@ -947,7 +947,7 @@ void TrackPage::load(int index) {
     toBlock(0);
     // RELUVA_NFS_TRACK_CAMERA="x y z yaw pitch": the camera placed as a
     // view of the game's (track coordinates; yaw atan2(x, z) of its forward,
-    // pitch, in radians), for comparing with nfs-host's frames.
+    // pitch, in radians), for comparing with nfs host's frames.
     if (const char *camera = std::getenv("RELUVA_NFS_TRACK_CAMERA")) {
         float x = 0, y = 0, z = 0, yaw = 0, pitch = 0;
         if (std::sscanf(camera, "%f %f %f %f %f", &x, &y, &z, &yaw, &pitch) == 5) {
@@ -2622,7 +2622,7 @@ void TrackPage::prepareCars(const gfx::Vec3 &eye, const gfx::Vec3 &forward, cons
         // The detail (0x4bb5d0): the mean view depth of the box's eight
         // corners (+0x114-+0x11C either way along the rows from +0x98),
         // which is the depth of its centre; the car detail option taken
-        // as High (0, as nfs-host's config.dat has it).
+        // as High (0, as nfs host's config.dat has it).
         {
             const float depth =
                 (c.at[0] - eye[0]) * forward[0] + (c.at[1] - eye[1]) * forward[1] + (-c.at[2] - eye[2]) * forward[2];
@@ -3670,7 +3670,7 @@ void TrackPage::prepareParticles(const gfx::Vec3 &eye, const gfx::Vec3 &forward,
         const float pixel = shown[q].depth / focal;
         std::array<ParticleVec, 4> corners = t.streak ? streakCorners(p, r, u, pixel, p.size / pixel)
                                                       : pictureCorners(p, r, u, p.size, -kScreen.sy / kScreen.sx);
-        // Without the z-buffer (projected_ off, as nfs-host runs the game)
+        // Without the z-buffer (projected_ off, as nfs host runs the game)
         // the particles' quads and the cars go into the same depth buckets
         // (0x4c7480 and 0x4c7400: round(4 x depth), the quad's the mean of
         // its corners', the car's the mean of its box's), drawn back to
@@ -4353,7 +4353,7 @@ void TrackPage::update(uint64_t nowMs) {
                     continue;
                 const int delay = m.keyDelay >= 1 && m.keyDelay <= 400 ? m.keyDelay : 6;
                 // RELUVA_NFS_TRACK_STEP=<g_step> holds them at the game's
-                // step (0x7d3684), for comparing with nfs-host's frames.
+                // step (0x7d3684), for comparing with nfs host's frames.
                 const float ticks = fixedStep_ >= 0
                                         ? static_cast<float>(fixedStep_)
                                         : static_cast<float>(nowMs % 100000000) * kGameTicksPerSecond / 1000.0f;

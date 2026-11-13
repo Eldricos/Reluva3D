@@ -13,7 +13,7 @@
 namespace reluva::nfs {
 
 // A front-end string table (FeData/text/text.eng and its other
-// languages), as docs/engines/nfs/formats/text.md describes. Strings are kept as
+// languages), as docs/engines/nfs/games/nfs3/formats/text.md describes. Strings are kept as
 // stored, in Windows-1252, the code page the game's fonts are drawn in.
 struct TextTable {
     std::vector<std::string> strings;

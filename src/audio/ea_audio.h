@@ -10,7 +10,7 @@
 #include <vector>
 
 // Electronic Arts' audio codecs of the late 1990s, used in many of its games
-// (docs/engines/nfs/formats/bnk.md).
+// (docs/engines/nfs/games/nfs3/formats/bnk.md).
 
 namespace reluva::audio {
 

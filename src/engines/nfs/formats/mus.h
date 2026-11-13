@@ -15,7 +15,7 @@ namespace reluva::nfs {
 
 // A music file (.mus): segments one after another, each an SCHl header
 // (a PT header), an SCCl block count, SCDl data blocks and SCEl, as
-// docs/engines/nfs/formats/mus.md describes. The data is kept; segments are
+// docs/engines/nfs/games/nfs3/formats/mus.md describes. The data is kept; segments are
 // decoded when asked.
 class MusicStream {
 public:

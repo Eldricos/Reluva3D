@@ -13,7 +13,7 @@
 
 namespace reluva::nfs {
 
-// A .viv archive (EA's "BIGF"), as docs/engines/nfs/formats/viv.md describes. The
+// A .viv archive (EA's "BIGF"), as docs/engines/nfs/games/nfs3/formats/viv.md describes. The
 // archives are small (the largest retail one is about 1.6 MB), so the whole
 // file is kept in memory.
 class VivArchive : public Archive {

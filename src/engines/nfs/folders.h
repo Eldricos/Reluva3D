@@ -12,7 +12,7 @@ namespace reluva::nfs {
 
 // Where the game's files are. NFS III installs everything but the music
 // (GameData/Audio/pc) and the movies (FeData/movies), which it reads from
-// the CD (docs/engines/nfs/PLAN.md).
+// the CD (docs/engines/nfs/games/nfs3/PLAN.md).
 struct GameFolders {
     std::filesystem::path install;
     std::filesystem::path cd; // empty: no CD's files found

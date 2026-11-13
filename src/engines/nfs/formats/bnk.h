@@ -14,7 +14,7 @@
 namespace reluva::nfs {
 
 // A sound's "PT" header: tagged values describing its audio, as
-// docs/engines/nfs/formats/bnk.md describes. Values not given take the defaults.
+// docs/engines/nfs/games/nfs3/formats/bnk.md describes. Values not given take the defaults.
 struct SoundHeader {
     enum Compression { kPcm16 = -1, kEaXa = 7, kMicroTalk = 9 };
     int compression = kPcm16;

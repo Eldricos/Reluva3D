@@ -53,25 +53,30 @@ src/devtools/nfs_commands.cpp               src/engines/nfs/tools/commands.cpp
 src/tools/nfs_commands.h                    src/engines/nfs/tools/commands.h
 src/devtools/nfs_commands.h                 src/engines/nfs/tools/commands.h
 
-# Docs: the engine's folder (its README, the four other standard pages and
-# research/ are written in it); formats/ a page per file, systems/ a page
-# per part of how the game behaves.
-docs/engines/nfs.md                         docs/engines/nfs/PLAN.md
-docs/engines/nfs-threads.md                 docs/engines/nfs/systems/threads.md
-docs/formats/nfs/3ddata.md                  docs/engines/nfs/formats/3ddata.md
-docs/formats/nfs/bnk.md                     docs/engines/nfs/formats/bnk.md
-docs/formats/nfs/col.md                     docs/engines/nfs/formats/col.md
-docs/formats/nfs/fce.md                     docs/engines/nfs/formats/fce.md
-docs/formats/nfs/ffn.md                     docs/engines/nfs/formats/ffn.md
-docs/formats/nfs/frd.md                     docs/engines/nfs/formats/frd.md
-docs/formats/nfs/fsh.md                     docs/engines/nfs/formats/fsh.md
-docs/formats/nfs/hrz.md                     docs/engines/nfs/formats/hrz.md
-docs/formats/nfs/mad.md                     docs/engines/nfs/formats/mad.md
-docs/formats/nfs/mus.md                     docs/engines/nfs/formats/mus.md
-docs/formats/nfs/refpack.md                 docs/engines/nfs/formats/refpack.md
-docs/formats/nfs/text.md                    docs/engines/nfs/formats/text.md
-docs/formats/nfs/tracks.md                  docs/engines/nfs/formats/tracks.md
-docs/formats/nfs/viv.md                     docs/engines/nfs/formats/viv.md
-docs/formats/nfs/net.md                     docs/engines/nfs/systems/net.md
-docs/formats/nfs/physics.md                 docs/engines/nfs/systems/physics.md
-docs/formats/nfs/thrash.md                  docs/engines/nfs/systems/thrash.md
+# Docs: an engine for a family of games (NFS III, and High Stakes after it),
+# so the game's pages are in games/nfs3/ (its README and the four other
+# standard pages are written there): formats/ a page per file, systems/ a
+# page per part of how the game behaves.
+docs/engines/nfs.md                         docs/engines/nfs/games/nfs3/PLAN.md
+docs/engines/nfs-threads.md                 docs/engines/nfs/games/nfs3/systems/threads.md
+docs/formats/nfs/3ddata.md                  docs/engines/nfs/games/nfs3/formats/3ddata.md
+docs/formats/nfs/bnk.md                     docs/engines/nfs/games/nfs3/formats/bnk.md
+docs/formats/nfs/col.md                     docs/engines/nfs/games/nfs3/formats/col.md
+docs/formats/nfs/fce.md                     docs/engines/nfs/games/nfs3/formats/fce.md
+docs/formats/nfs/ffn.md                     docs/engines/nfs/games/nfs3/formats/ffn.md
+docs/formats/nfs/frd.md                     docs/engines/nfs/games/nfs3/formats/frd.md
+docs/formats/nfs/fsh.md                     docs/engines/nfs/games/nfs3/formats/fsh.md
+docs/formats/nfs/hrz.md                     docs/engines/nfs/games/nfs3/formats/hrz.md
+docs/formats/nfs/mad.md                     docs/engines/nfs/games/nfs3/formats/mad.md
+docs/formats/nfs/mus.md                     docs/engines/nfs/games/nfs3/formats/mus.md
+docs/formats/nfs/refpack.md                 docs/engines/nfs/games/nfs3/formats/refpack.md
+docs/formats/nfs/text.md                    docs/engines/nfs/games/nfs3/formats/text.md
+docs/formats/nfs/tracks.md                  docs/engines/nfs/games/nfs3/formats/tracks.md
+docs/formats/nfs/viv.md                     docs/engines/nfs/games/nfs3/formats/viv.md
+docs/formats/nfs/net.md                     docs/engines/nfs/games/nfs3/systems/net.md
+docs/formats/nfs/physics.md                 docs/engines/nfs/games/nfs3/systems/physics.md
+docs/formats/nfs/thrash.md                  docs/engines/nfs/games/nfs3/systems/thrash.md
+
+# Research scripts that aren't part of Reluva: tools/<engine>-re/, as the
+# other engines' are.
+tools/nfsre/                                tools/nfs-re/

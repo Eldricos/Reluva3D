@@ -50,7 +50,7 @@ public:
     // `direct3d`: the game is told its renderer is d3da.dll and takes its
     // Direct3D path (no fog, the clouds' constant alpha, the dimming by the
     // effects intensity), drawn natively as d3da's device draws (bilinear,
-    // undithered; docs/engines/nfs/formats/hrz.md, The Direct3D renderer).
+    // undithered; docs/engines/nfs/games/nfs3/formats/hrz.md, The Direct3D renderer).
     PlayPage(GameFolders folders, std::filesystem::path saveFolder, audio::Mixer *mixer, int renderScale = 2,
              bool smoothTextures = true, bool offerJoystick = true, bool forceFeedback = true,
              std::string wheelPedals = {}, bool network = true, bool fillMovies = true, std::string serial = {},

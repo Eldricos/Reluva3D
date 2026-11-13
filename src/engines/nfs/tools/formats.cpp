@@ -388,7 +388,7 @@ int cmdNfsSurvey(int argc, char **argv) {
         std::printf("%-16s %6d read, %d failed\n", names[i], all[i]->ok, all[i]->failed);
         failed += all[i]->failed;
     }
-    // Known and documented (docs/engines/nfs/formats/refpack.md), so not failures.
+    // Known and documented (docs/engines/nfs/games/nfs3/formats/refpack.md), so not failures.
     if (!unsupported.empty()) {
         std::printf("%zu files in a compression scheme not read yet:\n", unsupported.size());
         for (const auto &u : unsupported)

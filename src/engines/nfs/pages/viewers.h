@@ -284,7 +284,7 @@ private:
 //   the game makes them for that side's code (Shift+P: a fast hit, 40;
 //   else 18); held, it repeats
 //   E: the camera's car's headlights (off, low, high; Shift+E the z-buffer
-//   and projection, off by default as in nfs-host; Ctrl+E the game's light
+//   and projection, off by default as in nfs host; Ctrl+E the game's light
 //   test)   J: computer cars (Shift+J stops them)
 //   Z: the cars' reflections (the game's option at 0x6fbc24)
 //   Q: the Special Effects option: High, Low, Off (no track lights, rain
@@ -546,7 +546,7 @@ private:
     // texture's with the colour added.
     int beams_ = 1; // E: 0 off, 1 low, 2 high, as the game's key
     // Shift+E: the z-buffer in use (0x7a3a60) with the projtex option, so
-    // the headlights' projected picture; off as nfs-host runs the game
+    // the headlights' projected picture; off as nfs host runs the game
     // (its renderer is softtria's path: 0x472eaa turns the z-buffer and
     // projected textures off), which also draws the depth-sorted items
     // (cars, particles) back to front without a depth test.

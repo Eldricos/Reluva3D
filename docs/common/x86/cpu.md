@@ -11,8 +11,9 @@ for the cache's blocks is [jit.md](jit.md).
 
 - **`cpu.h`, `cpu.cpp`: the processor.** The 32-bit integer instructions
   (with 16-bit operands), string instructions with `rep`, the bit
-  instructions, `CPUID` (it reports a Pentium) and the FS segment
-  (Windows' thread information block). Its memory is one flat arena from
+  instructions, `CPUID` (it reports a Pentium; see below) and the FS segment
+  (Windows' thread information block). The segment registers hold their
+  selectors and are pushed, popped and moved, but the model is flat. Its memory is one flat arena from
   address 0 whose first page faults, so null pointers are caught. Faults
   (bad memory, division by zero, an instruction not implemented) end the
   call with an error naming the address.
@@ -23,6 +24,66 @@ for the cache's blocks is [jit.md](jit.md).
   does for it): add, subtract, multiply, divide and square root are
   rounded to 24 bits of mantissa, the transcendental instructions aren't,
   as on the processor (Intel SDM vol. 1, 8.1.5.2).
+  - A 64-bit integer loaded with FILD is kept exactly beside its double,
+    and FISTP stores it back unchanged. Programs of the time copy memory
+    8 bytes at a time that way (Need for Speed III's `memcpy` does), and
+    a double can't hold every 64-bit integer. FSAVE and FRSTOR keep such
+    integers exact too; FLD, FST and FXCH of a register move it with the
+    register. In the cache's native code (jit.md) those three are the
+    host's own instructions, which don't: a program that needs it sets
+    `Cpu::exactX87`, and they're left to their handlers.
+- **`mmx.cpp`: the MMX instructions**, those of the Pentium MMX, from
+  Intel's reference:
+  - MOVD and MOVQ in all their forms;
+  - PADD and PSUB (bytes, words, dwords; signed and unsigned
+    saturating for bytes and words);
+  - PMULLW, PMULHW, PMADDWD;
+  - PCMPEQ and PCMPGT; PAND, PANDN, POR, PXOR;
+  - PSLL, PSRL, PSRA by a register, memory or an immediate; a count past
+    the lane's width gives 0, or the sign for PSRA;
+  - PACKSSWB, PACKSSDW, PACKUSWB; PUNPCKL and PUNPCKH (BW, WD, DQ);
+    the low unpacks read 4 bytes of memory, the others 8;
+  - EMMS.
+
+  The SSE forms (a 66, F3 or F2 prefix) fault, as do the opcodes in
+  those ranges the Pentium MMX lacks. As on the hardware, MMi is the
+  64-bit mantissa of x87 register i (physical, not stack-relative).
+  Every MMX instruction but EMMS sets the stack top to 0 and tags all
+  eight registers valid; EMMS tags them all empty. A register an MMX
+  instruction writes holds a NaN for the x87 (its exponent and sign all
+  ones, which FSTP m80 and FSAVE store), and its 64 bits are kept beside
+  the double (`Fpu::mm`). They hold while the double is unchanged; once
+  the x87 writes the register, MMX reads the mantissa of its value (an
+  exact FILD integer's whole). FLD m80 and FRSTOR keep the whole
+  mantissa too; FXCH moves it with its register. The MMX registers are
+  part of the thread's context. They're decoded in `twoByte` (0F 60-7F
+  and D0-FF go to `mmx()`); the cache runs them from their bytes.
+  Checked on a program too: `reluva-tool nfs mmx-check` runs Need for
+  Speed III's MMX sound mixer beside its float one on the same voices.
+  Every difference was one its code predicts: the 127/128 gain, rounding
+  down, even samples, the bus saturating. One of them rests on PUNPCKLBW
+  keeping the destination's low bytes: the game's 8-bit mixer takes its
+  words' low bytes from there.
+- **CPUID** reports a Pentium (family 5, model 4) with an FPU, a time
+  stamp counter and CMPXCHG8B. It reports MMX (EDX bit 23) only when
+  `Cpu::reportMmx` is set (off by default), so programs keep their
+  non-MMX paths unless asked.
+- **The first page** faults, but a program that reads low memory to tell
+  Windows 95 from NT can be let do so (`Cpu::readableFirstPage`), as
+  Windows 95 and 98 allow: its reads give 0, its writes still fault. A
+  read there in the cache's native code is run again by the interpreter.
+- **Threads switched at any instruction** (`Cpu::setSlice`,
+  `saveContext`, `loadContext`): for host threads (windows.md), every
+  `slice` instructions the run calls back between two instructions,
+  where another thread may take the processor; the context saved holds
+  the registers, the x87 and MMX state, the segment selectors and where
+  the runs are (their depth, limit and the run loop's own state). After
+  such a change the cache finds the block at eip again, as another
+  thread may have changed the table.
+- **For debugging**: stores into a range watched (`watchStart`,
+  `watchEnd`, `onWatchedStore`; instructions then run one at a time), a
+  callback before each native function (`nativeTrace`), and how often
+  each native was called (`nativeCallCounts`).
 - **Native functions.** The engine's functions, and stand-ins for the
   system's, live at reserved addresses at the top of memory; a call there
   runs a C++ function, which reads its arguments off the stack and sets
@@ -103,6 +164,11 @@ They also run 3000 random sequences of 40 instructions, with operands in
 registers and memory, both ways, and compare registers, flags, the x87
 unit and memory afterwards.
 
+A program that changes the instructions just after the one changing them
+must jump between, as the Pentium's manual asks: a block's bytes are
+checked when it starts, so a block that writes into itself runs on as it
+was decoded (the test of it in `common.unit.x86_more` has the jump).
+
 ## Sources and checks
 
 - **Where the facts come from:** Intel's published instruction set
@@ -122,6 +188,14 @@ unit and memory afterwards.
   - The DLL is also loaded a second time, so that it is relocated.
 - **Confidence:** published unless marked.
 
+- `tests/common/x86_more.cpp` (`common.unit.x86_more`) checks the exact
+  64-bit copies, the segment registers, code written over, the readable
+  first page (native code included) and pokes; `tests/common/mmx.cpp`
+  (`common.unit.mmx`) each MMX instruction against values worked out
+  from Intel's reference: the saturation edges, shifts past the width,
+  packs and unpacks, the memory forms, the aliasing with the x87, the
+  thread context, and CPUID's MMX bit.
+
 ## Used by
 
 - **`idtech3`**: Star Trek: Voyager - Elite Force's single-player DLLs
@@ -130,3 +204,6 @@ unit and memory afterwards.
   ([running.md](../../engines/netimmerse/games/legoalphateam/systems/running.md)).
 - **`awe`**: Murder on the Orient Express's `granny2.dll` and `binkw32.dll`,
   run by its tools to check Reluva's own decoders against them.
+- **`nfs`**: Need for Speed III's whole program, with MMX if asked, its
+  `memcpy` through the x87 unit, and its threads switched at any
+  instruction ([the game's threads](../../engines/nfs/games/nfs3/systems/threads.md)).

@@ -10,7 +10,7 @@
 namespace reluva::nfs {
 
 // The race's particles (sparks, dust, smoke...) as nfs3.exe makes, moves
-// and draws them; docs/engines/nfs/formats/col.md, "Particles". Positions and
+// and draws them; docs/engines/nfs/games/nfs3/formats/col.md, "Particles". Positions and
 // velocities are in the track's coordinates (y up), velocities in units a
 // second; a particle's life is counted in its own ticks, every other game
 // tick (32 a second).
@@ -243,7 +243,7 @@ std::array<ParticleVec, 4> streakCorners(Particle &p, const ParticleVec &right, 
 std::array<ParticleVec, 4> pictureCorners(const Particle &p, const ParticleVec &right, const ParticleVec &up,
                                           float half, float aspect = 1);
 
-// The weather's rain or snow (docs/engines/nfs/formats/col.md, "Rain and snow"):
+// The weather's rain or snow (docs/engines/nfs/games/nfs3/formats/col.md, "Rain and snow"):
 // up to 800 drops in a box round the camera, moved every other game tick
 // (0x4dd5e0), drawn on the screen through a 120-degree view as streaks
 // (rain, weather.fsh DRP1) or squares (snow, DRP2) (0x4de700, 0x4de070),

@@ -81,7 +81,7 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     // The time stamp counter of a 300 MHz processor (Options::cpuMhz), by
     // the game's clock. The game times it to set its detail levels on a
     // first run (by MHz: above 266 is the highest); counting instructions it
-    // found 60 MHz and turned the horizon off (docs/engines/nfs/PLAN.md, Sky and
+    // found 60 MHz and turned the horizon off (docs/engines/nfs/games/nfs3/PLAN.md, Sky and
     // fog).
     cpu_->timeStamp = [this, last = uint64_t(0), perMs = uint64_t(options_.cpuMhz) * 1000]() mutable {
         last = std::max(last + 1, uint64_t(process_->now()) * perMs);
@@ -446,7 +446,7 @@ bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, co
 
 void GameHost::addNativeRoutines() {
     // Routines of the retail nfs3.exe's C library run natively, where its
-    // code is as expected (docs/engines/nfs/PLAN.md, Loading time): a jump to
+    // code is as expected (docs/engines/nfs/games/nfs3/PLAN.md, Loading time): a jump to
     // the native function over the routine's first bytes. Each uses
     // Watcom's register convention (arguments in EAX, EDX...; the result
     // in EAX) and returns as the routine would.

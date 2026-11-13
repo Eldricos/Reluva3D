@@ -64,13 +64,13 @@ int cmdNfsPage(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool nfs page <game folder> <out.tga> <page> [key...]\n"
                              "  keys: left right up down pgup pgdn home end enter esc, or a letter or symbol;\n"
                              "  also +key and -key (held, let go), wait<ms>, click and move<dx>/<dy>\n"
-                             "  (the Play page writes to nfs-page-save)\n");
+                             "  (the Play page writes to nfs page-save)\n");
         return 2;
     }
     const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
     reluva::nfs::GameFiles files;
     files.scan(folders);
-    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files, nullptr, "nfs-page-save");
+    auto pages = reluva::nfs::makePages("Need for Speed III: Hot Pursuit", folders, files, nullptr, "nfs page-save");
     reluva::nfs::Page *page = nullptr;
     for (auto &p : pages)
         if (lowerAscii(p->name()) == lowerAscii(argv[4]))

@@ -14,7 +14,7 @@
 
 namespace reluva::nfs {
 
-// A track's geometry (.frd), as docs/engines/nfs/formats/frd.md describes.
+// A track's geometry (.frd), as docs/engines/nfs/games/nfs3/formats/frd.md describes.
 // Coordinates are as stored: +y up, left-handed like the models (fce.md).
 struct Track {
     using Vec3 = std::array<float, 3>;
@@ -231,7 +231,7 @@ inline int startingBeams(bool night, bool weather, bool human) {
 Headlight sirenLight(const std::array<float, 3> &carAt, const std::array<float, 3> &right,
                      const std::array<float, 3> &up, const std::array<float, 3> &forward, int step);
 // The screen the game projects with (0x56009c-0x5600a8 and the clip
-// window at 0x7d34f8-0x7d350c; as an nfs-host race at 640 x 480 has them):
+// window at 0x7d34f8-0x7d350c; as an nfs host race at 640 x 480 has them):
 // x = cx + sx x / z, y = cy + sy y / z, inside left-right and top-bottom,
 // and 1 / z below inverseDepth (z beyond 1).
 struct ViewScreen {
