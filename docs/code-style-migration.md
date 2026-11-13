@@ -257,7 +257,8 @@ their own. Built with GCC and Clang and all 99 tests pass.
 - **Not covered:** about 780 class and struct members still declared
   several to a line (`int x, y;`, mostly in headers); no clang-tidy check
   splits members. Left for Phase 5. Code compiled only on Windows or
-  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks.
+  macOS (`#ifdef _WIN32`, 19 blocks) wasn't seen by the checks; Phase 4
+  renamed it by hand.
 
 ### Phase 4: Identifier renames (done)
 
@@ -321,6 +322,12 @@ git merge main                        # the rest, as usual
 The renames include the branch's own uses of what they rename. A branch
 adding an engine also renames that engine's own names:
 `python3 tools/tidy.py --rename-declared-in src/engines/<it> --rename-declared-in tests/engines/<it> src/engines/<it> tests/engines/<it>`.
+
+clang-tidy runs on Linux, so it renames nothing Linux doesn't compile:
+code under `#ifdef _WIN32` or `__APPLE__`, without SSE2 (Apple Silicon),
+and the engine template in `cmake/engine-template/`. Those were done by
+hand on main (`42be944`); a branch with such code of its own renames it
+by hand too, and the Windows and macOS builds in CI find what's missed.
 
 ### Phase 5: Hand work
 
