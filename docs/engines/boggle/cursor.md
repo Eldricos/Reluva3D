@@ -21,12 +21,13 @@ Partial traces disappear if time expires or the player ends before submission.
 The pointer is drawn inside the game framebuffer and follows the current board
 geometry, including the installed perspective artwork or the prototype board.
 It uses the installed raised/pressed hand images, with a native arrow fallback. The system pointer is hidden during visible
-computer turns and restored for human turns, handoffs, results and leaving the
-game. Its desktop position is never moved. F1 / End Player and Menu / F3 remain
+computer turns. The [human cursor pass](human-cursor.md) also uses the installed
+hand during active human play when installed artwork is enabled. Handoffs,
+results and leaving the game restore the system pointer. Its desktop position is never moved. F1 / End Player and Menu / F3 remain
 available during tracing. Human input cannot submit words for a computer.
 
 Background play keeps this option inactive: hidden words remain hidden and the
-user pointer stays available. An all-computer roster still uses visible turns,
+human gameplay pointer stays available. An all-computer roster still uses visible turns,
 so its cursor option remains available even if background play was requested.
 Disabling background play restores the session's saved cursor preference.
 

@@ -88,7 +88,7 @@ hit testing in both variants, Master last-row input, letter/Qu orientation,
 results paths and visible/background computer behavior. Checksums were updated
 only for affected installed-artwork views; prototype views retain their records.
 Native previews of both supplied scenes were inspected outside Git. Original
-whole-screen VM appearance, initial dice tumbling, mesh fidelity, exact dialogs
+whole-screen VM appearance, mesh fidelity, exact dialogs
 and pause audio remain comparison work.
 
 The full normal run passes 63 checks, including all 40 Boggle checks with the
@@ -98,4 +98,4 @@ detection disabled for the execution tracer. Install, CD and fresh-import
 artwork checks for that playing-camera pass agreed on
 `ac26f5b8390c5cb37eb467ea98241f0a` before transition views were added. All 737
 supplied installed files retained their manifest hashes. The owner subsequently
-confirmed that build works; Windows testing of the newer lid composition is pending.
+confirmed that build and the subsequent lid composition build work.

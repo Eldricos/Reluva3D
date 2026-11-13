@@ -295,6 +295,16 @@ moving cube overlays, original dialogs and pause audio remain unverified.
 The owner confirmed the preceding playing-camera build works. Native settled
 dice now overlay the lid video with observed per-frame clipping and camera
 poses for both variants; see [lid composition](../../engines/boggle/lid-animation.md).
-Full initial roll/tumble motion, original mesh shading and VM appearance
-comparison remain outstanding. This does not resolve the existing question
+Original mesh shading and VM appearance comparison remain outstanding. The
+subsequent [human cursor pass](../../engines/boggle/human-cursor.md) corrects
+the earlier roll/tumble assumption: the supplied AVI already contains the
+covered-tray shake. This does not resolve the existing question
 about the original lid state during round-end review.
+
+### Human gameplay pointer
+
+The owner confirmed the settled-dice lid build compiles and works. The next
+[human cursor pass](../../engines/boggle/human-cursor.md) uses the existing
+raised/pressed hand for active human play and restores the system pointer on
+focus/window exit, modal views and round transitions. Exact original dialog
+cursor behavior and whole-screen Windows appearance remain unverified.

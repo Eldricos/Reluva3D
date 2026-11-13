@@ -28,7 +28,8 @@ the auxiliary AI dictionary with the verified Classic search boundary. See
 [computer setup, native selection/pacing and verified vocabulary](computers.md) and
 [player naming and persistence](players.md). For visible computer turns,
 V / Computer Cursor on Players enables an animated cube trace; see
-[cursor controls and native presentation limits](cursor.md).
+[cursor controls and native presentation limits](cursor.md). Human play also
+uses the [installed raised/pressed hand](human-cursor.md) with installed artwork enabled.
 The [completed Classic AI behavior milestone](ai-milestone.md) covers difficulty
 gates, suffix/ending/prefix recognition, stable Mr. Boggle ties, measured movement
 and hold schedules, and retirement. Exact seeded-round/idle-pointer presentation

@@ -329,6 +329,9 @@ bool SdlSystem::pollEvent(Event& out) {
         case SDL_EVENT_WINDOW_FOCUS_LOST:
             out.type = EventType::FocusLost;
             return true;
+        case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+            out.type = EventType::MouseLeave;
+            return true;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
             if (relativeMouse_) {
                 SDL_SetWindowRelativeMouseMode(window_, false);

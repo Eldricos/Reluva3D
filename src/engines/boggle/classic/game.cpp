@@ -258,7 +258,7 @@ Error ClassicGame::run() {
     ClassicArtwork artwork;
     if(auto err=artwork.open(resources,target_.path,options,clip))return err;
     ClassicCursorArtwork cursorArtwork;
-    if(computerCursor && fs::findFile(target_.path,"Language/English.dll")) {
+    if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
         if(auto error=cursorArtwork.read(language.resources))return error;
     }
@@ -328,7 +328,7 @@ Error ClassicGame::run() {
     const HistoryButton pauseButton{artwork.active()?610:384,557,artwork.active()?166:110,29};
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
     int pointerX=-1,pointerY=-1;
-    bool softwareCursor=false,computerPressed=false;
+    bool softwareCursor=false,computerPressed=false,humanPressed=false;
     std::optional<ClassicPoint> computerPointer;ClassicPoint traceOrigin;
     const AcceptedWord* tracing=nullptr;
     std::optional<size_t> reviewSelection;
@@ -551,9 +551,17 @@ Error ClassicGame::run() {
             }
             if(event.type==EventType::MouseMove || event.type==EventType::MouseDown || event.type==EventType::MouseUp) {
                 pointerX=event.mouseX;pointerY=event.mouseY;
+                if(event.button==MouseButton::Left) {
+                    if(event.type==EventType::MouseDown)humanPressed=true;
+                    if(event.type==EventType::MouseUp)humanPressed=false;
+                }
+            }
+            if(event.type==EventType::MouseLeave) {
+                pointerX=pointerY=-1;humanPressed=false;dragging=false;continue;
             }
             if(event.type==EventType::FocusLost || event.type==EventType::FocusGained) {
                 gameplayClock.focus(event.type==EventType::FocusGained,sys_.getMillis());
+                pointerX=pointerY=-1;humanPressed=false;
                 dragging=false;scoreDismissed=true;continue;
             }
             if(scoreDismissed)continue;
@@ -747,10 +755,6 @@ Error ClassicGame::run() {
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);
-        const bool showComputerCursor=!gameplayClock.paused() && computerCursor && !handoff && !competition.ready() &&
-            transition.type()==Transition::None && round().phase()==RoundPhase::Playing && kinds[turn]!=ComputerLevel::Human;
-        if(showComputerCursor)cursorArtwork.draw(screen,computerPointer.value_or(cursorRest),computerPressed);
-        if(showComputerCursor!=softwareCursor){softwareCursor=showComputerCursor;sys_.setMouseCursorVisible(!softwareCursor);}
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
@@ -771,6 +775,15 @@ Error ClassicGame::run() {
             rect(screen,noticeOkay.x,noticeOkay.y,noticeOkay.w,noticeOkay.h,{48,88,120});
             label(screen,390,365,"OK");
         }
+        const bool cursorScene=!gameplayClock.paused() && !handoff && !matchOpen && !scoreOpen && !competition.ready() &&
+            transition.type()==Transition::None && round().phase()==RoundPhase::Playing;
+        const bool showComputerCursor=cursorScene && computerCursor && kinds[turn]!=ComputerLevel::Human;
+        const bool showHumanCursor=cursorScene && options.artwork && cursorArtwork.active() && kinds[turn]==ComputerLevel::Human &&
+            pointerX>=0 && pointerY>=0 && pointerX<width && pointerY<height;
+        if(showComputerCursor)cursorArtwork.draw(screen,computerPointer.value_or(cursorRest),computerPressed);
+        else if(showHumanCursor)cursorArtwork.draw(screen,{pointerX,pointerY},humanPressed);
+        const bool showSoftwareCursor=showComputerCursor || showHumanCursor;
+        if(showSoftwareCursor!=softwareCursor){softwareCursor=showSoftwareCursor;sys_.setMouseCursorVisible(!softwareCursor);}
         sys_.updateScreen(screen);
         if(handoff)handoffVisible=true;
         noticeVisible=minimumNotice && gameplayClock.focused();

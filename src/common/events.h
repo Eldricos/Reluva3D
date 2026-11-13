@@ -68,6 +68,7 @@ enum class EventType {
     JoyRemoved,
     FocusLost,
     FocusGained,
+    MouseLeave,        // pointer left the window; discard held hover/drag state
 };
 
 namespace joyhat {

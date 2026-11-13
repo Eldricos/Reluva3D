@@ -130,6 +130,75 @@ void installedCursorFlow(const std::filesystem::path& tmp) {
         else {CHECK(fallback.size()==sys.hashes.size());CHECK(fallback!=sys.hashes);}
     }
 }
+void humanCursorFlow(const std::filesystem::path& tmp) {
+    using namespace fixtures;
+    ClassicCursorArtwork hand;CHECK(!hand.read(inventedCursors()));
+    for(bool master:{false,true})for(bool art:{false,true}) {
+        std::vector<std::string> expected;
+        for(bool installed:{false,true})for(bool computerOption:{false,true}) {
+            auto t=target(tmp/(std::to_string(master)+std::to_string(art)+std::to_string(installed)+std::to_string(computerOption)),false,master,art);
+            t.settings["classic_cursor"]=computerOption?"1":"0";
+            if(installed)write(t.path/"Language/English.dll",cursorLanguage(inventedCursors()));
+            Resources resources;ClassicArtwork artwork;ClassicOptions options;
+            CHECK(!resources.open(t.path) && !readClassicOptions(t.settings,options));
+            CHECK(!artwork.open(resources,t.path,options,{}));
+            const auto first=art?artwork.cellCenter(0,options.side()):ClassicPoint{50,150};
+            const auto second=art?artwork.cellCenter(1,options.side()):ClassicPoint{150,150};
+            auto event=[](EventType type){Event e;e.type=type;return e;};
+            auto right=mouseEvent(EventType::MouseDown,600,300);right.button=MouseButton::Right;
+            CursorSystem sys;sys.clock=[](size_t){return uint64_t(0);};
+            sys.events=[&](size_t f)->std::vector<Event> {
+                auto mouse=[&](EventType type,ClassicPoint p){return mouseEvent(type,p.x,p.y);};
+                if(f==0 || f==21)return {keyEvent(key::Return)};
+                if(f==1 || f==7 || f==11 || f==20 || f==24)return {mouse(EventType::MouseMove,first)};
+                if(f==2 || f==8)return {mouse(EventType::MouseDown,first)};
+                if(f==3)return {mouse(EventType::MouseMove,second)};
+                if(f==4)return {mouse(EventType::MouseUp,second)};
+                if(f==5)return {right};
+                if(f==6)return {event(EventType::MouseLeave)};
+                if(f==9)return {event(EventType::FocusLost)};
+                if(f==10)return {event(EventType::FocusGained)};
+                if(f==12)return {mouse(EventType::MouseUp,first)};
+                if(f==13)return {mouseEvent(EventType::MouseDown,art?700:420,570)};
+                if(f==14)return {mouseEvent(EventType::MouseUp,art?700:420,570)};
+                if(f==15)return {mouseEvent(EventType::MouseDown,400,360)};
+                if(f==16)return {mouseEvent(EventType::MouseUp,400,360)};
+                if(f==17)return {right,textEvent("AAAA"),keyEvent(key::Return)};
+                if(f==18)return {keyEvent(key::F1)};
+                if(f==19)return {keyEvent(key::F1+1)};
+                if(f==22)return {mouseEvent(EventType::MouseMove,-1,300)};
+                if(f==23)return {mouseEvent(EventType::MouseMove,800,300)};
+                if(f==25)return {quit()};
+                return {};
+            };
+            auto visible=[](size_t f){return f==1 || f==2 || f==3 || f==4 || f==5 || f==7 || f==8 ||
+                f==11 || f==12 || f==15 || f==16 || f==17 || f==21 || f==24;};
+            if(!installed && !computerOption)sys.present=[&](const Surface& screen,size_t f) {
+                Surface painted=screen;
+                if(art && visible(f)) {
+                    const auto point=f==3 || f==4?second:f==5 || f==17?ClassicPoint{600,300}:
+                                     f==15 || f==16?ClassicPoint{400,360}:first;
+                    hand.draw(painted,point,f==2 || f==3 || f==8 || f==15);
+                }
+                expected.push_back(test::Hash().bytes(painted.pixels).hex());
+            };
+            ClassicGame game(sys,t,false,{"Alex"});CHECK(!game.run());
+            CHECK(sys.hashes.size()==25 && sys.cursorVisible && sys.textStopped);
+            if(installed)CHECK(sys.hashes==expected);
+            for(size_t f=0;f<sys.shown.size();++f)CHECK(sys.shown[f]==!(art && installed && visible(f)));
+            HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();
+            CHECK(rows.size()==1 && rows[0].score==1); // Cursor drawing never changes entry/scoring.
+        }
+    }
+}
+void humanCursorBundle(const std::filesystem::path& tmp) {
+    auto t=target(tmp,false,false,true);auto incomplete=inventedCursors();incomplete.pop_back();
+    fixtures::write(t.path/"Language/English.dll",cursorLanguage(incomplete));
+    CursorSystem sys;sys.events=[](size_t){return std::vector<Event>{quit()};};
+    {ClassicGame game(sys,t);CHECK(bool(game.run()) && sys.cursorVisible && !sys.hides);}
+    t.settings["classic_artwork"]="0";
+    {ClassicGame game(sys,t);CHECK(!game.run() && sys.cursorVisible && !sys.hides);}
+}
 void geometry() {
     std::vector<ClassicPoint> centers(16,{100,100});centers[0]={100,20};centers[1]={100,100};centers[5]={20,100};
     const ClassicPoint origin{20,20};AcceptedWord word{"QUAA",1,{0,1,5}};
@@ -306,6 +375,8 @@ void frontend(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.cursor",{
+    {"human raised/pressed hand, drag, right click, leave, focus, pause, replay and opt-out",[](const auto& tmp){humanCursorFlow(tmp);}},
+    {"human-only cursor bundles reject partial data and respect artwork opt-out",[](const auto& tmp){humanCursorBundle(tmp);}},
     {"indexed cursor masks, inversion, hotspots, groups, truncation and fallback",[](const auto&){cursorImages();}},
     {"installed cursor states replace the native arrow without retaining the system pointer",[](const auto& tmp){installedCursorFlow(tmp);}},
     {"cube/list interpolation, Qu prefix, invalid paths, clipping and strict settings",[](const auto&){geometry();}},

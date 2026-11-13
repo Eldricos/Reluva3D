@@ -60,9 +60,10 @@ frames, and sample frames out of order. Metadata-only artwork checks also
 render nine transition views per variant against installed resources. The
 renderer preserves the board seed, Qu atlas and auto-orient choice.
 
-Dice remain our native flat faces with simple side shading. Initial rolling
-and tumbling before the lid opens, original mesh lighting and whole-screen VM
-appearance matching remain unfinished. Results still return to the open-board
+Dice remain our native flat faces with simple side shading. Original mesh
+lighting and whole-screen VM appearance matching remain unfinished. The
+[roll-sequence correction](human-cursor.md#roll-sequence-correction) establishes
+that the initial covered-tray shake is already supplied by the AVI. Results still return to the open-board
 review view after closing; that policy awaits original-game confirmation.
 Retail data, reference harnesses, disassembly and decoded previews remain
 outside every Git worktree. Only independently written code and observations
@@ -74,4 +75,4 @@ renderer pass ASan/UBSan (leak detection disabled for the execution tracer).
 The expanded artwork check renders 26 states across both variants and reports
 `777705ff11b7c3dec6bc1557a9e37a59`; fresh-import verification agrees. All 737
 installed files retain their manifest hashes. Native preview frames were
-inspected outside Git. Windows owner testing of this transition pass is pending.
+inspected outside Git. The owner subsequently confirmed that this transition build compiles and works.

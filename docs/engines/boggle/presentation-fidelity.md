@@ -4,7 +4,9 @@ The first pass replaces the computer's independently drawn arrow with installed
 raised/pressed pointing-hand artwork. It uses the existing word-motion schedule;
 it does not change difficulty, word choice, turn timing or scoring. Enable
 Computer Cursor on Players with background play disabled to see it. Human
-input and native menus continue to use the system pointer.
+input originally retained the system pointer; the subsequent
+[human cursor pass](human-cursor.md) adds the installed hand during human play.
+Native menus retain the system pointer.
 
 ## Cursor resources
 
@@ -20,8 +22,9 @@ The cursor is scaled by 5/4 with nearest-neighbor samples to match the native
 presentation policy, not a claim about original Windows display/DPI behavior.
 The pressed image appears during the plan's existing cube hold intervals;
 travel and release use the raised image. Submission/idle motion remains native.
-The system pointer remains hidden only during visible computer turns and is
-restored for pause, handoff, results and exits.
+The first pass hid the system pointer during visible computer turns and
+restored it for pause, handoff, results and exits. The human cursor pass also
+hides it while drawing the installed hand during active human play.
 
 The DLL is read as data; it is never loaded or executed. No new import files or
 re-import are needed. Minimal language bundles without either group retain the
@@ -79,8 +82,9 @@ the installed-cursor path restores pointer visibility at exit. Press/release
 boundary tests also check the displayed cursor state.
 
 The subsequent [playing-camera pass](camera.md) implements verified projection.
-Moving cube overlays during lid clips, human cursor fidelity,
-exact dialog placement/navigation and original pause/lid/audio appearance still
+The subsequent [lid overlays](lid-animation.md) and
+[human cursor](human-cursor.md) cover those gameplay presentation gaps.
+Exact dialog placement/navigation and original pause/lid/audio appearance still
 need comparison. This pass does not claim complete Classic visual fidelity.
 All raw analysis, reference harnesses, decoded images and retail files remain
 outside every Git worktree.

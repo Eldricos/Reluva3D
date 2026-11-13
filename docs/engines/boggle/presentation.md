@@ -23,8 +23,8 @@ The native opening phase lasts 4.4 seconds and closing lasts 1.1 seconds.
 Scheduling uses elapsed time rather than blocking sleeps. Late frames advance
 to the current image; the timer still starts at the actual end of opening.
 Decoded 640x480 frames are scaled into the native 800x600 framebuffer. The [settled-dice lid overlay](lid-animation.md) now follows the observed
-clip rectangles and two-step camera movement. Initial rolling and tumbling
-remain unimplemented. The playable board uses a native projective layout and
+clip rectangles and two-step camera movement. The initial covered-tray shake
+is already in the AVI; see the [roll-sequence correction](human-cursor.md#roll-sequence-correction). The playable board uses a native projective layout and
 indexed hourglass animation; see [Classic layout](layout.md).
 
 The launcher's **Classic round animations** and **Classic sound effects**
