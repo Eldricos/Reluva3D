@@ -78,7 +78,8 @@ def main():
     src_form, bare_form = {}, {}
     for old, new in list(files) + list(moves.items()):
         src_form[old] = new
-        if old.startswith("src/") and new.startswith("src/"):
+        # Not for a file straight under src/: "main.cpp" alone could be any.
+        if old.startswith("src/") and new.startswith("src/") and "/" in old[4:]:
             bare_form[old[4:]] = new[4:]
     for old, new, bare in folders:
         src_form[old] = new

@@ -3,7 +3,7 @@
 // each secret passage (0x425CC0). Prints each way, and checks it: every
 // step to a free cell of the room, a slanting one only between free cells,
 // and how many ways a straight line would have taken through furniture.
-#include "common/audio/mixer.h"
+#include "audio/mixer.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/ui.h"
 #define private public

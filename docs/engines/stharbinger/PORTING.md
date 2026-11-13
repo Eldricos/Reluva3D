@@ -40,9 +40,9 @@ STDS9H), see [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
 | `engines/harbinger/harbinger.*` | `harbinger.*` (resources, modes), run by `stharbinger.cpp` |
 | `common/system.h` (`OSystem`), `events` | `platform.*` (`Platform`, over Reluva's `System`) |
 | `common/` (archives, DCL, files, streams, strings, INI) | Reluva's own (`src/common/`) |
-| `graphics/surface`, `palette` | `src/common/draw.h` (`Surface`), `palette.h` |
-| `audio/` (mixer, sound types, queuing stream) | Reluva's mixer (`src/common/audio/`) |
-| `video/smacker.*` | `src/common/video/smacker.*`, for any engine |
+| `graphics/surface`, `palette` | `src/graphics/draw.h` (`Surface`), `palette.h` |
+| `audio/` (mixer, sound types, queuing stream) | Reluva's mixer (`src/audio/`) |
+| `video/smacker.*` | `src/video/smacker.*`, for any engine |
 | `backends/sdl/` | Reluva's SDL3 backend |
 | `base/main.cpp`, `plugins` | Reluva's launcher, `reluva-tool` and the engine's settings ([below](#running-it)) |
 | `test/` | `tests/engines/stharbinger/`, `tests/common/` ([below](#tests)) |
