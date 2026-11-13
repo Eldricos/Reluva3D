@@ -11,7 +11,7 @@
 
 namespace reluva::awe {
 
-bool parseActName(std::string_view s, int& major, int& minor) {
+bool parseActName(std::string_view s, int &major, int &minor) {
     if (s.size() < 2)
         return false;
     major = std::atoi(std::string(s.substr(0, s.size() - 1)).c_str());
@@ -40,16 +40,18 @@ std::string unquote(std::string s) {
     return out;
 }
 
-bool contains(const std::string& cell, std::string_view word) {
+bool contains(const std::string &cell, std::string_view word) {
     return fs::toLower(cell).find(word) != std::string::npos;
 }
 
 // A cell of "0" is empty.
-bool given(const std::string& s) { return !s.empty() && s != "0"; }
+bool given(const std::string &s) {
+    return !s.empty() && s != "0";
+}
 
 } // namespace
 
-std::vector<ActRow> readActs(const Table& table) {
+std::vector<ActRow> readActs(const Table &table) {
     std::vector<ActRow> out;
     for (size_t i = 0; i < table.rows.size(); i++) {
         auto cell = [&](int column) { return unquote(table.cell(i, column)); };
@@ -76,7 +78,7 @@ std::vector<ActRow> readActs(const Table& table) {
     return out;
 }
 
-Story::Story(GameState& state, ScriptRunner& main) : state_(state), main_(main) {
+Story::Story(GameState &state, ScriptRunner &main) : state_(state), main_(main) {
     main_.onEmpty = [this] { runnerEmpty(); };
 }
 
@@ -89,8 +91,8 @@ bool Story::startAct(std::string_view arg) {
         onActTables(state_.act);
     // Without a row the last act's stays (0x423070 clears it only when it
     // finds one).
-    const ActRow* found = nullptr;
-    for (const ActRow& r : acts_)
+    const ActRow *found = nullptr;
+    for (const ActRow &r : acts_)
         if (r.act == state_.act)
             found = &r;
     if (!found)
@@ -127,14 +129,13 @@ void Story::update(float seconds) {
     }
 }
 
-bool Story::sceneLocation(const std::string& location) {
+bool Story::sceneLocation(const std::string &location) {
     previousLocation_ = location_;
     location_ = location;
-    return !previousLocation_.empty() && previousLocation_ != location_ &&
-           (state_.act < "04a" || state_.act >= "08a");
+    return !previousLocation_.empty() && previousLocation_ != location_ && (state_.act < "04a" || state_.act >= "08a");
 }
 
-void Story::restore(const ActRow& row, const std::string& location) {
+void Story::restore(const ActRow &row, const std::string &location) {
     row_ = row;
     previousLocation_ = location_;
     location_ = location;

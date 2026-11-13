@@ -16,11 +16,11 @@ namespace reluva::awe {
 
 struct SceneCamera {
     float fovY = 0.785f, nearPlane = 10, farPlane = 10000; // vertical, radians
-    float position[3] = {0, 0, 0};     // the point the camera turns about
-    float elevAzimRoll[3] = {0, 0, 0}; // radians
-    float offset[3] = {0, 0, 0};       // from that point, in the camera's axes
+    float position[3] = {0, 0, 0};                         // the point the camera turns about
+    float elevAzimRoll[3] = {0, 0, 0};                     // radians
+    float offset[3] = {0, 0, 0};                           // from that point, in the camera's axes
 
-    static SceneCamera fromRecord(const Ac2Record& camr);
+    static SceneCamera fromRecord(const Ac2Record &camr);
 
     // World to camera: back by the offset, the rotation's inverse, then
     // the position's inverse. The rotation is azimuth about Y, then
@@ -33,16 +33,16 @@ struct SceneCamera {
     gfx::Vec3 eye() const;
     // Where a world point lands on a width x height screen (pixels, y
     // down); false if it's behind the camera.
-    bool project(const float world[3], int width, int height, float& x, float& y) const;
+    bool project(const float world[3], int width, int height, float &x, float &y) const;
     // The ray through a screen point (pixels, y down) from the eye, in
     // the world, as GrannyGetPickingRay gives it (its direction not of
     // unit length).
-    void ray(float sx, float sy, int width, int height, gfx::Vec3& from, gfx::Vec3& dir) const;
+    void ray(float sx, float sy, int width, int height, gfx::Vec3 &from, gfx::Vec3 &dir) const;
     // Where the ray through a screen point (pixels, y down) meets the
     // floor (y = 0), as the game finds where a click lands
     // (GrannyGetPickingRay, then the floor plane: motoe.exe 0x406f20);
     // false if it doesn't.
-    bool floorAt(float sx, float sy, int width, int height, float& x, float& z) const;
+    bool floorAt(float sx, float sy, int width, int height, float &x, float &z) const;
 };
 
 // The game turns every model to its own axes when it loads it

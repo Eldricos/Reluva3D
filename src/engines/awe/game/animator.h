@@ -32,13 +32,13 @@ public:
         std::shared_ptr<const Animation> animation;
         int layer = Body;
         bool base = false;
-        int loops = 1;      // 0: for ever
-        float clock = 0;    // seconds since it started
-        float ease = 0;     // the ease in, and out when stopped
+        int loops = 1;                      // 0: for ever
+        float clock = 0;                    // seconds since it started
+        float ease = 0;                     // the ease in, and out when stopped
         float outStart = -1, outLength = 0; // easing out from outStart, for outLength
         int state = Playing;
-        std::vector<float> mask; // per model bone
-        float maskWeight = 0;    // the weight it was played with
+        std::vector<float> mask;     // per model bone
+        float maskWeight = 0;        // the weight it was played with
         std::vector<float> poseMask; // the pose's mask it was played under (per model bone; empty: none)
         // Its weight now: eased in and out (Granny's smooth curve).
         float weight() const;
@@ -50,8 +50,8 @@ public:
         CurveLoop loop() const;
     };
 
-    explicit Animator(const Model& model) : model_(&model) {}
-    const Model& model() const { return *model_; }
+    explicit Animator(const Model &model) : model_(&model) {}
+    const Model &model() const { return *model_; }
 
     // Plays an animation (0x429f50): `loops` times (0: for ever), easing
     // in over `ease` seconds. `weight`, if not 0, replaces its mask's
@@ -65,45 +65,45 @@ public:
     // seated character's gestures leave its legs to the base (MODL's
     // "TrackMasksit"). Empty: none.
     void setPoseMask(std::vector<float> mask) { poseMask_ = std::move(mask); }
-    const std::vector<float>& poseMask() const { return poseMask_; }
+    const std::vector<float> &poseMask() const { return poseMask_; }
     // A model's track mask by name ("sit": its bones' "TrackMasksit"), each
     // bone without a weight taking its parent's; empty if it has none.
-    static std::vector<float> modelMask(const Model& model, std::string_view name);
+    static std::vector<float> modelMask(const Model &model, std::string_view name);
 
     // Eases out (over `seconds`, or each one's own ease if negative) and
     // stops the slots `which` picks; a stopped slot doesn't report its end.
-    void stop(const std::function<bool(const Slot&)>& which, float seconds = -1);
+    void stop(const std::function<bool(const Slot &)> &which, float seconds = -1);
     // Moves the clocks on. A finite animation eases out over its last
     // ease's time ("ending"), then ends ("finished", unless stopped).
     void update(float seconds);
     // The body's pose, with the head and eyes over it.
-    void pose(Pose& out, const std::vector<BoneTurn>* turns = nullptr) const;
+    void pose(Pose &out, const std::vector<BoneTurn> *turns = nullptr) const;
     // Another model posed by the same animations, by its bones' names: a
     // prop the character holds, whose bones its animations move too.
-    void poseFor(const Model& other, Pose& out) const;
+    void poseFor(const Model &other, Pose &out) const;
 
-    const std::vector<Slot>& slots() const { return slots_; }
+    const std::vector<Slot> &slots() const { return slots_; }
     // The slot playing `name` (not stopped), or null.
-    const Slot* find(std::string_view name) const;
+    const Slot *find(std::string_view name) const;
     // Whether a slot whose name contains `part` is playing.
     bool playing(std::string_view part) const;
-    const Slot* base() const;
+    const Slot *base() const;
 
-    std::function<void(const Slot&)> onEnding, onFinished;
+    std::function<void(const Slot &)> onEnding, onFinished;
 
 private:
     // The slot's mask on `model`: its animation's track mask (`weight`
     // replacing its weights if not 0) times the pose's mask it was played
     // under, by bone name if `model` isn't the character's.
-    std::vector<float> buildMask(const Model& model, const Animation* animation, float weight,
-                                 const std::vector<float>& poseMask) const;
+    std::vector<float> buildMask(const Model &model, const Animation *animation, float weight,
+                                 const std::vector<float> &poseMask) const;
     // Blends the layer's slots: each bone's transform weighed by the
     // slots' weights times their masks; bones that weigh nothing stay at
     // rest. The strongest slot is returned through `strongest`.
-    void blend(const Model& model, int layer, std::vector<BoneTransform>& out, std::vector<float>& total,
-               const Slot** strongest) const;
+    void blend(const Model &model, int layer, std::vector<BoneTransform> &out, std::vector<float> &total,
+               const Slot **strongest) const;
 
-    const Model* model_;
+    const Model *model_;
     std::vector<Slot> slots_;
     std::vector<float> poseMask_;
 };

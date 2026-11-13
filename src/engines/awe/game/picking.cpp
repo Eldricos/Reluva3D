@@ -9,7 +9,7 @@
 
 namespace reluva::awe {
 
-int pick(const std::vector<PickCandidate>& c, bool itemInHand) {
+int pick(const std::vector<PickCandidate> &c, bool itemInHand) {
     // The list by depth, back to front (a bubble sort: equal ones keep
     // their order, 0x435e40), then tried from the end.
     std::vector<size_t> order(c.size());
@@ -22,7 +22,7 @@ int pick(const std::vector<PickCandidate>& c, bool itemInHand) {
     // 2: the characters: by their rectangle or outline if they have one,
     // else by their bones (0x435fd1).
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
-        const PickCandidate& p = c[*it];
+        const PickCandidate &p = c[*it];
         if (!p.character)
             continue;
         const bool byBones = !p.rect && !p.outline;
@@ -38,7 +38,7 @@ int pick(const std::vector<PickCandidate>& c, bool itemInHand) {
     return -1;
 }
 
-bool inPolygon(const std::vector<std::pair<uint32_t, uint32_t>>& points, int x, int y) {
+bool inPolygon(const std::vector<std::pair<uint32_t, uint32_t>> &points, int x, int y) {
     // The winding number about the pixel's centre.
     if (points.size() < 3)
         return false;
@@ -58,7 +58,7 @@ bool inPolygon(const std::vector<std::pair<uint32_t, uint32_t>>& points, int x, 
     return winding != 0;
 }
 
-bool rayHitsBox(const gfx::Mat4& m, const float lo[3], const float hi[3], const gfx::Vec3& from, const gfx::Vec3& dir) {
+bool rayHitsBox(const gfx::Mat4 &m, const float lo[3], const float hi[3], const gfx::Vec3 &from, const gfx::Vec3 &dir) {
     // The ray in the box's axes: through the inverse of m's 3x3 part (its
     // adjugate over its determinant), after taking off m's translation.
     auto a = [&](int r, int c) { return m[size_t(c * 4 + r)]; };

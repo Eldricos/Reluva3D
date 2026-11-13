@@ -29,7 +29,7 @@ struct SavedPlacement {
 };
 
 struct SaveGame {
-    std::string description, time, date; // "VGFDGFDG", "10:41", "11-02-06"
+    std::string description, time, date;        // "VGFDGFDG", "10:41", "11-02-06"
     int timeOfDay = 0, weather = 0, moving = 0; // GLBT, GLBW, GLBM: the globals when saved
     // INFO: the location, the saved scene's path
     // ("Locations\Calais.Hall\Calais.Hall_03_06b.ac2"), the act.
@@ -41,8 +41,8 @@ struct SaveGame {
         int weather = 0, timeOfDay = 0, moving = 0;
     } act;
     using Placement = SavedPlacement;
-    std::optional<Placement> player, follower; // CHAR, FLLW
-    std::vector<std::pair<std::string, int>> tags, timers; // TAGS, TIMS
+    std::optional<Placement> player, follower;              // CHAR, FLLW
+    std::vector<std::pair<std::string, int>> tags, timers;  // TAGS, TIMS
     std::vector<std::pair<std::string, std::string>> texts; // STAT: text tags
     // POSI: where characters were, by scene file and model file
     // ("Sirkeci.Market_01.ac2", "klaus_model.gr2").
@@ -69,13 +69,13 @@ struct SaveGame {
 };
 
 // Reads a saved game; fails on a record it doesn't know or a short file.
-Error readSaveGame(const std::vector<uint8_t>& data, SaveGame& out);
-std::vector<uint8_t> writeSaveGame(const SaveGame& save);
+Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out);
+std::vector<uint8_t> writeSaveGame(const SaveGame &save);
 // The first three records alone (0x412440): for the load screen's list.
-Error readSaveHeader(const std::vector<uint8_t>& data, std::string& description, std::string& date, std::string& time);
+Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time);
 
 // A 24-bit BMP of an RGBA picture (the slots' 256x192 thumbnails), as
 // the game writes them (alpha dropped).
-std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t>& rgba);
+std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t> &rgba);
 
 } // namespace reluva::awe

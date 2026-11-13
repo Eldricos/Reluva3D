@@ -8,22 +8,22 @@
 
 namespace reluva::awe {
 
-std::array<float, 3> shadowLight(const Ac2Scene& scene, const float origin[3]) {
+std::array<float, 3> shadowLight(const Ac2Scene &scene, const float origin[3]) {
     // 0x428250: D3DLIGHT8.Position (x, y, z) of each light; only those
     // with shadowOnly set if any are. Type, direction and colour don't
     // count. The sum starts from the mesh's world translation.
-    std::vector<const Ac2Record*> lights, marked;
-    for (const Ac2Record* o : scene.objects())
+    std::vector<const Ac2Record *> lights, marked;
+    for (const Ac2Record *o : scene.objects())
         if (o->tag == "LITE") {
             lights.push_back(o);
             if (o->i("shadowOnly") != 0)
                 marked.push_back(o);
         }
-    const std::vector<const Ac2Record*>& use = marked.empty() ? lights : marked;
+    const std::vector<const Ac2Record *> &use = marked.empty() ? lights : marked;
     std::array<float, 3> sum{0, 0, 0};
     if (origin)
         sum = {origin[0], origin[1], origin[2]};
-    for (const Ac2Record* l : use) {
+    for (const Ac2Record *l : use) {
         sum[0] += l->f("x");
         sum[1] += l->f("y");
         sum[2] += l->f("z");
@@ -32,11 +32,11 @@ std::array<float, 3> shadowLight(const Ac2Scene& scene, const float origin[3]) {
     return {sum[0] / n, sum[1] / n + 1500.0f, sum[2] / n};
 }
 
-std::array<float, 3> flattenOntoFloor(const std::array<float, 3>& light, const float point[3]) {
+std::array<float, 3> flattenOntoFloor(const std::array<float, 3> &light, const float point[3]) {
     return flattenOntoPlane(light, 0, point);
 }
 
-std::array<float, 3> flattenOntoPlane(const std::array<float, 3>& light, float height, const float point[3]) {
+std::array<float, 3> flattenOntoPlane(const std::array<float, 3> &light, float height, const float point[3]) {
     // D3DXMatrixShadow(light, plane (0, 1, 0, -height)) on the point: w is
     // light.y - point.y, the rest scaled to meet the plane.
     const float drop = light[1] - point[1];
@@ -81,7 +81,7 @@ void CoverageMask::fillTriangle(const float a[2], const float b[2], const float 
     bool any = false;
     for (int y = y0; y <= y1; y++) {
         const float py = float(y) + 0.5f;
-        uint8_t* row = bits_.data() + size_t(y) * size_t(w_);
+        uint8_t *row = bits_.data() + size_t(y) * size_t(w_);
         // Each edge's value only changes sign once along a row, so the
         // pixels inside are one run: done once it's left.
         bool in = false;
@@ -106,8 +106,8 @@ void ShadowStencil::clear() {
         return;
     for (int y = minY_; y <= maxY_; y++) {
         const size_t row = size_t(y) * size_t(w_);
-        std::fill(stencil_.begin() + ptrdiff_t(row + size_t(minX_)), stencil_.begin() + ptrdiff_t(row + size_t(maxX_) + 1),
-                  uint8_t(0));
+        std::fill(stencil_.begin() + ptrdiff_t(row + size_t(minX_)),
+                  stencil_.begin() + ptrdiff_t(row + size_t(maxX_) + 1), uint8_t(0));
         std::fill(depth_.begin() + ptrdiff_t(row + size_t(minX_)), depth_.begin() + ptrdiff_t(row + size_t(maxX_) + 1),
                   kFar);
     }
@@ -138,7 +138,8 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
         const size_t row = size_t(y) * size_t(w_);
         // The edges' parts that don't change along the row, worked out
         // once: the same sums as edge() per pixel.
-        const float ra = (c[0] - b[0]) * (py - b[1]), rb = (a[0] - c[0]) * (py - c[1]), rc = (b[0] - a[0]) * (py - a[1]);
+        const float ra = (c[0] - b[0]) * (py - b[1]), rb = (a[0] - c[0]) * (py - c[1]),
+                    rc = (b[0] - a[0]) * (py - a[1]);
         bool in = false;
         for (int x = x0; x <= x1; x++) {
             const float px = float(x) + 0.5f;
@@ -154,7 +155,7 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
             }
             in = true;
             const float z = wa * a[2] + wb * b[2] + wc * c[2];
-            float& d = depth_[row + size_t(x)];
+            float &d = depth_[row + size_t(x)];
             if (z > d)
                 continue;
             stencil_[row + size_t(x)] = ref;
@@ -169,7 +170,7 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
     }
 }
 
-void ShadowStencil::reset(const std::vector<uint8_t>& cover) {
+void ShadowStencil::reset(const std::vector<uint8_t> &cover) {
     if (maxX_ < minX_ || cover.size() != stencil_.size())
         return;
     for (int y = minY_; y <= maxY_; y++)
@@ -180,7 +181,7 @@ void ShadowStencil::reset(const std::vector<uint8_t>& cover) {
         }
 }
 
-void ShadowStencil::select(uint8_t ref, CoverageMask& out) const {
+void ShadowStencil::select(uint8_t ref, CoverageMask &out) const {
     out.clear();
     if (maxX_ < minX_)
         return;

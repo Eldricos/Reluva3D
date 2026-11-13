@@ -14,11 +14,13 @@ namespace {
 
 constexpr float kDegrees = 57.29578f;
 
-bool contains(std::string_view s, std::string_view part) { return s.find(part) != std::string_view::npos; }
+bool contains(std::string_view s, std::string_view part) {
+    return s.find(part) != std::string_view::npos;
+}
 
 // The steps, a degree at a time, from `from` to `to` turning left (the
 // heading growing) and right.
-void steps(float from, float to, float& left, float& right) {
+void steps(float from, float to, float &left, float &right) {
     left = normalizeDegrees(to - from);
     right = normalizeDegrees(from - to);
 }
@@ -30,12 +32,10 @@ float normalizeDegrees(float d) {
     return d < 0 ? d + 360.0f : d;
 }
 
-Actor::Actor(const Model& model, const Ac2Record* record, Loader load, Test test, unsigned seed)
+Actor::Actor(const Model &model, const Ac2Record *record, Loader load, Test test, unsigned seed)
     : animator_(model), loader_(std::move(load)), test_(std::move(test)), record_(record), random_(seed) {
-    if (const Ac2Record* a = record ? record->part("ANIM") : nullptr) {
-        auto f = [&](const char* name, float fallback) {
-            return a->field(name) ? a->f(name) : fallback;
-        };
+    if (const Ac2Record *a = record ? record->part("ANIM") : nullptr) {
+        auto f = [&](const char *name, float fallback) { return a->field(name) ? a->f(name) : fallback; };
         talkEase_ = f("talkEase", talkEase_);
         blinkMin_ = f("blinkMin", blinkMin_);
         blinkMax_ = f("blinkMax", blinkMax_);
@@ -44,8 +44,8 @@ Actor::Actor(const Model& model, const Ac2Record* record, Loader load, Test test
         if (a->field("idle2"))
             chance2_ = a->i("idle2"), chance3_ = a->i("idle3"), chance4_ = a->i("idle4");
     }
-    animator_.onEnding = [this](const Animator::Slot& s) { ending(s); };
-    animator_.onFinished = [this](const Animator::Slot& s) {
+    animator_.onEnding = [this](const Animator::Slot &s) { ending(s); };
+    animator_.onFinished = [this](const Animator::Slot &s) {
         if (onAnimDone)
             onAnimDone(s.name);
     };
@@ -57,7 +57,7 @@ int Actor::rand() {
     return int((random_ >> 16) & 0x7fff);
 }
 
-std::shared_ptr<const Animation> Actor::load(const std::string& name) {
+std::shared_ptr<const Animation> Actor::load(const std::string &name) {
     const auto it = loaded_.find(name);
     if (it != loaded_.end())
         return it->second;
@@ -71,8 +71,8 @@ bool Actor::isBase(std::string_view name) {
     const std::string n = fs::toLower(name);
     if (contains(n, "idle1") && !contains(n, "talkidle1"))
         return true;
-    for (const char* b : {"walk", "walkfast", "run", "sit", "standup", "sitdown", "situp", "eavesstart", "eavesidle",
-                          "eavesend"})
+    for (const char *b :
+         {"walk", "walkfast", "run", "sit", "standup", "sitdown", "situp", "eavesstart", "eavesidle", "eavesend"})
         if (n == b)
             return true;
     return contains(n, "rotate");
@@ -82,11 +82,11 @@ std::string Actor::resolve(std::string_view name) {
     const std::string n = fs::toLower(name);
     if (record_) {
         // A renamed animation whose condition holds (0x404930).
-        if (const Ac2Record* a = record_->part("ANIM"))
-            for (const auto& [field, value] : a->fields) {
+        if (const Ac2Record *a = record_->part("ANIM"))
+            for (const auto &[field, value] : a->fields) {
                 if (field != "named" || value.pairs.empty())
                     continue;
-                const auto& [condition, names] = value.pairs.front();
+                const auto &[condition, names] = value.pairs.front();
                 const size_t slash = names.find(" / ");
                 if (slash == std::string::npos)
                     continue;
@@ -96,7 +96,7 @@ std::string Actor::resolve(std::string_view name) {
                     return file;
             }
         // MODL's prefix ("sit": sitidle1), if it has that file.
-        if (const Ac2Record* m = record_->part("MODL"); m && !m->text("anim2").empty()) {
+        if (const Ac2Record *m = record_->part("MODL"); m && !m->text("anim2").empty()) {
             if (!test_ || test_(m->text("condition"))) {
                 const std::string prefixed = fs::toLower(m->text("anim2")) + n;
                 if (load(prefixed))
@@ -122,7 +122,7 @@ std::string Actor::play(std::string_view name, int loops, float ease, float weig
     // MODL's condition holds, else none (0x429f96).
     if (base) {
         std::vector<float> mask;
-        if (const Ac2Record* m = record_ ? record_->part("MODL") : nullptr; m && !m->text("anim").empty())
+        if (const Ac2Record *m = record_ ? record_->part("MODL") : nullptr; m && !m->text("anim").empty())
             if (!test_ || test_(m->text("condition")))
                 mask = Animator::modelMask(animator_.model(), m->text("anim"));
         animator_.setPoseMask(std::move(mask));
@@ -152,7 +152,7 @@ void Actor::resetIdleTimer() {
 }
 
 void Actor::stopGestures() {
-    animator_.stop([](const Animator::Slot& s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
+    animator_.stop([](const Animator::Slot &s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
 }
 
 std::string Actor::anim(std::string_view name, float weight, int loops, float ease) {
@@ -186,23 +186,23 @@ void Actor::headAnimation(std::string_view name, float weight) {
 }
 
 void Actor::headHome() {
-    animator_.stop([](const Animator::Slot& s) { return s.layer == Animator::Head || contains(s.name, "head"); });
+    animator_.stop([](const Animator::Slot &s) { return s.layer == Animator::Head || contains(s.name, "head"); });
 }
 
 void Actor::look(std::string_view where, float weight) {
     // 0x4411f0: the eyes' last eases out; eyehome has no file.
-    animator_.stop([](const Animator::Slot& s) { return s.layer == Animator::Eyes || contains(s.name, "eye"); });
+    animator_.stop([](const Animator::Slot &s) { return s.layer == Animator::Eyes || contains(s.name, "eye"); });
     const std::string name = "eye" + fs::toLower(where);
     if (const auto animation = load(name))
         animator_.play(name, animation, Animator::Eyes, false, 0, 0.5f, std::min(weight, 1.0f));
 }
 
-Actor::Motion Actor::motion(const Animation& animation) {
+Actor::Motion Actor::motion(const Animation &animation) {
     const auto it = motions_.find(&animation);
     if (it != motions_.end())
         return it->second;
     Motion m;
-    const Model& model = animator_.model();
+    const Model &model = animator_.model();
     int root = -1;
     for (size_t b = 0; b < model.bones.size(); b++)
         if (model.bones[b].name == "Bip01")
@@ -210,10 +210,10 @@ Actor::Motion Actor::motion(const Animation& animation) {
     if (root >= 0 && animation.duration > 0) {
         // The mask it plays under as the base: a bone with none stays at
         // rest (Animator::blend).
-        const Animator::Slot* base = animator_.base();
-        const std::vector<float>* mask = base && base->animation.get() == &animation ? &base->mask : nullptr;
-        auto measure = [&](bool masked, float drift[3], float& turn) {
-            auto posed = [&](float t, Pose& out) {
+        const Animator::Slot *base = animator_.base();
+        const std::vector<float> *mask = base && base->animation.get() == &animation ? &base->mask : nullptr;
+        auto measure = [&](bool masked, float drift[3], float &turn) {
+            auto posed = [&](float t, Pose &out) {
                 std::vector<BoneTransform> local;
                 sampleLocal(model, &animation, t, local);
                 if (masked && mask)
@@ -225,8 +225,8 @@ Actor::Motion Actor::motion(const Animation& animation) {
             Pose start, end;
             posed(0, start);
             posed(animation.duration, end);
-            const Mat4& a = start.world[size_t(root)];
-            const Mat4& b = end.world[size_t(root)];
+            const Mat4 &a = start.world[size_t(root)];
+            const Mat4 &b = end.world[size_t(root)];
             for (int k = 0; k < 3; k++)
                 drift[k] = b[size_t(12 + k)] - a[size_t(12 + k)];
             // The turn about the model's up (Z): where the root's most
@@ -235,7 +235,7 @@ Actor::Motion Actor::motion(const Animation& animation) {
             // a whole circle in a loop, as the vendors' rotatel, ends where
             // it began.)
             const int axis = std::abs(a[2]) < std::abs(a[6]) ? 0 : 4;
-            auto yaw = [&](const Mat4& w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
+            auto yaw = [&](const Mat4 &w) { return std::atan2(w[size_t(axis + 1)], w[size_t(axis)]); };
             constexpr int kSteps = 32;
             float total = 0, last = yaw(a);
             for (int k = 1; k <= kSteps; k++) {
@@ -273,7 +273,7 @@ bool Actor::rotateTo(float heading, float from) {
     // At the animation's own pace (its root's turn), else 200 degrees a
     // second (0x441d90).
     pace_ = 200;
-    if (const Animator::Slot* s = animator_.find(name); s && s->animation->duration > 0) {
+    if (const Animator::Slot *s = animator_.find(name); s && s->animation->duration > 0) {
         const float turn = std::abs(motion(*s->animation).turn);
         if (turn > 1)
             pace_ = turn / s->animation->duration;
@@ -282,10 +282,12 @@ bool Actor::rotateTo(float heading, float from) {
     return true;
 }
 
-void Actor::advance(float seconds) { animator_.update(seconds); }
+void Actor::advance(float seconds) {
+    animator_.update(seconds);
+}
 
 void Actor::lineStart() {
-    animator_.stop([](const Animator::Slot& s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
+    animator_.stop([](const Animator::Slot &s) { return !s.base && s.loops > 0 && s.layer == Animator::Body; }, 0.3f);
     if (!animator_.playing("eavesidle") && !animator_.playing("talkidle1"))
         play("talkidle1", 0, 0);
 }
@@ -295,17 +297,17 @@ void Actor::mouth(bool on) {
         if (!animator_.find("talk"))
             play("talk", 0, talkEase_);
     } else {
-        animator_.stop([](const Animator::Slot& s) { return s.name == "talk"; }, talkEase_);
+        animator_.stop([](const Animator::Slot &s) { return s.name == "talk"; }, talkEase_);
     }
 }
 
 void Actor::lineEnd() {
     // 0x404760: the mouth over 0.15 s, the talking idles over their own.
     mouth(false);
-    animator_.stop([](const Animator::Slot& s) { return contains(s.name, "talkidle"); });
+    animator_.stop([](const Animator::Slot &s) { return contains(s.name, "talkidle"); });
 }
 
-void Actor::ending(const Animator::Slot& s) {
+void Actor::ending(const Animator::Slot &s) {
     // 0x405050: after a gesture the idle timer starts again; a finite
     // base hands over to idle1; a talking idle's variation to talkidle1.
     if (s.name == "blink" || s.name == "talk")
@@ -321,7 +323,7 @@ void Actor::ending(const Animator::Slot& s) {
 void Actor::idleVariation() {
     // 0x404350: 50/30/20 among the second, third and later variations.
     const int r = rand() % 100;
-    auto pick = [&](int count, const char* stem) {
+    auto pick = [&](int count, const char *stem) {
         std::string n;
         if (r < chance2_ || count == 1)
             n = std::string(stem) + "2";
@@ -334,19 +336,19 @@ void Actor::idleVariation() {
     if (animator_.playing("talkidle1")) {
         if (talkIdles_ < 1)
             return;
-        animator_.stop([](const Animator::Slot& s) { return contains(s.name, "talkidle1"); }, 0.3f);
+        animator_.stop([](const Animator::Slot &s) { return contains(s.name, "talkidle1"); }, 0.3f);
         play(pick(talkIdles_, "talkidle"), 1, 0);
         return;
     }
     if (idles_ < 2 || conversation_ || !animator_.playing("idle1"))
         return;
-    for (const char* busy : {"idle2", "idle3", "idle4", "doorknobl", "doorknobr"})
+    for (const char *busy : {"idle2", "idle3", "idle4", "doorknobl", "doorknobr"})
         if (animator_.playing(busy))
             return;
     play(pick(idles_, "idle"), 1, 0);
 }
 
-void Actor::update(float seconds, float& heading) {
+void Actor::update(float seconds, float &heading) {
     // Blinks: every 5 to 7 seconds, once or twice (0x404210).
     if ((blinkLeft_ -= seconds) <= 0) {
         blinkLeft_ = blinkMin_ + float(rand() % std::max(1, int(blinkMax_ - blinkMin_)));

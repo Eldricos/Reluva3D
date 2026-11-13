@@ -10,7 +10,9 @@ namespace reluva::awe {
 
 namespace {
 
-bool isSpace(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+bool isSpace(char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
 
 std::string_view trim(std::string_view s) {
     while (!s.empty() && isSpace(s.front()))
@@ -28,7 +30,7 @@ constexpr uint16_t kCp1252[32] = {0x20ac, 0xfffd, 0x201a, 0x0192, 0x201e, 0x2026
 
 } // namespace
 
-std::string decodeText(const std::vector<uint8_t>& data) {
+std::string decodeText(const std::vector<uint8_t> &data) {
     size_t start = 0;
     bool bigEndian = false, utf16 = false;
     if (data.size() >= 2 && data[0] == 0xff && data[1] == 0xfe) {
@@ -108,7 +110,7 @@ int Table::column(std::string_view heading) const {
     return -1;
 }
 
-const std::string& Table::cell(size_t row, int col) const {
+const std::string &Table::cell(size_t row, int col) const {
     static const std::string none;
     if (row >= rows.size() || col < 0 || size_t(col) >= rows[row].size())
         return none;

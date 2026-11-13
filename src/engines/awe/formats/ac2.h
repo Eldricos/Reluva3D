@@ -45,8 +45,8 @@ struct Ac2Record {
     // Sub-records that follow an object's own fields (SPRT, MODL, ANIM...).
     std::vector<Ac2Record> parts;
 
-    const Ac2Value* field(std::string_view name) const;
-    const Ac2Record* part(std::string_view tag) const;
+    const Ac2Value *field(std::string_view name) const;
+    const Ac2Record *part(std::string_view tag) const;
     float f(std::string_view name) const;
     int32_t i(std::string_view name) const;
     std::string text(std::string_view name) const;
@@ -58,20 +58,20 @@ struct Ac2Scene {
     // MUSC...) and objects (2DOB, SPOT, NPCX...) alike.
     std::vector<Ac2Record> records;
 
-    const Ac2Record* camera() const;
+    const Ac2Record *camera() const;
     // The objects (records the game creates an object for).
-    std::vector<const Ac2Record*> objects() const;
+    std::vector<const Ac2Record *> objects() const;
 };
 
 // Reads a scene. Stops with an error at a tag it doesn't know, keeping
 // what came before.
-Error parseAc2(const std::vector<uint8_t>& data, Ac2Scene& out);
+Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out);
 
 // Whether a tag names an object (2DOB, SPOT, NPCX...) rather than a scene
 // setting.
 bool isAc2Object(std::string_view tag);
 
 // Writes the scene as indented text, for tools.
-std::string dumpAc2(const Ac2Scene& scene);
+std::string dumpAc2(const Ac2Scene &scene);
 
 } // namespace reluva::awe

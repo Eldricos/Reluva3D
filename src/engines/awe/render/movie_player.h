@@ -21,10 +21,10 @@ namespace reluva::awe {
 
 class MoviePlayer {
 public:
-    explicit MoviePlayer(audio::Mixer* mixer) : mixer_(mixer) {}
+    explicit MoviePlayer(audio::Mixer *mixer) : mixer_(mixer) {}
     ~MoviePlayer() { stop(); }
-    MoviePlayer(const MoviePlayer&) = delete;
-    MoviePlayer& operator=(const MoviePlayer&) = delete;
+    MoviePlayer(const MoviePlayer &) = delete;
+    MoviePlayer &operator=(const MoviePlayer &) = delete;
 
     // Starts a movie at `nowMs`, with its sound unless `sound` is false.
     Error open(std::vector<uint8_t> data, uint64_t nowMs, bool sound = true);
@@ -40,8 +40,8 @@ public:
     bool loaded() const { return movie_ != nullptr; }
     // Every frame shown and the time of the last gone by.
     bool done(uint64_t nowMs) const;
-    const image::Image& frame() const { return frame_; }
-    const bink::Movie* movie() const { return movie_.get(); }
+    const image::Image &frame() const { return frame_; }
+    const bink::Movie *movie() const { return movie_.get(); }
     double fps() const; // the movie's frames a second (0 with none)
     bool hasSound() const { return soundtrack_ != nullptr; }
     // The frame to decode next, and the movie's time in seconds (by the
@@ -49,12 +49,12 @@ public:
     size_t next() const { return next_; }
     double seconds() const;
     // A decoding error, if any frame had one.
-    const std::string& error() const { return error_; }
+    const std::string &error() const { return error_; }
 
 private:
     void playSound(double fromSeconds);
 
-    audio::Mixer* mixer_;
+    audio::Mixer *mixer_;
     std::unique_ptr<bink::Movie> movie_;
     image::Image frame_;
     std::shared_ptr<audio::Sound> soundtrack_;

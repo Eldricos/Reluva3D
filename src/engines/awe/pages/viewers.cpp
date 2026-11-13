@@ -37,15 +37,15 @@ struct FramePerf {
     static double ms(std::chrono::steady_clock::time_point t) {
         return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t).count();
     }
-    void report(const std::string& scene) {
+    void report(const std::string &scene) {
         if (!on || ms(since) < 3000 || frames == 0)
             return;
         const double n = frames;
         std::fprintf(stderr,
                      "perf %s: %.1f fps; per frame %.2f ms: 2D %.2f (%.2f draws; layers %.2f), characters %.2f "
                      "(skinning and lighting %.2f), present %.2f\n",
-                     scene.c_str(), n * 1000 / ms(since), total / n, draw2d / n, draws / n, layers / n,
-                     characters / n, skin / n, present / n);
+                     scene.c_str(), n * 1000 / ms(since), total / n, draw2d / n, draws / n, layers / n, characters / n,
+                     skin / n, present / n);
         *this = FramePerf();
     }
 };
@@ -55,36 +55,36 @@ FramePerf perf;
 
 namespace {
 
-bool hasExtension(const std::string& name, std::initializer_list<const char*> exts) {
+bool hasExtension(const std::string &name, std::initializer_list<const char *> exts) {
     const std::string lower = fs::toLower(name);
-    for (const char* e : exts)
+    for (const char *e : exts)
         if (lower.size() > std::strlen(e) && lower.compare(lower.size() - std::strlen(e), std::string::npos, e) == 0)
             return true;
     return false;
 }
 
-bool startsWith(const std::string& name, const char* prefix) {
+bool startsWith(const std::string &name, const char *prefix) {
     const std::string lower = fs::toLower(name);
     return lower.compare(0, std::strlen(prefix), prefix) == 0;
 }
 
 // The game's files under `folders` with one of `exts`, sorted.
-std::vector<std::string> listFiles(const Archive& files, std::initializer_list<const char*> folders,
-                                   std::initializer_list<const char*> exts) {
+std::vector<std::string> listFiles(const Archive &files, std::initializer_list<const char *> folders,
+                                   std::initializer_list<const char *> exts) {
     std::vector<std::string> out;
-    for (const std::string& n : files.list()) {
+    for (const std::string &n : files.list()) {
         bool inFolder = folders.size() == 0;
-        for (const char* f : folders)
+        for (const char *f : folders)
             inFolder |= startsWith(n, f);
         if (inFolder && hasExtension(n, exts))
             out.push_back(n);
     }
     std::sort(out.begin(), out.end(),
-              [](const std::string& a, const std::string& b) { return fs::toLower(a) < fs::toLower(b); });
+              [](const std::string &a, const std::string &b) { return fs::toLower(a) < fs::toLower(b); });
     return out;
 }
 
-std::string shorten(const std::string& s, size_t max) {
+std::string shorten(const std::string &s, size_t max) {
     return s.size() <= max ? s : s.substr(0, max - 3) + "...";
 }
 
@@ -109,13 +109,13 @@ void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     for (int yy = std::max(0, y); yy < std::min(s.h, y + h); yy++)
         for (int xx = std::max(0, x); xx < std::min(s.w, x + w); xx++) {
             // Over what's there, by its alpha too: on an overlay, transparent
             // where nothing is drawn, the colour isn't darkened by the
             // emptiness under it.
-            uint8_t* p = s.row(yy) + xx * 4;
+            uint8_t *p = s.row(yy) + xx * 4;
             const int under = p[3] * (255 - alpha) / 255, out = alpha + under;
             if (out == 0)
                 continue;
@@ -126,19 +126,19 @@ void Page::fill(int x, int y, int w, int h, Color c, uint8_t alpha) {
         }
 }
 
-void Page::drawSubtitles(const std::vector<Subtitle>& subtitles, double seconds) {
+void Page::drawSubtitles(const std::vector<Subtitle> &subtitles, double seconds) {
     // The game plays them as a conversation in its movie mode (0x43a610):
     // no window, the line due wrapped at 944 and centred in the bottom 64
     // pixels (0x43cffc, 0x43d2a8), coloured as a conversation's are
     // (0x43c070: Antoinette 8, the others 9, then 10 when the speaker
     // changes).
-    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
+    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("dialogue") : nullptr;
     if (!style || !style->font)
         return;
-    const Subtitle* due = nullptr;
+    const Subtitle *due = nullptr;
     int colour = 8, dueColour = 8;
     std::string lastSpeaker;
-    for (const Subtitle& sub : subtitles) {
+    for (const Subtitle &sub : subtitles) {
         const std::string speaker = fs::toLower(sub.speaker);
         if (speaker.find("antoinette") != std::string::npos) {
             colour = 8;
@@ -156,14 +156,14 @@ void Page::drawSubtitles(const std::vector<Subtitle>& subtitles, double seconds)
     }
     if (!due)
         return;
-    static const char* const kColours[] = {"dialogue for main character",
+    static const char *const kColours[] = {"dialogue for main character",
                                            "dialogue text for second character in conversation",
                                            "dialogue text for third character in conversation"};
     const Color c = ctx_.fonts->colour(kColours[dueColour - 8]);
     const std::vector<std::string> lines = gameRows(*style->font, style->pixels, due->line, 944);
     const int lh = style->font->lineHeight(style->pixels);
     int y = kScreenH - 64 + (64 - int(lines.size()) * lh) / 2;
-    for (const std::string& l : lines) {
+    for (const std::string &l : lines) {
         ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l, c);
         y += lh;
     }
@@ -176,21 +176,21 @@ void Page::frame(int x, int y, int w, int h, Color c) {
     fill(x + w - 1, y, 1, h, c);
 }
 
-int Page::text(int x, int y, const std::string& s, Color c, int scale) {
+int Page::text(int x, int y, const std::string &s, Color c, int scale) {
     return font::drawText(ctx_.screen, x, y, s, c, scale);
 }
 
-void Page::label(int x, int y, const std::string& s, Color c) {
+void Page::label(int x, int y, const std::string &s, Color c) {
     fill(x - 2, y - 1, int(font::length(s)) * font::kAdvance + 4, font::kLineHeight + 1, {0, 0, 0}, 170);
     text(x, y, s, c);
 }
 
-void Page::help(const std::string& keys) {
+void Page::help(const std::string &keys) {
     fill(0, kScreenH - font::kLineHeight - 3, kScreenW, font::kLineHeight + 3, {0, 0, 0}, 200);
     text(4, kScreenH - font::kLineHeight - 1, keys + "   Tab: next page   Esc: launcher", {170, 190, 210});
 }
 
-void Page::finishScreenshot(gfx::Renderer3D* renderer, const Surface* overlay) {
+void Page::finishScreenshot(gfx::Renderer3D *renderer, const Surface *overlay) {
     if (shotFile_.empty())
         return;
     image::Image img;
@@ -212,7 +212,7 @@ void Page::finishScreenshot(gfx::Renderer3D* renderer, const Surface* overlay) {
     std::filesystem::create_directories(shotFile_.parent_path(), ec);
     const std::vector<uint8_t> tga = image::encodeTga(img);
     std::ofstream out(shotFile_, std::ios::binary);
-    out.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+    out.write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
     ctx_.setTitle((out ? "Saved " : "Couldn't save ") + shotFile_.string());
     shotFile_.clear();
 }
@@ -239,14 +239,14 @@ int Page::step(uint32_t key, int index, int count) {
     return to - index == 0 ? 0 : to - index;
 }
 
-const image::Image& Page::picture(const std::string& name) {
+const image::Image &Page::picture(const std::string &name) {
     const std::string key = normalizeArchiveName(name);
     auto it = pictures_.find(key);
     if (it != pictures_.end())
         return it->second;
     if (pictures_.size() > 64)
         pictures_.clear();
-    image::Image& img = pictures_[key];
+    image::Image &img = pictures_[key];
     std::vector<uint8_t> data;
     if (ctx_.files.read(key, data) || image::decode(data, img))
         img = image::Image();
@@ -255,7 +255,7 @@ const image::Image& Page::picture(const std::string& name) {
 
 // --- Pictures ---------------------------------------------------------------------
 
-PicturePage::PicturePage(ViewerContext& ctx) : Page(ctx) {
+PicturePage::PicturePage(ViewerContext &ctx) : Page(ctx) {
     names_ = listFiles(ctx.files, {"locations/", "interface/", "inventory/", "elements/", "models/"},
                        {".jpg", ".png", ".tga", ".bmp"});
 }
@@ -269,8 +269,8 @@ void PicturePage::show() {
     clear(24, 24, 28);
     if (names_.empty())
         return;
-    const std::string& name = names_[size_t(index_)];
-    const image::Image& img = picture(name);
+    const std::string &name = names_[size_t(index_)];
+    const image::Image &img = picture(name);
     if (img.w > 0) {
         // Scaled down (nearest) to fit, over a checkerboard that shows alpha.
         const int areaH = kScreenH - 2 * font::kLineHeight - 8;
@@ -279,10 +279,10 @@ void PicturePage::show() {
         const int x0 = (kScreenW - w) / 2, y0 = font::kLineHeight + 4 + (areaH - h) / 2;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++) {
-                const uint8_t* src = img.pixel(std::min(img.w - 1, int(float(x) / scale)),
-                                               std::min(img.h - 1, int(float(y) / scale)));
+                const uint8_t *src =
+                    img.pixel(std::min(img.w - 1, int(float(x) / scale)), std::min(img.h - 1, int(float(y) / scale)));
                 const uint8_t check = ((x / 8 + y / 8) & 1) ? 90 : 60;
-                uint8_t* dst = ctx_.screen.row(y0 + y) + (x0 + x) * 4;
+                uint8_t *dst = ctx_.screen.row(y0 + y) + (x0 + x) * 4;
                 for (int c = 0; c < 3; c++)
                     dst[c] = uint8_t((src[c] * src[3] + check * (255 - src[3])) / 255);
             }
@@ -297,7 +297,7 @@ void PicturePage::show() {
     ctx_.setTitle("Pictures: " + name);
 }
 
-void PicturePage::handleEvent(const Event& ev) {
+void PicturePage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     if (const int d = step(ev.key, index_, int(names_.size()))) {
@@ -310,10 +310,9 @@ void PicturePage::handleEvent(const Event& ev) {
 
 namespace {
 
-
 // A scene's act variant ("Salon_01_06a.ac2" for act 6A): the base scene's
 // name, or "" if it isn't one.
-std::string baseSceneOf(const std::string& name) {
+std::string baseSceneOf(const std::string &name) {
     const size_t dot = name.rfind('.');
     const size_t u = name.rfind('_');
     if (dot == std::string::npos || u == std::string::npos || u + 4 != dot)
@@ -325,12 +324,12 @@ std::string baseSceneOf(const std::string& name) {
 }
 
 // The part after the last slash or backslash.
-std::string fileNameOf(const std::string& path) {
+std::string fileNameOf(const std::string &path) {
     const size_t slash = path.find_last_of("/\\");
     return slash == std::string::npos ? path : path.substr(slash + 1);
 }
 
-std::string folderOf(const std::string& name) {
+std::string folderOf(const std::string &name) {
     const size_t slash = name.find_last_of("/\\");
     return slash == std::string::npos ? std::string() : name.substr(0, slash);
 }
@@ -338,31 +337,31 @@ std::string folderOf(const std::string& name) {
 // The rows named for the movie: the game starts its subtitles as the
 // conversation of that name (0x42ae7d), so logos.txt, a copy of intro's,
 // shows nothing.
-std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string& movie) {
+std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string &movie) {
     all.erase(std::remove_if(all.begin(), all.end(),
-                             [&](const Subtitle& s) { return !s.name.empty() && fs::toLower(s.name) != movie; }),
+                             [&](const Subtitle &s) { return !s.name.empty() && fs::toLower(s.name) != movie; }),
               all.end());
     return all;
 }
 
 } // namespace
 
-ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
+ScenePage::ScenePage(ViewerContext &ctx) : Page(ctx) {
     names_ = listFiles(ctx.files, {"locations/"}, {".ac2"});
     state_.values["moving"] = 1;
     runner_ = std::make_unique<ScriptRunner>(state_, *this);
     dialogue_ = std::make_unique<DialogueManager>(state_, *this, *this);
-    dialogue_->onLog = [this](const std::string& l) { logScript("    " + shorten(l, 150)); };
+    dialogue_->onLog = [this](const std::string &l) { logScript("    " + shorten(l, 150)); };
     story_ = std::make_unique<Story>(state_, *runner_);
     loadOptions();
-    state_.action = [this](const std::string& w) {
+    state_.action = [this](const std::string &w) {
         if (optionsMenu_)
             return true;
         if (puzzleActive())
             return puzzleCondition(w);
         return slotCondition(w);
     };
-    state_.canTalk = [this](const std::vector<std::string>& words) {
+    state_.canTalk = [this](const std::vector<std::string> &words) {
         loadDialogue();
         const TalkArgs t = parseTalkArgs(words, true);
         return dialogue_->canTalk(t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet);
@@ -372,8 +371,8 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
         if (!ctx.files.read("text/acts.txt", data))
             story_->setActs(readActs(parseTable(decodeText(data))));
     }
-    story_->onActTables = [this](const std::string&) { loadDialogue(); };
-    story_->onLoadLocation = [this](const std::string& location, bool flush) {
+    story_->onActTables = [this](const std::string &) { loadDialogue(); };
+    story_->onLoadLocation = [this](const std::string &location, bool flush) {
         // Reluva reads scenes as they're shown: loading a location only
         // forgets, for a new place, how the scenes were left.
         logScript("  (location " + location + (flush ? ", a new place" : "") + ")");
@@ -387,15 +386,17 @@ ScenePage::ScenePage(ViewerContext& ctx) : Page(ctx) {
         }
         beginLoad(location, true);
     };
-    runner_->onEvent = [this](const ScriptEvent& e) {
+    runner_->onEvent = [this](const ScriptEvent &e) {
         std::string line;
-        for (const std::string& w : e.words)
+        for (const std::string &w : e.words)
             line += (line.empty() ? "" : " ") + w;
         logScript("  " + line);
     };
 }
 
-ScenePage::~ScenePage() { releaseGpu(); }
+ScenePage::~ScenePage() {
+    releaseGpu();
+}
 
 void ScenePage::activate() {
     if (ctx_.sys.init3D(kScreenW, kScreenH, renderer_))
@@ -422,12 +423,12 @@ void ScenePage::releaseGpu() {
             renderer_->destroyMesh(m);
         for (gfx::TextureId t : frameTextures_)
             renderer_->destroyTexture(t);
-        for (PictureLayer& l : layers_)
+        for (PictureLayer &l : layers_)
             dropLayer(l);
-        for (auto& [o, t] : aloneTextures_)
+        for (auto &[o, t] : aloneTextures_)
             if (t.texture)
                 renderer_->destroyTexture(t.texture);
-        for (auto& [name, t] : pointTextures_)
+        for (auto &[name, t] : pointTextures_)
             if (t)
                 renderer_->destroyTexture(t);
         if (quad_)
@@ -469,14 +470,14 @@ void ScenePage::load() {
     shownNow_.clear();
     if (names_.empty())
         return draw();
-    auto read = [&](const std::string& name, Ac2Scene& out) {
+    auto read = [&](const std::string &name, Ac2Scene &out) {
         std::vector<uint8_t> data;
         Error e = ctx_.files.read(name, data);
         if (!e)
             e = parseAc2(data, out);
         return e;
     };
-    const std::string& name = names_[size_t(index_)];
+    const std::string &name = names_[size_t(index_)];
     Ac2Scene variant;
     if (Error e = read(name, variant))
         error_ = e.message;
@@ -491,7 +492,7 @@ void ScenePage::load() {
         base_ = base;
         if (!scene_.records.empty() && scene_.records.back().tag == "DONE")
             scene_.records.pop_back();
-        auto same = [](const Ac2Record& a, const Ac2Record& b) {
+        auto same = [](const Ac2Record &a, const Ac2Record &b) {
             // 0x42b680: the same tag, and with a file the same file and
             // place (the player by its file alone); without, a hotspot at
             // the same place with the same rectangle, a light of the same
@@ -502,18 +503,18 @@ void ScenePage::load() {
             if (!a.text("file").empty())
                 return fs::toLower(a.text("file")) == fs::toLower(b.text("file")) && (at || a.tag == "PCXX");
             if (a.tag == "SPOT")
-                return at && a.i("left") == b.i("left") && a.i("top") == b.i("top") &&
-                       a.i("right") == b.i("right") && a.i("bottom") == b.i("bottom");
+                return at && a.i("left") == b.i("left") && a.i("top") == b.i("top") && a.i("right") == b.i("right") &&
+                       a.i("bottom") == b.i("bottom");
             if (a.tag == "LITE")
                 return a.i("type") == b.i("type") && at;
             return true;
         };
-        for (const Ac2Record& r : variant.records) {
+        for (const Ac2Record &r : variant.records) {
             if (r.tag == "CAMR" || r.tag == "SHOW" || r.tag == "PUZZ" || r.tag == "FAKE" || r.tag == "OUTD" ||
                 r.tag == "NVNT" || r.tag == "FOOT" || r.tag == "SCEN")
                 continue;
             if (isAc2Object(r.tag) && std::any_of(scene_.records.begin(), scene_.records.end(),
-                                                  [&](const Ac2Record& b) { return same(r, b); }))
+                                                  [&](const Ac2Record &b) { return same(r, b); }))
                 continue;
             scene_.records.push_back(r);
         }
@@ -523,7 +524,7 @@ void ScenePage::load() {
     } else {
         scene_ = std::move(variant);
     }
-    if (const Ac2Record* cam = scene_.camera())
+    if (const Ac2Record *cam = scene_.camera())
         grid_.load(*cam);
     // This scene's name before its characters load: where they were kept
     // is looked up by it.
@@ -543,16 +544,16 @@ void ScenePage::load() {
     }
     charactersAt_ = lastMs_;
     loadLoops();
-    for (const Ac2Record* o : scene_.objects())
+    for (const Ac2Record *o : scene_.objects())
         if (o->tag == "PART" || o->tag == "RAIN" || o->tag == "SNOW") {
-            ParticleSystem& system =
+            ParticleSystem &system =
                 particles_.emplace(o, ParticleSystem(ParticleSettings::fromRecord(*o))).first->second;
             // SYST warmUp: run for 4.5 s in steps of 0.01 at load, so the
             // snow is already falling (0x42e68b, 0x42cbb0).
-            if (const Ac2Record* syst = o->part("SYST"); syst && syst->i("warmUp") != 0)
+            if (const Ac2Record *syst = o->part("SYST"); syst && syst->i("warmUp") != 0)
                 for (float t = 0; t < 4.5f; t += 0.01f)
                     system.update(0.01f);
-        } else if (const Ac2Record* sprt = o->part("SPRT"); sprt && sprt->i("scroll") != 0) {
+        } else if (const Ac2Record *sprt = o->part("SPRT"); sprt && sprt->i("scroll") != 0) {
             scrolls_[o] = Scroll{o->f("x"), o->f("y"), 0};
         }
     // Entering the scene switches its objects on (0x4362b0, slot 0x48):
@@ -564,7 +565,7 @@ void ScenePage::load() {
     } else {
         // Browsing: the scene's puzzle works too (its scripts' talk and
         // tags as in a game).
-        for (const Ac2Record& r : scene_.records)
+        for (const Ac2Record &r : scene_.records)
             if (r.tag == "PUZZ") {
                 const std::string kind = fs::toLower(r.text("value"));
                 if (kind == "tornletter" || kind == "safe" || kind == "puzzlebox")
@@ -579,7 +580,7 @@ void ScenePage::enterScene() {
     lightConditions_ = lightConditions(scene_, state_);
     playMusic();
     // The save and load screens (PUZZ save, load).
-    for (const Ac2Record& r : scene_.records)
+    for (const Ac2Record &r : scene_.records)
         if (r.tag == "PUZZ" && (fs::toLower(r.text("value")) == "save" || fs::toLower(r.text("value")) == "load"))
             openSlots(fs::toLower(r.text("value")) == "save");
         else if (r.tag == "PUZZ" && fs::toLower(r.text("value")) == "options")
@@ -590,10 +591,10 @@ void ScenePage::enterScene() {
     if (restoring_)
         return;
     // The first event whose condition holds, queued (0x436a90).
-    for (const Ac2Record& r : scene_.records)
+    for (const Ac2Record &r : scene_.records)
         if (r.tag == "EVNT")
-            if (const Ac2Value* v = r.field("events"))
-                for (const auto& [condition, script] : v->pairs)
+            if (const Ac2Value *v = r.field("events"))
+                for (const auto &[condition, script] : v->pairs)
                     if (testCondition(condition, state_)) {
                         logScript("scene event: " + shorten(script, 120));
                         runner_->run(script);
@@ -604,7 +605,7 @@ queued:
         return;
     // The visit, after the events: "!beenhere this" holds during the
     // first visit's.
-    std::string& acts = state_.texts[state_.scene];
+    std::string &acts = state_.texts[state_.scene];
     if ((" " + acts + " ").find(" " + state_.act + " ") == std::string::npos)
         acts += (acts.empty() ? "" : " ") + state_.act;
 }
@@ -614,10 +615,10 @@ void ScenePage::playMusic() {
     // before and isn't among them stops (0x436900). Shared ambient loops
     // go on from scene to scene.
     std::set<std::string> want;
-    for (const Ac2Record& r : scene_.records)
+    for (const Ac2Record &r : scene_.records)
         if (r.tag == "MUSC")
-            if (const Ac2Value* v = r.field("music"))
-                for (const auto& [condition, file] : v->pairs)
+            if (const Ac2Value *v = r.field("music"))
+                for (const auto &[condition, file] : v->pairs)
                     if (testCondition(condition, state_))
                         want.insert(fs::toLower(file));
     for (auto it = music_.begin(); it != music_.end();) {
@@ -629,11 +630,11 @@ void ScenePage::playMusic() {
             ++it;
         }
     }
-    for (const std::string& file : want)
+    for (const std::string &file : want)
         playLooping(file, file.find("music") != std::string::npos);
 }
 
-void ScenePage::playLooping(const std::string& file, bool music) {
+void ScenePage::playLooping(const std::string &file, bool music) {
     if (music_.count(file))
         return;
     std::vector<uint8_t> data;
@@ -648,12 +649,12 @@ void ScenePage::playLooping(const std::string& file, bool music) {
                                     audio::kMaxVolume, 0, true);
 }
 
-bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
+bool ScenePage::startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     const std::string name = fs::toLower(e.arg(1));
-    auto flag = [&](const char* f) { return fs::toLower(e.arg(2)) == f || fs::toLower(e.arg(3)) == f; };
+    auto flag = [&](const char *f) { return fs::toLower(e.arg(2)) == f || fs::toLower(e.arg(3)) == f; };
     // FMV\, then Movies\ (0x42ac70); none: the event ends at once.
     std::string path;
-    for (const std::string& p : {"fmv/" + name + ".bik", "movies/" + name + ".bik", name + ".bik"})
+    for (const std::string &p : {"fmv/" + name + ".bik", "movies/" + name + ".bik", name + ".bik"})
         if (path.empty() && ctx_.files.has(p))
             path = p;
     std::vector<uint8_t> data;
@@ -665,13 +666,14 @@ bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait
     // (0x436410, 0x425250); "silent" plays it without its own.
     if (!flag("inscene")) {
         sceneShown_ = false;
-        for (const auto& [file, handle] : music_)
+        for (const auto &[file, handle] : music_)
             if (ctx_.mixer)
                 ctx_.mixer->stop(handle);
         music_.clear();
     }
     auto player = std::make_unique<MoviePlayer>(ctx_.mixer);
-    if (Error err = player->open(std::move(data), lastMs_, !flag("silent") && ctx_.mixer)) { // no sound to decode without a mixer
+    if (Error err = player->open(std::move(data), lastMs_,
+                                 !flag("silent") && ctx_.mixer)) { // no sound to decode without a mixer
         logScript("    (" + name + ": " + err.message + ")");
         return false;
     }
@@ -694,32 +696,32 @@ bool ScenePage::startMovie(ScriptRunner& runner, const ScriptEvent& e, bool wait
 void ScenePage::endMovie() {
     movie_.reset();
     movieSubtitles_.clear();
-    if (ScriptRunner* r = movieRunner_) {
+    if (ScriptRunner *r = movieRunner_) {
         movieRunner_ = nullptr;
         r->finished("movie");
     }
     draw();
 }
 
-std::vector<std::string> ScenePage::locationFiles(const std::string& location) const {
+std::vector<std::string> ScenePage::locationFiles(const std::string &location) const {
     // A file's suffix (after its last '_', when it has two) applies if it's
     // the act's, or night, snow or moving when those hold; a base with a
     // variant that applies is loaded with it (0x43e3d0..0x43e520).
-    auto suffix = [](const std::string& stem) {
+    auto suffix = [](const std::string &stem) {
         const size_t first = stem.find('_'), last = stem.rfind('_');
         return first != last && last != std::string::npos ? stem.substr(last + 1) : std::string();
     };
-    auto value = [&](const char* name) {
+    auto value = [&](const char *name) {
         const auto it = state_.values.find(name);
         return it == state_.values.end() ? 0 : it->second;
     };
-    auto applies = [&](const std::string& sfx) {
+    auto applies = [&](const std::string &sfx) {
         return sfx == state_.act || (sfx == "night" && value("time")) || (sfx == "snow" && value("weather")) ||
                (sfx == "moving" && value("moving"));
     };
     std::vector<std::string> stems, files;
     const std::string folder = "locations/" + location + "/";
-    for (const std::string& n : names_) {
+    for (const std::string &n : names_) {
         const std::string lower = fs::toLower(n);
         if (lower.compare(0, folder.size(), folder) == 0 && lower.find('/', folder.size()) == std::string::npos)
             stems.push_back(lower.substr(folder.size(), lower.size() - folder.size() - 4));
@@ -732,7 +734,7 @@ std::vector<std::string> ScenePage::locationFiles(const std::string& location) c
             continue;
         }
         bool variant = false;
-        for (const std::string& other : stems)
+        for (const std::string &other : stems)
             if (other.size() > stems[i].size() + 1 && other.compare(0, stems[i].size() + 1, stems[i] + "_") == 0 &&
                 applies(suffix(other)))
                 variant = true;
@@ -742,7 +744,7 @@ std::vector<std::string> ScenePage::locationFiles(const std::string& location) c
     return files;
 }
 
-void ScenePage::beginLoad(const std::string& location, bool forAct) {
+void ScenePage::beginLoad(const std::string &location, bool forAct) {
     // 0x422790: the loading screen when more than one file is to load,
     // faded in if the screen was faded out.
     const LocationLoad keep = load_;
@@ -765,13 +767,13 @@ void ScenePage::beginLoad(const std::string& location, bool forAct) {
 }
 
 void ScenePage::updateLoad() {
-    LocationLoad& l = load_;
+    LocationLoad &l = load_;
     if (l.state == 1) {
         // A scene in another place: once faded out.
         if (fade_ >= 1) {
             if (l.restore) {
                 // A saved game's location (states 7, 2, 3, 8).
-                const SaveGame::Act& a = restoring_->act;
+                const SaveGame::Act &a = restoring_->act;
                 ActRow row;
                 row.act = state_.act;
                 row.preLoad = a.preLoad, row.location = fs::toLower(a.location), row.postLoad = a.postLoad;
@@ -824,7 +826,7 @@ void ScenePage::updateLoad() {
             if (l.restore && restoring_) {
                 l.restore = false; // done: a later act's load isn't one
                 finishRestore();
-                if (ScriptRunner* r = l.runner) {
+                if (ScriptRunner *r = l.runner) {
                     l.runner = nullptr;
                     r->finished(l.verb);
                 }
@@ -839,7 +841,7 @@ void ScenePage::updateLoad() {
     }
     if (l.state == 4 && fade_ == fadeTarget_) {
         l.state = 0;
-        if (ScriptRunner* r = l.runner) {
+        if (ScriptRunner *r = l.runner) {
             l.runner = nullptr;
             r->finished(l.verb);
         }
@@ -889,12 +891,12 @@ void ScenePage::newGame() {
     runner_->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
 }
 
-void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
-    const ParticleSettings& s = system.settings();
-    const Ac2Record* camr = scene_.camera();
+void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
+    const ParticleSettings &s = system.settings();
+    const Ac2Record *camr = scene_.camera();
     if (!camr && !s.screenSpace)
         return;
-    const image::Image* img = &picture(s.texture);
+    const image::Image *img = &picture(s.texture);
     if (img->w <= 0) {
         // The texture isn't there: a soft white dot instead.
         if (dot_.w == 0) {
@@ -903,7 +905,7 @@ void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
             for (int y = 0; y < 16; y++)
                 for (int x = 0; x < 16; x++) {
                     const float dx = (float(x) - 7.5f) / 8, dy = (float(y) - 7.5f) / 8;
-                    uint8_t* p = dot_.pixel(x, y);
+                    uint8_t *p = dot_.pixel(x, y);
                     p[0] = p[1] = p[2] = 255;
                     p[3] = uint8_t(255 * std::clamp(1 - std::sqrt(dx * dx + dy * dy), 0.0f, 1.0f));
                 }
@@ -914,7 +916,7 @@ void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
     const gfx::Vec3 eye = cam.eye();
     std::vector<ParticleSystem::Point> points;
     system.points(points);
-    for (const ParticleSystem::Point& p : points) {
+    for (const ParticleSystem::Point &p : points) {
         float x, y, distance;
         if (s.screenSpace) {
             // An orthographic 1024x768 view about the screen's centre, y up.
@@ -935,12 +937,12 @@ void ScenePage::drawParticles(const ParticleSystem& system, bool keepAlpha) {
     }
 }
 
-void ScenePage::drawPointSprites(const ParticleSystem& system) {
+void ScenePage::drawPointSprites(const ParticleSystem &system) {
     // drawParticles' squares as quads for the GPU, one mesh for the frame:
     // the texture (nearest, as the game's point sprites sample it) times
     // each particle's colour, added or blended by its alpha.
-    const ParticleSettings& s = system.settings();
-    const Ac2Record* camr = scene_.camera();
+    const ParticleSettings &s = system.settings();
+    const Ac2Record *camr = scene_.camera();
     if (!camr && !s.screenSpace)
         return;
     const SceneCamera cam = camr ? SceneCamera::fromRecord(*camr) : SceneCamera();
@@ -949,7 +951,7 @@ void ScenePage::drawPointSprites(const ParticleSystem& system) {
     system.points(points);
     std::vector<gfx::Vertex> verts;
     std::vector<uint32_t> indices;
-    for (const ParticleSystem::Point& p : points) {
+    for (const ParticleSystem::Point &p : points) {
         float x, y, distance;
         if (s.screenSpace) {
             x = float(kScreenW) / 2 + p.position[0];
@@ -969,7 +971,7 @@ void ScenePage::drawPointSprites(const ParticleSystem& system) {
         const float t = 1 - 2 * (y - size / 2) / kScreenH, b = 1 - 2 * (y + size / 2) / kScreenH;
         const float corners[4][4] = {{l, t, 0, 0}, {r, t, 1, 0}, {r, b, 1, 1}, {l, b, 0, 1}};
         const uint32_t base = uint32_t(verts.size());
-        for (const auto& c : corners) {
+        for (const auto &c : corners) {
             gfx::Vertex v{};
             v.pos[0] = c[0], v.pos[1] = c[1], v.pos[2] = 0.5f;
             v.uv[0] = c[2], v.uv[1] = c[3];
@@ -982,7 +984,7 @@ void ScenePage::drawPointSprites(const ParticleSystem& system) {
     if (verts.empty())
         return;
     // Its texture, made once; the soft white dot if it isn't there.
-    gfx::TextureId& tex = pointTextures_[s.texture];
+    gfx::TextureId &tex = pointTextures_[s.texture];
     if (!tex) {
         image::Image img = picture(s.texture);
         if (img.w <= 0) {
@@ -1025,7 +1027,7 @@ void ScenePage::drawPointSprites(const ParticleSystem& system) {
 void ScenePage::loadLoops() {
     if (!drawing_)
         return; // (only seen)
-    for (const Ac2Record* o : scene_.objects()) {
+    for (const Ac2Record *o : scene_.objects()) {
         if (!hasExtension(o->text("file"), {".bik"}))
             continue;
         Loop loop;
@@ -1045,11 +1047,11 @@ void ScenePage::loadLoops() {
 
 bool ScenePage::advanceLoops(float time) {
     bool changed = false;
-    for (auto& [o, loop] : loops_) {
+    for (auto &[o, loop] : loops_) {
         // "Animated Effects" off: the flagged videos stay on their frame.
         if (frozen(*o) && !loop.frame.rgba.empty())
             continue;
-        const bink::Movie& m = *loop.movie;
+        const bink::Movie &m = *loop.movie;
         const size_t count = m.frameCount();
         const double fps = m.rateDenominator() ? double(m.rateNumerator()) / m.rateDenominator() : 0;
         if (count == 0 || fps <= 0)
@@ -1057,7 +1059,7 @@ bool ScenePage::advanceLoops(float time) {
         const size_t played = size_t(double(std::max(0.0f, time - loop.start)) * fps);
         // BNKX loop 0 (its default is 1): played once, then held on its
         // last frame (0x4061d8).
-        const Ac2Record* bnkx = o->part("BNKX");
+        const Ac2Record *bnkx = o->part("BNKX");
         const bool once = bnkx && bnkx->field("loop") && bnkx->i("loop") == 0;
         const size_t want = once ? std::min(played, count - 1) : played % count;
         if (want + 1 == loop.next && !loop.frame.rgba.empty())
@@ -1083,11 +1085,11 @@ bool ScenePage::advanceLoops(float time) {
 }
 
 void ScenePage::loadCharacters() {
-    const Ac2Record* camr = scene_.camera();
+    const Ac2Record *camr = scene_.camera();
     if (!renderer_ || !camr)
         return;
     bool any = false;
-    for (const Ac2Record* o : scene_.objects())
+    for (const Ac2Record *o : scene_.objects())
         any |= o->tag == "NPCX" || o->tag == "PCXX";
     if (!any)
         return;
@@ -1102,7 +1104,7 @@ void ScenePage::loadCharacters() {
         renderer_->endFrame(&ctx_.screen);
     }
 
-    for (const Ac2Record* o : scene_.objects()) {
+    for (const Ac2Record *o : scene_.objects()) {
         if (o->tag != "NPCX" && o->tag != "PCXX")
             continue;
         const std::string file = normalizeArchiveName(o->text("file"));
@@ -1131,7 +1133,7 @@ void ScenePage::loadCharacters() {
         c.x = o->f("x"), c.y = o->f("y"), c.z = o->f("z"), c.rotY = o->f("rotY");
         c.rotX = o->f("rotX"), c.rotZ = o->f("rotZ");
         // Its scale (1 unset); -1 down or across is the first's (0x410389).
-        auto scaled = [&](const char* name, float otherwise) {
+        auto scaled = [&](const char *name, float otherwise) {
             const float v = o->field(name) ? o->f(name) : otherwise;
             return v == -1 ? c.scale[0] : v;
         };
@@ -1143,17 +1145,17 @@ void ScenePage::loadCharacters() {
         c.record = o;
         // A character following the player (FLLW, on its COND) arrives as
         // the player does (0x440070).
-        const Ac2Record* fllw = o->part("FLLW");
-        const Ac2Record* cond = o->part("COND");
+        const Ac2Record *fllw = o->part("FLLW");
+        const Ac2Record *cond = o->part("COND");
         c.follower = !c.player && fllw && fllw->i("follow") != 0 &&
                      testCondition(cond ? cond->text("condition") : std::string(), state_);
         // Arriving by "scene <name> <n>": at its walk point n, else its
         // first; with -1 where they were when the scene was left
         // (0x440690).
         if ((c.player || c.follower) && entryPoint_ >= 0) {
-            if (const Ac2Record* w = o->part("WALK"); w && !w->parts.empty()) {
-                const Ac2Record* at = &w->parts.front();
-                for (const Ac2Record& pt : w->parts)
+            if (const Ac2Record *w = o->part("WALK"); w && !w->parts.empty()) {
+                const Ac2Record *at = &w->parts.front();
+                for (const Ac2Record &pt : w->parts)
                     if (pt.i("id") == entryPoint_)
                         at = &pt;
                 c.x = at->f("x"), c.z = at->f("z"), c.rotY = at->f("rotY");
@@ -1165,17 +1167,17 @@ void ScenePage::loadCharacters() {
         if (!c.player)
             if (const auto kept = npcPositions_.find(state_.scene + "|" + fs::toLower(fileNameOf(file)));
                 kept != npcPositions_.end()) {
-                const SaveGame::Placement& p = kept->second;
+                const SaveGame::Placement &p = kept->second;
                 c.x = p.position[0], c.y = p.position[1], c.z = p.position[2], c.rotY = p.rotation[1];
             }
         // Its heading in the scene's file: one put back where it was left
         // keeps the home it had.
         c.home = normalizeDegrees(o->f("rotY") * 57.29578f);
-        if (const Ac2Record* m = o->part("MODL"); m && m->field("shadow"))
+        if (const Ac2Record *m = o->part("MODL"); m && m->field("shadow"))
             c.shadow = m->i("shadow") != 0;
         // Its animations: <who>_<name>.gr2 beside its model, loaded as
         // they're asked for.
-        auto loader = [this, folder, who](const std::string& name) -> std::shared_ptr<const Animation> {
+        auto loader = [this, folder, who](const std::string &name) -> std::shared_ptr<const Animation> {
             const std::string path = folder + "/" + who + "_" + name + ".gr2";
             auto a = animations_.find(path);
             if (a == animations_.end()) {
@@ -1190,23 +1192,23 @@ void ScenePage::loadCharacters() {
             }
             return a->second;
         };
-        c.actor = std::make_unique<Actor>(c.model->model(), o, loader,
-                                          [this](const std::string& cond) { return testCondition(cond, state_); },
-                                          unsigned(characters_.size() + 1));
-        Actor* actor = c.actor.get();
-        actor->onAnimDone = [this, actor](const std::string& name) {
-            for (Character& ch : characters_)
+        c.actor = std::make_unique<Actor>(
+            c.model->model(), o, loader, [this](const std::string &cond) { return testCondition(cond, state_); },
+            unsigned(characters_.size() + 1));
+        Actor *actor = c.actor.get();
+        actor->onAnimDone = [this, actor](const std::string &name) {
+            for (Character &ch : characters_)
                 if (ch.actor.get() == actor && ch.waiting && ch.waitVerb == "anim" &&
                     (name == ch.waitAnim || name == ch.waitAnimAs)) {
-                    ScriptRunner* r = ch.waiting;
+                    ScriptRunner *r = ch.waiting;
                     ch.waiting = nullptr;
                     r->finished("anim");
                 }
         };
         actor->onRotateDone = [this, actor]() {
-            for (Character& ch : characters_)
+            for (Character &ch : characters_)
                 if (ch.actor.get() == actor && ch.waiting && ch.waitVerb == "rotate") {
-                    ScriptRunner* r = ch.waiting;
+                    ScriptRunner *r = ch.waiting;
                     ch.waiting = nullptr;
                     r->finished("rotate");
                 }
@@ -1221,9 +1223,9 @@ void ScenePage::loadCharacters() {
         }
         // Models MODL attaches at load, on their conditions (Poirot's hat,
         // Antoinette's coat; her snowshoes with "tag snowshoeson").
-        if (const Ac2Record* m = o->part("MODL"))
-            if (const Ac2Value* list = m->field("list"))
-                for (const auto& [condition, path] : list->pairs) {
+        if (const Ac2Record *m = o->part("MODL"))
+            if (const Ac2Value *list = m->field("list"))
+                for (const auto &[condition, path] : list->pairs) {
                     const std::string prop = normalizeArchiveName(path);
                     if (!testCondition(condition, state_))
                         continue;
@@ -1238,11 +1240,11 @@ void ScenePage::loadCharacters() {
         // Back in a scene of the place: as it was left (the game kept it).
         if (const auto kept = keptCharacters_.find(state_.scene + "|" + fs::toLower(fileNameOf(file)));
             kept != keptCharacters_.end()) {
-            const KeptCharacter& k = kept->second;
+            const KeptCharacter &k = kept->second;
             c.paused = k.paused && c.routine;
             c.shadow = k.shadow;
             c.props.clear();
-            for (const std::string& path : k.props)
+            for (const std::string &path : k.props)
                 if (auto pm = propModel(path))
                     c.props.push_back({path, pm});
             if (!k.endless.empty())
@@ -1264,14 +1266,14 @@ void ScenePage::draw() {
             perf.draws++;
         }
     } timed{drawStart};
-    const std::vector<const Ac2Record*> objects = scene_.objects();
+    const std::vector<const Ac2Record *> objects = scene_.objects();
     // Pictures and video loops back to front, by depth: the background at
     // -10000, what's behind its windows further still. A picture's d0,
     // when set, is its depth instead of z (the view outside a window: d0
     // -11000, z 0). Those whose condition doesn't hold now are left out
     // (the countryside going by: "moving >0").
-    std::vector<const Ac2Record*> pictures;
-    for (const Ac2Record* o : objects) {
+    std::vector<const Ac2Record *> pictures;
+    for (const Ac2Record *o : objects) {
         if (!objectShown(*o) || fogged(*o))
             continue;
         if (particles_.count(o)) {
@@ -1283,16 +1285,16 @@ void ScenePage::draw() {
             pictures.push_back(o);
         }
     }
-    auto imageOf = [&](const Ac2Record* o) -> const image::Image& {
+    auto imageOf = [&](const Ac2Record *o) -> const image::Image & {
         const auto loop = loops_.find(o);
         return loop != loops_.end() ? loop->second.frame : picture(o->text("file"));
     };
     // Placed as the game's sprites are: scaled, turned about the top-left
     // corner, moved (docs/engines/awe/games/motoe/formats/ac2.md).
-    auto place = [&](const Ac2Record* o, bool keepAlpha) {
+    auto place = [&](const Ac2Record *o, bool keepAlpha) {
         if (const auto ps = particles_.find(o); ps != particles_.end())
             return drawParticles(ps->second, keepAlpha);
-        const image::Image& img = imageOf(o);
+        const image::Image &img = imageOf(o);
         if (img.w <= 0)
             return;
         SpriteTransform t;
@@ -1300,7 +1302,7 @@ void ScenePage::draw() {
         if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
             // Moved and turned by a puzzle: about its centre, tinted if
             // picked.
-            const PictureOverride& p = ov->second;
+            const PictureOverride &p = ov->second;
             const float c = std::cos(p.roll), sn = std::sin(p.roll);
             t.roll = p.roll;
             t.x = p.x + p.cx - (p.cx * c - p.cy * sn);
@@ -1316,9 +1318,9 @@ void ScenePage::draw() {
         if (optionsMenu_)
             // The options screen's slider thumbs, at their values.
             for (int i = 0; i < 3; i++)
-                if (const Ac2Record* thumb = [&]() -> const Ac2Record* {
+                if (const Ac2Record *thumb = [&]() -> const Ac2Record * {
                         int n = i;
-                        for (const Ac2Record* x : objects)
+                        for (const Ac2Record *x : objects)
                             if (fs::toLower(fileNameOf(x->text("file"))) == "slider.jpg" && n-- == 0)
                                 return x;
                         return nullptr;
@@ -1327,7 +1329,7 @@ void ScenePage::draw() {
                     t.x = float(thumbX(i));
         if (o->field("spriteScaleX"))
             t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
-        if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
+        if (const Ac2Record *p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
             t.roll = p->f("roll");
         if (const auto sc = scrolls_.find(o); sc != scrolls_.end()) {
             // Scrolling: where it has got to, and again a width or height
@@ -1346,7 +1348,7 @@ void ScenePage::draw() {
         else
             image::blit(ctx_.screen, img, int(t.x), int(t.y));
     };
-    auto depth = [&](const Ac2Record* o) {
+    auto depth = [&](const Ac2Record *o) {
         if (const auto ps = particles_.find(o); ps != particles_.end())
             return ps->second.settings().depth;
         if (const auto ov = overrides_.find(o); ov != overrides_.end())
@@ -1354,7 +1356,7 @@ void ScenePage::draw() {
         return o->f("depth") != 0 ? o->f("depth") : o->f("z");
     };
     std::stable_sort(pictures.begin(), pictures.end(),
-                     [&](const Ac2Record* a, const Ac2Record* b) { return depth(a) < depth(b); });
+                     [&](const Ac2Record *a, const Ac2Record *b) { return depth(a) < depth(b); });
     // With 3D, the pictures go in layers between the characters: the game
     // draws its objects back to front by depth, a character's being its z
     // (0x435d90, 0x4104b0), the object list's order where they're equal.
@@ -1363,7 +1365,7 @@ void ScenePage::draw() {
     const bool layered = renderer_ != nullptr;
     const auto layersStart = std::chrono::steady_clock::now();
     if (layered) {
-        auto objectIndex = [&](const Ac2Record* r) {
+        auto objectIndex = [&](const Ac2Record *r) {
             const auto it = std::find(objects.begin(), objects.end(), r);
             return size_t(it - objects.begin());
         };
@@ -1375,8 +1377,8 @@ void ScenePage::draw() {
                 for (size_t k = 0; k < characters_[i].footprints.size(); k++)
                     characterOrder_.push_back({i, int(k)});
             }
-        auto slotZ = [&](const ModelSlot& s) {
-            const Character& c = characters_[s.character];
+        auto slotZ = [&](const ModelSlot &s) {
+            const Character &c = characters_[s.character];
             // A character's depth field when it isn't 0, else where it
             // stands (0x4104b0, every object's: Antoinette at 11000 in front
             // of the dining car's tables in 7A).
@@ -1385,20 +1387,19 @@ void ScenePage::draw() {
             const float depth = c.record ? c.record->f("depth") : 0.0f;
             return depth != 0 ? depth : c.z;
         };
-        auto slotIndex = [&](const ModelSlot& s) {
-            const Character& c = characters_[s.character];
-            return s.footprint < 0 ? objectIndex(c.record)
-                                   : objects.size() + c.footprints[size_t(s.footprint)].serial;
+        auto slotIndex = [&](const ModelSlot &s) {
+            const Character &c = characters_[s.character];
+            return s.footprint < 0 ? objectIndex(c.record) : objects.size() + c.footprints[size_t(s.footprint)].serial;
         };
-        std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](const ModelSlot& a, const ModelSlot& b) {
+        std::stable_sort(characterOrder_.begin(), characterOrder_.end(), [&](const ModelSlot &a, const ModelSlot &b) {
             const float za = slotZ(a), zb = slotZ(b);
             return za != zb ? za < zb : slotIndex(a) < slotIndex(b);
         });
-        auto layerOf = [&](const Ac2Record* o) {
+        auto layerOf = [&](const Ac2Record *o) {
             const float d = depth(o);
             const size_t at = objectIndex(o);
             size_t n = 0;
-            for (const ModelSlot& s : characterOrder_) {
+            for (const ModelSlot &s : characterOrder_) {
                 const float z = slotZ(s);
                 n += z < d || (z == d && slotIndex(s) < at);
             }
@@ -1408,10 +1409,10 @@ void ScenePage::draw() {
         // it, where its alpha isn't 0 (0x437b00): unless it's a fog or
         // cloud layer (SPRT scroll set) or at depth 10000 or more. Particles
         // don't (0x42d470).
-        auto resetsShadows = [&](const Ac2Record* o) {
+        auto resetsShadows = [&](const Ac2Record *o) {
             if (particles_.count(o) || depth(o) >= 10000)
                 return false;
-            const Ac2Record* sprite = o->part("SPRT");
+            const Ac2Record *sprite = o->part("SPRT");
             return !sprite || sprite->i("scroll") == 0;
         };
         const bool shadows = options_.get(GameOptions::Shadows);
@@ -1419,25 +1420,23 @@ void ScenePage::draw() {
             dropLayer(layers_[k]);
         layers_.resize(characterOrder_.size() + 1);
         std::vector<size_t> layerOfPicture;
-        for (const Ac2Record* o : pictures)
+        for (const Ac2Record *o : pictures)
             layerOfPicture.push_back(layerOf(o));
         // A picture that scrolls and a video loop are drawn by themselves,
         // a quad of their own, so the rest of their layer needn't be put
         // together again as they move (the clouds, the countryside going
         // by): unless moved by a puzzle.
-        auto alone = [&](const Ac2Record* o) {
-            return (scrolls_.count(o) || loops_.count(o)) && !overrides_.count(o);
-        };
+        auto alone = [&](const Ac2Record *o) { return (scrolls_.count(o) || loops_.count(o)) && !overrides_.count(o); };
         gfx::TextureParams params;
         params.clamp = true;
         params.mipmaps = false;
         for (size_t k = 0; k < layers_.size(); k++) {
-            PictureLayer& layer = layers_[k];
-            std::vector<const Ac2Record*> in;
+            PictureLayer &layer = layers_[k];
+            std::vector<const Ac2Record *> in;
             bool allReset = true, anyAlone = false;
             // Particles are drawn by the GPU as the game's point sprites,
             // between the pictures put together, as they move every frame.
-            auto separate = [&](const Ac2Record* o) { return alone(o) || particles_.count(o) != 0; };
+            auto separate = [&](const Ac2Record *o) { return alone(o) || particles_.count(o) != 0; };
             for (size_t p = 0; p < pictures.size(); p++)
                 if (layerOfPicture[p] == k) {
                     in.push_back(pictures[p]);
@@ -1446,7 +1445,7 @@ void ScenePage::draw() {
                 }
             // A character's breath, drawn just after it (0x425e48); none
             // with "Particle Effects" off.
-            const ParticleSystem* breath = nullptr;
+            const ParticleSystem *breath = nullptr;
             if (k > 0 && characterOrder_[k - 1].footprint < 0 && options_.get(GameOptions::Rain))
                 breath = characters_[characterOrder_[k - 1].character].breath.get();
             allReset &= breath == nullptr; // particles take no shadows off
@@ -1455,14 +1454,14 @@ void ScenePage::draw() {
                 continue;
             }
             // Where those drawn alone are now: as place() puts them.
-            auto placeAlone = [&](PictureLayer::Part& part) {
-                const Ac2Record* o = part.alone;
-                SpriteTransform& t = part.at;
+            auto placeAlone = [&](PictureLayer::Part &part) {
+                const Ac2Record *o = part.alone;
+                SpriteTransform &t = part.at;
                 t = SpriteTransform();
                 t.x = o->f("x"), t.y = o->f("y");
                 if (o->field("spriteScaleX"))
                     t.scaleX = o->f("spriteScaleX"), t.scaleY = o->f("spriteScaleY");
-                if (const Ac2Record* p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
+                if (const Ac2Record *p = o->part(o->tag == "BINK" ? "BNKX" : "SPRT"))
                     t.roll = p->f("roll");
                 part.twice = false;
                 if (const auto sc = scrolls_.find(o); sc != scrolls_.end()) {
@@ -1481,11 +1480,11 @@ void ScenePage::draw() {
             // moving on) change none of them.
             std::string key;
             {
-                auto put = [&key](const auto& v) { key.append(reinterpret_cast<const char*>(&v), sizeof v); };
+                auto put = [&key](const auto &v) { key.append(reinterpret_cast<const char *>(&v), sizeof v); };
                 put(layersMade_), put(brightnessLevel()), put(shadows);
                 put(breath);
                 const bool remade = optionsMenu_ != nullptr;
-                for (const Ac2Record* o : in) {
+                for (const Ac2Record *o : in) {
                     put(o);
                     if (const auto ov = overrides_.find(o); ov != overrides_.end())
                         put(ov->second.x), put(ov->second.y), put(ov->second.roll), put(ov->second.cx),
@@ -1501,7 +1500,7 @@ void ScenePage::draw() {
                     key.clear();
             }
             if (!key.empty() && key == layer.key) {
-                for (PictureLayer::Part& part : layer.parts)
+                for (PictureLayer::Part &part : layer.parts)
                     if (part.alone) {
                         aloneTexture(*part.alone, imageOf(part.alone));
                         placeAlone(part);
@@ -1519,7 +1518,7 @@ void ScenePage::draw() {
             if (resets && (!allReset || anyAlone)) {
                 // Those pictures alone first, for where they reset.
                 std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
-                for (const Ac2Record* o : in)
+                for (const Ac2Record *o : in)
                     if (resetsShadows(o))
                         place(o, true);
                 takeResets();
@@ -1546,7 +1545,7 @@ void ScenePage::draw() {
                 if (alone(in[next])) {
                     PictureLayer::Part part;
                     part.alone = in[next++];
-                    const image::Image& img = imageOf(part.alone);
+                    const image::Image &img = imageOf(part.alone);
                     part.w = img.w, part.h = img.h;
                     aloneTexture(*part.alone, img);
                     placeAlone(part);
@@ -1583,7 +1582,7 @@ void ScenePage::draw() {
         std::fill(ctx_.screen.pixels.begin(), ctx_.screen.pixels.end(), 0);
     } else {
         clear(0, 0, 0);
-        for (const Ac2Record* o : pictures)
+        for (const Ac2Record *o : pictures)
             place(o, false);
         applyBrightness();
     }
@@ -1591,36 +1590,36 @@ void ScenePage::draw() {
     if (showGrid_)
         drawGrid();
     if (hotspots_)
-        for (const Ac2Record* o : objects) {
+        for (const Ac2Record *o : objects) {
             const int l = o->i("left"), t = o->i("top"), r = o->i("right"), b = o->i("bottom");
             if (o->tag != "SPOT" || r <= l || b <= t || !objectShown(*o))
                 continue;
             // Its outline where it has one (listD), else its rectangle.
-            const Ac2Value* outline = o->field("listD");
+            const Ac2Value *outline = o->field("listD");
             if (outline && outline->numbers.size() >= 3) {
-                const auto& pts = outline->numbers;
+                const auto &pts = outline->numbers;
                 for (size_t i = 0; i < pts.size(); i++)
                     line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % pts.size()].first),
                          int(pts[(i + 1) % pts.size()].second), {255, 220, 60});
             } else {
                 frame(l, t, r - l, b - t, {255, 220, 60});
             }
-            const Ac2Record* hot = o->part("HOTS");
+            const Ac2Record *hot = o->part("HOTS");
             std::string name = o->text("name");
             if (name.empty() && hot)
                 name = hot->text("name");
             label(l + 2, t + 2, name.empty() ? shorten(o->text("script"), 60) : name, {255, 220, 60});
         }
     if (selected_ >= 0 && size_t(selected_) < objects.size()) {
-        const Ac2Record* o = objects[size_t(selected_)];
-        const image::Image& img = imageOf(o);
+        const Ac2Record *o = objects[size_t(selected_)];
+        const image::Image &img = imageOf(o);
         if (img.w > 0)
             frame(int(o->f("x")), int(o->f("y")), img.w, img.h, {90, 255, 120});
         // Its fields, as the dump shows them.
         int y = kScreenH - 2 * font::kLineHeight - 6;
         std::vector<std::string> lines;
         std::string text;
-        for (const auto& [name, v] : o->fields) {
+        for (const auto &[name, v] : o->fields) {
             const std::string s = v.str();
             if (s == "0" || s == "\"\"" || s == "[]")
                 continue;
@@ -1629,16 +1628,16 @@ void ScenePage::draw() {
                 lines.push_back(text), text.clear();
             text += item;
         }
-        for (const Ac2Record& p : o->parts) {
+        for (const Ac2Record &p : o->parts) {
             text += p.tag + "{";
-            for (const auto& [name, v] : p.fields)
+            for (const auto &[name, v] : p.fields)
                 if (v.str() != "0" && v.str() != "\"\"" && v.str() != "[]")
                     text += name + "=" + shorten(v.str(), 40) + " ";
             text += "} ";
         }
         lines.push_back(text);
         y -= int(lines.size()) * font::kLineHeight;
-        for (const std::string& l : lines) {
+        for (const std::string &l : lines) {
             label(4, y, l, {150, 255, 170});
             y += font::kLineHeight;
         }
@@ -1651,10 +1650,10 @@ void ScenePage::draw() {
         if (!error_.empty())
             lines.push_back(error_);
         std::map<std::string, int> tags;
-        for (const Ac2Record* o : objects)
+        for (const Ac2Record *o : objects)
             tags[o->tag]++;
         std::string counts = std::to_string(objects.size()) + " objects:";
-        for (const auto& [t, n] : tags)
+        for (const auto &[t, n] : tags)
             counts += " " + std::to_string(n) + " " + t;
         lines.push_back(counts);
         if (!grid_.empty()) {
@@ -1668,40 +1667,41 @@ void ScenePage::draw() {
         }
         if (!scriptLog_.empty()) {
             std::string tags;
-            for (const auto& [t, v] : state_.tags)
+            for (const auto &[t, v] : state_.tags)
                 tags += " " + t + "=" + std::to_string(v);
             std::string items;
-            for (const GameState::Item& i : state_.items)
+            for (const GameState::Item &i : state_.items)
                 items += " " + i.name;
             lines.push_back("script: tags" + (tags.empty() ? std::string(" none") : tags) + "; items" +
                             (items.empty() ? std::string(" none") : items));
-            for (const std::string& l : scriptLog_)
+            for (const std::string &l : scriptLog_)
                 lines.push_back(l);
         }
         lines.push_back(std::string("train ") + (state_.values["moving"] ? "moving" : "stopped") + ", weather " +
                         (state_.values["weather"] ? "on" : "off") + (state_.values["time"] ? ", night" : "") +
                         (state_.act.empty() ? "" : ", act " + state_.act));
-        if (const Ac2Record* cam = scene_.camera()) {
+        if (const Ac2Record *cam = scene_.camera()) {
             char buf[200];
-            std::snprintf(buf, sizeof buf, "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
+            std::snprintf(buf, sizeof buf,
+                          "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
                           cam->f("x"), cam->f("y"), cam->f("z"), cam->f("pitch"), cam->f("yaw"), cam->f("roll"),
                           cam->f("offsetX"), cam->f("offsetY"), cam->f("offsetZ"), cam->f("fov") * 57.29578f);
             lines.push_back(buf);
         }
-        for (const Ac2Record& r : scene_.records)
+        for (const Ac2Record &r : scene_.records)
             if (r.tag == "MUSC" || r.tag == "EVNT")
-                if (const Ac2Value* v = r.fields.empty() ? nullptr : &r.fields[0].second; v && !v->pairs.empty())
+                if (const Ac2Value *v = r.fields.empty() ? nullptr : &r.fields[0].second; v && !v->pairs.empty())
                     lines.push_back(r.tag + " " + shorten(v->str(), 150));
-        for (const Ac2Record* o : objects)
+        for (const Ac2Record *o : objects)
             if (o->tag == "NPCX" || o->tag == "PCXX") {
                 char buf[200];
                 std::string anim;
                 // Where it is now, else where the scene puts it.
                 float x = o->f("x"), y = o->f("y"), z = o->f("z"), rotY = o->f("rotY");
-                for (const Character& c : characters_)
+                for (const Character &c : characters_)
                     if (c.record == o && c.actor) {
                         x = c.x, y = c.y, z = c.z, rotY = c.rotY;
-                        for (const Animator::Slot& sl : c.actor->animator().slots())
+                        for (const Animator::Slot &sl : c.actor->animator().slots())
                             if (sl.state != Animator::Stopped)
                                 anim += (anim.empty() ? ", playing " : " ") + sl.name;
                     }
@@ -1710,7 +1710,7 @@ void ScenePage::draw() {
                 lines.push_back(buf);
             }
         int y = 2;
-        for (const std::string& l : lines) {
+        for (const std::string &l : lines) {
             label(4, y, shorten(l, 168), l == error_ ? Color{255, 120, 120} : Color{230, 230, 230});
             y += font::kLineHeight;
         }
@@ -1731,23 +1731,23 @@ void ScenePage::draw() {
     }
     if (dialogue_->boxShown() && ctx_.fonts) {
         DialogueBoxPictures pics;
-        pics.window = &picture(dialogue_->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
+        pics.window =
+            &picture(dialogue_->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
         pics.bullet = &picture("interface/dialoguewin04.png");
         pics.bulletOn = &picture("interface/dialoguewin05.png");
         // fonts.txt's colours by their place: 6 choices, 7 the one under
         // the mouse, 8 Antoinette, 9 and 10 the others.
-        static const char* const kColours[] = {"dialogue text when choosing", "highlighted dialogue text when choosing",
-                                               "dialogue for main character",
-                                               "dialogue text for second character in conversation",
-                                               "dialogue text for third character in conversation"};
+        static const char *const kColours[] = {
+            "dialogue text when choosing", "highlighted dialogue text when choosing", "dialogue for main character",
+            "dialogue text for second character in conversation", "dialogue text for third character in conversation"};
         const int c = std::clamp(dialogue_->colour() - 6, 0, 4);
         std::vector<std::string> choices;
-        std::vector<const image::Image*> choicePictures;
-        for (const auto& ch : dialogue_->choices()) {
+        std::vector<const image::Image *> choicePictures;
+        for (const auto &ch : dialogue_->choices()) {
             choices.push_back(ch.text);
             choicePictures.push_back(ch.picture.empty() ? nullptr : &picture(normalizeArchiveName(ch.picture)));
         }
-        const DialogueLine* said = dialogue_->lineShown() ? dialogue_->line() : nullptr;
+        const DialogueLine *said = dialogue_->lineShown() ? dialogue_->line() : nullptr;
         // "Text Captions" off: no box or line unless choosing, or the radio
         // (0x43cf90).
         const bool radio = said && (said->name == "dia_barnabyham" || said->name == "hamradio");
@@ -1758,7 +1758,7 @@ void ScenePage::draw() {
                                            dialogue_->choosing() ? choices : std::vector<std::string>(),
                                            dialogue_->highlighted(), choicePictures);
         std::vector<DialogueManager::ChoiceArea> rows;
-        for (const auto& a : areas)
+        for (const auto &a : areas)
             rows.push_back({a.x, a.y, a.w, a.h, a.choice, a.picture});
         dialogue_->setChoiceAreas(std::move(rows));
     }
@@ -1774,22 +1774,19 @@ void ScenePage::draw() {
         drawYesNo();
     if (load_.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
-        const image::Image& back = picture("interface/loading/loading_" +
-                                           [&] {
-                                               const std::string& l = load_.location;
-                                               const size_t dot = l.find('.');
-                                               if (dot == std::string::npos)
-                                                   return l;
-                                               return l.find("exterior") != std::string::npos ||
-                                                              l.find("sirkeci") != std::string::npos
-                                                          ? l.substr(dot + 1)
-                                                          : l.substr(0, dot);
-                                           }() + ".jpg");
+        const image::Image &back = picture("interface/loading/loading_" + [&] {
+            const std::string &l = load_.location;
+            const size_t dot = l.find('.');
+            if (dot == std::string::npos)
+                return l;
+            return l.find("exterior") != std::string::npos || l.find("sirkeci") != std::string::npos ? l.substr(dot + 1)
+                                                                                                     : l.substr(0, dot);
+        }() + ".jpg");
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0});
         image::blit(ctx_.screen, back.w ? back : picture("interface/loading/loading_generic.jpg"), 0, 0);
         char wheel[48];
         std::snprintf(wheel, sizeof wheel, "interface/loading/wheels%02d.png", load_.wheel % 7 + 1);
-        const image::Image& w = picture(wheel);
+        const image::Image &w = picture(wheel);
         image::blit(ctx_.screen, w, (kScreenW - w.w) / 2, 550);
         if (fade_ > 0)
             fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0}, uint8_t(fade_ * 255));
@@ -1797,7 +1794,7 @@ void ScenePage::draw() {
         // The movie over everything, else black: no scene is shown.
         fill(0, 0, kScreenW, kScreenH, Color{0, 0, 0});
         if (movie_ && movie_->frame().w) {
-            const image::Image& f = movie_->frame();
+            const image::Image &f = movie_->frame();
             image::blit(ctx_.screen, f, (kScreenW - f.w) / 2, (kScreenH - f.h) / 2);
             if (options_.get(GameOptions::Captions))
                 drawSubtitles(movieSubtitles_, movie_->seconds());
@@ -1872,13 +1869,13 @@ void ScenePage::update(uint64_t nowMs) {
         story_->update(dt);
     if (letterbox_.mode >= 2) {
         // 250 pixels a second, to 70 or to nothing (0x416f40).
-        Letterbox& l = letterbox_;
+        Letterbox &l = letterbox_;
         const bool in = l.mode == 2;
         l.height = in ? l.height + dt * 250 : l.height - dt * 250;
         if (in ? l.height >= 70 : l.height <= 0) {
             l.height = in ? 70.0f : 0.0f;
             l.mode = in ? 1 : 0;
-            if (ScriptRunner* r = l.runner) {
+            if (ScriptRunner *r = l.runner) {
                 l.runner = nullptr;
                 r->finished("letterbox");
             }
@@ -1892,14 +1889,14 @@ void ScenePage::update(uint64_t nowMs) {
         const float step = dt * 8 / 255 / 0.01f;
         fade_ = fadeTarget_ > fade_ ? std::min(fadeTarget_, fade_ + step) : std::max(fadeTarget_, fade_ - step);
         if (fade_ == fadeTarget_ && fadeRunner_) {
-            ScriptRunner* r = fadeRunner_;
+            ScriptRunner *r = fadeRunner_;
             fadeRunner_ = nullptr;
             r->finished("fade");
         }
         redraw = true;
     }
     if (soundRunner_ && !(ctx_.mixer && ctx_.mixer->isPlaying(soundWaited_))) {
-        ScriptRunner* r = soundRunner_;
+        ScriptRunner *r = soundRunner_;
         soundRunner_ = nullptr;
         r->finished("sound");
     }
@@ -1909,7 +1906,7 @@ void ScenePage::update(uint64_t nowMs) {
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
     if (resumeAfter_ && runner_->idle()) {
-        for (Character& c : characters_)
+        for (Character &c : characters_)
             if (c.record == resumeAfter_)
                 c.paused = false;
         resumeAfter_ = nullptr;
@@ -1919,9 +1916,9 @@ void ScenePage::update(uint64_t nowMs) {
     const bool talking = dialogue_->active();
     dialogue_->update(dt);
     if (talking)
-        redraw = true; // the box moves, lines change
+        redraw = true;                             // the box moves, lines change
     bool changed = drawing_ && advanceLoops(time); // nothing to decode for a tool not drawing
-    for (Character& c : characters_) {
+    for (Character &c : characters_) {
         // Its routine, unless paused; its animations and any turn.
         if (c.routine && !c.paused)
             c.routine->update(dt);
@@ -1957,7 +1954,7 @@ void ScenePage::update(uint64_t nowMs) {
         stepWalk(c, dt);
         placeCharacter(c);
     }
-    for (auto& [o, system] : particles_)
+    for (auto &[o, system] : particles_)
         if (drawing_ && options_.get(GameOptions::Rain) && objectShown(*o)) {
             system.update(dt);
             changed = true;
@@ -1995,7 +1992,7 @@ void ScenePage::update(uint64_t nowMs) {
         if (k >= layers_.size() || !quad_)
             return;
         for (size_t i = 0; i < layers_[k].parts.size(); i++) {
-            const PictureLayer::Part& part = layers_[k].parts[i];
+            const PictureLayer::Part &part = layers_[k].parts[i];
             gfx::DrawCall call;
             call.mesh = quad_;
             call.indexCount = 6;
@@ -2023,7 +2020,7 @@ void ScenePage::update(uint64_t nowMs) {
                 continue;
             call.texture = t->second.texture;
             for (int n = 0; n < (part.twice ? 2 : 1); n++) {
-                const SpriteTransform& at = n ? part.at2 : part.at;
+                const SpriteTransform &at = n ? part.at2 : part.at;
                 float x0, y0, xu, yu, xv, yv;
                 at.apply(0, 0, x0, y0);
                 at.apply(float(part.w), 0, xu, yu);
@@ -2048,15 +2045,15 @@ void ScenePage::update(uint64_t nowMs) {
     size_t layer = 1;
     const auto charactersStart = std::chrono::steady_clock::now();
     // The characters, through the scene's camera, in depth order.
-    if (const Ac2Record* camr = scene_.camera(); camr && charactersShown()) {
+    if (const Ac2Record *camr = scene_.camera(); camr && charactersShown()) {
         const SceneCamera cam = SceneCamera::fromRecord(*camr);
         // Their poses, and their props'.
         std::vector<Pose> poses(characters_.size());
         std::vector<std::vector<Pose>> propPoses(characters_.size());
         for (size_t i = 0; i < characters_.size(); i++) {
-            const Character& c = characters_[i];
+            const Character &c = characters_[i];
             c.actor->animator().pose(poses[i]);
-            for (const auto& [name, prop] : c.props) {
+            for (const auto &[name, prop] : c.props) {
                 propPoses[i].emplace_back();
                 c.actor->animator().poseFor(prop->model(), propPoses[i].back());
             }
@@ -2079,7 +2076,7 @@ void ScenePage::update(uint64_t nowMs) {
         std::vector<ModelSlot> order = characterOrder_;
         size_t shownCharacters = 0;
         bool stale = false;
-        for (const ModelSlot& s : order) {
+        for (const ModelSlot &s : order) {
             stale |= s.character >= characters_.size() ||
                      (s.footprint >= 0 && size_t(s.footprint) >= characters_[s.character].footprints.size());
             shownCharacters += s.footprint < 0;
@@ -2102,15 +2099,15 @@ void ScenePage::update(uint64_t nowMs) {
         {
             const auto skinStart = std::chrono::steady_clock::now();
             struct Job {
-                GpuModel* model;
-                const Pose* pose;
-                const gfx::Mat4* placement;
+                GpuModel *model;
+                const Pose *pose;
+                const gfx::Mat4 *placement;
                 Material material;
-                SkinnedModel* out;
+                SkinnedModel *out;
             };
             std::vector<Job> jobs;
             for (size_t i = 0; i < characters_.size(); i++) {
-                Character& c = characters_[i];
+                Character &c = characters_[i];
                 if (c.record && !objectShown(*c.record))
                     continue;
                 skinnedNow[i] = true;
@@ -2118,21 +2115,21 @@ void ScenePage::update(uint64_t nowMs) {
                 jobs.push_back({c.model.get(), &poses[i], &c.placement, material, &c.skinned});
                 c.propsSkinned.resize(c.props.size());
                 for (size_t k = 0; k < c.props.size(); k++)
-                    jobs.push_back({c.props[k].second.get(), &propPoses[i][k], &c.placement, material,
-                                    &c.propsSkinned[k]});
+                    jobs.push_back(
+                        {c.props[k].second.get(), &propPoses[i][k], &c.placement, material, &c.propsSkinned[k]});
             }
             parallelFor(jobs.size(), [&](size_t j) {
-                const Job& job = jobs[j];
+                const Job &job = jobs[j];
                 job.model->skinAndLight(*job.pose, *job.placement, false, &lighting, job.material, *job.out);
             });
             // Onto the GPU, all before any is drawn: sent together.
-            for (const Job& job : jobs)
+            for (const Job &job : jobs)
                 job.model->upload(*job.out);
             perf.skin += FramePerf::ms(skinStart);
         }
-        for (const ModelSlot& slot : order) {
+        for (const ModelSlot &slot : order) {
             const size_t i = slot.character;
-            const Character& c = characters_[i];
+            const Character &c = characters_[i];
             // A character is drawn, as any object, only while shown: not
             // hidden and its condition holding (0x425e00 asks slot 0x50
             // first; 0x40e900 tests the condition every frame). Greta
@@ -2159,7 +2156,7 @@ void ScenePage::update(uint64_t nowMs) {
                 stencil.scene = &scene_;
                 stencil.cast = c.shadow;
                 stencil.ref = c.player ? 2 : 0;
-                const StencilShadow* withShadow = gpuStencil ? &stencil : nullptr;
+                const StencilShadow *withShadow = gpuStencil ? &stencil : nullptr;
                 c.model->draw(poses[i], c.placement, false, frameMeshes_, bright, &lighting, material, withShadow,
                               skinnedNow[i] ? &c.skinned : nullptr);
                 for (size_t k = 0; k < c.props.size(); k++)
@@ -2211,7 +2208,7 @@ void ScenePage::update(uint64_t nowMs) {
         image::Image img;
         img.w = kScreenW, img.h = kScreenH;
         if (renderer_->takeCapture(img.rgba)) {
-            const auto& o = ctx_.screen.pixels;
+            const auto &o = ctx_.screen.pixels;
             if (o.size() == img.rgba.size())
                 for (size_t i = 0; i < img.rgba.size(); i += 4) {
                     const int a = o[i + 3];
@@ -2225,16 +2222,16 @@ void ScenePage::update(uint64_t nowMs) {
     finishScreenshot(renderer_, &ctx_.screen);
 }
 
-void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& model, const Pose& pose,
-                             const gfx::Mat4& placement, bool shadow, uint8_t ref, ShadowStencil& stencil) const {
+void ScenePage::stencilModel(const gfx::Mat4 &viewProjection, const GpuModel &model, const Pose &pose,
+                             const gfx::Mat4 &placement, bool shadow, uint8_t ref, ShadowStencil &stencil) const {
     // 0x428500: each mesh with materials (those without are skipped,
     // shadow and all), its shadow first if the character casts one, then
     // its body. A shadow sets the stencil to 1 where it passes the depth
     // test, writing no depth; a body sets it to `ref`, and its depth.
     std::vector<std::array<float, 3>> positions, normals, screen;
     std::vector<uint8_t> ok;
-    auto toScreen = [&](const float p[3], std::array<float, 3>& out) {
-        const gfx::Mat4& m = viewProjection;
+    auto toScreen = [&](const float p[3], std::array<float, 3> &out) {
+        const gfx::Mat4 &m = viewProjection;
         float clip[4];
         for (size_t row = 0; row < 4; row++)
             clip[row] = m[row] * p[0] + m[4 + row] * p[1] + m[8 + row] * p[2] + m[12 + row];
@@ -2244,7 +2241,7 @@ void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& mo
                clip[2] / clip[3]};
         return uint8_t(1);
     };
-    auto fill = [&](const ModelMesh& mesh, uint8_t value, bool writeDepth) {
+    auto fill = [&](const ModelMesh &mesh, uint8_t value, bool writeDepth) {
         for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
             const uint32_t a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
             if (a < ok.size() && b < ok.size() && c < ok.size() && ok[a] && ok[b] && ok[c])
@@ -2252,9 +2249,9 @@ void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& mo
         }
     };
     const std::array<float, 3> light = shadowLight(scene_);
-    for (const ModelMesh& mesh : model.model().meshes) {
+    for (const ModelMesh &mesh : model.model().meshes) {
         bool textured = false;
-        for (const auto& g : mesh.groups)
+        for (const auto &g : mesh.groups)
             textured |= g.texture >= 0;
         if (!textured)
             continue;
@@ -2274,7 +2271,7 @@ void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& mo
             const float origin[3] = {world[12], world[13], world[14]};
             const std::array<float, 3> moved = shadowLight(scene_, origin);
             for (size_t v = 0; v < mesh.vertices.size(); v++) {
-                const float* q = mesh.vertices[v].position;
+                const float *q = mesh.vertices[v].position;
                 const float p[3] = {q[0], q[2], -q[1]};
                 ok[v] = toScreen(flattenOntoPlane(moved, origin[1], p).data(), screen[v]);
             }
@@ -2298,7 +2295,7 @@ void ScenePage::stencilModel(const gfx::Mat4& viewProjection, const GpuModel& mo
     }
 }
 
-void ScenePage::drawMask(const CoverageMask& mask, Color colour, uint8_t alpha) {
+void ScenePage::drawMask(const CoverageMask &mask, Color colour, uint8_t alpha) {
     // A quad over the mask's box, its texture the colour where covered.
     if (mask.empty())
         return;
@@ -2307,7 +2304,7 @@ void ScenePage::drawMask(const CoverageMask& mask, Color colour, uint8_t alpha) 
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
             if (mask.at(x0 + x, y0 + y)) {
-                uint8_t* p = rgba.data() + (size_t(y) * size_t(w) + size_t(x)) * 4;
+                uint8_t *p = rgba.data() + (size_t(y) * size_t(w) + size_t(x)) * 4;
                 p[0] = colour.r, p[1] = colour.g, p[2] = colour.b, p[3] = alpha;
             }
     gfx::TextureId tex = 0;
@@ -2348,11 +2345,11 @@ int ScenePage::whiteOut() const {
     // 0x402e20: a white quad where the stencil is 2 (the player's pixels
     // still showing), more opaque the further it has walked past A, fully
     // at B.
-    const Ac2Record* camr = scene_.camera();
+    const Ac2Record *camr = scene_.camera();
     const float a = camr->f("whiteoutStart"), b = camr->f("whiteoutEnd");
     if (a == b)
         return 0;
-    for (const Character& c : characters_) {
+    for (const Character &c : characters_) {
         if (!c.player || c.z >= a)
             continue;
         return std::clamp(c.z < b ? 255 : int((a - c.z) / (a - b) * 255), 0, 255);
@@ -2392,11 +2389,11 @@ void ScenePage::stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mo
     renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
 }
 
-void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, Color c, uint8_t alpha) {
+void ScenePage::fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha) {
     if (points.size() < 3)
         return;
     float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
-    for (const auto& [x, y] : points) {
+    for (const auto &[x, y] : points) {
         minX = std::min(minX, x), maxX = std::max(maxX, x);
         minY = std::min(minY, y), maxY = std::max(maxY, y);
     }
@@ -2409,8 +2406,8 @@ void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, 
             int sign = 0;
             bool inside = true;
             for (size_t i = 0; i < points.size() && inside; i++) {
-                const auto& [ax, ay] = points[i];
-                const auto& [bx, by] = points[(i + 1) % points.size()];
+                const auto &[ax, ay] = points[i];
+                const auto &[bx, by] = points[(i + 1) % points.size()];
                 const float cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
                 const int s2 = cross > 0 ? 1 : cross < 0 ? -1 : 0;
                 if (s2 != 0) {
@@ -2425,21 +2422,21 @@ void ScenePage::fillPolygon(const std::vector<std::pair<float, float>>& points, 
 }
 
 void ScenePage::drawGrid() {
-    const Ac2Record* camr = scene_.camera();
+    const Ac2Record *camr = scene_.camera();
     if (!camr || grid_.empty())
         return;
     const SceneCamera cam = SceneCamera::fromRecord(*camr);
     const float size = float(grid_.cellSize());
-    auto corner = [&](float x, float z, std::pair<float, float>& out) {
+    auto corner = [&](float x, float z, std::pair<float, float> &out) {
         const float p[3] = {x, 0, z};
         return cam.project(p, kScreenW, kScreenH, out.first, out.second);
     };
     // A cell's square on the floor, on the screen.
-    auto square = [&](WalkGrid::Cell cell, std::vector<std::pair<float, float>>& pts) {
+    auto square = [&](WalkGrid::Cell cell, std::vector<std::pair<float, float>> &pts) {
         const float x0 = float(cell.a - 32) * size, z1 = float(32 - cell.b) * size;
         pts.assign(4, {});
-        return corner(x0, z1 - size, pts[0]) && corner(x0 + size, z1 - size, pts[1]) &&
-               corner(x0 + size, z1, pts[2]) && corner(x0, z1, pts[3]);
+        return corner(x0, z1 - size, pts[0]) && corner(x0 + size, z1 - size, pts[1]) && corner(x0 + size, z1, pts[2]) &&
+               corner(x0, z1, pts[3]);
     };
     std::vector<std::pair<float, float>> pts;
     for (int a = 0; a < WalkGrid::kSize; a++)
@@ -2465,7 +2462,7 @@ void ScenePage::drawGrid() {
     }
 }
 
-void ScenePage::beginWalk(Character& c, bool run) {
+void ScenePage::beginWalk(Character &c, bool run) {
     // With its path set: its first leg starts on the next step, turning on
     // the spot first if it isn't facing the way (0x442780 with 1). A
     // gesture or idle variation under way eases out over 0.3 s (0x441160
@@ -2479,9 +2476,9 @@ void ScenePage::beginWalk(Character& c, bool run) {
     c.walkIn = 0;
 }
 
-void ScenePage::stepWalk(Character& c, float dt) {
+void ScenePage::stepWalk(Character &c, float dt) {
     constexpr float kTwoPi = 6.2831853f, kDegrees = 57.29578f;
-    auto headingTo = [&](const std::pair<float, float>& p) { return std::atan2(p.first - c.x, p.second - c.z); };
+    auto headingTo = [&](const std::pair<float, float> &p) { return std::atan2(p.first - c.x, p.second - c.z); };
     if (c.leg < 0) {
         // A leg starts (0x442780): as long as the way to its point, if
         // that's 10 or more (a shorter one is passed over).
@@ -2527,8 +2524,7 @@ void ScenePage::stepWalk(Character& c, float dt) {
     // Steering (0x442160): toward its point, or in the leg's last 100
     // units toward the next one (none on the last leg's), 100 degrees a
     // second (200 running), until within 2 degrees.
-    const std::pair<float, float>* toward =
-        c.leg > 100 ? &c.path.front() : c.path.size() > 1 ? &c.path[1] : nullptr;
+    const std::pair<float, float> *toward = c.leg > 100 ? &c.path.front() : c.path.size() > 1 ? &c.path[1] : nullptr;
     if (!toward)
         return;
     const float off = std::remainder(headingTo(*toward) - c.rotY, kTwoPi);
@@ -2538,20 +2534,20 @@ void ScenePage::stepWalk(Character& c, float dt) {
     c.rotY = std::remainder(c.rotY + std::clamp(off, -most, most), kTwoPi);
 }
 
-void ScenePage::arrive(Character& c) {
+void ScenePage::arrive(Character &c) {
     // There (0x442733): idle1 eased in over half a second, and a script
     // waiting on the walk goes on.
     c.leg = -1, c.turningFirst = false;
     c.actor->play("idle1", 0, 0.5f);
     if (c.waiting && (c.waitVerb == "walk" || c.waitVerb == "run")) {
-        ScriptRunner* r = c.waiting;
+        ScriptRunner *r = c.waiting;
         const std::string verb = c.waitVerb;
         c.waiting = nullptr;
         r->finished(verb);
     }
 }
 
-bool ScenePage::startWalk(Character& c, bool run) {
+bool ScenePage::startWalk(Character &c, bool run) {
     if (!c.actor)
         return false;
     // The walk carries the body forward (the biped's root, Bip01, moves
@@ -2560,7 +2556,7 @@ bool ScenePage::startWalk(Character& c, bool run) {
     // same place.
     const bool played = !c.actor->play(run ? "run" : "walk", 0, 0).empty();
     c.walkSpeed = 0;
-    if (const Animator::Slot* s = c.actor->animator().base(); played && s && s->animation->duration > 0) {
+    if (const Animator::Slot *s = c.actor->animator().base(); played && s && s->animation->duration > 0) {
         const Actor::Motion m = c.actor->motion(*s->animation);
         c.walkSpeed = std::sqrt(m.drift[0] * m.drift[0] + m.drift[1] * m.drift[1] + m.drift[2] * m.drift[2]) /
                       s->animation->duration;
@@ -2572,12 +2568,12 @@ bool ScenePage::startWalk(Character& c, bool run) {
     return true;
 }
 
-void ScenePage::follow(Character& f) {
+void ScenePage::follow(Character &f) {
     // 0x4400a0: while the player walks somewhere, a follower 250 units or
     // more away, and further from the goal than the player, walks there by
     // the path-finder, stopping 125 units short (0x442780).
-    const Character* p = nullptr;
-    for (const Character& c : characters_)
+    const Character *p = nullptr;
+    for (const Character &c : characters_)
         if (c.player)
             p = &c;
     if (!p || p->path.empty() || !leadGoal_.valid())
@@ -2592,7 +2588,7 @@ void ScenePage::follow(Character& f) {
         // The last leg shortened; under 10 units it isn't walked.
         const float fx = f.path.size() > 1 ? f.path[f.path.size() - 2].first : f.x;
         const float fz = f.path.size() > 1 ? f.path[f.path.size() - 2].second : f.z;
-        auto& last = f.path.back();
+        auto &last = f.path.back();
         const float leg = dist(fx, fz, last.first, last.second);
         if (leg - 125 < 10) {
             f.path.pop_back();
@@ -2606,9 +2602,9 @@ void ScenePage::follow(Character& f) {
     path_ = keep; // the overlay shows the player's
 }
 
-void ScenePage::placeCharacter(Character& c) const {
+void ScenePage::placeCharacter(Character &c) const {
     c.placement = characterMatrix(c.x, c.y, c.z, c.rotX, c.rotY, c.rotZ, c.scale);
-    const Animator::Slot* s = c.actor ? c.actor->animator().base() : nullptr;
+    const Animator::Slot *s = c.actor ? c.actor->animator().base() : nullptr;
     if (!s || s->animation->duration <= 0 ||
         !(s->name.find("walk") != std::string::npos || s->name.find("run") != std::string::npos ||
           s->name.find("rotate") != std::string::npos))
@@ -2632,8 +2628,8 @@ bool ScenePage::scrollPictures(float dt) {
     // its own width or height (or the screen's edge) a picture goes back
     // by that much. 1 scrolls left, 2 right, 3 up, 4 down.
     bool moved = false;
-    for (auto& [o, s] : scrolls_) {
-        const image::Image& img = picture(o->text("file"));
+    for (auto &[o, s] : scrolls_) {
+        const image::Image &img = picture(o->text("file"));
         const int way = o->part("SPRT")->i("scroll");
         const float sum = s.part + dt * o->part("SPRT")->f("scrollSpeed") * 0.05f;
         s.part = sum;
@@ -2665,7 +2661,7 @@ bool ScenePage::scrollPictures(float dt) {
 }
 
 void ScenePage::walkTo(int sx, int sy) {
-    const Ac2Record* camr = scene_.camera();
+    const Ac2Record *camr = scene_.camera();
     float x, z;
     if (!camr || grid_.empty() ||
         !SceneCamera::fromRecord(*camr).floorAt(float(sx), float(sy), kScreenW, kScreenH, x, z))
@@ -2673,20 +2669,20 @@ void ScenePage::walkTo(int sx, int sy) {
     const WalkGrid::Cell goal = grid_.cellAt(x, z);
     // From the player's character (else the first character, else the
     // grid's centre: the path alone is shown).
-    Character* who = nullptr;
-    for (Character& c : characters_)
+    Character *who = nullptr;
+    for (Character &c : characters_)
         if (c.player || !who)
             who = &c;
     // A player whose MODL clickToWalk is 0 stays put (0x416343).
     if (who && who->player && who->record)
-        if (const Ac2Record* modl = who->record->part("MODL"); modl && modl->field("clickToWalk") &&
-                                                              modl->i("clickToWalk") == 0)
+        if (const Ac2Record *modl = who->record->part("MODL");
+            modl && modl->field("clickToWalk") && modl->i("clickToWalk") == 0)
             return;
     WalkGrid::Cell start{32, 32};
     if (who)
         start = grid_.cellAt(who->x, who->z);
     else
-        for (const Ac2Record* o : scene_.objects())
+        for (const Ac2Record *o : scene_.objects())
             if (o->tag == "PCXX")
                 start = grid_.cellAt(o->f("x"), o->f("z"));
     path_ = grid_.findPath(start, goal);
@@ -2704,7 +2700,7 @@ void ScenePage::walkTo(int sx, int sy) {
     draw();
 }
 
-std::vector<std::string> ScenePage::objectKeys(const Ac2Record& o) {
+std::vector<std::string> ScenePage::objectKeys(const Ac2Record &o) {
     // What "hide" and "show" may call it: its name, its file, the file's
     // name, with or without its extension ("hide sceorangejuice.jpg",
     // "show handle").
@@ -2721,8 +2717,8 @@ std::vector<std::string> ScenePage::objectKeys(const Ac2Record& o) {
     return keys;
 }
 
-void ScenePage::dropLayer(PictureLayer& layer) {
-    for (const PictureLayer::Part& part : layer.parts)
+void ScenePage::dropLayer(PictureLayer &layer) {
+    for (const PictureLayer::Part &part : layer.parts)
         if (part.texture)
             renderer_->destroyTexture(part.texture);
     if (layer.resetMask)
@@ -2730,12 +2726,12 @@ void ScenePage::dropLayer(PictureLayer& layer) {
     layer = PictureLayer();
 }
 
-void ScenePage::aloneTexture(const Ac2Record& o, const image::Image& img) {
+void ScenePage::aloneTexture(const Ac2Record &o, const image::Image &img) {
     // Made again with the brightness, or a video loop's next frame.
     std::string key = std::to_string(brightnessLevel()) + " " + std::to_string(img.w) + "x" + std::to_string(img.h);
     if (const auto lp = loops_.find(&o); lp != loops_.end())
         key += " " + std::to_string(lp->second.next);
-    AloneTexture& t = aloneTextures_[&o];
+    AloneTexture &t = aloneTextures_[&o];
     if (t.texture && t.key == key)
         return;
     if (t.texture)
@@ -2752,7 +2748,7 @@ void ScenePage::aloneTexture(const Ac2Record& o, const image::Image& img) {
     renderer_->createTexture(img.w, img.h, rgba.data(), params, t.texture);
 }
 
-std::string ScenePage::conditionOf(const Ac2Record& o) const {
+std::string ScenePage::conditionOf(const Ac2Record &o) const {
     // A particle object's is its class's default where it has none
     // ("weather >0" for rain and snow).
     if (const auto ps = particles_.find(&o); ps != particles_.end())
@@ -2764,16 +2760,16 @@ void ScenePage::retestObjects() {
     // 0x40e900 on every object (0x436280, "update"; 0x4362b0, entering):
     // shown if its condition holds, hidden if not, whatever "hide" or
     // "show" made it.
-    for (const Ac2Record* o : scene_.objects())
+    for (const Ac2Record *o : scene_.objects())
         shownNow_[o] = testCondition(conditionOf(*o), state_);
 }
 
-void ScenePage::showObject(const std::string& name, bool show) {
+void ScenePage::showObject(const std::string &name, bool show) {
     // "hide" and "show" (0x40a240, 0x436660): the scene's object by that
     // name, until the scene is entered again or "update" tests the
     // conditions. A video starts from its first frame when shown.
-    for (const Ac2Record* o : scene_.objects())
-        for (const std::string& key : objectKeys(*o))
+    for (const Ac2Record *o : scene_.objects())
+        for (const std::string &key : objectKeys(*o))
             if (key == name) {
                 shownNow_[o] = show;
                 if (const auto loop = loops_.find(o); show && loop != loops_.end())
@@ -2787,12 +2783,12 @@ namespace {
 // Whether a screen point is in an object's outline (listD: hotspots and
 // characters have one), by the crossings of a ray to the right; false if
 // it has none.
-bool inOutline(const Ac2Record& o, int sx, int sy) {
-    const Ac2Value* outline = o.field("listD");
+bool inOutline(const Ac2Record &o, int sx, int sy) {
+    const Ac2Value *outline = o.field("listD");
     if (!outline || outline->numbers.size() < 3)
         return false;
     bool inside = false;
-    const auto& pts = outline->numbers;
+    const auto &pts = outline->numbers;
     for (size_t i = 0, j = pts.size() - 1; i < pts.size(); j = i++) {
         const float xi = float(pts[i].first), yi = float(pts[i].second);
         const float xj = float(pts[j].first), yj = float(pts[j].second);
@@ -2804,12 +2800,12 @@ bool inOutline(const Ac2Record& o, int sx, int sy) {
 
 } // namespace
 
-const Ac2Record* ScenePage::hotspotAt(int sx, int sy) const {
-    const Ac2Record* hit = nullptr;
-    for (const Ac2Record* o : scene_.objects()) {
+const Ac2Record *ScenePage::hotspotAt(int sx, int sy) const {
+    const Ac2Record *hit = nullptr;
+    for (const Ac2Record *o : scene_.objects()) {
         if (o->tag != "SPOT" || !objectShown(*o))
             continue;
-        const Ac2Value* outline = o->field("listD");
+        const Ac2Value *outline = o->field("listD");
         const bool inside = outline && outline->numbers.size() >= 3
                                 ? inOutline(*o, sx, sy)
                                 : sx >= o->i("left") && sx < o->i("right") && sy >= o->i("top") && sy < o->i("bottom");
@@ -2819,23 +2815,23 @@ const Ac2Record* ScenePage::hotspotAt(int sx, int sy) const {
     return hit;
 }
 
-void ScenePage::runScript(const Ac2Record& object) {
+void ScenePage::runScript(const Ac2Record &object) {
     // The first conditional script whose condition holds, else its own.
     std::string script = object.text("script");
-    if (const Ac2Value* alternatives = object.field("listB"))
-        for (const auto& [condition, run] : alternatives->pairs)
+    if (const Ac2Value *alternatives = object.field("listB"))
+        for (const auto &[condition, run] : alternatives->pairs)
             if (testCondition(condition, state_)) {
                 script = run;
                 break;
             }
     scriptObject_ = &object;
-    const Ac2Record* hot = object.part("HOTS");
+    const Ac2Record *hot = object.part("HOTS");
     const std::string name = !object.text("name").empty() ? object.text("name") : hot ? hot->text("name") : "";
     logScript(name + ": " + shorten(script, 120));
     runner_->run(script);
 }
 
-ScenePage::Character* ScenePage::scriptCharacter(const ScriptRunner& runner) {
+ScenePage::Character *ScenePage::scriptCharacter(const ScriptRunner &runner) {
     // setchar's (0x40ae94: by name, as 0x4367b0 finds it), else the
     // player's: the first character marked the player (0x4365d0). A scene
     // whose Antoinette isn't (an NPCX close-up) has none, and the verbs
@@ -2843,41 +2839,41 @@ ScenePage::Character* ScenePage::scriptCharacter(const ScriptRunner& runner) {
     const std::string who = fs::toLower(runner.character());
     if (!who.empty())
         return characterNamed(who);
-    for (Character& c : characters_)
+    for (Character &c : characters_)
         if (c.player)
             return &c;
     return nullptr;
 }
 
-ScenePage::Character* ScenePage::characterNamed(const std::string& who) {
+ScenePage::Character *ScenePage::characterNamed(const std::string &who) {
     // 0x4367b0: the first whose model's file has "<name>_model" in it
     // (any case); for "poirot", failing that, "poirotbed_model" (Poirot in
     // his bed, in his compartment from 5C on).
     const std::string w = fs::toLower(who);
-    auto byModel = [&](const std::string& model) -> Character* {
-        for (Character& c : characters_)
+    auto byModel = [&](const std::string &model) -> Character * {
+        for (Character &c : characters_)
             if (c.record && fs::toLower(c.record->text("file")).find(model) != std::string::npos)
                 return &c;
         return nullptr;
     };
-    if (Character* c = byModel(w + "_model"))
+    if (Character *c = byModel(w + "_model"))
         return c;
     if (w == "poirot")
-        if (Character* c = byModel("poirotbed_model"))
+        if (Character *c = byModel("poirotbed_model"))
             return c;
-    for (Character& c : characters_)
+    for (Character &c : characters_)
         if (c.who == w || fs::toLower(c.record ? c.record->text("name") : "") == w)
             return &c;
     return nullptr;
 }
 
-bool ScenePage::objectAt(const std::string& name, float& x, float& z) const {
+bool ScenePage::objectAt(const std::string &name, float &x, float &z) const {
     const std::string n = fs::toLower(name);
-    if (const Character* c = const_cast<ScenePage*>(this)->characterNamed(n)) {
+    if (const Character *c = const_cast<ScenePage *>(this)->characterNamed(n)) {
         x = c->x, z = c->z;
         return true;
     }
-    for (const Ac2Record* o : scene_.objects())
+    for (const Ac2Record *o : scene_.objects())
         if (fs::toLower(o->text("name")) == n) {
             x = o->f("x"), z = o->f("z");
             return true;
@@ -2885,21 +2881,21 @@ bool ScenePage::objectAt(const std::string& name, float& x, float& z) const {
     return false;
 }
 
-void ScenePage::queueRoutine(Character& c) {
+void ScenePage::queueRoutine(Character &c) {
     // The first IDLE entry whose condition holds (0x44087d; "loop" queues
     // it again: 0x405940).
     if (!c.routine || !c.record)
         return;
-    for (const Ac2Record& part : c.record->parts)
-        if (const Ac2Value* idles = part.field("idles"))
-            for (const auto& [condition, script] : idles->pairs)
+    for (const Ac2Record &part : c.record->parts)
+        if (const Ac2Value *idles = part.field("idles"))
+            for (const auto &[condition, script] : idles->pairs)
                 if (!script.empty() && testCondition(condition, state_)) {
                     c.routine->run(script);
                     return;
                 }
 }
 
-bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, bool run) {
+bool ScenePage::walkCharacter(Character &c, WalkGrid::Cell goal, bool toPoint, bool run) {
     c.walkIn = 0; // a walk replaces walking in
     const WalkGrid::Cell start = grid_.cellAt(c.x, c.z);
     path_ = grid_.findPath(start, goal, toPoint);
@@ -2915,7 +2911,7 @@ bool ScenePage::walkCharacter(Character& c, WalkGrid::Cell goal, bool toPoint, b
     return true;
 }
 
-bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
+bool ScenePage::changeScene(const std::string &name, int entry, bool walkIn) {
     // The scene's file by its name, the act's variant if there is one.
     const std::string want = fs::toLower(name) + ".ac2";
     const std::string variant = state_.act.empty() ? "" : fs::toLower(name) + "_" + state_.act + ".ac2";
@@ -2932,7 +2928,7 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     dialogue_->leaveScene(sceneName());
     // Leaving (0x423390): where the player was is kept (the game keeps
     // the scene itself), and the act's time, weather and moving apply.
-    for (const Character& c : characters_) {
+    for (const Character &c : characters_) {
         if (c.player)
             positions_[state_.scene] = {c.x, c.z, c.rotY};
         else if (c.record)
@@ -2944,19 +2940,19 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
         // And as scripts left them: paused (Klaus, for the cleaver talk,
         // through its close-ups), their shadow, what they hold, an
         // animation playing for ever ("anim sitidle 1 0").
-        KeptCharacter& k = keptCharacters_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))];
+        KeptCharacter &k = keptCharacters_[state_.scene + "|" + fs::toLower(fileNameOf(c.name))];
         k.paused = c.paused;
         k.shadow = c.shadow;
         k.props.clear();
-        for (const auto& [path, model] : c.props)
+        for (const auto &[path, model] : c.props)
             k.props.push_back(path);
         // (Not a walk, run or turn under way: its path isn't kept.)
-        const Animator::Slot* base = c.actor->animator().base();
-        const bool moving = base && (base->name.find("walk") != std::string::npos ||
-                                     base->name.find("run") != std::string::npos ||
-                                     base->name.find("rotate") != std::string::npos);
-        k.endless = base && base->loops == 0 && !moving && base->name.compare(0, 4, "idle") != 0 ? base->name
-                                                                                                 : std::string();
+        const Animator::Slot *base = c.actor->animator().base();
+        const bool moving =
+            base && (base->name.find("walk") != std::string::npos || base->name.find("run") != std::string::npos ||
+                     base->name.find("rotate") != std::string::npos);
+        k.endless =
+            base && base->loops == 0 && !moving && base->name.compare(0, 4, "idle") != 0 ? base->name : std::string();
     }
     state_.lastScene = state_.scene;
     story_->leavingScene();
@@ -2969,15 +2965,17 @@ bool ScenePage::changeScene(const std::string& name, int entry, bool walkIn) {
     return true;
 }
 
-void ScenePage::playSound(const std::string& name) { startSound(name, false); }
+void ScenePage::playSound(const std::string &name) {
+    startSound(name, false);
+}
 
-audio::SoundHandle ScenePage::startSound(const std::string& name, bool loop) {
+audio::SoundHandle ScenePage::startSound(const std::string &name, bool loop) {
     // sound\<name>.wav: found by its file's name, wherever it is.
     std::string key = fs::toLower(name);
     if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
         key = key.substr(slash + 1);
     if (soundFiles_.empty())
-        for (const std::string& f : listFiles(ctx_.files, {"sound/"}, {".wav", ".mp3"})) {
+        for (const std::string &f : listFiles(ctx_.files, {"sound/"}, {".wav", ".mp3"})) {
             const std::string file = f.substr(f.find_last_of('/') + 1);
             soundFiles_.emplace(fs::toLower(file.substr(0, file.rfind('.'))), f);
         }
@@ -2998,7 +2996,7 @@ audio::SoundHandle ScenePage::startSound(const std::string& name, bool loop) {
     return h;
 }
 
-void ScenePage::logScript(const std::string& line) {
+void ScenePage::logScript(const std::string &line) {
     if (onLog)
         onLog(line);
     scriptLog_.push_back(line);
@@ -3008,7 +3006,7 @@ void ScenePage::logScript(const std::string& line) {
 
 // --- Character verbs ----------------------------------------------------------
 
-std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
+std::shared_ptr<GpuModel> ScenePage::propModel(const std::string &file) {
     // Kept with the characters' models: loading one decodes its textures.
     if (file.empty() || !renderer_)
         return nullptr;
@@ -3024,25 +3022,24 @@ std::shared_ptr<GpuModel> ScenePage::propModel(const std::string& file) {
     return found->second;
 }
 
-bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const ScriptEvent& e, bool wait,
-                                   bool& handled) {
+bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const ScriptEvent &e, bool wait, bool &handled) {
     const std::string v = e.verb();
-    auto lower = [](const std::string& t) { return fs::toLower(t); };
+    auto lower = [](const std::string &t) { return fs::toLower(t); };
     const std::string a1 = lower(e.arg(1)), a2 = lower(e.arg(2)), a3 = lower(e.arg(3));
     const float body = normalizeDegrees(c.rotY * 57.29578f);
     // The heading from the character to a point (0x425b10): 0 faces +Z.
     auto headingTo = [&](float x, float z) { return normalizeDegrees(std::atan2(x - c.x, z - c.z) * 57.29578f); };
-    auto cellHeading = [&](const std::string& a, const std::string& b) {
+    auto cellHeading = [&](const std::string &a, const std::string &b) {
         float x, z;
         grid_.centre({std::atoi(a.c_str()), std::atoi(b.c_str())}, x, z);
         return headingTo(x, z);
     };
-    auto upDown = [](const std::string& w) { return w == "up" ? 1 : w == "down" ? 2 : 0; };
+    auto upDown = [](const std::string &w) { return w == "up" ? 1 : w == "down" ? 2 : 0; };
     handled = true;
     if (v == "turn") {
         // The head (0x40b7a8); it never waits.
         if (a1 == "home" && a2 == "all") {
-            for (Character& ch : characters_)
+            for (Character &ch : characters_)
                 ch.actor->headHome();
         } else if (a1 == "home") {
             c.actor->headHome();
@@ -3081,8 +3078,8 @@ bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const Scr
             if (name == "home") {
                 heading = c.home, have = true;
             } else if (name.size() > 2 && name.compare(0, 2, "sp") == 0 && c.record) {
-                if (const Ac2Record* w = c.record->part("WALK"))
-                    for (const Ac2Record& pt : w->parts)
+                if (const Ac2Record *w = c.record->part("WALK"))
+                    for (const Ac2Record &pt : w->parts)
                         if (pt.i("id") == std::atoi(name.c_str() + 2)) {
                             heading = normalizeDegrees(pt.f("rotY") * 57.29578f), have = true;
                             if (back)
@@ -3146,12 +3143,12 @@ bool ScenePage::startCharacterVerb(ScriptRunner& runner, Character& c, const Scr
         // animations (0x426290, 0x4262d0).
         if (v == "detach") {
             c.props.erase(std::remove_if(c.props.begin(), c.props.end(),
-                                         [&](const auto& p) { return p.first.find(a1) != std::string::npos; }),
+                                         [&](const auto &p) { return p.first.find(a1) != std::string::npos; }),
                           c.props.end());
             return false;
         }
         const std::string path = "models/objects/" + a1 + "_model.gr2";
-        for (const auto& p : c.props)
+        for (const auto &p : c.props)
             if (p.first == path)
                 return false;
         if (auto m = propModel(path))
@@ -3175,16 +3172,16 @@ void ScenePage::loadDialogue() {
     if (dialogueAct_ == state_.act)
         return;
     dialogueAct_ = state_.act;
-    DialogueBook& book = dialogue_->book();
+    DialogueBook &book = dialogue_->book();
     book.clear();
     std::vector<std::string> files = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
                                       "text/dialogue/gen_characters.txt"};
     if (!state_.act.empty())
         files.push_back("text/dialogue/act" + state_.act + ".txt");
     else
-        for (const std::string& f : listFiles(ctx_.files, {"text/dialogue/act"}, {".txt"}))
+        for (const std::string &f : listFiles(ctx_.files, {"text/dialogue/act"}, {".txt"}))
             files.push_back(f);
-    for (const std::string& f : files) {
+    for (const std::string &f : files) {
         // Each read once (they're read again with every act and saved game).
         auto it = dialogueTables_.find(f);
         if (it == dialogueTables_.end()) {
@@ -3199,7 +3196,7 @@ void ScenePage::loadDialogue() {
     }
 }
 
-bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
+bool ScenePage::startTalk(ScriptRunner &runner, const ScriptEvent &e) {
     loadDialogue();
     const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
     if (dialogue_->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
@@ -3207,7 +3204,7 @@ bool ScenePage::startTalk(ScriptRunner& runner, const ScriptEvent& e) {
     return t.gen && dialogue_->noTalk(runner);
 }
 
-bool ScenePage::playVoice(const std::string& file) {
+bool ScenePage::playVoice(const std::string &file) {
     stopVoice();
     std::vector<uint8_t> data;
     auto sound = std::make_shared<audio::Sound>();
@@ -3222,7 +3219,9 @@ bool ScenePage::playVoice(const std::string& file) {
     return voice_ != audio::kNoSound;
 }
 
-bool ScenePage::voicePlaying() { return ctx_.mixer && voice_ != audio::kNoSound && ctx_.mixer->isPlaying(voice_); }
+bool ScenePage::voicePlaying() {
+    return ctx_.mixer && voice_ != audio::kNoSound && ctx_.mixer->isPlaying(voice_);
+}
 
 void ScenePage::stopVoice() {
     if (ctx_.mixer && voice_ != audio::kNoSound)
@@ -3230,7 +3229,7 @@ void ScenePage::stopVoice() {
     voice_ = audio::kNoSound;
 }
 
-std::string ScenePage::readText(const std::string& file) {
+std::string ScenePage::readText(const std::string &file) {
     std::vector<uint8_t> data;
     return ctx_.files.read(file, data) ? std::string() : decodeText(data);
 }
@@ -3238,22 +3237,22 @@ std::string ScenePage::readText(const std::string& file) {
 std::string ScenePage::sceneName() {
     if (names_.empty())
         return {};
-    const std::string& n = names_[size_t(index_)];
+    const std::string &n = names_[size_t(index_)];
     const std::string file = n.substr(n.find_last_of('/') + 1);
     return fs::toLower(file.substr(0, file.rfind('.')));
 }
 
-void ScenePage::turnHead(const std::string& speaker, const std::string& target) {
+void ScenePage::turnHead(const std::string &speaker, const std::string &target) {
     // A line's Target (0x43bd30): "up"/"down" [w], a cell "a b [up|down]",
     // someone "[up|down]"; empty: home again.
-    Character* c = characterNamed(speaker);
+    Character *c = characterNamed(speaker);
     if (!c && fs::toLower(speaker) == "poirot")
         c = characterNamed("poirotbed");
     if (!c)
         return;
     std::vector<std::string> w;
-    for (const Command& cmd : parseCommands(target))
-        for (const std::string& word : cmd.words)
+    for (const Command &cmd : parseCommands(target))
+        for (const std::string &word : cmd.words)
             w.push_back(fs::toLower(word));
     if (w.empty() || w[0] == "0") {
         c->actor->headHome();
@@ -3265,18 +3264,18 @@ void ScenePage::turnHead(const std::string& speaker, const std::string& target) 
     startCharacterVerb(*runner_, *c, e, false, handled);
 }
 
-void ScenePage::lineStarted(const std::string& speaker) {
-    if (Character* c = characterNamed(speaker))
+void ScenePage::lineStarted(const std::string &speaker) {
+    if (Character *c = characterNamed(speaker))
         c->actor->lineStart();
 }
 
-void ScenePage::lineEnded(const std::string& speaker) {
-    if (Character* c = characterNamed(speaker))
+void ScenePage::lineEnded(const std::string &speaker) {
+    if (Character *c = characterNamed(speaker))
         c->actor->lineEnd();
 }
 
-void ScenePage::mouth(const std::string& speaker, bool on) {
-    if (Character* c = characterNamed(speaker))
+void ScenePage::mouth(const std::string &speaker, bool on) {
+    if (Character *c = characterNamed(speaker))
         c->actor->mouth(on);
 }
 
@@ -3295,17 +3294,17 @@ int ScenePage::voiceLevel() {
     return n && sum / double(n) > 600 ? 1 : 0;
 }
 
-const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
-    const Ac2Record* camr = scene_.camera();
+const Ac2Record *ScenePage::characterAt(int sx, int sy) const {
+    const Ac2Record *camr = scene_.camera();
     if (!camr)
         return nullptr;
     const SceneCamera cam = SceneCamera::fromRecord(*camr);
-    const Ac2Record* hit = nullptr;
-    for (const Ac2Record* o : scene_.objects()) {
+    const Ac2Record *hit = nullptr;
+    for (const Ac2Record *o : scene_.objects()) {
         if (o->tag != "NPCX" || o->text("script").empty() || !objectShown(*o))
             continue;
         // Its outline on the screen, if it has one.
-        if (const Ac2Value* outline = o->field("listD"); outline && outline->numbers.size() >= 3) {
+        if (const Ac2Value *outline = o->field("listD"); outline && outline->numbers.size() >= 3) {
             if (inOutline(*o, sx, sy))
                 hit = o;
             continue;
@@ -3313,7 +3312,7 @@ const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
         // Else where it stands: from its feet to a head's height, about a
         // third as wide.
         float x = o->f("x"), z = o->f("z");
-        for (const Character& c : characters_)
+        for (const Character &c : characters_)
             if (c.record == o)
                 x = c.x, z = c.z;
         const float feet[3] = {x, o->f("y"), z}, head[3] = {x, o->f("y") + 170, z};
@@ -3327,23 +3326,23 @@ const Ac2Record* ScenePage::characterAt(int sx, int sy) const {
     return hit;
 }
 
-std::string ScenePage::scriptText(const std::string& name) {
+std::string ScenePage::scriptText(const std::string &name) {
     std::vector<uint8_t> data;
     if (ctx_.files.read("text/scripts/" + fs::toLower(name) + ".txt", data))
         return {};
     return decodeText(data);
 }
 
-bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
-    const std::string& v = e.verb();
-    auto lower = [](const std::string& t) { return fs::toLower(t); };
+bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
+    const std::string &v = e.verb();
+    auto lower = [](const std::string &t) { return fs::toLower(t); };
     {
         bool handled = false;
-        Character* c = scriptCharacter(runner);
+        Character *c = scriptCharacter(runner);
         if (v == "pause" || v == "resume" || v == "loop" || v == "attach" || v == "detach")
             c = v == "loop" ? nullptr : characterNamed(e.arg(1)) ? characterNamed(e.arg(1)) : c;
         if (v == "loop")
-            for (Character& ch : characters_)
+            for (Character &ch : characters_)
                 if (ch.routine.get() == &runner)
                     c = &ch;
         if (c) {
@@ -3353,7 +3352,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         }
     }
     if (v == "walk" || v == "run") {
-        Character* c = scriptCharacter(runner);
+        Character *c = scriptCharacter(runner);
         if (!c || grid_.empty())
             return false;
         WalkGrid::Cell goal;
@@ -3364,13 +3363,13 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             float x = 0, z = 0;
             bool have = false;
             if (target.size() > 2 && target.compare(0, 2, "sp") == 0 && c->record) {
-                if (const Ac2Record* w = c->record->part("WALK"))
-                    for (const Ac2Record& pt : w->parts)
+                if (const Ac2Record *w = c->record->part("WALK"))
+                    for (const Ac2Record &pt : w->parts)
                         if (pt.i("id") == std::atoi(target.c_str() + 2))
                             x = pt.f("x"), z = pt.f("z"), have = true;
                 toPoint = true;
             } else {
-                for (const Character& other : characters_)
+                for (const Character &other : characters_)
                     if (other.who == target)
                         x = other.x, z = other.z, have = true;
             }
@@ -3393,7 +3392,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         std::vector<std::string> words = e.words;
         if (v == "gotoscene") {
             words = {"scene"};
-            for (const Command& c : parseCommands(state_.texts["savedscene"]))
+            for (const Command &c : parseCommands(state_.texts["savedscene"]))
                 words.insert(words.end(), c.words.begin(), c.words.end());
             if (words.size() < 2)
                 return false;
@@ -3564,7 +3563,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
         std::string name = lower(e.arg(1));
         if (name == "this" && scriptObject_)
             name = lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
-                                                               : normalizeArchiveName(scriptObject_->text("file")));
+                                                              : normalizeArchiveName(scriptObject_->text("file")));
         showObject(name, v == "show");
         draw();
         return false;
@@ -3579,7 +3578,7 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
             if (sce != std::string::npos)
                 item = file.substr(sce + 4, file.find('.', sce) - sce - 4);
             showObject(lower(!scriptObject_->text("name").empty() ? scriptObject_->text("name")
-                                                                    : normalizeArchiveName(scriptObject_->text("file"))),
+                                                                  : normalizeArchiveName(scriptObject_->text("file"))),
                        false);
         } else {
             showObject(item, false);
@@ -3604,10 +3603,10 @@ bool ScenePage::start(ScriptRunner& runner, const ScriptEvent& e, bool wait) {
     // line's speaker in another scene of the place (0x43bb60 looks there
     // too) isn't loaded here, so what the game would do to them off screen
     // is lost.
-    for (const char* verb : {"turn", "look", "rotate", "anim", "animate", "pause", "resume", "loop", "attach", "detach",
+    for (const char *verb : {"turn", "look", "rotate", "anim", "animate", "pause", "resume", "loop", "attach", "detach",
                              "hideshadow", "showshadow"})
         if (v == verb) {
-            const std::string& who = runner.character();
+            const std::string &who = runner.character();
             logScript("    (" + v + ": no " + (who.empty() ? std::string("player") : who) + " here)");
             return false;
         }
@@ -3630,7 +3629,7 @@ void ScenePage::line(int x0, int y0, int x1, int y1, Color c) {
     }
 }
 
-void ScenePage::handleEvent(const Event& event) {
+void ScenePage::handleEvent(const Event &event) {
     frame_++;
     // In a game the mouse's place is kept within x 1004 and y 748, or 758
     // while a conversation is on (0x4014ce..0x401546); clicks and picks
@@ -3683,9 +3682,9 @@ void ScenePage::handleEvent(const Event& event) {
             endMovie();
         return;
     }
-    if (messageTime_ > 0 && (ev.type == EventType::KeyDown ||
-                             (ev.type == EventType::MouseDown &&
-                              (ev.button == MouseButton::Left || ev.button == MouseButton::Right)))) {
+    if (messageTime_ > 0 &&
+        (ev.type == EventType::KeyDown ||
+         (ev.type == EventType::MouseDown && (ev.button == MouseButton::Left || ev.button == MouseButton::Right)))) {
         // A key or a click (left or right) while the message shows only
         // puts it away (0x4164e0, 0x416000, 0x416450).
         messageTime_ = 0;
@@ -3712,7 +3711,7 @@ void ScenePage::handleEvent(const Event& event) {
     if (ev.type == EventType::MouseMove && showGrid_) {
         float x, z;
         WalkGrid::Cell cell;
-        if (const Ac2Record* cam = scene_.camera();
+        if (const Ac2Record *cam = scene_.camera();
             cam && SceneCamera::fromRecord(*cam).floorAt(float(ev.mouseX), float(ev.mouseY), kScreenW, kScreenH, x, z))
             cell = grid_.cellAt(x, z);
         if (!(cell == hover_)) {
@@ -3739,7 +3738,7 @@ void ScenePage::handleEvent(const Event& event) {
         // The object the game's pick finds there (0x41613c); one with
         // nothing to run is walked to like the floor. An item in hand was
         // used by the interface (interfaceEvent) before this.
-        const Ac2Record* picked = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr;
+        const Ac2Record *picked = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr;
         if (picked)
             hotspotPressed(*picked);
         if (picked && clickable(*picked)) {
@@ -3780,7 +3779,7 @@ void ScenePage::handleEvent(const Event& event) {
         showGrid_ = !showGrid_;
         draw();
     } else if (ev.key == 'm' || ev.key == 'w' || ev.key == 't') {
-        int& v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
+        int &v = state_.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
         v = !v;
         retestObjects(); // the viewer's own: shown at once
         draw();
@@ -3798,18 +3797,22 @@ void ScenePage::handleEvent(const Event& event) {
 
 // --- Movies ---------------------------------------------------------------------
 
-MoviePage::MoviePage(ViewerContext& ctx) : Page(ctx), player_(ctx.mixer) {
+MoviePage::MoviePage(ViewerContext &ctx) : Page(ctx), player_(ctx.mixer) {
     names_ = listFiles(ctx.files, {"movies/", "elements/", "locations/"}, {".bik"});
 }
 
-MoviePage::~MoviePage() { player_.stop(); }
+MoviePage::~MoviePage() {
+    player_.stop();
+}
 
 void MoviePage::activate() {
     begin2D();
     open();
 }
 
-void MoviePage::deactivate() { player_.stop(); }
+void MoviePage::deactivate() {
+    player_.stop();
+}
 
 void MoviePage::open() {
     player_.stop();
@@ -3818,7 +3821,7 @@ void MoviePage::open() {
     clear(0, 0, 0);
     if (names_.empty())
         return;
-    const std::string& name = names_[size_t(index_)];
+    const std::string &name = names_[size_t(index_)];
     {
         // Its subtitles, if it has some: Text/Movies/<its name>.txt.
         std::string stem = name.substr(name.find_last_of('/') + 1);
@@ -3835,7 +3838,7 @@ void MoviePage::open() {
         info_ = e.message;
         return;
     }
-    const bink::Movie& movie = *player_.movie();
+    const bink::Movie &movie = *player_.movie();
     char buf[160];
     std::snprintf(buf, sizeof buf, "%dx%d, %u frames at %.2f fps, revision %c", movie.width(), movie.height(),
                   movie.frameCount(), player_.fps(), movie.revision());
@@ -3855,23 +3858,23 @@ void MoviePage::update(uint64_t nowMs) {
         return;
     }
     clear(0, 0, 0);
-    const image::Image& frame = player_.frame();
+    const image::Image &frame = player_.frame();
     if (frame.w)
         image::blit(ctx_.screen, frame, (kScreenW - frame.w) / 2, (kScreenH - frame.h) / 2);
     drawSubtitles(subtitles_, player_.seconds());
     label(4, 2,
           (names_.empty() ? std::string("No movies") : names_[size_t(index_)]) + "  (" + std::to_string(index_ + 1) +
               "/" + std::to_string(names_.size()) + ")  " + info_ +
-              (player_.loaded() ? "  frame " + std::to_string(player_.next()) + "/" +
-                                      std::to_string(player_.movie()->frameCount())
-                                : "") +
+              (player_.loaded()
+                   ? "  frame " + std::to_string(player_.next()) + "/" + std::to_string(player_.movie()->frameCount())
+                   : "") +
               (subtitles_.empty() ? "" : ", " + std::to_string(subtitles_.size()) + " subtitles"),
           {255, 230, 150});
     help("Left/Right: movie  Space: pause  Enter: restart");
     Page::update(nowMs);
 }
 
-void MoviePage::handleEvent(const Event& ev) {
+void MoviePage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     if (const int d = step(ev.key, index_, int(names_.size()))) {
@@ -3886,7 +3889,9 @@ void MoviePage::handleEvent(const Event& ev) {
 
 // --- Text ---------------------------------------------------------------------
 
-TextPage::TextPage(ViewerContext& ctx) : Page(ctx) { names_ = listFiles(ctx.files, {"text/"}, {".txt"}); }
+TextPage::TextPage(ViewerContext &ctx) : Page(ctx) {
+    names_ = listFiles(ctx.files, {"text/"}, {".txt"});
+}
 
 void TextPage::activate() {
     begin2D();
@@ -3952,7 +3957,7 @@ void TextPage::draw() {
     ctx_.setTitle("Text: " + (names_.empty() ? std::string() : names_[size_t(index_)]));
 }
 
-void TextPage::handleEvent(const Event& ev) {
+void TextPage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     const int rows = (kScreenH - 2 * font::kLineHeight - 8) / font::kLineHeight;
@@ -3965,8 +3970,12 @@ void TextPage::handleEvent(const Event& ev) {
         }
     } else if (ev.key == key::Up || ev.key == key::Down || ev.key == key::PageUp || ev.key == key::PageDown ||
                ev.key == key::Home || ev.key == key::End) {
-        const int by = ev.key == key::Up ? -1 : ev.key == key::Down ? 1 : ev.key == key::PageUp ? -rows
-                     : ev.key == key::PageDown ? rows : ev.key == key::Home ? -int(lines_.size()) : int(lines_.size());
+        const int by = ev.key == key::Up         ? -1
+                       : ev.key == key::Down     ? 1
+                       : ev.key == key::PageUp   ? -rows
+                       : ev.key == key::PageDown ? rows
+                       : ev.key == key::Home     ? -int(lines_.size())
+                                                 : int(lines_.size());
         scroll_ = std::clamp(scroll_ + by, 0, maxScroll);
         draw();
     }
@@ -3974,7 +3983,7 @@ void TextPage::handleEvent(const Event& ev) {
 
 // --- Sounds ---------------------------------------------------------------------
 
-SoundPage::SoundPage(ViewerContext& ctx) : Page(ctx) {
+SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx) {
     names_ = listFiles(ctx.files, {"sound/", "models/"}, {".wav", ".mp3"});
 }
 
@@ -3999,8 +4008,8 @@ void SoundPage::play() {
         info_ = e2.message;
     } else {
         char buf[128];
-        std::snprintf(buf, sizeof buf, "%s, %d Hz, %d channel%s, %.2f s", audio::formatName(sound->format),
-                      sound->rate, sound->channels, sound->channels == 1 ? "" : "s",
+        std::snprintf(buf, sizeof buf, "%s, %d Hz, %d channel%s, %.2f s", audio::formatName(sound->format), sound->rate,
+                      sound->channels, sound->channels == 1 ? "" : "s",
                       sound->rate ? double(sound->frames()) / sound->rate : 0.0);
         info_ = buf;
         if (ctx_.mixer) {
@@ -4030,7 +4039,7 @@ void SoundPage::draw() {
     ctx_.setTitle("Sounds");
 }
 
-void SoundPage::handleEvent(const Event& ev) {
+void SoundPage::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown || names_.empty())
         return;
     const uint32_t k = ev.key == key::Up ? key::Left : ev.key == key::Down ? key::Right : ev.key;

@@ -20,23 +20,23 @@ namespace reluva::awe {
 // background reading.
 class BinkDll {
 public:
-    Error load(const std::vector<uint8_t>& dll);
+    Error load(const std::vector<uint8_t> &dll);
     bool loaded() const { return module_ != nullptr; }
 
     // Opens a movie (the file's bytes); its size and frame count.
-    Error open(const std::vector<uint8_t>& bik, int& width, int& height, uint32_t& frames);
+    Error open(const std::vector<uint8_t> &bik, int &width, int &height, uint32_t &frames);
     // Decodes the next frame and copies it out as BGRX pixels (the game's
     // surface type 3, or 5 with alpha), rows top to bottom; then moves on.
-    Error frame(std::vector<uint8_t>& bgra, bool alpha = false);
+    Error frame(std::vector<uint8_t> &bgra, bool alpha = false);
     // The same as YUY2 (surface type 13): Y U Y V for each pair of pixels,
     // to tell the decoding from the colour conversion.
-    Error frameYuy2(std::vector<uint8_t>& yuy2);
+    Error frameYuy2(std::vector<uint8_t> &yuy2);
     void close();
 
 private:
     std::unique_ptr<x86::Cpu> cpu_;
     std::unique_ptr<x86::Win32Process> process_;
-    const x86::Win32Process::Module* module_ = nullptr;
+    const x86::Win32Process::Module *module_ = nullptr;
     std::vector<uint8_t> file_; // the movie being read
     uint32_t filePos_ = 0;
     uint32_t bink_ = 0, buffer_ = 0;
