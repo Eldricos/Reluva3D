@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/formats/bsp.h"
 
 #include <array>
@@ -15,7 +15,7 @@ namespace reluva::idtech3 {
 
 class MapViewer : public Page {
 public:
-    explicit MapViewer(ViewerContext &ctx);
+    explicit MapViewer(PageContext &ctx);
     const char *name() const override { return "Maps"; }
     size_t count() const override { return _names.size(); }
     void activate() override;

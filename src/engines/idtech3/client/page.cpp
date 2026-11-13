@@ -3,7 +3,7 @@
 
 // The pages' shared drawing and settings.
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 
 #include "graphics/font.h"
 #include "common/fs.h"
@@ -53,7 +53,7 @@ namespace {
 constexpr const char *kConfigName = "reluva.cfg";
 }
 
-void loadConfig(ViewerContext &ctx) {
+void loadConfig(PageContext &ctx) {
     auto readFile = [&](const std::string &name, std::string &out) {
         // The player's own files first, then the game's.
         if (!ctx.savePath.empty()) {
@@ -132,7 +132,7 @@ void loadConfig(ViewerContext &ctx) {
     ctx.bindings.changed = false;
 }
 
-float brightness(const ViewerContext &ctx) {
+float brightness(const PageContext &ctx) {
     const CvarStore::Cvar *gamma = ctx.cvars.find("r_gamma");
     return gamma ? std::clamp(ctx.cvars.value("r_gamma"), 0.5f, 3.0f) : 1.0f;
 }
@@ -181,7 +181,7 @@ void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRende
         models->setLodBias(v.lodBias);
 }
 
-void saveConfig(ViewerContext &ctx) {
+void saveConfig(PageContext &ctx) {
     if (ctx.savePath.empty())
         return;
     std::string text = "// Reluva's settings for this game: key bindings and kept settings\n";

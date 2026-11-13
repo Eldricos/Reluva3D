@@ -3,27 +3,12 @@
 
 #pragma once
 
-// The id Tech 3 engine's pages (a header each, in this folder), showing
-// what a game's files hold and running its game code. A game starts on the
-// Start page, which chooses single player, Holomatch (the Menu page, and
-// Play from there) or the developer tools; Esc a page doesn't take (or the
-// game's own Quit) goes back to it, and Esc there to the launcher. With the
-// developer tools chosen, Ctrl+Tab steps through every page (Tab is the
-// game's).
+// The id Tech 3 engine's pages (a header each in this folder), running the
+// game's own code; a Session (session.h) shows them. A game starts on the
+// Start page, which chooses single player or Holomatch (the Menu page, and
+// Play from there); Esc a page doesn't take (or the game's own Quit) goes
+// back to it, and Esc there to the launcher.
 //
-// World:    the map drawn by the GPU renderer. Left/Right pick a map; drag
-//           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
-//           to go faster, R back to the start point, I to show or hide
-//           the info.
-// Models:   every .md3 and .mdr; players (lower, upper and head in one folder) put
-//           together. Left/Right step, PageUp/PageDown jump 10; drag to
-//           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
-//           [ and ] to step through a player's animations (from its
-//           animation.cfg, legs and torso paired as the game plays them),
-//           T to place a player's torso on its legs' tag or as in its
-//           file, R to reset the view, I to show or hide the info.
-// Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
-// Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
 // Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys,
 //           typing and the mouse go to them (their own pointer follows
 //           the mouse, the system's is hidden), Ctrl+Esc leaves, Ctrl+R
@@ -37,11 +22,7 @@
 //           restarts, Esc goes back to the menus (Ctrl+Esc to the
 //           launcher). ~ opens the console (lines starting / are
 //           commands, others are said); messagemode (T) types a chat
-//           line. Starting
-//           a level from the menus (Engage) comes here.
-// Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
-//           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
-//           P to show or hide patches, I to show or hide the info.
+//           line. Starting a level from the menus (Engage) comes here.
 
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/cvars.h"
@@ -65,7 +46,8 @@
 
 namespace reluva::idtech3 {
 
-struct ViewerContext {
+/** What every page of a game shares: the system, the game's files, its settings. */
+struct PageContext {
     System &sys;
     Surface &screen; // RGBA32
     const SearchSet &files;
@@ -113,19 +95,29 @@ struct ViewerContext {
     bool requestRestart = false;
 };
 
-// The settings: the game's default.cfg, then the player's own (Reluva's
-// config file in the save folder), and writing that file back with the
-// bindings and the settings to keep (Archive cvars), if any changed.
-void loadConfig(ViewerContext &ctx);
-void saveConfig(ViewerContext &ctx);
-// The brightness setting (r_gamma, the menus' brightness slider; 1 unless
-// set), which 3D pages show their frames with.
-float brightness(const ViewerContext &ctx);
+/**
+ * Reads the settings: the game's default.cfg, then the player's own
+ * (Reluva's config file in the save folder).
+ */
+void loadConfig(PageContext &ctx);
+/**
+ * Writes the player's config file back with the bindings and the settings
+ * to keep (Archive cvars), if any changed.
+ */
+void saveConfig(PageContext &ctx);
+/**
+ * The brightness setting (r_gamma, the menus' brightness slider; 1 unless
+ * set), which 3D pages show their frames with.
+ */
+float brightness(const PageContext &ctx);
 
-// The video settings the original's Video and Graphics menus set (Quake
-// III's cvars), as Reluva applies them; a setting not made counts as the
-// original's default, but the size, which is Reluva's 960x720 until a
-// mode is chosen.
+/**
+ * The video settings the original's Video and Graphics menus set (Quake
+ * III's cvars), as Reluva applies them.
+ *
+ * A setting not made counts as the original's default, but the size, which
+ * is Reluva's 960x720 until a mode is chosen.
+ */
 struct VideoSettings {
     // r_mode (r_customwidth/height for -1)
     int width = 960;
@@ -142,26 +134,36 @@ struct VideoSettings {
     int lodBias = 0;          // r_lodBias: models' lower details used (geometric detail)
     bool fastSky = false;     // r_fastsky: the sky left plain
 };
+/** The video settings the cvars hold. */
 VideoSettings videoSettings(const CvarStore &cvars);
-// Gives the caches the settings that change how things load (call before
-// loading); a null cache is skipped.
+/**
+ * Gives the caches the settings that change how things load (call before
+ * loading); a null cache is skipped.
+ */
 void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRenderer *world, ModelCache *models);
 
+/** A screen of a game, shown by a Session one at a time. */
 class Page {
 public:
-    explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
+    explicit Page(PageContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
+    /** The page's name, which PageContext::requestPage asks for. */
     virtual const char *name() const = 0;
-    virtual size_t count() const = 0; // pages with nothing to show are skipped
-    virtual void activate() = 0;      // redraw and retitle after switching here
-    virtual void deactivate() {}      // before switching away
+    /** How many things it shows; pages with nothing to show are skipped. */
+    virtual size_t count() const = 0;
+    /** Redraws and retitles after switching here. */
+    virtual void activate() = 0;
+    /** Called before switching away. */
+    virtual void deactivate() {}
     virtual void handleEvent(const Event &ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
-    // Pages that draw with System::init3D; the engine puts the 2D
-    // framebuffer back when leaving one.
+    /**
+     * Whether the page draws with System::init3D; the session puts the 2D
+     * framebuffer back when leaving one.
+     */
     virtual bool uses3D() const { return false; }
-    // Whether Esc (which otherwise leaves) goes to the page instead.
+    /** Whether Esc (which otherwise leaves) goes to the page instead. */
     virtual bool takesKey(const Event & /*ev*/) const { return false; }
 
 protected:
@@ -170,10 +172,10 @@ protected:
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
     void setTitle(const std::string &detail);
 
-    ViewerContext &_ctx;
+    PageContext &_ctx;
 };
 
-// The code points in UTF-8 text (typed characters).
+/** The code points in UTF-8 text (typed characters). */
 std::vector<uint32_t> decodeUtf8(const char *s);
 
 } // namespace reluva::idtech3

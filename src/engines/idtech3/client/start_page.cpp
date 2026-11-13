@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/idtech3/pages/start_page.h"
+#include "engines/idtech3/client/start_page.h"
 
 #include "graphics/font.h"
 
@@ -18,7 +18,7 @@ constexpr int kChoiceWidth = 500;
 
 } // namespace
 
-StartPage::StartPage(ViewerContext &ctx, std::vector<Choice> choices) : Page(ctx), _choices(std::move(choices)) {
+StartPage::StartPage(PageContext &ctx, std::vector<Choice> choices) : Page(ctx), _choices(std::move(choices)) {
     // The first level's picture behind the choices.
     for (const char *ext : {".tga", ".jpg"}) {
         std::vector<uint8_t> data;

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
-#include "engines/idtech3/pages/menu_layer.h"
+#include "engines/idtech3/client/menu_layer.h"
 #include "engines/idtech3/client/server_browser.h"
 
 #include <memory>
@@ -14,10 +14,10 @@
 
 namespace reluva::idtech3 {
 
-class MenuViewer : public Page {
+class MenuPage : public Page {
 public:
-    explicit MenuViewer(ViewerContext &ctx);
-    ~MenuViewer() override;
+    explicit MenuPage(PageContext &ctx);
+    ~MenuPage() override;
     const char *name() const override { return "Menu"; }
     size_t count() const override { return _available ? 1 : 0; }
     void activate() override;

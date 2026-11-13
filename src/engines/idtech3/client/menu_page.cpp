@@ -4,7 +4,7 @@
 // The Menu page: the game's own menus (vm/ui.qvm) run by the QVM
 // interpreter, their pictures drawn by the GPU renderer.
 
-#include "engines/idtech3/pages/menu_viewer.h"
+#include "engines/idtech3/client/menu_page.h"
 
 #include "engines/idtech3/eliteforce/game_host.h"
 
@@ -25,15 +25,15 @@ constexpr uint64_t kHintMs = 6000;
 
 } // namespace
 
-MenuViewer::MenuViewer(ViewerContext &ctx) : Page(ctx) {
+MenuPage::MenuPage(PageContext &ctx) : Page(ctx) {
     _available = ctx.game.code == GameCode::kEliteForce && ctx.files.has("vm/ui.qvm");
 }
 
-MenuViewer::~MenuViewer() {
+MenuPage::~MenuPage() {
     deactivate();
 }
 
-void MenuViewer::activate() {
+void MenuPage::activate() {
     const VideoSettings video = videoSettings(_ctx.cvars);
     _frameW = video.width;
     _frameH = video.height;
@@ -61,7 +61,7 @@ void MenuViewer::activate() {
     setTitle(_menus.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 
-void MenuViewer::start() {
+void MenuPage::start() {
     // The server list: on a socket of its own, if the system has a network.
     if (!_browser) {
         std::unique_ptr<net::UdpSocket> socket;
@@ -74,7 +74,7 @@ void MenuViewer::start() {
     _menus.start(MenuLayer::kMainMenu);
 }
 
-void MenuViewer::checkCommands() {
+void MenuPage::checkCommands() {
     // The commands the menus have run since the last look: one that
     // starts a level (Engage runs "map <name>", after setting the game's
     // cvars) shows it on the Play page.
@@ -131,7 +131,7 @@ void MenuViewer::checkCommands() {
     }
 }
 
-void MenuViewer::deactivate() {
+void MenuPage::deactivate() {
     // Settings and bindings changed in the menus, kept.
     saveConfig(_ctx);
     if (_renderer) {
@@ -142,12 +142,12 @@ void MenuViewer::deactivate() {
     _renderer = nullptr;
 }
 
-bool MenuViewer::takesKey(const Event &ev) const {
+bool MenuPage::takesKey(const Event &ev) const {
     // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
     return _menus.running() && !(ev.mods & keymod::kCtrl);
 }
 
-void MenuViewer::handleEvent(const Event &ev) {
+void MenuPage::handleEvent(const Event &ev) {
     if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
         ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
         _joystick.event(ev);
@@ -163,7 +163,7 @@ void MenuViewer::handleEvent(const Event &ev) {
     checkCommands();
 }
 
-void MenuViewer::update(uint64_t nowMs) {
+void MenuPage::update(uint64_t nowMs) {
     if (!_renderer)
         return;
     if (!_shownMs)
@@ -214,7 +214,7 @@ void MenuViewer::update(uint64_t nowMs) {
     if (!_lastCommand.empty() && nowMs - _lastCommandMs < kHintMs)
         lines.push_back("The menus ran: " + _lastCommand);
     if (nowMs - _shownMs < kHintMs)
-        lines.push_back("Keys and mouse go to the menus. Ctrl+Tab: next page, Ctrl+Esc: launcher, Ctrl+R: restart.");
+        lines.push_back("Keys and mouse go to the menus. Ctrl+Esc: launcher, Ctrl+R: restart.");
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = _frameH - int(lines.size() - i) * lh - 4;

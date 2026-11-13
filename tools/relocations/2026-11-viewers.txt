@@ -1,0 +1,31 @@
+# The engines' data viewers moved out of the games (reluva-viewer,
+# docs/DEVELOPMENT.md "The data viewer"): each viewer is in its engine's
+# pages/, and game code that sat there moved out. For branches made before:
+#     python3 tools/relocate.py tools/relocations/2026-11-viewers.txt
+# Classes renamed with them aren't rewritten by relocate.py: in idtech3,
+# MenuViewer, PlayViewer, SpPlayViewer and ViewerContext became MenuPage,
+# PlayPage, SpPlayPage and PageContext.
+
+# idtech3: the game's pages, to client/
+src/engines/idtech3/pages/menu_layer.cpp        src/engines/idtech3/client/menu_layer.cpp
+src/engines/idtech3/pages/menu_layer.h          src/engines/idtech3/client/menu_layer.h
+src/engines/idtech3/pages/menu_viewer.cpp       src/engines/idtech3/client/menu_page.cpp
+src/engines/idtech3/pages/menu_viewer.h         src/engines/idtech3/client/menu_page.h
+src/engines/idtech3/pages/page.cpp              src/engines/idtech3/client/page.cpp
+src/engines/idtech3/pages/page.h                src/engines/idtech3/client/page.h
+src/engines/idtech3/pages/play_viewer.cpp       src/engines/idtech3/client/play_page.cpp
+src/engines/idtech3/pages/play_viewer.h         src/engines/idtech3/client/play_page.h
+src/engines/idtech3/pages/sp_play_viewer.cpp    src/engines/idtech3/client/sp_play_page.cpp
+src/engines/idtech3/pages/sp_play_viewer.h      src/engines/idtech3/client/sp_play_page.h
+src/engines/idtech3/pages/start_page.cpp        src/engines/idtech3/client/start_page.cpp
+src/engines/idtech3/pages/start_page.h          src/engines/idtech3/client/start_page.h
+
+# newworlds: the viewer, to pages/
+src/engines/newworlds/font_viewer.cpp           src/engines/newworlds/pages/font_viewer.cpp
+src/engines/newworlds/map_viewer.cpp            src/engines/newworlds/pages/map_viewer.cpp
+src/engines/newworlds/mission_viewer.cpp        src/engines/newworlds/pages/mission_viewer.cpp
+src/engines/newworlds/model_viewer.cpp          src/engines/newworlds/pages/model_viewer.cpp
+src/engines/newworlds/sound_viewer.cpp          src/engines/newworlds/pages/sound_viewer.cpp
+src/engines/newworlds/string_viewer.cpp         src/engines/newworlds/pages/string_viewer.cpp
+src/engines/newworlds/texture_viewer.cpp        src/engines/newworlds/pages/texture_viewer.cpp
+src/engines/newworlds/viewers.h                 src/engines/newworlds/pages/viewers.h

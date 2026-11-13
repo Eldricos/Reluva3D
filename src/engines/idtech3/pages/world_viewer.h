@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/render/world_renderer.h"
@@ -17,7 +17,7 @@ namespace reluva::idtech3 {
 
 class WorldViewer : public Page {
 public:
-    explicit WorldViewer(ViewerContext &ctx);
+    explicit WorldViewer(PageContext &ctx);
     ~WorldViewer() override;
     const char *name() const override { return "World"; }
     size_t count() const override { return _names.size(); }

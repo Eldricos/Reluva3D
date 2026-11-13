@@ -17,7 +17,7 @@
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
 #include "engines/idtech3/client/scene_drawer.h"
-#include "engines/idtech3/pages/play_viewer.h"
+#include "engines/idtech3/client/play_page.h"
 
 #include "graphics/font.h"
 #include "image/image.h"
@@ -49,7 +49,7 @@ constexpr float kPi = 3.14159265358979f;
 
 } // namespace
 
-PlayViewer::PlayViewer(ViewerContext &ctx) : Page(ctx) {
+PlayPage::PlayPage(PageContext &ctx) : Page(ctx) {
     if (ctx.game.code != GameCode::kEliteForce || !ctx.files.has("vm/qagame.qvm") || !ctx.files.has("vm/cgame.qvm"))
         return;
     for (const std::string &n : ctx.files.list()) {
@@ -66,11 +66,11 @@ PlayViewer::PlayViewer(ViewerContext &ctx) : Page(ctx) {
         }
 }
 
-PlayViewer::~PlayViewer() {
+PlayPage::~PlayPage() {
     deactivate();
 }
 
-bool PlayViewer::setUpGraphics() {
+bool PlayPage::setUpGraphics() {
     const VideoSettings video = videoSettings(_ctx.cvars);
     _frameW = video.width;
     _frameH = video.height;
@@ -94,7 +94,7 @@ bool PlayViewer::setUpGraphics() {
     return true;
 }
 
-void PlayViewer::restartVideo() {
+void PlayPage::restartVideo() {
     _videoRestart = false;
     if (!_renderer || !_cgame)
         return;
@@ -138,7 +138,7 @@ void PlayViewer::restartVideo() {
     _cgame->newSnapshot(localSnapshot());
 }
 
-void PlayViewer::activate() {
+void PlayPage::activate() {
     JoystickInput::registerCvars(_cvars);
     if (!setUpGraphics())
         return;
@@ -171,7 +171,7 @@ void PlayViewer::activate() {
     start(_index);
 }
 
-void PlayViewer::deactivate() {
+void PlayPage::deactivate() {
     closeTyping();
     if (_cgame || _client || _game)
         _ctx.matchEnded = true;
@@ -198,7 +198,7 @@ void PlayViewer::deactivate() {
     _input.releaseAll();
 }
 
-void PlayViewer::reset() {
+void PlayPage::reset() {
     _error.clear();
     if (_client)
         _client->disconnect();
@@ -215,7 +215,7 @@ void PlayViewer::reset() {
     _input.yaw = _input.pitch = 0;
 }
 
-bool PlayViewer::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
+bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
     bsp = std::make_shared<Bsp>();
     std::vector<uint8_t> data;
     Error err = _ctx.files.read(path, data);
@@ -238,8 +238,8 @@ bool PlayViewer::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
     return true;
 }
 
-Error PlayViewer::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
-                                  int32_t commandSequence) {
+Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
+                                int32_t commandSequence) {
     _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars);
     _cgame->print = [this](const std::string &text) { addPrint(text, true); };
     _scene->setHandles({&_cgame->models(), &_cgame->skins(), &_cgame->shaders()});
@@ -265,7 +265,7 @@ Error PlayViewer::startClientGame(const std::map<int32_t, std::string> &configst
     return err;
 }
 
-void PlayViewer::start(int index) {
+void PlayPage::start(int index) {
     _index = index;
     reset();
     const std::string &path = _names[size_t(index)];
@@ -327,7 +327,7 @@ void PlayViewer::start(int index) {
     _cgame->newSnapshot(localSnapshot());
 }
 
-bool PlayViewer::changeLevel(const std::string &map) {
+bool PlayPage::changeLevel(const std::string &map) {
     // As the original's map command on a server with players: the level
     // loaded, the game started afresh on it, the players and bots kept;
     // those on other machines are sent the new level's game state.
@@ -376,7 +376,7 @@ bool PlayViewer::changeLevel(const std::string &map) {
     return false; // this frame's done
 }
 
-bool PlayViewer::startDownloads() {
+bool PlayPage::startDownloads() {
     // As the original's client: the paks the server lists as the level's
     // (sv_referencedPaks, by checksum, and their names) that it has none
     // of, but Raven's own, which are never downloaded; with
@@ -419,7 +419,7 @@ bool PlayViewer::startDownloads() {
     return true;
 }
 
-bool PlayViewer::finishDownload(const std::string &name, const std::vector<uint8_t> &data) {
+bool PlayPage::finishDownload(const std::string &name, const std::vector<uint8_t> &data) {
     // Kept in the save folder's game folder (the base game's, or the mod
     // played's), as the original keeps them in its home folder: a name with
     // no way out of it, checked against the checksum the server gave before
@@ -467,7 +467,7 @@ bool PlayViewer::finishDownload(const std::string &name, const std::vector<uint8
     return true;
 }
 
-std::string PlayViewer::userinfo() const {
+std::string PlayPage::userinfo() const {
     // The player's settings the menus keep (name, model...), as the
     // original sends them: every user-info setting.
     std::string info;
@@ -488,7 +488,7 @@ std::string PlayViewer::userinfo() const {
     return info;
 }
 
-void PlayViewer::startHosting() {
+void PlayPage::startHosting() {
     // Others can join over the network: on the original's port (or the
     // next of its four, if taken), only with patch 1.2's game code,
     // whose layouts the protocol carries.
@@ -513,7 +513,7 @@ void PlayViewer::startHosting() {
     addPrint("Open to other players on port " + std::to_string(_server->port()) + "\n", false);
 }
 
-void PlayViewer::connect(const std::string &address) {
+void PlayPage::connect(const std::string &address) {
     reset();
     setTitle("Connecting to " + address);
     const auto [host, port] = net::splitHostPort(address, ServerBrowser::kServerPort);
@@ -537,7 +537,7 @@ void PlayViewer::connect(const std::string &address) {
     _lastMs = 0;
 }
 
-void PlayViewer::playDemo(const std::string &name) {
+void PlayPage::playDemo(const std::string &name) {
     reset();
     std::string path = normalizeArchiveName("demos/" + name);
     if (path.size() < 7 || path.compare(path.size() - 7, 7, ".efdemo") != 0)
@@ -555,18 +555,18 @@ void PlayViewer::playDemo(const std::string &name) {
     _lastMs = 0;
 }
 
-bool PlayViewer::playingDemo() const {
+bool PlayPage::playingDemo() const {
     return _client && _client->playingDemo();
 }
 
-void PlayViewer::endDemo() {
+void PlayPage::endDemo() {
     // No error to show; the menus go back to their main menu.
     stop("");
     _error.clear();
     _ctx.matchEnded = true;
 }
 
-void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
+void PlayPage::runRemote(uint64_t nowMs, int32_t dt) {
     // Playing on someone else's server: what it sends, a level loaded
     // when a game state comes, its snapshots for the client game, and the
     // player's commands back.
@@ -684,7 +684,7 @@ void PlayViewer::runRemote(uint64_t nowMs, int32_t dt) {
     }
 }
 
-void PlayViewer::drawLoadingScreen() {
+void PlayPage::drawLoadingScreen() {
     // As the original: the client game's frame drawn now, in the middle of
     // its loading, which only draws what it's loading (the level's picture,
     // its name, the media so far); then shown.
@@ -706,7 +706,7 @@ void PlayViewer::drawLoadingScreen() {
     _cgame->clearScene();
 }
 
-void PlayViewer::stop(const std::string &why) {
+void PlayPage::stop(const std::string &why) {
     _error = why;
     const std::string log = _cgame ? _cgame->log() : _game ? _game->log() : std::string();
     if (!log.empty()) {
@@ -725,7 +725,7 @@ void PlayViewer::stop(const std::string &why) {
     stopSounds();
 }
 
-void PlayViewer::stopSounds() {
+void PlayPage::stopSounds() {
     // After the client game, which uses it; the mixer's volumes back as
     // the other pages expect them.
     _soundSystem.reset();
@@ -735,7 +735,7 @@ void PlayViewer::stopSounds() {
     }
 }
 
-void PlayViewer::sendServerCommands() {
+void PlayPage::sendServerCommands() {
     // What the server would send the player over the network, in order:
     // the configstrings that changed (cs, bcs: the client game sets up a
     // player who joined by theirs), then the game's commands to them.
@@ -754,13 +754,13 @@ void PlayViewer::sendServerCommands() {
     _cgame->setServerCommands(_localCommands);
 }
 
-eliteforce::GameHost::Snapshot PlayViewer::localSnapshot() {
+eliteforce::GameHost::Snapshot PlayPage::localSnapshot() {
     eliteforce::GameHost::Snapshot snap = _game->snapshot(0);
     snap.serverCommandSequence = int32_t(_localCommands.size());
     return snap;
 }
 
-void PlayViewer::consoleCommand(const std::string &text) {
+void PlayPage::consoleCommand(const std::string &text) {
     // As the original's client: commands it knows itself, then the client
     // game's, and anything else goes to the server, whose game answers
     // (an unknown command it prints as such).
@@ -941,7 +941,7 @@ void PlayViewer::consoleCommand(const std::string &text) {
         stop("The server game stopped: " + err.message);
 }
 
-void PlayViewer::setFromConsole(const std::string &name, const std::string &value) {
+void PlayPage::setFromConsole(const std::string &name, const std::string &value) {
     // As the original's console: a variable that only changes with a new
     // level (the game type, the Holomatch modes) says so.
     _cvars.set(name, value);
@@ -949,7 +949,7 @@ void PlayViewer::setFromConsole(const std::string &name, const std::string &valu
         addPrint(name + " will be changed upon restarting.\n", false);
 }
 
-void PlayViewer::openMenu() {
+void PlayPage::openMenu() {
     // Outside a match, the menus' own page; a demo ends, as the
     // original's does on Esc.
     if (!_cgame || !_renderer || playingDemo()) {
@@ -985,7 +985,7 @@ void PlayViewer::openMenu() {
     _ctx.sys.setTextInput(true);
 }
 
-void PlayViewer::closeMenu() {
+void PlayPage::closeMenu() {
     _menuOpen = false;
     _menuCaught = false;
     _input.releaseAll();
@@ -997,7 +997,7 @@ void PlayViewer::closeMenu() {
     }
 }
 
-void PlayViewer::runMenuCommands() {
+void PlayPage::runMenuCommands() {
     // What the in-game menu runs goes to the console, as the original's
     // menus' commands do ("cmd team red", "callvote ...", "disconnect").
     for (const std::string &line : _menus.takeCommands())
@@ -1016,17 +1016,17 @@ void PlayViewer::runMenuCommands() {
         }
 }
 
-std::string PlayViewer::matchConfigstring(int32_t index) const {
+std::string PlayPage::matchConfigstring(int32_t index) const {
     const std::map<int32_t, std::string> &all = _client ? _client->configstrings() : _localConfigstrings;
     const auto it = all.find(index);
     return it == all.end() ? std::string() : it->second;
 }
 
-void PlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
+void PlayPage::runBinding(const std::string &line, int32_t key, bool down) {
     _input.runBinding(line, key, down, [this](const std::string &text) { consoleCommand(text); });
 }
 
-bool PlayViewer::takesKey(const Event &ev) const {
+bool PlayPage::takesKey(const Event &ev) const {
     // Esc goes back to the menus, as in the game; with Ctrl it leaves.
     // While typing, every key is the typing's (Tab, Esc too), but Ctrl+Esc.
     if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && (ev.mods & keymod::kCtrl))
@@ -1035,7 +1035,7 @@ bool PlayViewer::takesKey(const Event &ev) const {
     return _menuOpen || _typing != Typing::kNone || (ev.type == EventType::kKeyDown && ev.key == key::kEscape);
 }
 
-void PlayViewer::openTyping(Typing t, int32_t client, uint32_t key) {
+void PlayPage::openTyping(Typing t, int32_t client, uint32_t key) {
     // The keys held are let go, as the original's typing takes them.
     _input.releaseAll();
     _typing = t;
@@ -1048,7 +1048,7 @@ void PlayViewer::openTyping(Typing t, int32_t client, uint32_t key) {
     _ctx.sys.setTextInput(true);
 }
 
-void PlayViewer::closeTyping() {
+void PlayPage::closeTyping() {
     if (_typing != Typing::kNone && _renderer)
         _ctx.sys.setTextInput(false);
     _typing = Typing::kNone;
@@ -1056,7 +1056,7 @@ void PlayViewer::closeTyping() {
     _cursor = 0;
 }
 
-void PlayViewer::submitTyping() {
+void PlayPage::submitTyping() {
     std::string text = _field;
     const Typing t = _typing;
     _field.clear();
@@ -1091,7 +1091,7 @@ void PlayViewer::submitTyping() {
         consoleCommand("tell " + std::to_string(_tellClient) + " \"" + text + "\"");
 }
 
-void PlayViewer::typingEvent(const Event &ev) {
+void PlayPage::typingEvent(const Event &ev) {
     if (ev.type == EventType::kTextInput) {
         // Characters typed (Latin-1, as the original's), but the one of the
         // key that opened the typing, and the console key in the console.
@@ -1172,7 +1172,7 @@ void PlayViewer::typingEvent(const Event &ev) {
     }
 }
 
-void PlayViewer::handleEvent(const Event &ev) {
+void PlayPage::handleEvent(const Event &ev) {
     // The joystick, read once a frame (pollJoystick).
     if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
         ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
@@ -1266,7 +1266,7 @@ void PlayViewer::handleEvent(const Event &ev) {
     }
 }
 
-void PlayViewer::runGame(uint64_t nowMs) {
+void PlayPage::runGame(uint64_t nowMs) {
     if (!_client && (!_game || !_cgame))
         return;
     const int32_t dt = _lastMs ? int32_t(std::min<uint64_t>(nowMs - _lastMs, 100)) : 0;
@@ -1315,7 +1315,7 @@ void PlayViewer::runGame(uint64_t nowMs) {
     }
 }
 
-void PlayViewer::runClientGameCommands() {
+void PlayPage::runClientGameCommands() {
     // What the client game asked for this frame (and in the console
     // commands it handled since): its commands for the server as the
     // player's ("score", asking for the scoreboard), sent as the
@@ -1339,7 +1339,7 @@ void PlayViewer::runClientGameCommands() {
         }
 }
 
-eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
+eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
     // The player's command for this moment, as a client sends one each
     // frame: where they look, how they move, what they press.
     eliteforce::GameHost::UserCommand cmd;
@@ -1353,7 +1353,7 @@ eliteforce::GameHost::UserCommand PlayViewer::buildCommand() {
     return cmd;
 }
 
-bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
+bool PlayPage::runLocal(uint64_t nowMs, int32_t dt) {
     if (dt > 0)
         _clientTime += dt;
     // The server first, kept a frame ahead of the player's time, so the
@@ -1412,7 +1412,7 @@ bool PlayViewer::runLocal(uint64_t nowMs, int32_t dt) {
     return true;
 }
 
-void PlayViewer::pollJoystick() {
+void PlayPage::pollJoystick() {
     // As the original reads it each frame: its keys (buttons, and axes
     // and hat taken as keys) run their bindings, or go to the menus over
     // the match; its analog axes move and turn the player.
@@ -1431,7 +1431,7 @@ void PlayViewer::pollJoystick() {
     }
 }
 
-void PlayViewer::update(uint64_t nowMs) {
+void PlayPage::update(uint64_t nowMs) {
     if (_videoRestart)
         restartVideo();
     if (!_renderer)
@@ -1499,7 +1499,7 @@ void PlayViewer::update(uint64_t nowMs) {
 // The frame kept for the screenshot command, as the original's: in
 // screenshots/ in the save folder, as the name given or the first of
 // shot0000.tga to shot9999.tga not taken.
-void PlayViewer::saveScreenshot() {
+void PlayPage::saveScreenshot() {
     const Screenshot shot = _screenshot;
     _screenshot = {};
     std::vector<uint8_t> rgba;
@@ -1539,7 +1539,7 @@ void PlayViewer::saveScreenshot() {
         addPrint("Wrote screenshots/" + name + "\n", true);
 }
 
-void PlayViewer::addPrint(const std::string &text, bool notify) {
+void PlayPage::addPrint(const std::string &text, bool notify) {
     // Whole lines into the console (the last thousand); the client game's
     // also on screen, each 3 seconds (the original's con_notifytime), at
     // most the last 4.
@@ -1562,7 +1562,7 @@ void PlayViewer::addPrint(const std::string &text, bool notify) {
     }
 }
 
-void PlayViewer::drawColoured(int x, int y, const std::string &line) {
+void PlayPage::drawColoured(int x, int y, const std::string &line) {
     // A line in the original's colours (^0-^7), with a shadow.
     static const Color kColors[8] = {{0, 0, 0},   {255, 0, 0},   {0, 255, 0},   {255, 255, 0},
                                      {0, 0, 255}, {0, 255, 255}, {255, 0, 255}, {255, 255, 255}};
@@ -1588,7 +1588,7 @@ void PlayViewer::drawColoured(int x, int y, const std::string &line) {
     flush();
 }
 
-void PlayViewer::drawOverlay(uint64_t nowMs, bool haveView) {
+void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     // (A line printed during this frame is stamped a little after nowMs.)
     while (!_notify.empty() && _notify.front().first + 3000 < nowMs)

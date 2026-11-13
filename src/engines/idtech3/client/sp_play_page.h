@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
@@ -29,10 +29,10 @@ namespace reluva::idtech3 {
 
 // Elite Force's single player: the retail game code (efgamex86.dll, run in
 // the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
-class SpPlayViewer : public Page {
+class SpPlayPage : public Page {
 public:
-    explicit SpPlayViewer(ViewerContext &ctx);
-    ~SpPlayViewer() override;
+    explicit SpPlayPage(PageContext &ctx);
+    ~SpPlayPage() override;
     const char *name() const override { return "Single player"; }
     size_t count() const override { return _names.size(); }
     void activate() override;

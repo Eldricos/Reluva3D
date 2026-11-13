@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/idtech3/pages/menu_layer.h"
+#include "engines/idtech3/client/menu_layer.h"
 
 #include "engines/idtech3/client/joystick_input.h"
 

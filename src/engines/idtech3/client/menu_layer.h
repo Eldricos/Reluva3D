@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/audio/sounds.h"
@@ -27,7 +27,7 @@ public:
     // Their key catcher's bit while they take the keys (Quake III's).
     static constexpr int32_t kCatchUi = 2;
 
-    MenuLayer(ViewerContext &ctx, CvarStore &cvars) : _ctx(ctx), _cvars(cvars) {}
+    MenuLayer(PageContext &ctx, CvarStore &cvars) : _ctx(ctx), _cvars(cvars) {}
     ~MenuLayer() { detach(); }
 
     // Drawing into `renderer`'s frames of w x h pixels (detach() before
@@ -76,7 +76,7 @@ private:
     void findCursor();
     void playSound(const std::string &name, int channel);
 
-    ViewerContext &_ctx;
+    PageContext &_ctx;
     CvarStore &_cvars;
     gfx::Renderer3D *_renderer = nullptr;
     int _frameW = 960;

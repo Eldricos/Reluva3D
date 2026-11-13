@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
-#include "engines/idtech3/pages/menu_layer.h"
+#include "engines/idtech3/client/page.h"
+#include "engines/idtech3/client/menu_layer.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/client/scene_drawer.h"
@@ -29,10 +29,10 @@
 
 namespace reluva::idtech3 {
 
-class PlayViewer : public Page {
+class PlayPage : public Page {
 public:
-    explicit PlayViewer(ViewerContext &ctx);
-    ~PlayViewer() override;
+    explicit PlayPage(PageContext &ctx);
+    ~PlayPage() override;
     const char *name() const override { return "Play"; }
     size_t count() const override { return _names.size(); }
     void activate() override;

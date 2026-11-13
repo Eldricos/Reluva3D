@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "engines/idtech3/render/model_cache.h"
 #include "engines/idtech3/formats/player_animation.h"
 
@@ -16,7 +16,7 @@ namespace reluva::idtech3 {
 
 class ModelViewer : public Page {
 public:
-    explicit ModelViewer(ViewerContext &ctx);
+    explicit ModelViewer(PageContext &ctx);
     ~ModelViewer() override;
     const char *name() const override { return "Models"; }
     size_t count() const override { return _entries.size(); }

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 
 #include "image/image.h"
 
@@ -12,19 +12,22 @@
 
 namespace reluva::idtech3 {
 
-// Where a game starts: what to play, as the original's own programs were
-// chosen between (Elite Force's game and its Holomatch), and Reluva's
-// developer tools (the pages showing the game's files). Up/Down or the
-// mouse pick, Enter or a click (or the choice's number) starts it, Esc
-// goes back to the launcher.
+/**
+ * Where a game starts: what to play, as the original's own programs were
+ * chosen between (Elite Force's game and its Holomatch).
+ *
+ * Up/Down or the mouse pick, Enter or a click (or the choice's number)
+ * starts it, Esc goes back to the launcher.
+ */
 class StartPage : public Page {
 public:
+    /** One thing to start. */
     struct Choice {
         std::string label;
         std::string detail;
-        std::string page; // the page it starts on
+        std::string page; ///< the page it starts on (Page::name)
     };
-    StartPage(ViewerContext &ctx, std::vector<Choice> choices);
+    StartPage(PageContext &ctx, std::vector<Choice> choices);
 
     const char *name() const override { return "Start"; }
     size_t count() const override { return _choices.size(); }
