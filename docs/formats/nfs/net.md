@@ -255,6 +255,15 @@ human's controls, as `-drive` at a car does, and touches nothing else.
   The lobby set Class A and the Ferrari 550 for both, Hometown, two
   laps. The race ran as the Single Race did: only 0b (host 579,
   joiner 580 by the end of `ko1` at about 397 s, the race unfinished).
+  In `ko2`, run on to 560 s, the round ended as the Single Race:
+  0b 659 each way, 0d from each car's finish (host 14, joiner 15),
+  barriers 7, 0x22 and 0x23 and the 0c records (joiner 1, host 8) at
+  436.9 s. Both copies' Knockout Race Summary agreed: the computer
+  cars from 3:14.94 to 3:24.59, the joiner's car 7th in 5:13.90 and the
+  host's 8th in 5:14.09, its row in red, knocked out. Tournament
+  wasn't run; it takes the same path (the lobby's list, the results
+  through 0c in `0x455410`, which then calls `0x455070` for a
+  Tournament and `0x455140` for a Knockout).
 
 **The race settings** (02). The host builds the message from the
 front end's variables (`0x49aa80`) and sends it whenever they differ
