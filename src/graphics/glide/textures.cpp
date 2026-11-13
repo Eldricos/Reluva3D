@@ -98,12 +98,12 @@ uint32_t textureBytes(const TextureInfo &info, int evenOdd) {
     return (bytes + 7) & ~7u; // a half unit left over isn't used by the next texture
 }
 
-uint32_t decodeTexel(int format, uint32_t raw, const uint32_t *palette, const NccTable &ncc_) {
+uint32_t decodeTexel(int format, uint32_t raw, const uint32_t *palette, const NccTable &nccTable) {
     switch (format) {
     case kTexRgb332:
         return 0xff000000u | rgb332(raw & 0xff);
     case kTexYiq422:
-        return 0xff000000u | ncc(raw & 0xff, ncc_);
+        return 0xff000000u | ncc(raw & 0xff, nccTable);
     case kTexAlpha8:
         return (raw & 0xff) * 0x01010101u;
     case kTexIntensity8:
@@ -123,7 +123,7 @@ uint32_t decodeTexel(int format, uint32_t raw, const uint32_t *palette, const Nc
     case kTexArgb8332:
         return (raw >> 8 & 0xff) << 24 | rgb332(raw & 0xff);
     case kTexAyiq8422:
-        return (raw >> 8 & 0xff) << 24 | ncc(raw & 0xff, ncc_);
+        return (raw >> 8 & 0xff) << 24 | ncc(raw & 0xff, nccTable);
     case kTexRgb565:
         return argb(0xff, widen5(raw >> 11 & 31), widen6(raw >> 5 & 63), widen5(raw & 31));
     case kTexArgb1555:

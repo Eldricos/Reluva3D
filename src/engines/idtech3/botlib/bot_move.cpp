@@ -886,10 +886,10 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
     };
     // Speeding up towards `wishSpeed` along `dir`, as the game's movement does.
     auto accelerate = [&](Vec3f &vel, const Vec3f &dir, float wishSpeed, float accel) {
-        const float add = wishSpeed - dot(vel, dir);
-        if (add <= 0)
+        const float addSpeed = wishSpeed - dot(vel, dir);
+        if (addSpeed <= 0)
             return;
-        const float a = std::min(accel * frameTime * wishSpeed, add);
+        const float a = std::min(accel * frameTime * wishSpeed, addSpeed);
         vel = add_(vel, scale(dir, a));
     };
     auto finish = [&](const Vec3f &at, const Vec3f &vel, const Trace &t, int event, int n, int area) {
