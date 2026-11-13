@@ -1,2 +1,2 @@
-artwork: 862619001b5dd3d7 | decoded artwork: 4dfe8e97caf13b3a67a062bc9eaa0e60
+artwork: b2225fbe73230a65 | decoded artwork: def67430fb55182fb2d3fc6f5c6aa3b2
 cubes: 4c1201c34ced1024 | decoded cubes: e985c393b66b88890345759e0ab219fc

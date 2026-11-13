@@ -8,6 +8,21 @@
 #include <numeric>
 namespace reluva::boggle {
 namespace {
+struct Placement {DiePose base,pose;size_t upward=5;bool known=false;};
+Placement placement(const Board* board,size_t cell,uint32_t seed,bool autoOrient,bool rounded) {
+    Placement result;const unsigned turns=cubeQuarterTurns(seed,cell,autoOrient);
+    if(board && board->rolledDice().size()==board->faces().size() && cell<board->rolledDice().size()) {
+        result.known=true;result.upward=board->rolledDice()[cell].upward;
+        result.base=settledDiePose(result.upward,0,rounded);
+    } else result.base=canonicalDiePose();
+    result.pose=spinDie(result.base,turns);return result;
+}
+Color illuminate(const std::array<double,3>& normal,const std::array<double,3>& diffuse,const std::array<double,3>& emissive) {
+    const double intensity=.7+std::max(0.,normal[0]*.5+normal[1]*(-.7071067811865475)+normal[2]*(-.5));
+    return {uint8_t(std::lround(std::clamp(diffuse[0]*intensity+emissive[0],0.,1.)*255)),
+            uint8_t(std::lround(std::clamp(diffuse[1]*intensity+emissive[1],0.,1.)*255)),
+            uint8_t(std::lround(std::clamp(diffuse[2]*intensity+emissive[2],0.,1.)*255))};
+}
 using Point=std::array<double,2>;
 double cross(Point a,Point b,Point c){return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);}
 bool triangulate(const Mesh& mesh,const Mesh::Face& face,std::vector<std::array<size_t,3>>& out) {
@@ -80,16 +95,21 @@ Error CubeRenderer::prepare(const CubeGeometry& geometry) {
     *this={};CubeGeometry checked;
     // Revalidate public input before dereferencing any resource-owned indices.
     if(auto error=checked.prepare(geometry.mesh,1))return error;
-    CubeRenderer prepared;const auto& mesh=checked.mesh;const size_t top=checked.letters[2];
-    size_t topVertices=0;std::array<double,3> center{};
+    CubeRenderer prepared;prepared.rounded_=geometry.appliedScale==classicCubeMeshScale(classicCubeMeshPaths[0]);
+    const auto& mesh=checked.mesh;
+    std::array<size_t,6> counts{};std::array<std::array<double,3>,6> centers{};std::array<double,6> tangentAreas{};
+    constexpr std::array<int,6> inputFace={1,4,5,0,2,3};
     for(size_t f=0;f<mesh.faces.size();++f) {
         const auto& face=mesh.faces[f];std::vector<std::array<size_t,3>> tessellation;
         if(!triangulate(mesh,face,tessellation) || prepared.triangles_.size()+tessellation.size()>16384)
             return Error::fail("Unsupported Classic cube polygon topology at face "+std::to_string(f));
-        const bool letter=mesh.faceMaterials[f]==top;const auto& material=mesh.materials[mesh.faceMaterials[f]];
-        if(letter)for(auto i:face){++topVertices;for(size_t a=0;a<3;++a)center[a]+=mesh.positions[i][a];}
+        int sideFace=-1;
+        for(size_t axis=0;axis<6;++axis)if(mesh.faceMaterials[f]==checked.letters[axis])sideFace=inputFace[axis];
+        const auto& material=mesh.materials[mesh.faceMaterials[f]];
+        if(sideFace>=0)for(auto i:face){++counts[size_t(sideFace)];for(size_t a=0;a<3;++a)centers[size_t(sideFace)][a]+=mesh.positions[i][a];}
         for(const auto& t:tessellation) {
-            Triangle triangle;triangle.letter=letter;
+            Triangle triangle;triangle.face=sideFace;
+            triangle.diffuse={material.diffuse[0],material.diffuse[1],material.diffuse[2]};triangle.emissive=material.emissive;
             for(size_t k=0;k<3;++k) {
                 const size_t corner=t[k],i=face[corner];const auto& p=mesh.positions[i];const auto& n=mesh.normals[mesh.normalFaces[f][corner]];
                 auto& out=triangle.corners[k];
@@ -97,31 +117,67 @@ Error CubeRenderer::prepare(const CubeGeometry& geometry) {
                 // toward the camera (-Z), source +Z is the back of the tray.
                 out.position={int(std::lround(p[0]*100000)),int(std::lround(p[2]*100000)),int(std::lround(-p[1]*100000))};
                 out.u=int(std::lround(mesh.texcoords[i][0]*65536));out.v=65536-int(std::lround(mesh.texcoords[i][1]*65536));
-                const double intensity=.7+std::max(0.,n[0]*.5+n[2]*(-.7071067811865475)+(-n[1])*(-.5));
-                out.light={uint8_t(std::lround(std::clamp(material.diffuse[0]*intensity+material.emissive[0],0.,1.)*255)),
-                           uint8_t(std::lround(std::clamp(material.diffuse[1]*intensity+material.emissive[1],0.,1.)*255)),
-                           uint8_t(std::lround(std::clamp(material.diffuse[2]*intensity+material.emissive[2],0.,1.)*255))};
+                out.normal={n[0],n[2],-n[1]};
+            }
+            if(sideFace>=0) {
+                const auto& a=triangle.corners[0];const auto& b=triangle.corners[1];const auto& c=triangle.corners[2];
+                const double u1=double(b.u-a.u)/65536,v1=double(b.v-a.v)/65536,u2=double(c.u-a.u)/65536,v2=double(c.v-a.v)/65536;
+                const double determinant=u1*v2-u2*v1;const size_t faceIndex=size_t(sideFace);
+                if(std::abs(determinant)>tangentAreas[faceIndex]+1e-12) {
+                    tangentAreas[faceIndex]=std::abs(determinant);
+                    for(size_t axis=0;axis<3;++axis) {
+                        const double p1=double(b.position[axis]-a.position[axis])/100000,p2=double(c.position[axis]-a.position[axis])/100000;
+                        prepared.tangents_[faceIndex][0][axis]=(p1*v2-p2*v1)/determinant;
+                        prepared.tangents_[faceIndex][1][axis]=(p2*u1-p1*u2)/determinant;
+                    }
+                }
             }
             prepared.triangles_.push_back(triangle);
         }
     }
-    if(!topVertices)return Error::fail("Classic cube has no upward letter surface");
-    prepared.topCenter_={int(std::lround(center[0]/topVertices*100000)),int(std::lround(center[2]/topVertices*100000)),int(std::lround(-center[1]/topVertices*100000))};
+    for(size_t face=0;face<6;++face) {
+        if(!counts[face])return Error::fail("Classic cube has a missing letter surface");
+        const auto& center=centers[face];const double count=double(counts[face]);
+        prepared.centers_[face]={int(std::lround(center[0]/count*100000)),int(std::lround(center[2]/count*100000)),int(std::lround(-center[1]/count*100000))};
+    }
     *this=std::move(prepared);return Error::success();
 }
+std::array<int,4> CubeRenderer::topUv(size_t face,const DiePose& base) const {
+    const auto u=base.canonical(tangents_[face][0]),v=base.canonical(tangents_[face][1]);
+    if(std::abs(u[0])+std::abs(v[0])<1e-8 || std::abs(u[1])+std::abs(v[1])<1e-8)return {0,0,1,0};
+    const int horizontal=std::abs(u[0])>=std::abs(v[0])?0:1,vertical=std::abs(u[1])>=std::abs(v[1])?0:1;
+    if(horizontal==vertical)return {0,0,1,0};
+    return {horizontal,(horizontal? v[0]:u[0])<0,vertical,(vertical? v[1]:u[1])>0};
+}
 ClassicPoint CubeRenderer::cellCenter(const CameraProjection& camera,size_t cell,size_t side) const {
+    return center(camera,cell,side,nullptr,0,true);
+}
+ClassicPoint CubeRenderer::cellCenter(const CameraProjection& camera,const Board& board,size_t cell,uint32_t seed,bool autoOrient) const {
+    return center(camera,cell,board.side(),&board,seed,autoOrient);
+}
+ClassicPoint CubeRenderer::center(const CameraProjection& camera,size_t cell,size_t side,const Board* board,uint32_t seed,bool autoOrient) const {
     if(!active() || (side!=4 && side!=5) || cell>=side*side)return {-1,-1};
-    const auto p=project(camera,topCenter_,cell,side);return valid(p)?ClassicPoint{p.x,p.y}:ClassicPoint{-1,-1};
+    const auto frame=placement(board,cell,seed,autoOrient,rounded_);
+    const auto p=project(camera,frame.pose.canonical(centers_[frame.upward]),cell,side);return valid(p)?ClassicPoint{p.x,p.y}:ClassicPoint{-1,-1};
 }
 std::optional<size_t> CubeRenderer::cellAt(const CameraProjection& camera,int x,int y,size_t side) const {
+    return pick(camera,x,y,side,nullptr,0,true);
+}
+std::optional<size_t> CubeRenderer::cellAt(const CameraProjection& camera,const Board& board,int x,int y,uint32_t seed,bool autoOrient) const {
+    return pick(camera,x,y,board.side(),&board,seed,autoOrient);
+}
+std::optional<size_t> CubeRenderer::pick(const CameraProjection& camera,int x,int y,size_t side,const Board* board,uint32_t seed,bool autoOrient) const {
     if(!active() || (side!=4 && side!=5) || x<0 || y<0 || x>=800 || y>=600)return {};
     int64_t nearest=0;std::optional<size_t> result;
-    for(size_t cell=0;cell<side*side;++cell)for(const auto& triangle:triangles_) {
-        std::array<ProjectedVertex,3> p;bool clipped=false;
-        for(size_t k=0;k<3;++k){p[k]=project(camera,triangle.corners[k].position,cell,side);clipped|=!valid(p[k]);}
-        if(clipped)continue;
-        const auto w=weights(p,x,y);const int64_t q=w[0]+w[1]+w[2];
-        if(q>nearest){nearest=q;result=cell;}
+    for(size_t cell=0;cell<side*side;++cell) {
+        const auto frame=placement(board,cell,seed,autoOrient,rounded_);
+        for(const auto& triangle:triangles_) {
+            std::array<ProjectedVertex,3> p;bool clipped=false;
+            for(size_t k=0;k<3;++k){p[k]=project(camera,frame.pose.canonical(triangle.corners[k].position),cell,side);clipped|=!valid(p[k]);}
+            if(clipped)continue;
+            const auto w=weights(p,x,y);const int64_t q=w[0]+w[1]+w[2];
+            if(q>nearest){nearest=q;result=cell;}
+        }
     }
     return result;
 }
@@ -134,16 +190,25 @@ void CubeRenderer::draw(Surface& screen,const Board& board,const CameraProjectio
        screen.pixels.size()<size_t(screen.pitch)*screen.h)return;
     std::vector<int64_t> depth(size_t(screen.w)*screen.h);
     for(size_t cell=0;cell<side*side;++cell) {
-        const auto& word=board.faces()[cell];const bool textured=word=="QU" || (word.size()==1 && word[0]>='A' && word[0]<='Z');
+        const auto frame=placement(&board,cell,seed,autoOrient,rounded_);const auto uvMap=topUv(frame.upward,frame.base);
+        const auto& upward=board.faces()[cell];
         const bool marked=std::find(selected.begin(),selected.end(),cell)!=selected.end();
-        const auto& texture=word=="QU"?qu:letters;const int index=textured?word[0]-'A':0;
-        const int left=index%5*512/6,top=index/5*512/6,right=(index%5+1)*512/6-1,bottom=(index/5+1)*512/6-1;
         for(const auto& triangle:triangles_) {
-            std::array<ProjectedVertex,3> p;bool clipped=false;
+            std::string_view word;
+            if(triangle.face>=0) {
+                if(frame.known)word=board.rolledDice()[cell].faces[size_t(triangle.face)];
+                else if(size_t(triangle.face)==frame.upward)word=upward;
+            }
+            const bool textured=word=="QU" || (word.size()==1 && word[0]>='A' && word[0]<='Z');
+            const auto& texture=word=="QU"?qu:letters;const int index=textured?word[0]-'A':0;
+            const int left=index%5*512/6,top=index/5*512/6,right=(index%5+1)*512/6-1,bottom=(index/5+1)*512/6-1;
+            std::array<ProjectedVertex,3> p;std::array<Color,3> colors;bool clipped=false;
             for(size_t k=0;k<3;++k) {
-                const auto& c=triangle.corners[k];p[k]=project(camera,c.position,cell,side);clipped|=!valid(p[k]);
-                const auto uv=cubeTexturePoint(c.u,c.v,65536,cubeQuarterTurns(seed,cell,autoOrient));
+                const auto& c=triangle.corners[k];p[k]=project(camera,frame.pose.canonical(c.position),cell,side);clipped|=!valid(p[k]);
+                std::array<int,2> uv={c.u,c.v};
+                if(triangle.face>=0 && size_t(triangle.face)==frame.upward)uv={uvMap[1]?65536-uv[size_t(uvMap[0])]:uv[size_t(uvMap[0])],uvMap[3]?65536-uv[size_t(uvMap[2])]:uv[size_t(uvMap[2])]};
                 p[k].u=left+uv[0]*(right-left)/65536;p[k].v=top+uv[1]*(bottom-top)/65536;
+                colors[k]=illuminate(frame.pose.canonical(c.normal),triangle.diffuse,triangle.emissive);
             }
             if(clipped)continue;
             const int minX=std::max(0,std::min({p[0].x,p[1].x,p[2].x})),maxX=std::min(screen.w-1,std::max({p[0].x,p[1].x,p[2].x}));
@@ -152,16 +217,16 @@ void CubeRenderer::draw(Surface& screen,const Board& board,const CameraProjectio
                 const auto w=weights(p,x,y);const int64_t q=w[0]+w[1]+w[2];const size_t pixel=size_t(y)*screen.w+x;
                 if(q<=depth[pixel])continue;
                 auto mix=[&](int a,int b,int c){return int((w[0]*a+w[1]*b+w[2]*c)/q);};
-                const auto& a=triangle.corners[0].light;const auto& b=triangle.corners[1].light;const auto& c=triangle.corners[2].light;
+                const auto& a=colors[0];const auto& b=colors[1];const auto& c=colors[2];
                 Color light{uint8_t(mix(a.r,b.r,c.r)),uint8_t(mix(a.g,b.g,c.g)),uint8_t(mix(a.b,b.b,c.b))};
-                const uint8_t* sample=nullptr;if(textured && triangle.letter)sample=texture.pixel(mix(p[0].u,p[1].u,p[2].u),mix(p[0].v,p[1].v,p[2].v));
+                const uint8_t* sample=nullptr;if(textured)sample=texture.pixel(mix(p[0].u,p[1].u,p[2].u),mix(p[0].v,p[1].v,p[2].v));
                 auto* out=screen.row(y)+x*4;out[0]=sample?uint8_t(unsigned(sample[0])*light.r/255):light.r;
                 out[1]=sample?uint8_t(unsigned(sample[1])*light.g/255):light.g;out[2]=sample?uint8_t(unsigned(sample[2])*light.b/255):light.b;
                 if(marked){out[0]=uint8_t(unsigned(out[0])*3/4);out[1]=uint8_t((unsigned(out[1])*3+220)/4);out[2]=uint8_t((unsigned(out[2])*3+255)/4);}
                 out[3]=255;depth[pixel]=q;
             }
         }
-        if(!textured){const auto p=cellCenter(camera,cell,side);font::drawText(screen,p.x-int(word.size())*3,p.y-5,word,{0,0,190});}
+        if(upward!="QU" && upward.size()!=1){const auto p=cellCenter(camera,board,cell,seed,autoOrient);font::drawText(screen,p.x-int(upward.size())*3,p.y-5,upward,{0,0,190});}
     }
 }
 } // namespace reluva::boggle

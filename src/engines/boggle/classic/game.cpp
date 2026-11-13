@@ -276,16 +276,19 @@ Error ClassicGame::run() {
     std::vector<ComputerPlan> computers(names.size());std::vector<uint64_t> started(names.size());
     ComputerGeometry computerGeometry;computerGeometry.scale=1250;
     auto& centers=computerGeometry.centers;
-    for(size_t i=0;i<options.side()*options.side();++i) {
-        const int cell=boardSize/int(options.side());
-        centers.push_back(artwork.active()?artwork.cellCenter(i,options.side()):
-            ClassicPoint{boardX+int(i%options.side())*cell+cell/2,boardY+int(i/options.side())*cell+cell/2});
-    }
     const HistoryButton submitArea=artwork.active()?HistoryButton{621,52,179,396}:HistoryButton{430,204,346,260};
     const ClassicPoint submitPoint{submitArea.x+submitArea.w/2,submitArea.y+submitArea.h/2};
-    const ClassicPoint cursorRest{(centers.front().x+centers.back().x)/2,(centers.front().y+centers.back().y)/2};
-    computerGeometry.origin=cursorRest;computerGeometry.submit=submitPoint;
+    ClassicPoint cursorRest;
+    computerGeometry.submit=submitPoint;
     auto resetRounds=[&](const Board& cubes)->Error {
+        centers.clear();
+        for(size_t i=0;i<cubes.side()*cubes.side();++i) {
+            const int cell=boardSize/int(cubes.side());
+            centers.push_back(artwork.active()?artwork.cellCenter(i,cubes,seed):
+                ClassicPoint{boardX+int(i%cubes.side())*cell+cell/2,boardY+int(i/cubes.side())*cell+cell/2});
+        }
+        cursorRest={(centers.front().x+centers.back().x)/2,(centers.front().y+centers.back().y)/2};
+        computerGeometry.origin=cursorRest;
         std::vector<std::unique_ptr<ClassicRound>> next;
         std::vector<ComputerPlan> plans(names.size());
         for(size_t i=0;i<names.size();++i) {
@@ -489,7 +492,7 @@ Error ClassicGame::run() {
         if(round().phase()!=RoundPhase::Playing)return;
         size_t cell=0;
         if(artwork.active()) {
-            const auto found=artwork.cellAt(x,y,side);if(!found)return;cell=*found;
+            const auto found=artwork.cellAt(x,y,round().board(),seed);if(!found)return;cell=*found;
         } else {
             if(!hit(x,y,boardX,boardY,cellSize*int(side),cellSize*int(side)))return;
             cell=size_t((y-boardY)/cellSize)*side+size_t((x-boardX)/cellSize);

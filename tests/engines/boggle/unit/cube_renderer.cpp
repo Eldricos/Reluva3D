@@ -72,6 +72,45 @@ void raster() {
     renderer.draw(a,board,camera,letters,qu,{},0x1997,true);renderer.draw(b,board,camera,letters,qu,{},0x1997,false);CHECK(a.pixels!=b.pixels);
     a=b;renderer.draw(b,board,camera,letters,qu,{},0x1997,false);CHECK(a.pixels==b.pixels);
 }
+void physicalDice() {
+    const DieAxis up={0,0,-1};
+    for(bool rounded:{false,true})for(size_t face=0;face<6;++face)for(unsigned spin=0;spin<4;++spin) {
+        const auto pose=settledDiePose(face,spin,rounded);CHECK(pose.source(dieFaceAxes[face])==up);
+        for(size_t a=0;a<3;++a)for(size_t b=0;b<3;++b){int dot=0;for(size_t k=0;k<3;++k)dot+=pose.rows[a][k]*pose.rows[b][k];CHECK(dot==(a==b?1:0));}
+        auto cycle=pose;for(int n=0;n<4;++n)cycle=spinDie(cycle,1);CHECK(cycle.rows==pose.rows);
+    }
+    for(size_t face=0;face<6;++face)CHECK((settledDiePose(face,0,false).rows!=settledDiePose(face,0,true).rows)==(face==2 || face==4));
+    auto letters=atlas(200,100,50),qu=atlas(40,200,80);
+    for(bool rounded:{false,true})for(bool master:{false,true}) {
+        const size_t side=master?5:4;auto g=geometry();if(rounded)g.appliedScale=classicCubeMeshScale(classicCubeMeshPaths[0]);
+        CubeRenderer renderer;CHECK(!renderer.prepare(g));CameraProjection camera(classicLidView(master,43).camera);
+        DiceSet dice;dice.side=side;std::array<std::string,6> faces={"A","B","C","D","E","QU"};dice.dice.resize(side*side,faces);
+        for(uint32_t seed:{1u,6551u}) {
+            Board board;CHECK(!Board::generate(dice,seed,board));Board manual;CHECK(!manual.set(side,board.faces()));
+            Surface a,b;a.create(800,600,PixelFormat::RGBA32);b=a;
+            renderer.draw(a,board,camera,letters,qu,{},seed,true);renderer.draw(b,manual,camera,letters,qu,{},seed,true);
+            CHECK(a.pixels!=b.pixels); // generated dice have real side lettering
+            for(bool orient:{false,true}) {
+                for(size_t i=0;i<side*side;++i) {
+                    const auto p=renderer.cellCenter(camera,board,i,seed,orient);CHECK(renderer.cellAt(camera,board,p.x,p.y,seed,orient)==i);
+                    if(orient){const auto* color=a.row(p.y)+p.x*4;CHECK(color[0]==(board.faces()[i]=="QU"?38:192));}
+                }
+            }
+            b=a;renderer.draw(b,board,camera,letters,qu,{},seed,false);CHECK(a.pixels!=b.pixels);
+            auto gradient=letters;
+            for(int y=0;y<512;++y)for(int x=0;x<512;++x) {
+                auto* pixel=gradient.rgba.data()+(y*512+x)*4;
+                pixel[0]=uint8_t((x-(x*6/512)*512/6)*2);pixel[1]=uint8_t((y-(y*6/512)*512/6)*2);
+            }
+            renderer.draw(b,board,camera,gradient,gradient,{},seed,true);
+            for(size_t i=0;i<side*side;++i) {
+                auto sample=[&](int dx,int dy,int channel){const auto p=camera.project((int(i%side)*2+1-int(side))*55000+dx,(int(side)-int(i/side)*2-1)*55000+dy,-50000,100000,5,4);return b.row(p.y)[p.x*4+channel];};
+                CHECK(sample(-20000,0,0)<sample(20000,0,0));
+                CHECK(sample(0,20000,1)<sample(0,-20000,1)); // all six upward groups remain upright
+            }
+        }
+    }
+}
 void layout(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool rounded:{false,true}) {
         const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
@@ -114,5 +153,6 @@ void layout(const std::filesystem::path& tmp) {
 static const test::Suite suite("boggle.unit.cube_renderer",{
     {"convex/concave/folded polygons, collinear corners and invalid input",[](const auto&){topology();}},
     {"depth, Gouraud materials, Qu, rotation, centers, hit testing and clipping",[](const auto&){raster();}},
+    {"physical die faces, rigid poses, side lettering and rotated picking",[](const auto&){physicalDice();}},
     {"both meshes and variants, lid masks, word entry, scoring and opt-out",layout},
 });

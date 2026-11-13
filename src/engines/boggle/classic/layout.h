@@ -30,6 +30,8 @@ public:
                         const image::Image& qu,uint32_t boardSeed) const;
     std::optional<size_t> cellAt(int x,int y,size_t side) const;
     ClassicPoint cellCenter(size_t cell,size_t side) const;
+    ClassicPoint cellCenter(size_t cell,const Board& board,uint32_t seed) const;
+    std::optional<size_t> cellAt(int x,int y,const Board& board,uint32_t seed) const;
     static size_t timerFrame(uint64_t remaining,uint64_t duration);
     static constexpr size_t visibleWords=23;
 private:

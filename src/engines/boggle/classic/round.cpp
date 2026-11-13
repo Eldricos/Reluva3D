@@ -42,7 +42,7 @@ int classicPoints(size_t length, size_t minimum) {
     return 11;
 }
 Error Board::set(size_t side, const std::vector<std::string>& faces) {
-    side_ = 0; faces_.clear();
+    side_ = 0; faces_.clear(); dice_.clear();
     if (!side || side > 5 || faces.size() != side * side) return Error::fail("Invalid square board");
     std::vector<std::string> result;
     for (const auto& face : faces) {
@@ -68,8 +68,16 @@ Error Board::generate(const DiceSet& dice, uint32_t seed, Board& out) {
     std::vector<size_t> order(dice.dice.size()); std::iota(order.begin(), order.end(), size_t(0));
     for (size_t n = order.size(); n > 1; --n) std::swap(order[n - 1], order[bounded(uint32_t(n))]);
     std::vector<std::string> faces;
-    for (size_t i : order) faces.push_back(dice.dice[i][bounded(6)]);
-    return out.set(dice.side, faces);
+    std::vector<RolledDie> rolls;
+    for(size_t i:order) {
+        RolledDie roll;roll.source=i;roll.upward=bounded(6); // exactly the existing face draw
+        faces.push_back(dice.dice[i][roll.upward]);
+        for(size_t side=0;side<6;++side)if(dice.dice[i][side].size()<=8)
+            englishWord(dice.dice[i][side],roll.faces[side]);
+        rolls.push_back(std::move(roll));
+    }
+    if(auto error=out.set(dice.side,faces))return error;
+    out.dice_=std::move(rolls);return Error::success();
 }
 bool Board::adjacent(size_t a, size_t b) const {
     if (a >= faces_.size() || b >= faces_.size() || a == b) return false;

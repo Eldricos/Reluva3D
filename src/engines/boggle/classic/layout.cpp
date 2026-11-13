@@ -144,6 +144,12 @@ std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     }
     return {};
 }
+ClassicPoint ClassicArtwork::cellCenter(size_t cell,const Board& board,uint32_t seed) const {
+    return cubes_.active()?cubes_.cellCenter(playingCamera(master_),board,cell,seed,autoOrient_):cellCenter(cell,board.side());
+}
+std::optional<size_t> ClassicArtwork::cellAt(int x,int y,const Board& board,uint32_t seed) const {
+    return cubes_.active()?cubes_.cellAt(playingCamera(master_),board,x,y,seed,autoOrient_):cellAt(x,y,board.side());
+}
 void ClassicArtwork::drawCubes(Surface& screen,const Board& board,const CameraProjection& camera,
                                const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,
                                uint32_t boardSeed,bool results) const {
@@ -152,7 +158,7 @@ void ClassicArtwork::drawCubes(Surface& screen,const Board& board,const CameraPr
     if(cubes_.active()) {
         cubes_.draw(screen,board,camera,letters,qu,selected,boardSeed,autoOrient_);
         if(results)for(size_t n=0;n<selected.size();++n) {
-            const auto p=cubes_.cellCenter(camera,selected[n],side);const auto text=std::to_string(n+1);
+            const auto p=cubes_.cellCenter(camera,board,selected[n],boardSeed,autoOrient_);const auto text=std::to_string(n+1);
             box(screen,p.x-16,p.y-19,int(text.size())*6+2,11,{20,48,60});font::drawText(screen,p.x-15,p.y-18,text,white);
         }
         return;

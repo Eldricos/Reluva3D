@@ -54,7 +54,9 @@ See [board variety and reproducible checks](randomization.md).
 
 **Auto-orient cubes** keeps letters upright by default. Disable it in the
 launcher's game options for individual quarter-turn orientations, including Qu.
-Replay retains orientations; New Board changes them. See [orientation settings](options.md#cube-orientation).
+Replay retains orientations; New Board changes them. Complete mesh mode now
+rotates the whole cube and uses the [six supplied die faces](die-orientation.md).
+See [orientation settings](options.md#cube-orientation).
 
 Classic's round animation and WAV effects are enabled by default. The timer
 starts after the opening finishes, and closing finishes before results/review.

@@ -157,3 +157,11 @@ groups. New imports include those scripts when present. A face-only rendering
 experiment was rejected because it omitted the shoulders/body; the playable
 view remained unchanged in that preparation stage. The subsequent
 [complete cube renderer](cube-renderer.md) now draws body and lettering together.
+
+## Physical die sides and poses
+
+Generated boards now retain all six supplied faces and the selected side without
+changing random draws or playable letters. The [physical pose contract](die-orientation.md)
+rotates the mesh, normals, lettering and picking together. Installed-artwork
+computer destinations and word-review markers use those same board-aware centers.
+The flat fallback retains its existing texture-only orientation behavior.

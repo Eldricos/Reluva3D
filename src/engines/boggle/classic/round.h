@@ -13,18 +13,24 @@ bool appendEnglishCubes(std::string_view text,std::string& input,bool& following
 void eraseEnglishCube(std::string& input);
 int classicPoints(size_t length, size_t minimum = 3);
 enum class PathResult { Found, Missing, Limit };
+struct RolledDie {
+    std::array<std::string,6> faces;
+    size_t upward=0,source=0;
+};
 class Board {
 public:
     Error set(size_t side, const std::vector<std::string>& faces);
     static Error generate(const DiceSet& dice, uint32_t seed, Board& out);
     size_t side() const { return side_; }
     const std::vector<std::string>& faces() const { return faces_; }
+    const std::vector<RolledDie>& rolledDice() const {return dice_;}
     bool adjacent(size_t a, size_t b) const;
     bool matches(std::string_view word, const std::vector<size_t>& path) const;
     PathResult find(std::string_view word, std::vector<size_t>& path, size_t limit = 500000) const;
 private:
     size_t side_ = 0;
     std::vector<std::string> faces_;
+    std::vector<RolledDie> dice_;
 };
 // Each keyboard cube must leave a traceable prefix. Rejected letters are
 // skipped; valid letters in the same text event still enter in order.

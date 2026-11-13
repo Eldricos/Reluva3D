@@ -49,7 +49,8 @@ inline std::string cubeMesh(double extent=1) {
     for(unsigned face=0;face<6;++face){text+="4;";for(unsigned c=0;c<4;++c)text+=std::to_string(face)+(c==3?";":",");text+=face==5?";":",";}
     text+="} MeshTextureCoords {24;";
     for(unsigned face=0;face<6;++face)for(unsigned corner=0;corner<4;++corner) {
-        const unsigned index=faces[face][corner];text+=std::to_string(index&1?1:0)+";"+std::to_string(index&4?1:0)+";";
+        const unsigned index=faces[face][corner];const unsigned u=face<2?2:0,v=face<2?1:face<4?2:1;
+        text+=std::to_string(index&(1u<<u)?1:0)+";"+std::to_string(index&(1u<<v)?1:0)+";";
         text+=face==5 && corner==3?";":",";
     }
     return text+="}}";

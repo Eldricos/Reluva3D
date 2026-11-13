@@ -3,6 +3,7 @@
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/user_dictionary.h"
 #include "tests/support/test.h"
+#include "common/md5.h"
 #include <algorithm>
 
 using namespace reluva;
@@ -196,6 +197,19 @@ void scoringAndGeneration() {
     CHECK(first.faces() == second.faces()); CHECK(!Board::generate(dice,0x1998,third));
     CHECK(first.faces() != third.faces()); auto sorted = first.faces(); std::sort(sorted.begin(), sorted.end());
     for (size_t i=0;i<16;++i) CHECK(sorted[i] == std::string(1,char('A'+i)));
+    // Aggregate captured from the previous top-face-only generation contract.
+    Md5 generatedFaces;
+    for(size_t side:{4u,5u})for(uint32_t seed=0;seed<128;++seed) {
+        DiceSet varied;varied.side=side;
+        for(size_t i=0;i<side*side;++i){std::array<std::string,6> die;for(size_t f=0;f<6;++f)die[f]=std::string(1,char('A'+(i+f)%26));varied.dice.push_back(die);}
+        Board generated;CHECK(!Board::generate(varied,seed,generated));CHECK(generated.rolledDice().size()==side*side);
+        std::vector<bool> seen(side*side);
+        for(size_t i=0;i<side*side;++i){const auto& roll=generated.rolledDice()[i];CHECK(roll.source<side*side && roll.upward<6);CHECK(!seen[roll.source]);seen[roll.source]=true;CHECK(roll.faces==varied.dice[roll.source]);CHECK(generated.faces()[i]==roll.faces[roll.upward]);generatedFaces.update(generated.faces()[i].data(),generated.faces()[i].size());}
+        Board replay=generated;CHECK(replay.rolledDice()[0].faces==generated.rolledDice()[0].faces);
+        CHECK(!replay.set(side,generated.faces()) && replay.rolledDice().empty());
+        CHECK(bool(generated.set(6,{})) && generated.rolledDice().empty());
+    }
+    CHECK(generatedFaces.hexDigest()=="f3d06e3121399c657ac0efab39a9aada");
     std::string normalized; CHECK(englishWord("QuIt",normalized) && normalized == "QUIT");
     CHECK(!englishWord("\xc3\xa9",normalized)); CHECK(normalized.empty());
     CHECK(bool(first.set(6,{}))); CHECK(first.faces().empty());

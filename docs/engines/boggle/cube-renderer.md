@@ -23,19 +23,18 @@ skips mesh loading. No additional imports or dependencies are introduced.
 ## Geometry, lettering and picking
 
 The renderer keeps the complete body polygons, UVs, materials and per-corner
-normals. The source +Y letter group is used as a canonical upward face: a
-quarter-turn about X maps it toward the camera's -Z direction, with source +Z
-toward the back of the tray. This is an independent settled-pose policy; it does
-not reconstruct the original rolled die's full orientation. The measured mesh
-scale and grid/camera contracts remain those recorded in the geometry/camera
-specifications.
+normals. Generated boards retain each die's six supplied faces and selected
+side. [Die orientation](die-orientation.md) records the measured input axes and
+settled poses for both mesh styles. The selected side faces upward; the other
+five letter groups receive their actual supplied letters, including Qu.
+Manually injected boards have no physical die metadata and retain blank sides.
 
-Only that upward group receives the board's face, including the distinct Qu
-atlas. Other letter groups retain plain material shading: the current logical
-board does not preserve the original die's six side-letter assignments. No new
-playable letters are invented. Canonical UV orientation and the existing
-per-seed quarter-turn mapping keep auto-orient, Replay and New Board behavior.
-Quarter turns currently rotate lettering, not the entire body silhouette.
+Auto-orient keeps the upward glyph upright. Disabling it rotates the complete
+cube, normals and lettering by a stable native quarter turn. Drawing, picking,
+review markers and computer destinations share that physical pose. Replay
+retains it; New Board refreshes it. The native shuffle and top-letter draws are
+unchanged. Side glyph UVs use the source template; exact original side bitmap
+orientation is still unverified.
 
 Planar polygons use independently written ear clipping, including concave
 polygons and collinear corners. Some supplied shoulder quads are folded in 3D;
@@ -90,7 +89,7 @@ masks, and enter a word by mouse through the game loop with the same score.
 Existing legacy rendering/gameplay records remain unchanged.
 
 The supplied artwork checker renders 26 states and now reports
-`4dfe8e97caf13b3a67a062bc9eaa0e60`; install, CD and fresh-import checks agree.
+`def67430fb55182fb2d3fc6f5c6aa3b2`; install, CD and fresh-import checks agree.
 `cube-check` also validates tessellation of both resources and reports the 350
 triangles. Its geometry digest stays `e985c393b66b88890345759e0ab219fc` because
 resource data and normalization did not change. Previews of both styles and
@@ -98,8 +97,9 @@ variants were inspected outside Git; no retail images or vertices are fixtures.
 
 The full normal run passes 64 checks, including all 41 Boggle checks, and skips
 ten optional id Tech 3 data checks. All 737 supplied installed files retain their
-manifest hashes. Windows owner testing of this renderer pass is pending. Exact
-whole-screen original matching, full die/side-letter orientation, original
+manifest hashes. The owner confirmed the preceding body/upward-letter renderer works. Windows
+owner testing of the physical side-letter update is pending. Exact
+whole-screen original matching, side bitmap orientation, original
 full/one-sided switching, specular lighting and dialog/pause appearance remain
 unfinished; this pass does not claim complete Classic visual parity.
 

@@ -329,3 +329,13 @@ settled face; side-letter assignments, complete rolled orientations and the
 original full/one-sided switching remain unverified. Native Lambert/Gouraud
 lighting uses measured scene inputs but does not establish original specular,
 shadow or palette behavior. Whole-screen Windows/VM comparison remains open.
+
+### Physical die sides and poses
+
+The owner confirmed full cubes and upward letters render correctly. The next
+[die orientation stage](../../engines/boggle/die-orientation.md) retains the
+six supplied faces, binds them to measured source axes and rotates full geometry,
+normals and picking. External read-only checks match all 96 settled-pose cases
+and all six face-input bindings. Original seeded shuffle, exact side bitmap UV
+orientation and original full/one-sided switching remain unverified. This stage
+preserves native board generation and introduces no retail data into Git.
