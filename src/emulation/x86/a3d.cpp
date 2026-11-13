@@ -20,13 +20,13 @@ namespace reluva::x86 {
 
 namespace {
 
-const char* const kClsidA3dApi = "{92fa2c24-253c-11d2-90fb-006008a1f441}";
-const char* const kIidA3d = "{9ae07221-8ac4-11d3-b6aa-00600879f3ee}";      // the A3D object (version 4)
-const char* const kIidGeom = "{4730c6c2-b797-11d3-a33d-00104b67d10e}";     // its geometry
+const char *const kClsidA3dApi = "{92fa2c24-253c-11d2-90fb-006008a1f441}";
+const char *const kIidA3d = "{9ae07221-8ac4-11d3-b6aa-00600879f3ee}";  // the A3D object (version 4)
+const char *const kIidGeom = "{4730c6c2-b797-11d3-a33d-00104b67d10e}"; // its geometry
 // The listener's is the one NiA3dSound asks the A3D object for
 // (NiA3dListener::Startup). The source's and the material's are never asked
 // for (NewSource and NewMaterial hand them out); they follow on from it.
-const char* const kIidListener = "{c398e563-d90b-11d1-90fb-006008a1f441}"; // its listener
+const char *const kIidListener = "{c398e563-d90b-11d1-90fb-006008a1f441}"; // its listener
 
 constexpr uint32_t kClassNotRegistered = 0x80040154u;
 // Play modes; GetStatus's bits.
@@ -110,22 +110,53 @@ ComInterface makeListener() {
 // heard as nothing: the program's surfaces and materials are kept no record of.
 ComInterface makeGeom() {
     return {"IA3dGeom", kIidGeom,
-            with({{"Enable", 1},          {"Disable", 1},          {"IsEnabled", 1},
-                  {"SetOcclusionMode", 1}, {"GetOcclusionMode", 1}, {"SetReflectionMode", 1},
-                  {"GetReflectionMode", 1}, {"SetReflectionGainScale", 1}, {"GetReflectionGainScale", 1},
-                  {"SetReflectionDelayScale", 1}, {"GetReflectionDelayScale", 1}, {"PushMatrix", 0},
-                  {"PopMatrix", 0},        {"LoadIdentity", 0},     {"LoadMatrix", 1},
-                  {"GetMatrix", 1},        {"MultMatrix", 1},       {"Translate3f", 3},
-                  {"Translate3fv", 1},     {"Rotate3f", 4},         {"Rotate3fv", 2},
-                  {"Scale3f", 3},          {"Scale3fv", 1},         {"Begin", 1},
-                  {"End", 0},              {"Vertex3f", 3},         {"Vertex3fv", 1},
-                  {"Normal3f", 3},         {"Normal3fv", 1},        {"Tag", 1},
-                  {"SetOpeningFactorf", 1}, {"SetOpeningFactorfv", 1}, {"NewMaterial", 1},
-                  {"BindMaterial", 1},     {"NewList", 1},          {"NewEnvironment", 1},
-                  {"BindListener", 0},     {"BindSource", 1},       {"BindEnvironment", 1},
-                  {"Method42", 1},         {"Method43", 1},         {"Method44", 1},
-                  {"Method45", 1},         {"Method46", 1},         {"Method47", 1},
-                  {"Method48", 1},         {"Method49", 1}}),
+            with({{"Enable", 1},
+                  {"Disable", 1},
+                  {"IsEnabled", 1},
+                  {"SetOcclusionMode", 1},
+                  {"GetOcclusionMode", 1},
+                  {"SetReflectionMode", 1},
+                  {"GetReflectionMode", 1},
+                  {"SetReflectionGainScale", 1},
+                  {"GetReflectionGainScale", 1},
+                  {"SetReflectionDelayScale", 1},
+                  {"GetReflectionDelayScale", 1},
+                  {"PushMatrix", 0},
+                  {"PopMatrix", 0},
+                  {"LoadIdentity", 0},
+                  {"LoadMatrix", 1},
+                  {"GetMatrix", 1},
+                  {"MultMatrix", 1},
+                  {"Translate3f", 3},
+                  {"Translate3fv", 1},
+                  {"Rotate3f", 4},
+                  {"Rotate3fv", 2},
+                  {"Scale3f", 3},
+                  {"Scale3fv", 1},
+                  {"Begin", 1},
+                  {"End", 0},
+                  {"Vertex3f", 3},
+                  {"Vertex3fv", 1},
+                  {"Normal3f", 3},
+                  {"Normal3fv", 1},
+                  {"Tag", 1},
+                  {"SetOpeningFactorf", 1},
+                  {"SetOpeningFactorfv", 1},
+                  {"NewMaterial", 1},
+                  {"BindMaterial", 1},
+                  {"NewList", 1},
+                  {"NewEnvironment", 1},
+                  {"BindListener", 0},
+                  {"BindSource", 1},
+                  {"BindEnvironment", 1},
+                  {"Method42", 1},
+                  {"Method43", 1},
+                  {"Method44", 1},
+                  {"Method45", 1},
+                  {"Method46", 1},
+                  {"Method47", 1},
+                  {"Method48", 1},
+                  {"Method49", 1}}),
             0};
 }
 
@@ -230,19 +261,19 @@ uint32_t bits(float f) {
 } // namespace
 
 struct A3d::State {
-    Win32Process& process;
-    Cpu& cpu;
+    Win32Process &process;
+    Cpu &cpu;
     ComHost com;
     ComInterface a3d = makeA3d(), listener = makeListener(), geom = makeGeom(), material = makeMaterial(),
                  source = makeSource();
-    audio::Mixer* mixer = nullptr;
+    audio::Mixer *mixer = nullptr;
     // The listener, for the sources' gains and pans.
     float listenerPos[3]{}, listenerFront[3]{0, 0, -1}, listenerTop[3]{0, 1, 0};
     float outputGain = 1, unitsPerMeter = 1, distanceModelScale = 1;
     bool leftHanded = false; // SetCoordinateSystem: A3D_RIGHT_HANDED_CS 0, A3D_LEFT_HANDED_CS 1
     size_t made = 0;
     std::vector<std::weak_ptr<ComObject>> sources;
-    explicit State(Win32Process& p) : process(p), cpu(p.cpu()), com(p) {}
+    explicit State(Win32Process &p) : process(p), cpu(p.cpu()), com(p) {}
     uint32_t now() { return process.milliseconds ? process.milliseconds() : 0; }
     void update();
 };
@@ -252,14 +283,14 @@ namespace {
 // A sound source: its wave data in the process's memory, and its playing.
 class Source : public ComObject {
 public:
-    A3d::State* s = nullptr;
+    A3d::State *s = nullptr;
     uint32_t type = 0;
     // WAVEFORMATEX.
     uint16_t formatTag = 1, channels = 1, blockAlign = 2, bitsPerSample = 16;
     uint32_t rate = 22050, bytesPerSecond = 44100;
     uint32_t data = 0, size = 0; // in the process's memory
     bool playing = false, looped = false;
-    bool formatSet = false; // SetWaveFormat called, or the format copied (DuplicateSource)
+    bool formatSet = false;                             // SetWaveFormat called, or the format copied (DuplicateSource)
     uint32_t startMs = 0, startPos = 0, stoppedPos = 0; // where it was when last started, or stopped
     uint32_t fed = 0;                                   // how far it's been handed to the mixer
     float gain = 1, pitch = 1, position[3]{}, minDistance = 1, maxDistance = 1e9f, priority = 0.5f;
@@ -275,7 +306,7 @@ public:
             s->process.memory().free(data);
     }
 
-    const ComInterface* query(const std::string& iid) override { return iid == s->source.iid ? &s->source : nullptr; }
+    const ComInterface *query(const std::string &iid) override { return iid == s->source.iid ? &s->source : nullptr; }
 
     // The play position (bytes, a whole block), as of the process's clock.
     uint32_t cursor() {
@@ -313,7 +344,7 @@ public:
         if (to == fed)
             return;
         auto span = [&](uint32_t from, uint32_t end) {
-            for (const auto& [offset, event] : events)
+            for (const auto &[offset, event] : events)
                 if (offset >= from && (offset < end || (end == size && offset >= size)))
                     s->process.setEvent(event); // one at or past the end is passed at the end
             if (stream && end > from)
@@ -330,7 +361,7 @@ public:
     void push(uint32_t from, uint32_t end) {
         if (formatTag != 1 || !s->cpu.valid(data + from, end - from))
             return;
-        const uint8_t* p = s->cpu.memory().data() + data + from;
+        const uint8_t *p = s->cpu.memory().data() + data + from;
         std::vector<int16_t> out;
         if (bitsPerSample == 8) {
             out.resize(end - from);
@@ -392,8 +423,8 @@ public:
     int pan() const {
         if (type & 0x1)
             return 0;
-        const float* f = s->listenerFront;
-        const float* u = s->listenerTop;
+        const float *f = s->listenerFront;
+        const float *u = s->listenerTop;
         // Front x top points right in a right-handed system, left in a
         // left-handed one.
         const float side = s->leftHanded ? -1.0f : 1.0f;
@@ -416,7 +447,7 @@ public:
         }
     }
 
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         s->update();
         auto out = [&](int arg, uint32_t v) {
@@ -526,9 +557,8 @@ public:
             return kSOk;
         }
         if (m == "SetWavePosition" || m == "SetWaveTime") {
-            uint32_t at = m == "SetWavePosition"
-                              ? c.arg(1)
-                              : uint32_t(double(asFloat(c.arg(1))) * double(bytesPerSecond));
+            uint32_t at =
+                m == "SetWavePosition" ? c.arg(1) : uint32_t(double(asFloat(c.arg(1))) * double(bytesPerSecond));
             at -= at % blockAlign;
             at = size ? std::min(at, size - 1 - (size - 1) % blockAlign) : 0;
             const bool was = playing;
@@ -564,8 +594,8 @@ public:
         if (m == "SetPosition3f" || m == "SetPosition3fv") {
             const bool v = m == "SetPosition3fv";
             for (int i = 0; i < 3; ++i)
-                position[i] = asFloat(v ? (c.valid(c.arg(1), 12) ? c.read32(c.arg(1) + 4 * uint32_t(i)) : 0)
-                                        : c.arg(1 + i));
+                position[i] =
+                    asFloat(v ? (c.valid(c.arg(1), 12) ? c.read32(c.arg(1) + 4 * uint32_t(i)) : 0) : c.arg(1 + i));
             heard();
             return kSOk;
         }
@@ -640,11 +670,11 @@ public:
 // A geometry material: nothing heard of it.
 class Material : public ComObject {
 public:
-    A3d::State* s = nullptr;
-    const ComInterface* query(const std::string& iid) override {
+    A3d::State *s = nullptr;
+    const ComInterface *query(const std::string &iid) override {
         return iid == s->material.iid ? &s->material : nullptr;
     }
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         if (m.substr(0, 3) == "Get") {
             for (int i = 1; i <= iface.methods[size_t(index)].args; ++i)
@@ -661,14 +691,14 @@ public:
 // The A3D object: also its listener and its geometry.
 class Api : public ComObject {
 public:
-    A3d::State* s = nullptr;
-    const ComInterface* query(const std::string& iid) override {
-        for (ComInterface* f : {&s->a3d, &s->listener, &s->geom})
+    A3d::State *s = nullptr;
+    const ComInterface *query(const std::string &iid) override {
+        for (ComInterface *f : {&s->a3d, &s->listener, &s->geom})
             if (iid == f->iid)
                 return f;
         return nullptr;
     }
-    std::optional<uint32_t> invoke(const ComInterface& iface, int index, Cpu& c) override {
+    std::optional<uint32_t> invoke(const ComInterface &iface, int index, Cpu &c) override {
         const std::string_view m = iface.methods[size_t(index)].name;
         s->update();
         auto out = [&](int arg, uint32_t v) {
@@ -680,7 +710,7 @@ public:
             return kSOk;
         }
         if (&iface == &s->listener) {
-            float* target = m == "SetPosition3f" ? s->listenerPos : nullptr;
+            float *target = m == "SetPosition3f" ? s->listenerPos : nullptr;
             if (target) {
                 for (int i = 0; i < 3; ++i)
                     target[i] = asFloat(c.arg(1 + i));
@@ -756,8 +786,8 @@ public:
             out(2, s->com.pointer(source, s->source));
             return kSOk;
         }
-        float* value = m == "SetOutputGain" || m == "GetOutputGain"                 ? &s->outputGain
-                       : m == "SetUnitsPerMeter" || m == "GetUnitsPerMeter"         ? &s->unitsPerMeter
+        float *value = m == "SetOutputGain" || m == "GetOutputGain"                   ? &s->outputGain
+                       : m == "SetUnitsPerMeter" || m == "GetUnitsPerMeter"           ? &s->unitsPerMeter
                        : m == "SetDistanceModelScale" || m == "GetDistanceModelScale" ? &s->distanceModelScale
                                                                                       : nullptr;
         if (value && m.substr(0, 3) == "Set") {
@@ -783,31 +813,31 @@ public:
 
 // Every source brought up to date with the clock (on each call into A3D).
 void A3d::State::update() {
-    sources.erase(std::remove_if(sources.begin(), sources.end(), [](const auto& w) { return w.expired(); }),
+    sources.erase(std::remove_if(sources.begin(), sources.end(), [](const auto &w) { return w.expired(); }),
                   sources.end());
-    for (const auto& w : sources)
+    for (const auto &w : sources)
         if (auto source = w.lock())
-            static_cast<Source*>(source.get())->advance();
+            static_cast<Source *>(source.get())->advance();
 }
 
 A3d::~A3d() = default;
 
-A3d::A3d(Win32Process& process) : s_(std::make_unique<State>(process)) {
-    State* s = s_.get();
-    for (ComInterface* f : {&s->a3d, &s->listener, &s->geom, &s->material, &s->source})
+A3d::A3d(Win32Process &process) : s_(std::make_unique<State>(process)) {
+    State *s = s_.get();
+    for (ComInterface *f : {&s->a3d, &s->listener, &s->geom, &s->material, &s->source})
         s->com.define(*f);
     // Called for each sound every frame, and writing no memory: the
     // instruction cache needn't check its code after each (Cpu::setWritesTracked).
-    for (const char* m : {"SetPosition3f", "SetVelocity3f", "SetOrientation6f", "SetGain", "SetPitch"})
+    for (const char *m : {"SetPosition3f", "SetVelocity3f", "SetOrientation6f", "SetGain", "SetPitch"})
         process.cpu().setWritesTracked(s->source.name + "::" + m);
     auto earlier = process.createComObject;
-    process.createComObject = [s, this, earlier](const std::string& clsid, const std::string& iid, uint32_t out) {
+    process.createComObject = [s, this, earlier](const std::string &clsid, const std::string &iid, uint32_t out) {
         if (clsid != kClsidA3dApi)
             return earlier ? earlier(clsid, iid, out) : kClassNotRegistered;
         s->mixer = mixer;
         auto api = std::make_shared<Api>();
         api->s = s;
-        const ComInterface* f = api->query(iid);
+        const ComInterface *f = api->query(iid);
         if (!f)
             return kENoInterface;
         if (s->cpu.valid(out, 4))
@@ -816,13 +846,15 @@ A3d::A3d(Win32Process& process) : s_(std::make_unique<State>(process)) {
     };
 }
 
-size_t A3d::sourcesMade() const { return s_->made; }
+size_t A3d::sourcesMade() const {
+    return s_->made;
+}
 
 size_t A3d::sourcesPlaying() const {
     size_t n = 0;
-    for (const auto& w : s_->sources)
+    for (const auto &w : s_->sources)
         if (auto source = w.lock())
-            n += static_cast<Source*>(source.get())->playing;
+            n += static_cast<Source *>(source.get())->playing;
     return n;
 }
 

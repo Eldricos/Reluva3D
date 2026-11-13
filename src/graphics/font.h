@@ -19,7 +19,7 @@ constexpr int kLineHeight = 11; // pixels per line, before scaling
 
 // Draws UTF-8 text with its top-left corner at (x, y) into an RGBA32
 // surface, clipped to it; returns the x after the last character.
-int drawText(Surface& surface, int x, int y, std::string_view utf8, Color color, int scale = 1);
+int drawText(Surface &surface, int x, int y, std::string_view utf8, Color color, int scale = 1);
 
 // The number of characters drawText draws for the text.
 size_t length(std::string_view utf8);

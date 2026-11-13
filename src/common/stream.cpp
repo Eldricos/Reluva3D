@@ -102,14 +102,13 @@ MemoryReadStream::MemoryReadStream(std::vector<uint8_t> data)
     size_ = uint32_t(buffer_->size());
 }
 
-MemoryReadStream::MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset,
-                                   uint32_t size)
+MemoryReadStream::MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset, uint32_t size)
     : buffer_(std::move(buffer)), offset_(offset), size_(size) {
     if (uint64_t(offset_) + size_ > buffer_->size())
         size_ = offset_ < buffer_->size() ? uint32_t(buffer_->size() - offset_) : 0;
 }
 
-uint32_t MemoryReadStream::read(void* data, uint32_t size) {
+uint32_t MemoryReadStream::read(void *data, uint32_t size) {
     const uint32_t avail = size_ - pos_;
     if (size > avail) {
         size = avail;
@@ -130,8 +129,8 @@ bool MemoryReadStream::seek(int64_t offset, int whence) {
     return true;
 }
 
-void MemoryWriteStream::write(const void* data, uint32_t size) {
-    const uint8_t* p = static_cast<const uint8_t*>(data);
+void MemoryWriteStream::write(const void *data, uint32_t size) {
+    const uint8_t *p = static_cast<const uint8_t *>(data);
     data_.insert(data_.end(), p, p + size);
 }
 
@@ -145,12 +144,12 @@ void MemoryWriteStream::writeUint32LE(uint32_t v) {
     writeUint16LE(uint16_t(v >> 16));
 }
 
-void MemoryWriteStream::writeFixedString(const std::string& s, uint32_t size) {
+void MemoryWriteStream::writeFixedString(const std::string &s, uint32_t size) {
     for (uint32_t i = 0; i < size; i++)
         writeByte(i < s.size() ? uint8_t(s[i]) : 0);
 }
 
-bool readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+bool readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return false;
@@ -160,17 +159,17 @@ bool readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
         return false;
     in.seekg(0, std::ios::beg);
     out.resize(size_t(size));
-    if (size > 0 && !in.read(reinterpret_cast<char*>(out.data()), size))
+    if (size > 0 && !in.read(reinterpret_cast<char *>(out.data()), size))
         return false;
     return true;
 }
 
-bool writeFile(const std::filesystem::path& path, const std::vector<uint8_t>& data) {
+bool writeFile(const std::filesystem::path &path, const std::vector<uint8_t> &data) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out)
         return false;
     if (!data.empty())
-        out.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        out.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
     out.close();
     return bool(out);
 }

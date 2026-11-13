@@ -5,7 +5,7 @@
 
 namespace reluva {
 
-void Palette::loadVga(const uint8_t* vga) {
+void Palette::loadVga(const uint8_t *vga) {
     for (int i = 0; i < 768; i++) {
         const uint8_t v = vga[i] & 63;
         data_[size_t(i)] = uint8_t((v << 2) | (v >> 4));
@@ -31,9 +31,11 @@ int Palette::findBestColor(uint8_t r, uint8_t g, uint8_t b) const {
     return best;
 }
 
-std::array<Color, 256> Palette::colors() const { return toColors(data_.data()); }
+std::array<Color, 256> Palette::colors() const {
+    return toColors(data_.data());
+}
 
-std::array<Color, 256> toColors(const uint8_t* rgb, int count) {
+std::array<Color, 256> toColors(const uint8_t *rgb, int count) {
     std::array<Color, 256> out{};
     for (int i = 0; i < count && i < 256; i++)
         out[size_t(i)] = {rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]};

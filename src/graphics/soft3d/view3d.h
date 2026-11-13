@@ -16,11 +16,21 @@ namespace reluva::soft3d {
 struct Vec {
     float x, y, z;
 };
-inline Vec operator+(Vec a, Vec b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-inline Vec operator-(Vec a, Vec b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
-inline Vec operator*(Vec a, float s) { return {a.x * s, a.y * s, a.z * s}; }
-inline float dot(Vec a, Vec b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-inline Vec cross(Vec a, Vec b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+inline Vec operator+(Vec a, Vec b) {
+    return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+inline Vec operator-(Vec a, Vec b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+inline Vec operator*(Vec a, float s) {
+    return {a.x * s, a.y * s, a.z * s};
+}
+inline float dot(Vec a, Vec b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+inline Vec cross(Vec a, Vec b) {
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
 inline Vec normalize(Vec a) {
     const float len = std::sqrt(dot(a, a));
     return len > 0 ? a * (1.0f / len) : Vec{0, 0, 0};
@@ -51,17 +61,17 @@ struct OrbitCamera {
         return {dot(d, right), dot(d, up), dot(d, forward), u, v};
     }
     Vec directionToView(Vec n) const { return {dot(n, right), dot(n, up), dot(n, forward)}; }
-    ScreenVertex project(const ViewVertex& p) const {
+    ScreenVertex project(const ViewVertex &p) const {
         return {halfW + focal * p.x / p.z, halfH - focal * p.y / p.z, 1.0f / p.z, p.u, p.v, p.s};
     }
 };
 
 // Keep the part of the polygon with z >= nearZ (Sutherland-Hodgman).
-inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex>& in, float nearZ) {
+inline std::vector<ViewVertex> clipNear(const std::vector<ViewVertex> &in, float nearZ) {
     std::vector<ViewVertex> out;
     for (size_t i = 0; i < in.size(); ++i) {
-        const ViewVertex& a = in[i];
-        const ViewVertex& b = in[(i + 1) % in.size()];
+        const ViewVertex &a = in[i];
+        const ViewVertex &b = in[(i + 1) % in.size()];
         const bool aIn = a.z >= nearZ, bIn = b.z >= nearZ;
         if (aIn)
             out.push_back(a);

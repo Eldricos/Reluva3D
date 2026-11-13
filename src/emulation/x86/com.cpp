@@ -10,16 +10,16 @@
 
 namespace reluva::x86 {
 
-void ComHost::define(ComInterface& iface) {
+void ComHost::define(ComInterface &iface) {
     if (iface.vtable)
         return;
-    Cpu& c = process_.cpu();
+    Cpu &c = process_.cpu();
     iface.vtable = process_.memory().alloc(uint32_t(iface.methods.size() * 4));
     for (size_t i = 0; i < iface.methods.size(); ++i) {
         const int index = int(i);
         const uint32_t pop = 4u * uint32_t(1 + iface.methods[i].args);
-        const ComInterface* in = &iface;
-        const uint32_t fn = c.addNative(iface.name + "::" + iface.methods[i].name, [this, in, index, pop](Cpu& cpu) {
+        const ComInterface *in = &iface;
+        const uint32_t fn = c.addNative(iface.name + "::" + iface.methods[i].name, [this, in, index, pop](Cpu &cpu) {
             cpu.reg[Cpu::EAX] = dispatch(*in, index, cpu);
             return pop;
         });
@@ -27,9 +27,9 @@ void ComHost::define(ComInterface& iface) {
     }
 }
 
-uint32_t ComHost::pointer(const std::shared_ptr<ComObject>& object, const ComInterface& iface) {
-    auto& mine = byObject_[object.get()];
-    for (const auto& [i, p] : mine)
+uint32_t ComHost::pointer(const std::shared_ptr<ComObject> &object, const ComInterface &iface) {
+    auto &mine = byObject_[object.get()];
+    for (const auto &[i, p] : mine)
         if (i == &iface)
             return p;
     const uint32_t p = process_.memory().alloc(8);
@@ -39,19 +39,19 @@ uint32_t ComHost::pointer(const std::shared_ptr<ComObject>& object, const ComInt
     return p;
 }
 
-ComObject* ComHost::object(uint32_t pointer) const {
+ComObject *ComHost::object(uint32_t pointer) const {
     auto it = pointers_.find(pointer);
     return it == pointers_.end() ? nullptr : it->second.object.get();
 }
 
-void ComHost::release(ComObject* object) {
+void ComHost::release(ComObject *object) {
     auto found = byObject_.find(object);
     if (found == byObject_.end())
         return;
     // Freed lowest first, as walking pointers_ in order did (the heap's
     // later blocks depend on it).
     std::vector<uint32_t> gone;
-    for (const auto& [i, p] : found->second)
+    for (const auto &[i, p] : found->second)
         gone.push_back(p);
     byObject_.erase(found);
     std::sort(gone.begin(), gone.end());
@@ -61,7 +61,7 @@ void ComHost::release(ComObject* object) {
     }
 }
 
-uint32_t ComHost::dispatch(const ComInterface& iface, int index, Cpu& c) {
+uint32_t ComHost::dispatch(const ComInterface &iface, int index, Cpu &c) {
     auto it = pointers_.find(c.arg(0));
     if (it == pointers_.end()) {
         c.abort(iface.name + "::" + iface.methods[size_t(index)].name + " called on something that isn't one");
@@ -71,7 +71,7 @@ uint32_t ComHost::dispatch(const ComInterface& iface, int index, Cpu& c) {
     switch (index) {
     case 0: { // QueryInterface(iid, out)
         const uint32_t out = c.arg(2);
-        const ComInterface* other = object->query(guid(c, c.arg(1)));
+        const ComInterface *other = object->query(guid(c, c.arg(1)));
         if (!other || !other->vtable) {
             if (c.valid(out, 4))
                 c.write32(out, 0);
@@ -81,8 +81,9 @@ uint32_t ComHost::dispatch(const ComInterface& iface, int index, Cpu& c) {
         c.write32(out, pointer(object, *other));
         return kSOk;
     }
-    case 1: return ++object->refs; // AddRef
-    case 2:                        // Release
+    case 1:
+        return ++object->refs; // AddRef
+    case 2:                    // Release
         if (object->refs > 0 && --object->refs == 0) {
             release(object.get());
             return 0;
@@ -99,7 +100,7 @@ uint32_t ComHost::dispatch(const ComInterface& iface, int index, Cpu& c) {
     }
 }
 
-std::string ComHost::guid(Cpu& c, uint32_t p) {
+std::string ComHost::guid(Cpu &c, uint32_t p) {
     if (!c.valid(p, 16))
         return "{}";
     char buf[40];
@@ -109,7 +110,7 @@ std::string ComHost::guid(Cpu& c, uint32_t p) {
     return buf;
 }
 
-void ComHost::writeGuid(Cpu& c, uint32_t p, const std::string& g) {
+void ComHost::writeGuid(Cpu &c, uint32_t p, const std::string &g) {
     // {xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
     if (g.size() != 38 || !c.valid(p, 16))
         return;

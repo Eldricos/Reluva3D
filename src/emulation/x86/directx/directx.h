@@ -23,7 +23,7 @@ namespace reluva::x86 {
 class DirectX {
 public:
     // Adds DDRAW.dll's functions to `process`.
-    explicit DirectX(Win32Process& process);
+    explicit DirectX(Win32Process &process);
     ~DirectX();
 
     // What's on the screen: the primary surface as of the last flip or
@@ -33,9 +33,9 @@ public:
         std::vector<uint32_t> pixels;
         uint64_t number = 0; // counts the frames shown
     };
-    const Frame& frame() const;
+    const Frame &frame() const;
     // Called each time a new frame is shown.
-    std::function<void(const Frame&)> presented;
+    std::function<void(const Frame &)> presented;
 
     // The display modes offered (width, height, bits per pixel); the
     // desktop's comes from the process.

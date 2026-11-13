@@ -8,17 +8,18 @@
 
 namespace reluva::audio {
 
-Mixer::Mixer(int outputRate) : outputRate_(std::max(outputRate, 1)) {}
+Mixer::Mixer(int outputRate) : outputRate_(std::max(outputRate, 1)) {
+}
 
-Mixer::Channel* Mixer::find(SoundHandle handle) {
-    for (Channel& c : channels_)
+Mixer::Channel *Mixer::find(SoundHandle handle) {
+    for (Channel &c : channels_)
         if (c.handle == handle && !c.done)
             return &c;
     return nullptr;
 }
 
-const Mixer::Channel* Mixer::find(SoundHandle handle) const {
-    for (const Channel& c : channels_)
+const Mixer::Channel *Mixer::find(SoundHandle handle) const {
+    for (const Channel &c : channels_)
         if (c.handle == handle && !c.done)
             return &c;
     return nullptr;
@@ -43,13 +44,14 @@ SoundHandle Mixer::play(std::shared_ptr<Stream> stream, SoundType type, int volu
     const SoundHandle handle = nextHandle_++;
     if (nextHandle_ == kNoSound)
         nextHandle_ = 1;
-    Channel c{handle, nullptr, std::move(stream), type, std::clamp(volume, 0, kMaxVolume),
-              std::clamp(pan, -kMaxPan, kMaxPan), false};
+    Channel c{
+        handle, nullptr, std::move(stream), type, std::clamp(volume, 0, kMaxVolume), std::clamp(pan, -kMaxPan, kMaxPan),
+        false};
     channels_.push_back(std::move(c));
     return handle;
 }
 
-void SoundStream::push(const int16_t* samples, size_t count) {
+void SoundStream::push(const int16_t *samples, size_t count) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (read_ > 0 && read_ * 2 >= samples_.size()) { // drop what's been taken
         samples_.erase(samples_.begin(), samples_.begin() + long(read_));
@@ -68,7 +70,8 @@ size_t SoundStream::queued() const {
     return (samples_.size() - read_) / size_t(channels_);
 }
 
-SoundHandle Mixer::playStream(std::shared_ptr<SoundStream> stream, SoundType type, int volume, int pan, int prebufferMs) {
+SoundHandle Mixer::playStream(std::shared_ptr<SoundStream> stream, SoundType type, int volume, int pan,
+                              int prebufferMs) {
     if (!stream || stream->rate() <= 0 || stream->channels() < 1 || stream->channels() > 2)
         return kNoSound;
     std::lock_guard<std::mutex> lock(mutex_);
@@ -85,20 +88,20 @@ SoundHandle Mixer::playStream(std::shared_ptr<SoundStream> stream, SoundType typ
 
 void Mixer::stop(SoundHandle handle) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->done = true;
 }
 
 void Mixer::stopType(SoundType type) {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (Channel& c : channels_)
+    for (Channel &c : channels_)
         if (c.type == type)
             c.done = true;
 }
 
 void Mixer::stopAll() {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (Channel& c : channels_)
+    for (Channel &c : channels_)
         c.done = true;
 }
 
@@ -109,30 +112,30 @@ bool Mixer::isPlaying(SoundHandle handle) const {
 
 bool Mixer::isTypePlaying(SoundType type) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return std::any_of(channels_.begin(), channels_.end(), [&](const Channel& c) { return c.type == type && !c.done; });
+    return std::any_of(channels_.begin(), channels_.end(), [&](const Channel &c) { return c.type == type && !c.done; });
 }
 
 double Mixer::position(SoundHandle handle) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    const Channel* c = find(handle);
+    const Channel *c = find(handle);
     return c ? c->position : 0;
 }
 
 void Mixer::setVolume(SoundHandle handle, int volume) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->volume = std::clamp(volume, 0, kMaxVolume);
 }
 
 void Mixer::setPaused(SoundHandle handle, bool paused) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->paused = paused;
 }
 
 bool Mixer::isPaused(SoundHandle handle) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    const Channel* c = find(handle);
+    const Channel *c = find(handle);
     return c && c->paused;
 }
 
@@ -148,7 +151,7 @@ bool Mixer::allPaused() const {
 
 void Mixer::setPan(SoundHandle handle, int pan) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (Channel* c = find(handle))
+    if (Channel *c = find(handle))
         c->pan = std::clamp(pan, -kMaxPan, kMaxPan);
 }
 
@@ -172,8 +175,8 @@ int Mixer::masterVolume() const {
     return masterVolume_;
 }
 
-void Mixer::mixSound(Channel& c, int frames, int64_t gain) {
-    const Sound& s = *c.sound;
+void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
+    const Sound &s = *c.sound;
     const size_t n = s.frames(), ch = size_t(s.channels);
     const double step = double(s.rate) / double(outputRate_);
     // A linear pan that keeps the louder side at full level.
@@ -203,7 +206,7 @@ void Mixer::mixSound(Channel& c, int frames, int64_t gain) {
     }
 }
 
-bool Mixer::readFrame(Stream& s, int16_t frame[2]) {
+bool Mixer::readFrame(Stream &s, int16_t frame[2]) {
     if (s.stereo())
         return s.read(frame, 2) == 2;
     const bool got = s.read(frame, 1) == 1;
@@ -211,8 +214,8 @@ bool Mixer::readFrame(Stream& s, int16_t frame[2]) {
     return got;
 }
 
-void Mixer::mixStream(Channel& c, int frames, int64_t gain) {
-    Stream& s = *c.stream;
+void Mixer::mixStream(Channel &c, int frames, int64_t gain) {
+    Stream &s = *c.stream;
     // In 16.16 fixed point: how far each output frame moves through the
     // stream's, and the gains (65536 is as recorded).
     const uint32_t step = uint32_t((uint64_t(s.rate()) << 16) / uint64_t(outputRate_));
@@ -244,8 +247,8 @@ void Mixer::mixStream(Channel& c, int frames, int64_t gain) {
 
 // A SoundStream's next frames, resampled as a sound's are; nothing while it
 // waits for enough to be queued.
-void Mixer::mixQueue(Channel& c, int frames, int64_t gain) {
-    SoundStream& s = *c.queue;
+void Mixer::mixQueue(Channel &c, int frames, int64_t gain) {
+    SoundStream &s = *c.queue;
     const int64_t gainL = c.pan > 0 ? gain * (kMaxPan - c.pan) / kMaxPan : gain;
     const int64_t gainR = c.pan < 0 ? gain * (kMaxPan + c.pan) / kMaxPan : gain;
     std::lock_guard<std::mutex> lock(s.mutex_);
@@ -257,7 +260,7 @@ void Mixer::mixQueue(Channel& c, int frames, int64_t gain) {
         c.waiting = false;
     }
     const double step = double(s.rate_) / double(outputRate_);
-    const int16_t* base = s.samples_.data() + s.read_;
+    const int16_t *base = s.samples_.data() + s.read_;
     auto sample = [&](size_t frame, size_t channel) { // the last frame held, once the stream has ended
         return double(base[std::min(frame, available - 1) * ch + channel]);
     };
@@ -282,12 +285,12 @@ void Mixer::mixQueue(Channel& c, int frames, int64_t gain) {
     c.position -= double(used);
 }
 
-void Mixer::mix(int16_t* out, int frames) {
+void Mixer::mix(int16_t *out, int frames) {
     if (frames <= 0)
         return;
     std::lock_guard<std::mutex> lock(mutex_);
     accumulator_.assign(size_t(frames) * 2, 0);
-    for (Channel& c : channels_) {
+    for (Channel &c : channels_) {
         if (c.done || c.paused || allPaused_)
             continue;
         // In 1/65536ths: the sound's volume x its type's x the master
@@ -304,12 +307,12 @@ void Mixer::mix(int16_t* out, int frames) {
     }
     for (size_t i = 0; i < accumulator_.size(); ++i)
         out[i] = int16_t(std::clamp<int32_t>(accumulator_[i], -32768, 32767));
-    channels_.erase(std::remove_if(channels_.begin(), channels_.end(), [](const Channel& c) { return c.done; }),
+    channels_.erase(std::remove_if(channels_.begin(), channels_.end(), [](const Channel &c) { return c.done; }),
                     channels_.end());
 }
 
-Error startMixerOutput(System& sys, Mixer& mixer) {
-    return sys.startAudio([&mixer](int16_t* out, int frames) { mixer.mix(out, frames); });
+Error startMixerOutput(System &sys, Mixer &mixer) {
+    return sys.startAudio([&mixer](int16_t *out, int frames) { mixer.mix(out, frames); });
 }
 
 } // namespace reluva::audio

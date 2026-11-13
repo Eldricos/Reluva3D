@@ -18,8 +18,12 @@ namespace {
 
 constexpr uint32_t kRgb = 0, kRle8 = 1, kBitfields = 3;
 
-uint16_t le16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
+uint16_t le16(const uint8_t *p) {
+    return uint16_t(p[0] | p[1] << 8);
+}
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+}
 
 int maskShift(uint32_t mask) {
     int shift = 0;
@@ -48,7 +52,7 @@ uint8_t extract(uint32_t pixel, uint32_t mask) {
     return uint8_t(v * 255 / ((1u << bits) - 1));
 }
 
-void decodeRle8(const uint8_t* p, const uint8_t* end, Surface& s, bool bottomUp) {
+void decodeRle8(const uint8_t *p, const uint8_t *end, Surface &s, bool bottomUp) {
     int x = 0, y = 0;
     auto put = [&](uint8_t color) {
         if (x < s.w && y < s.h)
@@ -90,11 +94,11 @@ void decodeRle8(const uint8_t* p, const uint8_t* end, Surface& s, bool bottomUp)
 
 // `info` is the BITMAPINFOHEADER; `pixels` where the pixels start (or
 // nullptr: straight after the palette).
-Error decodeInfo(const uint8_t* data, size_t size, size_t info, const uint8_t* pixels, Bitmap& out) {
+Error decodeInfo(const uint8_t *data, size_t size, size_t info, const uint8_t *pixels, Bitmap &out) {
     out = Bitmap{};
     if (info + 40 > size)
         return Error::fail("BMP: too short for its header");
-    const uint8_t* h = data + info;
+    const uint8_t *h = data + info;
     const uint32_t headerSize = le32(h);
     if (headerSize < 40)
         return Error::fail("BMP: an OS/2 bitmap (header of " + std::to_string(headerSize) + " bytes)");
@@ -146,7 +150,7 @@ Error decodeInfo(const uint8_t* data, size_t size, size_t info, const uint8_t* p
     }
     if (!pixels)
         pixels = data + std::min(paletteAt, size);
-    const uint8_t* end = data + size;
+    const uint8_t *end = data + size;
     if (pixels > end)
         return Error::fail("BMP: its pixels are past its end");
 
@@ -157,29 +161,35 @@ Error decodeInfo(const uint8_t* data, size_t size, size_t info, const uint8_t* p
 
     const size_t pitch = (size_t(width) * size_t(bits) + 31) / 32 * 4;
     for (int y = 0; y < height; ++y) {
-        const uint8_t* row = pixels + size_t(y) * pitch;
+        const uint8_t *row = pixels + size_t(y) * pitch;
         if (row + pitch > end)
             return Error::fail("BMP: its pixels end early");
-        uint8_t* dst = out.surface.row(bottomUp ? height - 1 - y : y);
+        uint8_t *dst = out.surface.row(bottomUp ? height - 1 - y : y);
         for (int x = 0; x < width; ++x) {
             switch (bits) {
-            case 1: dst[x] = (row[x >> 3] >> (7 - (x & 7))) & 1; break;
-            case 4: dst[x] = (row[x >> 1] >> ((x & 1) ? 0 : 4)) & 0xF; break;
-            case 8: dst[x] = row[x]; break;
+            case 1:
+                dst[x] = (row[x >> 3] >> (7 - (x & 7))) & 1;
+                break;
+            case 4:
+                dst[x] = (row[x >> 1] >> ((x & 1) ? 0 : 4)) & 0xF;
+                break;
+            case 8:
+                dst[x] = row[x];
+                break;
             case 16: {
                 const uint32_t p = le16(row + x * 2);
-                uint8_t* d = dst + x * 4;
+                uint8_t *d = dst + x * 4;
                 d[0] = extract(p, rMask), d[1] = extract(p, gMask), d[2] = extract(p, bMask), d[3] = 255;
                 break;
             }
             case 24: {
-                uint8_t* d = dst + x * 4;
+                uint8_t *d = dst + x * 4;
                 d[0] = row[x * 3 + 2], d[1] = row[x * 3 + 1], d[2] = row[x * 3], d[3] = 255;
                 break;
             }
             default: { // 32
                 const uint32_t p = le32(row + x * 4);
-                uint8_t* d = dst + x * 4;
+                uint8_t *d = dst + x * 4;
                 d[0] = extract(p, rMask), d[1] = extract(p, gMask), d[2] = extract(p, bMask), d[3] = 255;
                 break;
             }
@@ -191,7 +201,7 @@ Error decodeInfo(const uint8_t* data, size_t size, size_t info, const uint8_t* p
 
 } // namespace
 
-Error decodeBmp(const uint8_t* data, size_t size, Bitmap& out) {
+Error decodeBmp(const uint8_t *data, size_t size, Bitmap &out) {
     if (size < 14 || data[0] != 'B' || data[1] != 'M') {
         out = Bitmap{};
         return Error::fail("not a BMP file");
@@ -204,6 +214,8 @@ Error decodeBmp(const uint8_t* data, size_t size, Bitmap& out) {
     return decodeInfo(data, size, 14, data + offset, out);
 }
 
-Error decodeDib(const uint8_t* data, size_t size, Bitmap& out) { return decodeInfo(data, size, 0, nullptr, out); }
+Error decodeDib(const uint8_t *data, size_t size, Bitmap &out) {
+    return decodeInfo(data, size, 0, nullptr, out);
+}
 
 } // namespace reluva::image

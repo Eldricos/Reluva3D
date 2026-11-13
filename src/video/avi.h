@@ -45,15 +45,15 @@ public:
     // decoded.
     bool decodeNextFrame();
     // A frame's bytes as stored (for another codec than Cinepak).
-    bool readFrame(int index, std::vector<uint8_t>& out);
+    bool readFrame(int index, std::vector<uint8_t> &out);
     // The picture so far (RGBA32, opaque); empty unless canDecode().
-    const Surface& surface() const;
+    const Surface &surface() const;
 
     // The soundtrack, as stored (PCM: little-endian when 16-bit, unsigned
     // when 8-bit, interleaved when stereo); empty when there's none, or
     // when it isn't PCM.
     bool hasAudio() const { return !audio_.empty(); }
-    const std::vector<uint8_t>& audio() const { return audio_; }
+    const std::vector<uint8_t> &audio() const { return audio_; }
     int audioRate() const { return audioRate_; }
     int audioChannels() const { return audioChannels_; }
     int audioBits() const { return audioBits_; }

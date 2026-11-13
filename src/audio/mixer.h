@@ -28,7 +28,7 @@ constexpr int kMaxVolume = 256; // volumes run 0 (silent) .. 256 (as recorded)
 // The player's volumes (the master volume and each type's) go up to twice
 // as loud; kMaxVolume, the default, plays sounds as they were recorded.
 constexpr int kMaxBoostVolume = 2 * kMaxVolume;
-constexpr int kMaxPan = 127;    // pan runs -127 (left) .. 127 (right)
+constexpr int kMaxPan = 127; // pan runs -127 (left) .. 127 (right)
 
 // Sound made as it plays (a program filling a buffer as it's heard): its
 // producer adds samples, the mixer takes them. Unlike a QueuingStream
@@ -42,7 +42,7 @@ public:
     int rate() const { return rate_; }
     int channels() const { return channels_; }
     // Adds interleaved samples (whole frames).
-    void push(const int16_t* samples, size_t count);
+    void push(const int16_t *samples, size_t count);
     // No more will come: the stream ends once what's queued has played.
     void end();
     // Frames queued.
@@ -112,7 +112,7 @@ public:
 
     // Fills `frames` stereo frames (interleaved signed 16-bit) with every
     // playing sound; silence when none is. The System's audio callback.
-    void mix(int16_t* out, int frames);
+    void mix(int16_t *out, int frames);
 
 private:
     struct Channel {
@@ -133,12 +133,12 @@ private:
         size_t prebuffer = 0; // frames it waits for
         bool waiting = true;  // it has run dry
     };
-    void mixSound(Channel& c, int frames, int64_t gain);
-    void mixStream(Channel& c, int frames, int64_t gain);
-    void mixQueue(Channel& c, int frames, int64_t gain);
-    static bool readFrame(Stream& s, int16_t frame[2]);
-    Channel* find(SoundHandle handle);
-    const Channel* find(SoundHandle handle) const;
+    void mixSound(Channel &c, int frames, int64_t gain);
+    void mixStream(Channel &c, int frames, int64_t gain);
+    void mixQueue(Channel &c, int frames, int64_t gain);
+    static bool readFrame(Stream &s, int16_t frame[2]);
+    Channel *find(SoundHandle handle);
+    const Channel *find(SoundHandle handle) const;
 
     const int outputRate_;
     mutable std::mutex mutex_;
@@ -152,6 +152,6 @@ private:
 
 // Starts the System's audio output with the mixer as its source. The mixer
 // must outlive the output: call sys.stopAudio() before destroying it.
-Error startMixerOutput(System& sys, Mixer& mixer);
+Error startMixerOutput(System &sys, Mixer &mixer);
 
 } // namespace reluva::audio

@@ -7,8 +7,8 @@
 
 namespace reluva {
 
-static std::string trim(const std::string& s) {
-    const char* ws = " \t\r\n";
+static std::string trim(const std::string &s) {
+    const char *ws = " \t\r\n";
     size_t b = s.find_first_not_of(ws);
     if (b == std::string::npos)
         return {};
@@ -16,7 +16,7 @@ static std::string trim(const std::string& s) {
     return s.substr(b, e - b + 1);
 }
 
-Error Config::load(const std::filesystem::path& path) {
+Error Config::load(const std::filesystem::path &path) {
     path_ = path;
     sections_.clear();
 
@@ -46,17 +46,16 @@ Error Config::save() const {
     std::ofstream out(path_, std::ios::trunc);
     if (!out)
         return Error::fail("Cannot write " + path_.string());
-    for (const auto& [name, values] : sections_) {
+    for (const auto &[name, values] : sections_) {
         out << '[' << name << "]\n";
-        for (const auto& [k, v] : values)
+        for (const auto &[k, v] : values)
             out << k << '=' << v << '\n';
         out << '\n';
     }
     return out ? Error::success() : Error::fail("Error writing " + path_.string());
 }
 
-std::string Config::get(const std::string& section, const std::string& key,
-                        const std::string& fallback) const {
+std::string Config::get(const std::string &section, const std::string &key, const std::string &fallback) const {
     auto s = sections_.find(section);
     if (s == sections_.end())
         return fallback;
@@ -64,44 +63,48 @@ std::string Config::get(const std::string& section, const std::string& key,
     return v == s->second.end() ? fallback : v->second;
 }
 
-void Config::set(const std::string& section, const std::string& key, const std::string& value) {
+void Config::set(const std::string &section, const std::string &key, const std::string &value) {
     sections_[section][key] = value;
 }
 
-void Config::unset(const std::string& section, const std::string& key) {
+void Config::unset(const std::string &section, const std::string &key) {
     const auto it = sections_.find(section);
     if (it != sections_.end())
         it->second.erase(key);
 }
 
-bool Config::has(const std::string& section, const std::string& key) const {
+bool Config::has(const std::string &section, const std::string &key) const {
     const auto it = sections_.find(section);
     return it != sections_.end() && it->second.count(key) != 0;
 }
 
-bool Config::hasSection(const std::string& section) const { return sections_.count(section) != 0; }
+bool Config::hasSection(const std::string &section) const {
+    return sections_.count(section) != 0;
+}
 
-void Config::removeSection(const std::string& section) { sections_.erase(section); }
+void Config::removeSection(const std::string &section) {
+    sections_.erase(section);
+}
 
-std::map<std::string, std::string> Config::values(const std::string& section) const {
+std::map<std::string, std::string> Config::values(const std::string &section) const {
     const auto it = sections_.find(section);
     return it == sections_.end() ? std::map<std::string, std::string>{} : it->second;
 }
 
-std::map<std::string, std::string> Config::settingsFor(const std::string& target) const {
+std::map<std::string, std::string> Config::settingsFor(const std::string &target) const {
     std::map<std::string, std::string> out = values(kGlobalSection);
     const std::string engine = get(target, "engine");
     if (!engine.empty())
-        for (const auto& [k, v] : values(engineSection(engine)))
+        for (const auto &[k, v] : values(engineSection(engine)))
             out[k] = v;
-    for (const auto& [k, v] : values(target))
+    for (const auto &[k, v] : values(target))
         out[k] = v;
     return out;
 }
 
 std::vector<std::string> Config::targets() const {
     std::vector<std::string> out;
-    for (const auto& [name, values] : sections_)
+    for (const auto &[name, values] : sections_)
         if (name != kGlobalSection && !isEngineSection(name))
             out.push_back(name);
     return out;

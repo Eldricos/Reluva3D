@@ -12,7 +12,7 @@
 
 namespace reluva::video {
 
-Error playMovie(System& sys, audio::Mixer* mixer, const std::filesystem::path& file, bool& quit) {
+Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &file, bool &quit) {
     quit = false;
     std::vector<uint8_t> data;
     if (!readFile(file, data))
@@ -42,7 +42,7 @@ Error playMovie(System& sys, audio::Mixer* mixer, const std::filesystem::path& f
         pcm->rate = avi.audioRate();
         pcm->channels = avi.audioChannels();
         pcm->format = 1;
-        const std::vector<uint8_t>& bytes = avi.audio();
+        const std::vector<uint8_t> &bytes = avi.audio();
         pcm->samples.resize(bytes.size() / 2 / size_t(pcm->channels) * size_t(pcm->channels));
         std::memcpy(pcm->samples.data(), bytes.data(), pcm->samples.size() * 2);
     }

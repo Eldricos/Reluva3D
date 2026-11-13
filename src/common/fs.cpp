@@ -38,7 +38,9 @@ std::string normalizeDosPath(std::string_view path) {
 }
 
 bool windowsNameLess(std::string_view a, std::string_view b) {
-    auto upper = [](char c) { return c >= 'a' && c <= 'z' ? static_cast<unsigned char>(c - 'a' + 'A') : static_cast<unsigned char>(c); };
+    auto upper = [](char c) {
+        return c >= 'a' && c <= 'z' ? static_cast<unsigned char>(c - 'a' + 'A') : static_cast<unsigned char>(c);
+    };
     const size_t n = std::min(a.size(), b.size());
     for (size_t i = 0; i < n; ++i)
         if (upper(a[i]) != upper(b[i]))
@@ -56,7 +58,7 @@ std::string_view withoutIsoVersion(std::string_view name) {
     return name.substr(0, semi);
 }
 
-static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::string& lowerName) {
+static std::optional<stdfs::path> findEntry(const stdfs::path &dir, const std::string &lowerName) {
     std::error_code ec;
     std::optional<stdfs::path> versioned; // "name;1", from a CD, if there's no plain "name"
     for (stdfs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
@@ -69,7 +71,7 @@ static std::optional<stdfs::path> findEntry(const stdfs::path& dir, const std::s
     return versioned;
 }
 
-static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_view relative) {
+static std::optional<stdfs::path> findPath(const stdfs::path &dir, std::string_view relative) {
     stdfs::path current = dir;
     size_t start = 0;
     while (start <= relative.size()) {
@@ -88,7 +90,7 @@ static std::optional<stdfs::path> findPath(const stdfs::path& dir, std::string_v
     return current;
 }
 
-std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view relative) {
+std::optional<stdfs::path> findFile(const stdfs::path &dir, std::string_view relative) {
     auto found = findPath(dir, relative);
     std::error_code ec;
     if (!found || !stdfs::is_regular_file(*found, ec))
@@ -96,7 +98,7 @@ std::optional<stdfs::path> findFile(const stdfs::path& dir, std::string_view rel
     return found;
 }
 
-std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_view relative) {
+std::optional<stdfs::path> findDirectory(const stdfs::path &dir, std::string_view relative) {
     auto found = findPath(dir, relative);
     std::error_code ec;
     if (!found || !stdfs::is_directory(*found, ec))
@@ -104,7 +106,7 @@ std::optional<stdfs::path> findDirectory(const stdfs::path& dir, std::string_vie
     return found;
 }
 
-std::optional<std::string> md5File(const stdfs::path& file, uint64_t maxBytes) {
+std::optional<std::string> md5File(const stdfs::path &file, uint64_t maxBytes) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
         return std::nullopt;

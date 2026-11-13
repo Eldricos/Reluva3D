@@ -35,19 +35,19 @@ SystemTime now() {
     return {tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_wday, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec};
 }
 
-SystemTime readSystemTime(Cpu& c, uint32_t p) {
-    return {c.read16(p), c.read16(p + 2), c.read16(p + 4), c.read16(p + 6),
+SystemTime readSystemTime(Cpu &c, uint32_t p) {
+    return {c.read16(p),     c.read16(p + 2),  c.read16(p + 4), c.read16(p + 6),
             c.read16(p + 8), c.read16(p + 10), c.read16(p + 12)};
 }
 
-const char* const kDays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-const char* const kMonths[] = {"January", "February", "March",     "April",   "May",      "June",
+const char *const kDays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+const char *const kMonths[] = {"January", "February", "March",     "April",   "May",      "June",
                                "July",    "August",   "September", "October", "November", "December"};
 
 // A date or time picture (English (United States)'s names): d dd ddd dddd,
 // M MM MMM MMMM, y yy yyyy, h hh H HH, m mm, s ss, t tt, and text in
 // single quotes.
-std::string formatPicture(const std::string& picture, const SystemTime& t) {
+std::string formatPicture(const std::string &picture, const SystemTime &t) {
     std::string out;
     auto number = [&](int v, int width) {
         char buf[16];
@@ -88,12 +88,24 @@ std::string formatPicture(const std::string& picture, const SystemTime& t) {
             else
                 number(t.year, 4);
             break;
-        case 'h': number(hour12, std::min(count, 2)); break;
-        case 'H': number(t.hour, std::min(count, 2)); break;
-        case 'm': number(t.minute, std::min(count, 2)); break;
-        case 's': number(t.second, std::min(count, 2)); break;
-        case 't': out += count == 1 ? (t.hour < 12 ? "A" : "P") : (t.hour < 12 ? "AM" : "PM"); break;
-        default: out.append(n, ch); break;
+        case 'h':
+            number(hour12, std::min(count, 2));
+            break;
+        case 'H':
+            number(t.hour, std::min(count, 2));
+            break;
+        case 'm':
+            number(t.minute, std::min(count, 2));
+            break;
+        case 's':
+            number(t.second, std::min(count, 2));
+            break;
+        case 't':
+            out += count == 1 ? (t.hour < 12 ? "A" : "P") : (t.hour < 12 ? "AM" : "PM");
+            break;
+        default:
+            out.append(n, ch);
+            break;
         }
         i += n;
     }
@@ -103,10 +115,10 @@ std::string formatPicture(const std::string& picture, const SystemTime& t) {
 } // namespace
 
 void Win32Process::addSystemStandIns() {
-    const char* k = "KERNEL32.dll";
+    const char *k = "KERNEL32.dll";
 
     // A Pentium II-class single processor, 4 KB pages.
-    stdcall(k, "GetSystemInfo", 1, [](Cpu& c) {
+    stdcall(k, "GetSystemInfo", 1, [](Cpu &c) {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 36))
             return 0u;
@@ -122,7 +134,7 @@ void Win32Process::addSystemStandIns() {
         return 0u;
     });
     // 256 MB of memory, as much free as the process's memory has.
-    stdcall(k, "GlobalMemoryStatus", 1, [this](Cpu& c) {
+    stdcall(k, "GlobalMemoryStatus", 1, [this](Cpu &c) {
         const uint32_t p = c.arg(0);
         if (!c.valid(p, 32))
             return 0u;
@@ -137,7 +149,7 @@ void Win32Process::addSystemStandIns() {
         c.write32(p + 28, free);
         return 0u;
     });
-    stdcall(k, "GetComputerNameA", 2, [this](Cpu& c) {
+    stdcall(k, "GetComputerNameA", 2, [this](Cpu &c) {
         static const std::string kName = "RELUVA";
         const uint32_t buffer = c.arg(0), size = c.arg(1);
         if (!c.valid(size, 4))
@@ -153,7 +165,7 @@ void Win32Process::addSystemStandIns() {
     });
     // a × b ÷ c with a 64-bit product, rounded half away from zero; -1 if c
     // is 0 or the result doesn't fit.
-    stdcall(k, "MulDiv", 3, [](Cpu& c) {
+    stdcall(k, "MulDiv", 3, [](Cpu &c) {
         const int64_t a = int32_t(c.arg(0)), b = int32_t(c.arg(1)), d = int32_t(c.arg(2));
         if (d == 0)
             return 0xffffffffu;
@@ -165,14 +177,14 @@ void Win32Process::addSystemStandIns() {
 
     // Timing: the performance counter counts microseconds (at the
     // milliseconds' resolution).
-    stdcall(k, "QueryPerformanceFrequency", 1, [](Cpu& c) {
+    stdcall(k, "QueryPerformanceFrequency", 1, [](Cpu &c) {
         if (!c.valid(c.arg(0), 8))
             return 0u;
         c.write32(c.arg(0), 1000000);
         c.write32(c.arg(0) + 4, 0);
         return 1u;
     });
-    stdcall(k, "QueryPerformanceCounter", 1, [this](Cpu& c) {
+    stdcall(k, "QueryPerformanceCounter", 1, [this](Cpu &c) {
         if (!c.valid(c.arg(0), 8))
             return 0u;
         const uint64_t us = uint64_t(milliseconds()) * 1000;
@@ -182,7 +194,7 @@ void Win32Process::addSystemStandIns() {
     });
     // Sleep: a thread gives way for that long; the main thread lets the
     // threads that are due have their turn.
-    stdcall(k, "Sleep", 1, [this](Cpu& c) {
+    stdcall(k, "Sleep", 1, [this](Cpu &c) {
         if (inThread()) {
             threadSleep(c.arg(0));
         } else {
@@ -193,29 +205,29 @@ void Win32Process::addSystemStandIns() {
     });
 
     // Synchronisation, for one thread.
-    stdcall(k, "InitializeCriticalSection", 1, [](Cpu& c) {
+    stdcall(k, "InitializeCriticalSection", 1, [](Cpu &c) {
         if (c.valid(c.arg(0), 24))
             std::memset(c.memory().data() + c.arg(0), 0, 24);
         return 0u;
     });
-    for (const char* name : {"EnterCriticalSection", "LeaveCriticalSection", "DeleteCriticalSection"})
-        stdcall(k, name, 1, [](Cpu&) { return 0u; });
+    for (const char *name : {"EnterCriticalSection", "LeaveCriticalSection", "DeleteCriticalSection"})
+        stdcall(k, name, 1, [](Cpu &) { return 0u; });
     // CreateEventA(attributes, manual reset, initially set, name).
-    stdcall(k, "CreateEventA", 4, [this](Cpu& c) {
+    stdcall(k, "CreateEventA", 4, [this](Cpu &c) {
         const uint32_t handle = kEventHandles + nextEvent_++;
         events_[handle] = {c.arg(1) != 0, c.arg(2) != 0, false};
         return handle;
     });
-    stdcall(k, "SetEvent", 1, [this](Cpu& c) {
+    stdcall(k, "SetEvent", 1, [this](Cpu &c) {
         setEvent(c.arg(0));
         return 1u;
     });
-    stdcall(k, "ResetEvent", 1, [this](Cpu& c) {
+    stdcall(k, "ResetEvent", 1, [this](Cpu &c) {
         if (auto it = events_.find(c.arg(0)); it != events_.end())
             it->second.set = false;
         return 1u;
     });
-    stdcall(k, "WaitForSingleObject", 2, [this](Cpu& c) {
+    stdcall(k, "WaitForSingleObject", 2, [this](Cpu &c) {
         auto it = events_.find(c.arg(0));
         if (it == events_.end() || !it->second.tracked)
             return 0u; // WAIT_OBJECT_0
@@ -229,7 +241,7 @@ void Win32Process::addSystemStandIns() {
     // GetDateFormatA and GetTimeFormatA (locale, flags, time or 0 for now,
     // picture or 0 for the default, buffer, its size): the characters
     // written with the terminator, or with a size of 0 those needed.
-    auto formatted = [this](Cpu& c, const std::string& text) {
+    auto formatted = [this](Cpu &c, const std::string &text) {
         const uint32_t buffer = c.arg(4), size = c.arg(5);
         const uint32_t n = uint32_t(text.size() + 1);
         if (size == 0)
@@ -241,24 +253,24 @@ void Win32Process::addSystemStandIns() {
         c.writeString(buffer, text, n);
         return n;
     };
-    stdcall(k, "GetDateFormatA", 6, [formatted](Cpu& c) {
+    stdcall(k, "GetDateFormatA", 6, [formatted](Cpu &c) {
         const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
-        const std::string picture = c.arg(3) ? c.string(c.arg(3))
-                                  : (c.arg(1) & 2)  ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
-                                                    : "M/d/yyyy";
+        const std::string picture = c.arg(3)         ? c.string(c.arg(3))
+                                    : (c.arg(1) & 2) ? "dddd, MMMM dd, yyyy" // DATE_LONGDATE
+                                                     : "M/d/yyyy";
         return formatted(c, formatPicture(picture, t));
     });
-    stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu& c) {
+    stdcall(k, "GetTimeFormatA", 6, [formatted](Cpu &c) {
         const SystemTime t = c.arg(2) ? readSystemTime(c, c.arg(2)) : now();
         const uint32_t flags = c.arg(1);
         std::string picture;
         if (c.arg(3)) {
             picture = c.string(c.arg(3));
         } else {
-            picture = flags & 8 ? "H" : "h"; // TIME_FORCE24HOURFORMAT
-            if (!(flags & 1))                // TIME_NOMINUTESORSECONDS
+            picture = flags & 8 ? "H" : "h";             // TIME_FORCE24HOURFORMAT
+            if (!(flags & 1))                            // TIME_NOMINUTESORSECONDS
                 picture += flags & 2 ? ":mm" : ":mm:ss"; // TIME_NOSECONDS
-            if (!(flags & 4) && !(flags & 8)) // TIME_NOTIMEMARKER
+            if (!(flags & 4) && !(flags & 8))            // TIME_NOTIMEMARKER
                 picture += " tt";
         }
         return formatted(c, formatPicture(picture, t));

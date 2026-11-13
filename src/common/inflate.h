@@ -16,7 +16,7 @@ namespace reluva {
 // `data` it took (up to the end of the byte its last bit is in): for
 // streams laid end to end with nothing to say where each ends, as a Wise
 // installer's. Fails on damaged data or past `maxSize` bytes out.
-Error inflateStream(const uint8_t* data, size_t dataSize, std::vector<uint8_t>& out, size_t& consumed,
+Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &out, size_t &consumed,
                     size_t maxSize = size_t(1) << 31);
 
 } // namespace reluva

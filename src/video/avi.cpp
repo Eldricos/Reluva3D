@@ -111,11 +111,11 @@ bool Decoder::readList(uint32_t end, int depth) {
     return true;
 }
 
-bool Decoder::readFrame(int index, std::vector<uint8_t>& out) {
+bool Decoder::readFrame(int index, std::vector<uint8_t> &out) {
     out.clear();
     if (!stream_ || index < 0 || index >= frameCount())
         return false;
-    const Chunk& chunk = frames_[size_t(index)];
+    const Chunk &chunk = frames_[size_t(index)];
     out.resize(chunk.size);
     if (!chunk.size)
         return true;
@@ -133,7 +133,7 @@ bool Decoder::decodeNextFrame() {
     return true;
 }
 
-const Surface& Decoder::surface() const {
+const Surface &Decoder::surface() const {
     static const Surface kEmpty;
     return cinepak_ ? cinepak_->surface() : kEmpty;
 }

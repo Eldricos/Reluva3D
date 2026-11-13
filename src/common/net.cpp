@@ -21,7 +21,7 @@ std::string Address::toString() const {
     return buf;
 }
 
-std::pair<std::string, uint16_t> splitHostPort(const std::string& text, uint16_t defaultPort) {
+std::pair<std::string, uint16_t> splitHostPort(const std::string &text, uint16_t defaultPort) {
     const size_t colon = text.rfind(':');
     if (colon == std::string::npos)
         return {text, defaultPort};
@@ -29,7 +29,7 @@ std::pair<std::string, uint16_t> splitHostPort(const std::string& text, uint16_t
     return {text.substr(0, colon), port > 0 && port < 65536 ? uint16_t(port) : defaultPort};
 }
 
-bool parseAddress(const std::string& text, uint16_t defaultPort, Address& out) {
+bool parseAddress(const std::string &text, uint16_t defaultPort, Address &out) {
     const auto [host, port] = splitHostPort(text, defaultPort);
     uint32_t ip = 0;
     int parts = 0;
@@ -68,10 +68,10 @@ public:
         queue_->datagrams.clear();
     }
     uint16_t port() const override { return port_; }
-    bool send(const Address& to, const std::vector<uint8_t>& data) override {
+    bool send(const Address &to, const std::vector<uint8_t> &data) override {
         return network_->deliver({0x7f000001u, port_}, to, data);
     }
-    bool receive(Address& from, std::vector<uint8_t>& data) override {
+    bool receive(Address &from, std::vector<uint8_t> &data) override {
         if (queue_->datagrams.empty())
             return false;
         from = queue_->datagrams.front().first;
@@ -89,7 +89,7 @@ private:
 std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
     auto taken = [&](uint16_t p) {
         return std::any_of(queues_.begin(), queues_.end(),
-                           [&](const auto& q) { return q.first == p && q.second->open; });
+                           [&](const auto &q) { return q.first == p && q.second->open; });
     };
     if (port == 0) {
         port = 27960;
@@ -99,7 +99,7 @@ std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
         return nullptr;
     }
     std::shared_ptr<Queue> queue;
-    for (auto& [p, q] : queues_)
+    for (auto &[p, q] : queues_)
         if (p == port)
             queue = q;
     if (!queue) {
@@ -110,15 +110,17 @@ std::unique_ptr<UdpSocket> LoopbackNetwork::open(uint16_t port) {
     return std::make_unique<Socket>(shared_from_this(), port, queue);
 }
 
-void LoopbackNetwork::setDropFilter(bool (*drop)(const Address&, const Address&, size_t)) { drop_ = drop; }
+void LoopbackNetwork::setDropFilter(bool (*drop)(const Address &, const Address &, size_t)) {
+    drop_ = drop;
+}
 
-bool LoopbackNetwork::deliver(const Address& from, const Address& to, const std::vector<uint8_t>& data) {
+bool LoopbackNetwork::deliver(const Address &from, const Address &to, const std::vector<uint8_t> &data) {
     const size_t index = sent_++;
     if (to.ip != 0xffffffffu && !to.isLoopback())
         return true; // nowhere to go, as a datagram to nobody
     if (drop_ && drop_(from, to, index))
         return true;
-    for (auto& [port, queue] : queues_)
+    for (auto &[port, queue] : queues_)
         if (port == to.port && queue->open && !(to.ip == 0xffffffffu && port == from.port))
             queue->datagrams.emplace_back(from, data);
     return true;

@@ -13,9 +13,9 @@ namespace reluva::audio {
 
 // Decodes a sound file of any format audio reads, chosen by its
 // contents: RIFF WAVE (wav.h), else MP3 (mp3.h).
-Error decodeSound(const std::vector<uint8_t>& data, Sound& out);
+Error decodeSound(const std::vector<uint8_t> &data, Sound &out);
 
 // A short name for a Sound's source format: "PCM", "IMA ADPCM", "MP3", ...
-const char* formatName(int format);
+const char *formatName(int format);
 
 } // namespace reluva::audio

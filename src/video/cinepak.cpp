@@ -10,11 +10,19 @@ namespace reluva::cinepak {
 
 namespace {
 
-uint32_t be16(const uint8_t* p) { return uint32_t(p[0]) << 8 | p[1]; }
-uint32_t be24(const uint8_t* p) { return uint32_t(p[0]) << 16 | uint32_t(p[1]) << 8 | p[2]; }
-uint32_t be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | be24(p + 1); }
+uint32_t be16(const uint8_t *p) {
+    return uint32_t(p[0]) << 8 | p[1];
+}
+uint32_t be24(const uint8_t *p) {
+    return uint32_t(p[0]) << 16 | uint32_t(p[1]) << 8 | p[2];
+}
+uint32_t be32(const uint8_t *p) {
+    return uint32_t(p[0]) << 24 | be24(p + 1);
+}
 
-uint8_t clip(int v) { return uint8_t(v < 0 ? 0 : v > 255 ? 255 : v); }
+uint8_t clip(int v) {
+    return uint8_t(v < 0 ? 0 : v > 255 ? 255 : v);
+}
 
 } // namespace
 
@@ -23,10 +31,10 @@ Decoder::Decoder(int width, int height) : width_(width), height_(height) {
     for (size_t i = 3; i < picture_.pixels.size(); i += 4)
         picture_.pixels[i] = 255;
     strips_.resize(1);
-    std::memset(static_cast<void*>(strips_.data()), 0, sizeof(Strip));
+    std::memset(static_cast<void *>(strips_.data()), 0, sizeof(Strip));
 }
 
-void Decoder::decodeCodebook(Cell* codebook, int chunk, const uint8_t* data, const uint8_t* end) {
+void Decoder::decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, const uint8_t *end) {
     // Greyscale codebooks (0x04) have no colour bytes; partial ones (0x01)
     // say which entries change with a bit each, in 32-bit words.
     const int n = (chunk & 0x04) ? 4 : 6;
@@ -46,7 +54,7 @@ void Decoder::decodeCodebook(Cell* codebook, int chunk, const uint8_t* data, con
         }
         if (data + n > end)
             return;
-        Cell& cell = codebook[i];
+        Cell &cell = codebook[i];
         for (int j = 0; j < 4; ++j)
             cell.y[j] = *data++;
         if (n == 6) {
@@ -58,12 +66,12 @@ void Decoder::decodeCodebook(Cell* codebook, int chunk, const uint8_t* data, con
     }
 }
 
-bool Decoder::decodeVectors(const Strip& strip, int chunk, int top, int bottom, const uint8_t* data,
-                            const uint8_t* end) {
+bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, const uint8_t *data,
+                            const uint8_t *end) {
     // 0x30: every block coded, a bit each for V1 or V4. 0x31: a bit for
     // skipped or coded first. 0x32: every block V1.
     uint32_t flags = 0, mask = 0;
-    auto nextBit = [&](bool& bit) {
+    auto nextBit = [&](bool &bit) {
         mask >>= 1;
         if (!mask) {
             if (data + 4 > end)
@@ -76,11 +84,11 @@ bool Decoder::decodeVectors(const Strip& strip, int chunk, int top, int bottom, 
         return true;
     };
     // Cinepak's YUV: R = Y + 2V, G = Y - U/2 - V, B = Y + 2U.
-    auto put = [&](int x, int y, const Cell& cell, int i) {
+    auto put = [&](int x, int y, const Cell &cell, int i) {
         if (x >= width_ || y >= bottom)
             return;
         const int luma = cell.y[i];
-        uint8_t* p = picture_.row(y) + size_t(x) * 4;
+        uint8_t *p = picture_.row(y) + size_t(x) * 4;
         p[0] = clip(luma + 2 * cell.v);
         p[1] = clip(luma - cell.u / 2 - cell.v);
         p[2] = clip(luma + 2 * cell.u);
@@ -105,7 +113,7 @@ bool Decoder::decodeVectors(const Strip& strip, int chunk, int top, int bottom, 
             if (!v4) {
                 if (data + 1 > end)
                     return false;
-                const Cell& cell = strip.v1[*data++];
+                const Cell &cell = strip.v1[*data++];
                 for (int i = 0; i < 4; ++i) {
                     const int cx = x + (i & 1) * 2, cy = y + (i >> 1) * 2;
                     put(cx, cy, cell, i);
@@ -117,7 +125,7 @@ bool Decoder::decodeVectors(const Strip& strip, int chunk, int top, int bottom, 
                 if (data + 4 > end)
                     return false;
                 for (int q = 0; q < 4; ++q) {
-                    const Cell& cell = strip.v4[*data++];
+                    const Cell &cell = strip.v4[*data++];
                     const int cx = x + (q & 1) * 2, cy = y + (q >> 1) * 2;
                     for (int i = 0; i < 4; ++i)
                         put(cx + (i & 1), cy + (i >> 1), cell, i);
@@ -128,12 +136,12 @@ bool Decoder::decodeVectors(const Strip& strip, int chunk, int top, int bottom, 
     return true;
 }
 
-bool Decoder::decode(const uint8_t* data, uint32_t size) {
+bool Decoder::decode(const uint8_t *data, uint32_t size) {
     if (size == 0)
         return true; // a dropped frame: the last one stays up
     if (size < 10)
         return false;
-    const uint8_t* end = data + size;
+    const uint8_t *end = data + size;
     const uint8_t frameFlags = data[0];
     const int strips = int(be16(data + 8));
     data += 10;
@@ -141,7 +149,7 @@ bool Decoder::decode(const uint8_t* data, uint32_t size) {
     if (int(strips_.size()) < strips) {
         const size_t old = strips_.size();
         strips_.resize(size_t(strips));
-        std::memset(static_cast<void*>(&strips_[old]), 0, (size_t(strips) - old) * sizeof(Strip));
+        std::memset(static_cast<void *>(&strips_[old]), 0, (size_t(strips) - old) * sizeof(Strip));
     }
 
     int y0 = 0;
@@ -158,10 +166,10 @@ bool Decoder::decode(const uint8_t* data, uint32_t size) {
         }
         if (stripSize < 12 || data + stripSize > end)
             stripSize = uint32_t(end - data);
-        const uint8_t* stripEnd = data + stripSize;
+        const uint8_t *stripEnd = data + stripSize;
         data += 12;
 
-        Strip& strip = strips_[size_t(i)];
+        Strip &strip = strips_[size_t(i)];
         if (i > 0 && !(frameFlags & 0x01))
             strip = strips_[size_t(i) - 1];
 
@@ -176,15 +184,22 @@ bool Decoder::decode(const uint8_t* data, uint32_t size) {
             case 0x20:
             case 0x21:
             case 0x24:
-            case 0x25: decodeCodebook(strip.v4, chunk, body, bodyEnd); break;
+            case 0x25:
+                decodeCodebook(strip.v4, chunk, body, bodyEnd);
+                break;
             case 0x22:
             case 0x23:
             case 0x26:
-            case 0x27: decodeCodebook(strip.v1, chunk, body, bodyEnd); break;
+            case 0x27:
+                decodeCodebook(strip.v1, chunk, body, bodyEnd);
+                break;
             case 0x30:
             case 0x31:
-            case 0x32: decodeVectors(strip, chunk, y1, y2, body, bodyEnd); break;
-            default: break;
+            case 0x32:
+                decodeVectors(strip, chunk, y1, y2, body, bodyEnd);
+                break;
+            default:
+                break;
             }
             data += chunkSize;
         }
