@@ -218,5 +218,6 @@ inside a Git worktree is rejected. Record updates use the shared
 [DEVELOPMENT.md](../../DEVELOPMENT.md#engine-tests).
 
 The [complete cube geometry preparation](cube-geometry.md) adds optional script
-imports and `cube-check` for the next rendering stage. Cube body rendering and
-lighting remain unfinished; current gameplay continues using the tested view.
+imports and `cube-check` for the next rendering stage. The subsequent [complete cube renderer](cube-renderer.md) now draws body and
+lettering together with native Gouraud shading. Exact original lighting and
+full die orientation remain comparison work.

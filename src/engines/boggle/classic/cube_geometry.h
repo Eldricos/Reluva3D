@@ -4,7 +4,7 @@
 #include "engines/boggle/resources.h"
 namespace reluva::boggle {
 inline constexpr std::array<const char*,2> classicCubeMeshPaths={"Scripts/Rounded.x","Scripts/Die.x"};
-// Validated runtime data for a future complete cube renderer. Polygon topology,
+// Validated runtime data for the complete cube renderer. Polygon topology,
 // normals and UVs are retained; body surfaces must not be discarded.
 class CubeGeometry {
 public:

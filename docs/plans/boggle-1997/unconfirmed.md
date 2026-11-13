@@ -318,3 +318,14 @@ groups and adds optional script imports. Full cube-body rendering, original
 lighting and the settled full/one-sided visual choice remain unverified. A
 face-only preview omitted the cube shoulders and was rejected; no gameplay
 renderer change from that experiment is included.
+
+### Complete cube rendering
+
+The owner confirmed the cube-preparation build compiles. The next
+[renderer pass](../../engines/boggle/cube-renderer.md) draws full installed
+bodies with upward lettering, material/normal shading, depth-tested picking
+and matching computer centers in both variants. Source +Y is a canonical
+settled face; side-letter assignments, complete rolled orientations and the
+original full/one-sided switching remain unverified. Native Lambert/Gouraud
+lighting uses measured scene inputs but does not establish original specular,
+shadow or palette behavior. Whole-screen Windows/VM comparison remains open.

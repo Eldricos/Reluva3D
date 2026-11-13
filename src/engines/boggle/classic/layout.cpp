@@ -117,6 +117,11 @@ Error ClassicArtwork::open(const Resources& resources,const std::filesystem::pat
     }
     if(options.handwriting && fs::findFile(root,"Fonts/KPSI.TTF"))
         if(auto error=resources.font("Fonts/KPSI.TTF",18,handwriting_))return error;
+    for(const auto* path:classicCubeMeshPaths)if(fs::findFile(root,path)) {
+        CubeGeometry geometry;if(auto error=readClassicCubeGeometry(resources,path,geometry))return error;
+        if(auto error=cubes_.prepare(geometry))return error;
+        break;
+    }
     active_=true;return Error::success();
 }
 size_t ClassicArtwork::timerFrame(uint64_t remaining,uint64_t duration) {
@@ -126,10 +131,12 @@ size_t ClassicArtwork::timerFrame(uint64_t remaining,uint64_t duration) {
 }
 ClassicPoint ClassicArtwork::cellCenter(size_t index,size_t side) const {
     if((side!=4 && side!=5) || index>=side*side)return {-1,-1};
+    if(cubes_.active())return cubes_.cellCenter(playingCamera(master_),index,side);
     const auto p=point(playingCamera(master_),int(index%side)*100+50,int(index/side)*100+50,int(side)*100);return {p.x,p.y};
 }
 std::optional<size_t> ClassicArtwork::cellAt(int x,int y,size_t side) const {
     if(side!=4 && side!=5)return {};
+    if(cubes_.active())return cubes_.cellAt(playingCamera(master_),x,y,side);
     for(size_t i=0;i<side*side;++i) {
         const auto p=cell(playingCamera(master_),i,side);bool inside=true;
         for(size_t n=0;n<4;++n)if(edge(p[n],p[(n+1)%4],x,y)<0){inside=false;break;}
@@ -142,6 +149,14 @@ void ClassicArtwork::drawCubes(Surface& screen,const Board& board,const CameraPr
                                uint32_t boardSeed,bool results) const {
     const size_t side=board.side();
     const Color white{245,245,255};
+    if(cubes_.active()) {
+        cubes_.draw(screen,board,camera,letters,qu,selected,boardSeed,autoOrient_);
+        if(results)for(size_t n=0;n<selected.size();++n) {
+            const auto p=cubes_.cellCenter(camera,selected[n],side);const auto text=std::to_string(n+1);
+            box(screen,p.x-16,p.y-19,int(text.size())*6+2,11,{20,48,60});font::drawText(screen,p.x-15,p.y-18,text,white);
+        }
+        return;
+    }
     for(size_t i=0;i<side*side;++i) {
         auto outer=cell(camera,i,side),inner=cell(camera,i,side,10);
         auto front=outer;front[0]=outer[3];front[1]=outer[2];front[2].y+=7;front[3].y+=7;

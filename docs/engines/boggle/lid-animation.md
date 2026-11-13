@@ -60,8 +60,10 @@ frames, and sample frames out of order. Metadata-only artwork checks also
 render nine transition views per variant against installed resources. The
 renderer preserves the board seed, Qu atlas and auto-orient choice.
 
-Dice remain our native flat faces with simple side shading. Original mesh
-lighting and whole-screen VM appearance matching remain unfinished. The
+The subsequent [complete cube renderer](cube-renderer.md) now supplies body
+and lettering when the optional meshes are installed. Earlier imports retain
+native flat faces. Original lighting and whole-screen VM appearance matching
+remain unfinished. The
 [roll-sequence correction](human-cursor.md#roll-sequence-correction) establishes
 that the initial covered-tray shake is already supplied by the AVI. Results still return to the open-board
 review view after closing; that policy awaits original-game confirmation.

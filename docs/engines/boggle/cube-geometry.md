@@ -2,8 +2,8 @@
 
 This stage prepares complete installed cube meshes for the next rendering pass.
 It adds validation, normalization, directional letter-group identification and
-optional imports. The playable renderer remains the tested native face renderer.
-It does not yet claim original cube-body lighting or material appearance.
+optional imports. The subsequent [complete cube renderer](cube-renderer.md) now consumes these
+resources. Original lighting and complete visual parity remain comparison work.
 
 ## Resource contracts
 
@@ -85,4 +85,4 @@ optional id Tech 3 data checks skipped. Geometry/import unit tests and the
 supplied cube validator also pass ASan/UBSan (leak detection disabled for the
 execution tracer). Install and CD cube/import digests agree, and fresh-import
 validation retains the same cube digest. All 737 installed files retain their
-manifest hashes. Windows owner testing of this preparation stage is pending.
+manifest hashes. The owner subsequently confirmed that the preparation build compiles.

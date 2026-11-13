@@ -26,6 +26,34 @@ inline std::string mesh() {
            "MeshNormals {3; 0;0;1;, 0;0;1;, 0;0;1;; 1; 3;0,1,2;; }\n"
            "MeshTextureCoords {3; 0;0;, 1;0;, 0;1;; }\n}";
 }
+// A conventional invented six-sided cube, with separate corners per face.
+inline std::string cubeMesh(double extent=1) {
+    constexpr unsigned faces[6][4]={{1,3,7,5},{0,4,6,2},{2,6,7,3},{0,1,5,4},{4,5,7,6},{0,2,3,1}};
+    constexpr int normals[6][3]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+    std::string text="xof 0302txt 0064\nMesh Cube {24;";
+    for(unsigned face=0;face<6;++face)for(unsigned corner=0;corner<4;++corner) {
+        const unsigned index=faces[face][corner];
+        for(unsigned axis=0;axis<3;++axis)text+=std::to_string((index&(1u<<axis)? .5:-.5)*extent)+";";
+        text+=face==5 && corner==3?";":",";
+    }
+    text+="6;";
+    for(unsigned face=0;face<6;++face) {
+        text+="4;";for(unsigned corner=0;corner<4;++corner)text+=std::to_string(face*4+corner)+(corner==3?";":",");
+        text+=face==5?";":",";
+    }
+    text+="MeshMaterialList {6;6;0,1,2,3,4,5;";
+    for(unsigned face=0;face<6;++face)text+="Material {0.8;0.7;0.6;1;; 8;1;1;1;;0;0;0;;}";
+    text+="} MeshNormals {6;";
+    for(unsigned face=0;face<6;++face){for(int n:normals[face])text+=std::to_string(n)+";";text+=face==5?";":",";}
+    text+="6;";
+    for(unsigned face=0;face<6;++face){text+="4;";for(unsigned c=0;c<4;++c)text+=std::to_string(face)+(c==3?";":",");text+=face==5?";":",";}
+    text+="} MeshTextureCoords {24;";
+    for(unsigned face=0;face<6;++face)for(unsigned corner=0;corner<4;++corner) {
+        const unsigned index=faces[face][corner];text+=std::to_string(index&1?1:0)+";"+std::to_string(index&4?1:0)+";";
+        text+=face==5 && corner==3?";":",";
+    }
+    return text+="}}";
+}
 inline std::vector<uint8_t> language() {
     std::array<std::u16string, 16> strings{}; strings[3] = u"Synthetic menu";
     return test::fixtures::resourcePe(test::fixtures::stringBlock(strings));

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/classic/cube_renderer.h"
 #include "engines/boggle/classic/projection.h"
 #include "engines/boggle/classic/round.h"
 #include "engines/boggle/classic/results.h"
@@ -22,6 +23,7 @@ public:
     Error open(const Resources& resources,const std::filesystem::path& root,const ClassicOptions& options,
                const video::AviVideo1& prepared);
     bool active() const { return active_; }
+    bool usesCubeMesh() const {return cubes_.active();}
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
               const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1",const RoundResults* review=nullptr) const;
     void drawTransition(Surface& screen,const Board& board,size_t frame,const image::Image& letters,
@@ -34,6 +36,7 @@ private:
     void drawCubes(Surface& screen,const Board& board,const CameraProjection& camera,
                    const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,
                    uint32_t boardSeed,bool results) const;
+    CubeRenderer cubes_;
     bool active_=false,master_=false,autoOrient_=true;
     image::Image open_,closed_,words_,names_;
     video::AviVideo1 timer_;

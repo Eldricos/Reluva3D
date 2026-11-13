@@ -5,8 +5,9 @@ right-hand word panel and animated hourglass. The native framebuffer remains
 800x600; installed 640x480 artwork is scaled to fit. The cube tops use the
 installed Letters/LettersQu textures and the verified [playing camera](camera.md).
 Cube centers use measured grid spacing; letter textures use reciprocal camera
-depth across each native flat face. Mouse hit testing and computer destinations
-use those same projected polygons.
+depth across each face. The [complete mesh renderer](cube-renderer.md) now
+uses installed body/letter geometry when present, with flat-face fallback for
+earlier imports. Mouse picking and computer destinations share its projection.
 
 This is an intermediate presentation pass. Cube shape, lighting,
 font, input box, buttons and digital-clock placement are native approximations;
@@ -154,4 +155,5 @@ The [cube geometry stage](cube-geometry.md) now validates and normalizes both
 installed cube scripts, retains body polygons and identifies the six letter
 groups. New imports include those scripts when present. A face-only rendering
 experiment was rejected because it omitted the shoulders/body; the playable
-view remains unchanged until a complete renderer is verified.
+view remained unchanged in that preparation stage. The subsequent
+[complete cube renderer](cube-renderer.md) now draws body and lettering together.
