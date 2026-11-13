@@ -50,17 +50,17 @@ std::array<float, 3> flattenOntoPlane(const std::array<float, 3> &light, float h
 void CoverageMask::clear() {
     if (empty())
         return;
-    for (int y = minY_; y <= maxY_; y++)
-        std::fill(bits_.begin() + ptrdiff_t(size_t(y) * size_t(w_) + size_t(minX_)),
-                  bits_.begin() + ptrdiff_t(size_t(y) * size_t(w_) + size_t(maxX_) + 1), uint8_t(0));
-    minX_ = minY_ = 1 << 30;
-    maxX_ = maxY_ = -1;
+    for (int y = _minY; y <= _maxY; y++)
+        std::fill(_bits.begin() + ptrdiff_t(size_t(y) * size_t(_w) + size_t(_minX)),
+                  _bits.begin() + ptrdiff_t(size_t(y) * size_t(_w) + size_t(_maxX) + 1), uint8_t(0));
+    _minX = _minY = 1 << 30;
+    _maxX = _maxY = -1;
 }
 
 void CoverageMask::set(int x, int y) {
-    bits_[size_t(y) * size_t(w_) + size_t(x)] = 1;
-    minX_ = std::min(minX_, x), maxX_ = std::max(maxX_, x);
-    minY_ = std::min(minY_, y), maxY_ = std::max(maxY_, y);
+    _bits[size_t(y) * size_t(_w) + size_t(x)] = 1;
+    _minX = std::min(_minX, x), _maxX = std::max(_maxX, x);
+    _minY = std::min(_minY, y), _maxY = std::max(_maxY, y);
 }
 
 void CoverageMask::fillTriangle(const float a[2], const float b[2], const float c[2]) {
@@ -73,16 +73,16 @@ void CoverageMask::fillTriangle(const float a[2], const float b[2], const float 
     if (std::fabs(area) < 1e-6f)
         return;
     const int x0 = std::max(0, int(std::floor(std::min({a[0], b[0], c[0]}))));
-    const int x1 = std::min(w_ - 1, int(std::ceil(std::max({a[0], b[0], c[0]}))));
+    const int x1 = std::min(_w - 1, int(std::ceil(std::max({a[0], b[0], c[0]}))));
     const int y0 = std::max(0, int(std::floor(std::min({a[1], b[1], c[1]}))));
-    const int y1 = std::min(h_ - 1, int(std::ceil(std::max({a[1], b[1], c[1]}))));
+    const int y1 = std::min(_h - 1, int(std::ceil(std::max({a[1], b[1], c[1]}))));
     if (x1 < x0 || y1 < y0)
         return;
     const float sign = area > 0 ? 1.0f : -1.0f;
     bool any = false;
     for (int y = y0; y <= y1; y++) {
         const float py = float(y) + 0.5f;
-        uint8_t *row = bits_.data() + size_t(y) * size_t(w_);
+        uint8_t *row = _bits.data() + size_t(y) * size_t(_w);
         // Each edge's value only changes sign once along a row, so the
         // pixels inside are one run: done once it's left.
         bool in = false;
@@ -97,23 +97,23 @@ void CoverageMask::fillTriangle(const float a[2], const float b[2], const float 
         }
     }
     if (any) {
-        minX_ = std::min(minX_, x0), maxX_ = std::max(maxX_, x1);
-        minY_ = std::min(minY_, y0), maxY_ = std::max(maxY_, y1);
+        _minX = std::min(_minX, x0), _maxX = std::max(_maxX, x1);
+        _minY = std::min(_minY, y0), _maxY = std::max(_maxY, y1);
     }
 }
 
 void ShadowStencil::clear() {
-    if (maxX_ < minX_)
+    if (_maxX < _minX)
         return;
-    for (int y = minY_; y <= maxY_; y++) {
-        const size_t row = size_t(y) * size_t(w_);
-        std::fill(stencil_.begin() + ptrdiff_t(row + size_t(minX_)),
-                  stencil_.begin() + ptrdiff_t(row + size_t(maxX_) + 1), uint8_t(0));
-        std::fill(depth_.begin() + ptrdiff_t(row + size_t(minX_)), depth_.begin() + ptrdiff_t(row + size_t(maxX_) + 1),
+    for (int y = _minY; y <= _maxY; y++) {
+        const size_t row = size_t(y) * size_t(_w);
+        std::fill(_stencil.begin() + ptrdiff_t(row + size_t(_minX)),
+                  _stencil.begin() + ptrdiff_t(row + size_t(_maxX) + 1), uint8_t(0));
+        std::fill(_depth.begin() + ptrdiff_t(row + size_t(_minX)), _depth.begin() + ptrdiff_t(row + size_t(_maxX) + 1),
                   kFar);
     }
-    minX_ = minY_ = 1 << 30;
-    maxX_ = maxY_ = -1;
+    _minX = _minY = 1 << 30;
+    _maxX = _maxY = -1;
 }
 
 void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float c[3], uint8_t ref, bool writeDepth) {
@@ -127,16 +127,16 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
     if (std::fabs(area) < 1e-6f)
         return;
     const int x0 = std::max(0, int(std::floor(std::min({a[0], b[0], c[0]}))));
-    const int x1 = std::min(w_ - 1, int(std::ceil(std::max({a[0], b[0], c[0]}))));
+    const int x1 = std::min(_w - 1, int(std::ceil(std::max({a[0], b[0], c[0]}))));
     const int y0 = std::max(0, int(std::floor(std::min({a[1], b[1], c[1]}))));
-    const int y1 = std::min(h_ - 1, int(std::ceil(std::max({a[1], b[1], c[1]}))));
+    const int y1 = std::min(_h - 1, int(std::ceil(std::max({a[1], b[1], c[1]}))));
     if (x1 < x0 || y1 < y0)
         return;
     const float inv = 1.0f / area;
     bool any = false;
     for (int y = y0; y <= y1; y++) {
         const float py = float(y) + 0.5f;
-        const size_t row = size_t(y) * size_t(w_);
+        const size_t row = size_t(y) * size_t(_w);
         // The edges' parts that don't change along the row, worked out
         // once: the same sums as edge() per pixel.
         const float ra = (c[0] - b[0]) * (py - b[1]);
@@ -158,39 +158,39 @@ void ShadowStencil::fillTriangle(const float a[3], const float b[3], const float
             }
             in = true;
             const float z = wa * a[2] + wb * b[2] + wc * c[2];
-            float &d = depth_[row + size_t(x)];
+            float &d = _depth[row + size_t(x)];
             if (z > d)
                 continue;
-            stencil_[row + size_t(x)] = ref;
+            _stencil[row + size_t(x)] = ref;
             if (writeDepth)
                 d = z;
             any = true;
         }
     }
     if (any) {
-        minX_ = std::min(minX_, x0), maxX_ = std::max(maxX_, x1);
-        minY_ = std::min(minY_, y0), maxY_ = std::max(maxY_, y1);
+        _minX = std::min(_minX, x0), _maxX = std::max(_maxX, x1);
+        _minY = std::min(_minY, y0), _maxY = std::max(_maxY, y1);
     }
 }
 
 void ShadowStencil::reset(const std::vector<uint8_t> &cover) {
-    if (maxX_ < minX_ || cover.size() != stencil_.size())
+    if (_maxX < _minX || cover.size() != _stencil.size())
         return;
-    for (int y = minY_; y <= maxY_; y++)
-        for (int x = minX_; x <= maxX_; x++) {
-            const size_t i = size_t(y) * size_t(w_) + size_t(x);
+    for (int y = _minY; y <= _maxY; y++)
+        for (int x = _minX; x <= _maxX; x++) {
+            const size_t i = size_t(y) * size_t(_w) + size_t(x);
             if (cover[i])
-                stencil_[i] = 0;
+                _stencil[i] = 0;
         }
 }
 
 void ShadowStencil::select(uint8_t ref, CoverageMask &out) const {
     out.clear();
-    if (maxX_ < minX_)
+    if (_maxX < _minX)
         return;
-    for (int y = minY_; y <= maxY_; y++)
-        for (int x = minX_; x <= maxX_; x++)
-            if (stencil_[size_t(y) * size_t(w_) + size_t(x)] == ref)
+    for (int y = _minY; y <= _maxY; y++)
+        for (int x = _minX; x <= _maxX; x++)
+            if (_stencil[size_t(y) * size_t(_w) + size_t(x)] == ref)
                 out.set(x, y);
 }
 

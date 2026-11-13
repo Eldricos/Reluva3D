@@ -60,25 +60,25 @@ std::string slotName(int slot) {
 std::filesystem::path ScenePage::savesFolder() const {
     // Reluva's own folder for the game, where the game's Saved.Games is
     // kept (the files are the game's: either can read the other's).
-    return ctx_.savePath.empty() ? std::filesystem::path("Saved.Games") : ctx_.savePath / "Saved.Games";
+    return _ctx.savePath.empty() ? std::filesystem::path("Saved.Games") : _ctx.savePath / "Saved.Games";
 }
 
 std::string ScenePage::interfaceText(const std::string &tag) {
-    if (interfaceTexts_.empty()) {
+    if (_interfaceTexts.empty()) {
         std::vector<uint8_t> data;
-        if (!ctx_.files.read("text/interface.txt", data)) {
+        if (!_ctx.files.read("text/interface.txt", data)) {
             const Table t = parseTable(decodeText(data));
             const int text = t.column("Text");
             const int translation = t.column("Translation");
             for (size_t r = 0; r < t.rows.size(); r++) {
                 const std::string &tr = t.cell(r, translation);
-                interfaceTexts_[fs::toLower(t.cell(r, 0))] = tr.empty() || tr == "0" ? t.cell(r, text) : tr;
+                _interfaceTexts[fs::toLower(t.cell(r, 0))] = tr.empty() || tr == "0" ? t.cell(r, text) : tr;
             }
         }
-        interfaceTexts_[""] = "";
+        _interfaceTexts[""] = "";
     }
-    const auto it = interfaceTexts_.find(fs::toLower(tag));
-    return it == interfaceTexts_.end() ? tag : it->second;
+    const auto it = _interfaceTexts.find(fs::toLower(tag));
+    return it == _interfaceTexts.end() ? tag : it->second;
 }
 
 SaveGame ScenePage::captureSave(const std::string &description) const {
@@ -95,13 +95,13 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
         s.date = buf;
     }
     auto value = [&](const char *n) {
-        const auto it = state_.values.find(n);
-        return it == state_.values.end() ? 0 : it->second;
+        const auto it = _state.values.find(n);
+        return it == _state.values.end() ? 0 : it->second;
     };
     s.timeOfDay = value("time"), s.weather = value("weather"), s.moving = value("moving");
     // The scene: its path as the game writes it ("Locations\Salon\Salon_01_06a.ac2").
-    const bool inMenu = state_.scene.rfind("menu.", 0) == 0;
-    std::string path = inMenu ? gameScene_ : (names_.empty() ? std::string() : names_[size_t(index_)]);
+    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    std::string path = inMenu ? _gameScene : (_names.empty() ? std::string() : _names[size_t(_index)]);
     std::replace(path.begin(), path.end(), '/', '\\');
     s.scene = path;
     std::string file = fs::toLower(fileNameOf(path));
@@ -112,9 +112,9 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     }
     int major = 1;
     int minor = 1;
-    if (parseActName(state_.act, major, minor))
+    if (parseActName(_state.act, major, minor))
         s.actMajor = major, s.actMinor = minor;
-    if (const ActRow *row = story_->row()) {
+    if (const ActRow *row = _story->row()) {
         s.act.preLoad = row->preLoad, s.act.location = row->location, s.act.postLoad = row->postLoad;
         s.act.completion = row->completion, s.act.event = row->event;
         s.act.music = "sound\\music\\" + row->music;
@@ -122,29 +122,29 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     }
     // The player where it stands (or stood, saved from a menu); the
     // characters where they are, by scene and model.
-    std::map<std::string, SaveGame::Placement> npcs = npcPositions_;
+    std::map<std::string, SaveGame::Placement> npcs = _npcPositions;
     if (!inMenu) {
-        for (const Character &c : characters_) {
+        for (const Character &c : _characters) {
             SaveGame::Placement p{{c.x, c.y, c.z}, {0, c.rotY, 0}};
             if (c.player)
                 s.player = p;
             else if (c.record)
-                npcs[state_.scene + "|" + fs::toLower(fileNameOf(c.name))] = p;
+                npcs[_state.scene + "|" + fs::toLower(fileNameOf(c.name))] = p;
         }
-    } else if (const auto kept = positions_.find(file); kept != positions_.end()) {
+    } else if (const auto kept = _positions.find(file); kept != _positions.end()) {
         s.player = SaveGame::Placement{{kept->second[0], 0, kept->second[1]}, {0, kept->second[2], 0}};
     }
     for (const auto &[key, p] : npcs) {
         const size_t bar = key.find('|');
         s.positions.push_back({key.substr(0, bar), key.substr(bar + 1), p});
     }
-    for (const auto &[name, v] : state_.tags)
+    for (const auto &[name, v] : _state.tags)
         s.tags.emplace_back(name, v);
-    for (const auto &[name, v] : state_.timers)
+    for (const auto &[name, v] : _state.timers)
         s.timers.emplace_back(name, v);
-    for (const auto &[name, v] : state_.texts)
+    for (const auto &[name, v] : _state.texts)
         s.texts.emplace_back(name, v);
-    for (const auto &[key, progress] : state_.talks) {
+    for (const auto &[key, progress] : _state.talks) {
         // talkKey: "name|act|part|thread".
         SaveGame::Talk k;
         size_t a = key.find('|');
@@ -160,8 +160,8 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     }
     // Each item with its slot and page (0x41c730): passports at 0, 0,
     // fingerprint cards on page 0 in their row's slot.
-    s.itemPage = state_.itemPage;
-    for (const GameState::Item &i : state_.items) {
+    s.itemPage = _state.itemPage;
+    for (const GameState::Item &i : _state.items) {
         const int slot = i.state == 6 ? printRow(i.name) : i.state == 5 ? 0 : i.slot;
         s.items.push_back({i.name, i.state, slot, i.state == 5 || i.state == 6 ? 0 : slot / 16});
     }
@@ -171,7 +171,7 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
 bool ScenePage::preload(const std::filesystem::path &file, bool fromGame) {
     // 0x411c60: nothing changes if the file can't be read.
     std::vector<uint8_t> data;
-    if (fromGame ? bool(ctx_.files.read(file.generic_string(), data)) : !readAll(file, data)) {
+    if (fromGame ? bool(_ctx.files.read(file.generic_string(), data)) : !readAll(file, data)) {
         logScript("    (no saved game " + file.generic_string() + ")");
         return false;
     }
@@ -185,67 +185,67 @@ bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string 
         return false;
     }
     // The story state afresh (as "reset"), then the save's lists.
-    state_.tags.clear();
-    state_.texts.clear();
-    state_.timers.clear();
-    state_.items.clear();
-    state_.talks.clear();
-    positions_.clear();
-    npcPositions_.clear();
-    keptCharacters_.clear();
-    boxOpenedHere_ = false;
+    _state.tags.clear();
+    _state.texts.clear();
+    _state.timers.clear();
+    _state.items.clear();
+    _state.talks.clear();
+    _positions.clear();
+    _npcPositions.clear();
+    _keptCharacters.clear();
+    _boxOpenedHere = false;
     for (const auto &[name, v] : save->tags)
-        state_.tags[fs::toLower(name)] = v;
+        _state.tags[fs::toLower(name)] = v;
     for (const auto &[name, v] : save->timers)
-        state_.timers.emplace_back(fs::toLower(name), v);
+        _state.timers.emplace_back(fs::toLower(name), v);
     for (const auto &[name, v] : save->texts)
-        state_.texts[fs::toLower(name)] = v;
+        _state.texts[fs::toLower(name)] = v;
     for (const SaveGame::Talk &k : save->talks)
-        state_.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
-    state_.held.clear();
+        _state.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
+    _state.held.clear();
     for (const SaveGame::Item &i : save->items)
         // Each as saved, in its slot (one in hand back in the bag).
-        addItem(state_, i.name, i.state == 3 ? 2 : i.state, i.state == 5 || i.state == 6 ? -1 : i.slot);
-    state_.itemPage = std::max(0, save->itemPage);
-    state_.fresh.clear();
+        addItem(_state, i.name, i.state == 3 ? 2 : i.state, i.state == 5 || i.state == 6 ? -1 : i.slot);
+    _state.itemPage = std::max(0, save->itemPage);
+    _state.fresh.clear();
     for (const SaveGame::Position &p : save->positions)
-        npcPositions_[fs::toLower(p.scene) + "|" + fs::toLower(p.character)] = p.at;
-    restoring_ = std::move(save);
-    logScript("  (saved game \"" + restoring_->description + "\": act " +
-              actName(restoring_->actMajor, restoring_->actMinor) + ", " + fileNameOf(restoring_->scene) + ")");
+        _npcPositions[fs::toLower(p.scene) + "|" + fs::toLower(p.character)] = p.at;
+    _restoring = std::move(save);
+    logScript("  (saved game \"" + _restoring->description + "\": act " +
+              actName(_restoring->actMajor, _restoring->actMinor) + ", " + fileNameOf(_restoring->scene) + ")");
     return true;
 }
 
 void ScenePage::finishRestore() {
     // 0x422da0: the saved globals, the saved scene at walk point -1 with
     // the player where it was.
-    SaveGame &s = *restoring_;
-    state_.values["time"] = s.timeOfDay;
-    state_.values["weather"] = s.weather;
-    state_.values["moving"] = s.moving;
+    SaveGame &s = *_restoring;
+    _state.values["time"] = s.timeOfDay;
+    _state.values["weather"] = s.weather;
+    _state.values["moving"] = s.moving;
     std::string scene = fs::toLower(fileNameOf(s.scene));
     if (s.player)
-        positions_[scene] = {s.player->position[0], s.player->position[2], s.player->rotation[1]};
-    gameScene_.clear();
-    previousMenu_.clear();
+        _positions[scene] = {s.player->position[0], s.player->position[2], s.player->rotation[1]};
+    _gameScene.clear();
+    _previousMenu.clear();
     const std::string stem = scene.size() > 4 ? scene.substr(0, scene.size() - 4) : scene;
     // Its events don't run (it's still restoring as it's entered).
     changeScene(stem, -1);
-    restoring_.reset();
-    dialogueAct_ = "-";
+    _restoring.reset();
+    _dialogueAct = "-";
     loadDialogue();
 }
 
 void ScenePage::openMenu(const std::string &name) {
     // 0x423c00: from the game, the scene to come back to; from a menu, that
     // menu.
-    const bool inMenu = state_.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
     if (inMenu) {
-        previousMenu_ = state_.scene.substr(0, state_.scene.size() - 4);
+        _previousMenu = _state.scene.substr(0, _state.scene.size() - 4);
     } else {
-        previousMenu_.clear();
-        if (!names_.empty())
-            gameScene_ = names_[size_t(index_)];
+        _previousMenu.clear();
+        if (!_names.empty())
+            _gameScene = _names[size_t(_index)];
     }
     changeScene("menu." + name + "_01", 1);
 }
@@ -253,15 +253,15 @@ void ScenePage::openMenu(const std::string &name) {
 void ScenePage::previous(bool toScene) {
     // "previous scene": back to the game; "previous": to the menu before,
     // if any (0x40a5d9).
-    if (!toScene && !previousMenu_.empty()) {
-        const std::string menu = previousMenu_;
-        previousMenu_.clear();
+    if (!toScene && !_previousMenu.empty()) {
+        const std::string menu = _previousMenu;
+        _previousMenu.clear();
         changeScene(menu, 1);
         return;
     }
-    if (gameScene_.empty())
+    if (_gameScene.empty())
         return;
-    const std::string file = fs::toLower(fileNameOf(gameScene_));
+    const std::string file = fs::toLower(fileNameOf(_gameScene));
     changeScene(file.substr(0, file.size() - 4), -1);
 }
 
@@ -270,10 +270,10 @@ bool ScenePage::quickSave() {
     if (!writeAll(savesFolder() / "quick.ac2", writeSaveGame(s)))
         return false;
     // 0x4168c0: the message for 1.5 s; its text, once set, stays.
-    messageTime_ = 1.5f;
-    if (message_.empty())
-        message_ = interfaceText("ingamemenu2");
-    logScript("  (" + message_ + ": quick.ac2)");
+    _messageTime = 1.5f;
+    if (_message.empty())
+        _message = interfaceText("ingamemenu2");
+    logScript("  (" + _message + ": quick.ac2)");
     draw();
     return true;
 }
@@ -285,14 +285,14 @@ void ScenePage::drawMessage() {
     const image::Image &placard = picture("interface/placard.tga");
     const int top = 766 - placard.h;
     if (placard.w)
-        image::blitOver(ctx_.screen, placard, (kScreenW - placard.w) / 2, top);
-    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("location descriptions") : nullptr;
+        image::blitOver(_ctx.screen, placard, (kScreenW - placard.w) / 2, top);
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("location descriptions") : nullptr;
     if (!style || !style->font)
         return;
-    const int w = style->font->width(message_, style->pixels);
+    const int w = style->font->width(_message, style->pixels);
     const int h = style->font->lineHeight(style->pixels);
-    ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, message_,
-                     ctx_.fonts->colour("navigation text", {230, 170, 75}));
+    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, _message,
+                     _ctx.fonts->colour("navigation text", {230, 170, 75}));
 }
 
 bool ScenePage::gameKey(uint32_t key) {
@@ -301,40 +301,40 @@ bool ScenePage::gameKey(uint32_t key) {
     // options screen's OK has VK_ENTER, which matches nothing, so Enter
     // does nothing there). In the save or load screen the rest are the
     // typed name.
-    const bool inMenu = state_.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
     if (hotspotKey(key))
         return true;
-    if (optionsMenu_)
+    if (_optionsMenu)
         return true;
-    if (slots_) {
+    if (_slots) {
         slotKey(key);
         draw();
         return true;
     }
     if (key == key::Escape) {
-        if (location_ == "menu.main") {
-            runner_->run("yesno quit2 0");
+        if (_location == "menu.main") {
+            _runner->run("yesno quit2 0");
         } else if (inMenu) {
             // A menu without a hotspot for it: back to the game.
-            runner_->run("fade out, previous scene, fade in");
+            _runner->run("fade out, previous scene, fade in");
         } else {
             key = 'p';
         }
     }
-    if ((key == 'p' || key == 's' || key == 'l') && !inMenu && location_.find("menu") == std::string::npos) {
+    if ((key == 'p' || key == 's' || key == 'l') && !inMenu && _location.find("menu") == std::string::npos) {
         // 0x417080: the item in hand put back, the view kept for a
         // thumbnail, then the menu.
         releaseHeld();
         endFresh();
-        if (renderer_)
-            grabDue_ = true;
+        if (_renderer)
+            _grabDue = true;
         else
-            grab_ = image::Image{kScreenW, kScreenH, ctx_.screen.pixels};
-        runner_->clear();
-        for (Character &c : characters_)
+            _grab = image::Image{kScreenW, kScreenH, _ctx.screen.pixels};
+        _runner->clear();
+        for (Character &c : _characters)
             if (c.player)
                 c.path.clear();
-        runner_->run(std::string("fade out, menu ") +
+        _runner->run(std::string("fade out, menu ") +
                      (key == 'p'   ? "ingame"
                       : key == 's' ? "save"
                                    : "load") +
@@ -343,15 +343,15 @@ bool ScenePage::gameKey(uint32_t key) {
     }
     if (key == key::F1 + 1) {
         // F2: a quick save, out of the menus.
-        if (location_ != "menu.main" && !inMenu)
+        if (_location != "menu.main" && !inMenu)
             quickSave();
         return true;
     }
     if (key == key::F1 + 2) {
         // F3: the quick save, loaded.
         if (std::filesystem::exists(savesFolder() / "quick.ac2")) {
-            runner_->clear();
-            runner_->run("fade out, preload quick, load, fade in");
+            _runner->clear();
+            _runner->run("fade out, preload quick, load, fade in");
         }
         return true;
     }
@@ -361,8 +361,8 @@ bool ScenePage::gameKey(uint32_t key) {
 // --- The save and load screens ---------------------------------------------------
 
 void ScenePage::openSlots(bool save) {
-    slots_ = std::make_unique<SlotMenu>();
-    SlotMenu &m = *slots_;
+    _slots = std::make_unique<SlotMenu>();
+    SlotMenu &m = *_slots;
     m.save = save;
     // Slots run from 0 with no gaps.
     while (std::filesystem::exists(savesFolder() / (slotName(m.count) + ".ac2")))
@@ -375,7 +375,7 @@ void ScenePage::openSlots(bool save) {
 }
 
 void ScenePage::refreshSlots() {
-    SlotMenu &m = *slots_;
+    SlotMenu &m = *_slots;
     for (int r = 0; r < 3; r++) {
         SlotMenu::Row &row = m.rows[r];
         row = SlotMenu::Row();
@@ -396,9 +396,9 @@ void ScenePage::refreshSlots() {
 
 bool ScenePage::slotCondition(const std::string &word) const {
     // 0x435290 save, 0x424a50 load.
-    if (!slots_)
+    if (!_slots)
         return false;
-    const SlotMenu &m = *slots_;
+    const SlotMenu &m = *_slots;
     const int last = m.save ? m.count : m.count - 1;
     if (!m.save && m.count == 0)
         return false;
@@ -410,7 +410,7 @@ bool ScenePage::slotCondition(const std::string &word) const {
 }
 
 void ScenePage::slotAction(const std::string &word, const std::string &second) {
-    SlotMenu &m = *slots_;
+    SlotMenu &m = *_slots;
     const int last = m.save ? m.count : m.count - 1;
     if (word == "up" && m.page > 0) {
         m.page -= 3, m.row = 2;
@@ -427,27 +427,27 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
         const std::filesystem::path file = savesFolder() / (slotName(slot) + ".ac2");
         if (second != "confirmed" && std::filesystem::exists(file)) {
             // Over an old one: "Overwrite?", the rest of OK's script dropped.
-            runner_->clear();
-            yesNo_ = std::make_unique<YesNo>();
-            yesNo_->text = interfaceText("over");
-            yesNo_->kind = 2;
+            _runner->clear();
+            _yesNo = std::make_unique<YesNo>();
+            _yesNo->text = interfaceText("over");
+            _yesNo->kind = 2;
             return;
         }
         writeAll(file, writeSaveGame(captureSave(m.name)));
-        if (grab_.w > 0) {
+        if (_grab.w > 0) {
             // The thumbnail: the view as the menu was opened, 256x192.
             image::Image t;
             t.w = 256, t.h = 192;
             t.rgba.resize(size_t(t.w) * t.h * 4);
-            const int fx = grab_.w / t.w;
-            const int fy = grab_.h / t.h;
+            const int fx = _grab.w / t.w;
+            const int fy = _grab.h / t.h;
             for (int y = 0; y < t.h; y++)
                 for (int x = 0; x < t.w; x++)
                     for (int c = 0; c < 3; c++) {
                         int sum = 0;
                         for (int v = 0; v < fy; v++)
                             for (int u = 0; u < fx; u++)
-                                sum += grab_.pixel(x * fx + u, y * fy + v)[c];
+                                sum += _grab.pixel(x * fx + u, y * fy + v)[c];
                         t.pixel(x, y)[c] = uint8_t(sum / (fx * fy));
                     }
             writeAll(savesFolder() / (slotName(slot) + ".bmp"), encodeBmp24(t.w, t.h, t.rgba));
@@ -464,7 +464,7 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
 }
 
 bool ScenePage::slotClick(int x, int y) {
-    SlotMenu &m = *slots_;
+    SlotMenu &m = *_slots;
     for (int r = 0; r < 3; r++) {
         if (x < kRowLeft || x >= kRowRight || y < kRowTop[r] || y >= kRowTop[r] + kRowHeight)
             continue;
@@ -492,7 +492,7 @@ bool ScenePage::slotClick(int x, int y) {
 void ScenePage::slotKey(uint32_t key) {
     // 0x434ee0: A-Z (as capitals), digits and space, up to 31 and 125
     // pixels; Backspace or Delete take the last off.
-    SlotMenu &m = *slots_;
+    SlotMenu &m = *_slots;
     if (!m.save)
         return;
     if (key == key::Backspace || key == key::Delete) {
@@ -508,7 +508,7 @@ void ScenePage::slotKey(uint32_t key) {
     if (!c || m.name.size() >= 31)
         return;
     m.name += c;
-    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("save, load, and options screens") : nullptr;
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
     if (style && style->font && style->font->width(m.name, style->pixels) > 125)
         m.name.pop_back();
 }
@@ -516,19 +516,19 @@ void ScenePage::slotKey(uint32_t key) {
 void ScenePage::drawSlots() {
     // 0x434b90, 0x4245e0: three rows: the thumbnail (dimmed unless picked),
     // the name in the middle, the date and time at the foot.
-    const SlotMenu &m = *slots_;
-    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("save, load, and options screens") : nullptr;
-    const Color picked = ctx_.fonts
-                             ? ctx_.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
+    const SlotMenu &m = *_slots;
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
+    const Color picked = _ctx.fonts
+                             ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
                              : Color{255, 220, 130};
     const Color other =
-        ctx_.fonts ? ctx_.fonts->colour("save, load, and options grayed out", {230, 170, 75}) : Color{230, 170, 75};
+        _ctx.fonts ? _ctx.fonts->colour("save, load, and options grayed out", {230, 170, 75}) : Color{230, 170, 75};
     // The glow on the picked row.
     if (m.save || m.count > 0) {
         const image::Image &glow =
             picture(m.save ? "locations/menu.save/cutouts/glow.tga" : "locations/menu.load/cutouts/glow.tga");
         if (glow.w)
-            image::blitOver(ctx_.screen, glow, kRowLeft, kRowTop[m.row]);
+            image::blitOver(_ctx.screen, glow, kRowLeft, kRowTop[m.row]);
     }
     for (int r = 0; r < 3; r++) {
         const SlotMenu::Row &row = m.rows[r];
@@ -539,7 +539,7 @@ void ScenePage::drawSlots() {
             if (!on)
                 for (size_t i = 3; i < t.rgba.size(); i += 4)
                     t.rgba[i] = 92;
-            image::blitOver(ctx_.screen, t, 704, top + 1);
+            image::blitOver(_ctx.screen, t, 704, top + 1);
         }
         if (!style || !style->font)
             continue;
@@ -556,14 +556,14 @@ void ScenePage::drawSlots() {
             colour = on && !m.save ? picked : other;
         }
         const int w = style->font->width(main, style->pixels);
-        ctx_.fonts->draw(ctx_.screen, *style, 624 - w / 2, top + (kRowHeight - h) / 2, main, colour);
+        _ctx.fonts->draw(_ctx.screen, *style, 624 - w / 2, top + (kRowHeight - h) / 2, main, colour);
         // The caret just after the name, while the blink has it on
         // (0x434c91).
-        if (m.save && on && caretOn_)
-            ctx_.fonts->draw(ctx_.screen, *style, 624 + w - w / 2, top + (kRowHeight - h) / 2, "|", colour);
+        if (m.save && on && _caretOn)
+            _ctx.fonts->draw(_ctx.screen, *style, 624 + w - w / 2, top + (kRowHeight - h) / 2, "|", colour);
         if (row.exists) {
-            ctx_.fonts->draw(ctx_.screen, *style, 708, top + kRowHeight - h, row.date, on ? picked : other);
-            ctx_.fonts->draw(ctx_.screen, *style, 952 - style->font->width(row.time, style->pixels),
+            _ctx.fonts->draw(_ctx.screen, *style, 708, top + kRowHeight - h, row.date, on ? picked : other);
+            _ctx.fonts->draw(_ctx.screen, *style, 952 - style->font->width(row.time, style->pixels),
                              top + kRowHeight - h, row.time, on ? picked : other);
         }
     }
@@ -578,50 +578,50 @@ void ScenePage::drawYesNo() {
     // No in m pixels from x 542.
     const image::Image &box = picture("interface/mainmenuwin.tga");
     if (box.w)
-        image::blitOver(ctx_.screen, box, (kScreenW - box.w) / 2, (kScreenH - box.h) / 2);
-    const TextStyle *style = ctx_.fonts->style("popup dialogs");
+        image::blitOver(_ctx.screen, box, (kScreenW - box.w) / 2, (kScreenH - box.h) / 2);
+    const TextStyle *style = _ctx.fonts->style("popup dialogs");
     if (!style || !style->font)
         return;
-    const Color plain = ctx_.fonts->colour("popup menu text", {255, 230, 230});
-    const Color lit = ctx_.fonts->colour("highlighted popup menu text", {255, 255, 255});
+    const Color plain = _ctx.fonts->colour("popup menu text", {255, 230, 230});
+    const Color lit = _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
     const int lineH = style->font->lineHeight(style->pixels);
-    const int qw = style->font->width(yesNo_->text, style->pixels);
-    ctx_.fonts->draw(ctx_.screen, *style, (kScreenW - qw) / 2, 364 - lineH, yesNo_->text, plain);
+    const int qw = style->font->width(_yesNo->text, style->pixels);
+    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - qw) / 2, 364 - lineH, _yesNo->text, plain);
     const std::string words[2] = {interfaceText("yes"), interfaceText("no")};
     for (int i = 0; i < 2; i++)
-        yesNo_->w[i] = style->font->width(words[i], style->pixels), yesNo_->h[i] = lineH;
-    const int m = std::max(yesNo_->w[0], yesNo_->w[1]);
-    yesNo_->x[0] = (m - yesNo_->w[0]) / 2 - m + 482;
-    yesNo_->x[1] = (m - yesNo_->w[1]) / 2 + 542;
-    yesNo_->drawn = true;
+        _yesNo->w[i] = style->font->width(words[i], style->pixels), _yesNo->h[i] = lineH;
+    const int m = std::max(_yesNo->w[0], _yesNo->w[1]);
+    _yesNo->x[0] = (m - _yesNo->w[0]) / 2 - m + 482;
+    _yesNo->x[1] = (m - _yesNo->w[1]) / 2 + 542;
+    _yesNo->drawn = true;
     for (int i = 0; i < 2; i++)
-        ctx_.fonts->draw(ctx_.screen, *style, yesNo_->x[i], 394, words[i], yesNo_->highlighted == i ? lit : plain);
+        _ctx.fonts->draw(_ctx.screen, *style, _yesNo->x[i], 394, words[i], _yesNo->highlighted == i ? lit : plain);
 }
 
 int ScenePage::yesNoAt(int x, int y) const {
     // Each word's own box, edges included, from y 394 (0x4330c0).
-    if (!yesNo_ || !yesNo_->drawn)
+    if (!_yesNo || !_yesNo->drawn)
         return -1;
     for (int i = 0; i < 2; i++)
-        if (x >= yesNo_->x[i] && x <= yesNo_->x[i] + yesNo_->w[i] && y >= 394 && y <= 394 + yesNo_->h[i])
+        if (x >= _yesNo->x[i] && x <= _yesNo->x[i] + _yesNo->w[i] && y >= 394 && y <= 394 + _yesNo->h[i])
             return i;
     return -1;
 }
 
 void ScenePage::answer(bool yes) {
     // 0x432cb1: 0 quits the program, 1 the game, 2 overwrites the save.
-    const int kind = yesNo_->kind;
-    yesNo_.reset();
+    const int kind = _yesNo->kind;
+    _yesNo.reset();
     draw();
     if (!yes)
         return;
-    runner_->clear();
+    _runner->clear();
     if (kind == 0)
-        runner_->run("fade out, quit");
+        _runner->run("fade out, quit");
     else if (kind == 1)
-        runner_->run("fade out, reset, scene menu.main_01, fade in");
+        _runner->run("fade out, reset, scene menu.main_01, fade in");
     else
-        runner_->run("action save confirmed, fade out, previous, fade in");
+        _runner->run("action save confirmed, fade out, previous, fade in");
 }
 
 } // namespace reluva::awe

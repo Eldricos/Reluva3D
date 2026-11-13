@@ -206,8 +206,8 @@ Error loadModel(const Gr2File &file, Model &out) {
         const Gr2Object mesh = model.element("MeshBindings", m).object("Mesh");
         if (!mesh.valid())
             continue;
-        ModelMesh out_mesh;
-        out_mesh.name = mesh.string("Name");
+        ModelMesh outMesh;
+        outMesh.name = mesh.string("Name");
         // Vertices name their bones by index into the mesh's bindings.
         std::vector<uint8_t> bindings;
         for (uint32_t b = 0; b < mesh.count("BoneBindings"); b++) {
@@ -220,11 +220,11 @@ Error loadModel(const Gr2File &file, Model &out) {
                 box.min[k] = float(binding.number("OBBMin", k));
                 box.max[k] = float(binding.number("OBBMax", k));
             }
-            out_mesh.boxes.push_back(box);
+            outMesh.boxes.push_back(box);
         }
         const Gr2Object vertexData = mesh.object("PrimaryVertexData");
         const uint32_t vertexCount = vertexData.count("Vertices");
-        out_mesh.vertices.reserve(vertexCount);
+        outMesh.vertices.reserve(vertexCount);
         for (uint32_t v = 0; v < vertexCount; v++) {
             const Gr2Object src = vertexData.element("Vertices", v);
             ModelVertex dst{};
@@ -242,20 +242,20 @@ Error loadModel(const Gr2File &file, Model &out) {
             }
             // A rigid mesh (no weights) follows its first binding.
             if (!src.member("BoneIndices")) {
-                out_mesh.rigid = true;
+                outMesh.rigid = true;
                 if (!bindings.empty())
                     dst.bones[0] = bindings[0];
             }
-            out_mesh.vertices.push_back(dst);
+            outMesh.vertices.push_back(dst);
         }
         const Gr2Object topology = mesh.object("PrimaryTopology");
         const uint32_t n32 = topology.count("Indices");
         const uint32_t n16 = topology.count("Indices16");
         for (uint32_t i = 0; i < n32; i++)
-            out_mesh.indices.push_back(uint32_t(topology.element("Indices", i).number("Int32")));
+            outMesh.indices.push_back(uint32_t(topology.element("Indices", i).number("Int32")));
         for (uint32_t i = 0; i < n16; i++)
-            out_mesh.indices.push_back(uint32_t(topology.element("Indices16", i).number("UInt16")));
-        for (uint32_t &i : out_mesh.indices)
+            outMesh.indices.push_back(uint32_t(topology.element("Indices16", i).number("UInt16")));
+        for (uint32_t &i : outMesh.indices)
             if (i >= vertexCount)
                 i = 0;
         for (uint32_t g = 0; g < topology.count("Groups"); g++) {
@@ -266,12 +266,12 @@ Error loadModel(const Gr2File &file, Model &out) {
                 dst.texture = texture(materialTexture(mesh.element("MaterialBindings", material).object("Material")));
             dst.firstIndex = uint32_t(group.number("TriFirst")) * 3;
             dst.indexCount = uint32_t(group.number("TriCount")) * 3;
-            if (dst.firstIndex > out_mesh.indices.size())
-                dst.firstIndex = uint32_t(out_mesh.indices.size());
-            dst.indexCount = std::min<uint32_t>(dst.indexCount, uint32_t(out_mesh.indices.size()) - dst.firstIndex);
-            out_mesh.groups.push_back(dst);
+            if (dst.firstIndex > outMesh.indices.size())
+                dst.firstIndex = uint32_t(outMesh.indices.size());
+            dst.indexCount = std::min<uint32_t>(dst.indexCount, uint32_t(outMesh.indices.size()) - dst.firstIndex);
+            outMesh.groups.push_back(dst);
         }
-        out.meshes.push_back(std::move(out_mesh));
+        out.meshes.push_back(std::move(outMesh));
     }
     return Error::success();
 }

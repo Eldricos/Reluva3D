@@ -67,7 +67,7 @@ struct ViewerContext {
 
 class Page {
 public:
-    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
     virtual const char *name() const = 0;
     virtual size_t count() const = 0;
@@ -79,7 +79,7 @@ public:
     virtual void update(uint64_t nowMs) {
         (void)nowMs;
         present();
-        finishScreenshot(nullptr, &ctx_.screen);
+        finishScreenshot(nullptr, &_ctx.screen);
     }
     // Whether it draws in 3D each frame, paced by presenting (vsync).
     virtual bool uses3D() const { return false; }
@@ -89,16 +89,16 @@ public:
     virtual bool quitRequested() const { return false; }
     // Saves the next frame shown, as a TGA file (the window title says
     // where).
-    void requestScreenshot(std::filesystem::path file) { shotFile_ = std::move(file); }
+    void requestScreenshot(std::filesystem::path file) { _shotFile = std::move(file); }
 
 protected:
-    ViewerContext &ctx_;
-    std::filesystem::path shotFile_;
+    ViewerContext &_ctx;
+    std::filesystem::path _shotFile;
 
     // For pages that draw in 3D: before endFrame, asks the renderer to
     // keep the frame if a screenshot is due.
     void prepareScreenshot(gfx::Renderer3D *renderer) {
-        if (renderer && !shotFile_.empty())
+        if (renderer && !_shotFile.empty())
             renderer->captureNextFrame();
     }
     // After the frame: saves it (the 3D frame with `overlay` over it, or
@@ -116,7 +116,7 @@ protected:
     // Text on a dark box, for reading over pictures.
     void label(int x, int y, const std::string &s, Color c = {230, 230, 230});
     void help(const std::string &keys);
-    void present() { ctx_.sys.updateScreen(ctx_.screen); }
+    void present() { _ctx.sys.updateScreen(_ctx.screen); }
     // A list step from a key: -1/+1 for Left/Right, -10/+10 for
     // PageUp/PageDown, to the ends for Home/End; 0 for other keys.
     static int step(uint32_t key, int index, int count);
@@ -124,7 +124,7 @@ protected:
     // A picture from the game's files (cached; an empty image if it can't
     // be read).
     const image::Image &picture(const std::string &name);
-    std::map<std::string, image::Image> pictures_;
+    std::map<std::string, image::Image> _pictures;
 };
 
 // Every picture in the game: backgrounds, cutouts, interface, inventory.
@@ -132,14 +132,14 @@ class PicturePage : public Page {
 public:
     explicit PicturePage(ViewerContext &ctx);
     const char *name() const override { return "Pictures"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void handleEvent(const Event &ev) override;
 
 private:
     void show();
-    std::vector<std::string> names_;
-    int index_ = 0;
+    std::vector<std::string> _names;
+    int _index = 0;
 };
 
 // Scenes (Locations/**/*.ac2): their pictures where the scene places
@@ -147,7 +147,7 @@ private:
 // The game's settings, as its options screen sets them (0x490048..):
 // volumes and brightness 0..10, the rest on (1) or off.
 struct GameOptions {
-    enum { Music, Sound, Gamma, Captions, Shadows, Water, Fog, Rain, AntiAlias, kCount };
+    enum { kMusic, kSound, kGamma, kCaptions, kShadows, kWater, kFog, kRain, kAntiAlias, kCount };
     int values[kCount];
     GameOptions();
     int get(int i) const { return values[i]; }
@@ -158,14 +158,14 @@ public:
     explicit ScenePage(ViewerContext &ctx);
     ~ScenePage() override;
     const char *name() const override { return "Scenes"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return renderer_ != nullptr && drawing_; }
-    bool wantsEscape() const override { return movie_ != nullptr || playing_; }
-    bool quitRequested() const override { return quit_; }
+    bool uses3D() const override { return _renderer != nullptr && _drawing; }
+    bool wantsEscape() const override { return _movie != nullptr || _playing; }
+    bool quitRequested() const override { return _quit; }
 
     // For tools (reluva-tool awe game-run; scene_autoplay.cpp): a game started
     // without the menus at an act ("04a": its PreLoad, location and Post
@@ -174,7 +174,7 @@ public:
     // first choice taken, lines cut short (what it did, "" if nothing).
     void startAt(const std::string &where);
     // A script run as the scenes' are (a tool's: "startpass michel").
-    void runCommands(const std::string &script) { runner_->run(script); }
+    void runCommands(const std::string &script) { _runner->run(script); }
     std::function<void(const std::string &line)> onLog;
     std::string autoplay();
     // Whether autoplay cuts each line short (a tool in a hurry), or lets it
@@ -184,7 +184,7 @@ public:
     // the page is drawn at once, as it is now (the scene may have changed
     // meanwhile).
     void setDrawing(bool on) {
-        const bool was = std::exchange(drawing_, on);
+        const bool was = std::exchange(_drawing, on);
         if (on && !was)
             draw();
     }
@@ -230,15 +230,15 @@ public:
     // an Examine Event and that back looked at; the bar's cars that can
     // be travelled to now and the travel; whether clicks are taken now
     // (nothing runs, or the runner is unlocked).
-    const GameState &gameState() const { return state_; }
+    const GameState &gameState() const { return _state; }
     // Every clause of a condition the game tests is told (GameState::onTest);
     // and whether a condition holds now, untold.
-    void watchConditions(std::function<void(std::string_view, bool)> f) { state_.onTest = std::move(f); }
+    void watchConditions(std::function<void(std::string_view, bool)> f) { _state.onTest = std::move(f); }
     bool holds(const std::string &condition) {
-        auto watch = std::move(state_.onTest);
-        state_.onTest = nullptr;
-        const bool h = testCondition(condition, state_);
-        state_.onTest = std::move(watch);
+        auto watch = std::move(_state.onTest);
+        _state.onTest = nullptr;
+        const bool h = testCondition(condition, _state);
+        _state.onTest = std::move(watch);
         return h;
     }
     std::vector<uint8_t> saveToMemory() const;
@@ -246,7 +246,7 @@ public:
     // (For the tools' save and load: as if the scene had been entered with
     // that scene left last, its objects tested again for "lastscene".)
     void setLastScene(const std::string &scene) {
-        state_.lastScene = scene;
+        _state.lastScene = scene;
         retestObjects();
     }
     std::function<int(const std::vector<std::string> &choices)> chooser;
@@ -259,7 +259,7 @@ public:
     // a pair compared, as the cards page does with them shown.
     std::vector<std::pair<std::string, std::string>> matchingPrints();
     bool comparePrintCards(const std::string &person, const std::string &thing);
-    bool clickable() const { return !runner_->locked() && !dialogue_->active() && !movie_; }
+    bool clickable() const { return !_runner->locked() && !_dialogue->active() && !_movie; }
     // The puzzle screen open ("tornletter", "safe", "puzzlebox"; "" none),
     // whether it's solved, and the next of a player's inputs that solve it,
     // worked out from the puzzle's own checks and made as the mouse makes
@@ -276,7 +276,7 @@ public:
     // boxes and turns the gears; and so on. So a route can be played by
     // the mouse and keys alone (awe game-run -hand).
     struct HandGoal {
-        enum class Kind { Click, Use, Travel, Combine, Flip, Compare } kind = Kind::Click;
+        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare } kind = Kind::kClick;
         size_t target = 0;              // Click, Use: the clickable
         std::vector<std::string> items; // Use, Flip: the item; Combine: the parts; Compare: person, thing
         int car = 0;                    // Travel
@@ -284,7 +284,7 @@ public:
         bool failed = false;            // no way to do it from here
     };
     struct HandInput {
-        enum class Kind { None, Move, Click, RightClick, Key } kind = Kind::None;
+        enum class Kind { kNone, kMove, kClick, kRightClick, kKey } kind = Kind::kNone;
         int x = 0, y = 0;
         uint32_t key = 0;
     };
@@ -439,10 +439,10 @@ private:
     // The screen's message (0x4168c0): "Save Game" on the placard for 1.5
     // s after F2, put away early by a click or a key; and the caret's
     // blink, on and off every 0.33 s (0x414400).
-    std::string message_;
-    float messageTime_ = 0;
-    float caretTime_ = 0.33f;
-    bool caretOn_ = false;
+    std::string _message;
+    float _messageTime = 0;
+    float _caretTime = 0.33f;
+    bool _caretOn = false;
     void drawMessage();
     // The save and load screens (a scene's PUZZ save/load: 0x4347a0,
     // 0x424260).
@@ -459,17 +459,17 @@ private:
         int lastRow = -1;
         float sinceClick = 10;
     };
-    std::unique_ptr<SlotMenu> slots_;
+    std::unique_ptr<SlotMenu> _slots;
     // The options (scene_options.cpp): kept in Reluva's folder for the
     // game; the screen's staged values (music, sound, brightness,
     // captions) and the toggles as they were (Cancel), the slider dragged.
-    GameOptions options_;
+    GameOptions _options;
     struct OptionsMenu {
         int staged[4] = {0, 0, 0, 0};
         int original[5] = {0, 0, 0, 0, 0};
         int dragging = 0; // 1..3
     };
-    std::unique_ptr<OptionsMenu> optionsMenu_;
+    std::unique_ptr<OptionsMenu> _optionsMenu;
     // The puzzles (scene_puzzles.cpp; docs/engines/awe/games/motoe/systems/puzzles.md): the
     // torn letter, the baggage car's safe, the puzzle box. Pictures they
     // move and turn are drawn by overrides.
@@ -477,7 +477,7 @@ private:
         float x = 0, y = 0, depth = 0, roll = 0, cx = 0, cy = 0;
         bool tint = false; // picked: blue x 0.75
     };
-    std::map<const Ac2Record *, PictureOverride> overrides_;
+    std::map<const Ac2Record *, PictureOverride> _overrides;
     struct TornLetter {
         std::vector<const Ac2Record *> pieces;
         int selected = -1;
@@ -497,11 +497,11 @@ private:
         int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
         bool solved = false;
     };
-    std::unique_ptr<TornLetter> torn_;
-    std::unique_ptr<Safe> safe_;
-    std::unique_ptr<PuzzleBox> box_;
-    unsigned puzzleSeed_ = 1; // the game's rand()
-    bool puzzleActive() const { return torn_ || safe_ || box_; }
+    std::unique_ptr<TornLetter> _torn;
+    std::unique_ptr<Safe> _safe;
+    std::unique_ptr<PuzzleBox> _box;
+    unsigned _puzzleSeed = 1; // the game's rand()
+    bool puzzleActive() const { return _torn || _safe || _box; }
     void openPuzzle(const std::string &kind);
     void closePuzzle();
     void puzzleClick(int x, int y);
@@ -529,7 +529,7 @@ private:
     int boxPieceAt(int x, int y) const;            // 1 the end's upper half, 2 its lower, 3 the side, 4 the lid; 0 none
     const Ac2Record *tornPick(int x, int y) const; // the letter's front-most picture there
     void writeBoxTags();
-    int lastMouseX_ = 0, lastMouseY_ = 0;
+    int _lastMouseX = 0, _lastMouseY = 0;
     std::filesystem::path optionsFile() const;
     void loadOptions();
     void saveOptions() const;
@@ -564,7 +564,7 @@ private:
         bool drawn = false;
         int highlighted = -1;
     };
-    std::unique_ptr<YesNo> yesNo_;
+    std::unique_ptr<YesNo> _yesNo;
     void answer(bool yes);
     void drawYesNo();
     int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
@@ -578,10 +578,10 @@ private:
     void playSound(const std::string &name);
     // A sound effect ("sound"), looping or not; kNoSound if there's none.
     audio::SoundHandle startSound(const std::string &name, bool loop);
-    std::vector<std::pair<std::string, audio::SoundHandle>> sounds_; // by name, for "stop"
-    ScriptRunner *soundRunner_ = nullptr;                            // waiting on a "sound"
-    audio::SoundHandle soundWaited_ = audio::kNoSound;
-    bool interfaceOff_ = false;
+    std::vector<std::pair<std::string, audio::SoundHandle>> _sounds; // by name, for "stop"
+    ScriptRunner *_soundRunner = nullptr;                            // waiting on a "sound"
+    audio::SoundHandle _soundWaited = audio::kNoSound;
+    bool _interfaceOff = false;
     // The letterbox (0x416ef0): black bars along the top and the bottom,
     // `height` pixels each; mode 0 off, 1 on, 2 sliding in, 3 sliding out
     // (the runner waiting for those).
@@ -589,8 +589,8 @@ private:
         int mode = 0;
         float height = 0;
         ScriptRunner *runner = nullptr;
-    } letterbox_;
-    bool drawing_ = true;
+    } _letterbox;
+    bool _drawing = true;
     // The interface (scene_interface.cpp; docs/engines/awe/games/motoe/systems/interface.md):
     // the bar along the top, the inventory window and its pages, the item
     // in hand, the passport or fingerprint card held up.
@@ -637,7 +637,7 @@ private:
         int cardFade = 0, printFade = 0; // 1 out, 2 in
         ScriptRunner *cardRunner = nullptr;
         std::string cardVerb;
-    } ui_;
+    } _ui;
     bool interfaceOn() const;
     int examinedAt(const std::vector<std::string> &items) const;
     bool canAct() const;
@@ -717,7 +717,7 @@ private:
     void stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mode, uint8_t ref, Color colour, uint8_t alpha);
     // Whether the characters are drawn now.
     bool charactersShown() const {
-        return renderer_ && showCharacters_ && scene_.camera() && !movie_ && sceneShown_ && !load_.screen;
+        return _renderer && _showCharacters && _scene.camera() && !_movie && _sceneShown && !_load.screen;
     }
     // The character verbs (turn, look, rotate, anim...): true if the
     // script waits.
@@ -734,48 +734,48 @@ private:
     void mouth(const std::string &speaker, bool on) override;
     int voiceLevel() override;
 
-    std::vector<std::string> names_;
-    int index_ = 0;
-    Ac2Scene scene_;
-    std::vector<bool> lightConditions_; // the objects' conditions on entering (lighting.h)
-    std::string base_;                  // the base scene an act's variant is shown over
-    std::string error_;
-    int selected_ = -1; // object highlighted, -1 none
-    bool hotspots_ = true, info_ = true, showCharacters_ = true;
+    std::vector<std::string> _names;
+    int _index = 0;
+    Ac2Scene _scene;
+    std::vector<bool> _lightConditions; // the objects' conditions on entering (lighting.h)
+    std::string _base;                  // the base scene an act's variant is shown over
+    std::string _error;
+    int _selected = -1; // object highlighted, -1 none
+    bool _hotspots = true, _info = true, _showCharacters = true;
     // What the scene's conditions test: the train moving or not (M), the
     // weather (W), the act of the scene's variant.
-    GameState state_;
-    std::map<const Ac2Record *, Loop> loops_;
-    std::map<const Ac2Record *, ParticleSystem> particles_;
+    GameState _state;
+    std::map<const Ac2Record *, Loop> _loops;
+    std::map<const Ac2Record *, ParticleSystem> _particles;
     // Scrolling pictures (SPRT scroll): where each is now, and the part
     // of a pixel it has gone beyond that.
     struct Scroll {
         float x = 0, y = 0, part = 0;
     };
-    std::map<const Ac2Record *, Scroll> scrolls_;
+    std::map<const Ac2Record *, Scroll> _scrolls;
     bool scrollPictures(float dt); // whether any moved
     // The camera's walk grid (G shows it), the cell under the mouse and
     // the last path found.
-    WalkGrid grid_;
-    bool showGrid_ = false;
-    WalkGrid::Cell hover_;
-    std::vector<WalkGrid::Cell> path_;
+    WalkGrid _grid;
+    bool _showGrid = false;
+    WalkGrid::Cell _hover;
+    std::vector<WalkGrid::Cell> _path;
     // The scripts' state: tags, items and the act are state_'s.
-    std::unique_ptr<ScriptRunner> runner_;
-    std::unique_ptr<DialogueManager> dialogue_;
-    std::map<std::string, int> autoChoices_; // how often the tool's player took each choice
+    std::unique_ptr<ScriptRunner> _runner;
+    std::unique_ptr<DialogueManager> _dialogue;
+    std::map<std::string, int> _autoChoices; // how often the tool's player took each choice
     std::vector<const Ac2Record *> clickableObjects() const;
     static bool scripted(const Ac2Record &o);         // a script or conditional ones
-    mutable std::map<std::string, Table> itemTables_; // uselist.txt, combinelist.txt, itemlist.txt
+    mutable std::map<std::string, Table> _itemTables; // uselist.txt, combinelist.txt, itemlist.txt
     const Table &itemTable(const char *file) const;
     // A game played (N): the acts, the music playing (by file), where the
     // player was in each scene left, the screen's fade (0 clear, 1 black)
     // and the runner waiting on it.
-    std::unique_ptr<Story> story_;
-    bool playing_ = false;
-    std::map<std::string, audio::SoundHandle> music_;
-    std::map<std::string, std::array<float, 3>> positions_; // the player's x, z and heading, by scene file left
-    float fade_ = 0, fadeTarget_ = 0;
+    std::unique_ptr<Story> _story;
+    bool _playing = false;
+    std::map<std::string, audio::SoundHandle> _music;
+    std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
+    float _fade = 0, _fadeTarget = 0;
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).
@@ -796,27 +796,27 @@ private:
         ScriptRunner *runner = nullptr;
         bool restore = false; // a saved game's
         bool walkIn = true;   // a scene's: its flag
-    } load_;
-    std::string location_; // the current scene's folder ("sirkeci.market")
+    } _load;
+    std::string _location; // the current scene's folder ("sirkeci.market")
     void beginLoad(const std::string &location, bool forAct);
     void updateLoad();
     // The location's scene files the game would load (0x423830): variants
     // for the act in place of their base; LOAD 0 ones are read on demand.
     std::vector<std::string> locationFiles(const std::string &location) const;
-    std::unique_ptr<MoviePlayer> movie_;
-    std::string movieName_;
-    std::vector<Subtitle> movieSubtitles_;
-    ScriptRunner *movieRunner_ = nullptr;
-    bool sceneShown_ = true;
+    std::unique_ptr<MoviePlayer> _movie;
+    std::string _movieName;
+    std::vector<Subtitle> _movieSubtitles;
+    ScriptRunner *_movieRunner = nullptr;
+    bool _sceneShown = true;
     // Saved games: the save being restored (between "preload" and "load"),
     // NPCs' positions by scene file and model file (the game keeps its
     // scenes, so they stay where they were), the game scene and the menu
     // the menus return to, the view grabbed for a thumbnail.
-    std::unique_ptr<SaveGame> restoring_;
-    std::map<std::string, SaveGame::Placement> npcPositions_;
+    std::unique_ptr<SaveGame> _restoring;
+    std::map<std::string, SaveGame::Placement> _npcPositions;
     // The puzzle box opened: the game's box object (made when its place is
     // loaded, 0x433290) keeps it, while its scenes are kept.
-    bool boxOpenedHere_ = false;
+    bool _boxOpenedHere = false;
     // What else a character carried when its scene was left, by the same
     // key as npcPositions_ (the game keeps the scene, and the character
     // as scripts left it).
@@ -825,35 +825,35 @@ private:
         std::vector<std::string> props; // the models it holds
         std::string endless;            // a base animation playing for ever, else empty
     };
-    std::map<std::string, KeptCharacter> keptCharacters_;
-    std::string gameScene_, previousMenu_;
-    image::Image grab_;
-    bool grabDue_ = false, quit_ = false;
-    std::map<std::string, std::string> interfaceTexts_;
-    ScriptRunner *fadeRunner_ = nullptr;
-    std::string dialogueAct_ = "-";               // the act whose table is loaded
-    std::map<std::string, Table> dialogueTables_; // by file, as read
-    audio::SoundHandle voice_ = audio::kNoSound;
-    std::shared_ptr<audio::Sound> voiceSound_; // for its level: the lips move
-    const Ac2Record *scriptObject_ = nullptr;  // the hotspot a script is "this" of
-    const Ac2Record *resumeAfter_ = nullptr;   // the character clicked, its routine resumed after
-    int entryPoint_ = -1;                      // the walk point the player arrives at, after "scene"
-    bool entryWalk_ = false;                   // and whether they walk in
-    WalkGrid::Cell leadGoal_;                  // where the player last set off for (followers follow)
+    std::map<std::string, KeptCharacter> _keptCharacters;
+    std::string _gameScene, _previousMenu;
+    image::Image _grab;
+    bool _grabDue = false, _quit = false;
+    std::map<std::string, std::string> _interfaceTexts;
+    ScriptRunner *_fadeRunner = nullptr;
+    std::string _dialogueAct = "-";               // the act whose table is loaded
+    std::map<std::string, Table> _dialogueTables; // by file, as read
+    audio::SoundHandle _voice = audio::kNoSound;
+    std::shared_ptr<audio::Sound> _voiceSound; // for its level: the lips move
+    const Ac2Record *_scriptObject = nullptr;  // the hotspot a script is "this" of
+    const Ac2Record *_resumeAfter = nullptr;   // the character clicked, its routine resumed after
+    int _entryPoint = -1;                      // the walk point the player arrives at, after "scene"
+    bool _entryWalk = false;                   // and whether they walk in
+    WalkGrid::Cell _leadGoal;                  // where the player last set off for (followers follow)
     // Whether each of the scene's objects is shown (the game's +0xb04):
     // set by its condition on entering the scene and by "update", and by
     // "hide", "show" and "take" between.
-    std::map<const Ac2Record *, bool> shownNow_;
-    std::deque<std::string> scriptLog_;
-    std::map<std::string, std::string> soundFiles_; // sound name -> file
-    float time_ = 0;
-    image::Image dot_; // stands in for a particle texture that's missing
-    uint64_t lastMs_ = 0;
-    bool charactersDue_ = false; // to load, once the page has stayed on the scene
-    uint64_t charactersAt_ = 0;
+    std::map<const Ac2Record *, bool> _shownNow;
+    std::deque<std::string> _scriptLog;
+    std::map<std::string, std::string> _soundFiles; // sound name -> file
+    float _time = 0;
+    image::Image _dot; // stands in for a particle texture that's missing
+    uint64_t _lastMs = 0;
+    bool _charactersDue = false; // to load, once the page has stayed on the scene
+    uint64_t _charactersAt = 0;
     // With 3D: the pictures behind the characters as one texture, the
     // characters, and the models and animations loaded so far.
-    gfx::Renderer3D *renderer_ = nullptr;
+    gfx::Renderer3D *_renderer = nullptr;
     // The pictures in layers between the characters, back to front:
     // layer k comes after the k-th character in depth order, layer 0
     // (opaque) before them all. Each is a texture, and where its pictures
@@ -880,22 +880,22 @@ private:
         gfx::TextureId texture = 0;
         std::string key;
     };
-    std::map<const Ac2Record *, AloneTexture> aloneTextures_;
+    std::map<const Ac2Record *, AloneTexture> _aloneTextures;
     void aloneTexture(const Ac2Record &o, const image::Image &img);
-    std::map<std::string, gfx::TextureId> pointTextures_; // particles' textures, by file
+    std::map<std::string, gfx::TextureId> _pointTextures; // particles' textures, by file
     void drawPointSprites(const ParticleSystem &system);
-    uint64_t layersMade_ = 0; // a new scene's layers are new
-    std::vector<PictureLayer> layers_;
-    std::vector<ModelSlot> characterOrder_; // characters_ and footprints in depth order, as draw() found it
-    gfx::MeshId quad_ = 0;
-    std::vector<Character> characters_;
-    std::map<std::string, std::shared_ptr<GpuModel>> models_;
-    std::map<std::string, std::shared_ptr<Animation>> animations_;
-    std::vector<gfx::MeshId> frameMeshes_;
-    std::vector<gfx::TextureId> frameTextures_;
-    std::unique_ptr<CoverageMask> shadowMask_;
-    std::unique_ptr<ShadowStencil> stencil_;
-    uint64_t startMs_ = 0;
+    uint64_t _layersMade = 0; // a new scene's layers are new
+    std::vector<PictureLayer> _layers;
+    std::vector<ModelSlot> _characterOrder; // characters_ and footprints in depth order, as draw() found it
+    gfx::MeshId _quad = 0;
+    std::vector<Character> _characters;
+    std::map<std::string, std::shared_ptr<GpuModel>> _models;
+    std::map<std::string, std::shared_ptr<Animation>> _animations;
+    std::vector<gfx::MeshId> _frameMeshes;
+    std::vector<gfx::TextureId> _frameTextures;
+    std::unique_ptr<CoverageMask> _shadowMask;
+    std::unique_ptr<ShadowStencil> _stencil;
+    uint64_t _startMs = 0;
 
     // The mouse (scene_cursor.cpp): the game's pick of the object under a
     // point (0x435eb0), and the cursor drawn there (0x415650).
@@ -907,7 +907,7 @@ private:
     bool hitObject(const Ac2Record &o, int sx, int sy) const;
     bool hitBones(const Ac2Record &o, int sx, int sy) const;
     // Counts updates and events, after which characters may have moved.
-    uint64_t frame_ = 0;
+    uint64_t _frame = 0;
     const Ac2Record *pickAt(int sx, int sy) const;
     const std::string &itemInHand() const;
     bool canUseOn(const std::string &item, const Ac2Record &o);
@@ -916,20 +916,20 @@ private:
     bool pickAllowed(int sy) const;
     int cursorUnder(int sx, int sy, const Ac2Record **under) const;
     void drawCursor();
-    bool cursorMoved_ = false; // to draw again
+    bool _cursorMoved = false; // to draw again
     // The hotspots the mouse is over (their pictures shown, their sounds
     // played), in the scene shown.
     void updateHotspots();
     void hotspotPressed(const Ac2Record &o);
     void stopSound(const std::string &name);
-    std::set<const Ac2Record *> over_;
-    std::string overScene_;
-    bool systemCursor_ = true; // the system's cursor shown (the game hides it)
+    std::set<const Ac2Record *> _over;
+    std::string _overScene;
+    bool _systemCursor = true; // the system's cursor shown (the game hides it)
     // Footprints and breath (scene_outdoors.cpp): a character's, moved on
     // by dt seconds, `walking` or not; a footprint drawn.
     void updateOutdoors(Character &c, float dt, bool walking);
     void drawFootprint(const Character::Footprint &f, const SceneLighting &lighting, float brightness);
-    size_t footprintSerial_ = 0;
+    size_t _footprintSerial = 0;
     // Escape or Enter: the hotspot with that key pressed; false if none.
     bool hotspotKey(uint32_t key);
 };
@@ -940,7 +940,7 @@ public:
     explicit ModelPage(ViewerContext &ctx);
     ~ModelPage() override;
     const char *name() const override { return "Models"; }
-    size_t count() const override { return models_.size(); }
+    size_t count() const override { return _models.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
@@ -955,21 +955,21 @@ private:
     void loadAnimation();
     void releaseGpu();
 
-    std::vector<Entry> models_;
-    int index_ = 0, animation_ = 0; // 0: rest pose, else animations[animation_ - 1]
-    std::unique_ptr<GpuModel> gpu_;
-    Animation anim_;
-    bool hasAnim_ = false;
-    std::string error_;
-    gfx::Renderer3D *renderer_ = nullptr;
-    std::vector<gfx::MeshId> meshes_; // this frame's
-    Surface overlay_;
-    float yaw_ = -1.5708f, pitch_ = 0.15f, distance_ = 400;
-    float center_[3] = {0, 0, 0};
-    bool playing_ = true, helpers_ = false, dragging_ = false;
-    int dragX_ = 0, dragY_ = 0;
-    float time_ = 0;
-    uint64_t lastMs_ = 0;
+    std::vector<Entry> _models;
+    int _index = 0, _animation = 0; // 0: rest pose, else animations[animation_ - 1]
+    std::unique_ptr<GpuModel> _gpu;
+    Animation _anim;
+    bool _hasAnim = false;
+    std::string _error;
+    gfx::Renderer3D *_renderer = nullptr;
+    std::vector<gfx::MeshId> _meshes; // this frame's
+    Surface _overlay;
+    float _yaw = -1.5708f, _pitch = 0.15f, _distance = 400;
+    float _center[3] = {0, 0, 0};
+    bool _playing = true, _helpers = false, _dragging = false;
+    int _dragX = 0, _dragY = 0;
+    float _time = 0;
+    uint64_t _lastMs = 0;
 };
 
 // Movies (Movies/*.bik) and the scenes' video loops (Elements/**/*.bik,
@@ -979,7 +979,7 @@ public:
     explicit MoviePage(ViewerContext &ctx);
     ~MoviePage() override;
     const char *name() const override { return "Movies"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
@@ -987,11 +987,11 @@ public:
 
 private:
     void open();
-    std::vector<std::string> names_;
-    int index_ = 0;
-    MoviePlayer player_;
-    std::vector<Subtitle> subtitles_;
-    std::string info_;
+    std::vector<std::string> _names;
+    int _index = 0;
+    MoviePlayer _player;
+    std::vector<Subtitle> _subtitles;
+    std::string _info;
 };
 
 // Text files: tables, dialogue, subtitles.
@@ -999,16 +999,16 @@ class TextPage : public Page {
 public:
     explicit TextPage(ViewerContext &ctx);
     const char *name() const override { return "Text"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void handleEvent(const Event &ev) override;
 
 private:
     void load();
     void draw();
-    std::vector<std::string> names_;
-    int index_ = 0, scroll_ = 0;
-    std::vector<std::string> lines_;
+    std::vector<std::string> _names;
+    int _index = 0, _scroll = 0;
+    std::vector<std::string> _lines;
 };
 
 // Sounds: voices, effects and music.
@@ -1016,7 +1016,7 @@ class SoundPage : public Page {
 public:
     explicit SoundPage(ViewerContext &ctx);
     const char *name() const override { return "Sounds"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
@@ -1024,10 +1024,10 @@ public:
 private:
     void draw();
     void play();
-    std::vector<std::string> names_;
-    int index_ = 0;
-    std::string info_;
-    audio::SoundHandle playing_ = audio::kNoSound;
+    std::vector<std::string> _names;
+    int _index = 0;
+    std::string _info;
+    audio::SoundHandle _playing = audio::kNoSound;
 };
 
 } // namespace reluva::awe

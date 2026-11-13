@@ -24,7 +24,7 @@ namespace reluva::awe {
 // A field's value: a number (4 bytes, integer or float, 2 bytes
 // integer), text, or a list of text pairs or number pairs.
 struct Ac2Value {
-    enum class Type : uint8_t { U16, U32, F32, Text, TextPairs, NumberPairs, Bytes } type = Type::U32;
+    enum class Type : uint8_t { kU16, kU32, kF32, kText, kTextPairs, kNumberPairs, kBytes } type = Type::kU32;
     uint32_t raw = 0; // U16, U32, F32 (the float's bits)
     std::string text; // UTF-8
     std::vector<std::pair<std::string, std::string>> pairs;

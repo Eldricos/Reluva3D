@@ -1196,7 +1196,7 @@ int cmdAweSave(int argc, char **argv) {
 } // namespace
 
 // The engine's reluva-tool commands (reluva-tool help awe lists them).
-const reluva::tool::Commands commands(
+const reluva::tool::Commands kCommands(
     "awe",
     {
         {"files-check",

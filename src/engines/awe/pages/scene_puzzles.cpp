@@ -72,7 +72,7 @@ const char *const kLidArrows[4] = {"arrowtopf", "arrowtopb", nullptr, nullptr};
 
 const Ac2Record *ScenePage::puzzleObject(const std::string &file, int n) const {
     // The n-th object whose file is that (0x436660 by its file's name).
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         std::string f = fs::toLower(o->text("file"));
         f = f.substr(f.find_last_of('\\') + 1);
         if (f == file && n-- == 0)
@@ -94,13 +94,13 @@ bool ScenePage::hitPicture(const Ac2Record *o, float x, float y, int px, int py)
 
 void ScenePage::openPuzzle(const std::string &kind) {
     closePuzzle();
-    unsigned &seed = puzzleSeed_;
+    unsigned &seed = _puzzleSeed;
     if (kind == "tornletter") {
         // 0x43ec00: the 20 pieces; their places and turns kept as text tags
         // ("paper01.png" = "x y z turn"); the first time, shuffled among
         // the authored places, each turned 0, 90, 180 or 270 degrees.
-        torn_ = std::make_unique<TornLetter>();
-        TornLetter &t = *torn_;
+        _torn = std::make_unique<TornLetter>();
+        TornLetter &t = *_torn;
         struct Place {
             float x, y, z;
             bool used;
@@ -123,8 +123,8 @@ void ScenePage::openPuzzle(const std::string &kind) {
             const image::Image &img = picture(o->text("file"));
             p.cx = float(img.w / 2), p.cy = float(img.h / 2);
             const std::string key = fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1));
-            const auto kept = state_.texts.find(key);
-            if (kept != state_.texts.end()) {
+            const auto kept = _state.texts.find(key);
+            if (kept != _state.texts.end()) {
                 std::sscanf(kept->second.c_str(), "%f %f %f %f", &p.x, &p.y, &p.depth, &p.roll);
             } else {
                 int r;
@@ -135,69 +135,69 @@ void ScenePage::openPuzzle(const std::string &kind) {
                 p.x = places[size_t(r)].x, p.y = places[size_t(r)].y, p.depth = places[size_t(r)].z;
                 p.roll = float(msvcRand(seed) % 4) * 90 * kDegree;
             }
-            overrides_[o] = p;
-            if (!state_.tags.count("solved_tornletter"))
+            _overrides[o] = p;
+            if (!_state.tags.count("solved_tornletter"))
                 saveTornPiece(i); // solved, the pieces' places are let go, as on solving it
         }
-        if (state_.tags.count("solved_tornletter")) {
+        if (_state.tags.count("solved_tornletter")) {
             // Solved: the whole letter, the pieces gone.
             for (const Ac2Record *o : t.pieces)
                 if (o)
                     showObject(objectKeys(*o).back(), false);
             showObject("paperfull", true);
             t.solved = true;
-        } else if (const auto top = state_.texts.find("topz"); top != state_.texts.end()) {
+        } else if (const auto top = _state.texts.find("topz"); top != _state.texts.end()) {
             t.topz = float(std::atof(top->second.c_str()));
         }
     } else if (kind == "safe") {
         // 0x434390: the dial, at 0 every visit (the game reads back tags it
         // never writes).
-        safe_ = std::make_unique<Safe>();
-        safe_->dial = puzzleObject("baggage_safe.dial.png");
-        if (safe_->dial) {
+        _safe = std::make_unique<Safe>();
+        _safe->dial = puzzleObject("baggage_safe.dial.png");
+        if (_safe->dial) {
             PictureOverride p;
-            const image::Image &img = picture(safe_->dial->text("file"));
-            p.x = safe_->dial->f("x"), p.y = safe_->dial->f("y");
-            p.depth = safe_->dial->f("depth") != 0 ? safe_->dial->f("depth") : safe_->dial->f("z");
+            const image::Image &img = picture(_safe->dial->text("file"));
+            p.x = _safe->dial->f("x"), p.y = _safe->dial->f("y");
+            p.depth = _safe->dial->f("depth") != 0 ? _safe->dial->f("depth") : _safe->dial->f("z");
             p.cx = float(img.w / 2), p.cy = float(img.h / 2);
-            overrides_[safe_->dial] = p;
+            _overrides[_safe->dial] = p;
         }
     } else if (kind == "puzzlebox") {
         // 0x433290: the box's state from its tags.
-        box_ = std::make_unique<PuzzleBox>();
-        PuzzleBox &b = *box_;
-        b.step = tagOr0(state_, "puzzlebox_moveindex");
-        b.state[1] = tagOr0(state_, "puzzlebox_endupper");
-        b.state[2] = tagOr0(state_, "puzzlebox_endlower");
-        b.state[3] = tagOr0(state_, "puzzlebox_side");
-        b.state[4] = tagOr0(state_, "puzzlebox_top");
-        b.selected = tagOr0(state_, "puzzlebox_arrowpiece");
-        b.misses = tagOr0(state_, "puzzlebox_misses");
-        b.solved = boxOpenedHere_;
+        _box = std::make_unique<PuzzleBox>();
+        PuzzleBox &b = *_box;
+        b.step = tagOr0(_state, "puzzlebox_moveindex");
+        b.state[1] = tagOr0(_state, "puzzlebox_endupper");
+        b.state[2] = tagOr0(_state, "puzzlebox_endlower");
+        b.state[3] = tagOr0(_state, "puzzlebox_side");
+        b.state[4] = tagOr0(_state, "puzzlebox_top");
+        b.selected = tagOr0(_state, "puzzlebox_arrowpiece");
+        b.misses = tagOr0(_state, "puzzlebox_misses");
+        b.solved = _boxOpenedHere;
     }
 }
 
 void ScenePage::closePuzzle() {
-    torn_.reset();
-    safe_.reset();
-    box_.reset();
-    overrides_.clear();
+    _torn.reset();
+    _safe.reset();
+    _box.reset();
+    _overrides.clear();
 }
 
 bool ScenePage::puzzleCondition(const std::string &word) const {
-    if (torn_)
+    if (_torn)
         // 0x43efc0: the arrows act on a piece picked.
-        return !torn_->solved && (word == "left" || word == "right") && torn_->selected >= 0;
-    if (safe_)
+        return !_torn->solved && (word == "left" || word == "right") && _torn->selected >= 0;
+    if (_safe)
         // 0x4345f0: "open" once the three numbers are in.
-        return word == "open" ? safe_->entered == 3 : true;
+        return word == "open" ? _safe->entered == 3 : true;
     return false; // the puzzle box has none
 }
 
 bool ScenePage::puzzleDraws(const Ac2Record &o) const {
     // The puzzle box draws the opening lid and the locket itself, after
     // its panels (0x4336b0).
-    if (!box_)
+    if (!_box)
         return false;
     const std::string file = fs::toLower(o.text("file"));
     return file.find("topopen") != std::string::npos || file.find("exalocket") != std::string::npos;
@@ -206,19 +206,19 @@ bool ScenePage::puzzleDraws(const Ac2Record &o) const {
 // --- Torn letter ---------------------------------------------------------------------
 
 void ScenePage::saveTornPiece(int i) {
-    const Ac2Record *o = torn_->pieces[size_t(i)];
-    const PictureOverride &p = overrides_[o];
+    const Ac2Record *o = _torn->pieces[size_t(i)];
+    const PictureOverride &p = _overrides[o];
     char buf[96];
     std::snprintf(buf, sizeof buf, "%g %g %g %g", p.x, p.y, p.depth, p.roll);
-    state_.texts[fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1))] = buf;
-    std::snprintf(buf, sizeof buf, "%g", torn_->topz);
-    state_.texts["topz"] = buf;
+    _state.texts[fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1))] = buf;
+    std::snprintf(buf, sizeof buf, "%g", _torn->topz);
+    _state.texts["topz"] = buf;
 }
 
 void ScenePage::snapTornPiece(int i) {
     // 0x43f210: dropped inside the frame, to the nearest cell; else kept
     // on the screen.
-    PictureOverride &p = overrides_[torn_->pieces[size_t(i)]];
+    PictureOverride &p = _overrides[_torn->pieces[size_t(i)]];
     const int cx = int(p.x + p.cx);
     const int cy = int(p.y + p.cy);
     if (cx >= 491 && cx < 992 && cy >= 18 && cy < 648) {
@@ -245,12 +245,12 @@ void ScenePage::snapTornPiece(int i) {
 bool ScenePage::checkTornLetter() {
     // 0x43f3b0: each piece within 5 pixels of its cell (one right of where
     // they snap) and within 15 degrees of upright.
-    TornLetter &t = *torn_;
+    TornLetter &t = *_torn;
     for (int i = 0; i < 20; i++) {
         const Ac2Record *o = t.pieces[size_t(i)];
         if (!o)
             return false;
-        const PictureOverride &p = overrides_[o];
+        const PictureOverride &p = _overrides[o];
         if (std::abs(int(p.x + p.cx) - (kSnapX[i % 4] + 1)) > 5 || std::abs(int(p.y + p.cy) - kSnapY[i / 4]) > 5)
             return false;
         int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
@@ -261,12 +261,12 @@ bool ScenePage::checkTornLetter() {
     }
     t.solved = true;
     if (t.selected >= 0)
-        overrides_[t.pieces[size_t(t.selected)]].tint = false;
+        _overrides[t.pieces[size_t(t.selected)]].tint = false;
     t.selected = -1;
-    runner_->run("fade in paperfull, tag solved_tornletter, talk gen_tornpaper 2");
+    _runner->run("fade in paperfull, tag solved_tornletter, talk gen_tornpaper 2");
     for (const Ac2Record *o : t.pieces)
-        state_.texts.erase(fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1)));
-    state_.texts.erase("topz");
+        _state.texts.erase(fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1)));
+    _state.texts.erase("topz");
     return true;
 }
 
@@ -274,8 +274,8 @@ bool ScenePage::checkTornLetter() {
 
 void ScenePage::turnDial(int direction) {
     // A number a step (3.6 degrees): right counts down, left up.
-    Safe &s = *safe_;
-    PictureOverride &p = overrides_[s.dial];
+    Safe &s = *_safe;
+    PictureOverride &p = _overrides[s.dial];
     if (direction == 1)
         p.roll += 3.6f * kDegree, s.number--;
     else
@@ -286,17 +286,17 @@ void ScenePage::turnDial(int direction) {
 
 void ScenePage::writeSafeTags() {
     // Written but never read back (0x434750); kept for saved games.
-    state_.tags["safecombo_dial"] = safe_->number;
-    state_.tags["safecombo_index"] = safe_->entered;
-    state_.tags["safecombo_dir"] = safe_->expected;
+    _state.tags["safecombo_dial"] = _safe->number;
+    _state.tags["safecombo_index"] = _safe->entered;
+    _state.tags["safecombo_dir"] = _safe->expected;
 }
 
 // --- Puzzle box -----------------------------------------------------------------------
 
 std::string ScenePage::boxEndPicture() const {
     // 0x433f80: the near end as its two halves stand.
-    const int u = box_->state[1];
-    const int l = box_->state[2];
+    const int u = _box->state[1];
+    const int l = _box->state[2];
     if (u == 4 || l == 4)
         return "endtlbrdown.png";
     static const struct {
@@ -311,14 +311,14 @@ std::string ScenePage::boxEndPicture() const {
 }
 
 std::string ScenePage::boxSidePicture() const {
-    const int s = box_->state[3];
+    const int s = _box->state[3];
     return s == 0 ? "side.png" : s == 3 ? "sideup01.png" : s == 7 ? "sideup02.png" : std::string();
 }
 
 int ScenePage::boxArrowAt(int x, int y) const {
     // The selected piece's first arrow under the point (0x433ba0); the end
     // arrows moved up for the upper half, down for the lower.
-    const int p = box_->selected;
+    const int p = _box->selected;
     const char *const *names = p == 1 || p == 2 ? kEndArrows : p == 3 ? kSideArrows : p == 4 ? kLidArrows : nullptr;
     if (!names)
         return 0;
@@ -339,13 +339,13 @@ bool ScenePage::boxMovePossible(int piece, int arrow) const {
     // 0x4338e0: an end half can't slide further the way it has gone.
     if (piece >= 3)
         return true;
-    const int s = box_->state[piece];
+    const int s = _box->state[piece];
     return !(s == 1 && arrow == 1) && !(s == 2 && arrow == 2);
 }
 
 bool ScenePage::boxMoveCorrect(int piece, int arrow) const {
     // 0x433950: the solution, step by step (pairs either way round).
-    const PuzzleBox &b = *box_;
+    const PuzzleBox &b = *_box;
     const int u = b.state[1];
     const int l = b.state[2];
     switch (b.step) {
@@ -371,14 +371,14 @@ bool ScenePage::boxMoveCorrect(int piece, int arrow) const {
 }
 
 void ScenePage::writeBoxTags() {
-    const PuzzleBox &b = *box_;
-    state_.tags["puzzlebox_moveindex"] = b.step;
-    state_.tags["puzzlebox_endupper"] = b.state[1];
-    state_.tags["puzzlebox_endlower"] = b.state[2];
-    state_.tags["puzzlebox_side"] = b.state[3];
-    state_.tags["puzzlebox_top"] = b.state[4];
-    state_.tags["puzzlebox_arrowpiece"] = b.selected;
-    state_.tags["puzzlebox_misses"] = b.misses;
+    const PuzzleBox &b = *_box;
+    _state.tags["puzzlebox_moveindex"] = b.step;
+    _state.tags["puzzlebox_endupper"] = b.state[1];
+    _state.tags["puzzlebox_endlower"] = b.state[2];
+    _state.tags["puzzlebox_side"] = b.state[3];
+    _state.tags["puzzlebox_top"] = b.state[4];
+    _state.tags["puzzlebox_arrowpiece"] = b.selected;
+    _state.tags["puzzlebox_misses"] = b.misses;
 }
 
 void ScenePage::drawPuzzleBox() {
@@ -386,16 +386,16 @@ void ScenePage::drawPuzzleBox() {
     // picked piece's arrows (and the one under the mouse lit if it may
     // move); solved, the opening lid with the side over it, then the
     // locket.
-    const PuzzleBox &b = *box_;
+    const PuzzleBox &b = *_box;
     auto at = [&](const std::string &file, int x, int y) {
         if (const Ac2Record *o = puzzleObject(file))
-            image::blitOver(ctx_.screen, picture(o->text("file")), x, y);
+            image::blitOver(_ctx.screen, picture(o->text("file")), x, y);
     };
     auto arrows = [&](int piece, const char *const *names) {
         if (b.selected != piece)
             return;
         const int dy = piece == 1 ? -50 : piece == 2 ? 50 : 0;
-        const int over = boxArrowAt(lastMouseX_, lastMouseY_);
+        const int over = boxArrowAt(_lastMouseX, _lastMouseY);
         for (int a = 0; a < 4; a++) {
             if (!names[a])
                 continue;
@@ -404,7 +404,7 @@ void ScenePage::drawPuzzleBox() {
                 continue;
             const int x = int(o->f("x"));
             const int y = int(o->f("y")) + dy;
-            image::blitOver(ctx_.screen, picture(o->text("file")), x, y);
+            image::blitOver(_ctx.screen, picture(o->text("file")), x, y);
             if (over == a + 1 && boxMovePossible(piece, a + 1))
                 at(std::string(names[a]) + "o.png", x, y);
         }
@@ -421,12 +421,12 @@ void ScenePage::drawPuzzleBox() {
     if (!b.solved)
         return;
     // The lid opening, the side in front of it within (440, 0) 583 x 436.
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         const std::string file = fs::toLower(o->text("file"));
         if (file.find("topopen") == std::string::npos || !objectShown(*o))
             continue;
-        if (const auto loop = loops_.find(o); loop != loops_.end() && loop->second.frame.w)
-            image::blitOver(ctx_.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
+        if (const auto loop = _loops.find(o); loop != _loops.end() && loop->second.frame.w)
+            image::blitOver(_ctx.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
         if (const Ac2Record *side = puzzleObject(boxSidePicture())) {
             const image::Image &img = picture(side->text("file"));
             image::Image clip;
@@ -439,21 +439,21 @@ void ScenePage::drawPuzzleBox() {
                     if (u >= 0 && v >= 0 && u < img.w && v < img.h)
                         std::copy_n(img.pixel(u, v), 4, clip.pixel(x, y));
                 }
-            image::blitOver(ctx_.screen, clip, 440, 0);
+            image::blitOver(_ctx.screen, clip, 440, 0);
         }
     }
-    for (const Ac2Record *o : scene_.objects())
+    for (const Ac2Record *o : _scene.objects())
         if (fs::toLower(o->text("file")).find("exalocket") != std::string::npos && objectShown(*o))
-            image::blitOver(ctx_.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
+            image::blitOver(_ctx.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
 }
 
 // --- Input -------------------------------------------------------------------------------
 
 void ScenePage::puzzleClick(int x, int y) {
-    if (torn_ && !torn_->solved) {
+    if (_torn && !_torn->solved) {
         // 0x43ed00: the front-most picture with something under the point,
         // a hotspot first; a piece is picked up (tinted, brought forward).
-        TornLetter &t = *torn_;
+        TornLetter &t = *_torn;
         if (hotspotAt(x, y))
             return;
         const Ac2Record *best = tornPick(x, y);
@@ -463,9 +463,9 @@ void ScenePage::puzzleClick(int x, int y) {
         if (it == t.pieces.end())
             return;
         if (t.selected >= 0)
-            overrides_[t.pieces[size_t(t.selected)]].tint = false;
+            _overrides[t.pieces[size_t(t.selected)]].tint = false;
         t.selected = int(it - t.pieces.begin());
-        PictureOverride &p = overrides_[best];
+        PictureOverride &p = _overrides[best];
         p.tint = true;
         t.dragging = true;
         if (p.depth < t.topz)
@@ -475,9 +475,9 @@ void ScenePage::puzzleClick(int x, int y) {
         draw();
         return;
     }
-    if (box_ && !box_->solved) {
+    if (_box && !_box->solved) {
         // 0x4337b0.
-        PuzzleBox &b = *box_;
+        PuzzleBox &b = *_box;
         if (b.selected == 0) {
             b.selected = boxPieceAt(x, y);
             writeBoxTags();
@@ -491,19 +491,19 @@ void ScenePage::puzzleClick(int x, int y) {
         } else if (!boxMovePossible(piece, arrow)) {
             return;
         } else if (boxMoveCorrect(piece, arrow)) {
-            playSound("slidepuzzle" + std::to_string(msvcRand(puzzleSeed_) % 3 + 1));
+            playSound("slidepuzzle" + std::to_string(msvcRand(_puzzleSeed) % 3 + 1));
             if (b.step == 9 && piece == 4 && arrow == 1) {
                 // Open (3.7), and the box's tags removed (0x43407d..0x4340e2),
                 // none written after: entered again, or a save made here
                 // loaded, it's a box from the start, not one a move from
                 // giving the locket again.
-                b.solved = boxOpenedHere_ = true;
+                b.solved = _boxOpenedHere = true;
                 playSound("puzzlelid");
-                runner_->run("show topopen, wait 1.9, hide topopen, talk gen_puzzle 6, tag puzzlebox_solved, fade in "
+                _runner->run("show topopen, wait 1.9, hide topopen, talk gen_puzzle 6, tag puzzlebox_solved, fade in "
                              "exalocket, talk gen_takeobject 1, fade out exalocket, take locket");
                 for (const char *tag : {"puzzlebox_endupper", "puzzlebox_endlower", "puzzlebox_side", "puzzlebox_top",
                                         "puzzlebox_moveindex", "puzzlebox_arrowpiece", "puzzlebox_misses"})
-                    state_.tags.erase(tag);
+                    _state.tags.erase(tag);
                 draw();
                 return;
             } else {
@@ -524,10 +524,10 @@ void ScenePage::puzzleClick(int x, int y) {
             // A wrong move: the third in a row starts again.
             if (b.misses == 2) {
                 b = PuzzleBox();
-                runner_->run("talk gen_puzzle 3");
+                _runner->run("talk gen_puzzle 3");
             } else {
                 b.misses++;
-                runner_->run("talk gen_puzzle 4");
+                _runner->run("talk gen_puzzle 4");
             }
             b.selected = 0;
         }
@@ -540,7 +540,7 @@ const Ac2Record *ScenePage::tornPick(int x, int y) const {
     // 0x43ed00: the front-most picture with something under the point.
     const Ac2Record *best = nullptr;
     float bestDepth = -1e9f;
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         if (!objectShown(*o) || !isPicture(o->text("file")))
             continue;
         const image::Image &img = const_cast<ScenePage *>(this)->picture(o->text("file"));
@@ -552,7 +552,7 @@ const Ac2Record *ScenePage::tornPick(int x, int y) const {
         float roll = 0;
         float cx = 0;
         float cy = 0;
-        if (const auto ov = overrides_.find(o); ov != overrides_.end()) {
+        if (const auto ov = _overrides.find(o); ov != _overrides.end()) {
             d = ov->second.depth, ox = ov->second.x, oy = ov->second.y;
             roll = ov->second.roll, cx = ov->second.cx, cy = ov->second.cy;
         } else {
@@ -584,7 +584,7 @@ int ScenePage::boxPieceAt(int x, int y) const {
     // A piece of the box (0x4337b0): the end (its upper half inside the
     // "endtop" outline), the side, the lid; 0 none.
     if (hitPicture(puzzleObject(boxEndPicture()), float(x), float(y), kBoxX, kBoxY)) {
-        for (const Ac2Record *o : scene_.objects())
+        for (const Ac2Record *o : _scene.objects())
             if (o->tag == "SPOT" && fs::toLower(o->text("name")) == "endtop")
                 if (const Ac2Value *poly = o->field("listD");
                     poly && poly->numbers.size() >= 3 && insidePolygon(poly->numbers, float(x), float(y)))
@@ -600,24 +600,24 @@ int ScenePage::boxPieceAt(int x, int y) const {
 
 void ScenePage::puzzleRelease(int x, int y) {
     (void)x, (void)y;
-    if (torn_ && torn_->selected >= 0 && torn_->dragging) {
+    if (_torn && _torn->selected >= 0 && _torn->dragging) {
         // 0x43ee40: dropped, snapped, kept, checked.
-        torn_->dragging = false;
-        snapTornPiece(torn_->selected);
-        saveTornPiece(torn_->selected);
+        _torn->dragging = false;
+        snapTornPiece(_torn->selected);
+        saveTornPiece(_torn->selected);
         playSound("mouseover2");
         checkTornLetter();
         draw();
     }
-    if (safe_) {
+    if (_safe) {
         // 0x434620: a number counts if the dial was turned the way expected
         // and stopped on it.
-        Safe &s = *safe_;
+        Safe &s = *_safe;
         static constexpr int kCombination[3] = {6, 6, 6};
         if (s.spinning == s.expected && s.entered < 3 && s.number == kCombination[s.entered]) {
             s.entered++;
             if (s.entered == 3) {
-                runner_->run("sound safeclick, talk gen_safe 2");
+                _runner->run("sound safeclick, talk gen_safe 2");
                 s.spinning = 0;
                 writeSafeTags();
                 return;
@@ -630,20 +630,20 @@ void ScenePage::puzzleRelease(int x, int y) {
 }
 
 void ScenePage::puzzleUpdate(float seconds) {
-    if (torn_ && torn_->dragging && torn_->selected >= 0) {
+    if (_torn && _torn->dragging && _torn->selected >= 0) {
         // The piece follows the mouse (0x43ecc0).
-        PictureOverride &p = overrides_[torn_->pieces[size_t(torn_->selected)]];
-        if (lastMouseX_ != torn_->dragX || lastMouseY_ != torn_->dragY) {
-            p.x += float(lastMouseX_ - torn_->dragX);
-            p.y += float(lastMouseY_ - torn_->dragY);
-            torn_->dragX = lastMouseX_, torn_->dragY = lastMouseY_;
+        PictureOverride &p = _overrides[_torn->pieces[size_t(_torn->selected)]];
+        if (_lastMouseX != _torn->dragX || _lastMouseY != _torn->dragY) {
+            p.x += float(_lastMouseX - _torn->dragX);
+            p.y += float(_lastMouseY - _torn->dragY);
+            _torn->dragX = _lastMouseX, _torn->dragY = _lastMouseY;
             draw();
         }
     }
-    if (safe_ && safe_->spinning > 0) {
+    if (_safe && _safe->spinning > 0) {
         // Held: on after a quarter second, faster each step, to about 30
         // numbers a second (0x434690).
-        Safe &s = *safe_;
+        Safe &s = *_safe;
         s.timer += seconds;
         while (s.timer >= s.interval) {
             s.timer -= s.interval;
@@ -656,32 +656,32 @@ void ScenePage::puzzleUpdate(float seconds) {
 }
 
 void ScenePage::puzzleAction(const std::string &word) {
-    if (torn_ && torn_->selected >= 0) {
+    if (_torn && _torn->selected >= 0) {
         // 0x43eeb0: the picked piece turned a quarter, about its centre.
-        PictureOverride &p = overrides_[torn_->pieces[size_t(torn_->selected)]];
+        PictureOverride &p = _overrides[_torn->pieces[size_t(_torn->selected)]];
         float deg = p.roll / kDegree + (word == "left" ? 90.0f : -90.0f);
         if (deg >= 360)
             deg -= 360;
         if (deg < 0)
             deg += 360;
         p.roll = deg * kDegree;
-        saveTornPiece(torn_->selected);
-        playSound(msvcRand(puzzleSeed_) & 1 ? "paperpuzzle1" : "paperpuzzle2");
+        saveTornPiece(_torn->selected);
+        playSound(msvcRand(_puzzleSeed) & 1 ? "paperpuzzle1" : "paperpuzzle2");
         checkTornLetter();
         draw();
         return;
     }
-    if (safe_ && safe_->dial) {
+    if (_safe && _safe->dial) {
         // 0x434500: right counts down, left up; turning the other way once
         // a number is in starts again.
-        Safe &s = *safe_;
+        Safe &s = *_safe;
         const int dir = word == "right" ? 1 : 2;
         s.spinning = dir;
         turnDial(dir);
         if ((s.spinning != s.expected || s.entered == 3) && s.entered > 0) {
-            runner_->run("talk gen_safe 1");
+            _runner->run("talk gen_safe 1");
             s.spinning = 0, s.entered = 0, s.expected = 2, s.number = 0;
-            overrides_[s.dial].roll = 0;
+            _overrides[s.dial].roll = 0;
         }
         s.timer = 0, s.interval = 0.25f;
         writeSafeTags();
@@ -692,11 +692,11 @@ void ScenePage::puzzleAction(const std::string &word) {
 // --- For tools: the puzzle solved as a player would ------------------------------------
 
 std::string ScenePage::puzzleOpen() const {
-    return torn_ ? "tornletter" : safe_ ? "safe" : box_ ? "puzzlebox" : "";
+    return _torn ? "tornletter" : _safe ? "safe" : _box ? "puzzlebox" : "";
 }
 
 bool ScenePage::puzzleSolved() const {
-    return (torn_ && torn_->solved) || (safe_ && state_.tags.count("safe_solved")) || (box_ && box_->solved);
+    return (_torn && _torn->solved) || (_safe && _state.tags.count("safe_solved")) || (_box && _box->solved);
 }
 
 bool ScenePage::puzzleStep() {
@@ -727,7 +727,7 @@ bool ScenePage::puzzleStep() {
     // A hotspot's script run, as its click runs it (the letter's and the
     // safe's arrows: "action left").
     auto arrow = [&](const std::string &word) {
-        for (const Ac2Record *o : scene_.objects()) {
+        for (const Ac2Record *o : _scene.objects()) {
             if (o->tag != "SPOT" || !objectShown(*o))
                 continue;
             bool match = fs::toLower(o->text("script")) == "action " + word;
@@ -736,7 +736,7 @@ bool ScenePage::puzzleStep() {
                     match |= fs::toLower(run) == "action " + word;
             if (match) {
                 runScript(*o);
-                runner_->update(0);
+                _runner->update(0);
                 return true;
             }
         }
@@ -744,10 +744,10 @@ bool ScenePage::puzzleStep() {
     };
     int x = 0;
     int y = 0;
-    if (box_) {
+    if (_box) {
         // The move the solution asks for next.
-        PuzzleBox &b = *box_;
-        if (b.solved || !runner_->idle())
+        PuzzleBox &b = *_box;
+        if (b.solved || !_runner->idle())
             return false;
         int piece = 0;
         int dir = 0;
@@ -768,14 +768,14 @@ bool ScenePage::puzzleStep() {
         mouse(EventType::MouseUp, x, y);
         return true;
     }
-    if (torn_) {
+    if (_torn) {
         // A piece not yet in its cell upright, one that shows (the one
         // picked first): picked, turned upright, dragged to its cell.
-        TornLetter &t = *torn_;
-        if (t.solved || !runner_->idle())
+        TornLetter &t = *_torn;
+        if (t.solved || !_runner->idle())
             return false;
         auto done = [&](int i) {
-            const PictureOverride &p = overrides_[t.pieces[size_t(i)]];
+            const PictureOverride &p = _overrides[t.pieces[size_t(i)]];
             int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
             if (a < 0)
                 a += 360;
@@ -794,7 +794,7 @@ bool ScenePage::puzzleStep() {
                 return false;
             if (done(i) || !find([&](int px, int py) { return tornPick(px, py) == o; }, x, y))
                 continue;
-            const PictureOverride p = overrides_[o];
+            const PictureOverride p = _overrides[o];
             int a = int(int16_t(int(p.roll * 57.2957764f))) % 360;
             if (a < 0)
                 a += 360;
@@ -815,22 +815,22 @@ bool ScenePage::puzzleStep() {
         }
         return false;
     }
-    if (safe_) {
+    if (_safe) {
         // 6 left, a turn right back to 6, a turn left back to 6: a press
         // and a let go a number.
-        Safe &s = *safe_;
-        if (!runner_->idle() || state_.tags.count("safe_solved"))
+        Safe &s = *_safe;
+        if (!_runner->idle() || _state.tags.count("safe_solved"))
             return false;
         if (s.entered == 3) {
             // Then the handle: the hotspot that "action open" lets open.
             if (s.opening)
                 return false;
-            for (const Ac2Record *o : scene_.objects())
+            for (const Ac2Record *o : _scene.objects())
                 if (const Ac2Value *alternatives = o->field("listB");
                     o->tag == "SPOT" && alternatives && objectShown(*o))
                     for (const auto &[condition, run] : alternatives->pairs)
                         if (fs::toLower(condition).find("action open") != std::string::npos &&
-                            testCondition(condition, state_)) {
+                            testCondition(condition, _state)) {
                             s.opening = true;
                             runScript(*o);
                             return true;
@@ -839,7 +839,7 @@ bool ScenePage::puzzleStep() {
         }
         if (!arrow(s.expected == 2 ? "left" : "right"))
             return false;
-        mouse(EventType::MouseUp, lastMouseX_, lastMouseY_);
+        mouse(EventType::MouseUp, _lastMouseX, _lastMouseY);
         return true;
     }
     return false;

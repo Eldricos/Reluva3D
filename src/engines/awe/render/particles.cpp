@@ -91,78 +91,78 @@ ParticleSettings ParticleSettings::fromRecord(const Ac2Record &o) {
     return s;
 }
 
-ParticleSystem::ParticleSystem(ParticleSettings settings, uint32_t seed) : s_(std::move(settings)), seed_(seed) {
+ParticleSystem::ParticleSystem(ParticleSettings settings, uint32_t seed) : _s(std::move(settings)), _seed(seed) {
 }
 
 int ParticleSystem::random() {
-    seed_ = seed_ * 214013u + 2531011u;
-    return int((seed_ >> 16) & 0x7fff);
+    _seed = _seed * 214013u + 2531011u;
+    return int((_seed >> 16) & 0x7fff);
 }
 
 // The emitter's coordinate plus a whole number in [-spread, spread).
 float ParticleSystem::spreadRandom(float centre) {
-    const int range = std::max(1, s_.spread);
+    const int range = std::max(1, _s.spread);
     return centre - float(range) + float(random() % (2 * range));
 }
 
 void ParticleSystem::emit() {
     Particle p;
-    p.swayAngle = time_;
-    if (s_.mode == 1) {
+    p.swayAngle = _time;
+    if (_s.mode == 1) {
         for (int k = 0; k < 3; k++)
-            p.origin[k] = spreadRandom(s_.position[k]);
+            p.origin[k] = spreadRandom(_s.position[k]);
         std::copy(p.origin, p.origin + 3, p.position);
-    } else if (s_.mode == 2) {
-        p.origin[0] = spreadRandom(s_.position[0]);
-        p.origin[2] = spreadRandom(s_.position[2]);
-        p.origin[1] = s_.position[1];
+    } else if (_s.mode == 2) {
+        p.origin[0] = spreadRandom(_s.position[0]);
+        p.origin[2] = spreadRandom(_s.position[2]);
+        p.origin[1] = _s.position[1];
         std::copy(p.origin, p.origin + 3, p.position);
     } else {
         // Thrown: a direction around (a) and up from straight up (b, at
         // most 45 degrees), its speed scaled per axis.
         const float a = float(random()) * (1 / 32767.0f) * 6.2831855f;
         const float b = float(random()) * (1 / 32767.0f) * 0.7853982f;
-        p.origin[0] = spreadRandom(s_.position[0]);
-        p.origin[1] = s_.position[1];
-        p.origin[2] = spreadRandom(s_.position[2]);
+        p.origin[0] = spreadRandom(_s.position[0]);
+        p.origin[1] = _s.position[1];
+        p.origin[2] = spreadRandom(_s.position[2]);
         auto sign = [](float v, int rule) {
             // 1: made positive, 2: made negative, else as it came.
             if ((rule == 1 && v < 0) || (rule == 2 && v > 0))
                 return -v;
             return v;
         };
-        p.start[0] = sign(std::cos(a) * s_.velocity[0] * std::sin(b), s_.signX);
-        p.start[2] = sign(std::sin(b) * std::sin(a) * s_.velocity[2], s_.signZ);
+        p.start[0] = sign(std::cos(a) * _s.velocity[0] * std::sin(b), _s.signX);
+        p.start[2] = sign(std::sin(b) * std::sin(a) * _s.velocity[2], _s.signZ);
         float r = float(random()) * (1 / 32767.0f);
         if (r < 0.5f)
             r += 0.5f;
-        p.start[1] = r * std::cos(b) * s_.velocity[1];
-        if (s_.signY == 2 || (s_.signY == 0 && (random() & 1)))
+        p.start[1] = r * std::cos(b) * _s.velocity[1];
+        if (_s.signY == 2 || (_s.signY == 0 && (random() & 1)))
             p.start[1] = -p.start[1];
         std::copy(p.origin, p.origin + 3, p.position);
         std::copy(p.start, p.start + 3, p.velocity);
     }
-    p.born = time_;
-    particles_.push_back(p);
+    p.born = _time;
+    _particles.push_back(p);
 }
 
 void ParticleSystem::setEmitter(const float position[3], const float velocity[3]) {
-    std::copy(position, position + 3, s_.position);
-    std::copy(velocity, velocity + 3, s_.velocity);
+    std::copy(position, position + 3, _s.position);
+    std::copy(velocity, velocity + 3, _s.velocity);
 }
 
 void ParticleSystem::update(float dt) {
-    time_ += dt;
-    for (Particle &p : particles_) {
-        p.swayAngle += dt * s_.swaySpeed;
-        const float age = time_ - p.born;
-        if (s_.mode == 1) {
-            p.dead = age > s_.life;
+    _time += dt;
+    for (Particle &p : _particles) {
+        p.swayAngle += dt * _s.swaySpeed;
+        const float age = _time - p.born;
+        if (_s.mode == 1) {
+            p.dead = age > _s.life;
             continue;
         }
-        if (s_.mode == 2) {
+        if (_s.mode == 2) {
             for (int k = 0; k < 3; k++)
-                p.position[k] += dt * s_.velocity[k];
+                p.position[k] += dt * _s.velocity[k];
             p.dead = p.position[1] < 0;
             continue;
         }
@@ -170,54 +170,54 @@ void ParticleSystem::update(float dt) {
         // rotation (D3DXMatrixRotationYawPitchRoll), then gravity.
         const float v[3] = {age * p.start[0], age * p.start[1], age * p.start[2]};
         // Yaw is rotY (the object's +8), pitch rotX (+4), roll rotZ (+0xc).
-        const float cy = std::cos(s_.rotation[1]);
-        const float sy = std::sin(s_.rotation[1]);
-        const float cp = std::cos(s_.rotation[0]);
-        const float sp = std::sin(s_.rotation[0]);
-        const float cr = std::cos(s_.rotation[2]);
-        const float sr = std::sin(s_.rotation[2]);
+        const float cy = std::cos(_s.rotation[1]);
+        const float sy = std::sin(_s.rotation[1]);
+        const float cp = std::cos(_s.rotation[0]);
+        const float sp = std::sin(_s.rotation[0]);
+        const float cr = std::cos(_s.rotation[2]);
+        const float sr = std::sin(_s.rotation[2]);
         // A row vector times roll (about Z), pitch (X), then yaw (Y).
         const float t[3] = {v[0] * cr - v[1] * sr, v[0] * sr + v[1] * cr, v[2]};
         const float u[3] = {t[0], t[1] * cp - t[2] * sp, t[1] * sp + t[2] * cp};
         const float w[3] = {u[0] * cy + u[2] * sy, u[1], -u[0] * sy + u[2] * cy};
         for (int k = 0; k < 3; k++)
             p.position[k] = p.origin[k] + w[k];
-        p.position[1] += age * age * s_.gravity * -0.5f;
-        p.velocity[1] = p.start[1] - age * s_.gravity;
-        const bool landed = p.position[1] < 0 && !s_.screenSpace;
-        if (!landed && age <= s_.life)
+        p.position[1] += age * age * _s.gravity * -0.5f;
+        p.velocity[1] = p.start[1] - age * _s.gravity;
+        const bool landed = p.position[1] < 0 && !_s.screenSpace;
+        if (!landed && age <= _s.life)
             continue;
         // On the ground or out of time: off again from where it is, slower,
         // while it has bounces left.
-        if (s_.bounce > 0 && p.bounces < s_.bounces) {
+        if (_s.bounce > 0 && p.bounces < _s.bounces) {
             std::copy(p.position, p.position + 3, p.origin);
             for (int k = 0; k < 3; k++)
-                p.start[k] *= s_.bounce;
+                p.start[k] *= _s.bounce;
             std::copy(p.start, p.start + 3, p.velocity);
-            p.born = time_;
+            p.born = _time;
             p.bounces++;
         } else {
             p.dead = true;
         }
     }
-    particles_.erase(std::remove_if(particles_.begin(), particles_.end(), [](const Particle &p) { return p.dead; }),
-                     particles_.end());
+    _particles.erase(std::remove_if(_particles.begin(), _particles.end(), [](const Particle &p) { return p.dead; }),
+                     _particles.end());
 
-    if (s_.blink) {
-        blinkLeft_ -= dt;
-        if (blinkLeft_ <= 0) {
-            on_ = !on_;
-            blinkLeft_ = on_ ? s_.onTime : s_.offTime;
+    if (_s.blink) {
+        _blinkLeft -= dt;
+        if (_blinkLeft <= 0) {
+            _on = !_on;
+            _blinkLeft = _on ? _s.onTime : _s.offTime;
         }
-        if (!on_)
+        if (!_on)
             return;
     }
-    nextBurst_ -= dt;
-    if (nextBurst_ > 0)
+    _nextBurst -= dt;
+    if (_nextBurst > 0)
         return;
-    nextBurst_ = s_.interval;
+    _nextBurst = _s.interval;
     constexpr size_t kMax = 0x1000;
-    for (int n = 0; n < s_.burst && particles_.size() < kMax; n++)
+    for (int n = 0; n < _s.burst && _particles.size() < kMax; n++)
         emit();
 }
 
@@ -229,23 +229,23 @@ void ParticleSystem::points(std::vector<Point> &out) const {
             return uint8_t(0);
         return uint8_t(v * 255 + 0.5f);
     };
-    for (const Particle &p : particles_) {
+    for (const Particle &p : _particles) {
         Point pt;
         std::copy(p.position, p.position + 3, pt.position);
-        if (s_.sway > 0)
-            pt.position[0] += std::sin(p.swayAngle) * s_.sway;
+        if (_s.sway > 0)
+            pt.position[0] += std::sin(p.swayAngle) * _s.sway;
         // Faded in over its first fadeIn seconds, out over its last fadeOut.
-        const float age = time_ - p.born;
+        const float age = _time - p.born;
         float alpha = 1;
-        if (s_.fadeIn != 0 && age <= s_.fadeIn)
-            alpha = age / s_.fadeIn;
-        else if (s_.fadeOut != 0 && age >= s_.life - s_.fadeOut)
-            alpha = (s_.fadeOut - (age - (s_.life - s_.fadeOut))) / s_.fadeOut;
-        pt.rgba[0] = channel(s_.colour[0]);
-        pt.rgba[1] = channel(s_.colour[1]);
-        pt.rgba[2] = channel(s_.colour[2]);
+        if (_s.fadeIn != 0 && age <= _s.fadeIn)
+            alpha = age / _s.fadeIn;
+        else if (_s.fadeOut != 0 && age >= _s.life - _s.fadeOut)
+            alpha = (_s.fadeOut - (age - (_s.life - _s.fadeOut))) / _s.fadeOut;
+        pt.rgba[0] = channel(_s.colour[0]);
+        pt.rgba[1] = channel(_s.colour[1]);
+        pt.rgba[2] = channel(_s.colour[2]);
         pt.rgba[3] = channel(alpha);
-        for (int c = 0; c < s_.copies; c++)
+        for (int c = 0; c < _s.copies; c++)
             out.push_back(pt);
     }
 }

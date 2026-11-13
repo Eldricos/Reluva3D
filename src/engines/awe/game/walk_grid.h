@@ -33,12 +33,12 @@ public:
 
     // From a CAMR record; false if it has no grid.
     bool load(const Ac2Record &camr);
-    bool empty() const { return size_ <= 0; }
-    int cellSize() const { return size_; }
-    uint8_t at(int a, int b) const { return inside(a, b) ? cells_[size_t(a * kSize + b)] : 1; }
+    bool empty() const { return _size <= 0; }
+    int cellSize() const { return _size; }
+    uint8_t at(int a, int b) const { return inside(a, b) ? _cells[size_t(a * kSize + b)] : 1; }
     void set(Cell c, uint8_t value) {
         if (inside(c.a, c.b))
-            cells_[size_t(c.a * kSize + c.b)] = value;
+            _cells[size_t(c.a * kSize + c.b)] = value;
     }
     static bool inside(int a, int b) { return a >= 0 && b >= 0 && a < kSize && b < kSize; }
 
@@ -73,8 +73,8 @@ public:
     static void setSinglePrecision(bool on);
 
 private:
-    int size_ = 0;
-    std::array<uint8_t, kSize * kSize> cells_{};
+    int _size = 0;
+    std::array<uint8_t, kSize * kSize> _cells{};
 };
 
 } // namespace reluva::awe

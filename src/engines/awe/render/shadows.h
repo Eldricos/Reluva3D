@@ -35,24 +35,24 @@ std::array<float, 3> flattenOntoPlane(const std::array<float, 3> &light, float h
 // shared without gaps). Tracks the box it covers.
 class CoverageMask {
 public:
-    CoverageMask(int width, int height) : w_(width), h_(height), bits_(size_t(width) * size_t(height), 0) {}
+    CoverageMask(int width, int height) : _w(width), _h(height), _bits(size_t(width) * size_t(height), 0) {}
     void clear();
     void fillTriangle(const float a[2], const float b[2], const float c[2]);
     void set(int x, int y);
-    bool at(int x, int y) const { return bits_[size_t(y) * size_t(w_) + size_t(x)] != 0; }
-    bool empty() const { return maxX_ < minX_; }
-    int width() const { return w_; }
-    int height() const { return h_; }
+    bool at(int x, int y) const { return _bits[size_t(y) * size_t(_w) + size_t(x)] != 0; }
+    bool empty() const { return _maxX < _minX; }
+    int width() const { return _w; }
+    int height() const { return _h; }
     // The covered box, inclusive.
-    int minX() const { return minX_; }
-    int minY() const { return minY_; }
-    int maxX() const { return maxX_; }
-    int maxY() const { return maxY_; }
+    int minX() const { return _minX; }
+    int minY() const { return _minY; }
+    int maxX() const { return _maxX; }
+    int maxY() const { return _maxY; }
 
 private:
-    int w_, h_;
-    std::vector<uint8_t> bits_;
-    int minX_ = 1 << 30, minY_ = 1 << 30, maxX_ = -1, maxY_ = -1;
+    int _w, _h;
+    std::vector<uint8_t> _bits;
+    int _minX = 1 << 30, _minY = 1 << 30, _maxX = -1, _maxY = -1;
 };
 
 // The game's stencil as the frame is drawn, on the CPU, for a device with
@@ -62,8 +62,8 @@ private:
 class ShadowStencil {
 public:
     ShadowStencil(int width, int height)
-        : w_(width), h_(height), stencil_(size_t(width) * size_t(height), 0),
-          depth_(size_t(width) * size_t(height), kFar) {}
+        : _w(width), _h(height), _stencil(size_t(width) * size_t(height), 0),
+          _depth(size_t(width) * size_t(height), kFar) {}
     void clear();
     // Where the triangle passes the depth test (as near or nearer: D3D's
     // LESSEQUAL), the stencil becomes `ref`; with `writeDepth`, so does the
@@ -72,17 +72,17 @@ public:
     // Stencil 0 wherever `cover` (a byte a pixel) isn't 0: a picture
     // drawn over.
     void reset(const std::vector<uint8_t> &cover);
-    uint8_t at(int x, int y) const { return stencil_[size_t(y) * size_t(w_) + size_t(x)]; }
+    uint8_t at(int x, int y) const { return _stencil[size_t(y) * size_t(_w) + size_t(x)]; }
     // The pixels whose stencil is `ref`, into `out` (cleared first).
     void select(uint8_t ref, CoverageMask &out) const;
 
 private:
     static constexpr float kFar = 3.0e38f;
-    int w_, h_;
-    std::vector<uint8_t> stencil_;
-    std::vector<float> depth_;
+    int _w, _h;
+    std::vector<uint8_t> _stencil;
+    std::vector<float> _depth;
     // The box anything has touched, inclusive.
-    int minX_ = 1 << 30, minY_ = 1 << 30, maxX_ = -1, maxY_ = -1;
+    int _minX = 1 << 30, _minY = 1 << 30, _maxX = -1, _maxY = -1;
 };
 
 // The shadow's darkening: a fragment's colour times this (the game's quad,

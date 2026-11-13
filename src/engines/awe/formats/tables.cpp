@@ -114,9 +114,9 @@ int Table::column(std::string_view heading) const {
 }
 
 const std::string &Table::cell(size_t row, int col) const {
-    static const std::string none;
+    static const std::string kNone;
     if (row >= rows.size() || col < 0 || size_t(col) >= rows[row].size())
-        return none;
+        return kNone;
     return rows[row][size_t(col)];
 }
 

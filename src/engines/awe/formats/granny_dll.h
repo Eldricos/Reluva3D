@@ -23,7 +23,7 @@ namespace reluva::awe {
 class GrannyDll {
 public:
     Error load(const std::vector<uint8_t> &dll);
-    bool loaded() const { return module_ != nullptr; }
+    bool loaded() const { return _module != nullptr; }
 
     // Decompresses `in` into `out` (sized to the decompressed size), to
     // check the native decoder.
@@ -59,7 +59,7 @@ public:
     };
     Error loadFile(const std::vector<uint8_t> &gr2, LoadedFile &out);
     void freeFile(LoadedFile &file);
-    uint32_t read32(uint32_t address) const { return cpu_ ? cpu_->read32(address) : 0; }
+    uint32_t read32(uint32_t address) const { return _cpu ? _cpu->read32(address) : 0; }
     // A loaded file's structures are the DLL's own types (it converts the
     // older exporters' files): `type` is one it exports
     // ("GrannyFileInfoType": a pointer to its member definitions), 0 if
@@ -95,11 +95,11 @@ public:
                     std::vector<std::array<float, 16>> &out);
 
 private:
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    const x86::Win32Process::Module *module_ = nullptr;
-    uint32_t decompressData_ = 0, binkDecompressTexture_ = 0;
-    uint32_t curveScratch_ = 0; // evaluateCurve's identity and result
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    const x86::Win32Process::Module *_module = nullptr;
+    uint32_t _decompressData = 0, _binkDecompressTexture = 0;
+    uint32_t _curveScratch = 0; // evaluateCurve's identity and result
 };
 
 } // namespace reluva::awe

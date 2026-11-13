@@ -42,7 +42,7 @@ public:
     Color colour(std::string_view use, Color fallback = {255, 255, 255}) const;
     // A colour by its place in the list (the game's colour numbers).
     Color colourAt(size_t index, Color fallback = {255, 255, 255}) const;
-    const std::vector<TextStyle> &styles() const { return styles_; }
+    const std::vector<TextStyle> &styles() const { return _styles; }
 
     // Draws text in a style: its shadow (one pixel down and right, the
     // shadow colour) first if it has one.
@@ -50,10 +50,10 @@ public:
              uint8_t alpha = 255) const;
 
 private:
-    std::map<std::string, std::unique_ptr<ttf::Font>> fonts_; // by file name
-    std::vector<TextStyle> styles_;
-    std::vector<std::pair<std::string, Color>> colours_;
-    Color shadow_{0, 0, 0};
+    std::map<std::string, std::unique_ptr<ttf::Font>> _fonts; // by file name
+    std::vector<TextStyle> _styles;
+    std::vector<std::pair<std::string, Color>> _colours;
+    Color _shadow{0, 0, 0};
 };
 
 // A movie's subtitles: who speaks, what, and when (seconds from its start).

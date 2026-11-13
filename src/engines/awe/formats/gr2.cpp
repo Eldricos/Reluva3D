@@ -41,60 +41,60 @@ float halfToFloat(uint16_t h) {
 } // namespace
 
 const char *gr2TypeName(Gr2Type type) {
-    static const char *const names[] = {"end",
-                                        "inline",
-                                        "reference",
-                                        "reference to array",
-                                        "array of references",
-                                        "variant reference",
-                                        "unsupported",
-                                        "reference to variant array",
-                                        "string",
-                                        "transform",
-                                        "real32",
-                                        "int8",
-                                        "uint8",
-                                        "binormal int8",
-                                        "normal uint8",
-                                        "int16",
-                                        "uint16",
-                                        "binormal int16",
-                                        "normal uint16",
-                                        "int32",
-                                        "uint32",
-                                        "real16",
-                                        "empty reference"};
+    static const char *const kNames[] = {"end",
+                                         "inline",
+                                         "reference",
+                                         "reference to array",
+                                         "array of references",
+                                         "variant reference",
+                                         "unsupported",
+                                         "reference to variant array",
+                                         "string",
+                                         "transform",
+                                         "real32",
+                                         "int8",
+                                         "uint8",
+                                         "binormal int8",
+                                         "normal uint8",
+                                         "int16",
+                                         "uint16",
+                                         "binormal int16",
+                                         "normal uint16",
+                                         "int32",
+                                         "uint32",
+                                         "real16",
+                                         "empty reference"};
     const auto i = size_t(type);
-    return i < std::size(names) ? names[i] : "?";
+    return i < std::size(kNames) ? kNames[i] : "?";
 }
 
 uint32_t gr2ValueSize(Gr2Type type) {
     switch (type) {
-    case Gr2Type::Reference:
-    case Gr2Type::String:
-    case Gr2Type::Real32:
-    case Gr2Type::Int32:
-    case Gr2Type::UInt32:
-    case Gr2Type::EmptyReference:
+    case Gr2Type::kReference:
+    case Gr2Type::kString:
+    case Gr2Type::kReal32:
+    case Gr2Type::kInt32:
+    case Gr2Type::kUInt32:
+    case Gr2Type::kEmptyReference:
         return 4;
-    case Gr2Type::ReferenceToArray:
-    case Gr2Type::ArrayOfReferences:
-    case Gr2Type::VariantReference:
+    case Gr2Type::kReferenceToArray:
+    case Gr2Type::kArrayOfReferences:
+    case Gr2Type::kVariantReference:
         return 8;
-    case Gr2Type::ReferenceToVariantArray:
+    case Gr2Type::kReferenceToVariantArray:
         return 12;
-    case Gr2Type::Transform:
+    case Gr2Type::kTransform:
         return 4 + 12 + 16 + 36;
-    case Gr2Type::Int8:
-    case Gr2Type::UInt8:
-    case Gr2Type::BinormalInt8:
-    case Gr2Type::NormalUInt8:
+    case Gr2Type::kInt8:
+    case Gr2Type::kUInt8:
+    case Gr2Type::kBinormalInt8:
+    case Gr2Type::kNormalUInt8:
         return 1;
-    case Gr2Type::Int16:
-    case Gr2Type::UInt16:
-    case Gr2Type::BinormalInt16:
-    case Gr2Type::NormalUInt16:
-    case Gr2Type::Real16:
+    case Gr2Type::kInt16:
+    case Gr2Type::kUInt16:
+    case Gr2Type::kBinormalInt16:
+    case Gr2Type::kNormalUInt16:
+    case Gr2Type::kReal16:
         return 2;
     default:
         return 0;
@@ -106,7 +106,7 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
     if (file.size() < 0x58 || std::memcmp(file.data(), kMagic, 16) != 0)
         return Error::fail("Not a little-endian 32-bit Granny 2 file");
     const uint32_t headerSize = rd32(file, 0x10);
-    version_ = rd32(file, 0x20);
+    _version = rd32(file, 0x20);
     const uint32_t totalSize = rd32(file, 0x24);
     const uint32_t sectionTable = 0x20 + rd32(file, 0x2c);
     const uint32_t sectionCount = rd32(file, 0x30);
@@ -114,9 +114,9 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
     const uint32_t rootTypeOffset = rd32(file, 0x38);
     const uint32_t rootSection = rd32(file, 0x3c);
     const uint32_t rootOffset = rd32(file, 0x40);
-    typeTag_ = rd32(file, 0x44);
-    if (version_ != 6)
-        return Error::fail("Granny file format " + std::to_string(version_) + ", only 6 is known");
+    _typeTag = rd32(file, 0x44);
+    if (_version != 6)
+        return Error::fail("Granny file format " + std::to_string(_version) + ", only 6 is known");
     if (totalSize > file.size() || headerSize > file.size() || sectionCount > 64 ||
         sectionTable + uint64_t(sectionCount) * kSectionBytes > file.size())
         return Error::fail("Granny file header out of range");
@@ -135,17 +135,17 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
         if (align & (align - 1))
             return Error::fail("Granny section " + std::to_string(i) + " has a bad alignment");
         end = (end + align - 1) & ~(align - 1);
-        sectionBase_.push_back(end);
+        _sectionBase.push_back(end);
         end += s.size + 4;
-        sections_.push_back(s);
+        _sections.push_back(s);
     }
-    memory_.assign(end, 0);
+    _memory.assign(end, 0);
 
-    for (size_t i = 0; i < sections_.size(); i++) {
-        const Gr2Section &s = sections_[i];
+    for (size_t i = 0; i < _sections.size(); i++) {
+        const Gr2Section &s = _sections[i];
         if (s.size == 0)
             continue;
-        uint8_t *dst = memory_.data() + sectionBase_[i];
+        uint8_t *dst = _memory.data() + _sectionBase[i];
         if (s.compression == 0) {
             if (s.compressedSize < s.size)
                 return Error::fail("Granny section " + std::to_string(i) + " is short");
@@ -162,34 +162,34 @@ Error Gr2File::open(const std::vector<uint8_t> &file, const Gr2Decompressor &dec
 
     // Fixups: each a pointer's place in its section, and the section and
     // offset it points at.
-    for (size_t i = 0; i < sections_.size(); i++) {
-        const Gr2Section &s = sections_[i];
+    for (size_t i = 0; i < _sections.size(); i++) {
+        const Gr2Section &s = _sections[i];
         for (uint32_t k = 0; k < s.fixupCount; k++) {
             const uint32_t o = s.fixupOffset + k * kFixupBytes;
             const uint32_t at = rd32(file, o);
             const uint32_t target = rd32(file, o + 4);
             const uint32_t targetOffset = rd32(file, o + 8);
-            if (target >= sections_.size() || uint64_t(at) + 4 > s.size || targetOffset > sections_[target].size)
+            if (target >= _sections.size() || uint64_t(at) + 4 > s.size || targetOffset > _sections[target].size)
                 return Error::fail("Granny section " + std::to_string(i) + " has a bad fixup");
-            const uint32_t value = sectionBase_[target] + targetOffset;
-            uint8_t *p = memory_.data() + sectionBase_[i] + at;
+            const uint32_t value = _sectionBase[target] + targetOffset;
+            uint8_t *p = _memory.data() + _sectionBase[i] + at;
             p[0] = uint8_t(value), p[1] = uint8_t(value >> 8), p[2] = uint8_t(value >> 16), p[3] = uint8_t(value >> 24);
         }
     }
-    if (rootTypeSection >= sections_.size() || rootSection >= sections_.size())
+    if (rootTypeSection >= _sections.size() || rootSection >= _sections.size())
         return Error::fail("Granny root out of range");
-    bytes_ = file;
-    rootType_ = sectionBase_[rootTypeSection] + rootTypeOffset;
-    rootObject_ = sectionBase_[rootSection] + rootOffset;
+    _bytes = file;
+    _rootType = _sectionBase[rootTypeSection] + rootTypeOffset;
+    _rootObject = _sectionBase[rootSection] + rootOffset;
     return Error::success();
 }
 
 uint16_t Gr2File::read16(uint32_t a) const {
-    return valid(a, 2) ? uint16_t(memory_[a] | memory_[a + 1] << 8) : 0;
+    return valid(a, 2) ? uint16_t(_memory[a] | _memory[a + 1] << 8) : 0;
 }
 
 uint32_t Gr2File::read32(uint32_t a) const {
-    return valid(a, 4) ? rd32(memory_, a) : 0;
+    return valid(a, 4) ? rd32(_memory, a) : 0;
 }
 
 float Gr2File::readFloat(uint32_t a) const {
@@ -201,28 +201,28 @@ float Gr2File::readFloat(uint32_t a) const {
 
 std::string Gr2File::readString(uint32_t a) const {
     std::string s;
-    while (valid(a, 1) && memory_[a] && s.size() < 4096)
-        s += char(memory_[a++]);
+    while (valid(a, 1) && _memory[a] && s.size() < 4096)
+        s += char(_memory[a++]);
     return s;
 }
 
 const std::vector<Gr2Member> &Gr2File::members(uint32_t type) const {
-    auto it = typeCache_.find(type);
-    if (it != typeCache_.end())
+    auto it = _typeCache.find(type);
+    if (it != _typeCache.end())
         return it->second;
-    std::vector<Gr2Member> &list = typeCache_[type];
+    std::vector<Gr2Member> &list = _typeCache[type];
     uint32_t offset = 0;
     for (uint32_t a = type; valid(a, kMemberBytes) && list.size() < 1024; a += kMemberBytes) {
         Gr2Member m;
         m.type = Gr2Type(read32(a));
-        if (m.type == Gr2Type::End)
+        if (m.type == Gr2Type::kEnd)
             break;
         m.name = readString(read32(a + 4));
         m.refType = read32(a + 8);
         m.arrayWidth = read32(a + 12);
         m.offset = offset;
         const uint32_t one =
-            m.type == Gr2Type::Inline ? (m.refType == type ? 0 : typeSize(m.refType)) : gr2ValueSize(m.type);
+            m.type == Gr2Type::kInline ? (m.refType == type ? 0 : typeSize(m.refType)) : gr2ValueSize(m.type);
         m.size = one * std::max<uint32_t>(1, m.arrayWidth);
         offset += m.size;
         list.push_back(std::move(m));
@@ -238,8 +238,8 @@ uint32_t Gr2File::typeSize(uint32_t type) const {
 }
 
 const std::vector<Gr2Member> &Gr2Object::members() const {
-    static const std::vector<Gr2Member> none;
-    return file_ && type_ ? file_->members(type_) : none;
+    static const std::vector<Gr2Member> kNone;
+    return _file && _type ? _file->members(_type) : kNone;
 }
 
 const Gr2Member *Gr2Object::member(std::string_view name) const {
@@ -251,37 +251,37 @@ const Gr2Member *Gr2Object::member(std::string_view name) const {
 
 double Gr2Object::number(std::string_view name, uint32_t index) const {
     const Gr2Member *m = member(name);
-    if (!m || !address_)
+    if (!m || !_address)
         return 0;
     const uint32_t one = gr2ValueSize(m->type);
     if (!one || index >= std::max<uint32_t>(1, m->arrayWidth))
         return 0;
-    const uint32_t a = address_ + m->offset + index * one;
+    const uint32_t a = _address + m->offset + index * one;
     switch (m->type) {
-    case Gr2Type::Real32:
-        return file_->readFloat(a);
-    case Gr2Type::Real16:
-        return halfToFloat(file_->read16(a));
-    case Gr2Type::Int8:
-        return int8_t(file_->read8(a));
-    case Gr2Type::UInt8:
-        return file_->read8(a);
-    case Gr2Type::BinormalInt8:
-        return int8_t(file_->read8(a)) / 127.0;
-    case Gr2Type::NormalUInt8:
-        return file_->read8(a) / 255.0;
-    case Gr2Type::Int16:
-        return int16_t(file_->read16(a));
-    case Gr2Type::UInt16:
-        return file_->read16(a);
-    case Gr2Type::BinormalInt16:
-        return int16_t(file_->read16(a)) / 32767.0;
-    case Gr2Type::NormalUInt16:
-        return file_->read16(a) / 65535.0;
-    case Gr2Type::Int32:
-        return int32_t(file_->read32(a));
-    case Gr2Type::UInt32:
-        return file_->read32(a);
+    case Gr2Type::kReal32:
+        return _file->readFloat(a);
+    case Gr2Type::kReal16:
+        return halfToFloat(_file->read16(a));
+    case Gr2Type::kInt8:
+        return int8_t(_file->read8(a));
+    case Gr2Type::kUInt8:
+        return _file->read8(a);
+    case Gr2Type::kBinormalInt8:
+        return int8_t(_file->read8(a)) / 127.0;
+    case Gr2Type::kNormalUInt8:
+        return _file->read8(a) / 255.0;
+    case Gr2Type::kInt16:
+        return int16_t(_file->read16(a));
+    case Gr2Type::kUInt16:
+        return _file->read16(a);
+    case Gr2Type::kBinormalInt16:
+        return int16_t(_file->read16(a)) / 32767.0;
+    case Gr2Type::kNormalUInt16:
+        return _file->read16(a) / 65535.0;
+    case Gr2Type::kInt32:
+        return int32_t(_file->read32(a));
+    case Gr2Type::kUInt32:
+        return _file->read32(a);
     default:
         return 0;
     }
@@ -289,39 +289,39 @@ double Gr2Object::number(std::string_view name, uint32_t index) const {
 
 std::string Gr2Object::string(std::string_view name) const {
     const Gr2Member *m = member(name);
-    if (!m || m->type != Gr2Type::String || !address_)
+    if (!m || m->type != Gr2Type::kString || !_address)
         return "";
-    return file_->readString(file_->read32(address_ + m->offset));
+    return _file->readString(_file->read32(_address + m->offset));
 }
 
 Gr2Transform Gr2Object::transform(std::string_view name) const {
     Gr2Transform t;
     const Gr2Member *m = member(name);
-    if (!m || m->type != Gr2Type::Transform || !address_)
+    if (!m || m->type != Gr2Type::kTransform || !_address)
         return t;
-    uint32_t a = address_ + m->offset;
-    t.flags = file_->read32(a);
+    uint32_t a = _address + m->offset;
+    t.flags = _file->read32(a);
     for (float &f : t.position)
-        f = file_->readFloat(a += 4);
+        f = _file->readFloat(a += 4);
     for (float &f : t.orientation)
-        f = file_->readFloat(a += 4);
+        f = _file->readFloat(a += 4);
     for (float &f : t.scaleShear)
-        f = file_->readFloat(a += 4);
+        f = _file->readFloat(a += 4);
     return t;
 }
 
 Gr2Object Gr2Object::object(std::string_view name) const {
     const Gr2Member *m = member(name);
-    if (!m || !address_)
+    if (!m || !_address)
         return {};
-    const uint32_t a = address_ + m->offset;
+    const uint32_t a = _address + m->offset;
     switch (m->type) {
-    case Gr2Type::Inline:
-        return Gr2Object(file_, m->refType, a);
-    case Gr2Type::Reference:
-        return Gr2Object(file_, m->refType, file_->read32(a));
-    case Gr2Type::VariantReference:
-        return Gr2Object(file_, file_->read32(a), file_->read32(a + 4));
+    case Gr2Type::kInline:
+        return Gr2Object(_file, m->refType, a);
+    case Gr2Type::kReference:
+        return Gr2Object(_file, m->refType, _file->read32(a));
+    case Gr2Type::kVariantReference:
+        return Gr2Object(_file, _file->read32(a), _file->read32(a + 4));
     default:
         return {};
     }
@@ -329,15 +329,15 @@ Gr2Object Gr2Object::object(std::string_view name) const {
 
 uint32_t Gr2Object::count(std::string_view name) const {
     const Gr2Member *m = member(name);
-    if (!m || !address_)
+    if (!m || !_address)
         return 0;
-    const uint32_t a = address_ + m->offset;
+    const uint32_t a = _address + m->offset;
     switch (m->type) {
-    case Gr2Type::ReferenceToArray:
-    case Gr2Type::ArrayOfReferences:
-        return file_->read32(a);
-    case Gr2Type::ReferenceToVariantArray:
-        return file_->read32(a + 4);
+    case Gr2Type::kReferenceToArray:
+    case Gr2Type::kArrayOfReferences:
+        return _file->read32(a);
+    case Gr2Type::kReferenceToVariantArray:
+        return _file->read32(a + 4);
     default:
         return 0;
     }
@@ -345,17 +345,17 @@ uint32_t Gr2Object::count(std::string_view name) const {
 
 Gr2Object Gr2Object::element(std::string_view name, uint32_t index) const {
     const Gr2Member *m = member(name);
-    if (!m || !address_ || index >= count(name))
+    if (!m || !_address || index >= count(name))
         return {};
-    const uint32_t a = address_ + m->offset;
+    const uint32_t a = _address + m->offset;
     switch (m->type) {
-    case Gr2Type::ReferenceToArray:
-        return Gr2Object(file_, m->refType, file_->read32(a + 4) + index * file_->typeSize(m->refType));
-    case Gr2Type::ArrayOfReferences:
-        return Gr2Object(file_, m->refType, file_->read32(file_->read32(a + 4) + 4 * index));
-    case Gr2Type::ReferenceToVariantArray: {
-        const uint32_t type = file_->read32(a);
-        return Gr2Object(file_, type, file_->read32(a + 8) + index * file_->typeSize(type));
+    case Gr2Type::kReferenceToArray:
+        return Gr2Object(_file, m->refType, _file->read32(a + 4) + index * _file->typeSize(m->refType));
+    case Gr2Type::kArrayOfReferences:
+        return Gr2Object(_file, m->refType, _file->read32(_file->read32(a + 4) + 4 * index));
+    case Gr2Type::kReferenceToVariantArray: {
+        const uint32_t type = _file->read32(a);
+        return Gr2Object(_file, type, _file->read32(a + 8) + index * _file->typeSize(type));
     }
     default:
         return {};
@@ -365,22 +365,22 @@ Gr2Object Gr2Object::element(std::string_view name, uint32_t index) const {
 Gr2Object::Array Gr2Object::array(std::string_view name) const {
     Array r;
     const Gr2Member *m = member(name);
-    if (!m || !address_)
+    if (!m || !_address)
         return r;
-    const uint32_t a = address_ + m->offset;
-    if (m->type == Gr2Type::ReferenceToArray) {
+    const uint32_t a = _address + m->offset;
+    if (m->type == Gr2Type::kReferenceToArray) {
         r.type = m->refType;
-        r.count = file_->read32(a);
-        r.address = file_->read32(a + 4);
-    } else if (m->type == Gr2Type::ReferenceToVariantArray) {
-        r.type = file_->read32(a);
-        r.count = file_->read32(a + 4);
-        r.address = file_->read32(a + 8);
+        r.count = _file->read32(a);
+        r.address = _file->read32(a + 4);
+    } else if (m->type == Gr2Type::kReferenceToVariantArray) {
+        r.type = _file->read32(a);
+        r.count = _file->read32(a + 4);
+        r.address = _file->read32(a + 8);
     } else {
         return r;
     }
-    r.stride = file_->typeSize(r.type);
-    if (!r.type || !file_->valid(r.address, r.count * r.stride))
+    r.stride = _file->typeSize(r.type);
+    if (!r.type || !_file->valid(r.address, r.count * r.stride))
         r = Array();
     return r;
 }
@@ -394,10 +394,10 @@ void dumpObject(const Gr2Object &o, std::string &out, int depth, uint32_t maxEle
         out += pad + m.name + " (" + gr2TypeName(m.type) +
                (m.arrayWidth > 1 ? "[" + std::to_string(m.arrayWidth) + "]" : "") + ")";
         switch (m.type) {
-        case Gr2Type::String:
+        case Gr2Type::kString:
             out += ": \"" + o.string(m.name) + "\"\n";
             break;
-        case Gr2Type::Transform: {
+        case Gr2Type::kTransform: {
             const Gr2Transform t = o.transform(m.name);
             std::snprintf(buf, sizeof buf, ": flags %u pos (%g %g %g)", t.flags, t.position[0], t.position[1],
                           t.position[2]);
@@ -407,9 +407,9 @@ void dumpObject(const Gr2Object &o, std::string &out, int depth, uint32_t maxEle
             out += buf;
             break;
         }
-        case Gr2Type::Inline:
-        case Gr2Type::Reference:
-        case Gr2Type::VariantReference: {
+        case Gr2Type::kInline:
+        case Gr2Type::kReference:
+        case Gr2Type::kVariantReference: {
             const Gr2Object child = o.object(m.name);
             if (!child.valid()) {
                 out += ": null\n";
@@ -421,9 +421,9 @@ void dumpObject(const Gr2Object &o, std::string &out, int depth, uint32_t maxEle
             }
             break;
         }
-        case Gr2Type::ReferenceToArray:
-        case Gr2Type::ArrayOfReferences:
-        case Gr2Type::ReferenceToVariantArray: {
+        case Gr2Type::kReferenceToArray:
+        case Gr2Type::kArrayOfReferences:
+        case Gr2Type::kReferenceToVariantArray: {
             const uint32_t n = o.count(m.name);
             out += ": " + std::to_string(n) + (n == 1 ? " element\n" : " elements\n");
             if (depth >= maxDepth)

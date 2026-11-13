@@ -32,8 +32,8 @@ public:
     // Its settings from the scene's record (MODL, ANIM; defaults else).
     Actor(const Model &model, const Ac2Record *record, Loader load, Test test, unsigned seed = 1);
 
-    Animator &animator() { return animator_; }
-    const Animator &animator() const { return animator_; }
+    Animator &animator() { return _animator; }
+    const Animator &animator() const { return _animator; }
 
     // A full-body animation (idle1, walk, rotatel...: 0x4049e0), which
     // replaces the last; else one laid over it.
@@ -65,7 +65,7 @@ public:
     // the shorter way with the turning animation for how far; false if
     // it's within 2 degrees already. onRotateDone() when it gets there.
     bool rotateTo(float heading, float from);
-    bool rotating() const { return rotating_; }
+    bool rotating() const { return _rotating; }
     // "animate <seconds>": the animations' clocks jump on.
     void advance(float seconds);
 
@@ -75,7 +75,7 @@ public:
     void mouth(bool on);
     void lineEnd();
     // While a conversation is on screen idle variations wait.
-    void setConversation(bool on) { conversation_ = on; }
+    void setConversation(bool on) { _conversation = on; }
 
     // Moves on by `seconds`: blinks, idle variations, the animations, a
     // rotation (the heading in degrees is the character's, turned here).
@@ -106,22 +106,22 @@ private:
     void idleVariation();
     void ending(const Animator::Slot &s);
 
-    Animator animator_;
-    Loader loader_;
-    Test test_;
-    const Ac2Record *record_;
-    std::map<std::string, std::shared_ptr<const Animation>> loaded_;
-    std::map<const Animation *, Motion> motions_;
-    float talkEase_ = 0.15f, blinkMin_ = 5, blinkMax_ = 8, idleMin_ = 8, idleMax_ = 12;
-    int chance2_ = 50, chance3_ = 30, chance4_ = 20;
-    int idles_ = 0, talkIdles_ = 0;
-    float blinkLeft_ = 0, idleLeft_ = 0;
-    bool conversation_ = false;
-    bool rotating_ = false;
-    float target_ = 0;  // degrees
-    int direction_ = 1; // +1 left, -1 right
-    float pace_ = 200;  // degrees a second
-    unsigned random_;
+    Animator _animator;
+    Loader _loader;
+    Test _test;
+    const Ac2Record *_record;
+    std::map<std::string, std::shared_ptr<const Animation>> _loaded;
+    std::map<const Animation *, Motion> _motions;
+    float _talkEase = 0.15f, _blinkMin = 5, _blinkMax = 8, _idleMin = 8, _idleMax = 12;
+    int _chance2 = 50, _chance3 = 30, _chance4 = 20;
+    int _idles = 0, _talkIdles = 0;
+    float _blinkLeft = 0, _idleLeft = 0;
+    bool _conversation = false;
+    bool _rotating = false;
+    float _target = 0;  // degrees
+    int _direction = 1; // +1 left, -1 right
+    float _pace = 200;  // degrees a second
+    unsigned _random;
 };
 
 // Degrees in [0, 360).

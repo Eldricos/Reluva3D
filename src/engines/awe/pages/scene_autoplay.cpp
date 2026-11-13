@@ -23,38 +23,38 @@ void ScenePage::startAt(const std::string &where) {
     // has it) or the save ("preload slot7, load, fade in" as the load screen does).
     // "new": a new game as the program starts one, at the main menu.
     newGame();
-    autoChoices_.clear();
+    _autoChoices.clear();
     const std::string w = fs::toLower(where);
     if (w == "new")
         return;
-    runner_->clear();
+    _runner->clear();
     if (w.rfind("slot", 0) == 0)
-        runner_->run("preload " + w + ", load, fade in");
+        _runner->run("preload " + w + ", load, fade in");
     else
-        runner_->run("act " + w);
+        _runner->run("act " + w);
 }
 
 std::string ScenePage::autoplay() {
-    if (yesNo_) {
-        yesNo_.reset();
+    if (_yesNo) {
+        _yesNo.reset();
         return "yes/no box closed";
     }
-    if (movie_) {
-        const std::string name = movieName_;
+    if (_movie) {
+        const std::string name = _movieName;
         endMovie();
         return "movie " + name + " skipped";
     }
-    if (dialogue_->active()) {
-        if (dialogue_->choosing() && dialogue_->ready()) {
+    if (_dialogue->active()) {
+        if (_dialogue->choosing() && _dialogue->ready()) {
             // The tool's pick, else the first choice taken least often so
             // far: the first, unless it's offered again and again (a wrong
             // answer that can be tried once more), so every one is tried in
             // turn.
-            const int n = int(dialogue_->choices().size());
+            const int n = int(_dialogue->choices().size());
             int pick = -1;
             if (chooser) {
                 std::vector<std::string> texts;
-                for (const DialogueManager::Choice &c : dialogue_->choices())
+                for (const DialogueManager::Choice &c : _dialogue->choices())
                     texts.push_back(c.text);
                 pick = chooser(texts);
                 if (pick >= n)
@@ -62,34 +62,34 @@ std::string ScenePage::autoplay() {
             }
             const bool picked = pick >= 0;
             for (int i = 0; i < n && !picked; i++)
-                if (pick < 0 || autoChoices_[dialogue_->choices()[size_t(i)].text] <
-                                    autoChoices_[dialogue_->choices()[size_t(pick)].text])
+                if (pick < 0 || _autoChoices[_dialogue->choices()[size_t(i)].text] <
+                                    _autoChoices[_dialogue->choices()[size_t(pick)].text])
                     pick = i;
             if (pick < 0)
                 return {};
-            const std::string text = dialogue_->choices()[size_t(pick)].text;
-            if (!dialogue_->choose(pick))
+            const std::string text = _dialogue->choices()[size_t(pick)].text;
+            if (!_dialogue->choose(pick))
                 return {};
-            autoChoices_[text]++;
+            _autoChoices[text]++;
             return "choice " + std::to_string(pick + 1) + " of " + std::to_string(n) + ": " + text;
         }
         if (cutLines)
-            dialogue_->choose(-1); // the line cut short, once it can be
+            _dialogue->choose(-1); // the line cut short, once it can be
     }
     return {};
 }
 
 ScenePage::GameStatus ScenePage::status() const {
     GameStatus s;
-    s.scene = state_.scene;
-    s.act = state_.act;
-    s.idle = runner_->idle();
-    s.event = runner_->current();
-    s.talking = dialogue_->active();
-    s.movie = movie_ != nullptr;
-    s.loading = load_.state != 0 || story_->loading();
-    s.puzzle = puzzleActive() || slots_ || optionsMenu_;
-    s.fading = fade_ != fadeTarget_;
+    s.scene = _state.scene;
+    s.act = _state.act;
+    s.idle = _runner->idle();
+    s.event = _runner->current();
+    s.talking = _dialogue->active();
+    s.movie = _movie != nullptr;
+    s.loading = _load.state != 0 || _story->loading();
+    s.puzzle = puzzleActive() || _slots || _optionsMenu;
+    s.fading = _fade != _fadeTarget;
     return s;
 }
 
@@ -99,7 +99,7 @@ std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
     // and an outline or a rectangle the pick can find; and Antoinette,
     // whom items can be used on (uselist.txt).
     std::vector<const Ac2Record *> out;
-    for (const Ac2Record *o : scene_.objects()) {
+    for (const Ac2Record *o : _scene.objects()) {
         if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || !objectShown(*o))
             continue;
         if (!scripted(*o) && o->tag != "PCXX")
@@ -149,7 +149,7 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     // Where the game's mouse can be (handleEvent: x to 1004, y to 748, or
     // 758 in a conversation).
     const int maxX = 1004;
-    const int maxY = dialogue_->active() ? 758 : 748;
+    const int maxY = _dialogue->active() ? 758 : 748;
     auto scan = [&](int left, int top, int right, int bottom, int step) {
         for (int sy = std::max(top, 0); sy < std::min(bottom, maxY + 1); sy += step)
             for (int sx = std::max(left, 0); sx < std::min(right, maxX + 1); sx += step)
@@ -179,9 +179,9 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
         return scan(l, t, r + 1, b + 1, 2);
     if (target->tag != "NPCX" && target->tag != "PCXX")
         return false;
-    for (const Character &c : characters_)
+    for (const Character &c : _characters)
         if (c.record == target)
-            if (const Ac2Record *camr = scene_.camera()) {
+            if (const Ac2Record *camr = _scene.camera()) {
                 const float feet[3] = {c.x, c.y, c.z};
                 float fx;
                 float fy;
@@ -194,21 +194,21 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
 
 bool ScenePage::pointFor(size_t i, int &x, int &y, const std::string &holding) {
     // Only what the pick sees of the hand (itemInHand), and put back.
-    const std::string was = std::exchange(state_.held, holding);
+    const std::string was = std::exchange(_state.held, holding);
     const bool found = std::as_const(*this).pointFor(i, x, y);
-    state_.held = was;
+    _state.held = was;
     return found;
 }
 
 bool ScenePage::click(size_t i) {
-    frame_++;
+    _frame++;
     const std::vector<const Ac2Record *> objects = clickableObjects();
     if (i >= objects.size())
         return false;
-    if (!runner_->idle())
-        runner_->clear();
+    if (!_runner->idle())
+        _runner->clear();
     releaseHeld(); // a click with nothing in hand
-    runner_->setFromCharacter(objects[i]->tag == "NPCX");
+    _runner->setFromCharacter(objects[i]->tag == "NPCX");
     runScript(*objects[i]);
     return true;
 }
@@ -222,14 +222,14 @@ bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
     // from the load screen, so it's the menu that's left, not the game's
     // scene (whose "met them here" tags would go to 2: 0x423daa).
     newGame();
-    for (size_t i = 0; i < names_.size(); i++)
-        if (fs::toLower(names_[i]).find("menu.load_01.ac2") != std::string::npos)
-            index_ = int(i);
-    runner_->clear();
-    autoChoices_.clear();
+    for (size_t i = 0; i < _names.size(); i++)
+        if (fs::toLower(_names[i]).find("menu.load_01.ac2") != std::string::npos)
+            _index = int(i);
+    _runner->clear();
+    _autoChoices.clear();
     if (!preloadData(data, "the save in memory"))
         return false;
-    runner_->run("load, fade in");
+    _runner->run("load, fade in");
     return true;
 }
 
@@ -247,11 +247,11 @@ bool ScenePage::flipItem(const std::string &item) {
     const std::vector<std::string> items = flippableItems();
     if (std::find(items.begin(), items.end(), item) == items.end())
         return false;
-    if (!runner_->idle())
-        runner_->clear();
+    if (!_runner->idle())
+        _runner->clear();
     releaseHeld();
-    ui_.examined = item;
-    ui_.back = true;
+    _ui.examined = item;
+    _ui.back = true;
     playSound("discovery");
     runFromInventory(itemInfo(item).event, true);
     return true;
@@ -273,19 +273,19 @@ bool ScenePage::travel(int car) {
     const std::vector<int> cars = travelCars();
     if (std::find(cars.begin(), cars.end(), car) == cars.end())
         return false;
-    if (!runner_->idle())
-        runner_->clear();
+    if (!_runner->idle())
+        _runner->clear();
     releaseHeld();
-    runner_->run("fade out, scene " + carScene(car) + " 0, fade in");
+    _runner->run("fade out, scene " + carScene(car) + " 0, fade in");
     return true;
 }
 
 std::vector<std::pair<std::string, std::string>> ScenePage::matchingPrints() {
     std::vector<std::pair<std::string, std::string>> out;
-    for (const GameState::Item &card : state_.items)
+    for (const GameState::Item &card : _state.items)
         if (const std::string &b = card.name; card.state == 6 && printRow(b) == 1) {
             const std::string a = fs::toLower(itemInfo(b).flipped);
-            if (state_.itemState(a) == 6 && printRow(a) == 0 && !state_.tags.count(a + "=" + b))
+            if (_state.itemState(a) == 6 && printRow(a) == 0 && !_state.tags.count(a + "=" + b))
                 out.emplace_back(a, b);
         }
     return out;
@@ -295,18 +295,18 @@ bool ScenePage::comparePrintCards(const std::string &person, const std::string &
     // Each row's card shown (0x41e2e0 compares the two shown), then the
     // magnifier.
     std::vector<std::string> rows[2];
-    for (const GameState::Item &i : state_.items)
+    for (const GameState::Item &i : _state.items)
         if (i.state == 6)
             rows[printRow(i.name)].push_back(i.name);
     const auto a = std::find(rows[0].begin(), rows[0].end(), person);
     const auto b = std::find(rows[1].begin(), rows[1].end(), thing);
     if (a == rows[0].end() || b == rows[1].end())
         return false;
-    if (!runner_->idle())
-        runner_->clear();
+    if (!_runner->idle())
+        _runner->clear();
     releaseHeld();
-    ui_.printAt[0] = int(a - rows[0].begin());
-    ui_.printAt[1] = int(b - rows[1].begin());
+    _ui.printAt[0] = int(a - rows[0].begin());
+    _ui.printAt[1] = int(b - rows[1].begin());
     comparePrints();
     return true;
 }

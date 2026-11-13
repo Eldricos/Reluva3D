@@ -35,14 +35,14 @@ GameOptions::GameOptions() {
 }
 
 std::filesystem::path ScenePage::optionsFile() const {
-    return ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "options.ini";
+    return _ctx.savePath.empty() ? std::filesystem::path() : _ctx.savePath / "options.ini";
 }
 
 void ScenePage::loadOptions() {
     // Reluva keeps them in the game's folder as Name=value lines (the game
     // keeps them in the registry: HKCU\Software\DreamCatcher\Agatha
     // Christie\...\Settings).
-    options_ = GameOptions();
+    _options = GameOptions();
     std::ifstream in(optionsFile());
     for (std::string line; std::getline(in, line);) {
         const size_t eq = line.find('=');
@@ -50,9 +50,9 @@ void ScenePage::loadOptions() {
             continue;
         for (int i = 0; i < GameOptions::kCount; i++)
             if (fs::toLower(line.substr(0, eq)) == fs::toLower(kNames[i]))
-                options_.values[i] = std::atoi(line.c_str() + eq + 1);
+                _options.values[i] = std::atoi(line.c_str() + eq + 1);
     }
-    applyVolumes(options_.get(GameOptions::Music), options_.get(GameOptions::Sound));
+    applyVolumes(_options.get(GameOptions::kMusic), _options.get(GameOptions::kSound));
 }
 
 void ScenePage::saveOptions() const {
@@ -62,29 +62,29 @@ void ScenePage::saveOptions() const {
     std::filesystem::create_directories(optionsFile().parent_path(), ec);
     std::ofstream out(optionsFile());
     for (int i = 0; i < GameOptions::kCount; i++)
-        out << kNames[i] << '=' << options_.values[i] << '\n';
+        out << kNames[i] << '=' << _options.values[i] << '\n';
 }
 
 void ScenePage::applyVolumes(int music, int sound) {
     // Sounds whose path holds "music" go by Music, all the rest (speech
     // too) by Sound; tenths of full (0x4254b0).
-    if (!ctx_.mixer)
+    if (!_ctx.mixer)
         return;
-    ctx_.mixer->setTypeVolume(audio::SoundType::Music, std::clamp(music, 0, 10) * audio::kMaxVolume / 10);
+    _ctx.mixer->setTypeVolume(audio::SoundType::Music, std::clamp(music, 0, 10) * audio::kMaxVolume / 10);
     for (audio::SoundType t : {audio::SoundType::Effects, audio::SoundType::Speech})
-        ctx_.mixer->setTypeVolume(t, std::clamp(sound, 0, 10) * audio::kMaxVolume / 10);
+        _ctx.mixer->setTypeVolume(t, std::clamp(sound, 0, 10) * audio::kMaxVolume / 10);
 }
 
 int ScenePage::brightnessLevel() const {
     // On the options screen, the brightness being tried.
-    return optionsMenu_ ? optionsMenu_->staged[2] : options_.get(GameOptions::Gamma);
+    return _optionsMenu ? _optionsMenu->staged[2] : _options.get(GameOptions::kGamma);
 }
 
 void ScenePage::applyBrightness() {
     // Gamma g: a linear ramp of slope 32g + 97 over 257 (5 leaves colours
     // as they are), clipped (0x402040): the pictures here, the characters
     // as they're drawn.
-    applyBrightness(ctx_.screen.pixels);
+    applyBrightness(_ctx.screen.pixels);
 }
 
 void ScenePage::applyBrightness(std::vector<uint8_t> &rgba) const {
@@ -100,14 +100,14 @@ void ScenePage::applyBrightness(std::vector<uint8_t> &rgba) const {
 void ScenePage::applyAntiAliasing() {
     // 0x490060: 4x if the device has it, else 2x, else none; the game
     // resets its device to change it, Reluva makes its frame again.
-    if (renderer_)
-        renderer_->setMultisampling(options_.get(GameOptions::AntiAlias) ? 4 : 1);
+    if (_renderer)
+        _renderer->setMultisampling(_options.get(GameOptions::kAntiAlias) ? 4 : 1);
 }
 
 bool ScenePage::fogged(const Ac2Record &o) const {
     // "Fog, Haze, and Clouds" off hides the fog and cloud pictures (those
     // with SPRT da4 set: 0x4372e0, 0x437ac0).
-    if (options_.get(GameOptions::Fog))
+    if (_options.get(GameOptions::kFog))
         return false;
     const std::string file = fs::toLower(o.text("file"));
     const Ac2Record *sprt = o.part("SPRT");
@@ -117,7 +117,7 @@ bool ScenePage::fogged(const Ac2Record &o) const {
 
 bool ScenePage::frozen(const Ac2Record &o) const {
     // "Animated Effects" off stops the videos flagged BNKX de4 (0x406230).
-    if (options_.get(GameOptions::Water))
+    if (_options.get(GameOptions::kWater))
         return false;
     const Ac2Record *bnkx = o.part("BNKX");
     return bnkx && bnkx->i("effect") != 0;
@@ -143,21 +143,21 @@ const Ac2Record *nth(const Ac2Scene &scene, const char *name, int n) {
 void ScenePage::openOptions() {
     // 0x42be00: the staged values, and the toggles as they were (Cancel
     // puts them back).
-    optionsMenu_ = std::make_unique<OptionsMenu>();
-    OptionsMenu &m = *optionsMenu_;
-    m.staged[0] = options_.get(GameOptions::Music);
-    m.staged[1] = options_.get(GameOptions::Sound);
-    m.staged[2] = options_.get(GameOptions::Gamma);
-    m.staged[3] = options_.get(GameOptions::Captions);
+    _optionsMenu = std::make_unique<OptionsMenu>();
+    OptionsMenu &m = *_optionsMenu;
+    m.staged[0] = _options.get(GameOptions::kMusic);
+    m.staged[1] = _options.get(GameOptions::kSound);
+    m.staged[2] = _options.get(GameOptions::kGamma);
+    m.staged[3] = _options.get(GameOptions::kCaptions);
     for (int i = 0; i < 5; i++)
-        m.original[i] = options_.values[GameOptions::Shadows + i];
+        m.original[i] = _options.values[GameOptions::kShadows + i];
 }
 
 int ScenePage::thumbX(int slider) const {
-    const OptionsMenu &m = *optionsMenu_;
+    const OptionsMenu &m = *_optionsMenu;
     if (m.dragging == slider + 1) {
         // While dragged: the step nearest the cursor (0x42c350).
-        const int ax = lastMouseX_ - 7;
+        const int ax = _lastMouseX - 7;
         int k = 0;
         for (int i = 0; i < 10; i++)
             if (ax > kThumbLeft + kThumbStep * k + 11)
@@ -169,17 +169,17 @@ int ScenePage::thumbX(int slider) const {
 
 void ScenePage::optionsAction(const std::string &word) {
     // 0x42c3b0.
-    OptionsMenu &m = *optionsMenu_;
+    OptionsMenu &m = *_optionsMenu;
     if (word == "ok") {
-        options_.values[GameOptions::Music] = m.staged[0];
-        options_.values[GameOptions::Sound] = m.staged[1];
-        options_.values[GameOptions::Gamma] = m.staged[2];
-        options_.values[GameOptions::Captions] = m.staged[3];
+        _options.values[GameOptions::kMusic] = m.staged[0];
+        _options.values[GameOptions::kSound] = m.staged[1];
+        _options.values[GameOptions::kGamma] = m.staged[2];
+        _options.values[GameOptions::kCaptions] = m.staged[3];
         saveOptions();
     } else if (word == "cancel") {
-        applyVolumes(options_.get(GameOptions::Music), options_.get(GameOptions::Sound));
+        applyVolumes(_options.get(GameOptions::kMusic), _options.get(GameOptions::kSound));
         for (int i = 0; i < 5; i++)
-            options_.values[GameOptions::Shadows + i] = m.original[i];
+            _options.values[GameOptions::kShadows + i] = m.original[i];
         applyAntiAliasing();
         saveOptions();
     } else if (word.find("options") != std::string::npos && !word.empty()) {
@@ -191,7 +191,7 @@ void ScenePage::optionsAction(const std::string &word) {
         else if (n == 3)
             m.staged[3] ^= 1;
         else if (n >= 4 && n <= 8) {
-            options_.values[GameOptions::Shadows + n - 4] ^= 1;
+            _options.values[GameOptions::kShadows + n - 4] ^= 1;
             applyAntiAliasing();
         }
     }
@@ -201,7 +201,7 @@ void ScenePage::optionsAction(const std::string &word) {
 void ScenePage::optionsRelease() {
     // Mouse up (0x42c220): the dragged slider's value is heard (or seen) at
     // once; the settings change only on OK.
-    OptionsMenu &m = *optionsMenu_;
+    OptionsMenu &m = *_optionsMenu;
     if (!m.dragging)
         return;
     const int slider = m.dragging - 1;
@@ -217,35 +217,35 @@ void ScenePage::optionsRelease() {
 
 void ScenePage::drawOptions() {
     // 0x42c090: the labels (font 7, colour 0), the ticks at the boxes.
-    const OptionsMenu &m = *optionsMenu_;
-    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("save, load, and options screens") : nullptr;
-    const Color colour = ctx_.fonts
-                             ? ctx_.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
+    const OptionsMenu &m = *_optionsMenu;
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
+    const Color colour = _ctx.fonts
+                             ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
                              : Color{255, 220, 130};
-    const Ac2Record *check = nth(scene_, "check.tga", 0);
+    const Ac2Record *check = nth(_scene, "check.tga", 0);
     for (int i = 0; i < 9; i++) {
         const std::string label = interfaceText("options" + std::to_string(i + 1));
         const int w = style && style->font ? style->font->width(label, style->pixels) : 0;
         const int h = style && style->font ? style->font->lineHeight(style->pixels) : 0;
         if (i < 3) {
-            const Ac2Record *track = nth(scene_, "sliderbar.jpg", i);
-            const Ac2Record *thumb = nth(scene_, "slider.jpg", i);
+            const Ac2Record *track = nth(_scene, "sliderbar.jpg", i);
+            const Ac2Record *thumb = nth(_scene, "slider.jpg", i);
             if (!track || !thumb || !style || !style->font)
                 continue;
             const int tw = picture(track->text("file")).w;
-            ctx_.fonts->draw(ctx_.screen, *style, int(track->f("x")) + (tw - w) / 2, int(thumb->f("y")) - h - 5, label,
+            _ctx.fonts->draw(_ctx.screen, *style, int(track->f("x")) + (tw - w) / 2, int(thumb->f("y")) - h - 5, label,
                              colour);
             continue;
         }
-        const Ac2Record *box = nth(scene_, "checkbox.tga", i - 3);
+        const Ac2Record *box = nth(_scene, "checkbox.tga", i - 3);
         if (!box)
             continue;
-        const bool on = i == 3 ? m.staged[3] != 0 : options_.values[GameOptions::Shadows + i - 4] != 0;
+        const bool on = i == 3 ? m.staged[3] != 0 : _options.values[GameOptions::kShadows + i - 4] != 0;
         if (on && check)
-            image::blitOver(ctx_.screen, picture(check->text("file")), int(box->f("x")) - 2, int(box->f("y")) - 2);
+            image::blitOver(_ctx.screen, picture(check->text("file")), int(box->f("x")) - 2, int(box->f("y")) - 2);
         if (style && style->font) {
             const int bh = picture(box->text("file")).h;
-            ctx_.fonts->draw(ctx_.screen, *style, int(box->f("x")) - w - 10, int(box->f("y")) + (bh - h) / 2, label,
+            _ctx.fonts->draw(_ctx.screen, *style, int(box->f("x")) - w - 10, int(box->f("y")) + (bh - h) / 2, label,
                              colour);
         }
     }

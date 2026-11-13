@@ -120,78 +120,78 @@ bool fromLine(const std::string &line, Action &a) {
 class Player {
 public:
     Player(DirectoryArchive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
-        : limit_(limit) {
-        sys_.threeD = threeD;
-        sys_.characters = characters;
-        screen_.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        : _limit(limit) {
+        _sys.threeD = threeD;
+        _sys.characters = characters;
+        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
         // With sound, a mixer the game's clock drives (no device): voices
         // and waited-for sounds take their own time, and lines play out.
         if (sound)
-            mixer_ = std::make_unique<audio::Mixer>(kMixRate);
+            _mixer = std::make_unique<audio::Mixer>(kMixRate);
         // The fonts, for -shot's boxes and captions.
-        const bool haveFonts = !fonts_.load(files);
-        ctx_ =
-            std::make_unique<ViewerContext>(ViewerContext{sys_,
+        const bool haveFonts = !_fonts.load(files);
+        _ctx =
+            std::make_unique<ViewerContext>(ViewerContext{_sys,
                                                           files,
-                                                          mixer_.get(),
-                                                          screen_,
+                                                          _mixer.get(),
+                                                          _screen,
                                                           std::filesystem::temp_directory_path() / "reluva-awe-solve",
-                                                          haveFonts ? &fonts_ : nullptr,
+                                                          haveFonts ? &_fonts : nullptr,
                                                           {},
                                                           -1});
-        page_ = std::make_unique<ScenePage>(*ctx_);
-        page_->cutLines = !sound;
-        page_->onLog = [this](const std::string &l) {
-            log_.push_back(l);
+        _page = std::make_unique<ScenePage>(*_ctx);
+        _page->cutLines = !sound;
+        _page->onLog = [this](const std::string &l) {
+            _log.push_back(l);
             if (l.find("movie credits") != std::string::npos)
-                credits_ = true;
+                _credits = true;
             // A script's own "unlock" (till its "lock"): clicks taken in
             // between are a player's way in.
             const size_t at = l.find_first_not_of(' ');
             if (at != std::string::npos && (l.compare(at, std::string::npos, "unlock") == 0))
-                unlocked_ = true;
+                _unlocked = true;
             else if (at != std::string::npos && l.compare(at, std::string::npos, "lock") == 0)
-                unlocked_ = false;
+                _unlocked = false;
             // A line said ("    speaker: text"): -shot <n>l<k> takes the k-th
             // of action n a second after it starts.
             if (at == 4 && l.find(": ") != std::string::npos && l.find(' ', at) > l.find(':', at)) {
-                linesSaid_++;
-                if (const auto s = lineShots.find({action, linesSaid_}); s != lineShots.end())
-                    lineShotAt_ = sys_.now + 1000, lineShotFile_ = s->second;
+                linesSaid++;
+                if (const auto s = lineShots.find({action, linesSaid}); s != lineShots.end())
+                    lineShotAt = _sys.now + 1000, lineShotFile = s->second;
             }
         };
-        page_->setDrawing(false);
-        page_->activate();
-        page_->chooser = [this](const std::vector<std::string> &choices) { return choose(choices); };
-        page_->watchConditions([this](std::string_view clause, bool holds) {
-            if (watching_)
+        _page->setDrawing(false);
+        _page->activate();
+        _page->chooser = [this](const std::vector<std::string> &choices) { return choose(choices); };
+        _page->watchConditions([this](std::string_view clause, bool holds) {
+            if (_watching)
                 tested.emplace(std::string(clause), holds);
         });
     }
 
-    ScenePage &page() { return *page_; }
+    ScenePage &page() { return *_page; }
     // The game's clock, in milliseconds since it started.
-    uint64_t gameMs() const { return sys_.now; }
+    uint64_t gameMs() const { return _sys.now; }
 
     // -shot <n>c<k>: before the k-th choice of action n is taken, a shot
     // of the box.
     std::map<std::pair<size_t, size_t>, std::string> choiceShots, lineShots; // -shot <n>l<k>: a second into a line
-    size_t linesSaid_ = 0;
-    uint64_t lineShotAt_ = 0;
-    std::string lineShotFile_;
+    size_t linesSaid = 0;
+    uint64_t lineShotAt = 0;
+    std::string lineShotFile;
     size_t action = 0;    // the playthrough's action being done, from 1
     bool drawing = false; // -draw: every frame drawn, as in a window (RELUVA_PERF times them)
 
     // -shot: the screen as it is now, drawn (the 3D under the 2D with a
     // window), saved to `file` as a TGA.
     bool shot(const std::filesystem::path &file) {
-        page_->setDrawing(true);
-        page_->requestScreenshot(file);
+        _page->setDrawing(true);
+        _page->requestScreenshot(file);
         std::error_code ec;
         std::filesystem::remove(file, ec);
         for (int i = 0; i < 10 && !std::filesystem::exists(file); i++)
             step();
-        page_->setDrawing(drawing);
+        _page->setDrawing(drawing);
         return std::filesystem::exists(file);
     }
 
@@ -199,8 +199,8 @@ public:
     // left last (which a saved game doesn't keep, and "lastscene" tests)
     // after it; and loaded again.
     std::vector<uint8_t> snapshot() const {
-        std::vector<uint8_t> out = page_->saveToMemory();
-        const std::string &last = page_->gameState().lastScene;
+        std::vector<uint8_t> out = _page->saveToMemory();
+        const std::string &last = _page->gameState().lastScene;
         out.insert(out.end(), last.begin(), last.end());
         out.push_back(uint8_t(last.size()));
         return out;
@@ -212,14 +212,14 @@ public:
         if (n + 1 > data.size())
             return false;
         const std::vector<uint8_t> save(data.begin(), data.end() - long(n + 1));
-        if (!page_->loadFromMemory(save))
+        if (!_page->loadFromMemory(save))
             return false;
         const bool ok = settle();
-        page_->setLastScene(std::string(data.end() - long(n + 1), data.end() - 1));
+        _page->setLastScene(std::string(data.end() - long(n + 1), data.end() - 1));
         return ok;
     }
-    std::vector<std::string> &log() { return log_; }
-    bool credits() const { return credits_; }
+    std::vector<std::string> &log() { return _log; }
+    bool credits() const { return _credits; }
     std::string problem; // why the last action failed, if it did
     // What could be clicked while the last action's scripts ran
     // ("scene|name#n").
@@ -232,42 +232,42 @@ public:
     // s. False if it sticks (an event that doesn't end) or runs past the
     // limit.
     bool settle() {
-        const uint64_t start = sys_.now;
+        const uint64_t start = _sys.now;
         uint64_t quietSince = 0;
-        uint64_t eventSince = sys_.now;
+        uint64_t eventSince = _sys.now;
         std::string lastEvent;
-        size_t lastLog = log_.size();
-        while (sys_.now - start < uint64_t(limit_ * 1000)) {
+        size_t lastLog = _log.size();
+        while (_sys.now - start < uint64_t(_limit * 1000)) {
             step();
-            if (!lineShotFile_.empty() && sys_.now >= lineShotAt_) {
-                const std::string file = std::exchange(lineShotFile_, std::string());
-                std::printf("  shot at line %zul%zu: %s %s\n", action, linesSaid_, file.c_str(),
+            if (!lineShotFile.empty() && _sys.now >= lineShotAt) {
+                const std::string file = std::exchange(lineShotFile, std::string());
+                std::printf("  shot at line %zul%zu: %s %s\n", action, linesSaid, file.c_str(),
                             shot(file) ? "saved" : "not saved");
             }
             if (hand)
-                deliver(page_->handWhileRunning());
+                deliver(_page->handWhileRunning());
             else
-                page_->autoplay();
-            const ScenePage::GameStatus st = page_->status();
+                _page->autoplay();
+            const ScenePage::GameStatus st = _page->status();
             if (st.idle)
-                unlocked_ = false;
-            if (!st.idle && unlocked_ && page_->clickable()) {
+                _unlocked = false;
+            if (!st.idle && _unlocked && _page->clickable()) {
                 // Clicks are taken while this runs, after its "unlock" (a
                 // walk's or a turn's clicks are the same as clicks once
                 // it's done): what could be clicked is noted, and the
                 // click waited for made.
-                const std::vector<std::string> names = page_->clickables();
+                const std::vector<std::string> names = _page->clickables();
                 std::map<std::string, int> seen;
                 for (size_t i = 0; i < names.size(); i++) {
                     const std::string id = names[i] + "#" + std::to_string(seen[names[i]]++);
-                    if (id == then_) {
-                        then_.clear();
+                    if (id == _then) {
+                        _then.clear();
                         int x;
                         int y;
-                        if (hand && page_->pointFor(i, x, y))
-                            deliver({ScenePage::HandInput::Kind::Click, x, y, 0});
+                        if (hand && _page->pointFor(i, x, y))
+                            deliver({ScenePage::HandInput::Kind::kClick, x, y, 0});
                         else
-                            page_->click(i);
+                            _page->click(i);
                         break;
                     }
                     inBetween.insert(st.scene + "|" + id);
@@ -275,9 +275,9 @@ public:
             }
             // (An event that goes on doing things, a conversation's lines
             // played out, isn't stuck.)
-            if (st.event != lastEvent || st.idle || log_.size() != lastLog)
-                lastEvent = st.event, eventSince = sys_.now, lastLog = log_.size();
-            if (!st.idle && sys_.now - eventSince > 120000) {
+            if (st.event != lastEvent || st.idle || _log.size() != lastLog)
+                lastEvent = st.event, eventSince = _sys.now, lastLog = _log.size();
+            if (!st.idle && _sys.now - eventSince > 120000) {
                 problem = "stuck: " + st.event + " (in " + st.scene + ")";
                 return false;
             }
@@ -285,18 +285,18 @@ public:
             if (!quiet)
                 quietSince = 0;
             else if (!quietSince)
-                quietSince = sys_.now;
-            else if (sys_.now - quietSince > 3000)
+                quietSince = _sys.now;
+            else if (_sys.now - quietSince > 3000)
                 return true;
         }
-        problem = "still going after " + std::to_string(int(limit_)) + " s";
+        problem = "still going after " + std::to_string(int(_limit)) + " s";
         return false;
     }
 
     // What a player could do now, each with no choices yet.
     std::vector<Action> actions() {
         std::vector<Action> out;
-        ScenePage &p = *page_;
+        ScenePage &p = *_page;
         const std::string scene = p.status().scene;
         if (scene.rfind("menu.", 0) == 0)
             return out;
@@ -376,22 +376,22 @@ public:
     // as given, then the least taken; what was taken is written back.
     bool act(Action &a) {
         problem.clear();
-        forced_ = a.choices;
-        then_ = a.then;
+        _forced = a.choices;
+        _then = a.then;
         inBetween.clear();
         tested.clear();
-        watching_ = true;
-        taken_.clear();
-        offered_.clear();
-        counts_.clear();
-        ScenePage &p = *page_;
+        _watching = true;
+        _taken.clear();
+        _offered.clear();
+        _counts.clear();
+        ScenePage &p = *_page;
         bool ok = true;
         if (a.kind == "new") {
             p.startAt("new");
-            credits_ = false;
+            _credits = false;
         } else if (a.kind == "start") {
             p.startAt(a.target);
-            credits_ = false;
+            _credits = false;
         } else if (hand && handDoes(a, ok)) {
             // Done by the mouse and keys alone (ok: whether it could be).
         } else if (a.kind == "click" || a.kind == "use") {
@@ -475,11 +475,11 @@ public:
         }
         if (ok)
             ok = settle();
-        watching_ = false;
-        if (ok && !then_.empty())
-            ok = false, problem = then_ + " couldn't be clicked while it ran";
-        a.choices = taken_;
-        a.offered = offered_;
+        _watching = false;
+        if (ok && !_then.empty())
+            ok = false, problem = _then + " couldn't be clicked while it ran";
+        a.choices = _taken;
+        a.offered = _offered;
         return ok;
     }
 
@@ -488,7 +488,7 @@ public:
     // scenes seen (beenhere).
     std::set<std::string> features(bool withSeen) const {
         std::set<std::string> out;
-        const GameState &s = page_->gameState();
+        const GameState &s = _page->gameState();
         out.insert("act " + s.act);
         out.insert("scene " + s.scene);
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
@@ -514,30 +514,30 @@ public:
 private:
     int choose(const std::vector<std::string> &choices) {
         int pick = -1;
-        const size_t at = taken_.size();
+        const size_t at = _taken.size();
         if (const auto s = choiceShots.find({action, at + 1}); s != choiceShots.end())
             std::printf("  shot at choice %zu: %s %s\n", at + 1, s->second.c_str(),
                         shot(s->second) ? "saved" : "not saved");
-        if (at < forced_.size() && forced_[at] >= 0 && forced_[at] < int(choices.size()))
-            pick = forced_[at];
+        if (at < _forced.size() && _forced[at] >= 0 && _forced[at] < int(choices.size()))
+            pick = _forced[at];
         for (int i = 0; i < int(choices.size()) && pick < 0; i++) {
             int best = 0;
             for (int j = 1; j < int(choices.size()); j++)
-                if (counts_[choices[size_t(j)]] < counts_[choices[size_t(best)]])
+                if (_counts[choices[size_t(j)]] < _counts[choices[size_t(best)]])
                     best = j;
             pick = best;
         }
         if (pick < 0)
             return -1;
-        counts_[choices[size_t(pick)]]++;
+        _counts[choices[size_t(pick)]]++;
         // In the log, numbered for -shot c<k>.
         std::string offered;
         for (const std::string &c : choices)
             offered += (offered.empty() ? "" : " | ") + c.substr(0, 40);
-        log_.push_back("  choice " + std::to_string(action) + "c" + std::to_string(at + 1) + ": " +
+        _log.push_back("  choice " + std::to_string(action) + "c" + std::to_string(at + 1) + ": " +
                        std::to_string(pick + 1) + " of [" + offered + "]");
-        taken_.push_back(pick);
-        offered_.push_back(int(choices.size()));
+        _taken.push_back(pick);
+        _offered.push_back(int(choices.size()));
         return pick;
     }
 
@@ -552,35 +552,35 @@ public:
 private:
     void deliver(const ScenePage::HandInput &in) {
         using K = ScenePage::HandInput::Kind;
-        if (in.kind == K::None)
+        if (in.kind == K::kNone)
             return;
         handInputs++;
         Event ev;
         ev.mouseX = in.x, ev.mouseY = in.y;
-        if (in.kind == K::Key) {
+        if (in.kind == K::kKey) {
             ev.type = EventType::KeyDown, ev.key = in.key;
-            page_->handleEvent(ev);
+            _page->handleEvent(ev);
             ev.type = EventType::KeyUp;
-            page_->handleEvent(ev);
+            _page->handleEvent(ev);
             return;
         }
         ev.type = EventType::MouseMove;
-        page_->handleEvent(ev);
-        if (in.kind == K::Move)
+        _page->handleEvent(ev);
+        if (in.kind == K::kMove)
             return;
-        ev.button = in.kind == K::RightClick ? MouseButton::Right : MouseButton::Left;
+        ev.button = in.kind == K::kRightClick ? MouseButton::Right : MouseButton::Left;
         ev.clicks = 1;
         ev.type = EventType::MouseDown;
-        page_->handleEvent(ev);
+        _page->handleEvent(ev);
         ev.type = EventType::MouseUp;
-        page_->handleEvent(ev);
+        _page->handleEvent(ev);
     }
 
     // An action as a goal for the hand, its inputs made a game frame
     // apart till it's done. False if it isn't one the hand does, or the
     // hand can't do it from here (then done the tools' way, and listed).
     bool handDoes(const Action &a, bool &ok) {
-        ScenePage &p = *page_;
+        ScenePage &p = *_page;
         ScenePage::HandGoal g;
         if (a.kind == "click" || a.kind == "use") {
             const std::vector<std::string> names = p.clickables();
@@ -592,21 +592,21 @@ private:
                 }
             if (index < 0)
                 return false;
-            g.kind = a.kind == "use" ? ScenePage::HandGoal::Kind::Use : ScenePage::HandGoal::Kind::Click;
+            g.kind = a.kind == "use" ? ScenePage::HandGoal::Kind::kUse : ScenePage::HandGoal::Kind::kClick;
             g.target = size_t(index);
             if (a.kind == "use")
                 g.items = {a.item};
         } else if (a.kind == "travel") {
-            g.kind = ScenePage::HandGoal::Kind::Travel;
+            g.kind = ScenePage::HandGoal::Kind::kTravel;
             g.car = std::atoi(a.target.c_str());
         } else if (a.kind == "combine") {
-            g.kind = ScenePage::HandGoal::Kind::Combine;
+            g.kind = ScenePage::HandGoal::Kind::kCombine;
             g.items = split(a.item, '+');
         } else if (a.kind == "flip") {
-            g.kind = ScenePage::HandGoal::Kind::Flip;
+            g.kind = ScenePage::HandGoal::Kind::kFlip;
             g.items = {a.item};
         } else if (a.kind == "compare") {
-            g.kind = ScenePage::HandGoal::Kind::Compare;
+            g.kind = ScenePage::HandGoal::Kind::kCompare;
             g.items = split(a.item, '+');
         } else {
             return false;
@@ -627,12 +627,12 @@ private:
     // 40 ms of the game: its clock, the page, and the mixer's sounds (kept
     // for -wav).
     void step() {
-        sys_.now += 40;
-        page_->update(sys_.now);
-        if (!mixer_)
+        _sys.now += 40;
+        _page->update(_sys.now);
+        if (!_mixer)
             return;
         int16_t frames[kMixRate / 25 * 2];
-        mixer_->mix(frames, kMixRate / 25);
+        _mixer->mix(frames, kMixRate / 25);
         if (recording)
             mixed.insert(mixed.end(), frames, frames + kMixRate / 25 * 2);
     }
@@ -644,9 +644,9 @@ public:
     std::vector<int16_t> mixed;
 
 private:
-    std::unique_ptr<audio::Mixer> mixer_;
-    double limit_;
-    HeadlessSystem sys_;
+    std::unique_ptr<audio::Mixer> _mixer;
+    double _limit;
+    HeadlessSystem _sys;
 
 public:
     // -mouse: clicks and uses done as a player's mouse does them, at a
@@ -658,16 +658,16 @@ public:
     std::vector<std::string> points; // each mouse click's point (-v)
 
 private:
-    GameFonts fonts_;
-    Surface screen_;
-    std::unique_ptr<ViewerContext> ctx_;
-    std::unique_ptr<ScenePage> page_;
-    std::vector<std::string> log_;
-    bool credits_ = false;
-    std::vector<int> forced_, taken_, offered_;
-    std::string then_;
-    bool watching_ = false, unlocked_ = false;
-    std::map<std::string, int> counts_;
+    GameFonts _fonts;
+    Surface _screen;
+    std::unique_ptr<ViewerContext> _ctx;
+    std::unique_ptr<ScenePage> _page;
+    std::vector<std::string> _log;
+    bool _credits = false;
+    std::vector<int> _forced, _taken, _offered;
+    std::string _then;
+    bool _watching = false, _unlocked = false;
+    std::map<std::string, int> _counts;
 };
 
 std::string joinFeatures(const std::set<std::string> &f) {
@@ -738,25 +738,25 @@ void writePlaythrough(const std::string &file, const std::vector<Action> &path) 
 // -reloadeach: after every action the game is saved and loaded again, as
 // the save and load screens do, and played on from the loaded game; what
 // the loaded game lacks or has more of is listed.
-size_t reloadDiffs = 0;
+size_t g_reloadDiffs = 0;
 
 void reloadAndCompare(Player &player, size_t n, const Action &a) {
     const std::set<std::string> before = player.features(true);
     const std::vector<uint8_t> save = player.snapshot();
     if (!player.restore(save)) {
         std::printf("  after %zu (%s): couldn't load the save\n", n, toLine(a).c_str());
-        reloadDiffs++;
+        g_reloadDiffs++;
         return;
     }
     const std::set<std::string> after = player.features(true);
     for (const std::string &f : before)
         if (!after.count(f))
             std::printf("  after %zu (%s): lost on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
-                reloadDiffs++;
+                g_reloadDiffs++;
     for (const std::string &f : after)
         if (!before.count(f))
             std::printf("  after %zu (%s): new on loading: %s\n", n, toLine(a).substr(0, 60).c_str(), f.c_str()),
-                reloadDiffs++;
+                g_reloadDiffs++;
 }
 
 // -wander every n seed: from every n-th action of the route, a player who
@@ -860,7 +860,7 @@ bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done,
                         player.shot(s->second) ? "saved" : "not saved");
         const size_t logAt = player.log().size();
         player.action = done + 1;
-        player.linesSaid_ = 0;
+        player.linesSaid = 0;
         const bool ok = player.act(a);
         const ScenePage::GameStatus st = player.page().status();
         if (print)
@@ -894,7 +894,7 @@ struct Node {
 } // namespace
 
 int aweCommandSolve(int argc, char **argv) {
-    reloadDiffs = 0; // (awe game-check runs several in one process)
+    g_reloadDiffs = 0; // (awe game-check runs several in one process)
     // reluva-tool awe game-run <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
     // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
@@ -1026,7 +1026,7 @@ int aweCommandSolve(int argc, char **argv) {
             std::printf("wandered %zu times off the route, %zu actions in %zu scenes: %zu problems\n", wanderer.walks,
                         wanderer.actions, wanderer.scenes.size(), wanderer.problems);
         if (reloadEach)
-            std::printf("saved and loaded after every action: %zu differences\n", reloadDiffs);
+            std::printf("saved and loaded after every action: %zu differences\n", g_reloadDiffs);
         if (!wavFile.empty()) {
             // 16-bit stereo PCM.
             std::ofstream out(wavFile, std::ios::binary);
@@ -1085,8 +1085,8 @@ int aweCommandSolve(int argc, char **argv) {
         }
         // Passed: the credits reached, and nothing listed by -reloadeach,
         // -wander or -hand.
-        return ok && player.credits() && reloadDiffs == 0 && wanderer.problems == 0 && player.handMissed.empty() ? 0
-                                                                                                                 : 1;
+        return ok && player.credits() && g_reloadDiffs == 0 && wanderer.problems == 0 && player.handMissed.empty() ? 0
+                                                                                                                   : 1;
     }
 
     // The search. Its start: the playthrough given, else a new game and Play.

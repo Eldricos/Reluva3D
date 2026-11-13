@@ -77,13 +77,13 @@ Error GameFonts::load(const Archive &files) {
         return e;
     const Table t = parseTable(decodeText(data));
     auto loadFont = [&](const std::string &file) -> ttf::Font * {
-        auto it = fonts_.find(file);
-        if (it == fonts_.end()) {
+        auto it = _fonts.find(file);
+        if (it == _fonts.end()) {
             std::vector<uint8_t> bytes;
             auto font = std::make_unique<ttf::Font>();
             if (files.read(file, bytes) || font->load(std::move(bytes)))
                 font.reset();
-            it = fonts_.emplace(file, std::move(font)).first;
+            it = _fonts.emplace(file, std::move(font)).first;
         }
         return it->second.get();
     };
@@ -98,9 +98,9 @@ Error GameFonts::load(const Archive &files) {
             const Color c{uint8_t(std::atoi(row[1].c_str())), uint8_t(std::atoi(row[2].c_str())),
                           uint8_t(std::atoi(row[3].c_str()))};
             (void)first; // alpha
-            colours_.emplace_back(fs::toLower(row[4]), c);
+            _colours.emplace_back(fs::toLower(row[4]), c);
             if (fs::toLower(row[4]) == "text shadow")
-                shadow_ = c;
+                _shadow = c;
             continue;
         }
         TextStyle s;
@@ -116,8 +116,8 @@ Error GameFonts::load(const Archive &files) {
             s.font = nullptr;
             for (const auto &path : candidates) {
                 const std::string key = path.string();
-                auto it = fonts_.find(key);
-                if (it == fonts_.end()) {
+                auto it = _fonts.find(key);
+                if (it == _fonts.end()) {
                     std::unique_ptr<ttf::Font> font;
                     std::ifstream in(path, std::ios::binary);
                     if (in) {
@@ -127,7 +127,7 @@ Error GameFonts::load(const Archive &files) {
                         if (font->load(std::move(bytes)))
                             font.reset();
                     }
-                    it = fonts_.emplace(key, std::move(font)).first;
+                    it = _fonts.emplace(key, std::move(font)).first;
                 }
                 if (it->second) {
                     s.font = it->second.get();
@@ -139,14 +139,14 @@ Error GameFonts::load(const Archive &files) {
         if (!s.font)
             s.font = loadFont("interface/fonts/arial.ttf");
         s.pixels = s.font ? s.font->sizeForPoints(s.points) : s.points;
-        styles_.push_back(std::move(s));
+        _styles.push_back(std::move(s));
     }
     return Error::success();
 }
 
 const TextStyle *GameFonts::style(std::string_view use) const {
     const std::string want = fs::toLower(use);
-    for (const TextStyle &s : styles_)
+    for (const TextStyle &s : _styles)
         if (s.use.rfind(want, 0) == 0)
             return &s;
     return nullptr;
@@ -154,14 +154,14 @@ const TextStyle *GameFonts::style(std::string_view use) const {
 
 Color GameFonts::colour(std::string_view use, Color fallback) const {
     const std::string want = fs::toLower(use);
-    for (const auto &[u, c] : colours_)
+    for (const auto &[u, c] : _colours)
         if (u == want)
             return c;
     return fallback;
 }
 
 Color GameFonts::colourAt(size_t index, Color fallback) const {
-    return index < colours_.size() ? colours_[index].second : fallback;
+    return index < _colours.size() ? _colours[index].second : fallback;
 }
 
 int GameFonts::draw(Surface &dst, const TextStyle &style, int x, int y, std::string_view utf8, Color colour,
@@ -169,7 +169,7 @@ int GameFonts::draw(Surface &dst, const TextStyle &style, int x, int y, std::str
     if (!style.font)
         return x;
     if (style.shadow)
-        style.font->draw(dst, x + 1, y + 1, utf8, style.pixels, shadow_, alpha);
+        style.font->draw(dst, x + 1, y + 1, utf8, style.pixels, _shadow, alpha);
     // No bold font is shipped: drawn twice, a pixel apart (unless the font
     // is a bold face itself).
     if (style.bold && !style.boldFace)

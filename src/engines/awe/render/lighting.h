@@ -21,7 +21,7 @@ using Rgb = std::array<float, 3>;
 
 // A LITE as handed to Direct3D (D3DLIGHT8), in the world (y up).
 struct SceneLight {
-    enum class Type { Point = 1, Spot = 2, Directional = 3 } type = Type::Point;
+    enum class Type { kPoint = 1, kSpot = 2, kDirectional = 3 } type = Type::kPoint;
     Rgb diffuse{}, ambient{}, specular{};
     std::array<float, 3> position{}, direction{}; // direction: the way the light goes
     float range = 0;
