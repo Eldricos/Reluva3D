@@ -37,7 +37,7 @@ Board voodooRushBoard() {
     b.maxHeight = 1200;
     // The desktop the window is on: 1024x768 at 16 bits, the first row of
     // the specification's in-place table (a choice; boardByName's
-    // "desktop=" changes it).
+    // "desktop=" and setDesktop change it, to the host's desktop for one).
     b.desktopWidth = 1024;
     b.desktopHeight = 768;
     b.desktopBits = 16;
@@ -102,10 +102,13 @@ Board bansheeBoard() {
     return b;
 }
 
-bool boardByName(const std::string& spec, Board& out) {
+bool boardByName(const std::string& spec, Board& out, bool* desktopClamped) {
     // The name, then ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N" to change
     // the sizes ("voodoo1,tmu=4": the 6 MB card).
+    if (desktopClamped)
+        *desktopClamped = false;
     const std::string name = spec.substr(0, spec.find(','));
+    int desktop = -1, desktopW = 0, desktopH = 0, desktopBits = 0; // -1: the board's own
     if (name == "voodoo1" || name == "voodoo" || name == "sst1")
         out = voodoo1Board();
     else if (name == "rush" || name == "sst96")
@@ -135,22 +138,58 @@ bool boardByName(const std::string& spec, Board& out) {
             out.tmuRevision = value;
             out.palette = value >= 1 && out.generation != Generation::VoodooRush;
         } else if (key == "desktop") {
-            // WxHxBITS (8 or 16 bits), or 0 for none.
-            int w = 0, h = 0, bits = 0;
+            // WxHxBITS, or 0 for none: set after the loop, so against the
+            // memory "fb=" gives in whatever order they come.
             const std::string v = option.substr(eq + 1);
-            if (v == "0") {
-                out.desktopWidth = out.desktopHeight = out.desktopBits = 0;
-            } else if (std::sscanf(v.c_str(), "%dx%dx%d", &w, &h, &bits) == 3 && w > 0 && h > 0 && w <= 2048 &&
-                       h <= 2048 && (bits == 8 || bits == 16)) {
-                out.desktopWidth = w;
-                out.desktopHeight = h;
-                out.desktopBits = bits;
-            } else {
+            if (v == "0")
+                desktop = 0;
+            else if (std::sscanf(v.c_str(), "%dx%dx%d", &desktopW, &desktopH, &desktopBits) == 3)
+                desktop = 1;
+            else
                 return false;
-            }
         } else
             return false;
     }
+    if (desktop == 0)
+        out.desktopWidth = out.desktopHeight = out.desktopBits = 0;
+    else if (desktop == 1 && !setDesktop(out, desktopW, desktopH, desktopBits, desktopClamped))
+        return false;
+    return true;
+}
+
+bool setDesktop(Board& board, int width, int height, int bits, bool* clamped) {
+    if (clamped)
+        *clamped = false;
+    if (!board.windowed)
+        return true;
+    if (width <= 0 || height <= 0)
+        return false;
+    int depth = 0;
+    switch (bits) {
+    case 8: depth = 8; break;
+    case 15:
+    case 16:
+    case 24:
+    case 32: depth = 16; break;
+    default: return false;
+    }
+    // The tables' desktops (SST-96 specification, System Resolutions):
+    // 1600x1200 down to 1024x768 at 8 bits, from 1280x1024 at 16.
+    static constexpr int kSizes[][2] = {{1600, 1200}, {1280, 1024}, {1152, 864}, {1024, 768}};
+    int size = depth == 8 ? 0 : 1;
+    int w = std::min(width, kSizes[size][0]);
+    int h = std::min(height, kSizes[size][1]);
+    // A desktop that leaves no memory for a window: the next size down.
+    while (uint64_t(w) * uint64_t(h) * uint64_t(depth / 8) >= board.frameBufferMemory && size < 3) {
+        ++size;
+        w = std::min(w, kSizes[size][0]);
+        h = std::min(h, kSizes[size][1]);
+    }
+    if (clamped)
+        *clamped = w != width || h != height || depth != bits;
+    board.desktopWidth = w;
+    board.desktopHeight = h;
+    board.desktopBits = depth;
     return true;
 }
 

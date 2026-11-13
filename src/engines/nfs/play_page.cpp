@@ -3,6 +3,7 @@
 
 #include "engines/nfs/play_page.h"
 
+#include "common/glide/pipeline.h"
 #include "common/image.h"
 #include "engines/nfs/host/game_host.h"
 #include "engines/nfs/page_draw.h"
@@ -197,6 +198,27 @@ void PlayPage::start() {
     options.glideGpu = glideSoftware_ ? 0 : 1;
     options.glideDll = glideDll_;
     options.glideBoard = glideBoard_;
+    // A Voodoo Rush shares its memory with the desktop its window is on:
+    // this machine's, unless reluva.ini's glideboard= names one
+    // (glide::setDesktop; one the Rush couldn't have had is made one it
+    // could, and said so).
+    const std::string boardName = glideBoard_.substr(0, glideBoard_.find(','));
+    int desktopW = 0, desktopH = 0, desktopBits = 0;
+    if (glide_ && (boardName == "rush" || boardName == "sst96") && glideBoard_.find(",desktop=") == std::string::npos &&
+        sys_ && sys_->desktopMode(desktopW, desktopH, desktopBits)) {
+        const std::string spec = glideBoard_ + ",desktop=" + std::to_string(desktopW) + "x" +
+                                 std::to_string(desktopH) + "x" + std::to_string(desktopBits);
+        glide::Board board;
+        bool clamped = false;
+        const bool taken = glide::boardByName(spec, board, &clamped); // false for a depth it can't take
+        if (taken)
+            options.glideBoard = spec;
+        if (taken && clamped)
+            say("The Voodoo Rush's desktop: " + std::to_string(desktopW) + "x" + std::to_string(desktopH) + " at " +
+                std::to_string(desktopBits) + " bits here, " + std::to_string(board.desktopWidth) + "x" +
+                std::to_string(board.desktopHeight) + " at " + std::to_string(board.desktopBits) +
+                " on the Rush (one it could have had)");
+    }
     options.gpuAndSoftware = gpu_ && !compareFolder_.empty();
     if (network_ && sys_) {
         options.sockets = sys_->sockets();

@@ -75,7 +75,34 @@ void testRushDesktop() {
     // 2,224,128.
     CHECK(boardByName("rush,desktop=1152x864x8", b));
     CHECK(Pipeline(b).bufferBytes(640, 480, 2, 0, true) == 2224128);
-    CHECK(!boardByName("rush,desktop=1024x768x24", b));
+    CHECK(!boardByName("rush,desktop=1024x768x12", b) && !boardByName("rush,desktop=0x768x16", b));
+    // The host's desktop, made one a Rush could have had (setDesktop): a
+    // true-colour one counts as 16 bits, its size as it is when the
+    // tables have it.
+    bool clamped = false;
+    CHECK(boardByName("rush,desktop=1024x768x24", b, &clamped) && clamped && b.desktopBits == 16 &&
+          b.desktopWidth == 1024 && b.desktopHeight == 768);
+    CHECK(boardByName("rush,desktop=1152x864x16", b, &clamped) && !clamped && b.desktopWidth == 1152);
+    // Smaller than the tables' sizes: as it is (the window can't be larger).
+    CHECK(boardByName("rush,desktop=800x600x16", b, &clamped) && !clamped && b.desktopWidth == 800);
+    CHECK(!Pipeline(b).fits(1024, 768, 2, 0, true) && Pipeline(b).fits(640, 480, 2, 1, true));
+    // Larger: cut to the largest at its depth, 1280x1024 at 16 bits,
+    // 1600x1200 at 8.
+    Board host = voodooRushBoard();
+    CHECK(setDesktop(host, 2560, 1440, 32, &clamped) && clamped && host.desktopWidth == 1280 &&
+          host.desktopHeight == 1024 && host.desktopBits == 16);
+    CHECK(Pipeline(host).bufferBytes(640, 480, 2, 1, true) == 3850240);
+    CHECK(setDesktop(host, 1920, 1080, 8, &clamped) && clamped && host.desktopWidth == 1600 &&
+          host.desktopHeight == 1080 && host.desktopBits == 8);
+    CHECK(setDesktop(host, 1280, 1024, 15, &clamped) && clamped && host.desktopBits == 16);
+    CHECK(!setDesktop(host, 1024, 768, 12) && host.desktopBits == 16);
+    // A 2 MB Rush: a 16-bit 1280x1024 desktop would fill it; the next size
+    // down, 1152x864, leaves room, "fb=" counted whatever the order.
+    CHECK(boardByName("rush,desktop=1920x1200x32,fb=2", b, &clamped) && clamped && b.desktopWidth == 1152 &&
+          b.desktopHeight == 864);
+    // Boards with a frame buffer of their own take no desktop.
+    Board ownFb = voodoo2Board();
+    CHECK(setDesktop(ownFb, 1920, 1080, 32) && ownFb.desktopBits == 0);
     // Full screen: the 3D buffers alone (its full-screen table: 800x600
     // with a depth buffer, 2,880,000 bytes).
     CHECK(p.bufferBytes(800, 600, 2, 1, false) == 2880000);

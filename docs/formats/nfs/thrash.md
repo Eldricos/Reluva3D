@@ -780,21 +780,14 @@ alone still goes straight to the board.
   (`GR_FOG_DISABLE`), and `grFogTable` 4,943 times. The race is drawn
   without fog.
 
-**`3ddata.dat`.** Both are short text lists that 3D Device Setup reads:
-the product, a line per card (a name, and `/M:d3d` for a card that
-should use `d3da.dll`), and a few switches. The patch's copy (465
-bytes, against the install's 435) adds a first card line, "3Dfx
-Voodoo3" with `/M:voodoo2`, so that card gets `voodoo2a.dll`. It turns
-the `D3D` switch from 1 to 0 and writes the first key `Product` with a
-capital. Everything else is the same. `3DDATA.EXE` is not an archive
-or a self-extractor. Both copies (the install's 61,761 bytes, Watcom,
-1998-08-12; the patch's 86,062 bytes, Microsoft's compiler,
-1999-01-30) are small programs whose only Windows calls besides the C
-runtime's are the registry's (`RegCreateKeyExA`, `RegSetValueExA` and
-so on, under "3D Data", "Cards", "Sort Order", "Card", "Type") and
-`MessageBoxA`. Their file tails are debug
-data (`NB09`/`NB10`). The patch's has "3Dfx Voodoo3" in its card list
-and the install's doesn't. Neither was run.
+**`3ddata.dat` and `3DDATA.EXE`** (studied in [3ddata.md](3ddata.md)).
+Neither reaches the game: `3DDATA.EXE` writes a card table (names, PCI
+IDs, renderer modules) into the registry's "3D Data" key, now with the
+Voodoo3 (module `voodoo2`), and `3ddata.dat` is 3D Device Setup's text
+list of the cards the game supports and a few switches; the patch's adds
+a "3Dfx Voodoo3" line sending that card to `voodoo2a.dll` and turns off
+the offer of Direct3D-only cards. 3D Device Setup then writes the
+choice's "Thrash Driver" for the game, which Reluva sets itself.
 
 **Running the patch DLL** (November 2026). `reluva-tool nfs-host
 <game> -glidedll <file>` loads a THRASH DLL file from outside the install

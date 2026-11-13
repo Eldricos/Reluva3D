@@ -1891,7 +1891,9 @@ README.md.
   `3dSetup/3ddata.dat`, for Voodoo3 cards only. The DLL runs on the
   Glide 3 stand-in and draws without fog (Glide stand-in, above;
   [thrash.md](../formats/nfs/thrash.md), The Voodoo3 patch's
-  voodoo2a.dll); `3ddata.dat` isn't studied. The
+  voodoo2a.dll); `3ddata.dat` is 3D Device Setup's card list, which only
+lets that program offer the Voodoo3 on `voodoo2a.dll`
+([3ddata.md](../formats/nfs/3ddata.md)). The
   Hot Pursuit clips found on YouTube (no release named) were taken
   for another release on two counts, the spike icon and the racer
   list. The user's own Hot Pursuit clips (`HP_Spikes`,

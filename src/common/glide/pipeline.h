@@ -114,7 +114,8 @@ struct Board {
 // - Voodoo Graphics (SST-1): one TMU of 2 MB, 2 MB of frame buffer (the
 //   4 MB card), up to 800x600 (Programming Guide table 3.3).
 // - Voodoo Rush (SST-96): one TMU of 2 MB without a palette, 4 MB of frame
-//   buffer shared with the 2D desktop (1024x768 at 16 bits, a choice),
+//   buffer shared with the 2D desktop (1024x768 at 16 bits, a choice;
+//   setDesktop gives it the host's),
 //   windowed Glide, no gamma table, the linear frame buffer through the 2D
 //   chip.
 // - Voodoo2: NFS III's 12 MB card, two TMUs of 4 MB and 4 MB of frame
@@ -133,9 +134,28 @@ Board bansheeBoard();
 Board voodoo3Board();
 // By name: "voodoo1" (or "voodoo", "sst1"), "rush", "voodoo2", "banshee",
 // "voodoo3", then optionally ",tmu=MB", ",fb=MB", ",tmus=N", ",tmurev=N",
-// ",desktop=WxHxBITS" (the Rush's 2D desktop; "desktop=0" for none)
-// ("voodoo1,tmu=4"); false for another.
-bool boardByName(const std::string& spec, Board& out);
+// ",desktop=WxHxBITS" (the Rush's 2D desktop as setDesktop takes it,
+// applied after the other options; "desktop=0" for none)
+// ("voodoo1,tmu=4"); false for another. `desktopClamped`, if given, is set
+// when setDesktop didn't take the desktop as given.
+bool boardByName(const std::string& spec, Board& out, bool* desktopClamped = nullptr);
+// The 2D desktop a windowed board (the Voodoo Rush) shares its memory
+// with, as the host's desktop is: width x height at `bits` per pixel (8,
+// 15, 16, 24 or 32). The SST-96 specification's windowed tables (System
+// Resolutions) have only 8- and 16-bit desktops ("8-bit Desktop ...
+// Out-of-Place 3D", "16-bit Desktop ... In-Place 3D", the latter
+// "requires equal 2D and 3D color depths"), of 1024x768 to 1600x1200 at
+// 8 bits and 1024x768 to 1280x1024 at 16. A desktop a Rush couldn't have
+// had is made one it could (a choice, docs/engines/glide.md, Boards): 15
+// bits counts as 16, 24 or 32 as 16 (the depth its owner would have set to
+// play in a window), a width or height past the tables' largest at that
+// depth is cut to it, and one whose memory alone would fill the frame
+// buffer drops to the next smaller of the tables' sizes. Smaller desktops
+// are taken as they are. Returns false, changing nothing, for another
+// depth or a size of 0 or less; sets `clamped` when the desktop isn't
+// taken as given. Takes nothing on a board without a shared desktop
+// (Board::windowed false), and returns true.
+bool setDesktop(Board& board, int width, int height, int bits, bool* clamped = nullptr);
 
 // A vertex as the pipeline takes it, whatever the API's layout.
 struct Vertex {
