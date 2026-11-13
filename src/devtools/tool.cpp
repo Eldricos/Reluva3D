@@ -63,6 +63,7 @@ void hexdump(const Bytes &d, size_t off, size_t len) {
 }
 
 namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the program's own path, set once in main
 const char *g_programPath = "reluva-tool";
 } // namespace
 

@@ -9,8 +9,9 @@
 namespace reluva::stgenerations {
 
 namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the seed tests fix, for every random source
 std::atomic<uint32_t> g_fixedSeed{0};
-}
+} // namespace
 
 void RandomSource::setFixedSeed(uint32_t seed) {
     g_fixedSeed = seed;

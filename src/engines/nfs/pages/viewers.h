@@ -47,6 +47,7 @@ namespace reluva::nfs {
 // (thrash.md, Texture filtering, from running the DLL on the Glide
 // stand-in); its textures have one level each, so no mipmaps.
 // reluva.ini's texturefilter=point holds them point-sampled (makePages).
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): a reluva.ini setting every viewer page reads
 inline bool g_pagesPointSampled = false;
 inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     gfx::TextureParams params;

@@ -64,6 +64,7 @@ namespace {
 // doubles. `Real` does the same: a double, rounded after each of those
 // operations when `single` is on. At 53 bits (single off) it's a double.
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the x87 precision the game set, for every Real calculation
 bool g_single = true;
 
 double x87(double v) {

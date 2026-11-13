@@ -30,6 +30,7 @@
 namespace reluva::log {
 
 namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the debug level for the whole program, set from its command line
 std::atomic<int> g_level{0};
 
 void print(const char *prefix, const char *fmt, va_list args) {

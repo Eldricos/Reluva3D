@@ -25,6 +25,7 @@ const size_t kMaxCallDepth = 24;
 const uint16_t kActionSeqDefault = 999;
 
 // The Watcom C library rand(), as used by RANDOM.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): the Watcom C library's rand() state, global as it was
 uint32_t g_randSeed = 1;
 uint16_t watcomRand() {
     g_randSeed = g_randSeed * 1103515245u + 12345u;

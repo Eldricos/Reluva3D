@@ -12,6 +12,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): guards the debug channels, from any thread
 std::mutex g_channelsMutex;
 std::set<std::string> &channels() {
     static std::set<std::string> c;

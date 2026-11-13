@@ -49,6 +49,7 @@ struct FramePerf {
         *this = FramePerf();
     }
 };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): frame timings summed over every page, for the profile
 FramePerf g_perf;
 
 } // namespace

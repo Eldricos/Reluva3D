@@ -738,6 +738,7 @@ void writePlaythrough(const std::string &file, const std::vector<Action> &path) 
 // -reloadeach: after every action the game is saved and loaded again, as
 // the save and load screens do, and played on from the loaded game; what
 // the loaded game lacks or has more of is listed.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): counted over a whole playthrough, across actions
 size_t g_reloadDiffs = 0;
 
 void reloadAndCompare(Player &player, size_t n, const Action &a) {
