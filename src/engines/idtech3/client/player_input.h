@@ -27,21 +27,21 @@ public:
     void runBinding(const std::string &line, int32_t key, bool down,
                     const std::function<void(const std::string &)> &command);
     bool held(const char *button) const;
-    void releaseAll() { buttons_.clear(); }
+    void releaseAll() { _buttons.clear(); }
     // The buttons held, each with the keys holding it.
-    const std::map<std::string, std::set<int32_t>> &buttons() const { return buttons_; }
+    const std::map<std::string, std::set<int32_t>> &buttons() const { return _buttons; }
 
     // The joystick's analog axes this frame, -127 to 127 (JoystickInput):
     // x turns the view (with +strafe, steps sideways), y moves forward
     // and back (with +mlook, looks up and down), as the original's.
     void setJoystick(int32_t x, int32_t y) {
-        joyX_ = x;
-        joyY_ = y;
+        _joyX = x;
+        _joyY = y;
     }
     // The mouse moved (pixels), until the next turn().
     void addMouse(float dx, float dy) {
-        mouseX_ += dx;
-        mouseY_ += dy;
+        _mouseX += dx;
+        _mouseY += dy;
     }
     // Turns the view by the mouse moved and the keys held over `dtMs`, at
     // the original's settings: sensitivity, m_yaw, m_pitch, m_filter,
@@ -65,10 +65,10 @@ public:
     static bool isButton(const std::string &name);
 
 private:
-    std::map<std::string, std::set<int32_t>> buttons_; // and the keys holding each
-    float mouseX_ = 0, mouseY_ = 0;                    // moved since the last turn
-    float lastMouseX_ = 0, lastMouseY_ = 0;            // the last turn's, for m_filter
-    int32_t joyX_ = 0, joyY_ = 0;                      // the joystick's analog axes
+    std::map<std::string, std::set<int32_t>> _buttons; // and the keys holding each
+    float _mouseX = 0, _mouseY = 0;                    // moved since the last turn
+    float _lastMouseX = 0, _lastMouseY = 0;            // the last turn's, for m_filter
+    int32_t _joyX = 0, _joyY = 0;                      // the joystick's analog axes
 };
 
 } // namespace reluva::idtech3

@@ -125,10 +125,10 @@ static void testQvm() {
     // sp + frame + 8 after ENTER frame.
     {
         QvmAsm a;
-        a.add(Enter, 8);
-        a.add(Local, 16), a.add(Load4);
-        a.add(Local, 20), a.add(Load4), a.add(Local, 24), a.add(Load4), a.add(Muli), a.add(Add);
-        a.add(Leave, 8);
+        a.add(kEnter, 8);
+        a.add(kLocal, 16), a.add(kLoad4);
+        a.add(kLocal, 20), a.add(kLoad4), a.add(kLocal, 24), a.add(kLoad4), a.add(kMuli), a.add(kAdd);
+        a.add(kLeave, 8);
         Qvm vm;
         CHECK(!vm.load(a.build()));
         CHECK(!vm.call(3, {4, 5}, r) && r == 23);
@@ -136,17 +136,17 @@ static void testQvm() {
     }
     // Recursion: factorial through calls, frames and ARG.
     QvmAsm f;
-    f.add(Enter, 16);
-    f.add(Local, 24), f.add(Load4), f.add(Arg, 8), f.add(Const, 0), f.add(Call), f.add(Leave, 16);
-    const int fact = f.add(Enter, 16);
+    f.add(kEnter, 16);
+    f.add(kLocal, 24), f.add(kLoad4), f.add(kArg, 8), f.add(kConst, 0), f.add(kCall), f.add(kLeave, 16);
+    const int fact = f.add(kEnter, 16);
     f.code[4].second = fact;
-    f.add(Local, 24), f.add(Load4), f.add(Const, 1);
-    const int gt = f.add(Gti, 0);
-    f.add(Const, 1), f.add(Leave, 16);
+    f.add(kLocal, 24), f.add(kLoad4), f.add(kConst, 1);
+    const int gt = f.add(kGti, 0);
+    f.add(kConst, 1), f.add(kLeave, 16);
     f.code[size_t(gt)].second = int32_t(f.code.size());
-    f.add(Local, 24), f.add(Load4);
-    f.add(Local, 24), f.add(Load4), f.add(Const, 1), f.add(Sub), f.add(Arg, 8), f.add(Const, fact), f.add(Call);
-    f.add(Muli), f.add(Leave, 16);
+    f.add(kLocal, 24), f.add(kLoad4);
+    f.add(kLocal, 24), f.add(kLoad4), f.add(kConst, 1), f.add(kSub), f.add(kArg, 8), f.add(kConst, fact), f.add(kCall);
+    f.add(kMuli), f.add(kLeave, 16);
     Qvm vm;
     CHECK(!vm.load(f.build()));
     CHECK(!vm.call(5, {}, r) && r == 120);
@@ -158,11 +158,11 @@ static void testQvm() {
         QvmAsm a;
         a.lit = {'h', 'i', 0, 0};
         a.data = {0, 0, 0, 0};
-        a.add(Enter, 16);
-        a.add(Const, 4), a.add(Arg, 8), a.add(Const, 42), a.add(Arg, 12), a.add(Const, -2), a.add(Call);
-        a.add(Const, 1), a.add(Add);
-        a.add(Local, 24), a.add(Load4), a.add(Arg, 8), a.add(Const, -6), a.add(Call), a.add(Add);
-        a.add(Leave, 16);
+        a.add(kEnter, 16);
+        a.add(kConst, 4), a.add(kArg, 8), a.add(kConst, 42), a.add(kArg, 12), a.add(kConst, -2), a.add(kCall);
+        a.add(kConst, 1), a.add(kAdd);
+        a.add(kLocal, 24), a.add(kLoad4), a.add(kArg, 8), a.add(kConst, -6), a.add(kCall), a.add(kAdd);
+        a.add(kLeave, 16);
         Qvm s;
         CHECK(!s.load(a.build()));
         Qvm inner;
@@ -192,14 +192,14 @@ static void testQvm() {
         QvmAsm a;
         a.data = {0x80, 0xff, 0x34, 0x12, 1, 2, 3, 4};
         a.bss = 64;
-        a.add(Enter, 8);
-        a.add(Const, 0), a.add(Load1), a.add(Sex8);              // -128
-        a.add(Const, 0), a.add(Load2), a.add(Sex16), a.add(Add); // -128 + -128
-        a.add(Const, 16), a.add(Const, 4), a.add(BlockCopy, 4);
-        a.add(Const, 16), a.add(Load4), a.add(Add); // + 0x04030201
-        a.add(Const, 20), a.add(Const, 0x55), a.add(Store1);
-        a.add(Const, 20), a.add(Load1), a.add(Add); // + 0x55
-        a.add(Leave, 8);
+        a.add(kEnter, 8);
+        a.add(kConst, 0), a.add(kLoad1), a.add(kSex8);               // -128
+        a.add(kConst, 0), a.add(kLoad2), a.add(kSex16), a.add(kAdd); // -128 + -128
+        a.add(kConst, 16), a.add(kConst, 4), a.add(kBlockCopy, 4);
+        a.add(kConst, 16), a.add(kLoad4), a.add(kAdd); // + 0x04030201
+        a.add(kConst, 20), a.add(kConst, 0x55), a.add(kStore1);
+        a.add(kConst, 20), a.add(kLoad1), a.add(kAdd); // + 0x55
+        a.add(kLeave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
         CHECK(!m.call(0, {}, r) && r == -256 + 0x04030201 + 0x55);
@@ -209,18 +209,18 @@ static void testQvm() {
     // Floats, unsigned comparison, division edge cases.
     {
         QvmAsm a;
-        a.add(Enter, 8);
-        a.add(Const, Qvm::fromFloat(1.5f)), a.add(Const, Qvm::fromFloat(2.25f)), a.add(Mulf);
-        a.add(Const, 3), a.add(Cvif), a.add(Addf), a.add(Negf), a.add(Cvfi); // -(3.375 + 3) -> -6
-        a.add(Const, -1), a.add(Const, 1);
-        const int b = a.add(Ltu, 0); // 0xffffffff < 1 unsigned: false
-        a.add(Const, 1000), a.add(Add);
+        a.add(kEnter, 8);
+        a.add(kConst, Qvm::fromFloat(1.5f)), a.add(kConst, Qvm::fromFloat(2.25f)), a.add(kMulf);
+        a.add(kConst, 3), a.add(kCvif), a.add(kAddf), a.add(kNegf), a.add(kCvfi); // -(3.375 + 3) -> -6
+        a.add(kConst, -1), a.add(kConst, 1);
+        const int b = a.add(kLtu, 0); // 0xffffffff < 1 unsigned: false
+        a.add(kConst, 1000), a.add(kAdd);
         a.code[size_t(b)].second = int32_t(a.code.size());
-        a.add(Const, INT32_MIN), a.add(Const, -1), a.add(Divi), a.add(Const, INT32_MIN), a.add(Sub), a.add(Add);
-        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);  // -1
-        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);  // -4
-        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add); // 15
-        a.add(Leave, 8);
+        a.add(kConst, INT32_MIN), a.add(kConst, -1), a.add(kDivi), a.add(kConst, INT32_MIN), a.add(kSub), a.add(kAdd);
+        a.add(kConst, -7), a.add(kConst, 2), a.add(kModi), a.add(kAdd);  // -1
+        a.add(kConst, -8), a.add(kConst, 1), a.add(kRshi), a.add(kAdd);  // -4
+        a.add(kConst, -8), a.add(kConst, 28), a.add(kRshu), a.add(kAdd); // 15
+        a.add(kLeave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
         CHECK(!m.call(0, {}, r) && r == -6 + 1000 + 0 - 1 - 4 + 15);
@@ -237,17 +237,18 @@ static void testQvm() {
         Error err = m.call(0, {}, r);
         return err ? err.message : std::string();
     };
-    CHECK(runs({{Enter, 8}, {Const, -100}, {Load4, 0}, {Leave, 8}}).find("reads outside memory") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") !=
+    CHECK(runs({{kEnter, 8}, {kConst, -100}, {kLoad4, 0}, {kLeave, 8}}).find("reads outside memory") !=
           std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") !=
+    CHECK(runs({{kEnter, 8}, {kConst, 1 << 29}, {kConst, 1}, {kStore4, 0}, {kLeave, 8}}).find("writes outside") !=
           std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 99}, {Jump, 0}}).find("jumps to 99") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1}, {Jump, 0}}, 1000).find("instruction limit") != std::string::npos);
-    CHECK(runs({{Enter, 0x20000}, {Leave, 0x20000}}).find("stack overflow") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Add, 0}, {Leave, 8}}).find("operand stack") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 5}, {Call, 0}, {Leave, 8}}).find("calls 5") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Eq, 50}, {Leave, 8}}) == "load"); // branch target checked on load
+    CHECK(runs({{kEnter, 8}, {kConst, 1}, {kConst, 0}, {kDivi, 0}, {kLeave, 8}}).find("division by zero") !=
+          std::string::npos);
+    CHECK(runs({{kEnter, 8}, {kConst, 99}, {kJump, 0}}).find("jumps to 99") != std::string::npos);
+    CHECK(runs({{kEnter, 8}, {kConst, 1}, {kJump, 0}}, 1000).find("instruction limit") != std::string::npos);
+    CHECK(runs({{kEnter, 0x20000}, {kLeave, 0x20000}}).find("stack overflow") != std::string::npos);
+    CHECK(runs({{kEnter, 8}, {kAdd, 0}, {kLeave, 8}}).find("operand stack") != std::string::npos);
+    CHECK(runs({{kEnter, 8}, {kConst, 5}, {kCall, 0}, {kLeave, 8}}).find("calls 5") != std::string::npos);
+    CHECK(runs({{kEnter, 8}, {kEq, 50}, {kLeave, 8}}) == "load"); // branch target checked on load
     // Damaged files.
     Qvm bad;
     CHECK(bad.load({1, 2, 3}));
@@ -304,17 +305,17 @@ static void testCompiledQvm() {
 
 static void testCvars() {
     CvarStore cvars;
-    const CvarStore::Cvar &a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
+    const CvarStore::Cvar &a = cvars.create("Sensitivity", "5.5", CvarStore::kArchive);
     CHECK(a.handle == 1 && a.modificationCount == 1);
     CHECK(cvars.value("sensitivity") == 5.5f && cvars.integer("SENSITIVITY") == 5);
-    cvars.create("sensitivity", "1", CvarStore::Cheat); // exists: keeps its value, gains the flag
+    cvars.create("sensitivity", "1", CvarStore::kCheat); // exists: keeps its value, gains the flag
     CHECK(cvars.string("sensitivity") == "5.5" &&
-          cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
+          cvars.find("sensitivity")->flags == (CvarStore::kArchive | CvarStore::kCheat));
     cvars.set("sensitivity", "3");
     CHECK(cvars.find("sensitivity")->modificationCount == 2);
     cvars.set("sensitivity", "3"); // unchanged: not counted
     CHECK(cvars.find("sensitivity")->modificationCount == 2);
-    cvars.create("version", "1.0", CvarStore::ReadOnly);
+    cvars.create("version", "1.0", CvarStore::kReadOnly);
     cvars.set("version", "2.0");
     CHECK(cvars.string("version") == "1.0");
     cvars.set("version", "2.0", true);
@@ -323,7 +324,7 @@ static void testCvars() {
     // until a level starts; forcing sets it at once; setting it back
     // forgets the wait.
     CvarStore latch;
-    latch.create("g_pModAssimilation", "0", CvarStore::ServerInfo | CvarStore::Latch);
+    latch.create("g_pModAssimilation", "0", CvarStore::kServerInfo | CvarStore::kLatch);
     latch.set("g_pModAssimilation", "1");
     CHECK(latch.integer("g_pModAssimilation") == 0 && latch.hasLatched("g_pModAssimilation") &&
           latch.pending("g_pModAssimilation") == "1");
@@ -335,7 +336,7 @@ static void testCvars() {
     latch.set("g_pModAssimilation", "0", true);
     CHECK(latch.integer("g_pModAssimilation") == 0 && !latch.hasLatched("g_pModAssimilation"));
     cvars.set("made_up", "x"); // created by the user, then claimed by the code with its default
-    CHECK(cvars.find("made_up")->flags == CvarStore::UserCreated);
+    CHECK(cvars.find("made_up")->flags == CvarStore::kUserCreated);
     cvars.create("made_up", "y", 0);
     CHECK(cvars.find("made_up")->flags == 0 && cvars.find("made_up")->defaultValue == "y" &&
           cvars.string("made_up") == "x");
@@ -377,9 +378,9 @@ static void testJumpTableGuard() {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.qvm", {
-                                  {"qvm", [](const std::filesystem::path &) { testQvm(); }},
-                                  {"compiled qvm", [](const std::filesystem::path &) { testCompiledQvm(); }},
-                                  {"jump table guard", [](const std::filesystem::path &) { testJumpTableGuard(); }},
-                                  {"cvars", [](const std::filesystem::path &) { testCvars(); }},
-                              });
+    kSuite("idtech3.unit.qvm", {
+                                   {"qvm", [](const std::filesystem::path &) { testQvm(); }},
+                                   {"compiled qvm", [](const std::filesystem::path &) { testCompiledQvm(); }},
+                                   {"jump table guard", [](const std::filesystem::path &) { testJumpTableGuard(); }},
+                                   {"cvars", [](const std::filesystem::path &) { testCvars(); }},
+                               });

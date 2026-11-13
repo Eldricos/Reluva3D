@@ -26,7 +26,7 @@ constexpr uint64_t kHintMs = 6000;
 } // namespace
 
 MenuViewer::MenuViewer(ViewerContext &ctx) : Page(ctx) {
-    available_ = ctx.game.code == GameCode::EliteForce && ctx.files.has("vm/ui.qvm");
+    _available = ctx.game.code == GameCode::kEliteForce && ctx.files.has("vm/ui.qvm");
 }
 
 MenuViewer::~MenuViewer() {
@@ -34,55 +34,55 @@ MenuViewer::~MenuViewer() {
 }
 
 void MenuViewer::activate() {
-    const VideoSettings video = videoSettings(ctx_.cvars);
-    frameW_ = video.width;
-    frameH_ = video.height;
-    ctx_.sys.setVideoMode(frameW_, frameH_, video.fullscreen);
-    if (Error err = ctx_.sys.init3D(frameW_, frameH_, renderer_)) {
-        renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
+    const VideoSettings video = videoSettings(_ctx.cvars);
+    _frameW = video.width;
+    _frameH = video.height;
+    _ctx.sys.setVideoMode(_frameW, _frameH, video.fullscreen);
+    if (Error err = _ctx.sys.init3D(_frameW, _frameH, _renderer)) {
+        _renderer = nullptr;
+        _ctx.sys.initGraphics(_ctx.screen.w, _ctx.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Menu page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(frameW_, frameH_, PixelFormat::kRGBA32);
-    menus_.attach(renderer_, frameW_, frameH_);
-    shownMs_ = 0;
+    _overlay.create(_frameW, _frameH, PixelFormat::kRGBA32);
+    _menus.attach(_renderer, _frameW, _frameH);
+    _shownMs = 0;
     // The menus draw their own pointer, and have text fields.
-    ctx_.sys.setMouseCursorVisible(false);
-    ctx_.sys.setTextInput(true);
-    if (!menus_.running() && menus_.error().empty())
+    _ctx.sys.setMouseCursorVisible(false);
+    _ctx.sys.setTextInput(true);
+    if (!_menus.running() && _menus.error().empty())
         start();
-    else if (ctx_.matchEnded && menus_.running())
-        menus_.show(MenuLayer::kMainMenu); // back from a match: the main menu
-    ctx_.matchEnded = false;
-    setTitle(menus_.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
+    else if (_ctx.matchEnded && _menus.running())
+        _menus.show(MenuLayer::kMainMenu); // back from a match: the main menu
+    _ctx.matchEnded = false;
+    setTitle(_menus.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
 }
 
 void MenuViewer::start() {
     // The server list: on a socket of its own, if the system has a network.
-    if (!browser_) {
+    if (!_browser) {
         std::unique_ptr<net::UdpSocket> socket;
-        if (!ctx_.sys.openUdp(0, socket) && socket) {
-            browser_ = std::make_unique<ServerBrowser>(std::move(socket));
-            browser_->setBroadcasts(ctx_.sys.broadcastAddresses());
+        if (!_ctx.sys.openUdp(0, socket) && socket) {
+            _browser = std::make_unique<ServerBrowser>(std::move(socket));
+            _browser->setBroadcasts(_ctx.sys.broadcastAddresses());
         }
     }
-    menus_.browser = browser_.get();
-    menus_.start(MenuLayer::kMainMenu);
+    _menus.browser = _browser.get();
+    _menus.start(MenuLayer::kMainMenu);
 }
 
 void MenuViewer::checkCommands() {
     // The commands the menus have run since the last look: one that
     // starts a level (Engage runs "map <name>", after setting the game's
     // cvars) shows it on the Play page.
-    for (const std::string &line : menus_.takeCommands()) {
-        lastCommand_ = line;
-        while (!lastCommand_.empty() && (lastCommand_.back() == '\n' || lastCommand_.back() == ' '))
-            lastCommand_.pop_back();
-        lastCommandMs_ = ctx_.sys.getMillis();
+    for (const std::string &line : _menus.takeCommands()) {
+        _lastCommand = line;
+        while (!_lastCommand.empty() && (_lastCommand.back() == '\n' || _lastCommand.back() == ' '))
+            _lastCommand.pop_back();
+        _lastCommandMs = _ctx.sys.getMillis();
         // Each command of the line: one starting a level takes the menus
         // to the Play page; the ones after it (adding bots...) are run
         // there once the level has started.
@@ -95,37 +95,37 @@ void MenuViewer::checkCommands() {
                 // The menus' Quit: back to the start, as the original's
                 // program ended; they start afresh next time (left as they
                 // are, they'd come back still quitting).
-                ctx_.requestPage = "Start";
-                menus_.reset();
+                _ctx.requestPage = "Start";
+                _menus.reset();
                 return;
             } else if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over;
                 // a mod chosen (fs_game), the game's files too.
-                restart_ = true;
-                ctx_.requestRestart = true;
+                _restart = true;
+                _ctx.requestRestart = true;
             } else if (verb == "connect" && words.size() >= 2) {
                 // Joining a server (the server list's Engage).
-                ctx_.requestPage = "Play";
-                ctx_.requestConnect = words[1];
-                ctx_.requestMap.clear();
-                ctx_.requestCommands.clear();
+                _ctx.requestPage = "Play";
+                _ctx.requestConnect = words[1];
+                _ctx.requestMap.clear();
+                _ctx.requestCommands.clear();
             } else if (verb == "demo" && words.size() >= 2) {
                 // A recorded match (the Demos menu's).
-                ctx_.requestPage = "Play";
-                ctx_.requestDemo = words[1];
-                ctx_.requestConnect.clear();
-                ctx_.requestMap.clear();
-                ctx_.requestCommands.clear();
+                _ctx.requestPage = "Play";
+                _ctx.requestDemo = words[1];
+                _ctx.requestConnect.clear();
+                _ctx.requestMap.clear();
+                _ctx.requestCommands.clear();
             } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") &&
                        words.size() >= 2) {
                 // A solo match (spmap) or not, as the original's map
                 // commands set it; the level starts afresh on the Play page.
-                eliteforce::GameHost::applyMapCommand(cvars_, verb);
-                ctx_.requestPage = "Play";
-                ctx_.requestMap = words[1];
-                ctx_.requestCommands.clear();
-            } else if (!ctx_.requestMap.empty() && verb != "wait") {
-                ctx_.requestCommands.push_back(command);
+                eliteforce::GameHost::applyMapCommand(_cvars, verb);
+                _ctx.requestPage = "Play";
+                _ctx.requestMap = words[1];
+                _ctx.requestCommands.clear();
+            } else if (!_ctx.requestMap.empty() && verb != "wait") {
+                _ctx.requestCommands.push_back(command);
             }
         }
     }
@@ -133,101 +133,101 @@ void MenuViewer::checkCommands() {
 
 void MenuViewer::deactivate() {
     // Settings and bindings changed in the menus, kept.
-    saveConfig(ctx_);
-    if (renderer_) {
-        ctx_.sys.setMouseCursorVisible(true);
-        ctx_.sys.setTextInput(false);
+    saveConfig(_ctx);
+    if (_renderer) {
+        _ctx.sys.setMouseCursorVisible(true);
+        _ctx.sys.setTextInput(false);
     }
-    menus_.detach();
-    renderer_ = nullptr;
+    _menus.detach();
+    _renderer = nullptr;
 }
 
 bool MenuViewer::takesKey(const Event &ev) const {
     // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
-    return menus_.running() && !(ev.mods & keymod::Ctrl);
+    return _menus.running() && !(ev.mods & keymod::Ctrl);
 }
 
 void MenuViewer::handleEvent(const Event &ev) {
     if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
         ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
-        joystick_.event(ev);
+        _joystick.event(ev);
         return;
     }
     if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
         // Ctrl+R: start the menus again, stopped or not.
-        menus_.reset();
+        _menus.reset();
         start();
         return;
     }
-    menus_.handleEvent(ev);
+    _menus.handleEvent(ev);
     checkCommands();
 }
 
 void MenuViewer::update(uint64_t nowMs) {
-    if (!renderer_)
+    if (!_renderer)
         return;
-    if (!shownMs_)
-        shownMs_ = nowMs;
-    if (restart_) {
+    if (!_shownMs)
+        _shownMs = nowMs;
+    if (_restart) {
         // As the original's vid_restart: the menus start over too (at the
         // main menu), so they lay themselves out for the new size.
-        restart_ = false;
+        _restart = false;
         deactivate();
-        menus_.reset();
+        _menus.reset();
         activate();
-        if (!renderer_)
+        if (!_renderer)
             return;
         // What the menus chose, shown for a while (r_fullscreen is theirs:
         // Apply sets it from the Full Screen line).
-        lastCommand_ = "vid_restart: " + std::to_string(frameW_) + "x" + std::to_string(frameH_) +
-                       (videoSettings(ctx_.cvars).fullscreen ? ", full screen" : ", in a window");
-        lastCommandMs_ = nowMs;
+        _lastCommand = "vid_restart: " + std::to_string(_frameW) + "x" + std::to_string(_frameH) +
+                       (videoSettings(_ctx.cvars).fullscreen ? ", full screen" : ", in a window");
+        _lastCommandMs = nowMs;
     }
-    if (browser_)
-        browser_->update(nowMs);
+    if (_browser)
+        _browser->update(nowMs);
 
-    renderer_->setGamma(brightness(ctx_));
-    renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
+    _renderer->setGamma(brightness(_ctx));
+    _renderer->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     // The joystick's keys, as the original's engine passes them to the
     // menus (binding JOY1... in the Controls menu, moving with the arrows).
-    for (const auto &[k, down] : joystick_.frame(ctx_.cvars).keys)
-        menus_.key(k, down);
-    menus_.frame(nowMs);
+    for (const auto &[k, down] : _joystick.frame(_ctx.cvars).keys)
+        _menus.key(k, down);
+    _menus.frame(nowMs);
     checkCommands();
 
     // Errors, and for a while how to leave.
-    std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
+    std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     std::vector<std::string> lines;
-    if (!menus_.error().empty()) {
-        lines.push_back(menus_.error());
-        if (!menus_.reportPath().empty())
-            lines.push_back("Details: " + menus_.reportPath());
+    if (!_menus.error().empty()) {
+        lines.push_back(_menus.error());
+        if (!_menus.reportPath().empty())
+            lines.push_back("Details: " + _menus.reportPath());
         lines.push_back("Ctrl+R: start them again.");
     }
-    if (menus_.running() && !menus_.ui()->unhandled().empty()) {
+    if (_menus.running() && !_menus.ui()->unhandled().empty()) {
         // Calls the menus made that Reluva answers with 0 for now.
         std::string calls = "System calls not implemented yet:";
-        for (const auto &[number, count] : menus_.ui()->unhandled())
+        for (const auto &[number, count] : _menus.ui()->unhandled())
             calls += " " + std::to_string(number) + " (x" + std::to_string(count) + ")";
         lines.push_back(calls);
     }
-    if (!lastCommand_.empty() && nowMs - lastCommandMs_ < kHintMs)
-        lines.push_back("The menus ran: " + lastCommand_);
-    if (nowMs - shownMs_ < kHintMs)
+    if (!_lastCommand.empty() && nowMs - _lastCommandMs < kHintMs)
+        lines.push_back("The menus ran: " + _lastCommand);
+    if (nowMs - _shownMs < kHintMs)
         lines.push_back("Keys and mouse go to the menus. Ctrl+Tab: next page, Ctrl+Esc: launcher, Ctrl+R: restart.");
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {
-        const int y = frameH_ - int(lines.size() - i) * lh - 4;
-        const int w = std::min(frameW_, int(font::length(lines[i])) * font::kAdvance + 8);
+        const int y = _frameH - int(lines.size() - i) * lh - 4;
+        const int w = std::min(_frameW, int(font::length(lines[i])) * font::kAdvance + 8);
         for (int yy = y - 2; yy < y + lh; ++yy) {
-            uint8_t *p = overlay_.row(yy);
+            uint8_t *p = _overlay.row(yy);
             for (int x = 0; x < w; ++x)
                 p[x * 4 + 3] = 170;
         }
-        font::drawText(overlay_, 4, y, lines[i],
-                       i == 0 && !menus_.error().empty() ? Color{255, 120, 120} : Color{230, 230, 230});
+        font::drawText(_overlay, 4, y, lines[i],
+                       i == 0 && !_menus.error().empty() ? Color{255, 120, 120} : Color{230, 230, 230});
     }
-    renderer_->endFrame(&overlay_);
+    _renderer->endFrame(&_overlay);
 }
 
 } // namespace reluva::idtech3

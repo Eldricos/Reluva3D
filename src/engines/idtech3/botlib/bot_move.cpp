@@ -20,12 +20,12 @@ constexpr float kMaxStep = 18, kMaxBarrier = 32, kGravity = 800;
 constexpr float kAvoidReachTime = 6;
 constexpr int kAvoidReachTries = 4;
 constexpr int kEntityWorld = 1022, kEntityNone = 1023;
-constexpr int kLiquid = contents::Water | contents::Slime | contents::Lava;
+constexpr int kLiquid = contents::kWater | contents::kSlime | contents::kLava;
 
 Vec3f sub(const Vec3f &a, const Vec3f &b) {
     return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
 }
-Vec3f add_(const Vec3f &a, const Vec3f &b) {
+Vec3f add(const Vec3f &a, const Vec3f &b) {
     return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
 }
 Vec3f scale(const Vec3f &a, float s) {
@@ -59,12 +59,12 @@ Vec3f anglesOf(const Vec3f &dir) {
 }
 
 float reachabilityTime(int travelType) {
-    switch (travelType & travel::TypeMask) {
-    case travel::Ladder:
+    switch (travelType & travel::kTypeMask) {
+    case travel::kLadder:
         return 6;
-    case travel::Elevator:
-    case travel::JumpPad:
-    case travel::FuncBob:
+    case travel::kElevator:
+    case travel::kJumpPad:
+    case travel::kFuncBob:
         return 10;
     default:
         return 5;
@@ -74,21 +74,21 @@ float reachabilityTime(int travelType) {
 } // namespace
 
 int BotLibrary::allocMoveState() {
-    return alloc(moveStates_);
+    return alloc(_moveStates);
 }
 
 void BotLibrary::freeMoveState(int handle) {
-    if (state(moveStates_, handle))
-        moveStates_[size_t(handle) - 1].reset();
+    if (state(_moveStates, handle))
+        _moveStates[size_t(handle) - 1].reset();
 }
 
 void BotLibrary::resetMoveState(int handle) {
-    if (MoveState *ms = state(moveStates_, handle))
+    if (MoveState *ms = state(_moveStates, handle))
         *ms = MoveState{};
 }
 
 void BotLibrary::initMoveState(int handle, const BotInitMove &init) {
-    MoveState *ms = state(moveStates_, handle);
+    MoveState *ms = state(_moveStates, handle);
     if (!ms)
         return;
     ms->origin = init.origin;
@@ -101,18 +101,18 @@ void BotLibrary::initMoveState(int handle, const BotInitMove &init) {
     ms->viewAngles = init.viewAngles;
     // The flags the game knows (on the ground, teleported, water jumping,
     // walking) replaced by its; the rest kept.
-    constexpr int fromGame = moveflag::OnGround | moveflag::Teleported | moveflag::WaterJump | moveflag::Walk;
-    ms->moveFlags = (ms->moveFlags & ~fromGame) | (init.orMoveFlags & fromGame);
+    constexpr int kFromGame = moveflag::kOnGround | moveflag::kTeleported | moveflag::kWaterJump | moveflag::kWalk;
+    ms->moveFlags = (ms->moveFlags & ~kFromGame) | (init.orMoveFlags & kFromGame);
 }
 
 void BotLibrary::resetAvoidReach(int handle) {
-    if (MoveState *ms = state(moveStates_, handle))
+    if (MoveState *ms = state(_moveStates, handle))
         ms->avoidReach.clear();
 }
 
 void BotLibrary::resetLastAvoidReach(int handle) {
     // The latest reachability added to the avoided ones taken off.
-    MoveState *ms = state(moveStates_, handle);
+    MoveState *ms = state(_moveStates, handle);
     if (!ms || ms->avoidReach.empty())
         return;
     auto latest = ms->avoidReach.begin();
@@ -124,15 +124,15 @@ void BotLibrary::resetLastAvoidReach(int handle) {
 }
 
 bool BotLibrary::onGround(const MoveState &ms) const {
-    if (ms.moveFlags & moveflag::OnGround)
+    if (ms.moveFlags & moveflag::kOnGround)
         return true;
     if (!trace)
         return false;
     Vec3f mins{};
     Vec3f maxs{};
-    AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
+    AasWorld::presenceBox(ms.presence ? ms.presence : presence::kNormal, mins, maxs);
     const Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 10}, ms.entity,
-                          contents::Solid | contents::PlayerClip);
+                          contents::kSolid | contents::kPlayerClip);
     return !t.startSolid && t.fraction < 1 && ms.velocity[2] <= 10;
 }
 
@@ -171,7 +171,7 @@ bool BotLibrary::onMover(const Vec3f &origin, int entity, const AasReach &reach)
         if (origin[i] > at[i] + maxs[i] + 16 || origin[i] < at[i] + mins[i] - 16)
             return false;
     const Trace t = trace({origin[0], origin[1], origin[2] + 24}, {-16, -16, -8}, {16, 16, 8},
-                          {origin[0], origin[1], origin[2] - 48}, entity, contents::Solid | contents::PlayerClip);
+                          {origin[0], origin[1], origin[2] - 48}, entity, contents::kSolid | contents::kPlayerClip);
     return !t.startSolid && t.entity != kEntityNone && t.entity != kEntityWorld &&
            entityInfo(t.entity).modelIndex == model;
 }
@@ -181,9 +181,9 @@ int BotLibrary::entityOnTopOf(const MoveState &ms) const {
         return -1;
     Vec3f mins{};
     Vec3f maxs{};
-    AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
+    AasWorld::presenceBox(ms.presence ? ms.presence : presence::kNormal, mins, maxs);
     const Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 10}, ms.entity,
-                          contents::Solid | contents::PlayerClip);
+                          contents::kSolid | contents::kPlayerClip);
     if (!t.startSolid && t.entity != kEntityWorld && t.entity != kEntityNone)
         return t.entity;
     return -1;
@@ -196,24 +196,24 @@ void BotLibrary::checkBlocked(const MoveState &ms, const Vec3f &dir, bool checkB
         return;
     Vec3f mins{};
     Vec3f maxs{};
-    AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
+    AasWorld::presenceBox(ms.presence ? ms.presence : presence::kNormal, mins, maxs);
     if (std::fabs(dir[2]) < 0.7f) {
         mins[2] += kMaxStep;
         maxs[2] -= 10;
     }
-    const Trace t = trace(ms.origin, mins, maxs, add_(ms.origin, scale(dir, 3)), ms.entity,
-                          contents::Solid | contents::PlayerClip | contents::Body);
+    const Trace t = trace(ms.origin, mins, maxs, add(ms.origin, scale(dir, 3)), ms.entity,
+                          contents::kSolid | contents::kPlayerClip | contents::kBody);
     if (!t.startSolid && t.entity != kEntityWorld && t.entity != kEntityNone) {
         result.blocked = true;
         result.blockEntity = t.entity;
-    } else if (checkBottom && !(aas_.validArea(ms.area) && aas_.settings(ms.area).numReach)) {
-        AasWorld::presenceBox(ms.presence ? ms.presence : presence::Normal, mins, maxs);
+    } else if (checkBottom && !(_aas.validArea(ms.area) && _aas.settings(ms.area).numReach)) {
+        AasWorld::presenceBox(ms.presence ? ms.presence : presence::kNormal, mins, maxs);
         const Trace b = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 3}, ms.entity,
-                              contents::Solid | contents::PlayerClip);
+                              contents::kSolid | contents::kPlayerClip);
         if (!b.startSolid && b.entity != kEntityWorld && b.entity != kEntityNone) {
             result.blocked = true;
             result.blockEntity = b.entity;
-            result.flags |= moveresult::OnTopOfObstacle;
+            result.flags |= moveresult::kOnTopOfObstacle;
         }
     }
 }
@@ -225,21 +225,21 @@ float BotLibrary::gapDistance(const MoveState &ms, const Vec3f &hordir) const {
         return 0;
     Vec3f mins{};
     Vec3f maxs{};
-    AasWorld::presenceBox(presence::Crouch, mins, maxs);
+    AasWorld::presenceBox(presence::kCrouch, mins, maxs);
     Trace t = trace(ms.origin, mins, maxs, {ms.origin[0], ms.origin[1], ms.origin[2] - 60}, ms.entity,
-                    contents::Solid | contents::PlayerClip);
+                    contents::kSolid | contents::kPlayerClip);
     if (t.fraction >= 1)
         return 1;
     float startZ = t.end[2] + 1;
     for (float dist = 8; dist <= 100; dist += 8) {
-        Vec3f start = add_(ms.origin, scale(hordir, dist));
+        Vec3f start = add(ms.origin, scale(hordir, dist));
         start[2] = startZ + 24;
         const Vec3f end{start[0], start[1], start[2] - 48 - kMaxBarrier};
-        t = trace(start, mins, maxs, end, ms.entity, contents::Solid | contents::PlayerClip);
+        t = trace(start, mins, maxs, end, ms.entity, contents::kSolid | contents::kPlayerClip);
         if (t.startSolid)
             continue;
         if (t.end[2] < startZ - kMaxStep - 8) {
-            if (pointContents && (pointContents({t.end[0], t.end[1], t.end[2] - 20}) & contents::Water))
+            if (pointContents && (pointContents({t.end[0], t.end[1], t.end[2] - 20}) & contents::kWater))
                 break;
             return dist;
         }
@@ -253,25 +253,25 @@ int BotLibrary::reachabilityToGoal(const Vec3f &origin, int area, int lastGoalAr
     // The area's reachability with the quickest way on to the goal, not
     // straight back where the bot came from, nor one tried too often lately.
     (void)origin;
-    if (!area || !aas_.validArea(area))
+    if (!area || !_aas.validArea(area))
         return 0;
-    if ((aas_.settings(area).contents | (aas_.validArea(goal.area) ? aas_.settings(goal.area).contents : 0)) &
-        areacontents::DoNotEnter)
-        travelFlags |= tfl::DoNotEnter;
+    if ((_aas.settings(area).contents | (_aas.validArea(goal.area) ? _aas.settings(goal.area).contents : 0)) &
+        areacontents::kDoNotEnter)
+        travelFlags |= tfl::kDoNotEnter;
     int best = 0;
     int bestTime = 0;
-    for (int r = aas_.nextReachability(area, 0); r; r = aas_.nextReachability(area, r)) {
+    for (int r = _aas.nextReachability(area, 0); r; r = _aas.nextReachability(area, r)) {
         if (ms) {
             const auto it = ms->avoidReach.find(r);
-            if (it != ms->avoidReach.end() && it->second.first >= time_ && it->second.second > kAvoidReachTries)
+            if (it != ms->avoidReach.end() && it->second.first >= _time && it->second.second > kAvoidReachTries)
                 continue;
         }
-        const AasReach &reach = aas_.reachabilities()[size_t(r)];
+        const AasReach &reach = _aas.reachabilities()[size_t(r)];
         if (lastGoalArea == goal.area && reach.area == lastArea)
             continue;
-        if ((AasWorld::travelFlagForType(reach.travelType) | aas_.contentsTravelFlags(reach.area)) & ~travelFlags)
+        if ((AasWorld::travelFlagForType(reach.travelType) | _aas.contentsTravelFlags(reach.area)) & ~travelFlags)
             continue;
-        int t = aas_.travelTime(reach.area, reach.end, goal.area, travelFlags);
+        int t = _aas.travelTime(reach.area, reach.end, goal.area, travelFlags);
         if (!t)
             continue;
         t += reach.time;
@@ -285,71 +285,71 @@ int BotLibrary::reachabilityToGoal(const Vec3f &origin, int area, int lastGoalAr
 
 BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travelFlags) {
     BotMoveResult result;
-    MoveState *ms = state(moveStates_, handle);
-    if (!ms || !aas_.loaded()) {
+    MoveState *ms = state(_moveStates, handle);
+    if (!ms || !_aas.loaded()) {
         result.failure = true;
         return result;
     }
-    ms->moveFlags &= ~(moveflag::Swimming | moveflag::AgainstLadder);
+    ms->moveFlags &= ~(moveflag::kSwimming | moveflag::kAgainstLadder);
     if (onGround(*ms))
-        ms->moveFlags |= moveflag::OnGround;
+        ms->moveFlags |= moveflag::kOnGround;
     // Standing on something that moves: an elevator or a func_bobbing to
     // ride, or else something in the way.
-    if (ms->moveFlags & moveflag::OnGround) {
+    if (ms->moveFlags & moveflag::kOnGround) {
         if (const int ent = entityOnTopOf(*ms); ent >= 0) {
             const int model = entityInfo(ent).modelIndex;
-            const auto type = modelTypes_.find(model);
-            const std::string kind = type == modelTypes_.end() ? std::string() : type->second;
+            const auto type = _modelTypes.find(model);
+            const std::string kind = type == _modelTypes.end() ? std::string() : type->second;
             if (kind == "func_plat" || kind == "func_bobbing") {
-                const int travelType = kind == "func_plat" ? travel::Elevator : travel::FuncBob;
-                const AasReach *last = ms->lastReach ? &aas_.reachabilities()[size_t(ms->lastReach)] : nullptr;
-                if (!last || (last->travelType & travel::TypeMask) != travelType || (last->face & 0xffff) != model) {
+                const int travelType = kind == "func_plat" ? travel::kElevator : travel::kFuncBob;
+                const AasReach *last = ms->lastReach ? &_aas.reachabilities()[size_t(ms->lastReach)] : nullptr;
+                if (!last || (last->travelType & travel::kTypeMask) != travelType || (last->face & 0xffff) != model) {
                     int found = 0;
-                    for (size_t r = 1; r < aas_.reachabilities().size() && !found; ++r) {
-                        const AasReach &reach = aas_.reachabilities()[r];
-                        if ((reach.travelType & travel::TypeMask) == travelType && (reach.face & 0xffff) == model)
+                    for (size_t r = 1; r < _aas.reachabilities().size() && !found; ++r) {
+                        const AasReach &reach = _aas.reachabilities()[r];
+                        if ((reach.travelType & travel::kTypeMask) == travelType && (reach.face & 0xffff) == model)
                             found = int(r);
                     }
                     if (!found) {
                         result.blocked = true;
                         result.blockEntity = ent;
-                        result.flags |= moveresult::OnTopOfObstacle;
+                        result.flags |= moveresult::kOnTopOfObstacle;
                         return result;
                     }
                     ms->lastReach = found;
-                    ms->reachTime = time_ + reachabilityTime(travelType);
+                    ms->reachTime = _time + reachabilityTime(travelType);
                 }
-                result.flags |= kind == "func_plat" ? moveresult::OnTopOfElevator : moveresult::OnTopOfFuncBob;
+                result.flags |= kind == "func_plat" ? moveresult::kOnTopOfElevator : moveresult::kOnTopOfFuncBob;
             } else if (kind == "func_door" || kind == "func_static") {
                 ms->area = reachabilityArea(ms->origin);
-                if (!aas_.validArea(ms->area) || !aas_.settings(ms->area).numReach) {
+                if (!_aas.validArea(ms->area) || !_aas.settings(ms->area).numReach) {
                     result.blocked = true;
                     result.blockEntity = ent;
-                    result.flags |= moveresult::OnTopOfObstacle;
+                    result.flags |= moveresult::kOnTopOfObstacle;
                     return result;
                 }
             } else {
                 result.blocked = true;
                 result.blockEntity = ent;
-                result.flags |= moveresult::OnTopOfObstacle;
+                result.flags |= moveresult::kOnTopOfObstacle;
                 return result;
             }
         }
     }
     if (pointContents && (pointContents({ms->origin[0], ms->origin[1], ms->origin[2] - 2}) & kLiquid))
-        ms->moveFlags |= moveflag::Swimming;
+        ms->moveFlags |= moveflag::kSwimming;
 
-    if (ms->moveFlags & (moveflag::OnGround | moveflag::Swimming)) {
+    if (ms->moveFlags & (moveflag::kOnGround | moveflag::kSwimming)) {
         ms->area = reachabilityArea(ms->origin);
         if (!ms->area) {
             result.failure = result.blocked = true;
-            result.type = moveresult::TypeInSolidArea;
+            result.type = moveresult::kTypeInSolidArea;
             return result;
         }
         if (ms->area == goal.area) {
             // In the goal's area: straight to it, slowing near it.
             Vec3f dir = sub(goal.origin, ms->origin);
-            if (!(ms->moveFlags & moveflag::Swimming))
+            if (!(ms->moveFlags & moveflag::kSwimming))
                 dir[2] = 0;
             const float dist = std::min(normalize(dir), 100.0f);
             float speed = 4 * dist;
@@ -358,10 +358,10 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travel
             checkBlocked(*ms, dir, true, result);
             move(ms->client, dir, speed);
             result.moveDir = dir;
-            result.travelType = ms->moveFlags & moveflag::Swimming ? travel::Swim : travel::Walk;
-            if (ms->moveFlags & moveflag::Swimming) {
+            result.travelType = ms->moveFlags & moveflag::kSwimming ? travel::kSwim : travel::kWalk;
+            if (ms->moveFlags & moveflag::kSwimming) {
                 result.idealViewAngles = anglesOf(dir);
-                result.flags |= moveresult::SwimView;
+                result.flags |= moveresult::kSwimView;
             }
             ms->lastReach = ms->lastArea = 0;
             ms->lastGoalArea = goal.area;
@@ -372,16 +372,16 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travel
         // changed or it took too long; elevators until reached.
         int reach = ms->lastReach;
         if (reach) {
-            const AasReach &r = aas_.reachabilities()[size_t(reach)];
-            const int type = r.travelType & travel::TypeMask;
+            const AasReach &r = _aas.reachabilities()[size_t(reach)];
+            const int type = r.travelType & travel::kTypeMask;
             if (!(AasWorld::travelFlagForType(r.travelType) & travelFlags)) {
                 reach = 0;
-            } else if (type == travel::Elevator || type == travel::FuncBob) {
-                if (result.flags & (moveresult::OnTopOfElevator | moveresult::OnTopOfFuncBob))
-                    ms->reachTime = time_ + 5;
-                if (ms->area == r.area || ms->reachTime < time_)
+            } else if (type == travel::kElevator || type == travel::kFuncBob) {
+                if (result.flags & (moveresult::kOnTopOfElevator | moveresult::kOnTopOfFuncBob))
+                    ms->reachTime = _time + 5;
+                if (ms->area == r.area || ms->reachTime < _time)
                     reach = 0;
-            } else if (ms->lastGoalArea != goal.area || ms->reachTime < time_ || ms->lastArea != ms->area) {
+            } else if (ms->lastGoalArea != goal.area || ms->reachTime < _time || ms->lastArea != ms->area) {
                 reach = 0;
             }
         }
@@ -390,18 +390,18 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travel
             ms->reachArea = ms->area;
             ms->jumpReach = 0;
             if (reach) {
-                ms->reachTime = time_ + reachabilityTime(aas_.reachabilities()[size_t(reach)].travelType);
+                ms->reachTime = _time + reachabilityTime(_aas.reachabilities()[size_t(reach)].travelType);
                 // Tried once more; given up on for a while after a few tries.
                 auto &avoid = ms->avoidReach[reach];
-                avoid.second = avoid.first >= time_ ? avoid.second + 1 : 1;
-                avoid.first = time_ + kAvoidReachTime;
+                avoid.second = avoid.first >= _time ? avoid.second + 1 : 1;
+                avoid.first = _time + kAvoidReachTime;
             }
         }
         ms->lastReach = reach;
         ms->lastGoalArea = goal.area;
         ms->lastArea = ms->area;
         if (reach) {
-            const AasReach &r = aas_.reachabilities()[size_t(reach)];
+            const AasReach &r = _aas.reachabilities()[size_t(reach)];
             const int flags = result.flags;
             result = travel(*ms, r, false);
             result.flags |= flags;
@@ -411,7 +411,7 @@ BotMoveResult BotLibrary::moveToGoal(int handle, const BotGoal &goal, int travel
         }
     } else if (ms->lastReach) {
         // In the air: finish what the last reachability started.
-        const AasReach &r = aas_.reachabilities()[size_t(ms->lastReach)];
+        const AasReach &r = _aas.reachabilities()[size_t(ms->lastReach)];
         result = travel(*ms, r, true);
         result.travelType = r.travelType;
     }
@@ -433,40 +433,40 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         for (int i = 0; i < 50; ++i) {
             vel[2] -= kGravity * 0.01f;
             if (vel[2] < 0 && org[2] + vel[2] < goal[2]) {
-                org = add_(org, scale(vel, (goal[2] - org[2]) / vel[2]));
+                org = add(org, scale(vel, (goal[2] - org[2]) / vel[2]));
                 out = sub(goal, org);
                 speed = 13 * std::min(normalize(out), 32.0f);
                 return true;
             }
-            org = add_(org, vel);
+            org = add(org, vel);
         }
         out = {};
         speed = 400;
         return false;
     };
-    switch (reach.travelType & travel::TypeMask) {
-    case travel::Walk: {
+    switch (reach.travelType & travel::kTypeMask) {
+    case travel::kWalk: {
         float dist = horizontal(ms.origin, reach.start, dir);
         checkBlocked(ms, dir, true, result);
         if (dist < 10)
             dist = horizontal(ms.origin, reach.end, dir);
-        if (!(aas_.settings(reach.area).presence & presence::Normal) && dist < 20)
-            input(client).actionFlags |= action::Crouch;
+        if (!(_aas.settings(reach.area).presence & presence::kNormal) && dist < 20)
+            input(client).actionFlags |= action::kCrouch;
         const float gap = gapDistance(ms, dir);
         move(client, dir, gap > 0 ? 40 + 2 * gap : 400);
         result.moveDir = dir;
         break;
     }
-    case travel::Crouch:
+    case travel::kCrouch:
         if (finishing)
             break;
         horizontal(ms.origin, reach.end, dir);
         checkBlocked(ms, dir, true, result);
-        input(client).actionFlags |= action::Crouch;
+        input(client).actionFlags |= action::kCrouch;
         move(client, dir, 400);
         result.moveDir = dir;
         break;
-    case travel::BarrierJump: {
+    case travel::kBarrierJump: {
         if (finishing) {
             // Over the top: on to the end.
             if (ms.velocity[2] < 250) {
@@ -486,11 +486,11 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::WalkOffLedge: {
+    case travel::kWalkOffLedge: {
         if (finishing) {
             Vec3f v{};
             const float dist = horizontal(ms.origin, reach.end, v);
-            const Vec3f end = dist > 16 ? add_(reach.end, scale(v, 16)) : reach.end;
+            const Vec3f end = dist > 16 ? add(reach.end, scale(v, 16)) : reach.end;
             float speed = 400;
             if (!airControl(end, dir, speed)) {
                 dir = sub(reach.end, ms.origin);
@@ -516,7 +516,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::Jump: {
+    case travel::kJump: {
         if (finishing) {
             if (!ms.jumpReach)
                 break;
@@ -533,12 +533,12 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         // 80 units), then jump at the start towards the end.
         Vec3f back{};
         horizontal(reach.end, reach.start, back);
-        Vec3f runStart = add_(reach.start, scale(back, 80));
+        Vec3f runStart = add(reach.start, scale(back, 80));
         for (float gap = 0; gap < 80; gap += 10) {
-            Vec3f p = add_(reach.start, scale(back, gap + 10));
+            Vec3f p = add(reach.start, scale(back, gap + 10));
             p[2] += 2;
-            if (aas_.pointArea(p) != ms.reachArea) {
-                runStart = add_(reach.start, scale(back, gap));
+            if (_aas.pointArea(p) != ms.reachArea) {
+                runStart = add(reach.start, scale(back, gap));
                 break;
             }
         }
@@ -561,28 +561,28 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::Ladder: {
+    case travel::kLadder: {
         dir = sub(reach.end, ms.origin);
         normalize(dir);
         result.idealViewAngles = anglesOf({dir[0], dir[1], 3 * dir[2]});
         move(client, {}, 0);
-        input(client).actionFlags |= action::MoveForward;
-        result.flags |= moveresult::MovementView;
+        input(client).actionFlags |= action::kMoveForward;
+        result.flags |= moveresult::kMovementView;
         result.moveDir = dir;
         break;
     }
-    case travel::Swim:
+    case travel::kSwim:
         dir = sub(reach.start, ms.origin);
         normalize(dir);
         checkBlocked(ms, dir, true, result);
         move(client, dir, 400);
         result.moveDir = dir;
         result.idealViewAngles = anglesOf(dir);
-        result.flags |= moveresult::SwimView;
+        result.flags |= moveresult::kSwimView;
         break;
-    case travel::WaterJump: {
+    case travel::kWaterJump: {
         if (finishing) {
-            if (ms.moveFlags & moveflag::WaterJump)
+            if (ms.moveFlags & moveflag::kWaterJump)
                 break;
             if (!pointContents || !(pointContents({ms.origin[0], ms.origin[1], ms.origin[2] - 32}) & kLiquid))
                 break;
@@ -590,7 +590,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
             dir[2] += 70;
             move(client, dir, 400);
             result.idealViewAngles = anglesOf(dir);
-            result.flags |= moveresult::MovementView;
+            result.flags |= moveresult::kMovementView;
             result.moveDir = dir;
             break;
         }
@@ -599,19 +599,19 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         const float dist = horizontal(ms.origin, reach.end, h);
         dir[2] += 15;
         normalize(dir);
-        input(client).actionFlags |= action::MoveForward;
+        input(client).actionFlags |= action::kMoveForward;
         if (dist < 40)
-            input(client).actionFlags |= action::MoveUp;
+            input(client).actionFlags |= action::kMoveUp;
         result.idealViewAngles = anglesOf(dir);
-        result.flags |= moveresult::MovementView;
+        result.flags |= moveresult::kMovementView;
         result.moveDir = dir;
         break;
     }
-    case travel::Teleport: {
-        if (finishing || (ms.moveFlags & moveflag::Teleported))
+    case travel::kTeleport: {
+        if (finishing || (ms.moveFlags & moveflag::kTeleported))
             break;
         dir = sub(reach.start, ms.origin);
-        if (!(ms.moveFlags & moveflag::Swimming))
+        if (!(ms.moveFlags & moveflag::kSwimming))
             dir[2] = 0;
         const float dist = normalize(dir);
         checkBlocked(ms, dir, true, result);
@@ -619,7 +619,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::JumpPad: {
+    case travel::kJumpPad: {
         if (finishing) {
             float speed = 400;
             if (!airControl(reach.end, dir, speed)) {
@@ -637,7 +637,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         result.moveDir = dir;
         break;
     }
-    case travel::FuncBob: {
+    case travel::kFuncBob: {
         // Onto the platform at the start; ride it until level with the
         // end, then step off.
         const int ent = entityOnTopOf(ms);
@@ -648,7 +648,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
                 move(client, dir, 400);
                 result.moveDir = dir;
             } else {
-                result.flags |= moveresult::Waiting;
+                result.flags |= moveresult::kWaiting;
             }
         } else if (finishing) {
             dir = sub(reach.end, ms.origin);
@@ -664,7 +664,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
         }
         break;
     }
-    case travel::Elevator: {
+    case travel::kElevator: {
         // As the original's: on the lift, step off once level with the end,
         // else stand in its middle and ride; off it, wait beside it while
         // it's up, and step on (towards its middle) when it's down.
@@ -676,7 +676,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
                 const float dist = horizontal(ms.origin, moverBottomCenter(reach), dir);
                 if (dist > 10)
                     move(client, dir, 4 * std::min(dist, 100.0f));
-                result.flags |= moveresult::Waiting;
+                result.flags |= moveresult::kWaiting;
             }
             result.moveDir = dir;
             break;
@@ -698,8 +698,8 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
             if (6 * std::min(distStart, 60.0f) > 5)
                 move(client, toStart, 6 * std::min(distStart, 60.0f));
             result.moveDir = toStart;
-            result.type = moveresult::TypeElevatorUp;
-            result.flags |= moveresult::Waiting;
+            result.type = moveresult::kTypeElevatorUp;
+            result.flags |= moveresult::kWaiting;
             break;
         }
         Vec3f toCenter{};
@@ -721,7 +721,7 @@ BotMoveResult BotLibrary::travel(MoveState &ms, const AasReach &reach, bool fini
 }
 
 bool BotLibrary::moveInDirection(int handle, const Vec3f &dirIn, float speed, int type) {
-    MoveState *ms = state(moveStates_, handle);
+    MoveState *ms = state(_moveStates, handle);
     if (!ms)
         return false;
     Vec3f dir = dirIn;
@@ -738,24 +738,24 @@ bool BotLibrary::moveInDirection(int handle, const Vec3f &dirIn, float speed, in
     if (trace) {
         Vec3f mins{};
         Vec3f maxs{};
-        AasWorld::presenceBox(presence::Crouch, mins, maxs);
-        const Vec3f ahead = add_(ms->origin, scale(dir, 32));
+        AasWorld::presenceBox(presence::kCrouch, mins, maxs);
+        const Vec3f ahead = add(ms->origin, scale(dir, 32));
         const Trace t =
             trace({ahead[0], ahead[1], ahead[2] + kMaxStep}, mins, maxs, {ahead[0], ahead[1], ahead[2] - kMaxStep - 40},
-                  ms->entity, contents::Solid | contents::PlayerClip);
+                  ms->entity, contents::kSolid | contents::kPlayerClip);
         if (!t.startSolid) {
             if (t.fraction >= 1)
                 return false;
             const int area = reachabilityArea({t.end[0], t.end[1], t.end[2] + 16});
-            if (!area || (aas_.settings(area).contents & (areacontents::Lava | areacontents::Slime)))
+            if (!area || (_aas.settings(area).contents & (areacontents::kLava | areacontents::kSlime)))
                 return false;
         }
     }
     move(ms->client, dir, speed);
-    if (type & movetype::Jump)
+    if (type & movetype::kJump)
         jump(ms->client);
-    if (type & movetype::Crouch)
-        input(ms->client).actionFlags |= action::Crouch;
+    if (type & movetype::kCrouch)
+        input(ms->client).actionFlags |= action::kCrouch;
     return true;
 }
 
@@ -765,7 +765,7 @@ bool addToTarget(const Vec3f &start, const Vec3f &end, float maxDist, float &dis
     Vec3f d = sub(end, start);
     const float len = normalize(d);
     if (dist + len >= maxDist) {
-        target = add_(start, scale(d, maxDist - dist));
+        target = add(start, scale(d, maxDist - dist));
         return true;
     }
     dist += len;
@@ -776,7 +776,7 @@ bool addToTarget(const Vec3f &start, const Vec3f &end, float maxDist, float &dis
 
 bool BotLibrary::movementViewTarget(int handle, const BotGoal &goal, int travelFlags, float lookahead, Vec3f &target) {
     // A point some way along the route, to look at while moving.
-    MoveState *ms = state(moveStates_, handle);
+    MoveState *ms = state(_moveStates, handle);
     if (!ms || !ms->lastReach)
         return false;
     int reach = ms->lastReach;
@@ -784,13 +784,13 @@ bool BotLibrary::movementViewTarget(int handle, const BotGoal &goal, int travelF
     Vec3f end = ms->origin;
     float dist = 0;
     for (int steps = 0; reach && dist < lookahead && steps < 32; ++steps) {
-        const AasReach &r = aas_.reachabilities()[size_t(reach)];
+        const AasReach &r = _aas.reachabilities()[size_t(reach)];
         if (addToTarget(end, r.start, lookahead, dist, target))
             return true;
-        const int type = r.travelType & travel::TypeMask;
-        if (type == travel::Teleport || type == travel::RocketJump || type == travel::BfgJump)
+        const int type = r.travelType & travel::kTypeMask;
+        if (type == travel::kTeleport || type == travel::kRocketJump || type == travel::kBfgJump)
             return true;
-        if (type != travel::JumpPad && type != travel::Elevator && type != travel::FuncBob &&
+        if (type != travel::kJumpPad && type != travel::kElevator && type != travel::kFuncBob &&
             addToTarget(r.start, r.end, lookahead, dist, target))
             return true;
         const int next = reachabilityToGoal(r.end, r.area, ms->lastGoalArea, lastArea, nullptr, goal, travelFlags);
@@ -814,7 +814,7 @@ bool BotLibrary::predictVisiblePosition(const Vec3f &origin, int area, const Bot
     auto visible = [&](const Vec3f &from) {
         if (!trace)
             return false;
-        const Trace t = trace(goal.origin, {}, {}, from, goal.entity, contents::Solid);
+        const Trace t = trace(goal.origin, {}, {}, from, goal.entity, contents::kSolid);
         return t.fraction >= 1 || t.entity == goal.entity;
     };
     int lastArea = area;
@@ -823,7 +823,7 @@ bool BotLibrary::predictVisiblePosition(const Vec3f &origin, int area, const Bot
         const int reach = reachabilityToGoal(end, area, goal.area, lastArea, nullptr, goal, travelFlags);
         if (!reach)
             return false;
-        const AasReach &r = aas_.reachabilities()[size_t(reach)];
+        const AasReach &r = _aas.reachabilities()[size_t(reach)];
         if (visible(r.start)) {
             target = r.start;
             return true;
@@ -868,16 +868,16 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
     const float maxSteepness = setting("phys_maxsteepness", 0.7f);
     const float jumpVel = setting("phys_jumpvel", 270);
     const float maxBarrier = setting("phys_maxbarrier", 33);
-    constexpr int solid = contents::Solid | contents::PlayerClip | contents::Body;
+    constexpr int kSolid = contents::kSolid | contents::kPlayerClip | contents::kBody;
 
     auto box = [&](int presenceType, Vec3f &mins, Vec3f &maxs) {
-        AasWorld::presenceBox(presenceType == presence::Crouch ? presence::Crouch : presence::Normal, mins, maxs);
+        AasWorld::presenceBox(presenceType == presence::kCrouch ? presence::kCrouch : presence::kNormal, mins, maxs);
     };
     auto traceBox = [&](const Vec3f &from, const Vec3f &to, int presenceType, int pass) {
         Vec3f mins{};
         Vec3f maxs{};
         box(presenceType, mins, maxs);
-        return trace(from, mins, maxs, to, pass, solid);
+        return trace(from, mins, maxs, to, pass, kSolid);
     };
     auto swimming = [&](const Vec3f &p) { return pointContents && (pointContents({p[0], p[1], p[2] - 2}) & kLiquid); };
     auto groundBelow = [&](const Vec3f &p, int presenceType) {
@@ -890,7 +890,7 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         if (addSpeed <= 0)
             return;
         const float a = std::min(accel * frameTime * wishSpeed, addSpeed);
-        vel = add_(vel, scale(dir, a));
+        vel = add(vel, scale(dir, a));
     };
     auto finish = [&](const Vec3f &at, const Vec3f &vel, const Trace &t, int event, int n, int area) {
         move.endPos = at;
@@ -956,11 +956,11 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
                 accelerate(vel, dir, wish, accel);
         }
         if (crouch)
-            presenceType = presence::Crouch;
-        else if (presenceType == presence::Crouch) {
-            const int a = aas_.pointArea(org);
-            if (a && (aas_.settings(a).presence & presence::Normal))
-                presenceType = presence::Normal;
+            presenceType = presence::kCrouch;
+        else if (presenceType == presence::kCrouch) {
+            const int a = _aas.pointArea(org);
+            if (a && (_aas.settings(a).presence & presence::kNormal))
+                presenceType = presence::kNormal;
         }
         // This frame's move, sliding along what it hits and stepping up
         // onto what's low enough.
@@ -968,24 +968,24 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         Vec3f left = scale(vel, frameTime);
         int tries = 0;
         do {
-            const Vec3f end = add_(org, left);
+            const Vec3f end = add(org, left);
             t = traceBox(org, end, presenceType, entity);
-            if (stopEvents & (stopevent::EnterArea | stopevent::TouchJumpPad | stopevent::TouchTeleporter |
-                              stopevent::TouchClusterPortal)) {
+            if (stopEvents & (stopevent::kEnterArea | stopevent::kTouchJumpPad | stopevent::kTouchTeleporter |
+                              stopevent::kTouchClusterPortal)) {
                 std::vector<int> areas;
                 std::vector<Vec3f> points;
-                aas_.traceAreas(org, t.end, areas, &points, 20);
+                _aas.traceAreas(org, t.end, areas, &points, 20);
                 for (size_t i = 0; i < areas.size(); ++i) {
-                    const int c = aas_.settings(areas[i]).contents;
+                    const int c = _aas.settings(areas[i]).contents;
                     int event = 0;
-                    if ((stopEvents & stopevent::EnterArea) && areas[i] == stopArea)
-                        event = stopevent::EnterArea;
-                    else if ((stopEvents & stopevent::TouchJumpPad) && n && (c & areacontents::JumpPad))
-                        event = stopevent::TouchJumpPad;
-                    else if ((stopEvents & stopevent::TouchTeleporter) && (c & areacontents::Teleporter))
-                        event = stopevent::TouchTeleporter;
-                    else if ((stopEvents & stopevent::TouchClusterPortal) && (c & areacontents::ClusterPortal))
-                        event = stopevent::TouchClusterPortal;
+                    if ((stopEvents & stopevent::kEnterArea) && areas[i] == stopArea)
+                        event = stopevent::kEnterArea;
+                    else if ((stopEvents & stopevent::kTouchJumpPad) && n && (c & areacontents::kJumpPad))
+                        event = stopevent::kTouchJumpPad;
+                    else if ((stopEvents & stopevent::kTouchTeleporter) && (c & areacontents::kTeleporter))
+                        event = stopevent::kTouchTeleporter;
+                    else if ((stopEvents & stopevent::kTouchClusterPortal) && (c & areacontents::kClusterPortal))
+                        event = stopevent::kTouchClusterPortal;
                     if (event)
                         return finish(points[i], vel, t, event, n, areas[i]);
                 }
@@ -994,10 +994,10 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
             if (t.fraction >= 1)
                 break;
             const Vec3f normal = t.normal;
-            if ((stopEvents & stopevent::HitGroundArea) && normal[2] > maxSteepness) {
+            if ((stopEvents & stopevent::kHitGroundArea) && normal[2] > maxSteepness) {
                 const Vec3f p{org[0], org[1], org[2] + 0.5f};
-                if (aas_.pointArea(p) == stopArea)
-                    return finish(p, vel, t, stopevent::HitGroundArea, n, stopArea);
+                if (_aas.pointArea(p) == stopArea)
+                    return finish(p, vel, t, stopevent::kHitGroundArea, n, stopArea);
             }
             // A wall: a step up onto it if it's low enough, unless just jumped.
             bool stepped = false;
@@ -1006,7 +1006,7 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
                 const Vec3f up{start[0], start[1], start[2]};
                 const Trace rise = traceBox(org, up, presenceType, entity);
                 const Vec3f top = rise.end;
-                const Trace over = traceBox(top, add_(top, {left[0] * (1 - t.fraction), left[1] * (1 - t.fraction), 0}),
+                const Trace over = traceBox(top, add(top, {left[0] * (1 - t.fraction), left[1] * (1 - t.fraction), 0}),
                                             presenceType, entity);
                 const Trace down = traceBox(over.end, {over.end[0], over.end[1], org[2]}, presenceType, entity);
                 if (!rise.startSolid && !down.startSolid && over.fraction > 0 && down.normal[2] > maxSteepness &&
@@ -1027,7 +1027,7 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
                 vel = sub(vel, scale(normal, dot(vel, normal)));
                 if (normal[2] > maxSteepness)
                     onGround = true;
-                if (stopEvents & stopevent::HitGroundDamage) {
+                if (stopEvents & stopevent::kHitGroundDamage) {
                     // Landing hard: falling damage.
                     float delta = 0;
                     if (before[2] < 0 && vel[2] > before[2] && !onGround)
@@ -1037,7 +1037,7 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
                     delta = delta * frameTime * 10;
                     delta = delta * delta * 0.0001f;
                     if (!swim && delta > 40)
-                        return finish(org, vel, t, stopevent::HitGroundDamage, n, aas_.pointArea(org));
+                        return finish(org, vel, t, stopevent::kHitGroundDamage, n, _aas.pointArea(org));
                 }
             }
         } while (++tries < 20 && length(left) > 0.01f);
@@ -1045,15 +1045,15 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
             // Into slime, lava or water at the feet.
             const Vec3f feet{org[0], org[1], org[2] - 22};
             const int pc = pointContents ? pointContents(feet) : 0;
-            const int area = aas_.pointArea(org);
-            const int ac = area ? aas_.settings(area).contents : 0;
+            const int area = _aas.pointArea(org);
+            const int ac = area ? _aas.settings(area).contents : 0;
             int event = 0;
-            if ((pc & contents::Lava) || (ac & areacontents::Lava))
-                event |= stopevent::EnterLava;
-            if ((pc & contents::Slime) || (ac & areacontents::Slime))
-                event |= stopevent::EnterSlime;
-            if ((pc & contents::Water) || (ac & areacontents::Water))
-                event |= stopevent::EnterWater;
+            if ((pc & contents::kLava) || (ac & areacontents::kLava))
+                event |= stopevent::kEnterLava;
+            if ((pc & contents::kSlime) || (ac & areacontents::kSlime))
+                event |= stopevent::kEnterSlime;
+            if ((pc & contents::kWater) || (ac & areacontents::kWater))
+                event |= stopevent::kEnterWater;
             if (event & stopEvents) {
                 finish(org, vel, t, event & stopEvents, n, area);
                 move.endContents = pc;
@@ -1062,20 +1062,20 @@ bool BotLibrary::predictClientMovement(BotClientMove &move, int entity, const Ve
         }
         onGround = groundBelow(org, presenceType);
         if (onGround) {
-            if (stopEvents & stopevent::HitGround)
-                return finish(org, vel, t, stopevent::HitGround, n, aas_.pointArea(org));
-        } else if (stopEvents & stopevent::LeaveGround) {
-            return finish(org, vel, t, stopevent::LeaveGround, n, aas_.pointArea(org));
-        } else if (stopEvents & stopevent::Gap) {
+            if (stopEvents & stopevent::kHitGround)
+                return finish(org, vel, t, stopevent::kHitGround, n, _aas.pointArea(org));
+        } else if (stopEvents & stopevent::kLeaveGround) {
+            return finish(org, vel, t, stopevent::kLeaveGround, n, _aas.pointArea(org));
+        } else if (stopEvents & stopevent::kGap) {
             // Off the edge of a drop deeper than a step (not into water).
             const Vec3f end{org[0], org[1], org[2] - 48 - maxBarrier};
-            const Trace gap = traceBox(org, end, presence::Crouch, -1);
+            const Trace gap = traceBox(org, end, presence::kCrouch, -1);
             if (!gap.startSolid && gap.end[2] < org[2] - maxStep - 1 &&
-                !(pointContents && (pointContents(end) & contents::Water)))
-                return finish(lastOrg, vel, t, stopevent::Gap, n, aas_.pointArea(lastOrg));
+                !(pointContents && (pointContents(end) & contents::kWater)))
+                return finish(lastOrg, vel, t, stopevent::kGap, n, _aas.pointArea(lastOrg));
         }
     }
-    return finish(org, vel, t, stopevent::None, maxFrames, aas_.pointArea(org));
+    return finish(org, vel, t, stopevent::kNone, maxFrames, _aas.pointArea(org));
 }
 
 } // namespace reluva::idtech3::botlib

@@ -51,7 +51,7 @@ constexpr int32_t kSolidBrushModel = 0xffffff;
 // states whole, 1.0's 460-byte ones.
 inline const GameLayout &detectLayout(const Qvm &vm) {
     for (const auto &i : vm.code())
-        if (i.op == qvmop::BlockCopy && i.operand == kLayout12.playerStateSize)
+        if (i.op == qvmop::kBlockCopy && i.operand == kLayout12.playerStateSize)
             return kLayout12;
     return kLayout10;
 }

@@ -17,7 +17,7 @@ class MapViewer : public Page {
 public:
     explicit MapViewer(ViewerContext &ctx);
     const char *name() const override { return "Maps"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
@@ -40,22 +40,22 @@ private:
     void drawLine3d(const std::array<float, 3> &a, const std::array<float, 3> &b, Color c);
     void drawLine2d(float x0, float y0, float x1, float y1, Color c);
 
-    std::vector<std::string> names_;
-    int index_ = 0;
-    Bsp bsp_;
-    std::string error_; // why the map couldn't be shown
-    std::vector<std::string> info_;
-    std::vector<Edge> edges_;
-    std::array<float, 3> mins_{}, maxs_{};
+    std::vector<std::string> _names;
+    int _index = 0;
+    Bsp _bsp;
+    std::string _error; // why the map couldn't be shown
+    std::vector<std::string> _info;
+    std::vector<Edge> _edges;
+    std::array<float, 3> _mins{}, _maxs{};
 
     // Orbit camera around `target_`.
-    std::array<float, 3> target_{};
-    float yaw_ = 0, pitch_ = 0, distance_ = 0;
-    bool showPatches_ = true, showInfo_ = true;
-    bool dragging_ = false;
-    int lastX_ = 0, lastY_ = 0;
-    bool dirty_ = true;
-    Camera cam_;
+    std::array<float, 3> _target{};
+    float _yaw = 0, _pitch = 0, _distance = 0;
+    bool _showPatches = true, _showInfo = true;
+    bool _dragging = false;
+    int _lastX = 0, _lastY = 0;
+    bool _dirty = true;
+    Camera _cam;
 };
 
 } // namespace reluva::idtech3

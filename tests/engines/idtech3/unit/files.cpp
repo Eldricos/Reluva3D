@@ -293,7 +293,7 @@ static void testMountMod(const std::filesystem::path &tmp) {
     CHECK(modSavePath(home, "MyMod") == home / "mods" / "MyMod" && modSavePath(home, "") == home);
 }
 
-static const reluva::test::Suite suite(
+static const reluva::test::Suite kSuite(
     "idtech3.unit.files",
     {
         {"filesystem and detection", [](const std::filesystem::path &tmp) { testFilesystemAndDetection(tmp / "fs"); }},

@@ -19,15 +19,15 @@ constexpr float kTau = 6.28318530718f;
 
 class Reader {
 public:
-    Reader(const std::vector<uint8_t> &d, size_t at) : d_(d), at_(at) {}
+    Reader(const std::vector<uint8_t> &d, size_t at) : _d(d), _at(at) {}
     int32_t i32() {
-        const uint8_t *p = &d_[at_];
-        at_ += 4;
+        const uint8_t *p = &_d[_at];
+        _at += 4;
         return static_cast<int32_t>(uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24);
     }
     int16_t i16() {
-        const uint8_t *p = &d_[at_];
-        at_ += 2;
+        const uint8_t *p = &_d[_at];
+        _at += 2;
         return static_cast<int16_t>(uint16_t(p[0] | p[1] << 8));
     }
     float f32() {
@@ -44,16 +44,16 @@ public:
     }
     std::string name(size_t size) {
         size_t len = 0;
-        while (len < size && d_[at_ + len])
+        while (len < size && _d[_at + len])
             ++len;
-        std::string s(reinterpret_cast<const char *>(&d_[at_]), len);
-        at_ += size;
+        std::string s(reinterpret_cast<const char *>(&_d[_at]), len);
+        _at += size;
         return s;
     }
 
 private:
-    const std::vector<uint8_t> &d_;
-    size_t at_;
+    const std::vector<uint8_t> &_d;
+    size_t _at;
 };
 
 bool fits(size_t size, int64_t offset, int64_t count, size_t record) {

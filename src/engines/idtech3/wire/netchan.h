@@ -21,7 +21,7 @@ public:
     static constexpr size_t kMaxMessage = 16384;
 
     // `fromClient`: this end is the client's, whose datagrams carry the qport.
-    Netchan(bool fromClient, uint16_t qport) : fromClient_(fromClient), qport_(qport) {}
+    Netchan(bool fromClient, uint16_t qport) : _fromClient(fromClient), _qport(qport) {}
 
     // The datagrams that carry `message`.
     std::vector<std::vector<uint8_t>> transmit(const std::vector<uint8_t> &message);
@@ -30,9 +30,9 @@ public:
     bool process(std::vector<uint8_t> datagram, std::vector<uint8_t> &message);
 
     // The sequence of the last message sent and the last one taken in.
-    int32_t outgoingSequence() const { return outgoing_ - 1; }
-    int32_t incomingSequence() const { return incoming_; }
-    int droppedLast() const { return dropped_; }
+    int32_t outgoingSequence() const { return _outgoing - 1; }
+    int32_t incomingSequence() const { return _incoming; }
+    int droppedLast() const { return _dropped; }
 
     // The qport a datagram from a client carries (0 if too short), read
     // before it's unscrambled: it's among the bytes left as they are.
@@ -43,13 +43,13 @@ public:
     static void unscramble(std::vector<uint8_t> &datagram);
 
 private:
-    bool fromClient_;
-    uint16_t qport_;
-    int32_t outgoing_ = 1, incoming_ = 0;
-    int dropped_ = 0;
+    bool _fromClient;
+    uint16_t _qport;
+    int32_t _outgoing = 1, _incoming = 0;
+    int _dropped = 0;
     // A message coming in pieces: its sequence and what's come so far.
-    int32_t fragmentSequence_ = 0;
-    std::vector<uint8_t> fragments_;
+    int32_t _fragmentSequence = 0;
+    std::vector<uint8_t> _fragments;
 };
 
 } // namespace reluva::idtech3::wire

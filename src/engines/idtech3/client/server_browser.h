@@ -28,11 +28,11 @@ public:
     static constexpr size_t kMaxGlobalServers = 4096;
 
     // `socket`: where the requests go from and answers come to.
-    explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : socket_(std::move(socket)) {}
+    explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
 
     // Besides 255.255.255.255, the broadcast address of each network the
     // machine is on: the local search goes to each.
-    void setBroadcasts(std::vector<uint32_t> addresses) { broadcasts_ = std::move(addresses); }
+    void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }
     // The two commands; `now` in ms.
     void localServers(uint64_t now);
     // `address`: a.b.c.d[:port] (host names already resolved by the caller).
@@ -44,7 +44,7 @@ public:
     void globalServers(const std::vector<net::Address> &masters, int protocol, const std::string &keywords);
     // -1 until a master has answered, as the original reports it (the
     // menus wait while it is).
-    int globalServerCount() const { return globalWaiting_ ? -1 : int(global_.size()); }
+    int globalServerCount() const { return _globalWaiting ? -1 : int(_global.size()); }
     std::string globalServerAddress(int n) const;
     // The addresses in a master's getserversResponse (after its four 0xff
     // bytes): each a backslash and 12 hexadecimal characters, the IPv4
@@ -57,7 +57,7 @@ public:
     // The menus' calls (46, 47, 50 to 53). Pings not answered within
     // `maxPing` ms (cl_maxPing, at least 100) count as having taken that
     // long, so the menus give up on them.
-    int localServerCount() const { return int(local_.size()); }
+    int localServerCount() const { return int(_local.size()); }
     std::string localServerAddress(int n) const;
     int pingQueueCount() const;
     void clearPing(int n);
@@ -70,12 +70,12 @@ public:
     static std::string infoFromResponse(const std::vector<uint8_t> &datagram);
 
 private:
-    std::unique_ptr<net::UdpSocket> socket_;
-    std::vector<net::Address> local_, global_;
-    std::vector<net::Address> masters_; // asked last (their answers are taken)
-    bool globalWaiting_ = false;
-    uint64_t scanStart_ = 0; // when the local network was last asked
-    std::vector<uint32_t> broadcasts_;
+    std::unique_ptr<net::UdpSocket> _socket;
+    std::vector<net::Address> _local, _global;
+    std::vector<net::Address> _masters; // asked last (their answers are taken)
+    bool _globalWaiting = false;
+    uint64_t _scanStart = 0; // when the local network was last asked
+    std::vector<uint32_t> _broadcasts;
     static constexpr uint64_t kScanMs = 5000;
     struct Ping {
         net::Address address;
@@ -84,7 +84,7 @@ private:
         int time = 0; // 0 until answered
         std::string info;
     };
-    Ping pings_[kMaxPings];
+    Ping _pings[kMaxPings];
     void send(const net::Address &to, const std::string &text);
 };
 

@@ -29,12 +29,12 @@ public:
     // Quake III's connection states, which the menus' connecting screen
     // shows (uiClientState_t).
     enum class State : int32_t {
-        Disconnected = 1,
-        Connecting = 3,  // asking for a challenge
-        Challenging = 4, // asking to connect
-        Connected = 5,   // waiting for the game state
-        Primed = 7,      // has it; loading the level
-        Active = 8,      // playing
+        kDisconnected = 1,
+        kConnecting = 3,  // asking for a challenge
+        kChallenging = 4, // asking to connect
+        kConnected = 5,   // waiting for the game state
+        kPrimed = 7,      // has it; loading the level
+        kActive = 8,      // playing
     };
 
     // `userinfo`: the player's settings (name, model...); the protocol,
@@ -47,8 +47,8 @@ public:
     // messages are taken in as the time shown reaches them, and the
     // state goes to Disconnected at the end.
     explicit NetClient(std::vector<uint8_t> demo);
-    bool playingDemo() const { return demo_; }
-    bool demoFinished() const { return demo_ && state_ == State::Disconnected; }
+    bool playingDemo() const { return _demo; }
+    bool demoFinished() const { return _demo && _state == State::kDisconnected; }
 
     // Reads what has come and sends what's due; `now` in ms.
     void frame(uint64_t now);
@@ -65,8 +65,8 @@ public:
     void disconnect();
     // The player has loaded the level: from now on its moves are sent.
     void setLoaded() {
-        if (state_ == State::Primed)
-            state_ = State::Active;
+        if (_state == State::kPrimed)
+            _state = State::kActive;
     }
 
     // Downloading a pak the server has and this player hasn't (the
@@ -74,41 +74,41 @@ public:
     // its blocks taken and acknowledged one by one. Snapshots are ignored
     // meanwhile.
     void download(const std::string &remoteName);
-    bool downloading() const { return !downloadName_.empty(); }
-    const std::string &downloadName() const { return downloadName_; }
-    int32_t downloadSize() const { return downloadSize_; } // -1 until known
-    size_t downloadCount() const { return downloadData_.size(); }
+    bool downloading() const { return !_downloadName.empty(); }
+    const std::string &downloadName() const { return _downloadName; }
+    int32_t downloadSize() const { return _downloadSize; } // -1 until known
+    size_t downloadCount() const { return _downloadData.size(); }
     // A download that has finished: its name and bytes (false if none).
     bool takeDownload(std::string &name, std::vector<uint8_t> &data);
 
-    State state() const { return state_; }
-    const reluva::net::Address &server() const { return server_; }
-    int connectPackets() const { return connectPackets_; }
+    State state() const { return _state; }
+    const reluva::net::Address &server() const { return _server; }
+    int connectPackets() const { return _connectPackets; }
     // Why it isn't connected, or what the server said ("print").
-    const std::string &message() const { return message_; }
+    const std::string &message() const { return _message; }
 
     // The game state: configstrings, the command sequence it started at
     // and the incoming message it came with (for the client game's
     // Init), whether it has come; a new one means a new level.
-    const std::map<int32_t, std::string> &configstrings() const { return configstrings_; }
-    int32_t gamestateCommandSequence() const { return gamestateSequence_; }
-    int32_t gamestateMessage() const { return gamestateMessage_; }
+    const std::map<int32_t, std::string> &configstrings() const { return _configstrings; }
+    int32_t gamestateCommandSequence() const { return _gamestateSequence; }
+    int32_t gamestateMessage() const { return _gamestateMessage; }
     // The number the server's pure check seeds pak checksums with.
-    int32_t checksumFeed() const { return checksumFeed_; }
+    int32_t checksumFeed() const { return _checksumFeed; }
     bool takeNewGamestate() {
-        const bool got = newGamestate_;
-        newGamestate_ = false;
+        const bool got = _newGamestate;
+        _newGamestate = false;
         return got;
     }
     // Snapshots that came since the last call, oldest first.
-    std::vector<GameHost::Snapshot> takeSnapshots() { return std::move(newSnapshots_); }
+    std::vector<GameHost::Snapshot> takeSnapshots() { return std::move(_newSnapshots); }
     // The commands the server sent, by sequence from 1 (those before the
     // game state's are empty).
-    const std::vector<std::string> &serverCommands() const { return serverCommands_; }
+    const std::vector<std::string> &serverCommands() const { return _serverCommands; }
     // The time to show the level at, following the server's clock as
     // the original's client does (a little behind the newest snapshot).
-    int32_t serverTime() const { return serverTime_; }
-    bool hasSnapshot() const { return haveSnapshot_; }
+    int32_t serverTime() const { return _serverTime; }
+    bool hasSnapshot() const { return _haveSnapshot; }
 
 private:
     void sendText(const std::string &text);
@@ -119,38 +119,38 @@ private:
     void parseGamestate(wire::MessageReader &r);
     void parseSnapshot(wire::MessageReader &r, uint64_t now);
     void parseDownload(wire::MessageReader &r, uint64_t now);
-    std::string downloadName_, finishedName_;
-    std::vector<uint8_t> downloadData_, finishedData_;
-    int32_t downloadSize_ = -1, downloadBlock_ = 0;
-    bool finished_ = false;
+    std::string _downloadName, _finishedName;
+    std::vector<uint8_t> _downloadData, _finishedData;
+    int32_t _downloadSize = -1, _downloadBlock = 0;
+    bool _finished = false;
     void serverCommand(int32_t sequence, const std::string &text);
     void sendPacket(uint64_t now);
     void adjustTime(int32_t snapshotTime, uint64_t now);
 
-    std::unique_ptr<reluva::net::UdpSocket> socket_;
-    reluva::net::Address server_;
-    std::string userinfo_;
-    uint16_t qport_;
-    State state_ = State::Connecting;
-    std::string message_;
-    uint64_t lastSent_ = 0, lastReceived_ = 0, lastPacket_ = 0;
-    int connectPackets_ = 0;
-    int32_t challenge_ = 0;
-    wire::Netchan chan_;
-    int32_t incoming_ = 0; // the sequence of the message being read
+    std::unique_ptr<reluva::net::UdpSocket> _socket;
+    reluva::net::Address _server;
+    std::string _userinfo;
+    uint16_t _qport;
+    State _state = State::kConnecting;
+    std::string _message;
+    uint64_t _lastSent = 0, _lastReceived = 0, _lastPacket = 0;
+    int _connectPackets = 0;
+    int32_t _challenge = 0;
+    wire::Netchan _chan;
+    int32_t _incoming = 0; // the sequence of the message being read
     // A demo being played, and how far.
-    bool demo_ = false;
-    std::vector<uint8_t> demoData_;
-    size_t demoAt_ = 0;
+    bool _demo = false;
+    std::vector<uint8_t> _demoData;
+    size_t _demoAt = 0;
 
     // From the server.
-    std::map<int32_t, std::string> configstrings_;
-    std::map<int32_t, std::vector<uint8_t>> baselines_;
-    int32_t gamestateSequence_ = 0, gamestateMessage_ = 0, checksumFeed_ = 0;
-    bool newGamestate_ = false;
-    std::vector<std::string> serverCommands_;
-    std::string bigConfigstring_;       // one coming in pieces (bcs0, bcs1, bcs2)
-    int32_t serverCommandSequence_ = 0; // the last received
+    std::map<int32_t, std::string> _configstrings;
+    std::map<int32_t, std::vector<uint8_t>> _baselines;
+    int32_t _gamestateSequence = 0, _gamestateMessage = 0, _checksumFeed = 0;
+    bool _newGamestate = false;
+    std::vector<std::string> _serverCommands;
+    std::string _bigConfigstring;       // one coming in pieces (bcs0, bcs1, bcs2)
+    int32_t _serverCommandSequence = 0; // the last received
     struct Snap {
         bool valid = false;
         int32_t message = 0, serverTime = 0;
@@ -158,21 +158,21 @@ private:
         std::map<int32_t, std::vector<uint8_t>> entities;
         std::array<uint8_t, 32> areaMask{};
     };
-    std::array<Snap, 32> snaps_;
-    int32_t lastSnapMessage_ = -1; // the newest valid snapshot's message
-    std::vector<GameHost::Snapshot> newSnapshots_;
+    std::array<Snap, 32> _snaps;
+    int32_t _lastSnapMessage = -1; // the newest valid snapshot's message
+    std::vector<GameHost::Snapshot> _newSnapshots;
 
     // To the server.
-    std::array<std::string, 64> reliable_;
-    int32_t reliableSequence_ = 0, reliableAcknowledge_ = 0;
-    std::deque<GameHost::UserCommand> commands_; // not yet sent twice
-    size_t commandsInLastPacket_ = 0;
+    std::array<std::string, 64> _reliable;
+    int32_t _reliableSequence = 0, _reliableAcknowledge = 0;
+    std::deque<GameHost::UserCommand> _commands; // not yet sent twice
+    size_t _commandsInLastPacket = 0;
 
     // The clock.
-    bool haveSnapshot_ = false;
-    int64_t timeDelta_ = 0;
-    int32_t serverTime_ = 0, newestSnapshotTime_ = 0;
-    bool extrapolated_ = false;
+    bool _haveSnapshot = false;
+    int64_t _timeDelta = 0;
+    int32_t _serverTime = 0, _newestSnapshotTime = 0;
+    bool _extrapolated = false;
 };
 
 } // namespace reluva::idtech3::eliteforce

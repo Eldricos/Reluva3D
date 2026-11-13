@@ -26,7 +26,7 @@ public:
     // Their key catcher's bit while they take the keys (Quake III's).
     static constexpr int32_t kCatchUi = 2;
 
-    MenuLayer(ViewerContext &ctx, CvarStore &cvars) : ctx_(ctx), cvars_(cvars) {}
+    MenuLayer(ViewerContext &ctx, CvarStore &cvars) : _ctx(ctx), _cvars(cvars) {}
     ~MenuLayer() { detach(); }
 
     // Drawing into `renderer`'s frames of w x h pixels (detach() before
@@ -40,17 +40,17 @@ public:
     // Shows `menu` on menus already running.
     void show(int32_t menu);
     void reset();
-    bool running() const { return ui_ != nullptr; }
-    eliteforce::UiHost *ui() { return ui_.get(); }
+    bool running() const { return _ui != nullptr; }
+    eliteforce::UiHost *ui() { return _ui.get(); }
     // Whether they're taking the keys (shown, not closed by the player).
-    bool open() const { return ui_ && (ui_->catcher() & kCatchUi); }
+    bool open() const { return _ui && (_ui->catcher() & kCatchUi); }
 
     // Why they stopped, and where the details were written.
-    const std::string &error() const { return error_; }
-    const std::string &reportPath() const { return reportPath_; }
+    const std::string &error() const { return _error; }
+    const std::string &reportPath() const { return _reportPath; }
     void clearError() {
-        error_.clear();
-        reportPath_.clear();
+        _error.clear();
+        _reportPath.clear();
     }
 
     void handleEvent(const Event &ev);
@@ -75,29 +75,29 @@ private:
     void findCursor();
     void playSound(const std::string &name, int channel);
 
-    ViewerContext &ctx_;
-    CvarStore &cvars_;
-    gfx::Renderer3D *renderer_ = nullptr;
-    int frameW_ = 960, frameH_ = 720;
-    std::unique_ptr<ShaderCache> shaders_;
-    std::unique_ptr<ModelCache> models_; // the models the menus show
-    std::unique_ptr<SceneDrawer> scene_; // their pictures and scenes
-    std::unique_ptr<eliteforce::UiHost> ui_;
-    size_t commandsSeen_ = 0; // of ui_->commands()
-    std::vector<std::string> commands_;
-    SoundLibrary sounds_{ctx_.files};
-    std::map<int, audio::SoundHandle> channels_; // the sound on each of the menus' channels
-    std::string error_, reportPath_;
-    uint64_t startMs_ = 0;
+    ViewerContext &_ctx;
+    CvarStore &_cvars;
+    gfx::Renderer3D *_renderer = nullptr;
+    int _frameW = 960, _frameH = 720;
+    std::unique_ptr<ShaderCache> _shaders;
+    std::unique_ptr<ModelCache> _models; // the models the menus show
+    std::unique_ptr<SceneDrawer> _scene; // their pictures and scenes
+    std::unique_ptr<eliteforce::UiHost> _ui;
+    size_t _commandsSeen = 0; // of ui_->commands()
+    std::vector<std::string> _commands;
+    SoundLibrary _sounds{_ctx.files};
+    std::map<int, audio::SoundHandle> _channels; // the sound on each of the menus' channels
+    std::string _error, _reportPath;
+    uint64_t _startMs = 0;
     // The mouse, and the menus' own pointer as last drawn (both in frame
     // pixels); the pointer's picture is drawn offset from its point.
-    bool haveMouse_ = false, haveCursor_ = false, calibrate_ = false;
-    int mouseX_ = 0, mouseY_ = 0;
-    float cursorX_ = 0, cursorY_ = 0;
-    float cursorOffsetX_ = 0, cursorOffsetY_ = 0;
-    float measuredX_ = 0, measuredY_ = 0; // where its picture last put it
-    float pendingX_ = 0, pendingY_ = 0;   // the steps sent since, in pixels expected
-    float gainX_ = 1, gainY_ = 1;         // pixels moved per pixel expected
+    bool _haveMouse = false, _haveCursor = false, _calibrate = false;
+    int _mouseX = 0, _mouseY = 0;
+    float _cursorX = 0, _cursorY = 0;
+    float _cursorOffsetX = 0, _cursorOffsetY = 0;
+    float _measuredX = 0, _measuredY = 0; // where its picture last put it
+    float _pendingX = 0, _pendingY = 0;   // the steps sent since, in pixels expected
+    float _gainX = 1, _gainY = 1;         // pixels moved per pixel expected
 };
 
 } // namespace reluva::idtech3

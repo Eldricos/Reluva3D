@@ -52,11 +52,11 @@ public:
 
     // The game's files, for the paks the level uses (which players
     // missing them may download, if sv_allowDownload is on).
-    void setFiles(const SearchSet *files) { files_ = files; }
+    void setFiles(const SearchSet *files) { _files = files; }
     // Whether this level checks players' paks (sv_pure 1 when it started).
-    bool pure() const { return pure_; }
+    bool pure() const { return _pure; }
     // Slots the network mustn't give out (the page's own player).
-    void reserve(int32_t clientNum) { reserved_.insert(clientNum); }
+    void reserve(int32_t clientNum) { _reserved.insert(clientNum); }
     // The level has (re)started: baselines and configstrings taken anew,
     // and every player waits for the new game state.
     void levelStarted();
@@ -66,7 +66,7 @@ public:
     // due one; players not heard from for sv_timeout seconds are dropped.
     Error frame(uint64_t now);
 
-    uint16_t port() const { return socket_->port(); }
+    uint16_t port() const { return _socket->port(); }
     // The players connected over the network: their slot and name.
     std::vector<std::pair<int32_t, std::string>> players() const;
     std::function<void(const std::string &)> print;
@@ -78,7 +78,7 @@ public:
     static constexpr int kMaxReliable = 64;
 
 private:
-    enum class State { Free, Zombie, Connected, Primed, Active };
+    enum class State { kFree, kZombie, kConnected, kPrimed, kActive };
     struct Frame {
         int32_t message = -1; // the netchan sequence it went out with
         uint64_t sentMs = 0;
@@ -87,7 +87,7 @@ private:
         int32_t serverTime = 0;
     };
     struct Client {
-        State state = State::Free;
+        State state = State::kFree;
         int32_t number = -1;
         reluva::net::Address address;
         uint16_t qport = 0;
@@ -150,41 +150,41 @@ private:
     void writeDummySnapshot(Client &c, wire::MessageWriter &w);
     void sendDownload(Client &c, uint64_t now);
     bool downloadAllowed(const std::string &name, std::string &why) const;
-    const SearchSet *files_ = nullptr;
+    const SearchSet *_files = nullptr;
     // Pure for this level (sv_pure as it started): what clients' answers
     // are checked against, with this level's checksum feed.
-    bool pure_ = false;
-    int32_t pureCgame_ = 0, pureUi_ = 0;
-    std::set<int32_t> purePaks_;
-    std::vector<std::string> referencedNames_; // gamedir/name, without .pk3
+    bool _pure = false;
+    int32_t _pureCgame = 0, _pureUi = 0;
+    std::set<int32_t> _purePaks;
+    std::vector<std::string> _referencedNames; // gamedir/name, without .pk3
     void heartbeat(uint64_t now, bool force);
-    std::vector<reluva::net::Address> masters_;
-    bool mastersResolved_ = false;
-    uint64_t nextHeartbeat_ = 0;
-    int lastPlayerCount_ = -1;
+    std::vector<reluva::net::Address> _masters;
+    bool _mastersResolved = false;
+    uint64_t _nextHeartbeat = 0;
+    int _lastPlayerCount = -1;
     void applyUserinfo(Client &c);
     Client *clientFor(const reluva::net::Address &from, uint16_t qport);
 
-    GameHost &game_;
-    CvarStore &cvars_;
-    std::unique_ptr<reluva::net::UdpSocket> socket_;
-    std::vector<Client> clients_;
-    std::set<int32_t> reserved_;
+    GameHost &_game;
+    CvarStore &_cvars;
+    std::unique_ptr<reluva::net::UdpSocket> _socket;
+    std::vector<Client> _clients;
+    std::set<int32_t> _reserved;
     struct Challenge {
         int32_t value = 0;
         uint64_t time = 0;
     };
-    std::map<reluva::net::Address, Challenge> challenges_;
-    std::map<int32_t, std::vector<uint8_t>> baselines_;
-    std::map<int32_t, std::string> configstrings_; // as last sent
-    size_t serverCommandsSeen_ = 0, dropsSeen_ = 0;
-    int32_t checksumFeed_ = 0;
-    int levelCount_ = 0;
-    int restartsSeen_ = 0;           // of the game's map_restarts
-    int32_t serverId_ = 0;           // the level's id (sv_serverid)
-    std::set<int32_t> restartedIds_; // its ids before each map_restart
-    uint64_t lastNow_ = 0;
-    uint32_t random_ = 0x1234567u;
+    std::map<reluva::net::Address, Challenge> _challenges;
+    std::map<int32_t, std::vector<uint8_t>> _baselines;
+    std::map<int32_t, std::string> _configstrings; // as last sent
+    size_t _serverCommandsSeen = 0, _dropsSeen = 0;
+    int32_t _checksumFeed = 0;
+    int _levelCount = 0;
+    int _restartsSeen = 0;           // of the game's map_restarts
+    int32_t _serverId = 0;           // the level's id (sv_serverid)
+    std::set<int32_t> _restartedIds; // its ids before each map_restart
+    uint64_t _lastNow = 0;
+    uint32_t _random = 0x1234567u;
     uint32_t nextRandom();
 };
 

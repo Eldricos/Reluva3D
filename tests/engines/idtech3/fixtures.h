@@ -205,7 +205,7 @@ inline std::vector<uint8_t> buildMd3(int badIndex = -1) {
 // own origin.
 inline std::shared_ptr<Bsp> collisionMap() {
     auto bsp = std::make_shared<Bsp>();
-    bsp->shaders.push_back({"textures/test/solid", 0, contents::Solid});
+    bsp->shaders.push_back({"textures/test/solid", 0, contents::kSolid});
     auto addBox = [&](Vec3f mins, Vec3f maxs) {
         const int first = int(bsp->brushSides.size());
         for (int axis = 0; axis < 3; ++axis) {

@@ -10,10 +10,10 @@
 namespace reluva::idtech3 {
 
 const std::vector<GameInfo> &games() {
-    static const std::vector<GameInfo> list = {
+    static const std::vector<GameInfo> kList = {
         eliteforce::gameInfo(),
     };
-    return list;
+    return kList;
 }
 
 const GameInfo *findGame(std::string_view gameId) {
@@ -34,7 +34,7 @@ const GameInfo *findGame(std::string_view gameId) {
 // TODO: add the other releases (Expansion Pack, Mac, other languages) from
 // owned copies. Until then they're found by fallbackTable().
 const std::vector<GameVariant> &detectionTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         // The English Windows CD's (its SETUP/BaseEF/pak0.pk3 and an install's).
         {"stvef",
          "Star Trek: Voyager - Elite Force",
@@ -42,7 +42,7 @@ const std::vector<GameVariant> &detectionTable() {
          "windows",
          {{"baseEF/pak0.pk3", "f31871f2891b1e9d6e8d1654ea93352d", 566234769}}},
     };
-    return table;
+    return kTable;
 }
 
 namespace {
@@ -92,8 +92,8 @@ bool matches(const std::filesystem::path &dir, const KnownFile &f) {
 } // namespace
 
 const std::vector<PatchFile> &patchFiles(const GameInfo &game) {
-    static const std::vector<PatchFile> none;
-    static const std::vector<PatchFile> eliteForce = [] {
+    static const std::vector<PatchFile> kNone;
+    static const std::vector<PatchFile> kEliteForce = [] {
         std::vector<PatchFile> files;
         for (const KnownFile &f : kPatchPaks)
             files.push_back({f.name, f.md5, f.size, f.patch});
@@ -101,7 +101,7 @@ const std::vector<PatchFile> &patchFiles(const GameInfo &game) {
         files.push_back({kSpUiDlls[1].name, kSpUiDlls[1].md5, kSpUiDlls[1].size, ""});
         return files;
     }();
-    return game.gameId == std::string("stvef") ? eliteForce : none;
+    return game.gameId == std::string("stvef") ? kEliteForce : kNone;
 }
 
 bool isExpansionPak(const std::filesystem::path &file) {
@@ -164,10 +164,10 @@ Release describeRelease(const std::filesystem::path &dir, const GameInfo &game) 
 // The same games by file names alone, for releases whose hashes aren't in
 // detectionTable() yet. Used only when nothing there matches.
 const std::vector<GameVariant> &fallbackTable() {
-    static const std::vector<GameVariant> table = {
+    static const std::vector<GameVariant> kTable = {
         {"stvef", "Star Trek: Voyager - Elite Force (unknown release)", "", "windows", {{"baseEF/pak0.pk3", "", -1}}},
     };
-    return table;
+    return kTable;
 }
 
 } // namespace reluva::idtech3

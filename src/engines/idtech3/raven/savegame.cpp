@@ -45,12 +45,12 @@ std::string chunkName(uint32_t id) {
 
 void SaveWriter::add(uint32_t id, const void *data, size_t length) {
     const auto *p = static_cast<const uint8_t *>(data);
-    put32(bytes_, id);
-    put32(bytes_, uint32_t(length));
-    put32(bytes_, blockChecksum(p, length));
+    put32(_bytes, id);
+    put32(_bytes, uint32_t(length));
+    put32(_bytes, blockChecksum(p, length));
     if (length)
-        bytes_.insert(bytes_.end(), p, p + length);
-    put32(bytes_, kMarker);
+        _bytes.insert(_bytes.end(), p, p + length);
+    put32(_bytes, kMarker);
 }
 
 void SaveWriter::addText(uint32_t id, std::string_view text, size_t size) {
@@ -60,13 +60,13 @@ void SaveWriter::addText(uint32_t id, std::string_view text, size_t size) {
 }
 
 bool SaveReader::peek(uint32_t id) const {
-    return position_ + 8 <= bytes_.size() && get32(bytes_.data() + position_) == id;
+    return _position + 8 <= _bytes.size() && get32(_bytes.data() + _position) == id;
 }
 
 Error SaveReader::next(uint32_t id, std::vector<uint8_t> &out, size_t length) {
-    if (position_ + 12 > bytes_.size())
+    if (_position + 12 > _bytes.size())
         return Error::fail("The saved game ends before its " + chunkName(id) + " chunk");
-    const uint8_t *p = bytes_.data() + position_;
+    const uint8_t *p = _bytes.data() + _position;
     const uint32_t found = get32(p);
     const uint32_t size = get32(p + 4);
     const uint32_t checksum = get32(p + 8);
@@ -75,13 +75,13 @@ Error SaveReader::next(uint32_t id, std::vector<uint8_t> &out, size_t length) {
     if (length && size != length)
         return Error::fail("The " + chunkName(id) + " chunk is " + std::to_string(size) + " bytes, not " +
                            std::to_string(length));
-    if (position_ + 16 + size_t(size) > bytes_.size())
+    if (_position + 16 + size_t(size) > _bytes.size())
         return Error::fail("The " + chunkName(id) + " chunk runs past the end of the file");
     const uint8_t *data = p + 12;
     if (blockChecksum(data, size) != checksum || get32(data + size) != kMarker)
         return Error::fail("The " + chunkName(id) + " chunk is damaged");
     out.assign(data, data + size);
-    position_ += 16 + size_t(size);
+    _position += 16 + size_t(size);
     return Error::success();
 }
 

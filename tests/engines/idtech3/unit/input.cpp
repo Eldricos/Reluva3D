@@ -135,11 +135,11 @@ static void testJoystick() {
 void testKeyBindings() {
     using reluva::idtech3::KeyBindings;
     namespace q3key = reluva::idtech3::q3key;
-    CHECK(KeyBindings::keyNumber("MOUSE2") == q3key::Mouse2 && KeyBindings::keyNumber("space") == q3key::Space);
-    CHECK(KeyBindings::keyNumber("W") == 'w' && KeyBindings::keyNumber("F12") == q3key::F1 + 11);
+    CHECK(KeyBindings::keyNumber("MOUSE2") == q3key::kMouse2 && KeyBindings::keyNumber("space") == q3key::kSpace);
+    CHECK(KeyBindings::keyNumber("W") == 'w' && KeyBindings::keyNumber("F12") == q3key::kF1 + 11);
     CHECK(KeyBindings::keyNumber("nonsense") == -1 && KeyBindings::keyNumber("0x22") == '"');
-    CHECK(KeyBindings::keyName(q3key::WheelUp) == "MWHEELUP" && KeyBindings::keyName('w') == "w");
-    CHECK(KeyBindings::keyName(';') == "SEMICOLON" && KeyBindings::keyName(q3key::F1 + 2) == "F3");
+    CHECK(KeyBindings::keyName(q3key::kWheelUp) == "MWHEELUP" && KeyBindings::keyName('w') == "w");
+    CHECK(KeyBindings::keyName(';') == "SEMICOLON" && KeyBindings::keyName(q3key::kF1 + 2) == "F3");
 
     reluva::idtech3::CvarStore cvars;
     KeyBindings b;
@@ -154,14 +154,14 @@ void testKeyBindings() {
               "bind 3 \"weapon 3; echo three\"\nseta sensitivity 7\nset cl_run 0; exec more\n"
               "unbind w\nbind TAB +scores\nconnect somewhere\n",
               cvars, &ignored, readFile);
-    CHECK(b.get('w').empty() && b.get(q3key::Mouse2) == "+altattack" && b.get('3') == "weapon 3; echo three");
-    CHECK(b.get('x') == "say hi" && b.get(q3key::Tab) == "+scores" && b.changed);
-    CHECK(cvars.integer("sensitivity") == 7 && (cvars.find("sensitivity")->flags & cvars.Archive));
+    CHECK(b.get('w').empty() && b.get(q3key::kMouse2) == "+altattack" && b.get('3') == "weapon 3; echo three");
+    CHECK(b.get('x') == "say hi" && b.get(q3key::kTab) == "+scores" && b.changed);
+    CHECK(cvars.integer("sensitivity") == 7 && (cvars.find("sensitivity")->flags & cvars.kArchive));
     CHECK(cvars.integer("cl_run") == 0 && ignored == 1);
     // Written and read back, the same.
     KeyBindings again;
     again.execute(b.write(), cvars);
-    for (int32_t k = 0; k < q3key::Count; ++k)
+    for (int32_t k = 0; k < q3key::kCount; ++k)
         CHECK(again.get(k) == b.get(k));
     const auto parts = reluva::idtech3::splitCommands("a \"b;c\"; d\ne // f; g");
     CHECK(parts.size() == 3 && parts[0] == "a \"b;c\"" && reluva::idtech3::splitCommand(parts[0]).size() == 2);
@@ -204,8 +204,8 @@ void testVideoSettings() {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.input", {
-                                    {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
-                                    {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
-                                    {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},
-                                });
+    kSuite("idtech3.unit.input", {
+                                     {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
+                                     {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
+                                     {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},
+                                 });

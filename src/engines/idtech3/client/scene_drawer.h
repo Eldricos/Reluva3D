@@ -40,7 +40,7 @@ class SceneDrawer {
 public:
     // `layout`: how the game lays out the entities it adds (kept).
     SceneDrawer(gfx::Renderer3D &renderer, ShaderCache &shaders, ModelCache &models, const RefEntityLayout &layout)
-        : r_(renderer), shaders_(shaders), models_(models), layout_(layout) {}
+        : _r(renderer), _shaders(shaders), _models(models), _layout(layout) {}
     ~SceneDrawer();
     SceneDrawer(const SceneDrawer &) = delete;
     SceneDrawer &operator=(const SceneDrawer &) = delete;
@@ -85,19 +85,19 @@ public:
                   WorldRenderer *world, const LightGrid *grid, bool dynamicLights);
 
     // What the last view drew, for the info line.
-    const gfx::Vec3 &eye() const { return eye_; }
-    size_t placedCount() const { return placed_.size(); }
-    size_t effectCount() const { return effects_.size(); }
-    size_t lightCount() const { return lights_.size(); }
-    int otherEntities() const { return otherEntities_; }
+    const gfx::Vec3 &eye() const { return _eye; }
+    size_t placedCount() const { return _placed.size(); }
+    size_t effectCount() const { return _effects.size(); }
+    size_t lightCount() const { return _lights.size(); }
+    int otherEntities() const { return _otherEntities; }
     // The last view's effects (sprites, beams, marks) by shader, the most
     // first: "name x count, ...", the first few.
     std::string effectSummary() const;
     // What's drawn of the program's entities (the original's
     // r_drawentities, and Reluva's own switch for effects alone).
     bool showModels = true, showEffects = true;
-    int portalViews() const { return portalViews_; }
-    const std::set<std::string> &unloadable() const { return unloadable_; }
+    int portalViews() const { return _portalViews; }
+    const std::set<std::string> &unloadable() const { return _unloadable; }
 
 private:
     void placeEntities(const Scene &scene, const View &view, const LightGrid &grid, float time);
@@ -112,22 +112,22 @@ private:
     void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
     static const std::string &name(const HandleTable *table, int32_t handle);
 
-    gfx::Renderer3D &r_;
-    ShaderCache &shaders_;
-    ModelCache &models_;
-    const RefEntityLayout &layout_;
-    Handles handles_;
-    std::map<int32_t, int> modelIds_;                     // the program's model handle -> models_ id (-1: can't load)
-    std::vector<int> pictureMaterials_, effectMaterials_; // by shader handle; -2 not made yet
-    int beamMaterial_ = -2;                               // Quake III's beam's (-2 not made yet)
+    gfx::Renderer3D &_r;
+    ShaderCache &_shaders;
+    ModelCache &_models;
+    const RefEntityLayout &_layout;
+    Handles _handles;
+    std::map<int32_t, int> _modelIds;                     // the program's model handle -> models_ id (-1: can't load)
+    std::vector<int> _pictureMaterials, _effectMaterials; // by shader handle; -2 not made yet
+    int _beamMaterial = -2;                               // Quake III's beam's (-2 not made yet)
     int beamMaterial();
     // Those of the other programs drawn with, by their shader table.
     struct Caches {
         std::map<int32_t, int> modelIds;
         std::vector<int> pictureMaterials, effectMaterials;
     };
-    std::map<const HandleTable *, Caches> others_;
-    std::array<std::vector<gfx::TextureId>, 3> images_; // this frame's, then older
+    std::map<const HandleTable *, Caches> _others;
+    std::array<std::vector<gfx::TextureId>, 3> _images; // this frame's, then older
     // This view's model entities, ready to draw.
     struct Placed {
         int model = -1, frame = 0, oldFrame = 0;
@@ -141,17 +141,17 @@ private:
         bool depthHack = false;                        // kept in front (the player's weapon)
         bool thirdPerson = false, firstPerson = false; // only through mirrors; not through them
     };
-    std::vector<Placed> placed_;
-    std::vector<std::pair<int, gfx::Mat4>> brushes_; // the level's models (*N) placed this view
+    std::vector<Placed> _placed;
+    std::vector<std::pair<int, gfx::Mat4>> _brushes; // the level's models (*N) placed this view
     // Mirrors' and portals' cameras this view.
     struct PortalEntity {
         gfx::Vec3 origin{}, oldOrigin{};
         std::array<gfx::Vec3, 3> axes{};
         int32_t frame = 0, oldFrame = 0, skinNum = 0;
     };
-    std::vector<PortalEntity> portalEntities_;
-    std::vector<uint8_t> mainRefdef_;
-    int portalViews_ = 0; // drawn so far, for the info line
+    std::vector<PortalEntity> _portalEntities;
+    std::vector<uint8_t> _mainRefdef;
+    int _portalViews = 0; // drawn so far, for the info line
     void drawLayers(float time, WorldRenderer *world, bool throughPortal);
     void drawPortalView(WorldRenderer &world, const std::array<uint8_t, 32> &areaMask, const gfx::Vec3 &left,
                         float fovY, float aspect, const gfx::Mat4 &mainViewProj, float time);
@@ -168,16 +168,16 @@ private:
         bool beam = false; // drawn with beamMaterial()
         float sort = 0;    // its material's
     };
-    std::vector<Effect> effects_;
-    gfx::MeshId effectMesh_ = 0; // effects_' vertices, while a view is drawn
-    std::vector<gfx::Vertex> effectVertices_;
-    std::vector<uint32_t> effectIndices_;
-    std::minstd_rand effectRandom_;         // electricity's jitter
-    std::vector<gfx::DynamicLight> lights_; // this view's
-    gfx::Vec3 eye_{}, forward_{1, 0, 0};
-    float focal_ = 1;                  // the view's 1 / tan(half its height's angle)
-    int otherEntities_ = 0;            // entities not drawn (kinds not done yet)
-    std::set<std::string> unloadable_; // models this view couldn't draw
+    std::vector<Effect> _effects;
+    gfx::MeshId _effectMesh = 0; // effects_' vertices, while a view is drawn
+    std::vector<gfx::Vertex> _effectVertices;
+    std::vector<uint32_t> _effectIndices;
+    std::minstd_rand _effectRandom;         // electricity's jitter
+    std::vector<gfx::DynamicLight> _lights; // this view's
+    gfx::Vec3 _eye{}, _forward{1, 0, 0};
+    float _focal = 1;                  // the view's 1 / tan(half its height's angle)
+    int _otherEntities = 0;            // entities not drawn (kinds not done yet)
+    std::set<std::string> _unloadable; // models this view couldn't draw
 };
 
 } // namespace reluva::idtech3

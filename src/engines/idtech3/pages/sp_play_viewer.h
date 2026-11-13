@@ -34,12 +34,12 @@ public:
     explicit SpPlayViewer(ViewerContext &ctx);
     ~SpPlayViewer() override;
     const char *name() const override { return "Single player"; }
-    size_t count() const override { return names_.size(); }
+    size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return renderer_ != nullptr; }
+    bool uses3D() const override { return _renderer != nullptr; }
     bool takesKey(const Event &ev) const override;
 
 private:
@@ -75,8 +75,8 @@ private:
         bool inGame = false;
         audio::SoundHandle sound = audio::kNoSound;
     };
-    std::unique_ptr<Cinematic> cinematic_;
-    bool introShown_ = false;
+    std::unique_ptr<Cinematic> _cinematic;
+    bool _introShown = false;
     void endGame();
     void runGame(uint64_t nowMs);
     void runBinding(const std::string &line, int32_t key, bool down);
@@ -98,61 +98,61 @@ private:
     void runCommand(const std::string &line, bool fromGame = false);
     void menusStopped(const Error &err);
 
-    std::vector<std::string> names_; // the single-player maps
-    std::string map_;                // the level running
-    std::string lastLoaded_;         // the saved game last loaded, for "load *respawn"
+    std::vector<std::string> _names; // the single-player maps
+    std::string _map;                // the level running
+    std::string _lastLoaded;         // the saved game last loaded, for "load *respawn"
     // The player's commands since a saved game was loaded, written beside
     // it (<name>.input) for reluva-tool idtech3 sp-run -load <save> -replay to
     // play back; closed as the game ends.
-    std::ofstream recording_;
-    std::filesystem::path saveDir_; // where saved games are written
-    bool expansion_ = false;        // the Expansion Pack's game code is running
-    size_t gameCommandsRun_ = 0;    // of the game's console commands
+    std::ofstream _recording;
+    std::filesystem::path _saveDir; // where saved games are written
+    bool _expansion = false;        // the Expansion Pack's game code is running
+    size_t _gameCommandsRun = 0;    // of the game's console commands
     // The in-game menu waits a frame while the game is captured for the
     // save menu's picture.
-    std::string pendingMenu_;
-    bool capturing_ = false;
-    int index_ = 0;
-    std::vector<uint8_t> dll_;   // efgamex86.dll
-    std::vector<uint8_t> uiDll_; // efuix86.dll
-    gfx::Renderer3D *renderer_ = nullptr;
-    std::unique_ptr<ShaderCache> shaders_;
-    std::unique_ptr<WorldRenderer> world_;
-    std::unique_ptr<ModelCache> models_;
-    std::unique_ptr<SceneDrawer> scene_;
-    LightGrid grid_;
-    int frameW_ = 960, frameH_ = 720;
-    CvarStore &cvars_ = ctx_.cvars;
-    std::unique_ptr<eliteforce::SpGameHost> game_;
-    std::unique_ptr<eliteforce::SpUiHost> ui_;
-    SoundLibrary soundLibrary_{ctx_.files};
-    std::unique_ptr<SoundSystem> soundSystem_; // with audio output
-    Surface overlay_;
-    std::string error_, menuError_, lastCommand_;
-    uint64_t lastCommandMs_ = 0, startMs_ = 0, nowMs_ = 0;
-    bool showInfo_ = true;
-    uint64_t lastMs_ = 0;
-    int32_t clientTime_ = 0;
-    PlayerInput input_;
-    JoystickInput joystick_;
+    std::string _pendingMenu;
+    bool _capturing = false;
+    int _index = 0;
+    std::vector<uint8_t> _dll;   // efgamex86.dll
+    std::vector<uint8_t> _uiDll; // efuix86.dll
+    gfx::Renderer3D *_renderer = nullptr;
+    std::unique_ptr<ShaderCache> _shaders;
+    std::unique_ptr<WorldRenderer> _world;
+    std::unique_ptr<ModelCache> _models;
+    std::unique_ptr<SceneDrawer> _scene;
+    LightGrid _grid;
+    int _frameW = 960, _frameH = 720;
+    CvarStore &_cvars = _ctx.cvars;
+    std::unique_ptr<eliteforce::SpGameHost> _game;
+    std::unique_ptr<eliteforce::SpUiHost> _ui;
+    SoundLibrary _soundLibrary{_ctx.files};
+    std::unique_ptr<SoundSystem> _soundSystem; // with audio output
+    Surface _overlay;
+    std::string _error, _menuError, _lastCommand;
+    uint64_t _lastCommandMs = 0, _startMs = 0, _nowMs = 0;
+    bool _showInfo = true;
+    uint64_t _lastMs = 0;
+    int32_t _clientTime = 0;
+    PlayerInput _input;
+    JoystickInput _joystick;
     void pollJoystick();
-    bool wasSkipping_ = false; // a scene was being skipped last frame
+    bool _wasSkipping = false; // a scene was being skipped last frame
     // The screen capture for the next level's loading screen (see
     // SpGameHost::screenShot), and a level change waiting for the frame
     // it's taken from.
-    std::vector<uint8_t> nextScreenShot_;
+    std::vector<uint8_t> _nextScreenShot;
     // The next level's arrival point and whether it's a level change (the
     // Expansion Pack's maptransition <map> <spawn target>).
-    std::string nextSpawnTarget_;
-    bool nextLoadTransition_ = false;
-    std::string pendingTransition_;
-    bool runningTransition_ = false;
-    float menuMouseX_ = 0, menuMouseY_ = 0;
-    bool textInput_ = false;
+    std::string _nextSpawnTarget;
+    bool _nextLoadTransition = false;
+    std::string _pendingTransition;
+    bool _runningTransition = false;
+    float _menuMouseX = 0, _menuMouseY = 0;
+    bool _textInput = false;
     struct Timing {
         float server = 0, client = 0, draw = 0; // ms, the last frame's
     };
-    Timing timing_;
+    Timing _timing;
 };
 
 } // namespace reluva::idtech3

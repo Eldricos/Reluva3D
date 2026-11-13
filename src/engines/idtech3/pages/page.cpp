@@ -19,11 +19,11 @@ namespace reluva::idtech3 {
 // --- Page ------------------------------------------------------------------------------
 
 void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
-    fill(0, 0, ctx_.screen.w, ctx_.screen.h, r, g, b);
+    fill(0, 0, _ctx.screen.w, _ctx.screen.h, r, g, b);
 }
 
 void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
-    Surface &s = ctx_.screen;
+    Surface &s = _ctx.screen;
     const int x0 = std::max(x, 0);
     const int y0 = std::max(y, 0);
     const int x1 = std::min(x + w, s.w);
@@ -40,13 +40,13 @@ void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void Page::text(int x, int y, const std::string &s, Color c) {
-    font::drawText(ctx_.screen, x, y, s, c);
+    font::drawText(_ctx.screen, x, y, s, c);
 }
 
 void Page::setTitle(const std::string &detail) {
     // With the mod played, if any.
-    ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name +
-                            (ctx_.gameDir.empty() ? "" : " (" + ctx_.gameDir + ")") + " - " + name() + ": " + detail);
+    _ctx.sys.setWindowTitle(std::string("Reluva - ") + _ctx.game.name +
+                            (_ctx.gameDir.empty() ? "" : " (" + _ctx.gameDir + ")") + " - " + name() + ": " + detail);
 }
 
 namespace {
@@ -107,7 +107,7 @@ void loadConfig(ViewerContext &ctx) {
         {"s_musicvolume", "0.25"},
     };
     for (const auto &[name, value] : kEngineCvars)
-        ctx.cvars.create(name, value, CvarStore::Archive);
+        ctx.cvars.create(name, value, CvarStore::kArchive);
     std::string text;
     std::vector<uint8_t> data;
     if (!ctx.files.read("default.cfg", data))
@@ -187,7 +187,7 @@ void saveConfig(ViewerContext &ctx) {
     std::string text = "// Reluva's settings for this game: key bindings and kept settings\n";
     text += ctx.bindings.write();
     for (const CvarStore::Cvar &cv : ctx.cvars.all())
-        if (cv.flags & CvarStore::Archive)
+        if (cv.flags & CvarStore::kArchive)
             text += "seta " + cv.name + " \"" + (cv.hasLatched ? cv.latched : cv.value) + "\"\n";
     std::error_code ec;
     std::filesystem::create_directories(ctx.savePath, ec);

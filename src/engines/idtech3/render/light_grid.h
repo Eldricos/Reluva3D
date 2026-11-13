@@ -27,7 +27,7 @@ public:
     // `cellSize` from the worldspawn's "gridsize" key, if it has one. A
     // grid whose size doesn't match the world's bounds is left empty.
     void build(const Bsp &bsp, std::array<float, 3> cellSize = {64, 64, 128});
-    bool empty() const { return data_.empty(); }
+    bool empty() const { return _data.empty(); }
 
     // Blends the eight surrounding grid points, skipping those inside walls
     // (all black), as the original does; adds its minimum ambient light
@@ -37,9 +37,9 @@ public:
     PointLight sample(const std::array<float, 3> &pos, bool forModel = true) const;
 
 private:
-    std::array<float, 3> origin_{}, size_{64, 64, 128};
-    std::array<int, 3> count_{};
-    std::vector<uint8_t> data_; // 8 bytes per point, colours already brightened
+    std::array<float, 3> _origin{}, _size{64, 64, 128};
+    std::array<int, 3> _count{};
+    std::vector<uint8_t> _data; // 8 bytes per point, colours already brightened
 };
 
 } // namespace reluva::idtech3

@@ -28,7 +28,7 @@ class Qvm;
 // kept only while open (nothing the menus or the game write is saved yet).
 class GameFiles {
 public:
-    explicit GameFiles(const SearchSet &files) : files_(files) {}
+    explicit GameFiles(const SearchSet &files) : _files(files) {}
     // FS_FOpenFile: `path` to read (mode 0) or write (others; refused
     // unless `writable`). The length to read (0 writing), or -1 if there's
     // no such file or it can't be opened; `handle` gets its handle (0 for
@@ -37,10 +37,10 @@ public:
     // FS_Read and FS_Write: the bytes moved.
     size_t read(uint32_t handle, uint8_t *out, size_t length);
     size_t write(uint32_t handle, const uint8_t *in, size_t length);
-    void close(uint32_t handle) { open_.erase(handle); }
+    void close(uint32_t handle) { _open.erase(handle); }
     // How many bytes a read of `length` would give now.
     size_t readable(uint32_t handle, size_t length) const;
-    size_t openCount() const { return open_.size(); }
+    size_t openCount() const { return _open.size(); }
 
     // Told each file opened for reading, by its name.
     std::function<void(const std::string &)> onRead;
@@ -50,15 +50,15 @@ private:
         std::vector<uint8_t> data;
         size_t position = 0;
     };
-    const SearchSet &files_;
-    std::map<uint32_t, OpenFile> open_;
-    uint32_t next_ = 1;
+    const SearchSet &_files;
+    std::map<uint32_t, OpenFile> _open;
+    uint32_t _next = 1;
 };
 
 // The same for a QVM's memory: reading only.
 class VmFiles {
 public:
-    explicit VmFiles(const SearchSet &files) : files_(files), open_(files) {}
+    explicit VmFiles(const SearchSet &files) : _files(files), _open(files) {}
 
     // FS_FOpenFile(path, &handle, mode). Mode 0 reads: returns the file's
     // length and stores a handle, or returns -1 and stores 0. With no
@@ -67,7 +67,7 @@ public:
     int32_t open(Qvm &vm, int32_t pathAddress, int32_t handleAddress, int32_t mode);
     // FS_Read(buffer, length, handle): the bytes read.
     int32_t read(Qvm &vm, int32_t buffer, int32_t length, int32_t handle);
-    void close(int32_t handle) { open_.close(uint32_t(handle)); }
+    void close(int32_t handle) { _open.close(uint32_t(handle)); }
     // FS_GetFileList(folder, extension, buffer, size): the names (relative
     // to the folder) of the files directly in it that end with
     // `extension`, or its subfolders if the extension is "/", stored one
@@ -80,18 +80,18 @@ public:
     // Where "$modlist" looks for mods (listMods): the install and its base
     // game's folder. Unset, it lists none.
     void setModRoot(std::filesystem::path install, std::string baseDir) {
-        modInstall_ = std::move(install);
-        modBaseDir_ = std::move(baseDir);
+        _modInstall = std::move(install);
+        _modBaseDir = std::move(baseDir);
     }
 
-    size_t openCount() const { return open_.openCount(); }
-    void setOnRead(std::function<void(const std::string &)> f) { open_.onRead = std::move(f); }
+    size_t openCount() const { return _open.openCount(); }
+    void setOnRead(std::function<void(const std::string &)> f) { _open.onRead = std::move(f); }
 
 private:
-    const SearchSet &files_;
-    GameFiles open_;
-    std::filesystem::path modInstall_;
-    std::string modBaseDir_;
+    const SearchSet &_files;
+    GameFiles _open;
+    std::filesystem::path _modInstall;
+    std::string _modBaseDir;
 };
 
 // The memory and math calls numbered 100 and up, the same in each module:
@@ -105,16 +105,16 @@ class CallCounts {
 public:
     void add(int number) {
         if (number >= 0 && number < kDirect)
-            ++direct_[size_t(number)];
+            ++_direct[size_t(number)];
         else
-            ++others_[number];
+            ++_others[number];
     }
     int count(int number) const;
     std::map<int, int> map() const; // those made, by number
 private:
     static constexpr int kDirect = 1024;
-    std::array<int, kDirect> direct_{};
-    std::map<int, int> others_;
+    std::array<int, kDirect> _direct{};
+    std::map<int, int> _others;
 };
 
 // Names the game code registers (shaders, models, sounds, skins), each
@@ -124,11 +124,11 @@ class HandleTable {
 public:
     int32_t add(std::string_view name);
     const std::string &name(int32_t handle) const; // "" for none
-    size_t size() const { return names_.size(); }
+    size_t size() const { return _names.size(); }
 
 private:
-    std::vector<std::string> names_;
-    std::unordered_map<std::string, int32_t> byName_;
+    std::vector<std::string> _names;
+    std::unordered_map<std::string, int32_t> _byName;
 };
 
 } // namespace reluva::idtech3

@@ -17,16 +17,16 @@ void MessageWriter::bits(uint32_t value, int count) {
     if (count < 32)
         value &= (1u << count) - 1;
     while (count > 0) {
-        const size_t index = bit_ >> 3;
-        const int used = int(bit_ & 7);
+        const size_t index = _bit >> 3;
+        const int used = int(_bit & 7);
         const int room = 8 - used;
         const int take = count < room ? count : room;
-        if (index >= data_.size())
-            data_.push_back(0);
-        data_[index] = uint8_t(data_[index] | ((value & ((1u << take) - 1)) << used));
+        if (index >= _data.size())
+            _data.push_back(0);
+        _data[index] = uint8_t(_data[index] | ((value & ((1u << take) - 1)) << used));
         value >>= take;
         count -= take;
-        bit_ += size_t(take);
+        _bit += size_t(take);
     }
 }
 
@@ -49,9 +49,9 @@ void MessageWriter::smallFloat(float v) {
 
 void MessageWriter::alignToByte() {
     // As the original: inside a byte, on past the next boundary too.
-    if (bit_ & 7) {
-        bit_ = ((bit_ >> 3) + 2) * 8;
-        data_.resize(bit_ >> 3, 0);
+    if (_bit & 7) {
+        _bit = ((_bit >> 3) + 2) * 8;
+        _data.resize(_bit >> 3, 0);
     }
 }
 
@@ -59,33 +59,33 @@ void MessageWriter::string(const std::string &s, size_t maxLength) {
     alignToByte();
     const size_t n = s.size() < maxLength ? s.size() : maxLength;
     for (size_t i = 0; i < n; ++i)
-        data_.push_back(uint8_t(s[i]));
-    data_.push_back(0);
-    bit_ = data_.size() * 8;
+        _data.push_back(uint8_t(s[i]));
+    _data.push_back(0);
+    _bit = _data.size() * 8;
 }
 
 void MessageWriter::data(const uint8_t *bytes, size_t count) {
     alignToByte();
-    data_.insert(data_.end(), bytes, bytes + count);
-    bit_ = data_.size() * 8;
+    _data.insert(_data.end(), bytes, bytes + count);
+    _bit = _data.size() * 8;
 }
 
 uint32_t MessageReader::bits(int count) {
     uint32_t value = 0;
     int got = 0;
     while (got < count) {
-        const size_t index = bit_ >> 3;
-        const int used = int(bit_ & 7);
+        const size_t index = _bit >> 3;
+        const int used = int(_bit & 7);
         const int room = 8 - used;
         const int take = count - got < room ? count - got : room;
-        if (index >= data_.size()) {
-            overflowed_ = true;
-            bit_ += size_t(count - got);
+        if (index >= _data.size()) {
+            _overflowed = true;
+            _bit += size_t(count - got);
             return value;
         }
-        value |= uint32_t((data_[index] >> used) & ((1u << take) - 1)) << got;
+        value |= uint32_t((_data[index] >> used) & ((1u << take) - 1)) << got;
         got += take;
-        bit_ += size_t(take);
+        _bit += size_t(take);
     }
     return value;
 }
@@ -99,7 +99,7 @@ int32_t MessageReader::signedBits(int count) {
 
 int32_t MessageReader::byte() {
     if (atEnd()) {
-        overflowed_ = true;
+        _overflowed = true;
         return -1;
     }
     return int32_t(bits(8));
@@ -119,8 +119,8 @@ float MessageReader::smallFloat() {
 }
 
 void MessageReader::alignToByte() {
-    if (bit_ & 7)
-        bit_ = ((bit_ >> 3) + 2) * 8;
+    if (_bit & 7)
+        _bit = ((_bit >> 3) + 2) * 8;
 }
 
 std::string MessageReader::string(size_t maxLength) {

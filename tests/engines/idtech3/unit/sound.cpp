@@ -113,7 +113,7 @@ static void testAmbientSets() {
     CHECK(hum->subWaves.size() == 2 && hum->subWaves[1] == "sound/borg/clank2.wav");
     CHECK(hum->loopedWave == "sound/ambience/borg/hum.wav");
     const auto *drip = sets.find("drip");
-    CHECK(drip && drip->kind == raven::AmbientSets::Kind::Local && drip->radius == 200 && drip->timeStart == 10);
+    CHECK(drip && drip->kind == raven::AmbientSets::Kind::kLocal && drip->radius == 200 && drip->timeStart == 10);
     CHECK(sets.bmodelSound("door", 2) == "sound/doors/stop.wav" && sets.bmodelSound("door", 3).empty());
 
     // The general set: its loop fades in over a second; a sound at once,
@@ -249,9 +249,9 @@ static void testSoundSystem(const std::filesystem::path &tmp) {
 }
 
 static const reluva::test::Suite
-    suite("idtech3.unit.sound",
-          {
-              {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
-              {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
-              {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
-          });
+    kSuite("idtech3.unit.sound",
+           {
+               {"sound library", [](const std::filesystem::path &tmp) { testSoundLibrary(tmp / "sounds"); }},
+               {"sound system", [](const std::filesystem::path &tmp) { testSoundSystem(tmp / "soundsystem"); }},
+               {"ambient sets", [](const std::filesystem::path &) { testAmbientSets(); }},
+           });

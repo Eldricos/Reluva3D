@@ -38,7 +38,7 @@ struct RefEntityLayout {
 // of the range (the player's weapon and its flash); lit from the
 // lighting origin.
 namespace refent {
-constexpr int32_t ThirdPerson = 2, FirstPerson = 4, DepthHack = 8, UseLightingOrigin = 0x80;
+constexpr int32_t kThirdPerson = 2, kFirstPerson = 4, kDepthHack = 8, kUseLightingOrigin = 0x80;
 constexpr float kDepthHackRange = 0.3f;
 } // namespace refent
 

@@ -144,7 +144,7 @@ void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRende
 
 class Page {
 public:
-    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : _ctx(ctx) {}
     virtual ~Page() = default;
 
     virtual const char *name() const = 0;
@@ -165,7 +165,7 @@ protected:
     void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
     void setTitle(const std::string &detail);
 
-    ViewerContext &ctx_;
+    ViewerContext &_ctx;
 };
 
 // The code points in UTF-8 text (typed characters).

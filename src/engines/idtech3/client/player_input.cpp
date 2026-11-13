@@ -50,9 +50,9 @@ void PlayerInput::runBinding(const std::string &line, int32_t key, bool down,
             const std::string name = fs::toLower(w[0].substr(1));
             if (isButton(name)) {
                 if (down)
-                    buttons_[name].insert(key);
+                    _buttons[name].insert(key);
                 else
-                    buttons_[name].erase(key);
+                    _buttons[name].erase(key);
             } else {
                 std::string pair = (down ? "+" : "-") + name;
                 for (size_t i = 1; i < w.size(); ++i)
@@ -67,21 +67,21 @@ void PlayerInput::runBinding(const std::string &line, int32_t key, bool down,
 }
 
 bool PlayerInput::held(const char *button) const {
-    const auto it = buttons_.find(button);
-    return it != buttons_.end() && !it->second.empty();
+    const auto it = _buttons.find(button);
+    return it != _buttons.end() && !it->second.empty();
 }
 
 void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
-    float mx = mouseX_;
-    float my = mouseY_;
-    mouseX_ = mouseY_ = 0;
+    float mx = _mouseX;
+    float my = _mouseY;
+    _mouseX = _mouseY = 0;
     if (setting(cvars, "m_filter", 0) != 0) {
         const float px = mx;
         const float py = my;
-        mx = (mx + lastMouseX_) / 2;
-        my = (my + lastMouseY_) / 2;
-        lastMouseX_ = px;
-        lastMouseY_ = py;
+        mx = (mx + _lastMouseX) / 2;
+        my = (my + _lastMouseY) / 2;
+        _lastMouseX = px;
+        _lastMouseY = py;
     }
     // Degrees per unit moved are the sensitivity times m_yaw and m_pitch
     // (negative m_pitch: inverted); m_filter averages this move with the
@@ -98,9 +98,9 @@ void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
     // hundredth of cl_yawspeed per step of 127, unless strafing; its y
     // looks only with +mlook held (otherwise it moves; command()).
     if (!held("strafe"))
-        yaw += setting(cvars, "cl_yawspeed", 140) * 0.01f * float(joyX_) * keyScale;
+        yaw += setting(cvars, "cl_yawspeed", 140) * 0.01f * float(_joyX) * keyScale;
     if (held("mlook"))
-        pitch += setting(cvars, "cl_pitchspeed", 140) * 0.01f * float(joyY_) * keyScale;
+        pitch += setting(cvars, "cl_pitchspeed", 140) * 0.01f * float(_joyY) * keyScale;
     // Not held within straight up and down here: the game keeps the view
     // there, adding its own offset (the player state's delta angles, set
     // when spawning to face the spawn point's way). Holding the command's
@@ -112,7 +112,7 @@ void PlayerInput::turn(const CvarStore &cvars, int32_t dtMs) {
 PlayerInput::Command PlayerInput::command(const CvarStore &cvars, const GameInfo &game) const {
     Command cmd;
     cmd.angles = {toShort(pitch), toShort(yaw), 0};
-    for (const auto &[name, keys] : buttons_) {
+    for (const auto &[name, keys] : _buttons) {
         if (keys.empty())
             continue;
         if (name == "attack")
@@ -130,9 +130,9 @@ PlayerInput::Command PlayerInput::command(const CvarStore &cvars, const GameInfo
     side = std::clamp(speed * side, -127, 127);
     // The joystick's, added to the keys' (CL_JoystickMove).
     if (held("strafe"))
-        side = std::clamp(side + joyX_, -127, 127);
+        side = std::clamp(side + _joyX, -127, 127);
     if (!held("mlook"))
-        forward = std::clamp(forward + joyY_, -127, 127);
+        forward = std::clamp(forward + _joyY, -127, 127);
     cmd.forward = int8_t(forward);
     cmd.right = int8_t(side);
     cmd.up = int8_t(std::clamp(speed * (held("moveup") - held("movedown")), -127, 127));

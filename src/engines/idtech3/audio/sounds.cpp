@@ -11,22 +11,22 @@ std::shared_ptr<const audio::Sound> SoundLibrary::get(std::string_view name) {
     const std::string key = normalizeArchiveName(name);
     if (key.empty())
         return nullptr;
-    if (const auto it = sounds_.find(key); it != sounds_.end())
+    if (const auto it = _sounds.find(key); it != _sounds.end())
         return it->second;
     std::shared_ptr<const audio::Sound> result;
     std::vector<uint8_t> data;
-    if (Error err = files_.read(key, data)) {
-        problems_.push_back(std::string(name) + ": " + err.message);
+    if (Error err = _files.read(key, data)) {
+        _problems.push_back(std::string(name) + ": " + err.message);
     } else {
         auto sound = std::make_shared<audio::Sound>();
         if (Error derr = audio::decodeSound(data, *sound))
-            problems_.push_back(std::string(name) + ": " + derr.message);
+            _problems.push_back(std::string(name) + ": " + derr.message);
         else if (sound->frames() == 0)
-            problems_.push_back(std::string(name) + ": no samples");
+            _problems.push_back(std::string(name) + ": no samples");
         else
             result = std::move(sound);
     }
-    sounds_.emplace(key, result);
+    _sounds.emplace(key, result);
     return result;
 }
 

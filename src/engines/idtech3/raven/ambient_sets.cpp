@@ -70,19 +70,19 @@ bool isKindWord(std::string_view word) {
 
 void AmbientSets::addPrecacheEntry(std::string_view name) {
     if (same(name, "#clear")) {
-        precache_.clear();
-        current_ = old_ = -1;
+        _precache.clear();
+        _current = _old = -1;
     } else {
-        precache_.insert(lower(name));
+        _precache.insert(lower(name));
     }
 }
 
 void AmbientSets::clear() {
-    sets_.clear();
-    byName_.clear();
-    parsed_ = false;
-    current_ = old_ = -1;
-    currentLast_ = oldLast_ = kNever;
+    _sets.clear();
+    _byName.clear();
+    _parsed = false;
+    _current = _old = -1;
+    _currentLast = _oldLast = kNever;
 }
 
 bool AmbientSets::parse(std::string_view text, std::vector<std::string> &warnings) {
@@ -114,14 +114,14 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string> &warning
         const Kind kind = Kind(k);
         for (size_t i = 0; i < lines.size();) {
             const auto &head = lines[i];
-            if (head.empty() || !same(head[0], kKindWords[k]) || head.size() < 2 || !precache_.count(lower(head[1]))) {
+            if (head.empty() || !same(head[0], kKindWords[k]) || head.size() < 2 || !_precache.count(lower(head[1]))) {
                 ++i;
                 continue;
             }
             Set set;
             set.name = head[1];
             set.kind = kind;
-            set.id = int(sets_.size());
+            set.id = int(_sets.size());
             for (++i; i < lines.size(); ++i) {
                 const auto &w = lines[i];
                 if (w.empty())
@@ -135,20 +135,20 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string> &warning
                         }
                         set.subWaves.push_back("sound/" + (w.size() > 1 ? w[1] : std::string()) + "/" + w[n] + ".wav");
                     }
-                } else if (key == "timebetweenwaves" && kind != Kind::BModel) {
+                } else if (key == "timebetweenwaves" && kind != Kind::kBModel) {
                     set.timeStart = toInt(w, 1);
                     set.timeEnd = toInt(w, 2);
                     if (set.timeStart > set.timeEnd)
                         std::swap(set.timeStart, set.timeEnd);
-                } else if (key == "loopedwave" && kind != Kind::BModel) {
+                } else if (key == "loopedwave" && kind != Kind::kBModel) {
                     if (w.size() > 1)
                         set.loopedWave = "sound/" + w[1] + ".wav";
-                } else if (key == "volrange" && kind != Kind::BModel) {
+                } else if (key == "volrange" && kind != Kind::kBModel) {
                     set.volumeMin = toInt(w, 1);
                     set.volumeMax = toInt(w, 2);
                     if (set.volumeMin > set.volumeMax)
                         std::swap(set.volumeMin, set.volumeMax);
-                } else if (key == "radius" && kind == Kind::Local) {
+                } else if (key == "radius" && kind == Kind::kLocal) {
                     set.radius = toInt(w, 1);
                 } else {
                     // The next set, a comment, or a mistake.
@@ -157,49 +157,49 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string> &warning
                     break;
                 }
             }
-            byName_[lower(set.name)] = sets_.size();
-            sets_.push_back(std::move(set));
+            _byName[lower(set.name)] = _sets.size();
+            _sets.push_back(std::move(set));
         }
     }
-    for (const std::string &name : precache_)
-        if (!byName_.count(name))
+    for (const std::string &name : _precache)
+        if (!_byName.count(name))
             warnings.push_back("unable to find ambient set \"" + name + "\"");
-    parsed_ = true;
+    _parsed = true;
     return true;
 }
 
 const AmbientSets::Set *AmbientSets::find(std::string_view name) const {
-    const auto it = byName_.find(lower(name));
-    return it == byName_.end() ? nullptr : &sets_[it->second];
+    const auto it = _byName.find(lower(name));
+    return it == _byName.end() ? nullptr : &_sets[it->second];
 }
 
 AmbientSets::Set *AmbientSets::findSet(std::string_view name) {
-    const auto it = byName_.find(lower(name));
-    return it == byName_.end() ? nullptr : &sets_[it->second];
+    const auto it = _byName.find(lower(name));
+    return it == _byName.end() ? nullptr : &_sets[it->second];
 }
 
 int AmbientSets::pick(int low, int high) {
     if (high <= low)
         return low;
-    return std::uniform_int_distribution<int>(low, high)(random_);
+    return std::uniform_int_distribution<int>(low, high)(_random);
 }
 
 void AmbientSets::fade(int64_t nowMs) {
     // The new set comes up over a second, the one before goes down.
-    if (current_ < 0 || current_ >= int(sets_.size()))
+    if (_current < 0 || _current >= int(_sets.size()))
         return;
-    Set &current = sets_[size_t(current_)];
+    Set &current = _sets[size_t(_current)];
     if (current.masterVolume < kMaxVolume)
         current.masterVolume = int(float(nowMs - current.fadeStart) / float(kCrossFadeMs) * kMaxVolume);
     current.masterVolume = std::min(current.masterVolume, kMaxVolume);
-    if (old_ < 0 || old_ >= int(sets_.size()))
+    if (_old < 0 || _old >= int(_sets.size()))
         return;
-    Set &old = sets_[size_t(old_)];
+    Set &old = _sets[size_t(_old)];
     if (old.masterVolume > 0)
         old.masterVolume = kMaxVolume - int(float(nowMs - old.fadeStart) / float(kCrossFadeMs) * kMaxVolume);
     if (old.masterVolume <= 0) {
         old.masterVolume = 0;
-        old_ = -1;
+        _old = -1;
     }
 }
 
@@ -226,20 +226,20 @@ std::vector<AmbientSets::Sound> AmbientSets::updateGeneral(std::string_view name
     Set *set = findSet(name);
     if (!set)
         return out;
-    if (set->id != current_) {
-        old_ = current_;
-        current_ = set->id;
+    if (set->id != _current) {
+        _old = _current;
+        _current = set->id;
         set->masterVolume = 0;
         set->fadeStart = nowMs;
-        if (old_ >= 0 && old_ < int(sets_.size())) {
-            sets_[size_t(old_)].masterVolume = kMaxVolume;
-            sets_[size_t(old_)].fadeStart = nowMs;
+        if (_old >= 0 && _old < int(_sets.size())) {
+            _sets[size_t(_old)].masterVolume = kMaxVolume;
+            _sets[size_t(_old)].fadeStart = nowMs;
         }
     }
     fade(nowMs);
-    playGeneral(*set, origin, currentLast_, nowMs, out);
-    if (old_ >= 0 && old_ < int(sets_.size()))
-        playGeneral(sets_[size_t(old_)], origin, oldLast_, nowMs, out);
+    playGeneral(*set, origin, _currentLast, nowMs, out);
+    if (_old >= 0 && _old < int(_sets.size()))
+        playGeneral(_sets[size_t(_old)], origin, _oldLast, nowMs, out);
     return out;
 }
 

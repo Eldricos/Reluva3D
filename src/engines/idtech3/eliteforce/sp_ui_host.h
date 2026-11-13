@@ -83,12 +83,12 @@ public:
     std::vector<uint8_t> capture() const;
 
     // Who has the keys (kCatchUi while a menu is open), as they set it.
-    int32_t catcher() const { return catcher_; }
-    void setCatcher(int32_t c) { catcher_ = c; }
+    int32_t catcher() const { return _catcher; }
+    void setCatcher(int32_t c) { _catcher = c; }
 
     // The last refresh's drawing, and what it was drawn with.
-    const std::vector<Picture> &pictures() const { return pictures_; }
-    const Scene &scene() const { return scene_; }
+    const std::vector<Picture> &pictures() const { return _pictures; }
+    const Scene &scene() const { return _scene; }
     // Raw images drawn (DrawStretchRaw: a saved game's picture): where in
     // the 640 x 480 screen, their size and RGBA pixels.
     struct RawImage {
@@ -96,15 +96,15 @@ public:
         int cols = 0, rows = 0;
         std::vector<uint8_t> rgba;
     };
-    const std::vector<RawImage> &rawImages() const { return raw_; }
-    const HandleTable &shaders() const { return shaders_; }
-    const HandleTable &models() const { return models_; }
-    const HandleTable &skins() const { return skins_; }
-    const HandleTable &sounds() const { return sounds_; }
+    const std::vector<RawImage> &rawImages() const { return _raw; }
+    const HandleTable &shaders() const { return _shaders; }
+    const HandleTable &models() const { return _models; }
+    const HandleTable &skins() const { return _skins; }
+    const HandleTable &sounds() const { return _sounds; }
 
     // Commands the menus ran (Cmd_ExecuteText): "map borg1", "disconnect",
     // "quit"... in order; taken (and cleared) by the caller.
-    std::vector<std::string> takeCommands() { return std::move(commands_); }
+    std::vector<std::string> takeCommands() { return std::move(_commands); }
 
     // --- What the engine provides ------------------------------------------
     // What the menus print (Printf).
@@ -136,8 +136,8 @@ public:
     int32_t connectionState = 1;
 
     // Calls they made that aren't answered yet, by import slot.
-    const std::map<int, int> &unhandled() const { return unhandled_; }
-    x86::Cpu &cpu() { return *cpu_; }
+    const std::map<int, int> &unhandled() const { return _unhandled; }
+    x86::Cpu &cpu() { return *_cpu; }
 
 private:
     Error callUi(int index, const std::vector<uint32_t> &args, uint32_t *result = nullptr);
@@ -150,26 +150,26 @@ private:
     const Md3Model *md3(int32_t handle);
     uint32_t fileList(const std::string &folder, const std::string &extension, uint32_t buffer, uint32_t size);
 
-    const SearchSet &files_;
-    CvarStore &cvars_;
-    std::unique_ptr<x86::Cpu> cpu_;
-    std::unique_ptr<x86::Win32Process> process_;
-    const x86::Win32Process::Module *module_ = nullptr;
-    uint32_t imports_ = 0, exports_ = 0, scratch_ = 0, scratch2_ = 0, comment_ = 0, capture_ = 0;
-    bool captured_ = false;
-    std::vector<std::string> args_;
-    std::vector<std::string> commands_;
-    int32_t catcher_ = 0;
-    bool overstrike_ = false;
-    int32_t time_ = 0;
-    HandleTable shaders_, models_, skins_, sounds_;
-    std::vector<Picture> pictures_;
-    std::vector<RawImage> raw_;
-    Scene scene_;
-    std::array<float, 4> color_{1, 1, 1, 1};
-    std::map<int32_t, std::shared_ptr<Md3Model>> md3s_; // by model handle, for tags
-    GameFiles openFiles_;
-    std::map<int, int> unhandled_;
+    const SearchSet &_files;
+    CvarStore &_cvars;
+    std::unique_ptr<x86::Cpu> _cpu;
+    std::unique_ptr<x86::Win32Process> _process;
+    const x86::Win32Process::Module *_module = nullptr;
+    uint32_t _imports = 0, _exports = 0, _scratch = 0, _scratch2 = 0, _comment = 0, _capture = 0;
+    bool _captured = false;
+    std::vector<std::string> _args;
+    std::vector<std::string> _commands;
+    int32_t _catcher = 0;
+    bool _overstrike = false;
+    int32_t _time = 0;
+    HandleTable _shaders, _models, _skins, _sounds;
+    std::vector<Picture> _pictures;
+    std::vector<RawImage> _raw;
+    Scene _scene;
+    std::array<float, 4> _color{1, 1, 1, 1};
+    std::map<int32_t, std::shared_ptr<Md3Model>> _md3s; // by model handle, for tags
+    GameFiles _openFiles;
+    std::map<int, int> _unhandled;
 };
 
 } // namespace reluva::idtech3::eliteforce

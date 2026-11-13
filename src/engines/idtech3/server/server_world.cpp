@@ -23,47 +23,47 @@ bool overlaps(const Vec3f &aMin, const Vec3f &aMax, const Vec3f &bMin, const Vec
 
 void ServerWorld::setLevel(const Bsp *map, const CollisionWorld *world, const AreaPortals *portals,
                            std::function<bool()> noAreas) {
-    map_ = map;
-    world_ = world;
-    portals_ = portals;
-    noAreas_ = std::move(noAreas);
+    _map = map;
+    _world = world;
+    _portals = portals;
+    _noAreas = std::move(noAreas);
     clear();
 }
 
 void ServerWorld::clear() {
-    linked_.clear();
-    placements_.clear();
-    nodeOf_.clear();
-    unplaced_.clear();
-    nodes_.clear();
+    _linked.clear();
+    _placements.clear();
+    _nodeOf.clear();
+    _unplaced.clear();
+    _nodes.clear();
     // The tree over the level's bounds (its first model's), each node
     // split across its longer side.
     Vec3f mins{-65536, -65536, -65536};
     Vec3f maxs{65536, 65536, 65536};
-    if (map_ && !map_->models.empty())
+    if (_map && !_map->models.empty())
         for (int i = 0; i < 3; ++i) {
-            mins[size_t(i)] = map_->models[0].mins[size_t(i)];
-            maxs[size_t(i)] = map_->models[0].maxs[size_t(i)];
+            mins[size_t(i)] = _map->models[0].mins[size_t(i)];
+            maxs[size_t(i)] = _map->models[0].maxs[size_t(i)];
         }
     build(0, mins, maxs);
 }
 
 void ServerWorld::build(int depth, const Vec3f &mins, const Vec3f &maxs) {
-    const int index = int(nodes_.size());
-    nodes_.emplace_back();
+    const int index = int(_nodes.size());
+    _nodes.emplace_back();
     if (depth == kTreeDepth)
         return;
     const int axis = maxs[0] - mins[0] > maxs[1] - mins[1] ? 0 : 1;
     const float dist = 0.5f * (maxs[size_t(axis)] + mins[size_t(axis)]);
-    nodes_[size_t(index)].axis = axis;
-    nodes_[size_t(index)].dist = dist;
+    _nodes[size_t(index)].axis = axis;
+    _nodes[size_t(index)].dist = dist;
     Vec3f upperMin = mins;
     Vec3f lowerMax = maxs;
     upperMin[size_t(axis)] = dist;
     lowerMax[size_t(axis)] = dist;
-    nodes_[size_t(index)].children[0] = int(nodes_.size());
+    _nodes[size_t(index)].children[0] = int(_nodes.size());
     build(depth + 1, upperMin, maxs);
-    nodes_[size_t(index)].children[1] = int(nodes_.size());
+    _nodes[size_t(index)].children[1] = int(_nodes.size());
     build(depth + 1, mins, lowerMax);
 }
 
@@ -71,15 +71,15 @@ ServerWorld::Placement ServerWorld::place(const Vec3f &absMin, const Vec3f &absM
     Placement p;
     p.absMin = absMin;
     p.absMax = absMax;
-    if (!world_)
+    if (!_world)
         return p;
     std::vector<int> leafs;
-    world_->boxLeafs(absMin, absMax, leafs);
+    _world->boxLeafs(absMin, absMax, leafs);
     p.leafCount = leafs.size();
     for (const int leaf : leafs) {
         // The first area it's in, and a second if it stands in two (a door
         // between them).
-        const int area = world_->leafArea(leaf);
+        const int area = _world->leafArea(leaf);
         if (area >= 0) {
             if (p.areas.first != -1 && p.areas.first != area)
                 p.areas.second = area;
@@ -87,7 +87,7 @@ ServerWorld::Placement ServerWorld::place(const Vec3f &absMin, const Vec3f &absM
                 p.areas.first = area;
         }
         const int cluster =
-            map_ && leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
+            _map && leaf >= 0 && size_t(leaf) < _map->leafs.size() ? _map->leafs[size_t(leaf)].cluster : -1;
         if (cluster >= 0 && std::find(p.clusters.begin(), p.clusters.end(), cluster) == p.clusters.end())
             p.clusters.push_back(cluster);
     }
@@ -95,18 +95,18 @@ ServerWorld::Placement ServerWorld::place(const Vec3f &absMin, const Vec3f &absM
 }
 
 void ServerWorld::remove(int32_t n) {
-    if (const auto it = nodeOf_.find(n); it != nodeOf_.end()) {
-        auto &list = nodes_[size_t(it->second)].entities;
+    if (const auto it = _nodeOf.find(n); it != _nodeOf.end()) {
+        auto &list = _nodes[size_t(it->second)].entities;
         list.erase(std::find(list.begin(), list.end(), n));
-        nodeOf_.erase(it);
+        _nodeOf.erase(it);
     }
-    unplaced_.erase(std::remove(unplaced_.begin(), unplaced_.end(), n), unplaced_.end());
-    placements_.erase(n);
+    _unplaced.erase(std::remove(_unplaced.begin(), _unplaced.end(), n), _unplaced.end());
+    _placements.erase(n);
 }
 
 void ServerWorld::link(int32_t n, const EntityShape &s, Vec3f &absMin, Vec3f &absMax) {
     remove(n);
-    linked_.insert(n);
+    _linked.insert(n);
     if (s.bmodel && (s.angles[0] || s.angles[1] || s.angles[2])) {
         float radius = 0;
         for (int i = 0; i < 3; ++i) {
@@ -129,11 +129,11 @@ void ServerWorld::link(int32_t n, const EntityShape &s, Vec3f &absMin, Vec3f &ab
         absMin[size_t(i)] -= 1;
         absMax[size_t(i)] += 1;
     }
-    placements_[n] = place(absMin, absMax);
+    _placements[n] = place(absMin, absMax);
     // Into the lowest node of the tree that holds it whole.
     int node = 0;
-    while (nodes_[size_t(node)].axis >= 0) {
-        const Node &nd = nodes_[size_t(node)];
+    while (_nodes[size_t(node)].axis >= 0) {
+        const Node &nd = _nodes[size_t(node)];
         if (absMin[size_t(nd.axis)] > nd.dist)
             node = nd.children[0];
         else if (absMax[size_t(nd.axis)] < nd.dist)
@@ -141,46 +141,46 @@ void ServerWorld::link(int32_t n, const EntityShape &s, Vec3f &absMin, Vec3f &ab
         else
             break;
     }
-    nodes_[size_t(node)].entities.push_back(n);
-    nodeOf_[n] = node;
+    _nodes[size_t(node)].entities.push_back(n);
+    _nodeOf[n] = node;
 }
 
 void ServerWorld::linkUnplaced(int32_t n) {
     remove(n);
-    linked_.insert(n);
+    _linked.insert(n);
     Placement p;
     p.everywhere = true;
-    placements_[n] = p;
-    unplaced_.push_back(n);
+    _placements[n] = p;
+    _unplaced.push_back(n);
 }
 
 void ServerWorld::unlink(int32_t n) {
     remove(n);
-    linked_.erase(n);
+    _linked.erase(n);
 }
 
 const ServerWorld::Placement *ServerWorld::placement(int32_t n) const {
-    const auto it = placements_.find(n);
-    return it == placements_.end() ? nullptr : &it->second;
+    const auto it = _placements.find(n);
+    return it == _placements.end() ? nullptr : &it->second;
 }
 
 bool ServerWorld::areasConnected(int area1, int area2) const {
-    if (noAreas_ && noAreas_())
+    if (_noAreas && _noAreas())
         return true;
-    return portals_ && portals_->connected(area1, area2);
+    return _portals && _portals->connected(area1, area2);
 }
 
 void ServerWorld::collect(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const {
     out.clear();
-    if (nodes_.empty())
+    if (_nodes.empty())
         return;
     int stack[2 * kTreeDepth + 2];
     int top = 0;
     stack[top++] = 0;
     while (top) {
-        const Node &node = nodes_[size_t(stack[--top])];
+        const Node &node = _nodes[size_t(stack[--top])];
         for (const int32_t n : node.entities) {
-            const Placement &p = placements_.at(n);
+            const Placement &p = _placements.at(n);
             if (overlaps(p.absMin, p.absMax, mins, maxs))
                 out.push_back(n);
         }
@@ -191,7 +191,7 @@ void ServerWorld::collect(const Vec3f &mins, const Vec3f &maxs, std::vector<int3
         if (mins[size_t(node.axis)] < node.dist)
             stack[top++] = node.children[1];
     }
-    out.insert(out.end(), unplaced_.begin(), unplaced_.end());
+    out.insert(out.end(), _unplaced.begin(), _unplaced.end());
     std::sort(out.begin(), out.end());
 }
 
@@ -203,8 +203,8 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
                                int32_t mask, int32_t &hit, bool entities) const {
     TraceResult best;
     hit = kNone;
-    if (world_) {
-        best = world_->trace(start, end, mins, maxs, 0, mask);
+    if (_world) {
+        best = _world->trace(start, end, mins, maxs, 0, mask);
         hit = best.fraction < 1 ? kWorld : kNone;
     }
     // The bounds of the whole move, for the entities near it.
@@ -218,12 +218,12 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
     if (entities)
         collect(moveMin, moveMax, near);
     EntityShape passShape;
-    const int32_t passOwner = pass >= 0 && shape_(pass, passShape) ? passShape.owner : -1;
+    const int32_t passOwner = pass >= 0 && _shape(pass, passShape) ? passShape.owner : -1;
     for (const int32_t n : near) {
         if (best.allSolid)
             break;
         EntityShape s;
-        if (!shape_(n, s))
+        if (!_shape(n, s))
             continue;
         // Not the mover, nor what it owns or what owns it.
         if (n == pass || (pass >= 0 && (s.owner == pass || n == passOwner)))
@@ -231,9 +231,9 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
         if (!(s.contents & mask))
             continue;
         TraceResult t;
-        if (s.bmodel && world_) {
+        if (s.bmodel && _world) {
             // Its brushes, where it stands now and turned as it is.
-            t = world_->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles);
+            t = _world->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles);
         } else {
             Vec3f boxMin = s.mins;
             Vec3f boxMax = s.maxs;
@@ -261,15 +261,15 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
 }
 
 int32_t ServerWorld::pointContents(const Vec3f &point, int32_t pass) const {
-    int32_t result = world_ ? world_->pointContents(point, 0) : 0;
+    int32_t result = _world ? _world->pointContents(point, 0) : 0;
     std::vector<int32_t> near;
     collect(point, point, near);
     for (const int32_t n : near) {
         EntityShape s;
-        if (n == pass || !shape_(n, s))
+        if (n == pass || !_shape(n, s))
             continue;
-        if (s.bmodel && world_) {
-            if (world_->transformedPointContents(point, s.modelIndex, s.origin, s.angles))
+        if (s.bmodel && _world) {
+            if (_world->transformedPointContents(point, s.modelIndex, s.origin, s.angles))
                 result |= s.contents;
         } else {
             bool inside = true;

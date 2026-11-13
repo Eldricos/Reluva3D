@@ -28,11 +28,11 @@ namespace reluva::idtech3::raven {
 //   stage of its move.
 class AmbientSets {
 public:
-    enum class Kind { General, Local, BModel };
+    enum class Kind { kGeneral, kLocal, kBModel };
 
     struct Set {
         std::string name;
-        Kind kind = Kind::General;
+        Kind kind = Kind::kGeneral;
         int id = 0;
         // Seconds between the occasional sounds: a random whole number in
         // [timeStart, timeEnd], drawn afresh each time it's checked.
@@ -57,7 +57,7 @@ public:
         std::string name;
     };
 
-    explicit AmbientSets(uint32_t seed = 0) : random_(seed) { clear(); }
+    explicit AmbientSets(uint32_t seed = 0) : _random(seed) { clear(); }
 
     // The sets the level uses (AS_AddPrecacheEntry); "#clear" forgets them
     // and the general set playing. Only these are kept by parse().
@@ -66,11 +66,11 @@ public:
     // Problems (an unknown keyword, a set asked for but missing) go to
     // `warnings`. False if the file isn't an ambient set file.
     bool parse(std::string_view text, std::vector<std::string> &warnings);
-    bool parsed() const { return parsed_; }
+    bool parsed() const { return _parsed; }
     void clear();
 
     const Set *find(std::string_view name) const;
-    size_t size() const { return sets_.size(); }
+    size_t size() const { return _sets.size(); }
 
     // The level's general set this frame, heard at `origin` (the view),
     // at `nowMs` (S_UpdateAmbientSet).
@@ -89,13 +89,13 @@ private:
     void fade(int64_t nowMs);
     void playGeneral(const Set &set, const Vec3f &origin, int64_t &lastMs, int64_t nowMs, std::vector<Sound> &out);
 
-    std::vector<Set> sets_;
-    std::map<std::string, size_t> byName_; // lower case
-    std::set<std::string> precache_;       // lower case
-    bool parsed_ = false;
-    int current_ = -1, old_ = -1;
-    int64_t currentLast_ = 0, oldLast_ = 0;
-    std::mt19937 random_;
+    std::vector<Set> _sets;
+    std::map<std::string, size_t> _byName; // lower case
+    std::set<std::string> _precache;       // lower case
+    bool _parsed = false;
+    int _current = -1, _old = -1;
+    int64_t _currentLast = 0, _oldLast = 0;
+    std::mt19937 _random;
 };
 
 } // namespace reluva::idtech3::raven

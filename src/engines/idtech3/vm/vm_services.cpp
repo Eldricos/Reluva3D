@@ -16,16 +16,16 @@ namespace reluva::idtech3 {
 
 int CallCounts::count(int number) const {
     if (number >= 0 && number < kDirect)
-        return direct_[size_t(number)];
-    const auto it = others_.find(number);
-    return it == others_.end() ? 0 : it->second;
+        return _direct[size_t(number)];
+    const auto it = _others.find(number);
+    return it == _others.end() ? 0 : it->second;
 }
 
 std::map<int, int> CallCounts::map() const {
-    std::map<int, int> out = others_;
+    std::map<int, int> out = _others;
     for (int i = 0; i < kDirect; ++i)
-        if (direct_[size_t(i)])
-            out[i] = direct_[size_t(i)];
+        if (_direct[size_t(i)])
+            out[i] = _direct[size_t(i)];
     return out;
 }
 
@@ -35,22 +35,22 @@ int32_t GameFiles::open(const std::string &path, int32_t mode, bool wantHandle, 
     if (mode != 0) {
         if (!writable || path.empty())
             return -1;
-    } else if (path.empty() || files_.read(path, file.data)) {
+    } else if (path.empty() || _files.read(path, file.data)) {
         return -1;
     } else if (onRead) {
         onRead(path);
     }
     const auto length = int32_t(file.data.size());
     if (wantHandle) {
-        handle = next_++;
-        open_[handle] = std::move(file);
+        handle = _next++;
+        _open[handle] = std::move(file);
     }
     return length;
 }
 
 size_t GameFiles::readable(uint32_t handle, size_t length) const {
-    const auto it = open_.find(handle);
-    if (it == open_.end())
+    const auto it = _open.find(handle);
+    if (it == _open.end())
         return 0;
     const OpenFile &f = it->second;
     return std::min(length, f.data.size() - std::min(f.position, f.data.size()));
@@ -59,7 +59,7 @@ size_t GameFiles::readable(uint32_t handle, size_t length) const {
 size_t GameFiles::read(uint32_t handle, uint8_t *out, size_t length) {
     const size_t n = readable(handle, length);
     if (n) {
-        OpenFile &f = open_.at(handle);
+        OpenFile &f = _open.at(handle);
         std::memcpy(out, f.data.data() + f.position, n);
         f.position += n;
     }
@@ -67,8 +67,8 @@ size_t GameFiles::read(uint32_t handle, uint8_t *out, size_t length) {
 }
 
 size_t GameFiles::write(uint32_t handle, const uint8_t *in, size_t length) {
-    const auto it = open_.find(handle);
-    if (it == open_.end())
+    const auto it = _open.find(handle);
+    if (it == _open.end())
         return 0;
     it->second.data.insert(it->second.data.end(), in, in + length);
     return length;
@@ -79,7 +79,7 @@ int32_t VmFiles::open(Qvm &vm, int32_t pathAddress, int32_t handleAddress, int32
         vm.writeInt(handleAddress, 0);
     uint32_t handle = 0;
     const int32_t length =
-        open_.open(vm.string(pathAddress, 256), mode, handleAddress && vm.valid(handleAddress, 4), false, handle);
+        _open.open(vm.string(pathAddress, 256), mode, handleAddress && vm.valid(handleAddress, 4), false, handle);
     if (handle)
         vm.writeInt(handleAddress, int32_t(handle));
     return length;
@@ -88,10 +88,10 @@ int32_t VmFiles::open(Qvm &vm, int32_t pathAddress, int32_t handleAddress, int32
 int32_t VmFiles::read(Qvm &vm, int32_t buffer, int32_t length, int32_t handle) {
     if (length <= 0)
         return 0;
-    const size_t n = open_.readable(uint32_t(handle), size_t(length));
+    const size_t n = _open.readable(uint32_t(handle), size_t(length));
     if (!vm.checkWrite(buffer, int64_t(n)))
         return 0;
-    return int32_t(open_.read(uint32_t(handle), n ? &vm.memory()[size_t(buffer)] : nullptr, n));
+    return int32_t(_open.read(uint32_t(handle), n ? &vm.memory()[size_t(buffer)] : nullptr, n));
 }
 
 std::vector<std::string> VmFiles::listNames(const SearchSet &files, std::string_view folder,
@@ -133,11 +133,11 @@ int32_t VmFiles::list(Qvm &vm, int32_t folderAddress, int32_t extensionAddress, 
         // The mods' folders and descriptions, as the engine lists them.
         std::vector<uint8_t> list;
         const uint32_t count = packModList(
-            modInstall_.empty() ? std::vector<ModFolder>{} : listMods(modInstall_, modBaseDir_), uint32_t(size), list);
+            _modInstall.empty() ? std::vector<ModFolder>{} : listMods(_modInstall, _modBaseDir), uint32_t(size), list);
         std::memcpy(&vm.memory()[size_t(buffer)], list.data(), list.size());
         return int32_t(count);
     }
-    const auto names = listNames(files_, folder, vm.string(extensionAddress, 64));
+    const auto names = listNames(_files, folder, vm.string(extensionAddress, 64));
     int32_t count = 0;
     int32_t used = 0;
     for (const std::string &n : names) {
@@ -197,17 +197,17 @@ int32_t HandleTable::add(std::string_view name) {
     if (name.empty())
         return 0;
     const std::string key = normalizeArchiveName(name);
-    if (const auto it = byName_.find(key); it != byName_.end())
+    if (const auto it = _byName.find(key); it != _byName.end())
         return it->second;
-    names_.emplace_back(name);
-    const auto handle = int32_t(names_.size());
-    byName_.emplace(key, handle);
+    _names.emplace_back(name);
+    const auto handle = int32_t(_names.size());
+    _byName.emplace(key, handle);
     return handle;
 }
 
 const std::string &HandleTable::name(int32_t handle) const {
-    static const std::string none;
-    return handle >= 1 && size_t(handle) <= names_.size() ? names_[size_t(handle) - 1] : none;
+    static const std::string kNone;
+    return handle >= 1 && size_t(handle) <= _names.size() ? _names[size_t(handle) - 1] : kNone;
 }
 
 } // namespace reluva::idtech3

@@ -21,33 +21,33 @@ constexpr float kMinimumAmbient = 32;
 } // namespace
 
 void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
-    data_.clear();
+    _data.clear();
     if (bsp.models.empty() || bsp.lightGrid.empty())
         return;
-    size_ = cellSize;
+    _size = cellSize;
     // Grid points on multiples of the cell size inside the world's bounds.
     for (int i = 0; i < 3; ++i) {
         const size_t k = size_t(i);
-        if (size_[k] <= 0)
+        if (_size[k] <= 0)
             return;
-        origin_[k] = size_[k] * std::ceil(bsp.models[0].mins[k] / size_[k]);
-        const float top = size_[k] * std::floor(bsp.models[0].maxs[k] / size_[k]);
-        count_[k] = int((top - origin_[k]) / size_[k]) + 1;
-        if (count_[k] < 1)
+        _origin[k] = _size[k] * std::ceil(bsp.models[0].mins[k] / _size[k]);
+        const float top = _size[k] * std::floor(bsp.models[0].maxs[k] / _size[k]);
+        _count[k] = int((top - _origin[k]) / _size[k]) + 1;
+        if (_count[k] < 1)
             return;
     }
-    if (size_t(count_[0]) * size_t(count_[1]) * size_t(count_[2]) * 8 != bsp.lightGrid.size())
+    if (size_t(_count[0]) * size_t(_count[1]) * size_t(_count[2]) * 8 != bsp.lightGrid.size())
         return;
-    data_ = bsp.lightGrid;
-    for (size_t i = 0; i < data_.size(); i += 8) {
-        brightenLight(&data_[i]);
-        brightenLight(&data_[i + 3]);
+    _data = bsp.lightGrid;
+    for (size_t i = 0; i < _data.size(); i += 8) {
+        brightenLight(&_data[i]);
+        brightenLight(&_data[i + 3]);
     }
 }
 
 PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) const {
     PointLight light;
-    if (data_.empty()) {
+    if (_data.empty()) {
         light.ambient = {150 + kMinimumAmbient, 150 + kMinimumAmbient, 150 + kMinimumAmbient};
         light.directed = {150, 150, 150};
         const float n = std::sqrt(0.45f * 0.45f + 0.3f * 0.3f + 0.9f * 0.9f);
@@ -57,12 +57,12 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
     int cell[3];
     float frac[3];
     for (int i = 0; i < 3; ++i) {
-        const float v = (pos[size_t(i)] - origin_[size_t(i)]) / size_[size_t(i)];
+        const float v = (pos[size_t(i)] - _origin[size_t(i)]) / _size[size_t(i)];
         const float f = std::floor(v);
         frac[i] = v - f;
-        cell[i] = std::clamp(int(f), 0, count_[size_t(i)] - 1);
+        cell[i] = std::clamp(int(f), 0, _count[size_t(i)] - 1);
     }
-    const size_t step[3] = {8, 8 * size_t(count_[0]), 8 * size_t(count_[0]) * size_t(count_[1])};
+    const size_t step[3] = {8, 8 * size_t(_count[0]), 8 * size_t(_count[0]) * size_t(_count[1])};
     float total = 0;
     std::array<float, 3> dir{};
     for (int corner = 0; corner < 8; ++corner) {
@@ -71,7 +71,7 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         bool inside = true;
         for (int j = 0; j < 3; ++j) {
             if (corner & (1 << j)) {
-                if (cell[j] + 1 > count_[size_t(j)] - 1) {
+                if (cell[j] + 1 > _count[size_t(j)] - 1) {
                     inside = false; // past the grid's edge
                     break;
                 }
@@ -83,7 +83,7 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         }
         if (!inside)
             continue;
-        const uint8_t *p = &data_[at];
+        const uint8_t *p = &_data[at];
         if (p[0] + p[1] + p[2] == 0)
             continue; // inside a wall
         total += weight;

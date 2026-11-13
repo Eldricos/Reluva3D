@@ -360,7 +360,7 @@ int cmdPortalCheck(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"bsp-check", "<game folder, e.g. .../BaseEF>", "load every maps/*.bsp of a game folder", cmdBspCheck},

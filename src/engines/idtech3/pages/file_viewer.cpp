@@ -15,36 +15,36 @@ namespace reluva::idtech3 {
 FileViewer::FileViewer(ViewerContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {
         const Archive *a = ctx.files.find(n);
-        files_.push_back({n, a ? std::filesystem::path(a->describe()).filename().string() : std::string()});
+        _files.push_back({n, a ? std::filesystem::path(a->describe()).filename().string() : std::string()});
     }
 }
 
 void FileViewer::activate() {
-    setTitle(std::to_string(files_.size()) + " files in " + std::to_string(ctx_.files.size()) + " archives");
+    setTitle(std::to_string(_files.size()) + " files in " + std::to_string(_ctx.files.size()) + " archives");
     draw();
 }
 
 void FileViewer::handleEvent(const Event &ev) {
-    const int rows = (ctx_.screen.h - 4 * font::kLineHeight) / font::kLineHeight;
+    const int rows = (_ctx.screen.h - 4 * font::kLineHeight) / font::kLineHeight;
     if (ev.type == EventType::MouseWheel)
-        top_ -= ev.wheelY * 3;
+        _top -= ev.wheelY * 3;
     else if (ev.type != EventType::KeyDown)
         return;
     else if (ev.key == key::Up)
-        --top_;
+        --_top;
     else if (ev.key == key::Down)
-        ++top_;
+        ++_top;
     else if (ev.key == key::PageUp)
-        top_ -= rows;
+        _top -= rows;
     else if (ev.key == key::PageDown)
-        top_ += rows;
+        _top += rows;
     else if (ev.key == key::Home)
-        top_ = 0;
+        _top = 0;
     else if (ev.key == key::End)
-        top_ = static_cast<int>(files_.size());
+        _top = static_cast<int>(_files.size());
     else
         return;
-    top_ = std::clamp(top_, 0, std::max(0, static_cast<int>(files_.size()) - rows));
+    _top = std::clamp(_top, 0, std::max(0, static_cast<int>(_files.size()) - rows));
     draw();
 }
 
@@ -53,19 +53,19 @@ void FileViewer::draw() {
     const int lh = font::kLineHeight;
     text(4, 4, "Search path, first match wins:", {150, 200, 255});
     std::string order;
-    for (const Archive *a : ctx_.files.archives()) {
+    for (const Archive *a : _ctx.files.archives()) {
         if (!order.empty())
             order += ", ";
         order += std::filesystem::path(a->describe()).filename().string();
     }
     text(4, 4 + lh, order, {150, 200, 255});
-    if (!ctx_.warnings.empty())
-        text(4, 4 + 2 * lh, std::to_string(ctx_.warnings.size()) + " problems, the first: " + ctx_.warnings.front(),
+    if (!_ctx.warnings.empty())
+        text(4, 4 + 2 * lh, std::to_string(_ctx.warnings.size()) + " problems, the first: " + _ctx.warnings.front(),
              {255, 120, 120});
-    const int rows = (ctx_.screen.h - 4 * lh) / lh;
-    const int sourceX = ctx_.screen.w - 20 * font::kAdvance;
-    for (int i = 0; i < rows && top_ + i < static_cast<int>(files_.size()); ++i) {
-        const Row &r = files_[size_t(top_ + i)];
+    const int rows = (_ctx.screen.h - 4 * lh) / lh;
+    const int sourceX = _ctx.screen.w - 20 * font::kAdvance;
+    for (int i = 0; i < rows && _top + i < static_cast<int>(_files.size()); ++i) {
+        const Row &r = _files[size_t(_top + i)];
         const int y = 4 * lh + i * lh;
         text(4, y, r.name);
         text(sourceX, y, r.source, {140, 140, 140});

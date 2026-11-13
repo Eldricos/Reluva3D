@@ -97,7 +97,7 @@ private:
         float total = 0;
     };
     struct ReplyKey {
-        enum Kind { String, Name, BotNames, Female, Male, Genderless, Match } kind = String;
+        enum Kind { kString, kName, kBotNames, kFemale, kMale, kGenderless, kMatch } kind = kString;
         bool must = false, mustNot = false;
         std::string text;
         std::vector<Piece> match;
@@ -131,13 +131,13 @@ private:
     static BotMatch withVariables(BotMatch match, const std::vector<const char *> &vars);
     float now() const { return time ? time() : 0; }
 
-    std::vector<Synonyms> synonyms_;
-    std::vector<std::pair<std::string, std::vector<std::string>>> randoms_;
-    std::vector<Template> templates_;
-    std::vector<Reply> replies_;
-    std::vector<std::unique_ptr<State>> states_;
-    std::vector<std::pair<std::string, std::shared_ptr<std::vector<ChatType>>>> chatFiles_; // "file|name"
-    std::mt19937 random_{12345};
+    std::vector<Synonyms> _synonyms;
+    std::vector<std::pair<std::string, std::vector<std::string>>> _randoms;
+    std::vector<Template> _templates;
+    std::vector<Reply> _replies;
+    std::vector<std::unique_ptr<State>> _states;
+    std::vector<std::pair<std::string, std::shared_ptr<std::vector<ChatType>>>> _chatFiles; // "file|name"
+    std::mt19937 _random{12345};
 };
 
 } // namespace reluva::idtech3::botlib

@@ -14,7 +14,7 @@ class FileViewer : public Page {
 public:
     explicit FileViewer(ViewerContext &ctx);
     const char *name() const override { return "Files"; }
-    size_t count() const override { return files_.size(); }
+    size_t count() const override { return _files.size(); }
     void activate() override;
     void handleEvent(const Event &ev) override;
 
@@ -25,8 +25,8 @@ private:
         std::string name;
         std::string source; // the archive's file name
     };
-    std::vector<Row> files_;
-    int top_ = 0;
+    std::vector<Row> _files;
+    int _top = 0;
 };
 
 } // namespace reluva::idtech3

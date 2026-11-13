@@ -72,12 +72,12 @@ struct BspFog {
     int32_t visibleSide = 0; // -1: none
 };
 
-enum class SurfaceType : int32_t { Bad = 0, Planar = 1, Patch = 2, TriangleSoup = 3, Flare = 4 };
+enum class SurfaceType : int32_t { kBad = 0, kPlanar = 1, kPatch = 2, kTriangleSoup = 3, kFlare = 4 };
 
 struct BspSurface {
     int32_t shader = 0;
     int32_t fog = 0; // -1: none
-    SurfaceType type = SurfaceType::Bad;
+    SurfaceType type = SurfaceType::kBad;
     int32_t firstVertex = 0, numVertices = 0;
     int32_t firstIndex = 0, numIndices = 0;
     int32_t lightmap = 0; // -1: none

@@ -24,7 +24,7 @@ namespace reluva::idtech3 {
 // vertex colours, with no depth test or culling.
 // Effect: the game's sprites and beams, whose colour is in their
 // vertices; both sides drawn.
-enum class Lighting { Lightmap, Vertex, Diffuse, TwoD, Effect };
+enum class Lighting { kLightmap, kVertex, kDiffuse, kTwoD, kEffect };
 
 // Shaders turned into what the GPU draws, shared by everything a page
 // shows: each stage's textures loaded and states decided once, the parts
@@ -44,7 +44,7 @@ public:
     struct Material {
         bool skip = false; // sky, fog volume, nodraw or no stages
         float sort = 3;
-        Lighting lighting = Lighting::Lightmap;
+        Lighting lighting = Lighting::kLightmap;
         std::vector<Stage> stages;
         std::array<gfx::Deform, 2> deforms{};
         // deformVertexes autosprite (1: each quad facing the camera) or
@@ -68,7 +68,7 @@ public:
     // `sky`: a sky shader's stages, its cloud layers (other materials skip
     // sky shaders).
     int material(const ShaderDef &def, Lighting lighting, bool sky = false);
-    const Material &get(int material) const { return materials_[size_t(material)]; }
+    const Material &get(int material) const { return _materials[size_t(material)]; }
 
     // `picmip`: the texture detail setting may make it smaller.
     gfx::TextureId image(const std::string &name, bool clamp, bool mipmaps, bool picmip = false);
@@ -80,7 +80,7 @@ public:
         bool nearest = false, mipmaps = true, mipNearest = false;
         bool anisotropic = false; // r_ext_texture_filter_anisotropic
     };
-    void setTextureOptions(const TextureOptions &options) { textureOptions_ = options; }
+    void setTextureOptions(const TextureOptions &options) { _textureOptions = options; }
     gfx::TextureId white();
 
     // Draws every stage of `material` over the geometry `base` describes
@@ -97,29 +97,29 @@ public:
     void drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
                  const std::array<float, 4> &plane, float time) const;
 
-    size_t imageCount() const { return images_.size(); }
-    int missingImages() const { return missing_; }
+    size_t imageCount() const { return _images.size(); }
+    int missingImages() const { return _missing; }
     // Features met that aren't drawn, with how many shaders use each.
-    const std::map<std::string, int> &unsupported() const { return unsupported_; }
+    const std::map<std::string, int> &unsupported() const { return _unsupported; }
 
 private:
     Material makeMaterial(const ShaderDef &def, Lighting lighting, bool sky);
     Stage makeStage(const ShaderStage &def, const ShaderDef &shader);
-    void note(const std::string &feature) { ++unsupported_[feature]; }
+    void note(const std::string &feature) { ++_unsupported[feature]; }
 
-    gfx::Renderer3D &r_;
-    const SearchSet &files_;
-    const ShaderLibrary &shaders_;
-    std::vector<Material> materials_;
-    std::map<std::pair<std::string, Lighting>, int> byName_;
+    gfx::Renderer3D &_r;
+    const SearchSet &_files;
+    const ShaderLibrary &_shaders;
+    std::vector<Material> _materials;
+    std::map<std::pair<std::string, Lighting>, int> _byName;
     std::deque<ShaderDef>
-        implicit_; // the original's shaders for names without a script, and pictures' copies (stable addresses)
-    std::unordered_map<std::string, gfx::TextureId> images_; // by normalized name and flags
-    gfx::TextureId missingTexture_ = 0;
-    gfx::TextureId whiteTexture_ = 0;
-    int missing_ = 0;
-    std::map<std::string, int> unsupported_;
-    TextureOptions textureOptions_;
+        _implicit; // the original's shaders for names without a script, and pictures' copies (stable addresses)
+    std::unordered_map<std::string, gfx::TextureId> _images; // by normalized name and flags
+    gfx::TextureId _missingTexture = 0;
+    gfx::TextureId _whiteTexture = 0;
+    int _missing = 0;
+    std::map<std::string, int> _unsupported;
+    TextureOptions _textureOptions;
 };
 
 } // namespace reluva::idtech3

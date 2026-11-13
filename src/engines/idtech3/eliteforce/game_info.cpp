@@ -12,7 +12,7 @@ GameInfo gameInfo() {
     g.gameId = "stvef";
     g.name = "Star Trek: Voyager - Elite Force";
     g.baseDir = "baseEF";
-    g.code = GameCode::EliteForce;
+    g.code = GameCode::kEliteForce;
     g.refEntity = kRefEntityLayout;
     g.spRefEntity = kSpRefEntityLayout;
     g.buttonAttack = 1;

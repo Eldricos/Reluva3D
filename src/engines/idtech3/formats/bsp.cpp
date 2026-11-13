@@ -14,23 +14,23 @@ constexpr int kLumps = 17;
 constexpr size_t kHeaderSize = 8 + kLumps * 8;
 
 enum Lump {
-    Entities,
-    Shaders,
-    Planes,
-    Nodes,
-    Leafs,
-    LeafSurfaces,
-    LeafBrushes,
-    Models,
-    Brushes,
-    BrushSides,
-    Vertices,
-    Indices,
-    Fogs,
-    Surfaces,
-    Lightmaps,
-    LightGrid,
-    Visibility,
+    kEntities,
+    kShaders,
+    kPlanes,
+    kNodes,
+    kLeafs,
+    kLeafSurfaces,
+    kLeafBrushes,
+    kModels,
+    kBrushes,
+    kBrushSides,
+    kVertices,
+    kIndices,
+    kFogs,
+    kSurfaces,
+    kLightmaps,
+    kLightGrid,
+    kVisibility,
 };
 
 const char *const kLumpNames[kLumps] = {
@@ -41,10 +41,10 @@ const char *const kLumpNames[kLumps] = {
 // Reads little-endian fields out of one record.
 class Fields {
 public:
-    explicit Fields(const uint8_t *p) : p_(p) {}
+    explicit Fields(const uint8_t *p) : _p(p) {}
     int32_t i32() {
-        const uint32_t v = uint32_t(p_[0]) | uint32_t(p_[1]) << 8 | uint32_t(p_[2]) << 16 | uint32_t(p_[3]) << 24;
-        p_ += 4;
+        const uint32_t v = uint32_t(_p[0]) | uint32_t(_p[1]) << 8 | uint32_t(_p[2]) << 16 | uint32_t(_p[3]) << 24;
+        _p += 4;
         return static_cast<int32_t>(v);
     }
     float f32() {
@@ -53,14 +53,14 @@ public:
         std::memcpy(&f, &bits, 4);
         return f;
     }
-    uint8_t u8() { return *p_++; }
+    uint8_t u8() { return *_p++; }
     // A fixed-size, NUL-padded name.
     std::string name(size_t size) {
         size_t len = 0;
-        while (len < size && p_[len])
+        while (len < size && _p[len])
             ++len;
-        std::string s(reinterpret_cast<const char *>(p_), len);
-        p_ += size;
+        std::string s(reinterpret_cast<const char *>(_p), len);
+        _p += size;
         return s;
     }
     template<size_t N>
@@ -75,7 +75,7 @@ public:
     }
 
 private:
-    const uint8_t *p_;
+    const uint8_t *_p;
 };
 
 struct LumpRange {
@@ -139,15 +139,15 @@ void normalize(Bsp &b) {
         // A type we don't know: kept as Bad, which nothing draws.
         const int32_t type = static_cast<int32_t>(s.type);
         if (type < 0 || type > 4) {
-            s.type = SurfaceType::Bad;
+            s.type = SurfaceType::kBad;
             ++b.fixes.types;
         }
         // Bad surfaces and flares use neither vertices nor indices.
-        if (s.type == SurfaceType::Bad && (s.numVertices || s.numIndices)) {
+        if (s.type == SurfaceType::kBad && (s.numVertices || s.numIndices)) {
             s.firstVertex = s.numVertices = s.firstIndex = s.numIndices = 0;
             ++b.fixes.flares;
         }
-        if (s.type == SurfaceType::Flare && (s.numVertices || s.numIndices)) {
+        if (s.type == SurfaceType::kFlare && (s.numVertices || s.numIndices)) {
             s.firstVertex = s.numVertices = s.firstIndex = s.numIndices = 0;
             ++b.fixes.flares;
         }
@@ -218,7 +218,7 @@ Error validate(const Bsp &b) {
                 return bad("surface", i,
                            "index " + num(k) + " is vertex " + num(v) + " (of " + num(s.numVertices) + ")");
         }
-        if (s.type == SurfaceType::Patch &&
+        if (s.type == SurfaceType::kPatch &&
             (s.patchWidth < 1 || s.patchHeight < 1 || int64_t(s.patchWidth) * s.patchHeight != s.numVertices))
             return bad("surface", i,
                        "patch " + num(s.patchWidth) + "x" + num(s.patchHeight) + " but " + num(s.numVertices) +
@@ -253,7 +253,7 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         lumps[i] = {size_t(offset), size_t(size)};
     }
 
-    out.entities.assign(reinterpret_cast<const char *>(data.data() + lumps[Entities].offset), lumps[Entities].size);
+    out.entities.assign(reinterpret_cast<const char *>(data.data() + lumps[kEntities].offset), lumps[kEntities].size);
     if (const size_t nul = out.entities.find('\0'); nul != std::string::npos)
         out.entities.resize(nul);
 
@@ -262,22 +262,22 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         if (e && !err)
             err = std::move(e);
     };
-    check(readRecords(data, lumps[Shaders], Shaders, 72, out.shaders, [](Fields &f, BspShader &s) {
+    check(readRecords(data, lumps[kShaders], kShaders, 72, out.shaders, [](Fields &f, BspShader &s) {
         s.name = f.name(64);
         s.surfaceFlags = f.i32();
         s.contentFlags = f.i32();
     }));
-    check(readRecords(data, lumps[Planes], Planes, 16, out.planes, [](Fields &f, BspPlane &p) {
+    check(readRecords(data, lumps[kPlanes], kPlanes, 16, out.planes, [](Fields &f, BspPlane &p) {
         f.f32s(p.normal);
         p.dist = f.f32();
     }));
-    check(readRecords(data, lumps[Nodes], Nodes, 36, out.nodes, [](Fields &f, BspNode &n) {
+    check(readRecords(data, lumps[kNodes], kNodes, 36, out.nodes, [](Fields &f, BspNode &n) {
         n.plane = f.i32();
         f.i32s(n.children);
         f.i32s(n.mins);
         f.i32s(n.maxs);
     }));
-    check(readRecords(data, lumps[Leafs], Leafs, 48, out.leafs, [](Fields &f, BspLeaf &l) {
+    check(readRecords(data, lumps[kLeafs], kLeafs, 48, out.leafs, [](Fields &f, BspLeaf &l) {
         l.cluster = f.i32();
         l.area = f.i32();
         f.i32s(l.mins);
@@ -288,9 +288,9 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         l.numLeafBrushes = f.i32();
     }));
     auto readInt = [](Fields &f, int32_t &v) { v = f.i32(); };
-    check(readRecords(data, lumps[LeafSurfaces], LeafSurfaces, 4, out.leafSurfaces, readInt));
-    check(readRecords(data, lumps[LeafBrushes], LeafBrushes, 4, out.leafBrushes, readInt));
-    check(readRecords(data, lumps[Models], Models, 40, out.models, [](Fields &f, BspModel &m) {
+    check(readRecords(data, lumps[kLeafSurfaces], kLeafSurfaces, 4, out.leafSurfaces, readInt));
+    check(readRecords(data, lumps[kLeafBrushes], kLeafBrushes, 4, out.leafBrushes, readInt));
+    check(readRecords(data, lumps[kModels], kModels, 40, out.models, [](Fields &f, BspModel &m) {
         f.f32s(m.mins);
         f.f32s(m.maxs);
         m.firstSurface = f.i32();
@@ -298,16 +298,16 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         m.firstBrush = f.i32();
         m.numBrushes = f.i32();
     }));
-    check(readRecords(data, lumps[Brushes], Brushes, 12, out.brushes, [](Fields &f, BspBrush &b) {
+    check(readRecords(data, lumps[kBrushes], kBrushes, 12, out.brushes, [](Fields &f, BspBrush &b) {
         b.firstSide = f.i32();
         b.numSides = f.i32();
         b.shader = f.i32();
     }));
-    check(readRecords(data, lumps[BrushSides], BrushSides, 8, out.brushSides, [](Fields &f, BspBrushSide &s) {
+    check(readRecords(data, lumps[kBrushSides], kBrushSides, 8, out.brushSides, [](Fields &f, BspBrushSide &s) {
         s.plane = f.i32();
         s.shader = f.i32();
     }));
-    check(readRecords(data, lumps[Vertices], Vertices, 44, out.vertices, [](Fields &f, BspVertex &v) {
+    check(readRecords(data, lumps[kVertices], kVertices, 44, out.vertices, [](Fields &f, BspVertex &v) {
         f.f32s(v.pos);
         f.f32s(v.st);
         f.f32s(v.lightmap);
@@ -315,13 +315,13 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         for (auto &c : v.color)
             c = f.u8();
     }));
-    check(readRecords(data, lumps[Indices], Indices, 4, out.indices, readInt));
-    check(readRecords(data, lumps[Fogs], Fogs, 72, out.fogs, [](Fields &f, BspFog &g) {
+    check(readRecords(data, lumps[kIndices], kIndices, 4, out.indices, readInt));
+    check(readRecords(data, lumps[kFogs], kFogs, 72, out.fogs, [](Fields &f, BspFog &g) {
         g.shader = f.name(64);
         g.brush = f.i32();
         g.visibleSide = f.i32();
     }));
-    check(readRecords(data, lumps[Surfaces], Surfaces, 104, out.surfaces, [](Fields &f, BspSurface &s) {
+    check(readRecords(data, lumps[kSurfaces], kSurfaces, 104, out.surfaces, [](Fields &f, BspSurface &s) {
         s.shader = f.i32();
         s.fog = f.i32();
         s.type = static_cast<SurfaceType>(f.i32());
@@ -342,15 +342,15 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         return err;
 
     constexpr size_t kLightmapBytes = kLightmapSize * kLightmapSize * 3;
-    if (lumps[Lightmaps].size % kLightmapBytes)
+    if (lumps[kLightmaps].size % kLightmapBytes)
         return Error::fail("BSP lightmaps lump is not a whole number of 128x128 lightmaps");
     auto copyLump = [&](const LumpRange &l, std::vector<uint8_t> &v) {
         v.assign(data.begin() + std::ptrdiff_t(l.offset), data.begin() + std::ptrdiff_t(l.offset + l.size));
     };
-    copyLump(lumps[Lightmaps], out.lightmaps);
-    copyLump(lumps[LightGrid], out.lightGrid);
+    copyLump(lumps[kLightmaps], out.lightmaps);
+    copyLump(lumps[kLightGrid], out.lightGrid);
 
-    const LumpRange &vis = lumps[Visibility];
+    const LumpRange &vis = lumps[kVisibility];
     if (vis.size) {
         if (vis.size < 8)
             return Error::fail("BSP visibility lump is too small");

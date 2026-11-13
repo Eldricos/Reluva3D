@@ -113,7 +113,7 @@ int cmdNetRun(int argc, char **argv) {
                 state = client.state();
                 std::printf("%6.2f s: state %d%s%s\n", double(now) / 1000, int(state),
                             client.message().empty() ? "" : ": ", client.message().c_str());
-                if (state == ef::NetClient::State::Disconnected)
+                if (state == ef::NetClient::State::kDisconnected)
                     return 1;
             }
             if (client.takeNewGamestate()) {
@@ -329,7 +329,7 @@ int cmdNetMaster(int argc, char **argv) {
     return answers ? 0 : 1;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"net-run",

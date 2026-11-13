@@ -26,7 +26,7 @@ public:
     StartPage(ViewerContext &ctx, std::vector<Choice> choices);
 
     const char *name() const override { return "Start"; }
-    size_t count() const override { return choices_.size(); }
+    size_t count() const override { return _choices.size(); }
     void activate() override;
     void handleEvent(const Event &ev) override;
 
@@ -35,9 +35,9 @@ private:
     void choose(size_t i);
     int choiceAt(int x, int y) const; // -1 for none
 
-    std::vector<Choice> choices_;
-    size_t selected_ = 0;
-    image::Image background_; // the first level's picture, if the game has one
+    std::vector<Choice> _choices;
+    size_t _selected = 0;
+    image::Image _background; // the first level's picture, if the game has one
 };
 
 } // namespace reluva::idtech3

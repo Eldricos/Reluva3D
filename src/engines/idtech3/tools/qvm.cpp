@@ -52,13 +52,13 @@ void printQvmInstruction(const reluva::idtech3::Qvm &vm, size_t i, bool mark) {
     std::printf("%s%7zu  %-9s", mark ? "> " : "  ", i, q3::qvmop::name(in.op));
     if (q3::qvmop::operandSize(in.op))
         std::printf(" %d", in.operand);
-    if (in.op == q3::qvmop::Enter)
+    if (in.op == q3::qvmop::kEnter)
         std::printf("    ; function start, %d bytes of frame", in.operand);
-    if (in.op == q3::qvmop::Const) {
+    if (in.op == q3::qvmop::kConst) {
         const int32_t v = in.operand;
-        if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call && v < 0)
+        if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::kCall && v < 0)
             std::printf("    ; system call %d", -1 - v);
-        else if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::Call)
+        else if (i + 1 < code.size() && code[i + 1].op == q3::qvmop::kCall)
             std::printf("    ; calls the function at %d", v);
         else if (v > 0 && uint32_t(v) >= vm.litStart() && uint32_t(v) < vm.litEnd()) {
             const std::string text = vm.string(v, 60);
@@ -93,13 +93,13 @@ int cmdQvmInfo(int argc, char **argv) {
     int indirect = 0;
     int function = -1;
     for (size_t i = 0; i < code.size(); ++i) {
-        if (code[i].op == q3::qvmop::Enter) {
+        if (code[i].op == q3::qvmop::kEnter) {
             ++functions;
             function = int(i);
         }
-        if (code[i].op != q3::qvmop::Call)
+        if (code[i].op != q3::qvmop::kCall)
             continue;
-        if (i > 0 && code[i - 1].op == q3::qvmop::Const) {
+        if (i > 0 && code[i - 1].op == q3::qvmop::kConst) {
             const int32_t target = code[i - 1].operand;
             if (target < 0) {
                 auto &[n, fns] = calls[-1 - target];
@@ -219,7 +219,7 @@ int cmdQvmRefs(int argc, char **argv) {
     std::map<long long, std::map<std::string, int>> refs;
     const auto &code = vm.code();
     for (size_t i = 0; i < code.size(); ++i) {
-        if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+        if (code[i].op != q3::qvmop::kConst || code[i].operand < base || code[i].operand >= base + size)
             continue;
         const std::string next = i + 1 < code.size() ? q3::qvmop::name(code[i + 1].op) : "end";
         ++refs[code[i].operand - base][next];
@@ -258,10 +258,10 @@ int cmdQvmDis(int argc, char **argv) {
     // The function holding instruction i: from its ENTER to the next one.
     auto functionAt = [&](size_t i) {
         size_t first = i;
-        while (first > 0 && code[first].op != q3::qvmop::Enter)
+        while (first > 0 && code[first].op != q3::qvmop::kEnter)
             --first;
         size_t last = first + 1;
-        while (last < code.size() && code[last].op != q3::qvmop::Enter)
+        while (last < code.size() && code[last].op != q3::qvmop::kEnter)
             ++last;
         return std::make_pair(first, last);
     };
@@ -290,13 +290,13 @@ int cmdQvmDis(int argc, char **argv) {
         for (const auto &[address, text] : strings) {
             std::printf("string at %d: \"%s\"\n", address, text.c_str());
             for (size_t i = 0; i < code.size(); ++i)
-                if (code[i].op == q3::qvmop::Const && code[i].operand == address)
+                if (code[i].op == q3::qvmop::kConst && code[i].operand == address)
                     users.insert(functionAt(i).first);
         }
         for (size_t f : users) {
             const auto [first, last] = functionAt(f);
             for (size_t i = first; i + 1 < last; ++i)
-                if (code[i].op == q3::qvmop::Const && code[i + 1].op == q3::qvmop::Call && code[i].operand >= 0 &&
+                if (code[i].op == q3::qvmop::kConst && code[i + 1].op == q3::qvmop::kCall && code[i].operand >= 0 &&
                     size_t(code[i].operand) < code.size() && !users.count(size_t(code[i].operand)))
                     callees.insert(size_t(code[i].operand));
         }
@@ -326,9 +326,9 @@ int cmdQvmDis(int argc, char **argv) {
         const int32_t global = int32_t(std::strtol(argv[5], nullptr, 0));
         std::map<int32_t, std::map<std::string, int>> fields;
         for (size_t i = 0; i + 4 < code.size(); ++i) {
-            if (code[i].op != q3::qvmop::Const || code[i].operand != global || code[i + 1].op != q3::qvmop::Load4)
+            if (code[i].op != q3::qvmop::kConst || code[i].operand != global || code[i + 1].op != q3::qvmop::kLoad4)
                 continue;
-            if (code[i + 2].op == q3::qvmop::Const && code[i + 3].op == q3::qvmop::Add)
+            if (code[i + 2].op == q3::qvmop::kConst && code[i + 3].op == q3::qvmop::kAdd)
                 ++fields[code[i + 2].operand][q3::qvmop::name(code[i + 4].op)];
             else
                 ++fields[0][q3::qvmop::name(code[i + 2].op)];
@@ -350,7 +350,7 @@ int cmdQvmDis(int argc, char **argv) {
         // where the code copies one (a command into the movement code...).
         std::map<int32_t, std::vector<size_t>> sizes;
         for (size_t i = 0; i < code.size(); ++i)
-            if (code[i].op == q3::qvmop::BlockCopy)
+            if (code[i].op == q3::qvmop::kBlockCopy)
                 sizes[code[i].operand].push_back(i);
         std::printf("block copies by size (bytes: count, first instructions):\n");
         for (const auto &[size, at] : sizes) {
@@ -366,7 +366,7 @@ int cmdQvmDis(int argc, char **argv) {
         const int32_t target = -1 - int32_t(std::strtol(argv[5], nullptr, 0));
         int found = 0;
         for (size_t i = 0; i + 1 < code.size(); ++i) {
-            if (code[i].op != q3::qvmop::Const || code[i].operand != target || code[i + 1].op != q3::qvmop::Call)
+            if (code[i].op != q3::qvmop::kConst || code[i].operand != target || code[i + 1].op != q3::qvmop::kCall)
                 continue;
             if (++found > 30) {
                 std::printf("(more than 30 calls)\n");
@@ -388,7 +388,7 @@ int cmdQvmDis(int argc, char **argv) {
         const auto [first, last] = functionAt(at);
         std::set<size_t> callees;
         for (size_t i = first; i + 1 < last; ++i)
-            if (code[i].op == q3::qvmop::Const && code[i + 1].op == q3::qvmop::Call && code[i].operand >= 0 &&
+            if (code[i].op == q3::qvmop::kConst && code[i + 1].op == q3::qvmop::kCall && code[i].operand >= 0 &&
                 size_t(code[i].operand) < code.size() && size_t(code[i].operand) != first)
                 callees.insert(size_t(code[i].operand));
         std::printf("=== function at %zu, %zu instructions\n", first, last - first);
@@ -428,24 +428,24 @@ int cmdQvmDis(int argc, char **argv) {
             if (argAt == 0 || argAt - 1 < from)
                 return "?";
             const auto &p = code[argAt - 1];
-            if (p.op == q3::qvmop::Const) {
+            if (p.op == q3::qvmop::kConst) {
                 if (const std::string t = text(p.operand); !t.empty())
                     return "\"" + t + "\"";
                 return std::to_string(p.operand);
             }
-            if (p.op == q3::qvmop::Local)
+            if (p.op == q3::qvmop::kLocal)
                 return "&local" + std::to_string(p.operand);
-            if (p.op == q3::qvmop::Load4 && argAt >= 2 && argAt - 2 >= from) {
+            if (p.op == q3::qvmop::kLoad4 && argAt >= 2 && argAt - 2 >= from) {
                 const auto &pp = code[argAt - 2];
-                if (pp.op == q3::qvmop::Local)
+                if (pp.op == q3::qvmop::kLocal)
                     return "local" + std::to_string(pp.operand);
-                if (pp.op == q3::qvmop::Const)
+                if (pp.op == q3::qvmop::kConst)
                     return "[" + std::to_string(pp.operand) + "]";
-                if (pp.op == q3::qvmop::Add && argAt >= 3 && code[argAt - 3].op == q3::qvmop::Const)
+                if (pp.op == q3::qvmop::kAdd && argAt >= 3 && code[argAt - 3].op == q3::qvmop::kConst)
                     return "[p+" + std::to_string(code[argAt - 3].operand) + "]";
                 return "[...]";
             }
-            if (p.op == q3::qvmop::Add && argAt >= 2 && code[argAt - 2].op == q3::qvmop::Const)
+            if (p.op == q3::qvmop::kAdd && argAt >= 2 && code[argAt - 2].op == q3::qvmop::kConst)
                 return "p+" + std::to_string(code[argAt - 2].operand);
             return std::string("(") + q3::qvmop::name(p.op) + ")";
         };
@@ -453,7 +453,7 @@ int cmdQvmDis(int argc, char **argv) {
             const int32_t target = -1 - n;
             std::vector<size_t> sites;
             for (size_t i = 0; i + 1 < code.size(); ++i)
-                if (code[i].op == q3::qvmop::Const && code[i].operand == target && code[i + 1].op == q3::qvmop::Call)
+                if (code[i].op == q3::qvmop::kConst && code[i].operand == target && code[i + 1].op == q3::qvmop::kCall)
                     sites.push_back(i);
             if (sites.empty())
                 continue;
@@ -463,11 +463,11 @@ int cmdQvmDis(int argc, char **argv) {
                 const auto [first, last] = functionAt(i);
                 // The arguments: ARGs since the previous call in the function.
                 size_t from = i;
-                while (from > first && code[from - 1].op != q3::qvmop::Call)
+                while (from > first && code[from - 1].op != q3::qvmop::kCall)
                     --from;
                 std::string args;
                 for (size_t j = from; j < i; ++j)
-                    if (code[j].op == q3::qvmop::Arg)
+                    if (code[j].op == q3::qvmop::kArg)
                         args += " " + std::to_string(code[j].operand) + ":" + describe(j, from);
                 std::string after;
                 for (size_t j = i + 2; j < last && j < i + 5; ++j)
@@ -477,7 +477,7 @@ int cmdQvmDis(int argc, char **argv) {
                             args.empty() ? " none" : args.c_str(), after.c_str());
                 std::set<std::string> seen;
                 for (size_t j = first; j < last && seen.size() < 3; ++j)
-                    if (code[j].op == q3::qvmop::Const)
+                    if (code[j].op == q3::qvmop::kConst)
                         if (const std::string t = text(code[j].operand); t.size() >= 4 && seen.insert(t).second)
                             std::printf("      uses \"%s\"\n", t.c_str());
             }
@@ -490,7 +490,7 @@ int cmdQvmDis(int argc, char **argv) {
         const long long size = argc >= 7 ? std::strtoll(argv[6], nullptr, 0) : 4;
         int found = 0;
         for (size_t i = 0; i < code.size(); ++i) {
-            if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
+            if (code[i].op != q3::qvmop::kConst || code[i].operand < base || code[i].operand >= base + size)
                 continue;
             if (++found > 50) {
                 std::printf("(more than 50; narrow the range)\n");
@@ -498,14 +498,14 @@ int cmdQvmDis(int argc, char **argv) {
             }
             size_t first = i >= 12 ? i - 12 : 0;
             for (size_t j = i; j > first; --j)
-                if (code[j].op == q3::qvmop::Enter) {
+                if (code[j].op == q3::qvmop::kEnter) {
                     first = j;
                     break;
                 }
             const size_t last = std::min(code.size(), i + 16);
             std::printf("--- offset %lld, instruction %zu\n", code[i].operand - base, i);
             for (size_t j = first; j < last; ++j) {
-                if (j > i && code[j].op == q3::qvmop::Enter)
+                if (j > i && code[j].op == q3::qvmop::kEnter)
                     break;
                 printQvmInstruction(vm, j, j == i);
             }
@@ -519,7 +519,7 @@ int cmdQvmDis(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "idtech3",
     {
         {"qvm-info", "<game folder> <vm/x.qvm> [-s]",

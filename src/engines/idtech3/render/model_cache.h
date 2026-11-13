@@ -34,7 +34,7 @@ gfx::Mat4 tagPlacement(const Md3Tag &tag);
 class ModelCache {
 public:
     ModelCache(gfx::Renderer3D &renderer, ShaderCache &shaders, const SearchSet &files)
-        : r_(renderer), shaders_(shaders), files_(files) {}
+        : _r(renderer), _shaders(shaders), _files(files) {}
     ~ModelCache() { clear(); }
     ModelCache(const ModelCache &) = delete;
     ModelCache &operator=(const ModelCache &) = delete;
@@ -46,10 +46,10 @@ public:
     // Models' levels of detail: an .md3's lower-detail versions beside it
     // (name_1.md3, name_2.md3), an .mdr's own. Each is loaded with the
     // model; level 0 is the model itself.
-    int lodCount(int id) const { return 1 + int(models_[size_t(id)].lods.size()); }
+    int lodCount(int id) const { return 1 + int(_models[size_t(id)].lods.size()); }
     // The id to draw for `level` (past the last, the last).
     int lod(int id, int level) const {
-        const auto &lods = models_[size_t(id)].lods;
+        const auto &lods = _models[size_t(id)].lods;
         return level <= 0 || lods.empty() ? id : lods[size_t(std::min(level, int(lods.size()))) - 1];
     }
     // How far the model reaches from its origin in `frame`, as the
@@ -58,9 +58,9 @@ public:
     float radius(int id, int frame) const;
     // The model detail setting (r_lodBias): how many levels further down
     // to draw than the distance says.
-    void setLodBias(int bias) { lodBias_ = bias; }
-    int lodBias() const { return lodBias_; }
-    const Md3Model &model(int id) const { return models_[size_t(id)].md3; }
+    void setLodBias(int bias) { _lodBias = bias; }
+    int lodBias() const { return _lodBias; }
+    const Md3Model &model(int id) const { return _models[size_t(id)].md3; }
     // A skin file's contents, read on first use (empty if missing).
     const Skin &skin(const std::string &path);
 
@@ -79,7 +79,7 @@ public:
     void addSorts(int id, const Skin *skin, const std::string &shader, std::vector<float> &out);
 
 private:
-    int lodBias_ = 0;
+    int _lodBias = 0;
     struct Surface {
         uint32_t firstIndex = 0, indexCount = 0;
         int vertexCount = 0;
@@ -100,12 +100,12 @@ private:
     // One level of a model, from `data`; -1 with the reason in `error`.
     int add(const std::string &path, const std::vector<uint8_t> &data, int level, std::string *error);
 
-    gfx::Renderer3D &r_;
-    ShaderCache &shaders_;
-    const SearchSet &files_;
-    std::vector<Loaded> models_;
-    std::unordered_map<std::string, int> byPath_; // normalized; -1 for failures
-    std::unordered_map<std::string, Skin> skins_;
+    gfx::Renderer3D &_r;
+    ShaderCache &_shaders;
+    const SearchSet &_files;
+    std::vector<Loaded> _models;
+    std::unordered_map<std::string, int> _byPath; // normalized; -1 for failures
+    std::unordered_map<std::string, Skin> _skins;
 };
 
 } // namespace reluva::idtech3

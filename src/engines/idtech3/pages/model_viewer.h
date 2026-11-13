@@ -19,12 +19,12 @@ public:
     explicit ModelViewer(ViewerContext &ctx);
     ~ModelViewer() override;
     const char *name() const override { return "Models"; }
-    size_t count() const override { return entries_.size(); }
+    size_t count() const override { return _entries.size(); }
     void activate() override;
     void deactivate() override;
     void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
-    bool uses3D() const override { return renderer_ != nullptr; }
+    bool uses3D() const override { return _renderer != nullptr; }
 
 private:
     struct Entry {
@@ -34,29 +34,29 @@ private:
     void show(int index);
     void resetView();
 
-    std::vector<Entry> entries_;
-    int index_ = 0;
-    gfx::Renderer3D *renderer_ = nullptr;
-    std::unique_ptr<ShaderCache> shaders_;
-    std::unique_ptr<ModelCache> models_;
-    Surface overlay_;
-    std::vector<std::string> info_;
-    std::string error_;
-    int model_ = -1;                          // a single model
-    int lower_ = -1, upper_ = -1, head_ = -1; // a player's parts
-    const Skin *skins_[3] = {};
-    std::array<float, 3> center_{};
-    float radius_ = 32;
-    float yaw_ = 0, pitch_ = 0, distance_ = 100;
-    bool dragging_ = false, animate_ = false, showInfo_ = true;
-    bool torsoOnTag_ = true; // a player's torso placed on the legs' tag_torso (T toggles)
-    int lastX_ = 0, lastY_ = 0;
-    int frame_ = 0; // when not animating
-    uint64_t startMs_ = 0, lastMs_ = 0;
+    std::vector<Entry> _entries;
+    int _index = 0;
+    gfx::Renderer3D *_renderer = nullptr;
+    std::unique_ptr<ShaderCache> _shaders;
+    std::unique_ptr<ModelCache> _models;
+    Surface _overlay;
+    std::vector<std::string> _info;
+    std::string _error;
+    int _model = -1;                          // a single model
+    int _lower = -1, _upper = -1, _head = -1; // a player's parts
+    const Skin *_skins[3] = {};
+    std::array<float, 3> _center{};
+    float _radius = 32;
+    float _yaw = 0, _pitch = 0, _distance = 100;
+    bool _dragging = false, _animate = false, _showInfo = true;
+    bool _torsoOnTag = true; // a player's torso placed on the legs' tag_torso (T toggles)
+    int _lastX = 0, _lastY = 0;
+    int _frame = 0; // when not animating
+    uint64_t _startMs = 0, _lastMs = 0;
     // A player's animations (animation.cfg) and the pair playing.
-    std::vector<PlayerAnimation> anims_;
-    int legsAnim_ = 0, torsoAnim_ = 0;
-    float animTime_ = 0; // seconds into them
+    std::vector<PlayerAnimation> _anims;
+    int _legsAnim = 0, _torsoAnim = 0;
+    float _animTime = 0; // seconds into them
     void nextAnimation(int step);
 };
 

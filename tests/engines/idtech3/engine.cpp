@@ -250,9 +250,9 @@ void play(const SearchSet &set, Record &rec) {
         now += 50;
     };
     int ticks = 0;
-    for (; ticks < 40 && client.state() != ef::NetClient::State::Primed; ++ticks)
+    for (; ticks < 40 && client.state() != ef::NetClient::State::kPrimed; ++ticks)
         tick();
-    if (client.state() != ef::NetClient::State::Primed || !client.takeNewGamestate())
+    if (client.state() != ef::NetClient::State::kPrimed || !client.takeNewGamestate())
         return rec.fail("client.connect", "no game state after " + std::to_string(ticks) + " frames");
     {
         Hash cs;
@@ -269,7 +269,7 @@ void play(const SearchSet &set, Record &rec) {
         return rec.fail("cgame.load", e.message);
     cgame.setConfigstrings(client.configstrings());
     int32_t r = 0;
-    if (Error e = cgame.call(ef::CgameHost::Init, {0, 0, 0}, r))
+    if (Error e = cgame.call(ef::CgameHost::kInit, {0, 0, 0}, r))
         return rec.fail("cgame.init", e.message);
 
     network->setDropFilter([](const net::Address &, const net::Address &, size_t index) { return index % 4 == 3; });
@@ -349,21 +349,21 @@ void menus(const SearchSet &set, Record &rec) {
     if (Error e = ui.load())
         return rec.fail("menus.load", e.message);
     int32_t r = 0;
-    if (Error e = ui.call(ef::UiHost::Init, {}, r))
+    if (Error e = ui.call(ef::UiHost::kInit, {}, r))
         return rec.fail("menus.init", e.message);
     rec.add("menus.init", std::to_string(r) + ", printed " + std::to_string(ui.log().size()) + " characters");
-    ui.call(ef::UiHost::SetActiveMenu, {1});
+    ui.call(ef::UiHost::kSetActiveMenu, {1});
     Hash pictures;
     for (int frame = 0; frame < 5; ++frame) {
-        ui.call(ef::UiHost::MouseEvent, {7, 3});
-        ui.call(ef::UiHost::Refresh, {1000 + frame * 50}, r);
+        ui.call(ef::UiHost::kMouseEvent, {7, 3});
+        ui.call(ef::UiHost::kRefresh, {1000 + frame * 50}, r);
         for (const auto &p : ui.pictures())
             pictures.f32(p.x).f32(p.y).f32(p.w).f32(p.h).f32(p.s1).f32(p.t1).f32(p.s2).f32(p.t2).text(
                 ui.shaders().name(p.shader));
     }
     rec.add("menus.drawn", pictures.hex());
     for (int key : {'R' | 1024, 'e' | 1024, 'l' | 1024})
-        ui.call(ef::UiHost::KeyEvent, {key, 1});
+        ui.call(ef::UiHost::kKeyEvent, {key, 1});
     ui.call(27, {}, r);
     rec.add("menus.typed", r);
     cvars.set("ui_number", "16");
@@ -391,7 +391,7 @@ void engineTest(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("idtech3.engine",
-                                       {
-                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                       });
+static const reluva::test::Suite kSuite("idtech3.engine",
+                                        {
+                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                        });

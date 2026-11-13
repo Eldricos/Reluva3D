@@ -37,16 +37,16 @@ public:
     // Text in a block of `size` bytes, zero-filled (size 0: the text and
     // its NUL).
     void addText(uint32_t id, std::string_view text, size_t size = 0);
-    const std::vector<uint8_t> &bytes() const { return bytes_; }
+    const std::vector<uint8_t> &bytes() const { return _bytes; }
 
 private:
-    std::vector<uint8_t> bytes_;
+    std::vector<uint8_t> _bytes;
 };
 
 class SaveReader {
 public:
     SaveReader() = default;
-    explicit SaveReader(std::vector<uint8_t> bytes) : bytes_(std::move(bytes)) {}
+    explicit SaveReader(std::vector<uint8_t> bytes) : _bytes(std::move(bytes)) {}
     // The next chunk, which must be `id`; `length` (0: any) must match its
     // length. Fails naming what was found instead, or a damaged chunk.
     Error next(uint32_t id, std::vector<uint8_t> &out, size_t length = 0);
@@ -55,11 +55,11 @@ public:
     Error nextText(uint32_t id, std::string &out, size_t length = 0);
     // Whether the next chunk is `id` (without reading it).
     bool peek(uint32_t id) const;
-    bool atEnd() const { return position_ >= bytes_.size(); }
+    bool atEnd() const { return _position >= _bytes.size(); }
 
 private:
-    std::vector<uint8_t> bytes_;
-    size_t position_ = 0;
+    std::vector<uint8_t> _bytes;
+    size_t _position = 0;
 };
 
 } // namespace reluva::idtech3::raven
