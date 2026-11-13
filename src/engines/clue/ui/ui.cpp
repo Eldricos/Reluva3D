@@ -9,9 +9,6 @@ namespace reluva::clue {
 
 namespace {
 
-constexpr int kScreenWidth = 640;
-constexpr int kScreenHeight = 480;
-
 // An image of the interface: an animation's frame (its first layer) or,
 // for names of images ("menu:IprefsKnob"), the image itself.
 struct Picture {
@@ -178,8 +175,8 @@ DialogView::DialogView(const GameData &data, const Fonts &fonts, const ResiDialo
                 }
     }
     if (_width <= 0 || _height <= 0) {
-        _width = kScreenWidth - _x;
-        _height = kScreenHeight - _y;
+        _width = kScreenW - _x;
+        _height = kScreenH - _y;
     }
 }
 
@@ -533,6 +530,22 @@ int DialogView::handleEvent(const Event &ev) {
         return -1;
     default:
         return -1;
+    }
+}
+
+void fillRect(Surface &s, int x, int y, int w, int h, Color c) {
+    const int x0 = std::max(0, x);
+    const int y0 = std::max(0, y);
+    const int x1 = std::min(s.w, x + w);
+    const int y1 = std::min(s.h, y + h);
+    for (int yy = y0; yy < y1; ++yy) {
+        uint8_t *p = s.row(yy) + x0 * 4;
+        for (int xx = x0; xx < x1; ++xx, p += 4) {
+            p[0] = c.r;
+            p[1] = c.g;
+            p[2] = c.b;
+            p[3] = 255;
+        }
     }
 }
 

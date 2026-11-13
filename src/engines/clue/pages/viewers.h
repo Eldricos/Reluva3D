@@ -10,6 +10,7 @@
 #include "common/types.h"
 #include "engines/clue/game_data.h"
 #include "engines/clue/game/mansion.h"
+#include "engines/clue/ui/ui.h"
 #include "engines/clue/ui/movie.h"
 
 #include <cstdint>
@@ -18,17 +19,14 @@
 #include <string>
 #include <vector>
 
-// Data viewers the Clue engine shows until the game itself runs. Each
-// draws into the engine's 640x480 RGBA32 screen, with a line of information
+// The pages of the Clue engine's data viewer (viewer.cpp). Each draws into
+// the game's 640x480 RGBA32 screen, with a line of information
 // at the bottom, and reports its state in the window title.
 
 namespace reluva::clue {
 
-constexpr int kScreenW = 640;
-constexpr int kScreenH = 480;
-
-// Drawing helpers the viewers share (viewer_draw in image_viewer.cpp).
-void fillRect(Surface &s, int x, int y, int w, int h, Color c);
+// Drawing helpers the viewers share (in image_viewer.cpp), with fillRect
+// (ui.h).
 void drawCheckerboard(Surface &s, int y0, int y1);
 void drawInfo(Surface &s, const std::string &line1, const std::string &line2 = {});
 // An image with its top-left corner at (x, y), scaled up by a whole number.

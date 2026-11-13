@@ -16,22 +16,6 @@ constexpr int kInfoH = 26; // two lines of the built-in font
 
 } // namespace
 
-void fillRect(Surface &s, int x, int y, int w, int h, Color c) {
-    const int x0 = std::max(0, x);
-    const int y0 = std::max(0, y);
-    const int x1 = std::min(s.w, x + w);
-    const int y1 = std::min(s.h, y + h);
-    for (int yy = y0; yy < y1; ++yy) {
-        uint8_t *p = s.row(yy) + x0 * 4;
-        for (int xx = x0; xx < x1; ++xx, p += 4) {
-            p[0] = c.r;
-            p[1] = c.g;
-            p[2] = c.b;
-            p[3] = 255;
-        }
-    }
-}
-
 void drawCheckerboard(Surface &s, int y0, int y1) {
     for (int y = y0; y < y1; ++y)
         for (int x = 0; x < s.w; x += 8) {

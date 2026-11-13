@@ -73,8 +73,6 @@ public:
     void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     bool quit() const { return _quit; } // the player chose Exit Game, Yes
-    void leave();                       // stops the sound when the engine switches away
-    void resume();                      // and starts it again
 
 private:
     enum class Screen {

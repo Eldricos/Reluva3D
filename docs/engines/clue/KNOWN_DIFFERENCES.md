@@ -61,7 +61,7 @@ way-finder's way, as the original's do
 
 | What | Where |
 |---|---|
-| A viewer of the game's data: the mansion (scrolled, from above, near walls on or off), the videos, animations, images, sounds and text. **F9** switches to it and back. | [README.md](README.md#using-it) |
+| A viewer of the game's data: the mansion (scrolled, from above, near walls on or off), the videos, animations, images, sounds and text. In `reluva-viewer`, not in the game. | [README.md](README.md#using-it) |
 | Playing from the CD itself, or a copy of it, as well as from an install: the original has to be installed. Either language of the CD can be played. | [README.md](README.md#identification) |
 | A release that isn't in the detection table (another patch) is still found, as an unknown release. | [README.md](README.md#identification) |
 | The launcher's master volume, over the game's own sliders. | [preferences.md](systems/preferences.md) |

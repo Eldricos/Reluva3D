@@ -11,27 +11,17 @@
 //
 // The game starts as the original does: its intro, then its menus, the
 // players' set-up and the game in the mansion, alone or over a network
-// (frontend.h, play.h). F9 switches to a viewer of the
-// game's data (the mansion, videos, animations, images, sounds and text;
-// see viewers.h for the keys), where Tab moves between its pages and F9 or
-// Esc goes back.
+// (frontend.h, play.h). Its data viewer is pages/viewer.cpp's, in
+// reluva-viewer.
 
 #include "common/fs.h"
 #include "common/settings.h"
 #include "engines/clue/ui/frontend.h"
-#include "engines/clue/pages/viewers.h"
 #include "engines/engine.h"
 
 namespace reluva {
 
 namespace {
-
-using clue::AnimationViewer;
-using clue::ImageViewer;
-using clue::MansionViewer;
-using clue::VideoViewer;
-using clue::SoundViewer;
-using clue::TextViewer;
 
 // Detection. Clue.exe tells the version (the 2.2 patch replaces it): its
 // signature (the size and the MD5 of the first kDetectionHashBytes bytes,
@@ -76,112 +66,17 @@ public:
                             _target.savePath.empty() ? std::filesystem::path() : _target.savePath / "preferences.ini");
         if (Error err = game.open())
             return err;
-        bool viewing = false; // the data viewer instead of the game
-
-        MansionViewer mansion(_sys, _screen, _data);
-        VideoViewer videos(_sys, _screen, _data, audioOut ? &mixer : nullptr);
-        AnimationViewer animations(_sys, _screen, _data);
-        ImageViewer images(_sys, _screen, _data);
-        SoundViewer sounds(_sys, _screen, _data, audioOut ? &mixer : nullptr);
-        TextViewer texts(_sys, _screen, _data);
-        // Viewer 0 shows the mansion (or why it can't), 1 videos, 2
-        // animations, 3 images, 4 sounds, 5 text; Tab moves to the next one
-        // that has something to show.
-        constexpr int kViewers = 6;
-        const size_t counts[kViewers] = {
-            1, videos.count(), animations.count(), images.count(), sounds.count(), texts.count()};
-        int viewer = 0;
-        const auto activate = [&] {
-            if (viewer == 0)
-                mansion.activate();
-            else if (viewer == 1)
-                videos.activate();
-            else if (viewer == 2)
-                animations.activate();
-            else if (viewer == 3)
-                images.activate();
-            else if (viewer == 4)
-                sounds.activate();
-            else
-                texts.activate();
-        };
-        const auto leaveViewer = [&] {
-            if (viewer == 1)
-                videos.deactivate();
-            else if (viewer == 4)
-                sounds.deactivate();
-            viewing = false;
-            game.resume();
-        };
 
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
                 if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 8) { // F9
-                    if (viewing) {
-                        leaveViewer();
-                    } else {
-                        game.leave();
-                        viewing = true;
-                        activate();
-                    }
-                    continue;
-                }
-                if (!viewing) {
-                    game.handleEvent(ev);
-                    continue;
-                }
-                if (viewer == 0) {
-                    // Tab, and Esc outside the overview, are the engine's;
-                    // the rest is the mansion's (the mouse too).
-                    const bool keyDown = ev.type == EventType::kKeyDown;
-                    if (!(keyDown && (ev.key == key::kTab || (ev.key == key::kEscape && !mansion.overview())))) {
-                        mansion.handleEvent(ev);
-                        continue;
-                    }
-                }
-                if (ev.type != EventType::kKeyDown)
-                    continue;
-                if (ev.key == key::kEscape) {
-                    leaveViewer();
-                    continue;
-                }
-                if (ev.key == key::kTab) {
-                    if (viewer == 1)
-                        videos.deactivate();
-                    else if (viewer == 4)
-                        sounds.deactivate();
-                    do
-                        viewer = (viewer + 1) % kViewers;
-                    while (counts[viewer] == 0);
-                    activate();
-                    continue;
-                }
-                if (viewer == 1)
-                    videos.handleKey(ev.key);
-                else if (viewer == 2)
-                    animations.handleKey(ev.key);
-                else if (viewer == 3)
-                    images.handleKey(ev.key);
-                else if (viewer == 4)
-                    sounds.handleKey(ev.key);
-                else if (viewer == 5)
-                    texts.handleKey(ev.key);
+                game.handleEvent(ev);
             }
-            if (!viewing) {
-                game.update(_sys.getMillis());
-                if (game.quit())
-                    return Error::success();
-            } else if (viewer == 0)
-                mansion.update(_sys.getMillis());
-            else if (viewer == 1)
-                videos.update(_sys.getMillis());
-            else if (viewer == 2)
-                animations.update(_sys.getMillis());
-            else if (viewer == 4)
-                sounds.update(_sys.getMillis());
+            game.update(_sys.getMillis());
+            if (game.quit())
+                return Error::success();
             _sys.updateScreen(_screen);
             _sys.delayMillis(10);
         }

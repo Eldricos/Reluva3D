@@ -17,16 +17,23 @@ reluva_add_engine(clue
         game/netplay.cpp
         game/play.cpp
         game/rules.cpp
+        ui/frontend.cpp
+        ui/frontend_net.cpp
+        ui/movie.cpp
+        ui/ui.cpp)
+
+# Its data viewer (the mansion, videos, animations, images, sounds, text),
+# in reluva-viewer.
+reluva_add_engine_viewers(clue
+    ACCESSOR clueMetaViewer
+    SOURCES
+        pages/viewer.cpp
         pages/animation_viewer.cpp
         pages/image_viewer.cpp
         pages/mansion_viewer.cpp
         pages/sound_viewer.cpp
         pages/text_viewer.cpp
-        pages/video_viewer.cpp
-        ui/frontend.cpp
-        ui/frontend_net.cpp
-        ui/movie.cpp
-        ui/ui.cpp)
+        pages/video_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help clue lists them).
 reluva_add_engine_tools(clue

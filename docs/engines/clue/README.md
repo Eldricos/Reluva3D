@@ -93,8 +93,10 @@ original's games, and network play to be tried between real machines.
 
 The game itself, its menus and its keys: [systems/playing.md](systems/playing.md).
 
-**F9** switches between the game and a viewer of its data (and back;
-**Esc** also goes back). **Tab** switches between the viewer's pages.
+A viewer of the game's data opens in `reluva-viewer`, not in the game:
+from its list, or as `reluva-viewer <name>` (a game added in the launcher)
+or `reluva-viewer <folder>`. **Tab** switches between
+its pages, **Esc** leaves it.
 
 - **The mansion**, first: **arrows** or a mouse drag scroll (**Shift**
   faster), **Home** goes back to the middle, **M** shows the whole house

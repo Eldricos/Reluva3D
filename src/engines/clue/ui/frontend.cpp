@@ -7,8 +7,6 @@
 
 #include "engines/clue/ui/frontend.h"
 
-#include "engines/clue/pages/viewers.h"
-
 #include "audio/decode.h"
 #include "common/fs.h"
 
@@ -165,29 +163,6 @@ Error FrontEnd::open() {
     _sys.setMouseCursorVisible(false);
     go(Screen::kIntro);
     return Error::success();
-}
-
-void FrontEnd::leave() {
-    if (_mixer && _stormSound != audio::kNoSound)
-        _mixer->stop(_stormSound);
-    _stormSound = audio::kNoSound;
-    if (_play)
-        _play->stopSounds();
-    stopMovie();
-    stopMusic();
-    _sys.setMouseCursorVisible(true);
-}
-
-void FrontEnd::resume() {
-    _sys.setWindowTitle(gameTitle(_data.language()));
-    _sys.setMouseCursorVisible(false);
-    if (_at == Screen::kGame || overGame())
-        playMusic(true);
-    else if (_at == Screen::kPicker || _at == Screen::kSetup || _at == Screen::kNetLobby || _at == Screen::kNetSetup ||
-             _at == Screen::kPrefs)
-        playMusic(false);
-    if (_at == Screen::kIntro || _at == Screen::kDeal)
-        go(_afterMovie);
 }
 
 std::string FrontEnd::readText(const std::string &file) const {
