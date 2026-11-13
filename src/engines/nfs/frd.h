@@ -969,6 +969,11 @@ void aiTiltedAxes(const TrackCollision& col, const AiCar& car, std::array<float,
                   std::array<float, 3>& right, std::array<float, 3>& up);
 // The roll and pitch that give the body this up in the world.
 void aiSetTilt(AiCar& car, const TrackCollision& col, const std::array<float, 3>& up);
+// The yaw, roll and pitch that give the body's unit axes this forward and
+// up (orthonormal): the yaw taken again until the forward's direction
+// across the world is the one wanted, the roll and pitch from the up.
+void aiSetFrame(AiCar& car, const TrackCollision& col, const std::array<float, 3>& forward,
+                const std::array<float, 3>& up);
 // A car's world velocity, and its body's forward, right and up (its yaw on
 // the road's up), as the model has them.
 std::array<float, 3> aiVelocity(const TrackCollision& col, const AiCar& car);

@@ -2019,10 +2019,27 @@ void aiAirTurn(AiCar& car, const TrackCollision& col) {
     const std::array<float, 3> w{car.spinX, 0, car.spinZ};
     car.rollRate = dot3(w, f);
     car.pitchRate = -dot3(w, r);
-    car.roll += car.rollRate / 32.0f;
-    car.pitch += car.pitchRate / 32.0f;
-    car.roll -= std::nearbyint(car.roll);
-    car.pitch -= std::nearbyint(car.pitch);
+    // 0x4a2cc0 turns all three rows about the world's x and z by the spins /
+    // 32 turns (with the yaw's y, here aiAdvance's), so the forward turns
+    // with the up: a spin with a part along the body's up turns the car's
+    // heading too, which rates about its forward and right alone (the
+    // roll and pitch) can't. The unit axes turned by w x 2 pi / 32 about w
+    // (to first order the game's x, y, z turns one after another), then
+    // the yaw, roll and pitch that give both (aiSetFrame).
+    std::array<float, 3> uf{}, ur{}, uu{};
+    aiUnitAxes(col, car, uf, ur, uu);
+    const float angle = std::sqrt(dot3(w, w)) * 2 * kPi / 32.0f;
+    if (angle > 0) {
+        const std::array<float, 3> axis = unit3(w);
+        const float c = std::cos(angle), s = std::sin(angle);
+        auto turn = [&](const std::array<float, 3>& v) {
+            const std::array<float, 3> x = cross3(axis, v);
+            const float a = dot3(axis, v) * (1 - c);
+            return std::array<float, 3>{v[0] * c + x[0] * s + axis[0] * a, v[1] * c + x[1] * s + axis[1] * a,
+                                        v[2] * c + x[2] * s + axis[2] * a};
+        };
+        aiSetFrame(car, col, turn(uf), turn(uu));
+    }
 }
 
 // car_landing (0x4a1ce0), each tick in the air with the clearance at
@@ -2044,16 +2061,19 @@ void aiAirTurn(AiCar& car, const TrackCollision& col) {
 // speed into the road, +0x170 the surface | 0x10000) goes to no computer
 // car's controller: the impacts task reacts to hits by other cars only
 // (+0x16C set, 0x42b99d).
-void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>& nu, float upright,
-               const std::array<float, 3>& r, const std::array<float, 3>& u, const std::array<float, 3>& f) {
-    const int n = static_cast<int>(col.road.size());
-    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
-    const std::array<float, 3> up = me.roadUpSet ? me.roadUp : nu;
-    // The body's centre: the page's place with the box's lowest corner on
-    // the road polygon's plane (aiCentreHeight), and the clearance over it.
+// The body's centre (+0x98) as the page keeps it: its place on the
+// slice's plane, raised along that plane's normal until the box's lowest
+// corner is on the road polygon's plane (aiCentreHeight), and the
+// clearance (`lift`) over it along the polygon's up `up`; with no polygon
+// set, the box's reach and the clearance along `up` from the place. The
+// plane's point comes back in `point`.
+std::array<float, 3> aiBodyCentre(const TrackCollision& col, const AiCar& me, const std::array<float, 3>& up,
+                                  const std::array<float, 3>& r, const std::array<float, 3>& u,
+                                  const std::array<float, 3>& f, std::array<float, 3>& point) {
     std::array<float, 3> m{};
     const float h = aiCentreHeight(col, me, m);
-    std::array<float, 3> centre = aiPlace(col, me), point = me.roadUpSet ? me.roadPoint : centre;
+    std::array<float, 3> centre = aiPlace(col, me);
+    point = me.roadUpSet ? me.roadPoint : centre;
     if (h != 0) {
         for (size_t k = 0; k < 3; ++k)
             centre[k] += h * m[k] + me.lift * up[k];
@@ -2064,12 +2084,45 @@ void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>&
         for (size_t k = 0; k < 3; ++k)
             centre[k] += (reach + me.lift) * up[k];
     }
+    return centre;
+}
+
+// A move of the body's centre (a road contact's push, a hit's push apart):
+// its part along the road polygon's up `up` goes to the clearance, the
+// rest moves the place across the slice's plane (aiLocate drops the part
+// along that plane's normal), which keeps the box's corner where it was
+// against the polygon's plane.
+void aiMoveCentre(AiCar& me, const TrackCollision& col, const std::array<float, 3>& up,
+                  const std::array<float, 3>& moved) {
+    if (moved == std::array<float, 3>{0, 0, 0})
+        return;
+    me.lift += dot3(moved, up);
+    const std::array<float, 3> place = aiPlace(col, me);
+    aiLocate(me, col, {place[0] + moved[0], place[1] + moved[1], place[2] + moved[2]});
+}
+
+void aiLanding(AiCar& me, const TrackCollision& col, const std::array<float, 3>& nu, float upright,
+               const std::array<float, 3>& r, const std::array<float, 3>& u, const std::array<float, 3>& f) {
+    const int n = static_cast<int>(col.road.size());
+    const auto& here = col.road[size_t(((me.slice % n) + n) % n)];
+    const std::array<float, 3> up = me.roadUpSet ? me.roadUp : nu;
+    std::array<float, 3> point{};
+    std::array<float, 3> centre = aiBodyCentre(col, me, up, r, u, f, point);
     float clearance = me.lift;
     if (dot3(me.vel, up) < 0) {
         float raised = 0;
-        if (aiBodyUnderRoad(me, centre, up, point, r, u, f, raised)) {
+        const std::array<float, 3> before = centre;
+        const bool under = aiBodyUnderRoad(me, centre, up, point, r, u, f, raised);
+        // car_contact_impulse (0x42ee10) moves +0x98 out along the point's
+        // polygon's up by its depth before it tests the momentum, so a point
+        // under the road moving away is pushed out too, and the push is the
+        // whole vector, not only its part along this polygon's up: that part
+        // goes to the clearance (`lift`), the rest moves the place across
+        // the slice's plane (the page keeps its place on it).
+        (void)raised;
+        aiMoveCentre(me, col, up, {centre[0] - before[0], centre[1] - before[1], centre[2] - before[2]});
+        if (under) {
             clearance = 0;
-            me.lift += raised;
             if (upright > 0.9f) {
                 double e = static_cast<double>(me.suspStiffness * 0.1f * 1.0f);
                 e = e < 0 ? 0 : (e > 0.2 ? 0.2 : e);
@@ -4289,6 +4342,26 @@ void aiSetTilt(AiCar& c, const TrackCollision& col, const std::array<float, 3>& 
     c.roll = cp > 1e-6f ? std::atan2(-dot3(b, r) / cp, dot3(b, u) / cp) / kTurn : 0;
 }
 
+void aiSetFrame(AiCar& c, const TrackCollision& col, const std::array<float, 3>& forward,
+                const std::array<float, 3>& up) {
+    if (col.road.size() < 2)
+        return;
+    // The model's forward is its yaw's line laid on its tilted up
+    // (aiUnitAxes), whose direction across the world is not quite the
+    // yaw's: a few passes of the difference.
+    const float want = std::atan2(forward[0], forward[2]);
+    c.yaw = want;
+    for (int pass = 0; pass < 8; ++pass) {
+        aiSetTilt(c, col, up);
+        std::array<float, 3> f{}, r{}, u{};
+        aiUnitAxes(col, c, f, r, u);
+        const float d = std::remainder(want - std::atan2(f[0], f[2]), 2 * kPi);
+        if (std::fabs(d) < 1e-7f)
+            break;
+        c.yaw = std::remainder(c.yaw + d, 2 * kPi);
+    }
+}
+
 float aiCarMass(float carpMass, bool racer) {
     return racer ? carpMass * (1.0f / 1.2f) : carpMass; // 1 / 0x5efdb8 (1.2, 0x3f99999a), kept as a float
 }
@@ -4321,12 +4394,14 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
         // too (in the air, up to metres).
         if (c.sideKept)
             aiWorldIn(col, c);
-        const Vec3 up = unit3(a.normal);
-        for (size_t k = 0; k < 3; ++k)
-            box.at[k] = a.position[k] + a.right[k] * c.lateral + (b.position[k] - a.position[k]) * c.along +
-                        up[k] * (c.halfHeight + c.lift);
+        // +0x98 as aiLanding has it (aiBodyCentre): the box's lowest corner
+        // on the road polygon's plane, the clearance over it; a tilted body's
+        // centre is higher than its half height.
+        (void)b;
         box.velocity = aiVelocity(col, c);
         aiTiltedAxes(col, c, box.forward, box.right, box.up);
+        std::array<float, 3> point{};
+        box.at = aiBodyCentre(col, c, c.roadUpSet ? c.roadUp : unit3(a.normal), box.right, box.up, box.forward, point);
         box.half = {c.halfWidth, c.halfHeight, c.halfLength};
         box.mass = c.mass;
         // The spins on the world's axes (+0xE4, +0xE8, +0xEC).
@@ -4351,11 +4426,10 @@ void aiCollide(std::vector<AiCar>& cars, const TrackCollision& col, int step, st
         c.spinZ += now.spin[2] - was.spin[2];
         // Its place: the point back across the line from its slice's point
         // to the next's, on to the slice it is now on.
-        const Vec3 up = unit3(col.road[size_t(wrap(c.slice))].normal);
-        if (now.at != was.at) {
-            aiLocate(c, col, vSub(now.at, vScale(up, c.halfHeight + c.lift)));
-            c.lift += vDot(vSub(now.at, was.at), up); // the push apart's part along the road's up
-        }
+        // The push apart (aiMoveCentre): along the road polygon's up to the
+        // clearance, the rest across the slice's plane.
+        const Vec3 up = c.roadUpSet ? c.roadUp : unit3(col.road[size_t(wrap(c.slice))].normal);
+        aiMoveCentre(c, col, up, vSub(now.at, was.at));
         c.side = aiMeasuredSide(col, c);
         c.sideKept = true;
         aiViews(col, c);

@@ -2934,7 +2934,7 @@ and right), with the box's centre over the road by its clearance and
 turned by its roll and pitch, as the game's +0x98 and +0xC0 are; the
 drawn car is over the road by its clearance. What the page can't do as
 the game does: its place stays on the slice's plane with the height in
-`lift` (the clearance), so a contact's push changes `lift` only; and
+`lift` (the clearance), so a contact's push changed `lift` only (since `s7r` its rest moves the place across the slice's plane: A landing on a corner, below); and
 with no track polygons (the tests) all eight points are tested against
 the car's own plane.
 
@@ -2991,6 +2991,67 @@ cars 1 and 4 rub along each other from 73.8 s and fall to 20-30 m/s
 changes, 895 decisions and 3.35 m/s; the boxes' height and tilt 125, 875
 and 3.30; the air's turn after the dynamics 125, 872 and 3.99. Each is
 the game's code, so all are kept.
+
+**A landing on a corner, the position and the turn** (November 2026,
+`s7r-runs`; read with `gdecomp` and `asm` of `car_landing` `0x4a1ce0`,
+`car_body_under_road` `0x4a1210`, `car_contact_impulse` `0x42ee10`,
+`car_integrate_turn` `0x4a2e20` and `0x4a2cc0`; checked with `landchk`
+against `r1-runs/u1` `u1-a5` and `s5-runs/u1-l5`):
+
+- `car_contact_impulse` moves +0x98 by −depth × the polygon's up
+  (`0x42ee68`-`0x42ee9b`) **before** it tests the momentum (`0x42ef2d`), so a point
+  under the road moving away is pushed out too (in `u1-l5` point 2 at
+  62.016 s), and the push is the whole vector. The page had added only
+  the push's part along the car's polygon's up to `lift`, and only when an
+  impulse was taken. Now (`aiMoveCentre`, from `aiLanding` and
+  `aiCollide`) the part along the polygon's up goes to `lift` and the rest
+  moves the place across the slice's plane (`aiLocate`), whether or not an
+  impulse followed. On Hometown's slice 1 the polygons' ups are within
+  0.008 of the slice's, so this moves the place by under a millimetre in
+  `u1-l5`.
+- **The turn in the air is the rows' turn.** `0x4a2cc0` multiplies all
+  three rows by turns about the world's y, x and z (the spins / 32), so a
+  spin about x or z with a part along the body's up turns the car's
+  forward across the world as well. The page turned its roll and pitch by
+  the spin's parts along its forward and right only (`aiAirTurn`) and so
+  lost that part: seeded from `u1-l5` at 61.837 s (cop B at 47°, spins
+  −0.105, 0.001, 0.113), its forward was 0.03 off the game's +0xD8 one
+  tick after the first touch. Now the unit axes are turned about the spin
+  vector by |w| × 2π / 32 (to first order the game's three turns) and the
+  yaw, roll and pitch are taken from the turned forward and up
+  (`aiSetFrame`, which also seeds a dumped car's yaw so its forward is
+  the dump's; `aiSetWorld`'s yaw is the forward's direction, which for a
+  tilted body isn't the page's yaw).
+- **The hits' boxes are centred on the body's centre.** `car_collisions_task`
+  takes +0x98; the page put its box at the place + (half height +
+  `lift`) along the slice's normal, which for a body tilted 48° is 0.6 m
+  under its centre (the box's reach along the up is 1.37 m, not 0.74).
+  Now the box's centre is the one the landing uses (`aiBodyCentre`: the
+  box's lowest corner on the road polygon's plane, the clearance over
+  it), and the push apart goes through `aiMoveCentre`.
+
+Seeded from `u1-l5`'s dump at 61.837 s with the clearance measured from
+the dumped centre, plane and rows (the dump's +0x15C is taken before the
+tick's moves) and the yaw fitted (`landchk2`, `FITYAW`, `TRUECL`), cars
+2 and 0: the first touch (61.923 s) is point 1 alone at depth −0.0950
+(the game's −0.0952, the point within 6 mm), spins 0.134, 0.003, 0.288
+(0.133, 0.003, 0.288); the next tick points 1 and 2 at −0.0118 and
+−0.2715 (−0.0109, −0.2729) and car A's box meets B's as in the game,
+both cars' spins to 0.001 (B 0.067, 0.007, 0.111; A −0.029, −0.004,
+−0.166; the game's −0.030). Then point 2 at −0.081 (−0.092), and A's
+second hit comes a tick after the game's. Over the next 1.2 s B's
++0x10C follows the game's within 0.01-0.02 (0.651 at its lowest, the
+game's 0.653) and it comes out of air mode on its wheels at 62.74 s
+(62.83 s); before, it rocked at 0.58-0.68 against the game's 0.65-0.78.
+
+The comparison (`s7r-runs/all.sh`): the pushes in full alone (with the
+hits' push apart through `aiMoveCentre`) gave lane changes 129, decisions
+to 78 s 884, the whole window's speeds 3.28 m/s rms, hits 55; the turn
+changed nothing in this window; with the boxes on the body's centre 120
+lane changes (the game's 143; 125 before), decisions to 56 s 324 of 338
+and to 78 s **913** of 1,568 (872), speeds 0.44 m/s rms over 50-64 s and
+**3.05** over the window (3.99), hits 38 (66). The first hit is still
+cars 3 and 4 at 64.94 s.
 
 **The reset of a tipped car** (November 2026, `s7r-runs`; read with
 `gdecomp` and `asm` of `car_impacts_task` `0x42b900`, `car_reset_timer`

@@ -1884,6 +1884,50 @@ void testComputerAir() {
         }
         CHECK(parseCarpAi(carp, d) && d.suspStiffness == 1.5f);
     }
+    // aiSetFrame: any forward and up come back from the yaw, roll and pitch.
+    {
+        AiCar c = make(0, {0, 0, 0});
+        auto dot3 = [](const std::array<float, 3>& a, const std::array<float, 3>& b) {
+            return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        };
+        auto unit3 = [&](const std::array<float, 3>& a) {
+            const float l = std::sqrt(dot3(a, a));
+            return std::array<float, 3>{a[0] / l, a[1] / l, a[2] / l};
+        };
+        const std::array<float, 3> up = unit3({-0.4942f, 0.7313f, -0.4701f});
+        std::array<float, 3> fw = unit3({0.6840f, -0.0067f, -0.7294f});
+        const float k = dot3(fw, up);
+        fw = unit3({fw[0] - k * up[0], fw[1] - k * up[1], fw[2] - k * up[2]});
+        aiSetFrame(c, col, fw, up);
+        std::array<float, 3> f{}, r{}, u{};
+        aiTiltedAxes(col, c, f, r, u);
+        for (size_t i = 0; i < 3; ++i) {
+            CHECK(std::fabs(f[i] - fw[i]) < 1e-4f && std::fabs(u[i] - up[i]) < 1e-4f);
+        }
+    }
+    // In the air the body turns as 0x4a2cc0 turns its rows, about the
+    // world's axes: rolled 45 degrees, a spin about the world's z (which
+    // has a part along the body's up) turns its forward across the world
+    // too, as the rows do.
+    {
+        AiCar c = make(3, {0, 0, 0});
+        c.roll = 0.125f;
+        c.spinX = 0.5f;
+        std::array<float, 3> f0{}, r0{}, u0{};
+        aiTiltedAxes(col, c, f0, r0, u0);
+        aiSteerStep(c, col, 2);
+        std::array<float, 3> f1{}, r1{}, u1{};
+        aiTiltedAxes(col, c, f1, r1, u1);
+        const float a = 0.5f * 2 * 3.14159265f / 32;
+        auto turnX = [&](const std::array<float, 3>& v) {
+            return std::array<float, 3>{v[0], v[1] * std::cos(a) - v[2] * std::sin(a),
+                                        v[1] * std::sin(a) + v[2] * std::cos(a)};
+        };
+        const std::array<float, 3> fw = turnX(f0), up = turnX(u0);
+        for (size_t i = 0; i < 3; ++i) {
+            CHECK(std::fabs(f1[i] - fw[i]) < 1e-3f && std::fabs(u1[i] - up[i]) < 1e-3f);
+        }
+    }
     // On its roof car_on_road (0x4a1b18) takes the body's up on the side
     // it is on: a car rolled 170 degrees is turned on to its roof, not back
     // over; flat on its roof its spins about x and z are 0.
