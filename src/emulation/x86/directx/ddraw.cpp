@@ -341,11 +341,11 @@ namespace reluva::x86 {
 DirectX::~DirectX() = default;
 
 const DirectX::Frame &DirectX::frame() const {
-    return s_->frame;
+    return _s->frame;
 }
 
-DirectX::DirectX(Win32Process &process) : s_(std::make_unique<State>(*this, process)) {
-    State *s = s_.get();
+DirectX::DirectX(Win32Process &process) : _s(std::make_unique<State>(*this, process)) {
+    State *s = _s.get();
     dx::Interfaces &i = s->interfaces;
     for (ComInterface *f : {&i.directDraw, &i.directDraw2, &i.directDraw4, &i.directDraw7, &i.surface, &i.surface2,
                             &i.surface3, &i.surface4, &i.surface7, &i.palette, &i.clipper, &i.gammaControl,

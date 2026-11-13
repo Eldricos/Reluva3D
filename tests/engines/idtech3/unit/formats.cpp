@@ -162,12 +162,12 @@ env/sky
     CHECK(d.deforms[0].type == ShaderDeform::Type::kWave && d.deforms[0].spread == 1.0f / 64);
     CHECK(d.deforms[0].wave.amplitude == 3 && d.deforms[0].wave.frequency == 0.5f);
     CHECK(d.deforms[1].type == ShaderDeform::Type::kMove && d.deforms[1].vector[2] == 1 &&
-          d.deforms[1].wave.func == gfx::WaveFunc::Sawtooth && d.deforms[1].wave.amplitude == 8);
+          d.deforms[1].wave.func == gfx::WaveFunc::kSawtooth && d.deforms[1].wave.amplitude == 8);
     CHECK(d.deforms[2].type == ShaderDeform::Type::kAutosprite);
     CHECK((d.unknown == std::vector<std::string>{"efmadeupdirective", "efstagething"}));
 
     const ShaderStage &a = d.stages[0];
-    CHECK(a.rgbGen == ShaderStage::RgbGen::kWave && a.rgbWave.func == gfx::WaveFunc::Triangle &&
+    CHECK(a.rgbGen == ShaderStage::RgbGen::kWave && a.rgbWave.func == gfx::WaveFunc::kTriangle &&
           a.rgbWave.phase == 0.25f && a.rgbWave.frequency == 2);
     CHECK(a.alphaGen == ShaderStage::AlphaGen::kConst && a.alphaConst == 0.4f);
     CHECK(a.tcGen == ShaderStage::TcGen::kVector && a.tcVectors[0][0] == 0.01f && a.tcVectors[1][1] == 0.01f);
@@ -180,7 +180,7 @@ env/sky
         CHECK(a.tcMods[3].type == M::kStretch && a.tcMods[3].wave.base == 1 && a.tcMods[3].wave.amplitude == 0.2f);
         CHECK(a.tcMods[4].type == M::kTransform && a.tcMods[4].v[4] == 0.5f && a.tcMods[4].v[5] == 0.25f);
     }
-    CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::Ge128);
+    CHECK(a.depthEqual && a.depthWrite && a.alphaFunc == gfx::AlphaTest::kGe128);
 
     const ShaderStage &b = d.stages[1];
     CHECK(b.whiteImage && b.rgbGen == ShaderStage::RgbGen::kConst && b.rgbConst[1] == 0.5f && b.rgbConst[2] == 1);
@@ -195,20 +195,20 @@ env/sky
 
 static void testWaves() {
     auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-4f; };
-    gfx::Wave w{gfx::WaveFunc::Sin, 1, 2, 0, 1};
+    gfx::Wave w{gfx::WaveFunc::kSin, 1, 2, 0, 1};
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.75f), -1));
-    w.func = gfx::WaveFunc::Triangle;
+    w.func = gfx::WaveFunc::kTriangle;
     CHECK(approx(gfx::evaluate(w, 0.25f), 3) && approx(gfx::evaluate(w, 0.5f), 1) &&
           approx(gfx::evaluate(w, 0.75f), -1));
-    w.func = gfx::WaveFunc::Square;
+    w.func = gfx::WaveFunc::kSquare;
     CHECK(approx(gfx::evaluate(w, 0.1f), 3) && approx(gfx::evaluate(w, 0.6f), -1));
-    w.func = gfx::WaveFunc::Sawtooth;
+    w.func = gfx::WaveFunc::kSawtooth;
     CHECK(approx(gfx::evaluate(w, 0.25f), 1.5f) && approx(gfx::evaluate(w, 1.25f), 1.5f));
-    w.func = gfx::WaveFunc::InverseSawtooth;
+    w.func = gfx::WaveFunc::kInverseSawtooth;
     CHECK(approx(gfx::evaluate(w, 0.25f), 2.5f));
-    w = {gfx::WaveFunc::Sin, 0, 1, 0.25f, 0}; // no frequency: constant, set by the phase
+    w = {gfx::WaveFunc::kSin, 0, 1, 0.25f, 0}; // no frequency: constant, set by the phase
     CHECK(approx(gfx::evaluate(w, 0), 1) && approx(gfx::evaluate(w, 100), 1));
-    w.func = gfx::WaveFunc::Noise;
+    w.func = gfx::WaveFunc::kNoise;
     w.frequency = 1;
     for (float t = 0; t < 5; t += 0.37f)
         CHECK(gfx::evaluate(w, t) >= -1 && gfx::evaluate(w, t) <= 1);

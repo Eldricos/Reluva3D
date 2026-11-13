@@ -67,7 +67,7 @@ void SoundViewer::play() {
     // Music is the CD's tracks; the rest is speech (the suspects' lines)
     // and effects, which share the effects volume here.
     const std::string name = fs::toLower(path.filename().string());
-    const auto type = name.rfind("track", 0) == 0 ? audio::SoundType::Music : audio::SoundType::Effects;
+    const auto type = name.rfind("track", 0) == 0 ? audio::SoundType::kMusic : audio::SoundType::kEffects;
     _playing = _mixer->play(_sound, type);
 }
 
@@ -77,26 +77,26 @@ void SoundViewer::handleKey(uint32_t key) {
     const int n = int(_files.size());
     const int before = _current;
     switch (key) {
-    case key::Right:
+    case key::kRight:
         _current = std::min(n - 1, _current + 1);
         break;
-    case key::Left:
+    case key::kLeft:
         _current = std::max(0, _current - 1);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _current = std::min(n - 1, _current + 10);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _current = std::max(0, _current - 10);
         break;
-    case key::Home:
+    case key::kHome:
         _current = 0;
         break;
-    case key::End:
+    case key::kEnd:
         _current = n - 1;
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         if (_mixer && _playing != audio::kNoSound && _mixer->isPlaying(_playing))
             stop();
         else

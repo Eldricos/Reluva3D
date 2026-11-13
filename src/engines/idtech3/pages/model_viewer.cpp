@@ -212,20 +212,20 @@ void ModelViewer::resetView() {
 void ModelViewer::handleEvent(const Event &ev) {
     if (!_renderer || _entries.empty())
         return;
-    if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kKeyDown) {
         const int n = static_cast<int>(_entries.size());
         int i = _index;
-        if (ev.key == key::Left)
+        if (ev.key == key::kLeft)
             i = (i + n - 1) % n;
-        else if (ev.key == key::Right)
+        else if (ev.key == key::kRight)
             i = (i + 1) % n;
-        else if (ev.key == key::PageUp)
+        else if (ev.key == key::kPageUp)
             i = std::max(0, i - 10);
-        else if (ev.key == key::PageDown)
+        else if (ev.key == key::kPageDown)
             i = std::min(n - 1, i + 10);
-        else if (ev.key == key::Home)
+        else if (ev.key == key::kHome)
             i = 0;
-        else if (ev.key == key::End)
+        else if (ev.key == key::kEnd)
             i = n - 1;
         else if (ev.key == 'a')
             _animate = !_animate;
@@ -247,18 +247,18 @@ void ModelViewer::handleEvent(const Event &ev) {
             _distance /= 0.9f;
         if (i != _index)
             show(i);
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         _dragging = false;
-    } else if (ev.type == EventType::MouseMove && _dragging) {
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
         _yaw -= float(ev.mouseX - _lastX) * 0.01f;
         _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseWheel) {
+    } else if (ev.type == EventType::kMouseWheel) {
         _distance = std::max(_radius * 0.3f, _distance * std::pow(0.9f, float(ev.wheelY)));
     }
 }

@@ -190,7 +190,7 @@ private:
 
 Event keyDown(int key) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = key;
     return e;
 }
@@ -285,20 +285,20 @@ void engineTest(const std::filesystem::path &tmp) {
     GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {
-        {100, keyDown(key::Tab)},    // models
-        {150, keyDown('h')},         // its hidden parts shown
-        {200, keyDown(key::Right)},  // the next model
-        {250, keyDown(' ')},         // its animation paused
-        {300, keyDown(key::Tab)},    // textures
-        {400, keyDown(key::Tab)},    // fonts
-        {450, keyDown('p')},         // its pages
-        {500, keyDown(key::Tab)},    // sounds
-        {550, keyDown(key::Space)},  // played
-        {800, keyDown(key::Tab)},    // text
-        {850, keyDown(key::Right)},  // the next file
-        {900, keyDown(key::Down)},   // scrolled
-        {1000, keyDown(key::Tab)},   // back to the archives
-        {1100, keyDown(key::Escape)} // to the launcher
+        {100, keyDown(key::kTab)},    // models
+        {150, keyDown('h')},          // its hidden parts shown
+        {200, keyDown(key::kRight)},  // the next model
+        {250, keyDown(' ')},          // its animation paused
+        {300, keyDown(key::kTab)},    // textures
+        {400, keyDown(key::kTab)},    // fonts
+        {450, keyDown('p')},          // its pages
+        {500, keyDown(key::kTab)},    // sounds
+        {550, keyDown(key::kSpace)},  // played
+        {800, keyDown(key::kTab)},    // text
+        {850, keyDown(key::kRight)},  // the next file
+        {900, keyDown(key::kDown)},   // scrolled
+        {1000, keyDown(key::kTab)},   // back to the archives
+        {1100, keyDown(key::kEscape)} // to the launcher
     };
     auto game = engine->create(sys, target);
     const Error err = game->run();

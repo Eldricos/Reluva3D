@@ -111,7 +111,7 @@ public:
     bool acquired = false;
     // The data format: each object's place in the program's data.
     struct Object {
-        enum class Kind { Axis, Button, Key } kind;
+        enum class Kind { kAxis, kButton, kKey } kind;
         int index;       // axis 0-2, button 0-7, key scan code
         uint32_t offset; // in the data
     };
@@ -140,18 +140,18 @@ public:
     void hear(const Win32Process::RawInput &r) {
         using Kind = Win32Process::RawInput::Kind;
         if (mouse) {
-            if (r.kind == Kind::Motion) {
-                change(Object::Kind::Axis, 0, r.a);
-                change(Object::Kind::Axis, 1, r.b);
-            } else if (r.kind == Kind::Wheel) {
-                change(Object::Kind::Axis, 2, r.a);
-            } else if (r.kind == Kind::Button && r.a >= 0 && r.a < 8) {
+            if (r.kind == Kind::kMotion) {
+                change(Object::Kind::kAxis, 0, r.a);
+                change(Object::Kind::kAxis, 1, r.b);
+            } else if (r.kind == Kind::kWheel) {
+                change(Object::Kind::kAxis, 2, r.a);
+            } else if (r.kind == Kind::kButton && r.a >= 0 && r.a < 8) {
                 buttons[r.a] = r.b != 0;
-                record(Object::Kind::Button, r.a, r.b ? 0x80 : 0);
+                record(Object::Kind::kButton, r.a, r.b ? 0x80 : 0);
             }
-        } else if (r.kind == Kind::Key && r.a >= 0 && r.a < 256) {
+        } else if (r.kind == Kind::kKey && r.a >= 0 && r.a < 256) {
             keys[r.a] = r.b != 0;
-            record(Object::Kind::Key, r.a, r.b ? 0x80 : 0);
+            record(Object::Kind::kKey, r.a, r.b ? 0x80 : 0);
         }
     }
     void change(Object::Kind kind, int axis, int by) {
@@ -200,7 +200,7 @@ public:
             int index = -1;
             Object::Kind kind;
             if (mouse && (guid == kXAxis || guid == kYAxis || guid == kZAxis || (guid.empty() && (type & kTypeAxis)))) {
-                kind = Object::Kind::Axis;
+                kind = Object::Kind::kAxis;
                 index = guid == kXAxis ? 0 : guid == kYAxis ? 1 : guid == kZAxis ? 2 : any ? -1 : int(instance);
                 if (index < 0)
                     for (int a = 0; a < 3 && index < 0; ++a)
@@ -211,7 +211,7 @@ public:
                 if (index >= 0)
                     usedAxes[index] = true;
             } else if (mouse && (guid == kButton || (guid.empty() && (type & kTypeButton)))) {
-                kind = Object::Kind::Button;
+                kind = Object::Kind::kButton;
                 index = any ? -1 : int(instance);
                 if (index < 0)
                     for (int b = 0; b < 8 && index < 0; ++b)
@@ -222,7 +222,7 @@ public:
                 if (index >= 0)
                     usedButtons[index] = true;
             } else if (!mouse && (guid == kKey || (guid.empty() && (type & kTypeButton)))) {
-                kind = Object::Kind::Key;
+                kind = Object::Kind::kKey;
                 index = any ? -1 : int(instance);
                 if (index < 0)
                     for (int k = 0; k < 256 && index < 0; ++k)
@@ -233,7 +233,7 @@ public:
                 if (index >= 0)
                     usedKeys[index] = true;
             } else {
-                kind = Object::Kind::Key;
+                kind = Object::Kind::kKey;
             }
             if (index < 0) {
                 if (type & kTypeOptional)
@@ -302,13 +302,13 @@ public:
             std::memset(c.memory().data() + p, 0, size);
             for (const Object &o : objects) {
                 switch (o.kind) {
-                case Object::Kind::Axis:
+                case Object::Kind::kAxis:
                     c.write32(p + o.offset, uint32_t(relative ? motion[o.index] : axes[o.index]));
                     break;
-                case Object::Kind::Button:
+                case Object::Kind::kButton:
                     c.write8(p + o.offset, buttons[o.index] ? 0x80 : 0);
                     break;
-                case Object::Kind::Key:
+                case Object::Kind::kKey:
                     c.write8(p + o.offset, keys[o.index] ? 0x80 : 0);
                     break;
                 }
@@ -462,8 +462,8 @@ public:
 
 DirectInput::~DirectInput() = default;
 
-DirectInput::DirectInput(Win32Process &process) : s_(std::make_unique<State>(process)) {
-    State *s = s_.get();
+DirectInput::DirectInput(Win32Process &process) : _s(std::make_unique<State>(process)) {
+    State *s = _s.get();
     for (ComInterface *f : {&s->directInput, &s->directInput2, &s->directInput7, &s->device, &s->device2, &s->device7})
         s->com.define(*f);
     auto make = [s] {

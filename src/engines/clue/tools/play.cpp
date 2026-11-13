@@ -99,7 +99,7 @@ private:
 
 Event keyDown(uint32_t k) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = k;
     return e;
 }
@@ -107,10 +107,10 @@ Event keyDown(uint32_t k) {
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
-    e.clicks = type == EventType::MouseDown ? 1 : 0;
+    e.clicks = type == EventType::kMouseDown ? 1 : 0;
     return e;
 }
 
@@ -208,14 +208,14 @@ int cmdGameRun(int argc, char **argv) {
         }
         const int x = r.x + r.w / 2;
         const int y = r.y + r.h / 2;
-        at(mouse(EventType::MouseMove, x, y), 20);
-        at(mouse(EventType::MouseDown, x, y), 20);
-        at(mouse(EventType::MouseUp, x, y), 2500);
+        at(mouse(EventType::kMouseMove, x, y), 20);
+        at(mouse(EventType::kMouseDown, x, y), 20);
+        at(mouse(EventType::kMouseUp, x, y), 2500);
     };
-    at(keyDown(key::Escape), 2000); // the intro
-    click(1, 1);                    // New Game
-    click(2, 0);                    // a game here
-    click(17, 5);                   // Miss Scarlet: a person
+    at(keyDown(key::kEscape), 2000); // the intro
+    click(1, 1);                     // New Game
+    click(2, 0);                     // a game here
+    click(17, 5);                    // Miss Scarlet: a person
     click(18, 0);
     click(18, 10001);
     click(17, 6); // Colonel Mustard: a computer player
@@ -226,22 +226,22 @@ int cmdGameRun(int argc, char **argv) {
     click(20, 10001);
     click(17, 29); // Start
     t += 2000;
-    at(keyDown(key::Escape), 10000); // the deal
-    at(keyDown(key::Escape), 1500);  // the Esc menu
-    click(35, 0, true);              // Save
-    click(36, 2, true);              // the first slot
+    at(keyDown(key::kEscape), 10000); // the deal
+    at(keyDown(key::kEscape), 1500);  // the Esc menu
+    click(35, 0, true);               // Save
+    click(36, 2, true);               // the first slot
     Event typed;
-    typed.type = EventType::TextInput;
+    typed.type = EventType::kTextInput;
     std::snprintf(typed.text, sizeof typed.text, "Reluva");
     at(typed, 500);
     click(36, 1, true); // Save
-    at(keyDown(key::Escape), 1500);
+    at(keyDown(key::kEscape), 1500);
     click(35, 3, true); // Exit
     click(44, 10001, true);
     click(1, 3); // Load Game
     click(3, 0); // the first slot
     t += 10000;
-    at(Event{EventType::ReturnToLauncher}, 0);
+    at(Event{EventType::kReturnToLauncher}, 0);
     if (missing)
         return 1;
 

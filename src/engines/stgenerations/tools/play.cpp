@@ -32,20 +32,20 @@ using namespace reluva::stgenerations;
 
 uint32_t keyNamed(const std::string &name) {
     static const std::map<std::string, uint32_t> kNames = {
-        {"esc", key::Escape},    {"escape", key::Escape}, {"space", key::Space},         {"return", key::Return},
-        {"enter", key::Return},  {"tab", key::Tab},       {"backspace", key::Backspace}, {"up", key::Up},
-        {"down", key::Down},     {"left", key::Left},     {"right", key::Right},         {"home", key::Home},
-        {"end", key::End},       {"pageup", key::PageUp}, {"pagedown", key::PageDown},   {"lctrl", key::LCtrl},
-        {"lshift", key::LShift}, {"kpplus", key::KpPlus}, {"kpminus", key::KpMinus},     {"kpenter", key::KpEnter},
+        {"esc", key::kEscape},    {"escape", key::kEscape}, {"space", key::kSpace},         {"return", key::kReturn},
+        {"enter", key::kReturn},  {"tab", key::kTab},       {"backspace", key::kBackspace}, {"up", key::kUp},
+        {"down", key::kDown},     {"left", key::kLeft},     {"right", key::kRight},         {"home", key::kHome},
+        {"end", key::kEnd},       {"pageup", key::kPageUp}, {"pagedown", key::kPageDown},   {"lctrl", key::kLCtrl},
+        {"lshift", key::kLShift}, {"kpplus", key::kKpPlus}, {"kpminus", key::kKpMinus},     {"kpenter", key::kKpEnter},
     };
     const std::string n = text::toLower(name);
     if (auto it = kNames.find(n); it != kNames.end())
         return it->second;
     if (n.size() >= 2 && n[0] == 'f' && std::atoi(n.c_str() + 1) >= 1)
-        return key::F1 + uint32_t(std::atoi(n.c_str() + 1) - 1);
+        return key::kF1 + uint32_t(std::atoi(n.c_str() + 1) - 1);
     if (n.size() == 1)
         return uint32_t(uint8_t(n[0]));
-    return key::Unknown;
+    return key::kUnknown;
 }
 
 // "1500:x,y" -> 1500, x, y.
@@ -110,7 +110,7 @@ int cmdPlay(int argc, char **argv) {
             ++i;
         } else if (a == "--key" && timeAndRest(v, at, rest)) {
             const uint32_t k = keyNamed(rest);
-            if (k == key::Unknown) {
+            if (k == key::kUnknown) {
                 std::fprintf(stderr, "unknown key %s\n", rest.c_str());
                 return 2;
             }
@@ -121,7 +121,7 @@ int cmdPlay(int argc, char **argv) {
             int y = 0;
             if (std::sscanf(rest.c_str(), "%d,%d", &x, &y) != 2)
                 return 2;
-            sys.click(at, x, y, a == "--click" ? MouseButton::Left : MouseButton::Right);
+            sys.click(at, x, y, a == "--click" ? MouseButton::kLeft : MouseButton::kRight);
             ++i;
         } else if (a == "--type" && timeAndRest(v, at, rest)) {
             sys.type(at, rest);

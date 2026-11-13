@@ -243,7 +243,7 @@ void Game::playSound(int index, const Argument *mode) {
         log::debug(1, "Sound %s not found", list[index].name.c_str());
         return;
     }
-    audio::SoundHandle h = mixer->play(makeRawStream(std::move(data), kind == 0 ? 0 : 1), audio::SoundType::Effects);
+    audio::SoundHandle h = mixer->play(makeRawStream(std::move(data), kind == 0 ? 0 : 1), audio::SoundType::kEffects);
     if (kind == 0) {
         _ambients.push_back(h);
         _ambientSounds.push_back(index);
@@ -273,7 +273,7 @@ void Game::handleEvent(const InputEvent &event) {
         // Esc ends the scroll.
         if (event.type == InputEvent::kQuit)
             _quit = true;
-        else if (event.type == InputEvent::kKeyDown && event.key == key::Escape &&
+        else if (event.type == InputEvent::kKeyDown && event.key == key::kEscape &&
                  _credits.phase != CreditsScreen::kFadeOut) {
             _credits.phase = CreditsScreen::kFadeOut;
             _credits.phaseStart = _millis;
@@ -284,7 +284,7 @@ void Game::handleEvent(const InputEvent &event) {
         if (event.type == InputEvent::kQuit)
             _quit = true;
         else if (event.type == InputEvent::kKeyDown &&
-                 (event.key == key::Escape || (event.key == 'm' && !_vm->getOptions().original)))
+                 (event.key == key::kEscape || (event.key == 'm' && !_vm->getOptions().original)))
             _deckMap = false;
         return;
     }
@@ -297,7 +297,7 @@ void Game::handleEvent(const InputEvent &event) {
         _quit = true;
         break;
     case InputEvent::kKeyDown:
-        if (event.key == key::Escape) {
+        if (event.key == key::kEscape) {
             // Esc skips a video; in a scene it also opens the game menu (an added
             // convenience: the original only uses the right button).
             if (_video.active) {
@@ -312,9 +312,9 @@ void Game::handleEvent(const InputEvent &event) {
             // The deck map, where the game allows it.
             if (_mapEnabled && !_thread.active && !_conv.active && !_arcade && !_video.active && _mapLocation != 0xFF)
                 openDeckMap();
-        } else if (event.key == (key::F1 + 1) && _vm->getOptions().debug) {
+        } else if (event.key == (key::kF1 + 1) && _vm->getOptions().debug) {
             _showHotspots = !_showHotspots;
-        } else if (event.key == (key::F1 + 9) && _vm->getOptions().debug) {
+        } else if (event.key == (key::kF1 + 9) && _vm->getOptions().debug) {
             std::printf("Variables set in %s:\n", _scene->name.c_str());
             for (const auto &v : _variables)
                 if (v.second)

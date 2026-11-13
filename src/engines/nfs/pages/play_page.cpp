@@ -33,46 +33,46 @@ std::string keyName(uint32_t k) {
         return std::string(1, char(k));
     if ((k >= '0' && k <= '9') || k == '.' || k == ',' || k == '-' || k == '/' || k == ';')
         return std::string(1, char(k));
-    if (k >= key::F1 && k < key::F1 + 10)
-        return "f" + std::to_string(k - key::F1 + 1);
+    if (k >= key::kF1 && k < key::kF1 + 10)
+        return "f" + std::to_string(k - key::kF1 + 1);
     switch (k) {
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         return "enter";
-    case key::Escape:
+    case key::kEscape:
         return "esc";
-    case key::Space:
+    case key::kSpace:
         return "space";
-    case key::Backspace:
+    case key::kBackspace:
         return "backspace";
-    case key::Up:
+    case key::kUp:
         return "up";
-    case key::Down:
+    case key::kDown:
         return "down";
-    case key::Left:
+    case key::kLeft:
         return "left";
-    case key::Right:
+    case key::kRight:
         return "right";
-    case key::Home:
+    case key::kHome:
         return "home";
-    case key::End:
+    case key::kEnd:
         return "end";
-    case key::PageUp:
+    case key::kPageUp:
         return "pageup";
-    case key::PageDown:
+    case key::kPageDown:
         return "pagedown";
-    case key::Insert:
+    case key::kInsert:
         return "insert";
-    case key::Delete:
+    case key::kDelete:
         return "delete";
-    case key::LShift:
-    case key::RShift:
+    case key::kLShift:
+    case key::kRShift:
         return "shift";
-    case key::LCtrl:
-    case key::RCtrl:
+    case key::kLCtrl:
+    case key::kRCtrl:
         return "ctrl";
-    case key::LAlt:
-    case key::RAlt:
+    case key::kLAlt:
+    case key::kRAlt:
         return "alt";
     default:
         return "";
@@ -332,7 +332,7 @@ void PlayPage::start() {
         return;
     }
     if (_mixer)
-        _sound = _mixer->playOutput(_host->soundStream(), audio::SoundType::Effects);
+        _sound = _mixer->playOutput(_host->soundStream(), audio::SoundType::kEffects);
     _running = true;
     _thread = std::thread([this] {
         uint32_t exitCode = 0;
@@ -349,16 +349,16 @@ void PlayPage::handleEvent(const Event &ev) {
     if (!_host || !_running)
         return;
     switch (ev.type) {
-    case EventType::KeyDown:
-    case EventType::KeyUp: {
+    case EventType::kKeyDown:
+    case EventType::kKeyUp: {
         if (ev.repeat)
             return;
         const std::string name = keyName(ev.key);
         if (!name.empty())
-            _host->queueKey(name, ev.type == EventType::KeyDown);
+            _host->queueKey(name, ev.type == EventType::kKeyDown);
         break;
     }
-    case EventType::MouseMove: {
+    case EventType::kMouseMove: {
         // DirectInput's mouse moves by how far it went, as the mouse does
         // here: the window holds it (System::setRelativeMouse), the game
         // drawing its own pointer. Fractions are kept for the next move.
@@ -372,10 +372,10 @@ void PlayPage::handleEvent(const Event &ev) {
             _host->queueMouseMove(dx, dy);
         break;
     }
-    case EventType::MouseDown:
-    case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
-            _host->queueMouseButton(ev.type == EventType::MouseDown);
+    case EventType::kMouseDown:
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
+            _host->queueMouseButton(ev.type == EventType::kMouseDown);
         break;
     default:
         break;

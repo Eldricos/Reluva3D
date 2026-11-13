@@ -14,9 +14,9 @@ namespace reluva::glide {
 
 using x86::Cpu;
 
-Glide2Dll::Glide2Dll(Cpu &cpu, x86::Arena &memory, Board board) : GlideDll(cpu, memory, "glide2x.dll"), glide_(board) {
-    setCore(glide_);
-    glide_.logName = "glide2x";
+Glide2Dll::Glide2Dll(Cpu &cpu, x86::Arena &memory, Board board) : GlideDll(cpu, memory, "glide2x.dll"), _glide(board) {
+    setCore(_glide);
+    _glide.logName = "glide2x";
     addAll();
 }
 
@@ -31,10 +31,10 @@ Glide2TexInfo Glide2Dll::texInfo(uint32_t address) const {
     // GrTexInfo: smallLod, largeLod, aspectRatio, format, then data.
     Glide2TexInfo t;
     if (guest(address, 20)) {
-        t.smallLod = int(cpu_.read32(address));
-        t.largeLod = int(cpu_.read32(address + 4));
-        t.aspectRatio = int(cpu_.read32(address + 8));
-        t.format = int(cpu_.read32(address + 12));
+        t.smallLod = int(_cpu.read32(address));
+        t.largeLod = int(_cpu.read32(address + 4));
+        t.aspectRatio = int(_cpu.read32(address + 8));
+        t.format = int(_cpu.read32(address + 12));
     }
     return t;
 }
@@ -50,8 +50,8 @@ uint32_t Glide2Dll::mipMapInfo(const Glide2 &g, uint32_t id) {
     const Glide2::MipMap *m = g.guTexGetMipMapInfo(id);
     if (!m)
         return 0;
-    uint32_t &at = mipMapInfos_[id];
-    if (!at && !(at = memory_.alloc(196, 4)))
+    uint32_t &at = _mipMapInfos[id];
+    if (!at && !(at = _memory.alloc(196, 4)))
         return 0;
     const uint32_t f[21] = {0u,
                             1u,
@@ -75,18 +75,18 @@ uint32_t Glide2Dll::mipMapInfo(const Glide2 &g, uint32_t id) {
                             m->start,
                             m->lodBlend ? 1u : 0u};
     for (uint32_t i = 0; i < 21; ++i)
-        cpu_.write32(at + 4 * i, f[i]);
+        _cpu.write32(at + 4 * i, f[i]);
     uint8_t ncc[112] = {};
     std::memcpy(ncc, m->ncc.y, 16);
     std::memcpy(ncc + 16, m->ncc.i, 24);
     std::memcpy(ncc + 40, m->ncc.q, 24);
     for (uint32_t i = 0; i < 112; ++i)
-        cpu_.write8(at + 84 + i, ncc[i]);
+        _cpu.write8(at + 84 + i, ncc[i]);
     return at;
 }
 
 void Glide2Dll::addAll() {
-    Glide2 &g = glide_;
+    Glide2 &g = _glide;
     auto v = [this](Cpu &c, int i) { return vertex(c.arg(i)); };
     auto b = [](Cpu &c, int i) { return c.arg(i) != 0; };
     auto n = [](Cpu &c, int i) { return int(c.arg(i)); };
@@ -511,7 +511,7 @@ void Glide2Dll::addAll() {
         if (!p || stride < 0)
             return 0u;
         return g.lfbWriteRegion(n(c, 0), c.arg(1), c.arg(2), format, width, height, stride, p,
-                                cpu_.memory().size() - c.arg(7))
+                                _cpu.memory().size() - c.arg(7))
                    ? 1u
                    : 0u;
     });
@@ -521,7 +521,7 @@ void Glide2Dll::addAll() {
         const uint32_t stride = c.arg(5);
         if (!height || !guest(c.arg(6), stride * (height - 1) + width * 2))
             return 0u;
-        return g.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, cpu_.memory().data() + c.arg(6))
+        return g.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, _cpu.memory().data() + c.arg(6))
                    ? 1u
                    : 0u;
     });
@@ -590,7 +590,7 @@ void Glide2Dll::addAll() {
         if (c.arg(0)) {
             if (!guest(c.arg(0), bytes))
                 return 0u;
-            encodeRle16(cpu_.memory().data() + c.arg(0), pixels.data(), w, h);
+            encodeRle16(_cpu.memory().data() + c.arg(0), pixels.data(), w, h);
         }
         return bytes;
     });

@@ -413,11 +413,11 @@ public:
                     p.takeUp(a.item);
                 Event ev;
                 ev.mouseX = x, ev.mouseY = y;
-                ev.type = EventType::MouseMove;
+                ev.type = EventType::kMouseMove;
                 p.handleEvent(ev);
-                ev.type = EventType::MouseDown, ev.button = MouseButton::Left, ev.clicks = 1;
+                ev.type = EventType::kMouseDown, ev.button = MouseButton::kLeft, ev.clicks = 1;
                 p.handleEvent(ev);
-                ev.type = EventType::MouseUp;
+                ev.type = EventType::kMouseUp;
                 p.handleEvent(ev);
                 clicked++;
                 points.push_back(toLine(a) + " at " + std::to_string(x) + "," + std::to_string(y));
@@ -558,21 +558,21 @@ private:
         Event ev;
         ev.mouseX = in.x, ev.mouseY = in.y;
         if (in.kind == K::kKey) {
-            ev.type = EventType::KeyDown, ev.key = in.key;
+            ev.type = EventType::kKeyDown, ev.key = in.key;
             _page->handleEvent(ev);
-            ev.type = EventType::KeyUp;
+            ev.type = EventType::kKeyUp;
             _page->handleEvent(ev);
             return;
         }
-        ev.type = EventType::MouseMove;
+        ev.type = EventType::kMouseMove;
         _page->handleEvent(ev);
         if (in.kind == K::kMove)
             return;
-        ev.button = in.kind == K::kRightClick ? MouseButton::Right : MouseButton::Left;
+        ev.button = in.kind == K::kRightClick ? MouseButton::kRight : MouseButton::kLeft;
         ev.clicks = 1;
-        ev.type = EventType::MouseDown;
+        ev.type = EventType::kMouseDown;
         _page->handleEvent(ev);
-        ev.type = EventType::MouseUp;
+        ev.type = EventType::kMouseUp;
         _page->handleEvent(ev);
     }
 

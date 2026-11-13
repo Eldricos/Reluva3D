@@ -41,11 +41,11 @@ public:
     explicit Glide3(Board board = voodoo3Board());
 
     // The Glide 2 front end the unchanged functions go through.
-    Glide2 &core() { return core_; }
-    Pipeline &pipeline() { return core_.pipeline(); }
-    const Board &board() const { return board_; }
+    Glide2 &core() { return _core; }
+    Pipeline &pipeline() { return _core.pipeline(); }
+    const Board &board() const { return _board; }
     void notImplemented(const std::string &function, const std::string &what = "not implemented") {
-        core_.notImplemented(function, what);
+        _core.notImplemented(function, what);
     }
 
     // --- Start-up, the board ------------------------------------------------
@@ -69,7 +69,7 @@ public:
     bool selectContext(uint32_t context) const;
     void enable(uint32_t mode);
     void disable(uint32_t mode);
-    bool enabled(uint32_t mode) const { return mode < 8 && enabled_[mode]; }
+    bool enabled(uint32_t mode) const { return mode < 8 && _enabled[mode]; }
 
     // --- Vertices -------------------------------------------------------------
     void coordinateSpace(uint32_t mode);
@@ -91,8 +91,8 @@ public:
         std::array<bool, 0x60> enabled{};
         uint32_t space = 0;
     };
-    const Layout &layout() const { return layout_; }
-    void setLayout(const Layout &l) { layout_ = l; }
+    const Layout &layout() const { return _layout; }
+    void setLayout(const Layout &l) { _layout = l; }
 
     // --- Drawing ----------------------------------------------------------------
     void drawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c);
@@ -157,26 +157,26 @@ private:
     void clipPoint(const ClipVertex &a, bool aa);
     static Glide2TexInfo toGlide2(const Glide3TexInfo &info);
 
-    Board board_;
-    Glide2 core_;
-    Layout layout_;
-    Vertex last_; // the values parameters left out keep
-    int viewport_[4] = {0, 0, 640, 480};
-    float depthNear_ = 0, depthFar_ = 1;
-    std::array<bool, 8> enabled_{};
-    std::array<int, kMaxTmus> mipmapAsked_{}; // grTexMipMapMode's mode, before GR_ALLOW_MIPMAP_DITHER
-    std::array<bool, kMaxTmus> lodBlend_{};
-    uint32_t context_ = 0;
+    Board _board;
+    Glide2 _core;
+    Layout _layout;
+    Vertex _last; // the values parameters left out keep
+    int _viewport[4] = {0, 0, 640, 480};
+    float _depthNear = 0, _depthFar = 1;
+    std::array<bool, 8> _enabled{};
+    std::array<int, kMaxTmus> _mipmapAsked{}; // grTexMipMapMode's mode, before GR_ALLOW_MIPMAP_DITHER
+    std::array<bool, kMaxTmus> _lodBlend{};
+    uint32_t _context = 0;
     struct Saved {
         Layout layout;
         std::array<bool, 8> enabled{};
     };
-    std::map<uint32_t, Saved> saved_;
+    std::map<uint32_t, Saved> _saved;
     // For strips and fans continued by the next call.
-    std::vector<ClipVertex> strip_;
-    ClipVertex clip_; // the last vertex read in clip coordinates
-    uint32_t lastMode_ = 0xffffffffu;
-    size_t stripParity_ = 0;
+    std::vector<ClipVertex> _strip;
+    ClipVertex _clip; // the last vertex read in clip coordinates
+    uint32_t _lastMode = 0xffffffffu;
+    size_t _stripParity = 0;
 };
 
 } // namespace reluva::glide

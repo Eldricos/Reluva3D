@@ -79,30 +79,30 @@ void TextViewer::handleKey(uint32_t key) {
         return;
     const int maxTop = std::max(0, int(_lines.size()) - kRows);
     switch (key) {
-    case key::Right:
+    case key::kRight:
         _current = (_current + 1) % int(_files.size());
         load();
         break;
-    case key::Left:
+    case key::kLeft:
         _current = (_current + int(_files.size()) - 1) % int(_files.size());
         load();
         break;
-    case key::Down:
+    case key::kDown:
         _top = std::min(maxTop, _top + 1);
         break;
-    case key::Up:
+    case key::kUp:
         _top = std::max(0, _top - 1);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _top = std::min(maxTop, _top + kRows);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _top = std::max(0, _top - kRows);
         break;
-    case key::Home:
+    case key::kHome:
         _top = 0;
         break;
-    case key::End:
+    case key::kEnd:
         _top = maxTop;
         break;
     default:

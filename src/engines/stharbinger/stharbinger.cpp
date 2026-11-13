@@ -147,9 +147,9 @@ public:
         // The sound: the game's three kinds at the player's volumes.
         audio::Mixer mixer(_sys.audioRate());
         mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        mixer.setTypeVolume(audio::SoundType::Music, settings::volume(_target.settings, kMusicVolume));
-        mixer.setTypeVolume(audio::SoundType::Speech, settings::volume(_target.settings, kSpeechVolume));
-        mixer.setTypeVolume(audio::SoundType::Effects, settings::volume(_target.settings, kEffectsVolume));
+        mixer.setTypeVolume(audio::SoundType::kMusic, settings::volume(_target.settings, kMusicVolume));
+        mixer.setTypeVolume(audio::SoundType::kSpeech, settings::volume(_target.settings, kSpeechVolume));
+        mixer.setTypeVolume(audio::SoundType::kEffects, settings::volume(_target.settings, kEffectsVolume));
         const bool audioOut = !audio::startMixerOutput(_sys, mixer);
         struct AudioOff { // stops the output before the mixer goes
             System &sys;

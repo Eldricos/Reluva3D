@@ -144,16 +144,16 @@ void MenuViewer::deactivate() {
 
 bool MenuViewer::takesKey(const Event &ev) const {
     // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
-    return _menus.running() && !(ev.mods & keymod::Ctrl);
+    return _menus.running() && !(ev.mods & keymod::kCtrl);
 }
 
 void MenuViewer::handleEvent(const Event &ev) {
-    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
-        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+    if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
+        ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
         _joystick.event(ev);
         return;
     }
-    if (ev.type == EventType::KeyDown && ev.key == 'r' && (ev.mods & keymod::Ctrl)) {
+    if (ev.type == EventType::kKeyDown && ev.key == 'r' && (ev.mods & keymod::kCtrl)) {
         // Ctrl+R: start the menus again, stopped or not.
         _menus.reset();
         start();

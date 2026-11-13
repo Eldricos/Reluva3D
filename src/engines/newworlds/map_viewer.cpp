@@ -663,28 +663,28 @@ bool MapViewer::gameKey(uint32_t k, int mouseX, int mouseY) {
         centreOn(_targetX + ax * step, _targetY + ay * step);
     };
     switch (k) {
-    case key::Up:
+    case key::kUp:
         move(fx, fy);
         break;
-    case key::Down:
+    case key::kDown:
         move(-fx, -fy);
         break;
-    case key::Left:
+    case key::kLeft:
         move(-fy, fx);
         break;
-    case key::Right:
+    case key::kRight:
         move(fy, -fx);
         break;
-    case key::Kp0 + 4:
+    case key::kKp0 + 4:
         _yaw -= kKeyTurn;
         break;
-    case key::Kp0 + 6:
+    case key::kKp0 + 6:
         _yaw += kKeyTurn;
         break;
-    case key::Kp0 + 8:
-    case key::Kp0 + 2: {
+    case key::kKp0 + 8:
+    case key::kKp0 + 2: {
         // Targeted zoom: towards the spot under the pointer.
-        const bool in = k == key::Kp0 + 8;
+        const bool in = k == key::kKp0 + 8;
         float x = 0;
         float y = 0;
         if (in && !_locked && screenToGround(mouseX, mouseY, x, y))
@@ -692,26 +692,26 @@ bool MapViewer::gameKey(uint32_t k, int mouseX, int mouseY) {
         _distance = std::clamp(_distance * (in ? 0.85f : 1.18f), kTileSize * 0.3f, 40.0f * kBlockSize);
         break;
     }
-    case key::Kp0 + 7:
-    case key::Kp0 + 1: {
+    case key::kKp0 + 7:
+    case key::kKp0 + 1: {
         // Raise or lower the eye, keeping where it stands over the ground.
         const float ground = _distance * std::cos(_pitch);
-        float height = _distance * std::sin(_pitch) * (k == key::Kp0 + 7 ? 1.2f : 1 / 1.2f);
+        float height = _distance * std::sin(_pitch) * (k == key::kKp0 + 7 ? 1.2f : 1 / 1.2f);
         height = std::clamp(height, kTileSize * 0.05f, 40.0f * kBlockSize);
         _pitch = std::clamp(std::atan2(height, ground), 0.02f, kMaxPitch);
         _distance = std::hypot(height, ground);
         break;
     }
-    case key::Kp0 + 9:
+    case key::kKp0 + 9:
         _pitch = std::clamp(_pitch + kKeyTurn / 2, 0.02f, kMaxPitch);
         break;
-    case key::Kp0 + 3:
+    case key::kKp0 + 3:
         _pitch = std::clamp(_pitch - kKeyTurn / 2, 0.02f, kMaxPitch);
         break;
-    case key::F1:
+    case key::kF1:
         setView(_view == View::kFirstPerson ? View::kBirdsEye : View::kFirstPerson);
         break;
-    case key::F1 + 1:
+    case key::kF1 + 1:
         setView(_view == View::kSky ? View::kBirdsEye : View::kSky);
         break;
     default:
@@ -772,18 +772,18 @@ bool MapViewer::screenToGround(int sx, int sy, float &x, float &y) {
 
 void MapViewer::handleEvent(const Event &ev) {
     switch (ev.type) {
-    case EventType::MouseDown:
-        if (ev.button == MouseButton::Left) {
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft) {
             _dragging = true;
             _dragX = ev.mouseX;
             _dragY = ev.mouseY;
         }
         return;
-    case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
             _dragging = false;
         return;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (_dragging) {
             _yaw += float(ev.mouseX - _dragX) * 0.01f;
             _pitch = std::clamp(_pitch + float(ev.mouseY - _dragY) * 0.01f, 0.05f, kMaxPitch);
@@ -792,11 +792,11 @@ void MapViewer::handleEvent(const Event &ev) {
             _dirty = true;
         }
         return;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         _distance = std::clamp(_distance * std::pow(0.85f, float(ev.wheelY)), kTileSize * 0.5f, 1e8f);
         _dirty = true;
         return;
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         break;
     default:
         return;
@@ -855,10 +855,10 @@ void MapViewer::handleEvent(const Event &ev) {
     case 'h':
         _smooth = !_smooth;
         break;
-    case key::Right:
+    case key::kRight:
         show((_current + 1) % n);
         return;
-    case key::Left:
+    case key::kLeft:
         show((_current + n - 1) % n);
         return;
     default:

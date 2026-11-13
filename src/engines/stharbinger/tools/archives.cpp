@@ -96,12 +96,12 @@ void savePng(const stdfs::path &path, int w, int h, const uint8_t *pixels, const
 
 audio::RawStream::Format rawFormat(const std::string &name) {
     if (name == "s8")
-        return audio::RawStream::Format::S8;
+        return audio::RawStream::Format::kS8;
     if (name == "s16")
         return audio::RawStream::Format::kS16LE;
     if (name == "s16be")
         return audio::RawStream::Format::kS16BE;
-    return audio::RawStream::Format::U8;
+    return audio::RawStream::Format::kU8;
 }
 
 std::string formatName(stharbinger::RawFormat f) {

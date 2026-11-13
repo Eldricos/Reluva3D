@@ -142,7 +142,7 @@ void Player::drain() {
     x86::Win32Process &p = _game->process();
     for (const Event &ev : events) {
         switch (ev.type) {
-        case EventType::MouseMove: {
+        case EventType::kMouseMove: {
             // The game reads the pointer's movement, so that's what's
             // passed on: whole pixels, keeping the fractions for later.
             _pendingX += ev.moveX;
@@ -155,25 +155,25 @@ void Player::drain() {
                 p.mouseMoveTo(p.cursorX + dx, p.cursorY + dy);
             break;
         }
-        case EventType::MouseDown:
-        case EventType::MouseUp: {
-            const int button = ev.button == MouseButton::Left     ? 0
-                               : ev.button == MouseButton::Right  ? 1
-                               : ev.button == MouseButton::Middle ? 2
-                                                                  : -1;
+        case EventType::kMouseDown:
+        case EventType::kMouseUp: {
+            const int button = ev.button == MouseButton::kLeft     ? 0
+                               : ev.button == MouseButton::kRight  ? 1
+                               : ev.button == MouseButton::kMiddle ? 2
+                                                                   : -1;
             if (button >= 0)
-                p.mouseButton(button, ev.type == EventType::MouseDown);
+                p.mouseButton(button, ev.type == EventType::kMouseDown);
             break;
         }
-        case EventType::MouseWheel:
+        case EventType::kMouseWheel:
             p.mouseWheel(ev.wheelY * 120);
             break;
-        case EventType::KeyDown:
-        case EventType::KeyUp: {
+        case EventType::kKeyDown:
+        case EventType::kKeyUp: {
             uint32_t vk = 0;
             uint32_t scan = 0;
             if (x86::windowsKey(ev.key, vk, scan))
-                p.key(vk, scan, ev.type == EventType::KeyDown);
+                p.key(vk, scan, ev.type == EventType::kKeyDown);
             break;
         }
         default:

@@ -33,20 +33,20 @@ TextureViewer::TextureViewer(ViewerContext &ctx) : Page(ctx) {
 }
 
 void TextureViewer::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown || _names.empty())
+    if (ev.type != EventType::kKeyDown || _names.empty())
         return;
     int i = _index;
-    if (ev.key == key::Left)
+    if (ev.key == key::kLeft)
         --i;
-    else if (ev.key == key::Right)
+    else if (ev.key == key::kRight)
         ++i;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         i -= 10;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         i += 10;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         i = 0;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         i = static_cast<int>(_names.size()) - 1;
     else
         return;

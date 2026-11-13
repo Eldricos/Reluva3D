@@ -51,7 +51,7 @@ public:
     // decoder reads zeros, as the original does.
     const float *decodeFrame();
     // Whether the decoder has read past the end of its data.
-    bool overrun() const { return overrun_; }
+    bool overrun() const { return _overrun; }
 
 private:
     int readByte();
@@ -60,24 +60,24 @@ private:
     void decodeExcitation(bool multipulse, float *out, int stride);
     void synthesise(int offset, int blocks);
 
-    const uint8_t *p_;
-    const uint8_t *end_;
-    bool overrun_ = false;
-    unsigned bitsValue_ = 0;
-    int bitsCount_ = 0;
-    bool headerParsed_ = false, reducedBandwidth_ = false;
-    int multipulseThreshold_ = 0;
+    const uint8_t *_p;
+    const uint8_t *_end;
+    bool _overrun = false;
+    unsigned _bitsValue = 0;
+    int _bitsCount = 0;
+    bool _headerParsed = false, _reducedBandwidth = false;
+    int _multipulseThreshold = 0;
     // The decoder's state in one block, in this order. The adaptive
     // codebook (the last frame's 324 samples) is read on into the frame
     // being decoded, which follows it; and a pitch lag longer than its
     // history reads into the arrays before it, which the decoded audio must
     // match the original's for.
-    float state_[64 + 12 + 12 + 324 + kFrameSamples] = {};
-    float *const fixedGains_ = state_;
-    float *const reflection_ = state_ + 64;
-    float *const history_ = state_ + 76;
-    float *const adaptive_ = state_ + 88;
-    float *const frame_ = state_ + 88 + 324;
+    float _state[64 + 12 + 12 + 324 + kFrameSamples] = {};
+    float *const _fixedGains = _state;
+    float *const _reflection = _state + 64;
+    float *const _history = _state + 76;
+    float *const _adaptive = _state + 88;
+    float *const _frame = _state + 88 + 324;
 };
 
 // A mono MicroTalk stream, `samples` long, rounded to 16 bits.

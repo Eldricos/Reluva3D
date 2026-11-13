@@ -137,12 +137,12 @@ private:
             }
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if ((ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) &&
-                    !confirmQuit(ev.type == EventType::ReturnToLauncher))
+                if ((ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) &&
+                    !confirmQuit(ev.type == EventType::kReturnToLauncher))
                     continue;
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11 && !ev.repeat) { // F12: the viewer
+                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11 && !ev.repeat) { // F12: the viewer
                     player.pause(true);
                     _sys.setRelativeMouse(false);
                     _sys.setMouseCursorVisible(true);
@@ -226,16 +226,16 @@ private:
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if ((ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) &&
-                    !confirmQuit(ev.type == EventType::ReturnToLauncher))
+                if ((ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) &&
+                    !confirmQuit(ev.type == EventType::kReturnToLauncher))
                     continue;
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::F1 + 11))) {
-                    quit = ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher;
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
+                    (ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kF1 + 11))) {
+                    quit = ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher;
                     pages[page]->deactivate();
                     return Error::success();
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
                     pages[page]->deactivate();
                     do
                         page = (page + 1) % pages.size();

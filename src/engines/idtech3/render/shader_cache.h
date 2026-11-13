@@ -39,7 +39,7 @@ public:
         bool lightmap = false;
         gfx::DrawState state;
         const ShaderStage *def = nullptr;
-        gfx::TexGen texGen = gfx::TexGen::Uv;
+        gfx::TexGen texGen = gfx::TexGen::kUv;
     };
     struct Material {
         bool skip = false; // sky, fog volume, nodraw or no stages

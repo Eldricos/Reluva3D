@@ -166,8 +166,8 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
             call.firstIndex = base[f] + b.first;
             call.indexCount = b.count;
             call.texture = b.texture ? texture(b.texture, b.wrap, b.filter < 0 ? nearest : b.filter == 0) : 0;
-            call.rgbSource = gfx::ColorSource::Vertex;
-            call.alphaSource = gfx::ColorSource::Vertex;
+            call.rgbSource = gfx::ColorSource::kVertex;
+            call.alphaSource = gfx::ColorSource::kVertex;
             if (b.fog > 0) {
                 call.tableFog = b.fog;
                 call.tableFogColor = {float((b.fogColour >> 16) & 255) / 255, float((b.fogColour >> 8) & 255) / 255,
@@ -178,22 +178,22 @@ void ThrashGpu::draw(const std::vector<const ThrashFrame *> &frames, const Surfa
             s.depthWrite = false;
             // Cull 1 leaves out triangles turning counter-clockwise as shown,
             // which the renderer takes as front faces; cull 2 the others.
-            s.cull = b.cull == 1 ? gfx::Cull::Front : b.cull == 2 ? gfx::Cull::Back : gfx::Cull::None;
+            s.cull = b.cull == 1 ? gfx::Cull::kFront : b.cull == 2 ? gfx::Cull::kBack : gfx::Cull::kNone;
             // As the software renderer: what's translucent is blended over
             // what's drawn (opaque texels and vertices replace it); the other
             // modes when blending is on.
-            s.src = gfx::Blend::SrcAlpha;
-            s.dst = gfx::Blend::OneMinusSrcAlpha;
+            s.src = gfx::Blend::kSrcAlpha;
+            s.dst = gfx::Blend::kOneMinusSrcAlpha;
             if (b.blend && b.blendMode == 1)
-                s.dst = gfx::Blend::One;
+                s.dst = gfx::Blend::kOne;
             else if (b.blend && b.blendMode == 2)
-                s.src = gfx::Blend::Zero;
+                s.src = gfx::Blend::kZero;
             else if (b.blend && b.blendMode == 3) {
-                s.src = gfx::Blend::DstColor;
-                s.dst = gfx::Blend::Zero;
+                s.src = gfx::Blend::kDstColor;
+                s.dst = gfx::Blend::kZero;
             }
             // Texels of alpha 0 are left out (the colour key).
-            s.alphaTest = call.texture ? gfx::AlphaTest::Gt0 : gfx::AlphaTest::None;
+            s.alphaTest = call.texture ? gfx::AlphaTest::kGt0 : gfx::AlphaTest::kNone;
             _renderer->draw(call);
         }
     }

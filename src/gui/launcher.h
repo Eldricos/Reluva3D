@@ -32,9 +32,9 @@ public:
     std::optional<GameTarget> run();
 
     // Shown in the status bar next time the launcher appears.
-    void setStatus(std::string message) { status_ = std::move(message); }
+    void setStatus(std::string message) { _status = std::move(message); }
     // Where imported games go by default (a folder each).
-    void setLibraryDir(std::filesystem::path dir) { libraryDir_ = std::move(dir); }
+    void setLibraryDir(std::filesystem::path dir) { _libraryDir = std::move(dir); }
 
 private:
     void drawUi(std::optional<GameTarget> &launch, bool &quit);
@@ -51,55 +51,61 @@ private:
 
     static void pickFolderCallback(void *userdata, const char *const *files, int filter);
 
-    SdlSystem &sys_;
-    Config &config_;
-    std::string selected_;
-    std::string status_;
+    SdlSystem &_sys;
+    Config &_config;
+    std::string _selected;
+    std::string _status;
 
     // The folder dialog answers on another thread.
-    std::mutex pickMutex_;
-    std::optional<std::string> pickedFolder_;
-    std::optional<std::string> pickError_;
-    std::atomic<bool> pickInProgress_{false};
+    std::mutex _pickMutex;
+    std::optional<std::string> _pickedFolder;
+    std::optional<std::string> _pickError;
+    std::atomic<bool> _pickInProgress{false};
 
     // Folder with several matches, waiting for the user to choose one.
-    std::string pendingPath_;
-    std::vector<DetectedGame> pendingChoices_;
+    std::string _pendingPath;
+    std::vector<DetectedGame> _pendingChoices;
 
     // What the next folder picked is for.
-    enum class Pick { AddGame, ImportSource, ImportDestination, PatchForImport, PatchForGame } pickFor_ = Pick::AddGame;
+    enum class Pick {
+        kAddGame,
+        kImportSource,
+        kImportDestination,
+        kPatchForImport,
+        kPatchForGame
+    } _pickFor = Pick::kAddGame;
     void pickPatch(Pick purpose);
     void pickExpansion(Pick purpose); // a folder: an expansion's CD or install
 
     // Importing: what was found and where it goes; then the copying, on a
     // thread of its own, and how it ended.
-    std::filesystem::path libraryDir_;
-    std::optional<ImportPlan> importPlan_;
-    std::string importSource_;
-    std::filesystem::path importDest_;
-    std::thread importThread_;
-    std::atomic<bool> importRunning_{false}, importCancel_{false}, importDone_{false};
-    std::atomic<uint64_t> importBytes_{0}, importTotal_{0};
-    std::mutex importMutex_;
-    std::string importError_;
+    std::filesystem::path _libraryDir;
+    std::optional<ImportPlan> _importPlan;
+    std::string _importSource;
+    std::filesystem::path _importDest;
+    std::thread _importThread;
+    std::atomic<bool> _importRunning{false}, _importCancel{false}, _importDone{false};
+    std::atomic<uint64_t> _importBytes{0}, _importTotal{0};
+    std::mutex _importMutex;
+    std::string _importError;
     // Applying a patch to a game already added (into its own folder),
     // rather than importing a new one.
-    std::string patchTarget_;
+    std::string _patchTarget;
 
     // The selected game's options (MetaEngine::options), found again when
     // the selection or its folder's contents may have changed.
-    std::string optionsFor_;
-    std::vector<GameOption> options_;
+    std::string _optionsFor;
+    std::vector<GameOption> _options;
     void drawOptions();
     // Every game's options, for the list (found once per game).
-    std::map<std::string, std::vector<GameOption>> listOptions_;
+    std::map<std::string, std::vector<GameOption>> _listOptions;
     std::string listLabel(const std::string &name);
 
     // Settings at three levels (common/settings.h): for every game, for an
     // engine's games, and with each game. The Settings window edits the
     // first two; the selected game's own are shown with its options.
-    bool settingsOpen_ = false;
-    std::string settingsEngine_; // the engine whose games' settings the window shows; "" for every game
+    bool _settingsOpen = false;
+    std::string _settingsEngine; // the engine whose games' settings the window shows; "" for every game
     void drawSettingsWindow();
     // One setting kept in `section`: its value there, or the one above it
     // (`engineId`'s, then every game's, then the default) when unset.

@@ -236,15 +236,15 @@ static void testSoundSystem(const std::filesystem::path &tmp) {
 
     // Music: the intro, then the loop (names without an extension found).
     sounds.startBackgroundTrack("music/intro", "music/loop");
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic));
     std::vector<int16_t> lots(2 * 4000);
     mixer.mix(lots.data(), 4000); // past the intro's end
     sounds.endFrame();
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic));
     mixer.mix(lots.data(), 4000);
-    CHECK(mixer.isTypePlaying(audio::SoundType::Music)); // looping
+    CHECK(mixer.isTypePlaying(audio::SoundType::kMusic)); // looping
     sounds.stopAll();
-    CHECK(!mixer.isTypePlaying(audio::SoundType::Music));
+    CHECK(!mixer.isTypePlaying(audio::SoundType::kMusic));
     std::filesystem::remove_all(tmp);
 }
 

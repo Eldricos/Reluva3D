@@ -730,8 +730,8 @@ void PlayViewer::stopSounds() {
     // the other pages expect them.
     _soundSystem.reset();
     if (_ctx.mixer) {
-        _ctx.mixer->setTypeVolume(audio::SoundType::Effects, audio::kMaxVolume);
-        _ctx.mixer->setTypeVolume(audio::SoundType::Music, audio::kMaxVolume);
+        _ctx.mixer->setTypeVolume(audio::SoundType::kEffects, audio::kMaxVolume);
+        _ctx.mixer->setTypeVolume(audio::SoundType::kMusic, audio::kMaxVolume);
     }
 }
 
@@ -1029,10 +1029,10 @@ void PlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
 bool PlayViewer::takesKey(const Event &ev) const {
     // Esc goes back to the menus, as in the game; with Ctrl it leaves.
     // While typing, every key is the typing's (Tab, Esc too), but Ctrl+Esc.
-    if (ev.type == EventType::KeyDown && ev.key == key::Escape && (ev.mods & keymod::Ctrl))
+    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && (ev.mods & keymod::kCtrl))
         return false;
     // The in-game menu takes them all too.
-    return _menuOpen || _typing != Typing::kNone || (ev.type == EventType::KeyDown && ev.key == key::Escape);
+    return _menuOpen || _typing != Typing::kNone || (ev.type == EventType::kKeyDown && ev.key == key::kEscape);
 }
 
 void PlayViewer::openTyping(Typing t, int32_t client, uint32_t key) {
@@ -1092,7 +1092,7 @@ void PlayViewer::submitTyping() {
 }
 
 void PlayViewer::typingEvent(const Event &ev) {
-    if (ev.type == EventType::TextInput) {
+    if (ev.type == EventType::kTextInput) {
         // Characters typed (Latin-1, as the original's), but the one of the
         // key that opened the typing, and the console key in the console.
         for (uint32_t cp : decodeUtf8(ev.text)) {
@@ -1109,35 +1109,35 @@ void PlayViewer::typingEvent(const Event &ev) {
         }
         return;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     _swallowChar = 0;
     switch (ev.key) {
-    case key::Escape:
+    case key::kEscape:
         closeTyping();
         return;
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         submitTyping();
         return;
-    case key::Backspace:
+    case key::kBackspace:
         if (_cursor > 0)
             _field.erase(--_cursor, 1);
         return;
-    case key::Delete:
+    case key::kDelete:
         if (_cursor < _field.size())
             _field.erase(_cursor, 1);
         return;
-    case key::Left:
+    case key::kLeft:
         _cursor = _cursor > 0 ? _cursor - 1 : 0;
         return;
-    case key::Right:
+    case key::kRight:
         _cursor = std::min(_field.size(), _cursor + 1);
         return;
-    case key::Home:
+    case key::kHome:
         _cursor = 0;
         return;
-    case key::End:
+    case key::kEnd:
         _cursor = _field.size();
         return;
     default:
@@ -1149,22 +1149,22 @@ void PlayViewer::typingEvent(const Event &ev) {
     case '`':
         closeTyping();
         return; // the console key closes it again
-    case key::Up:
-    case key::Down:
+    case key::kUp:
+    case key::kDown:
         // Earlier lines typed, back and forth.
         if (_history.empty())
             return;
-        if (ev.key == key::Up && _historyPos > 0)
+        if (ev.key == key::kUp && _historyPos > 0)
             --_historyPos;
-        else if (ev.key == key::Down && _historyPos < _history.size())
+        else if (ev.key == key::kDown && _historyPos < _history.size())
             ++_historyPos;
         _field = _historyPos < _history.size() ? _history[_historyPos] : std::string();
         _cursor = _field.size();
         return;
-    case key::PageUp:
+    case key::kPageUp:
         _consoleScroll = std::min(_consoleScroll + 4, int(_consoleLines.size()));
         return;
-    case key::PageDown:
+    case key::kPageDown:
         _consoleScroll = std::max(_consoleScroll - 4, 0);
         return;
     default:
@@ -1174,14 +1174,14 @@ void PlayViewer::typingEvent(const Event &ev) {
 
 void PlayViewer::handleEvent(const Event &ev) {
     // The joystick, read once a frame (pollJoystick).
-    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
-        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+    if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
+        ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
         _joystick.event(ev);
         return;
     }
     if (_typing != Typing::kNone) {
         // Typing takes the keys and characters; the mouse still looks.
-        if (ev.type == EventType::MouseMove) {
+        if (ev.type == EventType::kMouseMove) {
             _input.addMouse(ev.moveX, ev.moveY);
         } else {
             typingEvent(ev);
@@ -1192,9 +1192,9 @@ void PlayViewer::handleEvent(const Event &ev) {
         // Menus that never took the keys (their key catcher) can't close
         // themselves: Esc does.
         // A held Esc's repeats don't close what its press opened.
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape && ev.repeat)
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && ev.repeat)
             return;
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape && (!_menuCaught || (ev.mods & keymod::Shift))) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && (!_menuCaught || (ev.mods & keymod::kShift))) {
             // (Shift+Esc always: back to the match, whatever they show.)
             closeMenu();
             return;
@@ -1203,31 +1203,31 @@ void PlayViewer::handleEvent(const Event &ev) {
         runMenuCommands();
         return;
     }
-    if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
         if (!ev.repeat)
             openMenu();
         return;
     }
     if (!_renderer || _names.empty())
         return;
-    if (ev.type == EventType::KeyDown && ev.key == '`' && !(ev.mods & keymod::Ctrl)) {
+    if (ev.type == EventType::kKeyDown && ev.key == '`' && !(ev.mods & keymod::kCtrl)) {
         // The console key, whatever it's bound to, as in the original.
         openTyping(Typing::kConsole, -1, '`');
         return;
     }
     switch (ev.type) {
-    case EventType::KeyDown:
-    case EventType::KeyUp: {
-        const bool down = ev.type == EventType::KeyDown;
-        if (down && (ev.mods & keymod::Ctrl)) {
+    case EventType::kKeyDown:
+    case EventType::kKeyUp: {
+        const bool down = ev.type == EventType::kKeyDown;
+        if (down && (ev.mods & keymod::kCtrl)) {
             // Reluva's own: restart, another map, the info.
             const int n = int(_names.size());
             if (ev.key == 'r') {
                 start(_index);
                 return;
             }
-            if (ev.key == key::PageUp || ev.key == key::PageDown) {
-                start((_index + (ev.key == key::PageUp ? n - 1 : 1)) % n);
+            if (ev.key == key::kPageUp || ev.key == key::kPageDown) {
+                start((_index + (ev.key == key::kPageUp ? n - 1 : 1)) % n);
                 return;
             }
             if (ev.key == 'i') {
@@ -1245,19 +1245,19 @@ void PlayViewer::handleEvent(const Event &ev) {
         _bindingKeyChar = 0;
         break;
     }
-    case EventType::MouseDown:
-    case EventType::MouseUp:
+    case EventType::kMouseDown:
+    case EventType::kMouseUp:
         if (const int32_t k = toQ3Button(ev.button))
-            runBinding(_ctx.bindings.get(k), k, ev.type == EventType::MouseDown);
+            runBinding(_ctx.bindings.get(k), k, ev.type == EventType::kMouseDown);
         break;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         if (ev.wheelY) {
             const int32_t k = ev.wheelY > 0 ? q3key::kWheelUp : q3key::kWheelDown;
             runBinding(_ctx.bindings.get(k), k, true);
             runBinding(_ctx.bindings.get(k), k, false);
         }
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         // Turned into looking once a frame (runGame), as the settings say.
         _input.addMouse(ev.moveX, ev.moveY);
         break;

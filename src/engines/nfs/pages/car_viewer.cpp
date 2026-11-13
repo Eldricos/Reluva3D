@@ -279,15 +279,15 @@ void CarPage::loadSkies() {
 
 void CarPage::handleEvent(const Event &ev) {
     const int n = static_cast<int>(_models.size());
-    if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kKeyDown) {
         switch (ev.key) {
-        case key::Right:
+        case key::kRight:
             if (_renderer)
                 load((_index + 1) % n);
             else
                 _index = (_index + 1) % n;
             break;
-        case key::Left:
+        case key::kLeft:
             if (_renderer)
                 load((_index + n - 1) % n);
             else
@@ -333,18 +333,18 @@ void CarPage::handleEvent(const Event &ev) {
         default:
             break;
         }
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         _dragging = false;
-    } else if (ev.type == EventType::MouseMove && _dragging) {
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
         _yaw += static_cast<float>(ev.mouseX - _lastX) * 0.01f;
         _pitch = std::clamp(_pitch + static_cast<float>(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseWheel) {
+    } else if (ev.type == EventType::kMouseWheel) {
         _distance = std::max(_radius * 0.6f, _distance * std::pow(0.9f, static_cast<float>(ev.wheelY)));
     }
 }
@@ -374,7 +374,7 @@ void CarPage::update(uint64_t nowMs) {
         gfx::DrawCall call;
         call.mesh = _mesh;
         call.texture = _textures ? _skin : 0;
-        call.rgbSource = gfx::ColorSource::Lighting;
+        call.rgbSource = gfx::ColorSource::kLighting;
         call.ambientLight = {0.45f, 0.45f, 0.45f};
         call.directedLight = {0.7f, 0.7f, 0.7f};
         call.lightDirection = {0.36f, 0.8f, 0.48f};
@@ -387,9 +387,9 @@ void CarPage::update(uint64_t nowMs) {
             for (const Run &r : _runs[p]) {
                 if (!_pages.empty())
                     call.texture = _textures && r.page < _pages.size() ? _pages[r.page] : 0;
-                call.state.cull = _cullBack && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
+                call.state.cull = _cullBack && !r.twoSided ? gfx::Cull::kBack : gfx::Cull::kNone;
                 // Unlit: one constant white (0x55e6e8) for the lighting.
-                call.rgbSource = r.unlit ? gfx::ColorSource::Constant : gfx::ColorSource::Lighting;
+                call.rgbSource = r.unlit ? gfx::ColorSource::kConstant : gfx::ColorSource::kLighting;
                 call.firstIndex = r.firstIndex;
                 call.indexCount = r.indexCount;
                 _renderer->draw(call);
@@ -420,15 +420,15 @@ void CarPage::update(uint64_t nowMs) {
             gfx::DrawCall env;
             env.mesh = _envMesh;
             env.texture = _skies[size_t(_sky)].second;
-            env.rgbSource = env.alphaSource = gfx::ColorSource::Vertex;
-            env.state.src = gfx::Blend::SrcAlpha;
-            env.state.dst = gfx::Blend::One;
+            env.rgbSource = env.alphaSource = gfx::ColorSource::kVertex;
+            env.state.src = gfx::Blend::kSrcAlpha;
+            env.state.dst = gfx::Blend::kOne;
             env.state.depthWrite = false;
             for (size_t p = 0; p < _model.parts.size(); ++p) {
                 if (!shown(p))
                     continue;
                 for (const Run &r : _envRuns[p]) {
-                    env.state.cull = _cullBack && !r.twoSided ? gfx::Cull::Back : gfx::Cull::None;
+                    env.state.cull = _cullBack && !r.twoSided ? gfx::Cull::kBack : gfx::Cull::kNone;
                     env.firstIndex = r.firstIndex;
                     env.indexCount = r.indexCount;
                     _renderer->draw(env);

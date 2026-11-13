@@ -706,8 +706,8 @@ bool ScenePage::puzzleStep() {
         Event ev;
         ev.type = type;
         ev.mouseX = x, ev.mouseY = y;
-        ev.button = type == EventType::MouseMove ? MouseButton::None : MouseButton::Left;
-        ev.clicks = type == EventType::MouseDown ? 1 : 0;
+        ev.button = type == EventType::kMouseMove ? MouseButton::kNone : MouseButton::kLeft;
+        ev.clicks = type == EventType::kMouseDown ? 1 : 0;
         handleEvent(ev);
     };
     auto free = [&](int x, int y) {
@@ -764,8 +764,8 @@ bool ScenePage::puzzleStep() {
         } else if (!find([&](int px, int py) { return boxArrowAt(px, py) == dir; }, x, y)) {
             return false;
         }
-        mouse(EventType::MouseDown, x, y);
-        mouse(EventType::MouseUp, x, y);
+        mouse(EventType::kMouseDown, x, y);
+        mouse(EventType::kMouseUp, x, y);
         return true;
     }
     if (_torn) {
@@ -799,18 +799,18 @@ bool ScenePage::puzzleStep() {
             if (a < 0)
                 a += 360;
             if (t.selected != i) {
-                mouse(EventType::MouseDown, x, y);
-                mouse(EventType::MouseUp, x, y);
+                mouse(EventType::kMouseDown, x, y);
+                mouse(EventType::kMouseUp, x, y);
                 return true;
             }
             if (a > 15 && a < 345)
                 return arrow("left");
             const int dx = kSnapX[i % 4] + 1 - int(p.x + p.cx);
             const int dy = kSnapY[i / 4] - int(p.y + p.cy);
-            mouse(EventType::MouseDown, x, y);
-            mouse(EventType::MouseMove, x + dx, y + dy);
+            mouse(EventType::kMouseDown, x, y);
+            mouse(EventType::kMouseMove, x + dx, y + dy);
             puzzleUpdate(0);
-            mouse(EventType::MouseUp, x + dx, y + dy);
+            mouse(EventType::kMouseUp, x + dx, y + dy);
             return true;
         }
         return false;
@@ -839,7 +839,7 @@ bool ScenePage::puzzleStep() {
         }
         if (!arrow(s.expected == 2 ? "left" : "right"))
             return false;
-        mouse(EventType::MouseUp, _lastMouseX, _lastMouseY);
+        mouse(EventType::kMouseUp, _lastMouseX, _lastMouseY);
         return true;
     }
     return false;

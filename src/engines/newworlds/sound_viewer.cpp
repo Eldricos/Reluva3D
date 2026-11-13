@@ -112,26 +112,26 @@ void SoundViewer::handleKey(uint32_t k) {
         updateTitle();
         break;
     }
-    case key::Right:
+    case key::kRight:
         show((_current + 1) % n);
         break;
-    case key::Left:
+    case key::kLeft:
         show((_current + n - 1) % n);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         show(std::min(_current + 10, n - 1));
         break;
-    case key::PageUp:
+    case key::kPageUp:
         show(std::max(_current - 10, 0));
         break;
-    case key::Home:
+    case key::kHome:
         show(0);
         break;
-    case key::End:
+    case key::kEnd:
         show(n - 1);
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         if (playing())
             stop();
         else
@@ -184,7 +184,7 @@ void SoundViewer::play() {
         return;
     }
     _mixer->stop(_playing);
-    _playing = _mixer->play(_sound, audio::SoundType::Effects);
+    _playing = _mixer->play(_sound, audio::SoundType::kEffects);
 }
 
 void SoundViewer::stop() {

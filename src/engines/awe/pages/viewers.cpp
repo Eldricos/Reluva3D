@@ -223,17 +223,17 @@ int Page::step(uint32_t key, int index, int count) {
     if (count <= 0)
         return 0;
     int to = index;
-    if (key == key::Left)
+    if (key == key::kLeft)
         to = index - 1;
-    else if (key == key::Right)
+    else if (key == key::kRight)
         to = index + 1;
-    else if (key == key::PageUp)
+    else if (key == key::kPageUp)
         to = index - 10;
-    else if (key == key::PageDown)
+    else if (key == key::kPageDown)
         to = index + 10;
-    else if (key == key::Home)
+    else if (key == key::kHome)
         to = 0;
-    else if (key == key::End)
+    else if (key == key::kEnd)
         to = count - 1;
     else
         return 0;
@@ -302,7 +302,7 @@ void PicturePage::show() {
 }
 
 void PicturePage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     if (const int d = step(ev.key, _index, int(_names.size()))) {
         _index += d;
@@ -649,7 +649,7 @@ void ScenePage::playLooping(const std::string &file, bool music) {
         logScript("    (no sound " + file + ")");
         return;
     }
-    _music[file] = _ctx.mixer->play(sound, music ? audio::SoundType::Music : audio::SoundType::Effects,
+    _music[file] = _ctx.mixer->play(sound, music ? audio::SoundType::kMusic : audio::SoundType::kEffects,
                                     audio::kMaxVolume, 0, true);
 }
 
@@ -1025,15 +1025,15 @@ void ScenePage::drawPointSprites(const ParticleSystem &system) {
     call.mesh = mesh;
     call.indexCount = uint32_t(indices.size());
     call.texture = tex;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
     // The pictures' brightness (applyBrightness's slope).
     const float bright = float(32 * brightnessLevel() + 97) / 257.0f;
     call.color = {bright, bright, bright, 1};
-    call.state.src = s.alphaBlend ? gfx::Blend::SrcAlpha : gfx::Blend::One;
-    call.state.dst = s.alphaBlend ? gfx::Blend::OneMinusSrcAlpha : gfx::Blend::One;
+    call.state.src = s.alphaBlend ? gfx::Blend::kSrcAlpha : gfx::Blend::kOne;
+    call.state.dst = s.alphaBlend ? gfx::Blend::kOneMinusSrcAlpha : gfx::Blend::kOne;
     call.state.depthTest = false;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     _renderer->setView(gfx::identity(), {0, 0, 0});
     _renderer->draw(call);
 }
@@ -1092,7 +1092,7 @@ bool ScenePage::advanceLoops(float time) {
         loop.frame.w = m.width();
         loop.frame.h = m.height();
         // As the game's binkw32.dll converts its frames.
-        loop.movie->toRgba(loop.frame.rgba, bink::Movie::Rgb::Binkw32);
+        loop.movie->toRgba(loop.frame.rgba, bink::Movie::Rgb::kBinkw32);
         changed = true;
     }
     return changed;
@@ -2020,12 +2020,12 @@ void ScenePage::update(uint64_t nowMs) {
             call.mesh = _quad;
             call.indexCount = 6;
             if (k > 0 || i > 0) {
-                call.state.src = gfx::Blend::SrcAlpha;
-                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+                call.state.src = gfx::Blend::kSrcAlpha;
+                call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
             }
             call.state.depthTest = false;
             call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             if (part.particles) {
                 drawPointSprites(*part.particles);
                 continue;
@@ -2197,7 +2197,7 @@ void ScenePage::update(uint64_t nowMs) {
             if (layer < _layers.size()) {
                 drawLayer(layer);
                 if (gpuStencil)
-                    stencilQuad(_layers[layer].resetMask, gfx::Renderer3D::StencilMode::Mark, 0, Color{0, 0, 0}, 0);
+                    stencilQuad(_layers[layer].resetMask, gfx::Renderer3D::StencilMode::kMark, 0, Color{0, 0, 0}, 0);
                 else if (shadows)
                     _stencil->reset(_layers[layer].resets);
                 layer++;
@@ -2207,9 +2207,9 @@ void ScenePage::update(uint64_t nowMs) {
             // Where the stencil is 1, darkened (0x402ba0: black at alpha
             // 63); then the player washed toward white with distance, in
             // the snow (the camera's whiteoutStart and whiteoutEnd, 0x402e20).
-            stencilQuad(0, gfx::Renderer3D::StencilMode::Inside, 1, Color{0, 0, 0}, 63);
+            stencilQuad(0, gfx::Renderer3D::StencilMode::kInside, 1, Color{0, 0, 0}, 63);
             if (const int alpha = whiteOut(); alpha > 0)
-                stencilQuad(0, gfx::Renderer3D::StencilMode::Inside, 2, Color{255, 255, 255}, uint8_t(alpha));
+                stencilQuad(0, gfx::Renderer3D::StencilMode::kInside, 2, Color{255, 255, 255}, uint8_t(alpha));
         } else if (shadows) {
             // Where the stencil is 1, darkened (0x402ba0: black at alpha
             // 63); then the player washed toward white with distance, in
@@ -2371,11 +2371,11 @@ void ScenePage::drawMask(const CoverageMask &mask, Color colour, uint8_t alpha) 
     call.mesh = mesh;
     call.indexCount = 6;
     call.texture = tex;
-    call.state.src = gfx::Blend::SrcAlpha;
-    call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    call.state.src = gfx::Blend::kSrcAlpha;
+    call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
     call.state.depthTest = false;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     _renderer->draw(call);
 }
 
@@ -2408,24 +2408,24 @@ void ScenePage::stencilQuad(gfx::TextureId mask, gfx::Renderer3D::StencilMode mo
     // A quad over the frame. With a mask (Mark): the stencil set to `ref`
     // where the mask's alpha isn't 0, nothing drawn. Without (Inside):
     // `colour` at `alpha` where the stencil is `ref`.
-    if (!_quad || (mode == gfx::Renderer3D::StencilMode::Mark && !mask))
+    if (!_quad || (mode == gfx::Renderer3D::StencilMode::kMark && !mask))
         return;
     gfx::DrawCall call;
     call.mesh = _quad;
     call.indexCount = 6;
     call.texture = mask;
     call.color = {colour.r / 255.0f, colour.g / 255.0f, colour.b / 255.0f, mask ? 1.0f : alpha / 255.0f};
-    call.state.src = mask ? gfx::Blend::Zero : gfx::Blend::SrcAlpha;
-    call.state.dst = mask ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
-    call.state.alphaTest = mask ? gfx::AlphaTest::Gt0 : gfx::AlphaTest::None;
+    call.state.src = mask ? gfx::Blend::kZero : gfx::Blend::kSrcAlpha;
+    call.state.dst = mask ? gfx::Blend::kOne : gfx::Blend::kOneMinusSrcAlpha;
+    call.state.alphaTest = mask ? gfx::AlphaTest::kGt0 : gfx::AlphaTest::kNone;
     call.state.depthTest = false;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     _renderer->setView(gfx::identity(), {0, 0, 0});
     _renderer->setStencilMode(mode);
     _renderer->setStencilReference(ref);
     _renderer->draw(call);
-    _renderer->setStencilMode(gfx::Renderer3D::StencilMode::None);
+    _renderer->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
 }
 
 void ScenePage::fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha) {
@@ -3046,7 +3046,7 @@ audio::SoundHandle ScenePage::startSound(const std::string &name, bool loop) {
         logScript("    (no sound " + key + ")");
         return audio::kNoSound;
     }
-    const audio::SoundHandle h = _ctx.mixer->play(sound, audio::SoundType::Effects, audio::kMaxVolume, 0, loop);
+    const audio::SoundHandle h = _ctx.mixer->play(sound, audio::SoundType::kEffects, audio::kMaxVolume, 0, loop);
     // Kept for "stop", those still playing.
     for (auto s = _sounds.begin(); s != _sounds.end();)
         s = _ctx.mixer->isPlaying(s->second) ? std::next(s) : _sounds.erase(s);
@@ -3277,7 +3277,7 @@ bool ScenePage::playVoice(const std::string &file) {
         logScript("    (no voice " + file + ")");
         return false;
     }
-    _voice = _ctx.mixer->play(sound, audio::SoundType::Speech);
+    _voice = _ctx.mixer->play(sound, audio::SoundType::kSpeech);
     _voiceSound = sound;
     return _voice != audio::kNoSound;
 }
@@ -3710,25 +3710,25 @@ void ScenePage::handleEvent(const Event &event) {
     // use that place (0x416036).
     Event ev = event;
     if (_playing &&
-        (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)) {
+        (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)) {
         ev.mouseX = std::min(ev.mouseX, 1004);
         ev.mouseY = std::min(ev.mouseY, _dialogue->active() ? 758 : 748);
     }
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _lastMouseX = ev.mouseX, _lastMouseY = ev.mouseY;
         _cursorMoved |= cursorShown();
     }
-    if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left && puzzleActive())
+    if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft && puzzleActive())
         puzzleRelease(ev.mouseX, ev.mouseY);
     if (_optionsMenu && _optionsMenu->dragging) {
-        if (ev.type == EventType::MouseMove)
+        if (ev.type == EventType::kMouseMove)
             draw();
-        else if (ev.type == EventType::MouseUp)
+        else if (ev.type == EventType::kMouseUp)
             optionsRelease();
     }
     if (_yesNo) {
         // The yes/no box takes every click and key while it's up.
-        if (ev.type == EventType::MouseMove) {
+        if (ev.type == EventType::kMouseMove) {
             // The word under the mouse lights up, with mouseover2.wav as it
             // comes onto one (0x4325b0).
             const int at = yesNoAt(ev.mouseX, ev.mouseY);
@@ -3738,27 +3738,27 @@ void ScenePage::handleEvent(const Event &event) {
                     playSound("mouseover2");
                 draw();
             }
-        } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+        } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
             // select2.wav as one is clicked (0x43274b).
             if (const int at = yesNoAt(ev.mouseX, ev.mouseY); at >= 0) {
                 playSound("select2");
                 return answer(at == 0);
             }
-        } else if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::Escape)) {
-            answer(ev.key == key::Return);
+        } else if (ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kEscape)) {
+            answer(ev.key == key::kReturn);
         }
         return;
     }
     if (_movie) {
         // Escape skips it, unless it's the legal notice (0x409860); clicks
         // don't.
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape && _movieName.find("legal") == std::string::npos)
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && _movieName.find("legal") == std::string::npos)
             endMovie();
         return;
     }
     if (_messageTime > 0 &&
-        (ev.type == EventType::KeyDown ||
-         (ev.type == EventType::MouseDown && (ev.button == MouseButton::Left || ev.button == MouseButton::Right)))) {
+        (ev.type == EventType::kKeyDown ||
+         (ev.type == EventType::kMouseDown && (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)))) {
         // A key or a click (left or right) while the message shows only
         // puts it away (0x4164e0, 0x416000, 0x416450).
         _messageTime = 0;
@@ -3766,14 +3766,14 @@ void ScenePage::handleEvent(const Event &event) {
         return;
     }
     if (_dialogue->active() &&
-        (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseWheel)) {
-        if (ev.type == EventType::MouseMove)
+        (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseWheel)) {
+        if (ev.type == EventType::kMouseMove)
             _dialogue->mouseMove(ev.mouseX, ev.mouseY);
-        else if (ev.type == EventType::MouseWheel)
+        else if (ev.type == EventType::kMouseWheel)
             _dialogue->wheel(ev.wheelY, _lastMouseX, _lastMouseY); // a notch is 120 (0x401431)
-        else if (ev.button == MouseButton::Middle)
+        else if (ev.button == MouseButton::kMiddle)
             _dialogue->middleClick(); // WM_MBUTTONDOWN (0x401557, 0x4163c0)
-        else if (ev.button == MouseButton::Left)
+        else if (ev.button == MouseButton::kLeft)
             _dialogue->click(ev.mouseX, ev.mouseY);
         draw();
         return;
@@ -3782,7 +3782,7 @@ void ScenePage::handleEvent(const Event &event) {
     // (scene_interface.cpp).
     if (interfaceEvent(ev))
         return;
-    if (ev.type == EventType::MouseMove && _showGrid) {
+    if (ev.type == EventType::kMouseMove && _showGrid) {
         float x;
         float z;
         WalkGrid::Cell cell;
@@ -3795,7 +3795,7 @@ void ScenePage::handleEvent(const Event &event) {
         }
         return;
     }
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         // The game takes no clicks while a script runs, but during its
         // walks and turns and after an "unlock"; one taken drops what was
         // running (0x409760).
@@ -3830,7 +3830,7 @@ void ScenePage::handleEvent(const Event &event) {
         }
         return;
     }
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     if (_playing && gameKey(ev.key))
         return;
@@ -3840,10 +3840,10 @@ void ScenePage::handleEvent(const Event &event) {
         return;
     }
     const int n = int(_scene.objects().size());
-    if (ev.key == key::Up || ev.key == key::Down) {
+    if (ev.key == key::kUp || ev.key == key::kDown) {
         if (n > 0)
-            _selected = ev.key == key::Down ? (_selected + 1 >= n ? -1 : _selected + 1)
-                                            : (_selected < 0 ? n - 1 : _selected - 1);
+            _selected = ev.key == key::kDown ? (_selected + 1 >= n ? -1 : _selected + 1)
+                                             : (_selected < 0 ? n - 1 : _selected - 1);
         draw();
     } else if (ev.key == 'h') {
         _hotspots = !_hotspots;
@@ -3858,7 +3858,7 @@ void ScenePage::handleEvent(const Event &event) {
         v = !v;
         retestObjects(); // the viewer's own: shown at once
         draw();
-    } else if (ev.key == 'i' || ev.key == key::F1 + 8) {
+    } else if (ev.key == 'i' || ev.key == key::kF1 + 8) {
         // (In a game I is the inventory's: F9.)
         _info = !_info;
         draw();
@@ -3950,14 +3950,14 @@ void MoviePage::update(uint64_t nowMs) {
 }
 
 void MoviePage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     if (const int d = step(ev.key, _index, int(_names.size()))) {
         _index += d;
         open();
-    } else if (ev.key == key::Return) {
+    } else if (ev.key == key::kReturn) {
         open();
-    } else if (ev.key == key::Space && _player.loaded()) {
+    } else if (ev.key == key::kSpace && _player.loaded()) {
         _player.pause(!_player.paused(), _ctx.sys.getMillis());
     }
 }
@@ -4033,24 +4033,25 @@ void TextPage::draw() {
 }
 
 void TextPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     const int rows = (kScreenH - 2 * font::kLineHeight - 8) / font::kLineHeight;
     const int maxScroll = std::max(0, int(_lines.size()) - rows);
-    const bool shift = ev.mods & keymod::Shift;
-    if (ev.key == key::Left || ev.key == key::Right || ((ev.key == key::PageUp || ev.key == key::PageDown) && shift)) {
+    const bool shift = ev.mods & keymod::kShift;
+    if (ev.key == key::kLeft || ev.key == key::kRight ||
+        ((ev.key == key::kPageUp || ev.key == key::kPageDown) && shift)) {
         if (const int d = step(ev.key, _index, int(_names.size()))) {
             _index += d;
             load();
         }
-    } else if (ev.key == key::Up || ev.key == key::Down || ev.key == key::PageUp || ev.key == key::PageDown ||
-               ev.key == key::Home || ev.key == key::End) {
-        const int by = ev.key == key::Up         ? -1
-                       : ev.key == key::Down     ? 1
-                       : ev.key == key::PageUp   ? -rows
-                       : ev.key == key::PageDown ? rows
-                       : ev.key == key::Home     ? -int(_lines.size())
-                                                 : int(_lines.size());
+    } else if (ev.key == key::kUp || ev.key == key::kDown || ev.key == key::kPageUp || ev.key == key::kPageDown ||
+               ev.key == key::kHome || ev.key == key::kEnd) {
+        const int by = ev.key == key::kUp         ? -1
+                       : ev.key == key::kDown     ? 1
+                       : ev.key == key::kPageUp   ? -rows
+                       : ev.key == key::kPageDown ? rows
+                       : ev.key == key::kHome     ? -int(_lines.size())
+                                                  : int(_lines.size());
         _scroll = std::clamp(_scroll + by, 0, maxScroll);
         draw();
     }
@@ -4089,7 +4090,7 @@ void SoundPage::play() {
         _info = buf;
         if (_ctx.mixer) {
             _ctx.mixer->stopAll();
-            _playing = _ctx.mixer->play(sound, audio::SoundType::Effects);
+            _playing = _ctx.mixer->play(sound, audio::SoundType::kEffects);
         } else {
             _info += " (no audio device)";
         }
@@ -4115,14 +4116,14 @@ void SoundPage::draw() {
 }
 
 void SoundPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown || _names.empty())
+    if (ev.type != EventType::kKeyDown || _names.empty())
         return;
-    const uint32_t k = ev.key == key::Up ? key::Left : ev.key == key::Down ? key::Right : ev.key;
+    const uint32_t k = ev.key == key::kUp ? key::kLeft : ev.key == key::kDown ? key::kRight : ev.key;
     if (const int d = step(k, _index, int(_names.size()))) {
         _index += d;
         _info.clear();
         draw();
-    } else if (ev.key == key::Space || ev.key == key::Return) {
+    } else if (ev.key == key::kSpace || ev.key == key::kReturn) {
         play();
     } else if (ev.key == 's' && _ctx.mixer) {
         _ctx.mixer->stopAll();

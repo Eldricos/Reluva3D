@@ -109,14 +109,14 @@ uint32_t PixelFormat::fromArgb(uint32_t argb) const {
     return v;
 }
 
-ArgbConverter::ArgbConverter(const PixelFormat &format, const uint32_t *palette) : format_(format), palette_(palette) {
+ArgbConverter::ArgbConverter(const PixelFormat &format, const uint32_t *palette) : _format(format), _palette(palette) {
     if (format.flags & (kPfPaletteIndexed8 | kPfLuminance)) {
-        general_ = true;
+        _general = true;
         return;
     }
     const bool alpha = (format.flags & kPfAlphaPixels) && format.a;
     if (!alpha)
-        alpha_ = 0xff000000u;
+        _alpha = 0xff000000u;
     const std::pair<uint32_t, uint32_t> masks[4] = {{format.r, 16}, {format.g, 8}, {format.b, 0}, {format.a, 24}};
     for (int i = 0; i < (alpha ? 4 : 3); ++i) {
         const uint32_t mask = masks[i].first;
@@ -131,9 +131,9 @@ ArgbConverter::ArgbConverter(const PixelFormat &format, const uint32_t *palette)
         const uint32_t values = 1u << std::min(width, 8);
         for (uint32_t v = 0; v < values; ++v) // as channel() scales them
             c.table[v] = uint8_t(channel((v << c.drop) << c.shift, mask));
-        channels_.push_back(c);
+        _channels.push_back(c);
     }
-    direct_ = format.bits == 32 && format.r == 0xff0000u && format.g == 0xff00u && format.b == 0xffu &&
+    _direct = format.bits == 32 && format.r == 0xff0000u && format.g == 0xff00u && format.b == 0xffu &&
               (!alpha || format.a == 0xff000000u);
     if (format.bytes() != 2)
         return;
@@ -150,11 +150,11 @@ ArgbConverter::ArgbConverter(const PixelFormat &format, const uint32_t *palette)
             (*t)[v] = (*this)(v);
         table = std::move(t);
     }
-    wide_ = table;
+    _wide = table;
 }
 
 void ArgbConverter::row(const uint8_t *bytes, int count, uint32_t *out) const {
-    switch (format_.bytes()) {
+    switch (_format.bytes()) {
     case 1:
         for (int i = 0; i < count; ++i)
             out[i] = (*this)(bytes[i]);
@@ -168,11 +168,11 @@ void ArgbConverter::row(const uint8_t *bytes, int count, uint32_t *out) const {
             out[i] = (*this)(uint32_t(bytes[3 * i] | bytes[3 * i + 1] << 8 | bytes[3 * i + 2] << 16));
         break;
     default:
-        if (direct_) {
+        if (_direct) {
             std::memcpy(out, bytes, size_t(count) * 4);
-            if (alpha_)
+            if (_alpha)
                 for (int i = 0; i < count; ++i)
-                    out[i] = (out[i] & 0xffffffu) | alpha_;
+                    out[i] = (out[i] & 0xffffffu) | _alpha;
             break;
         }
         for (int i = 0; i < count; ++i) {

@@ -374,7 +374,7 @@ void ScenePage::hotspotPressed(const Ac2Record &o) {
 bool ScenePage::hotspotKey(uint32_t key) {
     // 0x436110: Escape and Enter press the first hotspot whose key is
     // VK_ESCAPE or VK_RETURN (shown or not), its script run.
-    const char *name = key == key::Escape ? "vk_escape" : key == key::Return ? "vk_return" : nullptr;
+    const char *name = key == key::kEscape ? "vk_escape" : key == key::kReturn ? "vk_return" : nullptr;
     if (!name)
         return false;
     for (const Ac2Record *o : _scene.objects()) {

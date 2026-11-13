@@ -200,7 +200,7 @@ void WorldViewer::handleEvent(const Event &ev) {
         case 'd':
             _held[kRight] = down;
             return true;
-        case key::Space:
+        case key::kSpace:
         case 'e':
             _held[kUp] = down;
             return true;
@@ -208,33 +208,33 @@ void WorldViewer::handleEvent(const Event &ev) {
         case 'q':
             _held[kDown] = down;
             return true;
-        case key::LShift:
-        case key::RShift:
+        case key::kLShift:
+        case key::kRShift:
             _held[kFast] = down;
             return true;
         default:
             return false;
         }
     };
-    if (ev.type == EventType::KeyUp) {
+    if (ev.type == EventType::kKeyUp) {
         hold(ev.key, false);
-    } else if (ev.type == EventType::KeyDown) {
+    } else if (ev.type == EventType::kKeyDown) {
         if (hold(ev.key, true) || ev.repeat)
             return;
         const int n = static_cast<int>(_names.size());
-        if (ev.key == key::Left || ev.key == key::Right)
-            load((_index + (ev.key == key::Left ? n - 1 : 1)) % n);
+        if (ev.key == key::kLeft || ev.key == key::kRight)
+            load((_index + (ev.key == key::kLeft ? n - 1 : 1)) % n);
         else if (ev.key == 'r')
             toStart();
         else if (ev.key == 'i')
             _showInfo = !_showInfo;
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         _dragging = false;
-    } else if (ev.type == EventType::MouseMove && _dragging) {
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
         _yaw -= float(ev.mouseX - _lastX) * 0.005f;
         _pitch = std::clamp(_pitch - float(ev.mouseY - _lastY) * 0.005f, -1.55f, 1.55f);
         _lastX = ev.mouseX;

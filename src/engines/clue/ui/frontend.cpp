@@ -204,9 +204,9 @@ void FrontEnd::applyVolumes() {
     // AMMSF_ADDDEFAULTRENDERER) and never sets its volume. So here Effects
     // are all that Miles plays (sounds and voices), Speech the videos.
     const int master = _prefs.masterVolume * audio::kMaxVolume / 100;
-    _mixer->setTypeVolume(audio::SoundType::Music, _prefs.musicVolume * audio::kMaxVolume / 100);
-    _mixer->setTypeVolume(audio::SoundType::Speech, audio::kMaxVolume);
-    _mixer->setTypeVolume(audio::SoundType::Effects, master);
+    _mixer->setTypeVolume(audio::SoundType::kMusic, _prefs.musicVolume * audio::kMaxVolume / 100);
+    _mixer->setTypeVolume(audio::SoundType::kSpeech, audio::kMaxVolume);
+    _mixer->setTypeVolume(audio::SoundType::kEffects, master);
 }
 
 void FrontEnd::showDialog(int id, int x, int y) {
@@ -215,7 +215,7 @@ void FrontEnd::showDialog(int id, int x, int y) {
         _dialog = std::make_unique<DialogView>(_data, *_fonts, *d, x, y);
     // So that the control under the pointer shows as it.
     Event move;
-    move.type = EventType::MouseMove;
+    move.type = EventType::kMouseMove;
     move.mouseX = _mouseX;
     move.mouseY = _mouseY;
     if (_dialog)
@@ -317,7 +317,7 @@ void FrontEnd::go(Screen s) {
             if (const std::filesystem::path *p = _data.find("load music loop22khz.wav")) {
                 auto loop = std::make_shared<audio::Sound>();
                 if (!audio::decodeSound(readFile(*p), *loop))
-                    _loadingSound = _mixer->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
+                    _loadingSound = _mixer->play(loop, audio::SoundType::kEffects, kClueSoundVolume, 0, true);
             }
         showDialog(kLoading);
         break;
@@ -788,13 +788,13 @@ Error FrontEnd::loadGame(int slot) {
 }
 
 void FrontEnd::handleEvent(const Event &ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
     }
     // Videos: a key or a click skips them.
     if (_movie) {
-        if (ev.type == EventType::KeyDown || ev.type == EventType::MouseDown) {
+        if (ev.type == EventType::kKeyDown || ev.type == EventType::kMouseDown) {
             const Screen next = _afterMovie;
             stopMovie();
             go(next);
@@ -802,20 +802,20 @@ void FrontEnd::handleEvent(const Event &ev) {
         return;
     }
     if (_at == Screen::kGame) {
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape)
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape)
             go(Screen::kGameMenu);
         else if (_play)
             _play->handleEvent(ev);
         return;
     }
     if (overGame()) {
-        if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
             if (_at == Screen::kSaveGame)
                 _sys.setTextInput(false);
             go(_at == Screen::kGameMenu ? Screen::kGame : Screen::kGameMenu);
             return;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Return && _at == Screen::kSaveGame) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kReturn && _at == Screen::kSaveGame) {
             onClick(1);
             return;
         }
@@ -837,8 +837,8 @@ void FrontEnd::handleEvent(const Event &ev) {
     // The network screens: Esc goes back (a lobby is left), Enter sends.
     const bool netScreen = _at == Screen::kNetHost || _at == Screen::kNetAddress || _at == Screen::kNetJoin ||
                            _at == Screen::kNetLobby || _at == Screen::kNetSetup || _at == Screen::kNetMessage;
-    if (netScreen && ev.type == EventType::KeyDown && (ev.key == key::Escape || ev.key == key::Return)) {
-        const bool esc = ev.key == key::Escape;
+    if (netScreen && ev.type == EventType::kKeyDown && (ev.key == key::kEscape || ev.key == key::kReturn)) {
+        const bool esc = ev.key == key::kEscape;
         if (_at == Screen::kNetLobby)
             esc ? netLeave() : netClick(60);
         else if (_at == Screen::kNetMessage)
@@ -850,7 +850,7 @@ void FrontEnd::handleEvent(const Event &ev) {
         return;
     }
     // Esc as each screen's way back.
-    if (ev.type == EventType::KeyDown && ev.key == key::Escape) {
+    if (ev.type == EventType::kKeyDown && ev.key == key::kEscape) {
         if (_at == Screen::kMainMenu)
             go(Screen::kExit);
         else if (_at == Screen::kSetup || _at == Screen::kExit || _at == Screen::kVariants || _at == Screen::kPrefs ||
@@ -862,7 +862,7 @@ void FrontEnd::handleEvent(const Event &ev) {
             onClick(30);
         return;
     }
-    if (ev.type == EventType::KeyDown && ev.key == key::Return && _at == Screen::kSetup) {
+    if (ev.type == EventType::kKeyDown && ev.key == key::kReturn && _at == Screen::kSetup) {
         onClick(kOk);
         return;
     }
@@ -888,7 +888,7 @@ void FrontEnd::startMovie(const std::string &file, Screen after) {
     if (_mixer && player->hasAudio()) {
         auto sound = std::make_shared<audio::Sound>();
         if (!player->audio(*sound))
-            _movieSound = _mixer->play(sound, audio::SoundType::Speech);
+            _movieSound = _mixer->play(sound, audio::SoundType::kSpeech);
     }
     _movie = std::move(player);
     _movieStart = _sys.getMillis();
@@ -934,7 +934,7 @@ void FrontEnd::playTrack(int track) {
         it = _tracks.emplace(track, s).first;
     }
     if (it->second)
-        _music = _mixer->play(it->second, audio::SoundType::Music, audio::kMaxVolume, 0, !_musicInGame);
+        _music = _mixer->play(it->second, audio::SoundType::kMusic, audio::kMaxVolume, 0, !_musicInGame);
 }
 
 void FrontEnd::stopMusic() {
@@ -995,7 +995,7 @@ void FrontEnd::menuThunder() {
     if (!_mixer || (_stormSound != audio::kNoSound && _mixer->isPlaying(_stormSound)))
         return;
     if (auto s = loadSound(_data, "mnThndr1.wav"))
-        _stormSound = _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume, 0, true);
+        _stormSound = _mixer->play(s, audio::SoundType::kEffects, kClueSoundVolume, 0, true);
 }
 
 void FrontEnd::startFlash(int id) {
@@ -1006,7 +1006,7 @@ void FrontEnd::startFlash(int id) {
     // opens hides the flashes (0x40C420).
     if (_mixer)
         if (auto s = loadSound(_data, "mnThndr2.wav"))
-            _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume);
+            _mixer->play(s, audio::SoundType::kEffects, kClueSoundVolume);
     _flashUntil = _now + 1000;
     _flashClick = id;
 }

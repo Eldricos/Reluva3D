@@ -297,7 +297,7 @@ int cmdProLogic(int argc, char **argv) {
     return 0;
 }
 
-const Commands commands(
+const Commands kCommands(
     "",
     {
         {"avi-frames", "<file.avi> [output dir] [frame number... | all]",

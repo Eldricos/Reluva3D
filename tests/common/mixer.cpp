@@ -66,12 +66,12 @@ void testLoopAndRate() {
     std::vector<int16_t> out(40);
     auto looped = mono(22050, {10, 20, 30, 40});
     looped->loopStart = 1, looped->loopEnd = 3;
-    const SoundHandle l = m.play(looped, SoundType::Effects, kMaxVolume, 0, true);
+    const SoundHandle l = m.play(looped, SoundType::kEffects, kMaxVolume, 0, true);
     m.mix(out.data(), 6);
     CHECK(out[0] == 10 && out[2] == 20 && out[4] == 30 && out[6] == 20 && out[8] == 30 && out[10] == 20);
     m.stop(l);
     // Twice the rate: every other frame.
-    const SoundHandle r = m.play(mono(22050, {0, 10, 20, 30, 40, 50}), SoundType::Effects);
+    const SoundHandle r = m.play(mono(22050, {0, 10, 20, 30, 40, 50}), SoundType::kEffects);
     m.setRate(r, 2.0);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 20 && out[4] == 40 && out[6] == 0 && !m.isPlaying(r));
@@ -91,12 +91,12 @@ void testOutputStream() {
         }
     };
     auto ramp = std::make_shared<Ramp>();
-    const SoundHandle st = m.playOutput(ramp, SoundType::Effects, kMaxVolume / 2);
+    const SoundHandle st = m.playOutput(ramp, SoundType::kEffects, kMaxVolume / 2);
     m.mix(out.data(), 3);
     CHECK(ramp->rate == 22050 && out[0] == 0 && out[2] == 50 && out[5] == 100 && m.isPlaying(st));
     m.stop(st);
     m.mix(out.data(), 1);
-    CHECK(!m.isPlaying(st) && out[0] == 0 && m.playOutput(nullptr, SoundType::Effects) == kNoSound);
+    CHECK(!m.isPlaying(st) && out[0] == 0 && m.playOutput(nullptr, SoundType::kEffects) == kNoSound);
 }
 
 } // namespace

@@ -63,10 +63,10 @@ void GlideDll::add3dfLoaders(bool glide3) {
     // file's size, so each reads it whole.
     auto read = [this](Cpu &c, std::vector<uint8_t> &bytes, File3df &f) {
         std::string why = "no file reader";
-        if (!readFile || !readFile(cpu_.string(c.arg(0)), bytes))
+        if (!readFile || !readFile(_cpu.string(c.arg(0)), bytes))
             return false;
         if (!parse3dfHeader(bytes.data(), bytes.size(), f, &why)) {
-            core_->notImplemented("gu3df " + cpu_.string(c.arg(0)), why);
+            _core->notImplemented("gu3df " + _cpu.string(c.arg(0)), why);
             return false;
         }
         return true;
@@ -92,19 +92,19 @@ void GlideDll::add3dfLoaders(bool glide3) {
         const uint32_t info = c.arg(1);
         if (!guest(info, 1056) || !read(c, bytes, f))
             return 0u;
-        const uint32_t data = cpu_.read32(info + 1048);
+        const uint32_t data = _cpu.read32(info + 1048);
         if (!guest(data, f.dataBytes))
             return 0u;
         std::vector<uint8_t> texels(f.dataBytes);
         if (!load3dfData(bytes.data(), bytes.size(), f, texels.data()))
             return 0u;
-        std::memcpy(cpu_.memory().data() + data, texels.data(), texels.size());
+        std::memcpy(_cpu.memory().data() + data, texels.data(), texels.size());
         return 1u;
     });
 }
 
 GlideDll::GlideDll(Cpu &cpu, x86::Arena &memory, std::string dllName)
-    : cpu_(cpu), memory_(memory), dllName_(std::move(dllName)) {
+    : _cpu(cpu), _memory(memory), _dllName(std::move(dllName)) {
 }
 
 float GlideDll::argFloat(const Cpu &c, int i) {
@@ -115,8 +115,8 @@ float GlideDll::argFloat(const Cpu &c, int i) {
 }
 
 void GlideDll::provideTo(x86::Win32Process &process) const {
-    for (const auto &[name, fn] : natives_)
-        process.provide(dllName_, name, fn);
+    for (const auto &[name, fn] : _natives)
+        process.provide(_dllName, name, fn);
 }
 
 void GlideDll::add(const std::string &name, int argBytes, Fn fn) {
@@ -129,46 +129,46 @@ void GlideDll::add(const std::string &name, int argBytes, Fn fn) {
     const bool mode = std::find(std::begin(kModes), std::end(kModes), name) != std::end(kModes);
     const int modeArg = name == "grTexFilterMode" || name == "grTexMipMapMode" || name == "grTexClampMode" ? 1 : 0;
     Cpu::Native native = [this, name, fn = std::move(fn), pop, mode, modeArg](Cpu &c) {
-        ++calls_[name];
+        ++_calls[name];
         if (mode)
-            ++modes_[name][c.arg(modeArg)];
+            ++_modes[name][c.arg(modeArg)];
         c.reg[Cpu::EAX] = fn(c);
         return pop;
     };
-    natives_[decorated] = native;
-    exports_[decorated] = cpu_.addNative(dllName_.substr(0, dllName_.find('.')) + " " + name, std::move(native));
+    _natives[decorated] = native;
+    _exports[decorated] = _cpu.addNative(_dllName.substr(0, _dllName.find('.')) + " " + name, std::move(native));
 }
 
 uint32_t GlideDll::addProc(const std::string &name, int argBytes, Fn fn) {
     const uint32_t pop = uint32_t(argBytes);
-    return cpu_.addNative(dllName_.substr(0, dllName_.find('.')) + " " + name,
+    return _cpu.addNative(_dllName.substr(0, _dllName.find('.')) + " " + name,
                           [this, name, fn = std::move(fn), pop](Cpu &c) {
-                              ++calls_[name];
+                              ++_calls[name];
                               c.reg[Cpu::EAX] = fn(c);
                               return pop;
                           });
 }
 
 void GlideDll::stub(const std::string &name, int argBytes, uint32_t result) {
-    stubs_.push_back(name);
+    _stubs.push_back(name);
     add(name, argBytes, [this, name, result](Cpu &) {
-        core_->notImplemented(name);
+        _core->notImplemented(name);
         return result;
     });
 }
 
 const uint8_t *GlideDll::guest(uint32_t address, uint32_t size) const {
-    return address && cpu_.valid(address, std::max<uint32_t>(size, 1)) ? cpu_.memory().data() + address : nullptr;
+    return address && _cpu.valid(address, std::max<uint32_t>(size, 1)) ? _cpu.memory().data() + address : nullptr;
 }
 
 void GlideDll::fillMirror(Mirror &m) {
-    const Pipeline &p = core_->pipeline();
+    const Pipeline &p = _core->pipeline();
     const int w = p.width();
     const int h = p.height();
-    uint8_t *g = cpu_.memory().data() + m.address;
+    uint8_t *g = _cpu.memory().data() + m.address;
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
-            const uint16_t v = core_->lfbRead(m.lock.buffer, x, y, m.lock.originLowerLeft);
+            const uint16_t v = _core->lfbRead(m.lock.buffer, x, y, m.lock.originLowerLeft);
             uint8_t *at = g + size_t(y) * size_t(m.lock.strideBytes) + size_t(x) * size_t(m.lock.bytesPerPixel);
             if (m.lock.bytesPerPixel == 2) {
                 std::memcpy(at, &v, 2);
@@ -200,14 +200,14 @@ void GlideDll::fillMirror(Mirror &m) {
 }
 
 void GlideDll::flushMirror(Mirror &m) {
-    const Pipeline &p = core_->pipeline();
+    const Pipeline &p = _core->pipeline();
     const int w = p.width();
     const int h = p.height();
-    const uint8_t *g = cpu_.memory().data() + m.address;
+    const uint8_t *g = _cpu.memory().data() + m.address;
     const int bpp = m.lock.bytesPerPixel;
     // grLfbWriteColorSwizzle works on the 32-bit words written: for the
     // 16-bit modes, two pixels at a time.
-    const bool swizzle = core_->lfbSwizzleBytes() || core_->lfbSwapWords();
+    const bool swizzle = _core->lfbSwizzleBytes() || _core->lfbSwapWords();
     for (int y = 0; y < h; ++y) {
         const size_t row = size_t(y) * size_t(m.lock.strideBytes);
         if (std::memcmp(g + row, m.snapshot.data() + row, size_t(w) * size_t(bpp)) == 0)
@@ -220,13 +220,13 @@ void GlideDll::flushMirror(Mirror &m) {
                     continue;
                 uint32_t word = 0;
                 std::memcpy(&word, g + at, 4);
-                word = core_->lfbSwizzle(m.lock.writeMode, word);
+                word = _core->lfbSwizzle(m.lock.writeMode, word);
                 if (bpp == 4) {
-                    core_->lfbWrite(m.lock, x, y, word);
+                    _core->lfbWrite(m.lock, x, y, word);
                 } else {
-                    core_->lfbWrite(m.lock, x, y, word & 0xffff);
+                    _core->lfbWrite(m.lock, x, y, word & 0xffff);
                     if (x + 1 < w)
-                        core_->lfbWrite(m.lock, x + 1, y, word >> 16);
+                        _core->lfbWrite(m.lock, x + 1, y, word >> 16);
                 }
             }
             continue;
@@ -237,7 +237,7 @@ void GlideDll::flushMirror(Mirror &m) {
                 continue;
             uint32_t v = 0;
             std::memcpy(&v, g + at, size_t(bpp));
-            core_->lfbWrite(m.lock, x, y, v);
+            _core->lfbWrite(m.lock, x, y, v);
         }
     }
 }
@@ -246,19 +246,19 @@ uint32_t GlideDll::lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, u
                            uint32_t info) {
     // GrLfbInfo_t: size (20, set by the caller), lfbPtr, strideInBytes,
     // writeMode, origin.
-    if (!guest(info, 20) || cpu_.read32(info) < 20)
+    if (!guest(info, 20) || _cpu.read32(info) < 20)
         return 0;
     Glide2LfbLock lock;
-    if (!core_->lfbLock(int(type), int(buffer), int(writeMode), int(origin), pipeline, lock))
+    if (!_core->lfbLock(int(type), int(buffer), int(writeMode), int(origin), pipeline, lock))
         return 0;
     const uint32_t key = uint32_t(lock.buffer) << 16 | uint32_t(lock.writeMode) << 1 | uint32_t(lock.originLowerLeft);
-    Mirror &m = mirrors_[key];
+    Mirror &m = _mirrors[key];
     if (!m.address) {
-        m.size = uint32_t(lock.strideBytes) * uint32_t(core_->pipeline().height());
-        m.address = memory_.alloc(m.size, 4096);
+        m.size = uint32_t(lock.strideBytes) * uint32_t(_core->pipeline().height());
+        m.address = _memory.alloc(m.size, 4096);
         if (!m.address) {
-            core_->lfbUnlock(int(type), int(buffer));
-            core_->notImplemented("grLfbLock", "no guest memory for the buffer's copy");
+            _core->lfbUnlock(int(type), int(buffer));
+            _core->notImplemented("grLfbLock", "no guest memory for the buffer's copy");
             return 0;
         }
     }
@@ -269,18 +269,18 @@ uint32_t GlideDll::lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, u
     }
     m.written |= (type & 1) != 0;
     if (lock.pixelPipeline)
-        core_->notImplemented("grLfbLock pixelPipeline", "pixels written through the pipeline when unlocked");
-    cpu_.write32(info + 4, m.address);
-    cpu_.write32(info + 8, uint32_t(lock.strideBytes));
-    cpu_.write32(info + 12, uint32_t(lock.writeMode));
-    cpu_.write32(info + 16, lock.originLowerLeft ? 1u : 0u);
+        _core->notImplemented("grLfbLock pixelPipeline", "pixels written through the pipeline when unlocked");
+    _cpu.write32(info + 4, m.address);
+    _cpu.write32(info + 8, uint32_t(lock.strideBytes));
+    _cpu.write32(info + 12, uint32_t(lock.writeMode));
+    _cpu.write32(info + 16, lock.originLowerLeft ? 1u : 0u);
     return 1;
 }
 
 uint32_t GlideDll::lfbUnlock(uint32_t type, uint32_t buffer) {
-    core_->lfbUnlock(int(type), int(buffer));
+    _core->lfbUnlock(int(type), int(buffer));
     // The mirrors of this buffer whose last lock this is.
-    for (auto &[key, m] : mirrors_) {
+    for (auto &[key, m] : _mirrors) {
         if (m.lock.buffer != int(buffer) || m.locks == 0)
             continue;
         if (--m.locks == 0 && m.written)

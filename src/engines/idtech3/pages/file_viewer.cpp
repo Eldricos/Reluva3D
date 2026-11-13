@@ -26,21 +26,21 @@ void FileViewer::activate() {
 
 void FileViewer::handleEvent(const Event &ev) {
     const int rows = (_ctx.screen.h - 4 * font::kLineHeight) / font::kLineHeight;
-    if (ev.type == EventType::MouseWheel)
+    if (ev.type == EventType::kMouseWheel)
         _top -= ev.wheelY * 3;
-    else if (ev.type != EventType::KeyDown)
+    else if (ev.type != EventType::kKeyDown)
         return;
-    else if (ev.key == key::Up)
+    else if (ev.key == key::kUp)
         --_top;
-    else if (ev.key == key::Down)
+    else if (ev.key == key::kDown)
         ++_top;
-    else if (ev.key == key::PageUp)
+    else if (ev.key == key::kPageUp)
         _top -= rows;
-    else if (ev.key == key::PageDown)
+    else if (ev.key == key::kPageDown)
         _top += rows;
-    else if (ev.key == key::Home)
+    else if (ev.key == key::kHome)
         _top = 0;
-    else if (ev.key == key::End)
+    else if (ev.key == key::kEnd)
         _top = static_cast<int>(_files.size());
     else
         return;

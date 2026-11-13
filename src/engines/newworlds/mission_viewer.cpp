@@ -395,19 +395,19 @@ void MissionViewer::showProgress() {
 }
 
 bool MissionViewer::playEvent(const Event &ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)
         _mouseX = ev.mouseX, _mouseY = ev.mouseY;
-    const bool ctrl = (ev.mods & keymod::Ctrl) != 0;
-    const bool shift = (ev.mods & keymod::Shift) != 0;
+    const bool ctrl = (ev.mods & keymod::kCtrl) != 0;
+    const bool shift = (ev.mods & keymod::kShift) != 0;
     switch (ev.type) {
-    case EventType::KeyDown:
-        if (ev.key == key::Escape && (_buildMenu || !_placing.empty())) {
+    case EventType::kKeyDown:
+        if (ev.key == key::kEscape && (_buildMenu || !_placing.empty())) {
             _buildMenu = false;
             _placing.clear();
             _map.setGhost({}, 0, 0, false);
             break;
         }
-        if (ev.key == key::Escape || ev.key == key::F1 + 2) {
+        if (ev.key == key::kEscape || ev.key == key::kF1 + 2) {
             stopPlay();
             return true;
         }
@@ -425,11 +425,11 @@ bool MissionViewer::playEvent(const Event &ev) {
                 choose(*menu[n]);
             break;
         }
-        if (ev.key == key::Tab) {
+        if (ev.key == key::kTab) {
             _tricorderFull = !_tricorderFull;
             break;
         }
-        if (ev.key == key::Home) {
+        if (ev.key == key::kHome) {
             float x = 0;
             float y = 0;
             if (hubPosition(x, y))
@@ -466,36 +466,36 @@ bool MissionViewer::playEvent(const Event &ev) {
         if (_map.gameKey(ev.key, _mouseX, _mouseY))
             break;
         return true; // the data viewer's keys don't apply in play
-    case EventType::MouseDown:
+    case EventType::kMouseDown:
         if (!_placing.empty() && !ctrl) {
             // Left click builds where the hologram is green; right click
             // puts it away.
-            if (ev.button == MouseButton::Left)
+            if (ev.button == MouseButton::kLeft)
                 placeBuilding();
-            else if (ev.button == MouseButton::Right) {
+            else if (ev.button == MouseButton::kRight) {
                 _placing.clear();
                 _map.setGhost({}, 0, 0, false);
             }
             break;
         }
-        if (ev.button == MouseButton::Left && ctrl) {
+        if (ev.button == MouseButton::kLeft && ctrl) {
             _map.zoomAt(ev.mouseX, ev.mouseY, true);
-        } else if (ev.button == MouseButton::Right && ctrl) {
+        } else if (ev.button == MouseButton::kRight && ctrl) {
             _map.zoomAt(ev.mouseX, ev.mouseY, false);
-        } else if (ev.button == MouseButton::Right) {
+        } else if (ev.button == MouseButton::kRight) {
             // Right-click drops the selection, or the camera's lock.
             if (_map.locked())
                 _map.unlock();
             else
                 _world->clearSelection();
             showUnits();
-        } else if (ev.button == MouseButton::Left) {
+        } else if (ev.button == MouseButton::kLeft) {
             _boxing = true;
             _boxX = ev.mouseX, _boxY = ev.mouseY;
             return true;
         }
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (!_placing.empty()) {
             updateGhost();
             return true;
@@ -503,8 +503,8 @@ bool MissionViewer::playEvent(const Event &ev) {
         if (!_boxing)
             return true;
         break;
-    case EventType::MouseUp: {
-        if (ev.button != MouseButton::Left || !_boxing)
+    case EventType::kMouseUp: {
+        if (ev.button != MouseButton::kLeft || !_boxing)
             return true;
         _boxing = false;
         const Level &level = _missions[size_t(_current)];
@@ -553,7 +553,7 @@ bool MissionViewer::playEvent(const Event &ev) {
         showUnits();
         break;
     }
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         _map.handleEvent(ev);
         return true;
     default:
@@ -569,11 +569,11 @@ void MissionViewer::handleEvent(const Event &ev) {
         return;
     if (_playing && playEvent(ev))
         return;
-    if (ev.type == EventType::KeyDown && ev.key == key::F1 + 2) {
+    if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 2) {
         startPlay();
         return;
     }
-    if (ev.type != EventType::KeyDown) {
+    if (ev.type != EventType::kKeyDown) {
         if (_hasMap)
             _map.handleEvent(ev);
         return;
@@ -581,32 +581,32 @@ void MissionViewer::handleEvent(const Event &ev) {
     const int n = int(_missions.size());
     const int sides = int(missionSides(_missions[size_t(_current)].shortName).size());
     switch (ev.key) {
-    case key::Right:
+    case key::kRight:
         show((_current + 1) % n);
         return;
-    case key::Left:
+    case key::kLeft:
         show((_current + n - 1) % n);
         return;
-    case key::Down:
-    case key::PageDown:
+    case key::kDown:
+    case key::kPageDown:
         if (_page + 1 < int(_pages.size()))
             ++_page, _briefing = true;
         break;
-    case key::Up:
-    case key::PageUp:
+    case key::kUp:
+    case key::kPageUp:
         if (_page > 0)
             --_page, _briefing = true;
         break;
     case 'b':
         _briefing = !_briefing;
         break;
-    case key::Return:
+    case key::kReturn:
         if (_running)
             startStep(_step + 1);
         else
             startBriefing();
         break;
-    case key::Backspace:
+    case key::kBackspace:
         stopBriefing();
         break;
     case 'x':
@@ -632,7 +632,7 @@ void MissionViewer::handleEvent(const Event &ev) {
         _side = (_side + 1) % sides;
         loadSide();
         break;
-    case key::Space:
+    case key::kSpace:
         if (clipPlaying())
             stopClip();
         else
@@ -1227,7 +1227,7 @@ void MissionViewer::deliver(const ScriptEvent &fired, const std::vector<MissionR
     if (const std::string voice = announcementFor(fired, out, side); !voice.empty() && _mixer) {
         stopClip();
         if (auto sound = loadSound(voice))
-            _clipHandle = _mixer->play(std::move(sound), audio::SoundType::Speech);
+            _clipHandle = _mixer->play(std::move(sound), audio::SoundType::kSpeech);
         else
             _soundStatus.clear(); // the game folder may not have Misc
         _walkNote += " [" + voice + "]";
@@ -1676,7 +1676,7 @@ void MissionViewer::playClip(int index) {
         return;
     }
     if (auto sound = loadSound(_clips[size_t(_clip)]))
-        _clipHandle = _mixer->play(std::move(sound), audio::SoundType::Speech);
+        _clipHandle = _mixer->play(std::move(sound), audio::SoundType::kSpeech);
 }
 
 void MissionViewer::stopClip() {
@@ -1701,7 +1701,7 @@ void MissionViewer::startMusic() {
     }
     if (auto sound = loadSound(theme)) {
         _musicName = theme;
-        _musicHandle = _mixer->play(std::move(sound), audio::SoundType::Music, kMusicVolume, 0, true);
+        _musicHandle = _mixer->play(std::move(sound), audio::SoundType::kMusic, kMusicVolume, 0, true);
     }
 }
 

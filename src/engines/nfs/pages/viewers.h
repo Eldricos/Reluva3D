@@ -75,7 +75,7 @@ public:
     // Whether the page is drawing with the GPU (else draw() is used).
     virtual bool uses3D() const { return false; }
     virtual void handleEvent(const Event &ev) {
-        if (ev.type == EventType::KeyDown)
+        if (ev.type == EventType::kKeyDown)
             handleKey(ev.key, ev.mods);
     }
     virtual void handleKey(uint32_t /*key*/, uint16_t /*mods*/) {}

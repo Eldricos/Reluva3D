@@ -74,7 +74,7 @@ struct ShaderStage {
     };
     std::vector<TcMod> tcMods; // in order
 
-    gfx::AlphaTest alphaFunc = gfx::AlphaTest::None;
+    gfx::AlphaTest alphaFunc = gfx::AlphaTest::kNone;
     bool depthEqual = false; // depthFunc equal
     bool depthWrite = false; // depthWrite (opaque stages write depth anyway)
     bool detail = false;

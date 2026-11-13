@@ -12,12 +12,12 @@ namespace reluva {
 #undef RELUVA_ENGINE
 
 const std::vector<const MetaEngine *> &allEngines() {
-    static const std::vector<const MetaEngine *> engines = {
+    static const std::vector<const MetaEngine *> kEngines = {
 #define RELUVA_ENGINE(accessor) &accessor(),
 #include "engines/engine_list.inc"
 #undef RELUVA_ENGINE
     };
-    return engines;
+    return kEngines;
 }
 
 const MetaEngine *findEngine(std::string_view id) {

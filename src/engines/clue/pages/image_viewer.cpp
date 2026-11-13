@@ -83,29 +83,29 @@ void ImageViewer::handleKey(uint32_t key) {
     };
     const int n = imagesIn(_file);
     switch (key) {
-    case key::Right:
+    case key::kRight:
         _image = std::min(n - 1, _image + 1);
         break;
-    case key::Left:
+    case key::kLeft:
         _image = std::max(0, _image - 1);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _image = std::min(n - 1, _image + 10);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _image = std::max(0, _image - 10);
         break;
-    case key::Home:
+    case key::kHome:
         _image = 0;
         break;
-    case key::End:
+    case key::kEnd:
         _image = n - 1;
         break;
-    case key::Down:
+    case key::kDown:
         _file = (_file + 1) % int(_files.size());
         _image = 0;
         break;
-    case key::Up:
+    case key::kUp:
         _file = (_file + int(_files.size()) - 1) % int(_files.size());
         _image = 0;
         break;

@@ -46,7 +46,7 @@ struct ProLogicOptions {
 
 class ProLogicDecoder {
 public:
-    enum Output { L = 0, C = 1, R = 2, S = 3 };
+    enum Output { kL = 0, kC = 1, kR = 2, kS = 3 };
 
     explicit ProLogicDecoder(int rate, const ProLogicOptions &options = {});
     void reset();
@@ -59,28 +59,28 @@ public:
     // The steering at the last frame: the dominant direction on the matrix's
     // circle in degrees (0 left, 45 centre, 90 right, 135 surround, 180 left
     // again), its dominance (0..1) and the steering gain applied (0..1).
-    double direction() const { return direction_; }
-    double dominance() const { return dominance_; }
-    double steering() const { return steering_; }
+    double direction() const { return _direction; }
+    double dominance() const { return _dominance; }
+    double steering() const { return _steering; }
 
-    const ProLogicOptions &options() const { return options_; }
-    int rate() const { return rate_; }
+    const ProLogicOptions &options() const { return _options; }
+    int rate() const { return _rate; }
 
 private:
     void frame(float lt, float rt, float *out);
 
-    ProLogicOptions options_;
-    int rate_;
-    double fastCoef_, slowCoef_;
+    ProLogicOptions _options;
+    int _rate;
+    double _fastCoef, _slowCoef;
     // The power of Lt, Rt, Lt+Rt and Lt-Rt: followed fast, and slowly
     // (faster while the fast ones show one direction dominating).
-    double fast_[4] = {}, slow_[4] = {};
-    double direction_ = 45, dominance_ = 0, steering_ = 0;
+    double _fast[4] = {}, _slow[4] = {};
+    double _direction = 45, _dominance = 0, _steering = 0;
     // The surround's low-pass (direct form I) and delay line.
-    double b0_ = 1, b1_ = 0, b2_ = 0, a1_ = 0, a2_ = 0;
-    double x1_ = 0, x2_ = 0, y1_ = 0, y2_ = 0;
-    std::vector<float> delay_;
-    size_t delayPos_ = 0;
+    double _b0 = 1, _b1 = 0, _b2 = 0, _a1 = 0, _a2 = 0;
+    double _x1 = 0, _x2 = 0, _y1 = 0, _y2 = 0;
+    std::vector<float> _delay;
+    size_t _delayPos = 0;
 };
 
 // Lays decoded L, C, R, S frames out for a device of `channels` channels

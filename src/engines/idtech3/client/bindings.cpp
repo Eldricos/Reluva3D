@@ -121,52 +121,52 @@ constexpr KeyName kKeyNames[] = {
 
 int32_t toQ3Key(uint32_t k) {
     switch (k) {
-    case key::Tab:
+    case key::kTab:
         return q3key::kTab;
-    case key::Return:
+    case key::kReturn:
         return q3key::kEnter;
-    case key::KpEnter:
+    case key::kKpEnter:
         return q3key::kKpEnter;
-    case key::Escape:
+    case key::kEscape:
         return q3key::kEscape;
-    case key::Space:
+    case key::kSpace:
         return q3key::kSpace;
-    case key::Backspace:
+    case key::kBackspace:
         return q3key::kBackspace;
-    case key::Delete:
+    case key::kDelete:
         return q3key::kDelete;
-    case key::Up:
+    case key::kUp:
         return q3key::kUp;
-    case key::Down:
+    case key::kDown:
         return q3key::kDown;
-    case key::Left:
+    case key::kLeft:
         return q3key::kLeft;
-    case key::Right:
+    case key::kRight:
         return q3key::kRight;
-    case key::Insert:
+    case key::kInsert:
         return q3key::kInsert;
-    case key::Home:
+    case key::kHome:
         return q3key::kHome;
-    case key::End:
+    case key::kEnd:
         return q3key::kEnd;
-    case key::PageUp:
+    case key::kPageUp:
         return q3key::kPageUp;
-    case key::PageDown:
+    case key::kPageDown:
         return q3key::kPageDown;
-    case key::LShift:
-    case key::RShift:
+    case key::kLShift:
+    case key::kRShift:
         return q3key::kShift;
-    case key::LCtrl:
-    case key::RCtrl:
+    case key::kLCtrl:
+    case key::kRCtrl:
         return q3key::kCtrl;
-    case key::LAlt:
-    case key::RAlt:
+    case key::kLAlt:
+    case key::kRAlt:
         return q3key::kAlt;
     default:
         break;
     }
-    if (k >= key::F1 && k < key::F1 + 12)
-        return q3key::kF1 + int32_t(k - key::F1);
+    if (k >= key::kF1 && k < key::kF1 + 12)
+        return q3key::kF1 + int32_t(k - key::kF1);
     if (k > 32 && k < 127)
         return int32_t(k);
     return 0;
@@ -174,11 +174,11 @@ int32_t toQ3Key(uint32_t k) {
 
 int32_t toQ3Button(MouseButton b) {
     switch (b) {
-    case MouseButton::Left:
+    case MouseButton::kLeft:
         return q3key::kMouse1;
-    case MouseButton::Right:
+    case MouseButton::kRight:
         return q3key::kMouse2;
-    case MouseButton::Middle:
+    case MouseButton::kMiddle:
         return q3key::kMouse3;
     default:
         return 0;

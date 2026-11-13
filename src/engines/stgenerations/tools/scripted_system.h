@@ -32,29 +32,29 @@ public:
     void schedule(uint64_t at, const reluva::Event &e) { _events.push_back({at, e}); }
     void key(uint64_t at, uint32_t code) {
         reluva::Event e;
-        e.type = reluva::EventType::KeyDown;
+        e.type = reluva::EventType::kKeyDown;
         e.key = code;
         schedule(at, e);
-        e.type = reluva::EventType::KeyUp;
+        e.type = reluva::EventType::kKeyUp;
         schedule(at + 50, e);
     }
-    void click(uint64_t at, int x, int y, MouseButton button = MouseButton::Left) {
+    void click(uint64_t at, int x, int y, MouseButton button = MouseButton::kLeft) {
         reluva::Event e;
-        e.type = reluva::EventType::MouseMove;
+        e.type = reluva::EventType::kMouseMove;
         e.mouseX = x, e.mouseY = y;
         schedule(at, e);
-        e.type = reluva::EventType::MouseDown;
+        e.type = reluva::EventType::kMouseDown;
         e.button = button;
         e.clicks = 1;
         schedule(at + 20, e);
-        e.type = reluva::EventType::MouseUp;
+        e.type = reluva::EventType::kMouseUp;
         schedule(at + 70, e);
     }
     // Typed text, a character at a time, while the game takes text.
     void type(uint64_t at, const std::string &text) {
         for (char c : text) {
             reluva::Event e;
-            e.type = reluva::EventType::TextInput;
+            e.type = reluva::EventType::kTextInput;
             e.text[0] = c;
             schedule(at, e);
             at += 30;
@@ -62,7 +62,7 @@ public:
     }
     void quit(uint64_t at) {
         reluva::Event e;
-        e.type = reluva::EventType::Quit;
+        e.type = reluva::EventType::kQuit;
         schedule(at, e);
     }
     // Called with each frame shown, and its time.

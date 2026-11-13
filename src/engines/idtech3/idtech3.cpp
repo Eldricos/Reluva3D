@@ -229,10 +229,10 @@ private:
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 const bool pageKey = pages[page]->takesKey(ev);
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pageKey) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pageKey) {
                     // Back to the start; from there, to the launcher.
                     if (page == 0)
                         return Error::success();
@@ -241,7 +241,7 @@ private:
                         return err;
                     continue;
                 }
-                if (tools && ev.type == EventType::KeyDown && ev.key == key::Tab && (ev.mods & keymod::Ctrl)) {
+                if (tools && ev.type == EventType::kKeyDown && ev.key == key::kTab && (ev.mods & keymod::kCtrl)) {
                     size_t next = page;
                     do
                         next = next + 1 < pages.size() ? next + 1 : 1;

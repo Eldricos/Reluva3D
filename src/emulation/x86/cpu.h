@@ -78,24 +78,24 @@ public:
     ~Cpu();
 
     // --- Memory --------------------------------------------------------------
-    Memory &memory() { return memory_; }
-    uint32_t memorySize() const { return uint32_t(memory_.size()); }
+    Memory &memory() { return _memory; }
+    uint32_t memorySize() const { return uint32_t(_memory.size()); }
     // In memory, past the first page: [4096, size). One compare, as each
     // instruction's load and store asks (an address below 4096 wraps to
     // past every span).
     RELUVA_FORCE_INLINE bool valid(uint32_t address, uint32_t size) const {
-        return uint64_t(uint32_t(address - kPageSize)) + size <= span_;
+        return uint64_t(uint32_t(address - kPageSize)) + size <= _span;
     }
     // Reads and writes for native code (no fault: out of range reads 0,
     // writes are dropped; check valid() first where it matters). The
     // writes are noted as instructions' are (noteWrite).
-    uint8_t read8(uint32_t a) const { return valid(a, 1) ? memory_[a] : 0; }
+    uint8_t read8(uint32_t a) const { return valid(a, 1) ? _memory[a] : 0; }
     uint16_t read16(uint32_t a) const;
     uint32_t read32(uint32_t a) const;
     void write8(uint32_t a, uint8_t v) {
         if (valid(a, 1)) {
             notePageWrite(a);
-            memory_[a] = v;
+            _memory[a] = v;
         }
     }
     void write16(uint32_t a, uint16_t v);
@@ -191,7 +191,7 @@ public:
     // The name of the native function at `address`, if it is one.
     const std::string *nativeName(uint32_t address) const;
     // Where the reserved range begins: memory below it is the program's.
-    uint32_t nativeBase() const { return nativeBase_ - kNativeStride; }
+    uint32_t nativeBase() const { return _nativeBase - kNativeStride; }
     // From a native function: its n'th argument (from 0) on the stack.
     uint32_t arg(int n) const { return read32(reg[ESP] + 4 + 4 * uint32_t(n)); }
     // Pushes onto and pops from the FPU stack (float results).
@@ -206,7 +206,7 @@ public:
     Error call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &result);
     // Asks a run on another thread to stop: it ends with an error ("stopped")
     // at the next instruction. Safe to call from any thread.
-    void requestStop() { stop_.store(true, std::memory_order_relaxed); }
+    void requestStop() { _stop.store(true, std::memory_order_relaxed); }
     // Whether instructions run through the decoded-instruction cache (on by
     // default; off runs each from its bytes, as a check).
     bool cacheOn = true;
@@ -215,7 +215,7 @@ public:
     // same handlers, so they agree to the instruction.
     bool jitOn = true;
     // Stops a run with an error after this many more instructions (0: never).
-    void setInstructionLimit(uint64_t limit) { limit_ = limit; }
+    void setInstructionLimit(uint64_t limit) { _limit = limit; }
     // Reads in the first page give 0 rather than faulting, as Windows 95
     // and 98 let programs read low memory (writes still fault).
     bool readableFirstPage = false;
@@ -235,7 +235,7 @@ public:
     std::function<void(Cpu &cpu, uint32_t address, uint32_t value, int size)> onWatchedStore;
     // Called before each native function runs, with its name; for logs.
     std::function<void(Cpu &cpu, const std::string &name)> nativeTrace;
-    uint64_t executed() const { return executed_; }
+    uint64_t executed() const { return _executed; }
     // The thread running, for switching between the program's threads.
     Context context() const;
     void setContext(const Context &c);
@@ -244,12 +244,12 @@ public:
     Error resume();
     // Ends the run resume() began once the native function running returns,
     // with eip and esp as if it had returned.
-    void yield() { yield_ = true; }
+    void yield() { _yield = true; }
     // Ends the current run with an error once the native function running
     // returns (a fatal error of the program's, say).
     void abort(std::string message) {
-        if (abort_.empty())
-            abort_ = std::move(message);
+        if (_abort.empty())
+            _abort = std::move(message);
     }
     // Called before each instruction, and before each native function is
     // entered (eip is then its address); for tracing.
@@ -268,9 +268,9 @@ public:
     Context saveContext() const;
     void loadContext(const Context &c);
     void setSlice(uint32_t length, std::function<bool(Cpu &cpu)> fn) {
-        sliceLength_ = length;
-        nextSlice_ = executed_ + length;
-        slice_ = std::move(fn);
+        _sliceLength = length;
+        _nextSlice = _executed + length;
+        _slice = std::move(fn);
     }
     std::string stopMessage = "the run was stopped";
 
@@ -299,9 +299,9 @@ private:
     // limit, or the next slice; and those, when it's reached (false: no
     // slice ran).
     uint64_t eventsAt() const {
-        uint64_t at = limit_ ? limitAt_ : ~uint64_t(0);
-        if (sliceLength_ && nextSlice_ - 1 < at)
-            at = nextSlice_ - 1;
+        uint64_t at = _limit ? _limitAt : ~uint64_t(0);
+        if (_sliceLength && _nextSlice - 1 < at)
+            at = _nextSlice - 1;
         return at;
     }
     bool events();
@@ -345,7 +345,7 @@ private:
         uint8_t mod = 0, regField = 0, rm = 0;
         uint32_t address = 0; // of a memory operand
         bool memoryOperand = false;
-    } d_;
+    } _d;
     void decodeModrm();
     uint32_t readRm(int size);
     void writeRm(int size, uint32_t v);
@@ -367,20 +367,20 @@ private:
     void fpuCompare(double a, double b, bool setEflags, bool unordered);
     double fpuRound(double v) const;
 
-    Memory memory_;
-    uint32_t span_ = 0; // its size less the first page (valid)
+    Memory _memory;
+    uint32_t _span = 0; // its size less the first page (valid)
     struct NativeEntry {
         std::string name;
         Native fn;
         bool writesTracked = false;
         uint64_t calls = 0;
     };
-    std::vector<NativeEntry> natives_;
-    uint32_t nativeBase_ = 0; // natives are at nativeBase_ + 16 * index
+    std::vector<NativeEntry> _natives;
+    uint32_t _nativeBase = 0; // natives are at nativeBase_ + 16 * index
     static constexpr uint32_t kNativeStride = 16, kMaxNatives = 4096;
-    uint32_t instructionStart_ = 0;
-    uint64_t executed_ = 0, limit_ = 0, limitAt_ = 0;
-    std::atomic<bool> stop_{false};
+    uint32_t _instructionStart = 0;
+    uint64_t _executed = 0, _limit = 0, _limitAt = 0;
+    std::atomic<bool> _stop{false};
     // The decoded-instruction cache (cpu_cache.cpp): blocks of
     // instructions, direct-mapped by their first's address.
     friend struct CachedOps;
@@ -427,25 +427,25 @@ private:
     static uint32_t slotOf(uint32_t eip) { return ((eip * 0x9e3779b1u) >> (32 - 15)) & ~1u; }
     // Which of each pair was used last (bit 0: the second), for the one to
     // replace.
-    std::vector<uint8_t> recent_ = std::vector<uint8_t>(kBlockEntries / 2);
+    std::vector<uint8_t> _recent = std::vector<uint8_t>(kBlockEntries / 2);
     static_assert(kBlockEntries == 1u << 15, "slotOf's bits");
     static_assert(sizeof(Cached) == 24, "a cached instruction in 24 bytes");
-    std::vector<Block> blocks_;
-    std::unique_ptr<Jit> jit_; // made with the blocks, if it can be
-    int jitDepth_ = 0;         // native code running (natives call back in): none, before the Jit forgets it
+    std::vector<Block> _blocks;
+    std::unique_ptr<Jit> _jit; // made with the blocks, if it can be
+    int _jitDepth = 0;         // native code running (natives call back in): none, before the Jit forgets it
     // runCached's bounds, for the Jit's dispatch: where the run returns,
     // where natives start, and the count's limit.
     struct {
         uint32_t returnAddress = 0, nativeStart = 0;
         uint64_t end = 0;
-    } run_;
+    } _run;
     void compileBlock(Block &b);
     // Blocks with native code that others took the place of in the table,
     // by their start, to put back as they were (decoded and made) when
     // their address comes round again with the same bytes: the table is
     // direct-mapped, and making blocks again had been a fifteenth of a
     // game's time. Forgotten all at once when there are too many.
-    std::unordered_map<uint32_t, std::unique_ptr<Block>> spare_;
+    std::unordered_map<uint32_t, std::unique_ptr<Block>> _spare;
     static constexpr size_t kSpareBlocks = 1u << 15;
     // The block for `at`, from spare_ if it's there and its bytes are the
     // same, else made (build).
@@ -459,11 +459,11 @@ private:
     // holding a cached block (codePages_, marked as blocks are made) or a
     // native notes one (noteWrite), after any other native, and each time
     // runUntil starts, as the host may have written memory since.
-    std::vector<uint8_t> codePages_;
-    uint32_t codeEpoch_ = 1;
+    std::vector<uint8_t> _codePages;
+    uint32_t _codeEpoch = 1;
     RELUVA_FORCE_INLINE void notePageWrite(uint32_t a) {
-        if (codePages_[a >> 12]) [[unlikely]]
-            ++codeEpoch_;
+        if (_codePages[a >> 12]) [[unlikely]]
+            ++_codeEpoch;
     }
     // The block running, counted whole before it ran: its instructions
     // (the table's, or the copy its native code has), how many, and where
@@ -471,15 +471,15 @@ private:
     struct {
         const Cached *ops = nullptr;
         uint32_t count = 0, start = 0;
-    } counting_;
+    } _counting;
     void uncountBlock(); // takes back the count of its instructions not run
-    int depth_ = 0;
-    std::string abort_;
-    bool yield_ = false;
+    int _depth = 0;
+    std::string _abort;
+    bool _yield = false;
     struct Yield {};
-    uint32_t sliceLength_ = 0;
-    uint64_t nextSlice_ = 0; // when the next slice is due (in instructions run)
-    std::function<bool(Cpu &cpu)> slice_;
+    uint32_t _sliceLength = 0;
+    uint64_t _nextSlice = 0; // when the next slice is due (in instructions run)
+    std::function<bool(Cpu &cpu)> _slice;
 };
 
 // The hot paths of running instructions, inline.
@@ -487,13 +487,13 @@ private:
 RELUVA_FORCE_INLINE uint8_t *Cpu::at(uint32_t a, uint32_t size) {
     if (!valid(a, size)) [[unlikely]]
         memoryFault(a, size);
-    return memory_.data() + a;
+    return _memory.data() + a;
 }
 
 RELUVA_FORCE_INLINE uint32_t Cpu::load(uint32_t a, int size) {
     if (!valid(a, uint32_t(size))) [[unlikely]]
         return loadOutside(a, size);
-    const uint8_t *p = memory_.data() + a;
+    const uint8_t *p = _memory.data() + a;
     if (size == 1)
         return p[0];
     if (size == 2)
@@ -506,8 +506,8 @@ RELUVA_FORCE_INLINE uint32_t Cpu::load(uint32_t a, int size) {
 inline uint8_t *Cpu::atWrite(uint32_t a, uint32_t size) {
     uint8_t *p = at(a, size);
     for (uint32_t page = a >> 12; page <= (a + size - 1) >> 12; ++page)
-        if (codePages_[page])
-            ++codeEpoch_;
+        if (_codePages[page])
+            ++_codeEpoch;
     return p;
 }
 
@@ -594,46 +594,46 @@ RELUVA_FORCE_INLINE void Cpu::writeReg(int size, int r, uint32_t v) {
 
 inline void Cpu::decodeModrm() {
     const uint32_t m = fetch8();
-    d_.hasModrm = true;
-    d_.mod = uint8_t(m >> 6);
-    d_.regField = uint8_t((m >> 3) & 7);
-    d_.rm = uint8_t(m & 7);
-    d_.memoryOperand = d_.mod != 3;
-    if (!d_.memoryOperand)
+    _d.hasModrm = true;
+    _d.mod = uint8_t(m >> 6);
+    _d.regField = uint8_t((m >> 3) & 7);
+    _d.rm = uint8_t(m & 7);
+    _d.memoryOperand = _d.mod != 3;
+    if (!_d.memoryOperand)
         return;
     uint32_t a = 0;
-    if (d_.rm == 4) {
+    if (_d.rm == 4) {
         const uint32_t sib = fetch8();
         const uint32_t scale = sib >> 6;
         const uint32_t index = (sib >> 3) & 7;
         const uint32_t base = sib & 7;
         if (index != 4)
             a += reg[index] << scale;
-        if (base == 5 && d_.mod == 0)
+        if (base == 5 && _d.mod == 0)
             a += fetch32();
         else
             a += reg[base];
-    } else if (d_.rm == 5 && d_.mod == 0) {
+    } else if (_d.rm == 5 && _d.mod == 0) {
         a = fetch32();
     } else {
-        a = reg[d_.rm];
+        a = reg[_d.rm];
     }
-    if (d_.mod == 1)
+    if (_d.mod == 1)
         a += uint32_t(int32_t(int8_t(fetch8())));
-    else if (d_.mod == 2)
+    else if (_d.mod == 2)
         a += fetch32();
-    d_.address = a + d_.segment;
+    _d.address = a + _d.segment;
 }
 
 inline uint32_t Cpu::readRm(int size) {
-    return d_.memoryOperand ? load(d_.address, size) : readReg(size, d_.rm);
+    return _d.memoryOperand ? load(_d.address, size) : readReg(size, _d.rm);
 }
 
 inline void Cpu::writeRm(int size, uint32_t v) {
-    if (d_.memoryOperand)
-        store(d_.address, v, size);
+    if (_d.memoryOperand)
+        store(_d.address, v, size);
     else
-        writeReg(size, d_.rm, v);
+        writeReg(size, _d.rm, v);
 }
 
 } // namespace reluva::x86

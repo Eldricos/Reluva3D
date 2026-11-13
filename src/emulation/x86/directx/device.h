@@ -99,7 +99,7 @@ struct Draw {
         // Every stage SELECTARG1, SELECTARG2 or MODULATE (alpha also
         // DISABLE) of plain arguments: they're combined the quick way.
         bool simpleStages = false;
-        enum class Target { Generic, Rgb565, Rgb888 } target = Target::Generic;
+        enum class Target { kGeneric, kRgb565, kRgb888 } target = Target::kGeneric;
         double zMax = 0;
         uint32_t zBytes = 0, zMask = 0;
         // Where the target and the depth buffer are, for this draw.
@@ -129,7 +129,7 @@ struct Draw {
         int band = 0, bands = 1;
     };
 
-    PixelConfig cfg_;
+    PixelConfig cfg;
     int stages = 0; // texture stages in use
     const DecodedTexture *bound[8]{};
     Viewport viewport;
@@ -238,16 +238,16 @@ private:
     // A draw's triangles, projected: drawn by rows on several threads, and
     // (but with DirectX::DrawThreads::One) on threads of their own while
     // the program goes on (DrawQueue).
-    std::vector<std::array<ClipVertex, 3>> batch_;
-    bool batching_ = false;
+    std::vector<std::array<ClipVertex, 3>> _batch;
+    bool _batching = false;
     void drawBatch();
-    std::shared_ptr<DrawQueue> queue_; // (shared: its type is raster.cpp's alone)
-    bool projected = false;            // the vertices being drawn came transformed (XYZRHW)
-    int stages = 0;                    // texture stages in use
-    const DecodedTexture *bound[8]{};
+    std::shared_ptr<DrawQueue> _queue; // (shared: its type is raster.cpp's alone)
+    bool _projected = false;           // the vertices being drawn came transformed (XYZRHW)
+    int _stages = 0;                   // texture stages in use
+    const DecodedTexture *_bound[8]{};
     using PixelConfig = Draw::PixelConfig;
     using StageConfig = Draw::StageConfig;
-    PixelConfig cfg_;
+    PixelConfig _cfg;
     void configure();
 };
 

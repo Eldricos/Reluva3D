@@ -1794,10 +1794,10 @@ void TrackPage::drawOfficers(const gfx::DrawCall &base) {
     _renderer->setMeshVertices(_officerMesh, vertices);
     gfx::DrawCall call = base;
     call.mesh = _officerMesh;
-    call.rgbSource = gfx::ColorSource::Vertex;
+    call.rgbSource = gfx::ColorSource::kVertex;
     call.color = {1, 1, 1, 1};
-    call.state.cull = gfx::Cull::None;
-    call.state.alphaTest = gfx::AlphaTest::Ge128; // the art's keyed texels
+    call.state.cull = gfx::Cull::kNone;
+    call.state.alphaTest = gfx::AlphaTest::kGe128; // the art's keyed texels
     gfx::Mat4 m = gfx::identity();
     for (int k = 0; k < 3; ++k) {
         const float flip = k == 2 ? -1.0f : 1.0f;
@@ -1840,10 +1840,10 @@ void TrackPage::drawOfficers(const gfx::DrawCall &base) {
         gfx::DrawCall e = call;
         e.mesh = _officerEnvMesh;
         e.texture = _envPicture;
-        e.alphaSource = gfx::ColorSource::Vertex;
-        e.state.alphaTest = gfx::AlphaTest::None;
-        e.state.src = gfx::Blend::SrcAlpha;
-        e.state.dst = gfx::Blend::One;
+        e.alphaSource = gfx::ColorSource::kVertex;
+        e.state.alphaTest = gfx::AlphaTest::kNone;
+        e.state.src = gfx::Blend::kSrcAlpha;
+        e.state.dst = gfx::Blend::kOne;
         e.state.depthWrite = false;
         e.firstIndex = 0;
         e.indexCount = static_cast<uint32_t>(env.size());
@@ -3030,22 +3030,22 @@ void TrackPage::drawCars(const gfx::DrawCall &base) {
         strip.mesh = _stripMesh;
         strip.model = gfx::identity();
         strip.texture = 0;
-        strip.rgbSource = gfx::ColorSource::Vertex;
+        strip.rgbSource = gfx::ColorSource::kVertex;
         strip.color = {1, 1, 1, 1};
-        strip.state.cull = gfx::Cull::None;
+        strip.state.cull = gfx::Cull::kNone;
         strip.state.depthBias = true;
         strip.firstIndex = 0;
         strip.indexCount = _stripQuads * 6;
         _renderer->draw(strip);
     }
     gfx::DrawCall car = base;
-    car.rgbSource = gfx::ColorSource::Vertex;
+    car.rgbSource = gfx::ColorSource::kVertex;
     car.color = {1, 1, 1, 1};
     // Facing away culled as 0x49dbf0 does (the two-sided triangles are in
     // the mesh both ways round), and its skin's alpha (the reflection's
     // share, fce.md) not tested.
-    car.state.cull = _mirrored ? gfx::Cull::Front : gfx::Cull::Back;
-    car.state.alphaTest = gfx::AlphaTest::None;
+    car.state.cull = _mirrored ? gfx::Cull::kFront : gfx::Cull::kBack;
+    car.state.alphaTest = gfx::AlphaTest::kNone;
     for (const ComputerCar &c : _cars) {
         if (!c.mesh)
             continue;
@@ -3078,9 +3078,9 @@ void TrackPage::drawCars(const gfx::DrawCall &base) {
             gfx::DrawCall env = car;
             env.mesh = c.envMesh;
             env.texture = _envPicture;
-            env.alphaSource = gfx::ColorSource::Vertex;
-            env.state.src = gfx::Blend::SrcAlpha;
-            env.state.dst = gfx::Blend::One;
+            env.alphaSource = gfx::ColorSource::kVertex;
+            env.state.src = gfx::Blend::kSrcAlpha;
+            env.state.dst = gfx::Blend::kOne;
             env.state.depthWrite = false;
             env.firstIndex = d.envFirst;
             env.indexCount = d.envBody + (c.beams ? d.envLights : 0);
@@ -3101,14 +3101,14 @@ void TrackPage::drawShadows(const gfx::DrawCall &base) {
     shadow.mesh = _shadowMesh;
     shadow.model = gfx::identity();
     shadow.texture = _shadowPicture;
-    shadow.rgbSource = shadow.alphaSource = gfx::ColorSource::Vertex;
+    shadow.rgbSource = shadow.alphaSource = gfx::ColorSource::kVertex;
     shadow.color = {1, 1, 1, 1};
-    shadow.state.cull = gfx::Cull::None;
-    shadow.state.alphaTest = gfx::AlphaTest::None;
+    shadow.state.cull = gfx::Cull::kNone;
+    shadow.state.alphaTest = gfx::AlphaTest::kNone;
     shadow.state.depthWrite = false;
     shadow.state.depthBias = true;
-    shadow.state.src = gfx::Blend::SrcAlpha;
-    shadow.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    shadow.state.src = gfx::Blend::kSrcAlpha;
+    shadow.state.dst = gfx::Blend::kOneMinusSrcAlpha;
     shadow.firstIndex = 0;
     shadow.indexCount = _shadowQuads * 6;
     _renderer->draw(shadow);
@@ -3250,8 +3250,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
     _renderer->setMeshVertices(_markMesh, vertices);
     gfx::DrawCall call;
     call.mesh = _markMesh;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
-    call.state.cull = gfx::Cull::None;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
+    call.state.cull = gfx::Cull::kNone;
     call.state.depthWrite = false;
     // The glows added, over everything drawn but not through it.
     // ranges of marks
@@ -3264,8 +3264,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
         else
             list.push_back({uint32_t(i), uint32_t(i + 1)});
     }
-    call.state.src = gfx::Blend::SrcAlpha;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kSrcAlpha;
+    call.state.dst = gfx::Blend::kOne;
     const uint32_t marks = static_cast<uint32_t>(_marks.size());
     for (const auto &[texture, offset] : {std::pair{_glowPicture, 0u}, std::pair{_glow3Picture, marks}}) {
         if (!texture)
@@ -3278,8 +3278,8 @@ void TrackPage::drawMarks(const gfx::Vec3 &eye, const gfx::Vec3 &forward, const 
         }
     }
     call.texture = 0;
-    call.state.dst = gfx::Blend::Zero;
-    call.state.src = gfx::Blend::One;
+    call.state.dst = gfx::Blend::kZero;
+    call.state.src = gfx::Blend::kOne;
     for (const auto &[from, to] : sounds) {
         call.firstIndex = 6 * from;
         call.indexCount = 6 * (to - from);
@@ -3341,7 +3341,7 @@ void TrackPage::playEffect(EffectBank &b, int slot, int volume, int pan) {
     if (sound->samples.empty() || volume <= 0)
         return;
     const int p = std::clamp((pan - 64) * audio::kMaxPan / 63, -audio::kMaxPan, audio::kMaxPan);
-    _mixer->play(sound, audio::SoundType::Effects, std::min(volume, 127) * audio::kMaxVolume / 127, p, false);
+    _mixer->play(sound, audio::SoundType::kEffects, std::min(volume, 127) * audio::kMaxVolume / 127, p, false);
 }
 
 void TrackPage::stopSounds() {
@@ -3392,7 +3392,7 @@ void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
         if (m.kind == 1) {
             if (_oneShots.fires(_soundFrame, _soundRandom))
                 if (auto sound = decoded(m.value))
-                    _mixer->play(sound, audio::SoundType::Effects, volume, pan, false);
+                    _mixer->play(sound, audio::SoundType::kEffects, volume, pan, false);
         } else if (d < loopDistance) {
             loop = i;
             loopDistance = d;
@@ -3413,7 +3413,7 @@ void TrackPage::updateSounds(const gfx::Vec3 &eye, const gfx::Vec3 &right) {
     }
     if (loop < _marks.size() && !_soundsPlaying.count(loop))
         if (auto sound = decoded(_marks[loop].value))
-            _soundsPlaying[loop] = _mixer->play(sound, audio::SoundType::Effects, loopVolume, loopPan, true);
+            _soundsPlaying[loop] = _mixer->play(sound, audio::SoundType::kEffects, loopVolume, loopPan, true);
 }
 
 // A wall hit at the virtual road's wall nearest the line of sight (ahead,
@@ -3824,13 +3824,13 @@ void TrackPage::drawParticles(float fog, const std::array<float, 3> &fogColour) 
         call.tableFogColor = fogColour;
     }
     call.mesh = _particleMesh;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
-    call.state.cull = gfx::Cull::None;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
+    call.state.cull = gfx::Cull::kNone;
     call.state.depthWrite = false;
-    call.state.src = gfx::Blend::SrcAlpha;
+    call.state.src = gfx::Blend::kSrcAlpha;
     for (const ParticleRun &run : _particleRuns) {
         call.texture = run.texture;
-        call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+        call.state.dst = run.added ? gfx::Blend::kOne : gfx::Blend::kOneMinusSrcAlpha;
         call.firstIndex = 6 * run.first;
         call.indexCount = 6 * run.count;
         _renderer->draw(call);
@@ -3904,13 +3904,13 @@ void TrackPage::drawSplats() {
         return;
     gfx::DrawCall call;
     call.mesh = _splatMesh;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
-    call.state.cull = gfx::Cull::None;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
+    call.state.cull = gfx::Cull::kNone;
     call.state.depthTest = call.state.depthWrite = false;
-    call.state.src = gfx::Blend::SrcAlpha;
+    call.state.src = gfx::Blend::kSrcAlpha;
     for (const ParticleRun &run : _splatRuns) {
         call.texture = run.texture;
-        call.state.dst = run.added ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+        call.state.dst = run.added ? gfx::Blend::kOne : gfx::Blend::kOneMinusSrcAlpha;
         call.firstIndex = 6 * run.first;
         call.indexCount = 6 * run.count;
         _renderer->draw(call);
@@ -4057,11 +4057,11 @@ void TrackPage::drawWeather(float fog, const std::array<float, 3> &fogColour) {
         call.tableFogColor = fogColour;
     }
     call.mesh = _weatherMesh;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
-    call.state.cull = gfx::Cull::None;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
+    call.state.cull = gfx::Cull::kNone;
     call.state.depthTest = call.state.depthWrite = false;
-    call.state.src = gfx::Blend::SrcAlpha;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kSrcAlpha;
+    call.state.dst = gfx::Blend::kOne;
     if (_weatherDrops) {
         call.texture = weatherPicture(rain ? "DRP1" : "DRP2");
         call.firstIndex = 0;
@@ -4092,15 +4092,15 @@ void TrackPage::toBlock(int block) {
 
 void TrackPage::handleEvent(const Event &ev) {
     const int n = static_cast<int>(_tracks.size());
-    if (ev.type == EventType::KeyDown) {
+    if (ev.type == EventType::kKeyDown) {
         _held.insert(ev.key);
         switch (ev.key) {
-        case key::PageDown:
+        case key::kPageDown:
             _index = (_index + 1) % n;
             if (_renderer)
                 load(_index);
             break;
-        case key::PageUp:
+        case key::kPageUp:
             _index = (_index + n - 1) % n;
             if (_renderer)
                 load(_index);
@@ -4130,7 +4130,7 @@ void TrackPage::handleEvent(const Event &ev) {
             _allBlocks = !_allBlocks;
             break;
         case 'c':
-            if (ev.mods & keymod::Shift) {
+            if (ev.mods & keymod::kShift) {
                 // Follow a police car (the last ordered, or the first) or stop.
                 if (_followCop >= 0) {
                     _followCop = -1;
@@ -4155,7 +4155,7 @@ void TrackPage::handleEvent(const Event &ev) {
             // Computer cars on the road ahead; Shift+J stops or starts them;
             // Ctrl+J puts the racers on the grid, standing; Ctrl+Shift+J sets
             // the race's laps (none, 1, 2, 3), from where they are.
-            if ((ev.mods & keymod::Ctrl) && (ev.mods & keymod::Shift)) {
+            if ((ev.mods & keymod::kCtrl) && (ev.mods & keymod::kShift)) {
                 _laps = (_laps + 1) % 4;
                 for (ComputerCar &c : _cars)
                     if (c.ai.racer) {
@@ -4167,10 +4167,10 @@ void TrackPage::handleEvent(const Event &ev) {
                         c.ai.pursuit = c.ai.pursuit == 4 ? 1 : c.ai.pursuit;
                         c.ai.distance = _laps > 0 ? aiSlice(c.ai) : 1 << 20;
                     }
-            } else if (ev.mods & keymod::Ctrl) {
+            } else if (ev.mods & keymod::kCtrl) {
                 if (_computerCars && _carDump.empty())
                     gridCars();
-            } else if (ev.mods & keymod::Shift) {
+            } else if (ev.mods & keymod::kShift) {
                 _carsMoving = !_carsMoving;
             } else {
                 _computerCars = !_computerCars;
@@ -4215,7 +4215,7 @@ void TrackPage::handleEvent(const Event &ev) {
             _cullBack = !_cullBack;
             break;
         case 'y':
-            if (ev.mods & keymod::Shift) {
+            if (ev.mods & keymod::kShift) {
                 _direct3d = !_direct3d;
                 _skyChanged = true;
             } else {
@@ -4223,7 +4223,7 @@ void TrackPage::handleEvent(const Event &ev) {
             }
             break;
         case 'p':
-            hitWall((ev.mods & keymod::Shift) != 0);
+            hitWall((ev.mods & keymod::kShift) != 0);
             break;
         case 'i':
             _lightIntensity = _lightIntensity <= 0.25f ? 1.0f : _lightIntensity - 0.25f;
@@ -4239,9 +4239,9 @@ void TrackPage::handleEvent(const Event &ev) {
             // option) on or off (projected_);
             // E: off, low and high beams in turn, as the game's key (0x40de50).
             // Ctrl+E: the game's test of each block against each light.
-            if (ev.mods & keymod::Shift)
+            if (ev.mods & keymod::kShift)
                 _projected = !_projected;
-            else if (ev.mods & keymod::Ctrl)
+            else if (ev.mods & keymod::kCtrl)
                 _lightTest = !_lightTest;
             else
                 _beams = (_beams + 1) % 3;
@@ -4272,15 +4272,15 @@ void TrackPage::handleEvent(const Event &ev) {
         default:
             break;
         }
-    } else if (ev.type == EventType::KeyUp) {
+    } else if (ev.type == EventType::kKeyUp) {
         _held.erase(ev.key);
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         _dragging = false;
-    } else if (ev.type == EventType::MouseMove && _dragging) {
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
         _yaw += static_cast<float>(ev.mouseX - _lastX) * 0.005f * (_mirrored ? -1.0f : 1.0f);
         _pitch = std::clamp(_pitch - static_cast<float>(ev.mouseY - _lastY) * 0.005f, -1.5f, 1.5f);
         _lastX = ev.mouseX;
@@ -4304,13 +4304,13 @@ void TrackPage::update(uint64_t nowMs) {
     auto held = [&](uint32_t k) { return _held.count(k) != 0; };
     // Mirrored, left and right on the screen are the world's other way.
     const float side = _mirrored ? -1.0f : 1.0f;
-    if (held(key::Left))
+    if (held(key::kLeft))
         _yaw -= 1.5f * dt * side;
-    if (held(key::Right))
+    if (held(key::kRight))
         _yaw += 1.5f * dt * side;
-    if (held(key::Up))
+    if (held(key::kUp))
         _pitch = std::min(_pitch + 1.0f * dt, 1.5f);
-    if (held(key::Down))
+    if (held(key::kDown))
         _pitch = std::max(_pitch - 1.0f * dt, -1.5f);
     // Shift+C: behind and above the police car followed, along its way.
     if (_followCop >= 0 && static_cast<size_t>(_followCop) < _cars.size() && _computerCars) {
@@ -4352,7 +4352,7 @@ void TrackPage::update(uint64_t nowMs) {
     }
     const gfx::Vec3 forward{std::sin(_yaw) * std::cos(_pitch), std::sin(_pitch), -std::cos(_yaw) * std::cos(_pitch)};
     const gfx::Vec3 right{std::cos(_yaw), 0, std::sin(_yaw)};
-    const float speed = (held(key::LShift) || held(key::RShift) ? 120.0f : 25.0f) * dt;
+    const float speed = (held(key::kLShift) || held(key::kRShift) ? 120.0f : 25.0f) * dt;
     auto move = [&](const gfx::Vec3 &dir, float amount) {
         for (int i = 0; i < 3; ++i)
             _eye[i] += dir[i] * amount;
@@ -4381,7 +4381,7 @@ void TrackPage::update(uint64_t nowMs) {
         flip[0] = -1;
         viewProj = gfx::multiply(flip, viewProj);
     }
-    const gfx::Cull backFaces = _mirrored ? gfx::Cull::Front : gfx::Cull::Back;
+    const gfx::Cull backFaces = _mirrored ? gfx::Cull::kFront : gfx::Cull::kBack;
     Horizon::Rgb fog;
     float fogDensity = 0;
     const int here = nearestBlock();
@@ -4502,8 +4502,8 @@ void TrackPage::update(uint64_t nowMs) {
         gfx::DrawCall sky;
         sky.mesh = _skyMesh;
         sky.followCamera = true;
-        sky.rgbSource = gfx::ColorSource::Vertex;
-        sky.state.cull = gfx::Cull::None;
+        sky.rgbSource = gfx::ColorSource::kVertex;
+        sky.state.cull = gfx::Cull::kNone;
         sky.state.depthTest = sky.state.depthWrite = false;
         gfx::DrawCall row = sky;
         row.mesh = _horizonMesh;
@@ -4519,8 +4519,8 @@ void TrackPage::update(uint64_t nowMs) {
             sun.firstIndex = _sunFirst;
             sun.indexCount = _sunIndices;
             sun.texture = _sunPicture;
-            sun.state.src = gfx::Blend::SrcAlpha;
-            sun.state.dst = _sunAdditive ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+            sun.state.src = gfx::Blend::kSrcAlpha;
+            sun.state.dst = _sunAdditive ? gfx::Blend::kOne : gfx::Blend::kOneMinusSrcAlpha;
             _renderer->draw(sun);
         };
         if (!_sunInFront)
@@ -4530,9 +4530,9 @@ void TrackPage::update(uint64_t nowMs) {
             clouds.firstIndex = _cloudFirst;
             clouds.indexCount = _cloudIndices;
             clouds.texture = _cloudPicture;
-            clouds.alphaSource = gfx::ColorSource::Vertex;
-            clouds.state.src = gfx::Blend::SrcAlpha;
-            clouds.state.dst = _horizon.cloudType == 1 ? gfx::Blend::One : gfx::Blend::OneMinusSrcAlpha;
+            clouds.alphaSource = gfx::ColorSource::kVertex;
+            clouds.state.src = gfx::Blend::kSrcAlpha;
+            clouds.state.dst = _horizon.cloudType == 1 ? gfx::Blend::kOne : gfx::Blend::kOneMinusSrcAlpha;
             // Drifting with the wind: cloudDrift() a game tick, added to
             // the texture coordinates and kept within a tile.
             const std::array<float, 2> drift = cloudDrift(_horizon);
@@ -4552,9 +4552,9 @@ void TrackPage::update(uint64_t nowMs) {
             bolts.mesh = _boltMesh;
             bolts.firstIndex = 0;
             bolts.indexCount = _boltIndices;
-            bolts.alphaSource = gfx::ColorSource::Vertex;
-            bolts.state.src = gfx::Blend::SrcAlpha;
-            bolts.state.dst = gfx::Blend::One;
+            bolts.alphaSource = gfx::ColorSource::kVertex;
+            bolts.state.src = gfx::Blend::kSrcAlpha;
+            bolts.state.dst = gfx::Blend::kOne;
             fogDraw(bolts, skyFog);
             _renderer->draw(bolts);
         }
@@ -4568,8 +4568,8 @@ void TrackPage::update(uint64_t nowMs) {
             if (_horizonPicture) {
                 row.firstIndex = 16 * 6;
                 row.texture = _horizonPicture;
-                row.state.src = gfx::Blend::SrcAlpha;
-                row.state.dst = gfx::Blend::OneMinusSrcAlpha;
+                row.state.src = gfx::Blend::kSrcAlpha;
+                row.state.dst = gfx::Blend::kOneMinusSrcAlpha;
                 _renderer->draw(row);
             }
         }
@@ -4579,12 +4579,12 @@ void TrackPage::update(uint64_t nowMs) {
     if (_mesh) {
         gfx::DrawCall call;
         call.mesh = _mesh;
-        call.rgbSource = _vertexLight ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+        call.rgbSource = _vertexLight ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
         // The horizon's ambient light (percent) over the baked lighting.
         if (_error.empty() && _skyError.empty())
             for (int i = 0; i < 3; ++i)
                 call.color[i] = static_cast<float>(_horizon.ambient[i]) / 100.0f;
-        call.state.alphaTest = gfx::AlphaTest::Ge128;
+        call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (sceneryFog > 0)
             fogDraw(call, sceneryFog);
         std::vector<Batch> all = solid;
@@ -4598,7 +4598,7 @@ void TrackPage::update(uint64_t nowMs) {
                     continue;
                 if (b.indexCount == 0)
                     continue;
-                call.state.cull = _cullBack && !b.twoSided ? backFaces : gfx::Cull::None;
+                call.state.cull = _cullBack && !b.twoSided ? backFaces : gfx::Cull::kNone;
                 call.texture = _textured ? b.texture : 0;
                 call.mesh = b.cut ? _cutMesh : _mesh;
                 call.firstIndex = b.firstIndex;
@@ -4632,7 +4632,7 @@ void TrackPage::update(uint64_t nowMs) {
         if (_lightMesh && !_lightRuns.empty()) {
             gfx::DrawCall light;
             light.mesh = _lightMesh;
-            light.rgbSource = light.alphaSource = gfx::ColorSource::Vertex;
+            light.rgbSource = light.alphaSource = gfx::ColorSource::kVertex;
             light.state.depthWrite = false;
             light.state.depthBias = true;
             for (const LightRun &run : _lightRuns) {
@@ -4650,11 +4650,11 @@ void TrackPage::update(uint64_t nowMs) {
                         light.tableFogColor = {0, 0, 0};
                 }
                 light.texture = run.picture || _textured ? run.texture : 0;
-                light.alphaSource = run.picture ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
-                light.state.src = run.picture ? gfx::Blend::SrcAlpha : gfx::Blend::One;
-                light.state.dst = gfx::Blend::One;
-                light.state.alphaTest = run.picture ? gfx::AlphaTest::None : gfx::AlphaTest::Ge128;
-                light.state.cull = _cullBack && !run.twoSided ? backFaces : gfx::Cull::None;
+                light.alphaSource = run.picture ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
+                light.state.src = run.picture ? gfx::Blend::kSrcAlpha : gfx::Blend::kOne;
+                light.state.dst = gfx::Blend::kOne;
+                light.state.alphaTest = run.picture ? gfx::AlphaTest::kNone : gfx::AlphaTest::kGe128;
+                light.state.cull = _cullBack && !run.twoSided ? backFaces : gfx::Cull::kNone;
                 light.firstIndex = run.first;
                 light.indexCount = run.count;
                 _renderer->draw(light);
@@ -4666,11 +4666,11 @@ void TrackPage::update(uint64_t nowMs) {
             gfx::DrawCall wall = call;
             wall.mesh = _mesh;
             wall.tableFog = 0;
-            wall.rgbSource = gfx::ColorSource::Vertex;
+            wall.rgbSource = gfx::ColorSource::kVertex;
             wall.color = {1, 1, 1, 1};
             wall.texture = 0;
             wall.state.depthTest = wall.state.depthWrite = false;
-            wall.state.cull = gfx::Cull::None;
+            wall.state.cull = gfx::Cull::kNone;
             for (const Batch &b : _batches[_track.blocks.size() * kKinds + kWalls]) {
                 wall.firstIndex = b.firstIndex;
                 wall.indexCount = b.indexCount;
@@ -4685,19 +4685,19 @@ void TrackPage::update(uint64_t nowMs) {
         // sorts them by depth; added, the order doesn't matter.
         {
             const gfx::DrawCall before = call;
-            call.rgbSource = call.alphaSource = gfx::ColorSource::Vertex;
+            call.rgbSource = call.alphaSource = gfx::ColorSource::kVertex;
             call.color = {1, 1, 1, 1};
-            call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::One;
+            call.state.src = gfx::Blend::kSrcAlpha;
+            call.state.dst = gfx::Blend::kOne;
             call.state.depthWrite = false;
-            call.state.alphaTest = gfx::AlphaTest::None;
+            call.state.alphaTest = gfx::AlphaTest::kNone;
             pass(all, kSeeThrough);
             movingPass(kSeeThrough);
             call = before;
         }
-        call.state.src = call.state.dst = gfx::Blend::One;
+        call.state.src = call.state.dst = gfx::Blend::kOne;
         call.state.depthWrite = false;
-        call.state.alphaTest = gfx::AlphaTest::None;
+        call.state.alphaTest = gfx::AlphaTest::kNone;
         pass(all, kAdditive);
         movingPass(kAdditive);
     }
@@ -4708,12 +4708,12 @@ void TrackPage::update(uint64_t nowMs) {
     if (_carGlowMesh && _carGlowQuads && _glow3Picture) {
         gfx::DrawCall glow;
         glow.mesh = _carGlowMesh;
-        glow.rgbSource = glow.alphaSource = gfx::ColorSource::Vertex;
+        glow.rgbSource = glow.alphaSource = gfx::ColorSource::kVertex;
         glow.texture = _glow3Picture;
-        glow.state.cull = gfx::Cull::None;
+        glow.state.cull = gfx::Cull::kNone;
         glow.state.depthWrite = false;
-        glow.state.src = gfx::Blend::SrcAlpha;
-        glow.state.dst = gfx::Blend::One;
+        glow.state.src = gfx::Blend::kSrcAlpha;
+        glow.state.dst = gfx::Blend::kOne;
         glow.firstIndex = 0;
         glow.indexCount = _carGlowQuads * 6;
         // Fogged as the scenery (the game sends them with the frame's fog
@@ -4732,13 +4732,13 @@ void TrackPage::update(uint64_t nowMs) {
             continue;
         gfx::DrawCall add;
         add.mesh = mesh;
-        add.rgbSource = add.alphaSource = gfx::ColorSource::Vertex;
+        add.rgbSource = add.alphaSource = gfx::ColorSource::kVertex;
         add.texture = texture;
-        add.state.cull = gfx::Cull::None;
+        add.state.cull = gfx::Cull::kNone;
         add.state.depthWrite = false;
         add.state.depthBias = true;
-        add.state.src = gfx::Blend::SrcAlpha;
-        add.state.dst = gfx::Blend::One;
+        add.state.src = gfx::Blend::kSrcAlpha;
+        add.state.dst = gfx::Blend::kOne;
         add.firstIndex = 0;
         add.indexCount = quads * 6;
         if (sceneryFog > 0)

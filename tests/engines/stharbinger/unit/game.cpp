@@ -633,7 +633,7 @@ static void testCreditsAndDeckMap(const std::filesystem::path &tmp) {
     game.pressKey('m');
     CHECK(game.isDeckMapOpen());
     game.runSteps(3);
-    game.pressKey(key::Escape);
+    game.pressKey(key::kEscape);
     CHECK(!game.isDeckMapOpen());
 
     // Credits from the menu: they scroll to the end, or Esc ends them.
@@ -643,7 +643,7 @@ static void testCreditsAndDeckMap(const std::filesystem::path &tmp) {
     CHECK(game.isCreditsActive());
     game.runSteps(100);
     CHECK(game.isCreditsActive());
-    game.pressKey(key::Escape);
+    game.pressKey(key::kEscape);
     game.runSteps(30);
     CHECK(!game.isCreditsActive());
     CHECK(game.isMenuActive()); // back in the menu
@@ -672,7 +672,7 @@ static void testOriginalMode(const std::filesystem::path &tmp) {
         game.start(0);
 
         // Esc opens the menu only with the conveniences; right click always.
-        game.pressKey(key::Escape);
+        game.pressKey(key::kEscape);
         CHECK(game.isMenuActive() == !original);
         if (!game.isMenuActive())
             game.rightClick(300, 300);
@@ -684,7 +684,7 @@ static void testOriginalMode(const std::filesystem::path &tmp) {
         CHECK(game.isMenuActive() == !original); // "n" said no; else quit was confirmed
         if (game.isMenuActive()) {
             // Esc resumes only with the conveniences.
-            game.pressKey(key::Escape);
+            game.pressKey(key::kEscape);
             CHECK(!game.isMenuActive());
         }
 
@@ -695,7 +695,7 @@ static void testOriginalMode(const std::filesystem::path &tmp) {
         CHECK(game2.isDeckMapOpen());
         game2.pressKey('m');
         CHECK(game2.isDeckMapOpen() == original);
-        game2.pressKey(key::Escape);
+        game2.pressKey(key::kEscape);
         CHECK(!game2.isDeckMapOpen());
     }
 }

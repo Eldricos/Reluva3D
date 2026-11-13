@@ -169,7 +169,7 @@ void SoundPage::select(int sound) {
 void SoundPage::play() {
     deactivate();
     if (_mixer && _decoded) {
-        _playing = _mixer->play(_decoded, audio::SoundType::Effects, audio::kMaxVolume, 0, _decoded->loopEnd != 0);
+        _playing = _mixer->play(_decoded, audio::SoundType::kEffects, audio::kMaxVolume, 0, _decoded->loopEnd != 0);
         _mixer->setRate(_playing, rate());
     }
 }
@@ -179,26 +179,26 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
         load(0);
     const int count = static_cast<int>(_sounds.size());
     switch (k) {
-    case key::Up:
+    case key::kUp:
         select(_sound - 1);
         break;
-    case key::Down:
+    case key::kDown:
         select(_sound + 1);
         break;
-    case key::Home:
+    case key::kHome:
         select(0);
         break;
-    case key::End:
+    case key::kEnd:
         select(count - 1);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         load(_bank - 1);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         load(_bank + 1);
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         play();
         break;
     case 's':
@@ -207,16 +207,16 @@ void SoundPage::handleKey(uint32_t k, uint16_t) {
     case 'p':
         _autoPlay = !_autoPlay;
         break;
-    case key::Left:
-    case key::Right:
+    case key::kLeft:
+    case key::kRight:
         // An engine's revs (250 at a time) or bend (4); else the pitch, a
         // semitone at a time.
         if (engine() && _redline)
-            _rpm = std::clamp(_rpm + (k == key::Right ? 250 : -250), _minRpm, _redline);
+            _rpm = std::clamp(_rpm + (k == key::kRight ? 250 : -250), _minRpm, _redline);
         else if (engine())
-            _bend = std::clamp(_bend + (k == key::Right ? 4 : -4), 0, 127);
+            _bend = std::clamp(_bend + (k == key::kRight ? 4 : -4), 0, 127);
         else
-            _semitones = std::clamp(_semitones + (k == key::Right ? 1 : -1), -24, 24);
+            _semitones = std::clamp(_semitones + (k == key::kRight ? 1 : -1), -24, 24);
         if (_mixer && _playing != audio::kNoSound)
             _mixer->setRate(_playing, rate());
         break;
@@ -436,32 +436,32 @@ void MusicPage::start(int section) {
             _queue->push(sound, next);
             _queuedSection = next;
         }
-    _playing = _mixer->playOutput(_queue, audio::SoundType::Music);
+    _playing = _mixer->playOutput(_queue, audio::SoundType::kMusic);
 }
 
 void MusicPage::handleKey(uint32_t k, uint16_t) {
     if (_stream < 0)
         load(0);
     switch (k) {
-    case key::Up:
+    case key::kUp:
         load(_stream - 1);
         break;
-    case key::Down:
+    case key::kDown:
         load(_stream + 1);
         break;
-    case key::Left:
+    case key::kLeft:
         _intensity = std::max(0, _intensity - 10);
         break;
-    case key::Right:
+    case key::kRight:
         _intensity = std::min(100, _intensity + 10);
         break;
-    case key::Space:
+    case key::kSpace:
         if (_playing != audio::kNoSound || (!_mixer && _section >= 0))
             stop(), _section = -1;
         else
             start(firstSection());
         break;
-    case key::Home:
+    case key::kHome:
         start(firstSection());
         break;
     case 'n':
@@ -717,7 +717,7 @@ void MoviePage::seek(int frame, uint64_t nowMs) {
     auto rest = std::make_shared<audio::Sound>(*_audio);
     const size_t skip = std::min(rest->frames(), static_cast<size_t>(_startFrame * frameMs() * _audio->rate / 1000));
     rest->samples.erase(rest->samples.begin(), rest->samples.begin() + skip * rest->channels);
-    _playing = _mixer->play(rest, audio::SoundType::Music);
+    _playing = _mixer->play(rest, audio::SoundType::kMusic);
 }
 
 void MoviePage::handleKey(uint32_t k, uint16_t) {
@@ -725,34 +725,34 @@ void MoviePage::handleKey(uint32_t k, uint16_t) {
         load(0);
     const int step = static_cast<int>(std::lround(5000 / frameMs()));
     switch (k) {
-    case key::Up:
+    case key::kUp:
         load(_movie - 1);
         break;
-    case key::Down:
+    case key::kDown:
         load(_movie + 1);
         break;
-    case key::Home:
+    case key::kHome:
         seek(0, _nowMs);
         break;
-    case key::Left:
+    case key::kLeft:
         seek(_decoded - step, _nowMs);
         break;
-    case key::Right:
+    case key::kRight:
         seek(_decoded + step, _nowMs);
         break;
-    case key::Space:
+    case key::kSpace:
         _paused = !_paused;
         if (_paused)
             stopSound();
         else
             seek(_decoded + 1 >= static_cast<int>(_loaded.frames().size()) ? 0 : _decoded, _nowMs);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _paused = true;
         stopSound();
         showFrame(_decoded - 1);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _paused = true;
         stopSound();
         showFrame(_decoded + 1);

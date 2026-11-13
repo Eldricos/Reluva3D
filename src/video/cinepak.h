@@ -25,10 +25,10 @@ public:
     // Damage inside a frame stops that part of it, keeping what was drawn.
     bool decode(const uint8_t *data, uint32_t size);
 
-    int width() const { return width_; }
-    int height() const { return height_; }
+    int width() const { return _width; }
+    int height() const { return _height; }
     // The picture: RGBA32, opaque.
-    const Surface &surface() const { return picture_; }
+    const Surface &surface() const { return _picture; }
 
 private:
     struct Cell {
@@ -42,9 +42,9 @@ private:
     static void decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, const uint8_t *end);
     bool decodeVectors(const Strip &strip, int chunk, int top, int bottom, const uint8_t *data, const uint8_t *end);
 
-    int width_, height_;
-    Surface picture_;
-    std::vector<Strip> strips_;
+    int _width, _height;
+    Surface _picture;
+    std::vector<Strip> _strips;
 };
 
 } // namespace reluva::cinepak

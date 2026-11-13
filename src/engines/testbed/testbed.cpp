@@ -54,19 +54,19 @@ public:
             Event ev;
             while (_sys.pollEvent(ev)) {
                 switch (ev.type) {
-                case EventType::Quit:
-                case EventType::ReturnToLauncher:
+                case EventType::kQuit:
+                case EventType::kReturnToLauncher:
                     running = false;
                     break;
-                case EventType::KeyDown:
-                    if (ev.key == key::Escape)
+                case EventType::kKeyDown:
+                    if (ev.key == key::kEscape)
                         running = false;
-                    else if (ev.key == key::Space && !ev.repeat)
+                    else if (ev.key == key::kSpace && !ev.repeat)
                         _toneOn = !_toneOn;
                     else if (ev.key == 'c' && !ev.repeat)
                         toggleCursor();
                     break;
-                case EventType::MouseMove:
+                case EventType::kMouseMove:
                     _mouseX = ev.mouseX;
                     _mouseY = ev.mouseY;
                     break;

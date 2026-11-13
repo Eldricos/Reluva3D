@@ -109,35 +109,35 @@ void TexturePage::handleKey(uint32_t key, uint16_t) {
     const int banks = static_cast<int>(_banks.size());
     const int shapes = static_cast<int>(_loaded.shapes.size());
     switch (key) {
-    case key::Down:
+    case key::kDown:
         load((_bank + 1) % banks);
         break;
-    case key::Up:
+    case key::kUp:
         load((_bank + banks - 1) % banks);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         load(std::min(_bank + 10, banks - 1));
         break;
-    case key::PageUp:
+    case key::kPageUp:
         load(std::max(_bank - 10, 0));
         break;
-    case key::Right:
+    case key::kRight:
         if (shapes) {
             _shape = (_shape + 1) % shapes;
             decodeCurrent();
         }
         break;
-    case key::Left:
+    case key::kLeft:
         if (shapes) {
             _shape = (_shape + shapes - 1) % shapes;
             decodeCurrent();
         }
         break;
-    case key::Home:
+    case key::kHome:
         _shape = 0;
         decodeCurrent();
         break;
-    case key::End:
+    case key::kEnd:
         _shape = std::max(shapes - 1, 0);
         decodeCurrent();
         break;
@@ -322,10 +322,10 @@ void CockpitPage::load(int index) {
 void CockpitPage::handleKey(uint32_t key, uint16_t) {
     const int count = static_cast<int>(_dashes.size());
     switch (key) {
-    case key::Right:
+    case key::kRight:
         load((_index + 1) % count);
         break;
-    case key::Left:
+    case key::kLeft:
         load((_index + count - 1) % count);
         break;
     case ' ':
@@ -342,11 +342,11 @@ void CockpitPage::handleKey(uint32_t key, uint16_t) {
     case 'g':
         _gear = (_gear + 1) % static_cast<int>(_gears.size());
         break;
-    case key::Up:
+    case key::kUp:
         _sweeping = false;
         _position = std::min(_position + 0.05f, 1.0f);
         break;
-    case key::Down:
+    case key::kDown:
         _sweeping = false;
         _position = std::max(_position - 0.05f, 0.0f);
         break;
@@ -465,28 +465,28 @@ void StringPage::handleKey(uint32_t key, uint16_t) {
     const int tables = static_cast<int>(_tables.size());
     const int lastTop = std::max(0, static_cast<int>(_loaded.strings.size()) - linesPerPage());
     switch (key) {
-    case key::Right:
+    case key::kRight:
         load((_table + 1) % tables);
         break;
-    case key::Left:
+    case key::kLeft:
         load((_table + tables - 1) % tables);
         break;
-    case key::Down:
+    case key::kDown:
         _top = std::min(_top + 1, lastTop);
         break;
-    case key::Up:
+    case key::kUp:
         _top = std::max(_top - 1, 0);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _top = std::min(_top + linesPerPage(), lastTop);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _top = std::max(_top - linesPerPage(), 0);
         break;
-    case key::Home:
+    case key::kHome:
         _top = 0;
         break;
-    case key::End:
+    case key::kEnd:
         _top = lastTop;
         break;
     case 'f':
@@ -552,10 +552,10 @@ void FontPage::load(int font) {
 void FontPage::handleKey(uint32_t key, uint16_t) {
     const int fonts = static_cast<int>(_fonts.size());
     switch (key) {
-    case key::Right:
+    case key::kRight:
         load((_font + 1) % fonts);
         break;
-    case key::Left:
+    case key::kLeft:
         load((_font + fonts - 1) % fonts);
         break;
     case '+':

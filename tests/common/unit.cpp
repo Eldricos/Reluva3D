@@ -245,7 +245,7 @@ static void testMixer() {
     std::vector<int16_t> out(40);
     Mixer m(22050);
     // A sound at the output rate plays sample for sample, then stops and frees its channel.
-    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::Effects);
+    const SoundHandle a = m.play(make(22050, 1, std::vector<int16_t>(10, 1000)), SoundType::kEffects);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 12);
     CHECK(out[0] == 1000 && out[1] == 1000 && out[18] == 1000 && out[19] == 1000 && out[20] == 0 && out[23] == 0);
@@ -253,36 +253,36 @@ static void testMixer() {
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[7] == 0); // silence with nothing playing
     // Two sounds add up, and clamp at 16 bits.
-    m.play(make(22050, 1, {30000, 1000}), SoundType::Effects);
-    m.play(make(22050, 1, {30000, -3000}), SoundType::Music);
+    m.play(make(22050, 1, {30000, 1000}), SoundType::kEffects);
+    m.play(make(22050, 1, {30000, -3000}), SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(out[0] == 32767 && out[2] == -2000 && out[3] == -2000);
     // Volumes: the sound's and its type's multiply.
-    m.setTypeVolume(SoundType::Music, kMaxVolume / 2);
-    m.play(make(22050, 1, {1000}), SoundType::Music, kMaxVolume / 2);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume / 2);
+    m.play(make(22050, 1, {1000}), SoundType::kMusic, kMaxVolume / 2);
     m.mix(out.data(), 1);
-    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::Music) == 128);
-    m.setTypeVolume(SoundType::Music, kMaxVolume);
+    CHECK(out[0] == 250 && out[1] == 250 && m.typeVolume(SoundType::kMusic) == 128);
+    m.setTypeVolume(SoundType::kMusic, kMaxVolume);
     // Pan: full right silences the left.
-    m.play(make(22050, 1, {1000}), SoundType::Speech, kMaxVolume, kMaxPan);
+    m.play(make(22050, 1, {1000}), SoundType::kSpeech, kMaxVolume, kMaxPan);
     m.mix(out.data(), 1);
     CHECK(out[0] == 0 && out[1] == 1000);
     // Resampling: an 11025 Hz ramp at 22050 Hz gets a frame in between each.
-    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::Effects);
+    const SoundHandle r = m.play(make(11025, 1, {0, 100, 200, 300}), SoundType::kEffects);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 50 && out[4] == 100 && out[6] == 150 && m.position(r) == 2.0);
     m.stopAll();
     // Stereo keeps its channels; a loop repeats until stopped.
-    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::Music, kMaxVolume, 0, true);
+    const SoundHandle l = m.play(make(22050, 2, {10, -10, 20, -20}), SoundType::kMusic, kMaxVolume, 0, true);
     m.mix(out.data(), 5);
     CHECK(out[0] == 10 && out[1] == -10 && out[2] == 20 && out[3] == -20 && out[4] == 10 && out[8] == 10);
-    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::Music) && !m.isTypePlaying(SoundType::Speech));
-    m.stopType(SoundType::Music);
+    CHECK(m.isPlaying(l) && m.isTypePlaying(SoundType::kMusic) && !m.isTypePlaying(SoundType::kSpeech));
+    m.stopType(SoundType::kMusic);
     m.mix(out.data(), 2);
     CHECK(!m.isPlaying(l) && out[0] == 0);
     // Nothing to play.
-    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::Effects) == kNoSound &&
-          m.play(make(22050, 1, {}), SoundType::Effects) == kNoSound);
+    CHECK(m.play(std::shared_ptr<const Sound>(), SoundType::kEffects) == kNoSound &&
+          m.play(make(22050, 1, {}), SoundType::kEffects) == kNoSound);
 }
 
 // Raw deflate streams made with zlib (window bits -15): a stored block, one
@@ -831,15 +831,15 @@ static void testDrawAndPalette() {
 static void testAudioStreams() {
     using namespace reluva::audio;
     int16_t buf[5];
-    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::U8, 22050);
+    RawStream u8(std::vector<uint8_t>{0x80, 0xff}, RawStream::Format::kU8, 22050);
     CHECK(u8.read(buf, 4) == 2 && buf[0] == 0 && buf[1] == 127 << 8 && u8.ended());
     RawStream s16(std::vector<uint8_t>{0x00, 0x80}, RawStream::Format::kS16LE, 22050);
     CHECK(s16.read(buf, 4) == 1 && buf[0] == -32768);
     RawStream be(std::vector<uint8_t>{0x12, 0x34}, RawStream::Format::kS16BE, 22050);
     CHECK(be.read(buf, 4) == 1 && buf[0] == 0x1234);
-    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::S8, 22050, false, 3);
+    RawStream s8(std::vector<uint8_t>{0xff}, RawStream::Format::kS8, 22050, false, 3);
     CHECK(s8.read(buf, 5) == 3 && buf[2] == -256 && s8.ended());
-    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::U8, 22050, false, 0);
+    RawStream forever(std::vector<uint8_t>{0x90}, RawStream::Format::kU8, 22050, false, 0);
     CHECK(forever.read(buf, 5) == 5 && !forever.ended());
 
     QueuingStream q(22050, false);
@@ -849,7 +849,7 @@ static void testAudioStreams() {
     q.queue({4});
     q.finish();
     CHECK(!q.ended() && q.read(buf, 5) == 1 && buf[0] == 4 && q.ended());
-    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::U8, 22050);
+    RawStream whole(std::vector<uint8_t>(5000, 0x80), RawStream::Format::kU8, 22050);
     CHECK(readAll(whole).size() == 5000);
 }
 
@@ -858,34 +858,35 @@ static void testMixerStreams() {
     std::vector<int16_t> out(2 * 64);
     Mixer m(22050);
     // A stream plays to its end, then frees its channel.
-    const SoundHandle a = m.play(
-        std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050), SoundType::Effects);
+    const SoundHandle a =
+        m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::kU8, 22050),
+               SoundType::kEffects);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 64);
     CHECK(out[0] == 64 << 8 && out[0] == out[1] && m.position(a) == 64.0);
     m.mix(out.data(), 64);
     CHECK(!m.isPlaying(a) && out[2 * 63] == 0);
     // Type and master volumes, and twice as loud.
-    m.setTypeVolume(SoundType::Speech, kMaxVolume / 2);
-    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::U8, 22050),
-           SoundType::Speech);
+    m.setTypeVolume(SoundType::kSpeech, kMaxVolume / 2);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xc0), RawStream::Format::kU8, 22050),
+           SoundType::kSpeech);
     m.mix(out.data(), 8);
     CHECK(out[0] == (64 << 8) / 2);
     m.stopAll();
     m.setMasterVolume(kMaxBoostVolume);
-    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::U8, 22050),
-           SoundType::Music);
+    m.play(std::make_shared<RawStream>(std::vector<uint8_t>(100, 0xa0), RawStream::Format::kU8, 22050),
+           SoundType::kMusic);
     m.mix(out.data(), 8);
     CHECK(out[0] == (32 << 8) * 2 && m.masterVolume() == kMaxBoostVolume);
     m.stopAll();
     m.setMasterVolume(kMaxVolume);
-    m.setTypeVolume(SoundType::Effects, kMaxBoostVolume + 100);
-    CHECK(m.typeVolume(SoundType::Effects) == kMaxBoostVolume);
+    m.setTypeVolume(SoundType::kEffects, kMaxBoostVolume + 100);
+    CHECK(m.typeVolume(SoundType::kEffects) == kMaxBoostVolume);
     // A decoded sound follows the master volume too.
     auto sound = std::make_shared<Sound>();
     sound->rate = 22050, sound->channels = 1, sound->samples = {1000, 1000};
     m.setMasterVolume(kMaxVolume / 2);
-    m.play(std::shared_ptr<const Sound>(sound), SoundType::Music);
+    m.play(std::shared_ptr<const Sound>(sound), SoundType::kMusic);
     m.mix(out.data(), 1);
     CHECK(out[0] == 500);
     m.stopAll();
@@ -894,7 +895,7 @@ static void testMixerStreams() {
     // so each sample is heard twice (interpolated).
     auto q = std::make_shared<QueuingStream>(11025, false);
     q->queue({0, 1000, 2000});
-    const SoundHandle h = m.play(q, SoundType::Music);
+    const SoundHandle h = m.play(q, SoundType::kMusic);
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && out[2] == 500 && out[4] == 1000 && out[6] == 1500);
     q->finish();
@@ -1205,7 +1206,7 @@ static void testMixerPause() {
     s->rate = 22050, s->channels = 1, s->samples = {1, 2, 3, 4};
     std::vector<int16_t> out(8);
     Mixer m(22050);
-    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::Effects);
+    const SoundHandle h = m.play(std::shared_ptr<const Sound>(s), SoundType::kEffects);
     m.mix(out.data(), 1);
     CHECK(out[0] == 1 && !m.isPaused(h));
     m.setPaused(h, true);
@@ -1219,7 +1220,7 @@ static void testMixerPause() {
     CHECK(!m.isPlaying(h) && !m.isPaused(h));
     m.setPaused(kNoSound, true); // nothing to pause
     // Everything paused: silence, and the sound plays on afterwards.
-    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::Music);
+    const SoundHandle g = m.play(std::shared_ptr<const Sound>(s), SoundType::kMusic);
     m.setAllPaused(true);
     m.mix(out.data(), 2);
     CHECK(out[0] == 0 && m.allPaused() && m.position(g) == 0.0);

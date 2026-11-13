@@ -483,7 +483,7 @@ void Game::updateTick() {
         _tickPhase = 0;
         if (audio::Mixer *mixer = _system->getMixer())
             if (!_tickSound.empty())
-                mixer->play(makeRawStream(_tickSound), audio::SoundType::Effects);
+                mixer->play(makeRawStream(_tickSound), audio::SoundType::kEffects);
     }
 }
 

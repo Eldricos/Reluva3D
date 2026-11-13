@@ -61,44 +61,44 @@ void testCentre() {
     const Levels a = decode(45, 1000, true);
     CHECK(a.steering > 0.99);
     CHECK(std::fabs(a.direction - 45) < 1);
-    CHECK(a.db[ProLogicDecoder::C] - a.db[ProLogicDecoder::L] > 40);
-    CHECK(a.db[ProLogicDecoder::C] - a.db[ProLogicDecoder::R] > 40);
-    CHECK(a.db[ProLogicDecoder::C] - a.db[ProLogicDecoder::S] > 40);
+    CHECK(a.db[ProLogicDecoder::kC] - a.db[ProLogicDecoder::kL] > 40);
+    CHECK(a.db[ProLogicDecoder::kC] - a.db[ProLogicDecoder::kR] > 40);
+    CHECK(a.db[ProLogicDecoder::kC] - a.db[ProLogicDecoder::kS] > 40);
     // A 0.5 sine is -9 dB; the centre gets it all.
-    CHECK(std::fabs(a.db[ProLogicDecoder::C] + 9.03) < 0.1);
+    CHECK(std::fabs(a.db[ProLogicDecoder::kC] + 9.03) < 0.1);
     const Levels p = decode(45, 1000, false);
-    CHECK(std::fabs(p.db[ProLogicDecoder::C] - p.db[ProLogicDecoder::L] - 3.01) < 0.1);
-    CHECK(p.db[ProLogicDecoder::C] - p.db[ProLogicDecoder::S] > 100);
+    CHECK(std::fabs(p.db[ProLogicDecoder::kC] - p.db[ProLogicDecoder::kL] - 3.01) < 0.1);
+    CHECK(p.db[ProLogicDecoder::kC] - p.db[ProLogicDecoder::kS] > 100);
 }
 
 void testLeft() {
     const Levels a = decode(0, 1000, true);
     CHECK(std::fabs(a.direction) < 1 || std::fabs(a.direction - 180) < 1);
-    CHECK(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::C] > 40);
-    CHECK(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::S] > 40);
-    CHECK(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::R] > 40);
+    CHECK(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kC] > 40);
+    CHECK(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kS] > 40);
+    CHECK(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kR] > 40);
     const Levels p = decode(0, 1000, false);
-    CHECK(std::fabs(p.db[ProLogicDecoder::L] - p.db[ProLogicDecoder::C] - 3.01) < 0.1);
-    CHECK(std::fabs(p.db[ProLogicDecoder::L] - p.db[ProLogicDecoder::S] - 3.01) < 0.2);
+    CHECK(std::fabs(p.db[ProLogicDecoder::kL] - p.db[ProLogicDecoder::kC] - 3.01) < 0.1);
+    CHECK(std::fabs(p.db[ProLogicDecoder::kL] - p.db[ProLogicDecoder::kS] - 3.01) < 0.2);
 }
 
 void testSurround() {
     // Lt = -Rt.
     const Levels a = decode(135, 1000, true);
     CHECK(std::fabs(a.direction - 135) < 1);
-    CHECK(a.db[ProLogicDecoder::S] - a.db[ProLogicDecoder::L] > 40);
-    CHECK(a.db[ProLogicDecoder::S] - a.db[ProLogicDecoder::C] > 40);
-    CHECK(a.db[ProLogicDecoder::S] - a.db[ProLogicDecoder::R] > 40);
-    CHECK(std::fabs(a.db[ProLogicDecoder::S] + 9.03) < 0.2);
+    CHECK(a.db[ProLogicDecoder::kS] - a.db[ProLogicDecoder::kL] > 40);
+    CHECK(a.db[ProLogicDecoder::kS] - a.db[ProLogicDecoder::kC] > 40);
+    CHECK(a.db[ProLogicDecoder::kS] - a.db[ProLogicDecoder::kR] > 40);
+    CHECK(std::fabs(a.db[ProLogicDecoder::kS] + 9.03) < 0.2);
     // Passive: the front gets it 3 dB down, the centre not at all.
     const Levels p = decode(135, 1000, false);
-    CHECK(std::fabs(p.db[ProLogicDecoder::S] - p.db[ProLogicDecoder::L] - 3.01) < 0.2);
-    CHECK(p.db[ProLogicDecoder::S] - p.db[ProLogicDecoder::C] > 100);
+    CHECK(std::fabs(p.db[ProLogicDecoder::kS] - p.db[ProLogicDecoder::kL] - 3.01) < 0.2);
+    CHECK(p.db[ProLogicDecoder::kS] - p.db[ProLogicDecoder::kC] > 100);
     // The 7 kHz low-pass: 3 dB down at 7 kHz, far more at 14.
     const Levels hi = decode(135, 7000, true);
     const Levels higher = decode(135, 14000, true);
-    CHECK(std::fabs(a.db[ProLogicDecoder::S] - hi.db[ProLogicDecoder::S] - 3.01) < 0.5);
-    CHECK(a.db[ProLogicDecoder::S] - higher.db[ProLogicDecoder::S] > 11);
+    CHECK(std::fabs(a.db[ProLogicDecoder::kS] - hi.db[ProLogicDecoder::kS] - 3.01) < 0.5);
+    CHECK(a.db[ProLogicDecoder::kS] - higher.db[ProLogicDecoder::kS] > 11);
 }
 
 void testSurroundDelay() {
@@ -112,7 +112,7 @@ void testSurroundDelay() {
     dec.process(in.data(), out.data(), 4000);
     int first = -1;
     for (int i = 0; i < 4000 && first < 0; ++i)
-        if (std::fabs(out[4 * i + ProLogicDecoder::S]) > 1e-4)
+        if (std::fabs(out[4 * i + ProLogicDecoder::kS]) > 1e-4)
             first = i;
     CHECK(first == 100 + 882); // 20 ms at 44.1 kHz
 }
@@ -121,20 +121,20 @@ void testPanned() {
     // Halfway between left and centre: both speakers equal, at -3 dB.
     const Levels a = decode(22.5, 1000, true);
     CHECK(std::fabs(a.direction - 22.5) < 1);
-    CHECK(std::fabs(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::C]) < 0.5);
-    CHECK(std::fabs(a.db[ProLogicDecoder::L] + 9.03 + 3.01) < 0.3);
-    CHECK(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::R] > 40);
-    CHECK(a.db[ProLogicDecoder::L] - a.db[ProLogicDecoder::S] > 40);
+    CHECK(std::fabs(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kC]) < 0.5);
+    CHECK(std::fabs(a.db[ProLogicDecoder::kL] + 9.03 + 3.01) < 0.3);
+    CHECK(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kR] > 40);
+    CHECK(a.db[ProLogicDecoder::kL] - a.db[ProLogicDecoder::kS] > 40);
     // Between right and surround (Lt small and opposite, Rt large).
     const Levels b = decode(112.5, 1000, true);
     CHECK(std::fabs(b.direction - 112.5) < 1);
-    CHECK(std::fabs(b.db[ProLogicDecoder::R] - b.db[ProLogicDecoder::S]) < 0.5);
-    CHECK(b.db[ProLogicDecoder::R] - b.db[ProLogicDecoder::C] > 40);
+    CHECK(std::fabs(b.db[ProLogicDecoder::kR] - b.db[ProLogicDecoder::kS]) < 0.5);
+    CHECK(b.db[ProLogicDecoder::kR] - b.db[ProLogicDecoder::kC] > 40);
     // A sound behind, slightly to the left as NFS places it (one level
     // negated, the other smaller): mostly surround, some left.
     const Levels c = decode(150, 1000, true);
-    CHECK(c.db[ProLogicDecoder::S] > c.db[ProLogicDecoder::L]);
-    CHECK(c.db[ProLogicDecoder::S] - c.db[ProLogicDecoder::C] > 40);
+    CHECK(c.db[ProLogicDecoder::kS] > c.db[ProLogicDecoder::kL]);
+    CHECK(c.db[ProLogicDecoder::kS] - c.db[ProLogicDecoder::kC] > 40);
 }
 
 void testNoDominance() {

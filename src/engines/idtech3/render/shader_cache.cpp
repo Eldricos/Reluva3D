@@ -25,22 +25,22 @@ constexpr float kSortPortal = 1, kSortOpaque = 3, kSortDecal = 4, kSortSeeThroug
 
 gfx::Blend blendFactor(const std::string &gl) {
     static const std::pair<const char *, gfx::Blend> kNames[] = {
-        {"gl_zero", gfx::Blend::Zero},          {"gl_one", gfx::Blend::One},
-        {"gl_src_color", gfx::Blend::SrcColor}, {"gl_one_minus_src_color", gfx::Blend::OneMinusSrcColor},
-        {"gl_dst_color", gfx::Blend::DstColor}, {"gl_one_minus_dst_color", gfx::Blend::OneMinusDstColor},
-        {"gl_src_alpha", gfx::Blend::SrcAlpha}, {"gl_one_minus_src_alpha", gfx::Blend::OneMinusSrcAlpha},
-        {"gl_dst_alpha", gfx::Blend::DstAlpha}, {"gl_one_minus_dst_alpha", gfx::Blend::OneMinusDstAlpha},
+        {"gl_zero", gfx::Blend::kZero},          {"gl_one", gfx::Blend::kOne},
+        {"gl_src_color", gfx::Blend::kSrcColor}, {"gl_one_minus_src_color", gfx::Blend::kOneMinusSrcColor},
+        {"gl_dst_color", gfx::Blend::kDstColor}, {"gl_one_minus_dst_color", gfx::Blend::kOneMinusDstColor},
+        {"gl_src_alpha", gfx::Blend::kSrcAlpha}, {"gl_one_minus_src_alpha", gfx::Blend::kOneMinusSrcAlpha},
+        {"gl_dst_alpha", gfx::Blend::kDstAlpha}, {"gl_one_minus_dst_alpha", gfx::Blend::kOneMinusDstAlpha},
     };
     for (const auto &[name, b] : kNames)
         if (gl == name)
             return b;
-    return gfx::Blend::One; // gl_src_alpha_saturate isn't supported
+    return gfx::Blend::kOne; // gl_src_alpha_saturate isn't supported
 }
 
 bool stageBlends(const ShaderStage &s) {
     if (s.blendSrc.empty())
         return false;
-    return !(blendFactor(s.blendSrc) == gfx::Blend::One && blendFactor(s.blendDst) == gfx::Blend::Zero);
+    return !(blendFactor(s.blendSrc) == gfx::Blend::kOne && blendFactor(s.blendDst) == gfx::Blend::kZero);
 }
 
 std::string stripExtension(const std::string &name) {
@@ -109,9 +109,9 @@ Affine tcModMatrix(const ShaderStage::TcMod &m, float time) {
 }
 
 gfx::Cull cullOf(ShaderDef::Cull c) {
-    return c == ShaderDef::Cull::kFront  ? gfx::Cull::Front
-           : c == ShaderDef::Cull::kBack ? gfx::Cull::Back
-                                         : gfx::Cull::None;
+    return c == ShaderDef::Cull::kFront  ? gfx::Cull::kFront
+           : c == ShaderDef::Cull::kBack ? gfx::Cull::kBack
+                                         : gfx::Cull::kNone;
 }
 
 } // namespace
@@ -239,19 +239,19 @@ ShaderCache::Stage ShaderCache::makeStage(const ShaderStage &def, const ShaderDe
     using T = ShaderStage::TcGen;
     switch (def.tcGen) {
     case T::kDefault:
-        st.texGen = def.lightmap ? gfx::TexGen::Uv2 : gfx::TexGen::Uv;
+        st.texGen = def.lightmap ? gfx::TexGen::kUv2 : gfx::TexGen::kUv;
         break;
     case T::kBase:
-        st.texGen = gfx::TexGen::Uv;
+        st.texGen = gfx::TexGen::kUv;
         break;
     case T::kLightmap:
-        st.texGen = gfx::TexGen::Uv2;
+        st.texGen = gfx::TexGen::kUv2;
         break;
     case T::kEnvironment:
-        st.texGen = gfx::TexGen::Environment;
+        st.texGen = gfx::TexGen::kEnvironment;
         break;
     case T::kVector:
-        st.texGen = gfx::TexGen::Vector;
+        st.texGen = gfx::TexGen::kVector;
         break;
     }
     return st;
@@ -285,21 +285,21 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
         using T = ShaderDeform::Type;
         gfx::Deform g;
         if (d.type == T::kWave) {
-            g.type = gfx::Deform::Type::Wave;
+            g.type = gfx::Deform::Type::kWave;
             g.wave = d.wave;
             // Without a frequency the whole surface moves as one.
             g.spread = d.wave.frequency == 0 ? 0 : d.spread;
         } else if (d.type == T::kBulge) {
-            g.type = gfx::Deform::Type::Bulge;
+            g.type = gfx::Deform::Type::kBulge;
             g.width = d.width;
             g.height = d.height;
             g.speed = d.speed;
         } else if (d.type == T::kMove) {
-            g.type = gfx::Deform::Type::Move;
+            g.type = gfx::Deform::Type::kMove;
             g.wave = d.wave;
             g.vector = d.vector;
         } else if (d.type == T::kNormal) {
-            g.type = gfx::Deform::Type::Normal;
+            g.type = gfx::Deform::Type::kNormal;
             g.wave = d.wave; // amplitude and frequency
             if (d.wave.amplitude == 0)
                 continue;
@@ -442,10 +442,10 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
 
         // Models have no vertex colours: whatever asks for light gets the light.
         const gfx::ColorSource lit =
-            m.lighting == Lighting::kDiffuse ? gfx::ColorSource::Lighting : gfx::ColorSource::Vertex;
+            m.lighting == Lighting::kDiffuse ? gfx::ColorSource::kLighting : gfx::ColorSource::kVertex;
         using R = ShaderStage::RgbGen;
-        call.rgbSource = gfx::ColorSource::Constant;
-        call.alphaSource = gfx::ColorSource::Constant;
+        call.rgbSource = gfx::ColorSource::kConstant;
+        call.alphaSource = gfx::ColorSource::kConstant;
         call.color = {1, 1, 1, 1};
         switch (d.rgbGen) {
         case R::kVertex:
@@ -454,7 +454,7 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
             call.rgbSource = lit;
             break;
         case R::kOneMinusVertex:
-            call.rgbSource = gfx::ColorSource::OneMinusVertex;
+            call.rgbSource = gfx::ColorSource::kOneMinusVertex;
             break;
         case R::kWave: {
             const float v = std::clamp(gfx::evaluate(d.rgbWave, time), 0.0f, 1.0f);
@@ -476,15 +476,15 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
         // Lit by its vertices (no lightmap, or the vertex lighting
         // setting): a lightmap stage is the vertex colours instead.
         if (st.lightmap && !lightmap && m.lighting == Lighting::kVertex)
-            call.rgbSource = gfx::ColorSource::Vertex;
+            call.rgbSource = gfx::ColorSource::kVertex;
         using A = ShaderStage::AlphaGen;
         switch (d.alphaGen) {
         case A::kVertex:
             if (m.lighting != Lighting::kDiffuse) // models: opaque
-                call.alphaSource = gfx::ColorSource::Vertex;
+                call.alphaSource = gfx::ColorSource::kVertex;
             break;
         case A::kOneMinusVertex:
-            call.alphaSource = gfx::ColorSource::OneMinusVertex;
+            call.alphaSource = gfx::ColorSource::kOneMinusVertex;
             break;
         case A::kWave:
             call.color[3] = std::clamp(gfx::evaluate(d.alphaWave, time), 0.0f, 1.0f);
@@ -507,15 +507,15 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
 
         if (m.lighting == Lighting::kTwoD) {
             call.state.depthTest = call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
         }
         if (m.lighting == Lighting::kEffect)
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
         if (sky) {
             call.followCamera = true;
-            call.texGen = gfx::TexGen::Uv2; // the cloud coordinates
+            call.texGen = gfx::TexGen::kUv2; // the cloud coordinates
             call.state.depthTest = call.state.depthWrite = false;
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             call.deforms = {};
         }
         _r.draw(call);
@@ -529,16 +529,16 @@ void ShaderCache::drawFog(int material, const gfx::DrawCall &base, const std::ar
         return;
     gfx::DrawCall call = base;
     call.texture = _whiteTexture;
-    call.texGen = gfx::TexGen::Uv;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Constant;
+    call.texGen = gfx::TexGen::kUv;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kConstant;
     call.color = {color[0], color[1], color[2], 1};
     call.fogDepth = std::max(distance, 1.0f);
     call.fogPlane = plane;
     call.time = time;
     call.deforms = m.deforms;
     call.state = {};
-    call.state.src = gfx::Blend::SrcAlpha;
-    call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    call.state.src = gfx::Blend::kSrcAlpha;
+    call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
     call.state.depthWrite = false;
     call.state.depthEqual = m.sort <= kSortOpaque;
     call.state.cull = m.stages.front().state.cull;

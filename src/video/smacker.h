@@ -25,26 +25,26 @@ public:
 
     bool load(std::unique_ptr<SeekableReadStream> stream);
     void close();
-    bool isLoaded() const { return stream_ != nullptr; }
+    bool isLoaded() const { return _stream != nullptr; }
 
-    int width() const { return width_; }
+    int width() const { return _width; }
     // The display height: twice the stored height for doubled/interlaced videos.
-    int height() const { return displayHeight_; }
-    int frameCount() const { return frameCount_; }
-    int currentFrame() const { return curFrame_; }
+    int height() const { return _displayHeight; }
+    int frameCount() const { return _frameCount; }
+    int currentFrame() const { return _curFrame; }
     // Time per frame in microseconds.
-    uint32_t frameMicros() const { return frameMicros_; }
-    bool endOfVideo() const { return curFrame_ + 1 >= frameCount_; }
+    uint32_t frameMicros() const { return _frameMicros; }
+    bool endOfVideo() const { return _curFrame + 1 >= _frameCount; }
 
     // Decodes the next frame. Returns false at the end or on a data error.
     bool decodeNextFrame();
-    const Surface &surface() const { return surface_; }
+    const Surface &surface() const { return _surface; }
     // 256 RGB entries, 8 bits per channel.
-    const uint8_t *palette() const { return palette_; }
-    bool paletteChanged() const { return paletteChanged_; }
+    const uint8_t *palette() const { return _palette; }
+    bool paletteChanged() const { return _paletteChanged; }
 
     // The first audio track with data, if any.
-    bool hasAudio() const { return audioTrack_ >= 0; }
+    bool hasAudio() const { return _audioTrack >= 0; }
     int audioRate() const;
     bool audioStereo() const;
     // Takes the 16-bit samples decoded so far (interleaved if stereo).
@@ -59,25 +59,25 @@ private:
     void decodeAudio(const uint8_t *data, uint32_t size);
     bool decodeVideo(const uint8_t *data, uint32_t size);
 
-    std::unique_ptr<SeekableReadStream> stream_;
-    bool smk4_ = false;
-    int width_ = 0, height_ = 0, displayHeight_ = 0;
-    int frameCount_ = 0;
-    int curFrame_ = -1;
-    uint32_t frameMicros_ = 0;
-    uint32_t flags_ = 0;
-    uint32_t audioRates_[7] = {};
-    int audioTrack_ = -1;
-    std::vector<uint32_t> frameSizes_;
-    std::vector<uint8_t> frameTypes_;
-    int64_t nextFramePos_ = 0;
+    std::unique_ptr<SeekableReadStream> _stream;
+    bool _smk4 = false;
+    int _width = 0, _height = 0, _displayHeight = 0;
+    int _frameCount = 0;
+    int _curFrame = -1;
+    uint32_t _frameMicros = 0;
+    uint32_t _flags = 0;
+    uint32_t _audioRates[7] = {};
+    int _audioTrack = -1;
+    std::vector<uint32_t> _frameSizes;
+    std::vector<uint8_t> _frameTypes;
+    int64_t _nextFramePos = 0;
 
-    std::unique_ptr<BigTree> mmap_, mclr_, full_, type_;
-    Surface frame_;   // as stored
-    Surface surface_; // as displayed
-    uint8_t palette_[768] = {};
-    bool paletteChanged_ = false;
-    std::vector<int16_t> audio_;
+    std::unique_ptr<BigTree> _mmap, _mclr, _full, _type;
+    Surface _frame;   // as stored
+    Surface _surface; // as displayed
+    uint8_t _palette[768] = {};
+    bool _paletteChanged = false;
+    std::vector<int16_t> _audio;
 };
 
 } // namespace reluva::smacker

@@ -60,8 +60,8 @@ void Win32Process::setRegistryValue(const std::string &key, const std::string &n
                                     std::vector<uint8_t> data) {
     // The key and those above it come into being.
     for (size_t at = key.find('\\'); at != std::string::npos; at = key.find('\\', at + 1))
-        registry_.emplace(lower(key.substr(0, at)), RegistryKey{key.substr(0, at), {}});
-    RegistryKey &k = registry_.emplace(lower(key), RegistryKey{key, {}}).first->second;
+        _registry.emplace(lower(key.substr(0, at)), RegistryKey{key.substr(0, at), {}});
+    RegistryKey &k = _registry.emplace(lower(key), RegistryKey{key, {}}).first->second;
     for (auto &[n, v] : k.values)
         if (lower(n) == lower(name)) {
             v = {type, std::move(data)};
@@ -78,8 +78,8 @@ void Win32Process::setRegistryString(const std::string &key, const std::string &
 
 std::optional<std::vector<uint8_t>> Win32Process::registryValue(const std::string &key, const std::string &name,
                                                                 uint32_t *type) const {
-    auto it = registry_.find(lower(key));
-    if (it == registry_.end())
+    auto it = _registry.find(lower(key));
+    if (it == _registry.end())
         return std::nullopt;
     for (const auto &[n, v] : it->second.values)
         if (lower(n) == lower(name)) {
@@ -106,8 +106,8 @@ void Win32Process::addRegistryStandIns() {
         std::string base;
         if (const char *root = rootName(key))
             base = root;
-        else if (auto it = openKeys_.find(key); it != openKeys_.end())
-            base = registry_.at(it->second).path;
+        else if (auto it = _openKeys.find(key); it != _openKeys.end())
+            base = _registry.at(it->second).path;
         else
             return {};
         std::string rest = sub ? c.string(sub) : std::string();
@@ -118,18 +118,18 @@ void Win32Process::addRegistryStandIns() {
         return rest.empty() ? base : base + "\\" + rest;
     };
     auto open = [this](const std::string &path) {
-        const uint32_t handle = nextKey_;
-        nextKey_ += 4;
-        openKeys_[handle] = lower(path);
+        const uint32_t handle = _nextKey;
+        _nextKey += 4;
+        _openKeys[handle] = lower(path);
         return handle;
     };
     auto keyOf = [this](uint32_t handle) -> RegistryKey * {
         if (const char *root = rootName(handle)) {
-            auto it = registry_.emplace(lower(root), RegistryKey{root, {}}).first;
+            auto it = _registry.emplace(lower(root), RegistryKey{root, {}}).first;
             return &it->second;
         }
-        auto it = openKeys_.find(handle);
-        return it == openKeys_.end() ? nullptr : &registry_.at(it->second);
+        auto it = _openKeys.find(handle);
+        return it == _openKeys.end() ? nullptr : &_registry.at(it->second);
     };
 
     // RegOpenKeyExA(key, sub, options, access, result)
@@ -139,9 +139,9 @@ void Win32Process::addRegistryStandIns() {
             return kErrorInvalidHandle;
         const char *root = rootName(c.arg(0));
         const bool isRoot = root && lower(path) == lower(root); // a root is always there
-        if (!registry_.count(lower(path)) && !isRoot)
+        if (!_registry.count(lower(path)) && !isRoot)
             return kErrorFileNotFound;
-        registry_.emplace(lower(path), RegistryKey{path, {}});
+        _registry.emplace(lower(path), RegistryKey{path, {}});
         c.write32(c.arg(4), open(path));
         return 0u;
     });
@@ -149,7 +149,7 @@ void Win32Process::addRegistryStandIns() {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));
         if (path.empty())
             return kErrorInvalidHandle;
-        if (!registry_.count(lower(path)))
+        if (!_registry.count(lower(path)))
             return kErrorFileNotFound;
         c.write32(c.arg(2), open(path));
         return 0u;
@@ -160,11 +160,11 @@ void Win32Process::addRegistryStandIns() {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));
         if (path.empty())
             return kErrorInvalidHandle;
-        const bool existed = registry_.count(lower(path)) != 0;
+        const bool existed = _registry.count(lower(path)) != 0;
         if (!existed) {
             for (size_t at = path.find('\\'); at != std::string::npos; at = path.find('\\', at + 1))
-                registry_.emplace(lower(path.substr(0, at)), RegistryKey{path.substr(0, at), {}});
-            registry_.emplace(lower(path), RegistryKey{path, {}});
+                _registry.emplace(lower(path.substr(0, at)), RegistryKey{path.substr(0, at), {}});
+            _registry.emplace(lower(path), RegistryKey{path, {}});
         }
         c.write32(c.arg(7), open(path));
         if (c.arg(8))
@@ -174,7 +174,7 @@ void Win32Process::addRegistryStandIns() {
     stdcall(a, "RegCloseKey", 1, [this](Cpu &c) {
         if (rootName(c.arg(0)))
             return 0u;
-        return openKeys_.erase(c.arg(0)) ? 0u : kErrorInvalidHandle;
+        return _openKeys.erase(c.arg(0)) ? 0u : kErrorInvalidHandle;
     });
     // RegSetValueExA(key, name, reserved, type, data, size)
     stdcall(a, "RegSetValueExA", 6, [this, keyOf](Cpu &c) {

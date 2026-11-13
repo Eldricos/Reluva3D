@@ -34,27 +34,27 @@ constexpr uint32_t kEINTR = 10004, kEFAULT = 10014, kEINVAL = 10022, kEMFILE = 1
 
 uint32_t wsError(Result r) {
     switch (r) {
-    case Result::Ok:
+    case Result::kOk:
         return 0;
-    case Result::WouldBlock:
+    case Result::kWouldBlock:
         return kEWOULDBLOCK;
-    case Result::InProgress:
+    case Result::kInProgress:
         return kEWOULDBLOCK; // Winsock 1.1's for a non-blocking connect
-    case Result::Refused:
+    case Result::kRefused:
         return kECONNREFUSED;
-    case Result::Reset:
+    case Result::kReset:
         return kECONNRESET;
-    case Result::NotConnected:
+    case Result::kNotConnected:
         return kENOTCONN;
-    case Result::AddressInUse:
+    case Result::kAddressInUse:
         return kEADDRINUSE;
-    case Result::AddressNotAvailable:
+    case Result::kAddressNotAvailable:
         return kEADDRNOTAVAIL;
-    case Result::Unreachable:
+    case Result::kUnreachable:
         return kENETUNREACH;
-    case Result::Invalid:
+    case Result::kInvalid:
         return kEINVAL;
-    case Result::Failed:
+    case Result::kFailed:
         return kEFAULT;
     }
     return kEFAULT;
@@ -180,7 +180,7 @@ void GameHost::addNetwork() {
         const int socket = s.socket;
         const bool nonBlocking = s.nonBlocking;
         Result r = call();
-        while (!nonBlocking && (r == Result::WouldBlock || r == Result::InProgress)) {
+        while (!nonBlocking && (r == Result::kWouldBlock || r == Result::kInProgress)) {
             _process->wait(
                 [net, socket, forWrite] {
                     const net::Sockets::Ready ready = net->ready(socket);
@@ -188,7 +188,7 @@ void GameHost::addNetwork() {
                 },
                 kInfinite);
             if (_process->ending())
-                return Result::Failed;
+                return Result::kFailed;
             r = call();
         }
         return r;
@@ -244,11 +244,11 @@ void GameHost::addNetwork() {
         WsSocket s;
         s.ipx = ipx;
         s.stream = c.arg(1) == 1;
-        s.socket = net->open(s.stream ? net::Sockets::Stream : net::Sockets::Datagram);
+        s.socket = net->open(s.stream ? net::Sockets::kStream : net::Sockets::kDatagram);
         if (s.socket < 0)
             return fail(kEMFILE);
         if (ipx) // IPX sockets may broadcast and hear broadcasts without asking
-            net->setOption(s.socket, net::Sockets::Broadcast, 1);
+            net->setOption(s.socket, net::Sockets::kBroadcast, 1);
         const uint32_t handle = _nextWsSocket++;
         _wsSockets[handle] = s;
         log("socket " + std::to_string(handle) + (s.stream ? " (TCP)" : s.ipx ? " (IPX)" : " (UDP)"));
@@ -271,8 +271,8 @@ void GameHost::addNetwork() {
             return fail(kEFAULT);
         a = ours(a);
         const Result r = net->bind(s->socket, a);
-        log("bind " + std::to_string(c.arg(0)) + " to " + a.toString() + (r == Result::Ok ? "" : ": failed"));
-        if (r != Result::Ok)
+        log("bind " + std::to_string(c.arg(0)) + " to " + a.toString() + (r == Result::kOk ? "" : ": failed"));
+        if (r != Result::kOk)
             return fail(wsError(r));
         s->bound = true;
         return 0u;
@@ -282,7 +282,7 @@ void GameHost::addNetwork() {
         if (!s)
             return fail(kENOTSOCK);
         const Result r = net->listen(s->socket, int(c.arg(1)));
-        return r == Result::Ok ? 0u : fail(wsError(r));
+        return r == Result::kOk ? 0u : fail(wsError(r));
     });
     provide(w, "#1", 3, [this, net, find, fail, blocking, log](Cpu &c) { // accept(s, addr, addrlen)
         WsSocket *s = find(c.arg(0));
@@ -293,7 +293,7 @@ void GameHost::addNetwork() {
         const int sock = s->socket;
         const bool nonBlocking = s->nonBlocking;
         const Result r = blocking(*s, false, [&] { return net->accept(sock, accepted, from); });
-        if (r != Result::Ok)
+        if (r != Result::kOk)
             return fail(wsError(r));
         WsSocket a;
         a.stream = true;
@@ -318,24 +318,24 @@ void GameHost::addNetwork() {
         bindIfNeeded(*s);
         const int sock = s->socket;
         Result r = net->connect(sock, to);
-        if (r == Result::InProgress && !s->nonBlocking) {
+        if (r == Result::kInProgress && !s->nonBlocking) {
             r = blocking(*s, true, [&] {
                 const net::Sockets::Ready ready = net->ready(sock);
-                return ready.failed ? Result::Refused : ready.write ? Result::Ok : Result::WouldBlock;
+                return ready.failed ? Result::kRefused : ready.write ? Result::kOk : Result::kWouldBlock;
             });
         }
         log("connect " + std::to_string(c.arg(0)) + " to " + to.toString() +
-            (r == Result::Ok           ? ""
-             : r == Result::InProgress ? ": under way"
-                                       : ": failed"));
-        return r == Result::Ok ? 0u : fail(wsError(r));
+            (r == Result::kOk           ? ""
+             : r == Result::kInProgress ? ": under way"
+                                        : ": failed"));
+        return r == Result::kOk ? 0u : fail(wsError(r));
     });
     provide(w, "#22", 2, [net, find, fail](Cpu &c) { // shutdown(s, how)
         WsSocket *s = find(c.arg(0));
         if (!s)
             return fail(kENOTSOCK);
         const Result r = net->shutdown(s->socket, int(c.arg(1)));
-        return r == Result::Ok || r == Result::NotConnected ? 0u : fail(wsError(r));
+        return r == Result::kOk || r == Result::kNotConnected ? 0u : fail(wsError(r));
     });
     // This machine's address for an IPX node: Options::netAddress, or its
     // name's.
@@ -352,7 +352,7 @@ void GameHost::addNetwork() {
                 return fail(kENOTSOCK);
             net::Address a;
             const Result r = peer ? net->peerAddress(s->socket, a) : net->localAddress(s->socket, a);
-            if (r != Result::Ok)
+            if (r != Result::kOk)
                 return fail(wsError(r));
             if (s->ipx) {
                 if (!a.ip)
@@ -378,15 +378,15 @@ void GameHost::addNetwork() {
             net::Address peer;
             net->peerAddress(sock, peer);
             logTraffic(true, c.arg(0), peer, data.data(), data.size(), true);
-            return fail(wsError(Result::WouldBlock));
+            return fail(wsError(Result::kWouldBlock));
         }
         const Result r = blocking(*s, true, [&] { return net->send(sock, data.data(), data.size(), done); });
-        if (r == Result::Ok && _netLog) {
+        if (r == Result::kOk && _netLog) {
             net::Address peer;
             net->peerAddress(sock, peer);
             logTraffic(true, c.arg(0), peer, data.data(), done);
         }
-        return r == Result::Ok ? uint32_t(done) : fail(wsError(r));
+        return r == Result::kOk ? uint32_t(done) : fail(wsError(r));
     });
     provide(w, "#16", 4, [this, net, find, fail, blocking](Cpu &c) {
         WsSocket *s = find(c.arg(0));
@@ -397,7 +397,7 @@ void GameHost::addNetwork() {
         const int sock = s->socket;
         const bool peek = c.arg(3) & 2;
         const Result r = blocking(*s, false, [&] { return net->receive(sock, data.data(), data.size(), done, peek); });
-        if (r != Result::Ok)
+        if (r != Result::kOk)
             return fail(wsError(r));
         for (size_t i = 0; i < done; ++i)
             c.write8(c.arg(1) + uint32_t(i), data[i]);
@@ -424,7 +424,7 @@ void GameHost::addNetwork() {
         if (s->stream) {
             size_t done = 0;
             const Result r = net->send(s->socket, data.data(), data.size(), done);
-            return r == Result::Ok ? uint32_t(done) : fail(wsError(r));
+            return r == Result::kOk ? uint32_t(done) : fail(wsError(r));
         }
         std::vector<net::Address> targets{to};
         if (to.ip == 0xffffffffu && !_options.broadcastTo.empty()) {
@@ -436,12 +436,12 @@ void GameHost::addNetwork() {
             logTraffic(true, c.arg(0), to, data.data(), data.size(), true);
             return c.arg(2);
         }
-        Result r = Result::Ok;
+        Result r = Result::kOk;
         for (const net::Address &t : targets)
             if (!(_options.netAddress && t.ip == _options.netAddress)) // not to itself
                 r = net->sendTo(s->socket, t, data.data(), data.size());
         logTraffic(true, c.arg(0), to, data.data(), data.size());
-        return r == Result::Ok ? c.arg(2) : fail(wsError(r));
+        return r == Result::kOk ? c.arg(2) : fail(wsError(r));
     });
     // recvfrom(s, buf, len, flags, from, fromlen).
     provide(w, "#17", 6, [this, net, find, fail, blocking](Cpu &c) {
@@ -455,7 +455,7 @@ void GameHost::addNetwork() {
         const bool peek = c.arg(3) & 2;
         const Result r =
             blocking(*s, false, [&] { return net->receiveFrom(sock, data.data(), data.size(), done, from, peek); });
-        if (r != Result::Ok)
+        if (r != Result::kOk)
             return fail(wsError(r));
         for (size_t i = 0; i < done; ++i)
             c.write8(c.arg(1) + uint32_t(i), data[i]);
@@ -501,20 +501,20 @@ void GameHost::addNetwork() {
         O option;
         int v = value;
         if (level == 0xffff && name == 0x20)
-            option = O::Broadcast;
+            option = O::kBroadcast;
         else if (level == 0xffff && name == 0x4)
-            option = O::ReuseAddress;
+            option = O::kReuseAddress;
         else if (level == 0xffff && name == 0x8)
-            option = O::KeepAlive;
+            option = O::kKeepAlive;
         else if (level == 0xffff && name == 0x1001)
-            option = O::SendBuffer;
+            option = O::kSendBuffer;
         else if (level == 0xffff && name == 0x1002)
-            option = O::ReceiveBuffer;
+            option = O::kReceiveBuffer;
         else if (level == 0xffff && (name == 0x80 || name == 0xff7f)) { // SO_LINGER, SO_DONTLINGER
-            option = O::Linger;
+            option = O::kLinger;
             v = name == 0xff7f ? -1 : c.read16(c.arg(3)) ? c.read16(c.arg(3) + 2) : -1;
         } else if (level == 6 && name == 1)
-            option = O::NoDelay;
+            option = O::kNoDelay;
         else {
             log("setsockopt " + std::to_string(level) + "/" + std::to_string(name) + " taken and ignored");
             return 0u;

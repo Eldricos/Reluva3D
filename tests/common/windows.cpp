@@ -38,7 +38,7 @@ static void testMixerStream() {
     std::vector<int16_t> out(40);
     Mixer m(22050);
     auto stream = std::make_shared<SoundStream>(22050, 1);
-    const SoundHandle a = m.playStream(stream, SoundType::Effects, kMaxVolume, 0, 0);
+    const SoundHandle a = m.playStream(stream, SoundType::kEffects, kMaxVolume, 0, 0);
     CHECK(a != kNoSound && m.isPlaying(a));
     m.mix(out.data(), 4);
     CHECK(out[0] == 0 && m.isPlaying(a)); // nothing yet: it waits
@@ -51,7 +51,7 @@ static void testMixerStream() {
     stream->end();
     m.mix(out.data(), 20);
     CHECK(out[0] == 500 && out[21] == 500 && out[22] == 0 && !m.isPlaying(a));
-    CHECK(m.playStream(nullptr, SoundType::Effects) == kNoSound);
+    CHECK(m.playStream(nullptr, SoundType::kEffects) == kNoSound);
 }
 
 static void testThreads() {
@@ -665,8 +665,8 @@ static void testDirectX() {
         CHECK(call(back, 32, {0}) == 0);
         return image;
     };
-    const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::One);
-    CHECK(scene(x86::DirectX::DrawThreads::Always) == one);
+    const std::vector<uint8_t> one = scene(x86::DirectX::DrawThreads::kOne);
+    CHECK(scene(x86::DirectX::DrawThreads::kAlways) == one);
     CHECK(std::adjacent_find(one.begin(), one.end(), std::not_equal_to<>()) != one.end()); // something was drawn
     // Release the device and the DirectDraw object's.
     CHECK(call(device, 2, {}) == 0);

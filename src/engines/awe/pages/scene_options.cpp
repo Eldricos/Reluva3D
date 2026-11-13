@@ -70,8 +70,8 @@ void ScenePage::applyVolumes(int music, int sound) {
     // too) by Sound; tenths of full (0x4254b0).
     if (!_ctx.mixer)
         return;
-    _ctx.mixer->setTypeVolume(audio::SoundType::Music, std::clamp(music, 0, 10) * audio::kMaxVolume / 10);
-    for (audio::SoundType t : {audio::SoundType::Effects, audio::SoundType::Speech})
+    _ctx.mixer->setTypeVolume(audio::SoundType::kMusic, std::clamp(music, 0, 10) * audio::kMaxVolume / 10);
+    for (audio::SoundType t : {audio::SoundType::kEffects, audio::SoundType::kSpeech})
         _ctx.mixer->setTypeVolume(t, std::clamp(sound, 0, 10) * audio::kMaxVolume / 10);
 }
 

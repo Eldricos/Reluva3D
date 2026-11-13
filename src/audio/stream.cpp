@@ -6,72 +6,72 @@
 namespace reluva::audio {
 
 RawStream::RawStream(std::vector<uint8_t> data, Format format, int rate, bool stereo, int loops)
-    : data_(std::move(data)), format_(format), rate_(rate), stereo_(stereo), loopsLeft_(loops) {
-    count_ = format == Format::kS16LE || format == Format::kS16BE ? data_.size() / 2 : data_.size();
-    if (stereo_)
-        count_ &= ~size_t(1); // whole frames only
+    : _data(std::move(data)), _format(format), _rate(rate), _stereo(stereo), _loopsLeft(loops) {
+    _count = format == Format::kS16LE || format == Format::kS16BE ? _data.size() / 2 : _data.size();
+    if (_stereo)
+        _count &= ~size_t(1); // whole frames only
 }
 
 int16_t RawStream::sampleAt(size_t i) const {
-    switch (format_) {
-    case Format::U8:
-        return int16_t((int(data_[i]) - 128) * 256);
-    case Format::S8:
-        return int16_t(int(int8_t(data_[i])) * 256);
+    switch (_format) {
+    case Format::kU8:
+        return int16_t((int(_data[i]) - 128) * 256);
+    case Format::kS8:
+        return int16_t(int(int8_t(_data[i])) * 256);
     case Format::kS16BE:
-        return int16_t((data_[i * 2] << 8) | data_[i * 2 + 1]);
+        return int16_t((_data[i * 2] << 8) | _data[i * 2 + 1]);
     case Format::kS16LE:
     default:
-        return int16_t(data_[i * 2] | (data_[i * 2 + 1] << 8));
+        return int16_t(_data[i * 2] | (_data[i * 2 + 1] << 8));
     }
 }
 
 int RawStream::read(int16_t *out, int samples) {
     int written = 0;
     while (written < samples) {
-        if (pos_ >= count_) {
-            if (loopsLeft_ == 1 || count_ == 0)
+        if (_pos >= _count) {
+            if (_loopsLeft == 1 || _count == 0)
                 break;
-            if (loopsLeft_ > 1)
-                loopsLeft_--;
-            pos_ = 0;
+            if (_loopsLeft > 1)
+                _loopsLeft--;
+            _pos = 0;
         }
-        out[written++] = sampleAt(pos_++);
+        out[written++] = sampleAt(_pos++);
     }
     return written;
 }
 
 void QueuingStream::queue(const std::vector<int16_t> &samples) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    queue_.insert(queue_.end(), samples.begin(), samples.end());
+    std::lock_guard<std::mutex> lock(_mutex);
+    _queue.insert(_queue.end(), samples.begin(), samples.end());
 }
 
 void QueuingStream::finish() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    finished_ = true;
+    std::lock_guard<std::mutex> lock(_mutex);
+    _finished = true;
 }
 
 size_t QueuingStream::queued() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return queue_.size();
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _queue.size();
 }
 
 int QueuingStream::read(int16_t *out, int samples) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(_mutex);
     int n = 0;
-    while (n < samples && !queue_.empty()) {
-        out[n++] = queue_.front();
-        queue_.pop_front();
+    while (n < samples && !_queue.empty()) {
+        out[n++] = _queue.front();
+        _queue.pop_front();
     }
-    if (!finished_)
+    if (!_finished)
         while (n < samples)
             out[n++] = 0;
     return n;
 }
 
 bool QueuingStream::ended() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return finished_ && queue_.empty();
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _finished && _queue.empty();
 }
 
 std::vector<int16_t> readAll(Stream &stream, size_t maxSamples) {

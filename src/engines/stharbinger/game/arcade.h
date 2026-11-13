@@ -109,7 +109,7 @@ private:
     void loadMusic();
     void loadVoice();
     bool loadSound(const std::string &name, std::vector<uint8_t> &data) const;
-    void playSound(const std::vector<uint8_t> &data, audio::SoundType type = audio::SoundType::Effects);
+    void playSound(const std::vector<uint8_t> &data, audio::SoundType type = audio::SoundType::kEffects);
 
     void stepFrame(bool leftPressed, bool rightPressed);
     void updateDoor(bool leftPressed);

@@ -103,7 +103,7 @@ void SceneDrawer::drawImage(const uint8_t *rgba, int cols, int rows, float x, fl
     call.texture = texture;
     call.state.depthTest = false;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     _r.draw(call);
     _r.destroyMesh(mesh);
 }
@@ -328,15 +328,15 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
         // surfaces are seen past what's solid (marked), so a crack in the
         // level shows nothing behind it rather than the sky.
         gfx::DrawState mark;
-        mark.src = gfx::Blend::Zero;
-        mark.dst = gfx::Blend::One; // colours kept
+        mark.src = gfx::Blend::kZero;
+        mark.dst = gfx::Blend::kOne; // colours kept
         mark.depthWrite = false;
-        mark.cull = gfx::Cull::None;
-        _r.setStencilMode(gfx::Renderer3D::StencilMode::SkyMark);
+        mark.cull = gfx::Cull::kNone;
+        _r.setStencilMode(gfx::Renderer3D::StencilMode::kSkyMark);
         world->drawSkyShape(mark);
-        _r.setStencilMode(gfx::Renderer3D::StencilMode::SkyInside);
+        _r.setStencilMode(gfx::Renderer3D::StencilMode::kSkyInside);
         world->drawSky(time);
-        _r.setStencilMode(gfx::Renderer3D::StencilMode::None);
+        _r.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     }
 
     // The translucent sorts this view has.
@@ -545,13 +545,13 @@ void SceneDrawer::drawPortalView(WorldRenderer &world, const std::array<uint8_t,
     // Where the surface is on the screen, marked; the view through it
     // drawn only there (its own sky first), turned inside out for a mirror.
     gfx::DrawState shape;
-    shape.src = gfx::Blend::Zero;
-    shape.dst = gfx::Blend::One; // colours kept
+    shape.src = gfx::Blend::kZero;
+    shape.dst = gfx::Blend::kOne; // colours kept
     shape.depthTest = shape.depthWrite = false;
-    shape.cull = gfx::Cull::None;
-    _r.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+    shape.cull = gfx::Cull::kNone;
+    _r.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
     world.drawSurfaceShape(surface.surface, shape);
-    _r.setStencilMode(gfx::Renderer3D::StencilMode::Inside);
+    _r.setStencilMode(gfx::Renderer3D::StencilMode::kInside);
     _r.setMirrored(mirrored);
     _r.setView(viewProj, eye);
     world.setView(1, entity->oldOrigin, areaMask, viewProj);
@@ -561,7 +561,7 @@ void SceneDrawer::drawPortalView(WorldRenderer &world, const std::array<uint8_t,
     // Back to the main view: the surface's depth written, so nothing
     // behind it draws over what's seen through it.
     _r.setMirrored(false);
-    _r.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    _r.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     _r.clearDepth();
     _r.setView(mainViewProj, _eye);
     world.setView(0, _eye, areaMask, mainViewProj);

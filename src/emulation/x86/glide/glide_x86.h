@@ -29,21 +29,21 @@ public:
     GlideDll &operator=(const GlideDll &) = delete;
 
     // The library's file name ("glide2x.dll").
-    const std::string &dllName() const { return dllName_; }
+    const std::string &dllName() const { return _dllName; }
     // Each export's decorated name -> its native function's address.
-    const std::map<std::string, uint32_t> &exports() const { return exports_; }
+    const std::map<std::string, uint32_t> &exports() const { return _exports; }
     // The same, as imports of dllName().
     void provideTo(x86::Win32Process &process) const;
     // How many times each export was called.
-    const std::map<std::string, uint64_t> &calls() const { return calls_; }
+    const std::map<std::string, uint64_t> &calls() const { return _calls; }
     // For the mode-setting functions (grFogMode, grTexFilterMode,
     // grDitherMode, grDepthBufferMode, grCullMode, grEnable...): how many
     // times each mode was asked for (the TMU functions' second argument).
-    const std::map<std::string, std::map<uint32_t, uint64_t>> &modes() const { return modes_; }
+    const std::map<std::string, std::map<uint32_t, uint64_t>> &modes() const { return _modes; }
     // The names this stands in for only as stubs.
-    std::vector<std::string> stubs() const { return stubs_; }
+    std::vector<std::string> stubs() const { return _stubs; }
     // The Glide 2 front end the calls end in (Glide 3's core()).
-    Glide2 &core() { return *core_; }
+    Glide2 &core() { return *_core; }
     // How gu3dfGetInfo and gu3dfLoad read a file the program names (its
     // own path): the whole file into `bytes`, false if there's none. Unset,
     // they fail as for a missing file.
@@ -54,7 +54,7 @@ protected:
     // are allocated. The derived class gives its Glide 2 front end with
     // setCore() before any call.
     GlideDll(x86::Cpu &cpu, x86::Arena &memory, std::string dllName);
-    void setCore(Glide2 &core) { core_ = &core; }
+    void setCore(Glide2 &core) { _core = &core; }
 
     using Fn = std::function<uint32_t(x86::Cpu &)>;
     // An export: `name` undecorated ("grDrawTriangle"), `argBytes` its
@@ -77,17 +77,17 @@ protected:
     uint32_t lfbLock(uint32_t type, uint32_t buffer, uint32_t writeMode, uint32_t origin, bool pipeline, uint32_t info);
     uint32_t lfbUnlock(uint32_t type, uint32_t buffer);
 
-    x86::Cpu &cpu_;
-    x86::Arena &memory_;
+    x86::Cpu &_cpu;
+    x86::Arena &_memory;
 
 private:
-    Glide2 *core_ = nullptr;
-    std::string dllName_;
-    std::map<std::string, uint32_t> exports_;
-    std::map<std::string, x86::Cpu::Native> natives_;
-    std::map<std::string, uint64_t> calls_;
-    std::map<std::string, std::map<uint32_t, uint64_t>> modes_;
-    std::vector<std::string> stubs_;
+    Glide2 *_core = nullptr;
+    std::string _dllName;
+    std::map<std::string, uint32_t> _exports;
+    std::map<std::string, x86::Cpu::Native> _natives;
+    std::map<std::string, uint64_t> _calls;
+    std::map<std::string, std::map<uint32_t, uint64_t>> _modes;
+    std::vector<std::string> _stubs;
 
     // A linear frame buffer lock's guest copy: filled from the buffer when
     // first locked, and on the last unlock the pixels the program changed
@@ -99,7 +99,7 @@ private:
         bool written = false;
         std::vector<uint8_t> snapshot;
     };
-    std::map<uint32_t, Mirror> mirrors_; // by (buffer, write mode, origin)
+    std::map<uint32_t, Mirror> _mirrors; // by (buffer, write mode, origin)
     void fillMirror(Mirror &m);
     void flushMirror(Mirror &m);
 };

@@ -72,7 +72,7 @@ private:
 
 Event key(uint32_t k) {
     Event e;
-    e.type = EventType::KeyDown;
+    e.type = EventType::kKeyDown;
     e.key = k;
     return e;
 }
@@ -80,10 +80,10 @@ Event key(uint32_t k) {
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
-    e.clicks = type == EventType::MouseDown ? 1 : 0;
+    e.clicks = type == EventType::kMouseDown ? 1 : 0;
     return e;
 }
 
@@ -212,14 +212,14 @@ void engineTest(const std::filesystem::path &tmp) {
     GameTarget target{"motoe", "awe", "motoe", "Murder on the Orient Express", install, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {{500, key('n')},
-                  {3000, mouse(EventType::MouseMove, 500, 400)},
-                  {3020, mouse(EventType::MouseDown, 500, 400)},
-                  {3040, mouse(EventType::MouseUp, 500, 400)},
-                  {6000, mouse(EventType::MouseMove, 510, 410)},
-                  {6020, mouse(EventType::MouseDown, 510, 410)},
-                  {6040, mouse(EventType::MouseUp, 510, 410)},
-                  {9000, key(key::F1 + 1)},
-                  {10000, Event{EventType::ReturnToLauncher}}};
+                  {3000, mouse(EventType::kMouseMove, 500, 400)},
+                  {3020, mouse(EventType::kMouseDown, 500, 400)},
+                  {3040, mouse(EventType::kMouseUp, 500, 400)},
+                  {6000, mouse(EventType::kMouseMove, 510, 410)},
+                  {6020, mouse(EventType::kMouseDown, 510, 410)},
+                  {6040, mouse(EventType::kMouseUp, 510, 410)},
+                  {9000, key(key::kF1 + 1)},
+                  {10000, Event{EventType::kReturnToLauncher}}};
     auto game = engine->create(sys, target);
     const Error err = game->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));

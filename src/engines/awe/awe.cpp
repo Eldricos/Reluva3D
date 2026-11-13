@@ -96,19 +96,19 @@ public:
             frames++;
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher ||
-                    (ev.type == EventType::KeyDown && ev.key == key::Escape && !pages[page]->wantsEscape())) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
+                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->wantsEscape())) {
                     pages[page]->deactivate();
                     return Error::success();
                 }
                 // F12: a screenshot, into the game's own folder.
-                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 11) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
                     char name[48];
                     std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", pages[page]->name(), ++shots);
                     pages[page]->requestScreenshot(_target.savePath / name);
                     continue;
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
                     pages[page]->deactivate();
                     do
                         page = (page + 1) % pages.size();

@@ -405,7 +405,7 @@ void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, ui
             }
         }
         // Each stage's coordinates: a set of the vertex's, or generated.
-        for (int st = 0; st < stages; ++st) {
+        for (int st = 0; st < _stages; ++st) {
             const uint32_t index = stageStates[size_t(st)][kTexCoordIndex];
             const uint32_t set = index & 0xffff;
             const uint32_t gen = index >> 16;
@@ -461,12 +461,12 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
     const VertexLayout layout(fvf);
     if (!layout.position || !target || !vertexCount)
         return;
-    projected = layout.rhw;
-    stages = 0;
-    while (stages < 8 && stageStates[size_t(stages)][kColorOp] != 1)
-        ++stages;
-    for (int st = 0; st < stages; ++st)
-        bound[st] = texture(st);
+    _projected = layout.rhw;
+    _stages = 0;
+    while (_stages < 8 && stageStates[size_t(_stages)][kColorOp] != 1)
+        ++_stages;
+    for (int st = 0; st < _stages; ++st)
+        _bound[st] = texture(st);
     configure();
     std::vector<ClipVertex> v;
     transformAndLight(layout, vertices, stride, vertexCount, v);
@@ -489,7 +489,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
             order[i] = i;
     }
     const size_t n = order.size();
-    batching_ = primitive >= 4 && primitive <= 6; // triangles: gathered, then drawn on several threads
+    _batching = primitive >= 4 && primitive <= 6; // triangles: gathered, then drawn on several threads
     switch (primitive) {
     case 1: // points
         for (size_t i = 0; i < n; ++i)
@@ -521,7 +521,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
     default:
         break;
     }
-    batching_ = false;
+    _batching = false;
     drawBatch();
     target->touched();
     if (depth)
@@ -548,45 +548,45 @@ struct DrawQueue {
     };
     explicit DrawQueue(DirectX::DrawThreads) {
         const int n = std::clamp(int(std::thread::hardware_concurrency()), 1, 8);
-        passed_.assign(size_t(n), 0);
+        _passed.assign(size_t(n), 0);
         for (int i = 0; i < n; ++i)
-            threads_.emplace_back([this, i, n] { work(i, n); });
+            _threads.emplace_back([this, i, n] { work(i, n); });
     }
     ~DrawQueue() {
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            quit_ = true;
+            std::lock_guard<std::mutex> lock(_mutex);
+            _quit = true;
         }
-        wake_.notify_all();
-        for (std::thread &t : threads_)
+        _wake.notify_all();
+        for (std::thread &t : _threads)
             t.join();
     }
     void push(Job job) {
         auto shared = std::make_shared<const Job>(std::move(job));
         bool wake;
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            jobs_.push_back(std::move(shared));
-            ++pushed_;
-            wake = sleeping_ > 0;
+            std::lock_guard<std::mutex> lock(_mutex);
+            _jobs.push_back(std::move(shared));
+            ++_pushed;
+            wake = _sleeping > 0;
         }
         if (wake)
-            wake_.notify_all();
+            _wake.notify_all();
     }
     // How many jobs have been pushed: a mark finishThrough can wait for.
     uint64_t pushed() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return pushed_;
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _pushed;
     }
     // Waits for the first `count` jobs pushed to be drawn.
     void finishThrough(uint64_t count) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        done_.wait(lock, [&] { return drawn_ >= count; });
+        std::unique_lock<std::mutex> lock(_mutex);
+        _done.wait(lock, [&] { return _drawn >= count; });
     }
     // Waits for every job pushed to be drawn.
     void finish() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        done_.wait(lock, [this] { return drawn_ == pushed_; });
+        std::unique_lock<std::mutex> lock(_mutex);
+        _done.wait(lock, [this] { return _drawn == _pushed; });
     }
     // Draws jobs in order on this thread (DrawThreads::One).
     static void draw(const std::vector<Job> &jobs, DirectX::DrawThreads) {
@@ -603,16 +603,16 @@ private:
     void work(int band, int bands) {
         Draw::Raster r;
         r.band = band, r.bands = bands;
-        std::unique_lock<std::mutex> lock(mutex_);
+        std::unique_lock<std::mutex> lock(_mutex);
         for (;;) {
-            while (passed_[size_t(band)] == pushed_) {
-                if (quit_)
+            while (_passed[size_t(band)] == _pushed) {
+                if (_quit)
                     return;
-                ++sleeping_;
-                wake_.wait(lock);
-                --sleeping_;
+                ++_sleeping;
+                _wake.wait(lock);
+                --_sleeping;
             }
-            std::shared_ptr<const Job> job = jobs_[size_t(passed_[size_t(band)] - first_)];
+            std::shared_ptr<const Job> job = _jobs[size_t(_passed[size_t(band)] - _first)];
             lock.unlock();
             if (job->fill)
                 job->fill(band, bands);
@@ -620,33 +620,33 @@ private:
                 job->draw.rasterize(r, t[0], t[1], t[2]);
             job.reset();
             lock.lock();
-            ++passed_[size_t(band)];
-            const uint64_t least = *std::min_element(passed_.begin(), passed_.end());
-            if (least > drawn_) {
+            ++_passed[size_t(band)];
+            const uint64_t least = *std::min_element(_passed.begin(), _passed.end());
+            if (least > _drawn) {
                 // Every thread is past these: let them go (their surfaces
                 // with them), not under the lock.
                 std::vector<std::shared_ptr<const Job>> gone;
-                while (first_ < least) {
-                    gone.push_back(std::move(jobs_.front()));
-                    jobs_.pop_front();
-                    ++first_;
+                while (_first < least) {
+                    gone.push_back(std::move(_jobs.front()));
+                    _jobs.pop_front();
+                    ++_first;
                 }
-                drawn_ = least;
+                _drawn = least;
                 lock.unlock();
-                done_.notify_all();
+                _done.notify_all();
                 gone.clear();
                 lock.lock();
             }
         }
     }
-    std::mutex mutex_;
-    std::condition_variable wake_, done_;
-    std::deque<std::shared_ptr<const Job>> jobs_; // from job number first_ on
-    uint64_t first_ = 0, pushed_ = 0, drawn_ = 0;
-    std::vector<uint64_t> passed_; // by thread: the jobs it's past
-    int sleeping_ = 0;
-    bool quit_ = false;
-    std::vector<std::thread> threads_;
+    std::mutex _mutex;
+    std::condition_variable _wake, _done;
+    std::deque<std::shared_ptr<const Job>> _jobs; // from job number first_ on
+    uint64_t _first = 0, _pushed = 0, _drawn = 0;
+    std::vector<uint64_t> _passed; // by thread: the jobs it's past
+    int _sleeping = 0;
+    bool _quit = false;
+    std::vector<std::thread> _threads;
 };
 
 Device::~Device() {
@@ -658,24 +658,24 @@ Device::~Device() {
 }
 
 void Device::finishDraws() {
-    if (queue_)
-        queue_->finish();
+    if (_queue)
+        _queue->finish();
 }
 
 uint64_t Device::drawsQueued() {
-    return queue_ ? queue_->pushed() : 0;
+    return _queue ? _queue->pushed() : 0;
 }
 
 void Device::finishDrawsThrough(uint64_t count) {
-    if (queue_)
-        queue_->finishThrough(count);
+    if (_queue)
+        _queue->finishThrough(count);
 }
 
 Draw Device::current() const {
     Draw d;
-    d.cfg_ = cfg_;
-    d.stages = stages;
-    std::copy(std::begin(bound), std::end(bound), d.bound);
+    d.cfg = _cfg;
+    d.stages = _stages;
+    std::copy(std::begin(_bound), std::end(_bound), d.bound);
     d.viewport = viewport;
     d.target = target;
     d.depth = depth;
@@ -686,25 +686,25 @@ Draw Device::current() const {
 // turn with the draws before them, while the program goes on; with
 // DirectX::DrawThreads::One, here and now.
 void Device::drawBatch() {
-    if (batch_.empty())
+    if (_batch.empty())
         return;
     double area = 0; // roughly, by bounding boxes
-    for (const auto &t : batch_) {
+    for (const auto &t : _batch) {
         const auto [x0, x1] = std::minmax({t[0].x, t[1].x, t[2].x});
         const auto [y0, y1] = std::minmax({t[0].y, t[1].y, t[2].y});
         area += double(x1 - x0) * double(y1 - y0);
     }
     const DirectX::DrawThreads mode = s->owner.drawThreads;
     std::vector<DrawQueue::Job> job;
-    job.push_back({current(), std::move(batch_), area});
-    batch_.clear();
-    if (mode == DirectX::DrawThreads::One) {
+    job.push_back({current(), std::move(_batch), area});
+    _batch.clear();
+    if (mode == DirectX::DrawThreads::kOne) {
         DrawQueue::draw(job, mode);
         return;
     }
-    if (!queue_)
-        queue_ = std::make_shared<DrawQueue>(mode);
-    queue_->push(std::move(job.front()));
+    if (!_queue)
+        _queue = std::make_shared<DrawQueue>(mode);
+    _queue->push(std::move(job.front()));
 }
 
 // Clips a triangle to the view volume, projects it, culls it by its
@@ -720,7 +720,7 @@ void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex
     } polys[2];
     Polygon *poly = &polys[0];
     poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
-    if (!projected) {
+    if (!_projected) {
         for (int plane = 0; plane < 6 && poly->n; ++plane) {
             Polygon &next = poly == &polys[0] ? polys[1] : polys[0];
             next.n = 0;
@@ -756,15 +756,15 @@ void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex
     if ((cull == 2 && area > 0) || (cull == 3 && area < 0) || area == 0)
         return;
     for (size_t i = 1; i + 1 < shape.size(); ++i)
-        batch_.push_back({shape[0], shape[i], shape[i + 1]});
-    if (!batching_)
+        _batch.push_back({shape[0], shape[i], shape[i + 1]});
+    if (!_batching)
         drawBatch();
 }
 
 void Device::line(const ClipVertex &a0, const ClipVertex &b0) {
     ClipVertex a = a0;
     ClipVertex b = b0;
-    if (!projected) {
+    if (!_projected) {
         for (int plane = 0; plane < 6; ++plane) {
             const float da = planeDistance(a, plane);
             const float db = planeDistance(b, plane);
@@ -789,7 +789,7 @@ void Device::line(const ClipVertex &a0, const ClipVertex &b0) {
         const ClipVertex p = lerp(a, b, float(i) / float(steps));
         attr[0] = p.diffuse.r, attr[1] = p.diffuse.g, attr[2] = p.diffuse.b, attr[3] = p.diffuse.a;
         attr[4] = p.specular.r, attr[5] = p.specular.g, attr[6] = p.specular.b, attr[7] = p.specular.a;
-        for (int st = 0; st < stages; ++st)
+        for (int st = 0; st < _stages; ++st)
             attr[8 + 2 * st] = p.tex[st][0], attr[9 + 2 * st] = p.tex[st][1];
         d.pixel(r, int(std::lround(p.x)), int(std::lround(p.y)), p.z, p.w > 0 ? 1 / p.w : 1, attr);
     }
@@ -797,7 +797,7 @@ void Device::line(const ClipVertex &a0, const ClipVertex &b0) {
 
 void Device::point(const ClipVertex &a0) {
     ClipVertex a = a0;
-    if (!projected) {
+    if (!_projected) {
         for (int plane = 0; plane < 6; ++plane)
             if (planeDistance(a, plane) < 0)
                 return;
@@ -810,7 +810,7 @@ void Device::point(const ClipVertex &a0) {
     float attr[kAttributes];
     attr[0] = a.diffuse.r, attr[1] = a.diffuse.g, attr[2] = a.diffuse.b, attr[3] = a.diffuse.a;
     attr[4] = a.specular.r, attr[5] = a.specular.g, attr[6] = a.specular.b, attr[7] = a.specular.a;
-    for (int st = 0; st < stages; ++st)
+    for (int st = 0; st < _stages; ++st)
         attr[8 + 2 * st] = a.tex[st][0], attr[9 + 2 * st] = a.tex[st][1];
     d.pixel(r, int(std::lround(a.x)), int(std::lround(a.y)), a.z, a.w > 0 ? 1 / a.w : 1, attr);
 }
@@ -960,7 +960,7 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
                 const float inv = rhw != 0 ? 1 / rhw : 0;
                 for (int k = 0; k < count; ++k)
                     here[k] = row[2 + k] * inv;
-                if (cfg_.flat)
+                if (cfg.flat)
                     std::copy(flatColors, flatColors + 8, here);
                 shade(r, x, y, row[0], inv, here, zAt, zNew);
             }
@@ -972,9 +972,9 @@ void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const 
 
 bool Draw::span4Fits() const {
 #ifdef RELUVA_SPAN4
-    const PixelConfig &cf = cfg_;
+    const PixelConfig &cf = cfg;
     return cf.simpleStages && !cf.colorKey &&
-           (cf.target == PixelConfig::Target::Rgb565 || cf.target == PixelConfig::Target::Rgb888) &&
+           (cf.target == PixelConfig::Target::kRgb565 || cf.target == PixelConfig::Target::kRgb888) &&
            (!cf.blend || (cf.srcBlend == 5 && cf.destBlend == 6)) &&
            (!cf.fog || cf.fogTableMode == 0 || cf.fogTableMode == 3);
 #else
@@ -1076,7 +1076,7 @@ bool Draw::sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out)
 int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float *fx, int n, int count,
                 const float *flatColors) const {
 #ifdef RELUVA_SPAN4
-    const PixelConfig &cf = cfg_;
+    const PixelConfig &cf = cfg;
     const __m128 zero = _mm_setzero_ps();
     const __m128 one = _mm_set1_ps(1.0f);
     const __m128 half = _mm_set1_ps(0.5f);
@@ -1093,7 +1093,7 @@ int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float
     auto fractions = [&](__m128i t, int shift) {
         return _mm_div_ps(_mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(t, shift), _mm_set1_epi32(0xff))), of255);
     };
-    const bool rgb565 = cf.target == PixelConfig::Target::Rgb565;
+    const bool rgb565 = cf.target == PixelConfig::Target::kRgb565;
     alignas(16) float lane[2 + kAttributes][4];
     alignas(16) uint32_t texel[4];
     alignas(16) int32_t out[3][4];
@@ -1347,7 +1347,7 @@ void Draw::prepareSamplers(Raster &r) const {
             sm.argb = nullptr;
             continue;
         }
-        const StageConfig &sc = cfg_.stage[st];
+        const StageConfig &sc = cfg.stage[st];
         const float l = r.lod[st];
         size_t level = 0;
         if (sc.mipFilter >= 2 && l > 0)
@@ -1457,7 +1457,7 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, flo
 // --- Pixels
 
 void Device::configure() {
-    PixelConfig &c = cfg_;
+    PixelConfig &c = _cfg;
     c.zTest = renderStates[kZEnable] && depth;
     c.zWrite = c.zTest && renderStates[kZWriteEnable];
     c.zFunc = renderStates[kZFunc];
@@ -1487,12 +1487,12 @@ void Device::configure() {
     c.fogEnd = asFloat(renderStates[kFogEnd]);
     c.fogDensity = asFloat(renderStates[kFogDensity]);
     c.fogColor = unpack(renderStates[kFogColor]);
-    c.fogByZ = projected || transforms[3][15] != 0; // W-fog with a perspective projection
+    c.fogByZ = _projected || transforms[3][15] != 0; // W-fog with a perspective projection
     c.colorKey = renderStates[kColorKeyEnable] != 0;
     c.specular = renderStates[kSpecularEnable] != 0;
     c.flat = renderStates[kShadeMode] == 1;
     c.factor = unpack(renderStates[kTextureFactor]);
-    for (int i = 0; i < stages; ++i) {
+    for (int i = 0; i < _stages; ++i) {
         const auto &st = stageStates[size_t(i)];
         c.stage[i] = {st[kColorOp],
                       st[kColorArg1],
@@ -1511,7 +1511,7 @@ void Device::configure() {
     }
     // The quick path's stages.
     c.simpleStages = true;
-    for (int i = 0; i < stages; ++i) {
+    for (int i = 0; i < _stages; ++i) {
         StageConfig &sc = c.stage[i];
         const uint32_t args[4] = {sc.colorArg1, sc.colorArg2, sc.alphaArg1, sc.alphaArg2};
         sc.usesTexture = false;
@@ -1528,10 +1528,10 @@ void Device::configure() {
             c.simpleStages = false;
     }
     const PixelFormat &f = target->d.format;
-    c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels)                   ? PixelConfig::Target::Generic
-               : f.bits == 16 && f.r == 0xf800 && f.g == 0x07e0 && f.b == 0x001f ? PixelConfig::Target::Rgb565
-               : f.bits == 32 && f.r == 0xff0000 && f.g == 0xff00 && f.b == 0xff ? PixelConfig::Target::Rgb888
-                                                                                 : PixelConfig::Target::Generic;
+    c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels)                   ? PixelConfig::Target::kGeneric
+               : f.bits == 16 && f.r == 0xf800 && f.g == 0x07e0 && f.b == 0x001f ? PixelConfig::Target::kRgb565
+               : f.bits == 32 && f.r == 0xff0000 && f.g == 0xff00 && f.b == 0xff ? PixelConfig::Target::kRgb888
+                                                                                 : PixelConfig::Target::kGeneric;
 }
 
 void Draw::pixel(Raster &r, int x, int y, float z, float eyeW, const float *attr) const {
@@ -1546,7 +1546,7 @@ void Draw::pixel(Raster &r, int x, int y, float z, float eyeW, const float *attr
 RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t *&zAt, uint32_t &zNew) const {
     zAt = nullptr;
     zNew = 0;
-    const PixelConfig &cf = cfg_;
+    const PixelConfig &cf = cfg;
     if (x < 0 || y < 0 || x >= cf.targetWidth || y >= cf.targetHeight)
         return false;
     if (cf.zTest && x < cf.depthWidth && y < cf.depthHeight) {
@@ -1568,7 +1568,7 @@ RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t *&zAt, uin
 // A pixel past the depth test: texture stages, then the rest (finish).
 RELUVA_PIXEL_STEP void Draw::shade(const Raster &r, int x, int y, float z, float eyeW, const float *attr, uint8_t *zAt,
                                    uint32_t zNew) const {
-    const PixelConfig &cf = cfg_;
+    const PixelConfig &cf = cfg;
     // Texture stages.
     if (cf.simpleStages && !cf.colorKey) {
         // Sources: diffuse, current, texture, factor, specular.
@@ -1723,7 +1723,7 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster &r, int x, int y, float z, float
 // specular, alpha test, fog, blending, the write.
 RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const float *attr, Color current, uint8_t *zAt,
                                     uint32_t zNew) const {
-    const PixelConfig &cf = cfg_;
+    const PixelConfig &cf = cfg;
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
     if (cf.specular)
         current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
@@ -1755,9 +1755,9 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
         uint32_t raw = 0;
         std::memcpy(&raw, at, bytes);
         const Fractions &f = kFractions;
-        if (cf.target == PixelConfig::Target::Rgb565)
+        if (cf.target == PixelConfig::Target::kRgb565)
             return {f.of31[raw >> 11 & 31], f.of63[raw >> 5 & 63], f.of31[raw & 31], 1};
-        if (cf.target == PixelConfig::Target::Rgb888)
+        if (cf.target == PixelConfig::Target::kRgb888)
             return {f.of255[raw >> 16 & 0xff], f.of255[raw >> 8 & 0xff], f.of255[raw & 0xff], 1};
         return unpack(target->d.format.toArgb(raw, target->paletteArgb()));
     };
@@ -1778,10 +1778,10 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
         }
     }
     auto channel = [](float v, float max) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * max + 0.5f); };
-    if (cf.target == PixelConfig::Target::Rgb565) {
+    if (cf.target == PixelConfig::Target::kRgb565) {
         const uint16_t v = uint16_t(channel(out[0], 31) << 11 | channel(out[1], 63) << 5 | channel(out[2], 31));
         std::memcpy(at, &v, 2);
-    } else if (cf.target == PixelConfig::Target::Rgb888) {
+    } else if (cf.target == PixelConfig::Target::kRgb888) {
         const uint32_t v = channel(out[0], 255) << 16 | channel(out[1], 255) << 8 | channel(out[2], 255);
         std::memcpy(at, &v, 4);
     } else {
@@ -1862,13 +1862,13 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     for (const Rect &r : areas)
         area += double(std::max(0, r.right - r.left)) * double(std::max(0, r.bottom - r.top));
     const DirectX::DrawThreads mode = s->owner.drawThreads;
-    if (mode == DirectX::DrawThreads::One) {
+    if (mode == DirectX::DrawThreads::kOne) {
         fill(0, 1);
         return;
     }
-    if (!queue_)
-        queue_ = std::make_shared<DrawQueue>(mode);
-    queue_->push({Draw{}, {}, area, fill});
+    if (!_queue)
+        _queue = std::make_shared<DrawQueue>(mode);
+    _queue->push({Draw{}, {}, area, fill});
 }
 
 } // namespace reluva::x86::dx

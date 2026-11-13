@@ -76,52 +76,52 @@ public:
     ~Jit();
     Jit(const Jit &) = delete;
     Jit &operator=(const Jit &) = delete;
-    bool ready() const { return base_ != nullptr; }
+    bool ready() const { return _base != nullptr; }
 
     // An instruction, as decoded (Cpu::Cached), with what it becomes.
     enum class Kind : uint8_t {
-        Call,      // its handler, called
-        MovRegRm,  // reg <- r/m (size 1 or 4)
-        MovRmReg,  // r/m <- reg
-        MovRmImm,  // r/m <- imm
-        MovRegImm, // rm <- imm (4)
-        Lea,       // reg <- the address
-        PushReg,   // push rm
-        PushImm,
-        PopReg, // pop rm
+        kCall,      // its handler, called
+        kMovRegRm,  // reg <- r/m (size 1 or 4)
+        kMovRmReg,  // r/m <- reg
+        kMovRmImm,  // r/m <- imm
+        kMovRegImm, // rm <- imm (4)
+        kLea,       // reg <- the address
+        kPushReg,   // push rm
+        kPushImm,
+        kPopReg, // pop rm
         // With flags (Jit::flagsOps: where the host has LAHF). `alu` is
         // the operation: 0-7 ADD OR ADC SBB AND SUB XOR CMP, 8 TEST, 9
         // INC, 10 DEC, 11 SHL, 12 SHR, 13 SAR (32 bits, by imm 1 to 31);
         // `form` the operands: 0 r/m, reg; 1 reg, r/m; 2 the accumulator,
         // imm; 3 r/m, imm (INC and DEC: r/m).
-        Alu,
+        kAlu,
         // Going elsewhere (a block's last): Jcc on `cc`, and the relative
         // JMP and CALL (to imm past the end), JMP and CALL to r/m, RET imm.
-        Jcc,
-        Jmp,
-        CallRel,
-        JmpRm,
-        CallRm,
-        Ret,
+        kJcc,
+        kJmp,
+        kCallRel,
+        kJmpRm,
+        kCallRm,
+        kRet,
         // The x87 unit on Cpu::fpu's doubles, as the handlers have them
         // (SSE2's double arithmetic, which theirs compiles to; precision
         // control's 24 bits by way of float). `size` 4 or 8 for a memory
         // operand's; `alu` the operation (0 ADD, 1 MUL, 4 SUB, 5 SUBR, 6
         // DIV, 7 DIVR); `cc` 1 to pop after; `rm` st(i)'s i.
-        FLoad,     // push the memory operand
-        FLoadInt,  // push the memory operand's 32-bit integer
-        FLoadSt,   // push st(i)
-        FStore,    // the memory operand <- st(0)
-        FStoreSt,  // st(i) <- st(0)
-        FArith,    // st(0) <- st(0) op the memory operand
-        FArithSt0, // st(0) <- st(0) op st(i)
-        FArithSti, // st(i) <- st(i) op st(0)
-        Fxch,
-        FCom,     // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
-        FnstswAx, // AX <- the status word, with top
+        kFLoad,     // push the memory operand
+        kFLoadInt,  // push the memory operand's 32-bit integer
+        kFLoadSt,   // push st(i)
+        kFStore,    // the memory operand <- st(0)
+        kFStoreSt,  // st(i) <- st(0)
+        kFArith,    // st(0) <- st(0) op the memory operand
+        kFArithSt0, // st(0) <- st(0) op st(i)
+        kFArithSti, // st(i) <- st(i) op st(0)
+        kFxch,
+        kFCom,     // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
+        kFnstswAx, // AX <- the status word, with top
     };
     struct Op {
-        Kind kind = Kind::Call;
+        Kind kind = Kind::kCall;
         uint8_t size = 4, length = 0;
         uint8_t reg = 0, rm = 0, scale = 0;
         uint8_t alu = 0, form = 0, cc = 0;
@@ -142,11 +142,11 @@ public:
     // code epoch). nullptr if there's no room (reset() makes it).
     const uint8_t *compile(const Op *ops, int count, uint32_t end, const void *entries, size_t entrySize);
     // Runs code compile() made, for the Cpu.
-    void run(void *cpu, const uint8_t *code) const { entry_(cpu, code); }
+    void run(void *cpu, const uint8_t *code) const { _entry(cpu, code); }
     // Forgets all the code made (none may be running): the generation moves
     // on, so code kept from an older one is known to be gone.
     void reset();
-    uint32_t generation() const { return generation_; }
+    uint32_t generation() const { return _generation; }
     // What the dispatch knows of the block in table slot `slot`: where it
     // starts, the code epoch its bytes were last checked in, its code
     // (nullptr: none to run) and its count. The Cpu sets it as it checks,
@@ -154,18 +154,18 @@ public:
     void setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t *code, uint32_t count);
 
 private:
-    Layout layout_;
-    uint8_t *base_ = nullptr;
-    size_t size_ = 0, used_ = 0, bodyStart_ = 0;
-    uint32_t generation_ = 1;
-    const uint8_t *dispatch_ = nullptr; // where each block's code goes at its end
+    Layout _layout;
+    uint8_t *_base = nullptr;
+    size_t _size = 0, _used = 0, _bodyStart = 0;
+    uint32_t _generation = 1;
+    const uint8_t *_dispatch = nullptr; // where each block's code goes at its end
     // The dispatch's index of the table, 16 bytes a slot: a 32nd of the
     // blocks' size, so it stays in the processor's caches where the table
     // doesn't (its first read had been half the dispatch's time).
     struct Entry {
         uint32_t start = 0xffffffffu, epoch = 0, code = 0, count = 0; // code: an offset into the buffer
     };
-    std::vector<Entry> index_;
+    std::vector<Entry> _index;
     // The blocks' copies of their decoded instructions, and their exits'
     // links (where a jump to a known address last found its code: the code
     // epoch then, 0xffffffff for none yet, and the code), apart from the
@@ -175,10 +175,10 @@ private:
         uint32_t epoch = 0xffffffffu, unused = 0;
         const uint8_t *code = nullptr;
     };
-    std::vector<uint8_t> data_;
-    size_t dataUsed_ = 0;
-    void (*entry_)(void *, const uint8_t *) = nullptr;
-    [[maybe_unused]] void *unwind_ = nullptr; // what was registered, to take back (where there's a JIT)
+    std::vector<uint8_t> _data;
+    size_t _dataUsed = 0;
+    void (*_entry)(void *, const uint8_t *) = nullptr;
+    [[maybe_unused]] void *_unwind = nullptr; // what was registered, to take back (where there's a JIT)
 };
 
 } // namespace reluva::x86

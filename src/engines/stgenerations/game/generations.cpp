@@ -266,12 +266,12 @@ void Generations::handleEvent(const Event &event) {
             _proceedPressed = false;
             return;
         case kEventKeydown:
-            if (event.kbd.keycode == reluva::key::Return || event.kbd.keycode == reluva::key::KpEnter ||
-                event.kbd.keycode == reluva::key::Space) {
+            if (event.kbd.keycode == reluva::key::kReturn || event.kbd.keycode == reluva::key::kKpEnter ||
+                event.kbd.keycode == reluva::key::kSpace) {
                 proceed();
                 return;
             }
-            if (event.kbd.keycode != reluva::key::Escape)
+            if (event.kbd.keycode != reluva::key::kEscape)
                 return;
             break;
         default:
@@ -302,7 +302,7 @@ void Generations::handleEvent(const Event &event) {
     switch (event.type) {
     case kEventKeydown:
         switch (event.kbd.keycode) {
-        case reluva::key::Escape:
+        case reluva::key::kEscape:
             // In the game, the menu; in the viewer, out of a mission back
             // to the list, and from anywhere else, quit.
             if (_frontEnd) {
@@ -315,28 +315,28 @@ void Generations::handleEvent(const Event &event) {
             }
             quitGame();
             break;
-        case reluva::key::Return:
+        case reluva::key::kReturn:
             if (isOnStarfield() && !_missions.empty())
                 playMission(_missionChoice);
             break;
-        case reluva::key::Right:
+        case reluva::key::kRight:
             showImage(_imageIndex + 1);
             break;
-        case reluva::key::Left:
+        case reluva::key::kLeft:
             showImage(_imageIndex - 1);
             break;
-        case reluva::key::PageDown:
+        case reluva::key::kPageDown:
             jumpArchive(1);
             break;
-        case reluva::key::PageUp:
+        case reluva::key::kPageUp:
             jumpArchive(-1);
             break;
-        case reluva::key::Tab:
+        case reluva::key::kTab:
             jumpLevel((event.kbd.flags & kKbdShift) ? -1 : 1);
             break;
-        case reluva::key::Down:
-        case reluva::key::Up: {
-            int step = event.kbd.keycode == reluva::key::Down ? 1 : -1;
+        case reluva::key::kDown:
+        case reluva::key::kUp: {
+            int step = event.kbd.keycode == reluva::key::kDown ? 1 : -1;
             // On the starfield they pick a mission; elsewhere, a sound.
             if (isOnStarfield() && !_missions.empty()) {
                 int count = (int)_missions.size();
@@ -347,13 +347,13 @@ void Generations::handleEvent(const Event &event) {
             }
             break;
         }
-        case reluva::key::Space:
+        case reluva::key::kSpace:
             playSound(std::max(_soundIndex, 0));
             break;
-        case reluva::key::Home:
+        case reluva::key::kHome:
             showStarfield();
             break;
-        case (reluva::key::F1 + 7): {
+        case (reluva::key::kF1 + 7): {
             // Play the movies in turn.
             static const char *const kMovies[] = {"MOVIE/MOV_01.AVI", "MOVIE/MOV_02.AVI"};
             playMovie(kMovies[_movieChoice++ % 2]);
@@ -366,13 +366,13 @@ void Generations::handleEvent(const Event &event) {
         case '[':
             showLevelPage(_levelPage - 1);
             break;
-        case (reluva::key::F1 + 4): {
+        case (reluva::key::kF1 + 4): {
             Error err = saveGameState(0, "Quick save");
             if (err)
                 log::warning("Save failed: %s", err.message.c_str());
             break;
         }
-        case (reluva::key::F1 + 6): {
+        case (reluva::key::kF1 + 6): {
             Error err = loadGameState(0);
             if (err)
                 log::warning("Load failed: %s", err.message.c_str());
@@ -1194,7 +1194,7 @@ bool Generations::handleWalkKey(const KeyState &state, bool down) {
     case 'd':
         walkKey = kWalkStrafeRight;
         break;
-    case reluva::key::End:
+    case reluva::key::kEnd:
         if (down)
             _camera.pitch = 0;
         return true;
@@ -1217,7 +1217,7 @@ bool Generations::handleWalkKey(const KeyState &state, bool down) {
             updateWalkStatus();
         }
         return true;
-    case reluva::key::Space:
+    case reluva::key::kSpace:
         // Use the open panel's object, as the original's Space does.
         if (down && _mission)
             _mission->getHud().usePanel();
@@ -1828,8 +1828,8 @@ bool Generations::playMovie(const std::string &name) {
         while (_eventMan->pollEvent(event)) {
             if (event.type == kEventLbuttondown ||
                 (event.type == kEventKeydown &&
-                 (event.kbd.keycode == reluva::key::Escape || event.kbd.keycode == reluva::key::Space ||
-                  event.kbd.keycode == reluva::key::Return)))
+                 (event.kbd.keycode == reluva::key::kEscape || event.kbd.keycode == reluva::key::kSpace ||
+                  event.kbd.keycode == reluva::key::kReturn)))
                 done = true;
         }
 

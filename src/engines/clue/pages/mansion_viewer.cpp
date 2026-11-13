@@ -96,11 +96,11 @@ void MansionViewer::handleEvent(const Event &ev) {
     if (!loaded())
         return;
     if (_overview) {
-        if ((ev.type == EventType::KeyDown && (ev.key == 'm' || ev.key == key::Escape)) ||
-            (ev.type == EventType::MouseDown && ev.button != MouseButton::Left)) {
+        if ((ev.type == EventType::kKeyDown && (ev.key == 'm' || ev.key == key::kEscape)) ||
+            (ev.type == EventType::kMouseDown && ev.button != MouseButton::kLeft)) {
             _overview = false;
             _dirty = true;
-        } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left && ev.mouseY < kAreaH) {
+        } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && ev.mouseY < kAreaH) {
             // Go to the place clicked.
             const ScreenRect &b = _mansion.bounds();
             const double scale = std::max(double(b.w) / kScreenW, double(b.h) / kAreaH);
@@ -114,24 +114,24 @@ void MansionViewer::handleEvent(const Event &ev) {
         }
         return;
     }
-    const bool fast = ev.mods & keymod::Shift;
+    const bool fast = ev.mods & keymod::kShift;
     const int step = fast ? 128 : 32;
     switch (ev.type) {
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         switch (ev.key) {
-        case key::Left:
+        case key::kLeft:
             scroll(-step, 0);
             break;
-        case key::Right:
+        case key::kRight:
             scroll(step, 0);
             break;
-        case key::Up:
+        case key::kUp:
             scroll(0, -step);
             break;
-        case key::Down:
+        case key::kDown:
             scroll(0, step);
             break;
-        case key::Home:
+        case key::kHome:
             centre();
             break;
         case 'w':
@@ -159,7 +159,7 @@ void MansionViewer::handleEvent(const Event &ev) {
             _overview = true;
             _whole = {};
             break;
-        case key::Space:
+        case key::kSpace:
             _paused = !_paused;
             break;
         default:
@@ -167,18 +167,18 @@ void MansionViewer::handleEvent(const Event &ev) {
         }
         _dirty = true;
         break;
-    case EventType::MouseDown:
-        if (ev.button == MouseButton::Left) {
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft) {
             _dragging = true;
             _dragX = ev.mouseX;
             _dragY = ev.mouseY;
         }
         break;
-    case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
             _dragging = false;
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (_dragging) {
             scroll(_dragX - ev.mouseX, _dragY - ev.mouseY);
             _dragX = ev.mouseX;

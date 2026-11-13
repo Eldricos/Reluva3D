@@ -195,7 +195,7 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
             }
         }
         if (stencil) {
-            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
             _renderer.setStencilReference(shadow->ref);
         }
         // The specular, which Direct3D adds after the texture
@@ -215,11 +215,11 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
             for (int k = 0; k < 3; k++)
                 call.color[size_t(k)] *= brightness;
             if (lighting) {
-                call.rgbSource = gfx::ColorSource::Vertex;
+                call.rgbSource = gfx::ColorSource::kVertex;
             } else {
                 // The light in model space, so it stays on the model's
                 // front as it turns.
-                call.rgbSource = gfx::ColorSource::Lighting;
+                call.rgbSource = gfx::ColorSource::kLighting;
                 call.ambientLight = {0.45f, 0.45f, 0.45f};
                 call.directedLight = {0.75f, 0.72f, 0.68f};
                 const gfx::Vec3 l = gfx::transformPoint(placement, {0.4f, -0.6f, 0.7f});
@@ -228,11 +228,11 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
                 const float len = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
                 call.lightDirection = len > 0 ? gfx::Vec3{dir[0] / len, dir[1] / len, dir[2] / len} : dir;
             }
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             if (material.blend) {
                 call.color[3] = std::clamp(material.alpha, 0.0f, 1.0f);
-                call.state.src = gfx::Blend::SrcAlpha;
-                call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+                call.state.src = gfx::Blend::kSrcAlpha;
+                call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
             }
             _renderer.draw(call);
             triangles += g.indexCount / 3;
@@ -241,15 +241,15 @@ size_t GpuModel::draw(const Pose &pose, const gfx::Mat4 &placement, bool helpers
                 add.mesh = shineId;
                 add.texture = 0;
                 add.color = {brightness, brightness, brightness, call.color[3]};
-                add.state.src = material.blend ? gfx::Blend::SrcAlpha : gfx::Blend::One;
-                add.state.dst = gfx::Blend::One;
+                add.state.src = material.blend ? gfx::Blend::kSrcAlpha : gfx::Blend::kOne;
+                add.state.dst = gfx::Blend::kOne;
                 add.state.depthEqual = true;
                 add.state.depthWrite = false;
                 _renderer.draw(add);
             }
         }
         if (stencil)
-            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::None);
+            _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
     }
     return triangles;
 }
@@ -284,18 +284,18 @@ void GpuModel::drawShadow(const ModelMesh &mesh, const Pose &pose, const gfx::Ma
 void GpuModel::shadowPass(gfx::MeshId mesh, uint32_t indexCount, const gfx::Mat4 &model) {
     // No colour (the frame kept, blend Zero/One) and no depth: the stencil
     // set to 1 where it passes the depth test (0x428250).
-    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::Mark);
+    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kMark);
     _renderer.setStencilReference(1);
     gfx::DrawCall call;
     call.mesh = mesh;
     call.indexCount = indexCount;
     call.model = model;
-    call.state.src = gfx::Blend::Zero;
-    call.state.dst = gfx::Blend::One;
+    call.state.src = gfx::Blend::kZero;
+    call.state.dst = gfx::Blend::kOne;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     _renderer.draw(call);
-    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::None);
+    _renderer.setStencilMode(gfx::Renderer3D::StencilMode::kNone);
 }
 
 Pose poseAt(const Model &model, const Animation *animation, float time) {

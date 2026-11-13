@@ -617,7 +617,7 @@ bool ScenePage::blipClick(int x, int y, int row, int count, int &at) {
 bool ScenePage::interfaceEvent(const Event &ev) {
     const int x = ev.mouseX;
     const int y = ev.mouseY;
-    if (ev.type == EventType::MouseMove) {
+    if (ev.type == EventType::kMouseMove) {
         if (_ui.dragging) {
             // The blip follows the mouse to the nearest place (0x41afd0).
             const int wx = (kScreenW - picture("inventory/interface/windowblank.png").w) / 2;
@@ -660,7 +660,7 @@ bool ScenePage::interfaceEvent(const Event &ev) {
             draw();
         return false;
     }
-    if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         // The blip let go (0x419d10).
         if (!_ui.dragging)
             return false;
@@ -668,7 +668,7 @@ bool ScenePage::interfaceEvent(const Event &ev) {
         draw();
         return true;
     }
-    if (ev.type == EventType::KeyDown && (ev.key == 'i' || ev.key == 'I') && _playing && !(ev.mods & keymod::Shift)) {
+    if (ev.type == EventType::kKeyDown && (ev.key == 'i' || ev.key == 'I') && _playing && !(ev.mods & keymod::kShift)) {
         // I (0x416806): the window, with the interface there and no
         // dialogue box.
         if (interfaceOn() && !_dialogue->boxShown())
@@ -676,15 +676,15 @@ bool ScenePage::interfaceEvent(const Event &ev) {
         draw();
         return true;
     }
-    if (ev.type != EventType::MouseDown || !_playing)
+    if (ev.type != EventType::kMouseDown || !_playing)
         return false;
-    if (!_ui.zoom.empty() && (ev.button == MouseButton::Left || ev.button == MouseButton::Right)) {
+    if (!_ui.zoom.empty() && (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)) {
         // A scrapbook picture full screen: any click puts it away (0x41fa70).
         _ui.zoom.clear();
         draw();
         return true;
     }
-    if (ev.button == MouseButton::Right) {
+    if (ev.button == MouseButton::kRight) {
         // 0x416450: the window opened or closed, or the item in hand put
         // back.
         if (!canAct())
@@ -693,7 +693,7 @@ bool ScenePage::interfaceEvent(const Event &ev) {
         draw();
         return true;
     }
-    if (ev.button != MouseButton::Left || !canAct())
+    if (ev.button != MouseButton::kLeft || !canAct())
         return false;
     const bool on = interfaceOn();
     // The window (0x419d30): its page, its tabs; any click on it is its.
@@ -1795,7 +1795,7 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
         _drawing = was;
     };
     if (_movie)
-        return _movieName.find("legal") == std::string::npos ? In{In::Kind::kKey, 0, 0, key::Escape} : In{};
+        return _movieName.find("legal") == std::string::npos ? In{In::Kind::kKey, 0, 0, key::kEscape} : In{};
     if (_yesNo) {
         if (!_yesNo->drawn)
             drawNow();

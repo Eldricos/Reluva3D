@@ -54,17 +54,17 @@ bool Platform::pollEvent(InputEvent &out) {
         out = InputEvent();
         out.mouse = {ev.mouseX, ev.mouseY};
         switch (ev.type) {
-        case EventType::Quit:
-        case EventType::ReturnToLauncher:
+        case EventType::kQuit:
+        case EventType::kReturnToLauncher:
             _quit = true;
             out.type = InputEvent::kQuit;
             return true;
-        case EventType::KeyDown:
+        case EventType::kKeyDown:
             out.type = InputEvent::kKeyDown;
             out.key = ev.key;
             out.mods = ev.mods;
             return true;
-        case EventType::TextInput:
+        case EventType::kTextInput:
             // One printable ASCII character, as the original's names take.
             if (ev.text[0] >= 32 && ev.text[0] < 127 && ev.text[1] == 0) {
                 out.type = InputEvent::kKeyDown;
@@ -72,12 +72,12 @@ bool Platform::pollEvent(InputEvent &out) {
                 return true;
             }
             break;
-        case EventType::MouseMove:
+        case EventType::kMouseMove:
             out.type = InputEvent::kMouseMove;
             return true;
-        case EventType::MouseDown:
-            if (ev.button == MouseButton::Left || ev.button == MouseButton::Right) {
-                out.type = ev.button == MouseButton::Left ? InputEvent::kLeftDown : InputEvent::kRightDown;
+        case EventType::kMouseDown:
+            if (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight) {
+                out.type = ev.button == MouseButton::kLeft ? InputEvent::kLeftDown : InputEvent::kRightDown;
                 return true;
             }
             break;

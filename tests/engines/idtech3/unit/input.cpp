@@ -91,28 +91,28 @@ static void testJoystick() {
         ev.joyHat = uint8_t(a);
         joy.event(ev);
     };
-    event(EventType::JoyButtonDown, 0);
+    event(EventType::kJoyButtonDown, 0);
     CHECK(joy.frame(cvars).keys.empty()); // in_joystick 0: nothing
     cvars.set("in_joystick", "1");
     JoystickInput::Frame f = joy.frame(cvars);
     CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(185, true)); // JOY1
     // x past the threshold to the left: the left arrow (joy_xbutton 1, the
     // default); y pushed forward all the way: analog, 127 (joy_ybutton 0).
-    event(EventType::JoyAxis, 0, -20000);
-    event(EventType::JoyAxis, 1, -32768);
+    event(EventType::kJoyAxis, 0, -20000);
+    event(EventType::kJoyAxis, 1, -32768);
     f = joy.frame(cvars);
     CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(134, true) && f.x == 0 && f.y == 127);
     // Inside the threshold: let go; analog x when joy_xbutton is 0, right
     // negative; the hat's up is JOY24.
-    event(EventType::JoyAxis, 0, 3000);
+    event(EventType::kJoyAxis, 0, 3000);
     f = joy.frame(cvars);
     CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(134, false));
     cvars.set("joy_xbutton", "0");
-    event(EventType::JoyAxis, 0, 32767);
-    event(EventType::JoyHat, joyhat::Up);
+    event(EventType::kJoyAxis, 0, 32767);
+    event(EventType::kJoyHat, joyhat::kUp);
     f = joy.frame(cvars);
     CHECK(f.x == -126 && f.keys.size() == 1 && f.keys[0] == std::make_pair(208, true));
-    event(EventType::JoyHat, joyhat::Up | joyhat::Right); // no diagonals
+    event(EventType::kJoyHat, joyhat::kUp | joyhat::kRight); // no diagonals
     f = joy.frame(cvars);
     CHECK(f.keys.size() == 1 && f.keys[0] == std::make_pair(208, false));
     // Off again: everything held let go.

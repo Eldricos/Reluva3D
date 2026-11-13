@@ -64,7 +64,7 @@ void VideoViewer::start() {
     _running = true;
     _drawnFrame = size_t(-1);
     if (_mixer && _sound)
-        _playing = _mixer->play(_sound, audio::SoundType::Speech);
+        _playing = _mixer->play(_sound, audio::SoundType::kSpeech);
 }
 
 void VideoViewer::stop() {
@@ -78,18 +78,18 @@ void VideoViewer::handleKey(uint32_t key) {
         return;
     const int n = int(_files.size());
     switch (key) {
-    case key::Right:
+    case key::kRight:
         _current = (_current + 1) % n;
         load();
         start();
         break;
-    case key::Left:
+    case key::kLeft:
         _current = (_current + n - 1) % n;
         load();
         start();
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         if (_running) {
             stop();
             _running = false;

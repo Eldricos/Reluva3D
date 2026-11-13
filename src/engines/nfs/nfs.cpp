@@ -89,16 +89,16 @@ public:
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
                     pages[page]->deactivate();
                     return Error::success();
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !pages[page]->capturesEscape()) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->capturesEscape()) {
                     pages[page]->deactivate();
                     return Error::success();
                 }
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab) {
-                    const size_t step = (ev.mods & keymod::Shift) ? pages.size() - 1 : 1;
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
+                    const size_t step = (ev.mods & keymod::kShift) ? pages.size() - 1 : 1;
                     if (Error err = show((page + step) % pages.size()))
                         return err;
                     continue;

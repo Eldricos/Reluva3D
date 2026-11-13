@@ -163,7 +163,7 @@ void SpPlayViewer::startCinematic(const std::string &name, bool inGame) {
         s->channels = c->movie.audioChannels();
         s->format = 1;
         s->samples = std::move(sound);
-        c->sound = _ctx.mixer->play(s, audio::SoundType::Effects, audio::kMaxVolume);
+        c->sound = _ctx.mixer->play(s, audio::SoundType::kEffects, audio::kMaxVolume);
     }
     _cinematic = std::move(c);
 }
@@ -791,35 +791,35 @@ void SpPlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
 }
 
 bool SpPlayViewer::takesKey(const Event &ev) const {
-    return ev.type == EventType::KeyDown && ev.key == key::Escape && !(ev.mods & keymod::Ctrl);
+    return ev.type == EventType::kKeyDown && ev.key == key::kEscape && !(ev.mods & keymod::kCtrl);
 }
 
 void SpPlayViewer::handleEvent(const Event &ev) {
     if (!_renderer)
         return;
     // The joystick, read once a frame (pollJoystick).
-    if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
-        ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
+    if (ev.type == EventType::kJoyButtonDown || ev.type == EventType::kJoyButtonUp || ev.type == EventType::kJoyAxis ||
+        ev.type == EventType::kJoyHat || ev.type == EventType::kJoyRemoved) {
         _joystick.event(ev);
         return;
     }
     if (_cinematic) {
         // A typed key (Esc too) or a click skips it, as the original's;
         // nothing else gets through meanwhile.
-        if (ev.type == EventType::KeyDown && !ev.repeat && !(ev.mods & keymod::Ctrl)) {
+        if (ev.type == EventType::kKeyDown && !ev.repeat && !(ev.mods & keymod::kCtrl)) {
             const int32_t k = toQ3Key(ev.key);
             if (k > 0 && k < 128)
                 endCinematic();
-        } else if (ev.type == EventType::MouseDown && toQ3Button(ev.button) == q3key::kMouse1) {
+        } else if (ev.type == EventType::kMouseDown && toQ3Button(ev.button) == q3key::kMouse1) {
             endCinematic();
         }
         return;
     }
     switch (ev.type) {
-    case EventType::KeyDown:
-    case EventType::KeyUp: {
-        const bool down = ev.type == EventType::KeyDown;
-        if (down && (ev.mods & keymod::Ctrl) && !_names.empty()) {
+    case EventType::kKeyDown:
+    case EventType::kKeyUp: {
+        const bool down = ev.type == EventType::kKeyDown;
+        if (down && (ev.mods & keymod::kCtrl) && !_names.empty()) {
             // Reluva's own: restart, another map (without the menus), the
             // info line.
             const int n = int(_names.size());
@@ -831,8 +831,8 @@ void SpPlayViewer::handleEvent(const Event &ev) {
                 }
                 return start(_index);
             }
-            if (ev.key == key::PageUp || ev.key == key::PageDown)
-                return start((_index + (ev.key == key::PageUp ? n - 1 : 1)) % n);
+            if (ev.key == key::kPageUp || ev.key == key::kPageDown)
+                return start((_index + (ev.key == key::kPageUp ? n - 1 : 1)) % n);
             if (ev.key == 'i') {
                 _showInfo = !_showInfo;
                 return;
@@ -845,7 +845,7 @@ void SpPlayViewer::handleEvent(const Event &ev) {
             else
                 _ui->keysDown.erase(k);
         }
-        if (down && ev.key == key::Escape) {
+        if (down && ev.key == key::kEscape) {
             // As the original's engine: to the menus if they have the
             // keys, else the in-game menu (the main one without a game).
             if (!_ui) {
@@ -878,7 +878,7 @@ void SpPlayViewer::handleEvent(const Event &ev) {
         }
         break;
     }
-    case EventType::TextInput:
+    case EventType::kTextInput:
         // Characters for the menus' text fields, as key presses with the
         // character flag (Latin-1).
         if (menusHaveKeys())
@@ -886,12 +886,12 @@ void SpPlayViewer::handleEvent(const Event &ev) {
                 if (cp >= 32 && cp < 256 && cp != 127 && _ui)
                     menuKey(int32_t(cp) | q3key::kCharFlag);
         break;
-    case EventType::MouseDown:
-    case EventType::MouseUp: {
+    case EventType::kMouseDown:
+    case EventType::kMouseUp: {
         const int32_t k = toQ3Button(ev.button);
         if (!k)
             break;
-        const bool down = ev.type == EventType::MouseDown;
+        const bool down = ev.type == EventType::kMouseDown;
         if (_ui) {
             if (down)
                 _ui->keysDown.insert(k);
@@ -903,11 +903,11 @@ void SpPlayViewer::handleEvent(const Event &ev) {
         runBinding(_ctx.bindings.get(k), k, down);
         break;
     }
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         if (ev.wheelY && menusHaveKeys())
             menuKey(ev.wheelY > 0 ? q3key::kWheelUp : q3key::kWheelDown);
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (menusHaveKeys()) {
             // In the menus' 640 x 480, as the window's pixels are to the
             // frame (the fractions kept for the next move).

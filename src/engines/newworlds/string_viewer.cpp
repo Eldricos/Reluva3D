@@ -137,28 +137,28 @@ void StringViewer::handleKey(uint32_t k) {
         return;
     const int last = std::max(0, int(_lines.size()) - rows());
     switch (k) {
-    case key::Right:
+    case key::kRight:
         show((_current + 1) % n);
         return;
-    case key::Left:
+    case key::kLeft:
         show((_current + n - 1) % n);
         return;
-    case key::Down:
+    case key::kDown:
         _top = std::min(_top + 1, last);
         break;
-    case key::Up:
+    case key::kUp:
         _top = std::max(_top - 1, 0);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         _top = std::min(_top + rows() - 1, last);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         _top = std::max(_top - (rows() - 1), 0);
         break;
-    case key::Home:
+    case key::kHome:
         _top = 0;
         break;
-    case key::End:
+    case key::kEnd:
         _top = last;
         break;
     case '+':

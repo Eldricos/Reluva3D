@@ -84,11 +84,11 @@ int cmdNfsPage(int argc, char **argv) {
     // The Play page's game starts at once, as it would when shown.
     if (auto *play = dynamic_cast<reluva::nfs::PlayPage *>(page))
         play->start();
-    const std::pair<const char *, uint32_t> names[] = {{"left", reluva::key::Left},    {"right", reluva::key::Right},
-                                                       {"up", reluva::key::Up},        {"down", reluva::key::Down},
-                                                       {"pgup", reluva::key::PageUp},  {"pgdn", reluva::key::PageDown},
-                                                       {"home", reluva::key::Home},    {"end", reluva::key::End},
-                                                       {"enter", reluva::key::Return}, {"esc", reluva::key::Escape}};
+    const std::pair<const char *, uint32_t> names[] = {
+        {"left", reluva::key::kLeft}, {"right", reluva::key::kRight}, {"up", reluva::key::kUp},
+        {"down", reluva::key::kDown}, {"pgup", reluva::key::kPageUp}, {"pgdn", reluva::key::kPageDown},
+        {"home", reluva::key::kHome}, {"end", reluva::key::kEnd},     {"enter", reluva::key::kReturn},
+        {"esc", reluva::key::kEscape}};
     int mouseX = 320;
     int mouseY = 240;
     auto mouse = [&](reluva::EventType type) {
@@ -96,10 +96,10 @@ int cmdNfsPage(int argc, char **argv) {
         ev.type = type;
         ev.mouseX = mouseX;
         ev.mouseY = mouseY;
-        ev.button = reluva::MouseButton::Left;
+        ev.button = reluva::MouseButton::kLeft;
         page->handleEvent(ev);
     };
-    mouse(reluva::EventType::MouseMove);
+    mouse(reluva::EventType::kMouseMove);
     for (int i = 5; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg.rfind("wait", 0) == 0 && arg.size() > 4) { // wait<ms>: the page ticking meanwhile
@@ -111,15 +111,15 @@ int cmdNfsPage(int argc, char **argv) {
             continue;
         }
         if (arg == "click") {
-            mouse(reluva::EventType::MouseDown);
+            mouse(reluva::EventType::kMouseDown);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            mouse(reluva::EventType::MouseUp);
+            mouse(reluva::EventType::kMouseUp);
             continue;
         }
         if (arg.rfind("move", 0) == 0 && arg.find('/') != std::string::npos) { // move<dx>/<dy>
             mouseX += std::atoi(arg.c_str() + 4);
             mouseY += std::atoi(arg.c_str() + arg.find('/') + 1);
-            mouse(reluva::EventType::MouseMove);
+            mouse(reluva::EventType::kMouseMove);
             continue;
         }
         // +key and -key: pressed, let go; else both.
@@ -139,11 +139,11 @@ int cmdNfsPage(int argc, char **argv) {
         reluva::Event ev;
         ev.key = key;
         if (press) {
-            ev.type = reluva::EventType::KeyDown;
+            ev.type = reluva::EventType::kKeyDown;
             page->handleEvent(ev);
         }
         if (release) {
-            ev.type = reluva::EventType::KeyUp;
+            ev.type = reluva::EventType::kKeyUp;
             page->handleEvent(ev);
         }
     }

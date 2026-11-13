@@ -384,7 +384,7 @@ public:
         if (playing && s->mixer && formatTag == 1 && (bitsPerSample == 8 || bitsPerSample == 16) && channels >= 1 &&
             channels <= 2) {
             stream = std::make_shared<audio::SoundStream>(int(rate), int(channels));
-            sound = s->mixer->playStream(stream, audio::SoundType::Effects, volume(), pan(), 200);
+            sound = s->mixer->playStream(stream, audio::SoundType::kEffects, volume(), pan(), 200);
         }
     }
     void stop() {
@@ -826,8 +826,8 @@ void A3d::State::update() {
 
 A3d::~A3d() = default;
 
-A3d::A3d(Win32Process &process) : s_(std::make_unique<State>(process)) {
-    State *s = s_.get();
+A3d::A3d(Win32Process &process) : _s(std::make_unique<State>(process)) {
+    State *s = _s.get();
     for (ComInterface *f : {&s->a3d, &s->listener, &s->geom, &s->material, &s->source})
         s->com.define(*f);
     // Called for each sound every frame, and writing no memory: the
@@ -851,12 +851,12 @@ A3d::A3d(Win32Process &process) : s_(std::make_unique<State>(process)) {
 }
 
 size_t A3d::sourcesMade() const {
-    return s_->made;
+    return _s->made;
 }
 
 size_t A3d::sourcesPlaying() const {
     size_t n = 0;
-    for (const auto &w : s_->sources)
+    for (const auto &w : _s->sources)
         if (auto source = w.lock())
             n += static_cast<Source *>(source.get())->playing;
     return n;

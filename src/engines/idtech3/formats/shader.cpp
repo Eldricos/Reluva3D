@@ -47,12 +47,12 @@ float num(const std::vector<std::string> &args, size_t i, float fallback = 0) {
 
 bool waveFunc(const std::string &name, gfx::WaveFunc &out) {
     static const std::pair<const char *, gfx::WaveFunc> kFuncs[] = {
-        {"sin", gfx::WaveFunc::Sin},
-        {"triangle", gfx::WaveFunc::Triangle},
-        {"square", gfx::WaveFunc::Square},
-        {"sawtooth", gfx::WaveFunc::Sawtooth},
-        {"inversesawtooth", gfx::WaveFunc::InverseSawtooth},
-        {"noise", gfx::WaveFunc::Noise},
+        {"sin", gfx::WaveFunc::kSin},
+        {"triangle", gfx::WaveFunc::kTriangle},
+        {"square", gfx::WaveFunc::kSquare},
+        {"sawtooth", gfx::WaveFunc::kSawtooth},
+        {"inversesawtooth", gfx::WaveFunc::kInverseSawtooth},
+        {"noise", gfx::WaveFunc::kNoise},
     };
     for (const auto &[n, f] : kFuncs)
         if (lower(name) == n) {
@@ -190,10 +190,10 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
             return false;
         stage.tcMods.push_back(m);
     } else if (d.keyword == "alphafunc") {
-        stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::Gt0
-                          : a0 == "lt128" ? gfx::AlphaTest::Lt128
-                          : a0 == "ge128" ? gfx::AlphaTest::Ge128
-                                          : gfx::AlphaTest::None;
+        stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::kGt0
+                          : a0 == "lt128" ? gfx::AlphaTest::kLt128
+                          : a0 == "ge128" ? gfx::AlphaTest::kGe128
+                                          : gfx::AlphaTest::kNone;
     } else if (d.keyword == "depthfunc") {
         stage.depthEqual = a0 == "equal";
     } else if (d.keyword == "depthwrite") {

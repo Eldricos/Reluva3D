@@ -843,8 +843,8 @@ void Game::startSpeech(int line) {
         _conv.speechEnd = _millis + uint32_t(uint64_t(data.size()) * 1000 / kSampleRate);
         if (audio::Mixer *mixer = _system->getMixer())
             _conv.speechHandle = mixer->play(
-                std::make_unique<audio::RawStream>(std::move(data), audio::RawStream::Format::U8, kSampleRate),
-                audio::SoundType::Speech, mixerVolume(kVolumeSpeech));
+                std::make_unique<audio::RawStream>(std::move(data), audio::RawStream::Format::kU8, kSampleRate),
+                audio::SoundType::kSpeech, mixerVolume(kVolumeSpeech));
     }
     _conv.pauseEnd = _conv.speechEnd + kLinePauseMillis;
     updateSpeech();

@@ -1184,20 +1184,20 @@ void SpaceCombat::playMusic(const std::string &name, bool loop) {
 
 void SpaceCombat::keyDown(const KeyState &key) {
     if (_phase == kBriefing) {
-        if (key.keycode == reluva::key::Return || key.keycode == reluva::key::Space ||
-            key.keycode == reluva::key::Escape)
+        if (key.keycode == reluva::key::kReturn || key.keycode == reluva::key::kSpace ||
+            key.keycode == reluva::key::kEscape)
             mouseUp(_proceedX + 10, _proceedY + 10);
         return;
     }
     if (_phase == kEnding) {
-        if (key.keycode == reluva::key::Escape || key.keycode == reluva::key::Space ||
-            key.keycode == reluva::key::Return)
+        if (key.keycode == reluva::key::kEscape || key.keycode == reluva::key::kSpace ||
+            key.keycode == reluva::key::kReturn)
             _finished = true;
         return;
     }
     Helm before = _helm;
     // Esc is the menu whatever the map says (0x47AF5B).
-    if (key.keycode == reluva::key::Escape) {
+    if (key.keycode == reluva::key::kEscape) {
         _optionsRequest = true;
         return;
     }
@@ -1206,7 +1206,7 @@ void SpaceCombat::keyDown(const KeyState &key) {
         shipAction(action, true);
     } else {
         switch (key.keycode) {
-        case reluva::key::Tab:
+        case reluva::key::kTab:
         case 't':
             nextTarget(true);
             break;

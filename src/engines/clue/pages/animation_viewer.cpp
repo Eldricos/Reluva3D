@@ -50,25 +50,25 @@ void AnimationViewer::handleKey(uint32_t key) {
     const int n = int(_data.drive(_files[size_t(_file)].stem().string(), 'A')->entries().size());
     const size_t frames = _current ? _current->frameCount() : 0;
     switch (key) {
-    case key::Right:
+    case key::kRight:
         _anim = (_anim + 1) % n;
         select();
         break;
-    case key::Left:
+    case key::kLeft:
         _anim = (_anim + n - 1) % n;
         select();
         break;
-    case key::Down:
+    case key::kDown:
         _file = (_file + 1) % int(_files.size());
         _anim = 0;
         select();
         break;
-    case key::Up:
+    case key::kUp:
         _file = (_file + int(_files.size()) - 1) % int(_files.size());
         _anim = 0;
         select();
         break;
-    case key::Space:
+    case key::kSpace:
         _paused = !_paused;
         break;
     case '.':

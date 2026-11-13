@@ -171,23 +171,23 @@ void MapViewer::resetView() {
 void MapViewer::handleEvent(const Event &ev) {
     if (_names.empty())
         return;
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         _dragging = false;
-    } else if (ev.type == EventType::MouseMove && _dragging) {
+    } else if (ev.type == EventType::kMouseMove && _dragging) {
         _yaw -= float(ev.mouseX - _lastX) * 0.01f;
         _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
         _dirty = true;
-    } else if (ev.type == EventType::MouseWheel) {
+    } else if (ev.type == EventType::kMouseWheel) {
         _distance = std::max(16.0f, _distance * std::pow(0.9f, float(ev.wheelY)));
         _dirty = true;
-    } else if (ev.type == EventType::KeyDown) {
-        const bool shift = ev.mods & keymod::Shift;
+    } else if (ev.type == EventType::kKeyDown) {
+        const bool shift = ev.mods & keymod::kShift;
         // Moves along the ground, relative to where the camera looks.
         const float step = _distance * 0.05f;
         const Vec3 fwd{-std::cos(_yaw), -std::sin(_yaw), 0};
@@ -196,16 +196,16 @@ void MapViewer::handleEvent(const Event &ev) {
             for (int i = 0; i < 3; ++i)
                 _target[size_t(i)] += dir[size_t(i)] * amount;
         };
-        if (shift && ev.key == key::Left)
+        if (shift && ev.key == key::kLeft)
             _yaw += 0.1f;
-        else if (shift && ev.key == key::Right)
+        else if (shift && ev.key == key::kRight)
             _yaw -= 0.1f;
-        else if (ev.key == key::Left || ev.key == key::Right) {
+        else if (ev.key == key::kLeft || ev.key == key::kRight) {
             const int n = static_cast<int>(_names.size());
-            load((_index + (ev.key == key::Left ? n - 1 : 1)) % n);
-        } else if (shift && ev.key == key::Up)
+            load((_index + (ev.key == key::kLeft ? n - 1 : 1)) % n);
+        } else if (shift && ev.key == key::kUp)
             _pitch = std::min(1.5f, _pitch + 0.1f);
-        else if (shift && ev.key == key::Down)
+        else if (shift && ev.key == key::kDown)
             _pitch = std::max(-1.5f, _pitch - 0.1f);
         else if (ev.key == '+' || ev.key == '=')
             _distance = std::max(16.0f, _distance * 0.9f);

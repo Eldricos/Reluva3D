@@ -98,7 +98,7 @@ private:
 Event mouse(EventType type, int x, int y) {
     Event e;
     e.type = type;
-    e.button = MouseButton::Left;
+    e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
     return e;
@@ -233,9 +233,9 @@ void engineTest(const std::filesystem::path &tmp) {
                       tmp / "saves",
                       {{"start_scene", "S0"}, {"music_volume", "100"}}};
     PlayingSystem sys;
-    sys.inputs = {{2000, mouse(EventType::MouseMove, 150, 150)},
-                  {2020, mouse(EventType::MouseDown, 150, 150)},
-                  {3000, Event{EventType::ReturnToLauncher}}};
+    sys.inputs = {{2000, mouse(EventType::kMouseMove, 150, 150)},
+                  {2020, mouse(EventType::kMouseDown, 150, 150)},
+                  {3000, Event{EventType::kReturnToLauncher}}};
     auto game = engine->create(sys, target);
     const Error err = game->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));

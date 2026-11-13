@@ -88,13 +88,13 @@ int cmdImport(int argc, char **argv) {
     return cmdDetect(3, detectArgs);
 }
 
-const Commands commands("",
-                        {
-                            {"detect", "<folder>", "what the launcher finds in a folder (Add Game)", cmdDetect},
-                            {"import", "<source folder> [destination folder] [-patch file]...",
-                             "import a game as Import Game does: list what a folder holds to import, or copy it to a "
-                             "destination, applying patches",
-                             cmdImport},
-                        });
+const Commands kCommands("",
+                         {
+                             {"detect", "<folder>", "what the launcher finds in a folder (Add Game)", cmdDetect},
+                             {"import", "<source folder> [destination folder] [-patch file]...",
+                              "import a game as Import Game does: list what a folder holds to import, or copy it to a "
+                              "destination, applying patches",
+                              cmdImport},
+                         });
 
 } // namespace

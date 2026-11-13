@@ -44,23 +44,23 @@ void StartPage::choose(size_t i) {
 }
 
 void StartPage::handleEvent(const Event &ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown) {
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown) {
         const int i = choiceAt(ev.mouseX, ev.mouseY);
         if (i >= 0 && size_t(i) != _selected) {
             _selected = size_t(i);
             draw();
         }
-        if (i >= 0 && ev.type == EventType::MouseDown && ev.button == MouseButton::Left)
+        if (i >= 0 && ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft)
             choose(size_t(i));
         return;
     }
-    if (ev.type != EventType::KeyDown || _choices.empty())
+    if (ev.type != EventType::kKeyDown || _choices.empty())
         return;
-    if (ev.key == key::Up)
+    if (ev.key == key::kUp)
         _selected = (_selected + _choices.size() - 1) % _choices.size();
-    else if (ev.key == key::Down || ev.key == key::Tab)
+    else if (ev.key == key::kDown || ev.key == key::kTab)
         _selected = (_selected + 1) % _choices.size();
-    else if (ev.key == key::Return || ev.key == key::KpEnter || ev.key == ' ')
+    else if (ev.key == key::kReturn || ev.key == key::kKpEnter || ev.key == ' ')
         choose(_selected);
     else if (ev.key >= '1' && ev.key < '1' + _choices.size())
         choose(ev.key - '1');

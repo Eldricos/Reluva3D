@@ -62,11 +62,11 @@ public:
     // Starts listening on `at` or connecting to it.
     bool start(bool listen, const net::Address &at) {
         if (listen) {
-            _listener = _net.open(net::Sockets::Stream);
+            _listener = _net.open(net::Sockets::kStream);
             if (_listener < 0)
                 return false;
-            _net.setOption(_listener, net::Sockets::ReuseAddress, 1);
-            if (_net.bind(_listener, at) != Result::Ok || _net.listen(_listener, 1) != Result::Ok)
+            _net.setOption(_listener, net::Sockets::kReuseAddress, 1);
+            if (_net.bind(_listener, at) != Result::kOk || _net.listen(_listener, 1) != Result::kOk)
                 return false;
             _host.say("  serial: listening on " + at.toString());
             return true;
@@ -82,14 +82,14 @@ public:
         if (_stream >= 0)
             _net.close(_stream);
         _lastDial = std::chrono::steady_clock::now();
-        _stream = _net.open(net::Sockets::Stream);
+        _stream = _net.open(net::Sockets::kStream);
         if (_stream < 0)
             return false;
         if (_host._options.netAddress)
             _net.bind(_stream, {_host._options.netAddress, 0});
         const Result r = _net.connect(_stream, _target);
-        _connecting = r == Result::InProgress || r == Result::WouldBlock;
-        _connected = r == Result::Ok;
+        _connecting = r == Result::kInProgress || r == Result::kWouldBlock;
+        _connected = r == Result::kOk;
         return true;
     }
 
@@ -101,10 +101,10 @@ public:
         if (_listener >= 0 && _stream < 0) {
             int accepted = -1;
             net::Address from;
-            if (_net.accept(_listener, accepted, from) == Result::Ok) {
+            if (_net.accept(_listener, accepted, from) == Result::kOk) {
                 _stream = accepted;
                 _connected = true;
-                _net.setOption(_stream, net::Sockets::NoDelay, 1);
+                _net.setOption(_stream, net::Sockets::kNoDelay, 1);
                 _host.say("  serial: connected from " + from.toString());
             }
         } else if (_connecting) {
@@ -114,7 +114,7 @@ public:
             } else if (ready.write) {
                 _connecting = false;
                 _connected = true;
-                _net.setOption(_stream, net::Sockets::NoDelay, 1);
+                _net.setOption(_stream, net::Sockets::kNoDelay, 1);
                 _host.say("  serial: connected");
             }
         }
@@ -142,11 +142,11 @@ public:
                 return done >= size;
             size_t n = 0;
             const Result r = _net.receive(_stream, c.memory().data() + buffer + done, size - done, n, false);
-            if (r == Result::Ok && n == 0) { // the other end went
+            if (r == Result::kOk && n == 0) { // the other end went
                 _connected = false;
                 return true;
             }
-            if (r == Result::Ok && n) {
+            if (r == Result::kOk && n) {
                 _host.logTraffic(false, 0, _target, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
             }
@@ -173,12 +173,12 @@ public:
         while (done < size) {
             size_t n = 0;
             const Result r = _net.send(_stream, c.memory().data() + buffer + done, size - done, n);
-            if (r == Result::Ok) {
+            if (r == Result::kOk) {
                 _host.logTraffic(true, 0, _target, c.memory().data() + buffer + done, n);
                 done += uint32_t(n);
                 continue;
             }
-            if (r != Result::WouldBlock) {
+            if (r != Result::kWouldBlock) {
                 _connected = false;
                 done = size;
                 return true;
@@ -211,7 +211,7 @@ public:
         uint8_t scrap[512];
         for (uint32_t n = waiting(); n > 0; n = waiting()) {
             size_t got = 0;
-            if (_net.receive(_stream, scrap, std::min<size_t>(n, sizeof scrap), got, false) != Result::Ok || !got)
+            if (_net.receive(_stream, scrap, std::min<size_t>(n, sizeof scrap), got, false) != Result::kOk || !got)
                 break;
         }
     }

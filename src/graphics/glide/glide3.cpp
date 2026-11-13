@@ -37,17 +37,17 @@ int paramBytes(uint32_t param) {
 
 } // namespace
 
-Glide3::Glide3(Board board) : board_(board), core_(board) {
-    core_.logName = "glide3x";
+Glide3::Glide3(Board board) : _board(board), _core(board) {
+    _core.logName = "glide3x";
     // Glide 3's defaults: window coordinates, nothing in the layout.
-    layout_.space = g3::kWindowCoords;
+    _layout.space = g3::kWindowCoords;
 }
 
 // --- Start-up, the board ------------------------------------------------------------
 
 uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
     std::vector<int32_t> v;
-    const Pipeline &p = core_.pipeline();
+    const Pipeline &p = _core.pipeline();
     const PixelStats &s = p.stats;
     switch (pname) {
     case g3::kBitsDepth:
@@ -60,7 +60,7 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
         // "If gamma correction is not available, grGet will fail, and the
         // params array will be unmodified" (Reference Manual, grGet): the
         // Voodoo Rush's (Board::gammaTableEntries 0).
-        if (board_.gammaTableEntries == 0)
+        if (_board.gammaTableEntries == 0)
             return 0;
         v = {8};
         break;
@@ -68,13 +68,13 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
         v = {0, 0};
         break; // the FIFO empty: nothing waits
     case g3::kFogTableEntries:
-        v = {board_.fogTableEntries};
+        v = {_board.fogTableEntries};
         break;
     case g3::kGammaTableEntries:
         // "Returns FXFALSE if it is not possible to manipulate gamma".
-        if (board_.gammaTableEntries == 0)
+        if (_board.gammaTableEntries == 0)
             return 0;
-        v = {board_.gammaTableEntries};
+        v = {_board.gammaTableEntries};
         break;
     case g3::kGlideStateSize: // the state buffer holds a number (glideGetState)
     case g3::kGlideVertexLayoutSize:
@@ -86,7 +86,7 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
     // "FXTRUE if LFB writes can go through the 3D pixel pipe": not on the
     // Voodoo Rush (Board::lfbPixelPipeline).
     case g3::kLfbPixelPipe:
-        v = {board_.lfbPixelPipeline ? 1 : 0};
+        v = {_board.lfbPixelPipeline ? 1 : 0};
         break;
     case g3::kMaxTextureSize:
         v = {256};
@@ -99,13 +99,13 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
     // The Voodoo3 and Banshee: "The total number of bytes if a UMA
     // configuration", FB and TMU then 0.
     case g3::kMemoryFb:
-        v = {board_.uma ? 0 : int32_t(board_.frameBufferMemory)};
+        v = {_board.uma ? 0 : int32_t(_board.frameBufferMemory)};
         break;
     case g3::kMemoryTmu:
-        v = {board_.uma ? 0 : int32_t(board_.tmuMemory)};
+        v = {_board.uma ? 0 : int32_t(_board.tmuMemory)};
         break;
     case g3::kMemoryUma:
-        v = {board_.uma ? int32_t(board_.tmuMemory) : 0};
+        v = {_board.uma ? int32_t(_board.tmuMemory) : 0};
         break;
     case g3::kNumBoards:
         v = {1};
@@ -114,22 +114,22 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
         v = {0};
         break;
     case g3::kNumFb:
-        v = {board_.sli ? 2 : 1};
+        v = {_board.sli ? 2 : 1};
         break;
     case g3::kNumSwapHistoryBuffer:
         v = {0};
         break;
     case g3::kNumTmu:
-        v = {board_.tmus};
+        v = {_board.tmus};
         break;
     case g3::kPendingBufferSwaps:
         v = {0};
         break;
     case g3::kRevisionFb:
-        v = {board_.fbiRevision};
+        v = {_board.fbiRevision};
         break;
     case g3::kRevisionTmu:
-        v = {board_.tmuRevision};
+        v = {_board.tmuRevision};
         break;
     case g3::kStatsLines:
         v = {0};
@@ -162,13 +162,13 @@ uint32_t Glide3::get(uint32_t pname, uint32_t bytes, int32_t *out) {
         v = {0};
         break;
     case g3::kTextureAlign:
-        v = {board_.textureAlign};
+        v = {_board.textureAlign};
         break;
     case g3::kVideoPosition:
-        v = {int32_t(core_.sstVideoLine()), 0};
+        v = {int32_t(_core.sstVideoLine()), 0};
         break;
     case g3::kViewport:
-        v = {viewport_[0], viewport_[1], viewport_[2], viewport_[3]};
+        v = {_viewport[0], _viewport[1], _viewport[2], _viewport[3]};
         break;
     case g3::kWdepthMinMax:
     case g3::kZdepthMinMax:
@@ -193,27 +193,27 @@ std::string Glide3::getString(uint32_t pname) const {
         // FOGCOORD aren't offered: no board here has texture chroma-range
         // or fog coordinate registers in its specification.
         std::string list;
-        if (board_.extensions & kExtChromaRange)
+        if (_board.extensions & kExtChromaRange)
             list += " CHROMARANGE";
-        if (board_.extensions & kExtTexMirror)
+        if (_board.extensions & kExtTexMirror)
             list += " TEXMIRROR";
-        if (board_.extensions & kExtPalette6666)
+        if (_board.extensions & kExtPalette6666)
             list += " PALETTE6666";
         return list.empty() ? " " : list.substr(1);
     }
     case g3::kHardware:
         // The names NFS III's Voodoo3 patch DLL tells boards apart by (its
         // strings at 0x600115f0-0x60011624, compared at 0x60001730).
-        switch (board_.generation) {
-        case Generation::Voodoo1:
+        switch (_board.generation) {
+        case Generation::kVoodoo1:
             return "Voodoo Graphics";
-        case Generation::VoodooRush:
+        case Generation::kVoodooRush:
             return "Voodoo Rush";
-        case Generation::Voodoo2:
+        case Generation::kVoodoo2:
             return "Voodoo2";
-        case Generation::Banshee:
+        case Generation::kBanshee:
             return "Voodoo Banshee";
-        case Generation::Voodoo3:
+        case Generation::kVoodoo3:
             return "Voodoo3 (tm)";
         }
         return "Voodoo2";
@@ -233,7 +233,7 @@ bool Glide3::offersProc(const std::string &name) const {
     // CHROMARANGE's two procedures (Reference Manual, grGetProcAddress);
     // TEXMIRROR and PALETTE6666 add modes, not procedures.
     if (name == "grChromaRangeModeExt" || name == "grChromaRangeExt")
-        return (board_.extensions & kExtChromaRange) != 0;
+        return (_board.extensions & kExtChromaRange) != 0;
     return false;
 }
 
@@ -243,7 +243,7 @@ std::vector<Glide3Resolution> Glide3::queryResolutions(const Glide3Resolution &q
     for (int res = 0; res < 24; ++res) {
         int w = 0;
         int h = 0;
-        if (!Glide2::resolutionSize(res, w, h) || w > board_.maxWidth || h > board_.maxHeight ||
+        if (!Glide2::resolutionSize(res, w, h) || w > _board.maxWidth || h > _board.maxHeight ||
             !matches(q.resolution, res))
             continue;
         // One refresh rate each (the board shows what it's asked for).
@@ -253,7 +253,7 @@ std::vector<Glide3Resolution> Glide3::queryResolutions(const Glide3Resolution &q
                 if (!matches(q.numColorBuffers, buffers) || !matches(q.numAuxBuffers, aux))
                     continue;
                 const uint64_t need = uint64_t(w) * uint64_t(h) * 2u * uint64_t(buffers + aux);
-                if (need > uint64_t(board_.frameBufferMemory) * (board_.sli ? 2u : 1u))
+                if (need > uint64_t(_board.frameBufferMemory) * (_board.sli ? 2u : 1u))
                     continue;
                 out.push_back({res, refresh, buffers, aux});
             }
@@ -263,59 +263,59 @@ std::vector<Glide3Resolution> Glide3::queryResolutions(const Glide3Resolution &q
 
 uint32_t Glide3::sstWinOpen(uint32_t hwnd, int resolution, int refresh, int colorFormat, int origin, int colorBuffers,
                             int auxBuffers) {
-    if (!core_.sstWinOpen(hwnd, resolution, refresh, colorFormat, origin, colorBuffers, auxBuffers))
+    if (!_core.sstWinOpen(hwnd, resolution, refresh, colorFormat, origin, colorBuffers, auxBuffers))
         return 0;
-    viewport_[0] = viewport_[1] = 0;
-    viewport_[2] = core_.pipeline().width();
-    viewport_[3] = core_.pipeline().height();
-    lastMode_ = 0xffffffffu;
-    mipmapAsked_.fill(kMipmapDisable);
-    context_ = context_ + 1 ? context_ + 1 : 1;
-    return context_;
+    _viewport[0] = _viewport[1] = 0;
+    _viewport[2] = _core.pipeline().width();
+    _viewport[3] = _core.pipeline().height();
+    _lastMode = 0xffffffffu;
+    _mipmapAsked.fill(kMipmapDisable);
+    _context = _context + 1 ? _context + 1 : 1;
+    return _context;
 }
 
 void Glide3::sstWinClose(uint32_t) {
-    core_.sstWinClose();
+    _core.sstWinClose();
 }
 
 bool Glide3::selectContext(uint32_t context) const {
-    return context && context == context_;
+    return context && context == _context;
 }
 
 void Glide3::enable(uint32_t mode) {
-    if (mode < enabled_.size())
-        enabled_[mode] = true;
+    if (mode < _enabled.size())
+        _enabled[mode] = true;
     if (mode == g3::kAllowMipmapDither)
         for (int i = 0; i < kMaxTmus; ++i)
-            texMipMapMode(i, mipmapAsked_[size_t(i)], lodBlend_[size_t(i)]);
+            texMipMapMode(i, _mipmapAsked[size_t(i)], _lodBlend[size_t(i)]);
     else if (mode == g3::kVideoSmoothing)
         notImplemented("grEnable(GR_VIDEO_SMOOTHING)", "the video filter isn't modelled");
 }
 
 void Glide3::disable(uint32_t mode) {
-    if (mode < enabled_.size())
-        enabled_[mode] = false;
+    if (mode < _enabled.size())
+        _enabled[mode] = false;
     if (mode == g3::kAllowMipmapDither)
         for (int i = 0; i < kMaxTmus; ++i)
-            texMipMapMode(i, mipmapAsked_[size_t(i)], lodBlend_[size_t(i)]);
+            texMipMapMode(i, _mipmapAsked[size_t(i)], _lodBlend[size_t(i)]);
 }
 
 // --- Vertices --------------------------------------------------------------------------
 
 void Glide3::coordinateSpace(uint32_t mode) {
-    layout_.space = mode;
+    _layout.space = mode;
 }
 
 void Glide3::viewport(int x, int y, int width, int height) {
-    viewport_[0] = x;
-    viewport_[1] = y;
-    viewport_[2] = width;
-    viewport_[3] = height;
+    _viewport[0] = x;
+    _viewport[1] = y;
+    _viewport[2] = width;
+    _viewport[3] = height;
 }
 
 void Glide3::depthRange(float nearValue, float farValue) {
-    depthNear_ = nearValue;
-    depthFar_ = farValue;
+    _depthNear = nearValue;
+    _depthFar = farValue;
 }
 
 void Glide3::vertexLayout(uint32_t param, int32_t offset, uint32_t mode) {
@@ -323,32 +323,32 @@ void Glide3::vertexLayout(uint32_t param, int32_t offset, uint32_t mode) {
         notImplemented("grVertexLayout " + std::to_string(param), "an unknown parameter");
         return;
     }
-    layout_.enabled[param] = mode == g3::kParamEnable;
-    if (layout_.enabled[param])
-        layout_.offset[param] = offset;
+    _layout.enabled[param] = mode == g3::kParamEnable;
+    if (_layout.enabled[param])
+        _layout.offset[param] = offset;
 }
 
 int Glide3::layoutMin() const {
     int lo = 0;
     for (uint32_t p = 0; p < kParams; ++p)
-        if (layout_.enabled[p])
-            lo = std::min(lo, layout_.offset[p]);
+        if (_layout.enabled[p])
+            lo = std::min(lo, _layout.offset[p]);
     return lo;
 }
 
 int Glide3::layoutMax() const {
     int hi = 0;
     for (uint32_t p = 0; p < kParams; ++p)
-        if (layout_.enabled[p])
-            hi = std::max(hi, layout_.offset[p] + paramBytes(p));
+        if (_layout.enabled[p])
+            hi = std::max(hi, _layout.offset[p] + paramBytes(p));
     return hi;
 }
 
 Vertex Glide3::readVertex(const uint8_t *at) {
-    const Layout &l = layout_;
+    const Layout &l = _layout;
     auto has = [&](uint32_t p) { return l.enabled[p]; };
     auto f = [&](uint32_t p, int k = 0) { return readFloat(at + l.offset[p] + 4 * k); };
-    Vertex &v = last_;
+    Vertex &v = _last;
     if (has(g3::kParamXy)) {
         v.x = f(g3::kParamXy);
         v.y = f(g3::kParamXy, 1);
@@ -410,7 +410,7 @@ Vertex Glide3::readVertex(const uint8_t *at) {
     }
     // Clip coordinates: kept as given here (clipVertex_), then clipped
     // and divided by w (project).
-    ClipVertex &c = clip_;
+    ClipVertex &c = _clip;
     c.window = false;
     c.v = v;
     c.x = v.x;
@@ -438,11 +438,11 @@ Vertex Glide3::project(const ClipVertex &c) const {
     const float xs = c.x * oow;
     const float ys = c.y * oow;
     Vertex out = c.v;
-    out.x = (xs + 1) * float(viewport_[2]) / 2 + float(viewport_[0]);
-    out.y = (ys + 1) * float(viewport_[3]) / 2 + float(viewport_[1]);
+    out.x = (xs + 1) * float(_viewport[2]) / 2 + float(_viewport[0]);
+    out.y = (ys + 1) * float(_viewport[3]) / 2 + float(_viewport[1]);
     if (c.hasZ) {
         const float zs = c.z * oow;
-        out.ooz = ((zs + 1) / 2 * (depthFar_ - depthNear_) + depthNear_) * 65535.0f;
+        out.ooz = ((zs + 1) / 2 * (_depthFar - _depthNear) + _depthNear) * 65535.0f;
     }
     out.oow = oow * c.q;
     for (int i = 0; i < kMaxTmus; ++i) {
@@ -530,7 +530,7 @@ void Glide3::clipTriangle(const ClipVertex &a, const ClipVertex &b, const ClipVe
         return;
     }
     if (insideVolume(a) && insideVolume(b) && insideVolume(c)) {
-        core_.triangle(project(a), project(b), project(c));
+        _core.triangle(project(a), project(b), project(c));
         return;
     }
     // Sutherland-Hodgman against each plane, w > 0 first.
@@ -558,7 +558,7 @@ void Glide3::clipTriangle(const ClipVertex &a, const ClipVertex &b, const ClipVe
     for (const ClipVertex &v : poly)
         out.push_back(project(v));
     for (size_t i = 1; i + 1 < out.size(); ++i)
-        core_.triangle(out[0], out[i], out[i + 1]);
+        _core.triangle(out[0], out[i], out[i + 1]);
 }
 
 void Glide3::clipAaPolygon(std::vector<ClipVertex> poly, std::vector<bool> edges) {
@@ -610,13 +610,13 @@ void Glide3::clipAaPolygon(std::vector<ClipVertex> poly, std::vector<bool> edges
     for (const ClipVertex &v : poly)
         out.push_back(project(v));
     if (out.size() == 3) {
-        core_.aaTriangle(out[0], out[1], out[2], edges[0], edges[1], edges[2]);
+        _core.aaTriangle(out[0], out[1], out[2], edges[0], edges[1], edges[2]);
         return;
     }
     std::unique_ptr<bool[]> flags(new bool[edges.size()]);
     for (size_t i = 0; i < edges.size(); ++i)
         flags[i] = edges[i];
-    core_.aaPolygon(int(out.size()), out.data(), flags.get());
+    _core.aaPolygon(int(out.size()), out.data(), flags.get());
 }
 
 void Glide3::clipLine(const ClipVertex &a, const ClipVertex &b, bool aa) {
@@ -640,18 +640,18 @@ void Glide3::clipLine(const ClipVertex &a, const ClipVertex &b, bool aa) {
     p = lerp(a, b, t0);
     q = lerp(a, b, t1);
     if (aa)
-        core_.aaLine(project(p), project(q));
+        _core.aaLine(project(p), project(q));
     else
-        core_.line(project(p), project(q));
+        _core.line(project(p), project(q));
 }
 
 void Glide3::clipPoint(const ClipVertex &a, bool aa) {
     if (!insideVolume(a))
         return;
     if (aa)
-        core_.aaPoint(project(a));
+        _core.aaPoint(project(a));
     else
-        core_.point(project(a));
+        _core.point(project(a));
 }
 
 // --- Drawing ---------------------------------------------------------------------------
@@ -664,8 +664,8 @@ constexpr uint32_t kOwnStw = kStwWDiffTmu0 | kStwStDiffTmu1 | kStwWDiffTmu1 | kS
 
 Glide3::ClipVertex Glide3::readClip(const uint8_t *at) {
     const Vertex v = readVertex(at);
-    if (layout_.space == g3::kClipCoords)
-        return clip_;
+    if (_layout.space == g3::kClipCoords)
+        return _clip;
     ClipVertex c; // window coordinates: drawn as they are
     c.window = true;
     c.v = v;
@@ -678,7 +678,7 @@ void Glide3::drawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c) 
     const ClipVertex vb = readClip(b);
     const ClipVertex vc = readClip(c);
     clipTriangle(va, vb, vc, enabled(g3::kAaOrdered));
-    lastMode_ = 0xffffffffu;
+    _lastMode = 0xffffffffu;
 }
 
 void Glide3::aaDrawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c, bool ab, bool bc, bool ca) {
@@ -687,7 +687,7 @@ void Glide3::aaDrawTriangle(const uint8_t *a, const uint8_t *b, const uint8_t *c
     const ClipVertex vb = readClip(b);
     const ClipVertex vc = readClip(c);
     clipAaPolygon({va, vb, vc}, {ab, bc, ca});
-    lastMode_ = 0xffffffffu;
+    _lastMode = 0xffffffffu;
 }
 
 void Glide3::drawLine(const uint8_t *a, const uint8_t *b) {
@@ -695,13 +695,13 @@ void Glide3::drawLine(const uint8_t *a, const uint8_t *b) {
     const ClipVertex va = readClip(a);
     const ClipVertex vb = readClip(b);
     clipLine(va, vb, enabled(g3::kAaOrdered));
-    lastMode_ = 0xffffffffu;
+    _lastMode = 0xffffffffu;
 }
 
 void Glide3::drawPoint(const uint8_t *a) {
     pipeline().state().stwHints = kOwnStw;
     clipPoint(readClip(a), enabled(g3::kAaOrdered));
-    lastMode_ = 0xffffffffu;
+    _lastMode = 0xffffffffu;
 }
 
 // With GR_AA_ORDERED on, triangles, lines, points and polygons are
@@ -750,14 +750,14 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t *> &
     case g3::kTriangleFanContinue: {
         // A continued fan keeps its first vertex and the last one drawn.
         std::vector<ClipVertex> all;
-        if (mode == g3::kTriangleFanContinue && lastMode_ == g3::kTriangleFan)
-            all = strip_;
+        if (mode == g3::kTriangleFanContinue && _lastMode == g3::kTriangleFan)
+            all = _strip;
         all.insert(all.end(), v.begin(), v.end());
         for (size_t i = 1; i + 1 < all.size(); ++i)
             clipTriangle(all[0], all[i], all[i + 1], false);
         if (all.size() >= 2)
-            strip_ = {all.front(), all.back()};
-        lastMode_ = g3::kTriangleFan;
+            _strip = {all.front(), all.back()};
+        _lastMode = g3::kTriangleFan;
         return;
     }
     case g3::kTriangleStrip:
@@ -767,9 +767,9 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t *> &
         // with the parity it had.
         std::vector<ClipVertex> all;
         size_t parity = 0;
-        if (mode == g3::kTriangleStripContinue && lastMode_ == g3::kTriangleStrip && strip_.size() == 2) {
-            all = strip_;
-            parity = stripParity_;
+        if (mode == g3::kTriangleStripContinue && _lastMode == g3::kTriangleStrip && _strip.size() == 2) {
+            all = _strip;
+            parity = _stripParity;
         }
         all.insert(all.end(), v.begin(), v.end());
         for (size_t i = 0; i + 2 < all.size(); ++i) {
@@ -779,17 +779,17 @@ void Glide3::drawVertexArray(uint32_t mode, const std::vector<const uint8_t *> &
                 clipTriangle(all[i], all[i + 1], all[i + 2], false);
         }
         if (all.size() >= 2) {
-            stripParity_ = (parity + all.size() - 2) & 1;
-            strip_ = {all[all.size() - 2], all.back()};
+            _stripParity = (parity + all.size() - 2) & 1;
+            _strip = {all[all.size() - 2], all.back()};
         }
-        lastMode_ = g3::kTriangleStrip;
+        _lastMode = g3::kTriangleStrip;
         return;
     }
     default:
         notImplemented("grDrawVertexArray mode " + std::to_string(mode), "an unknown mode");
         break;
     }
-    lastMode_ = 0xffffffffu;
+    _lastMode = 0xffffffffu;
 }
 
 // --- State ------------------------------------------------------------------------------
@@ -798,20 +798,20 @@ void Glide3::fogMode(int mode) {
     const int extra = mode & (kFogMult2 | kFogAdd2);
     switch (mode & 0xff) {
     case 0:
-        core_.fogMode(kFogDisable);
+        _core.fogMode(kFogDisable);
         return;
     case g3::kFogWithTableOnQ:
-        core_.fogMode(kFogWithTable | extra);
+        _core.fogMode(kFogWithTable | extra);
         return;
     case g3::kFogWithIteratedZ:
-        core_.fogMode(kFogWithIteratedZ | extra);
+        _core.fogMode(kFogWithIteratedZ | extra);
         return;
     case g3::kFogWithIteratedAlphaExt:
-        core_.fogMode(kFogWithIteratedAlpha | extra);
+        _core.fogMode(kFogWithIteratedAlpha | extra);
         return;
     case g3::kFogWithTableOnFogCoordExt:
         notImplemented("grFogMode(GR_FOG_WITH_TABLE_ON_FOGCOORD_EXT)", "the extension isn't offered: the table on q");
-        core_.fogMode(kFogWithTable | extra);
+        _core.fogMode(kFogWithTable | extra);
         return;
     default:
         notImplemented("grFogMode " + std::to_string(mode), "an unknown mode");
@@ -820,9 +820,9 @@ void Glide3::fogMode(int mode) {
 }
 
 void Glide3::fogTable(const uint8_t *table) {
-    const int n = std::max(board_.fogTableEntries, 1);
+    const int n = std::max(_board.fogTableEntries, 1);
     if (n == 64) {
-        core_.fogTable(table);
+        _core.fogTable(table);
         return;
     }
     // A table of another size: entry i of the core's 64 from the board's
@@ -831,7 +831,7 @@ void Glide3::fogTable(const uint8_t *table) {
     uint8_t t[64];
     for (int i = 0; i < 64; ++i)
         t[i] = table[std::min(n - 1, i * n / 64)];
-    core_.fogTable(t);
+    _core.fogTable(t);
 }
 
 void Glide3::gammaCorrectionRgb(float red, float green, float blue) {
@@ -845,13 +845,13 @@ void Glide3::gammaCorrectionRgb(float red, float green, float blue) {
 void Glide3::texMipMapMode(int tmu, int mode, bool lodBlend) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    mipmapAsked_[size_t(tmu)] = mode;
-    lodBlend_[size_t(tmu)] = lodBlend;
+    _mipmapAsked[size_t(tmu)] = mode;
+    _lodBlend[size_t(tmu)] = lodBlend;
     // GR_MIPMAP_NEAREST_DITHER only once grEnable(GR_ALLOW_MIPMAP_DITHER)
     // allows it (Reference Manual, grTexMipMapMode): else nearest.
     if (mode == kMipmapNearestDither && !enabled(g3::kAllowMipmapDither))
         mode = kMipmapNearest;
-    core_.texMipMapMode(tmu, mode, lodBlend);
+    _core.texMipMapMode(tmu, mode, lodBlend);
 }
 
 // --- Textures -------------------------------------------------------------------------
@@ -868,11 +868,11 @@ Glide2TexInfo Glide3::toGlide2(const Glide3TexInfo &info) {
 
 uint32_t Glide3::texCalcMemRequired(int smallLodLog2, int largeLodLog2, int aspectLog2, int format) const {
     const Glide2TexInfo t = toGlide2({smallLodLog2, largeLodLog2, aspectLog2, format});
-    return const_cast<Glide2 &>(core_).texCalcMemRequired(t.smallLod, t.largeLod, t.aspectRatio, t.format);
+    return const_cast<Glide2 &>(_core).texCalcMemRequired(t.smallLod, t.largeLod, t.aspectRatio, t.format);
 }
 
 uint32_t Glide3::texTextureMemRequired(int evenOdd, const Glide3TexInfo &info) const {
-    return const_cast<Glide2 &>(core_).texTextureMemRequired(evenOdd, toGlide2(info));
+    return const_cast<Glide2 &>(_core).texTextureMemRequired(evenOdd, toGlide2(info));
 }
 
 uint32_t Glide3::mipmapDataBytes(const Glide3TexInfo &info) {
@@ -884,16 +884,16 @@ uint32_t Glide3::levelDataBytes(int lodLog2, int aspectLog2, int format) {
 }
 
 void Glide3::texSource(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo &info) {
-    core_.texSource(tmu, start, evenOdd, toGlide2(info));
+    _core.texSource(tmu, start, evenOdd, toGlide2(info));
 }
 
 void Glide3::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide3TexInfo &info, const uint8_t *data) {
-    core_.texDownloadMipMap(tmu, start, evenOdd, toGlide2(info), data);
+    _core.texDownloadMipMap(tmu, start, evenOdd, toGlide2(info), data);
 }
 
 void Glide3::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLodLog2, int largeLodLog2, int aspectLog2,
                                            int format, int evenOdd, const uint8_t *data, int firstRow, int lastRow) {
-    core_.texDownloadMipMapLevelPartial(tmu, start, 8 - std::clamp(thisLodLog2, 0, 8),
+    _core.texDownloadMipMapLevelPartial(tmu, start, 8 - std::clamp(thisLodLog2, 0, 8),
                                         8 - std::clamp(largeLodLog2, 0, 8), 3 - std::clamp(aspectLog2, -3, 3), format,
                                         evenOdd, data, firstRow, lastRow);
 }
@@ -901,40 +901,40 @@ void Glide3::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLodL
 void Glide3::texDownloadTablePartial(int type, const uint8_t *data, int first, int last) {
     // GR_TEXTABLE_PALETTE_6666_EXT too, where the board has it (the core
     // says if not).
-    for (int i = 0; i < board_.tmus; ++i)
-        core_.texDownloadTablePartial(i, type, data, first, last);
+    for (int i = 0; i < _board.tmus; ++i)
+        _core.texDownloadTablePartial(i, type, data, first, last);
 }
 
 void Glide3::texNCCTable(int table) {
     for (int i = 0; i < kMaxTmus; ++i)
-        core_.texNCCTable(i, table);
+        _core.texNCCTable(i, table);
 }
 
 void Glide3::texMultibaseAddress(int tmu, int range, uint32_t start) {
     // Glide 3 numbers the ranges from the small end.
     static constexpr int kGlide2Range[4] = {3, 2, 1, 0};
     if (range >= 0 && range < 4)
-        core_.texMultibaseAddress(tmu, kGlide2Range[range], start, kLevelsBoth, {});
+        _core.texMultibaseAddress(tmu, kGlide2Range[range], start, kLevelsBoth, {});
 }
 
 uint32_t Glide3::glideGetState() {
-    const uint32_t token = core_.glideGetState();
-    saved_[token] = {layout_, enabled_};
-    while (saved_.size() > 64)
-        saved_.erase(saved_.begin());
+    const uint32_t token = _core.glideGetState();
+    _saved[token] = {_layout, _enabled};
+    while (_saved.size() > 64)
+        _saved.erase(_saved.begin());
     return token ^ kStateMagic;
 }
 
 void Glide3::glideSetState(uint32_t token) {
     const uint32_t t = token ^ kStateMagic;
-    auto it = saved_.find(t);
-    if (it == saved_.end()) {
+    auto it = _saved.find(t);
+    if (it == _saved.end()) {
         notImplemented("grGlideSetState", "a state buffer Reluva didn't fill: ignored");
         return;
     }
-    core_.glideSetState(t);
-    layout_ = it->second.layout;
-    enabled_ = it->second.enabled;
+    _core.glideSetState(t);
+    _layout = it->second.layout;
+    _enabled = it->second.enabled;
 }
 
 } // namespace reluva::glide

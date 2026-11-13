@@ -37,35 +37,35 @@ void dominanceOf(const double *p, double &x, double &y, double &m) {
 
 } // namespace
 
-ProLogicDecoder::ProLogicDecoder(int rate, const ProLogicOptions &options) : options_(options), rate_(rate) {
-    fastCoef_ = coefficient(options_.fastMs, rate_);
-    slowCoef_ = coefficient(options_.slowMs, rate_);
+ProLogicDecoder::ProLogicDecoder(int rate, const ProLogicOptions &options) : _options(options), _rate(rate) {
+    _fastCoef = coefficient(_options.fastMs, _rate);
+    _slowCoef = coefficient(_options.slowMs, _rate);
     // A second-order Butterworth low-pass (the bilinear transform's usual
     // form, Q = 1/sqrt 2).
-    const double fc = std::min(options_.surroundCutoffHz, 0.45 * rate_);
+    const double fc = std::min(_options.surroundCutoffHz, 0.45 * _rate);
     if (fc > 0) {
-        const double w = 2 * kPi * fc / rate_;
+        const double w = 2 * kPi * fc / _rate;
         const double cw = std::cos(w);
         const double alpha = std::sin(w) / (2 * kHalfRoot2);
         const double a0 = 1 + alpha;
-        b0_ = (1 - cw) / 2 / a0;
-        b1_ = (1 - cw) / a0;
-        b2_ = b0_;
-        a1_ = -2 * cw / a0;
-        a2_ = (1 - alpha) / a0;
+        _b0 = (1 - cw) / 2 / a0;
+        _b1 = (1 - cw) / a0;
+        _b2 = _b0;
+        _a1 = -2 * cw / a0;
+        _a2 = (1 - alpha) / a0;
     }
-    delay_.assign(size_t(std::max(1L, std::lround(options_.surroundDelayMs * rate_ / 1000.0) + 1)), 0.0f);
+    _delay.assign(size_t(std::max(1L, std::lround(_options.surroundDelayMs * _rate / 1000.0) + 1)), 0.0f);
     reset();
 }
 
 void ProLogicDecoder::reset() {
-    std::fill(std::begin(fast_), std::end(fast_), 0.0);
-    std::fill(std::begin(slow_), std::end(slow_), 0.0);
-    direction_ = 45;
-    dominance_ = steering_ = 0;
-    x1_ = x2_ = y1_ = y2_ = 0;
-    std::fill(delay_.begin(), delay_.end(), 0.0f);
-    delayPos_ = 0;
+    std::fill(std::begin(_fast), std::end(_fast), 0.0);
+    std::fill(std::begin(_slow), std::end(_slow), 0.0);
+    _direction = 45;
+    _dominance = _steering = 0;
+    _x1 = _x2 = _y1 = _y2 = 0;
+    std::fill(_delay.begin(), _delay.end(), 0.0f);
+    _delayPos = 0;
 }
 
 void ProLogicDecoder::process(const float *in, float *out, int frames) {
@@ -85,31 +85,31 @@ void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
     for (int s = 0; s < 4; ++s)
         o[s] = kSpeaker[s][0] * lt + kSpeaker[s][1] * rt;
 
-    if (options_.active) {
+    if (_options.active) {
         const double power[4] = {lt * lt, rt * rt, (lt + rt) * (lt + rt), (lt - rt) * (lt - rt)};
         double x;
         double y;
         double m;
         for (int k = 0; k < 4; ++k)
-            fast_[k] += fastCoef_ * (power[k] - fast_[k]);
-        dominanceOf(fast_, x, y, m);
+            _fast[k] += _fastCoef * (power[k] - _fast[k]);
+        dominanceOf(_fast, x, y, m);
         // While the fast envelopes see one direction dominate, the slow ones
         // follow at nearly their pace.
-        const double c = slowCoef_ + (fastCoef_ - slowCoef_) * m * m;
+        const double c = _slowCoef + (_fastCoef - _slowCoef) * m * m;
         for (int k = 0; k < 4; ++k)
-            slow_[k] += c * (power[k] - slow_[k]);
-        dominanceOf(slow_, x, y, m);
-        dominance_ = m;
-        const double span = std::max(1e-6, options_.fullDominance - options_.minDominance);
-        const double g = std::clamp((m - options_.minDominance) / span, 0.0, 1.0);
-        steering_ = g;
+            _slow[k] += c * (power[k] - _slow[k]);
+        dominanceOf(_slow, x, y, m);
+        _dominance = m;
+        const double span = std::max(1e-6, _options.fullDominance - _options.minDominance);
+        const double g = std::clamp((m - _options.minDominance) / span, 0.0, 1.0);
+        _steering = g;
         if (g > 0) {
             // The direction on the circle, 0..180 degrees: L 0, C 45, R 90,
             // S 135, L again at 180 (the same place with its sign turned).
             double theta = std::atan2(y, x) / 2;
             if (theta < 0)
                 theta += kPi;
-            direction_ = theta * 180 / kPi;
+            _direction = theta * 180 / kPi;
             const double vx = std::cos(theta);
             const double vy = std::sin(theta);
             const double d = vx * lt + vy * rt; // the dominant sound
@@ -129,18 +129,18 @@ void ProLogicDecoder::frame(float ltf, float rtf, float *out) {
     }
 
     // The surround: low-passed, then delayed.
-    const double sx = o[S];
-    const double sy = b0_ * sx + b1_ * x1_ + b2_ * x2_ - a1_ * y1_ - a2_ * y2_;
-    x2_ = x1_;
-    x1_ = sx;
-    y2_ = y1_;
-    y1_ = std::abs(sy) < 1e-30 ? 0.0 : sy;
-    delay_[delayPos_] = float(sy);
-    delayPos_ = (delayPos_ + 1) % delay_.size();
-    out[L] = float(o[L]);
-    out[C] = float(o[C]);
-    out[R] = float(o[R]);
-    out[S] = delay_[delayPos_]; // the oldest: delay_.size() - 1 frames ago
+    const double sx = o[kS];
+    const double sy = _b0 * sx + _b1 * _x1 + _b2 * _x2 - _a1 * _y1 - _a2 * _y2;
+    _x2 = _x1;
+    _x1 = sx;
+    _y2 = _y1;
+    _y1 = std::abs(sy) < 1e-30 ? 0.0 : sy;
+    _delay[_delayPos] = float(sy);
+    _delayPos = (_delayPos + 1) % _delay.size();
+    out[kL] = float(o[kL]);
+    out[kC] = float(o[kC]);
+    out[kR] = float(o[kR]);
+    out[kS] = _delay[_delayPos]; // the oldest: delay_.size() - 1 frames ago
 }
 
 void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out) {
@@ -151,10 +151,10 @@ void layOutChannels(const float *lcrs, int frames, int channels, int16_t *out) {
         const float *f = lcrs + 4 * i;
         int16_t *o = out + size_t(i) * size_t(channels);
         std::fill(o, o + channels, int16_t(0));
-        const double l = f[ProLogicDecoder::L];
-        const double c = f[ProLogicDecoder::C];
-        const double r = f[ProLogicDecoder::R];
-        const double s = f[ProLogicDecoder::S];
+        const double l = f[ProLogicDecoder::kL];
+        const double c = f[ProLogicDecoder::kC];
+        const double r = f[ProLogicDecoder::kR];
+        const double s = f[ProLogicDecoder::kS];
         if (channels == 2) {
             o[0] = put(l + kHalfRoot2 * c + 0.5 * s);
             o[1] = put(r + kHalfRoot2 * c + 0.5 * s);

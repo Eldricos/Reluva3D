@@ -46,7 +46,7 @@ enum EventType {
 enum { kKbdCtrl = 1 << 0, kKbdAlt = 1 << 1, kKbdShift = 1 << 2 };
 
 struct KeyState {
-    uint32_t keycode = key::Unknown; // common/events.h codes
+    uint32_t keycode = key::kUnknown; // common/events.h codes
     // The character typed, while text input is on (Platform::setTextInput),
     // for printable keys; Backspace, Tab, Return and Escape always.
     uint16_t ascii = 0;

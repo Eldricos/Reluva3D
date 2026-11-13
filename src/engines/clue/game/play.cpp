@@ -1289,46 +1289,46 @@ void Play::openLoser() {
 // ---- Clicks -------------------------------------------------------------------
 
 void Play::handleEvent(const Event &ev) {
-    if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
+    if (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) {
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
     }
-    if (ev.type == EventType::KeyDown) {
-        const int step = (ev.mods & keymod::Shift) ? 128 : 32;
-        if (ev.key == key::Left)
+    if (ev.type == EventType::kKeyDown) {
+        const int step = (ev.mods & keymod::kShift) ? 128 : 32;
+        if (ev.key == key::kLeft)
             _camX -= step;
-        else if (ev.key == key::Right)
+        else if (ev.key == key::kRight)
             _camX += step;
-        else if (ev.key == key::Up)
+        else if (ev.key == key::kUp)
             _camY -= step;
-        else if (ev.key == key::Down)
+        else if (ev.key == key::kDown)
             _camY += step;
     }
     // Typing a note.
     if (_editing >= 0 && _panelOwner >= 0) {
         std::string &text = _notes[size_t(_panelOwner)][size_t(_editing)].text;
-        if (ev.type == EventType::TextInput) {
+        if (ev.type == EventType::kTextInput) {
             text += typedText(ev.text);
             if (text.size() > 40)
                 text.resize(40);
             return;
         }
-        if (ev.type == EventType::KeyDown && ev.key == key::Backspace) {
+        if (ev.type == EventType::kKeyDown && ev.key == key::kBackspace) {
             if (!text.empty())
                 text.pop_back();
             return;
         }
-        if (ev.type == EventType::KeyDown && (ev.key == key::Return || ev.key == key::Escape)) {
+        if (ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kEscape)) {
             editNote(-1);
             return;
         }
-        if (ev.type == EventType::MouseUp &&
+        if (ev.type == EventType::kMouseUp &&
             !(ev.mouseX >= kLeftX && ev.mouseX < kLeftX + 202 && ev.mouseY >= kLeftY && ev.mouseY < kLeftY + 408))
             editNote(-1);
     }
     // A window takes the clicks while it is open.
     if (_window != Window::kNone && _dialog) {
-        if (_window == Window::kChoose && _choosePage == 3 && ev.type == EventType::MouseUp) {
+        if (_window == Window::kChoose && _choosePage == 3 && ev.type == EventType::kMouseUp) {
             // The summary's pictures: click one to choose it again.
             const int x = ev.mouseX - kRightX;
             const int y = ev.mouseY - kRightY;
@@ -1375,15 +1375,15 @@ void Play::handleEvent(const Event &ev) {
         if (_window != Window::kNone)
             return;
     }
-    if (ev.type == EventType::MouseMove && ev.mouseY < kBarTop &&
+    if (ev.type == EventType::kMouseMove && ev.mouseY < kBarTop &&
         !(_panel != Panel::kNone && ev.mouseX >= kLeftX && ev.mouseX < kLeftX + 202 && ev.mouseY >= kLeftY &&
           ev.mouseY < kLeftY + 408))
         reactAt(ev.mouseX, ev.mouseY, true);
-    if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         _pressedAction = actionAt(ev.mouseX, ev.mouseY);
         return;
     }
-    if (ev.type != EventType::MouseUp || ev.button != MouseButton::Left)
+    if (ev.type != EventType::kMouseUp || ev.button != MouseButton::kLeft)
         return;
     const int pressed = _pressedAction;
     _pressedAction = -1;
@@ -1561,7 +1561,7 @@ void Play::updateAmbience() {
                 _gust = audio::kNoSound;
                 if (w.gust > 0)
                     if (const auto loop = loadSound(kGust[w.gust]))
-                        _gust = _mixer->play(loop, audio::SoundType::Effects, kClueSoundVolume, 0, true);
+                        _gust = _mixer->play(loop, audio::SoundType::kEffects, kClueSoundVolume, 0, true);
             }
             if (next == 5)
                 sound(kBigThunder[_ambientRng() % 2]);
@@ -1615,7 +1615,7 @@ void Play::updateAmbience() {
         const int p = (pan - 64) * audio::kMaxPan / 63;
         if (h == audio::kNoSound || !_mixer->isPlaying(h)) {
             if (const auto loop = loadSound(kAmbientSound[k]))
-                h = _mixer->play(loop, audio::SoundType::Effects, v, p, true);
+                h = _mixer->play(loop, audio::SoundType::kEffects, v, p, true);
         } else {
             _mixer->setVolume(h, v);
             _mixer->setPan(h, p);
@@ -1883,9 +1883,9 @@ void Play::sound(const std::string &file, bool voice) {
     if (voice) {
         if (_voice != audio::kNoSound)
             _mixer->stop(_voice);
-        _voice = _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume); // through Miles, as the sounds
+        _voice = _mixer->play(s, audio::SoundType::kEffects, kClueSoundVolume); // through Miles, as the sounds
     } else
-        _mixer->play(s, audio::SoundType::Effects, kClueSoundVolume);
+        _mixer->play(s, audio::SoundType::kEffects, kClueSoundVolume);
 }
 
 void Play::startVideo(const std::string &file) {
@@ -1897,7 +1897,7 @@ void Play::startVideo(const std::string &file) {
     if (_mixer && player->hasAudio()) {
         auto s = std::make_shared<audio::Sound>();
         if (!player->audio(*s))
-            _videoSound = _mixer->play(s, audio::SoundType::Speech);
+            _videoSound = _mixer->play(s, audio::SoundType::kSpeech);
     }
     _video = std::move(player);
     _videoStart = _now;

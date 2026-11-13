@@ -23,11 +23,11 @@ constexpr uint32_t kStateMagic = 0x52474c53; // "SLGR": a GrState Reluva filled
 
 } // namespace
 
-Glide2::Glide2(Board board) : board_(board), pipeline_(board) {
+Glide2::Glide2(Board board) : _board(board), _pipeline(board) {
 }
 
 void Glide2::notImplemented(const std::string &function, const std::string &what) {
-    if (noted_.insert(function).second && log)
+    if (_noted.insert(function).second && log)
         log(logName + ": " + function + ": " + what);
 }
 
@@ -35,8 +35,8 @@ void Glide2::glideInit() {
 }
 
 void Glide2::glideShutdown() {
-    if (pipeline_.isOpen())
-        pipeline_.close();
+    if (_pipeline.isOpen())
+        _pipeline.close();
 }
 
 std::string Glide2::glideGetVersion() const {
@@ -52,27 +52,27 @@ bool Glide2::sstQueryBoards(Glide2HwConfig &out) const {
 
 bool Glide2::sstQueryHardware(Glide2HwConfig &out) const {
     out.numSst = 1;
-    switch (board_.generation) {
-    case Generation::Voodoo1:
+    switch (_board.generation) {
+    case Generation::kVoodoo1:
         out.type = 0;
         break;
-    case Generation::VoodooRush:
+    case Generation::kVoodooRush:
         out.type = 1;
         break;
-    case Generation::Voodoo2:
+    case Generation::kVoodoo2:
         out.type = 3;
         break;
     default:
         out.type = 4;
         break; // GR_SSTTYPE_Banshee
     }
-    out.fbRamMb = int(board_.frameBufferMemory >> 20);
-    out.fbiRev = board_.fbiRevision;
-    out.nTexelfx = board_.tmus;
-    out.sliDetect = board_.sli;
+    out.fbRamMb = int(_board.frameBufferMemory >> 20);
+    out.fbiRev = _board.fbiRevision;
+    out.nTexelfx = _board.tmus;
+    out.sliDetect = _board.sli;
     for (int i = 0; i < 2; ++i) {
-        out.tmuRev[i] = board_.tmuRevision;
-        out.tmuRamMb[i] = i < board_.tmus ? int(board_.tmuMemory >> 20) : 0;
+        out.tmuRev[i] = _board.tmuRevision;
+        out.tmuRamMb[i] = i < _board.tmus ? int(_board.tmuMemory >> 20) : 0;
     }
     return true;
 }
@@ -90,7 +90,7 @@ bool Glide2::resolutionSize(int resolution, int &width, int &height) {
 
 bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int origin, int colorBuffers,
                         int auxBuffers) {
-    if (pipeline_.isOpen())
+    if (_pipeline.isOpen())
         return false; // "If grSstWinOpen is called on an already open window, FXFALSE will be returned."
     int w = 0;
     int h = 0;
@@ -100,7 +100,7 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
     // buffers share the memory with the 2D desktop (Pipeline::fits; SST-96
     // specification, System Resolutions); a named resolution is full
     // screen, the whole memory the 3D buffers'.
-    const bool windowed = resolution == kResolutionNone && board_.windowed;
+    const bool windowed = resolution == kResolutionNone && _board.windowed;
     if (windowed) {
         w = 640;
         h = 480;
@@ -109,28 +109,28 @@ bool Glide2::sstWinOpen(uint32_t hwnd, int resolution, int, int colorFormat, int
     } else if (!resolutionSize(resolution, w, h)) {
         return false;
     }
-    if (!pipeline_.open(w, h, colorBuffers, auxBuffers, windowed))
+    if (!_pipeline.open(w, h, colorBuffers, auxBuffers, windowed))
         return false;
-    window_ = hwnd;
-    colorFormat_ = colorFormat & 3;
-    lfbColorFormat_ = -1;
-    lfbSwizzleBytes_ = lfbSwapWords_ = false;
-    pipeline_.state().originLowerLeft = origin == 1;
-    active_ = true;
+    _window = hwnd;
+    _colorFormat = colorFormat & 3;
+    _lfbColorFormat = -1;
+    _lfbSwizzleBytes = _lfbSwapWords = false;
+    _pipeline.state().originLowerLeft = origin == 1;
+    _active = true;
     return true;
 }
 
 void Glide2::sstWinClose() {
-    pipeline_.close();
+    _pipeline.close();
 }
 
 bool Glide2::sstControl(uint32_t code) {
     switch (code) {
     case kControlActivate:
-        active_ = true;
+        _active = true;
         return true;
     case kControlDeactivate:
-        active_ = false;
+        _active = false;
         return true;
     case kControlResize: {
         // "GR_CONTROL_RESIZE is ignored under DOS, SST-1, and SST-96 in
@@ -138,15 +138,15 @@ bool Glide2::sstControl(uint32_t code) {
         // resizes the back buffers and auxiliary buffers ... may fail if
         // there is not enough offscreen video memory to accommodate the
         // resized buffers" (Glide 2.4 Reference Manual, grSstControlMode).
-        if (!pipeline_.windowed())
+        if (!_pipeline.windowed())
             return true;
-        int w = pipeline_.width();
-        int h = pipeline_.height();
-        if (windowSize && !windowSize(window_, w, h))
+        int w = _pipeline.width();
+        int h = _pipeline.height();
+        if (windowSize && !windowSize(_window, w, h))
             return false;
-        if (w == pipeline_.width() && h == pipeline_.height())
+        if (w == _pipeline.width() && h == _pipeline.height())
             return true;
-        return pipeline_.resize(w, h);
+        return _pipeline.resize(w, h);
     }
     // "used to validate the location and clip region associated with the
     // front buffer when the user moves a window": nothing to move here.
@@ -158,10 +158,10 @@ bool Glide2::sstControl(uint32_t code) {
 }
 
 uint32_t Glide2::sstScreenWidth() const {
-    return uint32_t(pipeline_.width());
+    return uint32_t(_pipeline.width());
 }
 uint32_t Glide2::sstScreenHeight() const {
-    return uint32_t(pipeline_.height());
+    return uint32_t(_pipeline.height());
 }
 
 uint32_t Glide2::sstStatus() const {
@@ -174,15 +174,15 @@ uint32_t Glide2::sstStatus() const {
 bool Glide2::sstVRetraceOn() {
     // Alternates, so that a program waiting for the retrace to begin or to
     // end moves on.
-    return (retraceCalls_++ & 1) != 0;
+    return (_retraceCalls++ & 1) != 0;
 }
 
 uint32_t Glide2::sstVideoLine() {
-    return (retraceCalls_++ * 37) % uint32_t(std::max(pipeline_.height(), 1));
+    return (_retraceCalls++ * 37) % uint32_t(std::max(_pipeline.height(), 1));
 }
 
 void Glide2::sstOrigin(int origin) {
-    pipeline_.state().originLowerLeft = origin == 1;
+    _pipeline.state().originLowerLeft = origin == 1;
 }
 
 uint32_t Glide2::toArgb(uint32_t c, int format) {
@@ -202,7 +202,7 @@ Vertex Glide2::convert(const Glide2Vertex &v) const {
     Vertex o;
     o.x = v.x;
     o.y = v.y;
-    if (board_.generation == Generation::Voodoo1 || board_.generation == Generation::VoodooRush) {
+    if (_board.generation == Generation::kVoodoo1 || _board.generation == Generation::kVoodooRush) {
         // A snapped coordinate (Programming Guide, Floating Point Vertex
         // Snapping: x + 3 << 18, a float whose last bit is 1/16) passed
         // without taking the snapper off again, as NFS III's voodooa.dll
@@ -238,17 +238,17 @@ Vertex Glide2::convert(const Glide2Vertex &v) const {
 // --- Drawing -------------------------------------------------------------------
 
 void Glide2::drawTriangle(const Glide2Vertex &a, const Glide2Vertex &b, const Glide2Vertex &c) {
-    pipeline_.triangle(convert(a), convert(b), convert(c));
+    _pipeline.triangle(convert(a), convert(b), convert(c));
     drawn();
 }
 
 void Glide2::drawLine(const Glide2Vertex &a, const Glide2Vertex &b) {
-    pipeline_.line(convert(a), convert(b));
+    _pipeline.line(convert(a), convert(b));
     drawn();
 }
 
 void Glide2::drawPoint(const Glide2Vertex &a) {
-    pipeline_.point(convert(a));
+    _pipeline.point(convert(a));
     drawn();
 }
 
@@ -277,17 +277,17 @@ void Glide2::aaDrawPolygon(int count, const Glide2Vertex *v) {
 }
 
 void Glide2::aaTriangle(const Vertex &a, const Vertex &b, const Vertex &c, bool ab, bool bc, bool ca) {
-    pipeline_.aaTriangle(a, b, c, ab, bc, ca);
+    _pipeline.aaTriangle(a, b, c, ab, bc, ca);
     drawn();
 }
 
 void Glide2::aaLine(const Vertex &a, const Vertex &b) {
-    pipeline_.aaLine(a, b);
+    _pipeline.aaLine(a, b);
     drawn();
 }
 
 void Glide2::aaPoint(const Vertex &a) {
-    pipeline_.aaPoint(a);
+    _pipeline.aaPoint(a);
     drawn();
 }
 
@@ -300,53 +300,53 @@ void Glide2::aaPolygon(int count, const Vertex *v, const bool *edges) {
 }
 
 void Glide2::triangle(const Vertex &a, const Vertex &b, const Vertex &c) {
-    pipeline_.triangle(a, b, c);
+    _pipeline.triangle(a, b, c);
     drawn();
 }
 
 void Glide2::line(const Vertex &a, const Vertex &b) {
-    pipeline_.line(a, b);
+    _pipeline.line(a, b);
     drawn();
 }
 
 void Glide2::point(const Vertex &a) {
-    pipeline_.point(a);
+    _pipeline.point(a);
     drawn();
 }
 
 void Glide2::bufferClear(uint32_t color, int alpha, int depth) {
-    pipeline_.clear(toArgb(color), alpha, depth);
+    _pipeline.clear(toArgb(color), alpha, depth);
     drawn();
 }
 
 void Glide2::bufferSwap(int) {
-    pipeline_.swap();
-    frontChanged_ = false;
+    _pipeline.swap();
+    _frontChanged = false;
     if (onSwap)
         onSwap();
 }
 
 void Glide2::renderBuffer(int buffer) {
     if (buffer == kBufferFront || buffer == kBufferBack)
-        pipeline_.state().renderBuffer = buffer;
+        _pipeline.state().renderBuffer = buffer;
 }
 
 // --- State -----------------------------------------------------------------------
 
 void Glide2::colorCombine(int function, int factor, int local, int other, bool invert) {
-    pipeline_.state().color = {{function, factor, invert}, local, other};
+    _pipeline.state().color = {{function, factor, invert}, local, other};
 }
 
 void Glide2::alphaCombine(int function, int factor, int local, int other, bool invert) {
-    pipeline_.state().alpha = {{function, factor, invert}, local, other};
+    _pipeline.state().alpha = {{function, factor, invert}, local, other};
 }
 
 void Glide2::alphaControlsITRGBLighting(bool enable) {
-    pipeline_.state().alphaControlsLighting = enable;
+    _pipeline.state().alphaControlsLighting = enable;
 }
 
 void Glide2::alphaBlendFunction(int rgbSrc, int rgbDst, int alphaSrc, int alphaDst) {
-    State &s = pipeline_.state();
+    State &s = _pipeline.state();
     s.blendRgbSrc = rgbSrc;
     s.blendRgbDst = rgbDst;
     s.blendAlphaSrc = alphaSrc;
@@ -354,27 +354,27 @@ void Glide2::alphaBlendFunction(int rgbSrc, int rgbDst, int alphaSrc, int alphaD
 }
 
 void Glide2::alphaTestFunction(int function) {
-    pipeline_.state().alphaTest = function & 7;
+    _pipeline.state().alphaTest = function & 7;
 }
 void Glide2::alphaTestReferenceValue(int value) {
-    pipeline_.state().alphaRef = value & 0xff;
+    _pipeline.state().alphaRef = value & 0xff;
 }
 void Glide2::chromakeyMode(int mode) {
-    pipeline_.state().chromakey = mode != 0;
+    _pipeline.state().chromakey = mode != 0;
 }
 void Glide2::chromakeyValue(uint32_t color) {
-    pipeline_.state().chromakeyColor = toArgb(color) & 0xffffff;
+    _pipeline.state().chromakeyColor = toArgb(color) & 0xffffff;
 }
 
 void Glide2::chromaRangeMode(bool enable) {
     // "Chroma-keying must be enabled (using grChromakeyMode()) before
     // grChromaRangeModeExt() is executed, and it will remain enabled after
     // chroma-ranging is disabled" (Glide 3.0 Programming Guide, chapter 13).
-    pipeline_.state().chromaRange = enable && (board_.extensions & kExtChromaRange);
+    _pipeline.state().chromaRange = enable && (_board.extensions & kExtChromaRange);
 }
 
 void Glide2::chromaRange(uint32_t color0, uint32_t color1, int mode) {
-    if (!(board_.extensions & kExtChromaRange))
+    if (!(_board.extensions & kExtChromaRange))
         return;
     if (mode != 0)
         notImplemented("grChromaRangeExt mode " + std::to_string(mode), "only GR_CHROMARANGE_RGB_ALL_EXT: taken as it");
@@ -389,16 +389,16 @@ void Glide2::chromaRange(uint32_t color0, uint32_t color1, int mode) {
         lo |= std::min(x, y) << shift;
         hi |= std::max(x, y) << shift;
     }
-    pipeline_.state().chromaRangeMin = lo;
-    pipeline_.state().chromaRangeMax = hi;
+    _pipeline.state().chromaRangeMin = lo;
+    _pipeline.state().chromaRangeMax = hi;
 }
 
 void Glide2::clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t maxY) {
     // Values past the screen are ignored (Programming Guide, Clipping):
     // here, held to it.
-    State &s = pipeline_.state();
-    const uint32_t w = uint32_t(pipeline_.width());
-    const uint32_t h = uint32_t(pipeline_.height());
+    State &s = _pipeline.state();
+    const uint32_t w = uint32_t(_pipeline.width());
+    const uint32_t h = uint32_t(_pipeline.height());
     s.clip[0] = int(std::min(minX, w));
     s.clip[1] = int(std::min(minY, h));
     s.clip[2] = int(std::min(maxX, w));
@@ -406,47 +406,47 @@ void Glide2::clipWindow(uint32_t minX, uint32_t minY, uint32_t maxX, uint32_t ma
 }
 
 void Glide2::colorMask(bool rgb, bool alpha) {
-    pipeline_.state().colorMask = rgb;
-    pipeline_.state().alphaMask = alpha;
+    _pipeline.state().colorMask = rgb;
+    _pipeline.state().alphaMask = alpha;
 }
 
 void Glide2::constantColorValue(uint32_t color) {
-    pipeline_.state().constantColor = toArgb(color);
+    _pipeline.state().constantColor = toArgb(color);
 }
 
 void Glide2::constantColorValue4(float a, float r, float g, float b) {
     auto c = [](float v) { return uint32_t(std::clamp(int(v), 0, 255)); };
-    pipeline_.state().constantColor = c(a) << 24 | c(r) << 16 | c(g) << 8 | c(b);
+    _pipeline.state().constantColor = c(a) << 24 | c(r) << 16 | c(g) << 8 | c(b);
 }
 
 void Glide2::cullMode(int mode) {
-    pipeline_.state().cull = mode;
+    _pipeline.state().cull = mode;
 }
 void Glide2::depthBiasLevel(int level) {
-    pipeline_.state().depthBias = int(int16_t(level));
+    _pipeline.state().depthBias = int(int16_t(level));
 }
 void Glide2::depthBufferFunction(int function) {
-    pipeline_.state().depthFunc = function & 7;
+    _pipeline.state().depthFunc = function & 7;
 }
 void Glide2::depthBufferMode(int mode) {
     // The compare-to-bias modes "are not available in revision 1 of the
     // Pixelfx chip" (Glide 2.4 Programming Guide, Depth Buffering): there,
     // plain z or w buffering.
-    if (board_.generation == Generation::Voodoo1 && board_.fbiRevision < 2 &&
+    if (_board.generation == Generation::kVoodoo1 && _board.fbiRevision < 2 &&
         (mode == kDepthZCompareToBias || mode == kDepthWCompareToBias)) {
         notImplemented("grDepthBufferMode compare to bias", "not on Pixelfx revision 1: plain depth buffering");
         mode = mode == kDepthZCompareToBias ? kDepthZBuffer : kDepthWBuffer;
     }
-    pipeline_.state().depthMode = mode;
+    _pipeline.state().depthMode = mode;
 }
 void Glide2::depthMask(bool enable) {
-    pipeline_.state().depthMask = enable;
+    _pipeline.state().depthMask = enable;
 }
 
 void Glide2::disableAllEffects() {
     // Blending, alpha test, chroma-key, fog and depth buffering off; clip,
     // dither and masks stay (Reference Manual, grDisableAllEffects).
-    State &s = pipeline_.state();
+    State &s = _pipeline.state();
     s.blendRgbSrc = s.blendAlphaSrc = kBlendOne;
     s.blendRgbDst = s.blendAlphaDst = kBlendZero;
     s.alphaTest = kCmpAlways;
@@ -456,50 +456,50 @@ void Glide2::disableAllEffects() {
 }
 
 void Glide2::ditherMode(int mode) {
-    pipeline_.state().dither = mode;
+    _pipeline.state().dither = mode;
 }
 void Glide2::fogColorValue(uint32_t color) {
-    pipeline_.state().fogColor = toArgb(color) & 0xffffff;
+    _pipeline.state().fogColor = toArgb(color) & 0xffffff;
 }
 void Glide2::fogMode(int mode) {
-    pipeline_.state().fogMode = mode;
+    _pipeline.state().fogMode = mode;
 }
 
 void Glide2::fogTable(const uint8_t table[64]) {
-    std::copy(table, table + 64, pipeline_.state().fogTable.begin());
+    std::copy(table, table + 64, _pipeline.state().fogTable.begin());
 }
 
 void Glide2::gammaCorrectionValue(float gamma) {
-    if (board_.gammaTableEntries == 0) {
+    if (_board.gammaTableEntries == 0) {
         // "It is a no-op on SST-96 systems, which may lack gamma correction
         // hardware" (Glide 2.4 Reference Manual, grGammaCorrectionValue).
         notImplemented("grGammaCorrectionValue", "this board has no gamma table: a no-op");
         return;
     }
     if (gamma > 0 && gamma <= 20) {
-        pipeline_.state().gamma = {gamma, gamma, gamma};
-        pipeline_.setGammaValue();
+        _pipeline.state().gamma = {gamma, gamma, gamma};
+        _pipeline.setGammaValue();
     }
 }
 
 void Glide2::hints(int type, uint32_t mask) {
     if (type == kHintStw)
-        pipeline_.state().stwHints = mask;
+        _pipeline.state().stwHints = mask;
 }
 
 uint32_t Glide2::glideGetState() {
-    const uint32_t token = nextStateToken_++;
-    savedStates_[token] = pipeline_.state();
+    const uint32_t token = _nextStateToken++;
+    _savedStates[token] = _pipeline.state();
     // Applications save and restore in pairs; the oldest go.
-    while (savedStates_.size() > 64)
-        savedStates_.erase(savedStates_.begin());
+    while (_savedStates.size() > 64)
+        _savedStates.erase(_savedStates.begin());
     return token ^ kStateMagic;
 }
 
 void Glide2::glideSetState(uint32_t token) {
-    auto it = savedStates_.find(token ^ kStateMagic);
-    if (it != savedStates_.end())
-        pipeline_.state() = it->second;
+    auto it = _savedStates.find(token ^ kStateMagic);
+    if (it != _savedStates.end())
+        _pipeline.state() = it->second;
     else
         notImplemented("grGlideSetState", "a GrState Reluva didn't fill: ignored");
 }
@@ -520,7 +520,7 @@ TextureInfo Glide2::textureInfo(int smallLod, int largeLod, int aspect, int form
 // The lowest start address: 0, or on a UMA board the first after the
 // window's buffers.
 uint32_t Glide2::texMinAddress(int) const {
-    return pipeline_.textureBase();
+    return _pipeline.textureBase();
 }
 
 uint32_t Glide2::texMaxAddress(int) const {
@@ -529,8 +529,8 @@ uint32_t Glide2::texMaxAddress(int) const {
     // 1x1 level (one 8-byte unit, the specification's level table) that
     // ends at the memory's end, on the board's texture alignment (16 bytes
     // on the Banshee and Voodoo3: the last 16-byte boundary but one).
-    const uint32_t align = uint32_t(std::max(board_.textureAlign, 8));
-    return (pipeline_.tmuMemorySize() - 8) / align * align;
+    const uint32_t align = uint32_t(std::max(_board.textureAlign, 8));
+    return (_pipeline.tmuMemorySize() - 8) / align * align;
 }
 
 uint32_t Glide2::texCalcMemRequired(int smallLod, int largeLod, int aspect, int format) const {
@@ -561,9 +561,9 @@ uint32_t Glide2::mipmapDataBytes(const Glide2TexInfo &info) {
 }
 
 void Glide2::texSource(int tmu, uint32_t start, int evenOdd, const Glide2TexInfo &info) {
-    if (tmu < 0 || tmu >= board_.tmus)
+    if (tmu < 0 || tmu >= _board.tmus)
         return;
-    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = _pipeline.state().tmus[size_t(tmu)];
     t.hasSource = true;
     t.start = start;
     t.evenOdd = evenOdd & 3 ? evenOdd & 3 : kLevelsBoth;
@@ -586,7 +586,7 @@ void Glide2::texDownloadMipMap(int tmu, uint32_t start, int evenOdd, const Glide
         int h = 0;
         levelSize(l, t.aspect, w, h);
         if (levelIncluded(l, eo))
-            pipeline_.downloadLevel(tmu, start, t, eo, l, data + at, 0, h - 1);
+            _pipeline.downloadLevel(tmu, start, t, eo, l, data + at, 0, h - 1);
         at += uint32_t(w * h * texelBytes(t.format));
     }
 }
@@ -602,7 +602,7 @@ void Glide2::texDownloadMipMapLevelPartial(int tmu, uint32_t start, int thisLod,
     // the level's rows from firstRow.
     TextureInfo t = textureInfo(thisLod, largeLod, aspect, format);
     const int eo = evenOdd & 3 ? evenOdd & 3 : kLevelsBoth;
-    pipeline_.downloadLevel(tmu, start, t, eo, lodToLog2(std::clamp(thisLod, 0, 8)), data, firstRow, lastRow);
+    _pipeline.downloadLevel(tmu, start, t, eo, lodToLog2(std::clamp(thisLod, 0, 8)), data, firstRow, lastRow);
 }
 
 void Glide2::texDownloadTable(int tmu, int type, const uint8_t *data) {
@@ -613,7 +613,7 @@ void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t *data, int
     if (type == kTablePalette6666) {
         // Glide 3's GR_TEXTABLE_PALETTE_6666_EXT, where the board has the
         // format (Pipeline::setPalette6666).
-        if (!(board_.extensions & kExtPalette6666)) {
+        if (!(_board.extensions & kExtPalette6666)) {
             notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE_6666_EXT)", "not on this board: ignored");
             return;
         }
@@ -622,10 +622,10 @@ void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t *data, int
         last = std::clamp(last, first, 255);
         for (int i = first; i <= last; ++i)
             std::memcpy(&entries[i - first], data + 4 * i, 4);
-        pipeline_.setPalette6666(tmu, first, last, entries);
+        _pipeline.setPalette6666(tmu, first, last, entries);
         return;
     }
-    if (type == kTablePalette && !board_.palette) {
+    if (type == kTablePalette && !_board.palette) {
         notImplemented("grTexDownloadTable(GR_TEXTABLE_PALETTE)", "this board's TMUs have no palette: ignored");
         return;
     }
@@ -635,7 +635,7 @@ void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t *data, int
         last = std::clamp(last, first, 255);
         for (int i = first; i <= last; ++i)
             std::memcpy(&entries[i - first], data + 4 * i, 4);
-        pipeline_.setPalette(tmu, first, last, entries);
+        _pipeline.setPalette(tmu, first, last, entries);
         return;
     }
     // GuNccTable: yRGB[16] bytes, then iRGB[4][3] and qRGB[4][3] as signed
@@ -644,12 +644,12 @@ void Glide2::texDownloadTablePartial(int tmu, int type, const uint8_t *data, int
     std::memcpy(t.y, data, 16);
     std::memcpy(t.i, data + 16, 24);
     std::memcpy(t.q, data + 40, 24);
-    pipeline_.setNcc(tmu, type & 1, t);
+    _pipeline.setNcc(tmu, type & 1, t);
 }
 
 void Glide2::texNCCTable(int tmu, int table) {
     if (tmu >= 0 && tmu < kMaxTmus)
-        pipeline_.state().tmus[size_t(tmu)].nccTable = table & 1;
+        _pipeline.state().tmus[size_t(tmu)].nccTable = table & 1;
 }
 
 void Glide2::texClampMode(int tmu, int s, int t) {
@@ -657,10 +657,10 @@ void Glide2::texClampMode(int tmu, int s, int t) {
         return;
     // GR_TEXTURECLAMP_MIRROR_EXT where the board mirrors (the TEXMIRROR
     // extension); else wrapped.
-    const bool mirror = board_.extensions & kExtTexMirror;
+    const bool mirror = _board.extensions & kExtTexMirror;
     if ((s == kClampMirror || t == kClampMirror) && !mirror)
         notImplemented("grTexClampMode mirror", "not on this board: wrapped");
-    TmuState &ts = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &ts = _pipeline.state().tmus[size_t(tmu)];
     ts.clampS = s == kClampClamp;
     ts.clampT = t == kClampClamp;
     ts.mirrorS = s == kClampMirror && mirror;
@@ -671,7 +671,7 @@ void Glide2::texCombine(int tmu, int rgbFunction, int rgbFactor, int alphaFuncti
                         bool alphaInvert) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = _pipeline.state().tmus[size_t(tmu)];
     t.rgb = {rgbFunction, rgbFactor, rgbInvert};
     t.alpha = {alphaFunction, alphaFactor, alphaInvert};
 }
@@ -737,7 +737,7 @@ void Glide2::texCombineFunction(int tmu, int function) {
 void Glide2::texDetailControl(int tmu, int lodBias, int detailScale, float detailMax) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    TmuState &t = pipeline_.state().tmus[size_t(tmu)];
+    TmuState &t = _pipeline.state().tmus[size_t(tmu)];
     t.detailBias = lodBias;
     t.detailScale = std::clamp(detailScale, 0, 7);
     t.detailMax = std::clamp(detailMax, 0.0f, 1.0f);
@@ -746,30 +746,30 @@ void Glide2::texDetailControl(int tmu, int lodBias, int detailScale, float detai
 void Glide2::texFilterMode(int tmu, int minFilter, int magFilter) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    pipeline_.state().tmus[size_t(tmu)].minFilter = minFilter;
-    pipeline_.state().tmus[size_t(tmu)].magFilter = magFilter;
+    _pipeline.state().tmus[size_t(tmu)].minFilter = minFilter;
+    _pipeline.state().tmus[size_t(tmu)].magFilter = magFilter;
 }
 
 void Glide2::texLodBiasValue(int tmu, float bias) {
     if (tmu >= 0 && tmu < kMaxTmus) // rounded to the nearest quarter
-        pipeline_.state().tmus[size_t(tmu)].lodBias = std::round(std::clamp(bias, -8.0f, 7.75f) * 4) / 4;
+        _pipeline.state().tmus[size_t(tmu)].lodBias = std::round(std::clamp(bias, -8.0f, 7.75f) * 4) / 4;
 }
 
 void Glide2::texMipMapMode(int tmu, int mode, bool lodBlend) {
     if (tmu < 0 || tmu >= kMaxTmus)
         return;
-    pipeline_.state().tmus[size_t(tmu)].mipmapMode = mode;
-    pipeline_.state().tmus[size_t(tmu)].lodBlend = lodBlend;
+    _pipeline.state().tmus[size_t(tmu)].mipmapMode = mode;
+    _pipeline.state().tmus[size_t(tmu)].lodBlend = lodBlend;
 }
 
 void Glide2::texMultibase(int tmu, bool enable) {
     if (tmu >= 0 && tmu < kMaxTmus)
-        pipeline_.state().tmus[size_t(tmu)].multibase = enable;
+        _pipeline.state().tmus[size_t(tmu)].multibase = enable;
 }
 
 void Glide2::texMultibaseAddress(int tmu, int range, uint32_t start, int, const Glide2TexInfo &) {
     if (tmu >= 0 && tmu < kMaxTmus && range >= 0 && range < 4)
-        pipeline_.state().tmus[size_t(tmu)].multibaseAddress[size_t(range)] = start;
+        _pipeline.state().tmus[size_t(tmu)].multibaseAddress[size_t(range)] = start;
 }
 
 void Glide2::guColorCombineFunction(int function) {
@@ -855,7 +855,7 @@ void Glide2::guAlphaSource(int mode) {
 uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height, int format, int mipmapMode,
                                      int smallLod, int largeLod, int aspect, int clampS, int clampT, int minFilter,
                                      int magFilter, float lodBias, bool lodBlend) {
-    if (tmu < 0 || tmu >= board_.tmus)
+    if (tmu < 0 || tmu >= _board.tmus)
         return kNullMipMap;
     MipMap m;
     m.valid = true;
@@ -876,23 +876,23 @@ uint32_t Glide2::guTexAllocateMemory(int tmu, int evenOdd, int width, int height
     // 2 MB line (Glide 2.4 Programming Guide, Texture Memory: "a mipmap
     // level cannot straddle the 2Mbyte boundary"), so one that would
     // starts on it.
-    uint32_t start = std::max(texNext_[size_t(tmu)], texMinAddress(tmu));
+    uint32_t start = std::max(_texNext[size_t(tmu)], texMinAddress(tmu));
     constexpr uint32_t k2Mb = 2u << 20;
     if (m.size && start / k2Mb != (start + m.size - 1) / k2Mb)
         start = (start / k2Mb + 1) * k2Mb;
-    if (uint64_t(start) + m.size > uint64_t(pipeline_.tmuMemorySize()))
+    if (uint64_t(start) + m.size > uint64_t(_pipeline.tmuMemorySize()))
         return kNullMipMap; // "If the texture memory can not be allocated"
     m.start = start;
-    texNext_[size_t(tmu)] = start + m.size;
-    mipmaps_.push_back(m);
-    return uint32_t(mipmaps_.size() - 1);
+    _texNext[size_t(tmu)] = start + m.size;
+    _mipmaps.push_back(m);
+    return uint32_t(_mipmaps.size() - 1);
 }
 
 bool Glide2::guTexChangeAttributes(uint32_t id, int width, int height, int format, int mipmapMode, int smallLod,
                                    int largeLod, int aspect, int clampS, int clampT, int minFilter, int magFilter) {
-    if (id >= mipmaps_.size() || !mipmaps_[id].valid)
+    if (id >= _mipmaps.size() || !_mipmaps[id].valid)
         return false;
-    MipMap m = mipmaps_[id];
+    MipMap m = _mipmaps[id];
     auto set = [](int &field, int value) {
         if (value != -1)
             field = value;
@@ -913,14 +913,14 @@ bool Glide2::guTexChangeAttributes(uint32_t id, int width, int height, int forma
     // reading).
     if (texTextureMemRequired(m.evenOdd, m.info) > m.size)
         return false;
-    mipmaps_[id] = m;
+    _mipmaps[id] = m;
     return true;
 }
 
 void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t *data, const uint8_t *ncc) {
-    if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
+    if (id >= _mipmaps.size() || !_mipmaps[id].valid || !data)
         return;
-    MipMap &m = mipmaps_[id];
+    MipMap &m = _mipmaps[id];
     if (ncc && (m.info.format == kTexYiq422 || m.info.format == kTexAyiq8422)) {
         std::memcpy(m.ncc.y, ncc, 16);
         std::memcpy(m.ncc.i, ncc + 16, 24);
@@ -931,9 +931,9 @@ void Glide2::guTexDownloadMipMap(uint32_t id, const uint8_t *data, const uint8_t
 }
 
 uint32_t Glide2::guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t *data) {
-    if (id >= mipmaps_.size() || !mipmaps_[id].valid || !data)
+    if (id >= _mipmaps.size() || !_mipmaps[id].valid || !data)
         return 0;
-    const MipMap &m = mipmaps_[id];
+    const MipMap &m = _mipmaps[id];
     // "lod must lie between mmid's smallLod and largeLod" (Glide 2's
     // numbers count down: GR_LOD_256 is 0).
     if (lod < m.info.largeLod || lod > m.info.smallLod)
@@ -943,32 +943,32 @@ uint32_t Glide2::guTexDownloadMipMapLevel(uint32_t id, int lod, const uint8_t *d
 }
 
 uint32_t Glide2::guTexGetCurrentMipMap(int tmu) const {
-    return tmu >= 0 && tmu < kMaxTmus ? texCurrent_[size_t(tmu)] : kNullMipMap;
+    return tmu >= 0 && tmu < kMaxTmus ? _texCurrent[size_t(tmu)] : kNullMipMap;
 }
 
 const Glide2::MipMap *Glide2::guTexGetMipMapInfo(uint32_t id) const {
-    return id < mipmaps_.size() && mipmaps_[id].valid ? &mipmaps_[id] : nullptr;
+    return id < _mipmaps.size() && _mipmaps[id].valid ? &_mipmaps[id] : nullptr;
 }
 
 uint32_t Glide2::guTexMemQueryAvail(int tmu) const {
-    if (tmu < 0 || tmu >= board_.tmus)
+    if (tmu < 0 || tmu >= _board.tmus)
         return 0;
-    const uint64_t end = pipeline_.tmuMemorySize();
-    const uint64_t next = std::max(texNext_[size_t(tmu)], texMinAddress(tmu));
+    const uint64_t end = _pipeline.tmuMemorySize();
+    const uint64_t next = std::max(_texNext[size_t(tmu)], texMinAddress(tmu));
     return next < end ? uint32_t(end - next) : 0;
 }
 
 void Glide2::guTexMemReset() {
     // "frees up all allocated texture memory": every handle goes.
-    mipmaps_.clear();
-    texNext_.fill(0);
-    texCurrent_.fill(kNullMipMap);
+    _mipmaps.clear();
+    _texNext.fill(0);
+    _texCurrent.fill(kNullMipMap);
 }
 
 void Glide2::guTexSource(uint32_t id) {
-    if (id >= mipmaps_.size() || !mipmaps_[id].valid)
+    if (id >= _mipmaps.size() || !_mipmaps[id].valid)
         return;
-    const MipMap &m = mipmaps_[id];
+    const MipMap &m = _mipmaps[id];
     // "When a mipmap is made current, all of its attributes take effect."
     texSource(m.tmu, m.start, m.evenOdd, m.info);
     texClampMode(m.tmu, m.clampS, m.clampT);
@@ -985,15 +985,15 @@ void Glide2::guTexSource(uint32_t id) {
         texDownloadTable(m.tmu, kTableNcc0, raw);
         texNCCTable(m.tmu, 0);
     }
-    texCurrent_[size_t(m.tmu)] = id;
+    _texCurrent[size_t(m.tmu)] = id;
 }
 
 // --- The linear frame buffer -----------------------------------------------------
 
 bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixelPipeline, Glide2LfbLock &out) {
-    if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
+    if (!_pipeline.isOpen() || !_pipeline.buffer(buffer))
         return false;
-    pipeline_.sync();
+    _pipeline.sync();
     const bool aux = buffer == kBufferAux || buffer == kBufferDepth || buffer == kBufferAlpha;
     out.buffer = buffer;
     if ((type & 1) == 0) // reads are always 16-bit (Voodoo2 specification, Linear frame buffer Reads)
@@ -1007,9 +1007,9 @@ bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixel
     // underlying hardware is incapable of processing pixels through the
     // pixel pipeline, then the lock will fail" (Glide 2.4 Reference
     // Manual, grLfbLock).
-    if ((type & 1) && !board_.lfbFormats && writeMode != kLfb565 && writeMode != kLfbZA16)
+    if ((type & 1) && !_board.lfbFormats && writeMode != kLfb565 && writeMode != kLfbZA16)
         return false;
-    if ((type & 1) && pixelPipeline && !board_.lfbPixelPipeline)
+    if ((type & 1) && pixelPipeline && !_board.lfbPixelPipeline)
         return false;
     switch (writeMode) {
     case kLfb565:
@@ -1033,46 +1033,46 @@ bool Glide2::lfbLock(int type, int buffer, int writeMode, int origin, bool pixel
     out.writeMode = writeMode;
     out.originLowerLeft = origin == 1;
     out.pixelPipeline = pixelPipeline && (type & 1);
-    out.strideBytes = pipeline_.lfbStride() * out.bytesPerPixel; // Board::lfbStride
-    ++locks_;
+    out.strideBytes = _pipeline.lfbStride() * out.bytesPerPixel; // Board::lfbStride
+    ++_locks;
     return true;
 }
 
 bool Glide2::lfbUnlock(int, int) {
-    locks_ = std::max(0, locks_ - 1);
+    _locks = std::max(0, _locks - 1);
     return true;
 }
 
 void Glide2::lfbConstantAlpha(int alpha) {
-    pipeline_.state().lfbConstantAlpha = alpha & 0xff;
+    _pipeline.state().lfbConstantAlpha = alpha & 0xff;
 }
 void Glide2::lfbConstantDepth(int depth) {
-    pipeline_.state().lfbConstantDepth = depth & 0xffff;
+    _pipeline.state().lfbConstantDepth = depth & 0xffff;
 }
 
 void Glide2::lfbWriteColorFormat(int format) {
     if (format >= kColorArgb && format <= kColorBgra)
-        lfbColorFormat_ = format;
+        _lfbColorFormat = format;
 }
 
 void Glide2::lfbWriteColorSwizzle(bool swizzleBytes, bool swapWords) {
-    lfbSwizzleBytes_ = swizzleBytes;
-    lfbSwapWords_ = swapWords;
+    _lfbSwizzleBytes = swizzleBytes;
+    _lfbSwapWords = swapWords;
 }
 
 uint32_t Glide2::lfbSwizzle(int mode, uint32_t w) const {
     // Bytes first, then words (Voodoo2 specification, lfbMode: "byte
     // swizzling is performed first", word swapping "never performed ...
     // when data formats 4 and 5 are used").
-    if (lfbSwizzleBytes_)
+    if (_lfbSwizzleBytes)
         w = (w >> 24) | (w >> 8 & 0xff00u) | (w << 8 & 0xff0000u) | (w << 24);
-    if (lfbSwapWords_ && mode != kLfb888 && mode != kLfb8888)
+    if (_lfbSwapWords && mode != kLfb888 && mode != kLfb8888)
         w = w >> 16 | w << 16;
     return w;
 }
 
 uint32_t Glide2::lfbCanonical(int mode, uint32_t v) const {
-    const int format = lfbColorFormat_ >= 0 ? lfbColorFormat_ : colorFormat_;
+    const int format = _lfbColorFormat >= 0 ? _lfbColorFormat : _colorFormat;
     const bool bgr = format == kColorAbgr || format == kColorBgra;
     const bool alphaLast = format == kColorRgba || format == kColorBgra;
     // The 16-bit colour of a mode, as Glide 2.4 Programming Guide tables
@@ -1108,23 +1108,23 @@ uint32_t Glide2::lfbCanonical(int mode, uint32_t v) const {
 }
 
 void Glide2::lfbWrite(const Glide2LfbLock &lock, int x, int y, uint32_t value) {
-    const int row = lock.originLowerLeft ? pipeline_.height() - 1 - y : y;
+    const int row = lock.originLowerLeft ? _pipeline.height() - 1 - y : y;
     const uint32_t v = lfbCanonical(lock.writeMode, value);
-    pipeline_.lfbWrite(lock.buffer, x, row, lock.writeMode, v, lock.pixelPipeline);
-    frontChanged_ |= lock.buffer == kBufferFront;
+    _pipeline.lfbWrite(lock.buffer, x, row, lock.writeMode, v, lock.pixelPipeline);
+    _frontChanged |= lock.buffer == kBufferFront;
 }
 
 uint16_t Glide2::lfbRead(int buffer, int x, int y, bool originLowerLeft) const {
-    const uint16_t *b = pipeline_.buffer(buffer);
-    if (!b || x < 0 || y < 0 || x >= pipeline_.width() || y >= pipeline_.height())
+    const uint16_t *b = _pipeline.buffer(buffer);
+    if (!b || x < 0 || y < 0 || x >= _pipeline.width() || y >= _pipeline.height())
         return 0;
-    const int row = originLowerLeft ? pipeline_.height() - 1 - y : y;
-    return b[size_t(row) * size_t(pipeline_.width()) + size_t(x)];
+    const int row = originLowerLeft ? _pipeline.height() - 1 - y : y;
+    return b[size_t(row) * size_t(_pipeline.width()) + size_t(x)];
 }
 
 bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint32_t width, uint32_t height, int stride,
                             const uint8_t *data, size_t dataBytes, bool pixelPipeline) {
-    if (!pipeline_.isOpen() || !pipeline_.buffer(buffer))
+    if (!_pipeline.isOpen() || !_pipeline.buffer(buffer))
         return false;
     // "The grLfbWriteRegion function will fail, returning FXFALSE, if pixel
     // pipeline processing is enabled on a system that doesn't support it";
@@ -1132,11 +1132,11 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
     // formats" (Glide 3.0 Reference Manual, grLfbWriteRegion; the Voodoo
     // Rush named for both): there, the buffers' own 16-bit formats (and
     // RLE16, which is 5:6:5 once expanded: Reluva's reading).
-    if (pixelPipeline && !board_.lfbPixelPipeline)
+    if (pixelPipeline && !_board.lfbPixelPipeline)
         return false;
-    if (!board_.lfbFormats && format != kLfb565 && format != kLfbZA16 && format != kLfbRle16)
+    if (!_board.lfbFormats && format != kLfb565 && format != kLfbZA16 && format != kLfbRle16)
         return false;
-    pipeline_.sync();
+    _pipeline.sync();
     const int bpp = format == kLfb565 || format == kLfb555 || format == kLfb1555 || format == kLfbZA16 ? 2
                     : format == kLfbRle16                                                              ? 0
                                                                                                        : 4;
@@ -1153,7 +1153,7 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
             const uint16_t color = uint16_t(p[2] | p[3] << 8);
             p += 4;
             for (int i = 0; i < count && py < height; ++i) {
-                pipeline_.lfbWrite(buffer, int(x + px), int(y + py), kLfb565, color, false);
+                _pipeline.lfbWrite(buffer, int(x + px), int(y + py), kLfb565, color, false);
                 if (++px == width) {
                     px = 0;
                     ++py;
@@ -1175,18 +1175,18 @@ bool Glide2::lfbWriteRegion(int buffer, uint32_t x, uint32_t y, int format, uint
             v = lfbCanonical(format, v); // the channels as grLfbWriteColorFormat says
             // Glide 3's pixelPipeline: through the pipeline as a lock with
             // it writes (Glide 3.0 Reference Manual, grLfbWriteRegion).
-            pipeline_.lfbWrite(buffer, int(x + col), int(y + row), format, v, pixelPipeline);
+            _pipeline.lfbWrite(buffer, int(x + col), int(y + row), format, v, pixelPipeline);
         }
     }
-    frontChanged_ |= buffer == kBufferFront;
+    _frontChanged |= buffer == kBufferFront;
     return true;
 }
 
 bool Glide2::lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t stride,
                            uint8_t *data) {
-    if (!pipeline_.isOpen() || !pipeline_.buffer(buffer) || stride < width * 2)
+    if (!_pipeline.isOpen() || !_pipeline.buffer(buffer) || stride < width * 2)
         return false;
-    pipeline_.sync();
+    _pipeline.sync();
     for (uint32_t row = 0; row < height; ++row)
         for (uint32_t col = 0; col < width; ++col) {
             const uint16_t v = lfbRead(buffer, int(x + col), int(y + row), false);
@@ -1198,26 +1198,26 @@ bool Glide2::lfbReadRegion(int buffer, uint32_t x, uint32_t y, uint32_t width, u
 // --- Statistics ------------------------------------------------------------------
 
 void Glide2::sstPerfStats(uint32_t out[5]) const {
-    const PixelStats &s = pipeline_.stats;
+    const PixelStats &s = _pipeline.stats;
     const uint64_t v[5] = {s.pixelsIn, s.chromaFail, s.depthFail, s.alphaFail, s.pixelsOut};
     for (int i = 0; i < 5; ++i)
-        out[i] = uint32_t((v[i] - statsBase_[i]) & 0xffffff); // 24-bit counters
+        out[i] = uint32_t((v[i] - _statsBase[i]) & 0xffffff); // 24-bit counters
 }
 
 void Glide2::sstResetPerfStats() {
-    const PixelStats &s = pipeline_.stats;
+    const PixelStats &s = _pipeline.stats;
     const uint64_t v[5] = {s.pixelsIn, s.chromaFail, s.depthFail, s.alphaFail, s.pixelsOut};
-    std::copy(v, v + 5, statsBase_);
+    std::copy(v, v + 5, _statsBase);
 }
 
 void Glide2::triStats(uint32_t &processed, uint32_t &drawn) const {
-    processed = uint32_t(pipeline_.stats.trianglesIn - triBase_[0]);
-    drawn = uint32_t(pipeline_.stats.trianglesOut - triBase_[1]);
+    processed = uint32_t(_pipeline.stats.trianglesIn - _triBase[0]);
+    drawn = uint32_t(_pipeline.stats.trianglesOut - _triBase[1]);
 }
 
 void Glide2::resetTriStats() {
-    triBase_[0] = pipeline_.stats.trianglesIn;
-    triBase_[1] = pipeline_.stats.trianglesOut;
+    _triBase[0] = _pipeline.stats.trianglesIn;
+    _triBase[1] = _pipeline.stats.trianglesOut;
 }
 
 } // namespace reluva::glide

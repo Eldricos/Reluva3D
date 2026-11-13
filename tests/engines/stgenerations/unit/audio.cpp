@@ -196,11 +196,11 @@ static void platformInput() {
     Platform platform(sys, nullptr, {});
     platform.initSize(640, 480);
     reluva::Event e;
-    e.type = reluva::EventType::MouseMove;
+    e.type = reluva::EventType::kMouseMove;
     e.mouseX = -20, e.mouseY = 700;
     sys.schedule(0, e);
-    e.type = reluva::EventType::MouseDown;
-    e.button = MouseButton::Left;
+    e.type = reluva::EventType::kMouseDown;
+    e.button = MouseButton::kLeft;
     e.mouseX = 900, e.mouseY = 10;
     sys.schedule(0, e);
     sys.type(0, "a");

@@ -120,14 +120,14 @@ public:
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
                 // While the missions page is playing, Escape and Tab are
                 // the game's.
                 const bool game = viewer == 0 && missions.playing();
-                if (ev.type == EventType::KeyDown && ev.key == key::Escape && !game)
+                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !game)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::Tab && !game) {
+                if (ev.type == EventType::kKeyDown && ev.key == key::kTab && !game) {
                     if (viewer == 0)
                         missions.deactivate();
                     else if (viewer == 4)
@@ -142,15 +142,15 @@ public:
                     missions.handleEvent(ev);
                 else if (viewer == 1)
                     models.handleEvent(ev);
-                else if (viewer == 2 && ev.type == EventType::KeyDown)
+                else if (viewer == 2 && ev.type == EventType::kKeyDown)
                     textures.handleKey(ev.key);
                 else if (viewer == 3)
                     maps.handleEvent(ev);
-                else if (viewer == 4 && ev.type == EventType::KeyDown)
+                else if (viewer == 4 && ev.type == EventType::kKeyDown)
                     sounds.handleKey(ev.key);
-                else if (viewer == 5 && ev.type == EventType::KeyDown)
+                else if (viewer == 5 && ev.type == EventType::kKeyDown)
                     strings.handleKey(ev.key);
-                else if (viewer == 6 && ev.type == EventType::KeyDown)
+                else if (viewer == 6 && ev.type == EventType::kKeyDown)
                     fonts.handleKey(ev.key);
             }
             if (viewer == 0)

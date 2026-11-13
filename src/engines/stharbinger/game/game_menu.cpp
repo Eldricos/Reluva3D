@@ -242,14 +242,14 @@ void Game::handleMenuEvent(const InputEvent &event) {
             // Keys are an added convenience: the original only takes the mouse.
             if (_vm->getOptions().original)
                 break;
-            if (k == 'y' || k == key::Return)
+            if (k == 'y' || k == key::kReturn)
                 menuConfirm(true);
-            else if (k == 'n' || k == key::Escape)
+            else if (k == 'n' || k == key::kEscape)
                 menuConfirm(false);
         } else if (_menu.mode == GameMenu::kNameEntry) {
-            if (k == key::Return || k == key::Escape) {
+            if (k == key::kReturn || k == key::kEscape) {
                 finishNameEntry();
-            } else if (k == key::Backspace) {
+            } else if (k == key::kBackspace) {
                 if (!_menu.name.empty())
                     _menu.name.pop_back();
                 _menu.typed = true;
@@ -260,7 +260,7 @@ void Game::handleMenuEvent(const InputEvent &event) {
                 _menu.typed = true;
             }
             drawMenuScreen();
-        } else if (k == key::Escape && !_menu.first && !_dead && !_vm->getOptions().original) {
+        } else if (k == key::kEscape && !_menu.first && !_dead && !_vm->getOptions().original) {
             menuButton(kButtonResume);
         }
         break;

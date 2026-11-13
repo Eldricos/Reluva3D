@@ -39,10 +39,10 @@ void FontViewer::handleKey(uint32_t k) {
     if (n == 0)
         return;
     switch (k) {
-    case key::Right:
+    case key::kRight:
         _current = (_current + 1) % n;
         break;
-    case key::Left:
+    case key::kLeft:
         _current = (_current + n - 1) % n;
         break;
     case '+':

@@ -176,18 +176,18 @@ void ModelViewer::resetView() {
 
 void ModelViewer::handleEvent(const Event &ev) {
     switch (ev.type) {
-    case EventType::MouseDown:
-        if (ev.button == MouseButton::Left) {
+    case EventType::kMouseDown:
+        if (ev.button == MouseButton::kLeft) {
             _dragging = true;
             _dragX = ev.mouseX;
             _dragY = ev.mouseY;
         }
         return;
-    case EventType::MouseUp:
-        if (ev.button == MouseButton::Left)
+    case EventType::kMouseUp:
+        if (ev.button == MouseButton::kLeft)
             _dragging = false;
         return;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (_dragging) {
             _yaw += float(ev.mouseX - _dragX) * 0.01f;
             _pitch = std::clamp(_pitch + float(ev.mouseY - _dragY) * 0.01f, -kMaxPitch, kMaxPitch);
@@ -196,11 +196,11 @@ void ModelViewer::handleEvent(const Event &ev) {
             _dirty = true;
         }
         return;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         _zoom = std::clamp(_zoom * std::pow(0.9f, float(ev.wheelY)), 0.05f, 20.0f);
         _dirty = true;
         return;
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         break;
     default:
         return;
@@ -233,7 +233,7 @@ void ModelViewer::handleEvent(const Event &ev) {
     case 'r':
         resetView();
         break;
-    case key::Space:
+    case key::kSpace:
         _spin = !_spin;
         break;
     case 'u':
@@ -277,22 +277,22 @@ void ModelViewer::handleEvent(const Event &ev) {
         if (n == 0)
             return;
         switch (ev.key) {
-        case key::Right:
+        case key::kRight:
             show((_current + 1) % n);
             return;
-        case key::Left:
+        case key::kLeft:
             show((_current + n - 1) % n);
             return;
-        case key::PageDown:
+        case key::kPageDown:
             show(std::min(_current + 10, n - 1));
             return;
-        case key::PageUp:
+        case key::kPageUp:
             show(std::max(_current - 10, 0));
             return;
-        case key::Home:
+        case key::kHome:
             show(0);
             return;
-        case key::End:
+        case key::kEnd:
             show(n - 1);
             return;
         default:

@@ -50,7 +50,7 @@ public:
     // How a draw's triangles are drawn: on this thread (One), or by rows on
     // as many threads as there are processors, each at its own pace (Auto
     // and Always, which are now the same). It's the same either way.
-    enum class DrawThreads { One, Auto, Always } drawThreads = DrawThreads::Auto;
+    enum class DrawThreads { kOne, kAuto, kAlways } drawThreads = DrawThreads::kAuto;
     // Frames shown a flip late: at a flip the frame before is shown, its
     // drawing finished by then, and this one's drawing goes on while the
     // program works out the next. The program needn't wait for the drawing
@@ -61,7 +61,7 @@ public:
     struct State;
 
 private:
-    std::unique_ptr<State> s_;
+    std::unique_ptr<State> _s;
 };
 
 } // namespace reluva::x86

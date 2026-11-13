@@ -13,42 +13,42 @@ namespace reluva {
 uint8_t ReadStream::readByte() {
     uint8_t b = 0;
     if (read(&b, 1) != 1)
-        err_ = true;
+        _err = true;
     return b;
 }
 
 uint16_t ReadStream::readUint16LE() {
     uint8_t b[2] = {0, 0};
     if (read(b, 2) != 2)
-        err_ = true;
+        _err = true;
     return uint16_t(b[0] | (b[1] << 8));
 }
 
 uint32_t ReadStream::readUint32LE() {
     uint8_t b[4] = {0, 0, 0, 0};
     if (read(b, 4) != 4)
-        err_ = true;
+        _err = true;
     return uint32_t(b[0]) | (uint32_t(b[1]) << 8) | (uint32_t(b[2]) << 16) | (uint32_t(b[3]) << 24);
 }
 
 uint16_t ReadStream::readUint16BE() {
     uint8_t b[2] = {0, 0};
     if (read(b, 2) != 2)
-        err_ = true;
+        _err = true;
     return uint16_t(b[0] << 8 | b[1]);
 }
 
 uint32_t ReadStream::readUint32BE() {
     uint8_t b[4] = {0, 0, 0, 0};
     if (read(b, 4) != 4)
-        err_ = true;
+        _err = true;
     return uint32_t(b[0]) << 24 | uint32_t(b[1]) << 16 | uint32_t(b[2]) << 8 | uint32_t(b[3]);
 }
 
 std::string ReadStream::readFixedString(uint32_t len) {
     std::string s(len, '\0');
     if (len && read(s.data(), len) != len)
-        err_ = true;
+        _err = true;
     s.resize(std::min<size_t>(s.find('\0'), len));
     return s;
 }
@@ -72,8 +72,8 @@ std::string SeekableReadStream::readLine() {
 }
 
 void MemoryWriteStream::writeUint16BE(uint16_t v) {
-    data_.push_back(uint8_t(v >> 8));
-    data_.push_back(uint8_t(v));
+    _data.push_back(uint8_t(v >> 8));
+    _data.push_back(uint8_t(v));
 }
 
 void MemoryWriteStream::writeUint32BE(uint32_t v) {
@@ -98,40 +98,40 @@ std::vector<uint8_t> SeekableReadStream::readAll() {
 }
 
 MemoryReadStream::MemoryReadStream(std::vector<uint8_t> data)
-    : buffer_(std::make_shared<const std::vector<uint8_t>>(std::move(data))), offset_(0) {
-    size_ = uint32_t(buffer_->size());
+    : _buffer(std::make_shared<const std::vector<uint8_t>>(std::move(data))), _offset(0) {
+    _size = uint32_t(_buffer->size());
 }
 
 MemoryReadStream::MemoryReadStream(std::shared_ptr<const std::vector<uint8_t>> buffer, uint32_t offset, uint32_t size)
-    : buffer_(std::move(buffer)), offset_(offset), size_(size) {
-    if (uint64_t(offset_) + size_ > buffer_->size())
-        size_ = offset_ < buffer_->size() ? uint32_t(buffer_->size() - offset_) : 0;
+    : _buffer(std::move(buffer)), _offset(offset), _size(size) {
+    if (uint64_t(_offset) + _size > _buffer->size())
+        _size = _offset < _buffer->size() ? uint32_t(_buffer->size() - _offset) : 0;
 }
 
 uint32_t MemoryReadStream::read(void *data, uint32_t size) {
-    const uint32_t avail = size_ - pos_;
+    const uint32_t avail = _size - _pos;
     if (size > avail) {
         size = avail;
-        eos_ = true;
+        _eos = true;
     }
     if (size)
-        std::memcpy(data, this->data() + pos_, size);
-    pos_ += size;
+        std::memcpy(data, this->data() + _pos, size);
+    _pos += size;
     return size;
 }
 
 bool MemoryReadStream::seek(int64_t offset, int whence) {
-    const int64_t target = whence == SEEK_SET ? offset : whence == SEEK_CUR ? pos_ + offset : size_ + offset;
-    if (target < 0 || target > size_)
+    const int64_t target = whence == SEEK_SET ? offset : whence == SEEK_CUR ? _pos + offset : _size + offset;
+    if (target < 0 || target > _size)
         return false;
-    pos_ = uint32_t(target);
-    eos_ = false;
+    _pos = uint32_t(target);
+    _eos = false;
     return true;
 }
 
 void MemoryWriteStream::write(const void *data, uint32_t size) {
     const uint8_t *p = static_cast<const uint8_t *>(data);
-    data_.insert(data_.end(), p, p + size);
+    _data.insert(_data.end(), p, p + size);
 }
 
 void MemoryWriteStream::writeUint16LE(uint16_t v) {

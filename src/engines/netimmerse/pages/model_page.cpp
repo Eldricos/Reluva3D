@@ -228,27 +228,27 @@ std::vector<float> normalsOf(const std::vector<float> &pos, const std::vector<ui
 gfx::Blend blendOf(uint32_t f) {
     switch (f) {
     case 0:
-        return gfx::Blend::One;
+        return gfx::Blend::kOne;
     case 1:
-        return gfx::Blend::Zero;
+        return gfx::Blend::kZero;
     case 2:
-        return gfx::Blend::SrcColor;
+        return gfx::Blend::kSrcColor;
     case 3:
-        return gfx::Blend::OneMinusSrcColor;
+        return gfx::Blend::kOneMinusSrcColor;
     case 4:
-        return gfx::Blend::DstColor;
+        return gfx::Blend::kDstColor;
     case 5:
-        return gfx::Blend::OneMinusDstColor;
+        return gfx::Blend::kOneMinusDstColor;
     case 6:
-        return gfx::Blend::SrcAlpha;
+        return gfx::Blend::kSrcAlpha;
     case 7:
-        return gfx::Blend::OneMinusSrcAlpha;
+        return gfx::Blend::kOneMinusSrcAlpha;
     case 8:
-        return gfx::Blend::DstAlpha;
+        return gfx::Blend::kDstAlpha;
     case 9:
-        return gfx::Blend::OneMinusDstAlpha;
+        return gfx::Blend::kOneMinusDstAlpha;
     default:
-        return gfx::Blend::One;
+        return gfx::Blend::kOne;
     }
 }
 
@@ -314,7 +314,7 @@ struct ModelPage::Item {
     // turned to face the camera, then `rel` (the placement below it).
     bool billboard = false;
     gfx::Mat4 billboardAt = gfx::identity(), rel = gfx::identity();
-    gfx::Blend src = gfx::Blend::One, dst = gfx::Blend::Zero;
+    gfx::Blend src = gfx::Blend::kOne, dst = gfx::Blend::kZero;
     // Depth test and write: on, unless an NiZBufferProperty turns them off.
     bool depthTest = true, depthWrite = true;
     gfx::Vec3 localCentre{}, centre{}; // of its vertices; in the world, for sorting what blends
@@ -378,7 +378,7 @@ void ModelPage::clipSound() {
         it = _sounds.emplace(c.sound, sound).first;
     }
     if (it->second)
-        _clipSound = _ctx.mixer->play(it->second, audio::SoundType::Effects,
+        _clipSound = _ctx.mixer->play(it->second, audio::SoundType::kEffects,
                                       int(std::clamp(c.volume, 0.0f, 1.0f) * audio::kMaxVolume), 0, c.loop);
 }
 
@@ -688,8 +688,8 @@ void ModelPage::walk(float ticks, bool create) {
         if (kind == Item::Kind::kGlow) {
             // Added to what's behind, facing the camera.
             item.blend = item.additive = item.billboard = true;
-            item.src = gfx::Blend::SrcAlpha;
-            item.dst = gfx::Blend::One;
+            item.src = gfx::Blend::kSrcAlpha;
+            item.dst = gfx::Blend::kOne;
             item.depthWrite = false;
             item.lit = false;
         }
@@ -821,8 +821,8 @@ void ModelPage::walk(float ticks, bool create) {
                         }
                         setMesh(*item, verts, kQuad);
                         item->blend = item->additive = true;
-                        item->src = gfx::Blend::SrcAlpha;
-                        item->dst = gfx::Blend::One;
+                        item->src = gfx::Blend::kSrcAlpha;
+                        item->dst = gfx::Blend::kOne;
                         item->depthWrite = false;
                         item->baseColor = {std::min(1.0f, l.diffuse[0]), std::min(1.0f, l.diffuse[1]),
                                            std::min(1.0f, l.diffuse[2]), 1};
@@ -985,24 +985,24 @@ void ModelPage::handleEvent(const Event &ev) {
         return;
     const int n = int(_names.size());
     switch (ev.type) {
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         switch (ev.key) {
-        case key::Left:
+        case key::kLeft:
             show(_index - 1);
             break;
-        case key::Right:
+        case key::kRight:
             show(_index + 1);
             break;
-        case key::PageUp:
+        case key::kPageUp:
             show(_index - 10);
             break;
-        case key::PageDown:
+        case key::kPageDown:
             show(_index + 10);
             break;
-        case key::Home:
+        case key::kHome:
             show(0);
             break;
-        case key::End:
+        case key::kEnd:
             show(n - 1);
             break;
         case '+':
@@ -1087,15 +1087,15 @@ void ModelPage::handleEvent(const Event &ev) {
             break;
         }
         break;
-    case EventType::MouseDown:
+    case EventType::kMouseDown:
         _dragging = true;
         _lastX = ev.mouseX;
         _lastY = ev.mouseY;
         break;
-    case EventType::MouseUp:
+    case EventType::kMouseUp:
         _dragging = false;
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         if (_dragging) {
             _yaw -= float(ev.mouseX - _lastX) * 0.01f;
             _pitch = std::clamp(_pitch + float(ev.mouseY - _lastY) * 0.01f, -1.5f, 1.5f);
@@ -1103,7 +1103,7 @@ void ModelPage::handleEvent(const Event &ev) {
             _lastY = ev.mouseY;
         }
         break;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         _distance *= ev.wheelY > 0 ? 0.85f : 1 / 0.85f;
         break;
     default:
@@ -1266,10 +1266,10 @@ void ModelPage::update(uint64_t nowMs) {
         if ((item.kind == Item::Kind::kGlow && !call.texture) || item.kind == Item::Kind::kLight)
             call.texture = glowTexture();
         call.color = item.color;
-        call.rgbSource = item.vertexColors && item.kind != Item::Kind::kLight ? gfx::ColorSource::Vertex
-                         : item.lit                                           ? gfx::ColorSource::Lighting
-                                                                              : gfx::ColorSource::Constant;
-        call.alphaSource = item.vertexColors ? gfx::ColorSource::Vertex : gfx::ColorSource::Constant;
+        call.rgbSource = item.vertexColors && item.kind != Item::Kind::kLight ? gfx::ColorSource::kVertex
+                         : item.lit                                           ? gfx::ColorSource::kLighting
+                                                                              : gfx::ColorSource::kConstant;
+        call.alphaSource = item.vertexColors ? gfx::ColorSource::kVertex : gfx::ColorSource::kConstant;
         // A light over the viewer's shoulder; or the model's own.
         call.ambientLight = {0.45f, 0.45f, 0.45f};
         call.directedLight = {0.6f, 0.6f, 0.6f};
@@ -1316,24 +1316,24 @@ void ModelPage::update(uint64_t nowMs) {
         // the files asks otherwise (closed shapes that blend, such as the
         // skeletons' heads, would otherwise show their insides);
         // billboards are seen from the front anyway.
-        call.state.cull = item.billboard ? gfx::Cull::None : gfx::Cull::Back;
+        call.state.cull = item.billboard ? gfx::Cull::kNone : gfx::Cull::kBack;
         call.state.depthTest = item.depthTest;
         call.state.depthWrite = item.depthWrite;
         if (item.blend) {
             call.state.src = item.src;
             call.state.dst = item.dst;
-            call.state.alphaTest = gfx::AlphaTest::Gt0;
+            call.state.alphaTest = gfx::AlphaTest::kGt0;
         }
         _renderer->draw(call);
         if (_useLightmaps && !item.lightmap.empty() && !item.blend) {
             if (const gfx::TextureId lm = texture(item.lightmap)) {
                 gfx::DrawCall light = call;
                 light.texture = lm;
-                light.texGen = gfx::TexGen::Uv2;
+                light.texGen = gfx::TexGen::kUv2;
                 light.color = {1, 1, 1, 1};
-                light.rgbSource = light.alphaSource = gfx::ColorSource::Constant;
-                light.state.src = gfx::Blend::DstColor;
-                light.state.dst = gfx::Blend::Zero;
+                light.rgbSource = light.alphaSource = gfx::ColorSource::kConstant;
+                light.state.src = gfx::Blend::kDstColor;
+                light.state.dst = gfx::Blend::kZero;
                 light.state.depthEqual = true;
                 light.state.depthWrite = false;
                 _renderer->draw(light);
@@ -1346,11 +1346,11 @@ void ModelPage::update(uint64_t nowMs) {
         call.mesh = _footprint;
         call.indexCount = _footprintCount;
         call.color = {0.3f, 1, 0.4f, 0.4f};
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         call.state.depthTest = false; // over the model, as it's under it
         call.state.depthWrite = false;
-        call.state.src = gfx::Blend::SrcAlpha;
-        call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+        call.state.src = gfx::Blend::kSrcAlpha;
+        call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
         _renderer->draw(call);
     }
 

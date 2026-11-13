@@ -214,9 +214,9 @@ uint64_t fileTime(stdfs::file_time_type t) {
 
 void Win32Process::addDrive(Drive drive) {
     drive.letter = char(std::toupper(static_cast<unsigned char>(drive.letter)));
-    std::erase_if(drives_, [&](const Drive &d) { return d.letter == drive.letter; });
-    const bool first = drives_.empty();
-    drives_.push_back(std::move(drive));
+    std::erase_if(_drives, [&](const Drive &d) { return d.letter == drive.letter; });
+    const bool first = _drives.empty();
+    _drives.push_back(std::move(drive));
     if (!first)
         return;
     addDriveStandIns();
@@ -232,7 +232,7 @@ void Win32Process::addDrive(Drive drive) {
 }
 
 std::string Win32Process::driveCurrent() const {
-    std::string dir = currentFolder_;
+    std::string dir = _currentFolder;
     if (dir.size() > 3 && dir.back() == '\\')
         dir.pop_back(); // no trailing backslash, but for a drive's root
     return dir;
@@ -278,7 +278,7 @@ std::string Win32Process::drivePath(const std::string &windowsPath) const {
 stdfs::path Win32Process::hostPath(const std::string &windowsPath, bool forWriting) const {
     const std::string full = drivePath(windowsPath);
     const Drive *drive = nullptr;
-    for (const Drive &d : drives_)
+    for (const Drive &d : _drives)
         if (d.letter == full[0])
             drive = &d;
     if (!drive)
@@ -303,7 +303,7 @@ stdfs::path Win32Process::hostPath(const std::string &windowsPath, bool forWriti
 void Win32Process::addDriveStandIns() {
     const char *k = "KERNEL32.dll";
     auto driveOf = [this](const std::string &full) -> const Drive * {
-        for (const Drive &d : drives_)
+        for (const Drive &d : _drives)
             if (d.letter == full[0])
                 return &d;
         return nullptr;
@@ -336,10 +336,10 @@ void Win32Process::addDriveStandIns() {
                 if (fileOpened)
                     fileOpened(name, port != nullptr);
                 if (!port) {
-                    lastError_ = kFileNotFound;
+                    _lastError = kFileNotFound;
                     return kInvalidHandle;
                 }
-                lastError_ = 0;
+                _lastError = 0;
                 return addHandle(port);
             }
         }
@@ -356,10 +356,10 @@ void Win32Process::addDriveStandIns() {
                 f->path = full;
                 f->file = std::tmpfile();
                 if (!f->file) {
-                    lastError_ = kAccessDenied;
+                    _lastError = kAccessDenied;
                     return kInvalidHandle;
                 }
-                lastError_ = 0;
+                _lastError = 0;
                 return addHandle(f);
             }
         }
@@ -367,19 +367,19 @@ void Win32Process::addDriveStandIns() {
         std::error_code ec;
         const bool exists = !existing.empty() && stdfs::is_regular_file(existing, ec);
         if (existing.empty() || stdfs::is_directory(existing, ec)) {
-            lastError_ = existing.empty() ? kPathNotFound : kAccessDenied;
+            _lastError = existing.empty() ? kPathNotFound : kAccessDenied;
             if (fileOpened)
                 fileOpened(full, false);
             return kInvalidHandle;
         }
         if ((disposition == 3 || disposition == 5) && !exists) { // OPEN_EXISTING, TRUNCATE_EXISTING
-            lastError_ = kFileNotFound;
+            _lastError = kFileNotFound;
             if (fileOpened)
                 fileOpened(full, false);
             return kInvalidHandle;
         }
         if (disposition == 1 && exists) { // CREATE_NEW
-            lastError_ = kFileExists;
+            _lastError = kFileExists;
             return kInvalidHandle;
         }
         // A new file only in a folder that's there (NFS III tells whether a
@@ -388,7 +388,7 @@ void Win32Process::addDriveStandIns() {
             const size_t slash = full.find_last_of('\\');
             if (slash != std::string::npos && slash > 2 &&
                 !stdfs::is_directory(hostPath(full.substr(0, slash), false), ec)) {
-                lastError_ = kPathNotFound;
+                _lastError = kPathNotFound;
                 if (fileOpened)
                     fileOpened(full, false);
                 return kInvalidHandle;
@@ -399,7 +399,7 @@ void Win32Process::addDriveStandIns() {
         f->path = full;
         if (write || truncate || !exists) {
             if (!writable(full)) {
-                lastError_ = kAccessDenied;
+                _lastError = kAccessDenied;
                 return kInvalidHandle;
             }
             const stdfs::path host = writableCopy(name, !truncate);
@@ -408,12 +408,12 @@ void Win32Process::addDriveStandIns() {
             f->file = std::fopen(existing.string().c_str(), "rb");
         }
         if (!f->file) {
-            lastError_ = kAccessDenied;
+            _lastError = kAccessDenied;
             return kInvalidHandle;
         }
         if (fileOpened)
             fileOpened(full, true);
-        lastError_ = (disposition == 2 || disposition == 4) && exists ? kAlreadyExists : 0;
+        _lastError = (disposition == 2 || disposition == 4) && exists ? kAlreadyExists : 0;
         return addHandle(f);
     };
     stdcall(k, "CreateFileA", 7,
@@ -429,7 +429,7 @@ void Win32Process::addDriveStandIns() {
         if (done)
             c.write32(done, 0);
         if (!c.valid(buffer, size) && size) {
-            lastError_ = 998; // ERROR_NOACCESS
+            _lastError = 998; // ERROR_NOACCESS
             return 0u;
         }
         if (auto device = object<DeviceObject>(c.arg(0))) {
@@ -442,11 +442,11 @@ void Win32Process::addDriveStandIns() {
             if (overlapped && ok && n == 0 && size) {
                 // Nothing yet: pending, its event (OVERLAPPED +16) signalled
                 // when there is, the bytes taken by GetOverlappedResult.
-                pendingReads_[overlapped] = {c.arg(0), buffer, size};
+                _pendingReads[overlapped] = {c.arg(0), buffer, size};
                 c.write32(overlapped, 0x103); // STATUS_PENDING
                 if (const uint32_t event = c.read32(overlapped + 16))
                     signalEventWhen(event, [device] { return device->readable(); });
-                lastError_ = 997; // ERROR_IO_PENDING
+                _lastError = 997; // ERROR_IO_PENDING
                 return 0u;
             }
             if (overlapped && ok) { // Internal (status 0) and InternalHigh (bytes)
@@ -455,12 +455,12 @@ void Win32Process::addDriveStandIns() {
                 if (const uint32_t event = c.read32(overlapped + 16))
                     setEvent(event);
             }
-            lastError_ = error;
+            _lastError = error;
             return ok ? 1u : 0u;
         }
         auto f = object<FileObject>(c.arg(0));
         if (!f) {
-            lastError_ = kInvalidHandleError;
+            _lastError = kInvalidHandleError;
             return 0u;
         }
         const size_t n = size ? std::fread(c.memory().data() + buffer, 1, size, f->file) : 0;
@@ -473,8 +473,8 @@ void Win32Process::addDriveStandIns() {
     // asked); anything else finished when it was started.
     stdcall(k, "GetOverlappedResult", 4, [this](Cpu &c) {
         const uint32_t overlapped = c.arg(1);
-        auto it = pendingReads_.find(overlapped);
-        if (it == pendingReads_.end()) {
+        auto it = _pendingReads.find(overlapped);
+        if (it == _pendingReads.end()) {
             if (c.arg(2))
                 c.write32(c.arg(2), c.read32(overlapped + 4));
             return 1u;
@@ -482,17 +482,17 @@ void Win32Process::addDriveStandIns() {
         const PendingRead p = it->second;
         auto device = object<DeviceObject>(p.handle);
         if (!device) {
-            pendingReads_.erase(it);
-            lastError_ = 995; // ERROR_OPERATION_ABORTED
+            _pendingReads.erase(it);
+            _lastError = 995; // ERROR_OPERATION_ABORTED
             return 0u;
         }
         if (!device->readable()) {
             if (!c.arg(3) || !wait([device] { return device->readable(); }, 0xffffffffu)) {
-                lastError_ = 996; // ERROR_IO_INCOMPLETE
+                _lastError = 996; // ERROR_IO_INCOMPLETE
                 return 0u;
             }
         }
-        pendingReads_.erase(it);
+        _pendingReads.erase(it);
         uint32_t n = 0;
         uint32_t error = 0;
         device->read(c, p.buffer, p.size, true, n, error);
@@ -521,7 +521,7 @@ void Win32Process::addDriveStandIns() {
             const bool ok = device->write(c, buffer, size, n, error);
             if (done)
                 c.write32(done, n);
-            lastError_ = error;
+            _lastError = error;
             return ok ? 1u : 0u;
         } else {
             auto f = object<FileObject>(handle);
@@ -530,11 +530,11 @@ void Win32Process::addDriveStandIns() {
                 if (OpenFile *o = this->file(handle)) // the C runtime's (mapPath)
                     file = o->file;
             if (!file) {
-                lastError_ = kInvalidHandleError;
+                _lastError = kInvalidHandleError;
                 return 0u;
             }
             if (size && std::fwrite(data, 1, size, file) != size) {
-                lastError_ = kAccessDenied;
+                _lastError = kAccessDenied;
                 return 0u;
             }
         }
@@ -546,7 +546,7 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "SetFilePointer", 4, [this](Cpu &c) {
         auto f = object<FileObject>(c.arg(0));
         if (!f) {
-            lastError_ = kInvalidHandleError;
+            _lastError = kInvalidHandleError;
             return kInvalidHandle;
         }
         int64_t distance = int32_t(c.arg(1));
@@ -554,19 +554,19 @@ void Win32Process::addDriveStandIns() {
             distance = int64_t(uint64_t(c.read32(c.arg(2))) << 32 | c.arg(1));
         const int whence = c.arg(3) == 1 ? SEEK_CUR : c.arg(3) == 2 ? SEEK_END : SEEK_SET;
         if (std::fseek(f->file, long(distance), whence) != 0) {
-            lastError_ = 131; // ERROR_NEGATIVE_SEEK
+            _lastError = 131; // ERROR_NEGATIVE_SEEK
             return kInvalidHandle;
         }
         const long at = std::ftell(f->file);
         if (c.arg(2))
             c.write32(c.arg(2), 0);
-        lastError_ = 0;
+        _lastError = 0;
         return uint32_t(at);
     });
     stdcall(k, "GetFileSize", 2, [this](Cpu &c) {
         auto f = object<FileObject>(c.arg(0));
         if (!f) {
-            lastError_ = kInvalidHandleError;
+            _lastError = kInvalidHandleError;
             return kInvalidHandle;
         }
         const long at = std::ftell(f->file);
@@ -621,8 +621,8 @@ void Win32Process::addDriveStandIns() {
         if (h >= kStdHandles && h <= kStdHandles + 2)
             return 1u;
         // Handles of the stand-ins for mapPath (the C runtime's files) too.
-        if (!closeHandle(h) && !closeFile(h) && !mappings_.erase(h)) {
-            lastError_ = kInvalidHandleError;
+        if (!closeHandle(h) && !closeFile(h) && !_mappings.erase(h)) {
+            _lastError = kInvalidHandleError;
             return 0u;
         }
         return 1u;
@@ -675,7 +675,7 @@ void Win32Process::addDriveStandIns() {
         std::sort(find->entries.begin(), find->entries.end(),
                   [](const auto &a, const auto &b) { return lower(a.name) < lower(b.name); });
         if (find->entries.empty()) {
-            lastError_ = kFileNotFound;
+            _lastError = kFileNotFound;
             return kInvalidHandle;
         }
         fillFind(c, c.arg(1), find->entries[0]);
@@ -685,7 +685,7 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "FindNextFileA", 2, [this, fillFind](Cpu &c) {
         auto find = object<FindObject>(c.arg(0));
         if (!find || find->next >= find->entries.size()) {
-            lastError_ = kNoMoreFiles;
+            _lastError = kNoMoreFiles;
             return 0u;
         }
         fillFind(c, c.arg(1), find->entries[find->next++]);
@@ -697,13 +697,13 @@ void Win32Process::addDriveStandIns() {
         const stdfs::path p = hostPath(c.string(c.arg(0)), false);
         std::error_code ec;
         if (p.empty() || !stdfs::exists(p, ec)) {
-            lastError_ = kFileNotFound;
+            _lastError = kFileNotFound;
             return kInvalidHandle;
         }
         if (stdfs::is_directory(p, ec))
             return kDirectory;
         const Drive *d = nullptr;
-        for (const Drive &drive : drives_)
+        for (const Drive &drive : _drives)
             if (drive.letter == drivePath(c.string(c.arg(0)))[0])
                 d = &drive;
         return d && d->type == 5 ? kArchive | kReadOnly : kArchive;
@@ -713,11 +713,11 @@ void Win32Process::addDriveStandIns() {
         const std::string full = drivePath(c.string(c.arg(0)));
         std::error_code ec;
         if (!writable(full)) {
-            lastError_ = kAccessDenied;
+            _lastError = kAccessDenied;
             return 0u;
         }
         if (stdfs::is_directory(hostPath(full, false), ec)) {
-            lastError_ = kAlreadyExists;
+            _lastError = kAlreadyExists;
             return 0u;
         }
         return stdfs::create_directories(hostPath(full, true), ec) ? 1u : 0u;
@@ -730,7 +730,7 @@ void Win32Process::addDriveStandIns() {
             return false;
         const stdfs::path p = hostPath(full, true);
         if (!stdfs::exists(p, ec)) {
-            lastError_ = kFileNotFound;
+            _lastError = kFileNotFound;
             return false;
         }
         return stdfs::remove(p, ec);
@@ -741,7 +741,7 @@ void Win32Process::addDriveStandIns() {
         const std::string from = c.string(c.arg(0));
         const std::string to = c.string(c.arg(1));
         if (!writable(drivePath(from)) || !writable(drivePath(to))) {
-            lastError_ = kAccessDenied;
+            _lastError = kAccessDenied;
             return 0u;
         }
         const stdfs::path source = writableCopy(from, true);
@@ -765,7 +765,7 @@ void Win32Process::addDriveStandIns() {
         const std::string full = drivePath(c.string(c.arg(0)));
         std::error_code ec;
         if (!stdfs::is_directory(hostPath(full, false), ec)) {
-            lastError_ = kPathNotFound;
+            _lastError = kPathNotFound;
             return 0u;
         }
         setCurrentFolder(full);
@@ -792,13 +792,13 @@ void Win32Process::addDriveStandIns() {
     });
     stdcall(k, "GetLogicalDrives", 0, [this](Cpu &) {
         uint32_t mask = 0;
-        for (const Drive &d : drives_)
+        for (const Drive &d : _drives)
             mask |= 1u << (d.letter - 'A');
         return mask;
     });
     stdcall(k, "GetLogicalDriveStringsA", 2, [this](Cpu &c) {
         std::vector<char> letters;
-        for (const Drive &d : drives_)
+        for (const Drive &d : _drives)
             letters.push_back(d.letter);
         std::sort(letters.begin(), letters.end());
         const uint32_t need = uint32_t(letters.size() * 4);
@@ -815,8 +815,8 @@ void Win32Process::addDriveStandIns() {
     });
     // The drive a root path ("D:\", or the current one for NULL) is.
     auto rootDrive = [this](Cpu &c, uint32_t root) -> const Drive * {
-        const char letter = char(std::toupper(root ? c.read8(root) : uint8_t(currentFolder_[0])));
-        for (const Drive &d : drives_)
+        const char letter = char(std::toupper(root ? c.read8(root) : uint8_t(_currentFolder[0])));
+        for (const Drive &d : _drives)
             if (d.letter == letter)
                 return &d;
         return nullptr;
@@ -829,7 +829,7 @@ void Win32Process::addDriveStandIns() {
     stdcall(k, "GetVolumeInformationA", 8, [this, rootDrive](Cpu &c) {
         const Drive *d = rootDrive(c, c.arg(0));
         if (!d) {
-            lastError_ = kPathNotFound;
+            _lastError = kPathNotFound;
             return 0u;
         }
         if (c.arg(1))
@@ -884,14 +884,14 @@ void Win32Process::addDriveStandIns() {
         if (offset > m->data.size())
             return 0u;
         const uint32_t bytes = c.arg(4) ? c.arg(4) : uint32_t(m->data.size() - offset);
-        const uint32_t p = arena_->alloc(std::max(bytes, 1u), 0x10000);
+        const uint32_t p = _arena->alloc(std::max(bytes, 1u), 0x10000);
         if (p)
             std::memcpy(c.memory().data() + p, m->data.data() + offset,
                         std::min<size_t>(bytes, m->data.size() - offset));
         return p;
     });
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
-        arena_->free(c.arg(0));
+        _arena->free(c.arg(0));
         return 1u;
     });
     stdcall(k, "SetErrorMode", 1, [](Cpu &) { return 0u; });
@@ -905,8 +905,8 @@ std::string Win32Process::fullPath(const std::string &path) const {
     if (p.size() >= 2 && p[1] == ':')
         return p;
     if (!p.empty() && p[0] == '\\')
-        return currentFolder_.substr(0, 2) + p;
-    std::string full = currentFolder_;
+        return _currentFolder.substr(0, 2) + p;
+    std::string full = _currentFolder;
     if (!full.empty() && full.back() != '\\')
         full += '\\';
     // ".\" and "..\" as Windows resolves them.
@@ -931,9 +931,9 @@ std::string Win32Process::fullPath(const std::string &path) const {
 }
 
 void Win32Process::setCurrentFolder(const std::string &folder) {
-    currentFolder_ = fullPath(folder);
-    if (currentFolder_.empty() || currentFolder_.back() != '\\')
-        currentFolder_ += '\\';
+    _currentFolder = fullPath(folder);
+    if (_currentFolder.empty() || _currentFolder.back() != '\\')
+        _currentFolder += '\\';
 }
 
 uint32_t Win32Process::openFile(const std::string &windowsPath, const char *mode) {
@@ -941,31 +941,31 @@ uint32_t Win32Process::openFile(const std::string &windowsPath, const char *mode
     const bool writing = std::strpbrk(mode, "wa+") != nullptr;
     const auto host = mapPath ? mapPath(full, writing) : std::nullopt;
     if (!host) {
-        lastError_ = writing ? kErrorAccessDenied : kErrorFileNotFound;
+        _lastError = writing ? kErrorAccessDenied : kErrorFileNotFound;
         return 0;
     }
     std::FILE *f = std::fopen(host->string().c_str(), mode);
     if (!f) {
-        lastError_ = kErrorFileNotFound;
+        _lastError = kErrorFileNotFound;
         return 0;
     }
-    const uint32_t handle = nextFile_;
-    nextFile_ += 4;
-    files_[handle] = {f, full};
+    const uint32_t handle = _nextFile;
+    _nextFile += 4;
+    _files[handle] = {f, full};
     return handle;
 }
 
 Win32Process::OpenFile *Win32Process::file(uint32_t handle) {
-    auto it = files_.find(handle);
-    return it == files_.end() ? nullptr : &it->second;
+    auto it = _files.find(handle);
+    return it == _files.end() ? nullptr : &it->second;
 }
 
 bool Win32Process::closeFile(uint32_t handle) {
-    auto it = files_.find(handle);
-    if (it == files_.end())
+    auto it = _files.find(handle);
+    if (it == _files.end())
         return false;
     std::fclose(it->second.file);
-    files_.erase(it);
+    _files.erase(it);
     return true;
 }
 
@@ -1004,7 +1004,7 @@ void Win32Process::addFileStandIns() {
         if (c.arg(3))
             c.write32(c.arg(3), 0);
         if (!f || !c.valid(buffer, size)) {
-            lastError_ = kErrorInvalidHandle;
+            _lastError = kErrorInvalidHandle;
             return 0u;
         }
         const size_t n = std::fread(c.memory().data() + buffer, 1, size, f->file);
@@ -1016,12 +1016,12 @@ void Win32Process::addFileStandIns() {
     stdcall(k, "SetFilePointer", 4, [this](Cpu &c) {
         OpenFile *f = file(c.arg(0));
         if (!f) {
-            lastError_ = kErrorInvalidHandle;
+            _lastError = kErrorInvalidHandle;
             return 0xffffffffu;
         }
-        static const int whence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
+        static const int kWhence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
         const int32_t distance = int32_t(c.arg(1));
-        if (c.arg(3) > 2 || std::fseek(f->file, distance, whence[c.arg(3)]) != 0)
+        if (c.arg(3) > 2 || std::fseek(f->file, distance, kWhence[c.arg(3)]) != 0)
             return 0xffffffffu;
         if (c.arg(2))
             c.write32(c.arg(2), 0);
@@ -1067,14 +1067,14 @@ void Win32Process::addFileStandIns() {
     });
     stdcall(k, "CloseHandle", 1, [this](Cpu &c) {
         closeFile(c.arg(0));
-        mappings_.erase(c.arg(0));
+        _mappings.erase(c.arg(0));
         return 1u;
     });
     stdcall(k, "DeleteFileA", 1, [this](Cpu &c) {
         const auto host = mapPath ? mapPath(fullPath(c.string(c.arg(0))), true) : std::nullopt;
         std::error_code ec;
         if (!host || !std::filesystem::remove(*host, ec)) {
-            lastError_ = kErrorFileNotFound;
+            _lastError = kErrorFileNotFound;
             return 0u;
         }
         return 1u;
@@ -1083,13 +1083,13 @@ void Win32Process::addFileStandIns() {
         const auto host = mapPath ? mapPath(fullPath(c.string(c.arg(0))), false) : std::nullopt;
         std::error_code ec;
         if (!host || !std::filesystem::exists(*host, ec)) {
-            lastError_ = kErrorFileNotFound;
+            _lastError = kErrorFileNotFound;
             return 0xffffffffu;
         }
         return std::filesystem::is_directory(*host, ec) ? 0x10u : 0x80u; // DIRECTORY, NORMAL
     });
     stdcall(k, "GetCurrentDirectoryA", 2, [this](Cpu &c) {
-        std::string dir = currentFolder_;
+        std::string dir = _currentFolder;
         if (dir.size() > 3)
             dir.pop_back(); // no trailing backslash, but for a drive's root
         if (c.arg(0) <= dir.size())
@@ -1159,26 +1159,26 @@ void Win32Process::addFileStandIns() {
                     s.entries.push_back(*it);
         std::sort(s.entries.begin(), s.entries.end());
         if (s.entries.empty()) {
-            lastError_ = host ? kErrorFileNotFound : kErrorPathNotFound;
+            _lastError = host ? kErrorFileNotFound : kErrorPathNotFound;
             return kInvalidHandle;
         }
         fill(c, c.arg(1), s.entries[0]);
         s.next = 1;
-        const uint32_t handle = nextFile_;
-        nextFile_ += 4;
-        searches_[handle] = std::move(s);
+        const uint32_t handle = _nextFile;
+        _nextFile += 4;
+        _searches[handle] = std::move(s);
         return handle;
     });
     stdcall(k, "FindNextFileA", 2, [this, fill](Cpu &c) {
-        auto it = searches_.find(c.arg(0));
-        if (it == searches_.end() || it->second.next >= it->second.entries.size()) {
-            lastError_ = kErrorNoMoreFiles;
+        auto it = _searches.find(c.arg(0));
+        if (it == _searches.end() || it->second.next >= it->second.entries.size()) {
+            _lastError = kErrorNoMoreFiles;
             return 0u;
         }
         fill(c, c.arg(1), it->second.entries[it->second.next++]);
         return 1u;
     });
-    stdcall(k, "FindClose", 1, [this](Cpu &c) { return searches_.erase(c.arg(0)) ? 1u : 0u; });
+    stdcall(k, "FindClose", 1, [this](Cpu &c) { return _searches.erase(c.arg(0)) ? 1u : 0u; });
 
     // Mappings: CreateFileMappingA(file, security, protect, sizeHigh,
     // sizeLow, name) and MapViewOfFile(mapping, access, offsetHigh,
@@ -1191,7 +1191,7 @@ void Win32Process::addFileStandIns() {
         if (m.file) {
             OpenFile *f = file(m.file);
             if (!f) {
-                lastError_ = kErrorInvalidHandle;
+                _lastError = kErrorInvalidHandle;
                 return 0u;
             }
             if (!m.size) {
@@ -1201,15 +1201,15 @@ void Win32Process::addFileStandIns() {
                 std::fseek(f->file, at, SEEK_SET);
             }
         }
-        const uint32_t handle = nextFile_;
-        nextFile_ += 4;
-        mappings_[handle] = m;
+        const uint32_t handle = _nextFile;
+        _nextFile += 4;
+        _mappings[handle] = m;
         return handle;
     });
     stdcall(k, "MapViewOfFile", 5, [this](Cpu &c) {
-        auto it = mappings_.find(c.arg(0));
-        if (it == mappings_.end()) {
-            lastError_ = kErrorInvalidHandle;
+        auto it = _mappings.find(c.arg(0));
+        if (it == _mappings.end()) {
+            _lastError = kErrorInvalidHandle;
             return 0u;
         }
         const Mapping &m = it->second;
@@ -1217,9 +1217,9 @@ void Win32Process::addFileStandIns() {
         if (offset > m.size)
             return 0u;
         const uint32_t size = c.arg(4) ? std::min(c.arg(4), m.size - offset) : m.size - offset;
-        const uint32_t view = arena_->alloc(std::max(size, 1u), Cpu::kPageSize);
+        const uint32_t view = _arena->alloc(std::max(size, 1u), Cpu::kPageSize);
         if (!view) {
-            lastError_ = 8; // ERROR_NOT_ENOUGH_MEMORY
+            _lastError = 8; // ERROR_NOT_ENOUGH_MEMORY
             return 0u;
         }
         if (OpenFile *f = file(m.file)) {
@@ -1232,7 +1232,7 @@ void Win32Process::addFileStandIns() {
         return view;
     });
     stdcall(k, "UnmapViewOfFile", 1, [this](Cpu &c) {
-        arena_->free(c.arg(0));
+        _arena->free(c.arg(0));
         return 1u;
     });
 
@@ -1250,7 +1250,7 @@ void Win32Process::addFileStandIns() {
     stdcall(k, "GetLogicalDrives", 0,
             [this](Cpu &) { return (1u << 2) | (1u << (std::toupper(static_cast<unsigned char>(cdDrive[0])) - 'A')); });
     stdcall(k, "GetDriveTypeA", 1, [this](Cpu &c) {
-        const std::string root = upper(c.arg(0) ? c.string(c.arg(0)) : currentFolder_.substr(0, 3));
+        const std::string root = upper(c.arg(0) ? c.string(c.arg(0)) : _currentFolder.substr(0, 3));
         if (root.rfind("C:", 0) == 0)
             return 3u; // DRIVE_FIXED
         if (root.rfind(upper(cdDrive) + ":", 0) == 0)
@@ -1263,11 +1263,11 @@ void Win32Process::addFileStandIns() {
         const std::string root = upper(c.string(c.arg(0)));
         const bool cd = root.rfind(upper(cdDrive) + ":", 0) == 0;
         if (cd && cdLabel.empty()) {
-            lastError_ = 21; // ERROR_NOT_READY: no disc
+            _lastError = 21; // ERROR_NOT_READY: no disc
             return 0u;
         }
         if (!cd && root.rfind("C:", 0) != 0) {
-            lastError_ = kErrorPathNotFound;
+            _lastError = kErrorPathNotFound;
             return 0u;
         }
         if (c.arg(1))

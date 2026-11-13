@@ -361,7 +361,7 @@ const Group kGroups[] = {
 
 // The 0x0F map.
 const Opcode *twoByte(uint8_t op) {
-    static const std::array<Opcode, 256> table = [] {
+    static const std::array<Opcode, 256> kTable = [] {
         std::array<Opcode, 256> t{};
         auto set = [&](int o, const char *n, const char *ops) { t[size_t(o)] = {n, ops}; };
         set(0x00, "", "Ew"); // group 6
@@ -380,13 +380,13 @@ const Opcode *twoByte(uint8_t op) {
         set(0x31, "rdtsc", "");
         set(0x32, "rdmsr", "");
         set(0x33, "rdpmc", "");
-        static const char *const cc[16] = {"o", "no", "b", "ae", "e", "ne", "be", "a",
-                                           "s", "ns", "p", "np", "l", "ge", "le", "g"};
+        static const char *const kCc[16] = {"o", "no", "b", "ae", "e", "ne", "be", "a",
+                                            "s", "ns", "p", "np", "l", "ge", "le", "g"};
         static std::string names[3][16];
         for (int i = 0; i < 16; ++i) {
-            names[0][i] = std::string("cmov") + cc[i];
-            names[1][i] = std::string("j") + cc[i];
-            names[2][i] = std::string("set") + cc[i];
+            names[0][i] = std::string("cmov") + kCc[i];
+            names[1][i] = std::string("j") + kCc[i];
+            names[2][i] = std::string("set") + kCc[i];
             set(0x40 + i, names[0][i].c_str(), "Gv,Ev");
             set(0x80 + i, names[1][i].c_str(), "Jz");
             set(0x90 + i, names[2][i].c_str(), "Eb");
@@ -423,7 +423,7 @@ const Opcode *twoByte(uint8_t op) {
             set(0xc8 + i, "bswap", "Zd");
         return t;
     }();
-    return &table[op];
+    return &kTable[op];
 }
 
 const Opcode kGroup6[8] = {{"sldt", nullptr},
@@ -484,33 +484,33 @@ const char *sizeName(int bytes) {
 // Reads the instruction's bytes, failing once they run out.
 class Reader {
 public:
-    Reader(const uint8_t *code, size_t size) : code_(code), size_(size) {}
-    bool ok() const { return ok_; }
-    size_t pos() const { return pos_; }
+    Reader(const uint8_t *code, size_t size) : _code(code), _size(size) {}
+    bool ok() const { return _ok; }
+    size_t pos() const { return _pos; }
     uint8_t peek() {
-        if (pos_ >= size_) {
-            ok_ = false;
+        if (_pos >= _size) {
+            _ok = false;
             return 0;
         }
-        return code_[pos_];
+        return _code[_pos];
     }
     uint32_t get(int bytes) {
         uint32_t v = 0;
         for (int i = 0; i < bytes; ++i) {
-            if (pos_ >= size_ || pos_ >= 15) {
-                ok_ = false;
+            if (_pos >= _size || _pos >= 15) {
+                _ok = false;
                 return 0;
             }
-            v |= uint32_t(code_[pos_++]) << (8 * i);
+            v |= uint32_t(_code[_pos++]) << (8 * i);
         }
         return v;
     }
 
 private:
-    const uint8_t *code_;
-    size_t size_;
-    size_t pos_ = 0;
-    bool ok_ = true;
+    const uint8_t *_code;
+    size_t _size;
+    size_t _pos = 0;
+    bool _ok = true;
 };
 
 struct Decoder {
@@ -549,12 +549,12 @@ struct Decoder {
         int64_t disp = 0;
         bool haveDisp = false;
         if (addrsize16) {
-            static const char *const base16[8] = {"bx + si", "bx + di", "bp + si", "bp + di", "si", "di", "bp", "bx"};
+            static const char *const kBase16[8] = {"bx + si", "bx + di", "bp + si", "bp + di", "si", "di", "bp", "bx"};
             if (mod() == 0 && rm() == 6) {
                 disp = in.get(2);
                 haveDisp = true;
             } else {
-                add(base16[rm()]);
+                add(kBase16[rm()]);
                 if (mod() == 1) {
                     disp = int8_t(in.get(1));
                     haveDisp = true;
@@ -761,7 +761,7 @@ struct Decoder {
                 const char *name;
                 int bytes;
             };
-            static const Mem table[8][8] = {
+            static const Mem kTable[8][8] = {
                 {{"fadd", 4},
                  {"fmul", 4},
                  {"fcom", 4},
@@ -827,7 +827,7 @@ struct Decoder {
                  {"fbstp", 10},
                  {"fistp", 8}},
             };
-            const Mem &m = table[row][reg()];
+            const Mem &m = kTable[row][reg()];
             if (!m.name)
                 return false;
             out.mnemonic = m.name;
@@ -853,8 +853,8 @@ struct Decoder {
         };
         switch (row) {
         case 0: {
-            static const char *const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsub", "fsubr", "fdiv", "fdivr"};
-            return reg() == 2 || reg() == 3 ? one(n[reg()]) : both(n[reg()], true);
+            static const char *const kN[8] = {"fadd", "fmul", "fcom", "fcomp", "fsub", "fsubr", "fdiv", "fdivr"};
+            return reg() == 2 || reg() == 3 ? one(kN[reg()]) : both(kN[reg()], true);
         }
         case 1: {
             if (reg() == 0)
@@ -892,27 +892,27 @@ struct Decoder {
                 break;
             }
             if (reg() == 6) {
-                static const char *const n[8] = {"f2xm1",   "fyl2x",  "fptan",   "fpatan",
-                                                 "fxtract", "fprem1", "fdecstp", "fincstp"};
-                return none(n[rm()]);
+                static const char *const kN[8] = {"f2xm1",   "fyl2x",  "fptan",   "fpatan",
+                                                  "fxtract", "fprem1", "fdecstp", "fincstp"};
+                return none(kN[rm()]);
             }
             if (reg() == 7) {
-                static const char *const n[8] = {"fprem",   "fyl2xp1", "fsqrt", "fsincos",
-                                                 "frndint", "fscale",  "fsin",  "fcos"};
-                return none(n[rm()]);
+                static const char *const kN[8] = {"fprem",   "fyl2xp1", "fsqrt", "fsincos",
+                                                  "frndint", "fscale",  "fsin",  "fcos"};
+                return none(kN[rm()]);
             }
             return false;
         }
         case 2: {
-            static const char *const n[4] = {"fcmovb", "fcmove", "fcmovbe", "fcmovu"};
+            static const char *const kN[4] = {"fcmovb", "fcmove", "fcmovbe", "fcmovu"};
             if (reg() < 4)
-                return both(n[reg()], true);
+                return both(kN[reg()], true);
             return modrm == 0xe9 ? none("fucompp") : false;
         }
         case 3: {
-            static const char *const n[4] = {"fcmovnb", "fcmovne", "fcmovnbe", "fcmovnu"};
+            static const char *const kN[4] = {"fcmovnb", "fcmovne", "fcmovnbe", "fcmovnu"};
             if (reg() < 4)
-                return both(n[reg()], true);
+                return both(kN[reg()], true);
             if (modrm == 0xe2)
                 return none("fnclex");
             if (modrm == 0xe3)
@@ -924,18 +924,18 @@ struct Decoder {
             return false;
         }
         case 4: {
-            static const char *const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsubr", "fsub", "fdivr", "fdiv"};
-            return reg() == 2 || reg() == 3 ? one(n[reg()]) : both(n[reg()], false);
+            static const char *const kN[8] = {"fadd", "fmul", "fcom", "fcomp", "fsubr", "fsub", "fdivr", "fdiv"};
+            return reg() == 2 || reg() == 3 ? one(kN[reg()]) : both(kN[reg()], false);
         }
         case 5: {
-            static const char *const n[8] = {"ffree", "fxch", "fst", "fstp", "fucom", "fucomp", nullptr, nullptr};
-            return n[reg()] ? one(n[reg()]) : false;
+            static const char *const kN[8] = {"ffree", "fxch", "fst", "fstp", "fucom", "fucomp", nullptr, nullptr};
+            return kN[reg()] ? one(kN[reg()]) : false;
         }
         case 6: {
             if (modrm == 0xd9)
                 return none("fcompp");
-            static const char *const n[8] = {"faddp", "fmulp", nullptr, nullptr, "fsubrp", "fsubp", "fdivrp", "fdivp"};
-            return n[reg()] ? both(n[reg()], false) : false;
+            static const char *const kN[8] = {"faddp", "fmulp", nullptr, nullptr, "fsubrp", "fsubp", "fdivrp", "fdivp"};
+            return kN[reg()] ? both(kN[reg()], false) : false;
         }
         default: {
             if (modrm == 0xe0) {

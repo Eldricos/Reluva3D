@@ -125,38 +125,38 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
     out = Event{};
     out.mouse = _mouse;
     auto flags = [](uint16_t mods) {
-        return uint8_t(((mods & keymod::Ctrl) ? kKbdCtrl : 0) | ((mods & keymod::Alt) ? kKbdAlt : 0) |
-                       ((mods & keymod::Shift) ? kKbdShift : 0));
+        return uint8_t(((mods & keymod::kCtrl) ? kKbdCtrl : 0) | ((mods & keymod::kAlt) ? kKbdAlt : 0) |
+                       ((mods & keymod::kShift) ? kKbdShift : 0));
     };
     switch (in.type) {
-    case reluva::EventType::Quit:
+    case reluva::EventType::kQuit:
         out.type = kEventQuit;
         _quit = true;
         return true;
-    case reluva::EventType::ReturnToLauncher:
+    case reluva::EventType::kReturnToLauncher:
         out.type = kEventReturnToLauncher;
         _quit = true;
         return true;
-    case reluva::EventType::KeyDown:
-    case reluva::EventType::KeyUp:
-        if (in.key == key::Unknown)
+    case reluva::EventType::kKeyDown:
+    case reluva::EventType::kKeyUp:
+        if (in.key == key::kUnknown)
             return false;
-        out.type = in.type == reluva::EventType::KeyDown ? kEventKeydown : kEventKeyup;
+        out.type = in.type == reluva::EventType::kKeyDown ? kEventKeydown : kEventKeyup;
         out.kbdRepeat = in.repeat;
         out.kbd.keycode = in.key;
         out.kbd.flags = flags(in.mods);
         switch (in.key) {
-        case key::Backspace:
+        case key::kBackspace:
             out.kbd.ascii = 8;
             break;
-        case key::Tab:
+        case key::kTab:
             out.kbd.ascii = 9;
             break;
-        case key::Return:
-        case key::KpEnter:
+        case key::kReturn:
+        case key::kKpEnter:
             out.kbd.ascii = 13;
             break;
-        case key::Escape:
+        case key::kEscape:
             out.kbd.ascii = 27;
             break;
         default:
@@ -164,37 +164,37 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
         }
         _modifiers = out.kbd.flags;
         return true;
-    case reluva::EventType::TextInput:
+    case reluva::EventType::kTextInput:
         // A character typed, while text input is on: printable ASCII only,
         // as the original's names were.
         if (!_textInput || in.text[0] < 32 || in.text[0] > 126 || in.text[1] != 0)
             return false;
         out.type = kEventKeydown;
-        out.kbd.keycode = key::Unknown;
+        out.kbd.keycode = key::kUnknown;
         out.kbd.ascii = uint16_t(in.text[0]);
         out.kbd.flags = uint8_t(_modifiers);
         return true;
-    case reluva::EventType::MouseMove:
+    case reluva::EventType::kMouseMove:
         _mouse = clampToScreen(in.mouseX, in.mouseY);
         out.type = kEventMousemove;
         out.mouse = _mouse;
         return true;
-    case reluva::EventType::MouseDown:
-    case reluva::EventType::MouseUp: {
-        const bool down = in.type == reluva::EventType::MouseDown;
+    case reluva::EventType::kMouseDown:
+    case reluva::EventType::kMouseUp: {
+        const bool down = in.type == reluva::EventType::kMouseDown;
         _mouse = clampToScreen(in.mouseX, in.mouseY);
         out.mouse = _mouse;
         int bit = 0;
         switch (in.button) {
-        case MouseButton::Left:
+        case MouseButton::kLeft:
             out.type = down ? kEventLbuttondown : kEventLbuttonup;
             bit = 1;
             break;
-        case MouseButton::Right:
+        case MouseButton::kRight:
             out.type = down ? kEventRbuttondown : kEventRbuttonup;
             bit = 2;
             break;
-        case MouseButton::Middle:
+        case MouseButton::kMiddle:
             out.type = down ? kEventMbuttondown : kEventMbuttonup;
             bit = 4;
             break;
@@ -204,15 +204,15 @@ bool Platform::translate(const reluva::Event &in, Event &out) {
         _buttons = down ? _buttons | bit : _buttons & ~bit;
         return true;
     }
-    case reluva::EventType::MouseWheel:
+    case reluva::EventType::kMouseWheel:
         if (in.wheelY == 0)
             return false;
         out.type = in.wheelY > 0 ? kEventWheelup : kEventWheeldown;
         return true;
-    case reluva::EventType::FocusGained:
+    case reluva::EventType::kFocusGained:
         out.type = kEventFocusGained;
         return true;
-    case reluva::EventType::FocusLost:
+    case reluva::EventType::kFocusLost:
         out.type = kEventFocusLost;
         return true;
     default:

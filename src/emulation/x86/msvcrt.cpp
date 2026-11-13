@@ -1068,8 +1068,8 @@ void addMsvcrt(Win32Process &process) {
     provideCdecl("fseek", [s, hostFile](Cpu &c) {
         std::FILE *f = hostFile(c.arg(0));
         s->ungot.erase(c.arg(0));
-        static const int whence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
-        return f && c.arg(2) <= 2 && std::fseek(f, int32_t(c.arg(1)), whence[c.arg(2)]) == 0 ? 0u : 0xffffffffu;
+        static const int kWhence[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
+        return f && c.arg(2) <= 2 && std::fseek(f, int32_t(c.arg(1)), kWhence[c.arg(2)]) == 0 ? 0u : 0xffffffffu;
     });
     provideCdecl("ftell", [s, hostFile](Cpu &c) {
         std::FILE *f = hostFile(c.arg(0));

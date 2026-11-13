@@ -139,26 +139,26 @@ void TexturePage::show(int index) {
 }
 
 void TexturePage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
+    case key::kLeft:
         show((_index + n - 1) % n);
         break;
-    case key::Right:
+    case key::kRight:
         show((_index + 1) % n);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         show(_index - 10);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         show(_index + 10);
         break;
-    case key::Home:
+    case key::kHome:
         show(0);
         break;
-    case key::End:
+    case key::kEnd:
         show(n - 1);
         break;
     case 'f': {
@@ -247,14 +247,14 @@ void FontPage::show(int index) {
 }
 
 void FontPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
+    case key::kLeft:
         show((_index + n - 1) % n);
         break;
-    case key::Right:
+    case key::kRight:
         show((_index + 1) % n);
         break;
     case 'p':
@@ -369,36 +369,36 @@ void SoundPage::play() {
         _playing = audio::kNoSound;
         return;
     }
-    _playing = _ctx.mixer->play(_sound, audio::SoundType::Effects);
+    _playing = _ctx.mixer->play(_sound, audio::SoundType::kEffects);
 }
 
 void SoundPage::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
     const int n = int(_entries.size());
     switch (ev.key) {
-    case key::Left:
-    case key::Up:
+    case key::kLeft:
+    case key::kUp:
         select((_index + n - 1) % n);
         break;
-    case key::Right:
-    case key::Down:
+    case key::kRight:
+    case key::kDown:
         select((_index + 1) % n);
         break;
-    case key::PageUp:
+    case key::kPageUp:
         select(_index - 10);
         break;
-    case key::PageDown:
+    case key::kPageDown:
         select(_index + 10);
         break;
-    case key::Home:
+    case key::kHome:
         select(0);
         break;
-    case key::End:
+    case key::kEnd:
         select(n - 1);
         break;
-    case key::Space:
-    case key::Return:
+    case key::kSpace:
+    case key::kReturn:
         play();
         break;
     case 'a':
@@ -497,32 +497,32 @@ void TextPage::show(int index) {
 
 void TextPage::handleEvent(const Event &ev) {
     const int page = (kScreenH - 40) / (font::kLineHeight + 1);
-    if (ev.type == EventType::MouseWheel) {
+    if (ev.type == EventType::kMouseWheel) {
         _scroll -= ev.wheelY * 3;
-    } else if (ev.type == EventType::KeyDown) {
+    } else if (ev.type == EventType::kKeyDown) {
         switch (ev.key) {
-        case key::Left:
+        case key::kLeft:
             show(_index - 1);
             return;
-        case key::Right:
+        case key::kRight:
             show(_index + 1);
             return;
-        case key::Up:
+        case key::kUp:
             --_scroll;
             break;
-        case key::Down:
+        case key::kDown:
             ++_scroll;
             break;
-        case key::PageUp:
+        case key::kPageUp:
             _scroll -= page;
             break;
-        case key::PageDown:
+        case key::kPageDown:
             _scroll += page;
             break;
-        case key::Home:
+        case key::kHome:
             _scroll = 0;
             break;
-        case key::End:
+        case key::kEnd:
             _scroll = int(_lines.size());
             break;
         default:

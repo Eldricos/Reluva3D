@@ -311,7 +311,7 @@ bool ScenePage::gameKey(uint32_t key) {
         draw();
         return true;
     }
-    if (key == key::Escape) {
+    if (key == key::kEscape) {
         if (_location == "menu.main") {
             _runner->run("yesno quit2 0");
         } else if (inMenu) {
@@ -341,13 +341,13 @@ bool ScenePage::gameKey(uint32_t key) {
                      ", fade in");
         return true;
     }
-    if (key == key::F1 + 1) {
+    if (key == key::kF1 + 1) {
         // F2: a quick save, out of the menus.
         if (_location != "menu.main" && !inMenu)
             quickSave();
         return true;
     }
-    if (key == key::F1 + 2) {
+    if (key == key::kF1 + 2) {
         // F3: the quick save, loaded.
         if (std::filesystem::exists(savesFolder() / "quick.ac2")) {
             _runner->clear();
@@ -355,7 +355,7 @@ bool ScenePage::gameKey(uint32_t key) {
         }
         return true;
     }
-    return key == key::Escape;
+    return key == key::kEscape;
 }
 
 // --- The save and load screens ---------------------------------------------------
@@ -473,7 +473,7 @@ bool ScenePage::slotClick(int x, int y) {
             return true;
         if (r == m.row && m.lastRow == r && m.sinceClick < 0.33f) {
             // A double click is OK.
-            gameKey(key::Return);
+            gameKey(key::kReturn);
             return true;
         }
         if (r != m.row) {
@@ -495,7 +495,7 @@ void ScenePage::slotKey(uint32_t key) {
     SlotMenu &m = *_slots;
     if (!m.save)
         return;
-    if (key == key::Backspace || key == key::Delete) {
+    if (key == key::kBackspace || key == key::kDelete) {
         if (!m.name.empty())
             m.name.pop_back();
         return;

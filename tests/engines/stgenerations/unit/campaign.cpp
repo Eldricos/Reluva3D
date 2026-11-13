@@ -163,11 +163,11 @@ static void optionsMenuPanels() {
     // Quit asks first; Cancel goes back.
     click(150, 130);
     CHECK_EQUAL(menu.getPanel(), M::kPanelQuit);
-    menu.keyDown(KeyState(key::Escape));
+    menu.keyDown(KeyState(key::kEscape));
     CHECK_EQUAL(sounds.back(), 2000);
     CHECK_EQUAL(menu.takeResult(), M::kNone);
     click(150, 100);
-    menu.keyDown(KeyState(key::Return));
+    menu.keyDown(KeyState(key::kReturn));
     CHECK_EQUAL(menu.takeResult(), M::kNewGame);
 
     // In a game: Return, and Save with a name typed in.
@@ -176,7 +176,7 @@ static void optionsMenuPanels() {
     click(300, 29 + 33 + 10);
     menu.keyDown(KeyState('a', 'a'));
     menu.keyDown(KeyState('b', 'b'));
-    menu.keyDown(KeyState(key::Backspace));
+    menu.keyDown(KeyState(key::kBackspace));
     click(400, 400);
     CHECK_EQUAL(menu.takeResult(), M::kSave);
     CHECK_EQUAL(menu.getSlot(), 0);
@@ -213,8 +213,8 @@ static void keyMaps() {
     CHECK_EQUAL(read.get(0x26), (int)KeyMap::kNone);
 
     CHECK_EQUAL(KeyMap::virtualKey('w'), 'W');
-    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::KpPlus), 0x6B);
-    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::RCtrl), 0x11);
+    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::kKpPlus), 0x6B);
+    CHECK_EQUAL(KeyMap::virtualKey(reluva::key::kRCtrl), 0x11);
     CHECK_EQUAL(KeyMap::keyName('W'), std::string("W"));
     CHECK_EQUAL(KeyMap::keyName(0x64), std::string("num 4"));
     CHECK_EQUAL(KeyMap::keyName(0x7A), std::string("F11"));
@@ -247,13 +247,13 @@ static void optionsMenuControls() {
     press('w');
     // Then W for Jump: it leaves Forward.
     cell(7, 1);
-    press((reluva::key::F1 + 4)); // not the function keys
+    press((reluva::key::kF1 + 4)); // not the function keys
     press('w');
     // Mouse Look takes only the left and right buttons; Escape gives up.
     cell(13, 0);
     press('k');
     menu.mouseDown(10, 10, 4);
-    press(reluva::key::Escape);
+    press(reluva::key::kEscape);
     CHECK_EQUAL(menu.getPanel(), M::kPanelControls);
     click(400, 400);
     CHECK(menu.takeSettingsChanged());
@@ -269,7 +269,7 @@ static void optionsMenuControls() {
     click(227 + 200, 29 + 10);
     cell(0, 0);
     press('f');
-    menu.keyDown(KeyState(reluva::key::Escape));
+    menu.keyDown(KeyState(reluva::key::kEscape));
     CHECK_EQUAL(menu.getPanel(), M::kPanelMain);
     CHECK(!menu.takeSettingsChanged());
     CHECK_EQUAL(menu.getSettings().starshipKeys.get('F'), (int)KeyMap::kNone);

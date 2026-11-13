@@ -117,9 +117,9 @@ public:
         while (true) {
             Event ev;
             while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher)
+                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
                     return Error::success();
-                if (ev.type == EventType::KeyDown && ev.key == key::F1 + 8) { // F9
+                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 8) { // F9
                     if (viewing) {
                         leaveViewer();
                     } else {
@@ -136,19 +136,19 @@ public:
                 if (viewer == 0) {
                     // Tab, and Esc outside the overview, are the engine's;
                     // the rest is the mansion's (the mouse too).
-                    const bool keyDown = ev.type == EventType::KeyDown;
-                    if (!(keyDown && (ev.key == key::Tab || (ev.key == key::Escape && !mansion.overview())))) {
+                    const bool keyDown = ev.type == EventType::kKeyDown;
+                    if (!(keyDown && (ev.key == key::kTab || (ev.key == key::kEscape && !mansion.overview())))) {
                         mansion.handleEvent(ev);
                         continue;
                     }
                 }
-                if (ev.type != EventType::KeyDown)
+                if (ev.type != EventType::kKeyDown)
                     continue;
-                if (ev.key == key::Escape) {
+                if (ev.key == key::kEscape) {
                     leaveViewer();
                     continue;
                 }
-                if (ev.key == key::Tab) {
+                if (ev.key == key::kTab) {
                     if (viewer == 1)
                         videos.deactivate();
                     else if (viewer == 4)

@@ -47,14 +47,14 @@ Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &f
         std::memcpy(pcm->samples.data(), bytes.data(), pcm->samples.size() * 2);
     }
     if (pcm)
-        sound = mixer->play(pcm, audio::SoundType::Music);
+        sound = mixer->play(pcm, audio::SoundType::kMusic);
     const uint64_t start = sys.getMillis();
     // What was already waiting (the launcher's click or key, still queued
     // as the movie starts) mustn't skip it: only a press from here on.
     {
         Event ev;
         while (sys.pollEvent(ev))
-            if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
+            if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
                 quit = true;
                 if (sound)
                     mixer->stop(sound);
@@ -66,7 +66,7 @@ Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &f
     while (true) {
         Event ev;
         while (sys.pollEvent(ev)) {
-            if (ev.type == EventType::Quit || ev.type == EventType::ReturnToLauncher) {
+            if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
                 quit = true;
                 if (sound)
                     mixer->stop(sound);
@@ -74,7 +74,7 @@ Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &f
             }
             // A press skips it, though not in its first half second (one
             // queued behind the start, or a double click's second).
-            if (((ev.type == EventType::KeyDown && !ev.repeat) || ev.type == EventType::MouseDown) &&
+            if (((ev.type == EventType::kKeyDown && !ev.repeat) || ev.type == EventType::kMouseDown) &&
                 sys.getMillis() - start >= 500) {
                 if (sound)
                     mixer->stop(sound);

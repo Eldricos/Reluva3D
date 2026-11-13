@@ -57,11 +57,11 @@ std::unique_ptr<audio::Stream> makeLooping(std::unique_ptr<SoundStream> stream, 
 }
 
 std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int rate, uint8_t flags) {
-    audio::RawStream::Format format = audio::RawStream::Format::U8;
+    audio::RawStream::Format format = audio::RawStream::Format::kU8;
     if (flags & kRaw16Bits)
         format = (flags & kRawLittleEndian) ? audio::RawStream::Format::kS16LE : audio::RawStream::Format::kS16BE;
     else if (!(flags & kRawUnsigned))
-        format = audio::RawStream::Format::S8;
+        format = audio::RawStream::Format::kS8;
     return std::make_unique<audio::RawStream>(std::move(data), format, rate, (flags & kRawStereo) != 0);
 }
 
@@ -98,11 +98,11 @@ bool readWavInfo(SeekableReadStream &file, WavInfo &info) {
 audio::SoundType Mixer::toType(SoundType type) {
     switch (type) {
     case kMusicSoundType:
-        return audio::SoundType::Music;
+        return audio::SoundType::kMusic;
     case kSpeechSoundType:
-        return audio::SoundType::Speech;
+        return audio::SoundType::kSpeech;
     default:
-        return audio::SoundType::Effects;
+        return audio::SoundType::kEffects;
     }
 }
 

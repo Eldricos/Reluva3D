@@ -215,7 +215,7 @@ void MenuLayer::playSound(const std::string &name, int channel) {
     const CvarStore::Cvar *volume = _cvars.find("s_volume");
     const float scale = volume ? std::clamp(std::strtof(volume->value.c_str(), nullptr), 0.0f, 1.0f) : 0.8f;
     const audio::SoundHandle handle =
-        _ctx.mixer->play(sound, audio::SoundType::Effects, int(scale * float(audio::kMaxVolume)));
+        _ctx.mixer->play(sound, audio::SoundType::kEffects, int(scale * float(audio::kMaxVolume)));
     if (channel != 0)
         _channels[channel] = handle;
 }
@@ -228,18 +228,18 @@ void MenuLayer::handleEvent(const Event &ev) {
     // Only presses: Elite Force's menus act on a release as on a press
     // (a click counted twice), so the original's engine can't have sent
     // them releases.
-    case EventType::KeyDown:
+    case EventType::kKeyDown:
         if (const int32_t k = toQ3Key(ev.key))
             err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
         break;
-    case EventType::TextInput:
+    case EventType::kTextInput:
         // Characters for text fields, each as a key press with the
         // character flag (the original's menus go by Latin-1).
         for (uint32_t cp : decodeUtf8(ev.text))
             if (cp >= 32 && cp < 256 && cp != 127 && !err)
                 err = _ui->call(eliteforce::UiHost::kKeyEvent, {int32_t(cp) | q3key::kCharFlag, 1});
         break;
-    case EventType::MouseDown:
+    case EventType::kMouseDown:
         // Clicks land where the mouse is.
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;
@@ -250,13 +250,13 @@ void MenuLayer::handleEvent(const Event &ev) {
         if (const int32_t k = toQ3Button(ev.button))
             err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
         break;
-    case EventType::MouseWheel:
+    case EventType::kMouseWheel:
         if (ev.wheelY) {
             const int32_t k = ev.wheelY > 0 ? q3key::kWheelUp : q3key::kWheelDown;
             err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
         }
         break;
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         // Followed in frame(), once per frame.
         _mouseX = ev.mouseX;
         _mouseY = ev.mouseY;

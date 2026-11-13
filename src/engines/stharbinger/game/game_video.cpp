@@ -108,7 +108,7 @@ bool Game::startVideo(const std::string &dir, const std::string &name, int x, in
     if (mixer && _video.decoder->hasAudio()) {
         auto audio = std::make_shared<audio::QueuingStream>(_video.decoder->audioRate(), _video.decoder->audioStereo());
         _video.audio = audio;
-        _video.audioHandle = mixer->play(audio, audio::SoundType::Music);
+        _video.audioHandle = mixer->play(audio, audio::SoundType::kMusic);
     }
     _thread.wait = kWaitVideo;
     updateVideo();
@@ -233,7 +233,7 @@ int Game::playVideoFile(const std::string &path) {
         while (_system->pollEvent(event)) {
             if (event.type == InputEvent::kQuit)
                 _quit = true;
-            else if (event.type == InputEvent::kKeyDown && event.key == key::Escape)
+            else if (event.type == InputEvent::kKeyDown && event.key == key::kEscape)
                 finishVideo(true);
         }
         uint32_t now = _system->getMillis();

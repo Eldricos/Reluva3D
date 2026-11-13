@@ -28,14 +28,14 @@ namespace reluva::glide {
 constexpr int kMaxTmus = 3;
 
 // Which Voodoo (docs/common/graphics/glide.md, Boards).
-enum class Generation { Voodoo1, VoodooRush, Voodoo2, Banshee, Voodoo3 };
+enum class Generation { kVoodoo1, kVoodooRush, kVoodoo2, kBanshee, kVoodoo3 };
 
 // Glide 3's extensions a board's hardware has (Board::extensions).
 enum Extension : uint32_t { kExtChromaRange = 1, kExtTexMirror = 2, kExtPalette6666 = 4 };
 
 // The default is the Voodoo2 (voodoo2Board()).
 struct Board {
-    Generation generation = Generation::Voodoo2;
+    Generation generation = Generation::kVoodoo2;
     int tmus = 2;
     // Bytes each TMU addresses. On a UMA board (Banshee, Voodoo3) every TMU
     // reads the one memory the frame buffer is in too, and this is all of
@@ -286,11 +286,11 @@ public:
     Pipeline(Pipeline &&) noexcept = default;
     Pipeline &operator=(Pipeline &&) noexcept = default;
 
-    const Board &board() const { return board_; }
+    const Board &board() const { return _board; }
     // The renderer from now on. Call it before drawing (with the buffers
     // and texture memory as they are, a GPU backend copies them over).
-    void setRenderer(std::unique_ptr<Renderer> renderer) { renderer_ = std::move(renderer); }
-    Renderer &renderer() { return *renderer_; }
+    void setRenderer(std::unique_ptr<Renderer> renderer) { _renderer = std::move(renderer); }
+    Renderer &renderer() { return *_renderer; }
 
     // --- The display ------------------------------------------------------
     // Sets up the buffers for a resolution and resets the state to Glide's
@@ -310,23 +310,23 @@ public:
     // the memory can't hold them ("may fail if there is not enough
     // offscreen video memory").
     bool resize(int width, int height);
-    bool windowed() const { return windowed_; }
+    bool windowed() const { return _windowed; }
     // A linear frame buffer lock's scan line, in pixels (Board::lfbStride).
     int lfbStride() const;
     void close();
-    bool isOpen() const { return open_; }
+    bool isOpen() const { return _open; }
     // How many times open() succeeded: new buffers each time.
-    uint64_t opened() const { return opened_; }
-    int width() const { return width_; }
-    int height() const { return height_; }
-    int colorBuffers() const { return colorBuffers_; }
+    uint64_t opened() const { return _opened; }
+    int width() const { return _width; }
+    int height() const { return _height; }
+    int colorBuffers() const { return _colorBuffers; }
     // Swaps the front and back buffers (with three, the oldest becomes the
     // back). Counts swaps for grBufferNumPending's sake: none stay pending.
     void swap();
-    uint64_t swaps() const { return swaps_; }
+    uint64_t swaps() const { return _swaps; }
 
-    State &state() { return state_; }
-    const State &state() const { return state_; }
+    State &state() { return _state; }
+    const State &state() const { return _state; }
     // Glide's defaults for the state (grSstWinOpen), the clip window the
     // screen.
     void resetState();
@@ -352,11 +352,11 @@ public:
     void clear(uint32_t argb, int alpha, int depth);
 
     // --- Textures ---------------------------------------------------------
-    uint32_t tmuMemorySize() const { return board_.tmuMemory; }
+    uint32_t tmuMemorySize() const { return _board.tmuMemory; }
     // Where texture memory starts: 0, or on a UMA board the first address
     // after the open window's buffers (aligned to the board's texture
     // alignment).
-    uint32_t textureBase() const { return textureBase_; }
+    uint32_t textureBase() const { return _textureBase; }
     // One level (rows firstRow-lastRow of it) of a texture whose largest
     // level `evenOdd` includes starts at `start`, from `data` (the level's
     // rows, tightly packed).
@@ -370,14 +370,14 @@ public:
     // "8 bit Palette to RGBA" (Banshee specification, textureMode's
     // formats). A plain palette download (setPalette) ends it.
     void setPalette6666(int tmu, int first, int last, const uint32_t *entries);
-    bool palette6666(int tmu) const { return palette6666_[size_t(tmu)]; }
+    bool palette6666(int tmu) const { return _palette6666[size_t(tmu)]; }
     // The format a TMU's source is read in: its own, or format 6 for a P_8
     // texture with the 6666 palette.
     int textureFormat(int tmu) const;
     void setNcc(int tmu, int which, const NccTable &table);
-    const uint8_t *tmuMemory(int tmu) const { return tmuMemory_[size_t(tmu)].data(); }
-    const uint32_t *palette(int tmu) const { return palettes_[size_t(tmu)].data(); }
-    const NccTable &ncc(int tmu, int which) const { return ncc_[size_t(tmu)][size_t(which & 1)]; }
+    const uint8_t *tmuMemory(int tmu) const { return _tmuMemory[size_t(tmu)].data(); }
+    const uint32_t *palette(int tmu) const { return _palettes[size_t(tmu)].data(); }
+    const NccTable &ncc(int tmu, int which) const { return _ncc[size_t(tmu)][size_t(which & 1)]; }
     // Where a level of the TMU's current source is (grTexMultibase's
     // addresses if set), its first byte.
     uint32_t levelAddress(int tmu, int lod) const;
@@ -421,34 +421,34 @@ public:
     // value"; the Voodoo2's clutData). A gamma value (state().gamma) set
     // afterwards replaces it (setGammaValue).
     void loadGammaTable(int n, const uint32_t *r, const uint32_t *g, const uint32_t *b);
-    void setGammaValue() { gammaLoaded_ = false; }
+    void setGammaValue() { _gammaLoaded = false; }
     std::function<void(const uint16_t *pixels, int width, int height, const GammaTables &gamma, Surface &out)>
         outputFilter;
 
     PixelStats stats;
 
 private:
-    Board board_;
-    std::unique_ptr<Renderer> renderer_;
-    State state_;
-    bool open_ = false;
-    uint64_t opened_ = 0;
-    int width_ = 0, height_ = 0, colorBuffers_ = 2;
-    bool hasAux_ = false;
-    bool windowed_ = false;
-    bool hasAuxAsked_ = false;
-    uint32_t textureBase_ = 0;
-    bool gammaLoaded_ = false;
-    std::array<std::vector<uint8_t>, 3> gammaTable_;
+    Board _board;
+    std::unique_ptr<Renderer> _renderer;
+    State _state;
+    bool _open = false;
+    uint64_t _opened = 0;
+    int _width = 0, _height = 0, _colorBuffers = 2;
+    bool _hasAux = false;
+    bool _windowed = false;
+    bool _hasAuxAsked = false;
+    uint32_t _textureBase = 0;
+    bool _gammaLoaded = false;
+    std::array<std::vector<uint8_t>, 3> _gammaTable;
     // Colour buffers by slot; front_ and back_ index them.
-    std::vector<std::vector<uint16_t>> color_;
-    int front_ = 0, back_ = 1, triple_ = 2;
-    std::vector<uint16_t> aux_;
-    uint64_t swaps_ = 0;
-    std::vector<std::vector<uint8_t>> tmuMemory_;
-    std::vector<std::array<uint32_t, 256>> palettes_;
-    std::array<bool, kMaxTmus> palette6666_{};
-    std::vector<std::array<NccTable, 2>> ncc_;
+    std::vector<std::vector<uint16_t>> _color;
+    int _front = 0, _back = 1, _triple = 2;
+    std::vector<uint16_t> _aux;
+    uint64_t _swaps = 0;
+    std::vector<std::vector<uint8_t>> _tmuMemory;
+    std::vector<std::array<uint32_t, 256>> _palettes;
+    std::array<bool, kMaxTmus> _palette6666{};
+    std::vector<std::array<NccTable, 2>> _ncc;
 };
 
 } // namespace reluva::glide

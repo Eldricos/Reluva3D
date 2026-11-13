@@ -30,21 +30,21 @@ void JoystickInput::registerCvars(CvarStore &cvars) {
 
 void JoystickInput::event(const Event &ev) {
     switch (ev.type) {
-    case EventType::JoyButtonDown:
-    case EventType::JoyButtonUp:
+    case EventType::kJoyButtonDown:
+    case EventType::kJoyButtonUp:
         if (ev.joyButton >= 0 && ev.joyButton < 32) {
             const uint32_t bit = 1u << ev.joyButton;
-            _buttons = ev.type == EventType::JoyButtonDown ? _buttons | bit : _buttons & ~bit;
+            _buttons = ev.type == EventType::kJoyButtonDown ? _buttons | bit : _buttons & ~bit;
         }
         break;
-    case EventType::JoyAxis:
+    case EventType::kJoyAxis:
         if (ev.joyAxis >= 0 && ev.joyAxis < int(_axes.size()))
             _axes[size_t(ev.joyAxis)] = ev.joyValue;
         break;
-    case EventType::JoyHat:
+    case EventType::kJoyHat:
         _hat = ev.joyHat;
         break;
-    case EventType::JoyRemoved:
+    case EventType::kJoyRemoved:
         _buttons = 0;
         _axes = {};
         _hat = 0;
@@ -85,16 +85,16 @@ JoystickInput::Frame JoystickInput::frame(const CvarStore &cvars) {
         // The hat: one way at a time (the original's reading has no
         // diagonals).
         switch (_hat) {
-        case joyhat::Up:
+        case joyhat::kUp:
             ways |= 0x1000;
             break;
-        case joyhat::Down:
+        case joyhat::kDown:
             ways |= 0x2000;
             break;
-        case joyhat::Right:
+        case joyhat::kRight:
             ways |= 0x4000;
             break;
-        case joyhat::Left:
+        case joyhat::kLeft:
             ways |= 0x8000;
             break;
         default:

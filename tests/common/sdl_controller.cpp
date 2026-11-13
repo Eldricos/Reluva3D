@@ -73,7 +73,7 @@ void testWheel() {
         SDL_UpdateJoysticks();
         CHECK(sys.readGamepad(s));
         CHECK(near(s.axes[5], 1.0f) && near(s.axes[4], 0.5f));
-        CHECK(s.buttons == (1u << 2 | 1u << PadRight));
+        CHECK(s.buttons == (1u << 2 | 1u << kPadRight));
         // Pedals set by hand: the brake on 1, the accelerator on 2.
         sys.setWheelPedals(2, 1);
         CHECK(sys.readGamepad(s));

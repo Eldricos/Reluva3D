@@ -52,23 +52,23 @@ static void testDialog(const std::filesystem::path &tmp) {
         e.type = type;
         e.mouseX = x;
         e.mouseY = y;
-        e.button = MouseButton::Left;
+        e.button = MouseButton::kLeft;
         return view.handleEvent(e);
     };
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == 10001);
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 240) == -1);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 200) == 10001);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 240) == -1);
     view.setEnabled(10001, false);
-    CHECK(mouse(EventType::MouseDown, 300, 200) == -1 && mouse(EventType::MouseUp, 300, 200) == -1);
+    CHECK(mouse(EventType::kMouseDown, 300, 200) == -1 && mouse(EventType::kMouseUp, 300, 200) == -1);
     // Typing goes to the edit box that has the focus.
     view.focus(10);
     Event typed;
-    typed.type = EventType::TextInput;
+    typed.type = EventType::kTextInput;
     std::snprintf(typed.text, sizeof typed.text, "Jo\xc3\xa9"); // é, kept as Windows-1252
     view.handleEvent(typed);
     CHECK(view.text(10) == "Jo\xe9");
     Event back;
-    back.type = EventType::KeyDown;
-    back.key = key::Backspace;
+    back.type = EventType::kKeyDown;
+    back.key = key::kBackspace;
     view.handleEvent(back);
     CHECK(view.text(10) == "Jo");
     Surface s;

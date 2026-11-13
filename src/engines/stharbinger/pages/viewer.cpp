@@ -155,7 +155,7 @@ void SceneViewer::playSound(int index) {
     _soundHandle = audio::kNoSound;
     std::vector<uint8_t> data;
     if (_resources.loadSound(list[_soundIndex].name, data))
-        _soundHandle = mixer->play(makeRawStream(std::move(data)), audio::SoundType::Effects);
+        _soundHandle = mixer->play(makeRawStream(std::move(data)), audio::SoundType::kEffects);
     else
         log::debug(1, "Sound %s not found", list[_soundIndex].name.c_str());
     updateCaption();
@@ -193,24 +193,24 @@ void SceneViewer::handleEvent(const InputEvent &event) {
         _quit = true;
         break;
     case InputEvent::kKeyDown: {
-        bool shift = (event.mods & keymod::Shift) != 0;
+        bool shift = (event.mods & keymod::kShift) != 0;
         switch (event.key) {
-        case key::Escape:
+        case key::kEscape:
         case 'q':
             _quit = true;
             break;
-        case key::Right:
+        case key::kRight:
             showBackground(_backgroundIndex + 1);
             break;
-        case key::Left:
+        case key::kLeft:
             showBackground(_backgroundIndex - 1);
             break;
-        case key::Down:
-        case key::PageDown:
+        case key::kDown:
+        case key::kPageDown:
             enterScene(_sceneIndex + 1);
             break;
-        case key::Up:
-        case key::PageUp:
+        case key::kUp:
+        case key::kPageUp:
             enterScene(_sceneIndex - 1);
             break;
         case 'h':
@@ -223,7 +223,7 @@ void SceneViewer::handleEvent(const InputEvent &event) {
         case 's':
             playSound(_soundIndex < 0 ? 0 : _soundIndex + (shift ? -1 : 1));
             break;
-        case key::Space:
+        case key::kSpace:
             _animIndex = -1;
             _anim = RleAnimation();
             if (_system->getMixer())

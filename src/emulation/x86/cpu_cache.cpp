@@ -88,26 +88,26 @@ struct CachedOps {
     // Cpu::alu and Cpu::condition, for one operation each.
     template<int Op, int S>
     RELUVA_FORCE_INLINE static uint32_t alu(Cpu &c, uint32_t a, uint32_t b) {
-        constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
-        constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
-        a &= m;
-        b &= m;
+        constexpr uint32_t kM = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
+        constexpr uint32_t kSign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
+        a &= kM;
+        b &= kM;
         uint32_t r = 0;
         uint32_t flags = c.eflags & ~(Cpu::CF | Cpu::OF | Cpu::AF | Cpu::ZF | Cpu::SF | Cpu::PF);
         if constexpr (Op == 0 || Op == 2) { // ADD, ADC
             const uint64_t wide = uint64_t(a) + b + (Op == 2 ? (c.eflags & Cpu::CF) : 0);
-            r = uint32_t(wide) & m;
-            if (wide > m)
+            r = uint32_t(wide) & kM;
+            if (wide > kM)
                 flags |= Cpu::CF;
-            if ((a ^ r) & (b ^ r) & sign)
+            if ((a ^ r) & (b ^ r) & kSign)
                 flags |= Cpu::OF;
             flags |= (a ^ b ^ r) & Cpu::AF;
         } else if constexpr (Op == 3 || Op == 5 || Op == 7) { // SBB, SUB, CMP
             const uint64_t subtrahend = uint64_t(b) + (Op == 3 ? (c.eflags & Cpu::CF) : 0);
-            r = uint32_t(uint64_t(a) - subtrahend) & m;
+            r = uint32_t(uint64_t(a) - subtrahend) & kM;
             if (uint64_t(a) < subtrahend)
                 flags |= Cpu::CF;
-            if ((a ^ b) & (a ^ r) & sign)
+            if ((a ^ b) & (a ^ r) & kSign)
                 flags |= Cpu::OF;
             flags |= (a ^ b ^ r) & Cpu::AF;
         } else if constexpr (Op == 1) {
@@ -122,13 +122,13 @@ struct CachedOps {
     }
     template<int S>
     RELUVA_FORCE_INLINE static uint32_t logicFlags(uint32_t r) { // ZF, SF and PF of a result
-        constexpr uint32_t sign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
-        return (r ? 0 : Cpu::ZF) | (r & sign ? Cpu::SF : 0) | kParity.flag[r & 0xff];
+        constexpr uint32_t kSign = S == 4 ? 0x80000000u : S == 2 ? 0x8000u : 0x80u;
+        return (r ? 0 : Cpu::ZF) | (r & kSign ? Cpu::SF : 0) | kParity.flag[r & 0xff];
     }
     template<int S>
     RELUVA_FORCE_INLINE static void test(Cpu &c, uint32_t r) {
-        constexpr uint32_t m = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
-        c.eflags = (c.eflags & ~(Cpu::CF | Cpu::OF | Cpu::AF | Cpu::ZF | Cpu::SF | Cpu::PF)) | logicFlags<S>(r & m);
+        constexpr uint32_t kM = S == 4 ? 0xffffffffu : S == 2 ? 0xffffu : 0xffu;
+        c.eflags = (c.eflags & ~(Cpu::CF | Cpu::OF | Cpu::AF | Cpu::ZF | Cpu::SF | Cpu::PF)) | logicFlags<S>(r & kM);
     }
     template<int Cc>
     RELUVA_FORCE_INLINE static bool condition(const Cpu &c) {
@@ -488,62 +488,62 @@ struct CachedOps {
 // goes to a native. A block's instructions run one after another: only its
 // last can go elsewhere.
 void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
-    if (blocks_.empty()) {
-        blocks_.resize(kBlockEntries);
+    if (_blocks.empty()) {
+        _blocks.resize(kBlockEntries);
         if (Jit::supported()) {
             const char *self = reinterpret_cast<const char *>(this);
             auto at = [&](const void *member) { return size_t(static_cast<const char *>(member) - self); };
             Jit::Layout l{};
-            l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&instructionStart_), l.epoch = at(&codeEpoch_);
+            l.reg = at(reg.data()), l.eip = at(&eip), l.start = at(&_instructionStart), l.epoch = at(&_codeEpoch);
             l.eflags = at(&eflags);
             l.fpuRegs = at(fpu.regs.data()), l.fpuTop = at(&fpu.top), l.fpuTags = at(&fpu.tags);
             l.fpuControl = at(&fpu.control), l.fpuStatus = at(&fpu.status);
-            l.fsBase = at(&fsBase), l.memory = memory_.data(), l.pages = codePages_.data(), l.span = span_;
+            l.fsBase = at(&fsBase), l.memory = _memory.data(), l.pages = _codePages.data(), l.span = _span;
             l.memoryFault = &Cpu::jitMemoryFault;
-            l.executed = at(&executed_), l.countingOps = at(&counting_.ops), l.countingCount = at(&counting_.count);
-            l.countingStart = at(&counting_.start);
-            static_assert(sizeof(stop_) == 1, "the stop flag a byte, as the Jit reads it");
-            l.stop = at(&stop_), l.runReturn = at(&run_.returnAddress), l.runNative = at(&run_.nativeStart);
-            l.runEnd = at(&run_.end);
-            l.blocks = reinterpret_cast<const uint8_t *>(blocks_.data());
+            l.executed = at(&_executed), l.countingOps = at(&_counting.ops), l.countingCount = at(&_counting.count);
+            l.countingStart = at(&_counting.start);
+            static_assert(sizeof(_stop) == 1, "the stop flag a byte, as the Jit reads it");
+            l.stop = at(&_stop), l.runReturn = at(&_run.returnAddress), l.runNative = at(&_run.nativeStart);
+            l.runEnd = at(&_run.end);
+            l.blocks = reinterpret_cast<const uint8_t *>(_blocks.data());
             l.blockSize = uint32_t(sizeof(Block)), l.blockMask = kBlockEntries - 1;
-            l.nativeBase = nativeBase_, l.callNative = &Cpu::jitCallNative;
-            jit_ = std::make_unique<Jit>(l);
-            if (!jit_->ready())
-                jit_.reset();
+            l.nativeBase = _nativeBase, l.callNative = &Cpu::jitCallNative;
+            _jit = std::make_unique<Jit>(l);
+            if (!_jit->ready())
+                _jit.reset();
         }
     }
-    Jit *const jit = jitOn ? jit_.get() : nullptr;
+    Jit *const jit = jitOn ? _jit.get() : nullptr;
     // This run's bounds, for the Jit's dispatch; the run this one is
     // inside of (a native's call back in) gets its own back after.
     struct Bounds {
-        decltype(run_) &now;
-        const decltype(run_) before;
-        Bounds(decltype(run_) &r, uint32_t ret, uint32_t natives, uint64_t end) : now(r), before(r) {
+        decltype(_run) &now;
+        const decltype(_run) before;
+        Bounds(decltype(_run) &r, uint32_t ret, uint32_t natives, uint64_t end) : now(r), before(r) {
             now = {ret, natives, end};
         }
         ~Bounds() { now = before; }
-    } bounds{run_, returnAddress, nativeStart, eventsAt()};
+    } bounds{_run, returnAddress, nativeStart, eventsAt()};
     // Where events() is due: the limit, or a thread's slice.
     uint64_t end = eventsAt();
-    Block *const blocks = blocks_.data();
-    const uint8_t *const memory = memory_.data();
+    Block *const blocks = _blocks.data();
+    const uint8_t *const memory = _memory.data();
     do {
-        if (stop_.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
-            instructionStart_ = eip;
-            if (executed_ + 1 > end)
+        if (_stop.load(std::memory_order_relaxed)) { // counted, as one instruction at a time did
+            _instructionStart = eip;
+            if (_executed + 1 > end)
                 events();
-            ++executed_;
+            ++_executed;
             fault("stopped");
         }
         const uint32_t pair = slotOf(eip);
-        uint8_t &recent = recent_[pair >> 1];
+        uint8_t &recent = _recent[pair >> 1];
         // The one of the pair it's in, else the one used less lately.
         const uint32_t way = blocks[pair].start == eip ? 0 : blocks[pair + 1].start == eip ? 1 : recent ^ 1;
         recent = uint8_t(way);
         Block &b = blocks[pair + way];
         bool fresh = b.start == eip;
-        if (fresh && b.epoch != codeEpoch_) {
+        if (fresh && b.epoch != _codeEpoch) {
             uint64_t differ = 0;
             const int last = b.words - 1;
             for (int w = 0; w < last; ++w) {
@@ -555,16 +555,16 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
             std::memcpy(&now, memory + eip + 8 * uint32_t(last), 8);
             differ |= (now ^ b.code[last]) & b.lastMask;
             fresh = differ == 0;
-            b.epoch = codeEpoch_;
+            b.epoch = _codeEpoch;
         }
         if (!fresh)
             rebuild(b, eip);
         // The dispatch's index, as the slot now is (whatever else ran it
         // last, it mustn't find code that isn't this block's).
         const auto index = [&] {
-            const bool made = jit_ && b.jit && b.jitGeneration == jit_->generation();
-            if (jit_)
-                jit_->setEntry(uint32_t(&b - blocks), b.start, b.epoch, made ? b.jit : nullptr, b.count);
+            const bool made = _jit && b.jit && b.jitGeneration == _jit->generation();
+            if (_jit)
+                _jit->setEntry(uint32_t(&b - blocks), b.start, b.epoch, made ? b.jit : nullptr, b.count);
         };
         index();
         // The blocks it may go to next, into the cache while it runs: the
@@ -575,14 +575,14 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                 RELUVA_PREFETCH(&blocks[slotOf(to)]);
         const Cached *e = b.ops;
         const Cached *const last = e + b.count - 1;
-        if (executed_ + b.count <= end) {
+        if (_executed + b.count <= end) {
             // Counted as a whole; a fault part way through uncounts the
             // rest (uncountBlock). Only a block's last instruction reads
             // the count (RDTSC ends its block).
-            executed_ += b.count;
-            counting_.ops = b.ops; // stores of their own: as one, Visual Studio's build stalled on it
-            counting_.count = b.count;
-            counting_.start = eip;
+            _executed += b.count;
+            _counting.ops = b.ops; // stores of their own: as one, Visual Studio's build stalled on it
+            _counting.count = b.count;
+            _counting.start = eip;
             if (jit && b.start == eip) { // (not one rebuilt each time it runs)
                 // Made on its second run: many blocks made run once, and
                 // are made again for another address before the next.
@@ -597,42 +597,42 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
                         int &d;
                         explicit Depth(int &n) : d(n) { ++d; }
                         ~Depth() { --d; }
-                    } depth{jitDepth_};
+                    } depth{_jitDepth};
                     try {
                         jit->run(this, b.jit);
                     } catch (FirstPageLoad &) {
                         // A load from the first page, which reads 0
                         // (readableFirstPage): the instruction run from its
                         // bytes, counted already.
-                        counting_.ops = nullptr;
-                        eip = instructionStart_;
+                        _counting.ops = nullptr;
+                        eip = _instructionStart;
                         execute();
                     }
-                    counting_.ops = nullptr;
+                    _counting.ops = nullptr;
                     continue;
                 }
             }
             for (;; ++e) {
-                instructionStart_ = eip;
+                _instructionStart = eip;
                 e->run(*this, *e);
                 if (e == last)
                     break;
             }
-            counting_.ops = nullptr;
+            _counting.ops = nullptr;
         } else {
             bool sliced = false;
             for (;; ++e) {
-                instructionStart_ = eip;
-                if (executed_ + 1 > end) {
+                _instructionStart = eip;
+                if (_executed + 1 > end) {
                     // Another thread may run meanwhile, and change the
                     // table: the block is found again after.
                     sliced = events();
                     end = eventsAt();
-                    run_.end = end;
+                    _run.end = end;
                     if (sliced)
                         break;
                 }
-                ++executed_;
+                ++_executed;
                 e->run(*this, *e);
                 if (e == last)
                     break;
@@ -642,7 +642,7 @@ void Cpu::runCached(uint32_t returnAddress, uint32_t nativeStart) {
         }
         // (A native the Jit's dispatch called may have asked the thread to
         // yield: runUntil sees to it.)
-    } while (eip != returnAddress && eip < nativeStart && !yield_);
+    } while (eip != returnAddress && eip < nativeStart && !_yield);
 }
 
 // The block's native code: each instruction's start stored, its handler
@@ -667,61 +667,61 @@ struct MadeTable {
 const std::unordered_map<const void *, Made> &madeWithFlags() {
     using O = CachedOps;
     using K = Jit::Kind;
-    static const std::unordered_map<const void *, Made> made = [] {
+    static const std::unordered_map<const void *, Made> kMade = [] {
         MadeTable m;
         auto sizes = [&]<int Op>(std::integral_constant<int, Op>) {
-            m[&O::aluRmReg<Op, 1>] = {K::Alu, Op, 0, 1, 0}, m[&O::aluRmReg<Op, 4>] = {K::Alu, Op, 0, 4, 0};
-            m[&O::aluRegRm<Op, 1>] = {K::Alu, Op, 1, 1, 0}, m[&O::aluRegRm<Op, 4>] = {K::Alu, Op, 1, 4, 0};
-            m[&O::aluAccImm<Op, 1>] = {K::Alu, Op, 2, 1, 0}, m[&O::aluAccImm<Op, 4>] = {K::Alu, Op, 2, 4, 0};
-            m[&O::aluRmImm<Op, 1>] = {K::Alu, Op, 3, 1, 0}, m[&O::aluRmImm<Op, 4>] = {K::Alu, Op, 3, 4, 0};
+            m[&O::aluRmReg<Op, 1>] = {K::kAlu, Op, 0, 1, 0}, m[&O::aluRmReg<Op, 4>] = {K::kAlu, Op, 0, 4, 0};
+            m[&O::aluRegRm<Op, 1>] = {K::kAlu, Op, 1, 1, 0}, m[&O::aluRegRm<Op, 4>] = {K::kAlu, Op, 1, 4, 0};
+            m[&O::aluAccImm<Op, 1>] = {K::kAlu, Op, 2, 1, 0}, m[&O::aluAccImm<Op, 4>] = {K::kAlu, Op, 2, 4, 0};
+            m[&O::aluRmImm<Op, 1>] = {K::kAlu, Op, 3, 1, 0}, m[&O::aluRmImm<Op, 4>] = {K::kAlu, Op, 3, 4, 0};
         };
         [&]<int... Op>(std::integer_sequence<int, Op...>) {
             (sizes(std::integral_constant<int, Op>{}), ...);
         }(std::make_integer_sequence<int, 8>{});
-        m[&O::testRmReg<1>] = {K::Alu, 8, 0, 1, 0}, m[&O::testRmReg<4>] = {K::Alu, 8, 0, 4, 0};
-        m[&O::testAccImm<1>] = {K::Alu, 8, 2, 1, 0}, m[&O::testAccImm<4>] = {K::Alu, 8, 2, 4, 0};
-        m[&O::incDecReg<0>] = {K::Alu, 9, 3, 4, 0}, m[&O::incDecReg<5>] = {K::Alu, 10, 3, 4, 0};
-        m[&O::incDecRm<0, 1>] = {K::Alu, 9, 3, 1, 0}, m[&O::incDecRm<0, 4>] = {K::Alu, 9, 3, 4, 0};
-        m[&O::incDecRm<5, 1>] = {K::Alu, 10, 3, 1, 0}, m[&O::incDecRm<5, 4>] = {K::Alu, 10, 3, 4, 0};
-        m[&O::testRmImm<1>] = {K::Alu, 8, 3, 1, 0}, m[&O::testRmImm<4>] = {K::Alu, 8, 3, 4, 0};
-        m[&O::fArithMem<2, true>] = {K::FCom, 0, 0, 8, 0}, m[&O::fArithMem<2, false>] = {K::FCom, 0, 0, 4, 0};
-        m[&O::fArithMem<3, true>] = {K::FCom, 0, 0, 8, 1}, m[&O::fArithMem<3, false>] = {K::FCom, 0, 0, 4, 1};
-        m[&O::fArithSt0<2>] = {K::FCom, 0, 0, 4, 0}, m[&O::fArithSt0<3>] = {K::FCom, 0, 0, 4, 1}; // LAHF too
-        m[&O::fnstswAx] = {K::FnstswAx, 0, 0, 4, 0, false};
+        m[&O::testRmReg<1>] = {K::kAlu, 8, 0, 1, 0}, m[&O::testRmReg<4>] = {K::kAlu, 8, 0, 4, 0};
+        m[&O::testAccImm<1>] = {K::kAlu, 8, 2, 1, 0}, m[&O::testAccImm<4>] = {K::kAlu, 8, 2, 4, 0};
+        m[&O::incDecReg<0>] = {K::kAlu, 9, 3, 4, 0}, m[&O::incDecReg<5>] = {K::kAlu, 10, 3, 4, 0};
+        m[&O::incDecRm<0, 1>] = {K::kAlu, 9, 3, 1, 0}, m[&O::incDecRm<0, 4>] = {K::kAlu, 9, 3, 4, 0};
+        m[&O::incDecRm<5, 1>] = {K::kAlu, 10, 3, 1, 0}, m[&O::incDecRm<5, 4>] = {K::kAlu, 10, 3, 4, 0};
+        m[&O::testRmImm<1>] = {K::kAlu, 8, 3, 1, 0}, m[&O::testRmImm<4>] = {K::kAlu, 8, 3, 4, 0};
+        m[&O::fArithMem<2, true>] = {K::kFCom, 0, 0, 8, 0}, m[&O::fArithMem<2, false>] = {K::kFCom, 0, 0, 4, 0};
+        m[&O::fArithMem<3, true>] = {K::kFCom, 0, 0, 8, 1}, m[&O::fArithMem<3, false>] = {K::kFCom, 0, 0, 4, 1};
+        m[&O::fArithSt0<2>] = {K::kFCom, 0, 0, 4, 0}, m[&O::fArithSt0<3>] = {K::kFCom, 0, 0, 4, 1}; // LAHF too
+        m[&O::fnstswAx] = {K::kFnstswAx, 0, 0, 4, 0, false};
         [&]<int... Cc>(std::integer_sequence<int, Cc...>) {
-            ((m[&O::jcc<Cc>] = {K::Jcc, 0, 0, 4, uint8_t(Cc)}), ...);
+            ((m[&O::jcc<Cc>] = {K::kJcc, 0, 0, 4, uint8_t(Cc)}), ...);
         }(std::make_integer_sequence<int, 16>{});
         // The x87 unit (no flags).
-        m[&O::fLoadMem<true>] = {K::FLoad, 0, 0, 8, 0, false}, m[&O::fLoadMem<false>] = {K::FLoad, 0, 0, 4, 0, false};
-        m[&O::fStoreMem<true, false>] = {K::FStore, 0, 0, 8, 0, false};
-        m[&O::fStoreMem<true, true>] = {K::FStore, 0, 0, 8, 1, false};
-        m[&O::fStoreMem<false, false>] = {K::FStore, 0, 0, 4, 0, false};
-        m[&O::fStoreMem<false, true>] = {K::FStore, 0, 0, 4, 1, false};
-        m[&O::fLoadInt] = {K::FLoadInt, 0, 0, 4, 0, false};
-        m[&O::fLoadSt] = {K::FLoadSt, 0, 0, 4, 0, false};
-        m[&O::fStoreSt<false>] = {K::FStoreSt, 0, 0, 4, 0, false};
-        m[&O::fStoreSt<true>] = {K::FStoreSt, 0, 0, 4, 1, false};
-        m[&O::fxch] = {K::Fxch, 0, 0, 4, 0, false};
+        m[&O::fLoadMem<true>] = {K::kFLoad, 0, 0, 8, 0, false}, m[&O::fLoadMem<false>] = {K::kFLoad, 0, 0, 4, 0, false};
+        m[&O::fStoreMem<true, false>] = {K::kFStore, 0, 0, 8, 0, false};
+        m[&O::fStoreMem<true, true>] = {K::kFStore, 0, 0, 8, 1, false};
+        m[&O::fStoreMem<false, false>] = {K::kFStore, 0, 0, 4, 0, false};
+        m[&O::fStoreMem<false, true>] = {K::kFStore, 0, 0, 4, 1, false};
+        m[&O::fLoadInt] = {K::kFLoadInt, 0, 0, 4, 0, false};
+        m[&O::fLoadSt] = {K::kFLoadSt, 0, 0, 4, 0, false};
+        m[&O::fStoreSt<false>] = {K::kFStoreSt, 0, 0, 4, 0, false};
+        m[&O::fStoreSt<true>] = {K::kFStoreSt, 0, 0, 4, 1, false};
+        m[&O::fxch] = {K::kFxch, 0, 0, 4, 0, false};
         auto arith = [&]<int R>(std::integral_constant<int, R>) { // not the compares (2, 3)
-            m[&O::fArithMem<R, true>] = {K::FArith, R, 0, 8, 0, false};
-            m[&O::fArithMem<R, false>] = {K::FArith, R, 0, 4, 0, false};
-            m[&O::fArithSt0<R>] = {K::FArithSt0, R, 0, 4, 0, false};
-            m[&O::fArithSti<R, false>] = {K::FArithSti, R, 0, 4, 0, false};
-            m[&O::fArithSti<R, true>] = {K::FArithSti, R, 0, 4, 1, false};
+            m[&O::fArithMem<R, true>] = {K::kFArith, R, 0, 8, 0, false};
+            m[&O::fArithMem<R, false>] = {K::kFArith, R, 0, 4, 0, false};
+            m[&O::fArithSt0<R>] = {K::kFArithSt0, R, 0, 4, 0, false};
+            m[&O::fArithSti<R, false>] = {K::kFArithSti, R, 0, 4, 0, false};
+            m[&O::fArithSti<R, true>] = {K::kFArithSti, R, 0, 4, 1, false};
         };
         [&]<int... R>(std::integer_sequence<int, R...>) {
             (arith(std::integral_constant<int, R>{}), ...);
         }(std::integer_sequence<int, 0, 1, 4, 5, 6, 7>{});
         return m.map;
     }();
-    return made;
+    return kMade;
 }
 } // namespace
 
 void Cpu::compileBlock(Block &b) {
     using O = CachedOps;
     using K = Jit::Kind;
-    static const bool flags = Jit::flagsOps();
+    static const bool kFlags = Jit::flagsOps();
     Jit::Op ops[kBlockOps];
     uint32_t at = b.start;
     for (int i = 0; i < b.count; ++i) {
@@ -734,59 +734,59 @@ void Cpu::compileBlock(Block &b) {
         o.size = 4;
         const auto run = e.run;
         if (run == &O::movRegRm<4> || run == &O::movRegRm<1>)
-            o.kind = K::MovRegRm, o.size = run == &O::movRegRm<4> ? 4 : 1;
+            o.kind = K::kMovRegRm, o.size = run == &O::movRegRm<4> ? 4 : 1;
         else if (run == &O::movRmReg<4> || run == &O::movRmReg<1>)
-            o.kind = K::MovRmReg, o.size = run == &O::movRmReg<4> ? 4 : 1;
+            o.kind = K::kMovRmReg, o.size = run == &O::movRmReg<4> ? 4 : 1;
         else if (run == &O::movRmImm<4> || run == &O::movRmImm<1>)
-            o.kind = K::MovRmImm, o.size = run == &O::movRmImm<4> ? 4 : 1;
+            o.kind = K::kMovRmImm, o.size = run == &O::movRmImm<4> ? 4 : 1;
         else if (run == &O::movRegImm<4>)
-            o.kind = K::MovRegImm;
+            o.kind = K::kMovRegImm;
         else if (run == &O::lea)
-            o.kind = K::Lea;
+            o.kind = K::kLea;
         else if (run == &O::pushReg)
-            o.kind = K::PushReg;
+            o.kind = K::kPushReg;
         else if (run == &O::pushImm)
-            o.kind = K::PushImm;
+            o.kind = K::kPushImm;
         else if (run == &O::popReg)
-            o.kind = K::PopReg;
+            o.kind = K::kPopReg;
         else if (run == &O::jmp)
-            o.kind = K::Jmp;
+            o.kind = K::kJmp;
         else if (run == &O::call)
-            o.kind = K::CallRel;
+            o.kind = K::kCallRel;
         else if (run == &O::jmpRm)
-            o.kind = K::JmpRm;
+            o.kind = K::kJmpRm;
         else if (run == &O::callRm)
-            o.kind = K::CallRm;
+            o.kind = K::kCallRm;
         else if (run == &O::ret)
-            o.kind = K::Ret;
-        else if (flags && run == &O::shiftImm<4> && e.sub >= 4 && (e.imm & 31) != 0) {
+            o.kind = K::kRet;
+        else if (kFlags && run == &O::shiftImm<4> && e.sub >= 4 && (e.imm & 31) != 0) {
             // SHL (and SAL, 6), SHR, SAR by 1 to 31.
-            o.kind = K::Alu, o.form = 3, o.size = 4, o.imm = e.imm & 31;
+            o.kind = K::kAlu, o.form = 3, o.size = 4, o.imm = e.imm & 31;
             o.alu = uint8_t(e.sub == 5 ? 12 : e.sub == 7 ? 13 : 11);
         } else if (auto it = madeWithFlags().find(reinterpret_cast<const void *>(run));
-                   it != madeWithFlags().end() && (flags || !it->second.lahf)) {
+                   it != madeWithFlags().end() && (kFlags || !it->second.lahf)) {
             o.kind = it->second.kind, o.alu = it->second.alu, o.form = it->second.form;
             o.size = it->second.size, o.cc = it->second.cc;
             if (run == &O::incDecReg<0> || run == &O::incDecReg<5>)
                 o.mem = false; // INC and DEC of a register: its number in rm
         } else
-            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
+            o.kind = K::kCall, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         // The x87 unit's exact integers and MMX values move with these in
         // their handlers only (exactX87).
-        if (exactX87 && (o.kind == K::FLoadSt || o.kind == K::FStoreSt || o.kind == K::Fxch))
-            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
+        if (exactX87 && (o.kind == K::kFLoadSt || o.kind == K::kFStoreSt || o.kind == K::kFxch))
+            o.kind = K::kCall, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         // One run from its bytes (length 0) can't be made here: it reads eip.
         if (!e.length)
-            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
+            o.kind = K::kCall, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         at += e.length;
     }
-    const uint8_t *code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
-    if (!code && jitDepth_ == 0) {
-        jit_->reset();
-        code = jit_->compile(ops, b.count, at, b.ops, sizeof(Cached));
+    const uint8_t *code = _jit->compile(ops, b.count, at, b.ops, sizeof(Cached));
+    if (!code && _jitDepth == 0) {
+        _jit->reset();
+        code = _jit->compile(ops, b.count, at, b.ops, sizeof(Cached));
     }
     b.jit = code;
-    b.jitGeneration = code ? jit_->generation() : 0;
+    b.jitGeneration = code ? _jit->generation() : 0;
 }
 
 void Cpu::jitMemoryFault(void *cpu, uint32_t address, uint32_t size) {
@@ -807,28 +807,28 @@ void Cpu::jitMemoryFault(void *cpu, uint32_t address, uint32_t size) {
 // the buffer afresh.
 int Cpu::jitCallNative(void *cpu) {
     Cpu &c = *static_cast<Cpu *>(cpu);
-    c.counting_.ops = nullptr;
-    c.instructionStart_ = c.eip;
+    c._counting.ops = nullptr;
+    c._instructionStart = c.eip;
     struct Out {
         int &d;
         explicit Out(int &n) : d(n) { --d; }
         ~Out() { ++d; }
-    } out{c.jitDepth_};
+    } out{c._jitDepth};
     c.callNative(c.eip);
-    return c.yield_ ? 0 : 1;
+    return c._yield ? 0 : 1;
 }
 
 void Cpu::uncountBlock() {
-    const Cached *ops = counting_.ops;
+    const Cached *ops = _counting.ops;
     if (!ops)
         return;
-    counting_.ops = nullptr;
-    const int count = int(counting_.count);
-    uint32_t at = counting_.start;
+    _counting.ops = nullptr;
+    const int count = int(_counting.count);
+    uint32_t at = _counting.start;
     int i = 0;
-    while (i < count - 1 && at != instructionStart_)
+    while (i < count - 1 && at != _instructionStart)
         at += ops[i++].length;
-    executed_ -= uint64_t(count - 1 - i);
+    _executed -= uint64_t(count - 1 - i);
 }
 
 // Makes the block that starts at `at`: its instructions up to the first
@@ -872,38 +872,38 @@ void Cpu::build(Block &b, uint32_t at) {
         b.start = 0xffffffffu;
         return;
     }
-    std::memcpy(b.code, memory_.data() + at, 8u * b.words);
+    std::memcpy(b.code, _memory.data() + at, 8u * b.words);
     // Its pages, and the one before (a write starting there may reach in),
     // are code: writes to them make blocks check their bytes again.
     for (uint32_t page = (at >= 3 ? at - 3 : 0) >> 12; page <= (at + 8u * b.words - 1) >> 12; ++page)
-        codePages_[page] = 1;
-    b.epoch = codeEpoch_;
+        _codePages[page] = 1;
+    b.epoch = _codeEpoch;
 }
 
 void Cpu::rebuild(Block &b, uint32_t at) {
     if (b.jit && b.start != 0xffffffffu && b.start != at) { // put by for when it comes round again
-        if (spare_.size() >= kSpareBlocks)
-            spare_.clear();
-        auto &kept = spare_[b.start];
+        if (_spare.size() >= kSpareBlocks)
+            _spare.clear();
+        auto &kept = _spare[b.start];
         if (!kept)
             kept = std::make_unique<Block>();
         *kept = b;
     }
-    if (auto it = spare_.find(at); it != spare_.end()) {
+    if (auto it = _spare.find(at); it != _spare.end()) {
         Block &k = *it->second;
         bool same = valid(at, 8u * k.words);
         for (int w = 0; same && w < k.words; ++w) {
             uint64_t now;
-            std::memcpy(&now, memory_.data() + at + 8 * uint32_t(w), 8);
+            std::memcpy(&now, _memory.data() + at + 8 * uint32_t(w), 8);
             same = ((now ^ k.code[w]) & (w == k.words - 1 ? k.lastMask : ~uint64_t(0))) == 0;
         }
         if (same) {
             b = k;
-            b.epoch = codeEpoch_;
-            spare_.erase(it);
+            b.epoch = _codeEpoch;
+            _spare.erase(it);
             return;
         }
-        spare_.erase(it);
+        _spare.erase(it);
     }
     build(b, at);
 }
@@ -945,7 +945,7 @@ void Cpu::decode(Cached &e, uint32_t at) {
     e.ends = true;
     if (!valid(at, 16))
         return;
-    const uint8_t *p = memory_.data() + at;
+    const uint8_t *p = _memory.data() + at;
     size_t i = 0;
     bool o16 = false; // an operand-size prefix
     for (;; ++i) {

@@ -362,12 +362,12 @@ bool Arcade::start(const Surface &screen, int initialDamage, const std::map<int,
     if (_mixer && _video->hasAudio() && _type == 0x1A) {
         auto audio = std::make_shared<audio::QueuingStream>(_video->audioRate(), _video->audioStereo());
         _videoAudio = audio;
-        _videoAudioHandle = _mixer->play(audio, audio::SoundType::Music);
+        _videoAudioHandle = _mixer->play(audio, audio::SoundType::kMusic);
     }
     if (_mixer && !_musicOrder.empty()) {
         auto music = std::make_shared<MusicStream>(_musicSegments, _musicOrder, _musicTag);
         _music = music;
-        _musicHandle = _mixer->play(music, audio::SoundType::Music, mixerVolume(kVolumeArcadeMusic));
+        _musicHandle = _mixer->play(music, audio::SoundType::kMusic, mixerVolume(kVolumeArcadeMusic));
     }
     return true;
 }
@@ -462,10 +462,10 @@ void Arcade::finishFrame() {
 
     for (VoiceCue &cue : _voice) {
         if (cue.frame >= 0 && cue.frame == _frame)
-            playSound(cue.sound, audio::SoundType::Speech);
+            playSound(cue.sound, audio::SoundType::kSpeech);
         if (cue.damageBand >= 0 && cue.damageBand < 20 && _voiceFlags[cue.damageBand] == 1) {
             _voiceFlags[cue.damageBand] = 2;
-            playSound(cue.sound, audio::SoundType::Speech);
+            playSound(cue.sound, audio::SoundType::kSpeech);
         }
     }
 

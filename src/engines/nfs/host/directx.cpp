@@ -84,9 +84,9 @@ constexpr uint32_t kPovOffset = 32, kButtonsOffset = 48, kJoyStateSize = 80;
 constexpr uint32_t kAxisGuids[kJoystickAxes] = {0xa36d02e0, 0xa36d02e1, 0xa36d02e2, 0xa36d02f4, 0xa36d02f5};
 constexpr uint32_t kButtonGuid = 0xa36d02f0, kPovGuid = 0xa36d02f2;
 // DI buttons from SDL's pad: A B X Y, the shoulders, Back, Start, the sticks, Guide.
-constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {PadSouth,        PadEast,          PadWest, PadNorth,
-                                                              PadLeftShoulder, PadRightShoulder, PadBack, PadStart,
-                                                              PadLeftStick,    PadRightStick,    PadGuide};
+constexpr GamepadButton kButtonOrder[kJoystickButtons - 1] = {kPadSouth,        kPadEast,          kPadWest, kPadNorth,
+                                                              kPadLeftShoulder, kPadRightShoulder, kPadBack, kPadStart,
+                                                              kPadLeftStick,    kPadRightStick,    kPadGuide};
 
 void writeGuid(Cpu &c, uint32_t at, uint32_t data1) {
     c.write32(at, data1);
@@ -1046,10 +1046,10 @@ void GameHost::joystickState(Cpu &c, uint32_t to, uint32_t size) {
         c.write32(to + 4 * uint32_t(a), uint32_t(int32_t(std::lround(low + (v + 1) / 2 * double(high - low)))));
     }
     // The hat: hundredths of a degree clockwise from up, or centred.
-    const bool up = j.buttons & 1u << PadUp;
-    const bool down = j.buttons & 1u << PadDown;
-    const bool left = j.buttons & 1u << PadLeft;
-    const bool right = j.buttons & 1u << PadRight;
+    const bool up = j.buttons & 1u << kPadUp;
+    const bool down = j.buttons & 1u << kPadDown;
+    const bool left = j.buttons & 1u << kPadLeft;
+    const bool right = j.buttons & 1u << kPadRight;
     uint32_t pov = 0xffffffffu;
     if (up || down || left || right) {
         const int dx = int(right) - int(left);

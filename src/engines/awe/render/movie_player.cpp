@@ -50,7 +50,7 @@ void MoviePlayer::playSound(double fromSeconds) {
         const size_t from = std::min(s->samples.size(), size_t(fromSeconds * s->rate) * size_t(s->channels));
         s->samples.erase(s->samples.begin(), s->samples.begin() + ptrdiff_t(from));
     }
-    _sound = _mixer->play(s, audio::SoundType::Speech);
+    _sound = _mixer->play(s, audio::SoundType::kSpeech);
 }
 
 void MoviePlayer::stop() {
@@ -90,7 +90,7 @@ bool MoviePlayer::update(uint64_t nowMs) {
     }
     if (drawn) {
         // As the game's binkw32.dll converts its frames.
-        _movie->toRgba(_frame.rgba, bink::Movie::Rgb::Binkw32);
+        _movie->toRgba(_frame.rgba, bink::Movie::Rgb::kBinkw32);
         _frame.w = _movie->width();
         _frame.h = _movie->height();
     }

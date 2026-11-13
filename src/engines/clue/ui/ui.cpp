@@ -471,13 +471,13 @@ int DialogView::handleEvent(const Event &ev) {
         return c.id;
     };
     switch (ev.type) {
-    case EventType::MouseMove:
+    case EventType::kMouseMove:
         _hover = indexOf(hit(ev.mouseX, ev.mouseY));
         if (_dragging >= 0)
             return dragTo(_dragging, ev.mouseX, ev.mouseY);
         return -1;
-    case EventType::MouseDown: {
-        if (ev.button != MouseButton::Left)
+    case EventType::kMouseDown: {
+        if (ev.button != MouseButton::kLeft)
             return -1;
         const int i = indexOf(hit(ev.mouseX, ev.mouseY));
         _hover = _pressed = i;
@@ -492,8 +492,8 @@ int DialogView::handleEvent(const Event &ev) {
         }
         return -1;
     }
-    case EventType::MouseUp: {
-        if (ev.button != MouseButton::Left)
+    case EventType::kMouseUp: {
+        if (ev.button != MouseButton::kLeft)
             return -1;
         const int was = _pressed;
         _pressed = -1;
@@ -506,7 +506,7 @@ int DialogView::handleEvent(const Event &ev) {
         }
         return -1;
     }
-    case EventType::TextInput: {
+    case EventType::kTextInput: {
         if (_focus < 0)
             return -1;
         for (size_t i = 0; i < _state.size(); ++i)
@@ -523,8 +523,8 @@ int DialogView::handleEvent(const Event &ev) {
             }
         return -1;
     }
-    case EventType::KeyDown:
-        if (ev.key == key::Backspace && _focus >= 0)
+    case EventType::kKeyDown:
+        if (ev.key == key::kBackspace && _focus >= 0)
             for (size_t i = 0; i < _state.size(); ++i)
                 if (_dialog.controls[i].id == _focus && _state[i].textSet && !_state[i].text.empty())
                     _state[i].text.pop_back();

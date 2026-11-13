@@ -26,12 +26,12 @@ uint8_t clip(int v) {
 
 } // namespace
 
-Decoder::Decoder(int width, int height) : width_(width), height_(height) {
-    picture_.create(std::max(0, width), std::max(0, height), PixelFormat::kRGBA32);
-    for (size_t i = 3; i < picture_.pixels.size(); i += 4)
-        picture_.pixels[i] = 255;
-    strips_.resize(1);
-    std::memset(static_cast<void *>(strips_.data()), 0, sizeof(Strip));
+Decoder::Decoder(int width, int height) : _width(width), _height(height) {
+    _picture.create(std::max(0, width), std::max(0, height), PixelFormat::kRGBA32);
+    for (size_t i = 3; i < _picture.pixels.size(); i += 4)
+        _picture.pixels[i] = 255;
+    _strips.resize(1);
+    std::memset(static_cast<void *>(_strips.data()), 0, sizeof(Strip));
 }
 
 void Decoder::decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, const uint8_t *end) {
@@ -87,10 +87,10 @@ bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, 
     };
     // Cinepak's YUV: R = Y + 2V, G = Y - U/2 - V, B = Y + 2U.
     auto put = [&](int x, int y, const Cell &cell, int i) {
-        if (x >= width_ || y >= bottom)
+        if (x >= _width || y >= bottom)
             return;
         const int luma = cell.y[i];
-        uint8_t *p = picture_.row(y) + size_t(x) * 4;
+        uint8_t *p = _picture.row(y) + size_t(x) * 4;
         p[0] = clip(luma + 2 * cell.v);
         p[1] = clip(luma - cell.u / 2 - cell.v);
         p[2] = clip(luma + 2 * cell.u);
@@ -98,7 +98,7 @@ bool Decoder::decodeVectors(const Strip &strip, int chunk, int top, int bottom, 
     };
 
     for (int y = top; y < bottom; y += 4) {
-        for (int x = 0; x < width_; x += 4) {
+        for (int x = 0; x < _width; x += 4) {
             bool bit = false;
             if (chunk & 0x01) {
                 if (!nextBit(bit))
@@ -150,10 +150,10 @@ bool Decoder::decode(const uint8_t *data, uint32_t size) {
     const int strips = int(be16(data + 8));
     data += 10;
 
-    if (int(strips_.size()) < strips) {
-        const size_t old = strips_.size();
-        strips_.resize(size_t(strips));
-        std::memset(static_cast<void *>(&strips_[old]), 0, (size_t(strips) - old) * sizeof(Strip));
+    if (int(_strips.size()) < strips) {
+        const size_t old = _strips.size();
+        _strips.resize(size_t(strips));
+        std::memset(static_cast<void *>(&_strips[old]), 0, (size_t(strips) - old) * sizeof(Strip));
     }
 
     int y0 = 0;
@@ -173,11 +173,11 @@ bool Decoder::decode(const uint8_t *data, uint32_t size) {
         const uint8_t *stripEnd = data + stripSize;
         data += 12;
 
-        Strip &strip = strips_[size_t(i)];
+        Strip &strip = _strips[size_t(i)];
         if (i > 0 && !(frameFlags & 0x01))
-            strip = strips_[size_t(i) - 1];
+            strip = _strips[size_t(i) - 1];
 
-        y2 = std::min(y2, height_);
+        y2 = std::min(y2, _height);
         while (data + 4 <= stripEnd) {
             const int chunk = data[0];
             uint32_t chunkSize = be24(data + 1);

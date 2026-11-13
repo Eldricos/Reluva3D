@@ -54,10 +54,10 @@ std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int loop
     audio::RawStream::Format format;
     switch (detectRawFormat(data)) {
     case kRawU8:
-        format = audio::RawStream::Format::U8;
+        format = audio::RawStream::Format::kU8;
         break;
     case kRawS8:
-        format = audio::RawStream::Format::S8;
+        format = audio::RawStream::Format::kS8;
         break;
     case kRawS16BE:
         for (size_t i = 0; i + 1 < data.size(); i += 2)

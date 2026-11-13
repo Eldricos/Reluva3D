@@ -71,8 +71,8 @@ Insets frameOf(uint32_t style, bool menu) {
 } // namespace
 
 const Win32Process::Window *Win32Process::window(uint32_t handle) const {
-    auto it = windows_.find(handle);
-    return it == windows_.end() ? nullptr : &it->second;
+    auto it = _windows.find(handle);
+    return it == _windows.end() ? nullptr : &it->second;
 }
 
 std::optional<std::array<int, 4>> Win32Process::clientArea(uint32_t handle) const {
@@ -96,29 +96,29 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
         uint32_t key, vk, scan;
     };
     static const Entry kOthers[] = {
-        {key::Return, 0x0d, 0x1c},
-        {key::Escape, 0x1b, 0x01},
-        {key::Backspace, 0x08, 0x0e},
-        {key::Tab, 0x09, 0x0f},
-        {key::Space, 0x20, 0x39},
-        {key::Delete, 0x2e, 0x153},
-        {key::Insert, 0x2d, 0x152},
-        {key::Home, 0x24, 0x147},
-        {key::End, 0x23, 0x14f},
-        {key::PageUp, 0x21, 0x149},
-        {key::PageDown, 0x22, 0x151},
-        {key::Up, 0x26, 0x148},
-        {key::Down, 0x28, 0x150},
-        {key::Left, 0x25, 0x14b},
-        {key::Right, 0x27, 0x14d},
-        {key::LShift, 0x10, 0x2a},
-        {key::RShift, 0x10, 0x36},
-        {key::LCtrl, 0x11, 0x1d},
-        {key::RCtrl, 0x11, 0x11d},
-        {key::LAlt, 0x12, 0x38},
-        {key::RAlt, 0x12, 0x138},
-        {key::KpPeriod, 0x6e, 0x53},
-        {key::KpEnter, 0x0d, 0x11c},
+        {key::kReturn, 0x0d, 0x1c},
+        {key::kEscape, 0x1b, 0x01},
+        {key::kBackspace, 0x08, 0x0e},
+        {key::kTab, 0x09, 0x0f},
+        {key::kSpace, 0x20, 0x39},
+        {key::kDelete, 0x2e, 0x153},
+        {key::kInsert, 0x2d, 0x152},
+        {key::kHome, 0x24, 0x147},
+        {key::kEnd, 0x23, 0x14f},
+        {key::kPageUp, 0x21, 0x149},
+        {key::kPageDown, 0x22, 0x151},
+        {key::kUp, 0x26, 0x148},
+        {key::kDown, 0x28, 0x150},
+        {key::kLeft, 0x25, 0x14b},
+        {key::kRight, 0x27, 0x14d},
+        {key::kLShift, 0x10, 0x2a},
+        {key::kRShift, 0x10, 0x36},
+        {key::kLCtrl, 0x11, 0x1d},
+        {key::kRCtrl, 0x11, 0x11d},
+        {key::kLAlt, 0x12, 0x38},
+        {key::kRAlt, 0x12, 0x138},
+        {key::kKpPeriod, 0x6e, 0x53},
+        {key::kKpEnter, 0x0d, 0x11c},
         {'-', 0xbd, 0x0c},
         {'=', 0xbb, 0x0d},
         {'[', 0xdb, 0x1a},
@@ -141,15 +141,15 @@ bool windowsKey(uint32_t k, uint32_t &vk, uint32_t &scan) {
         scan = k == '0' ? 0x0b : 0x02 + (k - '1');
         return true;
     }
-    if (k >= key::F1 && k < key::F1 + 12) {
-        const uint32_t n = k - key::F1;
+    if (k >= key::kF1 && k < key::kF1 + 12) {
+        const uint32_t n = k - key::kF1;
         vk = 0x70 + n;
         scan = n < 10 ? 0x3b + n : 0x57 + (n - 10);
         return true;
     }
-    if (k >= key::Kp0 && k < key::Kp0 + 10) {
-        vk = 0x60 + (k - key::Kp0);
-        scan = kKeypad[k - key::Kp0];
+    if (k >= key::kKp0 && k < key::kKp0 + 10) {
+        vk = 0x60 + (k - key::kKp0);
+        scan = kKeypad[k - key::kKp0];
         return true;
     }
     for (const Entry &e : kOthers)
@@ -175,18 +175,18 @@ uint32_t point(int x, int y) {
 } // namespace
 
 void Win32Process::mouseMoveTo(int x, int y) {
-    if (clip_) {
-        x = std::clamp(x, (*clip_)[0], std::max((*clip_)[0], (*clip_)[2] - 1));
-        y = std::clamp(y, (*clip_)[1], std::max((*clip_)[1], (*clip_)[3] - 1));
+    if (_clip) {
+        x = std::clamp(x, (*_clip)[0], std::max((*_clip)[0], (*_clip)[2] - 1));
+        y = std::clamp(y, (*_clip)[1], std::max((*_clip)[1], (*_clip)[3] - 1));
     }
     const int dx = x - cursorX;
     const int dy = y - cursorY;
     cursorX = x, cursorY = y;
     if (dx || dy)
-        notify({RawInput::Kind::Motion, dx, dy});
+        notify({RawInput::Kind::kMotion, dx, dy});
     if (const uint32_t w = mainWindow())
         if (auto area = clientArea(w))
-            postMessage(w, kWmMouseMove, buttons_, point(x - (*area)[0], y - (*area)[1]));
+            postMessage(w, kWmMouseMove, _buttons, point(x - (*area)[0], y - (*area)[1]));
 }
 
 void Win32Process::mouseButton(int button, bool down) {
@@ -194,11 +194,11 @@ void Win32Process::mouseButton(int button, bool down) {
         return;
     const uint32_t flag = kButtonFlags[button];
     if (down)
-        buttons_ |= flag;
+        _buttons |= flag;
     else
-        buttons_ &= ~flag;
-    keysDown_[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
-    notify({RawInput::Kind::Button, button, down});
+        _buttons &= ~flag;
+    _keysDown[button == 0 ? 1 : button == 1 ? 2 : 4] = down;
+    notify({RawInput::Kind::kButton, button, down});
     const uint32_t w = mainWindow();
     auto area = w ? clientArea(w) : std::nullopt;
     if (!area)
@@ -208,32 +208,32 @@ void Win32Process::mouseButton(int button, bool down) {
     uint32_t message = kWmLButtonDown + 3 * uint32_t(button) + (down ? 0 : 1);
     if (down) {
         const uint32_t now = milliseconds();
-        if ((window(w)->classStyle & kCsDblClks) && lastClickButton_ == button &&
-            now - lastClickTime_ <= kDoubleClickMs && std::abs(cursorX - lastClickX_) <= kDoubleClickDistance &&
-            std::abs(cursorY - lastClickY_) <= kDoubleClickDistance) {
+        if ((window(w)->classStyle & kCsDblClks) && _lastClickButton == button &&
+            now - _lastClickTime <= kDoubleClickMs && std::abs(cursorX - _lastClickX) <= kDoubleClickDistance &&
+            std::abs(cursorY - _lastClickY) <= kDoubleClickDistance) {
             message = kWmLButtonDblClk + 3 * uint32_t(button);
-            lastClickButton_ = -1;
+            _lastClickButton = -1;
         } else {
-            lastClickButton_ = button;
-            lastClickTime_ = now;
-            lastClickX_ = cursorX, lastClickY_ = cursorY;
+            _lastClickButton = button;
+            _lastClickTime = now;
+            _lastClickX = cursorX, _lastClickY = cursorY;
         }
     }
-    postMessage(w, message, buttons_, point(cursorX - (*area)[0], cursorY - (*area)[1]));
+    postMessage(w, message, _buttons, point(cursorX - (*area)[0], cursorY - (*area)[1]));
 }
 
 void Win32Process::mouseWheel(int delta) {
-    notify({RawInput::Kind::Wheel, delta, 0});
+    notify({RawInput::Kind::kWheel, delta, 0});
     if (const uint32_t w = mainWindow())
-        postMessage(w, kWmMouseWheel, buttons_ | uint32_t(uint16_t(int16_t(delta))) << 16, point(cursorX, cursorY));
+        postMessage(w, kWmMouseWheel, _buttons | uint32_t(uint16_t(int16_t(delta))) << 16, point(cursorX, cursorY));
 }
 
 // WM_KEYDOWN and WM_KEYUP: lParam has the repeat count (1), the scan
 // code, and for a release the previous-state and transition bits.
 void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
-    const bool was = keysDown_[virtualKey & 0xff] != 0;
-    keysDown_[virtualKey & 0xff] = down;
-    notify({RawInput::Kind::Key, int(scanCode), down});
+    const bool was = _keysDown[virtualKey & 0xff] != 0;
+    _keysDown[virtualKey & 0xff] = down;
+    notify({RawInput::Kind::kKey, int(scanCode), down});
     const uint32_t w = mainWindow();
     if (!w)
         return;
@@ -246,28 +246,28 @@ void Win32Process::key(uint32_t virtualKey, uint32_t scanCode, bool down) {
 }
 
 void Win32Process::moveWindow(uint32_t handle, int x, int y, int width, int height) {
-    auto it = windows_.find(handle);
-    if (it == windows_.end())
+    auto it = _windows.find(handle);
+    if (it == _windows.end())
         return;
     it->second.x = x, it->second.y = y, it->second.width = width, it->second.height = height;
 }
 
 uint32_t Win32Process::mainWindow() const {
-    return windows_.empty() ? 0 : windows_.begin()->first;
+    return _windows.empty() ? 0 : _windows.begin()->first;
 }
 
 void Win32Process::postMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {
-    messages_.push_back({window, message, wParam, lParam});
+    _messages.push_back({window, message, wParam, lParam});
 }
 
 uint32_t Win32Process::sendMessage(uint32_t window, uint32_t message, uint32_t wParam, uint32_t lParam) {
-    auto it = windows_.find(window);
-    if (it == windows_.end() || !it->second.proc)
+    auto it = _windows.find(window);
+    if (it == _windows.end() || !it->second.proc)
         return 0;
     uint32_t result = 0;
     // From inside the program, a fault goes on up through call(); only a
     // call from the engine itself sees it here.
-    if (Error e = cpu_.call(it->second.proc, {window, message, wParam, lParam}, result)) {
+    if (Error e = _cpu.call(it->second.proc, {window, message, wParam, lParam}, result)) {
         if (output)
             output("A window procedure failed: " + e.message + "\n");
         return 0;
@@ -292,10 +292,10 @@ void Win32Process::addUserStandIns() {
         if (!c.valid(p, 40))
             return 0u;
         const std::string name = lower(c.string(c.read32(p + 36)));
-        if (name.empty() || classes_.count(name))
+        if (name.empty() || _classes.count(name))
             return 0u;
-        classes_[name] = {c.read32(p + 4), c.read32(p)};
-        return uint32_t(0xc000 + classes_.size()); // an atom
+        _classes[name] = {c.read32(p + 4), c.read32(p)};
+        return uint32_t(0xc000 + _classes.size()); // an atom
     });
     // CreateWindowExA: WM_NCCREATE then WM_CREATE go to the procedure, with
     // a CREATESTRUCTA; either saying no destroys the window again.
@@ -312,8 +312,8 @@ void Win32Process::addUserStandIns() {
         int y = int32_t(c.arg(5));
         int w = int32_t(c.arg(6));
         int h = int32_t(c.arg(7));
-        auto cls = classes_.find(lower(className < 0x10000 ? "" : c.string(className)));
-        if (cls == classes_.end()) {
+        auto cls = _classes.find(lower(className < 0x10000 ? "" : c.string(className)));
+        if (cls == _classes.end()) {
             setLastError(1407); // ERROR_CANNOT_FIND_WND_CLASS
             return 0u;
         }
@@ -323,9 +323,9 @@ void Win32Process::addUserStandIns() {
             w = screenWidth;
             h = screenHeight;
         }
-        const uint32_t handle = nextWindow_;
-        nextWindow_ += 4;
-        Window &win = windows_[handle];
+        const uint32_t handle = _nextWindow;
+        _nextWindow += 4;
+        Window &win = _windows[handle];
         win.className = c.string(className);
         win.title = title ? c.string(title) : std::string();
         win.proc = cls->second.proc;
@@ -343,27 +343,27 @@ void Win32Process::addUserStandIns() {
                           int32_t(sendMessage(handle, kWmCreate, 0, create)) != -1;
         memory().free(create);
         if (!made) {
-            windows_.erase(handle);
+            _windows.erase(handle);
             return 0u;
         }
         if (style & kWsVisible)
-            windows_[handle].visible = true;
+            _windows[handle].visible = true;
         return handle;
     });
     stdcall(u, "DestroyWindow", 1, [this](Cpu &c) {
         const uint32_t handle = c.arg(0);
-        if (!windows_.count(handle))
+        if (!_windows.count(handle))
             return 0u;
         sendMessage(handle, kWmDestroy, 0, 0);
         sendMessage(handle, kWmNcDestroy, 0, 0);
-        windows_.erase(handle);
+        _windows.erase(handle);
         return 1u;
     });
     // FindWindowA(class, title): either may be 0, matching any.
     stdcall(u, "FindWindowA", 2, [this](Cpu &c) {
         const std::string cls = c.arg(0) >= 0x10000 ? lower(c.string(c.arg(0))) : std::string();
         const std::string title = c.arg(1) ? c.string(c.arg(1)) : std::string();
-        for (const auto &[handle, w] : windows_)
+        for (const auto &[handle, w] : _windows)
             if ((cls.empty() || lower(w.className) == cls) && (!c.arg(1) || w.title == title))
                 return handle;
         return 0u;
@@ -372,8 +372,8 @@ void Win32Process::addUserStandIns() {
     // application with it (WM_ACTIVATEAPP, WM_ACTIVATE, WM_SETFOCUS), as the
     // foreground window's is. Returns whether it was visible.
     stdcall(u, "ShowWindow", 2, [this](Cpu &c) {
-        auto it = windows_.find(c.arg(0));
-        if (it == windows_.end())
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
             return 0u;
         const uint32_t handle = it->first;
         const bool was = it->second.visible;
@@ -388,12 +388,12 @@ void Win32Process::addUserStandIns() {
         }
         return was ? 1u : 0u;
     });
-    stdcall(u, "UpdateWindow", 1, [this](Cpu &c) { return windows_.count(c.arg(0)) ? 1u : 0u; });
+    stdcall(u, "UpdateWindow", 1, [this](Cpu &c) { return _windows.count(c.arg(0)) ? 1u : 0u; });
     // SetWindowPos(window, after, x, y, cx, cy, flags): SWP_NOSIZE 1,
     // SWP_NOMOVE 2, SWP_SHOWWINDOW 0x40, SWP_HIDEWINDOW 0x80.
     stdcall(u, "SetWindowPos", 7, [this](Cpu &c) {
-        auto it = windows_.find(c.arg(0));
-        if (it == windows_.end())
+        auto it = _windows.find(c.arg(0));
+        if (it == _windows.end())
             return 0u;
         Window &w = it->second;
         const uint32_t flags = c.arg(6);
@@ -497,19 +497,19 @@ void Win32Process::addUserStandIns() {
                    ((first == 0 && last == 0) || (m.message >= first && m.message <= last));
         };
         runThreads();
-        auto it = std::find_if(messages_.begin(), messages_.end(), matches);
-        if (it == messages_.end() && idle) {
+        auto it = std::find_if(_messages.begin(), _messages.end(), matches);
+        if (it == _messages.end() && idle) {
             idle();
-            it = std::find_if(messages_.begin(), messages_.end(), matches);
+            it = std::find_if(_messages.begin(), _messages.end(), matches);
         }
-        if (it == messages_.end() || !c.valid(out, 28))
+        if (it == _messages.end() || !c.valid(out, 28))
             return 0u;
         const uint32_t fields[7] = {it->window,     it->message,       it->wParam,       it->lParam,
                                     milliseconds(), uint32_t(cursorX), uint32_t(cursorY)};
         for (int i = 0; i < 7; ++i)
             c.write32(out + 4 * uint32_t(i), fields[i]);
         if (remove & 1) // PM_REMOVE
-            messages_.erase(it);
+            _messages.erase(it);
         return 1u;
     });
     stdcall(u, "DispatchMessageA", 1, [this](Cpu &c) {
@@ -546,10 +546,10 @@ void Win32Process::addUserStandIns() {
             return 1u;
         if (message == kWmSysCommand && (wParam & 0xfff0) == kScClose)
             return sendMessage(handle, kWmClose, 0, 0);
-        if (message == kWmClose && windows_.count(handle)) {
+        if (message == kWmClose && _windows.count(handle)) {
             sendMessage(handle, kWmDestroy, 0, 0);
             sendMessage(handle, kWmNcDestroy, 0, 0);
-            windows_.erase(handle);
+            _windows.erase(handle);
         }
         return 0u;
     });
@@ -593,23 +593,23 @@ void Win32Process::addUserStandIns() {
         return 1u;
     });
     // ShowCursor(show): the display count after counting up or down.
-    stdcall(u, "ShowCursor", 1, [this](Cpu &c) { return uint32_t(cursorShown_ += c.arg(0) ? 1 : -1); });
+    stdcall(u, "ShowCursor", 1, [this](Cpu &c) { return uint32_t(_cursorShown += c.arg(0) ? 1 : -1); });
     // ClipCursor(rect or 0): keeps the pointer within the rectangle.
     stdcall(u, "ClipCursor", 1, [this](Cpu &c) {
         if (c.arg(0) && c.valid(c.arg(0), 16)) {
             const uint32_t p = c.arg(0);
-            clip_ = std::array<int, 4>{int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)),
+            _clip = std::array<int, 4>{int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)),
                                        int32_t(c.read32(p + 12))};
-            cursorX = std::clamp(cursorX, (*clip_)[0], std::max((*clip_)[0], (*clip_)[2] - 1));
-            cursorY = std::clamp(cursorY, (*clip_)[1], std::max((*clip_)[1], (*clip_)[3] - 1));
+            cursorX = std::clamp(cursorX, (*_clip)[0], std::max((*_clip)[0], (*_clip)[2] - 1));
+            cursorY = std::clamp(cursorY, (*_clip)[1], std::max((*_clip)[1], (*_clip)[3] - 1));
         } else {
-            clip_.reset();
+            _clip.reset();
         }
         return 1u;
     });
     // GetKeyState and GetAsyncKeyState(key): the top bit while it's down.
     auto keyState = [this](Cpu &c) {
-        return keysDown_[c.arg(0) & 0xff] ? 0xffff8000u : 0u; // the mouse buttons are VK_LBUTTON and the like
+        return _keysDown[c.arg(0) & 0xff] ? 0xffff8000u : 0u; // the mouse buttons are VK_LBUTTON and the like
     };
     stdcall(u, "GetKeyState", 1, keyState);
     stdcall(u, "GetAsyncKeyState", 1, keyState);
