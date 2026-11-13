@@ -5,11 +5,12 @@
 
 #include "engines/nfs/folders.h"
 #include "engines/nfs/render/thrash_gpu.h"
-#include "engines/nfs/pages/viewers.h"
+#include "engines/nfs/ui/page.h"
 
 #include <atomic>
 #include <deque>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -60,10 +61,14 @@ public:
     // positionalupdates=on; GameHost::Options::positionalUpdates). Set
     // before the page is first shown; every player needs the same.
     void setPositionalUpdates(bool on) { _positionalUpdates = on; }
+    // The keys named at the foot of the screen shown until the game's
+    // first frame.
+    void setKeysLine(std::string line) { _keysLine = std::move(line); }
     ~PlayPage() override;
     const char *name() const override { return "Play"; }
     bool capturesEscape() const override { return true; }
     bool finished() const override { return _exited; }
+    Error failure() const override;
     void activate(System &sys) override;
     void deactivate() override;
     bool uses3D() const override { return _gpu; }
@@ -103,6 +108,7 @@ private:
     std::string _modem;
     bool _fillMovies = true; // the black lines between a movie's filled in
     std::string _wheelPedals;
+    std::string _keysLine = "Keys and mouse go to the game   Ctrl+F5: launcher";
     GamepadForce _force; // as last passed on
     bool _forceShown = false;
     bool _padOffered = false; // a joystick offered to the game at its start
@@ -111,7 +117,7 @@ private:
     float _mouseLeftY = 0;
 
     // Shared with the game's thread.
-    std::mutex _mutex;
+    mutable std::mutex _mutex;
     Surface _frame; // the last frame the game flipped
     bool _newFrame = false;
     std::deque<std::string> _lines; // the log's last lines, shown until the first frame
@@ -163,5 +169,21 @@ private:
     uint64_t _statSkipped = 0;
     uint64_t _statShown = 0;
 };
+
+/**
+ * The game's page, set up from `settings`, the game's section of
+ * reluva.ini: renderscale (1-4, the frame against the game's 640x480; 2
+ * if not set), texturefilter (point: point-sampled textures; bilinear
+ * otherwise), renderer (glide, direct3d; THRASH drawn natively
+ * otherwise), glide (software), glidedll, glideboard, joystick (off: a
+ * game controller isn't offered to the game), forcefeedback (off),
+ * wheelpedals, network (off), serial, modem, movielines (keep) and
+ * positionalupdates (on: network races with positional updates).
+ * @param saveFolder Where the game writes (its "game" folder);
+ *        the install's reluva-save if empty.
+ * @param mixer Plays the game's sound; null without audio output.
+ */
+std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
+                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings);
 
 } // namespace reluva::nfs

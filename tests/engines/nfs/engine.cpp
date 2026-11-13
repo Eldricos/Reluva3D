@@ -9,12 +9,14 @@
 // pictures, strings and font, a sound bank, a movie. The executable is a
 // stand-in, not a program, so the Play page says it can't start the game.
 //
-// It finds the game as the launcher does, then plays it: every page the
-// engine shows, a few keys on each, Tab to the next, back to the launcher
-// at the end. The format readers read the same files on their own. What
-// happens goes into a record (counts, and checksums of the screens, the
-// titles and what each reader found), compared with
-// tests/engines/nfs/data/engine-record.txt.
+// It finds the game as the launcher does, then plays it in its data
+// viewer: every page, a few keys on each, Tab to the next, back to the
+// launcher at the end. The format readers read the same files on their
+// own. What happens goes into a record (counts, and checksums of the
+// screens, the titles and what each reader found), compared with
+// tests/engines/nfs/data/engine-record.txt. The game itself, run as
+// reluva runs it, is checked to start on the Play page alone and to say
+// why it can't go on.
 //
 //   reluva-tests nfs.engine [--update]
 
@@ -28,6 +30,7 @@
 #include "engines/nfs/formats/viv.h"
 #include "engines/nfs/game_files.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/nfs/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -269,6 +272,9 @@ void engineTest(const stdfs::path &tmp) {
     const MetaEngine *engine = findEngine("nfs");
     if (!engine)
         return test::fail("nfs isn't registered");
+    const MetaViewer *viewer = findViewer("nfs");
+    if (!viewer)
+        return test::fail("nfs's viewer isn't registered");
     makeGame(tmp);
     const stdfs::path install = tmp / "Need For Speed III";
 
@@ -288,8 +294,8 @@ void engineTest(const stdfs::path &tmp) {
 
     readFormats(install, folders.cd, rec);
 
-    // Played: each page in turn (Tab), with the keys its page takes, then
-    // back to the launcher.
+    // Played in the viewer: each page in turn (Tab), with the keys its page
+    // takes, then back to the launcher.
     // Played from the test's folder with the install named relative to it,
     // so the Info page, which shows the folders, draws the same on every
     // machine.
@@ -309,8 +315,8 @@ void engineTest(const stdfs::path &tmp) {
         sys.inputs.push_back({at += 200, keyDown(key::kTab)});
     }
     sys.inputs.push_back({at + 200, Event{EventType::kReturnToLauncher}});
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
+    auto pages = viewer->create(sys, target);
+    const Error err = pages->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     std::string titles;
@@ -325,6 +331,22 @@ void engineTest(const stdfs::path &tmp) {
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/nfs/data/engine-record.txt", "nfs.engine",
               "tests/engines/nfs/engine.cpp");
+
+    // The game, as reluva runs it: the Play page alone, Tab going to the
+    // game rather than to a viewer's page. The stand-in executable can't
+    // start, which ends the run with why.
+    PlayingSystem player;
+    player.inputs.push_back({200, keyDown(key::kTab)});
+    player.inputs.push_back({400, Event{EventType::kReturnToLauncher}});
+    const Error gameErr = engine->create(player, target)->run();
+    if (!gameErr || gameErr.message.find("Couldn't start the game") == std::string::npos)
+        test::fail("the game's run: " + (gameErr ? gameErr.message : std::string("ok")));
+    if (player.titles != std::vector<std::string>{"Reluva - Need for Speed III: Hot Pursuit"}) {
+        std::string titles;
+        for (const std::string &t : player.titles)
+            titles += " [" + t + "]";
+        test::fail("the game's window titles:" + titles);
+    }
 }
 
 } // namespace

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-#include "engines/nfs/pages/play_page.h"
+#include "engines/nfs/ui/play_page.h"
 
 #include "graphics/glide/pipeline.h"
 #include "image/image.h"
 #include "engines/nfs/host/game_host.h"
-#include "engines/nfs/pages/page_draw.h"
+#include "engines/nfs/ui/page_draw.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -345,6 +345,13 @@ void PlayPage::start() {
     });
 }
 
+Error PlayPage::failure() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    if (_running || _exited || _result.empty())
+        return Error::success();
+    return Error::fail(_result);
+}
+
 void PlayPage::handleEvent(const Event &ev) {
     if (!_host || !_running)
         return;
@@ -416,8 +423,7 @@ void PlayPage::draw(Surface &screen) {
 void PlayPage::drawStatus(Surface &screen) {
     clear(screen);
     text(screen, kMargin, 8, "Need for Speed III", kTitleColor);
-    text(screen, kMargin, screen.h - font::kLineHeight - 4,
-         "Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher", kLabelColor);
+    text(screen, kMargin, screen.h - font::kLineHeight - 4, _keysLine, kLabelColor);
     int y = 8 + font::kLineHeight * 2;
     if (!_result.empty()) {
         text(screen, kMargin, y, _result, kWarnColor);
@@ -549,6 +555,23 @@ void PlayPage::update(uint64_t nowMs) {
         write(_compareFolder / (std::string("cpu") + name + ".tga"), last.software->w, last.software->h,
               last.software->pixels);
     }
+}
+
+std::unique_ptr<PlayPage> makePlayPage(const GameFolders &folders, const std::filesystem::path &saveFolder,
+                                       audio::Mixer *mixer, const std::map<std::string, std::string> &settings) {
+    auto setting = [&](const char *key) {
+        auto it = settings.find(key);
+        return it == settings.end() ? std::string() : it->second;
+    };
+    const std::string scale = setting("renderscale");
+    auto play = std::make_unique<PlayPage>(
+        folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()), setting("texturefilter") != "point",
+        setting("joystick") != "off", setting("forcefeedback") != "off", setting("wheelpedals"),
+        setting("network") != "off", setting("movielines") != "keep", setting("serial"), setting("modem"),
+        setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
+        setting("glidedll"), setting("glideboard"));
+    play->setPositionalUpdates(setting("positionalupdates") == "on");
+    return play;
 }
 
 } // namespace reluva::nfs

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Need for Speed engine's reluva-tool command for its launcher pages:
+// The Need for Speed engine's reluva-tool command for its data viewer's pages:
 // one drawn after given keys, as a picture.
 
 #include "backends/networking/sockets/socket_net.h"
@@ -22,7 +22,7 @@
 #include "engines/nfs/formats/hrz.h"
 #include "engines/nfs/formats/mad.h"
 #include "engines/nfs/formats/mus.h"
-#include "engines/nfs/pages/play_page.h"
+#include "engines/nfs/ui/play_page.h"
 #include "engines/nfs/formats/refpack.h"
 #include "engines/nfs/formats/text_table.h"
 #include "engines/nfs/pages/viewers.h"
@@ -56,7 +56,7 @@ using namespace reluva::nfs::tools;
 namespace stdfs = std::filesystem;
 
 // Draws one of the engine's viewer pages after the keys given, as the
-// engine would, without a window: for checking pages and taking pictures
+// viewer would, without a window: for checking pages and taking pictures
 // of them.
 int cmdNfsPage(int argc, char **argv) {
     if (argc < 5) {

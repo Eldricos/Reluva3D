@@ -5,7 +5,7 @@
 
 #include "engines/nfs/pages/viewers.h"
 
-#include "engines/nfs/pages/page_draw.h"
+#include "engines/nfs/ui/page_draw.h"
 
 #include "graphics/font.h"
 #include "common/fs.h"

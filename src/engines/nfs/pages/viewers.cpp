@@ -3,12 +3,10 @@
 
 #include "engines/nfs/pages/viewers.h"
 
-#include "engines/nfs/pages/play_page.h"
+#include "engines/nfs/ui/play_page.h"
 
 #include <cstdlib>
 #include <cstring>
-
-#include "engines/nfs/pages/page_draw.h"
 
 #include "common/events.h"
 #include "graphics/font.h"
@@ -633,19 +631,10 @@ std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFol
                                              const std::map<std::string, std::string> &settings) {
     std::vector<std::unique_ptr<Page>> pages;
     pages.push_back(std::make_unique<InfoPage>(gameName, folders));
-    auto setting = [&](const char *key) {
-        auto it = settings.find(key);
-        return it == settings.end() ? std::string() : it->second;
-    };
-    const std::string scale = setting("renderscale");
-    g_pagesPointSampled = setting("texturefilter") == "point";
-    auto play = std::make_unique<PlayPage>(
-        folders, saveFolder, mixer, scale.empty() ? 2 : std::atoi(scale.c_str()), setting("texturefilter") != "point",
-        setting("joystick") != "off", setting("forcefeedback") != "off", setting("wheelpedals"),
-        setting("network") != "off", setting("movielines") != "keep", setting("serial"), setting("modem"),
-        setting("renderer") == "glide", setting("renderer") == "direct3d", setting("glide") == "software",
-        setting("glidedll"), setting("glideboard"));
-    play->setPositionalUpdates(setting("positionalupdates") == "on");
+    const auto filter = settings.find("texturefilter");
+    g_pagesPointSampled = filter != settings.end() && filter->second == "point";
+    auto play = makePlayPage(folders, saveFolder, mixer, settings);
+    play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher");
     pages.push_back(std::move(play));
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
     pages.push_back(std::make_unique<CarPage>(files));

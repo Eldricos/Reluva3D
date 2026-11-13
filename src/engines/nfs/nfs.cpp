@@ -9,19 +9,14 @@
 // reverse engineering of a legally owned copy. Never from leaked source
 // code. See CONTRIBUTING.md.
 //
-// For now the engine is a data viewer: what it found (the folders, the
-// CD's files, tracks and cars), then the tracks and cars in 3D, the
-// game's pictures, strings and fonts, its sounds, music and movies (see
-// viewers.h for the keys). Tab switches between them; Esc goes
-// back to the launcher. The Play page runs the game itself (play_page.h).
+// The game is the retail nfs3.exe run in the x86 interpreter (host/),
+// shown in the window by the Play page (ui/play_page.h). Its data viewer
+// is reluva-viewer's (pages/viewer.cpp).
 
-#include "audio/mixer.h"
-#include "common/settings.h"
 #include "engines/engine.h"
-#include "engines/nfs/folders.h"
-#include "engines/nfs/game_files.h"
 #include "engines/nfs/games.h"
-#include "engines/nfs/pages/viewers.h"
+#include "engines/nfs/ui/page.h"
+#include "engines/nfs/ui/play_page.h"
 
 #include <string>
 #include <vector>
@@ -30,11 +25,7 @@ namespace reluva {
 
 namespace {
 
-using nfs::GameFolders;
 using nfs::GameInfo;
-
-constexpr int kScreenW = 640;
-constexpr int kScreenH = 480;
 
 class NfsEngine : public Engine {
 public:
@@ -42,95 +33,18 @@ public:
         : _sys(system), _target(std::move(target)), _game(game) {}
 
     Error run() override {
-        const GameFolders folders = nfs::findFolders(_target.path, _target.settings, _game.executable);
-        if (nfs::trackFolders(folders.install).empty())
-            return Error::fail("No tracks (GameData/Tracks/trkNNN) found in " + folders.install.string());
-        nfs::GameFiles files;
-        files.scan(folders);
-
-        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
-            return err;
-        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-
-        // One mixer for the pages' sounds; without audio output, none. The
-        // pages go before it. surround= in reluva.ini sends it through the
-        // Pro Logic decoder model, for the game's Dolby Surround mode.
-        audio::Mixer mixer(_sys.audioRate());
-        const auto surround = _target.settings.find("surround");
-        const bool audioOut = !audio::startMixerOutput(
-            _sys, mixer,
-            audio::surroundFromSetting(surround == _target.settings.end() ? std::string() : surround->second));
-        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        struct AudioOff { // stops the output before the mixer goes
-            System &sys;
-            ~AudioOff() { sys.stopAudio(); }
-        } audioOff{_sys};
-        auto pages =
-            nfs::makePages(_game.name, folders, files, audioOut ? &mixer : nullptr, _target.savePath, _target.settings);
-
-        size_t page = 0;
-        bool dirty = true;
-        auto show = [&](size_t next) -> Error {
-            // Leaving a 3D page: its renderer goes, the framebuffer comes back.
-            const bool was3D = pages[page]->uses3D();
-            pages[page]->deactivate();
-            if (was3D)
-                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
-                    return err;
-            page = next;
-            _sys.setWindowTitle(std::string("Reluva - ") + _game.name + " - " + pages[page]->name());
-            pages[page]->activate(_sys);
-            dirty = true;
-            return Error::success();
+        auto makePages = [this](const nfs::GameFolders &folders, audio::Mixer *mixer) {
+            std::vector<std::unique_ptr<nfs::Page>> pages;
+            pages.push_back(nfs::makePlayPage(folders, _target.savePath, mixer, _target.settings));
+            return pages;
         };
-        _sys.setWindowTitle(std::string("Reluva - ") + _game.name + " - " + pages[page]->name());
-        pages[page]->activate(_sys);
-
-        while (true) {
-            Event ev;
-            while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher) {
-                    pages[page]->deactivate();
-                    return Error::success();
-                }
-                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->capturesEscape()) {
-                    pages[page]->deactivate();
-                    return Error::success();
-                }
-                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
-                    const size_t step = (ev.mods & keymod::kShift) ? pages.size() - 1 : 1;
-                    if (Error err = show((page + step) % pages.size()))
-                        return err;
-                    continue;
-                }
-                pages[page]->handleEvent(ev);
-                dirty = true;
-            }
-            if (pages[page]->finished()) {
-                pages[page]->deactivate();
-                return Error::success();
-            }
-            if (pages[page]->uses3D()) {
-                // Paced by presenting (vsync).
-                pages[page]->update(_sys.getMillis());
-                continue;
-            }
-            if (pages[page]->tick(_sys.getMillis()))
-                dirty = true;
-            if (dirty) {
-                pages[page]->draw(_screen);
-                dirty = false;
-            }
-            _sys.updateScreen(_screen);
-            _sys.delayMillis(10);
-        }
+        return nfs::runPages(_sys, _target, _game, makePages, false);
     }
 
 private:
     System &_sys;
     GameTarget _target;
     const GameInfo &_game;
-    Surface _screen;
 };
 
 class NfsMetaEngine : public MetaEngine {
@@ -143,8 +57,8 @@ public:
         return found.empty() ? detectFromTable(id(), nfs::fallbackTable(), dir) : found;
     }
 
-    // The settings the game's pages read (pages/viewers.cpp, makePages),
-    // for every NFS game and each: the first choice of each is what the
+    // The settings the game reads (ui/play_page.cpp, makePlayPage), for
+    // every NFS game and each: the first choice of each is what the
     // engine does when it's set nowhere. The others (cdpath, serial, modem,
     // wheelpedals, glidedll, glideboard) name things of the machine's, and
     // are set in reluva.ini.

@@ -29,3 +29,8 @@ src/engines/newworlds/sound_viewer.cpp          src/engines/newworlds/pages/soun
 src/engines/newworlds/string_viewer.cpp         src/engines/newworlds/pages/string_viewer.cpp
 src/engines/newworlds/texture_viewer.cpp        src/engines/newworlds/pages/texture_viewer.cpp
 src/engines/newworlds/viewers.h                 src/engines/newworlds/pages/viewers.h
+
+# nfs: the game's page, to ui/
+src/engines/nfs/pages/page_draw.h               src/engines/nfs/ui/page_draw.h
+src/engines/nfs/pages/play_page.cpp             src/engines/nfs/ui/play_page.cpp
+src/engines/nfs/pages/play_page.h               src/engines/nfs/ui/play_page.h

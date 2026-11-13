@@ -3,8 +3,8 @@
 
 #pragma once
 
-// Drawing shared by the 2D viewer pages: their colours, text with the
-// built-in font, and the title and keys lines.
+// Drawing for the 2D pages, the game's status screen and the data
+// viewer's: their colours, and text with the built-in font.
 
 #include "graphics/font.h"
 #include "common/types.h"
@@ -41,13 +41,6 @@ inline void clear(Surface &s) {
 inline void text(Surface &s, int x, int y, const std::string &utf8, Color c) {
     const size_t room = static_cast<size_t>(std::max(0, s.w - x - kMargin) / font::kAdvance);
     font::drawText(s, x, y, font::length(utf8) > room ? utf8.substr(0, room) : utf8, c);
-}
-
-// A page's title line and, at the bottom, its keys.
-inline void frame(Surface &s, const std::string &title, const std::string &keys) {
-    clear(s);
-    text(s, kMargin, 8, title, kTitleColor);
-    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
 }
 
 } // namespace reluva::nfs::page

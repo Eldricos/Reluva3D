@@ -22,6 +22,8 @@
 #include "engines/nfs/formats/fsh.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/formats/text_table.h"
+#include "engines/nfs/ui/page.h"
+#include "engines/nfs/ui/page_draw.h"
 
 #include <array>
 #include <filesystem>
@@ -33,12 +35,24 @@
 #include <string>
 #include <vector>
 
-// Data viewers used by the Need for Speed engine until the game itself
-// runs. The 2D ones draw into the engine's 640x480 RGBA32 screen when
-// asked; the 3D ones take the GPU renderer while shown and draw a frame
-// each update. Tab switches between them (nfs.cpp).
+// The Need for Speed engine's data viewer, in reluva-viewer: pages showing
+// what the game's files hold, and the game's own (PlayPage). The 2D ones
+// draw into the engine's 640x480 RGBA32 screen when asked; the 3D ones
+// take the GPU renderer while shown and draw a frame each update. Tab
+// switches between them (runPages).
 
 namespace reluva::nfs {
+
+namespace page {
+
+// A viewer page's title line and, at the bottom, its keys.
+inline void frame(Surface &s, const std::string &title, const std::string &keys) {
+    clear(s);
+    text(s, kMargin, 8, title, kTitleColor);
+    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
+}
+
+} // namespace page
 
 // How the Track and Cars pages sample the game's textures: bilinear, no
 // mipmaps. The game never sends THRASH's filter, LOD bias or mipmap
@@ -56,38 +70,6 @@ inline gfx::TextureParams glideTextureParams(bool clamp = false) {
     params.nearest = g_pagesPointSampled;
     return params;
 }
-
-class Page {
-public:
-    virtual ~Page() = default;
-    virtual const char *name() const = 0;
-    // Whether there's anything to show; pages without are skipped.
-    virtual bool empty() const { return false; }
-    // Called when the page is shown and before switching away. A 3D page
-    // takes the renderer in activate(); the engine puts the framebuffer
-    // back after it's left.
-    virtual void activate(System & /*sys*/) {}
-    virtual void deactivate() {}
-    // Whether Esc goes to the page rather than back to the launcher.
-    virtual bool capturesEscape() const { return false; }
-    // Whether the page is done (the game it ran has ended): back to the
-    // launcher.
-    virtual bool finished() const { return false; }
-    // Whether the page is drawing with the GPU (else draw() is used).
-    virtual bool uses3D() const { return false; }
-    virtual void handleEvent(const Event &ev) {
-        if (ev.type == EventType::kKeyDown)
-            handleKey(ev.key, ev.mods);
-    }
-    virtual void handleKey(uint32_t /*key*/, uint16_t /*mods*/) {}
-    // 2D pages: draws the page into the screen, after any event.
-    virtual void draw(Surface & /*screen*/) {}
-    // 3D pages: draws a frame.
-    virtual void update(uint64_t /*nowMs*/) {}
-    // 2D pages: called often while shown, for playback; true when the page
-    // needs drawing again.
-    virtual bool tick(uint64_t /*nowMs*/) { return false; }
-};
 
 // What the engine found: the folders, the CD's files, tracks and cars.
 class InfoPage : public Page {
@@ -1017,10 +999,8 @@ private:
 // Every page, in Tab order, those with nothing to show left out. The
 // mixer plays the pages' sounds; null without audio output. The game
 // writes under `saveFolder`. `settings` are the game's section of
-// reluva.ini: renderscale (1-4, the Play page's frame against the game's
-// 640x480; 2 if not set), texturefilter (point: point-sampled textures; bilinear otherwise) and
-// joystick (off: a game controller isn't offered to the game) and
-// positionalupdates (on: network races with positional updates).
+// reluva.ini, for the Play page (makePlayPage) and texturefilter (point:
+// the viewer's textures point-sampled too).
 std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFolders &folders, const GameFiles &files,
                                              audio::Mixer *mixer = nullptr,
                                              const std::filesystem::path &saveFolder = {},
