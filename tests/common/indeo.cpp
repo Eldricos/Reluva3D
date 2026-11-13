@@ -218,7 +218,7 @@ static void testVideo() {
     CHECK(!damaged.load(std::make_unique<MemoryReadStream>(a)));
 }
 
-static const test::Suite suite("common.unit.indeo",
-                               {
-                                   {"indeo 5 and avi", [](const std::filesystem::path &) { testVideo(); }},
-                               });
+static const test::Suite kSuite("common.unit.indeo",
+                                {
+                                    {"indeo 5 and avi", [](const std::filesystem::path &) { testVideo(); }},
+                                });

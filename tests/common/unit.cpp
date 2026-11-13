@@ -1031,11 +1031,11 @@ static void testX86Disassembler() {
     CHECK(!b1.valid && b1.size == 1 && !b2.valid && b2.size == 1);
 }
 
-static const reluva::test::Suite hashesSuite("common.unit.hashes",
-                                             {
-                                                 {"md5", [](const std::filesystem::path &) { testMd5(); }},
-                                                 {"md4", [](const std::filesystem::path &) { testMd4(); }},
-                                             });
+static const reluva::test::Suite kHashesSuite("common.unit.hashes",
+                                              {
+                                                  {"md5", [](const std::filesystem::path &) { testMd5(); }},
+                                                  {"md4", [](const std::filesystem::path &) { testMd4(); }},
+                                              });
 
 // BMPs keeping their palette indices (image/bmp.h): 8-bit stored bottom
 // up, RLE8, 4-bit, 24-bit, and a DIB without the file header.
@@ -1171,7 +1171,7 @@ static void testSerializer() {
     CHECK(r.err());
 }
 
-static const reluva::test::Suite filesSuite(
+static const reluva::test::Suite kFilesSuite(
     "common.unit.files",
     {
         {"filesystem and detection", [](const std::filesystem::path &tmp) { testFsAndDetection(tmp / "fs"); }},
@@ -1182,21 +1182,21 @@ static const reluva::test::Suite filesSuite(
     });
 
 static const reluva::test::Suite
-    archivesSuite("common.unit.archives",
-                  {
-                      {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
-                      {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
-                      {"dcl", [](const std::filesystem::path &) { testDcl(); }},
-                      {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
-                  });
+    kArchivesSuite("common.unit.archives",
+                   {
+                       {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
+                       {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
+                       {"dcl", [](const std::filesystem::path &) { testDcl(); }},
+                       {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
+                   });
 
 static const reluva::test::Suite
-    textSuite("common.unit.text", {
-                                      {"utf16", [](const std::filesystem::path &) { testUtf16(); }},
-                                      {"windows-1252", [](const std::filesystem::path &) { testWindows1252(); }},
-                                      {"font", [](const std::filesystem::path &) { testFont(); }},
-                                      {"strings", [](const std::filesystem::path &) { testTextHelpers(); }},
-                                  });
+    kTextSuite("common.unit.text", {
+                                       {"utf16", [](const std::filesystem::path &) { testUtf16(); }},
+                                       {"windows-1252", [](const std::filesystem::path &) { testWindows1252(); }},
+                                       {"font", [](const std::filesystem::path &) { testFont(); }},
+                                       {"strings", [](const std::filesystem::path &) { testTextHelpers(); }},
+                                   });
 
 // A paused sound keeps its place and plays on from there; it still counts
 // as playing, and can be stopped while paused.
@@ -1230,14 +1230,14 @@ static void testMixerPause() {
 }
 
 static const reluva::test::Suite
-    audioSuite("common.unit.audio", {
-                                        {"wav", [](const std::filesystem::path &) { testWav(); }},
-                                        {"mp3", [](const std::filesystem::path &) { testMp3(); }},
-                                        {"mixer", [](const std::filesystem::path &) { testMixer(); }},
-                                        {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
-                                        {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
-                                        {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
-                                    });
+    kAudioSuite("common.unit.audio", {
+                                         {"wav", [](const std::filesystem::path &) { testWav(); }},
+                                         {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                                         {"mixer", [](const std::filesystem::path &) { testMixer(); }},
+                                         {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
+                                         {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
+                                         {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
+                                     });
 
 // Cursors (graphics/cursor.h): made from palette indices or a surface,
 // scaled with their hotspot, and drawn by a backend that has to.
@@ -1310,14 +1310,14 @@ static void testCursors() {
 }
 
 static const reluva::test::Suite
-    imageSuite("common.unit.image",
-               {
-                   {"image", [](const std::filesystem::path &) { testImage(); }},
-                   {"3d math", [](const std::filesystem::path &) { testGfxMath(); }},
-                   {"8-bit drawing and palettes", [](const std::filesystem::path &) { testDrawAndPalette(); }},
-                   {"cursors", [](const std::filesystem::path &) { testCursors(); }},
-                   {"bmp with its palette", [](const std::filesystem::path &) { testBmp(); }},
-               });
+    kImageSuite("common.unit.image",
+                {
+                    {"image", [](const std::filesystem::path &) { testImage(); }},
+                    {"3d math", [](const std::filesystem::path &) { testGfxMath(); }},
+                    {"8-bit drawing and palettes", [](const std::filesystem::path &) { testDrawAndPalette(); }},
+                    {"cursors", [](const std::filesystem::path &) { testCursors(); }},
+                    {"bmp with its palette", [](const std::filesystem::path &) { testBmp(); }},
+                });
 
 // Cinepak frames and an AVI holding them, built here: an 8 x 4 picture
 // of two blocks, the first V1 (one 2x2 cell per quarter), the second V4.
@@ -1567,23 +1567,23 @@ static void testBinkAudio() {
     }
 }
 
-static const reluva::test::Suite videoSuite("common.unit.video",
-                                            {
-                                                {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
-                                                {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
-                                                {"avi", [](const std::filesystem::path &) { testAvi(); }},
-                                                {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
-                                                {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
-                                            });
+static const reluva::test::Suite kVideoSuite("common.unit.video",
+                                             {
+                                                 {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
+                                                 {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
+                                                 {"avi", [](const std::filesystem::path &) { testAvi(); }},
+                                                 {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
+                                                 {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},
+                                             });
 
-static const reluva::test::Suite netSuite("common.unit.net",
-                                          {
-                                              {"network", [](const std::filesystem::path &) { testNet(); }},
-                                          });
+static const reluva::test::Suite kNetSuite("common.unit.net",
+                                           {
+                                               {"network", [](const std::filesystem::path &) { testNet(); }},
+                                           });
 
 static const reluva::test::Suite
-    x86Suite("common.unit.x86", {
-                                    {"instructions", [](const std::filesystem::path &) { testX86Instructions(); }},
-                                    {"test dll", [](const std::filesystem::path &) { testX86Dll(); }},
-                                    {"disassembler", [](const std::filesystem::path &) { testX86Disassembler(); }},
-                                });
+    kX86Suite("common.unit.x86", {
+                                     {"instructions", [](const std::filesystem::path &) { testX86Instructions(); }},
+                                     {"test dll", [](const std::filesystem::path &) { testX86Dll(); }},
+                                     {"disassembler", [](const std::filesystem::path &) { testX86Disassembler(); }},
+                                 });

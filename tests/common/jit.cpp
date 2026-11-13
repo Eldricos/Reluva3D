@@ -465,11 +465,11 @@ static void testX86Dll(bool cached) {
 // returns, which ends it.
 
 static const test::Suite
-    suite("common.unit.jit",
-          {
-              {"instructions, cached and native", [](const std::filesystem::path &) { testX86Instructions(true); }},
-              {"instructions, interpreted", [](const std::filesystem::path &) { testX86Instructions(false); }},
-              {"test dll, cached and native", [](const std::filesystem::path &) { testX86Dll(true); }},
-              {"test dll, interpreted", [](const std::filesystem::path &) { testX86Dll(false); }},
-              {"cache and interpreter agree", [](const std::filesystem::path &) { testX86CacheAgreement(); }},
-          });
+    kSuite("common.unit.jit",
+           {
+               {"instructions, cached and native", [](const std::filesystem::path &) { testX86Instructions(true); }},
+               {"instructions, interpreted", [](const std::filesystem::path &) { testX86Instructions(false); }},
+               {"test dll, cached and native", [](const std::filesystem::path &) { testX86Dll(true); }},
+               {"test dll, interpreted", [](const std::filesystem::path &) { testX86Dll(false); }},
+               {"cache and interpreter agree", [](const std::filesystem::path &) { testX86CacheAgreement(); }},
+           });

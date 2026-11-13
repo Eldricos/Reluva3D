@@ -985,15 +985,15 @@ static void testArgbConverter() {
 }
 
 static const test::Suite
-    suite("common.unit.windows",
-          {
-              {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
-              {"threads", [](const std::filesystem::path &) { testThreads(); }},
-              {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
-              {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
-              {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
-              {"directx", [](const std::filesystem::path &) { testDirectX(); }},
-              {"input", [](const std::filesystem::path &) { testInput(); }},
-              {"a3d", [](const std::filesystem::path &) { testA3d(); }},
-              {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
-          });
+    kSuite("common.unit.windows",
+           {
+               {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
+               {"threads", [](const std::filesystem::path &) { testThreads(); }},
+               {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
+               {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
+               {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
+               {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+               {"input", [](const std::filesystem::path &) { testInput(); }},
+               {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+               {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
+           });
