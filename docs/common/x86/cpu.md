@@ -127,7 +127,7 @@ touched, and the allocator leaves the zeros unwritten, so a program given
 
 A block keeps its instructions' bytes and is made again when they're not
 what they were. That's checked when it runs, a few 64-bit compares, but
-only if code may have changed since its last check (`Cpu::codeEpoch_`
+only if code may have changed since its last check (`Cpu::_codeEpoch`
 moved on): an instruction wrote to a page holding a cached block (pages
 are marked as blocks are made); a native ran that may write memory
 directly; or the interpreter was entered again, as the host may have

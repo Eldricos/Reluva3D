@@ -1951,7 +1951,7 @@ code (`capstone` on the exe) and one run:
   each car's driver and then its model before the next car's driver,
   and measured +0x7B8 in the driver. Now the page and the sims run
   `aiRaceTick` (the race task's part), then every car's `aiStep` /
-  `aiCopStep` with `AiPhase::Drive`, then each with `AiPhase::Move`
+  `aiCopStep` with `AiPhase::Drive`, then each with `AiPhase::kMove`
   and its motion, then `aiCollide`.
 - The reach of the cars ahead and behind (`0x40cfd0`) is +0x7C4 × 2 ×
   0.1667 rounded towards 0 (`0x4dfd56` sets the chop mode for its

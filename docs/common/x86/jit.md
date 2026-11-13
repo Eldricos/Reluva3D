@@ -15,7 +15,7 @@ near the instruction limit.
   addressed from rbx) and memory (from r12). Each does what its handler
   does in the same order: the address, `Cpu::valid`'s one compare and a
   jump to the fault, the mark of a write to a page holding cached code
-  (`codeEpoch_` on), and for PUSH and POP ESP's change where the
+  (`_codeEpoch` on), and for PUSH and POP ESP's change where the
   handler makes it.
 - ADD, OR, ADC, SBB, AND, SUB, XOR, CMP, TEST, INC and DEC (8 and 32
   bits, every form), and SHL, SHR and SAR of 32 bits by 1 to 31 (OF as
@@ -55,7 +55,7 @@ near the instruction limit.
   offsets) is filled in order. When full, all its code is forgotten
   (`Jit::reset`, a new generation, which blocks compare with theirs) and
   made again as blocks run, but only while none is running: a native
-  calling back in finds the old still under it (`Cpu::jitDepth_`), and
+  calling back in finds the old still under it (`Cpu::_jitDepth`), and
   runs its blocks through the loop until then.
 
 ## How it works
@@ -89,7 +89,7 @@ dispatch, which fills the link when it finds the code. For that a
 block's code depends on nothing in the table, which another block may
 take the place of: it has its own copy of its decoded instructions,
 which the handlers it calls are given and the count's record
-(`Cpu::counting_`, for `uncountBlock`) points at, in a header before
+(`Cpu::_counting`, for `uncountBlock`) points at, in a header before
 the code. A profile on Visual Studio's build had the index's lookup a
 fourteenth of the game's thread; the links took 9% off the attract
 sequence's thread here. A block's code is made on its second run: many
@@ -100,7 +100,7 @@ Direct-mapped, a few pairs of hot blocks of LEGO Alpha Team's attract
 sequence shared a slot and took each other's place four and a half
 million times in 1500 frames, whatever the hash.
 A block with code that another takes the place of is kept aside by its
-address (`Cpu::spare_`, up to 32768, then all forgotten) and put back,
+address (`Cpu::_spare`, up to 32768, then all forgotten) and put back,
 decoded and made, when its address comes round with the same bytes
 (`Cpu::rebuild`): making blocks again had been a fifteenth of the
 game's thread in a profile.
