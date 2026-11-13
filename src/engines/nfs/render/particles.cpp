@@ -362,7 +362,9 @@ float wheelSpray(ParticleSystem &system, int wheel, float level, int surface, in
 }
 
 int soundDistance(const ParticleVec &d) {
-    int x = std::abs(fistp(d[0])), y = std::abs(fistp(d[1])), z = std::abs(fistp(d[2]));
+    int x = std::abs(fistp(d[0]));
+    int y = std::abs(fistp(d[1]));
+    int z = std::abs(fistp(d[2]));
     int flat = z < x ? x + (z >> 2) : z + (x >> 2);
     return y < flat ? flat + (y >> 2) : y + (flat >> 2);
 }
@@ -485,7 +487,8 @@ std::array<ParticleVec, 4> pictureCorners(const Particle &p, const ParticleVec &
     // and C = cos x it by the x scale (sx, 320). Taken back to the world
     // the sine's part is the other way round to the screen's y, and
     // `aspect` (|sy| / sx) longer across and shorter up and down.
-    const float s = std::sin(p.angle * kTurn) * half, c = std::cos(p.angle * kTurn) * half;
+    const float s = std::sin(p.angle * kTurn) * half;
+    const float c = std::cos(p.angle * kTurn) * half;
     return {offset(p.position, right, up, s * aspect, c / aspect), offset(p.position, right, up, c, -s),
             offset(p.position, right, up, -s * aspect, -c / aspect), offset(p.position, right, up, -c, s)};
 }
@@ -531,7 +534,8 @@ int sineTable(int k) {
 // The table's sine of a 1024-step index, by quadrant.
 int sineStep(int k) {
     k &= 1023;
-    const int q = k >> 8, i = k & 255;
+    const int q = k >> 8;
+    const int i = k & 255;
     switch (q) {
     case 0:
         return sineTable(i);
@@ -603,7 +607,8 @@ WeatherSetup weatherSetup(int type, int startSlice, int endSlice, int fade, int 
 }
 
 int weatherAtSlice(const WeatherSetup &s, int slice, int trackSlices) {
-    int start = s.startSlice, end = s.endSlice;
+    int start = s.startSlice;
+    int end = s.endSlice;
     const int fade = s.fade;
     if (start == end && fade == 0)
         return s.count;
@@ -663,7 +668,8 @@ void Weather::start(const WeatherSetup &setup, const ParticleVec &eye, int step,
     splashes_ = {};
     last_ = step; // 0x8c0be0, so the first move is two ticks on
     cycleStart_ = step;
-    const float h = setup.half, range = setup.top - setup.bottom;
+    const float h = setup.half;
+    const float range = setup.top - setup.bottom;
     for (int i = 0; i < setup.count; ++i) {
         Drop &d = drops_[size_t(i)];
         d.position[0] = random.unit() * h * 2 - h + eye[0];
@@ -693,7 +699,8 @@ void Weather::update(int step, int active, const ParticleVec &eye, bool covered,
     for (int i = 0; i < setup_.count; ++i)
         for (size_t a = 0; a < 3; ++a)
             drops_[size_t(i)].position[a] += setup_.velocity[a];
-    const float h = setup_.half, range = setup_.top - setup_.bottom;
+    const float h = setup_.half;
+    const float range = setup_.top - setup_.bottom;
     for (int i = 0; i < std::min(active, setup_.count); ++i) {
         Drop &d = drops_[size_t(i)];
         ParticleVec &p = d.position;
@@ -703,7 +710,9 @@ void Weather::update(int step, int active, const ParticleVec &eye, bool covered,
             p[0] = static_cast<float>((fixedSin(angle) >> 4) * kFixed) + p[0];
             p[2] = static_cast<float>((fixedCos(angle) >> 4) * kFixed) + p[2];
         }
-        float x = p[0] - eye[0], y = p[1] - eye[1], z = p[2] - eye[2];
+        float x = p[0] - eye[0];
+        float y = p[1] - eye[1];
+        float z = p[2] - eye[2];
         if (!(y < setup_.bottom || y > setup_.top || std::fabs(x) > h || std::fabs(z) > h))
             continue;
         // Out of the box: back in on the other side (0x4dd7c7).
@@ -739,7 +748,8 @@ void Weather::cut(const ParticleVec &eye, bool covered, ParticleRandom &random) 
     if (setup_.kind == 0)
         return;
     if (!covered) {
-        const float h = setup_.half, range = setup_.top - setup_.bottom;
+        const float h = setup_.half;
+        const float range = setup_.top - setup_.bottom;
         for (int i = 0; i < setup_.count; ++i) {
             Drop &d = drops_[size_t(i)];
             d.tailSet = false;
@@ -916,7 +926,8 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
         if (!free)
             return false;
         const float depth = z != 0 ? z : 1.5259022e-05f;
-        float sx = x * (1.0f / depth), sy = y * (1.0f / depth);
+        float sx = x * (1.0f / depth);
+        float sy = y * (1.0f / depth);
         if (t->jitter != 0) {
             sx += random.unit() * t->jitter * 2.0f - t->jitter; // 0x540398
             sy += random.unit() * t->jitter * 2.0f - t->jitter;
@@ -937,7 +948,8 @@ bool SplatScreen::hit(int kind, float x, float y, float z, bool inCar, ParticleR
         free->life = t->life - static_cast<int>(random.next() % static_cast<uint32_t>(t->life >> 1));
         const float size = t->size - t->size * 0.5f * random.unit();
         const float turn = random.unit() * 2.0f * 3.14159265358979f;
-        const float s = std::sin(turn) * size, c = std::cos(turn) * size;
+        const float s = std::sin(turn) * size;
+        const float c = std::cos(turn) * size;
         free->x = sx;
         free->y = sy;
         free->size = size;

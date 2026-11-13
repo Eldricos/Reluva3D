@@ -250,7 +250,8 @@ struct SurveyCount {
 
 int cmdNfsSurvey(int argc, char **argv) {
     std::vector<stdfs::path> roots;
-    bool verbose = false, hashes = false;
+    bool verbose = false;
+    bool hashes = false;
     for (int i = 2; i < argc; ++i) {
         if (std::strcmp(argv[i], "-v") == 0)
             verbose = true;
@@ -265,8 +266,23 @@ int cmdNfsSurvey(int argc, char **argv) {
     }
 
     using Count = SurveyCount;
-    Count vivs, banks, pictures, tables, fonts, models, tracks, collisions, horizons, soundBanks, sounds, streams,
-        segments, maps, movies, frames, movieAudio;
+    Count vivs;
+    Count banks;
+    Count pictures;
+    Count tables;
+    Count fonts;
+    Count models;
+    Count tracks;
+    Count collisions;
+    Count horizons;
+    Count soundBanks;
+    Count sounds;
+    Count streams;
+    Count segments;
+    Count maps;
+    Count movies;
+    Count frames;
+    Count movieAudio;
     std::vector<std::string> unsupported; // in EA's other compression schemes
     auto lower = [](std::string s) {
         for (char &c : s)
@@ -494,7 +510,8 @@ int cmdFceInfo(int argc, char **argv) {
         }
         std::printf("\n");
     }
-    std::map<uint32_t, int> pages, flags;
+    std::map<uint32_t, int> pages;
+    std::map<uint32_t, int> flags;
     for (const auto &t : model.triangles) {
         ++pages[t.texturePage];
         ++flags[t.flags];
@@ -568,7 +585,14 @@ int cmdFrdCheck(int argc, char **argv) {
             ++failed;
             continue;
         }
-        size_t vertices = 0, road = 0, lanes = 0, objects = 0, extras = 0, moving = 0, lights = 0, sounds = 0;
+        size_t vertices = 0;
+        size_t road = 0;
+        size_t lanes = 0;
+        size_t objects = 0;
+        size_t extras = 0;
+        size_t moving = 0;
+        size_t lights = 0;
+        size_t sounds = 0;
         for (const auto &b : track.blocks) {
             vertices += b.vertices.size();
             road += b.polygons[4].size();
@@ -609,7 +633,8 @@ int cmdFrdObj(int argc, char **argv) {
         return fail(err);
     const int detail = argc > 4 ? std::clamp(std::atoi(argv[4]), 0, 2) : 2;
     std::ofstream out(argv[3]);
-    size_t base = 1, uv = 1;
+    size_t base = 1;
+    size_t uv = 1;
     // Each polygon's corners in the order the game queues them (frd.md,
     // Textures: a block's as stored, a placed object's 1, 0, 3, 2), corner
     // k with the texture's u, v k; written last to first, since with z
@@ -735,7 +760,8 @@ int cmdBnkWav(int argc, char **argv) {
     if (Error err = reluva::nfs::parseSoundBank(data, bank))
         return fail(err);
     const stdfs::path outDir = argv[inViv ? 4 : 3];
-    int written = 0, failed = 0;
+    int written = 0;
+    int failed = 0;
     for (size_t i = 0; i < bank.slots.size(); ++i) {
         if (!bank.slots[i])
             continue;

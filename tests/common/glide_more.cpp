@@ -41,7 +41,8 @@ Glide2 openGlide2(int colorFormat = kColorArgb) {
 void testLfbFormats() {
     Glide2 g = openGlide2();
     Glide2LfbLock lock;
-    const uint16_t red565 = 31 << 11, blue565 = 31;
+    const uint16_t red565 = 31 << 11;
+    const uint16_t blue565 = 31;
     // 5:6:5 in each colour format (Programming Guide table 11.2): ABGR and
     // BGRA put blue in the high bits.
     CHECK(g.lfbLock(1, kBufferBack, kLfb565, 0, false, lock));
@@ -195,7 +196,8 @@ void testAntialiasing() {
     CHECK(partial >= 1);
     CHECK(green(g, 70, 30) == 0 && green(g, 8, 8) == 0);
     // With no edge anti-aliased it's the plain triangle.
-    Glide2 plain = openGlide2(), aa = openGlide2();
+    Glide2 plain = openGlide2();
+    Glide2 aa = openGlide2();
     aaSetup(plain);
     aaSetup(aa);
     plain.drawTriangle(vtx(10, 10), vtx(60, 12), vtx(20, 50));
@@ -367,7 +369,7 @@ void testUtilities() {
         return true;
     };
     uint32_t r = 0;
-    auto call = [&](const char *name, std::vector<uint32_t> args) {
+    auto call = [&](const char *name, const std::vector<uint32_t> &args) {
         r = 0xdeadbeef;
         CHECK(!cpu.call(dll.exports().at(name), args, r));
         return r;
@@ -404,7 +406,8 @@ void testUtilities() {
     CHECK(dll.glide().pipeline().tmuMemory(0)[1] == 0xf0);
     CHECK(call("_guTexMemQueryAvail@4", {0}) == (4u << 20) - dll.glide().texCalcMemRequired(8, 6, 2, kTexArgb4444));
     CHECK(call("_guEndianSwapBytes@4", {0x1122}) == 0x2211);
-    const uint32_t src = arena.alloc(20), dst = arena.alloc(64);
+    const uint32_t src = arena.alloc(20);
+    const uint32_t dst = arena.alloc(64);
     for (uint32_t i = 0; i < 10; ++i)
         cpu.write16(src + 2 * i, image[i]);
     CHECK(call("_guEncodeRLE16@16", {0, src, 5, 2}) == 16);
@@ -532,7 +535,9 @@ void testClipCoordinates() {
         return count;
     };
     // Inside the volume: drawn as before (the viewport: x = (x/w + 1) 320).
-    const V a{-0.5f, -0.5f, 0, 1, 1, 1, 1}, b{0.5f, -0.5f, 0, 1, 1, 1, 1}, c{0, 0.5f, 0, 1, 1, 1, 1};
+    const V a{-0.5f, -0.5f, 0, 1, 1, 1, 1};
+    const V b{0.5f, -0.5f, 0, 1, 1, 1, 1};
+    const V c{0, 0.5f, 0, 1, 1, 1, 1};
     g.drawTriangle(at(a), at(b), at(c));
     CHECK(lit(320, 240) && !lit(100, 100));
     const int inside = litPixels();
@@ -547,18 +552,23 @@ void testClipCoordinates() {
     CHECK(!lit(320, 100)); // above a-b (y/w -0.5): nothing
     // Entirely beyond the far plane (z > w): nothing.
     g.core().bufferClear(0, 0, 0);
-    const V fa{-0.5f, -0.5f, 2, 1, 1, 1, 1}, fb{0.5f, -0.5f, 2, 1, 1, 1, 1}, fc{0, 0.5f, 2, 1, 1, 1, 1};
+    const V fa{-0.5f, -0.5f, 2, 1, 1, 1, 1};
+    const V fb{0.5f, -0.5f, 2, 1, 1, 1, 1};
+    const V fc{0, 0.5f, 2, 1, 1, 1, 1};
     g.drawTriangle(at(fa), at(fb), at(fc));
     CHECK(litPixels() == 0);
     // Half through the far plane: the near half only.
-    const V ha{-0.5f, -0.5f, 0, 1, 1, 1, 1}, hb{0.5f, -0.5f, 0, 1, 1, 1, 1}, hc{0, 0.5f, 2, 1, 1, 1, 1};
+    const V ha{-0.5f, -0.5f, 0, 1, 1, 1, 1};
+    const V hb{0.5f, -0.5f, 0, 1, 1, 1, 1};
+    const V hc{0, 0.5f, 2, 1, 1, 1, 1};
     g.drawTriangle(at(ha), at(hb), at(hc));
     const int half = litPixels();
     CHECK(half > inside / 2 && half < inside);
     CHECK(lit(320, 125) && !lit(320, 355));
     // A line from in front of the eye to behind it: clipped at w = 0.
     g.core().bufferClear(0, 0, 0);
-    const V l0{0, 0, 0, 1, 1, 1, 1}, l1{0, 2, 0, -1, 1, 1, 1};
+    const V l0{0, 0, 0, 1, 1, 1, 1};
+    const V l1{0, 2, 0, -1, 1, 1, 1};
     g.drawLine(at(l0), at(l1));
     CHECK(litPixels() > 0 && litPixels() < 640);
     // A point outside: not drawn.

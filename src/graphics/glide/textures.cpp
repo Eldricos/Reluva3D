@@ -72,7 +72,8 @@ bool levelIncluded(int lod, int evenOdd) {
 }
 
 uint32_t levelBytes(int lod, int aspect, int format) {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     levelSize(lod, aspect, w, h);
     // In 8-byte units for 16-bit texels: four texels a unit, the sides
     // counted as at least 2 (the spec's table: 1 unit for 2x2, 2x1 and 1x1,
@@ -113,7 +114,10 @@ uint32_t decodeTexel(int format, uint32_t raw, const uint32_t *palette, const Nc
         return 0xff000000u | (palette[raw & 0xff] & 0xffffff);
     case 6: { // 8-bit palette to RGBA: the entry's 24 bits as 6:6:6:6 (A R G B)
         const uint32_t p = palette[raw & 0xff] & 0xffffff;
-        const uint32_t a = p >> 18 & 63, r = p >> 12 & 63, g = p >> 6 & 63, b = p & 63;
+        const uint32_t a = p >> 18 & 63;
+        const uint32_t r = p >> 12 & 63;
+        const uint32_t g = p >> 6 & 63;
+        const uint32_t b = p & 63;
         return argb(widen6(a), widen6(r), widen6(g), widen6(b));
     }
     case kTexArgb8332:

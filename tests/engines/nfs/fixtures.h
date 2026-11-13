@@ -299,7 +299,7 @@ inline TrackCollision straightRoad(int points, uint8_t codes = 0x44) {
 }
 
 // A PT header: tags (tag, length, big-endian value), then 0xFF.
-inline Bytes ptHeader(std::vector<std::pair<uint8_t, uint32_t>> tags) {
+inline Bytes ptHeader(const std::vector<std::pair<uint8_t, uint32_t>> &tags) {
     Bytes b = {'P', 'T', 0, 0, 0x06, 1, 25, 0xfd};
     for (auto [tag, value] : tags) {
         const int n = value > 0xffffff ? 4 : value > 0xffff ? 3 : value > 0xff ? 2 : 1;

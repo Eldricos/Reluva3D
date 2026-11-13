@@ -73,19 +73,24 @@ int cmdNfsHost(int argc, char **argv) {
     // As the Play page: the game told of a Voodoo 2, so that it draws its sky
     // and fog (docs/engines/nfs/games/nfs3/PLAN.md, Sky and fog).
     options.presentedRenderer = "voodoo2a.dll";
-    int traceCount = 0, every = 50; // traceCount: the last instructions kept, for a failure (0: none)
-    std::vector<uint32_t> watch;    // addresses at which to print the registers
+    int traceCount = 0; // traceCount: the last instructions kept, for a failure (0: none)
+    int every = 50;
+    std::vector<uint32_t> watch;                        // addresses at which to print the registers
     std::vector<std::pair<uint32_t, uint64_t>> counted; // addresses whose runs are counted (-count)
     int watchLimit = 50;                                // how many times, at most
     std::vector<std::pair<int, uint32_t>> watchReads;   // dwords printed at each watch: register (-1 none) + offset
     std::string dumpFile;                               // the emulated memory, written at the end
     uint32_t slice = 0;                                 // instructions between thread changes (0: the default)
-    uint32_t watchMem = 0, watchMemSize = 0;            // memory whose stores are printed
-    std::string keyScript;                              // "ms:key,ms:key...": each pressed for 100 ms
-    std::string frameLogFile;                           // each frame's time and instructions, as CSV
-    std::string wavFile;                                // what the game's sound buffers played
-    std::string voicesFile;          // what the game's mixer adds, front and behind, each 100 ms (CSV)
-    uint64_t hotFrom = 0, hotTo = 0; // instructions counted by where they run, over this range
+    // memory whose stores are printed
+    uint32_t watchMem = 0;
+    uint32_t watchMemSize = 0;
+    std::string keyScript;    // "ms:key,ms:key...": each pressed for 100 ms
+    std::string frameLogFile; // each frame's time and instructions, as CSV
+    std::string wavFile;      // what the game's sound buffers played
+    std::string voicesFile;   // what the game's mixer adds, front and behind, each 100 ms (CSV)
+    // instructions counted by where they run, over this range
+    uint64_t hotFrom = 0;
+    uint64_t hotTo = 0;
     bool gpuLog = false;
     uint64_t gpuDumpList = 0; // a list (1 the first) written out in full
     std::string gpuDumpDir;
@@ -302,7 +307,8 @@ int cmdNfsHost(int argc, char **argv) {
     std::string forceCsv = "ms,constant,spring,centre,saturation,damper,vibration,period,square,autocentre\n";
     reluva::GamepadForce lastForce;
     int forceChanges = 0;
-    float strongestPush = 0, strongestVibration = 0;
+    float strongestPush = 0;
+    float strongestVibration = 0;
     reluva::Surface lastShown; // -glidecompare: the Glide frame of the flip under way
     host.onFrame = [&](const reluva::Surface &frame) {
         if (options.forceFeedback) {
@@ -455,7 +461,8 @@ int cmdNfsHost(int argc, char **argv) {
     // Where instructions run, by 16-byte block, over a range of the run.
     std::map<uint32_t, uint64_t> hot;
     // Tracing every instruction costs: only when asked for.
-    const bool hotspots = hotTo > hotFrom, tracePokes = pokes.needsTrace();
+    const bool hotspots = hotTo > hotFrom;
+    const bool tracePokes = pokes.needsTrace();
     if (hotspots || traceCount > 0 || !watch.empty() || tracePokes || !counted.empty() || !drivers.empty())
         host.cpu().trace = [&](reluva::x86::Cpu &c) {
             if (c.eip == 0x4314c9)
@@ -465,18 +472,22 @@ int cmdNfsHost(int argc, char **argv) {
                         continue;
                     auto f = [&](uint32_t a) { return std::bit_cast<float>(c.read32(a)); };
                     auto s8 = [&](uint32_t a) { return float(int8_t(c.read8(a))); };
-                    float tx = 0, tz = 0;
-                    const uint32_t roadPoints = c.read32(0x5dd948), n = c.read32(0x5dd940);
+                    float tx = 0;
+                    float tz = 0;
+                    const uint32_t roadPoints = c.read32(0x5dd948);
+                    const uint32_t n = c.read32(0x5dd940);
                     const uint32_t slice = c.read32(d.car + 0x1c);
                     float fwd0[3] = {0, 0, 0};
                     if (d.road) {
                         if (!roadPoints || !n || n > 100000)
                             continue;
-                        const float vx = f(d.car + 0xa4), vz = f(d.car + 0xac);
+                        const float vx = f(d.car + 0xa4);
+                        const float vz = f(d.car + 0xac);
                         // About 18 m and 0.6 s ahead.
                         const uint32_t k =
                             uint32_t(std::clamp(3.0f + std::sqrt(vx * vx + vz * vz) * 0.1f, 3.0f, 12.0f));
-                        const uint32_t p = roadPoints + 36 * ((slice + k) % n), p0 = roadPoints + 36 * (slice % n);
+                        const uint32_t p = roadPoints + 36 * ((slice + k) % n);
+                        const uint32_t p0 = roadPoints + 36 * (slice % n);
                         for (int i = 0; i < 3; ++i)
                             fwd0[i] = s8(p0 + 20 + i);
                         tx = float(int32_t(c.read32(p))) / 65536 + d.gap * s8(p + 24) / 128;
@@ -485,17 +496,23 @@ int cmdNfsHost(int argc, char **argv) {
                         tx = f(d.target + 0x98);
                         tz = f(d.target + 0xa0);
                     }
-                    const float dx = tx - f(d.car + 0x98), dz = tz - f(d.car + 0xa0);
+                    const float dx = tx - f(d.car + 0x98);
+                    const float dz = tz - f(d.car + 0xa0);
                     const float across = dx * f(d.car + 0x190) + dz * f(d.car + 0x198);
                     const float along = dx * f(d.car + 0x1a8) + dz * f(d.car + 0x1b0);
-                    const float angle = std::atan2(across, along), dist = std::sqrt(dx * dx + dz * dz);
+                    const float angle = std::atan2(across, along);
+                    const float dist = std::sqrt(dx * dx + dz * dz);
                     auto speed = [&](uint32_t car) {
-                        const float x = f(car + 0xa4), y = f(car + 0xa8), z = f(car + 0xac);
+                        const float x = f(car + 0xa4);
+                        const float y = f(car + 0xa8);
+                        const float z = f(car + 0xac);
                         return std::sqrt(x * x + y * y + z * z);
                     };
-                    const float v = speed(d.car), vt = d.road ? 0.0f : speed(d.target);
+                    const float v = speed(d.car);
+                    const float vt = d.road ? 0.0f : speed(d.target);
                     const int steer = int(std::clamp(driveSign * angle / 0.35f * 127.0f, -128.0f, 127.0f));
-                    int gas = 255, brake = 0;
+                    int gas = 255;
+                    int brake = 0;
                     if (d.road) {
                         // The car's slice's forward against those up to about
                         // 2.5 s on (6 m a slice): the sharper the bend ahead, the slower.
@@ -572,7 +589,9 @@ int cmdNfsHost(int argc, char **argv) {
             continue;
         const uint64_t ms = std::strtoull(item.c_str(), nullptr, 10);
         const std::string key = item.substr(colon + 1);
-        int dx = 0, dy = 0, index = 0;
+        int dx = 0;
+        int dy = 0;
+        int index = 0;
         float value = 0;
         if (key.rfind("joy:", 0) == 0) { // joy:A=V (axis A 0-5) or joy:bB=V (button B), the pad's state so far
             if (std::sscanf(key.c_str(), "joy:b%d=%f", &index, &value) == 2 && index >= 0 && index < 32)
@@ -747,8 +766,14 @@ int cmdNfsHost(int argc, char **argv) {
         // The frames in one-second steps: how many, and their instructions.
         // ... and the time no thread could run (all waiting), and how often.
         // ... and the shares of the game's own thread and the timer's.
-        uint64_t second = 0, frames = 0, instructions = 0, renderer = 0, idleMicros = 0, idleWaits = 0, own = 0,
-                 timer = 0;
+        uint64_t second = 0;
+        uint64_t frames = 0;
+        uint64_t instructions = 0;
+        uint64_t renderer = 0;
+        uint64_t idleMicros = 0;
+        uint64_t idleWaits = 0;
+        uint64_t own = 0;
+        uint64_t timer = 0;
         auto flush = [&] {
             if (frames)
                 std::printf(
@@ -801,7 +826,8 @@ int cmdNfsHuffCheck(int argc, char **argv) {
         return fail(e);
     auto &c = host.cpu();
     const uint32_t stack = host.process().memory().alloc(1 << 16);
-    int checked = 0, mismatches = 0;
+    int checked = 0;
+    int mismatches = 0;
     for (const reluva::nfs::FileRef &f : files.files()) {
         std::vector<uint8_t> data;
         if (files.read(f, data) || !reluva::nfs::isEaHuffman(data))
@@ -858,17 +884,20 @@ int cmdNfsNativeCheck(int argc, char **argv) {
     }
     const int trials = argc > 3 ? std::max(1, std::atoi(argv[3])) : 300;
     const auto folders = reluva::nfs::findFolders(argv[2], {}, "nfs3.exe");
-    reluva::nfs::GameHost::Options interpreted, native;
+    reluva::nfs::GameHost::Options interpreted;
+    reluva::nfs::GameHost::Options native;
     interpreted.nativeRoutines = false;
     interpreted.saveFolder = native.saveFolder = stdfs::temp_directory_path() / "reluva-native-check";
-    reluva::nfs::GameHost a(folders, interpreted), b(folders, native);
+    reluva::nfs::GameHost a(folders, interpreted);
+    reluva::nfs::GameHost b(folders, native);
     if (reluva::Error e = a.load())
         return fail(e);
     if (reluva::Error e = b.load())
         return fail(e);
     // The same memory in each: a stack, and room for a routine's buffers.
     reluva::nfs::GameHost *hosts[2] = {&a, &b};
-    uint32_t stack = 0, area = 0;
+    uint32_t stack = 0;
+    uint32_t area = 0;
     for (auto *h : hosts) {
         stack = h->process().memory().alloc(1 << 16);
         area = h->process().memory().alloc(1 << 16);
@@ -908,7 +937,11 @@ int cmdNfsNativeCheck(int argc, char **argv) {
     };
     // Where things go in the area: the source, the destination, then the
     // routine's position, fraction and gains.
-    const uint32_t src = area, dst = area + 0x4000, posAt = area + 0x8000, fracAt = posAt + 4, gains = posAt + 8;
+    const uint32_t src = area;
+    const uint32_t dst = area + 0x4000;
+    const uint32_t posAt = area + 0x8000;
+    const uint32_t fracAt = posAt + 4;
+    const uint32_t gains = posAt + 8;
     int failed = 0;
     for (const Routine &r : routines) {
         if (!b.cpu().nativeName(b.cpu().read32(r.address + 1) + r.address + 5) || b.cpu().read8(r.address) != 0xe9) {
@@ -919,17 +952,21 @@ int cmdNfsNativeCheck(int argc, char **argv) {
         int mismatches = 0;
         for (int t = 0; t < trials && mismatches < 3; ++t) {
             // The inputs, the same in both.
-            std::vector<uint32_t> source(0x1000), dest(0x1000);
+            std::vector<uint32_t> source(0x1000);
+            std::vector<uint32_t> dest(0x1000);
             const double range = r.kind == 3 ? 40000.0 : t % 3 == 0 ? 1.0 : 32768.0;
             for (auto &v : source)
                 v = std::bit_cast<uint32_t>(randomFloat(range));
             for (auto &v : dest)
                 v = std::bit_cast<uint32_t>(randomFloat(32768.0));
             const int32_t count = int32_t(random() % 44) - 3;
-            const uint32_t pos = uint32_t(random() % 100), frac = uint32_t(random()), stepInt = uint32_t(random() % 3),
-                           stepFrac = uint32_t(random());
+            const uint32_t pos = uint32_t(random() % 100);
+            const uint32_t frac = uint32_t(random());
+            const uint32_t stepInt = uint32_t(random() % 3);
+            const uint32_t stepFrac = uint32_t(random());
             const uint32_t high = t % 4 == 0 ? uint32_t(random() & 0xffff) : 0;
-            const float gainLeft = randomFloat(1.5f), gainRight = randomFloat(1.5f);
+            const float gainLeft = randomFloat(1.5f);
+            const float gainRight = randomFloat(1.5f);
             uint32_t regs[8];
             for (auto &v : regs)
                 v = uint32_t(random());
@@ -1017,10 +1054,14 @@ int cmdNfsMmxCheck(int argc, char **argv) {
     reluva::nfs::GameHost::Options options;
     options.nativeRoutines = false;
     options.saveFolder = stdfs::temp_directory_path() / "reluva-mmx-check";
-    reluva::nfs::GameHost floatHost(folders, options), mmxHost(folders, options);
+    reluva::nfs::GameHost floatHost(folders, options);
+    reluva::nfs::GameHost mmxHost(folders, options);
     reluva::nfs::GameHost *hosts[2] = {&floatHost, &mmxHost};
-    constexpr uint32_t kDataSize = 1 << 22, kOutSize = 1 << 16;
-    uint32_t stack[2], data[2], out[2];
+    constexpr uint32_t kDataSize = 1 << 22;
+    constexpr uint32_t kOutSize = 1 << 16;
+    uint32_t stack[2];
+    uint32_t data[2];
+    uint32_t out[2];
     for (int i = 0; i < 2; ++i) {
         if (reluva::Error e = hosts[i]->load())
             return fail(e);
@@ -1295,7 +1336,8 @@ int cmdNfsMmxCheck(int argc, char **argv) {
                 const bool stereo = random() % 3 == 0;
                 std::vector<int16_t> s = realSamples(random(), random() % 20000, need(step) * (stereo ? 2 : 1));
                 Voice v = pcm(s, stereo ? 2 : 1, false);
-                const int volume = int(random() % 128), pan = int(random() % 128);
+                const int volume = int(random() % 128);
+                const int pan = int(random() % 128);
                 v.left = volume * (127 - pan) / 127, v.right = volume * pan / 127;
                 v.step = step;
                 voices.push_back(v);
@@ -1331,7 +1373,9 @@ int cmdNfsMmxCheck(int argc, char **argv) {
     // path's EA-XA mix is also set against its mix of the samples decoded
     // by Reluva (audio::decodeEaXa), as 16-bit PCM.
     {
-        Diff d, ownFloat, ownMmx;
+        Diff d;
+        Diff ownFloat;
+        Diff ownMmx;
         for (size_t s = 0; s < real.size(); ++s) {
             if (real[s].eaxa.empty())
                 continue;
@@ -1345,7 +1389,10 @@ int cmdNfsMmxCheck(int argc, char **argv) {
             const int n = std::min<int>(frames, int(real[s].count) - 64) & ~255;
             if (n <= 0)
                 continue;
-            std::vector<int> f, m, pf, pm;
+            std::vector<int> f;
+            std::vector<int> m;
+            std::vector<int> pf;
+            std::vector<int> pm;
             compare({v}, n, 8, d, &f, &m);
             Voice p = pcm(realSamples(s, 0, size_t(n) + 64), 1, false);
             p.left = p.right = 127;
@@ -1429,7 +1476,8 @@ int cmdNfsMmxCheck(int argc, char **argv) {
                 voices.push_back(v);
             }
             Diff d;
-            std::vector<int> f, m;
+            std::vector<int> f;
+            std::vector<int> m;
             compare(voices, frames, 8, d, &f, &m);
             d.print(order == 0 ? "  3 loud, then 2 negated" : "  2 negated, then 3 loud");
             double rms[2] = {};

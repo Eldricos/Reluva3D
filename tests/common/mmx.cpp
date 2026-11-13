@@ -23,7 +23,8 @@ using namespace reluva;
 
 #define CHECK_EQ(a, b)                                                                                                 \
     do {                                                                                                               \
-        const uint64_t a_ = (a), b_ = (b);                                                                             \
+        const uint64_t a_ = (a);                                                                                       \
+        const uint64_t b_ = (b);                                                                                       \
         if (a_ != b_) {                                                                                                \
             std::fprintf(stderr, "%s:%d: %s: %016llx, expected %016llx\n", __FILE__, __LINE__, #a,                     \
                          (unsigned long long)a_, (unsigned long long)b_);                                              \
@@ -128,7 +129,8 @@ void testMoves(x86::Cpu &cpu) {
 }
 
 void testArithmetic(x86::Cpu &cpu) {
-    const uint64_t a = 0x7f80ff017fff8000ull, b = 0x0180ff0200018000ull;
+    const uint64_t a = 0x7f80ff017fff8000ull;
+    const uint64_t b = 0x0180ff0200018000ull;
     // Wrapping.
     CHECK_EQ(binary(cpu, 0xfc, a, b), 0x8000fe037f000000ull);                                         // paddb
     CHECK_EQ(binary(cpu, 0xfd, a, b), 0x8100fe0380000000ull);                                         // paddw
@@ -147,7 +149,8 @@ void testArithmetic(x86::Cpu &cpu) {
     CHECK_EQ(binary(cpu, 0xd8, 0x0010ff0000000000ull, 0x0120fe0000000000ull), 0x0000010000000000ull); // psubusb
     CHECK_EQ(binary(cpu, 0xd9, 0x0010ffff00050000ull, 0x0020000100070000ull), 0x0000fffe00000000ull); // psubusw
     // Multiplies: lanes 0x7fff*0x7fff, 0x8000*0x8000, -1*2, 0x1234*0x10.
-    const uint64_t x = 0x7fff8000ffff1234ull, y = 0x7fff800000020010ull;
+    const uint64_t x = 0x7fff8000ffff1234ull;
+    const uint64_t y = 0x7fff800000020010ull;
     CHECK_EQ(binary(cpu, 0xd5, x, y), 0x00010000fffe2340ull); // pmullw
     CHECK_EQ(binary(cpu, 0xe5, x, y), 0x3fff4000ffff0001ull); // pmulhw (signed, the high word: -2 >> 16 is -1)
     // pmaddwd: 0x7fff*0x7fff + 0x8000*0x8000 = 0x3fff0001 + 0x40000000; -1*2 + 0x1234*0x10.
@@ -159,7 +162,8 @@ void testArithmetic(x86::Cpu &cpu) {
 }
 
 void testLogicAndCompare(x86::Cpu &cpu) {
-    const uint64_t a = 0xf0f0ff00aaaa1234ull, b = 0x0ff0f0f05555ffffull;
+    const uint64_t a = 0xf0f0ff00aaaa1234ull;
+    const uint64_t b = 0x0ff0f0f05555ffffull;
     CHECK_EQ(binary(cpu, 0xdb, a, b), a & b);  // pand
     CHECK_EQ(binary(cpu, 0xdf, a, b), ~a & b); // pandn
     CHECK_EQ(binary(cpu, 0xeb, a, b), a | b);  // por
@@ -221,7 +225,8 @@ void testPackUnpack(x86::Cpu &cpu) {
     CHECK_EQ(binary(cpu, 0x67, 0x0080ff7f0005ffffull, 0x7fff800001000000ull), 0xff00ff0080000500ull);
     // packssdw: dst 0x00010000 (65536 -> 32767), 0xffff0000 (-65536 -> -32768); src -5, 300.
     CHECK_EQ(binary(cpu, 0x6b, 0x00010000ffff0000ull, 0xfffffffb0000012cull), 0xfffb012c7fff8000ull);
-    const uint64_t a = 0x8877665544332211ull, b = 0xffeeddccbbaa9988ull;
+    const uint64_t a = 0x8877665544332211ull;
+    const uint64_t b = 0xffeeddccbbaa9988ull;
     CHECK_EQ(binary(cpu, 0x60, a, b), 0xbb44aa3399228811ull); // punpcklbw
     CHECK_EQ(binary(cpu, 0x61, a, b), 0xbbaa443399882211ull); // punpcklwd
     CHECK_EQ(binary(cpu, 0x62, a, b), 0xbbaa998844332211ull); // punpckldq

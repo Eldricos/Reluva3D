@@ -460,10 +460,12 @@ void GameHost::addNativeRoutines() {
     };
     // strcmp(EAX, EDX): -1, 0 or 1, the bytes compared unsigned.
     replace(0x4ee310, {0x53, 0x51, 0x89, 0xc3, 0x39, 0xd0, 0x74, 0x6c}, "nfs3.exe strcmp", [](Cpu &c) {
-        uint32_t a = c.reg[Cpu::EAX], b = c.reg[Cpu::EDX];
+        uint32_t a = c.reg[Cpu::EAX];
+        uint32_t b = c.reg[Cpu::EDX];
         int result = 0;
         for (;; ++a, ++b) {
-            const uint8_t x = c.read8(a), y = c.read8(b);
+            const uint8_t x = c.read8(a);
+            const uint8_t y = c.read8(b);
             if (x != y) {
                 result = x < y ? -1 : 1;
                 break;
@@ -590,14 +592,16 @@ void GameHost::addSystem() {
             }
             return s;
         };
-        const std::vector<uint32_t> a = read(c.arg(2), int32_t(c.arg(3))), b = read(c.arg(4), int32_t(c.arg(5)));
+        const std::vector<uint32_t> a = read(c.arg(2), int32_t(c.arg(3)));
+        const std::vector<uint32_t> b = read(c.arg(4), int32_t(c.arg(5)));
         return a < b ? 1u : a == b ? 2u : 3u;
     };
     provide(k, "CompareStringA", 6, [compareStrings](Cpu &c) { return compareStrings(c, 1); });
     provide(k, "CompareStringW", 6, [compareStrings](Cpu &c) { return compareStrings(c, 2); });
     provide(k, "IsProcessorFeaturePresent", 1, [](Cpu &) { return 0u; });
     provide(k, "GetProcAddress", 2, [this](Cpu &c) -> uint32_t {
-        const uint32_t handle = c.arg(0), name = c.arg(1);
+        const uint32_t handle = c.arg(0);
+        const uint32_t name = c.arg(1);
         const std::string function = name < 0x10000 ? "#" + std::to_string(name) : c.string(name);
         if (const auto *m = process_->moduleAt(handle)) {
             for (const PeImage::Export &e : m->image.exports)
@@ -673,7 +677,8 @@ void GameHost::addSystem() {
     });
     // VirtualQuery(address, info*, size): committed, read-write memory.
     provide(k, "VirtualQuery", 3, [](Cpu &c) {
-        const uint32_t a = c.arg(0) & ~0xfffu, p = c.arg(1);
+        const uint32_t a = c.arg(0) & ~0xfffu;
+        const uint32_t p = c.arg(1);
         const uint32_t v[] = {a, a, 4, 0x1000, 0x1000, 4, 0x20000};
         for (uint32_t i = 0; i < 7; ++i)
             c.write32(p + 4 * i, v[i]);
@@ -860,12 +865,14 @@ void GameHost::addSystem() {
             end = align(p + 2);
             return lower(k);
         };
-        uint32_t node = block, valueAt = 0;
+        uint32_t node = block;
+        uint32_t valueAt = 0;
         key(node, valueAt);
         for (const std::string &part : want) {
             const uint32_t length = c.read16(node);
             const uint32_t valueBytes = c.read16(node + 2) * (c.read16(node + 4) == 1 ? 2u : 1u);
-            uint32_t child = align(valueAt + valueBytes), found = 0;
+            uint32_t child = align(valueAt + valueBytes);
+            uint32_t found = 0;
             while (child < node + length && c.read16(child)) {
                 uint32_t childValue = 0;
                 if (key(child, childValue) == part) {

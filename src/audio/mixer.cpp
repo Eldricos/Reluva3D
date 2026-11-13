@@ -427,7 +427,8 @@ void SoundQueue::read(int16_t *out, int frames, int rate) {
             continue;
         }
         const Sound &s = *queue_.front().sound;
-        const size_t n = s.frames(), ch = size_t(s.channels);
+        const size_t n = s.frames();
+        const size_t ch = size_t(s.channels);
         const size_t f = size_t(position_);
         const double t = position_ - double(f);
         // Linear interpolation towards the frame after: this sound's, or

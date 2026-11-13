@@ -19,7 +19,8 @@ void testThrashFog() {
 
     // Triangles over pixel (10, 10), black, at the w given; red fog of 5.
     x86::Cpu cpu(1u << 21);
-    const uint32_t target = 0x10000, verts = 0x1000;
+    const uint32_t target = 0x10000;
+    const uint32_t verts = 0x1000;
     NativeThrash t(cpu);
     t.setTarget(target, 640 * 2, 640, 480);
     auto put = [&](int i, float x, float y, float w) {
@@ -58,7 +59,8 @@ void testThrashFog() {
                 std::memcpy(cpu.memory().data() + verts + 32 * i + 16, &colour, 4);
             t.triangle(verts, verts + 32, verts + 64);
             float sum = 0;
-            int distinct = 0, last = -1;
+            int distinct = 0;
+            int last = -1;
             for (int y = 4; y < 8; ++y)
                 for (int x = 4; x < 8; ++x) {
                     uint16_t p;
@@ -93,7 +95,9 @@ void testThrashFog() {
 // bilinear, no dithering whatever state 5 says.
 void testThrashDirect3D() {
     x86::Cpu cpu(1u << 21);
-    const uint32_t target = 0x10000, verts = 0x1000, texels = 0x2000;
+    const uint32_t target = 0x10000;
+    const uint32_t verts = 0x1000;
+    const uint32_t texels = 0x2000;
     // A 2x2 5:6:5 checker: black, white / white, black.
     const uint16_t checker[4] = {0x0000, 0xffff, 0xffff, 0x0000};
     std::memcpy(cpu.memory().data() + texels, checker, sizeof checker);
@@ -204,7 +208,8 @@ void testThrashDirect3D() {
 // or in mode 0, an opaque pixel replaces what's there.
 void testThrashBlend() {
     x86::Cpu cpu(1u << 21);
-    const uint32_t target = 0x10000, verts = 0x1000;
+    const uint32_t target = 0x10000;
+    const uint32_t verts = 0x1000;
     NativeThrash t(cpu);
     t.setTarget(target, 640 * 2, 640, 480);
     t.setState(0x5, 0); // no dither: exact 5:6:5 steps

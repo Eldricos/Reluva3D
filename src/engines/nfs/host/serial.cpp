@@ -376,10 +376,17 @@ public:
 void GameHost::addModem() {
     const char *t = "TAPI32.DLL";
     net::Sockets *net = options_.sockets.get();
-    constexpr uint32_t kLine = 0x4c494e45, kCall = 0x43414c4c; // the line's and the call's handles
-    constexpr uint32_t kLineCallState = 2, kLineReply = 12;
-    constexpr uint32_t kIdle = 0x1, kOffering = 0x2, kConnected = 0x100, kDisconnected = 0x4000;
-    constexpr uint32_t kOperationUnavailable = 0x80000048, kInvalCallHandle = 0x80000018;
+    // the line's and the call's handles
+    constexpr uint32_t kLine = 0x4c494e45;
+    constexpr uint32_t kCall = 0x43414c4c;
+    constexpr uint32_t kLineCallState = 2;
+    constexpr uint32_t kLineReply = 12;
+    constexpr uint32_t kIdle = 0x1;
+    constexpr uint32_t kOffering = 0x2;
+    constexpr uint32_t kConnected = 0x100;
+    constexpr uint32_t kDisconnected = 0x4000;
+    constexpr uint32_t kOperationUnavailable = 0x80000048;
+    constexpr uint32_t kInvalCallHandle = 0x80000018;
     struct Modem {
         uint32_t callback = 0, instance = 0, thread = 0;
         uint32_t nextRequest = 1;

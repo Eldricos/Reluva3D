@@ -66,7 +66,7 @@ public:
     uint32_t sstWinOpen(uint32_t hwnd, int resolution, int refresh, int colorFormat, int origin, int colorBuffers,
                         int auxBuffers);
     void sstWinClose(uint32_t context);
-    bool selectContext(uint32_t context);
+    bool selectContext(uint32_t context) const;
     void enable(uint32_t mode);
     void disable(uint32_t mode);
     bool enabled(uint32_t mode) const { return mode < 8 && enabled_[mode]; }

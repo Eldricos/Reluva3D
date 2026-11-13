@@ -123,7 +123,8 @@ Rgba combinePixel(const PixelCombine &p, const Rgba &iterated, const Rgba &textu
 Rgba combineTexture(const CombineSettings &rgb, const CombineSettings &alpha, const Rgba &local, const Rgba &other,
                     int detail, int lodFraction) {
     Rgba out;
-    const int la = local.a, oa = other.a;
+    const int la = local.a;
+    const int oa = other.a;
     out.r = combineChannel(rgb, local.r, other.r, la,
                            textureCombineFactor(rgb.factor, local.r, oa, la, detail, lodFraction));
     out.g = combineChannel(rgb, local.g, other.g, la,
@@ -171,7 +172,8 @@ int blendChannel(int s, int d, int sf, int df) {
 Rgba blendPixel(const Rgba &src, const Rgba &dst, const Rgba &prefog, int rgbSrc, int rgbDst, int alphaSrc,
                 int alphaDst) {
     Rgba out;
-    const int sa = src.a, da = dst.a;
+    const int sa = src.a;
+    const int da = dst.a;
     out.r = blendChannel(src.r, dst.r, blendFactor(rgbSrc, src.r, dst.r, sa, da, false, prefog.r),
                          blendFactor(rgbDst, src.r, dst.r, sa, da, true, prefog.r));
     out.g = blendChannel(src.g, dst.g, blendFactor(rgbSrc, src.g, dst.g, sa, da, false, prefog.g),
@@ -193,7 +195,8 @@ DitherTables::DitherTables() {
         const int n = m == 0 ? 16 : 4;
         for (int pos = 0; pos < 16; ++pos) {
             const int k = m == 0 ? kBayer4[pos] : kBayer2[((pos >> 2) & 1) * 2 + (pos & 1)];
-            const int t = (2 * k + 1) * 255, scale = 255 * 2 * n;
+            const int t = (2 * k + 1) * 255;
+            const int scale = 255 * 2 * n;
             for (int v = 0; v < 256; ++v) {
                 five[m][pos][v] = uint8_t(std::min(31, (v * 31 * 2 * n + t) / scale));
                 six[m][pos][v] = uint8_t(std::min(63, (v * 63 * 2 * n + t) / scale));

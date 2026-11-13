@@ -92,7 +92,8 @@ void testFormats() {
 }
 
 void testLayout() {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     levelSize(8, 3, w, h); // 8x1 at 256: 256x32
     CHECK(w == 256 && h == 32);
     levelSize(2, -2, w, h); // 1x4 at 4: 1x4
@@ -233,7 +234,8 @@ void testRasterizer() {
     p.triangle(vtx(3, 2, 0, 0, 40), vtx(40, 5, 0, 0, 40), vtx(10, 30, 0, 0, 40));
     p.triangle(vtx(40, 5, 0, 0, 40), vtx(50, 31, 0, 0, 40), vtx(10, 30, 0, 0, 40));
     const uint16_t *back = p.buffer(kBufferBack);
-    int once = 0, twice = 0;
+    int once = 0;
+    int twice = 0;
     for (int i = 0; i < 64 * 32; ++i) {
         const int b = from565(back[i]).b;
         once += b > 30 && b < 50;
@@ -276,11 +278,15 @@ void testDepthAndChroma() {
     s.depthFunc = kCmpLess;
     s.depthMask = true;
     p.clear(0, 0, 0xffff);
-    Vertex a = vtx(0, 0, 255, 0, 0), b = vtx(30, 0, 255, 0, 0), c = vtx(0, 30, 255, 0, 0);
+    Vertex a = vtx(0, 0, 255, 0, 0);
+    Vertex b = vtx(30, 0, 255, 0, 0);
+    Vertex c = vtx(0, 30, 255, 0, 0);
     a.ooz = b.ooz = c.ooz = 1000;
     p.triangle(a, b, c);
     // Behind: hidden.
-    Vertex d = vtx(0, 0, 0, 0, 255), e = vtx(30, 0, 0, 0, 255), f = vtx(0, 30, 0, 0, 255);
+    Vertex d = vtx(0, 0, 0, 0, 255);
+    Vertex e = vtx(30, 0, 0, 0, 255);
+    Vertex f = vtx(0, 30, 0, 0, 255);
     d.ooz = e.ooz = f.ooz = 2000;
     p.triangle(d, e, f);
     CHECK(from565(p.buffer(kBufferBack)[5 * 64 + 5]).r == 255);
@@ -333,7 +339,9 @@ void testTableFog() {
     for (int i = 0; i < 64; ++i)
         s.fogTable[size_t(i)] = i < 32 ? 0 : 255;
     p.clear(0, 0, 0);
-    Vertex a = vtx(0, 0, 255, 0, 0), b = vtx(30, 0, 255, 0, 0), c = vtx(0, 30, 255, 0, 0);
+    Vertex a = vtx(0, 0, 255, 0, 0);
+    Vertex b = vtx(30, 0, 255, 0, 0);
+    Vertex c = vtx(0, 30, 255, 0, 0);
     a.oow = b.oow = c.oow = 1.0f; // near: no fog
     p.triangle(a, b, c);
     CHECK(from565(p.buffer(kBufferBack)[3 * 64 + 3]).r == 255);
@@ -553,7 +561,8 @@ void testBinding() {
     const uint32_t info = arena.alloc(20);
     cpu.write32(info, 20);
     CHECK(!cpu.call(dll.exports().at("_grLfbLock@24"), {1, kBufferBack, kLfbAny, 0, 0, info}, result) && result == 1);
-    const uint32_t ptr = cpu.read32(info + 4), stride = cpu.read32(info + 8);
+    const uint32_t ptr = cpu.read32(info + 4);
+    const uint32_t stride = cpu.read32(info + 8);
     CHECK(ptr != 0 && stride == 2048);
     cpu.write16(ptr + 3 * stride + 2 * 9, 0xabcd);
     CHECK(!cpu.call(dll.exports().at("_grLfbUnlock@8"), {1, kBufferBack}, result));
@@ -605,7 +614,9 @@ void testGlide3() {
     g.core().colorCombine(kFuncLocal, kFactorZero, kLocalIterated, kOtherIterated, false);
     g.core().ditherMode(kDitherDisable);
     g.core().bufferClear(0, 0, 0);
-    const GameVertex a = gv(10, 10, 0xffff0000), b = gv(50, 10, 0xffff0000), c = gv(10, 50, 0xffff0000);
+    const GameVertex a = gv(10, 10, 0xffff0000);
+    const GameVertex b = gv(50, 10, 0xffff0000);
+    const GameVertex c = gv(10, 50, 0xffff0000);
     g.drawTriangle(reinterpret_cast<const uint8_t *>(&a), reinterpret_cast<const uint8_t *>(&b),
                    reinterpret_cast<const uint8_t *>(&c));
     const uint16_t *back = g.pipeline().buffer(kBufferBack);
@@ -614,12 +625,15 @@ void testGlide3() {
     // A strip of four vertices: two triangles, both drawn whatever the
     // culling, as their winding is kept.
     g.core().cullMode(kCullNegative);
-    const GameVertex s0 = gv(100, 100, 0xff00ff00), s1 = gv(100, 140, 0xff00ff00), s2 = gv(140, 100, 0xff00ff00),
-                     s3 = gv(140, 140, 0xff00ff00);
+    const GameVertex s0 = gv(100, 100, 0xff00ff00);
+    const GameVertex s1 = gv(100, 140, 0xff00ff00);
+    const GameVertex s2 = gv(140, 100, 0xff00ff00);
+    const GameVertex s3 = gv(140, 140, 0xff00ff00);
     g.drawVertexArray(g3::kTriangleStrip,
                       {reinterpret_cast<const uint8_t *>(&s0), reinterpret_cast<const uint8_t *>(&s1),
                        reinterpret_cast<const uint8_t *>(&s2), reinterpret_cast<const uint8_t *>(&s3)});
-    const bool firstDrawn = back[110 * 640 + 105] == 0x07e0, secondDrawn = back[135 * 640 + 135] == 0x07e0;
+    const bool firstDrawn = back[110 * 640 + 105] == 0x07e0;
+    const bool secondDrawn = back[135 * 640 + 135] == 0x07e0;
     CHECK(firstDrawn == secondDrawn);
     g.core().cullMode(kCullDisable);
     // Log2 LODs: a 256x256 565 texture takes 128 KB and a 1x1 level 8 bytes.
@@ -739,7 +753,8 @@ void testGlide3Binding() {
     const uint32_t verts = arena.alloc(36);
     const float xy[6] = {10, 10, 50, 10, 10, 50};
     for (uint32_t i = 0; i < 3; ++i) {
-        uint32_t fx, fy;
+        uint32_t fx;
+        uint32_t fy;
         std::memcpy(&fx, &xy[2 * i], 4);
         std::memcpy(&fy, &xy[2 * i + 1], 4);
         cpu.write32(verts + 12 * i, fx);

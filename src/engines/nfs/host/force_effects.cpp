@@ -27,7 +27,8 @@ bool DiEffect::kindOf(uint32_t guidData1, Kind &kind) {
 }
 
 void DiEffect::set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at, uint32_t which) {
-    const uint32_t size = read32(at), flags = read32(at + 4);
+    const uint32_t size = read32(at);
+    const uint32_t flags = read32(at + 4);
     if (which & kDuration)
         durationUs = read32(at + 8);
     if (which & kGain)
@@ -47,7 +48,8 @@ void DiEffect::set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at,
     }
     if (which & kDirection) {
         coordinates = flags & 0x70;
-        const uint32_t values = read32(at + 36), n = coordinates == 0x10 ? axisCount : axisCount - 1;
+        const uint32_t values = read32(at + 36);
+        const uint32_t n = coordinates == 0x10 ? axisCount : axisCount - 1;
         for (uint32_t i = 0; i < 3; ++i)
             direction[i] = values && i < n ? int32_t(read32(values + 4 * i)) : 0;
     }
@@ -63,7 +65,8 @@ void DiEffect::set(const std::function<uint32_t(uint32_t)> &read32, uint32_t at,
     }
     if (which & kStartDelay && size >= 56)
         startDelayUs = read32(at + 52);
-    const uint32_t bytes = read32(at + 44), p = read32(at + 48);
+    const uint32_t bytes = read32(at + 44);
+    const uint32_t p = read32(at + 48);
     if (!(which & kTypeSpecific) || !p || !bytes)
         return;
     switch (kind) {
@@ -126,7 +129,8 @@ bool DiEffect::active(uint64_t nowMs) const {
 
 GamepadForce sumForces(const std::vector<const DiEffect *> &effects, uint32_t deviceGain, uint64_t nowMs) {
     GamepadForce f;
-    float strongestVibration = 0, strongestSpring = 0;
+    float strongestVibration = 0;
+    float strongestSpring = 0;
     for (const DiEffect *e : effects) {
         if (!e || !e->active(nowMs))
             continue;

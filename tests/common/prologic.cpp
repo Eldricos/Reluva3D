@@ -36,7 +36,8 @@ Levels decode(double angle, double hz, bool active, double amplitude = 0.5) {
     o.active = active;
     ProLogicDecoder dec(kRate, o);
     const double a = angle * kPi / 180;
-    std::vector<float> in(2 * kRate), out(4 * kRate);
+    std::vector<float> in(2 * kRate);
+    std::vector<float> out(4 * kRate);
     for (int i = 0; i < kRate; ++i) {
         const double v = amplitude * std::sin(2 * kPi * hz * i / kRate);
         in[2 * i] = float(std::cos(a) * v);
@@ -94,14 +95,16 @@ void testSurround() {
     CHECK(std::fabs(p.db[ProLogicDecoder::S] - p.db[ProLogicDecoder::L] - 3.01) < 0.2);
     CHECK(p.db[ProLogicDecoder::S] - p.db[ProLogicDecoder::C] > 100);
     // The 7 kHz low-pass: 3 dB down at 7 kHz, far more at 14.
-    const Levels hi = decode(135, 7000, true), higher = decode(135, 14000, true);
+    const Levels hi = decode(135, 7000, true);
+    const Levels higher = decode(135, 14000, true);
     CHECK(std::fabs(a.db[ProLogicDecoder::S] - hi.db[ProLogicDecoder::S] - 3.01) < 0.5);
     CHECK(a.db[ProLogicDecoder::S] - higher.db[ProLogicDecoder::S] > 11);
 }
 
 void testSurroundDelay() {
     ProLogicDecoder dec(kRate); // 20 ms
-    std::vector<float> in(2 * 4000, 0.0f), out(4 * 4000);
+    std::vector<float> in(2 * 4000, 0.0f);
+    std::vector<float> out(4 * 4000);
     for (int i = 100; i < 4000; ++i) {
         in[2 * i] = 0.5f;
         in[2 * i + 1] = -0.5f;
@@ -139,7 +142,8 @@ void testNoDominance() {
     ProLogicDecoder dec(kRate);
     std::mt19937 rng(1);
     std::normal_distribution<float> n(0, 0.1f);
-    std::vector<float> in(2 * kRate), out(4 * kRate);
+    std::vector<float> in(2 * kRate);
+    std::vector<float> out(4 * kRate);
     for (float &v : in)
         v = n(rng);
     dec.process(in.data(), out.data(), kRate);
@@ -152,7 +156,8 @@ void testSwitch() {
     // tens of milliseconds.
     ProLogicDecoder dec(kRate);
     const int n = kRate;
-    std::vector<float> in(2 * n), out(4 * n);
+    std::vector<float> in(2 * n);
+    std::vector<float> out(4 * n);
     for (int i = 0; i < n; ++i) {
         const float v = 0.5f * float(std::sin(2 * kPi * 500 * i / kRate));
         in[2 * i] = v;
@@ -169,7 +174,9 @@ void testSwitch() {
 
 void testLayout() {
     const float lcrs[4] = {0.1f, 0.2f, 0.3f, 0.4f};
-    int16_t o6[6], o4[4], o2[2];
+    int16_t o6[6];
+    int16_t o4[4];
+    int16_t o2[2];
     layOutChannels(lcrs, 1, 6, o6);
     CHECK(o6[0] == 3277 && o6[1] == 9830 && o6[2] == 6554 && o6[3] == 0);
     CHECK(o6[4] == 9268 && o6[5] == 9268);

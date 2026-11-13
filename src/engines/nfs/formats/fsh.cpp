@@ -147,7 +147,8 @@ Error parseShapeBank(std::vector<uint8_t> data, ShapeBank &out) {
             const size_t end = next ? pos + next : limit;
             if (end > limit || end < pos + 8)
                 return bad("shape " + shape.name + " has a bad block size");
-            const int w = le16(&data[pos + 4]), h = le16(&data[pos + 6]);
+            const int w = le16(&data[pos + 4]);
+            const int h = le16(&data[pos + 6]);
 
             if (first) {
                 const int bpp = bytesPerPixel(type);
@@ -275,10 +276,16 @@ Needle needle(const Gauge &g, float width, float reading) {
     const float a = (reading * scale + (a1 - g.high * scale)) * 6.28318531f;
     const float length =
         (std::hypot(g.p0x - g.centerX, g.p0y - g.centerY) + std::hypot(g.p1x - g.centerX, g.p1y - g.centerY)) / 2;
-    const float ux = std::cos(a), uy = std::sin(a), nx = -uy, ny = ux;
-    const float bx = g.centerX + ux * g.hub, by = g.centerY + uy * g.hub;
-    const float tx = g.centerX + ux * length, ty = g.centerY + uy * length;
-    const float base = width / 2, tip = width / 4;
+    const float ux = std::cos(a);
+    const float uy = std::sin(a);
+    const float nx = -uy;
+    const float ny = ux;
+    const float bx = g.centerX + ux * g.hub;
+    const float by = g.centerY + uy * g.hub;
+    const float tx = g.centerX + ux * length;
+    const float ty = g.centerY + uy * length;
+    const float base = width / 2;
+    const float tip = width / 4;
     Needle n;
     n.x[0] = bx + nx * base, n.y[0] = by + ny * base;
     n.x[1] = bx - nx * base, n.y[1] = by - ny * base;

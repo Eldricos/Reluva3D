@@ -106,7 +106,8 @@ bool parsePoke(const std::string &text, bool every, Poke &poke, std::string &err
         }
         return true;
     }
-    uint64_t value = 0, size = 4;
+    uint64_t value = 0;
+    uint64_t size = 4;
     if (!number(f[2], value, true))
         return error = "not a value: " + f[2], false;
     if (f.size() > 3 && (!number(f[3], size) || (size != 1 && size != 2 && size != 4)))
@@ -150,6 +151,7 @@ void Pokes::time(Cpu &cpu, uint64_t nowMs) {
             apply(p, cpu, nowMs);
 }
 
+// NOLINTNEXTLINE(readability-make-member-function-const): updates one of its own pokes, passed in
 void Pokes::apply(Poke &p, Cpu &cpu, uint64_t nowMs) {
     ++p.applied;
     char line[256];

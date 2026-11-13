@@ -78,7 +78,8 @@ int64_t clampTo(int64_t v, int64_t lo, int64_t hi) {
 uint64_t unpack(uint64_t a, uint64_t b, int bits, bool high) {
     // Interleaves the low (or high) halves of a and b: a's lane first.
     const uint64_t m = bits == 32 ? 0xffffffffull : (uint64_t(1) << bits) - 1;
-    const int n = 32 / bits, from = high ? 32 : 0;
+    const int n = 32 / bits;
+    const int from = high ? 32 : 0;
     uint64_t r = 0;
     for (int i = 0; i < n; ++i) {
         r |= ((a >> (from + i * bits)) & m) << (2 * i * bits);
@@ -182,8 +183,11 @@ void Cpu::mmx(uint8_t op) {
     case 0x6b: { // PACKSSDW
         const uint64_t src = source();
         const bool words = op == 0x6b;
-        const int from = words ? 32 : 16, to = words ? 16 : 8, n = 64 / from;
-        const int64_t lo = op == 0x67 ? 0 : words ? -32768 : -128, hi = op == 0x67 ? 255 : words ? 32767 : 127;
+        const int from = words ? 32 : 16;
+        const int to = words ? 16 : 8;
+        const int n = 64 / from;
+        const int64_t lo = op == 0x67 ? 0 : words ? -32768 : -128;
+        const int64_t hi = op == 0x67 ? 255 : words ? 32767 : 127;
         result = 0;
         for (int i = 0; i < 2 * n; ++i) {
             const uint64_t v = ((i < n ? dst : src) >> ((i % n) * from)) & (words ? 0xffffffffull : 0xffffull);

@@ -41,9 +41,10 @@ uint32_t GameHost::wrapThrash(const std::string &name, uint32_t address) {
             ++thrash_.frames;
             thrash_.lastFrameInstructions = c.executed() - lastFlip_;
             thrash_.frameInstructionsTotal += thrash_.lastFrameInstructions;
-            const uint64_t idleMicros = process_->idleMicros, idleWaits = process_->idleWaits;
-            const uint64_t own = process_->instructionsOn(process_->currentThread()),
-                           timer = process_->timerInstructions();
+            const uint64_t idleMicros = process_->idleMicros;
+            const uint64_t idleWaits = process_->idleWaits;
+            const uint64_t own = process_->instructionsOn(process_->currentThread());
+            const uint64_t timer = process_->timerInstructions();
             thrash_.frameLog.push_back(
                 {process_->now(), thrash_.lastFrameInstructions, thrash_.rendererInstructions - lastFlipRenderer_,
                  idleMicros - thrash_.lastIdleMicros, idleWaits - thrash_.lastIdleWaits,
@@ -279,9 +280,12 @@ bool GameHost::nativeDraw(const std::string &name, const std::vector<uint32_t> &
     // softtria's page flip and clear work on its current window's buffer,
     // over the clip rectangle as it keeps it (whole 16-pixel columns).
     if (softtriaKnown_ && (name == "pageflip" || name == "clearwindow")) {
-        const uint32_t buffer = softtria(0x6003e0fc), pitch = softtria(0x6003e0ec);
-        const int x0 = int(softtria(0x6003e0b8)) & ~15, y0 = int(softtria(0x6003e0bc));
-        const int width = (int(softtria(0x6003e0c0)) >> 4) * 16, height = int(softtria(0x6003e0c4));
+        const uint32_t buffer = softtria(0x6003e0fc);
+        const uint32_t pitch = softtria(0x6003e0ec);
+        const int x0 = int(softtria(0x6003e0b8)) & ~15;
+        const int y0 = int(softtria(0x6003e0bc));
+        const int width = (int(softtria(0x6003e0c0)) >> 4) * 16;
+        const int height = int(softtria(0x6003e0c4));
         if (name == "clearwindow" && options_.gpuThrash) {
             const uint32_t v = softtria(0x6003e11c) & 0xffff; // 5:6:5
             const uint32_t argb =

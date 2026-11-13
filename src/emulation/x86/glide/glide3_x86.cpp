@@ -17,7 +17,8 @@ Glide3Dll::Glide3Dll(Cpu &cpu, x86::Arena &memory, Board board) : GlideDll(cpu, 
 }
 
 const uint8_t *Glide3Dll::vertex(uint32_t address) const {
-    const int lo = glide_.layoutMin(), hi = glide_.layoutMax();
+    const int lo = glide_.layoutMin();
+    const int hi = glide_.layoutMax();
     const uint32_t first = address + uint32_t(lo);
     if (!guest(first, uint32_t(hi - lo)))
         return nullptr;
@@ -209,13 +210,16 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grDrawTriangle", 12, [this, &g](Cpu &c) {
-        const uint8_t *a = vertex(c.arg(0)), *bb = vertex(c.arg(1)), *cc = vertex(c.arg(2));
+        const uint8_t *a = vertex(c.arg(0));
+        const uint8_t *bb = vertex(c.arg(1));
+        const uint8_t *cc = vertex(c.arg(2));
         if (a && bb && cc)
             g.drawTriangle(a, bb, cc);
         return 0u;
     });
     add("grDrawLine", 8, [this, &g](Cpu &c) {
-        const uint8_t *a = vertex(c.arg(0)), *bb = vertex(c.arg(1));
+        const uint8_t *a = vertex(c.arg(0));
+        const uint8_t *bb = vertex(c.arg(1));
         if (a && bb)
             g.drawLine(a, bb);
         return 0u;
@@ -226,7 +230,9 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grAADrawTriangle", 24, [this, &g](Cpu &c) {
-        const uint8_t *a = vertex(c.arg(0)), *bb = vertex(c.arg(1)), *cc = vertex(c.arg(2));
+        const uint8_t *a = vertex(c.arg(0));
+        const uint8_t *bb = vertex(c.arg(1));
+        const uint8_t *cc = vertex(c.arg(2));
         if (a && bb && cc)
             g.aaDrawTriangle(a, bb, cc, c.arg(3) != 0, c.arg(4) != 0, c.arg(5) != 0);
         return 0u;
@@ -244,7 +250,8 @@ void Glide3Dll::addAll() {
         return 0u;
     });
     add("grDrawVertexArrayContiguous", 16, [this, &g](Cpu &c) {
-        const uint32_t count = std::min<uint32_t>(c.arg(1), 65536), stride = c.arg(3);
+        const uint32_t count = std::min<uint32_t>(c.arg(1), 65536);
+        const uint32_t stride = c.arg(3);
         std::vector<const uint8_t *> list;
         for (uint32_t i = 0; i < count; ++i)
             if (const uint8_t *p = vertex(c.arg(2) + i * stride))
@@ -387,7 +394,8 @@ void Glide3Dll::addAll() {
     auto levelPartial = [this, &g, n](Cpu &c, int first, int last) {
         // The data is the rows from the first asked for to the last.
         const uint32_t level = Glide3::levelDataBytes(n(c, 2), n(c, 4), n(c, 5));
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         levelSize(std::clamp(n(c, 2), 0, 8), std::clamp(n(c, 4), -3, 3), w, h);
         const uint32_t rows = uint32_t(std::clamp(last, 0, h - 1) - std::clamp(first, 0, h - 1) + 1);
         if (const uint8_t *p = guest(c.arg(7), std::min(level, rows * (level / uint32_t(h)))))
@@ -455,9 +463,11 @@ void Glide3Dll::addAll() {
     // Glide 3 adds the pixel pipeline flag before the stride (Reference
     // Manual, grLfbWriteRegion).
     add("grLfbWriteRegion", 36, [this, &c2, n](Cpu &c) {
-        const uint32_t width = c.arg(4), height = c.arg(5);
+        const uint32_t width = c.arg(4);
+        const uint32_t height = c.arg(5);
         const bool pipeline = c.arg(6) != 0;
-        const int stride = int(c.arg(7)), format = n(c, 3);
+        const int stride = int(c.arg(7));
+        const int format = n(c, 3);
         const uint32_t bpp = format == kLfb565 || format == kLfb555 || format == kLfb1555 || format == kLfbZA16 ? 2 : 4;
         const uint32_t bytes = format == kLfbRle16 ? 4u
                                : height            ? uint32_t(std::abs(stride)) * (height - 1) + width * bpp
@@ -471,7 +481,9 @@ void Glide3Dll::addAll() {
                    : 0u;
     });
     add("grLfbReadRegion", 28, [this, &c2, n](Cpu &c) {
-        const uint32_t width = c.arg(3), height = c.arg(4), stride = c.arg(5);
+        const uint32_t width = c.arg(3);
+        const uint32_t height = c.arg(4);
+        const uint32_t stride = c.arg(5);
         if (!height || !guest(c.arg(6), stride * (height - 1) + width * 2))
             return 0u;
         return c2.lfbReadRegion(n(c, 0), c.arg(1), c.arg(2), width, height, stride, cpu_.memory().data() + c.arg(6))
@@ -490,11 +502,14 @@ void Glide3Dll::addAll() {
     // --- Not stood in for yet: they log once and fail ----------------------------
     add("grLoadGammaTable", 16, [this, &g](Cpu &c) {
         const int n = int(std::min<uint32_t>(c.arg(0), 4096));
-        const uint8_t *r = guest(c.arg(1), uint32_t(n) * 4), *gg = guest(c.arg(2), uint32_t(n) * 4),
-                      *b = guest(c.arg(3), uint32_t(n) * 4);
+        const uint8_t *r = guest(c.arg(1), uint32_t(n) * 4);
+        const uint8_t *gg = guest(c.arg(2), uint32_t(n) * 4);
+        const uint8_t *b = guest(c.arg(3), uint32_t(n) * 4);
         if (n > 0 && r && gg && b) {
             const size_t count = size_t(n);
-            std::vector<uint32_t> rv(count), gv(count), bv(count);
+            std::vector<uint32_t> rv(count);
+            std::vector<uint32_t> gv(count);
+            std::vector<uint32_t> bv(count);
             std::memcpy(rv.data(), r, size_t(n) * 4);
             std::memcpy(gv.data(), gg, size_t(n) * 4);
             std::memcpy(bv.data(), b, size_t(n) * 4);

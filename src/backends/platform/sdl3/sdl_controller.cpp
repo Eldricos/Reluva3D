@@ -65,7 +65,8 @@ void SdlSystem::closeController() {
     }
     if (c.wheel)
         SDL_CloseJoystick(c.wheel);
-    const int accelerator = c.accelerator, brake = c.brake;
+    const int accelerator = c.accelerator;
+    const int brake = c.brake;
     controller_ = std::make_unique<Controller>();
     controller_->accelerator = accelerator;
     controller_->brake = brake;
@@ -238,7 +239,8 @@ void SdlSystem::setGamepadForce(const GamepadForce &f) {
         // A pad: the pushes on its heavy motor, the vibration on the light
         // one if it's quick (under a twentieth of a second), else the heavy.
         const bool quick = f.vibrationPeriodMs > 0 && f.vibrationPeriodMs < 50;
-        const float low = std::fabs(f.constant) + (quick ? 0 : f.vibration), high = quick ? f.vibration : 0;
+        const float low = std::fabs(f.constant) + (quick ? 0 : f.vibration);
+        const float high = quick ? f.vibration : 0;
         c.rumbleLow = uint16_t(std::lround(std::clamp(low, 0.0f, 1.0f) * 65535));
         c.rumbleHigh = uint16_t(std::lround(std::clamp(high, 0.0f, 1.0f) * 65535));
         SDL_RumbleGamepad(c.gamepad, c.rumbleLow, c.rumbleHigh, 1000);

@@ -37,7 +37,8 @@ void testRefPack() {
         done += 4;
     }
     CHECK(done == 17000);
-    const uint32_t distance = 17000 - 1, length = 300 - 5;
+    const uint32_t distance = 17000 - 1;
+    const uint32_t length = 300 - 5;
     big.push_back(uint8_t(0xc0 | (distance >> 16) << 4 | (length >> 8) << 2));
     big.push_back(uint8_t(distance >> 8));
     big.push_back(uint8_t(distance));
@@ -362,8 +363,10 @@ void testFont() {
 void testModel() {
     // The parts each detail draws (0x4bb4c0): a car of 13 parts.
     {
-        const CarDetailParts near = carDetailParts(0, 13), mid = carDetailParts(1, 13), small = carDetailParts(2, 13),
-                             tiny = carDetailParts(3, 13);
+        const CarDetailParts near = carDetailParts(0, 13);
+        const CarDetailParts mid = carDetailParts(1, 13);
+        const CarDetailParts small = carDetailParts(2, 13);
+        const CarDetailParts tiny = carDetailParts(3, 13);
         CHECK(near.body == (std::vector<int>{0, 1, 2, 3, 4}) && near.headlights);
         CHECK(mid.body == (std::vector<int>{5, 6, 7, 8, 9}) && mid.headlights);
         CHECK(small.body == (std::vector<int>{10}) && !small.headlights && tiny.body == (std::vector<int>{11}) &&
@@ -380,7 +383,8 @@ void testModel() {
     }
     // Two parts: a triangle and a quad (two triangles), 7 vertices.
     constexpr size_t kData = 0x1f04;
-    const uint32_t nV = 7, nT = 3;
+    const uint32_t nV = 7;
+    const uint32_t nT = 3;
     Bytes b(kData + 24 * nV + 56 * nT + 32 * nV + 12 * nV + 12 * nV, 0);
     putU32(b, 0x04, nT);
     putU32(b, 0x08, nV);
@@ -643,7 +647,8 @@ void testHorizon() {
     const LightningBolt bolt = makeBolt(hometown, random);
     CHECK(bolt.points.size() > 40 && bolt.points.size() <= 240 && bolt.life == 24);
     CHECK(std::fabs(bolt.points[0].at[0]) <= 750 && std::fabs(bolt.points[0].at[2]) <= 750);
-    bool onDome = true, apart = true;
+    bool onDome = true;
+    bool apart = true;
     for (size_t i = 1; i < bolt.points.size(); ++i) {
         const auto &p = bolt.points[i];
         const auto &q = bolt.points[size_t(p.parent)];
@@ -1090,7 +1095,8 @@ void testMovie() {
         left.put(0, 8);
         left.code("10");
     }
-    const Bytes twoFrame = madFrame('k', two, 1, 32), leftFrame = madFrame('m', left, 1, 32);
+    const Bytes twoFrame = madFrame('k', two, 1, 32);
+    const Bytes leftFrame = madFrame('m', left, 1, 32);
     auto gu = [&](MadDecoder &dec, int x) { return dec.plane(1)[x]; };
     CHECK(!g.decode(twoFrame.data(), twoFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 64);
     CHECK(!g.decode(leftFrame.data(), leftFrame.size()) && gu(g, 7) == 74 && gu(g, 8) == 74 && gu(g, 9) == 64);

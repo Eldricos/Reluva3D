@@ -161,7 +161,8 @@ bool SoftwareRenderer::prepare(Pipeline &p, Setup &su) {
             t0.rgb.function == kFuncLocal && t0.alpha.function == kFuncLocal && !t0.rgb.invert && !t0.alpha.invert;
     }
     {
-        const CombineUnit &c = s.color, &a = s.alpha;
+        const CombineUnit &c = s.color;
+        const CombineUnit &a = s.alpha;
         const bool plain = !c.settings.invert && !a.settings.invert && !s.alphaControlsLighting &&
                            c.local != kLocalDepth && a.local != kLocalDepth && c.local == a.local;
         if (plain && c.settings.function == kFuncScaleOther && c.settings.factor == kFactorLocal &&
@@ -211,9 +212,13 @@ Rgba SoftwareRenderer::sampleTmu(Setup &su, int tmu, const Values &v, int x, int
     rawLod = 0;
     if (!m.valid)
         return {255, 255, 255, 255};
-    const float S = v.v[kS0 + 3 * tmu], T = v.v[kS0 + 3 * tmu + 1], Q = v.v[kS0 + 3 * tmu + 2];
+    const float S = v.v[kS0 + 3 * tmu];
+    const float T = v.v[kS0 + 3 * tmu + 1];
+    const float Q = v.v[kS0 + 3 * tmu + 2];
     const float inv = Q != 0 ? 1.0f / Q : 0.0f;
-    const float ss = S * inv, tt = T * inv; // 0-256 across the texture at every level
+    // 0-256 across the texture at every level
+    const float ss = S * inv;
+    const float tt = T * inv;
     // The level of detail: log2 of how many level-256 texels a pixel
     // spans, plus the bias (grTexLodBiasValue); 0 at the largest level.
     int level = t.info.largeLod;
@@ -248,8 +253,10 @@ Rgba SoftwareRenderer::sampleTmu(Setup &su, int tmu, const Values &v, int x, int
         magnify = t.lodBias < float(m.lodMin); // the filters are the same either way
     }
     const bool bilinear = (magnify ? t.magFilter : t.minFilter) == kFilterBilinear;
-    const int w = m.w[level], h = m.h[level];
-    float u = ss * m.scale[level], vv = tt * m.scale[level];
+    const int w = m.w[level];
+    const int h = m.h[level];
+    float u = ss * m.scale[level];
+    float vv = tt * m.scale[level];
     const uint32_t base = m.base[level];
     auto fetch = [&](int ix, int iy) {
         ix = t.clampS ? std::clamp(ix, 0, w - 1) : t.mirrorS ? mirrorIndex(ix, w) : ix & (w - 1);
@@ -265,11 +272,16 @@ Rgba SoftwareRenderer::sampleTmu(Setup &su, int tmu, const Values &v, int x, int
     // fraction in 1/256ths.
     u -= 0.5f;
     vv -= 0.5f;
-    const int ix = floorInt(u), iy = floorInt(vv);
-    const float fu = float(ix), fv = float(iy);
-    const int wx = int((u - fu) * 256.0f), wy = int((vv - fv) * 256.0f);
-    const Rgba c00 = unpackArgb(fetch(ix, iy)), c10 = unpackArgb(fetch(ix + 1, iy));
-    const Rgba c01 = unpackArgb(fetch(ix, iy + 1)), c11 = unpackArgb(fetch(ix + 1, iy + 1));
+    const int ix = floorInt(u);
+    const int iy = floorInt(vv);
+    const float fu = float(ix);
+    const float fv = float(iy);
+    const int wx = int((u - fu) * 256.0f);
+    const int wy = int((vv - fv) * 256.0f);
+    const Rgba c00 = unpackArgb(fetch(ix, iy));
+    const Rgba c10 = unpackArgb(fetch(ix + 1, iy));
+    const Rgba c01 = unpackArgb(fetch(ix, iy + 1));
+    const Rgba c11 = unpackArgb(fetch(ix + 1, iy + 1));
     auto mix = [&](int a, int b, int c, int d) {
         return ((a * (256 - wx) + b * wx) * (256 - wy) + (c * (256 - wx) + d * wx) * wy) >> 16;
     };
@@ -391,12 +403,14 @@ void SoftwareRenderer::triangle(Pipeline &p, const Vertex &va, const Vertex &vb,
     const bool flip = su.s->originLowerLeft;
     const int params = su.params;
     for (int y = t.y0; y < t.y1; ++y) {
-        int xs = 0, xe = 0;
+        int xs = 0;
+        int xe = 0;
         if (!t.span(y, xs, xe))
             continue;
         // The values at the first pixel's centre.
         Values rowv;
-        const float px = float(double(xs) + 0.5 - t.fx0), py = float(double(y) + 0.5 - t.fy0);
+        const float px = float(double(xs) + 0.5 - t.fx0);
+        const float py = float(double(y) + 0.5 - t.fy0);
         for (int k = 0; k < params; ++k)
             rowv.v[k] = t.at0.v[k] + su.dx[k] * px + su.dy[k] * py;
         const int row = flip ? su.height - 1 - y : y;
@@ -421,7 +435,8 @@ void SoftwareRenderer::point(Pipeline &p, const Vertex &a) {
     Setup su;
     if (!prepare(p, su))
         return;
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     if (!pointPixel(*su.s, su.width, su.height, a, x, y))
         return;
     Values v;
@@ -446,9 +461,12 @@ void SoftwareRenderer::clear(Pipeline &p, uint32_t argb, int alpha, int depth) {
     const State &s = p.state();
     uint16_t *color = p.buffer(s.renderBuffer);
     uint16_t *aux = p.buffer(kBufferAux);
-    const int w = p.width(), h = p.height();
-    const int x0 = std::max(s.clip[0], 0), x1 = std::min(s.clip[2], w);
-    const int y0 = std::max(s.clip[1], 0), y1 = std::min(s.clip[3], h);
+    const int w = p.width();
+    const int h = p.height();
+    const int x0 = std::max(s.clip[0], 0);
+    const int x1 = std::min(s.clip[2], w);
+    const int y0 = std::max(s.clip[1], 0);
+    const int y1 = std::min(s.clip[3], h);
     const Rgba c = unpackArgb(argb);
     const bool clearDepth = s.depthMode != kDepthDisable && s.depthMask && aux;
     const bool clearAlpha = !clearDepth && s.depthMode == kDepthDisable && blendUsesDstAlpha(s) && s.alphaMask && aux;

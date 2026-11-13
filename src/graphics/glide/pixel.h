@@ -95,8 +95,10 @@ inline uint16_t floatDepth(double oow) {
 // next by its next 8 bits (Voodoo2 specification, fogMode's figure; the
 // last entry stays).
 inline int fogTableFactor(const uint8_t table[64], uint16_t wfloat) {
-    const int i = wfloat >> 10, frac = wfloat >> 2 & 0xff;
-    const int here = table[i], next = i < 63 ? table[i + 1] : here;
+    const int i = wfloat >> 10;
+    const int frac = wfloat >> 2 & 0xff;
+    const int here = table[i];
+    const int next = i < 63 ? table[i + 1] : here;
     return here + (((next - here) * frac) >> 8);
 }
 
@@ -154,7 +156,8 @@ extern const DitherTables kDitherTables;
 
 inline uint16_t to565(int r, int g, int b, int x, int y, int ditherMode) {
     if (ditherMode == 2 || ditherMode == 1) { // GR_DITHER_4x4, GR_DITHER_2x2
-        const int m = ditherMode == 2 ? 0 : 1, pos = (y & 3) * 4 + (x & 3);
+        const int m = ditherMode == 2 ? 0 : 1;
+        const int pos = (y & 3) * 4 + (x & 3);
         const DitherTables &d = kDitherTables;
         return uint16_t(d.five[m][pos][r] << 11 | d.six[m][pos][g] << 5 | d.five[m][pos][b]);
     }
@@ -164,7 +167,9 @@ inline uint16_t to565(int r, int g, int b, int x, int y, int ditherMode) {
 // 5:6:5 widened to 8 bits a channel by repeating the top bits, as the
 // Voodoo widens 16-bit colours.
 inline Rgba from565(uint16_t v) {
-    const int r = v >> 11 & 31, g = v >> 5 & 63, b = v & 31;
+    const int r = v >> 11 & 31;
+    const int g = v >> 5 & 63;
+    const int b = v & 31;
     return {r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2, 255};
 }
 

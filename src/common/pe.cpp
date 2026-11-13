@@ -207,7 +207,8 @@ std::vector<uint8_t> findResource(const PeImage &pe, const std::vector<uint8_t> 
         const size_t at = size_t(base) + dirOffset;
         const uint32_t count = uint32_t(r.u16(at + 12)) + r.u16(at + 14);
         for (uint32_t i = 0; i < count && i < 4096; ++i) {
-            const uint32_t id = r.u32(at + 16 + 8 * i), target = r.u32(at + 20 + 8 * i);
+            const uint32_t id = r.u32(at + 16 + 8 * i);
+            const uint32_t target = r.u32(at + 20 + 8 * i);
             if (!matchType || (!(id & 0x80000000u) && id == type))
                 return target;
         }

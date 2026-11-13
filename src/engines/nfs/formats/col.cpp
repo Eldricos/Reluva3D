@@ -84,7 +84,8 @@ Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out) {
         if (at + 8 > data.size())
             return bad("a block starts past the end");
         const uint32_t size = le32(d + at);
-        const uint16_t id = le16(d + at + 4), count = le16(d + at + 6);
+        const uint16_t id = le16(d + at + 4);
+        const uint16_t count = le16(d + at + 6);
         if (size < 8 || at + size > data.size())
             return bad("a block runs past the end");
         const uint8_t *p = d + at + 8;
@@ -104,7 +105,8 @@ Error parseCollision(const std::vector<uint8_t> &data, TrackCollision &out) {
                 if (end - p < 8)
                     return bad("a structure runs past its block");
                 const uint32_t ssize = le32(p);
-                const uint16_t nv = le16(p + 4), np = le16(p + 6);
+                const uint16_t nv = le16(p + 4);
+                const uint16_t np = le16(p + 6);
                 if (ssize < 8 + 16u * nv + 6u * np || static_cast<size_t>(end - p) < ssize)
                     return bad("a structure runs past its block");
                 TrackCollision::Structure s;

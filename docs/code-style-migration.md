@@ -128,6 +128,9 @@ and the license header in every file.
   `:593`), constants (`idtech3/eliteforce/game_bots.cpp:166`,
   `idtech3/eliteforce/ui_host.cpp:88`, `idtech3/pages/play_viewer.cpp:44`,
   `newworlds/briefing.cpp:67`) and a field (`newworlds/economy.h:96`).
+  The NFS III merge brought 10 more: unused `this` captures in
+  `nfs/host/directx.cpp` (9) and a constant in
+  `graphics/glide/gpu_renderer.cpp`.
 - `src/emulation/x86/runtime/msvcp60.cpp` defines `THISCALL` and `EXPORT`
   without the `RELUVA_` prefix.
 - **A test suite's cases** (`Suite suite("name", { {...}, });`, and a tool
@@ -244,6 +247,12 @@ their own. Built with GCC and Clang and all 99 tests pass.
 - **`const &` parameters** (`performance-unnecessary-value-param`): 16
   now take a `const` reference, 3 that are stored are moved. Checked for
   aliasing (a caller passing what the function changes): none.
+- **The NFS III merge**, written before phase 3, got the same fixes
+  afterwards: 755 declarations split (13 comments placed by hand), 3
+  methods made `const` and 3 left with a reason (`Pokes::apply`,
+  `Win32Process::signalEventWhen` and `setHostEvent`), 9 parameters, and
+  the `CHECK_EQ` macro in `tests/common/mmx.cpp` split by hand (clang-tidy
+  can't fix inside a macro). The three checks now find nothing anywhere.
 - **Not covered:** about 780 class and struct members still declared
   several to a line (`int x, y;`, mostly in headers); no clang-tidy check
   splits members. Left for Phase 5. Code compiled only on Windows or

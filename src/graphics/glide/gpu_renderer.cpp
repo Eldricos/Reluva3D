@@ -283,7 +283,8 @@ bool GpuRenderer::ready(Pipeline &p) {
 
 void GpuRenderer::uploadSlotRows(Pipeline &p, int slot, int firstRow, int rows) {
     const uint16_t *host = p.slotPixels(slot);
-    const size_t at = size_t(firstRow) * size_t(width_), n = size_t(rows) * size_t(width_);
+    const size_t at = size_t(firstRow) * size_t(width_);
+    const size_t n = size_t(rows) * size_t(width_);
     snapshot_[size_t(slot)].resize(size_t(width_) * size_t(height_));
     scratch_.resize(n);
     for (size_t i = 0; i < n; ++i)
@@ -335,7 +336,8 @@ void GpuRenderer::textureMemoryChanged(Pipeline &p, int tmu, uint32_t start, uin
     if (&p != pipeline_ || !tex_ || tmu < 0 || tmu >= tmus_)
         return; // sent whole when the GPU's copy is made
     flush();    // what's waiting was drawn with the old texels
-    const uint32_t from = start & ~3u, to = std::min(tmuBytes_, (start + bytes + 3) & ~3u);
+    const uint32_t from = start & ~3u;
+    const uint32_t to = std::min(tmuBytes_, (start + bytes + 3) & ~3u);
     if (to > from)
         gpu_->upload(tex_, uint32_t(tmu) * tmuBytes_ + from, p.tmuMemory(tmu) + from, to - from);
 }
@@ -460,7 +462,8 @@ uint32_t GpuRenderer::stateFor(Pipeline &p) {
         m[tSmallLod] = uint32_t(t.info.smallLod);
         m[tLargeLod] = uint32_t(t.info.largeLod);
         for (int l = t.info.smallLod; l <= t.info.largeLod; ++l) {
-            int w = 0, h = 0;
+            int w = 0;
+            int h = 0;
             levelSize(l, t.info.aspect, w, h);
             m[tBase + l] = p.levelAddress(i, l);
             m[tSize + l] = uint32_t(w) | uint32_t(h) << 16;
@@ -533,10 +536,14 @@ void GpuRenderer::triangle(Pipeline &p, const Vertex &a, const Vertex &b, const 
     const int rows = t.y1 - t.y0;
     const int rowFirst = flip ? height_ - t.y1 : t.y0;
     const uint32_t spanAt = uint32_t(spans_.size());
-    int minX = INT32_MAX, maxX = -1, firstUsed = -1, lastUsed = -1;
+    int minX = INT32_MAX;
+    int maxX = -1;
+    int firstUsed = -1;
+    int lastUsed = -1;
     for (int r = 0; r < rows; ++r) {
         const int y = flip ? height_ - 1 - (rowFirst + r) : rowFirst + r;
-        int xs = 0, xe = 0;
+        int xs = 0;
+        int xe = 0;
         if (t.span(y, xs, xe)) {
             spans_.push_back(uint32_t(xs) | uint32_t(xe) << 16);
             minX = std::min(minX, xs);
@@ -570,7 +577,8 @@ void GpuRenderer::line(Pipeline &p, const Vertex &a, const Vertex &b) {
 void GpuRenderer::point(Pipeline &p, const Vertex &a) {
     if (!ready(p))
         return;
-    int x = 0, y = 0;
+    int x = 0;
+    int y = 0;
     if (!pointPixel(p.state(), width_, height_, a, x, y))
         return;
     Values v;
@@ -603,8 +611,10 @@ void GpuRenderer::clear(Pipeline &p, uint32_t argb, int alpha, int depth) {
     if (!ready(p))
         return;
     const State &s = p.state();
-    const int x0 = std::max(s.clip[0], 0), x1 = std::min(s.clip[2], width_);
-    const int y0 = std::max(s.clip[1], 0), y1 = std::min(s.clip[3], height_);
+    const int x0 = std::max(s.clip[0], 0);
+    const int x1 = std::min(s.clip[2], width_);
+    const int y0 = std::max(s.clip[1], 0);
+    const int y1 = std::min(s.clip[3], height_);
     if (x0 >= x1 || y0 >= y1)
         return;
     const bool clearDepth = s.depthMode != kDepthDisable && s.depthMask;
@@ -641,7 +651,8 @@ void GpuRenderer::flush() {
         return;
     }
     // Bin the primitives into tiles, in the order they were drawn.
-    const uint32_t tilesX = uint32_t((width_ + kTile - 1) / kTile), tilesY = uint32_t((height_ + kTile - 1) / kTile);
+    const uint32_t tilesX = uint32_t((width_ + kTile - 1) / kTile);
+    const uint32_t tilesY = uint32_t((height_ + kTile - 1) / kTile);
     const uint32_t tiles = tilesX * tilesY;
     std::vector<uint32_t> count(tiles + 1, 0);
     for (const Box &b : boxes_)
@@ -782,8 +793,11 @@ public:
         for (size_t i = 0; i < n; ++i) {
             if (a[i] == b[i])
                 continue;
-            const Rgba x = from565(a[i]), y = from565(b[i]);
-            const int dr = std::abs(x.r - y.r), dg = std::abs(x.g - y.g), db = std::abs(x.b - y.b);
+            const Rgba x = from565(a[i]);
+            const Rgba y = from565(b[i]);
+            const int dr = std::abs(x.r - y.r);
+            const int dg = std::abs(x.g - y.g);
+            const int db = std::abs(x.b - y.b);
             const int m = std::max({dr, dg, db});
             sum += uint64_t(dr + dg + db);
             ++f.pixelsDiffering;

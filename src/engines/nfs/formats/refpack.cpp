@@ -41,7 +41,9 @@ Error decompressRefPack(const std::vector<uint8_t> &data, std::vector<uint8_t> &
         if (pos >= data.size())
             return damaged("no end code");
         const uint8_t b0 = data[pos];
-        uint32_t literal = 0, length = 0, distance = 0;
+        uint32_t literal = 0;
+        uint32_t length = 0;
+        uint32_t distance = 0;
         bool end = false;
         if (b0 < 0x80) {
             if (pos + 2 > data.size())
@@ -54,7 +56,8 @@ Error decompressRefPack(const std::vector<uint8_t> &data, std::vector<uint8_t> &
         } else if (b0 < 0xc0) {
             if (pos + 3 > data.size())
                 return damaged("cut short");
-            const uint8_t b1 = data[pos + 1], b2 = data[pos + 2];
+            const uint8_t b1 = data[pos + 1];
+            const uint8_t b2 = data[pos + 2];
             pos += 3;
             literal = b1 >> 6;
             length = (b0 & 0x3f) + 4;
@@ -62,7 +65,9 @@ Error decompressRefPack(const std::vector<uint8_t> &data, std::vector<uint8_t> &
         } else if (b0 < 0xe0) {
             if (pos + 4 > data.size())
                 return damaged("cut short");
-            const uint8_t b1 = data[pos + 1], b2 = data[pos + 2], b3 = data[pos + 3];
+            const uint8_t b1 = data[pos + 1];
+            const uint8_t b2 = data[pos + 2];
+            const uint8_t b3 = data[pos + 3];
             pos += 4;
             literal = b0 & 0x03;
             length = ((b0 & 0x0c) << 6) + b3 + 5;
@@ -133,8 +138,11 @@ Error decompressEaHuffman(const std::vector<uint8_t> &data, std::vector<uint8_t>
 
     // The code: how many codes of each length, from 1 bit up, until the
     // code space is full.
-    std::vector<uint32_t> count(1), firstCode(1), firstIndex(1);
-    uint32_t code = 0, total = 0;
+    std::vector<uint32_t> count(1);
+    std::vector<uint32_t> firstCode(1);
+    std::vector<uint32_t> firstIndex(1);
+    uint32_t code = 0;
+    uint32_t total = 0;
     for (int length = 1;; ++length) {
         if (length > 24)
             return damaged("a code longer than 24 bits");
@@ -180,7 +188,8 @@ Error decompressEaHuffman(const std::vector<uint8_t> &data, std::vector<uint8_t>
     while (true) {
         if (bit >= bits + 64)
             return damaged("no end");
-        uint32_t c = 0, s = 0;
+        uint32_t c = 0;
+        uint32_t s = 0;
         int length = 0;
         bool found = false;
         while (length < maxLength) {
@@ -214,7 +223,8 @@ Error decompressEaHuffman(const std::vector<uint8_t> &data, std::vector<uint8_t>
     // Stored as differences: once (32 FB) or twice (34 FB).
     const uint32_t kind = type >> 8 & 0xfe;
     if (kind == 0x32 || kind == 0x34) {
-        uint8_t sum = 0, sum2 = 0;
+        uint8_t sum = 0;
+        uint8_t sum2 = 0;
         for (uint8_t &b : out) {
             sum = static_cast<uint8_t>(sum + b);
             if (kind == 0x34) {
