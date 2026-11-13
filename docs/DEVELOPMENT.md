@@ -73,7 +73,8 @@ Two tools check it, both needing version 18 of their LLVM program
   engine enabled. `--fix --checks=-*,<check>` applies one check's fixes.
 
 Run both with `--changed` before a pull request. CI's "Code style" job
-does the same, so far only reporting. Generated files and `third_party/`
+does the same: an unformatted file fails the run, while clang-tidy's
+findings are only reported for now. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and

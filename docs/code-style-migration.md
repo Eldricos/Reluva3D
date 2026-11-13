@@ -12,8 +12,8 @@ breaking the build, the tests or anyone's work in progress.
 | `.clang-format`, `.clang-tidy` follow the guide | Done |
 | Source layout: shared code by subject, a CMakeLists.txt per library, the same layout inside each engine | Done (newworlds' inside waits; see below) |
 | Phase 1: tooling and CI | Done |
-| Phase 2: formatting | Next |
-| Phase 3: small clang-tidy fixes | To do |
+| Phase 2: formatting | Done |
+| Phase 3: small clang-tidy fixes | Next |
 | Phase 4: identifier renames | To do |
 | Phase 5: hand work and enforcement | To do |
 
@@ -178,26 +178,52 @@ can check a mechanical commit by running its command again.
 - CI's "Code style" job: formatting of every file, clang-tidy of the
   changed ones, counts in the run's summary; it reports without failing
   the run.
-- `.git-blame-ignore-revs`, empty until Phase 2.
+- `.git-blame-ignore-revs`, filled in Phase 2.
 - The new-engine template in the guide's style: an engine made from it
   has nothing for either tool to report, builds without warnings, and
   passes its tests. Its classes have Doxygen comments, its registration
   objects are `kSuite` and `kCommands` (the other files' follow in Phase 4).
 - `awe/formats/savegame.cpp` fixed for Clang.
 
-### Phase 2: Formatting (whitespace only)
+### Phase 2: Formatting (done)
 
-1. clang-format one area per commit: `src/common` and the other shared
-   libraries, then backends, gui, base and devtools, then each engine, then
-   `tests/`.
-2. **Proof nothing changed:** for every file, the old and new text with
-   all whitespace removed are identical (apart from added
-   `// namespace x` comments). A script checks it; then CI as usual.
-3. Announce it; for an open branch, run `python3 tools/format.py` on the
-   branch before merging `main`, so both sides have the same formatting.
-4. The commits go in `.git-blame-ignore-revs`, and the "Code style" job's
-   formatting step starts failing the run (remove its
-   `continue-on-error`).
+- clang-format over all 641 files that needed it, in 11 commits: the
+  shared libraries, the backends and programs, each engine, the tests.
+  Whitespace only: for each commit, `python3 tools/format.py --verify
+  <commit>~1` (checked out at the commit) finds the same text once
+  whitespace, line continuations and namespace closing comments are taken
+  out. A dry run first found 14 files where clang-format did more (split
+  long strings, re-sorted `using` declarations), so `.clang-format` now
+  keeps both as written. Built, and all 99 tests pass, as before.
+- The commits are in `.git-blame-ignore-revs`. **Merge this branch with a
+  merge commit (or rebase), not a squash merge**: a squash makes new
+  commits, whose hashes aren't the ones listed, and `git blame` would show
+  the formatting again (it can be fixed afterwards by listing the squashed
+  commit instead).
+- CI's "Code style" job now fails the run on an unformatted file.
+
+**A branch made before the formatting** (the nfs, age and boggle
+engines among them) catches up in four steps, so the reformatting itself
+causes no conflicts. The commits named are the last one before the
+formatting, `fe53fda185`, and the last formatting commit, `53d91d0401`:
+
+```text
+git merge fe53fda185          # main up to the formatting: real conflicts only
+python3 tools/relocate.py tools/relocations/2026-11-src-layout.txt
+python3 tools/relocate.py tools/relocations/2026-11-engine-layout.txt
+git add -A && git commit -m "Layout as main"
+python3 tools/format.py               # the branch formatted as main was
+git commit -am "Format: as main"
+git merge -s ours 53d91d0401  # the formatting: already done, keep ours
+git merge main                        # the rest, as usual
+```
+
+`-s ours` is right only for that merge: the formatting commits change
+nothing but layout, which `tools/format.py` has just applied to the
+branch. Tried on copies of the boggle and stharbinger branches: conflicts
+only in the first merge (8 and 2, real ones), none after, and every file
+formatted. Merging `main` in one go instead, or formatting before the
+first merge, gives far more conflicts (47 and 118 on the nfs branch).
 
 ### Phase 3: Small clang-tidy fixes
 
