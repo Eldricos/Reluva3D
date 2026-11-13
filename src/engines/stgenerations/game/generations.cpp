@@ -73,8 +73,11 @@ Error Generations::run() {
     }
 
     // Found by its executable alone: it may hold what this doesn't know.
+    // Unknown releases are allowed but not supported
+    // (docs/ADDING_AN_ENGINE.md).
     if (_options.unknownVariant)
-        log::warning("This version of %s is not known; it may not run as it should", _options.description.c_str());
+        log::warning("This release of %s isn't one Reluva supports; it may not run as it should",
+                     _options.description.c_str());
 
     log::debug(1, "%d images and %d sounds found", (int)_resources.getImages().size(),
                (int)_resources.getSounds().size());

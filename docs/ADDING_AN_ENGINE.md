@@ -41,6 +41,12 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
   its start and its size.
 - **Fill in `kVariants`** in `<name>.cpp`, one entry per release (language,
   platform, patch level). The launcher's *Add Game...* then finds it.
+- **Releases not in the table** are allowed but not supported. An engine
+  may find them by their files alone (a fallback entry described as
+  "(unknown release)") and play them, but never promises they work: it
+  may warn that the release isn't supported, and never refuses it for
+  that alone. Supporting one means adding it to `kVariants` once it's
+  been checked.
 - **Copying from a CD or an installer** (*Import Game...*) is the
   `MetaEngine`'s `planImport`. See `src/engines/engine.h`.
 - **Settings.** A game's choices that depend on what's in its folder (an
