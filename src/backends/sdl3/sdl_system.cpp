@@ -335,6 +335,21 @@ void SdlSystem::setVideoMode(int width, int height, bool fullscreen) {
         SDL_SetWindowRelativeMouseMode(window_, true);
 }
 
+bool SdlSystem::desktopMode(int& width, int& height, int& bits) {
+    SDL_DisplayID display = window_ ? SDL_GetDisplayForWindow(window_) : 0;
+    if (!display)
+        display = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* mode = display ? SDL_GetDesktopDisplayMode(display) : nullptr;
+    if (!mode || mode->w <= 0 || mode->h <= 0)
+        return false;
+    width = mode->w;
+    height = mode->h;
+    // In memory: 32 for the usual XRGB8888 (SDL_BITSPERPIXEL's 24 bits of
+    // colour in 4 bytes), 16 for RGB565, 15 for XRGB1555.
+    bits = SDL_BYTESPERPIXEL(mode->format) == 4 ? 32 : int(SDL_BITSPERPIXEL(mode->format));
+    return bits > 0;
+}
+
 void SdlSystem::setRelativeMouse(bool on) {
     relativeMouse_ = on;
     if (window_)

@@ -41,6 +41,7 @@ public:
     void setTextInput(bool on) override;
     void setMouseCursorVisible(bool visible) override;
     void setVideoMode(int width, int height, bool fullscreen) override;
+    bool desktopMode(int& width, int& height, int& bits) override;
     void setRelativeMouse(bool on) override;
     bool readGamepad(GamepadState& out) override;
     void setGamepadForce(const GamepadForce& force) override;

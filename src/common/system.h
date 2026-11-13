@@ -74,6 +74,12 @@ public:
     // width x height (when it fits on the screen; the frame is letterboxed
     // in whatever size the window is).
     virtual void setVideoMode(int width, int height, bool fullscreen) { (void)width, (void)height, (void)fullscreen; }
+    // The desktop's own mode, on the display the window is on (or the
+    // primary): its size and bits per pixel. False when not known.
+    virtual bool desktopMode(int& width, int& height, int& bits) {
+        (void)width, (void)height, (void)bits;
+        return false;
+    }
 
     // --- Time ---------------------------------------------------------------
     virtual uint64_t getMillis() const = 0;

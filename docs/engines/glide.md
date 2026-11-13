@@ -749,7 +749,24 @@ From the documents:
     resolution is full screen, the buffers alone. The window can't be
     larger than the desktop. The desktop is 1024x768 at 16 bits, the
     first row of the in-place table (a choice; `boardByName("rush,
-    desktop=1280x1024x16")` or `desktop=0`). That is what the Reference
+    desktop=1280x1024x16")` or `desktop=0`), unless the host knows its
+    own: the Play page passes the display's desktop mode (SDL's) as
+    `desktop=` when reluva.ini's `glideboard=` names the Rush without
+    one; nfs-host keeps the default unless `-glideboard` gives one.
+    `setDesktop` takes it. The specification's windowed tables have
+    only 8- and 16-bit desktops (out of place and in place), of
+    1024x768 to 1600x1200 at 8 bits and to 1280x1024 at 16, and a
+    1600x1200 16-bit desktop would leave a 4 MB board almost nothing.
+    A desktop a Rush couldn't have had is made one it could (a choice):
+    15 bits counts as 16, a true-colour (24- or 32-bit) one as 16 (what
+    its owner would have set to play in a window: in place needs "equal
+    2D and 3D color depths"), a width or height past the tables' largest
+    at its depth is cut to it (a 2560x1440 32-bit desktop is a 16-bit
+    1280x1024 one), and one whose memory alone would fill the frame
+    buffer drops to the next smaller of the tables' sizes (`fb=2`: 16-bit
+    1152x864). Smaller desktops (800x600) are kept; the window just
+    can't be larger. The Play page says so when it changes the
+    desktop. That is what the Reference
     Manual's `num_aux_buffers` says: "For a windowed application running
     on SST-96, this parameter allows an application to run in a larger 3D
     window if a depth buffer is not necessary" (grSstWinOpen). Some of
@@ -1019,8 +1036,10 @@ coordinates clipped (behind the eye, beyond the far plane, half through
 it, a line through w = 0, a point outside).
 
 `tests/test_glide_boards.cpp` (the `glide_boards` suite): the Rush's
-desktop memory against the SST-96 specification's table totals, a window
-that fits only without a depth buffer, full screen against windowed,
+desktop memory against the SST-96 specification's table totals, the
+host's desktop made one a Rush could have had (`setDesktop`: true colour,
+too large, too large for a 2 MB board, smaller kept, other boards
+untouched), a window that fits only without a depth buffer, full screen against windowed,
 `GR_CONTROL_RESIZE` (taken, refused for want of memory, ignored full
 screen), the Rush's locks and `grLfbWriteRegion` (formats, pixel
 pipeline, the packed stride), its gamma no-op and failing `grGet`s, its
@@ -1107,7 +1126,10 @@ These are choices in the code that the documents leave open:
   (the first 16-byte boundary after the buffers); "Voodoo Banshee" for
   `GR_HARDWARE` (the 3.0 manual says "Banshee"; the patch DLL compares
   the longer name).
-- Boards: the Rush's desktop (1024x768, 16 bits), nothing kept back for
+- Boards: the Rush's desktop (1024x768, 16 bits, when the host doesn't
+  give its own; a host desktop the Rush couldn't have had made one it
+  could: true colour as 16 bits, larger cut to the tables' largest),
+  nothing kept back for
   its command FIFO, its lock stride (the width in quad pixels), RLE16
   still taken there, `GR_CONTROL_RESIZE` keeping the state; the Banshee's
   16 MB (the specification allows 4-16), its 1600x1200 (from its RAMDAC),
