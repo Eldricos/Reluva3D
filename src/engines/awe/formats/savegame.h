@@ -18,6 +18,16 @@
 
 namespace reluva::awe {
 
+// Where a character stood: CHAR, FLLW and POSI. Declared outside SaveGame
+// so it's complete before std::optional<SavedPlacement> is: inside the
+// class, Clang decides SavedPlacement isn't default-constructible (its
+// default member initializers aren't usable yet) and optional::emplace()
+// fails to compile.
+struct SavedPlacement {
+    float position[3] = {0, 0, 0};
+    float rotation[3] = {0, 0, 0}; // radians; y is the heading
+};
+
 struct SaveGame {
     std::string description, time, date; // "VGFDGFDG", "10:41", "11-02-06"
     int timeOfDay = 0, weather = 0, moving = 0; // GLBT, GLBW, GLBM: the globals when saved
@@ -30,10 +40,7 @@ struct SaveGame {
         std::string preLoad, location, postLoad, completion, event, music;
         int weather = 0, timeOfDay = 0, moving = 0;
     } act;
-    struct Placement {
-        float position[3] = {0, 0, 0};
-        float rotation[3] = {0, 0, 0}; // radians; y is the heading
-    };
+    using Placement = SavedPlacement;
     std::optional<Placement> player, follower; // CHAR, FLLW
     std::vector<std::pair<std::string, int>> tags, timers; // TAGS, TIMS
     std::vector<std::pair<std::string, std::string>> texts; // STAT: text tags
