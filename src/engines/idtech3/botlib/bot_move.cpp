@@ -9,6 +9,7 @@
 
 #include "engines/idtech3/botlib/bot_library.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace reluva::idtech3::botlib {

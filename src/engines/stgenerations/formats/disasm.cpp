@@ -6,6 +6,8 @@
 #include "engines/stgenerations/formats/opcodes.h"
 #include "engines/stgenerations/game/vm.h"
 
+#include <algorithm>
+
 namespace reluva::stgenerations {
 
 std::string disassembleInstruction(const std::vector<uint16_t> &code, uint32_t ip) {

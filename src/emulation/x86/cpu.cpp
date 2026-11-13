@@ -4,6 +4,7 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/jit.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

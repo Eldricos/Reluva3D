@@ -6,6 +6,7 @@
 
 #include "tests/engines/awe/fixtures.h"
 
+#include <algorithm>
 #include <filesystem>
 
 using namespace reluva;

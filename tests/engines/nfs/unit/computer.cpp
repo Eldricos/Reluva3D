@@ -5,6 +5,8 @@
 
 #include "tests/engines/nfs/fixtures.h"
 
+#include <algorithm>
+
 using namespace reluva::nfs::testing;
 
 namespace {

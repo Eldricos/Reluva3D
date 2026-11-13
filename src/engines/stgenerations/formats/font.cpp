@@ -4,6 +4,7 @@
 #include "engines/stgenerations/formats/font.h"
 #include "common/bytes.h"
 
+#include <algorithm>
 #include <cctype>
 
 #include "engines/stgenerations/debug.h"

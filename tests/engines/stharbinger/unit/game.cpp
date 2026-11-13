@@ -20,6 +20,7 @@
 #include "tests/engines/stharbinger/fixtures.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>

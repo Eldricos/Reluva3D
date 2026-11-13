@@ -10,6 +10,7 @@
 #include "emulation/x86/cpu.h"
 #include "tests/support/test.h"
 
+#include <algorithm>
 #include <filesystem>
 
 #include <cstdio>

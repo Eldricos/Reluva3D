@@ -12,6 +12,7 @@
 #include "engines/stharbinger/harbinger.h"
 #include "engines/stharbinger/platform.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace reluva::stharbinger {

@@ -17,6 +17,7 @@
 #include "engines/stharbinger/platform.h"
 #include "devtools/tool.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>

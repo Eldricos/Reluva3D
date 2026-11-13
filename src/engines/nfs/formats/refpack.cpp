@@ -3,6 +3,7 @@
 
 #include "engines/nfs/formats/refpack.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 

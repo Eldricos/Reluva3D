@@ -3,6 +3,7 @@
 
 #include "tests/engines/stgenerations/support.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
