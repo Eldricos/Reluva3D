@@ -34,10 +34,12 @@ AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 # Only `{}` may stay on one line ("Mandatory {} for empty for/while loops")
 AllowShortBlocksOnASingleLine: Empty
-# No `int get() { return _x; }` on one line: a semicolon ends the line
-AllowShortFunctionsOnASingleLine: Empty
-# Same rule for lambdas; `[] {}` may stay on one line
-AllowShortLambdasOnASingleLine: Empty
+# "Exception: short functions in a class": `int get() const { return _x; }`
+# may stay on one line inside its class (and `{}` anywhere); a function
+# defined outside its class doesn't
+AllowShortFunctionsOnASingleLine: InlineOnly
+# ...and so may a short lambda passed as an argument
+AllowShortLambdasOnASingleLine: Inline
 # enum values are not statements, so a short enum may stay on one line
 AllowShortEnumsOnASingleLine: true
 
@@ -83,15 +85,13 @@ SpacesBeforeTrailingComments: 1
 AlignTrailingComments: true
 # Keep hand-wrapped comments and Doxygen blocks as written
 ReflowComments: false
-# `} // End of namespace Reluva` -- an existing closing comment is kept as
-# written; clang-format adds `// namespace X` where one is missing
+# Namespaces: `} // namespace reluva::clue`
 FixNamespaceComments: true
 
+# --- Line Length ------------------------------------------------------------
+ColumnLimit: 120
+
 # --- Not in guide: keep the existing layout -----------------------------------
-# The code is currently wrapped at about 120 columns by hand. 0 means
-# clang-format neither wraps nor joins lines. See the plan's open question
-# about setting this to 120.
-ColumnLimit: 0
 # Include order is not set by the guide; keep the order each file has.
 SortIncludes: Never
 MaxEmptyLinesToKeep: 1

@@ -37,8 +37,8 @@ Checks: >
 #   clang-diagnostic-empty-body .............. "Mandatory {} for empty for/while loops"
 #   clang-diagnostic-implicit-fallthrough .... Switch/Case: mark every fall through
 #
-# Clang reports a fall through only if it's not marked `[[fallthrough]];`
-# (a `// fall through` comment is enough for GCC, but not for Clang or MSVC).
+# A fall through is marked `[[fallthrough]];` (Switch/Case Constructs).
+# Clang doesn't accept a `// fall through` comment instead.
 
 # The two clang-diagnostic-* checks report only warnings the compile
 # enables, so enable them here.
@@ -136,6 +136,10 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: g_
+
+  # --- Namespaces: reluva::clue ----------------------------------------------
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
 
   # --- Preprocessor: macros in upper case (as the guide's examples) ----------
   - key: readability-identifier-naming.MacroDefinitionCase
