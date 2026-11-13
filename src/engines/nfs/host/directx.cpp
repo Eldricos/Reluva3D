@@ -1044,7 +1044,7 @@ uint32_t GameHost::DsBuffer::position(uint64_t nowMs) {
 
 namespace {
 
-class SoundStream : public audio::Stream {
+class SoundStream : public audio::OutputStream {
 public:
     explicit SoundStream(GameHost &host) : host_(host) {}
     void read(int16_t *out, int frames, int rate) override { host_.mixSound(out, frames, rate); }
@@ -1061,7 +1061,7 @@ double decibels(int32_t hundredths) {
 
 } // namespace
 
-std::shared_ptr<audio::Stream> GameHost::soundStream() {
+std::shared_ptr<audio::OutputStream> GameHost::soundStream() {
     return std::make_shared<SoundStream>(*this);
 }
 

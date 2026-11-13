@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 """Hand-curated knowledge about nfs3.exe, from Reluva's docs
-(docs/formats/nfs/physics.md, net.md, bnk.md, col.md; docs/engines/nfs-threads.md).
+(docs/engines/nfs/systems/physics.md, net.md, bnk.md, col.md; docs/engines/nfs/systems/threads.md).
 make_symbols.py merges this with the doc-scraped addresses and EA's
 source-name strings into symbols.json.  Edit here, then re-run
 make_symbols.py and build_db.py.

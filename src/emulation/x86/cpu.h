@@ -219,6 +219,11 @@ public:
     // Reads in the first page give 0 rather than faulting, as Windows 95
     // and 98 let programs read low memory (writes still fault).
     bool readableFirstPage = false;
+    // The cache's native code (jit.h) leaves FLD st(i), FST st(i) and FXCH
+    // to their handlers, which keep FILD's exact integers and MMX values
+    // with their registers (Fpu::exact, Fpu::mm). For programs that copy
+    // memory through the x87 unit, or use MMX.
+    bool exactX87 = false;
     // CPUID reports MMX (EDX bit 23); the model is 4, the Pentium MMX's,
     // either way. Off by default: programs then take their non-MMX paths.
     // The MMX instructions run either way.
@@ -311,6 +316,9 @@ private:
     }
     // Copies st(from)'s exact integer, if it has one, to st(to).
     void copyExact(int to, int from);
+    // FXCH st(i)'s for the exact integers and MMX values: they move with
+    // their registers.
+    void exchangeExtras(int i);
     void step();
     void execute();
     void runUntil(uint32_t returnAddress);

@@ -3,7 +3,7 @@
 
 // The game's software sound mixer (iSND, linked into nfs3.exe) run
 // natively: its hand-written x87 loops took about a quarter of a race's
-// instructions (docs/engines/nfs.md, Native sound mixer). Each is worked
+// instructions (docs/engines/nfs/PLAN.md, Native sound mixer). Each is worked
 // out from the retail code and replaced only where its bytes are exactly
 // those (GameHost::replaceRoutine). They compute as the interpreter does
 // the x87's (doubles, rounded to float where the code stores one), in the

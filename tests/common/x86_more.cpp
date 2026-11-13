@@ -52,14 +52,16 @@ void testExact(x86::Cpu &cpu) {
 void testWrittenOver(x86::Cpu &cpu) {
     // Code written over runs as written: mov eax, [0x3000]; ret, then its
     // displacement changed to 0x3004 from outside; then by the program
-    // itself: mov byte [0x2009], n; mov eax, [0x3000]; ret.
+    // itself, with a jump between, as the Pentium's manual asks of code
+    // that changes the instructions just ahead: mov byte [0x200b], n;
+    // jmp $+2; mov eax, [0x3000]; ret.
     cpu.write32(0x3000, 111);
     cpu.write32(0x3004, 222);
     cpu.write32(0x3008, 333);
     CHECK(runX86(cpu, {0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 111);
     CHECK(runX86(cpu, {0x8b, 0x05, 0x04, 0x30, 0, 0, 0xc3}) == 222);
-    CHECK(runX86(cpu, {0xc6, 0x05, 0x09, 0x20, 0, 0, 0x00, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 111);
-    CHECK(runX86(cpu, {0xc6, 0x05, 0x09, 0x20, 0, 0, 0x08, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 333);
+    CHECK(runX86(cpu, {0xc6, 0x05, 0x0b, 0x20, 0, 0, 0x00, 0xeb, 0x00, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 111);
+    CHECK(runX86(cpu, {0xc6, 0x05, 0x0b, 0x20, 0, 0, 0x08, 0xeb, 0x00, 0x8b, 0x05, 0, 0x30, 0, 0, 0xc3}) == 333);
 }
 
 void testSegments(x86::Cpu &cpu) {

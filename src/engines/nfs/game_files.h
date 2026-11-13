@@ -5,7 +5,7 @@
 
 #include "common/types.h"
 #include "engines/nfs/folders.h"
-#include "engines/nfs/viv.h"
+#include "engines/nfs/formats/viv.h"
 
 #include <filesystem>
 #include <memory>

@@ -185,16 +185,6 @@ private:
     gfx::MeshId boundMesh_ = 0;
     int32_t boundOffset_ = 0, boundOldOffset_ = 0; // the vertex buffers' bindings, in vertices
     std::vector<gfx::DynamicLight> lights_;
-
-    // Uploads waiting to be sent (copyPass).
-    SDL_GPUCommandBuffer *uploadCmd_ = nullptr;
-    SDL_GPUCopyPass *copyPass_ = nullptr;
-    uint64_t uploadBytes_ = 0;
-    int uploadCount_ = 0;
-    SDL_GPUFence *uploadFence_ = nullptr;             // the last batch sent on its own
-    int texturesUnwaited_ = 0;                        // made since the last wait for everything
-    SDL_GPUFence *frameFences_[kFramesInFlight] = {}; // the last frames sent, by frameIndex_
-    unsigned frameIndex_ = 0;
 };
 
 } // namespace reluva

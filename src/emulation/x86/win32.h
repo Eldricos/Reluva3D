@@ -369,7 +369,7 @@ public:
     void threadSleep(uint32_t ms);
     void threadEnd();
     // Threads started, and those still going.
-    size_t threadsStarted() const { return threads_.size(); }
+    size_t threadsStarted() const { return turnThreads_.size(); }
     size_t threadsRunning() const;
 
     // --- Windows and messages (USER32, GDI32) -----------------------------------

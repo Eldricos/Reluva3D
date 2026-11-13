@@ -59,7 +59,11 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     cpu_ = std::make_unique<Cpu>(options_.memoryMb << 20);
     cpu_->setInstructionLimit(options_.instructionLimit);
     cpu_->reportMmx = options_.mmx;
-    process_ = std::make_unique<x86::Win32Process>(*cpu_);
+    cpu_->exactX87 = true; // its memcpy copies 8 bytes at a time through FILD and FISTP
+    // An EXE is loaded (0x400000 kept clear for it); its threads wait on
+    // each other, so they run on host threads of their own.
+    process_ = std::make_unique<x86::Win32Process>(*cpu_, "nfs3.exe", true);
+    process_->useHostThreads();
     process_->output = [this](const std::string &s) { say("[program] " + s); };
     if (options_.instructionsPerMs) {
         const uint64_t perMs = options_.instructionsPerMs;
@@ -77,9 +81,9 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
     // The time stamp counter of a 300 MHz processor (Options::cpuMhz), by
     // the game's clock. The game times it to set its detail levels on a
     // first run (by MHz: above 266 is the highest); counting instructions it
-    // found 60 MHz and turned the horizon off (docs/engines/nfs.md, Sky and
+    // found 60 MHz and turned the horizon off (docs/engines/nfs/PLAN.md, Sky and
     // fog).
-    cpu_->timestampCounter = [this, last = uint64_t(0), perMs = uint64_t(options_.cpuMhz) * 1000]() mutable {
+    cpu_->timeStamp = [this, last = uint64_t(0), perMs = uint64_t(options_.cpuMhz) * 1000]() mutable {
         last = std::max(last + 1, uint64_t(process_->now()) * perMs);
         return last;
     };
@@ -103,8 +107,8 @@ GameHost::GameHost(GameFolders folders, Options options) : folders_(std::move(fo
         d.serial = 0x1998;
         process_->addDrive(d);
     }
-    process_->setCurrentDirectory("C:\\");
-    process_->setProgram("C:\\nfs3.exe", options_.commandLine);
+    process_->setProgram("nfs3.exe", "C:\\");
+    process_->setCommandLine(options_.commandLine);
     // Before each native function: input that's due, and the log. Kept
     // cheap: the game makes millions of these calls.
     cpu_->nativeTrace = [this](Cpu &cpu, const std::string &name) {
@@ -442,7 +446,7 @@ bool GameHost::replaceRoutine(uint32_t address, uint32_t size, uint64_t hash, co
 
 void GameHost::addNativeRoutines() {
     // Routines of the retail nfs3.exe's C library run natively, where its
-    // code is as expected (docs/engines/nfs.md, Loading time): a jump to
+    // code is as expected (docs/engines/nfs/PLAN.md, Loading time): a jump to
     // the native function over the routine's first bytes. Each uses
     // Watcom's register convention (arguments in EAX, EDX...; the result
     // in EAX) and returns as the routine would.

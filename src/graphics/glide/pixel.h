@@ -145,7 +145,7 @@ inline bool compare(int func, int a, int b) {
 // threshold at the pixel, (2k + 1) / (2n) of a step for the n-entry matrix,
 // then truncated. The matrices are the ordered (Bayer) ones Glide names;
 // the Voodoo's own rounding of them isn't documented
-// (docs/formats/nfs/thrash.md, Dithering). Tabulated once.
+// (docs/engines/nfs/systems/thrash.md, Dithering). Tabulated once.
 struct DitherTables {
     DitherTables();
     uint8_t five[2][16][256], six[2][16][256]; // [4x4, 2x2][(y & 3) * 4 + (x & 3)][level]

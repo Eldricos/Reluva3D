@@ -351,6 +351,7 @@ void testCpuid(x86::Cpu &cpu) {
 static void runAll() {
     x86::Cpu cpu(16u << 20);
     cpu.setStack(0x100000);
+    cpu.exactX87 = true; // MMX values move with FXCH in native code too
     testMoves(cpu);
     testArithmetic(cpu);
     testLogicAndCompare(cpu);

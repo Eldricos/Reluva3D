@@ -1,0 +1,25 @@
+# The record of nfs.engine (tests/engines/nfs/engine.cpp).
+# Written by `reluva-tests nfs.engine --update`; review its diff before committing.
+detect.install: nfs3 Need for Speed III: Hot Pursuit (unknown release)
+detect.cd: 0
+folders.cd: NFS3-CD
+files: 10
+files.pictures: 1
+files.strings: 1
+formats.frd: 1 blocks, 5 vertices, 7 polygons ca1746b3d380c135
+formats.viv: carp.txt car00.tga
+formats.fsh: 2 pictures 3c13bd5a59b23191
+formats.text: 3 strings 8e9e63b28218c325
+formats.bnk: 1 of 1 sounds abc1ba244680b8c1
+formats.mad: 1 of 1 frames, 16x16 c890b6ee44a974e5
+run.result: ok
+run.size: 640x480
+run.titles: Reluva - Need for Speed III: Hot Pursuit - Info / Reluva - Need for Speed III: Hot Pursuit - Play / Reluva - Need for Speed III: Hot Pursuit - Tracks / Reluva - Need for Speed III: Hot Pursuit - Textures / Reluva - Need for Speed III: Hot Pursuit - Strings / Reluva - Need for Speed III: Hot Pursuit - Sounds / Reluva - Need for Speed III: Hot Pursuit - Music / Reluva - Need for Speed III: Hot Pursuit - Movies
+run.screens Reluva - Need for Speed III: Hot Pursuit - Info: 82 3f2f0f6db627c999
+run.screens Reluva - Need for Speed III: Hot Pursuit - Movies: 32 492d250a3ffa61b7
+run.screens Reluva - Need for Speed III: Hot Pursuit - Music: 31 99a4c402bb4437cc
+run.screens Reluva - Need for Speed III: Hot Pursuit - Play: 64 5ae575324d197225
+run.screens Reluva - Need for Speed III: Hot Pursuit - Sounds: 32 de0658cd7ae9aa31
+run.screens Reluva - Need for Speed III: Hot Pursuit - Strings: 51 068a484deba2ad9b
+run.screens Reluva - Need for Speed III: Hot Pursuit - Textures: 63 d6427603866e96de
+run.screens Reluva - Need for Speed III: Hot Pursuit - Tracks: 64 d609780c43c04825

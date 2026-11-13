@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Need for Speed engine, starting with Need for Speed III: Hot Pursuit
-// (docs/engines/nfs.md).
+// (docs/engines/nfs/PLAN.md).
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, public format documentation, or documented
@@ -20,7 +20,7 @@
 #include "engines/nfs/folders.h"
 #include "engines/nfs/game_files.h"
 #include "engines/nfs/games.h"
-#include "engines/nfs/viewers.h"
+#include "engines/nfs/pages/viewers.h"
 
 #include <string>
 #include <vector>

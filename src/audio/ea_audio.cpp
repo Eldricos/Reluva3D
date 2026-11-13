@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // EA-XA: CD-XA ADPCM's filters and shifts, the frame layout found on Need for
-// Speed III's banks (docs/formats/nfs/bnk.md).
+// Speed III's banks (docs/engines/nfs/formats/bnk.md).
 //
 // MicroTalk: written from the algorithm as Andrew D'Addesio's public-domain
 // utkencode describes it (github.com/daddesio/utkencode, read as a

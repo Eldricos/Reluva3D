@@ -1,0 +1,77 @@
+# The Need for Speed engine (src/engines/nfs/) in the standard engine layout
+# (docs/ADDING_AN_ENGINE.md), its reluva-tool commands in its tools/, and its
+# docs in docs/engines/nfs/ (docs/DOCUMENTATION_STANDARD.md). For the NFS III
+# branch, made before the layouts of November 2026; apply after
+# 2026-11-src-layout.txt, 2026-11-engine-layout.txt and 2026-11-nfs-shared.txt:
+#     python3 tools/relocate.py tools/relocations/2026-11-nfs-engine.txt
+# Left at the top: nfs (the MetaEngine), games and folders (recognising the
+# game and finding its files), game_files (a game-data helper). host/ (the
+# retail game run in the x86 emulator) stays a folder of its own.
+
+# formats/: the game's files
+src/engines/nfs/viv.cpp                     src/engines/nfs/formats/viv.cpp
+src/engines/nfs/viv.h                       src/engines/nfs/formats/viv.h
+src/engines/nfs/refpack.cpp                 src/engines/nfs/formats/refpack.cpp
+src/engines/nfs/refpack.h                   src/engines/nfs/formats/refpack.h
+src/engines/nfs/fsh.cpp                     src/engines/nfs/formats/fsh.cpp
+src/engines/nfs/fsh.h                       src/engines/nfs/formats/fsh.h
+src/engines/nfs/text_table.cpp              src/engines/nfs/formats/text_table.cpp
+src/engines/nfs/text_table.h                src/engines/nfs/formats/text_table.h
+src/engines/nfs/ffn.cpp                     src/engines/nfs/formats/ffn.cpp
+src/engines/nfs/ffn.h                       src/engines/nfs/formats/ffn.h
+src/engines/nfs/bnk.cpp                     src/engines/nfs/formats/bnk.cpp
+src/engines/nfs/bnk.h                       src/engines/nfs/formats/bnk.h
+src/engines/nfs/mus.cpp                     src/engines/nfs/formats/mus.cpp
+src/engines/nfs/mus.h                       src/engines/nfs/formats/mus.h
+src/engines/nfs/mad.cpp                     src/engines/nfs/formats/mad.cpp
+src/engines/nfs/mad.h                       src/engines/nfs/formats/mad.h
+src/engines/nfs/fce.cpp                     src/engines/nfs/formats/fce.cpp
+src/engines/nfs/fce.h                       src/engines/nfs/formats/fce.h
+src/engines/nfs/frd.cpp                     src/engines/nfs/formats/frd.cpp
+src/engines/nfs/frd.h                       src/engines/nfs/formats/frd.h
+src/engines/nfs/col.cpp                     src/engines/nfs/formats/col.cpp
+src/engines/nfs/col.h                       src/engines/nfs/formats/col.h
+src/engines/nfs/hrz.cpp                     src/engines/nfs/formats/hrz.cpp
+src/engines/nfs/hrz.h                       src/engines/nfs/formats/hrz.h
+# render/: effects and drawing THRASH's frames
+src/engines/nfs/particles.cpp               src/engines/nfs/render/particles.cpp
+src/engines/nfs/particles.h                 src/engines/nfs/render/particles.h
+src/engines/nfs/thrash_gpu.cpp              src/engines/nfs/render/thrash_gpu.cpp
+src/engines/nfs/thrash_gpu.h                src/engines/nfs/render/thrash_gpu.h
+# pages/: the launcher's pages
+src/engines/nfs/viewers.cpp                 src/engines/nfs/pages/viewers.cpp
+src/engines/nfs/viewers.h                   src/engines/nfs/pages/viewers.h
+src/engines/nfs/play_page.cpp               src/engines/nfs/pages/play_page.cpp
+src/engines/nfs/play_page.h                 src/engines/nfs/pages/play_page.h
+src/engines/nfs/car_viewer.cpp              src/engines/nfs/pages/car_viewer.cpp
+src/engines/nfs/track_viewer.cpp            src/engines/nfs/pages/track_viewer.cpp
+src/engines/nfs/media_viewer.cpp            src/engines/nfs/pages/media_viewer.cpp
+src/engines/nfs/page_draw.h                 src/engines/nfs/pages/page_draw.h
+# tools/: reluva-tool's commands (split by topic after the move)
+src/tools/nfs_commands.cpp                  src/engines/nfs/tools/commands.cpp
+src/devtools/nfs_commands.cpp               src/engines/nfs/tools/commands.cpp
+src/tools/nfs_commands.h                    src/engines/nfs/tools/commands.h
+src/devtools/nfs_commands.h                 src/engines/nfs/tools/commands.h
+
+# Docs: the engine's folder (its README, the four other standard pages and
+# research/ are written in it); formats/ a page per file, systems/ a page
+# per part of how the game behaves.
+docs/engines/nfs.md                         docs/engines/nfs/PLAN.md
+docs/engines/nfs-threads.md                 docs/engines/nfs/systems/threads.md
+docs/formats/nfs/3ddata.md                  docs/engines/nfs/formats/3ddata.md
+docs/formats/nfs/bnk.md                     docs/engines/nfs/formats/bnk.md
+docs/formats/nfs/col.md                     docs/engines/nfs/formats/col.md
+docs/formats/nfs/fce.md                     docs/engines/nfs/formats/fce.md
+docs/formats/nfs/ffn.md                     docs/engines/nfs/formats/ffn.md
+docs/formats/nfs/frd.md                     docs/engines/nfs/formats/frd.md
+docs/formats/nfs/fsh.md                     docs/engines/nfs/formats/fsh.md
+docs/formats/nfs/hrz.md                     docs/engines/nfs/formats/hrz.md
+docs/formats/nfs/mad.md                     docs/engines/nfs/formats/mad.md
+docs/formats/nfs/mus.md                     docs/engines/nfs/formats/mus.md
+docs/formats/nfs/refpack.md                 docs/engines/nfs/formats/refpack.md
+docs/formats/nfs/text.md                    docs/engines/nfs/formats/text.md
+docs/formats/nfs/tracks.md                  docs/engines/nfs/formats/tracks.md
+docs/formats/nfs/viv.md                     docs/engines/nfs/formats/viv.md
+docs/formats/nfs/net.md                     docs/engines/nfs/systems/net.md
+docs/formats/nfs/physics.md                 docs/engines/nfs/systems/physics.md
+docs/formats/nfs/thrash.md                  docs/engines/nfs/systems/thrash.md

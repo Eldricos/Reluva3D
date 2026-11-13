@@ -450,17 +450,20 @@ struct CachedOps {
     static void fLoadSt(Cpu &c, const Cached &e) {
         next(c, e);
         c.fpuPush(c.st(e.rm));
+        c.copyExact(0, e.rm + 1);
     }
     template<bool Pop>
     static void fStoreSt(Cpu &c, const Cached &e) { // DD D0+i, D8+i
         next(c, e);
         c.st(e.rm) = c.st(0);
+        c.copyExact(e.rm, 0);
         if (Pop)
             c.fpuPop();
     }
     static void fxch(Cpu &c, const Cached &e) {
         next(c, e);
         std::swap(c.st(0), c.st(e.rm));
+        c.exchangeExtras(e.rm);
     }
     static void fchs(Cpu &c, const Cached &e) {
         next(c, e);
@@ -767,6 +770,10 @@ void Cpu::compileBlock(Block &b) {
             if (run == &O::incDecReg<0> || run == &O::incDecReg<5>)
                 o.mem = false; // INC and DEC of a register: its number in rm
         } else
+            o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
+        // The x87 unit's exact integers and MMX values move with these in
+        // their handlers only (exactX87).
+        if (exactX87 && (o.kind == K::FLoadSt || o.kind == K::FStoreSt || o.kind == K::Fxch))
             o.kind = K::Call, o.handler = reinterpret_cast<const void *>(run), o.entry = &e;
         // One run from its bytes (length 0) can't be made here: it reads eip.
         if (!e.length)
