@@ -441,27 +441,164 @@ void processData(const std::string &name);
 
 ---
 
+## Comments
+
+These rules are for everyone writing code here, people and AI tools alike,
+so comments read the same whoever wrote them. `tools/comments.py` flags
+the breaches a script can be sure of (see [DEVELOPMENT.md](DEVELOPMENT.md#code-style)).
+
+### Say why, not what
+
+A comment says what the code can't: never what a reader sees by reading
+the code.
+
+```cpp
+// Bad: says what the code says
+++lap; // add one to the lap
+if (speed > kMaxSpeed) // if the speed is more than the most
+    speed = kMaxSpeed;
+
+// Good: says why
+++lap; // the original counts laps from 1 (0x42cc20)
+if (speed > kMaxSpeed) // a car pushed by another can go faster for a tick
+    speed = kMaxSpeed;
+```
+
+### Only what isn't obvious from the code
+
+Comment only where reading the code won't tell you:
+
+- **why** it is done this way, or why the obvious way isn't used;
+- **edge cases**: what happens at 0, at the end, when a file is short;
+- **units and ranges**: `// seconds`, `// 0-255`, `// in 1/256ths of a pixel`;
+- **ownership and lifetime**: who frees it, how long a pointer stays good;
+- **threads**: what may be called from where;
+- **where a fact came from**: the original program, a file comparison, a recording (below);
+- **the game's own rules**, where the code alone would look arbitrary.
+
+```cpp
+// Bad: nothing the code doesn't say
+// Loop over the entries.
+for (const Entry &e : entries) {
+
+// Good: what the code can't say
+// Entries past the first empty one are left over from an earlier save:
+// the original stops there too (0x41a860).
+for (const Entry &e : entries) {
+```
+
+### Short and plain
+
+One line where one line does it; plain sentences. No banners, boxes or
+lines of `=` or `*` between parts of a file.
+
+```cpp
+// Bad
+/*************************************************
+ *              Helper Functions                 *
+ *************************************************/
+
+// Good: nothing, or a plain line when it helps
+// Reading a level's tiles.
+```
+
+### Notes from the original program
+
+Engines are worked out from the original games, and many comments say
+where in the original program something was found. Give the address in
+the original executable in parentheses after what it says, with the
+original function's name in front where it is known; a structure's field
+gives its offset in the original's structure.
+
+```cpp
+fogAt(roadSliceAt(), fog, fogDensity); // by the camera's road slice (0x478e10)
+// cop_ai_pick_target (0x402e10): a racer within 16 slices, free of other cops.
+struct ParticleTemplate {
+    int count = 0; // +0x00 a burst's count (0x4cac20)
+    int life = 0;  // +0x04 ticks
+};
+```
+
+How a fact was found, and how sure it is, goes in the engine's pages in
+`docs/` (see [CONTRIBUTING.md](../CONTRIBUTING.md)): a comment can point
+there, but doesn't hold the whole story.
+
+### Never from leaked source
+
+A comment never quotes, paraphrases or names anything from leaked or
+unlicensed source code: not its names, its comments, nor what it says the
+code does. This holds for AI tools too, which may have seen such source;
+see [CONTRIBUTING.md](../CONTRIBUTING.md) (Not allowed).
+
+### Never written
+
+- **Commented-out code.** Delete it: git keeps it.
+- **History.** "Fixed the crash", "previously 1", "changed from…", "new:"
+  are for the commit message. A comment says what the code is now.
+- **A `TODO` or `FIXME` a stranger couldn't act on.** Say what's missing
+  and why it was left.
+
+```cpp
+// Bad
+// x = oldRead(f);
+int y = 0; // previously 1
+// TODO
+
+// Good
+// TODO: the second channel; every file seen so far has one.
+```
+
+Code examples inside a comment, showing how to use what it describes,
+aren't commented-out code: indent them under the comment's text.
+
+```cpp
+// A run written as a record of "step: value" lines:
+//
+//     test::Record rec;
+//     rec.add("maps.read", count);
+```
+
+When code changes, change or delete the comments it makes wrong: a stale
+comment is worse than none.
+
 ## Documentation (Doxygen)
 
-Use standard Doxygen blocks for public classes, methods, and structures to ensure clear documentation generation.
+Public classes, methods and structures, in headers, get Doxygen blocks;
+everything else (private members, code inside functions, `.cpp` files)
+plain `//` comments. The rules above hold for both.
 
 New code uses Doxygen blocks from the start. Existing code has plain `//` comments: when you work on a file, turn the comments on its public classes, methods and structures into Doxygen blocks.
 
+A block starts with one sentence saying what it is or does, then more
+only if there is more to say. Use `@param` and `@return` only when they
+say more than the name and type already do: a range, a unit, what 0 or
+`nullptr` means, what happens on failure. Leave them out otherwise.
+
 ```cpp
 /**
- * Brief description of what the class or method does.
+ * A level's tiles and the things on them, read from its .lvl file.
  *
- * Detailed explanation of parameters, behavior, or return values.
+ * Holds the file's data while it is alive: the tiles point into it.
  */
-class EngineService {
+class Level {
 public:
     /**
-     * Initialize the service with target parameters.
-     * @param mode The initialization mode flag.
-     * @return True on success, false otherwise.
+     * Reads the level, checking its size against the header's.
+     * @param skipItems Leave out the items (as the editor's preview does).
+     * @return An error naming the first part that didn't read.
      */
-    bool init(int mode);
+    Error read(const std::string &path, bool skipItems = false);
+
+    /** The number of tiles across. */
+    int width() const { return _width; }
 };
+
+// Bad: tags that say only the name
+/**
+ * Sets the size.
+ * @param size The size.
+ * @return The result.
+ */
 ```
 
 ---
@@ -470,5 +607,5 @@ public:
 
 The following keywords mark certain sections of the code:
 - **FIXME**: Code that while functional needs to be replaced at some point.
-- **TODO**: Items needing to be worked on at a later time.
+- **TODO**: Items needing to be worked on at a later time: say what is missing and why it was left.
 - **WORKAROUND**: Code used for getting around old bugs or broken code in the original engine.

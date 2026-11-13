@@ -60,8 +60,8 @@ Notes for developers. Building and running are covered in the
 
 Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
 existing code in line is [code-style-migration.md](code-style-migration.md).
-Three tools check it, all needing version 18 of their LLVM program
-(another lays code out differently):
+Four tools check it; the first three need version 18 of their LLVM
+program (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
   (`.clang-format`): every file, the ones named
@@ -80,9 +80,17 @@ Three tools check it, all needing version 18 of their LLVM program
   (Ubuntu: `apt install python3-clang-18`; else
   `pip install clang==18.1.8`).
 
-Run all three with `--changed` before a pull request. CI's "Code style"
+- **`python3 tools/comments.py`** flags comments that break the guide's
+  Comments rules in ways a script can be sure of: commented-out code,
+  history ("Fixed: …", "previously"), Doxygen tags that say only the
+  name, and a bare `TODO`. Whether a comment only repeats the code is for
+  the author and reviewer to judge. With `--changed` it looks only at the
+  lines added.
+
+Run all four with `--changed` before a pull request. CI's "Code style"
 job does the same, and fails on an unformatted file, a clang-tidy finding
-or members declared together in a changed file. A name that has to stay as it is (see the guide's
+or members declared together in a changed file; what `comments.py` flags
+shows as a warning on the pull request's lines, without failing it. A name that has to stay as it is (see the guide's
 Naming: Exceptions) gets a `// NOLINT(<check>): reason`. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
