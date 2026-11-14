@@ -80,8 +80,9 @@ with **Make my baseline**, before making the changes it's to check.
 
     reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]
 
-Plays the whole game four ways, each from a new game, and ends with a
-summary (exit code 1 if anything failed):
+Plays the whole game four ways, each from a new game, as `reluva` runs it
+(the data viewer's scene browser off: none of its keys or overlays), and
+ends with a summary (exit code 1 if anything failed):
 
 1. **The route by the mouse, with sound.** Every click and use is made
    at a point where the game's pick finds the object; voices and sounds

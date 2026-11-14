@@ -74,7 +74,8 @@ public:
      */
     ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle = {});
     ~ScenePage() override;
-    const char *name() const override { return "Scenes"; }
+    // The viewer's page name, or the game's (its screenshots are named after it).
+    const char *name() const override { return _browser ? "Scenes" : "Game"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
