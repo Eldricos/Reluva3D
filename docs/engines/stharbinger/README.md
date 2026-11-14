@@ -128,7 +128,7 @@ off, [DEVELOPMENT.md](../../DEVELOPMENT.md#build-folders)).
 | Setting | `reluva.ini` key | What it does |
 |---|---|---|
 | (no launcher entry) | `start_scene` | The scene to start in (its name, e.g. `BRIDGE`, or CC.ALL slot), with every variable at 0, so later scenes may not behave as in a playthrough; in the scene viewer (below), the scene it opens on, or with `start_mode=video`, the video in DS9 (`INTRO/VNM.SMK`). Set it in the game's section of `reluva.ini` |
-| (no launcher entry) | `start_mode` | For the scene viewer only: `video` plays the video named by `start_scene` on its own instead |
+| (no launcher entry) | `start_mode` | For the scene viewer only: `video` plays the video named by `start_scene` on its own instead. The game then starts as usual, ignoring `start_scene` |
 | Developer: debug keys | `debug` | **F2** shows the hotspot rectangles (green on, red off), **F10** prints the variables that are set, and the title bar names the scene, the hotspot under the mouse and anything skipped |
 | Developer: console output | `debug_level` | How much the engine prints (0 to 3), with the debug keys on |
 

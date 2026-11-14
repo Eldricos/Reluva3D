@@ -11,6 +11,7 @@
 #include "common/fs.h"
 #include "common/log.h"
 #include "common/settings.h"
+#include "common/text.h"
 #include "engines/engine.h"
 #include "engines/stharbinger/detection.h"
 #include "engines/stharbinger/harbinger.h"
@@ -60,6 +61,9 @@ constexpr const char *kEffectsVolume = "effects_volume";
 // scene's name or CC.ALL slot) has no place in the launcher: it's set in
 // reluva.ini.
 constexpr const char *kStartScene = "start_scene";
+// The viewer's (pages/meta_viewer.cpp): with start_mode=video, start_scene
+// names a video for reluva-viewer to play, not a scene.
+constexpr const char *kStartMode = "start_mode";
 constexpr const char *kDebug = "debug";
 constexpr const char *kDebugLevel = "debug_level";
 
@@ -140,7 +144,8 @@ public:
             return Error::fail("Harbinger isn't found in " + _target.path.string() + " any more");
         options.original = flag(_target, kOriginal);
         options.debug = kDeveloperKeys && flag(_target, kDebug);
-        options.startScene = setting(_target, kStartScene);
+        if (!text::equalsIgnoreCase(setting(_target, kStartMode), "video"))
+            options.startScene = setting(_target, kStartScene);
         log::setDebugLevel(options.debug ? std::atoi(setting(_target, kDebugLevel).c_str()) : 0);
 
         // The sound: the game's three kinds at the player's volumes.
