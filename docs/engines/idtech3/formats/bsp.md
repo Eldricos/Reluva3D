@@ -4,7 +4,7 @@
 
 ## Overview
 
-A compiled map: its 17 lumps hold the level's entities, geometry, lightmaps, light grid and visibility.
+A compiled map: its 17 lumps hold the level's entities, geometry, lightmaps, light grid and visibility. Raven's version, with light styles (Jedi Outcast's), is in [rbsp.md](rbsp.md).
 
 ## Layout
 
@@ -208,7 +208,9 @@ since Elite Force's engine may differ; maps that need it show up in
 
 ## Sources and checks
 
-All lumps are read and cross-checked; the light grid is kept raw. Every
+All lumps are read and cross-checked; the light grid's points are read
+into the same form as Raven's ([rbsp.md](rbsp.md)), one style each, a
+black point marked as in a wall. Every
 one of the 67 retail maps is version 46 with the
 record sizes below, and 27 of them need the corrections described at the
 end.

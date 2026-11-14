@@ -57,13 +57,18 @@ behind the DLL's own tables.
    (1187), the 18 directives Quake III doesn't have listed in
    [shader.md](../../formats/shader.md); every MD3 model reads. The
    game-files test: `RELUVA_JK2` ([TESTING.md](TESTING.md)).
-2. **RBSP maps** (next): read Raven's BSP (the surfaces' four lightmaps and
-   styles, the vertices' four lightmap coordinates and colours, the light
-   grid's styles and its light array lump) beside the IBSP reader, sharing
-   what's the same; light styles in the renderer, animated as the
-   configstrings say. A page, `formats/rbsp.md`, in the engine's folder
-   (Jedi Academy and Soldier of Fortune II share it). Ends with: all 41
-   maps load and draw in the World page, a game-files step over every map.
+2. **RBSP maps** (in progress): done: Raven's BSP read by the IBSP reader
+   into the same `Bsp` (four light styles per surface and vertex, the
+   light grid's shared points, the level's fog), all 41 maps read and
+   drawn in the World page, every style full and added into the first
+   style's lightmap as it loads ([rbsp.md](../../formats/rbsp.md));
+   `oneshotAnimMap` and `clampAnimMap` drawn; game-files steps over every
+   map and the images they name. Left: **surface sprites**
+   (`surfaceSprites` and its `ss*` options, 41 shaders: the grass and
+   weather on Yavin's and others' surfaces), and finding what `sun`,
+   `lightColor` and `notc` do. The styles' own passes, animated as the
+   game's code sets them, come with the game (phase 6), and `videoMap`
+   with RoQ (phase 4).
 3. **Ghoul2 models**: GLM meshes (surfaces, levels of detail, bone weights)
    and GLA skeletons (compressed bone frames), skinned on the CPU first;
    `animation.cfg` (Jedi Outcast's own layout, read from the files);

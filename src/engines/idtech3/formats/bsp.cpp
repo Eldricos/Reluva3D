@@ -10,8 +10,10 @@ namespace reluva::idtech3 {
 namespace {
 
 constexpr int32_t kVersion = 46;
-constexpr int kLumps = 17;
-constexpr size_t kHeaderSize = 8 + kLumps * 8;
+constexpr int32_t kRavenVersion = 1;
+// Raven's maps add an 18th lump, the light grid's index.
+constexpr int kLumps = 18;
+constexpr int kQuakeLumps = 17;
 
 enum Lump {
     kEntities,
@@ -31,11 +33,13 @@ enum Lump {
     kLightmaps,
     kLightGrid,
     kVisibility,
+    kLightGridIndex,
 };
 
 const char *const kLumpNames[kLumps] = {
-    "entities",    "shaders",  "planes",  "nodes", "leafs",    "leaf surfaces", "leaf brushes", "models",     "brushes",
-    "brush sides", "vertices", "indices", "fogs",  "surfaces", "lightmaps",     "light grid",   "visibility",
+    "entities",     "shaders",  "planes",    "nodes",       "leafs",      "leaf surfaces",
+    "leaf brushes", "models",   "brushes",   "brush sides", "vertices",   "indices",
+    "fogs",         "surfaces", "lightmaps", "light grid",  "visibility", "light grid index",
 };
 
 // Reads little-endian fields out of one record.
@@ -54,6 +58,16 @@ public:
         return f;
     }
     uint8_t u8() { return *_p++; }
+    uint16_t u16() {
+        const uint16_t v = uint16_t(_p[0] | _p[1] << 8);
+        _p += 2;
+        return v;
+    }
+    template<size_t N>
+    void u8s(std::array<uint8_t, N> &a) {
+        for (auto &v : a)
+            v = u8();
+    }
     // A fixed-size, NUL-padded name.
     std::string name(size_t size) {
         size_t len = 0;
@@ -128,10 +142,11 @@ void normalize(Bsp &b) {
     const size_t lightmaps = b.lightmapCount();
     for (BspSurface &s : b.surfaces) {
         // A lightmap past the end: lit by its vertex colours instead.
-        if (s.lightmap >= 0 && size_t(s.lightmap) >= lightmaps) {
-            s.lightmap = -1;
-            ++b.fixes.lightmaps;
-        }
+        for (int32_t &lightmap : s.lightmap)
+            if (lightmap >= 0 && size_t(lightmap) >= lightmaps) {
+                lightmap = -1;
+                ++b.fixes.lightmaps;
+            }
         // A fog that doesn't exist: no fog.
         if (s.fog < -1 || (s.fog >= 0 && size_t(s.fog) >= b.fogs.size())) {
             s.fog = -1;
@@ -197,13 +212,19 @@ Error validate(const Bsp &b) {
             return bad("brush", i, index("shader", br.shader, b.shaders.size()));
     }
     for (size_t i = 0; i < b.brushSides.size(); ++i) {
-        if (!validIndex(b.brushSides[i].plane, b.planes.size()))
-            return bad("brush side", i, index("plane", b.brushSides[i].plane, b.planes.size()));
-        if (!validIndex(b.brushSides[i].shader, b.shaders.size()))
-            return bad("brush side", i, index("shader", b.brushSides[i].shader, b.shaders.size()));
+        const BspBrushSide &side = b.brushSides[i];
+        if (!validIndex(side.plane, b.planes.size()))
+            return bad("brush side", i, index("plane", side.plane, b.planes.size()));
+        if (!validIndex(side.shader, b.shaders.size()))
+            return bad("brush side", i, index("shader", side.shader, b.shaders.size()));
+        if (side.surface != -1 && !validIndex(side.surface, b.surfaces.size()))
+            return bad("brush side", i, index("surface", side.surface, b.surfaces.size()));
     }
+    for (size_t i = 0; i < b.gridIndex.size(); ++i)
+        if (!validIndex(b.gridIndex[i], b.gridPoints.size()))
+            return bad("light grid index", i, index("point", b.gridIndex[i], b.gridPoints.size()));
     for (size_t i = 0; i < b.fogs.size(); ++i)
-        if (!validIndex(b.fogs[i].brush, b.brushes.size()))
+        if (!(b.raven && b.fogs[i].brush == -1) && !validIndex(b.fogs[i].brush, b.brushes.size()))
             return bad("fog", i, index("brush", b.fogs[i].brush, b.brushes.size()));
     for (size_t i = 0; i < b.surfaces.size(); ++i) {
         const BspSurface &s = b.surfaces[i];
@@ -239,14 +260,20 @@ bool Bsp::clusterVisible(int from, int to) const {
 
 Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
     out = Bsp{};
-    if (data.size() < kHeaderSize || std::memcmp(data.data(), "IBSP", 4) != 0)
-        return Error::fail("Not an IBSP map");
+    if (data.size() >= 4 && std::memcmp(data.data(), "RBSP", 4) == 0)
+        out.raven = true;
+    else if (data.size() < 4 || std::memcmp(data.data(), "IBSP", 4) != 0)
+        return Error::fail("Not an IBSP or RBSP map");
+    const int lumpCount = out.raven ? kLumps : kQuakeLumps;
+    if (data.size() < 8 + size_t(lumpCount) * 8)
+        return Error::fail("BSP header is cut short");
     Fields header(data.data() + 4);
     out.version = header.i32();
-    if (out.version != kVersion)
-        return Error::fail("Unsupported BSP version " + std::to_string(out.version) + " (expected 46)");
+    if (out.version != (out.raven ? kRavenVersion : kVersion))
+        return Error::fail("Unsupported BSP version " + std::to_string(out.version) + " (expected " +
+                           (out.raven ? "1 for RBSP" : "46") + ")");
     LumpRange lumps[kLumps];
-    for (int i = 0; i < kLumps; ++i) {
+    for (int i = 0; i < lumpCount; ++i) {
         const int32_t offset = header.i32();
         const int32_t size = header.i32();
         if (offset < 0 || size < 0 || size_t(offset) + size_t(size) > data.size())
@@ -304,41 +331,59 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         b.numSides = f.i32();
         b.shader = f.i32();
     }));
-    check(readRecords(data, lumps[kBrushSides], kBrushSides, 8, out.brushSides, [](Fields &f, BspBrushSide &s) {
-        s.plane = f.i32();
-        s.shader = f.i32();
-    }));
-    check(readRecords(data, lumps[kVertices], kVertices, 44, out.vertices, [](Fields &f, BspVertex &v) {
-        f.f32s(v.pos);
-        f.f32s(v.st);
-        f.f32s(v.lightmap);
-        f.f32s(v.normal);
-        for (auto &c : v.color)
-            c = f.u8();
-    }));
+    const bool raven = out.raven;
+    check(readRecords(data, lumps[kBrushSides], kBrushSides, raven ? 12 : 8, out.brushSides,
+                      [raven](Fields &f, BspBrushSide &s) {
+                          s.plane = f.i32();
+                          s.shader = f.i32();
+                          if (raven)
+                              s.surface = f.i32();
+                      }));
+    const int styles = raven ? kLightStyles : 1;
+    check(readRecords(data, lumps[kVertices], kVertices, raven ? 80 : 44, out.vertices,
+                      [styles](Fields &f, BspVertex &v) {
+                          f.f32s(v.pos);
+                          f.f32s(v.st);
+                          for (int i = 0; i < styles; ++i)
+                              f.f32s(v.lightmap[size_t(i)]);
+                          f.f32s(v.normal);
+                          for (int i = 0; i < styles; ++i)
+                              f.u8s(v.color[size_t(i)]);
+                      }));
     check(readRecords(data, lumps[kIndices], kIndices, 4, out.indices, readInt));
     check(readRecords(data, lumps[kFogs], kFogs, 72, out.fogs, [](Fields &f, BspFog &g) {
         g.shader = f.name(64);
         g.brush = f.i32();
         g.visibleSide = f.i32();
     }));
-    check(readRecords(data, lumps[kSurfaces], kSurfaces, 104, out.surfaces, [](Fields &f, BspSurface &s) {
-        s.shader = f.i32();
-        s.fog = f.i32();
-        s.type = static_cast<SurfaceType>(f.i32());
-        s.firstVertex = f.i32();
-        s.numVertices = f.i32();
-        s.firstIndex = f.i32();
-        s.numIndices = f.i32();
-        s.lightmap = f.i32();
-        f.i32s(s.lightmapPos);
-        f.i32s(s.lightmapSize);
-        f.f32s(s.lightmapOrigin);
-        for (auto &v : s.lightmapVecs)
-            f.f32s(v);
-        s.patchWidth = f.i32();
-        s.patchHeight = f.i32();
-    }));
+    check(readRecords(data, lumps[kSurfaces], kSurfaces, raven ? 148 : 104, out.surfaces,
+                      [raven](Fields &f, BspSurface &s) {
+                          s.shader = f.i32();
+                          s.fog = f.i32();
+                          s.type = static_cast<SurfaceType>(f.i32());
+                          s.firstVertex = f.i32();
+                          s.numVertices = f.i32();
+                          s.firstIndex = f.i32();
+                          s.numIndices = f.i32();
+                          if (raven) {
+                              f.u8s(s.lightmapStyles);
+                              f.u8s(s.vertexStyles);
+                              f.i32s(s.lightmap);
+                              for (auto &pos : s.lightmapPos)
+                                  pos[0] = f.i32();
+                              for (auto &pos : s.lightmapPos)
+                                  pos[1] = f.i32();
+                          } else {
+                              s.lightmap[0] = f.i32();
+                              f.i32s(s.lightmapPos[0]);
+                          }
+                          f.i32s(s.lightmapSize);
+                          f.f32s(s.lightmapOrigin);
+                          for (auto &v : s.lightmapVecs)
+                              f.f32s(v);
+                          s.patchWidth = f.i32();
+                          s.patchHeight = f.i32();
+                      }));
     if (err)
         return err;
 
@@ -349,7 +394,34 @@ Error parseBsp(const std::vector<uint8_t> &data, Bsp &out) {
         v.assign(data.begin() + std::ptrdiff_t(l.offset), data.begin() + std::ptrdiff_t(l.offset + l.size));
     };
     copyLump(lumps[kLightmaps], out.lightmaps);
-    copyLump(lumps[kLightGrid], out.lightGrid);
+    if (raven) {
+        check(readRecords(data, lumps[kLightGrid], kLightGrid, 30, out.gridPoints, [](Fields &f, Bsp::GridPoint &p) {
+            for (auto &c : p.ambient)
+                f.u8s(c);
+            for (auto &c : p.directed)
+                f.u8s(c);
+            f.u8s(p.styles);
+            f.u8s(p.latLong);
+        }));
+        check(readRecords(data, lumps[kLightGridIndex], kLightGridIndex, 2, out.gridIndex,
+                          [](Fields &f, uint32_t &i) { i = f.u16(); }));
+    } else {
+        // A point each, in order. One whose ambient light is black is
+        // inside a wall, which sampling skips, as it skips Raven's points
+        // with no style.
+        check(readRecords(data, lumps[kLightGrid], kLightGrid, 8, out.gridPoints, [](Fields &f, Bsp::GridPoint &p) {
+            f.u8s(p.ambient[0]);
+            f.u8s(p.directed[0]);
+            f.u8s(p.latLong);
+            if (p.ambient[0][0] + p.ambient[0][1] + p.ambient[0][2] == 0)
+                p.styles[0] = kNoStyle;
+        }));
+        out.gridIndex.resize(out.gridPoints.size());
+        for (size_t i = 0; i < out.gridIndex.size(); ++i)
+            out.gridIndex[i] = uint32_t(i);
+    }
+    if (err)
+        return err;
 
     const LumpRange &vis = lumps[kVisibility];
     if (vis.size) {

@@ -34,9 +34,10 @@ the cabinets beside it hold only the installer's own files.
 | Detection | The English 1.02a release by `assets0.pk3`'s hash; others by its name, as "unknown release" |
 | Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`), and `jk2gamex86.dll` beside it |
 | File system | Elite Force's: `base`'s loose files over its paks |
-| Shader scripts | Read from `shaders/` (1187 in 1.02a); 18 directives of its own listed, not drawn ([shader.md](../../formats/shader.md)) |
-| Models | Its MD3 models read (276); Ghoul2 not yet |
-| Maps, game code, menus, sound, cinematics | Not yet |
+| Shader scripts | Read from `shaders/` (1187 in 1.02a); of its 18 directives of its own, `oneshotAnimMap` and `clampAnimMap` drawn, `videoMap` waiting for RoQ, surface sprites and the rest listed ([shader.md](../../formats/shader.md)) |
+| Maps | All 41 read (Raven's RBSP: light styles, shared light grid points, the level's fog) and drawn in `reluva-viewer`'s World and Maps pages, every light style full until the game's code sets them ([rbsp.md](../../formats/rbsp.md)) |
+| Models | Its MD3 models read (276) and placed by the maps' entities; Ghoul2 not yet |
+| Game code, menus, sound, cinematics | Not yet |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 
@@ -48,9 +49,9 @@ holding `base` (an install's `GameData`); *Import Game...* takes the CD,
 the install's folder or `GameData`, and copies what Reluva needs into its
 library.
 
-It can't be played yet: `reluva` says so. `reluva-viewer` shows its files
-and textures (Files and Textures pages); its maps and Ghoul2 models come
-in phases 2 and 3 of the [plan](PLAN.md).
+It can't be played yet: `reluva` says so. `reluva-viewer` shows its maps
+(World, Maps), its MD3 models, textures and files; Ghoul2 models come in
+phase 3 of the [plan](PLAN.md).
 
 ## This folder
 

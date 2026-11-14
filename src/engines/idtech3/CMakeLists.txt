@@ -129,4 +129,4 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-shaders jk2-models)
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-images)

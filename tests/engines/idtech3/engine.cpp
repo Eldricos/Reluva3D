@@ -142,8 +142,12 @@ void files(const SearchSet &set, Record &rec) {
         rec.fail("map", "not read");
     } else {
         Hash m;
-        for (const auto &v : bsp.vertices)
-            m.bytes(&v, sizeof v);
+        // As a Quake III vertex is laid out (the first light style's).
+        for (const auto &v : bsp.vertices) {
+            m.bytes(v.pos.data(), sizeof v.pos).bytes(v.st.data(), sizeof v.st);
+            m.bytes(v.lightmap[0].data(), sizeof v.lightmap[0]).bytes(v.normal.data(), sizeof v.normal);
+            m.bytes(v.color[0].data(), sizeof v.color[0]);
+        }
         for (int32_t i : bsp.indices)
             m.i32(i);
         m.text(bsp.entities);

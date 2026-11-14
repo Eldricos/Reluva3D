@@ -282,7 +282,7 @@ static void testBsp() {
     CHECK(bsp.planes.size() == 1 && bsp.planes[0].normal[2] == 1 && bsp.planes[0].dist == 16);
     CHECK(bsp.nodes.size() == 1 && bsp.nodes[0].children[1] == -2 && bsp.leafs.size() == 2);
     CHECK(bsp.models.size() == 1 && bsp.models[0].maxs[0] == 64 && bsp.models[0].numSurfaces == 1);
-    CHECK(bsp.vertices.size() == 3 && bsp.vertices[1].pos[0] == 32 && bsp.vertices[0].color[1] == 128);
+    CHECK(bsp.vertices.size() == 3 && bsp.vertices[1].pos[0] == 32 && bsp.vertices[0].color[0][1] == 128);
     CHECK(bsp.indices.size() == 3 && bsp.surfaces.size() == 1);
     CHECK(bsp.surfaces[0].type == SurfaceType::kPlanar && bsp.surfaces[0].fog == -1);
     CHECK(bsp.surfaces[0].lightmapSize[0] == 16 && bsp.surfaces[0].lightmapVecs[2][2] == 1);
@@ -300,16 +300,30 @@ static void testBsp() {
     // What the original engine tolerates: a lightmap past the end (vertex
     // lighting), a missing fog, a flare's vertices, an unknown type.
     CHECK(!parseBsp(buildBsp(46, -1, 5, 2), bsp));
-    CHECK(bsp.surfaces[0].lightmap == -1 && bsp.surfaces[0].fog == -1);
+    CHECK(bsp.surfaces[0].lightmap[0] == -1 && bsp.surfaces[0].fog == -1);
     CHECK(bsp.fixes.lightmaps == 1 && bsp.fixes.fogs == 1 && bsp.fixes.total() == 2);
     CHECK(!parseBsp(buildBsp(46, 7, 0, -1, 4), bsp)); // a flare's bad index doesn't matter
     CHECK(bsp.surfaces[0].type == SurfaceType::kFlare && bsp.surfaces[0].numVertices == 0 && bsp.fixes.flares == 1);
     CHECK(!parseBsp(buildBsp(46, -1, 0, -1, 9), bsp));
     CHECK(bsp.surfaces[0].type == SurfaceType::kBad && bsp.fixes.types == 1);
     auto truncated = buildBsp();
-    truncated.resize(truncated.size() - 1);
+    truncated.pop_back();
     CHECK(parseBsp(truncated, bsp));
     CHECK(parseBsp({'I', 'B', 'S', 'P'}, bsp));
+
+    // Raven's: brush sides name their surface; a fog may have no brush (the
+    // whole level's); vertices and surfaces have four light styles; the
+    // light grid's points are shared through its index lump.
+    err = parseBsp(buildBsp(1, -1, 0, -1, 1, true), bsp);
+    CHECK(!err && bsp.raven && bsp.brushSides.size() == 1 && bsp.brushSides[0].surface == 0);
+    CHECK(bsp.fogs.size() == 1 && bsp.fogs[0].brush == -1);
+    CHECK(bsp.vertices.size() == 3 && bsp.vertices[1].pos[0] == 32 && bsp.vertices[0].color[1][0] == 127);
+    const BspSurface &styled = bsp.surfaces[0];
+    CHECK(styled.lightmapStyles[1] == 2 && styled.vertexStyles[2] == kNoStyle && styled.lightmap[1] == 1);
+    CHECK(styled.lightmapPos[1][0] == 16 && styled.lightmapSize[0] == 16 && styled.lightmapVecs[2][2] == 1);
+    CHECK(bsp.lightmapCount() == 2 && bsp.gridPoints.size() == 2 && bsp.gridIndex.size() == 9);
+    CHECK(bsp.gridPoints[1].styles[0] == kNoStyle && bsp.gridIndex[8] == 1 && bsp.fixes.total() == 0);
+    CHECK(parseBsp(buildBsp(46, -1, 0, -1, 1, true), bsp)); // RBSP is version 1
 }
 
 static void testPatch() {
@@ -322,7 +336,7 @@ static void testPatch() {
             v.pos = {float(x) * 8, float(y) * 8, x == 1 && y == 1 ? 4.0f : 0.0f};
             v.st = {float(x) / 2, float(y) / 2};
             v.normal = {0, 0, 1};
-            v.color = {200, 100, 0, 255};
+            v.color[0] = {200, 100, 0, 255};
         }
     std::vector<BspVertex> verts(1); // something already there: indices must be offset
     std::vector<uint32_t> idx;
@@ -332,7 +346,7 @@ static void testPatch() {
     CHECK(verts[1].pos[0] == 0 && verts[1].pos[2] == 0 && verts[25].pos[0] == 16 && verts[25].pos[1] == 16);
     const BspVertex &mid = verts[1 + 12];
     CHECK(std::fabs(mid.pos[0] - 8) < 1e-5f && std::fabs(mid.pos[2] - 1) < 1e-5f);
-    CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
+    CHECK(std::fabs(mid.st[0] - 0.5f) < 1e-5f && mid.color[0][0] == 200 && std::fabs(mid.normal[2] - 1) < 1e-5f);
     bool inRange = true;
     bool clockwise = true;
     for (size_t i = 0; i + 2 < idx.size(); i += 3) {
@@ -441,17 +455,19 @@ static void testLightGrid() {
     world.mins = {0, 0, 0};
     world.maxs = {128, 64, 128};
     bsp.models.push_back(world);
-    bsp.lightGrid.assign(3 * 2 * 2 * 8, 0);
-    auto point = [&](int x, int y, int z) { return &bsp.lightGrid[size_t(((z * 2 + y) * 3 + x) * 8)]; };
+    bsp.gridPoints.resize(3 * 2 * 2);
+    for (size_t i = 0; i < bsp.gridPoints.size(); ++i)
+        bsp.gridIndex.push_back(uint32_t(i));
+    auto point = [&](int x, int y, int z) -> Bsp::GridPoint & { return bsp.gridPoints[size_t((z * 2 + y) * 3 + x)]; };
     for (int z = 0; z < 2; ++z)
         for (int y = 0; y < 2; ++y)
             for (int x = 0; x < 3; ++x) {
-                uint8_t *p = point(x, y, z);
-                p[0] = p[1] = p[2] = uint8_t(x == 0 ? 40 : 80); // ambient, doubled on loading
-                p[3] = p[4] = p[5] = 50;                        // directed
-                p[6] = 0;                                       // from straight above
+                Bsp::GridPoint &p = point(x, y, z);
+                p.ambient[0].fill(uint8_t(x == 0 ? 40 : 80)); // doubled on loading
+                p.directed[0].fill(50);
+                p.latLong = {0, 0}; // from straight above
             }
-    point(2, 0, 0)[0] = point(2, 0, 0)[1] = point(2, 0, 0)[2] = 0; // inside a wall
+    point(2, 0, 0).styles[0] = kNoStyle; // inside a wall
     LightGrid grid;
     grid.build(bsp);
     CHECK(!grid.empty());
@@ -465,8 +481,16 @@ static void testLightGrid() {
     // Next to the point in a wall, it's skipped, not blended as black.
     l = grid.sample({96, 0, 0});
     CHECK(approx(l.ambient[0], 160 + 32));
+    // Raven's styles add up, each at full until the game sets them: 40 and
+    // 20, doubled, + 32.
+    for (Bsp::GridPoint &p : bsp.gridPoints) {
+        p.styles[1] = 5;
+        p.ambient[1].fill(20);
+    }
+    grid.build(bsp);
+    CHECK(approx(grid.sample({0, 0, 0}).ambient[0], 80 + 40 + 32));
     // A grid of the wrong size is ignored, and sampling still gives light.
-    bsp.lightGrid.resize(8);
+    bsp.gridIndex.resize(1);
     grid.build(bsp);
     CHECK(grid.empty() && grid.sample({0, 0, 0}).ambient[0] > 0);
 }
@@ -680,7 +704,7 @@ static void testMdr() {
     }
     // A broken one: the triangles past the end.
     std::vector<uint8_t> broken = buildMdr(false);
-    broken.resize(broken.size() - 60);
+    broken.erase(broken.end() - 60, broken.end());
     Md3Model m;
     CHECK(parseModel(broken, m));
 }

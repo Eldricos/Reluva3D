@@ -52,6 +52,7 @@ that name (`.tga`, else `.jpg`) multiplied by its lightmap.
 | shader | `sort`, `polygonOffset`, `nomipmaps`, `nopicmip`, `portal` | see above |
 | stage | `map <image>` / `clampMap <image>` | the stage's texture; `$lightmap` is special, and `$whiteimage` and `*white` both name a plain white image |
 | stage | `animMap <fps> <image>...` | frames played at `fps` |
+| stage | `clampAnimMap`, `oneshotAnimMap` (Raven's, Jedi Outcast on) | as `animMap`, its images clamped; or played once from the shader's time, then held on the last |
 | stage | `blendFunc add\|filter\|blend` or `<src> <dst>` | `GL_ONE GL_ONE`, `GL_DST_COLOR GL_ZERO`, `GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA`, or explicit factors |
 | stage | `rgbGen identity\|identityLighting\|vertex\|exactVertex\|oneMinusVertex\|wave ...\|const ( r g b )\|entity\|oneMinusEntity` | the colour (lightingDiffuse uses the vertex colours for now) |
 | stage | `alphaGen vertex\|oneMinusVertex\|wave ...\|const <a>` | the alpha (`portal`, `lightingSpecular`, `entity`: opaque for now) |
@@ -134,18 +135,21 @@ not on models (none uses them there); `deformVertexes normal` (2, the CTF
 flags) as below.
 
 Jedi Outcast's 1187 shaders (1.02a) use 18 directives Quake III doesn't
-have, skipped and listed as unknown, none drawn yet: on its surfaces
-`surfacesprites` (41) with `ssvariance`, `sswind`, `sswindidle`,
-`ssfademax`, `ssfadescale`, `ssfaceup`, `sshangdown` and the effects'
-`ssfxduration`, `ssfxgrow`, `ssfxalpharange`, `ssfxweather` (grass and
-weather drawn as sprites over a surface, by their names *(inferred)*); in stages `oneshotanimmap` (31),
-`clampanimmap` (1) and `videomap` (13, a RoQ video as the texture, as
-its shaders' names match `video/*.roq` *(inferred)*);
-`sun` (11) and `lightcolor` (2) on sky shaders, and `notc` (12). They're
-for when its maps are drawn ([jk2 PLAN.md](../games/jk2/PLAN.md), phase 2).
-The rest are Quake III's, drawn as above: `deformVertexes autosprite` (4,
-flares), `projectionShadow` (1, not drawn).
+have. Drawn: in stages, `oneshotAnimMap` (31) and `clampAnimMap` (1),
+animMaps whose frames play once and then hold the last, or are clamped as
+`clampMap`'s *(published)*. Read but not
+drawn yet: `videoMap` (13, a stage showing a RoQ video, `video/<name>`;
+the stage is left out until RoQ is decoded, the rest of its shader drawn).
+Skipped and listed as unknown: on its surfaces `surfaceSprites` (41) with
+`ssVariance`, `ssWind`, `ssWindIdle`, `ssFadeMax`, `ssFadeScale`,
+`ssFaceUp`, `ssHangDown` and the effects' `ssFXDuration`, `ssFXGrow`,
+`ssFXAlphaRange`, `ssFXWeather` (grass and weather drawn as sprites over a
+surface, by their names *(inferred)*); `sun` (11) and `lightColor` (2) on
+sky shaders, and `notc` (12) ([jk2 PLAN.md](../games/jk2/PLAN.md), phase
+2). The rest are Quake III's, drawn as above: `deformVertexes autosprite`
+(4, flares), `projectionShadow` (1, not drawn).
 
 Sources: the Quake III Arena shader manual id Software published for map
 makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
-for how the engine reads it.
+for how the engine reads it; Raven's animMap forms as the GPL Jedi
+Outcast renderer reads and draws them (`tr_shader.cpp`, `tr_shade.cpp`).

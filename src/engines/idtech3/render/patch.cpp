@@ -12,21 +12,29 @@ namespace {
 
 // A vertex's attributes as floats, so they can be blended.
 struct Point {
-    float v[15]; // pos 3, st 2, lightmap 2, normal 3, color 4 (0-255), unused 1
+    // pos 3, st 2, normal 3, then each light style's lightmap 2 and
+    // colour 4 (0-255)
+    static constexpr int kValues = 8 + kLightStyles * 6;
+    float v[kValues];
 };
+
+constexpr int kLightmapAt = 8;
+constexpr int kColorAt = kLightmapAt + kLightStyles * 2;
 
 Point toPoint(const BspVertex &b) {
     Point p{};
     for (int i = 0; i < 3; ++i) {
         p.v[i] = b.pos[size_t(i)];
-        p.v[7 + i] = b.normal[size_t(i)];
+        p.v[5 + i] = b.normal[size_t(i)];
     }
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 2; ++i)
         p.v[3 + i] = b.st[size_t(i)];
-        p.v[5 + i] = b.lightmap[size_t(i)];
+    for (size_t s = 0; s < kLightStyles; ++s) {
+        for (size_t i = 0; i < 2; ++i)
+            p.v[kLightmapAt + s * 2 + i] = b.lightmap[s][i];
+        for (size_t i = 0; i < 4; ++i)
+            p.v[kColorAt + s * 4 + i] = b.color[s][i];
     }
-    for (int i = 0; i < 4; ++i)
-        p.v[10 + i] = b.color[size_t(i)];
     return p;
 }
 
@@ -34,14 +42,16 @@ BspVertex toVertex(const Point &p) {
     BspVertex b;
     for (int i = 0; i < 3; ++i) {
         b.pos[size_t(i)] = p.v[i];
-        b.normal[size_t(i)] = p.v[7 + i];
+        b.normal[size_t(i)] = p.v[5 + i];
     }
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 2; ++i)
         b.st[size_t(i)] = p.v[3 + i];
-        b.lightmap[size_t(i)] = p.v[5 + i];
+    for (size_t s = 0; s < kLightStyles; ++s) {
+        for (size_t i = 0; i < 2; ++i)
+            b.lightmap[s][i] = p.v[kLightmapAt + s * 2 + i];
+        for (size_t i = 0; i < 4; ++i)
+            b.color[s][i] = static_cast<uint8_t>(std::clamp(std::lround(p.v[kColorAt + s * 4 + i]), 0L, 255L));
     }
-    for (int i = 0; i < 4; ++i)
-        b.color[size_t(i)] = static_cast<uint8_t>(std::clamp(std::lround(p.v[10 + i]), 0L, 255L));
     // Blending normals shortens them.
     const float len = std::sqrt(b.normal[0] * b.normal[0] + b.normal[1] * b.normal[1] + b.normal[2] * b.normal[2]);
     if (len > 0)
@@ -56,7 +66,7 @@ Point bezier(const Point &a, const Point &b, const Point &c, float t) {
     const float wb = 2 * t * (1 - t);
     const float wc = t * t;
     Point r;
-    for (int i = 0; i < 15; ++i)
+    for (int i = 0; i < Point::kValues; ++i)
         r.v[i] = wa * a.v[i] + wb * b.v[i] + wc * c.v[i];
     return r;
 }
@@ -180,7 +190,7 @@ struct Mesh {
 
 Point halfway(const Point &a, const Point &b) {
     Point r;
-    for (int i = 0; i < 15; ++i)
+    for (int i = 0; i < Point::kValues; ++i)
         r.v[i] = 0.5f * (a.v[i] + b.v[i]);
     return r;
 }

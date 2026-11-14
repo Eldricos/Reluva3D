@@ -20,7 +20,7 @@ Voyager - Elite Force (`stvef`).
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](formats/pk3.md)) |
 | Text files | done: tokenizer ([text.md](formats/text.md)) and entity lump |
 | Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`); each game's folder of them (`scripts/`, Jedi Outcast's `shaders/`) ([shader.md](formats/shader.md)) |
-| Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](formats/bsp.md)) |
+| Maps | every BSP lump read and validated, Quake III's and Raven's (light styles, a level-wide fog); all of Elite Force's retail maps and Jedi Outcast's 41 load and draw ([bsp.md](formats/bsp.md), [rbsp.md](formats/rbsp.md)) |
 | Images | TGA, JPEG, PNG (`image/image.cpp`) |
 | Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
 | Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
