@@ -560,6 +560,11 @@ void ScenePage::updateLoad() {
                 row.preLoad = a.preLoad, row.location = fs::toLower(a.location), row.postLoad = a.postLoad;
                 row.completion = a.completion, row.event = a.event, row.music = a.music;
                 row.time = a.timeOfDay, row.weather = a.weather, row.moving = a.moving;
+                // A save without the act's row (And Then There Were None's,
+                // no ACTI): the chapter table's, as the game reads it again.
+                if (!saveLayout().act)
+                    if (const ActRow *found = _story->find(_state.act))
+                        row = *found;
                 _story->restore(row, l.location);
                 return;
             }

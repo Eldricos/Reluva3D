@@ -161,12 +161,38 @@ struct GameFlow {
     bool actFolders = false;
     bool actMusic = false;                       ///< the act's Music plays when a scene's music entries name none
     const char *musica = "sound\\music\\%s.mp3"; ///< what "musica <name>" plays, looping
+    const char *menu = "menu.%s_01";             ///< the scene "menu <name>" shows
+    const char *mainMenu = "menu.main";          ///< the main menu's place
+    bool letterKeys = true; ///< P, S and L open the in-game, save and load menus (Escape does either way)
+};
+
+/**
+ * The save and load screens' rows as a game draws them. Orient Express's
+ * are the defaults (motoe.exe 0x434b90, 0x4245e0).
+ */
+struct SlotLayout {
+    std::array<int, 3> rows{63, 287, 511}; ///< each row's top
+    int left = 703;                        ///< the rows' box, for clicks and the glow
+    int right = 957;
+    int height = 190;
+    int thumbnail = 704;                                  ///< the picture's x, a pixel down the row
+    int name = 624;                                       ///< the name's centre
+    int date = 708;                                       ///< the date's x, at the row's foot
+    int timeEnd = 952;                                    ///< where the time ends, likewise
+    const char *font = "save, load, and options screens"; ///< the style, by its use
+    /** 0xAARRGGBB: the picked row's text and the others'; zeros: fonts.txt's. */
+    uint32_t picked = 0;
+    uint32_t other = 0;
+    const char *glowSave = "locations/menu.save/cutouts/glow.tga"; ///< over the picked row
+    const char *glowLoad = "locations/menu.load/cutouts/glow.tga";
+    const char *empty = nullptr; ///< an empty row's word; null: interface.txt's "empty"
 };
 
 /** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
 struct GameSaves {
     SaveLayout layout;
     const char *extension = ".ac2"; ///< slot<n> and this, a slot<n>.bmp beside each
+    SlotLayout screen;              ///< how the save and load screens draw them
 };
 
 /** A font a game sets up in its code, not from text/fonts.txt. */

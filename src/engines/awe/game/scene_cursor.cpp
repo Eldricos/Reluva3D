@@ -260,7 +260,8 @@ bool ScenePage::cursorShown() const {
     // conversation while the wheel has chosen and the mouse not moved.
     if (!_sceneShown || _movie || _load.screen || _interfaceOff)
         return false;
-    if (!interfaceShown() && _location.rfind("menu.", 0) != 0 && !_dialogue->active())
+    if (!interfaceShown() && _location.rfind("menu.", 0) != 0 && !inMenuScene() && !atMainMenu() &&
+        !_dialogue->active())
         return false;
     return _letterbox.mode == 0 && !(_dialogue->active() && _dialogue->wheelChoosing());
 }

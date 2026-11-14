@@ -24,13 +24,6 @@ namespace reluva::awe {
 
 namespace {
 
-// The rows' tops on the save and load screens (0x490b98), and each row's
-// box: x 703..957, 190 high.
-constexpr int kRowTop[3] = {63, 287, 511};
-constexpr int kRowLeft = 703;
-constexpr int kRowRight = 957;
-constexpr int kRowHeight = 190;
-
 bool readAll(const std::filesystem::path &file, std::vector<uint8_t> &out) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
@@ -118,7 +111,7 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     };
     s.timeOfDay = value("time"), s.weather = value("weather"), s.moving = value("moving");
     // The scene: its path as the game writes it ("Locations\Salon\Salon_01_06a.ac2").
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     std::string path = inMenu ? _gameScene : (_names.empty() ? std::string() : _names[size_t(_index)]);
     std::replace(path.begin(), path.end(), '/', '\\');
     s.scene = path;
@@ -254,10 +247,22 @@ void ScenePage::finishRestore() {
     loadDialogue();
 }
 
+bool ScenePage::inMenuScene() const {
+    // Orient Express's menus are "menu.<name>"; And Then There Were None's
+    // in Interface/Scenes.
+    if (_state.scene.rfind("menu.", 0) == 0)
+        return true;
+    return !_names.empty() && fs::toLower(_names[size_t(_index)]).rfind("interface/scenes/", 0) == 0;
+}
+
+bool ScenePage::atMainMenu() const {
+    return _location == (_ctx.game ? _ctx.game->flow.mainMenu : GameFlow().mainMenu);
+}
+
 void ScenePage::openMenu(const std::string &name) {
     // 0x423c00: from the game, the scene to come back to; from a menu, that
     // menu.
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     if (inMenu) {
         _previousMenu = _state.scene.substr(0, _state.scene.size() - 4);
     } else {
@@ -265,7 +270,9 @@ void ScenePage::openMenu(const std::string &name) {
         if (!_names.empty())
             _gameScene = _names[size_t(_index)];
     }
-    changeScene("menu." + name + "_01", 1);
+    const std::string format = _ctx.game ? _ctx.game->flow.menu : GameFlow().menu;
+    const size_t at = format.find("%s");
+    changeScene(format.substr(0, at) + name + format.substr(at + 2), 1);
 }
 
 void ScenePage::previous(bool toScene) {
@@ -303,13 +310,13 @@ void ScenePage::drawMessage() {
     const image::Image &placard = picture("interface/placard.tga");
     const int top = 766 - placard.h;
     if (placard.w)
-        image::blitOver(_ctx.screen, placard, (kScreenW - placard.w) / 2, top);
+        image::blitOver(_ctx.screen, placard, (frameW() - placard.w) / 2, top);
     const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("location descriptions") : nullptr;
     if (!style || !style->font)
         return;
     const int w = style->font->width(_message, style->pixels);
     const int h = style->font->lineHeight(style->pixels);
-    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, _message,
+    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - w) / 2, (placard.h - h) / 2 + top + 2, _message,
                      _ctx.fonts->colour("navigation text", {230, 170, 75}));
 }
 
@@ -319,7 +326,7 @@ bool ScenePage::gameKey(uint32_t key) {
     // options screen's OK has VK_ENTER, which matches nothing, so Enter
     // does nothing there). In the save or load screen the rest are the
     // typed name.
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     if (hotspotKey(key))
         return true;
     if (_optionsMenu)
@@ -329,17 +336,21 @@ bool ScenePage::gameKey(uint32_t key) {
         draw();
         return true;
     }
+    bool escaped = false;
     if (key == key::kEscape) {
-        if (_location == "menu.main") {
+        if (atMainMenu()) {
             _runner->run("yesno quit2 0");
         } else if (inMenu) {
             // A menu without a hotspot for it: back to the game.
             _runner->run("fade out, previous scene, fade in");
         } else {
             key = 'p';
+            escaped = true;
         }
     }
-    if ((key == 'p' || key == 's' || key == 'l') && !inMenu && _location.find("menu") == std::string::npos) {
+    const bool letters = !_ctx.game || _ctx.game->flow.letterKeys;
+    if (((key == 'p' && (letters || escaped)) || (letters && (key == 's' || key == 'l'))) && !inMenu && !atMainMenu() &&
+        _location.find("menu") == std::string::npos) {
         // 0x417080: the item in hand put back, the view kept for a
         // thumbnail, then the menu.
         releaseHeld();
@@ -347,7 +358,7 @@ bool ScenePage::gameKey(uint32_t key) {
         if (_renderer)
             _grabDue = true;
         else
-            _grab = image::Image{kScreenW, kScreenH, _ctx.screen.pixels};
+            _grab = image::Image{frameW(), frameH(), _ctx.screen.pixels};
         _runner->clear();
         for (Character &c : _characters)
             if (c.player)
@@ -361,7 +372,7 @@ bool ScenePage::gameKey(uint32_t key) {
     }
     if (key == key::kF1 + 1) {
         // F2: a quick save, out of the menus.
-        if (_location != "menu.main" && !inMenu)
+        if (!atMainMenu() && !inMenu)
             quickSave();
         return true;
     }
@@ -457,17 +468,22 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
             image::Image t;
             t.w = 256, t.h = 192;
             t.rgba.resize(size_t(t.w) * t.h * 4);
-            const int fx = _grab.w / t.w;
-            const int fy = _grab.h / t.h;
+            // Each pixel the mean of the frame's pixels it covers (whole
+            // blocks of 4 at 1024x768; at 800x600 blocks of 3 or 4).
             for (int y = 0; y < t.h; y++)
-                for (int x = 0; x < t.w; x++)
+                for (int x = 0; x < t.w; x++) {
+                    const int x0 = x * _grab.w / t.w;
+                    const int x1 = std::max(x0 + 1, (x + 1) * _grab.w / t.w);
+                    const int y0 = y * _grab.h / t.h;
+                    const int y1 = std::max(y0 + 1, (y + 1) * _grab.h / t.h);
                     for (int c = 0; c < 3; c++) {
                         int sum = 0;
-                        for (int v = 0; v < fy; v++)
-                            for (int u = 0; u < fx; u++)
-                                sum += _grab.pixel(x * fx + u, y * fy + v)[c];
-                        t.pixel(x, y)[c] = uint8_t(sum / (fx * fy));
+                        for (int v = y0; v < y1; v++)
+                            for (int u = x0; u < x1; u++)
+                                sum += _grab.pixel(u, v)[c];
+                        t.pixel(x, y)[c] = uint8_t(sum / ((x1 - x0) * (y1 - y0)));
                     }
+                }
             writeAll(savesFolder() / (slotName(slot) + ".bmp"), encodeBmp24(t.w, t.h, t.rgba));
         }
         logScript("  (saved " + slotName(slot) + ": \"" + m.name + "\")");
@@ -484,7 +500,8 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
 bool ScenePage::slotClick(int x, int y) {
     SlotMenu &m = *_slots;
     for (int r = 0; r < 3; r++) {
-        if (x < kRowLeft || x >= kRowRight || y < kRowTop[r] || y >= kRowTop[r] + kRowHeight)
+        const SlotLayout l = slotLayout();
+        if (x < l.left || x >= l.right || y < l.rows[size_t(r)] || y >= l.rows[size_t(r)] + l.height)
             continue;
         const int slot = m.page + r;
         if (m.save ? slot > m.count : slot >= m.count)
@@ -531,33 +548,40 @@ void ScenePage::slotKey(uint32_t key) {
         m.name.pop_back();
 }
 
+SlotLayout ScenePage::slotLayout() const {
+    return _ctx.game ? _ctx.game->saves.screen : SlotLayout{};
+}
+
 void ScenePage::drawSlots() {
-    // 0x434b90, 0x4245e0: three rows: the thumbnail (dimmed unless picked),
-    // the name in the middle, the date and time at the foot.
+    // 0x434b90, 0x4245e0 (the rows' tops at 0x490b98): three rows: the thumbnail (dimmed unless picked),
+    // the name in the middle, the date and time at the foot; where, the
+    // game's (SlotLayout).
     const SlotMenu &m = *_slots;
-    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
-    const Color picked = _ctx.fonts
+    const SlotLayout l = slotLayout();
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style(l.font) : nullptr;
+    const Color picked = l.picked ? dialogueColour(l.picked)
+                         : _ctx.fonts
                              ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
                              : Color{255, 220, 130};
-    const Color other =
-        _ctx.fonts ? _ctx.fonts->colour("save, load, and options grayed out", {230, 170, 75}) : Color{230, 170, 75};
+    const Color other = l.other      ? dialogueColour(l.other)
+                        : _ctx.fonts ? _ctx.fonts->colour("save, load, and options grayed out", {230, 170, 75})
+                                     : Color{230, 170, 75};
     // The glow on the picked row.
     if (m.save || m.count > 0) {
-        const image::Image &glow =
-            picture(m.save ? "locations/menu.save/cutouts/glow.tga" : "locations/menu.load/cutouts/glow.tga");
+        const image::Image &glow = picture(m.save ? l.glowSave : l.glowLoad);
         if (glow.w)
-            image::blitOver(_ctx.screen, glow, kRowLeft, kRowTop[m.row]);
+            image::blitOver(_ctx.screen, glow, l.left, l.rows[size_t(m.row)]);
     }
     for (int r = 0; r < 3; r++) {
         const SlotMenu::Row &row = m.rows[r];
-        const int top = kRowTop[r];
+        const int top = l.rows[size_t(r)];
         const bool on = r == m.row;
         if (row.thumbnail.w) {
             image::Image t = row.thumbnail;
             if (!on)
                 for (size_t i = 3; i < t.rgba.size(); i += 4)
                     t.rgba[i] = 92;
-            image::blitOver(_ctx.screen, t, 704, top + 1);
+            image::blitOver(_ctx.screen, t, l.thumbnail, top + 1);
         }
         if (!style || !style->font)
             continue;
@@ -568,21 +592,21 @@ void ScenePage::drawSlots() {
             main = m.name;
             colour = picked;
         } else if (!row.exists) {
-            main = interfaceText("empty");
+            main = l.empty ? l.empty : interfaceText("empty");
         } else {
             main = row.description;
             colour = on && !m.save ? picked : other;
         }
         const int w = style->font->width(main, style->pixels);
-        _ctx.fonts->draw(_ctx.screen, *style, 624 - w / 2, top + (kRowHeight - h) / 2, main, colour);
+        _ctx.fonts->draw(_ctx.screen, *style, l.name - w / 2, top + (l.height - h) / 2, main, colour);
         // The caret just after the name, while the blink has it on
         // (0x434c91).
         if (m.save && on && _caretOn)
-            _ctx.fonts->draw(_ctx.screen, *style, 624 + w - w / 2, top + (kRowHeight - h) / 2, "|", colour);
+            _ctx.fonts->draw(_ctx.screen, *style, l.name + w - w / 2, top + (l.height - h) / 2, "|", colour);
         if (row.exists) {
-            _ctx.fonts->draw(_ctx.screen, *style, 708, top + kRowHeight - h, row.date, on ? picked : other);
-            _ctx.fonts->draw(_ctx.screen, *style, 952 - style->font->width(row.time, style->pixels),
-                             top + kRowHeight - h, row.time, on ? picked : other);
+            _ctx.fonts->draw(_ctx.screen, *style, l.date, top + l.height - h, row.date, on ? picked : other);
+            _ctx.fonts->draw(_ctx.screen, *style, l.timeEnd - style->font->width(row.time, style->pixels),
+                             top + l.height - h, row.time, on ? picked : other);
         }
     }
 }
@@ -596,7 +620,7 @@ void ScenePage::drawYesNo() {
     // No in m pixels from x 542.
     const image::Image &box = picture("interface/mainmenuwin.tga");
     if (box.w)
-        image::blitOver(_ctx.screen, box, (kScreenW - box.w) / 2, (kScreenH - box.h) / 2);
+        image::blitOver(_ctx.screen, box, (frameW() - box.w) / 2, (frameH() - box.h) / 2);
     const TextStyle *style = _ctx.fonts->style("popup dialogs");
     if (!style || !style->font)
         return;
@@ -604,7 +628,7 @@ void ScenePage::drawYesNo() {
     const Color lit = _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
     const int lineH = style->font->lineHeight(style->pixels);
     const int qw = style->font->width(_yesNo->text, style->pixels);
-    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - qw) / 2, 364 - lineH, _yesNo->text, plain);
+    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - qw) / 2, 364 - lineH, _yesNo->text, plain);
     const std::string words[2] = {interfaceText("yes"), interfaceText("no")};
     for (int i = 0; i < 2; i++)
         _yesNo->w[i] = style->font->width(words[i], style->pixels), _yesNo->h[i] = lineH;

@@ -126,7 +126,23 @@ const GameInfo &game() {
                         .colours = {0xffd2aa6e, 0xfff2e7bd, 0xffd2aa6e, 0xffc08a6f, 0xff8f9cb0}},
         // Saved Games\slot%d.ac1 and .bmp (0x41e917, 0x41ebb4), written by
         // 0x412e9f.
-        .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false}, .extension = ".ac1"},
+        // Its screens' rows (0x41eca0, 0x41ef80).
+        .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false},
+                  .extension = ".ac1",
+                  .screen = {.rows = {57, 222, 389},
+                             .left = 521,
+                             .right = 721,
+                             .height = 150,
+                             .thumbnail = 522,
+                             .name = 404,
+                             .date = 526,
+                             .timeEnd = 716,
+                             .font = "font 7",
+                             .picked = 0xffffffff,
+                             .other = 0xff808080,
+                             .glowSave = "interface/scenes/cutouts/glow.tga",
+                             .glowLoad = "interface/scenes/cutouts/glow.tga",
+                             .empty = "EMPTY"}},
         // Its start (0x40279b), its chapters, its scenes by place and act
         // (0x403310, 0x4035d0), and its act's music when a scene has none
         // (0x42d742).
@@ -136,8 +152,13 @@ const GameInfo &game() {
                  .placeOf = placeOf,
                  .actFolders = true,
                  .actMusic = true,
-                 .musica = "sound\\%s.wav"}, // 0x40c42a
-        .overlay = makeOverlay,              // the journal
+                 .musica = "sound\\%s.wav", // 0x40c42a
+                 // interface\scenes\<name>.ac1 (0x403990); Escape alone
+                 // (0x416f0c).
+                 .menu = "%s",
+                 .mainMenu = "mainmenu",
+                 .letterKeys = false},
+        .overlay = makeOverlay, // the journal
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

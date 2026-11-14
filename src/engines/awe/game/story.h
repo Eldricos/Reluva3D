@@ -62,6 +62,13 @@ public:
         _row.reset();
     }
     const ActRow *row() const { return _row ? &*_row : nullptr; }
+    // The act's row in the tables; null if there's none.
+    const ActRow *find(const std::string &act) const {
+        for (const ActRow &r : _acts)
+            if (r.act == act)
+                return &r;
+        return nullptr;
+    }
     // A saved game's act (0x422470): its row as saved (acts.txt isn't read
     // again), its location loaded through onLoadLocation, but neither
     // PreLoad nor Post Load run; done() once loaded.

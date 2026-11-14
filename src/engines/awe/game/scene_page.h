@@ -371,6 +371,7 @@ private:
     std::filesystem::path savesFolder() const;
     // The game's saves' extension and layout (GameInfo::saves).
     std::string saveExtension() const;
+    SlotLayout slotLayout() const;
     SaveLayout saveLayout() const;
     SaveGame captureSave(const std::string &description) const;
     // "preload": the story state from a save; "load" then goes there.
@@ -517,6 +518,9 @@ private:
     std::string interfaceText(const std::string &tag);
     // The game's own window (GameInfo::overlay), made afresh for a game.
     void makeOverlay();
+    // Whether the scene is one of the game's menus, and the main menu's.
+    bool inMenuScene() const;
+    bool atMainMenu() const;
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).
     bool startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait);
