@@ -191,6 +191,14 @@ void TestsWindow::drawChoices() {
     const bool running = _runner->running();
     ImGui::BeginDisabled(running);
 
+    // The list scrolls on its own, so the records, Run and Stop below it
+    // stay in view however many groups are open: a heading and the combo,
+    // the baseline's folder when it's asked for, the slider, the buttons.
+    const bool folderShown = _records == Records::kCompareMine || _records == Records::kMakeMine;
+    const ImGuiStyle &style = ImGui::GetStyle();
+    const float controls = ImGui::GetTextLineHeightWithSpacing() + style.SeparatorTextPadding.y * 2 +
+                           float(folderShown ? 4 : 3) * ImGui::GetFrameHeightWithSpacing() + style.ItemSpacing.y;
+    ImGui::BeginChild("list", ImVec2(0, -controls));
     ImGui::SeparatorText("Games");
     const std::vector<TestGame> list = games();
     if (list.empty())
@@ -248,6 +256,7 @@ void TestsWindow::drawChoices() {
     for (const auto &[area, tests] : others)
         group(area, tests);
     ImGui::PopID();
+    ImGui::EndChild();
 
     ImGui::SeparatorText("Records");
     const char *kinds[] = {"The committed ones", "Compare with my baseline", "Make my baseline",
