@@ -44,6 +44,7 @@ struct DialogueChoiceArea {
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
                                                 const DialogueBoxPictures &pictures, int top, const std::string &text,
                                                 Color colour, const std::vector<std::string> &choices, int highlighted,
-                                                const std::vector<const image::Image *> &choicePictures = {});
+                                                const std::vector<const image::Image *> &choicePictures = {},
+                                                int wrap = 944);
 
 } // namespace reluva::awe

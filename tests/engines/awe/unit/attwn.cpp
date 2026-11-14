@@ -6,9 +6,11 @@
 
 #include "engines/awe/attwn/attwn.h"
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/formats/tables.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/games.h"
 #include "engines/awe/game/conditions.h"
+#include "engines/awe/game/dialogue.h"
 #include "engines/awe/game/script.h"
 #include "tests/engines/awe/fixtures.h"
 #include "tests/support/test.h"
@@ -208,6 +210,27 @@ void testScriptWords() {
     CHECK(!other.tags.count("02a_neededcounter") && host.started.size() == 1 && host.started[0] == "inc needed 02a");
 }
 
+void testDialogueTables() {
+    // Its columns, as ac.exe's loader (0x431160) reads them: the 7th, Tone,
+    // a note for the voice, dropped; Duration and Location unread.
+    const std::string table =
+        "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTone\tLine\tLine Translation\tCondition\t"
+        "Repeat\tPrevent\tEvent\tPovent\tDuration\tLocation\n"
+        "marston\t01a\ta\ta\ta\tmarston\tsleeping noises\tNarracott!\t0\t0\t0\t0\t0\t0\t2,5\thall\n";
+    DialogueBook book;
+    book.tables = attwn::game().dialogue;
+    book.add(parseTable(table));
+    const std::vector<const DialogueLine *> lines = book.conversation("marston");
+    CHECK(lines.size() == 1 && lines[0]->speaker == "marston" && lines[0]->text == "Narracott!");
+    CHECK(lines.size() == 1 && lines[0]->target.empty() && lines[0]->duration == 0 && lines[0]->optional.empty());
+    CHECK(book.tables.wrap == 750 && std::string(book.tables.events) == "dialogue/acts/events/");
+    // Read as Orient Express's, the 7th would be a target to turn to.
+    DialogueBook theirs;
+    theirs.add(parseTable(table));
+    CHECK(theirs.conversation("marston").size() == 1 && theirs.conversation("marston")[0]->target == "sleeping noises");
+    CHECK(theirs.tables.wrap == 944);
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -235,12 +258,13 @@ void testDetection(const std::filesystem::path &tmp) {
 
 } // namespace
 
-static const reluva::test::Suite kSuite("awe.unit.attwn",
-                                        {
-                                            {"unscrambling", [](const std::filesystem::path &) { testUnscramble(); }},
-                                            {"names", [](const std::filesystem::path &) { testNames(); }},
-                                            {"its files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
-                                            {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
-                                            {"script words", [](const std::filesystem::path &) { testScriptWords(); }},
-                                            {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("awe.unit.attwn", {
+                                 {"unscrambling", [](const std::filesystem::path &) { testUnscramble(); }},
+                                 {"names", [](const std::filesystem::path &) { testNames(); }},
+                                 {"its files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
+                                 {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
+                                 {"script words", [](const std::filesystem::path &) { testScriptWords(); }},
+                                 {"dialogue tables", [](const std::filesystem::path &) { testDialogueTables(); }},
+                                 {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
+                             });

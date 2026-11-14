@@ -7,8 +7,9 @@
 `awe.unit.attwn` (`tests/engines/awe/unit/attwn.cpp`), on files made in
 the test: recognising the game, its file names, unscrambling `.act`
 ([formats/files.md](formats/files.md)), reading a scene
-([formats/ac1.md](formats/ac1.md)), and its own script words
-([systems/script.md](systems/script.md)).
+([formats/ac1.md](formats/ac1.md)), its own script words
+([systems/script.md](systems/script.md)), and its dialogue tables
+([systems/dialogue.md](systems/dialogue.md)).
 
 ### The basic engine test
 

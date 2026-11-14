@@ -11,7 +11,7 @@ namespace reluva::awe {
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
                                                 const DialogueBoxPictures &pictures, int top, const std::string &text,
                                                 Color colour, const std::vector<std::string> &choices, int highlighted,
-                                                const std::vector<const image::Image *> &choicePictures) {
+                                                const std::vector<const image::Image *> &choicePictures, int wrap) {
     std::vector<DialogueChoiceArea> areas;
     const int boxH = pictures.window && pictures.window->h > 0 ? pictures.window->h : 160;
     if (pictures.window && pictures.window->w > 0)
@@ -21,7 +21,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &f
         return areas;
     ttf::Font &font = *style->font;
     const int lh = font.lineHeight(style->pixels);
-    const int width = 944;
+    const int width = wrap; // the game's (DialogueTables::wrap)
     if (choices.empty()) {
         // The line, centred both ways in the box.
         const std::vector<std::string> lines = gameRows(font, style->pixels, text, width);

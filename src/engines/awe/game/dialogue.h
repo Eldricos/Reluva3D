@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/awe/games.h"
 #include "engines/awe/game/conditions.h"
 #include "engines/awe/game/script.h"
 #include "engines/awe/formats/tables.h"
@@ -110,6 +111,10 @@ public:
     const std::vector<DialoguePart> &parts() const { return _parts; }
     // All the lines of a conversation, in table order.
     std::vector<const DialogueLine *> conversation(std::string_view name) const;
+
+    // How the game's tables are laid out (games.h): Orient Express's unless
+    // set.
+    DialogueTables tables;
 
 private:
     std::vector<DialoguePart> _parts;

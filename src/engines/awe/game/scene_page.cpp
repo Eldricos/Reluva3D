@@ -90,6 +90,8 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
     _state.values["moving"] = 1;
     _runner = std::make_unique<ScriptRunner>(_state, *this);
     _dialogue = std::make_unique<DialogueManager>(_state, *this, *this);
+    if (ctx.game)
+        _dialogue->book().tables = ctx.game->dialogue;
     _dialogue->onLog = [this](const std::string &l) { logScript("    " + shorten(l, 150)); };
     _story = std::make_unique<Story>(_state, *_runner);
     loadOptions();
@@ -1536,7 +1538,7 @@ void ScenePage::draw() {
         const auto areas = drawDialogueBox(_ctx.screen, *_ctx.fonts, pics, _dialogue->boxTop(),
                                            said ? said->text : std::string(), _ctx.fonts->colour(kColours[c]),
                                            _dialogue->choosing() ? choices : std::vector<std::string>(),
-                                           _dialogue->highlighted(), choicePictures);
+                                           _dialogue->highlighted(), choicePictures, _dialogue->book().tables.wrap);
         std::vector<DialogueManager::ChoiceArea> rows;
         for (const auto &a : areas)
             rows.push_back({a.x, a.y, a.w, a.h, a.choice, a.picture});

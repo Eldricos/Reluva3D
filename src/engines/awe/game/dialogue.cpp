@@ -115,19 +115,21 @@ void DialogueBook::add(const Table &t) {
         l.thread = fs::toLower(t.cell(r, thread));
         l.nest = fs::toLower(t.cell(r, nest));
         l.speaker = fs::toLower(cellOf(t, r, speaker));
-        l.target = fs::toLower(cellOf(t, r, target));
+        if (tables.target)
+            l.target = fs::toLower(cellOf(t, r, target));
         l.text = t.cell(r, line);
-        if (!cellOf(t, r, translation).empty())
+        if (tables.translation && !cellOf(t, r, translation).empty())
             l.text = t.cell(r, translation);
         l.condition = cellOf(t, r, condition);
         l.repeat = cellOf(t, r, repeat);
-        l.optional = cellOf(t, r, optional);
+        if (tables.optional)
+            l.optional = cellOf(t, r, optional);
         l.notes = cellOf(t, r, notes);
         l.before = cellOf(t, r, before);
         l.event = cellOf(t, r, event);
         l.after = cellOf(t, r, after);
         // "a, b": the movies' start and length; the second is a line's time.
-        const std::string d = t.cell(r, duration);
+        const std::string d = tables.duration ? t.cell(r, duration) : std::string();
         l.duration = d.find(',') != std::string::npos ? float(std::atof(d.c_str() + d.find(',') + 1)) : 0;
         l.partCode = dialoguePartCode(l.part);
         l.threadCode = dialogueThreadCode(l.thread);
@@ -727,7 +729,7 @@ void DialogueManager::speak() {
         _events.run(l.event);
     } else {
         const Thread &t = _part->threads[size_t(_thread)];
-        const std::string file = "text/dialogue/events/" + _part->name + "_" + _part->act + "_" +
+        const std::string file = std::string(_book.tables.events) + _part->name + "_" + _part->act + "_" +
                                  partText(_part->code) + threadText(t.code) + std::string(1, char('a' + l.nestCode)) +
                                  ".txt";
         const std::string text = _host.readText(file);
