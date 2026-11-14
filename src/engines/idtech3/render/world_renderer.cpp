@@ -24,7 +24,10 @@ namespace {
 constexpr float kLastOpaqueSort = 5;
 constexpr float kSkySort = -1; // the sky surfaces' batches: never drawn as surfaces
 
-gfx::Vertex toGfx(const BspVertex &v) {
+// A vertex as drawn. Its colour adds up its surface's light styles: until
+// a game's code sets them, each is full, as Raven's engines start them
+// (rbsp.md). A Quake III map's surfaces have only style 0.
+gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s) {
     gfx::Vertex g;
     for (int i = 0; i < 3; ++i) {
         g.pos[i] = v.pos[size_t(i)];
@@ -32,12 +35,62 @@ gfx::Vertex toGfx(const BspVertex &v) {
     }
     for (int i = 0; i < 2; ++i) {
         g.uv[i] = v.st[size_t(i)];
-        g.uv2[i] = v.lightmap[size_t(i)];
+        g.uv2[i] = v.lightmap[0][size_t(i)];
     }
-    for (int i = 0; i < 4; ++i)
-        g.color[i] = v.color[size_t(i)];
-    brightenLight(g.color);
+    int rgb[3] = {};
+    for (size_t k = 0; k < kLightStyles; ++k) {
+        if (s.vertexStyles[k] == kNoStyle)
+            break;
+        uint8_t c[3] = {v.color[k][0], v.color[k][1], v.color[k][2]};
+        brightenLight(c);
+        for (int i = 0; i < 3; ++i)
+            rgb[i] += c[i];
+    }
+    for (int i = 0; i < 3; ++i)
+        g.color[i] = static_cast<uint8_t>(std::min(rgb[i], 255));
+    g.color[3] = v.color[0][3];
     return g;
+}
+
+// The lightmaps as uploaded: brightened, and each surface's other light
+// styles' lightmaps added into its first's, all full as in toGfx. The
+// original draws them as passes added after the lightmap's, which is the
+// same where the lightmap's pass is the shader's first (rbsp.md). Each
+// surface has its own place in each lightmap (true of every Jedi Outcast
+// map), so nothing is added twice.
+std::vector<uint8_t> lightmapPixels(const Bsp &bsp) {
+    constexpr size_t kPixels = size_t(kLightmapSize) * kLightmapSize;
+    std::vector<uint8_t> rgba(bsp.lightmapCount() * kPixels * 4);
+    for (size_t i = 0; i < bsp.lightmapCount() * kPixels; ++i) {
+        std::copy_n(&bsp.lightmaps[i * 3], 3, &rgba[i * 4]);
+        brightenLight(&rgba[i * 4]);
+        rgba[i * 4 + 3] = 255;
+    }
+    for (const BspSurface &s : bsp.surfaces) {
+        if (s.lightmap[0] < 0 || s.lightmapStyles[0] == kNoStyle)
+            continue;
+        for (size_t k = 1; k < kLightStyles && s.lightmapStyles[k] != kNoStyle; ++k) {
+            if (s.lightmap[k] < 0)
+                continue;
+            for (int y = 0; y < s.lightmapSize[1]; ++y)
+                for (int x = 0; x < s.lightmapSize[0]; ++x) {
+                    auto pixel = [&](size_t style) -> uint8_t * {
+                        const int px = s.lightmapPos[style][0] + x;
+                        const int py = s.lightmapPos[style][1] + y;
+                        if (px < 0 || py < 0 || px >= kLightmapSize || py >= kLightmapSize)
+                            return nullptr;
+                        return &rgba[(size_t(s.lightmap[style]) * kPixels + size_t(py) * kLightmapSize + size_t(px)) *
+                                     4];
+                    };
+                    uint8_t *to = pixel(0);
+                    const uint8_t *from = pixel(k);
+                    if (to && from)
+                        for (int i = 0; i < 3; ++i)
+                            to[i] = static_cast<uint8_t>(std::min(to[i] + from[i], 255));
+                }
+        }
+    }
+    return rgba;
 }
 
 } // namespace
@@ -148,19 +201,13 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
 Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     clear();
     constexpr size_t kLightmapPixels = size_t(kLightmapSize) * kLightmapSize;
-    std::vector<uint8_t> rgba(kLightmapPixels * 4);
+    const std::vector<uint8_t> rgba = lightmapPixels(bsp);
     for (size_t l = 0; l < bsp.lightmapCount(); ++l) {
-        const uint8_t *src = bsp.lightmaps.data() + l * kLightmapPixels * 3;
-        for (size_t i = 0; i < kLightmapPixels; ++i) {
-            std::copy_n(src + i * 3, 3, &rgba[i * 4]);
-            brightenLight(&rgba[i * 4]);
-            rgba[i * 4 + 3] = 255;
-        }
         gfx::TextureParams p;
         p.clamp = true;
         p.mipmaps = false;
         gfx::TextureId t = 0;
-        if (Error err = _r.createTexture(kLightmapSize, kLightmapSize, rgba.data(), p, t))
+        if (Error err = _r.createTexture(kLightmapSize, kLightmapSize, &rgba[l * kLightmapPixels * 4], p, t))
             return err;
         _lightmaps.push_back(t);
     }
@@ -221,7 +268,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 continue;
             // Triangle soups are always lit by their vertices, as are
             // surfaces without a lightmap.
-            const bool lightmapped = s.lightmap >= 0 && size_t(s.lightmap) < _lightmaps.size() &&
+            const bool lightmapped = s.lightmap[0] >= 0 && size_t(s.lightmap[0]) < _lightmaps.size() &&
                                      s.type != SurfaceType::kTriangleSoup && !_vertexLight;
             const int materialIndex = _shaders.material(bsp.shaders[size_t(s.shader)].name,
                                                         lightmapped ? Lighting::kLightmap : Lighting::kVertex);
@@ -242,19 +289,20 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 Sprite sp;
                 sp.surface = si;
                 sp.material = materialIndex;
-                sp.lightmap = lightmapped ? s.lightmap : -1;
+                sp.lightmap = lightmapped ? s.lightmap[0] : -1;
                 sp.fog = s.fog;
                 sp.sort = mat.sort;
                 sp.kind = mat.autosprite;
                 const BspVertex *sv = &bsp.vertices[size_t(s.firstVertex)];
                 for (int i = 0; i < s.numVertices; ++i)
-                    sp.vertices.push_back(toGfx(sv[i]));
+                    sp.vertices.push_back(toGfx(sv[i], s));
                 for (int i = 0; i < s.numIndices; ++i)
                     sp.indices.push_back(uint32_t(bsp.indices[size_t(s.firstIndex + i)]));
                 _sprites.push_back(std::move(sp));
                 continue;
             }
-            const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap : -1, s.fog, int(mi)};
+            const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap[0] : -1, s.fog,
+                               int(mi)};
             std::vector<uint32_t> &out = groups[key];
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
@@ -264,12 +312,12 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 patchIndices.clear();
                 triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
                 for (const BspVertex &pv : patchVerts)
-                    vertices.push_back(toGfx(pv));
+                    vertices.push_back(toGfx(pv, s));
                 for (uint32_t i : patchIndices)
                     out.push_back(base + i);
             } else {
                 for (int i = 0; i < s.numVertices; ++i)
-                    vertices.push_back(toGfx(v[i]));
+                    vertices.push_back(toGfx(v[i], s));
                 for (int i = 0; i + 2 < s.numIndices; i += 3)
                     for (int k = 0; k < 3; ++k)
                         out.push_back(base + uint32_t(bsp.indices[size_t(s.firstIndex + i + k)]));

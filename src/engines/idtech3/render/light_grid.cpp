@@ -21,8 +21,8 @@ constexpr float kMinimumAmbient = 32;
 } // namespace
 
 void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
-    _data.clear();
-    if (bsp.models.empty() || bsp.lightGrid.empty())
+    _cells.clear();
+    if (bsp.models.empty() || bsp.gridIndex.empty())
         return;
     _size = cellSize;
     // Grid points on multiples of the cell size inside the world's bounds.
@@ -36,18 +36,42 @@ void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
         if (_count[k] < 1)
             return;
     }
-    if (size_t(_count[0]) * size_t(_count[1]) * size_t(_count[2]) * 8 != bsp.lightGrid.size())
+    if (size_t(_count[0]) * size_t(_count[1]) * size_t(_count[2]) != bsp.gridIndex.size())
         return;
-    _data = bsp.lightGrid;
-    for (size_t i = 0; i < _data.size(); i += 8) {
-        brightenLight(&_data[i]);
-        brightenLight(&_data[i + 3]);
+    // Raven's maps skip a point with no style, Quake III's one whose
+    // ambient light is black; parseBsp gives the latter no style too.
+    _points.clear();
+    for (const Bsp::GridPoint &g : bsp.gridPoints) {
+        Point p;
+        p.latLong = g.latLong;
+        p.inWall = g.styles[0] == kNoStyle;
+        int ambient[3] = {};
+        int directed[3] = {};
+        // Its styles in order, up to the first unused.
+        for (size_t k = 0; k < kLightStyles && !p.inWall; ++k) {
+            if (g.styles[k] == kNoStyle)
+                break;
+            std::array<uint8_t, 3> a = g.ambient[k];
+            std::array<uint8_t, 3> d = g.directed[k];
+            brightenLight(a.data());
+            brightenLight(d.data());
+            for (size_t c = 0; c < 3; ++c) {
+                ambient[c] += a[c];
+                directed[c] += d[c];
+            }
+        }
+        for (size_t c = 0; c < 3; ++c) {
+            p.ambient[c] = static_cast<uint8_t>(std::min(ambient[c], 255));
+            p.directed[c] = static_cast<uint8_t>(std::min(directed[c], 255));
+        }
+        _points.push_back(p);
     }
+    _cells = bsp.gridIndex;
 }
 
 PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) const {
     PointLight light;
-    if (_data.empty()) {
+    if (_cells.empty()) {
         light.ambient = {150 + kMinimumAmbient, 150 + kMinimumAmbient, 150 + kMinimumAmbient};
         light.directed = {150, 150, 150};
         const float n = std::sqrt(0.45f * 0.45f + 0.3f * 0.3f + 0.9f * 0.9f);
@@ -62,7 +86,7 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         frac[i] = v - f;
         cell[i] = std::clamp(int(f), 0, _count[size_t(i)] - 1);
     }
-    const size_t step[3] = {8, 8 * size_t(_count[0]), 8 * size_t(_count[0]) * size_t(_count[1])};
+    const size_t step[3] = {1, size_t(_count[0]), size_t(_count[0]) * size_t(_count[1])};
     float total = 0;
     std::array<float, 3> dir{};
     for (int corner = 0; corner < 8; ++corner) {
@@ -83,18 +107,18 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         }
         if (!inside)
             continue;
-        const uint8_t *p = &_data[at];
-        if (p[0] + p[1] + p[2] == 0)
-            continue; // inside a wall
+        const Point &p = _points[_cells[at]];
+        if (p.inWall)
+            continue;
         total += weight;
-        for (int c = 0; c < 3; ++c) {
-            light.ambient[size_t(c)] += weight * p[c];
-            light.directed[size_t(c)] += weight * p[3 + c];
+        for (size_t c = 0; c < 3; ++c) {
+            light.ambient[c] += weight * p.ambient[c];
+            light.directed[c] += weight * p.directed[c];
         }
-        // Direction as two angles: longitude (byte 6) from +Z, latitude
-        // (byte 7) around it.
-        const float lat = float(p[7]) * kTau / 256;
-        const float lng = float(p[6]) * kTau / 256;
+        // Direction as two angles: longitude (its first byte) from +Z,
+        // latitude (its second) around it.
+        const float lat = float(p.latLong[1]) * kTau / 256;
+        const float lng = float(p.latLong[0]) * kTau / 256;
         const std::array<float, 3> n{std::cos(lat) * std::sin(lng), std::sin(lat) * std::sin(lng), std::cos(lng)};
         for (int c = 0; c < 3; ++c)
             dir[size_t(c)] += weight * n[size_t(c)];

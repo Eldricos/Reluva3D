@@ -378,9 +378,12 @@ int cmdShaderCheck(int argc, char **argv) {
         }
         if (d.deforms.size() > 2)
             add("not drawn: more than two deformVertexes", d);
-        for (const q3::ShaderStage &st : d.stages)
+        for (const q3::ShaderStage &st : d.stages) {
             if (st.blendSrc == "gl_src_alpha_saturate")
                 add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
+            if (!st.videoMap.empty())
+                add("stage not drawn: videoMap (RoQ video)", d);
+        }
     }
     std::printf("%zu shaders\n", shaders.size());
     for (const auto &[what, info] : found) {

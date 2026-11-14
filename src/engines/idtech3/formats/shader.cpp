@@ -86,10 +86,17 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
             stage.whiteImage = true;
         else if (!args.empty())
             stage.maps = {args[0]};
-    } else if (d.keyword == "animmap") {
+    } else if (d.keyword == "animmap" || d.keyword == "clampanimmap" || d.keyword == "oneshotanimmap") {
+        // Raven's: clampAnimMap's frames clamped as clampMap's;
+        // oneshotAnimMap's played once, then held on the last.
         stage.animFps = num(args, 0);
+        stage.clamp = d.keyword == "clampanimmap";
+        stage.animOnce = d.keyword == "oneshotanimmap";
         if (args.size() >= 2)
             stage.maps.assign(args.begin() + 1, args.end());
+    } else if (d.keyword == "videomap") {
+        if (!args.empty())
+            stage.videoMap = args[0];
     } else if (d.keyword == "blendfunc") {
         // Shorthands, and the explicit two-factor form.
         if (a0 == "add") {

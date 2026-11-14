@@ -220,6 +220,7 @@ ShaderCache::Stage ShaderCache::makeStage(const ShaderStage &def, const ShaderDe
     Stage st;
     st.def = &def;
     st.fps = def.animFps;
+    st.once = def.animOnce;
     if (def.lightmap) {
         st.lightmap = true;
     } else if (def.whiteImage || def.maps.empty()) {
@@ -282,8 +283,17 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
                 m.portalRange = std::max(m.portalRange, s.portalRange);
     }
 
-    for (const ShaderStage &s : def.stages)
-        m.stages.push_back(makeStage(s, def));
+    // A video's stage waits for RoQ videos; the rest of the shader is drawn.
+    for (const ShaderStage &s : def.stages) {
+        if (!s.videoMap.empty())
+            note("videoMap (RoQ video)");
+        else
+            m.stages.push_back(makeStage(s, def));
+    }
+    if (m.stages.empty()) {
+        m.skip = true;
+        return m;
+    }
 
     size_t used = 0;
     for (const ShaderDeform &d : def.deforms) {
@@ -418,6 +428,8 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
         call.state = st.state;
         if (st.lightmap)
             call.texture = lightmap ? lightmap : _whiteTexture;
+        else if (st.fps > 0 && st.frames.size() > 1 && st.once)
+            call.texture = st.frames[size_t(std::clamp(std::floor(time * st.fps), 0.0f, float(st.frames.size() - 1)))];
         else if (st.fps > 0 && st.frames.size() > 1)
             call.texture = st.frames[size_t(std::fmod(std::floor(time * st.fps), float(st.frames.size())))];
         else

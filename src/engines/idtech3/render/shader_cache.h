@@ -36,6 +36,7 @@ public:
     struct Stage {
         std::vector<gfx::TextureId> frames; // empty for a $lightmap stage
         float fps = 0;
+        bool once = false; // the last frame held once played
         bool lightmap = false;
         gfx::DrawState state;
         const ShaderStage *def = nullptr;

@@ -21,8 +21,9 @@ namespace reluva::idtech3::fixtures {
 // A tiny map: one triangle in one leaf of a two-leaf tree, one brush,
 // one lightmap and vis data for two clusters.
 inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_t lightmap = 0, int32_t fog = -1,
-                                     int32_t type = 1) {
-    std::vector<uint8_t> lumps[17];
+                                     int32_t type = 1, bool raven = false) {
+    std::vector<uint8_t> lumps[18];
+    const size_t lumpCount = raven ? 18 : 17;
     auto i32 = [](std::vector<uint8_t> &v, int32_t x) {
         for (int i = 0; i < 4; ++i)
             v.push_back(uint8_t(uint32_t(x) >> (8 * i)));
@@ -75,44 +76,88 @@ inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_
     i32(lumps[8], 0);
     i32(lumps[9], 0);
     i32(lumps[9], 0);
+    if (raven) {
+        i32(lumps[9], 0);                       // the side's surface
+        name(lumps[12], "textures/fogs/level"); // the whole level's fog: no brush
+        i32(lumps[12], -1);
+        i32(lumps[12], -1);
+    }
+    // Raven's: four lightmap coordinates and colours a vertex, the second
+    // style's half the first's.
+    const int styles = raven ? 4 : 1;
     for (int v = 0; v < 3; ++v) {
         f32(lumps[10], v == 1 ? 32.f : 0.f);
         f32(lumps[10], v == 2 ? 32.f : 0.f);
         f32(lumps[10], 16);
-        for (int k = 0; k < 4; ++k)
+        f32(lumps[10], 0.5f);
+        f32(lumps[10], 0.5f);
+        for (int k = 0; k < styles * 2; ++k)
             f32(lumps[10], 0.5f);
         f32(lumps[10], 0);
         f32(lumps[10], 0);
         f32(lumps[10], 1);
-        for (uint8_t c : {255, 128, 64, 255})
-            lumps[10].push_back(c);
+        for (int k = 0; k < styles; ++k)
+            for (uint8_t c : {255, 128, 64, 255})
+                lumps[10].push_back(k == 1 ? uint8_t(c / 2) : c);
     }
     i32(lumps[11], 0);
     i32(lumps[11], 1);
     i32(lumps[11], badIndex >= 0 ? badIndex : 2);
-    // Surface: shader 0, no fog, planar, vertices 0-2, indices 0-2, lightmap 0.
-    for (int32_t x : {0, fog, type, 0, 3, 0, 3, lightmap, 0, 0, 16, 16})
+    // Surface: shader 0, no fog, planar, vertices 0-2, indices 0-2, lightmap 0;
+    // Raven's with a second style (2), its lightmap 1 at (16, 0).
+    for (int32_t x : {0, fog, type, 0, 3, 0, 3})
         i32(lumps[13], x);
+    if (raven) {
+        for (uint8_t style : {0, 2, 255, 255}) // lightmap styles, then vertex styles
+            lumps[13].push_back(style);
+        for (uint8_t style : {0, 2, 255, 255})
+            lumps[13].push_back(style);
+        for (int32_t x : {lightmap, 1, -1, -1, 0, 16, 0, 0, 0, 0, 0, 0})
+            i32(lumps[13], x);
+    } else {
+        for (int32_t x : {lightmap, 0, 0})
+            i32(lumps[13], x);
+    }
+    i32(lumps[13], 16);
+    i32(lumps[13], 16);
     for (int k = 0; k < 12; ++k)
         f32(lumps[13], k == 11 ? 1.f : 0.f);
     i32(lumps[13], 0);
     i32(lumps[13], 0);
-    lumps[14].assign(kLightmapSize * kLightmapSize * 3, 7);
+    lumps[14].assign(kLightmapSize * kLightmapSize * 3 * (raven ? 2 : 1), 7);
+    // Raven's light grid: two distinct points, the second inside a wall
+    // (no style), for the world's 3 x 3 x 1 grid points of 64 x 64 x 128.
+    if (raven) {
+        for (int point = 0; point < 2; ++point) {
+            for (int k = 0; k < 24; ++k)
+                lumps[15].push_back(uint8_t(k < 3 ? 40 : 0));
+            for (uint8_t style : {uint8_t(point ? 255 : 0), uint8_t(255), uint8_t(255), uint8_t(255)})
+                lumps[15].push_back(style);
+            lumps[15].push_back(0);
+            lumps[15].push_back(0);
+        }
+        for (int i = 0; i < 9; ++i) {
+            lumps[17].push_back(i == 8 ? 1 : 0);
+            lumps[17].push_back(0);
+        }
+    }
     i32(lumps[16], 2);
     i32(lumps[16], 1);
     lumps[16].push_back(0x01); // cluster 0 sees itself
     lumps[16].push_back(0x03); // cluster 1 sees both
 
     std::vector<uint8_t> out = {'I', 'B', 'S', 'P'};
+    if (raven)
+        out[0] = 'R';
     i32(out, version);
-    int32_t offset = 8 + 17 * 8;
-    for (const auto &l : lumps) {
+    int32_t offset = 8 + int32_t(lumpCount) * 8;
+    for (size_t i = 0; i < lumpCount; ++i) {
         i32(out, offset);
-        i32(out, int32_t(l.size()));
-        offset += int32_t(l.size());
+        i32(out, int32_t(lumps[i].size()));
+        offset += int32_t(lumps[i].size());
     }
-    for (const auto &l : lumps)
-        out.insert(out.end(), l.begin(), l.end());
+    for (size_t i = 0; i < lumpCount; ++i)
+        out.insert(out.end(), lumps[i].begin(), lumps[i].end());
     return out;
 }
 

@@ -21,6 +21,12 @@ None yet.
   `shaders/` for it ([shader.md](../../formats/shader.md)). To check in
   `jk2sp.exe` and `jk2mp.exe`.
 
+- The level's fog (`yavin_canyon`, `yavin_swamp`: a fog with no brush,
+  named by the worldspawn's `fog` key) covers everything, fogged by
+  distance from the eye, as a fog volume the eye is inside
+  ([rbsp.md](../../formats/rbsp.md)). To compare with the original's
+  pictures of those levels.
+
 ## Guessed
 
 - Multiplayer's bots use their own waypoints (`botroutes/*.wnt`) rather

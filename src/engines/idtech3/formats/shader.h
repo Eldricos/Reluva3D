@@ -29,7 +29,9 @@ struct Directive {
 struct ShaderStage {
     std::vector<std::string> maps; // one image, or animMap's frames
     float animFps = 0;             // animMap's rate; 0 = not animated
-    bool clamp = false;            // clampMap
+    bool animOnce = false;         // oneshotAnimMap (Raven's): the last frame held
+    std::string videoMap;          // videoMap (Raven's): a RoQ video, video/<name>
+    bool clamp = false;            // clampMap, clampAnimMap
     bool lightmap = false;         // map $lightmap
     bool whiteImage = false;       // map $whiteimage
     // GL_* names, lower case; empty = opaque

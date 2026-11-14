@@ -13,8 +13,19 @@ None yet.
 
 ## Not yet as the original
 
-The game isn't playable yet ([PLAN.md](PLAN.md)). Left for after the rest
-is done and tested (its phase 11):
+The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
+
+- **Light styles.** The original animates each light style as the game's
+  code sets it (flickering, switched lights); Reluva holds them all full,
+  as the original starts them, and adds each surface's styles into one
+  lightmap. On 7 shaders whose lightmap pass isn't their first, that
+  lights the extra styles through the texture, where the original adds
+  them on top ([rbsp.md](../../formats/rbsp.md), In Reluva). Until the
+  game's code runs (phase 6).
+- **Surface sprites** (grass, weather) and **video textures** aren't
+  drawn yet (phases 2 and 4).
+
+Left for after the rest is done and tested (its phase 11):
 
 - **EAX environmental sound.** The original sets each level's EAX
   environments (`eagle/<map>.eal`) on sound cards that have it; Reluva will

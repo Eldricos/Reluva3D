@@ -13,8 +13,10 @@
 # The steps are named for the game (jk2-...), so their outputs in the build
 # don't meet Elite Force's:
 #   jk2-release   what the game is
+#   jk2-maps      every map read (bsp-check)
 #   jk2-shaders   every shader script read (shader-check)
 #   jk2-models    every MD3 model and skin read (model-check)
+#   jk2-images    the images every map's shaders name (image-check)
 # Records: tests/engines/idtech3/data/gamedata/jk2-<release>/<step>.txt.
 
 include("${HELPERS}")
@@ -38,10 +40,14 @@ string(REGEX REPLACE "^-|-$" "" slug "${slug}")
 if(STEP STREQUAL "jk2-release")
     string(STRIP "${detected}" detected)
     set(record "release: ${detected}\n")
+elseif(STEP STREQUAL "jk2-maps")
+    record_run(bsp-check "maps: " idtech3 bsp-check "${base}")
 elseif(STEP STREQUAL "jk2-shaders")
     record_run(shader-check "" idtech3 shader-check "${base}")
 elseif(STEP STREQUAL "jk2-models")
     record_run(model-check "" idtech3 model-check "${base}")
+elseif(STEP STREQUAL "jk2-images")
+    record_run(image-check "distinct missing images" idtech3 image-check "${base}")
 else()
     message(FATAL_ERROR "No step \"${STEP}\"")
 endif()

@@ -14,13 +14,16 @@
   ```
 
   Its steps, beside Elite Force's: `jk2-release` (what's detected),
-  `jk2-shaders` (`shader-check`), `jk2-models` (`model-check`, the MD3
-  models). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  `jk2-maps` (`bsp-check`, every map), `jk2-shaders` (`shader-check`),
+  `jk2-models` (`model-check`, the MD3 models), `jk2-images`
+  (`image-check`, the images the maps' shaders name: 15 missing, as in
+  the paks). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
 
-The launcher's *Add Game...* and *Import Game...* with the real CD.
+The launcher's *Add Game...* and *Import Game...* with the real CD; how
+the maps look (`reluva-viewer`'s World page), against the original.
 
 ## A playthrough by hand
 
@@ -30,4 +33,4 @@ Not playable yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps |
+| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps; every map in the World page |
