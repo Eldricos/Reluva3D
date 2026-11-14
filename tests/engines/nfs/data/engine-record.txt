@@ -15,11 +15,11 @@ formats.mad: 1 of 1 frames, 16x16 c890b6ee44a974e5
 run.result: ok
 run.size: 640x480
 run.titles: Reluva - Need for Speed III: Hot Pursuit - Info / Reluva - Need for Speed III: Hot Pursuit - Play / Reluva - Need for Speed III: Hot Pursuit - Tracks / Reluva - Need for Speed III: Hot Pursuit - Textures / Reluva - Need for Speed III: Hot Pursuit - Strings / Reluva - Need for Speed III: Hot Pursuit - Sounds / Reluva - Need for Speed III: Hot Pursuit - Music / Reluva - Need for Speed III: Hot Pursuit - Movies
-run.screens Reluva - Need for Speed III: Hot Pursuit - Info: 82 c931df96300d4a81
-run.screens Reluva - Need for Speed III: Hot Pursuit - Movies: 32 492d250a3ffa61b7
-run.screens Reluva - Need for Speed III: Hot Pursuit - Music: 31 99a4c402bb4437cc
+run.screens Reluva - Need for Speed III: Hot Pursuit - Info: 82 4f01e067a6048b61
+run.screens Reluva - Need for Speed III: Hot Pursuit - Movies: 32 d1031c0fea3555b7
+run.screens Reluva - Need for Speed III: Hot Pursuit - Music: 31 6ef546ae2e18f3ac
 run.screens Reluva - Need for Speed III: Hot Pursuit - Play: 64 5ae575324d197225
 run.screens Reluva - Need for Speed III: Hot Pursuit - Sounds: 32 de0658cd7ae9aa31
-run.screens Reluva - Need for Speed III: Hot Pursuit - Strings: 51 068a484deba2ad9b
-run.screens Reluva - Need for Speed III: Hot Pursuit - Textures: 63 d6427603866e96de
+run.screens Reluva - Need for Speed III: Hot Pursuit - Strings: 51 48a72786d642e4e5
+run.screens Reluva - Need for Speed III: Hot Pursuit - Textures: 63 af0f8a1a8729e7a0
 run.screens Reluva - Need for Speed III: Hot Pursuit - Tracks: 64 d609780c43c04825
