@@ -35,6 +35,8 @@ const std::vector<GameVariant> kVariants = {
      {{"motoe.exe", "cdfcba4e6c8c7cee637959bc78bd46e7", 684032},
       {"Text/itemlist.txt", "a2a0d2cd331a6fb36ffa79dced219aa5", 37328}}},
 };
+// The game's name, whatever its release.
+constexpr const char *kGameTitle = "Agatha Christie: Murder on the Orient Express";
 // Any other release: the same files, whatever their contents.
 const std::vector<GameVariant> kFallback = {
     {"motoe",
@@ -69,7 +71,11 @@ public:
             _sys, _files, audioOut ? &mixer : nullptr, _screen, _target.savePath, haveFonts ? &fonts : nullptr, {}, -1};
         int shots = 0;
 
-        awe::ScenePage game(ctx, awe::ScenePage::Browser::kOff);
+        // The window has the game's name. The original's title is its
+        // command line (WinMain 0x4018f0, CreateWindowExW at 0x401a13),
+        // given by the installer's shortcut, which the install doesn't
+        // hold: the name is the one its readme and shortcut go by.
+        awe::ScenePage game(ctx, awe::ScenePage::Browser::kOff, kGameTitle);
         if (game.count() == 0)
             return Error::fail("No scenes (Locations/**/*.ac2) found in " + _target.path.string());
         game.activate();

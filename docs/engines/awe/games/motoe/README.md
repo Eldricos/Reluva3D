@@ -204,7 +204,7 @@ and a viewer layer over it in `pages/`.
 
 - **The game.** `reluva` starts it at its logos and main menu, as the
   original does. Escape is the game's (its menu, or a movie skipped); F12
-  saves a screenshot. The window's title names the scene's file, then the
+  saves a screenshot. The window's title is the game's name, then the
   frames shown in the last second.
 - **The data viewer** is `reluva-viewer` (the game's entry from its list,
   `reluva-viewer <entry>`, or `reluva-viewer <game folder>`): the Scenes page, where the scenes'

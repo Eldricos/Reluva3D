@@ -88,7 +88,8 @@ std::string folderOf(const std::string &name) {
 
 } // namespace
 
-ScenePage::ScenePage(ViewerContext &ctx, Browser browser) : Page(ctx), _browser(browser == Browser::kOn) {
+ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
+    : Page(ctx), _browser(browser == Browser::kOn), _gameTitle(std::move(gameTitle)) {
     _names = listFiles(ctx.files, {"locations/"}, {".ac2"});
     // The browser's overlays, which only its keys put away.
     _hotspots = _info = _browser;
@@ -1581,7 +1582,10 @@ void ScenePage::draw() {
         _ctx.sys.setMouseCursorVisible(_systemCursor = system);
     if (!_renderer)
         present();
-    _ctx.setTitle("Scenes: " + (_names.empty() ? std::string() : _names[size_t(_index)]));
+    if (_browser)
+        _ctx.setTitle("Scenes: " + (_names.empty() ? std::string() : _names[size_t(_index)]));
+    else
+        _ctx.setTitle(_gameTitle);
 }
 
 void ScenePage::update(uint64_t nowMs) {

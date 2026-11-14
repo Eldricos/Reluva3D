@@ -67,7 +67,12 @@ public:
     /** Whether the scene browser, a part of the data viewer, is reachable. */
     enum class Browser { kOn, kOff };
 
-    ScenePage(ViewerContext &ctx, Browser browser);
+    /**
+     * @param gameTitle The window's title without the browser (reluva's):
+     *                  the game's name. With it, the title is the page's
+     *                  and the scene file's, for the viewer.
+     */
+    ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle = {});
     ~ScenePage() override;
     const char *name() const override { return "Scenes"; }
     size_t count() const override { return _names.size(); }
@@ -753,6 +758,7 @@ private:
     std::unique_ptr<Story> _story;
     bool _playing = false;
     bool _browser = true; // Browser::kOn
+    std::string _gameTitle;
     std::map<std::string, audio::SoundHandle> _music;
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
     float _fade = 0;
