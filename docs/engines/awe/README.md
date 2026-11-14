@@ -10,7 +10,7 @@ Company on what looks like one engine, grown from game to game:
 | Game | Year | Status |
 |------|------|--------|
 | Murder on the Orient Express (`motoe`) | 2006 | first target: [games/motoe/](games/motoe/README.md) |
-| And Then There Were None (`attwn`) | 2005 | later; the older version (saves are `.ac1`) |
+| And Then There Were None (`attwn`) | 2005 | planned: [games/attwn/](games/attwn/README.md), the older version (scenes and saves are `.ac1`) |
 | Evil Under the Sun (`euts`) | 2007 | later; expected to be closest to Orient Express |
 
 As with id Tech 3, one Reluva engine (`src/engines/awe/`, `awe` in `engines.cfg`)
