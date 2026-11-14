@@ -225,7 +225,9 @@ void TestsWindow::drawChoices() {
             }
         }
         ImGui::SameLine();
-        if (ImGui::TreeNode(label.c_str())) {
+        // Its ID is the group's alone, not its count, so it stays open as
+        // tests are ticked.
+        if (ImGui::TreeNode("tests", "%s", label.c_str())) {
             for (const TestEntry *t : tests) {
                 pickBox(t->name.c_str(), _picked, t->name);
                 if (hasLabel(*t, "gamedata") && ImGui::IsItemHovered())
@@ -235,11 +237,17 @@ void TestsWindow::drawChoices() {
         }
         ImGui::PopID();
     };
+    // An engine names a group in both sections ("awe"): each section is an
+    // ID scope of its own.
+    ImGui::PushID("steps");
     for (const auto &[engine, tests] : steps)
         group(engine, tests);
+    ImGui::PopID();
     ImGui::SeparatorText("Tests without game files");
+    ImGui::PushID("others");
     for (const auto &[area, tests] : others)
         group(area, tests);
+    ImGui::PopID();
 
     ImGui::SeparatorText("Records");
     const char *kinds[] = {"The committed ones", "Compare with my baseline", "Make my baseline",
