@@ -269,13 +269,13 @@ and keys.
 | `reluva-viewer <folder>` | The game in a folder in its engine's data viewer, without adding it |
 | `reluva-viewer testbed` | The test pattern: **Esc** to exit, **Space** for a tone, **C** for a cursor of its own |
 | `reluva-viewer --list` | Lists the engines that have a data viewer |
+| `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
+| `reluva --detect <folders...>` | Lists the games found in each folder |
+| `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
 
 From a build folder, `reluva-viewer`'s **Tests...** button runs the
 build's tests, including the game-files tests on the games in its list
 ([DEVELOPMENT.md](docs/DEVELOPMENT.md#the-tests-window)).
-| `reluva --hash <files...>` | Prints files' detection signatures, for an engine's table of releases |
-| `reluva --detect <folders...>` | Lists the games found in each folder |
-| `reluva-tool` | Developer tools for studying games' files: `reluva-tool <engine> <command>`; alone, it lists the engines and the commands for any game |
 
 ### Where Reluva keeps its files
 

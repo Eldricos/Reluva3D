@@ -15,7 +15,7 @@ breaking the build, the tests or anyone's work in progress.
 | Phase 2: formatting | Done |
 | Phase 3: small clang-tidy fixes | Done |
 | Phase 4: identifier renames | Done |
-| Phase 5: hand work | Next |
+| Phase 5: hand work | Done (Doxygen goes on as files are worked on) |
 
 ## Decisions
 
@@ -33,9 +33,8 @@ breaking the build, the tests or anyone's work in progress.
 
 Still open, as additions to the guide when wanted: include order (most
 files have their own header, then the project's, then the system's;
-stgenerations puts system headers first), acronyms in names (`kRgba32` or
-`kRGBA32`), C-style casts or `static_cast` (the code has about 1,000 and
-280), `enum` or `enum class` (122 and 58), and the names that must match
+stgenerations puts system headers first), C-style casts or
+`static_cast` (the code has about 1,000 and 280), `enum` or `enum class` (122 and 58), and the names that must match
 something outside Reluva (Win32 and MSVC exports in
 `src/emulation/x86/runtime/msvcp60.cpp`, QVM system calls in the idtech3
 test programs).
@@ -343,7 +342,7 @@ by hand too, and the Windows and macOS builds in CI find what's missed.
   test objects that differ do so only in line numbers (`__LINE__` in the
   checks, 1,336 instructions). CI's "Code style" job now also fails on
   members declared together in a changed file.
-- **`CONTRIBUTING.md` (done)** points to the guide and the three tools.
+- **`CONTRIBUTING.md` (done)** points to the guide and the style tools.
 - **Doxygen comments: as each file is worked on**, as decided. New code
   has them from the start; a file's plain `//` comments on its public
   classes, methods and structures become Doxygen blocks when someone

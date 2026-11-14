@@ -155,7 +155,7 @@ Settled from the documents (November 2026), no longer choices:
 | Utility library | `glide_utils.h/.cpp`: `.3df` files, RLE16, endian swaps | the texture tables |
 | Glide 3 front end | `glide3.h/.cpp`: `Glide3`, what Glide 3 changed; the rest through a `Glide2` | the Glide 2 front end |
 | x86 bindings | `glide_x86.h/.cpp` (`GlideDll`: exports, stubs, linear frame buffer copies), `glide2_x86.h/.cpp` (`Glide2Dll`), `glide3_x86.h/.cpp` (`Glide3Dll`) | the front ends, `common/x86` |
-| NFS III glue | `src/engines/nfs/host/thrash.cpp` (`GameHost::addGlide`), `pages/play_page.cpp`, `tools/host.cpp` | all of it |
+| NFS III glue | `src/engines/nfs/host/thrash.cpp` (`GameHost::addGlide`), `ui/play_page.cpp`, `tools/host.cpp` | all of it |
 
 `gfx::Compute` (`src/graphics/gpu_compute.h`) is general GPU work: storage
 buffers, compute kernels, uploads and read-backs, in order. The SDL

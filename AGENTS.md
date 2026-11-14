@@ -54,6 +54,7 @@ python3 tools/format.py --changed
 python3 tools/tidy.py --changed
 python3 tools/split_members.py --changed
 python3 tools/comments.py --changed
+python3 tools/check-headers.py
 python3 tools/check-docs.py
 python3 tools/check-commits.py origin/main..HEAD
 ```

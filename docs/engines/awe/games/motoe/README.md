@@ -206,14 +206,16 @@ and a viewer layer over it in `pages/`.
   original does. Escape is the game's (its menu, or a movie skipped); F12
   saves a screenshot. The window's title names the scene's file, then the
   frames shown in the last second.
-- **The data viewer** is `reluva-viewer` (`reluva-viewer motoe`, or
-  `reluva-viewer <game folder>`): the Scenes page, where the scenes'
+- **The data viewer** is `reluva-viewer` (the game's entry from its list,
+  `reluva-viewer <entry>`, or `reluva-viewer <game folder>`): the Scenes page, where the scenes'
   files are browsed and a game started (N), then Models (textured,
   animated, with the mouse to turn and zoom), Movies, Pictures, Text and
-  Sounds. Tab moves between them, and Esc leaves for reluva-viewer's
-  list. The Scenes page's own keys, at the foot of its screen (M, W and
+  Sounds. Tab moves between them, and Esc leaves, for reluva-viewer's
+  list (or, opened from the command line, out of it). The Scenes page's
+  own keys, at the foot of its screen (Left/Right for the scene, M, W and
   T for the world's state, G for the walk grid, H for the hotspots, I or
-  F9 for the info panel, Up/Down for an object's fields), are the
+  F9 for the info panel, C for the characters, Up/Down for an object's
+  fields), are the
   viewer's only: in `reluva` the game has none of them.
 
 ## This folder
