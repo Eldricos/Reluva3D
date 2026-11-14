@@ -180,7 +180,8 @@ mission for the list. Left/Right step through images, PgUp/PgDn between
 archives, Tab and Shift+Tab between 3D levels; away from the starting
 screen, Up/Down step through sounds and Space replays one. On a level, `[`
 and `]` go from the floor plan to the 3D view and its textures; in 3D, L
-switches the lighting and Shift+C walks through walls. Home returns to the
+switches the lighting and Shift+C walks through walls (both only in builds
+with `RELUVA_DEVELOPER_KEYS` on, the default). Home returns to the
 starfield, F8 plays the movies in turn, F5/F7 save and load, Esc leaves
 the viewer (back to `reluva-viewer`'s list).
 
