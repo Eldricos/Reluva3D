@@ -40,6 +40,20 @@ struct PathFinderCode {
 };
 
 /**
+ * How a game's dialogue tables are read: the columns by position, the same
+ * in both games up to Povent (the 14th), and what the rest are. Orient
+ * Express's are the defaults (motoe.exe 0x438f00).
+ */
+struct DialogueTables {
+    bool target = true;      ///< the 7th column the speaker's Target (head turns); else read and dropped
+    bool duration = true;    ///< the 15th a line's time ("a, b"); else unread
+    bool optional = true;    ///< the 16th Optional; else unread
+    bool translation = true; ///< a Line Translation other than "0" said in the line's place
+    int wrap = 944;          ///< the box's width in pixels, past which a line wraps
+    const char *events = "text/dialogue/events/"; ///< a line's event files, <name>_<act>_<code>.txt
+};
+
+/**
  * What the shared AWE code needs to know of one game. A game's own code is
  * in its folder (motoe/, attwn/); everything here is what the rest of the
  * engine asks of it.
@@ -61,6 +75,7 @@ struct GameInfo {
     bool (*condition)(const GameState &state, const std::vector<std::string> &words, bool &holds) = nullptr;
     /** A script verb only this game has that changes its state alone: done, or false for one it hasn't. */
     bool (*verb)(GameState &state, const std::vector<std::string> &words) = nullptr;
+    DialogueTables dialogue;   ///< its dialogue tables' layout
     const char *exe = nullptr; ///< its executable, in the game's folder
     PathFinderCode pathFinder; ///< in that executable (the English release's)
 };

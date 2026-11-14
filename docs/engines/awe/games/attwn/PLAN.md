@@ -160,9 +160,27 @@ Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
      and its objects' layouts differ, so the same behaviour compiles
      differently. Those are compared by reading them, system by system.
 
-   Left: the file names and the tables' columns in the table (dialogue,
-   inventory, saves, fonts); the dialogue manager, lighting, shadows,
-   the interface and the saves, read and compared.
+   - **The dialogue tables**: where they are, the columns `ac.exe` reads
+     (Tone dropped, no Duration or Location), the box's 750-pixel wrap,
+     in the table (`DialogueTables`); the voices named as Orient
+     Express's ([systems/dialogue.md](systems/dialogue.md)).
+   - **The file names**, as each executable builds them, side by side:
+
+     | What | Orient Express | And Then There Were None |
+     |---|---|---|
+     | The acts | `text\acts.txt` | `text\Chapter%02d.txt` |
+     | Saves | `Saved.Games\%s.ac2` | `Saved Games\%s.ac1`, a `slot%d.bmp` each |
+     | Footsteps | `sound\footsteps\%s_%s.wav` | `sound\sfx\footstep_%s_%s.wav` |
+     | Characters | `models\...` | `people\%s\%s_model.gr2` |
+     | Inventory | `inventory\items\%s\inv%s.jpg`, `.png` | `inventory\%s\inv%s.tga`, `exm%s.bik` |
+     | Fonts | `text\fonts.txt`, 3 fonts | 6 fonts, no table |
+     | The notebook | `text\scrapbook\` | `text\journal\` |
+     | Movies' subtitles | `Text\Movies\%s.txt` | none |
+     | Loading screens | `interface\loading\loading_%s.jpg` | none |
+
+   Left: those file names in the table, as each system that uses them is
+   compared; the dialogue manager, lighting, shadows, the interface and
+   the saves, read and compared.
 4. **The game's own systems** (large).
    - Chapters, acts and the chapter tables.
    - The still-picture cutscenes and the title cards.

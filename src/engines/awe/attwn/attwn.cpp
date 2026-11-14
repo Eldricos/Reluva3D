@@ -35,6 +35,16 @@ const GameInfo &game() {
         .height = 600,
         .condition = condition,
         .verb = verb,
+        // The table loader (0x431160) reads 14 columns: the 7th, Tone (notes
+        // for the voices: "sleeping noises"), it drops; Duration and Location
+        // it doesn't read; Line Translation it keeps apart (none in the
+        // English release). Lines past 750 pixels wrap (0x431cba).
+        .dialogue = {.target = false,
+                     .duration = false,
+                     .optional = false,
+                     .translation = false,
+                     .wrap = 750,
+                     .events = "dialogue/acts/events/"},
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):
