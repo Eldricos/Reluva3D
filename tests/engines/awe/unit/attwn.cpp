@@ -9,6 +9,7 @@
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/attwn/inventory.h"
 #include "engines/awe/attwn/journal.h"
+#include "engines/awe/attwn/script.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/savegame.h"
@@ -220,6 +221,49 @@ void testScriptWords() {
     for (int i = 0; i < 8 && !r2.idle(); i++)
         r2.update(0.1f);
     CHECK(!other.tags.count("02a_neededcounter") && host.started.size() == 1 && host.started[0] == "inc needed 02a");
+}
+
+void testMachines() {
+    GameState state;
+    state.game = &attwn::game();
+    std::string then;
+    auto test = [&](const std::string &machine, const std::string &part = {}) {
+        then.clear();
+        CHECK(attwn::verb(state, {"test", machine, part}, then));
+        return then;
+    };
+    // The apple press: what's missing said, the apples first; together,
+    // juice, or cider from the basket's apples.
+    CHECK(test("applepress") == "talk kitchen 5" && !testCondition("test applepress", state));
+    for (const char *t : {"pressapples", "presscheesecloth", "pressglass"})
+        state.tags[t] = 0;
+    CHECK(test("applepress") == "talk kitchen 7");
+    state.tags["presspropellor"] = 0;
+    CHECK(testCondition("test applepress", state) && test("applepress").find("take juiceglass") != std::string::npos);
+    addItem(state, "basketofapples", 4);
+    CHECK(test("applepress").find("take ciderglass") != std::string::npos);
+    // The projector: the last film is the end; the gramophone never "holds".
+    state.tags["projector_bulb"] = 0;
+    state.tags["projector_moviehello"] = 0;
+    CHECK(test("projector").find("movie clip-hello, movie credits, reset, scene mainmenu01") != std::string::npos);
+    state.tags["projector_moviehome"] = 0;
+    CHECK(test("projector").find("talk narracottgen 137") != std::string::npos);
+    CHECK(test("gramophone") == "talk narracottgen 2" && !testCondition("test gramophone", state));
+    // The radio, by the part tried; what it runs goes in its place.
+    state.tags["parlorradio_power"] = 0;
+    CHECK(test("parlorradio", "power") == "updatemusic, talk parlor 7" && test("parlorradio", "tube") == "updatemusic");
+    testing::FakeHost host;
+    ScriptRunner r(state, host);
+    r.run("test parlorradio tube, sound x");
+    for (int i = 0; i < 8 && !r.idle(); i++)
+        r.update(0.1f);
+    CHECK((host.started == std::vector<std::string>{"updatemusic", "sound x"}));
+    // The coda, by who was saved.
+    CHECK(attwn::movie(state, "coda") == "coda#1neitheralive" && attwn::movie(state, "credits") == "credits");
+    state.tags["9a_lombardsaved"] = 0;
+    CHECK(attwn::movie(state, "coda") == "coda#3lombardalive");
+    state.tags["10a_verasaved"] = 0;
+    CHECK(attwn::movie(state, "coda") == "coda#2bothalive");
 }
 
 void testDialogueTables() {
@@ -632,6 +676,7 @@ static const reluva::test::Suite
                                  {"its files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
                                  {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
                                  {"script words", [](const std::filesystem::path &) { testScriptWords(); }},
+                                 {"machines", [](const std::filesystem::path &) { testMachines(); }},
                                  {"dialogue tables", [](const std::filesystem::path &) { testDialogueTables(); }},
                                  {"dialogue manager", [](const std::filesystem::path &) { testDialogueManager(); }},
                                  {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},

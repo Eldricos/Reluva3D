@@ -125,6 +125,8 @@ public:
         bool fading = false;
     };
     GameStatus status() const;
+    /** Whether it shows one of the game's menus, the main menu among them. */
+    bool inMenu() const { return inMenuScene() || atMainMenu(); }
     // The hotspots and characters that could be clicked now, and a click
     // on one (its script run, as a click runs it).
     std::vector<std::string> clickables() const;
@@ -155,6 +157,10 @@ public:
     // taken apart (the combine page's right-hand box, then the gears).
     std::vector<std::string> decombinable();
     bool decombineItem(const std::string &item);
+    // The game's own inventory's Examine (GameOverlay::examinable): what
+    // it would do something with now, and those items examined.
+    std::vector<std::vector<std::string>> examinable() const;
+    bool examineItems(const std::vector<std::string> &items);
     // For a player that searches (reluva-tool awe game-run -solve): the story
     // state; the game saved to memory and loaded from it as the save and
     // load screens do; who picks the dialogue's choices (the index, or -1
@@ -208,9 +214,9 @@ public:
     // boxes and turns the gears; and so on. So a route can be played by
     // the mouse and keys alone (awe game-run -hand).
     struct HandGoal {
-        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare } kind = Kind::kClick;
+        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare, kExamine } kind = Kind::kClick;
         size_t target = 0;              // Click, Use: the clickable
-        std::vector<std::string> items; // Use, Flip: the item; Combine: the parts; Compare: person, thing
+        std::vector<std::string> items; // Use, Flip: the item; Combine, Examine: the parts; Compare: person, thing
         int car = 0;                    // Travel
         bool done = false;              // the last input made
         bool failed = false;            // no way to do it from here
@@ -222,6 +228,8 @@ public:
         uint32_t key = 0;
     };
     HandInput handStep(HandGoal &goal);
+    // The same through the game's own inventory (GameOverlay::hand).
+    HandInput handStepOverlay(HandGoal &goal);
     // The window and hand as words (for a tool's report).
     std::string handState() const;
     // What the game asks of a player while it runs: a movie skipped
@@ -522,6 +530,8 @@ private:
     // Whether the scene is one of the game's menus, and the main menu's.
     bool inMenuScene() const;
     bool atMainMenu() const;
+    // Whether a character's model (its file) is the one named `who` in the item tables.
+    bool isModel(const std::string &model, const std::string &who) const;
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).
     bool startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait);

@@ -35,6 +35,8 @@ void ScenePage::startAt(const std::string &where) {
 }
 
 std::string ScenePage::autoplay() {
+    if (_overlay)
+        _overlay->dismiss();
     if (_yesNo) {
         _yesNo.reset();
         return "yes/no box closed";
@@ -214,7 +216,7 @@ bool ScenePage::click(size_t i) {
 }
 
 std::vector<uint8_t> ScenePage::saveToMemory() const {
-    return writeSaveGame(captureSave("search"));
+    return writeSaveGame(captureSave("search"), saveLayout());
 }
 
 bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
@@ -222,9 +224,15 @@ bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
     // from the load screen, so it's the menu that's left, not the game's
     // scene (whose "met them here" tags would go to 2: 0x423daa).
     newGame();
-    for (size_t i = 0; i < _names.size(); i++)
-        if (fs::toLower(_names[i]).find("menu.load_01.ac2") != std::string::npos)
+    const GameFlow flow = _ctx.game ? _ctx.game->flow : GameFlow();
+    const std::string format = flow.menu;
+    const size_t at = format.find("%s");
+    const std::string file = "/" + format.substr(0, at) + "load" + format.substr(at + 2) + flow.scenes;
+    for (size_t i = 0; i < _names.size(); i++) {
+        const std::string n = fs::toLower(_names[i]);
+        if (n.size() >= file.size() && n.compare(n.size() - file.size(), file.size(), file) == 0)
             _index = int(i);
+    }
     _runner->clear();
     _autoChoices.clear();
     if (!preloadData(data, "the save in memory"))
@@ -261,7 +269,7 @@ std::vector<int> ScenePage::travelCars() {
     // The bar's cars (0x4177f0) a click would go to now: allowed, and not
     // the one Poirot is in.
     std::vector<int> out;
-    if (!interfaceOn())
+    if (!interfaceOn() || _overlay)
         return out;
     for (int car = 1; car <= 5; car++)
         if (carOn(car) && !inCar(car))

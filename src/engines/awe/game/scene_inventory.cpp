@@ -79,18 +79,8 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
         const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
         const Table &t = itemTable(rules.characters);
         const std::string model = fs::toLower(target.text("file"));
-        // The character's model by its name, or one it also goes by
-        // (And Then There Were None's brentknit for brent: 0x4194f0).
-        auto isModel = [&](const std::string &who) {
-            if (model.find(who + "_model") != std::string::npos)
-                return true;
-            for (const auto &[name, other] : _dialogue->rules().speakerElse)
-                if (who == name && model.find(std::string(other) + "_model") != std::string::npos)
-                    return true;
-            return false;
-        };
         for (size_t r = 0; r < t.rows.size(); r++) {
-            if (fs::toLower(unquoted(t.cell(r, 0))) != name || !isModel(fs::toLower(unquoted(t.cell(r, 1)))) ||
+            if (fs::toLower(unquoted(t.cell(r, 0))) != name || !isModel(model, fs::toLower(unquoted(t.cell(r, 1)))) ||
                 !testCondition(unquoted(t.cell(r, 2)), _state))
                 continue;
             release(4);
@@ -105,7 +95,38 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
     return false;
 }
 
+bool ScenePage::isModel(const std::string &model, const std::string &who) const {
+    // The character's model by its name, or one it also goes by (And Then
+    // There Were None's brentknit for brent: 0x4194f0).
+    if (model.find(who + "_model") != std::string::npos)
+        return true;
+    for (const auto &[name, other] : _dialogue->rules().speakerElse)
+        if (who == name && model.find(std::string(other) + "_model") != std::string::npos)
+            return true;
+    return false;
+}
+
+std::vector<std::vector<std::string>> ScenePage::examinable() const {
+    return _overlay ? _overlay->examinable() : std::vector<std::vector<std::string>>{};
+}
+
+bool ScenePage::examineItems(const std::vector<std::string> &items) {
+    if (!_overlay)
+        return false;
+    if (!_runner->idle())
+        _runner->clear();
+    releaseHeld();
+    return _overlay->examine(items);
+}
+
 bool ScenePage::combineItems(const std::vector<std::string> &parts) {
+    if (_overlay) {
+        // The game's own inventory's way (And Then There Were None's tray).
+        if (!_runner->idle())
+            _runner->clear();
+        releaseHeld();
+        return _overlay->combine(parts);
+    }
     // As the combine page does with the parts in its boxes (0x418a50).
     for (std::string &box : _ui.boxes)
         box.clear();
@@ -118,7 +139,7 @@ std::vector<std::vector<std::string>> ScenePage::combinations() {
     // Each row of combinelist.txt that can be combined now: its parts all
     // in the bag, its condition holding.
     std::vector<std::vector<std::string>> out;
-    const Table &t = itemTable("combinelist.txt");
+    const Table &t = itemTable(_ctx.game ? _ctx.game->inventory.combinations : InventoryRules().combinations);
     for (size_t r = 0; r < t.rows.size(); r++) {
         const std::vector<std::string> want = names(t.cell(r, 0));
         if (want.size() < 2 || want.size() > 4 || std::atoi(unquoted(t.cell(r, 3)).c_str()) == 0 ||
@@ -134,7 +155,7 @@ std::vector<std::string> ScenePage::decombinable() {
     // Each row's Result, in the bag, with Can Decombine and its condition
     // holding (0x418be0).
     std::vector<std::string> out;
-    const Table &t = itemTable("combinelist.txt");
+    const Table &t = itemTable(_ctx.game ? _ctx.game->inventory.combinations : InventoryRules().combinations);
     for (size_t r = 0; r < t.rows.size(); r++) {
         const std::string result = fs::toLower(unquoted(t.cell(r, 1)));
         if (std::atoi(unquoted(t.cell(r, 2)).c_str()) != 0 && _state.itemAvailable(result) &&
@@ -145,6 +166,8 @@ std::vector<std::string> ScenePage::decombinable() {
 }
 
 bool ScenePage::decombineItem(const std::string &item) {
+    if (_overlay)
+        return combineItems({item});
     for (std::string &box : _ui.boxes)
         box.clear();
     _ui.boxes[4] = fs::toLower(item);
@@ -171,12 +194,12 @@ std::vector<std::string> ScenePage::itemsFor(size_t i) {
             }
         }
     if (objects[i]->tag == "NPCX" || objects[i]->tag == "PCXX") {
-        const Table &t = itemTable("uselist.txt");
+        const Table &t = itemTable(_ctx.game ? _ctx.game->inventory.characters : InventoryRules().characters);
         const std::string model = fs::toLower(objects[i]->text("file"));
         for (size_t r = 0; r < t.rows.size(); r++) {
             const std::string item = fs::toLower(unquoted(t.cell(r, 0)));
-            if (model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") != std::string::npos &&
-                _state.itemAvailable(item) && std::find(out.begin(), out.end(), item) == out.end())
+            if (isModel(model, fs::toLower(unquoted(t.cell(r, 1)))) && _state.itemAvailable(item) &&
+                std::find(out.begin(), out.end(), item) == out.end())
                 out.push_back(item);
         }
     }

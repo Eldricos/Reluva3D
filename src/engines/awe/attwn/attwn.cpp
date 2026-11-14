@@ -52,6 +52,7 @@ const GameInfo &game() {
         .height = 600,
         .condition = condition,
         .verb = verb,
+        .movie = movie,
         // The table loader (0x431160) reads 14 columns: the 7th, Tone (notes
         // for the voices: "sleeping noises"), it drops; Duration and Location
         // it doesn't read; Line Translation it keeps apart (none in the
@@ -157,7 +158,8 @@ const GameInfo &game() {
                  // (0x416f0c).
                  .menu = "%s",
                  .mainMenu = "mainmenu",
-                 .letterKeys = false},
+                 .letterKeys = false,
+                 .newGame = "newover"},
         // The options screen's slider (0x4244f0) and labels (0x424290).
         .options = {.thumbLeft = 515,
                     .thumbStep = 18,
@@ -175,6 +177,7 @@ const GameInfo &game() {
         .inventory = {.cards = false,
                       .cursor = "inventory/%s/cur%s.tga",
                       .characters = "charlist.txt",
+                      .combinations = "uselist.txt",
                       .cantUse = "talk narracottgen 2",
                       .takeSound = "interface\\inventory",
                       .saveStates = {0, 1, 3, 4, 5, 5, 5, 5},

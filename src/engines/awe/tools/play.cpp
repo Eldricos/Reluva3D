@@ -12,6 +12,7 @@
 //   use|<scene>|<object>|<n>|<choices>|<item>
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
+//   examine|<scene>|||<choices>|<item>+...  items examined in the game's own inventory (attwn's tray)
 //   decombine|<scene>|||<choices>|<item>  an item taken apart
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //   compare|<scene>|||<choices>|<card>+<card>  two fingerprint cards under the magnifier
@@ -307,7 +308,7 @@ public:
         std::vector<Action> out;
         ScenePage &p = *_page;
         const std::string scene = p.status().scene;
-        if (scene.rfind("menu.", 0) == 0)
+        if (p.inMenu())
             return out;
         if (!p.puzzleOpen().empty() && !p.puzzleSolved()) {
             Action a;
@@ -362,6 +363,14 @@ public:
             a.kind = "flip";
             a.scene = scene;
             a.item = item;
+            out.push_back(a);
+        }
+        for (const std::vector<std::string> &items : p.examinable()) {
+            Action a;
+            a.kind = "examine";
+            a.scene = scene;
+            for (const std::string &item : items)
+                a.item += (a.item.empty() ? "" : "+") + item;
             out.push_back(a);
         }
         for (const auto &[person, thing] : p.matchingPrints()) {
@@ -450,6 +459,10 @@ public:
             ok = p.flipItem(a.item);
             if (!ok)
                 problem = "can't look at the back of " + a.item;
+        } else if (a.kind == "examine") {
+            ok = p.examineItems(split(a.item, '+'));
+            if (!ok)
+                problem = "can't examine " + a.item;
         } else if (a.kind == "run") {
             // A script run as a scene's (for looking into things; not a
             // player's).
@@ -610,6 +623,12 @@ private:
             g.car = std::atoi(a.target.c_str());
         } else if (a.kind == "combine") {
             g.kind = ScenePage::HandGoal::Kind::kCombine;
+            g.items = split(a.item, '+');
+        } else if (a.kind == "examine" ||
+                   (a.kind == "decombine" && p.gameState().game && p.gameState().game->overlay)) {
+            // (The game's own inventory takes one item apart as it puts
+            // more together.)
+            g.kind = a.kind == "examine" ? ScenePage::HandGoal::Kind::kExamine : ScenePage::HandGoal::Kind::kCombine;
             g.items = split(a.item, '+');
         } else if (a.kind == "flip") {
             g.kind = ScenePage::HandGoal::Kind::kFlip;
@@ -800,7 +819,7 @@ void wander(Player &player, size_t at, Wander &w) {
     for (size_t k = 0; k < w.steps; k++) {
         std::vector<Action> can = player.actions();
         const ScenePage::GameStatus st = player.page().status();
-        if (st.scene.rfind("menu.", 0) == 0 || player.credits())
+        if (player.page().inMenu() || player.credits())
             break;
         w.scenes.insert(st.scene);
         if (can.empty()) {
@@ -890,9 +909,9 @@ bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done,
             return false;
         }
         done++;
-        if (reloadEach && player.page().status().scene.rfind("menu.", 0) != 0)
+        if (reloadEach && !player.page().inMenu())
             reloadAndCompare(player, done, a);
-        if (w && w->every && done % w->every == 0 && player.page().status().scene.rfind("menu.", 0) != 0)
+        if (w && w->every && done % w->every == 0 && !player.page().inMenu())
             wander(player, done, *w);
     }
     return true;
@@ -1115,18 +1134,27 @@ int aweCommandSolve(int argc, char **argv) {
         std::fprintf(stderr, "can't read %s\n", fromFile.c_str());
         return 1;
     }
+    size_t done = 0;
     if (start.empty()) {
+        // A new game, then the main menu's New Game.
         Action n;
         n.kind = "new";
-        start.push_back(n);
+        std::vector<Action> menu{n};
+        if (!replay(player, menu, verbose, done)) {
+            std::printf("a new game doesn't start\n");
+            return 1;
+        }
         Action play;
         play.kind = "click";
-        play.scene = "menu.main_01.ac2";
-        play.target = "playover";
-        start.push_back(play);
-    }
-    size_t done = 0;
-    if (!replay(player, start, verbose, done)) {
+        play.scene = player.page().status().scene;
+        play.target = game ? game->flow.newGame : GameFlow().newGame;
+        start = {n, play};
+        menu = {play};
+        if (!replay(player, menu, verbose, done)) {
+            std::printf("the start doesn't play (%s)\n", play.target.c_str());
+            return 1;
+        }
+    } else if (!replay(player, start, verbose, done)) {
         std::printf("the start doesn't play (%zu of %zu)\n", done, start.size());
         return 1;
     }
@@ -1368,7 +1396,7 @@ int aweCommandSolve(int argc, char **argv) {
                     todo.push_back(v);
                 }
             const ScenePage::GameStatus st = player.page().status();
-            if (st.scene.rfind("menu.", 0) == 0 && !player.credits())
+            if (player.page().inMenu() && !player.credits())
                 continue; // a menu: not the way on
             const std::set<std::string> f = player.features(false);
             const std::string key = joinFeatures(f);

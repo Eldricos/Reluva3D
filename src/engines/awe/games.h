@@ -163,7 +163,8 @@ struct GameFlow {
     const char *musica = "sound\\music\\%s.mp3"; ///< what "musica <name>" plays, looping
     const char *menu = "menu.%s_01";             ///< the scene "menu <name>" shows
     const char *mainMenu = "menu.main";          ///< the main menu's place
-    bool letterKeys = true; ///< P, S and L open the in-game, save and load menus (Escape does either way)
+    bool letterKeys = true;           ///< P, S and L open the in-game, save and load menus (Escape does either way)
+    const char *newGame = "playover"; ///< the main menu's hotspot that starts a new game
 };
 
 /**
@@ -213,6 +214,7 @@ struct InventoryRules {
     bool cards = true; ///< items named pass... and print... are passports and fingerprint cards, apart
     const char *cursor = "inventory/items/%s/cur%s.png"; ///< the item in hand's picture, `%s` its name twice
     const char *characters = "uselist.txt";              ///< the table of items used on characters
+    const char *combinations = "combinelist.txt";        ///< the table of items put together and taken apart
     const char *cantUse = "talk gen_cantuse 1";          ///< said when an item is used on nothing that takes it
     const char *takeSound = nullptr;                     ///< played by "take", by its name (sound\<it>.wav)
     /** The states a save writes for Reluva's (1 just taken, 2 in the bag, 3 in hand, 4 used...), by index. */
@@ -271,8 +273,13 @@ struct GameInfo {
      * `holds` and returns true, or returns false for a word it hasn't.
      */
     bool (*condition)(const GameState &state, const std::vector<std::string> &words, bool &holds) = nullptr;
-    /** A script verb only this game has that changes its state alone: done, or false for one it hasn't. */
-    bool (*verb)(GameState &state, const std::vector<std::string> &words) = nullptr;
+    /**
+     * A script verb only this game has: done, or false for one it hasn't.
+     * `then` gets the commands it runs in its place, if any.
+     */
+    bool (*verb)(GameState &state, const std::vector<std::string> &words, std::string &then) = nullptr;
+    /** The movie "movie <name>" plays (attwn's "coda", one of four); null: that name. */
+    std::string (*movie)(const GameState &state, const std::string &name) = nullptr;
     DialogueTables dialogue;       ///< its dialogue tables' layout
     DialogueRules talk;            ///< how its conversations go
     LightingRules lighting;        ///< how its characters are lit

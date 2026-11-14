@@ -39,6 +39,26 @@ public:
         return true;
     }
     void mouseMove(int x, int y) override { _inventory.hover(x, y); }
+    bool combine(const std::vector<std::string> &parts) override {
+        if (!_inventory.toTray(parts))
+            return false;
+        _inventory.combineButton();
+        return true;
+    }
+    std::vector<std::vector<std::string>> examinable() const override { return _inventory.examinable(); }
+    bool examine(const std::vector<std::string> &items) override {
+        if (!_inventory.toTray(items))
+            return false;
+        _inventory.examineButton();
+        return true;
+    }
+    OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) override {
+        return _inventory.hand(want, items);
+    }
+    void dismiss() override {
+        if (_inventory.showing())
+            _inventory.closeExamine(0, true);
+    }
     bool verb(const std::vector<std::string> &words) override {
         if (!words.empty() && words[0] == "examine") {
             _inventory.examine();

@@ -22,6 +22,21 @@ namespace reluva::awe {
 struct GameState;
 class GameFonts;
 
+/** What a tool's hand wants of a game's own window (GameOverlay::hand). */
+enum class OverlayWant {
+    kNothing, ///< nothing in hand, the window shut, so the scene can be clicked
+    kHold,    ///< the item in hand, the window shut
+    kCombine, ///< the items put together by its own button
+    kExamine, ///< the items examined by its own button
+};
+
+/** A tool's next input to the window: wait a frame, a click, the click that does it, or nothing more needed. */
+struct OverlayHand {
+    enum class Kind { kWait, kClick, kDone, kReady } kind = Kind::kWait;
+    int x = 0;
+    int y = 0;
+};
+
 /** What a game's own window needs from the scene page around it. */
 struct OverlayHost {
     GameState &state;
@@ -60,6 +75,30 @@ public:
     }
     /** A script verb of its own (`words[0]` lower case): true if it's one, done. */
     virtual bool verb(const std::vector<std::string> &words) = 0;
+
+    // For the tools that play the game (awe game-run -solve): what its
+    // inventory does with items, without the mouse.
+
+    /** The items put together (`parts`), or one taken apart: false if it can't be tried. */
+    virtual bool combine(const std::vector<std::string> &parts) {
+        (void)parts;
+        return false;
+    }
+    /** The groups of items in the bag that examining would do something with. */
+    virtual std::vector<std::vector<std::string>> examinable() const { return {}; }
+    /** Those items examined: false if it can't be tried. */
+    virtual bool examine(const std::vector<std::string> &items) {
+        (void)items;
+        return false;
+    }
+    /** Whatever it shows that waits for a click (a close-up) put away. */
+    virtual void dismiss() {}
+    /** The next input a player's mouse would make there towards `want` (awe game-check's hand). */
+    virtual OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) {
+        (void)want;
+        (void)items;
+        return {OverlayHand::Kind::kReady};
+    }
 };
 
 } // namespace reluva::awe

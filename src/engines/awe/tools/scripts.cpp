@@ -87,7 +87,8 @@ int aweCommandScripts(int argc, char **argv) {
     // The game's own words (attwn's), which its hooks answer for.
     auto ownVerb = [&](const std::string &verb) {
         GameState scratch;
-        return game && game->verb && game->verb(scratch, {verb});
+        std::string then;
+        return game && game->verb && game->verb(scratch, {verb}, then);
     };
     auto ownCondition = [&](const std::string &word) {
         GameState scratch;

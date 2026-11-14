@@ -345,9 +345,14 @@ bool ScriptRunner::runOwn(const ScriptEvent &e) {
         _locked = v == "lock";
     } else if (v == "setchar") {
         _character = fs::toLower(e.arg(1));
-    } else if (!(_state.game && _state.game->verb && _state.game->verb(_state, e.words))) {
-        // (A verb of the game's own is done there: attwn's "inc".)
-        return false;
+    } else {
+        // A verb of the game's own (attwn's "inc", "test"), and what it
+        // runs in its place.
+        std::string then;
+        if (!(_state.game && _state.game->verb && _state.game->verb(_state, e.words, then)))
+            return false;
+        if (!then.empty())
+            runNext(then);
     }
     return true;
 }

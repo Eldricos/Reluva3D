@@ -218,6 +218,154 @@ void Inventory::putInTray() {
     }
 }
 
+bool Inventory::toTray(const std::vector<std::string> &items) {
+    GameState &s = _host.state;
+    for (const std::string &name : items)
+        if (!s.findItem(name, {1, 2, 3}))
+            return false;
+    if (GameState::Item *i = s.held.empty() ? nullptr : s.findItem(s.held, {3}))
+        i->state = 2;
+    s.held.clear();
+    for (GameState::Item &i : s.items)
+        if ((i.state == 1 || i.state == 2) && i.slot >= kTray && i.slot < kTray + 4) {
+            i.slot = -1;
+            i.slot = s.freeSlot();
+        }
+    for (size_t k = 0; k < items.size() && k < 4; k++) {
+        GameState::Item *found = nullptr;
+        for (GameState::Item &i : s.items)
+            if (i.name == fs::toLower(items[k]) && (i.state == 1 || i.state == 2) && i.slot < kTray)
+                found = &i;
+        if (!found)
+            return false;
+        found->slot = kTray + int(k);
+    }
+    return true;
+}
+
+std::vector<std::vector<std::string>> Inventory::examinable() const {
+    std::vector<std::vector<std::string>> out;
+    const GameState &s = _host.state;
+    std::vector<std::string> bag;
+    for (const GameState::Item &i : s.items)
+        if ((i.state == 1 || i.state == 2) && std::find(bag.begin(), bag.end(), i.name) == bag.end())
+            bag.push_back(i.name);
+    for (const std::string &item : bag) {
+        const Row *r = row(item);
+        const std::vector<std::string> words = r ? names(r->examine) : std::vector<std::string>{};
+        const bool reads =
+            !words.empty() && (words[0] == "docs" || (words[0] == "books" && !s.tags.count("read_" + item)));
+        if (reads || _host.files.has("inventory/" + item + "/exm" + item + ".bik") || _host.files.has(art(item, "exm")))
+            out.push_back({item});
+    }
+    for (const char *who : {"brent", "marston", "rogers"}) {
+        const std::string p = std::string("print") + who;
+        std::vector<std::string> prints;
+        for (const std::string &item : bag)
+            if (item.find(p) != std::string::npos && _host.files.has(art(item, "exm")))
+                prints.push_back(item);
+        if (prints.size() >= 2 && !s.tags.count(std::string("compare_") + who))
+            out.push_back({prints[0], prints[1]});
+    }
+    return out;
+}
+
+OverlayHand Inventory::hand(OverlayWant want, const std::vector<std::string> &items) const {
+    using K = OverlayHand::Kind;
+    const GameState &s = _host.state;
+    const int bx = int(kOpenX);
+    auto at = [](int x, int y, K k = K::kClick) { return OverlayHand{k, x, y}; };
+    auto centre = [&](int slot) {
+        const int box = slot >= kTray ? slot - kTray : slot % kPerPage;
+        const int y = slot >= kTray ? kTrayTop : kGridTop + kStep * (box / 4);
+        return at(bx + kGridLeft + kStep * (box % 4) + kBox / 2, y + kBox / 2);
+    };
+    const OverlayHand sack = at(int(_x) + 360, 30);
+    if (_moving != 0)
+        return {};
+    if (_showing)
+        return at(400, 300); // the close-up put away
+    auto slotOf = [&](const std::string &item, bool tray) {
+        for (const GameState::Item &i : s.items)
+            if (i.name == item && (i.state == 1 || i.state == 2) && (i.slot >= kTray) == tray)
+                return i.slot;
+        return -1;
+    };
+    // Something in hand put down: in an empty box on this page, else the
+    // next page looked at.
+    auto putDown = [&]() {
+        for (int box = 0; box < kPerPage; box++) {
+            const int slot = _page * kPerPage + box;
+            if (std::none_of(s.items.begin(), s.items.end(), [&](const GameState::Item &i) {
+                    return (i.state == 1 || i.state == 2) && i.slot == slot;
+                }))
+                return centre(slot);
+        }
+        return at(bx + 8 + (kNext.l + kNext.r) / 2, (kNext.t + kNext.b) / 2);
+    };
+    auto pickUp = [&](int slot) {
+        if (slot < kTray && slot / kPerPage != _page)
+            return at(bx + 8 + (kNext.l + kNext.r) / 2, (kNext.t + kNext.b) / 2);
+        return centre(slot);
+    };
+    switch (want) {
+    case OverlayWant::kNothing:
+        if (!s.held.empty())
+            return _open ? putDown() : sack;
+        return _open ? sack : OverlayHand{K::kReady};
+    case OverlayWant::kHold: {
+        const std::string &item = items.at(0);
+        if (s.held == item)
+            return _open ? sack : OverlayHand{K::kReady};
+        if (!_open)
+            return sack;
+        if (!s.held.empty())
+            return putDown();
+        int slot = slotOf(item, false);
+        if (slot < 0)
+            slot = slotOf(item, true);
+        return slot < 0 ? OverlayHand{K::kReady} : pickUp(slot);
+    }
+    case OverlayWant::kCombine:
+    case OverlayWant::kExamine: {
+        if (!_open)
+            return sack;
+        // The tray holding the items and nothing else; then the button.
+        std::vector<std::string> missing = items;
+        int stray = -1;
+        for (const GameState::Item &i : s.items) {
+            if ((i.state != 1 && i.state != 2) || i.slot < kTray || i.slot >= kTray + 4)
+                continue;
+            const auto it = std::find(missing.begin(), missing.end(), i.name);
+            if (it != missing.end())
+                missing.erase(it);
+            else if (stray < 0)
+                stray = i.slot;
+        }
+        if (!s.held.empty()) {
+            const auto it = std::find(missing.begin(), missing.end(), s.held);
+            if (it == missing.end())
+                return putDown();
+            for (int slot = kTray; slot < kTray + 4; slot++)
+                if (std::none_of(s.items.begin(), s.items.end(), [&](const GameState::Item &i) {
+                        return (i.state == 1 || i.state == 2) && i.slot == slot;
+                    }))
+                    return centre(slot);
+            return {K::kReady}; // a full tray: can't be done
+        }
+        if (stray >= 0)
+            return centre(stray);
+        if (!missing.empty()) {
+            const int slot = slotOf(missing.front(), false);
+            return slot < 0 ? OverlayHand{K::kReady} : pickUp(slot);
+        }
+        const Rect &b = want == OverlayWant::kCombine ? kCombine : kExamine;
+        return at(bx + 8 + (b.l + b.r) / 2, (b.t + b.b) / 2, K::kDone);
+    }
+    }
+    return {K::kReady};
+}
+
 void Inventory::draw(Surface &dst, const GameFonts &fonts) {
     const int bx = int(_x);
     const image::Image &panel = _host.picture("interface/inventoryborder.tga");

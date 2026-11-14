@@ -49,6 +49,18 @@ public:
     /** The Examine and Combine buttons (0x419790, 0x41a740). */
     void examineButton();
     void combineButton();
+    /** The tray emptied onto the pages and `items` put in it, as a player would: false if one isn't in the bag. */
+    bool toTray(const std::vector<std::string> &items);
+    /**
+     * What Examine would do something with: a document or a book not
+     * read, an item with a close-up, two prints of one person not
+     * compared.
+     */
+    std::vector<std::vector<std::string>> examinable() const;
+    /** A player's next click towards `want` (GameOverlay::hand). */
+    OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) const;
+    /** Whether a close-up shows. */
+    bool showing() const { return _showing; }
 
     static constexpr int kTray = 144; ///< the tray's first slot (page 12)
 
