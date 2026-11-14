@@ -96,13 +96,15 @@ ScenePage::GameStatus ScenePage::status() const {
 }
 
 std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
-    // The hotspots, characters and pictures (items lying about) a player
-    // could click now, in the scene's order: shown, with something to run,
-    // and an outline or a rectangle the pick can find; and Antoinette,
-    // whom items can be used on (uselist.txt).
+    // The hotspots, characters and pictures (items lying about: And Then
+    // There Were None's are ITEMs) a player could click now, in the
+    // scene's order: shown, with something to run, and an outline or a
+    // rectangle the pick can find; and Antoinette, whom items can be used
+    // on (uselist.txt).
     std::vector<const Ac2Record *> out;
     for (const Ac2Record *o : _scene.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || !objectShown(*o))
+        const bool picture = o->tag == "2DOB" || o->tag == "ITEM";
+        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && !picture) || !objectShown(*o))
             continue;
         if (!scripted(*o) && o->tag != "PCXX")
             continue;
@@ -111,7 +113,7 @@ std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
         int t;
         int r;
         int b;
-        if (o->tag == "2DOB" && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
+        if (picture && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
             continue;
         out.push_back(o);
     }

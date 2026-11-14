@@ -234,11 +234,10 @@ bool ScenePage::canUseOn(const std::string &item, const Ac2Record &o) {
     auto unquoted = [](std::string s) {
         return s.size() >= 2 && s.front() == '"' && s.back() == '"' ? s.substr(1, s.size() - 2) : s;
     };
-    const Table &t = itemTable("uselist.txt");
+    const Table &t = itemTable(_ctx.game ? _ctx.game->inventory.characters : InventoryRules().characters);
     const std::string model = fs::toLower(o.text("file"));
     for (size_t r = 0; r < t.rows.size(); r++)
-        if (fs::toLower(unquoted(t.cell(r, 0))) == name &&
-            model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") != std::string::npos &&
+        if (fs::toLower(unquoted(t.cell(r, 0))) == name && isModel(model, fs::toLower(unquoted(t.cell(r, 1)))) &&
             testCondition(unquoted(t.cell(r, 2)), _state))
             return true;
     return false;
