@@ -32,3 +32,6 @@ c3ca641918d6b8665a5e89147129e22672354f26 # Rename: the nfs engine, to the coding
 b3e7e42beb271d48a89ad68b1a1901d0f36bd7e2 # Rename: the shared code, to the coding guide's names
 afc8e38de6b72718e83f50e617e2a534933fdfa2 # Rename: the shared tests, to the coding guide's names
 ef4b761f0ae70b1b025454d9baaed21104cd0796 # Split: members declared several to a line, one each
+
+# License lines: tools/check-headers.py --fix on every source file without them
+ed2a34a274a278f2fd4f21eb817ac925b56cdaa7 # tools: license lines on the 114 source files without them
