@@ -71,7 +71,20 @@ std::filesystem::path ScenePage::savesFolder() const {
 std::string ScenePage::interfaceText(const std::string &tag) {
     if (_interfaceTexts.empty()) {
         std::vector<uint8_t> data;
-        if (!_ctx.files.read("text/interface.txt", data)) {
+        if (!_ctx.files.read("text/interface.txt", data) && decodeText(data).find('\t') == std::string::npos) {
+            // And Then There Were None's: "tag=text" lines.
+            const std::string text = decodeText(data);
+            size_t at = 0;
+            while (at < text.size()) {
+                const size_t end = std::min(text.find('\n', at), text.size());
+                std::string line = text.substr(at, end - at);
+                at = end + 1;
+                while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+                    line.pop_back();
+                if (const size_t eq = line.find('='); eq != std::string::npos)
+                    _interfaceTexts[fs::toLower(line.substr(0, eq))] = line.substr(eq + 1);
+            }
+        } else if (!data.empty()) {
             const Table t = parseTable(decodeText(data));
             const int text = t.column("Text");
             const int translation = t.column("Translation");

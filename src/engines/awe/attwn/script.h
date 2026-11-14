@@ -29,6 +29,8 @@ bool condition(const GameState &state, const std::vector<std::string> &words, bo
  * "inc needed|possible <act>..." (ac.exe 0x40bdad): if the act is one of
  * those named, its counter <act>_neededcounter or <act>_possiblecounter
  * (0 if unset) goes up by 1. The chapters' tables end an act on them.
+ * "suspicion <who> [+|-]n" (0x40d3df): the tag suspicion_<who> set to n,
+ * or moved by it, kept to 0 or 1.
  * @return False if the verb isn't one of the game's own.
  */
 bool verb(GameState &state, const std::vector<std::string> &words);

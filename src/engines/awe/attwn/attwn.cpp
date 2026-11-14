@@ -5,6 +5,7 @@
 
 #include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/attwn/journal.h"
 #include "engines/awe/attwn/script.h"
 
 #include <string>
@@ -136,6 +137,7 @@ const GameInfo &game() {
                  .actFolders = true,
                  .actMusic = true,
                  .musica = "sound\\%s.wav"}, // 0x40c42a
+        .overlay = makeOverlay,              // the journal
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

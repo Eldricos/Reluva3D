@@ -154,6 +154,7 @@ void ScenePage::activate() {
     if (_ctx.sys.init3D(frameW(), frameH(), _renderer))
         _renderer = nullptr, begin2D();
     applyAntiAliasing();
+    makeOverlay();
     // Without the browser no file is shown but the game's.
     if (_browser || _playing)
         load();
@@ -670,7 +671,23 @@ void ScenePage::newGame() {
     _optionsMenu.reset();
     closePuzzle();
     logScript("new game");
+    makeOverlay();
     _runner->run(_ctx.game ? _ctx.game->flow.start : GameFlow().start);
+}
+
+void ScenePage::makeOverlay() {
+    if (!_ctx.game || !_ctx.game->overlay)
+        return;
+    _overlayHost = std::make_unique<OverlayHost>(OverlayHost{
+        _state, _ctx.files,
+        [this](const std::string &file) -> const image::Image & { return picture(normalizeArchiveName(file)); },
+        [this](const std::string &file) {
+            // By its file's name, as the game's sounds are found.
+            std::string name = fs::toLower(fileNameOf(normalizeArchiveName(file)));
+            playSound(name.substr(0, name.rfind('.')));
+        },
+        [this](const std::string &tag) { return interfaceText(tag); }});
+    _overlay = _ctx.game->overlay(*_overlayHost);
 }
 
 void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
@@ -1517,7 +1534,14 @@ void ScenePage::draw() {
     // The bar and the inventory window, then a card held up (0x415227,
     // 0x418040): under the dialogue box.
     if (_drawing && !_load.screen && !_movie) {
-        drawInterface();
+        // A game's own window in the place of Orient Express's bar and
+        // inventory (And Then There Were None's journal).
+        if (_overlay) {
+            if (interfaceShown() && _ctx.fonts)
+                _overlay->draw(_ctx.screen, *_ctx.fonts);
+        } else {
+            drawInterface();
+        }
         // The letterbox over the bar, under a card (0x416ff0, at
         // 0x4155ef): black, from just above the top and up from the
         // bottom.
@@ -1707,8 +1731,12 @@ void ScenePage::update(uint64_t nowMs) {
         _soundRunner = nullptr;
         r->finished("sound");
     }
-    if (interfaceUpdate(dt) || (_ui.open && _ui.page == 0 && !_state.fresh.empty() && _caretTime == 0.33f))
+    if (_overlay) {
+        _overlay->update(dt);
         redraw = true;
+    } else if (interfaceUpdate(dt) || (_ui.open && _ui.page == 0 && !_state.fresh.empty() && _caretTime == 0.33f)) {
+        redraw = true;
+    }
     _runner->update(dt);
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
@@ -3536,6 +3564,16 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
             logScript("    (" + v + ": no " + (who.empty() ? std::string("player") : who) + " here)");
             return false;
         }
+    // The game's own window's words (And Then There Were None's "journal").
+    if (_overlay) {
+        std::vector<std::string> words;
+        for (const std::string &w : e.words)
+            words.push_back(lower(w));
+        if (_overlay->verb(words)) {
+            draw();
+            return false;
+        }
+    }
     // The rest isn't done here yet: logged, and over.
     logScript("    (not done yet: " + v + ")");
     return false;
@@ -3634,9 +3672,16 @@ void ScenePage::handleEvent(const Event &event) {
         return;
     }
     // The interface: the bar, the inventory, the item in hand
-    // (scene_interface.cpp).
-    if (interfaceEvent(ev))
+    // (scene_interface.cpp); or the game's own window.
+    if (_overlay) {
+        if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _playing && interfaceShown() &&
+            _overlay->click(ev.mouseX, ev.mouseY)) {
+            draw();
+            return;
+        }
+    } else if (interfaceEvent(ev)) {
         return;
+    }
     if (ev.type == EventType::kMouseMove && _showGrid && _browser) {
         float x;
         float z;

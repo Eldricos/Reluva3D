@@ -6,6 +6,7 @@
 #include "common/fs.h"
 #include "engines/awe/game/conditions.h"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace reluva::awe::attwn {
@@ -36,6 +37,19 @@ bool condition(const GameState &state, const std::vector<std::string> &words, bo
 }
 
 bool verb(GameState &state, const std::vector<std::string> &words) {
+    if (!words.empty() && fs::toLower(words[0]) == "suspicion") {
+        // "suspicion <who> [+|-]n" (0x40d3df): the tag set, or moved by n
+        // from what it was (0 if unset), kept to 0 or 1.
+        const std::string tag = "suspicion_" + (words.size() > 1 ? fs::toLower(words[1]) : std::string());
+        const std::string n = words.size() > 2 ? words[2] : std::string("0");
+        int value = std::atoi(n.c_str() + (n[0] == '+' || n[0] == '-' ? 1 : 0));
+        if (!n.empty() && n[0] == '+')
+            value = tagOr0(state, tag) + value;
+        else if (!n.empty() && n[0] == '-')
+            value = tagOr0(state, tag) - value;
+        state.tags[tag] = std::clamp(value, 0, 1);
+        return true;
+    }
     if (words.empty() || fs::toLower(words[0]) != "inc")
         return false;
     // The act's name as the game writes it ("%02d%c", 0x4028c0), against

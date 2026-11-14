@@ -21,6 +21,8 @@ namespace reluva::awe {
 
 struct GameState;
 struct ActRow;
+class GameOverlay;
+struct OverlayHost;
 
 /** A function in a game's executable, and its first bytes there (to be sure it's that release's). */
 struct CodeAt {
@@ -220,8 +222,10 @@ struct GameInfo {
     DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
     GameSaves saves;               ///< its saved games' files
     GameFlow flow;                 ///< how it starts, its acts and scenes
-    const char *exe = nullptr;     ///< its executable, in the game's folder
-    PathFinderCode pathFinder;     ///< in that executable (the English release's)
+    /** Its own window over its scenes (the journal); null: none. */
+    std::unique_ptr<GameOverlay> (*overlay)(OverlayHost &host) = nullptr;
+    const char *exe = nullptr; ///< its executable, in the game's folder
+    PathFinderCode pathFinder; ///< in that executable (the English release's)
 };
 
 /** The AWE games, in the order they're recognised. */

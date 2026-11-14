@@ -36,12 +36,15 @@ The runner tells a verb by its first word, compared ignoring case
 - **`suspicion <who> [<|>]n`**, a condition (`0x40a6f1`): the tag
   `suspicion_<who>`, unset as 0, against n: less, more, or without either,
   equal. 37 uses.
+- **`suspicion <who> [+|-]n`**, a verb (`0x40d3df`): the tag
+  `suspicion_<who>` set to n, or with `+` or `-` moved by n from what it
+  was (unset as 0), then kept to 0 or 1.
 - **`cutscene <name>`** (handled with `scene` and `gotoscene` at
   `0x40ddd9`): `scene` with `[0x485f04]` set, so its place is its name up
   to its `_` and it's looked for in `Cutscenes`; 20 uses
   ([acts.md](acts.md#cutscenes-and-title-cards)).
-- **`journal <n>`** (`0x40bf21`): the number to the journal
-  (`[0x485f40]`, `0x41c290`); 1 use. Not done yet: phase 4.
+- **`journal <n>`** (`0x40bf21`): the journal turned to tab n, its book
+  blinking ([journal.md](journal.md)).
 
 None of these is in `motoe.exe`.
 

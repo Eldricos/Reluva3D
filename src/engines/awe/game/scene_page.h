@@ -9,6 +9,7 @@
 #include "image/image.h"
 #include "common/types.h"
 #include "video/bink.h"
+#include "engines/awe/ui/game_overlay.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/game/actor.h"
 #include "engines/awe/game/conditions.h"
@@ -514,6 +515,8 @@ private:
     void drawYesNo();
     int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
     std::string interfaceText(const std::string &tag);
+    // The game's own window (GameInfo::overlay), made afresh for a game.
+    void makeOverlay();
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).
     bool startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait);
@@ -824,6 +827,8 @@ private:
     bool _grabDue = false;
     bool _quit = false;
     std::map<std::string, std::string> _interfaceTexts;
+    std::unique_ptr<OverlayHost> _overlayHost;
+    std::unique_ptr<GameOverlay> _overlay;
     ScriptRunner *_fadeRunner = nullptr;
     std::string _dialogueAct = "-";               // the act whose table is loaded
     std::map<std::string, Table> _dialogueTables; // by file, as read

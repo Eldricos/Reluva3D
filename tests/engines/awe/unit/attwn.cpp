@@ -7,6 +7,7 @@
 #include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/attwn.h"
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/attwn/journal.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/savegame.h"
@@ -201,6 +202,12 @@ void testScriptWords() {
     CHECK(testCondition("suspicion wargrave 2", state) && !testCondition("suspicion wargrave 1", state));
     CHECK(testCondition("suspicion wargrave >1", state) && testCondition("suspicion Wargrave <3", state));
     CHECK(testCondition("suspicion blore 0", state) && testCondition("!suspicion blore >0", state));
+    // The verb sets it, or moves it, kept to 0 or 1 (0x40d3df).
+    r.run("suspicion blore 1, suspicion lombard +3, suspicion wargrave -1");
+    for (int i = 0; i < 8 && !r.idle(); i++)
+        r.update(0.1f);
+    CHECK(state.tags["suspicion_blore"] == 1 && state.tags["suspicion_lombard"] == 1 &&
+          state.tags["suspicion_wargrave"] == 1);
     // Orient Express has neither word: "suspicion" doesn't hold there, and
     // "inc" goes to the host as a verb it doesn't know.
     GameState other;
@@ -468,6 +475,52 @@ void testChapters(const std::filesystem::path &tmp) {
     CHECK(story.startAct("2b") && !main.idle() && !story.loading());
 }
 
+void testJournal(const std::filesystem::path &tmp) {
+    const std::filesystem::path dir = tmp / "journal";
+    putFile(dir / "Text" / "Journal" / "docs.act",
+            scramble({"Sub-Heading\tCondition\tEntry\r\n", "Roger's Letter\ttag read_letter\t\"     Rogers,\"\r\n",
+                      "Roger's Letter\ttag read_letter\tHang on to the package.\r\n",
+                      "The Poem\tact >01a\tTen little sailor boys.\r\n", "short\r\n"}));
+    putFile(dir / "Text" / "Journal" / "general.act",
+            scramble({"Sub-Heading\tCondition\tEntry\r\n", "Owen\t0\tUnder suspicious circumstances.\r\n"}));
+    attwn::GameFiles files;
+    CHECK(!files.open(dir));
+    GameState state;
+    state.act = "01a";
+    std::vector<std::string> sounds;
+    const image::Image none;
+    OverlayHost host{state, files, [&](const std::string &) -> const image::Image & { return none; },
+                     [&](const std::string &f) { sounds.push_back(f); }, [](const std::string &t) { return t; }};
+    attwn::Journal j(host);
+    // Its tables: three columns, the quotes off, short lines skipped.
+    CHECK(j.entries(2).size() == 3 && j.entries(0).size() == 1 && j.entries(2)[0].text == "     Rogers,");
+    // "journal 2": the Docs tab's contents; nothing shows till its
+    // condition holds; the book blinks while it's closed.
+    CHECK(j.verb({"journal", "2"}) && j.tab() == 2 && j.headings().empty() && !j.open());
+    state.tags["read_letter"] = 0;
+    j.verb({"journal", "2"});
+    CHECK((j.headings() == std::vector<std::string>{"Roger's Letter"}));
+    state.act = "01b";
+    j.retest();
+    CHECK((j.headings() == std::vector<std::string>{"Roger's Letter", "The Poem"}));
+    // Its book opens it: it slides from 754 to 420 at 500 pixels a second.
+    CHECK(!j.click(100, 100) && j.click(760, 30) && !sounds.empty() &&
+          sounds.back() == "sound\\interface\\openclose.wav");
+    for (int i = 0; i < 30; i++)
+        j.update(0.05f);
+    CHECK(j.open() && j.x() == 420);
+    // A tab: its contents; a sub-heading: its entries.
+    CHECK(j.click(420 + 100, 370) && j.tab() == 0 && j.heading().empty());
+    CHECK(j.click(420 + 250, 370) && j.tab() == 2);
+    CHECK(j.click(420 + 130, 70) && j.heading() == "Roger's Letter");
+    // Clicks elsewhere on it are its; off it, the scene's.
+    CHECK(j.click(600, 200) && !j.click(100, 200));
+    j.click(420 + 10, 30);
+    for (int i = 0; i < 30; i++)
+        j.update(0.05f);
+    CHECK(!j.open() && j.x() == 754);
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -508,5 +561,6 @@ static const reluva::test::Suite
                                  {"lighting", [](const std::filesystem::path &) { testLighting(); }},
                                  {"saves", [](const std::filesystem::path &) { testSaves(); }},
                                  {"chapters", [](const std::filesystem::path &tmp) { testChapters(tmp); }},
+                                 {"journal", [](const std::filesystem::path &tmp) { testJournal(tmp); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });
