@@ -418,7 +418,7 @@ void CockpitPage::draw(Surface &s) {
     text(s, kMargin, 8, title, kTitleColor);
     text(s, kMargin, 8 + font::kLineHeight, readings, kTextColor);
     fill(s, 0, s.h - font::kLineHeight - 8, s.w, font::kLineHeight + 8, kBackground);
-    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
+    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: back", kLabelColor);
 }
 
 // --- Strings ------------------------------------------------------------------
@@ -634,7 +634,7 @@ std::vector<std::unique_ptr<Page>> makePages(const char *gameName, const GameFol
     const auto filter = settings.find("texturefilter");
     g_pagesPointSampled = filter != settings.end() && filter->second == "point";
     auto play = makePlayPage(folders, saveFolder, mixer, settings);
-    play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: launcher");
+    play->setKeysLine("Keys and mouse go to the game   Tab: next page   Ctrl+F5: back");
     pages.push_back(std::move(play));
     pages.push_back(std::make_unique<TrackPage>(files, folders, mixer));
     pages.push_back(std::make_unique<CarPage>(files));
