@@ -6,7 +6,6 @@
 #include "common/events.h"
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -43,8 +42,6 @@ public:
     bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
     // How many frames the game has shown (flipped) so far.
     uint64_t framesShown();
-    // Holds the game at its next frame (or lets it go on).
-    void pause(bool paused);
     // Whether the program has stopped: by itself (`ended`) or with an error
     // (`error`).
     bool finished(bool &ended, std::string &error);
@@ -61,7 +58,6 @@ private:
     GameProcess *_game = nullptr; // the game thread's, while it runs
     std::thread _thread;
     std::mutex _mutex;
-    std::condition_variable _resume;
     std::deque<Event> _events;
     std::vector<uint32_t> _frame;
     int _width = 0;
@@ -69,7 +65,6 @@ private:
     uint64_t _frameNumber = 0;
     uint64_t _frameTaken = 0;
     std::chrono::steady_clock::time_point _nextFlip{}; // the next vertical blank a flip may show at
-    bool _paused = false;
     bool _stopping = false;
     bool _finished = false;
     bool _ended = false;
