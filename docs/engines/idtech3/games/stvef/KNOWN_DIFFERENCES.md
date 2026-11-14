@@ -225,3 +225,16 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
   - Ctrl+PgUp and Ctrl+PgDn change map;
   - Ctrl+I hides the info line;
   - Esc returns to the menus.
+
+### Holomatch
+
+- **The Play page's own keys,** as single player's: Ctrl+R restarts the
+  level, Ctrl+PgUp and Ctrl+PgDn change map, and Ctrl+I shows or hides the
+  info line.
+- **The Menu page's Ctrl+R** starts the menus again, stopped or not.
+
+### The data viewer
+
+- **`reluva-viewer`** shows the game's maps, models, textures and files
+  beside its own pages. It's a program of its own, which players don't get
+  (see the [game's README](README.md#using-it)).
