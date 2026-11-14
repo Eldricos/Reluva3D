@@ -6,30 +6,34 @@
 #include <algorithm>
 namespace reluva::boggle::fixtures {
 struct DialogFixture {std::vector<uint8_t> bytes;std::vector<size_t> controls;size_t caption=0;};
-inline DialogFixture dialog(bool extended=false,bool extra=false){
+inline DialogFixture dialog(bool extended=false,bool extra=false,bool notice=false){
     DialogFixture f;auto& b=f.bytes;
     auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
     auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
     auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
     if(extended){word(1);word(0xffff);integer(0x12345678);integer(0x1234);integer(0x40);}
     else {integer(0x40);integer(0x1234);}
-    word(5);word(uint16_t(-5));word(7);word(300);word(120);word(0);word(0);f.caption=b.size();text(u"Own prompt");
+    word(notice?3:5);word(uint16_t(-5));word(7);word(notice?240:300);word(notice?150:120);word(0);word(0);f.caption=b.size();text(u"Own prompt");
     word(8);if(extended){word(650);b.push_back(1);b.push_back(2);}text(u"InventedFont");
-    const unsigned ids[]={6,7,4,3,15801};
-    for(unsigned i=0;i<5;++i){while(b.size()%4)b.push_back(0);f.controls.push_back(b.size());
+    const unsigned reviewIds[]={6,7,4,3,15801},noticeIds[]={1348,1349,1350};
+    const unsigned count=notice?3:5;
+    for(unsigned i=0;i<count;++i){while(b.size()%4)b.push_back(0);f.controls.push_back(b.size());
         if(extended){integer(42+i);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
-        word(i<4?uint16_t(230-i*70):30);word(i<4?90:28);word(i<4?50:230);word(i<4?16:34);
-        if(extended)integer(ids[i]);else word(uint16_t(ids[i]));word(0xffff);word(i<4?0x80:0x82);text(i<4?u"Own choice":u"Own body");
+        const bool action=i+1<count;
+        if(notice){word(action?(i?160:30):20);word(action?120:24);word(action?50:200);word(action?16:70);}
+        else {word(action?uint16_t(230-i*70):30);word(action?90:28);word(action?50:230);word(action?16:34);}
+        const unsigned id=notice?noticeIds[i]:reviewIds[i];
+        if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(action?0x80:0x82);text(action?u"Own choice":u"Own body");
         if(extra && i==0){word(extended?3:5);b.insert(b.end(),{1,2,3});}else word(0);
     }
     return f;
 }
-inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload){
+inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;
     std::array<std::u16string,16> text{};text[1]=u"Own menu";const auto strings=stringBlock(text);
     const size_t stringAt=(160+payload.size()+3)&~size_t(3);std::vector<uint8_t> tree(stringAt+strings.size());
     put16(tree,14,2);put32(tree,16,5);put32(tree,20,0x80000020);put32(tree,24,6);put32(tree,28,0x80000060);
-    put16(tree,46,1);put32(tree,48,16003);put32(tree,52,0x80000038);
+    put16(tree,46,1);put32(tree,48,id);put32(tree,52,0x80000038);
     put16(tree,70,1);put32(tree,72,1033);put32(tree,76,80);put32(tree,80,0x3000+160);put32(tree,84,uint32_t(payload.size()));put32(tree,88,1200);
     put16(tree,110,1);put32(tree,112,1);put32(tree,116,0x80000078);
     put16(tree,134,1);put32(tree,136,1033);put32(tree,140,144);put32(tree,144,uint32_t(0x3000+stringAt));put32(tree,148,uint32_t(strings.size()));put32(tree,152,1200);

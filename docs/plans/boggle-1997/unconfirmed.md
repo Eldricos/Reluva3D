@@ -392,3 +392,13 @@ layouts and 729 controls. Review actions remain tied to their logical choices;
 mouse tests cover all four decisions in Original/Master with unchanged points.
 Native fonts, colors, dialog-unit scaling and explanatory wording remain native
 policies. Exact original dialog styling and the other modal screens remain open.
+
+### Minimum-word notice placement
+
+The owner confirmed the dictionary-review layout works. The next
+[notice pass](../../engines/boggle/dialogs.md#minimum-word-length-notice) uses
+the installed shared-message template for the short-word warning, including its
+single active OK control. Three isolated button-mode checks corroborate the
+source mapping. Original/Master tests retain frozen Traditional/Chess clocks,
+focus nesting, keyboard/mouse acknowledgment and scoring. Native font metrics,
+colors, wording and other dialog skins remain outside this placement claim.

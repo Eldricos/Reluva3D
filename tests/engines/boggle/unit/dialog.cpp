@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/formats/dialog.h"
 #include "engines/boggle/classic/review_dialog.h"
+#include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -40,6 +41,43 @@ void layouts(){
     bad=fixture.bytes;bad.resize(23);CHECK(bool(layout.read(resources(bad))));
     CHECK(!layout.read(own));Surface screen;screen.create(800,600,PixelFormat::RGBA32);const auto blank=screen.pixels;layout.draw(screen,"OWNWORD",{});CHECK(screen.pixels!=blank);
 }
+void noticeLayouts(){
+    ClassicNoticeDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.okay().contains(400,360));
+    for(bool extended:{false,true}) {
+        const auto f=fixtures::dialog(extended,false,true);auto own=resources(f.bytes);own[0].name.id=16006;
+        CHECK(!layout.read(own) && layout.installed());const auto b=layout.okay();CHECK(b.x==480 && b.y==390 && b.w==100 && b.h==32);
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        Surface screen;screen.create(800,600,PixelFormat::RGBA32);const auto empty=screen.pixels;
+        layout.draw(screen,"Own message with enough words to wrap inside this invented notice.");CHECK(screen.pixels!=empty);
+        const auto offset=f.controls[1]+(extended?20:16);auto bad=f.bytes;test::fixtures::put16(bad,offset,1348);own[0].data=bad;CHECK(bool(layout.read(own)) && !layout.installed());
+        own[0].data=f.bytes;test::fixtures::put16(own[0].data,f.controls[1]+(extended?12:8)+2,40);CHECK(bool(layout.read(own))); // button crosses message area
+        own[0].data=f.bytes;test::fixtures::put16(own[0].data,f.controls[2]+(extended?12:8)+4,30);CHECK(bool(layout.read(own))); // narrow body
+    }
+}
+void noticeGame(const std::filesystem::path& tmp){
+    for(bool master:{false,true})for(bool chess:{false,true}) {
+        const auto root=tmp/(std::to_string(master)+std::to_string(chess));fixtures::artworkInstall(root);
+        const auto f=fixtures::dialog(master,false,true);fixtures::write(root/"Language/English.dll",fixtures::dialogLanguage(f.bytes,16006));
+        auto own=resources(f.bytes);own[0].name.id=16006;ClassicNoticeDialog layout;CHECK(!layout.read(own));const auto okay=layout.okay();
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(chess));target.settings={{"classic_variant",master?"master":"original"},{"classic_turns",chess?"chess":"traditional"},{"classic_seed","6551"},{"classic_animations","0"},{"classic_sound","0"},{"classic_seconds","60"}};
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t f){const uint64_t times[]={0,1100,1000000,1000010,2000000,2000010,2000020,2000030,2000040};return times[std::min(f,size_t(8))];};
+        sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent(master?"AAA":"AA"),keyEvent(key::Return)};
+            if(f==2)return {mouseEvent(EventType::MouseDown,400,360)}; // old position cannot dismiss installed layout
+            if(f==3){Event e;e.type=EventType::FocusLost;return {e};}
+            if(f==4){Event e;e.type=EventType::FocusGained;return {e,mouseEvent(EventType::MouseDown,okay.x+10,okay.y+10)};}
+            if(f==5)return {chess?keyEvent(master?key::Space:key::Return):mouseEvent(EventType::MouseDown,okay.x+10,okay.y+10),textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==6)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==7)return {keyEvent(key::F1)};
+            if(f==8)return {keyEvent(key::Escape)};
+            return {};
+        };
+        ClassicGame game(sys,target);if(auto error=game.run())test::fail(error.message);
+        CHECK(sys.hashes.size()==8);if(sys.hashes.size()==8){CHECK(sys.hashes[1]==sys.hashes[2] && sys.hashes[1]==sys.hashes[4]);CHECK(sys.hashes[5]!=sys.hashes[6]);}
+        HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
+    }
+}
 void decisions(const std::filesystem::path& tmp){
     for(bool master:{false,true})for(size_t choice=0;choice<4;++choice){
         const auto root=tmp/(std::to_string(master)+std::to_string(choice));fixtures::artworkInstall(root);
@@ -64,4 +102,6 @@ static const test::Suite suite("boggle.unit.dialog",{
     {"standard/extended headers, font, Unicode, alignment, creation data and malformed input",[](const auto&){templates();}},
     {"exact language, missing layouts, action IDs, geometry and native drawing",[](const auto&){layouts();}},
     {"installed button positions preserve four choices, prompt guard and scoring",decisions},
+    {"notice layout, exact language, wrapping and invalid controls",[](const auto&){noticeLayouts();}},
+    {"installed OK, focus nesting, frozen clocks and acknowledgment batch",noticeGame},
 });

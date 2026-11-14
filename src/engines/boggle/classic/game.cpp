@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/review_dialog.h"
+#include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/cursor.h"
 #include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/turn_clock.h"
@@ -265,10 +266,14 @@ Error ClassicGame::run() {
     if(auto err=artwork.open(resources,target_.path,options,clip))return err;
     ClassicCursorArtwork cursorArtwork;
     ClassicReviewDialog reviewDialog;
+    ClassicNoticeDialog noticeDialog;
     if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
         if(auto error=cursorArtwork.read(language.resources))return error;
-        if(options.artwork)if(auto error=reviewDialog.read(language.resources))return error;
+        if(options.artwork) {
+            if(auto error=reviewDialog.read(language.resources))return error;
+            if(auto error=noticeDialog.read(language.resources))return error;
+        }
     }
     ClassicAudio sound(sys_);
     ClassicTransition transition;
@@ -580,7 +585,7 @@ Error ClassicGame::run() {
             if(minimumNotice) {
                 const bool okay=(event.type==EventType::KeyDown && !event.repeat &&
                     (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key==key::Space)) ||
-                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && noticeOkay.contains(event.mouseX,event.mouseY));
+                    (event.type==EventType::MouseDown && event.button==MouseButton::Left && noticeDialog.okay().contains(event.mouseX,event.mouseY));
                 if(gameplayClock.focused() && noticeVisible && okay) {
                     minimumNotice=false;gameplayClock.notice(false,sys_.getMillis());
                     message.clear();scoreDismissed=true;
@@ -786,10 +791,13 @@ Error ClassicGame::run() {
                 label(screen,350,357,"RESUME");
             }
         } else if(minimumNotice) {
+            if(noticeDialog.installed())noticeDialog.draw(screen,"Words must be at least "+std::to_string(round().minimum())+" characters long.");
+            else {
             rect(screen,100,210,600,210,{22,40,60});
             label(screen,160,260,"Words must be at least "+std::to_string(round().minimum())+" characters long.");
             rect(screen,noticeOkay.x,noticeOkay.y,noticeOkay.w,noticeOkay.h,{48,88,120});
             label(screen,390,365,"OK");
+            }
         }
         const bool cursorScene=!gameplayClock.paused() && !handoff && !matchOpen && !scoreOpen && !competition.ready() &&
             transition.type()==Transition::None && round().phase()==RoundPhase::Playing;

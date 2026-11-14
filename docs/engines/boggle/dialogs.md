@@ -46,7 +46,36 @@ keyboard hints and panel frame remain independently authored native UI. Decoded
 font metadata is retained for later work; it is not used as Windows font metrics.
 This stage establishes installed relative placement and consistent mouse targets,
 not exact Windows dialog-unit conversion, original skinning or modal styling.
-Pause/minimum notices and other original dialogs remain separate work.
+The minimum-length notice now uses the same template reader; see below. Pause
+and other original dialogs remain separate work.
+
+## Minimum-word-length notice
+
+With installed artwork enabled, the too-short-word notice now selects exact
+RT_DIALOG 16006 / language 0x0409. It uses message area 1350 and OK control 1349.
+The original single-button mode hides control 1348; native display follows that
+choice without drawing an inactive second button. Missing templates and disabled
+artwork retain the previous notice and acknowledgment rectangle. A malformed
+present selected layout fails explicitly.
+
+The minimum check at `0x414d50` formats the current minimum and calls message
+service `0x414370` with the single-button kind. Its constructor at `0x444ba0`
+selects template 16006. Initialization at `0x44535a..0x445405` hides the left
+control and labels the right control for that kind. An external isolated probe
+with invented string/window services verifies all three button-mode branches;
+three checks pass. Original bytes and the probe remain outside Git.
+
+The consumer validates unique required controls, their classes and bounds, and
+separation of message and acknowledgment areas. Placement keeps the existing
+native two-pixel unit policy. Text wraps within the installed message area with
+the native bitmap font and independently authored title/wording. This does not
+claim original Windows metrics, colors or skinning.
+
+Only presentation and mouse targets change. The notice still holds the gameplay
+clock, preserves the current Chess player and consumes its acknowledgment batch.
+OK, Enter, keypad Enter, Space and Escape retain their existing behavior. Wrong
+clicks cannot dismiss it; focus regain must display the notice before a queued
+acknowledgment is accepted. Music and lid behavior are unchanged.
 
 ## Checking and validation
 
@@ -69,3 +98,13 @@ the resulting scores, including the guard against choices in the finishing event
 batch. External SDL runs inspect supplied-resource review and click No in both
 variants. All fixtures are original synthetic data; retail resources, raw
 research, probes and screenshots remain outside Git.
+
+Notice fixtures additionally cover standard/extended templates, the primary OK
+position, wrapping, missing/exact-language fallback, invalid required controls
+and overlapping message/button areas. Original/Master scripted rounds exercise
+Traditional and Chess clocks across long focus gaps, mouse/keyboard acknowledgments
+and event-batch consumption, then submit a word successfully for the same score.
+
+External SDL software-backend checks also display the supplied minimum notice
+and acknowledge its installed OK button in both variants, restoring the human
+cursor afterward. No screenshots or decoded templates are stored in Git.

@@ -31,6 +31,7 @@ reluva_add_engine(boggle
         classic/ai_policy.cpp
         classic/ai_motion.cpp
         classic/competition.cpp
+        classic/notice_dialog.cpp
         classic/review_dialog.cpp
         classic/results.cpp
         classic/turn_clock.cpp

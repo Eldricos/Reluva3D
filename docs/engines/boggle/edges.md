@@ -95,3 +95,8 @@ The gameplay clock remains frozen through both; a focus-aware presentation clock
 advances them. Resume restores the same board, selection and input. Inactivity
 still uses the full-screen cover. Exact original dialog styling remains
 comparison work. See the linked specification for animation ranges and audio.
+
+The [installed notice layout](dialogs.md#minimum-word-length-notice) now supplies
+the short-word message area and OK target when available. The minimum check,
+Chess turn, clock hold and acknowledgment guards remain those described above.
+Disabled artwork and missing templates retain the previous native notice.
