@@ -55,7 +55,7 @@ private:
     std::array<float, 3> _mins{};
     std::array<float, 3> _maxs{};
 
-    // Orbit camera around `target_`.
+    // Orbit camera around `_target`.
     std::array<float, 3> _target{};
     float _yaw = 0;
     float _pitch = 0;

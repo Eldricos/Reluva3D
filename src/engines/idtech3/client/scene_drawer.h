@@ -118,7 +118,7 @@ private:
     ModelCache &_models;
     const RefEntityLayout &_layout;
     Handles _handles;
-    std::map<int32_t, int> _modelIds; // the program's model handle -> models_ id (-1: can't load)
+    std::map<int32_t, int> _modelIds; // the program's model handle -> _models id (-1: can't load)
     // by shader handle; -2 not made yet
     std::vector<int> _pictureMaterials;
     std::vector<int> _effectMaterials;
@@ -181,7 +181,7 @@ private:
         float sort = 0;    // its material's
     };
     std::vector<Effect> _effects;
-    gfx::MeshId _effectMesh = 0; // effects_' vertices, while a view is drawn
+    gfx::MeshId _effectMesh = 0; // _effects' vertices, while a view is drawn
     std::vector<gfx::Vertex> _effectVertices;
     std::vector<uint32_t> _effectIndices;
     std::minstd_rand _effectRandom;         // electricity's jitter

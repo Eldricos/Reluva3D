@@ -111,8 +111,8 @@ private:
     struct Batch {
         float sort = 3;
         int material = 0;
-        int lightmap = -1; // index into lightmaps_, or -1
-        int fog = -1;      // index into fogs_, or -1
+        int lightmap = -1; // index into _lightmaps, or -1
+        int fog = -1;      // index into _fogs, or -1
         uint32_t firstIndex = 0;
         uint32_t indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
@@ -214,7 +214,7 @@ private:
     // sky shader's stages (cloud layers) over it.
     gfx::MeshId _skyMesh = 0;
     std::array<gfx::TextureId, 6> _skySides{};
-    std::array<uint32_t, 6> _skySideFirst{}; // index ranges in skyMesh_
+    std::array<uint32_t, 6> _skySideFirst{}; // index ranges in _skyMesh
     uint32_t _skySideCount = 0;
     int _skyMaterial = -1;
     uint32_t _cloudCount = 0; // the box without its bottom, from index 0
