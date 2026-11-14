@@ -223,12 +223,130 @@ void testDialogueTables() {
     const std::vector<const DialogueLine *> lines = book.conversation("marston");
     CHECK(lines.size() == 1 && lines[0]->speaker == "marston" && lines[0]->text == "Narracott!");
     CHECK(lines.size() == 1 && lines[0]->target.empty() && lines[0]->duration == 0 && lines[0]->optional.empty());
-    CHECK(book.tables.wrap == 750 && std::string(book.tables.events) == "dialogue/acts/events/");
+    CHECK(book.tables.wrap == 750 && book.tables.events.size() == 3 &&
+          std::string(book.tables.events[0]) == "dialogue/acts/events/");
     // Read as Orient Express's, the 7th would be a target to turn to.
     DialogueBook theirs;
     theirs.add(parseTable(table));
     CHECK(theirs.conversation("marston").size() == 1 && theirs.conversation("marston")[0]->target == "sleeping noises");
     CHECK(theirs.tables.wrap == 944);
+}
+
+// No voices, no events: each line lasts its length / 10 seconds, at least
+// two (0x4333f7).
+struct QuietHost : DialogueHost {
+    bool playVoice(const std::string &) override { return false; }
+    bool voicePlaying() override { return false; }
+    void stopVoice() override {}
+    std::string readText(const std::string &) override { return {}; }
+    std::string sceneName() override { return "kitchen01"; }
+    void talkStarting(const std::string &name) override { started.push_back(name); }
+    std::vector<std::string> started;
+};
+
+void testDialogueManager() {
+    const std::string head = "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTone\tLine\tLine Translation\tCondition\t"
+                             "Repeat\tPrevent\tEvent\tPovent\n";
+    auto row = [](const std::string &cells) { return cells + "\t0\t0\t0\t0\t0\t0\n"; };
+    std::string table =
+        head + row("armstrong\t01a\ta\t1\ta\tarmstrong\t0\tInspector.") +
+        row("armstrong\t01a\ta\ta\ta\tnarracott\t0\tYour name?") +
+        row("armstrong\t01a\ta\ta\tb\tarmstrong\t0\tArmstrong.") + row("armstrong\t01a\ta\ta\tc\tblore\t0\tBlore.") +
+        row("armstrong\t01a\ta\tb\ta\tnarracott\t0\tWhere were you?") +
+        row("armstronggen\t0\ta\ta\ta\tnarracott\t0\tThe record?") +
+        row("blore\t01a\ta\ta\ta\tnarracott\t0\tYour name?") + row("blore\t01a\ta\tb\ta\tnarracott\t0\tAnd you?") +
+        row("armstronggenx\t0\ta\ta\ta\tnarracott\t0\tNot his.") +
+        row("narracottgen\t0\t5\ta\ta\tnarracott\t0\tNothing more to say to her.") +
+        row("narracottgen\t0\t6\ta\ta\tnarracott\t0\tNothing more to say to him.");
+    for (int r = 0; r < 5; r++)
+        table += row("armstrongexit\t0\t" + std::to_string(r) + "\t3\ta\tnarracott\t0\tGood day, Doctor.");
+    GameState state;
+    testing::FakeHost scripts;
+    QuietHost host;
+    DialogueManager d(state, scripts, host);
+    d.setGame(attwn::game());
+    d.book().add(parseTable(table));
+    ScriptRunner runner(state, scripts);
+    auto run = [&](float seconds) {
+        for (float t = 0; t < seconds; t += 0.05f)
+            d.update(0.05f);
+    };
+    // A click on him: the opening, then his own conversation's lines, the
+    // one named exactly armstronggen (0x4324f4), and a goodbye: four rows,
+    // so the box is 115 pixels, the second window (0x4328b6). It slides in
+    // from the foot of the 800x600 frame. The inventory is left as it is.
+    CHECK(d.talk(runner, "armstrong", 0, -1, -1, true, -1, false, true));
+    CHECK(host.started.empty() && d.boxHeight() == 115 && d.window() == 1 && d.boxTop() == 600);
+    run(0.5f);
+    CHECK(d.boxTop() == 485 && d.line() && d.line()->text == "Inspector." && d.colour() == 9);
+    run(2.5f);
+    CHECK(d.choosing() && d.choices().size() == 4);
+    if (d.choices().size() == 4)
+        CHECK(d.choices()[0].text == "Your name?" && d.choices()[2].text == "The record?" &&
+              d.choices()[3].text == "Good day, Doctor.");
+    // Narracott's colour; then the others alternate, starting again after
+    // each of his lines (0x433254).
+    CHECK(d.choose(0) && d.line() && d.colour() == 8);
+    run(2.5f);
+    CHECK(d.line() && d.line()->text == "Armstrong." && d.colour() == 9);
+    run(2.5f);
+    CHECK(d.line() && d.line()->text == "Blore." && d.colour() == 10);
+    run(2.5f);
+    // Leaving: the goodbye, then the box slides away.
+    CHECK(d.choosing() && d.choices().size() == 3 && d.choose(2));
+    run(5.0f);
+    CHECK(!d.active() && runner.idle());
+    // Again, not by a click: no regreet, no visit tag; the opening, heard,
+    // isn't played. The goodbye the click made stays in the conversation
+    // (0x432c70), as the next click's replaces it. Two rows: 90 pixels.
+    CHECK(d.talk(runner, "armstrong", 0, -1, -1, false, -1, false, true));
+    CHECK(state.tags.empty());
+    run(0.5f);
+    CHECK(d.choosing() && d.choices().size() == 2 && d.boxHeight() == 90 && d.window() == 0);
+    CHECK(d.choose(0));
+    run(2.5f);
+    // Only the goodbye left: it's said without asking.
+    CHECK(!d.choosing() && d.line() && d.line()->text == "Good day, Doctor.");
+    run(5.0f);
+    CHECK(!d.active());
+    // A choice left alone, not a goodbye, is offered, not played
+    // (0x432ec1).
+    CHECK(d.talk(runner, "blore", 0, -1, -1, false, -1, false, true));
+    run(0.5f);
+    CHECK(d.choosing() && d.choices().size() == 2 && d.choose(0));
+    run(2.5f);
+    CHECK(d.choosing() && d.choices().size() == 1 && d.choices()[0].text == "And you?");
+    // The talk command: one option, no nogreet, no "+" (0x40d5f0).
+    const TalkArgs t = parseTalkArgs({"armstrong", "a", "nogen", "3"}, true, attwn::game().talk);
+    CHECK(!t.gen && t.number == -1 && t.greet && !t.plus);
+    const TalkArgs plus = parseTalkArgs({"armstrong", "a+", "nogreet"}, true, attwn::game().talk);
+    CHECK(!plus.plus && plus.greet && plus.number == 0 && plus.thread == '+' - 'A');
+}
+
+void testNothingToSay() {
+    // A talk that finds nothing, whatever started it: Narracott's line,
+    // "her" or "him" by the last character talked to (0x4325a0).
+    std::string table = "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTone\tLine\n";
+    for (const char *line :
+         {"armstrong\t01a\ta\ta\ta\tarmstrong\t0\tYes?", "claythorne\t01a\ta\ta\ta\tclaythorne\t0\tYes?",
+          "narracottgen\t0\t5\ta\ta\tnarracott\t0\tTo her.", "narracottgen\t0\t6\ta\ta\tnarracott\t0\tTo him."})
+        table += std::string(line) + "\t0\t0\t0\t0\t0\t0\n";
+    GameState state;
+    testing::FakeHost scripts;
+    QuietHost host;
+    DialogueManager d(state, scripts, host);
+    d.setGame(attwn::game());
+    d.book().add(parseTable(table));
+    ScriptRunner runner(state, scripts);
+    CHECK(attwn::game().talk.noTalkAlways);
+    // No one talked to yet: the list's "contains" finds the empty name.
+    CHECK(d.noTalk(runner) && d.line() && d.line()->text == "To her.");
+    for (int i = 0; i < 200 && d.active(); i++)
+        d.update(0.05f);
+    CHECK(d.talk(runner, "armstrong", 0, -1, -1, false, -1, false, true));
+    for (int i = 0; i < 200 && d.active(); i++)
+        d.update(0.05f);
+    CHECK(d.noTalk(runner) && d.line() && d.line()->text == "To him.");
 }
 
 void testDetection(const std::filesystem::path &tmp) {
@@ -266,5 +384,7 @@ static const reluva::test::Suite
                                  {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
                                  {"script words", [](const std::filesystem::path &) { testScriptWords(); }},
                                  {"dialogue tables", [](const std::filesystem::path &) { testDialogueTables(); }},
+                                 {"dialogue manager", [](const std::filesystem::path &) { testDialogueManager(); }},
+                                 {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

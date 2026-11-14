@@ -691,6 +691,9 @@ private:
     // Where a scene object or character is (x, z); false if there's none.
     bool objectAt(const std::string &name, float &x, float &z) const;
     Character *characterNamed(const std::string &who);
+    // A line's speaker's character: by name, else by the other names the
+    // game's dialogue tries (DialogueRules::speakerElse).
+    Character *speakerNamed(const std::string &who);
     // A prop's model (models\objects\...), loaded once; null if none.
     std::shared_ptr<GpuModel> propModel(const std::string &file);
     // A character's routine: its first IDLE entry whose condition holds.
@@ -699,6 +702,7 @@ private:
     void lineEnded(const std::string &speaker) override;
     void mouth(const std::string &speaker, bool on) override;
     int voiceLevel() override;
+    int textRows(const std::string &text) override;
 
     std::vector<std::string> _names;
     int _index = 0;

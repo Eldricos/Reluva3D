@@ -24,7 +24,8 @@ Phases 1 and 2 of [PLAN.md](PLAN.md) are done:
 
 Phase 3, what differs from Orient Express in their shared code, is
 under way: its script words ([systems/script.md](systems/script.md)),
-its dialogue tables ([systems/dialogue.md](systems/dialogue.md)), and
+its dialogue tables and dialogue manager
+([systems/dialogue.md](systems/dialogue.md)), and
 the path-finder, the same code in both
 ([formats/ac1.md](formats/ac1.md#the-walk-grid-and-the-path-finder)).
 Nothing is played yet: `reluva` says so.
