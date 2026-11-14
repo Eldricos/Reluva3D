@@ -24,6 +24,7 @@
 #include "image/image.h"
 #include "common/system.h"
 #include "video/bink.h"
+#include "backends/platform/sdl3/sdl_system.h"
 #include "devtools/tool.h"
 
 #include <algorithm>
@@ -288,7 +289,7 @@ int cmdGr2Model(int argc, char **argv) {
 // whether each reads to its end.
 int cmdAc2Dump(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe ac2-dump <scene.ac2>...\n");
+        std::fprintf(stderr, "usage: reluva-tool awe ac2-dump <scene.ac2|scene.ac1>...\n");
         return 2;
     }
     int failed = 0;
@@ -299,7 +300,8 @@ int cmdAc2Dump(int argc, char **argv) {
             continue;
         }
         awe::Ac2Scene scene;
-        const reluva::Error err = awe::parseAc2(data, scene);
+        const std::string name = reluva::fs::toLower(argv[i]);
+        const reluva::Error err = name.ends_with(".ac1") ? awe::parseAc1(data, scene) : awe::parseAc2(data, scene);
         if (argc == 3)
             std::fputs(awe::dumpAc2(scene).c_str(), stdout);
         else
@@ -364,19 +366,33 @@ int cmdAweShot(int argc, char **argv) {
                      "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
                      "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse, rclick:x,y\n"
                      "  right-clicks; start:<act|slotN> starts a game there, run:<script> runs a script\n"
-                     "  (the scenes page)\n");
+                     "  (the scenes page); -3d draws the scenes' characters, in a window's renderer\n");
         return 2;
     }
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<reluva::Archive> archive;
-    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
+    const awe::GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
     const reluva::Archive &files = *archive;
     HeadlessSystem sys;
+    // -3d: a window's renderer (under a display, real or virtual), so the
+    // scenes' characters are drawn.
+    std::unique_ptr<reluva::SdlSystem> window;
+    for (int i = 5; i < argc; i++)
+        if (std::strcmp(argv[i], "-3d") == 0) {
+            window = std::make_unique<reluva::SdlSystem>();
+            if (reluva::Error e = window->init()) {
+                std::fprintf(stderr, "-3d: %s\n", e.message.c_str());
+                return 1;
+            }
+            sys.threeD = window.get();
+        }
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
+    screen.create(game ? game->width : awe::kScreenW, game ? game->height : awe::kScreenH,
+                  reluva::PixelFormat::kRGBA32);
     awe::GameFonts fonts;
     const bool haveFonts = !fonts.load(files);
     // "savedir:<folder>" among the keys: where the game's saves go.
@@ -414,7 +430,7 @@ int cmdAweShot(int argc, char **argv) {
             }
             continue;
         }
-        if (k.rfind("savedir:", 0) == 0)
+        if (k.rfind("savedir:", 0) == 0 || k == "-3d")
             continue;
         if (k.rfind("run:", 0) == 0) {
             // A script run, as a scene's.
@@ -474,6 +490,13 @@ int cmdAweShot(int argc, char **argv) {
                  : k.size() > 1 && k[0] == 'f' ? key::kF1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
                                                : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
+    }
+    if (window) {
+        // The 3D frame and what's drawn over it, as F12 saves them.
+        page->requestScreenshot(argv[4]);
+        sys.now += 10;
+        page->update(sys.now);
+        return 0;
     }
     page->update(sys.now);
     reluva::image::Image img;
@@ -1253,7 +1276,7 @@ const reluva::tool::Commands kCommands(
          "a model posed by an animation, by Reluva and by granny2.dll, compared bone by bone", cmdAwePose},
         {"bink-check", "<game folder> <movie.bik>... [-frames n] [-yuv]",
          "movies decoded by Reluva and by the game's binkw32.dll, compared pixel by pixel", cmdAweBink},
-        {"ac2-dump", "<scene.ac2>...", "a scene's records and fields", cmdAc2Dump},
+        {"ac2-dump", "<scene.ac2|scene.ac1>...", "a scene's records and fields", cmdAc2Dump},
         {"path-check", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
          "paths planned by Reluva's port and by motoe.exe's code, compared", reluva::awe::aweCommandPath},
         {"script-check", "<game folder> [-v]",

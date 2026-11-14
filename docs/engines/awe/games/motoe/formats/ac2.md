@@ -461,7 +461,7 @@ The record's fields are the Granny camera's, as
 | fov | f32 | `FOVY`, vertical, radians | 0.646 (37°) |
 | near, far | f32 | clip planes | 10, 10000 |
 | `238`, `23a`, cellSize | u16 | (the object's own: 1024 and 0, loaded and never read; then the walk grid's cell size, at +0x23c) | 1024, 0, 20 |
-| grid | u16 size, then size × size bytes (at +0x23e) | the walk grid | 64 × 64 |
+| grid | u16 size, then size × size bytes (at +0x23e): two of the counted fields, the size and the bytes (`0x406cc0`, `0x406ce9`) | the walk grid | 64 × 64 |
 | `1240`, whiteoutStart, whiteoutEnd | u32, f32, f32 | (the object's own: a u32 never read; then where the player starts to turn white and is all white, in z: [../systems/shadows.md](../systems/shadows.md), `0x402e20`) | |
 
 The view matrix is the inverse of

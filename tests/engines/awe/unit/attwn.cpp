@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// And Then There Were None: its files as the game names and reads them, and
-// recognising the game, on files made here.
+// And Then There Were None: its files as the game names and reads them,
+// its scenes, and recognising the game, on files made here.
 
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/formats/ac2.h"
 #include "engines/awe/games.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -101,6 +103,76 @@ void testGameFiles(const std::filesystem::path &tmp) {
     CHECK(err && err.message.find("broken.act") != std::string::npos);
 }
 
+// An .ac1 scene's bytes: tags as numbers, text a byte a character in
+// fixed buffers.
+struct Ac1 {
+    std::vector<uint8_t> d;
+    void u16(uint16_t v) { d.push_back(uint8_t(v)), d.push_back(uint8_t(v >> 8)); }
+    void u32(uint32_t v) {
+        for (int i = 0; i < 4; i++)
+            d.push_back(uint8_t(v >> (8 * i)));
+    }
+    void f32(float f) {
+        uint32_t v;
+        std::memcpy(&v, &f, 4);
+        u32(v);
+    }
+    void tag(const char *t) { u32(uint32_t(t[0]) << 24 | uint32_t(t[1]) << 16 | uint32_t(t[2]) << 8 | uint32_t(t[3])); }
+    void text(const std::string &s, size_t chars) {
+        for (size_t i = 0; i < chars; i++)
+            d.push_back(i < s.size() ? uint8_t(s[i]) : 0xcd);
+        d[d.size() - chars + std::min(s.size(), chars - 1)] = 0;
+    }
+};
+
+void testScenes() {
+    Ac1 b;
+    b.tag("SCEN");
+    b.text("Locations\\Kitchen\\Act01b\\kitchen01.ac1", 256);
+    b.tag("BASE");
+    b.text("Locations\\Kitchen\\Base\\kitchen01.ac1", 256);
+    // A camera of 21 fields: its 18, the grid's size and its bytes, and
+    // 1240 (ac.exe 0x4085e0), without Orient Express's whiteout.
+    b.tag("CAMR");
+    b.u16(21);
+    for (int i = 0; i < 18; i++)
+        i < 15 ? b.f32(float(i)) : b.u16(uint16_t(i));
+    b.u16(2);
+    for (uint8_t c : {0, 1, 2, 3})
+        b.d.push_back(c);
+    b.u32(7);
+    // A picture, its name in Windows-1252 ("café"), and an OLDS: the
+    // common fields' first two, then a SPRT of four.
+    for (const char *t : {"2DOB", "OLDS"}) {
+        b.tag(t);
+        b.u16(2);
+        b.text("Locations\\Kitchen\\Base\\Backgrounds\\kitchen01.jpg", 256);
+        b.text("caf\xe9", 256);
+        b.tag("SPRT");
+        b.u16(4);
+        b.u16(0);
+        b.f32(1000);
+        b.u16(1);
+        b.u16(0);
+    }
+    b.tag("SHOW");
+    b.u16(1);
+    b.tag("DONE");
+    Ac2Scene scene;
+    CHECK(!parseAc1(b.d, scene) && scene.end == b.d.size());
+    CHECK(scene.path == "Locations\\Kitchen\\Act01b\\kitchen01.ac1");
+    CHECK(scene.records.size() == 7 && scene.records[1].tag == "BASE");
+    CHECK(scene.records[1].text("scene") == "Locations\\Kitchen\\Base\\kitchen01.ac1");
+    const Ac2Record *cam = scene.camera();
+    CHECK(cam && cam->f("ambientG") == 1 && cam->field("grid") && cam->field("grid")->bytes.size() == 4);
+    CHECK(cam && cam->i("1240") == 7 && !cam->field("whiteoutStart"));
+    const std::vector<const Ac2Record *> objects = scene.objects();
+    CHECK(objects.size() == 2 && objects[1]->tag == "OLDS" && objects[1]->text("name") == "caf\xc3\xa9");
+    CHECK(objects.size() == 2 && objects[1]->part("SPRT") && objects[1]->part("SPRT")->f("scrollSpeed") == 1000);
+    // Cut short: an error, not a read past the end.
+    CHECK(parseAc1(std::vector<uint8_t>(b.d.begin(), b.d.begin() + 300), scene));
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -133,5 +205,6 @@ static const reluva::test::Suite kSuite("awe.unit.attwn",
                                             {"unscrambling", [](const std::filesystem::path &) { testUnscramble(); }},
                                             {"names", [](const std::filesystem::path &) { testNames(); }},
                                             {"its files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
+                                            {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
                                             {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                                         });

@@ -99,7 +99,7 @@ Run on the unpacked install with Orient Express's code as it is:
 ## Phases
 
 Each phase ends with its tests and its pages, as Orient Express's did.
-Phase 1 is done ([README.md](README.md#where-it-stands)).
+Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
 
 1. **Recognised, and its files read** (small; done).
    - Detection: `ac.exe` (`24bc962a1f2acfb788132d0ec198063d`, 593,920)
@@ -114,7 +114,7 @@ Phase 1 is done ([README.md](README.md#where-it-stands)).
    - The data viewer's Models, Movies, Pictures, Text and Sounds pages on
      this game, and `files-check` over every kind of file.
    - Tests: detection and the unscrambling, on made-up files.
-2. **Scenes** (medium).
+2. **Scenes** (medium; done).
    - The scene reader takes `.ac1`: 8-bit text in 256-byte buffers, and
      each record's fields as this game has them (read from `ac.exe`'s
      loader, as `.ac2`'s were from `motoe.exe`'s at `0x435990`); `OLDS`.

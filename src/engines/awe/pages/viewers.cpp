@@ -41,11 +41,11 @@ void PicturePage::show() {
     const image::Image &img = picture(name);
     if (img.w > 0) {
         // Scaled down (nearest) to fit, over a checkerboard that shows alpha.
-        const int areaH = kScreenH - 2 * font::kLineHeight - 8;
-        const float scale = std::min({1.0f, float(kScreenW) / float(img.w), float(areaH) / float(img.h)});
+        const int areaH = frameH() - 2 * font::kLineHeight - 8;
+        const float scale = std::min({1.0f, float(frameW()) / float(img.w), float(areaH) / float(img.h)});
         const int w = std::max(1, int(float(img.w) * scale));
         const int h = std::max(1, int(float(img.h) * scale));
-        const int x0 = (kScreenW - w) / 2;
+        const int x0 = (frameW() - w) / 2;
         const int y0 = font::kLineHeight + 4 + (areaH - h) / 2;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++) {
@@ -140,7 +140,7 @@ void MoviePage::update(uint64_t nowMs) {
     clear(0, 0, 0);
     const image::Image &frame = _player.frame();
     if (frame.w)
-        image::blit(_ctx.screen, frame, (kScreenW - frame.w) / 2, (kScreenH - frame.h) / 2);
+        image::blit(_ctx.screen, frame, (frameW() - frame.w) / 2, (frameH() - frame.h) / 2);
     drawSubtitles(_subtitles, _player.seconds());
     label(4, 2,
           (_names.empty() ? std::string("No movies") : _names[size_t(_index)]) + "  (" + std::to_string(_index + 1) +
@@ -189,7 +189,7 @@ void TextPage::load() {
         return draw();
     }
     const std::string text = decodeText(data);
-    const size_t width = size_t(kScreenW - 8) / font::kAdvance;
+    const size_t width = size_t(frameW() - 8) / font::kAdvance;
     size_t start = 0;
     while (start <= text.size()) {
         size_t end = text.find('\n', start);
@@ -223,7 +223,7 @@ void TextPage::load() {
 
 void TextPage::draw() {
     clear(20, 22, 30);
-    const int rows = (kScreenH - 2 * font::kLineHeight - 8) / font::kLineHeight;
+    const int rows = (frameH() - 2 * font::kLineHeight - 8) / font::kLineHeight;
     label(4, 2,
           (_names.empty() ? std::string("No text files") : _names[size_t(_index)]) + "  (" +
               std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + "), lines " +
@@ -240,7 +240,7 @@ void TextPage::draw() {
 void TextPage::handleEvent(const Event &ev) {
     if (ev.type != EventType::kKeyDown)
         return;
-    const int rows = (kScreenH - 2 * font::kLineHeight - 8) / font::kLineHeight;
+    const int rows = (frameH() - 2 * font::kLineHeight - 8) / font::kLineHeight;
     const int maxScroll = std::max(0, int(_lines.size()) - rows);
     const bool shift = ev.mods & keymod::kShift;
     if (ev.key == key::kLeft || ev.key == key::kRight ||
@@ -305,14 +305,14 @@ void SoundPage::play() {
 
 void SoundPage::draw() {
     clear(18, 24, 22);
-    const int rows = (kScreenH - 4 * font::kLineHeight - 8) / font::kLineHeight;
+    const int rows = (frameH() - 4 * font::kLineHeight - 8) / font::kLineHeight;
     const int first = std::clamp(_index - rows / 2, 0, std::max(0, int(_names.size()) - rows));
     label(4, 2, std::to_string(_names.size()) + " sounds" + (_info.empty() ? "" : ":  " + _info), {255, 230, 150});
     for (int i = 0; i < rows && first + i < int(_names.size()); i++) {
         const bool current = first + i == _index;
         const int y = 2 * font::kLineHeight + 4 + i * font::kLineHeight;
         if (current)
-            fill(0, y - 1, kScreenW, font::kLineHeight, {60, 80, 70});
+            fill(0, y - 1, frameW(), font::kLineHeight, {60, 80, 70});
         text(8, y, _names[size_t(first + i)], current ? Color{255, 255, 255} : Color{190, 200, 195});
     }
     help("Up/Down (Left/Right): sound  PgUp/PgDn: 10  Space/Enter: play  S: stop");

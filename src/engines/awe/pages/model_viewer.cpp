@@ -51,7 +51,7 @@ void ModelPage::deactivate() {
 }
 
 void ModelPage::activate() {
-    if (Error err = _ctx.sys.init3D(kScreenW, kScreenH, _renderer)) {
+    if (Error err = _ctx.sys.init3D(frameW(), frameH(), _renderer)) {
         _renderer = nullptr;
         begin2D();
         clear(16, 18, 24);
@@ -61,7 +61,7 @@ void ModelPage::activate() {
         present();
         return;
     }
-    _overlay.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+    _overlay.create(frameW(), frameH(), PixelFormat::kRGBA32);
     load();
 }
 
@@ -173,7 +173,7 @@ void ModelPage::update(uint64_t nowMs) {
     const gfx::Vec3 eye{_center[0] + offset[0] * _distance, _center[1] + offset[1] * _distance,
                         _center[2] + offset[2] * _distance};
     const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(0.7f, float(kScreenW) / float(kScreenH), _distance / 100, _distance * 10),
+        gfx::multiply(gfx::perspective(0.7f, float(frameW()) / float(frameH()), _distance / 100, _distance * 10),
                       gfx::lookAlong(eye, {-offset[0], -offset[1], -offset[2]}, {0, 0, 1}));
     _renderer->beginFrame(viewProj, eye, {48, 52, 60});
 
@@ -212,7 +212,7 @@ void ModelPage::update(uint64_t nowMs) {
     for (size_t i = 0; i < lines.size(); i++) {
         const int y = 4 + int(i) * font::kLineHeight;
         for (int yy = y - 1; yy < y + font::kLineHeight - 1; yy++)
-            for (int x = 0; x < int(font::length(lines[i])) * font::kAdvance + 8 && x < kScreenW; x++)
+            for (int x = 0; x < int(font::length(lines[i])) * font::kAdvance + 8 && x < frameW(); x++)
                 _overlay.row(yy)[x * 4 + 3] = 150;
         font::drawText(_overlay, 4, y, lines[i], lines[i] == _error ? Color{255, 120, 120} : Color{230, 230, 230});
     }

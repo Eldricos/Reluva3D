@@ -27,13 +27,14 @@ bool startsWith(const std::string &name, const char *prefix) {
 } // namespace
 
 Error runPages(System &sys, const GameTarget &target, const MakePages &make, const std::string &nothing) {
+    const GameInfo *game = findGame(target.gameId);
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<Archive> archive;
-    if (Error err = openGameFiles(findGame(target.gameId), target.path, archive))
+    if (Error err = openGameFiles(game, target.path, archive))
         return err;
     const Archive &files = *archive;
     Surface screen;
-    screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+    screen.create(game ? game->width : kScreenW, game ? game->height : kScreenH, PixelFormat::kRGBA32);
     audio::Mixer mixer(sys.audioRate());
     mixer.setMasterVolume(settings::volume(target.settings, settings::kMasterVolume));
     const bool audioOut = !audio::startMixerOutput(sys, mixer);
@@ -147,7 +148,7 @@ std::string shorten(const std::string &s, size_t max) {
 // --- Page ---------------------------------------------------------------------
 
 void Page::begin2D() {
-    _ctx.sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
+    _ctx.sys.initGraphics(frameW(), frameH(), PixelFormat::kRGBA32);
     _ctx.sys.setMouseCursorVisible(true);
 }
 
@@ -218,9 +219,9 @@ void Page::drawSubtitles(const std::vector<Subtitle> &subtitles, double seconds)
     const Color c = _ctx.fonts->colour(kColours[dueColour - 8]);
     const std::vector<std::string> lines = gameRows(*style->font, style->pixels, due->line, 944);
     const int lh = style->font->lineHeight(style->pixels);
-    int y = kScreenH - 64 + (64 - int(lines.size()) * lh) / 2;
+    int y = frameH() - 64 + (64 - int(lines.size()) * lh) / 2;
     for (const std::string &l : lines) {
-        _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - style->font->width(l, style->pixels)) / 2, y, l, c);
+        _ctx.fonts->draw(_ctx.screen, *style, (frameW() - style->font->width(l, style->pixels)) / 2, y, l, c);
         y += lh;
     }
 }
@@ -242,16 +243,16 @@ void Page::label(int x, int y, const std::string &s, Color c) {
 }
 
 void Page::help(const std::string &keys) {
-    fill(0, kScreenH - font::kLineHeight - 3, kScreenW, font::kLineHeight + 3, {0, 0, 0}, 200);
-    text(4, kScreenH - font::kLineHeight - 1, keys + "   Tab: next page   Esc: launcher", {170, 190, 210});
+    fill(0, frameH() - font::kLineHeight - 3, frameW(), font::kLineHeight + 3, {0, 0, 0}, 200);
+    text(4, frameH() - font::kLineHeight - 1, keys + "   Tab: next page   Esc: launcher", {170, 190, 210});
 }
 
 void Page::finishScreenshot(gfx::Renderer3D *renderer, const Surface *overlay) {
     if (_shotFile.empty())
         return;
     image::Image img;
-    img.w = kScreenW;
-    img.h = kScreenH;
+    img.w = frameW();
+    img.h = frameH();
     if (renderer) {
         if (!renderer->takeCapture(img.rgba))
             return; // not kept yet: try the next frame

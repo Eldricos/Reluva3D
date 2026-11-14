@@ -5,8 +5,9 @@
 ### Unit tests
 
 `awe.unit.attwn` (`tests/engines/awe/unit/attwn.cpp`), on files made in
-the test: recognising the game, its file names, and unscrambling `.act`
-([formats/files.md](formats/files.md)).
+the test: recognising the game, its file names, unscrambling `.act`
+([formats/files.md](formats/files.md)), and reading a scene
+([formats/ac1.md](formats/ac1.md)).
 
 ### The basic engine test
 
@@ -31,5 +32,6 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 2: `awe files-check -ac2`, all 537 scenes and their cameras against `granny2.dll`; the Scenes page on the main menu, the entry hall and the kitchen in act 1B, with its characters (`awe page-shot -3d`) |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 1: recognised by `reluva --detect`; `awe files-check -text -sound -gr2 -bik` read every file; the data viewer's pages |
 | 14 November 2026 | English (retail, two CDs) | Linux | The survey in [PLAN.md](PLAN.md): every Granny file read and its Oodle1 sections against the game's `granny2.dll`; every Bink file decoded, three against `binkw32.dll` |

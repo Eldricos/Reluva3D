@@ -13,12 +13,17 @@ in `src/engines/awe/attwn/`.
 
 ## Where it stands
 
-Phase 1 of [PLAN.md](PLAN.md) is done: the game is recognised, and
-every file of the install is read as the game opens it, its renamed
-files by their ordinary names and its text unscrambled
-([formats/files.md](formats/files.md)). Its scenes (`.ac1`) aren't read
-yet, so nothing is played: `reluva` says so, and `reluva-viewer` shows
-its models, movies, pictures, text and sounds.
+Phases 1 and 2 of [PLAN.md](PLAN.md) are done:
+
+- **Its files:** the game is recognised, and every file of the install
+  is read as the game opens it, its renamed files by their ordinary names
+  and its text unscrambled ([formats/files.md](formats/files.md)).
+- **Its scenes:** all 537 (`.ac1`) are read, their cameras the same as
+  the game's Granny builds them, and the data viewer draws them at the
+  game's 800×600 with their characters ([formats/ac1.md](formats/ac1.md)).
+
+Nothing is played yet: `reluva` says so. Next is phase 3: what differs
+between this game and Orient Express, in their shared code.
 
 ## Using it
 
@@ -29,15 +34,16 @@ with `data1.hdr` and the three cabinets in one folder; the game is
 
 - **The game:** not playable yet.
 - **The data viewer:** `reluva-viewer <entry>` or `reluva-viewer <game
-  folder>`: Models, Movies, Pictures, Text and Sounds; Tab moves between
-  them.
+  folder>`: Scenes (the scenes' files, an act's version over its base;
+  their keys at the foot of the screen), Models, Movies, Pictures, Text
+  and Sounds; Tab moves between them.
 
 ## This folder
 
 | Page | What's in it |
 |---|---|
 | This page | Where it stands, how to use it |
-| [formats/](formats/) | The game's files: [names and scrambled text](formats/files.md) |
+| [formats/](formats/) | The game's files: [names and scrambled text](formats/files.md), [scenes (`.ac1`)](formats/ac1.md) |
 | [PLAN.md](PLAN.md) | The survey of the install, the phases, the decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

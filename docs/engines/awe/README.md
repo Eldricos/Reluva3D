@@ -23,8 +23,9 @@ Orient Express was built first; And Then There Were None is being added.
 
 - Murder on the Orient Express plays from a new game to the end credits:
   [games/motoe/](games/motoe/README.md#where-it-stands).
-- And Then There Were None is recognised and its files read, but not
-  played yet: [games/attwn/](games/attwn/README.md#where-it-stands).
+- And Then There Were None is recognised, its files and scenes read and
+  its scenes drawn, but not played yet:
+  [games/attwn/](games/attwn/README.md#where-it-stands).
 
 ## This folder
 
