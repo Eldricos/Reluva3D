@@ -158,6 +158,16 @@ const GameInfo &game() {
                  .menu = "%s",
                  .mainMenu = "mainmenu",
                  .letterKeys = false},
+        // The options screen's slider (0x4244f0) and labels (0x424290).
+        .options = {.thumbLeft = 515,
+                    .thumbStep = 18,
+                    .snap = 9,
+                    .font = "font 7",
+                    .colour = 0xffffffff,
+                    .sliderLabels = 512,
+                    .sliderRows = {80, 145, 210},
+                    .boxLabels = 645,
+                    .boxRows = {255, 305, 355, 405, 455, 505}},
         .overlay = makeOverlay, // the journal
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but

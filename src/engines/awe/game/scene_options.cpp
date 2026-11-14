@@ -8,6 +8,8 @@
 
 #include "engines/awe/game/scene_page.h"
 
+#include "engines/awe/ui/dialogue_box.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -24,10 +26,6 @@ namespace {
 constexpr const char *kNames[GameOptions::kCount] = {"Music", "Sound", "Gamma", "Captions", "Shadows",
                                                      "Water", "Fog",   "Rain",  "AntiAlias"};
 constexpr int kDefaults[GameOptions::kCount] = {7, 7, 5, 1, 1, 1, 1, 1, 0};
-
-// The sliders' thumbs: x = 694 + 23 * value (0..10).
-constexpr int kThumbLeft = 694;
-constexpr int kThumbStep = 23;
 
 } // namespace
 
@@ -143,14 +141,15 @@ int ScenePage::thumbX(int slider) const {
     const OptionsMenu &m = *_optionsMenu;
     if (m.dragging == slider + 1) {
         // While dragged: the step nearest the cursor (0x42c350).
+        const OptionsLayout l = optionsLayout();
         const int ax = _lastMouseX - 7;
         int k = 0;
         for (int i = 0; i < 10; i++)
-            if (ax > kThumbLeft + kThumbStep * k + 11)
+            if (ax > l.thumbLeft + l.thumbStep * k + l.snap)
                 k++;
-        return kThumbLeft + kThumbStep * k;
+        return l.thumbLeft + l.thumbStep * k;
     }
-    return kThumbLeft + kThumbStep * m.staged[slider];
+    return optionsLayout().thumbLeft + optionsLayout().thumbStep * m.staged[slider];
 }
 
 void ScenePage::optionsAction(const std::string &word) {
@@ -191,7 +190,7 @@ void ScenePage::optionsRelease() {
     if (!m.dragging)
         return;
     const int slider = m.dragging - 1;
-    m.staged[slider] = (thumbX(slider) - kThumbLeft) / kThumbStep;
+    m.staged[slider] = (thumbX(slider) - optionsLayout().thumbLeft) / optionsLayout().thumbStep;
     m.dragging = 0;
     if (slider == 0 || slider == 1) {
         applyVolumes(m.staged[0], m.staged[1]);
@@ -201,9 +200,37 @@ void ScenePage::optionsRelease() {
     draw();
 }
 
+OptionsLayout ScenePage::optionsLayout() const {
+    return _ctx.game ? _ctx.game->options : OptionsLayout{};
+}
+
 void ScenePage::drawOptions() {
     // 0x42c090: the labels (font 7, colour 0), the ticks at the boxes.
     const OptionsMenu &m = *_optionsMenu;
+    const OptionsLayout l = optionsLayout();
+    if (l.font) {
+        // At the game's own places (And Then There Were None's 0x424290):
+        // the sliders' labels centred over their rows, the boxes' ending
+        // at the tick's x.
+        const TextStyle *s = _ctx.fonts ? _ctx.fonts->style(l.font) : nullptr;
+        const Ac2Record *tick = objectWithFile("check.tga", 0);
+        for (int i = 0; i < 9; i++) {
+            const std::string label = interfaceText("options" + std::to_string(i + 1));
+            const int w = s && s->font ? s->font->width(label, s->pixels) : 0;
+            if (i >= 3) {
+                const int row = l.boxRows[size_t(i - 3)];
+                const bool on = i == 3 ? m.staged[3] != 0 : _options.values[GameOptions::kShadows + i - 4] != 0;
+                if (on && tick)
+                    image::blitOver(_ctx.screen, picture(tick->text("file")), l.boxLabels, row);
+                if (s && s->font)
+                    _ctx.fonts->draw(_ctx.screen, *s, l.boxLabels - w, row + 3, label, dialogueColour(l.colour));
+            } else if (s && s->font) {
+                _ctx.fonts->draw(_ctx.screen, *s, l.sliderLabels + (200 - w) / 2, l.sliderRows[size_t(i)] - 35, label,
+                                 dialogueColour(l.colour));
+            }
+        }
+        return;
+    }
     const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
     const Color colour = _ctx.fonts
                              ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})

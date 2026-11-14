@@ -372,6 +372,7 @@ private:
     // The game's saves' extension and layout (GameInfo::saves).
     std::string saveExtension() const;
     SlotLayout slotLayout() const;
+    OptionsLayout optionsLayout() const;
     SaveLayout saveLayout() const;
     SaveGame captureSave(const std::string &description) const;
     // "preload": the story state from a save; "load" then goes there.

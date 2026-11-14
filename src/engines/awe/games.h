@@ -188,6 +188,23 @@ struct SlotLayout {
     const char *empty = nullptr; ///< an empty row's word; null: interface.txt's "empty"
 };
 
+/**
+ * The options screen as a game draws it. Orient Express's are the
+ * defaults (motoe.exe 0x42c090, 0x42c350): its labels placed by the
+ * scene's tracks and boxes, in fonts.txt's style.
+ */
+struct OptionsLayout {
+    int thumbLeft = 694; ///< a slider's thumb at this + step * value (0..10)
+    int thumbStep = 23;
+    int snap = 11;                   ///< a dragged thumb goes on a step once the cursor is this past it
+    const char *font = nullptr;      ///< the labels' style by its use; null: placed by the scene's pictures
+    uint32_t colour = 0;             ///< 0xAARRGGBB
+    int sliderLabels = 0;            ///< the sliders' labels centred in 200 pixels from this x...
+    std::array<int, 3> sliderRows{}; ///< ... 35 above these
+    int boxLabels = 0;               ///< the boxes' labels ending at this x, 3 below their rows; the tick at it
+    std::array<int, 6> boxRows{};
+};
+
 /** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
 struct GameSaves {
     SaveLayout layout;
@@ -248,6 +265,7 @@ struct GameInfo {
     DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
     GameSaves saves;               ///< its saved games' files
     GameFlow flow;                 ///< how it starts, its acts and scenes
+    OptionsLayout options;         ///< its options screen
     /** Its own window over its scenes (the journal); null: none. */
     std::unique_ptr<GameOverlay> (*overlay)(OverlayHost &host) = nullptr;
     const char *exe = nullptr; ///< its executable, in the game's folder
