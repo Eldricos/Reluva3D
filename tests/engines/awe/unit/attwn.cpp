@@ -12,6 +12,7 @@
 #include "engines/awe/game/conditions.h"
 #include "engines/awe/game/dialogue.h"
 #include "engines/awe/game/script.h"
+#include "engines/awe/render/lighting.h"
 #include "tests/engines/awe/fixtures.h"
 #include "tests/support/test.h"
 
@@ -349,6 +350,49 @@ void testNothingToSay() {
     CHECK(d.noTalk(runner) && d.line() && d.line()->text == "To him.");
 }
 
+void testLighting() {
+    // A base scene's two lights and an act's version's one, merged.
+    auto num = [](float v) {
+        Ac2Value x;
+        x.type = Ac2Value::Type::kF32;
+        std::memcpy(&x.raw, &v, 4);
+        return x;
+    };
+    auto whole = [](uint32_t v) {
+        Ac2Value x;
+        x.type = Ac2Value::Type::kU16;
+        x.raw = v;
+        return x;
+    };
+    auto light = [&](float y) { return Ac2Record{"LITE", {{"type", whole(3)}, {"y", num(y)}, {"dirY", num(-1)}}, {}}; };
+    Ac2Scene scene;
+    scene.records.push_back(light(1));
+    scene.records.push_back(light(2));
+    scene.actFrom = scene.records.size();
+    scene.records.push_back(light(3));
+    GameState state;
+    state.game = &attwn::game();
+    state.values["time"] = 2;
+    // Night indoors: the base's lights off, the act's own on (0x41d760).
+    SceneLighting lit = sceneLighting(scene, state);
+    CHECK(lit.lights.size() == 1 && lit.lights[0].position[1] == 3);
+    // A light the scene leaves at its defaults: this game's constructor's
+    // (0x41d5a0), white and barely attenuated.
+    CHECK(lit.lights.size() == 1 && lit.lights[0].diffuse[0] == 1 && lit.lights[0].attenuation[0] == 0);
+    // Orient Express's: every light off at night.
+    state.game = nullptr;
+    CHECK(sceneLighting(scene, state).lights.empty());
+    // Outdoors, this game's lights all stay on at night.
+    state.game = &attwn::game();
+    scene.records.push_back({"OUTD", {{"value", whole(1)}}, {}});
+    CHECK(sceneLighting(scene, state).lights.size() == 3);
+    // Without a camera, the ambient is the constructor's 0.5 grey
+    // (0x408510); by day.
+    state.values["time"] = 0;
+    lit = sceneLighting(scene, state);
+    CHECK(lit.lights.size() == 3 && lit.ambient[0] == 127 / 255.0f);
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -386,5 +430,6 @@ static const reluva::test::Suite
                                  {"dialogue tables", [](const std::filesystem::path &) { testDialogueTables(); }},
                                  {"dialogue manager", [](const std::filesystem::path &) { testDialogueManager(); }},
                                  {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},
+                                 {"lighting", [](const std::filesystem::path &) { testLighting(); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

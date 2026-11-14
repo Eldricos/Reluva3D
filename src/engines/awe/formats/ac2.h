@@ -59,8 +59,15 @@ struct Ac2Scene {
     // Everything in the file, in order, scene settings (LOAD, CAMR,
     // MUSC...) and objects (2DOB, SPOT, NPCX...) alike.
     std::vector<Ac2Record> records;
+    // An act's version merged over its base: where its own records start
+    // (npos: none merged).
+    size_t actFrom = std::string::npos;
 
     const Ac2Record *camera() const;
+    // Whether the record (one of `records`) is the act's version's own.
+    bool fromAct(const Ac2Record *r) const {
+        return actFrom != std::string::npos && r >= records.data() + actFrom && r < records.data() + records.size();
+    }
     // The objects (records the game creates an object for).
     std::vector<const Ac2Record *> objects() const;
 };

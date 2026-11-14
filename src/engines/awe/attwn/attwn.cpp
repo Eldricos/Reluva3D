@@ -91,6 +91,9 @@ const GameInfo &game() {
                  .boxByRows = {90, 115, 141}, // 0x4328b6
                  .closesInventory = false,
                  .speakerElse = {{"brent", "brentknit"}, {"brent", "brentwig"}}}, // 0x433364
+        // The camera's constructor (0x408510), the light's (0x41d5a0), and
+        // the light's night test (0x41d760).
+        .lighting = {.cameraAmbient = 0.5f, .lightDiffuse = 1, .att0 = 0, .att1 = 0.0001f, .nightSparesLights = true},
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

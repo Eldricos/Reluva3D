@@ -248,6 +248,7 @@ void ScenePage::load() {
         _base = base;
         if (!_scene.records.empty() && _scene.records.back().tag == "DONE")
             _scene.records.pop_back();
+        _scene.actFrom = _scene.records.size();
         auto same = [](const Ac2Record &a, const Ac2Record &b) {
             // 0x42b680: the same tag, and with a file the same file and
             // place (the player by its file alone); without, a hotspot at

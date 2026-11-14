@@ -33,6 +33,7 @@ const GameInfo &game() {
         .height = 768,
         .dialogue = {}, // the defaults are its tables' (motoe.exe 0x438f00)
         .talk = {},     // and its dialogue manager's (0x43a630 on)
+        .lighting = {}, // and its lights' (0x420cb0 on)
         .exe = "motoe.exe",
         // English 1.0's (docs/engines/awe/games/motoe/formats/ac2.md, the
         // walk grid).
