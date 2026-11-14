@@ -1,0 +1,117 @@
+# Jedi Outcast: plan
+
+## Goal
+
+Star Wars Jedi Knight II: Jedi Outcast, the English Windows release at
+1.02a (the copy this plan was made from), played through as the original:
+
+- **Single player:** all 26 levels, from `kejim_post` to `yavin_final`,
+  with the game's menus, datapad, cinematics, saving and loading. The game's
+  own code (`jk2gamex86.dll`) runs in Reluva's x86 interpreter, as Elite
+  Force's single player does.
+- **Multiplayer:** the 15 levels (free for all, duel, capture the flag),
+  with bots, run by the game's own QVMs, hosting and joining Reluva and
+  retail 1.02 servers.
+
+Later: the 1.03 single-player and 1.04 multiplayer patches, other
+languages, the Mac release.
+
+### What the game holds
+
+Read from the copy (see [README.md](README.md#releases) for the files and
+their hashes):
+
+| What | Files | Reluva has it? |
+|---|---|---|
+| Paks | `base/assets0.pk3` (6,674 files), `assets1.pk3` (8,011, nearly all speech) | Yes: pk3 search paths, the base folder named `base` |
+| Shaders | 29 `shaders/*.shader` | The Quake III directives; Jedi Outcast's own still to list |
+| Maps | 41 `maps/*.bsp`, **RBSP version 1**, 18 lumps (Quake III's 17 and a light array) | No: only IBSP 46 |
+| Models | 71 Ghoul2 meshes (`.glm`) and 21 skeletons (`.gla`), both version 6; 276 MD3 | MD3 only |
+| Game code, single player | `jk2gamex86.dll`: the game and client game in one DLL (exports `GetGameAPI`, `dllEntry`, `vmMain`), with ICARUS, the effects system and navigation inside it | The x86 interpreter, PE loader and Elite Force's DLL host |
+| Menus, single player | `ui/*.menu`, `ui/menus.txt`: Team Arena style menu scripts, run by `jk2sp.exe` itself (no menus DLL) | No |
+| Game code, multiplayer | `vm/jk2mpgame.qvm`, `cgame.qvm`, `ui.qvm` (Quake III's QVM format) | The QVM interpreter |
+| Scripts | 1,356 compiled ICARUS scripts (`.ibi`), 68 ROFF camera/object paths (`.rof`) | Not needed by the engine: the DLL runs them |
+| Effects | 229 `.efx` | Not needed by the engine: the DLL reads them |
+| Text | 30 StripEd string packages (`strip/*.sp`), each line in English, French and German | No |
+| Fonts | 3 `fonts/*.fontdat` with their `.tga` | No |
+| Sound | 8,126 MP3 (speech, music), 309 WAV; EAX settings per map (`eagle/*.eal`) | MP3 and WAV decoding |
+| Cinematics | 15 RoQ videos (`video/*.roq`) | No: Bink, Smacker and others, not RoQ |
+| Bots | `botfiles/*.jkb`, waypoints `botroutes/*.wnt`; no `.aas` | Quake III's botlib, which these bots may not use |
+| Navigation | 26 `maps/*.nav` (single player's) | Not needed by the engine: the DLL reads them |
+
+## Phases
+
+Each phase ends with something that runs, tested against the copy, and
+committed. The order follows Elite Force's: what can be seen without the
+game's code first, then multiplayer, whose engine calls can be read from
+the QVMs' bytecode, then single player, which reuses those engine services
+behind the DLL's own tables.
+
+1. **Recognise and import** (next): a `GameInfo` (`jk2`, base folder
+   `base`, `GameCode::kNone`) in `src/engines/idtech3/jk2/game_info.cpp`;
+   detection by `assets0.pk3`'s hash, others by file names as an unknown
+   release; *Import Game...* from the CD (its `GAMEDATA/GameData/` holds
+   the game as plain files) or an install. The data viewer's Files and
+   Textures pages then work as they are. Run `reluva-tool idtech3
+   shader-check` over its shaders and add any directive Jedi Outcast has
+   that Quake III doesn't to [shader.md](../../formats/shader.md). Ends
+   with: the game in the launcher, its textures in the viewer, a
+   game-files test (`RELUVA_JK2`) recording what's detected.
+2. **RBSP maps**: read Raven's BSP (the surfaces' four lightmaps and
+   styles, the vertices' four lightmap coordinates and colours, the light
+   grid's styles and its light array lump) beside the IBSP reader, sharing
+   what's the same; light styles in the renderer, animated as the
+   configstrings say. A page, `formats/rbsp.md`, in the engine's folder
+   (Jedi Academy and Soldier of Fortune II share it). Ends with: all 41
+   maps load and draw in the World page, a game-files step over every map.
+3. **Ghoul2 models**: GLM meshes (surfaces, levels of detail, bone weights)
+   and GLA skeletons (compressed bone frames), skinned on the CPU first;
+   `animation.cfg` (Jedi Outcast's own layout, read from the files);
+   surfaces turned off by `.skin` files. A page,
+   `formats/ghoul2.md`, in the engine's folder. Ends with: every Ghoul2
+   model in the Models page, animating.
+4. **Text, fonts and RoQ**: string packages (`raven/strings`), Raven's
+   fonts (`raven/fonts`: the `.fontdat` glyph table over its `.tga`), and a
+   RoQ decoder in `src/video/` (any engine can use it; Quake III's own
+   videos are RoQ too). Ends with: the opening logos play; a string and
+   font viewer page.
+5. **Multiplayer menus**: a host for `ui.qvm` (`jk2/ui_host`), its system
+   calls worked out from the bytecode (`qvm-info`, `qvm-refs`); fonts,
+   strings and the player model (Ghoul2) in the menus. Ends with:
+   multiplayer's menus run, Setup works, the model in Player settings.
+6. **Multiplayer game**: `jk2mpgame.qvm` and `cgame.qvm` hosts, their
+   system calls, and the engine's Ghoul2 calls they make (animation, bolts,
+   collision against Ghoul2 models for hits and the saber); the Play page
+   for the game. Then the network protocol (1.02's, to be confirmed as 15)
+   with its entity and player state layouts, and the bots (the QVM's own
+   waypoint code; which botlib calls it still makes is to be found). Ends
+   with: a free-for-all against bots, and a match against retail 1.02.
+7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
+   functions it's handed, and the game's functions it hands back) and the
+   client game's system calls through `dllEntry`, worked out from
+   `jk2sp.exe` as Elite Force's were (see Decisions); the Windows calls it
+   imports (KERNEL32's and WINMM's only). `reluva-tool idtech3 sp-run` on
+   `kejim_post`, then the Play page. Ends with: the first level played to
+   its end, cinematics included.
+8. **Single player's menus**: the Team Arena style menu system run natively
+   (`ui/menus.txt`, every item type, the owner draws and `uiScript`
+   commands that `jk2sp.exe` provides: new game, load and save lists,
+   controls, the datapad's force powers, weapons, inventory and mission).
+   Ends with: a new game started from the main menu, the datapad in play.
+9. **Single player complete**: saved games (Raven's chunks, shared with
+   Elite Force in `raven/savegame`), dynamic music (`ext_data/dms.dat`),
+   speech with lip sync, all 26 levels played through; a game-files step
+   per level, saving and loading.
+10. **Other releases**: the 1.03 and 1.04 patches, other languages
+    (string packages already hold French and German), the Mac release.
+
+## Decisions
+
+| Date | Decision | Why |
+|---|---|---|
+| 2026-11-14 | Game id `jk2`, code in `src/engines/idtech3/jk2/`, docs in `games/jk2/` | The name the game's own files use (`jk2sp.exe`, `jk2mpgame.qvm`); the engine's README already names `jk2/` as this game's folder |
+| 2026-11-14 | Same engine (`idtech3`), not a new one | It's Quake III's engine as Raven changed it, the same generation as Elite Force's: pk3 files, shaders, the QVM, Raven's save chunks are shared, and what's new (RBSP, Ghoul2, fonts, string packages) is shared again by Jedi Academy and Soldier of Fortune II |
+| 2026-11-14 | Run the game's own code (the DLL in the x86 interpreter, the QVMs in the QVM interpreter), as with Elite Force | ICARUS, the effects system, navigation and the client game are all inside the DLL; the engine provides only what the executable did. Rewriting the game logic would be far larger and less faithful |
+| 2026-11-14 | Jedi Outcast's GPL source (Raven's 2013 release) as a guide only, never copied | The user allows reading Jedi Outcast's and Jedi Academy's open source; Reluva's code stays all new (CONTRIBUTING.md). It's a guide to shapes and names: each table, call number and layout is checked against the retail 1.02a files (addresses in `jk2sp.exe`, `jk2mp.exe`, the QVMs' bytecode), since the release isn't 1.02a's code |
+| 2026-11-14 | Multiplayer before single player (phases 5-6 before 7-9) | The QVMs' engine calls can be read from their bytecode; the engine services they need (Ghoul2's calls, fonts, strings) are then there for the DLL, whose tables are harder to work out. Elite Force went the same way. Single player's menus come last because `jk2sp.exe` holds them, so they're Reluva's to write in full |
+| 2026-11-14 | EAX (`eagle/*.eal`) and force feedback (`FFC10.dll`, `forcecfg/*.fcf`) left out | Neither is available through Reluva's `System`; the game plays the same without them. To list in KNOWN_DIFFERENCES.md when the sound is done |
