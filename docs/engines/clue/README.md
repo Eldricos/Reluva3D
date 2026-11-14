@@ -96,7 +96,8 @@ The game itself, its menus and its keys: [systems/playing.md](systems/playing.md
 A viewer of the game's data opens in `reluva-viewer`, not in the game:
 from its list, or as `reluva-viewer <name>` (a game added in the launcher)
 or `reluva-viewer <folder>`. **Tab** switches between
-its pages, **Esc** leaves it.
+its pages, **Esc** leaves it (from the mansion's whole house, it goes
+back to the house first).
 
 - **The mansion**, first: **arrows** or a mouse drag scroll (**Shift**
   faster), **Home** goes back to the middle, **M** shows the whole house

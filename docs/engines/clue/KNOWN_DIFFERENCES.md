@@ -65,4 +65,4 @@ way-finder's way, as the original's do
 | Playing from the CD itself, or a copy of it, as well as from an install: the original has to be installed. Either language of the CD can be played. | [README.md](README.md#identification) |
 | A release that isn't in the detection table (another patch) is still found, as an unknown release. | [README.md](README.md#identification) |
 | The launcher's master volume, over the game's own sliders. | [preferences.md](systems/preferences.md) |
-| `reluva-tool clue` commands: list, extract and check the game's files, a level's placements, games of computer players on the board, and the game played headless (`game-run`). `reluva-tool cue-rip` makes the CD's music tracks from a BIN/CUE image. | [TESTING.md](TESTING.md), [music.md](systems/music.md) |
+| `reluva-tool clue` commands: list, extract and check the game's files, a level's placements, games of computer players on the board, the game played headless (`game-run`), and its data viewer run the same way (`viewer-run`). `reluva-tool cue-rip` makes the CD's music tracks from a BIN/CUE image. | [TESTING.md](TESTING.md), [music.md](systems/music.md) |
