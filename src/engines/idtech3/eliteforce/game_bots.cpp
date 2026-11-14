@@ -239,7 +239,7 @@ std::vector<int32_t> GameHost::botSnapshotEntities(int32_t clientNum) {
 }
 
 void GameHost::runBotFrame() {
-    if (!_bots.isSetup() || _botClients.empty())
+    if (!(_bots.isSetup() || _jk2BotsSetup) || _botClients.empty())
         return;
     for (const int32_t c : _botClients)
         _botSnapshots[c] = botSnapshotEntities(c);

@@ -21,6 +21,10 @@
 #   jk2-images    the images every map's shaders name (image-check)
 #   jk2-videos    two RoQ videos decoded, their pictures and sound recorded
 #                 (roq-decode)
+#   jk2-game      the multiplayer game module: ffa_bespin with the player
+#                 joining and running forward, then with two bots (game-run;
+#                 g_maxForceRank 7, as the player's default force powers
+#                 are rank 7 and the force menu isn't there to lower them)
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -67,6 +71,11 @@ elseif(STEP STREQUAL "jk2-videos")
         record_file(${video}.sound "${pcm}")
         file(REMOVE "${yuv}" "${pcm}")
     endforeach()
+elseif(STEP STREQUAL "jk2-game")
+    set(join -set g_maxForceRank 7 -clientcmd "team free")
+    record_run(ffa_bespin-walk "start level" idtech3 game-run "${base}" ffa_bespin -frames 40 ${join} -walk forward)
+    record_run(ffa_bespin-bots "start level" idtech3 game-run "${base}" ffa_bespin -frames 100 ${join}
+               -addbot "Tavion 3" -addbot "Desann 3")
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

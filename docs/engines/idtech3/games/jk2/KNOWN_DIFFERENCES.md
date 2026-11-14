@@ -32,6 +32,12 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 - **Video textures** whose video the paks don't hold (9 of 13
   `videoMap` stages) aren't drawn; the rest of their shaders is.
 
+In the multiplayer game:
+
+- **Movers on recorded paths** (ROFF) stay put, and **Ghoul2 bolts** (where
+  a saber or a carried flag is held) are at the entity's origin, until
+  those calls are answered ([systems/game-calls.md](systems/game-calls.md)).
+
 In the multiplayer menus:
 
 - **Begin** in Create Server doesn't start a match, and Join doesn't

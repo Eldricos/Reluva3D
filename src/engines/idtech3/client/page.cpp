@@ -110,6 +110,8 @@ void loadConfig(PageContext &ctx) {
         ctx.cvars.create(name, value, CvarStore::kArchive);
     for (const GameInfo::StartCvar &c : ctx.game.serverCvars)
         ctx.cvars.create(c.name, c.value, c.flags);
+    for (const GameInfo::StartCvar &c : ctx.game.clientCvars)
+        ctx.cvars.create(c.name, c.value, c.flags);
     std::string text;
     std::vector<uint8_t> data;
     if (!ctx.files.read(ctx.game.defaultConfig, data))

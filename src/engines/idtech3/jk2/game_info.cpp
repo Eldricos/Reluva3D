@@ -20,6 +20,8 @@ GameInfo gameInfo() {
     g.multiplayerName = "Multiplayer";
     // The multiplayer engine's (default.cfg is single player's).
     g.defaultConfig = "mpdefault.cfg";
+    // Kyle Katarn, as its menus start a new player.
+    g.playerModel = "kyle/default";
     g.refEntity = kRefEntityLayout;
     // The CD holds the game as an install has it, in GAMEDATA/GameData;
     // an install puts it in GameData under the folder it was given.
@@ -67,6 +69,26 @@ GameInfo gameInfo() {
         {"sv_allowDownload", "0", kS},
         // Its network protocol, which the server list's search names.
         {"protocol", "15", kS | CvarStore::kReadOnly},
+    };
+    // As jk2mp.exe's client registers them (0x40c9a2 on).
+    constexpr int32_t kUA = CvarStore::kUserInfo | CvarStore::kArchive;
+    g.clientCvars = {
+        {"name", "Padawan", kUA},
+        {"rate", "4000", kUA},
+        {"snaps", "20", kUA},
+        {"model", "kyle/default", kUA},
+        {"team_model", "kyle/default", kUA},
+        {"forcepowers", "7-1-032330000000001333", kUA},
+        {"g_redTeam", "Empire", kSA},
+        {"g_blueTeam", "Rebellion", kSA},
+        {"color1", "4", kUA},
+        {"color2", "5", kUA},
+        {"handicap", "100", kUA},
+        {"teamtask", "0", CvarStore::kUserInfo},
+        {"sex", "male", kUA},
+        {"cl_anonymous", "0", kUA},
+        {"password", "", CvarStore::kUserInfo},
+        {"cg_predictItems", "1", kUA},
     };
     return g;
 }

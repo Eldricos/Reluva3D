@@ -27,6 +27,13 @@ const GameInfo *findGame(std::string_view gameId) {
     return nullptr;
 }
 
+const GameInfo &gameWithCode(GameCode code) {
+    for (const GameInfo &g : games())
+        if (g.code == code)
+            return g;
+    return games().front();
+}
+
 // Built with `reluva --hash`: each entry needs the size and the MD5 of the
 // first kDetectionHashBytes bytes.
 //

@@ -69,6 +69,10 @@ struct GameInfo {
         int32_t flags = 0;
     };
     std::vector<StartCvar> serverCvars;
+    // The client's settings its engine registers at start that the game
+    // module reads from a player's userinfo (the UserInfo ones), and their
+    // defaults: Jedi Outcast's force powers, models, colours...
+    std::vector<StartCvar> clientCvars;
     // Multiplayer's model for a player who hasn't chosen one.
     std::string playerModel;
     // Single player's: the player's name until one is set; its game code
@@ -89,6 +93,8 @@ struct GameInfo {
 // Every game the engine knows; nullptr if `gameId` isn't one.
 const std::vector<GameInfo> &games();
 const GameInfo *findGame(std::string_view gameId);
+// The game whose code Reluva runs as `code` (Elite Force's for kNone).
+const GameInfo &gameWithCode(GameCode code);
 // The game in an install folder (the one holding baseDir), as detection
 // finds it; the first game's if it finds none.
 const GameInfo &gameInFolder(const std::filesystem::path &install);

@@ -13,6 +13,7 @@
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/games.h"
 #include "engines/idtech3/vm/qvm.h"
 #include "engines/idtech3/vm/vm_services.h"
 
@@ -53,9 +54,11 @@ public:
         kBotAiStartFrame = 10,
     };
 
-    GameHost(const SearchSet &files, CvarStore &cvars);
+    // `game`: whose game module it runs, Elite Force's or Jedi Outcast's
+    // multiplayer one, numbered and laid out as that game's.
+    GameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce);
 
-    // Reads vm/qagame.qvm.
+    // Reads the game module (vm/qagame.qvm; Jedi Outcast's vm/jk2mpgame.qvm).
     Error load();
     // Starts a level: sets the map's cvars, hands the game its entity
     // text (the BSP's entity lump) and calls Init, then runs a few frames
@@ -102,9 +105,10 @@ public:
     // added a solo match's bots.
     void reserveClient(int32_t clientNum) { _reserved.insert(clientNum); }
     bool isBot(int32_t clientNum) const { return _botClients.count(clientNum) != 0; }
-    // A player's input for one moment, as Elite Force's usercmd_t (24
-    // bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md): Quake III's fields with the
-    // buttons before the angles.
+    // A player's input for one moment, as usercmd_t: Elite Force's (24
+    // bytes, see docs/engines/idtech3/games/stvef/systems/syscalls.md), Quake III's fields with the
+    // buttons before the angles, or Jedi Outcast's, with the force power,
+    // inventory item and generic command it selects.
     struct UserCommand {
         int32_t serverTime = 0;          // ms, the level time it applies to
         std::array<int32_t, 3> angles{}; // view pitch, yaw, roll: 65536 = a full turn
@@ -114,6 +118,9 @@ public:
         int8_t forward = 0;
         int8_t right = 0;
         int8_t up = 0;
+        uint8_t forceSelect = 0;
+        uint8_t inventorySelect = 0;
+        uint8_t genericCommand = 0;
     };
     // Hands the game a player's command and lets it act on it (ClientThink,
     // which reads it with GetUsercmd), as the server does for each
@@ -134,9 +141,12 @@ public:
     // Elite Force's numbers are.
     const std::map<int, std::vector<std::vector<int32_t>>> &botCallSamples() const { return _botCallSamples; }
     // Writes a command into game code's memory, laid out as usercmd_t:
-    // server time 0, buttons 4 and weapon 5 (a byte each), angles 8,
-    // forward, right and up moves 20-22.
-    static void writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd);
+    // Elite Force's server time 0, buttons 4 and weapon 5 (a byte each),
+    // angles 8, forward, right and up moves 20-22; Jedi Outcast's server
+    // time 0, angles 4, buttons 16, then a byte each: weapon, force power,
+    // item, generic command, forward, right, up.
+    static void writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd,
+                                 const GameLayout &layout = kLayout10);
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
 
     Qvm &vm() { return _vm; }
@@ -253,6 +263,9 @@ private:
     int32_t pointContents(const Vec3f &point, int32_t passEntity);
     // The bot library's calls (game_bots.cpp).
     int32_t botCall(Qvm &vm, int number, const int32_t *args);
+    // Jedi Outcast's calls beyond those it numbers as Elite Force's (39 on:
+    // ROFF, string packages, maths, the bot library's, Ghoul2's).
+    int32_t jk2Call(Qvm &vm, int number, const int32_t *args);
     void runBotFrame();
     void runQueuedConsoleCommands();
     bool engineCommand(const std::vector<std::string> &words);
@@ -268,6 +281,7 @@ private:
 
     const SearchSet &_files;
     CvarStore &_cvars;
+    GameCode _game;
     Qvm _vm;
     VmFiles _vmFiles;
     std::set<std::string> _filesRead;
@@ -311,6 +325,24 @@ private:
     std::set<int32_t> _reserved;
     std::map<int32_t, size_t> _botMessagesRead;            // per bot, server commands read so far
     std::map<int32_t, std::vector<int32_t>> _botSnapshots; // per bot, the entities it sees this frame
+    // Jedi Outcast's bots: their input this frame (bot_input_t, with
+    // Quake III's newer action bits), and whether the game set them up.
+    struct BotInputJk2 {
+        float thinkTime = 0;
+        Vec3f dir{};
+        float speed = 0;
+        Vec3f viewAngles{};
+        int32_t actionFlags = 0;
+        int32_t weapon = 0;
+    };
+    std::array<BotInputJk2, 64> _jk2BotInputs{};
+    bool _jk2BotsSetup = false;
+    // Its Ghoul2 instances on the server, by the number the game holds: the
+    // models' file names.
+    std::map<int32_t, std::vector<std::string>> _g2Instances;
+    int32_t _nextG2Instance = 1;
+    int32_t _nextG2Bolt = 0;
+    int32_t _nextAiState = 1; // the bot library's goal, move and weapon states handed out
     std::vector<Entity> _bspEntities;
     std::map<int, std::vector<std::vector<uint8_t>>> _goalStacks; // per goal state, its goals' bytes
     std::map<int, std::vector<std::vector<int32_t>>> _botCallSamples;

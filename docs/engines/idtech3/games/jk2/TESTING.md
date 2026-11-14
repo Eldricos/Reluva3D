@@ -19,7 +19,9 @@
   (`ghoul2-check`, every Ghoul2 mesh and skeleton), `jk2-images`
   (`image-check`, the images the maps' shaders name: 15 missing, as in
   the paks), `jk2-videos` (`roq-decode`: the opening logos and the first
-  cinematic, 60 frames each, their pictures and sound), `jk2-menus`
+  cinematic, 60 frames each, their pictures and sound), `jk2-game` (`game-run`: the
+  game module on ffa_bespin, the player joining and running, then two
+  bots), `jk2-menus`
   (`ui-run`: the multiplayer menus' main menu, Setup, and Create Server
   and Join Server by way of Play). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).

@@ -61,12 +61,10 @@ enum GameCall : int {
     kCeil = 111, // Quake III's game numbers floor 110 and ceil 111; Elite Force's code uses 111
 };
 
-constexpr int32_t kTraceSize = 56; // Quake III's trace_t, as Elite Force's code reads it
-
 } // namespace
 
-GameHost::GameHost(const SearchSet &files, CvarStore &cvars)
-    : _files(files), _cvars(cvars), _vmFiles(files),
+GameHost::GameHost(const SearchSet &files, CvarStore &cvars, GameCode game)
+    : _files(files), _cvars(cvars), _game(game), _vmFiles(files),
       _serverWorld([this](int32_t n, EntityShape &out) { return entityShape(n, out); }) {
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
     _vmFiles.setOnRead([this](const std::string &name) { _filesRead.insert(name); });
@@ -89,12 +87,14 @@ bool GameHost::entityShape(int32_t n, EntityShape &out) {
 }
 
 Error GameHost::load() {
+    const bool jk2 = _game == GameCode::kJediOutcast;
+    const std::string name = jk2 ? "vm/jk2mpgame.qvm" : "vm/qagame.qvm";
     std::vector<uint8_t> data;
-    if (Error err = _files.read("vm/qagame.qvm", data))
-        return Error::fail("vm/qagame.qvm: " + err.message);
+    if (Error err = _files.read(name, data))
+        return Error::fail(name + ": " + err.message);
     if (Error err = _vm.load(data))
-        return Error::fail("vm/qagame.qvm: " + err.message);
-    _layout = detectLayout(_vm);
+        return Error::fail(name + ": " + err.message);
+    _layout = jk2 ? kLayoutJk2 : detectLayout(_vm);
     _qvmData = std::move(data);
     return Error::success();
 }
@@ -110,6 +110,13 @@ Error GameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp
     // Variables waiting for a new level (the game type, the Holomatch
     // modes...) take their values, as the original's server does first.
     _cvars.applyLatched();
+    // The server's own settings, as its engine registers them at start
+    // (Jedi Outcast's protocol 15, its limits...), for a host started
+    // without a session. Elite Force's are among those created below, in
+    // the order its server info lists them.
+    if (_game != GameCode::kEliteForce)
+        for (const GameInfo::StartCvar &c : gameWithCode(_game).serverCvars)
+            _cvars.create(c.name, c.value, c.flags);
     // The level after this one: the same again unless the game or a
     // command says otherwise, as the original's server sets it on
     // spawning a level (for a level change, when the map command ran:
@@ -433,8 +440,17 @@ Error GameHost::beginClient(int32_t clientNum) {
     return call(kClientBegin, {clientNum}, ignored);
 }
 
-void GameHost::writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd) {
+void GameHost::writeUserCommand(Qvm &vm, int32_t address, const UserCommand &cmd, const GameLayout &layout) {
     vm.writeInt(address, cmd.serverTime);
+    if (layout.ravenUserCommand) {
+        for (int i = 0; i < 3; ++i)
+            vm.writeInt(address + 4 + 4 * i, cmd.angles[size_t(i)]);
+        vm.writeInt(address + 16, cmd.buttons);
+        const uint8_t bytes[8] = {cmd.weapon,           cmd.forceSelect,    cmd.inventorySelect, cmd.genericCommand,
+                                  uint8_t(cmd.forward), uint8_t(cmd.right), uint8_t(cmd.up),     0};
+        std::memcpy(&vm.memory()[size_t(address + 20)], bytes, sizeof bytes);
+        return;
+    }
     // The buttons and the weapon a byte each, then two bytes of padding.
     vm.writeInt(address + 4, (cmd.buttons & 0xff) | int32_t(cmd.weapon) << 8);
     for (int i = 0; i < 3; ++i)
@@ -570,8 +586,8 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
     // 200 on firing, counting down without stopping at 0), is one: the
     // client game draws the phaser's beam only while it's 0 (see
     // docs/engines/idtech3/games/stvef/systems/syscalls.md).
-    for (const int32_t at : {kPlayerStateServerOnly})
-        std::memset(&snap.playerState[size_t(at)], 0, 4);
+    if (_layout.psServerOnly >= 0)
+        std::memset(&snap.playerState[size_t(_layout.psServerOnly)], 0, 4);
     // The entities the player can see, as the original's server picks them
     // (visibleEntities()); at most 256, the snapshot's room.
     for (const int32_t n : visibleEntities(clientNum)) {
@@ -584,7 +600,7 @@ GameHost::Snapshot GameHost::snapshot(int32_t clientNum) {
         // that other one and stop drawing it.
         if (_vm.readInt(a + _layout.number) != n)
             _vm.writeInt(a + _layout.number, n);
-        snap.entities.emplace_back(&_vm.memory()[size_t(a)], &_vm.memory()[size_t(a)] + kEntityStateSize);
+        snap.entities.emplace_back(&_vm.memory()[size_t(a)], &_vm.memory()[size_t(a)] + _layout.entityStateSize);
     }
     for (const auto &[to, text] : _serverCommands)
         snap.serverCommandSequence += to == clientNum || to == -1;
@@ -621,14 +637,15 @@ void GameHost::linkEntity(int32_t address) {
 }
 
 Vec3f GameHost::eyeOf(int32_t clientNum) {
-    // The player's eye: with patch 1.2's layout, the player state's origin
-    // (20) raised by its view height (180), as the original's server takes
-    // it; otherwise the body's origin and the standing view height, 26.
+    // The player's eye: where the layout says, the player state's origin
+    // raised by its view height, as the original's server takes it;
+    // otherwise (Elite Force 1.0) the body's origin and the standing view
+    // height, 26.
     const int32_t client = _gameData.clients + clientNum * _gameData.clientSize;
-    if (_layout.version == 12 && _gameData.clientSize >= _layout.playerStateSize &&
+    if (_layout.psOrigin >= 0 && _gameData.clientSize >= _layout.playerStateSize &&
         _vm.valid(client, _layout.playerStateSize)) {
-        Vec3f eye = readVec(client + 20);
-        eye[2] += float(_vm.readInt(client + 180));
+        Vec3f eye = readVec(client + _layout.psOrigin);
+        eye[2] += float(_vm.readInt(client + _layout.psViewHeight));
         return eye;
     }
     Vec3f eye = entityVec(clientNum, _layout.currentOrigin);
@@ -639,8 +656,8 @@ Vec3f GameHost::eyeOf(int32_t clientNum) {
 std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
     // As the original's server builds a snapshot: never the player's own
     // entity (the client game makes it from the player state), nor those
-    // flagged not to be sent (SVF_NOCLIENT 1), nor, with patch 1.2's
-    // layout, those for one other client (SVF_SINGLECLIENT 0x100), those for
+    // flagged not to be sent (SVF_NOCLIENT 1), nor, where singleClient is
+    // known, those for one other client (SVF_SINGLECLIENT 0x100), those for
     // all but this one (SVF_NOTSINGLECLIENT 0x800) or not in a client mask
     // that leaves it out (Elite Force's SVF_CLIENTMASK 4), each by
     // singleClient. Those sent to all (SVF_BROADCAST 0x20) always; the rest
@@ -649,7 +666,7 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
     // adds what can be seen from its other end (origin2).
     std::vector<int32_t> out;
     const int32_t svFlags = svFlagsOffset();
-    const bool singleClient = _layout.version == 12;
+    const bool singleClient = _layout.singleClient >= 0;
     const bool noAreas = _cvars.find("cm_noAreas") && _cvars.integer("cm_noAreas");
     std::set<int32_t> added;
     auto look = [&](const Vec3f &from, auto &self, int depth) -> void {
@@ -664,9 +681,9 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
             if (flags & 1)
                 continue;
             if (singleClient) {
-                const int32_t single = entityInt(n, 216);
+                const int32_t single = entityInt(n, _layout.singleClient);
                 if (((flags & 0x100) && single != clientNum) || ((flags & 0x800) && single == clientNum) ||
-                    ((flags & 0x4) && (clientNum >= 32 || !(single & (1 << clientNum)))))
+                    (_layout.clientMask && (flags & 0x4) && (clientNum >= 32 || !(single & (1 << clientNum)))))
                     continue;
             }
             if (!(flags & 0x20)) {
@@ -689,7 +706,7 @@ std::vector<int32_t> GameHost::visibleEntities(int32_t clientNum) {
             added.insert(n);
             out.push_back(n);
             if ((flags & 0x40) && depth < 2)
-                self(entityVec(n, 104), self, depth + 1); // s.origin2
+                self(entityVec(n, _layout.origin2), self, depth + 1);
         }
     };
     look(eyeOf(clientNum), look, 0);
@@ -714,7 +731,7 @@ TraceResult GameHost::traceMove(const Vec3f &start, const Vec3f &mins, const Vec
 
 void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
                         int32_t passEntity, int32_t mask) {
-    if (!_vm.checkWrite(results, kTraceSize))
+    if (!_vm.checkWrite(results, _layout.traceSize + 64 * _layout.g2Collisions))
         return;
     int32_t hit = kEntityNone;
     const TraceResult best = traceMove(start, mins, maxs, end, passEntity, mask, hit);
@@ -742,6 +759,10 @@ void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, 
     _vm.writeInt(results + 44, best.surfaceFlags);
     _vm.writeInt(results + 48, best.contents);
     _vm.writeInt(results + 52, hit);
+    // No Ghoul2 model hit: each collision record's entity number (its
+    // second word) -1, as the game looks for.
+    for (int i = 0; i < _layout.g2Collisions; ++i)
+        _vm.writeInt(results + _layout.traceSize + 64 * i + 4, -1);
 }
 
 int32_t GameHost::pointContents(const Vec3f &point, int32_t passEntity) {
@@ -836,9 +857,9 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kGetUsercmd: { // (clientNum, usercmd_t*): the last command, or an empty one
         const auto it = _commands.find(a[0]);
         const UserCommand cmd = it == _commands.end() ? UserCommand{_levelTime} : it->second;
-        if (!vm.checkWrite(a[1], 24))
+        if (!vm.checkWrite(a[1], _layout.userCommandSize))
             return 0;
-        writeUserCommand(vm, a[1], cmd);
+        writeUserCommand(vm, a[1], cmd, _layout);
         return 0;
     }
     case kSetConfigstring:
@@ -961,6 +982,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kCeil:
         return Qvm::fromFloat(std::ceil(Qvm::asFloat(a[0])));
     default:
+        if (_game == GameCode::kJediOutcast && number != kBotAllocateClient && number != kBotFreeClient)
+            return jk2Call(vm, number, a);
         if (number == kBotAllocateClient || number == kBotFreeClient || number >= 200)
             return botCall(vm, number, a);
         ++_unhandled[number];

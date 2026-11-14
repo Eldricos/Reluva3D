@@ -240,7 +240,7 @@ int cmdGameRun(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool idtech3 game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
+            "usage: reluva-tool idtech3 game-run <game folder> <map> [-frames N] [-noclient] [-walk [forward|back|left|right]] [-set name value] [-addbot 'name skill']... [-clientcmd text]... [-cgame [-events] [-entities N] [-cgameframes N] [-fire] [-altfire] [-weapon N|all] [-give] [-watch model]] [-buttons] [-trace]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -265,6 +265,7 @@ int cmdGameRun(int argc, char **argv) {
     int dumpEntities = 0; // -entities N: with -cgame, N of the scene's entities word by word
     std::vector<std::pair<std::string, std::string>> settings; // -set name value
     std::vector<std::string> addBots;                          // -addbot "name [skill]"
+    std::vector<std::string> clientCommands;                   // -clientcmd "text": the player's, after joining
     bool eventsTest = false; // -events: with -cgame, the player's events against the sounds they bring
     int tapEvery = 0;        // -tap N: fire pressed for a frame every N
     std::string walkDirection = "forward";
@@ -304,6 +305,8 @@ int cmdGameRun(int argc, char **argv) {
         } else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
+        } else if (std::strcmp(argv[i], "-clientcmd") == 0 && i + 1 < argc) {
+            clientCommands.emplace_back(argv[++i]);
         } else if (std::strcmp(argv[i], "-addbot") == 0 && i + 1 < argc)
             addBots.emplace_back(argv[++i]);
         else if (std::strcmp(argv[i], "-events") == 0)
@@ -333,7 +336,7 @@ int cmdGameRun(int argc, char **argv) {
         cgameFrames = std::max(cgameFrames, 10 + 10 * kFramesPerWeapon);
     for (const auto &[name, value] : settings)
         cvars.set(name, value);
-    ef::GameHost game(set, cvars);
+    ef::GameHost game(set, cvars, gameOfFolder(argv[2]).code);
     game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
@@ -356,8 +359,17 @@ int cmdGameRun(int argc, char **argv) {
     bool ok = !started;
     if (ok && !noClient) {
         // A player joins, as on a listen server: client 0.
-        const std::string userinfo = "\\name\\Reluva\\model\\munro\\handicap\\100\\sex\\male\\color\\4"
-                                     "\\snaps\\20\\rate\\25000\\ip\\localhost";
+        // Its userinfo: the game's client settings where it has them (Jedi
+        // Outcast's), else Elite Force's.
+        std::string userinfo = "\\name\\Reluva\\model\\munro\\handicap\\100\\sex\\male\\color\\4"
+                               "\\snaps\\20\\rate\\25000\\ip\\localhost";
+        if (const auto &client = gameOfFolder(argv[2]).clientCvars; !client.empty()) {
+            userinfo.clear();
+            for (const q3::GameInfo::StartCvar &c : client)
+                if (c.flags & q3::CvarStore::kUserInfo)
+                    q3::setInfoValue(userinfo, c.name, c.name == "name" ? "Reluva" : c.value);
+            q3::setInfoValue(userinfo, "ip", "localhost");
+        }
         std::string refused;
         reluva::Error err = game.connectClient(0, userinfo, refused);
         std::printf("client 0 connects: %s\n", err               ? err.message.c_str()
@@ -376,6 +388,14 @@ int cmdGameRun(int argc, char **argv) {
                     err = game.clientCommand(0, "give all");
                 std::printf("give all: %s\n", err ? err.message.c_str() : "ok");
                 ok = !err;
+            }
+            for (const std::string &text : clientCommands) {
+                // As a command the player's client sent (Jedi Outcast's
+                // players join from spectating with "team free").
+                if (ok)
+                    ok = step(("client command \"" + text + "\"").c_str(), game.clientCommand(0, text));
+                if (ok)
+                    ok = step("RunFrame", game.runFrame());
             }
             const auto o = game.entityVec(0, game.layout().currentOrigin);
             std::printf("client 0's entity: %s at %.1f %.1f %.1f\n", game.linked().count(0) ? "linked" : "not linked",
@@ -397,7 +417,9 @@ int cmdGameRun(int argc, char **argv) {
     std::map<int32_t, q3::Vec3f> botStart;
     for (const int32_t c : game.botClients())
         botStart[c] = game.entityVec(c, game.layout().currentOrigin);
-    const bool player = ok && !noClient && game.linked().count(0);
+    // Commands every frame, as a client sends them whether its player is in
+    // the level yet or not (Jedi Outcast's spawn on their next command).
+    const bool player = ok && !noClient;
     const auto startPos = player ? game.entityVec(0, game.layout().currentOrigin) : q3::Vec3f{};
     int restartsSeen = game.restarts();
     for (int f = 0; ok && f < frames; ++f) {

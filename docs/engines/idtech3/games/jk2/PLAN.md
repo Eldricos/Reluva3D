@@ -124,6 +124,11 @@ behind the DLL's own tables.
      server's part after it (`entityShared_t`) is Quake III's with
      `mIsRoffing` and two `broadcastClients` words: 112 bytes, to 408.
      To check against the game's own code as it runs.
+
+   Done so far: the game module runs on the shared host
+   ([systems/game-calls.md](systems/game-calls.md)): a level starts, a
+   player joins and moves, bots play. Next: the client game, then the
+   Play page, so Create Server's Begin starts a match.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from
