@@ -75,17 +75,6 @@ std::string baseSceneOf(const std::string &name) {
     return name.substr(0, u) + name.substr(dot);
 }
 
-// The part after the last slash or backslash.
-std::string fileNameOf(const std::string &path) {
-    const size_t slash = path.find_last_of("/\\");
-    return slash == std::string::npos ? path : path.substr(slash + 1);
-}
-
-std::string folderOf(const std::string &name) {
-    const size_t slash = name.find_last_of("/\\");
-    return slash == std::string::npos ? std::string() : name.substr(0, slash);
-}
-
 } // namespace
 
 ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
@@ -277,7 +266,7 @@ void ScenePage::load() {
         _grid.load(*cam);
     // This scene's name before its characters load: where they were kept
     // is looked up by it.
-    _state.scene = fs::toLower(name.substr(name.find_last_of('/') + 1));
+    _state.scene = fs::toLower(fileNameOf(name));
     {
         // Its folder is its location: locations/<location>/<scene>.ac2.
         const std::string lower = fs::toLower(name);
@@ -2515,7 +2504,7 @@ std::vector<std::string> ScenePage::objectKeys(const Ac2Record &o) {
     const std::string file = fs::toLower(normalizeArchiveName(o.text("file")));
     if (!file.empty()) {
         keys.push_back(file);
-        const std::string name = file.substr(file.find_last_of('/') + 1);
+        const std::string name = fileNameOf(file);
         keys.push_back(name);
         keys.push_back(name.substr(0, name.rfind('.')));
     }
@@ -2725,7 +2714,7 @@ bool ScenePage::changeScene(const std::string &name, int entry, bool walkIn) {
     const std::string variant = _state.act.empty() ? "" : fs::toLower(name) + "_" + _state.act + ".ac2";
     int found = -1;
     for (size_t i = 0; i < _names.size(); i++) {
-        const std::string file = fs::toLower(_names[i].substr(_names[i].find_last_of('/') + 1));
+        const std::string file = fs::toLower(fileNameOf(_names[i]));
         if (file == variant || (file == want && found < 0))
             found = int(i);
     }
@@ -2780,11 +2769,10 @@ void ScenePage::playSound(const std::string &name) {
 audio::SoundHandle ScenePage::startSound(const std::string &name, bool loop) {
     // sound\<name>.wav: found by its file's name, wherever it is.
     std::string key = fs::toLower(name);
-    if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
-        key = key.substr(slash + 1);
+    key = fileNameOf(key);
     if (_soundFiles.empty())
         for (const std::string &f : listFiles(_ctx.files, {"sound/"}, {".wav", ".mp3"})) {
-            const std::string file = f.substr(f.find_last_of('/') + 1);
+            const std::string file = fileNameOf(f);
             _soundFiles.emplace(fs::toLower(file.substr(0, file.rfind('.'))), f);
         }
     const auto it = _soundFiles.find(key);
@@ -3051,7 +3039,7 @@ std::string ScenePage::sceneName() {
     if (_names.empty())
         return {};
     const std::string &n = _names[size_t(_index)];
-    const std::string file = n.substr(n.find_last_of('/') + 1);
+    const std::string file = fileNameOf(n);
     return fs::toLower(file.substr(0, file.rfind('.')));
 }
 

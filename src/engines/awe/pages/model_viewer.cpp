@@ -13,20 +13,6 @@
 
 namespace reluva::awe {
 
-namespace {
-
-std::string folderOf(const std::string &name) {
-    const size_t slash = name.find_last_of('/');
-    return slash == std::string::npos ? std::string() : name.substr(0, slash);
-}
-
-std::string fileOf(const std::string &name) {
-    const size_t slash = name.find_last_of('/');
-    return slash == std::string::npos ? name : name.substr(slash + 1);
-}
-
-} // namespace
-
 ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
     // Each folder of Models: its models (<who>_model.gr2, and the detailed
     // <who>_model_1024.gr2), each with the folder's other files as its
@@ -42,7 +28,7 @@ ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
         std::vector<std::string> models;
         std::vector<std::string> animations;
         for (const std::string &f : files)
-            (fs::toLower(fileOf(f)).find("_model") != std::string::npos ? models : animations).push_back(f);
+            (fs::toLower(fileNameOf(f)).find("_model") != std::string::npos ? models : animations).push_back(f);
         for (const std::string &m : models)
             _models.push_back({m, animations});
     }
@@ -134,7 +120,7 @@ void ModelPage::loadAnimation() {
     if (!err)
         err = awe::loadAnimation(file, _anim);
     if (err)
-        _error = fileOf(name) + ": " + err.message;
+        _error = fileNameOf(name) + ": " + err.message;
     else
         _hasAnim = true;
 }
@@ -215,7 +201,7 @@ void ModelPage::update(uint64_t nowMs) {
             lines.push_back("rest pose (" + std::to_string(e.animations.size()) + " animations: Up/Down)");
         } else {
             std::snprintf(buf, sizeof buf, "animation %d/%zu: %s, %.2f / %.2f s%s", _animation, e.animations.size(),
-                          fileOf(e.animations[size_t(_animation - 1)]).c_str(), t, _hasAnim ? _anim.duration : 0.0f,
+                          fileNameOf(e.animations[size_t(_animation - 1)]).c_str(), t, _hasAnim ? _anim.duration : 0.0f,
                           _playing ? "" : " (paused)");
             lines.push_back(buf);
         }

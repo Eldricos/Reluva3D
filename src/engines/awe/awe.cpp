@@ -13,12 +13,11 @@
 
 #include "engines/engine.h"
 
-#include "common/archive.h"
-#include "audio/mixer.h"
-#include "common/settings.h"
 #include "engines/awe/game/scene_page.h"
+#include "engines/awe/ui/page.h"
 
-#include <cstdio>
+#include <memory>
+#include <vector>
 
 namespace reluva {
 
@@ -51,78 +50,24 @@ public:
     AweEngine(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        if (Error err = _files.open(_target.path))
-            return err;
-        _screen.create(awe::kScreenW, awe::kScreenH, PixelFormat::kRGBA32);
-        audio::Mixer mixer(_sys.audioRate());
-        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
-        struct AudioStop {
-            System &sys;
-            bool on;
-            ~AudioStop() {
-                if (on)
-                    sys.stopAudio();
-            }
-        } audioStop{_sys, audioOut};
-        awe::GameFonts fonts;
-        const bool haveFonts = !fonts.load(_files);
-        awe::ViewerContext ctx{
-            _sys, _files, audioOut ? &mixer : nullptr, _screen, _target.savePath, haveFonts ? &fonts : nullptr, {}, -1};
-        int shots = 0;
-
-        // The window has the game's name. The original's title is its
-        // command line (WinMain 0x4018f0, CreateWindowExW at 0x401a13),
-        // given by the installer's shortcut, which the install doesn't
-        // hold: the name is the one its readme and shortcut go by.
-        awe::ScenePage game(ctx, awe::ScenePage::Browser::kOff, kGameTitle);
-        if (game.count() == 0)
-            return Error::fail("No scenes (Locations/**/*.ac2) found in " + _target.path.string());
-        game.activate();
-
-        // Frames shown in the last second, after the title.
-        uint64_t second = _sys.getMillis();
-        int frames = 0;
-        while (true) {
-            if (const uint64_t now = _sys.getMillis(); now - second >= 1000) {
-                ctx.fps = int(frames * 1000 / (now - second));
-                ctx.setTitle(ctx.title);
-                second = now, frames = 0;
-            }
-            frames++;
-            Event ev;
-            while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !game.wantsEscape())) {
-                    game.deactivate();
-                    return Error::success();
-                }
-                // F12: a screenshot, into the game's own folder.
-                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
-                    char name[48];
-                    std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", game.name(), ++shots);
-                    game.requestScreenshot(_target.savePath / name);
-                    continue;
-                }
-                game.handleEvent(ev);
-                if (game.quitRequested()) {
-                    game.deactivate();
-                    return Error::success();
-                }
-            }
-            game.update(_sys.getMillis());
-            // Drawn in 3D, it's paced by presenting (vsync); in 2D it needn't
-            // spin.
-            if (!game.uses3D())
-                _sys.delayMillis(10);
-        }
+        return awe::runPages(
+            _sys, _target,
+            [](awe::ViewerContext &ctx) {
+                // The window has the game's name. The original's title is
+                // its command line (WinMain 0x4018f0, CreateWindowExW at
+                // 0x401a13), given by the installer's shortcut, which the
+                // install doesn't hold: the name is the one its readme and
+                // shortcut go by.
+                std::vector<std::unique_ptr<awe::Page>> pages;
+                pages.push_back(std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOff, kGameTitle));
+                return pages;
+            },
+            "scenes (Locations/**/*.ac2)");
     }
 
 private:
     System &_sys;
     GameTarget _target;
-    DirectoryArchive _files;
-    Surface _screen;
 };
 
 class AweMetaEngine : public MetaEngine {

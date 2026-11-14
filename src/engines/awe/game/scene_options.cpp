@@ -126,21 +126,6 @@ bool ScenePage::frozen(const Ac2Record &o) const {
 
 // --- The options screen -----------------------------------------------------------
 
-namespace {
-
-// The n-th object of the scene whose file is `name` (0x436660).
-const Ac2Record *nth(const Ac2Scene &scene, const char *name, int n) {
-    for (const Ac2Record *o : scene.objects()) {
-        const std::string file = fs::toLower(o->text("file"));
-        const size_t slash = file.find_last_of('\\');
-        if ((slash == std::string::npos ? file : file.substr(slash + 1)) == name && n-- == 0)
-            return o;
-    }
-    return nullptr;
-}
-
-} // namespace
-
 void ScenePage::openOptions() {
     // 0x42be00: the staged values, and the toggles as they were (Cancel
     // puts them back).
@@ -223,14 +208,14 @@ void ScenePage::drawOptions() {
     const Color colour = _ctx.fonts
                              ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
                              : Color{255, 220, 130};
-    const Ac2Record *check = nth(_scene, "check.tga", 0);
+    const Ac2Record *check = objectWithFile("check.tga", 0);
     for (int i = 0; i < 9; i++) {
         const std::string label = interfaceText("options" + std::to_string(i + 1));
         const int w = style && style->font ? style->font->width(label, style->pixels) : 0;
         const int h = style && style->font ? style->font->lineHeight(style->pixels) : 0;
         if (i < 3) {
-            const Ac2Record *track = nth(_scene, "sliderbar.jpg", i);
-            const Ac2Record *thumb = nth(_scene, "slider.jpg", i);
+            const Ac2Record *track = objectWithFile("sliderbar.jpg", i);
+            const Ac2Record *thumb = objectWithFile("slider.jpg", i);
             if (!track || !thumb || !style || !style->font)
                 continue;
             const int tw = picture(track->text("file")).w;
@@ -238,7 +223,7 @@ void ScenePage::drawOptions() {
                              colour);
             continue;
         }
-        const Ac2Record *box = nth(_scene, "checkbox.tga", i - 3);
+        const Ac2Record *box = objectWithFile("checkbox.tga", i - 3);
         if (!box)
             continue;
         const bool on = i == 3 ? m.staged[3] != 0 : _options.values[GameOptions::kShadows + i - 4] != 0;

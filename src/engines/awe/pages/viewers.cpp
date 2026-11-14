@@ -4,8 +4,6 @@
 #include "engines/awe/pages/viewers.h"
 
 #include "audio/decode.h"
-#include "common/archive.h"
-#include "common/settings.h"
 #include "engines/viewer.h"
 #include "engines/awe/game/scene_page.h"
 #include "graphics/font.h"
@@ -17,7 +15,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <utility>
+#include <vector>
 
 namespace reluva::awe {
 
@@ -104,7 +104,7 @@ void MoviePage::open() {
     const std::string &name = _names[size_t(_index)];
     {
         // Its subtitles, if it has some: Text/Movies/<its name>.txt.
-        std::string stem = name.substr(name.find_last_of('/') + 1);
+        std::string stem = fileNameOf(name);
         stem = stem.substr(0, stem.rfind('.'));
         std::vector<uint8_t> text;
         if (!_ctx.files.read("text/movies/" + fs::toLower(stem) + ".txt", text))
@@ -341,97 +341,31 @@ namespace reluva {
 
 namespace {
 
-// The viewer's pages, the game's Scenes first (its browser on), as an
-// Engine: Tab moves between them, Esc leaves.
+// The viewer's pages, the game's Scenes first (its browser on): Tab moves
+// between them, Esc leaves.
 class AweViewer : public Engine {
 public:
     AweViewer(System &system, GameTarget target) : _sys(system), _target(std::move(target)) {}
 
     Error run() override {
-        if (Error err = _files.open(_target.path))
-            return err;
-        _screen.create(awe::kScreenW, awe::kScreenH, PixelFormat::kRGBA32);
-        audio::Mixer mixer(_sys.audioRate());
-        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
-        struct AudioStop {
-            System &sys;
-            bool on;
-            ~AudioStop() {
-                if (on)
-                    sys.stopAudio();
-            }
-        } audioStop{_sys, audioOut};
-        awe::GameFonts fonts;
-        const bool haveFonts = !fonts.load(_files);
-        awe::ViewerContext ctx{
-            _sys, _files, audioOut ? &mixer : nullptr, _screen, _target.savePath, haveFonts ? &fonts : nullptr, {}, -1};
-        int shots = 0;
-
-        std::vector<std::unique_ptr<awe::Page>> pages;
-        pages.push_back(std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn));
-        pages.push_back(std::make_unique<awe::ModelPage>(ctx));
-        pages.push_back(std::make_unique<awe::MoviePage>(ctx));
-        pages.push_back(std::make_unique<awe::PicturePage>(ctx));
-        pages.push_back(std::make_unique<awe::TextPage>(ctx));
-        pages.push_back(std::make_unique<awe::SoundPage>(ctx));
-        size_t page = 0;
-        while (page < pages.size() && pages[page]->count() == 0)
-            page++;
-        if (page == pages.size())
-            return Error::fail("No scenes, models, pictures, text or sounds found in " + _target.path.string());
-        pages[page]->activate();
-
-        // Frames shown in the last second, after the title.
-        uint64_t second = _sys.getMillis();
-        int frames = 0;
-        while (true) {
-            if (const uint64_t now = _sys.getMillis(); now - second >= 1000) {
-                ctx.fps = int(frames * 1000 / (now - second));
-                ctx.setTitle(ctx.title);
-                second = now, frames = 0;
-            }
-            frames++;
-            Event ev;
-            while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
-                    (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pages[page]->wantsEscape())) {
-                    pages[page]->deactivate();
-                    return Error::success();
-                }
-                // F12: a screenshot, into the game's own folder.
-                if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
-                    char name[48];
-                    std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", pages[page]->name(), ++shots);
-                    pages[page]->requestScreenshot(_target.savePath / name);
-                    continue;
-                }
-                if (ev.type == EventType::kKeyDown && ev.key == key::kTab) {
-                    pages[page]->deactivate();
-                    do
-                        page = (page + 1) % pages.size();
-                    while (pages[page]->count() == 0);
-                    pages[page]->activate();
-                    continue;
-                }
-                pages[page]->handleEvent(ev);
-                if (pages[page]->quitRequested()) {
-                    pages[page]->deactivate();
-                    return Error::success();
-                }
-            }
-            pages[page]->update(_sys.getMillis());
-            // 3D pages are paced by presenting (vsync); the rest needn't spin.
-            if (!pages[page]->uses3D())
-                _sys.delayMillis(10);
-        }
+        return awe::runPages(
+            _sys, _target,
+            [](awe::ViewerContext &ctx) {
+                std::vector<std::unique_ptr<awe::Page>> pages;
+                pages.push_back(std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn));
+                pages.push_back(std::make_unique<awe::ModelPage>(ctx));
+                pages.push_back(std::make_unique<awe::MoviePage>(ctx));
+                pages.push_back(std::make_unique<awe::PicturePage>(ctx));
+                pages.push_back(std::make_unique<awe::TextPage>(ctx));
+                pages.push_back(std::make_unique<awe::SoundPage>(ctx));
+                return pages;
+            },
+            "scenes, models, pictures, text or sounds");
     }
 
 private:
     System &_sys;
     GameTarget _target;
-    DirectoryArchive _files;
-    Surface _screen;
 };
 
 class AweMetaViewer : public MetaViewer {

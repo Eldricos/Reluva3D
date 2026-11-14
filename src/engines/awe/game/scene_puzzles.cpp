@@ -73,14 +73,10 @@ const char *const kLidArrows[4] = {"arrowtopf", "arrowtopb", nullptr, nullptr};
 
 } // namespace
 
-const Ac2Record *ScenePage::puzzleObject(const std::string &file, int n) const {
-    // The n-th object whose file is that (0x436660 by its file's name).
-    for (const Ac2Record *o : _scene.objects()) {
-        std::string f = fs::toLower(o->text("file"));
-        f = f.substr(f.find_last_of('\\') + 1);
-        if (f == file && n-- == 0)
+const Ac2Record *ScenePage::objectWithFile(const std::string &file, int n) const {
+    for (const Ac2Record *o : _scene.objects())
+        if (fs::toLower(fileNameOf(o->text("file"))) == file && n-- == 0)
             return o;
-    }
     return nullptr;
 }
 
@@ -112,7 +108,7 @@ void ScenePage::openPuzzle(const std::string &kind) {
         for (int i = 0; i < 20; i++) {
             char name[16];
             std::snprintf(name, sizeof name, "paper%02d.png", i + 1);
-            const Ac2Record *o = puzzleObject(name);
+            const Ac2Record *o = objectWithFile(name);
             t.pieces.push_back(o);
             places.push_back({o ? o->f("x") : 0, o ? o->f("y") : 0, o ? o->f("z") : 0, false});
             if (o)
@@ -125,7 +121,7 @@ void ScenePage::openPuzzle(const std::string &kind) {
             PictureOverride p;
             const image::Image &img = picture(o->text("file"));
             p.cx = float(img.w / 2), p.cy = float(img.h / 2);
-            const std::string key = fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1));
+            const std::string key = fs::toLower(fileNameOf(o->text("file")));
             const auto kept = _state.texts.find(key);
             if (kept != _state.texts.end()) {
                 std::sscanf(kept->second.c_str(), "%f %f %f %f", &p.x, &p.y, &p.depth, &p.roll);
@@ -156,7 +152,7 @@ void ScenePage::openPuzzle(const std::string &kind) {
         // 0x434390: the dial, at 0 every visit (the game reads back tags it
         // never writes).
         _safe = std::make_unique<Safe>();
-        _safe->dial = puzzleObject("baggage_safe.dial.png");
+        _safe->dial = objectWithFile("baggage_safe.dial.png");
         if (_safe->dial) {
             PictureOverride p;
             const image::Image &img = picture(_safe->dial->text("file"));
@@ -213,7 +209,7 @@ void ScenePage::saveTornPiece(int i) {
     const PictureOverride &p = _overrides[o];
     char buf[96];
     std::snprintf(buf, sizeof buf, "%g %g %g %g", p.x, p.y, p.depth, p.roll);
-    _state.texts[fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1))] = buf;
+    _state.texts[fs::toLower(fileNameOf(o->text("file")))] = buf;
     std::snprintf(buf, sizeof buf, "%g", _torn->topz);
     _state.texts["topz"] = buf;
 }
@@ -268,7 +264,7 @@ bool ScenePage::checkTornLetter() {
     t.selected = -1;
     _runner->run("fade in paperfull, tag solved_tornletter, talk gen_tornpaper 2");
     for (const Ac2Record *o : t.pieces)
-        _state.texts.erase(fs::toLower(o->text("file").substr(o->text("file").find_last_of('\\') + 1)));
+        _state.texts.erase(fs::toLower(fileNameOf(o->text("file"))));
     _state.texts.erase("topz");
     return true;
 }
@@ -329,7 +325,7 @@ int ScenePage::boxArrowAt(int x, int y) const {
     for (int a = 0; a < 4; a++) {
         if (!names[a])
             continue;
-        const Ac2Record *o = puzzleObject(std::string(names[a]) + ".png");
+        const Ac2Record *o = objectWithFile(std::string(names[a]) + ".png");
         if (!o)
             continue;
         const int dy = p == 1 ? -50 : p == 2 ? 50 : 0;
@@ -392,7 +388,7 @@ void ScenePage::drawPuzzleBox() {
     // locket.
     const PuzzleBox &b = *_box;
     auto at = [&](const std::string &file, int x, int y) {
-        if (const Ac2Record *o = puzzleObject(file))
+        if (const Ac2Record *o = objectWithFile(file))
             image::blitOver(_ctx.screen, picture(o->text("file")), x, y);
     };
     auto arrows = [&](int piece, const char *const *names) {
@@ -403,7 +399,7 @@ void ScenePage::drawPuzzleBox() {
         for (int a = 0; a < 4; a++) {
             if (!names[a])
                 continue;
-            const Ac2Record *o = puzzleObject(std::string(names[a]) + ".png");
+            const Ac2Record *o = objectWithFile(std::string(names[a]) + ".png");
             if (!o)
                 continue;
             const int x = int(o->f("x"));
@@ -431,7 +427,7 @@ void ScenePage::drawPuzzleBox() {
             continue;
         if (const auto loop = _loops.find(o); loop != _loops.end() && loop->second.frame.w)
             image::blitOver(_ctx.screen, loop->second.frame, int(o->f("x")), int(o->f("y")));
-        if (const Ac2Record *side = puzzleObject(boxSidePicture())) {
+        if (const Ac2Record *side = objectWithFile(boxSidePicture())) {
             const image::Image &img = picture(side->text("file"));
             image::Image clip;
             clip.w = 583, clip.h = 436;
@@ -587,7 +583,7 @@ const Ac2Record *ScenePage::tornPick(int x, int y) const {
 int ScenePage::boxPieceAt(int x, int y) const {
     // A piece of the box (0x4337b0): the end (its upper half inside the
     // "endtop" outline), the side, the lid; 0 none.
-    if (hitPicture(puzzleObject(boxEndPicture()), float(x), float(y), kBoxX, kBoxY)) {
+    if (hitPicture(objectWithFile(boxEndPicture()), float(x), float(y), kBoxX, kBoxY)) {
         for (const Ac2Record *o : _scene.objects())
             if (o->tag == "SPOT" && fs::toLower(o->text("name")) == "endtop")
                 if (const Ac2Value *poly = o->field("listD");
@@ -595,9 +591,9 @@ int ScenePage::boxPieceAt(int x, int y) const {
                     return 1;
         return 2;
     }
-    if (hitPicture(puzzleObject(boxSidePicture()), float(x), float(y), kBoxX, kBoxY))
+    if (hitPicture(objectWithFile(boxSidePicture()), float(x), float(y), kBoxX, kBoxY))
         return 3;
-    if (hitPicture(puzzleObject("top.png"), float(x), float(y), kBoxX, kBoxY))
+    if (hitPicture(objectWithFile("top.png"), float(x), float(y), kBoxX, kBoxY))
         return 4;
     return 0;
 }

@@ -31,11 +31,6 @@ constexpr int kRowLeft = 703;
 constexpr int kRowRight = 957;
 constexpr int kRowHeight = 190;
 
-std::string fileNameOf(const std::string &path) {
-    const size_t slash = path.find_last_of("/\\");
-    return slash == std::string::npos ? path : path.substr(slash + 1);
-}
-
 bool readAll(const std::filesystem::path &file, std::vector<uint8_t> &out) {
     std::ifstream in(file, std::ios::binary);
     if (!in)

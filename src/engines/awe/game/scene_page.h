@@ -471,8 +471,10 @@ private:
     // Safe.
     void turnDial(int direction);
     void writeSafeTags();
+    // The n-th object of the scene whose file's name is `file` (lower
+    // case; 0x436660): the puzzles' parts, the options screen's controls.
+    const Ac2Record *objectWithFile(const std::string &file, int n = 0) const;
     // Puzzle box.
-    const Ac2Record *puzzleObject(const std::string &file, int n = 0) const;
     std::string boxEndPicture() const;
     std::string boxSidePicture() const;
     bool hitPicture(const Ac2Record *o, float x, float y, int px, int py) const;
