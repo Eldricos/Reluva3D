@@ -88,8 +88,10 @@ that aren't Holomatch's and starts at borg1.
   Play page:
   - movement and buttons become the 28-byte user command;
   - other commands go to the client game first, then the server game.
-- **Keys.** Ctrl+R restarts the level, Ctrl+PgUp/PgDn change map, Ctrl+I
-  hides the info line, and Esc returns to the menus.
+- **Keys.** Esc returns to the menus. With `RELUVA_DEVELOPER_KEYS` (on
+  by default, off in release builds), Ctrl+R restarts the level,
+  Ctrl+PgUp/PgDn change map, and Ctrl+I hides the info line
+  ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md#additions-outside-the-game)).
 
 Also done: sound, with the ambient sound sets; wall marks
 (`CM_MarkFragments`); lighting from the map's light grid

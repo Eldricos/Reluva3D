@@ -12,14 +12,14 @@
 // Menu:     the game's own menus (Elite Force: vm/ui.qvm) running; keys,
 //           typing and the mouse go to them (their own pointer follows
 //           the mouse, the system's is hidden), Ctrl+Esc leaves, Ctrl+R
-//           starts them again.
+//           starts them again (a developer key).
 // Play:     a Holomatch level run by the game's own code (Elite Force:
 //           vm/qagame.qvm and vm/cgame.qvm) with you as the player:
 //           keys do what they're bound to (the game's default.cfg, then
 //           the menus' Controls, kept in reluva.cfg in the save folder),
-//           the mouse looks (it's held by the window); Ctrl+PageUp and
-//           Ctrl+PageDown pick a map, Ctrl+I shows the info, Ctrl+R
-//           restarts, Esc goes back to the menus (Ctrl+Esc to the
+//           the mouse looks (it's held by the window); the developer
+//           keys Ctrl+PageUp and Ctrl+PageDown pick a map, Ctrl+I shows
+//           the info, Ctrl+R restarts; Esc goes back to the menus (Ctrl+Esc to the
 //           launcher). ~ opens the console (lines starting / are
 //           commands, others are said); messagemode (T) types a chat
 //           line. Starting a level from the menus (Engage) comes here.

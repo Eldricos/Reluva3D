@@ -218,13 +218,19 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## Additions outside the game
 
+The pages' own keys below, and the info line they show or hide, are for
+working on the engine: they're only in builds with
+`RELUVA_DEVELOPER_KEYS` on (the default; release builds turn it off,
+[DEVELOPMENT.md](../../../../DEVELOPMENT.md#build-folders)). Without them
+the info line isn't shown, and the pages' hints offer only Esc and
+Ctrl+Esc.
+
 ### Single player
 
 - **The Single Player page's own keys:**
   - Ctrl+R restarts the level;
   - Ctrl+PgUp and Ctrl+PgDn change map;
-  - Ctrl+I hides the info line;
-  - Esc returns to the menus.
+  - Ctrl+I hides the info line.
 
 ### Holomatch
 

@@ -21,6 +21,7 @@
 
 #include "graphics/font.h"
 #include "image/image.h"
+#include "common/developer.h"
 #include "common/zip.h"
 #include "common/fs.h"
 
@@ -1219,8 +1220,9 @@ void PlayPage::handleEvent(const Event &ev) {
     case EventType::kKeyDown:
     case EventType::kKeyUp: {
         const bool down = ev.type == EventType::kKeyDown;
-        if (down && (ev.mods & keymod::kCtrl)) {
-            // Reluva's own: restart, another map, the info.
+        if (kDeveloperKeys && down && (ev.mods & keymod::kCtrl)) {
+            // Reluva's own, for working on the engine: restart, another
+            // map, the info.
             const int n = int(_names.size());
             if (ev.key == 'r') {
                 start(_index);
@@ -1656,7 +1658,8 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
     std::vector<std::string> lines;
     if (!_error.empty()) {
         lines.push_back(_error);
-        lines.push_back("Ctrl+R: start the level again, PageUp/PageDown: another map.");
+        lines.push_back(kDeveloperKeys ? "Ctrl+R: start the level again, Ctrl+PageUp/PageDown: another map."
+                                       : "Esc: the menus.");
     }
     if (_showInfo) {
         char line[256];
@@ -1788,8 +1791,9 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
         lines.push_back("The in-game menu ran: " + _lastMenuCommand);
     if (nowMs - _shownMs < kHintMs) {
         lines.push_back("Keys do what they're bound to (set in the menus' Controls). The mouse looks. ~: the console.");
-        lines.push_back(
-            "Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the menus, Ctrl+Esc: launcher.");
+        lines.push_back(kDeveloperKeys ? "Ctrl+PageUp/PageDown: another map, Ctrl+I: info, Ctrl+R: restart, Esc: the "
+                                         "menus, Ctrl+Esc: launcher."
+                                       : "Esc: the menus, Ctrl+Esc: launcher.");
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = _frameH - int(lines.size() - i) * lh - 4;

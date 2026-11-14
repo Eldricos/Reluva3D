@@ -9,6 +9,7 @@
 
 #include "graphics/font.h"
 #include "image/image.h"
+#include "common/developer.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -819,9 +820,9 @@ void SpPlayPage::handleEvent(const Event &ev) {
     case EventType::kKeyDown:
     case EventType::kKeyUp: {
         const bool down = ev.type == EventType::kKeyDown;
-        if (down && (ev.mods & keymod::kCtrl) && !_names.empty()) {
-            // Reluva's own: restart, another map (without the menus), the
-            // info line.
+        if (kDeveloperKeys && down && (ev.mods & keymod::kCtrl) && !_names.empty()) {
+            // Reluva's own, for working on the engine: restart, another map
+            // (without the menus), the info line.
             const int n = int(_names.size());
             if (ev.key == 'r') {
                 if (!_game && !_uiDll.empty()) {
@@ -1252,11 +1253,14 @@ void SpPlayPage::drawOverlay() {
     if (!_error.empty()) {
         line(y, _error, {255, 120, 120});
         y += font::kLineHeight;
-        line(y, "Ctrl+R: try again   Ctrl+PgUp/PgDn: another map   Esc: menu", {200, 200, 200});
+        line(y, kDeveloperKeys ? "Ctrl+R: try again   Ctrl+PgUp/PgDn: another map   Esc: menu" : "Esc: menu",
+             {200, 200, 200});
         y += font::kLineHeight;
     }
     if (!_menuError.empty()) {
-        line(y, "The game's menus stopped: " + _menuError + " (Ctrl+R without a game: start them again)",
+        line(y,
+             "The game's menus stopped: " + _menuError +
+                 (kDeveloperKeys ? " (Ctrl+R without a game: start them again)" : " (Ctrl+Esc: leave)"),
              {255, 120, 120});
         y += font::kLineHeight;
     }
@@ -1278,7 +1282,9 @@ void SpPlayPage::drawOverlay() {
     if (_game && _cvars.integer("skippingCinematic") != 0)
         bottom.push_back("Skipping the scene (the use button skips it, as in the original)");
     if (_startMs && _nowMs - _startMs < 6000)
-        bottom.push_back("Esc: the game's menu   Ctrl+Esc: leave   Ctrl+PgUp/PgDn: a map without the menus");
+        bottom.push_back(kDeveloperKeys
+                             ? "Esc: the game's menu   Ctrl+Esc: leave   Ctrl+PgUp/PgDn: a map without the menus"
+                             : "Esc: the game's menu   Ctrl+Esc: leave");
     for (size_t i = 0; i < bottom.size(); ++i)
         line(_frameH - int(bottom.size() - i) * font::kLineHeight - 4, bottom[i], {220, 220, 220});
 }

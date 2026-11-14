@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/developer.h"
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
@@ -135,7 +136,7 @@ private:
     uint64_t _lastCommandMs = 0;
     uint64_t _startMs = 0;
     uint64_t _nowMs = 0;
-    bool _showInfo = true;
+    bool _showInfo = kDeveloperKeys; // without the keys, nothing could hide it
     uint64_t _lastMs = 0;
     int32_t _clientTime = 0;
     PlayerInput _input;

@@ -9,6 +9,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 
 #include "graphics/font.h"
+#include "common/developer.h"
 #include "common/fs.h"
 
 #include <algorithm>
@@ -153,7 +154,7 @@ void MenuPage::handleEvent(const Event &ev) {
         _joystick.event(ev);
         return;
     }
-    if (ev.type == EventType::kKeyDown && ev.key == 'r' && (ev.mods & keymod::kCtrl)) {
+    if (kDeveloperKeys && ev.type == EventType::kKeyDown && ev.key == 'r' && (ev.mods & keymod::kCtrl)) {
         // Ctrl+R: start the menus again, stopped or not.
         _menus.reset();
         start();
@@ -202,7 +203,7 @@ void MenuPage::update(uint64_t nowMs) {
         lines.push_back(_menus.error());
         if (!_menus.reportPath().empty())
             lines.push_back("Details: " + _menus.reportPath());
-        lines.push_back("Ctrl+R: start them again.");
+        lines.push_back(kDeveloperKeys ? "Ctrl+R: start them again." : "Ctrl+Esc: leave.");
     }
     if (_menus.running() && !_menus.ui()->unhandled().empty()) {
         // Calls the menus made that Reluva answers with 0 for now.
@@ -214,7 +215,8 @@ void MenuPage::update(uint64_t nowMs) {
     if (!_lastCommand.empty() && nowMs - _lastCommandMs < kHintMs)
         lines.push_back("The menus ran: " + _lastCommand);
     if (nowMs - _shownMs < kHintMs)
-        lines.push_back("Keys and mouse go to the menus. Ctrl+Esc: launcher, Ctrl+R: restart.");
+        lines.push_back(kDeveloperKeys ? "Keys and mouse go to the menus. Ctrl+Esc: launcher, Ctrl+R: restart."
+                                       : "Keys and mouse go to the menus. Ctrl+Esc: launcher.");
     const int lh = font::kLineHeight;
     for (size_t i = 0; i < lines.size(); ++i) {
         const int y = _frameH - int(lines.size() - i) * lh - 4;
