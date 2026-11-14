@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "engines/idtech3/audio/sound_system.h"
+#include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/menu_layer.h"
@@ -30,6 +32,9 @@ public:
 private:
     void start();
     void checkCommands();
+    // The menus' music, from the start of `intro`, then `loop` (both
+    // empty: none).
+    void playMusic(const std::string &intro, const std::string &loop);
 
     bool _available = false;
     gfx::Renderer3D *_renderer = nullptr;
@@ -44,6 +49,10 @@ private:
     std::string _lastCommand;                // shown for a while, to see what buttons do
     uint64_t _lastCommandMs = 0;
     Surface _overlay;
+    SoundLibrary _soundLibrary{_ctx.files};
+    std::unique_ptr<SoundSystem> _music; // while the page is shown
+    std::string _musicIntro;             // what the menus asked for last, to pick up again
+    std::string _musicLoop;
     uint64_t _shownMs = 0;
 };
 

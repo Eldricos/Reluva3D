@@ -177,7 +177,7 @@ static void testFilesystemAndDetection(const std::filesystem::path &tmp) {
         CHECK(found.size() == 1 && found[0].gameId == "jk2" &&
               found[0].description.find("unknown release") != std::string::npos);
         const GameInfo *jk2 = findGame("jk2");
-        CHECK(jk2 && jk2->code == GameCode::kNone && jk2->shaderDir == "shaders");
+        CHECK(jk2 && jk2->code == GameCode::kJediOutcast && jk2->shaderDir == "shaders");
         CHECK(&gameInFolder(dest) == jk2 && gameInFolder(tmp / "nothing").gameId == "stvef");
     }
     // Every known release names its main pak's size and hash.

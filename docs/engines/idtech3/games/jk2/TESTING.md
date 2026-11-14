@@ -19,7 +19,9 @@
   (`ghoul2-check`, every Ghoul2 mesh and skeleton), `jk2-images`
   (`image-check`, the images the maps' shaders name: 15 missing, as in
   the paks), `jk2-videos` (`roq-decode`: the opening logos and the first
-  cinematic, 60 frames each, their pictures and sound). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  cinematic, 60 frames each, their pictures and sound), `jk2-menus`
+  (`ui-run`: the multiplayer menus' main menu, Setup, and Create Server
+  by way of Play). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
@@ -27,7 +29,8 @@
 The launcher's *Add Game...* and *Import Game...* with the real CD; how
 the maps look (`reluva-viewer`'s World page), against the original; the
 videos' sound heard (the Videos page), and a video texture seen in
-kejim_post (Mon Mothma's screens).
+kejim_post (Mon Mothma's screens); the multiplayer menus' music heard,
+and the other menus clicked through on the Menu page.
 
 ## A playthrough by hand
 

@@ -4,6 +4,8 @@
 #include "engines/idtech3/client/menu_layer.h"
 
 #include "engines/idtech3/client/joystick_input.h"
+#include "engines/idtech3/eliteforce/ui_host.h"
+#include "engines/idtech3/jk2/ui_host.h"
 
 #include "common/fs.h"
 
@@ -58,7 +60,10 @@ bool MenuLayer::start(int32_t menu) {
     _cvars.create("sex", "male", player);
     _cvars.create("color", "4", player);
     JoystickInput::registerCvars(_cvars); // the Controls menu's joystick settings
-    _ui = std::make_unique<eliteforce::UiHost>(_ctx.files, _cvars);
+    if (_ctx.game.code == GameCode::kJediOutcast)
+        _ui = std::make_unique<jk2::UiHost>(_ctx.files, _cvars);
+    else
+        _ui = std::make_unique<eliteforce::UiHost>(_ctx.files, _cvars);
     _ui->setModRoot(_ctx.installPath, _ctx.game.baseDir);
     if (_scene)
         _scene->reset(); // new handles
@@ -76,9 +81,9 @@ bool MenuLayer::start(int32_t menu) {
         configure(*_ui);
     Error err = _ui->load();
     if (!err)
-        err = _ui->call(eliteforce::UiHost::kInit);
+        err = _ui->call(MenuHost::kInit);
     if (!err)
-        err = _ui->call(eliteforce::UiHost::kSetActiveMenu, {menu});
+        err = _ui->call(MenuHost::kSetActiveMenu, {menu});
     if (err) {
         stop(err);
         return false;
@@ -92,7 +97,7 @@ void MenuLayer::show(int32_t menu) {
         return;
     if (configure)
         configure(*_ui);
-    if (Error err = _ui->call(eliteforce::UiHost::kSetActiveMenu, {menu}))
+    if (Error err = _ui->call(MenuHost::kSetActiveMenu, {menu}))
         stop(err);
     else
         pinCursor();
@@ -135,7 +140,7 @@ void MenuLayer::pinCursor() {
     // picture shows how it's drawn relative to the point it stands for.
     if (!_ui)
         return;
-    if (Error err = _ui->call(eliteforce::UiHost::kMouseEvent, {-100000, -100000}))
+    if (Error err = _ui->call(MenuHost::kMouseEvent, {-100000, -100000}))
         stop(err);
     _calibrate = true;
     _haveCursor = false;
@@ -163,7 +168,7 @@ void MenuLayer::syncCursor() {
     _cursorY += float(dy) * unitY;
     _pendingX += float(dx) * unitX;
     _pendingY += float(dy) * unitY;
-    if (Error err = _ui->call(eliteforce::UiHost::kMouseEvent, {dx, dy}))
+    if (Error err = _ui->call(MenuHost::kMouseEvent, {dx, dy}))
         stop(err);
 }
 
@@ -171,7 +176,7 @@ void MenuLayer::findCursor() {
     // The pointer is the last picture drawn with the cursor shader.
     const auto &pictures = _ui->pictures();
     for (auto it = pictures.rbegin(); it != pictures.rend(); ++it) {
-        if (normalizeArchiveName(_ui->shaders().name(it->shader)).rfind("menu/common/cursor", 0) != 0)
+        if (!_ui->isCursor(_ui->shaders().name(it->shader)))
             continue;
         if (_calibrate) {
             // In the corner: the picture's offset from the point.
@@ -231,14 +236,14 @@ void MenuLayer::handleEvent(const Event &ev) {
     // them releases.
     case EventType::kKeyDown:
         if (const int32_t k = toQ3Key(ev.key))
-            err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
+            err = _ui->call(MenuHost::kKeyEvent, {k, 1});
         break;
     case EventType::kTextInput:
         // Characters for text fields, each as a key press with the
         // character flag (the original's menus go by Latin-1).
         for (uint32_t cp : decodeUtf8(ev.text))
             if (cp >= 32 && cp < 256 && cp != 127 && !err)
-                err = _ui->call(eliteforce::UiHost::kKeyEvent, {int32_t(cp) | q3key::kCharFlag, 1});
+                err = _ui->call(MenuHost::kKeyEvent, {int32_t(cp) | q3key::kCharFlag, 1});
         break;
     case EventType::kMouseDown:
         // Clicks land where the mouse is.
@@ -249,12 +254,12 @@ void MenuLayer::handleEvent(const Event &ev) {
         if (!_ui)
             return;
         if (const int32_t k = toQ3Button(ev.button))
-            err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
+            err = _ui->call(MenuHost::kKeyEvent, {k, 1});
         break;
     case EventType::kMouseWheel:
         if (ev.wheelY) {
             const int32_t k = ev.wheelY > 0 ? q3key::kWheelUp : q3key::kWheelDown;
-            err = _ui->call(eliteforce::UiHost::kKeyEvent, {k, 1});
+            err = _ui->call(MenuHost::kKeyEvent, {k, 1});
         }
         break;
     case EventType::kMouseMove:
@@ -273,7 +278,7 @@ void MenuLayer::handleEvent(const Event &ev) {
 void MenuLayer::key(int32_t q3key, bool down) {
     if (!_ui || !down)
         return;
-    if (Error err = _ui->call(eliteforce::UiHost::kKeyEvent, {q3key, 1}))
+    if (Error err = _ui->call(MenuHost::kKeyEvent, {q3key, 1}))
         stop(err);
 }
 
@@ -299,7 +304,7 @@ void MenuLayer::frame(uint64_t nowMs) {
         stop(err);
         return;
     }
-    const std::vector<eliteforce::UiHost::Picture> pictures = _ui->pictures();
+    const std::vector<Picture> pictures = _ui->pictures();
     findCursor();
 
     // The pictures, in screen pixels as the menus count, with each 3D

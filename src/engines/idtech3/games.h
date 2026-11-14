@@ -22,8 +22,9 @@ namespace reluva::idtech3 {
 //
 // Whose game code it is: which of Reluva's hosts can run the game's own
 // programs (its QVMs and DLLs, whose engine calls are numbered and laid
-// out per game). None: its files can be looked at, but not played.
-enum class GameCode { kNone, kEliteForce };
+// out per game). None: its files can be looked at, but not played. Jedi
+// Outcast: its multiplayer menus.
+enum class GameCode { kNone, kEliteForce, kJediOutcast };
 
 // A player model's three parts ("model/skin").
 struct PlayerModels {
@@ -54,6 +55,10 @@ struct GameInfo {
     // where the game has one; 0 if not).
     int32_t buttonAttack = 1;
     int32_t buttonAltAttack = 0;
+    // What its multiplayer is called, on the Start page.
+    std::string multiplayerName = "Multiplayer";
+    // The config of default keys and settings run before the player's own.
+    std::string defaultConfig = "default.cfg";
     // Multiplayer's model for a player who hasn't chosen one.
     std::string playerModel;
     // Single player's: the player's name until one is set; its game code

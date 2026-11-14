@@ -19,6 +19,12 @@ What Reluva does that hasn't been checked against the running original.
   been compared with the original running
   ([shader.md](../../formats/shader.md), [rbsp.md](../../formats/rbsp.md)).
 
+- The multiplayer menus' text: a number of letters as `R_Font_DrawString`'s
+  limit, and the drop shadow's offset and grey, as the GPL multiplayer
+  renderer has them; the menus read right, but haven't been compared
+  with the original's screens
+  ([systems/syscalls.md](systems/syscalls.md)).
+
 ## Seen running, not traced in the code
 
 None yet.
@@ -39,6 +45,11 @@ None yet.
   distance from the eye, as a fog volume the eye is inside
   ([rbsp.md](../../formats/rbsp.md)). To compare with the original's
   pictures of those levels.
+
+- The multiplayer engine registers `sv_hostname` and `sv_maxclients`
+  before any game, so its Create Server shows them; Quake III's does,
+  and the GPL Jedi Outcast multiplayer engine runs `mpdefault.cfg` first.
+  To check in `jk2mp.exe` ([systems/syscalls.md](systems/syscalls.md)).
 
 ## Guessed
 

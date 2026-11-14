@@ -179,7 +179,7 @@ Error Session::runPages(PageContext &ctx, const std::string &resume, std::string
     if (pages[1]->count() > 0)
         choices.push_back({"Single Player", "The story, from the game's own menus", pages[1]->name()});
     if (pages[2]->count() > 0)
-        choices.push_back({"Holomatch", "Multiplayer: bots, LAN and Internet servers", pages[2]->name()});
+        choices.push_back({_game.multiplayerName, "Multiplayer: bots, LAN and Internet servers", pages[2]->name()});
     addPages(ctx, pages, choices);
     if (choices.empty()) {
         const std::string folder = _target.path.string() + "/" + _game.baseDir;

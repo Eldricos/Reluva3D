@@ -164,6 +164,10 @@ Error UiHost::refresh(int32_t time) {
     return call(kRefresh, {time});
 }
 
+bool UiHost::isCursor(const std::string &shader) const {
+    return normalizeArchiveName(shader).rfind("menu/common/cursor", 0) == 0;
+}
+
 bool UiHost::cdKeyLooksValid(const std::string &key) {
     // The menus' own rule: up to 22 characters, 18 of them letters or
     // digits (the rest, say, dashes).

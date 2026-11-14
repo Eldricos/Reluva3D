@@ -108,9 +108,13 @@ void loadConfig(PageContext &ctx) {
     };
     for (const auto &[name, value] : kEngineCvars)
         ctx.cvars.create(name, value, CvarStore::kArchive);
+    // The server's, which the original registers as it starts, before any
+    // game: the menus' Create Server fields show them.
+    ctx.cvars.create("sv_hostname", "Reluva", CvarStore::kServerInfo | CvarStore::kArchive);
+    ctx.cvars.create("sv_maxclients", "8", CvarStore::kServerInfo | CvarStore::kLatch | CvarStore::kArchive);
     std::string text;
     std::vector<uint8_t> data;
-    if (!ctx.files.read("default.cfg", data))
+    if (!ctx.files.read(ctx.game.defaultConfig, data))
         ctx.bindings.execute(std::string(data.begin(), data.end()), ctx.cvars, nullptr, readFile);
     if (!ctx.savePath.empty()) {
         std::ifstream in(ctx.savePath / kConfigName, std::ios::binary);
@@ -120,7 +124,7 @@ void loadConfig(PageContext &ctx) {
         }
     }
     if (ctx.bindings.empty()) {
-        // No default.cfg: the usual keys, so there's something to play with.
+        // No default config: the usual keys, so there's something to play with.
         ctx.bindings.execute("bind w +forward; bind s +back; bind a +moveleft; bind d +moveright;"
                              "bind SPACE +moveup; bind c +movedown; bind MOUSE1 +attack; bind MOUSE2 +altattack;"
                              "bind MWHEELUP weapprev; bind MWHEELDOWN weapnext; bind SHIFT +speed;"

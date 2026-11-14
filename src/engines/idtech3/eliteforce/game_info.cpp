@@ -15,6 +15,7 @@ GameInfo gameInfo() {
     g.installFolders = {"SETUP"}; // the English CD's SETUP/BaseEF
     g.demoExtensions = {".efdemo", ".dm_24"};
     g.code = GameCode::kEliteForce;
+    g.multiplayerName = "Holomatch";
     g.refEntity = kRefEntityLayout;
     g.spRefEntity = kSpRefEntityLayout;
     g.buttonAttack = 1;

@@ -32,6 +32,14 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 - **Video textures** whose video the paks don't hold (9 of 13
   `videoMap` stages) aren't drawn; the rest of their shaders is.
 
+In the multiplayer menus:
+
+- **The server lists** (Join Server, the favourites) stay empty, and
+  **Begin** in Create Server doesn't start a match, until the network
+  and the game's code come (phase 6).
+- **`R_RemapShader`** isn't answered yet, and no menu plays a video
+  ([systems/syscalls.md](systems/syscalls.md)).
+
 Left for after the rest is done and tested (its phase 11):
 
 - **EAX environmental sound.** The original sets each level's EAX

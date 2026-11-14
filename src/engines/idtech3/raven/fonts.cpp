@@ -87,15 +87,18 @@ int Font::textWidth(std::string_view text, float scale) const {
     return widest;
 }
 
-std::vector<Font::Piece> Font::layout(std::string_view text, int x, int y, float scale, int maxWidth) const {
+std::vector<Font::Piece> Font::layout(std::string_view text, int x, int y, float scale, int maxWidth,
+                                      int maxChars) const {
     std::vector<Piece> out;
     int colour = -1;
     int penX = x;
     // The line's baseline: the font's height less half its descender down.
     int lineY = y + round(float(height - (descender >> 1)) * scale);
     auto size = [&](int v) { return roundSizes ? float(round(float(v) * scale)) : float(v) * scale; };
-    for (size_t i = 0; i < text.size(); ++i) {
+    for (size_t i = 0; i < text.size() && maxChars != 0; ++i) {
         const auto c = static_cast<uint8_t>(text[i]);
+        if (maxChars > 0 && c != '^' && c != '\n' && c != '\r')
+            --maxChars; // this one's drawn, and the last if it was 1
         if (c == '^' && i + 1 < text.size()) {
             colour = (static_cast<uint8_t>(text[++i]) - '0') & 7;
         } else if (c == '\n') {

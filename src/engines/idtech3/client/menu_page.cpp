@@ -27,7 +27,8 @@ constexpr uint64_t kHintMs = 6000;
 } // namespace
 
 MenuPage::MenuPage(PageContext &ctx) : Page(ctx) {
-    _available = ctx.game.code == GameCode::kEliteForce && ctx.files.has("vm/ui.qvm");
+    _available = (ctx.game.code == GameCode::kEliteForce || ctx.game.code == GameCode::kJediOutcast) &&
+                 ctx.files.has("vm/ui.qvm");
 }
 
 MenuPage::~MenuPage() {
@@ -54,12 +55,14 @@ void MenuPage::activate() {
     // The menus draw their own pointer, and have text fields.
     _ctx.sys.setMouseCursorVisible(false);
     _ctx.sys.setTextInput(true);
+    if (!_musicIntro.empty() || !_musicLoop.empty())
+        playMusic(_musicIntro, _musicLoop); // back from another page: from the start again
     if (!_menus.running() && _menus.error().empty())
         start();
     else if (_ctx.matchEnded && _menus.running())
         _menus.show(MenuLayer::kMainMenu); // back from a match: the main menu
     _ctx.matchEnded = false;
-    setTitle(_menus.error().empty() ? "Elite Force's own menus (vm/ui.qvm)" : "stopped");
+    setTitle(_menus.error().empty() ? "the game's own menus (vm/ui.qvm)" : "stopped");
 }
 
 void MenuPage::start() {
@@ -72,7 +75,23 @@ void MenuPage::start() {
         }
     }
     _menus.browser = _browser.get();
+    _menus.configure = [this](MenuHost &ui) {
+        ui.backgroundTrack = [this](const std::string &intro, const std::string &loop) { playMusic(intro, loop); };
+    };
     _menus.start(MenuLayer::kMainMenu);
+}
+
+void MenuPage::playMusic(const std::string &intro, const std::string &loop) {
+    _musicIntro = intro;
+    _musicLoop = loop;
+    if (!_ctx.mixer)
+        return;
+    if (!_music)
+        _music = std::make_unique<SoundSystem>(*_ctx.mixer, _soundLibrary);
+    if (intro.empty() && loop.empty())
+        _music->stopBackgroundTrack();
+    else
+        _music->startBackgroundTrack(intro, loop);
 }
 
 void MenuPage::checkCommands() {
@@ -99,6 +118,11 @@ void MenuPage::checkCommands() {
                 _ctx.requestPage = "Start";
                 _menus.reset();
                 return;
+            } else if (verb == "music") {
+                // Jedi Outcast's menus start theirs so; one name is the
+                // loop too, as the original's command takes it.
+                if (words.size() >= 2)
+                    playMusic(words[1], words.size() >= 3 ? words[2] : words[1]);
             } else if (verb == "vid_restart") {
                 // The video settings changed: the page starts its drawing over;
                 // a mod chosen (fs_game), the game's files too.
@@ -135,6 +159,10 @@ void MenuPage::checkCommands() {
 void MenuPage::deactivate() {
     // Settings and bindings changed in the menus, kept.
     saveConfig(_ctx);
+    // Not under other pages: a match plays its own.
+    _music.reset();
+    if (_ctx.mixer)
+        _ctx.mixer->setTypeVolume(audio::SoundType::kMusic, audio::kMaxVolume);
     if (_renderer) {
         _ctx.sys.setMouseCursorVisible(true);
         _ctx.sys.setTextInput(false);
@@ -186,6 +214,14 @@ void MenuPage::update(uint64_t nowMs) {
     }
     if (_browser)
         _browser->update(nowMs);
+    if (_music) {
+        // At s_musicvolume, 0.25 unless set; the effects scale themselves.
+        const float volume = _cvars.find("s_musicvolume") ? _cvars.value("s_musicvolume") : 0.25f;
+        _ctx.mixer->setTypeVolume(audio::SoundType::kMusic,
+                                  int(std::clamp(volume, 0.0f, 1.0f) * float(audio::kMaxVolume)));
+        _music->setTime(nowMs);
+        _music->endFrame();
+    }
 
     _renderer->setGamma(brightness(_ctx));
     _renderer->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});

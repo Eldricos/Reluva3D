@@ -966,7 +966,7 @@ void PlayPage::openMenu() {
     // offers the server's items (adding bots, restarting) by it.
     _cvars.create("sv_running", "0", CvarStore::kReadOnly);
     _cvars.set("sv_running", _game && !_client ? "1" : "0", true);
-    _menus.configure = [this](eliteforce::UiHost &ui) {
+    _menus.configure = [this](MenuHost &ui) {
         ui.clientState.connState = 8; // CA_ACTIVE
         ui.clientState.clientNum = _client ? _playerNumber : 0;
         ui.clientState.serverName = _client ? _serverAddress : "localhost";

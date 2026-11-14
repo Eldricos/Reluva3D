@@ -75,7 +75,11 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
 - **Depth:** a stage writes depth unless it blends (anything but
   `GL_ONE GL_ZERO`), or unless it says `depthWrite`. `depthFunc equal`
   draws only where the depth matches.
-- **Colour:** without `rgbGen`, white. Without `alphaGen`, opaque.
+- **Colour:** without `rgbGen`, white. Without `alphaGen`, opaque, but
+  `rgbGen vertex` takes the vertices' alpha too unless an `alphaGen` came
+  before it (the GPL Quake III and Jedi Outcast renderers both do; Jedi
+  Outcast's `white`, blended with only `rgbGen vertex`, is how its menus
+  draw their see-through highlights).
 - **Texture coordinates:** without `tcGen`, the lightmap coordinates for a
   `$lightmap` stage and the texture coordinates otherwise. `tcMod`s apply
   in the order written.

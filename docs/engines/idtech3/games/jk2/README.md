@@ -39,7 +39,8 @@ the cabinets beside it hold only the installer's own files.
 | Models | Its MD3 models (276) placed by the maps' entities; its Ghoul2 meshes (71) and skeletons (21) read, posed on the CPU, skinned and animated in `reluva-viewer`'s Models page ([ghoul2.md](../../formats/ghoul2.md)) |
 | Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
-| Game code, menus, sound | Not yet |
+| Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls and Create Server open; the server lists are empty ([systems/syscalls.md](systems/syscalls.md)) |
+| Game code | Not yet |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 
@@ -51,7 +52,8 @@ holding `base` (an install's `GameData`); *Import Game...* takes the CD,
 the install's folder or `GameData`, and copies what Reluva needs into its
 library.
 
-It can't be played yet: `reluva` says so. `reluva-viewer` shows its maps
+It can't be played yet, but `reluva`'s Multiplayer runs the game's own
+menus (Create Server's Begin waits for the game's code). `reluva-viewer` shows its maps
 (World, Maps), its models (MD3 and Ghoul2, animating), textures and
 files; what comes next is in the [plan](PLAN.md).
 
@@ -65,6 +67,7 @@ files; what comes next is in the [plan](PLAN.md).
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
 | [TESTING.md](TESTING.md) | The tests, and what to check by hand |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+| [systems/syscalls.md](systems/syscalls.md) | The multiplayer menus' system calls |
 
 ## Terms
 

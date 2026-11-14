@@ -48,7 +48,9 @@ struct Font {
     // Where each letter of `text` goes, as the original draws it from
     // (x, y), its top left: a picture of the image's (s, t)-(s2, t2) at
     // (x, y), w by h; `colour` the ^ code before it (-1: none yet). Stops
-    // at the first letter or space that would pass `maxWidth` (-1: none).
+    // at the first letter or space that would pass `maxWidth` (-1: none),
+    // as the single-player engine does, or after `maxChars` letters and
+    // spaces (-1: none), as the multiplayer engine does.
     struct Piece {
         float x = 0;
         float y = 0;
@@ -60,7 +62,8 @@ struct Font {
         float t2 = 0;
         int colour = -1;
     };
-    std::vector<Piece> layout(std::string_view text, int x, int y, float scale, int maxWidth = -1) const;
+    std::vector<Piece> layout(std::string_view text, int x, int y, float scale, int maxWidth = -1,
+                              int maxChars = -1) const;
 };
 
 // A .fontdat file: 256 glyphs of 28 bytes, then the sizes.

@@ -13,6 +13,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
+#include "engines/idtech3/jk2/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/vm/qvm.h"
@@ -101,7 +102,17 @@ int cmdUiRun(int argc, char **argv) {
     // variables (g_gametype, the Holomatch modes...).
     for (const std::string &name : latched)
         cvars.create(name, "0", q3::CvarStore::kServerInfo | q3::CvarStore::kLatch);
-    ef::UiHost ui(set, cvars);
+    // The folder's game's menus: Elite Force's or Jedi Outcast's.
+    std::unique_ptr<q3::MenuHost> host;
+    ef::UiHost *efHost = nullptr;
+    if (gameOfFolder(argv[2]).code == q3::GameCode::kJediOutcast) {
+        host = std::make_unique<reluva::idtech3::jk2::UiHost>(set, cvars);
+    } else {
+        auto own = std::make_unique<ef::UiHost>(set, cvars);
+        efHost = own.get();
+        host = std::move(own);
+    }
+    q3::MenuHost &ui = *host;
     ui.setModRoot(idTech3Folders(argv[2]).first, idTech3Folders(argv[2]).second);
     if (ingameType >= 0) {
         // As the Play page's in-game menu: connected to a match of that
@@ -115,7 +126,8 @@ int cmdUiRun(int argc, char **argv) {
             menu = 2;
     }
     ui.setScreenSize(width, height);
-    ui.setGlconfigWords(glwords);
+    if (efHost)
+        efHost->setGlconfigWords(glwords);
     ui.print = [](const std::string &text) {
         std::printf("ui: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
@@ -130,9 +142,9 @@ int cmdUiRun(int argc, char **argv) {
     };
     if (!step("load and GetApiVersion", ui.load()))
         return 1;
-    bool ok = step("Init", ui.call(ef::UiHost::kInit));
+    bool ok = step("Init", ui.call(q3::MenuHost::kInit));
     if (ok)
-        ok = step("SetActiveMenu", ui.call(ef::UiHost::kSetActiveMenu, {menu}));
+        ok = step("SetActiveMenu", ui.call(q3::MenuHost::kSetActiveMenu, {menu}));
     std::printf("menu %d; key catcher %d (2: the menus take the keys)\n", menu, ui.catcher());
     for (const int32_t at : vmCalls) {
         int32_t result = 0;
@@ -150,10 +162,10 @@ int cmdUiRun(int argc, char **argv) {
             ok = step("Refresh", ui.refresh(time));
         }
         if (c < clicks.size() && ok) {
-            ok = step("MouseEvent", ui.call(ef::UiHost::kMouseEvent, {-100000, -100000})) &&
-                 step("MouseEvent", ui.call(ef::UiHost::kMouseEvent,
+            ok = step("MouseEvent", ui.call(q3::MenuHost::kMouseEvent, {-100000, -100000})) &&
+                 step("MouseEvent", ui.call(q3::MenuHost::kMouseEvent,
                                             {clicks[c].first * width / 640, clicks[c].second * height / 480})) &&
-                 step("KeyEvent", ui.call(ef::UiHost::kKeyEvent, {178, 1})); // K_MOUSE1
+                 step("KeyEvent", ui.call(q3::MenuHost::kKeyEvent, {178, 1})); // K_MOUSE1
             std::printf("clicked %d %d\n", clicks[c].first, clicks[c].second);
         }
     }
@@ -171,6 +183,9 @@ int cmdUiRun(int argc, char **argv) {
     }
     std::printf("%zu cvars, %zu shaders (%d not found), %zu models, %zu sounds registered\n", cvars.all().size(),
                 ui.shaders().size(), missing, ui.models().size(), ui.sounds().size());
+    if (verbose)
+        for (int32_t h = 1; h <= int32_t(ui.models().size()); ++h)
+            std::printf("model %d: %s\n", h, ui.models().name(h).c_str());
     std::printf("last frame: %zu pictures\n", ui.pictures().size());
     size_t shown = 0;
     for (const auto &p : ui.pictures()) {

@@ -41,6 +41,10 @@ public:
     BotScript(Loader load, const std::vector<std::string> &defines = {});
     ~BotScript();
 
+    // Names may start with '@', as Jedi Outcast's reader allows ("@MENUS0_X":
+    // a string package's text). Before open().
+    void allowAtNames() { _atNames = true; }
+
     bool open(const std::string &path);
     // Reads text directly, as if from a file named `name`.
     void openText(const std::string &name, const std::string &text);
@@ -75,6 +79,7 @@ private:
     bool skipping() const;
 
     Loader _load;
+    bool _atNames = false;
     std::vector<std::unique_ptr<Source>> _sources; // files and macro expansions, innermost last
     std::vector<BotToken> _pushed;
     std::map<std::string, std::shared_ptr<Macro>> _macros;

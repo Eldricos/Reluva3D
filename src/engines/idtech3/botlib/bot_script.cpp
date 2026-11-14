@@ -21,8 +21,9 @@ const char *const kPunctuation[] = {
 
 const char *const kEndOfLine = "\n#end"; // marks the end of a directive's tokens
 
-// Splits a file's text into tokens, with their lines.
-bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &out, std::string &error) {
+// Splits a file's text into tokens, with their lines. `atNames`: a name
+// may start with '@' (Raven's, for their string references).
+bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &out, std::string &error, bool atNames) {
     size_t i = 0;
     int line = 1;
     bool lineStart = true;
@@ -186,8 +187,9 @@ bool lex(const std::string &name, const std::string &s, std::vector<BotToken> &o
             out.push_back(std::move(t));
             continue;
         }
-        if (isNameChar(c)) {
+        if (isNameChar(c) || (atNames && c == '@')) {
             t.type = BotToken::Type::kName;
+            t.text += s[i++];
             while (i < s.size() && isNameChar(s[i]))
                 t.text += s[i++];
             out.push_back(std::move(t));
@@ -232,7 +234,7 @@ BotScript::~BotScript() = default;
 void BotScript::define(const std::string &line) {
     std::vector<BotToken> tokens;
     std::string error;
-    if (!lex("(define)", line, tokens, error) || tokens.empty() || tokens[0].type != BotToken::Type::kName)
+    if (!lex("(define)", line, tokens, error, _atNames) || tokens.empty() || tokens[0].type != BotToken::Type::kName)
         return;
     auto m = std::make_shared<Macro>();
     m->body.assign(tokens.begin() + 1, tokens.end());
@@ -252,7 +254,7 @@ bool BotScript::open(const std::string &path) {
 void BotScript::openText(const std::string &name, const std::string &text) {
     auto source = std::make_unique<Source>();
     std::string error;
-    if (!lex(name, text, source->tokens, error)) {
+    if (!lex(name, text, source->tokens, error, _atNames)) {
         if (_error.empty())
             _error = error;
         return;
