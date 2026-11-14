@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Ghidra pipeline for nfs3.exe (see README.md, "Ghidra").  Needs GHIDRA_HOME
 # (the unpacked ghidra_11.4.2_PUBLIC folder), NFSRE_EXE and symbols.json from
 # make_symbols.py.  Everything goes to $NFSRE_DATA/ghidra (not the repo):

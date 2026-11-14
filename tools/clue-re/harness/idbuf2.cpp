@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Renders the mansion as the game would (state-0 frames, near walls see-through, characters at
 // their start), finds the camera that best matches a frame (PPM, lighting off), and writes for
 // each pixel the item drawn last there, with each item's world place.

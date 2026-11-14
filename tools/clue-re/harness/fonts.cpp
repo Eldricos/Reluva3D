@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/resi.h"
 #include "engines/clue/ui/ui.h"

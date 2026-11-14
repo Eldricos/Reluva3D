@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import sys, pefile, capstone
 pe=pefile.PE(sys.argv[1]); base=pe.OPTIONAL_HEADER.ImageBase
 text=[s for s in pe.sections if s.Name.startswith(b'.text')][0]

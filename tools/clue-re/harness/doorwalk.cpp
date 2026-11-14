@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Walks into the rooms, by Clue.exe's way-finder (0x41A0C0): from each
 // door's square to the place found for the suspect (0x4242A2), and out of
 // each secret passage (0x425CC0). Prints each way, and checks it: every

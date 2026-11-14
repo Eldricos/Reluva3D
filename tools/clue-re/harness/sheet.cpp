@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Draws each named animation's frames (all layers) in a row on a sheet, with its size.
 #include "engines/clue/game_data.h"
 #include "image/image.h"

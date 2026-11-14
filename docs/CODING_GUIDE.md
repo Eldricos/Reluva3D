@@ -19,6 +19,11 @@ Every file starts with its license and copyright lines, and every header has `#p
 #pragma once
 ```
 
+That goes for every source file, not only C++: Python, shell and CMake
+files in `#` comments (after a `#!` line), QVM assembly and `.def` files
+in `;` ones. `tools/check-headers.py` checks them all, and `--fix` adds
+the lines where they're missing.
+
 ---
 
 ## Namespaces

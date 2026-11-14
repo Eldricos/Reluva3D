@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """Script disassembler for Star Trek: DS9 Harbinger (CC.ALL scenes, CCB.ALL dialogues).
 
     python3 harbinger_script.py SSE_DIR OUT_DIR
