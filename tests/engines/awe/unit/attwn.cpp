@@ -4,9 +4,13 @@
 // And Then There Were None: its files as the game names and reads them,
 // its scenes, and recognising the game, on files made here.
 
+#include "engines/awe/attwn/attwn.h"
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/games.h"
+#include "engines/awe/game/conditions.h"
+#include "engines/awe/game/script.h"
+#include "tests/engines/awe/fixtures.h"
 #include "tests/support/test.h"
 
 #include <algorithm>
@@ -173,6 +177,37 @@ void testScenes() {
     CHECK(parseAc1(std::vector<uint8_t>(b.d.begin(), b.d.begin() + 300), scene));
 }
 
+void testScriptWords() {
+    GameState state;
+    state.game = &attwn::game();
+    state.act = "02a";
+    testing::FakeHost host;
+    ScriptRunner r(state, host);
+    // inc: the act's counter, when the act is one named (any case);
+    // "needed" or else "possible".
+    r.run("inc needed 01a 02A, inc needed 02a, inc possible 02a, inc possible 03a");
+    for (int i = 0; i < 8 && !r.idle(); i++)
+        r.update(0.1f);
+    CHECK(state.tags["02a_neededcounter"] == 2 && state.tags["02a_possiblecounter"] == 1);
+    CHECK(!state.tags.count("03a_possiblecounter") && host.started.empty());
+    // suspicion: the tag suspicion_<who>, 0 if unset, against a number.
+    state.tags["suspicion_wargrave"] = 2;
+    CHECK(testCondition("suspicion wargrave 2", state) && !testCondition("suspicion wargrave 1", state));
+    CHECK(testCondition("suspicion wargrave >1", state) && testCondition("suspicion Wargrave <3", state));
+    CHECK(testCondition("suspicion blore 0", state) && testCondition("!suspicion blore >0", state));
+    // Orient Express has neither word: "suspicion" doesn't hold there, and
+    // "inc" goes to the host as a verb it doesn't know.
+    GameState other;
+    other.tags["suspicion_wargrave"] = 2;
+    CHECK(!testCondition("suspicion wargrave 2", other));
+    other.act = "02a";
+    ScriptRunner r2(other, host);
+    r2.run("inc needed 02a");
+    for (int i = 0; i < 8 && !r2.idle(); i++)
+        r2.update(0.1f);
+    CHECK(!other.tags.count("02a_neededcounter") && host.started.size() == 1 && host.started[0] == "inc needed 02a");
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -206,5 +241,6 @@ static const reluva::test::Suite kSuite("awe.unit.attwn",
                                             {"names", [](const std::filesystem::path &) { testNames(); }},
                                             {"its files", [](const std::filesystem::path &tmp) { testGameFiles(tmp); }},
                                             {"scenes (.ac1)", [](const std::filesystem::path &) { testScenes(); }},
+                                            {"script words", [](const std::filesystem::path &) { testScriptWords(); }},
                                             {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                                         });

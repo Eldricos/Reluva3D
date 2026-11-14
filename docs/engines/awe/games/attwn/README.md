@@ -22,8 +22,11 @@ Phases 1 and 2 of [PLAN.md](PLAN.md) are done:
   the game's Granny builds them, and the data viewer draws them at the
   game's 800×600 with their characters ([formats/ac1.md](formats/ac1.md)).
 
-Nothing is played yet: `reluva` says so. Next is phase 3: what differs
-between this game and Orient Express, in their shared code.
+Phase 3, what differs from Orient Express in their shared code, is
+under way: its script words ([systems/script.md](systems/script.md)),
+and the path-finder, the same code in both
+([formats/ac1.md](formats/ac1.md#the-walk-grid-and-the-path-finder)).
+Nothing is played yet: `reluva` says so.
 
 ## Using it
 
@@ -44,6 +47,7 @@ with `data1.hdr` and the three cabinets in one folder; the game is
 |---|---|
 | This page | Where it stands, how to use it |
 | [formats/](formats/) | The game's files: [names and scrambled text](formats/files.md), [scenes (`.ac1`)](formats/ac1.md) |
+| [systems/](systems/) | How the game behaves: [the script runner](systems/script.md) |
 | [PLAN.md](PLAN.md) | The survey of the install, the phases, the decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |

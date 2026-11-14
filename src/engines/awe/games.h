@@ -7,12 +7,37 @@
 #include "common/detection.h"
 #include "common/types.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace reluva::awe {
+
+struct GameState;
+
+/** A function in a game's executable, and its first bytes there (to be sure it's that release's). */
+struct CodeAt {
+    uint32_t address = 0;
+    uint8_t bytes[8] = {};
+};
+
+/**
+ * Where a game's executable has its path-finder, to run it in the x86
+ * interpreter beside Reluva's port (GamePathFinder, reluva-tool awe
+ * path-check). Both games' is the same code.
+ */
+struct PathFinderCode {
+    CodeAt statics;     ///< a static of its own, made at start-up
+    CodeAt constructor; ///< the object's
+    CodeAt buildTables; ///< its tables, built once
+    CodeAt search;      ///< one search on a grid
+    CodeAt operatorNew; ///< the C library's, replaced by the interpreter's
+    CodeAt operatorDelete;
+    uint32_t objectSize = 0;
+};
 
 /**
  * What the shared AWE code needs to know of one game. A game's own code is
@@ -29,6 +54,15 @@ struct GameInfo {
     Error (*openFiles)(const std::filesystem::path &dir, std::unique_ptr<Archive> &out) = nullptr;
     int width = 1024; ///< the game's frame: its window, its scenes' pictures and cameras
     int height = 768;
+    /**
+     * A condition word only this game has (`words[0]`, lower case): sets
+     * `holds` and returns true, or returns false for a word it hasn't.
+     */
+    bool (*condition)(const GameState &state, const std::vector<std::string> &words, bool &holds) = nullptr;
+    /** A script verb only this game has that changes its state alone: done, or false for one it hasn't. */
+    bool (*verb)(GameState &state, const std::vector<std::string> &words) = nullptr;
+    const char *exe = nullptr; ///< its executable, in the game's folder
+    PathFinderCode pathFinder; ///< in that executable (the English release's)
 };
 
 /** The AWE games, in the order they're recognised. */

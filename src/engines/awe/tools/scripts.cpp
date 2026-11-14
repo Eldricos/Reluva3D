@@ -13,6 +13,7 @@
 #include "common/fs.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/tables.h"
+#include "engines/awe/game/conditions.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -69,7 +70,8 @@ int aweCommandScripts(int argc, char **argv) {
     const bool verbose = argc > 3 && std::string(argv[3]) == "-v";
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<reluva::Archive> archive;
-    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
+    const GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
@@ -82,6 +84,16 @@ int aweCommandScripts(int argc, char **argv) {
     size_t mixed = 0;
     // A condition's clauses, by their word (0x407ae0: split at ',' and
     // '|', a clause's '!' and the words after it).
+    // The game's own words (attwn's), which its hooks answer for.
+    auto ownVerb = [&](const std::string &verb) {
+        GameState scratch;
+        return game && game->verb && game->verb(scratch, {verb});
+    };
+    auto ownCondition = [&](const std::string &word) {
+        GameState scratch;
+        bool holds = false;
+        return game && game->condition && game->condition(scratch, {word}, holds);
+    };
     auto takeCondition = [&](std::string_view text, const std::string &source) {
         const std::string all(text);
         if (all.empty() || all == "0" || all == "1")
@@ -97,7 +109,7 @@ int aweCommandScripts(int argc, char **argv) {
                 clause.erase(0, 1);
             if (!clause.empty()) {
                 const std::string word = fs::toLower(clause.substr(0, clause.find(' ')));
-                Usage &u = words[kConditionWords.count(word) ? word : "?" + word];
+                Usage &u = words[kConditionWords.count(word) || ownCondition(word) ? word : "?" + word];
                 u.count++;
                 u.where.insert(source);
                 if (u.examples.size() < 4 && std::find(u.examples.begin(), u.examples.end(), all) == u.examples.end())
@@ -113,7 +125,7 @@ int aweCommandScripts(int argc, char **argv) {
             if (c.words.empty())
                 continue;
             const std::string verb = fs::toLower(c.verb());
-            const bool known = kVerbs.count(verb) != 0;
+            const bool known = kVerbs.count(verb) != 0 || ownVerb(verb);
             if (!known && onlyKnown)
                 continue;
             Usage &u = (known ? verbs : unknown)[verb];
@@ -141,29 +153,36 @@ int aweCommandScripts(int argc, char **argv) {
         // Only scenes and text hold scripts: the rest (5 GB of movies and
         // sounds) isn't read.
         const std::string ext = lower.size() > 4 ? lower.substr(lower.size() - 4) : std::string();
-        if (ext != ".ac2" && ext != ".txt")
+        if (ext != ".ac2" && ext != ".ac1" && ext != ".txt")
             continue;
         std::vector<uint8_t> data;
         if (files.read(name, data))
             continue;
-        if (lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".ac2") == 0 &&
-            lower.rfind("text/scripts/", 0) != 0) {
+        // Scenes: Orient Express's (but its developers' saves, in
+        // Text/Scripts) and And Then There Were None's.
+        if ((ext == ".ac2" && lower.rfind("text/scripts/", 0) != 0) || ext == ".ac1") {
             Ac2Scene scene;
-            if (parseAc2(data, scene))
+            if (ext == ".ac1" ? parseAc1(data, scene) : parseAc2(data, scene))
                 continue;
             for (const Ac2Record &r : scene.records)
                 takeRecord(r);
-        } else if (lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".txt") == 0 &&
-                   lower.rfind("text/", 0) == 0) {
+        } else if (ext == ".txt" && (lower.rfind("text/", 0) == 0 || lower.rfind("dialogue/", 0) == 0)) {
             const std::string text = decodeText(data);
-            if (lower.rfind("text/dialogue/events/", 0) == 0) {
+            // A line's events (Text/Dialogue/Events, Dialogue/*/Events) and
+            // the scripts `script` runs (Text/Scripts): a command a line.
+            if (lower.find("/events/") != std::string::npos) {
                 take(text, "dialogue events", false);
+                continue;
+            }
+            if (lower.rfind("text/scripts/", 0) == 0) {
+                take(text, "script files", false);
                 continue;
             }
             if (lower.rfind("text/movies/", 0) == 0)
                 continue;
             const Table t = parseTable(text);
-            const std::string kind = lower.rfind("text/dialogue/", 0) == 0 ? "dialogue tables" : name;
+            const std::string kind =
+                lower.rfind("text/dialogue/", 0) == 0 || lower.rfind("dialogue/", 0) == 0 ? "dialogue tables" : name;
             for (const auto &row : t.rows)
                 for (size_t col = 0; col < row.size(); col++) {
                     // Not the columns of text to read (lines, descriptions).

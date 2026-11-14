@@ -3,6 +3,8 @@
 
 #include "engines/awe/game/script.h"
 
+#include "engines/awe/games.h"
+
 #include "common/fs.h"
 #include "engines/awe/formats/tables.h"
 
@@ -342,7 +344,8 @@ bool ScriptRunner::runOwn(const ScriptEvent &e) {
         _locked = v == "lock";
     } else if (v == "setchar") {
         _character = fs::toLower(e.arg(1));
-    } else {
+    } else if (!(_state.game && _state.game->verb && _state.game->verb(_state, e.words))) {
+        // (A verb of the game's own is done there: attwn's "inc".)
         return false;
     }
     return true;

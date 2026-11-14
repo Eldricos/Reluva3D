@@ -86,6 +86,7 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
     _names = listFiles(ctx.files, {"locations/", "cutscenes/", "interface/scenes/"}, {".ac2", ".ac1"});
     // The browser's overlays, which only its keys put away.
     _hotspots = _info = _browser;
+    _state.game = ctx.game;
     _state.values["moving"] = 1;
     _runner = std::make_unique<ScriptRunner>(_state, *this);
     _dialogue = std::make_unique<DialogueManager>(_state, *this, *this);
@@ -619,7 +620,9 @@ void ScenePage::newGame() {
     auto action = std::move(_state.action);
     auto canTalk = std::move(_state.canTalk);
     auto onTest = std::move(_state.onTest);
+    const GameInfo *game = _state.game;
     _state = GameState{};
+    _state.game = game;
     _state.partTold = std::move(partTold);
     _state.action = std::move(action);
     _state.canTalk = std::move(canTalk);

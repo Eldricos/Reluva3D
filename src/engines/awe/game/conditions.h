@@ -55,7 +55,10 @@ struct TalkProgress {
     int nest = -1;
 };
 
+struct GameInfo;
+
 struct GameState {
+    const GameInfo *game = nullptr;    // its game's own condition words and verbs (games.h)
     std::string act;                   // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags;   // story tags: numbers set by scripts ("tag name 1")

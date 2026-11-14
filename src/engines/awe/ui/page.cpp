@@ -48,8 +48,8 @@ Error runPages(System &sys, const GameTarget &target, const MakePages &make, con
     } audioStop{sys, audioOut};
     GameFonts fonts;
     const bool haveFonts = !fonts.load(files);
-    ViewerContext ctx{sys, files, audioOut ? &mixer : nullptr, screen, target.savePath, haveFonts ? &fonts : nullptr,
-                      {},  -1};
+    ViewerContext ctx{
+        sys, files, audioOut ? &mixer : nullptr, screen, target.savePath, haveFonts ? &fonts : nullptr, {}, -1, game};
 
     // Made after what they draw with, so they go first.
     const std::vector<std::unique_ptr<Page>> pages = make(ctx);

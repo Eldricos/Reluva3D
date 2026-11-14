@@ -138,6 +138,31 @@ Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
      same, nothing to do; where not, a branch in the table. The
      path-finder against `ac.exe`'s own in the x86 interpreter
      (`path-check`), as Orient Express's was.
+
+   Done so far (14 November 2026):
+
+   - **The frame and the title**, in the per-game table (`games.h`).
+   - **The script language**: where each game keeps its scripts, this
+     game's own words (`inc`, `suspicion`; `cutscene` and `journal` wait
+     on phase 4's systems), the data's stray words
+     ([systems/script.md](systems/script.md)).
+   - **The path-finder**: the same code in both, and `path-check` against
+     `ac.exe`'s own, 0 mismatches in 88,000 searches
+     ([formats/ac1.md](formats/ac1.md#the-walk-grid-and-the-path-finder)).
+   - **A first sweep of the rest**: the 316 functions Orient Express's
+     pages name, looked for in `ac.exe` by their first bytes (absolute
+     addresses masked) and compared whole. 20 are the same code: the
+     path-finder's, two of the walk grid's (`motoe.exe` `0x406dd0`,
+     `0x406e60`), two of lighting's (`0x4010a0`, `0x401100`), the tag
+     removal the puzzle box uses (`0x4108c0`), a dialogue function whose
+     only difference is a callee (`0x43b9b0`). Most of the rest aren't
+     found so: this game's text is 8-bit where Orient Express's is UTF-16,
+     and its objects' layouts differ, so the same behaviour compiles
+     differently. Those are compared by reading them, system by system.
+
+   Left: the file names and the tables' columns in the table (dialogue,
+   inventory, saves, fonts); the dialogue manager, lighting, shadows,
+   the interface and the saves, read and compared.
 4. **The game's own systems** (large).
    - Chapters, acts and the chapter tables.
    - The still-picture cutscenes and the title cards.

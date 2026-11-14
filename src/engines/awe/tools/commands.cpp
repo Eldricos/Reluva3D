@@ -400,7 +400,7 @@ int cmdAweShot(int argc, char **argv) {
     for (int i = 5; i < argc; i++)
         if (std::strncmp(argv[i], "savedir:", 8) == 0)
             saves = argv[i] + 8;
-    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1};
+    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1, game};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
@@ -1277,8 +1277,8 @@ const reluva::tool::Commands kCommands(
         {"bink-check", "<game folder> <movie.bik>... [-frames n] [-yuv]",
          "movies decoded by Reluva and by the game's binkw32.dll, compared pixel by pixel", cmdAweBink},
         {"ac2-dump", "<scene.ac2|scene.ac1>...", "a scene's records and fields", cmdAc2Dump},
-        {"path-check", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
-         "paths planned by Reluva's port and by motoe.exe's code, compared", reluva::awe::aweCommandPath},
+        {"path-check", "<game folder> <scene.ac2|.ac1> <a0> <b0> <a1> <b1> | -all [pairs]",
+         "paths planned by Reluva's port and by the game's own code, compared", reluva::awe::aweCommandPath},
         {"script-check", "<game folder> [-v]",
          "every script in the install read, and the verbs it uses that Reluva lacks", reluva::awe::aweCommandScripts},
         {"save-check", "<slot.ac2>... [-v]", "a saved game's records, read and written back", cmdAweSave},

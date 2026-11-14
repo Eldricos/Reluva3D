@@ -3,6 +3,8 @@
 
 #include "engines/awe/game/conditions.h"
 
+#include "engines/awe/games.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -210,6 +212,11 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = arg(1).empty() || (!state.held.empty() && fs::toLower(state.held) == fs::toLower(arg(1)));
     } else if (word == "used") {
         result = state.findItem(arg(1), {4}) != nullptr; // 0x41ba20
+    } else if (state.game && state.game->condition) {
+        // A word of the game's own (attwn: "suspicion").
+        std::vector<std::string> lowered = w;
+        lowered[0] = word;
+        state.game->condition(state, lowered, result);
     }
     // Anything else (debug, demo, test, words it doesn't know) doesn't
     // hold; nor does "wearing" (what the player's model wears, 0x426260),
