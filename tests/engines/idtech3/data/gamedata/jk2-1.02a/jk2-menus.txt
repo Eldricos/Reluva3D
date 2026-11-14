@@ -1,4 +1,4 @@
 main-menu: 1feb579cacab4efc
 setup: 700450ac104ea5ad
 create-server: 093e7cbb49c3bd2d
-join-server: 3f3941a9d87c22c4
+join-server: 0f23b6274b8d98bd

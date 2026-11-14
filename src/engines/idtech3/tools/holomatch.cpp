@@ -136,6 +136,9 @@ int cmdUiRun(int argc, char **argv) {
             menu = 2;
     }
     ui.setScreenSize(width, height);
+    // A fixed date (1.02a's ui.qvm's, 6 March 2002, 15:36 UTC), so runs
+    // repeat: the menus write the time into settings.
+    ui.realTime = [] { return int64_t(1015429000); };
     if (efHost)
         efHost->setGlconfigWords(glwords);
     ui.print = [](const std::string &text) {
@@ -677,7 +680,7 @@ int cmdGameRun(int argc, char **argv) {
 
     if (ok && runCgame) {
         // The player's client game, started with what the server has set.
-        ef::CgameHost cgame(set, cvars);
+        ef::CgameHost cgame(set, cvars, gameOfFolder(argv[2]).code);
         cgame.print = [](const std::string &text) {
             std::printf("cgame: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
         };
@@ -1143,7 +1146,9 @@ int cmdGameRun(int argc, char **argv) {
                       : "");
         }
         for (const auto &[number, count] : cgame.unhandled()) {
-            const auto &a = cgame.firstUnhandled().at(number);
+            const auto first = cgame.firstUnhandled().find(number);
+            const std::array<int32_t, 6> a =
+                first != cgame.firstUnhandled().end() ? first->second : std::array<int32_t, 6>{};
             std::printf("cgame: not implemented: system call %d (%d calls), first (%d, %d, %d, %d, %d, %d)\n", number,
                         count, a[0], a[1], a[2], a[3], a[4], a[5]);
             // Arguments that point at text, which often says what a call is.

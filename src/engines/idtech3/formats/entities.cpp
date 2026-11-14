@@ -61,4 +61,36 @@ Error parseEntities(std::string_view text, std::vector<Entity> &out) {
     return Error::success();
 }
 
+std::string nextEntityToken(std::string_view s, size_t &i) {
+    while (true) {
+        while (i < s.size() && static_cast<unsigned char>(s[i]) <= ' ' && s[i] != '\0')
+            ++i;
+        if (i + 1 < s.size() && s[i] == '/' && s[i + 1] == '/') {
+            while (i < s.size() && s[i] != '\n')
+                ++i;
+            continue;
+        }
+        if (i + 1 < s.size() && s[i] == '/' && s[i + 1] == '*') {
+            const size_t end = s.find("*/", i + 2);
+            i = end == std::string::npos ? s.size() : end + 2;
+            continue;
+        }
+        break;
+    }
+    if (i >= s.size() || s[i] == '\0')
+        return {};
+    std::string token;
+    if (s[i] == '"') {
+        ++i;
+        while (i < s.size() && s[i] != '"' && s[i] != '\0')
+            token += s[i++];
+        if (i < s.size() && s[i] == '"')
+            ++i;
+        return token;
+    }
+    while (i < s.size() && static_cast<unsigned char>(s[i]) > ' ')
+        token += s[i++];
+    return token;
+}
+
 } // namespace reluva::idtech3

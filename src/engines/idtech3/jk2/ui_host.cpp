@@ -110,24 +110,12 @@ enum UiCall : int {
     kSpGetStringTextString = 201,
 };
 
-// A font handle's style bits, over its number.
-constexpr int32_t kStyleDropShadow = int32_t(0x80000000);
-constexpr int32_t kStyleBlink = 0x40000000;
-constexpr int32_t kFontMask = 0x00ffffff;
-
 // glconfig_t: renderer, vendor and version strings of 1024 bytes, an
 // 8192-byte extensions string, then 17 words.
 constexpr int32_t kGlconfigWords = 3 * 1024 + 8192;
 constexpr int32_t kGlconfigSize = kGlconfigWords + 17 * 4;
 // uiClientState_t: three words, then three 1024-byte strings.
 constexpr int32_t kClientStateSize = 12 + 3 * 1024;
-// pc_token_t: type, subtype, the number as int and float, then the text.
-constexpr int32_t kTokenText = 16;
-constexpr int32_t kTokenTextSize = 1024;
-
-// Quake III's colour codes, ^0 to ^7.
-constexpr float kCodeColours[8][3] = {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0},
-                                      {0, 0, 1}, {0, 1, 1}, {1, 0, 1}, {1, 1, 1}};
 
 } // namespace
 
@@ -363,87 +351,6 @@ void UiHost::writeClientState(int32_t address) {
     _vm.writeString(address + 12 + 2048, clientState.message, 1024);
 }
 
-int32_t UiHost::registerFont(const std::string &name) {
-    const std::string key = fs::toLower(name);
-    if (const auto it = _fontByName.find(key); it != _fontByName.end())
-        return it->second;
-    std::vector<uint8_t> data;
-    LoadedFont f;
-    int32_t handle = 0;
-    if (!_files.read("fonts/" + name + ".fontdat", data) && !raven::parseFontdat(data, key, f.font)) {
-        f.shader = _shaders.add("fonts/" + name);
-        _fonts.push_back(std::move(f));
-        handle = int32_t(_fonts.size());
-    }
-    return _fontByName[key] = handle;
-}
-
-const raven::Font *UiHost::font(int32_t handle) const {
-    const int32_t i = (handle & kFontMask) - 1;
-    return i >= 0 && i < int32_t(_fonts.size()) ? &_fonts[size_t(i)].font : nullptr;
-}
-
-void UiHost::drawString(int32_t x, int32_t y, const std::string &text, const std::array<float, 4> &color,
-                        int32_t handle, int32_t maxChars, float scale, bool shadow) {
-    const raven::Font *f = font(handle);
-    if (!f)
-        return;
-    // Blinking text is off every other 128 ms.
-    if ((handle & kStyleBlink) && ((_time >> 7) & 1))
-        return;
-    const int32_t shader = _fonts[size_t((handle & kFontMask) - 1)].shader;
-    if (handle & kStyleDropShadow) {
-        const int offset = int(std::floor(float(f->pointSize) * scale * 0.075f + 0.5f));
-        drawString(x + offset, y + offset, text, {0.15f, 0.15f, 0.15f, 1}, handle & kFontMask, maxChars, scale, true);
-    }
-    for (const raven::Font::Piece &p : f->layout(text, x, y, scale, -1, maxChars)) {
-        std::array<float, 4> c = color;
-        // The shadow is grey throughout: the original takes colour codes out of its text.
-        if (p.colour >= 0 && !shadow)
-            c = {kCodeColours[p.colour][0], kCodeColours[p.colour][1], kCodeColours[p.colour][2], 1};
-        addPicture(p.x, p.y, p.w, p.h, p.s, p.t, p.s2, p.t2, shader, c);
-    }
-}
-
-int32_t UiHost::readToken(int32_t handle, int32_t address) {
-    const auto it = _sources.find(handle);
-    if (it == _sources.end() || !_vm.checkWrite(address, kTokenText + kTokenTextSize))
-        return 0;
-    botlib::BotToken t;
-    if (!it->second->next(t))
-        return 0;
-    _lastToken[handle] = t;
-    // pc_token_t's types: string 1, literal 2, number 3, name 4,
-    // punctuation 5; a number's subtype says integer (0x1000, with
-    // decimal 0x8) or float (0x800).
-    int32_t type = 4;
-    int32_t subtype = 0;
-    switch (t.type) {
-    case botlib::BotToken::Type::kString:
-        type = 1;
-        break;
-    case botlib::BotToken::Type::kLiteral:
-        type = 2;
-        break;
-    case botlib::BotToken::Type::kNumber:
-        type = 3;
-        subtype = t.isFloat ? 0x800 : 0x1008;
-        break;
-    case botlib::BotToken::Type::kName:
-        type = 4;
-        break;
-    case botlib::BotToken::Type::kPunctuation:
-        type = 5;
-        break;
-    }
-    _vm.writeInt(address, type);
-    _vm.writeInt(address + 4, subtype);
-    _vm.writeInt(address + 8, int32_t(t.number));
-    _vm.writeInt(address + 12, Qvm::fromFloat(float(t.number)));
-    _vm.writeString(address + kTokenText, t.text, kTokenTextSize);
-    return 1;
-}
-
 int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     if (trace)
         trace(number, a);
@@ -653,109 +560,23 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kMemoryRemaining:
         return 8 << 20;
     case kRRegisterFont:
-        return registerFont(str(0, 64));
-    case kRFontStrLenPixels: {
-        const raven::Font *ft = font(a[1]);
-        return ft ? ft->textWidth(str(0, 4096), f(2)) : 0;
-    }
-    case kRFontStrLenChars: {
-        // Colour codes and line breaks don't count.
-        const std::string text = str(0, 4096);
-        int32_t n = 0;
-        for (size_t i = 0; i < text.size(); ++i) {
-            if (text[i] == '^')
-                ++i;
-            else if (text[i] != '\n' && text[i] != '\r')
-                ++n;
-        }
-        return n;
-    }
-    case kRFontStrHeightPixels: {
-        const raven::Font *ft = font(a[0]);
-        return ft ? int32_t(std::floor(float(ft->pointSize) * f(1) + 0.5f)) : 0;
-    }
-    case kRFontDrawString: { // (x, y, text, rgba, font, letters at most or -1, scale)
-        std::array<float, 4> c{1, 1, 1, 1};
-        if (a[3] && vm.valid(a[3], 16))
-            for (int i = 0; i < 4; ++i)
-                c[size_t(i)] = Qvm::asFloat(vm.readInt(a[3] + 4 * i));
-        drawString(a[0], a[1], str(2, 4096), c, a[4], a[5], f(6));
-        return 0;
-    }
-    case kAnyLanguageReadCharFromString: {
-        // (char **): the character there, the pointer moved past it; one
-        // byte each in the languages Jedi Outcast ships.
-        if (!vm.valid(a[0], 4))
-            return 0;
-        const int32_t at = vm.readInt(a[0]);
-        if (!vm.valid(at, 1))
-            return 0;
-        const auto c = int32_t(uint8_t(vm.memory()[size_t(at)]));
-        vm.writeInt(a[0], at + 1);
-        return c;
-    }
+    case kRFontStrLenPixels:
+    case kRFontStrLenChars:
+    case kRFontStrHeightPixels:
+    case kRFontDrawString:
+    case kAnyLanguageReadCharFromString:
+        return _fonts.call(
+            vm, FontSet::Call(number - kRRegisterFont), a, _time,
+            [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
+                   const std::array<float, 4> &color) { addPicture(x, y, w, h, s1, t1, s2, t2, shader, color); });
     case kPcAddGlobalDefine:
-        _globalDefines.push_back(str(0, 1024));
-        return 1;
-    case kPcLoadGlobalDefines: {
-        // A file of #define lines, each made a global define.
-        std::vector<uint8_t> data;
-        if (_files.read(str(0, 256), data))
-            return 0;
-        const std::string text(data.begin(), data.end());
-        size_t at = 0;
-        while (at < text.size()) {
-            size_t end = text.find('\n', at);
-            if (end == std::string::npos)
-                end = text.size();
-            std::string line = text.substr(at, end - at);
-            at = end + 1;
-            const size_t d = line.find("#define");
-            if (d == std::string::npos)
-                continue;
-            line = line.substr(d + 7);
-            while (!line.empty() && (line.back() == '\r' || line.back() == ' ' || line.back() == '\t'))
-                line.pop_back();
-            const size_t start = line.find_first_not_of(" \t");
-            if (start != std::string::npos)
-                _globalDefines.push_back(line.substr(start));
-        }
-        return 1;
-    }
-    case kPcRemoveAllGlobalDefines:
-        _globalDefines.clear();
-        return 0;
-    case kPcLoadSource: {
-        auto loader = [this](const std::string &path, std::string &text) {
-            std::vector<uint8_t> data;
-            if (_files.read(path, data))
-                return false;
-            text.assign(data.begin(), data.end());
-            return true;
-        };
-        auto script = std::make_unique<botlib::BotScript>(loader, _globalDefines);
-        script->allowAtNames();
-        if (!script->open(str(0, 256)))
-            return 0;
-        const int32_t handle = _nextSource++;
-        _sources[handle] = std::move(script);
-        return handle;
-    }
+    case kPcLoadSource:
     case kPcFreeSource:
-        _sources.erase(a[0]);
-        _lastToken.erase(a[0]);
-        return 1;
     case kPcReadToken:
-        return readToken(a[0], a[1]);
-    case kPcSourceFileAndLine: {
-        const auto it = _lastToken.find(a[0]);
-        if (it == _lastToken.end())
-            return 0;
-        vm.writeString(a[1], it->second.file, 128);
-        if (vm.checkWrite(a[2], 4))
-            vm.writeInt(a[2], it->second.line);
-        return 1;
-    }
+    case kPcSourceFileAndLine:
+    case kPcLoadGlobalDefines:
+    case kPcRemoveAllGlobalDefines:
+        return _scripts.call(vm, botlib::ScriptCalls::Call(number - kPcAddGlobalDefine), a);
     case kSStopBackgroundTrack:
         if (backgroundTrack)
             backgroundTrack({}, {});
@@ -765,12 +586,19 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             backgroundTrack(str(0, 256), str(1, 256));
         return 0;
     case kRealTime: { // (qtime_t *): seconds, minutes, hours, day, month, years since 1900, weekday, day of the year, DST
-        const std::time_t now = std::time(nullptr);
+        const std::time_t now = realTime ? std::time_t(realTime()) : std::time(nullptr);
+        // A fixed clock is taken as UTC, so it reads the same anywhere.
         std::tm local{};
 #ifdef _WIN32
-        localtime_s(&local, &now);
+        if (realTime)
+            gmtime_s(&local, &now);
+        else
+            localtime_s(&local, &now);
 #else
-        localtime_r(&now, &local);
+        if (realTime)
+            gmtime_r(&now, &local);
+        else
+            localtime_r(&now, &local);
 #endif
         const int32_t fields[9] = {local.tm_sec,  local.tm_min,  local.tm_hour, local.tm_mday, local.tm_mon,
                                    local.tm_year, local.tm_wday, local.tm_yday, local.tm_isdst};

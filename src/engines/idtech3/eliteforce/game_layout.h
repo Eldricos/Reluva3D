@@ -70,6 +70,11 @@ struct GameLayout {
     // (Jedi Outcast's, 28 bytes).
     bool ravenUserCommand = false;
     int32_t userCommandSize = 24;
+    // The client game's: gameState_t's configstrings (an offset each into
+    // 16,000 bytes of text), and glconfig_t (its strings, then Quake III's
+    // 17 words from glconfigWords).
+    int32_t maxConfigstrings = 1024;
+    int32_t glconfigWords = 5124;
 };
 constexpr GameLayout kLayout10{};
 constexpr GameLayout kLayout12{
@@ -94,8 +99,9 @@ constexpr GameLayout kLayout12{
 // Jedi Outcast 1.02a's: an entity state of 296 bytes and a player state of
 // 1,368 (the sizes its modules copy whole), entityShared_t after it as
 // Quake III's with mIsRoffing before ownerNum and two broadcastClients
-// words after it; a trace_t of 1,080 bytes (16 collision records); see
-// docs/engines/idtech3/games/jk2/PLAN.md (phase 6).
+// words after it; a trace_t of 1,080 bytes (16 collision records); 1,400
+// configstrings (the client game's bound on them); see
+// docs/engines/idtech3/games/jk2/systems/game-calls.md.
 constexpr GameLayout kLayoutJk2{
     .version = 102,
     .playerStateSize = 1368,
@@ -122,6 +128,8 @@ constexpr GameLayout kLayoutJk2{
     .g2Collisions = 16,
     .ravenUserCommand = true,
     .userCommandSize = 28,
+    .maxConfigstrings = 1400,
+    .glconfigWords = 3 * 1024 + 8192,
 };
 constexpr int32_t kSolidBrushModel = 0xffffff;
 

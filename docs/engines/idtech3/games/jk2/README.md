@@ -40,7 +40,7 @@ the cabinets beside it hold only the installer's own files.
 | Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
 | Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls, Create Server and Join Server, with the local, Internet and favourite server lists ([systems/syscalls.md](systems/syscalls.md)) |
-| Multiplayer game | Its game module runs headless (`game-run`): a level starts, the player joins and moves, bots play ([systems/game-calls.md](systems/game-calls.md)); the client game and the Play page next |
+| Multiplayer game | Its game module and client game run headless (`game-run -cgame`): a level starts, the player joins and moves, bots play, the HUD and the view are drawn, but not the players yet ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)); the Play page next |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 
@@ -69,6 +69,7 @@ files; what comes next is in the [plan](PLAN.md).
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
 | [systems/syscalls.md](systems/syscalls.md) | The multiplayer menus' system calls |
 | [systems/game-calls.md](systems/game-calls.md) | The multiplayer game module's system calls |
+| [systems/cgame-calls.md](systems/cgame-calls.md) | The multiplayer client game's system calls |
 
 ## Terms
 

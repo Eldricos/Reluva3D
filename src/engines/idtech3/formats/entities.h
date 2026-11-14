@@ -28,5 +28,9 @@ struct Entity {
 // Parse the entity lump: { "key" "value" ... } blocks. See
 // docs/engines/idtech3/formats/bsp.md.
 Error parseEntities(std::string_view text, std::vector<Entity> &out);
+// The next word of a level's entity text from `pos` (moved past it), as
+// the engine hands it to game code (GetEntityToken): a quoted string as
+// one word, comments skipped; empty at the end.
+std::string nextEntityToken(std::string_view text, size_t &pos);
 
 } // namespace reluva::idtech3

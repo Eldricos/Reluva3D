@@ -104,6 +104,9 @@ public:
     ServerBrowser *browser = nullptr;
     std::function<bool(const std::string &host, uint32_t &ip)> resolveHost;
     uint64_t now = 0; // the browser's clock, in ms
+    // The date and time RealTime reports, in seconds since 1970 (the
+    // menus write it into settings); unset, the system's.
+    std::function<int64_t()> realTime;
     // Called by every system call before it's handled, for logging.
     std::function<void(int number, const int32_t *args)> trace;
     // What GetClientState reports (uiClientState_t): connState as Quake

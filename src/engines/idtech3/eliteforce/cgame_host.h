@@ -8,7 +8,10 @@
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/botlib/script_calls.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/jk2/font_set.h"
+#include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/formats/marks.h"
 #include "engines/idtech3/formats/md3.h"
@@ -44,7 +47,9 @@ public:
         kDrawActiveFrame = 3, // (serverTime, stereoView, demoPlayback)
     };
 
-    CgameHost(const SearchSet &files, CvarStore &cvars);
+    // `game`: whose client game it runs, Elite Force's or Jedi Outcast's
+    // multiplayer one.
+    CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game = GameCode::kEliteForce);
 
     // Reads vm/cgame.qvm.
     Error load();
@@ -103,6 +108,12 @@ public:
     // (SendConsoleCommand), since last taken, in order.
     std::vector<std::string> takeClientCommands() { return std::exchange(_clientCommands, {}); }
     std::vector<std::string> takeConsoleCommands() { return std::exchange(_consoleCommands, {}); }
+    // The menus it asked to open (Jedi Outcast's OpenUIMenu: its force
+    // powers, its team choice...), since last taken.
+    std::vector<int32_t> takeUiMenus() { return std::exchange(_uiMenus, {}); }
+    // Its key catcher (Jedi Outcast's sets it while a menu of its own
+    // takes the keys).
+    int32_t catcher() const { return _catcher; }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string &collisionMap() const { return _collisionMap; }
@@ -127,11 +138,16 @@ public:
 
 private:
     int32_t systemCall(Qvm &vm, int number, const int32_t *args);
+    // Jedi Outcast's: the Elite Force number of one of its calls the two
+    // share (-1 for one of its own), and its own calls.
+    static int32_t jk2SharedCall(int32_t number);
+    int32_t jk2Call(Qvm &vm, int number, const int32_t *args);
     void writeGameState(int32_t address);
     void writeGlconfig(int32_t address);
 
     const SearchSet &_files;
     CvarStore &_cvars;
+    GameCode _game;
     Qvm _vm;
     GameLayout _layout = kLayout10;
     VmFiles _vmFiles;
@@ -170,6 +186,22 @@ private:
     std::unique_ptr<CollisionWorld> _world;
     std::unique_ptr<MarkSurfaces> _marks; // made from _map on the first mark
     int32_t _weaponSelect = 0;
+    // Jedi Outcast's own calls' state: its text and menu scripts, its
+    // string packages, the effects it registered, its Ghoul2 instances
+    // (the models' names, by the number it holds).
+    jk2::FontSet _fonts{_files, _shaders};
+    botlib::ScriptCalls _scripts{_files};
+    raven::StringTable _strings;
+    bool _stringsLoaded = false;
+    HandleTable _effects;
+    std::vector<int32_t> _uiMenus;
+    int32_t _catcher = 0;
+    size_t _entityTokenPos = 0;
+    int32_t _sharedBuffer = 0;
+    int32_t _sharedBufferSize = 0;
+    std::map<int32_t, std::vector<std::string>> _g2Instances;
+    int32_t _nextG2Instance = 1;
+    int32_t _nextG2Bolt = 0;
 };
 
 } // namespace reluva::idtech3::eliteforce

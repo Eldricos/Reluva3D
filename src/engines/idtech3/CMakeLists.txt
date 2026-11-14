@@ -23,6 +23,7 @@ reluva_add_engine(idtech3
         botlib/bot_library.cpp
         botlib/bot_move.cpp
         botlib/bot_script.cpp
+        botlib/script_calls.cpp
         botlib/bot_weapons.cpp
         botlib/character.cpp
         client/bindings.cpp
@@ -59,6 +60,8 @@ reluva_add_engine(idtech3
         formats/player_animation.cpp
         formats/shader.cpp
         jk2/game_info.cpp
+        jk2/cgame_calls.cpp
+        jk2/font_set.cpp
         jk2/game_calls.cpp
         jk2/ui_host.cpp
         raven/ambient_sets.cpp

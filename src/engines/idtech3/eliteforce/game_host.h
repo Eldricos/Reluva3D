@@ -250,7 +250,6 @@ private:
     int32_t systemCall(Qvm &vm, int number, const int32_t *args);
     // The next token of the entity text, the way the original parses it:
     // a quoted string, or anything up to white space. Empty at the end.
-    std::string nextEntityToken();
     int32_t entityNumber(int32_t address) const;
     std::string infoString(int32_t flag) const;
     void updateInfoConfigstrings();

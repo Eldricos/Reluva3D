@@ -1,0 +1,92 @@
+# Jedi Outcast: the multiplayer client game's system calls
+
+> **Status:** partial · **Code:** `src/engines/idtech3/eliteforce/cgame_host.cpp` (shared with Elite Force), `src/engines/idtech3/jk2/cgame_calls.cpp` · **Checked against:** the code only (1.02a's `cgame.qvm`, run in Reluva) · **Confidence:** from the code unless marked
+
+## Overview
+
+The player's side of multiplayer (the view, the HUD, effects, prediction)
+is `vm/cgame.qvm` in `assets0.pk3`: 216,795 instructions in 1,097
+functions, 235 calls through function pointers. It reaches the engine
+through numbered calls in the order of the GPL Jedi Outcast source's
+multiplayer `cg_public.h`, read as documentation and checked against
+what 1.02a's module passes.
+
+Most of its calls are Quake III's, numbered differently from Elite
+Force's from 16 on. Reluva runs both games' client games with one host
+(`eliteforce::CgameHost`): Jedi Outcast's numbers for the shared calls
+are translated to Elite Force's (`jk2SharedCall`), its own answered by
+`jk2Call`. Its commands are Quake III's (0 init, 1 shutdown, 2 console
+command, 3 draw the frame), then Raven's calls into it for the effects
+system and Ghoul2 (4 to 24).
+
+## How it works
+
+### Its structures
+
+| Structure | Bytes | Layout |
+|---|---|---|
+| `gameState_t` | 21,604 | an offset each for 1,400 configstrings (the module refuses an index of 1,400 or more), 16,000 bytes of text, the bytes used |
+| `snapshot_t` | 77,200 | Quake III's: flags, ping, server time, the area mask, the player state (1,368), the entity count, 256 entity states (296 each), the command count and sequence |
+| `glconfig_t` | 11,332 | the menus': three 1,024-byte strings and 8,192 of extensions, then Quake III's 17 words |
+| `refEntity_t` | 212 | Raven's (`jk2/ref_entity.h`), its Ghoul2 instance in the last word (208) |
+| `trace_t`, `usercmd_t` | 1,080, 28 | as the game module's ([game-calls.md](game-calls.md)) |
+
+### Calls shared with Elite Force
+
+| Jedi Outcast's | Elite Force's | |
+|---|---|---|
+| 0–15 | 0–15 | print ... add command |
+| 17–30 | 16–27 | client command, update screen, the collision calls (capsules as boxes), mark fragments |
+| 32–41 | 28–35 | sounds (the "real" looping sound as the plain one) |
+| 42–46 | 36–39, 57 | world map, models, skins, shaders |
+| 110 | 107 | floor |
+| 200–211 | 40–48 | the scene, colour, pictures, model bounds, tags (the additive light as a light) |
+| 219–226, 232 | 49–56, 58 | glconfig, game state, snapshots, server commands, user commands, memory |
+
+### Its own
+
+| # | Call | What Reluva does |
+|---|---|---|
+| 16 | `RemoveCommand` | as it says |
+| 31, 38 | `S_MuteSound`, `S_StopLoopingSound` | nothing yet |
+| 47–52 | the text calls | as the menus' ([syscalls.md](syscalls.md)): the HUD's numbers and names |
+| 111 | ceil | |
+| 203 | `R_AddPolysToScene` | each polygon added |
+| 204 | `R_LightForPoint` | no light yet |
+| 212, 213 | `R_DrawRotatePic`, `R_DrawRotatePic2` | a turned picture |
+| 214–218 | shader remapping, light styles, brush model vertices, effect lines | not yet |
+| 229 | `OpenUIMenu` | kept for the page, which opens the menus' menu |
+| 233–236 | the key calls | the catcher kept |
+| 237–243 | the script calls | as the menus': the HUD is a menu script |
+| 244–246 | stop music, real time, snap vector | |
+| 247–251 | cinematics | none plays |
+| 252 | `GetEntityToken` | the level's entity text, word by word |
+| 253 | `R_InPVS` | from the level's visibility |
+| 254–269 | Raven's effects (`.efx`): register, play, scheduled, the system's set-up and time, primitives | registered by name; nothing played yet |
+| 270–272 | the string packages | as the menus' |
+| 273–277 | ROFF | not yet |
+| 278–299 | Ghoul2 | instances kept by model names, bolts at the given position; animation and angles taken but not used yet |
+| 300 | `SetSharedBuffer` | kept: where the engine's effects system and the module trade data |
+
+## Sources and checks
+
+- **Where the facts come from:** 1.02a's `cgame.qvm` (its calls with
+  `qvm-info`, its whole-struct copies with `qvm-dis -blockcopies`, its
+  configstring bound at instruction 4625), and the GPL Jedi Outcast
+  source's multiplayer `cg_public.h`, `q_shared.h` and `tr_types.h`,
+  read as documentation; the code is new.
+- **How it was checked:** `game-run -cgame` on `ffa_bespin`: the client
+  game starts (its effects system set up, the level loaded, 63 models,
+  289 shaders, 179 sounds, the music), and each frame draws its HUD
+  (health, armour, ammunition and force meters, weapon icons, the
+  crosshair, text in its fonts) and a scene from the player's eye: the
+  level's items, the player's weapon. A game-files step (`jk2-game`)
+  records it.
+
+### Open questions
+
+- Players aren't in the scene as models yet: their Ghoul2 instances
+  aren't posed. Nor are effects played, light styles set or ROFF paths
+  followed.
+- Starting takes about 340 million instructions (the effects system and
+  the models it loads): to look at for speed.

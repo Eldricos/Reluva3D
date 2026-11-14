@@ -467,40 +467,6 @@ Error GameHost::clientThink(int32_t clientNum, const UserCommand &cmd) {
     return call(kClientThink, {clientNum}, ignored);
 }
 
-std::string GameHost::nextEntityToken() {
-    const std::string &s = _entityText;
-    size_t &i = _entityPos;
-    while (true) {
-        while (i < s.size() && static_cast<unsigned char>(s[i]) <= ' ' && s[i] != '\0')
-            ++i;
-        if (i + 1 < s.size() && s[i] == '/' && s[i + 1] == '/') {
-            while (i < s.size() && s[i] != '\n')
-                ++i;
-            continue;
-        }
-        if (i + 1 < s.size() && s[i] == '/' && s[i + 1] == '*') {
-            const size_t end = s.find("*/", i + 2);
-            i = end == std::string::npos ? s.size() : end + 2;
-            continue;
-        }
-        break;
-    }
-    if (i >= s.size() || s[i] == '\0')
-        return {};
-    std::string token;
-    if (s[i] == '"') {
-        ++i;
-        while (i < s.size() && s[i] != '"' && s[i] != '\0')
-            token += s[i++];
-        if (i < s.size() && s[i] == '"')
-            ++i;
-        return token;
-    }
-    while (i < s.size() && static_cast<unsigned char>(s[i]) > ' ')
-        token += s[i++];
-    return token;
-}
-
 int32_t GameHost::entityNumber(int32_t address) const {
     if (!_gameData.entitySize || address < _gameData.entities)
         return -1;
@@ -975,7 +941,7 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return 1;
     }
     case kGetEntityToken: {
-        const std::string token = nextEntityToken();
+        const std::string token = nextEntityToken(_entityText, _entityPos);
         vm.writeString(a[0], token, a[1]);
         return token.empty() ? 0 : 1;
     }

@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "engines/idtech3/botlib/bot_script.h"
+#include "engines/idtech3/botlib/script_calls.h"
 #include "engines/idtech3/client/menu_host.h"
 #include "engines/idtech3/client/server_lists.h"
 #include "engines/idtech3/cvars.h"
-#include "engines/idtech3/raven/fonts.h"
+#include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/vm/qvm.h"
 
@@ -74,17 +74,6 @@ public:
 
 private:
     int32_t systemCall(Qvm &vm, int number, const int32_t *args);
-    // The fonts' calls: a font registered by name, and text measured and
-    // drawn with it.
-    int32_t registerFont(const std::string &name);
-    const raven::Font *font(int32_t handle) const;
-    // Stops after maxChars letters and spaces (-1: none), as the
-    // multiplayer engine counts them.
-    void drawString(int32_t x, int32_t y, const std::string &text, const std::array<float, 4> &color, int32_t handle,
-                    int32_t maxChars, float scale, bool shadow = false);
-    // The script calls (PC_*): sources by handle, tokens written as
-    // pc_token_t.
-    int32_t readToken(int32_t handle, int32_t address);
     void addPicture(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
                     const std::array<float, 4> &color);
     // The server list's commands (localservers, globalservers, ping), run
@@ -100,6 +89,7 @@ private:
     Qvm _vm;
     VmFiles _vmFiles;
     HandleTable _shaders;
+    FontSet _fonts{_files, _shaders}; // the text calls (56-61)
     HandleTable _models;
     HandleTable _sounds;
     std::vector<Picture> _pictures;
@@ -107,17 +97,8 @@ private:
     HandleTable _none; // nor name models or skins
     raven::StringTable _strings;
     bool _stringsLoaded = false;
-    struct LoadedFont {
-        raven::Font font;
-        int32_t shader = 0;
-    };
-    std::vector<LoadedFont> _fonts; // handle - 1
-    std::map<std::string, int32_t> _fontByName;
     std::map<int32_t, std::pair<std::array<float, 3>, std::array<float, 3>>> _modelBounds; // by handle
-    std::map<int32_t, std::unique_ptr<botlib::BotScript>> _sources;
-    std::map<int32_t, botlib::BotToken> _lastToken; // each source's, for SourceFileAndLine
-    int32_t _nextSource = 1;
-    std::vector<std::string> _globalDefines;
+    botlib::ScriptCalls _scripts{_files}; // the menu scripts' calls (63-69)
     std::array<float, 4> _color{1, 1, 1, 1};
     std::vector<std::string> _commands;
     ServerLists _servers;

@@ -91,14 +91,17 @@ enum CgameCall : int {
 // gamestate_t, as Elite Force's client game lays it out: the same size as
 // Quake III's (20100 bytes: the gap between the game state and the next
 // field the client game fills in), so Quake III's layout: an offset into
-// the text for each of the 1024 configstrings, the text, how much is used.
-constexpr int32_t kMaxConfigstrings = 1024;
+// the text for each configstring (1024; Jedi Outcast 1400), the text, how
+// much is used.
 constexpr int32_t kGameStateChars = 16000;
-constexpr int32_t kGameStateSize = 4 * kMaxConfigstrings + kGameStateChars + 4;
+int32_t gameStateSize(const GameLayout &l) {
+    return 4 * l.maxConfigstrings + kGameStateChars + 4;
+}
 
-// glconfig_t, the same as the menus' (see ui_host.cpp).
-constexpr int32_t kGlconfigWords = 5124;
-constexpr int32_t kGlconfigSize = 5192;
+// glconfig_t, the same as the menus': its strings, then 17 words.
+int32_t glconfigSize(const GameLayout &l) {
+    return l.glconfigWords + 17 * 4;
+}
 
 // snapshot_t, as Elite Force's client game lays it out (the second
 // snapshot buffer is 52740 bytes after the first; the fields it reads
@@ -117,19 +120,22 @@ struct SnapshotLayout {
     int32_t serverCommandSequence;
     int32_t size;
 };
-SnapshotLayout snapshotLayout(int32_t playerStateSize) {
-    const int32_t numEntities = kSnapPlayerState + playerStateSize;
+SnapshotLayout snapshotLayout(const GameLayout &layout) {
+    const int32_t numEntities = kSnapPlayerState + layout.playerStateSize;
     const int32_t entities = numEntities + 4;
-    const int32_t numServerCommands = entities + kMaxSnapshotEntities * GameHost::kEntityStateSize;
+    const int32_t numServerCommands = entities + kMaxSnapshotEntities * layout.entityStateSize;
     return {numEntities, entities, numServerCommands, numServerCommands + 4, numServerCommands + 8};
 }
 
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
 
-// Quake III's trace_t (56 bytes), as the game logic's traces.
-void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNum) {
-    if (!vm.checkWrite(address, 56))
+// Quake III's trace_t (56 bytes), as the game logic's traces, then (Jedi
+// Outcast's) its Ghoul2 collision records, each with no entity (-1).
+void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNum, const GameLayout &layout) {
+    if (!vm.checkWrite(address, layout.traceSize + 64 * layout.g2Collisions))
         return;
+    for (int i = 0; i < layout.g2Collisions; ++i)
+        vm.writeInt(address + layout.traceSize + 64 * i + 4, -1);
     vm.writeInt(address + 0, t.allSolid);
     vm.writeInt(address + 4, t.startSolid);
     vm.writeInt(address + 8, Qvm::fromFloat(t.fraction));
@@ -201,7 +207,8 @@ void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
         _snapshots.erase(_snapshots.begin());
 }
 
-CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars) : _files(files), _cvars(cvars), _vmFiles(files) {
+CgameHost::CgameHost(const SearchSet &files, CvarStore &cvars, GameCode game)
+    : _files(files), _cvars(cvars), _game(game), _vmFiles(files) {
     _vm.setSystemCall([this](Qvm &vm, int number, const int32_t *args) { return systemCall(vm, number, args); });
 }
 
@@ -211,7 +218,7 @@ Error CgameHost::load() {
         return Error::fail("vm/cgame.qvm: " + err.message);
     if (Error err = _vm.load(data))
         return Error::fail("vm/cgame.qvm: " + err.message);
-    _layout = detectLayout(_vm);
+    _layout = _game == GameCode::kJediOutcast ? kLayoutJk2 : detectLayout(_vm);
     return Error::success();
 }
 
@@ -233,14 +240,14 @@ Error CgameHost::init(int32_t clientNum, int32_t serverMessageNum, int32_t serve
 }
 
 void CgameHost::writeGameState(int32_t address) {
-    if (!_vm.checkWrite(address, kGameStateSize))
+    if (!_vm.checkWrite(address, gameStateSize(_layout)))
         return;
-    std::memset(&_vm.memory()[size_t(address)], 0, size_t(kGameStateSize));
+    std::memset(&_vm.memory()[size_t(address)], 0, size_t(gameStateSize(_layout)));
     // Offset 0 is an empty string, for configstrings not set.
-    const int32_t data = address + 4 * kMaxConfigstrings;
+    const int32_t data = address + 4 * _layout.maxConfigstrings;
     int32_t used = 1;
     for (const auto &[index, text] : _configstrings) {
-        if (index < 0 || index >= kMaxConfigstrings || text.empty())
+        if (index < 0 || index >= _layout.maxConfigstrings || text.empty())
             continue;
         if (used + int32_t(text.size()) + 1 > kGameStateChars) {
             _vm.abort("GetGameState: the configstrings don't fit in the game state");
@@ -254,15 +261,15 @@ void CgameHost::writeGameState(int32_t address) {
 }
 
 void CgameHost::writeGlconfig(int32_t address) {
-    if (!_vm.checkWrite(address, kGlconfigSize))
+    if (!_vm.checkWrite(address, glconfigSize(_layout)))
         return;
-    std::memset(&_vm.memory()[size_t(address)], 0, size_t(kGlconfigSize));
+    std::memset(&_vm.memory()[size_t(address)], 0, size_t(glconfigSize(_layout)));
     _vm.writeString(address, "Reluva", 1024);
     _vm.writeString(address + 1024, "Reluva", 1024);
     _vm.writeString(address + 2048, "1.0", 1024);
-    // Quake III's words from 5124: maxTextureSize, textureUnits, colour,
-    // depth, stencil bits ... vidWidth (+40), vidHeight (+44), aspect (+48).
-    const int32_t w = address + kGlconfigWords;
+    // Quake III's words: maxTextureSize, textureUnits, colour, depth,
+    // stencil bits ... vidWidth (+40), vidHeight (+44), aspect (+48).
+    const int32_t w = address + _layout.glconfigWords;
     _vm.writeInt(w + 0, 2048);
     _vm.writeInt(w + 4, 2);
     _vm.writeInt(w + 8, 32);
@@ -284,6 +291,14 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         _cleared[a[0]] = a[2];
     if (commonSystemCall(vm, number, a, result))
         return result;
+    // Jedi Outcast's: the calls it shares numbered as Elite Force's, the
+    // rest its own.
+    if (_game == GameCode::kJediOutcast) {
+        const int32_t shared = jk2SharedCall(number);
+        if (shared < 0)
+            return jk2Call(vm, number, a);
+        number = shared;
+    }
 
     switch (number) {
     case kPrint: {
@@ -442,7 +457,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kGetSnapshot: { // (number, snapshot_t*) -> whether it's still there
         _snapshotRequests.emplace_back(a[0], a[1]);
         const auto it = _snapshots.find(a[0]);
-        const SnapshotLayout l = snapshotLayout(_layout.playerStateSize);
+        const SnapshotLayout l = snapshotLayout(_layout);
         if (it == _snapshots.end() || !vm.checkWrite(a[1], l.size))
             return 0;
         const GameHost::Snapshot &s = it->second;
@@ -455,9 +470,9 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         const auto count = int32_t(std::min(s.entities.size(), size_t(kMaxSnapshotEntities)));
         vm.writeInt(a[1] + l.numEntities, count);
         for (int32_t i = 0; i < count; ++i)
-            std::memcpy(&vm.memory()[size_t(a[1] + l.entities + i * GameHost::kEntityStateSize)],
+            std::memcpy(&vm.memory()[size_t(a[1] + l.entities + i * _layout.entityStateSize)],
                         s.entities[size_t(i)].data(),
-                        std::min(s.entities[size_t(i)].size(), size_t(GameHost::kEntityStateSize)));
+                        std::min(s.entities[size_t(i)].size(), size_t(_layout.entityStateSize)));
         vm.writeInt(a[1] + l.numServerCommands, 0);
         vm.writeInt(a[1] + l.serverCommandSequence, s.serverCommandSequence);
         return 1;
@@ -530,7 +545,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
                 _world = std::make_unique<CollisionWorld>(*_map);
             t = _world->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles);
         }
-        writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023);
+        writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023, _layout);
         return 0;
     }
     case kCmMarkFragments: {
@@ -616,9 +631,9 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return _userCommandNumber;
     case kGetUserCmd: { // (number, usercmd_t*) -> whether it's still kept
         const auto it = _userCommands.find(a[0]);
-        if (it == _userCommands.end() || !vm.checkWrite(a[1], 24))
+        if (it == _userCommands.end() || !vm.checkWrite(a[1], _layout.userCommandSize))
             return 0;
-        GameHost::writeUserCommand(vm, a[1], it->second);
+        GameHost::writeUserCommand(vm, a[1], it->second, _layout);
         return 1;
     }
     case kSetUserCmdValue:
@@ -645,7 +660,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         }
         if (!_args.empty() && _args[0] == "cs" && _args.size() >= 2) {
             const int32_t index = std::atoi(_args[1].c_str());
-            if (index >= 0 && index < kMaxConfigstrings)
+            if (index >= 0 && index < _layout.maxConfigstrings)
                 _configstrings[index] = _args.size() >= 3 ? _args[2] : std::string();
         }
         return 1;
