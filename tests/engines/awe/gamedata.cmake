@@ -6,9 +6,10 @@
 # src/engines/awe/CMakeLists.txt. See docs/DEVELOPMENT.md (Engine tests) and
 # docs/engines/awe/games/motoe/TESTING.md.
 #
-# The game's folder (Murder on the Orient Express installed: the one
-# holding motoe.exe) comes from the environment variable named by GAME_ENV
-# (RELUVA_MOTOE). Without it the step is skipped.
+# The game's folder (GAME motoe: Murder on the Orient Express installed,
+# the one holding motoe.exe; GAME attwn: And Then There Were None's, with
+# ac.exe) comes from the environment variable named by GAME_ENV
+# (RELUVA_MOTOE, RELUVA_ATTWN). Without it the step is skipped.
 #
 # Each step runs reluva-tool's awe commands on the game:
 #   release  what the game is (detect)
@@ -29,25 +30,33 @@
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
 # its record is the same as the committed one. Records so far: english-1.0
-# (made on Linux); make others with RELUVA_GAMEDATA_UPDATE=1, and check
-# them (docs/engines/awe/games/motoe/TESTING.md).
+# (Orient Express) and attwn-english (made on Linux); make others with
+# RELUVA_GAMEDATA_UPDATE=1, and check them (each game's TESTING.md).
 #
-# Environment: RELUVA_MOTOE, the game's folder; and those of the shared
+# Environment: RELUVA_MOTOE or RELUVA_ATTWN, the game's folder; and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,
 # RELUVA_GAMEDATA_RECORDS.
 
 include("${HELPERS}")
-gamedata_begin("the one holding motoe.exe")
+if(GAME STREQUAL "attwn")
+    gamedata_begin("the one holding ac.exe")
+else()
+    gamedata_begin("the one holding motoe.exe")
+endif()
 
 # What the game is: the record's folder is named after it.
 run_tool(detected detect "${game_dir}")
-string(REGEX MATCH "awe/motoe: ([^\n]*)" found "${detected}")
+string(REGEX MATCH "awe/${GAME}: ([^\n]*)" found "${detected}")
 if(NOT found)
-    message(FATAL_ERROR "Murder on the Orient Express isn't found in ${game_dir}:\n${detected}")
+    message(FATAL_ERROR "The game (${GAME}) isn't found in ${game_dir}:\n${detected}")
 endif()
 set(release "${CMAKE_MATCH_1}")
-if(release MATCHES "\\(en, windows\\)$")
+if(GAME STREQUAL "attwn" AND release MATCHES "\\(en, windows\\)$")
+    set(slug "attwn-english")
+elseif(release MATCHES "\\(en, windows\\)$")
     set(slug "english-1.0")
+elseif(GAME STREQUAL "attwn")
+    set(slug "attwn-unknown-release")
 else()
     set(slug "unknown-release")
 endif()

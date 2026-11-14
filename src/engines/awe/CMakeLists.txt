@@ -101,14 +101,21 @@ reluva_add_engine_tests(awe
         unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves unit.attwn engine)
 
 # Its engine test with the game's own files (tests/engines/awe/gamedata.cmake):
-# RELUVA_MOTOE=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
+# RELUVA_MOTOE=<Orient Express's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
 # (Engine tests).
 reluva_add_gamedata_test(awe
     GAME motoe
     ENV RELUVA_MOTOE
     SCRIPT ${tests}/gamedata.cmake
     STEPS release files scripts route-search route)
+# And Then There Were None's: RELUVA_ATTWN=<its folder>.
+reluva_add_gamedata_test(awe
+    NAME awe.attwn
+    GAME attwn
+    ENV RELUVA_ATTWN
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release files scripts route-search route)
 # The route's search can take more than the hour each step is given.
 if(RELUVA_BUILD_TESTS)
-    set_tests_properties(awe.gamedata.route-search PROPERTIES TIMEOUT 7200)
+    set_tests_properties(awe.gamedata.route-search awe.attwn.gamedata.route-search PROPERTIES TIMEOUT 7200)
 endif()
