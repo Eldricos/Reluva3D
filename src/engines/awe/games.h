@@ -114,6 +114,24 @@ struct DialogueRules {
 };
 
 /**
+ * How a game lights its characters where the two games differ. Orient
+ * Express's are the defaults (motoe.exe 0x420cb0, 0x420eb0, 0x406960).
+ */
+struct LightingRules {
+    float cameraAmbient = 0.3125f; ///< the ambient grey of a scene without a camera (its constructor's)
+    /** A light's fields the scene doesn't give (its constructor's). */
+    float lightDiffuse = 0.3125f;
+    float att0 = 0.1f;
+    float att1 = 0.001f;
+    /**
+     * At night, a light stays on if it's an act's version's own, if its
+     * 25th field is set, or if the scene is outdoors; else every light is
+     * off.
+     */
+    bool nightSparesLights = false;
+};
+
+/**
  * What the shared AWE code needs to know of one game. A game's own code is
  * in its folder (motoe/, attwn/); everything here is what the rest of the
  * engine asks of it.
@@ -137,6 +155,7 @@ struct GameInfo {
     bool (*verb)(GameState &state, const std::vector<std::string> &words) = nullptr;
     DialogueTables dialogue;   ///< its dialogue tables' layout
     DialogueRules talk;        ///< how its conversations go
+    LightingRules lighting;    ///< how its characters are lit
     const char *exe = nullptr; ///< its executable, in the game's folder
     PathFinderCode pathFinder; ///< in that executable (the English release's)
 };

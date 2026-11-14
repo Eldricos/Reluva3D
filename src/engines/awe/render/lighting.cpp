@@ -3,6 +3,8 @@
 
 #include "engines/awe/render/lighting.h"
 
+#include "engines/awe/games.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -55,12 +57,13 @@ std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state)
 SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions) {
     const auto time = state.values.find("time");
     const bool night = nightLighting(scene, time == state.values.end() ? 0 : time->second);
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
     SceneLighting out;
-    // The ambient light: the camera's (0.3125 from its constructor without
-    // one); at night a fixed blue, lighter outdoors (0x401100, 0x4010a0).
+    // The ambient light: the camera's (its constructor's grey without one);
+    // at night a fixed blue, lighter outdoors (0x401100, 0x4010a0).
     // (A scene showing "spotlight.tga" would have white instead indoors,
     // and keep its lights at night; none does.)
-    const Rgb fallback{0.3125f, 0.3125f, 0.3125f};
+    const Rgb fallback{rules.cameraAmbient, rules.cameraAmbient, rules.cameraAmbient};
     if (!night)
         out.ambient =
             throughByte(scene.camera() ? rgb(*scene.camera(), "ambientR", "ambientG", "ambientB", fallback) : fallback);
@@ -68,11 +71,13 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
         out.ambient = throughByte({0.2734375f, 0.3515625f, 0.546875f});
     else
         out.ambient = throughByte({0.234375f, 0.2734375f, 0.4296875f});
-    // The lights (0x420ee0): all off at night; otherwise each that's on,
-    // shown (its condition holding) and not just for the shadows. Missing
-    // fields keep the LITE constructor's values (0x420cb0).
-    if (night)
+    // The lights (0x420ee0): all off at night (And Then There Were None
+    // spares some: 0x41d760); otherwise each that's on, shown (its condition
+    // holding) and not just for the shadows. Missing fields keep the LITE
+    // constructor's values (0x420cb0).
+    if (night && !rules.nightSparesLights)
         return out;
+    const bool outdoors = sceneFlag(scene, "OUTD");
     const std::vector<const Ac2Record *> objects = scene.objects();
     for (size_t i = 0; i < objects.size(); i++) {
         const Ac2Record *o = objects[i];
@@ -80,20 +85,23 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
         if (o->tag != "LITE" || (on && on->i() == 0) || o->i("shadowOnly") != 0 ||
             !(i < conditions.size() ? conditions[i] : testCondition(o->text("condition"), state)))
             continue;
+        if (night && !outdoors && !scene.fromAct(o) && o->i("b6c") == 0)
+            continue;
         const Ac2Value *type = o->field("type");
         const int t = type ? type->i() : 1;
         if (t < 1 || t > 3)
             continue;
         SceneLight l;
         l.type = SceneLight::Type(t);
-        l.diffuse = rgb(*o, "diffuseR", "diffuseG", "diffuseB", fallback);
+        l.diffuse =
+            rgb(*o, "diffuseR", "diffuseG", "diffuseB", {rules.lightDiffuse, rules.lightDiffuse, rules.lightDiffuse});
         l.ambient = rgb(*o, "ambientR", "ambientG", "ambientB", {});
         l.specular = rgb(*o, "specularR", "specularG", "specularB", {});
         l.position = {num(*o, "x", 0), num(*o, "y", 0), num(*o, "z", 0)};
         l.direction = {num(*o, "dirX", -1), num(*o, "dirY", -1), num(*o, "dirZ", -100)};
         l.range = num(*o, "range", 10000);
-        l.attenuation[0] = num(*o, "att0", 0.1f);
-        l.attenuation[1] = num(*o, "att1", 0.001f);
+        l.attenuation[0] = num(*o, "att0", rules.att0);
+        l.attenuation[1] = num(*o, "att1", rules.att1);
         l.attenuation[2] = num(*o, "att2", 0);
         // No attenuation at all would be refused: a little linear instead.
         if (l.type != SceneLight::Type::kDirectional && l.attenuation[0] + l.attenuation[1] + l.attenuation[2] == 0)
