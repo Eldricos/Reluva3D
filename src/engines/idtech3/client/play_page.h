@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/developer.h"
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/menu_layer.h"
 #include "engines/idtech3/client/joystick_input.h"
@@ -195,7 +196,7 @@ private:
     };
     Screenshot _screenshot;
     void saveScreenshot();
-    bool _showInfo = true;
+    bool _showInfo = kDeveloperKeys; // without the keys, nothing could hide it
     uint64_t _shownMs = 0;
     uint64_t _lastMs = 0;
     int32_t _clientTime = 0; // the player's time in the level, ms

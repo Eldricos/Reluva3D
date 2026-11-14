@@ -85,7 +85,7 @@ private:
     std::unique_ptr<ModelCache> _models; // the models the menus show
     std::unique_ptr<SceneDrawer> _scene; // their pictures and scenes
     std::unique_ptr<eliteforce::UiHost> _ui;
-    size_t _commandsSeen = 0; // of ui_->commands()
+    size_t _commandsSeen = 0; // of _ui->commands()
     std::vector<std::string> _commands;
     SoundLibrary _sounds{_ctx.files};
     std::map<int, audio::SoundHandle> _channels; // the sound on each of the menus' channels

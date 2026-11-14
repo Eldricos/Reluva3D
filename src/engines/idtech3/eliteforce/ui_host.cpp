@@ -194,7 +194,7 @@ void UiHost::writeGlconfig(int32_t address) {
     _vm.writeString(address, "Reluva", 1024);
     _vm.writeString(address + 1024, "Reluva", 1024);
     _vm.writeString(address + 2048, "1.0", 1024);
-    // Quake III's 17 words, in its order, from glconfigWords_.
+    // Quake III's 17 words, in its order, from _glconfigWords.
     const int32_t words[17] = {
         2048,               // maxTextureSize
         2,                  // numTextureUnits

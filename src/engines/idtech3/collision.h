@@ -124,7 +124,7 @@ private:
         Vec3f maxs{};
         size_t firstFacet = 0;
         size_t numFacets = 0;
-        // outer groups, in groups_
+        // outer groups, in _groups
         size_t firstGroup = 0;
         size_t numGroups = 0;
     };
@@ -156,7 +156,7 @@ public:
 private:
     void flood();
     int _count = 0;
-    std::vector<int> _open;  // count_ x count_: times each portal is open
+    std::vector<int> _open;  // _count x _count: times each portal is open
     std::vector<int> _group; // by area: areas with the same are connected
 };
 

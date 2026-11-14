@@ -56,7 +56,7 @@ private:
     struct Surface {
         Vec3f mins;
         Vec3f maxs;
-        // in triangles_
+        // in _triangles
         size_t first = 0;
         size_t count = 0;
     };

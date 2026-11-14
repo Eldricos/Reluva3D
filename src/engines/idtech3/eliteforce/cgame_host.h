@@ -168,7 +168,7 @@ private:
     std::array<float, 3> _tempBoxMins{};
     std::array<float, 3> _tempBoxMaxs{};
     std::unique_ptr<CollisionWorld> _world;
-    std::unique_ptr<MarkSurfaces> _marks; // made from map_ on the first mark
+    std::unique_ptr<MarkSurfaces> _marks; // made from _map on the first mark
     int32_t _weaponSelect = 0;
 };
 
