@@ -65,7 +65,7 @@ system and Ghoul2 (4 to 24).
 | 254–269 | Raven's effects (`.efx`): register, play, scheduled, the system's set-up and time, primitives | registered by name; nothing played yet |
 | 270–272 | the string packages | as the menus' |
 | 273–277 | ROFF | not yet |
-| 278–299 | Ghoul2 | instances kept by model names, bolts at the given position; animation and angles taken but not used yet |
+| 278–299 | Ghoul2 | instances posed by their animations and angle overrides, bolts from bones and tag surfaces, models hung from bolts, surfaces on and off ([ghoul2.md](../../../formats/ghoul2.md), Animation) |
 | 300 | `SetSharedBuffer` | kept: where the engine's effects system and the module trade data |
 
 ## Sources and checks
@@ -85,8 +85,9 @@ system and Ghoul2 (4 to 24).
 
 ### Open questions
 
-- Players aren't in the scene as models yet: their Ghoul2 instances
-  aren't posed. Nor are effects played, light styles set or ROFF paths
-  followed.
+- Effects aren't played, light styles set or ROFF paths followed yet.
+- Players are posed (a player's entity carries its instance at 208), and
+  the renderer draws them, but they haven't been seen drawn yet: that
+  waits for the Play page.
 - Starting takes about 340 million instructions (the effects system and
   the models it loads): to look at for speed.

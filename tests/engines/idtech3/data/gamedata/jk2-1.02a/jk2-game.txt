@@ -1,3 +1,3 @@
-ffa_bespin-walk: db3a9ecb7291616f | start level (Init and 3 frames): ok
-ffa_bespin-bots: 2e38299501f01888 | start level (Init and 3 frames): ok
-ffa_bespin-cgame: dcb2c830048cb46c | start level (Init and 3 frames): ok
+ffa_bespin-walk: 53aaaff14fbf979a | start level (Init and 3 frames): ok
+ffa_bespin-bots: 79c1a0b89ab3008c | start level (Init and 3 frames): ok
+ffa_bespin-cgame: fe02cdd173706061 | start level (Init and 3 frames): ok

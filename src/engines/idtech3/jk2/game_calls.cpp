@@ -88,21 +88,7 @@ enum Jk2GameCall : int {
     kAiFreeWeaponState = 562,
     kAiResetWeaponState = 563,
     // Ghoul2's, on the server (bolts for the saber and hits).
-    kG2HaveWeGhoulModels = 584,
-    kG2SetModels = 585,
-    kG2GetBolt = 586,
-    kG2GetBoltNoRec = 587,
-    kG2InitGhoul2Model = 588,
-    kG2AddBolt = 589,
-    kG2SetBoltInfo = 590,
-    kG2AngleOverride = 591,
-    kG2PlayAnim = 592,
-    kG2GetGlaName = 593,
-    kG2CopyGhoul2Instance = 594,
-    kG2CopySpecificGhoul2Model = 595,
-    kG2DuplicateGhoul2Instance = 596,
-    kG2HasGhoul2ModelOnIndex = 597,
-    kG2RemoveGhoul2Model = 598,
+    kG2ListBones = 582,
     kG2CleanModels = 599,
 };
 
@@ -124,7 +110,6 @@ constexpr int32_t kActionAltAttack = 0x200000;
 // The jump held last frame (no second jump without letting go).
 constexpr int32_t kActionJumpedLastFrame = 0x4000000;
 
-constexpr int32_t kBoltMatrixSize = 48; // mdxaBone_t: 3 rows of 4 floats
 constexpr float kPi = 3.14159265358979323846f;
 
 } // namespace
@@ -134,6 +119,10 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
     auto readVec3 = [&](int32_t address) { return readVec(address); };
     BotInputJk2 &in = _jk2BotInputs[size_t(std::clamp(a[0], 0, 63))];
+    // Ghoul2's, numbered 582 on in the order Ghoul2Instances lists them
+    // (but its client game's own).
+    if (number >= kG2ListBones && number <= kG2CleanModels)
+        return _ghoul2.call(vm, jk2::Ghoul2Instances::Call(number - kG2ListBones), a);
     switch (number) {
     case kDebugPolygonCreate:
     case kDebugPolygonDelete:
@@ -389,62 +378,6 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         return 0;
     }
 
-    // Ghoul2 on the server: models are kept by name, bolts by number; their
-    // positions aren't worked out yet (each at the entity's origin).
-    case kG2HaveWeGhoulModels: // (ghoul2)
-        return a[0] != 0 && _g2Instances.count(a[0]) ? 1 : 0;
-    case kG2InitGhoul2Model: { // (ghoul2 *, file, modelIndex, customSkin, customShader, flags, lodBias) -> model index
-        // The instance is a word the engine writes and the game only hands
-        // back: here a number into the host's instances, from 1.
-        if (!vm.checkWrite(a[0], 4))
-            return -1;
-        int32_t handle = vm.readInt(a[0]);
-        if (!handle || !_g2Instances.count(handle)) {
-            handle = _nextG2Instance++;
-            vm.writeInt(a[0], handle);
-        }
-        std::vector<std::string> &models = _g2Instances[handle];
-        models.push_back(str(1, 256));
-        return int32_t(models.size()) - 1;
-    }
-    case kG2AddBolt: // (ghoul2, modelIndex, boneName) -> bolt
-        return _nextG2Bolt++;
-    case kG2GetBolt:
-    case kG2GetBoltNoRec: { // (ghoul2, modelIndex, bolt, matrix out, angles, position, time, modelList, scale)
-        if (!vm.checkWrite(a[3], kBoltMatrixSize))
-            return 0;
-        const Vec3f at = a[5] ? readVec3(a[5]) : Vec3f{};
-        const float m[12] = {1, 0, 0, at[0], 0, 1, 0, at[1], 0, 0, 1, at[2]};
-        for (int i = 0; i < 12; ++i)
-            vm.writeInt(a[3] + 4 * i, Qvm::fromFloat(m[i]));
-        return 1;
-    }
-    case kG2HasGhoul2ModelOnIndex: { // (ghoul2 *, modelIndex)
-        if (!vm.valid(a[0], 4))
-            return 0;
-        const auto it = _g2Instances.find(vm.readInt(a[0]));
-        return it != _g2Instances.end() && a[1] >= 0 && size_t(a[1]) < it->second.size() ? 1 : 0;
-    }
-    case kG2CleanModels: // (ghoul2 *)
-        if (vm.checkWrite(a[0], 4)) {
-            _g2Instances.erase(vm.readInt(a[0]));
-            vm.writeInt(a[0], 0);
-        }
-        return 0;
-    case kG2SetBoltInfo:
-    case kG2AngleOverride:
-    case kG2PlayAnim:
-    case kG2SetModels:
-        return 1;
-    case kG2GetGlaName:
-        vm.writeString(a[2], "", 64);
-        return 0;
-    case kG2CopyGhoul2Instance:
-    case kG2CopySpecificGhoul2Model:
-    case kG2DuplicateGhoul2Instance:
-    case kG2RemoveGhoul2Model:
-        ++_unhandled[number];
-        return 0;
     default:
         ++_unhandled[number];
         return 0;

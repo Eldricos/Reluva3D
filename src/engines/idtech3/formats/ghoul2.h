@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -80,6 +81,20 @@ struct GlaSkeleton {
 
     // Bone `bone` of `frame`, relative to its parent.
     Bone34 bone(int frame, int bone) const;
+};
+
+// A Ghoul2 model as a game has posed it, to draw: its mesh and skeleton,
+// its bones, where it hangs in its instance (another model's bolt, or
+// nowhere), which of its surfaces are on, and the custom skin the game
+// gave it (its handle).
+struct Ghoul2Pose {
+    std::shared_ptr<const GlmModel> glm;
+    const GlaSkeleton *skeleton = nullptr;
+    std::vector<Bone34> bones;
+    Bone34 placement{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+    std::vector<bool> surfaceOn; // by the mesh's surfaces
+    int32_t customSkin = 0;
+    std::string file;
 };
 
 Error parseGlm(const std::vector<uint8_t> &data, GlmModel &out);

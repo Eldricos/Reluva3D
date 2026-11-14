@@ -73,11 +73,14 @@ public:
     // shader named in `shader` replaces them all. `entity`: the colour
     // rgbGen and alphaGen entity ask for. `oldFrame` and `backLerp`: the
     // frame it's on its way from and how far back towards it (0: none).
+    // `pose`: a Ghoul2 model's bones as its game posed them, and which of
+    // its surfaces are on, in place of the frames.
     // `sortMin`..`sortMax`: only surfaces whose shader sorts in that range,
     // so translucent ones can be drawn after the rest of a scene.
     void draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
               const Skin *skin = nullptr, float sortMin = 0, float sortMax = 1e9f, const std::string &shader = {},
-              const std::array<float, 4> *entity = nullptr, int oldFrame = 0, float backLerp = 0);
+              const std::array<float, 4> *entity = nullptr, int oldFrame = 0, float backLerp = 0,
+              const Ghoul2Pose *pose = nullptr);
     // Adds to `out` the sorts of the shaders draw() would draw model `id`
     // with (the same `skin` and `shader`).
     void addSorts(int id, const Skin *skin, const std::string &shader, std::vector<float> &out);
@@ -119,7 +122,8 @@ private:
     const GlaSkeleton *skeleton(const std::string &name);
     // A Ghoul2 model's surfaces posed for a frame, in a mesh laid out as its
     // own (frame 0's), to draw once and destroy; 0 if it can't be made.
-    gfx::MeshId poseGhoul2(const Loaded &m, int frame, int oldFrame, float backLerp);
+    gfx::MeshId poseGhoul2(const Loaded &m, int frame, int oldFrame, float backLerp,
+                           const std::vector<Bone34> *bones = nullptr);
 
     gfx::Renderer3D &_r;
     ShaderCache &_shaders;

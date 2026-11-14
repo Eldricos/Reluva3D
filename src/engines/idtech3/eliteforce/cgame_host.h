@@ -114,6 +114,9 @@ public:
     // Its key catcher (Jedi Outcast's sets it while a menu of its own
     // takes the keys).
     int32_t catcher() const { return _catcher; }
+    // Jedi Outcast's Ghoul2 instances (its players, weapons, sabers), by the
+    // numbers its entities hold, to draw.
+    jk2::Ghoul2Instances &ghoul2() { return _ghoul2; }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string &collisionMap() const { return _collisionMap; }
@@ -199,9 +202,7 @@ private:
     size_t _entityTokenPos = 0;
     int32_t _sharedBuffer = 0;
     int32_t _sharedBufferSize = 0;
-    std::map<int32_t, std::vector<std::string>> _g2Instances;
-    int32_t _nextG2Instance = 1;
-    int32_t _nextG2Bolt = 0;
+    jk2::Ghoul2Instances _ghoul2{_files};
 };
 
 } // namespace reluva::idtech3::eliteforce

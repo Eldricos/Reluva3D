@@ -40,7 +40,7 @@ the cabinets beside it hold only the installer's own files.
 | Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
 | Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls, Create Server and Join Server, with the local, Internet and favourite server lists ([systems/syscalls.md](systems/syscalls.md)) |
-| Multiplayer game | Its game module and client game run headless (`game-run -cgame`): a level starts, the player joins and moves, bots play, the HUD and the view are drawn, but not the players yet ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)); the Play page next |
+| Multiplayer game | Its game module and client game run headless (`game-run -cgame`): a level starts, the player joins and moves, bots play, the HUD and the view are drawn, players' Ghoul2 models posed ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)); the Play page next |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 

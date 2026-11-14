@@ -16,6 +16,7 @@
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/jk2/ui_host.h"
+#include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/vm/qvm.h"
@@ -978,9 +979,10 @@ int cmdGameRun(int argc, char **argv) {
                             real(36), real(40), real(44), word(72));
                     }
                 }
-                if (f == 0 && dumpEntities) {
-                    // A few of the scene's entities word by word, for working
-                    // out refEntity_t's layout: different models first. Each
+                if (f == cgameFrames - 1 && dumpEntities) {
+                    // A few of the last frame's scene entities word by word,
+                    // for working out refEntity_t's layout: different models
+                    // first. Each
                     // word as a whole number and as a float, and what it
                     // names if it's a registered model, skin or shader handle.
                     const auto &scene = cgame.scene();
@@ -1000,7 +1002,55 @@ int cmdGameRun(int argc, char **argv) {
                     for (size_t i : picked) {
                         const auto &b = scene.entities[i].bytes;
                         std::printf("  scene entity %zu (cleared by %d):\n", i, scene.entities[i].clearedSize);
-                        for (int at = 0; at < 160; at += 4) {
+                        // A Ghoul2 entity (Jedi Outcast's, its instance at
+                        // 208): each model posed, and the box its vertices
+                        // fill in the world, by the entity's axes and origin.
+                        int32_t g2 = 0;
+                        if (b.size() >= 212)
+                            std::memcpy(&g2, &b[208], 4);
+                        std::vector<reluva::idtech3::jk2::Ghoul2Instances::Drawn> drawn;
+                        int32_t viewTime = 0;
+                        if (!scene.views.empty() && scene.views.back().refdef.size() >= 76)
+                            std::memcpy(&viewTime, &scene.views.back().refdef[72], 4);
+                        if (g2 && cgame.ghoul2().drawn(g2, viewTime, drawn))
+                            for (const auto &d : drawn) {
+                                auto word = [&](size_t at) {
+                                    int32_t v = 0;
+                                    std::memcpy(&v, &b[at], 4);
+                                    return q3::Qvm::asFloat(v);
+                                };
+                                std::array<float, 3> lo{1e9f, 1e9f, 1e9f};
+                                std::array<float, 3> hi{-1e9f, -1e9f, -1e9f};
+                                size_t surfaces = 0;
+                                for (size_t si = 0; !d.glm->lods.empty() && si < d.glm->lods[0].size(); ++si) {
+                                    if (!d.surfaceOn[si])
+                                        continue;
+                                    ++surfaces;
+                                    std::vector<q3::Md3Vertex> placed;
+                                    q3::skinSurface(d.glm->lods[0][si], d.bones, placed);
+                                    for (const auto &v : placed) {
+                                        float m[3];
+                                        for (int r = 0; r < 3; ++r)
+                                            m[r] = d.placement[size_t(r * 4)] * v.pos[0] +
+                                                   d.placement[size_t(r * 4 + 1)] * v.pos[1] +
+                                                   d.placement[size_t(r * 4 + 2)] * v.pos[2] +
+                                                   d.placement[size_t(r * 4 + 3)];
+                                        for (int r = 0; r < 3; ++r) {
+                                            // origin + axis0 * x + axis1 * y + axis2 * z
+                                            const float w = word(52 + 4 * size_t(r)) + word(12 + 4 * size_t(r)) * m[0] +
+                                                            word(24 + 4 * size_t(r)) * m[1] +
+                                                            word(36 + 4 * size_t(r)) * m[2];
+                                            lo[size_t(r)] = std::min(lo[size_t(r)], w);
+                                            hi[size_t(r)] = std::max(hi[size_t(r)], w);
+                                        }
+                                    }
+                                }
+                                std::printf(
+                                    "    ghoul2 %d: %s, %zu bones, %zu surfaces drawn, in %.0f %.0f %.0f .. %.0f %.0f %.0f\n",
+                                    g2, d.file.c_str(), d.bones.size(), surfaces, lo[0], lo[1], lo[2], hi[0], hi[1],
+                                    hi[2]);
+                            }
+                        for (int at = 0; at + 4 <= int(b.size()) && at < 256; at += 4) {
                             int32_t v;
                             std::memcpy(&v, &b[size_t(at)], 4);
                             const float fl = q3::Qvm::asFloat(v);

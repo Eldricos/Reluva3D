@@ -311,7 +311,7 @@ void SceneDrawer::drawLayers(float time, WorldRenderer *world, bool throughPorta
                 continue;
             _r.setDepthRange(p.depthHack && !throughPortal ? refent::kDepthHackRange : 1);
             _models.draw(p.model, p.frame, p.transform, p.light, time - p.shaderTime, p.skin, sortMin, sortMax,
-                         p.shader, &p.color, p.oldFrame, p.backLerp);
+                         p.shader, &p.color, p.oldFrame, p.backLerp, p.pose.get());
         }
         _r.setDepthRange(1);
     };
@@ -887,6 +887,10 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
             _brushes.push_back({std::atoi(n.c_str() + 1), placement(readVec(e, _layout.origin), axes)});
             continue;
         }
+        if (_layout.ghoul2 && readInt(e, _layout.ghoul2) && ghoul2Poses) {
+            placeGhoul2(e, readInt(view.refdef, 72), grid, time);
+            continue;
+        }
         const int model = modelId(readInt(e, _layout.model));
         if (model < 0)
             continue;
@@ -914,6 +918,55 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
         p.thirdPerson = flags & refent::kThirdPerson;
         p.firstPerson = flags & refent::kFirstPerson;
         _placed.push_back(p);
+    }
+}
+
+void SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, const LightGrid &grid, float time) {
+    // Each of the instance's models, posed by its game at the view's time:
+    // placed by the entity (scaled as it says), then where it hangs in the
+    // instance.
+    std::vector<Ghoul2Pose> poses;
+    if (!ghoul2Poses(readInt(e, _layout.ghoul2), viewTime, poses))
+        return;
+    const gfx::Vec3 origin = readVec(e, _layout.origin);
+    gfx::Mat4 entity =
+        placement(origin, {readVec(e, _layout.axes), readVec(e, _layout.axes + 12), readVec(e, _layout.axes + 24)});
+    if (_layout.modelScale) {
+        const gfx::Vec3 scale = readVec(e, _layout.modelScale);
+        gfx::Mat4 s = gfx::identity();
+        for (size_t k = 0; k < 3; ++k)
+            s[k * 5] = scale[k] != 0 ? scale[k] : 1;
+        entity = gfx::multiply(entity, s);
+    }
+    const int32_t flags = readInt(e, _layout.flags);
+    const gfx::Vec3 lightAt = flags & refent::kUseLightingOrigin ? readVec(e, _layout.lightingOrigin) : origin;
+    PointLight light = grid.sample(lightAt);
+    addDynamicLights(light, lightAt);
+    const int32_t entitySkin = readInt(e, _layout.customSkin);
+    for (Ghoul2Pose &pose : poses) {
+        const int model = _models.load(pose.file);
+        if (model < 0)
+            continue;
+        Placed p;
+        p.model = model;
+        gfx::Mat4 at = gfx::identity();
+        for (size_t c = 0; c < 4; ++c)
+            for (size_t r = 0; r < 3; ++r)
+                at[c * 4 + r] = pose.placement[r * 4 + c];
+        p.transform = gfx::multiply(entity, at);
+        p.light = light;
+        const int32_t skin = entitySkin > 0 ? entitySkin : pose.customSkin;
+        if (skin > 0 && !name(_handles.skins, skin).empty())
+            p.skin = &_models.skin(name(_handles.skins, skin));
+        if (const int32_t shader = readInt(e, _layout.customShader); shader > 0)
+            p.shader = name(_handles.shaders, shader);
+        p.color = entityColor(e);
+        p.shaderTime = shaderTime(e, time);
+        p.depthHack = flags & refent::kDepthHack;
+        p.thirdPerson = flags & refent::kThirdPerson;
+        p.firstPerson = flags & refent::kFirstPerson;
+        p.pose = std::make_shared<const Ghoul2Pose>(std::move(pose));
+        _placed.push_back(std::move(p));
     }
 }
 

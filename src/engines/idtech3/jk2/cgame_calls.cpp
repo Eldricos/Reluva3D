@@ -60,21 +60,10 @@ enum Jk2CgameCall : int {
     kSpRegister = 272,
     kRoffClean = 273,
     kRoffPurgeEnt = 277,
-    kG2ListSurfaces = 278,
-    kG2HaveWeGhoulModels = 281,
-    kG2GiveMeVectorFromMatrix = 282,
-    kG2GetBolt = 283,
-    kG2GetBoltNoRec = 284,
-    kG2InitGhoul2Model = 285,
-    kG2CleanModels = 286,
-    kG2GetGlaName = 289,
-    kG2HasGhoul2ModelOnIndex = 293,
-    kG2AddBolt = 295,
+    kG2ListSurfaces = 278, // to 299: Ghoul2's
     kG2SetNewOrigin = 299,
     kSetSharedBuffer = 300,
 };
-
-constexpr int32_t kBoltMatrixSize = 48; // mdxaBone_t: 3 rows of 4 floats
 
 } // namespace
 
@@ -202,6 +191,35 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         ++_unhandled[number];
         return 0;
     }
+    if (number >= kG2ListSurfaces && number <= kG2SetNewOrigin) {
+        // Ghoul2's, in the client game's own order.
+        using G = jk2::Ghoul2Instances;
+        static constexpr G::Call kOrder[] = {
+            G::kListSurfaces,
+            G::kListBones,
+            G::kSetModels,
+            G::kHaveWeGhoulModels,
+            G::kGiveMeVectorFromMatrix,
+            G::kGetBolt,
+            G::kGetBoltNoRec,
+            G::kInitGhoul2Model,
+            G::kCleanModels,
+            G::kAngleOverride,
+            G::kPlayAnim,
+            G::kGetGlaName,
+            G::kCopyGhoul2Instance,
+            G::kCopySpecificModel,
+            G::kDuplicateInstance,
+            G::kHasGhoul2ModelOnIndex,
+            G::kRemoveGhoul2Model,
+            G::kAddBolt,
+            G::kSetBoltInfo,
+            G::kSetRootSurface,
+            G::kSetSurfaceOnOff,
+            G::kSetNewOrigin,
+        };
+        return _ghoul2.call(vm, kOrder[number - kG2ListSurfaces], a);
+    }
     if (number >= kRoffClean && number <= kRoffPurgeEnt) {
         ++_unhandled[number];
         return 0;
@@ -327,75 +345,11 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         vm.writeString(a[1], text ? *text : std::string(), a[2]);
         return text ? 1 : 0;
     }
-    // Ghoul2, on the client: models kept by name, bolts by number; not
-    // posed or drawn yet.
-    case kG2HaveWeGhoulModels:
-        return a[0] != 0 && _g2Instances.count(a[0]) ? 1 : 0;
-    case kG2InitGhoul2Model: { // (ghoul2 *, file, modelIndex, customSkin, customShader, flags, lodBias)
-        if (!vm.checkWrite(a[0], 4))
-            return -1;
-        int32_t handle = vm.readInt(a[0]);
-        if (!handle || !_g2Instances.count(handle)) {
-            handle = _nextG2Instance++;
-            vm.writeInt(a[0], handle);
-        }
-        std::vector<std::string> &models = _g2Instances[handle];
-        models.push_back(str(1, 256));
-        return int32_t(models.size()) - 1;
-    }
-    case kG2HasGhoul2ModelOnIndex: {
-        if (!vm.valid(a[0], 4))
-            return 0;
-        const auto it = _g2Instances.find(vm.readInt(a[0]));
-        return it != _g2Instances.end() && a[1] >= 0 && size_t(a[1]) < it->second.size() ? 1 : 0;
-    }
-    case kG2CleanModels:
-        if (vm.checkWrite(a[0], 4)) {
-            _g2Instances.erase(vm.readInt(a[0]));
-            vm.writeInt(a[0], 0);
-        }
-        return 0;
-    case kG2AddBolt:
-        return _nextG2Bolt++;
-    case kG2GetBolt:
-    case kG2GetBoltNoRec: { // (ghoul2, modelIndex, bolt, matrix out, angles, position, time, modelList, scale)
-        if (!vm.checkWrite(a[3], kBoltMatrixSize))
-            return 0;
-        Vec3f at{};
-        if (a[5] && vm.valid(a[5], 12))
-            for (int i = 0; i < 3; ++i)
-                at[size_t(i)] = Qvm::asFloat(vm.readInt(a[5] + 4 * i));
-        const float m[12] = {1, 0, 0, at[0], 0, 1, 0, at[1], 0, 0, 1, at[2]};
-        for (int i = 0; i < 12; ++i)
-            vm.writeInt(a[3] + 4 * i, Qvm::fromFloat(m[i]));
-        return 1;
-    }
-    case kG2GiveMeVectorFromMatrix: { // (matrix, flags, vec out): an axis (0-2, 3-5 negated) or the origin
-        if (!vm.valid(a[0], kBoltMatrixSize) || !vm.checkWrite(a[2], 12))
-            return 0;
-        auto m = [&](int r, int c) { return Qvm::asFloat(vm.readInt(a[0] + 4 * (4 * r + c))); };
-        float v[3];
-        const int which = a[1];
-        for (int r = 0; r < 3; ++r) {
-            if (which == 6) // the origin
-                v[r] = m(r, 3);
-            else
-                v[r] = (which >= 3 ? -1.0f : 1.0f) * m(r, which % 3);
-        }
-        for (int i = 0; i < 3; ++i)
-            vm.writeInt(a[2] + 4 * i, Qvm::fromFloat(v[i]));
-        return 0;
-    }
-    case kG2GetGlaName:
-        vm.writeString(a[2], "", 64);
-        return 0;
     case kSetSharedBuffer: // (address, size): where the engine and it trade an effect's or a trace's data
         _sharedBuffer = a[0];
         _sharedBufferSize = a[1];
         return 0;
     default:
-        if (number >= kG2ListSurfaces && number <= kG2SetNewOrigin)
-            return 1; // animation, angles, surfaces: taken
         if (!_unhandled[number]++)
             _firstUnhandled[number] = {a[0], a[1], a[2], a[3], a[4], a[5]};
         return 0;

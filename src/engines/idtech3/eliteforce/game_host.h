@@ -14,6 +14,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/games.h"
+#include "engines/idtech3/jk2/ghoul2_instances.h"
 #include "engines/idtech3/vm/qvm.h"
 #include "engines/idtech3/vm/vm_services.h"
 
@@ -336,11 +337,8 @@ private:
     };
     std::array<BotInputJk2, 64> _jk2BotInputs{};
     bool _jk2BotsSetup = false;
-    // Its Ghoul2 instances on the server, by the number the game holds: the
-    // models' file names.
-    std::map<int32_t, std::vector<std::string>> _g2Instances;
-    int32_t _nextG2Instance = 1;
-    int32_t _nextG2Bolt = 0;
+    // Its Ghoul2 instances on the server (the saber's and hits' bolts).
+    jk2::Ghoul2Instances _ghoul2{_files};
     int32_t _nextAiState = 1; // the bot library's goal, move and weapon states handed out
     std::vector<Entity> _bspEntities;
     std::map<int, std::vector<std::vector<uint8_t>>> _goalStacks; // per goal state, its goals' bytes

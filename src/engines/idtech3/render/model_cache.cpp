@@ -256,9 +256,13 @@ bool ModelCache::addGhoul2(const std::shared_ptr<const GlmModel> &glm, int level
     return true;
 }
 
-gfx::MeshId ModelCache::poseGhoul2(const Loaded &m, int frame, int oldFrame, float backLerp) {
+gfx::MeshId ModelCache::poseGhoul2(const Loaded &m, int frame, int oldFrame, float backLerp,
+                                   const std::vector<Bone34> *given) {
     std::vector<Bone34> bones;
-    poseBones(m.skeleton, frame, oldFrame, backLerp, bones);
+    if (given)
+        bones = *given;
+    else
+        poseBones(m.skeleton, frame, oldFrame, backLerp, bones);
     std::vector<gfx::Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Md3Vertex> posed;
@@ -325,7 +329,7 @@ void ModelCache::addSorts(int id, const Skin *skin, const std::string &shader, s
 
 void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
                       const Skin *skin, float sortMin, float sortMax, const std::string &shader,
-                      const std::array<float, 4> *entity, int oldFrame, float backLerp) {
+                      const std::array<float, 4> *entity, int oldFrame, float backLerp, const Ghoul2Pose *pose) {
     if (id < 0)
         return;
     const Loaded &m = _models[size_t(id)];
@@ -335,11 +339,15 @@ void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const Point
     if (oldFrame == frame)
         backLerp = 0;
     // A Ghoul2 model is posed now, into a mesh of its own for this draw.
-    const gfx::MeshId posed = m.glm ? poseGhoul2(m, frame, oldFrame, backLerp) : 0;
+    const gfx::MeshId posed = m.glm ? poseGhoul2(m, frame, oldFrame, backLerp, pose ? &pose->bones : nullptr) : 0;
     if (m.glm && !posed)
         return;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
         const Surface &s = m.surfaces[i];
+        // A surface its game turned off.
+        if (pose && m.glm && i < m.glmSurfaces.size() && m.glmSurfaces[i] < pose->surfaceOn.size() &&
+            !pose->surfaceOn[m.glmSurfaces[i]])
+            continue;
         const int material = surfaceMaterial(id, i, skin, shader);
         const ShaderCache::Material &mat = _shaders.get(material);
         if (mat.skip || mat.sort < sortMin || mat.sort > sortMax)

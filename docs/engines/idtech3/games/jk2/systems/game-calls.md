@@ -53,7 +53,7 @@ them with `LocateGameData`).
 | 303 | `AAS_EntityInfo` | none: the module keeps its own |
 | 400–425 | the elementary actions (say, attack, alt attack, force power, use, moves, jump, view...) and `EA_GetInput`, `EA_ResetInput` | a bot's input for the frame, with Quake III's newer action bits (attack 1, use 2, jump 0x10, crouch 0x80, forward 0x200, back 0x800, left 0x1000, right 0x2000, force power 0x100000, alt attack 0x200000); a held jump is let go for a frame |
 | 525–563 | goal, move and weapon states | a handle; the module's own code does the thinking |
-| 584–599 | Ghoul2: models, bolts, animation | models kept by name; a bolt's matrix is the entity's origin, unturned, for now |
+| 582–599 | Ghoul2: models, bolts, animation | as the client game's ([ghoul2.md](../../../formats/ghoul2.md), Animation): the saber's and hits' bolts where the posed body puts them |
 
 Jedi Outcast's bots find their way by the module's own waypoints
 (`botroutes/*.wnt`): it makes no area-system call but 303.
@@ -93,5 +93,4 @@ The client's userinfo settings and their defaults are registered as
 
 - The player state's fields past the few the engine reads haven't been
   checked against 1.02a's code (the network protocol needs them all).
-- ROFF paths, Ghoul2 bolt positions and capsule traces are still
-  stand-ins.
+- ROFF paths and capsule traces are still stand-ins.

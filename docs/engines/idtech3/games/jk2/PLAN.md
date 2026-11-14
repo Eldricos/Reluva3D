@@ -129,8 +129,9 @@ behind the DLL's own tables.
    ([systems/game-calls.md](systems/game-calls.md)): a level starts, a
    player joins and moves, bots play. The client game runs on the shared
    client game host ([systems/cgame-calls.md](systems/cgame-calls.md)):
-   it draws the HUD and the view. Next: Ghoul2 players posed and drawn,
-   then the Play page, so Create Server's Begin starts a match; Raven's
+   it draws the HUD and the view. Players' Ghoul2 instances are posed
+   (animations, angle overrides, bolts) and the renderer draws them.
+   Next: the Play page, so Create Server's Begin starts a match; Raven's
    effects after.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the

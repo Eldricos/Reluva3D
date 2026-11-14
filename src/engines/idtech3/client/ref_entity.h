@@ -45,6 +45,10 @@ struct RefEntityLayout {
     size_t control2 = 0;
     size_t jitter = 0;
     size_t cylinderRepeat = 0;
+    // Raven's: the model's scale on each axis (0 for 1), and its Ghoul2
+    // instance (0: none).
+    size_t modelScale = 0;
+    size_t ghoul2 = 0;
     // The kinds of entity: -1 where the game has none. A beam is Quake
     // III's: a thin red tube from the origin to the old origin, no shader.
     int32_t typeModel = 0;

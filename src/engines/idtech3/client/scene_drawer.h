@@ -15,7 +15,9 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <memory>
 #include <random>
 #include <set>
 #include <string>
@@ -97,6 +99,9 @@ public:
     // r_drawentities, and Reluva's own switch for effects alone).
     bool showModels = true;
     bool showEffects = true;
+    // A Ghoul2 instance's models posed for a time (ms), for entities that
+    // name one (Jedi Outcast's); unset, they aren't drawn.
+    std::function<bool(int32_t instance, int32_t time, std::vector<Ghoul2Pose> &out)> ghoul2Poses;
     int portalViews() const { return _portalViews; }
     const std::set<std::string> &unloadable() const { return _unloadable; }
 
@@ -111,6 +116,8 @@ private:
     int lodLevel(int model, int frame, const gfx::Vec3 &origin) const;
     int material(std::vector<int> &cache, int32_t handle, Lighting lighting);
     void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
+    // A Ghoul2 entity's models, posed at `viewTime` (ms).
+    void placeGhoul2(const std::vector<uint8_t> &entity, int32_t viewTime, const LightGrid &grid, float time);
     static const std::string &name(const HandleTable *table, int32_t handle);
 
     gfx::Renderer3D &_r;
@@ -148,6 +155,7 @@ private:
         // only through mirrors; not through them
         bool thirdPerson = false;
         bool firstPerson = false;
+        std::shared_ptr<const Ghoul2Pose> pose; // a Ghoul2 model's, as its game posed it
     };
     std::vector<Placed> _placed;
     std::vector<std::pair<int, gfx::Mat4>> _brushes; // the level's models (*N) placed this view

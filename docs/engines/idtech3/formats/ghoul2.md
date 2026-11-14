@@ -122,6 +122,47 @@ each: / 16383, less 2) and a translation x, y, z (u16 each: / 64, less
   second (negative: played backwards; 0 taken as 1). The humanoid
   skeleton's has 989.
 
+### Animation
+
+How a game's instance of a model is posed, as Jedi Outcast's engine does
+it for its modules (`jk2/ghoul2_instances.cpp`):
+
+- **An instance** is a list of models (a body, its weapon, its saber),
+  each a mesh with its skeleton. A model can hang from a bolt of another
+  in the same instance (`SetBoltInfo`: `(model << 10) | bolt`): a weapon
+  from the hand.
+- **Animations are set on bones** (`SetBoneAnim`: first frame, end frame,
+  flags, speed, start time). A bone with an animation of its own takes
+  its frame from it; every other bone takes its parent's frame, the root
+  its first. So the legs' animation on the root moves the whole body
+  unless the torso's, set on the lower spine, overrides that part.
+- **Timing:** frame = first + (time - start) / 50 ms x speed, between two
+  frames blended by the fraction. Past the end frame less one, a looping
+  animation (0x10) comes round again from the first; any other holds its
+  last frame. A negative speed plays it backwards.
+- **Angle overrides** (`SetBoneAngles`: angles, flags, then which of the
+  bone's axes each angle turns about) make a rotation from the angles
+  (pitch about the "right" axis, yaw about "up", roll about "forward",
+  some 180 degrees round), taken into the bone's own frame (its base
+  pose, the rotation, the base pose's inverse). Turning after (0x2) puts
+  it after the bone's placement; turning before (0x1) puts it in place of
+  the frame's.
+- **A bone's placement** is its parent's times its frame's (blended); a
+  vertex is placed by its bones' placements, weighted.
+- **Bolts:** a name is looked for among the mesh's surfaces first (tag
+  surfaces are named with a `*`: `*r_hand`, `*head_top`, `*flash`), then
+  the skeleton's bones. A bone's bolt is its placement times its base
+  pose. A tag surface's is its triangle as placed: the third corner the
+  origin, the axes from its longest and shortest sides and their cross
+  product.
+- **In the world** (`GetBoltMatrix`): the bolt placed by the instance's
+  angles and origin (each axis of the bolt's origin scaled, if a scale is
+  given), and its axes turned a further 270 degrees of yaw, as the
+  original's are.
+- **Surfaces** turned on or off by name (`SetSurfaceOnOff`, 2 off), or all
+  but one and those under it (`SetRootSurface`); tag surfaces are never
+  drawn.
+
 ## In Reluva
 
 `parseGlm` and `parseGla` read the files, checking every offset, count
@@ -157,3 +198,13 @@ collision against the posed mesh), which comes with the game's code
   before its parent, and poses them; Kyle, a stormtrooper and the
   protocol droid look right in the Models page, standing and animating. Not yet
   compared with the original running.
+- **Animation** comes from the GPL Jedi Outcast multiplayer source's
+  Ghoul2 code (`G2_bones.cpp`, `G2_misc.cpp`, `G2_API.cpp`) and its
+  renderer's `G2_TransformBone` and surface bolts, read as documentation.
+  A unit test (`idtech3.unit.formats`, "ghoul2 instances") poses the
+  made-up skeleton by an animation (looping and held), an angle override
+  and a model hung from another's bolt. In 1.02a's multiplayer, Kyle
+  standing in third person fills 64 units from his feet up, his pistol
+  hung from his hand at hand height beside him (`game-run -cgame -entities`). Blending one
+  animation into the next (0x80) isn't done yet: the new one starts at
+  once.

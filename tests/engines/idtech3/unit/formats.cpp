@@ -26,6 +26,7 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/formats/ghoul2.h"
+#include "engines/idtech3/jk2/ghoul2_instances.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
@@ -484,6 +485,68 @@ static void testRavenText() {
     CHECK(parseFontdat(std::vector<uint8_t>(100), "x", font));
 }
 
+static void testGhoul2Instances() {
+    // buildGla's skeleton (the child 10 along x from the root; frame 1
+    // lifts the root 5) and buildGlm's mesh on it.
+    using jk2::Ghoul2Instances;
+    SearchSet set;
+    auto zip = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_ghoul2.pk3";
+    test::writeFile(path, test::buildZip({{"test/model.glm", fixtures::buildGlm(), {}},
+                                          {"test/skel.gla", fixtures::buildGla(), {}}}));
+    CHECK(!zip->open(path));
+    set.add(std::move(zip), 0);
+    Ghoul2Instances g2(set);
+    int32_t h = 0;
+    CHECK(g2.addModel(h, "test/model.glm", 0, 0) == 0 && h == 1);
+    CHECK(g2.addModel(h, "test/missing.glm", 0, 0) == -1);
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+    // A bolt on the child: where it is in the world, the instance at
+    // (100, 0, 0); its axes turned 270 degrees of yaw, as the original's.
+    const int32_t bolt = g2.addBolt(h, 0, "child");
+    CHECK(bolt == 0 && g2.addBolt(h, 0, "CHILD") == 0 && g2.addBolt(h, 0, "*body") == -1);
+    Bone34 m{};
+    CHECK(g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {100, 0, 0}, {0, 0, 0}, m));
+    CHECK(near(m[3], 110) && near(m[7], 0) && near(m[11], 0));
+    CHECK(near(m[0], 0) && near(m[4], -1) && near(m[1], 1));
+    // An animation on the root: the child follows it; looping, it comes
+    // round again; held, it stays on its last frame.
+    CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimLoop, 1, 0, -1));
+    auto boltAt = [&](int32_t time) {
+        g2.boltMatrix(h, 0, bolt, time, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
+        return m[11];
+    };
+    CHECK(near(boltAt(50), 5) && near(boltAt(25), 2.5f) && near(boltAt(100), 0));
+    CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimOverride, 1, 0, -1));
+    CHECK(near(boltAt(500), 5));
+    CHECK(!g2.setAnimation(h, 0, "nobody", 0, 2, 0, 1, 0, -1));
+    // An angle override turning the root a quarter about its up axis
+    // carries the child round with it.
+    CHECK(g2.setAnimation(h, 0, "root", 0, 1, Ghoul2Instances::kAnimOverride, 1, 0, -1));
+    CHECK(g2.setAngles(h, 0, "root", {0, 90, 0}, Ghoul2Instances::kAnglesPostMult, Ghoul2Instances::kPositiveZ,
+                       Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin));
+    g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
+    CHECK(near(m[3], 0) && near(m[7], 10));
+    CHECK(g2.setAngles(h, 0, "root", {0, 0, 0}, 0, Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin,
+                       Ghoul2Instances::kOrigin));
+    // A second model hung from the first's bolt; a surface turned off.
+    CHECK(g2.addModel(h, "test/model.glm", 1, 0) == 1);
+    g2.setBoltLink(h, 1, (0 << 10) | bolt);
+    CHECK(g2.setSurfaceOnOff(h, "body", 2));
+    std::vector<Ghoul2Instances::Drawn> drawn;
+    CHECK(g2.drawn(h, 0, drawn) && drawn.size() == 2);
+    if (drawn.size() == 2) {
+        CHECK(near(drawn[1].placement[3], 10) && near(drawn[0].placement[3], 0));
+        CHECK(!drawn[0].surfaceOn[0] && !drawn[1].surfaceOn[0]);
+    }
+    // A copy of the instance, then the first cleaned away.
+    const int32_t copy = g2.duplicate(h);
+    CHECK(copy != h && g2.hasModel(copy, 1) && g2.skeletonName(copy, 0) == "test/skel");
+    CHECK(g2.removeModel(h, 1) && !g2.hasModel(h, 1));
+    g2.remove(h);
+    CHECK(!g2.has(h) && g2.has(copy));
+}
+
 static void testBsp() {
     Bsp bsp;
     Error err = parseBsp(buildBsp(), bsp);
@@ -933,6 +996,7 @@ static const reluva::test::Suite
                {"bsp", [](const std::filesystem::path &) { testBsp(); }},
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
+               {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
                {"raven text", [](const std::filesystem::path &) { testRavenText(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
