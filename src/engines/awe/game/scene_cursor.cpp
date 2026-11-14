@@ -52,7 +52,21 @@ bool ScenePage::objectShown(const Ac2Record &o) const {
     // it since. One not yet tested (a scene being read) by its condition.
     if (const auto it = _shownNow.find(&o); it != _shownNow.end())
         return it->second;
-    return testCondition(conditionOf(o), _state);
+    return testCondition(conditionOf(o), _state) && !globallyHidden(o);
+}
+
+bool ScenePage::globallyHidden(const Ac2Record &o) const {
+    // "globalhide" (0x40e9d6; ac.exe 0x410558): the tag hide_<its file's
+    // name, less its extension>, else hide_<that up to its '_'>.
+    std::string name = fs::toLower(fileNameOf(normalizeArchiveName(o.text("file"))));
+    if (name.empty())
+        return false;
+    if (const size_t dot = name.rfind('.'); dot != std::string::npos)
+        name.resize(dot);
+    if (_state.tags.count("hide_" + name))
+        return true;
+    const size_t cut = name.find('_');
+    return cut != std::string::npos && _state.tags.count("hide_" + name.substr(0, cut));
 }
 
 bool ScenePage::clickable(const Ac2Record &o) const {

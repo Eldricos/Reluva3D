@@ -37,8 +37,9 @@ The runner tells a verb by its first word, compared ignoring case
   `suspicion_<who>`, unset as 0, against n: less, more, or without either,
   equal. 37 uses.
 - **`cutscene <name>`** (handled with `scene` and `gotoscene` at
-  `0x40b422`): a scene change to a cutscene's scene; 20 uses. Not done
-  yet: phase 4 of [PLAN.md](../PLAN.md).
+  `0x40ddd9`): `scene` with `[0x485f04]` set, so its place is its name up
+  to its `_` and it's looked for in `Cutscenes`; 20 uses
+  ([acts.md](acts.md#cutscenes-and-title-cards)).
 - **`journal <n>`** (`0x40bf21`): the number to the journal
   (`[0x485f40]`, `0x41c290`); 1 use. Not done yet: phase 4.
 

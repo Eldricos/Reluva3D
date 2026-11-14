@@ -4,6 +4,7 @@
 // And Then There Were None: its files as the game names and reads them,
 // its scenes, and recognising the game, on files made here.
 
+#include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/attwn.h"
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/formats/tables.h"
@@ -13,6 +14,7 @@
 #include "engines/awe/game/conditions.h"
 #include "engines/awe/game/dialogue.h"
 #include "engines/awe/game/script.h"
+#include "engines/awe/game/story.h"
 #include "engines/awe/render/lighting.h"
 #include "tests/engines/awe/fixtures.h"
 #include "tests/support/test.h"
@@ -431,6 +433,41 @@ void testSaves() {
     CHECK(readSaveHeader(bytes, description, date, time) || description != "Café");
 }
 
+void testChapters(const std::filesystem::path &tmp) {
+    // Text/Chapter01.txt on, as ac.exe reads them (0x402be0).
+    const std::filesystem::path dir = tmp / "chapters";
+    putFile(dir / "Text" / "Chapter01.act",
+            scramble({"Act\tEvent\tTime of Day\tWeather\tCharacters in Act\tCompletion Conditions\tEvent\tMusic\tWhat "
+                      "to do\r\n",
+                      "1A\tscript chapter01start\t1\t1\tnarracott trogers\ttag 01a_neededcounter >0\t\"fade out, act "
+                      "1b\"\twalkingaround01.mp3\t\r\n"}));
+    putFile(dir / "Text" / "Chapter02.act",
+            scramble({"Act\tEvent\tTime of Day\tWeather\tCharacters in Act\tCompletion Conditions\tEvent\tMusic\r\n",
+                      "2B\t\"scene parlor06 1\"\t0\t2\tnarracott\t0\t0\twalkingaround02.mp3\r\n"}));
+    attwn::GameFiles files;
+    CHECK(!files.open(dir));
+    std::vector<ActRow> rows;
+    CHECK(!attwn::readChapters(files, rows) && rows.size() == 2);
+    if (rows.size() == 2) {
+        CHECK(rows[0].act == "01a" && rows[0].preLoad == "script chapter01start" && rows[0].location.empty());
+        CHECK(rows[0].time == 1 && rows[0].weather == 1 && rows[0].event == "fade out, act 1b");
+        CHECK((rows[0].characters == std::vector<std::string>{"narracott", "trogers"}));
+        CHECK(rows[0].completion == "tag 01a_neededcounter >0" && rows[0].music == "walkingaround01.mp3");
+        CHECK(rows[1].act == "02b" && rows[1].preLoad == "scene parlor06 1" && rows[1].weather == 2);
+    }
+    // A scene's place: up to its first '_', less its two digits (0x403310).
+    CHECK(attwn::placeOf("Kitchen01") == "kitchen" && attwn::placeOf("kitchen01_closeup02") == "kitchen");
+    CHECK(attwn::placeOf("upstairsbalcony04") == "upstairsbalcony");
+    // "act <act> 0" takes the row without its start script (0x40b644).
+    GameState state;
+    testing::FakeHost host;
+    ScriptRunner main(state, host);
+    Story story(state, main);
+    story.setActs(rows);
+    CHECK(story.startAct("1a", false) && story.row() && main.idle() && !story.loading());
+    CHECK(story.startAct("2b") && !main.idle() && !story.loading());
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -470,5 +507,6 @@ static const reluva::test::Suite
                                  {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},
                                  {"lighting", [](const std::filesystem::path &) { testLighting(); }},
                                  {"saves", [](const std::filesystem::path &) { testSaves(); }},
+                                 {"chapters", [](const std::filesystem::path &tmp) { testChapters(tmp); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

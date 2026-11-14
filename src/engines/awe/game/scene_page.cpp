@@ -107,7 +107,11 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
         const TalkArgs t = parseTalkArgs(words, true, _dialogue->rules());
         return _dialogue->canTalk(t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet);
     };
-    {
+    if (ctx.game && ctx.game->flow.readActs) {
+        std::vector<ActRow> rows;
+        if (!ctx.game->flow.readActs(ctx.files, rows))
+            _story->setActs(std::move(rows));
+    } else {
         std::vector<uint8_t> data;
         if (!ctx.files.read("text/acts.txt", data))
             _story->setActs(readActs(parseTable(decodeText(data))));
@@ -291,7 +295,13 @@ void ScenePage::load() {
     // This scene's name before its characters load: where they were kept
     // is looked up by it.
     _state.scene = fs::toLower(fileNameOf(name));
-    {
+    if (_ctx.game && _ctx.game->flow.placeOf) {
+        // A cutscene's place is its folder in Cutscenes, its name up to
+        // its '_' (0x403310 with [0x485f04] set).
+        const std::string lower = fs::toLower(name);
+        _location = _state.location =
+            lower.rfind("cutscenes/", 0) == 0 ? lower.substr(10, lower.find('/', 10) - 10) : placeOf(fileNameOf(name));
+    } else {
         // Its folder is its location: locations/<location>/<scene>.ac2.
         const std::string lower = fs::toLower(name);
         const size_t from = lower.find('/') + 1;
@@ -383,6 +393,12 @@ void ScenePage::playMusic() {
                 for (const auto &[condition, file] : v->pairs)
                     if (testCondition(condition, _state))
                         want.insert(fs::toLower(file));
+    // And Then There Were None's act music when none of them is music
+    // (0x42d742): sound\music\<the row's Music>, looping.
+    if (_ctx.game && _ctx.game->flow.actMusic && _story->row() && !_story->row()->music.empty() &&
+        std::none_of(want.begin(), want.end(),
+                     [](const std::string &f) { return f.find("music") != std::string::npos; }))
+        want.insert("sound\\music\\" + fs::toLower(_story->row()->music));
     for (auto it = _music.begin(); it != _music.end();) {
         if (!want.count(it->first)) {
             if (_ctx.mixer)
@@ -654,7 +670,7 @@ void ScenePage::newGame() {
     _optionsMenu.reset();
     closePuzzle();
     logScript("new game");
-    _runner->run("musica motoetheme, movie logos inscene, scene menu.main_01 1 0");
+    _runner->run(_ctx.game ? _ctx.game->flow.start : GameFlow().start);
 }
 
 void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
@@ -2584,7 +2600,7 @@ void ScenePage::retestObjects() {
     // shown if its condition holds, hidden if not, whatever "hide" or
     // "show" made it.
     for (const Ac2Record *o : _scene.objects())
-        _shownNow[o] = testCondition(conditionOf(*o), _state);
+        _shownNow[o] = testCondition(conditionOf(*o), _state) && !globallyHidden(*o);
 }
 
 void ScenePage::showObject(const std::string &name, bool show) {
@@ -2738,15 +2754,7 @@ bool ScenePage::walkCharacter(Character &c, WalkGrid::Cell goal, bool toPoint, b
 }
 
 bool ScenePage::changeScene(const std::string &name, int entry, bool walkIn) {
-    // The scene's file by its name, the act's variant if there is one.
-    const std::string want = fs::toLower(name) + ".ac2";
-    const std::string variant = _state.act.empty() ? "" : fs::toLower(name) + "_" + _state.act + ".ac2";
-    int found = -1;
-    for (size_t i = 0; i < _names.size(); i++) {
-        const std::string file = fs::toLower(fileNameOf(_names[i]));
-        if (file == variant || (file == want && found < 0))
-            found = int(i);
-    }
+    const int found = sceneIndex(name);
     if (found < 0) {
         logScript("  (no scene " + name + ")");
         return false;
@@ -2789,6 +2797,42 @@ bool ScenePage::changeScene(const std::string &name, int entry, bool walkIn) {
     _entryPoint = -1;
     _entryWalk = false;
     return true;
+}
+
+int ScenePage::sceneIndex(const std::string &name) const {
+    const GameFlow flow = _ctx.game ? _ctx.game->flow : GameFlow();
+    const std::string want = fs::toLower(name) + flow.scenes;
+    int found = -1;
+    if (flow.actFolders) {
+        // Its place's act folder's, else its Base's (0x4035d0), else
+        // wherever it is (the cutscenes, the menus).
+        int rank = 0;
+        for (size_t i = 0; i < _names.size(); i++) {
+            const std::string lower = fs::toLower(_names[i]);
+            if (fileNameOf(lower) != want)
+                continue;
+            const int r = lower.find("/act" + _state.act + "/") != std::string::npos ? 3
+                          : lower.find("/base/") != std::string::npos                ? 2
+                                                                                     : 1;
+            if (r > rank)
+                rank = r, found = int(i);
+        }
+        return found;
+    }
+    // The scene's file by its name, the act's variant if there is one.
+    const std::string variant = _state.act.empty() ? "" : fs::toLower(name) + "_" + _state.act + flow.scenes;
+    for (size_t i = 0; i < _names.size(); i++) {
+        const std::string file = fs::toLower(fileNameOf(_names[i]));
+        if (file == variant || (file == want && found < 0))
+            found = int(i);
+    }
+    return found;
+}
+
+std::string ScenePage::placeOf(const std::string &scene) const {
+    if (_ctx.game && _ctx.game->flow.placeOf)
+        return _ctx.game->flow.placeOf(scene);
+    return scene.substr(0, scene.find('_'));
 }
 
 void ScenePage::playSound(const std::string &name) {
@@ -3247,7 +3291,10 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
             c->waiting = &runner, c->waitVerb = v;
         return wait;
     }
-    if (v == "scene" || v == "gotoscene") {
+    // And Then There Were None's "cutscene <name>": a scene in Cutscenes,
+    // shown as "scene" shows one (0x40ddd9, [0x485f04] set).
+    const bool cutscene = v == "cutscene" && _ctx.game && _ctx.game->flow.actFolders;
+    if (v == "scene" || v == "gotoscene" || cutscene) {
         // gotoscene: the scene "savescene" kept, its ".ac2" taken off.
         std::vector<std::string> words = e.words;
         if (v == "gotoscene") {
@@ -3259,6 +3306,8 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
             if (words[1].size() > 4)
                 words[1].resize(words[1].size() - 4);
         }
+        if (cutscene)
+            words[0] = "scene";
         const ScriptEvent scene{words};
         const std::string name = lower(scene.arg(1));
         const int entry = scene.arg(2).empty() ? 1 : std::atoi(scene.arg(2).c_str());
@@ -3267,10 +3316,11 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         // In another place (its name doesn't hold the current location's):
         // a fade out, the location loaded, the scene shown and faded in;
         // the event waits till then (0x423d40, 0x422640).
-        if (_playing && wait && name.find(_location) == std::string::npos && name.find("global") == std::string::npos) {
+        if (_playing && wait && placeOf(name) != _location && name.find(_location) == std::string::npos &&
+            name.find("global") == std::string::npos) {
             _load = LocationLoad();
             _load.state = 1;
-            _load.location = name.substr(0, name.find('_'));
+            _load.location = placeOf(name);
             _load.scene = name, _load.verb = v, _load.entry = entry, _load.runner = &runner;
             _load.walkIn = walkIn;
             _fadeTarget = 1;
@@ -3280,7 +3330,10 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         return false;
     }
     if (v == "act") {
-        _story->startAct(lower(e.arg(1)));
+        // And Then There Were None's "act <act> 0" takes the row without
+        // its start script (0x40b644).
+        const bool start = !(_ctx.game && _ctx.game->flow.actFolders && e.arg(2) == "0");
+        _story->startAct(lower(e.arg(1)), start);
         return false;
     }
     if (v == "movie")
@@ -3343,8 +3396,12 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         return false;
     }
     if (v == "musica" || v == "music") {
-        // sound\music\<name>.mp3, looping (0x40a860).
-        playLooping("sound\\music\\" + lower(e.arg(1)) + ".mp3", true);
+        // sound\music\<name>.mp3, looping (0x40a860); the game's own path
+        // (GameFlow::musica).
+        const std::string format = _ctx.game ? _ctx.game->flow.musica : GameFlow().musica;
+        const size_t at = format.find("%s");
+        const std::string file = format.substr(0, at) + lower(e.arg(1)) + format.substr(at + 2);
+        playLooping(file, file.find("music") != std::string::npos);
         return false;
     }
     if (v == "fade" && !e.arg(2).empty()) {
@@ -3417,6 +3474,15 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     if (v == "accumulation" || v == "test") {
         // Snow gathering on the character set to (+0x14dc), and a
         // leftover of the earlier games (0x40c650): nothing to see here.
+        return false;
+    }
+    if (v == "globalhide" || v == "globalshow") {
+        // The tag hide_<name>, set or taken away (0x40ba9a): an object of
+        // that name is hidden, in every scene, while it's there.
+        if (v == "globalhide")
+            _state.tags["hide_" + lower(e.arg(1))] = 0;
+        else
+            _state.tags.erase("hide_" + lower(e.arg(1)));
         return false;
     }
     if (v == "hide" || v == "show") {

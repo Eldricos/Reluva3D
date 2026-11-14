@@ -694,6 +694,13 @@ private:
     // Where a scene object or character is (x, z); false if there's none.
     bool objectAt(const std::string &name, float &x, float &z) const;
     Character *characterNamed(const std::string &who);
+    // The scene file named so (`_names`' index), as the game finds it for
+    // the act; -1 if none.
+    int sceneIndex(const std::string &name) const;
+    // Whether "globalhide" hides the object (its hide_ tag).
+    bool globallyHidden(const Ac2Record &o) const;
+    // A scene's place, by its name (GameFlow::placeOf).
+    std::string placeOf(const std::string &scene) const;
     // A line's speaker's character: by name, else by the other names the
     // game's dialogue tries (DialogueRules::speakerElse).
     Character *speakerNamed(const std::string &who);

@@ -3,6 +3,7 @@
 
 #include "engines/awe/attwn/attwn.h"
 
+#include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/attwn/script.h"
 
@@ -125,6 +126,16 @@ const GameInfo &game() {
         // Saved Games\slot%d.ac1 and .bmp (0x41e917, 0x41ebb4), written by
         // 0x412e9f.
         .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false}, .extension = ".ac1"},
+        // Its start (0x40279b), its chapters, its scenes by place and act
+        // (0x403310, 0x4035d0), and its act's music when a scene has none
+        // (0x42d742).
+        .flow = {.start = "movie adventure, movie awe, movie agathalogo, movie soundblaster, scene mainmenu01",
+                 .scenes = ".ac1",
+                 .readActs = readChapters,
+                 .placeOf = placeOf,
+                 .actFolders = true,
+                 .actMusic = true,
+                 .musica = "sound\\%s.wav"}, // 0x40c42a
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

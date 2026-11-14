@@ -123,17 +123,18 @@ bool fromLine(const std::string &line, Action &a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(const Archive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
+    Player(const Archive &files, const GameInfo *game, double limit, System *threeD = nullptr, bool characters = false,
+           bool sound = false)
         : _limit(limit) {
         _sys.threeD = threeD;
         _sys.characters = characters;
-        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        _screen.create(game ? game->width : kScreenW, game ? game->height : kScreenH, PixelFormat::kRGBA32);
         // With sound, a mixer the game's clock drives (no device): voices
         // and waited-for sounds take their own time, and lines play out.
         if (sound)
             _mixer = std::make_unique<audio::Mixer>(kMixRate);
         // The fonts, for -shot's boxes and captions.
-        const bool haveFonts = !_fonts.load(files);
+        const bool haveFonts = !_fonts.load(files, game ? game->fonts : std::vector<GameFont>());
         _ctx =
             std::make_unique<ViewerContext>(ViewerContext{_sys,
                                                           files,
@@ -142,7 +143,8 @@ public:
                                                           std::filesystem::temp_directory_path() / "reluva-awe-solve",
                                                           haveFonts ? &_fonts : nullptr,
                                                           {},
-                                                          -1});
+                                                          -1,
+                                                          game});
         // As reluva runs it: without the scene browser, its overlays or keys.
         _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOff);
         _page->cutLines = !sound;
@@ -917,7 +919,8 @@ int aweCommandSolve(int argc, char **argv) {
     //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<reluva::Archive> archive;
-    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
+    const GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
@@ -1021,7 +1024,7 @@ int aweCommandSolve(int argc, char **argv) {
     // nowhere), so their routines run and the pick finds them.
     // -sound: the voices and sounds played, by a mixer the game's clock
     // drives, and lines left to play out; -wav <file> keeps what's mixed.
-    Player player(files, limit, window.get(), characters, sound);
+    Player player(files, game, limit, window.get(), characters, sound);
     player.recording = !wavFile.empty();
     player.mouse = mouse;
     if ((player.drawing = draw))

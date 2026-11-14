@@ -802,7 +802,8 @@ int cmdAweActs(int argc, char **argv) {
             return awe::aweCommandSolve(argc, argv);
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<reluva::Archive> archive;
-    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
+    const awe::GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
@@ -827,17 +828,25 @@ int cmdAweActs(int argc, char **argv) {
     }
     if (targets.empty()) {
         std::vector<uint8_t> data;
-        if (!files.read("text/acts.txt", data))
-            for (const awe::ActRow &r : awe::readActs(awe::parseTable(awe::decodeText(data))))
-                targets.push_back(r.act);
-        for (int i = 0; i < 15; i++)
-            targets.push_back("slot" + std::to_string(i));
+        std::vector<awe::ActRow> rows;
+        if (game && game->flow.readActs)
+            game->flow.readActs(files, rows);
+        else if (!files.read("text/acts.txt", data))
+            rows = awe::readActs(awe::parseTable(awe::decodeText(data)));
+        for (const awe::ActRow &r : rows)
+            targets.push_back(r.act);
+        // Orient Express's developers' saves (Text\Scripts\slot<n>.ac2).
+        if (!(game && game->flow.readActs))
+            for (int i = 0; i < 15; i++)
+                targets.push_back("slot" + std::to_string(i));
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
+    screen.create(game ? game->width : awe::kScreenW, game ? game->height : awe::kScreenH,
+                  reluva::PixelFormat::kRGBA32);
     awe::ViewerContext ctx{
-        sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run", nullptr, {}, -1};
+        sys,     files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run",
+        nullptr, {},    -1,      game};
     int problems = 0;
     // Runs the game on till it settles; false if it sticks.
     auto settle = [&](awe::ScenePage &page, std::vector<std::string> &log, const std::string &what) {

@@ -20,6 +20,7 @@
 namespace reluva::awe {
 
 struct GameState;
+struct ActRow;
 
 /** A function in a game's executable, and its first bytes there (to be sure it's that release's). */
 struct CodeAt {
@@ -138,6 +139,28 @@ struct LightingRules {
     bool nightSparesLights = false;
 };
 
+/**
+ * How a game starts and finds its acts and scenes. Orient Express's are
+ * the defaults (motoe.exe 0x422580 on).
+ */
+struct GameFlow {
+    const char *start = "musica motoetheme, movie logos inscene, scene menu.main_01 1 0"; ///< run as the program starts
+    const char *scenes = ".ac2"; ///< the scenes' files' extension
+    /**
+     * Its acts' rows; null: text/acts.txt's. An error if there are none.
+     */
+    Error (*readActs)(const Archive &files, std::vector<ActRow> &out) = nullptr;
+    /**
+     * A scene's place (its folder in Locations), from its name; null: up
+     * to its first '_'. With `actFolders`, each place has an Act<NN><x>
+     * folder for an act's versions and Base for the rest, the act's first.
+     */
+    std::string (*placeOf)(const std::string &scene) = nullptr;
+    bool actFolders = false;
+    bool actMusic = false;                       ///< the act's Music plays when a scene's music entries name none
+    const char *musica = "sound\\music\\%s.mp3"; ///< what "musica <name>" plays, looping
+};
+
 /** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
 struct GameSaves {
     SaveLayout layout;
@@ -196,6 +219,7 @@ struct GameInfo {
     std::vector<GameFont> fonts;   ///< its fonts if its code sets them up; empty: text/fonts.txt's
     DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
     GameSaves saves;               ///< its saved games' files
+    GameFlow flow;                 ///< how it starts, its acts and scenes
     const char *exe = nullptr;     ///< its executable, in the game's folder
     PathFinderCode pathFinder;     ///< in that executable (the English release's)
 };
