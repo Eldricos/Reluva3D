@@ -1814,6 +1814,10 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
         goal.done = true;
         return click(wx + 254, kTop + 258); // the magnifier
     }
+    case HandGoal::Kind::kExamine:
+        // Only a game's own inventory examines so (handStepOverlay).
+        goal.failed = true;
+        return none();
     }
     return none();
 }
