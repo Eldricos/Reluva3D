@@ -65,7 +65,7 @@ brown, alpha 208).
 The tab n (0 to 3) and its contents (`0x41c290`); the entries tested
 again; with the journal closed, the book blinks for 5 seconds (hidden
 every other third of a second, `0x415c00`), else a page flips. It also
-calls the inventory's `0x41a010` with n, not read.
+puts the inventory's close-up away (`0x41a010`, [inventory.md](inventory.md#examine)).
 
 ## In Reluva
 
@@ -75,8 +75,7 @@ the place of Orient Express's bar and inventory, gives it clicks first and
 asks it of verbs it doesn't know.
 
 Not yet: the journal kept in a saved game (it isn't in the save's records:
-which entries show is the conditions'), and the inventory's part in
-`journal <n>`.
+which entries show is the conditions').
 
 ## Sources and checks
 

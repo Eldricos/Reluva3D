@@ -78,8 +78,9 @@ they stop and the colours; Orient Express's are the defaults. The
 Scenes page draws this game's box so (`awe page-shot <game> scenes out.tga
 "run:act 01a, talk marston a forcegen" ms:17000`).
 
-Not yet: the inventory, the journal and the menus (phase 4); which
-cursor shows when.
+The inventory ([inventory.md](inventory.md)), the journal
+([journal.md](journal.md)) and the menus ([saves.md](saves.md)) have
+pages of their own. Not yet: which cursor shows when.
 
 ## Sources and checks
 

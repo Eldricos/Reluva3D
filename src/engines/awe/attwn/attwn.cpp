@@ -5,7 +5,7 @@
 
 #include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/files.h"
-#include "engines/awe/attwn/journal.h"
+#include "engines/awe/attwn/overlay.h"
 #include "engines/awe/attwn/script.h"
 
 #include <string>
@@ -168,7 +168,18 @@ const GameInfo &game() {
                     .sliderRows = {80, 145, 210},
                     .boxLabels = 645,
                     .boxRows = {255, 305, 355, 405, 455, 505}},
-        .overlay = makeOverlay, // the journal
+        // Its items: no passports or cards; pictures in Inventory\<item>;
+        // the characters' table, the line for nothing, the take's sound
+        // (0x418bf6, 0x4194f0, 0x419380, 0x40d56e); its states 1 just
+        // taken, 3 in the bag, 4 in hand, 5 used, 12 a page (0x412e9f).
+        .inventory = {.cards = false,
+                      .cursor = "inventory/%s/cur%s.tga",
+                      .characters = "charlist.txt",
+                      .cantUse = "talk narracottgen 2",
+                      .takeSound = "interface\\inventory",
+                      .saveStates = {0, 1, 3, 4, 5, 5, 5, 5},
+                      .perPage = 12},
+        .overlay = makeOverlay, // the journal and the inventory
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

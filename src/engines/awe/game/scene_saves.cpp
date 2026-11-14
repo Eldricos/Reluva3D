@@ -172,7 +172,15 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     // Each item with its slot and page (0x41c730): passports at 0, 0,
     // fingerprint cards on page 0 in their row's slot.
     s.itemPage = _state.itemPage;
+    const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
     for (const GameState::Item &i : _state.items) {
+        if (!rules.cards) {
+            // The game's own numbers for the states (And Then There Were
+            // None's: 0x412e9f), its pages of 12.
+            s.items.push_back(
+                {i.name, rules.saveStates[size_t(std::clamp(i.state, 0, 7))], i.slot, i.slot / rules.perPage});
+            continue;
+        }
         const int slot = i.state == 6 ? printRow(i.name) : i.state == 5 ? 0 : i.slot;
         s.items.push_back({i.name, i.state, slot, i.state == 5 || i.state == 6 ? 0 : slot / 16});
     }
@@ -214,9 +222,20 @@ bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string 
     for (const SaveGame::Talk &k : save->talks)
         _state.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
     _state.held.clear();
-    for (const SaveGame::Item &i : save->items)
+    const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
+    for (const SaveGame::Item &i : save->items) {
+        if (!rules.cards) {
+            // Back from the game's numbers; one in hand to the bag.
+            int st = 4;
+            for (int k = 7; k >= 1; k--)
+                if (rules.saveStates[size_t(k)] == i.state)
+                    st = k;
+            addItem(_state, i.name, st == 3 ? 2 : st, i.slot);
+            continue;
+        }
         // Each as saved, in its slot (one in hand back in the bag).
         addItem(_state, i.name, i.state == 3 ? 2 : i.state, i.state == 5 || i.state == 6 ? -1 : i.slot);
+    }
     _state.itemPage = std::max(0, save->itemPage);
     _state.fresh.clear();
     for (const SaveGame::Position &p : save->positions)

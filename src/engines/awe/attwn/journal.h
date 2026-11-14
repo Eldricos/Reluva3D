@@ -80,7 +80,4 @@ private:
     const GameFonts *_fonts = nullptr; // the last draw's, for clicks
 };
 
-/** And Then There Were None's own window: its journal. */
-std::unique_ptr<GameOverlay> makeOverlay(OverlayHost &host);
-
 } // namespace reluva::awe::attwn

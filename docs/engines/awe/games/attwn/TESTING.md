@@ -27,7 +27,7 @@ Express has ([../motoe/TESTING.md](../motoe/TESTING.md)).
 
 ### What the automated checks don't cover
 
-A playthrough: the game isn't playable yet (no inventory), so there's no
+A playthrough: the game hasn't been played through yet, so there's no
 route or game-files test; `awe game-run <game> -v` starts every act and
 plays it to where it waits for the player.
 

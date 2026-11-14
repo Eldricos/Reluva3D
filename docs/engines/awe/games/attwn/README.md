@@ -32,12 +32,14 @@ code in both
 [interface](systems/interface.md) shares (the fonts, the dialogue box)
 and the [saves](systems/saves.md). What differs is in the per-game table
 (`games.h`), this game's entries in `attwn/attwn.cpp`.
-Phase 4, the game's own systems, is under way: its chapters, places,
+Phase 4, the game's own systems, is done: its chapters, places,
 cutscenes and title cards ([systems/acts.md](systems/acts.md)), the
 journal ([systems/journal.md](systems/journal.md)), suspicion, the menus
-and the save and load screens ([systems/saves.md](systems/saves.md)).
-The game isn't playable in `reluva` yet (no inventory): the data
-viewer's Scenes page and `awe game-run` play it.
+the save and load screens ([systems/saves.md](systems/saves.md)), the
+options screen ([systems/options.md](systems/options.md)) and the
+inventory ([systems/inventory.md](systems/inventory.md)). The game isn't
+marked playable in `reluva` until it's been played through (phase 5):
+the data viewer's Scenes page and `awe game-run` play it.
 
 ## Using it
 

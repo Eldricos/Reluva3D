@@ -314,7 +314,10 @@ void ScenePage::drawCursor() {
             return;
         }
         put(kCursors[kCursorEmpty], x, y);
-        put("inventory/items/" + item + "/cur" + item + ".png", x + 26, y + 26);
+        std::string art = _ctx.game ? _ctx.game->inventory.cursor : InventoryRules().cursor;
+        for (size_t at = art.find("%s"); at != std::string::npos; at = art.find("%s", at + item.size()))
+            art.replace(at, 2, item);
+        put(art, x + 26, y + 26);
         return;
     }
     if (cursor > 1 && cursor < kCursorCount)

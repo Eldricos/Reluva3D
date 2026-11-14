@@ -7,6 +7,7 @@
 #include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/attwn.h"
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/attwn/inventory.h"
 #include "engines/awe/attwn/journal.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/formats/ac2.h"
@@ -489,8 +490,12 @@ void testJournal(const std::filesystem::path &tmp) {
     state.act = "01a";
     std::vector<std::string> sounds;
     const image::Image none;
-    OverlayHost host{state, files, [&](const std::string &) -> const image::Image & { return none; },
-                     [&](const std::string &f) { sounds.push_back(f); }, [](const std::string &t) { return t; }};
+    OverlayHost host{state,
+                     files,
+                     [&](const std::string &) -> const image::Image & { return none; },
+                     [&](const std::string &f) { sounds.push_back(f); },
+                     [](const std::string &t) { return t; },
+                     [](const std::string &) {}};
     attwn::Journal j(host);
     // Its tables: three columns, the quotes off, short lines skipped.
     CHECK(j.entries(2).size() == 3 && j.entries(0).size() == 1 && j.entries(2)[0].text == "     Rogers,");
@@ -519,6 +524,78 @@ void testJournal(const std::filesystem::path &tmp) {
     for (int i = 0; i < 30; i++)
         j.update(0.05f);
     CHECK(!j.open() && j.x() == 754);
+}
+
+void testInventory(const std::filesystem::path &tmp) {
+    const std::filesystem::path dir = tmp / "inventory";
+    putFile(dir / "Text" / "itemlist.act",
+            scramble({"Item\tItem Name\tWhere\tActs\t2 Handed\tNotes\tDescription\tExamine\r\n",
+                      "Record\trecord\tx\t0\t0\t0\tA record\t0\r\n",
+                      "Letter\trogersletter\tx\t0\t0\t0\tA letter\t\"docs 65\"\r\n",
+                      "Shaker\tshaker\tx\t0\t0\t0\tA shaker\t0\r\n", "Frame\tframe\tx\t0\t0\t0\tA frame\t0\r\n"}));
+    putFile(dir / "Text" / "uselist.act", scramble({"Parts\tResult\tCan Decombine\tCan Combine\tCondition\tEvent\r\n",
+                                                    "\"shaker, frame\"\tfilledshaker\t0\t1\t1\t0\r\n"}));
+    attwn::GameFiles files;
+    CHECK(!files.open(dir));
+    GameState state;
+    std::vector<std::string> sounds;
+    std::vector<std::string> ran;
+    const image::Image none;
+    OverlayHost host{state,
+                     files,
+                     [&](const std::string &) -> const image::Image & { return none; },
+                     [&](const std::string &f) { sounds.push_back(f); },
+                     [](const std::string &t) { return t; },
+                     [&](const std::string &s) { ran.push_back(s); }};
+    attwn::Inventory inv(host);
+    for (const char *i : {"record", "shaker", "frame"})
+        addItem(state, i, 2);
+    // A new item blinks for 5 seconds, then it's in the bag.
+    addItem(state, "rogersletter", 1, 13);
+    inv.update(0.1f);
+    CHECK(inv.page() == 1 && inv.pages() == 3);
+    for (int i = 0; i < 60; i++)
+        inv.update(0.1f);
+    CHECK(state.fresh.empty() && state.findItem("rogersletter", {1}) == nullptr);
+    // Its sack opens it: it slides from -341 to -8.
+    CHECK(!inv.click(100, 100) && inv.click(-341 + 350, 20) && sounds.back() == "sound\\interface\\openclose.wav");
+    for (int i = 0; i < 30; i++)
+        inv.update(0.05f);
+    CHECK(inv.open() && inv.x() == -8);
+    // The arrows turn the pages, round from the end.
+    CHECK(inv.click(50, 35) && inv.page() == 0 && inv.click(50, 35) && inv.page() == 2);
+    inv.click(290, 35);
+    CHECK(inv.page() == 0);
+    // Picked up, and put down in the tray.
+    const int left = -8 + 34 + 5;
+    CHECK(inv.slotAt(left, 52) == 0 && inv.slotAt(left + 71, 52 + 71) == 5 && inv.slotAt(left, 265) == 144 &&
+          inv.slotAt(left + 61, 52) == -1);
+    CHECK(inv.click(left, 52) && state.held == "record" && sounds.back() == "sound\\interface\\click4.wav");
+    CHECK(inv.click(left, 265) && state.held.empty() && (inv.tray() == std::vector<std::string>{"record"}));
+    // Nothing to read on it; then it goes back to the page.
+    inv.examineButton();
+    CHECK(ran.back() == "talk narracottgen 38");
+    inv.click(left, 265);
+    inv.click(left, 52);
+    // Two that go together; then one that comes of them but not apart.
+    inv.click(left + 71, 52);
+    inv.click(left, 265);
+    inv.click(left + 142, 52);
+    inv.combineButton();
+    CHECK(ran.back() == "sound interface\\combine, talk narracottgen 4" &&
+          (inv.tray() == std::vector<std::string>{"filledshaker"}) && state.findItem("shaker", {4}));
+    inv.combineButton();
+    CHECK(ran.back() == "talk narracottgen 39");
+    // A document: read into the journal, and used up by its Docs tab.
+    inv.click(left, 265);
+    inv.click(left + 71, 52);
+    inv.click(290, 35);
+    inv.click(left + 71, 52);
+    inv.examineButton();
+    CHECK(ran.back() == "sounda interface\\notebook, wait .5, talk narracottgen 65, journal 2" &&
+          state.tags.count("read_rogersletter"));
+    inv.closeExamine(2, true);
+    CHECK(state.findItem("rogersletter", {4}) && inv.tray().empty());
 }
 
 void testDetection(const std::filesystem::path &tmp) {
@@ -562,5 +639,6 @@ static const reluva::test::Suite
                                  {"saves", [](const std::filesystem::path &) { testSaves(); }},
                                  {"chapters", [](const std::filesystem::path &tmp) { testChapters(tmp); }},
                                  {"journal", [](const std::filesystem::path &tmp) { testJournal(tmp); }},
+                                 {"inventory", [](const std::filesystem::path &tmp) { testInventory(tmp); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

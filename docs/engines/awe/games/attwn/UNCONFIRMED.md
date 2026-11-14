@@ -36,6 +36,13 @@ None yet.
   them: an object the base has already isn't added again. `ac.exe` reads
   the base, then the rest of the file (`0x42ca40`); whether it skips
   duplicates isn't read yet. [formats/ac1.md](formats/ac1.md).
+- **A saved item's state and page**: 1 new, 3 in the bag, 4 in hand, 5
+  used, 12 items a page, from the writer's numbers and the inventory's
+  own; the `ITEM` loader isn't read.
+  [systems/inventory.md](systems/inventory.md#in-a-saved-game).
+- **The close-up's movie is centred** on the screen, as its pictures
+  are; where `ac.exe` puts it isn't read.
+  [systems/inventory.md](systems/inventory.md#examine).
 
 ## Guessed
 

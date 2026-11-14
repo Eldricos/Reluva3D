@@ -76,11 +76,21 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
     // row for the item and its model ("antoinette" in
     // ...\antoinette_model.gr2), if its condition holds (0x41c4b0).
     if (target.tag == "NPCX" || target.tag == "PCXX") {
-        const Table &t = itemTable("uselist.txt");
+        const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
+        const Table &t = itemTable(rules.characters);
         const std::string model = fs::toLower(target.text("file"));
+        // The character's model by its name, or one it also goes by
+        // (And Then There Were None's brentknit for brent: 0x4194f0).
+        auto isModel = [&](const std::string &who) {
+            if (model.find(who + "_model") != std::string::npos)
+                return true;
+            for (const auto &[name, other] : _dialogue->rules().speakerElse)
+                if (who == name && model.find(std::string(other) + "_model") != std::string::npos)
+                    return true;
+            return false;
+        };
         for (size_t r = 0; r < t.rows.size(); r++) {
-            if (fs::toLower(unquoted(t.cell(r, 0))) != name ||
-                model.find(fs::toLower(unquoted(t.cell(r, 1))) + "_model") == std::string::npos ||
+            if (fs::toLower(unquoted(t.cell(r, 0))) != name || !isModel(fs::toLower(unquoted(t.cell(r, 1)))) ||
                 !testCondition(unquoted(t.cell(r, 2)), _state))
                 continue;
             release(4);
@@ -91,7 +101,7 @@ bool ScenePage::useItem(const std::string &item, const Ac2Record &target) {
     }
     // Nothing for it: Antoinette says so, and the item stays in hand.
     logScript("use " + name + ": (can't)");
-    runFromInventory("talk gen_cantuse 1", true);
+    runFromInventory(_ctx.game ? _ctx.game->inventory.cantUse : InventoryRules().cantUse, true);
     return false;
 }
 

@@ -205,7 +205,7 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
    - **The file names in the table**: the dialogue tables', the fonts' and
      the saves'. The rest above (the chapters, footsteps, inventory,
      journal) go in with the systems that use them, in phase 4.
-4. **The game's own systems** (large; under way).
+4. **The game's own systems** (large; done).
    - Chapters, acts and the chapter tables.
    - The still-picture cutscenes and the title cards.
    - The journal, the suspicion of each guest.
@@ -215,13 +215,15 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
    - The inventory (the sack, `Inventory/<item>/inv<item>.tga`,
      `cur<item>.tga`, `exm<item>.bik`).
 
-   Done so far (14 November 2026): chapters and acts, places and scenes,
+   Done (14 November 2026): chapters and acts, places and scenes,
    the start and the act's music ([systems/acts.md](systems/acts.md));
    cutscenes and title cards; `globalhide`; the journal
    ([systems/journal.md](systems/journal.md)); suspicion; the menus and
-   the save and load screens ([systems/saves.md](systems/saves.md)).
-   Every act starts and plays its start script with nothing left undone.
-   Left: the options screen as this game's, and the inventory.
+   the save and load screens ([systems/saves.md](systems/saves.md));
+   the options screen ([systems/options.md](systems/options.md)); the
+   inventory ([systems/inventory.md](systems/inventory.md)). Every act
+   starts and plays its start script with nothing left undone. Phase 4
+   is done; what's left of it shows in the systems' pages.
 5. **From a new game to the end** (large).
    - The route found by `awe game-run -solve` on this game, then
      `game-check`: by the mouse, by the hand, saved and loaded after every

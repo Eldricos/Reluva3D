@@ -84,8 +84,9 @@ save without `ACTI` takes the act's row from the chapter tables when
 it's loaded. `GameFlow` has the menus' scene names, the main menu's
 place and whether the letter keys open menus.
 
-Not yet: the options screen as this game's, `last.ac1`, what the three
-item numbers mean here, and the threads coded as this game's.
+The items' states are mapped to and from this game's
+([inventory.md](inventory.md#in-a-saved-game)). Not yet: `last.ac1`,
+and the threads coded as this game's.
 
 ## Sources and checks
 

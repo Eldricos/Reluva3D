@@ -9,7 +9,9 @@ reluva_add_engine(awe
     SOURCES
         attwn/attwn.cpp
         attwn/files.cpp
+        attwn/inventory.cpp
         attwn/journal.cpp
+        attwn/overlay.cpp
         attwn/acts.cpp
         attwn/script.cpp
         awe.cpp

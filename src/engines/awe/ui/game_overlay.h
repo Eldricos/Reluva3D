@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "image/image.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -31,6 +32,8 @@ struct OverlayHost {
     std::function<void(const std::string &file)> sound;
     /** interface.txt's text for a tag. */
     std::function<std::string(const std::string &tag)> text;
+    /** A script run on the main runner as the inventory runs one: the player stopped, what ran dropped. */
+    std::function<void(const std::string &script)> run;
 };
 
 /** A game's own window over its scenes. */
@@ -43,6 +46,18 @@ public:
     virtual void draw(Surface &dst, const GameFonts &fonts) = 0;
     /** A click at (x, y): true if it took it. */
     virtual bool click(int x, int y) = 0;
+    /** The mouse moved to (x, y). */
+    virtual void mouseMove(int x, int y) {
+        (void)x;
+        (void)y;
+    }
+    /** A right click, when the player can act: true if it took it. */
+    virtual bool rightClick() { return false; }
+    /** A key (its character, lower case, or reluva's key code): true if it took it. */
+    virtual bool key(uint32_t code) {
+        (void)code;
+        return false;
+    }
     /** A script verb of its own (`words[0]` lower case): true if it's one, done. */
     virtual bool verb(const std::vector<std::string> &words) = 0;
 };

@@ -319,8 +319,4 @@ bool Journal::verb(const std::vector<std::string> &words) {
     return true;
 }
 
-std::unique_ptr<GameOverlay> makeOverlay(OverlayHost &host) {
-    return std::make_unique<Journal>(host);
-}
-
 } // namespace reluva::awe::attwn

@@ -24,9 +24,10 @@ void addItem(GameState &state, const std::string &item, int st, int slot) {
     const std::string name = fs::toLower(item);
     if (name.empty())
         return;
-    if (name.rfind("pass", 0) == 0)
+    const bool cards = !state.game || state.game->inventory.cards;
+    if (cards && name.rfind("pass", 0) == 0)
         st = 5;
-    else if (name.rfind("print", 0) == 0)
+    else if (cards && name.rfind("print", 0) == 0)
         st = 6;
     GameState::Item added{name, st, 0};
     // Its slot: the one given (a saved game's), else the lowest free one

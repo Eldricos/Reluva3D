@@ -205,6 +205,21 @@ struct OptionsLayout {
     std::array<int, 6> boxRows{};
 };
 
+/**
+ * How a game's items are kept and used where the games differ. Orient
+ * Express's are the defaults (motoe.exe 0x41bc10, 0x419f20).
+ */
+struct InventoryRules {
+    bool cards = true; ///< items named pass... and print... are passports and fingerprint cards, apart
+    const char *cursor = "inventory/items/%s/cur%s.png"; ///< the item in hand's picture, `%s` its name twice
+    const char *characters = "uselist.txt";              ///< the table of items used on characters
+    const char *cantUse = "talk gen_cantuse 1";          ///< said when an item is used on nothing that takes it
+    const char *takeSound = nullptr;                     ///< played by "take", by its name (sound\<it>.wav)
+    /** The states a save writes for Reluva's (1 just taken, 2 in the bag, 3 in hand, 4 used...), by index. */
+    std::array<int, 8> saveStates{0, 1, 2, 3, 4, 5, 6, 7};
+    int perPage = 16; ///< items a page, for a save's page numbers
+};
+
 /** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
 struct GameSaves {
     SaveLayout layout;
@@ -266,6 +281,7 @@ struct GameInfo {
     GameSaves saves;               ///< its saved games' files
     GameFlow flow;                 ///< how it starts, its acts and scenes
     OptionsLayout options;         ///< its options screen
+    InventoryRules inventory;      ///< its items
     /** Its own window over its scenes (the journal); null: none. */
     std::unique_ptr<GameOverlay> (*overlay)(OverlayHost &host) = nullptr;
     const char *exe = nullptr; ///< its executable, in the game's folder

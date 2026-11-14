@@ -691,7 +691,8 @@ void ScenePage::makeOverlay() {
             std::string name = fs::toLower(fileNameOf(normalizeArchiveName(file)));
             playSound(name.substr(0, name.rfind('.')));
         },
-        [this](const std::string &tag) { return interfaceText(tag); }});
+        [this](const std::string &tag) { return interfaceText(tag); },
+        [this](const std::string &script) { runFromInventory(script, true); }});
     _overlay = _ctx.game->overlay(*_overlayHost);
 }
 
@@ -3544,6 +3545,9 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         }
         if (item != "this")
             addItem(_state, item, 1); // just taken (0x40b1de)
+        // And Then There Were None's sound for it (0x40d56e).
+        if (_ctx.game && _ctx.game->inventory.takeSound)
+            playSound(_ctx.game->inventory.takeSound);
         draw();
         return false;
     }
@@ -3679,8 +3683,20 @@ void ScenePage::handleEvent(const Event &event) {
     // The interface: the bar, the inventory, the item in hand
     // (scene_interface.cpp); or the game's own window.
     if (_overlay) {
+        if (ev.type == EventType::kMouseMove)
+            _overlay->mouseMove(ev.mouseX, ev.mouseY);
         if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft && _playing && interfaceShown() &&
             _overlay->click(ev.mouseX, ev.mouseY)) {
+            draw();
+            return;
+        }
+        if (ev.type == EventType::kKeyDown && _playing && interfaceShown() && !(ev.mods & keymod::kShift) &&
+            ev.key < 128 && _overlay->key(uint32_t(std::tolower(int(ev.key))))) {
+            draw();
+            return;
+        }
+        if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kRight && _playing && interfaceShown() &&
+            _runner->idle() && !_dialogue->active() && _overlay->rightClick()) {
             draw();
             return;
         }
@@ -3715,6 +3731,13 @@ void ScenePage::handleEvent(const Event &event) {
         if (puzzleActive())
             puzzleClick(ev.mouseX, ev.mouseY);
         _runner->setFromCharacter(false);
+        // A game's own inventory: an item in hand used on what's clicked
+        // (And Then There Were None's 0x416b9c -> 0x419380).
+        if (_overlay && !_state.held.empty()) {
+            if (const Ac2Record *on = pickAllowed(ev.mouseY) ? pickAt(ev.mouseX, ev.mouseY) : nullptr)
+                useItem(_state.held, *on);
+            return;
+        }
         // The object the game's pick finds there (0x41613c); one with
         // nothing to run is walked to like the floor. An item in hand was
         // used by the interface (interfaceEvent) before this.
