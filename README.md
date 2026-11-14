@@ -372,8 +372,16 @@ and commits and pull requests
 
 ## License
 
+Copyright (C) 2026 The Reluva contributors.
+
 Reluva is free software, licensed under the GNU General Public License,
-version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+version 3 or (at your option) any later version. [LICENSE](LICENSE) is the
+license's text, as the Free Software Foundation publishes it; it isn't
+changed. Each source file says the same in its first lines
+(`SPDX-License-Identifier: GPL-3.0-or-later` and the copyright line), as
+the license's "How to Apply These Terms" asks; `tools/check-headers.py`
+checks that every file does. Code in `third_party/` keeps its own
+licenses.
 
 The Indeo 5 decoder (`src/video/indeo5*`) is derived from FFmpeg's
 LGPL 2.1+ decoder by Maxim Poliakovski, used under the GPL 3 as the LGPL
