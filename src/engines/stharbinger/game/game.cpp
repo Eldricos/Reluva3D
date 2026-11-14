@@ -45,6 +45,7 @@ Game::~Game() {
 
 int Game::run(int startScene) {
     _system->initGraphics(kScreenWidth, kScreenHeight);
+    updateCaption(); // the game menu, where most starts land, sets none of its own
     if (_vm->getOptions().debug)
         std::printf("%s", kHelp);
     // The game starts with its menu unless a scene was asked for. The original

@@ -42,6 +42,7 @@ void runViewer(Harbinger &harbinger, const std::string &mode) {
     if (text::equalsIgnoreCase(mode, "video")) {
         if (startScene.empty())
             fatal("Playing one video needs it named in start_scene (in reluva.ini), e.g. INTRO/VNM.SMK");
+        harbinger.getSystem()->setWindowTitle("Reluva - Harbinger video: " + startScene);
         Game game(&harbinger);
         if (game.playVideoFile(startScene) != 0)
             fatal("The video DS9/%s isn't in the game's folders", startScene.c_str());
