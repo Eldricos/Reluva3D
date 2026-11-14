@@ -72,7 +72,7 @@ Notes for developers. Building and running are covered in the
   are in `src/devtools/`. Each engine's are in
   its `tools/` folder, by topic (`src/engines/idtech3/tools/qvm.cpp`), and
   are built only with the engine.
-- **Adding one.** Write it as `int cmdName(int argc, char** argv)` (its
+- **Adding one.** Write it as `int cmdName(int argc, char **argv)` (its
   name is `argv[1]`, its arguments start at `argv[2]`, with or without the
   engine's name before it), and add it to the table at the end of its
   file, with its arguments and a description:
@@ -89,8 +89,8 @@ Notes for developers. Building and running are covered in the
 
 ## Code style
 
-Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
-existing code in line is [code-style-migration.md](code-style-migration.md).
+Code follows [CODING_GUIDE.md](CODING_GUIDE.md); how the existing code
+was brought in line is in [code-style-migration.md](code-style-migration.md).
 Five tools check it; the first three need version 18 of their LLVM
 program (another lays code out differently):
 
@@ -121,11 +121,15 @@ program (another lays code out differently):
   the author and reviewer to judge. With `--changed` it looks only at the
   lines added.
 
-Run all four with `--changed` before a pull request. CI's "Code style"
-job does the same, and fails on an unformatted file, a clang-tidy finding
-or members declared together in a changed file; what `comments.py` flags
-shows as a warning on the pull request's lines, without failing it. A name that has to stay as it is (see the guide's
-Naming: Exceptions) gets a `// NOLINT(<check>): reason`. Generated files and `third_party/`
+Before a pull request, run `format.py`, `tidy.py`, `split_members.py` and
+`comments.py` with `--changed`, and `check-headers.py`, which looks at
+every file. CI's "Code style" job does the same, and fails on an
+unformatted file, a clang-tidy finding or members declared together in a
+changed file, or a file without its license lines; what `comments.py`
+flags shows as a warning on the pull request's lines, without failing it.
+A name that has to stay as it is (see the guide's Naming: Exceptions)
+gets a `// NOLINT(<check>): reason`, or `// NOLINTNEXTLINE(<check>): reason`
+on the line before when the reason is long. Generated files and `third_party/`
 are never formatted (`.clang-format-ignore`). Commits that only reformat
 or rename go in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once, and

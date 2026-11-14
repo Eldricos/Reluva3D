@@ -346,8 +346,7 @@ void ScenePage::updateHotspots() {
 void ScenePage::stopSound(const std::string &name) {
     // 0x4251c0: the first sound playing with that name (its file's).
     std::string key = fs::toLower(name);
-    if (const size_t slash = key.find_last_of("\\/"); slash != std::string::npos)
-        key = key.substr(slash + 1);
+    key = fileNameOf(key);
     if (key.empty() || !_ctx.mixer)
         return;
     for (auto it = _sounds.begin(); it != _sounds.end(); ++it)

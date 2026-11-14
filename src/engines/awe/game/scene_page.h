@@ -67,9 +67,15 @@ public:
     /** Whether the scene browser, a part of the data viewer, is reachable. */
     enum class Browser { kOn, kOff };
 
-    ScenePage(ViewerContext &ctx, Browser browser);
+    /**
+     * @param gameTitle The window's title without the browser (reluva's):
+     *                  the game's name. With it, the title is the page's
+     *                  and the scene file's, for the viewer.
+     */
+    ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle = {});
     ~ScenePage() override;
-    const char *name() const override { return "Scenes"; }
+    // The viewer's page name, or the game's (its screenshots are named after it).
+    const char *name() const override { return _browser ? "Scenes" : "Game"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
@@ -466,8 +472,10 @@ private:
     // Safe.
     void turnDial(int direction);
     void writeSafeTags();
+    // The n-th object of the scene whose file's name is `file` (lower
+    // case; 0x436660): the puzzles' parts, the options screen's controls.
+    const Ac2Record *objectWithFile(const std::string &file, int n = 0) const;
     // Puzzle box.
-    const Ac2Record *puzzleObject(const std::string &file, int n = 0) const;
     std::string boxEndPicture() const;
     std::string boxSidePicture() const;
     bool hitPicture(const Ac2Record *o, float x, float y, int px, int py) const;
@@ -753,6 +761,7 @@ private:
     std::unique_ptr<Story> _story;
     bool _playing = false;
     bool _browser = true; // Browser::kOn
+    std::string _gameTitle;
     std::map<std::string, audio::SoundHandle> _music;
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
     float _fade = 0;

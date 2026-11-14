@@ -4,6 +4,7 @@
 #include "engines/idtech3/client/session.h"
 
 #include "audio/mixer.h"
+#include "common/log.h"
 #include "common/settings.h"
 #include "common/zip.h"
 #include "engines/idtech3/client/menu_page.h"
@@ -135,13 +136,17 @@ void Session::switched(size_t /*from*/, size_t /*to*/) {
 
 // The game's files for a mod (or none), and their shader scripts.
 // Damaged archives or scripts don't stop the game; they're kept in
-// `warnings`.
+// `warnings` (the viewer's Files page lists them) and logged, so they're
+// seen in reluva too.
 Error Session::mountFiles(const std::string &mod, const std::vector<std::string> &skip,
                           std::vector<std::string> &warnings) {
+    const size_t before = warnings.size();
     if (Error err = mountGame(_files, _target.path, _target.savePath, _game.baseDir, mod, warnings, skip))
         return err;
     std::printf("Game files: %s%s\n", _game.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
     _shaders.load(_files, &warnings);
+    for (size_t i = before; i < warnings.size(); i++)
+        log::warning("%s", warnings[i].c_str());
     return Error::success();
 }
 

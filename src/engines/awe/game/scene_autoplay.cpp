@@ -123,7 +123,7 @@ std::vector<std::string> ScenePage::clickables() const {
         const Ac2Record *hot = o->part("HOTS");
         std::string name = !o->text("name").empty() ? o->text("name") : hot ? hot->text("name") : "";
         if (name.empty() && !o->text("file").empty())
-            name = fs::toLower(o->text("file").substr(o->text("file").find_last_of("\\/") + 1));
+            name = fs::toLower(fileNameOf(o->text("file")));
         if (name.empty())
             name = o->tag + "@" + std::to_string(o->i("left")) + "," + std::to_string(o->i("top"));
         out.push_back(name);

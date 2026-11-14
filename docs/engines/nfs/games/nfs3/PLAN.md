@@ -85,7 +85,7 @@ What was built:
   `GameTarget::settings`, which is how `cdpath` reaches the engine.
 - The engine shows an info screen: the folders, the music and movies on
   the CD, and the tracks and cars.
-- `tests/test_nfs.cpp` tests detection and folder finding on folders it
+- `tests/engines/nfs/unit/detection.cpp` tests detection and folder finding on folders it
   builds itself.
 
 Checked on the retail copy:
@@ -757,7 +757,7 @@ Started. Done so far:
         out: auto-balance and the centre modes.
       - `reluva-tool prologic in.wav prefix` writes the four channels as
         mono WAVs and prints levels window by window (`-window ms`, `-csv`,
-        `-passive`). Unit tests: `tests/test_prologic.cpp`.
+        `-passive`). Unit tests: `tests/common/prologic.cpp`.
     - **What the decoder makes of a race.** The same two races as above
       (modes 2 and 0, `-deterministic 50000`, `70000:+up`, 240 seconds;
       the `-voices` log gave the same counts again), from 72 seconds on,
@@ -1177,7 +1177,7 @@ Started. Done so far:
   Checked with `reluva-tool nfs host -ff -forcelog forces.csv`, which records the
   forces at each frame, on a race into a fence: the figures above are
   from it. The backend was checked on SDL's virtual joysticks
-  (`tests/test_sdl_controller.cpp`): a wheel's axes, pedals and buttons,
+  (`tests/common/sdl_controller.cpp`): a wheel's axes, pedals and buttons,
   and a pad's rumble. A real gamepad was tried by the user (November
   2026): driving and force feedback worked. A real wheel hasn't been
   tried yet, so how the forces feel on one is untested.

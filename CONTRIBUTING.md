@@ -40,7 +40,8 @@ them when you work on it). The tools that check it, and how to run them
 before a pull request, are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#code-style): `tools/format.py`,
 `tools/tidy.py`, `tools/split_members.py` and `tools/comments.py`, each
-with `--changed`. CI runs the same checks on what a pull request changes.
+with `--changed`, and `tools/check-headers.py` (every file's license
+lines). CI runs the same checks on what a pull request changes.
 AI coding tools get the same rules, in brief, from [AGENTS.md](AGENTS.md).
 
 ## Commits and pull requests

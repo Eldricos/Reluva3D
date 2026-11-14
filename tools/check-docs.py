@@ -26,7 +26,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Markdown that isn't the project's own.
-SKIP_DIRS = {".git", "build", "third_party", "node_modules"}
+SKIP_DIRS = {".git", "build", "out", "third_party", "node_modules"}
+# Build folders, as .gitignore has them (tools/tidy.py makes build-tidy/,
+# with SDL's and Dear ImGui's docs in it).
+SKIP_PREFIXES = ("build-", "cmake-build-")
 
 # Templates hold placeholders (<engine>) and links to pages that only exist
 # once a template is copied into place: their links aren't checked.
@@ -71,7 +74,7 @@ def problem(path, message):
 
 def markdown_files():
     for top, dirs, files in os.walk(ROOT):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith(SKIP_PREFIXES))
         for name in sorted(files):
             if name.endswith(".md"):
                 yield os.path.join(top, name)

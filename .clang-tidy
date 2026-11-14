@@ -132,7 +132,8 @@ CheckOptions:
 
   # --- Naming: Class Member Variables -- _coolVariable -----------------------
   # Private and protected data members. Public data members (a plain struct's
-  # fields: `target.path`) have no prefix; see the plan's open question.
+  # fields: `target.path`) have no prefix (docs/CODING_GUIDE.md, Class Member
+  # Variables).
   - key: readability-identifier-naming.PrivateMemberCase
     value: camelBack
   - key: readability-identifier-naming.PrivateMemberPrefix

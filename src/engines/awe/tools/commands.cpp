@@ -847,7 +847,8 @@ int cmdAweActs(int argc, char **argv) {
         problems += n;
     };
     for (const std::string &target : targets) {
-        awe::ScenePage page(ctx, awe::ScenePage::Browser::kOn);
+        // As reluva runs it: without the scene browser, its overlays or keys.
+        awe::ScenePage page(ctx, awe::ScenePage::Browser::kOff);
         std::vector<std::string> log;
         page.onLog = [&](const std::string &l) { log.push_back(l); };
         page.setDrawing(false);

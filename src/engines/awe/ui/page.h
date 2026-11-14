@@ -10,11 +10,14 @@
 #include "image/image.h"
 #include "common/system.h"
 #include "common/types.h"
+#include "engines/engine.h"
 #include "engines/awe/ui/game_text.h"
 
 #include <filesystem>
+#include <functional>
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -108,6 +111,25 @@ protected:
     const image::Image &picture(const std::string &name);
     std::map<std::string, image::Image> _pictures;
 };
+
+/** The pages to show, made once the window's context is set up. */
+using MakePages = std::function<std::vector<std::unique_ptr<Page>>(ViewerContext &ctx)>;
+
+/**
+ * Runs pages in the engine's window, with the game's files, fonts and sound
+ * (at the launcher's volume), until the player leaves (Escape no page takes,
+ * or back to the launcher) or a page quits. The first page with something
+ * to show starts; Tab moves on when there are several. F12 saves a
+ * screenshot in the save folder.
+ * @param nothing What none of the pages found ("scenes"), for the error.
+ */
+Error runPages(System &sys, const GameTarget &target, const MakePages &make, const std::string &nothing);
+
+/** The part of `path` after its last slash or backslash. */
+std::string fileNameOf(const std::string &path);
+
+/** The part of `path` before its last slash or backslash ("" if none). */
+std::string folderOf(const std::string &path);
 
 /** Whether `name` ends with one of `exts` (".jpg"), whatever their case. */
 bool hasExtension(const std::string &name, std::initializer_list<const char *> exts);

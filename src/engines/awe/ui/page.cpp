@@ -3,10 +3,13 @@
 
 #include "engines/awe/ui/page.h"
 
+#include "audio/mixer.h"
+#include "common/settings.h"
 #include "graphics/font.h"
 #include "common/fs.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 
@@ -20,6 +23,95 @@ bool startsWith(const std::string &name, const char *prefix) {
 }
 
 } // namespace
+
+Error runPages(System &sys, const GameTarget &target, const MakePages &make, const std::string &nothing) {
+    DirectoryArchive files;
+    if (Error err = files.open(target.path))
+        return err;
+    Surface screen;
+    screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+    audio::Mixer mixer(sys.audioRate());
+    mixer.setMasterVolume(settings::volume(target.settings, settings::kMasterVolume));
+    const bool audioOut = !audio::startMixerOutput(sys, mixer);
+    struct AudioStop { // stops the output before the mixer goes
+        System &sys;
+        bool on;
+        ~AudioStop() {
+            if (on)
+                sys.stopAudio();
+        }
+    } audioStop{sys, audioOut};
+    GameFonts fonts;
+    const bool haveFonts = !fonts.load(files);
+    ViewerContext ctx{sys, files, audioOut ? &mixer : nullptr, screen, target.savePath, haveFonts ? &fonts : nullptr,
+                      {},  -1};
+
+    // Made after what they draw with, so they go first.
+    const std::vector<std::unique_ptr<Page>> pages = make(ctx);
+    const auto shows = [&](size_t i) { return pages[i]->count() > 0; };
+    size_t page = 0;
+    while (page < pages.size() && !shows(page))
+        page++;
+    if (page == pages.size())
+        return Error::fail("No " + nothing + " found in " + target.path.string());
+    pages[page]->activate();
+
+    int shots = 0;
+    // Frames shown in the last second, after the title.
+    uint64_t second = sys.getMillis();
+    int frames = 0;
+    while (true) {
+        if (const uint64_t now = sys.getMillis(); now - second >= 1000) {
+            ctx.fps = int(frames * 1000 / (now - second));
+            ctx.setTitle(ctx.title);
+            second = now;
+            frames = 0;
+        }
+        frames++;
+        Event ev;
+        while (sys.pollEvent(ev)) {
+            Page &p = *pages[page];
+            if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher ||
+                (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !p.wantsEscape())) {
+                p.deactivate();
+                return Error::success();
+            }
+            if (ev.type == EventType::kKeyDown && ev.key == key::kF1 + 11) {
+                char name[48];
+                std::snprintf(name, sizeof name, "screenshots/%s_%03d.tga", p.name(), ++shots);
+                p.requestScreenshot(target.savePath / name);
+                continue;
+            }
+            if (ev.type == EventType::kKeyDown && ev.key == key::kTab && pages.size() > 1) {
+                p.deactivate();
+                do
+                    page = (page + 1) % pages.size();
+                while (!shows(page));
+                pages[page]->activate();
+                continue;
+            }
+            p.handleEvent(ev);
+            if (p.quitRequested()) {
+                p.deactivate();
+                return Error::success();
+            }
+        }
+        pages[page]->update(sys.getMillis());
+        // 3D pages are paced by presenting (vsync); the rest needn't spin.
+        if (!pages[page]->uses3D())
+            sys.delayMillis(10);
+    }
+}
+
+std::string fileNameOf(const std::string &path) {
+    const size_t slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+std::string folderOf(const std::string &path) {
+    const size_t slash = path.find_last_of("/\\");
+    return slash == std::string::npos ? std::string() : path.substr(0, slash);
+}
 
 bool hasExtension(const std::string &name, std::initializer_list<const char *> exts) {
     const std::string lower = fs::toLower(name);

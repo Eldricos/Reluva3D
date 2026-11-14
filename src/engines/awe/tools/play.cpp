@@ -142,7 +142,8 @@ public:
                                                           haveFonts ? &_fonts : nullptr,
                                                           {},
                                                           -1});
-        _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOn);
+        // As reluva runs it: without the scene browser, its overlays or keys.
+        _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOff);
         _page->cutLines = !sound;
         _page->onLog = [this](const std::string &l) {
             _log.push_back(l);
