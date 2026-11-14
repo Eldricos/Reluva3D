@@ -32,7 +32,12 @@ code in both
 [interface](systems/interface.md) shares (the fonts, the dialogue box)
 and the [saves](systems/saves.md). What differs is in the per-game table
 (`games.h`), this game's entries in `attwn/attwn.cpp`.
-Nothing is played yet: `reluva` says so.
+Phase 4, the game's own systems, is under way: its chapters, places,
+cutscenes and title cards ([systems/acts.md](systems/acts.md)), the
+journal ([systems/journal.md](systems/journal.md)), suspicion, the menus
+and the save and load screens ([systems/saves.md](systems/saves.md)).
+The game isn't playable in `reluva` yet (no inventory): the data
+viewer's Scenes page and `awe game-run` play it.
 
 ## Using it
 
@@ -53,7 +58,7 @@ with `data1.hdr` and the three cabinets in one folder; the game is
 |---|---|
 | This page | Where it stands, how to use it |
 | [formats/](formats/) | The game's files: [names and scrambled text](formats/files.md), [scenes (`.ac1`)](formats/ac1.md) |
-| [systems/](systems/) | How the game behaves: [the script runner](systems/script.md), [dialogue](systems/dialogue.md), [lighting](systems/lighting.md), [shadows](systems/shadows.md), [the interface](systems/interface.md), [saves](systems/saves.md) |
+| [systems/](systems/) | How the game behaves: [chapters and places](systems/acts.md), [the script runner](systems/script.md), [dialogue](systems/dialogue.md), [the journal](systems/journal.md), [lighting](systems/lighting.md), [shadows](systems/shadows.md), [the interface](systems/interface.md), [saves and menus](systems/saves.md) |
 | [PLAN.md](PLAN.md) | The survey of the install, the phases, the decisions |
 | [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
 | [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
