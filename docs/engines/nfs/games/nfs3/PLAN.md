@@ -988,7 +988,7 @@ Started. Done so far:
     (0x6fbc20, 0x6fbc24). It times RDTSC against its clock, and RDTSC
     counted instructions, so it found a 60 MHz processor and turned the
     horizon off. RDTSC now reads as a 300 MHz processor's would by the
-    game's clock (`Cpu::timestampCounter`). The game then picks the
+    game's clock (`Cpu::timeStamp`). The game then picks the
     highest levels and draws its sky dome, horizon picture and clouds.
     The levels are in the game's Options; a saved config can still have
     the horizon off.
