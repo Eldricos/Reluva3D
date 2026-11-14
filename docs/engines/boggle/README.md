@@ -52,6 +52,9 @@ to the launcher. Normal launches and New Board now use fresh native seeds;
 Replay keeps the current board. The shuffle differs from the original game.
 See [board variety and reproducible checks](randomization.md).
 
+**Cube style** in game options selects Automatic (default), Rounded or Angular.
+Automatic keeps the previous available-style preference. See [cube styles](cube-style.md).
+
 **Auto-orient cubes** keeps letters upright by default. Disable it in the
 launcher's game options for individual quarter-turn orientations, including Qu.
 Replay retains orientations; New Board changes them. Complete mesh mode now

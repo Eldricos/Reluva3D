@@ -117,7 +117,11 @@ Error ClassicArtwork::open(const Resources& resources,const std::filesystem::pat
     }
     if(options.handwriting && fs::findFile(root,"Fonts/KPSI.TTF"))
         if(auto error=resources.font("Fonts/KPSI.TTF",18,handwriting_))return error;
-    for(const auto* path:classicCubeMeshPaths)if(fs::findFile(root,path)) {
+    const std::string_view selected=options.cubeStyle==ClassicCubeStyle::Rounded?classicCubeMeshPaths[0]:
+                                    options.cubeStyle==ClassicCubeStyle::Angular?classicCubeMeshPaths[1]:"";
+    if(!selected.empty() && !fs::findFile(root,selected))
+        return Error::fail("Selected Classic cube style is missing; re-import the game or choose Automatic cube style");
+    for(const auto* path:classicCubeMeshPaths)if((selected.empty() || selected==path) && fs::findFile(root,path)) {
         CubeGeometry geometry;if(auto error=readClassicCubeGeometry(resources,path,geometry))return error;
         if(auto error=cubes_.prepare(geometry))return error;
         break;

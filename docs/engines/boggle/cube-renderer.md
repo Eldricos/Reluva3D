@@ -8,11 +8,12 @@ Round rules, board generation and accepted-word/scoring logic are unchanged.
 
 ## Resources and compatibility
 
-The renderer prefers `Scripts/Rounded.x` when present, otherwise `Scripts/Die.x`.
-This priority is a native policy; the original rounded-style preference/default
-is still awaiting VM comparison. There is no new mesh-style control in this
-pass. Both styles are validated, and external previews exercise both against
-the supplied scenes.
+[Cube style](cube-style.md) in launcher game options selects Automatic, Rounded
+or Angular. Automatic retains the preference for `Scripts/Rounded.x`, otherwise
+`Scripts/Die.x`, with the flat fallback when neither exists. Explicit selections
+load only that resource and report a missing selected mesh. This is a native
+control; the original rounded-style option label/default still await VM comparison.
+Both styles are validated, and external previews exercise the supplied scenes.
 
 The existing 55-file import already includes these two optional scripts.
 Re-import if your library predates [cube geometry preparation](cube-geometry.md).

@@ -135,6 +135,39 @@ void sideTexture() {
     }
     CHECK(red[0][0]>red[0][1]);CHECK(red[1][0]<red[1][1]);
 }
+void styleChoice(const std::filesystem::path& tmp) {
+    for(bool master:{false,true})for(bool rounded:{false,true}) {
+        const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
+        const auto chosen=rounded?"Scripts/Rounded.x":"Scripts/Die.x",other=rounded?"Scripts/Die.x":"Scripts/Rounded.x";
+        fixtures::write(root/chosen,fixtures::cubeMesh(rounded?7.2:1));fixtures::write(root/other,"malformed unselected mesh");
+        Resources resources;CHECK(!resources.open(root));ClassicOptions options;
+        options.variant=master?ClassicVariant::Master:ClassicVariant::Original;options.autoOrient=false;
+        options.cubeStyle=rounded?ClassicCubeStyle::Rounded:ClassicCubeStyle::Angular;
+        ClassicArtwork art;CHECK(!art.open(resources,root,options,{}) && art.usesCubeMesh());
+        DiceSet dice;Board board;CHECK(!resources.diceSet(options.dice(),dice));CHECK(!Board::generate(dice,6551,board));
+        for(size_t i=0;i<board.faces().size();++i){const auto p=art.cellCenter(i,board,6551);CHECK(art.cellAt(p.x,p.y,board,6551)==i);}
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(rounded));
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_cube_style",rounded?"rounded":"angular"},{"classic_auto_orient","0"},{"classic_animations","0"},{"classic_sound","0"}};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1){std::vector<Event> events;for(size_t i=0;i<4;++i){const auto p=art.cellCenter(i,board,6551);events.push_back(mouseEvent(EventType::MouseDown,p.x,p.y));}return events;}
+            if(f==2)return {mouseEvent(EventType::MouseDown,700,300)};
+            if(f==3)return {keyEvent(key::F1)};
+            if(f==4)return {keyEvent(key::Escape)};
+            return {};
+        };
+        ClassicGame game(sys,target);CHECK(!game.run());HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
+        options.cubeStyle=ClassicCubeStyle::Automatic;
+        const auto automatic=art.open(resources,root,options,{});CHECK(bool(automatic)==!rounded);
+        options.cubeStyle=rounded?ClassicCubeStyle::Angular:ClassicCubeStyle::Rounded;
+        CHECK(bool(art.open(resources,root,options,{})) && !art.active());
+        std::filesystem::remove(root/chosen);options.cubeStyle=rounded?ClassicCubeStyle::Rounded:ClassicCubeStyle::Angular;
+        const auto missing=art.open(resources,root,options,{});CHECK(bool(missing) && missing.message.find("missing")!=std::string::npos && !art.active());
+        options.artwork=false;CHECK(!art.open(resources,root,options,{}) && !art.active());
+        std::filesystem::remove(root/other);options.artwork=true;options.cubeStyle=ClassicCubeStyle::Automatic;
+        CHECK(!art.open(resources,root,options,{}) && art.active() && !art.usesCubeMesh());
+    }
+}
 void layout(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool rounded:{false,true}) {
         const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
@@ -179,5 +212,6 @@ static const test::Suite suite("boggle.unit.cube_renderer",{
     {"depth, Gouraud materials, Qu, rotation, centers, hit testing and clipping",[](const auto&){raster();}},
     {"physical die faces, rigid poses, side lettering and rotated picking",[](const auto&){physicalDice();}},
     {"rounded side bitmap mirror differs from angular template",[](const auto&){sideTexture();}},
+    {"explicit styles, missing assets, ignored alternatives and mouse scoring",styleChoice},
     {"both meshes and variants, lid masks, word entry, scoring and opt-out",layout},
 });

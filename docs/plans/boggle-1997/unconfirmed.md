@@ -350,3 +350,14 @@ three asymmetric invented vertices each (36 checks). Angular previews remain
 unchanged; rounded previews change side lettering while top alignment and picking
 remain covered. Native texture filtering and exact whole-screen matching remain
 comparison work, along with full/one-sided switching and the cube-style UI/default.
+
+### Cube-style selection
+
+The owner confirmed corrected side lettering works. The next
+[cube-style stage](../../engines/boggle/cube-style.md) exposes the already supported
+rounded/angular meshes through a per-target launcher choice. Automatic preserves
+the previous available-resource policy. Three external profile/path checks
+corroborate the original `CubeQuality` resource selection. The original UI's
+label/default remain pending VM confirmation; native Automatic is a compatibility
+policy. Full/one-sided switching, pause audio, dialogs and exact whole-screen
+appearance remain comparison work.

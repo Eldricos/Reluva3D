@@ -48,7 +48,8 @@ remapping, transforms, lighting, selection and hit testing consistently.
 The precise Classic use of full versus one-sided visuals remains unverified.
 
 The source has a rounded-style preference, but its default and VM appearance
-remain comparison work. No new mesh-style setting is exposed in this stage.
+remain comparison work. No mesh-style setting was exposed by this preparation stage. The subsequent
+[cube-style selector](cube-style.md) now offers Automatic, Rounded and Angular.
 The established [camera](camera.md), [lid composition](lid-animation.md) and
 [human hand cursor](human-cursor.md) continue to use their tested rendering.
 

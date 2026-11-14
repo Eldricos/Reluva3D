@@ -15,9 +15,11 @@ inline constexpr std::array<const char*,15> classicMusicFiles = {
 inline constexpr int musicNone = -1, musicRandom = -2;
 enum class ClassicTurnMode { Traditional, Chess };
 enum class ClassicVariant { Original, Master };
+enum class ClassicCubeStyle { Automatic, Rounded, Angular };
 struct ClassicOptions {
     ClassicTurnMode turns=ClassicTurnMode::Traditional;
     ClassicVariant variant = ClassicVariant::Original;
+    ClassicCubeStyle cubeStyle = ClassicCubeStyle::Automatic;
     uint64_t duration = 180000; // milliseconds; zero means Not Timed
     bool cursor = false; // animate visible computer word paths
     bool background = false; // hidden computers alongside human turns

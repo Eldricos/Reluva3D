@@ -23,6 +23,15 @@ void settings() {
         CHECK(options.side() == 4 && options.duration == 180000);
     }
     CHECK(options.music == musicNone && options.autoOrient);
+    CHECK(options.cubeStyle==ClassicCubeStyle::Automatic);
+    CHECK(!readClassicOptions({{"classic_cube_style","rounded"}},options));CHECK(options.cubeStyle==ClassicCubeStyle::Rounded);
+    CHECK(!readClassicOptions({{"classic_cube_style","angular"}},options));CHECK(options.cubeStyle==ClassicCubeStyle::Angular);
+    CHECK(!readClassicOptions({{"classic_cube_style","auto"}},options));CHECK(options.cubeStyle==ClassicCubeStyle::Automatic);
+    for(const char* bad:{"", "Rounded", "0", "1", "flat", " rounded", "angular "}) {
+        CHECK(bool(readClassicOptions({{"classic_cube_style",bad}},options)));
+        CHECK(options.cubeStyle==ClassicCubeStyle::Automatic);
+    }
+
     CHECK(!readClassicOptions({{"classic_auto_orient","0"}},options));CHECK(!options.autoOrient);
     CHECK(!readClassicOptions({{"classic_auto_orient","1"}},options));CHECK(options.autoOrient);
     for (const char* bad : {"", "-1", "15", "01", "+1", " 1", "1x", "999999999999999999"})
@@ -33,7 +42,7 @@ void settings() {
 void advertised(const std::filesystem::path& tmp) {
     const auto* meta = findEngine("boggle"); CHECK(meta); if (!meta) return;
     const auto options = meta->options("boggle1997", tmp);
-    CHECK(options.size() == 10); CHECK(meta->options("unknown",tmp).empty());
+    CHECK(options.size() == 11); CHECK(meta->options("unknown",tmp).empty());
     std::map<std::string,std::string> defaults;
     std::set<std::string> seconds;
     for (const auto& option : options) {
@@ -51,7 +60,7 @@ void advertised(const std::filesystem::path& tmp) {
     }
     CHECK(seconds == std::set<std::string>({"0","60","90","120","150","180","210","240","270","300"}));
     ClassicOptions parsed; CHECK(!readClassicOptions(defaults, parsed));
-    CHECK(parsed.variant == ClassicVariant::Original && parsed.duration == 180000);
+    CHECK(parsed.variant == ClassicVariant::Original && parsed.duration == 180000 && parsed.cubeStyle==ClassicCubeStyle::Automatic);
 }
 }
 static const test::Suite suite("boggle.unit.options", {

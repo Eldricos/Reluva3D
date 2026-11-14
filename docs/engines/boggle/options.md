@@ -105,6 +105,21 @@ Older copies without the additional bundle use the prototype view. Set `0`
 to select that view explicitly. This does not mute audio or skip round clips.
 See [layout and resource requirements](layout.md).
 
+## Cube style
+
+**Cube style** (`classic_cube_style`) offers **Automatic (default)** (`auto`),
+**Rounded** (`rounded`) and **Angular** (`angular`). Automatic preserves the
+previous policy: prefer rounded when available, otherwise angular, and keep the
+flat fallback if neither mesh exists. An explicit choice requires that style's
+mesh when installed artwork is active; re-import the game or select Automatic
+if it is missing. Disabling installed artwork keeps the prototype view.
+
+This setting applies on the next launch and persists per game in the launcher.
+It covers both variants, transitions, review and picking. It does not change
+letters, dice selection, rules, scoring or seeded orientations. See
+[cube-style selection and evidence](cube-style.md). Automatic is a native
+compatibility choice; the original VM's option label/default remain unverified.
+
 ## Cube orientation
 
 **Auto-orient cubes** (`classic_auto_orient`, default `1`) keeps all English
@@ -116,7 +131,8 @@ The owner observed an auto-orient option in the original VM: enabled cubes
 share an orientation; disabled cubes can have quarter-turn orientations.
 The native implementation uses an independent deterministic presentation seed.
 It does not consume the board generator or alter letters, adjacency, submitted
-words, scoring or hit-test geometry. Replay keeps orientations; New Board uses
+words or scoring. Installed mesh picking follows the rotated geometry.
+Replay keeps orientations; New Board uses
 the new board seed. The native default preserves the existing upright view;
 the original default and exact orientation generator are not established.
 The owner subsequently confirmed that cubes start randomly oriented when
