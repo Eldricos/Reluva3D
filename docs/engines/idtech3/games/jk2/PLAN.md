@@ -86,10 +86,16 @@ behind the DLL's own tables.
    Videos page (the opening logos with their sound) and as `videoMap`
    textures. Cinematics open through `CinematicMovie` (Bink or RoQ by
    file type), ready for single player.
-5. **Multiplayer menus**: a host for `ui.qvm` (`jk2/ui_host`), its system
-   calls worked out from the bytecode (`qvm-info`, `qvm-refs`); fonts,
-   strings and the player model (Ghoul2) in the menus. Ends with:
-   multiplayer's menus run, Setup works, the model in Player settings.
+5. **Multiplayer menus** (done): a host for `ui.qvm` (`jk2/ui_host`,
+   behind `client/menu_host.h`, which Elite Force's host shares), its
+   system calls checked against the bytecode
+   ([systems/syscalls.md](systems/syscalls.md)); the menu scripts through
+   the engine's script reader, Raven's fonts and string packages, the
+   turning emblem of the main menu, the menus' music. The main menu, Play,
+   Setup, Controls and Create Server open and draw. The
+   multiplayer menus show players as icons, so there's no model in Player
+   settings to draw; Ghoul2 in a menu waits for single player's. The
+   server lists stay empty until the network comes (phase 6).
 6. **Multiplayer game**: `jk2mpgame.qvm` and `cgame.qvm` hosts, their
    system calls, and the engine's Ghoul2 calls they make (animation, bolts,
    collision against Ghoul2 models for hits and the saber); the Play page

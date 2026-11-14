@@ -209,6 +209,11 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
         for (const auto &[n, g] : kGens)
             if (a0 == n)
                 stage.rgbGen = g;
+        // The vertices' alpha too, unless an alphaGen came first: the
+        // original's rule, which blended pictures over the menus rely on
+        // (Jedi Outcast's "white" has no alphaGen).
+        if (stage.rgbGen == R::kVertex && stage.alphaGen == ShaderStage::AlphaGen::kDefault)
+            stage.alphaGen = ShaderStage::AlphaGen::kVertex;
         if (stage.rgbGen == R::kWave)
             stage.rgbWave = readWave(args, 1);
         else if (stage.rgbGen == R::kConst)

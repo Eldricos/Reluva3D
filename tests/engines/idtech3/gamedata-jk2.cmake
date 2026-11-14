@@ -21,6 +21,9 @@
 #   jk2-images    the images every map's shaders name (image-check)
 #   jk2-videos    two RoQ videos decoded, their pictures and sound recorded
 #                 (roq-decode)
+#   jk2-menus     the multiplayer menus: the main menu, Setup, and Create
+#                 Server by way of Play (ui-run, clicking in the menus'
+#                 640 x 480)
 # Records: tests/engines/idtech3/data/gamedata/jk2-<release>/<step>.txt.
 
 include("${HELPERS}")
@@ -64,6 +67,10 @@ elseif(STEP STREQUAL "jk2-videos")
         record_file(${video}.sound "${pcm}")
         file(REMOVE "${yuv}" "${pcm}")
     endforeach()
+elseif(STEP STREQUAL "jk2-menus")
+    record_run(main-menu "" idtech3 ui-run "${base}" -frames 30)
+    record_run(setup "" idtech3 ui-run "${base}" -frames 10 -click 570 125)
+    record_run(create-server "" idtech3 ui-run "${base}" -frames 10 -click 179 126 -click 373 284)
 else()
     message(FATAL_ERROR "No step \"${STEP}\"")
 endif()

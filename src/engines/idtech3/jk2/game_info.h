@@ -8,7 +8,7 @@
 namespace reluva::idtech3::jk2 {
 
 // Star Wars Jedi Knight II: Jedi Outcast, as the shared id Tech 3 code sees
-// it. No game code runs yet: its files can be looked at, not played.
+// it. Of its game code, only its multiplayer menus run yet.
 GameInfo gameInfo();
 
 } // namespace reluva::idtech3::jk2

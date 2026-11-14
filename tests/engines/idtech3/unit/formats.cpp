@@ -195,6 +195,17 @@ env/sky
     const ShaderDef &sky = defs[1];
     CHECK(sky.sky && sky.skyFarBox == "env/space" && sky.cloudHeight == 512 && sky.sort == 7);
     CHECK(sky.fog && sky.fogColor[0] == 0.5f && sky.fogColor[1] == 0.25f && sky.fogDistance == 300);
+
+    // rgbGen vertex brings the vertices' alpha, unless an alphaGen came first.
+    defs.clear();
+    CHECK(!parseShaderFile("a\n{\n{\nmap $whiteimage\nrgbGen vertex\n}\n{\nmap b\nalphaGen const 0.5\nrgbGen "
+                           "vertex\n}\n}\n",
+                           "y.shader", defs));
+    CHECK(defs.size() == 1 && defs[0].stages.size() == 2);
+    if (defs.size() == 1 && defs[0].stages.size() == 2) {
+        CHECK(defs[0].stages[0].alphaGen == ShaderStage::AlphaGen::kVertex);
+        CHECK(defs[0].stages[1].alphaGen == ShaderStage::AlphaGen::kConst);
+    }
 }
 
 static void testWaves() {
@@ -468,6 +479,8 @@ static void testRavenText() {
         CHECK(pieces[2].x == 100 && pieces[2].y == 62 + 16 - 2 && pieces[2].w == 4);
     }
     CHECK(font.layout("AAAA", 0, 0, 1, 30).size() == 2); // the third would pass 30
+    // Three letters and spaces at most; colour codes and new lines don't count.
+    CHECK(font.layout("^1A\nA AA", 0, 0, 1, -1, 3).size() == 2);
     CHECK(parseFontdat(std::vector<uint8_t>(100), "x", font));
 }
 

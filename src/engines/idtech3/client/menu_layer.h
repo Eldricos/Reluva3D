@@ -5,7 +5,7 @@
 
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/scene_drawer.h"
-#include "engines/idtech3/eliteforce/ui_host.h"
+#include "engines/idtech3/client/menu_host.h"
 #include "engines/idtech3/audio/sounds.h"
 
 #include <map>
@@ -42,7 +42,7 @@ public:
     void show(int32_t menu);
     void reset();
     bool running() const { return _ui != nullptr; }
-    eliteforce::UiHost *ui() { return _ui.get(); }
+    MenuHost *ui() { return _ui.get(); }
     // Whether they're taking the keys (shown, not closed by the player).
     bool open() const { return _ui && (_ui->catcher() & kCatchUi); }
 
@@ -67,7 +67,7 @@ public:
     // Set before start(): the server list's (the Menu page's), and what
     // the menus are told of the connection and its configstrings.
     ServerBrowser *browser = nullptr;
-    std::function<void(eliteforce::UiHost &)> configure;
+    std::function<void(MenuHost &)> configure;
 
 private:
     void stop(const Error &err);
@@ -84,7 +84,7 @@ private:
     std::unique_ptr<ShaderCache> _shaders;
     std::unique_ptr<ModelCache> _models; // the models the menus show
     std::unique_ptr<SceneDrawer> _scene; // their pictures and scenes
-    std::unique_ptr<eliteforce::UiHost> _ui;
+    std::unique_ptr<MenuHost> _ui;
     size_t _commandsSeen = 0; // of _ui->commands()
     std::vector<std::string> _commands;
     SoundLibrary _sounds{_ctx.files};

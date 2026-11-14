@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/jk2/game_info.h"
 
+#include "engines/idtech3/jk2/ref_entity.h"
+
 namespace reluva::idtech3::jk2 {
 
 // From the English 1.02a files (docs/engines/idtech3/games/jk2/README.md).
@@ -12,6 +14,12 @@ GameInfo gameInfo() {
     g.name = "Star Wars Jedi Knight II: Jedi Outcast";
     g.baseDir = "base";
     g.shaderDir = "shaders";
+    // Its multiplayer menus run; the rest of its game code doesn't yet.
+    g.code = GameCode::kJediOutcast;
+    g.multiplayerName = "Multiplayer";
+    // The multiplayer engine's (default.cfg is single player's).
+    g.defaultConfig = "mpdefault.cfg";
+    g.refEntity = kRefEntityLayout;
     // The CD holds the game as an install has it, in GAMEDATA/GameData;
     // an install puts it in GameData under the folder it was given.
     g.installFolders = {"GameData", "GAMEDATA/GameData"};
