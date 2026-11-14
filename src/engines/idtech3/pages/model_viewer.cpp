@@ -36,7 +36,7 @@ std::string folderOf(const std::string &path) {
 
 } // namespace
 
-ModelViewer::ModelViewer(ViewerContext &ctx) : Page(ctx) {
+ModelViewer::ModelViewer(PageContext &ctx) : Page(ctx) {
     std::set<std::string> names;
     for (const std::string &n : ctx.files.list())
         names.insert(normalizeArchiveName(n));

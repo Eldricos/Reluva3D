@@ -45,9 +45,11 @@ from, see [PORTING.md](PORTING.md).)
 - The game's pointer is the system's pointer, scaled with the picture.
 - Alt+Enter switches between a window and full screen; Ctrl+F5 goes back
   to the launcher. The game pauses while its window isn't in front.
-- The developer settings (the resource viewer, console output, a section
-  of the story or a space combat to start in, the CDs' folders) are off
-  unless set ([README.md](README.md#developer-settings)).
+- The developer settings (console output, a section of the story or a
+  space combat to start in, the CDs' folders) are off unless set
+  ([README.md](README.md#developer-settings)). The resource viewer is
+  `reluva-viewer`'s, not the game's
+  ([PORTING.md](PORTING.md#the-resource-viewer)).
 - The saves and the menu's settings live in the game's own folder of
   Reluva's (`games/<entry>/`) instead of the game's install folder.
 - No CD is needed in a drive, and none is swapped: both CDs' files are

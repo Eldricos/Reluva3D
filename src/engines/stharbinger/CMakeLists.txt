@@ -26,7 +26,14 @@ reluva_add_engine(stharbinger
         game/game_menu.cpp
         game/game_save.cpp
         game/game_script.cpp
-        game/game_video.cpp
+        game/game_video.cpp)
+
+# Its data viewer, the scene viewer, for reluva-viewer only: reluva, which
+# players get, doesn't link it. See docs/DEVELOPMENT.md (The data viewer).
+reluva_add_engine_viewers(stharbinger
+    ACCESSOR stharbingerMetaViewer
+    SOURCES
+        pages/meta_viewer.cpp
         pages/viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help stharbinger lists them).

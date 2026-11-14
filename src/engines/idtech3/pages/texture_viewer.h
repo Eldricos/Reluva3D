@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 
 #include <string>
 #include <vector>
@@ -12,7 +12,7 @@ namespace reluva::idtech3 {
 
 class TextureViewer : public Page {
 public:
-    explicit TextureViewer(ViewerContext &ctx);
+    explicit TextureViewer(PageContext &ctx);
     const char *name() const override { return "Textures"; }
     size_t count() const override { return _names.size(); }
     void activate() override { show(_index); }

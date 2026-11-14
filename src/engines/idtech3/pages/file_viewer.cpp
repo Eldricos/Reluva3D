@@ -12,7 +12,7 @@ namespace reluva::idtech3 {
 
 // --- FileViewer -------------------------------------------------------------------------
 
-FileViewer::FileViewer(ViewerContext &ctx) : Page(ctx) {
+FileViewer::FileViewer(PageContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {
         const Archive *a = ctx.files.find(n);
         _files.push_back({n, a ? std::filesystem::path(a->describe()).filename().string() : std::string()});

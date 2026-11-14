@@ -2,8 +2,8 @@
 # Copyright (C) 2026 The Reluva contributors
 
 # The NetImmerse engine: LEGO Alpha Team (docs/engines/netimmerse/). The
-# game's own program and DLLs run in the x86 emulator (src/emulation/x86/);
-# without them, its data viewer. See docs/ADDING_AN_ENGINE.md.
+# game's own program and DLLs run in the x86 emulator (src/emulation/x86/).
+# See docs/ADDING_AN_ENGINE.md.
 reluva_add_engine(netimmerse
     ACCESSOR netImmerseMetaEngine
     SOURCES
@@ -13,7 +13,14 @@ reluva_add_engine(netimmerse
         formats/data.cpp
         formats/ddf.cpp
         formats/fin.cpp
-        formats/pac_archive.cpp
+        formats/pac_archive.cpp)
+
+# Its data viewer, for reluva-viewer: the archives, models, textures,
+# fonts, sounds and text.
+reluva_add_engine_viewers(netimmerse
+    ACCESSOR netImmerseMetaViewer
+    SOURCES
+        pages/viewer.cpp
         pages/model_page.cpp
         pages/viewers.cpp)
 

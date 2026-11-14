@@ -44,6 +44,10 @@ endif()
 
 option(RELUVA_USE_SYSTEM_SDL "Use an installed SDL3 instead of building it" OFF)
 option(RELUVA_BUILD_TESTS "Build unit tests" ON)
+# The games' debug keys and the launcher's "Developer:" settings, for
+# working on the engines: release builds for players turn them off
+# (src/common/developer.h).
+option(RELUVA_DEVELOPER_KEYS "Build in the games' debug keys and developer settings" ON)
 if(RELUVA_BUILD_TESTS)
     enable_testing()
 endif()
@@ -129,6 +133,7 @@ add_subdirectory(src/emulation)
 add_library(reluva_shared INTERFACE)
 target_link_libraries(reluva_shared INTERFACE reluva_common reluva_audio reluva_graphics reluva_image reluva_video
                                               reluva_emulation)
+target_compile_definitions(reluva_shared INTERFACE RELUVA_DEVELOPER_KEYS=$<BOOL:${RELUVA_DEVELOPER_KEYS}>)
 
 # --- engines: talk only to the shared code (reluva_shared) ---------------------
 # Each engine's own CMakeLists.txt (src/engines/<engine>/) declares it; the
@@ -145,7 +150,7 @@ add_subdirectory(src/backends)
 add_subdirectory(src/gui)
 # reluva: the program (src/base/)
 add_subdirectory(src/base)
-# reluva-render-check and reluva-tool (src/devtools/)
+# reluva-viewer, reluva-render-check and reluva-tool (src/devtools/)
 add_subdirectory(src/devtools)
 
 # --- tests ----------------------------------------------------------------------

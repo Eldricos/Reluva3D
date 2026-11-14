@@ -14,6 +14,7 @@
 #include "engines/stgenerations/debug.h"
 #include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/game/random.h"
+#include "engines/stgenerations/pages/resource_viewer.h"
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/tools/scripted_system.h"
 #include "devtools/tool.h"
@@ -23,6 +24,7 @@
 #include <cstring>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <string>
 
 namespace {
@@ -78,6 +80,7 @@ int cmdPlay(int argc, char **argv) {
     uint32_t seed = 1;
     bool listFrames = false;
     ScriptedSystem sys;
+    bool viewer = false;
     std::map<uint64_t, std::string> shots;
     for (int i = 3; i < argc; i++) {
         const std::string a = argv[i];
@@ -89,7 +92,7 @@ int cmdPlay(int argc, char **argv) {
         else if (a == "--cd2")
             options.cd2 = v, ++i;
         else if (a == "--viewer")
-            options.viewer = true;
+            viewer = true;
         else if (a == "--story")
             options.story = v, ++i;
         else if (a == "--combat")
@@ -166,8 +169,9 @@ int cmdPlay(int argc, char **argv) {
     Platform platform(sys, &mixer, saves);
     Error err;
     {
-        Generations game(&platform, options);
-        err = game.run();
+        std::unique_ptr<Generations> game = viewer ? std::make_unique<ResourceViewer>(&platform, options)
+                                                   : std::make_unique<Generations>(&platform, options);
+        err = game->run();
     }
     std::printf("%d frames shown, until %llu ms; the last %s\n", frames, static_cast<unsigned long long>(lastAt),
                 last.c_str());

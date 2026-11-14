@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# Need for Speed III: Hot Pursuit (docs/engines/nfs/): its files read and
-# shown, and the retail game run in the x86 emulator (host/). See the main
-# README (Adding an engine) and docs/ADDING_AN_ENGINE.md.
+# Need for Speed III: Hot Pursuit (docs/engines/nfs/): its files read, and
+# the retail game run in the x86 emulator (host/), shown by the Play page
+# (ui/). See the main README (Adding an engine) and docs/ADDING_AN_ENGINE.md.
 reluva_add_engine(nfs
     ACCESSOR nfsMetaEngine
     SOURCES
@@ -25,11 +25,8 @@ reluva_add_engine(nfs
         formats/hrz.cpp
         render/particles.cpp
         render/thrash_gpu.cpp
-        pages/viewers.cpp
-        pages/car_viewer.cpp
-        pages/track_viewer.cpp
-        pages/media_viewer.cpp
-        pages/play_page.cpp
+        ui/page.cpp
+        ui/play_page.cpp
         host/game_host.cpp
         host/directx.cpp
         host/force_effects.cpp
@@ -39,6 +36,17 @@ reluva_add_engine(nfs
         host/serial.cpp
         host/thrash.cpp
         host/thrash_native.cpp)
+
+# Its data viewer, in reluva-viewer and never in the game: the files'
+# pictures, models, tracks, sounds and text, beside the game's Play page.
+reluva_add_engine_viewers(nfs
+    ACCESSOR nfsMetaViewer
+    SOURCES
+        pages/viewer.cpp
+        pages/viewers.cpp
+        pages/car_viewer.cpp
+        pages/track_viewer.cpp
+        pages/media_viewer.cpp)
 
 # Its reluva-tool commands (reluva-tool help nfs lists them). WITH_SDL: the
 # host command's GPU work (the Glide stand-in on the GPU) goes through the

@@ -135,7 +135,7 @@ Answering 57 as if it were `GetCDKey` had overwritten the typed key with
 an empty one and declined every key. The menus never read the key back.
 
 Reluva's side: `src/engines/idtech3/eliteforce/ui_host.cpp`, run by
-`reluva-tool idtech3 ui-run` and shown by the Menu page (`pages/menu_viewer.cpp`).
+`reluva-tool idtech3 ui-run` and shown by the Menu page (`client/menu_page.cpp`).
 
 ### Game logic (`vm/qagame.qvm`)
 

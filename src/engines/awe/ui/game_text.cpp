@@ -6,6 +6,7 @@
 #include "common/fs.h"
 #include "engines/awe/formats/tables.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -207,6 +208,13 @@ std::vector<Subtitle> parseSubtitles(std::string_view text) {
         out.push_back(std::move(s));
     }
     return out;
+}
+
+std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string &movie) {
+    all.erase(std::remove_if(all.begin(), all.end(),
+                             [&](const Subtitle &s) { return !s.name.empty() && fs::toLower(s.name) != movie; }),
+              all.end());
+    return all;
 }
 
 // Text's rows as the game makes them (0x43d9b0 counts a dialogue line's,

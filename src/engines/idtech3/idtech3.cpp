@@ -9,31 +9,16 @@
 // released under the GPL (version 2 or later, so usable in this GPLv3
 // project). See CONTRIBUTING.md: never use leaked or unlicensed code.
 //
-// For now the engine is a data viewer (see pages/page.h for the keys): it
-// mounts the game's search path and shows its files, textures and maps.
-// Ctrl+Tab switches pages (Tab itself belongs to the game: its scores, its
-// objectives); Esc goes back to the launcher (on the Menu page Ctrl+Esc,
-// as the menus take Esc).
+// A game runs in a Session (client/session.h): the Start page, then
+// single player or Holomatch, with the game's own code. The data viewer,
+// pages showing the game's files, is reluva-viewer's (pages/viewer.cpp).
 
-#include "audio/mixer.h"
 #include "common/fs.h"
-#include "common/settings.h"
-#include "common/zip.h"
 #include "engines/engine.h"
+#include "engines/idtech3/client/session.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/games.h"
-#include "engines/idtech3/formats/shader.h"
-#include "engines/idtech3/pages/file_viewer.h"
-#include "engines/idtech3/pages/map_viewer.h"
-#include "engines/idtech3/pages/menu_viewer.h"
-#include "engines/idtech3/pages/model_viewer.h"
-#include "engines/idtech3/pages/play_viewer.h"
-#include "engines/idtech3/pages/sp_play_viewer.h"
-#include "engines/idtech3/pages/start_page.h"
-#include "engines/idtech3/pages/texture_viewer.h"
-#include "engines/idtech3/pages/world_viewer.h"
 
-#include <cstdio>
 #include <memory>
 
 namespace reluva {
@@ -41,255 +26,6 @@ namespace reluva {
 namespace {
 
 using namespace idtech3;
-
-constexpr int kScreenW = 640;
-constexpr int kScreenH = 480;
-
-class IdTech3Engine : public Engine {
-public:
-    IdTech3Engine(System &system, GameTarget target, const GameInfo &game)
-        : _sys(system), _target(std::move(target)), _game(game) {}
-
-    Error run() override {
-        std::vector<std::string> warnings;
-        // The Expansion Pack, unless this game's entry says to leave it out.
-        const auto setting = _target.settings.find("expansion");
-        const bool expansion = setting == _target.settings.end() || setting->second != "0";
-        const std::vector<std::string> skip =
-            expansion ? std::vector<std::string>{} : std::vector<std::string>{kExpansionPak};
-        // The mod the entry plays (as the original's +set fs_game), if any.
-        const auto modSetting = _target.settings.find("mod");
-        std::string mod =
-            modSetting == _target.settings.end() ? std::string() : modFolderName(modSetting->second, _game.baseDir);
-        if (Error err = mountFiles(mod, skip, warnings))
-            return err;
-
-        if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
-            return err;
-        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
-
-        // One mixer for every page's sounds; without audio output, none.
-        audio::Mixer mixer(_sys.audioRate());
-        mixer.setMasterVolume(settings::volume(_target.settings, settings::kMasterVolume));
-        const bool audioOut = !audio::startMixerOutput(_sys, mixer);
-        struct AudioOff { // stops the output before the mixer goes
-            System &sys;
-            ~AudioOff() { sys.stopAudio(); }
-        } audioOff{_sys};
-
-        ViewerContext ctx{_sys,
-                          _screen,
-                          _files,
-                          _shaders,
-                          _game,
-                          warnings,
-                          modSavePath(_target.savePath, mod),
-                          audioOut ? &mixer : nullptr,
-                          {},
-                          {},
-                          {},
-                          {},
-                          {},
-                          {},
-                          {},
-                          _target.path,
-                          false,
-                          {},
-                          singlePlayerDir(_target.path, _game, expansion),
-                          mod,
-                          _target.savePath};
-        // A pak just downloaded: in the search path at once, above the
-        // rest, and the shader scripts read again (it may bring its own).
-        int added = 0;
-        ctx.addPak = [this, &added](const std::filesystem::path &path) {
-            auto zip = std::make_unique<ZipArchive>();
-            if (Error err = zip->open(path))
-                return err;
-            _files.add(std::move(zip), kDownloadPriority + ++added);
-            _shaders.load(_files, nullptr);
-            return Error::success();
-        };
-        startSettings(ctx);
-        struct SaveConfig { // keeps settings changed while running, however it ends
-            ViewerContext &ctx;
-            ~SaveConfig() { saveConfig(ctx); }
-        } saveOnExit{ctx};
-
-        // The pages, built again (from the start page, or the page that
-        // asked) each time the game's files change: a mod chosen in the
-        // menus.
-        std::string resumePage;
-        while (true) {
-            std::string switchedFrom;
-            if (Error err = runPages(ctx, resumePage, switchedFrom))
-                return err;
-            if (switchedFrom.empty())
-                return Error::success();
-            // fs_game changed and vid_restart run: the files mounted again
-            // for the mod (or none), its own settings, and the menus over.
-            const std::string next = modFolderName(ctx.cvars.string("fs_game"), _game.baseDir);
-            saveConfig(ctx);
-            warnings.clear();
-            if (Error err = mountFiles(next, skip, warnings))
-                return err;
-            added = 0;
-            ctx.gameDir = next;
-            ctx.savePath = modSavePath(_target.savePath, next);
-            ctx.cvars = CvarStore();
-            ctx.bindings = KeyBindings();
-            startSettings(ctx);
-            resumePage = switchedFrom;
-        }
-    }
-
-private:
-    // The game's files for a mod (or none), and their shader scripts.
-    // Damaged archives or scripts don't stop the viewer; the Files page
-    // lists what went wrong.
-    Error mountFiles(const std::string &mod, const std::vector<std::string> &skip, std::vector<std::string> &warnings) {
-        if (Error err = mountGame(_files, _target.path, _target.savePath, _game.baseDir, mod, warnings, skip))
-            return err;
-        std::printf("Game files: %s%s\n", _game.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
-        _shaders.load(_files, &warnings);
-        return Error::success();
-    }
-
-    // The settings for the files mounted: the mod's own, or, until it has
-    // some, the game's; fs_game says which mod is played (set only from
-    // the command line, as the original's, but for the menus' Mods screens).
-    void startSettings(ViewerContext &ctx) {
-        const std::filesystem::path own = ctx.savePath;
-        if (!ctx.gameDir.empty() && !std::filesystem::exists(own / "reluva.cfg"))
-            ctx.savePath = ctx.homePath;
-        loadConfig(ctx);
-        ctx.savePath = own;
-        ctx.cvars.create("fs_game", ctx.gameDir, CvarStore::kSystemInfo | CvarStore::kInit);
-        ctx.cvars.set("fs_game", ctx.gameDir, true);
-    }
-
-    // The pages, from `resume` if it's one of them (else the start), until
-    // the player leaves (switchedFrom empty) or the game's files are to
-    // start again (switchedFrom: the page that asked).
-    Error runPages(ViewerContext &ctx, const std::string &resume, std::string &switchedFrom) {
-        // The pages: the start (what to play), the game's own (single
-        // player, Holomatch's menus and play), and the developer tools,
-        // which Ctrl+Tab steps through once chosen.
-        std::vector<std::unique_ptr<Page>> pages;
-        pages.push_back(nullptr); // the start, made once the rest are known
-        pages.push_back(std::make_unique<SpPlayViewer>(ctx));
-        pages.push_back(std::make_unique<MenuViewer>(ctx));
-        pages.push_back(std::make_unique<PlayViewer>(ctx));
-        const size_t firstTool = pages.size();
-        pages.push_back(std::make_unique<WorldViewer>(ctx));
-        pages.push_back(std::make_unique<ModelViewer>(ctx));
-        pages.push_back(std::make_unique<MapViewer>(ctx));
-        pages.push_back(std::make_unique<TextureViewer>(ctx));
-        pages.push_back(std::make_unique<FileViewer>(ctx));
-        std::vector<StartPage::Choice> choices;
-        if (pages[1]->count() > 0)
-            choices.push_back({"Single Player", "The story, from the game's own menus", pages[1]->name()});
-        if (pages[2]->count() > 0)
-            choices.push_back({"Holomatch", "Multiplayer: bots, LAN and Internet servers", pages[2]->name()});
-        for (size_t i = firstTool; i < pages.size(); ++i)
-            if (pages[i]->count() > 0) {
-                choices.push_back({"Developer tools",
-                                   "The game's maps, models, textures and files (Ctrl+Tab between them)",
-                                   pages[i]->name()});
-                break;
-            }
-        if (choices.empty())
-            return Error::fail("No files found in " + _target.path.string() + "/" + _game.baseDir);
-        pages[0] = std::make_unique<StartPage>(ctx, std::move(choices));
-        size_t page = 0;
-        for (size_t i = 1; i < firstTool; ++i)
-            if (!resume.empty() && pages[i]->name() == resume && pages[i]->count() > 0)
-                page = i;
-        bool tools = false; // the developer tools chosen: Ctrl+Tab steps through every page
-        pages[page]->activate();
-        // Leaving a 3D page: its renderer goes, the framebuffer comes back.
-        auto switchTo = [&](size_t next) -> Error {
-            const bool was3D = pages[page]->uses3D();
-            pages[page]->deactivate();
-            if (was3D)
-                if (Error err = _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32))
-                    return err;
-            page = next;
-            pages[page]->activate();
-            return Error::success();
-        };
-        // The page shown left, its renderer gone, before the pages go.
-        auto leave = [&]() -> Error {
-            const bool was3D = pages[page]->uses3D();
-            pages[page]->deactivate();
-            if (was3D)
-                return _sys.initGraphics(kScreenW, kScreenH, PixelFormat::kRGBA32);
-            return Error::success();
-        };
-
-        while (true) {
-            Event ev;
-            while (_sys.pollEvent(ev)) {
-                if (ev.type == EventType::kQuit || ev.type == EventType::kReturnToLauncher)
-                    return Error::success();
-                const bool pageKey = pages[page]->takesKey(ev);
-                if (ev.type == EventType::kKeyDown && ev.key == key::kEscape && !pageKey) {
-                    // Back to the start; from there, to the launcher.
-                    if (page == 0)
-                        return Error::success();
-                    tools = false;
-                    if (Error err = switchTo(0))
-                        return err;
-                    continue;
-                }
-                if (tools && ev.type == EventType::kKeyDown && ev.key == key::kTab && (ev.mods & keymod::kCtrl)) {
-                    size_t next = page;
-                    do
-                        next = next + 1 < pages.size() ? next + 1 : 1;
-                    while (pages[next]->count() == 0);
-                    if (Error err = switchTo(next))
-                        return err;
-                    continue;
-                }
-                pages[page]->handleEvent(ev);
-            }
-            // A page asking for another (the menus starting a level).
-            if (!ctx.requestPage.empty()) {
-                const std::string wanted = std::move(ctx.requestPage);
-                ctx.requestPage.clear();
-                for (size_t i = 0; i < pages.size(); ++i)
-                    if (wanted == pages[i]->name() && pages[i]->count() > 0 && i != page) {
-                        if (page == 0 || i == 0)
-                            tools = i >= firstTool; // chosen at the start, or back to it
-                        if (Error err = switchTo(i))
-                            return err;
-                        break;
-                    }
-            }
-            pages[page]->update(_sys.getMillis());
-            // vid_restart with a different fs_game: the files start again
-            // (FS_ConditionalRestart in the original's).
-            if (ctx.requestRestart) {
-                ctx.requestRestart = false;
-                if (modFolderName(ctx.cvars.string("fs_game"), _game.baseDir) != ctx.gameDir) {
-                    switchedFrom = pages[page]->name();
-                    return leave();
-                }
-            }
-            _sys.updateScreen(_screen);
-            // 3D pages are paced by presenting (vsync); the rest needn't spin.
-            if (!pages[page]->uses3D())
-                _sys.delayMillis(10);
-        }
-    }
-
-private:
-    System &_sys;
-    GameTarget _target;
-    const GameInfo &_game;
-    SearchSet _files;
-    ShaderLibrary _shaders;
-    Surface _screen;
-};
 
 // How many paks and saved games an import brings.
 std::string countNote(const ImportPlan &plan) {
@@ -549,10 +285,7 @@ public:
     }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
-        const GameInfo *game = findGame(target.gameId);
-        if (!game)
-            game = &games().front();
-        return std::make_unique<IdTech3Engine>(system, target, *game);
+        return std::make_unique<Session>(system, target);
     }
 };
 

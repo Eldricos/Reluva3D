@@ -22,8 +22,8 @@ Detection signatures (MD5 of the first 5000 bytes, size):
 
 ## Where it stands
 
-- **The data viewer:** the folders found, every track and car in 3D, the
-  pictures, strings, fonts, sounds, music and movies.
+- **The data viewer** (`reluva-viewer`): the folders found, every track
+  and car in 3D, the pictures, strings, fonts, sounds, music and movies.
 - **The game itself:** the retail `nfs3.exe` runs in the x86 emulator, on
   the Play page: its menus, movies, every race type, network play over
   TCP, IPX, serial and modem links, force feedback and game controllers.
@@ -37,11 +37,14 @@ Need for Speed III is found from its install folder or a copy of its CD. It read
 the music and movies from the CD's files: in the install if they were copied there,
 in a copy of the CD beside the install (a folder with `nfs3.exe` and
 `GameData/Audio/pc`), or wherever `cdpath=` in the game's section of `reluva.ini`
-says. It opens as a data viewer: **Tab** switches between what it found (the folders,
-tracks and cars), the game itself, the tracks and cars in 3D, textures, strings,
-fonts, sounds, music and movies. The **Play** page runs the retail `nfs3.exe` in the
-x86 interpreter, starting it when first shown. The keyboard and mouse go to the game,
-**Esc** included; **Ctrl+F5** goes back to the launcher. It writes its saves and
+says. It starts straight into the game: the retail `nfs3.exe` in the x86
+interpreter. The keyboard and mouse go to the game, **Esc** included; **Ctrl+F5**
+goes back to the launcher. If the game can't start, or stops, the launcher says why.
+The data viewer is `reluva-viewer` (`reluva-viewer <its name in the launcher>`, or
+`reluva-viewer <the install>`): **Tab** switches between what it found (the folders, tracks
+and cars), the game itself (the **Play** page, started when first shown), the
+tracks and cars in 3D, textures, strings, fonts, sounds, music and movies; **Esc**
+leaves it, but for the Play page's (Ctrl+F5 there). It writes its saves and
 settings to Reluva's save folder for the game, never to the install. It plays its
 own movies (Esc skips the intro), and races run at about real time. With a GPU
 the game is drawn with it, at twice its 640x480 unless `renderscale=` (1 to 4) in

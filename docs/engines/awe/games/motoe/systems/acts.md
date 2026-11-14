@@ -169,8 +169,8 @@ Scripts use it before going to a closeup.
 completion. It also ticks the timers. `ScriptRunner` does `timer`,
 `time`, `reset` and `savescene` itself.
 
-In the Scenes page, **N** starts a new game: the main menu, then Play.
-The page then does the following:
+The game starts a new game (in the data viewer's Scenes page, **N**
+does): the main menu, then Play. The page then does the following:
 
 - Loading a location works as the game's load state machine does. The
   location's scene files (the act's variants in place of their bases)

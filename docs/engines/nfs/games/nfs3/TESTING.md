@@ -61,10 +61,11 @@ playing over a real network.
 
 1. Add the install (with the CD's files beside it) in the launcher; it's
    found as "Need for Speed III: Hot Pursuit (Classics)".
-2. Tab through the pages: the tracks and cars in 3D, textures, strings,
-   fonts, sounds, music and movies.
-3. On the Play page: the intro movie (Esc skips it), the menus with the
-   mouse, a Single Race on Hometown; the HUD, the sound, the cars.
+2. In `reluva-viewer <the install>`, Tab through the pages: the tracks and cars in
+   3D, textures, strings, fonts, sounds, music and movies.
+3. Started from the launcher, the game: the intro movie (Esc skips it),
+   the menus with the mouse, a Single Race on Hometown; the HUD, the
+   sound, the cars.
 4. A Hot Pursuit race, and a race on another track by night and in the
    rain.
 5. Two copies on two machines (or two addresses on one): a network race

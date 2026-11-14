@@ -68,6 +68,10 @@ struct Subtitle {
 // Reads a movie's subtitle table (its Speaker, Line and Duration columns;
 // Duration is "start, length").
 std::vector<Subtitle> parseSubtitles(std::string_view text);
+// The rows named for `movie` (lower case, without its extension), and
+// those named for none: the game starts its subtitles as the conversation
+// of that name (0x42ae7d), so logos.txt, a copy of intro's, shows nothing.
+std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string &movie);
 
 // Text broken into rows no wider than `width` as the game breaks it: at
 // spaces, two kept after a sentence's end (game_text.cpp).

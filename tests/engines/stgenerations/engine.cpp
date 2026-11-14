@@ -18,6 +18,7 @@
 #include "engines/registry.h"
 #include "engines/stgenerations/game/generations.h"
 #include "engines/stgenerations/game/random.h"
+#include "engines/stgenerations/pages/resource_viewer.h"
 #include "engines/stgenerations/platform.h"
 #include "engines/stgenerations/tools/scripted_system.h"
 #include "tests/engines/stgenerations/support.h"
@@ -363,7 +364,8 @@ void engineTest(const std::filesystem::path &tmp) {
         rec.add(std::string("save.") + name, fileHash(tmp / "saves" / name));
     rec.add("settings", fileHash(tmp / "saves/settings.ini"));
 
-    // The resource viewer: the settings' volumes reach the mixer there too.
+    // The data viewer (reluva-viewer's): the settings' volumes reach the
+    // mixer there too.
     {
         ScriptedSystem viewer;
         audio::Mixer mixer(viewer.audioRate());
@@ -371,11 +373,10 @@ void engineTest(const std::filesystem::path &tmp) {
         Platform platform(viewer, &mixer, tmp / "viewer-saves");
         Options o;
         o.gameDir = game;
-        o.viewer = true;
         o.musicVolume = 128;
         o.speechVolume = 64;
         viewer.quit(500);
-        Generations g(&platform, o);
+        ResourceViewer g(&platform, o);
         const Error verr = g.run();
         rec.add("viewer", verr ? "failed: " + verr.message : std::string("ok"));
         rec.add("viewer.volumes", std::to_string(mixer.typeVolume(audio::SoundType::kMusic)) + " music, " +

@@ -20,10 +20,16 @@ namespace reluva {
 
 class SdlSystem;
 
+/** What the launcher's games are started for. */
+enum class LauncherPurpose {
+    kPlay, ///< reluva: playing them
+    kView  ///< reluva-viewer: their engines' data viewers, and the testbed
+};
+
 // The game list UI, drawn with Dear ImGui on the SDL renderer.
 class Launcher {
 public:
-    Launcher(SdlSystem &system, Config &config);
+    Launcher(SdlSystem &system, Config &config, LauncherPurpose purpose = LauncherPurpose::kPlay);
     ~Launcher();
     Launcher(const Launcher &) = delete;
     Launcher &operator=(const Launcher &) = delete;
@@ -53,6 +59,7 @@ private:
 
     SdlSystem &_sys;
     Config &_config;
+    LauncherPurpose _purpose;
     std::string _selected;
     std::string _status;
 

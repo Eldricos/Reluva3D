@@ -43,7 +43,7 @@ constexpr float kNear = 4.0f;
 
 } // namespace
 
-MapViewer::MapViewer(ViewerContext &ctx) : Page(ctx) {
+MapViewer::MapViewer(PageContext &ctx) : Page(ctx) {
     for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0)

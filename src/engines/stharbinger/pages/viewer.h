@@ -17,9 +17,9 @@ namespace reluva::stharbinger {
 
 class Harbinger;
 
-// A developer aid (start_mode=viewer, "Developer: start with" in the launcher): steps through each scene's backgrounds,
-// animations and sounds and shows its hotspot rectangles, without running the
-// scripts.
+// The data viewer's page (reluva-viewer): steps through each scene's
+// backgrounds, animations and sounds and shows its hotspot rectangles,
+// without running the scripts.
 class SceneViewer {
 public:
     explicit SceneViewer(Harbinger *vm);

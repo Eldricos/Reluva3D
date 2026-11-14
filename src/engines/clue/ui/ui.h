@@ -20,6 +20,13 @@
 
 namespace reluva::clue {
 
+// The game's screen: 640x480, RGBA32.
+constexpr int kScreenW = 640;
+constexpr int kScreenH = 480;
+
+// Fills (x, y, w, h), clipped to the surface, opaque.
+void fillRect(Surface &s, int x, int y, int w, int h, Color c);
+
 // A font of the game's: frame n of its animation is character n
 // (Windows-1252), drawn as its glyph image in its cell.
 class BitmapFont {

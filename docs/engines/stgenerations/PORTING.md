@@ -55,7 +55,7 @@ style), so the port's own changes stayed. They add:
 
 | STG-Engine | Reluva |
 |---|---|
-| `engines/stg/stg.cpp`, `frontend.cpp` (`STGEngine`) | `game/generations.cpp`, `game/frontend.cpp` (`Generations`, no longer an `Engine` subclass: `stgenerations.cpp` runs it) |
+| `engines/stg/stg.cpp`, `frontend.cpp` (`STGEngine`) | `game/generations.cpp`, `game/frontend.cpp` (`Generations`, no longer an `Engine` subclass: `stgenerations.cpp` runs it); its resource viewer, `pages/resource_viewer.cpp` (`ResourceViewer`, for `reluva-viewer`) |
 | `engines/stg/detection.cpp`, `detection_tables.h` | `stgenerations.cpp` (`kVariants`, the MetaEngine), `detection.cpp` (the fallback by executable, the CDs, importing) |
 | `engines/stg/movie.cpp` (Cinepak, AVI) | `src/video/cinepak.cpp`, `avi.cpp`, for any engine |
 | `engines/stg/resources.cpp`, `font`, `overlay`, `sprite`, `rgbimage`, `framedimage`, `level`, `script`, `opcodes`, `disasm`, `combatdata`, `ini`, `locations` | `formats/` |
@@ -111,7 +111,7 @@ changing what was there (each engine's tests and records are the same):
 | `stg --probe` | `reluva-tool stgenerations probe <file or folder>` |
 | `stg --extract --pattern=... -o ...` | `reluva-tool stgenerations extract <archive> <folder> [pattern]` |
 | `--probe` on a script | `reluva-tool stgenerations script <GAME.BIN>` |
-| `--viewer` | Developer setting *Start with: The resource viewer* |
+| `--viewer` | `reluva-viewer <entry>` or `reluva-viewer <folder>` ([below](#the-resource-viewer)) |
 | `--story=<section>`, `--combat=<n>` | `story=`, `combat=` in reluva.ini |
 | `-d<level> --debugflags=...` | Developer settings *Console output* and *about* (`debug_level`, `debug_channels`) |
 | `-f`, `--filtering`, `--integer-scaling` | Reluva's display settings: full screen, smooth, whole multiples |
@@ -170,15 +170,19 @@ changing what was there (each engine's tests and records are the same):
 
 ## The resource viewer
 
-As in STG-Engine (*Start with: The resource viewer*, or when the story's
-data isn't there): the starting screen lists the away missions found;
+As in STG-Engine's `--viewer`, in `reluva-viewer` only, never in the game:
+from its list, or as `reluva-viewer <entry>` (a game added in the
+launcher) or `reluva-viewer <folder>`. Where STG-Engine fell back to it
+when the story's data wasn't there, the game says what's missing instead.
+The starting screen lists the away missions found;
 Up/Down choose one and Enter plays it after its briefing. Esc leaves a
 mission for the list. Left/Right step through images, PgUp/PgDn between
 archives, Tab and Shift+Tab between 3D levels; away from the starting
 screen, Up/Down step through sounds and Space replays one. On a level, `[`
 and `]` go from the floor plan to the 3D view and its textures; in 3D, L
 switches the lighting and Shift+C walks through walls. Home returns to the
-starfield, F8 plays the movies in turn, F5/F7 save and load, Esc quits.
+starfield, F8 plays the movies in turn, F5/F7 save and load, Esc leaves
+the viewer (back to `reluva-viewer`'s list).
 
 ## Tests
 

@@ -84,7 +84,8 @@ std::string shownValue(const GameOption &o, const std::string &value) {
 
 } // namespace
 
-Launcher::Launcher(SdlSystem &system, Config &config) : _sys(system), _config(config) {
+Launcher::Launcher(SdlSystem &system, Config &config, LauncherPurpose purpose)
+    : _sys(system), _config(config), _purpose(purpose) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -165,9 +166,11 @@ void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-    ImGui::TextUnformatted("Reluva");
+    const bool viewing = _purpose == LauncherPurpose::kView;
+    ImGui::TextUnformatted(viewing ? "Reluva data viewer" : "Reluva");
     ImGui::SameLine();
-    ImGui::TextDisabled("v0.1 - classic game engine reimplementations");
+    ImGui::TextDisabled(viewing ? "v0.1 - what the games' files hold, for working on the engines"
+                                : "v0.1 - classic game engine reimplementations");
     ImGui::Separator();
 
     const float buttonsWidth = 200.0f * ImGui::GetStyle().FontScaleDpi;
@@ -197,7 +200,7 @@ void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
     const bool haveSelection = _config.hasSection(_selected) && _selected != Config::kGlobalSection;
 
     ImGui::BeginDisabled(!haveSelection || _importRunning);
-    if (ImGui::Button("Start", bsize))
+    if (ImGui::Button(viewing ? "View" : "Start", bsize))
         launch = launchTarget(_selected);
     ImGui::EndDisabled();
 
@@ -247,7 +250,8 @@ void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
         _settingsOpen = true;
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Display and sound settings for every game, and each engine's settings for its games");
-    if (ImGui::Button("Run Testbed", bsize))
+    // The testbed checks the backend, with no game: for developers only.
+    if (viewing && ImGui::Button("Run Testbed", bsize))
         launch = GameTarget{"testbed", "testbed", "testbed", "Testbed", {}, {}, _config.settingsFor("testbed")};
 
     ImGui::Spacing();

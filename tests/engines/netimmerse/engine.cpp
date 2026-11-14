@@ -6,12 +6,12 @@
 // install of its own (.pac archives holding two .FIN models, a texture, a
 // .DDF font with its page, a .DDS sound, a puzzle and the locale's text,
 // built as docs/engines/netimmerse/games/legoalphateam/formats/ describes them), checks that
-// the engine recognises an install, and then, as there's no LEGOATeam.exe
-// in it, runs the engine's data viewer on it as the launcher would: every
-// page in turn, stepping through what each shows and playing the sound,
-// then Esc back to the launcher. What happens goes into a record (counts,
-// the window's titles, and checksums of the screens and the sound),
-// compared with tests/engines/netimmerse/data/engine-record.txt.
+// the engine recognises an install, and that the game, as there's no
+// LEGOATeam.exe in it, says so. Then it runs the engine's data viewer on it
+// as reluva-viewer would: every page in turn, stepping through what each
+// shows and playing the sound, then Esc back to the list. What happens goes
+// into a record (counts, the window's titles, and checksums of the screens
+// and the sound), compared with tests/engines/netimmerse/data/engine-record.txt.
 //
 // The game itself (its program in the x86 emulator) needs the game's own
 // files: that's the game-files test, tests/engines/netimmerse/gamedata.cmake.
@@ -21,6 +21,7 @@
 #include "graphics/gfx3d.h"
 #include "common/headless_system.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/netimmerse/fixtures.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -272,8 +273,9 @@ void engineTest(const std::filesystem::path &tmp) {
                   "tests/engines/netimmerse/engine.cpp");
     };
     const MetaEngine *engine = findEngine("netimmerse");
-    if (!engine)
-        return test::fail("netimmerse isn't registered");
+    const MetaViewer *viewer = findViewer("netimmerse");
+    if (!engine || !viewer)
+        return test::fail("netimmerse or its viewer isn't registered");
 
     // Recognised: by its program and its behaviours' archive, as a release
     // not in the table (only the English retail CD's archive is).
@@ -287,9 +289,19 @@ void engineTest(const std::filesystem::path &tmp) {
     const auto found = engine->detect(withProgram);
     rec.add("detect.program", found.empty() ? "(none)" : found[0].gameId + " " + found[0].description);
 
+    // The game can't be played without its program: an error saying it's
+    // missing, not the viewer.
+    GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
+    {
+        PlayingSystem sys;
+        const Error err = engine->create(sys, target)->run();
+        CHECK(err);
+        CHECK(err.message.find("LEGOATeam.exe") != std::string::npos);
+        CHECK(sys.shown == 0);
+    }
+
     // The data viewer, page by page: archives, models, textures, fonts,
     // sounds, text.
-    GameTarget target{"legoalphateam", "netimmerse", "legoalphateam", "LEGO Alpha Team", install, tmp / "saves", {}};
     PlayingSystem sys;
     sys.inputs = {
         {100, keyDown(key::kTab)},    // models
@@ -305,10 +317,10 @@ void engineTest(const std::filesystem::path &tmp) {
         {850, keyDown(key::kRight)},  // the next file
         {900, keyDown(key::kDown)},   // scrolled
         {1000, keyDown(key::kTab)},   // back to the archives
-        {1100, keyDown(key::kEscape)} // to the launcher
+        {1100, keyDown(key::kEscape)} // to reluva-viewer's list
     };
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
+    auto pages = viewer->create(sys, target);
+    const Error err = pages->run();
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());

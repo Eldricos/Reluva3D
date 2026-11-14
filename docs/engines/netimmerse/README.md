@@ -54,8 +54,10 @@ in `tests/engines/netimmerse/`:
 - **Unit tests** (`reluva-tests netimmerse.unit.formats`): the `.pac`,
   `.DDS`, text, `.FIN` and `.DDF` readers, on files built in the test.
 - **The basic engine test** (`reluva-tests netimmerse.engine`), without the
-  game's files: a small install of its own, recognised, and shown page by
-  page in the data viewer; its record is `data/engine-record.txt`.
+  game's files: a small install of its own, recognised, refused by the
+  game for want of its program, and shown page by page in the data viewer
+  (through its `MetaViewer`, as `reluva-viewer` opens it); its record is
+  `data/engine-record.txt`.
 - **The game-files test** (`gamedata.cmake`), with your own install: set
   `RELUVA_ALPHATEAM` to the game's folder and run
   `ctest -L gamedata -R netimmerse`. It lists the archives, reads every

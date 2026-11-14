@@ -52,8 +52,9 @@ on the processor. At 1024x768x32 on a current desktop the menus run at
 about 35 frames a second and missions at about 45, lower in wide shots
 with much on screen.
 
-A data viewer of the game's files comes with it: archives, models (with
-their animation), textures, fonts, sounds and text.
+A data viewer of the game's files comes with the engine, for development
+(in `reluva-viewer`, not the game): archives, models (with their
+animation), textures, fonts, sounds and text.
 
 How it was built, measured and checked is in [systems/](systems/) and
 [research/](research/), a page per part (see [This folder](#this-folder)). Also:
@@ -79,14 +80,16 @@ While playing:
 - the mouse is held by the window (the game draws its own pointer);
 - the window's title shows the game's frames a second (at most 60, as
   its flips wait for the display);
-- **Ctrl+F5** goes back to the launcher;
-- **F12** pauses the game and opens the data viewer; **Esc** there goes
-  back to the game.
+- **Ctrl+F5** goes back to the launcher.
 
-Without `LEGOATeam.exe` in the folder, the engine opens the data viewer
-alone.
+Without `LEGOATeam.exe` in the folder, the game doesn't start: it says
+the program is missing.
 
-**In the data viewer**, **Tab** switches between the pages:
+**The data viewer** is opened with `reluva-viewer`: from its list of the
+launcher's games, or directly with `reluva-viewer <name>` (the game's name
+in the launcher) or `reluva-viewer <folder>`. It doesn't need
+`LEGOATeam.exe`. **Esc** leaves it, back to `reluva-viewer`'s list, and
+**Tab** switches between the pages:
 
 - **Archives**: what each `.pac` archive holds.
 - **Models**: every `.FIN` model in 3D.

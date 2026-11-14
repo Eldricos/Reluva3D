@@ -45,7 +45,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 #include "audio/wav.h"
 #include "common/md4.h"
 #include "common/zip.h"

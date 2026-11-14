@@ -1,6 +1,6 @@
 # Elite Force: running single player's DLLs
 
-> **Status:** done · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/pages/sp_play_viewer.cpp` · **Checked against:** the retail DLLs themselves, running in the emulator; parts of play against the original running (October 2026, [TESTING.md](../TESTING.md#last-checked)) · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.{h,cpp}`, `src/engines/idtech3/client/sp_play_page.cpp` · **Checked against:** the retail DLLs themselves, running in the emulator; parts of play against the original running (October 2026, [TESTING.md](../TESTING.md#last-checked)) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -72,7 +72,7 @@ is much slower.
 
 ### Playing single player
 
-The **Single player** page (`src/engines/idtech3/pages/sp_play_viewer.cpp`)
+The **Single player** page (`src/engines/idtech3/client/sp_play_page.cpp`)
 appears when `efgamex86.dll` is in the install folder. It lists the maps
 that aren't Holomatch's and starts at borg1.
 

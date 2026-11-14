@@ -3,10 +3,10 @@
 Engine id `nfs`, in `src/engines/nfs/`. It's meant for the family of
 Electronic Arts' Need for Speed games that share NFS III's files (VIV
 archives, FSH pictures, FCE models, FRD tracks, EA's audio), starting with
-Need for Speed III: Hot Pursuit; High Stakes would be the next. It reads
-the games' files for a data viewer, and runs the retail game's own
-executable in Reluva's x86 emulator, with stand-ins for Windows, DirectX
-and the game's renderer and sound interfaces.
+Need for Speed III: Hot Pursuit; High Stakes would be the next. It runs
+the retail game's own executable in Reluva's x86 emulator, with
+stand-ins for Windows, DirectX and the game's renderer and sound
+interfaces; `reluva-viewer` has a data viewer of the games' files.
 
 ## Games
 
@@ -18,15 +18,18 @@ and the game's renderer and sound interfaces.
 
 NFS III plays from its menus through every race type, single player and
 over a network, its own executable run in the emulator; the data viewer
-shows every file kind it has. See the game's
+(`reluva-viewer`) shows every file kind it has. See the game's
 [README](games/nfs3/README.md) and [PLAN.md](games/nfs3/PLAN.md).
 
 ## Using it
 
 Add the game's install in the launcher (*Add Game...*), with a copy of
-its CD's files beside it as `NFS3-CD` for the music and movies. The
-game's [README](games/nfs3/README.md#using-it) has its pages, keys and
-settings.
+its CD's files beside it as `NFS3-CD` for the music and movies: it starts
+straight into the game. The data viewer is `reluva-viewer` (`reluva-viewer
+<its name in the launcher>` or `reluva-viewer <the install>`); Esc leaves
+it. The game's
+[README](games/nfs3/README.md#using-it) has its keys, the viewer's pages
+and the settings.
 
 ## This folder
 
@@ -42,11 +45,12 @@ game is found to share it (docs/DOCUMENTATION_STANDARD.md).
 
 | Path | What |
 |---|---|
-| `nfs.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the pages, Tab between them |
+| `nfs.cpp` | The `MetaEngine` (detection, making an `Engine`) and the `Engine`: the Play page alone |
 | `games.cpp`, `folders.cpp`, `game_files.cpp` | The games and their releases, finding the install's and the CD's files, a file in an archive |
 | `formats/` | The games' files: `.viv`, RefPack, `.fsh`, text, `.ffn`, `.fce`, `.frd`, `.col`, `.hrz`, `.bnk`, `.mus`, `.mad` |
 | `render/` | Particles, and drawing THRASH's frames on the GPU |
-| `pages/` | The launcher's pages: the data viewers, the 3D tracks and cars, the Play page |
+| `ui/` | The window's pages and running them (`runPages`), and the Play page, which shows the game and passes it the input |
+| `pages/` | The data viewer, in `reluva-viewer` only: the folders found, the 3D tracks and cars, pictures, text, sounds, movies, with the Play page among them |
 | `host/` | The retail game hosted: `GameHost` (Windows, DirectX, sound, input, the network, serial links), THRASH natively and on the GPU |
 | `tools/` | `reluva-tool nfs` commands (`reluva-tool help nfs` lists them) |
 

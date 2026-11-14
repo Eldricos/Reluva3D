@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engines/idtech3/pages/page.h"
+#include "engines/idtech3/client/page.h"
 
 #include <string>
 #include <vector>
@@ -12,7 +12,7 @@ namespace reluva::idtech3 {
 
 class FileViewer : public Page {
 public:
-    explicit FileViewer(ViewerContext &ctx);
+    explicit FileViewer(PageContext &ctx);
     const char *name() const override { return "Files"; }
     size_t count() const override { return _files.size(); }
     void activate() override;

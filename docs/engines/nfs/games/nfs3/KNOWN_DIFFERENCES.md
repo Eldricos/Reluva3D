@@ -42,8 +42,8 @@ None yet.
 
 ## Additions outside the game
 
-- The data viewer's pages: the folders, tracks and cars in 3D, textures,
-  strings, fonts, sounds, music and movies.
+- The data viewer's pages, in `reluva-viewer`: the folders, tracks and
+  cars in 3D, textures, strings, fonts, sounds, music and movies.
 - `surround=prologic` (and `passive`, `headphones`) decodes the game's
   Dolby Surround mode with a model of a Pro Logic decoder, to a 4.0 or 5.1
   device.

@@ -23,11 +23,17 @@ Voyager - Elite Force (`stvef`).
 | Images | TGA, JPEG, PNG (`image/image.cpp`) |
 | Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
 | Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
-| Viewer | Menu, Play, World, Models, Maps, Textures and Files pages |
+| Pages | The game's Start, Single player, Menu and Play pages; the data viewer's World, Models, Maps, Textures and Files pages, in `reluva-viewer` |
 | Renderer | Every shader stage, sky boxes and cloud layers, curved surfaces, fog, dynamic lights, models' levels of detail, and visibility as the original's renderer has it |
 | Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `src/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
 
 How each part works with Elite Force, in full: [games/stvef/](games/stvef/README.md#where-it-stands).
+
+**Left to clean up:** the game's `Session`
+(`src/engines/idtech3/client/session.h`) has three hooks (`addPages`,
+`pageKey`, `switched`) that only the data viewer's `ViewerSession` fills
+in; in `reluva` they do nothing. They could go if the viewer ran the
+game's pages another way.
 
 ## This folder
 
@@ -62,9 +68,9 @@ Where things are:
 | Folder | What |
 |---|---|
 | `idtech3/` | The base: formats (pk3 search paths, BSP, MD3/MDR, shaders), collision, light grid, the QVM, cvars, bindings, sound, the GPU world renderer, the bot library |
-| `idtech3/client/` | What a client game hands the engine (`scene.h`: Scene, View, Picture), drawing it (`scene_drawer`, through a per-game `RefEntityLayout`), and the player's input (`player_input`) |
+| `idtech3/client/` | What a client game hands the engine (`scene.h`: Scene, View, Picture), drawing it (`scene_drawer`, through a per-game `RefEntityLayout`), the player's input (`player_input`), and the game's pages, a header each, with the shared context and settings in `page.h`, run by a `Session` (`session.h`) |
 | `idtech3/server/` | The server's world (`server_world`): linked entities in a tree, traces, point contents, boxes, areas, as Quake III's server keeps them; each game's host only says how to read an entity's shape |
-| `idtech3/pages/` | The pages, a header each, with the shared context and settings in `page.h` |
+| `idtech3/pages/` | The data viewer, `reluva-viewer`'s and never the game's: the developer tools' pages, a header each, and `viewer.cpp`, which adds them to the game's pages |
 | `idtech3/raven/` | What Raven's games share and Quake III doesn't: single-player save chunks, ambient sound sets |
 | `idtech3/eliteforce/` | Elite Force's own: its `GameInfo` (`game_info.cpp`), refEntity layout, entity and network field layouts, and the hosts that run its QVMs and DLLs with their call numbers |
 | `idtech3/wire/` | Network messages and channels (Elite Force's protocol 24 for now) |

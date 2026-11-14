@@ -11,17 +11,21 @@ Clang, set `newworlds=enabled` in `engines.cfg` (or in your
 
 ## Where it stands
 
-It opens as a data viewer of the game's archives and their files: models,
-maps, textures, sounds, strings, fonts and missions. Its first playable
-layer plays a mission on its map with the game's own camera and controls,
-the mission's script running. Figures the recordings of play can't give
+It can't be played yet: `reluva` says so and doesn't start it. Its data
+viewer, in `reluva-viewer`, shows the game's archives and their files:
+models, maps, textures, sounds, strings, fonts and missions. Its first
+playable layer, on the missions page, plays a mission on its map with the
+game's own camera and controls, the mission's script running. Figures the recordings of play can't give
 are named placeholders for now. See
 [game.md](game.md).
 
 ## Using it
 
-Add the game's install folder with *Add Game...* in the launcher. **Tab**
-switches between the pages:
+Add the game's install folder with *Add Game...* in the launcher, then open
+it in the data viewer: pick it in `reluva-viewer`'s list, or run
+`reluva-viewer <name>` (its entry's name) or `reluva-viewer <game folder>`.
+**Tab** switches between the pages, and **Esc** leaves (while a mission is
+being played, both are the game's):
 
 - **Missions** (`level.dat`'s list) show their map with the briefing over
   it:

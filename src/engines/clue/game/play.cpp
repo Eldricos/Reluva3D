@@ -7,8 +7,6 @@
 
 #include "engines/clue/game/play.h"
 
-#include "engines/clue/pages/viewers.h"
-
 #include "audio/decode.h"
 
 #include <algorithm>

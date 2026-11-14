@@ -6,7 +6,6 @@
 #include "common/log.h"
 #include "common/text.h"
 #include "engines/stharbinger/game/game.h"
-#include "engines/stharbinger/pages/viewer.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -58,19 +57,6 @@ int Harbinger::findSceneByNumber(int number) const {
 void Harbinger::run() {
     initResources();
 
-    const std::string &mode = _options.mode;
-    bool viewer = text::equalsIgnoreCase(mode, "viewer");
-    if (text::equalsIgnoreCase(mode, "video")) {
-        // Developer: play one video from the DS9 folder (start_scene=INTRO/VNM.SMK).
-        if (_options.startScene.empty())
-            fatal("Playing one video needs it named in start_scene (in reluva.ini), e.g. INTRO/VNM.SMK");
-        Game game(this);
-        game.playVideoFile(_options.startScene);
-        return;
-    }
-    if (!viewer && !mode.empty() && !text::equalsIgnoreCase(mode, "game"))
-        fatal("Unknown start mode '%s' (game, viewer or video)", mode.c_str());
-
     int start = -1;
     if (!_options.startScene.empty()) {
         start = findScene(_options.startScene);
@@ -78,11 +64,6 @@ void Harbinger::run() {
             fatal("Unknown scene '%s' (reluva-tool stharbinger info lists them)", _options.startScene.c_str());
     }
 
-    if (viewer) {
-        SceneViewer sceneViewer(this);
-        sceneViewer.run(start < 0 ? 0 : start);
-        return;
-    }
     Game game(this);
     game.run(start);
 }

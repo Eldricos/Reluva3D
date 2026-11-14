@@ -123,12 +123,12 @@ languages and patched releases haven't been tried.
 
 None of these changes what the game does.
 
-- **Data viewers.** Besides the Scenes page, where the game is played (N
-  starts one), the engine has pages for looking at the install: Models
-  (textured and animated, the mouse to turn and zoom), Movies, Pictures,
-  Text and Sounds. Tab moves between them; the window's title names the
-  page, what it shows and the frames shown in the last second. See
-  [README.md](README.md#using-it).
+- **Data viewer.** `reluva-viewer`, not the game, has pages for looking
+  at the install: the Scenes page (the scenes' files browsed, a game
+  started with N), Models (textured and animated, the mouse to turn and
+  zoom), Movies, Pictures, Text and Sounds. Tab moves between them; the
+  window's title names the page, what it shows and the frames shown in
+  the last second. See [README.md](README.md#using-it).
 - **Screenshots.** F12 saves the screen as a TGA, under `screenshots/` in
   the game's save folder.
 - **Frame time.** `RELUVA_PERF=1` writes where a frame's time goes, every

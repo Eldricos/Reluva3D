@@ -1,6 +1,6 @@
 # Murder on the Orient Express: the interface (the bar, the inventory, the scrapbook, the cards)
 
-> **Status:** done · **Code:** `src/engines/awe/pages/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/scene_interface.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); Reluva's screens compared by eye with the pictures the game's code places · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -292,7 +292,7 @@ under the dialogue box and the cursor.
 
 ## In Reluva
 
-`src/engines/awe/pages/scene_interface.cpp` does all of the above in the Scenes
+`src/engines/awe/game/scene_interface.cpp` does all of the above in the Scenes
 page, in a game. The items are the `GameState`'s list, as the game's: in
 the order taken, each with its own state and slot. `addItem` adds one, as
 the game's `0x41bc10` does, every time, whatever's there already: the
@@ -306,8 +306,8 @@ writes them, and a list with two of a name loads as two.
 (Reluva first kept one item to a name, and lost the second glass and
 spout: the olive oil of 06B could then never be poured.) The item in hand is what the cursor
 shows and what a click uses, on what the game's pick finds there
-([../formats/ac2.md](../formats/ac2.md#the-mouse-picking-and-cursors)). F9 shows Reluva's info
-panel in a game (I is the inventory's).
+([../formats/ac2.md](../formats/ac2.md#the-mouse-picking-and-cursors)). In the data viewer,
+F9 shows Reluva's info panel in a game (I is the inventory's).
 
 `reluva-tool awe page-shot` shows the screens without a window:
 `start:slot12` starts a game at a developers' save, `run:<script>` runs a
