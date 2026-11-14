@@ -11,3 +11,27 @@ run.palettes: 12 19f137b7941ffbe5
 run.sound: 132388 frames, peak 11520 31ac724f823323cd
 run.titles: Reluva - Star Trek: Deep Space Nine - Harbinger
 run.files: (none)
+run.videomode.result: ok
+run.videomode.size: 640x480
+run.videomode.screens: 51 8470589427676325
+run.videomode.palettes: 1 7023a78db9182d1a
+run.videomode.sound: 44188 frames, peak 0 6e88e79cc5ae63e5
+run.videomode.titles: Reluva - Star Trek: Deep Space Nine - Harbinger
+viewer.result: ok
+viewer.size: 640x480
+viewer.screens: 13 2c4e3f6128fdb226
+viewer.palettes: 0 cbf29ce484222325
+viewer.sound: 53361 frames, peak 10240 ecf47dbfc5068f55
+viewer.titles: Reluva - Harbinger scene viewer / S0 [1/2] | background  (0/0) missing / S0 [1/2] | background  (0/0) missing | anim spin / S0 [1/2] | background  (0/0) missing | anim spin | sound beep / S1 [2/2] | background  (0/0) missing
+viewer.video.result: ok
+viewer.video.size: 640x480
+viewer.video.screens: 191 20bd24d865757b79
+viewer.video.palettes: 2 b183c8b76609bd14
+viewer.video.sound: 16846 frames, peak 11520 4579388e5fdb390d
+viewer.video.titles: Reluva - Harbinger video: INTRO/VNM.SMK
+viewer.novideo.result: error: The video DS9/INTRO/NONE.SMK isn't in the game's folders
+viewer.novideo.size: 640x480
+viewer.novideo.screens: 0 cbf29ce484222325
+viewer.novideo.palettes: 0 cbf29ce484222325
+viewer.novideo.sound: 0 frames, peak 0 cbf29ce484222325
+viewer.novideo.titles: Reluva - Harbinger video: INTRO/NONE.SMK

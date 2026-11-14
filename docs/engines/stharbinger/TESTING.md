@@ -22,7 +22,7 @@ Run by the same `reluva-tests stharbinger`, on data built in code:
 
 | Suite | What it checks |
 |---|---|
-| `stharbinger.engine` | The whole engine, from two CDs in miniature: found and imported as the launcher does, then played (the opening video with its sound, a scene, a click to another), recorded in `tests/engines/stharbinger/data/engine-record.txt` |
+| `stharbinger.engine` | The whole engine, from two CDs in miniature: found and imported as the launcher does, then played (the opening video with its sound, a scene, a click to another), and with the viewer's `start_mode=video` set, which the game ignores; then opened in `reluva-viewer`'s scene viewer and stepped through with its keys, and in its one-video mode with a video and with one that isn't there; recorded in `tests/engines/stharbinger/data/engine-record.txt` |
 
 ### The game-files test
 
@@ -118,6 +118,9 @@ Everything under *Still to check* below.
 * Saved games in `games/<entry>/savegame/`, and saves from the original
   copied there.
 * The settings at each level (every game, all Harbinger games, the game).
+* `reluva-viewer` on the discs: every scene's backgrounds, animations, sounds
+  and hotspots in the scene viewer, and a video in its one-video mode; and
+  that `reluva` has neither.
 
 ## Last checked
 

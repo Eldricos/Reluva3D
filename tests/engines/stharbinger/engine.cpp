@@ -7,7 +7,9 @@
 // a video on disc 2), finds and imports them as the launcher does, and plays
 // the import through the engine: the opening video with its sound, a scene
 // with an animation and a sound, a click on a hotspot that changes scene,
-// then back to the launcher. What happens goes into a record (counts and
+// then back to the launcher. The same import is then opened in
+// reluva-viewer's scene viewer, stepped through with its keys, and in its
+// one-video mode. What happens goes into a record (counts and
 // checksums of the screens, the palette, the sound and the files written),
 // compared with tests/engines/stharbinger/data/engine-record.txt.
 //
@@ -15,6 +17,7 @@
 
 #include "common/headless_system.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/common/data/smacker_videos.h"
 #include "tests/engines/stharbinger/fixtures.h"
 #include "tests/support/record.h"
@@ -105,6 +108,13 @@ Event mouse(EventType type, int x, int y) {
     e.button = MouseButton::kLeft;
     e.mouseX = x;
     e.mouseY = y;
+    return e;
+}
+
+Event keyDown(uint32_t key) {
+    Event e;
+    e.type = EventType::kKeyDown;
+    e.key = key;
     return e;
 }
 
@@ -236,23 +246,53 @@ void engineTest(const std::filesystem::path &tmp) {
                       library,
                       tmp / "saves",
                       {{"start_scene", "S0"}, {"music_volume", "100"}}};
-    PlayingSystem sys;
-    sys.inputs = {{2000, mouse(EventType::kMouseMove, 150, 150)},
-                  {2020, mouse(EventType::kMouseDown, 150, 150)},
-                  {3000, Event{EventType::kReturnToLauncher}}};
-    auto game = engine->create(sys, target);
-    const Error err = game->run();
-    rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
-    rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
-    rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
-    rec.add("run.palettes", std::to_string(sys.paletteSets) + " " + sys.palettes.hex());
-    rec.add("run.sound",
-            std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
-    std::string titles;
-    for (const std::string &t : sys.titles)
-        titles += (titles.empty() ? "" : " / ") + t;
-    rec.add("run.titles", titles);
+    auto play = [&](const std::string &what, const MetaEngine *game, const MetaViewer *viewer,
+                    const std::map<std::string, std::string> &settings, std::vector<PlayingSystem::Input> inputs) {
+        GameTarget t = target;
+        t.settings = settings;
+        PlayingSystem sys;
+        sys.inputs = std::move(inputs);
+        auto run = game ? game->create(sys, t) : viewer->create(sys, t);
+        const Error err = run->run();
+        rec.add(what + ".result", err ? "error: " + err.message : std::string("ok"));
+        rec.add(what + ".size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
+        rec.add(what + ".screens", std::to_string(sys.shown) + " " + sys.screens.hex());
+        rec.add(what + ".palettes", std::to_string(sys.paletteSets) + " " + sys.palettes.hex());
+        rec.add(what + ".sound", std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) +
+                                     " " + sys.sound.hex());
+        std::string titles;
+        for (const std::string &title : sys.titles)
+            titles += (titles.empty() ? "" : " / ") + title;
+        rec.add(what + ".titles", titles);
+    };
+    play("run", engine, nullptr, target.settings,
+         {{2000, mouse(EventType::kMouseMove, 150, 150)},
+          {2020, mouse(EventType::kMouseDown, 150, 150)},
+          {3000, Event{EventType::kReturnToLauncher}}});
     rec.add("run.files", listFiles(tmp / "saves"));
+
+    // The game ignores the viewer's one-video mode and its video's name:
+    // it starts at the opening, as with no developer settings.
+    play("run.videomode", engine, nullptr, {{"start_mode", "video"}, {"start_scene", "INTRO/VNM.SMK"}},
+         {{1000, Event{EventType::kReturnToLauncher}}});
+
+    // reluva-viewer: the scene viewer from S0, its keys in turn (the next
+    // background, an animation, a sound, the hotspots, the next scene), Esc
+    // back to the viewer's list; then one video, and one that isn't there.
+    const MetaViewer *viewer = findViewer("stharbinger");
+    if (!viewer)
+        return rec.fail("viewer", "stharbinger has no viewer"),
+               rec.check(RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
+                         "tests/engines/stharbinger/engine.cpp");
+    play("viewer", nullptr, viewer, {{"start_scene", "S0"}},
+         {{200, keyDown(key::kRight)},
+          {400, keyDown('a')},
+          {600, keyDown('s')},
+          {800, keyDown('h')},
+          {1000, keyDown(key::kDown)},
+          {1200, keyDown(key::kEscape)}});
+    play("viewer.video", nullptr, viewer, {{"start_mode", "video"}, {"start_scene", "INTRO/VNM.SMK"}}, {});
+    play("viewer.novideo", nullptr, viewer, {{"start_mode", "video"}, {"start_scene", "INTRO/NONE.SMK"}}, {});
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
               "tests/engines/stharbinger/engine.cpp");
