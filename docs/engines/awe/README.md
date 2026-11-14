@@ -10,18 +10,21 @@ Company on what looks like one engine, grown from game to game:
 | Game | Year | Status |
 |------|------|--------|
 | Murder on the Orient Express (`motoe`) | 2006 | first target: [games/motoe/](games/motoe/README.md) |
-| And Then There Were None (`attwn`) | 2005 | planned: [games/attwn/](games/attwn/README.md), the older version (scenes and saves are `.ac1`) |
+| And Then There Were None (`attwn`) | 2005 | second: [games/attwn/](games/attwn/README.md), its files read; the older version (scenes and saves are `.ac1`) |
 | Evil Under the Sun (`euts`) | 2007 | later; expected to be closest to Orient Express |
 
-As with id Tech 3, one Reluva engine (`src/engines/awe/`, `awe` in `engines.cfg`)
-should serve the family, with per-game differences in a table, rather than
-one engine per game. Orient Express is built first. The other two get
-added once their file lists have been compared against it.
+As with id Tech 3, one Reluva engine (`src/engines/awe/`, `awe` in
+`engines.cfg`) serves the family. What the shared code needs to know of
+each game is in a table (`games.h`); each game's own code is in a folder of
+its own (`motoe/`, `attwn/`), as docs/ADDING_AN_ENGINE.md lays engines out.
+Orient Express was built first; And Then There Were None is being added.
 
 ## Where it stands
 
-Only Murder on the Orient Express is recognised so far: see
-[games/motoe/](games/motoe/README.md#where-it-stands).
+- Murder on the Orient Express plays from a new game to the end credits:
+  [games/motoe/](games/motoe/README.md#where-it-stands).
+- And Then There Were None is recognised and its files read, but not
+  played yet: [games/attwn/](games/attwn/README.md#where-it-stands).
 
 ## This folder
 

@@ -14,14 +14,13 @@
 namespace reluva::awe {
 
 ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
-    // Each folder of Models: its models (<who>_model.gr2, and the detailed
-    // <who>_model_1024.gr2), each with the folder's other files as its
-    // animations.
+    // Each folder of characters (Models/ in Orient Express, People/ in
+    // And Then There Were None): its models (<who>_model.gr2, and the
+    // detailed <who>_model_1024.gr2), each with the folder's other files as
+    // its animations.
     std::map<std::string, std::vector<std::string>> folders;
-    for (const std::string &n : ctx.files.list())
-        if (fs::toLower(n).rfind("models/", 0) == 0 && fs::toLower(n).size() > 4 &&
-            fs::toLower(n).compare(n.size() - 4, 4, ".gr2") == 0)
-            folders[fs::toLower(folderOf(n))].push_back(n);
+    for (const std::string &n : listFiles(ctx.files, {"models/", "people/"}, {".gr2"}))
+        folders[fs::toLower(folderOf(n))].push_back(n);
     for (auto &[folder, files] : folders) {
         std::sort(files.begin(), files.end(),
                   [](const std::string &a, const std::string &b) { return fs::toLower(a) < fs::toLower(b); });
