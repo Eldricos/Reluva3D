@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import sys,glob,os
 from PIL import Image, ImageDraw
 d,step,cols,rows,prefix=sys.argv[1],float(sys.argv[2]),4,4,sys.argv[3]

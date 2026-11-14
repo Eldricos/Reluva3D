@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Builds msvcp60.cpp as a 32-bit Windows DLL exporting what msvcp60.def
 # lists (x87 floating point and no SSE, like the late-1990s games' own
 # code) and writes it to msvcp60_dll.h, which Reluva embeds. Run it after

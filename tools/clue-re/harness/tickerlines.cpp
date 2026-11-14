@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Renders each TickerStrings.txt line in the ticker's font, centred on a 640x18 strip, as one PGM row block.
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/resi.h"

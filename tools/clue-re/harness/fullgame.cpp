@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Opens each of the game's windows over a real game and saves the screen.
 #include <fstream>
 #include <algorithm>

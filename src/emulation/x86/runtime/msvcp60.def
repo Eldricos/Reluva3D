@@ -1,3 +1,6 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 The Reluva contributors
+
 ; Reluva's MSVCP60.dll: each name the games import, and the function in
 ; msvcp60.cpp that is it. build_msvcp60.sh makes the DLL from these.
 LIBRARY MSVCP60.dll

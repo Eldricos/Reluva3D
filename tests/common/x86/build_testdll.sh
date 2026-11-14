@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Builds testdll.c as a 32-bit Windows DLL (x87 floating point, no SSE, as
 # the late-1990s games' compilers made them) and writes it, with the results
 # the same code gives built natively, to tests/common/data/x86_testdll.h.

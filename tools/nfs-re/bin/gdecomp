@@ -1,2 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 exec "${NFSRE_PYTHON:-python3}" "$(dirname "$0")/../nfsre.py" gdecomp "$@"

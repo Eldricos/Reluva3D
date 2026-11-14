@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Headless driver for checking engine screens: scripted keys, frames saved as PPM.
 #include "engines/engine.h"
 namespace reluva { const MetaEngine& clueMetaEngine(); } // the Clue engine alone, without the registry

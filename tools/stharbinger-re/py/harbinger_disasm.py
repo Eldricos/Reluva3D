@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """Disassembles part of DEEP.EXE's code object, with fixup targets, string
 references and handler names, as used for docs/engines/stharbinger/research.
 
