@@ -1,6 +1,6 @@
 # And Then There Were None: the script runner
 
-> **Status:** partial · **Code:** `src/engines/awe/game/script.cpp`, `conditions.cpp` (shared); `src/engines/awe/attwn/script.cpp` (this game's own words) · **Checked against:** the code (`ac.exe`); `awe script-check` over the English install's 5,614 commands · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/awe/game/script.cpp`, `conditions.cpp` (shared); `src/engines/awe/attwn/script.cpp` (this game's own words) · **Checked against:** the code (`ac.exe`); `awe script-check` over the English install's 5,622 commands · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -102,6 +102,6 @@ words as known.
 - **How it's checked:** `awe.unit.attwn` runs `inc` through the shared
   runner and tests `suspicion` through the shared evaluator, tries the
   machines and picks the coda, and shows Orient Express without them. `awe script-check` over the install:
-  5,614 commands of 55 verbs, `cutscene` and `journal` the only verbs it
+  5,622 commands of 56 verbs, `cutscene` and `journal` the only verbs it
   doesn't know. The machines were played in the route search
   ([../TESTING.md](../TESTING.md)).
