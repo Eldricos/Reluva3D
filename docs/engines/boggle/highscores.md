@@ -1,7 +1,9 @@
 # Classic high scores
 
 After the round and dictionary review finish, **High Scores / H** opens the
-native Classic table. Enter, Escape, H or Close dismisses it; closing consumes
+Classic table. With installed artwork enabled, it now uses the
+[installed ten-row dialog layout](dialogs.md#high-score-table) when present.
+Enter, Escape, H or Close dismisses it; closing consumes
 the remaining events in that input batch so it cannot also start a replay.
 The table lists rank, player name, Original/Master version and score. Quit and
 Return to Launcher still work while it is open.

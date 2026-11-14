@@ -402,3 +402,13 @@ single active OK control. Three isolated button-mode checks corroborate the
 source mapping. Original/Master tests retain frozen Traditional/Chess clocks,
 focus nesting, keyboard/mouse acknowledgment and scoring. Native font metrics,
 colors, wording and other dialog skins remain outside this placement claim.
+
+### High-score dialog placement
+
+The owner confirmed installed minimum notices work. The next
+[score-table pass](../../engines/boggle/dialogs.md#high-score-table) derives all
+ten row positions and Close from the installed template and fits its wider
+client area to the native viewport. Ranking, persistence, retry and keyboard
+behavior remain unchanged, with dedicated checks for replay guards and the
+separate multiplayer-results Close target. Fonts, colors, unsupported mode
+controls and exact original skill-column semantics remain native scope limits.

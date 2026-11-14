@@ -3,6 +3,7 @@
 #include "engines/boggle/formats/dialog.h"
 #include "engines/boggle/classic/review_dialog.h"
 #include "engines/boggle/classic/notice_dialog.h"
+#include "engines/boggle/classic/scores_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -78,6 +79,65 @@ void noticeGame(const std::filesystem::path& tmp){
         HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
     }
 }
+void scoresLayouts(){
+    ClassicScoresDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.close().contains(500,460) && layout.retry().contains(200,460));
+    for(bool extended:{false,true}) {
+        const auto f=fixtures::scoresDialog(extended);auto own=resources(f.bytes);own[0].name.id=16007;
+        CHECK(!layout.read(own) && layout.installed());const auto close=layout.close(),retry=layout.retry();CHECK(close.x+close.w<=784 && close.y+close.h<=576 && retry.x+retry.w<close.x);
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        HighScores scores;CHECK(!scores.load({},{}));for(int i=0;i<10;++i)CHECK(!scores.record(i%2?ClassicVariant::Master:ClassicVariant::Original,180000,i,"ABCDEFGHIJKLMNOPQR"));const auto before=scores.table();
+        Surface screen;screen.create(800,600,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);layout.draw(screen,scores,"Own error");
+        for(int y=0;y<600;++y)for(int x=0;x<800;++x)if(screen.row(y)[x*4+3]!=17)CHECK(x>=16 && x<784 && y>=24 && y<576);
+        CHECK(scores.table()==before);
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?20:16),15400);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8),40);CHECK(bool(layout.read(bad))); // columns overlap
+        bad=own;test::fixtures::put16(bad[0].data,f.controls.back()+(extended?12:8)+2,100);CHECK(bool(layout.read(bad))); // Close crosses rows
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void scoresGame(const std::filesystem::path& tmp){
+    for(bool master:{false,true})for(bool recovery:{false,true}) {
+        const auto root=tmp/(std::to_string(master)+std::to_string(recovery));fixtures::artworkInstall(root);
+        const auto f=fixtures::scoresDialog(master);fixtures::write(root/"Language/English.dll",fixtures::dialogLanguage(f.bytes,16007));
+        auto own=resources(f.bytes);own[0].name.id=16007;ClassicScoresDialog layout;CHECK(!layout.read(own));
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(recovery));target.settings={{"classic_variant",master?"master":"original"},{"classic_seed","6551"},{"classic_animations","0"},{"classic_sound","0"},{"classic_seconds","0"}};
+        HighScores initial;CHECK(!initial.load(target.savePath,target.path));
+        if(recovery)fixtures::write(target.savePath/"HighScores.txt","Own corrupt file");
+        else for(int i=0;i<9;++i)CHECK(!initial.record(i%2?ClassicVariant::Master:ClassicVariant::Original,180000,i+2,"ABCDEFGHIJKLMNOPQR"));
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            auto click=[&](HistoryButton b){return mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==2)return {keyEvent(key::F1)};
+            if(f==3)return {keyEvent('h')};
+            if(f==4)return recovery?std::vector<Event>{click(layout.retry())}:std::vector<Event>{click(layout.close()),keyEvent(key::Return)};
+            if(f==5){if(recovery){std::filesystem::remove(target.savePath/"HighScores.txt");return {click(layout.retry()),click(layout.retry())};}return {keyEvent('h')};}
+            if(f==6)return {keyEvent(key::Return),keyEvent(key::Return)};
+            if(f==7)return {keyEvent(key::Escape)};
+            return {};
+        };
+        ClassicGame game(sys,target);if(auto error=game.run())test::fail(error.message);CHECK(sys.hashes.size()==7);
+        if(sys.hashes.size()==7){if(recovery)CHECK(sys.hashes[3]==sys.hashes[4] && sys.hashes[4]!=sys.hashes[5]);else CHECK(sys.hashes[3]==sys.hashes[5] && sys.hashes[2]==sys.hashes[4] && sys.hashes[4]==sys.hashes[6]);}
+        HighScores final;CHECK(!final.load(target.savePath,target.path));CHECK(final.table().size()==(recovery?1u:10u));if(!final.table().empty())CHECK(final.table().back().score==1);
+    }
+}
+void matchClose(const std::filesystem::path& tmp){
+    fixtures::artworkInstall(tmp/"game");const auto f=fixtures::scoresDialog();fixtures::write(tmp/"game/Language/English.dll",fixtures::dialogLanguage(f.bytes,16007));
+    auto own=resources(f.bytes);own[0].name.id=16007;ClassicScoresDialog layout;CHECK(!layout.read(own));
+    GameTarget target;target.path=tmp/"game";target.savePath=tmp/"save";target.settings={{"classic_seed","6551"},{"classic_animations","0"},{"classic_sound","0"},{"classic_seconds","0"}};
+    fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+        if(f==0 || f==3)return {keyEvent(key::Return)};
+        if(f==1 || f==4)return {textEvent("AAAA"),keyEvent(key::Return)};
+        if(f==2 || f==5)return {keyEvent(key::F1)};
+        if(f==6)return {mouseEvent(EventType::MouseDown,540,465)};
+        if(f==7)return {keyEvent('h')};
+        if(f==8){const auto b=layout.close();return {mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2)};}
+        if(f==9)return {keyEvent(key::Escape)};
+        return {};
+    };
+    ClassicGame game(sys,target,false,{"One","Two"});if(auto error=game.run())test::fail(error.message);
+    CHECK(sys.hashes.size()==9);if(sys.hashes.size()==9)CHECK(sys.hashes[5]!=sys.hashes[6] && sys.hashes[6]==sys.hashes[8]);
+}
 void decisions(const std::filesystem::path& tmp){
     for(bool master:{false,true})for(size_t choice=0;choice<4;++choice){
         const auto root=tmp/(std::to_string(master)+std::to_string(choice));fixtures::artworkInstall(root);
@@ -104,4 +164,7 @@ static const test::Suite suite("boggle.unit.dialog",{
     {"installed button positions preserve four choices, prompt guard and scoring",decisions},
     {"notice layout, exact language, wrapping and invalid controls",[](const auto&){noticeLayouts();}},
     {"installed OK, focus nesting, frozen clocks and acknowledgment batch",noticeGame},
+    {"fitted score rows, languages, clipping and malformed controls",[](const auto&){scoresLayouts();}},
+    {"score Close, replay guard, persisted ten rows and retry recovery",scoresGame},
+    {"multiplayer results keep their own Close target",matchClose},
 });

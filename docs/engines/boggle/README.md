@@ -51,7 +51,8 @@ use Up/Down to inspect its numbered cube path and points. Right-click restores
 the final summary. All Words / A reveals available and missed words with
 potential points, while retaining the final score. See [completed-round review](results.md)
 and [all-word discovery](all-words.md). High Scores / H opens the shared Classic
-[high-score table](highscores.md) after results are finalized. With the menu disabled, Escape returns directly
+[high-score table](highscores.md) after results are finalized. Its rows and Close
+button now follow the installed dialog layout when available. With the menu disabled, Escape returns directly
 to the launcher. Normal launches and New Board now use fresh native seeds;
 Replay keeps the current board. The shuffle differs from the original game.
 See [board variety and reproducible checks](randomization.md).

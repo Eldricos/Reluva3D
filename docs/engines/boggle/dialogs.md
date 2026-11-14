@@ -77,6 +77,33 @@ OK, Enter, keypad Enter, Space and Escape retain their existing behavior. Wrong
 clicks cannot dismiss it; focus regain must display the notice before a queued
 acknowledgment is accepted. Music and lid behavior are unchanged.
 
+## High-score table
+
+The Classic high-score view now uses RT_DIALOG 16007 / language 0x0409 when
+installed artwork is enabled. The ten rows bind by IDs 15400..15409 (name),
+15410..15419 (score) and 15420..15429 (the existing native version column).
+Close binds to button ID 1. The original loader requests template 16007 at
+`0x43e068`; row-control lookups include `0x445a35` and `0x445acf`.
+
+The wider template fits uniformly inside a 768x552 area of the 800x600 view,
+using at most the existing two-pixel unit scale. Drawing and mouse targets use
+the same rounded coordinate transform. Required IDs/classes, bounds, column and
+row separation, button clearance and minimum readable cell sizes are checked.
+Missing templates or disabled artwork retain the previous table. A malformed
+present selected template fails explicitly.
+
+The ranking model, native save format, repeated names, mixed Original/Master
+scores, zero scores and one-record-per-round rule are unchanged. Only placement
+changes. The third column continues the existing native Original/Master field;
+matching the original skill-display semantics is not claimed. Other game-mode
+controls in the resource are not exposed. Native colors, text and bitmap fonts
+remain in use; this is not an original-skinned Windows dialog.
+
+Enter, Escape, H and mouse Close still dismiss the table and consume the input
+batch. Native Retry / R remains available for save errors, with its mouse target
+fitted beside Close. Opening or closing the table cannot replay or record another
+score. Multiplayer results keep their own existing Close position.
+
 ## Checking and validation
 
 ```
@@ -108,3 +135,9 @@ and event-batch consumption, then submit a word successfully for the same score.
 External SDL software-backend checks also display the supplied minimum notice
 and acknowledge its installed OK button in both variants, restoring the human
 cursor afterward. No screenshots or decoded templates are stored in Git.
+
+High-score fixtures additionally cover both template encodings, fitted geometry,
+all ten rows, clipped names, malformed/overlapping controls, mouse and keyboard
+close, replay guards, successful retry recovery and multiplayer results. External
+SDL runs display the supplied table and close it by mouse and keyboard in both
+variants. Stored rankings and resource/import checksums remain unchanged.

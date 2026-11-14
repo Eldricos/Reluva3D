@@ -28,6 +28,23 @@ inline DialogFixture dialog(bool extended=false,bool extra=false,bool notice=fal
     }
     return f;
 }
+inline DialogFixture scoresDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(31);word(0);word(0);word(420);word(270);word(0);word(0);f.caption=b.size();text(u"Own scores");
+    auto control=[&](unsigned id,unsigned klass,int x,int y,int w,int h){
+        while(b.size()%4)b.push_back(0);f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        word(uint16_t(x));word(uint16_t(y));word(uint16_t(w));word(uint16_t(h));
+        if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(uint16_t(klass));text(u"Own cell");word(0);
+    };
+    for(unsigned row=0;row<10;++row)for(unsigned col=0;col<3;++col)
+        control(15400+col*10+row,0x82,col==0?40:col==1?180:280,80+int(row)*14,col==0?40:col==1?60:90,12);
+    control(1,0x80,350,240,50,16);return f;
+}
 inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;
     std::array<std::u16string,16> text{};text[1]=u"Own menu";const auto strings=stringBlock(text);
