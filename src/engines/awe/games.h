@@ -6,6 +6,7 @@
 #include "common/archive.h"
 #include "common/detection.h"
 #include "common/types.h"
+#include "engines/awe/formats/savegame.h"
 
 #include <array>
 #include <cstdint>
@@ -137,6 +138,12 @@ struct LightingRules {
     bool nightSparesLights = false;
 };
 
+/** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
+struct GameSaves {
+    SaveLayout layout;
+    const char *extension = ".ac2"; ///< slot<n> and this, a slot<n>.bmp beside each
+};
+
 /** A font a game sets up in its code, not from text/fonts.txt. */
 struct GameFont {
     const char *use;  ///< what it's for, as GameFonts finds it ("dialogue")
@@ -188,6 +195,7 @@ struct GameInfo {
     LightingRules lighting;        ///< how its characters are lit
     std::vector<GameFont> fonts;   ///< its fonts if its code sets them up; empty: text/fonts.txt's
     DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
+    GameSaves saves;               ///< its saved games' files
     const char *exe = nullptr;     ///< its executable, in the game's folder
     PathFinderCode pathFinder;     ///< in that executable (the English release's)
 };

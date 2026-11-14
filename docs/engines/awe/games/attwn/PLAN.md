@@ -99,7 +99,7 @@ Run on the unpacked install with Orient Express's code as it is:
 ## Phases
 
 Each phase ends with its tests and its pages, as Orient Express's did.
-Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
+Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
 
 1. **Recognised, and its files read** (small; done).
    - Detection: `ac.exe` (`24bc962a1f2acfb788132d0ec198063d`, 593,920)
@@ -125,7 +125,7 @@ Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
    - The data viewer's Scenes page: every scene drawn at 800×600 with its
      characters, against the game's own camera (`camera-check`, with this
      game's `granny2.dll`).
-3. **What differs between the games, in a table** (medium).
+3. **What differs between the games, in a table** (medium; done).
    - A per-game description: the frame's size, the file names
      (`people\%s\%s_model.gr2`, `Saved Games\slot%d.ac1`), the tables'
      names and columns, the fonts, the window's title.
@@ -186,9 +186,25 @@ Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
      alternatives are picked, the box kept or not after a line
      ([systems/dialogue.md](systems/dialogue.md#the-dialogue-manager)).
 
-   Left: those file names in the table, as each system that uses them is
-   compared; lighting, shadows, the interface (the dialogue box drawn as
-   this game's with it) and the saves, read and compared.
+   - **Lighting**: the same code but for the light record's fields and
+     defaults, the camera's default ambient, and which lights night puts
+     out, in the table (`LightingRules`;
+     [systems/lighting.md](systems/lighting.md)).
+   - **Shadows**: the same code; what differs (the frame's size, the
+     order the darkening is drawn in, no shadow-only lights) comes to the
+     same with this game's data ([systems/shadows.md](systems/shadows.md)).
+   - **The interface**: Orient Express's bar, scrapbook and cards are its
+     own, as this game's inventory, journal and menus are (phase 4). What
+     they share, compared: the fonts, nine set up in the code
+     (`GameFont`), and the dialogue box's layout and colours
+     (`DialogueBoxLayout`); the Scenes page draws this game's
+     conversations ([systems/interface.md](systems/interface.md)).
+   - **Saves**: Orient Express's records in 8-bit text, without `GLBM`,
+     `ACTI` or `TIMS`, in `.ac1` files (`GameSaves`;
+     [systems/saves.md](systems/saves.md)).
+   - **The file names in the table**: the dialogue tables', the fonts' and
+     the saves'. The rest above (the chapters, footsteps, inventory,
+     journal) go in with the systems that use them, in phase 4.
 4. **The game's own systems** (large).
    - Chapters, acts and the chapter tables.
    - The still-picture cutscenes and the title cards.

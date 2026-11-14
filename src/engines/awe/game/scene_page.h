@@ -368,6 +368,9 @@ private:
     // game's own format: Saved.Games/slot<N>.ac2 and .bmp, quick.ac2,
     // kept in Reluva's save folder for the game.
     std::filesystem::path savesFolder() const;
+    // The game's saves' extension and layout (GameInfo::saves).
+    std::string saveExtension() const;
+    SaveLayout saveLayout() const;
     SaveGame captureSave(const std::string &description) const;
     // "preload": the story state from a save; "load" then goes there.
     bool preload(const std::filesystem::path &file, bool fromGame);
