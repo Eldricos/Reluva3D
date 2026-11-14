@@ -19,7 +19,7 @@ namespace {
 const int kNumStars = 400;
 const double kPi = 3.14159265358979323846;
 const char *const kHelp =
-    "Up/Down, Enter: missions   Left/Right: images   PgUp/PgDn: archives   Tab: levels   Esc: quit";
+    "Up/Down, Enter: missions   Left/Right: images   PgUp/PgDn: archives   Tab: levels   Esc: back";
 
 } // namespace
 
@@ -28,8 +28,7 @@ ResourceViewer::ResourceViewer(Platform *system, Options options) : Generations(
 
 Error ResourceViewer::start() {
     log::debug(1, "Controls: Left/Right = image, PgUp/PgDn = archive, Up/Down = sound, Space = replay sound,");
-    log::debug(1,
-               "          Home = starfield, click = test tone, F5/F7 = save/load, Alt+Enter = fullscreen, Esc = quit");
+    log::debug(1, "          Home = starfield, F5/F7 = save/load, F8 = movies, Alt+Enter = fullscreen, Esc = back");
     log::debug(
         1,
         "          On a level: [ ] = floor plan, 3D view, textures; in 3D, arrows/WASD move, PgUp/PgDn look, L lighting, C collision");

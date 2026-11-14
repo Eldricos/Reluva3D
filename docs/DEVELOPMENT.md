@@ -424,12 +424,13 @@ on. Keep it off.
 - **VS Code** opens the folder directly, with the *CMake Tools* and *C/C++*
   extensions. CLion and Qt Creator open `CMakeLists.txt` directly.
 - **Visual Studio.** To pass command-line arguments to `reluva.exe` (e.g. to
-  start a game directly):
+  start a game directly, by its name in the launcher's list) or to
+  `reluva-viewer.exe` (a game in its viewer, or the testbed):
   1. In Solution Explorer, right-click `CMakeLists.txt` and choose **Add
      Debug Configuration** (or **Debug and Launch Settings**), then
-     **reluva.exe**.
-  2. In the `launch.vs.json` that opens, add an `args` line to the
-     `reluva.exe` entry:
+     **reluva.exe** or **reluva-viewer.exe**.
+  2. In the `launch.vs.json` that opens, add an `args` line to that
+     program's entry; for `reluva-viewer.exe`, the testbed:
 
      ```json
      "args": [ "testbed" ]

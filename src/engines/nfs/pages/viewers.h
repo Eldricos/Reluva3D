@@ -49,7 +49,7 @@ namespace page {
 inline void frame(Surface &s, const std::string &title, const std::string &keys) {
     clear(s);
     text(s, kMargin, 8, title, kTitleColor);
-    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: launcher", kLabelColor);
+    text(s, kMargin, s.h - font::kLineHeight - 4, keys + "   Tab: next page   Esc: back", kLabelColor);
 }
 
 } // namespace page
