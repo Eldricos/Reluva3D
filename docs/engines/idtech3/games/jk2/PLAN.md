@@ -100,10 +100,30 @@ behind the DLL's own tables.
 6. **Multiplayer game**: `jk2mpgame.qvm` and `cgame.qvm` hosts, their
    system calls, and the engine's Ghoul2 calls they make (animation, bolts,
    collision against Ghoul2 models for hits and the saber); the Play page
-   for the game. Then the network protocol (1.02's, to be confirmed as 15)
-   with its entity and player state layouts, and the bots (the QVM's own
-   waypoint code; which botlib calls it still makes is to be found). Ends
-   with: a free-for-all against bots, and a match against retail 1.02.
+   for the game. Then the network protocol (1.02's: 15, as `jk2mp.exe`
+   registers it) with its entity and player state layouts, and the bots.
+   Ends with: a free-for-all against bots, and a match against retail 1.02.
+
+   What's known so far, from 1.02a's QVMs (`qvm-info`, `qvm-dis
+   -blockcopies`) and the GPL source's multiplayer `g_public.h` and
+   `cg_public.h` as a guide:
+   - The game module (`jk2mpgame.qvm`: 249,138 instructions, 1,112
+     functions) uses calls 0–50 in Quake III's order with Raven's after
+     it (ROFF mover paths 47–50, string packages), the maths calls 100–111,
+     a few of the bot library's (setup, snapshot entities, console
+     messages, user commands; the elementary actions 400–425; goal, move
+     and weapon states) and Ghoul2's (584–599: bolts, models, animation).
+     Its bots run on its own waypoints: it makes no area (AAS) call but
+     303. Calls 0–38 are numbered as Elite Force's, so the host is to be
+     Elite Force's, generalised: each game's call numbers and layouts in
+     a table.
+   - The client game (`cgame.qvm`: 216,795 instructions) uses about 140
+     calls, Ghoul2's among them (200–300).
+   - An entity state is 296 bytes and a player state 1,368, as both
+     modules copy them whole; the GPL `entityState_t` adds up to 296. The
+     server's part after it (`entityShared_t`) is Quake III's with
+     `mIsRoffing` and two `broadcastClients` words: 112 bytes, to 408.
+     To check against the game's own code as it runs.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from
