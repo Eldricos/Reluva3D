@@ -44,8 +44,8 @@ reluva_add_engine_tools(clue
 
 # Its tests (tests/engines/clue/), in reluva-tests: the unit tests by topic,
 # on files built in the tests, and the engine test, without game files (a
-# small install of its own played through, its record in
-# data/engine-record.txt). See docs/DEVELOPMENT.md (Tests).
+# small install of its own played through, and its data viewer; its record
+# in data/engine-record.txt). See docs/DEVELOPMENT.md (Tests).
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/clue)
 reluva_add_engine_tests(clue
     SOURCES
@@ -68,4 +68,4 @@ reluva_add_gamedata_test(clue
     GAME clue
     ENV RELUVA_CLUE
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files levels boards play)
+    STEPS release files levels boards play viewer)

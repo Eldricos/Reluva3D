@@ -40,9 +40,15 @@ caught. CI runs it on Linux and Windows with the rest.
   Start; the deal; the game, saved in the first slot as "Test" from the Esc
   menu, and left; the saved game loaded from the main menu; back to the
   launcher.
+- **The viewer:** the same install in the data viewer, as `reluva-viewer`
+  runs it: the mansion scrolled, its whole house and back; **Tab** to the
+  videos, the animations, the images and the text (the install has no
+  sounds, so their page is passed over), with a key on each; **Tab** round
+  to the mansion, and **Esc**, which must end it.
 - **The record** (`tests/engines/clue/data/engine-record.txt`): what's
   detected, every screen shown (a checksum), the window's titles, and the
-  saved game's name and a checksum of the game it holds.
+  saved game's name and a checksum of the game it holds; for the viewer,
+  how it ended (by Esc), its screens' checksum and its titles.
 - **When it fails:** it prints each line, with the old value beside any
   that changed. If the change is meant, `reluva-tests clue.engine --update`,
   review the record's diff, and commit it with the change.
@@ -66,6 +72,7 @@ the steps show as skipped.
 | `clue.gamedata.levels` | `clue.lvl`'s placements, each one (`clue level -v`) |
 | `clue.gamedata.boards` | The board it lays out, and 200 games of computer players on it, the same games every time (`clue board`) |
 | `clue.gamedata.play` | The game itself, headless, as below (`clue game-run`; on the CD, the US's and the UK's) |
+| `clue.gamedata.viewer` | The data viewer, headless, as below (`clue viewer-run`; on the CD, for the US's game and the UK's) |
 
 `reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]` plays the game
 on a System with no window whose clock moves only as the game waits, so
@@ -78,6 +85,13 @@ game; `-uk` plays the UK's game (Cluedo: Murder at Blackwell Grange)
 where the folder has it; `-shots` writes a screen a second as PNG files,
 to look at. On the CD the files step
 also checks the UK's files (`clue check -uk`).
+
+`reluva-tool clue viewer-run <game folder> [-uk] [-shots <folder>]` runs
+the data viewer the same way, as `reluva-viewer` runs it: the mansion
+scrolled, its whole house and back, its walls; **Tab** through the
+videos, animations, images, sounds and text, two or three keys on each;
+**Tab** round to the mansion, and **Esc**. It prints a checksum of every
+screen shown, the window's titles, and whether Esc ended it.
 
 Each step's output is kept in the build (`gamedata/clue/<step>/`), the
 previous run's beside it, and its checksum and summary line go in the
@@ -226,6 +240,7 @@ worked through yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 2026-11-14 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | After the source layout, formatting and renames, and the data viewer's move to `reluva-viewer`: the unit tests, `clue.engine`'s game and the game-files test as recorded (the game draws every screen as before); the viewer, driven through all its pages on the 2.2 install, the same pixel for pixel as the viewer before the move (behind F9 in the game, at commit `63860aa6`); the viewer's new records made; the style checks clean; the 47 harnesses built, `doorwalk` and `roomwalk` as before |
 | 2026-11-12 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | After walks into rooms took the way-finder: the unit tests, `clue.engine` and the game-files test, all as recorded; `harness/doorwalk` on the 2.2 install, all 17 doors' ways and the 4 passages' good |
 | 2026-11-12 | US 2.2 (install, patched); US 2.0 (install); the 2.0 CD, US and UK | Linux (x86-64, GCC) | The unit tests, `clue.engine`, and every step of the game-files test: all as recorded |
 | 2026-11-07 | None (`clue.engine`'s own install) | Windows (Visual Studio 2022, CI) and Linux (CI) | The unit tests and `clue.engine`, after saved games were made the same on every system (the Windows run had found them different) |

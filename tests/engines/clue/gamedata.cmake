@@ -10,7 +10,7 @@
 # holding Clue.exe and Data/Classic; or its CD, or a copy of it) comes from
 # the environment variable named by GAME_ENV (RELUVA_CLUE). Without it the
 # step is skipped. An install holds one language's game, US or UK English;
-# the CD holds both, and the files and play steps run for each.
+# the CD holds both, and the files, play and viewer steps run for each.
 #
 # Each step runs reluva-tool's clue commands on the game:
 #   release  what the game is (detect)
@@ -24,6 +24,9 @@
 #            and two computer players set up in the menus, the deal, the
 #            game saved from the Esc menu, left, and loaded again; a
 #            checksum of every screen shown and of the saved game (game-run)
+#   viewer   the data viewer, headless, as reluva-viewer runs it: every
+#            page, a few keys on each, then Esc; a checksum of every screen
+#            shown, and its titles (viewer-run)
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/clue/data/gamedata/<release>/<step>.txt. The step passes when
@@ -109,6 +112,14 @@ elseif(STEP STREQUAL "play")
             record_run(play-uk "screens:" clue game-run "${game_dir}" -uk)
         else()
             record_run(play "screens:" clue game-run "${game_dir}")
+        endif()
+    endforeach()
+elseif(STEP STREQUAL "viewer")
+    foreach(language IN LISTS languages)
+        if(language STREQUAL "clue-uk")
+            record_run(viewer-uk "left by:" clue viewer-run "${game_dir}" -uk)
+        else()
+            record_run(viewer "left by:" clue viewer-run "${game_dir}")
         endif()
     endforeach()
 else()

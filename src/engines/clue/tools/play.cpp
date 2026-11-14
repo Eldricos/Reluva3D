@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool's Clue command that plays the game itself: the engine run as
-// the launcher runs it, on a System with no window whose clock moves only
-// as the game waits, so a run is the same on every machine. It clicks the
-// game's own buttons where dialogInfo.res puts them. Used by the
-// game-files test (tests/engines/clue/gamedata.cmake).
+// reluva-tool's Clue commands that run the game and its data viewer: each
+// run as reluva and reluva-viewer run it, on a System with no window whose
+// clock moves only as it waits, so a run is the same on every machine. The
+// game is played by clicking its own buttons where dialogInfo.res puts
+// them. Used by the game-files test (tests/engines/clue/gamedata.cmake).
 
 #include "common/headless_system.h"
 #include "image/image.h"
@@ -15,6 +15,7 @@
 #include "engines/clue/game/rules.h"
 #include "engines/clue/ui/ui.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "devtools/tool.h"
 
 #include <algorithm>
@@ -137,33 +138,64 @@ std::string savesIn(const std::filesystem::path &dir) {
     return out.empty() ? "(none)" : out;
 }
 
-int cmdGameRun(int argc, char **argv) {
-    if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]\n");
-        return 2;
-    }
-    const std::filesystem::path gameDir = argv[2];
-    std::filesystem::path shots;
-    bool uk = false;
-    for (int i = 3; i < argc; ++i) {
-        if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
-            shots = argv[++i];
-        else if (std::strcmp(argv[i], "-uk") == 0)
-            uk = true;
-    }
-
-    // The game in the folder: the US's, or with -uk the UK's (the CD has both).
+// The game in the folder: the US's, or with uk the UK's (the CD has both).
+// Prints it, or says there's none.
+bool findGame(const std::filesystem::path &gameDir, bool uk, std::vector<DetectedGame> &found) {
     const MetaEngine *engine = findEngine("clue");
     const std::vector<DetectedGame> games = engine ? engine->detect(gameDir) : std::vector<DetectedGame>{};
-    std::vector<DetectedGame> found;
     for (const DetectedGame &g : games)
         if ((g.gameId == "clue-uk") == uk)
             found.push_back(g);
     if (found.empty()) {
         std::fprintf(stderr, "No %s in %s\n", uk ? "Cluedo (the UK's)" : "Clue", gameDir.string().c_str());
-        return 1;
+        return false;
     }
     std::printf("game: %s %s\n", found[0].gameId.c_str(), found[0].description.c_str());
+    return true;
+}
+
+// The game folder and options both commands take.
+struct RunArgs {
+    std::filesystem::path gameDir;
+    std::filesystem::path shots;
+    bool uk = false;
+};
+
+RunArgs runArgs(int argc, char **argv) {
+    RunArgs a;
+    a.gameDir = argv[2];
+    for (int i = 3; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-shots") == 0 && i + 1 < argc)
+            a.shots = argv[++i];
+        else if (std::strcmp(argv[i], "-uk") == 0)
+            a.uk = true;
+    }
+    return a;
+}
+
+// What a run did: how it ended, every screen's checksum, the window's
+// titles.
+void printRun(const PlayingSystem &sys, const Error &err) {
+    std::printf("result: %s\n", err ? ("error: " + err.message).c_str() : "ok");
+    std::printf("screens: %d %s, %.1f s\n", sys.shown, sys.screens.hex().c_str(), double(sys.getMillis()) / 1000);
+    std::string titles;
+    for (const std::string &title : sys.titles)
+        titles += (titles.empty() ? "" : " / ") + title;
+    std::printf("titles: %s\n", titles.c_str());
+}
+
+int cmdGameRun(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool clue game-run <game folder> [-uk] [-shots <folder>]\n");
+        return 2;
+    }
+    const RunArgs args = runArgs(argc, argv);
+    const std::filesystem::path &gameDir = args.gameDir;
+
+    const MetaEngine *engine = findEngine("clue");
+    std::vector<DetectedGame> found;
+    if (!engine || !findGame(gameDir, args.uk, found))
+        return 1;
 
     // Where the game's buttons are: its dialogs as the game shows them.
     clue::GameData data;
@@ -186,9 +218,9 @@ int cmdGameRun(int argc, char **argv) {
     // in the first slot from the Esc menu; left; the saved game loaded
     // from the main menu, and ten seconds more; back to the launcher.
     PlayingSystem sys;
-    sys.shots = shots;
-    if (!shots.empty())
-        std::filesystem::create_directories(shots);
+    sys.shots = args.shots;
+    if (!args.shots.empty())
+        std::filesystem::create_directories(args.shots);
     uint64_t t = 1000;
     bool missing = false;
     const auto at = [&](const Event &e, uint64_t wait) {
@@ -251,14 +283,69 @@ int cmdGameRun(int argc, char **argv) {
     GameTarget target{"clue", "clue", found[0].gameId, found[0].description, gameDir, saves, {}};
     std::unique_ptr<Engine> game = engine->create(sys, target);
     const Error err = game->run();
-    std::printf("result: %s\n", err ? ("error: " + err.message).c_str() : "ok");
-    std::printf("screens: %d %s, %.1f s\n", sys.shown, sys.screens.hex().c_str(), double(sys.getMillis()) / 1000);
-    std::string titles;
-    for (const std::string &title : sys.titles)
-        titles += (titles.empty() ? "" : " / ") + title;
-    std::printf("titles: %s\n", titles.c_str());
+    printRun(sys, err);
     std::printf("saved: %s\n", savesIn(saves).c_str());
     std::filesystem::remove_all(saves, ec);
+    return err ? 1 : 0;
+}
+
+int cmdViewerRun(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool clue viewer-run <game folder> [-uk] [-shots <folder>]\n");
+        return 2;
+    }
+    const RunArgs args = runArgs(argc, argv);
+    const MetaViewer *viewer = findViewer("clue");
+    std::vector<DetectedGame> found;
+    if (!viewer || !findGame(args.gameDir, args.uk, found))
+        return 1;
+
+    // Every page, as reluva-viewer shows it: the mansion scrolled, its whole
+    // house and back, its walls; Tab to the videos (the intro playing, then
+    // the next), the animations (the next, the next file, a frame on), the
+    // images (the next, zoomed, on black), the sounds (the next, played),
+    // the text (the next file, scrolled); Tab round to the mansion, and Esc
+    // leaves, ending the run.
+    PlayingSystem sys;
+    sys.shots = args.shots;
+    if (!args.shots.empty())
+        std::filesystem::create_directories(args.shots);
+    uint64_t t = 1000;
+    const auto press = [&](uint32_t key, uint64_t wait) {
+        sys.inputs.push_back({t, keyDown(key)});
+        t += wait;
+    };
+    press(key::kRight, 300);
+    press(key::kDown, 300);
+    press('m', 1500);
+    press(key::kEscape, 500);
+    press('w', 500);
+    press(key::kTab, 3000);
+    press(key::kRight, 2000);
+    press(key::kTab, 1000);
+    press(key::kRight, 500);
+    press(key::kDown, 500);
+    press('.', 500);
+    press(key::kTab, 500);
+    press(key::kRight, 500);
+    press('z', 500);
+    press('b', 500);
+    press(key::kTab, 500);
+    press(key::kRight, 500);
+    press(key::kSpace, 1000);
+    press(key::kTab, 500);
+    press(key::kRight, 500);
+    press(key::kDown, 500);
+    press(key::kTab, 1000);
+    press(key::kEscape, 1000);
+    // Esc should have ended it: this only stops a run that didn't.
+    sys.inputs.push_back({t + 5000, Event{EventType::kReturnToLauncher}});
+
+    GameTarget target{"clue", "clue", found[0].gameId, found[0].description, args.gameDir, {}, {}};
+    std::unique_ptr<Engine> run = viewer->create(sys, target);
+    const Error err = run->run();
+    printRun(sys, err);
+    std::printf("left by: %s\n", sys.getMillis() < t + 5000 ? "Esc" : "nothing: still running");
     return err ? 1 : 0;
 }
 
@@ -269,6 +356,10 @@ const Commands kCommands(
          "play the game headless (the UK's with -uk): a new game of a person and two computer players, saved, left and loaded again; "
          "a checksum of every screen shown and of the saved game (-shots writes a screen a second)",
          cmdGameRun},
+        {"viewer-run", "<game folder> [-uk] [-shots <folder>]",
+         "run the data viewer headless (the UK's game with -uk): every page, a few keys on each, then Esc; "
+         "a checksum of every screen shown and the window's titles (-shots writes a screen a second)",
+         cmdViewerRun},
     });
 
 } // namespace

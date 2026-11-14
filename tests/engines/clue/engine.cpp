@@ -9,9 +9,10 @@
 // drawn), finds it as the launcher does, and plays it through the engine:
 // the intro, New Game, one player and two computer players set up, the
 // game started, saved from the Esc menu, left, and loaded again from the
-// main menu. What happens goes into a record (counts and checksums of the
-// screens, the titles, the saved games), compared with
-// tests/engines/clue/data/engine-record.txt.
+// main menu. Then its data viewer, as reluva-viewer runs it: every page
+// with something to show, and Esc to leave. What happens goes into a
+// record (counts and checksums of the screens, the titles, the saved
+// games), compared with tests/engines/clue/data/engine-record.txt.
 //
 //   reluva-tests clue.engine [--update]
 
@@ -19,6 +20,7 @@
 #include "engines/clue/formats/level.h"
 #include "engines/clue/game/rules.h"
 #include "engines/registry.h"
+#include "engines/viewer_registry.h"
 #include "tests/engines/clue/support.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
@@ -395,6 +397,38 @@ void engineTest(const std::filesystem::path &tmp) {
         titles += (titles.empty() ? "" : " / ") + title;
     rec.add("run.titles", titles);
     rec.add("run.files", listSaves(tmp / "save"));
+
+    // The viewer: the mansion scrolled, its whole house and back; Tab to the
+    // videos (the deal, then the intro), the animations, the images and the
+    // text (the install has no sounds, so their page is passed over); Tab
+    // round to the mansion, and Esc leaves, ending the run.
+    if (const MetaViewer *viewer = findViewer("clue")) {
+        PlayingSystem vsys;
+        uint64_t vt = 1000;
+        const auto press = [&](uint32_t k, uint64_t wait) {
+            vsys.inputs.push_back({vt, key(k)});
+            vt += wait;
+        };
+        for (const uint32_t k : {uint32_t(key::kRight), uint32_t('m'), uint32_t(key::kEscape), uint32_t(key::kTab),
+                                 uint32_t(key::kRight), uint32_t(key::kTab), uint32_t(key::kRight), uint32_t(key::kTab),
+                                 uint32_t(key::kRight), uint32_t(key::kTab), uint32_t(key::kDown), uint32_t(key::kTab)})
+            press(k, 500);
+        press(key::kEscape, 500);
+        // Esc should have ended it: this only stops a run that didn't.
+        const uint64_t stop = vt + 5000;
+        vsys.inputs.push_back({stop, Event{EventType::kReturnToLauncher}});
+        auto run = viewer->create(vsys, target);
+        const Error verr = run->run();
+        rec.add("viewer.result", verr ? "error: " + verr.message : std::string("ok"));
+        rec.add("viewer.left", vsys.getMillis() < stop ? "by Esc" : "not by Esc");
+        rec.add("viewer.screens", std::to_string(vsys.shown) + " " + vsys.screens.hex());
+        std::string vtitles;
+        for (const std::string &title : vsys.titles)
+            vtitles += (vtitles.empty() ? "" : " / ") + title;
+        rec.add("viewer.titles", vtitles);
+    } else {
+        test::fail("clue has no viewer");
+    }
 
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/clue/data/engine-record.txt", "clue.engine",
               "tests/engines/clue/engine.cpp");
