@@ -161,6 +161,136 @@ inline std::vector<uint8_t> buildBsp(int version = 46, int badIndex = -1, int32_
     return out;
 }
 
+// A Ghoul2 skeleton (.gla): bone 0 "child" hangs off bone 1 "root"
+// (listed first, as the humanoid skeleton's eyebrows are), 10 units along
+// x from it; frame 1 lifts the root 5 units. No rotations.
+inline std::vector<uint8_t> buildGla() {
+    std::vector<uint8_t> out;
+    auto i32 = [&](int32_t x) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(uint32_t(x) >> (8 * i)));
+    };
+    auto f32 = [&](float f) {
+        int32_t x;
+        std::memcpy(&x, &f, 4);
+        i32(x);
+    };
+    auto name = [&](const char *s) {
+        std::vector<uint8_t> n(64, 0);
+        std::memcpy(n.data(), s, std::strlen(s));
+        out.insert(out.end(), n.begin(), n.end());
+    };
+    const int32_t bonesAt = 100 + 8;
+    const int32_t boneSize = 172;
+    const int32_t framesAt = bonesAt + 2 * boneSize + 4; // the root has a child
+    const int32_t poolAt = framesAt + 2 * 2 * 3 + 0;     // 12 bytes: aligned already
+    const int32_t end = poolAt + 3 * 14;
+    out.insert(out.end(), {'2', 'L', 'G', 'A'});
+    i32(6);
+    name("test/skel");
+    f32(1);
+    for (int32_t x : {2, framesAt, 2, poolAt, bonesAt, end})
+        i32(x);
+    i32(8);            // bone 0, from just after the header
+    i32(8 + boneSize); // bone 1
+    const float identity[12] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+    for (int b = 0; b < 2; ++b) {
+        name(b == 0 ? "child" : "root");
+        i32(0);
+        i32(b == 0 ? 1 : -1);
+        for (int k = 0; k < 24; ++k)
+            f32(identity[k % 12]);
+        i32(b == 0 ? 0 : 1);
+        if (b == 1)
+            i32(0);
+    }
+    // Frame 0: the child's bone is pool 1, the root's pool 0; frame 1 the
+    // root's pool 2.
+    for (int index : {1, 0, 1, 2}) {
+        out.push_back(uint8_t(index));
+        out.push_back(0);
+        out.push_back(0);
+    }
+    auto bone = [&](float x, float z) {
+        for (int v : {49149, 32766, 32766, 32766}) { // w 1, x y z 0
+            out.push_back(uint8_t(v));
+            out.push_back(uint8_t(v >> 8));
+        }
+        for (float t : {x, 0.0f, z}) {
+            const int v = int((t + 512) * 64);
+            out.push_back(uint8_t(v));
+            out.push_back(uint8_t(v >> 8));
+        }
+    };
+    bone(0, 0);
+    bone(10, 0);
+    bone(0, 5);
+    return out;
+}
+
+// A Ghoul2 mesh (.glm) on buildGla's skeleton: one surface, one triangle;
+// vertex 0 on the root, 1 on the child, 2 a third on the child and two
+// thirds on the root, all at the origin.
+inline std::vector<uint8_t> buildGlm(int badVertex = -1) {
+    std::vector<uint8_t> out;
+    auto i32 = [&](int32_t x) {
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(uint32_t(x) >> (8 * i)));
+    };
+    auto f32 = [&](float f) {
+        int32_t x;
+        std::memcpy(&x, &f, 4);
+        i32(x);
+    };
+    auto name = [&](const char *s) {
+        std::vector<uint8_t> n(64, 0);
+        std::memcpy(n.data(), s, std::strlen(s));
+        out.insert(out.end(), n.begin(), n.end());
+    };
+    const int32_t lodAt = 168 + 144;
+    const int32_t surfaceAt = lodAt + 8;
+    const int32_t end = surfaceAt + 180;
+    out.insert(out.end(), {'2', 'L', 'G', 'M'});
+    i32(6);
+    name("test/model.glm");
+    name("test/skel");
+    for (int32_t x : {0, 2, 1, lodAt, 1, 168, end})
+        i32(x);
+    i32(4); // the surface's name, from just after the header
+    name("body");
+    i32(0);
+    name("textures/x");
+    for (int32_t x : {0, -1, 0})
+        i32(x);
+    i32(end - lodAt); // the level's size
+    i32(4);           // its surface, from just after the level's size
+    // Bone references at 40, the triangle at 48, vertices at 60, their
+    // texture coordinates after.
+    for (int32_t x : {0, 0, -surfaceAt, 3, 60, 1, 48, 2, 40, 180})
+        i32(x);
+    i32(0); // the child
+    i32(1); // the root
+    for (int32_t v : {0, 1, badVertex >= 0 ? badVertex : 2})
+        i32(v);
+    // Packed: weights less one in the top bits, each weight's bone in 5
+    // bits; vertex 2's first weight 341/1023: 85 in its byte, 1 at bit 20.
+    const uint32_t packed[3] = {1, 0, (1u << 30) | (1u << 5) | (1u << 20)};
+    for (int v = 0; v < 3; ++v) {
+        for (float n : {0.0f, 0.0f, 1.0f})
+            f32(n);
+        for (int k = 0; k < 3; ++k)
+            f32(0);
+        i32(int32_t(packed[v]));
+        for (uint8_t w : {uint8_t(v == 2 ? 85 : 0), uint8_t(0), uint8_t(0), uint8_t(0)})
+            out.push_back(w);
+    }
+    for (int v = 0; v < 3; ++v) {
+        f32(float(v) / 2);
+        f32(0);
+    }
+    return out;
+}
+
 // A two-frame MD3 with one tag and one triangle; frame 1 is frame 0
 // moved up 64 units.
 inline std::vector<uint8_t> buildMd3(int badIndex = -1) {

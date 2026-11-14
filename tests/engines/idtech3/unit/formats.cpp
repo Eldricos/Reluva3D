@@ -25,6 +25,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
@@ -336,6 +337,67 @@ static void testSurfaceSprites() {
     CHECK(parts.empty() && out.empty());
     set.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, [](int s) { return s != 7; }, out, outIdx, parts);
     CHECK(parts.empty());
+}
+
+static void testGhoul2() {
+    using namespace fixtures;
+    GlaSkeleton gla;
+    Error err = parseGla(buildGla(), gla);
+    CHECK(!err && gla.bones.size() == 2 && gla.frameCount == 2 && gla.pool.size() == 3);
+    CHECK(gla.bones.size() == 2 && gla.bones[0].name == "child" && gla.bones[0].parent == 1 &&
+          gla.bones[1].children == std::vector<int>{0});
+    GlmModel glm;
+    err = parseGlm(buildGlm(), glm);
+    CHECK(!err && glm.animName == "test/skel" && glm.boneCount == 2 && glm.surfaces.size() == 1);
+    if (err || gla.bones.size() != 2 || glm.lods.size() != 1)
+        return;
+    CHECK(glm.surfaces[0].name == "body" && glm.surfaces[0].shader == "textures/x" && glm.surfaces[0].flags == 0);
+    const GlmSurface &s = glm.lods[0][0];
+    CHECK(s.boneRefs == (std::vector<int32_t>{0, 1}) && s.indices.size() == 3 && s.st[2][0] == 1);
+    CHECK(s.vertices[2].weightCount == 2 && std::fabs(s.vertices[2].weight[0] - 341.0f / 1023) < 1e-6f &&
+          std::fabs(s.vertices[2].weight[1] - (1 - 341.0f / 1023)) < 1e-6f);
+
+    // The child placed on its parent, though it comes first; frame 1 lifts
+    // both; halfway between, half as much.
+    auto approx = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+    std::vector<Bone34> bones;
+    std::vector<Md3Vertex> posed;
+    poseBones(&gla, 0, 0, 0, bones);
+    skinSurface(s, bones, posed);
+    CHECK(approx(posed[0].pos[0], 0) && approx(posed[1].pos[0], 10) && approx(posed[1].pos[2], 0));
+    CHECK(approx(posed[2].pos[0], 10.0f / 3) && approx(posed[2].normal[2], 1));
+    poseBones(&gla, 1, 1, 0, bones);
+    skinSurface(s, bones, posed);
+    CHECK(approx(posed[0].pos[2], 5) && approx(posed[1].pos[0], 10) && approx(posed[1].pos[2], 5));
+    poseBones(&gla, 1, 0, 0.5f, bones);
+    skinSurface(s, bones, posed);
+    CHECK(approx(posed[1].pos[2], 2.5f));
+    poseBones(nullptr, 0, 0, 0, bones); // "*default": one still bone
+    CHECK(bones.size() == 1 && bones[0][0] == 1 && bones[0][3] == 0);
+
+    // A vertex past the surface's, a bone past the model's, a truncated
+    // file: refused.
+    CHECK(parseGlm(buildGlm(3), glm));
+    std::vector<uint8_t> bad = buildGla();
+    bad.erase(bad.end() - 14, bad.end());
+    CHECK(parseGla(bad, gla)); // frame 1's root bone is past the pool now
+    CHECK(parseGlm({'2', 'L', 'G', 'M'}, glm));
+
+    // Raven's animation.cfg: the name first; -1 doesn't loop; a negative
+    // speed plays it backwards.
+    const auto anims = parseGhoul2AnimationConfig("// comment\nBOTH_A 10 4 -1 20\nBOTH_B\t20\t3\t0\t-10\n");
+    CHECK(anims.size() == 2 && anims[0].name == "BOTH_A" && anims[0].loop == 0 && anims[1].loop == 3);
+    if (anims.size() == 2) {
+        int frame = 0;
+        int next = 0;
+        float fraction = 0;
+        anims[0].frameAt(1, frame, next, fraction); // long past its end: held
+        CHECK(frame == 13 && next == 13);
+        anims[1].frameAt(0, frame, next, fraction);
+        CHECK(anims[1].backwards && frame == 22 && next == 21);
+        anims[1].frameAt(0.35f, frame, next, fraction); // round again
+        CHECK(frame == 22);
+    }
 }
 
 static void testBsp() {
@@ -786,6 +848,7 @@ static const reluva::test::Suite
                {"waves", [](const std::filesystem::path &) { testWaves(); }},
                {"bsp", [](const std::filesystem::path &) { testBsp(); }},
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
+               {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
                {"md3", [](const std::filesystem::path &) { testMd3(); }},

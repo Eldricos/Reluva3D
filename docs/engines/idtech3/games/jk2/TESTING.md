@@ -15,7 +15,8 @@
 
   Its steps, beside Elite Force's: `jk2-release` (what's detected),
   `jk2-maps` (`bsp-check`, every map), `jk2-shaders` (`shader-check`),
-  `jk2-models` (`model-check`, the MD3 models), `jk2-images`
+  `jk2-models` (`model-check`, the MD3 models), `jk2-ghoul2`
+  (`ghoul2-check`, every Ghoul2 mesh and skeleton), `jk2-images`
   (`image-check`, the images the maps' shaders name: 15 missing, as in
   the paks). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
@@ -33,4 +34,4 @@ Not playable yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps; every map in the World page |
+| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps; every map in the World page; Ghoul2 people and droids in the Models page |

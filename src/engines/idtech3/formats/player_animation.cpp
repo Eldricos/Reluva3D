@@ -24,8 +24,8 @@ void PlayerAnimation::frameAt(float seconds, int &frame, int &next, float &fract
     };
     if (n >= count && loop <= 0)
         fraction = 0;
-    frame = first + wrap(n);
-    next = first + wrap(n + 1);
+    frame = first + (backwards ? count - 1 - wrap(n) : wrap(n));
+    next = first + (backwards ? count - 1 - wrap(n + 1) : wrap(n + 1));
 }
 
 std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
@@ -70,6 +70,31 @@ std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text) {
         for (PlayerAnimation &a : out)
             if (a.part == PlayerAnimation::Part::kLegs)
                 a.first -= firstLegs - firstTorso;
+    return out;
+}
+
+std::vector<PlayerAnimation> parseGhoul2AnimationConfig(std::string_view text) {
+    std::vector<PlayerAnimation> out;
+    std::istringstream lines{std::string(text)};
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (const size_t comment = line.find("//"); comment != std::string::npos)
+            line.resize(comment);
+        std::istringstream words(line);
+        PlayerAnimation a;
+        int loop = 0;
+        float fps = 0;
+        if (!(words >> a.name >> a.first >> a.count >> loop >> fps))
+            continue;
+        a.part = a.name.rfind("TORSO_", 0) == 0  ? PlayerAnimation::Part::kTorso
+                 : a.name.rfind("LEGS_", 0) == 0 ? PlayerAnimation::Part::kLegs
+                                                 : PlayerAnimation::Part::kBoth;
+        a.count = std::max(a.count, 1);
+        a.loop = loop == -1 ? 0 : a.count;
+        a.backwards = fps < 0;
+        a.fps = fps == 0 ? 1 : std::fabs(fps); // as the game, never 0
+        out.push_back(a);
+    }
     return out;
 }
 

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/render/light_grid.h"
+#include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/formats/md3.h"
 #include "engines/idtech3/render/shader_cache.h"
 
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <unordered_map>
@@ -61,6 +63,8 @@ public:
     void setLodBias(int bias) { _lodBias = bias; }
     int lodBias() const { return _lodBias; }
     const Md3Model &model(int id) const { return _models[size_t(id)].md3; }
+    // Its Ghoul2 mesh, if it is one (its skeleton's name, surfaces and their flags).
+    const GlmModel *ghoul2(int id) const { return _models[size_t(id)].glm.get(); }
     // A skin file's contents, read on first use (empty if missing).
     const Skin &skin(const std::string &path);
 
@@ -91,6 +95,13 @@ private:
         gfx::MeshId mesh = 0;
         std::vector<Surface> surfaces;
         std::vector<int> lods; // the lower levels' ids, from level 1
+        // A Ghoul2 mesh (shared by its levels), its skeleton (nullptr:
+        // "*default", one still bone) and, for each of md3's surfaces, the
+        // mesh's: posed for each draw, md3 holding frame 0's pose.
+        std::shared_ptr<const GlmModel> glm;
+        const GlaSkeleton *skeleton = nullptr;
+        int level = 0;
+        std::vector<size_t> glmSurfaces;
         // The materials chosen for each skin and shader drawn with, surface
         // by surface (models are drawn many times a frame).
         std::map<std::pair<const Skin *, std::string>, std::vector<int>> chosen;
@@ -100,6 +111,15 @@ private:
     int chooseMaterial(int id, size_t i, const Skin *skin, const std::string &shader);
     // One level of a model, from `data`; -1 with the reason in `error`.
     int add(const std::string &path, const std::vector<uint8_t> &data, int level, std::string *error);
+    // A Ghoul2 mesh's level as an Md3Model posed at frame 0, which draw()
+    // poses again; false with the reason in `error`.
+    bool addGhoul2(const std::shared_ptr<const GlmModel> &glm, int level, Loaded &m, std::string &error);
+    // A skeleton by its name without ".gla", read on first use; nullptr if
+    // it can't be.
+    const GlaSkeleton *skeleton(const std::string &name);
+    // A Ghoul2 model's surfaces posed for a frame, in a mesh laid out as its
+    // own (frame 0's), to draw once and destroy; 0 if it can't be made.
+    gfx::MeshId poseGhoul2(const Loaded &m, int frame, int oldFrame, float backLerp);
 
     gfx::Renderer3D &_r;
     ShaderCache &_shaders;
@@ -107,6 +127,7 @@ private:
     std::vector<Loaded> _models;
     std::unordered_map<std::string, int> _byPath; // normalized; -1 for failures
     std::unordered_map<std::string, Skin> _skins;
+    std::unordered_map<std::string, std::unique_ptr<GlaSkeleton>> _skeletons; // normalized; nullptr for failures
 };
 
 } // namespace reluva::idtech3

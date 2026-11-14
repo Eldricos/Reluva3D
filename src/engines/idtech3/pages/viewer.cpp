@@ -12,11 +12,12 @@
 //           to look, W/A/S/D to move, Space/C (or E/Q) up and down, Shift
 //           to go faster, R back to the start point, I to show or hide
 //           the info.
-// Models:   every .md3 and .mdr; players (lower, upper and head in one folder) put
-//           together. Left/Right step, PageUp/PageDown jump 10; drag to
-//           turn, wheel or +/- to zoom, A to animate, ,/. to step frames,
-//           [ and ] to step through a player's animations (from its
-//           animation.cfg, legs and torso paired as the game plays them),
+// Models:   every .md3, .mdr and Ghoul2 .glm; players (lower, upper and head
+//           in one folder) put together. Left/Right step, PageUp/PageDown
+//           jump 10; drag to turn, wheel or +/- to zoom, A to animate, ,/.
+//           to step frames, [ and ] to step through a player's animations
+//           (from its animation.cfg, legs and torso paired as the game plays
+//           them; a Ghoul2 model's, from its skeleton's, on the whole of it),
 //           T to place a player's torso on its legs' tag or as in its
 //           file, R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.

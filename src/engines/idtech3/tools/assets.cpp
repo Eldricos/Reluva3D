@@ -9,6 +9,7 @@
 #include "common/fs.h"
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/formats/md3.h"
 #include "engines/idtech3/formats/shader.h"
 
@@ -395,9 +396,87 @@ int cmdShaderCheck(int argc, char **argv) {
     return 0;
 }
 
+// Every Ghoul2 mesh and skeleton read; each mesh against the skeleton it
+// names (found, as many bones), and its surfaces' shaders found.
+int cmdGhoul2Check(int argc, char **argv) {
+    if (argc < 3 || argc > 4) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 ghoul2-check <game folder> [name filter]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    const std::string filter = argc > 3 ? reluva::normalizeArchiveName(argv[3]) : std::string();
+    q3::ShaderLibrary shaders;
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir);
+    std::vector<std::string> meshes;
+    std::map<std::string, q3::GlaSkeleton> skeletons; // by name without extension
+    int failed = 0;
+    Bytes data;
+    for (const std::string &n : set.list()) {
+        const std::string key = reluva::normalizeArchiveName(n);
+        if (key.find(filter) == std::string::npos || key.size() < 4)
+            continue;
+        const std::string ext = key.substr(key.size() - 4);
+        if (ext == ".glm") {
+            meshes.push_back(n);
+        } else if (ext == ".gla") {
+            q3::GlaSkeleton gla;
+            reluva::Error err = set.read(n, data);
+            if (!err)
+                err = q3::parseGla(data, gla);
+            if (err) {
+                std::printf("FAIL %s: %s\n", n.c_str(), err.message.c_str());
+                ++failed;
+                continue;
+            }
+            std::printf("ok   %s: %zu bones, %d frames, %zu packed bones\n", n.c_str(), gla.bones.size(),
+                        gla.frameCount, gla.pool.size());
+            skeletons[key.substr(0, key.size() - 4)] = std::move(gla);
+        }
+    }
+    int missingShaders = 0;
+    for (const std::string &n : meshes) {
+        q3::GlmModel glm;
+        reluva::Error err = set.read(n, data);
+        if (!err)
+            err = q3::parseGlm(data, glm);
+        const std::string anim = reluva::normalizeArchiveName(glm.animName);
+        const auto skel = skeletons.find(anim);
+        if (!err && anim != "*default" && skel == skeletons.end())
+            err = reluva::Error::fail("its skeleton " + glm.animName + ".gla isn't found");
+        if (!err && skel != skeletons.end() && int(skel->second.bones.size()) != glm.boneCount)
+            err = reluva::Error::fail(std::to_string(glm.boneCount) + " bones, its skeleton " +
+                                      std::to_string(skel->second.bones.size()));
+        if (err) {
+            std::printf("FAIL %s: %s\n", n.c_str(), err.message.c_str());
+            ++failed;
+            continue;
+        }
+        size_t triangles = 0;
+        for (const q3::GlmSurface &s : glm.lods[0])
+            triangles += s.indices.size() / 3;
+        int missing = 0;
+        for (const q3::GlmSurfaceInfo &s : glm.surfaces)
+            if (s.flags == 0 && !shaders.find(s.shader) && q3::findImage(set, s.shader).empty())
+                ++missing;
+        missingShaders += missing;
+        std::printf("ok   %s: %zu surfaces, %zu levels, %zu triangles, skeleton %s%s\n", n.c_str(), glm.surfaces.size(),
+                    glm.lods.size(), triangles, glm.animName.c_str(),
+                    missing ? (", " + std::to_string(missing) + " shaders missing").c_str() : "");
+    }
+    std::printf("%zu meshes, %zu skeletons: %d failed, %d surfaces' shaders missing\n", meshes.size(), skeletons.size(),
+                failed, missingShaders);
+    return failed ? 1 : 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
+        {"ghoul2-check", "<game folder> [name filter]",
+         "read every Ghoul2 mesh (.glm) and skeleton (.gla); each mesh against its skeleton and shaders",
+         cmdGhoul2Check},
         {"image-check", "<game folder> [map name filter]",
          "list the images maps' shaders use that can't be found (only maps whose name contains map)", cmdImageCheck},
         {"model-check", "<game folder> [name filter] [-v]",

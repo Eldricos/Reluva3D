@@ -49,6 +49,7 @@ reluva_add_engine(idtech3
         eliteforce/ui_host.cpp
         formats/bsp.cpp
         formats/entities.cpp
+        formats/ghoul2.cpp
         formats/lexer.cpp
         formats/marks.cpp
         formats/md3.cpp
@@ -130,4 +131,4 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-images)
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images)

@@ -71,12 +71,14 @@ behind the DLL's own tables.
    (phase 6): the light styles' own passes, animated, and the wind and
    weather that move surface sprites and show weather ones; with RoQ
    (phase 4): `videoMap`.
-3. **Ghoul2 models**: GLM meshes (surfaces, levels of detail, bone weights)
-   and GLA skeletons (compressed bone frames), skinned on the CPU first;
-   `animation.cfg` (Jedi Outcast's own layout, read from the files);
-   surfaces turned off by `.skin` files. A page,
-   `formats/ghoul2.md`, in the engine's folder. Ends with: every Ghoul2
-   model in the Models page, animating.
+3. **Ghoul2 models** (done): GLM meshes and GLA skeletons read and
+   checked (`ghoul2-check`: all 71 and 21), posed on the CPU for each
+   draw by the model cache, each level of detail a model; only surfaces
+   without flags drawn; `model_default.skin`; the skeleton's
+   `animation.cfg` in Raven's layout (looping, backwards). The Models page
+   shows and animates every one ([ghoul2.md](../../formats/ghoul2.md)).
+   With the game's code (phase 6): its Ghoul2 calls (each part's
+   animation, bones it turns, bolts, surfaces on and off, collision).
 4. **Text, fonts and RoQ**: string packages (`raven/strings`), Raven's
    fonts (`raven/fonts`: the `.fontdat` glyph table over its `.tga`), and a
    RoQ decoder in `src/video/` (any engine can use it; Quake III's own

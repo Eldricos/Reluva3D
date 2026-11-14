@@ -22,7 +22,7 @@ Voyager - Elite Force (`stvef`).
 | Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`); each game's folder of them (`scripts/`, Jedi Outcast's `shaders/`) ([shader.md](formats/shader.md)) |
 | Maps | every BSP lump read and validated, Quake III's and Raven's (light styles, a level-wide fog); all of Elite Force's retail maps and Jedi Outcast's 41 load and draw ([bsp.md](formats/bsp.md), [rbsp.md](formats/rbsp.md)) |
 | Images | TGA, JPEG, PNG (`image/image.cpp`) |
-| Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
+| Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid; Jedi Outcast's Ghoul2 meshes and skeletons, posed on the CPU ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md), [ghoul2.md](formats/ghoul2.md)) |
 | Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
 | Pages | The game's Start, Single player, Menu and Play pages; the data viewer's World, Models, Maps, Textures and Files pages, in `reluva-viewer` |
 | Renderer | Every shader stage, sky boxes and cloud layers, curved surfaces, fog, dynamic lights, models' levels of detail, and visibility as the original's renderer has it; Raven's light styles (held full) and surface sprites |

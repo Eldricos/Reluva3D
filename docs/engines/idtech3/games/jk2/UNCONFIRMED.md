@@ -4,6 +4,9 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
+- Ghoul2 models are posed as the GPL Jedi Outcast renderer poses them;
+  they look right in the Models page, but haven't been compared with the
+  original ([ghoul2.md](../../formats/ghoul2.md)).
 - Surface sprites, light styles and the one-shot animMaps are drawn as
   the GPL Jedi Outcast renderer describes them, which isn't 1.02a's own
   code; Yavin's levels look as expected in `reluva-viewer`, but haven't
