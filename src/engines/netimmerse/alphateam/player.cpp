@@ -21,7 +21,6 @@ Player::~Player() {
         if (_game)
             _game->cpu().requestStop();
     }
-    _resume.notify_all();
     if (_thread.joinable())
         _thread.join();
 }
@@ -50,14 +49,6 @@ uint64_t Player::framesShown() {
     return _frameNumber;
 }
 
-void Player::pause(bool paused) {
-    {
-        std::lock_guard<std::mutex> lock(_mutex);
-        _paused = paused;
-    }
-    _resume.notify_all();
-}
-
 bool Player::finished(bool &ended, std::string &error) {
     std::lock_guard<std::mutex> lock(_mutex);
     ended = _ended;
@@ -82,9 +73,9 @@ void Player::work() {
         if (_output.size() < (1u << 20))
             _output += text + (text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    // Each frame shown: kept for the engine; then the input waiting, and
-    // a pause if one's asked for. The input is also taken whenever the
-    // program looks for a message and finds none.
+    // Each frame shown: kept for the engine; then the input waiting. The
+    // input is also taken whenever the program looks for a message and
+    // finds none.
     // Frames shown a flip late: a frame's drawing goes on while the program
     // works out the next, about a quarter quicker, for a frame's delay.
     game.directX().presentLate = true;
@@ -102,11 +93,10 @@ void Player::work() {
             _nextFlip = std::max(_nextFlip, now) + kFrame;
         }
         {
-            std::unique_lock<std::mutex> lock(_mutex);
+            std::lock_guard<std::mutex> lock(_mutex);
             _frame = f.pixels;
             _width = f.width, _height = f.height;
             ++_frameNumber;
-            _resume.wait(lock, [this] { return !_paused || _stopping; });
         }
         drain();
     };
