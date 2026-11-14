@@ -37,8 +37,8 @@ public:
 
     Error run() override {
         return Error::fail(
-            "Star Trek: New Worlds can't be played yet, only looked at in reluva-viewer (reluva-viewer " +
-            _target.path.string() + ")");
+            "Star Trek: New Worlds can't be played yet, only looked at in reluva-viewer (reluva-viewer \"" +
+            _target.path.string() + "\")");
     }
 
 private:
