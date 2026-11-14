@@ -82,6 +82,9 @@ End an untimed round with F1 or End Round. See
 Unknown words with a valid path stay in red and carry provisional points. At
 round end, review them with Yes / No / Yes to all / No to all (buttons or keys
 1 / 2 / 3 / 4). Approved words persist in the launcher's per-game save folder.
+With installed artwork enabled, the review panel now uses the installed
+[dialog control placement](dialogs.md); its four choices retain the printed
+native keyboard shortcuts.
 Use the word-panel arrows, Page Up / Page Down, or the wheel over the panel
 to browse a long word list. See [history controls](history.md). See the
 [user-dictionary behavior and evidence](user-dictionary.md).

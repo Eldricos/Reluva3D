@@ -11,6 +11,7 @@ reluva_add_engine(boggle
         frontend/media.cpp
         import.cpp
         resources.cpp
+        formats/dialog.cpp
         formats/text_resources.cpp
         formats/cursor_image.cpp
         formats/mesh.cpp
@@ -30,6 +31,7 @@ reluva_add_engine(boggle
         classic/ai_policy.cpp
         classic/ai_motion.cpp
         classic/competition.cpp
+        classic/review_dialog.cpp
         classic/results.cpp
         classic/turn_clock.cpp
         classic/seed.cpp
@@ -39,6 +41,7 @@ reluva_add_engine(boggle
 # Its reluva-tool commands (reluva-tool help boggle lists them).
 reluva_add_engine_tools(boggle
     SOURCES
+        tools/dialog.cpp
         tools/background.cpp
         tools/computer.cpp
         tools/competition.cpp
@@ -59,6 +62,7 @@ reluva_add_engine_tools(boggle
 set(tests ${PROJECT_SOURCE_DIR}/tests/engines/boggle)
 reluva_add_engine_tests(boggle
     SOURCES
+        ${tests}/unit/dialog.cpp
         ${tests}/unit/cube_renderer.cpp
         ${tests}/unit/cursor.cpp
         ${tests}/unit/background.cpp
@@ -84,11 +88,11 @@ reluva_add_engine_tests(boggle
         ${tests}/unit/user_dictionary.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.cube_renderer unit.cursor unit.background unit.computer unit.chess unit.traditional unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
+        unit.dialog unit.cube_renderer unit.cursor unit.background unit.computer unit.chess unit.traditional unit.competition unit.highscores unit.seed unit.solver unit.results unit.player unit.history unit.layout unit.detection unit.frontend unit.import unit.resources unit.dictionary unit.classic unit.options unit.presentation unit.user_dictionary engine)
 
 # Optional tests with the owner's data; raw output stays outside Git.
 reluva_add_gamedata_test(boggle
     GAME boggle1997
     ENV RELUVA_BOGGLE1997
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release resources dictionaries classic master presentation cursor music import frontend movies artwork font allwords competition computer background)
+    STEPS release resources dialogs dictionaries classic master presentation cursor music import frontend movies artwork font allwords competition computer background)

@@ -382,3 +382,13 @@ now follows these observations: focus suspends only the music channel, manual
 pause closes/reopens on a separate focus-aware presentation clock, and round
 end goes directly to review/results. This supersedes earlier still-frame pause,
 continuing-focus-music and end-closing policies. Exact modal styling remains open.
+
+### Dictionary-review dialog placement
+
+The next [dialog-layout stage](../../engines/boggle/dialogs.md) adds a bounded
+standard/extended Windows template reader and uses the installed Unknown Word
+control placement. All 99 supplied templates decode, including 10 extended
+layouts and 729 controls. Review actions remain tied to their logical choices;
+mouse tests cover all four decisions in Original/Master with unchanged points.
+Native fonts, colors, dialog-unit scaling and explanatory wording remain native
+policies. Exact original dialog styling and the other modal screens remain open.

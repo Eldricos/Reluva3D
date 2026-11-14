@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/classic/game.h"
+#include "engines/boggle/classic/review_dialog.h"
 #include "engines/boggle/classic/cursor.h"
 #include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/turn_clock.h"
@@ -125,7 +126,7 @@ std::string feedback(Submission result, size_t minimum) {
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
           const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
-          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results,bool chess,bool coverBoard) {
+          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results,bool chess,bool coverBoard,const ClassicReviewDialog& reviewDialog) {
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
     if(artwork.active()) {
@@ -199,6 +200,8 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     if (!playing && !reviewing) { rect(screen, 216, 557, 158, 29, {48, 88, 120}); label(screen, 227, 566, "NEW BOARD (F2)"); }
     label(screen, artwork.active()?450:610, 566, fromMenu ? "MENU (F3)" : "ESC: LAUNCHER", muted);
     if (const auto* word = round.candidate()) {
+        if(reviewDialog.installed())reviewDialog.draw(screen,word->entry.word,message);
+        else {
         rect(screen, 24, 182, 752, 270, {50, 78, 108});
         rect(screen, 27, 185, 746, 264, {22, 40, 60});
         label(screen, 48, 206, "ADD TO YOUR DICTIONARY?", white, 2);
@@ -209,6 +212,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
         label(screen, 54, 368, "YES (1)"); label(screen, 238, 368, "NO (2)");
         label(screen, 422, 368, "YES TO ALL (3)"); label(screen, 606, 368, "NO TO ALL (4)");
         if (!message.empty()) label(screen, 48, 416, message.substr(0, 88), muted);
+        }
     }
 
 }
@@ -260,9 +264,11 @@ Error ClassicGame::run() {
     ClassicArtwork artwork;
     if(auto err=artwork.open(resources,target_.path,options,clip))return err;
     ClassicCursorArtwork cursorArtwork;
+    ClassicReviewDialog reviewDialog;
     if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
         if(auto error=cursorArtwork.read(language.resources))return error;
+        if(options.artwork)if(auto error=reviewDialog.read(language.resources))return error;
     }
     ClassicAudio sound(sys_);
     ClassicTransition transition;
@@ -631,7 +637,7 @@ Error ClassicGame::run() {
                 if (promptVisible && event.type == EventType::KeyDown && !event.repeat && event.key >= '1' && event.key <= '4')
                     choice = int(event.key - '1');
                 if (promptVisible && event.type == EventType::MouseDown && event.button == MouseButton::Left)
-                    for (int i = 0; i < 4; ++i) if (hit(event.mouseX, event.mouseY, 40 + i * 184, 352, 168, 40)) choice = i;
+                    for (int i = 0; i < 4; ++i) if (reviewDialog.buttons()[size_t(i)].contains(event.mouseX,event.mouseY)) choice = i;
                 if (choice >= 0) {
                     const DictionaryChoice choices[] = {DictionaryChoice::Yes, DictionaryChoice::No, DictionaryChoice::YesAll, DictionaryChoice::NoAll};
                     if (auto err = round().decide(choices[choice])) message = err.message;
@@ -763,7 +769,7 @@ Error ClassicGame::run() {
             artwork.drawTransition(screen,round().board(),frameIndex,letters,qu,seed);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,pauseFrame?(pauseLid.state()==ClassicPauseLid::State::Opening?"Opening the lid...":"Closing the lid..."):"Rolling dice and opening the lid...");
-        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual());
+        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual(),reviewDialog);
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);

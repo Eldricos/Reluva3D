@@ -116,3 +116,8 @@ exercise red history, prompt buttons/keys, all four choices, no Enter approval,
 save-error recovery, scrolling, and a separately constructed engine loading
 saved additions. Checksum records contain only metadata; no retail words,
 boards, user dictionaries or captures are committed.
+
+The subsequent [installed-dialog pass](dialogs.md) derives review buttons and
+message placement from the English dialog resource. Drawing and mouse targets
+share those bounds; keyboard choices, scoring and persistence remain unchanged.
+Missing templates and disabled artwork retain the earlier native panel.
