@@ -8,9 +8,11 @@
 the test: recognising the game, its file names, unscrambling `.act`
 ([formats/files.md](formats/files.md)), reading a scene
 ([formats/ac1.md](formats/ac1.md)), its own script words
-([systems/script.md](systems/script.md)), its dialogue tables, and
+([systems/script.md](systems/script.md)), its dialogue tables,
 conversations played by its dialogue manager's rules
-([systems/dialogue.md](systems/dialogue.md)).
+([systems/dialogue.md](systems/dialogue.md)), its lights at night
+([systems/lighting.md](systems/lighting.md)), and its saves' layout
+([systems/saves.md](systems/saves.md)).
 
 ### The basic engine test
 
@@ -35,6 +37,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the rest: the lights counted over the 537 scenes; the dialogue box in the Scenes page, a line and a menu (`awe page-shot ... "run:act 01a, talk marston a forcegen"`); the fonts' face names from their files |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the dialogue manager: the box's rule over the tables' Povents (three differ from Orient Express's), the codes over the tables, the talk command's words over the scripts (`talka` unused, no `+`) |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 3 so far: `awe script-check`, 5,614 commands; `awe path-check -all`, `ac.exe`'s path-finder against Reluva's, 88,000 searches, 0 mismatches |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 2: `awe files-check -ac2`, all 537 scenes and their cameras against `granny2.dll`; the Scenes page on the main menu, the entry hall and the kitchen in act 1B, with its characters (`awe page-shot -3d`) |

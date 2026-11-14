@@ -8,6 +8,7 @@
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/formats/ac2.h"
+#include "engines/awe/formats/savegame.h"
 #include "engines/awe/games.h"
 #include "engines/awe/game/conditions.h"
 #include "engines/awe/game/dialogue.h"
@@ -393,6 +394,43 @@ void testLighting() {
     CHECK(lit.lights.size() == 3 && lit.ambient[0] == 127 / 255.0f);
 }
 
+void testSaves() {
+    // Its layout (0x412e9f): text a byte a character, no GLBM, ACTI or TIMS.
+    SaveGame save;
+    save.description = "Café";
+    save.time = "10:41";
+    save.date = "11-14-26";
+    save.timeOfDay = 2;
+    save.location = "kitchen";
+    save.scene = "Locations\\Act01b\\Kitchen01.ac1";
+    save.actMajor = 1;
+    save.actMinor = 2;
+    save.tags = {{"01b_neededcounter", 3}};
+    save.timers = {{"never written", 5}};
+    save.talks = {{"marston", "01a", 0, 26, 1, -1}};
+    const SaveLayout &layout = attwn::game().saves.layout;
+    const std::vector<uint8_t> bytes = writeSaveGame(save, layout);
+    // DESC's four bytes, then its 32: "Caf", 0xe9 (Windows-1252), zeros.
+    CHECK(bytes.size() > 40 && bytes[4] == 'C' && bytes[7] == 0xe9 && bytes[8] == 0 && bytes[36] == 'E');
+    auto has = [&](const char *t) {
+        const uint8_t want[4] = {uint8_t(t[3]), uint8_t(t[2]), uint8_t(t[1]), uint8_t(t[0])};
+        return std::search(bytes.begin(), bytes.end(), want, want + 4) != bytes.end();
+    };
+    CHECK(has("GLBT") && has("TAGS") && has("TALK") && !has("GLBM") && !has("ACTI") && !has("TIMS"));
+    SaveGame back;
+    CHECK(!readSaveGame(bytes, back, layout));
+    CHECK(back.description == "Café" && back.scene == save.scene && back.actMinor == 2 && back.timeOfDay == 2);
+    CHECK(back.tags.size() == 1 && back.tags[0].second == 3 && back.timers.empty());
+    CHECK(back.talks.size() == 1 && back.talks[0].thread == 26 && back.talks[0].status == 1);
+    std::string description;
+    std::string date;
+    std::string time;
+    CHECK(!readSaveHeader(bytes, description, date, time, layout) && description == "Café" && time == "10:41");
+    CHECK(std::string(attwn::game().saves.extension) == ".ac1");
+    // Read as Orient Express's, its text is wrong.
+    CHECK(readSaveHeader(bytes, description, date, time) || description != "Café");
+}
+
 void testDetection(const std::filesystem::path &tmp) {
     // Its files, whatever their contents: the fallback.
     const std::filesystem::path dir = tmp / "detect";
@@ -431,5 +469,6 @@ static const reluva::test::Suite
                                  {"dialogue manager", [](const std::filesystem::path &) { testDialogueManager(); }},
                                  {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},
                                  {"lighting", [](const std::filesystem::path &) { testLighting(); }},
+                                 {"saves", [](const std::filesystem::path &) { testSaves(); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

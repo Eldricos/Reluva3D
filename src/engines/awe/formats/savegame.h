@@ -94,11 +94,23 @@ struct SaveGame {
     std::vector<Item> items;
 };
 
+// How a game lays its saves out; Orient Express's by default. And Then
+// There Were None's (ac.exe 0x412e9f) has its text a byte a character
+// (Windows-1252) in buffers as many characters long, and no GLBM, ACTI or
+// TIMS.
+struct SaveLayout {
+    bool narrow = false;
+    bool moving = true; // GLBM, the train's moving
+    bool act = true;    // ACTI, the act's row
+    bool timers = true; // TIMS
+};
+
 // Reads a saved game; fails on a record it doesn't know or a short file.
-Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out);
-std::vector<uint8_t> writeSaveGame(const SaveGame &save);
+Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out, const SaveLayout &layout = {});
+std::vector<uint8_t> writeSaveGame(const SaveGame &save, const SaveLayout &layout = {});
 // The first three records alone (0x412440): for the load screen's list.
-Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time);
+Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time,
+                     const SaveLayout &layout = {});
 
 // A 24-bit BMP of an RGBA picture (the slots' 256x192 thumbnails), as
 // the game writes them (alpha dropped).

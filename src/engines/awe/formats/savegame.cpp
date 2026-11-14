@@ -20,7 +20,7 @@ constexpr uint32_t tag(const char (&s)[5]) {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t> &d) : _d(d) {}
+    Reader(const std::vector<uint8_t> &d, bool narrow) : _d(d), _narrow(narrow) {}
     bool fail() const { return _fail; }
     bool atEnd() const { return _pos >= _d.size(); }
     size_t pos() const { return _pos; }
@@ -47,8 +47,15 @@ public:
         std::memcpy(&f, &u, 4);
         return f;
     }
-    // w[n]: up to the first 0; what follows it is old memory.
+    // w[n]: up to the first 0; what follows it is old memory. Narrow: c[n].
     std::string text(size_t n) {
+        if (_narrow) {
+            if (!need(n))
+                return {};
+            const char *p = reinterpret_cast<const char *>(_d.data() + _pos);
+            _pos += n;
+            return text::windows1252ToUtf8(std::string_view(p, strnlen(p, n)));
+        }
         if (!need(2 * n))
             return {};
         std::vector<uint16_t> units(n);
@@ -67,12 +74,28 @@ private:
         return !_fail;
     }
     const std::vector<uint8_t> &_d;
+    bool _narrow;
     size_t _pos = 0;
     bool _fail = false;
 };
 
+// A code point as Windows-1252 has it, '?' where it hasn't.
+uint8_t toWindows1252(uint32_t cp) {
+    static const uint16_t k80[32] = {0x20ac, 0,      0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021,
+                                     0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0,      0x017d, 0,
+                                     0,      0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014,
+                                     0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0,      0x017e, 0x0178};
+    if (cp < 0x80 || (cp >= 0xa0 && cp < 0x100))
+        return uint8_t(cp);
+    for (int i = 0; i < 32; i++)
+        if (k80[i] != 0 && k80[i] == cp)
+            return uint8_t(0x80 + i);
+    return '?';
+}
+
 class Writer {
 public:
+    explicit Writer(bool narrow) : _narrow(narrow) {}
     std::vector<uint8_t> out;
     void u32(uint32_t v) {
         const size_t at = out.size();
@@ -90,8 +113,17 @@ public:
         std::memcpy(&u, &f, 4);
         u32(u);
     }
-    // w[n], zeros after the text (cut to fit with its 0).
+    // w[n], zeros after the text (cut to fit with its 0). Narrow: c[n].
     void text(const std::string &s, size_t n) {
+        if (_narrow) {
+            std::vector<uint8_t> bytes;
+            for (size_t i = 0; i < s.size();)
+                bytes.push_back(toWindows1252(text::nextUtf8(s, i)));
+            bytes.resize(n, 0);
+            bytes[n - 1] = 0;
+            out.insert(out.end(), bytes.begin(), bytes.end());
+            return;
+        }
         std::vector<uint16_t> units;
         for (size_t i = 0; i < s.size();) {
             uint32_t cp = text::nextUtf8(s, i);
@@ -109,6 +141,9 @@ public:
         out.resize(at + 2 * n);
         std::memcpy(out.data() + at, units.data(), 2 * n);
     }
+
+private:
+    bool _narrow;
 };
 
 void readPlacement(Reader &r, SaveGame::Placement &p) {
@@ -136,10 +171,11 @@ std::string tagName(uint32_t t) {
 
 } // namespace
 
-Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time) {
+Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time,
+                     const SaveLayout &layout) {
     // Positionally, as the game does: tag, w[32] three times (DESC, TIME,
     // DATE).
-    Reader r(data);
+    Reader r(data, layout.narrow);
     r.u32();
     description = r.text(32);
     r.u32();
@@ -149,9 +185,9 @@ Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description,
     return r.fail() ? Error::fail("The saved game is too short") : Error::success();
 }
 
-Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out) {
+Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out, const SaveLayout &layout) {
     out = SaveGame();
-    Reader r(data);
+    Reader r(data, layout.narrow);
     while (!r.atEnd() && !r.fail()) {
         const size_t at = r.pos();
         const uint32_t t = r.u32();
@@ -238,8 +274,8 @@ Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out) {
     return r.fail() ? Error::fail("The saved game ends inside a record") : Error::success();
 }
 
-std::vector<uint8_t> writeSaveGame(const SaveGame &s) {
-    Writer w;
+std::vector<uint8_t> writeSaveGame(const SaveGame &s, const SaveLayout &layout) {
+    Writer w(layout.narrow);
     w.u32(tag("DESC"));
     w.text(s.description, 32);
     w.u32(tag("TIME"));
@@ -250,8 +286,10 @@ std::vector<uint8_t> writeSaveGame(const SaveGame &s) {
     w.s16(s.timeOfDay);
     w.u32(tag("GLBW"));
     w.s16(s.weather);
-    w.u32(tag("GLBM"));
-    w.s16(s.moving);
+    if (layout.moving) {
+        w.u32(tag("GLBM"));
+        w.s16(s.moving);
+    }
     w.u32(tag("TIMR"));
     w.u32(0);
     w.u32(tag("INFO"));
@@ -259,16 +297,18 @@ std::vector<uint8_t> writeSaveGame(const SaveGame &s) {
     w.text(s.scene, 256);
     w.s16(s.actMajor);
     w.s16(s.actMinor);
-    w.u32(tag("ACTI"));
-    w.text(s.act.preLoad, 256);
-    w.text(s.act.location, 32);
-    w.text(s.act.postLoad, 256);
-    w.text(s.act.completion, 256);
-    w.text(s.act.event, 256);
-    w.text(s.act.music, 256);
-    w.s16(s.act.weather);
-    w.s16(s.act.timeOfDay);
-    w.s16(s.act.moving);
+    if (layout.act) {
+        w.u32(tag("ACTI"));
+        w.text(s.act.preLoad, 256);
+        w.text(s.act.location, 32);
+        w.text(s.act.postLoad, 256);
+        w.text(s.act.completion, 256);
+        w.text(s.act.event, 256);
+        w.text(s.act.music, 256);
+        w.s16(s.act.weather);
+        w.s16(s.act.timeOfDay);
+        w.s16(s.act.moving);
+    }
     if (s.player) {
         w.u32(tag("CHAR"));
         writePlacement(w, *s.player);
@@ -278,6 +318,8 @@ std::vector<uint8_t> writeSaveGame(const SaveGame &s) {
         writePlacement(w, *s.follower);
     }
     for (const auto *list : {&s.tags, &s.timers}) {
+        if (list == &s.timers && !layout.timers)
+            continue;
         w.u32(list == &s.tags ? tag("TAGS") : tag("TIMS"));
         w.s16(int(list->size()));
         for (const auto &[name, value] : *list) {

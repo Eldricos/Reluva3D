@@ -7,6 +7,9 @@ What Reluva does that hasn't been checked against the running original.
 - **The dialogue manager's rules** (`DialogueRules`): each read from
   `ac.exe` and played in the unit test, none seen in the running game.
   [systems/dialogue.md](systems/dialogue.md).
+- **Lighting, the dialogue box, the fonts and the saves' layout**, each
+  read from `ac.exe` and none compared with the running game or a
+  recording yet. [systems/](systems/).
 
 ## Seen running, not traced in the code
 
@@ -25,6 +28,10 @@ None yet.
   `word[0x4986f8]`: the goodbye's "Good evening" goes by it as there,
   and it's set with `0x485f16` by `0x402b80`; what sets it isn't read.
   [systems/dialogue.md](systems/dialogue.md).
+- **The shadows don't darken the interface**, though `ac.exe` draws the
+  darkening after it: inferred from the scenes' pictures clearing the
+  stencil, the interface's pictures' draw not read.
+  [systems/shadows.md](systems/shadows.md).
 - **An act's version over its base** is merged as Orient Express merges
   them: an object the base has already isn't added again. `ac.exe` reads
   the base, then the rest of the file (`0x42ca40`); whether it skips

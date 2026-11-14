@@ -54,6 +54,14 @@ std::string slotName(int slot) {
 
 } // namespace
 
+std::string ScenePage::saveExtension() const {
+    return _ctx.game ? _ctx.game->saves.extension : ".ac2";
+}
+
+SaveLayout ScenePage::saveLayout() const {
+    return _ctx.game ? _ctx.game->saves.layout : SaveLayout{};
+}
+
 std::filesystem::path ScenePage::savesFolder() const {
     // Reluva's own folder for the game, where the game's Saved.Games is
     // kept (the files are the game's: either can read the other's).
@@ -177,7 +185,7 @@ bool ScenePage::preload(const std::filesystem::path &file, bool fromGame) {
 
 bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string &what) {
     auto save = std::make_unique<SaveGame>();
-    if (Error e = readSaveGame(data, *save)) {
+    if (Error e = readSaveGame(data, *save, saveLayout())) {
         logScript("    (" + what + ": " + e.message + ")");
         return false;
     }
@@ -264,13 +272,13 @@ void ScenePage::previous(bool toScene) {
 
 bool ScenePage::quickSave() {
     const SaveGame s = captureSave("");
-    if (!writeAll(savesFolder() / "quick.ac2", writeSaveGame(s)))
+    if (!writeAll(savesFolder() / ("quick" + saveExtension()), writeSaveGame(s, saveLayout())))
         return false;
     // 0x4168c0: the message for 1.5 s; its text, once set, stays.
     _messageTime = 1.5f;
     if (_message.empty())
         _message = interfaceText("ingamemenu2");
-    logScript("  (" + _message + ": quick.ac2)");
+    logScript("  (" + _message + ": quick" + saveExtension() + ")");
     draw();
     return true;
 }
@@ -346,7 +354,7 @@ bool ScenePage::gameKey(uint32_t key) {
     }
     if (key == key::kF1 + 2) {
         // F3: the quick save, loaded.
-        if (std::filesystem::exists(savesFolder() / "quick.ac2")) {
+        if (std::filesystem::exists(savesFolder() / ("quick" + saveExtension()))) {
             _runner->clear();
             _runner->run("fade out, preload quick, load, fade in");
         }
@@ -362,7 +370,7 @@ void ScenePage::openSlots(bool save) {
     SlotMenu &m = *_slots;
     m.save = save;
     // Slots run from 0 with no gaps.
-    while (std::filesystem::exists(savesFolder() / (slotName(m.count) + ".ac2")))
+    while (std::filesystem::exists(savesFolder() / (slotName(m.count) + saveExtension())))
         m.count++;
     // Save: on a new slot; load: on the newest.
     const int at = save ? m.count : std::max(0, m.count - 1);
@@ -378,8 +386,8 @@ void ScenePage::refreshSlots() {
         row = SlotMenu::Row();
         const int slot = m.page + r;
         std::vector<uint8_t> data;
-        if (slot < m.count && readAll(savesFolder() / (slotName(slot) + ".ac2"), data) &&
-            !readSaveHeader(data, row.description, row.date, row.time)) {
+        if (slot < m.count && readAll(savesFolder() / (slotName(slot) + saveExtension()), data) &&
+            !readSaveHeader(data, row.description, row.date, row.time, saveLayout())) {
             row.exists = true;
             std::vector<uint8_t> bmp;
             if (readAll(savesFolder() / (slotName(slot) + ".bmp"), bmp))
@@ -421,7 +429,7 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
         }
     } else if (word == "save" && m.save) {
         const int slot = std::min(m.page + m.row, m.count);
-        const std::filesystem::path file = savesFolder() / (slotName(slot) + ".ac2");
+        const std::filesystem::path file = savesFolder() / (slotName(slot) + saveExtension());
         if (second != "confirmed" && std::filesystem::exists(file)) {
             // Over an old one: "Overwrite?", the rest of OK's script dropped.
             _runner->clear();
@@ -430,7 +438,7 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
             _yesNo->kind = 2;
             return;
         }
-        writeAll(file, writeSaveGame(captureSave(m.name)));
+        writeAll(file, writeSaveGame(captureSave(m.name), saveLayout()));
         if (_grab.w > 0) {
             // The thumbnail: the view as the menu was opened, 256x192.
             image::Image t;
@@ -452,7 +460,7 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
         logScript("  (saved " + slotName(slot) + ": \"" + m.name + "\")");
         return;
     } else if (word == "load" && !m.save) {
-        preload(savesFolder() / (slotName(m.page + m.row) + ".ac2"), false);
+        preload(savesFolder() / (slotName(m.page + m.row) + saveExtension()), false);
         return;
     } else {
         return;

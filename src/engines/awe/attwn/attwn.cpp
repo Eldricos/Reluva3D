@@ -122,6 +122,9 @@ const GameInfo &game() {
                         .first = 10,
                         .below = 585,
                         .colours = {0xffd2aa6e, 0xfff2e7bd, 0xffd2aa6e, 0xffc08a6f, 0xff8f9cb0}},
+        // Saved Games\slot%d.ac1 and .bmp (0x41e917, 0x41ebb4), written by
+        // 0x412e9f.
+        .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false}, .extension = ".ac1"},
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

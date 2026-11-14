@@ -36,6 +36,7 @@ const GameInfo &game() {
         .lighting = {},    // and its lights' (0x420cb0 on)
         .fonts = {},       // from text/fonts.txt
         .dialogueBox = {}, // the defaults are its box (0x43cf90)
+        .saves = {},       // and its saves
         .exe = "motoe.exe",
         // English 1.0's (docs/engines/awe/games/motoe/formats/ac2.md, the
         // walk grid).
