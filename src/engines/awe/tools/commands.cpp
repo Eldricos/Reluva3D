@@ -394,7 +394,7 @@ int cmdAweShot(int argc, char **argv) {
     screen.create(game ? game->width : awe::kScreenW, game ? game->height : awe::kScreenH,
                   reluva::PixelFormat::kRGBA32);
     awe::GameFonts fonts;
-    const bool haveFonts = !fonts.load(files);
+    const bool haveFonts = !fonts.load(files, game ? game->fonts : std::vector<awe::GameFont>());
     // "savedir:<folder>" among the keys: where the game's saves go.
     std::filesystem::path saves;
     for (int i = 5; i < argc; i++)

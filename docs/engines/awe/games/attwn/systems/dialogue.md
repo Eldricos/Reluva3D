@@ -9,8 +9,7 @@ Conversations are Orient Express's
 threads and nests of lines, read from tab-separated tables, each line with
 its voice, conditions and commands. This page has what differs: where
 the tables are and how they're read, and how `ac.exe`'s dialogue manager
-plays them. Its box isn't drawn as this game's yet (Reluva draws Orient
-Express's): that's the interface's, compared with it.
+plays them. Its box is drawn as [interface.md](interface.md) has it.
 
 ## How it works
 
@@ -165,9 +164,12 @@ Orient Express's are the defaults; this game's are in `attwn/attwn.cpp`
 with the addresses. The shared reader (`DialogueBook::add`), the manager
 (`DialogueManager`) and the box take them from there.
 
-Not yet: the box drawn as this game's (its three windows, where the
-choices go, the colours above), with the interface; and the codes as this
-loader makes them, which put the same tables in the same order.
+The tables' names are in `DialogueTables` too (`always`, `acts`,
+`folders`): a character's and a place's tables are loaded with the rest
+rather than as they're met.
+
+Not yet: the codes as this loader makes them, which put the same tables
+in the same order.
 
 ## Sources and checks
 

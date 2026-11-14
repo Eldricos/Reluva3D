@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
+#include "engines/awe/games.h"
 #include "graphics/truetype.h"
 #include "common/types.h"
 
@@ -34,8 +35,9 @@ struct TextStyle {
 
 class GameFonts {
 public:
-    // Reads fonts.txt and loads the fonts it names that the game has.
-    Error load(const Archive &files);
+    // Reads fonts.txt and loads the fonts it names that the game has; or,
+    // for a game whose code sets up its fonts (`fixed`), those.
+    Error load(const Archive &files, const std::vector<GameFont> &fixed = {});
 
     // The style whose use starts with `use` ("dialogue"), or null.
     const TextStyle *style(std::string_view use) const;

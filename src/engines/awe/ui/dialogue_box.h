@@ -5,6 +5,7 @@
 
 #include "image/image.h"
 #include "common/types.h"
+#include "engines/awe/games.h"
 #include "engines/awe/ui/game_text.h"
 
 #include <string>
@@ -40,11 +41,15 @@ struct DialogueChoiceArea {
 // each, 4 pixels apart. A choice with a picture (`choicePictures`, null
 // for none: act 8's evidence) has it too, the pictures in a row centred
 // on x = 652, 112 apart, 42 pixels down the box; each is hit 8 pixels
-// either side (0x43cd9e).
+// either side (0x43cd9e). Another game's box: `wrap` and `layout`
+// (games.h).
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
                                                 const DialogueBoxPictures &pictures, int top, const std::string &text,
                                                 Color colour, const std::vector<std::string> &choices, int highlighted,
                                                 const std::vector<const image::Image *> &choicePictures = {},
-                                                int wrap = 944);
+                                                int wrap = 944, const DialogueBoxLayout &layout = {});
+
+// A layout's colour (0xAARRGGBB) as drawn.
+Color dialogueColour(uint32_t argb);
 
 } // namespace reluva::awe

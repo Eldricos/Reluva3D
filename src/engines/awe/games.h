@@ -52,6 +52,12 @@ struct DialogueTables {
     bool optional = true;    ///< the 16th Optional; else unread
     bool translation = true; ///< a Line Translation other than "0" said in the line's place
     int wrap = 944;          ///< the box's width in pixels, past which a line wraps
+    /** The tables always loaded; and an act's, this and the act ("01b") and .txt. */
+    std::vector<const char *> always = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
+                                        "text/dialogue/gen_characters.txt"};
+    const char *acts = "text/dialogue/act";
+    /** Folders whose every table is loaded too (each loaded as it's needed by the game). */
+    std::vector<const char *> folders;
     /** Where a line's event file, <name>_<act>_<code>.txt, is looked for, in turn. */
     std::vector<const char *> events = {"text/dialogue/events/"};
 };
@@ -131,6 +137,30 @@ struct LightingRules {
     bool nightSparesLights = false;
 };
 
+/** A font a game sets up in its code, not from text/fonts.txt. */
+struct GameFont {
+    const char *use;  ///< what it's for, as GameFonts finds it ("dialogue")
+    const char *file; ///< in the game's folder
+    float points = 12;
+    bool bold = false;
+};
+
+/**
+ * The dialogue box as a game draws it. Orient Express's are the defaults
+ * (motoe.exe 0x43cf90).
+ */
+struct DialogueBoxLayout {
+    /** The box's pictures, by DialogueManager::window(). */
+    std::vector<const char *> windows = {"interface/dialoguewin01.png", "interface/dialoguewin02.png"};
+    const char *bullet = "interface/dialoguewin04.png";
+    const char *bulletOn = "interface/dialoguewin05.png"; ///< the highlighted choice's
+    int left = 40;                                        ///< the choices' x
+    int first = 25;                                       ///< the first choice's y below the box's top
+    int below = 0; ///< a row starting this far down the frame isn't drawn; 0: no limit
+    /** 0xAARRGGBB: the choices, the highlighted one, the player, the others; zeros: fonts.txt's. */
+    std::array<uint32_t, 5> colours{};
+};
+
 /**
  * What the shared AWE code needs to know of one game. A game's own code is
  * in its folder (motoe/, attwn/); everything here is what the rest of the
@@ -153,11 +183,13 @@ struct GameInfo {
     bool (*condition)(const GameState &state, const std::vector<std::string> &words, bool &holds) = nullptr;
     /** A script verb only this game has that changes its state alone: done, or false for one it hasn't. */
     bool (*verb)(GameState &state, const std::vector<std::string> &words) = nullptr;
-    DialogueTables dialogue;   ///< its dialogue tables' layout
-    DialogueRules talk;        ///< how its conversations go
-    LightingRules lighting;    ///< how its characters are lit
-    const char *exe = nullptr; ///< its executable, in the game's folder
-    PathFinderCode pathFinder; ///< in that executable (the English release's)
+    DialogueTables dialogue;       ///< its dialogue tables' layout
+    DialogueRules talk;            ///< how its conversations go
+    LightingRules lighting;        ///< how its characters are lit
+    std::vector<GameFont> fonts;   ///< its fonts if its code sets them up; empty: text/fonts.txt's
+    DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
+    const char *exe = nullptr;     ///< its executable, in the game's folder
+    PathFinderCode pathFinder;     ///< in that executable (the English release's)
 };
 
 /** The AWE games, in the order they're recognised. */

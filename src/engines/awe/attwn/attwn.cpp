@@ -59,6 +59,12 @@ const GameInfo &game() {
                      .optional = false,
                      .translation = false,
                      .wrap = 750,
+                     // Narracott's always (0x4174e5), the act's (0x402c78); a
+                     // character's and a place's as they're met (0x403154,
+                     // 0x4033f4), here all at once.
+                     .always = {"dialogue/general/narracott.txt"},
+                     .acts = "dialogue/acts/act",
+                     .folders = {"dialogue/general/", "dialogue/locations/"},
                      // Tried in turn (0x43357a); only Acts/Events is in the install.
                      .events = {"dialogue/acts/events/", "dialogue/location/events/", "dialogue/general/events/"}},
         // Its dialogue manager, against Orient Express's:
@@ -94,6 +100,28 @@ const GameInfo &game() {
         // The camera's constructor (0x408510), the light's (0x41d5a0), and
         // the light's night test (0x41d760).
         .lighting = {.cameraAmbient = 0.5f, .lightDiffuse = 1, .att0 = 0, .att1 = 0.0001f, .nightSparesLights = true},
+        // Its fonts, made in its code (0x4151fc on); the dialogue's is the
+        // second (0x431caa). The rest's uses aren't read yet.
+        .fonts = {{"font 0", "interface/fonts/arial.ttf", 12, true},
+                  {"dialogue", "interface/fonts/arialn.ttf", 12, false},
+                  {"font 2", "interface/fonts/innswfte.ttf", 38, false},
+                  {"font 3", "interface/fonts/arial.ttf", 10, true},
+                  {"font 4", "interface/fonts/rulyrrg_.ttf", 14, false},
+                  {"font 5", "interface/fonts/rulyrrg_.ttf", 14, true},
+                  {"font 6", "interface/fonts/arialn.ttf", 10, false},
+                  {"font 7", "interface/fonts/innswfte.ttf", 18, false},
+                  {"font 8", "interface/fonts/innswfte.ttf", 24, false}},
+        // The box's draw (0x434220, the rows 0x434bb0): three windows by the
+        // choices' rows, the choices from 25 across and 10 down, none drawn
+        // from y 585; its colours its own (0x433220, 0x430af6).
+        .dialogueBox = {.windows = {"interface/dialoguewin01.tga", "interface/dialoguewin02.tga",
+                                    "interface/dialoguewin03.tga"},
+                        .bullet = "interface/dialoguewin04.tga",
+                        .bulletOn = "interface/dialoguewin05.tga",
+                        .left = 25,
+                        .first = 10,
+                        .below = 585,
+                        .colours = {0xffd2aa6e, 0xfff2e7bd, 0xffd2aa6e, 0xffc08a6f, 0xff8f9cb0}},
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

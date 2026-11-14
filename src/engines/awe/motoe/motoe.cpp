@@ -31,9 +31,11 @@ const GameInfo &game() {
         // The fog's full-screen pictures are 1024x768 (docs/engines/awe/games/motoe/PLAN.md).
         .width = 1024,
         .height = 768,
-        .dialogue = {}, // the defaults are its tables' (motoe.exe 0x438f00)
-        .talk = {},     // and its dialogue manager's (0x43a630 on)
-        .lighting = {}, // and its lights' (0x420cb0 on)
+        .dialogue = {},    // the defaults are its tables' (motoe.exe 0x438f00)
+        .talk = {},        // and its dialogue manager's (0x43a630 on)
+        .lighting = {},    // and its lights' (0x420cb0 on)
+        .fonts = {},       // from text/fonts.txt
+        .dialogueBox = {}, // the defaults are its box (0x43cf90)
         .exe = "motoe.exe",
         // English 1.0's (docs/engines/awe/games/motoe/formats/ac2.md, the
         // walk grid).
