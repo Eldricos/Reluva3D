@@ -6,6 +6,7 @@
 reluva_add_engine(idtech3
     ACCESSOR idTech3MetaEngine
     SOURCES
+        cinematic.cpp
         collision.cpp
         cvars.cpp
         filesystem.cpp
@@ -58,7 +59,9 @@ reluva_add_engine(idtech3
         formats/shader.cpp
         jk2/game_info.cpp
         raven/ambient_sets.cpp
+        raven/fonts.cpp
         raven/savegame.cpp
+        raven/strings.cpp
         render/light_grid.cpp
         render/model_cache.cpp
         render/patch.cpp
@@ -79,7 +82,9 @@ reluva_add_engine_viewers(idtech3
         pages/file_viewer.cpp
         pages/map_viewer.cpp
         pages/model_viewer.cpp
+        pages/text_viewer.cpp
         pages/texture_viewer.cpp
+        pages/video_viewer.cpp
         pages/viewer.cpp
         pages/world_viewer.cpp)
 
@@ -131,4 +136,4 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images)
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-videos)

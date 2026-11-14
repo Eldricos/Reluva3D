@@ -36,6 +36,7 @@
 #include "video/avi.h"
 #include "video/bink.h"
 #include "video/cinepak.h"
+#include "video/roq.h"
 #include "video/smacker.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/disasm.h"
@@ -947,6 +948,54 @@ static void testSmacker() {
     CHECK(!bad.load(std::make_unique<MemoryReadStream>(std::vector<uint8_t>(200, 0x55))));
 }
 
+// A made-up 16x16 RoQ movie: a codebook, a frame built from its cells, one
+// moving a block from it, one keeping every block; a stereo sound chunk.
+static void testRoq() {
+    std::vector<uint8_t> f;
+    auto chunk = [&](uint16_t id, uint32_t size, uint16_t arg, std::initializer_list<uint8_t> data) {
+        for (int i = 0; i < 2; ++i)
+            f.push_back(uint8_t(id >> (8 * i)));
+        for (int i = 0; i < 4; ++i)
+            f.push_back(uint8_t(size >> (8 * i)));
+        for (int i = 0; i < 2; ++i)
+            f.push_back(uint8_t(arg >> (8 * i)));
+        f.insert(f.end(), data);
+    };
+    chunk(0x1084, 0xffffffff, 30, {});
+    chunk(0x1001, 8, 0, {16, 0, 16, 0, 8, 0, 4, 0});
+    // Two 2x2 cells (four Ys, U, V), one 4x4 cell of them.
+    chunk(0x1002, 16, 0x0201, {10, 20, 30, 40, 100, 150, 200, 200, 200, 200, 128, 128, 0, 1, 1, 0});
+    // Codes 2, 3 (then 2, 3, 0, 0 for its 4x4 blocks), 0, 0: the 4x4 cell
+    // doubled; the cell; four 2x2 cells (cell 1).
+    chunk(0x1011, 8, 0, {0x00, 0xbb, 0, 0, 1, 1, 1, 1});
+    chunk(0x1021, 4, 0x0100, {2, 130, 1, 0});
+    // Codes 1, 0, 0, 0: the first block moved from 8 to the right.
+    chunk(0x1011, 3, 0, {0x00, 0x40, 0x08});
+    chunk(0x1011, 2, 0, {0x00, 0x00});
+    roq::Movie m;
+    CHECK(!m.open(f) && m.width() == 16 && m.height() == 16 && m.framesPerSecond() == 30 && m.audioChannels() == 2);
+    auto y = [&](int x, int yy) { return m.plane(0)[size_t(yy * 16 + x)]; };
+    bool more = false;
+    std::vector<int16_t> sound;
+    CHECK(!m.nextFrame(more, &sound) && more && sound.empty());
+    CHECK(y(0, 0) == 10 && y(1, 1) == 10 && y(2, 0) == 20 && y(0, 2) == 30 && y(2, 2) == 40 && y(4, 0) == 200);
+    CHECK(m.plane(1)[0] == 100 && m.plane(2)[0] == 150 && y(8, 0) == 10 && y(9, 1) == 40 && y(12, 0) == 200);
+    CHECK(y(0, 8) == 0 && m.plane(1)[16 * 8] == 128); // untouched: black
+    CHECK(!m.nextFrame(more, &sound) && more);
+    CHECK((sound == std::vector<int16_t>{260, -4, 261, -4}));
+    CHECK(y(0, 0) == 10 && y(2, 0) == 200 && y(4, 0) == 200 && y(8, 0) == 10);
+    // Kept blocks keep the picture from two frames before.
+    CHECK(!m.nextFrame(more, &sound) && more && y(2, 0) == 20);
+    std::vector<uint8_t> rgba;
+    m.toRgba(rgba);
+    CHECK(rgba.size() == 16 * 16 * 4 && rgba[3] == 255);
+    CHECK(!m.nextFrame(more, &sound) && !more);
+    m.rewind();
+    CHECK(!m.nextFrame(more) && more && y(0, 0) == 10 && m.frameNumber() == 0);
+    roq::Movie bad;
+    CHECK(bad.open({1, 2, 3, 4, 5, 6, 7, 8}));
+}
+
 static void testX86Disassembler() {
     // Hand-checked against the Intel manuals' opcode maps; the text as
     // capstone writes it. Each at 0x10000.
@@ -1572,6 +1621,7 @@ static const reluva::test::Suite kVideoSuite("common.unit.video",
                                              {
                                                  {"smacker", [](const std::filesystem::path &) { testSmacker(); }},
                                                  {"cinepak", [](const std::filesystem::path &) { testCinepak(); }},
+                                                 {"roq", [](const std::filesystem::path &) { testRoq(); }},
                                                  {"avi", [](const std::filesystem::path &) { testAvi(); }},
                                                  {"bink file", [](const std::filesystem::path &) { testBinkFile(); }},
                                                  {"bink audio", [](const std::filesystem::path &) { testBinkAudio(); }},

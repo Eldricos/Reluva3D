@@ -24,7 +24,7 @@ Voyager - Elite Force (`stvef`).
 | Images | TGA, JPEG, PNG (`image/image.cpp`) |
 | Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid; Jedi Outcast's Ghoul2 meshes and skeletons, posed on the CPU ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md), [ghoul2.md](formats/ghoul2.md)) |
 | Game code | QVM interpreter done ([qvm.md](formats/qvm.md)); Elite Force's menus, game and client game run on it |
-| Pages | The game's Start, Single player, Menu and Play pages; the data viewer's World, Models, Maps, Textures and Files pages, in `reluva-viewer` |
+| Pages | The game's Start, Single player, Menu and Play pages; the data viewer's World, Models, Maps, Textures, Text (Raven's string packages in their fonts), Videos and Files pages, in `reluva-viewer` |
 | Renderer | Every shader stage, sky boxes and cloud layers, curved surfaces, fog, dynamic lights, models' levels of detail, and visibility as the original's renderer has it; Raven's light styles (held full) and surface sprites |
 | Sound | sounds by name, decoded once (`sounds.cpp`), mixed by `src/audio`'s mixer; the menus' sounds; in the Play page sounds placed in the world, looping sounds and music (`sound_system.cpp`) |
 

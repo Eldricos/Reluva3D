@@ -45,6 +45,8 @@
 #include "backends/networking/sockets/socket_net.h"
 #include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/ambient_sets.h"
+#include "engines/idtech3/raven/fonts.h"
+#include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/client/page.h"
@@ -400,6 +402,75 @@ static void testGhoul2() {
     }
 }
 
+static void testRavenText() {
+    using namespace raven;
+    // A string package: its header, entries by INDEX, text from the first
+    // quote to the last (quotes inside kept), \n a line break.
+    const char *text = "VERSION 1\r\nCONFIG W:\\bin\\striped.cfg\r\nID 7\r\nREFERENCE INGAME\r\n"
+                       "DESCRIPTION \"in game text\"\r\nCOUNT 2\r\nINDEX 0\r\n{\r\n   REFERENCE OBJNONE\r\n"
+                       "   TEXT_LANGUAGE1 \"NONE\"\r\n   TEXT_LANGUAGE3 \"KEINE\"\r\n   FLAGS SP_FLAG9\r\n}\r\n"
+                       "INDEX 1\r\n{\r\n   REFERENCE SAY\r\n   NOTES \"a note\"\r\n"
+                       "   TEXT_LANGUAGE1 \"When you say \"troubling.\"\\nAgain\"\r\n}\r\n";
+    StringPackage p;
+    CHECK(!parseStringPackage(text, p) && p.reference == "INGAME" && p.id == 7 && p.description == "in game text");
+    CHECK(p.entries.size() == 2 && p.entries[0].reference == "OBJNONE" && p.entries[0].text[2] == "KEINE");
+    CHECK(p.entries.size() == 2 && p.entries[0].flags == "SP_FLAG9" && p.entries[1].notes == "a note");
+    CHECK(p.entries.size() == 2 && p.entries[1].index == 1 &&
+          p.entries[1].text[0] == "When you say \"troubling.\"\nAgain");
+    CHECK(parseStringPackage("INDEX 0\n{\nREFERENCE A\n", p));   // left open
+    CHECK(parseStringPackage("INDEX 0\n{\nWHAT \"x\"\n}\n", p)); // unknown key
+
+    // Found by PACKAGE_ENTRY whatever its case; a language without text
+    // gives the English.
+    SearchSet set;
+    auto zip = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_strip.pk3";
+    test::writeFile(path, test::buildZip({{"strip/ingame.sp", test::toBytes(text), {}}}));
+    CHECK(!zip->open(path));
+    set.add(std::move(zip), 0);
+    StringTable table;
+    table.load(set);
+    const std::string *none = table.find("ingame_objnone", StringTable::Language::kGerman);
+    const std::string *say = table.find("INGAME_SAY", StringTable::Language::kFrench);
+    CHECK(table.size() == 2 && none && *none == "KEINE" && say && say->rfind("When", 0) == 0 && !table.find("X_Y"));
+    std::filesystem::remove(path);
+
+    // A font: 'A' 10 wide, advancing 12, 2 to the right, standing 8 up;
+    // '.' 4 wide, advancing 5; ' ' advancing 6; others none.
+    std::vector<uint8_t> dat(7180, 0);
+    auto glyph = [&](int c, int16_t w, int16_t h, int16_t advance, int16_t offset, int32_t baseline) {
+        uint8_t *g = &dat[size_t(c) * 28];
+        for (auto [at, v] : {std::pair<int, int>{0, w}, {2, h}, {4, advance}, {6, offset}}) {
+            g[at] = uint8_t(v);
+            g[at + 1] = uint8_t(v >> 8);
+        }
+        std::memcpy(g + 8, &baseline, 4);
+        const float st[4] = {0.25f, 0.5f, 0.75f, 1};
+        std::memcpy(g + 12, st, 16);
+    };
+    glyph('A', 10, 12, 12, 2, 8);
+    glyph('.', 4, 4, 5, 0, 2);
+    glyph(' ', 0, 0, 6, 0, 0);
+    for (auto [at, v] : {std::pair<size_t, int>{7168, 16}, {7170, 14}, {7172, 12}, {7174, 4}})
+        dat[at] = uint8_t(v);
+    Font font;
+    CHECK(!parseFontdat(dat, "anewhope", font) && font.pointSize == 16 && font.height == 14 && !font.roundSizes);
+    CHECK(font.glyphs['A'].baseline == 8 && font.glyphs['A'].s2 == 0.75f && font.glyph('B').width == 4);
+    CHECK(font.textWidth("A A\nA", 1) == 12 + 6 + 12 && font.textWidth("^1A", 1) == 5 + 5 + 12);
+    // From (100, 50): the baseline 14 - 4/2 = 12 down; 'A' 2 right of the
+    // pen, its top 8 above the baseline; then a space; ^1 colours what
+    // follows; a missing letter is a full stop; a new line 16 down.
+    const auto pieces = font.layout("A ^1A\nB", 100, 50, 1);
+    CHECK(pieces.size() == 3);
+    if (pieces.size() == 3) {
+        CHECK(pieces[0].x == 102 && pieces[0].y == 62 - 8 && pieces[0].w == 10 && pieces[0].colour == -1);
+        CHECK(pieces[1].x == 100 + 12 + 6 + 2 && pieces[1].colour == 1);
+        CHECK(pieces[2].x == 100 && pieces[2].y == 62 + 16 - 2 && pieces[2].w == 4);
+    }
+    CHECK(font.layout("AAAA", 0, 0, 1, 30).size() == 2); // the third would pass 30
+    CHECK(parseFontdat(std::vector<uint8_t>(100), "x", font));
+}
+
 static void testBsp() {
     Bsp bsp;
     Error err = parseBsp(buildBsp(), bsp);
@@ -531,7 +602,7 @@ static void testMd3() {
 
     CHECK(parseMd3(buildMd3(3), m)); // a triangle using a vertex past the end
     auto cut = buildMd3();
-    cut.resize(cut.size() - 4);
+    cut.erase(cut.end() - 4, cut.end());
     CHECK(parseMd3(cut, m));
     CHECK(parseMd3({'I', 'D', 'P', '2'}, m));
 
@@ -849,6 +920,7 @@ static const reluva::test::Suite
                {"bsp", [](const std::filesystem::path &) { testBsp(); }},
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
+               {"raven text", [](const std::filesystem::path &) { testRavenText(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
                {"md3", [](const std::filesystem::path &) { testMd3(); }},

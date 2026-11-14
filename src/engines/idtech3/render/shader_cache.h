@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/idtech3/cinematic.h"
 #include "engines/idtech3/formats/shader.h"
 
 #include "common/archive.h"
@@ -10,6 +11,7 @@
 
 #include <deque>
 #include <map>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -37,6 +39,7 @@ public:
         std::vector<gfx::TextureId> frames; // empty for a $lightmap stage
         float fps = 0;
         bool once = false; // the last frame held once played
+        int video = -1;    // a videoMap's, in _videos
         bool lightmap = false;
         gfx::DrawState state;
         const ShaderStage *def = nullptr;
@@ -122,6 +125,19 @@ private:
     gfx::TextureId _whiteTexture = 0;
     int _missing = 0;
     std::map<std::string, int> _unsupported;
+    // videoMap stages' videos: each played on a loop from when it's first
+    // drawn, its frame due uploaded as a texture of its own as it's drawn.
+    struct Video {
+        std::vector<uint8_t> file;
+        std::string extension; // .roq, or the one it names
+        CinematicMovie movie;
+        gfx::TextureId texture = 0;
+        float start = -1; // the time it last started
+        std::vector<uint8_t> rgba;
+    };
+    mutable std::vector<std::unique_ptr<Video>> _videos;
+    // The video's texture at `time` (0 if it has none yet).
+    gfx::TextureId videoTexture(int video, float time) const;
     TextureOptions _textureOptions;
 };
 

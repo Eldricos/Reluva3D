@@ -69,8 +69,7 @@ behind the DLL's own tables.
    `sun`, `lightColor` and `notc` found to have nothing to draw; game-files
    steps over every map and the images they name. With the game's code
    (phase 6): the light styles' own passes, animated, and the wind and
-   weather that move surface sprites and show weather ones; with RoQ
-   (phase 4): `videoMap`.
+   weather that move surface sprites and show weather ones.
 3. **Ghoul2 models** (done): GLM meshes and GLA skeletons read and
    checked (`ghoul2-check`: all 71 and 21), posed on the CPU for each
    draw by the model cache, each level of detail a model; only surfaces
@@ -79,11 +78,14 @@ behind the DLL's own tables.
    shows and animates every one ([ghoul2.md](../../formats/ghoul2.md)).
    With the game's code (phase 6): its Ghoul2 calls (each part's
    animation, bones it turns, bolts, surfaces on and off, collision).
-4. **Text, fonts and RoQ**: string packages (`raven/strings`), Raven's
-   fonts (`raven/fonts`: the `.fontdat` glyph table over its `.tga`), and a
-   RoQ decoder in `src/video/` (any engine can use it; Quake III's own
-   videos are RoQ too). Ends with: the opening logos play; a string and
-   font viewer page.
+4. **Text, fonts and RoQ** (done): string packages (`raven/strings`,
+   [strings.md](../../formats/strings.md)), Raven's fonts (`raven/fonts`,
+   [fonts.md](../../formats/fonts.md)), shown in the data viewer's Text
+   page; a RoQ decoder in `src/video/`
+   ([roq.md](../../../../common/video/roq.md)), whose videos play in the
+   Videos page (the opening logos with their sound) and as `videoMap`
+   textures. Cinematics open through `CinematicMovie` (Bink or RoQ by
+   file type), ready for single player.
 5. **Multiplayer menus**: a host for `ui.qvm` (`jk2/ui_host`), its system
    calls worked out from the bytecode (`qvm-info`, `qvm-refs`); fonts,
    strings and the player model (Ghoul2) in the menus. Ends with:

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// reluva-tool's id Tech 3 command for videos (Bink).
+// reluva-tool's id Tech 3 commands for videos (Bink, RoQ).
 
 #include "devtools/tool.h"
 #include "engines/idtech3/tools/game_folder.h"
 
+#include "image/image.h"
 #include "video/bink.h"
+#include "video/roq.h"
 
 #include <chrono>
 #include <cstdint>
@@ -131,13 +133,114 @@ int cmdBinkDecode(int argc, char **argv) {
     return 0;
 }
 
-const Commands
-    kCommands("idtech3",
-              {
-                  {"bink-decode", "<file.bik, or game folder [video/name]> [-frames N] [-yuv out] [-pcm out]",
-                   "decode a Bink movie: its frames as raw YUV 4:2:0, its first audio track as 16-bit PCM, for "
-                   "comparing with another decoder; a game folder alone lists its movies",
-                   cmdBinkDecode},
-              });
+// Decodes a RoQ movie: its frames as raw YUV 4:4:4 (each plane whole, as
+// ffmpeg -pix_fmt yuv444p writes them), its sound as 16-bit PCM, and one
+// frame as a TGA to look at.
+int cmdRoqDecode(int argc, char **argv) {
+    if (argc < 3) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 roq-decode <file.roq> [options]\n"
+                             "       reluva-tool idtech3 roq-decode <game folder> <video/name.roq> [options]\n"
+                             "  options: -frames N, -yuv out.yuv, -pcm out.pcm, -tga N out.tga\n");
+        return 2;
+    }
+    const bool folder = std::filesystem::is_directory(argv[2]);
+    int first = folder ? 4 : 3;
+    int frames = -1;
+    int shotFrame = -1;
+    std::string yuvPath;
+    std::string pcmPath;
+    std::string tgaPath;
+    for (int i = first; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
+            frames = std::atoi(argv[++i]);
+        else if (std::strcmp(argv[i], "-yuv") == 0 && i + 1 < argc)
+            yuvPath = argv[++i];
+        else if (std::strcmp(argv[i], "-pcm") == 0 && i + 1 < argc)
+            pcmPath = argv[++i];
+        else if (std::strcmp(argv[i], "-tga") == 0 && i + 2 < argc) {
+            shotFrame = std::atoi(argv[++i]);
+            tgaPath = argv[++i];
+        }
+    }
+    Bytes data;
+    if (folder) {
+        if (argc < 4) {
+            std::fprintf(stderr, "name the movie: video/name.roq\n");
+            return 2;
+        }
+        reluva::SearchSet set;
+        if (!mountIdTech3(argv[2], set))
+            return 1;
+        std::string name = argv[3];
+        if (name.find('/') == std::string::npos)
+            name = "video/" + name;
+        if (name.size() < 4 || name.compare(name.size() - 4, 4, ".roq") != 0)
+            name += ".roq";
+        if (reluva::Error e = set.read(name, data)) {
+            std::fprintf(stderr, "%s: %s\n", name.c_str(), e.message.c_str());
+            return 1;
+        }
+    } else if (!readFile(argv[2], data)) {
+        return 1;
+    }
+    reluva::roq::Movie movie;
+    if (reluva::Error e = movie.open(std::move(data))) {
+        std::fprintf(stderr, "%s\n", e.message.c_str());
+        return 1;
+    }
+    std::printf("RoQ %dx%d at %d frames a second, sound %d Hz x %d\n", movie.width(), movie.height(),
+                movie.framesPerSecond(), movie.audioChannels() ? reluva::roq::Movie::kAudioRate : 0,
+                movie.audioChannels());
+    std::FILE *yuv = yuvPath.empty() ? nullptr : std::fopen(yuvPath.c_str(), "wb");
+    std::vector<int16_t> sound;
+    const auto started = std::chrono::steady_clock::now();
+    int n = 0;
+    int failed = 0;
+    for (; frames < 0 || n < frames; ++n) {
+        bool more = false;
+        if (reluva::Error e = movie.nextFrame(more, &sound)) {
+            std::fprintf(stderr, "frame %d: %s\n", n, e.message.c_str());
+            failed = 1;
+            break;
+        }
+        if (!more)
+            break;
+        if (yuv)
+            for (int p = 0; p < 3; ++p)
+                std::fwrite(movie.plane(p).data(), 1, movie.plane(p).size(), yuv);
+        if (n == shotFrame) {
+            reluva::image::Image img;
+            img.w = movie.width();
+            img.h = movie.height();
+            movie.toRgba(img.rgba);
+            const auto tga = reluva::image::encodeTga(img);
+            if (std::FILE *f = std::fopen(tgaPath.c_str(), "wb")) {
+                std::fwrite(tga.data(), 1, tga.size(), f);
+                std::fclose(f);
+            }
+        }
+    }
+    if (yuv)
+        std::fclose(yuv);
+    if (!pcmPath.empty())
+        if (std::FILE *f = std::fopen(pcmPath.c_str(), "wb")) {
+            std::fwrite(sound.data(), 2, sound.size(), f);
+            std::fclose(f);
+        }
+    std::printf("%d frames, %zu samples in %.2f s\n", n, sound.size(),
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
+    return failed;
+}
+
+const Commands kCommands(
+    "idtech3",
+    {
+        {"roq-decode", "<file.roq, or game folder video/name> [-frames N] [-yuv out] [-pcm out] [-tga N out]",
+         "decode a RoQ movie: its frames as raw YUV 4:4:4, its sound as 16-bit PCM, frame N as a TGA", cmdRoqDecode},
+        {"bink-decode", "<file.bik, or game folder [video/name]> [-frames N] [-yuv out] [-pcm out]",
+         "decode a Bink movie: its frames as raw YUV 4:2:0, its first audio track as 16-bit PCM, for "
+         "comparing with another decoder; a game folder alone lists its movies",
+         cmdBinkDecode},
+    });
 
 } // namespace

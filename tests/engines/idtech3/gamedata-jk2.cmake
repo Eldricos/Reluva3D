@@ -19,6 +19,8 @@
 #   jk2-ghoul2    every Ghoul2 mesh and skeleton read, each mesh against
 #                 its skeleton (ghoul2-check)
 #   jk2-images    the images every map's shaders name (image-check)
+#   jk2-videos    two RoQ videos decoded, their pictures and sound recorded
+#                 (roq-decode)
 # Records: tests/engines/idtech3/data/gamedata/jk2-<release>/<step>.txt.
 
 include("${HELPERS}")
@@ -52,6 +54,16 @@ elseif(STEP STREQUAL "jk2-ghoul2")
     record_run(ghoul2-check "meshes, " idtech3 ghoul2-check "${base}")
 elseif(STEP STREQUAL "jk2-images")
     record_run(image-check "distinct missing images" idtech3 image-check "${base}")
+elseif(STEP STREQUAL "jk2-videos")
+    file(MAKE_DIRECTORY "${OUTPUT}/${STEP}")
+    foreach(video openinglogos jk0101)
+        set(yuv "${OUTPUT}/${STEP}/${video}.yuv")
+        set(pcm "${OUTPUT}/${STEP}/${video}.pcm")
+        record_run(${video} "frames, " idtech3 roq-decode "${base}" video/${video} -frames 60 -yuv "${yuv}" -pcm "${pcm}")
+        record_file(${video}.pictures "${yuv}")
+        record_file(${video}.sound "${pcm}")
+        file(REMOVE "${yuv}" "${pcm}")
+    endforeach()
 else()
     message(FATAL_ERROR "No step \"${STEP}\"")
 endif()
