@@ -8,6 +8,7 @@ Voyager - Elite Force (`stvef`).
 | Game | Id | Docs |
 |---|---|---|
 | Star Trek: Voyager - Elite Force | `stvef` | [games/stvef/](games/stvef/README.md): using it, its map entities, its game code's interfaces, its network protocol, and its known differences, unconfirmed items, testing and how it was worked out |
+| Star Wars Jedi Knight II: Jedi Outcast | `jk2` | [games/jk2/](games/jk2/README.md): its release, and the [plan](games/jk2/PLAN.md) for adding it (not playable yet) |
 
 ## Where it stands
 
