@@ -36,6 +36,11 @@ SoundHandle Mixer::play(std::shared_ptr<const Sound> sound, SoundType type, int 
     return handle;
 }
 
+void Mixer::setPaused(SoundHandle handle, bool paused) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (Channel* c = find(handle)) c->paused = paused;
+}
+
 void Mixer::stop(SoundHandle handle) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (Channel* c = find(handle))
@@ -99,7 +104,7 @@ void Mixer::mix(int16_t* out, int frames) {
     std::lock_guard<std::mutex> lock(mutex_);
     accumulator_.assign(size_t(frames) * 2, 0);
     for (Channel& c : channels_) {
-        if (c.done)
+        if (c.done || c.paused)
             continue;
         const Sound& s = *c.sound;
         const size_t n = s.frames(), ch = size_t(s.channels);

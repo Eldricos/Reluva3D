@@ -39,7 +39,11 @@ void ClassicAudio::beginRound(bool loopShake) {
     mixer_.stopType(audio::SoundType::Effects); shake_=0; handles_.fill(0); for(auto& ticks:countdown_)ticks.fill(false);
     if (active_ && music_ && !mixer_.isPlaying(musicHandle_))
         musicHandle_ = mixer_.play(music_,audio::SoundType::Music,256,0,true);
+    mixer_.setPaused(musicHandle_,!focused_);
     if (active_ && sounds_[size_t(Cue::Shake)]) shake_ = mixer_.play(sounds_[size_t(Cue::Shake)],audio::SoundType::Effects,256,0,loopShake);
+}
+void ClassicAudio::focus(bool active) {
+    focused_=active;mixer_.setPaused(musicHandle_,!active);
 }
 void ClassicAudio::stopShake() { if (shake_) mixer_.stop(shake_); shake_=0; }
 void ClassicAudio::countdown(uint64_t remaining,size_t player) {
@@ -50,6 +54,18 @@ void ClassicAudio::countdown(uint64_t remaining,size_t player) {
     play(second ? Cue::Tick : Cue::GameOver);
 }
 void ClassicAudio::recorded(size_t letters) { play(letters >= 8 ? Cue::Eight : letters == 7 ? Cue::Seven : Cue::Writing); }
+bool ClassicPauseLid::advance(uint64_t now) {
+    if(now<started_)return false;
+    if(state_==State::Closing && now-started_>=1100)state_=State::Closed;
+    if(state_==State::Opening && now-started_>=1300){state_=State::Open;return true;}
+    return false;
+}
+std::optional<size_t> ClassicPauseLid::frame(uint64_t now) const {
+    const uint64_t elapsed=now>=started_?now-started_:0;
+    if(state_==State::Closing)return 44+size_t(std::min<uint64_t>(10,elapsed/100));
+    if(state_==State::Opening)return 31+size_t(std::min<uint64_t>(12,elapsed/100));
+    return {};
+}
 size_t ClassicTransition::frame(uint64_t now) const {
     const uint64_t elapsed = now >= started_ ? now-started_ : 0;
     return type_ == Transition::Closing ? 44 + size_t(std::min<uint64_t>(10,elapsed/100)) : size_t(std::min<uint64_t>(43,elapsed/100));

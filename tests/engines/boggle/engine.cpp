@@ -287,13 +287,13 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     CHECK(sys.hashes.size()==12 && sys.audioStarted && sys.audioStopped && !sys.audioCallback);
     CHECK(sys.audioHashes.size()==12);
     CHECK(sys.textStopped && !sys.textEnabled);
-    // Closing ends at frame 11; buffered Enter must not restart before results.
+    // Expiry shows results immediately; the later Enter replays after they were displayed.
     if(sys.hashes.size()==12) {
         CHECK(sys.hashes[4]!=sys.hashes[3]);
         test::Record rec;
         rec.add("media.opening",sys.hashes[1]);rec.add("media.open_lid",sys.hashes[3]);
         rec.add("media.playing",sys.hashes[4]);rec.add("media.counted",sys.hashes[6]);
-        rec.add("media.closing",sys.hashes[9]);rec.add("media.results",sys.hashes[11]);
+        rec.add("media.results_now",sys.hashes[9]);rec.add("media.replay",sys.hashes[11]);
         test::Hash pcm;for(const auto& hash:sys.audioHashes)pcm.text(hash);
         rec.add("media.audio",pcm.hex());
         rec.check(RELUVA_SOURCE_DIR "/tests/engines/boggle/data/presentation-record.txt","boggle.engine","tests/engines/boggle/engine.cpp");
@@ -303,12 +303,12 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     quit.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==2)return{keyEvent(key::Escape)};return{};};
     game=meta->create(quit,target);if(auto err=game->run())return test::fail(err.message);
     CHECK(quit.hashes.size()==2 && quit.audioStopped && !quit.audioCallback && quit.textStopped);
-    // An unknown word's review is postponed until closing finishes.
+    // Unknown-word review appears immediately, but must be displayed before a choice.
     ScriptedSystem review;review.audioSupported=true;
     review.events=[](size_t f)->std::vector<Event>{
         if(f==1 || f==4)return{keyEvent(key::Return)};
         if(f==3)return{textEvent("aaaaa")};
-        if(f==5)return{keyEvent(key::F1)};
+        if(f==5)return{keyEvent(key::F1),keyEvent('4')};
         if(f==6)return{keyEvent('4')};
         if(f==8)return{keyEvent('4')};
         if(f==9)return{keyEvent(key::Escape)};
@@ -317,7 +317,7 @@ void presentationWorkflow(const std::filesystem::path& tmp) {
     review.clock=[](size_t f)->uint64_t{const uint64_t times[]={0,10,4410,4420,4430,4440,4450,5540,5550,5560};return times[std::min(f,size_t(9))];};
     game=meta->create(review,target);if(auto err=game->run())return test::fail(err.message);
     CHECK(review.hashes.size()==9 && review.audioStopped && !review.audioCallback);
-    if(review.hashes.size()==9){CHECK(review.hashes[7]!=review.hashes[6]);CHECK(review.hashes[8]!=review.hashes[7]);}
+    if(review.hashes.size()==9){CHECK(review.hashes[6]!=review.hashes[5]);CHECK(review.hashes[7]==review.hashes[6]);CHECK(review.hashes[8]==review.hashes[7]);}
     target.settings={{"classic_seed","6551"},{"classic_menu","0"},{"classic_variant","master"},{"classic_seconds","0"},{"classic_sound","0"}};
     ScriptedSystem master;
     master.events=[](size_t f)->std::vector<Event>{if(f==1)return{keyEvent(key::Return)};if(f==3)return{keyEvent(key::F1)};if(f==5)return{keyEvent(key::Escape)};return{};};
@@ -355,7 +355,7 @@ void musicWorkflow(const std::filesystem::path& tmp) {
 
 static const reluva::test::Suite suite("boggle.engine", {
     {"music-only start, finish, results, replay and callback cleanup",[](const auto& tmp){musicWorkflow(tmp);}},
-    {"animated start/expiry/review, timer gating, sound and early exit",[](const auto& tmp){presentationWorkflow(tmp);}},
+    {"animated start, immediate expiry/review, timer gating, sound and early exit",[](const auto& tmp){presentationWorkflow(tmp);}},
     {"Master geometry, configured deadline, replay and untimed finish", [](const auto& tmp) { masterWorkflow(tmp); }},
     {"rejected words, dictionary choices, write failure and engine restart", [](const auto& tmp) { dictionaryWorkflow(tmp); }},
     {"synthetic resources and Classic round", [](const std::filesystem::path& tmp) { engineTest(tmp); }},

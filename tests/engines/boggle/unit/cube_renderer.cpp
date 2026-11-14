@@ -204,6 +204,37 @@ void pausedCover(const std::filesystem::path& tmp) {
         HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
     }
 }
+void pauseMotion(const std::filesystem::path& tmp) {
+    for(bool master:{false,true})for(bool rounded:{false,true}) {
+        const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
+        fixtures::write(root/(rounded?"Scripts/Rounded.x":"Scripts/Die.x"),fixtures::cubeMesh(rounded?7.2:1));
+        fixtures::write(root/"Waves/Clasical.wav",fixtures::wave());
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(rounded));
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_music","0"},{"classic_sound","0"},{"classic_seconds","60"}};
+        fixtures::ScriptedSystem sys;sys.audioSupported=true;
+        sys.clock=[](size_t f){const uint64_t times[]={0,4400,4500,4600,4600,2000000,2000000,2001000,2001010,2002310,2002320,2002330};return times[std::min(f,size_t(11))];};
+        sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AAAA")};
+            if(f==2)return {mouseEvent(EventType::MouseDown,700,570)};
+            if(f==4){Event e;e.type=EventType::FocusLost;return {e};}
+            if(f==6){Event e;e.type=EventType::FocusGained;return {e};}
+            if(f==8)return {mouseEvent(EventType::MouseDown,400,360)};
+            if(f==9)return {keyEvent(key::Return)};
+            if(f==10)return {keyEvent(key::F1)};
+            if(f==11)return {keyEvent(key::Escape)};
+            return {};
+        };
+        std::array<uint8_t,4> playing{},closed{},result{};
+        sys.present=[&](const Surface& screen,size_t f){const auto* p=screen.row(440)+200*4;if(f==1)std::copy_n(p,4,playing.begin());if(f==7)std::copy_n(p,4,closed.begin());if(f==10)std::copy_n(p,4,result.begin());};
+        ClassicGame game(sys,target);CHECK(!game.run());CHECK(sys.hashes.size()==11 && sys.audioHashes.size()==11);
+        if(sys.hashes.size()==11){CHECK(sys.hashes[2]!=sys.hashes[3] && sys.hashes[3]==sys.hashes[6]);CHECK(sys.hashes[7]!=sys.hashes[8]);}
+        CHECK(playing==result && playing!=closed); // finishing never closes the lid
+        const std::vector<int16_t> silence(512);const auto quiet=test::Hash().bytes(silence.data(),silence.size()*sizeof(int16_t)).hex();
+        if(sys.audioHashes.size()==11){CHECK(sys.audioHashes[4]==quiet && sys.audioHashes[5]==quiet);CHECK(sys.audioHashes[2]!=quiet && sys.audioHashes[7]!=quiet && sys.audioHashes[8]!=quiet);}
+        HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
+    }
+}
 void layout(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool rounded:{false,true}) {
         const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
@@ -250,5 +281,6 @@ static const test::Suite suite("boggle.unit.cube_renderer",{
     {"rounded side bitmap mirror differs from angular template",[](const auto&){sideTexture();}},
     {"explicit styles, missing assets, ignored alternatives and mouse scoring",styleChoice},
     {"manual pause covers installed boards and resumes their existing pose",pausedCover},
+    {"animated pause, focus-only music suspension, preserved input and no end closing",pauseMotion},
     {"both meshes and variants, lid masks, word entry, scoring and opt-out",layout},
 });

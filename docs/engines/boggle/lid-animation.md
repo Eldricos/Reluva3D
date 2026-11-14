@@ -65,8 +65,9 @@ and lettering when the optional meshes are installed. Earlier imports retain
 native flat faces. Original lighting and whole-screen VM appearance matching
 remain unfinished. The
 [roll-sequence correction](human-cursor.md#roll-sequence-correction) establishes
-that the initial covered-tray shake is already supplied by the AVI. Results still return to the open-board
-review view after closing; that policy awaits original-game confirmation.
+that the initial covered-tray shake is already supplied by the AVI. The owner subsequently confirmed that round end has no lid animation; native
+results now retain the open board directly. Closing/reopening is used for
+explicit Pause/Resume; see [pause presentation](pause-presentation.md).
 Retail data, reference harnesses, disassembly and decoded previews remain
 outside every Git worktree. Only independently written code and observations
 are committed.

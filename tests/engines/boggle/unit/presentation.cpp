@@ -81,6 +81,30 @@ void music(const std::filesystem::path& tmp) {
     { ClassicAudio audio(sys); CHECK(!audio.open(r,false)); }
     CHECK(!sys.audioStarted);
 }
+void focusedMusic(const std::filesystem::path& tmp) {
+    fixtures::presentationInstall(tmp);fixtures::write(tmp/"Waves/Clasical.wav",fixtures::wave());Resources r;CHECK(!r.open(tmp));
+    fixtures::ScriptedSystem a,b;a.audioSupported=b.audioSupported=true;
+    ClassicAudio paused(a),control(b);CHECK(!paused.open(r,true,0) && !control.open(r,true,0));
+    paused.beginRound(false);control.beginRound(false);paused.stopShake();control.stopShake();
+    CHECK(a.pump(17)==b.pump(17));paused.focus(false);paused.focus(false);
+    paused.recorded(3);CHECK(a.pump(1)[0]==4000); // only music is suspended
+    a.pump(100);CHECK(silent(a.pump(100)));paused.focus(true);paused.focus(true);CHECK(a.pump(31)==b.pump(31));
+    paused.focus(false);paused.beginRound(false);paused.stopShake();CHECK(silent(a.pump(31)));
+    paused.focus(true);CHECK(a.pump(31)==b.pump(31));
+    audio::Mixer mixer(8000);auto tone=std::make_shared<audio::Sound>();tone->rate=8000;tone->channels=1;tone->samples={100,200,300};
+    const auto handle=mixer.play(tone,audio::SoundType::Music);int16_t pcm[2];mixer.mix(pcm,1);CHECK(pcm[0]==100);
+    mixer.setPaused(handle,true);mixer.mix(pcm,1);CHECK(pcm[0]==0 && mixer.position(handle)==1 && mixer.isPlaying(handle));
+    mixer.setPaused(handle,false);mixer.mix(pcm,1);CHECK(pcm[0]==200);mixer.setPaused(handle,true);mixer.stop(handle);mixer.setPaused(handle,false);CHECK(!mixer.isPlaying(handle));
+}
+void pauseAnimation() {
+    ClassicPauseLid lid;CHECK(lid.state()==ClassicPauseLid::State::Open && !lid.frame(0));
+    lid.pause(100,true);CHECK(lid.frame(99)==44 && lid.frame(100)==44 && lid.frame(200)==45);
+    CHECK(lid.frame(1199)==54 && !lid.advance(1199));CHECK(!lid.advance(1200) && lid.state()==ClassicPauseLid::State::Closed);
+    CHECK(!lid.resume(1300,true) && lid.frame(1300)==31 && lid.frame(2500)==43);
+    CHECK(!lid.resume(2000,true));CHECK(!lid.advance(2599));CHECK(lid.advance(2600) && !lid.frame(2600));
+    lid.pause(3000,false);CHECK(lid.state()==ClassicPauseLid::State::Closed && !lid.frame(3000));CHECK(lid.resume(3000,false));
+    lid.pause(4000,true);CHECK(lid.frame(UINT64_MAX)==54);CHECK(!lid.advance(UINT64_MAX) && lid.state()==ClassicPauseLid::State::Closed);
+}
 void transitions() {
     ClassicTransition t; CHECK(t.type()==Transition::None); CHECK(!t.finish(1000));
     t.begin(Transition::Opening,1000); CHECK(t.frame(999)==0 && t.frame(1099)==0 && t.frame(1100)==1);
@@ -93,5 +117,7 @@ void transitions() {
 static const test::Suite suite("boggle.unit.presentation", {
     {"cue selection, countdown deduplication, looping and audio lifetime",[](const auto& tmp){sounds(tmp);}},
     {"music catalog, independent mute, looping and replay continuity",[](const auto& tmp){music(tmp);}},
+    {"focus suspends only music and preserves its sample position",[](const auto& tmp){focusedMusic(tmp);}},
+    {"manual close/resume frame ranges and animation deadlines",[](const auto&){pauseAnimation();}},
     {"opening/closing frame bounds and transition deadlines",[](const auto&){transitions();}},
 });

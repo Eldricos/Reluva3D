@@ -4,8 +4,9 @@ The native controller now pauses gameplay while its window is inactive. Player
 budgets, background computers, opening/closing transitions and cursor schedules
 share one monotonic logical clock. Focus notifications are idempotent; backward
 wall readings cannot refund time. An inactive-window overlay hides the board,
-and input queued with focus regain is discarded. Music and already playing
-sound samples continue; original audio inactivity behavior remains unverified.
+and input queued with focus regain is discarded. Music now suspends on focus
+loss and resumes from its native playback position on focus gain; manual pause
+keeps music playing, matching the owner's VM report.
 A mouse-only Pause control is available during a round, including computer
 turns. Resume is also mouse-only. Manual pause survives switching away and
 returning; focus, manual pause and notices hold independent pause reasons.
@@ -79,7 +80,7 @@ The same Chess player remains after a too-short attempt; duplicates pass.
 Tests also cover ambiguous keyboard prefixes, rejection without cube reuse,
 mixed mouse/keyboard entry and manual pause across focus changes for human,
 visible-computer and background-computer turns. Exact original replay dialogs,
-keyboard path tie-breaking and audio inactivity behavior remain open checks. This pass does not establish complete Classic fidelity.
+keyboard path tie-breaking and effects inactivity behavior remain open checks. This pass does not establish complete Classic fidelity.
 
 The full normal CTest run passes 62 checks, including all 39 Boggle checks
 with the supplied install; ten optional id Tech 3 data checks are skipped.
@@ -89,7 +90,8 @@ The synthetic Boggle suites also pass AddressSanitizer/UndefinedBehaviorSanitize
 with leak detection disabled for the execution tracer.
 
 The subsequent [manual-pause presentation](pause-presentation.md) uses the installed
-closed-lid still during an explicit pause. Resume restores the same board and
-selection; inactivity and prototype views retain their full-screen cover.
-Pause-specific animation timing, original dialog styling and audio remain
-separate comparison work. Clock and input contracts above are unchanged.
+closing animation during an explicit pause and the reopen animation on Resume.
+The gameplay clock remains frozen through both; a focus-aware presentation clock
+advances them. Resume restores the same board, selection and input. Inactivity
+still uses the full-screen cover. Exact original dialog styling remains
+comparison work. See the linked specification for animation ranges and audio.

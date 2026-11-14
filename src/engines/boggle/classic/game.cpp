@@ -309,7 +309,8 @@ Error ClassicGame::run() {
         reviewPlayer=nextTurn=turn;competition.clear();finishedNotices.clear();return Error::success();
     };
     auto round=[&]()->ClassicRound& {return *rounds[competition.ready()?reviewPlayer:turn];};
-    ClassicClock gameplayClock;
+    ClassicClock gameplayClock,presentationClock;
+    ClassicPauseLid pauseLid;
     auto nowMillis=[&](){return gameplayClock.now(sys_.getMillis());};
     auto gameTime=[&](){return chess?clocks.elapsed(competition.ready()?reviewPlayer:turn,nowMillis()):nowMillis();};
     auto nextChessPlayer=[&]()->std::optional<size_t> {
@@ -379,7 +380,6 @@ Error ClassicGame::run() {
         if (round().phase() == RoundPhase::Playing) {
             round().finish(); sound.stopShake();if(chess)clocks.stop(nowMillis());
             settleBackground(nowMillis());
-            if (options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,nowMillis());
         } else {
             sound.beginRound(options.animations);
             if (options.animations) transition.begin(Transition::Opening,nowMillis());
@@ -466,7 +466,6 @@ Error ClassicGame::run() {
     auto timeout=[&](uint64_t now) {
         clear();dragging=false;resultsVisible=false;message="Time is up.";
         sound.stopShake();if(chess)clocks.stop(now);settleBackground(now);sound.countdown(0,chess?turn:0);
-        if(options.animations && (!chess || !nextChessPlayer()))transition.begin(Transition::Closing,now);
     };
     auto passWord=[&]()->Error {
         if(!chess || foregroundCount==1)return Error::success();
@@ -506,6 +505,7 @@ Error ClassicGame::run() {
         selected.push_back(size_t(cell)); updateInput(); message.clear(); sound.play(Cue::ClickDown);
     };
     auto advance = [&]() -> Error {
+        if(pauseLid.advance(presentationClock.now(sys_.getMillis())))gameplayClock.manual(false,sys_.getMillis());
         if(gameplayClock.paused())return Error::success();
         const uint64_t now = nowMillis();
         const auto type = transition.type();
@@ -565,7 +565,8 @@ Error ClassicGame::run() {
                 pointerX=pointerY=-1;humanPressed=false;dragging=false;continue;
             }
             if(event.type==EventType::FocusLost || event.type==EventType::FocusGained) {
-                gameplayClock.focus(event.type==EventType::FocusGained,sys_.getMillis());
+                const bool focused=event.type==EventType::FocusGained;
+                gameplayClock.focus(focused,sys_.getMillis());presentationClock.focus(focused,sys_.getMillis());sound.focus(focused);
                 pointerX=pointerY=-1;humanPressed=false;
                 dragging=false;scoreDismissed=true;continue;
             }
@@ -583,7 +584,8 @@ Error ClassicGame::run() {
             if(gameplayClock.manual()) {
                 if(gameplayClock.focused() && pauseVisible && event.type==EventType::MouseDown &&
                    event.button==MouseButton::Left && resumeButton.contains(event.mouseX,event.mouseY)) {
-                    gameplayClock.manual(false,sys_.getMillis());scoreDismissed=true;
+                    if(pauseLid.resume(presentationClock.now(sys_.getMillis()),options.animations))gameplayClock.manual(false,sys_.getMillis());
+                    pauseVisible=false;scoreDismissed=true;
                 }
                 continue;
             }
@@ -591,7 +593,8 @@ Error ClassicGame::run() {
             if(!handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None &&
                round().phase()==RoundPhase::Playing && event.type==EventType::MouseDown &&
                event.button==MouseButton::Left && pauseButton.contains(event.mouseX,event.mouseY)) {
-                gameplayClock.manual(true,sys_.getMillis());pauseVisible=false;dragging=false;continue;
+                gameplayClock.manual(true,sys_.getMillis());pauseLid.pause(presentationClock.now(sys_.getMillis()),options.animations);
+                pauseVisible=false;dragging=false;continue;
             }
             if(handoff) {
                 if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
@@ -750,15 +753,16 @@ Error ClassicGame::run() {
         if(transition.type()==Transition::None && round().phase()==RoundPhase::Results && !results.ready() && !handoff)
             if(auto error=publish())return error;
         if(results.ready() && !scoreAttempted)saveScore();
+        const auto pauseFrame=pauseLid.frame(presentationClock.now(sys_.getMillis()));
         if(handoff)handoffScreen(screen,names[nextTurn],chess,rounds[nextTurn]->remaining(clocks.elapsed(nextTurn,nowMillis())),rounds[nextTurn]->timed(),finishedNotices);
-        else if (transition.type() != Transition::None) {
-            const size_t frameIndex=transition.frame(nowMillis());
+        else if (pauseFrame || transition.type() != Transition::None) {
+            const size_t frameIndex=pauseFrame?*pauseFrame:transition.frame(nowMillis());
             const auto& frame = clip.frames[frameIndex];
             for (int y=0;y<height;++y) for (int x=0;x<width;++x)
                 std::copy_n(frame.pixel(x*frame.w/width,y*frame.h/height),4,screen.row(y)+x*4);
             artwork.drawTransition(screen,round().board(),frameIndex,letters,qu,seed);
             rect(screen,0,height-40,width,40,dark);
-            label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
+            label(screen,24,height-25,pauseFrame?(pauseLid.state()==ClassicPauseLid::State::Opening?"Opening the lid...":"Closing the lid..."):"Rolling dice and opening the lid...");
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual());
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);
@@ -767,7 +771,7 @@ Error ClassicGame::run() {
             rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});
             label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");
         }
-        if(gameplayClock.manual() || !gameplayClock.focused()) {
+        if(!gameplayClock.focused() || (gameplayClock.manual() && !pauseFrame)) {
             if(!artwork.active() || !gameplayClock.focused())rect(screen,0,0,width,height,dark);
             else rect(screen,230,240,340,150,dark);
             label(screen,260,280,gameplayClock.focused()?"Game paused":"Paused while window is inactive");
@@ -793,7 +797,7 @@ Error ClassicGame::run() {
         sys_.updateScreen(screen);
         if(handoff)handoffVisible=true;
         noticeVisible=minimumNotice && gameplayClock.focused();
-        pauseVisible=gameplayClock.manual() && gameplayClock.focused();
+        pauseVisible=gameplayClock.manual() && gameplayClock.focused() && pauseLid.state()==ClassicPauseLid::State::Closed;
         if (transition.type() == Transition::None && round().phase() == RoundPhase::Results) resultsVisible = true;
         promptVisible = !handoff && !gameplayClock.paused() && transition.type() == Transition::None && round().candidate() != nullptr;
         sys_.delayMillis(16);

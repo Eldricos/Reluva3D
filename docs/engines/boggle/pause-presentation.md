@@ -1,57 +1,68 @@
-# Classic manual-pause presentation
+# Classic pause, focus audio and round-end presentation
 
-With installed artwork active, **Pause** now covers the dice with the installed
-closed-lid scene and shows the native Resume panel over it. Resume returns to
-the existing board, selected path and orientations. This works with either
-mesh style and with the flat installed-artwork fallback. The word list and
-player labels remain visible; dice and the animated hourglass are not rendered
-behind the closed scene. Gameplay entry hints and action buttons are hidden
-until Resume; unfinished input is retained.
+The owner confirmed these original-game behaviors in the VM:
 
-Window inactivity still uses the existing full-screen cover. Returning to the
-window preserves a manual pause until Resume is clicked. The prototype view
-also retains its full-screen pause cover. No shortcut is added. Human hand
-artwork yields to the system pointer for Pause/Resume, as before.
+- Explicit Pause and Resume each play a lid animation; music continues.
+- Losing window focus pauses the game and stops music.
+- Round end has no lid animation.
 
-## Observed contract and implementation boundary
+Native Classic now follows those contracts in Original and Master. Pause closes
+the lid before showing Resume. Resume reopens it before releasing the gameplay
+clock. The existing board, selection, unfinished input and computer plans remain
+intact; no fresh roll or shake sound is triggered. Results and dictionary review
+appear directly at round end, keeping the open board.
+
+## Animation and clocks
+
+With Classic round animations enabled, Pause plays AVI frames 44..54 at 100 ms
+per frame (1.1 seconds). Resume plays 31..43 (1.3 seconds), skipping the initial
+covered-tray shake. The original close helper seeks frame 43 at `0x42a8a1` and
+advances through 54; the raise helper seeks 30 at `0x42a0f6` and advances through
+43. Initial round opening still plays 0..43 before starting the game timer.
+Existing per-frame camera poses, cube clipping and mesh-style choices apply.
+No new resources or imports are required.
+
+A separate presentation clock advances lid motion while the gameplay clock is
+held. Focus loss freezes both clocks, so switching away during either motion
+cannot jump frames or consume playing time. Resume is available only after the
+closed scene is displayed; game input remains blocked until reopening ends.
+Repeated focus notifications and input queued with focus regain remain guarded.
+Disabling animations uses the closed/open still views immediately, as before.
+
+Inactive windows retain a full-screen cover. With installed artwork enabled,
+the settled paused view uses the closed-lid scene and native Resume panel;
+player labels and counted words remain visible. Gameplay entry hints and action
+buttons are hidden, while unfinished input is retained. The prototype retains
+its full-screen settled pause cover. System-pointer restoration remains active
+for controls and animation; no keyboard Pause shortcut is added.
+
+## Music and evidence
+
+Focus loss suspends the music channel without freeing it or advancing its sample
+position. Focus gain resumes that channel, including while explicitly paused.
+Manual pause does not mute music. Effects remain independent; the owner's report
+establishes music behavior and does not establish a new effects policy.
+The shared mixer's channel-pause operation holds its existing mutex, preserves
+channel identity and position, and allows a paused channel to be stopped safely.
 
 Executable identity is recorded in [die orientation](die-orientation.md).
-Classic's pause wrapper `0x429fa0` calls the base pause service, then lowers the
-lid through `0x42a7c0` only when its explicit-pause argument is nonzero and the
-lid-open state is set. Resume `0x429fd0` raises the lid through `0x42a010` for
-an explicit pause when the lid is closed and the pause nesting is one, before
-calling the base resume service. The focus handler at `0x4144b0` passes zero;
-this does not request those explicit-pause lid actions.
+Classic's wrappers at `0x429fa0` / `0x429fd0` distinguish explicit-pause lid calls
+from focus-only pause. An external probe using invented state and intercepted
+base/lid services passed 24 wrapper checks. The owner subsequently corroborated
+both manual animations, music behavior and the absence of round-end motion.
+These observations replace the previous native still-frame and end-closing
+policies. Original files, raw research and probes remain outside Git.
 
-An external isolated probe captures those lid calls with invented state and
-intercepted base-pause/resume services. Both argument values, open/closed lids
-and three nesting values give 24 passing wrapper checks. These establish
-wrapper call conditions, not complete animation, dialog or audio behavior.
-Original bytes, raw analysis and probe code stay outside every Git worktree.
+## Validation and limits
 
-The native pass uses the settled closed frame already loaded from the supplied
-lid AVI (frame 54). It switches immediately to that still view and restores the
-playing view on Resume. It does not add pause-specific closing/opening animation
-or claim matching original modal-window styling. The renderer receives a display
-flag; it never changes the round phase, board, selected path or player clocks.
-Existing focus/manual/notice clock nesting and event guards are unchanged.
-Music and effects retain their existing behavior pending the separate audio
-comparison. Round-end review still has its independently documented lid policy.
-No imports, dependencies, save formats or game files change.
+Synthetic cases verify frame boundaries, deadlines, repeated resume attempts,
+focus suspension during lid motion, all style/variant combinations, preserved
+input submission and immediate open-board results. PCM comparisons verify music
+continuity, silence during focus loss, independent effects and safe channel stop.
+Existing Traditional/Chess clock, background-computer and cursor checks remain
+in use. The presentation record now captures immediate results and a later
+replay instead of a round-end closing clip. Default resource digests are unchanged.
 
-## Verification
-
-Synthetic cases compare the covered scene with the installed Ready closed view
-for Original/Master and both meshes plus the flat fallback. Restoring the playing
-view is byte-identical, including the selected cube. Scripted game input checks
-the closed scene during Pause, the same scene after Resume and a successful
-submission of input entered before pausing. Existing manual
-pause tests verify clocks, foreground/background computer turns, focus nesting,
-ignored keyboard shortcuts and discarded event batches.
-
-The full regression run retains its existing default artwork and import records.
-Focused ASan/UBSan checks exercise the renderer and Traditional/Chess pause flows.
-External SDL software-backend runs inspect Pause, focus loss/regain, Resume and
-cursor cleanup with the supplied resources in both styles and variants. Assets
-and screenshots stay outside the repository. Windows comparison of this new
-settled-pause view remains pending.
+Full regression, focused sanitizer and external SDL checks validate integration.
+Exact original dialog styling and hardware-specific audio/raster timing remain
+comparison work; this does not claim full Classic visual parity.

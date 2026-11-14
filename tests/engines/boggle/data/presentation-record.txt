@@ -4,6 +4,6 @@ media.opening: c478ec58a762bd45
 media.open_lid: 076ec519f3d9bd45
 media.playing: 867a39901898cb9f
 media.counted: 1d5dc3e927f60abf
-media.closing: 0d3e28937cb58d25
-media.results: ca06fdb2bf4694ac
-media.audio: b51b680c78a92307
+media.results_now: ca06fdb2bf4694ac
+media.replay: c478ec58a762bd45
+media.audio: 698ca1b5c114bdea

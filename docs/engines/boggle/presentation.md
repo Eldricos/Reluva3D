@@ -12,14 +12,17 @@ intro/mode playback is documented in [movies](movies.md).
 board changes are blocked during the transition. The round clock starts when
 opening completes, so animation/loading does not consume playing time.
 
-At timeout or manual End Round / F1, word input stops immediately. Frames
-44..54 close the lid, then results or pending-word review appear. An Enter or
-New Board event cannot bypass displaying results; dictionary choices are
-ignored until the prompt is visible. Escape and window close work throughout,
-and returning to the launcher stops the audio callback before destroying its
-mixer. Manual finish also supports Not Timed.
+At timeout or manual End Round / F1, word input stops immediately and results
+or pending-word review appear without a lid animation, as confirmed by the
+owner in the original VM. Results/prompts must be displayed before accepting
+replay or dictionary choices. Escape and window close work throughout; returning
+to the launcher stops the audio callback before destroying its mixer. Manual
+finish also supports Not Timed.
 
-The native opening phase lasts 4.4 seconds and closing lasts 1.1 seconds.
+Initial opening lasts 4.4 seconds. Explicit Pause closes using frames 44..54
+(1.1 seconds); Resume opens using frames 31..43 (1.3 seconds), skipping the
+initial covered-tray shake. Gameplay remains paused throughout both motions;
+see [manual pause and focus audio](pause-presentation.md).
 Scheduling uses elapsed time rather than blocking sleeps. Late frames advance
 to the current image; the timer still starts at the actual end of opening.
 Decoded 640x480 frames are scaled into the native 800x600 framebuffer. The [settled-dice lid overlay](lid-animation.md) now follows the observed
@@ -99,7 +102,7 @@ Synthetic codec tests cover Video 1 block modes, delta retention and malformed
 input. Sound tests distinguish every length/countdown cue using invented PCM,
 check repeated-cue restart, shake looping/stopping, missing-device fallback,
 malformed media, muted mode and callback shutdown. Scripted engine tests cover
-opening input guards, timer start after opening, unfinished input loss, closing
+opening input guards, timer start after opening, unfinished input loss, immediate review
 before results/review, boundary Enter/New Board handling and exit during opening.
 Existing rule/UI regression cases explicitly disable media and retain their
 prior records. No retail pixels, samples or word/face lists are fixtures.

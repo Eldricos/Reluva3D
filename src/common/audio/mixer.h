@@ -40,9 +40,12 @@ public:
     SoundHandle play(std::shared_ptr<const Sound> sound, SoundType type, int volume = kMaxVolume, int pan = 0,
                      bool loop = false);
     void stop(SoundHandle handle);
+    // Keep the channel and playback position while producing no samples.
+    void setPaused(SoundHandle handle, bool paused);
     void stopType(SoundType type);
     void stopAll();
 
+    // Suspended channels still count as playing until stopped or finished.
     bool isPlaying(SoundHandle handle) const;
     bool isTypePlaying(SoundType type) const;
     // How far a sound has played, in its own frames (0 if it isn't playing).
@@ -68,6 +71,7 @@ private:
         bool loop;
         double position = 0; // in the sound's frames
         bool done = false;
+        bool paused = false;
     };
     Channel* find(SoundHandle handle);
     const Channel* find(SoundHandle handle) const;

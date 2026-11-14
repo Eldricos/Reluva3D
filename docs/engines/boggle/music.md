@@ -6,7 +6,7 @@ are loaded from the owner's game folder. Titles come from its English language
 DLL at runtime; missing titles fall back to numbered labels. No retail display
 text or audio is included in the repository.
 
-Music starts with the first round, loops through play, closing, review and
+Music starts with the first round, loops through play, manual pause/lid motion, review and
 results, and continues across replay without restarting its cursor. Leaving the
 engine stops audio before its mixer is destroyed. Returning to game selection
 also stops round audio; entering Classic again restarts the same selected track.
@@ -77,3 +77,10 @@ An external music-only SDL run using dummy video/audio mixed 270,336 output
 frames with nonzero PCM through the real backend callback. This validates
 software integration through a dummy device. The owner's subsequent Windows
 playback confirmation provides a separate native listening check.
+
+The owner's subsequent VM check confirms that explicit Pause leaves music
+playing, while loss of window focus pauses the game and stops its music.
+Native focus handling now suspends the music channel without discarding its
+sample position and resumes it on focus gain, including while manually paused.
+Repeated focus events are harmless. Effects remain independent; their behavior
+was not part of this VM observation. See [pause flow](pause-presentation.md).

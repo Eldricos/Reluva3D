@@ -40,8 +40,8 @@ on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 launcher options to use the previous direct Ready screen.
 
 Click **Pause** during a round and **Resume** to continue. Installed artwork now
-shows the closed lid while manually paused; switching away still covers the
-whole screen. See [pause presentation and scope](pause-presentation.md).
+closes the lid while manually paused and reopens it on Resume. Switching away
+covers the whole screen and suspends music; manual pause keeps music playing. See [pause presentation and scope](pause-presentation.md).
 
 During play, type a word and press Enter to submit. Alternatively,
 click or drag through touching cubes, then press Enter or click the word list. Backspace undoes input;
@@ -66,7 +66,8 @@ rotates the whole cube and uses the [six supplied die faces](die-orientation.md)
 See [orientation settings](options.md#cube-orientation).
 
 Classic's round animation and WAV effects are enabled by default. The timer
-starts after the opening finishes, and closing finishes before results/review.
+starts after opening finishes. Round end shows results/review directly, without
+a lid animation.
 The launcher can disable **Classic round animations** or **Classic sound
 effects** independently. **Intro and menu animations** plays the publisher/game intros with
 their soundtracks and available animated mode buttons; Escape skips the intro.

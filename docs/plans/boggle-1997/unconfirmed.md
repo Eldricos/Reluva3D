@@ -372,3 +372,13 @@ calls from focus-only pause calls. This stage preserves existing clock/audio
 behavior and uses immediate settled views. Original pause animation timing,
 modal styling, audio and the lid state during round-end review remain comparison
 work; no full-fidelity pause claim is made.
+
+### Owner-confirmed pause, focus music and round-end flow
+
+The owner confirmed that explicit Pause and Resume each animate the lid while
+music continues. Focus loss pauses the game and stops music. Round end has no
+lid animation. The [updated pause flow](../../engines/boggle/pause-presentation.md)
+now follows these observations: focus suspends only the music channel, manual
+pause closes/reopens on a separate focus-aware presentation clock, and round
+end goes directly to review/results. This supersedes earlier still-frame pause,
+continuing-focus-music and end-closing policies. Exact modal styling remains open.
