@@ -95,15 +95,17 @@ public:
     }
 
     std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
-        // The game's folder (baseEF) under the folder picked: an install
-        // (its folder), the CD (SETUP/BaseEF), or the game folder itself;
-        // the first that holds the game. What Reluva needs of it: the
-        // game folder's paks, the players' saved games and recordings,
-        // the CD key files; beside it, single player's game code.
+        // The game's folder (baseEF, base) under the folder picked: an
+        // install (its folder), the CD (SETUP/BaseEF, GAMEDATA/GameData/base),
+        // or the game folder itself; the first that holds the game. What
+        // Reluva needs of it: the game folder's paks, the players' saved
+        // games and recordings, the CD key files; beside it, single
+        // player's game code.
         for (const GameInfo &game : games()) {
             std::vector<std::filesystem::path> roots{source};
-            if (const auto setup = fs::findDirectory(source, "SETUP"))
-                roots.push_back(*setup);
+            for (const std::string &folder : game.installFolders)
+                if (const auto found = fs::findDirectory(source, folder))
+                    roots.push_back(*found);
             if (fs::toLower(source.filename().string()) == fs::toLower(game.baseDir))
                 roots.push_back(source.parent_path());
             for (const std::filesystem::path &root : roots) {
@@ -124,13 +126,13 @@ public:
                     };
                     // Files in a folder with one of `extensions` (lower case).
                     auto addAll = [&](const std::filesystem::path &dir, const std::string &to,
-                                      std::initializer_list<const char *> extensions) {
+                                      const std::vector<std::string> &extensions) {
                         std::error_code ec;
                         for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
                             if (!it->is_regular_file(ec))
                                 continue;
                             const std::string ext = fs::toLower(it->path().extension().string());
-                            for (const char *e : extensions)
+                            for (const std::string &e : extensions)
                                 if (ext == e)
                                     add(it->path(), to + it->path().filename().string());
                         }
@@ -140,7 +142,7 @@ public:
                     if (const auto saves = fs::findDirectory(*base, "saves"))
                         addAll(*saves, baseTo + "saves/", {".sav"});
                     if (const auto demos = fs::findDirectory(*base, "demos"))
-                        addAll(*demos, baseTo + "demos/", {".efdemo", ".dm_24"});
+                        addAll(*demos, baseTo + "demos/", game.demoExtensions);
                     const Release release = describeRelease(root, game);
                     // Single player's code; the Expansion Pack's kept apart
                     // (expansion/), so the game can be run without it too.
@@ -149,13 +151,14 @@ public:
                             if (const auto path = fs::findFile(root, dll))
                                 add(*path, (isExpansionDll(*path) ? "expansion/" : "") + fs::toLower(dll));
                     plan.notes.push_back("Patch level " + release.patch +
-                                         (release.patch == "1.0" ? " (as on the CD; online play needs 1.2)" : ""));
+                                         (release.patchNote.empty() ? "" : " (" + release.patchNote + ")"));
                     if (!release.singlePlayer && release.expansionSinglePlayer)
                         plan.notes.push_back("Single player only with the Expansion Pack (the 1.x code isn't there: "
                                              "add patch 1.2 to have it without)");
                     else if (!release.singlePlayer)
-                        plan.notes.push_back("No single player: " + game.spGameDll + " and " + game.spUiDll +
-                                             " weren't found beside " + base->filename().string());
+                        plan.notes.push_back("No single player: " + game.spGameDll +
+                                             (game.spUiDll.empty() ? " wasn't" : " and " + game.spUiDll + " weren't") +
+                                             " found beside " + base->filename().string());
                     else if (!release.singlePlayerPatch.empty())
                         plan.notes.push_back("Single player " + release.singlePlayerPatch);
                     plan.notes.push_back(countNote(plan));

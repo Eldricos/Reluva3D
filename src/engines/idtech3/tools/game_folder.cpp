@@ -29,4 +29,8 @@ bool mountIdTech3(const char *folder, reluva::SearchSet &set, const std::vector<
     return true;
 }
 
+const reluva::idtech3::GameInfo &gameOfFolder(const char *folder) {
+    return reluva::idtech3::gameInFolder(idTech3Folders(folder).first);
+}
+
 } // namespace reluva::idtech3::tool

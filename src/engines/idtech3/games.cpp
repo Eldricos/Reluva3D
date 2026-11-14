@@ -4,14 +4,18 @@
 #include "engines/idtech3/games.h"
 
 #include "engines/idtech3/eliteforce/game_info.h"
+#include "engines/idtech3/jk2/game_info.h"
 
 #include "common/fs.h"
+
+#include <span>
 
 namespace reluva::idtech3 {
 
 const std::vector<GameInfo> &games() {
     static const std::vector<GameInfo> kList = {
         eliteforce::gameInfo(),
+        jk2::gameInfo(),
     };
     return kList;
 }
@@ -26,9 +30,10 @@ const GameInfo *findGame(std::string_view gameId) {
 // Built with `reluva --hash`: each entry needs the size and the MD5 of the
 // first kDetectionHashBytes bytes.
 //
-// Detection keys on baseEF/pak0.pk3, which holds the game's data. The
-// Windows programs aren't needed (Reluva never runs them; a folder made by
-// importing the game has none), and the patches are told apart afterwards
+// Detection keys on the pak holding each game's data (Elite Force's
+// baseEF/pak0.pk3, Jedi Outcast's base/assets0.pk3). The Windows programs
+// aren't needed (Reluva never runs them; a folder made by importing the
+// game has none), and the patches are told apart afterwards
 // (describeRelease).
 //
 // TODO: add the other releases (Expansion Pack, Mac, other languages) from
@@ -41,6 +46,13 @@ const std::vector<GameVariant> &detectionTable() {
          "en",
          "windows",
          {{"baseEF/pak0.pk3", "f31871f2891b1e9d6e8d1654ea93352d", 566234769}}},
+        // The English Windows CD's 1.02a (its GAMEDATA/GameData/base, as an
+        // install's).
+        {"jk2",
+         "Star Wars Jedi Knight II: Jedi Outcast",
+         "en",
+         "windows",
+         {{"base/assets0.pk3", "54693e39dc8c122c8ba724664a584b60", 534984353}}},
     };
     return kTable;
 }
@@ -59,8 +71,8 @@ constexpr KnownFile kPatchPaks[] = {
     {"baseEF/pak2.pk3", "cf93390547bc232c5bc79c7a197dac3f", 12408486, "1.2"},
     {"baseEF/pak1.pk3", "54ba694bd5ee74629eebf348d4fe4e19", 6492912, "1.1"},
 };
-// The game DLL: the CD's (1.0), and the one patch 1.1 brought, which 1.2
-// keeps ("Single Player will be upgraded to 1.1", its readme).
+// Elite Force's game DLL: the CD's (1.0), and the one patch 1.1 brought,
+// which 1.2 keeps ("Single Player will be upgraded to 1.1", its readme).
 constexpr KnownFile kSpGameDlls[] = {
     {"efgamex86.dll", "d7a1187d8295ba1086c9f7de9a221f7b", 966732, "1.0"},
     {"efgamex86.dll", "030b262b7d9026e891aa404985e65d93", 974924, "1.1"},
@@ -77,6 +89,26 @@ constexpr KnownFile kExpansionDlls[] = {
     {"efgamex86.dll", "f8f997ef96a09755f0d1c920c15ca773", 999500, ""},
     {"efuix86.dll", "ec037144abf33d861093784b8b62be90", 458824, ""},
 };
+
+// Jedi Outcast's game DLL, as its CD has it (1.02a).
+constexpr KnownFile kJk2SpGameDlls[] = {
+    {"jk2gamex86.dll", "8ec27068a054ceac7861fd648561bddb", 1318912, "1.02a"},
+};
+
+// What tells one game's releases apart: its patch level before any patch,
+// its patches' paks (the latest first) and its single-player game DLLs.
+struct ReleaseFiles {
+    const char *basePatch;
+    const char *basePatchNote;
+    std::span<const KnownFile> patchPaks;
+    std::span<const KnownFile> spGameDlls;
+};
+
+const ReleaseFiles &releaseFiles(const GameInfo &game) {
+    static const ReleaseFiles kEliteForce{"1.0", "as on the CD; online play needs 1.2", kPatchPaks, kSpGameDlls};
+    static const ReleaseFiles kJediOutcast{"1.02a", "", {}, kJk2SpGameDlls};
+    return game.gameId == "jk2" ? kJediOutcast : kEliteForce;
+}
 
 bool matches(const std::filesystem::path &dir, const KnownFile &f) {
     const auto path = fs::findFile(dir, f.name);
@@ -136,18 +168,21 @@ std::filesystem::path singlePlayerDir(const std::filesystem::path &dir, const Ga
 }
 
 Release describeRelease(const std::filesystem::path &dir, const GameInfo &game) {
+    const ReleaseFiles &files = releaseFiles(game);
     Release r;
-    r.patch = "1.0";
-    for (const KnownFile &f : kPatchPaks)
+    r.patch = files.basePatch;
+    r.patchNote = files.basePatchNote;
+    for (const KnownFile &f : files.patchPaks)
         if (matches(dir, f)) {
             r.patch = f.patch;
+            r.patchNote.clear();
             break;
         }
     r.expansion = game.gameId == "stvef" && matches(dir, kExpansionPakFile);
     const std::filesystem::path sp = singlePlayerDir(dir, game, false);
     r.singlePlayer = !sp.empty();
     if (r.singlePlayer)
-        for (const KnownFile &f : kSpGameDlls)
+        for (const KnownFile &f : files.spGameDlls)
             if (matches(sp, f))
                 r.singlePlayerPatch = f.patch;
     const std::filesystem::path xp = singlePlayerDir(dir, game, true);
@@ -166,8 +201,21 @@ Release describeRelease(const std::filesystem::path &dir, const GameInfo &game) 
 const std::vector<GameVariant> &fallbackTable() {
     static const std::vector<GameVariant> kTable = {
         {"stvef", "Star Trek: Voyager - Elite Force (unknown release)", "", "windows", {{"baseEF/pak0.pk3", "", -1}}},
+        {"jk2",
+         "Star Wars Jedi Knight II: Jedi Outcast (unknown release)",
+         "",
+         "windows",
+         {{"base/assets0.pk3", "", -1}}},
     };
     return kTable;
+}
+
+const GameInfo &gameInFolder(const std::filesystem::path &install) {
+    for (const auto *table : {&detectionTable(), &fallbackTable()})
+        for (const DetectedGame &found : detectFromTable("idtech3", *table, install))
+            if (const GameInfo *game = findGame(found.gameId))
+                return *game;
+    return games().front();
 }
 
 } // namespace reluva::idtech3

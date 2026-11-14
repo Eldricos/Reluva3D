@@ -160,7 +160,7 @@ int cmdUiRun(int argc, char **argv) {
 
     // What was registered, and whether the engine can find it.
     q3::ShaderLibrary shaders;
-    shaders.load(set);
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir);
     int missing = 0;
     for (int32_t h = 1; h <= int32_t(ui.shaders().size()); ++h) {
         const std::string &name = ui.shaders().name(h);

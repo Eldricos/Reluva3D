@@ -13,7 +13,14 @@ None yet.
 
 ## Not yet as the original
 
-None yet: the game isn't playable yet ([PLAN.md](PLAN.md)).
+The game isn't playable yet ([PLAN.md](PLAN.md)). Left for after the rest
+is done and tested (its phase 11):
+
+- **EAX environmental sound.** The original sets each level's EAX
+  environments (`eagle/<map>.eal`) on sound cards that have it; Reluva will
+  play the sound without them.
+- **Force feedback.** The original plays `forcecfg/*.fcf` effects on force
+  feedback joysticks (through `FFC10.dll`); Reluva won't.
 
 ## Additions outside the game
 

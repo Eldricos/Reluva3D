@@ -12,6 +12,8 @@ GameInfo gameInfo() {
     g.gameId = "stvef";
     g.name = "Star Trek: Voyager - Elite Force";
     g.baseDir = "baseEF";
+    g.installFolders = {"SETUP"}; // the English CD's SETUP/BaseEF
+    g.demoExtensions = {".efdemo", ".dm_24"};
     g.code = GameCode::kEliteForce;
     g.refEntity = kRefEntityLayout;
     g.spRefEntity = kSpRefEntityLayout;

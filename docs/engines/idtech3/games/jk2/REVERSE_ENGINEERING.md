@@ -26,7 +26,9 @@ The paks were listed with `unzip -l`; each file type's first bytes were
 read for its magic and version (RBSP 1, `2LGM`/`2LGA` 6, `IBI`, `ROFF` 2,
 Quake III's QVM magic `0x12721444`), and the RBSP header's lump table for
 its count (18). `objdump -p` gave `jk2gamex86.dll`'s exports and imported
-DLLs.
+DLLs. Detection's hashes were made with `reluva --hash`; the shaders and
+models were read with `reluva-tool idtech3 shader-check` and
+`model-check`.
 
 ## The tools
 

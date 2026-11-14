@@ -1,23 +1,27 @@
 # Star Wars Jedi Knight II: Jedi Outcast
 
 Game id `jk2`, on the [id Tech 3 engine](../../README.md); its own code
-will be in `src/engines/idtech3/jk2/`. Raven Software's, 2002: Quake III's
+is in `src/engines/idtech3/jk2/`. Raven Software's, 2002: Quake III's
 engine as Raven changed it, a generation after Elite Force's.
 
 ## Releases
 
 | Release | Recognised by | State |
 |---|---|---|
-| English, Windows, 1.02a | `base/assets0.pk3`, MD5 `bbd8243669d551c910cfe60ccb4e5edd`, 534,984,353 bytes | Not yet recognised: see [PLAN.md](PLAN.md) |
+| English, Windows, 1.02a | `base/assets0.pk3`, 534,984,353 bytes, `54693e39dc8c122c8ba724664a584b60` (MD5 of its first 5,000 bytes, as detection hashes) | Recognised and imported; not playable yet |
 
-The same release's other files, for detection and the import:
+Other releases are found by `base/assets0.pk3`'s name alone, as "unknown
+release".
+
+The same release's files, by the MD5 of the whole file:
 
 | File | MD5 | Bytes |
 |---|---|---|
+| `base/assets0.pk3` | `bbd8243669d551c910cfe60ccb4e5edd` | 534,984,353 |
 | `base/assets1.pk3` | `e91efd51a8883b1c2590e8be7705877f` | 86,950,705 |
 | `jk2sp.exe` (single player; says `JK2: v1.02a`) | `494697528df318aac065f5b024a4ef47` | 999,482 |
 | `jk2mp.exe` (multiplayer; says `JK2MP: v1.02a`) | `3dbfb179aa803eb7f7a0912556361723` | 1,126,400 |
-| `jk2gamex86.dll` (single player's game code) | `acc8fc1cea330d1a0ac0646d3bd96fad` | 1,318,912 |
+| `jk2gamex86.dll` (single player's game code; `8ec27068a054ceac7861fd648561bddb` by its first 5,000 bytes) | `acc8fc1cea330d1a0ac0646d3bd96fad` | 1,318,912 |
 
 `version.inf` beside them says version 1.02a for both. On the CD the game
 is in `GAMEDATA/GameData/` as plain files, the same files an install has;
@@ -25,12 +29,28 @@ the cabinets beside it hold only the installer's own files.
 
 ## Where it stands
 
-Nothing runs yet. What the game's files hold, what Reluva already has of
-it, and the order of the work: [PLAN.md](PLAN.md).
+| Part | State |
+|---|---|
+| Detection | The English 1.02a release by `assets0.pk3`'s hash; others by its name, as "unknown release" |
+| Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`), and `jk2gamex86.dll` beside it |
+| File system | Elite Force's: `base`'s loose files over its paks |
+| Shader scripts | Read from `shaders/` (1187 in 1.02a); 18 directives of its own listed, not drawn ([shader.md](../../formats/shader.md)) |
+| Models | Its MD3 models read (276); Ghoul2 not yet |
+| Maps, game code, menus, sound, cinematics | Not yet |
+
+What's next, and the order of the work: [PLAN.md](PLAN.md).
 
 ## Using it
 
-Not playable yet.
+You need the game: the English Windows CD (or a disc image), or an install
+made by its own setup. *Add Game...* in the launcher takes the folder
+holding `base` (an install's `GameData`); *Import Game...* takes the CD,
+the install's folder or `GameData`, and copies what Reluva needs into its
+library.
+
+It can't be played yet: `reluva` says so. `reluva-viewer` shows its files
+and textures (Files and Textures pages); its maps and Ghoul2 models come
+in phases 2 and 3 of the [plan](PLAN.md).
 
 ## This folder
 

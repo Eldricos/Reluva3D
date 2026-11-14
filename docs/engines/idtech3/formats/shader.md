@@ -1,12 +1,17 @@
-# id Tech 3: shader scripts (`scripts/*.shader`)
+# id Tech 3: shader scripts (`scripts/*.shader`, `shaders/*.shader`)
 
-> **Status:** decoded · **Code:** `src/engines/idtech3/formats/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack (November 2026) · **Confidence:** confirmed unless marked
+> **Status:** decoded · **Code:** `src/engines/idtech3/formats/shader.cpp`, `world_renderer.cpp` · **Checked on:** generated test maps and the retail Elite Force maps; `reluva-tool idtech3 shader-check` on Elite Force's shaders: 1872 in 1.0, 1891 in 1.2, 2059 with the Expansion Pack, and Jedi Outcast's 1187 in 1.02a (November 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
 Shader scripts say how each surface is drawn: a file is a list of shaders, each with its stages, drawn as passes.
 
 ## Layout
+
+Quake III and Elite Force read the scripts in `scripts/`; Jedi Outcast
+reads them in `shaders/` (its paks have none in `scripts/`, which holds
+its ICARUS scripts) *(inferred)*. Reluva reads each game's folder
+(`GameInfo::shaderDir`).
 
 Tokens as in [text.md](text.md). A file is a list of shaders:
 
@@ -127,6 +132,19 @@ shader for r_shadows 3's projected shadows); autosprites (in 1.2, 2:
 `textures/singularity/flare_red` and `flare_blue`) on the level's surfaces,
 not on models (none uses them there); `deformVertexes normal` (2, the CTF
 flags) as below.
+
+Jedi Outcast's 1187 shaders (1.02a) use 18 directives Quake III doesn't
+have, skipped and listed as unknown, none drawn yet: on its surfaces
+`surfacesprites` (41) with `ssvariance`, `sswind`, `sswindidle`,
+`ssfademax`, `ssfadescale`, `ssfaceup`, `sshangdown` and the effects'
+`ssfxduration`, `ssfxgrow`, `ssfxalpharange`, `ssfxweather` (grass and
+weather drawn as sprites over a surface, by their names *(inferred)*); in stages `oneshotanimmap` (31),
+`clampanimmap` (1) and `videomap` (13, a RoQ video as the texture, as
+its shaders' names match `video/*.roq` *(inferred)*);
+`sun` (11) and `lightcolor` (2) on sky shaders, and `notc` (12). They're
+for when its maps are drawn ([jk2 PLAN.md](../games/jk2/PLAN.md), phase 2).
+The rest are Quake III's, drawn as above: `deformVertexes autosprite` (4,
+flares), `projectionShadow` (1, not drawn).
 
 Sources: the Quake III Arena shader manual id Software published for map
 makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)

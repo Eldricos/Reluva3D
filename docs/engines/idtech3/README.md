@@ -8,18 +8,18 @@ Voyager - Elite Force (`stvef`).
 | Game | Id | Docs |
 |---|---|---|
 | Star Trek: Voyager - Elite Force | `stvef` | [games/stvef/](games/stvef/README.md): using it, its map entities, its game code's interfaces, its network protocol, and its known differences, unconfirmed items, testing and how it was worked out |
-| Star Wars Jedi Knight II: Jedi Outcast | `jk2` | [games/jk2/](games/jk2/README.md): its release, and the [plan](games/jk2/PLAN.md) for adding it (not playable yet) |
+| Star Wars Jedi Knight II: Jedi Outcast | `jk2` | [games/jk2/](games/jk2/README.md): recognised and imported, not playable yet; the [plan](games/jk2/PLAN.md) for the rest |
 
 ## Where it stands
 
 | Part | State |
 |---|---|
-| Detection | Elite Force's CD, its 1.1 and 1.2 patch levels and the Expansion Pack, by their files' hashes; other releases as "unknown release" |
-| Import | From the CD, an install or a copy; the 1.2 patch from its installer, and the Expansion Pack from its CD or an install |
+| Detection | Elite Force's CD, its 1.1 and 1.2 patch levels and the Expansion Pack, and Jedi Outcast's 1.02a, by their files' hashes; other releases as "unknown release" |
+| Import | From the CD, an install or a copy; Elite Force's 1.2 patch from its installer, and the Expansion Pack from its CD or an install |
 | Mods | A folder beside `baseEF`, picked in the launcher or in the game's own Mods screens |
 | File system | done: `baseEF` loose files over its paks, later paks first (`filesystem.cpp`, [pk3.md](formats/pk3.md)) |
 | Text files | done: tokenizer ([text.md](formats/text.md)) and entity lump |
-| Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`) ([shader.md](formats/shader.md)) |
+| Shader scripts | every Quake III directive parsed into typed fields, unknown ones listed (`reluva-tool idtech3 shader-check`); each game's folder of them (`scripts/`, Jedi Outcast's `shaders/`) ([shader.md](formats/shader.md)) |
 | Maps | every BSP lump read and validated; all 67 retail maps load ([bsp.md](formats/bsp.md)) |
 | Images | TGA, JPEG, PNG (`image/image.cpp`) |
 | Models | MD3 and Elite Force's MDR, players put together from their parts, lit by the light grid ([md3.md](formats/md3.md), [mdr.md](formats/mdr.md)) |
