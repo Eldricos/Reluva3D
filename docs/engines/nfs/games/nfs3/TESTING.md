@@ -52,6 +52,13 @@ counts and checksums. They were made on Linux with the US Classics CD's
 install (`classics`); the hosted steps' records depend on the system's
 maths library (docs/DEVELOPMENT.md, Engine tests).
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/nfs/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ### What the automated checks don't cover
 
 The sound as heard, the GPU's pictures, live input, force feedback and

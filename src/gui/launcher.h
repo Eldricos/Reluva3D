@@ -26,6 +26,22 @@ enum class LauncherPurpose {
     kView  ///< reluva-viewer: their engines' data viewers, and the testbed
 };
 
+/**
+ * What a program adds to the launcher: reluva-viewer's Tests window, which
+ * reluva, built without it, never has.
+ */
+class LauncherExtension {
+public:
+    virtual ~LauncherExtension() = default;
+    /**
+     * Its buttons, in the launcher's column of them.
+     * @param selected The entry selected in the list ("" if none).
+     */
+    virtual void drawButtons(const std::string &selected) = 0;
+    /** Its windows, over the launcher, each frame. */
+    virtual void drawWindows() = 0;
+};
+
 // The game list UI, drawn with Dear ImGui on the SDL renderer.
 class Launcher {
 public:
@@ -41,6 +57,8 @@ public:
     void setStatus(std::string message) { _status = std::move(message); }
     // Where imported games go by default (a folder each).
     void setLibraryDir(std::filesystem::path dir) { _libraryDir = std::move(dir); }
+    /** Adds `extension`'s buttons and windows; it must outlive the launcher's use of it. */
+    void setExtension(LauncherExtension *extension) { _extension = extension; }
 
 private:
     void drawUi(std::optional<GameTarget> &launch, bool &quit);
@@ -60,6 +78,7 @@ private:
     SdlSystem &_sys;
     Config &_config;
     LauncherPurpose _purpose;
+    LauncherExtension *_extension = nullptr;
     std::string _selected;
     std::string _status;
 

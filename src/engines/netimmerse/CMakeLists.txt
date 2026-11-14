@@ -46,7 +46,7 @@ reluva_add_engine_tests(netimmerse
 # gamedata.cmake): RELUVA_ALPHATEAM=<the game's folder> ctest -L gamedata.
 # See docs/engines/netimmerse/games/legoalphateam/TESTING.md.
 reluva_add_gamedata_test(netimmerse
-    GAME alphateam
+    GAME legoalphateam
     ENV RELUVA_ALPHATEAM
     SCRIPT ${tests}/gamedata.cmake
     STEPS release archives models start mission-one mission-one-1024)

@@ -47,6 +47,13 @@ differ between systems. Keep a baseline of your own there with
 `RELUVA_GAMEDATA_RECORDS=<a folder>` (and `RELUVA_GAMEDATA_UPDATE=1` the first
 time).
 
+**A baseline of your own in `reluva-viewer`'s Tests window**
+([DEVELOPMENT.md](../../DEVELOPMENT.md#the-tests-window)) is kept in a folder
+per engine, this engine's in `<the window's folder>/stharbinger/`
+(`RELUVA_GAMEDATA_RECORDS_ROOT`). One made from the command line with
+`RELUVA_GAMEDATA_RECORDS` isn't found there: make it again in the window,
+with **Make my baseline**, before making the changes it's to check.
+
 ### What the automated checks don't cover
 
 Everything under *Still to check* below.
