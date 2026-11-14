@@ -2,7 +2,8 @@
 # Copyright (C) 2026 The Reluva contributors
 
 # The AWE engine: Agatha Christie: Murder on the Orient Express
-# (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md.
+# (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md. Each game's own code
+# is in its folder (motoe/), the rest shared.
 reluva_add_engine(awe
     ACCESSOR aweMetaEngine
     SOURCES
@@ -31,11 +32,13 @@ reluva_add_engine(awe
         game/scene_options.cpp
         game/scene_outdoors.cpp
         game/scene_page.cpp
-        game/scene_puzzles.cpp
         game/scene_saves.cpp
         game/script.cpp
         game/story.cpp
         game/walk_grid.cpp
+        games.cpp
+        motoe/motoe.cpp
+        motoe/puzzles.cpp
         render/lighting.cpp
         render/model_draw.cpp
         render/movie_player.cpp

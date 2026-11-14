@@ -62,6 +62,12 @@ struct GameOptions {
  * still go to the browser. With it off (reluva's), a game starts when the
  * page is shown, and nothing reaches the browser.
  */
+namespace motoe {
+struct TornLetter;
+struct Safe;
+struct PuzzleBox;
+} // namespace motoe
+
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
     /** Whether the scene browser, a part of the data viewer, is reachable. */
@@ -412,9 +418,10 @@ private:
         int dragging = 0; // 1..3
     };
     std::unique_ptr<OptionsMenu> _optionsMenu;
-    // The puzzles (scene_puzzles.cpp; docs/engines/awe/games/motoe/systems/puzzles.md): the
-    // torn letter, the baggage car's safe, the puzzle box. Pictures they
-    // move and turn are drawn by overrides.
+    // Orient Express's puzzles (motoe/puzzles.cpp;
+    // docs/engines/awe/games/motoe/systems/puzzles.md): the torn letter, the
+    // baggage car's safe, the puzzle box. Pictures they move and turn are
+    // drawn by overrides.
     struct PictureOverride {
         float x = 0;
         float y = 0;
@@ -425,35 +432,11 @@ private:
         bool tint = false; // picked: blue x 0.75
     };
     std::map<const Ac2Record *, PictureOverride> _overrides;
-    struct TornLetter {
-        std::vector<const Ac2Record *> pieces;
-        int selected = -1;
-        bool dragging = false;
-        bool solved = false;
-        float topz = 0;
-        int dragX = 0;
-        int dragY = 0;
-    };
-    struct Safe {
-        const Ac2Record *dial = nullptr;
-        int spinning = 0; // 1 right, 2 left
-        float timer = 0;
-        float interval = 0.25f;
-        int number = 0;
-        int entered = 0;
-        int expected = 2;
-        bool opening = false; // a tool's step has pulled the handle
-    };
-    struct PuzzleBox {
-        int step = 0;
-        int selected = 0;
-        int misses = 0;
-        int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
-        bool solved = false;
-    };
-    std::unique_ptr<TornLetter> _torn;
-    std::unique_ptr<Safe> _safe;
-    std::unique_ptr<PuzzleBox> _box;
+    // Orient Express's puzzles (motoe/puzzles.h, .cpp), behind the hooks
+    // below: the scene's PUZZ record opens one by its kind.
+    std::unique_ptr<motoe::TornLetter> _torn;
+    std::unique_ptr<motoe::Safe> _safe;
+    std::unique_ptr<motoe::PuzzleBox> _box;
     unsigned _puzzleSeed = 1; // the game's rand()
     bool puzzleActive() const { return _torn || _safe || _box; }
     void openPuzzle(const std::string &kind);

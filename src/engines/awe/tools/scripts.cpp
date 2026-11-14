@@ -7,6 +7,7 @@
 // event files. What the script runner has to do, from the data.
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
 
 #include "common/archive.h"
 #include "common/fs.h"
@@ -66,11 +67,13 @@ int aweCommandScripts(int argc, char **argv) {
         return 2;
     }
     const bool verbose = argc > 3 && std::string(argv[3]) == "-v";
-    DirectoryArchive files;
-    if (Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::map<std::string, Usage> verbs;
     std::map<std::string, Usage> unknown;
     std::map<std::string, Usage> words;

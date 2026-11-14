@@ -5,6 +5,7 @@
 // Murder on the Orient Express): see docs/engines/awe/README.md.
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
 
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/bink_dll.h"
@@ -355,11 +356,13 @@ int cmdAweShot(int argc, char **argv) {
                      "  (the scenes page)\n");
         return 2;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     HeadlessSystem sys;
     reluva::Surface screen;
     screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
@@ -552,11 +555,13 @@ int cmdAweBink(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]\n");
         return 1;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     size_t limit = SIZE_MAX;
     bool yuv = false; // -yuv: the planes, before the colour conversion
     std::vector<std::string> movies;
@@ -683,11 +688,13 @@ int cmdAwePose(int argc, char **argv) {
                      "usage: reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
         return 1;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::vector<uint8_t> dllData;
     std::vector<uint8_t> modelData;
     std::vector<uint8_t> animData;
@@ -759,11 +766,13 @@ int cmdAweActs(int argc, char **argv) {
     for (int i = 3; i < argc; i++)
         if (std::strcmp(argv[i], "-solve") == 0 || std::strcmp(argv[i], "-play") == 0)
             return awe::aweCommandSolve(argc, argv);
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::vector<std::string> targets;
     bool verbose = false;
     bool hotspots = false;

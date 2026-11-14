@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Scenes page's puzzle screens (a scene's PUZZ record): the torn letter
-// (0x43ec00), the baggage car's safe (0x434390) and the puzzle box
-// (0x433290). Each sees a click before the hotspot under it, every left
-// button release, the scene's "action" verbs and conditions. See
-// docs/engines/awe/games/motoe/systems/puzzles.md.
+// Murder on the Orient Express's puzzle screens (a scene's PUZZ record), run
+// by ScenePage's puzzle hooks: the torn letter (0x43ec00), the baggage car's
+// safe (0x434390) and the puzzle box (0x433290). Each sees a click before
+// the hotspot under it, every left button release, the scene's "action"
+// verbs and conditions. See docs/engines/awe/games/motoe/systems/puzzles.md.
+
+#include "engines/awe/motoe/puzzles.h"
 
 #include "engines/awe/game/scene_page.h"
 
@@ -18,6 +20,10 @@
 #include <functional>
 
 namespace reluva::awe {
+
+using motoe::PuzzleBox;
+using motoe::Safe;
+using motoe::TornLetter;
 
 namespace {
 
@@ -72,13 +78,6 @@ const char *const kSideArrows[4] = {nullptr, nullptr, "arrowsideu", "arrowsided"
 const char *const kLidArrows[4] = {"arrowtopf", "arrowtopb", nullptr, nullptr};
 
 } // namespace
-
-const Ac2Record *ScenePage::objectWithFile(const std::string &file, int n) const {
-    for (const Ac2Record *o : _scene.objects())
-        if (fs::toLower(fileNameOf(o->text("file"))) == file && n-- == 0)
-            return o;
-    return nullptr;
-}
 
 bool ScenePage::hitPicture(const Ac2Record *o, float x, float y, int px, int py) const {
     // Inside its picture placed at (px, py), where it isn't transparent

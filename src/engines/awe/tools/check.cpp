@@ -7,6 +7,7 @@
 // committed).
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
 
 #include "common/archive.h"
 #include "audio/decode.h"
@@ -1106,11 +1107,13 @@ int aweCheckCommand(int argc, char **argv) {
                              "[-only text] [-textures] [-curves] [-j threads] [-v]\n");
         return 2;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(folder)) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(folder, archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     int result = 0;
     if (text)
         result |= checkText(files, verbose);
