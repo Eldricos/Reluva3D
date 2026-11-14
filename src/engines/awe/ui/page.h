@@ -28,6 +28,8 @@
 
 namespace reluva::awe {
 
+// Orient Express's frame, which its interface's layout is drawn for. A
+// page's own frame is its game's (Page::frameW, GameInfo::width).
 constexpr int kScreenW = 1024;
 constexpr int kScreenH = 768;
 
@@ -36,7 +38,7 @@ struct ViewerContext {
     System &sys;
     const Archive &files;
     audio::Mixer *mixer;              // null without an audio device
-    Surface &screen;                  // kScreenW x kScreenH, RGBA32
+    Surface &screen;                  // the game's frame (GameInfo::width x height), RGBA32
     std::filesystem::path savePath;   // where screenshots go (F12)
     const GameFonts *fonts = nullptr; // the game's fonts, if they loaded
     // The window's title, the frame rate after it once the loop has
@@ -79,6 +81,11 @@ public:
 protected:
     ViewerContext &_ctx;
     std::filesystem::path _shotFile;
+
+    // The game's frame, in pixels: the window, the scenes' pictures and
+    // cameras.
+    int frameW() const { return _ctx.screen.w; }
+    int frameH() const { return _ctx.screen.h; }
 
     // For pages that draw in 3D: before endFrame, asks the renderer to
     // keep the frame if a screenshot is due.

@@ -12,7 +12,14 @@ None yet.
 
 ## Inferred
 
-None yet.
+- **The scenes' objects' fields** are read by Orient Express's lists.
+  Every scene reads to its end with them, so their layout is the same,
+  but each class's loader in `ac.exe` isn't read yet: what each field
+  means is Orient Express's. [formats/ac1.md](formats/ac1.md).
+- **An act's version over its base** is merged as Orient Express merges
+  them: an object the base has already isn't added again. `ac.exe` reads
+  the base, then the rest of the file (`0x42ca40`); whether it skips
+  duplicates isn't read yet. [formats/ac1.md](formats/ac1.md).
 
 ## Guessed
 

@@ -27,6 +27,8 @@ struct GameInfo {
     bool playable = false;             ///< whether reluva plays it yet (else the data viewer's only)
     /** Its install's files as the game opens them; null: the folder as it is. */
     Error (*openFiles)(const std::filesystem::path &dir, std::unique_ptr<Archive> &out) = nullptr;
+    int width = 1024; ///< the game's frame: its window, its scenes' pictures and cameras
+    int height = 768;
 };
 
 /** The AWE games, in the order they're recognised. */

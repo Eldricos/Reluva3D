@@ -48,7 +48,8 @@ uint32_t classFlags(std::string_view tag) {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t> &d) : _d(d) {}
+    // `narrow`: text a byte a character, Windows-1252 (.ac1), not UTF-16.
+    Reader(const std::vector<uint8_t> &d, bool narrow) : _d(d), _narrow(narrow) {}
 
     size_t pos() const { return _pos; }
     void seek(size_t p) { _pos = p; }
@@ -81,9 +82,21 @@ public:
             t[size_t(i)] = char(v >> (24 - 8 * i));
         return t;
     }
-    // Text in a fixed buffer of `chars` UTF-16 units, up to its first NUL
-    // (the rest of the buffer is left over from whatever was there).
+    // Text in a fixed buffer of `chars` characters (UTF-16 units, or bytes
+    // when narrow), up to its first NUL (the rest of the buffer is left over
+    // from whatever was there).
     std::string text(size_t chars) {
+        if (_narrow) {
+            if (!has(chars))
+                return _fail = true, "";
+            size_t n = 0;
+            while (n < chars && _d[_pos + n] != 0)
+                n++;
+            std::string s =
+                text::windows1252ToUtf8(std::string_view(reinterpret_cast<const char *>(_d.data() + _pos), n));
+            _pos += chars;
+            return s;
+        }
         if (!has(chars * 2))
             return _fail = true, "";
         std::vector<uint16_t> units;
@@ -164,6 +177,7 @@ public:
 
 private:
     const std::vector<uint8_t> &_d;
+    bool _narrow;
     size_t _pos = 0;
     bool _fail = false;
 };
@@ -365,7 +379,9 @@ void readParticles(Reader &r, Ac2Record &rec) {
 
 bool readObject(Reader &r, Ac2Record &rec) {
     const std::string &t = rec.tag;
-    if (t == "2DOB") {
+    if (t == "2DOB" || t == "OLDS") {
+        // OLDS: .ac1's, a picture whose SPRT has only its first four fields
+        // (ac.exe 0x430910).
         readSprite(r, rec);
     } else if (t == "SPOT") {
         readSprite(r, rec);
@@ -404,15 +420,16 @@ void readCamera(Reader &r, Ac2Record &rec) {
     r.fields(rec, kCamera, std::size(kCamera), n);
     if (n <= std::size(kCamera))
         return;
-    // A grid of size x size bytes (when it's at most 64 wide).
+    // A grid of size x size bytes (when it's at most 64 wide). Its size and
+    // its bytes are two of the record's fields (ac.exe 0x408817, 0x40883c).
     const int size = int16_t(r.u16());
     Ac2Value grid;
     grid.type = T::kBytes;
     grid.raw = uint32_t(size);
-    if (size > 0)
+    if (size > 0 && n > std::size(kCamera) + 1)
         grid.bytes = r.bytes(size_t(size) * size_t(size));
     rec.fields.emplace_back("grid", std::move(grid));
-    for (size_t k = 0; k < std::size(kCameraEnd) && std::size(kCamera) + 1 + k < n; k++)
+    for (size_t k = 0; k < std::size(kCameraEnd) && std::size(kCamera) + 2 + k < n; k++)
         rec.fields.emplace_back(kCameraEnd[k].name, r.read(kCameraEnd[k].type));
 }
 
@@ -506,15 +523,17 @@ bool isAc2Object(std::string_view tag) {
     // (The object factory also makes FOOT objects, but a scene's FOOT
     // record is its footstep setting, read before the factory is asked.)
     for (const char *t :
-         {"2DOB", "2DAN", "NING", "BINK", "SPOT", "ITEM", "LITE", "PART", "RAIN", "SNOW", "NPCX", "PCXX"})
+         {"2DOB", "2DAN", "NING", "BINK", "SPOT", "ITEM", "LITE", "PART", "RAIN", "SNOW", "NPCX", "PCXX", "OLDS"})
         if (tag == t)
             return true;
     return false;
 }
 
-Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out) {
+namespace {
+
+Error parseScene(const std::vector<uint8_t> &data, Ac2Scene &out, bool narrow) {
     out = Ac2Scene();
-    Reader r(data);
+    Reader r(data, narrow);
     while (!r.atEnd()) {
         const size_t at = r.pos();
         Ac2Record rec{r.tag(), {}, {}};
@@ -524,10 +543,14 @@ Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out) {
         // The scene's own settings (motoe.exe 0x435990).
         if (t == "DONE") {
             out.records.push_back(std::move(rec));
+            out.end = r.pos();
             break;
         } else if (t == "SCEN") {
             rec.fields.emplace_back("path", r.read(F::kStr));
             out.path = rec.fields.back().second.text;
+        } else if (t == "BASE") {
+            // .ac1: the scene this one is built on (ac.exe 0x42c79e).
+            rec.fields.emplace_back("scene", r.read(F::kStr));
         } else if (t == "LOAD" || t == "FAKE" || t == "OUTD" || t == "NVNT" || t == "SHOW") {
             rec.fields.emplace_back("value", r.read(F::kU16));
         } else if (t == "FOOT" || t == "PUZZ") {
@@ -552,6 +575,16 @@ Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out) {
         out.records.push_back(std::move(rec));
     }
     return Error::success();
+}
+
+} // namespace
+
+Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out) {
+    return parseScene(data, out, false);
+}
+
+Error parseAc1(const std::vector<uint8_t> &data, Ac2Scene &out) {
+    return parseScene(data, out, true);
 }
 
 namespace {

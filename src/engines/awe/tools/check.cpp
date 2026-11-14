@@ -722,7 +722,13 @@ float cameraDifference(const awe::Ac2Record &camr, awe::GrannyDll &dll, std::str
 }
 
 int checkScenes(const reluva::Archive &files, bool verbose) {
-    const std::vector<std::string> names = filesEndingWith(files, ".ac2");
+    // Orient Express's .ac2, And Then There Were None's .ac1.
+    std::vector<std::string> names = filesEndingWith(files, ".ac2");
+    for (const std::string &n : filesEndingWith(files, ".ac1"))
+        names.push_back(n);
+    const auto parse = [](const std::string &name, const std::vector<uint8_t> &data, awe::Ac2Scene &scene) {
+        return reluva::fs::toLower(name).ends_with(".ac1") ? awe::parseAc1(data, scene) : awe::parseAc2(data, scene);
+    };
     size_t failed = 0;
     size_t scenes = 0;
     size_t saves = 0;
@@ -751,6 +757,9 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
     size_t unreachable = 0;
     size_t planned = 0;
     size_t unplanned = 0;
+    // .ac1's: the files its objects name, and those the install hasn't.
+    size_t named = 0;
+    std::map<std::string, size_t> missing;
     for (const std::string &n : names) {
         // Text/Scripts' slots are saves, with records of their own.
         if (reluva::fs::toLower(n).rfind("text/scripts/", 0) == 0) {
@@ -762,9 +771,11 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
         awe::Ac2Scene scene;
         reluva::Error e = files.read(n, data);
         if (!e)
-            e = awe::parseAc2(data, scene);
+            e = parse(n, data, scene);
         if (!e && (scene.records.empty() || scene.records.back().tag != "DONE"))
             e = reluva::Error::fail("ends without DONE");
+        if (!e && scene.end != data.size())
+            e = reluva::Error::fail(std::to_string(data.size() - scene.end) + " bytes after DONE");
         if (e) {
             failed++;
             std::printf("FAIL %s: %s\n", n.c_str(), e.message.c_str());
@@ -781,11 +792,33 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
                             error.empty() ? "" : ": ", error.c_str());
             }
         }
+        if (reluva::fs::toLower(n).ends_with(".ac1"))
+            for (const awe::Ac2Record *o : scene.objects()) {
+                const std::string file = o->text("file");
+                if (file.empty() || o->tag == "LITE")
+                    continue;
+                named++;
+                if (!files.has(reluva::normalizeArchiveName(file))) {
+                    missing[reluva::fs::toLower(file)]++;
+                    if (verbose)
+                        std::printf("WARN %s: %s %s isn't in the install\n", n.c_str(), o->tag.c_str(), file.c_str());
+                }
+            }
         // A variant (an act's) has no camera of its own: its base's grid.
         awe::WalkGrid grid;
         const awe::Ac2Record *camr = scene.camera();
         awe::Ac2Scene base;
-        if (!camr) {
+        const awe::Ac2Record *baseRecord = nullptr;
+        for (const awe::Ac2Record &r : scene.records)
+            if (r.tag == "BASE")
+                baseRecord = &r;
+        if (!camr && baseRecord) {
+            // .ac1: the scene it's built on, by name.
+            std::vector<uint8_t> baseData;
+            if (!files.read(reluva::normalizeArchiveName(baseRecord->text("scene")), baseData) &&
+                !parse(baseRecord->text("scene"), baseData, base))
+                camr = base.camera();
+        } else if (!camr) {
             const size_t u = n.rfind('_');
             const size_t dot = n.rfind('.');
             std::vector<uint8_t> baseData;
@@ -905,6 +938,14 @@ int checkScenes(const reluva::Archive &files, bool verbose) {
     std::printf("Scenes: %zu files, %zu failed (%zu saves in Text/Scripts not checked)\n", scenes, failed, saves);
     if (haveDll)
         std::printf("  cameras: %zu checked against granny2.dll, %zu differ\n", cameras, cameraMismatches);
+    if (named > 0) {
+        size_t uses = 0;
+        for (const auto &[f, k] : missing)
+            uses += k;
+        std::printf(
+            "  files the .ac1 scenes' objects name: %zu, %zu of them (%zu files) not in the install (-v lists them)\n",
+            named, uses, missing.size());
+    }
     std::printf("  walk grids: %zu; sizes", grids);
     for (const auto &[v, k] : gridSizes)
         std::printf(" %dx%d in %zu", v, v, k);
