@@ -29,6 +29,7 @@
 // settles.
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
 
 #include "backends/platform/sdl3/sdl_system.h"
 #include "common/archive.h"
@@ -122,7 +123,7 @@ bool fromLine(const std::string &line, Action &a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
+    Player(const Archive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
         : _limit(limit) {
         _sys.threeD = threeD;
         _sys.characters = characters;
@@ -914,11 +915,13 @@ int aweCommandSolve(int argc, char **argv) {
     // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
     // [-sound] [-wav file]
     //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
-    DirectoryArchive files;
-    if (Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::string solveTo;
     std::string playFile;
     std::string fromFile;

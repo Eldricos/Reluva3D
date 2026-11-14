@@ -1,6 +1,6 @@
 # Murder on the Orient Express: puzzle screens
 
-> **Status:** done · **Code:** `src/engines/awe/game/scene_puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/motoe/puzzles.cpp` · **Checked against:** the code (`motoe.exe`, English 1.0); the torn letter's solution by compositing its pieces, its arrows against a recording · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -150,7 +150,7 @@ lockets.
 
 ## In Reluva
 
-`scene_puzzles.cpp` follows the above, in a game and when browsing
+`motoe/puzzles.cpp` follows the above, in a game and when browsing
 scenes. Supporting changes:
 
 - **Moved pieces.** Pictures a puzzle moves and turns are drawn by

@@ -3,6 +3,8 @@
 
 #include "engines/awe/game/scene_page.h"
 
+#include "engines/awe/motoe/puzzles.h"
+
 #include "audio/decode.h"
 #include "graphics/font.h"
 #include "common/parallel.h"
@@ -130,6 +132,13 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
 
 ScenePage::~ScenePage() {
     releaseGpu();
+}
+
+const Ac2Record *ScenePage::objectWithFile(const std::string &file, int n) const {
+    for (const Ac2Record *o : _scene.objects())
+        if (fs::toLower(fileNameOf(o->text("file"))) == file && n-- == 0)
+            return o;
+    return nullptr;
 }
 
 void ScenePage::activate() {

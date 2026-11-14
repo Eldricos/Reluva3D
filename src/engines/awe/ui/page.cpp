@@ -3,6 +3,8 @@
 
 #include "engines/awe/ui/page.h"
 
+#include "engines/awe/games.h"
+
 #include "audio/mixer.h"
 #include "common/settings.h"
 #include "graphics/font.h"
@@ -25,9 +27,11 @@ bool startsWith(const std::string &name, const char *prefix) {
 } // namespace
 
 Error runPages(System &sys, const GameTarget &target, const MakePages &make, const std::string &nothing) {
-    DirectoryArchive files;
-    if (Error err = files.open(target.path))
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<Archive> archive;
+    if (Error err = openGameFiles(findGame(target.gameId), target.path, archive))
         return err;
+    const Archive &files = *archive;
     Surface screen;
     screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
     audio::Mixer mixer(sys.audioRate());

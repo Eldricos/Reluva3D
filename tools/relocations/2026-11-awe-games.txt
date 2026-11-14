@@ -1,0 +1,9 @@
+# The AWE engine's games each get a folder of their own code (motoe/,
+# attwn/), the rest shared (docs/ADDING_AN_ENGINE.md, "Code layout"). For
+# branches made before:
+#     python3 tools/relocate.py tools/relocations/2026-11-awe-games.txt
+# The puzzles' state structs (TornLetter, Safe, PuzzleBox) moved from
+# ScenePage to motoe/puzzles.h, as reluva::awe::motoe's; relocate.py doesn't
+# rewrite them.
+
+src/engines/awe/game/scene_puzzles.cpp          src/engines/awe/motoe/puzzles.cpp
