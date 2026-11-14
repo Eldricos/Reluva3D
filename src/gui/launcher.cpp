@@ -243,6 +243,11 @@ void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
     }
     ImGui::EndDisabled();
 
+    if (_extension) {
+        ImGui::Spacing();
+        _extension->drawButtons(haveSelection ? _selected : std::string());
+    }
+
     drawOptions();
 
     ImGui::Spacing();
@@ -265,6 +270,8 @@ void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
 
     drawImport();
     drawSettingsWindow();
+    if (_extension)
+        _extension->drawWindows();
 
     // Several games matched one folder: let the user pick.
     if (!_pendingChoices.empty()) {

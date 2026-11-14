@@ -92,12 +92,25 @@ function(reluva_finish_tests)
     # RELUVA_SOURCE_DIR.
     target_include_directories(reluva-tests PRIVATE ${PROJECT_SOURCE_DIR})
     target_compile_definitions(reluva-tests PRIVATE RELUVA_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    # reluva-tests.txt in the build: every ctest test, a line each, for
+    # reluva-viewer's Tests window (src/devtools/test_runs.h), tab-separated:
+    #     <name> <labels, comma-separated> <engine> <game id> <variable>
+    # the last three for the game-files steps only.
+    set(list "")
     foreach(topic IN LISTS topics)
         get_property(labels GLOBAL PROPERTY RELUVA_TEST_LABELS_${topic})
         add_test(NAME ${topic} COMMAND reluva-tests ${topic})
         set_tests_properties(${topic} PROPERTIES LABELS "${labels}")
+        list(JOIN labels "," joined)
+        string(APPEND list "${topic}\t${joined}\n")
     endforeach()
     add_test(NAME tests.coverage COMMAND reluva-tests --covered-by ${topics})
+    string(APPEND list "tests.coverage\t\n")
+    get_property(gamedata GLOBAL PROPERTY RELUVA_GAMEDATA_TESTS)
+    foreach(line IN LISTS gamedata)
+        string(APPEND list "${line}\n")
+    endforeach()
+    file(CONFIGURE OUTPUT "${PROJECT_BINARY_DIR}/reluva-tests.txt" CONTENT "${list}" @ONLY)
 endfunction()
 
 # reluva_add_engine_tools(<engine> [WITH_SDL] SOURCES <file>...)
@@ -137,11 +150,15 @@ endfunction()
 #     HELPERS  cmake/ReluvaGamedata.cmake, the helpers every such script
 #              shares (running the tool, keeping and comparing records);
 #     STEP     the step;
+#     ENGINE, GAME  the engine and <game id>, as the launcher stores the
+#              game (its detection's id), to find the game's folder in
+#              the launcher's list;
 #     RECORDS  the folder of committed records,
 #              tests/engines/<engine>/data/gamedata/;
 #     OUTPUT   a folder in the build for each step's full output.
 #   The game's folder comes from the environment variable <variable> when
-#   the tests run; without it the steps print "SKIPPED:" and count as
+#   the tests run, or else from the launcher's entry for the game
+#   (reluva.ini); without either the steps print "SKIPPED:" and count as
 #   skipped, so anyone can run ctest. See docs/DEVELOPMENT.md (Engine tests).
 function(reluva_add_gamedata_test name)
     if(NOT RELUVA_BUILD_TESTS)
@@ -155,6 +172,7 @@ function(reluva_add_gamedata_test name)
                 -DTOOL=$<TARGET_FILE:reluva-tool>
                 -DHELPERS=${PROJECT_SOURCE_DIR}/cmake/ReluvaGamedata.cmake
                 -DSTEP=${step}
+                -DENGINE=${name}
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}
                 -DRECORDS=${PROJECT_SOURCE_DIR}/tests/engines/${name}/data/gamedata
@@ -164,6 +182,8 @@ function(reluva_add_gamedata_test name)
             LABELS "gamedata;${name}"
             SKIP_REGULAR_EXPRESSION "SKIPPED:"
             TIMEOUT 3600)
+        set_property(GLOBAL APPEND PROPERTY RELUVA_GAMEDATA_TESTS
+            "${test}\tgamedata,${name}\t${name}\t${G_GAME}\t${G_ENV}")
     endforeach()
 endfunction()
 
