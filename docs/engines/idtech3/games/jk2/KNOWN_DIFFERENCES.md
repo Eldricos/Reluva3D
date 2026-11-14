@@ -22,8 +22,14 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
   lights the extra styles through the texture, where the original adds
   them on top ([rbsp.md](../../formats/rbsp.md), In Reluva). Until the
   game's code runs (phase 6).
-- **Surface sprites** (grass, weather) and **video textures** aren't
-  drawn yet (phases 2 and 4).
+- **Surface sprites** (grass, ferns, vines) stand where Reluva's own
+  random draws put them, not where the original's do: the same density
+  and look, other spots. Wind and weather sprites wait for the game's
+  code; until then they sway as with no wind, as the original's do when
+  it starts, and weather ones don't show. Their fade distances don't
+  lengthen with a narrower field of view yet
+  ([shader.md](../../formats/shader.md), In Reluva).
+- **Video textures** (`videoMap`) aren't drawn yet (phase 4).
 
 Left for after the rest is done and tested (its phase 11):
 

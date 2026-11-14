@@ -34,7 +34,7 @@ the cabinets beside it hold only the installer's own files.
 | Detection | The English 1.02a release by `assets0.pk3`'s hash; others by its name, as "unknown release" |
 | Import | From the CD (`GAMEDATA/GameData/`), an install (`GameData/`) or the game folder: `base`'s paks, saved games (`saves/*.sav`) and recordings (`demos/*.dm_15`), and `jk2gamex86.dll` beside it |
 | File system | Elite Force's: `base`'s loose files over its paks |
-| Shader scripts | Read from `shaders/` (1187 in 1.02a); of its 18 directives of its own, `oneshotAnimMap` and `clampAnimMap` drawn, `videoMap` waiting for RoQ, surface sprites and the rest listed ([shader.md](../../formats/shader.md)) |
+| Shader scripts | Read from `shaders/` (1187 in 1.02a); its 18 directives of its own all read: `oneshotAnimMap`, `clampAnimMap` and surface sprites drawn (the grass and ferns on Yavin's levels), `videoMap` waiting for RoQ, the rest with nothing to draw ([shader.md](../../formats/shader.md)) |
 | Maps | All 41 read (Raven's RBSP: light styles, shared light grid points, the level's fog) and drawn in `reluva-viewer`'s World and Maps pages, every light style full until the game's code sets them ([rbsp.md](../../formats/rbsp.md)) |
 | Models | Its MD3 models read (276) and placed by the maps' entities; Ghoul2 not yet |
 | Game code, menus, sound, cinematics | Not yet |

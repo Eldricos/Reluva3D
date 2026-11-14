@@ -5,10 +5,12 @@
 
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/render/shader_cache.h"
+#include "engines/idtech3/render/surface_sprites.h"
 
 #include "graphics/gfx3d.h"
 
 #include <array>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -183,6 +185,8 @@ private:
         std::vector<uint32_t> frameIndices;
         size_t frameSurfaces = 0;
         std::vector<std::pair<uint32_t, uint32_t>> batchRanges; // first, count
+        std::array<float, 3> eye{};
+        bool eyeSet = false;
     };
     std::array<ViewSlot, 2> _slots;
     int _activeSlot = 0;
@@ -208,6 +212,13 @@ private:
     bool _cameraMirrored = false;
     bool _cameraSet = false;
     void drawSprites(float time, float sortMin, float sortMax) const;
+    // Raven's surface sprites on the level's surfaces, and the shaders
+    // their materials are made from (each a sprite stage alone).
+    SurfaceSpriteSet _surfaceSprites;
+    std::deque<ShaderDef> _spriteShaders;
+    void addSurfaceSprites(int surface, const ShaderDef &def, int fog, float sort,
+                           const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount);
+    void drawSurfaceSprites(float time, float sortMin, float sortMax) const;
     size_t _triangles = 0;
 
     // The sky: a box around the camera, the far box's six sides then the

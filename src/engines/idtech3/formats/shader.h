@@ -23,6 +23,33 @@ struct Directive {
     std::vector<std::string> args;
 };
 
+// Raven's surface sprites (Jedi Outcast on): a stage drawn not over its
+// surface but as small quads scattered on it, grass, vines, bubbles,
+// weather (docs/engines/idtech3/formats/shader.md). Sizes in units,
+// times in milliseconds.
+struct SurfaceSprites {
+    // vertical: standing up (or hanging down), turned about their height
+    // to face the camera; oriented: facing it wholly; effect: oriented,
+    // each growing and fading over its life, then starting again
+    // elsewhere; weather: an effect shown only in rain or snow.
+    enum class Type : uint8_t { kNone, kVertical, kOriented, kEffect, kWeather } type = Type::kNone;
+    float width = 0;
+    float height = 0;
+    float density = 0;  // about how far apart, in units
+    float fadeDist = 0; // where they start to fade
+    float fadeMax = 0;  // where they're gone
+    float fadeScale = 0;
+    std::array<float, 2> variance{}; // width, height: up to this much bigger
+    enum class Facing : uint8_t { kNormal, kUp, kDown, kAny } facing = Facing::kNormal;
+    float wind = 0;
+    float windIdle = 0; // how far they sway with no wind
+    float vertSkew = 0;
+    float fxDuration = 1000;
+    std::array<float, 2> fxGrow{}; // width, height, over an effect's life
+    float fxAlphaStart = 1;
+    float fxAlphaEnd = 0;
+};
+
 // A rendering pass ("stage") of a shader, as described in
 // docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
 // written, in `directives`.
@@ -82,6 +109,7 @@ struct ShaderStage {
     bool depthEqual = false; // depthFunc equal
     bool depthWrite = false; // depthWrite (opaque stages write depth anyway)
     bool detail = false;
+    SurfaceSprites sprites; // type kNone: drawn over the surface as usual
 
     std::vector<Directive> directives;
 };

@@ -62,6 +62,7 @@ reluva_add_engine(idtech3
         render/model_cache.cpp
         render/patch.cpp
         render/shader_cache.cpp
+        render/surface_sprites.cpp
         render/world_renderer.cpp
         server/server_world.cpp
         vm/qvm.cpp

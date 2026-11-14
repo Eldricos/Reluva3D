@@ -36,6 +36,7 @@
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
 #include "engines/idtech3/render/patch.h"
+#include "engines/idtech3/render/surface_sprites.h"
 #include "engines/idtech3/formats/player_animation.h"
 #include "engines/idtech3/pure.h"
 #include "engines/idtech3/vm/qvm.h"
@@ -269,6 +270,72 @@ textures/sky/stars
     CHECK(lib.size() == 1 && lib.find("TEXTURES\\a")->file == "first.shader" && !lib.find("textures/b"));
     // An extension is ignored, as models name their shaders "....tga".
     CHECK(lib.find("textures/a.tga") && lib.find("Textures/A.JPG") && !lib.find("textures/a.b/c"));
+}
+
+static void testSurfaceSprites() {
+    // Raven's sprite stage and its options; values out of range leave what
+    // was there; only the first facing counts; the sky's directives with
+    // nothing to draw are known.
+    const char *text = "textures/grass\n{\n notc\n sun 1 1 1 100 45 45\n lightColor 1 1 1\n"
+                       " {\n map textures/mud\n }\n"
+                       " {\n map gfx/grass\n surfaceSprites vertical 10 16 30 300\n ssVariance 1 2\n"
+                       "   ssWind 1\n ssFademax 200\n ssHangdown\n ssFaceup\n blendFunc GL_ONE GL_ONE\n }\n"
+                       " {\n map gfx/bubble\n surfaceSprites effect 2 1 36 400\n ssFXWeather\n"
+                       "   ssFXAlphaRange 0.5 2\n ssMadeUp\n }\n"
+                       "}\n";
+    std::vector<ShaderDef> defs;
+    CHECK(!parseShaderFile(text, "t.shader", defs) && defs.size() == 1);
+    if (defs.size() != 1 || defs[0].stages.size() != 3)
+        return;
+    const ShaderDef &d = defs[0];
+    CHECK((d.unknown == std::vector<std::string>{"ssmadeup"}));
+    const SurfaceSprites &grass = d.stages[1].sprites;
+    CHECK(grass.type == SurfaceSprites::Type::kVertical && grass.width == 10 && grass.density == 30);
+    CHECK(grass.variance[1] == 2 && grass.wind == 1 && grass.windIdle == 1);
+    CHECK(std::fabs(grass.fadeMax - 300 * 1.33f) < 1e-3f); // 200 isn't past the fade's start
+    CHECK(grass.facing == SurfaceSprites::Facing::kDown);
+    const SurfaceSprites &bubbles = d.stages[2].sprites;
+    CHECK(bubbles.type == SurfaceSprites::Type::kWeather && bubbles.fxAlphaStart == 0.5f && bubbles.fxAlphaEnd == 0);
+    CHECK(d.stages[0].sprites.type == SurfaceSprites::Type::kNone);
+
+    // Scattered over a flat floor 256 units square, facing up; none on a
+    // wall. Near the eye they're drawn as quads standing their height;
+    // far off, past fadeMax, none are.
+    std::vector<gfx::Vertex> verts(7);
+    const float floor[4][2] = {{0, 0}, {256, 0}, {256, 256}, {0, 256}};
+    for (size_t i = 0; i < 4; ++i) {
+        verts[i].pos[0] = floor[i][0];
+        verts[i].pos[1] = floor[i][1];
+        verts[i].normal[2] = 1;
+        verts[i].color[2] = 200;
+    }
+    for (size_t i = 4; i < 7; ++i) {
+        verts[i].pos[2] = float(i) * 10;
+        verts[i].normal[0] = 1;
+    }
+    const uint32_t idx[] = {0, 1, 2, 0, 2, 3, 4, 5, 6};
+    SurfaceSprites upright = grass;
+    upright.facing = SurfaceSprites::Facing::kNormal;
+    upright.windIdle = 0;
+    SurfaceSpriteSet set;
+    set.add(7, 3, -1, 6, false, upright, verts, idx, 9);
+    CHECK(!set.empty() && set.spriteCount() > 20 && set.spriteCount() < 200);
+    std::vector<gfx::Vertex> out;
+    std::vector<uint32_t> outIdx;
+    std::vector<SurfaceSpriteSet::Part> parts;
+    auto all = [](int) { return true; };
+    set.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, all, out, outIdx, parts);
+    CHECK(parts.size() == 1 && parts[0].material == 3 && outIdx.size() == out.size() / 4 * 6 && !out.empty());
+    float top = 0;
+    for (const gfx::Vertex &v : out)
+        top = std::max(top, v.pos[2]);
+    CHECK(top >= 16 && top <= 16 * 3 && out[0].color[0] == 200);
+    out.clear();
+    parts.clear();
+    set.build({128, 2000, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, all, out, outIdx, parts);
+    CHECK(parts.empty() && out.empty());
+    set.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, [](int s) { return s != 7; }, out, outIdx, parts);
+    CHECK(parts.empty());
 }
 
 static void testBsp() {
@@ -718,6 +785,7 @@ static const reluva::test::Suite
                {"shader stages", [](const std::filesystem::path &) { testShaderStages(); }},
                {"waves", [](const std::filesystem::path &) { testWaves(); }},
                {"bsp", [](const std::filesystem::path &) { testBsp(); }},
+               {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
                {"md3", [](const std::filesystem::path &) { testMd3(); }},

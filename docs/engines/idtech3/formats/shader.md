@@ -121,6 +121,21 @@ original's shader for its shadow mode 3); `GL_SRC_ALPHA_SATURATE`. `reluva-tool 
 what a game's scripts use that isn't handled, including directives the
 parser doesn't know (game additions).
 
+Surface sprites (`render/surface_sprites.cpp`, used by the world
+renderer) are placed once as the level loads, on the level's own
+surfaces (not doors' and lifts'), and each frame those within reach of
+the eye are turned, swayed and faded. Where they differ from the
+original's:
+
+- Each sprite's place, size and fade point come from Reluva's own random
+  draws, so a field has the same density and look but its sprites don't
+  stand where the original's do.
+- The wind (`r_windSpeed` and the game's weather) and weather effects
+  wait for the game's code: with it off, as the original starts, sprites
+  only sway (`ssWindidle`) and weather sprites aren't shown.
+- The original lengthens the fade distances when the field of view is
+  narrower than the first one it drew; Reluva doesn't yet.
+
 ## Sources and checks
 
 Every Quake III directive is parsed and drawn, except those listed at the
@@ -135,21 +150,76 @@ not on models (none uses them there); `deformVertexes normal` (2, the CTF
 flags) as below.
 
 Jedi Outcast's 1187 shaders (1.02a) use 18 directives Quake III doesn't
-have. Drawn: in stages, `oneshotAnimMap` (31) and `clampAnimMap` (1),
-animMaps whose frames play once and then hold the last, or are clamped as
-`clampMap`'s *(published)*. Read but not
-drawn yet: `videoMap` (13, a stage showing a RoQ video, `video/<name>`;
-the stage is left out until RoQ is decoded, the rest of its shader drawn).
-Skipped and listed as unknown: on its surfaces `surfaceSprites` (41) with
-`ssVariance`, `ssWind`, `ssWindIdle`, `ssFadeMax`, `ssFadeScale`,
-`ssFaceUp`, `ssHangDown` and the effects' `ssFXDuration`, `ssFXGrow`,
-`ssFXAlphaRange`, `ssFXWeather` (grass and weather drawn as sprites over a
-surface, by their names *(inferred)*); `sun` (11) and `lightColor` (2) on
-sky shaders, and `notc` (12) ([jk2 PLAN.md](../games/jk2/PLAN.md), phase
-2). The rest are Quake III's, drawn as above: `deformVertexes autosprite`
-(4, flares), `projectionShadow` (1, not drawn).
+have, as the GPL Jedi Outcast renderer reads and draws them:
+
+- **Drawn:** `oneshotAnimMap` (31) and `clampAnimMap` (1), animMaps
+  whose frames play once and then hold the last, or are clamped as
+  `clampMap`'s; surface sprites (`surfaceSprites` and its `ss*` options,
+  41 shaders; next section).
+- **Read, not drawn yet:** `videoMap` (13, a stage showing a RoQ video,
+  `video/<name>`; the stage is left out until RoQ is decoded, the rest of
+  its shader drawn).
+- **Read, nothing to draw:** `notc` (12) keeps the shader's textures from
+  being compressed, which Reluva never does; `lightColor` (2) only the map
+  compiler reads; `sun` (11, sky shaders) sets the direction light falls
+  on models from in a level without a light grid, which none of Jedi
+  Outcast's levels lacks.
+
+The rest are Quake III's, drawn as above: `deformVertexes autosprite` (4,
+flares), `projectionShadow` (1, not drawn).
+
+### Raven's surface sprites
+
+A stage with `surfaceSprites <type> <width> <height> <density>
+<fadedist>` isn't drawn over its surface: its image is drawn as small
+quads scattered over the surface's triangles (grass, ferns and vines on
+Yavin's levels, bubbles, rain splashes), after the shader's other stages.
+Only a shader's second stage on can be one. The options, each on a line
+of its own in the stage (a value out of range is ignored):
+
+| Option | Meaning |
+|---|---|
+| `surfaceSprites vertical\|oriented\|effect w h density fadedist` | the type; size in units; about how far apart; where they begin to fade (at least 32). Resets the options below |
+| `ssFademax d` | where they're gone (past fadedist; default fadedist × 1.33) |
+| `ssFadescale s` | how much wider they grow as they fade |
+| `ssVariance w h` | up to this much bigger (1 = double), each its own, width and height by the same draw |
+| `ssHangdown`, `ssFaceup`, `ssAnyangle` | which way: hanging under a ceiling (vertical), lying flat a unit above the surface (oriented, effect); only the first given counts |
+| `ssWind s`, `ssWindidle s` | how far they lean in the wind, how far they sway with none (`ssWind` sets both unless `ssWindidle` came first) |
+| `ssVertskew s` | a lean of its own each, up to s × its height |
+| `ssFXDuration ms`, `ssFXGrow w h`, `ssFXAlphaRange a b` | an effect's life, how much it grows over it, its alpha from start to end |
+| `ssFXWeather` | an effect shown only while it rains or snows |
+
+- **Where they stand.** On triangles whose corners all face up (normal's
+  z at least 0.5; for flat ones 0.99; for hanging ones down, z at most
+  -0.5). Each triangle is cut into a grid of cells, `density` divided by
+  the square root of its area seen from above; a sprite stands somewhere
+  in each cell, dropped if that's outside the triangle.
+- **Vertical** sprites stand `height` up from the point (or hang down),
+  turned about their height to face the camera, each a little off it in
+  one of four ways in turn (10 and 30 degrees either side), the far top
+  corner pushed a fifth of the width back; their tops sway in a small
+  circle, `height × windIdle × 0.075` across, at `(x + y) × 0.02 + time ×
+  0.0015` radians (time in milliseconds). **Oriented** ones face the
+  camera wholly. **Effects** are oriented ones that live `ssFXDuration`
+  each, starting at their own times, standing somewhere else in their
+  cell each life, growing by `ssFXGrow` and fading through
+  `ssFXAlphaRange` (in then out, when they fade to nothing from a size of
+  their own).
+- **Fading.** Each corner's nearness is 1 at fadedist and 0 at fademax,
+  by its squared distance from the eye; a sprite's, its corners' by its
+  place; each fades out from its own point in the last part of the range
+  (250 units' share of it, or all of it if the range is shorter), so a
+  field thins out rather than ending in a line.
+- **Light.** Grey, the surface's vertex colour's blue at the point; half
+  as strong around a mid-grey when the stage adds its light (`GL_ONE
+  GL_ONE`), which then fades by brightness instead of alpha. Half are
+  drawn mirrored; both sides show.
 
 Sources: the Quake III Arena shader manual id Software published for map
 makers, and the GPL Quake III Arena source (`code/renderer/tr_shader.c`)
-for how the engine reads it; Raven's animMap forms as the GPL Jedi
-Outcast renderer reads and draws them (`tr_shader.cpp`, `tr_shade.cpp`).
+for how the engine reads it; Raven's directives as the GPL Jedi Outcast
+renderer reads and draws them (`tr_shader.cpp`, `tr_shade.cpp`,
+`tr_surfacesprites.cpp`, `tr_image.cpp` for `noTC`, `tr_light.cpp` for
+the sun). Surface sprites: a unit test places and draws them on a made-up
+floor; Yavin's levels were looked at in `reluva-viewer`, not yet against
+the original.

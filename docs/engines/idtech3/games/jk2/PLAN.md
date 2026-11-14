@@ -57,18 +57,20 @@ behind the DLL's own tables.
    (1187), the 18 directives Quake III doesn't have listed in
    [shader.md](../../formats/shader.md); every MD3 model reads. The
    game-files test: `RELUVA_JK2` ([TESTING.md](TESTING.md)).
-2. **RBSP maps** (in progress): done: Raven's BSP read by the IBSP reader
+2. **RBSP maps** (done): Raven's BSP read by the IBSP reader
    into the same `Bsp` (four light styles per surface and vertex, the
    light grid's shared points, the level's fog), all 41 maps read and
    drawn in the World page, every style full and added into the first
    style's lightmap as it loads ([rbsp.md](../../formats/rbsp.md));
-   `oneshotAnimMap` and `clampAnimMap` drawn; game-files steps over every
-   map and the images they name. Left: **surface sprites**
-   (`surfaceSprites` and its `ss*` options, 41 shaders: the grass and
-   weather on Yavin's and others' surfaces), and finding what `sun`,
-   `lightColor` and `notc` do. The styles' own passes, animated as the
-   game's code sets them, come with the game (phase 6), and `videoMap`
-   with RoQ (phase 4).
+   `oneshotAnimMap` and `clampAnimMap` drawn; surface sprites
+   (`surfaceSprites` and its `ss*` options, 41 shaders: grass, ferns,
+   vines, bubbles) placed as the level loads and drawn turned, swaying and
+   fading as the original's ([shader.md](../../formats/shader.md));
+   `sun`, `lightColor` and `notc` found to have nothing to draw; game-files
+   steps over every map and the images they name. With the game's code
+   (phase 6): the light styles' own passes, animated, and the wind and
+   weather that move surface sprites and show weather ones; with RoQ
+   (phase 4): `videoMap`.
 3. **Ghoul2 models**: GLM meshes (surfaces, levels of detail, bone weights)
    and GLA skeletons (compressed bone frames), skinned on the CPU first;
    `animation.cfg` (Jedi Outcast's own layout, read from the files);

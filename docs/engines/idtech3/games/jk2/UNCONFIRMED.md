@@ -4,7 +4,11 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-None yet.
+- Surface sprites, light styles and the one-shot animMaps are drawn as
+  the GPL Jedi Outcast renderer describes them, which isn't 1.02a's own
+  code; Yavin's levels look as expected in `reluva-viewer`, but haven't
+  been compared with the original running
+  ([shader.md](../../formats/shader.md), [rbsp.md](../../formats/rbsp.md)).
 
 ## Seen running, not traced in the code
 

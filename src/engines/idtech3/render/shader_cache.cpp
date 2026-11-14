@@ -284,10 +284,12 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
     }
 
     // A video's stage waits for RoQ videos; the rest of the shader is drawn.
+    // A surface sprites stage isn't drawn over the surface: the level's
+    // renderer scatters its sprites (WorldRenderer), and models have none.
     for (const ShaderStage &s : def.stages) {
         if (!s.videoMap.empty())
             note("videoMap (RoQ video)");
-        else
+        else if (s.sprites.type == SurfaceSprites::Type::kNone)
             m.stages.push_back(makeStage(s, def));
     }
     if (m.stages.empty()) {
