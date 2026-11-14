@@ -2,8 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // reluva-tool awe path-check: Reluva's port of the game's path-finder beside the
-// game's own (motoe.exe's, run in the x86 interpreter), on one scene's
-// walk grid or, with -all, on many cells of every scene.
+// game's own (motoe.exe's or ac.exe's, run in the x86 interpreter), on one
+// scene's walk grid or, with -all, on many cells of every scene.
 
 #include "engines/awe/tools/tools.h"
 
@@ -11,6 +11,7 @@
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/game/game_paths.h"
 #include "engines/awe/game/walk_grid.h"
+#include "engines/awe/games.h"
 
 #include <algorithm>
 #include <chrono>
@@ -30,6 +31,11 @@ namespace {
 std::vector<uint8_t> readFile(const std::string &path) {
     std::ifstream f(path, std::ios::binary);
     return std::vector<uint8_t>(std::istreambuf_iterator<char>(f), {});
+}
+
+// A scene, Orient Express's (.ac2) or And Then There Were None's (.ac1).
+Error readScene(const std::string &file, Ac2Scene &scene) {
+    return fs::toLower(file).ends_with(".ac1") ? parseAc1(readFile(file), scene) : parseAc2(readFile(file), scene);
 }
 
 double since(std::chrono::steady_clock::time_point t) {
@@ -87,13 +93,14 @@ int compareAll(GamePathFinder &game, const std::string &folder, int perScene) {
     }
     std::vector<std::filesystem::path> files;
     for (const auto &entry : std::filesystem::recursive_directory_iterator(*locations))
-        if (entry.is_regular_file() && fs::toLower(entry.path().extension().string()) == ".ac2")
+        if (entry.is_regular_file() && (fs::toLower(entry.path().extension().string()) == ".ac2" ||
+                                        fs::toLower(entry.path().extension().string()) == ".ac1"))
             files.push_back(entry.path());
     std::sort(files.begin(), files.end());
     for (const std::filesystem::path &file : files) {
         const std::string name = file.filename().string();
         Ac2Scene scene;
-        if (parseAc2(readFile(file.string()), scene) || !scene.camera())
+        if (readScene(file.string(), scene) || !scene.camera())
             continue;
         WalkGrid grid;
         if (!grid.load(*scene.camera()))
@@ -136,9 +143,9 @@ int compareAll(GamePathFinder &game, const std::string &folder, int perScene) {
 int aweCommandPath(int argc, char **argv) {
     const bool all = argc >= 4 && std::strcmp(argv[3], "-all") == 0;
     if (argc < 4 || (!all && argc < 8)) {
-        std::fprintf(stderr, "usage: reluva-tool awe path-check <game folder> <scene.ac2> <a0> <b0> <a1> <b1>\n"
+        std::fprintf(stderr, "usage: reluva-tool awe path-check <game folder> <scene.ac2|.ac1> <a0> <b0> <a1> <b1>\n"
                              "       reluva-tool awe path-check <game folder> -all [pairs per scene] [-double]\n"
-                             "  Reluva's path-finder beside the game's (from motoe.exe); -all compares them\n"
+                             "  Reluva's path-finder beside the game's (from its executable); -all compares them\n"
                              "  point for point between random cells of every scene\n");
         return 2;
     }
@@ -149,8 +156,14 @@ int aweCommandPath(int argc, char **argv) {
         if (std::strcmp(argv[i], "-double") == 0)
             single = false;
     WalkGrid::setSinglePrecision(single);
+    const std::vector<DetectedGame> found = detectGames(argv[2]);
+    const GameInfo *info = found.empty() ? nullptr : findGame(found.front().gameId);
+    if (!info || !info->exe) {
+        std::fprintf(stderr, "no AWE game found in %s\n", argv[2]);
+        return 1;
+    }
     GamePathFinder game;
-    if (Error e = game.load(readFile(std::string(argv[2]) + "/motoe.exe"), single)) {
+    if (Error e = game.load(readFile(std::string(argv[2]) + "/" + info->exe), *info, single)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
@@ -158,7 +171,7 @@ int aweCommandPath(int argc, char **argv) {
         return compareAll(game, argv[2], argc >= 5 && argv[4][0] != '-' ? std::atoi(argv[4]) : 100);
 
     Ac2Scene scene;
-    if (parseAc2(readFile(argv[3]), scene) || !scene.camera()) {
+    if (readScene(argv[3], scene) || !scene.camera()) {
         std::fprintf(stderr, "no scene with a camera in %s\n", argv[3]);
         return 1;
     }

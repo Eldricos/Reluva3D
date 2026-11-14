@@ -4,6 +4,7 @@
 #include "engines/awe/attwn/attwn.h"
 
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/attwn/script.h"
 
 namespace reluva::awe::attwn {
 
@@ -32,6 +33,19 @@ const GameInfo &game() {
         // 0x258); the backgrounds and cameras are drawn at it.
         .width = 800,
         .height = 600,
+        .condition = condition,
+        .verb = verb,
+        .exe = "ac.exe",
+        // Orient Express's path-finder, the same code (24 functions) but
+        // for a call of its debug log, an empty function here (0x407af0):
+        // docs/engines/awe/games/attwn/formats/ac1.md.
+        .pathFinder = {.statics = {0x426600, {0xdd, 0x05, 0x18, 0x4b, 0x47, 0x00, 0xdc, 0x25}},
+                       .constructor = {0x426620, {0x8b, 0xc1, 0xb1, 0xff, 0xc7, 0x00, 0x20, 0x4b}},
+                       .buildTables = {0x4266e0, {0x56, 0x8b, 0xf1, 0x57, 0xb9, 0x00, 0x04, 0x00}},
+                       .search = {0x426d20, {0x55, 0x8b, 0xec, 0x83, 0xe4, 0xf8, 0x83, 0xec}},
+                       .operatorNew = {0x46622c, {0x6a, 0x01, 0xff, 0x74, 0x24, 0x08, 0xe8, 0xec}},
+                       .operatorDelete = {0x4661d2, {0xff, 0x74, 0x24, 0x04, 0xe8, 0xcd, 0x14, 0x00}},
+                       .objectSize = 0x4d4600},
     };
     return kGame;
 }

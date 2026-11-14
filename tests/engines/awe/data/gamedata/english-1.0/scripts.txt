@@ -1,1 +1,1 @@
-scripts: e4d4a38a2666907d | 9797 commands of 62 verbs
+scripts: faf4a27fd765afbb | 9798 commands of 62 verbs

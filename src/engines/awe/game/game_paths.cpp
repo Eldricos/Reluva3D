@@ -3,10 +3,13 @@
 
 #include "engines/awe/game/game_paths.h"
 
+#include "engines/awe/games.h"
+
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -15,19 +18,6 @@ namespace reluva::awe {
 
 namespace {
 
-// Where the English 1.0 motoe.exe has what's called, and its first bytes
-// there (to be sure it is that executable).
-struct Entry {
-    uint32_t address;
-    uint8_t bytes[8];
-};
-constexpr Entry kConstructor{0x42e840, {0x8b, 0xc1, 0xb1, 0xff, 0xc7, 0x00, 0x20, 0x2d}};
-constexpr Entry kBuildTables{0x42e900, {0x56, 0x8b, 0xf1, 0x57, 0xb9, 0x00, 0x04, 0x00}};
-constexpr Entry kSearch{0x42ef40, {0x55, 0x8b, 0xec, 0x83, 0xe4, 0xf8, 0x83, 0xec}};
-constexpr Entry kStatics{0x42e820, {0xdd, 0x05, 0x18, 0x2d, 0x48, 0x00, 0xdc, 0x25}};
-constexpr Entry kNew{0x472551, {0x6a, 0x01, 0xff, 0x74, 0x24, 0x08, 0xe8, 0xdb}};
-constexpr Entry kDelete{0x4722d2, {0xff, 0x74, 0x24, 0x04, 0xe8, 0xe1, 0x11, 0x00}};
-constexpr uint32_t kObjectSize = 0x4d4600;
 constexpr uint32_t kGridOffset = 8; // the object's copy of the grid, a * 64 + b
 
 } // namespace
@@ -35,16 +25,22 @@ constexpr uint32_t kGridOffset = 8; // the object's copy of the grid, a * 64 + b
 GamePathFinder::GamePathFinder() = default;
 GamePathFinder::~GamePathFinder() = default;
 
-Error GamePathFinder::load(const std::vector<uint8_t> &exe, bool single) {
+Error GamePathFinder::load(const std::vector<uint8_t> &exe, const GameInfo &game, bool single) {
+    const PathFinderCode &code = game.pathFinder;
+    _exe = game.exe ? game.exe : game.id;
+    _search = code.search.address;
+    if (!code.search.address)
+        return Error::fail(std::string(game.id) + ": its path-finder isn't known");
     _cpu = std::make_unique<x86::Cpu>(160u << 20);
     _process = std::make_unique<x86::Win32Process>(*_cpu, "host.exe", true);
     const x86::Win32Process::Module *module = nullptr;
-    if (Error e = _process->load("motoe.exe", exe, module))
+    if (Error e = _process->load(_exe, exe, module))
         return e;
-    for (const Entry &f : {kConstructor, kBuildTables, kSearch, kStatics, kNew, kDelete})
+    for (const CodeAt &f :
+         {code.constructor, code.buildTables, code.search, code.statics, code.operatorNew, code.operatorDelete})
         for (int i = 0; i < 8; i++)
             if (_cpu->read8(f.address + uint32_t(i)) != f.bytes[i])
-                return Error::fail("not the motoe.exe this knows (English 1.0)");
+                return Error::fail("not the " + _exe + " this knows (the English release's)");
     // Its C runtime isn't started, so its heap isn't there: operator new
     // and delete jump to the interpreter's instead.
     auto jump = [&](uint32_t from, uint32_t to) {
@@ -52,11 +48,11 @@ Error GamePathFinder::load(const std::vector<uint8_t> &exe, bool single) {
         _cpu->write32(from + 1, to - (from + 5));
     };
     x86::Arena &mem = _process->memory();
-    jump(kNew.address, _cpu->addNative("operator new", [&mem](x86::Cpu &c) {
+    jump(code.operatorNew.address, _cpu->addNative("operator new", [&mem](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = mem.alloc(std::max(1u, c.arg(0)));
         return 0u;
     }));
-    jump(kDelete.address, _cpu->addNative("operator delete", [&mem](x86::Cpu &c) {
+    jump(code.operatorDelete.address, _cpu->addNative("operator delete", [&mem](x86::Cpu &c) {
         if (c.arg(0))
             mem.free(c.arg(0));
         return 0u;
@@ -65,20 +61,25 @@ Error GamePathFinder::load(const std::vector<uint8_t> &exe, bool single) {
     uint32_t result = 0;
     // A static of its own (2 pi, less a little), then the object as the
     // game makes it (0x4025a0): constructed, then its tables built.
-    if (Error e = _cpu->call(kStatics.address, {}, result))
-        return Error::fail("motoe.exe 0x42e820: " + e.message);
+    auto at = [&](const CodeAt &f) {
+        char buf[16];
+        std::snprintf(buf, sizeof buf, " 0x%x: ", f.address);
+        return _exe + buf;
+    };
+    if (Error e = _cpu->call(code.statics.address, {}, result))
+        return Error::fail(at(code.statics) + e.message);
     // The statics are made at start-up, at 53 bits; the object after
     // Direct3D's CreateDevice (0x401a34, then 0x4024e0), at 24.
     setSinglePrecision(single);
-    _object = mem.alloc(kObjectSize);
+    _object = mem.alloc(code.objectSize);
     if (!_object)
         return Error::fail("Out of emulated memory");
     _cpu->reg[x86::Cpu::ECX] = _object;
-    if (Error e = _cpu->call(kConstructor.address, {}, result))
-        return Error::fail("motoe.exe 0x42e840: " + e.message);
+    if (Error e = _cpu->call(code.constructor.address, {}, result))
+        return Error::fail(at(code.constructor) + e.message);
     _cpu->reg[x86::Cpu::ECX] = _object;
-    if (Error e = _cpu->call(kBuildTables.address, {}, result))
-        return Error::fail("motoe.exe 0x42e900: " + e.message);
+    if (Error e = _cpu->call(code.buildTables.address, {}, result))
+        return Error::fail(at(code.buildTables) + e.message);
     return Error::success();
 }
 
@@ -90,8 +91,9 @@ Error GamePathFinder::search(const WalkGrid &grid, bool openThrees, WalkGrid::Ce
                              bool allowTwos, std::vector<Point> &out) {
     out.clear();
     if (!_object)
-        return Error::fail("motoe.exe isn't loaded");
-    // The grid as 0x42e9e0 copies it (3s cleared for the later tries).
+        return Error::fail("the game's path-finder isn't loaded");
+    // The grid as motoe.exe 0x42e9e0 copies it (3s cleared for the later
+    // tries).
     for (int a = 0; a < WalkGrid::kSize; a++)
         for (int b = 0; b < WalkGrid::kSize; b++) {
             uint8_t v = grid.at(a, b);
@@ -113,7 +115,7 @@ Error GamePathFinder::search(const WalkGrid &grid, bool openThrees, WalkGrid::Ce
     args.insert(args.end(), {0, 0, buffer, allowTwos ? 1u : 0u});
     _cpu->reg[x86::Cpu::ECX] = _object;
     uint32_t count = 0;
-    Error e = _cpu->call(kSearch.address, args, count);
+    Error e = _cpu->call(_search, args, count);
     if (!e)
         for (int32_t i = 0; i < int32_t(count) && i < 256; i++) {
             Point p;
@@ -125,7 +127,9 @@ Error GamePathFinder::search(const WalkGrid &grid, bool openThrees, WalkGrid::Ce
             out.push_back(p);
         }
     _process->memory().free(buffer);
-    return e ? Error::fail("motoe.exe 0x42ef40: " + e.message) : Error::success();
+    char buf[16];
+    std::snprintf(buf, sizeof buf, " 0x%x: ", _search);
+    return e ? Error::fail(_exe + buf + e.message) : Error::success();
 }
 
 std::vector<WalkGrid::Cell> GamePathFinder::findPath(const WalkGrid &grid, WalkGrid::Cell from, WalkGrid::Cell to,

@@ -9,6 +9,7 @@ reluva_add_engine(awe
     SOURCES
         attwn/attwn.cpp
         attwn/files.cpp
+        attwn/script.cpp
         awe.cpp
         formats/ac2.cpp
         formats/bink_dll.cpp

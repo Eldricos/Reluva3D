@@ -49,6 +49,16 @@ its class.
 | `Cutscenes/<Name>/Act<NN><x>/` | still-picture cutscenes and the chapters' title cards |
 | `Interface/Scenes/` | `ingame`, `load`, `save`, `options` |
 
+### The walk grid and the path-finder
+
+The camera's walk grid is Orient Express's
+([../../motoe/formats/ac2.md](../../motoe/formats/ac2.md#the-walk-grid)),
+and so is the path-finder planning walks on it: `ac.exe`'s (constructor
+`0x426620`, tables `0x4266e0`, search `0x426d20`, 24 functions in all)
+is `motoe.exe`'s instruction for instruction, the absolute addresses
+apart, but for a call of the debug log, an empty function here
+(`0x407af0`; `motoe.exe` `0x43ebb0`).
+
 ## In Reluva
 
 `parseAc1` is `.ac2`'s reader with its text a byte a character, the two
@@ -72,6 +82,11 @@ the scenes of both kinds, merges an act's version over the scene its
   path-finder plans every reachable `walk` of the scripts (445). Of the
   1,825 files the scenes' objects name, 12 (10 files: `TemporaryBG.jpg`,
   `adiningcut1 copy.jpg`...) aren't in the install. `awe.unit.attwn`
-  reads a scene made in the test. The Scenes page was looked at on the
+  reads a scene made in the test. `reluva-tool awe path-check <game
+  folder> -all` runs `ac.exe`'s path-finder in the x86 interpreter beside
+  Reluva's port: 88,000 searches in 220 scenes, 0 mismatches. The
+  functions were compared by a script (`pefile` and Capstone: each
+  function's instructions, absolute addresses masked, and every function
+  it calls). The Scenes page was looked at on the
   main menu, the entry hall and the kitchen in act 1B, with its
   characters.

@@ -1,6 +1,6 @@
 # Murder on the Orient Express: the script runner
 
-> **Status:** done · **Code:** `src/engines/awe/game/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,797 commands · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,798 commands · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -282,4 +282,4 @@ From `motoe.exe`'s runner, read in a disassembler:
 (scene scripts and their conditional scripts, scene event lists, the text
 tables, the dialogue event files) and counts them by verb, with their
 argument counts and examples. The numbers above are from the English
-1.0 install: 9,797 commands of 62 verbs.
+1.0 install: 9,798 commands of 62 verbs.
