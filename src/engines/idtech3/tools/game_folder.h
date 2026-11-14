@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "engines/idtech3/games.h"
+
 #include "common/archive.h"
 
 #include <filesystem>
@@ -23,5 +25,9 @@ std::pair<std::filesystem::path, std::string> idTech3Folders(const char *folder)
 // (lower case), as the launcher leaves out the Expansion Pack's when it's
 // turned off.
 bool mountIdTech3(const char *folder, reluva::SearchSet &set, const std::vector<std::string> &skip = {});
+
+// The game whose folder it is (by the install above it), for what differs
+// between games: where its shader scripts are.
+const reluva::idtech3::GameInfo &gameOfFolder(const char *folder);
 
 } // namespace reluva::idtech3::tool

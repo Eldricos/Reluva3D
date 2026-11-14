@@ -36,6 +36,15 @@ struct GameInfo {
     std::string gameId;  // stable id stored in the config, e.g. "stvef"
     std::string name;    // shown to the user
     std::string baseDir; // the folder holding the game's own .pk3 files
+    // Where its shader scripts are (<shaderDir>/*.shader): Quake III's
+    // scripts/, or Raven's shaders/ from Jedi Outcast on.
+    std::string shaderDir = "scripts";
+    // Folders under the one picked for an import that may hold the game's
+    // install (baseDir and the single-player code beside it), as its CD
+    // lays them out ("SETUP", "GAMEDATA/GameData").
+    std::vector<std::string> installFolders;
+    // Its recorded matches' extensions, in baseDir/demos (lower case).
+    std::vector<std::string> demoExtensions;
     GameCode code = GameCode::kNone;
     // How its client game lays out what it adds to the scene; single
     // player's, where it differs.
@@ -65,6 +74,9 @@ struct GameInfo {
 // Every game the engine knows; nullptr if `gameId` isn't one.
 const std::vector<GameInfo> &games();
 const GameInfo *findGame(std::string_view gameId);
+// The game in an install folder (the one holding baseDir), as detection
+// finds it; the first game's if it finds none.
+const GameInfo &gameInFolder(const std::filesystem::path &install);
 
 // The detection table for every game, for MetaEngine::detect.
 const std::vector<GameVariant> &detectionTable();
@@ -79,6 +91,9 @@ const std::vector<GameVariant> &fallbackTable();
 // to show ("1.2", "1.2, no single player").
 struct Release {
     std::string patch;
+    // What the import says of that patch level ("as on the CD; online
+    // play needs 1.2"); empty if nothing.
+    std::string patchNote;
     bool singlePlayer = false;
     std::string singlePlayerPatch;
     std::string summary;

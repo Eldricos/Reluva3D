@@ -55,6 +55,7 @@ reluva_add_engine(idtech3
         formats/mdr.cpp
         formats/player_animation.cpp
         formats/shader.cpp
+        jk2/game_info.cpp
         raven/ambient_sets.cpp
         raven/savegame.cpp
         render/light_grid.cpp
@@ -121,3 +122,11 @@ reluva_add_gamedata_test(idtech3
     ENV RELUVA_STVEF
     SCRIPT ${tests}/gamedata.cmake
     STEPS release maps shaders models images holomatch menus single_player expansion cinematics)
+
+# The same with Jedi Outcast's: skipped unless RELUVA_JK2 names the game's
+# folder. See gamedata-jk2.cmake there.
+reluva_add_gamedata_test(idtech3
+    GAME jk2
+    ENV RELUVA_JK2
+    SCRIPT ${tests}/gamedata-jk2.cmake
+    STEPS jk2-release jk2-shaders jk2-models)

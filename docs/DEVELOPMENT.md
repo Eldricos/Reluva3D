@@ -239,6 +239,8 @@ Need for Speed III (`nfs`, `RELUVA_NFS3`, see
 
   On Windows: `set RELUVA_STVEF=C:\Games\EliteForce`, then
   `ctest --test-dir build -C Release -L gamedata`.
+  Each game has its own variable (Jedi Outcast's is `RELUVA_JK2`, the
+  folder holding `base`); its game's page in `docs/engines/` names it.
 - **Or from the launcher's list.** Without the variable, a step takes the
   game's folder from the launcher's entry for it (`reluva.ini`), so a game
   added in the launcher needs nothing set: `ctest --test-dir build -L

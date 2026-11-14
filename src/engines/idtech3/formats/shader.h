@@ -143,12 +143,17 @@ Error parseShaderFile(std::string_view text, const std::string &file, std::vecto
 // whichever is written (.png too, for mods). Empty if there's none.
 std::string findImage(const SearchSet &files, std::string_view name);
 
-// Every shader of a game: all scripts/*.shader files in a search set. When
-// two files define a name, the first parsed wins; files are parsed in name
-// order. Problems with single files are collected, not fatal.
+// Whether a file in the game's files is a shader script: <folder>/*.shader,
+// whatever its case.
+bool isShaderScript(std::string_view name, std::string_view folder);
+
+// Every shader of a game: all <folder>/*.shader files in a search set
+// (GameInfo::shaderDir). When two files define a name, the first parsed
+// wins; files are parsed in name order. Problems with single files are
+// collected, not fatal.
 class ShaderLibrary {
 public:
-    void load(const SearchSet &files, std::vector<std::string> *warnings = nullptr);
+    void load(const SearchSet &files, std::string_view folder, std::vector<std::string> *warnings = nullptr);
     void add(ShaderDef def);
 
     // By name, ignoring case, slash direction and any extension (a model's

@@ -47,17 +47,17 @@ game's code first, then multiplayer, whose engine calls can be read from
 the QVMs' bytecode, then single player, which reuses those engine services
 behind the DLL's own tables.
 
-1. **Recognise and import** (next): a `GameInfo` (`jk2`, base folder
-   `base`, `GameCode::kNone`) in `src/engines/idtech3/jk2/game_info.cpp`;
-   detection by `assets0.pk3`'s hash, others by file names as an unknown
-   release; *Import Game...* from the CD (its `GAMEDATA/GameData/` holds
-   the game as plain files) or an install. The data viewer's Files and
-   Textures pages then work as they are. Run `reluva-tool idtech3
-   shader-check` over its shaders and add any directive Jedi Outcast has
-   that Quake III doesn't to [shader.md](../../formats/shader.md). Ends
-   with: the game in the launcher, its textures in the viewer, a
-   game-files test (`RELUVA_JK2`) recording what's detected.
-2. **RBSP maps**: read Raven's BSP (the surfaces' four lightmaps and
+1. **Recognise and import** (done): `jk2/game_info.cpp` (`jk2`, base
+   folder `base`, shaders in `shaders/`, `GameCode::kNone`); detection by
+   `assets0.pk3`'s hash, others by file names as an unknown release;
+   *Import Game...* from the CD (its `GAMEDATA/GameData/`), an install
+   (`GameData/`) or the folder itself, taking the paks, saved games,
+   recordings (`.dm_15`) and `jk2gamex86.dll`. `reluva` says the game
+   can't be played yet; `reluva-viewer` shows its files. Its shaders read
+   (1187), the 18 directives Quake III doesn't have listed in
+   [shader.md](../../formats/shader.md); every MD3 model reads. The
+   game-files test: `RELUVA_JK2` ([TESTING.md](TESTING.md)).
+2. **RBSP maps** (next): read Raven's BSP (the surfaces' four lightmaps and
    styles, the vertices' four lightmap coordinates and colours, the light
    grid's styles and its light array lump) beside the IBSP reader, sharing
    what's the same; light styles in the renderer, animated as the
@@ -104,6 +104,9 @@ behind the DLL's own tables.
    per level, saving and loading.
 10. **Other releases**: the 1.03 and 1.04 patches, other languages
     (string packages already hold French and German), the Mac release.
+11. **Extras, once everything above is done and tested**: EAX
+    environmental sound (`eagle/*.eal`) and force feedback
+    (`forcecfg/*.fcf`, which the original plays through `FFC10.dll`).
 
 ## Decisions
 
@@ -112,6 +115,7 @@ behind the DLL's own tables.
 | 2026-11-14 | Game id `jk2`, code in `src/engines/idtech3/jk2/`, docs in `games/jk2/` | The name the game's own files use (`jk2sp.exe`, `jk2mpgame.qvm`); the engine's README already names `jk2/` as this game's folder |
 | 2026-11-14 | Same engine (`idtech3`), not a new one | It's Quake III's engine as Raven changed it, the same generation as Elite Force's: pk3 files, shaders, the QVM, Raven's save chunks are shared, and what's new (RBSP, Ghoul2, fonts, string packages) is shared again by Jedi Academy and Soldier of Fortune II |
 | 2026-11-14 | Run the game's own code (the DLL in the x86 interpreter, the QVMs in the QVM interpreter), as with Elite Force | ICARUS, the effects system, navigation and the client game are all inside the DLL; the engine provides only what the executable did. Rewriting the game logic would be far larger and less faithful |
-| 2026-11-14 | Jedi Outcast's GPL source (Raven's 2013 release) as a guide only, never copied | The user allows reading Jedi Outcast's and Jedi Academy's open source; Reluva's code stays all new (CONTRIBUTING.md). It's a guide to shapes and names: each table, call number and layout is checked against the retail 1.02a files (addresses in `jk2sp.exe`, `jk2mp.exe`, the QVMs' bytecode), since the release isn't 1.02a's code |
-| 2026-11-14 | Multiplayer before single player (phases 5-6 before 7-9) | The QVMs' engine calls can be read from their bytecode; the engine services they need (Ghoul2's calls, fonts, strings) are then there for the DLL, whose tables are harder to work out. Elite Force went the same way. Single player's menus come last because `jk2sp.exe` holds them, so they're Reluva's to write in full |
-| 2026-11-14 | EAX (`eagle/*.eal`) and force feedback (`FFC10.dll`, `forcecfg/*.fcf`) left out | Neither is available through Reluva's `System`; the game plays the same without them. To list in KNOWN_DIFFERENCES.md when the sound is done |
+| 2026-11-14 | Jedi Outcast's GPL source (Raven's 2013 release) as a guide only, never copied | It may be read to solve unknowns (as Jedi Academy's may), but Reluva's code stays all new (CONTRIBUTING.md). It's a guide to shapes and names: each table, call number and layout is checked against the retail 1.02a files (addresses in `jk2sp.exe`, `jk2mp.exe`, the QVMs' bytecode), since the release isn't 1.02a's code |
+| 2026-11-14 | Multiplayer before single player (phases 5-6 before 7-9) | Multiplayer has no scripts, so the basic gameplay (moving, weapons, the saber, force powers, Ghoul2's hits) can be tested in it before single player builds on it. Its QVMs' engine calls can be read from their bytecode, and the engine services they need (Ghoul2's calls, fonts, strings) are then there for the DLL, whose tables are harder to work out. Elite Force went the same way. Single player's menus come last because `jk2sp.exe` holds them, so they're Reluva's to write in full |
+| 2026-11-14 | EAX (`eagle/*.eal`) and force feedback (`forcecfg/*.fcf`) only after everything else is done and tested (phase 11) | The game plays the same without them, and neither is available through Reluva's `System` yet. Until then they're listed in KNOWN_DIFFERENCES.md |
+| 2026-11-14 | Shader scripts' folder per game (`GameInfo::shaderDir`), not both folders for every game | Each original reads only its own (Elite Force `scripts/`, Jedi Outcast `shaders/`), so a mod's file in the other folder is ignored as the original ignores it |

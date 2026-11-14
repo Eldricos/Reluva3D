@@ -88,7 +88,7 @@ Error Session::run() {
         if (Error err = zip->open(path))
             return err;
         _files.add(std::move(zip), kDownloadPriority + ++added);
-        _shaders.load(_files, nullptr);
+        _shaders.load(_files, _game.shaderDir, nullptr);
         return Error::success();
     };
     startSettings(ctx);
@@ -144,7 +144,7 @@ Error Session::mountFiles(const std::string &mod, const std::vector<std::string>
     if (Error err = mountGame(_files, _target.path, _target.savePath, _game.baseDir, mod, warnings, skip))
         return err;
     std::printf("Game files: %s%s\n", _game.baseDir.c_str(), mod.empty() ? "" : (" and the mod " + mod).c_str());
-    _shaders.load(_files, &warnings);
+    _shaders.load(_files, _game.shaderDir, &warnings);
     for (size_t i = before; i < warnings.size(); i++)
         log::warning("%s", warnings[i].c_str());
     return Error::success();
@@ -185,6 +185,8 @@ Error Session::runPages(PageContext &ctx, const std::string &resume, std::string
         const std::string folder = _target.path.string() + "/" + _game.baseDir;
         if (_files.list().empty())
             return Error::fail("No files found in " + folder);
+        if (_game.code == GameCode::kNone)
+            return Error::fail("Reluva can't play " + _game.name + " yet; reluva-viewer shows its files");
         return Error::fail("Nothing to play in " + folder + ": neither single player (its game code, " +
                            _game.spGameDll + ", and its maps) nor Holomatch's menus (vm/ui.qvm) were found");
     }

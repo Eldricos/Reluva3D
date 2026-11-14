@@ -127,7 +127,7 @@ void install(const std::filesystem::path &dir, const SearchSet &set, Record &rec
 void files(const SearchSet &set, Record &rec) {
     ShaderLibrary shaders;
     std::vector<std::string> warnings;
-    shaders.load(set, &warnings);
+    shaders.load(set, "scripts", &warnings);
     Hash h;
     for (const ShaderDef &s : shaders.all()) {
         h.text(s.name).i32(int32_t(s.stages.size())).i32(int32_t(s.cull)).i32(int32_t(s.surfaceParms.size()));

@@ -343,6 +343,12 @@ Error parseShaderFile(std::string_view text, const std::string &file, std::vecto
     return Error::success();
 }
 
+bool isShaderScript(std::string_view name, std::string_view folder) {
+    const std::string key = normalizeArchiveName(name);
+    const std::string prefix = normalizeArchiveName(folder) + "/";
+    return key.size() > prefix.size() + 7 && key.starts_with(prefix) && key.ends_with(".shader");
+}
+
 std::string findImage(const SearchSet &files, std::string_view name) {
     std::string base(name);
     const size_t dot = base.find_last_of('.');
@@ -372,13 +378,12 @@ const ShaderDef *ShaderLibrary::find(std::string_view name) const {
     return it == _byName.end() ? nullptr : &_shaders[it->second];
 }
 
-void ShaderLibrary::load(const SearchSet &files, std::vector<std::string> *warnings) {
+void ShaderLibrary::load(const SearchSet &files, std::string_view folder, std::vector<std::string> *warnings) {
     _shaders.clear();
     _byName.clear();
     std::vector<uint8_t> data;
     for (const std::string &name : files.list()) {
-        const std::string key = normalizeArchiveName(name);
-        if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.substr(key.size() - 7) != ".shader")
+        if (!isShaderScript(name, folder))
             continue;
         if (Error err = files.read(name, data)) {
             if (warnings)

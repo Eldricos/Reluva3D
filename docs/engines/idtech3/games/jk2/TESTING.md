@@ -2,10 +2,25 @@
 
 ## Automated checks
 
-None yet. The first, with the game's recognition, will be a game-files
-test (`RELUVA_JK2=/path/to/GameData`) beside Elite Force's, its records in
-`tests/engines/idtech3/data/gamedata/`; see
-[DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
+- **Without the game:** the unit tests (`idtech3.unit.files`) import a
+  made-up copy laid out as the CD is and check what's taken and that the
+  result is found as Jedi Outcast.
+- **With your copy of the game:** the game-files test, with the folder
+  holding `base` (an install's `GameData`, the CD's `GAMEDATA/GameData`, or
+  an import):
+
+  ```sh
+  RELUVA_JK2=/path/to/GameData ctest --test-dir build -R idtech3.gamedata.jk2
+  ```
+
+  Its steps, beside Elite Force's: `jk2-release` (what's detected),
+  `jk2-shaders` (`shader-check`), `jk2-models` (`model-check`, the MD3
+  models). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
+
+### What the automated checks don't cover
+
+The launcher's *Add Game...* and *Import Game...* with the real CD.
 
 ## A playthrough by hand
 
@@ -15,4 +30,4 @@ Not playable yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan |
+| 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps |

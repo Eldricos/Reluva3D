@@ -105,7 +105,7 @@ static void testFilesystemAndDetection(const std::filesystem::path &tmp) {
     CHECK(mountGameDir(set, tmp, "missing", 1, warnings));
 
     ShaderLibrary lib;
-    lib.load(set);
+    lib.load(set, "scripts");
     CHECK(lib.size() == 1 && lib.find("textures/x"));
 
     // Images are found whichever extension is written, .tga first.
@@ -154,7 +154,33 @@ static void testFilesystemAndDetection(const std::filesystem::path &tmp) {
         CHECK(found.size() == 1 && found[0].description.find("(1.0)") != std::string::npos);
         CHECK(meta && meta->planImport(tmp / "nothing").empty());
     }
-    // Every known release names pak0.pk3's size and hash.
+    // Jedi Outcast from its CD's layout (GAMEDATA/GameData/base, the game
+    // DLL beside it): found by name as an unknown release; its paks,
+    // recordings and DLL imported, the folder made found as the game.
+    {
+        const auto cd = tmp / "jk2cd";
+        const auto data = cd / "GAMEDATA" / "GameData";
+        test::writeFile(data / "base" / "assets0.pk3", toBytes("pak"));
+        test::writeFile(data / "base" / "demos" / "a.dm_15", toBytes("demo"));
+        test::writeFile(data / "base" / "demos" / "b.dm_24", toBytes("demo"));
+        test::writeFile(data / "jk2gamex86.dll", toBytes("MZ"));
+        const auto plans = meta ? meta->planImport(cd) : std::vector<ImportPlan>{};
+        CHECK(plans.size() == 1 && plans[0].game.gameId == "jk2");
+        std::set<std::string> to;
+        for (const ImportPlan::File &f : plans.empty() ? std::vector<ImportPlan::File>{} : plans[0].files)
+            to.insert(f.to);
+        const std::set<std::string> expected{"base/assets0.pk3", "base/demos/a.dm_15", "jk2gamex86.dll"};
+        CHECK(to == expected);
+        const auto dest = tmp / "jk2imported";
+        CHECK(!plans.empty() && !runImport(plans[0], dest, nullptr));
+        found = meta ? meta->detect(dest) : std::vector<DetectedGame>{};
+        CHECK(found.size() == 1 && found[0].gameId == "jk2" &&
+              found[0].description.find("unknown release") != std::string::npos);
+        const GameInfo *jk2 = findGame("jk2");
+        CHECK(jk2 && jk2->code == GameCode::kNone && jk2->shaderDir == "shaders");
+        CHECK(&gameInFolder(dest) == jk2 && gameInFolder(tmp / "nothing").gameId == "stvef");
+    }
+    // Every known release names its main pak's size and hash.
     for (const GameVariant &v : detectionTable())
         CHECK(!v.files.empty() && !v.files[0].md5.empty() && v.files[0].size > 0);
     CHECK(!findGame("nope"));

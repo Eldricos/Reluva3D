@@ -37,7 +37,7 @@ int cmdImageCheck(int argc, char **argv) {
         return 1;
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
-    shaders.load(set, &warnings);
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir, &warnings);
     for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
@@ -100,7 +100,7 @@ int cmdModelCheck(int argc, char **argv) {
     }
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
-    shaders.load(set, &warnings);
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir, &warnings);
 
     // Every image by its file name without folder or extension, to say
     // where a missing one might be.
@@ -302,8 +302,7 @@ int cmdShaderShow(int argc, char **argv) {
             base.resize(base.size() - 4);
         bool found = false;
         for (const std::string &file : set.list()) {
-            const std::string key = reluva::normalizeArchiveName(file);
-            if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.compare(key.size() - 7, 7, ".shader") != 0)
+            if (!q3::isShaderScript(file, gameOfFolder(argv[2]).shaderDir))
                 continue;
             Bytes data;
             if (set.read(file, data))
@@ -351,7 +350,7 @@ int cmdShaderCheck(int argc, char **argv) {
         return 1;
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
-    shaders.load(set, &warnings);
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir, &warnings);
     for (const std::string &w : warnings)
         std::printf("problem: %s\n", w.c_str());
 

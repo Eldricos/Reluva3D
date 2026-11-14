@@ -324,7 +324,7 @@ int cmdPortalCheck(int argc, char **argv) {
     if (!mountIdTech3(argv[2], set))
         return 1;
     q3::ShaderLibrary shaders;
-    shaders.load(set, nullptr);
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir);
     Bytes data;
     for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
