@@ -39,6 +39,14 @@ bool contains(std::string_view hay, std::string_view needle) {
     return fs::toLower(hay).find(fs::toLower(needle)) != std::string::npos;
 }
 
+// A rule's name with the character's in place of its "%s".
+std::string named(std::string_view format, std::string_view who) {
+    std::string out(format);
+    if (const size_t at = out.find("%s"); at != std::string::npos)
+        out.replace(at, 2, who);
+    return out;
+}
+
 // The code's text, as the event files are named (0x43c100).
 std::string partText(int code) {
     return code >= 100 ? std::to_string(code - 99) : std::string(1, char('a' + code));
@@ -169,7 +177,7 @@ std::vector<const DialogueLine *> DialogueBook::conversation(std::string_view na
     return out;
 }
 
-TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen) {
+TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen, const DialogueRules &rules) {
     TalkArgs t;
     t.gen = gen;
     auto word = [&](size_t i) { return i < words.size() ? fs::toLower(words[i]) : std::string(); };
@@ -177,22 +185,23 @@ TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen) {
     const std::string code = word(1);
     if (!code.empty() && std::isalpha(uint8_t(code[0]))) {
         t.part = std::toupper(uint8_t(code[0])) - 'A';
-        if (code.size() > 1 && code[1] != '+')
+        if (code.size() > 1 && (code[1] != '+' || !rules.greetAndPlus))
             t.thread = std::toupper(uint8_t(code[1])) - 'A';
-        if (code.size() > 2 && code[2] != '+')
+        if (code.size() > 2 && (code[2] != '+' || !rules.greetAndPlus))
             t.nest = std::toupper(uint8_t(code[2])) - 'A';
     } else if (!code.empty()) {
         t.part = std::atoi(code.c_str()) + 0x63;
     }
-    t.plus = !code.empty() && code.back() == '+';
-    for (const std::string &opt : {word(2), word(3)}) {
+    t.plus = rules.greetAndPlus && !code.empty() && code.back() == '+';
+    for (int k = 0; k < rules.talkOptions; k++) {
+        const std::string opt = word(size_t(2 + k));
         if (opt.empty())
             continue;
         if (opt == "nogen")
             t.gen = false;
         else if (opt == "forcegen")
             t.gen = true;
-        else if (opt == "nogreet")
+        else if (opt == "nogreet" && rules.greetAndPlus)
             t.greet = false;
         else
             t.number = std::atoi(opt.c_str());
@@ -227,6 +236,13 @@ DialogueManager::DialogueManager(GameState &state, ScriptHost &scripts, Dialogue
             }
         }
     };
+}
+
+void DialogueManager::setGame(const GameInfo &game) {
+    _book.tables = game.dialogue;
+    _rules = game.talk;
+    _frameH = game.height;
+    _boxY = float(_frameH);
 }
 
 int DialogueManager::rand() {
@@ -264,6 +280,25 @@ int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
             return -1;
         if (ok.size() == 1)
             return ok[0];
+        if (ok.size() > 1 && !_rules.alternativeKept) {
+            // And Then There Were None's (0x431f48): the one asked for, else
+            // one at random other than the last, kept no longer; its place
+            // counts among all the nest's lines, said or not.
+            int i = _number;
+            if (i == -1) {
+                do
+                    i = rand() % int(ok.size());
+                while (i == _lastAlternative);
+            } else {
+                i--;
+            }
+            _lastAlternative = i;
+            int seen = 0;
+            for (size_t k = 0; k < t.lines.size(); k++)
+                if (t.lines[k].nestCode == nest && seen++ == i)
+                    return int(k);
+            return ok.back(); // past them: the last that may be said
+        }
         if (ok.size() > 1) {
             int i = _number;
             if (i == -1 || i != _lastAlternative) {
@@ -287,6 +322,19 @@ int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
 bool DialogueManager::available(Thread &t) {
     if (t.code == kExit)
         return true;
+    if (!_rules.offerLooksOn) {
+        // And Then There Were None's (0x433040): a finished thread if it
+        // has a line to come back to, in the first menu; then its first
+        // nest's line, the alternative the asking picks put back.
+        if (t.status == 1 && (t.current < 0 || !_firstOffer))
+            return false;
+        const int number = _number;
+        const int last = _lastAlternative;
+        const bool ok = pickLine(t, 0, false) >= 0;
+        _number = number;
+        _lastAlternative = last;
+        return ok;
+    }
     if (t.status == 1) {
         if (t.current < 0 || !_firstOffer || !testCondition(t.lines[size_t(t.current)].condition, _state))
             return false;
@@ -323,12 +371,12 @@ void DialogueManager::saveProgress(const DialoguePart &p, const Thread &t) {
         _state.talks[talkKey(p.name, p.act, p.code, t.code)] = rec;
 }
 
-// "gen_<speaker>_": the first speaker of the part who isn't Antoinette.
-std::string DialogueManager::genPrefix(const DialoguePart &p) const {
+// The first speaker of the part who isn't the player (0x43a3d0).
+std::string DialogueManager::npcOf(const DialoguePart &p) const {
     for (const Thread &t : p.threads)
         for (const DialogueLine &l : t.lines)
-            if (!l.speaker.empty() && l.speaker != "antoinette")
-                return "gen_" + l.speaker + "_";
+            if (!l.speaker.empty() && l.speaker != _rules.player)
+                return l.speaker;
     return {};
 }
 
@@ -336,13 +384,13 @@ std::string DialogueManager::genPrefix(const DialoguePart &p) const {
 void DialogueManager::addExit(DialoguePart &p) {
     p.threads.erase(std::remove_if(p.threads.begin(), p.threads.end(), [](const Thread &t) { return t.code == kExit; }),
                     p.threads.end());
-    std::string name = _prefix + "exit";
+    std::string name = named(_rules.goodbyes, _npc);
     int r = rand() % 4;
     // After dark (the time of day, word[0x4986f8], above 0) the fourth
     // becomes the fifth, "Good evening" (0x43af67).
     if (const auto t = _state.values.find("time"); t != _state.values.end() && t->second > 0 && r == 3)
         r = 4;
-    if (testCondition("act >07a", _state))
+    if (_rules.finale && testCondition(_rules.finale, _state))
         name = "gen_solutionexit", r = 0;
     auto nth = [&](const std::string &n) -> const Thread * {
         int seen = 0;
@@ -354,8 +402,8 @@ void DialogueManager::addExit(DialoguePart &p) {
         return nullptr;
     };
     const Thread *from = nth(name);
-    if (!from)
-        from = nth("gen_exit");
+    if (!from && _rules.goodbyesElse)
+        from = nth(_rules.goodbyesElse);
     if (!from)
         return;
     Thread t = *from;
@@ -395,7 +443,7 @@ std::vector<std::pair<DialoguePart *, int>> DialogueManager::extras() {
     // Each available one with a line to offer now (0x43a470: its current
     // line, else its first one whose condition holds; none, it's left out).
     for (DialoguePart &q : _book.parts())
-        if (&q != _part && q.code < 99 && contains(q.name, _prefix))
+        if (&q != _part && q.code < 99 && isGeneric(q.name))
             for (size_t i = 0; i < q.threads.size(); i++)
                 if (Thread &t = q.threads[i]; t.code < 0x60 && available(t) && offered(t))
                     out.push_back({&q, int(i)});
@@ -425,6 +473,7 @@ bool DialogueManager::canTalk(const std::string &name, int part, int thread, int
     const int height = _boxHeight;
     const int win = _window;
     const std::string prefixBefore = _prefix;
+    const std::string npcBefore = _npc;
     _dry = true;
     _gen = gen;
     const bool would = start(name, part, thread, nest, number, plus, greet, false);
@@ -434,14 +483,23 @@ bool DialogueManager::canTalk(const std::string &name, int part, int thread, int
     _gen = genBefore, _plus = plusBefore, _greet = greetBefore;
     _number = numberBefore, _lastAlternative = alternativeBefore, _boxHeight = height, _window = win;
     _prefix = prefixBefore;
+    _npc = npcBefore;
     return would;
 }
 
 bool DialogueManager::noTalk(ScriptRunner &runner) {
     // gen_<npc>_notalk; with no NPC, Antoinette's own "nothing to say"
-    // (the game's test makes that always gen_canttalkf).
-    const std::string name = !_prefix.empty() ? _prefix + "notalk" : "gen_canttalkf";
-    return talk(runner, name, 100, -1, -1, true, -1, false, true);
+    // (the game's test makes that always gen_canttalkf). The character's
+    // name is the last talk's that found its part, whoever this is.
+    int part = 100;
+    const std::string name = _rules.noTalk      ? _rules.noTalk(_prefix, part)
+                             : !_prefix.empty() ? _prefix + "notalk"
+                                                : "gen_canttalkf";
+    return talk(runner, name, part, -1, -1, true, -1, false, true);
+}
+
+bool DialogueManager::isGeneric(const std::string &name) const {
+    return _rules.genericExact ? name == _prefix : contains(name, _prefix);
 }
 
 // 0x43a630.
@@ -452,12 +510,13 @@ bool DialogueManager::start(const std::string &name, int part, int thread, int n
         return false;
     if (!_dry) {
         log("talk " + name + " " + partText(part));
-        _host.talkStarting(name);
+        if (_rules.closesInventory)
+            _host.talkStarting(name);
     }
     _part = p;
-    _boxHeight = 160, _window = 0;
-    if (testCondition("act >07a", _state))
-        _boxHeight = 180, _window = 1;
+    _boxHeight = _rules.box, _window = 0;
+    if (_rules.finale && testCondition(_rules.finale, _state))
+        _boxHeight = _rules.finaleBox, _window = 1;
     _firstOffer = true;
     _active = true;
     _plus = plus;
@@ -468,10 +527,11 @@ bool DialogueManager::start(const std::string &name, int part, int thread, int n
     _lastSpeaker.clear();
     _goOn = false;
     loadProgress(*p);
-    _prefix = genPrefix(*p);
+    _npc = npcOf(*p);
+    _prefix = _npc.empty() ? std::string() : named(_rules.generic, _npc);
     if (!_prefix.empty() && part < 100)
         for (DialoguePart &q : _book.parts())
-            if (q.code < 99 && contains(q.name, _prefix))
+            if (q.code < 99 && isGeneric(q.name))
                 loadProgress(q);
     const bool hasExtras = !extras().empty();
 
@@ -507,10 +567,17 @@ bool DialogueManager::start(const std::string &name, int part, int thread, int n
         // The rows the choices would take (0x43a9ae): the available
         // lettered threads with a line to offer.
         int rows = 0;
+        int lines = 0; // their text's rows, for a box sized by them
         for (Thread &t : p->threads)
-            if (t.code < 0x60 && available(t) && offered(t))
+            if (t.code < 0x60 && available(t) && offered(t)) {
                 rows++;
-        rows += int(extras().size());
+                lines += _host.textRows(t.lines[size_t(t.current)].text);
+            }
+        for (const auto &[q, ti] : extras()) {
+            const Thread &t = q->threads[size_t(ti)];
+            rows++;
+            lines += _host.textRows(t.lines[size_t(t.current)].text);
+        }
         // "Met them here": 1 this visit, 2 an earlier one. A dry run
         // (cantalk) sets it too, as the game's goes on to here (+0x61c is
         // only tested by the inventory's changes, the required-line
@@ -521,21 +588,46 @@ bool DialogueManager::start(const std::string &name, int part, int thread, int n
             return true;
         }
         if (rows > 0) {
-            if (_gen)
+            if (_gen) {
+                // The box's rows lose one for the part's own goodbye and gain
+                // one for the new (0x432801, 0x43285e), though neither was
+                // counted.
+                const auto exits = [&] {
+                    return int(std::count_if(p->threads.begin(), p->threads.end(),
+                                             [](const Thread &t) { return t.code == kExit; }));
+                };
+                lines -= exits();
                 addExit(*p);
-            const auto tag = _state.tags.find(key);
-            const int visit = tag == _state.tags.end() ? -99 : tag->second;
-            if (_gen && greet && part < 100 && visit > 0)
-                addRegreet(*p, std::min(visit, 2));
-            _state.tags[key] = 1;
+                lines += exits();
+            }
+            sizeBox(lines);
             int start = -1;
-            for (size_t i = 0; i < p->threads.size(); i++)
-                if (p->threads[i].code == kOpening && !(p->threads[i].status == 1 && p->threads[i].current < 0))
-                    start = int(i);
-            if (start < 0)
+            if (_rules.regreet) {
+                const auto tag = _state.tags.find(key);
+                const int visit = tag == _state.tags.end() ? -99 : tag->second;
+                if (_gen && greet && part < 100 && visit > 0)
+                    addRegreet(*p, std::min(visit, 2));
+                _state.tags[key] = 1;
                 for (size_t i = 0; i < p->threads.size(); i++)
-                    if (p->threads[i].code == kRegreet && (visit > 0 || true))
+                    if (p->threads[i].code == kOpening && !(p->threads[i].status == 1 && p->threads[i].current < 0))
                         start = int(i);
+                if (start < 0)
+                    for (size_t i = 0; i < p->threads.size(); i++)
+                        if (p->threads[i].code == kRegreet)
+                            start = int(i);
+            } else {
+                // The opening until it's been heard, then thread 2: a part's
+                // own, none in the English release (0x4328fa).
+                auto find = [&](int code) {
+                    for (size_t i = 0; i < p->threads.size(); i++)
+                        if (p->threads[i].code == code)
+                            return int(i);
+                    return -1;
+                };
+                start = find(kOpening);
+                if (start >= 0 && p->threads[size_t(start)].status == 1)
+                    start = find(kRegreet);
+            }
             showBox();
             if (start >= 0 && greet) {
                 Thread &t = p->threads[size_t(start)];
@@ -564,8 +656,17 @@ bool DialogueManager::start(const std::string &name, int part, int thread, int n
 }
 
 void DialogueManager::showBox() {
-    if (_slide == 0 && _boxY >= 768)
+    if (_slide == 0 && _boxY >= float(_frameH))
         _slide = 1;
+}
+
+// A box sized by the rows of its choices' text, when the game's is
+// (0x4328b6, 0x432efd): up to 3, 4, 5 or more.
+void DialogueManager::sizeBox(int rows) {
+    if (_rules.boxByRows[0] == 0)
+        return;
+    _window = rows > 4 ? 2 : rows > 3 ? 1 : 0;
+    _boxHeight = _rules.boxByRows[size_t(_window)];
 }
 
 // The choices (0x43b560).
@@ -573,6 +674,7 @@ void DialogueManager::menu(bool first, bool keepBox) {
     _firstOffer = first;
     _choices.clear();
     int count = 0;
+    int rows = 0; // their text's rows, for a box sized by them
     bool hasExit = false;
     for (size_t i = 0; i < _part->threads.size(); i++) {
         Thread &t = _part->threads[i];
@@ -586,12 +688,15 @@ void DialogueManager::menu(bool first, bool keepBox) {
             t.current = pickLine(t, 0, false);
         if (t.current < 0)
             continue;
-        if (first && t.status != 0)
+        if (first && t.status != 0 && _rules.repeatsStayOffered)
             t.status = 0;
         count++;
+        rows += _host.textRows(t.lines[size_t(t.current)].text);
     }
     const auto more = extras();
     count += int(more.size());
+    for (const auto &[q, ti] : more)
+        rows += _host.textRows(q->threads[size_t(ti)].lines[size_t(q->threads[size_t(ti)].current)].text);
     auto nextPart = [&] {
         // A next part with nothing to say leaves this one going (start()
         // drops the part it fails on).
@@ -617,6 +722,8 @@ void DialogueManager::menu(bool first, bool keepBox) {
                 if (_part->threads[i].code == kExit)
                     return play(_part, int(i), _part->threads[i].current);
         }
+    }
+    if (count == 1 && _rules.loneChoicePlays) {
         for (size_t i = 0; i < _part->threads.size(); i++) {
             Thread &t = _part->threads[i];
             if (t.code < 0x60 && t.current >= 0 && available(t))
@@ -663,6 +770,10 @@ void DialogueManager::menu(bool first, bool keepBox) {
     _colour = 6;
     _highlighted = -1;
     _wheelX = _wheelY = -1;
+    // A box sized by its choices takes its new height at once (0x43301a).
+    sizeBox(rows);
+    if (_rules.boxByRows[0] != 0 && _slide == 0 && _boxY < float(_frameH))
+        _boxY = float(_frameH - _boxHeight);
     showBox();
 }
 
@@ -680,13 +791,17 @@ void DialogueManager::play(DialoguePart *p, int thread, int line) {
 // 0x43c070.
 void DialogueManager::startLine() {
     const DialogueLine &l = _part->threads[size_t(_thread)].lines[size_t(_line)];
-    // Antoinette 8; the others 9, then 10 when the speaker changes.
-    if (l.speaker.find("antoinette") != std::string::npos) {
+    // The player 8; the others 9, then 10 when the speaker changes. In And
+    // Then There Were None the player's line starts the others' again
+    // (0x433254).
+    if (l.speaker.find(_rules.player) != std::string::npos) {
         _colour = 8;
+        if (_rules.playerResetsColour)
+            _lastSpeaker.clear();
     } else {
         if (!_lastSpeaker.empty() && l.speaker != _lastSpeaker)
             _colour = _colour == 9 ? 10 : 9;
-        else if (_colour != 9 && _colour != 10)
+        else if ((_colour != 9 && _colour != 10) || (_rules.playerResetsColour && _lastSpeaker.empty()))
             _colour = 9;
         _lastSpeaker = l.speaker;
     }
@@ -719,7 +834,7 @@ void DialogueManager::speak() {
     // Without a voice the mouth moves all along (0x4046c0); with one, as
     // its level does (0x43d3c0).
     if (!_voice) {
-        _textLeft = l.duration > 0 ? l.duration : std::max(1.0f, float(int(l.text.size()) / 15));
+        _textLeft = l.duration > 0 ? l.duration : std::max(_rules.textMin, float(int(l.text.size()) / _rules.textRate));
         _host.mouth(_speaker, true);
     }
     // The Event column, else the line's event file, alongside the line.
@@ -729,12 +844,15 @@ void DialogueManager::speak() {
         _events.run(l.event);
     } else {
         const Thread &t = _part->threads[size_t(_thread)];
-        const std::string file = std::string(_book.tables.events) + _part->name + "_" + _part->act + "_" +
-                                 partText(_part->code) + threadText(t.code) + std::string(1, char('a' + l.nestCode)) +
-                                 ".txt";
-        const std::string text = _host.readText(file);
-        if (!text.empty())
-            _events.run(text);
+        const std::string file = _part->name + "_" + _part->act + "_" + partText(_part->code) + threadText(t.code) +
+                                 std::string(1, char('a' + l.nestCode)) + ".txt";
+        for (const char *folder : _book.tables.events) {
+            const std::string text = _host.readText(folder + file);
+            if (!text.empty()) {
+                _events.run(text);
+                break;
+            }
+        }
     }
 }
 
@@ -750,17 +868,20 @@ void DialogueManager::lineEnd() {
     const std::string &after = l.after;
     const bool juncture = contains(after, "juncture");
     const bool terminate = contains(after, "terminate");
-    const bool advance = contains(after, "advance");
+    const bool advance = _rules.advance && contains(after, "advance");
     bool keepBox = false;
     const int next = pickLine(t, l.nestCode + 1, true);
     if (!after.empty()) {
-        keepBox = (contains(after, "talk") || contains(after, "leavebox")) && !contains(after, "nobox");
+        const bool talks = contains(after, _rules.keepBox);
+        const bool leaves = contains(after, "leavebox");
+        const bool drops = contains(after, _rules.dropBox);
+        keepBox = _rules.leaveBoxWins ? (talks && !drops) || leaves : (talks || leaves) && !drops;
         _showWhilePovent = !(contains(after, "walk") || contains(after, "rotate"));
         // At the conversation's end it goes to the main script, after the
         // talk; else it runs while the dialogue waits.
         bool othersLeft = false;
         for (Thread &o : _part->threads)
-            if (&o != &t && o.code < 0x60 && available(o))
+            if (&o != &t && (o.code < 0x60 || (o.code == kExit && _rules.goodbyeLeft)) && available(o))
                 othersLeft = true;
         const bool runsOut = next < 0 && !othersLeft && !(_plus && _book.find(_part->name, _part->code + 1));
         if ((contains(after, "mainloop") || terminate || runsOut) && _caller)
@@ -814,7 +935,7 @@ void DialogueManager::end(bool keepBox) {
     _wheelX = _wheelY = -1;
     _choosing = false;
     _choices.clear();
-    if (_active && !keepBox && _slide != 2 && _boxY < 768) {
+    if (_active && !keepBox && _slide != 2 && _boxY < float(_frameH)) {
         _slide = 2;
         for (const std::string &who : _turned)
             _host.turnHead(who, "");
@@ -899,7 +1020,7 @@ void DialogueManager::update(float dt) {
         }
     }
     // The box sliding in or out: the line's end waits.
-    const float top = float(768 - _boxHeight);
+    const float top = float(_frameH - _boxHeight);
     if (_slide == 1) {
         _boxY = std::max(top, _boxY - kBoxSpeed * dt);
         if (_boxY <= top)
@@ -907,8 +1028,8 @@ void DialogueManager::update(float dt) {
         return;
     }
     if (_slide == 2) {
-        _boxY = std::min(768.0f, _boxY + kBoxSpeed * dt);
-        if (_boxY >= 768) {
+        _boxY = std::min(float(_frameH), _boxY + kBoxSpeed * dt);
+        if (_boxY >= float(_frameH)) {
             _slide = 0;
             _active = false;
             end(false);

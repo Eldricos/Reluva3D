@@ -6,7 +6,22 @@
 #include "engines/awe/attwn/files.h"
 #include "engines/awe/attwn/script.h"
 
+#include <string>
+
 namespace reluva::awe::attwn {
+
+namespace {
+
+// Narracott's "nothing to say" (0x4325a0): narracottgen's part 5 for the
+// women, 6 for the men, "I have nothing more to say to her" or "him". The
+// list's test is a "contains", so before anyone's been talked to it's "her".
+std::string noTalk(const std::string &generic, int &part) {
+    const std::string women = "brentgen claythornegen erogersgen mothergen";
+    part = women.find(generic) != std::string::npos ? 0x68 : 0x69;
+    return "narracottgen";
+}
+
+} // namespace
 
 const GameInfo &game() {
     static const GameInfo kGame{
@@ -44,7 +59,38 @@ const GameInfo &game() {
                      .optional = false,
                      .translation = false,
                      .wrap = 750,
-                     .events = "dialogue/acts/events/"},
+                     // Tried in turn (0x43357a); only Acts/Events is in the install.
+                     .events = {"dialogue/acts/events/", "dialogue/location/events/", "dialogue/general/events/"}},
+        // Its dialogue manager, against Orient Express's:
+        // docs/engines/awe/games/attwn/systems/dialogue.md.
+        .talk = {.player = "narracott",
+                 .generic = "%sgen",   // 0x4323d0
+                 .genericExact = true, // 0x4324f4
+                 .goodbyes = "%sexit", // 0x432ad0
+                 .goodbyesElse = nullptr,
+                 .finale = nullptr,
+                 .regreet = false, // 0x4328fa
+                 .noTalk = noTalk,
+                 .noTalkAlways = true, // 0x40d74f
+                 .talkOptions = 1,     // 0x40d6af
+                 .greetAndPlus = false,
+                 .loneChoicePlays = false, // 0x432ec1
+                 .repeatsStayOffered = false,
+                 .alternativeKept = false, // 0x431f48
+                 .offerLooksOn = false,    // 0x433040
+                 .advance = false,
+                 .keepBox = "talk ", // 0x4339ff
+                 .dropBox = "fade ",
+                 .leaveBoxWins = true,
+                 .goodbyeLeft = true, // 0x432dc0
+                 .textRate = 10,      // 0x4333f7
+                 .textMin = 2,
+                 .playerResetsColour = true, // 0x433254
+                 .box = 90,
+                 .finaleBox = 90,
+                 .boxByRows = {90, 115, 141}, // 0x4328b6
+                 .closesInventory = false,
+                 .speakerElse = {{"brent", "brentknit"}, {"brent", "brentwig"}}}, // 0x433364
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but
         // for a call of its debug log, an empty function here (0x407af0):

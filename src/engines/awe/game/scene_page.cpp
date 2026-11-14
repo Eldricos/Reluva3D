@@ -91,7 +91,7 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
     _runner = std::make_unique<ScriptRunner>(_state, *this);
     _dialogue = std::make_unique<DialogueManager>(_state, *this, *this);
     if (ctx.game)
-        _dialogue->book().tables = ctx.game->dialogue;
+        _dialogue->setGame(*ctx.game);
     _dialogue->onLog = [this](const std::string &l) { logScript("    " + shorten(l, 150)); };
     _story = std::make_unique<Story>(_state, *_runner);
     loadOptions();
@@ -104,7 +104,7 @@ ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
     };
     _state.canTalk = [this](const std::vector<std::string> &words) {
         loadDialogue();
-        const TalkArgs t = parseTalkArgs(words, true);
+        const TalkArgs t = parseTalkArgs(words, true, _dialogue->rules());
         return _dialogue->canTalk(t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet);
     };
     {
@@ -3024,10 +3024,11 @@ void ScenePage::loadDialogue() {
 
 bool ScenePage::startTalk(ScriptRunner &runner, const ScriptEvent &e) {
     loadDialogue();
-    const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter());
+    const DialogueRules &rules = _dialogue->rules();
+    const TalkArgs t = parseTalkArgs({e.words.begin() + 1, e.words.end()}, runner.fromCharacter(), rules);
     if (_dialogue->talk(runner, t.name, t.part, t.thread, t.nest, t.gen, t.number, t.plus, t.greet))
         return true;
-    return t.gen && _dialogue->noTalk(runner);
+    return (t.gen || rules.noTalkAlways) && _dialogue->noTalk(runner);
 }
 
 bool ScenePage::playVoice(const std::string &file) {
@@ -3090,19 +3091,36 @@ void ScenePage::turnHead(const std::string &speaker, const std::string &target) 
     startCharacterVerb(*_runner, *c, e, false, handled);
 }
 
+ScenePage::Character *ScenePage::speakerNamed(const std::string &who) {
+    if (Character *c = characterNamed(who))
+        return c;
+    for (const auto &[name, other] : _dialogue->rules().speakerElse)
+        if (fs::toLower(who) == name)
+            if (Character *c = characterNamed(other))
+                return c;
+    return nullptr;
+}
+
 void ScenePage::lineStarted(const std::string &speaker) {
-    if (Character *c = characterNamed(speaker))
+    if (Character *c = speakerNamed(speaker))
         c->actor->lineStart();
 }
 
 void ScenePage::lineEnded(const std::string &speaker) {
-    if (Character *c = characterNamed(speaker))
+    if (Character *c = speakerNamed(speaker))
         c->actor->lineEnd();
 }
 
 void ScenePage::mouth(const std::string &speaker, bool on) {
-    if (Character *c = characterNamed(speaker))
+    if (Character *c = speakerNamed(speaker))
         c->actor->mouth(on);
+}
+
+int ScenePage::textRows(const std::string &text) {
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("dialogue") : nullptr;
+    if (!style || !style->font)
+        return 1;
+    return std::max(1, int(gameRows(*style->font, style->pixels, text, _dialogue->book().tables.wrap).size()));
 }
 
 int ScenePage::voiceLevel() {

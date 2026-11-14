@@ -178,9 +178,17 @@ Phases 1 and 2 are done ([README.md](README.md#where-it-stands)).
      | Movies' subtitles | `Text\Movies\%s.txt` | none |
      | Loading screens | `interface\loading\loading_%s.jpg` | none |
 
+   - **The dialogue manager**, read and compared: Orient Express's but
+     for about twenty rules, now in the table (`DialogueRules`): the talk
+     command's options, the character's generic conversations and
+     goodbyes by name, no regreet, Narracott's "nothing to say", the box
+     sized by the choices' rows, the colours, a lone choice offered, how
+     alternatives are picked, the box kept or not after a line
+     ([systems/dialogue.md](systems/dialogue.md#the-dialogue-manager)).
+
    Left: those file names in the table, as each system that uses them is
-   compared; the dialogue manager, lighting, shadows, the interface and
-   the saves, read and compared.
+   compared; lighting, shadows, the interface (the dialogue box drawn as
+   this game's with it) and the saves, read and compared.
 4. **The game's own systems** (large).
    - Chapters, acts and the chapter tables.
    - The still-picture cutscenes and the title cards.
