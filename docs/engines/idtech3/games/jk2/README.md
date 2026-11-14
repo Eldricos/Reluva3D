@@ -39,7 +39,7 @@ the cabinets beside it hold only the installer's own files.
 | Models | Its MD3 models (276) placed by the maps' entities; its Ghoul2 meshes (71) and skeletons (21) read, posed on the CPU, skinned and animated in `reluva-viewer`'s Models page ([ghoul2.md](../../formats/ghoul2.md)) |
 | Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
-| Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls and Create Server open; the server lists are empty ([systems/syscalls.md](systems/syscalls.md)) |
+| Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls, Create Server and Join Server, with the local, Internet and favourite server lists ([systems/syscalls.md](systems/syscalls.md)) |
 | Game code | Not yet |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).

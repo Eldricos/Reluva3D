@@ -40,6 +40,7 @@
 #include "engines/idtech3/pure.h"
 #include "engines/idtech3/vm/qvm.h"
 #include "engines/idtech3/client/server_browser.h"
+#include "engines/idtech3/client/server_lists.h"
 #include "backends/networking/sockets/socket_net.h"
 #include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/ambient_sets.h"
@@ -775,6 +776,84 @@ static void testServerBrowser() {
     CHECK(ServerBrowser::infoFromResponse(q3) == "\\hostname\\Q3");
 }
 
+static void testServerLists(const std::filesystem::path &tmp) {
+    using reluva::idtech3::ServerBrowser;
+    using reluva::idtech3::ServerLists;
+    auto network = net::LoopbackNetwork::create();
+    auto server = network->open(27960);
+    ServerBrowser browser(network->open(0));
+    ServerLists lists;
+    net::Address from;
+    std::vector<uint8_t> data;
+    auto reply = [&](const std::string &text) {
+        std::vector<uint8_t> d(4, 0xff);
+        d.insert(d.end(), text.begin(), text.end());
+        server->send(from, d);
+    };
+    auto drain = [&](const std::string &want) {
+        int seen = 0;
+        while (server->receive(from, data))
+            seen += std::string(data.begin() + 4, data.end()) == want;
+        return seen;
+    };
+    // The local search: the server answers, is listed, not pinged yet;
+    // then pinged, as the menus marked every slot visible before searching.
+    CHECK(!lists.updateVisiblePings(browser, ServerLists::kLocal, 50, 800));
+    lists.markVisible(ServerLists::kLocal, -1, true);
+    lists.searchLocal(browser, 100);
+    CHECK(drain("getinfo xxx") == 2);
+    reply("infoResponse\n\\hostname\\Local\\protocol\\15\n");
+    browser.update(150);
+    lists.update(browser);
+    CHECK(lists.count(ServerLists::kLocal) == 1 && lists.server(ServerLists::kLocal, 0)->ping == -1);
+    CHECK(lists.updateVisiblePings(browser, ServerLists::kLocal, 200, 800));
+    CHECK(drain("getinfo xxx") == 1);
+    reply("infoResponse\n\\hostname\\Local\\mapname\\ffa_bespin\\clients\\3\\sv_maxclients\\8\\gametype\\0\n");
+    browser.update(230);
+    CHECK(lists.updateVisiblePings(browser, ServerLists::kLocal, 240, 800));
+    const ServerLists::Server *s = lists.server(ServerLists::kLocal, 0);
+    CHECK(s && s->ping == 30 && s->mapName == "ffa_bespin" && s->clients == 3 && s->maxClients == 8);
+    CHECK(browser.pingQueueCount() == 0);
+    const std::string info = ServerLists::info(*s);
+    CHECK(info.find("\\hostname\\Local") != std::string::npos && info.find("\\ping\\30") != std::string::npos &&
+          info.find("\\addr\\127.0.0.1:27960") != std::string::npos);
+    // Visibility is kept by slot through another search.
+    lists.searchLocal(browser, 1000);
+    drain("getinfo xxx");
+    reply("infoResponse\n\\hostname\\Local\n");
+    browser.update(1050);
+    lists.update(browser);
+    CHECK(lists.count(ServerLists::kLocal) == 1 && lists.visible(ServerLists::kLocal, 0) &&
+          !lists.visible(ServerLists::kLocal, 128));
+    // Favourites: added once, sorted, kept in their file.
+    CHECK(lists.add(ServerLists::kFavorites, "Beta", "10.0.0.2:27960") == 1);
+    CHECK(lists.add(ServerLists::kFavorites, "alpha", "10.0.0.1") == 1);
+    CHECK(lists.add(ServerLists::kFavorites, "again", "10.0.0.1:27960") == 0);
+    CHECK(lists.compare(ServerLists::kFavorites, 0, false, 0, 1) == 1);
+    CHECK(lists.compare(ServerLists::kFavorites, 0, true, 0, 1) == -1);
+    std::filesystem::create_directories(tmp);
+    lists.save(tmp / "favorites.txt");
+    ServerLists loaded;
+    loaded.load(tmp / "favorites.txt");
+    CHECK(loaded.count(ServerLists::kFavorites) == 2 &&
+          loaded.server(ServerLists::kFavorites, 1)->address.toString() == "10.0.0.1:27960" &&
+          loaded.server(ServerLists::kFavorites, 1)->hostName == "alpha");
+    loaded.markVisible(ServerLists::kFavorites, 0, false);
+    loaded.remove(ServerLists::kFavorites, "10.0.0.2:27960");
+    CHECK(loaded.count(ServerLists::kFavorites) == 1 && loaded.count(3) == 0 &&
+          loaded.visible(ServerLists::kFavorites, 0)); // alpha's, moved up
+
+    // A server's status: asked for, then its settings and players.
+    browser.requestStatus({0x7f000001u, 27960}, 2000);
+    CHECK(drain("getstatus") == 1);
+    std::string status;
+    CHECK(!browser.status({0x7f000001u, 27960}, status));
+    reply("statusResponse\n\\sv_hostname\\Local\n5 40 \"Kyle\"\n0 999 \"Jan\"\n");
+    browser.update(2050);
+    CHECK(browser.status({0x7f000001u, 27960}, status) &&
+          status == "\\sv_hostname\\Local\\\\5 40 \"Kyle\"\\0 999 \"Jan\"\\");
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.network",
            {
@@ -782,6 +861,7 @@ static const reluva::test::Suite
                {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
                {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
                {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
+               {"server lists", [](const std::filesystem::path &tmp) { testServerLists(tmp / "lists"); }},
                {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
                {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
                {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},

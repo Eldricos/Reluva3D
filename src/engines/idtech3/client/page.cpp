@@ -108,10 +108,8 @@ void loadConfig(PageContext &ctx) {
     };
     for (const auto &[name, value] : kEngineCvars)
         ctx.cvars.create(name, value, CvarStore::kArchive);
-    // The server's, which the original registers as it starts, before any
-    // game: the menus' Create Server fields show them.
-    ctx.cvars.create("sv_hostname", "Reluva", CvarStore::kServerInfo | CvarStore::kArchive);
-    ctx.cvars.create("sv_maxclients", "8", CvarStore::kServerInfo | CvarStore::kLatch | CvarStore::kArchive);
+    for (const GameInfo::StartCvar &c : ctx.game.serverCvars)
+        ctx.cvars.create(c.name, c.value, c.flags);
     std::string text;
     std::vector<uint8_t> data;
     if (!ctx.files.read(ctx.game.defaultConfig, data))

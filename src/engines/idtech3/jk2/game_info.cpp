@@ -3,6 +3,7 @@
 
 #include "engines/idtech3/jk2/game_info.h"
 
+#include "engines/idtech3/cvars.h"
 #include "engines/idtech3/jk2/ref_entity.h"
 
 namespace reluva::idtech3::jk2 {
@@ -31,7 +32,47 @@ GameInfo gameInfo() {
     g.firstMap = "kejim_post";
     g.multiplayerMapPrefixes = {"ffa_", "duel_", "ctf_"};
     g.cinematicExtension = ".roq";
+    // As jk2mp.exe's server registers them at start (0x44dcfc on).
+    constexpr int32_t kS = CvarStore::kServerInfo;
+    constexpr int32_t kSA = CvarStore::kServerInfo | CvarStore::kArchive;
+    constexpr int32_t kT = CvarStore::kTemp;
+    g.serverCvars = {
+        {"dmflags", "0", kS},
+        {"fraglimit", "20", kS},
+        {"timelimit", "0", kS},
+        {"g_maxHolocronCarry", "3", kS},
+        {"g_privateDuel", "1", kS},
+        {"g_saberLocking", "1", kS},
+        {"g_maxForceRank", "6", kS},
+        {"duel_fraglimit", "10", kS},
+        {"g_forceBasedTeams", "0", kS},
+        {"g_duelWeaponDisable", "1", kS},
+        {"g_needpass", "0", kS},
+        {"g_gametype", "0", kS | CvarStore::kLatch},
+        {"sv_keywords", "", kS},
+        {"sv_privateClients", "0", kS},
+        {"sv_hostname", "noname", kSA},
+        {"sv_maxclients", "8", kS | CvarStore::kLatch},
+        {"sv_maxRate", "0", kSA},
+        {"sv_minPing", "0", kSA},
+        {"sv_maxPing", "0", kSA},
+        {"sv_floodProtect", "1", kSA},
+        {"sv_allowAnonymous", "0", kS},
+        {"sv_pure", "1", CvarStore::kSystemInfo},
+        {"rconPassword", "", kT},
+        {"sv_fps", "20", kT},
+        {"sv_timeout", "200", kT},
+        {"sv_zombietime", "2", kT},
+        {"nextmap", "", kT},
+        {"sv_allowDownload", "0", kS},
+        // Its network protocol, which the server list's search names.
+        {"protocol", "15", kS | CvarStore::kReadOnly},
+    };
     return g;
+}
+
+std::vector<std::string> masterServers() {
+    return {"masterjk2.ravensoft.com", "master.ouned.de", "master.jkhub.org"};
 }
 
 } // namespace reluva::idtech3::jk2

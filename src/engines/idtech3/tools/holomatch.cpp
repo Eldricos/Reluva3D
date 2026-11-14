@@ -8,7 +8,9 @@
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/audio/sounds.h"
 #include "engines/idtech3/cvars.h"
+#include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/net_client.h"
@@ -42,7 +44,7 @@ int cmdUiRun(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(
             stderr,
-            "usage: reluva-tool idtech3 ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-trace] [-v]\n");
+            "usage: reluva-tool idtech3 ui-run <game folder> [-frames N] [-menu M] [-ingame gametype] [-size WxH] [-glwords N] [-servercvars] [-click X Y]... [-trace] [-v]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -60,6 +62,7 @@ int cmdUiRun(int argc, char **argv) {
     std::vector<std::string> latched; // -cvar name: shown at the end; -latch name: made a Latch variable first
     bool traceCalls = false;
     bool verbose = false;
+    bool serverCvars = false;
     int ingameType = -1; // -ingame: the in-game menu, over a match of this game type
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "-frames") == 0 && i + 1 < argc)
@@ -80,6 +83,8 @@ int cmdUiRun(int argc, char **argv) {
             traceCalls = true;
         else if (std::strcmp(argv[i], "-v") == 0)
             verbose = true;
+        else if (std::strcmp(argv[i], "-servercvars") == 0)
+            serverCvars = true;
         else if (std::strcmp(argv[i], "-vmcall") == 0 && i + 1 < argc)
             vmCalls.push_back(std::atoi(argv[++i]));
         else if (std::strcmp(argv[i], "-cvar") == 0 && i + 1 < argc)
@@ -98,6 +103,11 @@ int cmdUiRun(int argc, char **argv) {
     if (!mountIdTech3(argv[2], set))
         return 1;
     q3::CvarStore cvars;
+    // -servercvars: the server's settings first, as the engine registers
+    // them at start.
+    if (serverCvars)
+        for (const q3::GameInfo::StartCvar &c : gameOfFolder(argv[2]).serverCvars)
+            cvars.create(c.name, c.value, c.flags);
     // As after a match: the server game registered these as Latch
     // variables (g_gametype, the Holomatch modes...).
     for (const std::string &name : latched)
@@ -197,8 +207,25 @@ int cmdUiRun(int argc, char **argv) {
                     p.w, p.h, p.s1, p.t1, p.s2, p.t2, p.color[0], p.color[1], p.color[2], p.color[3],
                     ui.shaders().name(p.shader).c_str());
     }
-    for (const std::string &c : ui.commands())
+    q3::SoundLibrary sounds(set);
+    for (const std::string &c : ui.commands()) {
         std::printf("command: %s\n", c.c_str());
+        // The music the menus start, decoded as the Menu page plays it.
+        for (const std::string &command : q3::splitCommands(c)) {
+            const std::vector<std::string> words = q3::splitCommand(command);
+            if (words.size() < 2 || words[0] != "music")
+                continue;
+            auto music = sounds.find(words[1]);
+            for (const char *ext : {".mp3", ".wav"})
+                if (!music)
+                    music = sounds.find(words[1] + ext);
+            if (music)
+                std::printf("music %s: %.1f s, %d Hz, %d channel(s)\n", words[1].c_str(),
+                            double(music->frames()) / std::max(1, music->rate), music->rate, music->channels);
+            else
+                std::printf("music %s: not found or not decoded\n", words[1].c_str());
+        }
+    }
     for (const std::string &name : shownCvars)
         std::printf("cvar %s: \"%s\"%s\n", name.c_str(), cvars.string(name).c_str(),
                     cvars.hasLatched(name) ? (" (\"" + cvars.pending(name) + "\" at the next level)").c_str() : "");

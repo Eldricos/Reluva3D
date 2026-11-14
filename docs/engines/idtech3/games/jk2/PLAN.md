@@ -95,7 +95,8 @@ behind the DLL's own tables.
    Setup, Controls and Create Server open and draw. The
    multiplayer menus show players as icons, so there's no model in Player
    settings to draw; Ghoul2 in a menu waits for single player's. The
-   server lists stay empty until the network comes (phase 6).
+   server lists find servers (the local network, the masters,
+   favourites); joining one and Begin wait for phase 6.
 6. **Multiplayer game**: `jk2mpgame.qvm` and `cgame.qvm` hosts, their
    system calls, and the engine's Ghoul2 calls they make (animation, bolts,
    collision against Ghoul2 models for hits and the saber); the Play page

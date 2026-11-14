@@ -34,9 +34,14 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 In the multiplayer menus:
 
-- **The server lists** (Join Server, the favourites) stay empty, and
-  **Begin** in Create Server doesn't start a match, until the network
-  and the game's code come (phase 6).
+- **Begin** in Create Server doesn't start a match, and Join doesn't
+  join one, until the network and the game's code come (phase 6).
+- **The favourite servers** are kept in `favorites.txt` (address and
+  name a line) in the game's save folder, not in the
+  original's `servercache.dat`; the other lists aren't kept between runs
+  but searched again, as the menus do on opening.
+- **The Internet list** asks the community's masters after Raven's,
+  which has long been gone.
 - **`R_RemapShader`** isn't answered yet, and no menu plays a video
   ([systems/syscalls.md](systems/syscalls.md)).
 

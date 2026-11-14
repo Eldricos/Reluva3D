@@ -59,6 +59,16 @@ struct GameInfo {
     std::string multiplayerName = "Multiplayer";
     // The config of default keys and settings run before the player's own.
     std::string defaultConfig = "default.cfg";
+    // The server's settings its engine registers as it starts, before any
+    // game: name, default value, CvarStore flags (Quake III's). The menus
+    // show them (Create Server); the read-only ones a server sets itself
+    // when it starts are left out.
+    struct StartCvar {
+        std::string name;
+        std::string value;
+        int32_t flags = 0;
+    };
+    std::vector<StartCvar> serverCvars;
     // Multiplayer's model for a player who hasn't chosen one.
     std::string playerModel;
     // Single player's: the player's name until one is set; its game code

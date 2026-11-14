@@ -3,6 +3,7 @@
 
 #include "engines/idtech3/eliteforce/game_info.h"
 
+#include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/ref_entity.h"
 
 namespace reluva::idtech3::eliteforce {
@@ -29,6 +30,10 @@ GameInfo gameInfo() {
     g.malePlayer = {"munro/default", "hazard/default", "hazard/default"};
     g.femalePlayer = {"alexandria/default", "hazardfemale/default", "hazardfemale/default"};
     g.cinematicExtension = ".bik";
+    g.serverCvars = {
+        {"sv_hostname", "Reluva", CvarStore::kServerInfo | CvarStore::kArchive},
+        {"sv_maxclients", "8", CvarStore::kServerInfo | CvarStore::kLatch | CvarStore::kArchive},
+    };
     return g;
 }
 

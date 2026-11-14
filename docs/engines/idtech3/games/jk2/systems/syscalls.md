@@ -1,6 +1,6 @@
 # Jedi Outcast: the multiplayer menus' system calls
 
-> **Status:** partial · **Code:** `src/engines/idtech3/jk2/ui_host.cpp` · **Checked against:** the code only (the game's own `ui.qvm`, run in Reluva) · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/idtech3/jk2/ui_host.cpp`, `client/server_lists.cpp` · **Checked against:** the code only (the game's own `ui.qvm`, run in Reluva, and `jk2mp.exe`) · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -50,7 +50,7 @@ the screen, as for Elite Force.
 | 43 | `GetGlconfig(glconfig)` | 11,332 bytes: three 1,024-byte strings and 8,192 of extensions, then Quake III's 17 words; it reports 640 x 480, the size the menus draw in |
 | 44 | `GetClientState(state)` | 12 bytes of state, then three 1,024-byte strings |
 | 45 | `GetConfigString(index, buffer, size)` | the match's, when connected |
-| 46–49, 73–82, 89–92 | the server list's (`LAN_*`) | empty lists for now: the menus show none |
+| 46–49, 73–82, 89–92 | the server list's (`LAN_*`) | the server lists (below) |
 | 50, 51 | `Cvar_Register`, `Cvar_Update` | Quake III's `vmCvar_t` |
 | 52 | `MemoryRemaining` | 8 MB |
 | 56 | `R_RegisterFont(name)` | `fonts/<name>.fontdat`, its picture `fonts/<name>` ([fonts.md](../../../formats/fonts.md)) |
@@ -93,15 +93,63 @@ acts on the ones that leave it (`map`, `connect`, `demo`, `quit`,
 the `music` command (`music music/mp/duel`), not the background track
 call; one name is both the intro and the loop.
 
+### The server lists
+
+Unlike Elite Force's menus, which keep their own list and ask for pings
+one by one, Jedi Outcast's have the engine keep a list per source (0 the
+local network, 1 the Internet, 2 the favourites; 3, the old mplayer
+list, is always empty) and page through it by number
+(`client/server_lists.h`):
+
+- **Searching.** Get New List runs `localservers` (a `getinfo xxx`
+  broadcast, twice, to ports 27960–27963) or `globalservers 0 15 full
+  empty`, the protocol from the `protocol` setting. The masters are
+  `sv_master1` to `sv_master3`: `masterjk2.ravensoft.com`, as in
+  `jk2mp.exe`, then the community's `master.ouned.de` and
+  `master.jkhub.org`. `LAN_GetServerCount` is -1 for the Internet list
+  until a master answers.
+- **Visible and pinged.** Before a search the menus mark every slot
+  visible (`LAN_MarkServerVisible(source, -1, 1)`), while the list is
+  still empty; the original's lists are fixed arrays, so the marks stay
+  with the slots and the servers that fill them. Each frame
+  `LAN_UpdateVisiblePings` sends `getinfo xxx` to each visible server not
+  asked yet (32 at a time), and fills in its fields from the answer; a
+  server not answering within `cl_maxPing` (at least 100 ms) keeps a
+  ping of 0, which the menus leave out. It returns 1 while any is
+  waiting.
+- **What the menus read.** `LAN_GetServerInfo` gives the fields as an
+  info string: `hostname`, `mapname`, `clients`, `sv_maxclients`, `ping`,
+  `minping`, `maxping`, `game`, `gametype`, `nettype` (1, UDP), `addr`,
+  `sv_allowAnonymous`. `LAN_CompareServers` sorts by name, map, players,
+  game type or ping (keys 0–4), names without regard to case.
+- **Server Info.** `LAN_ServerStatus(address, buffer, size)` sends
+  `getstatus`, again each second until the server answers, and returns 1
+  with its answer: the settings line, a backslash, a backslash and a
+  player's line (`score ping "name"`) for each player, then a last
+  backslash. No address forgets the requests.
+- **Favourites.** `LAN_AddServer` returns 1 added, 0 already there, -1
+  the list full (128). `LAN_LoadCachedServers` and
+  `LAN_SaveCachedServers` read and write them (below).
+
+The Join Server menu's "Server Refresh Time" stays empty, in the
+original too: 1.02a's menus pass the same text buffer as both the
+setting's name and its value (`Cvar_Set` gets one address twice, both
+`va()` results sharing a buffer), so the time is stored under a setting
+named after itself.
+
 ### Settings the menus show
 
-The menus' Create Server shows the server's `sv_hostname` and
-`sv_maxclients`, which the original engine registers as it starts, before
-any game; Reluva does the same. `timelimit`, `fraglimit` and the other
-game settings are the game code's, so they're empty until a match has
-registered them. The default keys and settings are in `mpdefault.cfg`,
-which the multiplayer engine runs first (`default.cfg` is single
-player's).
+`jk2mp.exe` registers its server's settings as it starts, before any
+game (from 0x44dcfc): `dmflags` 0, `fraglimit` 20, `timelimit` 0,
+`duel_fraglimit` 10, `g_maxHolocronCarry` 3, `g_privateDuel` 1,
+`g_saberLocking` 1, `g_maxForceRank` 6, `g_forceBasedTeams` 0,
+`g_duelWeaponDisable` 1, `g_needpass` 0, `g_gametype` 0 (latched),
+`sv_hostname` `noname` (archived), `sv_maxclients` 8 (latched, not
+archived), the server's rates and pings, `sv_fps` 20 and the others, and
+`protocol` 15 (read-only). Reluva registers the same when a session
+starts (`GameInfo::serverCvars`), so Create Server shows them. The
+default keys and settings are in `mpdefault.cfg`, which the multiplayer
+engine runs first (`default.cfg` is single player's).
 
 ## Sources and checks
 
@@ -113,9 +161,15 @@ player's).
 - **How it was checked:** the menus run in Reluva: the main menu with its
   emblem, Play, Setup's Player and Video pages, Controls with the
   bindings, Create Server with the map list and its levelshot, Join
-  Server. A game-files step (`jk2-menus`) records the main
-  menu, Setup, and Create Server reached by clicking. Not compared with
-  the original's screens.
+  Server listing a stand-in server on the local network (a script
+  answering `getinfo` and `getstatus` as a 1.02 server does). The
+  settings' defaults and flags were read from `jk2mp.exe`'s calls (each
+  name, value and flags pushed before the call at 0x42a870). The music
+  decodes (`ui-run` reports it: 76.1 s, 44,100 Hz, stereo). A unit test
+  (`idtech3.unit.network`, "server lists") covers the lists, pings,
+  favourites and status. A game-files step (`jk2-menus`) records the
+  main menu, Setup, Create Server and Join Server reached by clicking.
+  Not compared with the original's screens.
 
 ### Open questions
 
@@ -124,5 +178,7 @@ player's).
   `menu/art/3_cursor2`, `gfx/2d/crosshairj`); they get 0 and the menus
   draw something else (the map preview is `levelshots/<map>`). Whether
   the original draws anything for them isn't confirmed.
-- The server lists, the cinematic calls and `R_RemapShader` aren't
-  answered yet.
+- The cinematic calls and `R_RemapShader` aren't answered yet.
+- The Internet list hasn't been tried against a master from here (the
+  test machine's network doesn't reach them); the local list has, with a
+  stand-in server.

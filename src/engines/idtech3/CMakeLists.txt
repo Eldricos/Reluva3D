@@ -35,6 +35,7 @@ reluva_add_engine(idtech3
         client/scene.cpp
         client/scene_drawer.cpp
         client/server_browser.cpp
+        client/server_lists.cpp
         client/session.cpp
         client/sp_play_page.cpp
         client/start_page.cpp

@@ -130,6 +130,53 @@ std::string ServerBrowser::infoFromResponse(const std::vector<uint8_t> &datagram
     return rest;
 }
 
+void ServerBrowser::requestStatus(const net::Address &address, uint64_t now, uint64_t resendMs) {
+    auto it = std::find_if(_statuses.begin(), _statuses.end(), [&](const Status &s) { return s.address == address; });
+    if (it == _statuses.end()) {
+        _statuses.push_back({address, now, false, {}});
+        send(address, "getstatus");
+    } else if (!it->answered && now - it->sent >= resendMs) {
+        it->sent = now;
+        send(address, "getstatus");
+    }
+}
+
+bool ServerBrowser::status(const net::Address &address, std::string &out) const {
+    for (const Status &s : _statuses)
+        if (s.address == address && s.answered) {
+            out = s.text;
+            return true;
+        }
+    return false;
+}
+
+bool ServerBrowser::statusFromResponse(const std::vector<uint8_t> &datagram, std::string &out) {
+    static const char kWord[] = "statusResponse";
+    const size_t wordLength = sizeof kWord - 1;
+    if (datagram.size() < 4 + wordLength || std::memcmp(datagram.data(), "\xff\xff\xff\xff", 4) != 0 ||
+        std::memcmp(datagram.data() + 4, kWord, wordLength) != 0)
+        return false;
+    // Lines: the word, the settings, then a player each.
+    std::vector<std::string> lines;
+    std::string line;
+    for (size_t i = 4 + wordLength; i < datagram.size() && datagram[i]; ++i) {
+        if (datagram[i] == '\n') {
+            lines.push_back(line);
+            line.clear();
+        } else {
+            line += char(datagram[i]);
+        }
+    }
+    if (!line.empty())
+        lines.push_back(line);
+    out = lines.size() > 1 ? lines[1] : std::string();
+    out += '\\';
+    for (size_t i = 2; i < lines.size() && !lines[i].empty(); ++i)
+        out += '\\' + lines[i];
+    out += '\\';
+    return true;
+}
+
 void ServerBrowser::update(uint64_t now) {
     net::Address from;
     std::vector<uint8_t> data;
@@ -140,6 +187,15 @@ void ServerBrowser::update(uint64_t now) {
             for (const net::Address &a : serversFromResponse(data))
                 if (std::find(_global.begin(), _global.end(), a) == _global.end() && _global.size() < kMaxGlobalServers)
                     _global.push_back(a);
+            continue;
+        }
+        if (std::string text; statusFromResponse(data, text)) {
+            for (Status &s : _statuses)
+                if (s.address == from) {
+                    s.answered = true;
+                    s.text = std::move(text);
+                    break;
+                }
             continue;
         }
         const std::string info = infoFromResponse(data);

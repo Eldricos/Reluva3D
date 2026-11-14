@@ -31,10 +31,6 @@ None yet.
 
 ## Inferred
 
-- Multiplayer 1.02a speaks network protocol 15: the recording in its paks
-  is `demos/JK2FFA.dm_15`, and Quake III names recordings by protocol.
-  To check in `jk2mp.exe` before the protocol is written
-  ([PLAN.md](PLAN.md), phase 6).
 - The game reads shader scripts in `shaders/` only, not `scripts/`: its
   paks have its 29 scripts there and none in `scripts/`. Reluva reads only
   `shaders/` for it ([shader.md](../../formats/shader.md)). To check in
@@ -46,10 +42,9 @@ None yet.
   ([rbsp.md](../../formats/rbsp.md)). To compare with the original's
   pictures of those levels.
 
-- The multiplayer engine registers `sv_hostname` and `sv_maxclients`
-  before any game, so its Create Server shows them; Quake III's does,
-  and the GPL Jedi Outcast multiplayer engine runs `mpdefault.cfg` first.
-  To check in `jk2mp.exe` ([systems/syscalls.md](systems/syscalls.md)).
+- The multiplayer engine runs `mpdefault.cfg` before the player's
+  config, as the GPL Jedi Outcast multiplayer engine does. To check in
+  `jk2mp.exe` ([systems/syscalls.md](systems/syscalls.md)).
 
 ## Guessed
 
@@ -59,4 +54,10 @@ None yet.
 
 ## Settled
 
-None yet.
+- Multiplayer 1.02a speaks network protocol 15: `jk2mp.exe` registers
+  `protocol` as 15 (the value pushed at 0x44dde9), as its recording's
+  name (`demos/JK2FFA.dm_15`) suggested.
+- The multiplayer engine registers the server's settings before any
+  game, with the defaults its calls give (`sv_hostname` `noname`,
+  `sv_maxclients` 8 latched and not archived, `fraglimit` 20...), read
+  from `jk2mp.exe` ([systems/syscalls.md](systems/syscalls.md)).

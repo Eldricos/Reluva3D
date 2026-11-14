@@ -61,6 +61,9 @@ public:
     virtual void setScreenSize(int width, int height) = 0;
     // Where a CD key the menus take is kept, for a game that asks for one.
     virtual void setKeyFile(const std::filesystem::path & /*path*/) {}
+    // Where the favourite servers are kept, for menus whose engine keeps
+    // them.
+    virtual void setFavoritesFile(const std::filesystem::path & /*path*/) {}
     // The install whose mods the menus list, and its base game's folder.
     virtual void setModRoot(const std::filesystem::path &install, const std::string &baseDir) = 0;
 

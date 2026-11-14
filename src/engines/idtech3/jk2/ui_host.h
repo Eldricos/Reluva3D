@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/botlib/bot_script.h"
 #include "engines/idtech3/client/menu_host.h"
+#include "engines/idtech3/client/server_lists.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/raven/fonts.h"
 #include "engines/idtech3/raven/strings.h"
@@ -48,6 +49,7 @@ public:
     }
     // The clock Milliseconds reports.
     void setTime(int32_t ms) { _time = ms; }
+    void setFavoritesFile(const std::filesystem::path &path) override { _favoritesFile = path; }
 
     const std::vector<Picture> &pictures() const override { return _pictures; }
     const Scene &scene() const override { return _scene; }
@@ -85,6 +87,11 @@ private:
     int32_t readToken(int32_t handle, int32_t address);
     void addPicture(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int32_t shader,
                     const std::array<float, 4> &color);
+    // The server list's commands (localservers, globalservers, ping), run
+    // at once as the original runs them; false for any other.
+    bool browserCommand(const std::string &line);
+    // The LAN_* calls, on the server lists.
+    int32_t serverListCall(Qvm &vm, int number, const int32_t *args);
     void writeGlconfig(int32_t address);
     void writeClientState(int32_t address);
 
@@ -113,6 +120,8 @@ private:
     std::vector<std::string> _globalDefines;
     std::array<float, 4> _color{1, 1, 1, 1};
     std::vector<std::string> _commands;
+    ServerLists _servers;
+    std::filesystem::path _favoritesFile; // none: kept only while running
     std::map<int, int> _unhandled;
     std::string _log;
     int _width = 640;

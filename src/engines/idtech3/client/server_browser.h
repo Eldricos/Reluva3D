@@ -69,6 +69,19 @@ public:
     // 0xff bytes; empty if it isn't one.
     static std::string infoFromResponse(const std::vector<uint8_t> &datagram);
 
+    // A server's settings and players (getstatus), asked for again every
+    // `resendMs` until it answers.
+    void requestStatus(const net::Address &address, uint64_t now, uint64_t resendMs = 1000);
+    // Its answer once it's come: the settings' info string, a backslash,
+    // each player's line ("score ping \"name\"") after a backslash, then a
+    // last backslash, as Team Arena's engines hand it to the menus; false
+    // while waiting.
+    bool status(const net::Address &address, std::string &out) const;
+    void forgetStatus() { _statuses.clear(); }
+    // A statusResponse in that form, from the datagram after its four 0xff
+    // bytes; false if it isn't one.
+    static bool statusFromResponse(const std::vector<uint8_t> &datagram, std::string &out);
+
 private:
     std::unique_ptr<net::UdpSocket> _socket;
     std::vector<net::Address> _local;
@@ -86,6 +99,13 @@ private:
         std::string info;
     };
     Ping _pings[kMaxPings];
+    struct Status {
+        net::Address address;
+        uint64_t sent = 0;
+        bool answered = false;
+        std::string text;
+    };
+    std::vector<Status> _statuses;
     void send(const net::Address &to, const std::string &text);
 };
 

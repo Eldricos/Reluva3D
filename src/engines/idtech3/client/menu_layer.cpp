@@ -71,8 +71,10 @@ bool MenuLayer::start(int32_t menu) {
     _commandsSeen = 0;
     _startMs = 0;
     _ui->setScreenSize(_frameW, _frameH);
-    if (!_ctx.homePath.empty())
+    if (!_ctx.homePath.empty()) {
         _ui->setKeyFile(_ctx.homePath / "cdkey.txt"); // whatever the mod
+        _ui->setFavoritesFile(_ctx.homePath / "favorites.txt");
+    }
     if (_ctx.mixer)
         _ui->startLocalSound = [this](const std::string &name, int channel) { playSound(name, channel); };
     _ui->browser = browser;

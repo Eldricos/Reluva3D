@@ -4,6 +4,7 @@
 #include "engines/idtech3/jk2/ui_host.h"
 
 #include "engines/idtech3/formats/md3.h"
+#include "engines/idtech3/jk2/game_info.h"
 
 #include "common/fs.h"
 
@@ -163,7 +164,139 @@ Error UiHost::refresh(int32_t time) {
     if (!fullscreen && clientState.connState <= 1)
         if (Error err = call(kSetActiveMenu, {1}))
             return err;
+    if (browser)
+        _servers.update(*browser);
     return call(kRefresh, {time});
+}
+
+bool UiHost::browserCommand(const std::string &line) {
+    if (!browser)
+        return false;
+    const std::vector<std::string> words = splitCommand(line);
+    if (words.empty())
+        return false;
+    const std::string verb = fs::toLower(words[0]);
+    if (verb == "localservers") {
+        _servers.searchLocal(*browser, now);
+        return true;
+    }
+    if (verb == "globalservers") {
+        // globalservers <master> <protocol> [keywords]: master 0 is every
+        // one set, Raven's being gone; another, that one (sv_master<n+1>).
+        const int master = words.size() > 1 ? std::atoi(words[1].c_str()) : 0;
+        const int protocol = words.size() > 2 && std::atoi(words[2].c_str()) ? std::atoi(words[2].c_str()) : 15;
+        std::string keywords;
+        for (size_t i = 3; i < words.size(); ++i)
+            keywords += (keywords.empty() ? "" : " ") + words[i];
+        std::vector<net::Address> masters;
+        for (const std::string &name : masterServerNames(_cvars, masterServers())) {
+            if (master > 0 && _cvars.string("sv_master" + std::to_string(master + 1)) != name)
+                continue;
+            const auto [host, port] = net::splitHostPort(name, ServerBrowser::kMasterPort);
+            uint32_t ip = 0;
+            if (resolveHost && resolveHost(host, ip))
+                masters.push_back({ip, port});
+        }
+        _servers.searchGlobal(*browser, masters, protocol, keywords);
+        return true;
+    }
+    if (verb == "ping" && words.size() >= 2) {
+        const auto [host, port] = net::splitHostPort(words.back(), ServerBrowser::kServerPort);
+        uint32_t ip = 0;
+        if (resolveHost && resolveHost(host, ip))
+            browser->ping({ip, port}, now);
+        return true;
+    }
+    return false;
+}
+
+int32_t UiHost::serverListCall(Qvm &vm, int number, const int32_t *a) {
+    auto str = [&](int i) { return vm.string(a[i], 256); };
+    // At least 100 ms, as the original waits.
+    const int maxPing = std::max(100, _cvars.find("cl_maxPing") ? _cvars.integer("cl_maxPing") : 800);
+    switch (number) {
+    case kLanGetPingQueueCount:
+        return browser ? browser->pingQueueCount() : 0;
+    case kLanClearPing:
+        if (browser)
+            browser->clearPing(a[0]);
+        return 0;
+    case kLanGetPing: { // (n, address buffer, its size, &time)
+        std::string address;
+        int time = 0;
+        if (browser)
+            browser->getPing(a[0], now, maxPing, address, time);
+        vm.writeString(a[1], address, a[2]);
+        if (vm.checkWrite(a[3], 4))
+            vm.writeInt(a[3], time);
+        return 0;
+    }
+    case kLanGetPingInfo:
+        vm.writeString(a[1], browser ? browser->pingInfo(a[0]) : std::string(), a[2]);
+        return 0;
+    case kLanGetServerCount:
+        return _servers.count(a[0]);
+    case kLanGetServerAddressString: { // (source, n, buffer, size)
+        const ServerLists::Server *s = _servers.server(a[0], a[1]);
+        vm.writeString(a[2], s ? s->address.toString() : std::string(), a[3]);
+        return 0;
+    }
+    case kLanGetServerInfo: {
+        const ServerLists::Server *s = _servers.server(a[0], a[1]);
+        vm.writeString(a[2], s ? ServerLists::info(*s) : std::string(), a[3]);
+        return 0;
+    }
+    case kLanMarkServerVisible: // (source, n or -1, visible)
+        _servers.markVisible(a[0], a[1], a[2] != 0);
+        return 0;
+    case kLanUpdateVisiblePings:
+        return browser && _servers.updateVisiblePings(*browser, a[0], now, maxPing) ? 1 : 0;
+    case kLanResetPings:
+        _servers.resetPings(a[0]);
+        return 0;
+    case kLanLoadCachedServers:
+        // Only the favourites are kept: the other lists are searched again.
+        if (!_favoritesFile.empty())
+            _servers.load(_favoritesFile);
+        return 0;
+    case kLanSaveCachedServers:
+        if (!_favoritesFile.empty())
+            _servers.save(_favoritesFile);
+        return 0;
+    case kLanAddServer: // (source, name, address)
+        return _servers.add(a[0], str(1), str(2));
+    case kLanRemoveServer:
+        _servers.remove(a[0], str(1));
+        return 0;
+    case kLanServerStatus: { // (address or none, buffer or none, size)
+        if (!browser)
+            return 0;
+        if (!a[0]) {
+            browser->forgetStatus();
+            return 0;
+        }
+        net::Address address;
+        if (!net::parseAddress(str(0), ServerBrowser::kServerPort, address) || !a[1])
+            return 0;
+        std::string text;
+        if (browser->status(address, text)) {
+            vm.writeString(a[1], text, a[2]);
+            return 1;
+        }
+        browser->requestStatus(address, now);
+        return 0;
+    }
+    case kLanGetServerPing: {
+        const ServerLists::Server *s = _servers.server(a[0], a[1]);
+        return s ? s->ping : -1;
+    }
+    case kLanServerIsVisible:
+        return _servers.visible(a[0], a[1]) ? 1 : 0;
+    case kLanCompareServers: // (source, sort key, descending, a, b)
+        return _servers.compare(a[0], a[1], a[2] != 0, a[3], a[4]);
+    default:
+        return 0;
+    }
 }
 
 bool UiHost::isCursor(const std::string &shader) const {
@@ -385,9 +518,15 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
     case kArgv:
         vm.writeString(a[1], "", a[2]);
         return 0;
-    case kCmdExecuteText:
-        _commands.push_back(str(1, 4096));
+    case kCmdExecuteText: {
+        const std::string text = str(1, 4096);
+        bool handled = false;
+        for (const std::string &command : splitCommands(text))
+            handled = browserCommand(command) || handled;
+        if (!handled)
+            _commands.push_back(text);
         return 0;
+    }
     case kFsFOpenFile:
         return _vmFiles.open(vm, a[0], a[1], a[2]);
     case kFsRead:
@@ -640,35 +779,25 @@ int32_t UiHost::systemCall(Qvm &vm, int number, const int32_t *a) {
                 vm.writeInt(a[0] + 4 * i, fields[i]);
         return int32_t(now);
     }
-    // The server lists: none yet (phase 6 of the plan).
     case kLanGetPingQueueCount:
-    case kLanGetServerCount:
-    case kLanGetServerPing:
-    case kLanServerIsVisible:
-    case kLanUpdateVisiblePings:
-    case kLanCompareServers:
-    case kLanAddServer:
-    case kLanServerStatus:
-        return 0;
     case kLanClearPing:
+    case kLanGetPing:
+    case kLanGetPingInfo:
+    case kLanGetServerCount:
+    case kLanGetServerAddressString:
+    case kLanGetServerInfo:
     case kLanMarkServerVisible:
+    case kLanUpdateVisiblePings:
     case kLanResetPings:
     case kLanLoadCachedServers:
     case kLanSaveCachedServers:
+    case kLanAddServer:
     case kLanRemoveServer:
-        return 0;
-    case kLanGetPing:
-        vm.writeString(a[1], "", a[2]);
-        if (vm.checkWrite(a[3], 4))
-            vm.writeInt(a[3], 0);
-        return 0;
-    case kLanGetPingInfo:
-        vm.writeString(a[1], "", a[2]);
-        return 0;
-    case kLanGetServerAddressString:
-    case kLanGetServerInfo:
-        vm.writeString(a[2], "", a[3]);
-        return 0;
+    case kLanServerStatus:
+    case kLanGetServerPing:
+    case kLanServerIsVisible:
+    case kLanCompareServers:
+        return serverListCall(vm, number, a);
     // Cinematics in the menus: none yet; -1 is "couldn't play it".
     case kCinPlayCinematic:
         return -1;
