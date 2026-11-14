@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Renders a 640x480 view with the camera put so that an object's frame-0
 // top-left piece lands where a recording shows it.
 #include "engines/clue/game_data.h"

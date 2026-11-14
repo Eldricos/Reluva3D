@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Renders the engine's mansion scene whole, for comparing with recordings.
 #include "engines/clue/game_data.h"
 #include "engines/clue/formats/level.h"

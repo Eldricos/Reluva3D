@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Which engines are built, and how an engine declares itself.
 #
 # engines.cfg (at the top of the repository) lists the engines, one per

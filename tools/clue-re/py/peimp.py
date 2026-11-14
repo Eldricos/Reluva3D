@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import sys, pefile
 for p in sys.argv[1:]:
     pe = pefile.PE(p)

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import sys, cv2, numpy as np
 house=cv2.imread(sys.argv[1]); H=cv2.cvtColor(house,cv2.COLOR_BGR2GRAY).astype(np.float32)
 def edges(g): 

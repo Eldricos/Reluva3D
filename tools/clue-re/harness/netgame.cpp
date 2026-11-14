@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
 // Three machines in one process, over the in-memory network, each running the real Play: their
 // humans played by scripts, each machine at its own frame rate. They must play the same game.
 #include <array>

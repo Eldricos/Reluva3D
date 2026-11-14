@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 import struct,sys
 def parse(d):
     assert d[:4]==b'RESI'; nd,nf=d[4],d[5]; p=6

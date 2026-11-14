@@ -274,6 +274,12 @@ jobs:
         run: |
           if ! git rev-parse -q --verify "$BASE^{commit}" > /dev/null; then BASE=origin/main; fi
           python3 tools/comments.py --changed "$BASE" --github | tee comments.txt
+      - name: License lines
+        # Every source file, not only the changed ones: a file is never
+        # without them.
+        if: always()
+        shell: bash
+        run: python3 tools/check-headers.py | tee headers.txt
       - name: Summary
         if: always()
         run: |
@@ -288,6 +294,8 @@ jobs:
             tail -n 1 members.txt 2> /dev/null || echo "not run"
             echo "### Comments (tools/comments.py, warnings only)"
             tail -n 1 comments.txt 2> /dev/null || echo "not run"
+            echo "### License lines (tools/check-headers.py)"
+            tail -n 1 headers.txt 2> /dev/null || echo "not run"
           } >> "$GITHUB_STEP_SUMMARY"
 
   commits:

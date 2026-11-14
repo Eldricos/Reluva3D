@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 # Rebuild every cache (about 5 minutes; only build_cfg.py is slow). Needs
 # NFSRE_EXE; the caches go to $NFSRE_DATA (default: build/nfsre in the repo).
 set -e

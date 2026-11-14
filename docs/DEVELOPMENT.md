@@ -91,7 +91,7 @@ Notes for developers. Building and running are covered in the
 
 Code follows [CODING_GUIDE.md](CODING_GUIDE.md); the plan bringing the
 existing code in line is [code-style-migration.md](code-style-migration.md).
-Four tools check it; the first three need version 18 of their LLVM
+Five tools check it; the first three need version 18 of their LLVM
 program (another lays code out differently):
 
 - **`python3 tools/format.py`** formats with clang-format
@@ -110,6 +110,9 @@ program (another lays code out differently):
   database (run `tidy.py` first) with libclang's Python bindings
   (Ubuntu: `apt install python3-clang-18`; else
   `pip install clang==18.1.8`).
+
+- **`python3 tools/check-headers.py`** lists source files without the
+  license and copyright lines every file starts with; `--fix` adds them.
 
 - **`python3 tools/comments.py`** flags comments that break the guide's
   Comments rules in ways a script can be sure of: commented-out code,

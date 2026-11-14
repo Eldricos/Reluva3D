@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+
 """The values one argument slot of one command takes across every scene
 script, with how often each (type, value) occurs: for working out what an
 argument means.
