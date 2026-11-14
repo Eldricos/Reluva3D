@@ -99,8 +99,9 @@ Run on the unpacked install with Orient Express's code as it is:
 ## Phases
 
 Each phase ends with its tests and its pages, as Orient Express's did.
+Phase 1 is done ([README.md](README.md#where-it-stands)).
 
-1. **Recognised, and its files read** (small).
+1. **Recognised, and its files read** (small; done).
    - Detection: `ac.exe` (`24bc962a1f2acfb788132d0ec198063d`, 593,920)
      and `Text/itemlist.act` (`b9f27db08f64b7340ccbaaef131bf9b8`,
      12,306), the first `kDetectionHashBytes` of each as `reluva --hash`

@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# The AWE engine: Agatha Christie: Murder on the Orient Express
-# (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md. Each game's own code
-# is in its folder (motoe/), the rest shared.
+# The AWE engine: Agatha Christie: Murder on the Orient Express, and And
+# Then There Were None (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md.
+# Each game's own code is in its folder (motoe/, attwn/), the rest shared.
 reluva_add_engine(awe
     ACCESSOR aweMetaEngine
     SOURCES
+        attwn/attwn.cpp
+        attwn/files.cpp
         awe.cpp
         formats/ac2.cpp
         formats/bink_dll.cpp
@@ -88,9 +90,10 @@ reluva_add_engine_tests(awe
         ${tests}/unit/dialogue.cpp
         ${tests}/unit/characters.cpp
         ${tests}/unit/saves.cpp
+        ${tests}/unit/attwn.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves engine)
+        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves unit.attwn engine)
 
 # Its engine test with the game's own files (tests/engines/awe/gamedata.cmake):
 # RELUVA_MOTOE=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md

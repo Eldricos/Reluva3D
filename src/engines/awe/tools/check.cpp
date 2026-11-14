@@ -939,7 +939,8 @@ int checkText(const reluva::Archive &files, bool verbose) {
     size_t count = 0;
     size_t failed = 0;
     for (const std::string &n : filesEndingWith(files, ".txt")) {
-        if (reluva::fs::toLower(n).rfind("text/", 0) != 0)
+        const std::string lower = reluva::fs::toLower(n);
+        if (lower.rfind("text/", 0) != 0 && lower.rfind("dialogue/", 0) != 0)
             continue;
         count++;
         std::vector<uint8_t> data;

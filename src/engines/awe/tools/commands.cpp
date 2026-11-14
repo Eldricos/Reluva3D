@@ -6,6 +6,7 @@
 
 #include "engines/awe/tools/tools.h"
 #include "engines/awe/games.h"
+#include "engines/awe/attwn/files.h"
 
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/bink_dll.h"
@@ -19,6 +20,7 @@
 #include "engines/awe/game/scene_page.h"
 #include "engines/awe/pages/viewers.h"
 #include "common/archive.h"
+#include "common/fs.h"
 #include "image/image.h"
 #include "common/system.h"
 #include "video/bink.h"
@@ -316,12 +318,21 @@ int cmdAc2Dump(int argc, char **argv) {
 // script commands where they parse as some.
 int cmdAweTable(int argc, char **argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt>\n");
+        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt|file.act>\n");
         return 2;
     }
     std::vector<uint8_t> data;
     if (!readFile(argv[2], data))
         return 1;
+    // And Then There Were None's scrambled text (attwn/files.h).
+    if (const std::string name = reluva::fs::toLower(argv[2]); name.size() > 4 && name.ends_with(".act")) {
+        std::vector<uint8_t> text;
+        if (reluva::Error e = awe::attwn::unscrambleText(data, text)) {
+            std::fprintf(stderr, "%s: %s\n", argv[2], e.message.c_str());
+            return 1;
+        }
+        data = std::move(text);
+    }
     const awe::Table t = awe::parseTable(awe::decodeText(data));
     std::printf("%zu columns, %zu rows\n", t.headings.size(), t.rows.size());
     for (size_t r = 0; r < t.rows.size(); r++) {
@@ -1221,7 +1232,7 @@ const reluva::tool::Commands kCommands(
         {"gr2-info", "<file.gr2> [-t] [-n elements]", "a Granny file's sections and elements", cmdGr2Info},
         {"model-dump", "<model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]",
          "a model's meshes and skeleton, posed by an animation, written as OBJ", cmdGr2Model},
-        {"table-show", "<file.txt>", "a text table as the engine reads it", cmdAweTable},
+        {"table-show", "<file.txt|file.act>", "a text table as the engine reads it", cmdAweTable},
         {"page-shot", "<game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]",
          "a page of the viewer drawn without a window after the keys, clicks and waits given, saved as a TGA",
          cmdAweShot},

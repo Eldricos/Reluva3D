@@ -24,7 +24,7 @@ namespace reluva::awe {
 // --- Pictures ---------------------------------------------------------------------
 
 PicturePage::PicturePage(ViewerContext &ctx) : Page(ctx) {
-    _names = listFiles(ctx.files, {"locations/", "interface/", "inventory/", "elements/", "models/"},
+    _names = listFiles(ctx.files, {"locations/", "interface/", "inventory/", "elements/", "models/", "cutscenes/"},
                        {".jpg", ".png", ".tga", ".bmp"});
 }
 
@@ -78,7 +78,7 @@ void PicturePage::handleEvent(const Event &ev) {
 // --- Movies ---------------------------------------------------------------------
 
 MoviePage::MoviePage(ViewerContext &ctx) : Page(ctx), _player(ctx.mixer) {
-    _names = listFiles(ctx.files, {"movies/", "elements/", "locations/"}, {".bik"});
+    _names = listFiles(ctx.files, {"movies/", "elements/", "locations/", "fmv/", "inventory/"}, {".bik"});
 }
 
 MoviePage::~MoviePage() {
@@ -170,7 +170,7 @@ void MoviePage::handleEvent(const Event &ev) {
 // --- Text ---------------------------------------------------------------------
 
 TextPage::TextPage(ViewerContext &ctx) : Page(ctx) {
-    _names = listFiles(ctx.files, {"text/"}, {".txt"});
+    _names = listFiles(ctx.files, {"text/", "dialogue/"}, {".txt"});
 }
 
 void TextPage::activate() {
@@ -265,7 +265,7 @@ void TextPage::handleEvent(const Event &ev) {
 // --- Sounds ---------------------------------------------------------------------
 
 SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx) {
-    _names = listFiles(ctx.files, {"sound/", "models/"}, {".wav", ".mp3"});
+    _names = listFiles(ctx.files, {"sound/", "models/", "people/"}, {".wav", ".mp3"});
 }
 
 void SoundPage::activate() {

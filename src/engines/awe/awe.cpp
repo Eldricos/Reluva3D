@@ -2,14 +2,15 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The AWE Productions engine (clean-room reimplementation): Agatha
-// Christie: Murder on the Orient Express. See docs/engines/awe/README.md.
+// Christie: Murder on the Orient Express, and And Then There Were None (its
+// files only, so far). See docs/engines/awe/README.md.
 //
 // Everything in this engine must come from the game's data files, observed
 // behaviour of the original, or documented reverse engineering of a legally
 // owned copy. Never from leaked source code. See CONTRIBUTING.md.
 //
 // The game is ScenePage (game/scene_page.h), started at its main menu;
-// each game's own code is in its folder (motoe/), described to the
+// each game's own code is in its folder (motoe/, attwn/), described to the
 // rest in games.h. The data viewer is in pages/, built into reluva-viewer
 // only.
 

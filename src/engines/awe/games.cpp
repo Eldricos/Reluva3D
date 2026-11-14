@@ -3,12 +3,13 @@
 
 #include "engines/awe/games.h"
 
+#include "engines/awe/attwn/attwn.h"
 #include "engines/awe/motoe/motoe.h"
 
 namespace reluva::awe {
 
 const std::vector<const GameInfo *> &games() {
-    static const std::vector<const GameInfo *> kGames = {&motoe::game()};
+    static const std::vector<const GameInfo *> kGames = {&motoe::game(), &attwn::game()};
     return kGames;
 }
 

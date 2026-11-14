@@ -16,7 +16,7 @@ namespace reluva::awe {
 
 /**
  * What the shared AWE code needs to know of one game. A game's own code is
- * in its folder (motoe/); everything here is what the rest of the
+ * in its folder (motoe/, attwn/); everything here is what the rest of the
  * engine asks of it.
  */
 struct GameInfo {
