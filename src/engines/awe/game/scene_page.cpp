@@ -1514,10 +1514,12 @@ void ScenePage::draw() {
     }
     if (_dialogue->boxShown() && _ctx.fonts) {
         DialogueBoxPictures pics;
-        pics.window =
-            &picture(_dialogue->window() == 1 ? "interface/dialoguewin02.png" : "interface/dialoguewin01.png");
-        pics.bullet = &picture("interface/dialoguewin04.png");
-        pics.bulletOn = &picture("interface/dialoguewin05.png");
+        const DialogueBoxLayout layout = _ctx.game ? _ctx.game->dialogueBox : DialogueBoxLayout{};
+        if (!layout.windows.empty())
+            pics.window =
+                &picture(layout.windows[size_t(std::clamp(_dialogue->window(), 0, int(layout.windows.size()) - 1))]);
+        pics.bullet = &picture(layout.bullet);
+        pics.bulletOn = &picture(layout.bulletOn);
         // fonts.txt's colours by their place: 6 choices, 7 the one under
         // the mouse, 8 Antoinette, 9 and 10 the others.
         static const char *const kColours[] = {
@@ -1536,10 +1538,11 @@ void ScenePage::draw() {
         const bool radio = said && (said->name == "dia_barnabyham" || said->name == "hamradio");
         if (!_options.get(GameOptions::kCaptions) && !_dialogue->choosing() && !radio)
             said = nullptr;
-        const auto areas = drawDialogueBox(_ctx.screen, *_ctx.fonts, pics, _dialogue->boxTop(),
-                                           said ? said->text : std::string(), _ctx.fonts->colour(kColours[c]),
-                                           _dialogue->choosing() ? choices : std::vector<std::string>(),
-                                           _dialogue->highlighted(), choicePictures, _dialogue->book().tables.wrap);
+        const auto areas = drawDialogueBox(
+            _ctx.screen, *_ctx.fonts, pics, _dialogue->boxTop(), said ? said->text : std::string(),
+            layout.colours[0] != 0 ? dialogueColour(layout.colours[size_t(c)]) : _ctx.fonts->colour(kColours[c]),
+            _dialogue->choosing() ? choices : std::vector<std::string>(), _dialogue->highlighted(), choicePictures,
+            _dialogue->book().tables.wrap, layout);
         std::vector<DialogueManager::ChoiceArea> rows;
         for (const auto &a : areas)
             rows.push_back({a.x, a.y, a.w, a.h, a.choice, a.picture});
@@ -3001,12 +3004,16 @@ void ScenePage::loadDialogue() {
     _dialogueAct = _state.act;
     DialogueBook &book = _dialogue->book();
     book.clear();
-    std::vector<std::string> files = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
-                                      "text/dialogue/gen_characters.txt"};
+    const DialogueTables &tables = book.tables;
+    std::vector<std::string> files(tables.always.begin(), tables.always.end());
+    for (const char *folder : tables.folders)
+        for (const std::string &f : listFiles(_ctx.files, {folder}, {".txt"}))
+            if (std::find(files.begin(), files.end(), f) == files.end())
+                files.push_back(f);
     if (!_state.act.empty())
-        files.push_back("text/dialogue/act" + _state.act + ".txt");
+        files.push_back(tables.acts + _state.act + ".txt");
     else
-        for (const std::string &f : listFiles(_ctx.files, {"text/dialogue/act"}, {".txt"}))
+        for (const std::string &f : listFiles(_ctx.files, {tables.acts}, {".txt"}))
             files.push_back(f);
     for (const std::string &f : files) {
         // Each read once (they're read again with every act and saved game).

@@ -47,7 +47,7 @@ Error runPages(System &sys, const GameTarget &target, const MakePages &make, con
         }
     } audioStop{sys, audioOut};
     GameFonts fonts;
-    const bool haveFonts = !fonts.load(files);
+    const bool haveFonts = !fonts.load(files, game ? game->fonts : std::vector<GameFont>());
     ViewerContext ctx{
         sys, files, audioOut ? &mixer : nullptr, screen, target.savePath, haveFonts ? &fonts : nullptr, {}, -1, game};
 

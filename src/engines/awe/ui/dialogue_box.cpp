@@ -11,7 +11,8 @@ namespace reluva::awe {
 std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
                                                 const DialogueBoxPictures &pictures, int top, const std::string &text,
                                                 Color colour, const std::vector<std::string> &choices, int highlighted,
-                                                const std::vector<const image::Image *> &choicePictures, int wrap) {
+                                                const std::vector<const image::Image *> &choicePictures, int wrap,
+                                                const DialogueBoxLayout &layout) {
     std::vector<DialogueChoiceArea> areas;
     const int boxH = pictures.window && pictures.window->h > 0 ? pictures.window->h : 160;
     if (pictures.window && pictures.window->w > 0)
@@ -51,11 +52,16 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &f
         }
     }
     // The choices, one under another, each after its bullet.
-    const Color plain = fonts.colour("dialogue text when choosing", {255, 255, 130});
-    const Color lit = fonts.colour("highlighted dialogue text when choosing", {255, 255, 180});
-    constexpr int kLeft = 40;
-    int y = top + 25;
+    const bool own = layout.colours[0] != 0;
+    const Color plain =
+        own ? dialogueColour(layout.colours[0]) : fonts.colour("dialogue text when choosing", {255, 255, 130});
+    const Color lit = own ? dialogueColour(layout.colours[1])
+                          : fonts.colour("highlighted dialogue text when choosing", {255, 255, 180});
+    const int kLeft = layout.left;
+    int y = top + layout.first;
     for (size_t i = 0; i < choices.size(); i++) {
+        if (layout.below != 0 && y >= layout.below)
+            break;
         const std::vector<std::string> lines = gameRows(font, style->pixels, choices[i], width);
         const bool on = int(i) == highlighted;
         const image::Image *bullet = on && pictures.bulletOn ? pictures.bulletOn : pictures.bullet;
@@ -70,6 +76,10 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &f
         y += 4;
     }
     return areas;
+}
+
+Color dialogueColour(uint32_t argb) {
+    return {uint8_t(argb >> 16), uint8_t(argb >> 8), uint8_t(argb)};
 }
 
 } // namespace reluva::awe

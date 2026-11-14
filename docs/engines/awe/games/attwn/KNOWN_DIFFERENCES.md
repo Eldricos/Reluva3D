@@ -18,9 +18,10 @@ The whole game: nothing of it is played yet ([PLAN.md](PLAN.md)).
 In the dialogue manager, read but not followed yet
 ([systems/dialogue.md](systems/dialogue.md)):
 
-- **The box** is drawn as Orient Express's (its window, where the
-  choices go, `fonts.txt`'s colours), not with this game's three windows
-  and colours; that waits on the interface. Its heights are this game's.
+- **A character's and a place's tables** (`Dialogue/General`,
+  `Dialogue/Locations`) are loaded with the act's, not as the character
+  or place is met (`0x403154`, `0x4033f4`). A conversation is found by
+  its name and part either way.
 - **The codes** are Orient Express's (a thread's second character, numbers
   from 0x60), not `ac.exe`'s; the English tables come out the same.
 - **A menu's count**: `ac.exe` counts a thread that's offered but has no
