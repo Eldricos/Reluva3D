@@ -382,8 +382,9 @@ int cmdShaderCheck(int argc, char **argv) {
         for (const q3::ShaderStage &st : d.stages) {
             if (st.blendSrc == "gl_src_alpha_saturate")
                 add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
-            if (!st.videoMap.empty())
-                add("stage not drawn: videoMap (RoQ video)", d);
+            if (!st.videoMap.empty() &&
+                !set.has(st.videoMap.find('.') == std::string::npos ? st.videoMap + ".roq" : st.videoMap))
+                add("stage not drawn: videoMap, its video missing", d);
         }
     }
     std::printf("%zu shaders\n", shaders.size());

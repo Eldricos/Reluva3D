@@ -139,7 +139,7 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     auto c = std::make_unique<Cinematic>();
     Error err = _ctx.files.read("video/" + base + _ctx.game.cinematicExtension, data);
     if (!err)
-        err = c->movie.open(std::move(data));
+        err = c->movie.open(std::move(data), _ctx.game.cinematicExtension);
     if (err) {
         _lastCommand = "Cinematic " + base + ": " + err.message;
         _lastCommandMs = _nowMs;
@@ -158,10 +158,12 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     }
     // Its sound whole, to play alongside.
     std::vector<int16_t> sound;
-    if (!c->movie.decodeAllAudio(sound) && !sound.empty() && _ctx.mixer) {
+    int rate = 0;
+    int channels = 0;
+    if (!c->movie.decodeAllAudio(sound, rate, channels) && !sound.empty() && _ctx.mixer) {
         auto s = std::make_shared<audio::Sound>();
-        s->rate = c->movie.audioRate();
-        s->channels = c->movie.audioChannels();
+        s->rate = rate;
+        s->channels = channels;
         s->format = 1;
         s->samples = std::move(sound);
         c->sound = _ctx.mixer->play(s, audio::SoundType::kEffects, audio::kMaxVolume);

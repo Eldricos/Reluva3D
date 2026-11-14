@@ -22,6 +22,11 @@
 //           file, R to reset the view, I to show or hide the info.
 // Files:    Up/Down, PageUp/PageDown, Home/End scroll the search path's files.
 // Textures: Left/Right step, PageUp/PageDown jump 10, Home/End.
+// Text:     Raven's string packages (Jedi Outcast's) in the game's fonts:
+//           Left/Right pick a package, Up/Down and PageUp/PageDown scroll,
+//           L changes language, F font.
+// Videos:   every video (Bink, RoQ) played with its sound: Left/Right pick
+//           one, R plays it again.
 // Maps:     Left/Right pick a map; drag (or arrow keys with Shift) to rotate,
 //           wheel or +/- to zoom, W/A/S/D/Q/E to move, R to reset the view,
 //           P to show or hide patches, I to show or hide the info.
@@ -30,7 +35,9 @@
 #include "engines/idtech3/pages/file_viewer.h"
 #include "engines/idtech3/pages/map_viewer.h"
 #include "engines/idtech3/pages/model_viewer.h"
+#include "engines/idtech3/pages/text_viewer.h"
 #include "engines/idtech3/pages/texture_viewer.h"
+#include "engines/idtech3/pages/video_viewer.h"
 #include "engines/idtech3/pages/world_viewer.h"
 #include "engines/viewer.h"
 
@@ -54,6 +61,8 @@ protected:
         pages.push_back(std::make_unique<ModelViewer>(ctx));
         pages.push_back(std::make_unique<MapViewer>(ctx));
         pages.push_back(std::make_unique<TextureViewer>(ctx));
+        pages.push_back(std::make_unique<TextViewer>(ctx));
+        pages.push_back(std::make_unique<VideoViewer>(ctx));
         pages.push_back(std::make_unique<FileViewer>(ctx));
         for (size_t i = _firstTool; i < pages.size(); ++i)
             if (pages[i]->count() > 0) {

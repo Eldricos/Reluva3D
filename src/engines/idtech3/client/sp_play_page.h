@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/idtech3/cinematic.h"
 #include "common/developer.h"
 #include "engines/idtech3/client/page.h"
 #include "engines/idtech3/client/joystick_input.h"
@@ -14,8 +15,6 @@
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/audio/sound_system.h"
 #include "engines/idtech3/audio/sounds.h"
-
-#include "video/bink.h"
 
 #include <array>
 #include <chrono>
@@ -63,14 +62,14 @@ private:
     void sortSaves() const;
     std::vector<uint8_t> levelShot(const std::string &map) const;
     void runGameCommands();
-    // Cinematics (video/<name>.bik): full screen, the game ended first
+    // Cinematics (video/<name> in the game's movie format): full screen, the game ended first
     // ("cinematic", then the nextmap cvar's command) or paused under it
     // ("ingamecinematic"). Any typed key or a click skips one.
     void startCinematic(const std::string &name, bool inGame);
     void endCinematic();
     void runCinematic(uint64_t nowMs);
     struct Cinematic {
-        bink::Movie movie;
+        CinematicMovie movie;
         std::vector<uint8_t> rgba;
         uint64_t startMs = 0;
         bool inGame = false;

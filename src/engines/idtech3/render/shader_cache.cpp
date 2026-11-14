@@ -134,6 +134,10 @@ void ShaderCache::clear() {
         if (t)
             _r.destroyTexture(t);
     _missingTexture = _whiteTexture = 0;
+    for (const std::unique_ptr<Video> &v : _videos)
+        if (v->texture)
+            _r.destroyTexture(v->texture);
+    _videos.clear();
     _materials.clear();
     _byName.clear();
     _implicit.clear();
@@ -283,14 +287,34 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
                 m.portalRange = std::max(m.portalRange, s.portalRange);
     }
 
-    // A video's stage waits for RoQ videos; the rest of the shader is drawn.
-    // A surface sprites stage isn't drawn over the surface: the level's
-    // renderer scatters its sprites (WorldRenderer), and models have none.
+    // A video's stage shows its video (video/<name>.roq), or isn't drawn if
+    // there's no such video. A surface sprites stage isn't drawn over the
+    // surface: the level's renderer scatters its sprites (WorldRenderer),
+    // and models have none.
     for (const ShaderStage &s : def.stages) {
-        if (!s.videoMap.empty())
-            note("videoMap (RoQ video)");
-        else if (s.sprites.type == SurfaceSprites::Type::kNone)
+        if (s.sprites.type != SurfaceSprites::Type::kNone)
+            continue;
+        if (s.videoMap.empty()) {
             m.stages.push_back(makeStage(s, def));
+            continue;
+        }
+        auto video = std::make_unique<Video>();
+        std::string path = s.videoMap;
+        const size_t dot = path.find_last_of('.');
+        if (dot == std::string::npos || path.find('/', dot) != std::string::npos)
+            path += ".roq";
+        video->extension = path.substr(path.find_last_of('.'));
+        Error err = _files.read(path, video->file);
+        if (!err)
+            err = video->movie.open(video->file, video->extension);
+        if (err) {
+            note("videoMap: video missing or unreadable");
+            continue;
+        }
+        Stage st = makeStage(s, def);
+        st.video = int(_videos.size());
+        _videos.push_back(std::move(video));
+        m.stages.push_back(std::move(st));
     }
     if (m.stages.empty()) {
         m.skip = true;
@@ -353,6 +377,41 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
                 }
     }
     return m;
+}
+
+gfx::TextureId ShaderCache::videoTexture(int index, float time) const {
+    Video &v = *_videos[size_t(index)];
+    if (v.start < 0 || time < v.start)
+        v.start = time;
+    const auto due = int(
+        std::floor((time - v.start) * float(v.movie.rateNumerator()) / float(std::max(1u, v.movie.rateDenominator()))));
+    bool decoded = false;
+    while (v.movie.frameNumber() < due) {
+        bool more = false;
+        if (Error err = v.movie.nextFrame(more); err || !more) {
+            // Round again from its first frame.
+            if (err || v.movie.open(v.file, v.extension))
+                return v.texture;
+            v.start = time;
+            if (v.movie.nextFrame(more) || !more)
+                return v.texture;
+            decoded = true;
+            break;
+        }
+        decoded = true;
+    }
+    if (!decoded && v.texture)
+        return v.texture;
+    v.movie.toRgba(v.rgba);
+    gfx::TextureParams params;
+    params.mipmaps = false;
+    gfx::TextureId t = 0;
+    if (_r.createTexture(v.movie.width(), v.movie.height(), v.rgba.data(), params, t))
+        return v.texture;
+    if (v.texture)
+        _r.destroyTexture(v.texture);
+    v.texture = t;
+    return t;
 }
 
 int ShaderCache::material(const ShaderDef &def, Lighting lighting, bool sky) {
@@ -428,7 +487,9 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
         call.time = time;
         call.deforms = m.deforms;
         call.state = st.state;
-        if (st.lightmap)
+        if (st.video >= 0)
+            call.texture = videoTexture(st.video, time);
+        else if (st.lightmap)
             call.texture = lightmap ? lightmap : _whiteTexture;
         else if (st.fps > 0 && st.frames.size() > 1 && st.once)
             call.texture = st.frames[size_t(std::clamp(std::floor(time * st.fps), 0.0f, float(st.frames.size() - 1)))];

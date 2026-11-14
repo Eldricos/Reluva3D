@@ -4,6 +4,12 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
+- Fonts are laid out as the GPL Jedi Outcast renderer lays them out;
+  the Text page reads right, but it hasn't been compared with the
+  original's screens ([fonts.md](../../formats/fonts.md)).
+- `videoMap` textures play their video as the GPL source describes;
+  none has been seen drawn in a level yet (kejim_post's screens are deep
+  in it) ([shader.md](../../formats/shader.md)).
 - Ghoul2 models are posed as the GPL Jedi Outcast renderer poses them;
   they look right in the Models page, but haven't been compared with the
   original ([ghoul2.md](../../formats/ghoul2.md)).

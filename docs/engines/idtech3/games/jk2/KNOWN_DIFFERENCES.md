@@ -29,7 +29,8 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
   it starts, and weather ones don't show. Their fade distances don't
   lengthen with a narrower field of view yet
   ([shader.md](../../formats/shader.md), In Reluva).
-- **Video textures** (`videoMap`) aren't drawn yet (phase 4).
+- **Video textures** whose video the paks don't hold (9 of 13
+  `videoMap` stages) aren't drawn; the rest of their shaders is.
 
 Left for after the rest is done and tested (its phase 11):
 

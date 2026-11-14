@@ -18,13 +18,16 @@
   `jk2-models` (`model-check`, the MD3 models), `jk2-ghoul2`
   (`ghoul2-check`, every Ghoul2 mesh and skeleton), `jk2-images`
   (`image-check`, the images the maps' shaders name: 15 missing, as in
-  the paks). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  the paks), `jk2-videos` (`roq-decode`: the opening logos and the first
+  cinematic, 60 frames each, their pictures and sound). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
 
 The launcher's *Add Game...* and *Import Game...* with the real CD; how
-the maps look (`reluva-viewer`'s World page), against the original.
+the maps look (`reluva-viewer`'s World page), against the original; the
+videos' sound heard (the Videos page), and a video texture seen in
+kejim_post (Mon Mothma's screens).
 
 ## A playthrough by hand
 

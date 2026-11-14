@@ -155,10 +155,11 @@ have, as the GPL Jedi Outcast renderer reads and draws them:
 - **Drawn:** `oneshotAnimMap` (31) and `clampAnimMap` (1), animMaps
   whose frames play once and then hold the last, or are clamped as
   `clampMap`'s; surface sprites (`surfaceSprites` and its `ss*` options,
-  41 shaders; next section).
-- **Read, not drawn yet:** `videoMap` (13, a stage showing a RoQ video,
-  `video/<name>`; the stage is left out until RoQ is decoded, the rest of
-  its shader drawn).
+  41 shaders; next section); `videoMap` (13), a stage showing a RoQ video
+  (`video/<name>.roq`, [roq.md](../../../common/video/roq.md)) on a loop,
+  silent, from when it's first drawn. 9 of the 13 name videos the paks
+  don't hold; Reluva leaves those stages out and draws the rest of their
+  shaders. What the original shows for them hasn't been looked at.
 - **Read, nothing to draw:** `notc` (12) keeps the shader's textures from
   being compressed, which Reluva never does; `lightColor` (2) only the map
   compiler reads; `sun` (11, sky shaders) sets the direction light falls
