@@ -75,6 +75,84 @@ gfx::Wave readWave(const std::vector<std::string> &args, size_t i) {
 }
 
 // Returns false for a directive it doesn't know.
+// Raven's surface sprites (surfaceSprites and its ss* options), as the
+// original reads them: a value out of range leaves what was there; an
+// option before surfaceSprites changes values it then resets. False for
+// an option it doesn't know.
+bool applySurfaceSprites(SurfaceSprites &ss, const std::string &keyword, const std::vector<std::string> &args) {
+    using Type = SurfaceSprites::Type;
+    using Facing = SurfaceSprites::Facing;
+    auto has = [&](size_t i) { return args.size() > i; };
+    if (keyword == "surfacesprites") {
+        static const std::pair<const char *, Type> kTypes[] = {
+            {"vertical", Type::kVertical}, {"oriented", Type::kOriented}, {"effect", Type::kEffect}};
+        Type type = Type::kNone;
+        for (const auto &[name, t] : kTypes)
+            if (has(0) && lower(args[0]) == name)
+                type = t;
+        const float width = num(args, 1);
+        const float height = num(args, 2);
+        const float density = num(args, 3);
+        const float fadeDist = num(args, 4);
+        if (type == Type::kNone || !has(4) || width <= 0 || height <= 0 || density <= 0 || fadeDist < 32)
+            return true;
+        ss = SurfaceSprites{};
+        ss.type = type;
+        ss.width = width;
+        ss.height = height;
+        ss.density = density;
+        ss.fadeDist = fadeDist;
+        ss.fadeMax = fadeDist * 1.33f;
+        return true;
+    }
+    if (keyword == "ssfademax") {
+        if (has(0) && num(args, 0) > ss.fadeDist)
+            ss.fadeMax = num(args, 0);
+    } else if (keyword == "ssfadescale") {
+        if (has(0))
+            ss.fadeScale = num(args, 0);
+    } else if (keyword == "ssvariance") {
+        if (has(0) && num(args, 0) >= 0)
+            ss.variance[0] = num(args, 0);
+        if (has(1) && num(args, 1) >= 0)
+            ss.variance[1] = num(args, 1);
+    } else if (keyword == "sshangdown" || keyword == "ssanyangle" || keyword == "ssfaceup") {
+        // Only one of them counts.
+        if (ss.facing == Facing::kNormal)
+            ss.facing = keyword == "sshangdown" ? Facing::kDown : keyword == "ssanyangle" ? Facing::kAny : Facing::kUp;
+    } else if (keyword == "sswind") {
+        if (has(0) && num(args, 0) >= 0) {
+            ss.wind = num(args, 0);
+            if (ss.windIdle <= 0) // it usually sways as it blows
+                ss.windIdle = ss.wind;
+        }
+    } else if (keyword == "sswindidle") {
+        if (has(0) && num(args, 0) >= 0)
+            ss.windIdle = num(args, 0);
+    } else if (keyword == "ssvertskew") {
+        if (has(0) && num(args, 0) >= 0)
+            ss.vertSkew = num(args, 0);
+    } else if (keyword == "ssfxduration") {
+        if (has(0) && num(args, 0) > 0)
+            ss.fxDuration = num(args, 0);
+    } else if (keyword == "ssfxgrow") {
+        if (has(0) && num(args, 0) >= 0)
+            ss.fxGrow[0] = num(args, 0);
+        if (has(1) && num(args, 1) >= 0)
+            ss.fxGrow[1] = num(args, 1);
+    } else if (keyword == "ssfxalpharange") {
+        for (size_t i = 0; i < 2; ++i)
+            if (has(i) && num(args, i) >= 0 && num(args, i) <= 1)
+                (i == 0 ? ss.fxAlphaStart : ss.fxAlphaEnd) = num(args, i);
+    } else if (keyword == "ssfxweather") {
+        if (ss.type == Type::kEffect)
+            ss.type = Type::kWeather;
+    } else {
+        return false;
+    }
+    return true;
+}
+
 bool applyStageDirective(ShaderStage &stage, const Directive &d) {
     const std::vector<std::string> args = plainArgs(d);
     const std::string a0 = args.empty() ? std::string() : lower(args[0]);
@@ -97,6 +175,8 @@ bool applyStageDirective(ShaderStage &stage, const Directive &d) {
     } else if (d.keyword == "videomap") {
         if (!args.empty())
             stage.videoMap = args[0];
+    } else if (d.keyword == "surfacesprites" || d.keyword.rfind("ss", 0) == 0) {
+        return applySurfaceSprites(stage.sprites, d.keyword, args);
     } else if (d.keyword == "blendfunc") {
         // Shorthands, and the explicit two-factor form.
         if (a0 == "add") {
@@ -286,8 +366,13 @@ bool applyShaderDirective(ShaderDef &def, const Directive &d) {
         def.portal = true;
     } else if (d.keyword.rfind("qer_", 0) == 0 || d.keyword.rfind("q3map_", 0) == 0 || d.keyword == "light" ||
                d.keyword == "tesssize" || d.keyword == "entitymergable" || d.keyword == "fogonly" ||
-               d.keyword == "lightning" || d.keyword == "cloudparms") {
+               d.keyword == "lightning" || d.keyword == "cloudparms" || d.keyword == "lightcolor" ||
+               d.keyword == "notc" || d.keyword == "sun") {
         // For the editor and the map compiler, or nothing the renderer uses.
+        // Raven's: lightColor only the compiler reads; noTC keeps textures
+        // from being compressed, which Reluva never does; sun sets the light
+        // that falls on models in a level without a light grid, which none
+        // of Jedi Outcast's lacks (shader.md).
     } else {
         return false;
     }

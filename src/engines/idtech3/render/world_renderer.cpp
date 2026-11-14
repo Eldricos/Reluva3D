@@ -112,6 +112,8 @@ void WorldRenderer::clear() {
     _activeSlot = 0;
     _portals.clear();
     _sprites.clear();
+    _surfaceSprites.clear();
+    _spriteShaders.clear();
     for (gfx::MeshId m : {_mesh, _skyMesh})
         if (m)
             _r.destroyMesh(m);
@@ -322,6 +324,9 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                     for (int k = 0; k < 3; ++k)
                         out.push_back(base + uint32_t(bsp.indices[size_t(s.firstIndex + i + k)]));
             }
+            if (mi == 0 && !sky && out.size() > offset)
+                if (const ShaderDef *def = library.find(bsp.shaders[size_t(s.shader)].name))
+                    addSurfaceSprites(si, *def, s.fog, mat.sort, vertices, &out[offset], out.size() - offset);
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::kNone;
@@ -414,6 +419,8 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             _sorts.push_back(b.sort);
     for (const Sprite &sp : _sprites)
         _sorts.push_back(sp.sort);
+    for (float sort : _surfaceSprites.sorts())
+        _sorts.push_back(sort);
     std::sort(_sorts.begin(), _sorts.end());
     _sorts.erase(std::unique(_sorts.begin(), _sorts.end()), _sorts.end());
     return _r.createMesh(vertices, indices, _mesh);
@@ -525,6 +532,7 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
             drawFog(b.material, base, b.fog, time);
     }
     drawSprites(time, sortMin, sortMax);
+    drawSurfaceSprites(time, sortMin, sortMax);
 }
 
 int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
@@ -541,6 +549,8 @@ int WorldRenderer::leafAt(const std::array<float, 3> &p) const {
 
 void WorldRenderer::setView(int slot, const std::array<float, 3> &eye, const std::array<uint8_t, 32> &areaMask,
                             const gfx::Mat4 &viewProj) {
+    _slots[size_t(slot)].eye = eye;
+    _slots[size_t(slot)].eyeSet = true;
     // As the original's renderer: the leaves whose cluster the eye's can
     // see (the map's vis data) and whose area a closed door doesn't hide
     // (the area mask, a bit set for each hidden one), and their surfaces,
@@ -833,6 +843,69 @@ void WorldRenderer::drawSprites(float time, float sortMin, float sortMax) const 
         _shaders.draw(p.sprite->material, base, lm >= 0 ? _lightmaps[size_t(lm)] : 0, time);
         if (p.sprite->fog >= 0)
             drawFog(p.sprite->material, base, p.sprite->fog, time);
+    }
+    _r.destroyMesh(mesh);
+}
+
+// A sprite stage's material: the stage alone, its colour and alpha the
+// sprites' own, both sides drawn. Only a shader's second stage on can be
+// one, as the original draws them.
+void WorldRenderer::addSurfaceSprites(int surface, const ShaderDef &def, int fog, float sort,
+                                      const std::vector<gfx::Vertex> &vertices, const uint32_t *indices,
+                                      size_t indexCount) {
+    for (size_t i = 1; i < def.stages.size(); ++i) {
+        const ShaderStage &stage = def.stages[i];
+        if (stage.sprites.type == SurfaceSprites::Type::kNone)
+            continue;
+        ShaderDef &own = _spriteShaders.emplace_back();
+        own.name = def.name;
+        own.file = def.file;
+        own.cull = ShaderDef::Cull::kNone;
+        own.sort = sort;
+        own.noMipmaps = def.noMipmaps;
+        own.noPicmip = def.noPicmip;
+        ShaderStage &drawn = own.stages.emplace_back(stage);
+        drawn.sprites = SurfaceSprites{};
+        drawn.rgbGen = ShaderStage::RgbGen::kExactVertex;
+        drawn.alphaGen = ShaderStage::AlphaGen::kVertex;
+        drawn.tcGen = ShaderStage::TcGen::kDefault;
+        drawn.tcMods.clear();
+        const int material = _shaders.material(own, Lighting::kEffect);
+        const bool additive = stage.blendSrc == "gl_one" && stage.blendDst == "gl_one";
+        _surfaceSprites.add(surface, material, fog, sort, additive, stage.sprites, vertices, indices, indexCount);
+    }
+}
+
+void WorldRenderer::drawSurfaceSprites(float time, float sortMin, float sortMax) const {
+    const ViewSlot &slot = _slots[size_t(_activeSlot)];
+    if (_surfaceSprites.empty() || !_cameraSet || !slot.eyeSet)
+        return;
+    const ViewSlot *view = culled();
+    auto visible = [view](int surface) {
+        return !view ||
+               (size_t(surface) < view->visibleMark.size() && view->visibleMark[size_t(surface)] == view->visibleStamp);
+    };
+    std::array<float, 3> left = _camera[0];
+    if (_cameraMirrored)
+        for (float &c : left)
+            c = -c;
+    std::vector<gfx::Vertex> verts;
+    std::vector<uint32_t> idx;
+    std::vector<SurfaceSpriteSet::Part> parts;
+    _surfaceSprites.build(slot.eye, left, _camera[1], time * 1000, sortMin, sortMax, visible, verts, idx, parts);
+    if (parts.empty())
+        return;
+    gfx::MeshId mesh = 0;
+    if (_r.createMesh(verts, idx, mesh) || !mesh)
+        return;
+    for (const SurfaceSpriteSet::Part &p : parts) {
+        gfx::DrawCall base;
+        base.mesh = mesh;
+        base.firstIndex = p.firstIndex;
+        base.indexCount = p.indexCount;
+        _shaders.draw(p.material, base, 0, time);
+        if (p.fog >= 0)
+            drawFog(p.material, base, p.fog, time);
     }
     _r.destroyMesh(mesh);
 }
