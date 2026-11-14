@@ -361,3 +361,14 @@ corroborate the original `CubeQuality` resource selection. The original UI's
 label/default remain pending VM confirmation; native Automatic is a compatibility
 policy. Full/one-sided switching, pause audio, dialogs and exact whole-screen
 appearance remain comparison work.
+
+### Manual-pause lid presentation
+
+The owner confirmed cube-style selection works. The next
+[pause presentation stage](../../engines/boggle/pause-presentation.md) uses the
+installed closed-lid still during manual pause and restores the existing board
+on Resume. Twenty-four external wrapper checks distinguish explicit-pause lid
+calls from focus-only pause calls. This stage preserves existing clock/audio
+behavior and uses immediate settled views. Original pause animation timing,
+modal styling, audio and the lid state during round-end review remain comparison
+work; no full-fidelity pause claim is made.

@@ -25,7 +25,7 @@ public:
     bool active() const { return active_; }
     bool usesCubeMesh() const {return cubes_.active();}
     void draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1",const RoundResults* review=nullptr) const;
+              const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed=0x1997,std::string_view player="PLAYER 1",const RoundResults* review=nullptr,bool coverBoard=false) const;
     void drawTransition(Surface& screen,const Board& board,size_t frame,const image::Image& letters,
                         const image::Image& qu,uint32_t boardSeed) const;
     std::optional<size_t> cellAt(int x,int y,size_t side) const;

@@ -125,11 +125,13 @@ std::string feedback(Submission result, size_t minimum) {
 void draw(Surface& screen, const ClassicRound& round, uint64_t now,
           const image::Image& letters, const image::Image& qu, const Palette& palette,
           const std::string& input, const std::vector<size_t>& path, const std::string& message, size_t scroll, bool fromMenu,
-          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results,bool chess) {
+          const ClassicArtwork& artwork,uint64_t duration,uint32_t boardSeed,bool autoOrient,std::string_view player,const RoundResults& results,bool chess,bool coverBoard) {
     const bool reviewing = round.candidate() != nullptr;
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
-    if(artwork.active()) artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed,player,&results);
-    else {
+    if(artwork.active()) {
+        artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed,player,&results,coverBoard);
+        if(coverBoard)return; // paused controls are supplied by the Resume panel
+    } else {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
     const auto& accent = palette[1]; rect(screen, 24, 76, 752, 2, {accent.r, accent.g, accent.b});
@@ -757,16 +759,17 @@ Error ClassicGame::run() {
             artwork.drawTransition(screen,round().board(),frameIndex,letters,qu,seed);
             rect(screen,0,height-40,width,40,dark);
             label(screen,24,height-25,transition.type() == Transition::Opening ? "Rolling dice and opening the lid..." : "Closing the lid...");
-        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess);
+        } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual());
         if(background)liveScores(screen,names,rounds,competition);
         if(matchOpen)matchTable(screen,names,competition,chess,background);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message);
-        if(!handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
+        if(!gameplayClock.manual() && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
             rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});
             label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");
         }
         if(gameplayClock.manual() || !gameplayClock.focused()) {
-            rect(screen,0,0,width,height,dark);
+            if(!artwork.active() || !gameplayClock.focused())rect(screen,0,0,width,height,dark);
+            else rect(screen,230,240,340,150,dark);
             label(screen,260,280,gameplayClock.focused()?"Game paused":"Paused while window is inactive");
             if(gameplayClock.manual() && gameplayClock.focused()) {
                 rect(screen,resumeButton.x,resumeButton.y,resumeButton.w,resumeButton.h,{48,88,120});

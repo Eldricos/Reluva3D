@@ -215,8 +215,8 @@ void ClassicArtwork::drawTransition(Surface& screen,const Board& board,size_t fr
         }
 }
 void ClassicArtwork::draw(Surface& screen,const ClassicRound& round,uint64_t now,uint64_t duration,
-                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player,const RoundResults* review) const {
-    const bool boardVisible=round.phase()!=RoundPhase::Ready;
+                          const image::Image& letters,const image::Image& qu,const std::vector<size_t>& selected,size_t scroll,uint32_t boardSeed,std::string_view player,const RoundResults* review,bool coverBoard) const {
+    const bool boardVisible=round.phase()!=RoundPhase::Ready && !coverBoard;
     scaled(screen,boardVisible?open_:closed_,0,0,800,600);
     scaled(screen,names_,0,0,621,40);scaled(screen,words_,621,0,179,600);
     const Color white{245,245,255},black{12,12,20};

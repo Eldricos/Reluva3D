@@ -87,3 +87,9 @@ All 737 supplied installed files retain their recorded hashes. Only synthetic
 fixtures and checksum records are stored in Git. Windows testing remains pending.
 The synthetic Boggle suites also pass AddressSanitizer/UndefinedBehaviorSanitizer
 with leak detection disabled for the execution tracer.
+
+The subsequent [manual-pause presentation](pause-presentation.md) uses the installed
+closed-lid still during an explicit pause. Resume restores the same board and
+selection; inactivity and prototype views retain their full-screen cover.
+Pause-specific animation timing, original dialog styling and audio remain
+separate comparison work. Clock and input contracts above are unchanged.

@@ -168,6 +168,42 @@ void styleChoice(const std::filesystem::path& tmp) {
         CHECK(!art.open(resources,root,options,{}) && art.active() && !art.usesCubeMesh());
     }
 }
+void pausedCover(const std::filesystem::path& tmp) {
+    for(bool master:{false,true})for(int style=0;style<3;++style) {
+        const auto root=tmp/(std::to_string(master)+std::to_string(style));fixtures::artworkInstall(root);
+        if(style)fixtures::write(root/(style==1?"Scripts/Rounded.x":"Scripts/Die.x"),fixtures::cubeMesh(style==1?7.2:1));
+        Resources resources;CHECK(!resources.open(root));ClassicOptions options;options.variant=master?ClassicVariant::Master:ClassicVariant::Original;options.autoOrient=false;
+        ClassicArtwork art;CHECK(!art.open(resources,root,options,{}));
+        Dictionary dictionary;DiceSet dice;Board board;image::Image letters,qu;
+        CHECK(!resources.dictionary("Dicts/English.dic",dictionary));CHECK(!resources.diceSet(options.dice(),dice));CHECK(!Board::generate(dice,6551,board));
+        CHECK(!resources.image("Textures/Letters.bmp",letters));CHECK(!resources.image("Textures/LettersQu.bmp",qu));
+        ClassicRound round(dictionary);CHECK(!round.board(board));
+        Surface ready,playing,covered,resumed;ready.create(800,600,PixelFormat::RGBA32);playing=covered=resumed=ready;
+        art.draw(ready,round,0,180000,letters,qu,{},0,6551);CHECK(!round.start(0));
+        art.draw(playing,round,0,180000,letters,qu,{0},0,6551);
+        art.draw(covered,round,0,180000,letters,qu,{0},0,6551,"PLAYER 1",nullptr,true);
+        CHECK(covered.pixels==ready.pixels && covered.pixels!=playing.pixels);
+        art.draw(resumed,round,0,180000,letters,qu,{0},0,6551);CHECK(resumed.pixels==playing.pixels);
+        CHECK(round.phase()==RoundPhase::Playing && round.board().faces()==board.faces());
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(style));
+        target.settings={{"classic_seed","6551"},{"classic_variant",master?"master":"original"},{"classic_auto_orient","0"},{"classic_animations","0"},{"classic_sound","0"}};
+        fixtures::ScriptedSystem sys;std::array<uint8_t,4> before{},paused{},after{};
+        sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1)return {textEvent("AAAA")};
+            if(f==2)return {mouseEvent(EventType::MouseDown,700,570)};
+            if(f==4)return {mouseEvent(EventType::MouseDown,400,360)};
+            if(f==5)return {keyEvent(key::Return)};
+            if(f==6)return {keyEvent(key::F1)};
+            if(f==7)return {keyEvent(key::Escape)};
+            return {};
+        };
+        sys.present=[&](const Surface& frame,size_t f){auto* pixel=frame.row(440)+200*4;if(f==1)std::copy_n(pixel,4,before.begin());if(f==2)std::copy_n(pixel,4,paused.begin());if(f==5)std::copy_n(pixel,4,after.begin());};
+        ClassicGame game(sys,target);CHECK(!game.run());CHECK(before==after && before!=paused);
+        CHECK(std::equal(paused.begin(),paused.end(),covered.row(440)+200*4));
+        HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
+    }
+}
 void layout(const std::filesystem::path& tmp) {
     for(bool master:{false,true})for(bool rounded:{false,true}) {
         const auto root=tmp/(std::to_string(master)+std::to_string(rounded));fixtures::artworkInstall(root);
@@ -213,5 +249,6 @@ static const test::Suite suite("boggle.unit.cube_renderer",{
     {"physical die faces, rigid poses, side lettering and rotated picking",[](const auto&){physicalDice();}},
     {"rounded side bitmap mirror differs from angular template",[](const auto&){sideTexture();}},
     {"explicit styles, missing assets, ignored alternatives and mouse scoring",styleChoice},
+    {"manual pause covers installed boards and resumes their existing pose",pausedCover},
     {"both meshes and variants, lid masks, word entry, scoring and opt-out",layout},
 });

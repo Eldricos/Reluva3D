@@ -39,6 +39,10 @@ on selection or in-game. Use Menu / F3 in-game or Launcher / L on selection. See
 [frontend scope and controls](frontend.md). Disable **Game selection menu** in
 launcher options to use the previous direct Ready screen.
 
+Click **Pause** during a round and **Resume** to continue. Installed artwork now
+shows the closed lid while manually paused; switching away still covers the
+whole screen. See [pause presentation and scope](pause-presentation.md).
+
 During play, type a word and press Enter to submit. Alternatively,
 click or drag through touching cubes, then press Enter or click the word list. Backspace undoes input;
 right click clears it. F1 ends a round, Enter replays the same board, F2 creates
