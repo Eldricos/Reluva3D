@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The data viewer's Models page: every .md3 and .mdr in the game drawn on the GPU
-// with its shaders, players put together from their three parts.
+// The data viewer's Models page: every .md3, .mdr and Ghoul2 .glm in the game
+// drawn on the GPU with its shaders, players put together from their three
+// parts, Ghoul2 models with their skeleton's animations.
 
 #include "engines/idtech3/pages/model_viewer.h"
 
@@ -46,6 +47,10 @@ ModelViewer::ModelViewer(PageContext &ctx) : Page(ctx) {
         return names.count(dir + "/" + part + ".md3") || names.count(dir + "/" + part + ".mdr");
     };
     for (const std::string &n : names) {
+        if (endsWith(n, ".glm")) {
+            _entries.push_back({n, false});
+            continue;
+        }
         if (!endsWith(n, ".md3") && !endsWith(n, ".mdr"))
             continue;
         // Lower-detail copies of a model.
@@ -147,6 +152,20 @@ void ModelViewer::show(int index) {
             return;
         }
         parts = {&_models->model(_model)};
+        // A Ghoul2 model: its folder's default skin, and the animations
+        // beside its skeleton, each played on the whole of it.
+        if (const GlmModel *glm = _models->ghoul2(_model)) {
+            const std::string skin = folderOf(e.name) + "/model_default.skin";
+            if (_ctx.files.has(skin))
+                _skins[0] = &_models->skin(skin);
+            std::vector<uint8_t> cfg;
+            if (!_ctx.files.read(folderOf(glm->animName) + "/animation.cfg", cfg))
+                _anims = parseGhoul2AnimationConfig(std::string(cfg.begin(), cfg.end()));
+            _legsAnim = _torsoAnim = 0;
+            for (size_t i = 0; i < _anims.size(); ++i)
+                if (_anims[i].name == "BOTH_STAND1")
+                    _legsAnim = _torsoAnim = int(i);
+        }
     }
 
     // Frame the first frame's bounds (a player stands about 60 units
@@ -264,6 +283,14 @@ void ModelViewer::handleEvent(const Event &ev) {
 }
 
 void ModelViewer::nextAnimation(int step) {
+    // A Ghoul2 model's: each in turn on the whole skeleton.
+    if (_model >= 0) {
+        const int n = int(_anims.size());
+        _legsAnim = _torsoAnim = ((_torsoAnim + step) % n + n) % n;
+        _animTime = 0;
+        _animate = true;
+        return;
+    }
     // Through every animation: one for the whole body plays on both
     // halves; a torso or legs one on its half, the other going back to
     // standing or idling if it was playing one for the whole body.
@@ -320,9 +347,19 @@ void ModelViewer::update(uint64_t nowMs) {
     const PointLight light = LightGrid{}.sample({0, 0, 0});
     std::string frames;
     if (_model >= 0) {
-        _models->draw(_model, frame, gfx::identity(), light, time);
         const int n = int(_models->model(_model).frames.size());
-        frames = "frame " + std::to_string(((frame % n) + n) % n + 1) + "/" + std::to_string(n);
+        int shown = ((frame % n) + n) % n;
+        int next = shown;
+        float lerp = 0;
+        if (!_anims.empty()) {
+            const PlayerAnimation &a = _anims[size_t(_torsoAnim)];
+            a.frameAt(_animate ? _animTime : float(_frame) / a.fps, shown, next, lerp);
+            shown = std::clamp(shown, 0, n - 1);
+            next = std::clamp(next, 0, n - 1);
+        }
+        _models->draw(_model, next, gfx::identity(), light, time, _skins[0], 0, 1e9f, {}, nullptr, shown, 1 - lerp);
+        frames = "frame " + std::to_string(shown + 1) + "/" + std::to_string(n) +
+                 (_anims.empty() ? std::string() : "; " + _anims[size_t(_torsoAnim)].name + " ([ ]: animation)");
     } else if (_lower >= 0) {
         // Legs at the origin, the torso on the legs' tag_torso, the head
         // on the torso's tag_head.

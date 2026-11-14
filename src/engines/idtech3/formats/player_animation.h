@@ -20,6 +20,7 @@ struct PlayerAnimation {
     int count = 1;
     int loop = 0; // the last this many frames repeat once played through; 0: it stops on its last
     float fps = 10;
+    bool backwards = false; // played from its last frame to its first (Raven's, a negative speed)
 
     // The frame `seconds` into the animation, as a whole frame and the
     // fraction of the way to the next.
@@ -32,5 +33,11 @@ struct PlayerAnimation {
 // comes from its name; the legs' animations are moved back by the gap
 // between the first torso and the first legs animation.
 std::vector<PlayerAnimation> parseAnimationConfig(std::string_view text);
+
+// The same from a Ghoul2 skeleton's animation.cfg (Jedi Outcast's): lines
+// of name, first frame, count, looping (-1: it stops on its last, else
+// the whole of it repeats) and frames per second (negative: backwards),
+// in the skeleton's own frames.
+std::vector<PlayerAnimation> parseGhoul2AnimationConfig(std::string_view text);
 
 } // namespace reluva::idtech3

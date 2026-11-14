@@ -36,7 +36,7 @@ the cabinets beside it hold only the installer's own files.
 | File system | Elite Force's: `base`'s loose files over its paks |
 | Shader scripts | Read from `shaders/` (1187 in 1.02a); its 18 directives of its own all read: `oneshotAnimMap`, `clampAnimMap` and surface sprites drawn (the grass and ferns on Yavin's levels), `videoMap` waiting for RoQ, the rest with nothing to draw ([shader.md](../../formats/shader.md)) |
 | Maps | All 41 read (Raven's RBSP: light styles, shared light grid points, the level's fog) and drawn in `reluva-viewer`'s World and Maps pages, every light style full until the game's code sets them ([rbsp.md](../../formats/rbsp.md)) |
-| Models | Its MD3 models read (276) and placed by the maps' entities; Ghoul2 not yet |
+| Models | Its MD3 models (276) placed by the maps' entities; its Ghoul2 meshes (71) and skeletons (21) read, posed on the CPU, skinned and animated in `reluva-viewer`'s Models page ([ghoul2.md](../../formats/ghoul2.md)) |
 | Game code, menus, sound, cinematics | Not yet |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
@@ -50,8 +50,8 @@ the install's folder or `GameData`, and copies what Reluva needs into its
 library.
 
 It can't be played yet: `reluva` says so. `reluva-viewer` shows its maps
-(World, Maps), its MD3 models, textures and files; Ghoul2 models come in
-phase 3 of the [plan](PLAN.md).
+(World, Maps), its models (MD3 and Ghoul2, animating), textures and
+files; what comes next is in the [plan](PLAN.md).
 
 ## This folder
 
