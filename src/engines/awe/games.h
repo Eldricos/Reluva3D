@@ -258,6 +258,11 @@ struct GameSaves {
     SaveLayout layout;
     const char *extension = ".ac2"; ///< slot<n> and this, a slot<n>.bmp beside each
     SlotLayout screen;              ///< how the save and load screens draw them
+    /**
+     * The save "savelast" writes (with the extension) and the condition
+     * "lastgame" asks is there; null: neither word.
+     */
+    const char *last = nullptr;
 };
 
 /** A font a game sets up in its code, not from text/fonts.txt. */

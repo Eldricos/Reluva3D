@@ -248,7 +248,7 @@ void makeAttwnInstall(const std::filesystem::path &dir) {
     putFile(dir / "Locations" / "Mainmenu" / "Base" / "menu.tga", picture(400, 300, {200, 160, 60}));
     putFile(dir / "Locations" / "Test" / "Base" / "test01.ac1",
             sceneAc1("Locations\\Test\\Base\\test01.ac1", "locations\\test\\base\\one.tga", "door",
-                     "tag opened 1, scene test02 1 0"));
+                     "tag opened 1, savelast, scene test02 1 0"));
     putFile(dir / "Locations" / "Test" / "Base" / "test02.ac1",
             sceneAc1("Locations\\Test\\Base\\test02.ac1", "locations\\test\\base\\two.tga", "", ""));
     putFile(dir / "Locations" / "Test" / "Base" / "one.tga", picture(400, 300, {60, 160, 200}));

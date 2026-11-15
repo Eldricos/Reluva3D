@@ -659,7 +659,10 @@ void ScenePage::newGame() {
     _state.canTalk = std::move(canTalk);
     _state.onTest = std::move(onTest);
     _state.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
-    _dialogue->drop();           // before its tables are read again
+    if (_ctx.game && _ctx.game->saves.last)
+        _state.values["lastgame"] =
+            std::filesystem::exists(savesFolder() / (std::string(_ctx.game->saves.last) + saveExtension()));
+    _dialogue->drop(); // before its tables are read again
     _dialogueAct = "-";
     _positions.clear();
     _scriptLog.clear();
@@ -3558,6 +3561,10 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     if (v == "accumulation" || v == "test") {
         // Snow gathering on the character set to (+0x14dc), and a
         // leftover of the earlier games (0x40c650): nothing to see here.
+        return false;
+    }
+    if (v == "savelast") {
+        saveLast();
         return false;
     }
     if (v == "savepos") {

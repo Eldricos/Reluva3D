@@ -67,6 +67,10 @@ The runner tells a verb by its first word, compared ignoring case
 
 None of these is in `motoe.exe` (its `test` does nothing).
 
+- **`savelast`**, a verb (`0x40cdf9`), and **`lastgame`**, a condition
+  (`0x40a56d`): the game saved as `Saved Games\last.ac1`, and whether
+  it's there ([saves.md](saves.md#the-files)). Neither is used.
+
 ### The machines
 
 A tag "set" is one the store has (not -99). Each machine is a scene

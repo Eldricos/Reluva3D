@@ -15,9 +15,15 @@ in `Interface/Scenes`.
 ### The files
 
 `Saved Games\slot<N>.ac1` with a `slot<N>.bmp` beside it (`0x41e917`,
-`0x41ebb4`); `Saved Games\last.ac1` (`0x413711`), what it's for not read
-yet; and `Saved Games\<name>.ac1` for a name the code gives (the writer
-takes one: `0x412e9f`). The install has none.
+`0x41ebb4`); `Saved Games\quick.ac1`, F2's, loaded by F3 (`0x4170d8`,
+`0x4170ea`); and `Saved Games\last.ac1`. The install has none.
+
+`last.ac1` is written by the verb `savelast` (`0x40cdf9`), as F2's save
+is (`0x412e60`) but with nothing shown; the condition `lastgame`
+(`0x40a56d`) holds while it's there (`0x413700`: in `Saved Games`, or in
+the shared documents folder). Nothing loads it, and the load screen
+passes over a save whose description is `last` (`0x40564c`). No script
+of the install uses either word: it's left from something not finished.
 
 ### The records
 
@@ -85,8 +91,9 @@ it's loaded. `GameFlow` has the menus' scene names, the main menu's
 place and whether the letter keys open menus.
 
 The items' states are mapped to and from this game's
-([inventory.md](inventory.md#in-a-saved-game)). Not yet: `last.ac1`,
-and the threads coded as this game's.
+([inventory.md](inventory.md#in-a-saved-game)). `GameSaves::last` names
+the save `savelast` writes and `lastgame` asks of; the scene page keeps
+whether it's there. Not yet: the threads coded as this game's.
 
 ## Sources and checks
 

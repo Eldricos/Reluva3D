@@ -22,8 +22,9 @@ stand-ins for `ac.exe` and `granny2.dll`, its text scrambled as `.act`,
 `Chapter01` of one act, the main menu with its `reset` and New Game, and
 two `.ac1` scenes of a place's `Base` folder. It finds the game as the
 launcher does, then plays it, in the engine and in the data viewer: New
-Game, act 1A's first scene, a click that sets a tag and goes on, a quick
-save (`quick.ac1`, read back in this game's layout). Its lines in
+Game, act 1A's first scene, a click that sets a tag, says `savelast`
+and goes on, a quick save (`last.ac1` and `quick.ac1`, read back in this
+game's layout). Its lines in
 `tests/engines/awe/data/engine-record.txt` start `attwn.`.
 
 ### The game-files test: with your own copy of the game

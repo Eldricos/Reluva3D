@@ -221,6 +221,10 @@ void testScriptWords() {
     for (int i = 0; i < 8 && !r2.idle(); i++)
         r2.update(0.1f);
     CHECK(!other.tags.count("02a_neededcounter") && host.started.size() == 1 && host.started[0] == "inc needed 02a");
+    // lastgame: whether the last save is there, as the scene page keeps it.
+    CHECK(!testCondition("lastgame", state));
+    state.values["lastgame"] = 1;
+    CHECK(testCondition("lastgame", state) && !testCondition("!lastgame", state));
 }
 
 void testMachines() {

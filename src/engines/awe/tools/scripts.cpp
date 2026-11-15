@@ -33,18 +33,18 @@ const std::set<std::string> kVerbs = {
     "fadea", "globalhide", "globalshow", "hide", "hideshadow", "interface", "juncture", "leavebox", "letterbox",
     "light", "load", "preload", "lock", "look", "loop", "mainloop", "menu", "movie", "musica", "nobox", "pause", "play",
     "playa", "previous", "quit", "remove", "removetag", "removestate", "reset", "restore", "resume", "rotate",
-    "rotatea", "run", "runa", "savepos", "savescene", "scene", "gotoscene", "setchar", "show", "showshadow", "sound",
-    "sounda", "startpass", "endpass", "startprint", "endprint", "stop", "tag", "take", "talk", "talka", "terminate",
-    "test", "texture", "lasttexture", "time", "timer", "turn", "turna", "unlock", "update", "updatemusic", "use",
-    "wait", "walk", "walka", "wear", "weather", "web", "yesno", "head", "nogen", "forcegen", "nogreet",
+    "rotatea", "run", "runa", "savelast", "savepos", "savescene", "scene", "gotoscene", "setchar", "show", "showshadow",
+    "sound", "sounda", "startpass", "endpass", "startprint", "endprint", "stop", "tag", "take", "talk", "talka",
+    "terminate", "test", "texture", "lasttexture", "time", "timer", "turn", "turna", "unlock", "update", "updatemusic",
+    "use", "wait", "walk", "walka", "wear", "weather", "web", "yesno", "head", "nogen", "forcegen", "nogreet",
     // expanded or read as they're added (0x409024)
     "dooropen", "doorlocked", "script"};
 
 // The words the game's condition evaluator knows (0x407cb0).
 const std::set<std::string> kConditionWords = {
-    "0",    "1",    "act",       "action",   "beenthere", "beenhere", "cantalk", "chapter", "debug",
-    "demo", "has",  "lastscene", "location", "master",    "moving",   "rand",    "scene",   "tag",
-    "talk", "test", "time",      "timer",    "use",       "used",     "wearing", "weather"};
+    "0",    "1",    "act",      "action",    "beenthere", "beenhere", "cantalk", "chapter", "debug",
+    "demo", "has",  "lastgame", "lastscene", "location",  "master",   "moving",  "rand",    "scene",
+    "tag",  "talk", "test",     "time",      "timer",     "use",      "used",    "wearing", "weather"};
 
 struct Usage {
     size_t count = 0;

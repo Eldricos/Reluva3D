@@ -324,6 +324,15 @@ bool ScenePage::quickSave() {
     return true;
 }
 
+void ScenePage::saveLast() {
+    // "savelast" (ac.exe 0x40cdf9): saved as F2 saves (0x412e60), with
+    // nothing shown; "lastgame" holds from then on.
+    if (_ctx.game && _ctx.game->saves.last &&
+        writeAll(savesFolder() / (std::string(_ctx.game->saves.last) + saveExtension()),
+                 writeSaveGame(captureSave(""), saveLayout())))
+        _state.values["lastgame"] = 1;
+}
+
 void ScenePage::drawMessage() {
     // 0x415511: the placard centred, its foot at y 766, the text in the
     // middle of it 2 pixels down, in the "location descriptions" font and

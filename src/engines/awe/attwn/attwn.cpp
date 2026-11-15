@@ -151,7 +151,10 @@ const GameInfo &game() {
                              .other = 0xff808080,
                              .glowSave = "interface/scenes/cutouts/glow.tga",
                              .glowLoad = "interface/scenes/cutouts/glow.tga",
-                             .empty = "EMPTY"}},
+                             .empty = "EMPTY"},
+                  // Written by "savelast" (0x40cdf9), asked of by
+                  // "lastgame" (0x40a56d); nothing loads it.
+                  .last = "last"},
         // Its start (0x40279b), its chapters, its scenes by place and act
         // (0x403310, 0x4035d0), and its act's music when a scene has none
         // (0x42d742).

@@ -402,6 +402,7 @@ private:
     // thumbnail), F2 quick save, F3 quick load. False if it isn't one.
     bool gameKey(uint32_t key);
     bool quickSave();
+    void saveLast();
     // The screen's message (0x4168c0): "Save Game" on the placard for 1.5
     // s after F2, put away early by a click or a key; and the caret's
     // blink, on and off every 0.33 s (0x414400).

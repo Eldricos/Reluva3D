@@ -157,6 +157,9 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = within(state.lastScene, arg(1));
     } else if (word == "location") {
         result = within(state.location, arg(1));
+    } else if (word == "lastgame") {
+        // A game's last save is there (GameSaves::last); kept by the page.
+        result = valueOf(state, "lastgame") != 0;
     } else if (word == "master") {
         result = valueOf(state, "master") != 0;
     } else if (word == "moving" || word == "time" || word == "weather") {
