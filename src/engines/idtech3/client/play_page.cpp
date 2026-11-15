@@ -269,7 +269,10 @@ Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstri
             sendServerCommands();
         _loadingFailed = false;
         _cgame->updateScreen = [this] { drawLoadingScreen(); };
-        err = _cgame->init(0, serverMessage, commandSequence);
+        // The player's number where the server's game state gives it
+        // (Jedi Outcast's); Elite Force's client game finds it itself.
+        const int32_t clientNum = _client && _client->clientNum() >= 0 ? _client->clientNum() : 0;
+        err = _cgame->init(clientNum, serverMessage, commandSequence);
         _cgame->updateScreen = nullptr;
     }
     return err;
@@ -518,21 +521,22 @@ std::string PlayPage::userinfo() const {
 
 void PlayPage::startHosting() {
     // Others can join over the network: on the original's port (or the
-    // next of its four, if taken), only with patch 1.2's game code,
-    // whose layouts the protocol carries.
-    if (_game->layout().version != 12) {
+    // next of its four, if taken); for Elite Force only with patch 1.2's
+    // game code, whose layouts the protocol carries.
+    if (_ctx.game.code == GameCode::kEliteForce && _game->layout().version != 12) {
         addPrint("Not open to other players: network play needs Elite Force's patch 1.2 (pak1-pak3.pk3)\n", false);
         return;
     }
     std::unique_ptr<net::UdpSocket> socket;
     for (int p = 0; p < ServerBrowser::kServerPorts && !socket; ++p)
-        if (_ctx.sys.openUdp(uint16_t(ServerBrowser::kServerPort + p), socket))
+        if (_ctx.sys.openUdp(uint16_t(_ctx.game.serverPort + p), socket))
             socket.reset();
     if (!socket) {
         addPrint("Not open to other players: no network\n", false);
         return;
     }
-    _server = std::make_unique<eliteforce::NetServer>(*_game, _cvars, std::move(socket));
+    _server = std::make_unique<eliteforce::NetServer>(*_game, _cvars, std::move(socket),
+                                                      eliteforce::netProtocol(_ctx.game.code));
     _server->print = [this](const std::string &text) { addPrint(text, false); };
     _server->resolveHost = [this](const std::string &host, uint32_t &ip) { return _ctx.sys.resolveHost(host, ip); };
     _server->reserve(0);
@@ -544,7 +548,7 @@ void PlayPage::startHosting() {
 void PlayPage::connect(const std::string &address) {
     reset();
     setTitle("Connecting to " + address);
-    const auto [host, port] = net::splitHostPort(address, ServerBrowser::kServerPort);
+    const auto [host, port] = net::splitHostPort(address, _ctx.game.serverPort);
     uint32_t ip = 0;
     if (!_ctx.sys.resolveHost(host, ip)) {
         stop("Couldn't find " + host);
@@ -561,7 +565,8 @@ void PlayPage::connect(const std::string &address) {
     _joinStartMs = _ctx.sys.getMillis();
     _joinState = eliteforce::NetClient::State::kDisconnected;
     addPrint("Joining " + address + "\n", false);
-    _client = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport);
+    _client = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport,
+                                                      eliteforce::netProtocol(_ctx.game.code));
     _sentUserinfo = userinfo();
     _lastMs = 0;
 }

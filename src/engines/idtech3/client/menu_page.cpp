@@ -71,6 +71,8 @@ void MenuPage::start() {
         std::unique_ptr<net::UdpSocket> socket;
         if (!_ctx.sys.openUdp(0, socket) && socket) {
             _browser = std::make_unique<ServerBrowser>(std::move(socket));
+            _browser->serverPort = _ctx.game.serverPort;
+            _browser->masterPort = _ctx.game.masterPort;
             _browser->setBroadcasts(_ctx.sys.broadcastAddresses());
         }
     }

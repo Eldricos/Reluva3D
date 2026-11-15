@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_protocol.h"
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
 
@@ -44,7 +45,8 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
 // slots) in the game directly.
 class NetServer {
 public:
-    NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket);
+    NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket,
+              const NetProtocol &protocol = eliteForceProtocol());
     // Tells everyone connected that the server has gone.
     ~NetServer();
     NetServer(const NetServer &) = delete;
@@ -109,6 +111,10 @@ private:
         int32_t gamestateMessage = -1;
         uint64_t gamestateMs = 0;
         GameHost::UserCommand lastCommand;
+        // Keyed protocols: the challenge it connected with, and the text of
+        // its last command run, which key what it's sent.
+        int32_t challenge = 0;
+        std::string lastCommandText;
         bool begun = false; // put in the level (ClientBegin) since it last loaded
         // The rate (bytes a second; `unlimited` on the local network), the
         // last datagram sent, and those waiting for the rate.
@@ -145,6 +151,9 @@ private:
     Error clientCommand(Client &c, const std::string &text);
     void addReliable(Client &c, const std::string &text);
     void writeReliable(Client &c, wire::MessageWriter &w);
+    // A message to `c` begun: (keyed) the last command it sent that was
+    // run, then the commands it hasn't acknowledged.
+    wire::MessageWriter startMessage(Client &c);
     void sendGamestate(Client &c, uint64_t now);
     void sendSnapshot(Client &c, uint64_t now);
     void transmit(Client &c, const wire::MessageWriter &w);
@@ -153,6 +162,8 @@ private:
     void drop(Client &c, const std::string &reason, uint64_t now);
     void finalMessage(Client &c, const std::string &reason, uint64_t now);
     void noteServerId();
+    // A download block's message begun.
+    wire::MessageWriter downloadMessage(Client &c);
     void writeDummySnapshot(Client &c, wire::MessageWriter &w);
     void sendDownload(Client &c, uint64_t now);
     bool downloadAllowed(const std::string &name, std::string &why) const;
@@ -172,6 +183,7 @@ private:
     void applyUserinfo(Client &c);
     Client *clientFor(const reluva::net::Address &from, uint16_t qport);
 
+    const NetProtocol &_protocol;
     GameHost &_game;
     CvarStore &_cvars;
     std::unique_ptr<reluva::net::UdpSocket> _socket;

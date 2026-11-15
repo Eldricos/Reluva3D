@@ -12,8 +12,8 @@ namespace reluva::idtech3::wire {
 // docs/engines/idtech3/games/stvef/systems/network.md): each message goes out as
 // a datagram with its sequence number (and, from the client, its qport)
 // before it, in 1300-byte pieces if it's that long or longer, and
-// scrambled after its first 6 bytes; ones that come in out of order or
-// twice are dropped.
+// (Elite Force's) scrambled after its first 6 bytes; ones that come in out
+// of order or twice are dropped.
 class Netchan {
 public:
     static constexpr size_t kMaxPacket = 1400;
@@ -21,7 +21,9 @@ public:
     static constexpr size_t kMaxMessage = 16384;
 
     // `fromClient`: this end is the client's, whose datagrams carry the qport.
-    Netchan(bool fromClient, uint16_t qport) : _fromClient(fromClient), _qport(qport) {}
+    // `scramble`: Elite Force's; Jedi Outcast's protocol has none.
+    Netchan(bool fromClient, uint16_t qport, bool scramble = true)
+        : _fromClient(fromClient), _qport(qport), _scramble(scramble) {}
 
     // The datagrams that carry `message`.
     std::vector<std::vector<uint8_t>> transmit(const std::vector<uint8_t> &message);
@@ -45,6 +47,7 @@ public:
 private:
     bool _fromClient;
     uint16_t _qport;
+    bool _scramble;
     int32_t _outgoing = 1;
     int32_t _incoming = 0;
     int _dropped = 0;

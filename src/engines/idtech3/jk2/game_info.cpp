@@ -17,6 +17,9 @@ GameInfo gameInfo() {
     g.shaderDir = "shaders";
     // Its multiplayer menus run; the rest of its game code doesn't yet.
     g.code = GameCode::kJediOutcast;
+    // jk2mp.exe's (0x40acb6, the local search from it up; 0x40d975).
+    g.serverPort = 28070;
+    g.masterPort = 28060;
     g.multiplayerName = "Multiplayer";
     // The multiplayer engine's (default.cfg is single player's).
     g.defaultConfig = "mpdefault.cfg";

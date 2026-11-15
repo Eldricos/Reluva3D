@@ -43,8 +43,10 @@ In the multiplayer game:
 
 In the multiplayer menus:
 
-- **Join** doesn't join a server until the network protocol comes
-  (phase 6); Begin's local match plays.
+- **Network play** ([systems/network.md](systems/network.md)): a server
+  Reluva hosts doesn't announce itself to the masters, and the client
+  doesn't pass the server's level change (`svc_mapchange`) to its client
+  game.
 - **Effects** ([efx.md](../../formats/efx.md)): electricity is drawn
   without its taper and branches, and effects bolted to a model aren't
   played (1.02a's client game doesn't ask). The second triangle of a

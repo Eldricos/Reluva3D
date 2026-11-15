@@ -21,6 +21,9 @@
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
+#include "engines/idtech3/eliteforce/net_protocol.h"
+#include "engines/idtech3/jk2/net_fields.h"
+#include "engines/idtech3/wire/huffman.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/ui_host.h"
@@ -559,6 +562,132 @@ static void testNetMessages() {
     CHECK(reply[0].size() == 4 + 5 && client.process(reply[0], got) && got == std::vector<uint8_t>({9, 8, 7, 6, 5}));
 }
 
+static void testJk2Wire() {
+    namespace wire = reluva::idtech3::wire;
+    namespace jk2 = reluva::idtech3::jk2;
+    namespace ef = reluva::idtech3::eliteforce;
+    // The message code: every byte comes back from its code, no code is
+    // longer than 11 bits, and the most common byte (0) has a short one.
+    const wire::Huffman &code = jk2::messageHuffman();
+    size_t longest = 0;
+    for (int s = 0; s < 256; ++s) {
+        std::vector<uint8_t> bytes;
+        size_t bit = 0;
+        code.writeCode(uint8_t(s), bytes, bit);
+        longest = std::max(longest, bit);
+        size_t at = 0;
+        CHECK(code.readCode(bytes, at) == s && at == bit);
+        if (s == 0)
+            CHECK(bit <= 3);
+    }
+    CHECK(longest == 11);
+    // The connect packet's compression comes back, the marker and "connect "
+    // left as they are.
+    std::string text = "\xff\xff\xff\xff"
+                       "connect \"\\name\\Padawan\\protocol\\15\\challenge\\1234\"";
+    const std::vector<uint8_t> plain(text.begin(), text.end());
+    const std::vector<uint8_t> packed = wire::Huffman::compress(plain, 12);
+    CHECK(std::equal(plain.begin(), plain.begin() + 12, packed.begin()));
+    CHECK(wire::Huffman::decompress(packed, 12) == plain);
+    // Messages in the code: odd widths, strings (bytes above 127 become
+    // '.'), raw bytes, none aligned.
+    wire::MessageWriter w(&code);
+    w.bits(5, 3);
+    w.longValue(-123456);
+    w.string("caf\xe9 %");
+    w.bits(1023, 10);
+    const uint8_t raw[3] = {1, 200, 0};
+    w.data(raw, 3);
+    w.shortValue(-2);
+    wire::MessageReader r(w.bytes(), &code);
+    CHECK(r.bits(3) == 5 && r.longValue() == -123456 && r.string() == "caf. ." && r.bits(10) == 1023);
+    CHECK(r.data(3) == std::vector<uint8_t>({1, 200, 0}) && r.shortValue() == -2 && !r.overflowed());
+
+    // States: each field of the tables back as it went, the rest kept.
+    auto put = [](std::vector<uint8_t> &st, int32_t at, int32_t v) { std::memcpy(st.data() + at, &v, 4); };
+    auto putF = [&](std::vector<uint8_t> &st, int32_t at, float v) {
+        int32_t i;
+        std::memcpy(&i, &v, 4);
+        put(st, at, i);
+    };
+    std::vector<uint8_t> from(jk2::kNetEntityStateSize, 0);
+    put(from, 0, 42);
+    putF(from, 92, 100.5f);
+    std::vector<uint8_t> to = from;
+    putF(to, 92, 0);          // a float to zero
+    putF(to, 96, -300);       // a whole float
+    putF(to, 100, 12.75f);    // and not
+    put(to, 4, 3);            // eType, 8 bits
+    put(to, 212, -3);         // modelindex, signed 8
+    put(to, 240, 0x7fffffff); // forcePowersActive, 32
+    wire::MessageWriter we(&code);
+    jk2::writeEntityDelta(we, from, to, false);
+    jk2::writeEntityDelta(we, to, to, false); // unchanged: nothing
+    jk2::writeEntityRemoved(we, 42);
+    we.bits(1023, 10);
+    wire::MessageReader re(we.bytes(), &code);
+    std::vector<uint8_t> got;
+    CHECK(re.bits(10) == 42 && !jk2::readEntityDelta(re, 42, from, got) && got == to);
+    CHECK(re.bits(10) == 42 && jk2::readEntityDelta(re, 42, to, got));
+    CHECK(re.bits(10) == 1023 && !re.overflowed());
+
+    std::vector<uint8_t> ps(jk2::kNetPlayerStateSize, 0);
+    std::vector<uint8_t> ps2 = ps;
+    putF(ps2, 20, 1234.5f);           // origin x
+    put(ps2, 148, 17);                // weapon, 5 bits
+    put(ps2, 44, -200);               // weaponTime, signed 16
+    put(ps2, 216, -5);                // stats[0]
+    put(ps2, 408 + 4 * 15, 300);      // ammo[15]
+    put(ps2, 344 + 4 * 3, 123456789); // powerups[3], 32 bits
+    wire::MessageWriter wp(&code);
+    jk2::writePlayerDelta(wp, {}, ps2);
+    jk2::writePlayerDelta(wp, ps2, ps2);
+    wire::MessageReader rp(wp.bytes(), &code);
+    std::vector<uint8_t> gotPs;
+    jk2::readPlayerDelta(rp, ps, gotPs);
+    CHECK(gotPs == ps2);
+    jk2::readPlayerDelta(rp, ps2, gotPs);
+    CHECK(gotPs == ps2 && !rp.overflowed());
+
+    // Commands, keyed: back as they went; an unchanged one is two bits.
+    ef::GameHost::UserCommand a;
+    a.serverTime = 1000;
+    ef::GameHost::UserCommand b = a;
+    b.serverTime = 1050;
+    b.angles = {100, -2000, 5};
+    b.forward = 127;
+    b.right = -127;
+    b.buttons = 0x101;
+    b.weapon = 4;
+    b.forceSelect = 3;
+    b.inventorySelect = 2;
+    b.genericCommand = 9;
+    const int32_t key = 0x5a5a1234 ^ jk2::hashKey("print \"hello\"", 32);
+    wire::MessageWriter wc(&code);
+    jk2::writeUserCommand(wc, key, a, b);
+    jk2::writeUserCommand(wc, key, b, b);
+    wire::MessageReader rc(wc.bytes(), &code);
+    const ef::GameHost::UserCommand c = jk2::readUserCommand(rc, key, a);
+    CHECK(c.serverTime == 1050 && c.forward == 127 && c.right == -127 && c.buttons == 0x101 && c.weapon == 4 &&
+          c.forceSelect == 3 && c.inventorySelect == 2 && c.genericCommand == 9);
+    // The key's mask is a bit wider than a field: a 16-bit angle can come
+    // back with bit 16 set, as in the original (the same turn).
+    CHECK((c.angles[0] & 0xffff) == 100 && (c.angles[1] & 0xffff) == (-2000 & 0xffff) && (c.angles[2] & 0xffff) == 5);
+    CHECK(jk2::readUserCommand(rc, key, c).serverTime == 1050 && !rc.overflowed());
+    // The hash: each character, signed, weighted by its place.
+    CHECK(jk2::hashKey("", 32) == 0 && jk2::hashKey("a", 32) == (97 * 119 ^ ((97 * 119) >> 10)));
+
+    // The XOR undoes itself, and leaves the bytes before its start.
+    std::vector<uint8_t> msg(40);
+    for (size_t i = 0; i < msg.size(); ++i)
+        msg[i] = uint8_t(i * 7);
+    const std::vector<uint8_t> before = msg;
+    ef::xorMessage(msg, 4, 0x3c, "cs 5 \"\xff%\"");
+    CHECK(msg != before && std::equal(msg.begin(), msg.begin() + 4, before.begin()));
+    ef::xorMessage(msg, 4, 0x3c, "cs 5 \"\xff%\"");
+    CHECK(msg == before);
+}
+
 static void testNetDeltas() {
     using namespace reluva::idtech3::eliteforce;
     using reluva::idtech3::wire::MessageReader;
@@ -859,6 +988,7 @@ static const reluva::test::Suite
            {
                {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
                {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
+               {"jedi outcast wire", [](const std::filesystem::path &) { testJk2Wire(); }},
                {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
                {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
                {"server lists", [](const std::filesystem::path &tmp) { testServerLists(tmp / "lists"); }},

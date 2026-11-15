@@ -1,6 +1,6 @@
 # Elite Force: the Holomatch network protocol
 
-> **Status:** done · **Code:** `src/engines/idtech3/wire/`, `src/engines/idtech3/eliteforce/net_fields.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** the retail executable, both ways (October 2026) · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/wire/`, `src/engines/idtech3/eliteforce/net_fields.cpp`, `net_protocol.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** the retail executable, both ways (October 2026) · **Confidence:** confirmed unless marked
 
 ## Overview
 
@@ -870,6 +870,11 @@ Elite Force's structures. Differences from protocol 24:
 - Strings may carry bytes above 127.
 
 ## In Reluva
+
+The server and client are shared with Jedi Outcast, whose protocol 15 is
+Quake III 1.32's: a protocol description (`NetProtocol`,
+`net_protocol.cpp`) says what differs, and Elite Force's is protocol 24
+as this page gives it ([../../jk2/systems/network.md](../../jk2/systems/network.md)).
 
 ### Layout cross-check with Reluva
 

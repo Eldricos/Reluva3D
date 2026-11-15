@@ -25,6 +25,10 @@ What Reluva does that hasn't been checked against the running original.
   with the original's screens
   ([systems/syscalls.md](systems/syscalls.md)).
 
+- The network protocol beyond its tables and Huffman code (which are
+  jk2mp.exe's own): Reluva's server and client have only played each
+  other ([systems/network.md](systems/network.md)).
+
 ## Seen running, not traced in the code
 
 None yet.

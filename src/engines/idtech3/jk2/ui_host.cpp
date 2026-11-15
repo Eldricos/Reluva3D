@@ -152,8 +152,10 @@ Error UiHost::refresh(int32_t time) {
     if (!fullscreen && clientState.connState <= 1)
         if (Error err = call(kSetActiveMenu, {1}))
             return err;
-    if (browser)
+    if (browser) {
+        _servers.defaultPort = browser->serverPort;
         _servers.update(*browser);
+    }
     return call(kRefresh, {time});
 }
 
@@ -180,7 +182,7 @@ bool UiHost::browserCommand(const std::string &line) {
         for (const std::string &name : masterServerNames(_cvars, masterServers())) {
             if (master > 0 && _cvars.string("sv_master" + std::to_string(master + 1)) != name)
                 continue;
-            const auto [host, port] = net::splitHostPort(name, ServerBrowser::kMasterPort);
+            const auto [host, port] = net::splitHostPort(name, browser->masterPort);
             uint32_t ip = 0;
             if (resolveHost && resolveHost(host, ip))
                 masters.push_back({ip, port});
@@ -189,7 +191,7 @@ bool UiHost::browserCommand(const std::string &line) {
         return true;
     }
     if (verb == "ping" && words.size() >= 2) {
-        const auto [host, port] = net::splitHostPort(words.back(), ServerBrowser::kServerPort);
+        const auto [host, port] = net::splitHostPort(words.back(), browser->serverPort);
         uint32_t ip = 0;
         if (resolveHost && resolveHost(host, ip))
             browser->ping({ip, port}, now);
@@ -264,7 +266,7 @@ int32_t UiHost::serverListCall(Qvm &vm, int number, const int32_t *a) {
             return 0;
         }
         net::Address address;
-        if (!net::parseAddress(str(0), ServerBrowser::kServerPort, address) || !a[1])
+        if (!net::parseAddress(str(0), browser->serverPort, address) || !a[1])
             return 0;
         std::string text;
         if (browser->status(address, text)) {

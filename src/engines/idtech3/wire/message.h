@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "engines/idtech3/wire/huffman.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -16,8 +18,16 @@ namespace reluva::idtech3::wire {
 // Strings and raw bytes do: one that would start inside a byte starts
 // at the byte after the next (as the original's code moves on a byte and
 // then to the next boundary).
+//
+// Given a Huffman code (Jedi Outcast's protocol 15), a value's bits past
+// whole bytes go as they are, then each of its bytes as its code; strings
+// and raw bytes are bytes like any other, not aligned, and a string's
+// bytes above 127 become '.'.
 class MessageWriter {
 public:
+    MessageWriter() = default;
+    explicit MessageWriter(const Huffman *code) : _code(code) {}
+
     // `bits`: 1 to 32; a value's low `bits` bits are written.
     void bits(uint32_t value, int bits);
     void byte(uint32_t v) { bits(v, 8); }
@@ -36,6 +46,9 @@ public:
     size_t bitCount() const { return _bit; }
 
 private:
+    void rawBits(uint32_t value, int bits);
+
+    const Huffman *_code = nullptr;
     std::vector<uint8_t> _data;
     size_t _bit = 0;
 };
@@ -43,7 +56,8 @@ private:
 class MessageReader {
 public:
     MessageReader() = default;
-    explicit MessageReader(std::vector<uint8_t> bytes) : _data(std::move(bytes)) {}
+    explicit MessageReader(std::vector<uint8_t> bytes, const Huffman *code = nullptr)
+        : _code(code), _data(std::move(bytes)) {}
     MessageReader(const uint8_t *bytes, size_t count) : _data(bytes, bytes + count) {}
 
     // A value of `bits` bits (1 to 32); past the end, bits read as 0 and
@@ -69,6 +83,9 @@ public:
     const std::vector<uint8_t> &bytes() const { return _data; }
 
 private:
+    uint32_t rawBits(int bits);
+
+    const Huffman *_code = nullptr;
     std::vector<uint8_t> _data;
     size_t _bit = 0;
     bool _overflowed = false;

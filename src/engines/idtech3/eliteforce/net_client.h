@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/eliteforce/game_host.h"
+#include "engines/idtech3/eliteforce/net_protocol.h"
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
 
@@ -40,7 +41,7 @@ public:
     // `userinfo`: the player's settings (name, model...); the protocol,
     // qport and challenge are added.
     NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address &server, std::string userinfo,
-              uint16_t qport);
+              uint16_t qport, const NetProtocol &protocol = eliteForceProtocol());
     // Playing a recorded match instead (a .efdemo file, as the original's
     // client writes it: each message the server sent, after its sequence
     // number and length, ending with -1 -1). Nothing is sent; the
@@ -95,6 +96,9 @@ public:
     int32_t gamestateMessage() const { return _gamestateMessage; }
     // The number the server's pure check seeds pak checksums with.
     int32_t checksumFeed() const { return _checksumFeed; }
+    // The player's number, as Quake III's game state gives it (-1 where
+    // the protocol doesn't: Elite Force's).
+    int32_t clientNum() const { return _clientNum; }
     bool takeNewGamestate() {
         const bool got = _newGamestate;
         _newGamestate = false;
@@ -130,6 +134,7 @@ private:
     void sendPacket(uint64_t now);
     void adjustTime(int32_t snapshotTime, uint64_t now);
 
+    const NetProtocol &_protocol;
     std::unique_ptr<reluva::net::UdpSocket> _socket;
     reluva::net::Address _server;
     std::string _userinfo;
@@ -154,6 +159,10 @@ private:
     int32_t _gamestateSequence = 0;
     int32_t _gamestateMessage = 0;
     int32_t _checksumFeed = 0;
+    int32_t _clientNum = -1;
+    // The server's commands by sequence & 63, as the original keeps them:
+    // keyed protocols key what's sent with them.
+    std::array<std::string, 64> _commandRing;
     bool _newGamestate = false;
     std::vector<std::string> _serverCommands;
     std::string _bigConfigstring;       // one coming in pieces (bcs0, bcs1, bcs2)

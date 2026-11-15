@@ -29,6 +29,9 @@ public:
     static constexpr size_t kMaxOther = 128;   // local and favourite servers
     static constexpr size_t kMaxGlobal = 2048; // Internet servers
 
+    // The port of an address given without one (the game's servers').
+    uint16_t defaultPort = 27960;
+
     /** One server, as its last infoResponse described it. */
     struct Server {
         net::Address address;

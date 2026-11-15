@@ -23,7 +23,8 @@
   cinematic, 60 frames each, their pictures and sound), `jk2-game` (`game-run`: the
   game module on ffa_bespin, the player joining and running, then two
   bots, then the client game drawing the view and its effects as the
-  player fires), `jk2-menus`
+  player fires, then a player joining over the network in memory:
+  `net-run -loopback`), `jk2-menus`
   (`ui-run`: the multiplayer menus' main menu, Setup, and Create Server
   and Join Server by way of Play). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
@@ -37,7 +38,12 @@ kejim_post (Mon Mothma's screens); the multiplayer menus' music heard,
 and the other menus clicked through on the Menu page; a match from
 Create Server's Begin: the force menu on joining, Apply and join,
 walking, the saber and third person (`p`), bots added from the console
-(`addbot tavion`); Join Server's lists
+(`addbot tavion`); network play: a match the Play page hosts joined from
+another machine (or `reluva-tool idtech3 net-run <base> -join
+<address>`), and a server (`net-run <base> ffa_bespin 300 -set sv_pure
+0`) found and joined from Join Server; the message code against
+jk2mp.exe's own (`reluva-tool idtech3 huffman-check <jk2mp.exe>`, which
+needs an install: an import has no jk2mp.exe); Join Server's lists
 against real servers: the local network, the Internet (Get New List with
 Source: Internet), a favourite added and kept after restarting, and
 Server Info on one.

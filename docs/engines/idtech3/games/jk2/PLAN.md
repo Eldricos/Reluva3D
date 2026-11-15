@@ -135,8 +135,10 @@ behind the DLL's own tables.
    menu opens on joining, and the player plays in first or third person.
    Raven's effects run for the client game: blaster bolts, sparks, smoke,
    marks, lights and the saber's trail ([efx.md](../../formats/efx.md)).
-   Next: the network protocol, so Join Server joins a match; then light
-   styles, ROFF paths, capsule traces and Ghoul2's animation blending.
+   The network protocol (15) runs: Join Server joins a server, and others
+   can join a hosted match ([systems/network.md](systems/network.md)).
+   Next: light styles, ROFF paths, capsule traces and Ghoul2's animation
+   blending; then trying the network play against the retail game.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

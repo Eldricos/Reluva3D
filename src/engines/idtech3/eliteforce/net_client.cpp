@@ -5,6 +5,7 @@
 
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
+#include "engines/idtech3/jk2/net_fields.h"
 #include "engines/idtech3/info_string.h"
 
 #include <algorithm>
@@ -22,6 +23,7 @@ constexpr int32_t kSvcBaseline = 4;
 constexpr int32_t kSvcServerCommand = 5;
 constexpr int32_t kSvcDownload = 6;
 constexpr int32_t kSvcSnapshot = 7;
+constexpr int32_t kSvcMapChange = 8; // Jedi Outcast's: the level is about to change
 constexpr uint32_t kClcMove = 2;
 constexpr uint32_t kClcMoveNoDelta = 3;
 constexpr uint32_t kClcClientCommand = 4;
@@ -34,12 +36,14 @@ constexpr size_t kMaxPacketCommands = 32;
 } // namespace
 
 NetClient::NetClient(std::unique_ptr<reluva::net::UdpSocket> socket, const reluva::net::Address &server,
-                     std::string userinfo, uint16_t qport)
-    : _socket(std::move(socket)), _server(server), _userinfo(std::move(userinfo)), _qport(qport), _chan(true, qport) {
+                     std::string userinfo, uint16_t qport, const NetProtocol &protocol)
+    : _protocol(protocol), _socket(std::move(socket)), _server(server), _userinfo(std::move(userinfo)), _qport(qport),
+      _chan(true, qport, protocol.scramble) {
 }
 
 NetClient::NetClient(std::vector<uint8_t> demo)
-    : _qport(0), _state(State::kConnected), _chan(true, 0), _demo(true), _demoData(std::move(demo)) {
+    : _protocol(eliteForceProtocol()), _qport(0), _state(State::kConnected), _chan(true, 0), _demo(true),
+      _demoData(std::move(demo)) {
 }
 
 void NetClient::sendText(const std::string &text) {
@@ -69,7 +73,14 @@ void NetClient::frame(uint64_t now) {
             continue;
         _lastReceived = now;
         _incoming = _chan.incomingSequence();
-        wire::MessageReader r(std::move(message));
+        if (_protocol.keyed) {
+            // After its first word (read as it came), XORed by the
+            // challenge, its sequence and our command it acknowledges.
+            wire::MessageReader head = _protocol.reader(message);
+            const int32_t acknowledged = head.longValue();
+            xorMessage(message, 4, uint8_t(_challenge ^ _incoming), _reliable[size_t(acknowledged & 63)]);
+        }
+        wire::MessageReader r = _protocol.reader(std::move(message));
         parseMessage(r, now);
     }
     switch (_state) {
@@ -87,10 +98,18 @@ void NetClient::frame(uint64_t now) {
             _lastSent = now;
             ++_connectPackets;
             std::string info = _userinfo;
-            setInfoValue(info, "protocol", "24");
+            setInfoValue(info, "protocol", std::to_string(_protocol.version));
             setInfoValue(info, "qport", std::to_string(_qport));
             setInfoValue(info, "challenge", std::to_string(_challenge));
-            sendText("connect \"" + info + "\"");
+            const std::string text = "connect \"" + info + "\"";
+            if (_protocol.compressedConnect && _socket) {
+                // Compressed after "connect " (12 bytes with the marker).
+                std::vector<uint8_t> d(4, 0xff);
+                d.insert(d.end(), text.begin(), text.end());
+                _socket->send(_server, wire::Huffman::compress(d, 12));
+            } else {
+                sendText(text);
+            }
         }
         return;
     default:
@@ -173,7 +192,7 @@ void NetClient::outOfBand(const std::string &text, uint64_t now) {
         _connectPackets = 0;
     } else if (words[0] == "connectResponse" && _state == State::kChallenging) {
         _state = State::kConnected;
-        _chan = wire::Netchan(true, _qport);
+        _chan = wire::Netchan(true, _qport, _protocol.scramble);
         _lastSent = _lastPacket = 0;
         _lastReceived = now;
         _message.clear();
@@ -181,6 +200,12 @@ void NetClient::outOfBand(const std::string &text, uint64_t now) {
 }
 
 void NetClient::parseMessage(wire::MessageReader &r, uint64_t now) {
+    if (_protocol.keyed) {
+        // Keyed messages start with the last of our commands the server has.
+        const int32_t acknowledged = r.longValue();
+        if (acknowledged <= _reliableSequence && acknowledged > _reliableAcknowledge)
+            _reliableAcknowledge = acknowledged;
+    }
     while (!r.atEnd()) {
         const int32_t op = r.byte();
         if (op == kSvcServerCommand) {
@@ -194,10 +219,10 @@ void NetClient::parseMessage(wire::MessageReader &r, uint64_t now) {
             parseSnapshot(r, now);
         } else if (op == kSvcDownload) {
             parseDownload(r, now);
-        } else if (op == kSvcNop) {
+        } else if (op == kSvcNop || (_protocol.keyed && op == kSvcMapChange)) {
             continue;
         } else {
-            break; // the end (protocol 24 sends no end marker)
+            break; // the end marker, or (protocol 24) the end of the data
         }
         if (r.overflowed())
             break;
@@ -208,6 +233,7 @@ void NetClient::serverCommand(int32_t sequence, const std::string &text) {
     if (sequence <= _serverCommandSequence)
         return;
     _serverCommandSequence = sequence;
+    _commandRing[size_t(sequence & 63)] = text;
     if (_serverCommands.size() < size_t(sequence))
         _serverCommands.resize(size_t(sequence));
     _serverCommands[size_t(sequence - 1)] = text;
@@ -248,14 +274,16 @@ void NetClient::parseGamestate(wire::MessageReader &r) {
         } else if (op == kSvcBaseline) {
             const auto number = int32_t(r.bits(kEntityNumberBits));
             std::vector<uint8_t> state;
-            if (!readEntityDelta(r, number, {}, state))
+            if (!_protocol.readEntityDelta(r, number, {}, state))
                 _baselines[number] = std::move(state);
         } else {
-            break; // 0 ends the list
+            break; // the end marker (protocol 24: 0)
         }
         if (r.overflowed())
             break;
     }
+    if (_protocol.serverEnd >= 0)
+        _clientNum = r.longValue();
     _checksumFeed = r.longValue();
     _gamestateMessage = _incoming;
     _newGamestate = true;
@@ -268,9 +296,11 @@ void NetClient::parseGamestate(wire::MessageReader &r) {
 }
 
 void NetClient::parseSnapshot(wire::MessageReader &r, uint64_t now) {
-    const int32_t acknowledged = r.longValue();
-    if (acknowledged <= _reliableSequence && acknowledged > _reliableAcknowledge)
-        _reliableAcknowledge = acknowledged;
+    if (!_protocol.keyed) {
+        const int32_t acknowledged = r.longValue();
+        if (acknowledged <= _reliableSequence && acknowledged > _reliableAcknowledge)
+            _reliableAcknowledge = acknowledged;
+    }
     Snap snap;
     snap.message = _incoming;
     snap.serverTime = r.longValue();
@@ -291,7 +321,7 @@ void NetClient::parseSnapshot(wire::MessageReader &r, uint64_t now) {
             snap.valid = false; // read, then thrown away: the next is asked for whole
     }
     static const std::vector<uint8_t> kNone;
-    readPlayerDelta(r, old ? old->playerState : kNone, snap.playerState);
+    _protocol.readPlayerDelta(r, old ? old->playerState : kNone, snap.playerState);
     static const std::map<int32_t, std::vector<uint8_t>> kNoEntities;
     const auto &before = old ? old->entities : kNoEntities;
     auto o = before.begin();
@@ -305,11 +335,11 @@ void NetClient::parseSnapshot(wire::MessageReader &r, uint64_t now) {
         std::vector<uint8_t> state;
         bool removed;
         if (o != before.end() && o->first == number) {
-            removed = readEntityDelta(r, number, o->second, state);
+            removed = _protocol.readEntityDelta(r, number, o->second, state);
             ++o;
         } else {
             const auto base = _baselines.find(number);
-            removed = readEntityDelta(r, number, base != _baselines.end() ? base->second : kNone, state);
+            removed = _protocol.readEntityDelta(r, number, base != _baselines.end() ? base->second : kNone, state);
         }
         if (!removed)
             snap.entities[number] = std::move(state);
@@ -359,6 +389,8 @@ void NetClient::parseDownload(wire::MessageReader &r, uint64_t now) {
         if (_downloadSize < 0) {
             _state = State::kDisconnected;
             _message = "Couldn't download " + _downloadName + ": the server won't send it";
+            if (_protocol.downloadReason)
+                _message = r.string();
             _downloadName.clear();
             return;
         }
@@ -453,9 +485,10 @@ void NetClient::sendPacket(uint64_t now) {
     _lastPacket = now;
     if (!_socket)
         return;
-    wire::MessageWriter w;
+    wire::MessageWriter w = _protocol.writer();
     const auto it = _configstrings.find(1);
-    w.longValue(it != _configstrings.end() ? std::atoi(infoValue(it->second, "sv_serverid").c_str()) : 0);
+    const int32_t serverId = it != _configstrings.end() ? std::atoi(infoValue(it->second, "sv_serverid").c_str()) : 0;
+    w.longValue(serverId);
     w.longValue(_chan.incomingSequence());
     w.longValue(_serverCommandSequence);
     for (int32_t i = _reliableAcknowledge + 1; i <= _reliableSequence; ++i) {
@@ -470,8 +503,13 @@ void NetClient::sendPacket(uint64_t now) {
         w.byte(delta ? kClcMove : kClcMoveNoDelta);
         w.byte(uint32_t(_commands.size()));
         GameHost::UserCommand previous;
+        // Keyed: by the level's checksum feed, the message acknowledged and
+        // the last server command.
+        const int32_t key = _protocol.keyed ? _checksumFeed ^ _chan.incomingSequence() ^
+                                                  jk2::hashKey(_commandRing[size_t(_serverCommandSequence & 63)], 32)
+                                            : 0;
         for (const GameHost::UserCommand &cmd : _commands) {
-            writeUserCommand(w, previous, cmd);
+            _protocol.writeUserCommand(w, key, previous, cmd);
             previous = cmd;
         }
         // Each command goes out twice (in this packet and the next).
@@ -479,7 +517,15 @@ void NetClient::sendPacket(uint64_t now) {
             _commands.pop_front();
         _commandsInLastPacket = _commands.size();
     }
-    for (const std::vector<uint8_t> &d : _chan.transmit(w.bytes()))
+    if (_protocol.clientEnd >= 0)
+        w.byte(uint32_t(_protocol.clientEnd));
+    std::vector<uint8_t> bytes = w.bytes();
+    // Keyed: XORed after its first three words by the challenge, the
+    // level's id, the message acknowledged and the last server command.
+    if (_protocol.keyed)
+        xorMessage(bytes, 12, uint8_t(_challenge ^ serverId ^ _chan.incomingSequence()),
+                   _commandRing[size_t(_serverCommandSequence & 63)]);
+    for (const std::vector<uint8_t> &d : _chan.transmit(bytes))
         _socket->send(_server, d);
 }
 

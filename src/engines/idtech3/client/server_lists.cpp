@@ -47,7 +47,7 @@ void ServerLists::update(const ServerBrowser &browser) {
     std::vector<Server> &local = _lists[kLocal];
     for (int i = int(local.size()); i < browser.localServerCount() && local.size() < kMaxOther; ++i) {
         Server s;
-        net::parseAddress(browser.localServerAddress(i), ServerBrowser::kServerPort, s.address);
+        net::parseAddress(browser.localServerAddress(i), defaultPort, s.address);
         local.push_back(s);
     }
     if (_globalWaiting && browser.globalServerCount() >= 0)
@@ -55,7 +55,7 @@ void ServerLists::update(const ServerBrowser &browser) {
     std::vector<Server> &global = _lists[kGlobal];
     for (; int(_globalTaken) < browser.globalServerCount() && global.size() < kMaxGlobal; ++_globalTaken) {
         Server s;
-        net::parseAddress(browser.globalServerAddress(int(_globalTaken)), ServerBrowser::kServerPort, s.address);
+        net::parseAddress(browser.globalServerAddress(int(_globalTaken)), defaultPort, s.address);
         global.push_back(s);
     }
 }
@@ -145,7 +145,7 @@ bool ServerLists::updateVisiblePings(ServerBrowser &browser, int32_t source, uin
             continue;
         const std::string info = browser.pingInfo(i);
         net::Address a;
-        net::parseAddress(address, ServerBrowser::kServerPort, a);
+        net::parseAddress(address, defaultPort, a);
         setInfo(a, info, info.empty() ? 0 : time);
         if (time) {
             browser.clearPing(i);
@@ -181,7 +181,7 @@ int32_t ServerLists::add(int32_t source, const std::string &name, const std::str
     if (!l || l->size() >= (source == kGlobal ? kMaxGlobal : kMaxOther))
         return -1;
     Server s;
-    net::parseAddress(address, ServerBrowser::kServerPort, s.address);
+    net::parseAddress(address, defaultPort, s.address);
     if (std::any_of(l->begin(), l->end(), [&](const Server &o) { return o.address == s.address; }))
         return 0;
     s.hostName = name;
@@ -193,7 +193,7 @@ int32_t ServerLists::add(int32_t source, const std::string &name, const std::str
 void ServerLists::remove(int32_t source, const std::string &address) {
     std::vector<Server> *l = list(source);
     net::Address a;
-    if (!l || !net::parseAddress(address, ServerBrowser::kServerPort, a))
+    if (!l || !net::parseAddress(address, defaultPort, a))
         return;
     const auto it = std::find_if(l->begin(), l->end(), [&](const Server &s) { return s.address == a; });
     if (it != l->end()) {

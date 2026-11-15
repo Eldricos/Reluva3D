@@ -46,6 +46,7 @@ reluva_add_engine(idtech3
         eliteforce/game_info.cpp
         eliteforce/net_client.cpp
         eliteforce/net_fields.cpp
+        eliteforce/net_protocol.cpp
         eliteforce/net_server.cpp
         eliteforce/sp_game_host.cpp
         eliteforce/sp_ui_host.cpp
@@ -65,6 +66,7 @@ reluva_add_engine(idtech3
         jk2/font_set.cpp
         jk2/game_calls.cpp
         jk2/ghoul2_instances.cpp
+        jk2/net_fields.cpp
         jk2/ui_host.cpp
         raven/ambient_sets.cpp
         raven/effect_file.cpp
@@ -82,6 +84,7 @@ reluva_add_engine(idtech3
         vm/qvm.cpp
         vm/vm_services.cpp
         wire/message.cpp
+        wire/huffman.cpp
         wire/netchan.cpp)
 
 # Its data viewer, in reluva-viewer only: the game's pages and the

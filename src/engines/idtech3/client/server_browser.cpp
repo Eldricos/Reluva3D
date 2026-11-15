@@ -23,9 +23,9 @@ void ServerBrowser::localServers(uint64_t now) {
     // machine's network...).
     for (int i = 0; i < 2; ++i)
         for (int p = 0; p < kServerPorts; ++p) {
-            send(net::Address::broadcast(uint16_t(kServerPort + p)), "getinfo xxx");
+            send(net::Address::broadcast(uint16_t(serverPort + p)), "getinfo xxx");
             for (uint32_t b : _broadcasts)
-                send({b, uint16_t(kServerPort + p)}, "getinfo xxx");
+                send({b, uint16_t(serverPort + p)}, "getinfo xxx");
         }
 }
 

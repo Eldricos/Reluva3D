@@ -48,6 +48,10 @@ struct GameInfo {
     // Its recorded matches' extensions, in baseDir/demos (lower case).
     std::vector<std::string> demoExtensions;
     GameCode code = GameCode::kNone;
+    // Its servers' first port, and its master servers' (Elite Force's
+    // unless set).
+    uint16_t serverPort = 27960;
+    uint16_t masterPort = 27953;
     // How its client game lays out what it adds to the scene; single
     // player's, where it differs.
     RefEntityLayout refEntity;

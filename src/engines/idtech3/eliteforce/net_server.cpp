@@ -7,6 +7,7 @@
 
 #include "engines/idtech3/client/bindings.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
+#include "engines/idtech3/jk2/net_fields.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/pure.h"
 #include "engines/idtech3/client/server_browser.h"
@@ -36,7 +37,6 @@ constexpr int32_t kClcMoveNoDelta = 3;
 constexpr int32_t kClcClientCommand = 4;
 constexpr int kMaxPacketCommands = 32;
 constexpr int32_t kPlayersConfigstring = 544; // CS_PLAYERS: a player's info, "\n\<name>\..."
-constexpr int32_t kPersistantOffset = 268;    // playerState persistant[], 1.2's layout; [0] the score
 constexpr size_t kConfigstringPiece = 1000;   // longer configstrings go in pieces (bcs0, bcs1, bcs2)
 constexpr uint64_t kZombieMs = 2000;
 constexpr uint64_t kChallengeMs = 60000;
@@ -66,8 +66,9 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
     return out;
 }
 
-NetServer::NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket)
-    : _game(game), _cvars(cvars), _socket(std::move(socket)) {
+NetServer::NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket,
+                     const NetProtocol &protocol)
+    : _protocol(protocol), _game(game), _cvars(cvars), _socket(std::move(socket)) {
     _cvars.create("sv_timeout", "200", 0);
     _clients.resize(64);
     _random ^= uint32_t(reinterpret_cast<uintptr_t>(this));
@@ -87,7 +88,8 @@ NetServer::~NetServer() {
 void NetServer::heartbeat(uint64_t now, bool force) {
     // Only a public Internet server (dedicated 2) tells the masters it's
     // there, as the original: every 5 minutes, in Elite Force's words.
-    if (_cvars.integer("dedicated") != 2 || !resolveHost || (!force && now < _nextHeartbeat))
+    if (_cvars.integer("dedicated") != 2 || !resolveHost || (!force && now < _nextHeartbeat) ||
+        _protocol.gameName != "EliteForce")
         return;
     _nextHeartbeat = now + 300000;
     if (!_mastersResolved) {
@@ -120,8 +122,7 @@ void NetServer::finalMessage(Client &c, const std::string &reason, uint64_t now)
         if (c.state >= State::kPrimed) {
             sendSnapshot(c, now);
         } else {
-            wire::MessageWriter w;
-            writeReliable(c, w);
+            wire::MessageWriter w = startMessage(c);
             transmit(c, w);
         }
     }
@@ -275,15 +276,19 @@ std::string NetServer::infoString(const std::string &challenge) const {
     setInfoValue(info, "challenge", challenge);
     // The game's name, as the GPL engine running Elite Force sends it (the
     // community's masters list servers by it).
-    setInfoValue(info, "gamename", "EliteForce");
-    setInfoValue(info, "protocol", "24");
+    if (!_protocol.gameName.empty())
+        setInfoValue(info, "gamename", _protocol.gameName);
+    setInfoValue(info, "protocol", std::to_string(_protocol.version));
     setInfoValue(info, "hostname", _cvars.string("sv_hostname"));
     setInfoValue(info, "mapname", _cvars.string("mapname"));
     setInfoValue(info, "clients", std::to_string(clients));
-    setInfoValue(info, "g_humanplayers", std::to_string(humans));
+    if (!_protocol.keyed)
+        setInfoValue(info, "g_humanplayers", std::to_string(humans));
     setInfoValue(info, "sv_maxclients", std::to_string(maxClients));
     setInfoValue(info, "gametype", std::to_string(_cvars.integer("g_gametype")));
     setInfoValue(info, "pure", _pure ? "1" : "0");
+    if (_protocol.keyed)
+        setInfoValue(info, "sv_allowAnonymous", "0");
     return info;
 }
 
@@ -315,6 +320,11 @@ Error NetServer::receive(uint64_t now) {
     std::vector<uint8_t> d;
     while (_socket->receive(from, d)) {
         if (d.size() >= 4 && d[0] == 0xff && d[1] == 0xff && d[2] == 0xff && d[3] == 0xff) {
+            // Quake III 1.32's connect packet is compressed after "connect ".
+            static const std::string kConnect = "connect";
+            if (_protocol.compressedConnect && d.size() > 12 &&
+                std::equal(kConnect.begin(), kConnect.end(), d.begin() + 4))
+                d = wire::Huffman::decompress(d, 12);
             outOfBand(from, std::string(d.begin() + 4, d.end()), now);
             continue;
         }
@@ -351,7 +361,8 @@ void NetServer::outOfBand(const reluva::net::Address &from, const std::string &t
         std::any_of(_masters.begin(), _masters.end(), [&](const auto &m) { return m.ip == from.ip; }))
         print("The master at " + from.toString() + " asked about this server, so it can reach it\n");
     if (verb == "getinfo") {
-        sendText(from, "infoResponse \"" + infoString(words.size() > 1 ? words[1] : "") + "\"");
+        const std::string info = infoString(words.size() > 1 ? words[1] : "");
+        sendText(from, _protocol.quotedInfo ? "infoResponse \"" + info + "\"" : "infoResponse\n" + info);
     } else if (verb == "getstatus") {
         std::string info = _game.configstrings().count(0) ? _game.configstrings().at(0) : std::string();
         setInfoValue(info, "challenge", words.size() > 1 ? words[1] : "");
@@ -364,8 +375,8 @@ void NetServer::outOfBand(const reluva::net::Address &from, const std::string &t
             const std::string name = it != _game.configstrings().end() ? infoValue(it->second, "n") : "";
             const GameHost::Snapshot s = _game.snapshot(n);
             int32_t score = 0;
-            if (s.playerState.size() >= size_t(kPersistantOffset + 4))
-                std::memcpy(&score, s.playerState.data() + kPersistantOffset, 4);
+            if (s.playerState.size() >= size_t(_protocol.scoreOffset + 4))
+                std::memcpy(&score, s.playerState.data() + _protocol.scoreOffset, 4);
             int ping = 0;
             for (const Client &c : _clients)
                 if (c.state >= State::kConnected && c.number == n)
@@ -386,8 +397,9 @@ void NetServer::outOfBand(const reluva::net::Address &from, const std::string &t
 
 void NetServer::connect(const reluva::net::Address &from, const std::string &userinfo, uint64_t now) {
     const std::string protocol = infoValue(userinfo, "protocol");
-    if (protocol != "24") {
-        sendText(from, "print\nServer uses protocol version 24 (yours is " + protocol + ").\n");
+    const std::string ours = std::to_string(_protocol.version);
+    if (protocol != ours) {
+        sendText(from, "print\nServer uses protocol version " + ours + " (yours is " + protocol + ").\n");
         return;
     }
     // Clients on the same machine needn't have asked for a challenge.
@@ -449,6 +461,8 @@ void NetServer::connect(const reluva::net::Address &from, const std::string &use
     slot->number = number;
     slot->address = from;
     slot->qport = qport;
+    slot->chan = wire::Netchan(false, 0, _protocol.scramble);
+    slot->challenge = std::atoi(infoValue(userinfo, "challenge").c_str());
     slot->userinfo = info;
     slot->lastReceived = now;
     applyUserinfo(*slot);
@@ -477,7 +491,17 @@ Error NetServer::packet(Client &c, const std::vector<uint8_t> &datagram, uint64_
     if (c.state == State::kZombie || !c.chan.process(datagram, message))
         return Error::success();
     c.lastReceived = now;
-    wire::MessageReader r(std::move(message));
+    if (_protocol.keyed) {
+        // Its first three words, read as they came, key the rest: as the
+        // original reads them before undoing the XOR.
+        wire::MessageReader head = _protocol.reader(message);
+        const int32_t id = head.longValue();
+        const int32_t acknowledge = head.longValue();
+        const int32_t reliable = head.longValue();
+        xorMessage(message, 12, uint8_t(c.challenge ^ id ^ acknowledge),
+                   c.reliable[size_t(reliable & (kMaxReliable - 1))]);
+    }
+    wire::MessageReader r = _protocol.reader(std::move(message));
     const int32_t serverId = r.longValue();
     c.messageAcknowledge = r.longValue();
     const int32_t reliableAcknowledge = r.longValue();
@@ -511,6 +535,7 @@ Error NetServer::packet(Client &c, const std::vector<uint8_t> &datagram, uint64_
                 return Error::success();
             }
             c.lastClientCommand = sequence;
+            c.lastCommandText = text;
             if (Error err = clientCommand(c, text))
                 return err;
             if (c.state == State::kZombie)
@@ -521,8 +546,14 @@ Error NetServer::packet(Client &c, const std::vector<uint8_t> &datagram, uint64_
                 break;
             std::vector<GameHost::UserCommand> commands;
             GameHost::UserCommand previous;
+            // Keyed: by the level's checksum feed, the message it
+            // acknowledges and the command of ours it last had.
+            const int32_t key = _protocol.keyed
+                                    ? _checksumFeed ^ c.messageAcknowledge ^
+                                          jk2::hashKey(c.reliable[size_t(reliableAcknowledge & (kMaxReliable - 1))], 32)
+                                    : 0;
             for (int i = 0; i < count; ++i)
-                commands.push_back(previous = readUserCommand(r, previous));
+                commands.push_back(previous = _protocol.readUserCommand(r, key, previous));
             if (r.overflowed())
                 break;
             c.deltaMessage = op == kClcMove ? c.messageAcknowledge : -1;
@@ -560,7 +591,7 @@ Error NetServer::packet(Client &c, const std::vector<uint8_t> &datagram, uint64_
         } else if (op == kClcNop) {
             continue;
         } else {
-            break; // the end (kClcEof isn't sent in protocol 24)
+            break; // the end marker, or (protocol 24) the end of the data
         }
     }
     return Error::success();
@@ -655,10 +686,27 @@ void NetServer::writeReliable(Client &c, wire::MessageWriter &w) {
     }
 }
 
-void NetServer::transmit(Client &c, const wire::MessageWriter &w) {
+wire::MessageWriter NetServer::startMessage(Client &c) {
+    wire::MessageWriter w = _protocol.writer();
+    if (_protocol.keyed)
+        w.longValue(c.lastClientCommand);
+    writeReliable(c, w);
+    return w;
+}
+
+void NetServer::transmit(Client &c, const wire::MessageWriter &message) {
+    wire::MessageWriter w = message;
+    std::vector<uint8_t> bytes;
+    if (_protocol.serverEnd >= 0)
+        w.byte(uint32_t(_protocol.serverEnd));
+    bytes = w.bytes();
+    // Keyed: XORed after its first word by the challenge, this message's
+    // sequence and the client's last command.
+    if (_protocol.keyed)
+        xorMessage(bytes, 4, uint8_t(c.challenge ^ (c.chan.outgoingSequence() + 1)), c.lastCommandText);
     // The first datagram now unless others wait; a message in pieces sends
     // the rest one at a time as the client's rate allows (sendQueued).
-    for (std::vector<uint8_t> &d : c.chan.transmit(w.bytes()))
+    for (std::vector<uint8_t> &d : c.chan.transmit(bytes))
         c.queued.push_back(std::move(d));
     sendQueued(c, _lastNow, true);
 }
@@ -695,8 +743,7 @@ void NetServer::sendGamestate(Client &c, uint64_t now) {
     c.gamestateMessage = c.chan.outgoingSequence() + 1;
     c.gamestateMs = now;
     c.deltaMessage = -1;
-    wire::MessageWriter w;
-    writeReliable(c, w);
+    wire::MessageWriter w = startMessage(c);
     w.byte(kSvcGamestate);
     w.longValue(c.reliableSequence);
     for (const auto &[index, text] : _game.configstrings()) {
@@ -709,9 +756,15 @@ void NetServer::sendGamestate(Client &c, uint64_t now) {
     const std::vector<uint8_t> none;
     for (const auto &[number, state] : _baselines) {
         w.byte(kSvcBaseline);
-        writeEntityDelta(w, none, state, true);
+        _protocol.writeEntityDelta(w, none, state, true);
     }
-    w.byte(0); // the end of the list
+    // The end of the list; Quake III's then names the player.
+    if (_protocol.serverEnd >= 0) {
+        w.byte(uint32_t(_protocol.serverEnd));
+        w.longValue(c.number);
+    } else {
+        w.byte(0);
+    }
     w.longValue(_checksumFeed);
     transmit(c, w);
 }
@@ -740,10 +793,10 @@ void NetServer::sendSnapshot(Client &c, uint64_t now) {
             deltaNum = sequence - c.deltaMessage;
         }
     }
-    wire::MessageWriter w;
-    writeReliable(c, w);
+    wire::MessageWriter w = startMessage(c);
     w.byte(kSvcSnapshot);
-    w.longValue(c.lastClientCommand);
+    if (!_protocol.keyed)
+        w.longValue(c.lastClientCommand);
     w.longValue(s.serverTime);
     w.byte(uint32_t(deltaNum));
     // Snap flags: 1 the last was held back by the rate; 2 not active (still
@@ -753,7 +806,7 @@ void NetServer::sendSnapshot(Client &c, uint64_t now) {
     w.byte(uint32_t(maskBytes));
     w.data(s.areaMask.data(), size_t(maskBytes));
     static const std::vector<uint8_t> kNone;
-    writePlayerDelta(w, old ? old->playerState : kNone, frame.playerState);
+    _protocol.writePlayerDelta(w, old ? old->playerState : kNone, frame.playerState);
     // The entities: the old and new lists merged by number.
     static const std::map<int32_t, std::vector<uint8_t>> kNoEntities;
     const auto &before = old ? old->entities : kNoEntities;
@@ -762,13 +815,13 @@ void NetServer::sendSnapshot(Client &c, uint64_t now) {
     while (o != before.end() || n != frame.entities.end()) {
         if (n != frame.entities.end() && (o == before.end() || n->first < o->first)) {
             const auto base = _baselines.find(n->first);
-            writeEntityDelta(w, base != _baselines.end() ? base->second : kNone, n->second, true);
+            _protocol.writeEntityDelta(w, base != _baselines.end() ? base->second : kNone, n->second, true);
             ++n;
         } else if (o != before.end() && (n == frame.entities.end() || o->first < n->first)) {
-            writeEntityRemoved(w, o->first);
+            _protocol.writeEntityRemoved(w, o->first);
             ++o;
         } else {
-            writeEntityDelta(w, o->second, n->second, false);
+            _protocol.writeEntityDelta(w, o->second, n->second, false);
             ++o;
             ++n;
         }
@@ -777,9 +830,17 @@ void NetServer::sendSnapshot(Client &c, uint64_t now) {
     transmit(c, w);
 }
 
+wire::MessageWriter NetServer::downloadMessage(Client &c) {
+    // Keyed messages start with the reliable acknowledgement and commands;
+    // protocol 24's carry it in a snapshot with nothing in it.
+    if (_protocol.keyed)
+        return startMessage(c);
+    wire::MessageWriter w = _protocol.writer();
+    writeDummySnapshot(c, w);
+    return w;
+}
+
 void NetServer::writeDummySnapshot(Client &c, wire::MessageWriter &w) {
-    // What goes before each download block (protocol 24): a snapshot with
-    // nothing in it, for the reliable acknowledgement.
     w.byte(kSvcSnapshot);
     w.longValue(c.lastClientCommand);
     w.longValue(_game.levelTime());
@@ -787,7 +848,7 @@ void NetServer::writeDummySnapshot(Client &c, wire::MessageWriter &w) {
     w.byte((c.rateDelayed ? 1u : 0u) | (c.state != State::kActive ? 2u : 0u) | (_levelCount & 1 ? 4u : 0u));
     w.byte(0); // no area mask
     static const std::vector<uint8_t> kNone;
-    writePlayerDelta(w, kNone, kNone);
+    _protocol.writePlayerDelta(w, kNone, kNone);
     w.bits(uint32_t(kNoEntity), kEntityNumberBits);
 }
 
@@ -844,11 +905,12 @@ void NetServer::sendDownload(Client &c, uint64_t now) {
             print(c.name + (ok ? " downloading " : " can't download ") + d.name + (ok ? "" : " (" + why + ")") + "\n");
         if (!ok) {
             // Block 0 with the size -1: refused (protocol 24 gives no reason).
-            wire::MessageWriter w;
-            writeDummySnapshot(c, w);
+            wire::MessageWriter w = downloadMessage(c);
             w.byte(6);
             w.shortValue(0);
             w.longValue(-1);
+            if (_protocol.downloadReason)
+                w.string("Couldn't download " + d.name + ": " + why);
             transmit(c, w);
             d = Client::Download{};
             return;
@@ -864,8 +926,7 @@ void NetServer::sendDownload(Client &c, uint64_t now) {
     }
     const size_t at = size_t(d.xmitBlock) * kDownloadBlock;
     const size_t length = at < d.data.size() ? std::min(kDownloadBlock, d.data.size() - at) : 0;
-    wire::MessageWriter w;
-    writeDummySnapshot(c, w);
+    wire::MessageWriter w = downloadMessage(c);
     w.byte(6);
     w.shortValue(d.xmitBlock);
     if (d.xmitBlock == 0)
@@ -975,8 +1036,7 @@ Error NetServer::frame(uint64_t now) {
             // any), so a lost game state is noticed: its acknowledgement
             // passes it.
             c.gamestateMs = now;
-            wire::MessageWriter w;
-            writeReliable(c, w);
+            wire::MessageWriter w = startMessage(c);
             transmit(c, w);
         }
     }

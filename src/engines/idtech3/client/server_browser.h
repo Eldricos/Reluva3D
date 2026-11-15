@@ -30,6 +30,11 @@ public:
     // `socket`: where the requests go from and answers come to.
     explicit ServerBrowser(std::unique_ptr<net::UdpSocket> socket) : _socket(std::move(socket)) {}
 
+    // The game's ports: its servers' first (the local search tries it and
+    // the three after), and its masters' (Elite Force's unless set).
+    uint16_t serverPort = kServerPort;
+    uint16_t masterPort = kMasterPort;
+
     // Besides 255.255.255.255, the broadcast address of each network the
     // machine is on: the local search goes to each.
     void setBroadcasts(std::vector<uint32_t> addresses) { _broadcasts = std::move(addresses); }

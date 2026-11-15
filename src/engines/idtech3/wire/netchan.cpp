@@ -82,7 +82,8 @@ std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t> &
     if (message.size() < kFragmentSize) {
         std::vector<uint8_t> d = header(sequence);
         d.insert(d.end(), message.begin(), message.end());
-        scramble(d);
+        if (_scramble)
+            scramble(d);
         out.push_back(std::move(d));
         return out;
     }
@@ -95,7 +96,8 @@ std::vector<std::vector<uint8_t>> Netchan::transmit(const std::vector<uint8_t> &
         putShort(d, uint16_t(start));
         putShort(d, uint16_t(length));
         d.insert(d.end(), message.begin() + std::ptrdiff_t(start), message.begin() + std::ptrdiff_t(start + length));
-        scramble(d);
+        if (_scramble)
+            scramble(d);
         out.push_back(std::move(d));
         start += length;
         if (length < kFragmentSize)
@@ -114,7 +116,8 @@ bool Netchan::clientQport(const std::vector<uint8_t> &datagram, uint16_t &qport)
 bool Netchan::process(std::vector<uint8_t> d, std::vector<uint8_t> &message) {
     if (d.size() < 4)
         return false;
-    unscramble(d);
+    if (_scramble)
+        unscramble(d);
     const uint32_t word = getLong(d, 0);
     const bool fragment = (word & kFragmentBit) != 0;
     const auto sequence = int32_t(word & ~kFragmentBit);

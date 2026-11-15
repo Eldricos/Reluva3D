@@ -1,3 +1,4 @@
 ffa_bespin-walk: 53aaaff14fbf979a | start level (Init and 3 frames): ok
 ffa_bespin-bots: 79c1a0b89ab3008c | start level (Init and 3 frames): ok
 ffa_bespin-cgame: 71306dea4691309a | start level (Init and 3 frames): ok
+ffa_bespin-net: 5d9bd63d332b62cd | game code: Jedi Outcast's, protocol 15
