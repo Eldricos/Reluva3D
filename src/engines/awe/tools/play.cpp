@@ -1411,6 +1411,14 @@ int aweCommandSolve(int argc, char **argv) {
             const ScenePage::GameStatus st = player.page().status();
             if (player.page().inMenu() && !player.credits())
                 continue; // a menu: not the way on
+            // The player hidden everywhere once it's all over: a dead end
+            // (And Then There Were None's Wargrave in 4A hides Narracott,
+            // and the line that shows him again was cut from the table:
+            // he couldn't be clicked again, the embrocation of 6C not
+            // used on him).
+            if (const GameInfo *g = player.page().gameState().game;
+                g && g->overlay && player.page().gameState().tags.count(std::string("hide_") + g->talk.player))
+                continue;
             const std::set<std::string> f = player.features(false);
             const std::string key = joinFeatures(f);
             if (verbose && key != node.key) {
