@@ -13,6 +13,10 @@ namespace reluva::idtech3::jk2 {
 namespace {
 
 constexpr Bone34 kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+// What the original places a model's root bone on (its renderer's
+// "identity"): a quarter turn about the vertical, x to y, so a skeleton
+// faces the way its entity's axes say.
+constexpr Bone34 kRootPlacement{0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0};
 constexpr float kPi = 3.14159265358979323846f;
 
 Bone34 mul(const Bone34 &a, const Bone34 &b) {
@@ -454,9 +458,12 @@ bool Ghoul2Instances::setRootSurface(int32_t handle, int32_t modelIndex, const s
 }
 
 void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34> &bones) const {
+    // A model hung from another's bolt is placed on the bolt instead
+    // (modelPlacement).
+    const Bone34 &root = m.boltLink >= 0 ? kIdentity : kRootPlacement;
     const GlaSkeleton *sk = m.skeleton;
     if (!sk || sk->frameCount <= 0) {
-        bones.assign(1, kIdentity);
+        bones.assign(1, root);
         return;
     }
     const size_t n = sk->bones.size();
@@ -513,7 +520,7 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
             for (size_t k = 0; k < 12; ++k)
                 local[k] = local[k] * t.blendIn + (a[k] * back + b[k] * (1 - back)) * (1 - t.blendIn);
         }
-        const Bone34 &above = parent >= 0 ? bones[size_t(parent)] : kIdentity;
+        const Bone34 &above = parent >= 0 ? bones[size_t(parent)] : root;
         const auto ang = m.angles.find(int(i));
         const int32_t flags = ang != m.angles.end() ? m.angleFlags.at(int(i)) : 0;
         if (flags & kAnglesPreMult)

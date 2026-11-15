@@ -589,13 +589,15 @@ static void testGhoul2Instances() {
     CHECK(g2.addModel(h, "test/missing.glm", 0, 0) == -1);
     auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
     // A bolt on the child: where it is in the world, the instance at
-    // (100, 0, 0); its axes turned 270 degrees of yaw, as the original's.
+    // (100, 0, 0). The root stands on the original's quarter turn (the
+    // skeleton's x along the world's y), and the bolt's axes are turned a
+    // further 270 degrees of yaw, so they come out as the world's.
     const int32_t bolt = g2.addBolt(h, 0, "child");
     CHECK(bolt == 0 && g2.addBolt(h, 0, "CHILD") == 0 && g2.addBolt(h, 0, "*body") == -1);
     Bone34 m{};
     CHECK(g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {100, 0, 0}, {0, 0, 0}, m));
-    CHECK(near(m[3], 110) && near(m[7], 0) && near(m[11], 0));
-    CHECK(near(m[0], 0) && near(m[4], -1) && near(m[1], 1));
+    CHECK(near(m[3], 100) && near(m[7], 10) && near(m[11], 0));
+    CHECK(near(m[0], 1) && near(m[4], 0) && near(m[1], 0) && near(m[5], 1));
     // An animation on the root: the child follows it; looping, it comes
     // round again; held, it stays on its last frame.
     CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimLoop, 1, 0, -1));
@@ -627,7 +629,7 @@ static void testGhoul2Instances() {
     CHECK(g2.setAngles(h, 0, "root", {0, 90, 0}, Ghoul2Instances::kAnglesPostMult, Ghoul2Instances::kPositiveZ,
                        Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin));
     g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
-    CHECK(near(m[3], 0) && near(m[7], 10));
+    CHECK(near(m[3], -10) && near(m[7], 0));
     CHECK(g2.setAngles(h, 0, "root", {0, 0, 0}, 0, Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin,
                        Ghoul2Instances::kOrigin));
     // A second model hung from the first's bolt; a surface turned off.
@@ -637,7 +639,9 @@ static void testGhoul2Instances() {
     std::vector<Ghoul2Instances::Drawn> drawn;
     CHECK(g2.drawn(h, 0, drawn) && drawn.size() == 2);
     if (drawn.size() == 2) {
-        CHECK(near(drawn[1].placement[3], 10) && near(drawn[0].placement[3], 0));
+        // The hung model on the bolt (10 along y), the first on nothing more.
+        CHECK(near(drawn[1].placement[7], 10) && near(drawn[1].placement[3], 0) && near(drawn[0].placement[3], 0));
+        CHECK(near(drawn[0].bones[0][1], -1) && near(drawn[1].bones[0][0], 1));
         CHECK(!drawn[0].surfaceOn[0] && !drawn[1].surfaceOn[0]);
     }
     // A copy of the instance, then the first cleaned away.

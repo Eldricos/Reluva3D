@@ -104,8 +104,9 @@ each: / 16383, less 2) and a translation x, y, z (u16 each: / 64, less
 
 - **Posing.** Each bone's matrix in a frame is its frame bone (the
   quaternion as a rotation, with the translation) placed on its parent's:
-  the root's alone (times the root matrix, the identity unless the game
-  moves the model's origin), every other bone's parent's times its own.
+  the root's alone (times the root matrix: in the game a quarter turn,
+  see Animation; the Models page leaves it out), every other bone's
+  parent's times its own.
   Between two frames, the twelve numbers of each frame bone are blended
   before that. A vertex is the sum, over its weights, of each bone's
   matrix applied to it, times the weight; normals the same with the
@@ -161,7 +162,13 @@ it for its modules (`jk2/ghoul2_instances.cpp`):
   it after the bone's placement; turning before (0x1) puts it in place of
   the frame's.
 - **A bone's placement** is its parent's times its frame's (blended); a
-  vertex is placed by its bones' placements, weighted.
+  vertex is placed by its bones' placements, weighted. The root bone's
+  "parent" is the original's root matrix, which its renderer calls the
+  identity but is a quarter turn about the vertical (rows 0 −1 0, 1 0 0,
+  0 0 1: the skeleton's x along the entity's y). So a model drawn by its
+  entity's axes faces the way they say; without the turn, every player
+  stands a quarter turn to the side. A model hung from another's bolt is
+  placed on the bolt instead.
 - **Bolts:** a name is looked for among the mesh's surfaces first (tag
   surfaces are named with a `*`: `*r_hand`, `*head_top`, `*flash`), then
   the skeleton's bones. A bone's bolt is its placement times its base
@@ -171,7 +178,8 @@ it for its modules (`jk2/ghoul2_instances.cpp`):
 - **In the world** (`GetBoltMatrix`): the bolt placed by the instance's
   angles and origin (each axis of the bolt's origin scaled, if a scale is
   given), and its axes turned a further 270 degrees of yaw, as the
-  original's are.
+  original's are: with the root's quarter turn, a bolt on a bone in its
+  base pose comes out with the world's axes.
 - **Surfaces** turned on or off by name (`SetSurfaceOnOff`, 2 off), or all
   but one and those under it (`SetRootSurface`); tag surfaces are never
   drawn.
@@ -217,6 +225,9 @@ plan, phase 7).
   made-up skeleton by an animation (looping and held), an angle override
   and a model hung from another's bolt. In 1.02a's multiplayer, Kyle
   standing in third person fills 64 units from his feet up, his pistol
-  hung from his hand at hand height beside him (`game-run -cgame -entities`). The same
+  hung from his hand at hand height beside him (`game-run -cgame -entities`). Live, a bot
+  followed in third person faces the way she runs (November 2026; before
+  the root's quarter turn, players stood side-on, as seen against the
+  retail game over the network). The same
   test blends one animation into the next: from a frozen one, at a
   fraction of the way, and from one that had ended.
