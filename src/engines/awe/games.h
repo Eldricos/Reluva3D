@@ -105,6 +105,8 @@ struct DialogueRules {
      * first nest's alone.
      */
     bool offerLooksOn = true;
+    /** A character's generic extra, once heard, is offered as its saved progress says; false: as if never heard. */
+    bool extrasHeard = false;
     bool advance = true; ///< a Povent's "advance" ends the part
     /** A Povent keeps the box up if it has `keepBox` or leavebox, but not `dropBox`. */
     const char *keepBox = "talk";

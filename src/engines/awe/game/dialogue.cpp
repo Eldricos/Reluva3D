@@ -444,9 +444,10 @@ std::vector<std::pair<DialoguePart *, int>> DialogueManager::extras() {
     // line, else its first one whose condition holds; none, it's left out).
     for (DialoguePart &q : _book.parts())
         if (&q != _part && q.code < 99 && isGeneric(q.name)) {
-            // As heard so far: a borrowed copy keeps its progress under
-            // the extra's own name (saveProgress).
-            loadProgress(q);
+            // As heard so far, where the game's are: a borrowed copy keeps
+            // its progress under the extra's own name (saveProgress).
+            if (_rules.extrasHeard)
+                loadProgress(q);
             for (size_t i = 0; i < q.threads.size(); i++)
                 if (Thread &t = q.threads[i]; t.code < 0x60 && available(t) && offered(t))
                     out.push_back({&q, int(i)});

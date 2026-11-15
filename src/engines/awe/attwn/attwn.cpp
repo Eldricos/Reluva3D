@@ -88,6 +88,7 @@ const GameInfo &game() {
                  .repeatsStayOffered = false,
                  .alternativeKept = false, // 0x431f48
                  .offerLooksOn = false,    // 0x433040
+                 .extrasHeard = true,      // (inferred: Wargrave's summing-up in 4A has no way out otherwise)
                  .advance = false,
                  .keepBox = "talk ", // 0x4339ff
                  .dropBox = "fade ",
