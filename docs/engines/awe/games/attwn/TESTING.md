@@ -42,20 +42,24 @@ The records are in `tests/engines/awe/data/gamedata/attwn-english/`.
 `awe game-check <game> <route.txt> -quick` plays a route four ways: by
 the mouse with sound, by the hand alone (every click, the inventory's
 panel and the conversations' choices made as a player's mouse does), saved
-and loaded after every action, and wandering off it. A route of 2,318
-actions, from New Game to the projector's last film and the credits,
-passes all four: 5,620 inputs by the hand, none it couldn't make; no
-difference after any load; 231 walks off the route, 6,930 actions in 134
-scenes, with no problem.
+and loaded after every action, and wandering off it. The search's route,
+2,162 actions from New Game to the projector's last film and the
+credits, passes all four.
 
-The search (`awe game-run <game> -solve`) found it act by act; on the
-way it needed what this game has of its own: the machines and the
-puzzle screens, its one timer, items lying about (`ITEM`), its inventory's
+The search (`awe game-run <game> -solve`) takes some hours here, over
+several runs of the step, each going on from the last. On the way it
+needed what this game has of its own: the machines and the puzzle
+screens, its one timer, items lying about (`ITEM`), its inventory's
 Combine and Examine, the tools' clicks kept off its sack and journal.
-It gives up a scene with nothing to click but the inventory, and a state
-with the player hidden once all is over: Wargrave's thread `c` in 4A
-leaves Narracott in a close-up, or hidden, as the table has it
-([UNCONFIRMED.md](UNCONFIRMED.md)).
+The tools stop the timer and let time pass by a wait, tried before an
+action whose conditions tested the timer (Brent's "It's done" thirty
+seconds after the fishing line), so a route plays the same however fast
+its lines go by. The search gives up a scene with nothing to click but
+the inventory, and a state with the player hidden once all is over:
+Wargrave's thread `c` in 4A leaves Narracott in a close-up, or hidden,
+as the table has it ([UNCONFIRMED.md](UNCONFIRMED.md)); and it counts
+something newly clickable as new (the projector's bulb shows once the
+drawers above it are shut).
 
 ### What the automated checks don't cover
 
@@ -71,7 +75,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
-| 15 November 2026 | English (retail, two CDs) | Linux | Phase 5: a route from a new game to the credits, and `awe game-check -quick` on it, all four ways passed; the game-files steps' records |
+| 15 November 2026 | English (retail, two CDs) | Linux | Phase 5: the game-files steps, all five, the route the search's own (2,162 actions to the credits), `awe game-check -quick` on it all four ways passed |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 4 so far: `awe game-run <game> -v`, every act started with nothing undone; in the Scenes page a title card, the journal (contents and entries), the main and in-game menus, New Game, a save made, listed and loaded |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the rest: the lights counted over the 537 scenes; the dialogue box in the Scenes page, a line and a menu (`awe page-shot ... "run:act 01a, talk marston a forcegen"`); the fonts' face names from their files |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the dialogue manager: the box's rule over the tables' Povents (three differ from Orient Express's), the codes over the tables, the talk command's words over the scripts (`talka` unused, no `+`) |

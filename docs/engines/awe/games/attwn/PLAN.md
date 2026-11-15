@@ -233,7 +233,7 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
    - Compared with recordings of the original, as Orient Express was.
 
    Done (15 November 2026): a route from a new game to the credits,
-   found by the search act by act, passes `game-check -quick` all four
+   found by the search on its own, passes `game-check -quick` all four
    ways ([TESTING.md](TESTING.md)); the game is playable in `reluva`. On
    the way: the machines and `movie coda`
    ([systems/script.md](systems/script.md)), the puzzle screens
