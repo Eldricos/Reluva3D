@@ -67,9 +67,13 @@ public:
 
     // Whether `name` is one of the engine's buttons (not the client game's).
     static bool isButton(const std::string &name);
+    // The game's own held commands (GameInfo::namedButtons), held as
+    // buttons are.
+    void setNamedButtons(std::map<std::string, int> named) { _named = std::move(named); }
 
 private:
     std::map<std::string, std::set<int32_t>> _buttons; // and the keys holding each
+    std::map<std::string, int> _named;
     // moved since the last turn
     float _mouseX = 0;
     float _mouseY = 0;

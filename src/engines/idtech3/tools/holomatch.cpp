@@ -156,7 +156,7 @@ int cmdUiRun(int argc, char **argv) {
     };
     if (!step("load and GetApiVersion", ui.load()))
         return 1;
-    bool ok = step("Init", ui.call(q3::MenuHost::kInit));
+    bool ok = step("Init", ui.call(q3::MenuHost::kInit, {ingameType >= 0 ? 1 : 0}));
     if (ok)
         ok = step("SetActiveMenu", ui.call(q3::MenuHost::kSetActiveMenu, {menu}));
     std::printf("menu %d; key catcher %d (2: the menus take the keys)\n", menu, ui.catcher());

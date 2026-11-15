@@ -48,7 +48,7 @@ void PlayerInput::runBinding(const std::string &line, int32_t key, bool down,
             if (w[0][0] == '-')
                 continue; // a key bound to "-x" alone does nothing useful
             const std::string name = fs::toLower(w[0].substr(1));
-            if (isButton(name)) {
+            if (isButton(name) || _named.count(name)) {
                 if (down)
                     _buttons[name].insert(key);
                 else
@@ -121,6 +121,8 @@ PlayerInput::Command PlayerInput::command(const CvarStore &cvars, const GameInfo
             cmd.buttons |= game.buttonAltAttack;
         else if (name.rfind("button", 0) == 0)
             cmd.buttons |= 1 << std::clamp(std::atoi(name.c_str() + 6), 0, 31);
+        else if (const auto it = _named.find(name); it != _named.end())
+            cmd.buttons |= 1 << std::clamp(it->second, 0, 31);
     }
     const int speed = (cvars.find("cl_run") ? cvars.integer("cl_run") != 0 : true) != held("speed") ? 127 : 64;
     int side = held("moveright") - held("moveleft");

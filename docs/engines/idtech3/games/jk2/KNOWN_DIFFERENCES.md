@@ -43,8 +43,10 @@ In the multiplayer game:
 
 In the multiplayer menus:
 
-- **Begin** in Create Server doesn't start a match, and Join doesn't
-  join one, until the network and the game's code come (phase 6).
+- **Join** doesn't join a server until the network protocol comes
+  (phase 6); Begin's local match plays.
+- **Effects** (Raven's `.efx`: blaster bolts, sparks) aren't drawn yet,
+  nor are light styles animated.
 - **The favourite servers** are kept in `favorites.txt` (address and
   name a line) in the game's save folder, not in the
   original's `servercache.dat`; the other lists aren't kept between runs

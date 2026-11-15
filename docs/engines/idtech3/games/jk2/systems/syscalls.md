@@ -22,7 +22,8 @@ functions, kept in a table) aren't in that list, so every call of the
 order is answered.
 
 `vmMain(0)` returns 6, the API version; the other commands are Quake
-III's (1 init, 2 shutdown, 3 key event, 4 mouse event, 5 refresh, 6 is
+III's (1 init (its argument 1 when started over a match: the menus then
+load their in-game set, `ui/jk2mpingame.txt`, not the main one), 2 shutdown, 3 key event, 4 mouse event, 5 refresh, 6 is
 fullscreen, 7 set active menu, 8 console command, 9 draw the connect
 screen). While not connected, Reluva opens the main menu when none covers
 the screen, as for Elite Force.

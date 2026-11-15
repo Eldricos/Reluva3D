@@ -22,6 +22,13 @@ GameInfo gameInfo() {
     g.defaultConfig = "mpdefault.cfg";
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";
+    // Its buttons, as jk2mp.exe names them: attack 0, alt attack 7, use 5,
+    // force grip 6, the active force power 9, lightning 10, drain 11, the
+    // taunt 3.
+    g.buttonAttack = 1;
+    g.buttonAltAttack = 1 << 7;
+    g.namedButtons = {{"use", 5},          {"force_grip", 6}, {"useforce", 9}, {"force_lightning", 10},
+                      {"force_drain", 11}, {"taunt", 3}};
     g.refEntity = kRefEntityLayout;
     // The CD holds the game as an install has it, in GAMEDATA/GameData;
     // an install puts it in GameData under the folder it was given.

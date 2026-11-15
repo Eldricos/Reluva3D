@@ -31,7 +31,7 @@ public:
     // Jedi Outcast's menus both keep.
     enum Command : int32_t {
         kGetApiVersion = 0,
-        kInit = 1,
+        kInit = 1, // (in a match: 1)
         kShutdown = 2,
         kKeyEvent = 3,   // (key, down)
         kMouseEvent = 4, // (dx, dy)

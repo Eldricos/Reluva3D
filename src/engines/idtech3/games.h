@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,6 +56,9 @@ struct GameInfo {
     // where the game has one; 0 if not).
     int32_t buttonAttack = 1;
     int32_t buttonAltAttack = 0;
+    // Its other held commands (+use, +force_grip...): the name without the
+    // '+', and the button number it holds (its bit, 1 << n).
+    std::map<std::string, int> namedButtons;
     // What its multiplayer is called, on the Start page.
     std::string multiplayerName = "Multiplayer";
     // The config of default keys and settings run before the player's own.

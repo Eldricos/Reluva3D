@@ -637,6 +637,12 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return 1;
     }
     case kSetUserCmdValue:
+        // (weapon, sensitivity scale); Jedi Outcast's, then its force power
+        // and item.
+        if (_game == GameCode::kJediOutcast) {
+            _forceSelect = a[2];
+            _inventorySelect = a[3];
+        }
         _weaponSelect = a[0];
         return 0;             // (weapon, sensitivity scale): what the next commands carry
     case kGetServerCommand: { // (sequence) -> whether it's there; it becomes Argc/Argv

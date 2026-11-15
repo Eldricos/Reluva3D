@@ -131,7 +131,9 @@ behind the DLL's own tables.
    client game host ([systems/cgame-calls.md](systems/cgame-calls.md)):
    it draws the HUD and the view. Players' Ghoul2 instances are posed
    (animations, angle overrides, bolts) and the renderer draws them.
-   Next: the Play page, so Create Server's Begin starts a match; Raven's
+   The Play page runs a local match from Create Server's Begin: the force
+   menu opens on joining, and the player plays in first or third person.
+   Next: Raven's effects, then the network protocol, so Create Server's Begin starts a match; Raven's
    effects after.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the

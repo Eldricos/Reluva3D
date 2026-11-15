@@ -82,8 +82,10 @@ bool MenuLayer::start(int32_t menu) {
     if (configure)
         configure(*_ui);
     Error err = _ui->load();
+    // Started over a match, they're told so (Jedi Outcast's then load
+    // their in-game menus instead of the main ones).
     if (!err)
-        err = _ui->call(MenuHost::kInit);
+        err = _ui->call(MenuHost::kInit, {menu == kMainMenu ? 0 : 1});
     if (!err)
         err = _ui->call(MenuHost::kSetActiveMenu, {menu});
     if (err) {

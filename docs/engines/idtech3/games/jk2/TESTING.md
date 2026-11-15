@@ -32,7 +32,10 @@ The launcher's *Add Game...* and *Import Game...* with the real CD; how
 the maps look (`reluva-viewer`'s World page), against the original; the
 videos' sound heard (the Videos page), and a video texture seen in
 kejim_post (Mon Mothma's screens); the multiplayer menus' music heard,
-and the other menus clicked through on the Menu page; Join Server's lists
+and the other menus clicked through on the Menu page; a match from
+Create Server's Begin: the force menu on joining, Apply and join,
+walking, the saber and third person (`p`), bots added from the console
+(`addbot tavion`); Join Server's lists
 against real servers: the local network, the Internet (Get New List with
 Source: Internet), a favourite added and kept after restarting, and
 Server Info on one.

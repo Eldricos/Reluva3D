@@ -55,6 +55,8 @@ private:
     Error startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                           int32_t commandSequence);
     // The player's settings as the server is told them (name, model...).
+    // Sends the player's settings to the server if they've changed.
+    void sendUserinfo();
     std::string userinfo() const;
     // Opening the level to players on other machines (patch 1.2's game only).
     void startHosting();
@@ -93,7 +95,9 @@ private:
     int _execDepth = 0;
     // The game's menus over the match (the original's in-game menu): Esc
     // opens them; they close themselves.
-    void openMenu();
+    // The menus over the match: the in-game menu, or another the client
+    // game asks for (Jedi Outcast's force powers, team choice).
+    void openMenu(int32_t menu = MenuLayer::kInGameMenu);
     // Sets up the renderer and what draws through it at the video
     // settings; false (shown) if there's no 3D rendering.
     bool setUpGraphics();
@@ -203,6 +207,7 @@ private:
     // The player's view angles in degrees (pitch counts downwards), and
     // what they hold.
     PlayerInput _input;
+    std::string _sentUserinfo; // the player's settings as the server last heard them
     JoystickInput _joystick;
     void pollJoystick();
     gfx::Vec3 _eye{};

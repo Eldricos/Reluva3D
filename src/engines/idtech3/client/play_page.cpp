@@ -51,17 +51,22 @@ constexpr float kPi = 3.14159265358979f;
 } // namespace
 
 PlayPage::PlayPage(PageContext &ctx) : Page(ctx) {
-    if (ctx.game.code != GameCode::kEliteForce || !ctx.files.has("vm/qagame.qvm") || !ctx.files.has("vm/cgame.qvm"))
+    // Elite Force's game module, or Jedi Outcast's multiplayer one.
+    const char *gameModule = ctx.game.code == GameCode::kJediOutcast ? "vm/jk2mpgame.qvm" : "vm/qagame.qvm";
+    if ((ctx.game.code != GameCode::kEliteForce && ctx.game.code != GameCode::kJediOutcast) ||
+        !ctx.files.has(gameModule) || !ctx.files.has("vm/cgame.qvm"))
         return;
+    _input.setNamedButtons(ctx.game.namedButtons);
     for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) == 0 && key.size() > 4 && key.compare(key.size() - 4, 4, ".bsp") == 0)
             _names.push_back(key);
     }
     std::sort(_names.begin(), _names.end());
-    // Holomatch maps first.
-    for (size_t i = 0; i < _names.size(); ++i)
-        if (_names[i].rfind("maps/hm_", 0) == 0) {
+    // The multiplayer levels first (Holomatch's, free for all...).
+    const std::vector<std::string> &prefixes = ctx.game.multiplayerMapPrefixes;
+    for (size_t i = 0; i < _names.size() && !prefixes.empty(); ++i)
+        if (_names[i].rfind("maps/" + prefixes.front(), 0) == 0) {
             _index = int(i);
             break;
         }
@@ -241,9 +246,13 @@ bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
 
 Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstrings, int32_t serverMessage,
                                 int32_t commandSequence) {
-    _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars);
+    _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars, _ctx.game.code);
     _cgame->print = [this](const std::string &text) { addPrint(text, true); };
     _scene->setHandles({&_cgame->models(), &_cgame->skins(), &_cgame->shaders()});
+    // Its Ghoul2 players and weapons, posed as it has set them.
+    _scene->ghoul2Poses = [this](int32_t instance, int32_t time, std::vector<Ghoul2Pose> &out) {
+        return _cgame && _cgame->ghoul2().drawn(instance, time, out);
+    };
     _cgame->subdivisions = videoSettings(_cvars).subdivisions;
     _notify.clear();
     _printPartial[1].clear();
@@ -280,7 +289,7 @@ void PlayPage::start(int index) {
     // intro, which holds new players in place, is off until there's a
     // way to watch it.
     _cvars.set("g_holoIntro", "0");
-    _game = std::make_unique<eliteforce::GameHost>(_ctx.files, _cvars);
+    _game = std::make_unique<eliteforce::GameHost>(_ctx.files, _cvars, _ctx.game.code);
     _game->print = [this](const std::string &text) { addPrint(text, false); };
     _printPartial[0].clear();
     closeTyping();
@@ -291,6 +300,7 @@ void PlayPage::start(int index) {
     std::string refused;
     if (!err)
         err = _game->connectClient(0, userinfo() + "\\ip\\localhost", refused);
+    _sentUserinfo = userinfo();
     if (!err && !refused.empty())
         err = Error::fail("the game refused the player: " + refused);
     if (!err)
@@ -468,6 +478,23 @@ bool PlayPage::finishDownload(const std::string &name, const std::vector<uint8_t
     return true;
 }
 
+void PlayPage::sendUserinfo() {
+    // The player's settings changed (in the menus: a name, a model, Jedi
+    // Outcast's force powers): the server is told, as the original's client
+    // tells it whenever they change.
+    const std::string info = userinfo();
+    if (info == _sentUserinfo)
+        return;
+    _sentUserinfo = info;
+    if (_client) {
+        if (!_client->playingDemo())
+            _client->setUserinfo(info);
+    } else if (_game) {
+        if (Error err = _game->userinfoChanged(0, info + "\\ip\\localhost"))
+            stop("The server game stopped: " + err.message);
+    }
+}
+
 std::string PlayPage::userinfo() const {
     // The player's settings the menus keep (name, model...), as the
     // original sends them: every user-info setting.
@@ -535,6 +562,7 @@ void PlayPage::connect(const std::string &address) {
     _joinState = eliteforce::NetClient::State::kDisconnected;
     addPrint("Joining " + address + "\n", false);
     _client = std::make_unique<eliteforce::NetClient>(std::move(socket), net::Address{ip, port}, userinfo(), qport);
+    _sentUserinfo = userinfo();
     _lastMs = 0;
 }
 
@@ -950,7 +978,7 @@ void PlayPage::setFromConsole(const std::string &name, const std::string &value)
         addPrint(name + " will be changed upon restarting.\n", false);
 }
 
-void PlayPage::openMenu() {
+void PlayPage::openMenu(int32_t menu) {
     // Outside a match, the menus' own page; a demo ends, as the
     // original's does on Esc.
     if (!_cgame || !_renderer || playingDemo()) {
@@ -973,8 +1001,8 @@ void PlayPage::openMenu() {
         ui.configstring = [this](int32_t index) { return matchConfigstring(index); };
     };
     if (_menus.running())
-        _menus.show(MenuLayer::kInGameMenu);
-    else if (!_menus.start(MenuLayer::kInGameMenu)) {
+        _menus.show(menu);
+    else if (!_menus.start(menu)) {
         addPrint(_menus.error() + "\n", false);
         return;
     }
@@ -1322,6 +1350,10 @@ void PlayPage::runClientGameCommands() {
     // commands it handled since): its commands for the server as the
     // player's ("score", asking for the scoreboard), sent as the
     // original's client sends them; and console commands, run as typed.
+    // A menu it asked for (Jedi Outcast's force powers on joining) opens.
+    for (const int32_t menu : _cgame->takeUiMenus())
+        if (!_menuOpen)
+            openMenu(menu);
     for (const std::string &command : _cgame->takeClientCommands()) {
         if (_client) {
             if (!_client->playingDemo())
@@ -1349,6 +1381,8 @@ eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
     cmd.angles = c.angles;
     cmd.buttons = c.buttons;
     cmd.weapon = uint8_t(_cgame ? _cgame->weaponSelect() : 0);
+    cmd.forceSelect = uint8_t(_cgame ? _cgame->forceSelect() : 0);
+    cmd.inventorySelect = uint8_t(_cgame ? _cgame->inventorySelect() : 0);
     cmd.forward = c.forward;
     cmd.right = c.right;
     cmd.up = c.up;
@@ -1484,6 +1518,7 @@ void PlayPage::update(uint64_t nowMs) {
     if (_menuOpen) {
         _menus.frame(nowMs);
         runMenuCommands();
+        sendUserinfo();
         if (_menuOpen) {
             const bool caught = _menus.open();
             _menuCaught |= caught;

@@ -73,6 +73,10 @@ public:
     // The weapon the client game last selected (SetUserCmdValue), which
     // the player's next commands carry.
     int32_t weaponSelect() const { return _weaponSelect; }
+    // Jedi Outcast's: the force power and inventory item selected, which
+    // its commands carry too.
+    int32_t forceSelect() const { return _forceSelect; }
+    int32_t inventorySelect() const { return _inventorySelect; }
     // A command the player gave (numbered from 1), for the client game's
     // prediction: GetCurrentCmdNumber, GetUserCmd (the last 64 kept).
     void addUserCommand(const GameHost::UserCommand &cmd) {
@@ -189,6 +193,8 @@ private:
     std::unique_ptr<CollisionWorld> _world;
     std::unique_ptr<MarkSurfaces> _marks; // made from _map on the first mark
     int32_t _weaponSelect = 0;
+    int32_t _forceSelect = 0;
+    int32_t _inventorySelect = 0;
     // Jedi Outcast's own calls' state: its text and menu scripts, its
     // string packages, the effects it registered, its Ghoul2 instances
     // (the models' names, by the number it holds).

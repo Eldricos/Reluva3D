@@ -41,7 +41,7 @@ system and Ghoul2 (4 to 24).
 | 42–46 | 36–39, 57 | world map, models, skins, shaders |
 | 110 | 107 | floor |
 | 200–211 | 40–48 | the scene, colour, pictures, model bounds, tags (the additive light as a light) |
-| 219–226, 232 | 49–56, 58 | glconfig, game state, snapshots, server commands, user commands, memory |
+| 219–226, 232 | 49–56, 58 | glconfig, game state, snapshots, server commands, user commands, memory; `SetUserCmdValue`'s third and fourth arguments are the force power and item selected, which the player's commands carry |
 
 ### Its own
 
@@ -55,7 +55,7 @@ system and Ghoul2 (4 to 24).
 | 204 | `R_LightForPoint` | no light yet |
 | 212, 213 | `R_DrawRotatePic`, `R_DrawRotatePic2` | a turned picture |
 | 214–218 | shader remapping, light styles, brush model vertices, effect lines | not yet |
-| 229 | `OpenUIMenu` | kept for the page, which opens the menus' menu |
+| 229 | `OpenUIMenu` | the page opens that menu over the match (6, the force powers, when the game sends `nfr` to a new player) |
 | 233–236 | the key calls | the catcher kept |
 | 237–243 | the script calls | as the menus': the HUD is a menu script |
 | 244–246 | stop music, real time, snap vector | |
@@ -86,8 +86,7 @@ system and Ghoul2 (4 to 24).
 ### Open questions
 
 - Effects aren't played, light styles set or ROFF paths followed yet.
-- Players are posed (a player's entity carries its instance at 208), and
-  the renderer draws them, but they haven't been seen drawn yet: that
-  waits for the Play page.
+- Players are posed (a player's entity carries its instance at 208) and
+  drawn; seen in third person on the Play page.
 - Starting takes about 340 million instructions (the effects system and
   the models it loads): to look at for speed.
