@@ -380,6 +380,8 @@ public:
         }
         // Time let pass, as long as the timer's conditions so far ask.
         for (const int s : timerWaits) {
+            if (p.gameState().clock >= float(s))
+                continue; // waited that long already
             Action a;
             a.kind = "wait";
             a.scene = scene;
@@ -1548,6 +1550,8 @@ int aweCommandSolve(int argc, char **argv) {
                     (x.rfind("tag ", 0) != 0 || storyTag(x)))
                     novelHere += seenHere.insert(st.scene + "|" + storyOf(x)).second;
             novelHere += int(clickNew.size());
+            // A wait as long as a condition asked: what it allows is new.
+            novelHere += a.kind == "wait";
             n.tier = novelHere ? 0 : 1;
             for (const Action &next : player.actions())
                 n.promise |= next.kind == "use";
