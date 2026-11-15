@@ -40,6 +40,14 @@ None yet.
   used, 12 items a page, from the writer's numbers and the inventory's
   own; the `ITEM` loader isn't read.
   [systems/inventory.md](systems/inventory.md#in-a-saved-game).
+- **Wargrave's "Anything else you'd like to add?" in 4A strands
+  Narracott** in Blore's close-up, as Reluva plays it: the thread's line
+  `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
+  thread ends at its first missing line (`0x431e70`, read), so the lines
+  after it, the last of which goes back to the dining room, never play.
+  Whether the original strands the player there too isn't seen in the
+  game itself. The route search keeps out of it.
+  [systems/dialogue.md](systems/dialogue.md).
 - **The close-up's movie is centred** on the screen, as its pictures
   are; where `ac.exe` puts it isn't read.
   [systems/inventory.md](systems/inventory.md#examine).
