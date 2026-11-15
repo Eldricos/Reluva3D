@@ -75,6 +75,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 15 November 2026 | English (retail, two CDs) | Linux | Against gameplay footage (two playthroughs, by chapter): the logos, main menu, options, in-game menu and save screen, the title card, the dialogue box and its colours, the journal and the inventory, the flashlight, the safe and the deposit boxes, the front entrance at night (its pictures' night colour, fixed), the journal's back arrow (fixed), an ending |
 | 15 November 2026 | English (retail, two CDs) | Linux | Phase 5: the game-files steps, all five, the route the search's own (2,162 actions to the credits), `awe game-check -quick` on it all four ways passed |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 4 so far: `awe game-run <game> -v`, every act started with nothing undone; in the Scenes page a title card, the journal (contents and entries), the main and in-game menus, New Game, a save made, listed and loaded |
 | 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the rest: the lights counted over the 537 scenes; the dialogue box in the Scenes page, a line and a menu (`awe page-shot ... "run:act 01a, talk marston a forcegen"`); the fonts' face names from their files |
