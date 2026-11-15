@@ -12,10 +12,7 @@
 
 namespace reluva::boggle {
 namespace {
-struct Box {
-    int x,y,w,h;
-    bool contains(int px,int py) const { return px>=x && py>=y && px<x+w && py<y+h; }
-};
+using Box=SelectionRect;
 constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
@@ -43,10 +40,22 @@ std::string duration(uint64_t ms) {
     const auto seconds=ms/1000;
     return std::to_string(seconds/60)+":"+(seconds%60 ? "30" : "00");
 }
-void selection(Surface& s,const image::Image& background,const FrontendMedia& media,uint64_t elapsed) {
+void selection(Surface& s,const image::Image& background,const FrontendMedia& media,uint64_t elapsed,const FrontendSelectionLayout& layout) {
     fill(s,{0,0,640,480},dark);
     if(!background.rgba.empty()) image::blit(s,background,0,0);
     else { text(s,56,70,"BOGGLE",white,5); text(s,56,142,"CHOOSE A GAME",muted,2); }
+    if(layout.installed()) {
+        const char* titles[]={"CLASSIC","BREAKAWAY","BATTLE","SPACE","IN YOUR FACE"};
+        for(size_t i=0;i<layout.modes().size();++i){
+            const auto b=layout.modes()[i];button(s,b,"",i==0,i==0);
+            media.buttonFit(s,i,{b.x+2,b.y+2,b.w-4,b.h-4},elapsed);
+            const int rows=i?2:1,top=b.y+b.h-rows*12-3;
+            fill(s,{b.x+2,top,b.w-4,rows*12+1},dark);
+            text(s,b.x+(b.w-int(std::char_traits<char>::length(titles[i]))*6)/2,top+2,titles[i],i?muted:white);
+            if(i)text(s,b.x+(b.w-66)/2,top+14,"Unavailable",muted);
+        }
+        text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");return;
+    }
     button(s,classic,"CLASSIC",true);
     if(media.button(s,0,classic.x+6,classic.y+4,elapsed)) {
         fill(s,{classic.x+2,classic.y+97,classic.w-4,13},dark);
@@ -136,6 +145,11 @@ Error FrontendGame::run() {
     if(fs::findFile(target_.path,"Bitmaps/Select1.bmp")) {
         if(auto err=resources.image("Bitmaps/Select1.bmp",background)) return err;
         if(background.w!=640 || background.h!=480) return Error::fail("Unsupported game-selection bitmap dimensions");
+    }
+    FrontendSelectionLayout selectionLayout;
+    if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
+        Language language;if(auto err=resources.language("Language/English.dll",language))return err;
+        if(auto err=selectionLayout.read(language.resources))return err;
     }
     FrontendMedia media;
     if(auto err=media.open(resources,target_.path,options.movies))return err;
@@ -263,7 +277,7 @@ Error FrontendGame::run() {
             }
             if(page==Page::Selection) {
                 if((isKey && event.key=='l') || pressed(exit)) return Error::success();
-                if((isKey && (event.key==key::Return || event.key==key::KpEnter || event.key=='c')) || pressed(classic)) {
+                if((isKey && (event.key==key::Return || event.key==key::KpEnter || event.key=='c')) || pressed(selectionLayout.modes()[0])) {
                     page=Page::Version;changed=true;
                 }
             } else if(page==Page::Version) {
@@ -322,7 +336,7 @@ Error FrontendGame::run() {
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError);
         }
-        else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0); }
+        else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0,selectionLayout); }
         system_.updateScreen(screen);system_.delayMillis(16);
     }
 }

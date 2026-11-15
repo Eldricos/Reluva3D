@@ -433,3 +433,12 @@ to Resume in place. Twenty isolated original command checks support a menu toggl
 without constructing a modal dialog. Exact original paused-screen appearance is
 pending the requested VM observation; the bottom control remains a native UI
 choice. Existing lid, focus, music, clock and round-end behavior is preserved.
+
+### Game-selection mode-button placement
+
+The owner confirmed the pause-control refinement works. The next
+[selection-layout pass](../../engines/boggle/frontend.md#installed-mode-button-placement)
+binds the five mode positions from the installed template and fits available
+button clips to their bounds. Only Classic launches; native labels, unavailable
+mode notices and navigation remain. Exact Windows metrics, original hover
+triggers, frontend skins and later setup-screen layouts remain comparison work.

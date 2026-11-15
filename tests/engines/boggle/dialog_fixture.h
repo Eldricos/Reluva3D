@@ -64,6 +64,22 @@ inline DialogFixture matchDialog(bool extended=false){
     for(unsigned row=0;row<4;++row){control(15400+row,0x82,30,70+int(row)*20,120,14);control(15410+row,0x82,180,70+int(row)*20,50,14);}
     control(2,0x80,130,170,70,16);control(1,0x80,220,170,60,16);control(1352,0x82,20,15,260,28);return f;
 }
+inline DialogFixture selectionDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(5);word(0);word(0);word(400);word(300);word(0);word(0);f.caption=b.size();text(u"Own selection");
+    for(int i=4;i>=0;--i){
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        word(uint16_t(10+i*78));word(150);word(60);word(75);
+        if(extended)integer(15001+i);else word(uint16_t(15001+i));word(0xffff);word(0x82);text(u"Own mode");word(0);
+    }
+    return f;
+}
 inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;
     std::array<std::u16string,16> text{};text[1]=u"Own menu";const auto strings=stringBlock(text);

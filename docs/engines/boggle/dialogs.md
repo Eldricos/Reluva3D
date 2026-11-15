@@ -48,7 +48,8 @@ This stage establishes installed relative placement and consistent mouse targets
 not exact Windows dialog-unit conversion, original skinning or modal styling.
 The minimum-length notice now uses the same template reader; see below. The
 [pause command](pause-presentation.md#pause-control-and-settled-view) is a menu
-toggle rather than a dedicated dialog. Remaining frontend dialogs are separate work.
+toggle rather than a dedicated dialog. The [game-selection mode row](frontend.md#installed-mode-button-placement) now
+uses the same reader. Remaining frontend dialogs are separate work.
 
 ## Minimum-word-length notice
 

@@ -7,6 +7,7 @@ reluva_add_engine(boggle
     ACCESSOR boggleMetaEngine
     SOURCES
         boggle.cpp
+        frontend/layout.cpp
         frontend/game.cpp
         frontend/media.cpp
         import.cpp

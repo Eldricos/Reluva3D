@@ -2,6 +2,10 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/registry.h"
 #include "engines/boggle/classic/options.h"
+#include "engines/boggle/frontend/layout.h"
+#include "engines/boggle/frontend/media.h"
+#include "tests/engines/boggle/dialog_fixture.h"
+#include <limits>
 #include "tests/engines/boggle/fixtures.h"
 #include "tests/engines/boggle/system.h"
 #include "tests/support/test.h"
@@ -222,6 +226,57 @@ void publisherSequence(const std::filesystem::path& tmp) {
     game=findEngine("boggle")->create(invalid,t);CHECK(!game->run());
 }
 
+void selectionLayouts(){
+    FrontendSelectionLayout layout;CHECK(!layout.read({}) && !layout.installed() && layout.modes()[0].contains(50,390));
+    for(bool extended:{false,true}){
+        const auto f=fixtures::selectionDialog(extended);std::vector<PeResource> own;
+        CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10813),own));
+        CHECK(!layout.read(own) && layout.installed());CHECK(layout.modes()[0].contains(30,250) && !layout.modes()[0].contains(50,390));
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?20:16),15005);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?24:18)+2,0x80);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?12:8),399);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?12:8),250);CHECK(bool(layout.read(bad))); // modes overlap
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?12:8)+2,200);CHECK(bool(layout.read(bad))); // native navigation clearance
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void selectionNavigation(const std::filesystem::path& tmp){
+    for(bool extended:{false,true}){
+        auto t=target(tmp/(extended?"extended":"standard"));const auto f=fixtures::selectionDialog(extended);
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10813));
+        fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==1)return {mouseEvent(EventType::MouseDown,50,390)}; // retired Classic target
+            if(f==2)return {mouseEvent(EventType::MouseDown,30,250),keyEvent(key::Return)};
+            if(f==3)return {keyEvent('2')};
+            if(f==4 || f==5)return {keyEvent(key::Return)};
+            if(f==6)return {keyEvent(key::F1+2),keyEvent(key::Return)};
+            if(f==7)return {mouseEvent(EventType::MouseDown,160,250)}; // unavailable mode
+            if(f==8)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==8);
+        if(sys.hashes.size()==8){CHECK(sys.hashes[0]==sys.hashes[1] && sys.hashes[0]==sys.hashes[6] && sys.hashes[0]==sys.hashes[7]);CHECK(sys.hashes[2]!=sys.hashes[3] && sys.hashes[3]!=sys.hashes[4] && sys.hashes[4]!=sys.hashes[5]);}
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},10813));
+        fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));
+        t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
+void fittedMovies(const std::filesystem::path& tmp){
+    fixtures::write(tmp/"Anims/ClsBut8.avi",test::fixtures::grayMovie(100,100,false));Resources resources;CHECK(!resources.open(tmp));
+    FrontendMedia media;CHECK(!media.open(resources,tmp,true));Surface screen;screen.create(40,30,PixelFormat::RGBA32);
+    for(const auto b:{SelectionRect{5,4,20,10},SelectionRect{-5,-3,20,16},SelectionRect{std::numeric_limits<int>::max(),std::numeric_limits<int>::max(),std::numeric_limits<int>::max(),std::numeric_limits<int>::max()},SelectionRect{std::numeric_limits<int>::min(),std::numeric_limits<int>::min(),20,20}}){
+        std::fill(screen.pixels.begin(),screen.pixels.end(),17);CHECK(media.buttonFit(screen,0,b,0));size_t changed=0;
+        for(int y=0;y<screen.h;++y)for(int x=0;x<screen.w;++x)if(screen.row(y)[x*4]!=17){++changed;CHECK(b.contains(x,y) && screen.row(y)[x*4]==30 && screen.row(y)[x*4+3]==255);}
+        if(b.x==5)CHECK(changed==100 && screen.row(4)[10*4]==30 && screen.row(4)[9*4]==17);
+        else if(b.x==-5)CHECK(changed>0 && changed<256);
+        else CHECK(!changed);
+    }
+    CHECK(media.buttonFit(screen,0,{0,0,10,10},100) && screen.row(0)[0]==90);
+    CHECK(!media.buttonFit(screen,0,{0,0,0,10},0) && !media.buttonFit(screen,5,{0,0,10,10},0));
+    CHECK(!media.open(resources,tmp,false) && !media.buttonFit(screen,0,{0,0,10,10},0));
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -249,6 +304,9 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"installed selection IDs, encodings, languages and malformed geometry",[](const auto&){selectionLayouts();}},
+    {"installed Classic picking, navigation guards, opt-out and return",selectionNavigation},
+    {"fitted movie aspect ratio, frame timing, clipping and extreme rectangles",fittedMovies},
     {"selection, variant setup, auto-start, results, return and re-entry",[](const auto& tmp){navigation(tmp);}},
     {"mouse navigation, legacy artwork fallback and global exit",[](const auto& tmp){mouseAndGuards(tmp);}},
     {"owner-confirmed Escape behavior on selection, version and Players",[](const auto& tmp){escapePages(tmp);}},

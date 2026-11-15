@@ -37,6 +37,21 @@ bool FrontendMedia::button(Surface& screen,size_t index,int x,int y,uint64_t ela
     if(index>=buttons_.size() || buttons_[index].frames.empty())return false;
     const auto& movie=buttons_[index];image::blit(screen,movie.frames[movie.frameAt(elapsed,true)],x,y);return true;
 }
+bool FrontendMedia::buttonFit(Surface& screen,size_t index,SelectionRect bounds,uint64_t elapsed) const {
+    if(index>=buttons_.size() || buttons_[index].frames.empty())return false;
+    if(bounds.w<=0 || bounds.h<=0 || screen.format!=PixelFormat::RGBA32 || screen.w<=0 || screen.h<=0 ||
+       screen.w>8192 || screen.h>8192 || screen.pitch<screen.w*4 || screen.pixels.size()<size_t(screen.pitch)*screen.h)return false;
+    const auto& movie=buttons_[index];const auto& frame=movie.frames[movie.frameAt(elapsed,true)];
+    // The supported clips are square. Fit without painting outside the target,
+    // including when a caller supplies a partly off-screen rectangle.
+    const int side=std::min({bounds.w,bounds.h,8192});const int64_t left=int64_t(bounds.x)+(int64_t(bounds.w)-side)/2,top=int64_t(bounds.y)+(int64_t(bounds.h)-side)/2;
+    for(int y=int(std::clamp<int64_t>(top,0,screen.h));y<std::min<int64_t>(screen.h,top+side);++y)
+        for(int x=int(std::clamp<int64_t>(left,0,screen.w));x<std::min<int64_t>(screen.w,left+side);++x){
+            const auto* src=&frame.rgba[(size_t((y-top)*frame.h/side)*frame.w+size_t((x-left)*frame.w/side))*4];
+            auto* dst=screen.row(y)+x*4;std::copy_n(src,4,dst);
+        }
+    return true;
+}
 namespace {
 enum class MovieExit { Completed, Skipped, Quit };
 Error playIntroClip(System& system,const Resources& resources,const char* path,int width,int height,MovieExit& result) {

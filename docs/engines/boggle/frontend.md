@@ -2,8 +2,8 @@
 
 The engine now plays the available intro, then opens game selection before
 Classic. Escape skips the intro; see [movie playback](movies.md). When present,
-`Bitmaps/Select1.bmp` supplies the installed game's 640x480 background. The
-controls are native: choose Classic, then Original or Master, the round length,
+`Bitmaps/Select1.bmp` supplies the installed game's 640x480 background. Controls use native behavior and styling, with installed mode placement when
+available: choose Classic, then Original or Master, the round length,
 then choose the human player name on Players and choose Play. Play starts the existing roll/opening sequence immediately; it does
 not require another Enter on the round's Ready screen. Other game modes are
 shown as unavailable and cannot be started.
@@ -16,8 +16,8 @@ Keyboard controls:
   duration in 30-second steps, bounded to 1:00..5:00. T toggles no timer and
   restores the last timed duration. Enter/keypad Enter advances to Players.
   Escape or Main Menu returns to selection.
-- Players: shows the supported one-human-player name, chosen version and
-  duration. Change Name / N opens the native name editor; save or cancel returns
+- Players: shows the current human name, chosen version, duration and local
+  roster/turn controls. Change Name / N opens the native name editor; save or cancel returns
   to Players. Enter/keypad Enter plays. Escape or Main Menu returns directly to
   selection, rather than to version selection.
 - During a menu-launched game, Escape does nothing. The explicit native Menu
@@ -32,8 +32,9 @@ released before returning to menus or changing graphics modes.
 
 The setup starts from the launcher's saved Classic options. Menu changes apply
 for this engine session and are preserved on return from a round; they do not
-write the launcher configuration or original Windows registry. The supported
-session remains one human player in U.S. English. Sound effects and music still
+write the launcher configuration or original Windows registry. Supported
+local sessions use up to four humans/computers in U.S. English; see
+[Traditional play](traditional.md) and [Chess Timer](chess.md). Sound effects and music still
 use the launcher's settings. A random music choice is made once per engine
 launch, including across menu re-entry. Returning to menus stops the round's
 music; entering Classic again restarts that same selected loop. Replay within
@@ -44,6 +45,39 @@ are native convenience controls, not claimed original shortcuts.
 **Game selection menu**, enabled by default in launcher options, is saved as
 `classic_menu=1`. Disable it (`0`) to use the previous direct Classic Ready screen
 and Escape-to-launcher behavior. This also allows direct regression comparisons.
+
+## Installed mode-button placement
+
+When Classic installed artwork is enabled, game selection reads exact RT_DIALOG
+10813 (`0x2a3d`) / language 0x0409 from the existing English DLL. Five static
+controls bind by ID 15001..15005 in Classic, Breakaway, Battle, Space and In Your
+Face order. Control enumeration order does not determine the binding. The
+selection caller loads this template at `0x43adfc..0x43ae10`, as recorded below.
+The DLL and executable hashes identify the supplied binaries used for this
+read-only analysis.
+
+The independently written consumer maps each axis of the template client area
+to the existing 640x480 selection canvas. Drawing and Classic mouse picking share
+the resulting rectangles. Required IDs must be unique static controls, inside
+the client bounds, ordered without overlap, large enough for native labels and
+clear of the native title/launcher controls. A present malformed selected layout
+reports an error before intro playback. Missing templates or disabled installed
+artwork keep the previous native mode placement; existing imports need no new
+files. Resource text, retail coordinates and bitmap bytes are not embedded in
+source or fixtures.
+
+Available button clips fit inside each mode rectangle with their square aspect
+ratio retained. The native nearest-neighbor rasterizer clips writes to the screen;
+movie timing and the existing looping policy are unchanged. Labels and unavailable
+mode notices stay inside their own rectangles, including when movies are absent
+or disabled. Only Classic can launch. Enter/C, inactive Escape on selection,
+native Launcher/L, version/Players navigation and menu-return input guards retain
+their existing behavior. Other resource controls, network/chat, original font
+metrics, skinning and original hover-trigger behavior are outside this pass.
+
+This is a native canvas mapping, not Windows font-dependent dialog-unit
+conversion or a claim of complete original frontend fidelity. Later Players and
+version setup screens retain their existing native layouts.
 
 ## Evidence and missing-file correction
 
@@ -150,3 +184,19 @@ controls with nonzero audio. No claim of full original player-setup UI is made.
 
 The [native player name](players.md) is now editable and remembered separately
 from original data. Full original player configuration remains unfinished.
+
+The installed-selection pass adds invented standard/extended templates with
+reversed control order, exact-language/missing fallback and malformed required
+controls. Scripted navigation verifies the installed Classic target, retired-target
+rejection, Master setup/play, menu return, unavailable modes and artwork opt-out.
+Synthetic Cinepak clips verify fitting, aspect ratio, animation timing, clipping
+and extreme off-screen rectangles. Existing fallback frontend records remain
+unchanged. External SDL software-backend runs inspect supplied animated selection
+and exercise Classic picking, both versions, game entry and menu return. Retail
+captures and the preview harness remain outside Git.
+
+All 43 Boggle CTest checks pass with the supplied install. The full suite passes
+66 checks and skips 10 optional idtech3 data checks. Frontend, dialog and import
+suites pass ASan/UBSan with LeakSanitizer disabled for the execution tracer.
+All 737 installed files retain their manifest hashes. Windows owner testing of
+the installed selection layout is pending.

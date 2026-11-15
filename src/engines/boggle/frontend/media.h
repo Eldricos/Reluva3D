@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
 #include "engines/boggle/resources.h"
+#include "engines/boggle/frontend/layout.h"
 #include "common/system.h"
 #include <array>
 namespace reluva::boggle {
@@ -10,6 +11,7 @@ class FrontendMedia {
 public:
     Error open(const Resources& resources,const std::filesystem::path& root,bool enabled);
     bool button(Surface& screen,size_t index,int x,int y,uint64_t elapsed) const;
+    bool buttonFit(Surface& screen,size_t index,SelectionRect bounds,uint64_t elapsed) const;
     static Error intro(System& system,const Resources& resources,const std::filesystem::path& root,bool& quit);
 private:
     std::array<video::AviCinepak,5> buttons_;
