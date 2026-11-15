@@ -5,6 +5,8 @@
 #include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/scores_dialog.h"
 #include "engines/boggle/classic/match_dialog.h"
+#include "engines/boggle/classic/handoff_dialog.h"
+#include <limits>
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -194,6 +196,50 @@ void matchGame(const std::filesystem::path& tmp){
         HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==4);for(const auto& row:scores.table())CHECK(row.score==0);
     }
 }
+void handoffLayouts(){
+    ClassicHandoffDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.start().contains(100,400));
+    for(bool extended:{false,true}){
+        const auto f=fixtures::handoffDialog(extended);auto own=resources(f.bytes);own[0].name.id=15900;
+        CHECK(!layout.read(own) && layout.installed() && layout.start().contains(600,450) && !layout.start().contains(100,400));
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        Surface screen;screen.create(800,600,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);
+        layout.draw(screen,"ABCDEFGHIJKLMNOPQR",true,std::numeric_limits<uint64_t>::max(),true,{"ABCDEFGHIJKLMNOPQR","Second","Third"});
+        for(const auto& p:{std::pair{0,0},std::pair{799,599},std::pair{24,100},std::pair{799,300}}){const auto* c=screen.row(p.second)+p.first*4;CHECK(c[0]==18 && c[1]==32 && c[2]==48 && c[3]==255);}
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?20:16),15901);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?24:18)+2,0x80);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8),319);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+2,80);CHECK(bool(layout.read(bad))); // button crosses message
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+2,200);CHECK(bool(layout.read(bad))); // no footer clearance
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?12:8)+6,40);CHECK(bool(layout.read(bad))); // insufficient message height
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void handoffGame(const std::filesystem::path& tmp){
+    for(bool master:{false,true})for(bool chess:{false,true}){
+        const auto root=tmp/(std::to_string(master)+std::to_string(chess));fixtures::artworkInstall(root);
+        const auto f=fixtures::handoffDialog(master);fixtures::write(root/"Language/English.dll",fixtures::dialogLanguage(f.bytes,15900));
+        auto own=resources(f.bytes);own[0].name.id=15900;ClassicHandoffDialog layout;CHECK(!layout.read(own));
+        const auto start=layout.start();auto click=[&](){return fixtures::mouseEvent(EventType::MouseDown,start.x+start.w/2,start.y+start.h/2);};
+        GameTarget target;target.path=root;target.savePath=tmp/("save-"+std::to_string(master)+std::to_string(chess));target.settings={{"classic_variant",master?"master":"original"},{"classic_turns",chess?"chess":"traditional"},{"classic_seed","6551"},{"classic_animations","0"},{"classic_sound","0"},{"classic_seconds","60"}};
+        fixtures::ScriptedSystem sys;sys.clock=[](size_t f)->uint64_t{return f<4?f*1000:f==4?1000000:2000000+(f-5)*10;};
+        sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0)return {keyEvent(key::Return)};
+            if(f==1){auto e=std::vector<Event>{textEvent("AAAA"),keyEvent(key::Return)};if(chess)e.push_back(click());return e;}
+            if(f==2)return chess?std::vector<Event>{keyEvent(key::F1)}:std::vector<Event>{keyEvent(key::F1),click()};
+            if(f==3)return {mouseEvent(EventType::MouseDown,100,400)};
+            if(f==4){Event e;e.type=EventType::FocusLost;return {e};}
+            if(f==5){Event e;e.type=EventType::FocusGained;return {e,click()};}
+            if(f==6)return {click(),textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==7)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(!chess){if(f==8)return {keyEvent(key::F1)};if(f==9)return {keyEvent(key::Return)};if(f==10)return {keyEvent(key::Escape)};}
+            else {if(f==8 || f==10 || f==12)return {keyEvent(key::Return)};if(f==9 || f==11)return {keyEvent(key::F1)};if(f==13)return {keyEvent(key::Escape)};}
+            return {};
+        };
+        ClassicGame game(sys,target,false,{"First","Second"});if(auto error=game.run())test::fail(error.message);
+        CHECK(sys.hashes.size()==(chess?13u:10u));if(sys.hashes.size()>=8){CHECK(sys.hashes[2]==sys.hashes[3] && sys.hashes[2]==sys.hashes[5]);CHECK(sys.hashes[6]!=sys.hashes[7]);}
+        HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==2);for(const auto& row:scores.table())CHECK(row.score==0);
+    }
+}
 void decisions(const std::filesystem::path& tmp){
     for(bool master:{false,true})for(size_t choice=0;choice<4;++choice){
         const auto root=tmp/(std::to_string(master)+std::to_string(choice));fixtures::artworkInstall(root);
@@ -225,4 +271,6 @@ static const test::Suite suite("boggle.unit.dialog",{
     {"multiplayer results keep their own Close target",matchClose},
     {"match rows, exact language, malformed controls and hit targets",[](const auto&){matchLayouts();}},
     {"four-player results, nested highscores, review and event-batch guards",matchGame},
+    {"handoff IDs, language, privacy cover and malformed layouts",[](const auto&){handoffLayouts();}},
+    {"installed human handoffs, Traditional/Chess, frozen budgets and input guards",handoffGame},
 });

@@ -32,6 +32,7 @@ reluva_add_engine(boggle
         classic/ai_policy.cpp
         classic/ai_motion.cpp
         classic/competition.cpp
+        classic/handoff_dialog.cpp
         classic/match_dialog.cpp
         classic/scores_dialog.cpp
         classic/notice_dialog.cpp

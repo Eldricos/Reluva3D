@@ -5,6 +5,7 @@
 #include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/scores_dialog.h"
 #include "engines/boggle/classic/match_dialog.h"
+#include "engines/boggle/classic/handoff_dialog.h"
 #include "engines/boggle/classic/cursor.h"
 #include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/turn_clock.h"
@@ -86,7 +87,8 @@ void liveScores(Surface& screen,const std::vector<std::string>& names,
         label(screen,12+int(i)*196,591,std::to_string(i+1)+" "+names[i]+" "+std::to_string(score));
     }
 }
-void handoffScreen(Surface& screen,std::string_view next,bool chess,uint64_t remaining,bool timed,const std::vector<std::string>& finished) {
+void handoffScreen(Surface& screen,std::string_view next,bool chess,uint64_t remaining,bool timed,const std::vector<std::string>& finished,const ClassicHandoffDialog& dialog) {
+    if(dialog.installed()){dialog.draw(screen,next,chess,remaining,timed,finished);return;}
     rect(screen,0,0,width,height,dark);
     if(chess && !finished.empty()) {
         label(screen,80,100,"PLAYER FINISHED",white,2);
@@ -274,6 +276,7 @@ Error ClassicGame::run() {
     ClassicNoticeDialog noticeDialog;
     ClassicScoresDialog scoresDialog;
     ClassicMatchDialog matchDialog;
+    ClassicHandoffDialog handoffDialog;
     if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
         if(auto error=cursorArtwork.read(language.resources))return error;
@@ -282,6 +285,7 @@ Error ClassicGame::run() {
             if(auto error=noticeDialog.read(language.resources))return error;
             if(auto error=scoresDialog.read(language.resources))return error;
             if(auto error=matchDialog.read(language.resources))return error;
+            if(auto error=handoffDialog.read(language.resources))return error;
         }
     }
     ClassicAudio sound(sys_);
@@ -619,7 +623,7 @@ Error ClassicGame::run() {
             }
             if(handoff) {
                 if(handoffVisible && ((event.type==EventType::KeyDown && !event.repeat && (event.key==key::Return || event.key==key::KpEnter)) ||
-                   (event.type==EventType::MouseDown && event.button==MouseButton::Left && hit(event.mouseX,event.mouseY,80,380,640,60)))) {
+                   (event.type==EventType::MouseDown && event.button==MouseButton::Left && handoffDialog.start().contains(event.mouseX,event.mouseY)))) {
                     if(auto error=acceptHandoff())return error;
                     scoreDismissed=true;
                 }
@@ -778,7 +782,7 @@ Error ClassicGame::run() {
             if(auto error=publish())return error;
         if(results.ready() && !scoreAttempted)saveScore();
         const auto pauseFrame=pauseLid.frame(presentationClock.now(sys_.getMillis()));
-        if(handoff)handoffScreen(screen,names[nextTurn],chess,rounds[nextTurn]->remaining(clocks.elapsed(nextTurn,nowMillis())),rounds[nextTurn]->timed(),finishedNotices);
+        if(handoff)handoffScreen(screen,names[nextTurn],chess,rounds[nextTurn]->remaining(clocks.elapsed(nextTurn,nowMillis())),rounds[nextTurn]->timed(),finishedNotices,handoffDialog);
         else if (pauseFrame || transition.type() != Transition::None) {
             const size_t frameIndex=pauseFrame?*pauseFrame:transition.frame(nowMillis());
             const auto& frame = clip.frames[frameIndex];

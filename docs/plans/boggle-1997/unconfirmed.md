@@ -442,3 +442,12 @@ binds the five mode positions from the installed template and fits available
 button clips to their bounds. Only Classic launches; native labels, unavailable
 mode notices and navigation remain. Exact Windows metrics, original hover
 triggers, frontend skins and later setup-screen layouts remain comparison work.
+
+### Multiplayer turn-handoff placement
+
+The owner confirmed installed game-selection placement works. The next
+[handoff pass](../../engines/boggle/dialogs.md#multiplayer-turn-handoff) binds the
+installed next-player message and acknowledgment rectangles. Existing full-screen
+privacy, Traditional/Chess budgets, retirement notices and input-batch guards
+remain. Exact original Windows metrics, skinning and transition timing remain
+comparison work; no turn, scoring or persistence policy changes in this pass.

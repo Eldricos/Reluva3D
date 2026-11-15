@@ -138,6 +138,37 @@ Final totals, shared-word cancellation, human-only high-score recording and
 save formats are unchanged. Native fonts, wording, frame and colors remain;
 this stage follows installed relative placement, not original dialog skinning.
 
+## Multiplayer turn handoff
+
+With installed artwork enabled, the next-player screen uses exact RT_DIALOG
+15900 / language 0x0409. Its message area binds to static control 15901 and its
+Start action to button 1. The original constructor selects template 15900 at
+`0x449815`; the Classic player-switch caller constructs it at `0x419dba`, and
+control binding occurs at `0x449a5a..0x449a76`. The executable and English DLL
+hashes are recorded in [frontend research](frontend.md#evidence-and-missing-file-correction).
+Only read-only resource/caller observations inform this independently written UI.
+
+The client area is centered at two native pixels per template unit, matching the
+other small native dialog consumers. Required IDs/classes, uniqueness, bounds,
+message capacity and separation from Start and the native footer are checked.
+Missing templates or disabled installed artwork retain the previous handoff and
+mouse target. A present malformed selected layout fails explicitly. No retail
+text, screenshots or coordinates are embedded in source or fixtures.
+
+Start drawing and mouse picking share the installed button rectangle. Enter and
+keypad Enter retain their existing acknowledgment behavior. The screen must have
+been displayed before it accepts acknowledgment; the accepted input batch is
+consumed so queued typing cannot enter a word for the next player. Focus regain
+also consumes its event batch. Computer handoff automation is unchanged.
+
+The full board/word-list cover remains a native privacy policy. Traditional still
+shows the next player and same-board/full-round explanation. Chess still shows
+any finished-player notices, the next player and that player's paused budget.
+Native fonts, colors, wording, consolidated retirement notices and footer remain
+explicit presentation choices; this is installed relative placement, not a full
+recreation of the original modal skin or timing. Turn order, player clocks,
+background computers, scores and persistence are unchanged.
+
 ## Checking and validation
 
 ```
@@ -191,3 +222,18 @@ install; the full suite passes 66 checks and skips 10 optional idtech3 data
 checks. Dialog, competition, Traditional, Chess and engine suites pass ASan/UBSan
 with LeakSanitizer disabled for the execution tracer. All 737 installed files
 retain their manifest hashes. Windows owner testing of this stage is pending.
+
+Handoff fixtures cover standard/extended templates, exact-language and missing
+fallback, malformed classes/IDs, overlap, footer clearance and privacy masking.
+Original/Master human matches in Traditional and Chess check the installed Start
+target, obsolete-target rejection, long waits, focus loss/regain, pre-display and
+acknowledgment-batch guards, continued word entry and shared-word totals. External
+SDL software-backend runs inspect the supplied handoff, acknowledge Start by
+mouse and finish two-human matches in both versions/turn modes. Raw research,
+retail captures and the preview harness remain outside Git.
+
+For the handoff stage, all 43 Boggle CTest checks pass with the supplied install;
+the full suite passes 66 checks and skips 10 optional idtech3 data checks. Dialog,
+Traditional and Chess suites pass ASan/UBSan with LeakSanitizer disabled for the
+execution tracer. All 737 installed files retain their manifest hashes. Windows
+owner testing of this handoff-layout stage is pending.
