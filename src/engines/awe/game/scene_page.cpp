@@ -1749,7 +1749,8 @@ void ScenePage::update(uint64_t nowMs) {
         redraw = true;
     }
     _runner->update(dt);
-    _state.clock += dt; // as the main runner's update moves it on (ac.exe 0x409f9c)
+    if (clockRuns)
+        _state.clock += dt; // as the main runner's update moves it on (ac.exe 0x409f9c)
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
     if (_resumeAfter && _runner->idle()) {
@@ -3514,6 +3515,18 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     if (v == "accumulation" || v == "test") {
         // Snow gathering on the character set to (+0x14dc), and a
         // leftover of the earlier games (0x40c650): nothing to see here.
+        return false;
+    }
+    if (v == "savepos") {
+        // The character set to kept where it stands now, for this scene
+        // (ac.exe 0x40ce37 -> 0x4129d0), as leaving the scene keeps it.
+        if (const Character *c = characterNamed(runner.character())) {
+            if (c->player)
+                _positions[_state.scene] = {c->x, c->z, c->rotY};
+            else
+                _npcPositions[_state.scene + "|" + fs::toLower(fileNameOf(c->name))] = {{c->x, c->y, c->z},
+                                                                                        {0, c->rotY, 0}};
+        }
         return false;
     }
     if (v == "updatemusic") {

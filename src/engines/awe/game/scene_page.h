@@ -128,6 +128,11 @@ public:
         bool fading = false;
     };
     GameStatus status() const;
+    // For the tools: And Then There Were None's timer (GameState::clock)
+    // stopped, so a route doesn't depend on how fast its lines go by, and
+    // time passed on purpose.
+    bool clockRuns = true;
+    void passTime(float seconds) { _state.clock += seconds; }
     /** Whether it shows one of the game's menus, the main menu among them. */
     bool inMenu() const { return inMenuScene() || atMainMenu(); }
     // The hotspots and characters that could be clicked now, and a click

@@ -13,6 +13,7 @@
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
 //   examine|<scene>|||<choices>|<item>+...  items examined in the game's own inventory (attwn's tray)
+//   wait|<scene>|<seconds>||              time let pass (attwn's timer, stopped otherwise in the tools)
 //   decombine|<scene>|||<choices>|<item>  an item taken apart
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //   compare|<scene>|||<choices>|<card>+<card>  two fingerprint cards under the magnifier
@@ -170,6 +171,9 @@ public:
         };
         _page->setDrawing(false);
         _page->activate();
+        // The timer stopped but for "wait": the same route the same by the
+        // mouse, by the hand and with sound, whatever time its lines take.
+        _page->clockRuns = false;
         _page->chooser = [this](const std::vector<std::string> &choices) { return choose(choices); };
         _page->watchConditions([this](std::string_view clause, bool holds) {
             if (_watching)
@@ -230,7 +234,8 @@ public:
     }
     std::vector<std::string> &log() { return _log; }
     bool credits() const { return _credits; }
-    std::string problem; // why the last action failed, if it did
+    std::string problem;      // why the last action failed, if it did
+    std::set<int> timerWaits; // the waits the timer's conditions so far ask for, in seconds
     // What could be clicked while the last action's scripts ran
     // ("scene|name#n").
     std::set<std::string> inBetween;
@@ -373,6 +378,14 @@ public:
                 a.item += (a.item.empty() ? "" : "+") + item;
             out.push_back(a);
         }
+        // Time let pass, as long as the timer's conditions so far ask.
+        for (const int s : timerWaits) {
+            Action a;
+            a.kind = "wait";
+            a.scene = scene;
+            a.target = std::to_string(s);
+            out.push_back(a);
+        }
         for (const auto &[person, thing] : p.matchingPrints()) {
             Action a;
             a.kind = "compare";
@@ -459,6 +472,8 @@ public:
             ok = p.flipItem(a.item);
             if (!ok)
                 problem = "can't look at the back of " + a.item;
+        } else if (a.kind == "wait") {
+            p.passTime(float(std::atof(a.target.c_str())));
         } else if (a.kind == "examine") {
             ok = p.examineItems(split(a.item, '+'));
             if (!ok)
@@ -500,6 +515,15 @@ public:
         if (ok)
             ok = settle();
         _watching = false;
+        // The timer's conditions tested: a wait as long as each asks.
+        for (const auto &[clause, held] : tested) {
+            const size_t at = clause.find("timer ");
+            if (at == std::string::npos)
+                continue;
+            const std::string n = clause.substr(at + 6);
+            if (!n.empty() && (n[0] == '<' || n[0] == '>'))
+                timerWaits.insert(std::atoi(n.c_str() + 1) + 1);
+        }
         if (ok && !_then.empty())
             ok = false, problem = _then + " couldn't be clicked while it ran";
         a.choices = _taken;
@@ -1341,7 +1365,7 @@ int aweCommandSolve(int argc, char **argv) {
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
             if (a.kind == "flip" || a.kind == "combine" || a.kind == "decombine" || a.kind == "compare" ||
-                a.kind == "travel") {
+                a.kind == "travel" || a.kind == "wait") {
                 std::string once = a.kind + "|" + a.target + "|" + a.item;
                 for (int c : a.choices)
                     once += "." + std::to_string(c);
