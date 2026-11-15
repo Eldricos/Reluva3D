@@ -63,6 +63,12 @@ struct Material {
 // NVNT, at time of day 2, or 1 in a scene marked OUTD (outdoors).
 bool nightLighting(const Ac2Scene &scene, int timeOfDay);
 
+// The colour the scene's pictures are drawn in now, for a game that tints
+// them at night (LightingRules::nightPictures: ac.exe 0x42e89c), with the
+// scene's pictures' own colours by day; false when they're drawn as they
+// are.
+bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
+
 // Each of the scene's objects' conditions as they stand (scene.objects()'s
 // order). The game decides whether a light is on when the scene is
 // entered (0x420ee0); "update" retests objects' conditions but not that.

@@ -210,6 +210,7 @@ void ScenePage::load() {
     _layersMade++; // its pictures' layers are made afresh
     _lightConditions.clear();
     _lightsSwitched.clear();
+    _nightTinted.clear();
     _characters.clear();
     _loops.clear();
     _particles.clear();
@@ -1107,12 +1108,36 @@ void ScenePage::draw() {
         const auto loop = _loops.find(o);
         return loop != _loops.end() ? loop->second.frame : picture(o->text("file"));
     };
+    // At night, And Then There Were None's pictures in the night's colour
+    // instead of their own, but the lights' glows (ac.exe 0x42e89c; the
+    // SPRT reader marks "elements\lights" at 0x42f0d4).
+    Rgb night{};
+    const bool tinted = nightPictureTint(_scene, _state, night);
+    if (!tinted || night != _nightTint)
+        _nightTinted.clear();
+    _nightTint = night;
+    auto nightOf = [&](const Ac2Record *o, const image::Image &img) -> const image::Image & {
+        std::string file = fs::toLower(o->text("file"));
+        std::replace(file.begin(), file.end(), '/', '\\');
+        if (!tinted || file.find("elements\\lights") != std::string::npos)
+            return img;
+        auto [it, made] = _nightTinted.try_emplace(&img);
+        if (made || _loops.count(o)) {
+            // A video loop's frame changes: tinted afresh every time.
+            image::Image &out = it->second;
+            out = img;
+            for (size_t i = 0; i + 3 < out.rgba.size(); i += 4)
+                for (size_t k = 0; k < 3; k++)
+                    out.rgba[i + k] = uint8_t(float(out.rgba[i + k]) * night[k]);
+        }
+        return it->second;
+    };
     // Placed as the game's sprites are: scaled, turned about the top-left
     // corner, moved (docs/engines/awe/games/motoe/formats/ac2.md).
     auto place = [&](const Ac2Record *o, bool keepAlpha) {
         if (const auto ps = _particles.find(o); ps != _particles.end())
             return drawParticles(ps->second, keepAlpha);
-        const image::Image &img = imageOf(o);
+        const image::Image &img = nightOf(o, imageOf(o));
         if (img.w <= 0)
             return;
         SpriteTransform t;

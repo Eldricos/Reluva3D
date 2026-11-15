@@ -760,7 +760,10 @@ private:
     Ac2Scene _scene;
     std::vector<bool> _lightConditions;                // the objects' conditions on entering (lighting.h)
     std::map<const Ac2Record *, bool> _lightsSwitched; // "light <name> on|off" since entering
-    std::string _base;                                 // the base scene an act's variant is shown over
+    // The scene's pictures as the night tints them (LightingRules::nightPictures), by the picture.
+    std::map<const image::Image *, image::Image> _nightTinted;
+    std::array<float, 3> _nightTint{};
+    std::string _base; // the base scene an act's variant is shown over
     std::string _error;
     int _selected = -1; // object highlighted, -1 none
     bool _hotspots = true;

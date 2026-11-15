@@ -141,6 +141,13 @@ struct LightingRules {
      * off.
      */
     bool nightSparesLights = false;
+    /**
+     * At night outdoors (time 1 or more, OUTD), or late at night in a
+     * scene marked FAKE (time 2), the scene's pictures are drawn in this
+     * colour instead of their own, the lights' glows (elements\lights)
+     * apart; zeros: never (Orient Express).
+     */
+    std::array<float, 3> nightPictures{0, 0, 0};
 };
 
 /**

@@ -104,7 +104,12 @@ const GameInfo &game() {
                  .speakerElse = {{"brent", "brentknit"}, {"brent", "brentwig"}}}, // 0x433364
         // The camera's constructor (0x408510), the light's (0x41d5a0), and
         // the light's night test (0x41d760).
-        .lighting = {.cameraAmbient = 0.5f, .lightDiffuse = 1, .att0 = 0, .att1 = 0.0001f, .nightSparesLights = true},
+        .lighting = {.cameraAmbient = 0.5f,
+                     .lightDiffuse = 1,
+                     .att0 = 0,
+                     .att1 = 0.0001f,
+                     .nightSparesLights = true,
+                     .nightPictures = {0.5078125f, 0.625f, 0.78125f}}, // 0x4010f0, used at 0x42e89c
         // Its fonts, made in its code (0x4151fc on); the dialogue's is the
         // second (0x431caa). The rest's uses aren't read yet.
         .fonts = {{"font 0", "interface/fonts/arial.ttf", 12, true},

@@ -47,6 +47,20 @@ bool nightLighting(const Ac2Scene &scene, int timeOfDay) {
     return timeOfDay == 2 || (timeOfDay == 1 && sceneFlag(scene, "OUTD"));
 }
 
+bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) {
+    // Time 1 or more outdoors, or 2 in a scene marked FAKE (three
+    // close-ups); NVNT isn't asked (ac.exe 0x42e89c).
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
+    if (rules.nightPictures[0] == 0 && rules.nightPictures[1] == 0 && rules.nightPictures[2] == 0)
+        return false;
+    const auto t = state.values.find("time");
+    const int time = t == state.values.end() ? 0 : t->second;
+    if (!((time >= 1 && sceneFlag(scene, "OUTD")) || (time >= 2 && sceneFlag(scene, "FAKE"))))
+        return false;
+    tint = {rules.nightPictures[0], rules.nightPictures[1], rules.nightPictures[2]};
+    return true;
+}
+
 std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state) {
     std::vector<bool> out;
     for (const Ac2Record *o : scene.objects())
