@@ -102,7 +102,39 @@ remain in use; this is not an original-skinned Windows dialog.
 Enter, Escape, H and mouse Close still dismiss the table and consume the input
 batch. Native Retry / R remains available for save errors, with its mouse target
 fitted beside Close. Opening or closing the table cannot replay or record another
-score. Multiplayer results keep their own existing Close position.
+score. Multiplayer results use their own independent layout and Close target.
+
+## Multiplayer match results
+
+With installed artwork enabled, the match summary uses exact RT_DIALOG 16008 /
+language 0x0409. Names bind to static controls 15400..15403, scores to
+15410..15413, message area to 1352, OK to button 1 and High Scores to button 2.
+The constructor selects this template at `0x439fd4`, the Classic final-results
+caller constructs it at `0x41b3f6`, and initialization binds those controls at
+`0x43a20f..0x43a27c`. The superficially similar 16010 template is a separate
+network-results dialog and is not selected for local Classic results. These
+addresses refer to the installed executable SHA-256 recorded in
+[inspection.md](../../plans/boggle-1997/inspection.md).
+
+The client area is centered at two native pixels per template unit. Required
+controls must have the expected class and unique ID, lie inside the client
+area, and leave readable, separated rows, message and action areas. Missing
+resources or disabled artwork retain the prior native summary; a malformed
+present selected layout reports an error. No retail text or coordinates are
+embedded in the implementation or its invented fixtures.
+
+Clicking a displayed name or score, or pressing 1–4, opens that player's word
+review. OK, Enter, keypad Enter, Escape or V closes the summary. High Scores / H
+opens the existing rankings and returns to the summary on dismissal; opening
+rankings directly from word review still returns to word review. Each transition
+consumes the remaining input batch, so closing a panel cannot accidentally
+replay a round. The fallback summary also accepts H. These native review keys
+and nested-panel navigation are explicit implementation choices; full original
+navigation and Windows modal behavior are not claimed.
+
+Final totals, shared-word cancellation, human-only high-score recording and
+save formats are unchanged. Native fonts, wording, frame and colors remain;
+this stage follows installed relative placement, not original dialog skinning.
 
 ## Checking and validation
 
@@ -141,3 +173,19 @@ all ten rows, clipped names, malformed/overlapping controls, mouse and keyboard
 close, replay guards, successful retry recovery and multiplayer results. External
 SDL runs display the supplied table and close it by mouse and keyboard in both
 variants. Stored rankings and resource/import checksums remain unchanged.
+
+Match-summary fixtures cover both template encodings, exact-language/missing
+fallback, malformed classes/IDs, overlapping rows/buttons, out-of-bounds controls
+and picking only occupied rows. Four-human Original/Master rounds check shared
+words scoring zero, mouse and keyboard player review, nested and standalone
+rankings, repeated summary opening, obsolete-target rejection and queued replay
+protection. The existing high-score fixture still verifies independent fallback
+summary Close. External SDL software-backend runs display all four supplied-layout
+rows and exercise rankings, fourth-player review, reopening and mouse Close in
+both variants. Retail captures and the preview harness remain outside Git.
+
+For the match-summary stage, all 43 Boggle CTest checks pass with the supplied
+install; the full suite passes 66 checks and skips 10 optional idtech3 data
+checks. Dialog, competition, Traditional, Chess and engine suites pass ASan/UBSan
+with LeakSanitizer disabled for the execution tracer. All 737 installed files
+retain their manifest hashes. Windows owner testing of this stage is pending.

@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/review_dialog.h"
 #include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/scores_dialog.h"
+#include "engines/boggle/classic/match_dialog.h"
 #include "engines/boggle/classic/cursor.h"
 #include "engines/boggle/classic/competition.h"
 #include "engines/boggle/classic/turn_clock.h"
@@ -30,7 +31,6 @@ namespace {
 constexpr int width = 800, height = 600, boardX = 24, boardY = 100, boardSize = 368;
 struct Ink { uint8_t r, g, b; };
 constexpr HistoryButton scoresArtwork{216,448,158,29}, scoresPrototype{618,76,158,24};
-constexpr HistoryButton matchClose{448,450,184,30};
 constexpr HistoryButton resumeButton{300,340,200,44}, noticeOkay{320,350,160,40};
 constexpr Ink white{246, 249, 255}, muted{164, 184, 205}, dark{18, 32, 48};
 void rect(Surface& screen, int x, int y, int w, int h, Ink color) {
@@ -65,7 +65,9 @@ void scoreTable(Surface& screen,const HighScores& scores,const std::string& erro
     rect(screen,scoresClose.x,scoresClose.y,scoresClose.w,scoresClose.h,{48,88,120});label(screen,460,460,"CLOSE (ENTER / H)");
     if(!error.empty()){rect(screen,scoresRetry.x,scoresRetry.y,scoresRetry.w,scoresRetry.h,{48,88,120});label(screen,172,460,"RETRY (R)");}
 }
-void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition,bool chess,bool background) {
+void matchTable(Surface& screen,const std::vector<std::string>& names,const ClassicCompetition& competition,bool chess,bool background,const ClassicMatchDialog& dialog) {
+    if(dialog.installed()){dialog.draw(screen,names,competition,chess,background);return;}
+    const auto matchClose=dialog.close();
     rect(screen,128,94,544,404,{22,40,60});label(screen,160,116,"CLASSIC RESULTS",white,2);
     label(screen,160,150,std::string(chess?"CHESS TIMER":"TRADITIONAL")+(background?" / BACKGROUND CPU":"")+" / SHARED WORDS SCORE ZERO",muted);
     for(size_t i=0;i<names.size();++i) {
@@ -271,6 +273,7 @@ Error ClassicGame::run() {
     ClassicReviewDialog reviewDialog;
     ClassicNoticeDialog noticeDialog;
     ClassicScoresDialog scoresDialog;
+    ClassicMatchDialog matchDialog;
     if((options.artwork || computerCursor) && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto error=resources.language("Language/English.dll",language))return error;
         if(auto error=cursorArtwork.read(language.resources))return error;
@@ -278,6 +281,7 @@ Error ClassicGame::run() {
             if(auto error=reviewDialog.read(language.resources))return error;
             if(auto error=noticeDialog.read(language.resources))return error;
             if(auto error=scoresDialog.read(language.resources))return error;
+            if(auto error=matchDialog.read(language.resources))return error;
         }
     }
     ClassicAudio sound(sys_);
@@ -286,7 +290,7 @@ Error ClassicGame::run() {
     if (auto err = user.load(target_.savePath, target_.path)) return err;
     HighScores highScores;
     auto scoreError=highScores.load(target_.savePath,target_.path);
-    bool scoreAttempted=false,scoreOpen=false,matchOpen=false,handoff=false,handoffVisible=false;
+    bool scoreAttempted=false,scoreOpen=false,scoresFromMatch=false,matchOpen=false,handoff=false,handoffVisible=false;
     std::vector<std::string> finishedNotices;
     RoundResults results;Board board;uint32_t seed=options.seed?*options.seed:freshClassicSeed();
     std::vector<std::unique_ptr<ClassicRound>> rounds;size_t turn=0,reviewPlayer=0,nextTurn=0;ClassicCompetition competition;PlayerClocks clocks,backgroundClock;
@@ -625,17 +629,20 @@ Error ClassicGame::run() {
                 const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
                 std::optional<size_t> selectedPlayer;
                 if(keyDown && event.key>='1' && event.key<'1'+names.size())selectedPlayer=size_t(event.key-'1');
-                if(click && hit(event.mouseX,event.mouseY,150,180,480,int(names.size())*40))selectedPlayer=size_t((event.mouseY-180)/40);
+                if(click)selectedPlayer=matchDialog.playerAt(event.mouseX,event.mouseY,names.size());
                 if(selectedPlayer){if(auto error=chooseReview(*selectedPlayer))return error;matchOpen=false;scoreDismissed=true;}
+                else if((keyDown && event.key=='h') || (click && matchDialog.installed() && matchDialog.scores().contains(event.mouseX,event.mouseY))) {
+                    matchOpen=false;scoreOpen=true;scoresFromMatch=true;scoreDismissed=true;
+                }
                 else if((keyDown && (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key=='v')) ||
-                        (click && matchClose.contains(event.mouseX,event.mouseY))) {matchOpen=false;scoreDismissed=true;}
+                        (click && matchDialog.close().contains(event.mouseX,event.mouseY))) {matchOpen=false;scoreDismissed=true;}
                 continue;
             }
             if(scoreOpen) {
                 const bool key=event.type==EventType::KeyDown && !event.repeat;
                 const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
                 if((key && (event.key==key::Return || event.key==key::KpEnter || event.key==key::Escape || event.key=='h')) ||
-                   (click && scoresDialog.close().contains(event.mouseX,event.mouseY))) {scoreOpen=false;scoreDismissed=true;}
+                   (click && scoresDialog.close().contains(event.mouseX,event.mouseY))) {scoreOpen=false;matchOpen=scoresFromMatch;scoresFromMatch=false;scoreDismissed=true;}
                 else if(scoreError && ((key && event.key=='r') || (click && scoresDialog.retry().contains(event.mouseX,event.mouseY)))) {
                     scoreError=highScores.load(target_.savePath,target_.path);saveScore();
                 }
@@ -781,7 +788,7 @@ Error ClassicGame::run() {
             label(screen,24,height-25,pauseFrame?(pauseLid.state()==ClassicPauseLid::State::Opening?"Opening the lid...":"Closing the lid..."):"Rolling dice and opening the lid...");
         } else draw(screen, round(), gameTime(), letters, qu, palette, input, selected, results.ready() && scoreError && message.empty()?"High scores unavailable. H: details / retry.":competition.ready() && message.empty()?"1-4: player review / V: match scores / Up-Down: word path":message, scroll, fromMenu_,artwork,options.duration,seed,options.autoOrient,names[competition.ready()?reviewPlayer:turn],results,chess,gameplayClock.manual(),reviewDialog);
         if(background)liveScores(screen,names,rounds,competition);
-        if(matchOpen)matchTable(screen,names,competition,chess,background);
+        if(matchOpen)matchTable(screen,names,competition,chess,background,matchDialog);
         if(scoreOpen)scoreTable(screen,highScores,scoreError.message,scoresDialog);
         if(!gameplayClock.manual() && !handoff && !matchOpen && !scoreOpen && transition.type()==Transition::None && round().phase()==RoundPhase::Playing) {
             rect(screen,pauseButton.x,pauseButton.y,pauseButton.w,pauseButton.h,{48,88,120});

@@ -412,3 +412,14 @@ client area to the native viewport. Ranking, persistence, retry and keyboard
 behavior remain unchanged, with dedicated checks for replay guards and the
 separate multiplayer-results Close target. Fonts, colors, unsupported mode
 controls and exact original skill-column semantics remain native scope limits.
+
+### Multiplayer results dialog placement
+
+The owner confirmed the high-score layout works. The next
+[match-summary pass](../../engines/boggle/dialogs.md#multiplayer-match-results)
+uses the installed local-results template's four name/score rows and High Scores /
+OK controls. Original/Master four-human checks preserve shared-word totals,
+player review, rankings and event-batch guards. Nested rankings return to the
+summary; direct rankings return to word review. These navigation keys and native
+styling remain explicit policies, with exact original modal behavior, fonts and
+skins still open for comparison.

@@ -71,12 +71,13 @@ and computers, four player dropdowns and end-of-round shared-word cancellation.
 written round/controller logic and the existing native ownership model. It does
 not execute or translate original routines at runtime.
 
-The native handoff/summary layout and keys, session-only roster, empty-slot
+The native handoff layout and review keys, session-only roster, empty-slot
 compaction and same-name slots are explicit implementation choices. Dictionary
 review occurs after all players finish, in roster order, using the shared
 native user dictionary. An approval resolves that word for subsequent players
-without a repeated prompt. See [edge evidence](edges.md). Exact turn-transition animation timing and original dialog
-navigation also remain unverified. [Chess Timer](chess.md) shares its controller with
+without a repeated prompt. See [edge evidence](edges.md). The summary now follows the [installed results template](dialogs.md#multiplayer-match-results)
+when artwork is enabled, including its High Scores and OK buttons. Exact
+turn-transition animation timing and original dialog navigation remain unverified. [Chess Timer](chess.md) shares its controller with
 humans and computers. [Background play](background.md) now provides hidden
 computer submissions during human turns. Matching the original AI
 selection and nominal cadence follow the [AI milestone](ai-milestone.md). [Computer Cursor / V](cursor.md) now

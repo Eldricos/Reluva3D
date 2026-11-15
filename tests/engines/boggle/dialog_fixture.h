@@ -17,7 +17,8 @@ inline DialogFixture dialog(bool extended=false,bool extra=false,bool notice=fal
     word(8);if(extended){word(650);b.push_back(1);b.push_back(2);}text(u"InventedFont");
     const unsigned reviewIds[]={6,7,4,3,15801},noticeIds[]={1348,1349,1350};
     const unsigned count=notice?3:5;
-    for(unsigned i=0;i<count;++i){while(b.size()%4)b.push_back(0);f.controls.push_back(b.size());
+    for(unsigned i=0;i<count;++i){while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
         if(extended){integer(42+i);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
         const bool action=i+1<count;
         if(notice){word(action?(i?160:30):20);word(action?120:24);word(action?50:200);word(action?16:70);}
@@ -36,7 +37,8 @@ inline DialogFixture scoresDialog(bool extended=false){
     if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
     word(31);word(0);word(0);word(420);word(270);word(0);word(0);f.caption=b.size();text(u"Own scores");
     auto control=[&](unsigned id,unsigned klass,int x,int y,int w,int h){
-        while(b.size()%4)b.push_back(0);f.controls.push_back(b.size());
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
         if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
         word(uint16_t(x));word(uint16_t(y));word(uint16_t(w));word(uint16_t(h));
         if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(uint16_t(klass));text(u"Own cell");word(0);
@@ -44,6 +46,23 @@ inline DialogFixture scoresDialog(bool extended=false){
     for(unsigned row=0;row<10;++row)for(unsigned col=0;col<3;++col)
         control(15400+col*10+row,0x82,col==0?40:col==1?180:280,80+int(row)*14,col==0?40:col==1?60:90,12);
     control(1,0x80,350,240,50,16);return f;
+}
+inline DialogFixture matchDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(11);word(0);word(0);word(300);word(210);word(0);word(0);f.caption=b.size();text(u"Own match");
+    auto control=[&](unsigned id,unsigned klass,int x,int y,int w,int h){
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        word(uint16_t(x));word(uint16_t(y));word(uint16_t(w));word(uint16_t(h));
+        if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(uint16_t(klass));text(u"Own field");word(0);
+    };
+    for(unsigned row=0;row<4;++row){control(15400+row,0x82,30,70+int(row)*20,120,14);control(15410+row,0x82,180,70+int(row)*20,50,14);}
+    control(2,0x80,130,170,70,16);control(1,0x80,220,170,60,16);control(1352,0x82,20,15,260,28);return f;
 }
 inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;

@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/review_dialog.h"
 #include "engines/boggle/classic/notice_dialog.h"
 #include "engines/boggle/classic/scores_dialog.h"
+#include "engines/boggle/classic/match_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/highscores.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -138,6 +139,61 @@ void matchClose(const std::filesystem::path& tmp){
     ClassicGame game(sys,target,false,{"One","Two"});if(auto error=game.run())test::fail(error.message);
     CHECK(sys.hashes.size()==9);if(sys.hashes.size()==9)CHECK(sys.hashes[5]!=sys.hashes[6] && sys.hashes[6]==sys.hashes[8]);
 }
+void matchLayouts(){
+    ClassicMatchDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.close().contains(540,465));
+    CHECK(layout.playerAt(180,190,2)==0 && !layout.playerAt(180,280,2));
+    for(bool extended:{false,true}){
+        const auto f=fixtures::matchDialog(extended);auto own=resources(f.bytes);own[0].name.id=16008;
+        CHECK(!layout.read(own) && layout.installed());CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        CHECK(layout.playerAt(170,240,4)==0 && layout.playerAt(470,360,4)==3 && !layout.playerAt(170,360,3));
+        CHECK(!layout.playerAt(170,261,4) && !layout.playerAt(layout.close().x,layout.close().y,4));
+        for(size_t control:{size_t(1),size_t(9),size_t(10)}){
+            auto bad=own;test::fixtures::put16(bad[0].data,f.controls[control]+(extended?20:16),15400);CHECK(bool(layout.read(bad)) && !layout.installed());
+        }
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8),30);CHECK(bool(layout.read(bad))); // score overlaps name
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8)+2,70);CHECK(bool(layout.read(bad))); // rows overlap
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[8]+(extended?12:8),220);CHECK(bool(layout.read(bad))); // buttons overlap
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[8]+(extended?12:8)+6,40);CHECK(bool(layout.read(bad))); // action leaves no footer room
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[10]+(extended?12:8)+6,80);CHECK(bool(layout.read(bad))); // message crosses rows
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[9]+(extended?12:8),299);CHECK(bool(layout.read(bad))); // outside panel
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?24:18)+2,0x80);CHECK(bool(layout.read(bad))); // wrong class
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+        CHECK(!layout.read(own));Surface screen;screen.create(800,600,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);
+        ClassicCompetition empty;layout.draw(screen,{"Own name"},empty,true,true);
+        for(int y=0;y<600;++y)for(int x=0;x<800;++x)if(screen.row(y)[x*4+3]!=17)CHECK(x>=100 && x<700 && y>=90 && y<510);
+    }
+}
+void matchGame(const std::filesystem::path& tmp){
+    for(bool master:{false,true}){
+        const auto root=tmp/(master?"master":"original");fixtures::artworkInstall(root);
+        const auto f=fixtures::matchDialog(master);fixtures::write(root/"Language/English.dll",fixtures::dialogLanguage(f.bytes,16008));
+        auto own=resources(f.bytes);own[0].name.id=16008;ClassicMatchDialog layout;CHECK(!layout.read(own));
+        GameTarget target;target.path=root;target.savePath=tmp/(master?"save-master":"save-original");target.settings={{"classic_variant",master?"master":"original"},{"classic_seed","6551"},{"classic_animations","0"},{"classic_sound","0"},{"classic_seconds","0"}};
+        std::vector<std::string> panels,tables;
+        fixtures::ScriptedSystem sys;sys.present=[&](const Surface& screen,size_t){
+            test::Hash panel,table;
+            for(int y=90;y<510;++y)panel.bytes(screen.row(y)+100*4,600*4);
+            for(int y=94;y<498;++y)table.bytes(screen.row(y)+128*4,544*4);
+            panels.push_back(panel.hex());tables.push_back(table.hex());
+        };sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            auto click=[](HistoryButton b){return mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+            if(f<12){switch(f%3){case 0:return {keyEvent(key::Return)};case 1:return {textEvent("AAAA"),keyEvent(key::Return)};default:return {keyEvent(key::F1)};}}
+            if(f==12)return {mouseEvent(EventType::MouseDown,540,465)}; // retired Close does nothing
+            if(f==13)return {click(layout.scores()),keyEvent(key::Return)}; // queued Return cannot close scores
+            if(f==14)return {keyEvent(key::Escape),keyEvent(key::Escape)}; // return to summary only
+            if(f==15)return {mouseEvent(EventType::MouseDown,170,360),keyEvent(key::Return)}; // fourth player, consume replay
+            if(f==16 || f==18)return {keyEvent('v')};
+            if(f==17)return {keyEvent('2')};
+            if(f==19)return {click(layout.close()),keyEvent(key::Return)};
+            if(f==20 || f==21)return {keyEvent('h')}; // standalone scores return to words
+            if(f==22)return {keyEvent(key::Escape)};
+            return {};
+        };
+        ClassicGame game(sys,target,false,{"ABCDEFGHIJKLMNOPQR","Second","Third","Fourth"});if(auto error=game.run())test::fail(error.message);
+        CHECK(sys.hashes.size()==22);if(sys.hashes.size()==22){CHECK(sys.hashes[11]==sys.hashes[12] && sys.hashes[11]==sys.hashes[14] && panels[11]==panels[16] && panels[11]==panels[18]);CHECK(tables[13]==tables[20]);CHECK(sys.hashes[15]!=sys.hashes[17]);CHECK(sys.hashes[19]==sys.hashes[21]);}
+        HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==4);for(const auto& row:scores.table())CHECK(row.score==0);
+    }
+}
 void decisions(const std::filesystem::path& tmp){
     for(bool master:{false,true})for(size_t choice=0;choice<4;++choice){
         const auto root=tmp/(std::to_string(master)+std::to_string(choice));fixtures::artworkInstall(root);
@@ -167,4 +223,6 @@ static const test::Suite suite("boggle.unit.dialog",{
     {"fitted score rows, languages, clipping and malformed controls",[](const auto&){scoresLayouts();}},
     {"score Close, replay guard, persisted ten rows and retry recovery",scoresGame},
     {"multiplayer results keep their own Close target",matchClose},
+    {"match rows, exact language, malformed controls and hit targets",[](const auto&){matchLayouts();}},
+    {"four-player results, nested highscores, review and event-batch guards",matchGame},
 });
