@@ -23,7 +23,8 @@
 //
 // A seventh field, "<object>#<n>", clicks that object as soon as it can
 // be clicked while what the action started still runs (the game lets a
-// click in between a script's "unlock" and "lock").
+// click in between a script's "unlock" and "lock"); an eighth, a number
+// of seconds let pass first (attwn's timer).
 //
 // <choices> are the dialogue's choices taken while it ran ("2.1.1": the
 // second offered, then the first...); past them, the choice taken least
@@ -67,6 +68,7 @@ struct Action {
     std::vector<int> choices; // taken (or to take) at each choice
     std::vector<int> offered; // how many there were at each (not written)
     std::string then;         // clicked while it runs ("name#n")
+    int wait = 0;             // seconds let pass first (GameState::clock)
 };
 
 std::vector<std::string> split(const std::string &s, char sep) {
@@ -92,10 +94,12 @@ std::string toLine(const Action &a) {
         choices += (choices.empty() ? "" : ".") + std::to_string(c + 1);
     std::string line =
         a.kind + "|" + a.scene + "|" + a.target + "|" + (a.target.empty() ? "" : std::to_string(a.n)) + "|" + choices;
-    if (!a.item.empty() || !a.then.empty())
+    if (!a.item.empty() || !a.then.empty() || a.wait)
         line += "|" + a.item;
-    if (!a.then.empty())
+    if (!a.then.empty() || a.wait)
         line += "|" + a.then;
+    if (a.wait)
+        line += "|" + std::to_string(a.wait);
     return line;
 }
 
@@ -118,6 +122,8 @@ bool fromLine(const std::string &line, Action &a) {
         a.item = f[5];
     if (f.size() > 6)
         a.then = f[6];
+    if (f.size() > 7)
+        a.wait = std::atoi(f[7].c_str());
     return true;
 }
 
@@ -419,6 +425,8 @@ public:
         _counts.clear();
         ScenePage &p = *_page;
         bool ok = true;
+        if (a.wait)
+            p.passTime(float(a.wait));
         if (a.kind == "new") {
             p.startAt("new");
             _credits = false;
@@ -1429,6 +1437,23 @@ int aweCommandSolve(int argc, char **argv) {
                         v.choices.push_back(alt);
                         todo.push_back(v);
                     }
+            // And after a wait, if it tested the timer and waiting would
+            // change what it found (Brent's "It's done" 30 seconds on).
+            if (todo[k].wait == 0)
+                for (const auto &[clause, held] : player.tested) {
+                    const size_t at = clause.find("timer ");
+                    if (at == std::string::npos)
+                        continue;
+                    const std::string n = clause.substr(at + 6);
+                    const int need = n.empty() || (n[0] != '<' && n[0] != '>') ? 0 : std::atoi(n.c_str() + 1) + 1;
+                    const float clock = player.page().gameState().clock;
+                    if (need > 0 && clock < float(need)) {
+                        Action v = todo[k];
+                        v.wait = need - int(clock);
+                        todo.push_back(v);
+                        break;
+                    }
+                }
             // And with a click while it ran, on each thing that could be
             // clicked then.
             if (todo[k].then.empty())
