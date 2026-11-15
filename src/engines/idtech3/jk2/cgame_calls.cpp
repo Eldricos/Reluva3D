@@ -69,8 +69,8 @@ enum Jk2CgameCall : int {
 
 int32_t CgameHost::jk2SharedCall(int32_t n) {
     // Jedi Outcast's number -> Elite Force's, where the call is the same
-    // (a capsule taken as a box, an additive or "real" looping sound or
-    // light as the plain one).
+    // (a capsule's as the box's, told apart by the caller; an additive or
+    // "real" looping sound or light as the plain one).
     if (n >= 0 && n <= 15)
         return n;
     switch (n) {

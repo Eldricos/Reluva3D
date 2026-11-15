@@ -36,7 +36,7 @@ system and Ghoul2 (4 to 24).
 | Jedi Outcast's | Elite Force's | |
 |---|---|---|
 | 0–15 | 0–15 | print ... add command |
-| 17–30 | 16–27 | client command, update screen, the collision calls (capsules as boxes), mark fragments |
+| 17–30 | 16–27 | client command, update screen, the collision calls (each capsule call as the box's, its mover or temporary model a capsule; [bsp.md](../../../formats/bsp.md), Collision), mark fragments |
 | 32–41 | 28–35 | sounds (the "real" looping sound as the plain one) |
 | 42–46 | 36–39, 57 | world map, models, skins, shaders |
 | 110 | 107 | floor |

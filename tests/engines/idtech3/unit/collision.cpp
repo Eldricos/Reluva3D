@@ -296,6 +296,64 @@ static void testCollision() {
     CHECK(near(t.endPos[2], 32.125f) && t.contents == contents::kBody);
 }
 
+// Capsules, as Quake III 1.32's (Jedi Outcast's engine has them, its game
+// code doesn't use them).
+static void testCapsules() {
+    const auto bsp = collisionMap();
+    const CollisionWorld world(*bsp);
+    auto close = [](float a, float b) { return std::fabs(a - b) < 0.01f; };
+    // A player's box as a capsule: radius 15 (the narrower), its spheres 13
+    // either side of the middle. On the floor it reaches as far down as the
+    // box.
+    const Vec3f mins{-15, -15, -24};
+    const Vec3f maxs{15, 15, 32};
+    TraceResult t = world.trace({0, 0, 100}, {0, 0, -100}, mins, maxs, 0, contents::kSolid, true);
+    CHECK(near(t.endPos[2], 24.125f) && t.normal[2] == 1);
+    // Into the door turned an eighth (yaw 45), along its face's normal: a
+    // flat box (15 across, 8 up) turned with the door reaches 15 from its
+    // middle, as a capsule only its radius, the narrower 8.
+    const Vec3f at{200, 0, 0};
+    const Vec3f eighth{0, 45, 0};
+    const float h = std::sqrt(0.5f);
+    const Vec3f from{200 - 100 * h, -100 * h, 64};
+    const Vec3f to{200 + 100 * h, 100 * h, 64};
+    auto stop = [&](const TraceResult &r) { return (at[0] - r.endPos[0]) / h; };
+    t = world.transformedTrace(from, to, {-15, -15, -8}, {15, 15, 8}, 1, contents::kSolid, at, eighth, true);
+    CHECK(t.fraction < 1 && close(stop(t), 8 + 8 + 0.125f));
+    t = world.transformedTrace(from, to, {-15, -15, -8}, {15, 15, 8}, 1, contents::kSolid, at, eighth);
+    CHECK(t.fraction < 1 && close(stop(t), 8 + 15 + 0.125f));
+    // An entity of 32 by 64 as a capsule: radius 16, spheres at 16 and 48.
+    const Vec3f capMins{-16, -16, 0};
+    const Vec3f capMaxs{16, 16, 64};
+    const Vec3f ball{-8, -8, -8};
+    const Vec3f ballMax{8, 8, 8};
+    // A ball falling on it 12 out from its axis meets the round top: radii
+    // 24 between the centres, 48 + root(24² - 12²).
+    t = CollisionWorld::traceCapsule({12, 0, 100}, {12, 0, -100}, ball, ballMax, capMins, capMaxs, contents::kBody,
+                                     true);
+    CHECK(t.fraction < 1 && close(t.endPos[2], 48 + std::sqrt(24.0f * 24 - 12 * 12) + 0.125f));
+    CHECK(t.normal[2] > 0 && t.normal[0] > 0 && t.contents == contents::kBody);
+    // From the side, at the height of the straight part: the radii.
+    t = CollisionWorld::traceCapsule({-100, 0, 32}, {100, 0, 32}, ball, ballMax, capMins, capMaxs, contents::kBody,
+                                     true);
+    CHECK(close(t.endPos[0], -24.125f) && close(t.normal[0], -1));
+    // A box against a capsule: its planes, the capsule's reach through a
+    // box of the mover's size, so the top is flat (as the original's).
+    t = CollisionWorld::traceCapsule({12, 0, 100}, {12, 0, -100}, ball, ballMax, capMins, capMaxs, contents::kBody);
+    CHECK(close(t.endPos[2], 72.125f));
+    // Missing it; starting inside it; staying inside.
+    CHECK(CollisionWorld::traceCapsule({40, 0, 100}, {40, 0, -100}, ball, ballMax, capMins, capMaxs, contents::kBody,
+                                       true)
+              .fraction == 1);
+    t = CollisionWorld::traceCapsule({0, 0, 32}, {0, 0, 200}, ball, ballMax, capMins, capMaxs, contents::kBody, true);
+    CHECK(t.startSolid && !t.allSolid);
+    t = CollisionWorld::traceCapsule({0, 0, 32}, {0, 0, 32}, ball, ballMax, capMins, capMaxs, contents::kBody, true);
+    CHECK(t.startSolid && t.allSolid && t.fraction == 0);
+    // A capsule against a box entity: its reach on the top.
+    t = CollisionWorld::traceBox({0, 0, 100}, {0, 0, -100}, mins, maxs, capMins, capMaxs, contents::kBody, true);
+    CHECK(close(t.endPos[2], 64 + 24.125f));
+}
+
 void testMarks() {
     using namespace reluva::idtech3;
     // A floor, 128 units square at height 0, facing up, as two triangles.
@@ -379,6 +437,7 @@ static const reluva::test::Suite
     kSuite("idtech3.unit.collision",
            {
                {"traces", [](const std::filesystem::path &) { testCollision(); }},
+               {"capsules", [](const std::filesystem::path &) { testCapsules(); }},
                {"patch collision", [](const std::filesystem::path &) { testPatchCollision(); }},
                {"server world", [](const std::filesystem::path &) { testServerWorld(); }},
                {"area portals", [](const std::filesystem::path &) { testAreaPortals(); }},

@@ -45,7 +45,7 @@ them with `LocateGameData`).
 | 39, 40 | debug polygons | nothing |
 | 41 | `RealTime(qtime)` | the local time |
 | 42 | `SnapVector(v)` | each part to the nearest whole number |
-| 43, 44 | `TraceCapsule`, `EntityContactCapsule` | as the box trace and contact, for now |
+| 43, 44 | `TraceCapsule`, `EntityContactCapsule` | the mover a capsule ([bsp.md](../../../formats/bsp.md), Collision); unused by 1.02a's code |
 | 45, 46 | `SP_RegisterServerCmd`, `SP_GetStringTextString` | 1; no text yet |
 | 47–51 | ROFF: clean, update entities, cache, play, purge | recorded paths played on the game's entities: their trajectories set each frame ([roff.md](../../../formats/roff.md)) |
 | 107–111, 114, 115 | matrix multiply, angle vectors, perpendicular vector, floor, ceil, acos, asin | as their names say |
@@ -93,5 +93,4 @@ The client's userinfo settings and their defaults are registered as
 
 - The player state's fields past the few the engine reads haven't been
   checked against 1.02a's code (the network protocol needs them all).
-- Capsule traces are still boxes. A ROFF's notes aren't handed to the
-  game (command 11) yet.
+- A ROFF's notes aren't handed to the game (command 11) yet.

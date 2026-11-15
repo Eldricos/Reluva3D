@@ -51,9 +51,12 @@ public:
 
     // Model 0 is the world, others brush entities' (*1, *2...), traced
     // in their own coordinates. mins/maxs give the box around the moving
-    // point (zeros for a point).
+    // point (zeros for a point); with `capsule` (Jedi Outcast's capsule
+    // traces), the upright capsule in that box: its radius the box's
+    // smaller half-width or half-height, its two spheres' centres the rest
+    // of its half-height above and below the middle.
     TraceResult trace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
-                      int32_t mask) const;
+                      int32_t mask, bool capsule = false) const;
     // The contents of everything at a point.
     int32_t pointContents(const Vec3f &point, int model) const;
     // The same against brush model `model` standing at `origin`, turned by
@@ -64,7 +67,7 @@ public:
     // would spoil the brushes' bevels); the plane hit is turned back, and
     // the end found along the move in the world.
     TraceResult transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
-                                 int32_t mask, const Vec3f &origin, const Vec3f &angles) const;
+                                 int32_t mask, const Vec3f &origin, const Vec3f &angles, bool capsule = false) const;
     int32_t transformedPointContents(const Vec3f &point, int model, const Vec3f &origin, const Vec3f &angles) const;
     // A turn's axes, as Quake III works them out from (pitch, yaw, roll):
     // forward, left and up, a point's coordinates in them its dot
@@ -87,9 +90,18 @@ public:
     // A box of given contents, for entities that aren't brush models;
     // traced in the same way.
     static TraceResult traceBox(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
-                                const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents);
+                                const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents, bool capsule = false);
+    // The same against the capsule in [capsuleMins, capsuleMaxs] (Jedi
+    // Outcast's capsule entities and temporary capsule model).
+    static TraceResult traceCapsule(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                                    const Vec3f &capsuleMins, const Vec3f &capsuleMaxs, int32_t contents,
+                                    bool capsule = false);
 
 private:
+    // A sweep from `from` to `to` (the shape's centre) against a box, the
+    // shape reaching `extents` along each axis; the end along start-end.
+    static TraceResult sweepBox(const Vec3f &start, const Vec3f &end, const Vec3f &from, const Vec3f &to,
+                                const Vec3f &extents, const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents);
     struct Work; // one trace's state
     void traceNode(Work &w, int node) const;
     void traceBrush(Work &w, int brush) const;

@@ -27,6 +27,7 @@ struct EntityShape {
     int32_t owner = -1; // the entity number of its owner, or -1
     bool bmodel = false;
     int32_t modelIndex = 0; // a brush model's, in the map
+    bool capsule = false;   // Jedi Outcast's SVF_CAPSULE: collides as the capsule in its box
 };
 
 // The server's side of the world, as Quake III's server keeps it for its
@@ -82,11 +83,12 @@ public:
     // A box (mins, maxs about the point) moved from start to end against
     // the level and the linked entities whose contents are in `mask`, but
     // `pass` and what it owns or owns it (-1: none). `hit` gets the entity
-    // stopped at (kWorld, or kNone).
+    // stopped at (kWorld, or kNone). `capsule`: the capsule in the box moves
+    // (collision.h).
     static constexpr int32_t kWorld = 1022;
     static constexpr int32_t kNone = 1023;
     TraceResult trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
-                      int32_t mask, int32_t &hit, bool entities = true) const;
+                      int32_t mask, int32_t &hit, bool entities = true, bool capsule = false) const;
     // The contents at a point: the level's and the entities' it's in, but
     // `pass`'s.
     int32_t pointContents(const Vec3f &point, int32_t pass) const;

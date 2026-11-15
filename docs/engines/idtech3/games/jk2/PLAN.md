@@ -139,9 +139,10 @@ behind the DLL's own tables.
    can join a hosted match ([systems/network.md](systems/network.md)).
    Light styles change as the client game sets them
    ([rbsp.md](../../formats/rbsp.md)); recorded paths (ROFF) play on
-   movers ([roff.md](../../formats/roff.md)). Next: capsule traces and
-   Ghoul2's animation blending; then trying the network play against the
-   retail game.
+   movers ([roff.md](../../formats/roff.md)). Capsule traces work, for
+   mods: 1.02a's own code never uses them
+   ([bsp.md](../../formats/bsp.md), Collision). Next: Ghoul2's animation
+   blending; then trying the network play against the retail game.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

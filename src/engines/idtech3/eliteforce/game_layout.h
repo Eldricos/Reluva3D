@@ -52,6 +52,8 @@ struct GameLayout {
     int32_t sharedEnd = 300;
     // Jedi Outcast's mIsRoffing: the entity is playing a ROFF (-1: none).
     int32_t isRoffing = -1;
+    // Jedi Outcast's SVF_CAPSULE: the entity collides as a capsule (0: none).
+    int32_t capsuleFlag = 0;
     // The player's eye: the player state's origin raised by its view
     // height, when both offsets are known (-1: the entity's origin and the
     // standing view height).
@@ -124,6 +126,7 @@ constexpr GameLayout kLayoutJk2{
     .ownerNum = 396,
     .sharedEnd = 408,
     .isRoffing = 392,
+    .capsuleFlag = 0x400,
     .psOrigin = 20,
     .psViewHeight = 168,
     .psServerOnly = -1,

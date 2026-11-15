@@ -19,21 +19,40 @@ float dot(const Vec3f &a, const Vec3f &b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
+// The upright capsule in a box of half-size `extents`: as the original
+// makes it, its radius the smaller of the x half-width and the
+// half-height, its spheres `offset` above and below the middle.
+struct Capsule {
+    float radius = 0;
+    float offset = 0;
+    explicit Capsule(const Vec3f &extents)
+        : radius(extents[0] > extents[2] ? extents[2] : extents[0]), offset(extents[2] - radius) {}
+    // How far it reaches from its middle along each axis.
+    Vec3f reach() const { return {radius, radius, radius + offset}; }
+};
+
 } // namespace
 
-// A sweep of a box centred on the line start-end (the box made symmetric,
-// the line moved to its centre), and what it hit so far.
+// A sweep of a box (or the capsule in it) centred on the line start-end
+// (the box made symmetric, the line moved to its centre), and what it hit
+// so far.
 struct CollisionWorld::Work {
     Vec3f start{};
     Vec3f end{};
     Vec3f extents{}; // half the box's size
     Vec3f centre{};  // the box's centre relative to the traced point
+    bool capsule = false;
+    float radius = 0;       // a capsule's
+    float sphereOffset = 0; // its spheres' centres above and below its middle
     int32_t mask = 0;
     TraceResult result;
     uint32_t id = 0;
 
-    // How far the box reaches beyond its centre along a plane's normal.
+    // How far the shape reaches beyond its centre along a plane's normal:
+    // a capsule its radius, past the sphere nearer the plane.
     float offset(const Vec3f &n) const {
+        if (capsule)
+            return radius + std::abs(n[2]) * sphereOffset;
         return std::abs(n[0]) * extents[0] + std::abs(n[1]) * extents[1] + std::abs(n[2]) * extents[2];
     }
 };
@@ -345,13 +364,19 @@ void CollisionWorld::traceNode(Work &w, int node) const {
 }
 
 TraceResult CollisionWorld::trace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs, int model,
-                                  int32_t mask) const {
+                                  int32_t mask, bool capsule) const {
     Work w;
     for (int i = 0; i < 3; ++i) {
         w.centre[size_t(i)] = (mins[size_t(i)] + maxs[size_t(i)]) * 0.5f;
         w.extents[size_t(i)] = (maxs[size_t(i)] - mins[size_t(i)]) * 0.5f;
         w.start[size_t(i)] = start[size_t(i)] + w.centre[size_t(i)];
         w.end[size_t(i)] = end[size_t(i)] + w.centre[size_t(i)];
+    }
+    if (capsule) {
+        const Capsule c(w.extents);
+        w.capsule = true;
+        w.radius = c.radius;
+        w.sphereOffset = c.offset;
     }
     w.mask = mask;
     w.id = ++_traceCount;
@@ -379,12 +404,7 @@ TraceResult CollisionWorld::trace(const Vec3f &start, const Vec3f &end, const Ve
 }
 
 TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
-                                     const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents) {
-    // The box as a brush of six axial planes (+x, -x, +y, -y, +z, -z),
-    // clipped as traceBrush does, with nothing built: each plane's
-    // normal picks out one coordinate, and the moving box reaches its
-    // half size along it.
-    TraceResult r;
+                                     const Vec3f &boxMins, const Vec3f &boxMaxs, int32_t boxContents, bool capsule) {
     Vec3f from{};
     Vec3f to{};
     Vec3f extents{};
@@ -394,6 +414,17 @@ TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const
         from[size_t(i)] = start[size_t(i)] + centre;
         to[size_t(i)] = end[size_t(i)] + centre;
     }
+    return sweepBox(start, end, from, to, capsule ? Capsule(extents).reach() : extents, boxMins, boxMaxs, boxContents);
+}
+
+TraceResult CollisionWorld::sweepBox(const Vec3f &start, const Vec3f &end, const Vec3f &from, const Vec3f &to,
+                                     const Vec3f &extents, const Vec3f &boxMins, const Vec3f &boxMaxs,
+                                     int32_t boxContents) {
+    // The box as a brush of six axial planes (+x, -x, +y, -y, +z, -z),
+    // clipped as traceBrush does, with nothing built: each plane's
+    // normal picks out one coordinate, and the moving shape reaches so far
+    // along it (its half size, or a capsule's reach).
+    TraceResult r;
     auto finish = [&] {
         for (int i = 0; i < 3; ++i)
             r.endPos[size_t(i)] = start[size_t(i)] + r.fraction * (end[size_t(i)] - start[size_t(i)]);
@@ -448,6 +479,117 @@ TraceResult CollisionWorld::traceBox(const Vec3f &start, const Vec3f &end, const
         r.surfaceFlags = 0;
         r.contents = boxContents;
     }
+    return finish();
+}
+
+TraceResult CollisionWorld::traceCapsule(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                                         const Vec3f &capsuleMins, const Vec3f &capsuleMaxs, int32_t contents,
+                                         bool capsule) {
+    Vec3f from{};
+    Vec3f to{};
+    Vec3f extents{};
+    Vec3f middle{};
+    Vec3f targetExtents{};
+    for (size_t i = 0; i < 3; ++i) {
+        const float centre = (mins[i] + maxs[i]) * 0.5f;
+        extents[i] = (maxs[i] - mins[i]) * 0.5f;
+        from[i] = start[i] + centre;
+        to[i] = end[i] + centre;
+        middle[i] = (capsuleMins[i] + capsuleMaxs[i]) * 0.5f;
+        targetExtents[i] = (capsuleMaxs[i] - capsuleMins[i]) * 0.5f;
+    }
+    const Capsule target(targetExtents);
+    if (!capsule) {
+        // A box against a capsule: as the original, the other way round
+        // (the capsule's shape swept through the box, set where the capsule
+        // is), which meets at the same places.
+        Vec3f lo{};
+        Vec3f hi{};
+        for (size_t i = 0; i < 3; ++i) {
+            lo[i] = middle[i] - extents[i];
+            hi[i] = middle[i] + extents[i];
+        }
+        return sweepBox(start, end, from, to, target.reach(), lo, hi, contents);
+    }
+    // Two upright capsules meet where the moving one's middle comes within
+    // their radii added of the segment between the target's spheres
+    // stretched by the mover's.
+    const Capsule mover(extents);
+    const float radius = mover.radius + target.radius;
+    const float half = mover.offset + target.offset;
+    TraceResult r;
+    auto finish = [&] {
+        for (size_t i = 0; i < 3; ++i)
+            r.endPos[i] = start[i] + r.fraction * (end[i] - start[i]);
+        return r;
+    };
+    if (contents == 0)
+        return finish();
+    // The point on the segment nearest p, and how far p is from it.
+    auto nearest = [&](const Vec3f &p) {
+        Vec3f q = middle;
+        q[2] = std::clamp(p[2], middle[2] - half, middle[2] + half);
+        return q;
+    };
+    auto distance = [&](const Vec3f &p) {
+        const Vec3f q = nearest(p);
+        const Vec3f d{p[0] - q[0], p[1] - q[1], p[2] - q[2]};
+        return std::sqrt(dot(d, d));
+    };
+    if (distance(from) <= radius) {
+        r.startSolid = true;
+        if (distance(to) <= radius) {
+            r.allSolid = true;
+            r.fraction = 0;
+            r.contents = contents;
+        }
+        return finish();
+    }
+    const Vec3f move{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
+    float best = 2;
+    // The first t from 0 to 1 at which |a + t b|^2 = radius^2, if any.
+    auto entry = [&](float ax, float ay, float az, float bx, float by, float bz) {
+        const float qa = bx * bx + by * by + bz * bz;
+        const float qb = 2 * (ax * bx + ay * by + az * bz);
+        const float qc = ax * ax + ay * ay + az * az - radius * radius;
+        if (qa <= 0)
+            return 2.0f;
+        const float disc = qb * qb - 4 * qa * qc;
+        if (disc < 0)
+            return 2.0f;
+        const float t = (-qb - std::sqrt(disc)) / (2 * qa);
+        return t >= 0 && t <= 1 ? t : 2.0f;
+    };
+    // The side: the upright cylinder between the spheres.
+    if (const float t = entry(from[0] - middle[0], from[1] - middle[1], 0, move[0], move[1], 0); t <= 1) {
+        const float z = from[2] + t * move[2];
+        if (z >= middle[2] - half && z <= middle[2] + half)
+            best = t;
+    }
+    // The ends: a sphere about each end of the segment.
+    for (const float sign : {1.0f, -1.0f}) {
+        const float cz = middle[2] + sign * half;
+        const float t = entry(from[0] - middle[0], from[1] - middle[1], from[2] - cz, move[0], move[1], move[2]);
+        if (t <= 1 && (from[2] + t * move[2] - cz) * sign >= 0)
+            best = std::min(best, t);
+    }
+    if (best > 1)
+        return finish();
+    // Stopped a little short, as the planes' clip margin stops a box.
+    const float length = std::sqrt(dot(move, move));
+    r.fraction = std::max(0.0f, best - (length > 0 ? kClipEpsilon / length : 0));
+    Vec3f hit{};
+    for (size_t i = 0; i < 3; ++i)
+        hit[i] = from[i] + best * move[i];
+    const Vec3f q = nearest(hit);
+    Vec3f n{hit[0] - q[0], hit[1] - q[1], hit[2] - q[2]};
+    const float len = std::sqrt(dot(n, n));
+    if (len > 0)
+        for (float &c : n)
+            c /= len;
+    r.normal = n;
+    r.dist = dot(n, q) + target.radius;
+    r.contents = contents;
     return finish();
 }
 
@@ -575,7 +717,8 @@ Vec3f outOfAxes(const std::array<Vec3f, 3> &axes, const Vec3f &v) {
 } // namespace
 
 TraceResult CollisionWorld::transformedTrace(const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
-                                             int model, int32_t mask, const Vec3f &origin, const Vec3f &angles) const {
+                                             int model, int32_t mask, const Vec3f &origin, const Vec3f &angles,
+                                             bool capsule) const {
     Vec3f half{};
     Vec3f a{};
     Vec3f b{};
@@ -593,7 +736,7 @@ TraceResult CollisionWorld::transformedTrace(const Vec3f &start, const Vec3f &en
         b = intoAxes(axes, b);
     }
     const Vec3f negHalf{-half[0], -half[1], -half[2]};
-    TraceResult t = trace(a, b, negHalf, half, model, mask);
+    TraceResult t = trace(a, b, negHalf, half, model, mask, capsule);
     if (turn && t.fraction < 1)
         t.normal = outOfAxes(axes, t.normal);
     for (size_t k = 0; k < 3; ++k)

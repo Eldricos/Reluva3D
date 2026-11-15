@@ -128,6 +128,11 @@ SnapshotLayout snapshotLayout(const GameLayout &layout) {
 }
 
 constexpr int32_t kTempBoxModel = 0x10000; // CM_TempBoxModel's handle (the original keeps one at a time too)
+// Jedi Outcast's temporary capsule: the same bounds as the box, a handle of its own.
+constexpr int32_t kTempCapsuleModel = 0x10001;
+constexpr int32_t kJk2TempCapsuleModel = 23;
+constexpr int32_t kJk2CapsuleTrace = 27;
+constexpr int32_t kJk2TransformedCapsuleTrace = 29;
 
 // Quake III's trace_t (56 bytes), as the game logic's traces, then (Jedi
 // Outcast's) its Ghoul2 collision records, each with no entity (-1).
@@ -293,7 +298,10 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return result;
     // Jedi Outcast's: the calls it shares numbered as Elite Force's, the
     // rest its own.
+    // Jedi Outcast's capsule calls: the box's, with the mover a capsule.
+    bool capsule = false;
     if (_game == GameCode::kJediOutcast) {
+        capsule = number == kJk2TempCapsuleModel || number == kJk2CapsuleTrace || number == kJk2TransformedCapsuleTrace;
         const int32_t shared = jk2SharedCall(number);
         if (shared < 0)
             return jk2Call(vm, number, a);
@@ -484,7 +492,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             _tempBoxMins[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 4 * i));
             _tempBoxMaxs[size_t(i)] = Qvm::asFloat(vm.readInt(a[1] + 4 * i));
         }
-        return kTempBoxModel;
+        return capsule ? kTempCapsuleModel : kTempBoxModel;
     case kCmPointContents:              // (point, model)
     case kCmTransformedPointContents: { // (point, model, origin, angles)
         auto vec = [&](int32_t addr) {
@@ -498,7 +506,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         const Vec3f point = vec(a[0]);
         const Vec3f origin = transformed ? vec(a[2]) : Vec3f{};
         const Vec3f angles = transformed ? vec(a[3]) : Vec3f{};
-        if (a[1] == kTempBoxModel) {
+        if (a[1] == kTempBoxModel || a[1] == kTempCapsuleModel) { // a point in a capsule's box, as the original
             for (int i = 0; i < 3; ++i) {
                 const float p = point[size_t(i)] - origin[size_t(i)];
                 if (p < _tempBoxMins[size_t(i)] || p > _tempBoxMaxs[size_t(i)])
@@ -529,7 +537,7 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         const Vec3f origin = transformed ? vec(a[7]) : Vec3f{};
         const Vec3f angles = transformed ? vec(a[8]) : Vec3f{};
         TraceResult t;
-        if (a[5] == kTempBoxModel) {
+        if (a[5] == kTempBoxModel || a[5] == kTempCapsuleModel) {
             // A box isn't turned, as the original's.
             Vec3f s = start;
             Vec3f e = end;
@@ -537,13 +545,16 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
                 s[size_t(i)] -= origin[size_t(i)];
                 e[size_t(i)] -= origin[size_t(i)];
             }
-            t = CollisionWorld::traceBox(s, e, mins, maxs, _tempBoxMins, _tempBoxMaxs, contents::kBody);
+            t = a[5] == kTempCapsuleModel
+                    ? CollisionWorld::traceCapsule(s, e, mins, maxs, _tempBoxMins, _tempBoxMaxs, contents::kBody,
+                                                   capsule)
+                    : CollisionWorld::traceBox(s, e, mins, maxs, _tempBoxMins, _tempBoxMaxs, contents::kBody, capsule);
             for (int i = 0; i < 3; ++i)
                 t.endPos[size_t(i)] += origin[size_t(i)];
         } else if (_map) {
             if (!_world)
                 _world = std::make_unique<CollisionWorld>(*_map);
-            t = _world->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles);
+            t = _world->transformedTrace(start, end, mins, maxs, a[5], a[6], origin, angles, capsule);
         }
         writeTrace(vm, a[0], t, t.fraction < 1 ? 1022 : 1023, _layout);
         return 0;

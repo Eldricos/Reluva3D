@@ -83,6 +83,8 @@ bool GameHost::entityShape(int32_t n, EntityShape &out) {
     out.owner = _vm.readInt(a + _layout.ownerNum);
     out.bmodel = _vm.readInt(a + _layout.bmodel) != 0;
     out.modelIndex = _vm.readInt(a + _layout.modelIndex);
+    out.capsule =
+        _layout.capsuleFlag && _layout.svFlags >= 0 && (_vm.readInt(a + _layout.svFlags) & _layout.capsuleFlag);
     return true;
 }
 
@@ -691,16 +693,16 @@ bool GameHost::areasConnected(int area1, int area2) const {
 }
 
 TraceResult GameHost::traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
-                                int32_t passEntity, int32_t mask, int32_t &hit, bool entities) {
-    return _serverWorld.trace(start, mins, maxs, end, passEntity, mask, hit, entities);
+                                int32_t passEntity, int32_t mask, int32_t &hit, bool entities, bool capsule) {
+    return _serverWorld.trace(start, mins, maxs, end, passEntity, mask, hit, entities, capsule);
 }
 
 void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
-                        int32_t passEntity, int32_t mask) {
+                        int32_t passEntity, int32_t mask, bool capsule) {
     if (!_vm.checkWrite(results, _layout.traceSize + 64 * _layout.g2Collisions))
         return;
     int32_t hit = kEntityNone;
-    const TraceResult best = traceMove(start, mins, maxs, end, passEntity, mask, hit);
+    const TraceResult best = traceMove(start, mins, maxs, end, passEntity, mask, hit, true, capsule);
     // Quake III's trace_t: allsolid, startsolid, fraction, endpos, the
     // plane (normal, dist, type, sign bits), surfaceFlags, contents,
     // entityNum.
@@ -918,28 +920,8 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         }
         return count;
     }
-    case kEntityContact: { // (mins, maxs, ent): whether the box touches it
-        const Vec3f mins = readVec(a[0]);
-        const Vec3f maxs = readVec(a[1]);
-        const int32_t n = entityNumber(a[2]);
-        if (n < 0)
-            return 0;
-        const Vec3f origin = entityVec(n, _layout.currentOrigin);
-        if (entityInt(n, _layout.bmodel) && _world) {
-            // The box against the model where it stands, turned as it is.
-            const Vec3f zero{};
-            return _world
-                ->transformedTrace(zero, zero, mins, maxs, entityInt(n, _layout.modelIndex), -1, origin,
-                                   entityVec(n, _layout.currentAngles))
-                .startSolid;
-        }
-        const Vec3f absMin = entityVec(n, _layout.absMin);
-        const Vec3f absMax = entityVec(n, _layout.absMax);
-        for (int i = 0; i < 3; ++i)
-            if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
-                return 0;
-        return 1;
-    }
+    case kEntityContact: // (mins, maxs, ent): whether the box touches it
+        return entityContact(readVec(a[0]), readVec(a[1]), entityNumber(a[2]), false);
     case kGetEntityToken: {
         const std::string token = nextEntityToken(_entityText, _entityPos);
         vm.writeString(a[0], token, a[1]);
@@ -954,6 +936,44 @@ int32_t GameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
             return botCall(vm, number, a);
         ++_unhandled[number];
         return 0;
+    }
+}
+
+int32_t GameHost::entityContact(const Vec3f &mins, const Vec3f &maxs, int32_t n, bool capsule) {
+    {
+        if (n < 0)
+            return 0;
+        const Vec3f origin = entityVec(n, _layout.currentOrigin);
+        if (entityInt(n, _layout.bmodel) && _world) {
+            // The box against the model where it stands, turned as it is.
+            const Vec3f zero{};
+            return _world
+                ->transformedTrace(zero, zero, mins, maxs, entityInt(n, _layout.modelIndex), -1, origin,
+                                   entityVec(n, _layout.currentAngles), capsule)
+                .startSolid;
+        }
+        // A capsule either side: the two met where they stand (a move of
+        // nothing that starts inside), as the original's contact test.
+        EntityShape shape;
+        if ((capsule || (entityShape(n, shape) && shape.capsule))) {
+            Vec3f boxMin = entityVec(n, _layout.mins);
+            Vec3f boxMax = entityVec(n, _layout.maxs);
+            for (size_t i = 0; i < 3; ++i) {
+                boxMin[i] += origin[i];
+                boxMax[i] += origin[i];
+            }
+            const Vec3f zero{};
+            const int32_t all = -1;
+            return (shape.capsule ? CollisionWorld::traceCapsule(zero, zero, mins, maxs, boxMin, boxMax, all, capsule)
+                                  : CollisionWorld::traceBox(zero, zero, mins, maxs, boxMin, boxMax, all, capsule))
+                .startSolid;
+        }
+        const Vec3f absMin = entityVec(n, _layout.absMin);
+        const Vec3f absMax = entityVec(n, _layout.absMax);
+        for (int i = 0; i < 3; ++i)
+            if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
+                return 0;
+        return 1;
     }
 }
 

@@ -200,11 +200,11 @@ void ServerWorld::entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vecto
 }
 
 TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
-                               int32_t mask, int32_t &hit, bool entities) const {
+                               int32_t mask, int32_t &hit, bool entities, bool capsule) const {
     TraceResult best;
     hit = kNone;
     if (_world) {
-        best = _world->trace(start, end, mins, maxs, 0, mask);
+        best = _world->trace(start, end, mins, maxs, 0, mask, capsule);
         hit = best.fraction < 1 ? kWorld : kNone;
     }
     // The bounds of the whole move, for the entities near it.
@@ -233,7 +233,7 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
         TraceResult t;
         if (s.bmodel && _world) {
             // Its brushes, where it stands now and turned as it is.
-            t = _world->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles);
+            t = _world->transformedTrace(start, end, mins, maxs, s.modelIndex, mask, s.origin, s.angles, capsule);
         } else {
             Vec3f boxMin = s.mins;
             Vec3f boxMax = s.maxs;
@@ -241,7 +241,8 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
                 boxMin[size_t(i)] += s.origin[size_t(i)];
                 boxMax[size_t(i)] += s.origin[size_t(i)];
             }
-            t = CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, s.contents);
+            t = s.capsule ? CollisionWorld::traceCapsule(start, end, mins, maxs, boxMin, boxMax, s.contents, capsule)
+                          : CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, s.contents, capsule);
         }
         if (t.allSolid || t.startSolid) {
             best.allSolid |= t.allSolid;

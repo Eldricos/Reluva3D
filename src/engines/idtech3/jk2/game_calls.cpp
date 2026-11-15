@@ -154,11 +154,14 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
             for (int i = 0; i < 3; ++i)
                 vm.writeInt(a[0] + 4 * i, Qvm::fromFloat(std::nearbyint(Qvm::asFloat(vm.readInt(a[0] + 4 * i)))));
         return 0;
-    case kTraceCapsule:
-        // A box for now: capsules are for players' bodies against each other.
-        return systemCall(vm, kTrace, a);
-    case kEntityContactCapsule:
-        return systemCall(vm, kEntityContact, a);
+    case kTraceCapsule: { // as Trace, the capsule in the box moving
+        const Vec3f zero{};
+        clipMove(a[0], readVec(a[1]), a[2] ? readVec(a[2]) : zero, a[3] ? readVec(a[3]) : zero, readVec(a[4]), a[5],
+                 a[6], true);
+        return 0;
+    }
+    case kEntityContactCapsule: // (mins, maxs, entity)
+        return entityContact(readVec(a[0]), readVec(a[1]), entityNumber(a[2]), true);
     case kSpRegisterServerCmd:
         return 1;
     case kSpGetStringTextString:

@@ -181,7 +181,7 @@ public:
     std::pair<int, int> entityAreas(int32_t n);
     bool areasConnected(int area1, int area2) const;
     TraceResult traceMove(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
-                          int32_t passEntity, int32_t mask, int32_t &hit, bool entities = true);
+                          int32_t passEntity, int32_t mask, int32_t &hit, bool entities = true, bool capsule = false);
     // What the server sends a player each frame: the level time, their
     // player state and the entities they can see, copied byte for byte
     // from the game's memory (the first 460 bytes of their client, the
@@ -262,8 +262,11 @@ private:
     Vec3f readVec(int32_t address);
     void writeVec(int32_t address, const Vec3f &v);
     void linkEntity(int32_t address);
+    // Whether the box (or, `capsule`, the capsule in it) at mins-maxs
+    // touches entity `n` (EntityContact).
+    int32_t entityContact(const Vec3f &mins, const Vec3f &maxs, int32_t n, bool capsule);
     void clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end,
-                  int32_t passEntity, int32_t mask);
+                  int32_t passEntity, int32_t mask, bool capsule = false);
     int32_t pointContents(const Vec3f &point, int32_t passEntity);
     // The bot library's calls (game_bots.cpp).
     int32_t botCall(Qvm &vm, int number, const int32_t *args);

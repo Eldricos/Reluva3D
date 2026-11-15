@@ -163,6 +163,22 @@ the origin, then turned into the model's axes. The temporary box model
 is never turned. Both games' servers, their client games and the game's
 entity-contact test all go through these.
 
+Capsules (Jedi Outcast's engine, as Quake III 1.32's): a trace can take
+its box as an upright capsule, and an entity flagged `SVF_CAPSULE` is
+one. A box's capsule is as wide as the box's narrower half-size (across
+or up), its two end spheres' centres that far in from the top and the
+bottom. Against a plane, a capsule reaches its radius plus `|normal.z|`
+times the spheres' distance from the middle. A box moving against a
+capsule is turned round: the capsule's reach against the planes of a box
+the mover's size where the capsule stands, so its ends are flat to a
+box. A capsule moving against a capsule is a point against one of the
+two radii added and the two spheres' distances added: the side, an
+upright cylinder, and the two end spheres, solved exactly. Against a
+turned brush model a capsule's axis turns with the model, as a box
+does. Jedi Outcast 1.02a's own code never asks for one: its game and
+client game call the capsule traces nowhere, and set `SVF_CAPSULE` on
+nothing.
+
 Curved surfaces (patches) collide too, when their shader's contents
 share a bit with the mask. They are found through the leaves' surface
 lists, or a brush model's surfaces. Each patch is cut into triangles
