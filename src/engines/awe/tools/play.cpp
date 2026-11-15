@@ -539,6 +539,10 @@ public:
         const GameState &s = _page->gameState();
         out.insert("act " + s.act);
         out.insert("scene " + s.scene);
+        // And Then There Were None's timer, stopped in the tools but for
+        // "wait" (its whole seconds).
+        if (s.game && s.game->clock)
+            out.insert("timer " + std::to_string(int(s.clock)));
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
         for (const auto &[name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
@@ -1462,8 +1466,8 @@ int aweCommandSolve(int argc, char **argv) {
                 deadRuns[memoKey] = player.tested, deadCount++;
             int novel = 0;
             for (const std::string &s : player.features(true))
-                if (seenFeatures.insert(s).second)
-                    novel++;
+                if (s.rfind("timer ", 0) != 0 && seenFeatures.insert(s).second)
+                    novel++; // (not the time waited: that's never a reason to go on)
             // For a game with its own inventory, something clickable never
             // seen in the scene before is new too (And Then There Were
             // None's projector bulb, which shows once the drawers above it
@@ -1540,7 +1544,8 @@ int aweCommandSolve(int argc, char **argv) {
             // isn't a reason to look round the whole train again.)
             int novelHere = 0;
             for (const std::string &x : player.features(true))
-                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && (x.rfind("tag ", 0) != 0 || storyTag(x)))
+                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && x.rfind("timer ", 0) != 0 &&
+                    (x.rfind("tag ", 0) != 0 || storyTag(x)))
                     novelHere += seenHere.insert(st.scene + "|" + storyOf(x)).second;
             novelHere += int(clickNew.size());
             n.tier = novelHere ? 0 : 1;
