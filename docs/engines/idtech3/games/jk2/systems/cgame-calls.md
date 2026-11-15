@@ -54,7 +54,9 @@ system and Ghoul2 (4 to 24).
 | 203 | `R_AddPolysToScene` | each polygon added |
 | 204 | `R_LightForPoint` | no light yet |
 | 212, 213 | `R_DrawRotatePic`, `R_DrawRotatePic2` | a turned picture |
-| 214–217 | shader remapping, light styles, brush model vertices | not yet |
+| 214 | `R_RemapShader` | not yet |
+| 215, 216 | `R_GetLightStyle`, `R_SetLightStyle` | a style's colour (RGBA, red the word's lowest byte) read and set; the level's lightmaps, vertices and light grid follow ([rbsp.md](../../../formats/rbsp.md)) |
+| 217 | `R_GetBModelVerts` | not yet |
 | 218 | `FX_AddLine` | a line added to the effects system |
 | 229 | `OpenUIMenu` | the page opens that menu over the match (6, the force powers, when the game sends `nfr` to a new player) |
 | 233–236 | the key calls | the catcher kept |
@@ -93,7 +95,7 @@ system and Ghoul2 (4 to 24).
 
 ### Open questions
 
-- Light styles aren't set or ROFF paths followed yet.
+- ROFF paths aren't followed yet.
 - Players are posed (a player's entity carries its instance at 208) and
   drawn; seen in third person on the Play page.
 - Starting takes about 340 million instructions (the effects system and

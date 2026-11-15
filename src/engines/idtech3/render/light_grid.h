@@ -11,6 +11,17 @@
 
 namespace reluva::idtech3 {
 
+// Raven's light styles' current colours (RGBA), as its games' code sets
+// them each frame; every one full white until then.
+constexpr int kStyleCount = 64;
+using LightStyleColors = std::array<std::array<uint8_t, 4>, kStyleCount>;
+inline LightStyleColors fullLightStyles() {
+    LightStyleColors c;
+    for (auto &s : c)
+        s = {255, 255, 255, 255};
+    return c;
+}
+
 // The light at a point, for lighting models: an ambient colour, a
 // directed colour and the direction it comes from (towards the light),
 // colours 0-255.
@@ -35,20 +46,23 @@ public:
     // as the renderer's LightForPoint gives the games). Without a grid: a
     // fixed light from above.
     PointLight sample(const std::array<float, 3> &pos, bool forModel = true) const;
+    // Each point's styles are scaled by their colours when sampled.
+    void setStyles(const LightStyleColors &colors) { _styles = colors; }
 
 private:
     std::array<float, 3> _origin{};
     std::array<float, 3> _size{64, 64, 128};
     std::array<int, 3> _count{};
-    // Each point's light, its styles added up (all full until a game's
-    // code sets them, as the world's surfaces), brightened; a point inside
-    // a wall is all zero, direction too.
+    // Each point's light for each of its styles, brightened, up to the
+    // first unused; a point inside a wall has none.
     struct Point {
-        std::array<uint8_t, 3> ambient{};
-        std::array<uint8_t, 3> directed{};
+        std::array<std::array<uint8_t, 3>, kLightStyles> ambient{};
+        std::array<std::array<uint8_t, 3>, kLightStyles> directed{};
+        std::array<uint8_t, kLightStyles> styles{kNoStyle, kNoStyle, kNoStyle, kNoStyle};
         std::array<uint8_t, 2> latLong{};
         bool inWall = true;
     };
+    LightStyleColors _styles = fullLightStyles();
     std::vector<Point> _points;   // the grid's distinct points
     std::vector<uint32_t> _cells; // each grid point's, in _points
 };

@@ -45,24 +45,15 @@ void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
         Point p;
         p.latLong = g.latLong;
         p.inWall = g.styles[0] == kNoStyle;
-        int ambient[3] = {};
-        int directed[3] = {};
         // Its styles in order, up to the first unused.
         for (size_t k = 0; k < kLightStyles && !p.inWall; ++k) {
             if (g.styles[k] == kNoStyle)
                 break;
-            std::array<uint8_t, 3> a = g.ambient[k];
-            std::array<uint8_t, 3> d = g.directed[k];
-            brightenLight(a.data());
-            brightenLight(d.data());
-            for (size_t c = 0; c < 3; ++c) {
-                ambient[c] += a[c];
-                directed[c] += d[c];
-            }
-        }
-        for (size_t c = 0; c < 3; ++c) {
-            p.ambient[c] = static_cast<uint8_t>(std::min(ambient[c], 255));
-            p.directed[c] = static_cast<uint8_t>(std::min(directed[c], 255));
+            p.styles[k] = g.styles[k];
+            p.ambient[k] = g.ambient[k];
+            p.directed[k] = g.directed[k];
+            brightenLight(p.ambient[k].data());
+            brightenLight(p.directed[k].data());
         }
         _points.push_back(p);
     }
@@ -111,9 +102,15 @@ PointLight LightGrid::sample(const std::array<float, 3> &pos, bool forModel) con
         if (p.inWall)
             continue;
         total += weight;
-        for (size_t c = 0; c < 3; ++c) {
-            light.ambient[c] += weight * p.ambient[c];
-            light.directed[c] += weight * p.directed[c];
+        // Each style's light scaled by its colour, as Raven's renderer adds
+        // them (a Quake III map's only style is 0, full).
+        for (size_t k = 0; k < kLightStyles && p.styles[k] != kNoStyle; ++k) {
+            const std::array<uint8_t, 4> &color = _styles[p.styles[k] % kStyleCount];
+            for (size_t c = 0; c < 3; ++c) {
+                const float scale = weight * float(color[c]) / 255;
+                light.ambient[c] += scale * p.ambient[k][c];
+                light.directed[c] += scale * p.directed[k][c];
+            }
         }
         // Direction as two angles: longitude (its first byte) from +Z,
         // latitude (its second) around it.

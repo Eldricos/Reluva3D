@@ -137,8 +137,10 @@ behind the DLL's own tables.
    marks, lights and the saber's trail ([efx.md](../../formats/efx.md)).
    The network protocol (15) runs: Join Server joins a server, and others
    can join a hosted match ([systems/network.md](systems/network.md)).
-   Next: light styles, ROFF paths, capsule traces and Ghoul2's animation
-   blending; then trying the network play against the retail game.
+   Light styles change as the client game sets them
+   ([rbsp.md](../../formats/rbsp.md)). Next: ROFF paths, capsule traces
+   and Ghoul2's animation blending; then trying the network play against
+   the retail game.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

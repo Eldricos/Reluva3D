@@ -246,11 +246,16 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         return 0;
     }
     case kGetLightStyle: // (style, rgba out)
-        if (vm.checkWrite(a[1], 4))
-            vm.writeInt(a[1], -1);
+        if (a[0] >= 0 && a[0] < kStyleCount && vm.checkWrite(a[1], 4))
+            for (int i = 0; i < 4; ++i)
+                vm.memory()[size_t(a[1] + i)] = _lightStyles[size_t(a[0])][size_t(i)];
+        return 0;
+    case kSetLightStyle: // (style, rgba packed in a word: red its lowest byte)
+        if (a[0] >= 0 && a[0] < kStyleCount)
+            for (int i = 0; i < 4; ++i)
+                _lightStyles[size_t(a[0])][size_t(i)] = uint8_t(uint32_t(a[1]) >> (8 * i));
         return 0;
     case kRemapShader:
-    case kSetLightStyle:
     case kGetBmodelVerts:
     case kSetClientForceAngle:
     case kSetClientTurnExtent:

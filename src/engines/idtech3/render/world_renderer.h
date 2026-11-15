@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/render/shader_cache.h"
 #include "engines/idtech3/render/surface_sprites.h"
 
@@ -38,6 +39,10 @@ public:
     // Builds the GPU data for `bsp`.
     Error load(const Bsp &bsp, const ShaderLibrary &library);
     void clear();
+    // Raven's light styles' colours, as the game's code sets them: the
+    // lightmaps and vertex colours that use a style that changed are made
+    // again (docs/engines/idtech3/formats/rbsp.md). All full after load().
+    void setLightStyles(const LightStyleColors &colors);
     // The sky, then the map's surfaces whose shaders sort in sortMin..sortMax,
     // `time` seconds into the map; call between beginFrame() and endFrame().
     // Drawing opaque surfaces, then models, then translucent surfaces keeps
@@ -126,12 +131,40 @@ private:
     };
 
     void buildSky(const ShaderDef &sky);
+    // Lightmap `index` as its styles' colours make it now.
+    std::vector<uint8_t> composeLightmap(size_t index) const;
+    // A vertex of a surface lit by styles other than 0 alone: kept with its
+    // styles' colours, to light it again as they change.
+    void noteStyledVertex(const BspVertex &v, const BspSurface &s, uint32_t index);
     void drawFog(int material, const gfx::DrawCall &base, int fog, float time) const;
 
     gfx::Renderer3D &_r;
     ShaderCache &_shaders;
     gfx::MeshId _mesh = 0;
     std::vector<gfx::TextureId> _lightmaps;
+    // Light styles: each lightmap's own pixels, brightened (style 0's, and
+    // the extra styles' in places of their own); each extra style's place,
+    // added over its surface's style 0 place scaled by the style's colour;
+    // the mesh's vertices, and those of multi-style surfaces with each
+    // style's colour.
+    LightStyleColors _styles = fullLightStyles();
+    std::vector<uint8_t> _lightmapBase;
+    struct StyleLayer {
+        int target = 0; // lightmaps
+        int source = 0;
+        std::array<int, 2> to{};
+        std::array<int, 2> from{};
+        std::array<int, 2> size{};
+        uint8_t style = 0;
+    };
+    std::vector<StyleLayer> _styleLayers;
+    std::vector<gfx::Vertex> _vertices;
+    struct StyledVertex {
+        uint32_t vertex = 0;
+        std::array<uint8_t, kLightStyles> styles{};
+        std::array<std::array<uint8_t, 3>, kLightStyles> rgb{};
+    };
+    std::vector<StyledVertex> _styledVertices;
     std::vector<Fog> _fogs;
     std::vector<Batch> _batches; // in drawing order
     std::vector<float> _sorts;   // its batches' and sprites' sorts, in order

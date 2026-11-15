@@ -15,13 +15,13 @@ None yet.
 
 The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
-- **Light styles.** The original animates each light style as the game's
-  code sets it (flickering, switched lights); Reluva holds them all full,
-  as the original starts them, and adds each surface's styles into one
-  lightmap. On 7 shaders whose lightmap pass isn't their first, that
-  lights the extra styles through the texture, where the original adds
-  them on top ([rbsp.md](../../formats/rbsp.md), In Reluva). Until the
-  game's code runs (phase 6).
+- **Light styles** ([rbsp.md](../../formats/rbsp.md), In Reluva): each
+  surface's styles are added into one lightmap, scaled by their colours,
+  where the original draws a pass for each. On 7 shaders whose lightmap
+  pass isn't their first, that lights the extra styles through the
+  texture, where the original adds them on top. A vertex's styles are
+  scaled by colour / 255, the original's by 256. Outside a match (the
+  World and Maps pages) every style is held full.
 - **Surface sprites** (grass, ferns, vines) stand where Reluva's own
   random draws put them, not where the original's do: the same density
   and look, other spots. Wind and weather sprites wait for the game's
@@ -51,7 +51,7 @@ In the multiplayer menus:
   without its taper and branches, and effects bolted to a model aren't
   played (1.02a's client game doesn't ask). The second triangle of a
   saber's trail is given its corners' own alpha, where Raven's code
-  leaves two of them unset. Light styles aren't animated yet.
+  leaves two of them unset.
 - **The favourite servers** are kept in `favorites.txt` (address and
   name a line) in the game's save folder, not in the
   original's `servercache.dat`; the other lists aren't kept between runs

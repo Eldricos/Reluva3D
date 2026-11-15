@@ -13,6 +13,7 @@
 #include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/raven/effects.h"
 #include "engines/idtech3/raven/strings.h"
+#include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/formats/marks.h"
 #include "engines/idtech3/formats/md3.h"
@@ -122,6 +123,9 @@ public:
     // Jedi Outcast's Ghoul2 instances (its players, weapons, sabers), by the
     // numbers its entities hold, to draw.
     jk2::Ghoul2Instances &ghoul2() { return _ghoul2; }
+    // Raven's light styles' colours, as Jedi Outcast's client game sets
+    // them each frame (full white until it does).
+    const LightStyleColors &lightStyles() const { return _lightStyles; }
     // Jedi Outcast's effects, as its effects calls run them.
     const raven::EffectSystem &effects() const { return _fx; }
     // The map it asked for, for collision (CM_LoadMap) and drawing
@@ -217,6 +221,7 @@ private:
     int32_t _sharedBufferSize = 0;
     jk2::Ghoul2Instances _ghoul2{_files};
     raven::EffectSystem _fx{_files, effectHost()};
+    LightStyleColors _lightStyles = fullLightStyles();
 };
 
 } // namespace reluva::idtech3::eliteforce

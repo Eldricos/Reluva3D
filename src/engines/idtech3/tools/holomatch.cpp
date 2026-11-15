@@ -1203,6 +1203,17 @@ int cmdGameRun(int argc, char **argv) {
                     i ? (" (" + std::to_string(requests[i].second - requests[i - 1].second) + " from the last)").c_str()
                       : "");
         }
+        // Raven's light styles the client game has dimmed or coloured.
+        {
+            std::string styles;
+            const auto &ls = cgame.lightStyles();
+            for (size_t i = 0; i < ls.size(); ++i)
+                if (ls[i] != std::array<uint8_t, 4>{255, 255, 255, 255})
+                    styles += " " + std::to_string(i) + " (" + std::to_string(ls[i][0]) + " " +
+                              std::to_string(ls[i][1]) + " " + std::to_string(ls[i][2]) + ")";
+            if (!styles.empty())
+                std::printf("cgame: light styles not full white:%s\n", styles.c_str());
+        }
         for (const auto &[number, count] : cgame.unhandled()) {
             const auto first = cgame.firstUnhandled().find(number);
             const std::array<int32_t, 6> a =

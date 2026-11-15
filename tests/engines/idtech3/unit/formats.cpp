@@ -39,6 +39,7 @@
 #include "engines/idtech3/wire/message.h"
 #include "engines/idtech3/wire/netchan.h"
 #include "engines/idtech3/render/patch.h"
+#include "engines/idtech3/render/world_renderer.h"
 #include "engines/idtech3/render/surface_sprites.h"
 #include "engines/idtech3/formats/player_animation.h"
 #include "engines/idtech3/pure.h"
@@ -809,6 +810,125 @@ static void testSkinAndPlacement() {
     CHECK(approx(p[0], 100) && approx(p[1], 5) && approx(p[2], 10));
 }
 
+// What a world renderer gives the graphics device: each texture's pixels
+// by its number, and the mesh's vertices, the last given.
+class StyleRenderer : public gfx::Renderer3D {
+public:
+    std::map<gfx::TextureId, std::vector<uint8_t>> textures;
+    std::vector<gfx::Vertex> vertices;
+    int verticesSet = 0;
+    Error createTexture(int w, int h, const uint8_t *rgba, const gfx::TextureParams &, gfx::TextureId &out) override {
+        out = gfx::TextureId(++_next);
+        textures[out].assign(rgba, rgba + size_t(w) * size_t(h) * 4);
+        return Error::success();
+    }
+    void destroyTexture(gfx::TextureId id) override { textures.erase(id); }
+    Error createMesh(const std::vector<gfx::Vertex> &v, const std::vector<uint32_t> &, gfx::MeshId &out) override {
+        vertices = v;
+        out = gfx::MeshId(++_next);
+        return Error::success();
+    }
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &, gfx::MeshId &out) override {
+        out = gfx::MeshId(++_next);
+        return Error::success();
+    }
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &) override { return Error::success(); }
+    Error setMeshVertices(gfx::MeshId, const std::vector<gfx::Vertex> &v) override {
+        vertices = v;
+        ++verticesSet;
+        return Error::success();
+    }
+    void destroyMesh(gfx::MeshId) override {}
+    int width() const override { return 64; }
+    int height() const override { return 64; }
+    std::string deviceName() const override { return "styles"; }
+    void beginFrame(const gfx::Mat4 &, const gfx::Vec3 &, Color) override {}
+    void draw(const gfx::DrawCall &) override {}
+    void setView(const gfx::Mat4 &, const gfx::Vec3 &) override {}
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &) override {}
+    void setViewport(int, int, int, int) override {}
+    void setDepthRange(float) override {}
+    void clearDepth() override {}
+    bool hasStencil() const override { return false; }
+    void setStencilMode(StencilMode) override {}
+    void setMirrored(bool) override {}
+    void setGamma(float) override {}
+    void endFrame(const Surface *) override {}
+    void captureNextFrame() override {}
+    bool takeCapture(std::vector<uint8_t> &) override { return false; }
+
+private:
+    uint32_t _next = 0;
+};
+
+static void testLightStyles() {
+    // One quad lit by style 0 and style 6: its first lightmap at (0, 0) of
+    // lightmap 0, style 6's at (4, 4) of lightmap 1; its vertices likewise.
+    Bsp bsp;
+    BspModel model;
+    model.mins = {0, 0, 0};
+    model.maxs = {64, 64, 64};
+    model.numSurfaces = 1;
+    bsp.models.push_back(model);
+    bsp.shaders.push_back({"textures/test/wall", 0, 0});
+    bsp.lightmaps.assign(2 * size_t(kLightmapSize) * kLightmapSize * 3, 0);
+    auto texel = [&](int map, int x, int y) {
+        return &bsp.lightmaps[((size_t(map) * kLightmapSize + size_t(y)) * kLightmapSize + size_t(x)) * 3];
+    };
+    texel(0, 0, 0)[0] = 40; // doubled on loading: 80
+    texel(1, 4, 4)[0] = 30; // 60
+    BspSurface s;
+    s.type = SurfaceType::kPlanar;
+    s.numVertices = 4;
+    s.numIndices = 6;
+    s.lightmapStyles = {0, 6, kNoStyle, kNoStyle};
+    s.vertexStyles = {0, 6, kNoStyle, kNoStyle};
+    s.lightmap = {0, 1, -1, -1};
+    s.lightmapPos[0] = {0, 0};
+    s.lightmapPos[1] = {4, 4};
+    s.lightmapSize = {2, 2};
+    bsp.surfaces.push_back(s);
+    for (int i = 0; i < 4; ++i) {
+        BspVertex v;
+        v.pos = {float(i % 2) * 64, float(i / 2) * 64, 0};
+        v.color[0] = {50, 50, 50, 255}; // doubled: 100
+        v.color[1] = {20, 20, 20, 255}; // 40
+        bsp.vertices.push_back(v);
+    }
+    bsp.indices = {0, 1, 2, 2, 1, 3};
+    SearchSet files;
+    ShaderLibrary library;
+    StyleRenderer r;
+    ShaderCache shaders(r, files, library);
+    WorldRenderer world(r, shaders);
+    CHECK(!world.load(bsp, library));
+    const auto lightmap0 = [&]() -> const std::vector<uint8_t> * {
+        // Lightmap 0 is the first texture made after the shader cache's own.
+        for (const auto &[id, px] : r.textures)
+            if (px.size() == size_t(kLightmapSize) * kLightmapSize * 4 && px[0] != 0)
+                return &px;
+        return nullptr;
+    };
+    // At full, both styles add up: 80 + 60; the vertices 100 + 40.
+    CHECK(lightmap0() && (*lightmap0())[0] == 140);
+    CHECK(r.vertices.size() == 4 && r.vertices[0].color[0] == 140);
+    // Style 6 dark: only style 0's light is left, in both.
+    LightStyleColors styles = fullLightStyles();
+    styles[6] = {0, 0, 0, 255};
+    world.setLightStyles(styles);
+    CHECK(lightmap0() && (*lightmap0())[0] == 80);
+    CHECK(r.verticesSet == 1 && r.vertices[0].color[0] == 100);
+    // A style no surface uses changes nothing.
+    styles[9] = {1, 2, 3, 255};
+    world.setLightStyles(styles);
+    CHECK(r.verticesSet == 1);
+    // Half: 80 + 60 * 128 / 255; 100 + 40 * 128 / 255.
+    styles[6] = {128, 128, 128, 255};
+    world.setLightStyles(styles);
+    CHECK(lightmap0() && (*lightmap0())[0] == 80 + 60 * 128 / 255);
+    CHECK(r.vertices[0].color[0] == 100 + 40 * 128 / 255);
+}
+
 static void testLightGrid() {
     // A world 0..128 x 0..64 x 0..128 holds 3 x 2 x 2 grid points.
     Bsp bsp;
@@ -850,6 +970,12 @@ static void testLightGrid() {
     }
     grid.build(bsp);
     CHECK(approx(grid.sample({0, 0, 0}).ambient[0], 80 + 40 + 32));
+    // Each style scaled by the colour the game gives it: style 5 at half.
+    LightStyleColors styles = fullLightStyles();
+    styles[5] = {102, 102, 102, 255};
+    grid.setStyles(styles);
+    CHECK(approx(grid.sample({0, 0, 0}).ambient[0], 80 + 40 * 102.0f / 255 + 32));
+    grid.setStyles(fullLightStyles());
     // A grid of the wrong size is ignored, and sampling still gives light.
     bsp.gridIndex.resize(1);
     grid.build(bsp);
@@ -1089,6 +1215,7 @@ static const reluva::test::Suite
                {"md3", [](const std::filesystem::path &) { testMd3(); }},
                {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
+               {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
                {"mdr", [](const std::filesystem::path &) { testMdr(); }},
                {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},
            });

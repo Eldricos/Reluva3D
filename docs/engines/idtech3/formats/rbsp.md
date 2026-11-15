@@ -74,7 +74,16 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
   lightmaps (or vertex colours, or grid colours), each scaled by its
   style's current colour, taken in order up to the first unused style
   (255; the original stops at 254 too, which no Jedi Outcast map uses). There are 64 styles; until the game's code sets them,
-  every one is full white (the renderer's start-up).
+  every one is full white (the renderer's start-up). The client game sets
+  all 64 each frame (`R_SetLightStyle`, its colour's four bytes in a word,
+  red lowest), from the level's style strings: 1.02a's flicker, pulse and
+  dim the classic styles 1 to 12, and set 13 from the level.
+- **Style 0's lightmap isn't coloured**: the first lightmap pass is drawn
+  white whatever style 0's colour; each extra style's pass takes its
+  colour. Vertex colours and the grid take every style's colour, style 0's
+  too: a vertex's light is each style's colour times its light, added up
+  (and divided by 256, which the renderer does), a grid point's each
+  style's light times its colour / 255.
 - **Each extra lightmap is a pass of its own**: the shader's lightmap
   stage copied right after it, with that style's lightmap and colour,
   added (`GL_ONE GL_ONE`) over what's drawn.
@@ -91,16 +100,31 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
 
 `parseBsp` reads both formats into the same `Bsp`: Quake III's maps get
 one style (0) on every surface, vertex and grid point, and their grid an
-index of one point each. The light styles aren't animated yet: they wait
-for the game's code (Jedi Outcast's plan, phase 6), so for now the
-renderer adds each surface's styles into its first style's lightmap and
-vertex colours as the level loads, all at full; the light grid's points
-are added up the same way. That draws as the original's passes do where
-the lightmap's stage is the shader's first, as it is in all but 7 of the
-250 shaders on multi-style surfaces (`textures/cairn/basewall`,
-`textures/imp_mine/grating` and others put a texture first): on those the
-extra styles' light is multiplied by the texture, where the original adds
-it on top. `reluva-viewer`'s World and Maps pages show the maps; `reluva-tool idtech3 bsp-check` reads them all.
+index of one point each.
+
+The renderer adds each surface's extra styles' lightmaps into its first
+style's, each scaled by its style's colour, and keeps what it needs to do
+it again: each lightmap's own pixels and where each extra style's light
+goes. When the game's code changes a style, the lightmaps holding it are
+made again, and the colours of the vertices of surfaces lit by styles
+other than 0 alone (`WorldRenderer::setLightStyles`); the grid scales each
+point's styles as it's sampled. In multiplayer only `ffa_ns_streets` has
+such surfaces (45, style 6, a flicker); single player's levels many more.
+
+Two differences remain:
+
+- Adding into one lightmap draws as the original's passes do where the
+  lightmap's stage is the shader's first, as it is in all but 7 of the 250
+  shaders on multi-style surfaces (`textures/cairn/basewall`,
+  `textures/imp_mine/grating` and others put a texture first): on those
+  the extra styles' light is multiplied by the texture, where the original
+  adds it on top.
+- A vertex's styles are scaled by colour / 255, not 256, so that full
+  light stays as the level loaded it; and vertices lit by style 0 alone
+  aren't lit again if a game dims style 0 (none of Jedi Outcast's does).
+
+`reluva-viewer`'s World and Maps pages show the maps (all styles full);
+`reluva-tool idtech3 bsp-check` reads them all.
 
 ## Sources and checks
 
@@ -111,10 +135,17 @@ it on top. `reluva-viewer`'s World and Maps pages show the maps; `reluva-tool id
   source (`qcommon/qfiles.h`, `renderer/tr_bsp.cpp`, `tr_light.cpp`) as a
   guide to names and to what the renderer does with them; the grid's
   sampling as its `R_SetupEntityLightingGrid` (`tr_light.cpp`) reads it,
-  the extra passes as its `FinishShader` (`tr_shader.cpp`) makes them,
-  the styles' start as `R_Init` (`tr_init.cpp`) sets them.
+  the extra passes as its `FinishShader` (`tr_shader.cpp`) makes them and
+  the extra passes' colours as its stages' colour generators do (`tr_shade.cpp`), a vertex's
+  styles as `tr_surface.cpp` adds them up, the styles' start and setting
+  as `R_Init` and `RE_SetLightStyle` (`tr_init.cpp`) do; what 1.02a's
+  client game sets, from it running in Reluva.
 - **How it was checked:** `bsp-check` reads every map to the end and
   checks every index; a unit test (`idtech3.unit.formats`) reads a
-  made-up RBSP map with two styles, a level fog and a shared grid. The
-  maps drawn in `reluva-viewer` look lit as expected; not yet compared
-  with the original running.
+  made-up RBSP map with two styles, a level fog and a shared grid; and
+  ("light styles") draws a two-style surface, its lightmap and vertices
+  made again as its style goes dark, half and back, the grid's points
+  scaled. `game-run -cgame` reports the styles 1.02a's client game sets
+  (recorded by the game-files step `jk2-game`). The maps drawn in
+  `reluva-viewer` look lit as expected; the styles changing haven't been
+  seen on screen yet, nor compared with the original running.

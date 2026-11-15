@@ -1496,6 +1496,9 @@ void PlayPage::update(uint64_t nowMs) {
         const auto &scene = _cgame->scene();
         const auto &pictures = _cgame->pictures();
         const bool dynamicLights = !_cvars.find("r_dynamiclight") || _cvars.integer("r_dynamiclight") != 0;
+        // Raven's light styles as the client game set them this frame.
+        _world->setLightStyles(_cgame->lightStyles());
+        _grid.setStyles(_cgame->lightStyles());
         size_t drawn = 0;
         bool first = true;
         // r_drawentities 0: the level alone; r_drawEffects 0 (Reluva's):
