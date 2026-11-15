@@ -253,7 +253,8 @@ void Ghoul2Instances::setBoltLink(int32_t handle, int32_t modelIndex, int32_t li
 }
 
 bool Ghoul2Instances::setAnimation(int32_t handle, int32_t modelIndex, const std::string &bone, int32_t startFrame,
-                                   int32_t endFrame, int32_t flags, float speed, int32_t time, float setFrame) {
+                                   int32_t endFrame, int32_t flags, float speed, int32_t time, float setFrame,
+                                   int32_t blendTime) {
     Model *m = model(handle, modelIndex);
     const int b = m ? boneIndex(*m, bone) : -1;
     if (b < 0)
@@ -267,9 +268,65 @@ bool Ghoul2Instances::setAnimation(int32_t handle, int32_t modelIndex, const std
     // A frame to start from: as if begun that many frames ago.
     if (setFrame >= 0 && speed != 0)
         a.startTime = time - int32_t((setFrame - float(startFrame)) / speed * 50);
+    const auto old = m->animations.find(b);
+    if ((flags & kAnimBlend) && old != m->animations.end() && (old->second.flags & (kAnimOverride | kAnimLoop))) {
+        const Animation &o = old->second;
+        if (o.blendStart == time) {
+            // Set again before its blend began: only the blend's length changes.
+            a.blendStart = o.blendStart;
+            a.blendFrame = o.blendFrame;
+            a.blendLerpFrame = o.blendLerpFrame;
+        } else {
+            blendFrom(o, time, a);
+        }
+        a.blendTime = blendTime;
+    } else {
+        // Nothing playing to blend from.
+        a.flags &= ~kAnimBlend;
+    }
     m->animations[b] = a;
     m->posedTime = -1;
     return true;
+}
+
+void Ghoul2Instances::blendFrom(const Animation &from, int32_t time, Animation &to) {
+    // The last animation's frame now, as the original finds it for this:
+    // past the end, a looping one comes round, a frozen one holds its last
+    // frame, any other is taken as at frame 0.
+    float frame = float(from.startFrame) + std::max(0.0f, float(time - from.startTime) / 50.0f) * from.speed;
+    const int size = from.endFrame - from.startFrame;
+    const float end = float(from.endFrame);
+    const bool loop = (from.flags & kAnimLoop) != 0;
+    if (size != 0 && ((from.speed > 0 && frame > end - 1) || (from.speed < 0 && frame < end + 1))) {
+        if (loop) {
+            if ((from.speed < 0 && frame <= end + 1) || (from.speed > 0 && frame >= end))
+                frame = end + std::fmod(frame - end, float(size)) - float(size);
+        } else if ((from.flags & kAnimFreeze) == kAnimFreeze) {
+            frame = from.speed > 0 ? end - 1 : end + 1;
+        } else {
+            frame = 0;
+        }
+    }
+    to.blendStart = time;
+    if (from.speed < 0) {
+        to.blendFrame = std::floor(frame);
+        to.blendLerpFrame = int(std::floor(frame));
+        return;
+    }
+    to.blendFrame = frame;
+    to.blendLerpFrame = int(frame + 1);
+    // Off the end: the first frame if it loops, else the last (0 for an
+    // animation ending at 0, where the original sets the other frame).
+    if (to.blendFrame >= end) {
+        if (loop)
+            to.blendFrame = float(from.startFrame);
+        else if (from.endFrame <= 0)
+            to.blendLerpFrame = 0;
+        else
+            to.blendFrame = end - 1;
+    }
+    if (to.blendLerpFrame >= from.endFrame)
+        to.blendLerpFrame = loop ? from.startFrame : std::max(0, from.endFrame - 1);
 }
 
 bool Ghoul2Instances::setAngles(int32_t handle, int32_t modelIndex, const std::string &bone, const Vec3 &angles,
@@ -408,6 +465,11 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
         int current = 0;
         int next = 0;
         float towards = 0;
+        // Fading in from a pose of the last animation's, `blendIn` of the way.
+        bool blend = false;
+        float blendFrame = 0;
+        int blendLerpFrame = 0;
+        float blendIn = 0;
     };
     std::vector<Timing> timing(n);
     std::vector<bool> done(n);
@@ -420,8 +482,16 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
         // Its own animation, else its parent's frames (the root's: the first).
         if (const auto a = m.animations.find(int(i)); a != m.animations.end()) {
             const Animation &an = a->second;
+            timing[i] = {};
             animationFrames(an.startFrame, an.endFrame, an.flags, an.speed, an.startTime, time, sk->frameCount,
                             timing[i].current, timing[i].next, timing[i].towards);
+            const float since = float(time - an.blendStart);
+            if ((an.flags & kAnimBlend) && since >= 0 && since < float(an.blendTime)) {
+                timing[i].blend = true;
+                timing[i].blendFrame = an.blendFrame;
+                timing[i].blendLerpFrame = an.blendLerpFrame;
+                timing[i].blendIn = since / float(an.blendTime);
+            }
         } else if (parent >= 0) {
             timing[i] = timing[size_t(parent)];
         }
@@ -430,6 +500,18 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
             const Bone34 next = sk->bone(timing[i].next, int(i));
             for (size_t k = 0; k < 12; ++k)
                 local[k] = local[k] * (1 - timing[i].towards) + next[k] * timing[i].towards;
+        }
+        if (timing[i].blend) {
+            // The pose blended from: its two frames weighted the other way
+            // round from its fraction, as the original's are.
+            const Timing &t = timing[i];
+            const int first = t.blendFrame >= 0 && t.blendFrame < float(sk->frameCount) ? int(t.blendFrame) : 0;
+            const int second = std::clamp(t.blendLerpFrame, 0, sk->frameCount - 1);
+            const float back = t.blendFrame - float(int(t.blendFrame));
+            const Bone34 a = sk->bone(first, int(i));
+            const Bone34 b = sk->bone(second, int(i));
+            for (size_t k = 0; k < 12; ++k)
+                local[k] = local[k] * t.blendIn + (a[k] * back + b[k] * (1 - back)) * (1 - t.blendIn);
         }
         const Bone34 &above = parent >= 0 ? bones[size_t(parent)] : kIdentity;
         const auto ang = m.angles.find(int(i));
@@ -616,7 +698,9 @@ int32_t Ghoul2Instances::call(Qvm &vm, Call which, const int32_t *a) {
     case kAngleOverride:
         return setAngles(a[0], a[1], str(2), vec(3), a[4], Axis(a[5]), Axis(a[6]), Axis(a[7])) ? 1 : 0;
     case kPlayAnim:
-        return setAnimation(a[0], a[1], str(2), a[3], a[4], a[5], Qvm::asFloat(a[6]), a[7], Qvm::asFloat(a[8])) ? 1 : 0;
+        return setAnimation(a[0], a[1], str(2), a[3], a[4], a[5], Qvm::asFloat(a[6]), a[7], Qvm::asFloat(a[8]), a[9])
+                   ? 1
+                   : 0;
     case kGetGlaName: {
         const std::string name = skeletonName(a[0], a[1]);
         vm.writeString(a[2], name, 64);

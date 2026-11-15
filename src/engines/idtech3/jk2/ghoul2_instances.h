@@ -96,8 +96,10 @@ public:
     int32_t addBolt(int32_t handle, int32_t modelIndex, const std::string &name);
     // The model hangs from another's bolt: (model << 10) | bolt.
     void setBoltLink(int32_t handle, int32_t modelIndex, int32_t link);
+    // With kAnimBlend, the bone's pose under its last animation fades into
+    // the new one over `blendTime` ms.
     bool setAnimation(int32_t handle, int32_t modelIndex, const std::string &bone, int32_t startFrame, int32_t endFrame,
-                      int32_t flags, float speed, int32_t time, float setFrame);
+                      int32_t flags, float speed, int32_t time, float setFrame, int32_t blendTime = 0);
     bool setAngles(int32_t handle, int32_t modelIndex, const std::string &bone, const Vec3 &angles, int32_t flags,
                    Axis up, Axis right, Axis forward);
     // A surface on (flags 0) or off (2) on every model that has it.
@@ -124,6 +126,12 @@ private:
         int32_t flags = 0;
         float speed = 1;
         int32_t startTime = 0;
+        // What it blends from (kAnimBlend): the last animation's frame when
+        // this one was set, and the frame mixed with it.
+        int32_t blendStart = 0;
+        int32_t blendTime = 0;
+        float blendFrame = 0;
+        int blendLerpFrame = 0;
     };
     struct Bolt {
         std::string name;
@@ -151,6 +159,8 @@ private:
         std::vector<Model> models;
     };
 
+    // `to` set to blend from where `from` is at `time`.
+    static void blendFrom(const Animation &from, int32_t time, Animation &to);
     Model *model(int32_t handle, int32_t modelIndex);
     const GlaSkeleton *loadSkeleton(const std::string &name);
     std::shared_ptr<const GlmModel> loadMesh(const std::string &file);

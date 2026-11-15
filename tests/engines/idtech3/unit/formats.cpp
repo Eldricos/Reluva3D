@@ -607,6 +607,20 @@ static void testGhoul2Instances() {
     CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimOverride, 1, 0, -1));
     CHECK(near(boltAt(500), 5));
     CHECK(!g2.setAnimation(h, 0, "nobody", 0, 2, 0, 1, 0, -1));
+    // Blending (0x80): frozen on frame 1 (5 up), then frame 0 blended in
+    // over 100 ms from 500; set again then, only the blend's length
+    // changes. An animation that wasn't frozen is blended from frame 0,
+    // which the original's weights (the other way round) take as frame 1.
+    constexpr int32_t kFreeze = Ghoul2Instances::kAnimFreeze;
+    constexpr int32_t kBlend = Ghoul2Instances::kAnimBlend;
+    CHECK(g2.setAnimation(h, 0, "root", 0, 2, kFreeze, 1, 0, -1));
+    CHECK(g2.setAnimation(h, 0, "root", 0, 1, kFreeze | kBlend, 1, 500, -1, 100));
+    CHECK(near(boltAt(500), 5) && near(boltAt(525), 3.75f) && near(boltAt(600), 0));
+    CHECK(g2.setAnimation(h, 0, "root", 0, 1, kFreeze | kBlend, 1, 500, -1, 200));
+    CHECK(near(boltAt(550), 3.75f) && near(boltAt(700), 0));
+    CHECK(g2.setAnimation(h, 0, "root", 0, 2, Ghoul2Instances::kAnimOverride, 1, 0, -1));
+    CHECK(g2.setAnimation(h, 0, "root", 0, 1, kFreeze | kBlend, 1, 500, -1, 100));
+    CHECK(near(boltAt(500), 5) && near(boltAt(550), 2.5f));
     // An angle override turning the root a quarter about its up axis
     // carries the child round with it.
     CHECK(g2.setAnimation(h, 0, "root", 0, 1, Ghoul2Instances::kAnimOverride, 1, 0, -1));

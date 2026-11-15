@@ -34,10 +34,8 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 In the multiplayer game:
 
-- **Ghoul2 animations change at once**, without blending into each other
-  as the original's do when asked (0x80), and the bone-angle mode that
-  replaces a bone's turn is taken as turning after it
-  ([ghoul2.md](../../formats/ghoul2.md), Animation).
+- **Ghoul2's bone-angle mode** that replaces a bone's turn is taken as
+  turning after it ([ghoul2.md](../../formats/ghoul2.md), Animation).
 
 In the multiplayer menus:
 

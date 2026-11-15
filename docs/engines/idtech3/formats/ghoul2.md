@@ -140,6 +140,19 @@ it for its modules (`jk2/ghoul2_instances.cpp`):
   frames blended by the fraction. Past the end frame less one, a looping
   animation (0x10) comes round again from the first; any other holds its
   last frame. A negative speed plays it backwards.
+- **Blending** (flag 0x80, with a blend time in ms): if the bone was
+  already playing an animation (0x8 or 0x10), the new one fades in from
+  where the last one was over the blend time. Where it was is its frame
+  then (a looping one come round, a frozen one (0x40) on its last frame,
+  any other that has ended taken as frame 0) and the frame after it (the
+  first if it loops, else held to the last). The two are mixed with
+  their weights the other way round from the fraction: at frame 10.3,
+  frame 10 by 0.3 and 11 by 0.7, so a whole frame comes out as the one
+  after it. The bone's pose is then that by what's left of the blend,
+  the new animation's by how far it's gone. Set again at the same time,
+  only the blend's length changes; on a bone with nothing playing, the
+  flag is dropped. Bones without an animation of their own blend with
+  their parent.
 - **Angle overrides** (`SetBoneAngles`: angles, flags, then which of the
   bone's axes each angle turns about) make a rotation from the angles
   (pitch about the "right" axis, yaw about "up", roll about "forward",
@@ -177,11 +190,10 @@ skeleton's animations (`[` and `]`), each played on the whole skeleton.
 doesn't name keeps its own shader, as with MD3 models, where the
 original draws it with its default shader.
 
-Not yet: what the game's code does with them (its Ghoul2 calls: which
-animation each part of the skeleton plays, bones turned by the game,
-bolts, surfaces turned on and off, several models on one skeleton,
-collision against the posed mesh), which comes with the game's code
-(Jedi Outcast's plan, phases 6 and 7).
+The game's Ghoul2 calls are answered by `jk2::Ghoul2Instances`
+(Animation, above). Not yet: collision against the posed mesh (the
+traces' Ghoul2 records), and single player's calls (Jedi Outcast's
+plan, phase 7).
 
 ## Sources and checks
 
@@ -205,6 +217,6 @@ collision against the posed mesh), which comes with the game's code
   made-up skeleton by an animation (looping and held), an angle override
   and a model hung from another's bolt. In 1.02a's multiplayer, Kyle
   standing in third person fills 64 units from his feet up, his pistol
-  hung from his hand at hand height beside him (`game-run -cgame -entities`). Blending one
-  animation into the next (0x80) isn't done yet: the new one starts at
-  once.
+  hung from his hand at hand height beside him (`game-run -cgame -entities`). The same
+  test blends one animation into the next: from a frozen one, at a
+  fraction of the way, and from one that had ended.
