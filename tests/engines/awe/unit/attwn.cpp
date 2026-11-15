@@ -609,6 +609,25 @@ void testJournal(const std::filesystem::path &tmp) {
     CHECK(!j.open() && j.x() == 754);
 }
 
+void testCharacters() {
+    // charlist.txt as the game reads it (0x41a420): a quote opened and not
+    // closed is dropped, where a table's would run on into the next row;
+    // short lines passed over, a run of tabs one.
+    const Table t = attwn::readCharacters("Use this Item\tOn this character\tCondition\tEvent\n"
+                                          "needles\tbrent\t\"tag sew_step1, !tag sew_step3\ttalk brentgen 2\n"
+                                          "fishingline\tbrent\t\"tag sew_step2\"\t\"talk brentgen 7, timer start\"\n"
+                                          "short\tbrent\t1\tx\n"
+                                          "brandy\t\tnarracott\t1\ttalk narracottgen 171\n");
+    CHECK(t.rows.size() == 3);
+    if (t.rows.size() == 3) {
+        CHECK(t.cell(0, 0) == "needles" && t.cell(0, 2) == "tag sew_step1, !tag sew_step3" &&
+              t.cell(0, 3) == "talk brentgen 2");
+        CHECK(t.cell(1, 0) == "fishingline" && t.cell(1, 2) == "tag sew_step2" &&
+              t.cell(1, 3) == "talk brentgen 7, timer start");
+        CHECK(t.cell(2, 1) == "narracott" && t.cell(2, 3) == "talk narracottgen 171");
+    }
+}
+
 void testInventory(const std::filesystem::path &tmp) {
     const std::filesystem::path dir = tmp / "inventory";
     putFile(dir / "Text" / "itemlist.act",
@@ -724,5 +743,6 @@ static const reluva::test::Suite
                                  {"chapters", [](const std::filesystem::path &tmp) { testChapters(tmp); }},
                                  {"journal", [](const std::filesystem::path &tmp) { testJournal(tmp); }},
                                  {"inventory", [](const std::filesystem::path &tmp) { testInventory(tmp); }},
+                                 {"charlist", [](const std::filesystem::path &) { testCharacters(); }},
                                  {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
                              });

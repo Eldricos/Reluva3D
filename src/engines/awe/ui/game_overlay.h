@@ -97,8 +97,12 @@ public:
         (void)y;
         return false;
     }
-    /** Whatever it shows that waits for a click (a close-up) put away. */
-    virtual void dismiss() {}
+    /**
+     * Whatever it shows that waits for a click (a close-up) put away.
+     * @param click as a click puts it away (what it says then said), not as
+     *        opening the menu does
+     */
+    virtual void dismiss(bool click) { (void)click; }
     /** The next input a player's mouse would make there towards `want` (awe game-check's hand). */
     virtual OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) {
         (void)want;

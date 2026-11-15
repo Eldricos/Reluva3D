@@ -39,8 +39,11 @@ const Table &ScenePage::itemTable(const char *file) const {
     Table &t = _itemTables[file];
     if (t.headings.empty()) {
         std::vector<uint8_t> data;
+        const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
         if (!_ctx.files.read(std::string("text/") + file, data))
-            t = parseTable(decodeText(data));
+            t = rules.readCharacters && std::string_view(file) == rules.characters
+                    ? rules.readCharacters(decodeText(data))
+                    : parseTable(decodeText(data));
     }
     return t;
 }

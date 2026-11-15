@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // And Then There Were None's inventory (ac.exe 0x4178a0..0x41b300): a
@@ -20,7 +21,21 @@
 // (GameState::items, Orient Express's states); see
 // docs/engines/awe/games/attwn/systems/inventory.md.
 
+namespace reluva::awe {
+struct Table;
+}
+
 namespace reluva::awe::attwn {
+
+/**
+ * Text\charlist.txt as the game reads it (0x41a420), not as a table: the
+ * first line passed over, and any shorter than 20 characters; the rest
+ * cut at tabs and line ends with runs of them as one (strtok), into the
+ * item, the character, the condition and the event, a cell's opening
+ * quote dropped, and its closing one with it. The install's file reads
+ * the same either way.
+ */
+Table readCharacters(std::string_view text);
 
 /** The inventory panel. */
 class Inventory {

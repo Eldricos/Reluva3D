@@ -5,6 +5,7 @@
 
 #include "engines/awe/attwn/acts.h"
 #include "engines/awe/attwn/files.h"
+#include "engines/awe/attwn/inventory.h"
 #include "engines/awe/attwn/overlay.h"
 #include "engines/awe/attwn/script.h"
 
@@ -187,7 +188,9 @@ const GameInfo &game() {
         // taken, 3 in the bag, 4 in hand, 5 used, 12 a page (0x412e9f).
         .inventory = {.cards = false,
                       .cursor = "inventory/%s/cur%s.tga",
+                      .cursorAt = {22, 23}, // 0x4162ce
                       .characters = "charlist.txt",
+                      .readCharacters = readCharacters,
                       .combinations = "uselist.txt",
                       .cantUse = "talk narracottgen 2",
                       .takeSound = "interface\\inventory",

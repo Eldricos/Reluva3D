@@ -115,7 +115,7 @@ bool ScenePage::objectRect(const Ac2Record &o, int &left, int &top, int &right, 
         float y0;
         float x1;
         float y1;
-        if (cam.project(was, kScreenW, kScreenH, x0, y0) && cam.project(now, kScreenW, kScreenH, x1, y1)) {
+        if (cam.project(was, frameW(), frameH(), x0, y0) && cam.project(now, frameW(), frameH(), x1, y1)) {
             const int dx = int(std::lround(x1 - x0));
             const int dy = int(std::lround(y1 - y0));
             left += dx, right += dx, top += dy, bottom += dy;
@@ -168,7 +168,7 @@ bool ScenePage::hitBones(const Ac2Record &o, int sx, int sy) const {
         }
         gfx::Vec3 from;
         gfx::Vec3 dir;
-        SceneCamera::fromRecord(*camr).ray(float(sx), float(sy), kScreenW, kScreenH, from, dir);
+        SceneCamera::fromRecord(*camr).ray(float(sx), float(sy), frameW(), frameH(), from, dir);
         for (const Character::PickBox &b : c.pickBoxes)
             if (rayHitsBox(b.m, b.lo, b.hi, from, dir))
                 return true;
@@ -288,8 +288,8 @@ void ScenePage::drawCursor() {
     // 0x415650: the arrow at the mouse (cursor 1: the bright one), then
     // the cursor's picture over it, both by their top-left corners; the
     // picture kept 62 pixels in from the right and the bottom. With an
-    // item in hand: the empty ring with the item's own cursor picture 26
-    // pixels in, or the cog where it can be used.
+    // item in hand: the empty ring with the item's own cursor picture a
+    // little in (InventoryRules::cursorAt), or the cog where it can be used.
     if (!cursorShown())
         return;
     const Ac2Record *under = nullptr;
@@ -302,10 +302,10 @@ void ScenePage::drawCursor() {
         drawSprite(_ctx.screen, picture(file), t, true);
     };
     put(kCursors[cursor == 1 ? 1 : 0], x, y);
-    if (x + 62 > kScreenW)
-        x = kScreenW - 62;
-    if (y + 62 > kScreenH)
-        y = kScreenH - 62;
+    if (x + 62 > frameW())
+        x = frameW() - 62;
+    if (y + 62 > frameH())
+        y = frameH() - 62;
     const std::string &item = itemInHand();
     if (!item.empty()) {
         if (under && canUseOn(item, *under)) {
@@ -313,10 +313,11 @@ void ScenePage::drawCursor() {
             return;
         }
         put(kCursors[kCursorEmpty], x, y);
-        std::string art = _ctx.game ? _ctx.game->inventory.cursor : InventoryRules().cursor;
+        const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
+        std::string art = rules.cursor;
         for (size_t at = art.find("%s"); at != std::string::npos; at = art.find("%s", at + item.size()))
             art.replace(at, 2, item);
-        put(art, x + 26, y + 26);
+        put(art, x + rules.cursorAt[0], y + rules.cursorAt[1]);
         return;
     }
     if (cursor > 1 && cursor < kCursorCount)

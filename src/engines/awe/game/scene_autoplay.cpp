@@ -36,7 +36,7 @@ void ScenePage::startAt(const std::string &where) {
 
 std::string ScenePage::autoplay() {
     if (_overlay)
-        _overlay->dismiss();
+        _overlay->dismiss(true);
     if (_yesNo) {
         _yesNo.reset();
         return "yes/no box closed";
@@ -171,7 +171,7 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     int r;
     int b;
     if (const Ac2Value *outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
-        l = kScreenW, t = kScreenH, r = 0, b = 0;
+        l = frameW(), t = frameH(), r = 0, b = 0;
         for (const auto &[ux, uy] : outline->numbers) {
             const int px = int32_t(ux);
             const int py = int32_t(uy);
@@ -189,11 +189,11 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
                 const float feet[3] = {c.x, c.y, c.z};
                 float fx;
                 float fy;
-                if (SceneCamera::fromRecord(*camr).project(feet, kScreenW, kScreenH, fx, fy) &&
+                if (SceneCamera::fromRecord(*camr).project(feet, frameW(), frameH(), fx, fy) &&
                     scan(int(fx) - 200, int(fy) - 500, int(fx) + 200, int(fy) + 20, 2))
                     return true;
             }
-    return scan(0, 0, kScreenW, kScreenH, 4);
+    return scan(0, 0, frameW(), frameH(), 4);
 }
 
 bool ScenePage::pointFor(size_t i, int &x, int &y, const std::string &holding) {

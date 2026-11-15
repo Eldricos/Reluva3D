@@ -1,6 +1,6 @@
 # And Then There Were None: the inventory
 
-> **Status:** partial · **Code:** `src/engines/awe/attwn/inventory.cpp` (this game's), `src/engines/awe/attwn/overlay.cpp` (it with the journal), `src/engines/awe/games.h` (`InventoryRules`) · **Checked against:** the code (`ac.exe`); Reluva's inventory looked at in the Scenes page · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/attwn/inventory.cpp` (this game's), `src/engines/awe/attwn/overlay.cpp` (it with the journal), `src/engines/awe/games.h` (`InventoryRules`) · **Checked against:** the code (`ac.exe`); Reluva's inventory looked at in the Scenes page · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -58,6 +58,34 @@ there; both with `click4.wav`. In hand on the scene it's used as Orient
 Express's are (`0x419380`, `0x4194f0`). Taking an item says
 `sound interface\inventory` (`0x40d54e`).
 
+- **The cursor** (`0x416180`) with an item in hand: `cursoroperate` over
+  something it can be used on (`0x419300`: the object's own use, or for a
+  character `charlist.txt`'s, both only asked), else `cursorempty` with
+  the item's cursor picture 22 across and 23 down from it (`0x4162ce`),
+  kept 62 pixels in from the right and the bottom.
+- **Escape** (`0x416f82`) puts the item in hand back in the bag
+  (`0x4192e0`), a new item in the bag, and the close-up away without
+  Narracott's word on it (`0x41a010` given 0), before the in-game menu.
+
+### Taking an item
+
+`take <item>` and `take this` (`0x40d5be`, `0x40d590`) add the item new,
+state 1 (the runner's `ebp`, `0x40b57f`): its page shown and the sack
+blinking (`0x418ce6`). Loading a saved game adds each item the same way,
+with the state, slot and page saved (`0x413a30`).
+
+### The characters' table
+
+`Text\charlist.txt` isn't read as a table (`0x41a420`): its first line
+is passed over, and any shorter than 20 characters; the rest are cut at
+tabs and line ends, a run of them as one (`strtok` on `"\t\n"`), into
+the item, the character, the condition and the event, each 256
+characters; a cell's opening quote is dropped, and its closing one with
+it. A row is used (`0x4194f0`) when the item in hand is its item,
+ignoring case, the character's model has `<character>_model.gr2` in its
+name (`brentknit` counting as `brent`), and its condition holds. The
+install's 17 rows read the same as a table's would.
+
 ### Examine
 
 The button at x + 137 to 179, y 328 to 370 (`0x419790`): the item in
@@ -72,8 +100,9 @@ hand goes to the tray first; with one item there, or two prints:
   journal 2`; `books <n>` the same with `journal 3`, or `talk
   narracottgen 183` once read; anything else `talk narracottgen 38`.
 
-`examine` (`0x419bd0`) shows the close-up centred on the screen: the
-movie, round and round, or the picture; two prints 50 either side of the
+`examine` (`0x419bd0`) shows the close-up centred on the screen, at
+((800 − its width) / 2, (600 − its height) / 2) (`0x419c7c`): the movie,
+round and round, or the picture; two prints 50 either side of the
 middle on `interface\fingerprintpaper.tga`. A click puts it away
 (`0x41a010`): after a movie Narracott says `talk narracottgen 184`; the
 item in hand goes back; `journal 2` uses the document up.
@@ -92,8 +121,10 @@ event, or `talk narracottgen 4` without one; none says `3`.
 ### In a saved game
 
 `ITEM`'s states are 1 new, 3 in the bag, 4 in hand, 5 used, where Orient
-Express's are 1, 2, 3, 4; its pages are 12 items *(inferred from the
-writer's numbers; the loader isn't read)*.
+Express's are 1, 2, 3, 4: the code sets 3 putting an item in the bag
+(`0x417f5c`, `0x4192e7`), 4 taking it in hand (`0x419231`), 5 using it
+up (`0x419660`), and never 2. The loader gives each its state, slot and
+page as saved (`0x413a30`); a page is the panel's 12.
 
 ## In Reluva
 
@@ -103,11 +134,12 @@ clicks, right clicks, keys and the mouse first, and `examine`. The items
 are the shared story's, in Orient Express's states. `InventoryRules` in
 the per-game table has what the shared code does otherwise: no cards,
 the cursors' path, the characters' table, what not going says, the
-taking sound, the save's states and the page's size.
-
-Not yet: where the close-up's movie is placed (centred here), `0x419300`
-and `0x4192e0`, `sce<item>` pictures, `charlist.txt` read as the game
-reads it, the state a taken item is given.
+taking sound, the save's states and the page's size, where the item sits
+by the cursor, and how the characters' table is read
+(`attwn::readCharacters`). The `sce<item>` pictures in `Inventory\` are
+the items lying about: the scenes' own pictures (74 of them named by the
+scenes), drawn as any, their `_night` ones at night
+([lighting.md](lighting.md#the-nights-own-pictures)).
 
 ## Sources and checks
 

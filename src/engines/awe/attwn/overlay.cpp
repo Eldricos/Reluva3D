@@ -56,9 +56,10 @@ public:
         return _inventory.hand(want, items);
     }
     bool covers(int x, int y) const override { return _inventory.covers(x, y) || _journal.covers(x, y); }
-    void dismiss() override {
+    void dismiss(bool click) override {
+        // Escape says nothing of a movie's close-up (0x416fa3).
         if (_inventory.showing())
-            _inventory.closeExamine(0, true);
+            _inventory.closeExamine(0, click);
     }
     bool verb(const std::vector<std::string> &words) override {
         if (!words.empty() && words[0] == "examine") {

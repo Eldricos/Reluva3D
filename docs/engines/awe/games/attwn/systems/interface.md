@@ -64,9 +64,15 @@ Drawn by `0x434220` each frame, its rows by `0x434bb0`:
 
 ### The cursors
 
-`Interface\cursor*.tga`: the walk, look, take, talk, open, operate,
-listen, stairs, keyhole, back and empty ones, and `cursor01`, `02`. Which
-shows when isn't compared yet; it's with the scenes' objects, phase 4.
+`Interface\cursor*.tga`, loaded in this order and numbered by it
+(`0x4158d2`): 0 `cursor01`, 1 `cursor02`, 2 look, 3 take, 4 open, 5
+walk, 6 talk, 7 listen, 8 stairs, 9 keyhole, 10 back, 11 empty, 12
+operate. Orient Express's numbers run the same to 10, then operate,
+shadow, up, down and empty; no object of this game's install has a
+cursor above 10, so the two read alike. The draw (`0x416180`): `cursor01`
+at the mouse (`cursor02` for an object's cursor 1), then an object's
+cursor above 1 over it, or with an item in hand the inventory's
+([inventory.md](inventory.md#picking-up-and-putting-down)).
 
 ## In Reluva
 
@@ -80,7 +86,7 @@ Scenes page draws this game's box so (`awe page-shot <game> scenes out.tga
 
 The inventory ([inventory.md](inventory.md)), the journal
 ([journal.md](journal.md)) and the menus ([saves.md](saves.md)) have
-pages of their own. Not yet: which cursor shows when.
+pages of their own.
 
 ## Sources and checks
 

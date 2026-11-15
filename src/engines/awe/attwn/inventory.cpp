@@ -14,6 +14,41 @@
 
 namespace reluva::awe::attwn {
 
+Table readCharacters(std::string_view text) {
+    Table t;
+    t.headings = {"Use this Item", "On this character", "Condition", "Event"};
+    bool first = true;
+    for (size_t start = 0; start < text.size();) {
+        size_t end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const std::string_view line = text.substr(start, end - start);
+        start = end + 1;
+        if (first || line.size() < 20) {
+            first = false;
+            continue;
+        }
+        std::vector<std::string> row;
+        for (size_t at = 0; row.size() < 4;) {
+            at = line.find_first_not_of('\t', at);
+            if (at == std::string_view::npos)
+                break;
+            const size_t stop = std::min(line.find('\t', at), line.size());
+            std::string cell(line.substr(at, stop - at));
+            at = stop;
+            if (!cell.empty() && cell.front() == '"') {
+                cell.erase(0, 1);
+                if (!cell.empty() && cell.back() == '"')
+                    cell.pop_back();
+            }
+            row.push_back(std::move(cell));
+        }
+        row.resize(4);
+        t.rows.push_back(std::move(row));
+    }
+    return t;
+}
+
 namespace {
 
 // The panel slides at 500 pixels a second between these (0x417fe0).

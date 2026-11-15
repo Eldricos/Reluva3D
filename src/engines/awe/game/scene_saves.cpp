@@ -382,9 +382,12 @@ bool ScenePage::gameKey(uint32_t key) {
     if (((key == 'p' && (letters || escaped)) || (letters && (key == 's' || key == 'l'))) && !inMenu && !atMainMenu() &&
         _location.find("menu") == std::string::npos) {
         // 0x417080: the item in hand put back, the view kept for a
-        // thumbnail, then the menu.
+        // thumbnail, then the menu. And Then There Were None's also puts
+        // its close-up away (0x416fa3).
         releaseHeld();
         endFresh();
+        if (_overlay)
+            _overlay->dismiss(false);
         if (_renderer)
             _grabDue = true;
         else

@@ -36,10 +36,6 @@ None yet.
   them: an object the base has already isn't added again. `ac.exe` reads
   the base, then the rest of the file (`0x42ca40`); whether it skips
   duplicates isn't read yet. [formats/ac1.md](formats/ac1.md).
-- **A saved item's state and page**: 1 new, 3 in the bag, 4 in hand, 5
-  used, 12 items a page, from the writer's numbers and the inventory's
-  own; the `ITEM` loader isn't read.
-  [systems/inventory.md](systems/inventory.md#in-a-saved-game).
 - **Wargrave's "Anything else you'd like to add?" in 4A strands
   Narracott** in Blore's close-up, as Reluva plays it: the thread's line
   `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
@@ -56,9 +52,6 @@ None yet.
   back where Orient Express's doesn't; without it, Wargrave's summing-up
   in 4A offers it for ever with no way out. Not read in `ac.exe`.
   [systems/dialogue.md](systems/dialogue.md).
-- **The close-up's movie is centred** on the screen, as its pictures
-  are; where `ac.exe` puts it isn't read.
-  [systems/inventory.md](systems/inventory.md#examine).
 
 ## Guessed
 
@@ -66,4 +59,10 @@ None yet.
 
 ## Settled
 
-None yet.
+- **A saved item's state and page** (1 new, 3 in the bag, 4 in hand, 5
+  used, 12 items a page): read in the code that sets the states and in
+  the `ITEM` loader (`0x413a30`).
+  [systems/inventory.md](systems/inventory.md#in-a-saved-game).
+- **The close-up's movie is centred**: `examine` places it so, as the
+  pictures (`0x419c7c`).
+  [systems/inventory.md](systems/inventory.md#examine).

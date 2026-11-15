@@ -19,6 +19,8 @@
 
 namespace reluva::awe {
 
+struct Table;
+
 struct GameState;
 struct ActRow;
 class GameOverlay;
@@ -244,10 +246,13 @@ struct SafeRules {
 struct InventoryRules {
     bool cards = true; ///< items named pass... and print... are passports and fingerprint cards, apart
     const char *cursor = "inventory/items/%s/cur%s.png"; ///< the item in hand's picture, `%s` its name twice
+    std::array<int, 2> cursorAt{26, 26};                 ///< that picture's place from the cursor's corner
     const char *characters = "uselist.txt";              ///< the table of items used on characters
-    const char *combinations = "combinelist.txt";        ///< the table of items put together and taken apart
-    const char *cantUse = "talk gen_cantuse 1";          ///< said when an item is used on nothing that takes it
-    const char *takeSound = nullptr;                     ///< played by "take", by its name (sound\<it>.wav)
+    /** How that table is read: its item, character, condition and event first; null: as any table. */
+    Table (*readCharacters)(std::string_view text) = nullptr;
+    const char *combinations = "combinelist.txt"; ///< the table of items put together and taken apart
+    const char *cantUse = "talk gen_cantuse 1";   ///< said when an item is used on nothing that takes it
+    const char *takeSound = nullptr;              ///< played by "take", by its name (sound\<it>.wav)
     /** The states a save writes for Reluva's (1 just taken, 2 in the bag, 3 in hand, 4 used...), by index. */
     std::array<int, 8> saveStates{0, 1, 2, 3, 4, 5, 6, 7};
     int perPage = 16; ///< items a page, for a save's page numbers
