@@ -7,6 +7,7 @@
 #include "engines/awe/game/conditions.h"
 
 #include <array>
+#include <map>
 #include <vector>
 
 // The light on the characters as motoe.exe sets it up: Direct3D 8's
@@ -70,7 +71,8 @@ std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state)
 // The scene's lighting with the story as it stands: the time of day, and
 // the lights' conditions as `conditions` has them (from lightConditions
 // on entering the scene), or as they stand when it's empty.
-SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions = {});
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions = {},
+                            const std::map<const Ac2Record *, bool> &switched = {});
 
 Material materialOf(const Ac2Record &object);
 

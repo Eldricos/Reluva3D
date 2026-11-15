@@ -54,7 +54,8 @@ std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state)
     return out;
 }
 
-SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions) {
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions,
+                            const std::map<const Ac2Record *, bool> &switched) {
     const auto time = state.values.find("time");
     const bool night = nightLighting(scene, time == state.values.end() ? 0 : time->second);
     const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
@@ -81,8 +82,11 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
     const std::vector<const Ac2Record *> objects = scene.objects();
     for (size_t i = 0; i < objects.size(); i++) {
         const Ac2Record *o = objects[i];
+        // On as its "on" says, or as "light <name> on|off" switched it.
         const Ac2Value *on = o->field("on");
-        if (o->tag != "LITE" || (on && on->i() == 0) || o->i("shadowOnly") != 0 ||
+        const auto sw = switched.find(o);
+        const bool lit = sw != switched.end() ? sw->second : !(on && on->i() == 0);
+        if (o->tag != "LITE" || !lit || o->i("shadowOnly") != 0 ||
             !(i < conditions.size() ? conditions[i] : testCondition(o->text("condition"), state)))
             continue;
         if (night && !outdoors && !scene.fromAct(o) && o->i("b6c") == 0)

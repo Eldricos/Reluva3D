@@ -753,8 +753,9 @@ private:
     std::vector<std::string> _names;
     int _index = 0;
     Ac2Scene _scene;
-    std::vector<bool> _lightConditions; // the objects' conditions on entering (lighting.h)
-    std::string _base;                  // the base scene an act's variant is shown over
+    std::vector<bool> _lightConditions;                // the objects' conditions on entering (lighting.h)
+    std::map<const Ac2Record *, bool> _lightsSwitched; // "light <name> on|off" since entering
+    std::string _base;                                 // the base scene an act's variant is shown over
     std::string _error;
     int _selected = -1; // object highlighted, -1 none
     bool _hotspots = true;

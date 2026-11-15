@@ -209,6 +209,7 @@ void ScenePage::load() {
     _scene = Ac2Scene();
     _layersMade++; // its pictures' layers are made afresh
     _lightConditions.clear();
+    _lightsSwitched.clear();
     _characters.clear();
     _loops.clear();
     _particles.clear();
@@ -1940,7 +1941,7 @@ void ScenePage::update(uint64_t nowMs) {
         }
         // Lit by the scene's lights, each with its own material, which its
         // props share (docs/engines/awe/games/motoe/systems/lighting.md).
-        SceneLighting lighting = sceneLighting(_scene, _state, _lightConditions);
+        SceneLighting lighting = sceneLighting(_scene, _state, _lightConditions, _lightsSwitched);
         {
             const gfx::Vec3 e = cam.eye();
             lighting.eye = {e[0], e[1], e[2]};
@@ -3513,6 +3514,27 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     if (v == "accumulation" || v == "test") {
         // Snow gathering on the character set to (+0x14dc), and a
         // leftover of the earlier games (0x40c650): nothing to see here.
+        return false;
+    }
+    if (v == "updatemusic") {
+        // The scene's music by its conditions now (ac.exe 0x40daa1 ->
+        // 0x42d6a0): the radio once it works.
+        playMusic();
+        return false;
+    }
+    if (v == "light") {
+        // "light <name> on|off" (ac.exe 0x40c092): the first light whose
+        // name has the word in it (0x42d640), till the scene's entered
+        // again.
+        const std::string name = lower(e.arg(1));
+        const std::string how = lower(e.arg(2));
+        for (const Ac2Record *o : _scene.objects())
+            if (o->tag == "LITE" && lower(o->text("name")).find(name) != std::string::npos) {
+                if (how == "on" || how == "off")
+                    _lightsSwitched[o] = how == "on";
+                break;
+            }
+        draw();
         return false;
     }
     if (v == "globalhide" || v == "globalshow") {
