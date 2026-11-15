@@ -137,7 +137,7 @@ void draw(Surface& screen, const ClassicRound& round, uint64_t now,
     const bool ready = round.phase() == RoundPhase::Ready, playing = round.phase() == RoundPhase::Playing;
     if(artwork.active()) {
         artwork.draw(screen,round,now,duration,letters,qu,path,scroll,boardSeed,player,&results,coverBoard);
-        if(coverBoard)return; // paused controls are supplied by the Resume panel
+        if(coverBoard)return; // paused controls are supplied separately
     } else {
     rect(screen, 0, 0, width, height, dark);
     rect(screen, 0, 0, width, 76, {29, 49, 70});
@@ -352,6 +352,7 @@ Error ClassicGame::run() {
     std::string input, message; std::vector<size_t> selected; size_t scroll = 0;
     bool followingU=false,minimumNotice=false,noticeVisible=false,pauseVisible=false;
     const HistoryButton pauseButton{artwork.active()?610:384,557,artwork.active()?166:110,29};
+    const HistoryButton unpauseButton=artwork.active()?pauseButton:resumeButton;
     bool running = true, dragging = false, resultsVisible = false, promptVisible = false;
     int pointerX=-1,pointerY=-1;
     bool softwareCursor=false,computerPressed=false,humanPressed=false;
@@ -603,7 +604,7 @@ Error ClassicGame::run() {
             }
             if(gameplayClock.manual()) {
                 if(gameplayClock.focused() && pauseVisible && event.type==EventType::MouseDown &&
-                   event.button==MouseButton::Left && resumeButton.contains(event.mouseX,event.mouseY)) {
+                   event.button==MouseButton::Left && unpauseButton.contains(event.mouseX,event.mouseY)) {
                     if(pauseLid.resume(presentationClock.now(sys_.getMillis()),options.animations))gameplayClock.manual(false,sys_.getMillis());
                     pauseVisible=false;scoreDismissed=true;
                 }
@@ -795,12 +796,14 @@ Error ClassicGame::run() {
             label(screen,pauseButton.x+12,pauseButton.y+9,"PAUSE");
         }
         if(!gameplayClock.focused() || (gameplayClock.manual() && !pauseFrame)) {
-            if(!artwork.active() || !gameplayClock.focused())rect(screen,0,0,width,height,dark);
-            else rect(screen,230,240,340,150,dark);
-            label(screen,260,280,gameplayClock.focused()?"Game paused":"Paused while window is inactive");
+            if(!artwork.active() || !gameplayClock.focused()) {
+                rect(screen,0,0,width,height,dark);
+                label(screen,260,280,gameplayClock.focused()?"Game paused":"Paused while window is inactive");
+            }
             if(gameplayClock.manual() && gameplayClock.focused()) {
-                rect(screen,resumeButton.x,resumeButton.y,resumeButton.w,resumeButton.h,{48,88,120});
-                label(screen,350,357,"RESUME");
+                rect(screen,unpauseButton.x,unpauseButton.y,unpauseButton.w,unpauseButton.h,{48,88,120});
+                if(artwork.active())label(screen,unpauseButton.x+(unpauseButton.w-36)/2,unpauseButton.y+(unpauseButton.h-8)/2,"RESUME");
+                else label(screen,350,357,"RESUME");
             }
         } else if(minimumNotice) {
             if(noticeDialog.installed())noticeDialog.draw(screen,"Words must be at least "+std::to_string(round().minimum())+" characters long.");

@@ -161,8 +161,8 @@ void humanCursorFlow(const std::filesystem::path& tmp) {
                 if(f==12)return {mouse(EventType::MouseUp,first)};
                 if(f==13)return {mouseEvent(EventType::MouseDown,art?700:420,570)};
                 if(f==14)return {mouseEvent(EventType::MouseUp,art?700:420,570)};
-                if(f==15)return {mouseEvent(EventType::MouseDown,400,360)};
-                if(f==16)return {mouseEvent(EventType::MouseUp,400,360)};
+                if(f==15)return {mouseEvent(EventType::MouseDown,art?700:400,art?570:360)};
+                if(f==16)return {mouseEvent(EventType::MouseUp,art?700:400,art?570:360)};
                 if(f==17)return {right,textEvent("AAAA"),keyEvent(key::Return)};
                 if(f==18)return {keyEvent(key::F1)};
                 if(f==19)return {keyEvent(key::F1+1)};
@@ -177,7 +177,7 @@ void humanCursorFlow(const std::filesystem::path& tmp) {
                 Surface painted=screen;
                 if(art && visible(f)) {
                     const auto point=f==3 || f==4?second:f==5 || f==17?ClassicPoint{600,300}:
-                                     f==15 || f==16?ClassicPoint{400,360}:first;
+                                     f==15 || f==16?ClassicPoint{art?700:400,art?570:360}:first;
                     hand.draw(painted,point,f==2 || f==3 || f==8 || f==15);
                 }
                 expected.push_back(test::Hash().bytes(painted.pixels).hex());

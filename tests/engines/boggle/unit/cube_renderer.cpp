@@ -191,15 +191,21 @@ void pausedCover(const std::filesystem::path& tmp) {
         sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
             if(f==0)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA")};
-            if(f==2)return {mouseEvent(EventType::MouseDown,700,570)};
-            if(f==4)return {mouseEvent(EventType::MouseDown,400,360)};
+            if(f==2)return {mouseEvent(EventType::MouseDown,700,570),mouseEvent(EventType::MouseDown,700,570)}; // second click must wait for a displayed paused view
+            if(f==3)return {mouseEvent(EventType::MouseDown,400,360),keyEvent(key::Return)}; // retired modal target cannot resume
+            if(f==4)return {mouseEvent(EventType::MouseDown,700,570),keyEvent(key::Return)}; // do not submit preserved input yet
             if(f==5)return {keyEvent(key::Return)};
             if(f==6)return {keyEvent(key::F1)};
             if(f==7)return {keyEvent(key::Escape)};
             return {};
         };
-        sys.present=[&](const Surface& frame,size_t f){auto* pixel=frame.row(440)+200*4;if(f==1)std::copy_n(pixel,4,before.begin());if(f==2)std::copy_n(pixel,4,paused.begin());if(f==5)std::copy_n(pixel,4,after.begin());};
+        sys.present=[&](const Surface& frame,size_t f){
+            // The old floating panel occupied this part of the installed lid.
+            if(f==2 || f==3)for(int y=240;y<390;++y)
+                CHECK(std::equal(frame.row(y)+230*4,frame.row(y)+570*4,covered.row(y)+230*4));
+            auto* pixel=frame.row(440)+200*4;if(f==1)std::copy_n(pixel,4,before.begin());if(f==2)std::copy_n(pixel,4,paused.begin());if(f==5)std::copy_n(pixel,4,after.begin());};
         ClassicGame game(sys,target);CHECK(!game.run());CHECK(before==after && before!=paused);
+        CHECK(sys.hashes.size()==7);if(sys.hashes.size()==7)CHECK(sys.hashes[2]==sys.hashes[3]);
         CHECK(std::equal(paused.begin(),paused.end(),covered.row(440)+200*4));
         HighScores scores;CHECK(!scores.load(target.savePath,target.path));CHECK(scores.table().size()==1 && scores.table()[0].score==1);
     }
@@ -217,9 +223,10 @@ void pauseMotion(const std::filesystem::path& tmp) {
             if(f==0)return {keyEvent(key::Return)};
             if(f==1)return {textEvent("AAAA")};
             if(f==2)return {mouseEvent(EventType::MouseDown,700,570)};
+            if(f==3)return {mouseEvent(EventType::MouseDown,700,570)}; // cannot resume during closing
             if(f==4){Event e;e.type=EventType::FocusLost;return {e};}
-            if(f==6){Event e;e.type=EventType::FocusGained;return {e};}
-            if(f==8)return {mouseEvent(EventType::MouseDown,400,360)};
+            if(f==6){Event e;e.type=EventType::FocusGained;return {e,mouseEvent(EventType::MouseDown,700,570)};}
+            if(f==8)return {mouseEvent(EventType::MouseDown,700,570)};
             if(f==9)return {keyEvent(key::Return)};
             if(f==10)return {keyEvent(key::F1)};
             if(f==11)return {keyEvent(key::Escape)};

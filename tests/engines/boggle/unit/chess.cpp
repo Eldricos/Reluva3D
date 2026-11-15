@@ -96,8 +96,8 @@ void manualPause(const std::filesystem::path& tmp) {
                 if(f==2 && paused)return {mouseEvent(EventType::MouseDown,art?700:440,570),keyEvent(key::Return),keyEvent(key::F1)};
                 if(f==3 && paused){Event e;e.type=EventType::FocusLost;return {e};}
                 if(f==4 && paused)return {keyEvent('p'),keyEvent(key::Return)}; // no keyboard pause/resume shortcut
-                if(f==5 && paused){Event e;e.type=EventType::FocusGained;return {e,mouseEvent(EventType::MouseDown,400,360)};}
-                if(f==6 && paused)return {mouseEvent(EventType::MouseDown,400,360),keyEvent(key::F1),textEvent("AAAA")};
+                if(f==5 && paused){Event e;e.type=EventType::FocusGained;return {e,mouseEvent(EventType::MouseDown,art?700:400,art?570:360)};}
+                if(f==6 && paused)return {mouseEvent(EventType::MouseDown,art?700:400,art?570:360),keyEvent(key::F1),textEvent("AAAA")};
                 if(f==7)return {keyEvent(key::Return)};
                 if(f==8){Event e;e.type=EventType::Quit;return {e};}return {};
             };

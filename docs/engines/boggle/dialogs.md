@@ -46,8 +46,9 @@ keyboard hints and panel frame remain independently authored native UI. Decoded
 font metadata is retained for later work; it is not used as Windows font metrics.
 This stage establishes installed relative placement and consistent mouse targets,
 not exact Windows dialog-unit conversion, original skinning or modal styling.
-The minimum-length notice now uses the same template reader; see below. Pause
-and other original dialogs remain separate work.
+The minimum-length notice now uses the same template reader; see below. The
+[pause command](pause-presentation.md#pause-control-and-settled-view) is a menu
+toggle rather than a dedicated dialog. Remaining frontend dialogs are separate work.
 
 ## Minimum-word-length notice
 

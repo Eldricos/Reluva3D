@@ -423,3 +423,13 @@ player review, rankings and event-batch guards. Nested rankings return to the
 summary; direct rankings return to word review. These navigation keys and native
 styling remain explicit policies, with exact original modal behavior, fonts and
 skins still open for comparison.
+
+### Settled pause view and toggle control
+
+The owner confirmed the multiplayer results stage works. The next
+[pause-control refinement](../../engines/boggle/pause-presentation.md#pause-control-and-settled-view)
+leaves the installed closed lid unobstructed and changes the native Pause control
+to Resume in place. Twenty isolated original command checks support a menu toggle
+without constructing a modal dialog. Exact original paused-screen appearance is
+pending the requested VM observation; the bottom control remains a native UI
+choice. Existing lid, focus, music, clock and round-end behavior is preserved.
