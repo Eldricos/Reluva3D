@@ -169,6 +169,24 @@ std::string tagName(uint32_t t) {
     return s;
 }
 
+// Orient Express's codes (dialogue.h) and And Then There Were None's
+// (ac.exe 0x431696, 0x43177a), which agree on single letters. A number n:
+// a thread n + 0x5f against n + 0x19; a nest n + 0x5f against its digit
+// less 'A' (n - 17). The install's tables have no thread "z", whose code
+// the game's would share with "0".
+int oursToShortThread(int code) {
+    return code >= 0x5f ? code - 0x5f + 0x19 : code;
+}
+int shortThreadToOurs(int code) {
+    return code >= 0x19 ? code - 0x19 + 0x5f : code;
+}
+int oursToShortNest(int code) {
+    return code >= 0x5f && code <= 0x5f + 9 ? code - 0x5f + '0' - 'A' : code;
+}
+int shortNestToOurs(int code) {
+    return code >= '0' - 'A' && code <= '9' - 'A' ? code - ('0' - 'A') + 0x5f : code;
+}
+
 } // namespace
 
 Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time,
@@ -257,6 +275,10 @@ Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out, const SaveLa
                 k.thread = r.s32();
                 k.status = r.s16();
                 k.nest = r.s32();
+                if (layout.shortCodes) {
+                    k.thread = shortThreadToOurs(k.thread);
+                    k.nest = shortNestToOurs(k.nest);
+                }
                 out.talks.push_back(std::move(k));
             }
         } else if (t == tag("ITEM")) {
@@ -353,9 +375,9 @@ std::vector<uint8_t> writeSaveGame(const SaveGame &s, const SaveLayout &layout) 
         w.text(k.name, 32);
         w.text(k.act, 32);
         w.u32(uint32_t(k.part));
-        w.u32(uint32_t(k.thread));
+        w.u32(uint32_t(layout.shortCodes ? oursToShortThread(k.thread) : k.thread));
         w.s16(k.status);
-        w.u32(uint32_t(k.nest));
+        w.u32(uint32_t(layout.shortCodes ? oursToShortNest(k.nest) : k.nest));
     }
     w.u32(tag("ITEM"));
     w.s16(s.itemPage);

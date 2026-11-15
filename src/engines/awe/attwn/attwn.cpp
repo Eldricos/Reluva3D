@@ -136,7 +136,7 @@ const GameInfo &game() {
         // Saved Games\slot%d.ac1 and .bmp (0x41e917, 0x41ebb4), written by
         // 0x412e9f.
         // Its screens' rows (0x41eca0, 0x41ef80).
-        .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false},
+        .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false, .shortCodes = true},
                   .extension = ".ac1",
                   .screen = {.rows = {57, 222, 389},
                              .left = 521,

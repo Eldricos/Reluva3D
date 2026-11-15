@@ -93,14 +93,20 @@ place and whether the letter keys open menus.
 The items' states are mapped to and from this game's
 ([inventory.md](inventory.md#in-a-saved-game)). `GameSaves::last` names
 the save `savelast` writes and `lastgame` asks of; the scene page keeps
-whether it's there. Not yet: the threads coded as this game's.
+whether it's there. `SaveLayout::shortCodes` writes a `TALK` record's
+thread and nest in this game's codes and reads them back into Orient
+Express's, which Reluva's dialogue uses for both games: a number n as
+n + 0x19 against n + 0x5f, a nest's digit less `A`. Single letters are
+the same in both. This game's codes can't tell thread `z` from `0`
+(both 0x19), but no table of the install has a thread `z`.
 
 ## Sources and checks
 
 - **Where the facts come from:** `ac.exe`'s writer (`0x412e9f`), found
   by its file name and its record tags, and the paths' strings.
-- **How it's checked:** `awe.unit.attwn` writes a save in this layout and
-  reads it back. In the Scenes page: the main menu, New Game into 1A's
+- **How it's checked:** `awe.unit.attwn` writes a save in this layout,
+  its threads `1` and `c` and nest `0` as this game's codes, and reads
+  it back. In the Scenes page: the main menu, New Game into 1A's
   movie, Escape to the in-game menu in 1B, a save made and named, the
   load screen listing it with its picture, and it loaded from the main
   menu back to the entry hall. No save of the original game has been

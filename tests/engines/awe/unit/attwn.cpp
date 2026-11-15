@@ -482,7 +482,9 @@ void testSaves() {
     save.actMinor = 2;
     save.tags = {{"01b_neededcounter", 3}};
     save.timers = {{"never written", 5}};
-    save.talks = {{"marston", "01a", 0, 26, 1, -1}};
+    // Thread "1" (0x60 here) and "c" with nest "0" (0x5f), as Orient
+    // Express's loader codes them.
+    save.talks = {{"marston", "01a", 0, 0x60, 1, -1}, {"wargrave", "06b", 0, 2, 2, 0x5f}};
     const SaveLayout &layout = attwn::game().saves.layout;
     const std::vector<uint8_t> bytes = writeSaveGame(save, layout);
     // DESC's four bytes, then its 32: "Caf", 0xe9 (Windows-1252), zeros.
@@ -492,11 +494,24 @@ void testSaves() {
         return std::search(bytes.begin(), bytes.end(), want, want + 4) != bytes.end();
     };
     CHECK(has("GLBT") && has("TAGS") && has("TALK") && !has("GLBM") && !has("ACTI") && !has("TIMS"));
+    // Written as this game's loader codes them (0x431696, 0x43177a): "1"
+    // as 0x1a, "c" as 2, nest "0" as '0' - 'A'.
+    const uint8_t talk[4] = {'K', 'L', 'A', 'T'};
+    const size_t at = size_t(std::search(bytes.begin(), bytes.end(), talk, talk + 4) - bytes.begin());
+    auto s32 = [&](size_t i) {
+        return int32_t(bytes[i] | bytes[i + 1] << 8 | bytes[i + 2] << 16 | bytes[i + 3] << 24);
+    };
+    const size_t first = at + 4 + 2 + 32 + 32;
+    const size_t second = first + 4 + 4 + 2 + 4 + 32 + 32;
+    CHECK(at + 6 < bytes.size() && s32(first + 4) == 0x1a && s32(first + 10) == -1);
+    CHECK(second + 14 <= bytes.size() && s32(second + 4) == 2 && s32(second + 10) == '0' - 'A');
     SaveGame back;
     CHECK(!readSaveGame(bytes, back, layout));
     CHECK(back.description == "Café" && back.scene == save.scene && back.actMinor == 2 && back.timeOfDay == 2);
     CHECK(back.tags.size() == 1 && back.tags[0].second == 3 && back.timers.empty());
-    CHECK(back.talks.size() == 1 && back.talks[0].thread == 26 && back.talks[0].status == 1);
+    CHECK(back.talks.size() == 2 && back.talks[0].thread == 0x60 && back.talks[0].status == 1);
+    CHECK(back.talks.size() == 2 && back.talks[1].thread == 2 && back.talks[1].nest == 0x5f &&
+          back.talks[0].nest == -1);
     std::string description;
     std::string date;
     std::string time;

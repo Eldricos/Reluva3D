@@ -104,6 +104,10 @@ struct SaveLayout {
     bool moving = true; // GLBM, the train's moving
     bool act = true;    // ACTI, the act's row
     bool timers = true; // TIMS
+    // TALK's threads and nests coded as And Then There Were None's loader
+    // codes them: a number n as n + 0x19, a nest by its first character
+    // alone; the saved game's own codes are Orient Express's either way.
+    bool shortCodes = false;
 };
 
 // Reads a saved game; fails on a record it doesn't know or a short file.

@@ -77,8 +77,11 @@ page makes it for the game (`GameInfo::overlay`), updates and draws it in
 the place of Orient Express's bar and inventory, gives it clicks first and
 asks it of verbs it doesn't know.
 
-Not yet: the journal kept in a saved game (it isn't in the save's records:
-which entries show is the conditions').
+A saved game keeps nothing of the journal, as the game's doesn't: no
+record has it, and loading (`0x413790`) calls nothing of the journal's:
+the reset it starts with (`0x413590`) ends with the inventory's. Which
+entries show is their conditions', tested again as the book opens and on
+`journal <n>`, so after a load they're the loaded story's.
 
 ## Sources and checks
 
