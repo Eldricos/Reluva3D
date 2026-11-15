@@ -239,7 +239,9 @@ void Journal::draw(Surface &dst, const GameFonts &fonts) {
     if (_page < last)
         if (const image::Image &next = _host.picture("interface/arrownext.tga"); next.w > 0)
             image::blitOver(dst, next, bx + kContentsLeft + 175, 335);
-    if (_page > 0)
+    // The way back: a page, or from a sub-heading's first page to the
+    // contents (0x41ca80).
+    if (_page > 0 || !t.heading.empty())
         if (const image::Image &back = _host.picture("interface/arrowlast.tga"); back.w > 0)
             image::blitOver(dst, back, bx + kContentsLeft - 15, 335);
     // The tabs' names, centred in their boxes, the tab shown in the bold
@@ -294,8 +296,16 @@ bool Journal::click(int x, int y) {
             _host.sound("sound\\interface\\pageflip.wav");
             return true;
         }
-        if (_page > 0 && x >= left - 15 && x < left + 5) {
-            _page--;
+        std::string &heading = _tabs[size_t(_tab)].heading;
+        if ((_page > 0 || !heading.empty()) && x >= left - 15 && x < left + 5) {
+            // From a sub-heading's first page, back to the contents' page
+            // it was picked on (0x41bbbf).
+            if (_page == 0) {
+                heading.clear();
+                _page = _contentsPage;
+            } else {
+                _page--;
+            }
             _host.sound("sound\\interface\\pageflip.wav");
             return true;
         }
@@ -305,6 +315,7 @@ bool Journal::click(int x, int y) {
         for (const Row &r : layout(_fonts))
             if (r.page == _page && x >= bx + r.x - 15 && x < bx + r.x + kCentred && y >= r.y && y < r.y + 25) {
                 _tabs[size_t(_tab)].heading = r.text;
+                _contentsPage = _page;
                 _page = 0;
                 _host.sound("sound\\interface\\pageflip.wav");
                 return true;

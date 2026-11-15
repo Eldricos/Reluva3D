@@ -71,6 +71,7 @@ private:
     std::array<Tab, 4> _tabs;
     int _tab = 0;
     int _page = 0;
+    int _contentsPage = 0; // the contents' page a sub-heading was picked on (+0x348)
     bool _open = false;
     int _moving = 0; // 1 opening, 2 closing
     float _x = 754;

@@ -570,6 +570,9 @@ void testJournal(const std::filesystem::path &tmp) {
     CHECK(j.click(420 + 100, 370) && j.tab() == 0 && j.heading().empty());
     CHECK(j.click(420 + 250, 370) && j.tab() == 2);
     CHECK(j.click(420 + 130, 70) && j.heading() == "Roger's Letter");
+    // The arrow back, on its first page: the contents again (0x41bbbf).
+    CHECK(j.click(420 + 115 - 10, 340) && j.heading().empty());
+    j.click(420 + 130, 70);
     // Clicks elsewhere on it are its; off it, the scene's.
     CHECK(j.click(600, 200) && !j.click(100, 200));
     j.click(420 + 10, 30);

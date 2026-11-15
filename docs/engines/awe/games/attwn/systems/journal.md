@@ -52,8 +52,11 @@ brown, alpha 208).
   a bullet (`journalbullet.tga`) 12 before its first row and 8 down; on to
   the next page from y 315.
 - **The arrows**: `arrownext.tga` at x + 290, y 335 when there's a page
-  after, `arrowlast.tga` at x + 100 when there's one before; each turns a
-  page, with `pageflip.wav`.
+  after, `arrowlast.tga` at x + 100 when there's one before, and always
+  on a sub-heading's entries (`0x41ca80`); each turns a page, with
+  `pageflip.wav`, and the back arrow on a sub-heading's first page goes
+  back to the contents, to the page it was picked on (`0x41bbbf`). Seen
+  so in the footage of Rogers's letter.
 - **The tabs**: their boxes at x + 81 to 157, 158 to 224, 225 to 289, 290
   to 351, y 364 to 394 (`0x41b544`), their names (`tab1` to `tab4` in
   `interface.txt`) centred in them, the shown one in font 5. A click on
