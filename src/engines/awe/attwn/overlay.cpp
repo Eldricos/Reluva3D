@@ -55,6 +55,7 @@ public:
     OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) override {
         return _inventory.hand(want, items);
     }
+    bool covers(int x, int y) const override { return _inventory.covers(x, y) || _journal.covers(x, y); }
     void dismiss() override {
         if (_inventory.showing())
             _inventory.closeExamine(0, true);

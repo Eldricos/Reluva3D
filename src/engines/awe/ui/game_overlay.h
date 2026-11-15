@@ -91,6 +91,12 @@ public:
         (void)items;
         return false;
     }
+    /** Whether a click at (x, y) would be its, not the scene's (for the tools' choice of where to click). */
+    virtual bool covers(int x, int y) const {
+        (void)x;
+        (void)y;
+        return false;
+    }
     /** Whatever it shows that waits for a click (a close-up) put away. */
     virtual void dismiss() {}
     /** The next input a player's mouse would make there towards `want` (awe game-check's hand). */

@@ -59,6 +59,8 @@ public:
     std::vector<std::vector<std::string>> examinable() const;
     /** A player's next click towards `want` (GameOverlay::hand). */
     OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) const;
+    /** Whether a click at (x, y) would be its (click()'s test, without doing it). */
+    bool covers(int x, int y) const;
     /** Whether a close-up shows. */
     bool showing() const { return _showing; }
 

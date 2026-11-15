@@ -427,6 +427,16 @@ void Inventory::draw(Surface &dst, const GameFonts &fonts) {
     }
 }
 
+bool Inventory::covers(int x, int y) const {
+    if (_moving != 0 || _showing)
+        return true;
+    const int bx = int(_x);
+    if (x >= bx + 339 && x < bx + 382 && y >= 8 && y < 54)
+        return true;
+    const image::Image &panel = _host.picture("interface/inventoryborder.tga");
+    return _open && x < bx + (panel.w > 0 ? panel.w : 386) && y < (panel.h > 0 ? panel.h : 437);
+}
+
 bool Inventory::click(int x, int y) {
     // 0x418fe0: everything while it slides; a click on a close-up puts it
     // away.

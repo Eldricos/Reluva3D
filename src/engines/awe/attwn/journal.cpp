@@ -252,6 +252,16 @@ void Journal::draw(Surface &dst, const GameFonts &fonts) {
     }
 }
 
+bool Journal::covers(int x, int y) const {
+    if (_moving != 0)
+        return true;
+    const int bx = int(_x);
+    if (x >= bx + 3 && x < bx + 46 && y >= 8 && y < 54)
+        return true;
+    const image::Image &panel = _host.picture("interface/journalborder.tga");
+    return _open && x >= bx && y < (panel.h > 0 ? panel.h : 437);
+}
+
 bool Journal::click(int x, int y) {
     // 0x41ba90: nothing while it slides; the book opens or closes it.
     if (_moving != 0)

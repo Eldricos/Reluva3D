@@ -26,6 +26,7 @@ public:
     void update(float seconds) override;
     void draw(Surface &dst, const GameFonts &fonts) override;
     bool click(int x, int y) override;
+    bool covers(int x, int y) const override;
     /** "journal <tab>" (0x41c290): that tab's contents, the book blinking if it's closed. */
     bool verb(const std::vector<std::string> &words) override;
 

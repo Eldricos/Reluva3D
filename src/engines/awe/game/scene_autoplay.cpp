@@ -157,7 +157,7 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     auto scan = [&](int left, int top, int right, int bottom, int step) {
         for (int sy = std::max(top, 0); sy < std::min(bottom, maxY + 1); sy += step)
             for (int sx = std::max(left, 0); sx < std::min(right, maxX + 1); sx += step)
-                if (pickAllowed(sy) && pickAt(sx, sy) == target) {
+                if (pickAllowed(sy) && !(_overlay && _overlay->covers(sx, sy)) && pickAt(sx, sy) == target) {
                     x = sx, y = sy;
                     return true;
                 }
