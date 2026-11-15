@@ -224,13 +224,24 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
    inventory ([systems/inventory.md](systems/inventory.md)). Every act
    starts and plays its start script with nothing left undone. Phase 4
    is done; what's left of it shows in the systems' pages.
-5. **From a new game to the end** (large).
+5. **From a new game to the end** (large; done but the comparison).
    - The route found by `awe game-run -solve` on this game, then
      `game-check`: by the mouse, by the hand, saved and loaded after every
      action, wandering off it.
    - The game-files test: `awe.gamedata` steps for `attwn`, records for
      the English release.
    - Compared with recordings of the original, as Orient Express was.
+
+   Done (15 November 2026): a route from a new game to the credits,
+   found by the search act by act, passes `game-check -quick` all four
+   ways ([TESTING.md](TESTING.md)); the game is playable in `reluva`. On
+   the way: the machines and `movie coda`
+   ([systems/script.md](systems/script.md)), the puzzle screens
+   ([systems/puzzles.md](systems/puzzles.md)), the one timer, items lying
+   about, `updatemusic` and `light`, and the search's and the hand's way
+   with this game's inventory. The game-files steps are in
+   (`awe.attwn.gamedata.*`). Left: recordings of the original to compare
+   with; a basic engine test of its own, as Orient Express has.
 
 ## Decisions
 
