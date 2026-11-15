@@ -454,6 +454,15 @@ void testLighting() {
     state.values["time"] = 0;
     lit = sceneLighting(scene, state);
     CHECK(lit.lights.size() == 3 && lit.ambient[0] == 127 / 255.0f);
+    // A picture's night file, late at night only, and only if there is one
+    // (0x4080f9).
+    auto has = [](const std::string &f) { return f == "rooms\\room03_night.jpg"; };
+    CHECK(nightPictureFile("rooms\\room03.jpg", state, has) == "rooms\\room03.jpg");
+    state.values["time"] = 2;
+    CHECK(nightPictureFile("rooms\\room03.jpg", state, has) == "rooms\\room03_night.jpg");
+    CHECK(nightPictureFile("rooms\\door.tga", state, has) == "rooms\\door.tga");
+    state.game = nullptr;
+    CHECK(nightPictureFile("rooms\\room03.jpg", state, has) == "rooms\\room03.jpg");
 }
 
 void testSaves() {

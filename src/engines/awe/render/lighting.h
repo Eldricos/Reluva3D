@@ -7,7 +7,9 @@
 #include "engines/awe/game/conditions.h"
 
 #include <array>
+#include <functional>
 #include <map>
+#include <string>
 #include <vector>
 
 // The light on the characters as motoe.exe sets it up: Direct3D 8's
@@ -68,6 +70,12 @@ bool nightLighting(const Ac2Scene &scene, int timeOfDay);
 // scene's pictures' own colours by day; false when they're drawn as they
 // are.
 bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
+
+// The file a scene's picture `file` is drawn from now: late at night, for
+// a game with night pictures (LightingRules::nightFiles), "x_night.jpg"
+// for "x.jpg" when `has` says there is one; else `file`.
+std::string nightPictureFile(const std::string &file, const GameState &state,
+                             const std::function<bool(const std::string &)> &has);
 
 // Each of the scene's objects' conditions as they stand (scene.objects()'s
 // order). The game decides whether a light is on when the scene is

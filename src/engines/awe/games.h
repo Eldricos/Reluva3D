@@ -148,6 +148,11 @@ struct LightingRules {
      * apart; zeros: never (Orient Express).
      */
     std::array<float, 3> nightPictures{0, 0, 0};
+    /**
+     * Late at night (time 2), a scene's picture "x.jpg" is drawn from
+     * "x_night.jpg" instead when the game has that file.
+     */
+    bool nightFiles = false;
 };
 
 /**

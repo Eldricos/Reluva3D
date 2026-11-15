@@ -763,6 +763,10 @@ private:
     // The scene's pictures as the night tints them (LightingRules::nightPictures), by the picture.
     std::map<const image::Image *, image::Image> _nightTinted;
     std::array<float, 3> _nightTint{};
+    // The file each picture is drawn from (LightingRules::nightFiles), for
+    // the time of day it was found at.
+    std::map<const Ac2Record *, std::string> _pictureFiles;
+    int _pictureFilesTime = -1;
     std::string _base; // the base scene an act's variant is shown over
     std::string _error;
     int _selected = -1; // object highlighted, -1 none
@@ -925,6 +929,7 @@ private:
     };
     std::map<const Ac2Record *, AloneTexture> _aloneTextures;
     void aloneTexture(const Ac2Record &o, const image::Image &img);
+    const std::string &pictureFile(const Ac2Record &o);
     std::map<std::string, gfx::TextureId> _pointTextures; // particles' textures, by file
     void drawPointSprites(const ParticleSystem &system);
     uint64_t _layersMade = 0; // a new scene's layers are new

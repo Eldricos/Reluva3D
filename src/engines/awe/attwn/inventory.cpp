@@ -32,7 +32,10 @@ constexpr int kMaxPages = 12;
 // Rectangles on the panel as the code sets them, with it open at x -8
 // (0x4179db): the arrows, Examine, Combine.
 struct Rect {
-    int l, t, r, b;
+    int l;
+    int t;
+    int r;
+    int b;
 };
 constexpr Rect kBack{42, 28, 70, 43};
 constexpr Rect kNext{275, 28, 303, 43};

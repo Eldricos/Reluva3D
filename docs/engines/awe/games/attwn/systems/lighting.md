@@ -80,6 +80,22 @@ particles and `OLDS` outdoors at night (`0x425a28`, `0x4300d0`). Seen in
 the footage of the front entrance at night in 1A: the picture's colours
 are halved in red, about 0.6 in green, 0.8 in blue.
 
+### The night's own pictures
+
+Late at night the rooms are drawn from pictures of their own. As a
+picture is loaded (`0x411b88`, through its class's `0x407ed0`), when time
+of day is exactly 2, "x.jpg" is opened as "x_night.jpg" instead (six
+characters put before the last four, `0x4080f9`) if the install has that
+file (`0x403c20`). Setting the time of day (`0x402b80`) finds every
+loaded scene's pictures again (`0x42d3b0`). The install has 194 such
+files, for the bedrooms, the kitchen and other rooms: in 2A, by
+gameplay footage, Armstrong's room is dark blue, its lamps out.
+
+The same method first looks for a picture of the base scene in the act's
+folder, when the scene shown is an act's version: "base" in its path
+made the act's folder's name (`0x407ef8`). No picture of the install's
+act folders has a base picture's name, so nothing changes by it.
+
 ### The install's lights
 
 328: 198 directional, 129 point, 1 spot; one with a condition; none off,
@@ -94,6 +110,9 @@ where an act's version's own records start (`Ac2Scene::actFrom`), which
 the night rule asks. `LightingRules::nightPictures` is the
 pictures' night colour, zeros for Orient Express; Reluva tints a picture
 by it as it draws it (`nightPictureTint`, `render/lighting.cpp`).
+`LightingRules::nightFiles` says to draw from the night's own pictures
+(`nightPictureFile`); the scene page finds each picture's file once, and
+again when the time of day changes.
 
 Not followed: the 25th field's change of a base light, which no light
 uses; the pictures' own diffuse by day (all 1 but a few); the night
@@ -106,7 +125,9 @@ colour on particles and `OLDS`.
   `LightEnable` +0xb8), and compared with `motoe.exe`'s; the scene loader
   (`0x42c680`) and its base loader (`0x42ca40`).
 - **How it's checked:** `awe.unit.attwn` lights a base scene and an act's
-  version at night, indoors and out, and a scene without a camera. The
+  version at night, indoors and out, and a scene without a camera, and
+  finds a picture's night file. The
   lights were counted with `awe ac2-dump` over the 537 scenes. The front
   entrance at night in 1A against a frame of gameplay footage: its
-  pictures' colours within a few levels of the footage's.
+  pictures' colours within a few levels of the footage's. Armstrong's
+  room in 2A against footage of chapter 2: dark blue in both.

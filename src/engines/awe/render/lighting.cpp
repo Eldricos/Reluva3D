@@ -61,6 +61,18 @@ bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) 
     return true;
 }
 
+std::string nightPictureFile(const std::string &file, const GameState &state,
+                             const std::function<bool(const std::string &)> &has) {
+    // Time exactly 2; "_night" before the last four characters, kept only
+    // if there is such a file (ac.exe 0x4080f9, 0x403c20).
+    const auto t = state.values.find("time");
+    if (!state.game || !state.game->lighting.nightFiles || t == state.values.end() || t->second != 2 ||
+        file.size() <= 4)
+        return file;
+    const std::string night = file.substr(0, file.size() - 4) + "_night" + file.substr(file.size() - 4);
+    return has(night) ? night : file;
+}
+
 std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state) {
     std::vector<bool> out;
     for (const Ac2Record *o : scene.objects())

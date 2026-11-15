@@ -109,7 +109,8 @@ const GameInfo &game() {
                      .att0 = 0,
                      .att1 = 0.0001f,
                      .nightSparesLights = true,
-                     .nightPictures = {0.5078125f, 0.625f, 0.78125f}}, // 0x4010f0, used at 0x42e89c
+                     .nightPictures = {0.5078125f, 0.625f, 0.78125f}, // 0x4010f0, used at 0x42e89c
+                     .nightFiles = true},                             // 0x4080f9
         // Its fonts, made in its code (0x4151fc on); the dialogue's is the
         // second (0x431caa). The rest's uses aren't read yet.
         .fonts = {{"font 0", "interface/fonts/arial.ttf", 12, true},

@@ -211,6 +211,7 @@ void ScenePage::load() {
     _lightConditions.clear();
     _lightsSwitched.clear();
     _nightTinted.clear();
+    _pictureFiles.clear();
     _characters.clear();
     _loops.clear();
     _particles.clear();
@@ -1106,7 +1107,7 @@ void ScenePage::draw() {
     }
     auto imageOf = [&](const Ac2Record *o) -> const image::Image & {
         const auto loop = _loops.find(o);
-        return loop != _loops.end() ? loop->second.frame : picture(o->text("file"));
+        return loop != _loops.end() ? loop->second.frame : picture(pictureFile(*o));
     };
     // At night, And Then There Were None's pictures in the night's colour
     // instead of their own, but the lights' glows (ac.exe 0x42e89c; the
@@ -2525,13 +2526,30 @@ void ScenePage::placeCharacter(Character &c) const {
     c.placement = gfx::multiply(c.placement, back);
 }
 
+const std::string &ScenePage::pictureFile(const Ac2Record &o) {
+    const auto t = _state.values.find("time");
+    const int time = t == _state.values.end() ? 0 : t->second;
+    if (time != _pictureFilesTime) {
+        // Found again as the time changes (ac.exe 0x402b80, 0x42d3b0).
+        if (!_pictureFiles.empty())
+            _layersMade++;
+        _pictureFiles.clear();
+        _pictureFilesTime = time;
+    }
+    auto [it, made] = _pictureFiles.try_emplace(&o);
+    if (made)
+        it->second = nightPictureFile(o.text("file"), _state,
+                                      [&](const std::string &f) { return _ctx.files.has(normalizeArchiveName(f)); });
+    return it->second;
+}
+
 bool ScenePage::scrollPictures(float dt) {
     // 0x4378b0: scrollSpeed / 20 pixels a second, in whole pixels; past
     // its own width or height (or the screen's edge) a picture goes back
     // by that much. 1 scrolls left, 2 right, 3 up, 4 down.
     bool moved = false;
     for (auto &[o, s] : _scrolls) {
-        const image::Image &img = picture(o->text("file"));
+        const image::Image &img = picture(pictureFile(*o));
         const int way = o->part("SPRT")->i("scroll");
         const float sum = s.part + dt * o->part("SPRT")->f("scrollSpeed") * 0.05f;
         s.part = sum;
