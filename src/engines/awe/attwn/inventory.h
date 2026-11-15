@@ -47,6 +47,8 @@ public:
     bool click(int x, int y);
     /** Opens or closes it (0x417e20). */
     void toggle();
+    /** Shut at once, a new item in the bag, as an act changes (0x417f70). */
+    void shut();
     /** "examine": the close-up of what's in the tray (0x419bd0). */
     void examine();
     /** Puts the close-up away (0x41a010): `tab` 2 (the journal's Docs) uses the item up. */

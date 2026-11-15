@@ -103,6 +103,8 @@ public:
      *        opening the menu does
      */
     virtual void dismiss(bool click) { (void)click; }
+    /** An act is changing: whatever slides is put back at once. */
+    virtual void actChanging() {}
     /** The next input a player's mouse would make there towards `want` (awe game-check's hand). */
     virtual OverlayHand hand(OverlayWant want, const std::vector<std::string> &items) {
         (void)want;

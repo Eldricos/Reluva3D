@@ -56,6 +56,7 @@ public:
         return _inventory.hand(want, items);
     }
     bool covers(int x, int y) const override { return _inventory.covers(x, y) || _journal.covers(x, y); }
+    void actChanging() override { _inventory.shut(); }
     void dismiss(bool click) override {
         // Escape says nothing of a movie's close-up (0x416fa3).
         if (_inventory.showing())

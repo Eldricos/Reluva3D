@@ -130,6 +130,15 @@ void Inventory::toggle() {
     _host.sound("sound\\interface\\openclose.wav");
 }
 
+void Inventory::shut() {
+    _x = kClosedX, _moving = 0, _open = false;
+    _blink = 0;
+    for (GameState::Item &i : _host.state.items)
+        if (i.state == 1)
+            i.state = 2;
+    _host.state.fresh.clear();
+}
+
 void Inventory::updatePages() {
     // The highest page holding an item, and one more; at most 12; it never
     // shrinks (0x418660).

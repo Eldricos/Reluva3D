@@ -14,11 +14,11 @@ viewer.files: Saved.Games/quick.ac2 (test, Locations\Test\test_02.ac2; tags open
 attwn.detect: attwn Agatha Christie: And Then There Were None (unknown release)
 attwn.run.result: ok
 attwn.run.size: 800x600
-attwn.run.screens: 2006 949fcaaa40ac2725
+attwn.run.screens: 2006 d55a2bfad14bb625
 attwn.run.titles: Agatha Christie - And Then There Were None
 attwn.run.files: Saved.Games/last.ac1 (test, Locations\Test\Base\test01.ac1; tags opened=1), Saved.Games/quick.ac1 (test, Locations\Test\Base\test02.ac1; tags opened=1)
 attwn.viewer.result: ok
 attwn.viewer.size: 800x600
-attwn.viewer.screens: 2008 c0b67fb49cacc738
+attwn.viewer.screens: 2007 ae418df06e5855ea
 attwn.viewer.titles: Scenes: Locations/Mainmenu/Base/Mainmenu01.ac1 / Scenes: Locations/Test/Base/test01.ac1 / Scenes: Locations/Test/Base/test02.ac1
 attwn.viewer.files: Saved.Games/last.ac1 (test, Locations\Test\Base\test01.ac1; tags opened=1), Saved.Games/quick.ac1 (test, Locations\Test\Base\test02.ac1; tags opened=1)

@@ -85,6 +85,13 @@ a number as a thread's, n + 0x19, a slip no script meets: nothing uses
 `greet`).
 
 - No change to the inventory.
+- **Progress read back** (`0x432300`, from `0x43269c`): every part
+  named the character's generic name, below part 100, has each thread's
+  status and line set again from the saved progress, by the part's own
+  Act (`0` in the generic tables). An extra borrowed from them is saved
+  under that name and act `0` (`0x433c49`, `"0"` at `0x47cd8c`), so its
+  state comes back: an extra heard to its end isn't offered again, where
+  Orient Express saves it so but never reads it.
 - The character's name is the first speaker who isn't `narracott`
   (`0x4323d0`), and their generic conversations are named `<speaker>gen`
   (`armstronggen`), matched exactly (`stricmp`, `0x4324f4`) where Orient
@@ -165,11 +172,15 @@ with the addresses. The shared reader (`DialogueBook::add`), the manager
 (`DialogueManager`) and the box take them from there.
 
 The tables' names are in `DialogueTables` too (`always`, `acts`,
-`folders`): a character's and a place's tables are loaded with the rest
-rather than as they're met.
+`characters`, `places`): at an act's change the book is emptied and
+given Narracott's, the act's and the act's characters' tables (from the
+chapter's row); a place's is added as the act first meets it.
 
-Not yet: the codes as this loader makes them, which put the same tables
-in the same order.
+Reluva codes the parts, threads and nests as Orient Express's loader
+does (a number n as n + 0x5f where this game's is n + 0x19), which reads
+the English tables into the same parts, threads and order; a saved
+game's `TALK` record is written and read in this game's codes
+([saves.md](saves.md#in-reluva)).
 
 ## Sources and checks
 

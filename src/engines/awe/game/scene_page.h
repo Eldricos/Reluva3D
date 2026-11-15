@@ -820,6 +820,18 @@ private:
     // or a scene's in another place (after a fade out). Its scene files
     // are read one an update behind the loading screen; then the act's
     // Post Load runs, or the scene is shown and fades in.
+    // And Then There Were None's act change (GameFlow::actLoading): faded
+    // in to the loading picture, the act's characters a step each, faded
+    // out, then the start script and the "act" event over.
+    struct ActLoad {
+        int phase = 0; // 0 none, 1 fading in, 2 loading, 3 fading out
+        ScriptRunner *runner = nullptr;
+        bool start = true;
+        size_t step = 0;
+        size_t steps = 0;
+    } _actLoad;
+    void updateActLoad();
+    void drawActLoad();
     struct LocationLoad {
         int state = 0; // 0 none, 1 fading out, 2 loading, 3 fading the loading screen out, 4 fading the scene in
         bool forAct = false;
@@ -877,7 +889,12 @@ private:
     std::unique_ptr<OverlayHost> _overlayHost;
     std::unique_ptr<GameOverlay> _overlay;
     ScriptRunner *_fadeRunner = nullptr;
-    std::string _dialogueAct = "-";               // the act whose table is loaded
+    std::string _dialogueAct = "-"; // the act whose table is loaded
+    // The places met since the act began, in turn (DialogueTables::places),
+    // and those whose tables are loaded.
+    std::string _placesAct;
+    std::vector<std::string> _actPlaces;
+    size_t _dialoguePlaces = 0;
     std::map<std::string, Table> _dialogueTables; // by file, as read
     audio::SoundHandle _voice = audio::kNoSound;
     std::shared_ptr<audio::Sound> _voiceSound; // for its level: the lips move

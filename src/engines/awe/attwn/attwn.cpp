@@ -64,12 +64,14 @@ const GameInfo &game() {
                      .optional = false,
                      .translation = false,
                      .wrap = 750,
-                     // Narracott's always (0x4174e5), the act's (0x402c78); a
-                     // character's and a place's as they're met (0x403154,
-                     // 0x4033f4), here all at once.
+                     // At an act's start the manager is emptied, then has
+                     // Narracott's and the act's (0x4174b0, 0x402c78), the
+                     // act's characters' as it loads (0x403154), and a
+                     // place's as it's entered (0x4033f4).
                      .always = {"dialogue/general/narracott.txt"},
                      .acts = "dialogue/acts/act",
-                     .folders = {"dialogue/general/", "dialogue/locations/"},
+                     .characters = "dialogue/general/%s.txt",
+                     .places = "dialogue/locations/%s.txt",
                      // Tried in turn (0x43357a); only Acts/Events is in the install.
                      .events = {"dialogue/acts/events/", "dialogue/location/events/", "dialogue/general/events/"}},
         // Its dialogue manager, against Orient Express's:
@@ -89,7 +91,7 @@ const GameInfo &game() {
                  .repeatsStayOffered = false,
                  .alternativeKept = false, // 0x431f48
                  .offerLooksOn = false,    // 0x433040
-                 .extrasHeard = true,      // (inferred: Wargrave's summing-up in 4A has no way out otherwise)
+                 .extrasHeard = true,      // 0x433c49 saves, 0x432300 reads back
                  .advance = false,
                  .keepBox = "talk ", // 0x4339ff
                  .dropBox = "fade ",
@@ -171,7 +173,13 @@ const GameInfo &game() {
                  .menu = "%s",
                  .mainMenu = "mainmenu",
                  .letterKeys = false,
-                 .newGame = "newover"},
+                 .newGame = "newover",
+                 // The act's loading step (0x416370, 0x4164f0, drawn at
+                 // 0x416390): interface\loading.jpg, fonts 2 and 8.
+                 .actLoading = "interface/loading.jpg",
+                 .actLoadingFont = "font 2",
+                 .actLoadingWaitFont = "font 8",
+                 .actLoadingRows = {225, 305, 345}},
         // The options screen's slider (0x4244f0) and labels (0x424290).
         .options = {.thumbLeft = 515,
                     .thumbStep = 18,

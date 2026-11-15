@@ -47,11 +47,6 @@ None yet.
   wants the embrocation used on him. Whether the original strands the
   player there too isn't seen in the game itself. The route search keeps
   out of both.
-- **A character's extra, once heard, isn't offered again** (Wargrave's
-  "Can you help me build a parachute?"): Reluva reads its saved progress
-  back where Orient Express's doesn't; without it, Wargrave's summing-up
-  in 4A offers it for ever with no way out. Not read in `ac.exe`.
-  [systems/dialogue.md](systems/dialogue.md).
 
 ## Guessed
 
@@ -59,6 +54,11 @@ None yet.
 
 ## Settled
 
+- **A character's extra, once heard, isn't offered again** (Wargrave's
+  "Can you help me build a parachute?"): read in `ac.exe`, which saves a
+  borrowed extra under the generic name and act `0` and reads the
+  generic parts' progress back at each talk's start (`0x433c49`,
+  `0x432300`). [systems/dialogue.md](systems/dialogue.md).
 - **A saved item's state and page** (1 new, 3 in the bag, 4 in hand, 5
   used, 12 items a page): read in the code that sets the states and in
   the `ITEM` loader (`0x413a30`).

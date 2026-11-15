@@ -62,8 +62,15 @@ struct DialogueTables {
     std::vector<const char *> always = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
                                         "text/dialogue/gen_characters.txt"};
     const char *acts = "text/dialogue/act";
-    /** Folders whose every table is loaded too (each loaded as it's needed by the game). */
+    /** Folders whose every table is loaded too. */
     std::vector<const char *> folders;
+    /**
+     * With an act, the tables of the act's characters alone ("%s" a
+     * name); null: none so.
+     */
+    const char *characters = nullptr;
+    /** A place's table ("%s" it), added as the act first meets the place; null: none so. */
+    const char *places = nullptr;
     /** Where a line's event file, <name>_<act>_<code>.txt, is looked for, in turn. */
     std::vector<const char *> events = {"text/dialogue/events/"};
 };
@@ -181,6 +188,16 @@ struct GameFlow {
     const char *mainMenu = "menu.main";          ///< the main menu's place
     bool letterKeys = true;           ///< P, S and L open the in-game, save and load menus (Escape does either way)
     const char *newGame = "playover"; ///< the main menu's hotspot that starts a new game
+    /**
+     * An act's change: the screen fades in from black to this picture,
+     * the act's characters load one a step under the interface texts
+     * "loading" and "wait" and how far it's got, it fades out, and then
+     * the start script runs; null: the start script at once.
+     */
+    const char *actLoading = nullptr;
+    const char *actLoadingFont = nullptr;     ///< "loading"'s font (GameFonts' name)
+    const char *actLoadingWaitFont = nullptr; ///< "wait"'s and how far's
+    std::array<int, 3> actLoadingRows{};      ///< the three's tops, each centred across
 };
 
 /**

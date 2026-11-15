@@ -1,6 +1,6 @@
 # And Then There Were None: chapters, acts, places and the game's start
 
-> **Status:** partial · **Code:** `src/engines/awe/attwn/acts.cpp` (this game's), `src/engines/awe/game/story.cpp`, `src/engines/awe/game/scene_page.cpp` (shared), `src/engines/awe/games.h` (`GameFlow`) · **Checked against:** the code (`ac.exe`); every act started in Reluva (`awe game-run`) · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/attwn/acts.cpp` (this game's), `src/engines/awe/game/story.cpp`, `src/engines/awe/game/scene_page.cpp` (shared), `src/engines/awe/games.h` (`GameFlow`) · **Checked against:** the code (`ac.exe`); every act started in Reluva (`awe game-run`) · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -28,7 +28,7 @@ skipped; none is):
 | Event | the start script (`0x4859d0`), its quotes off |
 | Time of Day | a number (`0x485f16`), taking effect when a scene is next left (`0x403420`), as Orient Express's |
 | Weather | a number (`0x485f14`), likewise |
-| Characters in Act | names (`0x485ad0`, their count `0x485bd0`); their `Dialogue/General` tables are loaded (`0x4030c0`) |
+| Characters in Act | names (`0x485ad0`, their count `0x485bd0`); their models and `Dialogue/General` tables are loaded (`0x4030c0`) |
 | Completion Conditions | a condition (`0x485bd2`), tested when the main runner runs dry, as Orient Express's (`0x40b51f`) |
 | Event | run when it holds (`0x485cd2`) |
 | Music | `sound\music\<cell>` (`0x485dd2`): see below |
@@ -37,11 +37,28 @@ The act's dialogue table, `dialogue\acts\act<NN><x>.txt`, is loaded too.
 
 ### `act <act> [0]`
 
-The act changes (`0x40b5fd`) and its row is read; the screen then fades
-through a loading step (`0x416370`, the steps at `0x4164f0`: the
-characters' tables loaded one a step) and the start script is queued on
-the main runner, unless the third word is `0` (`0x40b644`). The `act`
-event ends then (`0x4165e2`).
+The act changes (`0x40b5fd`) and its row is read (`0x402be0`), which
+empties the dialogue manager and gives it Narracott's table and the act's
+(`0x4174b0`). Then a loading step (`0x416370`, run each update by
+`0x4164f0`, drawn by `0x416390`):
+
+1. The screen goes black at once and fades in (the scripts' `fade in`:
+   8 levels every 0.01 s) on `interface\loading.jpg`; meanwhile the
+   inventory panel is shut, a new item put in the bag (`0x417f70`).
+2. A character of the act's a step (`0x4030c0`): a model not loaded
+   (`people\<name>\<name>_model.gr2`) and its `dialogue\general\<name>.txt`
+   table; once all are, the models of the ten who aren't in the act are
+   let go and their objects hidden (`0x403270`). A saved game being
+   loaded takes a step more (`0x414310`).
+3. It fades out to black, and then the start script is queued on the
+   main runner, unless the third word is `0` (`0x40b644`), and the `act`
+   event is over (`0x4165e2`); for a saved game, its `load` event is.
+
+Over the picture, all white and centred across: the interface text
+`loading` ("LOADING") in font 2 with its top at y 225, `wait` ("Please
+Wait") in font 8 at 305, and how far the characters have got, `%d%%`, in
+font 8 at 345, placed by the width of "50%" so it doesn't move; none of
+the three when the act has no characters.
 
 ### The game's start
 
@@ -94,10 +111,12 @@ defaults, this game's in `attwn/attwn.cpp` and `attwn/acts.cpp`. A row
 with no place loads none (`Story::startAct`). Reluva reads a scene as
 it's shown, the act's version over its base, so a place's scenes aren't
 loaded together; where characters stood is kept as for Orient Express.
-
-Not yet: the loading step's fade, and the characters' tables loaded only
-for the act's characters (all are loaded:
-[dialogue.md](dialogue.md#in-reluva)).
+`GameFlow::actLoading` names the loading step's picture, fonts and rows:
+the scene page's `act` waits through it (`updateActLoad`), a character
+a step, and the dialogue's tables are the act's, its characters' and the
+places met since it began (`DialogueTables::characters`, `places`).
+Reluva loads every character's model when a scene shows it, so none are
+let go.
 
 ## Sources and checks
 

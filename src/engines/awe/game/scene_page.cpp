@@ -305,13 +305,20 @@ void ScenePage::load() {
         // its '_' (0x403310 with [0x485f04] set).
         const std::string lower = fs::toLower(name);
         _location = _state.location =
-            lower.rfind("cutscenes/", 0) == 0 ? lower.substr(10, lower.find('/', 10) - 10) : placeOf(fileNameOf(name));
+            lower.rfind("cutscenes/", 0) == 0 ? lower.substr(10, lower.find('/', 10) - 10) : placeOf([&] {
+                const std::string file = fileNameOf(name);
+                return file.substr(0, file.rfind('.'));
+            }());
     } else {
         // Its folder is its location: locations/<location>/<scene>.ac2.
         const std::string lower = fs::toLower(name);
         const size_t from = lower.find('/') + 1;
         _location = _state.location = lower.substr(from, lower.find('/', from) - from);
     }
+    if (_placesAct != _state.act)
+        _placesAct = _state.act, _actPlaces.clear();
+    if (std::find(_actPlaces.begin(), _actPlaces.end(), _location) == _actPlaces.end())
+        _actPlaces.push_back(_location);
     // In a game at once; when browsing, once the page stays on the scene
     // (they take seconds to load).
     _charactersDue = _renderer && _showCharacters;
@@ -553,6 +560,62 @@ void ScenePage::beginLoad(const std::string &location, bool forAct) {
     draw();
 }
 
+void ScenePage::updateActLoad() {
+    // 0x4164f0, once a frame: faded in, a character a step (0x4030c0),
+    // faded out; then the start script queued on the main runner and the
+    // act's event over (0x4165bd).
+    ActLoad &a = _actLoad;
+    if (a.phase == 1) {
+        // The inventory shut, every update till faded in (0x417f70).
+        if (_overlay)
+            _overlay->actChanging();
+        if (_fade == 0)
+            a.phase = 2;
+    } else if (a.phase == 2) {
+        if (a.step < a.steps) {
+            a.step++;
+        } else {
+            loadDialogue();
+            a.phase = 3;
+            _fadeTarget = 1;
+        }
+        draw();
+    } else if (a.phase == 3 && _fade == 1) {
+        a.phase = 0;
+        if (a.start && _story->row() && !_story->row()->preLoad.empty() && _story->row()->preLoad != "0")
+            _runner->run(_story->row()->preLoad);
+        if (ScriptRunner *r = a.runner) {
+            a.runner = nullptr;
+            r->finished("act");
+        }
+    }
+}
+
+void ScenePage::drawActLoad() {
+    // 0x416390: the picture, then "loading", "wait" and how far it's got,
+    // each centred, white; none of the texts with no character to load.
+    const GameFlow &f = _ctx.game->flow;
+    image::blit(_ctx.screen, picture(f.actLoading), 0, 0);
+    if (_actLoad.steps == 0 || !_ctx.fonts)
+        return;
+    const TextStyle *big = _ctx.fonts->style(f.actLoadingFont);
+    const TextStyle *small = _ctx.fonts->style(f.actLoadingWaitFont);
+    auto centred = [&](const TextStyle *s, const std::string &text, int widthOf, int top) {
+        if (s && s->font)
+            _ctx.fonts->draw(_ctx.screen, *s, (frameW() - widthOf) / 2, top, text, Color{255, 255, 255});
+    };
+    auto width = [](const TextStyle *s, const std::string &text) {
+        return s && s->font ? s->font->width(text, s->pixels) : 0;
+    };
+    const std::string loading = interfaceText("loading");
+    const std::string wait = interfaceText("wait");
+    const std::string percent = std::to_string(std::min<size_t>(100, _actLoad.step * 100 / _actLoad.steps)) + "%";
+    centred(big, loading, width(big, loading), f.actLoadingRows[0]);
+    centred(small, wait, width(small, wait), f.actLoadingRows[1]);
+    // Placed by the width of "50%" (0x4164a6), so it doesn't shift.
+    centred(small, percent, width(small, "50%"), f.actLoadingRows[2]);
+}
+
 void ScenePage::updateLoad() {
     LocationLoad &l = _load;
     if (l.state == 1) {
@@ -675,6 +738,7 @@ void ScenePage::newGame() {
     _ui = Interface();
     _sceneShown = true;
     _load = LocationLoad();
+    _actLoad = ActLoad();
     _restoring.reset();
     _npcPositions.clear();
     _keptCharacters.clear();
@@ -1573,7 +1637,7 @@ void ScenePage::draw() {
     }
     // The bar and the inventory window, then a card held up (0x415227,
     // 0x418040): under the dialogue box.
-    if (_drawing && !_load.screen && !_movie) {
+    if (_drawing && !_load.screen && !_actLoad.phase && !_movie) {
         // A game's own window in the place of Orient Express's bar and
         // inventory (And Then There Were None's journal).
         if (_overlay) {
@@ -1638,7 +1702,11 @@ void ScenePage::draw() {
         drawMessage();
     if (_yesNo && _ctx.fonts)
         drawYesNo();
-    if (_load.screen) {
+    if (_actLoad.phase) {
+        drawActLoad();
+        if (_fade > 0)
+            fill(0, 0, frameW(), frameH(), Color{0, 0, 0}, uint8_t(_fade * 255));
+    } else if (_load.screen) {
         // The location's picture, the wheel turning at its foot (0x422ff0).
         const image::Image &back = picture("interface/loading/loading_" + [&] {
             const std::string &l = _load.location;
@@ -1714,6 +1782,8 @@ void ScenePage::update(uint64_t nowMs) {
     }
     if (_load.state)
         updateLoad();
+    if (_actLoad.phase)
+        updateActLoad();
     if (_slots)
         _slots->sinceClick += dt;
     // The message's time and the caret's blink go on in every scene
@@ -3130,24 +3200,52 @@ bool ScenePage::startCharacterVerb(ScriptRunner &runner, Character &c, const Scr
 void ScenePage::loadDialogue() {
     // The gen_ tables and the act's (the game loads the act's when it
     // starts: 0x4224fb); with no act known, all of them in turn.
-    if (_dialogueAct == _state.act)
-        return;
-    _dialogueAct = _state.act;
     DialogueBook &book = _dialogue->book();
-    book.clear();
     const DialogueTables &tables = book.tables;
-    std::vector<std::string> files(tables.always.begin(), tables.always.end());
-    for (const char *folder : tables.folders)
-        for (const std::string &f : listFiles(_ctx.files, {folder}, {".txt"}))
-            if (std::find(files.begin(), files.end(), f) == files.end())
+    const std::vector<std::string> &places = _placesAct == _state.act ? _actPlaces : std::vector<std::string>{};
+    auto named = [](const char *pattern, const std::string &name) {
+        std::string f = pattern;
+        f.replace(f.find("%s"), 2, name);
+        return f;
+    };
+    std::vector<std::string> files;
+    if (_dialogueAct == _state.act) {
+        // A place newly met: its table added (And Then There Were None).
+        if (!tables.places || _dialoguePlaces >= places.size())
+            return;
+        for (; _dialoguePlaces < places.size(); _dialoguePlaces++)
+            files.push_back(named(tables.places, places[_dialoguePlaces]));
+    } else {
+        _dialogueAct = _state.act;
+        book.clear();
+        files.assign(tables.always.begin(), tables.always.end());
+        for (const char *folder : tables.folders)
+            for (const std::string &f : listFiles(_ctx.files, {folder}, {".txt"}))
+                if (std::find(files.begin(), files.end(), f) == files.end())
+                    files.push_back(f);
+        if (!_state.act.empty())
+            files.push_back(tables.acts + _state.act + ".txt");
+        else
+            for (const std::string &f : listFiles(_ctx.files, {tables.acts}, {".txt"}))
                 files.push_back(f);
-    if (!_state.act.empty())
-        files.push_back(tables.acts + _state.act + ".txt");
-    else
-        for (const std::string &f : listFiles(_ctx.files, {tables.acts}, {".txt"}))
-            files.push_back(f);
+        // (The act's row by its name: the act's tables are asked for as
+        // the act changes, before the story has its row.)
+        if (const ActRow *row = tables.characters ? _story->find(_state.act) : nullptr)
+            for (const std::string &who : row->characters)
+                files.push_back(named(tables.characters, who));
+        if (tables.places) {
+            for (const std::string &p : places)
+                files.push_back(named(tables.places, p));
+            _dialoguePlaces = places.size();
+        }
+    }
+    std::vector<std::string> added;
     for (const std::string &f : files) {
-        // Each read once (they're read again with every act and saved game).
+        // Each once (0x431160 passes over one it has), and each read once
+        // (they're read again with every act and saved game).
+        if (std::find(added.begin(), added.end(), f) != added.end())
+            continue;
+        added.push_back(f);
         auto it = _dialogueTables.find(f);
         if (it == _dialogueTables.end()) {
             std::vector<uint8_t> data;
@@ -3420,6 +3518,14 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         // And Then There Were None's "act <act> 0" takes the row without
         // its start script (0x40b644).
         const bool start = !(_ctx.game && _ctx.game->flow.actFolders && e.arg(2) == "0");
+        if (_ctx.game && _ctx.game->flow.actLoading && _story->startAct(lower(e.arg(1)), false)) {
+            // Black at once, then faded in to the loading picture
+            // (0x416370: the fade "in", from 255).
+            _actLoad = ActLoad{1, &runner, start, 0, _story->row()->characters.size()};
+            _fade = 1;
+            _fadeTarget = 0;
+            return true;
+        }
         _story->startAct(lower(e.arg(1)), start);
         return false;
     }
