@@ -84,6 +84,9 @@ struct GameState {
     // "time <n>" added. In order; a name may be there twice (the first
     // counts).
     std::vector<std::pair<std::string, int>> timers;
+    // And Then There Were None's one timer instead (GameInfo::clock): the
+    // seconds since "timer" (ac.exe [0x485f2c]).
+    float clock = 0;
     // Text tags: "savedscene" ("Calais.1-4_1-2.02.ac2 -1 0"), and a tag
     // per scene visited, by its file name, holding the acts it was
     // visited in ("02a 06b").

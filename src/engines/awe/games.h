@@ -295,6 +295,12 @@ struct GameInfo {
      * `then` gets the commands it runs in its place, if any.
      */
     bool (*verb)(GameState &state, const std::vector<std::string> &words, std::string &then) = nullptr;
+    /**
+     * "timer" is one clock, the seconds since "timer start" (or "reset"),
+     * and "timer <n" "timer >n" compare it (ac.exe 0x40d9dd, 0x40a965);
+     * false: Orient Express's named timers that "time <n>" moves on.
+     */
+    bool clock = false;
     /** The movie "movie <name>" plays (attwn's "coda", one of four); null: that name. */
     std::string (*movie)(const GameState &state, const std::string &name) = nullptr;
     DialogueTables dialogue;       ///< its dialogue tables' layout

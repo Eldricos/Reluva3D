@@ -62,6 +62,7 @@ struct SaveGame {
     // TAGS, TIMS
     std::vector<std::pair<std::string, int>> tags;
     std::vector<std::pair<std::string, int>> timers;
+    float clock = 0; // TIMR without TIMS (And Then There Were None's one timer); Orient Express's is 0
     std::vector<std::pair<std::string, std::string>> texts; // STAT: text tags
     // POSI: where characters were, by scene file and model file
     // ("Sirkeci.Market_01.ac2", "klaus_model.gr2").

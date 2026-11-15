@@ -52,6 +52,7 @@ const GameInfo &game() {
         .height = 600,
         .condition = condition,
         .verb = verb,
+        .clock = true,
         .movie = movie,
         // The table loader (0x431160) reads 14 columns: the 7th, Tone (notes
         // for the voices: "sleeping noises"), it drops; Duration and Location

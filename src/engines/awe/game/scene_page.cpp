@@ -1748,6 +1748,7 @@ void ScenePage::update(uint64_t nowMs) {
         redraw = true;
     }
     _runner->update(dt);
+    _state.clock += dt; // as the main runner's update moves it on (ac.exe 0x409f9c)
     // The clicked character's routine goes on once the main script is
     // over (0x409cab).
     if (_resumeAfter && _runner->idle()) {

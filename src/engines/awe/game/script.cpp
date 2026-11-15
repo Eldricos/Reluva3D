@@ -310,6 +310,9 @@ bool ScriptRunner::runOwn(const ScriptEvent &e) {
         _state.held.clear();
         _state.itemPage = 0;
         _state.fresh.clear();
+    } else if (v == "timer" && _state.game && _state.game->clock) {
+        // The clock to 0, whatever the word after (ac.exe 0x40d9f2).
+        _state.clock = 0;
     } else if (v == "timer") {
         // A new timer at 0 (0x410ac0), after any of the same name.
         _state.timers.emplace_back(fs::toLower(e.arg(1)), 0);

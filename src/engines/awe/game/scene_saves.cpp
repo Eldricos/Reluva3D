@@ -153,6 +153,7 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
         s.tags.emplace_back(name, v);
     for (const auto &[name, v] : _state.timers)
         s.timers.emplace_back(name, v);
+    s.clock = _state.clock;
     for (const auto &[name, v] : _state.texts)
         s.texts.emplace_back(name, v);
     for (const auto &[key, progress] : _state.talks) {
@@ -217,6 +218,7 @@ bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string 
         _state.tags[fs::toLower(name)] = v;
     for (const auto &[name, v] : save->timers)
         _state.timers.emplace_back(fs::toLower(name), v);
+    _state.clock = save->clock;
     for (const auto &[name, v] : save->texts)
         _state.texts[fs::toLower(name)] = v;
     for (const SaveGame::Talk &k : save->talks)

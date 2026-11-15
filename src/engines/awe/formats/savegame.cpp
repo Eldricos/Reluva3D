@@ -204,7 +204,11 @@ Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out, const SaveLa
         } else if (t == tag("GLBM")) {
             out.moving = r.s16();
         } else if (t == tag("TIMR")) {
-            r.u32(); // always 0, unused
+            // Orient Express's always 0, unused; And Then There Were None's
+            // its timer, a float (ac.exe 0x41308f).
+            const uint32_t bits = r.u32();
+            if (!layout.timers)
+                std::memcpy(&out.clock, &bits, 4);
         } else if (t == tag("INFO")) {
             out.location = r.text(32);
             out.scene = r.text(256);
@@ -291,7 +295,10 @@ std::vector<uint8_t> writeSaveGame(const SaveGame &s, const SaveLayout &layout) 
         w.s16(s.moving);
     }
     w.u32(tag("TIMR"));
-    w.u32(0);
+    uint32_t clock = 0;
+    if (!layout.timers)
+        std::memcpy(&clock, &s.clock, 4);
+    w.u32(clock);
     w.u32(tag("INFO"));
     w.text(s.location, 32);
     w.text(s.scene, 256);

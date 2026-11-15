@@ -258,6 +258,14 @@ void testMachines() {
     for (int i = 0; i < 8 && !r.idle(); i++)
         r.update(0.1f);
     CHECK((host.started == std::vector<std::string>{"updatemusic", "sound x"}));
+    // One timer, the seconds since "timer" (0x40d9f2, 0x40a965).
+    state.clock = 50;
+    r.run("timer start");
+    for (int i = 0; i < 8 && !r.idle(); i++)
+        r.update(0.1f);
+    CHECK(state.clock == 0 && testCondition("timer <30", state) && !testCondition("timer >30", state));
+    state.clock = 31;
+    CHECK(testCondition("timer >30", state) && state.timers.empty());
     // The coda, by who was saved.
     CHECK(attwn::movie(state, "coda") == "coda#1neitheralive" && attwn::movie(state, "credits") == "credits");
     state.tags["9a_lombardsaved"] = 0;

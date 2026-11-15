@@ -167,6 +167,14 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = n != 0 && std::rand() % n == 0;
     } else if (word == "scene") {
         result = within(state.scene, arg(1));
+    } else if (word == "timer" && state.game && state.game->clock) {
+        // The clock against a number: less, more, or equal (ac.exe
+        // 0x40a965).
+        const std::string a = arg(1);
+        const float n = float(std::atof(a.c_str() + (!a.empty() && (a[0] == '<' || a[0] == '>'))));
+        result = !a.empty() && a[0] == '<'   ? state.clock < n
+                 : !a.empty() && a[0] == '>' ? state.clock > n
+                                             : state.clock == n;
     } else if (word == "tag" || word == "timer") {
         // -99 for one that isn't there (0x4109f0, 0x410b40). "tag <name>
         // nouse": no item may be in hand.
