@@ -68,6 +68,9 @@ struct TornLetter;
 struct Safe;
 struct PuzzleBox;
 } // namespace motoe
+namespace attwn {
+struct DepositBox;
+} // namespace attwn
 
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
@@ -451,14 +454,18 @@ private:
     std::unique_ptr<motoe::TornLetter> _torn;
     std::unique_ptr<motoe::Safe> _safe;
     std::unique_ptr<motoe::PuzzleBox> _box;
+    // And Then There Were None's (attwn/puzzles.h, .cpp): the bookcase,
+    // which keeps nothing but its tags; the deposit boxes.
+    bool _bookcase = false;
+    std::unique_ptr<attwn::DepositBox> _deposit;
     unsigned _puzzleSeed = 1; // the game's rand()
-    bool puzzleActive() const { return _torn || _safe || _box; }
+    bool puzzleActive() const { return _torn || _safe || _box || _bookcase || _deposit; }
     void openPuzzle(const std::string &kind);
     void closePuzzle();
     void puzzleClick(int x, int y);
     void puzzleRelease(int x, int y);
     void puzzleUpdate(float seconds);
-    void puzzleAction(const std::string &word);
+    void puzzleAction(const std::string &word, const std::string &arg);
     bool puzzleCondition(const std::string &word) const;
     bool puzzleDraws(const Ac2Record &o) const;
     void drawPuzzleBox();
@@ -466,7 +473,18 @@ private:
     void saveTornPiece(int i);
     void snapTornPiece(int i);
     bool checkTornLetter();
+    // The bookcase and the deposit boxes.
+    void bookcaseAction(const std::string &word, const std::string &arg);
+    void openDepositBox();
+    void placeDepositLetters();
+    void saveDepositBox();
+    int depositSlotAt(int x, int y) const;
+    void depositClick(int x, int y);
+    void depositUpdate(float seconds);
+    bool depositSolved() const;
+    bool depositStep();
     // Safe.
+    const SafeRules &safeRules() const;
     void turnDial(int direction);
     void writeSafeTags();
     // The n-th object of the scene whose file's name is `file` (lower

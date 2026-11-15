@@ -5,6 +5,7 @@
 
 #include "engines/awe/formats/ac2.h"
 
+#include <array>
 #include <vector>
 
 // Murder on the Orient Express's puzzle screens: what each keeps while it's
@@ -22,9 +23,12 @@ struct TornLetter {
     int dragX = 0;
     int dragY = 0;
 };
-/** The baggage car's safe (0x434390): its dial, turned to a number. */
+/**
+ * The baggage car's safe (0x434390): its dial, turned to a number. And
+ * Then There Were None's is the same with two dials (GameInfo::safe).
+ */
 struct Safe {
-    const Ac2Record *dial = nullptr;
+    std::array<const Ac2Record *, 2> dials{};
     int spinning = 0; // 1 right, 2 left
     float timer = 0;
     float interval = 0.25f;

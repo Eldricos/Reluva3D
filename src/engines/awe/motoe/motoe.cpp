@@ -40,6 +40,7 @@ const GameInfo &game() {
         .flow = {},        // and its acts and scenes
         .options = {},     // and its options screen
         .inventory = {},   // and its items
+        .safe = {},        // its safe
         .exe = "motoe.exe",
         // English 1.0's (docs/engines/awe/games/motoe/formats/ac2.md, the
         // walk grid).

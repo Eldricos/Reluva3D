@@ -207,6 +207,23 @@ struct OptionsLayout {
 };
 
 /**
+ * The safe's puzzle screen as a game has it: a dial turned left and right
+ * to three numbers. Orient Express's baggage car safe is the default
+ * (motoe.exe 0x434390); And Then There Were None's is "safecombo"
+ * (ac.exe 0x42b020).
+ */
+struct SafeRules {
+    const char *kind = "safe";                                           ///< the scene's PUZZ value
+    std::array<int, 3> combination{6, 6, 6};                             ///< left, right, left
+    std::array<const char *, 2> dials{"baggage_safe.dial.png", nullptr}; ///< the pictures turned, by file
+    const char *again = "talk gen_safe 1";                               ///< run on starting again
+    const char *opened = "sound safeclick, talk gen_safe 2";             ///< run when the third number is in
+    /** The dial's number, the numbers in and the way to turn read back from their tags each visit; false: from 0. */
+    bool kept = false;
+    const char *solved = "safe_solved"; ///< the tag the scene sets once it's opened (for the tools)
+};
+
+/**
  * How a game's items are kept and used where the games differ. Orient
  * Express's are the defaults (motoe.exe 0x41bc10, 0x419f20).
  */
@@ -289,6 +306,7 @@ struct GameInfo {
     GameFlow flow;                 ///< how it starts, its acts and scenes
     OptionsLayout options;         ///< its options screen
     InventoryRules inventory;      ///< its items
+    SafeRules safe;                ///< its safe's puzzle screen
     /** Its own window over its scenes (the journal); null: none. */
     std::unique_ptr<GameOverlay> (*overlay)(OverlayHost &host) = nullptr;
     const char *exe = nullptr; ///< its executable, in the game's folder

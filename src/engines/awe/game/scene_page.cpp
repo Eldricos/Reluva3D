@@ -3,6 +3,7 @@
 
 #include "engines/awe/game/scene_page.h"
 
+#include "engines/awe/attwn/puzzles.h"
 #include "engines/awe/motoe/puzzles.h"
 
 #include "audio/decode.h"
@@ -341,7 +342,7 @@ void ScenePage::load() {
         for (const Ac2Record &r : _scene.records)
             if (r.tag == "PUZZ") {
                 const std::string kind = fs::toLower(r.text("value"));
-                if (kind == "tornletter" || kind == "safe" || kind == "puzzlebox")
+                if (kind != "save" && kind != "load" && kind != "options")
                     openPuzzle(kind);
             }
     }
@@ -3416,7 +3417,7 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         if (_optionsMenu)
             optionsAction(lower(e.arg(1)));
         else if (puzzleActive())
-            puzzleAction(lower(e.arg(1)));
+            puzzleAction(lower(e.arg(1)), lower(e.arg(2)));
         else if (_slots)
             slotAction(lower(e.arg(1)), lower(e.arg(2)));
         return false;

@@ -472,6 +472,8 @@ public:
             // scripts are done.
             ok = p.puzzleOpen() == a.target;
             for (int n = 0; ok && n < 1000 && !p.puzzleSolved(); n++) {
+                if (p.puzzleOpen() != a.target)
+                    break; // solved and left (attwn's deposit boxes)
                 if (!p.puzzleStep()) {
                     ok = false;
                     break;

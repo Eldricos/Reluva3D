@@ -182,6 +182,15 @@ const GameInfo &game() {
                       .takeSound = "interface\\inventory",
                       .saveStates = {0, 1, 3, 4, 5, 5, 5, 5},
                       .perPage = 12},
+        // The safe room's safe (0x42b020): its two dials, the number
+        // kept, 28 11 49 (0x42b0ec).
+        .safe = {.kind = "safecombo",
+                 .combination = {28, 11, 49},
+                 .dials = {"largedial.tga", "smalldial.tga"},
+                 .again = "talk saferoom 10",
+                 .opened = "talk narracottgen 122",
+                 .kept = true,
+                 .solved = "safecombodone"},
         .overlay = makeOverlay, // the journal and the inventory
         .exe = "ac.exe",
         // Orient Express's path-finder, the same code (24 functions) but

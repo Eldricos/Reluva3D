@@ -12,6 +12,7 @@ reluva_add_engine(awe
         attwn/inventory.cpp
         attwn/journal.cpp
         attwn/overlay.cpp
+        attwn/puzzles.cpp
         attwn/acts.cpp
         attwn/script.cpp
         awe.cpp
