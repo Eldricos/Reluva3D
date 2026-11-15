@@ -57,6 +57,14 @@ The runner tells a verb by its first word, compared ignoring case
   `coda#1neitheralive`; played as any other movie. It's played before
   act 10B, not at the game's end.
 
+- **`timer <word>`** (`0x40d9dd`): one clock, `[0x485f2c]`, set to 0,
+  whatever the word (`start`, `reset`); the main runner adds each frame's
+  seconds to it (`0x409f9c`). As a condition (`0x40a965`), `timer <n`,
+  `timer >n` or `timer n` compare its seconds; the save's `TIMR` keeps it
+  ([saves.md](saves.md#the-records)). Orient Express's `timer <name>`
+  makes a named timer, moved on only by `time <n>`. Brent's sewing waits
+  on it: done 30 seconds after the fishing line.
+
 None of these is in `motoe.exe` (its `test` does nothing).
 
 ### The machines

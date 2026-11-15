@@ -29,7 +29,7 @@ The writer (`0x412e9f`) writes, in this order:
 | `GLBT` | s16, the time of day (`word[0x485f10]`) | the same |
 | `GLBW` | s16, the weather (`word[0x485f12]`) | the same |
 | | | `GLBM`, the train's moving: none here |
-| `TIMR` | u32 (`[0x485f2c]`) | the same |
+| `TIMR` | f32, the timer's seconds (`[0x485f2c]`, [script.md](script.md#words-only-this-game-has)) | u32, always 0 |
 | `INFO` | c[32] location, c[256] scene, s16 act number, s16 act letter | w[] |
 | | | `ACTI`, the act's row: none here |
 | `CHAR`, `FLLW` | 3 f32 position, 3 f32 rotation, when there's a player or follower | the same |
