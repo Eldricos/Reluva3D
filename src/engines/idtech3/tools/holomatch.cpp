@@ -1143,9 +1143,17 @@ int cmdGameRun(int argc, char **argv) {
                     ++shown;
                 }
             }
-            // Types the Play page draws: models (0), quads (1), sprites (2),
-            // lines (9, 11); samples of the others.
-            auto drawn = [](int32_t type) { return type == 1 || type == 2 || type == 9 || type == 11; };
+            // Types the Play page draws (by the game's layout); samples of
+            // the others.
+            const q3::RefEntityLayout layout = gameOfFolder(argv[2]).refEntity;
+            auto drawn = [&](int32_t type) {
+                for (int32_t t :
+                     {layout.typeQuad, layout.typeSprite, layout.typeLine, layout.typeOrientedLine,
+                      layout.typeTaperedLine, layout.typeCurve, layout.typeCylinder, layout.typeBolt, layout.typeBeam})
+                    if (t >= 0 && type == t)
+                        return true;
+                return false;
+            };
             std::set<int> weapons{0};
             for (const auto &[key, count] : typeCounts)
                 weapons.insert(key.first);

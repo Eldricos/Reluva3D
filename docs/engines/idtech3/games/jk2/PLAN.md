@@ -31,7 +31,7 @@ their hashes):
 | Menus, single player | `ui/*.menu`, `ui/menus.txt`: Team Arena style menu scripts, run by `jk2sp.exe` itself (no menus DLL) | No |
 | Game code, multiplayer | `vm/jk2mpgame.qvm`, `cgame.qvm`, `ui.qvm` (Quake III's QVM format) | The QVM interpreter |
 | Scripts | 1,356 compiled ICARUS scripts (`.ibi`), 68 ROFF camera/object paths (`.rof`) | Not needed by the engine: the DLL runs them |
-| Effects | 229 `.efx` | Not needed by the engine: the DLL reads them |
+| Effects | 229 `.efx` | In multiplayer, the engine runs them for the client game ([efx.md](../../formats/efx.md)); in single player, the DLL reads them |
 | Text | 30 StripEd string packages (`strip/*.sp`), each line in English, French and German | No |
 | Fonts | 3 `fonts/*.fontdat` with their `.tga` | No |
 | Sound | 8,126 MP3 (speech, music), 309 WAV; EAX settings per map (`eagle/*.eal`) | MP3 and WAV decoding |
@@ -133,8 +133,10 @@ behind the DLL's own tables.
    (animations, angle overrides, bolts) and the renderer draws them.
    The Play page runs a local match from Create Server's Begin: the force
    menu opens on joining, and the player plays in first or third person.
-   Next: Raven's effects, then the network protocol, so Create Server's Begin starts a match; Raven's
-   effects after.
+   Raven's effects run for the client game: blaster bolts, sparks, smoke,
+   marks, lights and the saber's trail ([efx.md](../../formats/efx.md)).
+   Next: the network protocol, so Join Server joins a match; then light
+   styles, ROFF paths, capsule traces and Ghoul2's animation blending.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

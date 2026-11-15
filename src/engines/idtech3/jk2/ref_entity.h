@@ -14,11 +14,13 @@ namespace reluva::idtech3::jk2 {
 // and old origin, custom shader, colour, texture offsets, radius,
 // rotation, shader time and frame (the part every effect has), then the
 // lighting origin, shadow plane, old frame, back lerp, skin number and
-// custom skin, two words, the effects' union (lines' widths and texture
-// repeats from 148), and the saber and Ghoul2 fields after. Its entity
-// types: model 0, sprite 2, oriented quad 3, beam 4, electricity 6, portal
-// camera 7, line 8, oriented line 9, cylinder 10. Only the model's fields
-// are used yet (the menus' models); the effects' wait for its client game.
+// custom skin, and the saber and Ghoul2 fields after. Its entity types:
+// model 0, sprite 2, oriented quad 3, beam 4, electricity 6, portal camera
+// 7, line 8, oriented line 9, cylinder 10. Its effects keep their sizes in
+// the common part, as its renderer reads them (docs/engines/idtech3/formats/efx.md):
+// a line's or electricity's width is its radius, electricity's chaos the
+// first axis' first word; a cylinder runs from the old origin (the radius
+// round) to the origin (the rotation round); a quad faces its first axis.
 constexpr RefEntityLayout kRefEntityLayout = [] {
     RefEntityLayout l;
     l.size = 212;
@@ -36,11 +38,11 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     l.backLerp = 128;
     l.skinNum = 132;
     l.customSkin = 136;
-    l.width = 148;
-    l.endWidth = 152;
-    l.repeat = 156;
-    l.jitter = 152;
-    l.cylinderRepeat = 156;
+    l.width = 92;
+    l.endWidth = 96;
+    l.jitter = 12;
+    l.cylinderBase = 64;
+    l.quadFacesAxis = true;
     l.modelScale = 196;
     l.ghoul2 = 208;
     l.typeSprite = 2;

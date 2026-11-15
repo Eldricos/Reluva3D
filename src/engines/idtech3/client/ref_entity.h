@@ -35,7 +35,8 @@ struct RefEntityLayout {
     size_t shaderTime = 128;
     // The effects' fields: a sprite's radius and rotation; a line's
     // widths and its texture's repeats; a curve's control points;
-    // electricity's jitter; a cylinder's repeats round it.
+    // electricity's jitter; a cylinder's repeats round it. 0 for a field the
+    // game hasn't.
     size_t radius = 132;
     size_t rotation = 136;
     size_t width = 0;
@@ -45,6 +46,13 @@ struct RefEntityLayout {
     size_t control2 = 0;
     size_t jitter = 0;
     size_t cylinderRepeat = 0;
+    // Where a cylinder's first width is (a point's offset): 0 for the
+    // origin, its other end a height along the first axis; else its other
+    // end is the origin.
+    size_t cylinderBase = 0;
+    // A quad's corners: from its second and third axes, or (true) made
+    // square to its first, the way it faces, and turned by its rotation.
+    bool quadFacesAxis = false;
     // Raven's: the model's scale on each axis (0 for 1), and its Ghoul2
     // instance (0: none).
     size_t modelScale = 0;

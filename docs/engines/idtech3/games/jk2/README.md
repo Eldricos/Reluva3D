@@ -40,7 +40,7 @@ the cabinets beside it hold only the installer's own files.
 | Text and fonts | Its 30 string packages (English, French, German) and three fonts read, shown in `reluva-viewer`'s Text page ([strings.md](../../formats/strings.md), [fonts.md](../../formats/fonts.md)) |
 | Videos | Its 15 RoQ videos decode, with their sound; played in `reluva-viewer`'s Videos page and as video textures ([roq.md](../../../../common/video/roq.md)) |
 | Multiplayer menus | `ui.qvm` runs on the Menu page, with its fonts, text, emblem and music: the main menu, Play, Setup, Controls, Create Server and Join Server, with the local, Internet and favourite server lists ([systems/syscalls.md](systems/syscalls.md)) |
-| Multiplayer game | A local match from Create Server's Begin on the Play page: the level, the HUD, the force menu on joining, the player moving, the Ghoul2 bodies drawn; bots play; no effects yet ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)); the Play page next |
+| Multiplayer game | A local match from Create Server's Begin on the Play page: the level, the HUD, the force menu on joining, the player moving, the Ghoul2 bodies drawn, Raven's effects; bots play ([systems/game-calls.md](systems/game-calls.md), [systems/cgame-calls.md](systems/cgame-calls.md)); the Play page next |
 
 What's next, and the order of the work: [PLAN.md](PLAN.md).
 
@@ -55,8 +55,7 @@ into its library.
 
 `reluva`'s Multiplayer runs the game's own menus, and Create Server's
 Begin starts a local match: choose force powers when the menu asks, then
-join. Effects (blaster bolts, sparks) aren't drawn yet, and network play
-waits for the protocol. `reluva-viewer` shows its maps
+join. Network play waits for the protocol. `reluva-viewer` shows its maps
 (World, Maps), its models (MD3 and Ghoul2, animating), textures and
 files; what comes next is in the [plan](PLAN.md).
 

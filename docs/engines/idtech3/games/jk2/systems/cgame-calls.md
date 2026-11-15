@@ -28,7 +28,7 @@ system and Ghoul2 (4 to 24).
 | `gameState_t` | 21,604 | an offset each for 1,400 configstrings (the module refuses an index of 1,400 or more), 16,000 bytes of text, the bytes used |
 | `snapshot_t` | 77,200 | Quake III's: flags, ping, server time, the area mask, the player state (1,368), the entity count, 256 entity states (296 each), the command count and sequence |
 | `glconfig_t` | 11,332 | the menus': three 1,024-byte strings and 8,192 of extensions, then Quake III's 17 words |
-| `refEntity_t` | 212 | Raven's (`jk2/ref_entity.h`), its Ghoul2 instance in the last word (208) |
+| `refEntity_t` | 212 | Raven's (`jk2/ref_entity.h`), its Ghoul2 instance in the last word (208); its effects' sizes in the common part ([efx.md](../../../formats/efx.md)) |
 | `trace_t`, `usercmd_t` | 1,080, 28 | as the game module's ([game-calls.md](game-calls.md)) |
 
 ### Calls shared with Elite Force
@@ -54,7 +54,8 @@ system and Ghoul2 (4 to 24).
 | 203 | `R_AddPolysToScene` | each polygon added |
 | 204 | `R_LightForPoint` | no light yet |
 | 212, 213 | `R_DrawRotatePic`, `R_DrawRotatePic2` | a turned picture |
-| 214–218 | shader remapping, light styles, brush model vertices, effect lines | not yet |
+| 214–217 | shader remapping, light styles, brush model vertices | not yet |
+| 218 | `FX_AddLine` | a line added to the effects system |
 | 229 | `OpenUIMenu` | the page opens that menu over the match (6, the force powers, when the game sends `nfr` to a new player) |
 | 233–236 | the key calls | the catcher kept |
 | 237–243 | the script calls | as the menus': the HUD is a menu script |
@@ -62,7 +63,13 @@ system and Ghoul2 (4 to 24).
 | 247–251 | cinematics | none plays |
 | 252 | `GetEntityToken` | the level's entity text, word by word |
 | 253 | `R_InPVS` | from the level's visibility |
-| 254–269 | Raven's effects (`.efx`): register, play, scheduled, the system's set-up and time, primitives | registered by name; nothing played yet |
+| 254 | `FX_RegisterEffect` | an effect file read and numbered ([efx.md](../../../formats/efx.md)) |
+| 255–260 | `FX_PlaySimpleEffect`, `FX_PlayEffect`, `FX_PlayEntityEffect`, and the three by number | played at the place, facing up, a way, or with three axes; an entity's effect made later at where the client game says the entity is (its `CG_GET_LERP_ORIGIN`) |
+| 261 | `FX_PlayBoltedEffectID` | not yet (1.02a doesn't call it) |
+| 262 | `FX_AddScheduledEffects` | the effects run for the frame and added to the scene as Raven's renderer takes them; a decal's mark made by the client game (its `CG_IMPACT_MARK`, given through the shared buffer) |
+| 263, 264 | `FX_InitSystem`, `FX_FreeSystem` | everything dropped |
+| 265 | `FX_AdjustTime` | the effects' clock and the eye |
+| 266–269 | `FX_AddPoly`, `FX_AddBezier`, `FX_AddPrimitive` (a saber's trail), `FX_AddSprite` | added to the effects system, from the structures they're given (180, 136, 348 and 72 bytes) |
 | 270–272 | the string packages | as the menus' |
 | 273–277 | ROFF | not yet |
 | 278–299 | Ghoul2 | instances posed by their animations and angle overrides, bolts from bones and tag surfaces, models hung from bolts, surfaces on and off ([ghoul2.md](../../../formats/ghoul2.md), Animation) |
@@ -80,12 +87,13 @@ system and Ghoul2 (4 to 24).
   289 shaders, 179 sounds, the music), and each frame draws its HUD
   (health, armour, ammunition and force meters, weapon icons, the
   crosshair, text in its fonts) and a scene from the player's eye: the
-  level's items, the player's weapon. A game-files step (`jk2-game`)
-  records it.
+  level's items, the player's weapon, and as it fires the blaster's
+  effects (its bolt, muzzle flash, sparks, smoke and burn marks). A
+  game-files step (`jk2-game`) records it.
 
 ### Open questions
 
-- Effects aren't played, light styles set or ROFF paths followed yet.
+- Light styles aren't set or ROFF paths followed yet.
 - Players are posed (a player's entity carries its instance at 208) and
   drawn; seen in third person on the Play page.
 - Starting takes about 340 million instructions (the effects system and

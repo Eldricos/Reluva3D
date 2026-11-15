@@ -12,6 +12,7 @@
 #include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/formats/md3.h"
 #include "engines/idtech3/formats/shader.h"
+#include "engines/idtech3/raven/effects.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -472,9 +473,94 @@ int cmdGhoul2Check(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+int cmdEfxCheck(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 efx-check <game folder>\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    namespace raven = reluva::idtech3::raven;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    q3::ShaderLibrary shaders;
+    shaders.load(set, gameOfFolder(argv[2]).shaderDir);
+    // Every effect registered as a client game would, its media noted.
+    std::set<std::string> shaderNames;
+    std::set<std::string> modelNames;
+    std::set<std::string> soundNames;
+    raven::EffectSystem::Host host;
+    host.registerShader = [&](const std::string &n) { return shaderNames.insert(n), 1; };
+    host.registerModel = [&](const std::string &n) { return modelNames.insert(n), 1; };
+    host.registerSound = [&](const std::string &n) { return soundNames.insert(n), 1; };
+    raven::EffectSystem fx(set, host);
+    static const char *const kTypes[] = {"particle",         "line",        "tail",    "sound",
+                                         "cylinder",         "electricity", "emitter", "decal",
+                                         "orientedparticle", "fxrunner",    "light",   "cameraShake"};
+    std::map<std::string, int> types;
+    int files = 0;
+    int failed = 0;
+    for (const std::string &name : set.list()) {
+        const std::string lower = reluva::fs::toLower(name);
+        if (lower.rfind("effects/", 0) != 0 || lower.size() < 4 || lower.compare(lower.size() - 4, 4, ".efx") != 0)
+            continue;
+        ++files;
+        std::vector<uint8_t> data;
+        raven::EffectFile file;
+        std::vector<std::string> warnings;
+        if (set.read(name, data) ||
+            !raven::parseEffectFile(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), file,
+                                    &warnings)) {
+            std::printf("%s: can't be read\n", name.c_str());
+            ++failed;
+            continue;
+        }
+        for (const std::string &w : warnings)
+            std::printf("%s: %s\n", name.c_str(), w.c_str());
+        for (const raven::EffectPrimitive &p : file.primitives)
+            ++types[kTypes[size_t(p.type)]];
+        if (!fx.registerEffect(name)) {
+            std::printf("%s: not registered\n", name.c_str());
+            ++failed;
+        }
+    }
+    std::printf("%d effect files, %zu registered with those they run:", files, fx.registered());
+    for (const auto &[type, n] : types)
+        std::printf(" %s %d", type.c_str(), n);
+    std::printf("\n");
+    // Their media, each as the engine would find it (a sound by its name, or
+    // its stem with .wav or .mp3).
+    int missing = 0;
+    for (const std::string &n : shaderNames)
+        if (!shaders.find(n) && q3::findImage(set, n).empty()) {
+            std::printf("shader not found: %s\n", n.c_str());
+            ++missing;
+        }
+    for (const std::string &n : modelNames)
+        if (!set.has(n)) {
+            std::printf("model not found: %s\n", n.c_str());
+            ++missing;
+        }
+    for (const std::string &n : soundNames) {
+        const size_t slash = n.rfind('/');
+        const std::string stem = n.substr(0, n.find('.', slash == std::string::npos ? 0 : slash));
+        if (!set.has(n) && !set.has(stem + ".wav") && !set.has(stem + ".mp3")) {
+            std::printf("sound not found: %s\n", n.c_str());
+            ++missing;
+        }
+    }
+    std::printf("%zu shaders, %zu models, %zu sounds named: %d not found\n", shaderNames.size(), modelNames.size(),
+                soundNames.size(), missing);
+    return failed ? 1 : 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
+        {"efx-check", "<game folder>",
+         "read every effect file (effects/*.efx): what can't be read, and the shaders, models and sounds they "
+         "name that can't be found",
+         cmdEfxCheck},
         {"ghoul2-check", "<game folder> [name filter]",
          "read every Ghoul2 mesh (.glm) and skeleton (.gla); each mesh against its skeleton and shaders",
          cmdGhoul2Check},

@@ -54,7 +54,7 @@ enum Jk2CgameCall : int {
     kGetEntityToken = 252,
     kInPvs = 253,
     kFxRegisterEffect = 254,
-    kFxAddSprite = 269, // 255 to 269: effects played and drawn
+    kFxAddSprite = 269, // 254 to 269 and 218: the effects calls (cgame_effects.cpp)
     kSpPrint = 270,
     kSpGetStringTextString = 271,
     kSpRegister = 272,
@@ -186,11 +186,8 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
                            });
     if (number >= kPcAddGlobalDefine && number <= kPcRemoveAllGlobalDefines)
         return _scripts.call(vm, botlib::ScriptCalls::Call(number - kPcAddGlobalDefine), a);
-    if (number > kFxRegisterEffect && number <= kFxAddSprite) {
-        // Effects played: not drawn yet, counted.
-        ++_unhandled[number];
-        return 0;
-    }
+    if (number == kFxAddLine || (number >= kFxRegisterEffect && number <= kFxAddSprite))
+        return jk2EffectCall(vm, number, a);
     if (number >= kG2ListSurfaces && number <= kG2SetNewOrigin) {
         // Ghoul2's, in the client game's own order.
         using G = jk2::Ghoul2Instances;
@@ -255,7 +252,6 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     case kRemapShader:
     case kSetLightStyle:
     case kGetBmodelVerts:
-    case kFxAddLine:
     case kSetClientForceAngle:
     case kSetClientTurnExtent:
         ++_unhandled[number];
@@ -323,8 +319,6 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
             return 0;
         return _map->clusterVisible(_map->leafs[size_t(l1)].cluster, _map->leafs[size_t(l2)].cluster) ? 1 : 0;
     }
-    case kFxRegisterEffect:
-        return _effects.add(str(0, 256));
     case kSpPrint:
         return 0;
     case kSpRegister:

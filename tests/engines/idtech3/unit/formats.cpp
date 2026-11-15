@@ -18,6 +18,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/raven/effects.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
@@ -483,6 +484,90 @@ static void testRavenText() {
     // Three letters and spaces at most; colour codes and new lines don't count.
     CHECK(font.layout("^1A\nA AA", 0, 0, 1, -1, 3).size() == 2);
     CHECK(parseFontdat(std::vector<uint8_t>(100), "x", font));
+}
+
+static void testEffects() {
+    using raven::EffectPrimitive;
+    using raven::EffectSystem;
+    // An effect file: its pairs, lists and groups; a primitive the engine
+    // doesn't know ("flash") skipped.
+    const char *text = "// a test\n"
+                       "Particle\n{\n"
+                       "\tcount 2 4\n"
+                       "\tlife 1000\n"
+                       "\tflags useAlpha\n"
+                       "\tspawnFlags cheapOrgCalc absoluteVel\n"
+                       "\torigin 1 2 3 4 5 6\n"
+                       "\tvelocity 100 0 0\n"
+                       "\talpha\n\t{\n\t\tstart 1\n\t\tend 0\n\t\tflags linear\n\t}\n"
+                       "\tsize\n\t{\n\t\tstart 2 3\n\t\tflags linear nonlinear\n\t}\n"
+                       "\tshaders\n\t[\n\t\tgfx/a\n\t\tgfx/b\n\t]\n"
+                       "}\n"
+                       "Flash\n{\n\tlife 5\n}\n"
+                       "Sound\n{\n\tsounds\n\t[\n\t\tsound/x.wav\n\t]\n}\n";
+    raven::EffectFile file;
+    std::vector<std::string> warnings;
+    CHECK(raven::parseEffectFile(text, file, &warnings));
+    CHECK(file.primitives.size() == 2 && warnings.size() == 1);
+    const EffectPrimitive &p = file.primitives[0];
+    CHECK(p.type == EffectPrimitive::kParticle && p.count.min == 2 && p.count.max == 4 && p.life.min == 1000);
+    CHECK(p.flags == (EffectPrimitive::kUseAlpha | EffectPrimitive::kLinear |
+                      ((EffectPrimitive::kLinear | EffectPrimitive::kNonLinear) << EffectPrimitive::kSizeShift)));
+    CHECK(p.spawnFlags == (EffectPrimitive::kCheapOrgCalc | EffectPrimitive::kAbsoluteVelocity));
+    CHECK(p.origin[0].min == 1 && p.origin[0].max == 4 && p.origin[2].max == 6);
+    CHECK(p.size.start.min == 2 && p.size.start.max == 3 && p.alpha.end.min == 0);
+    CHECK(p.media.size() == 2 && p.media[1].second == "gfx/b");
+    CHECK(file.primitives[1].type == EffectPrimitive::kSound && file.primitives[1].media.size() == 1);
+
+    // Played: a particle moving and fading at once, a line after its delay.
+    SearchSet set;
+    auto zip = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_effects.pk3";
+    const std::string efx = "Particle\n{\n\tlife 1000\n\tflags useAlpha\n\tspawnFlags absoluteVel\n"
+                            "\tvelocity 100 0 0\n\talpha\n\t{\n\t\tstart 1\n\t\tend 0\n\t\tflags linear\n\t}\n"
+                            "\tshader gfx/a\n}\n"
+                            "Line\n{\n\tdelay 500\n\tlife 1000\n\tspawnFlags cheapOrg2Calc\n\torigin2 10 0 0\n"
+                            "\tshader gfx/b\n}\n";
+    test::writeFile(path, test::buildZip({{"effects/test.efx", std::vector<uint8_t>(efx.begin(), efx.end()), {}}}));
+    CHECK(!zip->open(path));
+    set.add(std::move(zip), 0);
+    std::vector<std::string> shaders;
+    EffectSystem::Host host;
+    host.registerShader = [&](const std::string &n) {
+        shaders.push_back(n);
+        return int32_t(shaders.size());
+    };
+    EffectSystem fx(set, host);
+    const int32_t id = fx.registerEffect("effects/test.efx");
+    CHECK(id == 1 && fx.registerEffect("TEST") == 1 && fx.registerEffect("missing") == 0);
+    CHECK(shaders == std::vector<std::string>({"gfx/a", "gfx/b"}));
+    const EffectSystem::Axis view{EffectSystem::Vec3{1, 0, 0}, EffectSystem::Vec3{0, 1, 0},
+                                  EffectSystem::Vec3{0, 0, 1}};
+    fx.setTime(0, {-100, 0, 0}, view);
+    fx.play(id, {0, 0, 0}, EffectSystem::Vec3{1, 0, 0});
+    CHECK(fx.live() == 1 && fx.scheduled() == 1);
+    auto near = [](float a, float b) { return std::fabs(a - b) < 1e-3f; };
+    EffectSystem::Frame frame;
+    fx.setTime(100, {-100, 0, 0}, view);
+    fx.run(frame);
+    // 100 ms at 100 units a second: 10, and half again of the velocity
+    // times the time squared, as the original moves things.
+    CHECK(frame.drawn.size() == 1 && frame.drawn[0].kind == EffectSystem::Drawn::kSprite);
+    CHECK(near(frame.drawn[0].origin[0], 10.5f) && frame.drawn[0].media == 1);
+    CHECK(frame.drawn[0].rgba[3] == uint8_t(0.9f * 255));
+    frame = {};
+    fx.setTime(600, {-100, 0, 0}, view);
+    fx.run(frame);
+    CHECK(frame.drawn.size() == 2 && fx.scheduled() == 0);
+    CHECK(frame.drawn[1].kind == EffectSystem::Drawn::kLine && near(frame.drawn[1].end[0], 10));
+    // Past the particle's life: only the line is left.
+    frame = {};
+    fx.setTime(1200, {-100, 0, 0}, view);
+    fx.run(frame);
+    CHECK(frame.drawn.size() == 1 && frame.drawn[0].kind == EffectSystem::Drawn::kLine && fx.live() == 1);
+    fx.clear();
+    CHECK(fx.live() == 0 && fx.registered() == 0);
+    std::filesystem::remove(path);
 }
 
 static void testGhoul2Instances() {
@@ -997,6 +1082,7 @@ static const reluva::test::Suite
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
+               {"effects", [](const std::filesystem::path &) { testEffects(); }},
                {"raven text", [](const std::filesystem::path &) { testRavenText(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},

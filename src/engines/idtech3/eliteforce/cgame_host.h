@@ -11,6 +11,7 @@
 #include "engines/idtech3/botlib/script_calls.h"
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/jk2/font_set.h"
+#include "engines/idtech3/raven/effects.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/client/scene.h"
 #include "engines/idtech3/formats/marks.h"
@@ -121,6 +122,8 @@ public:
     // Jedi Outcast's Ghoul2 instances (its players, weapons, sabers), by the
     // numbers its entities hold, to draw.
     jk2::Ghoul2Instances &ghoul2() { return _ghoul2; }
+    // Jedi Outcast's effects, as its effects calls run them.
+    const raven::EffectSystem &effects() const { return _fx; }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
     const std::string &collisionMap() const { return _collisionMap; }
@@ -149,6 +152,11 @@ private:
     // share (-1 for one of its own), and its own calls.
     static int32_t jk2SharedCall(int32_t number);
     int32_t jk2Call(Qvm &vm, int number, const int32_t *args);
+    // Its effects calls (jk2/cgame_effects.cpp): what the effects system asks
+    // of the client game and the world, and what it draws put in the scene.
+    int32_t jk2EffectCall(Qvm &vm, int number, const int32_t *args);
+    raven::EffectSystem::Host effectHost();
+    void addEffects(const raven::EffectSystem::Frame &frame);
     void writeGameState(int32_t address);
     void writeGlconfig(int32_t address);
 
@@ -196,19 +204,19 @@ private:
     int32_t _forceSelect = 0;
     int32_t _inventorySelect = 0;
     // Jedi Outcast's own calls' state: its text and menu scripts, its
-    // string packages, the effects it registered, its Ghoul2 instances
-    // (the models' names, by the number it holds).
+    // string packages, its Ghoul2 instances (by the number it holds), its
+    // effects.
     jk2::FontSet _fonts{_files, _shaders};
     botlib::ScriptCalls _scripts{_files};
     raven::StringTable _strings;
     bool _stringsLoaded = false;
-    HandleTable _effects;
     std::vector<int32_t> _uiMenus;
     int32_t _catcher = 0;
     size_t _entityTokenPos = 0;
     int32_t _sharedBuffer = 0;
     int32_t _sharedBufferSize = 0;
     jk2::Ghoul2Instances _ghoul2{_files};
+    raven::EffectSystem _fx{_files, effectHost()};
 };
 
 } // namespace reluva::idtech3::eliteforce

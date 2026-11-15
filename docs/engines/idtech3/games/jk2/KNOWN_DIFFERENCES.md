@@ -45,8 +45,11 @@ In the multiplayer menus:
 
 - **Join** doesn't join a server until the network protocol comes
   (phase 6); Begin's local match plays.
-- **Effects** (Raven's `.efx`: blaster bolts, sparks) aren't drawn yet,
-  nor are light styles animated.
+- **Effects** ([efx.md](../../formats/efx.md)): electricity is drawn
+  without its taper and branches, and effects bolted to a model aren't
+  played (1.02a's client game doesn't ask). The second triangle of a
+  saber's trail is given its corners' own alpha, where Raven's code
+  leaves two of them unset. Light styles aren't animated yet.
 - **The favourite servers** are kept in `favorites.txt` (address and
   name a line) in the game's save folder, not in the
   original's `servercache.dat`; the other lists aren't kept between runs

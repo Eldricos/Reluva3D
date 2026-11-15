@@ -19,11 +19,14 @@
 #   jk2-ghoul2    every Ghoul2 mesh and skeleton read, each mesh against
 #                 its skeleton (ghoul2-check)
 #   jk2-images    the images every map's shaders name (image-check)
+#   jk2-effects   every effect file read and registered, with the shaders,
+#                 models and sounds it names (efx-check)
 #   jk2-videos    two RoQ videos decoded, their pictures and sound recorded
 #                 (roq-decode)
 #   jk2-game      the multiplayer game module: ffa_bespin with the player
 #                 joining and running forward, then with two bots, then
-#                 with the client game drawing the player's view (game-run;
+#                 with the client game drawing the player's view and its
+#                 effects as it fires (game-run;
 #                 g_maxForceRank 7, as the player's default force powers
 #                 are rank 7 and the force menu isn't there to lower them)
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
@@ -56,6 +59,8 @@ elseif(STEP STREQUAL "jk2-maps")
     record_run(bsp-check "maps: " idtech3 bsp-check "${base}")
 elseif(STEP STREQUAL "jk2-shaders")
     record_run(shader-check "" idtech3 shader-check "${base}")
+elseif(STEP STREQUAL "jk2-effects")
+    record_run(efx-check "" idtech3 efx-check "${base}")
 elseif(STEP STREQUAL "jk2-models")
     record_run(model-check "" idtech3 model-check "${base}")
 elseif(STEP STREQUAL "jk2-ghoul2")
@@ -77,7 +82,7 @@ elseif(STEP STREQUAL "jk2-game")
     record_run(ffa_bespin-walk "start level" idtech3 game-run "${base}" ffa_bespin -frames 40 ${join} -walk forward)
     record_run(ffa_bespin-bots "start level" idtech3 game-run "${base}" ffa_bespin -frames 100 ${join}
                -addbot "Tavion 3" -addbot "Desann 3")
-    record_run(ffa_bespin-cgame "start level" idtech3 game-run "${base}" ffa_bespin -frames 10 ${join} -cgame)
+    record_run(ffa_bespin-cgame "start level" idtech3 game-run "${base}" ffa_bespin -frames 10 ${join} -cgame -fire)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

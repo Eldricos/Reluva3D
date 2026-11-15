@@ -648,7 +648,22 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         const float r = readFloat(e, _layout.radius);
         V l = left;
         V u = up;
-        if (type == _layout.typeQuad) {
+        if (type == _layout.typeQuad && _layout.quadFacesAxis) {
+            // Square to the way it faces, then turned (Quake III's
+            // MakeNormalVectors).
+            const V forward = normalized(readVec(e, _layout.axes));
+            V right{forward[2], -forward[0], forward[1]};
+            const float d = right[0] * forward[0] + right[1] * forward[1] + right[2] * forward[2];
+            right = normalized(add(right, forward, -d));
+            const V upward = cross(right, forward);
+            const float deg = readFloat(e, _layout.rotation);
+            const float c = std::cos(deg * kPi / 180);
+            const float sn = std::sin(deg * kPi / 180);
+            for (size_t i = 0; i < 3; ++i) {
+                l[i] = right[i] * c - upward[i] * sn;
+                u[i] = upward[i] * c + right[i] * sn;
+            }
+        } else if (type == _layout.typeQuad) {
             l = readVec(e, _layout.axes + 12);
             u = readVec(e, _layout.axes + 24);
         } else if (const float deg = readFloat(e, _layout.rotation); deg != 0) {
@@ -664,7 +679,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
     } else if (type == _layout.typeLine || type == _layout.typeOrientedLine || type == _layout.typeTaperedLine) {
         const float w0 = readFloat(e, _layout.width);
         const float w1 = type == _layout.typeTaperedLine ? readFloat(e, _layout.endWidth) : w0;
-        const float repeat = readFloat(e, _layout.repeat) > 0 ? readFloat(e, _layout.repeat) : 1.0f;
+        const float repeat = _layout.repeat && readFloat(e, _layout.repeat) > 0 ? readFloat(e, _layout.repeat) : 1.0f;
         const V across = normalized(readVec(e, _layout.axes + 12));
         ribbon({origin, readVec(e, _layout.oldOrigin)}, {w0, w1}, repeat,
                type == _layout.typeOrientedLine ? &across : nullptr);
@@ -732,21 +747,24 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
             }
             points.push_back(p);
         }
-        const float scale = readFloat(e, _layout.repeat);
+        const float scale = _layout.repeat ? readFloat(e, _layout.repeat) : 0.0f;
         ribbon(points, std::vector<float>(points.size(), readFloat(e, _layout.width)),
                scale > 0 ? len * scale / 16 : 1);
     } else if (type == _layout.typeCylinder) {
-        // A ring or cone around the first axis: the radius at 132 at the
-        // origin, the one at 136 a height (140) along the axis; the texture
-        // round it (repeated as 144 says) and up it.
+        // A ring or cone around the first axis: the first width at its base
+        // (the origin, or the game's other point), the second at its top (a
+        // height along the axis, or the origin); the texture round it
+        // (repeated as the game says) and up it.
         const V axis = normalized(readVec(e, _layout.axes));
         const V a1 = normalized(readVec(e, _layout.axes + 12));
         const V a2 = normalized(cross(axis, a1));
         const float r0 = readFloat(e, _layout.width);
         const float r1 = readFloat(e, _layout.endWidth);
-        const float height = readFloat(e, _layout.repeat);
-        const float around = readFloat(e, _layout.cylinderRepeat) > 0 ? readFloat(e, _layout.cylinderRepeat) : 1.0f;
-        const V top = add(origin, axis, height);
+        const float around = _layout.cylinderRepeat && readFloat(e, _layout.cylinderRepeat) > 0
+                                 ? readFloat(e, _layout.cylinderRepeat)
+                                 : 1.0f;
+        const V base = _layout.cylinderBase ? readVec(e, _layout.cylinderBase) : origin;
+        const V top = _layout.cylinderBase ? origin : add(origin, axis, readFloat(e, _layout.repeat));
         constexpr int kSides = 24;
         uint32_t prevA = 0;
         uint32_t prevB = 0;
@@ -755,7 +773,7 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
             const V radial =
                 add(V{a1[0] * std::cos(ang), a1[1] * std::cos(ang), a1[2] * std::cos(ang)}, a2, std::sin(ang));
             const float s = around * float(i) / kSides;
-            const uint32_t a = vertex(add(origin, radial, r0), s, 1);
+            const uint32_t a = vertex(add(base, radial, r0), s, 1);
             const uint32_t b = vertex(add(top, radial, r1), s, 0);
             if (i)
                 quad(prevA, a, b, prevB);
