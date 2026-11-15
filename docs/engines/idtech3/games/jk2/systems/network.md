@@ -80,6 +80,15 @@ Messages after the netchan header are Huffman-coded:
   bytes above 127 into `.`.
 - A message ends with an end marker: 9 from the server (after
   `svc_mapchange`, 8), 5 from the client.
+- **A message's size** is a byte more than its last bit's (the writer,
+  0x431010, sets it to bit / 8 + 1 after every write), so one ending on a
+  byte boundary carries a byte of nothing. It matters: the readers take a
+  read that ends at the size as past the end (a long comes back as −1),
+  and the client drops a server message read past its end.
+- Signed fields (a negative bit count in the tables) are read back
+  extended from their top bit.
+- A user command's 16-bit fields (angles, buttons) are read back with the
+  key's bits above 16 left in them, at both ends.
 
 #### The Huffman code
 
@@ -213,10 +222,24 @@ every server has since Raven's authorize server went).
   - Live, November 2026: the Play page's match found and joined over the
     system's sockets by `net-run -join`, and a `net-run` server found by
     Join Server's local list (on 28070), joined from it, and played.
-  - Not yet against the retail game, either way.
+  - `reluva-tool idtech3 delta-check <jk2mp.exe> [pairs]` runs
+    jk2mp.exe's own entity and player-state delta writers and readers
+    (0x431aa0, 0x431cd0, 0x431f60, 0x432340), its keyed user-command
+    writer and reader (0x431750, 0x431900) and its client's XOR
+    (0x40e0c0) in the x86 interpreter beside Reluva's, on made-up states
+    that use every field of its tables (73 an entity's, 105 a player's,
+    and the player's four arrays): 2,000 of each, November 2026, all
+    written to the same bits and size and read back the same either way.
+    It found Reluva's messages a byte short when their bits ended on a
+    byte boundary (above), which the retail game would have read as past
+    their end.
+  - Not yet played against the retail game, either way: the handshake,
+    the game state and snapshots as whole messages, and the netchan's
+    headers and fragments are checked only between Reluva's ends.
 
 ### Open questions
 
 - Whether the retail game takes Reluva's server and client as they are:
-  every table and the Huffman code are its own, but nothing has been
-  played against it yet.
+  every table, the Huffman code, the deltas, the commands and the
+  client's XOR agree with its own routines, but nothing has been played
+  against it yet.

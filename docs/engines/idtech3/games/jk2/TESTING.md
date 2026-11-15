@@ -44,7 +44,9 @@ another machine (or `reluva-tool idtech3 net-run <base> -join
 <address>`), and a server (`net-run <base> ffa_bespin 300 -set sv_pure
 0`) found and joined from Join Server; the message code against
 jk2mp.exe's own (`reluva-tool idtech3 huffman-check <jk2mp.exe>`, which
-needs an install: an import has no jk2mp.exe); Join Server's lists
+needs an install: an import has no jk2mp.exe), and the deltas, commands
+and XOR too (`reluva-tool idtech3 delta-check <jk2mp.exe>`); Join
+Server's lists
 against real servers: the local network, the Internet (Get New List with
 Source: Internet), a favourite added and kept after restarting, and
 Server Info on one.
@@ -58,3 +60,4 @@ Not playable yet.
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
 | 2026-11-14 | English 1.02a | Linux | The files' layout and headers, for the plan; detection, `reluva-tool import` from the CD's files and an install, the game-files steps; every map in the World page; Ghoul2 people and droids in the Models page |
+| 2026-11-15 | English 1.02a | Linux | `huffman-check` and `delta-check` against the install's jk2mp.exe: all agree |

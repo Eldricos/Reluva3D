@@ -589,6 +589,20 @@ static void testJk2Wire() {
     const std::vector<uint8_t> packed = wire::Huffman::compress(plain, 12);
     CHECK(std::equal(plain.begin(), plain.begin() + 12, packed.begin()));
     CHECK(wire::Huffman::decompress(packed, 12) == plain);
+    // A message in the code is a byte longer than its last bit's, even on a
+    // byte boundary, as jk2mp.exe's (its readers take a read ending at the
+    // last byte as past the end).
+    {
+        wire::MessageWriter sized(&code);
+        bool boundary = false;
+        bool always = true;
+        for (uint32_t v = 0; v < 64; ++v) {
+            sized.bits(v * 37, int(1 + v % 13));
+            boundary = boundary || sized.bitCount() % 8 == 0;
+            always = always && sized.bytes().size() == sized.bitCount() / 8 + 1;
+        }
+        CHECK(boundary && always);
+    }
     // Messages in the code: odd widths, strings (bytes above 127 become
     // '.'), raw bytes, none aligned.
     wire::MessageWriter w(&code);

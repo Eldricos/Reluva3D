@@ -12,6 +12,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
+#include "engines/idtech3/eliteforce/net_protocol.h"
 #include "engines/idtech3/eliteforce/net_server.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/client/server_browser.h"
@@ -562,6 +563,421 @@ int cmdHuffmanCheck(int argc, char **argv) {
     return differ || compressDiffer ? 1 : 0;
 }
 
+// Jedi Outcast's entity and player-state deltas, keyed user commands and
+// the client's XOR against jk2mp.exe's own
+// (1.02a's), run in the x86 interpreter on made-up states that use every
+// field of its tables: what each writes must be the same bits, and what
+// each reads back from the other's the same state.
+int cmdDeltaCheck(int argc, char **argv) {
+    if (argc < 3 || argc > 4) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 delta-check <jk2mp.exe> [pairs]\n");
+        return 2;
+    }
+    namespace jk2 = reluva::idtech3::jk2;
+    constexpr uint32_t kBuildTree = 0x4326f0;
+    constexpr uint32_t kWriteEntity = 0x431aa0;
+    constexpr uint32_t kReadEntity = 0x431cd0;
+    constexpr uint32_t kWritePlayer = 0x431f60;
+    constexpr uint32_t kReadPlayer = 0x432340;
+    constexpr uint32_t kReadBits = 0x4311b0;
+    constexpr uint32_t kWriteCommand = 0x431750;
+    constexpr uint32_t kReadCommand = 0x431900;
+    constexpr uint32_t kEntityFields = 0x4f5ab0;
+    constexpr uint32_t kPlayerFields = 0x4f5e20;
+    constexpr uint32_t kShowNet = 0x8ca3d0; // cl_shownet, read by the readers
+    constexpr uint32_t kMemory = 32u << 20;
+    constexpr uint32_t kScratch = kMemory - (4u << 20);
+    constexpr uint32_t kCvar = kScratch;
+    constexpr uint32_t kMsg = kScratch + 0x100;
+    constexpr uint32_t kData = kScratch + 0x1000;
+    constexpr uint32_t kDataSize = 0x10000;
+    constexpr uint32_t kFrom = kScratch + 0x20000;
+    constexpr uint32_t kTo = kScratch + 0x22000;
+    constexpr uint32_t kOut = kScratch + 0x24000;
+    // msg_t: data, maxsize, cursize, readcount, bit.
+    constexpr uint32_t kMsgData = 12;
+    constexpr uint32_t kMsgMaxSize = 16;
+    constexpr uint32_t kMsgSize = 20;
+    constexpr uint32_t kMsgBit = 28;
+    const int pairs = argc == 4 ? std::max(1, std::atoi(argv[3])) : 500;
+    Bytes file;
+    if (!readFile(argv[2], file))
+        return 1;
+    reluva::PeImage pe;
+    if (reluva::Error err = reluva::parsePe(file, pe)) {
+        std::fprintf(stderr, "%s: %s\n", argv[2], err.message.c_str());
+        return 1;
+    }
+    reluva::x86::Cpu cpu(kMemory);
+    for (const auto &sec : pe.sections)
+        for (uint32_t i = 0; i < sec.rawSize && i < sec.virtualSize && sec.rawOffset + i < file.size(); ++i)
+            cpu.write8(uint32_t(pe.imageBase) + sec.virtualAddress + i, file[sec.rawOffset + i]);
+    if (cpu.read32(kBuildTree + 0x1d) != 0x4f6310 || cpu.read32(kReadEntity + 0x76) != kShowNet) {
+        std::fprintf(stderr, "%s: not 1.02a's jk2mp.exe\n", argv[2]);
+        return 1;
+    }
+    cpu.setStack(kMemory - 4096);
+    uint32_t result = 0;
+    auto run = [&](uint32_t at, std::initializer_list<uint32_t> args) {
+        if (reluva::Error err = cpu.call(at, args, result)) {
+            std::fprintf(stderr, "running jk2mp.exe's routine at 0x%x: %s\n", at, err.message.c_str());
+            std::exit(1);
+        }
+        return result;
+    };
+    run(kBuildTree, {});
+    cpu.write32(kShowNet, kCvar); // its integer (at 32) 0
+    // A table's fields: name, offset, bits (0: a float), until the names end.
+    struct Field {
+        uint32_t offset;
+        int32_t bits;
+    };
+    auto fields = [&](uint32_t table, uint32_t stateSize) {
+        std::vector<Field> out;
+        for (uint32_t at = table;; at += 12) {
+            const uint32_t name = cpu.read32(at);
+            const uint32_t offset = cpu.read32(at + 4);
+            if (name < 0x4e4000 || name >= 0x511000 || offset + 4 > stateSize)
+                break;
+            out.push_back({offset, int32_t(cpu.read32(at + 8))});
+        }
+        return out;
+    };
+    const std::vector<Field> entityFields = fields(kEntityFields, jk2::kNetEntityStateSize);
+    const std::vector<Field> playerFields = fields(kPlayerFields, jk2::kNetPlayerStateSize);
+    uint32_t seed = 7;
+    auto random = [&] {
+        seed = seed * 1103515245u + 12345u;
+        return seed >> 8;
+    };
+    auto put = [](std::vector<uint8_t> &state, uint32_t at, uint32_t v) { std::memcpy(state.data() + at, &v, 4); };
+    // A field's value: floats whole (small or not) or not, ints any of their bits.
+    auto value = [&](const Field &f) {
+        if (f.bits == 0) {
+            float v = 0;
+            switch (random() % 4) {
+            case 1:
+                v = float(int(random() % 8192) - 4096);
+                break;
+            case 2:
+                v = float(int(random() % 200000) - 100000);
+                break;
+            case 3:
+                v = float(int(random() % 20000) - 10000) / 7.0f;
+                break;
+            default:
+                break;
+            }
+            uint32_t bits = 0;
+            std::memcpy(&bits, &v, 4);
+            return bits;
+        }
+        // Negative counts are signed: read back extended from the top bit.
+        const int n = std::abs(f.bits);
+        uint32_t v = random() ^ (random() << 16);
+        if (n < 32) {
+            v &= (1u << n) - 1;
+            if (f.bits < 0 && (v >> (n - 1)) & 1)
+                v |= ~((1u << n) - 1);
+        }
+        return v;
+    };
+    // A pair of states: "from" empty a quarter of the time, each field of
+    // "to" changed half of the time. Words outside the tables stay 0.
+    auto makePair = [&](const std::vector<Field> &table, size_t size, std::vector<uint8_t> &from,
+                        std::vector<uint8_t> &to) {
+        from.assign(size, 0);
+        to.assign(size, 0);
+        const bool empty = random() % 4 == 0;
+        for (const Field &f : table) {
+            const uint32_t was = empty ? 0 : value(f);
+            put(from, f.offset, was);
+            put(to, f.offset, random() % 2 ? value(f) : was);
+        }
+    };
+    // Player states' 16-bit arrays (stats, persistant, ammo), sent after
+    // the fields by bit masks.
+    auto put16 = [&](std::vector<uint8_t> &state, uint32_t first, int count) {
+        for (int i = 0; i < count; ++i)
+            if (random() % 3 == 0)
+                put(state, first + 4 * uint32_t(i), random() % 30000);
+    };
+    auto load = [&](uint32_t at, const std::vector<uint8_t> &bytes) {
+        for (size_t i = 0; i < bytes.size(); ++i)
+            cpu.write8(at + uint32_t(i), bytes[i]);
+    };
+    auto fetch = [&](uint32_t at, size_t size) {
+        std::vector<uint8_t> out(size);
+        for (size_t i = 0; i < size; ++i)
+            out[i] = cpu.read8(at + uint32_t(i));
+        return out;
+    };
+    auto newMsg = [&](const std::vector<uint8_t> &bytes) {
+        for (uint32_t i = 0; i < 32; i += 4)
+            cpu.write32(kMsg + i, 0);
+        for (uint32_t i = 0; i < kDataSize; ++i)
+            cpu.write8(kData + i, i < bytes.size() ? bytes[i] : 0);
+        cpu.write32(kMsg + kMsgData, kData);
+        cpu.write32(kMsg + kMsgMaxSize, kDataSize);
+        cpu.write32(kMsg + kMsgSize, uint32_t(bytes.size()));
+    };
+    // The written bits and the message's size the same.
+    auto sameBits = [&](const reluva::idtech3::wire::MessageWriter &w) {
+        const uint32_t bits = cpu.read32(kMsg + kMsgBit);
+        if (bits != w.bitCount() || cpu.read32(kMsg + kMsgSize) != w.bytes().size())
+            return false;
+        for (uint32_t i = 0; i < (bits + 7) / 8; ++i)
+            if (cpu.read8(kData + i) != w.bytes()[i])
+                return false;
+        return true;
+    };
+    const auto *code = &jk2::messageHuffman();
+    int entityWriteDiffer = 0;
+    int entityReadDiffer = 0;
+    int playerWriteDiffer = 0;
+    int playerReadDiffer = 0;
+    size_t entityBits = 0;
+    size_t playerBits = 0;
+    std::vector<uint8_t> from;
+    std::vector<uint8_t> to;
+    for (int n = 0; n < pairs; ++n) {
+        makePair(entityFields, jk2::kNetEntityStateSize, from, to);
+        const uint32_t number = random() % 1022;
+        put(from, 0, number);
+        put(to, 0, number);
+        load(kFrom, from);
+        load(kTo, to);
+        newMsg({});
+        run(kWriteEntity, {kMsg, kFrom, kTo, uint32_t(n % 8 == 0)});
+        reluva::idtech3::wire::MessageWriter w(code);
+        jk2::writeEntityDelta(w, from, to, n % 8 == 0);
+        entityBits += w.bitCount();
+        if (!sameBits(w)) {
+            if (entityWriteDiffer < 4)
+                std::printf("entity pair %d: jk2mp.exe writes %u bits, Reluva %zu\n", n, cpu.read32(kMsg + kMsgBit),
+                            w.bitCount());
+            ++entityWriteDiffer;
+            continue;
+        }
+        if (w.bitCount() == 0)
+            continue;
+        // Each reads the other's (the same bits), from the number on.
+        newMsg(w.bytes());
+        const uint32_t readNumber = run(kReadBits, {kMsg, 10});
+        load(kOut, std::vector<uint8_t>(jk2::kNetEntityStateSize, 0));
+        run(kReadEntity, {kMsg, kFrom, kOut, readNumber});
+        const std::vector<uint8_t> theirs = fetch(kOut, jk2::kNetEntityStateSize);
+        reluva::idtech3::wire::MessageReader r(w.bytes(), code);
+        std::vector<uint8_t> mine;
+        const int32_t myNumber = int32_t(r.bits(10));
+        const bool removed = jk2::readEntityDelta(r, myNumber, from, mine);
+        // An entity gone from the snapshot: the original gives its state no number (1023).
+        if (removed ? cpu.read32(kOut) != 1023 : (theirs != mine || mine != to || uint32_t(myNumber) != readNumber)) {
+            if (entityReadDiffer < 4) {
+                size_t at = 0;
+                while (at + 4 < mine.size() && std::memcmp(&theirs[at], &mine[at], 4) == 0 &&
+                       std::memcmp(&mine[at], &to[at], 4) == 0)
+                    at += 4;
+                uint32_t t = 0;
+                uint32_t m = 0;
+                uint32_t e = 0;
+                std::memcpy(&t, &theirs[at], 4);
+                std::memcpy(&m, &mine[at], 4);
+                std::memcpy(&e, &to[at], 4);
+                std::printf("entity pair %d: read back differently at %zu (jk2mp.exe 0x%x, Reluva 0x%x, sent 0x%x)\n",
+                            n, at, t, m, e);
+            }
+            ++entityReadDiffer;
+        }
+    }
+    for (int n = 0; n < pairs; ++n) {
+        makePair(playerFields, jk2::kNetPlayerStateSize, from, to);
+        // stats at 216, persistant at 280, ammo at 408 (as the writer reads
+        // them, 16 bits sent), powerups at 344 (32 bits); 16 each.
+        for (const uint32_t at : {216u, 280u, 408u})
+            put16(to, at, 16);
+        for (uint32_t i = 0; i < 16; ++i)
+            if (random() % 3 == 0)
+                put(to, 344 + 4 * i, random() ^ (random() << 16));
+        load(kFrom, from);
+        load(kTo, to);
+        newMsg({});
+        run(kWritePlayer, {kMsg, kFrom, kTo});
+        reluva::idtech3::wire::MessageWriter w(code);
+        jk2::writePlayerDelta(w, from, to);
+        playerBits += w.bitCount();
+        if (!sameBits(w)) {
+            if (playerWriteDiffer < 4)
+                std::printf("player pair %d: jk2mp.exe writes %u bits, Reluva %zu\n", n, cpu.read32(kMsg + kMsgBit),
+                            w.bitCount());
+            ++playerWriteDiffer;
+            continue;
+        }
+        newMsg(w.bytes());
+        load(kOut, std::vector<uint8_t>(jk2::kNetPlayerStateSize, 0));
+        run(kReadPlayer, {kMsg, kFrom, kOut});
+        const std::vector<uint8_t> theirs = fetch(kOut, jk2::kNetPlayerStateSize);
+        reluva::idtech3::wire::MessageReader r(w.bytes(), code);
+        std::vector<uint8_t> mine;
+        jk2::readPlayerDelta(r, from, mine);
+        if (theirs != mine || mine != to) {
+            if (playerReadDiffer < 4) {
+                size_t at = 0;
+                while (at + 4 < mine.size() && std::memcmp(&theirs[at], &mine[at], 4) == 0 &&
+                       std::memcmp(&mine[at], &to[at], 4) == 0)
+                    at += 4;
+                uint32_t t = 0;
+                uint32_t m = 0;
+                uint32_t e = 0;
+                std::memcpy(&t, &theirs[at], 4);
+                std::memcpy(&m, &mine[at], 4);
+                std::memcpy(&e, &to[at], 4);
+                std::printf("player pair %d: read back differently at %zu (jk2mp.exe 0x%x, Reluva 0x%x, sent 0x%x)\n",
+                            n, at, t, m, e);
+            }
+            ++playerReadDiffer;
+        }
+    }
+    // User commands, keyed: usercmd_t is serverTime, angles[3], buttons,
+    // then bytes weapon, forceSelect, invenSelect, generic, forward,
+    // right, up (28 bytes).
+    using Command = reluva::idtech3::eliteforce::GameHost::UserCommand;
+    auto commandBytes = [](const Command &c) {
+        std::vector<uint8_t> b(28, 0);
+        std::memcpy(b.data(), &c.serverTime, 4);
+        std::memcpy(b.data() + 4, c.angles.data(), 12);
+        std::memcpy(b.data() + 16, &c.buttons, 4);
+        b[20] = c.weapon;
+        b[21] = c.forceSelect;
+        b[22] = c.inventorySelect;
+        b[23] = c.genericCommand;
+        b[24] = uint8_t(c.forward);
+        b[25] = uint8_t(c.right);
+        b[26] = uint8_t(c.up);
+        return b;
+    };
+    auto randomCommand = [&](const Command &before) {
+        Command c = before;
+        c.serverTime = before.serverTime + int32_t(random() % 3 ? random() % 100 : random() % 5000);
+        if (random() % 4) {
+            for (int32_t &a : c.angles)
+                a = random() % 2 ? int32_t(random() % 65536) : a;
+            c.buttons = random() % 2 ? int32_t(random() % 65536) : c.buttons;
+            c.weapon = uint8_t(random() % 2 ? random() % 20 : c.weapon);
+            c.forward = int8_t(random() % 2 ? int(random() % 255) - 127 : c.forward);
+            c.right = int8_t(random() % 2 ? int(random() % 255) - 127 : c.right);
+            c.up = int8_t(random() % 2 ? int(random() % 255) - 127 : c.up);
+            c.forceSelect = uint8_t(random() % 3 ? c.forceSelect : random() % 18);
+            c.inventorySelect = uint8_t(random() % 3 ? c.inventorySelect : random() % 16);
+            c.genericCommand = uint8_t(random() % 3 ? c.genericCommand : random() % 30);
+        }
+        return c;
+    };
+    int commandWriteDiffer = 0;
+    int commandReadDiffer = 0;
+    Command previous;
+    for (int n = 0; n < pairs; ++n) {
+        const Command next = randomCommand(previous);
+        const auto key = int32_t(random() ^ (random() << 16));
+        load(kFrom, commandBytes(previous));
+        load(kTo, commandBytes(next));
+        newMsg({});
+        run(kWriteCommand, {kMsg, uint32_t(key), kFrom, kTo});
+        reluva::idtech3::wire::MessageWriter w(code);
+        jk2::writeUserCommand(w, key, previous, next);
+        if (!sameBits(w)) {
+            if (commandWriteDiffer < 4)
+                std::printf("command %d: jk2mp.exe writes %u bits, Reluva %zu\n", n, cpu.read32(kMsg + kMsgBit),
+                            w.bitCount());
+            ++commandWriteDiffer;
+        } else {
+            newMsg(w.bytes());
+            load(kOut, std::vector<uint8_t>(28, 0));
+            run(kReadCommand, {kMsg, uint32_t(key), kFrom, kOut});
+            reluva::idtech3::wire::MessageReader r(w.bytes(), code);
+            const Command mine = jk2::readUserCommand(r, key, previous);
+            // The 16-bit fields (angles, buttons) read back with the key's
+            // bits above 16 left in, in both: only their low 16 are sent.
+            auto low16 = [](std::vector<uint8_t> v) {
+                for (size_t at = 6; at < 20; at += 4)
+                    v[at] = v[at + 1] = 0;
+                return v;
+            };
+            if (fetch(kOut, 28) != commandBytes(mine) || low16(commandBytes(mine)) != low16(commandBytes(next))) {
+                if (commandReadDiffer < 4) {
+                    auto hex = [](const std::vector<uint8_t> &v) {
+                        std::string out;
+                        for (uint8_t c : v) {
+                            char t[4];
+                            std::snprintf(t, sizeof t, "%02x", c);
+                            out += t;
+                        }
+                        return out;
+                    };
+                    std::printf("command %d: read back differently\n  jk2mp.exe %s\n  Reluva    %s\n  sent      %s\n",
+                                n, hex(fetch(kOut, 28)).c_str(), hex(commandBytes(mine)).c_str(),
+                                hex(commandBytes(next)).c_str());
+                }
+                ++commandReadDiffer;
+            }
+        }
+        previous = next;
+    }
+    // The client's XOR (0x40e0c0): from byte 12, keyed by the challenge
+    // (0x821330) and the message's server id and acknowledgement (its
+    // first longs), the text the server command its third names (slots of
+    // 1,024 bytes from 0x84134c).
+    constexpr uint32_t kClientEncode = 0x40e0c0;
+    constexpr uint32_t kChallenge = 0x821330;
+    constexpr uint32_t kServerCommands = 0x84134c;
+    int xorDiffer = 0;
+    for (int n = 0; n < pairs; ++n) {
+        reluva::idtech3::wire::MessageWriter w(code);
+        const auto serverId = int32_t(random());
+        const auto acknowledge = int32_t(random());
+        const auto reliable = int32_t(random() % 1000);
+        w.longValue(serverId);
+        w.longValue(acknowledge);
+        w.longValue(reliable);
+        std::vector<uint8_t> message = w.bytes();
+        const size_t extra = random() % 200;
+        for (size_t i = 0; i < extra; ++i)
+            message.push_back(uint8_t(random()));
+        std::string text;
+        const size_t length = random() % 4 ? random() % 60 : 0;
+        for (size_t i = 0; i < length; ++i)
+            text += char(random() % 5 ? 32 + random() % 95 : (random() % 2 ? '%' : 128 + random() % 128));
+        const auto challenge = uint8_t(random());
+        cpu.write8(kChallenge, challenge);
+        const uint32_t slot = kServerCommands + 1024 * (uint32_t(reliable) & 127);
+        for (uint32_t i = 0; i < 1024; ++i)
+            cpu.write8(slot + i, i < text.size() ? uint8_t(text[i]) : 0);
+        newMsg(message);
+        run(kClientEncode, {kMsg});
+        const auto key = uint8_t(challenge ^ uint8_t(serverId) ^ uint8_t(acknowledge));
+        std::vector<uint8_t> mine = message;
+        reluva::idtech3::eliteforce::xorMessage(mine, 12, key, text);
+        if (fetch(kData, mine.size()) != mine) {
+            if (xorDiffer < 4)
+                std::printf("XOR %d: differs from jk2mp.exe's\n", n);
+            ++xorDiffer;
+        }
+    }
+    std::printf("%zu entity fields, %zu player state fields (jk2mp.exe's tables)\n", entityFields.size(),
+                playerFields.size());
+    std::printf("%d entity deltas (%zu bits): %d written differently from jk2mp.exe, %d read back differently\n", pairs,
+                entityBits, entityWriteDiffer, entityReadDiffer);
+    std::printf("%d player deltas (%zu bits): %d written differently from jk2mp.exe, %d read back differently\n", pairs,
+                playerBits, playerWriteDiffer, playerReadDiffer);
+    std::printf("%d keyed user commands: %d written differently from jk2mp.exe, %d read back differently\n", pairs,
+                commandWriteDiffer, commandReadDiffer);
+    std::printf("%d client messages XORed: %d differ from jk2mp.exe's\n", pairs, xorDiffer);
+    return entityWriteDiffer || entityReadDiffer || playerWriteDiffer || playerReadDiffer || commandWriteDiffer ||
+                   commandReadDiffer || xorDiffer
+               ? 1
+               : 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
@@ -575,6 +991,10 @@ const Commands kCommands(
          "build Jedi Outcast's message code with jk2mp.exe's own routine in the x86 interpreter and compare "
          "every byte's code with Reluva's",
          cmdHuffmanCheck},
+        {"delta-check", "<jk2mp.exe> [pairs]",
+         "write and read entity and player-state deltas with jk2mp.exe's own routines in the x86 interpreter "
+         "and with Reluva's, on made-up states, comparing the bits and the states read back",
+         cmdDeltaCheck},
         {"net-find", "[host[:port]]",
          "look for servers on the network as the menus' list does, or ask one, printing every answer", cmdNetFind},
         {"net-master", "[master[:port]]...", "ask master servers for their lists, as the menus' Internet list does",

@@ -25,6 +25,10 @@ void MessageWriter::bits(uint32_t value, int count) {
     value = odd < 32 ? value >> odd : 0;
     for (int done = odd; done < count; done += 8, value >>= 8)
         _code->writeCode(uint8_t(value), _data, _bit);
+    // A byte past the last bit's, even on a boundary, as jk2mp.exe sizes
+    // them (0x431010): its readers take a last read ending there as past
+    // the end.
+    _data.resize((_bit >> 3) + 1, 0);
 }
 
 void MessageWriter::rawBits(uint32_t value, int count) {
