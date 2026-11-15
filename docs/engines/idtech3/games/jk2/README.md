@@ -47,10 +47,11 @@ What's next, and the order of the work: [PLAN.md](PLAN.md).
 ## Using it
 
 You need the game: the English Windows CD (or a disc image), or an install
-made by its own setup. *Add Game...* in the launcher takes the folder
-holding `base` (an install's `GameData`); *Import Game...* takes the CD,
-the install's folder or `GameData`, and copies what Reluva needs into its
-library.
+made by its own setup. *Add Game...* in the launcher plays it where it
+is: pick the install's folder, its `GameData`, or the CD (the game is
+found in `GameData` or `GAMEDATA/GameData` below the folder picked).
+*Import Game...* takes the same folders and copies what Reluva needs
+into its library.
 
 `reluva`'s Multiplayer runs the game's own menus, and Create Server's
 Begin starts a local match: choose force powers when the menu asks, then

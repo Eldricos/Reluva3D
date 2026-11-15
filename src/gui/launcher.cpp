@@ -370,6 +370,15 @@ void Launcher::handlePickedFolder() {
     }
     auto found = detectGames(*folder);
     if (found.empty()) {
+        // The folder an install was made in (Jedi Outcast's holds the game
+        // in GameData), or a CD laid out to run from (GAMEDATA/GameData):
+        // the game run from the folder below that holds it.
+        if (std::string below = gameFolderBelow(*folder).string(); !below.empty()) {
+            folder = below;
+            found = detectGames(*folder);
+        }
+    }
+    if (found.empty()) {
         // Perhaps the game's CD, or an install that isn't laid out to run
         // from: offered as an import instead.
         auto plans = planImports(*folder);

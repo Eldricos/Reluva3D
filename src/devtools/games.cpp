@@ -26,7 +26,14 @@ int cmdDetect(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool detect <folder>\n");
         return 1;
     }
-    const auto found = reluva::detectGames(argv[2]);
+    // Where Add Game would take it from: the folder, or one below it.
+    std::filesystem::path dir = argv[2];
+    auto found = reluva::detectGames(dir);
+    if (found.empty())
+        if (const std::filesystem::path below = reluva::gameFolderBelow(dir); !below.empty()) {
+            found = reluva::detectGames(below);
+            std::printf("in %s:\n", below.string().c_str());
+        }
     for (const reluva::DetectedGame &g : found)
         std::printf("%s/%s: %s (%s, %s)\n", g.engineId.c_str(), g.gameId.c_str(), g.description.c_str(),
                     g.language.c_str(), g.platform.c_str());

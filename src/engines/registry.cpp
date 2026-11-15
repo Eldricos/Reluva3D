@@ -3,6 +3,8 @@
 
 #include "engines/registry.h"
 
+#include <algorithm>
+
 namespace reluva {
 
 // Each engine exposes one accessor. The list of those built is generated
@@ -34,6 +36,28 @@ std::vector<DetectedGame> detectGames(const std::filesystem::path &dir) {
         all.insert(all.end(), found.begin(), found.end());
     }
     return all;
+}
+
+std::filesystem::path gameFolderBelow(const std::filesystem::path &folder) {
+    // Two levels down at most, in name order, the first with a game.
+    std::error_code ec;
+    std::vector<std::filesystem::path> level{folder};
+    for (int depth = 0; depth < 2; ++depth) {
+        std::vector<std::filesystem::path> next;
+        for (const auto &dir : level) {
+            std::vector<std::filesystem::path> children;
+            for (const auto &entry : std::filesystem::directory_iterator(dir, ec))
+                if (entry.is_directory(ec))
+                    children.push_back(entry.path());
+            std::sort(children.begin(), children.end());
+            for (const auto &child : children)
+                if (!detectGames(child.string()).empty())
+                    return child;
+            next.insert(next.end(), children.begin(), children.end());
+        }
+        level = std::move(next);
+    }
+    return {};
 }
 
 std::vector<ImportPlan> planImports(const std::filesystem::path &source) {

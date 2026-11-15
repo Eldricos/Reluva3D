@@ -54,12 +54,18 @@ static int printHashes(int argc, char **argv) {
 // the launcher's Add Game does.
 static int printDetected(int argc, char **argv) {
     int found = 0;
-    for (int i = 2; i < argc; ++i)
-        for (const DetectedGame &g : detectGames(argv[i])) {
-            std::printf("%s: %s/%s  %s  [%s, %s]\n", argv[i], g.engineId.c_str(), g.gameId.c_str(),
+    for (int i = 2; i < argc; ++i) {
+        // Where Add Game would take it from: the folder, or one below it.
+        std::filesystem::path dir = argv[i];
+        if (detectGames(dir).empty())
+            if (const std::filesystem::path below = gameFolderBelow(dir); !below.empty())
+                dir = below;
+        for (const DetectedGame &g : detectGames(dir)) {
+            std::printf("%s: %s/%s  %s  [%s, %s]\n", dir.string().c_str(), g.engineId.c_str(), g.gameId.c_str(),
                         g.description.c_str(), g.language.c_str(), g.platform.c_str());
             ++found;
         }
+    }
     if (!found)
         std::printf("no games found\n");
     return found ? 0 : 1;
