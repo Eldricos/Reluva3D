@@ -254,6 +254,9 @@ Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstri
         return _cgame && _cgame->ghoul2().drawn(instance, time, out);
     };
     _cgame->subdivisions = videoSettings(_cvars).subdivisions;
+    // On our own server, one ROFF system for both sides, as the original's.
+    if (_game && !_client)
+        _cgame->shareRoffs(_game->roffs());
     _notify.clear();
     _printPartial[1].clear();
     if (_ctx.mixer) {

@@ -19,6 +19,7 @@
 #include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_client.h"
 #include "engines/idtech3/raven/effects.h"
+#include "engines/idtech3/raven/roff.h"
 #include "engines/idtech3/raven/savegame.h"
 #include "engines/idtech3/server/server_world.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
@@ -810,6 +811,103 @@ static void testSkinAndPlacement() {
     CHECK(approx(p[0], 100) && approx(p[1], 5) && approx(p[2], 10));
 }
 
+static void testRoff() {
+    using raven::RoffFile;
+    using raven::RoffSystem;
+    // A version 2 ROFF: two frames of 50 ms, the second turning the long
+    // way round and with a note of two pieces.
+    std::vector<uint8_t> d;
+    auto i32 = [&](int32_t v) {
+        for (int k = 0; k < 4; ++k)
+            d.push_back(uint8_t(uint32_t(v) >> (8 * k)));
+    };
+    auto f32 = [&](float f) {
+        uint32_t bits;
+        std::memcpy(&bits, &f, 4);
+        i32(int32_t(bits));
+    };
+    for (char c : std::string("ROFF"))
+        d.push_back(uint8_t(c));
+    i32(2);
+    i32(2);  // frames
+    i32(50); // ms each
+    i32(1);  // notes
+    for (float f : {10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f})
+        f32(f);
+    i32(-1);
+    i32(0);
+    for (float f : {0.0f, 5.0f, 0.0f, 0.0f, 270.0f, 0.0f})
+        f32(f);
+    i32(0);
+    i32(1);
+    for (char c : std::string("loop\nsound x"))
+        d.push_back(uint8_t(c));
+    d.push_back(0);
+    RoffFile roff;
+    CHECK(raven::parseRoff(d, roff) && roff.frames.size() == 2 && roff.frameMs == 50);
+    CHECK(roff.frames[1].turn[1] == -90 && roff.frames[1].notes.size() == 1 && roff.frames[0].notes.empty());
+    std::vector<uint8_t> bad = d;
+    bad[4] = 3; // version 3
+    CHECK(!raven::parseRoff(bad, roff));
+    CHECK(raven::parseRoff(d, roff));
+
+    // Played: each frame due sets linear trajectories moving its offsets
+    // in a frame time; at the end, still; a translated move turns with the
+    // entity.
+    SearchSet set;
+    auto zip = std::make_unique<ZipArchive>();
+    const auto path = std::filesystem::temp_directory_path() / "reluva_idtech3_roff.pk3";
+    test::writeFile(path, test::buildZip({{"scripts/test.rof", d, {}}}));
+    CHECK(!zip->open(path));
+    set.add(std::move(zip), 0);
+    RoffSystem roffs(set);
+    const int32_t id = roffs.cache("scripts/test.rof", false);
+    CHECK(id == 1 && roffs.cache("scripts/test.rof", true) == 1 && roffs.cache("scripts/none.rof", false) == 0);
+    struct Set {
+        int32_t type;
+        int32_t time;
+        RoffSystem::Vec3 originDelta;
+        RoffSystem::Vec3 anglesDelta;
+    };
+    std::vector<Set> sets;
+    std::vector<std::string> notes;
+    bool finished = false;
+    RoffSystem::Side side;
+    side.current = [](int32_t, RoffSystem::Vec3 &o, RoffSystem::Vec3 &a) {
+        o = {1, 2, 3};
+        a = {0, 0, 0};
+        return true;
+    };
+    side.setTrajectories = [&](int32_t, int32_t type, int32_t time, const RoffSystem::Vec3 &,
+                               const RoffSystem::Vec3 &od, const RoffSystem::Vec3 &,
+                               const RoffSystem::Vec3 &ad) { sets.push_back({type, time, od, ad}); };
+    side.finished = [&](int32_t) { finished = true; };
+    side.note = [&](int32_t, const std::string &n) { notes.push_back(n); };
+    CHECK(roffs.play(7, id, false, false, 1000, {0, 0, 0}));
+    roffs.update(false, 1000, side); // frame 0
+    roffs.update(false, 1020, side); // not due
+    roffs.update(true, 1050, side);  // the other side's: nothing
+    roffs.update(false, 1050, side); // frame 1
+    roffs.update(false, 1100, side); // the end
+    CHECK(sets.size() == 3 && sets[0].type == 2 && sets[0].time == 1000 && sets[0].originDelta[0] == 200);
+    CHECK(sets[1].time == 1050 && sets[1].originDelta[1] == 100 && sets[1].anglesDelta[1] == -1800);
+    CHECK(sets[2].type == 0 && finished && roffs.playing() == 0);
+    CHECK(notes == std::vector<std::string>({"loop", "sound x"}));
+    // Facing along y, a move along x goes along y.
+    sets.clear();
+    CHECK(roffs.play(8, id, true, false, 2000, {0, 90, 0}));
+    roffs.update(false, 2000, side);
+    CHECK(sets.size() == 1 && std::fabs(sets[0].originDelta[0]) < 1e-3f &&
+          std::fabs(sets[0].originDelta[1] - 200) < 1e-3f);
+    // Purged: still where it is; cleaned on both sides: the file forgotten.
+    CHECK(roffs.purge(8, false, 2010, side) && sets.back().type == 0 && roffs.playing() == 0);
+    roffs.clean(false);
+    CHECK(roffs.cached() == 1);
+    roffs.clean(true);
+    CHECK(roffs.cached() == 0);
+    std::filesystem::remove(path);
+}
+
 // What a world renderer gives the graphics device: each texture's pixels
 // by its number, and the mesh's vertices, the last given.
 class StyleRenderer : public gfx::Renderer3D {
@@ -1216,6 +1314,7 @@ static const reluva::test::Suite
                {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
                {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
+               {"roff", [](const std::filesystem::path &) { testRoff(); }},
                {"mdr", [](const std::filesystem::path &) { testMdr(); }},
                {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},
            });

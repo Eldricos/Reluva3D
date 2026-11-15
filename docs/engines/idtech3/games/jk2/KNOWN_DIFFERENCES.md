@@ -43,6 +43,9 @@ In the multiplayer game:
 
 In the multiplayer menus:
 
+- **Recorded paths** ([roff.md](../../formats/roff.md)): their notes
+  aren't handed to the game's code yet, and the client game's side follows
+  its own clock where the original's follows the server's.
 - **Network play** ([systems/network.md](systems/network.md)): a server
   Reluva hosts doesn't announce itself to the masters, and the client
   doesn't pass the server's level change (`svc_mapchange`) to its client

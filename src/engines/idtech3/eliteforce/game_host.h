@@ -15,6 +15,7 @@
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/games.h"
 #include "engines/idtech3/jk2/ghoul2_instances.h"
+#include "engines/idtech3/raven/roff.h"
 #include "engines/idtech3/vm/qvm.h"
 #include "engines/idtech3/vm/vm_services.h"
 
@@ -212,6 +213,9 @@ public:
     // send, which snapshots carry as 0.
     static constexpr int32_t kPlayerStateServerOnly = 48;
     Snapshot snapshot(int32_t clientNum);
+    // Jedi Outcast's ROFF system, which a client game in the same program
+    // shares (the numbers the server puts in events are the client's too).
+    const std::shared_ptr<raven::RoffSystem> &roffs() const { return _roffs; }
     // Where svFlags is in Elite Force's entities (208 or 212: one of the
     // two words between `linked` and `bmodel`), found from the entities
     // themselves, and the evidence: how many entities have flags at each.
@@ -339,6 +343,9 @@ private:
     bool _jk2BotsSetup = false;
     // Its Ghoul2 instances on the server (the saber's and hits' bolts).
     jk2::Ghoul2Instances _ghoul2{_files};
+    std::shared_ptr<raven::RoffSystem> _roffs = std::make_shared<raven::RoffSystem>(_files);
+    // The ROFF system's view of the game's entities.
+    raven::RoffSystem::Side roffSide();
     int32_t _nextAiState = 1; // the bot library's goal, move and weapon states handed out
     std::vector<Entity> _bspEntities;
     std::map<int, std::vector<std::vector<uint8_t>>> _goalStacks; // per goal state, its goals' bytes

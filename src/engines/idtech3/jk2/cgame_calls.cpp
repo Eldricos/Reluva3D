@@ -217,10 +217,8 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         };
         return _ghoul2.call(vm, kOrder[number - kG2ListSurfaces], a);
     }
-    if (number >= kRoffClean && number <= kRoffPurgeEnt) {
-        ++_unhandled[number];
-        return 0;
-    }
+    if (number >= kRoffClean && number <= kRoffPurgeEnt)
+        return jk2RoffCall(vm, number, a);
     switch (number) {
     case kRemoveCommand: {
         const std::string name = str(0, 64);
@@ -353,6 +351,74 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
             _firstUnhandled[number] = {a[0], a[1], a[2], a[3], a[4], a[5]};
         return 0;
     }
+}
+
+int32_t CgameHost::jk2RoffCall(Qvm &vm, int number, const int32_t *a) {
+    // The client game's own movers' ROFFs (docs/engines/idtech3/formats/roff.md),
+    // in its order: clean, update, cache, play, purge.
+    switch (number - kRoffClean) {
+    case 0:
+        _roffs->clean(true);
+        return 1;
+    case 1:
+        _roffs->update(true, _time, roffSide());
+        return 0;
+    case 2:
+        return _roffs->cache(vm.string(a[0], 64), true);
+    case 3: { // (entity, roff, translate)
+        raven::RoffSystem::Vec3 origin{};
+        raven::RoffSystem::Vec3 angles{};
+        roffSide().current(a[0], origin, angles);
+        return _roffs->play(a[0], a[1], a[2] != 0, true, _time, angles) ? 1 : 0;
+    }
+    default:
+        return _roffs->purge(a[0], true, _time, roffSide()) ? 1 : 0;
+    }
+}
+
+raven::RoffSystem::Side CgameHost::roffSide() {
+    // Asked of the client game, as the original does: where an entity is and
+    // faces (written to the shared buffer here: Reluva's client game is a
+    // QVM, where the original's engine passed a pointer of its own), and
+    // its next state's trajectories' addresses.
+    constexpr int32_t kGetOrigin = 17;
+    constexpr int32_t kGetAngles = 18;
+    constexpr int32_t kGetOriginTrajectory = 20;
+    constexpr int32_t kGetAngleTrajectory = 21;
+    raven::RoffSystem::Side side;
+    side.current = [this](int32_t entity, raven::RoffSystem::Vec3 &origin, raven::RoffSystem::Vec3 &angles) {
+        if (!_sharedBuffer || !_vm.valid(_sharedBuffer, 24))
+            return false;
+        int32_t result = 0;
+        if (_vm.call(kGetOrigin, {entity, _sharedBuffer}, result) ||
+            _vm.call(kGetAngles, {entity, _sharedBuffer + 12}, result))
+            return false;
+        for (int i = 0; i < 3; ++i) {
+            origin[size_t(i)] = Qvm::asFloat(_vm.readInt(_sharedBuffer + 4 * i));
+            angles[size_t(i)] = Qvm::asFloat(_vm.readInt(_sharedBuffer + 12 + 4 * i));
+        }
+        return true;
+    };
+    side.setTrajectories = [this](int32_t entity, int32_t type, int32_t time, const raven::RoffSystem::Vec3 &origin,
+                                  const raven::RoffSystem::Vec3 &originDelta, const raven::RoffSystem::Vec3 &angles,
+                                  const raven::RoffSystem::Vec3 &anglesDelta) {
+        // trajectory_t: type, time, duration, base, delta.
+        auto set = [&](int32_t trajectoryExport, const raven::RoffSystem::Vec3 &base,
+                       const raven::RoffSystem::Vec3 &delta) {
+            int32_t at = 0;
+            if (_vm.call(trajectoryExport, {entity}, at) || !_vm.valid(at, 36))
+                return;
+            _vm.writeInt(at, type);
+            _vm.writeInt(at + 4, time);
+            for (int i = 0; i < 3; ++i) {
+                _vm.writeInt(at + 12 + 4 * i, Qvm::fromFloat(base[size_t(i)]));
+                _vm.writeInt(at + 24 + 4 * i, Qvm::fromFloat(delta[size_t(i)]));
+            }
+        };
+        set(kGetOriginTrajectory, origin, originDelta);
+        set(kGetAngleTrajectory, angles, anglesDelta);
+    };
+    return side;
 }
 
 } // namespace reluva::idtech3::eliteforce

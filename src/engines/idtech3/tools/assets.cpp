@@ -13,6 +13,7 @@
 #include "engines/idtech3/formats/md3.h"
 #include "engines/idtech3/formats/shader.h"
 #include "engines/idtech3/raven/effects.h"
+#include "engines/idtech3/raven/roff.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -554,6 +555,55 @@ int cmdEfxCheck(int argc, char **argv) {
     return failed ? 1 : 0;
 }
 
+int cmdRoffCheck(int argc, char **argv) {
+    if (argc != 3) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 roff-check <game folder>\n");
+        return 2;
+    }
+    namespace raven = reluva::idtech3::raven;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    int files = 0;
+    int failed = 0;
+    std::map<int32_t, int> frameTimes;
+    size_t frames = 0;
+    size_t notes = 0;
+    for (const std::string &name : set.list()) {
+        const std::string lower = reluva::fs::toLower(name);
+        if (lower.size() < 4 || lower.compare(lower.size() - 4, 4, ".rof") != 0)
+            continue;
+        ++files;
+        std::vector<uint8_t> data;
+        raven::RoffFile roff;
+        if (set.read(name, data) || !raven::parseRoff(data, roff)) {
+            std::printf("%s: can't be read\n", name.c_str());
+            ++failed;
+            continue;
+        }
+        ++frameTimes[roff.frameMs];
+        frames += roff.frames.size();
+        // Where it ends up: its moves and turns added up.
+        std::array<float, 3> move{};
+        std::array<float, 3> turn{};
+        for (const raven::RoffFile::Frame &f : roff.frames) {
+            for (size_t k = 0; k < 3; ++k) {
+                move[k] += f.move[k];
+                turn[k] += f.turn[k];
+            }
+            notes += f.notes.size();
+        }
+        std::printf("%s: %zu frames of %d ms, moves (%.1f %.1f %.1f), turns (%.1f %.1f %.1f)\n", name.c_str(),
+                    roff.frames.size(), roff.frameMs, double(move[0]), double(move[1]), double(move[2]),
+                    double(turn[0]), double(turn[1]), double(turn[2]));
+    }
+    std::printf("%d ROFF files, %d failed, %zu frames, %zu notes; frame times:", files, failed, frames, notes);
+    for (const auto &[ms, n] : frameTimes)
+        std::printf(" %d ms x%d", ms, n);
+    std::printf("\n");
+    return failed ? 1 : 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
@@ -570,6 +620,8 @@ const Commands kCommands(
          "for every .md3 surface, the shader or image it names and whether it's found; where missing files "
          "of the same name are; -v lists every miss",
          cmdModelCheck},
+        {"roff-check", "<game folder>", "read every recorded path (.rof): its frames, and where it ends up",
+         cmdRoffCheck},
         {"shader-show", "<game folder> <shader | model.md3>",
          "a shader's text as its script has it; for a model, its surfaces' shaders and theirs", cmdShaderShow},
         {"shader-check", "<game folder>", "count the shader directives the engine doesn't know", cmdShaderCheck},

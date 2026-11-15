@@ -47,7 +47,7 @@ them with `LocateGameData`).
 | 42 | `SnapVector(v)` | each part to the nearest whole number |
 | 43, 44 | `TraceCapsule`, `EntityContactCapsule` | as the box trace and contact, for now |
 | 45, 46 | `SP_RegisterServerCmd`, `SP_GetStringTextString` | 1; no text yet |
-| 47–51 | ROFF: clean, update entities, cache, play, purge | not yet (a mover with a recorded path stays put) |
+| 47–51 | ROFF: clean, update entities, cache, play, purge | recorded paths played on the game's entities: their trajectories set each frame ([roff.md](../../../formats/roff.md)) |
 | 107–111, 114, 115 | matrix multiply, angle vectors, perpendicular vector, floor, ceil, acos, asin | as their names say |
 | 200–211 | the bot library's setup, snapshot entities, console messages, a bot's user command | its user command is run as a player's (`ClientThink`) |
 | 303 | `AAS_EntityInfo` | none: the module keeps its own |
@@ -93,4 +93,5 @@ The client's userinfo settings and their defaults are registered as
 
 - The player state's fields past the few the engine reads haven't been
   checked against 1.02a's code (the network protocol needs them all).
-- ROFF paths and capsule traces are still stand-ins.
+- Capsule traces are still boxes. A ROFF's notes aren't handed to the
+  game (command 11) yet.

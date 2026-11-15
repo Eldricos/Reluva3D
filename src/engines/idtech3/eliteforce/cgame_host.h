@@ -12,6 +12,7 @@
 #include "engines/idtech3/eliteforce/game_host.h"
 #include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/raven/effects.h"
+#include "engines/idtech3/raven/roff.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/render/light_grid.h"
 #include "engines/idtech3/client/scene.h"
@@ -126,6 +127,10 @@ public:
     // Raven's light styles' colours, as Jedi Outcast's client game sets
     // them each frame (full white until it does).
     const LightStyleColors &lightStyles() const { return _lightStyles; }
+    // The ROFF system shared with the game module when both run here, as
+    // the original's one system: the numbers the server's events carry are
+    // the ones it cached.
+    void shareRoffs(std::shared_ptr<raven::RoffSystem> roffs) { _roffs = std::move(roffs); }
     // Jedi Outcast's effects, as its effects calls run them.
     const raven::EffectSystem &effects() const { return _fx; }
     // The map it asked for, for collision (CM_LoadMap) and drawing
@@ -159,6 +164,8 @@ private:
     // Its effects calls (jk2/cgame_effects.cpp): what the effects system asks
     // of the client game and the world, and what it draws put in the scene.
     int32_t jk2EffectCall(Qvm &vm, int number, const int32_t *args);
+    int32_t jk2RoffCall(Qvm &vm, int number, const int32_t *args);
+    raven::RoffSystem::Side roffSide();
     raven::EffectSystem::Host effectHost();
     void addEffects(const raven::EffectSystem::Frame &frame);
     void writeGameState(int32_t address);
@@ -222,6 +229,7 @@ private:
     jk2::Ghoul2Instances _ghoul2{_files};
     raven::EffectSystem _fx{_files, effectHost()};
     LightStyleColors _lightStyles = fullLightStyles();
+    std::shared_ptr<raven::RoffSystem> _roffs = std::make_shared<raven::RoffSystem>(_files);
 };
 
 } // namespace reluva::idtech3::eliteforce

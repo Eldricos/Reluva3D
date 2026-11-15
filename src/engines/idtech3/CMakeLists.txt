@@ -72,6 +72,7 @@ reluva_add_engine(idtech3
         raven/effect_file.cpp
         raven/effects.cpp
         raven/fonts.cpp
+        raven/roff.cpp
         raven/savegame.cpp
         raven/strings.cpp
         render/light_grid.cpp
@@ -149,4 +150,4 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-videos jk2-menus jk2-game)
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-roffs jk2-videos jk2-menus jk2-game)

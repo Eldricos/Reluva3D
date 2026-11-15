@@ -19,7 +19,8 @@
   (`ghoul2-check`, every Ghoul2 mesh and skeleton), `jk2-images`
   (`image-check`, the images the maps' shaders name: 15 missing, as in
   the paks), `jk2-effects` (`efx-check`, every effect file and the
-  shaders, models and sounds it names), `jk2-videos` (`roq-decode`: the opening logos and the first
+  shaders, models and sounds it names), `jk2-roffs` (`roff-check`, every
+  recorded path), `jk2-videos` (`roq-decode`: the opening logos and the first
   cinematic, 60 frames each, their pictures and sound), `jk2-game` (`game-run`: the
   game module on ffa_bespin, the player joining and running, then two
   bots, then the client game drawing the view and its effects as the

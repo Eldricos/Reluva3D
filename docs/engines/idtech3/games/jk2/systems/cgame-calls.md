@@ -73,7 +73,7 @@ system and Ghoul2 (4 to 24).
 | 265 | `FX_AdjustTime` | the effects' clock and the eye |
 | 266–269 | `FX_AddPoly`, `FX_AddBezier`, `FX_AddPrimitive` (a saber's trail), `FX_AddSprite` | added to the effects system, from the structures they're given (180, 136, 348 and 72 bytes) |
 | 270–272 | the string packages | as the menus' |
-| 273–277 | ROFF | not yet |
+| 273–277 | ROFF: clean, update entities, cache, play, purge | as the game module's, on the client game's own entities, through its exports for their origins, angles and trajectories; one system with the game module's on the Play page's own server ([roff.md](../../../formats/roff.md)) |
 | 278–299 | Ghoul2 | instances posed by their animations and angle overrides, bolts from bones and tag surfaces, models hung from bolts, surfaces on and off ([ghoul2.md](../../../formats/ghoul2.md), Animation) |
 | 300 | `SetSharedBuffer` | kept: where the engine's effects system and the module trade data |
 
@@ -95,7 +95,6 @@ system and Ghoul2 (4 to 24).
 
 ### Open questions
 
-- ROFF paths aren't followed yet.
 - Players are posed (a player's entity carries its instance at 208) and
   drawn; seen in third person on the Play page.
 - Starting takes about 340 million instructions (the effects system and

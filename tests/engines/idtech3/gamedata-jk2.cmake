@@ -21,6 +21,8 @@
 #   jk2-images    the images every map's shaders name (image-check)
 #   jk2-effects   every effect file read and registered, with the shaders,
 #                 models and sounds it names (efx-check)
+#   jk2-roffs     every recorded path read: its frames and where it ends up
+#                 (roff-check)
 #   jk2-videos    two RoQ videos decoded, their pictures and sound recorded
 #                 (roq-decode)
 #   jk2-game      the multiplayer game module: ffa_bespin with the player
@@ -61,6 +63,8 @@ elseif(STEP STREQUAL "jk2-shaders")
     record_run(shader-check "" idtech3 shader-check "${base}")
 elseif(STEP STREQUAL "jk2-effects")
     record_run(efx-check "" idtech3 efx-check "${base}")
+elseif(STEP STREQUAL "jk2-roffs")
+    record_run(roff-check "" idtech3 roff-check "${base}")
 elseif(STEP STREQUAL "jk2-models")
     record_run(model-check "" idtech3 model-check "${base}")
 elseif(STEP STREQUAL "jk2-ghoul2")

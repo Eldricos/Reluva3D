@@ -30,7 +30,7 @@ their hashes):
 | Game code, single player | `jk2gamex86.dll`: the game and client game in one DLL (exports `GetGameAPI`, `dllEntry`, `vmMain`), with ICARUS, the effects system and navigation inside it | The x86 interpreter, PE loader and Elite Force's DLL host |
 | Menus, single player | `ui/*.menu`, `ui/menus.txt`: Team Arena style menu scripts, run by `jk2sp.exe` itself (no menus DLL) | No |
 | Game code, multiplayer | `vm/jk2mpgame.qvm`, `cgame.qvm`, `ui.qvm` (Quake III's QVM format) | The QVM interpreter |
-| Scripts | 1,356 compiled ICARUS scripts (`.ibi`), 68 ROFF camera/object paths (`.rof`) | Not needed by the engine: the DLL runs them |
+| Scripts | 1,356 compiled ICARUS scripts (`.ibi`), 68 ROFF camera/object paths (`.rof`) | In single player the DLL runs them; in multiplayer the engine plays ROFFs for the game's code ([roff.md](../../formats/roff.md)) |
 | Effects | 229 `.efx` | In multiplayer, the engine runs them for the client game ([efx.md](../../formats/efx.md)); in single player, the DLL reads them |
 | Text | 30 StripEd string packages (`strip/*.sp`), each line in English, French and German | No |
 | Fonts | 3 `fonts/*.fontdat` with their `.tga` | No |
@@ -138,9 +138,10 @@ behind the DLL's own tables.
    The network protocol (15) runs: Join Server joins a server, and others
    can join a hosted match ([systems/network.md](systems/network.md)).
    Light styles change as the client game sets them
-   ([rbsp.md](../../formats/rbsp.md)). Next: ROFF paths, capsule traces
-   and Ghoul2's animation blending; then trying the network play against
-   the retail game.
+   ([rbsp.md](../../formats/rbsp.md)); recorded paths (ROFF) play on
+   movers ([roff.md](../../formats/roff.md)). Next: capsule traces and
+   Ghoul2's animation blending; then trying the network play against the
+   retail game.
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

@@ -10,12 +10,19 @@
 
 #include <algorithm>
 #include <cmath>
+#include <tuple>
 #include <cstring>
 #include <ctime>
 
 namespace reluva::idtech3::eliteforce {
 
 namespace {
+
+// entityState_t's trajectories (Quake III's): s.pos, s.apos and the
+// latter's base.
+constexpr int32_t kPos = 12;
+constexpr int32_t kApos = 48;
+constexpr int32_t kAposBase = 60;
 
 enum Jk2GameCall : int {
     kTrace = 24,
@@ -158,14 +165,25 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         vm.writeString(a[1], "", a[2]);
         ++_unhandled[number];
         return 0;
+    // Movers' recorded paths (ROFF, docs/engines/idtech3/formats/roff.md).
     case kRoffClean:
+        _roffs->clean(false);
+        return 1;
     case kRoffUpdateEntities:
-    case kRoffCache:
-    case kRoffPlay:
-    case kRoffPurgeEnt:
-        // Movers' recorded paths: none yet (a mover with one stays put).
-        ++_unhandled[number];
+        _roffs->update(false, _levelTime, roffSide());
         return 0;
+    case kRoffCache: // (file) -> its number, 0 if it can't be read
+        return _roffs->cache(vm.string(a[0], 64), false);
+    case kRoffPlay: { // (entity, roff, translate)
+        const int32_t e = entityAddress(a[0]);
+        if (e < 0)
+            return 0;
+        if (_layout.isRoffing >= 0)
+            vm.writeInt(e + _layout.isRoffing, 1);
+        return _roffs->play(a[0], a[1], a[2] != 0, false, _levelTime, readVec(e + kAposBase)) ? 1 : 0;
+    }
+    case kRoffPurgeEnt: // (entity)
+        return _roffs->purge(a[0], false, _levelTime, roffSide()) ? 1 : 0;
     case kMatrixMultiply: { // (float in1[3][3], float in2[3][3], float out[3][3])
         float m1[9];
         float m2[9];
@@ -382,6 +400,39 @@ int32_t GameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         ++_unhandled[number];
         return 0;
     }
+}
+
+raven::RoffSystem::Side GameHost::roffSide() {
+    raven::RoffSystem::Side side;
+    side.current = [this](int32_t entity, raven::RoffSystem::Vec3 &origin, raven::RoffSystem::Vec3 &angles) {
+        const int32_t e = entityAddress(entity);
+        if (e < 0)
+            return false;
+        origin = readVec(e + _layout.currentOrigin);
+        angles = readVec(e + _layout.currentAngles);
+        return true;
+    };
+    // The entity state's position and angle trajectories (Quake III's:
+    // type, time, duration, base, delta).
+    side.setTrajectories = [this](int32_t entity, int32_t type, int32_t time, const raven::RoffSystem::Vec3 &origin,
+                                  const raven::RoffSystem::Vec3 &originDelta, const raven::RoffSystem::Vec3 &angles,
+                                  const raven::RoffSystem::Vec3 &anglesDelta) {
+        const int32_t e = entityAddress(entity);
+        if (e < 0)
+            return;
+        for (const auto &[at, base, delta] :
+             {std::tuple{kPos, origin, originDelta}, std::tuple{kApos, angles, anglesDelta}}) {
+            _vm.writeInt(e + at, type);
+            _vm.writeInt(e + at + 4, time);
+            writeVec(e + at + 12, base);
+            writeVec(e + at + 24, delta);
+        }
+    };
+    side.finished = [this](int32_t entity) {
+        if (const int32_t e = entityAddress(entity); e >= 0 && _layout.isRoffing >= 0)
+            _vm.writeInt(e + _layout.isRoffing, 0);
+    };
+    return side;
 }
 
 } // namespace reluva::idtech3::eliteforce
