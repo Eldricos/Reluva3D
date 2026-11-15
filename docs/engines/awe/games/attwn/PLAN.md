@@ -240,8 +240,8 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
    ([systems/puzzles.md](systems/puzzles.md)), the one timer, items lying
    about, `updatemusic` and `light`, and the search's and the hand's way
    with this game's inventory. The game-files steps are in
-   (`awe.attwn.gamedata.*`). Left: recordings of the original to compare
-   with; a basic engine test of its own, as Orient Express has.
+   (`awe.attwn.gamedata.*`), and its half of the basic engine test
+   (`awe.engine`). Left: recordings of the original to compare with.
 
 ## Decisions
 

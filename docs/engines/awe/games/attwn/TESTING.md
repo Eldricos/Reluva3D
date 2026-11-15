@@ -16,8 +16,15 @@ conversations played by its dialogue manager's rules
 
 ### The basic engine test
 
-`awe.engine` (`tests/engines/awe/engine.cpp`) plays a small install of
-its own, an Orient Express one; this game has none yet.
+`awe.engine` (`tests/engines/awe/engine.cpp`), after Orient Express's,
+makes a small install of this game's kind, without any of its files:
+stand-ins for `ac.exe` and `granny2.dll`, its text scrambled as `.act`,
+`Chapter01` of one act, the main menu with its `reset` and New Game, and
+two `.ac1` scenes of a place's `Base` folder. It finds the game as the
+launcher does, then plays it, in the engine and in the data viewer: New
+Game, act 1A's first scene, a click that sets a tag and goes on, a quick
+save (`quick.ac1`, read back in this game's layout). Its lines in
+`tests/engines/awe/data/engine-record.txt` start `attwn.`.
 
 ### The game-files test: with your own copy of the game
 
@@ -75,6 +82,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 15 November 2026 | English (retail, two CDs) | Linux | `awe.engine` with this game's half added; Orient Express's game-files steps again after the night pictures (all five passed) |
 | 15 November 2026 | English (retail, two CDs) | Linux | Scene by scene against gameplay footage: the footage's frames every 2 seconds matched to the scenes by their backgrounds (2,103 visits, 170 scenes), each scene shown by `awe page-shot` at the start of each of the chapter's acts, and 1,820 frames compared by the colour of a grid of cells: within 3% overall in every chapter. Fixed: the night's own pictures in 2A and 4C. The other differences were the story's state (the flashlight, the generator off, a movie on the screen) or a frame mid-fade |
 | 15 November 2026 | English (retail, two CDs) | Linux | Against gameplay footage (two playthroughs, by chapter): the logos, main menu, options, in-game menu and save screen, the title card, the dialogue box and its colours, the journal and the inventory, the flashlight, the safe and the deposit boxes, the front entrance at night (its pictures' night colour, fixed), the journal's back arrow (fixed), an ending |
 | 15 November 2026 | English (retail, two CDs) | Linux | Phase 5: the game-files steps, all five, the route the search's own (2,162 actions to the credits), `awe game-check -quick` on it all four ways passed |
