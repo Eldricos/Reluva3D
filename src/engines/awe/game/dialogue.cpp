@@ -952,6 +952,26 @@ void DialogueManager::end(bool keepBox) {
         _pending = 1;
 }
 
+void DialogueManager::drop() {
+    // Nothing of it was said: the runners emptied, the box gone at once.
+    if (!_active && !_part && !_pending && !_choosing)
+        return;
+    _host.stopVoice();
+    _prevent.clear();
+    _events.clear();
+    _povent.clear();
+    _active = _choosing = _playing = _waitPrevent = _goOn = false;
+    _part = nullptr;
+    _thread = _line = -1;
+    _choices.clear();
+    _pending = 0;
+    _pause = -1;
+    _slide = 0;
+    _boxY = float(_frameH);
+    _turned.clear();
+    _caller = nullptr;
+}
+
 void DialogueManager::finishTalk() {
     log("talk done");
     if (ScriptRunner *r = _caller) {
@@ -1130,14 +1150,25 @@ bool DialogueManager::take(int i) {
     const Choice c = _choices[size_t(i)];
     Thread &t = c.part->threads[size_t(c.thread)];
     if (c.part != _part) {
-        // A generic extra: borrowed into this conversation.
+        // A generic extra: borrowed into this conversation, once (a
+        // repeatable one taken again plays the same copy afresh).
         Thread copy = t;
         copy.borrowed = true;
         copy.fromName = c.part->name;
         copy.fromCode = c.part->code;
-        _part->threads.push_back(std::move(copy));
-        Thread &added = _part->threads.back();
-        play(_part, int(_part->threads.size()) - 1, added.current);
+        int at = -1;
+        for (size_t k = 0; k < _part->threads.size(); k++) {
+            const Thread &o = _part->threads[k];
+            if (o.borrowed && o.code == copy.code && o.fromName == copy.fromName && o.fromCode == copy.fromCode)
+                at = int(k);
+        }
+        if (at < 0) {
+            _part->threads.push_back(std::move(copy));
+            at = int(_part->threads.size()) - 1;
+        } else {
+            _part->threads[size_t(at)] = std::move(copy);
+        }
+        play(_part, at, _part->threads[size_t(at)].current);
         return true;
     }
     play(_part, c.thread, t.current);

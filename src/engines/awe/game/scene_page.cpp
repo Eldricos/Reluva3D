@@ -655,6 +655,7 @@ void ScenePage::newGame() {
     _state.canTalk = std::move(canTalk);
     _state.onTest = std::move(onTest);
     _state.values["master"] = 1; // the debug switch, off ([0x48b084] = 1)
+    _dialogue->drop();           // before its tables are read again
     _dialogueAct = "-";
     _positions.clear();
     _scriptLog.clear();

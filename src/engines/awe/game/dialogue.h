@@ -186,6 +186,8 @@ public:
     bool canTalk(const std::string &name, int part, int thread, int nest, bool gen, int number, bool plus, bool greet);
     // The "nothing to say" line (0x43a550), for an NPC with nothing left.
     bool noTalk(ScriptRunner &runner);
+    /** Whatever conversation is on, gone at once, nothing more of it run (a new game, a game loaded). */
+    void drop();
     // Moves things on by `seconds`.
     void update(float seconds);
     // A click: a choice, or the line cut short (after half a second).
