@@ -1440,6 +1440,15 @@ int aweCommandSolve(int argc, char **argv) {
             for (const std::string &s : player.features(true))
                 if (seenFeatures.insert(s).second)
                     novel++;
+            // For a game with its own inventory, something clickable never
+            // seen in the scene before is new too (And Then There Were
+            // None's projector bulb, which shows once the drawers above it
+            // are shut).
+            std::vector<std::string> clickNew;
+            if (const GameInfo *g = player.page().gameState().game; g && g->overlay)
+                for (const std::string &c : player.page().clickables())
+                    if (seenFeatures.insert("can " + st.scene + "|" + c).second)
+                        novel++, clickNew.push_back(c);
             if (!seenKeys.insert(key).second)
                 continue;
             steps.push_back({node.path, a});
@@ -1509,6 +1518,7 @@ int aweCommandSolve(int argc, char **argv) {
             for (const std::string &x : player.features(true))
                 if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && (x.rfind("tag ", 0) != 0 || storyTag(x)))
                     novelHere += seenHere.insert(st.scene + "|" + storyOf(x)).second;
+            novelHere += int(clickNew.size());
             n.tier = novelHere ? 0 : 1;
             for (const Action &next : player.actions())
                 n.promise |= next.kind == "use";

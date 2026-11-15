@@ -44,7 +44,7 @@ const GameInfo &game() {
                       "",
                       "windows",
                       {{"ac.exe", "", -1}, {"Text/itemlist.act", "", -1}, {"granny2.dll", "", -1}}}},
-        .playable = false,
+        .playable = true, // played from a new game to the credits (TESTING.md)
         .openFiles = openFiles,
         // Its window's client area (CreateWindowExA at 0x401980: 0x320 by
         // 0x258); the backgrounds and cameras are drawn at it.

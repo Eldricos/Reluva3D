@@ -8,7 +8,7 @@ in `src/engines/awe/attwn/`.
 
 | Release | Recognised by | State |
 |---|---|---|
-| English (retail, Windows, two CDs, 2005) | `ac.exe` and `Text/itemlist.act` | Its files read; not playable yet |
+| English (retail, Windows, two CDs, 2005) | `ac.exe` and `Text/itemlist.act` | Playable from a new game to the credits |
 | Other releases | The same files and `granny2.dll`, whatever their contents (a fallback) | Not tried |
 
 ## Where it stands
@@ -39,9 +39,9 @@ the save and load screens ([systems/saves.md](systems/saves.md)), the
 options screen ([systems/options.md](systems/options.md)) and the
 inventory ([systems/inventory.md](systems/inventory.md)). Phase 5 added
 the island's machines ([systems/script.md](systems/script.md#the-machines))
-and the puzzle screens ([systems/puzzles.md](systems/puzzles.md)). The game isn't
-marked playable in `reluva` until it's been played through (phase 5):
-the data viewer's Scenes page and `awe game-run` play it.
+and the puzzle screens ([systems/puzzles.md](systems/puzzles.md)), and a
+route from a new game to the credits plays by the mouse and by the hand
+([TESTING.md](TESTING.md)): the game is playable in `reluva`.
 
 ## Using it
 
@@ -50,7 +50,7 @@ launcher. From the two CDs without installing: `unshield x data1.cab`
 with `data1.hdr` and the three cabinets in one folder; the game is
 `Program Executable Files` with `ac.exe` (from `Txt Files`) beside it.
 
-- **The game:** not playable yet.
+- **The game:** playable: the launcher starts it at its main menu.
 - **The data viewer:** `reluva-viewer <entry>` or `reluva-viewer <game
   folder>`: Scenes (the scenes' files, an act's version over its base;
   their keys at the foot of the screen), Models, Movies, Pictures, Text

@@ -662,7 +662,7 @@ void testDetection(const std::filesystem::path &tmp) {
     // Opened as the game opens its files.
     std::unique_ptr<Archive> files;
     const GameInfo *game = nullptr;
-    CHECK(!openInstall(dir, files, &game) && game && std::string(game->id) == "attwn" && !game->playable);
+    CHECK(!openInstall(dir, files, &game) && game && std::string(game->id) == "attwn" && game->playable);
     CHECK(files && files->has("text/itemlist.txt"));
     // Orient Express's files are still Orient Express.
     const std::filesystem::path motoe = tmp / "motoe";

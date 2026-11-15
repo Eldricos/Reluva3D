@@ -45,8 +45,16 @@ None yet.
   `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
   thread ends at its first missing line (`0x431e70`, read), so the lines
   after it, the last of which goes back to the dining room, never play.
-  Whether the original strands the player there too isn't seen in the
-  game itself. The route search keeps out of it.
+  Taken before thread `b`, which goes back to the dining room, it leaves
+  Narracott hidden everywhere (its line `b` says `globalhide narracott`,
+  the cut-off `k` the `globalshow`): he can't be clicked again, and 6C
+  wants the embrocation used on him. Whether the original strands the
+  player there too isn't seen in the game itself. The route search keeps
+  out of both.
+- **A character's extra, once heard, isn't offered again** (Wargrave's
+  "Can you help me build a parachute?"): Reluva reads its saved progress
+  back where Orient Express's doesn't; without it, Wargrave's summing-up
+  in 4A offers it for ever with no way out. Not read in `ac.exe`.
   [systems/dialogue.md](systems/dialogue.md).
 - **The close-up's movie is centred** on the screen, as its pictures
   are; where `ac.exe` puts it isn't read.
