@@ -63,7 +63,7 @@ lights are an act's own.
 The scene's 2D pictures are Direct3D sprites, unlit (`D3DRS_LIGHTING`
 off in the sprite's state block, `0x44837b`), each drawn in its own
 colour: its diffuse by day (`0x42e90e`). At night that colour is
-replaced by a third night colour, **(0.5078125, 0.625, 0.78125)**
+replaced by a third night colour, red 0.5078125, green 0.625, blue 0.78125
 (`0x4010f0`), when (`0x42e89c`):
 
 - time of day is 1 or more and the scene is outdoors (`OUTD`), or it's 2
