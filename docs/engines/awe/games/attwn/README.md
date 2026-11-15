@@ -34,10 +34,12 @@ and the [saves](systems/saves.md). What differs is in the per-game table
 (`games.h`), this game's entries in `attwn/attwn.cpp`.
 Phase 4, the game's own systems, is done: its chapters, places,
 cutscenes and title cards ([systems/acts.md](systems/acts.md)), the
-journal ([systems/journal.md](systems/journal.md)), suspicion, the menus
+journal ([systems/journal.md](systems/journal.md)), suspicion, the menus,
 the save and load screens ([systems/saves.md](systems/saves.md)), the
 options screen ([systems/options.md](systems/options.md)) and the
-inventory ([systems/inventory.md](systems/inventory.md)). The game isn't
+inventory ([systems/inventory.md](systems/inventory.md)). Phase 5 added
+the island's machines ([systems/script.md](systems/script.md#the-machines))
+and the puzzle screens ([systems/puzzles.md](systems/puzzles.md)). The game isn't
 marked playable in `reluva` until it's been played through (phase 5):
 the data viewer's Scenes page and `awe game-run` play it.
 
