@@ -20,9 +20,11 @@
 #            know (script-check)
 #   route-search  a way from a new game to the credits (game-run -solve),
 #            searched for the first time and kept in the build
-#            (gamedata/awe/route.txt), as it names the game's files; its
-#            checksum is in the record. A search takes up to an hour or so,
-#            so it has a step of its own, with a longer time.
+#            (gamedata/<name>/route.txt), as it names the game's files; its
+#            checksum is in the record. Orient Express's search takes up to
+#            an hour or so, so it has a step of its own, with a longer time;
+#            And Then There Were None's takes hours, over several runs of
+#            the step, each going on from where the last stopped.
 #   route    the whole game by that route, four ways: by the mouse with
 #            sound, by the hand alone, saved and loaded after every action,
 #            and wandering off it (game-check -quick).
@@ -70,11 +72,20 @@ elseif(STEP STREQUAL "scripts")
 elseif(STEP STREQUAL "route-search")
     set(route "${OUTPUT}/route.txt")
     if(NOT EXISTS "${route}")
-        # (Not run_tool: a search can take longer than its half hour.)
+        # (Not run_tool: a search can take longer than its half hour.) A
+        # search the time ran out on keeps its way so far in route.txt.part
+        # and goes on from it the next time (And Then There Were None's
+        # takes hours).
         file(MAKE_DIRECTORY "${OUTPUT}")
-        execute_process(COMMAND "${TOOL}" awe game-run "${game_dir}" -solve "${route}.part" -mouse -characters
+        set(from "")
+        if(EXISTS "${route}.part")
+            set(from -from "${route}.part")
+        endif()
+        execute_process(COMMAND "${TOOL}" awe game-run "${game_dir}" -solve "${route}.part" ${from} -mouse -characters
             OUTPUT_VARIABLE out ERROR_VARIABLE out RESULT_VARIABLE rc TIMEOUT 7000)
-        if(NOT rc EQUAL 0)
+        if(rc MATCHES "timeout")
+            message(FATAL_ERROR "The search isn't done yet: its way so far is in ${route}.part; run the step again to go on from it")
+        elseif(NOT rc EQUAL 0)
             message(FATAL_ERROR "The search for a route failed (${rc}):\n${out}")
         endif()
         file(RENAME "${route}.part" "${route}")
@@ -83,7 +94,7 @@ elseif(STEP STREQUAL "route-search")
 elseif(STEP STREQUAL "route")
     set(route "${OUTPUT}/route.txt")
     if(NOT EXISTS "${route}")
-        message(FATAL_ERROR "No route: the route-search step makes it (ctest -R awe.gamedata.route-search)")
+        message(FATAL_ERROR "No route: the route-search step makes it (ctest -R gamedata.route-search)")
     endif()
     record_run(route "all passed|FAILED" awe game-check "${game_dir}" "${route}" -quick)
 else()
