@@ -77,7 +77,75 @@ for want of recordings of it.
 
 ## A playthrough by hand
 
-Not yet.
+Things to try in a real window, on real hardware, that the checks don't
+or can't. Note the act and scene for anything that looks or sounds
+wrong, and if possible compare with the same moment of the footage.
+
+### Throughout
+
+- [ ] The window: the 800 by 600 picture keeps its shape at your window
+      or screen size.
+- [ ] Sound: music (the act's and the scenes' own, `musica`'s), effects,
+      voices and the rain; their volume sliders work; nothing crackles
+      or stops.
+- [ ] Frame rate: walking, rain and fog stay smooth; a fade takes a step
+      a frame, so about half a second at 60 frames a second (0.75 to 0.9
+      s in the footage).
+- [ ] The cursor: the verb over hotspots, doors and people; with an item
+      in hand, the empty ring and the item's picture beside it, or the
+      cog where it can be used.
+- [ ] The inventory: the sack opens it, or the right button or I; it
+      slides out in about two thirds of a second; a new item blinks the
+      sack; Examine and Combine.
+- [ ] The journal: the book opens it, its four tabs, the contents and
+      the back arrow, a new entry's blink.
+- [ ] Escape: the in-game menu (Resume, Save, Load, Options, Main Menu),
+      the inventory's close-up put away; at the main menu, the quit
+      question. F2 quick-saves, F3 quick-loads.
+- [ ] Walking: characters walk from their first step, and turn first
+      where they face away.
+
+### Options
+
+- [ ] Each option changes at once and is kept after quitting: music and
+      effects volumes, brightness, captions, shadows, animated water,
+      fog, rain and lightning, anti-aliasing.
+
+### Saving and loading
+
+- [ ] Save in each chapter, in a close-up, and mid-conversation, then
+      load: the scene, items, characters' places, the time of day and the
+      music come back; the journal shows what its entries' conditions
+      give.
+- [ ] A save's slot: its name, date and the 200 by 150 picture.
+- [ ] Load a save made by the original game, if you have one (its
+      threads are in this game's codes).
+- [ ] Leave a game for the main menu and press New Game: the loading
+      screen, chapter 1's title card, a new game.
+
+### Off the route
+
+- [ ] Use items on the wrong things and people: Narracott's "that won't
+      work"; combine the wrong items, take combined ones apart.
+- [ ] Talk to someone twice and in a later act; pick the choices the
+      route doesn't (Wargrave's "Anything else you'd like to add?" in 4A
+      plays to its end).
+- [ ] Wait out the 9A timer (Lombard dies) and let Vera die in 10A: the
+      four endings' codas.
+- [ ] The deposit boxes swapped wrongly; the safe dialed wrongly; the
+      bookcase's books on the wrong shelves.
+
+### Moments worth a close look
+
+- [ ] Chapter 1: the boat to the island, the dinner and the gramophone.
+- [ ] Chapter 2: the night (the rooms' own night pictures), the
+      flashlight.
+- [ ] Chapter 4: the power cut and the generator; the act's loading
+      screen between acts.
+- [ ] Chapter 5: the library's bookcase, the safe and the deposit boxes.
+- [ ] Chapter 6: the storm with the generator off, the embrocation.
+- [ ] Chapters 9 and 10: Lombard's rescue against the clock, Vera's room,
+      the screening room's projector, the coda and the credits.
 
 ## Last checked
 
