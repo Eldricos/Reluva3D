@@ -68,48 +68,6 @@ Vec3 cross(const Vec3 &a, const Vec3 &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
 
-// Where an animation is at `time`: the frame it's on, the next, and how far
-// towards it, as the original times them (frames of 50 ms at speed 1).
-void animationFrames(int32_t startFrame, int32_t endFrame, int32_t flags, float speed, int32_t startTime, int32_t time,
-                     int frames, int &current, int &next, float &towards) {
-    const float elapsed = std::max(0.0f, float(time - startTime) / 50.0f);
-    float at = float(startFrame) + elapsed * speed;
-    const int size = endFrame - startFrame;
-    towards = 0;
-    if (size == 0) {
-        current = next = startFrame;
-    } else if (speed >= 0) {
-        if (at > float(endFrame - 1)) {
-            if (!(flags & Ghoul2Instances::kAnimLoop)) {
-                // Held on its last frame.
-                current = next = std::clamp(endFrame - 1, 0, frames - 1);
-                return;
-            }
-            at = float(startFrame) + std::fmod(at - float(startFrame), float(size));
-        }
-        current = int(std::floor(at));
-        towards = at - float(current);
-        next = current + 1;
-        if (next >= endFrame)
-            next = (flags & Ghoul2Instances::kAnimLoop) ? startFrame : endFrame - 1;
-    } else {
-        // Played backwards: from startFrame down towards endFrame.
-        if (at < float(endFrame + 1)) {
-            if (flags & Ghoul2Instances::kAnimLoop)
-                at = float(startFrame) - std::fmod(float(startFrame) - at, float(-size));
-            else
-                at = float(endFrame + 1);
-        }
-        current = int(std::ceil(at));
-        towards = float(current) - at;
-        next = current - 1;
-        if (next <= endFrame)
-            next = (flags & Ghoul2Instances::kAnimLoop) ? startFrame : endFrame + 1;
-    }
-    current = std::clamp(current, 0, frames - 1);
-    next = std::clamp(next, 0, frames - 1);
-}
-
 } // namespace
 
 std::shared_ptr<const GlmModel> Ghoul2Instances::loadMesh(const std::string &file) {
@@ -263,6 +221,16 @@ bool Ghoul2Instances::setAnimation(int32_t handle, int32_t modelIndex, const std
     const int b = m ? boneIndex(*m, bone) : -1;
     if (b < 0)
         return false;
+    const auto old = m->animations.find(b);
+    m->animations[b] = makeAnimation(old != m->animations.end() ? &old->second : nullptr, startFrame, endFrame, flags,
+                                     speed, time, setFrame, blendTime);
+    m->posedTime = -1;
+    return true;
+}
+
+Ghoul2Instances::Animation Ghoul2Instances::makeAnimation(const Animation *old, int32_t startFrame, int32_t endFrame,
+                                                          int32_t flags, float speed, int32_t time, float setFrame,
+                                                          int32_t blendTime) {
     Animation a;
     a.startFrame = startFrame;
     a.endFrame = endFrame;
@@ -272,25 +240,21 @@ bool Ghoul2Instances::setAnimation(int32_t handle, int32_t modelIndex, const std
     // A frame to start from: as if begun that many frames ago.
     if (setFrame >= 0 && speed != 0)
         a.startTime = time - int32_t((setFrame - float(startFrame)) / speed * 50);
-    const auto old = m->animations.find(b);
-    if ((flags & kAnimBlend) && old != m->animations.end() && (old->second.flags & (kAnimOverride | kAnimLoop))) {
-        const Animation &o = old->second;
-        if (o.blendStart == time) {
+    if ((flags & kAnimBlend) && old && (old->flags & (kAnimOverride | kAnimLoop))) {
+        if (old->blendStart == time) {
             // Set again before its blend began: only the blend's length changes.
-            a.blendStart = o.blendStart;
-            a.blendFrame = o.blendFrame;
-            a.blendLerpFrame = o.blendLerpFrame;
+            a.blendStart = old->blendStart;
+            a.blendFrame = old->blendFrame;
+            a.blendLerpFrame = old->blendLerpFrame;
         } else {
-            blendFrom(o, time, a);
+            blendFrom(*old, time, a);
         }
         a.blendTime = blendTime;
     } else {
         // Nothing playing to blend from.
         a.flags &= ~kAnimBlend;
     }
-    m->animations[b] = a;
-    m->posedTime = -1;
-    return true;
+    return a;
 }
 
 void Ghoul2Instances::blendFrom(const Animation &from, int32_t time, Animation &to) {
@@ -333,18 +297,50 @@ void Ghoul2Instances::blendFrom(const Animation &from, int32_t time, Animation &
         to.blendLerpFrame = loop ? from.startFrame : std::max(0, from.endFrame - 1);
 }
 
-bool Ghoul2Instances::setAngles(int32_t handle, int32_t modelIndex, const std::string &bone, const Vec3 &angles,
-                                int32_t flags, Axis up, Axis right, Axis forward) {
-    Model *m = model(handle, modelIndex);
-    const int b = m ? boneIndex(*m, bone) : -1;
-    if (b < 0)
-        return false;
-    if (!(flags & (kAnglesPreMult | kAnglesPostMult | kAnglesReplace))) {
-        m->angles.erase(b);
-        m->angleFlags.erase(b);
-        m->posedTime = -1;
-        return true;
+// Where an animation is at `time`: the frame it's on, the next, and how far
+// towards it, as the original times them (frames of 50 ms at speed 1).
+void Ghoul2Instances::animationFrames(int32_t startFrame, int32_t endFrame, int32_t flags, float speed,
+                                      int32_t startTime, int32_t time, int frames, int &current, int &next,
+                                      float &towards) {
+    const float elapsed = std::max(0.0f, float(time - startTime) / 50.0f);
+    float at = float(startFrame) + elapsed * speed;
+    const int size = endFrame - startFrame;
+    towards = 0;
+    if (size == 0) {
+        current = next = startFrame;
+    } else if (speed >= 0) {
+        if (at > float(endFrame - 1)) {
+            if (!(flags & Ghoul2Instances::kAnimLoop)) {
+                // Held on its last frame.
+                current = next = std::clamp(endFrame - 1, 0, frames - 1);
+                return;
+            }
+            at = float(startFrame) + std::fmod(at - float(startFrame), float(size));
+        }
+        current = int(std::floor(at));
+        towards = at - float(current);
+        next = current + 1;
+        if (next >= endFrame)
+            next = (flags & Ghoul2Instances::kAnimLoop) ? startFrame : endFrame - 1;
+    } else {
+        // Played backwards: from startFrame down towards endFrame.
+        if (at < float(endFrame + 1)) {
+            if (flags & Ghoul2Instances::kAnimLoop)
+                at = float(startFrame) - std::fmod(float(startFrame) - at, float(-size));
+            else
+                at = float(endFrame + 1);
+        }
+        current = int(std::ceil(at));
+        towards = float(current) - at;
+        next = current - 1;
+        if (next <= endFrame)
+            next = (flags & Ghoul2Instances::kAnimLoop) ? startFrame : endFrame + 1;
     }
+    current = std::clamp(current, 0, frames - 1);
+    next = std::clamp(next, 0, frames - 1);
+}
+
+Bone34 Ghoul2Instances::angleOverride(const GlaBone &gb, const Vec3 &angles, Axis up, Axis right, Axis forward) {
     // The angles moved onto the axes the bone turns about, as the
     // original's: yaw about `up`, pitch about `right`, roll about `forward`.
     Vec3 a{};
@@ -409,8 +405,23 @@ bool Ghoul2Instances::setAngles(int32_t handle, int32_t modelIndex, const std::s
         break;
     }
     // Turned in the bone's own frame: its base pose, the turn, back.
+    return mul(gb.basePose, mul(anglesMatrix(a), gb.basePoseInverse));
+}
+
+bool Ghoul2Instances::setAngles(int32_t handle, int32_t modelIndex, const std::string &bone, const Vec3 &angles,
+                                int32_t flags, Axis up, Axis right, Axis forward) {
+    Model *m = model(handle, modelIndex);
+    const int b = m ? boneIndex(*m, bone) : -1;
+    if (b < 0)
+        return false;
+    if (!(flags & (kAnglesPreMult | kAnglesPostMult | kAnglesReplace))) {
+        m->angles.erase(b);
+        m->angleFlags.erase(b);
+        m->posedTime = -1;
+        return true;
+    }
     const GlaBone &gb = m->skeleton->bones[size_t(b)];
-    m->angles[b] = mul(gb.basePose, mul(anglesMatrix(a), gb.basePoseInverse));
+    m->angles[b] = angleOverride(gb, angles, up, right, forward);
     m->angleFlags[b] = flags;
     m->posedTime = -1;
     return true;

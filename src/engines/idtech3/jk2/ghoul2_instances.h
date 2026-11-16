@@ -100,6 +100,14 @@ public:
     // the new one over `blendTime` ms.
     bool setAnimation(int32_t handle, int32_t modelIndex, const std::string &bone, int32_t startFrame, int32_t endFrame,
                       int32_t flags, float speed, int32_t time, float setFrame, int32_t blendTime = 0);
+    // An animation's frames at `time`, of a skeleton of `frames`: the frame
+    // it's on, the next, and how far towards it (0 to 1).
+    static void animationFrames(int32_t startFrame, int32_t endFrame, int32_t flags, float speed, int32_t startTime,
+                                int32_t time, int frames, int &current, int &next, float &towards);
+    // An angle override's matrix for a bone: the angles moved onto the axes
+    // the bone turns about (yaw about `up`, pitch about `right`, roll about
+    // `forward`), turned in the bone's own frame.
+    static Bone34 angleOverride(const GlaBone &bone, const Vec3 &angles, Axis up, Axis right, Axis forward);
     bool setAngles(int32_t handle, int32_t modelIndex, const std::string &bone, const Vec3 &angles, int32_t flags,
                    Axis up, Axis right, Axis forward);
     // A surface on (flags 0) or off (2) on every model that has it.
@@ -119,7 +127,7 @@ public:
     // The instance's models to draw at `time`.
     bool drawn(int32_t handle, int32_t time, std::vector<Drawn> &out);
 
-private:
+    // A bone's animation, as SetBoneAnim sets it.
     struct Animation {
         int32_t startFrame = 0;
         int32_t endFrame = 0;
@@ -133,6 +141,14 @@ private:
         float blendFrame = 0;
         int blendLerpFrame = 0;
     };
+    // The animation SetBoneAnim(startFrame, endFrame, flags, speed, time,
+    // setFrame, blendTime) makes, where `old` was playing (or none): as
+    // the original's, blending (0x80) from where it is if it was playing
+    // and looping or held.
+    static Animation makeAnimation(const Animation *old, int32_t startFrame, int32_t endFrame, int32_t flags,
+                                   float speed, int32_t time, float setFrame, int32_t blendTime);
+
+private:
     struct Bolt {
         std::string name;
         int bone = -1;    // a bone's bolt

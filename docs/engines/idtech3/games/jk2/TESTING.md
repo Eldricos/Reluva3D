@@ -27,7 +27,9 @@
   player fires, then a player joining over the network in memory:
   `net-run -loopback`), `jk2-menus`
   (`ui-run`: the multiplayer menus' main menu, Setup, and Create Server
-  and Join Server by way of Play). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  and Join Server by way of Play), `jk2-single-player` (`sp-run`: the
+  single-player game DLL on kejim_post, its `Init`, the player joining
+  and 100 server frames, on a fixed clock). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

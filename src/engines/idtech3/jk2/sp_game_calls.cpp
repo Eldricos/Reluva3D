@@ -93,6 +93,13 @@ uint32_t floatBits(float v) {
 
 } // namespace
 
+int SpGameHost::jediGhoul2Slot(std::string_view name) {
+    for (int i = 0; i < int(std::size(kGhoul2Slots)); ++i)
+        if (name == kGhoul2Slots[i])
+            return kFirstGhoul2Slot + i;
+    return -1;
+}
+
 void SpGameHost::addJediImports() {
     // Each light style full until the client game sets it, as Raven's
     // engines start them.
@@ -111,6 +118,7 @@ void SpGameHost::addJediImports() {
         });
         _cpu->write32(_imports + 4 * uint32_t(slot), address);
     }
+    addGhoul2Imports();
 }
 
 uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
@@ -237,6 +245,8 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
     case 82: // G2_ListModelBones, G2_ListModelSurfaces: printing for developers
     case 83:
         return 0;
+    case 84: // G2_HaveWeGhoul2Models(CGhoul2Info_v &)
+        return ghoul2HasModels(a(0)) ? 1u : 0u;
     case 86: { // R_GetLightStyle(style, rgba out)
         const uint32_t style = a(0);
         if (style < _lightStyles.size() && c.valid(a(1), 4))

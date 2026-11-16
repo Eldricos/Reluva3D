@@ -167,11 +167,15 @@ behind the DLL's own tables.
    read from `jk2sp.exe`; Elite Force's single-player host loads the DLL
    in a Jedi Outcast mode. The client game's 112 calls are mapped from
    `jk2sp.exe`'s jump table and most answered, sharing Elite Force's
-   handling where they match; `sp-run` runs the game's `Init` (NPCs,
-   ICARUS) to its first Ghoul2 call. Next: Ghoul2's slots and the
-   engine-owned instance array the game reaches through
-   `TheGhoul2InfoArray`; then the rest of the client game's (the menus'
-   parser, cinematics) as the level needs them.
+   handling where they match. Ghoul2's instances are built in the game's
+   memory with 1.02a's layouts, the engine's array object and most of its
+   Ghoul2 functions answered ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)):
+   `sp-run` runs `kejim_post`'s `Init`, the player joins and the level
+   runs, its scripts starting the opening cinematic. Next: the client
+   game's start, which needs the menus' parser (calls 97–107, the HUD's
+   menus: phase 8's system, which `jk2sp.exe` holds); then drawing Ghoul2
+   models from the records, the bolt matrix, and the Play page.
+
 8. **Single player's menus**: the Team Arena style menu system run natively
    (`ui/menus.txt`, every item type, the owner draws and `uiScript`
    commands that `jk2sp.exe` provides: new game, load and save lists,

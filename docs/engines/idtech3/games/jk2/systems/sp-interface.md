@@ -1,6 +1,6 @@
 # Jedi Outcast: how single player's DLL and the engine talk
 
-> **Status:** partial · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp` (shared with Elite Force), `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; `jk2gamex86.dll` running in Reluva up to its first Ghoul2 call · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp` (shared with Elite Force), `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; `jk2gamex86.dll` running the first level in Reluva · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -136,12 +136,13 @@ The client game's calls are answered as the table above says, Elite
 Force's handling shared where the call and what it passes are the same
 (`SpGameHost::cgameCall` with Elite Force's number), the snapshot and
 scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
-answered: the Ghoul2 calls (84, 85), a brush model's corners (88), the
+answered: Ghoul2's `SetModels` (85), a brush model's corners (88), the
 cinematics (90–94), the menus' parser (97–107) and item text (111),
-which stop the game with their number, as Ghoul2's engine slots do with
-their names. With them, `sp-run` on `kejim_post` runs `dllEntry`, the
-game's `Init` (its NPC definitions and ICARUS start) and stops at its
-first Ghoul2 call, `G2API_CleanGhoul2Models`.
+which stop the game with their number. Ghoul2's engine slots are
+answered as [sp-ghoul2.md](sp-ghoul2.md) says, those not yet stopping
+the game by name. With them, `sp-run` on `kejim_post` runs the game's
+`Init`, the player joins and the level runs; with `-cgame`, the client
+game's start stops at the menus' parser (call 102).
 
 ## Sources and checks
 
@@ -152,7 +153,6 @@ first Ghoul2 call, `G2API_CleanGhoul2Models`.
   `cg_public.h`, `q_shared.h`) as a guide to the tables' order and the
   structures, *(published)* for the Ghoul2 slots' names.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its
-  version is 6, `dllEntry`'s client game calls are answered and the
-  game's `Init` runs until its first Ghoul2 call. The client game's own
-  start (`CG_Init`) needs the level started, so its calls beyond
-  `dllEntry`'s haven't run yet.
+  version is 6, the game's `Init` runs, the player joins and 100 server
+  frames run; with `-cgame`, the client game's start runs until the
+  menus' parser.

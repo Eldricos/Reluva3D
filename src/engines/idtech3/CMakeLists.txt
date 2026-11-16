@@ -67,6 +67,7 @@ reluva_add_engine(idtech3
         jk2/font_set.cpp
         jk2/game_calls.cpp
         jk2/sp_game_calls.cpp
+        jk2/sp_ghoul2.cpp
         jk2/ghoul2_instances.cpp
         jk2/net_fields.cpp
         jk2/ui_host.cpp
@@ -152,4 +153,4 @@ reluva_add_gamedata_test(idtech3
     GAME jk2
     ENV RELUVA_JK2
     SCRIPT ${tests}/gamedata-jk2.cmake
-    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-roffs jk2-videos jk2-menus jk2-game)
+    STEPS jk2-release jk2-maps jk2-shaders jk2-models jk2-ghoul2 jk2-images jk2-effects jk2-roffs jk2-videos jk2-menus jk2-game jk2-single-player)

@@ -11,6 +11,7 @@
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/client/scene.h"
@@ -395,6 +396,46 @@ private:
     bool _stringsLoaded = false;
     std::array<std::array<uint8_t, 4>, 32> _lightStyles{}; // as the client game sets them, full to start
     std::array<float, 3> _cmdAngles{};                     // SetUserCmdAngles
+    // Ghoul2 (jk2/sp_ghoul2.cpp): the instances the engine owns, each a
+    // Visual C++ 6 vector of CGhoul2Info in the game's memory, handed out
+    // through the array object at _g2Array.
+    void addGhoul2Imports();
+    // A Ghoul2 engine function's slot by its name, -1 if none.
+    static int jediGhoul2Slot(std::string_view name);
+    void addGhoul2Array();
+    void freeGhoul2Models(uint32_t vector);
+    uint32_t ghoul2Vector(uint32_t handleAddress) const;
+    // Whether a CGhoul2Info_v has a model in use (model index not -1).
+    bool ghoul2HasModels(uint32_t handleAddress) const;
+    uint32_t vectorCount(uint32_t vector, uint32_t elementSize) const;
+    uint32_t vectorAt(uint32_t vector, uint32_t elementSize, uint32_t index) const;
+    uint32_t vectorGrow(uint32_t vector, uint32_t elementSize, uint32_t count);
+    void vectorFree(uint32_t vector);
+    // A Ghoul2 model's files, read once: its mesh and its skeleton.
+    struct Ghoul2Files {
+        GlmModel mesh;
+        GlaSkeleton skeleton;
+        bool hasSkeleton = false;
+    };
+    const Ghoul2Files *ghoul2Files(const std::string &name);
+    // A model's files by a CGhoul2Info's file name; none if unreadable.
+    const Ghoul2Files *ghoul2FilesOf(uint32_t info);
+    // A bone's place in a model's override list (CGhoul2Info's mBlist):
+    // found, or (`add`) made; -1 if the skeleton has no such bone.
+    int32_t ghoul2BoneRecord(uint32_t info, const std::string &bone, bool add);
+    // A bone record's angle override and animation, as SetBoneAngles and
+    // SetBoneAnim set them (by its place in the list).
+    bool ghoul2SetAngles(x86::Cpu &c, uint32_t info, int32_t record, int firstArg);
+    bool ghoul2SetAnimation(x86::Cpu &c, uint32_t info, int32_t record, int firstArg);
+    bool ghoul2GetAnimation(x86::Cpu &c, uint32_t info, int32_t record, int firstArg);
+    // A bone record's flags cleared (`mask`), and the record given back
+    // (its bone -1) once it has none left.
+    bool ghoul2ClearBone(uint32_t info, int32_t record, int32_t mask);
+    std::map<std::string, std::unique_ptr<Ghoul2Files>> _g2Files; // by name, lower case; none if unreadable
+    uint32_t _g2Array = 0;
+    std::map<int32_t, uint32_t> _g2AnimNames; // model handle -> its skeleton's name, in the game's memory
+    std::map<int32_t, uint32_t> _g2Instances; // handle -> vector
+    int32_t _g2Next = 1;
     int importPosition(int slot) const;
     std::shared_ptr<const Bsp> _map;
     LightGrid _lightGrid;

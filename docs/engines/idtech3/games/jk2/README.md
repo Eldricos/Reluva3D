@@ -76,6 +76,7 @@ files; what comes next is in the [plan](PLAN.md).
 | [systems/cgame-calls.md](systems/cgame-calls.md) | The multiplayer client game's system calls |
 | [systems/console.md](systems/console.md) | The multiplayer engine's console, notify lines and chat line |
 | [systems/sp-interface.md](systems/sp-interface.md) | How single player's DLL and the engine talk |
+| [systems/sp-ghoul2.md](systems/sp-ghoul2.md) | Single player's Ghoul2 instances, shared in memory |
 
 ## Terms
 
