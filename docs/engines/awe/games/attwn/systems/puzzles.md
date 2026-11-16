@@ -94,9 +94,19 @@ drawers with something in them opened first, then each place given its
 letter by a swap. The bookcase is left to the search: its shelves are
 hotspots, its books items.
 
-Not yet: the arrows' highlights (`rightover`, `leftover`) are taken to
-show as Orient Express's hotspots' pictures do *(inferred)*; where the
-player learns 28 11 49 isn't found.
+The arrows' highlights are the scene's pictures `rightover.tga`,
+`leftover.tga` and `middleover.tga`, each with the condition `0`: shown
+only while the mouse is over the hotspot of that name, as every
+hotspot's picture is (`0x414cc0`: the mouse over one that can be
+clicked shows the object its `HOTS` name names and plays its hover
+sound, and leaving hides it and stops the sound), which the shared scene
+page does as for Orient Express.
+
+The numbers are in a coded telegram to Anthony Marston: decoded, the
+`decodedmessage` document reads "our agent reported safe in house with
+combination L28 R11 L49" (`Text\Journal\docs.txt`), and the journal's
+General tab keeps "the combination of the safe - L28, R11, L49" once
+it's held.
 
 ## Sources and checks
 

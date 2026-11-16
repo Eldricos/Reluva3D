@@ -1,6 +1,6 @@
 # And Then There Were None: the interface
 
-> **Status:** partial · **Code:** `src/engines/awe/ui/dialogue_box.cpp`, `src/engines/awe/ui/game_text.cpp` (shared), `src/engines/awe/games.h` (`GameFont`, `DialogueBoxLayout`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`); Reluva's dialogue box looked at in the Scenes page · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/ui/dialogue_box.cpp`, `src/engines/awe/ui/game_text.cpp` (shared), `src/engines/awe/games.h` (`GameFont`, `DialogueBoxLayout`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`); Reluva's dialogue box looked at in the Scenes page · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -36,9 +36,30 @@ kept in the screen object at `+0x4` on:
 The face names are the files' own (their `name` tables): `inhswfte.ttf`
 is Industrial Heavy and `rulyssc_.ttf` RulySC, neither asked for. A size is
 turned into pixels as Orient Express's are (`MulDiv` by the screen's
-pixels an inch, over 72: `0x40ecc7`). The dialogue's is font 1 (its
-measure, `0x415ed0`, called with 1 by the table loader and the box).
-What the others are for isn't read yet.
+pixels an inch, over 72: `0x40ecc7`). Text is drawn by `0x415d70`
+(the font's number, its top-left corner, the colour, the text, and 0
+plain, 1 outlined in black, 2 with a black shadow) and measured by
+`0x415ed0`; by the numbers they're given:
+
+| Font | Used for |
+|---|---|
+| 0 | the name of the object under the mouse (below) |
+| 1 | the dialogue: the table loader's measure and the box (`0x431caa`, `0x434a12` on) |
+| 2 | "LOADING" in the act's loading step ([acts.md](acts.md)) |
+| 3 | the developers' list of tags and values (`0x415ef0`, `"%s = %d"`) |
+| 4 | the journal's entries |
+| 5 | the journal's tabs and sub-headings ([journal.md](journal.md)) |
+| 6 | the inventory's description ([inventory.md](inventory.md)) |
+| 7 | the save and load screens and the options' labels |
+| 8 | the yes-or-no box, and "Please Wait" and how far in the loading step |
+
+**The object's name** (`0x416080`): with the mouse over an object, the
+first of its `listA` texts whose condition holds, else its `name`
+field (`0x410250`), in font 0, outlined, colour `0xffd7c8a0`, centred
+across with its foot at y 595. No object of the install has a `listA`,
+and of the five with a name, the two `CHEAT` hotspots show only under
+the condition `debug`, the rest can't be clicked: so nothing shows in
+play, and Reluva draws none.
 
 ### The dialogue box
 
