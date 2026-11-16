@@ -97,7 +97,9 @@ install meets it.
 
 ### Not done, as nothing in the install uses them
 
-Kept for the other AWE games, where they may be needed:
+Left as they are on purpose: nothing in the game reaches them, so they
+change nothing a player sees. They wait for another AWE game that uses
+them (the handlers are read; each one's addresses are on its page):
 
 - the lights' flicker;
 - objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`: empty or
@@ -110,8 +112,14 @@ Kept for the other AWE games, where they may be needed:
 
 ### Only one release checked
 
-Everything was worked out and checked on the English 1.0 install. Other
-languages and patched releases haven't been tried.
+Everything was worked out and checked on the English 1.0 install, the
+only release we have. Other languages and patched releases haven't been
+tried: they wait for someone who owns one. Reluva finds such a release
+by the fallback (the same files, whatever their contents), and the
+game-files test makes it a record of its own (`unknown-release`); its
+steps run as for English 1.0 ([TESTING.md](TESTING.md#the-game-files-test-with-your-own-copy-of-the-game)),
+and what differs goes here. Its detection signature is made with
+`reluva --hash`.
 
 ## Additions outside the game
 

@@ -59,7 +59,15 @@ None: where the original misbehaves, Reluva does the same.
 
 ## Not yet as the original
 
-None known.
+### Only one release checked
+
+Everything was worked out and checked on the English retail release on
+two CDs, the only one we have. Other releases haven't been tried: they
+wait for someone who owns one. Reluva finds such a release by the
+fallback (the same files and `granny2.dll`, whatever their contents),
+the game-files test makes it a record of its own
+(`attwn-unknown-release`, [TESTING.md](TESTING.md)), and what differs
+goes here.
 
 ## Additions outside the game
 
