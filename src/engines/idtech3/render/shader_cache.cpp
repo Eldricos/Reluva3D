@@ -289,8 +289,11 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
                 m.portalRange = std::max(m.portalRange, s.portalRange);
     }
 
-    // A video's stage shows its video (video/<name>.roq), or isn't drawn if
-    // there's no such video. A surface sprites stage isn't drawn over the
+    // A video's stage shows its video (video/<name>.roq). Without the
+    // video, the stage and every stage after it are left out, as the
+    // original's: its stage has no image, so it's made inactive, and the
+    // shader keeps the stages before the first inactive one. A surface
+    // sprites stage isn't drawn over the
     // surface: the level's renderer scatters its sprites (WorldRenderer),
     // and models have none.
     for (const ShaderStage &s : def.stages) {
@@ -311,7 +314,7 @@ ShaderCache::Material ShaderCache::makeMaterial(const ShaderDef &def, Lighting l
             err = video->movie.open(video->file, video->extension);
         if (err) {
             note("videoMap: video missing or unreadable");
-            continue;
+            break;
         }
         Stage st = makeStage(s, def);
         st.video = int(_videos.size());

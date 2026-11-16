@@ -1051,6 +1051,35 @@ static void testShaderRemap() {
     CHECK(drawn(shaders.material("c", Lighting::kVertex), 10) == 110);
 }
 
+// A videoMap whose video isn't there: it and every stage after it left
+// out, as the original's shader keeps only the stages before the first it
+// turned off; nothing left, the shader isn't drawn.
+static void testMissingVideo() {
+    SearchSet files;
+    ShaderLibrary library;
+    auto stage = [](const std::string &map, const std::string &video) {
+        ShaderStage st;
+        if (!map.empty())
+            st.maps = {map};
+        st.videoMap = video;
+        return st;
+    };
+    ShaderDef first;
+    first.name = "first";
+    first.stages = {stage("", "video/gone"), stage("textures/x", "")};
+    ShaderDef second;
+    second.name = "second";
+    second.stages = {stage("textures/x", ""), stage("", "video/gone"), stage("textures/y", "")};
+    library.add(first);
+    library.add(second);
+    StyleRenderer r;
+    ShaderCache shaders(r, files, library);
+    const int a = shaders.material("first", Lighting::kVertex);
+    CHECK(shaders.get(a).skip && shaders.get(a).stages.empty());
+    const int b = shaders.material("second", Lighting::kVertex);
+    CHECK(!shaders.get(b).skip && shaders.get(b).stages.size() == 1);
+}
+
 static void testLightStyles() {
     // One quad lit by style 0 and style 6: its first lightmap at (0, 0) of
     // lightmap 0, style 6's at (4, 4) of lightmap 1; its vertices likewise.
@@ -1427,6 +1456,7 @@ static const reluva::test::Suite
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
                {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
                {"shader remap", [](const std::filesystem::path &) { testShaderRemap(); }},
+               {"missing video", [](const std::filesystem::path &) { testMissingVideo(); }},
                {"roff", [](const std::filesystem::path &) { testRoff(); }},
                {"mdr", [](const std::filesystem::path &) { testMdr(); }},
                {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},

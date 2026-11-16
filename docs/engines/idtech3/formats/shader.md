@@ -175,9 +175,16 @@ have, as the GPL Jedi Outcast renderer reads and draws them:
   `clampMap`'s; surface sprites (`surfaceSprites` and its `ss*` options,
   41 shaders; next section); `videoMap` (13), a stage showing a RoQ video
   (`video/<name>.roq`, [roq.md](../../../common/video/roq.md)) on a loop,
-  silent, from when it's first drawn. 9 of the 13 name videos the paks
-  don't hold; Reluva leaves those stages out and draws the rest of their
-  shaders. What the original shows for them hasn't been looked at.
+  silent, from when it's first drawn. Without its video, the stage and
+  every stage after it are left out, as the original's: its cinematic
+  player can't open the file (`CIN_PlayCinematic` gives −1), so the stage
+  has no image and is made inactive, and the finished shader keeps only
+  the stages before the first inactive one (`GeneratePermanentShader`);
+  nothing left, nothing is drawn. 9 of 1.02a's 13 name videos the release
+  doesn't have at all (lightspeed, Kyle rummaging, Morgan's four, a CTF
+  test), each its shader's only stage, so neither the original nor Reluva
+  draws those shaders; the other 4 (the opening logos, Mon Mothma's
+  three) play.
 - **Read, nothing to draw:** `notc` (12) keeps the shader's textures from
   being compressed, which Reluva never does; `lightColor` (2) only the map
   compiler reads; `sun` (11, sky shaders) sets the direction light falls
