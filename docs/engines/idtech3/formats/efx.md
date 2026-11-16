@@ -178,6 +178,15 @@ radius, electricity's chaos in the first axis' first word, a cylinder's
 end width in its radius and its start width in its rotation, from the
 old origin to the origin.
 
+A saber's blade is two entities from the client game: its core, a line,
+and its glow, a type of its own (5) the renderer draws as sprites facing
+the eye (jk2mp.exe 0x494903): from the blade's tip (its length at byte
+180, along the first axis from the origin) back to the hilt, each sprite
+0.017 wider than the one before and 0.65 of its width further back, the
+first as wide as the entity's radius; then one at the hilt 5.5 to 5.75
+across, a little different each frame. Each is a square of the entity's
+shader and colour.
+
 ## In Reluva
 
 `raven::parseEffectFile` reads a file; `raven::EffectSystem` registers

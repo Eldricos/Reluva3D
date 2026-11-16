@@ -4,30 +4,19 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Read from the code, not seen running
 
-- Fonts are laid out as the GPL Jedi Outcast renderer lays them out;
-  the Text page reads right, but it hasn't been compared with the
-  original's screens ([fonts.md](../../formats/fonts.md)).
 - `videoMap` textures play their video as the GPL source describes;
   none has been seen drawn in a level yet (kejim_post's screens are deep
   in it) ([shader.md](../../formats/shader.md)).
-- Ghoul2 models are posed as the GPL Jedi Outcast renderer poses them,
-  the replacing angle override (0x4) included; they look right in the
-  Models page and in a match, but haven't been compared with the
-  original's screens ([ghoul2.md](../../formats/ghoul2.md)).
+- The replacing Ghoul2 angle override (0x4) follows the GPL renderer;
+  no 1.02a multiplayer screen shows it ([ghoul2.md](../../formats/ghoul2.md)).
+- The console's typing line's scroll follows the GPL source, not traced
+  in `jk2mp.exe` ([systems/console.md](systems/console.md)).
 - Surface sprites, light styles and the one-shot animMaps are drawn as
   the GPL Jedi Outcast renderer describes them, which isn't 1.02a's own
   code; Yavin's levels look as expected in `reluva-viewer`, but haven't
   been compared with the original running
   ([shader.md](../../formats/shader.md), [rbsp.md](../../formats/rbsp.md)).
 
-- The console's chat line (its big characters and widths) and its
-  typing line's scroll follow the GPL source, not traced in `jk2mp.exe`
-  ([systems/console.md](systems/console.md)).
-- The multiplayer menus' text: a number of letters as `R_Font_DrawString`'s
-  limit, and the drop shadow's offset and grey, as the GPL multiplayer
-  renderer has them; the menus read right, but haven't been compared
-  with the original's screens
-  ([systems/syscalls.md](systems/syscalls.md)).
 
 - The network protocol's level changes, downloads and long matches, and
   a Reluva server's heartbeats to a real master, haven't been tried
@@ -35,6 +24,18 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Seen running, not traced in the code
 
+- Side by side with the retail game's screenshots (November 2026, 800 x
+  600, windowed): the main menu, Setup's Player and Video pages, Join
+  Server, Create Server and Controls; the HUD, the scoreboard (a long
+  name cut where the original cuts it), the message as a player joins;
+  the console and a chat line; and Kyle posed with saber and pistol from
+  behind, the front and the side, crouching and running. Fonts (Raven's
+  and the console's), the menus' text and its shadows, and the Ghoul2
+  poses all match. What differed and was fixed: the level twice as bright
+  (in a window the original never brightens it,
+  [rbsp.md](../../formats/rbsp.md#in-reluva)), the saber's glow not
+  drawn ([efx.md](../../formats/efx.md)), and the video settings'
+  defaults. Not yet seen again with those fixes.
 - The network protocol beyond its tables and Huffman code (which are
   jk2mp.exe's own): a match played against the retail game both ways,
   on Windows (November 2026), Reluva hosting and joining

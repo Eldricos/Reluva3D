@@ -730,6 +730,22 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
         }
         quad(vertex(add(add(origin, l, r), u, r), 0, 0), vertex(add(add(origin, l, -r), u, r), 1, 0),
              vertex(add(add(origin, l, -r), u, -r), 1, 1), vertex(add(add(origin, l, r), u, -r), 0, 1));
+    } else if (type == _layout.typeSaberGlow) {
+        // Sprites facing the eye back from the blade's tip, each 0.017 wider
+        // than the one before and 0.65 of its width apart, then one at the
+        // hilt 5.5 to 5.75 across (jk2mp.exe 0x494903).
+        auto sprite = [&](const V &at, float r) {
+            quad(vertex(add(add(at, left, r), up, r), 0, 0), vertex(add(add(at, left, -r), up, r), 1, 0),
+                 vertex(add(add(at, left, -r), up, -r), 1, 1), vertex(add(add(at, left, r), up, -r), 0, 1));
+        };
+        const V dir = readVec(e, _layout.axes);
+        float r = readFloat(e, _layout.radius);
+        if (r > 0)
+            for (float i = readFloat(e, _layout.saberLength); i > 0; i -= r * 0.65f) {
+                sprite(add(origin, dir, i), r);
+                r += 0.017f;
+            }
+        sprite(origin, 5.5f + float(_effectRandom() % 32768) / 32767.0f * 0.25f);
     } else if (type == _layout.typeLine || type == _layout.typeOrientedLine || type == _layout.typeTaperedLine) {
         const float w0 = readFloat(e, _layout.width);
         const float w1 = type == _layout.typeTaperedLine ? readFloat(e, _layout.endWidth) : w0;

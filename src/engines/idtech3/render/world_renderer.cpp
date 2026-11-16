@@ -27,7 +27,7 @@ constexpr float kSkySort = -1; // the sky surfaces' batches: never drawn as surf
 // A vertex as drawn. Its colour adds up its surface's light styles: until
 // a game's code sets them, each is full, as Raven's engines start them
 // (rbsp.md). A Quake III map's surfaces have only style 0.
-gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven) {
+gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven, bool overbright) {
     gfx::Vertex g;
     for (int i = 0; i < 3; ++i) {
         g.pos[i] = v.pos[size_t(i)];
@@ -44,7 +44,8 @@ gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven) {
         if (s.vertexStyles[k] == kNoStyle)
             break;
         uint8_t c[3] = {v.color[k][0], v.color[k][1], v.color[k][2]};
-        brightenLight(c);
+        if (overbright)
+            brightenLight(c);
         for (int i = 0; i < 3; ++i)
             rgb[i] += raven ? c[i] * 255 : c[i];
     }
@@ -207,7 +208,8 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     std::vector<uint8_t> base(bsp.lightmapCount() * kPixels * 4, 0);
     for (size_t i = 0; i < bsp.lightmapCount() * kPixels; ++i) {
         std::copy_n(&bsp.lightmaps[i * 3], 3, &base[i * 4]);
-        brightenLight(&base[i * 4]);
+        if (_overbright)
+            brightenLight(&base[i * 4]);
         base[i * 4 + 3] = 255;
     }
     gfx::TextureParams lightmapParams;
@@ -335,7 +337,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 sp.kind = mat.autosprite;
                 const BspVertex *sv = &bsp.vertices[size_t(s.firstVertex)];
                 for (int i = 0; i < s.numVertices; ++i)
-                    sp.vertices.push_back(toGfx(sv[i], s, _raven));
+                    sp.vertices.push_back(toGfx(sv[i], s, _raven, _overbright));
                 for (int i = 0; i < s.numIndices; ++i)
                     sp.indices.push_back(uint32_t(bsp.indices[size_t(s.firstIndex + i)]));
                 _sprites.push_back(std::move(sp));
@@ -364,7 +366,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 triangulateGrid(grid, patchVerts, patchIndices);
                 for (const BspVertex &pv : patchVerts) {
                     noteStyledVertex(pv, s, uint32_t(vertices.size()));
-                    vertices.push_back(toGfx(pv, s, _raven));
+                    vertices.push_back(toGfx(pv, s, _raven, _overbright));
                 }
                 for (uint32_t i : patchIndices)
                     out.push_back(base + i);
@@ -372,7 +374,7 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             } else {
                 for (int i = 0; i < s.numVertices; ++i) {
                     noteStyledVertex(v[i], s, uint32_t(vertices.size()));
-                    vertices.push_back(toGfx(v[i], s, _raven));
+                    vertices.push_back(toGfx(v[i], s, _raven, _overbright));
                 }
                 for (int i = 0; i + 2 < s.numIndices; i += 3)
                     for (int k = 0; k < 3; ++k)
@@ -501,7 +503,8 @@ void WorldRenderer::noteStyledVertex(const BspVertex &v, const BspSurface &s, ui
     sv.styles = s.vertexStyles;
     for (size_t k = 0; k < kLightStyles; ++k) {
         sv.rgb[k] = {v.color[k][0], v.color[k][1], v.color[k][2]};
-        brightenLight(sv.rgb[k].data());
+        if (_overbright)
+            brightenLight(sv.rgb[k].data());
     }
     _styledVertices.push_back(sv);
 }

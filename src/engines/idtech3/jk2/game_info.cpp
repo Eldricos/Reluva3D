@@ -24,6 +24,7 @@ GameInfo gameInfo() {
     // The multiplayer engine's (default.cfg is single player's).
     g.defaultConfig = "mpdefault.cfg";
     g.consoleVersion = "JK2MP: v1.02a"; // as jk2mp.exe draws it (0x4ef690)
+    g.overbrightFullscreenOnly = true;  // 0x47ccd0: none in a window
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";
     // Its buttons, as jk2mp.exe names them: attack 0, alt attack 7, use 5,
@@ -57,6 +58,7 @@ GameInfo gameInfo() {
         {"g_privateDuel", "1", kS},
         {"g_saberLocking", "1", kS},
         {"g_maxForceRank", "6", kS},
+        {"bot_minplayers", "0", 0}, // the bots' setting, registered by the engine (0x44754f)
         {"duel_fraglimit", "10", kS},
         {"g_forceBasedTeams", "0", kS},
         {"g_duelWeaponDisable", "1", kS},
@@ -85,6 +87,14 @@ GameInfo gameInfo() {
     constexpr int32_t kUA = CvarStore::kUserInfo | CvarStore::kArchive;
     g.clientCvars = {
         {"name", "Padawan", kUA},
+        // The renderer's, where they differ from Quake III's (0x47ee19 on);
+        // not latched, as Reluva applies its video settings when a page shows.
+        {"r_overBrightBits", "1", CvarStore::kArchive},
+        {"r_mode", "3", CvarStore::kArchive},
+        {"r_colorbits", "0", CvarStore::kArchive},
+        {"r_texturebits", "0", CvarStore::kArchive},
+        {"r_detailtextures", "1", CvarStore::kArchive},
+        {"r_texturemode", "GL_LINEAR_MIPMAP_LINEAR", CvarStore::kArchive},
         {"rate", "4000", kUA},
         {"snaps", "20", kUA},
         {"model", "kyle/default", kUA},

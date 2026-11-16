@@ -20,7 +20,7 @@ constexpr float kMinimumAmbient = 32;
 
 } // namespace
 
-void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
+void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize, bool overbright) {
     _cells.clear();
     if (bsp.models.empty() || bsp.gridIndex.empty())
         return;
@@ -52,8 +52,10 @@ void LightGrid::build(const Bsp &bsp, std::array<float, 3> cellSize) {
             p.styles[k] = g.styles[k];
             p.ambient[k] = g.ambient[k];
             p.directed[k] = g.directed[k];
-            brightenLight(p.ambient[k].data());
-            brightenLight(p.directed[k].data());
+            if (overbright) {
+                brightenLight(p.ambient[k].data());
+                brightenLight(p.directed[k].data());
+            }
         }
         _points.push_back(p);
     }

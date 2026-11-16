@@ -213,7 +213,12 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **The console and its notify lines** (chat, messages at the top) are
   drawn in Reluva's own small font over a plain dark band, not in the
   original's console font (`gfx/2d/charsgrid_med`) over its `console`
-  shader. Screenshots keep them, as the original's do.
+  shader. Screenshots keep them, as the original's do. To fix: Jedi
+  Outcast's console is drawn as its engine draws it
+  ([../jk2/systems/console.md](../jk2/systems/console.md)); Elite Force
+  needs the same read of `stvoyHM.exe`'s console routines (its sizes,
+  colours and version line, `ST:V HM v1.20`) and a
+  `GameInfo::consoleVersion` of its own.
 
 ### Holomatch and network play
 

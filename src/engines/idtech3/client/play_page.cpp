@@ -228,6 +228,10 @@ bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
     Error err = _ctx.files.read(path, data);
     if (!err)
         err = parseBsp(data, *bsp);
+    // Jedi Outcast's light is doubled only by its fullscreen gamma ramp.
+    const bool overbright = !_ctx.game.overbrightFullscreenOnly ||
+                            (videoSettings(_cvars).fullscreen && _cvars.integer("r_overBrightBits") > 0);
+    _world->setOverbright(overbright);
     if (!err)
         err = _world->load(*bsp, _ctx.shaders);
     if (err) {
@@ -241,7 +245,7 @@ bool PlayPage::loadLevel(const std::string &path, std::shared_ptr<Bsp> &bsp) {
     std::vector<Entity> entities;
     if (!parseEntities(bsp->entities, entities) && !entities.empty())
         entities[0].vector("gridsize", cell);
-    _grid.build(*bsp, {cell[0], cell[1], cell[2]});
+    _grid.build(*bsp, {cell[0], cell[1], cell[2]}, overbright);
     return true;
 }
 

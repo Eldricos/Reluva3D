@@ -36,6 +36,9 @@ public:
         _subdivisions = subdivisions;
         _fastSky = fastSky;
     }
+    // Whether load() doubles the level's light (brightenLight): on unless
+    // the game draws it as stored (Jedi Outcast in a window).
+    void setOverbright(bool on) { _overbright = on; }
     // Builds the GPU data for `bsp`.
     Error load(const Bsp &bsp, const ShaderLibrary &library);
     void clear();
@@ -158,6 +161,7 @@ private:
     std::vector<std::array<gfx::TextureId, kLightStyles - 1>> _styleLightmaps;
     LightStyleColors _styles = fullLightStyles();
     bool _raven = false;
+    bool _overbright = true;
     std::vector<gfx::Vertex> _vertices;
     struct StyledVertex {
         uint32_t vertex = 0;
@@ -267,7 +271,9 @@ private:
 
 // Doubles a light colour the way the original does on loading (it's
 // stored at half brightness), keeping its hue when a component would pass
-// 255. Used for lightmaps, vertex colours and the light grid.
+// 255. Used for lightmaps, vertex colours and the light grid. Jedi
+// Outcast's engine never does this itself (0x470230): its fullscreen
+// gamma ramp doubles the screen instead, and in a window nothing does.
 void brightenLight(uint8_t *rgb);
 
 } // namespace reluva::idtech3

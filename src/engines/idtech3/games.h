@@ -68,6 +68,9 @@ struct GameInfo {
     // The console's version line, for a game whose console Reluva draws
     // as its original does (client/console_drawer.h); empty: Reluva's own.
     std::string consoleVersion;
+    // The level's light brightened only in fullscreen with r_overBrightBits
+    // on, by the screen's gamma ramp (Jedi Outcast); otherwise always.
+    bool overbrightFullscreenOnly = false;
     // The config of default keys and settings run before the player's own.
     std::string defaultConfig = "default.cfg";
     // The server's settings its engine registers as it starts, before any

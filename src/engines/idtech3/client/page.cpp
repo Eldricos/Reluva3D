@@ -106,12 +106,14 @@ void loadConfig(PageContext &ctx) {
         {"s_volume", "0.8"},
         {"s_musicvolume", "0.25"},
     };
-    for (const auto &[name, value] : kEngineCvars)
-        ctx.cvars.create(name, value, CvarStore::kArchive);
+    // The game's own first: where it gives an engine setting another
+    // default (Jedi Outcast's video settings), that one stands.
     for (const GameInfo::StartCvar &c : ctx.game.serverCvars)
         ctx.cvars.create(c.name, c.value, c.flags);
     for (const GameInfo::StartCvar &c : ctx.game.clientCvars)
         ctx.cvars.create(c.name, c.value, c.flags);
+    for (const auto &[name, value] : kEngineCvars)
+        ctx.cvars.create(name, value, CvarStore::kArchive);
     std::string text;
     std::vector<uint8_t> data;
     if (!ctx.files.read(ctx.game.defaultConfig, data))

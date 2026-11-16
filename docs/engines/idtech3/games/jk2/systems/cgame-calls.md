@@ -28,7 +28,7 @@ system and Ghoul2 (4 to 24).
 | `gameState_t` | 21,604 | an offset each for 1,400 configstrings (the module refuses an index of 1,400 or more), 16,000 bytes of text, the bytes used |
 | `snapshot_t` | 77,200 | Quake III's: flags, ping, server time, the area mask, the player state (1,368), the entity count, 256 entity states (296 each), the command count and sequence |
 | `glconfig_t` | 11,332 | the menus': three 1,024-byte strings and 8,192 of extensions, then Quake III's 17 words |
-| `refEntity_t` | 212 | Raven's (`jk2/ref_entity.h`), its Ghoul2 instance in the last word (208); its effects' sizes in the common part ([efx.md](../../../formats/efx.md)) |
+| `refEntity_t` | 212 | Raven's (`jk2/ref_entity.h`), its Ghoul2 instance in the last word (208); its effects' sizes in the common part ([efx.md](../../../formats/efx.md)); the saber's blade length at 180 |
 | `trace_t`, `usercmd_t` | 1,080, 28 | as the game module's ([game-calls.md](game-calls.md)) |
 
 ### Calls shared with Elite Force

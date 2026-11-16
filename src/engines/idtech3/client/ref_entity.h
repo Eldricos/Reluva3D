@@ -68,6 +68,10 @@ struct RefEntityLayout {
     int32_t typeCurve = -1;
     int32_t typeCylinder = -1;
     int32_t typeBolt = -1;
+    // Jedi Outcast's saber glow: sprites along the blade from the origin
+    // down its first axis, as long as the float at `saberLength`.
+    int32_t typeSaberGlow = -1;
+    size_t saberLength = 0;
     // Electricity drawn as Raven's Jedi Outcast renderer draws it (its
     // shape from the seed in `frame`), not Elite Force's way.
     bool ravenBolt = false;

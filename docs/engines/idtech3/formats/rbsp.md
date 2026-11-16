@@ -118,6 +118,20 @@ it's sampled. In multiplayer only `ffa_ns_streets` has such surfaces
 One difference remains: vertices lit by style 0 alone aren't lit again
 if a game changes style 0 (none of Jedi Outcast's does).
 
+**Brightness.** Jedi Outcast's engine never brightens the level's light
+as it loads it, unlike Quake III's and Elite Force's: its shift is
+1 - `r_overBrightBits` when overbright is on (0x470230, 0x470b90 for the
+grid), and overbright is only ever 0 or 1, forced to 0 in a window or
+without hardware gamma (0x47ccd0). In fullscreen the screen's gamma ramp
+doubles everything instead, and the 2D pictures are drawn at half to make
+up for it. So in a window the level is as stored, half Reluva's usual
+brightness, as the retail game's screenshots show it (November 2026);
+Reluva doubles the level's light (lightmaps, vertex colours and the light
+grid) only in fullscreen with `r_overBrightBits` on
+(`GameInfo::overbrightFullscreenOnly`). Retail screenshots never show the
+ramp's doubling, as it happens after the frame is read; Reluva's show the
+screen as it looks.
+
 `reluva-viewer`'s World and Maps pages show the maps (all styles full);
 `reluva-tool idtech3 bsp-check` reads them all.
 

@@ -37,7 +37,8 @@ class LightGrid {
 public:
     // `cellSize` from the worldspawn's "gridsize" key, if it has one. A
     // grid whose size doesn't match the world's bounds is left empty.
-    void build(const Bsp &bsp, std::array<float, 3> cellSize = {64, 64, 128});
+    // `overbright`: its light doubled (brightenLight), as the level's.
+    void build(const Bsp &bsp, std::array<float, 3> cellSize = {64, 64, 128}, bool overbright = true);
     bool empty() const { return _cells.empty(); }
 
     // Blends the eight surrounding grid points, skipping those inside walls

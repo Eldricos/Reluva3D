@@ -87,7 +87,9 @@ Read from the GPL Quake III Arena renderer (`tr_shader.c`,
   Lightmaps and vertex colours are stored at half brightness: on loading,
   each colour is doubled, and a component over 255 scales the whole colour
   down to keep its hue. (The original doubles or quadruples, depending on
-  its gamma mode; doubling matches its windowed look.)
+  its gamma mode; doubling matches its windowed look. Jedi Outcast's
+  engine doubles only by its fullscreen gamma ramp:
+  [rbsp.md](rbsp.md#in-reluva).)
 - **Surfaces without a script** get implicit shaders: with a lightmap, the
   lightmap then the image of the shader's name with `blendFunc filter`;
   without one, the image times the vertex colours. Triangle soups always

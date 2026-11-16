@@ -15,8 +15,8 @@ namespace reluva::idtech3::jk2 {
 // rotation, shader time and frame (the part every effect has), then the
 // lighting origin, shadow plane, old frame, back lerp, skin number and
 // custom skin, and the saber and Ghoul2 fields after. Its entity types:
-// model 0, sprite 2, oriented quad 3, beam 4, electricity 6, portal camera
-// 7, line 8, oriented line 9, cylinder 10. Its effects keep their sizes in
+// model 0, sprite 2, oriented quad 3, beam 4, saber glow 5, electricity 6,
+// portal camera 7, line 8, oriented line 9, cylinder 10. Its effects keep their sizes in
 // the common part, as its renderer reads them (docs/engines/idtech3/formats/efx.md):
 // a line's or electricity's width is its radius, electricity's chaos the
 // first axis' first word; a cylinder runs from the old origin (the radius
@@ -48,6 +48,8 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     l.typeSprite = 2;
     l.typeQuad = 3;
     l.typeBeam = 4;
+    l.typeSaberGlow = 5;
+    l.saberLength = 180;
     l.typeBolt = 6;
     l.ravenBolt = true;
     l.typePortal = 7;
