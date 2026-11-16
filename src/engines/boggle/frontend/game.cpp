@@ -103,14 +103,14 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
-void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const FrontendRosterDialog& dialog) {
-    if(dialog.installed()){dialog.draw(s,roster);return;}
+void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const FrontendRosterDialog& dialog,const std::string& error) {
+    if(dialog.installed()){dialog.draw(s,roster,error);return;}
     fill(s,{32,96,576,354},gold);fill(s,{34,98,572,350},dark);
     text(s,60,112,"LOCAL PLAYERS",white,2);
     for(size_t i=0;i<4;++i)button(s,{72,142+int(i)*50,496,38},std::to_string(i+1)+": "+(roster[i].empty()?"NO PLAYER":roster[i])+"  v");
     text(s,60,350,"1-4 / click: choose a human or computer",muted);
-    text(s,60,370,"Use Change Name outside this panel to add names.",muted);
-    button(s,play,"DONE (ENTER)",true);
+    text(s,60,370,error.empty()?"Use Change Name outside this panel to add names.":error.substr(0,84),error.empty()?muted:Color{255,150,130});
+    button(s,play,"DONE (ENTER)",true);button(s,back,"CANCEL (ESC)");
 }
 void nameDropdown(Surface& s,const std::vector<std::string>& names,size_t selected,size_t scroll,const std::string& error,bool computers) {
     fill(s,nameList,gold);fill(s,{50,206,540,224},dark);
@@ -180,6 +180,7 @@ Error FrontendGame::run() {
     std::array<std::string,4> roster{profile.name(),"","",""};size_t rosterSlot=0;
     std::vector<std::string> choices;
     std::array<ComputerLevel,4> kinds; kinds.fill(ComputerLevel::Human);
+    auto savedRoster=roster;auto savedKinds=kinds;
     std::vector<ComputerLevel> choiceKinds;std::optional<size_t> emptyChoice;
     size_t nameSelection=0,nameScroll=0;
     std::string draftName,nameError;
@@ -210,7 +211,7 @@ Error FrontendGame::run() {
                 auto choose=[&]() {
                     const auto name=choices[nameSelection];
                     const auto kind=choiceKinds[nameSelection];
-                    if(fromRoster && (rosterSlot>0 || kind!=ComputerLevel::Human)) {
+                    if(fromRoster) {
                         roster[rosterSlot]=emptyChoice==nameSelection?"":name;
                         kinds[rosterSlot]=kind;
                         selectingName=false;changed=true;nameError.clear();
@@ -260,8 +261,14 @@ Error FrontendGame::run() {
                 continue;
             }
             if(rosterOpen) {
-                if((isKey && (event.key==key::Escape || event.key==key::Return || event.key==key::KpEnter)) || pressed(rosterDialog.done()) || (rosterDialog.installed() && pressed(rosterDialog.back()))) {
-                    rosterOpen=false;changed=true;
+                if((isKey && event.key==key::Escape) || pressed(rosterDialog.cancel())) {
+                    roster=savedRoster;kinds=savedKinds;rosterOpen=false;nameError.clear();changed=true;
+                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(rosterDialog.done())) {
+                    Error error;
+                    if(kinds[0]==ComputerLevel::Human)error=profile.rename(roster[0]);
+                    if(error)nameError=error.message;
+                    else {rosterOpen=false;nameError.clear();}
+                    changed=true;
                 } else {
                     std::optional<size_t> slot;
                     if(isKey && event.key>='1' && event.key<='4')slot=size_t(event.key-'1');
@@ -305,7 +312,7 @@ Error FrontendGame::run() {
                 if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
                 else if(((isKey && event.key=='b') || pressed(backgroundPlay)) && backgroundAvailable()) {options.background=!options.background;changed=true;}
                 else if(((isKey && event.key=='v') || pressed(computerCursor)) && cursorAvailable()) {options.cursor=!options.cursor;changed=true;}
-                else if((isKey && event.key=='m') || pressed(localPlayers)) {rosterOpen=true;changed=true;}
+                else if((isKey && event.key=='m') || pressed(localPlayers)) {savedRoster=roster;savedKinds=kinds;rosterOpen=true;nameError.clear();changed=true;}
                 else if((isKey && event.key=='p') || pressed(playerChoice)) {
                     fromRoster=false;choices=profile.history();choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
                 } else if((isKey && event.key=='n') || pressed(changeName)) {
@@ -340,7 +347,7 @@ Error FrontendGame::run() {
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable());
-            if(rosterOpen)rosterScreen(screen,roster,rosterDialog);
+            if(rosterOpen)rosterScreen(screen,roster,rosterDialog,nameError);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);
         }

@@ -334,7 +334,7 @@ void rosterLayouts(){
     for(bool extended:{false,true}){
         const auto f=fixtures::rosterDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10000),own));
         CHECK(!layout.read(own) && layout.installed());CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
-        Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,{"ABCDEFGHIJKLMNOPQR","CPU Mr. Boggle","Sam",""});const auto before=screen.pixels;layout.draw(screen,{"Alex","CPU Mr. Boggle","Sam",""});CHECK(before!=screen.pixels);
+        Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,{"ABCDEFGHIJKLMNOPQR","CPU Mr. Boggle","Sam",""},{});const auto before=screen.pixels;layout.draw(screen,{"Alex","CPU Mr. Boggle","Sam",""},{});CHECK(before!=screen.pixels);
         auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),4107);CHECK(bool(layout.read(bad)) && !layout.installed());
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?24:18)+2,0x81);CHECK(bool(layout.read(bad)));
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+6,513);CHECK(bool(layout.read(bad))); // unreasonable popup size
@@ -363,7 +363,7 @@ void rosterNavigation(const std::filesystem::path& tmp){
             if(f==10)return {click(layout.fields()[0])};
             if(f==11)return {keyEvent(key::Home),keyEvent(key::Down),keyEvent(key::Down),keyEvent(key::Return)}; // Alex
             if(f==12)return {click(layout.done()),keyEvent(key::Return)};
-            if(f==14)return {click(layout.back()),keyEvent(key::Return)};
+            if(f==14)return {click(layout.cancel()),keyEvent(key::Return)};
             if(f==17)return {keyEvent(key::End),keyEvent(key::Return)}; // empty optional slot
             if(f==18 || f==24)return {keyEvent(key::Return)};
             if(f==22 || f==25)return {keyEvent(key::Escape)};
@@ -371,10 +371,43 @@ void rosterNavigation(const std::filesystem::path& tmp){
             return {};
         };
         auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==26 && sys.w==640 && sys.textStopped);
-        if(sys.hashes.size()==26){CHECK(sys.hashes[2]==sys.hashes[3]);CHECK(sys.hashes[11]==sys.hashes[13] && sys.hashes[11]==sys.hashes[21] && sys.hashes[11]==sys.hashes[23]);CHECK(sys.hashes[12]==sys.hashes[14] && sys.hashes[12]==sys.hashes[22] && sys.hashes[12]==sys.hashes[24]);CHECK(sys.hashes[17]==sys.hashes[19] && sys.hashes[17]!=sys.hashes[11]);}
+        if(sys.hashes.size()==26){CHECK(sys.hashes[2]==sys.hashes[3]);CHECK(sys.hashes[11]==sys.hashes[13] && sys.hashes[11]==sys.hashes[21]);CHECK(sys.hashes[12]==sys.hashes[14]);CHECK(sys.hashes[17]==sys.hashes[19] && sys.hashes[17]==sys.hashes[23] && sys.hashes[17]!=sys.hashes[11]);CHECK(sys.hashes[22]==sys.hashes[24] && sys.hashes[22]!=sys.hashes[12]);}
         CHECK(!profile.load(t.savePath,t.path) && profile.name()=="Alex" && profile.history().size()==4);
         fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},10000));fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));
         t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
+
+void rosterCancellation(const std::filesystem::path& tmp){
+    for(int mode=0;mode<3;++mode){
+        auto t=target(tmp/std::to_string(mode));FrontendRosterDialog layout;
+        if(mode){const auto f=fixtures::rosterDialog(mode==2);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10000));std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10000),own));CHECK(!layout.read(own));}
+        PlayerProfile profile;CHECK(!profile.load(t.savePath,t.path) && !profile.rename("Alex") && !profile.rename("Sam"));const auto before=profile.history();
+        auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f>=5 && f<=26){PlayerProfile disk;CHECK(!disk.load(t.savePath,t.path) && disk.name()=="Sam" && disk.history()==before);}
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==12 || f==18 || f==23)return {keyEvent('m')};
+            if(f==3 || f==13 || f==19 || f==24)return {keyEvent('1')};
+            if(f==4 || f==20 || f==25)return {keyEvent(key::Home),keyEvent(key::Down),keyEvent(key::Return)};
+            if(f==5 || f==15)return {keyEvent('2')};
+            if(f==6)return {keyEvent(key::End),keyEvent(key::Up),keyEvent(key::Return)};
+            if(f==7)return {keyEvent('3')};
+            if(f==8 || f==16)return {keyEvent(key::Home),keyEvent(key::Return)};
+            if(f==9)return {keyEvent('4')};
+            if(f==10)return {keyEvent(key::End),keyEvent(key::Up),keyEvent(key::Up),keyEvent(key::Return)};
+            if(f==11 || f==22){if(f==22)std::filesystem::remove(t.savePath/"Player.txt.tmp");return {click(layout.cancel()),keyEvent(key::Return)};}
+            if(f==14)return {keyEvent(key::End),keyEvent(key::Return)}; // first slot becomes computer only in draft
+            if(f==17)return {keyEvent(key::Escape),keyEvent(key::Return)};
+            if(f==21){std::filesystem::create_directory(t.savePath/"Player.txt.tmp");return {click(layout.done()),keyEvent(key::Return)};}
+            if(f==26)return {click(layout.done()),keyEvent(key::Return)};
+            if(f==27)return {keyEvent(key::Escape)};
+            if(f==28)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==28 && sys.w==640);
+        if(sys.hashes.size()==28){CHECK(sys.hashes[1]==sys.hashes[11] && sys.hashes[1]==sys.hashes[17] && sys.hashes[1]==sys.hashes[22]);CHECK(sys.hashes[2]==sys.hashes[12] && sys.hashes[2]==sys.hashes[18] && sys.hashes[2]==sys.hashes[23]);CHECK(sys.hashes[20]!=sys.hashes[21] && sys.hashes[1]!=sys.hashes[26]);}
+        CHECK(!profile.load(t.savePath,t.path) && profile.name()=="Alex" && profile.history().size()==3);
     }
 }
 
@@ -405,6 +438,7 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"roster Cancel/Escape restores names/kinds, defers profile writes and handles failed Done",rosterCancellation},
     {"roster fields, popup geometry, exact language and malformed controls",[](const auto&){rosterLayouts();}},
     {"installed roster, all four selectors, humans/computers, empty slots and close guards",rosterNavigation},
     {"name dialog controls, fitting, language and malformed layouts",[](const auto&){nameLayouts();}},

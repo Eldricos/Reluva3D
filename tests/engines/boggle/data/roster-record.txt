@@ -2,10 +2,10 @@
 # Written by `reluva-tests boggle.unit.traditional --update`; review its diff before committing.
 roster.0: 6f8c421db0d27529
 roster.1: 7cf3de165d03a819
-roster.2: 6258d970e39da4e8
-roster.3: a6fe3adf63cf2934
-roster.4: c9fbe976a02b209a
-roster.5: 3b3e54ad7661c868
+roster.2: 8f8ea2e6ac43ad18
+roster.3: ed67d47d17939994
+roster.4: 07bfe7b584636c3a
+roster.5: 5f8c228f01580698
 roster.6: 65610032376b548f
 roster.7: 9c32966977e3142e
 roster.8: e007c6f0ed93c4b6
@@ -15,9 +15,9 @@ roster.11: e0a6453d7c838f97
 roster.12: 1fec3e3abb85cbda
 roster.13: 6f8c421db0d27529
 roster.14: 65610032376b548f
-roster.15: 3b3e54ad7661c868
-roster.16: 8588ba94020b664b
-roster.17: 6258d970e39da4e8
+roster.15: 5f8c228f01580698
+roster.16: a2ab3ae59eb578eb
+roster.17: 8f8ea2e6ac43ad18
 roster.18: 7cf3de165d03a819
 roster.19: 9c32966977e3142e
 roster.20: 831c9e57dd47458d

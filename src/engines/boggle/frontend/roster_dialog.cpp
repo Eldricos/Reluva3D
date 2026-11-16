@@ -26,8 +26,8 @@ Error FrontendRosterDialog::read(const std::vector<PeResource>& resources,uint16
     };
     auto placed=[&](DialogRect r){return SelectionRect{result.bounds_.x+scaled(r.x),result.bounds_.y+scaled(r.y),scaled(r.x+r.w)-scaled(r.x),scaled(r.y+r.h)-scaled(r.y)};};
     const auto* done=control(1,0x80);const auto* back=control(2,0x80);const auto* message=control(1344,0x82);if(!done || !back || !message)return fail();
-    result.done_=placed(done->rect);result.back_=placed(back->rect);result.message_=placed(message->rect);
-    const auto d=result.done_,b=result.back_,m=result.message_;
+    result.done_=placed(done->rect);result.cancel_=placed(back->rect);result.message_=placed(message->rect);
+    const auto d=result.done_,b=result.cancel_,m=result.message_;
     if(d.w<80 || b.w<72 || d.h<20 || b.h<20 || d.y!=b.y || d.x+d.w+8>b.x || m.w<300 || m.h<30)return fail();
     for(size_t i=0;i<4;++i){
         const auto* c=control(uint32_t(4107+i),0x85);if(!c)return fail();auto r=c->rect;r.h=14;
@@ -38,7 +38,7 @@ Error FrontendRosterDialog::read(const std::vector<PeResource>& resources,uint16
     }
     result.installed_=true;*this=result;return Error::success();
 }
-void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>& roster) const {
+void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>& roster,std::string_view error) const {
     if(!installed_ || screen.format!=PixelFormat::RGBA32 || screen.w!=640 || screen.h!=480 || screen.pitch<2560 || screen.pixels.size()<size_t(screen.pitch)*480)return;
     auto box=[&](SelectionRect b,Color color){for(int y=b.y;y<b.y+b.h;++y)for(int x=b.x;x<b.x+b.w;++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     const Color white{245,245,255},muted{170,181,205},dark{17,15,35},gold{224,189,99};
@@ -53,8 +53,8 @@ void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>&
         font::drawText(screen,f.x+6,f.y+(f.h-8)/2,name,white);font::drawText(screen,f.x+f.w-12,f.y+(f.h-8)/2,"v",white);
     }
     auto button=[&](SelectionRect b,const char* title){box(b,{88,81,105});box({b.x+2,b.y+2,b.w-4,b.h-4},{41,34,64});font::drawText(screen,b.x+(b.w-int(std::char_traits<char>::length(title))*6)/2,b.y+(b.h-8)/2,title,white);};
-    button(done_,"DONE (ENTER)");button(back_,"BACK (ESC)");
+    button(done_,"DONE (ENTER)");button(cancel_,"CANCEL (ESC)");
     font::drawText(screen,40,444,"Use Change Name outside this panel to add names.",muted);
-    font::drawText(screen,40,462,"Done / Back keeps this session's roster choices.",muted);
+    font::drawText(screen,40,462,error.empty()?"Done saves choices. Cancel discards changes.":std::string(error.substr(0,90)),error.empty()?muted:Color{255,150,130});
 }
 } // namespace reluva::boggle

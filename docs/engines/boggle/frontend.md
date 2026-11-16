@@ -116,7 +116,7 @@ interoperability; the surrounding version/Players screens remain native UI.
 
 With installed artwork enabled, Local Players uses exact RT_DIALOG 10000 /
 language 0x0409. The four selector faces bind to combo controls 4107..4110,
-the message area to static control 1344, Done to button 1 and native Back to
+the message area to static control 1344, Done to button 1 and Cancel to
 button 2. The original constructor selects this template at `0x44b1c7`; its
 Classic caller constructs it at `0x4192e0`. Combo bindings appear at
 `0x44b602..0x44b645`, with buttons/message at `0x44b58a..0x44b5b5`.
@@ -130,21 +130,28 @@ extend beyond the dialog client. The consumer bounds that metadata and validates
 a native collapsed face of 14 template units inside the client; it does not
 mistake the full popup height for an out-of-bounds ordinary control.
 
-Drawing and mouse picking share the four collapsed rectangles and Done/Back
+Drawing and mouse picking share the four collapsed rectangles and Done/Cancel
 rectangles. Long names use native ellipses on the compact faces; the existing
 full-width dropdown shows complete names and difficulty labels, with its existing
 scrolling and keyboard controls. All four human/computer selectors, optional empty
-slots, first-slot active-profile behavior and roster compaction are unchanged.
+slots and roster compaction retain their existing rules. A human first-slot
+choice updates the active profile only when Done succeeds.
 Native player labels replace portrait artwork; editable Windows combo widgets
 and original popup metrics/skins are not reconstructed in this pass.
 
-Done/Enter and Back/Escape close the panel and keep current session choices,
-matching the existing native roster semantics. Button 2 is deliberately exposed
-as Back rather than claiming original Cancel rollback behavior; that original
-behavior remains pending a requested VM check. Closing consumes the remaining
-input batch, so a queued Enter cannot start a game. The roster remains session
-state, and human-name history and computer tagging retain their existing rules.
-Missing templates or disabled installed artwork retain the previous native roster;
+The owner confirmed in the original VM that Cancel discards all player-dialog
+changes. Done/Enter applies the draft choices; Cancel/Escape restores the names
+and human/computer types present when the roster opened. This applies to both
+installed and fallback layouts. The native dropdown retains its separate Escape
+handling while open. Closing consumes the remaining input batch, so a queued
+Enter cannot start a game.
+
+First-slot human selection stays provisional: profile/history writes are deferred
+until Done. Cancel and quitting during editing leave the saved active name and
+history untouched. If Done cannot save the profile, the roster stays open with
+an error and the draft intact; the user can retry Done or cancel safely. The
+roster itself remains session state. Missing templates or disabled artwork keep
+the previous geometry with the same Done/Cancel behavior;
 a present malformed selected layout fails explicitly. No new imports or save
 migration are required. Source and fixtures contain no retail resource bytes,
 portraits, text or copied control rectangles.
@@ -291,7 +298,7 @@ Roster fixtures cover both template encodings, popup heights extending beyond
 the client, exact-language/missing fallback, malformed classes/IDs and overlapping
 fields/actions. Scripted selection exercises all four installed mouse targets,
 humans, both ends of the computer list, clearing/restoring optional slots,
-Done/Back/Escape, reopen preservation, profile history, opt-out and queued-launch
+Done/Cancel/Escape, reopen preservation, profile history, opt-out and queued-launch
 guards. Existing fallback records remain unchanged. External SDL software-backend
 runs inspect the supplied compact roster, choose humans/computers, reopen it,
 enter Classic and return to menus in both versions. Captures and the preview
@@ -302,3 +309,18 @@ install; the full suite passes 66 checks and skips 10 optional idtech3 data
 checks. Frontend, player and Traditional suites pass ASan/UBSan with LeakSanitizer
 disabled for the execution tracer. All 737 installed files retain their manifest
 hashes. Windows owner testing of the installed roster layout is pending.
+
+The Cancel correction additionally tests all-four-slot rollback, first-slot
+human/computer changes, reopening, unchanged saved profile/history during drafts,
+failed Done followed by Cancel, and successful commit with a consumed input
+batch. Cases cover standard/extended templates and fallback geometry. Seven
+synthetic roster/dropdown frames change for the visible Cancel control and draft
+profile behavior; gameplay result frames remain unchanged. External SDL runs
+change all four selections, cancel and compare the reopened roster with its
+initial pixels in both versions. No original save files are written.
+
+The owner-confirmed Cancel correction passes all 43 Boggle CTest checks with the
+supplied install; the full suite passes 66 checks and skips 10 optional idtech3
+data checks. Frontend, player and Traditional suites pass ASan/UBSan with
+LeakSanitizer disabled for the execution tracer. All 737 installed files retain
+their manifest hashes. Windows owner testing of the correction is pending.

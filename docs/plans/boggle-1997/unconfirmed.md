@@ -467,6 +467,7 @@ The owner confirmed the installed name editor works. The next
 [roster pass](../../engines/boggle/frontend.md#installed-local-player-roster)
 uses the installed four selector positions and action buttons, with explicit
 handling of combo popup heights outside the client. Native labels, dropdowns,
-Done/Back session semantics and profile behavior remain. Original Cancel rollback
-is pending a requested VM check; original portraits, editable combo widgets and
-popup/font metrics remain separate comparison work.
+Original portraits, editable combo widgets and popup/font metrics remain
+separate comparison work. The owner subsequently confirmed that Cancel discards
+all player-dialog changes. Native roster edits are now provisional until Done;
+Cancel/Escape restores the previous names/types without profile/history writes.

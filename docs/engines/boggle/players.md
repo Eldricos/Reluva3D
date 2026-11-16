@@ -134,8 +134,10 @@ presentation change; names, history and save files need no migration.
 ## Installed roster placement
 
 Local Players now uses the installed four-combo template when artwork is enabled.
-The compact selector faces and Done/Back mouse targets follow the template;
+The compact selector faces and Done/Cancel mouse targets follow the template;
 full names and computer difficulties remain visible in the native dropdown.
 [Frontend details](frontend.md#installed-local-player-roster) document combo-popup
-height handling, missing-template fallback and native Back/Escape semantics.
-Roster/session and profile/history behavior are unchanged.
+height handling, missing-template fallback and owner-confirmed Cancel behavior.
+Done applies draft choices; Cancel/Escape discards them. First-slot profile and
+history writes occur only on a successful Done, with safe retry/cancellation
+after a save error. Roster state remains session-only.
