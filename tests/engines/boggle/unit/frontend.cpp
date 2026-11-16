@@ -4,6 +4,7 @@
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/frontend/layout.h"
 #include "engines/boggle/frontend/name_dialog.h"
+#include "engines/boggle/frontend/roster_dialog.h"
 #include "engines/boggle/classic/player.h"
 #include "engines/boggle/frontend/media.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -328,6 +329,55 @@ void nameNavigation(const std::filesystem::path& tmp){
     }
 }
 
+void rosterLayouts(){
+    FrontendRosterDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.fields()[0].contains(550,160) && layout.done().contains(400,410));
+    for(bool extended:{false,true}){
+        const auto f=fixtures::rosterDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10000),own));
+        CHECK(!layout.read(own) && layout.installed());CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,{"ABCDEFGHIJKLMNOPQR","CPU Mr. Boggle","Sam",""});const auto before=screen.pixels;layout.draw(screen,{"Alex","CPU Mr. Boggle","Sam",""});CHECK(before!=screen.pixels);
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),4107);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?24:18)+2,0x81);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+6,513);CHECK(bool(layout.read(bad))); // unreasonable popup size
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+2,155);CHECK(bool(layout.read(bad))); // collapsed face outside client
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8),12);CHECK(bool(layout.read(bad))); // fields overlap
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[6]+(extended?12:8),160);CHECK(bool(layout.read(bad))); // buttons overlap
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void rosterNavigation(const std::filesystem::path& tmp){
+    for(bool extended:{false,true}){
+        auto t=target(tmp/(extended?"extended":"standard"));const auto f=fixtures::rosterDialog(extended);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10000));
+        std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10000),own));FrontendRosterDialog layout;CHECK(!layout.read(own));
+        PlayerProfile profile;CHECK(!profile.load(t.savePath,t.path));for(const char* name:{"Alex","Sam","ABCDEFGHIJKLMNOPQR"})CHECK(!profile.rename(name));
+        auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==13 || f==15 || f==19 || f==23)return {keyEvent('m')};
+            if(f==3)return {mouseEvent(EventType::MouseDown,550,160)}; // obsolete row target
+            if(f==4)return {click(layout.fields()[1])};
+            if(f==5)return {keyEvent(key::End),keyEvent(key::Up),keyEvent(key::Return)}; // Mr. Boggle
+            if(f==6)return {click(layout.fields()[2])};
+            if(f==7)return {keyEvent(key::Home),keyEvent(key::Down),keyEvent(key::Return)}; // Sam
+            if(f==8 || f==16 || f==20)return {click(layout.fields()[3])};
+            if(f==9 || f==21)return {keyEvent(key::End),keyEvent(key::Up),keyEvent(key::Up),keyEvent(key::Up),keyEvent(key::Up),keyEvent(key::Return)}; // Beginner
+            if(f==10)return {click(layout.fields()[0])};
+            if(f==11)return {keyEvent(key::Home),keyEvent(key::Down),keyEvent(key::Down),keyEvent(key::Return)}; // Alex
+            if(f==12)return {click(layout.done()),keyEvent(key::Return)};
+            if(f==14)return {click(layout.back()),keyEvent(key::Return)};
+            if(f==17)return {keyEvent(key::End),keyEvent(key::Return)}; // empty optional slot
+            if(f==18 || f==24)return {keyEvent(key::Return)};
+            if(f==22 || f==25)return {keyEvent(key::Escape)};
+            if(f==26)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==26 && sys.w==640 && sys.textStopped);
+        if(sys.hashes.size()==26){CHECK(sys.hashes[2]==sys.hashes[3]);CHECK(sys.hashes[11]==sys.hashes[13] && sys.hashes[11]==sys.hashes[21] && sys.hashes[11]==sys.hashes[23]);CHECK(sys.hashes[12]==sys.hashes[14] && sys.hashes[12]==sys.hashes[22] && sys.hashes[12]==sys.hashes[24]);CHECK(sys.hashes[17]==sys.hashes[19] && sys.hashes[17]!=sys.hashes[11]);}
+        CHECK(!profile.load(t.savePath,t.path) && profile.name()=="Alex" && profile.history().size()==4);
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},10000));fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));
+        t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -355,6 +405,8 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"roster fields, popup geometry, exact language and malformed controls",[](const auto&){rosterLayouts();}},
+    {"installed roster, all four selectors, humans/computers, empty slots and close guards",rosterNavigation},
     {"name dialog controls, fitting, language and malformed layouts",[](const auto&){nameLayouts();}},
     {"name dialog Save/Cancel, editing, validation, history and input guards",nameNavigation},
     {"installed selection IDs, encodings, languages and malformed geometry",[](const auto&){selectionLayouts();}},

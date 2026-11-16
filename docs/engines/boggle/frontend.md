@@ -112,6 +112,43 @@ fonts, colors, wording, footer and added Cancel remain explicit presentation
 policies. This does not claim original Windows metrics, skins or name-storage
 interoperability; the surrounding version/Players screens remain native UI.
 
+## Installed local-player roster
+
+With installed artwork enabled, Local Players uses exact RT_DIALOG 10000 /
+language 0x0409. The four selector faces bind to combo controls 4107..4110,
+the message area to static control 1344, Done to button 1 and native Back to
+button 2. The original constructor selects this template at `0x44b1c7`; its
+Classic caller constructs it at `0x4192e0`. Combo bindings appear at
+`0x44b602..0x44b645`, with buttons/message at `0x44b58a..0x44b5b5`.
+The executable/DLL hashes below identify the read-only source of these facts.
+
+The native consumer uniformly fits the client area within 608x400 pixels of the
+640x480 view, with a maximum two-pixel unit scale. Required controls must have
+unique IDs, expected classes, readable dimensions and separated message, fields
+and actions. A combo's template height includes its dropdown list, which may
+extend beyond the dialog client. The consumer bounds that metadata and validates
+a native collapsed face of 14 template units inside the client; it does not
+mistake the full popup height for an out-of-bounds ordinary control.
+
+Drawing and mouse picking share the four collapsed rectangles and Done/Back
+rectangles. Long names use native ellipses on the compact faces; the existing
+full-width dropdown shows complete names and difficulty labels, with its existing
+scrolling and keyboard controls. All four human/computer selectors, optional empty
+slots, first-slot active-profile behavior and roster compaction are unchanged.
+Native player labels replace portrait artwork; editable Windows combo widgets
+and original popup metrics/skins are not reconstructed in this pass.
+
+Done/Enter and Back/Escape close the panel and keep current session choices,
+matching the existing native roster semantics. Button 2 is deliberately exposed
+as Back rather than claiming original Cancel rollback behavior; that original
+behavior remains pending a requested VM check. Closing consumes the remaining
+input batch, so a queued Enter cannot start a game. The roster remains session
+state, and human-name history and computer tagging retain their existing rules.
+Missing templates or disabled installed artwork retain the previous native roster;
+a present malformed selected layout fails explicitly. No new imports or save
+migration are required. Source and fixtures contain no retail resource bytes,
+portraits, text or copied control rectangles.
+
 ## Evidence and missing-file correction
 
 The source EXE SHA-256 is
@@ -249,3 +286,19 @@ install; the full suite passes 66 checks and skips 10 optional idtech3 data
 checks. Frontend, player and dialog suites pass ASan/UBSan with LeakSanitizer
 disabled for the execution tracer. All 737 installed files retain their manifest
 hashes. Windows owner testing of the installed name-editor layout is pending.
+
+Roster fixtures cover both template encodings, popup heights extending beyond
+the client, exact-language/missing fallback, malformed classes/IDs and overlapping
+fields/actions. Scripted selection exercises all four installed mouse targets,
+humans, both ends of the computer list, clearing/restoring optional slots,
+Done/Back/Escape, reopen preservation, profile history, opt-out and queued-launch
+guards. Existing fallback records remain unchanged. External SDL software-backend
+runs inspect the supplied compact roster, choose humans/computers, reopen it,
+enter Classic and return to menus in both versions. Captures and the preview
+harness remain outside Git.
+
+For the roster-layout stage, all 43 Boggle CTest checks pass with the supplied
+install; the full suite passes 66 checks and skips 10 optional idtech3 data
+checks. Frontend, player and Traditional suites pass ASan/UBSan with LeakSanitizer
+disabled for the execution tracer. All 737 installed files retain their manifest
+hashes. Windows owner testing of the installed roster layout is pending.

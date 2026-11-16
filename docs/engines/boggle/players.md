@@ -130,3 +130,12 @@ validation/footer hints and profile storage remain. See
 [frontend layout and limits](frontend.md#installed-player-name-editor).
 Missing templates and disabled artwork retain the previous editor. This is a
 presentation change; names, history and save files need no migration.
+
+## Installed roster placement
+
+Local Players now uses the installed four-combo template when artwork is enabled.
+The compact selector faces and Done/Back mouse targets follow the template;
+full names and computer difficulties remain visible in the native dropdown.
+[Frontend details](frontend.md#installed-local-player-roster) document combo-popup
+height handling, missing-template fallback and native Back/Escape semantics.
+Roster/session and profile/history behavior are unchanged.

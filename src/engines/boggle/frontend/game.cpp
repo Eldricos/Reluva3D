@@ -3,6 +3,7 @@
 #include "engines/boggle/frontend/game.h"
 #include "engines/boggle/frontend/media.h"
 #include "engines/boggle/frontend/name_dialog.h"
+#include "engines/boggle/frontend/roster_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/player.h"
@@ -102,7 +103,8 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
-void rosterScreen(Surface& s,const std::array<std::string,4>& roster) {
+void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const FrontendRosterDialog& dialog) {
+    if(dialog.installed()){dialog.draw(s,roster);return;}
     fill(s,{32,96,576,354},gold);fill(s,{34,98,572,350},dark);
     text(s,60,112,"LOCAL PLAYERS",white,2);
     for(size_t i=0;i<4;++i)button(s,{72,142+int(i)*50,496,38},std::to_string(i+1)+": "+(roster[i].empty()?"NO PLAYER":roster[i])+"  v");
@@ -150,10 +152,12 @@ Error FrontendGame::run() {
     }
     FrontendSelectionLayout selectionLayout;
     FrontendNameDialog nameDialog;
+    FrontendRosterDialog rosterDialog;
     if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
         if(auto err=selectionLayout.read(language.resources))return err;
         if(auto err=nameDialog.read(language.resources))return err;
+        if(auto err=rosterDialog.read(language.resources))return err;
     }
     FrontendMedia media;
     if(auto err=media.open(resources,target_.path,options.movies))return err;
@@ -256,12 +260,12 @@ Error FrontendGame::run() {
                 continue;
             }
             if(rosterOpen) {
-                if((isKey && (event.key==key::Escape || event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) {
+                if((isKey && (event.key==key::Escape || event.key==key::Return || event.key==key::KpEnter)) || pressed(rosterDialog.done()) || (rosterDialog.installed() && pressed(rosterDialog.back()))) {
                     rosterOpen=false;changed=true;
                 } else {
                     std::optional<size_t> slot;
                     if(isKey && event.key>='1' && event.key<='4')slot=size_t(event.key-'1');
-                    if(click)for(size_t i=0;i<4;++i)if(Box{72,142+int(i)*50,496,38}.contains(event.mouseX,event.mouseY))slot=i;
+                    if(click)for(size_t i=0;i<4;++i)if(rosterDialog.fields()[i].contains(event.mouseX,event.mouseY))slot=i;
                     if(slot) {
                         rosterSlot=*slot;fromRoster=true;choices=profile.history();
                         choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();
@@ -336,7 +340,7 @@ Error FrontendGame::run() {
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable());
-            if(rosterOpen)rosterScreen(screen,roster);
+            if(rosterOpen)rosterScreen(screen,roster,rosterDialog);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);
         }

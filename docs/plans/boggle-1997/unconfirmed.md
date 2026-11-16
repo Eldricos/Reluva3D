@@ -460,3 +460,13 @@ uses the installed name-entry field, caption and Save rectangles. Native Cancel
 and footer help/errors remain, with unchanged input limits, selection, keyboard
 controls, profile history and persistence. Exact Windows metrics, original skins
 and registry/profile interoperability remain outside this placement claim.
+
+### Local-player roster placement
+
+The owner confirmed the installed name editor works. The next
+[roster pass](../../engines/boggle/frontend.md#installed-local-player-roster)
+uses the installed four selector positions and action buttons, with explicit
+handling of combo popup heights outside the client. Native labels, dropdowns,
+Done/Back session semantics and profile behavior remain. Original Cancel rollback
+is pending a requested VM check; original portraits, editable combo widgets and
+popup/font metrics remain separate comparison work.
