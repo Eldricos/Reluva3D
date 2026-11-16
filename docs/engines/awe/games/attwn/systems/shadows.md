@@ -31,9 +31,10 @@ Compared with `motoe.exe`'s with the objects' field offsets set aside:
   Reluva's white-out needs those fields, so it's off here too.
 - **The order:** the darkening is drawn last, after the dialogue box and
   the rest of the interface (`0x4045bf`), where Orient Express draws it
-  before them. The interface's pictures clear the stencil as the scene's
-  do, so the shadows don't show over them *(inferred: the dialogue
-  window's picture is made by `0x42dc20`, whose draw isn't read)*.
+  before them. The interface's pictures are the scene's pictures' class
+  (`0x42dc20`, made at `0x415b1f` with z 0), whose draw (`0x42e660`)
+  clears the stencil under every picture that doesn't scroll and is less
+  than 10000 deep (`0x42e6e3`), so the shadows don't show over them.
 
 ## In Reluva
 

@@ -80,10 +80,12 @@ over anyway, so every object is kept, as `ac.exe` keeps them.
 
 - **Where the facts come from:** `ac.exe`'s scene loader (`0x42c740` to
   `0x42ca13`), its camera's (`0x4085e0`), and `OLDS`'s (`0x430910`).
-  The objects' fields are read by Orient Express's lists: that every file
-  reads to its end with them says their layout is the same, but each
-  class's loader in `ac.exe` isn't read yet, so their meanings are
-  Orient Express's *(inferred)*.
+  The objects' fields are read by Orient Express's lists, and the common
+  loader (`0x411390`) reads them in that order and those sizes. Those the
+  code is seen to use mean what Orient Express's do: the file, name,
+  script, `listA` and `listB`, position, depth, rectangle, material and
+  cursor ([../UNCONFIRMED.md](../UNCONFIRMED.md#settled)); the rest's
+  meanings are Orient Express's *(inferred)*.
 - **How it's checked:** `reluva-tool awe files-check <game folder> -ac2`:
   all 537 scenes read, none with bytes after `DONE`; all 316 cameras the
   same as the game's `granny2.dll` builds them (in the x86 interpreter);

@@ -17,21 +17,12 @@ None yet.
 
 ## Inferred
 
-- **The scenes' objects' fields** are read by Orient Express's lists.
-  Every scene reads to its end with them, so their layout is the same,
-  but each class's loader in `ac.exe` isn't read yet: what each field
-  means is Orient Express's. [formats/ac1.md](formats/ac1.md).
-- **Words the evaluator hasn't** (`zero`, and three tags missing their
-  `tag`) don't hold, as in Orient Express's evaluator; `ac.exe`'s way
-  with them isn't read. [systems/script.md](systems/script.md).
-- **`word[0x485f10]` is the time of day**, as Orient Express's
-  `word[0x4986f8]`: the goodbye's "Good evening" goes by it as there,
-  and it's set with `0x485f16` by `0x402b80`; what sets it isn't read.
-  [systems/dialogue.md](systems/dialogue.md).
-- **The shadows don't darken the interface**, though `ac.exe` draws the
-  darkening after it: inferred from the scenes' pictures clearing the
-  stencil, the interface's pictures' draw not read.
-  [systems/shadows.md](systems/shadows.md).
+- **Some of the scenes' objects' fields mean what Orient Express's do**:
+  the common loader (`0x411390`) reads them in Orient Express's order and
+  sizes, and the code reads those it's seen to use as Orient Express's
+  are (below); the rest (`alpha`, `lighting`, the scales, `b54`, `flat`,
+  the sound's, `pickFirst` and each class's own parts) are taken to be
+  as there. [formats/ac1.md](formats/ac1.md).
 - **Wargrave's "Anything else you'd like to add?" in 4A strands
   Narracott** in Blore's close-up, as Reluva plays it: the thread's line
   `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
@@ -50,6 +41,28 @@ None yet.
 
 ## Settled
 
+- **The objects' fields the code is seen to use** mean what Orient
+  Express's do: the file `+0xbc` (`0x407ed0`), the name `+0x2bc`
+  (`0x410250`), the script `+0x3bc` and `listB` `+0x5cc` (`0x40fff0`),
+  `listA` `+0x5c0`, the position from `+0x10` and the depth `+0xb8`
+  (`0x4122b0`), the rectangle `+0x608` (the pick, `0x42cea0`), the
+  material from `+0x74` (the pictures' colour, `0x42e90e`), the cursor
+  `+0x606` after the conditional cursors `+0x5d8` (`0x410405`).
+  [formats/ac1.md](formats/ac1.md).
+- **Words the evaluator hasn't** (`zero`, and three tags missing their
+  `tag`) don't hold, and with `!` do: a word none of its tests takes
+  falls to its "doesn't hold" (`0x40aaec` to `0x40ab53`), as Reluva has
+  it. [systems/script.md](systems/script.md).
+- **`word[0x485f10]` is the time of day**: `0x402b80` sets it, from the
+  act's row through `0x485f16` as a scene is left (`0x402df5`,
+  `0x40345b`), from the `time` verb at once (`0x40d9c2`) and from a saved
+  game's `GLBT` (`0x414324`). [systems/acts.md](systems/acts.md).
+- **The shadows don't darken the interface**: the interface's pictures
+  are the scene's pictures' class (made at `0x415b1f`, z 0), whose draw
+  (`0x42e660`, its vtable `0x474d6c`) clears the stencil under every
+  picture that doesn't scroll and is less than 10000 deep while shadows
+  are on, so the darkening drawn after them leaves them.
+  [systems/shadows.md](systems/shadows.md).
 - **An act's version over its base**: `ac.exe` adds every object, with
   no test for one the base has (`0x423ef0`); Reluva's merge, Orient
   Express's, drops none of the install's objects.

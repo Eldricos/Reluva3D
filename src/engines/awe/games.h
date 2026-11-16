@@ -216,6 +216,7 @@ struct SlotLayout {
     int right = 957;
     int height = 190;
     int thumbnail = 704;                                  ///< the picture's x, a pixel down the row
+    std::array<int, 2> thumbnailSize{256, 192};           ///< the picture saved beside the slot, the view shrunk
     int name = 624;                                       ///< the name's centre
     int date = 708;                                       ///< the date's x, at the row's foot
     int timeEnd = 952;                                    ///< where the time ends, likewise

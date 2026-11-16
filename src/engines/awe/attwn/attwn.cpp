@@ -146,6 +146,7 @@ const GameInfo &game() {
                              .right = 721,
                              .height = 150,
                              .thumbnail = 522,
+                             .thumbnailSize = {200, 150}, // 0x42bfff
                              .name = 404,
                              .date = 526,
                              .timeEnd = 716,

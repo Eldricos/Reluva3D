@@ -78,8 +78,10 @@ Express's do; its rows are drawn otherwise (`0x41eca0`, clicks
 | An empty row | `EMPTY` (`0x41ed4a`) | `interface.txt`'s `empty` |
 | The glow | `Interface\Scenes\Cutouts\glow.tga` on the picked row | the menu's |
 
-The thumbnail is written 256 by 192, as Orient Express's *(inferred: the
-code that makes it isn't read here)*.
+The thumbnail is 200 by 150 (`0x42bfff`: a texture of that size, the
+screen copied into it and saved as `slot<N>.bmp`), where Orient
+Express's is 256 by 192: it fills the row's 150 pixels and 200 of its
+clicks' width. `SlotLayout::thumbnailSize`.
 
 ## In Reluva
 

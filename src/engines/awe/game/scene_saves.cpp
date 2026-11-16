@@ -497,12 +497,12 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
         }
         writeAll(file, writeSaveGame(captureSave(m.name), saveLayout()));
         if (_grab.w > 0) {
-            // The thumbnail: the view as the menu was opened, 256x192.
+            // The thumbnail: the view as the menu was opened, shrunk.
             image::Image t;
-            t.w = 256, t.h = 192;
+            t.w = slotLayout().thumbnailSize[0], t.h = slotLayout().thumbnailSize[1];
             t.rgba.resize(size_t(t.w) * t.h * 4);
             // Each pixel the mean of the frame's pixels it covers (whole
-            // blocks of 4 at 1024x768; at 800x600 blocks of 3 or 4).
+            // blocks of 4 for Orient Express's).
             for (int y = 0; y < t.h; y++)
                 for (int x = 0; x < t.w; x++) {
                     const int x0 = x * _grab.w / t.w;

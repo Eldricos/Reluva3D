@@ -107,8 +107,9 @@ already Reluva's.
 
 - `zero` (8 uses), `jetty_scuttle`, `seabird_counter >1` and
   `!4b_trogerslock` (one each) are no word the evaluator has; the last
-  three look like tags missing their `tag`. Reluva has them not hold, as
-  Orient Express's evaluator does with words it hasn't *(inferred)*.
+  three look like tags missing their `tag`. None of the evaluator's tests
+  takes them, so they don't hold (`0x40aaec` to `0x40ab53`), and with `!`
+  they do, as Reluva has them.
 
 ## In Reluva
 
