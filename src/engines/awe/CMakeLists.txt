@@ -102,13 +102,14 @@ reluva_add_engine_tests(awe
         unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves unit.attwn engine)
 
 # Its engine test with the game's own files (tests/engines/awe/gamedata.cmake):
-# RELUVA_MOTOE=<Orient Express's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
+# RELUVA_MOTOE=<Orient Express's folder> ctest -L gamedata, and for the import
+# step RELUVA_MOTOE_CDS=<a folder holding its two CDs>. See docs/DEVELOPMENT.md
 # (Engine tests).
 reluva_add_gamedata_test(awe
     GAME motoe
     ENV RELUVA_MOTOE
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files scripts route-search route)
+    STEPS release files scripts route-search route import)
 # And Then There Were None's: RELUVA_ATTWN=<its folder>, and for the import
 # step RELUVA_ATTWN_CDS=<a folder holding its two CDs>.
 reluva_add_gamedata_test(awe

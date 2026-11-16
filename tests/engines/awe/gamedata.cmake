@@ -34,9 +34,9 @@
 #            of her room's hotspots clicked for the marble chunk's use),
 #            and both (game-run -play), each to the credits, with the coda
 #            its movie names.
-#   import   And Then There Were None imported from its two CDs (import,
-#            from the folder RELUVA_ATTWN_CDS names), each file compared
-#            with the installed game's.
+#   import   the game imported from its two CDs (import, from the folder
+#            RELUVA_MOTOE_CDS or RELUVA_ATTWN_CDS names), each file
+#            compared with the installed game's.
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
@@ -45,7 +45,7 @@
 # RELUVA_GAMEDATA_UPDATE=1, and check them (each game's TESTING.md).
 #
 # Environment: RELUVA_MOTOE or RELUVA_ATTWN, the game's folder;
-# RELUVA_ATTWN_CDS, the folder of its CDs (the import step); and those of the shared
+# RELUVA_MOTOE_CDS or RELUVA_ATTWN_CDS, the folder of its CDs (the import step); and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,
 # RELUVA_GAMEDATA_RECORDS.
 
@@ -144,12 +144,12 @@ elseif(STEP STREQUAL "endings")
         set(record "${record}${ending} alive: ${coda} ${summary}\n")
     endforeach()
 elseif(STEP STREQUAL "import")
-    # From the CDs (RELUVA_ATTWN_CDS: a folder holding both, each in a
-    # folder of its own), the disc with data1.hdr planned and the other
-    # added, as the launcher's "Add other disc..." does.
-    set(cds "$ENV{RELUVA_ATTWN_CDS}")
+    # From the CDs (RELUVA_MOTOE_CDS or RELUVA_ATTWN_CDS: a folder holding
+    # both, each in a folder of its own), the disc with data1.hdr planned
+    # and the other added, as the launcher's "Add other disc..." does.
+    set(cds "$ENV{${GAME_ENV}_CDS}")
     if(cds STREQUAL "")
-        message("SKIPPED: set RELUVA_ATTWN_CDS to a folder holding the game's two CDs to run this step")
+        message("SKIPPED: set ${GAME_ENV}_CDS to a folder holding the game's two CDs to run this step")
         return()
     endif()
     file(REAL_PATH "${cds}" cds)
@@ -175,14 +175,23 @@ elseif(STEP STREQUAL "import")
     string(SHA256 sum "${out}")
     string(SUBSTRING "${sum}" 0 16 sum)
     set(record "${record}import: ${sum} | ${size}\n")
-    # Each file as the game's own setup installed it.
+    # Each file as the game's own setup installed it, its name matched
+    # ignoring case (a copy of the install may differ, as Windows doesn't
+    # mind).
+    file(GLOB_RECURSE installed RELATIVE "${game_dir}" "${game_dir}/*")
+    foreach(name IN LISTS installed)
+        string(TOLOWER "${name}" lower)
+        set("installed:${lower}" "${name}")
+    endforeach()
     file(GLOB_RECURSE imported RELATIVE "${into}" "${into}/*")
     list(LENGTH imported count)
     set(same 0)
     foreach(name IN LISTS imported)
-        if(EXISTS "${game_dir}/${name}")
+        string(TOLOWER "${name}" lower)
+        set(key "installed:${lower}")
+        if(DEFINED "${key}")
             file(SHA256 "${into}/${name}" a)
-            file(SHA256 "${game_dir}/${name}" b)
+            file(SHA256 "${game_dir}/${${key}}" b)
             if(a STREQUAL b)
                 math(EXPR same "${same} + 1")
             else()

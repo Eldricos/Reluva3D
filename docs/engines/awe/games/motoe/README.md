@@ -202,6 +202,15 @@ and a viewer layer over it in `pages/`.
 
 ## Using it
 
+- **Adding it.** Add the installed game's folder (the one holding
+  `motoe.exe`) in the launcher, or import it from its two CDs without
+  installing: *Import Game...* (or *Add Game...*) on the first CD, then
+  *Add other disc...* for the second, copies the game's files out of their
+  cabinets ([installshield.md](../../../../common/installshield.md)) into
+  a folder of Reluva's, as the game's setup would install them: its
+  "Program Executable Files" group with `motoe.exe`, `readme.txt` and
+  `ac.ico` (its "Txt Files") beside them, 7,875 files, 1.3 GB.
+  `reluva-tool import <first CD> <folder> -patch <second CD>` does the same.
 - **The game.** `reluva` starts it at its logos and main menu, as the
   original does. Escape is the game's (its menu, or a movie skipped); F12
   saves a screenshot. The window's title is the game's name, then the

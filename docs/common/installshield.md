@@ -17,8 +17,7 @@ header, finds the volumes beside it or in another folder (the other CD),
 and takes a file out, its MD5 checked. Only version 7's header is read
 (InstallShield 7's; the only one seen yet). An engine's import says which
 groups are the game's, and takes them as setup would install them:
-And Then There Were None's (`awe`; its
-[README](../engines/awe/games/attwn/README.md)).
+Murder on the Orient Express's and And Then There Were None's (`awe`).
 `reluva-tool import <first CD> <dest> -patch <other CD>` shows and does it.
 
 ## The format
@@ -115,10 +114,19 @@ file sharing the data); flag 2 (never set here).
   free tool that takes cabinets apart) gives; `unshield`'s listing of the
   groups (17, the same names and files) was the check on the groups' fields.
   Its source wasn't read.
+- **Checked on** Murder on the Orient Express's two English CDs too, laid
+  out the same way (`data1.hdr`, 889,260 bytes, version 7; `data1.cab`
+  and `data2.cab` on the first, `data3.cab` on the second, the same 17
+  groups): its 7,875 files are the installed game's
+  (`awe.gamedata.import`) and `unshield x`'s, but for one name, which
+  `unshield` writes with `_` for the `Ä` (0xc4 in Windows-1252) the
+  header has, as the install has it
+  (`Text/Dialogue/Events/gen_solutionexit_0_Ä3b.txt`).
 - **Confidence:** confirmed (worked out on these CDs, version 7's
   header) unless marked.
 
 ## Used by
 
-- **`awe`**: And Then There Were None's CDs
-  ([README](../engines/awe/games/attwn/README.md)).
+- **`awe`**: Murder on the Orient Express's and And Then There Were
+  None's CDs ([README](../engines/awe/games/motoe/README.md),
+  [README](../engines/awe/games/attwn/README.md)).
