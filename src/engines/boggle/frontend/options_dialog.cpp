@@ -52,6 +52,6 @@ void FrontendOptionsDialog::draw(Surface& screen,const ClassicOptions& options,b
     font::drawText(screen,s.x+s.w/2-int(time.size())*3,s.y+s.h-8,time,white);
     auto button=[&](SelectionRect b,const char* title){box(b,{88,81,105});box({b.x+2,b.y+2,b.w-4,b.h-4},{41,34,64});font::drawText(screen,b.x+12,b.y+14,title,white);};
     button(done(),"DONE (ENTER)");button(cancel(),"CANCEL (ESC)");
-    font::drawText(screen,40,458,"Left/Right: 30 seconds. Done applies; Cancel discards.",muted);
+    font::drawText(screen,40,458,"Drag / Left/Right: 30 sec. Done applies; Cancel discards.",muted);
 }
 } // namespace reluva::boggle

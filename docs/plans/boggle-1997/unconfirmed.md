@@ -479,4 +479,13 @@ The owner confirmed the roster Cancel correction works. The next
 installed full Classic property page for timing, turn mode, computer settings
 and auto-orient. Native Done/Cancel, keyboard controls and session-only storage
 wrap that layout. Exact Windows metrics/skins, original property-sheet behavior,
-trackbar dragging and original settings persistence remain comparison work.
+exact trackbar/capture behavior and original settings persistence remain
+comparison work.
+
+### Round-length dragging
+
+The owner confirmed the Classic options panel works. Native ruler dragging now
+uses the existing nine-step duration mapping with final-release, focus, window
+exit, No Timer and Cancel guards; see
+[frontend interaction](../../engines/boggle/frontend.md#round-length-ruler-dragging).
+Exact original Windows capture behavior and settings persistence remain open.

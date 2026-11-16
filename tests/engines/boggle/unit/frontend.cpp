@@ -503,6 +503,41 @@ void optionsComputers(const std::filesystem::path& tmp){
     if(sys.hashes.size()==21){CHECK(sys.hashes[7]!=sys.hashes[6] && sys.hashes[8]!=sys.hashes[7] && sys.hashes[8]==sys.hashes[9]);CHECK(sys.hashes[7]==sys.hashes[10] && sys.hashes[11]==sys.hashes[13] && sys.hashes[11]==sys.hashes[16] && sys.hashes[11]==sys.hashes[18]);CHECK(sys.hashes[14]==sys.hashes[15] && sys.hashes[17]==sys.hashes[19]);}
 }
 
+void optionsDragging(const std::filesystem::path& tmp){
+    for(bool master:{false,true}){
+        auto t=target(tmp/(master?"master":"original"));t.settings["classic_variant"]=master?"master":"original";const auto f=fixtures::optionsDialog(master);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10834));
+        std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10834),own));FrontendOptionsDialog layout;CHECK(!layout.read(own));const auto b=layout.control(FrontendOptionsDialog::Slider);const int left=b.x+8,mid=b.x+b.w/2,right=b.x+b.w-8,y=b.y+12;
+        auto mouse=[&](EventType type,int x){return fixtures::mouseEvent(type,x,y);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==20 || f==23)return {keyEvent('o')};
+            if(f==3)return {mouse(EventType::MouseDown,left),mouse(EventType::MouseMove,mid),mouse(EventType::MouseUp,right),mouse(EventType::MouseMove,left)};
+            if(f==4)return {mouse(EventType::MouseMove,left)};
+            if(f==5 || f==10 || f==14)return {mouse(EventType::MouseDown,mid)};
+            if(f==6)return {mouse(EventType::MouseMove,std::numeric_limits<int>::max())};
+            if(f==7)return {mouse(EventType::MouseMove,std::numeric_limits<int>::min())};
+            if(f==8){Event e;e.type=EventType::MouseLeave;return {e,mouse(EventType::MouseMove,right)};}
+            if(f==9)return {mouse(EventType::MouseUp,right)};
+            if(f==11){Event e;e.type=EventType::FocusLost;return {e,mouse(EventType::MouseMove,right),mouse(EventType::MouseUp,right)};}
+            if(f==12){Event e;e.type=EventType::FocusGained;return {e,mouse(EventType::MouseDown,right),mouse(EventType::MouseMove,right),mouse(EventType::MouseUp,right)};}
+            if(f==13)return {mouse(EventType::MouseMove,right)};
+            if(f==15)return {keyEvent('t'),mouse(EventType::MouseMove,right),mouse(EventType::MouseUp,right)};
+            if(f==16)return {mouse(EventType::MouseDown,right),mouse(EventType::MouseMove,right),mouse(EventType::MouseUp,right)};
+            if(f==17)return {keyEvent('t')};
+            if(f==18)return {mouse(EventType::MouseDown,right)};
+            if(f==19)return {keyEvent(key::Escape),mouse(EventType::MouseMove,left),mouse(EventType::MouseUp,left)};
+            if(f==21)return {mouse(EventType::MouseDown,left),mouse(EventType::MouseMove,right),mouse(EventType::MouseUp,left+(right-left)*3/8)};
+            if(f==22){auto d=layout.done();return {mouseEvent(EventType::MouseDown,d.x+10,d.y+10),keyEvent(key::Return)};}
+            if(f==24)return {mouse(EventType::MouseMove,left)};
+            if(f==25 || f==26)return {keyEvent(key::Escape)};
+            if(f==27)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==27 && sys.w==640);
+        if(sys.hashes.size()==27){CHECK(sys.hashes[3]==sys.hashes[4] && sys.hashes[3]==sys.hashes[6] && sys.hashes[3]==sys.hashes[18]);CHECK(sys.hashes[7]==sys.hashes[8] && sys.hashes[7]==sys.hashes[9]);for(size_t i:{5u,10u,11u,12u,13u,14u,17u,20u})CHECK(sys.hashes[2]==sys.hashes[i]);CHECK(sys.hashes[15]==sys.hashes[16] && sys.hashes[1]==sys.hashes[19]);CHECK(sys.hashes[21]==sys.hashes[23] && sys.hashes[21]==sys.hashes[24] && sys.hashes[21]!=sys.hashes[2]);}
+    }
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -530,6 +565,7 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"options ruler dragging, coalesced release, bounds, focus, No Timer and Cancel",optionsDragging},
     {"Classic options control IDs, ranges, encodings and malformed layouts",[](const auto&){optionsLayouts();}},
     {"Classic options editing, disabled controls, remembered timer and Cancel",optionsNavigation},
     {"Classic options computer availability and background/cursor interaction",optionsComputers},

@@ -202,27 +202,44 @@ Error FrontendGame::run() {
         return false;
     };
     uint64_t timedDuration=options.duration ? options.duration : 180000;
-    bool optionsOpen=false;ClassicOptions savedOptions=options;uint64_t savedTimedDuration=timedDuration;
+    bool optionsOpen=false,optionsDragging=false,menuFocused=true;ClassicOptions savedOptions=options;uint64_t savedTimedDuration=timedDuration;
     for(;;) {
         bool launch=false, changed=false;
         Event event;
         while(system_.pollEvent(event)) {
             if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
+            // Releases and focus changes must end a drag even after another
+            // action consumed this event batch. Motion/release samples may be
+            // coalesced with the initial press in the same polling batch.
+            if(event.type==EventType::FocusLost || event.type==EventType::FocusGained) {
+                menuFocused=event.type==EventType::FocusGained;optionsDragging=false;
+                if(optionsOpen)changed=true;
+                continue;
+            }
+            if(optionsOpen && event.type==EventType::MouseLeave){optionsDragging=false;continue;}
+            if(optionsOpen && !menuFocused)continue;
+            if(optionsOpen && optionsDragging && (event.type==EventType::MouseMove ||
+               (event.type==EventType::MouseUp && event.button==MouseButton::Left))) {
+                if(options.duration)timedDuration=options.duration=optionsDialog.durationAt(event.mouseX);
+                if(event.type==EventType::MouseUp)optionsDragging=false;
+                continue;
+            }
             if(changed || launch) continue; // one visible navigation step per batch
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
             if(optionsOpen) {
+                if(click)optionsDragging=false;
                 bool handled=true;
-                if((isKey && event.key==key::Escape) || pressed(optionsDialog.cancel())) {options=savedOptions;timedDuration=savedTimedDuration;optionsOpen=false;}
-                else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(optionsDialog.done()))optionsOpen=false;
+                if((isKey && event.key==key::Escape) || pressed(optionsDialog.cancel())) {options=savedOptions;timedDuration=savedTimedDuration;optionsOpen=false;optionsDragging=false;}
+                else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(optionsDialog.done())){optionsOpen=false;optionsDragging=false;}
                 else if(((isKey && event.key=='v') || pressed(optionsDialog.control(FrontendOptionsDialog::Cursor))) && cursorAvailable())options.cursor=!options.cursor;
                 else if(((isKey && event.key=='b') || pressed(optionsDialog.control(FrontendOptionsDialog::Background))) && backgroundAvailable())options.background=!options.background;
                 else if((isKey && event.key=='a') || pressed(optionsDialog.control(FrontendOptionsDialog::Orient)))options.autoOrient=!options.autoOrient;
                 else if((isKey && event.key=='c') || pressed(optionsDialog.control(FrontendOptionsDialog::Chess)))options.turns=ClassicTurnMode::Chess;
                 else if((isKey && event.key=='r') || pressed(optionsDialog.control(FrontendOptionsDialog::Traditional)))options.turns=ClassicTurnMode::Traditional;
-                else if((isKey && event.key=='t') || pressed(optionsDialog.control(FrontendOptionsDialog::Untimed)))options.duration=options.duration?0:timedDuration;
-                else if(options.duration && pressed(optionsDialog.control(FrontendOptionsDialog::Slider)))timedDuration=options.duration=optionsDialog.durationAt(event.mouseX);
+                else if((isKey && event.key=='t') || pressed(optionsDialog.control(FrontendOptionsDialog::Untimed))){optionsDragging=false;options.duration=options.duration?0:timedDuration;}
+                else if(options.duration && pressed(optionsDialog.control(FrontendOptionsDialog::Slider))){optionsDragging=true;timedDuration=options.duration=optionsDialog.durationAt(event.mouseX);}
                 else if(options.duration && isKey && event.key==key::Left)timedDuration=options.duration=std::max<uint64_t>(60000,options.duration-30000);
                 else if(options.duration && isKey && event.key==key::Right)timedDuration=options.duration=std::min<uint64_t>(300000,options.duration+30000);
                 else handled=false;
@@ -331,7 +348,7 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if(optionsDialog.installed() && ((isKey && event.key=='o') || pressed(optionsButton))) {savedOptions=options;savedTimedDuration=timedDuration;optionsOpen=true;changed=true;}
+                if(optionsDialog.installed() && ((isKey && event.key=='o') || pressed(optionsButton))) {savedOptions=options;savedTimedDuration=timedDuration;optionsOpen=true;optionsDragging=false;changed=true;}
                 else if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
                 else if(((isKey && event.key=='b') || pressed(backgroundPlay)) && backgroundAvailable()) {options.background=!options.background;changed=true;}
                 else if(((isKey && event.key=='v') || pressed(computerCursor)) && cursorAvailable()) {options.cursor=!options.cursor;changed=true;}

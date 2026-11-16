@@ -175,7 +175,7 @@ two native pixels per template unit. Native Done/Cancel buttons, labels, colors,
 fonts and footer surround this property-page layout; the original Windows
 property-sheet frame, group boxes and skin are not reproduced.
 
-Click the length ruler or use Left/Right to choose 1:00..5:00 in 30-second steps.
+Click/drag the length ruler or use Left/Right to choose 1:00..5:00 in 30-second steps.
 T / No Timer toggles timing and remembers the last timed length. The ruler and
 Left/Right are inactive while No Timer is on. A toggles auto-orient; C selects
 Chess Timer; R selects Traditional; B toggles available background play; V toggles
@@ -195,8 +195,25 @@ retail files. No new save format, files or re-import are required.
 If the template is missing or installed artwork is disabled, the prior setup
 controls remain available and the new Options entry is omitted. A malformed
 present selected template reports an explicit error. This native setup panel
-uses installed relative placement; exact Windows trackbar interaction/dragging,
+uses installed relative placement; exact Windows trackbar/capture behavior,
 original modal timing and original settings persistence are not claimed.
+
+## Round-length ruler dragging
+
+The native options ruler now supports holding the left button and dragging.
+Press, motion and final release use the same bounded nine-position duration
+mapping as a direct click. Drag samples coalesced into one polling batch all
+apply, including the final release position; later pointer motion cannot keep
+changing the duration after release. Motion beyond the track clamps to 1:00 or
+5:00. These are native input policies, not execution of original trackbar code.
+
+Leaving the window or losing focus stops the drag and retains its last draft
+value. Options input is ignored while unfocused, and a focus-regain batch cannot
+restart a drag or apply a queued confirmation. A fresh press is required. No
+Timer also stops dragging and disables further ruler changes. Done/Cancel stop
+dragging; Cancel restores both options and the remembered timed length as before.
+Reopening starts without a held drag. The frontend does not add OS mouse capture
+or claim matching the original Windows capture behavior outside its window.
 
 ## Evidence and missing-file correction
 
@@ -382,3 +399,16 @@ install; the full suite passes 66 checks and skips 10 optional idtech3 data
 checks. Frontend, options and seed suites pass ASan/UBSan with LeakSanitizer
 disabled for the execution tracer. All 737 installed files retain their manifest
 hashes. Windows owner testing of the new setup panel is pending.
+
+Drag fixtures cover both board variants and both template encodings, coalesced
+press/motion/release, extreme positions, window exit, focus loss/regain batches,
+No Timer, Cancel and reopening. Existing fallback records remain unchanged.
+External SDL software-backend runs verify a coalesced release, focus interruption,
+applying 2:30 to a round and retaining it after menu return in both versions.
+Retail captures and the preview harness remain outside Git.
+
+The dragging refinement passes all 43 Boggle CTest checks with the supplied
+install; the full suite passes 66 checks and skips 10 optional idtech3 data
+checks. Frontend/options suites pass ASan/UBSan with LeakSanitizer disabled for
+the execution tracer. All 737 installed files retain their manifest hashes.
+Windows owner testing of dragging and interruption behavior is pending.
