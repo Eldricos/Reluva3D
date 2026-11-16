@@ -68,16 +68,18 @@ behind the DLL's own tables.
    fading as the original's ([shader.md](../../formats/shader.md));
    `sun`, `lightColor` and `notc` found to have nothing to draw; game-files
    steps over every map and the images they name. With the game's code
-   (phase 6): the light styles' own passes, animated, and the wind and
-   weather that move surface sprites and show weather ones.
+   (phase 6, done): the light styles' own passes, animated, and the wind
+   and weather that move surface sprites and show weather ones.
 3. **Ghoul2 models** (done): GLM meshes and GLA skeletons read and
    checked (`ghoul2-check`: all 71 and 21), posed on the CPU for each
    draw by the model cache, each level of detail a model; only surfaces
    without flags drawn; `model_default.skin`; the skeleton's
    `animation.cfg` in Raven's layout (looping, backwards). The Models page
    shows and animates every one ([ghoul2.md](../../formats/ghoul2.md)).
-   With the game's code (phase 6): its Ghoul2 calls (each part's
-   animation, bones it turns, bolts, surfaces on and off, collision).
+   With the game's code (phase 6, done): its Ghoul2 calls (each part's
+   animation, bones it turns, bolts, surfaces on and off); 1.02a's
+   multiplayer has no Ghoul2 collision ([UNCONFIRMED.md](UNCONFIRMED.md),
+   Settled), so that waits for single player's.
 4. **Text, fonts and RoQ** (done): string packages (`raven/strings`,
    [strings.md](../../formats/strings.md)), Raven's fonts (`raven/fonts`,
    [fonts.md](../../formats/fonts.md)), shown in the data viewer's Text
@@ -97,7 +99,7 @@ behind the DLL's own tables.
    settings to draw; Ghoul2 in a menu waits for single player's. The
    server lists find servers (the local network, the masters,
    favourites); joining one and Begin wait for phase 6.
-6. **Multiplayer game**: `jk2mpgame.qvm` and `cgame.qvm` hosts, their
+6. **Multiplayer game** (done): `jk2mpgame.qvm` and `cgame.qvm` hosts, their
    system calls, and the engine's Ghoul2 calls they make (animation, bolts,
    collision against Ghoul2 models for hits and the saber); the Play page
    for the game. Then the network protocol (1.02's: 15, as `jk2mp.exe`
@@ -147,9 +149,10 @@ behind the DLL's own tables.
    shader remaps, a pane's corners, forced view angles and turn limits,
    muting sounds), and ROFF notes reach both modules.
    The deltas, user commands and XOR agree with jk2mp.exe's own
-   routines, run in the x86 interpreter (`delta-check`); next: a match
-   played against the retail game, either way, on Windows
-   ([TESTING.md](TESTING.md)).
+   routines, run in the x86 interpreter (`delta-check`), and matches were
+   played against the retail game both ways, on Windows (November 2026,
+   [TESTING.md](TESTING.md)). What's left differs only in details
+   ([KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
 7. **Single player's game**: the DLL's `GetGameAPI` tables (the engine
    functions it's handed, and the game's functions it hands back) and the
    client game's system calls through `dllEntry`, worked out from

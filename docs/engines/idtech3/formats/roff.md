@@ -77,8 +77,11 @@ Differences:
 - A note's text is handed to the module on its stack (`Qvm::callWithText`):
   the original engine passed a pointer of its own there too, which a QVM
   couldn't read.
-- The client game's side runs on the client game's clock; the original
-  uses the server's even there.
+- Both sides run on the server's clock, as the original's (`svs.time`,
+  0xb0d674, checked at 0x435b50 for either side): the client's side takes
+  its latest snapshot's time, which is the server's on the Play page's own
+  server. Joined to another's, the original's server clock on the client
+  stands still; Reluva's snapshots keep it moving.
 
 ## Sources and checks
 

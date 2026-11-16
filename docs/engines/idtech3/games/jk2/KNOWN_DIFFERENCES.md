@@ -16,7 +16,7 @@ None yet.
 
 ## Not yet as the original
 
-The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
+Single player isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's
@@ -27,14 +27,6 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 In the multiplayer game:
 
-- **Ghoul2's bone-angle mode** that replaces a bone's turn is taken as
-  turning after it ([ghoul2.md](../../formats/ghoul2.md), Animation).
-
-In the multiplayer menus:
-
-- **Recorded paths** ([roff.md](../../formats/roff.md)): the client
-  game's side follows its own clock where the original's follows the
-  server's.
 - **Network play** ([systems/network.md](systems/network.md)): a server's
   map change notices all go at once, where the original's go at steps of
   its loading; it looks its masters' names up once, where the original
@@ -45,6 +37,9 @@ In the multiplayer menus:
   Raven's code leaves two of them unset. Electricity's small kinks are
   Reluva's own random draws, not the original's, as surface sprites'
   spots are.
+
+In the multiplayer menus:
+
 - **The favourite servers** are kept in `favorites.txt` (address and
   name a line) in the game's save folder, not in the
   original's `servercache.dat`; the other lists aren't kept between runs

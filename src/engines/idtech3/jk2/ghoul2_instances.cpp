@@ -523,13 +523,25 @@ void Ghoul2Instances::poseModel(const Model &m, int32_t time, std::vector<Bone34
         const Bone34 &above = parent >= 0 ? bones[size_t(parent)] : root;
         const auto ang = m.angles.find(int(i));
         const int32_t flags = ang != m.angles.end() ? m.angleFlags.at(int(i)) : 0;
-        if (flags & kAnglesPreMult)
+        if (flags & kAnglesReplace) {
+            // The turn in place of everything above it and the frame's: only
+            // where the animation puts the bone, and its scale, are kept.
+            const GlaBone &gb = sk->bones[i];
+            const Bone34 placed = mul(mul(above, local), gb.basePose);
+            const float scale = std::sqrt(placed[0] * placed[0] + placed[1] * placed[1] + placed[2] * placed[2]);
+            Bone34 replaced = ang->second;
+            for (size_t r = 0; r < 3; ++r) {
+                for (size_t c = 0; c < 3; ++c)
+                    replaced[r * 4 + c] *= scale;
+                replaced[r * 4 + 3] = placed[r * 4 + 3];
+            }
+            bones[i] = mul(replaced, gb.basePoseInverse);
+        } else if (flags & kAnglesPreMult) {
             bones[i] = mul(above, ang->second);
-        else
+        } else {
             bones[i] = mul(above, local);
-        // The replacing kind is taken as turning after, as Jedi Outcast's
-        // players use the latter.
-        if (flags & (kAnglesPostMult | kAnglesReplace))
+        }
+        if (flags & kAnglesPostMult)
             bones[i] = mul(bones[i], ang->second);
         done[i] = true;
     };

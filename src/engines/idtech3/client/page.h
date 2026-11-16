@@ -97,7 +97,7 @@ struct PageContext {
 
 /**
  * Reads the settings: the game's default.cfg, then the player's own
- * (Reluva's config file in the save folder).
+ * (Reluva's config file in the save folder), then autoexec.cfg.
  */
 void loadConfig(PageContext &ctx);
 /**

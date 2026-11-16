@@ -123,6 +123,9 @@ void loadConfig(PageContext &ctx) {
             ctx.bindings.execute(text, ctx.cvars, nullptr, readFile);
         }
     }
+    // Then autoexec.cfg, as each game's engine runs it (jk2mp.exe at 0x429acf).
+    if (readFile("autoexec.cfg", text))
+        ctx.bindings.execute(text, ctx.cvars, nullptr, readFile);
     if (ctx.bindings.empty()) {
         // No default config: the usual keys, so there's something to play with.
         ctx.bindings.execute("bind w +forward; bind s +back; bind a +moveleft; bind d +moveright;"

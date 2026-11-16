@@ -1,6 +1,6 @@
 # Jedi Outcast: the multiplayer network protocol (15)
 
-> **Status:** done · **Code:** `src/engines/idtech3/wire/huffman.cpp`, `wire/message.cpp`, `wire/netchan.cpp`, `src/engines/idtech3/jk2/net_fields.cpp`, `eliteforce/net_protocol.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** jk2mp.exe 1.02a's own tables and Huffman code, run in Reluva's x86 interpreter (November 2026); Reluva to Reluva · **Confidence:** the tables and the Huffman code confirmed; the rest from the code unless marked
+> **Status:** done · **Code:** `src/engines/idtech3/wire/huffman.cpp`, `wire/message.cpp`, `wire/netchan.cpp`, `src/engines/idtech3/jk2/net_fields.cpp`, `eliteforce/net_protocol.cpp`, `net_server.cpp`, `net_client.cpp` · **Checked against:** jk2mp.exe 1.02a's own tables and Huffman code, run in Reluva's x86 interpreter (November 2026); Reluva to Reluva, and the retail game both ways · **Confidence:** the tables and the Huffman code confirmed; the rest from the code unless marked
 
 ## Overview
 

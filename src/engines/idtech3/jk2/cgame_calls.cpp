@@ -451,13 +451,16 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
 
 int32_t CgameHost::jk2RoffCall(Qvm &vm, int number, const int32_t *a) {
     // The client game's own movers' ROFFs (docs/engines/idtech3/formats/roff.md),
-    // in its order: clean, update, cache, play, purge.
+    // in its order: clean, update, cache, play, purge. On the server's
+    // clock, as the original's (svs.time, 0xb0d674, at 0x435b50): here the
+    // latest snapshot's, which is it on the Play page's own server and
+    // keeps moving on another's, where the original's stood still.
     switch (number - kRoffClean) {
     case 0:
         _roffs->clean(true);
         return 1;
     case 1:
-        _roffs->update(true, _time, roffSide());
+        _roffs->update(true, _snapshotTime, roffSide());
         return 0;
     case 2:
         return _roffs->cache(vm.string(a[0], 64), true);
@@ -465,10 +468,10 @@ int32_t CgameHost::jk2RoffCall(Qvm &vm, int number, const int32_t *a) {
         raven::RoffSystem::Vec3 origin{};
         raven::RoffSystem::Vec3 angles{};
         roffSide().current(a[0], origin, angles);
-        return _roffs->play(a[0], a[1], a[2] != 0, true, _time, angles) ? 1 : 0;
+        return _roffs->play(a[0], a[1], a[2] != 0, true, _snapshotTime, angles) ? 1 : 0;
     }
     default:
-        return _roffs->purge(a[0], true, _time, roffSide()) ? 1 : 0;
+        return _roffs->purge(a[0], true, _snapshotTime, roffSide()) ? 1 : 0;
     }
 }
 

@@ -705,6 +705,16 @@ static void testGhoul2Instances() {
                        Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin));
     g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
     CHECK(near(m[3], -10) && near(m[7], 0));
+    CHECK(near(m[0], 0) && near(m[4], 1));
+    // A replacing override (0x4) on the child: it stays where the root's
+    // turn carries it, but its axes are the override's alone, the root's
+    // quarter turn and the turn above it both left out.
+    CHECK(g2.setAngles(h, 0, "child", {0, 90, 0}, Ghoul2Instances::kAnglesReplace, Ghoul2Instances::kPositiveZ,
+                       Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin));
+    g2.boltMatrix(h, 0, bolt, 0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, m);
+    CHECK(near(m[3], -10) && near(m[7], 0) && near(m[0], 1) && near(m[5], 1));
+    CHECK(g2.setAngles(h, 0, "child", {0, 0, 0}, 0, Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin,
+                       Ghoul2Instances::kOrigin));
     CHECK(g2.setAngles(h, 0, "root", {0, 0, 0}, 0, Ghoul2Instances::kOrigin, Ghoul2Instances::kOrigin,
                        Ghoul2Instances::kOrigin));
     // A second model hung from the first's bolt; a surface turned off.

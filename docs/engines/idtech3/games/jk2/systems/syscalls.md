@@ -150,7 +150,10 @@ archived), the server's rates and pings, `sv_fps` 20 and the others, and
 `protocol` 15 (read-only). Reluva registers the same when a session
 starts (`GameInfo::serverCvars`), so Create Server shows them. The
 default keys and settings are in `mpdefault.cfg`, which the multiplayer
-engine runs first (`default.cfg` is single player's).
+engine runs first (`default.cfg` is single player's), then the player's
+config (`jk2mpconfig.cfg`, unless started in safe mode) and
+`autoexec.cfg` (0x429aac–0x429ad4); Reluva runs its own `reluva.cfg` in
+the player's config's place.
 
 ## Sources and checks
 

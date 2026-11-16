@@ -160,7 +160,10 @@ it for its modules (`jk2/ghoul2_instances.cpp`):
   some 180 degrees round), taken into the bone's own frame (its base
   pose, the rotation, the base pose's inverse). Turning after (0x2) puts
   it after the bone's placement; turning before (0x1) puts it in place of
-  the frame's.
+  the frame's. Replacing (0x4) keeps only where the bone would be (and its
+  scale): its axes are the rotation's alone, in the model's frame, with
+  nothing above it (not even the root's quarter turn), as the GPL Jedi
+  Outcast renderer does; 1.02a's own code for it hasn't been traced.
 - **A bone's placement** is its parent's times its frame's (blended); a
   vertex is placed by its bones' placements, weighted. The root bone's
   "parent" is the original's root matrix, which its renderer calls the
@@ -225,7 +228,8 @@ phase 7).
   renderer's `G2_TransformBone` and surface bolts, read as documentation.
   A unit test (`idtech3.unit.formats`, "ghoul2 instances") poses the
   made-up skeleton by an animation (looping and held), an angle override
-  and a model hung from another's bolt. In 1.02a's multiplayer, Kyle
+  turning after, a replacing one (under a turned parent, its axes the
+  override's alone) and a model hung from another's bolt. In 1.02a's multiplayer, Kyle
   standing in third person fills 64 units from his feet up, his pistol
   hung from his hand at hand height beside him (`game-run -cgame -entities`). Live, a bot
   followed in third person faces the way she runs (November 2026; before
