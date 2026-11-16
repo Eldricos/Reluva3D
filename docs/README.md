@@ -36,6 +36,8 @@ Laid out as `src/common/` is, a page per component:
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
 - **[wise.md](common/wise.md):** Wise installers, taken apart without
   running them.
+- **[installshield.md](common/installshield.md):** InstallShield
+  cabinets (`data1.hdr`, `data1.cab`...), as games' CDs held their files.
 
 ## Engines: `engines/<engine>/`
 

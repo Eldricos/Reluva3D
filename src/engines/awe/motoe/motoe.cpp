@@ -28,6 +28,7 @@ const GameInfo &game() {
                       "windows",
                       {{"motoe.exe", "", -1}, {"Text/itemlist.txt", "", -1}, {"granny2.dll", "", -1}}}},
         .playable = true,
+        .setupGroups = {}, // its CDs aren't imported from yet
         // The fog's full-screen pictures are 1024x768 (docs/engines/awe/games/motoe/PLAN.md).
         .width = 1024,
         .height = 768,

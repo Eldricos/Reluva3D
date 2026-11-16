@@ -109,13 +109,14 @@ reluva_add_gamedata_test(awe
     ENV RELUVA_MOTOE
     SCRIPT ${tests}/gamedata.cmake
     STEPS release files scripts route-search route)
-# And Then There Were None's: RELUVA_ATTWN=<its folder>.
+# And Then There Were None's: RELUVA_ATTWN=<its folder>, and for the import
+# step RELUVA_ATTWN_CDS=<a folder holding its two CDs>.
 reluva_add_gamedata_test(awe
     NAME awe.attwn
     GAME attwn
     ENV RELUVA_ATTWN
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files scripts route-search route endings)
+    STEPS release files scripts route-search route endings import)
 # The route's search can take more than the hour each step is given.
 if(RELUVA_BUILD_TESTS)
     set_tests_properties(awe.gamedata.route-search awe.attwn.gamedata.route-search PROPERTIES TIMEOUT 7200)

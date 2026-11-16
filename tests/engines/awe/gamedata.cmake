@@ -34,6 +34,9 @@
 #            of her room's hotspots clicked for the marble chunk's use),
 #            and both (game-run -play), each to the credits, with the coda
 #            its movie names.
+#   import   And Then There Were None imported from its two CDs (import,
+#            from the folder RELUVA_ATTWN_CDS names), each file compared
+#            with the installed game's.
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
@@ -41,7 +44,8 @@
 # (Orient Express) and attwn-english (made on Linux); make others with
 # RELUVA_GAMEDATA_UPDATE=1, and check them (each game's TESTING.md).
 #
-# Environment: RELUVA_MOTOE or RELUVA_ATTWN, the game's folder; and those of the shared
+# Environment: RELUVA_MOTOE or RELUVA_ATTWN, the game's folder;
+# RELUVA_ATTWN_CDS, the folder of its CDs (the import step); and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,
 # RELUVA_GAMEDATA_RECORDS.
 
@@ -139,6 +143,57 @@ elseif(STEP STREQUAL "endings")
         string(REGEX REPLACE "; [0-9.]+ minutes of game time" "" summary "${summary}")
         set(record "${record}${ending} alive: ${coda} ${summary}\n")
     endforeach()
+elseif(STEP STREQUAL "import")
+    # From the CDs (RELUVA_ATTWN_CDS: a folder holding both, each in a
+    # folder of its own), the disc with data1.hdr planned and the other
+    # added, as the launcher's "Add other disc..." does.
+    set(cds "$ENV{RELUVA_ATTWN_CDS}")
+    if(cds STREQUAL "")
+        message("SKIPPED: set RELUVA_ATTWN_CDS to a folder holding the game's two CDs to run this step")
+        return()
+    endif()
+    file(REAL_PATH "${cds}" cds)
+    file(GLOB discs LIST_DIRECTORIES true "${cds}/*")
+    set(first "")
+    set(others "")
+    foreach(disc IN LISTS discs)
+        file(GLOB header "${disc}/[Dd][Aa][Tt][Aa]1.[Hh][Dd][Rr]")
+        if(header AND first STREQUAL "")
+            set(first "${disc}")
+        elseif(IS_DIRECTORY "${disc}")
+            list(APPEND others -patch "${disc}")
+        endif()
+    endforeach()
+    if(first STREQUAL "")
+        message(FATAL_ERROR "No CD with data1.hdr in ${cds}")
+    endif()
+    set(into "${OUTPUT}/import")
+    file(REMOVE_RECURSE "${into}")
+    run_tool(out import "${first}" "${into}" ${others})
+    string(REPLACE "${cds}" "<cds>" out "${out}")
+    string(REGEX MATCH "[0-9]+ files, [0-9.]+ MB" size "${out}")
+    string(SHA256 sum "${out}")
+    string(SUBSTRING "${sum}" 0 16 sum)
+    set(record "${record}import: ${sum} | ${size}\n")
+    # Each file as the game's own setup installed it.
+    file(GLOB_RECURSE imported RELATIVE "${into}" "${into}/*")
+    list(LENGTH imported count)
+    set(same 0)
+    foreach(name IN LISTS imported)
+        if(EXISTS "${game_dir}/${name}")
+            file(SHA256 "${into}/${name}" a)
+            file(SHA256 "${game_dir}/${name}" b)
+            if(a STREQUAL b)
+                math(EXPR same "${same} + 1")
+            else()
+                set(record "${record}different from the install: ${name}\n")
+            endif()
+        else()
+            set(record "${record}not in the install: ${name}\n")
+        endif()
+    endforeach()
+    set(record "${record}the same as the install: ${same} of ${count} files\n")
+    file(REMOVE_RECURSE "${into}")
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

@@ -60,6 +60,12 @@ public:
     const char *name() const override { return "AWE (Agatha Christie)"; }
 
     std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override { return awe::detectGames(dir); }
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
+        return awe::planImport(source);
+    }
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &file, std::string &message) const override {
+        return awe::addToImport(plan, file, message);
+    }
 
     std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<AweEngine>(system, target);

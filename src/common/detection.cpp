@@ -70,10 +70,12 @@ Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
             return Error::fail("Couldn't make " + to.parent_path().string() + ": " + ec.message());
         std::filesystem::path part = to;
         part += ".part";
-        if (f.packed) {
-            // Out of an installer: unpacked whole, then written.
+        if (f.packed || f.cabinetFile) {
+            // Out of an installer or a cabinet: unpacked whole, then written.
             std::vector<uint8_t> bytes;
-            if (Error err = extractWiseStream(f.from, *f.packed, bytes))
+            if (Error err = f.packed       ? extractWiseStream(f.from, *f.packed, bytes)
+                            : plan.cabinet ? extractInstallShieldFile(*plan.cabinet, *f.cabinetFile, bytes)
+                                           : Error::fail("No cabinet for " + f.to))
                 return err;
             std::ofstream out(part, std::ios::binary | std::ios::trunc);
             if (!out.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size())))

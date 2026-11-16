@@ -47,6 +47,9 @@ const GameInfo &game() {
                       {{"ac.exe", "", -1}, {"Text/itemlist.act", "", -1}, {"granny2.dll", "", -1}}}},
         .playable = true, // played from a new game to the credits (TESTING.md)
         .openFiles = openFiles,
+        // Setup's own choice for the typical install: the game, and its
+        // ac.exe and readme.txt, put beside it (the two CDs' data1.hdr).
+        .setupGroups = {"Program Executable Files", "Txt Files"},
         // Its window's client area (CreateWindowExA at 0x401980: 0x320 by
         // 0x258); the backgrounds and cameras are drawn at it.
         .width = 800,
@@ -70,6 +73,7 @@ const GameInfo &game() {
                      // place's as it's entered (0x4033f4).
                      .always = {"dialogue/general/narracott.txt"},
                      .acts = "dialogue/acts/act",
+                     .folders = {},
                      .characters = "dialogue/general/%s.txt",
                      .places = "dialogue/locations/%s.txt",
                      // Tried in turn (0x43357a); only Acts/Events is in the install.

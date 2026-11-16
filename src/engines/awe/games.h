@@ -336,6 +336,8 @@ struct GameInfo {
     bool playable = false;             ///< whether reluva plays it yet (else the data viewer's only)
     /** Its install's files as the game opens them; null: the folder as it is. */
     Error (*openFiles)(const std::filesystem::path &dir, std::unique_ptr<Archive> &out) = nullptr;
+    /** The file groups its CD's cabinet (data1.hdr) installs to its folder; none: it isn't imported from CD. */
+    std::vector<std::string> setupGroups;
     int width = 1024; ///< the game's frame: its window, its scenes' pictures and cameras
     int height = 768;
     /**
@@ -380,6 +382,12 @@ const GameInfo *findGame(std::string_view id);
 
 /** The AWE games in `dir`: every game's releases first, then the fallbacks. */
 std::vector<DetectedGame> detectGames(const std::filesystem::path &dir);
+
+/** The AWE game on the CD (or a copy of its files) in `source`, as an import from its cabinet. */
+std::vector<ImportPlan> planImport(const std::filesystem::path &source);
+
+/** Adds the volumes of `plan`'s cabinet in `folder` (its other CD's); false, with why in `message`, if none. */
+bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message);
 
 /** `game`'s files in `dir`, as it opens them (the folder as it is without a game). */
 Error openGameFiles(const GameInfo *game, const std::filesystem::path &dir, std::unique_ptr<Archive> &out);

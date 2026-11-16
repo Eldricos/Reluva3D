@@ -240,7 +240,7 @@ void addPartToImport(ImportPlan &plan, const GamePart &part) {
         for (const std::string &rel : listTree(part.dir)) {
             if (planned(plan, rel))
                 continue;
-            plan.files.push_back({part.dir / rel, rel, sizeOf(part.dir / rel), std::nullopt});
+            plan.files.push_back({part.dir / rel, rel, sizeOf(part.dir / rel), std::nullopt, std::nullopt});
         }
         // The data files the setup copied in, which the CDs have too: the
         // whole copy, if the install's isn't.
@@ -284,7 +284,7 @@ void addPartToImport(ImportPlan &plan, const GamePart &part) {
                 have->to = folder + f->name;
             continue;
         }
-        plan.files.push_back({*file, folder + f->name, sizeOf(*file), std::nullopt});
+        plan.files.push_back({*file, folder + f->name, sizeOf(*file), std::nullopt, std::nullopt});
     }
 }
 

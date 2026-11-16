@@ -17,6 +17,7 @@
 //
 //   reluva-tests awe.engine [--update]
 
+#include "common/fs.h"
 #include "common/headless_system.h"
 #include "image/image.h"
 #include "engines/awe/attwn/attwn.h"
@@ -24,6 +25,7 @@
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
 #include "tests/engines/awe/fixtures.h"
+#include "tests/support/installshield_writer.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 
@@ -352,9 +354,71 @@ void engineTest(const std::filesystem::path &tmp) {
               "tests/engines/awe/engine.cpp");
 }
 
+// And Then There Were None's install made into its two CDs' cabinet, as
+// setup would have it: the game's files in its group on the first, ac.exe
+// in "Txt Files" on the second, and setup's own beside them. Imported from
+// the first (nothing to copy until the second is added), then the second
+// added, it comes out as the install.
+void importTest(const std::filesystem::path &tmp) {
+    const std::filesystem::path install = tmp / "install";
+    makeAttwnInstall(install);
+    std::vector<test::CabinetFile> files;
+    files.push_back({"", "setup.dll", {1, 2, 3}});
+    std::vector<std::filesystem::path> paths;
+    for (const auto &e : std::filesystem::recursive_directory_iterator(install))
+        if (e.is_regular_file() && e.path().filename() != "ac.exe")
+            paths.push_back(e.path());
+    std::sort(paths.begin(), paths.end());
+    std::vector<uint8_t> exe;
+    for (const std::filesystem::path &p : paths) {
+        std::ifstream in(p, std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::string folder = std::filesystem::relative(p.parent_path(), install).generic_string();
+        std::replace(folder.begin(), folder.end(), '/', '\\');
+        files.push_back({folder == "." ? "" : folder, p.filename().string(), data});
+    }
+    {
+        std::ifstream in(install / "ac.exe", std::ios::binary);
+        exe.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const uint32_t game = uint32_t(files.size() - 1);
+    files.push_back({"", "ac.exe", exe, true, 2});
+    test::writeCabinet(
+        {tmp / "cd1", tmp / "cd2"}, files,
+        {{"<Support>Setup", 0, 0}, {"Program Executable Files", 1, game}, {"Txt Files", game + 1, game + 1}});
+
+    std::vector<ImportPlan> plans = planImports(tmp / "cd1");
+    CHECK(plans.size() == 1);
+    if (plans.size() != 1)
+        return;
+    ImportPlan &plan = plans[0];
+    CHECK(plan.game.engineId == "awe" && plan.game.gameId == "attwn");
+    CHECK(plan.files.empty() && plan.notes.size() == 1 && plan.addFolderLabel == "Add other disc...");
+    const MetaEngine *engine = findEngine("awe");
+    std::string message;
+    CHECK(engine && !engine->addToImport(plan, tmp / "install", message) && !message.empty());
+    CHECK(engine && engine->addToImport(plan, tmp / "cd2", message));
+    CHECK(plan.files.size() == paths.size() + 1 && plan.notes.empty());
+
+    const std::filesystem::path dest = tmp / "imported";
+    CHECK(!runImport(plan, dest, nullptr));
+    paths.push_back(install / "ac.exe");
+    size_t imported = 0;
+    for (const auto &e : std::filesystem::recursive_directory_iterator(dest))
+        imported += e.is_regular_file() ? 1 : 0;
+    CHECK(imported == paths.size());
+    for (const std::filesystem::path &p : paths) {
+        const std::filesystem::path to = dest / p.lexically_relative(install);
+        CHECK(fs::md5File(to, 0) && fs::md5File(to, 0) == fs::md5File(p, 0));
+    }
+    const auto found = engine ? engine->detect(dest) : std::vector<DetectedGame>{};
+    CHECK(found.size() == 1 && found[0].gameId == "attwn");
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("awe.engine",
-                                        {
-                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("awe.engine", {
+                             {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                             {"import from CD", [](const std::filesystem::path &tmp) { importTest(tmp); }},
+                         });

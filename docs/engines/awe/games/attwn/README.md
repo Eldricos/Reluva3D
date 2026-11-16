@@ -46,9 +46,14 @@ route from a new game to the credits plays by the mouse and by the hand
 ## Using it
 
 Add the installed game's folder (the one holding `ac.exe`) in the
-launcher. From the two CDs without installing: `unshield x data1.cab`
-with `data1.hdr` and the three cabinets in one folder; the game is
-`Program Executable Files` with `ac.exe` (from `Txt Files`) beside it.
+launcher. Or import it from its two CDs, without installing: *Import
+Game...* (or *Add Game...*) on the first CD, then *Add other disc...*
+for the second, copies the game's files out of their cabinets
+([installshield.md](../../../../common/installshield.md)) into a folder
+of Reluva's, as the game's setup would install them: its "Program
+Executable Files" group with `ac.exe` and `readme.txt` (its "Txt Files")
+beside them, 5,865 files, 1.36 GB. `reluva-tool import <first CD>
+<folder> -patch <second CD>` does the same.
 
 - **The game:** playable: the launcher starts it at its main menu.
 - **The data viewer:** `reluva-viewer <entry>` or `reluva-viewer <game

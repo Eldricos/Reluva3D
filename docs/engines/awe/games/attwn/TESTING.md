@@ -27,6 +27,14 @@ and goes on, a quick save (`last.ac1` and `quick.ac1`, read back in this
 game's layout). Its lines in
 `tests/engines/awe/data/engine-record.txt` start `attwn.`.
 
+Its second case, *import from CD*, puts that install in two CDs'
+cabinets as the game's are laid out (setup's own group, the game's on the
+first, `ac.exe` in "Txt Files" on the second), imports from the first,
+checks the plan says the second is still wanted, adds it, and checks the
+import is the install, file for file, found as the game. The cabinet
+reader's own cases (a file split across the CDs, one sharing another's
+data, a damaged byte) are in `common.unit.archives`.
+
 ### The game-files test: with your own copy of the game
 
 As Orient Express's ([../motoe/TESTING.md](../motoe/TESTING.md)), from
@@ -43,6 +51,7 @@ the same script (`tests/engines/awe/gamedata.cmake`), with
 | `awe.attwn.gamedata.route-search` | A way from a new game to the credits, searched for (`awe game-run -solve`), kept in the build (`gamedata/awe.attwn/route.txt`) |
 | `awe.attwn.gamedata.route` | The whole game by it, four ways (`awe game-check -quick`) |
 | `awe.attwn.gamedata.endings` | The four codas: the route played back, and changed to let Lombard die in 9A (his five minutes waited out before the rescue), Vera in 10A (another of her room's hotspots clicked for the marble chunk), and both, each to the credits with the coda its movie names (`awe game-run -play -v`) |
+| `awe.attwn.gamedata.import` | The game imported from its two CDs (`import`, with `RELUVA_ATTWN_CDS` naming a folder that holds them, each in a folder of its own), each file compared with the installed game's; skipped without it |
 
 The records are in `tests/engines/awe/data/gamedata/attwn-english/`.
 
@@ -153,6 +162,7 @@ show is in [Last checked](#last-checked).
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 16 November 2026 | English (retail, two CDs) | Linux | The import from the CDs (`import` step): all 5,865 files the same as the installed game's and as `unshield x` gives, in about 12 s |
 | 16 November 2026 | English (retail, two CDs) | Linux, a virtual display | The route played by the mouse in a window (`awe game-run -play <route> -mouse -3d -draw -sound`, Vulkan on llvmpipe): all 2,162 actions to the credits, every frame drawn, the "both alive" coda, nothing but `sounda sfx\knock` missing (no such sound in the install); in about 3.5 hours. A save made through Escape, Save, a slot and OK, listed on the load screen with its 200 by 150 picture in the row |
 | 16 November 2026 | English (retail, two CDs) | Linux | Timings against the footage, at its 30 frames a second: the inventory panel's slide (0.63 s both ways, as Reluva's), the deposit boxes' swap (0.73 to 0.77 s after the second drawer, eight times; 0.75 in the code and Reluva), a chapter's title card (in 1.1 s, held 5.2, out 1.1; Reluva's 1.2, 5, 1.0), the screen's fades (0.75 to 0.9 s, one step a frame: fixed, Reluva's took as many steps as the time allowed); the object fades `fade in <object>` (fixed: Reluva's were at once) |
 | 16 November 2026 | English (retail, two CDs) | Linux | The four endings by the `endings` step: each plays to the credits with its own coda |

@@ -252,8 +252,10 @@ Phases 1 to 3 are done ([README.md](README.md#where-it-stands)).
   its checks (`awe.engine`, the game-files steps) so nothing of it
   changes.
 - **The installed game is what Reluva reads.** A player installs it with
-  its own setup, or unpacks the cabinets; reading the CDs' cabinets
-  directly is left for later.
+  its own setup, or imports it from the CDs: Reluva's import takes the
+  game's two groups out of the cabinets
+  ([installshield.md](../../../../common/installshield.md)), as setup
+  would install them; the game isn't played from the CDs.
 - **`ac.exe` is read afresh.** It's an older build than `motoe.exe`, so
   no address carries over; Orient Express's pages say what to look for.
 - **What a fact rests on is written down** as for Orient Express: the
