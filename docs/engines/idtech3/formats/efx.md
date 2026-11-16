@@ -160,7 +160,7 @@ Then each is drawn, unless it's behind the eye or very near it
 |---|---|
 | particle | a sprite, `size` its radius, turning by `rotationDelta` |
 | oriented particle | a square facing its forward |
-| line, electricity | a line `size` wide; electricity broken into jagged steps by its chaos, reaching its end over its life with `grow` |
+| line, electricity | a line `size` wide; electricity as below, reaching its end over its life with `grow` |
 | tail | a line from where it is back along its path, `length` long |
 | cylinder | from its start along its forward `length` units, `size2` round at the start and `size` round at the end |
 | emitter | its model, scaled by `size`, turning; an effect left each time it has gone `density` (± `variance`) units |
@@ -189,8 +189,24 @@ the client game's host puts in its scene as Jedi Outcast's `refEntity_t`
 asked of the client game through the shared buffer, as Raven's engine
 does. Its random numbers come from a fixed seed, so a run repeats.
 
+**Electricity** is drawn as Raven's renderer draws it (`raven::electricityStrips`;
+the GPL source's `RB_SurfaceElectricity`, checked against jk2mp.exe's,
+0x494c70). From its start to its end in 20-unit steps (a bolt shorter
+than one isn't drawn), each step's point is pushed off the straight
+line by an offset that builds up from (10, 10, 10). Each step adds a
+random 3 along the line and 7 times its chaos to each side, with each
+word its own random number (the vector macros evaluate it three
+times), all from the seed the effect gave it, so the path holds still
+over its life. Each step is drawn as three flat strips through two
+kinks (a third and two thirds of the way, a little to either side,
+made anew every frame), across the plane through the eye and both
+ends. With `taper` (the renderer's 0x8000) the width falls as 1 − how
+far squared, to nothing at the end. `branch` (0x4000) would fork it,
+but 1.02a's fork count is never set (only read and lowered, 0x494f4f),
+so it never does, and Reluva doesn't either.
+
 Not done: effects bolted to a Ghoul2 model (1.02a's client game doesn't
-call it); electricity's taper and branches (drawn plain); wind.
+call it); wind.
 
 ## Sources and checks
 
@@ -210,4 +226,7 @@ call it); electricity's taper and branches (drawn plain); wind.
   (`game-run -cgame -fire`, recorded by `jk2-game`, and live on the Play
   page) the blaster's bolt, muzzle flash, sparks bouncing on the floor,
   smoke, burn marks, its light on the wall, and the saber's trail are
-  drawn. Not yet compared with the original running.
+  drawn. Another ("electricity") checks a bolt's strips: their count and
+  ends, the same path for the same seed and another for another, the
+  taper, and none for a bolt shorter than a step. A bolt hasn't been seen
+  drawn in a match yet. Not yet compared with the original running.

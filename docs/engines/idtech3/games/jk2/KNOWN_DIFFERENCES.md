@@ -46,11 +46,12 @@ In the multiplayer menus:
   map change notices all go at once, where the original's go at steps of
   its loading; it looks its masters' names up once, where the original
   looks again when one's cvar changes.
-- **Effects** ([efx.md](../../formats/efx.md)): electricity is drawn
-  without its taper and branches, and effects bolted to a model aren't
-  played (1.02a's client game doesn't ask). The second triangle of a
-  saber's trail is given its corners' own alpha, where Raven's code
-  leaves two of them unset.
+- **Effects** ([efx.md](../../formats/efx.md)): effects bolted to a
+  model aren't played (1.02a's client game doesn't ask). The second
+  triangle of a saber's trail is given its corners' own alpha, where
+  Raven's code leaves two of them unset. Electricity's small kinks are
+  Reluva's own random draws, not the original's, as surface sprites'
+  spots are.
 - **The favourite servers** are kept in `favorites.txt` (address and
   name a line) in the game's save folder, not in the
   original's `servercache.dat`; the other lists aren't kept between runs

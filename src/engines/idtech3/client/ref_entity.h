@@ -68,6 +68,9 @@ struct RefEntityLayout {
     int32_t typeCurve = -1;
     int32_t typeCylinder = -1;
     int32_t typeBolt = -1;
+    // Electricity drawn as Raven's Jedi Outcast renderer draws it (its
+    // shape from the seed in `frame`), not Elite Force's way.
+    bool ravenBolt = false;
     int32_t typeBeam = 3;
     int32_t typePortal = 7;
 };
@@ -82,6 +85,8 @@ constexpr int32_t kThirdPerson = 2;
 constexpr int32_t kFirstPerson = 4;
 constexpr int32_t kDepthHack = 8;
 constexpr int32_t kUseLightingOrigin = 0x80;
+// Raven's: electricity narrowing to nothing at its end (RF_TAPERED).
+constexpr int32_t kTapered = 0x8000;
 constexpr float kDepthHackRange = 0.3f;
 } // namespace refent
 

@@ -31,6 +31,28 @@ namespace reluva::idtech3::raven {
  * game's host to put in its scene; what it needs of the world (shaders and
  * models registered, traces, sounds, marks) it asks of the host.
  */
+// A strip of a bolt of Jedi Outcast's electricity, from `from` (half as
+// wide as `fromWidth`) to `to`.
+struct BoltStrip {
+    std::array<float, 3> from{};
+    std::array<float, 3> to{};
+    float fromWidth = 0;
+    float toWidth = 0;
+};
+
+// The strips Raven's renderer draws a bolt from `origin` to `end` as (the
+// GPL source's RB_SurfaceElectricity, checked against jk2mp.exe's,
+// 0x494c70): 20-unit steps, each step's point pushed off the straight
+// line by an offset that builds up (from 10, 10, 10), its random parts
+// from `seed`, so the path holds still; each step three strips through
+// two kinks made anew each time from `random` (-1 to 1). Tapered, the
+// width falls as 1 - how far squared. 1.02a never forks (its fork count is
+// never set, 0x494f4f), so branches add nothing. Shorter than a step:
+// none.
+std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, const std::array<float, 3> &end,
+                                         float radius, float chaos, int32_t seed, bool tapered,
+                                         const std::function<float()> &random);
+
 class EffectSystem {
 public:
     using Vec3 = std::array<float, 3>;
@@ -82,8 +104,9 @@ public:
         float rotation = 0; // degrees
         std::array<uint8_t, 4> rgba{};
         bool depthHack = false;
-        float chaos = 0;  // electricity: how far its steps stray, of their length
-        int32_t seed = 0; // electricity: its shape's
+        float chaos = 0;    // electricity: how far its steps stray, of their length
+        int32_t seed = 0;   // electricity: its shape's
+        bool taper = false; // electricity: narrowing to nothing at its end
     };
     struct Light {
         Vec3 origin{};

@@ -3,6 +3,8 @@
 
 #include "engines/idtech3/client/scene_drawer.h"
 
+#include "engines/idtech3/raven/effects.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -588,6 +590,47 @@ float SceneDrawer::shaderTime(const std::vector<uint8_t> &e, float time) const {
     return t > 0 && t <= time + 1 ? t : 0;
 }
 
+void SceneDrawer::addRavenBolt(const std::vector<uint8_t> &e, const gfx::Vec3 &origin) {
+    // Raven's shape (raven::electricityStrips), each strip a quad lying
+    // across the plane through the eye and both ends.
+    const gfx::Vec3 end = readVec(e, _layout.oldOrigin);
+    const std::vector<raven::BoltStrip> strips =
+        raven::electricityStrips(origin, end, readFloat(e, _layout.width), readFloat(e, _layout.jitter),
+                                 readInt(e, _layout.frame), (readInt(e, _layout.flags) & refent::kTapered) != 0,
+                                 [this] { return float(_effectRandom() % 20001) / 10000.0f - 1; });
+    gfx::Vec3 v1{};
+    gfx::Vec3 v2{};
+    for (size_t k = 0; k < 3; ++k) {
+        v1[k] = origin[k] - _eye[k];
+        v2[k] = end[k] - _eye[k];
+    }
+    gfx::Vec3 right{v1[1] * v2[2] - v1[2] * v2[1], v1[2] * v2[0] - v1[0] * v2[2], v1[0] * v2[1] - v1[1] * v2[0]};
+    if (const float len = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]); len > 1e-6f)
+        for (float &c : right)
+            c /= len;
+    const int32_t rgba = readInt(e, _layout.rgba);
+    auto vertex = [&](const gfx::Vec3 &at, float width, float s, float t) {
+        gfx::Vertex v{};
+        for (size_t k = 0; k < 3; ++k)
+            v.pos[k] = at[k] + right[k] * width;
+        v.uv[0] = s;
+        v.uv[1] = t;
+        v.normal[2] = 1;
+        std::memcpy(v.color, &rgba, 4);
+        _effectVertices.push_back(v);
+        return uint32_t(_effectVertices.size() - 1);
+    };
+    // The texture across each strip and along it once.
+    for (const raven::BoltStrip &st : strips) {
+        const uint32_t a = vertex(st.from, st.fromWidth, 0, 0);
+        const uint32_t b = vertex(st.from, -st.fromWidth, 1, 0);
+        const uint32_t c = vertex(st.to, st.toWidth, 0, 1);
+        const uint32_t d = vertex(st.to, -st.toWidth, 1, 1);
+        for (uint32_t i : {a, b, c, c, b, d})
+            _effectIndices.push_back(i);
+    }
+}
+
 void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left, const gfx::Vec3 &up, float time) {
     const int32_t type = readInt(e, _layout.type);
     const int32_t shader = readInt(e, _layout.customShader);
@@ -724,6 +767,8 @@ void SceneDrawer::addEffect(const std::vector<uint8_t> &e, const gfx::Vec3 &left
             points.push_back(p);
         }
         ribbon(points, std::vector<float>(points.size(), readFloat(e, _layout.width)), 1);
+    } else if (type == _layout.typeBolt && _layout.ravenBolt) {
+        addRavenBolt(e, origin);
     } else if (type == _layout.typeBolt) {
         // Electricity: a line broken into steps, each point pushed aside at
         // random by the jitter times the step's length; new each frame.

@@ -49,6 +49,7 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     l.typeQuad = 3;
     l.typeBeam = 4;
     l.typeBolt = 6;
+    l.ravenBolt = true;
     l.typePortal = 7;
     l.typeLine = 8;
     l.typeOrientedLine = 9;

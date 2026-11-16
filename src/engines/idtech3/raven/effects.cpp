@@ -730,6 +730,7 @@ void EffectSystem::draw(Live &l, Frame &out) {
         }
         d.chaos = l.chaos;
         d.seed = l.seed;
+        d.taper = (l.flags & Primitive::kTaper) != 0;
         break;
     }
     case Live::kCylinder:
@@ -881,6 +882,101 @@ void EffectSystem::run(Frame &out) {
     _live.resize(kept);
     std::move(_born.begin(), _born.end(), std::back_inserter(_live));
     _born.clear();
+}
+
+std::vector<BoltStrip> electricityStrips(const std::array<float, 3> &origin, const std::array<float, 3> &end,
+                                         float radius, float chaos, int32_t seed, bool tapered,
+                                         const std::function<float()> &random) {
+    using V = std::array<float, 3>;
+    auto length = [](const V &v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); };
+    auto normalized = [&](V v) {
+        const float len = length(v);
+        if (len > 1e-6f)
+            for (float &c : v)
+                c /= len;
+        return v;
+    };
+    // Quake III's MakeNormalVectors.
+    auto normals = [&](const V &f, V &rt, V &up) {
+        rt = V{f[2], -f[0], f[1]};
+        const float d = rt[0] * f[0] + rt[1] * f[1] + rt[2] * f[2];
+        for (size_t k = 0; k < 3; ++k)
+            rt[k] -= d * f[k];
+        rt = normalized(rt);
+        up = V{rt[1] * f[2] - rt[2] * f[1], rt[2] * f[0] - rt[0] * f[2], rt[0] * f[1] - rt[1] * f[0]};
+    };
+    // Quake III's Q_random and Q_crandom on the seed.
+    auto state = uint32_t(seed);
+    auto qrandom = [&] {
+        state = 69069u * state + 1;
+        return float(state & 0xffff) / 65536.0f;
+    };
+    auto qcrandom = [&] { return 2.0f * (qrandom() - 0.5f); };
+    std::vector<BoltStrip> out;
+    // A step from `from` to `to`, kinked at two points: the first about
+    // two thirds of the way back from `to`, a little off one side, the
+    // second a third, off the other.
+    auto shape = [&](const V &from, const V &to, float fromWidth, float toWidth) {
+        const float a0 = 0.66f + random() * 0.1f;
+        const float a1 = 0.07f + random() * 0.025f;
+        const float a2 = 0.07f + random() * 0.025f;
+        const float b0 = 0.33f + random() * 0.1f;
+        const float b1 = -a1 + random() * 0.02f;
+        const float b2 = -a2 + random() * 0.02f;
+        const V fwd{to[0] - from[0], to[1] - from[1], to[2] - from[2]};
+        const float dis = length(fwd) * 0.7f;
+        V rt{};
+        V up{};
+        normals(normalized(fwd), rt, up);
+        auto point = [&](float along, float r, float u) {
+            V p{};
+            for (size_t k = 0; k < 3; ++k)
+                p[k] = from[k] * along + to[k] * (1 - along) + dis * r * rt[k] + dis * u * up[k];
+            return p;
+        };
+        const V p1 = point(a0, a1, a2);
+        const V p2 = point(b0, b1, b2);
+        const float w1 = fromWidth * 0.666f + toWidth * 0.333f;
+        const float w2 = fromWidth * 0.333f + toWidth * 0.666f;
+        out.push_back({from, p1, fromWidth, w1});
+        out.push_back({p2, p1, w1, w2});
+        out.push_back({p2, to, w2, toWidth});
+    };
+    const V fwd{end[0] - origin[0], end[1] - origin[1], end[2] - origin[2]};
+    const float dis = length(fwd);
+    const V dir = normalized(fwd);
+    V rt{};
+    V up{};
+    normals(dir, rt, up);
+    V old = origin;
+    V off{10, 10, 10};
+    float oldPerc = 0;
+    float oldWidth = radius;
+    float newWidth = radius;
+    for (int i = 20; float(i) <= dis; i += 20) {
+        const float perc = float(i + 20) > dis ? 1.0f : float(i) / dis;
+        // Each word its own random, as the original's vector macros give.
+        V step{};
+        for (size_t k = 0; k < 3; ++k)
+            step[k] = dir[k] * (qcrandom() * 3.0f);
+        for (size_t k = 0; k < 3; ++k)
+            step[k] += rt[k] * (qcrandom() * 7.0f * chaos);
+        for (size_t k = 0; k < 3; ++k)
+            step[k] += up[k] * (qcrandom() * 7.0f * chaos);
+        for (size_t k = 0; k < 3; ++k)
+            off[k] += step[k];
+        V cur{};
+        for (size_t k = 0; k < 3; ++k)
+            cur[k] = (origin[k] + off[k]) * (1 - perc) + end[k] * perc;
+        if (tapered) {
+            oldWidth = radius * (1 - oldPerc * oldPerc);
+            newWidth = radius * (1 - perc * perc);
+        }
+        shape(cur, old, newWidth, oldWidth);
+        old = cur;
+        oldPerc = perc;
+    }
+    return out;
 }
 
 } // namespace reluva::idtech3::raven

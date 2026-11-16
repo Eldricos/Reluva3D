@@ -46,6 +46,7 @@ constexpr int32_t kChanAuto = 0;
 
 // Render flags of the effects (Jedi Outcast's tr_types.h).
 constexpr int32_t kRfDepthHack = 0x8;
+constexpr int32_t kRfTapered = 0x8000; // electricity narrowing to its end
 
 using Vec3 = raven::EffectSystem::Vec3;
 using Axis = raven::EffectSystem::Axis;
@@ -138,7 +139,7 @@ void CgameHost::addEffects(const raven::EffectSystem::Frame &frame) {
                              : d.kind == D::kCylinder    ? l.typeCylinder
                                                          : l.typeModel;
         putInt(e, l.type, type);
-        putInt(e, l.flags, d.depthHack ? kRfDepthHack : 0);
+        putInt(e, l.flags, (d.depthHack ? kRfDepthHack : 0) | (d.taper ? kRfTapered : 0));
         putVec(e, l.origin, d.origin);
         std::memcpy(e.data() + l.rgba, d.rgba.data(), 4);
         putFloat(e, l.radius, d.radius);

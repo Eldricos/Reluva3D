@@ -108,6 +108,8 @@ public:
 private:
     void placeEntities(const Scene &scene, const View &view, const LightGrid &grid, float time);
     void addEffect(const std::vector<uint8_t> &entity, const gfx::Vec3 &left, const gfx::Vec3 &up, float time);
+    // Jedi Outcast's electricity, into the effect vertices and indices.
+    void addRavenBolt(const std::vector<uint8_t> &entity, const gfx::Vec3 &origin);
     void drawEffects(float time, float sortMin, float sortMax);
     std::array<float, 4> entityColor(const std::vector<uint8_t> &entity) const;
     float shaderTime(const std::vector<uint8_t> &entity, float time) const;

@@ -488,6 +488,39 @@ static void testRavenText() {
     CHECK(parseFontdat(std::vector<uint8_t>(100), "x", font));
 }
 
+// Jedi Outcast's electricity as Raven's renderer shapes it.
+static void testElectricity() {
+    using raven::BoltStrip;
+    using raven::electricityStrips;
+    auto none = [] { return 0.0f; };
+    auto same = [](const BoltStrip &x, const BoltStrip &y) {
+        return x.from == y.from && x.to == y.to && x.fromWidth == y.fromWidth && x.toWidth == y.toWidth;
+    };
+    // 100 units: steps at 20, 40, 60, 80, and the last at the end (100 + 20
+    // is past it); three strips each, from the step's point back to the
+    // last one's.
+    const std::vector<BoltStrip> a = electricityStrips({0, 0, 0}, {100, 0, 0}, 4, 1, 5, false, none);
+    CHECK(a.size() == 15);
+    if (a.size() == 15) {
+        CHECK(a[2].to == (std::array<float, 3>{0, 0, 0}));      // the first step back to the start
+        CHECK(a[12].from == (std::array<float, 3>{100, 0, 0})); // the last from the end
+        CHECK(a[0].fromWidth == 4 && a[14].toWidth == 4);       // not tapered
+        CHECK(a[1].from == a[2].from && a[0].to == a[1].to);    // the strips meet at the kinks
+    }
+    // The seed fixes the path: the same again, another seed elsewhere.
+    const std::vector<BoltStrip> again = electricityStrips({0, 0, 0}, {100, 0, 0}, 4, 1, 5, false, none);
+    CHECK(again.size() == a.size() && std::equal(a.begin(), a.end(), again.begin(), same));
+    const std::vector<BoltStrip> other = electricityStrips({0, 0, 0}, {100, 0, 0}, 4, 1, 6, false, none);
+    CHECK(other.size() == a.size() && !same(other[0], a[0]));
+    // Tapered: 1 - how far squared, nothing at the end; 80 of the way, 4 x 0.36.
+    const std::vector<BoltStrip> t = electricityStrips({0, 0, 0}, {100, 0, 0}, 4, 1, 5, true, none);
+    CHECK(t.size() == 15);
+    if (t.size() == 15)
+        CHECK(t[12].fromWidth == 0 && std::fabs(t[14].toWidth - 4 * 0.36f) < 1e-4f);
+    // Shorter than a step: nothing.
+    CHECK(electricityStrips({0, 0, 0}, {15, 0, 0}, 4, 1, 5, false, none).empty());
+}
+
 static void testEffects() {
     using raven::EffectPrimitive;
     using raven::EffectSystem;
@@ -1364,6 +1397,7 @@ static const reluva::test::Suite
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
                {"effects", [](const std::filesystem::path &) { testEffects(); }},
+               {"electricity", [](const std::filesystem::path &) { testElectricity(); }},
                {"raven text", [](const std::filesystem::path &) { testRavenText(); }},
                {"patches", [](const std::filesystem::path &) { testPatch(); }},
                {"patch grids", [](const std::filesystem::path &) { testPatchGrids(); }},
