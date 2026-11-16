@@ -219,21 +219,22 @@ int cmdSpRun(int argc, char **argv) {
         } else
             std::fprintf(stderr, "sp-run: ignoring %s\n", argv[i]);
     }
-    // The DLL sits beside the game's folder (the install's), or in it.
+    // The DLL sits beside the game's folder (the install's), or in it:
+    // Elite Force's, or Jedi Outcast's.
     if (dllPath.empty()) {
         std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
         if (!folder.has_filename())
             folder = folder.parent_path();
-        for (const std::filesystem::path &p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
-            if (std::filesystem::exists(p)) {
-                dllPath = p.string();
-                break;
-            }
+        for (const char *name : {"efgamex86.dll", "jk2gamex86.dll"})
+            for (const std::filesystem::path &p : {folder.parent_path() / name, folder / name})
+                if (dllPath.empty() && std::filesystem::exists(p))
+                    dllPath = p.string();
         if (dllPath.empty()) {
-            std::fprintf(stderr, "efgamex86.dll isn't beside %s; give it with -dll\n", argv[2]);
+            std::fprintf(stderr, "Neither efgamex86.dll nor jk2gamex86.dll is beside %s; give it with -dll\n", argv[2]);
             return 1;
         }
     }
+    const bool jedi = reluva::fs::toLower(std::filesystem::path(dllPath).filename().string()) == "jk2gamex86.dll";
     Bytes dll;
     if (!readFile(dllPath.c_str(), dll))
         return 1;
@@ -346,7 +347,7 @@ int cmdSpRun(int argc, char **argv) {
         return 1;
     };
     const auto started = std::chrono::steady_clock::now();
-    if (reluva::Error e = game.load(dll))
+    if (reluva::Error e = game.load(dll, jedi))
         return failed("loading", e);
     std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
     game.cpu().trace = [&](reluva::x86::Cpu &c) { recent[recentAt++ % recent.size()] = c.eip; };

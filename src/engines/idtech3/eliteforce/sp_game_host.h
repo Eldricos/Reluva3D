@@ -94,13 +94,31 @@ public:
     static constexpr uint32_t kMemory = 256u << 20;
 
     static constexpr SpEntityLayout kEntity{};
+    // Jedi Outcast's: its entity state is 252 bytes, and the rest follows
+    // it as Elite Force's does (jk2sp.exe's linkentity, 0x43a620).
+    static constexpr SpEntityLayout kJediEntity{.stateSize = 0xfc,
+                                                .client = 0xfc,
+                                                .inUse = 0x100,
+                                                .linked = 0x104,
+                                                .svFlags = 0x108,
+                                                .bmodel = 0x10c,
+                                                .mins = 0x110,
+                                                .maxs = 0x11c,
+                                                .contents = 0x128,
+                                                .absMin = 0x12c,
+                                                .absMax = 0x138,
+                                                .currentOrigin = 0x144,
+                                                .currentAngles = 0x150,
+                                                .owner = 0x15c};
 
     SpGameHost(const SearchSet &files, CvarStore &cvars);
     ~SpGameHost();
 
-    // Loads the DLL (efgamex86.dll's bytes), runs its start-up and
-    // GetGameAPI, and checks the version.
-    Error load(const std::vector<uint8_t> &dll);
+    // Loads the DLL (efgamex86.dll's bytes, or with `jedi` Jedi Outcast's
+    // jk2gamex86.dll's), runs its start-up and GetGameAPI, and checks the
+    // version.
+    Error load(const std::vector<uint8_t> &dll, bool jedi = false);
+    bool jedi() const { return _jedi; }
     // Starts a level: the map's cvars, then the game's Init with the map's
     // entity text. `checksum`: the map file's (mapChecksum()).
     // `loadMode`: 0 a new level, 1 a saved game being loaded, 2 an
@@ -344,6 +362,13 @@ private:
     // The Expansion Pack's game code, whose engine's table has two more
     // functions (docs/engines/idtech3/games/stvef/systems/sp-interface.md): where each goes.
     bool _expansion = false;
+    // Jedi Outcast's (docs/engines/idtech3/games/jk2/systems/sp-interface.md):
+    // the Expansion Pack's table, Malloc's tag and zeroing, then Ghoul2's
+    // functions (jk2/sp_game_calls.cpp); its own client game calls.
+    bool _jedi = false;
+    SpEntityLayout _entity = kEntity;
+    void addJediImports();
+    uint32_t jediCgameCall(x86::Cpu &c);
     int importPosition(int slot) const;
     std::shared_ptr<const Bsp> _map;
     LightGrid _lightGrid;

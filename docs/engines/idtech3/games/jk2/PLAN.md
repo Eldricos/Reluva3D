@@ -160,6 +160,15 @@ behind the DLL's own tables.
    imports (KERNEL32's and WINMM's only). `reluva-tool idtech3 sp-run` on
    `kejim_post`, then the Play page. Ends with: the first level played to
    its end, cinematics included.
+
+   Started ([systems/sp-interface.md](systems/sp-interface.md)): the
+   engine's table (103 slots, the first 42 as the Elite Force Expansion
+   Pack engine's), the game's, the entity layout and the version are
+   read from `jk2sp.exe`; Elite Force's single-player host loads the DLL
+   in a Jedi Outcast mode, and `sp-run` gets as far as `dllEntry`'s first
+   client game call. Next: the client game's 112 calls from
+   `jk2sp.exe`'s jump table, then Ghoul2's slots and the engine-owned
+   instance array the game reaches through `TheGhoul2InfoArray`.
 8. **Single player's menus**: the Team Arena style menu system run natively
    (`ui/menus.txt`, every item type, the owner draws and `uiScript`
    commands that `jk2sp.exe` provides: new game, load and save lists,

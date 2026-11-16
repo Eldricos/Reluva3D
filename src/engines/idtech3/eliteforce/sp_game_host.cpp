@@ -79,6 +79,8 @@ enum Import : int {
     kXpFsGetFileList = 16,
     kXpReadFromSaveGameOptional = 19,
     kXpImportCount = 42,
+    // Jedi Outcast's: the Expansion Pack's 42, then 61 for Ghoul2.
+    kJediImportCount = 103,
 };
 
 constexpr int32_t kMaxEntities = 1024;
@@ -106,17 +108,17 @@ SpGameHost::SpGameHost(const SearchSet &files, CvarStore &cvars)
 
 bool SpGameHost::entityShape(int32_t n, EntityShape &out) const {
     const uint32_t a = entityAddress(n);
-    if (!a || !_cpu->valid(a, uint32_t(kEntity.owner + 4)))
+    if (!a || !_cpu->valid(a, uint32_t(_entity.owner + 4)))
         return false;
-    out.origin = readVec(a + kEntity.currentOrigin);
-    out.angles = readVec(a + kEntity.currentAngles);
-    out.mins = readVec(a + kEntity.mins);
-    out.maxs = readVec(a + kEntity.maxs);
-    out.contents = int32_t(_cpu->read32(a + kEntity.contents));
-    const uint32_t owner = _cpu->read32(a + kEntity.owner);
+    out.origin = readVec(a + _entity.currentOrigin);
+    out.angles = readVec(a + _entity.currentAngles);
+    out.mins = readVec(a + _entity.mins);
+    out.maxs = readVec(a + _entity.maxs);
+    out.contents = int32_t(_cpu->read32(a + _entity.contents));
+    const uint32_t owner = _cpu->read32(a + _entity.owner);
     out.owner = owner ? entityNumber(owner) : -1;
-    out.bmodel = _cpu->read32(a + kEntity.bmodel) != 0;
-    out.modelIndex = int32_t(_cpu->read32(a + kEntity.modelIndex));
+    out.bmodel = _cpu->read32(a + _entity.bmodel) != 0;
+    out.modelIndex = int32_t(_cpu->read32(a + _entity.modelIndex));
     return true;
 }
 
@@ -148,7 +150,7 @@ uint32_t SpGameHost::text(const std::string &s) {
     return a;
 }
 
-Error SpGameHost::load(const std::vector<uint8_t> &dll) {
+Error SpGameHost::load(const std::vector<uint8_t> &dll, bool jedi) {
     _cpu = std::make_unique<x86::Cpu>(kMemory);
     _process = std::make_unique<x86::Win32Process>(*_cpu, kExeName);
     _process->output = [this](const std::string &s) {
@@ -165,21 +167,25 @@ Error SpGameHost::load(const std::vector<uint8_t> &dll) {
     {
         Md5 md5;
         md5.update(dll.data(), std::min<size_t>(dll.size(), kDetectionHashBytes));
-        _expansion = dll.size() == 999500 && md5.hexDigest() == "f8f997ef96a09755f0d1c920c15ca773";
+        _expansion = jedi || (dll.size() == 999500 && md5.hexDigest() == "f8f997ef96a09755f0d1c920c15ca773");
     }
-    if (Error e = _process->load("efgamex86.dll", dll, _module))
+    _jedi = jedi;
+    _entity = jedi ? kJediEntity : kEntity;
+    if (Error e = _process->load(jedi ? "jk2gamex86.dll" : "efgamex86.dll", dll, _module))
         return e;
     if (Error e = _process->attach(*_module))
         return e;
-    _imports = _process->memory().alloc(4 * (_expansion ? kXpImportCount : kImportCount));
+    _imports = _process->memory().alloc(4 * (jedi ? kJediImportCount : _expansion ? kXpImportCount : kImportCount));
     _voiceVolume = _process->memory().alloc(4 * kMaxEntities);
     _argvBuffer = _process->memory().alloc(kArgvSize);
     addImports();
+    if (jedi)
+        addJediImports();
     // The client game's half: dllEntry hands it the system call function.
     // The server game calls into it too, so it's set up from the start.
     if (const uint32_t dllEntry = _module->exportAddress("dllEntry")) {
         const uint32_t syscall = _cpu->addNative("cgame syscall", [this](x86::Cpu &c) {
-            c.reg[x86::Cpu::EAX] = cgameCall(c);
+            c.reg[x86::Cpu::EAX] = _jedi ? jediCgameCall(c) : cgameCall(c);
             return 0u;
         });
         uint32_t ignored = 0;
@@ -188,11 +194,11 @@ Error SpGameHost::load(const std::vector<uint8_t> &dll) {
     }
     const uint32_t getGameApi = _module->exportAddress("GetGameAPI");
     if (!getGameApi)
-        return Error::fail("efgamex86.dll has no GetGameAPI");
+        return Error::fail(std::string(jedi ? "jk2gamex86.dll" : "efgamex86.dll") + " has no GetGameAPI");
     uint32_t result = 0;
     if (Error e = _cpu->call(getGameApi, {_imports}, result))
         return Error::fail("GetGameAPI: " + e.message);
-    if (!_cpu->valid(result, 17 * 4))
+    if (!_cpu->valid(result, 19 * 4))
         return Error::fail("GetGameAPI gave no table");
     _exports = result;
     const int32_t version = int32_t(_cpu->read32(_exports));
@@ -423,7 +429,7 @@ uint32_t SpGameHost::playerState() const {
     // game's client structure).
     if (!entities())
         return 0;
-    const uint32_t ps = _cpu->read32(entityAddress(0) + uint32_t(kEntity.client));
+    const uint32_t ps = _cpu->read32(entityAddress(0) + uint32_t(_entity.client));
     return _cpu->valid(ps, kPlayerStateSize) ? ps : 0;
 }
 
@@ -485,14 +491,16 @@ Error SpGameHost::consoleCommand(const std::string &text, bool *handled) {
 
 // --- Entities ---------------------------------------------------------------------
 
+// After the game's functions: Jedi Outcast's has two more
+// (PrintEntClassname, ValidateAnimRange).
 uint32_t SpGameHost::entities() const {
-    return _exports ? _cpu->read32(_exports + 14 * 4) : 0;
+    return _exports ? _cpu->read32(_exports + (_jedi ? 16 : 14) * 4) : 0;
 }
 int32_t SpGameHost::entitySize() const {
-    return _exports ? int32_t(_cpu->read32(_exports + 15 * 4)) : 0;
+    return _exports ? int32_t(_cpu->read32(_exports + (_jedi ? 17 : 15) * 4)) : 0;
 }
 int32_t SpGameHost::entityCount() const {
-    return _exports ? int32_t(_cpu->read32(_exports + 16 * 4)) : 0;
+    return _exports ? int32_t(_cpu->read32(_exports + (_jedi ? 18 : 16) * 4)) : 0;
 }
 
 int32_t SpGameHost::entityNumber(uint32_t address) const {
@@ -550,10 +558,10 @@ void SpGameHost::linkEntity(uint32_t address) {
     Vec3f absMin{};
     Vec3f absMax{};
     _serverWorld.link(n, shape, absMin, absMax);
-    writeVec(address + kEntity.absMin, absMin);
-    writeVec(address + kEntity.absMax, absMax);
-    _cpu->write32(address + kEntity.linked, 1);
-    _cpu->write32(address + kEntity.solid, uint32_t(ServerWorld::packedSolid(shape, kSolidBrushModel)));
+    writeVec(address + _entity.absMin, absMin);
+    writeVec(address + _entity.absMax, absMax);
+    _cpu->write32(address + _entity.linked, 1);
+    _cpu->write32(address + _entity.solid, uint32_t(ServerWorld::packedSolid(shape, kSolidBrushModel)));
 }
 
 void SpGameHost::unlinkEntity(uint32_t address) {
@@ -561,7 +569,7 @@ void SpGameHost::unlinkEntity(uint32_t address) {
     if (n < 0)
         return;
     _serverWorld.unlink(n);
-    _cpu->write32(address + kEntity.linked, 0);
+    _cpu->write32(address + _entity.linked, 0);
 }
 
 ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
@@ -569,7 +577,7 @@ ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
     // since, where its box says.
     if (const ServerWorld::Placement *p = _serverWorld.placement(n))
         return *p;
-    return _serverWorld.place(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax));
+    return _serverWorld.place(entityVec(n, _entity.absMin), entityVec(n, _entity.absMax));
 }
 
 void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit) {
@@ -1250,9 +1258,9 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
         const int area = leaf >= 0 ? _world->leafArea(leaf) : -1;
         const int cluster = leaf >= 0 && size_t(leaf) < _map->leafs.size() ? _map->leafs[size_t(leaf)].cluster : -1;
         for (int32_t n = 0; n < count; ++n) {
-            if (added.count(n) || !entityInt(n, kEntity.inUse) || !entityInt(n, kEntity.linked))
+            if (added.count(n) || !entityInt(n, _entity.inUse) || !entityInt(n, _entity.linked))
                 continue;
-            const int32_t flags = entityInt(n, kEntity.svFlags);
+            const int32_t flags = entityInt(n, _entity.svFlags);
             if (flags & 1)
                 continue;
             if (!(flags & 0x20) && _world) {
@@ -1285,7 +1293,7 @@ void SpGameHost::makeSnapshot() {
     snap.commandNumber = _commandNumber;
     snap.playerState.assign(kPlayerStateSize, 0);
     // The player's state: where the player's entity's client points.
-    const uint32_t ps = uint32_t(entityInt(0, kEntity.client));
+    const uint32_t ps = uint32_t(entityInt(0, _entity.client));
     if (ps && _cpu->valid(ps, kPlayerStateSize))
         std::memcpy(snap.playerState.data(), _cpu->memory().data() + ps, kPlayerStateSize);
     // From the client game's camera if one's running, else the player's
@@ -1310,8 +1318,8 @@ void SpGameHost::makeSnapshot() {
         const uint32_t a = entityAddress(n);
         // An entity whose number isn't its own put right, as the original's
         // server does (see GameHost::snapshot).
-        if (_cpu->read32(a + uint32_t(kEntity.number)) != uint32_t(n))
-            _cpu->write32(a + uint32_t(kEntity.number), uint32_t(n));
+        if (_cpu->read32(a + uint32_t(_entity.number)) != uint32_t(n))
+            _cpu->write32(a + uint32_t(_entity.number), uint32_t(n));
         snap.entities.emplace_back(_cpu->memory().data() + a, _cpu->memory().data() + a + kEntityStateSize);
     }
     snap.serverCommandSequence = int32_t(_toClient.size());
@@ -1633,11 +1641,11 @@ void SpGameHost::addImports() {
             c.abort("SetBrushModel: the map has no model " + name);
             return 0u;
         }
-        c.write32(ent + kEntity.modelIndex, uint32_t(model));
-        writeVec(ent + kEntity.mins, mins);
-        writeVec(ent + kEntity.maxs, maxs);
-        c.write32(ent + kEntity.bmodel, 1);
-        c.write32(ent + kEntity.contents, 0xffffffffu); // whatever its brushes hold
+        c.write32(ent + _entity.modelIndex, uint32_t(model));
+        writeVec(ent + _entity.mins, mins);
+        writeVec(ent + _entity.maxs, maxs);
+        c.write32(ent + _entity.bmodel, 1);
+        c.write32(ent + _entity.contents, 0xffffffffu); // whatever its brushes hold
         linkEntity(ent);
         return 0u;
     });
@@ -1703,18 +1711,18 @@ void SpGameHost::addImports() {
         const int32_t n = entityNumber(c.arg(2));
         if (n < 0)
             return 0;
-        const Vec3f origin = entityVec(n, kEntity.currentOrigin);
-        if (entityInt(n, kEntity.bmodel) && _world) {
+        const Vec3f origin = entityVec(n, _entity.currentOrigin);
+        if (entityInt(n, _entity.bmodel) && _world) {
             // The box against the model where it stands, turned as it is.
             const Vec3f zero{};
-            return _world->transformedTrace(zero, zero, mins, maxs, entityInt(n, kEntity.modelIndex), -1, origin,
-                                            entityVec(n, kEntity.currentAngles))
+            return _world->transformedTrace(zero, zero, mins, maxs, entityInt(n, _entity.modelIndex), -1, origin,
+                                            entityVec(n, _entity.currentAngles))
                            .startSolid
                        ? 1
                        : 0;
         }
-        const Vec3f absMin = entityVec(n, kEntity.absMin);
-        const Vec3f absMax = entityVec(n, kEntity.absMax);
+        const Vec3f absMin = entityVec(n, _entity.absMin);
+        const Vec3f absMax = entityVec(n, _entity.absMax);
         for (int i = 0; i < 3; ++i)
             if (absMin[size_t(i)] > maxs[size_t(i)] || absMax[size_t(i)] < mins[size_t(i)])
                 return 0;
@@ -1726,6 +1734,9 @@ void SpGameHost::addImports() {
         const uint32_t p = _process->memory().alloc(std::max(c.arg(0), 1u));
         if (!p)
             c.abort("Malloc: out of memory (" + std::to_string(c.arg(0)) + " bytes)");
+        // Jedi Outcast's: (size, tag, zero it).
+        else if (_jedi && c.arg(2))
+            std::memset(c.memory().data() + p, 0, c.arg(0));
         return p;
     });
     import(kFree, [this](x86::Cpu &c) {
