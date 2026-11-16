@@ -32,6 +32,10 @@ Single player isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 In the multiplayer game:
 
+- **The console and its notify lines** (chat, messages at the top) are
+  drawn in Reluva's own small font over a plain dark band, not in the
+  original's console font (`gfx/2d/charsgrid_med`) over its `console`
+  shader. Screenshots keep them, as the original's do.
 - **Network play** ([systems/network.md](systems/network.md)): a server's
   map change notices all go at once, where the original's go at steps of
   its loading; it looks its masters' names up once, where the original

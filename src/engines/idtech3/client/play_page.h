@@ -205,6 +205,7 @@ private:
         std::string name;
     };
     Screenshot _screenshot;
+    std::vector<uint8_t> _shotOverlay; // the overlay's part a screenshot keeps (RGBA)
     void saveScreenshot();
     bool _showInfo = kDeveloperKeys; // without the keys, nothing could hide it
     uint64_t _shownMs = 0;

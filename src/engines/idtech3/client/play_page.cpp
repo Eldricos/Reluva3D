@@ -1657,6 +1657,14 @@ void PlayPage::saveScreenshot() {
         addPrint("Couldn't take the screenshot: no name free\n", true);
         return;
     }
+    if (_shotOverlay.size() == rgba.size()) {
+        for (size_t i = 0; i < rgba.size(); i += 4) {
+            const uint32_t a = _shotOverlay[i + 3];
+            for (size_t c = 0; c < 3; ++c)
+                rgba[i + c] = uint8_t((_shotOverlay[i + c] * a + rgba[i + c] * (255 - a) + 127) / 255);
+        }
+    }
+    _shotOverlay.clear();
     image::Image img;
     img.w = _renderer->width();
     img.h = _renderer->height();
@@ -1784,6 +1792,10 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
                              _field.substr(_cursor));
         }
     }
+    // A screenshot keeps what the original draws itself (the console, chat
+    // and notify lines), not Reluva's own lines below.
+    if (_screenshot.wanted)
+        _shotOverlay = _overlay.pixels;
     std::vector<std::string> lines;
     if (!_error.empty()) {
         lines.push_back(_error);

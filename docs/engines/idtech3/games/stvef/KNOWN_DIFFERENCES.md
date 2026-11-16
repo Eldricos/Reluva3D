@@ -210,6 +210,10 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Drawn approximately:** `rgbGen lightingDiffuse` uses vertex colours, and
   `alphaGen portal`, `lightingSpecular` and `entity` are opaque. See
   [shader.md](../../formats/shader.md).
+- **The console and its notify lines** (chat, messages at the top) are
+  drawn in Reluva's own small font over a plain dark band, not in the
+  original's console font (`gfx/2d/charsgrid_med`) over its `console`
+  shader. Screenshots keep them, as the original's do.
 
 ### Holomatch and network play
 
