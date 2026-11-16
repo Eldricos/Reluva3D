@@ -262,7 +262,7 @@ public:
 private:
     using Thread = DialoguePart::Thread;
     bool start(const std::string &name, int part, int thread, int nest, int number, bool plus, bool greet, bool retry);
-    int pickLine(Thread &t, int nest, bool forward);
+    int pickLine(Thread &t, int nest, bool forward, bool keepLast = false);
     bool available(Thread &t);
     // Whether it has a line to offer as a choice: its current line, else
     // its first nest's (set as its current line); 0x43a9d9, 0x43a4d3.

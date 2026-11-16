@@ -266,7 +266,7 @@ bool DialogueManager::boxShown() const {
 
 // The line of a thread at `nest` whose condition holds; several: an
 // alternative, the one asked for or another at random (0x439ca0).
-int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
+int DialogueManager::pickLine(Thread &t, int nest, bool forward, bool keepLast) {
     for (const int asked = nest;; nest++) {
         bool any = false;
         std::vector<int> ok;
@@ -297,7 +297,9 @@ int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
             } else {
                 i--;
             }
-            _lastAlternative = i;
+            // A Repeat's line leaves the last one as it was (0x431f74).
+            if (!keepLast)
+                _lastAlternative = i;
             int seen = 0;
             for (size_t k = 0; k < t.lines.size(); k++)
                 if (t.lines[k].nestCode == nest && seen++ == i)
@@ -915,7 +917,7 @@ void DialogueManager::lineEnd() {
     t.status = juncture ? 0 : 1;
     if (next < 0) {
         if (l.repeatCode != -1)
-            t.current = pickLine(t, l.repeatCode, false);
+            t.current = pickLine(t, l.repeatCode, false, true);
         else if (t.code == kExit)
             t.current = pickLine(t, 0, false);
         else

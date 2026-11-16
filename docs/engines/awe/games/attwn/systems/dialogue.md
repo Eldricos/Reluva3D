@@ -1,6 +1,6 @@
 # And Then There Were None: dialogue
 
-> **Status:** partial · **Code:** `src/engines/awe/game/dialogue.cpp` (shared), `src/engines/awe/games.h` (`DialogueTables`, `DialogueRules`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`), the English install's dialogue tables and voices · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/dialogue.cpp` (shared), `src/engines/awe/games.h` (`DialogueTables`, `DialogueRules`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`), the English install's dialogue tables and voices · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -41,7 +41,9 @@ into a line of 0x654 bytes (Orient Express's is 0x1324):
 | 11 | Repeat | `+0x04`: a letter less `A`, else -1 |
 | 12 to 14 | Prevent, Event, Povent | `+0x348`, `+0x448`, `+0x548` |
 
-Duration and Location aren't read. A line's width is measured
+Duration and Location aren't read: the loader stops at Povent, so a
+table's timings and locations play no part (Reluva doesn't read them
+either). A line's width is measured
 (`0x415ed0`, into `+0x648`); one wider than 750 pixels is wrapped
 (`0x434960`), its rows at `+0x650` (Orient Express: 944).
 
@@ -139,7 +141,17 @@ menu isn't made unfinished again, so later menus of the talk don't offer
 it. One choice left: the goodbye is said without asking, as in Orient
 Express; any other is offered, not played (`0x432ec1`). No `+` to go on
 to a next part. The box is sized again by the choices' rows, at once
-(`0x43301a`).
+(`0x43301a`). The count of choices goes up for a thread before its line
+is looked for (`0x432e52`), but a thread is offered only with a line
+of its first nest that may be said (`0x433040`, `0x43308e`), and that is
+the line then looked for, so every thread counted has one: the count
+is the choices', as Reluva's.
+
+**A Repeat's line** (`0x433bce`, the fourth argument of `0x431e70`): a
+thread over whose last line has a Repeat letter goes back to that nest,
+picked without changing which alternative was said last (`0x431f74`),
+so the next random pick still avoids the one said before; Reluva's
+`pickLine(..., keepLast)`.
 
 **A line** (`0x433440`, `0x4333b0`, `0x433640`).
 
