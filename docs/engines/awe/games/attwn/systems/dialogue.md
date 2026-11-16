@@ -45,7 +45,11 @@ Duration and Location aren't read: the loader stops at Povent, so a
 table's timings and locations play no part (Reluva doesn't read them
 either). A line's width is measured
 (`0x415ed0`, into `+0x648`); one wider than 750 pixels is wrapped
-(`0x434960`), its rows at `+0x650` (Orient Express: 944).
+(`0x434960`), its rows at `+0x650` (Orient Express: 944), with two
+spaces after a word ending in `.`, `!` or `?`. One that fits is drawn
+as it's written (`0x434c26`): "Narracott! You gave me quite a turn!"
+keeps its one space in the footage, where the wrapped "This?  Just some
+paper..." has two.
 
 ### Voices
 

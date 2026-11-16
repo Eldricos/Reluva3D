@@ -7,9 +7,13 @@ What Reluva does that hasn't been checked against the running original.
 - **The dialogue manager's rules** (`DialogueRules`): each read from
   `ac.exe` and played in the unit test, none seen in the running game.
   [systems/dialogue.md](systems/dialogue.md).
-- **Lighting, the dialogue box, the fonts and the saves' layout**, each
-  read from `ac.exe` and none compared with the running game or a
-  recording yet. [systems/](systems/).
+- **The characters' lighting**: read from `ac.exe` (the lights, when
+  each is on, specular), the same code as Orient Express's; the night
+  pictures and Armstrong's dark room have been compared with footage,
+  a lit character hasn't. [systems/lighting.md](systems/lighting.md).
+- **The saves' layout**: read from `ac.exe`'s writer; Reluva reads back
+  what it writes, but no save made by the original game has been read.
+  [systems/saves.md](systems/saves.md).
 
 ## Seen running, not traced in the code
 
@@ -25,6 +29,14 @@ None yet.
 
 ## Settled
 
+- **The dialogue box and its fonts**, read from `ac.exe`: two lines of
+  1A's talk with Narracott measured against gameplay footage, the text
+  where the footage has it (its ends within 1 to 4 pixels, rows 1 to 2
+  higher) and as wide within 1.5 %; the box's pictures, colours, the
+  choices and the other fonts (the menus, the journal, the title cards)
+  seen in the footage before. It showed one-row lines drawn as written
+  (`0x434c26`), not with two spaces after a sentence: fixed.
+  [systems/interface.md](systems/interface.md).
 - **Wargrave's "Anything else you'd like to add?" in 4A** plays to its
   end and back to the dining room, Narracott shown again, though its
   line `f` was taken out of the table (`coldwargraveTEMPCUT`): seen in

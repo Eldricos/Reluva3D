@@ -217,7 +217,7 @@ void Page::drawSubtitles(const std::vector<Subtitle> &subtitles, double seconds)
                                            "dialogue text for second character in conversation",
                                            "dialogue text for third character in conversation"};
     const Color c = _ctx.fonts->colour(kColours[dueColour - 8]);
-    const std::vector<std::string> lines = gameRows(*style->font, style->pixels, due->line, 944);
+    const std::vector<std::string> lines = lineRows(*style->font, style->pixels, due->line, 944);
     const int lh = style->font->lineHeight(style->pixels);
     int y = frameH() - 64 + (64 - int(lines.size()) * lh) / 2;
     for (const std::string &l : lines) {

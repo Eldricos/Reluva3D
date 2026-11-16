@@ -268,4 +268,10 @@ std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::stri
     return rows;
 }
 
+std::vector<std::string> lineRows(ttf::Font &font, float pixels, const std::string &text, int width) {
+    if (font.width(text, pixels) <= width)
+        return {text};
+    return gameRows(font, pixels, text, width);
+}
+
 } // namespace reluva::awe

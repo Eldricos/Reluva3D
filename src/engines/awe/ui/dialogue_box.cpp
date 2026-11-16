@@ -25,7 +25,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &f
     const int width = wrap; // the game's (DialogueTables::wrap)
     if (choices.empty()) {
         // The line, centred both ways in the box.
-        const std::vector<std::string> lines = gameRows(font, style->pixels, text, width);
+        const std::vector<std::string> lines = lineRows(font, style->pixels, text, width);
         int y = top + (boxH - int(lines.size()) * lh) / 2;
         for (const std::string &l : lines) {
             fonts.draw(dst, *style, (dst.w - font.width(l, style->pixels)) / 2, y, l, colour);
@@ -62,7 +62,7 @@ std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &f
     for (size_t i = 0; i < choices.size(); i++) {
         if (layout.below != 0 && y >= layout.below)
             break;
-        const std::vector<std::string> lines = gameRows(font, style->pixels, choices[i], width);
+        const std::vector<std::string> lines = lineRows(font, style->pixels, choices[i], width);
         const bool on = int(i) == highlighted;
         const image::Image *bullet = on && pictures.bulletOn ? pictures.bulletOn : pictures.bullet;
         if (bullet && bullet->w > 0)

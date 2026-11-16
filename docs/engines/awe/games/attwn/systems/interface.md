@@ -1,6 +1,6 @@
 # And Then There Were None: the interface
 
-> **Status:** done · **Code:** `src/engines/awe/ui/dialogue_box.cpp`, `src/engines/awe/ui/game_text.cpp` (shared), `src/engines/awe/games.h` (`GameFont`, `DialogueBoxLayout`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`); Reluva's dialogue box looked at in the Scenes page · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/ui/dialogue_box.cpp`, `src/engines/awe/ui/game_text.cpp` (shared), `src/engines/awe/games.h` (`GameFont`, `DialogueBoxLayout`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`); the dialogue box against gameplay footage · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -115,5 +115,13 @@ pages of their own.
   on), the box's draw (`0x434220`, `0x434bb0`), the colours'
   assignments; the font files' `name` tables.
 - **How it's checked:** the box drawn by Reluva in the Scenes page, a
-  line and the choices, compared with what the code places; not with
-  the running game.
+  line and the choices, compared with what the code places; and with
+  gameplay footage (Chapter One, 2:31 and 2:36, 640×480 scaled to the
+  game's 800×600): two of 1A's lines with Narracott, as Reluva draws
+  them after `start:01a` and `talk marston a forcegen`. The text's ends
+  within 1 to 4 pixels of the footage's (the words' widths within 1.5 %:
+  TrueType's edges against Windows'), its rows 1 to 2 pixels higher, the
+  gaps between words the same. That showed Reluva putting two spaces
+  after a sentence's end in a line that fits, which the game doesn't
+  (fixed, [dialogue.md](dialogue.md#the-columns)). The box's
+  pictures and colours were compared with the footage before.

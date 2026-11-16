@@ -3444,7 +3444,7 @@ int ScenePage::textRows(const std::string &text) {
     const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("dialogue") : nullptr;
     if (!style || !style->font)
         return 1;
-    return std::max(1, int(gameRows(*style->font, style->pixels, text, _dialogue->book().tables.wrap).size()));
+    return std::max(1, int(lineRows(*style->font, style->pixels, text, _dialogue->book().tables.wrap).size()));
 }
 
 int ScenePage::voiceLevel() {

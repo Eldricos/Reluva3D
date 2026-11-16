@@ -37,7 +37,8 @@ The format pages give the detail; this page gathers them.
   come out about 2 % wider than Reluva's. Where the lines break is the
   same everywhere text is wrapped: the spoken line, the choices and a
   movie's subtitles (`0x43db80`) and the interface's text (`0x414720`)
-  all use the game's rule, two spaces kept after a sentence's end
+  all use the game's rule, two spaces put after a sentence's end in
+  what's wrapped, what fits drawn as it's written
   ([systems/dialogue.md](systems/dialogue.md),
   [systems/interface.md](systems/interface.md)).
 - **A choice low in the box is always drawn.** The game leaves out a
