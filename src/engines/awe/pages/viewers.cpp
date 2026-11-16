@@ -5,7 +5,7 @@
 
 #include "audio/decode.h"
 #include "engines/viewer.h"
-#include "engines/awe/game/scene_page.h"
+#include "engines/awe/pages/scene_browser.h"
 #include "graphics/font.h"
 #include "common/fs.h"
 #include "common/text.h"
@@ -352,7 +352,7 @@ public:
             _sys, _target,
             [](awe::ViewerContext &ctx) {
                 std::vector<std::unique_ptr<awe::Page>> pages;
-                pages.push_back(std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn));
+                pages.push_back(std::make_unique<awe::SceneBrowser>(ctx));
                 pages.push_back(std::make_unique<awe::ModelPage>(ctx));
                 pages.push_back(std::make_unique<awe::MoviePage>(ctx));
                 pages.push_back(std::make_unique<awe::PicturePage>(ctx));

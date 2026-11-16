@@ -154,7 +154,7 @@ public:
                                                           -1,
                                                           game});
         // As reluva runs it: without the scene browser, its overlays or keys.
-        _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOff);
+        _page = std::make_unique<ScenePage>(*_ctx);
         _page->cutLines = !sound;
         _page->onLog = [this](const std::string &l) {
             _log.push_back(l);

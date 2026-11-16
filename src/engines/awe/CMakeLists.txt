@@ -69,6 +69,7 @@ reluva_add_engine_viewers(awe
     ACCESSOR aweMetaViewer
     SOURCES
         pages/model_viewer.cpp
+        pages/scene_browser.cpp
         pages/viewers.cpp)
 
 # Its reluva-tool commands (reluva-tool help awe lists them). They play the

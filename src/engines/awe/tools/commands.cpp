@@ -18,6 +18,7 @@
 #include "engines/awe/game/story.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/game/scene_page.h"
+#include "engines/awe/pages/scene_browser.h"
 #include "engines/awe/pages/viewers.h"
 #include "common/archive.h"
 #include "common/fs.h"
@@ -404,7 +405,7 @@ int cmdAweShot(int argc, char **argv) {
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
-        page = std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn);
+        page = std::make_unique<awe::SceneBrowser>(ctx);
     else if (which == "pictures")
         page = std::make_unique<awe::PicturePage>(ctx);
     else if (which == "text")
@@ -900,7 +901,7 @@ int cmdAweActs(int argc, char **argv) {
     };
     for (const std::string &target : targets) {
         // As reluva runs it: without the scene browser, its overlays or keys.
-        awe::ScenePage page(ctx, awe::ScenePage::Browser::kOff);
+        awe::ScenePage page(ctx);
         std::vector<std::string> log;
         page.onLog = [&](const std::string &l) { log.push_back(l); };
         page.setDrawing(false);
@@ -990,7 +991,7 @@ int cmdAweActs(int argc, char **argv) {
                 tries.emplace_back(i, item);
         }
         for (const auto &[i, item] : tries) {
-            awe::ScenePage again(ctx, awe::ScenePage::Browser::kOn);
+            awe::SceneBrowser again(ctx);
             std::vector<std::string> log2;
             again.onLog = [&](const std::string &l) { log2.push_back(l); };
             again.setDrawing(false);

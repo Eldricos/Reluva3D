@@ -80,13 +80,10 @@ std::string baseSceneOf(const std::string &name) {
 
 } // namespace
 
-ScenePage::ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle)
-    : Page(ctx), _browser(browser == Browser::kOn), _gameTitle(std::move(gameTitle)) {
+ScenePage::ScenePage(ViewerContext &ctx, std::string gameTitle) : Page(ctx), _gameTitle(std::move(gameTitle)) {
     // Orient Express's .ac2, And Then There Were None's .ac1 (its menus'
     // screens in Interface/Scenes, its cutscenes' pictures as scenes too).
     _names = listFiles(ctx.files, {"locations/", "cutscenes/", "interface/scenes/"}, {".ac2", ".ac1"});
-    // The browser's overlays, which only its keys put away.
-    _hotspots = _info = _browser;
     _state.game = ctx.game;
     _state.values["moving"] = 1;
     _runner = std::make_unique<ScriptRunner>(_state, *this);
@@ -156,11 +153,10 @@ void ScenePage::activate() {
         _renderer = nullptr, begin2D();
     applyAntiAliasing();
     makeOverlay();
-    // Without the browser no file is shown but the game's.
-    if (_browser || _playing)
+    if (_playing)
         load();
     else
-        newGame();
+        showFirst();
 }
 
 void ScenePage::deactivate() {
@@ -203,7 +199,7 @@ void ScenePage::releaseGpu() {
 
 void ScenePage::load() {
     _frame++;
-    _selected = -1;
+    sceneLoading();
     _error.clear();
     _base.clear();
     _scene = Ac2Scene();
@@ -222,7 +218,6 @@ void ScenePage::load() {
         _state.act.clear();
     _grid = WalkGrid();
     _path.clear();
-    _hover = {};
     _scriptObject = nullptr;
     _resumeAfter = nullptr;
     _sceneShown = true;
@@ -1568,140 +1563,7 @@ void ScenePage::draw() {
         applyBrightness();
     }
     g_perf.layers += FramePerf::ms(layersStart);
-    if (_showGrid)
-        drawGrid();
-    if (_hotspots)
-        for (const Ac2Record *o : objects) {
-            const int l = o->i("left");
-            const int t = o->i("top");
-            const int r = o->i("right");
-            const int b = o->i("bottom");
-            if (o->tag != "SPOT" || r <= l || b <= t || !objectShown(*o))
-                continue;
-            // Its outline where it has one (listD), else its rectangle.
-            const Ac2Value *outline = o->field("listD");
-            if (outline && outline->numbers.size() >= 3) {
-                const auto &pts = outline->numbers;
-                for (size_t i = 0; i < pts.size(); i++)
-                    line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % pts.size()].first),
-                         int(pts[(i + 1) % pts.size()].second), {255, 220, 60});
-            } else {
-                frame(l, t, r - l, b - t, {255, 220, 60});
-            }
-            const Ac2Record *hot = o->part("HOTS");
-            std::string name = o->text("name");
-            if (name.empty() && hot)
-                name = hot->text("name");
-            label(l + 2, t + 2, name.empty() ? shorten(o->text("script"), 60) : name, {255, 220, 60});
-        }
-    if (_selected >= 0 && size_t(_selected) < objects.size()) {
-        const Ac2Record *o = objects[size_t(_selected)];
-        const image::Image &img = imageOf(o);
-        if (img.w > 0)
-            frame(int(o->f("x")), int(o->f("y")), img.w, img.h, {90, 255, 120});
-        // Its fields, as the dump shows them.
-        int y = frameH() - 2 * font::kLineHeight - 6;
-        std::vector<std::string> lines;
-        std::string text;
-        for (const auto &[name, v] : o->fields) {
-            const std::string s = v.str();
-            if (s == "0" || s == "\"\"" || s == "[]")
-                continue;
-            const std::string item = name + "=" + shorten(s, 60) + "  ";
-            if (font::length(text + item) * font::kAdvance > size_t(frameW() - 8))
-                lines.push_back(text), text.clear();
-            text += item;
-        }
-        for (const Ac2Record &p : o->parts) {
-            text += p.tag + "{";
-            for (const auto &[name, v] : p.fields)
-                if (v.str() != "0" && v.str() != "\"\"" && v.str() != "[]")
-                    text += name + "=" + shorten(v.str(), 40) + " ";
-            text += "} ";
-        }
-        lines.push_back(text);
-        y -= int(lines.size()) * font::kLineHeight;
-        for (const std::string &l : lines) {
-            label(4, y, l, {150, 255, 170});
-            y += font::kLineHeight;
-        }
-    }
-    if (_info) {
-        std::vector<std::string> lines;
-        lines.push_back((_names.empty() ? std::string("No scenes") : _names[size_t(_index)]) + "  (" +
-                        std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + ")" +
-                        (_base.empty() ? "" : "  over " + _base));
-        if (!_error.empty())
-            lines.push_back(_error);
-        std::map<std::string, int> tags;
-        for (const Ac2Record *o : objects)
-            tags[o->tag]++;
-        std::string counts = std::to_string(objects.size()) + " objects:";
-        for (const auto &[t, n] : tags)
-            counts += " " + std::to_string(n) + " " + t;
-        lines.push_back(counts);
-        if (!_grid.empty()) {
-            std::string g = "walk grid: cells of " + std::to_string(_grid.cellSize());
-            if (_hover.valid())
-                g += ", under the mouse (" + std::to_string(_hover.a) + ", " + std::to_string(_hover.b) +
-                     ") = " + std::to_string(_grid.at(_hover.a, _hover.b));
-            if (!_path.empty())
-                g += ", path of " + std::to_string(_path.size()) + " points";
-            lines.push_back(g);
-        }
-        if (!_scriptLog.empty()) {
-            std::string tags;
-            for (const auto &[t, v] : _state.tags)
-                tags += " " + t + "=" + std::to_string(v);
-            std::string items;
-            for (const GameState::Item &i : _state.items)
-                items += " " + i.name;
-            lines.push_back("script: tags" + (tags.empty() ? std::string(" none") : tags) + "; items" +
-                            (items.empty() ? std::string(" none") : items));
-            for (const std::string &l : _scriptLog)
-                lines.push_back(l);
-        }
-        lines.push_back(std::string("train ") + (_state.values["moving"] ? "moving" : "stopped") + ", weather " +
-                        (_state.values["weather"] ? "on" : "off") + (_state.values["time"] ? ", night" : "") +
-                        (_state.act.empty() ? "" : ", act " + _state.act));
-        if (const Ac2Record *cam = _scene.camera()) {
-            char buf[200];
-            std::snprintf(buf, sizeof buf,
-                          "camera about (%g, %g, %g), turned (%g, %g, %g), back (%g, %g, %g), fov %.1f deg",
-                          cam->f("x"), cam->f("y"), cam->f("z"), cam->f("pitch"), cam->f("yaw"), cam->f("roll"),
-                          cam->f("offsetX"), cam->f("offsetY"), cam->f("offsetZ"), cam->f("fov") * 57.29578f);
-            lines.push_back(buf);
-        }
-        for (const Ac2Record &r : _scene.records)
-            if (r.tag == "MUSC" || r.tag == "EVNT")
-                if (const Ac2Value *v = r.fields.empty() ? nullptr : &r.fields[0].second; v && !v->pairs.empty())
-                    lines.push_back(r.tag + " " + shorten(v->str(), 150));
-        for (const Ac2Record *o : objects)
-            if (o->tag == "NPCX" || o->tag == "PCXX") {
-                char buf[200];
-                std::string anim;
-                // Where it is now, else where the scene puts it.
-                float x = o->f("x");
-                float y = o->f("y");
-                float z = o->f("z");
-                float rotY = o->f("rotY");
-                for (const Character &c : _characters)
-                    if (c.record == o && c.actor) {
-                        x = c.x, y = c.y, z = c.z, rotY = c.rotY;
-                        for (const Animator::Slot &sl : c.actor->animator().slots())
-                            if (sl.state != Animator::kStopped)
-                                anim += (anim.empty() ? ", playing " : " ") + sl.name;
-                    }
-                std::snprintf(buf, sizeof buf, "%s %s at (%g, %g, %g), facing %g%s", o->tag.c_str(),
-                              o->text("file").c_str(), x, y, z, rotY, anim.c_str());
-                lines.push_back(buf);
-            }
-        int y = 2;
-        for (const std::string &l : lines) {
-            label(4, y, shorten(l, 168), l == _error ? Color{255, 120, 120} : Color{230, 230, 230});
-            y += font::kLineHeight;
-        }
-    }
+    drawOverlays(objects);
     // The bar and the inventory window, then a card held up (0x415227,
     // 0x418040): under the dialogue box.
     if (_drawing && !_load.screen && !_actLoad.phase && !_movie) {
@@ -1803,11 +1665,7 @@ void ScenePage::draw() {
     } else if (_fade > 0) {
         fill(0, 0, frameW(), frameH(), Color{0, 0, 0}, uint8_t(_fade * 255));
     }
-    if (_browser)
-        help(std::string(
-                 "Left/Right: scene  Up/Down: object  H: hotspots  I (F9 in a game): info  M: moving  W: weather  "
-                 "T: night  G: grid  N: new game  click: walk") +
-             (_renderer ? "  C: characters" : "  (no 3D: no characters)"));
+    drawFooter();
     // The game's cursor over everything; the system's hidden in a game
     // (0x413f1f), and while the game's shows.
     drawCursor();
@@ -1815,10 +1673,7 @@ void ScenePage::draw() {
         _ctx.sys.setMouseCursorVisible(_systemCursor = system);
     if (!_renderer)
         present();
-    if (_browser)
-        _ctx.setTitle("Scenes: " + (_names.empty() ? std::string() : _names[size_t(_index)]));
-    else
-        _ctx.setTitle(gameTitle());
+    _ctx.setTitle(windowTitle());
 }
 
 const std::string &ScenePage::gameTitle() {
@@ -2475,52 +2330,6 @@ void ScenePage::fillPolygon(const std::vector<std::pair<float, float>> &points, 
             if (inside)
                 fill(x, y, 1, 1, c, alpha);
         }
-}
-
-void ScenePage::drawGrid() {
-    const Ac2Record *camr = _scene.camera();
-    if (!camr || _grid.empty())
-        return;
-    const SceneCamera cam = SceneCamera::fromRecord(*camr);
-    const float size = float(_grid.cellSize());
-    auto corner = [&](float x, float z, std::pair<float, float> &out) {
-        const float p[3] = {x, 0, z};
-        return cam.project(p, frameW(), frameH(), out.first, out.second);
-    };
-    // A cell's square on the floor, on the screen.
-    auto square = [&](WalkGrid::Cell cell, std::vector<std::pair<float, float>> &pts) {
-        const float x0 = float(cell.a - 32) * size;
-        const float z1 = float(32 - cell.b) * size;
-        pts.assign(4, {});
-        return corner(x0, z1 - size, pts[0]) && corner(x0 + size, z1 - size, pts[1]) && corner(x0 + size, z1, pts[2]) &&
-               corner(x0, z1, pts[3]);
-    };
-    std::vector<std::pair<float, float>> pts;
-    for (int a = 0; a < WalkGrid::kSize; a++)
-        for (int b = 0; b < WalkGrid::kSize; b++) {
-            const uint8_t v = _grid.at(a, b);
-            if (v == 0 || !square({a, b}, pts))
-                continue;
-            // 1 blocked, 2 blocked unless allowed, 3 blocked at first.
-            const Color c = v == 1 ? Color{230, 50, 50} : v == 2 ? Color{240, 150, 40} : Color{240, 230, 60};
-            fillPolygon(pts, c, 90);
-        }
-    if (_hover.valid() && square(_hover, pts))
-        for (size_t i = 0; i < 4; i++)
-            line(int(pts[i].first), int(pts[i].second), int(pts[(i + 1) % 4].first), int(pts[(i + 1) % 4].second),
-                 _grid.blocked(_hover, true) ? Color{255, 80, 80} : Color{80, 255, 255});
-    for (size_t i = 0; i + 1 < _path.size(); i++) {
-        float x0;
-        float z0;
-        float x1;
-        float z1;
-        _grid.centre(_path[i], x0, z0);
-        _grid.centre(_path[i + 1], x1, z1);
-        std::pair<float, float> p0;
-        std::pair<float, float> p1;
-        if (corner(x0, z0, p0) && corner(x1, z1, p1))
-            line(int(p0.first), int(p0.second), int(p1.first), int(p1.second), {90, 255, 120});
-    }
 }
 
 void ScenePage::beginWalk(Character &c, bool run) {
@@ -4009,19 +3818,9 @@ void ScenePage::handleEvent(const Event &event) {
     } else if (interfaceEvent(ev)) {
         return;
     }
-    if (ev.type == EventType::kMouseMove && _showGrid && _browser) {
-        float x;
-        float z;
-        WalkGrid::Cell cell;
-        if (const Ac2Record *cam = _scene.camera();
-            cam && SceneCamera::fromRecord(*cam).floorAt(float(ev.mouseX), float(ev.mouseY), frameW(), frameH(), x, z))
-            cell = _grid.cellAt(x, z);
-        if (!(cell == _hover)) {
-            _hover = cell;
-            draw();
-        }
+    // The viewer's, over the scene (pages/scene_browser.cpp).
+    if (ev.type == EventType::kMouseMove && viewerEvent(ev))
         return;
-    }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         // The game takes no clicks while a script runs, but during its
         // walks and turns and after an "unlock"; one taken drops what was
@@ -4068,42 +3867,7 @@ void ScenePage::handleEvent(const Event &event) {
         return;
     if (_playing && gameKey(ev.key))
         return;
-    if (!_browser)
-        return;
-    if (const int d = step(ev.key, _index, int(_names.size()))) {
-        _index += d;
-        load();
-        return;
-    }
-    const int n = int(_scene.objects().size());
-    if (ev.key == key::kUp || ev.key == key::kDown) {
-        if (n > 0)
-            _selected = ev.key == key::kDown ? (_selected + 1 >= n ? -1 : _selected + 1)
-                                             : (_selected < 0 ? n - 1 : _selected - 1);
-        draw();
-    } else if (ev.key == 'h') {
-        _hotspots = !_hotspots;
-        draw();
-    } else if (ev.key == 'n') {
-        newGame();
-    } else if (ev.key == 'g') {
-        _showGrid = !_showGrid;
-        draw();
-    } else if (ev.key == 'm' || ev.key == 'w' || ev.key == 't') {
-        int &v = _state.values[ev.key == 'm' ? "moving" : ev.key == 'w' ? "weather" : "time"];
-        v = !v;
-        retestObjects(); // the viewer's own: shown at once
-        draw();
-    } else if (ev.key == 'i' || ev.key == key::kF1 + 8) {
-        // (In a game I is the inventory's: F9.)
-        _info = !_info;
-        draw();
-    } else if (ev.key == 'c' && _renderer) {
-        _showCharacters = !_showCharacters;
-        if (_showCharacters && _characters.empty())
-            loadCharacters();
-        draw();
-    }
+    viewerEvent(ev);
 }
 
 } // namespace reluva::awe

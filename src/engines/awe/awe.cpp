@@ -43,7 +43,7 @@ public:
             _sys, _target,
             [&title](awe::ViewerContext &ctx) {
                 std::vector<std::unique_ptr<awe::Page>> pages;
-                pages.push_back(std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOff, title));
+                pages.push_back(std::make_unique<awe::ScenePage>(ctx, title));
                 return pages;
             },
             "scenes (Locations/**/*.ac2)");

@@ -54,14 +54,11 @@ struct GameOptions {
 /**
  * The game: its scenes (Locations/<location>/<scene>.ac2) shown and
  * played, with the scripts, the characters, the conversations and the
- * game's screens.
+ * game's screens. A game starts when the page is shown.
  *
- * With the scene browser on (the data viewer's Scenes page, and the
- * tools'), it opens on the scenes' files, each shown with its hotspots and
- * what it holds; Left/Right and the browser's other keys step through them
- * and show more, and N starts a game, where the keys the game doesn't take
- * still go to the browser. With it off (reluva's), a game starts when the
- * page is shown, and nothing reaches the browser.
+ * The data viewer's Scenes page (SceneBrowser, pages/scene_browser.h) is
+ * this page with the scene browser over it, through the hooks below;
+ * reluva has none of it.
  */
 namespace motoe {
 struct TornLetter;
@@ -74,18 +71,11 @@ struct DepositBox;
 
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
-    /** Whether the scene browser, a part of the data viewer, is reachable. */
-    enum class Browser { kOn, kOff };
-
-    /**
-     * @param gameTitle The window's title without the browser (reluva's):
-     *                  the game's name. With it, the title is the page's
-     *                  and the scene file's, for the viewer.
-     */
-    ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle = {});
+    /** @param gameTitle The window's title: the game's name. */
+    explicit ScenePage(ViewerContext &ctx, std::string gameTitle = {});
     ~ScenePage() override;
-    // The viewer's page name, or the game's (its screenshots are named after it).
-    const char *name() const override { return _browser ? "Scenes" : "Game"; }
+    // The game's screenshots are named after it.
+    const char *name() const override { return "Game"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
@@ -246,7 +236,27 @@ public:
     // clicked through once a click ends it.
     HandInput handWhileRunning();
 
+protected:
+    // The viewer's hooks (SceneBrowser); the game's do nothing.
+    /** What's shown when the page is: a new game. */
+    virtual void showFirst() { newGame(); }
+    /** A scene about to be loaded. */
+    virtual void sceneLoading() {}
+    /** Drawn over the scene's pictures (`objects` its objects shown), under the interface. */
+    virtual void drawOverlays(const std::vector<const Ac2Record *> & /*objects*/) {}
+    /** Drawn last, under the cursor. */
+    virtual void drawFooter() {}
+    /** The window's title. */
+    virtual std::string windowTitle() { return gameTitle(); }
+    /**
+     * A mouse move, or a key the game didn't take; whether it was used.
+     * The game's own come first.
+     */
+    virtual bool viewerEvent(const Event & /*ev*/) { return false; }
+
 private:
+    friend class SceneBrowser;
+
     // A character placed in the scene, animated as the game animates
     // them (Actor).
     struct Character {
@@ -347,7 +357,6 @@ private:
     void line(int x0, int y0, int x1, int y1, Color c);
     // A convex polygon (screen points), blended over the screen.
     void fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha);
-    void drawGrid();
     // Walks the player's character to where the screen point is on the
     // floor, along a path through the grid.
     void walkTo(int sx, int sy);
@@ -772,9 +781,6 @@ private:
     int _pictureFilesTime = -1;
     std::string _base; // the base scene an act's variant is shown over
     std::string _error;
-    int _selected = -1; // object highlighted, -1 none
-    bool _hotspots = true;
-    bool _info = true;
     bool _showCharacters = true;
     // What the scene's conditions test: the train moving or not (M), the
     // weather (W), the act of the scene's variant.
@@ -790,11 +796,8 @@ private:
     };
     std::map<const Ac2Record *, Scroll> _scrolls;
     bool scrollPictures(float dt); // whether any moved
-    // The camera's walk grid (G shows it), the cell under the mouse and
-    // the last path found.
+    // The camera's walk grid and the last path found.
     WalkGrid _grid;
-    bool _showGrid = false;
-    WalkGrid::Cell _hover;
     std::vector<WalkGrid::Cell> _path;
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> _runner;
@@ -809,7 +812,6 @@ private:
     // and the runner waiting on it.
     std::unique_ptr<Story> _story;
     bool _playing = false;
-    bool _browser = true; // Browser::kOn
     std::string _gameTitle;
     bool _titleRead = false;
     std::map<std::string, audio::SoundHandle> _music;
