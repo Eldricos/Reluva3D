@@ -69,6 +69,10 @@ and adds `<name>=enabled` to `engines.cfg`. Build it: it compiles, and
   `src/audio/`, `src/video/`, `src/graphics/` (drawing, palettes, fonts,
   cursors, 3D), `src/image/`, and `src/emulation/x86/` to run a game's
   own Windows code.
+- **Every game starts in a window**, whatever its original did; fullscreen
+  is the player's choice, in the game's own settings or Reluva's. Where
+  the original started fullscreen, list it under "By choice" in the
+  game's `KNOWN_DIFFERENCES.md`.
 - **A mouse pointer of the game's own** goes to `System::setMouseCursor`
   (a `Cursor` from `src/graphics/cursor.h`, made from the game's palette
   indices with `cursor::fromIndexed`). The backend shows it as the

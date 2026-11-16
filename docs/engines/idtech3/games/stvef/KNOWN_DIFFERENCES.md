@@ -70,6 +70,9 @@ confirmed are in [UNCONFIRMED.md](UNCONFIRMED.md).
 - **Frame size.** The frame is drawn at the chosen resolution and
   letterboxed in the window. Fullscreen uses the desktop's display mode
   rather than switching modes. Until a mode is chosen, the size is 960x720.
+- **It starts in a window** (`r_fullscreen` 0), where the original starts
+  fullscreen. Every Reluva game starts in a window; the menus' video
+  settings change it.
 - **Brightness** (`r_gamma`) is a final pass on the GPU, standing in for
   the original's hardware gamma ramp. It affects only the game's frame,
   not the whole screen.

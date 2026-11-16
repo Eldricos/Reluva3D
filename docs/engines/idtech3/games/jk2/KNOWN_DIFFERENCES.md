@@ -5,6 +5,9 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## By choice
 
+- **It starts in a window**: `r_fullscreen` defaults to 0, where
+  `jk2mp.exe` starts fullscreen. Every Reluva game starts in a window;
+  the Video page's Full Screen line changes it.
 - **Light styles in the viewer**: the World and Maps pages hold every
   style full, showing a level's light as compiled. In a match they change
   as the client game sets them, as the original's do
