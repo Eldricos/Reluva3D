@@ -84,6 +84,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 16 November 2026 | English (retail, two CDs) | Linux | Timings against the footage, at its 30 frames a second: the inventory panel's slide (0.63 s both ways, as Reluva's), the deposit boxes' swap (0.73 to 0.77 s after the second drawer, eight times; 0.75 in the code and Reluva), a chapter's title card (in 1.1 s, held 5.2, out 1.1; Reluva's 1.2, 5, 1.0), the screen's fades (0.75 to 0.9 s, one step a frame: fixed, Reluva's took as many steps as the time allowed); the object fades `fade in <object>` (fixed: Reluva's were at once) |
 | 16 November 2026 | English (retail, two CDs) | Linux | The four endings by the `endings` step: each plays to the credits with its own coda |
 | 15 November 2026 | English (retail, two CDs) | Linux | `awe.engine` with this game's half added; Orient Express's game-files steps again after the night pictures (all five passed) |
 | 15 November 2026 | English (retail, two CDs) | Linux | Scene by scene against gameplay footage: the footage's frames every 2 seconds matched to the scenes by their backgrounds (2,103 visits, 170 scenes), each scene shown by `awe page-shot` at the start of each of the chapter's acts, and 1,820 frames compared by the colour of a grid of cells: within 3% overall in every chapter. Fixed: the night's own pictures in 2A and 4C. The other differences were the story's state (the flashlight, the generator off, a movie on the screen) or a frame mid-fade |

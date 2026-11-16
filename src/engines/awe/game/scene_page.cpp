@@ -212,6 +212,8 @@ void ScenePage::load() {
     _lightsSwitched.clear();
     _nightTinted.clear();
     _pictureFiles.clear();
+    _objectFades.clear();
+    _fadedPictures.clear();
     _characters.clear();
     _loops.clear();
     _particles.clear();
@@ -563,6 +565,32 @@ void ScenePage::beginLoad(const std::string &location, bool forAct) {
         }
     }
     draw();
+}
+
+void ScenePage::updateObjectFades(float dt) {
+    // As the screen's fade, at most a step an update (0x4166b0); faded
+    // out, the object is hidden (0x416726).
+    const float interval = _ctx.game ? _ctx.game->flow.objectFade : 0;
+    for (auto it = _objectFades.begin(); it != _objectFades.end();) {
+        ObjectFade &f = it->second;
+        f.wait -= dt;
+        if (f.wait > 0) {
+            ++it;
+            continue;
+        }
+        f.wait = interval;
+        f.level = std::clamp(f.level + f.step, 0, 255);
+        if (f.level != 0 && f.level != 255) {
+            ++it;
+            continue;
+        }
+        if (f.level == 0)
+            showObject(f.name, false);
+        ScriptRunner *r = f.runner;
+        it = _objectFades.erase(it);
+        if (r)
+            r->finished("fade");
+    }
 }
 
 void ScenePage::updateActLoad() {
@@ -1210,7 +1238,20 @@ void ScenePage::draw() {
     auto place = [&](const Ac2Record *o, bool keepAlpha) {
         if (const auto ps = _particles.find(o); ps != _particles.end())
             return drawParticles(ps->second, keepAlpha);
-        const image::Image &img = nightOf(o, imageOf(o));
+        const image::Image *picked = &nightOf(o, imageOf(o));
+        if (const auto fade = _objectFades.find(o); fade != _objectFades.end() && picked->w > 0) {
+            // Fading: its alpha by the fade's level (the sprite's colour,
+            // 0x42e875).
+            auto &[level, faded] = _fadedPictures[o];
+            if (level != fade->second.level || faded.w != picked->w) {
+                level = fade->second.level;
+                faded = *picked;
+                for (size_t i = 3; i < faded.rgba.size(); i += 4)
+                    faded.rgba[i] = uint8_t(faded.rgba[i] * level / 255);
+            }
+            picked = &faded;
+        }
+        const image::Image &img = *picked;
         if (img.w <= 0)
             return;
         SpriteTransform t;
@@ -1405,6 +1446,8 @@ void ScenePage::draw() {
                 const bool remade = _optionsMenu != nullptr;
                 for (const Ac2Record *o : in) {
                     put(o);
+                    if (const auto fade = _objectFades.find(o); fade != _objectFades.end())
+                        put(fade->second.level);
                     if (const auto ov = _overrides.find(o); ov != _overrides.end())
                         put(ov->second.x), put(ov->second.y), put(ov->second.roll), put(ov->second.cx),
                             put(ov->second.cy), put(ov->second.tint);
@@ -1828,18 +1871,26 @@ void ScenePage::update(uint64_t nowMs) {
         }
         redraw = true;
     }
+    if (!_objectFades.empty())
+        updateObjectFades(dt), redraw = true;
     if (_fade != _fadeTarget) {
-        // 8 of 255 every 0.01 s (0x40c33b, 0x4158e0): about a third of a
-        // second. The game takes at most a step a frame, so it's slower
-        // where frames are: 0.27 to 0.47 s in a recording of it.
-        const float step = dt * 8 / 255 / 0.01f;
-        _fade = _fadeTarget > _fade ? std::min(_fadeTarget, _fade + step) : std::max(_fadeTarget, _fade - step);
-        if (_fade == _fadeTarget && _fadeRunner) {
-            ScriptRunner *r = _fadeRunner;
-            _fadeRunner = nullptr;
-            r->finished("fade");
+        // 8 of 255 a step, the next 0.01 s after the last and never two in
+        // an update (0x40c33b, 0x4166b0): a third of a second at 100
+        // frames a second, slower where frames are: 0.27 to 0.47 s in a
+        // recording of Orient Express, 0.75 to 0.9 s in two of And Then
+        // There Were None's.
+        _fadeWait -= dt;
+        if (_fadeWait <= 0) {
+            _fadeWait = 0.01f;
+            const float step = 8.0f / 255;
+            _fade = _fadeTarget > _fade ? std::min(_fadeTarget, _fade + step) : std::max(_fadeTarget, _fade - step);
+            if (_fade == _fadeTarget && _fadeRunner) {
+                ScriptRunner *r = _fadeRunner;
+                _fadeRunner = nullptr;
+                r->finished("fade");
+            }
+            redraw = true;
         }
-        redraw = true;
     }
     if (_soundRunner && !(_ctx.mixer && _ctx.mixer->isPlaying(_soundWaited))) {
         ScriptRunner *r = _soundRunner;
@@ -3603,10 +3654,29 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         return false;
     }
     if (v == "fade" && !e.arg(2).empty()) {
-        // fade in|out <object>: that object shown or hidden.
-        showObject(lower(e.arg(2)), lower(e.arg(1)) != "out");
+        // fade in|out <object>: that object shown or hidden; in And Then
+        // There Were None faded, its alpha from 0 or 255 in steps
+        // (0x40ba29, 0x416620), the script waiting.
+        const std::string name = lower(e.arg(2));
+        const bool in = lower(e.arg(1)) != "out";
+        const float interval = _ctx.game ? _ctx.game->flow.objectFade : 0;
+        if (interval <= 0) {
+            showObject(name, in);
+            draw();
+            return false;
+        }
+        showObject(name, true);
+        bool any = false;
+        for (const Ac2Record *o : _scene.objects())
+            for (const std::string &key : objectKeys(*o))
+                if (key == name) {
+                    ObjectFade &f = _objectFades[o];
+                    f = ObjectFade{in ? 0 : 255, in ? 8 : -8, interval, any || !wait ? nullptr : &runner, name};
+                    any = true;
+                    break;
+                }
         draw();
-        return false;
+        return any && wait;
     }
     if (v == "fade") {
         // fade in|out: the screen, over about a third of a second.

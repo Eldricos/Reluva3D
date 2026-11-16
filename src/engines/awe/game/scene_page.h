@@ -813,6 +813,19 @@ private:
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
     float _fade = 0;
     float _fadeTarget = 0;
+    float _fadeWait = 0.01f; // till the screen fade's next step
+    // Objects fading in or out (GameFlow::objectFade): their alpha, 0 to
+    // 255, and their faded pictures.
+    struct ObjectFade {
+        int level = 0;
+        int step = 8; // -8 fading out
+        float wait = 0;
+        ScriptRunner *runner = nullptr;
+        std::string name;
+    };
+    std::map<const Ac2Record *, ObjectFade> _objectFades;
+    std::map<const Ac2Record *, std::pair<int, image::Image>> _fadedPictures;
+    void updateObjectFades(float dt);
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).

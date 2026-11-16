@@ -39,6 +39,14 @@ The runner tells a verb by its first word, compared ignoring case
 - **`suspicion <who> [+|-]n`**, a verb (`0x40d3df`): the tag
   `suspicion_<who>` set to n, or with `+` or `-` moved by n from what it
   was (unset as 0), then kept to 0 or 1.
+- **`fade in|out <object>`** (`0x40ba29`): the object faded through the
+  screen's fade (`0x416620`), the steps 0.025 s apart where the screen's
+  are 0.01: its alpha from 0 up (shown first) or from 255 down (hidden at
+  the end), and the script waits. Orient Express's `fade` has no object.
+  Both games' fades take at most a step of 8 an update (`0x4166b0`), so
+  they're slower where frames are: the screen's 32 steps took 0.75 to
+  0.9 s and a title card's 1.1 s in the footage, at 30 to 45 frames a
+  second.
 - **`cutscene <name>`** (handled with `scene` and `gotoscene` at
   `0x40ddd9`): `scene` with `[0x485f04]` set, so its place is its name up
   to its `_` and it's looked for in `Cutscenes`; 20 uses

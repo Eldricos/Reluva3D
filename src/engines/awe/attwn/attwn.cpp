@@ -179,7 +179,9 @@ const GameInfo &game() {
                  .actLoading = "interface/loading.jpg",
                  .actLoadingFont = "font 2",
                  .actLoadingWaitFont = "font 8",
-                 .actLoadingRows = {225, 305, 345}},
+                 .actLoadingRows = {225, 305, 345},
+                 // 0x40ba29: 0.025 s a step for an object, 0.01 the screen.
+                 .objectFade = 0.025f},
         // The options screen's slider (0x4244f0) and labels (0x424290).
         .options = {.thumbLeft = 515,
                     .thumbStep = 18,

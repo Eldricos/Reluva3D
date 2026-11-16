@@ -198,6 +198,12 @@ struct GameFlow {
     const char *actLoadingFont = nullptr;     ///< "loading"'s font (GameFonts' name)
     const char *actLoadingWaitFont = nullptr; ///< "wait"'s and how far's
     std::array<int, 3> actLoadingRows{};      ///< the three's tops, each centred across
+    /**
+     * "fade in|out <object>": the object's alpha in steps of 8, one an
+     * update at most, this many seconds apart, the script waiting; 0: the
+     * object shown or hidden at once.
+     */
+    float objectFade = 0;
 };
 
 /**
