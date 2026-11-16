@@ -77,7 +77,40 @@ metrics, skinning and original hover-trigger behavior are outside this pass.
 
 This is a native canvas mapping, not Windows font-dependent dialog-unit
 conversion or a claim of complete original frontend fidelity. Later Players and
-version setup screens retain their existing native layouts.
+version setup screens retain their existing native layouts. The player-name
+editor now has its own installed-template consumer; see below.
+
+## Installed player-name editor
+
+With installed artwork enabled, Change Name uses exact RT_DIALOG 1600 /
+language 0x0409 from the existing English DLL. The name field binds to edit
+control 1601, Save to button 1 and the prompt to static control 65535. The
+original constructor requests template 1600 at `0x445461`; the edit binding
+uses control 1601 at `0x445508`. The executable and DLL identities are recorded
+below. This is read-only layout evidence, not a reconstruction of the original
+registry/profile behavior.
+
+The independently written consumer centers the client area in the 640x480 view
+at two native pixels per template unit. It validates unique required IDs,
+classes, bounds, capacity for the native 18-character field, vertical separation
+and room for the native Cancel action. Missing templates or disabled installed
+artwork retain the previous editor and mouse targets. A present malformed
+selected layout fails explicitly. Control rectangles come from runtime data;
+retail resources and captions are not embedded in source or fixtures.
+
+Save and field drawing/picking share those rectangles. Native Cancel remains
+available to the left of Save; help and validation errors use the bottom footer,
+clear of the setup controls. Enter/Save, Escape/Cancel, Ctrl+A, field-click
+selection, text entry, deletion, trimming and the 18-printable-ASCII-character
+limit retain their existing behavior. Save/Cancel consume their navigation batch
+so queued Enter cannot start a round. Text input stops when the editor closes.
+Profile persistence, name history, round/high-score naming and safe save-directory
+rules are unchanged; no re-import or save migration is required.
+
+The original small name-entry template supplies relative placement. Native
+fonts, colors, wording, footer and added Cancel remain explicit presentation
+policies. This does not claim original Windows metrics, skins or name-storage
+interoperability; the surrounding version/Players screens remain native UI.
 
 ## Evidence and missing-file correction
 
@@ -200,3 +233,19 @@ All 43 Boggle CTest checks pass with the supplied install. The full suite passes
 suites pass ASan/UBSan with LeakSanitizer disabled for the execution tracer.
 All 737 installed files retain their manifest hashes. Windows owner testing of
 the installed selection layout is pending.
+
+Name-editor fixtures cover standard/extended templates, exact-language/missing
+fallback, selected-state rendering, footer clearance and malformed required
+controls. Scripted editing checks 18-character input, obsolete-target rejection,
+field-click replacement, mouse Save/Cancel, keyboard Save, blank-name errors,
+retry after editing, batch guards and persisted history without cancelled names.
+Existing fallback player/frontend records remain unchanged. External SDL
+software-backend runs inspect the supplied editor and exercise field selection,
+Save, Cancel, persistence and text-input cleanup in both versions. Captures and
+the preview harness remain outside Git.
+
+For the name-editor stage, all 43 Boggle CTest checks pass with the supplied
+install; the full suite passes 66 checks and skips 10 optional idtech3 data
+checks. Frontend, player and dialog suites pass ASan/UBSan with LeakSanitizer
+disabled for the execution tracer. All 737 installed files retain their manifest
+hashes. Windows owner testing of the installed name-editor layout is pending.

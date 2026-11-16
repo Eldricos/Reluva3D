@@ -121,3 +121,12 @@ remains unverified.
 An external SDL dummy run also checks the first and last pages of a long
 name dropdown; captures remain outside Git. All 737 supplied installed files
 retain their manifest hashes. No new assets or re-import are required.
+
+## Installed name-entry placement
+
+With installed artwork enabled, the native name editor now reads the original
+name-entry template for its caption, field and Save placement. Native Cancel,
+validation/footer hints and profile storage remain. See
+[frontend layout and limits](frontend.md#installed-player-name-editor).
+Missing templates and disabled artwork retain the previous editor. This is a
+presentation change; names, history and save files need no migration.

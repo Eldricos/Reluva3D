@@ -451,3 +451,12 @@ installed next-player message and acknowledgment rectangles. Existing full-scree
 privacy, Traditional/Chess budgets, retirement notices and input-batch guards
 remain. Exact original Windows metrics, skinning and transition timing remain
 comparison work; no turn, scoring or persistence policy changes in this pass.
+
+### Player-name editor placement
+
+The owner confirmed the installed turn-handoff layout works. The next
+[name-editor pass](../../engines/boggle/frontend.md#installed-player-name-editor)
+uses the installed name-entry field, caption and Save rectangles. Native Cancel
+and footer help/errors remain, with unchanged input limits, selection, keyboard
+controls, profile history and persistence. Exact Windows metrics, original skins
+and registry/profile interoperability remain outside this placement claim.

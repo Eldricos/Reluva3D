@@ -96,6 +96,22 @@ inline DialogFixture handoffDialog(bool extended=false){
     }
     return f;
 }
+inline DialogFixture nameDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(3);word(0);word(0);word(260);word(140);word(0);word(0);f.caption=b.size();text(u"Own name editor");
+    for(unsigned i=0;i<3;++i){
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        word(i==2?180:10);word(i==0?8:i==1?32:92);word(i==0?220:i==1?240:60);word(i==0?12:i==1?20:18);
+        const unsigned id=i==0?65535:i==1?1601:1;if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(i==0?0x82:i==1?0x81:0x80);text(u"Own field");word(0);
+    }
+    return f;
+}
 inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;
     std::array<std::u16string,16> text{};text[1]=u"Own menu";const auto strings=stringBlock(text);

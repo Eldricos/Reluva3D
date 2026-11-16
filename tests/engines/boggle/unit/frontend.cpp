@@ -3,6 +3,8 @@
 #include "engines/registry.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/frontend/layout.h"
+#include "engines/boggle/frontend/name_dialog.h"
+#include "engines/boggle/classic/player.h"
 #include "engines/boggle/frontend/media.h"
 #include "tests/engines/boggle/dialog_fixture.h"
 #include <limits>
@@ -277,6 +279,55 @@ void fittedMovies(const std::filesystem::path& tmp){
     CHECK(!media.open(resources,tmp,false) && !media.buttonFit(screen,0,{0,0,10,10},0));
 }
 
+void nameLayouts(){
+    FrontendNameDialog layout;CHECK(!layout.read({}) && !layout.installed() && layout.field().contains(100,200) && layout.save().contains(280,310));
+    for(bool extended:{false,true}){
+        const auto f=fixtures::nameDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,1600),own));
+        CHECK(!layout.read(own) && layout.installed() && layout.save().contains(480,300) && layout.cancel().contains(100,300) && !layout.save().contains(280,310));
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        Surface screen;screen.create(640,480,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);layout.draw(screen,"ABCDEFGHIJKLMNOPQR",true,"Own validation error");CHECK(screen.row(0)[0]==17 && screen.row(184)[320*4+3]==255);
+        CHECK(screen.row(400)[100*4+3]==17 && screen.row(444)[40*4+3]==255); // help stays in the footer
+        const auto selected=screen.pixels;layout.draw(screen,"ABCDEFGHIJKLMNOPQR",false,"Own validation error");CHECK(selected!=screen.pixels);
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),1601);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?24:18)+2,0x82);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8),259);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+4,100);CHECK(bool(layout.read(bad))); // name will not fit
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8)+2,40);CHECK(bool(layout.read(bad))); // Save overlaps field
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8),20);CHECK(bool(layout.read(bad))); // Cancel clearance
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void nameNavigation(const std::filesystem::path& tmp){
+    for(bool extended:{false,true}){
+        auto t=target(tmp/(extended?"extended":"standard"));const auto f=fixtures::nameDialog(extended);
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,1600));std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,1600),own));FrontendNameDialog layout;CHECK(!layout.read(own));
+        auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==7 || f==10)return {keyEvent('n')};
+            if(f==3)return {textEvent("ABCDEFGHIJKLMNOPQR")};
+            if(f==4)return {mouseEvent(EventType::MouseDown,280,310)}; // retired Save target
+            if(f==5)return {click(layout.field()),textEvent("New Name")};
+            if(f==6)return {click(layout.save()),keyEvent(key::Return)}; // save cannot also start a round
+            if(f==8)return {textEvent("Discarded")};
+            if(f==9)return {click(layout.cancel()),keyEvent(key::Return)};
+            if(f==11)return {textEvent("  ")};
+            if(f==12)return {keyEvent(key::Return)};
+            if(f==13)return {click(layout.field()),textEvent("Second Name")};
+            if(f==14)return {keyEvent(key::Return)};
+            if(f==15)return {keyEvent(key::Escape)};
+            if(f==16)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==16 && sys.w==640 && sys.textStopped);
+        if(sys.hashes.size()==16){CHECK(sys.hashes[3]==sys.hashes[4] && sys.hashes[6]==sys.hashes[9]);CHECK(sys.hashes[11]!=sys.hashes[12] && sys.hashes[12]!=sys.hashes[13]);}
+        PlayerProfile profile;CHECK(!profile.load(t.savePath,t.path) && profile.name()=="Second Name" && profile.history().size()==3);
+        CHECK(std::find(profile.history().begin(),profile.history().end(),"New Name")!=profile.history().end());CHECK(std::find(profile.history().begin(),profile.history().end(),"Discarded")==profile.history().end());
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},1600));fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));
+        t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -304,6 +355,8 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"name dialog controls, fitting, language and malformed layouts",[](const auto&){nameLayouts();}},
+    {"name dialog Save/Cancel, editing, validation, history and input guards",nameNavigation},
     {"installed selection IDs, encodings, languages and malformed geometry",[](const auto&){selectionLayouts();}},
     {"installed Classic picking, navigation guards, opt-out and return",selectionNavigation},
     {"fitted movie aspect ratio, frame timing, clipping and extreme rectangles",fittedMovies},

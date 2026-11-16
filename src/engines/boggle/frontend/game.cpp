@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/frontend/game.h"
 #include "engines/boggle/frontend/media.h"
+#include "engines/boggle/frontend/name_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/player.h"
@@ -121,7 +122,8 @@ void nameDropdown(Surface& s,const std::vector<std::string>& names,size_t select
     if(!error.empty())text(s,60,416,error.substr(0,84),{255,150,130});
     else text(s,60,416,std::to_string(selected+1)+" / "+std::to_string(names.size())+"   PgUp/PgDn: page",muted);
 }
-void nameEditor(Surface& s,const std::string& draft,bool selected,const std::string& error) {
+void nameEditor(Surface& s,const std::string& draft,bool selected,const std::string& error,const FrontendNameDialog& dialog) {
+    if(dialog.installed()){dialog.draw(s,draft,selected,error);return;}
     fill(s,{64,120,512,234},gold);fill(s,{66,122,508,230},dark);
     text(s,88,143,"PLAYER NAME",white,2);
     fill(s,nameField,gold);fill(s,{90,190,460,38},selected?Color{43,83,112}:Color{28,31,49});
@@ -147,9 +149,11 @@ Error FrontendGame::run() {
         if(background.w!=640 || background.h!=480) return Error::fail("Unsupported game-selection bitmap dimensions");
     }
     FrontendSelectionLayout selectionLayout;
+    FrontendNameDialog nameDialog;
     if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
         if(auto err=selectionLayout.read(language.resources))return err;
+        if(auto err=nameDialog.read(language.resources))return err;
     }
     FrontendMedia media;
     if(auto err=media.open(resources,target_.path,options.movies))return err;
@@ -231,12 +235,12 @@ Error FrontendGame::run() {
                 continue;
             }
             if(editingName) {
-                if((isKey && event.key==key::Escape) || pressed(cancelName)) {
+                if((isKey && event.key==key::Escape) || pressed(nameDialog.cancel())) {
                     editingName=false;system_.setTextInput(false);changed=true;
-                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(saveName)) {
+                } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(nameDialog.save())) {
                     if(auto error=profile.rename(draftName))nameError=error.message;
                     else {roster[0]=profile.name();kinds[0]=ComputerLevel::Human;editingName=false;system_.setTextInput(false);changed=true;}
-                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameField))selectAll=true;
+                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameDialog.field()))selectAll=true;
                 else if(event.type==EventType::KeyDown && (event.key==key::Backspace || event.key==key::Delete)) {
                     if(selectAll)draftName.clear();else if(!draftName.empty())draftName.pop_back();
                     selectAll=false;nameError.clear();
@@ -334,7 +338,7 @@ Error FrontendGame::run() {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable());
             if(rosterOpen)rosterScreen(screen,roster);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
-            if(editingName)nameEditor(screen,draftName,selectAll,nameError);
+            if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);
         }
         else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0,selectionLayout); }
         system_.updateScreen(screen);system_.delayMillis(16);
