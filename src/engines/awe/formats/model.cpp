@@ -508,11 +508,13 @@ Error expandCurvesWithDll(const Gr2File &file, GrannyDll &dll, Animation &out) {
 }
 
 void sampleLocal(const Model &model, const Animation *animation, float time, std::vector<BoneTransform> &local,
-                 const CurveLoop &loop, bool loopRoot) {
+                 const CurveLoop &loop, bool loopRoot, std::vector<bool> *bound) {
     const size_t n = model.bones.size();
     local.resize(n);
     for (size_t i = 0; i < n; i++)
         local[i] = model.bones[i].rest;
+    if (bound)
+        bound->assign(n, false);
     if (!animation)
         return;
     for (const AnimationTrack &track : animation->tracks) {
@@ -521,6 +523,8 @@ void sampleLocal(const Model &model, const Animation *animation, float time, std
             b++;
         if (b == n)
             continue;
+        if (bound)
+            (*bound)[b] = true;
         const CurveLoop &l = loopRoot || model.bones[b].parent >= 0 ? loop : CurveLoop();
         if (!track.position.empty())
             track.position.evaluate(time, 3, local[b].position, l);

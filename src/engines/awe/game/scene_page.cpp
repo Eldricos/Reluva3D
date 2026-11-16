@@ -2475,24 +2475,9 @@ void ScenePage::follow(Character &f) {
 }
 
 void ScenePage::placeCharacter(Character &c) const {
+    // Where it stands: what a walk or a turn carries the body along is
+    // taken out of the skeleton as it plays (Animator::carryBack).
     c.placement = characterMatrix(c.x, c.y, c.z, c.rotX, c.rotY, c.rotZ, c.scale);
-    const Animator::Slot *s = c.actor ? c.actor->animator().base() : nullptr;
-    if (!s || s->animation->duration <= 0 ||
-        !(s->name.find("walk") != std::string::npos || s->name.find("run") != std::string::npos ||
-          s->name.find("rotate") != std::string::npos))
-        return;
-    // Back by how far the walk (or turn) has carried the body this loop,
-    // as the character itself moves (or turns): by what its pose carries,
-    // none when its mask leaves the root at rest, as the walks' and runs'
-    // do (else the body stood still through each loop and then jumped).
-    const Actor::Motion m = c.actor->motion(*s->animation);
-    const float loop = std::fmod(s->clock, s->animation->duration) / s->animation->duration;
-    gfx::Mat4 back = gfx::identity();
-    const float a = -loop * m.carriedTurn / 57.29578f;
-    back[0] = std::cos(a), back[1] = std::sin(a), back[4] = -std::sin(a), back[5] = std::cos(a);
-    for (int k = 0; k < 3; k++)
-        back[size_t(12 + k)] = -loop * m.carried[k];
-    c.placement = gfx::multiply(c.placement, back);
 }
 
 const std::string &ScenePage::pictureFile(const Ac2Record &o) {

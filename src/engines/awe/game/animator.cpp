@@ -143,6 +143,14 @@ bool Animator::play(std::string_view name, std::shared_ptr<const Animation> anim
     return true;
 }
 
+void Animator::setCarry(const float carried[3], float turn) {
+    if (_slots.empty())
+        return;
+    for (int k = 0; k < 3; k++)
+        _slots.back().carried[k] = carried[k];
+    _slots.back().carriedTurn = turn;
+}
+
 void Animator::stop(const std::function<bool(const Slot &)> &which, float seconds) {
     for (Slot &s : _slots)
         if (s.state != kStopped && which(s)) {
@@ -215,6 +223,56 @@ const Animator::Slot *Animator::base() const {
     return found;
 }
 
+void Animator::carryBack(const Model &model, const Slot &s, const std::vector<float> &mask,
+                         const std::vector<bool> &bound, std::vector<BoneTransform> &local) {
+    // The skeleton back by as far as this loop has carried the root
+    // (Bip01) so far, and turned back, so the character stays where its
+    // placement puts it while the walk moves it (Actor::motion's drift,
+    // the character's x and z): each slot so, two of a walk fading into
+    // each other at different points of the loop stay together. Done to
+    // the highest bone from the top (GrannyRootBone) down to the root
+    // that the slot moves, its track there and its mask letting it
+    // through: above it the bones are at rest, at the model's origin.
+    const float d = s.animation->duration;
+    if (d <= 0)
+        return;
+    size_t root = 0;
+    while (root < model.bones.size() && model.bones[root].name != "Bip01")
+        root++;
+    if (root == model.bones.size())
+        return;
+    std::vector<size_t> chain{root};
+    while (model.bones[chain.back()].parent >= 0)
+        chain.push_back(size_t(model.bones[chain.back()].parent));
+    size_t at = model.bones.size();
+    for (auto it = chain.rbegin(); it != chain.rend() && at == model.bones.size(); ++it)
+        if (bound[*it] && mask[*it] > 0)
+            at = *it;
+    if (at == model.bones.size())
+        return;
+    root = at;
+    const float loop = std::fmod(s.time(), d) / d;
+    const float a = -loop * s.carriedTurn / 57.29578f;
+    const float c = std::cos(a);
+    const float n = std::sin(a);
+    BoneTransform &t = local[root];
+    // Back along the way it went, then turned back: a turn's step aside
+    // (rotater180's 115 units) is taken out where the turn has put it,
+    // so the body stays on the spot as the character turns.
+    const float x = t.position[0] - loop * s.carried[0];
+    const float y = t.position[1] - loop * s.carried[1];
+    t.position[0] = c * x - n * y;
+    t.position[1] = n * x + c * y;
+    t.position[2] -= loop * s.carried[2];
+    // The turn about Z before the bone's own: (0, 0, sin a/2, cos a/2) times q.
+    const float hz = std::sin(a / 2);
+    const float hw = std::cos(a / 2);
+    const float *q = t.orientation;
+    const float r[4] = {hw * q[0] - hz * q[1], hw * q[1] + hz * q[0], hw * q[2] + hz * q[3], hw * q[3] - hz * q[2]};
+    for (int k = 0; k < 4; k++)
+        t.orientation[k] = r[k];
+}
+
 void Animator::blend(const Model &model, int layer, std::vector<BoneTransform> &out, std::vector<float> &total,
                      const Slot **strongest) const {
     const size_t n = model.bones.size();
@@ -227,6 +285,7 @@ void Animator::blend(const Model &model, int layer, std::vector<BoneTransform> &
     total.assign(n, 0.0f);
     float best = -1;
     std::vector<BoneTransform> local;
+    std::vector<bool> bound;
     for (const Slot &s : _slots) {
         if (s.layer != layer)
             continue;
@@ -240,12 +299,17 @@ void Animator::blend(const Model &model, int layer, std::vector<BoneTransform> &
         // track groups accumulate it, and GrannyUpdateModelMatrix moves
         // the model), Reluva by the drift it measures on the root played
         // once (Actor::motion). So the root doesn't wrap round.
-        sampleLocal(model, s.animation.get(), s.time(), local, s.loop(), !s.base);
+        sampleLocal(model, s.animation.get(), s.time(), local, s.loop(), !s.base, &bound);
         const std::vector<float> other =
             &model == _model ? std::vector<float>() : buildMask(model, s.animation.get(), s.maskWeight, s.poseMask);
         const std::vector<float> &mask = &model == _model ? s.mask : other;
+        if (s.carriedTurn != 0 || s.carried[0] != 0 || s.carried[1] != 0 || s.carried[2] != 0)
+            carryBack(model, s, mask, bound, local);
         for (size_t b = 0; b < n; b++) {
-            const float bw = w * mask[b];
+            // A bone the animation has no track for isn't its: Granny binds
+            // only the tracks it has, so a talk's head and jaw (its 13 of
+            // 88 bones) leave the body to the idle under it.
+            const float bw = bound[b] ? w * mask[b] : 0.0f;
             if (bw <= 0)
                 continue;
             BoneTransform &o = out[b];

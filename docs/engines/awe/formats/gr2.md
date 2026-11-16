@@ -462,6 +462,24 @@ pace). Taking out the full drift from such a walk held the body back
 through each loop, then let it jump a stride ahead as the loop began
 again.
 
+It's taken out of each animation as it's blended, at its own point of
+its loop (`Animator::carryBack`), not of the character as a whole: from
+the highest bone between `GrannyRootBone` and `Bip01` that the animation
+moves. Taking it out of the whole character by the newest base alone, as
+Reluva did, threw the body forward or back whenever two walks or a walk
+and an idle faded into each other: a click while walking, a walk's end,
+a turn handing over to the walk (up to 330 units in a frame, measured on
+the pelvis). A turn's step aside (`rotater180`'s 115 units) is taken out
+before the turn is: taken out after, it put the body up to twice that
+off the spot by the turn's end, then snapped it back.
+
+A bone an animation has no track for isn't moved by it at all, as
+Granny binds only the tracks there are; with nothing else playing on it,
+it's at rest. The talks have tracks for the head and jaw alone (11 to 15
+of a character's 83 to 99 bones) and no mask: blending their missing
+bones' rest pose in at the talk's weight pulled the body toward the
+bind pose ("A-pose") as each line began.
+
 Before this, Reluva never wrapped round, and kept only a curve's first
 four values. On `poirot_walk`, looping, it was off by up to 239 units
 (the root, near the end) and 0.003 in an orientation. Scale/shear curves

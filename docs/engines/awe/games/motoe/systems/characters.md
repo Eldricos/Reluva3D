@@ -110,8 +110,9 @@ against 0.01, the result is about two thirds the gesture.
 The game asks for the mask `TrackMaskTrackMask`. The files spell it
 `TrackMasktrackmask` or `TrackMaskTrackMask`, so Granny matches the name
 whatever its case. An animation without a mask (57 files) plays on every
-bone in full (0x4298f0 logs "No track mask data", and the control gets no
-mask). Other masks some animation files carry (`TrackMasksitidle1`) are
+bone it has a track for in full (0x4298f0 logs "No track mask data", and
+the control gets no mask); a bone it has no track for it leaves alone, as
+Granny binds only the tracks there are ([../../../formats/gr2.md](../../../formats/gr2.md)). Other masks some animation files carry (`TrackMasksitidle1`) are
 never asked for.
 
 #### The pose's mask: sitting

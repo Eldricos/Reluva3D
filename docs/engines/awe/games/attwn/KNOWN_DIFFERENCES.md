@@ -34,9 +34,10 @@ gives their detail.
 ### Characters and animation
 
 - **A walk's root motion** is the distance the root moves in one loop
-  (`Actor::motion`), where the game takes it out of the pose through
-  Granny's track groups: the character goes the same way at the same
-  pace ([../../formats/gr2.md](../../formats/gr2.md)).
+  (`Actor::motion`), taken out of each animation as it's blended, where
+  the game takes it out of the pose through Granny's track groups: the
+  character goes the same way at the same pace
+  ([../../formats/gr2.md](../../formats/gr2.md)).
 - **An `anim` whose file is missing ends at once**, where the game would
   wait for ever and hang the script; no `anim` in the install names a
   missing file.

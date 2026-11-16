@@ -129,6 +129,14 @@ std::string Actor::play(std::string_view name, int loops, float ease, float weig
     }
     if (!_animator.play(resolved, animation, Animator::kBody, base, loops, ease, weight))
         return {};
+    // A walk, a run or a turn carries the body along through its loop,
+    // as the character itself moves (or turns): taken out of the root as
+    // it plays (Animator::carryBack). None when the base's mask leaves the
+    // root at rest, as the walks' and runs' do.
+    if (base && (contains(resolved, "walk") || contains(resolved, "run") || contains(resolved, "rotate"))) {
+        const Motion m = motion(*animation);
+        _animator.setCarry(m.carried, m.carriedTurn);
+    }
     return resolved;
 }
 

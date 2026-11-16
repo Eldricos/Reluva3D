@@ -51,8 +51,9 @@ The format pages give the detail; this page gathers them.
 - **A walk's root motion.** The game takes a base animation's root
   motion out of the pose through Granny's track groups and moves the
   model. Reluva takes out the distance the root moves in one loop
-  instead (`Actor::motion`). The character goes the same way at the same
-  pace. See [../../formats/gr2.md](../../formats/gr2.md).
+  instead (`Actor::motion`), from each animation as it's blended. The
+  character goes the same way at the same pace. See
+  [../../formats/gr2.md](../../formats/gr2.md).
 - **An `anim` whose file is missing ends at once.** In the game it waits
   for ever, which would hang the script. No `anim` in the install names a
   missing file. See [systems/characters.md](systems/characters.md).
