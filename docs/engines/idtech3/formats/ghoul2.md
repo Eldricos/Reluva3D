@@ -199,9 +199,11 @@ doesn't name keeps its own shader, as with MD3 models, where the
 original draws it with its default shader.
 
 The game's Ghoul2 calls are answered by `jk2::Ghoul2Instances`
-(Animation, above). Not yet: collision against the posed mesh (the
-traces' Ghoul2 records), and single player's calls (Jedi Outcast's
-plan, phase 7).
+(Animation, above). Multiplayer 1.02a never collides with the posed
+mesh: its engine's traces don't, and neither module asks (see
+[UNCONFIRMED.md](../games/jk2/UNCONFIRMED.md), Settled); hits are its
+entities' boxes. Not yet: single player's calls (Jedi Outcast's plan,
+phase 7).
 
 ## Sources and checks
 

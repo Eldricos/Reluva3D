@@ -727,10 +727,10 @@ void GameHost::clipMove(int32_t results, const Vec3f &start, const Vec3f &mins, 
     _vm.writeInt(results + 44, best.surfaceFlags);
     _vm.writeInt(results + 48, best.contents);
     _vm.writeInt(results + 52, hit);
-    // No Ghoul2 model hit: each collision record's entity number (its
-    // second word) -1, as the game looks for.
-    for (int i = 0; i < _layout.g2Collisions; ++i)
-        _vm.writeInt(results + _layout.traceSize + 64 * i + 4, -1);
+    // The Ghoul2 collision records all 0, as jk2mp.exe leaves them: its
+    // traces clear them (0x450b36) and never collide with Ghoul2 models.
+    for (int i = 0; i < 16 * _layout.g2Collisions; ++i)
+        _vm.writeInt(results + _layout.traceSize + 4 * i, 0);
 }
 
 int32_t GameHost::pointContents(const Vec3f &point, int32_t passEntity) {

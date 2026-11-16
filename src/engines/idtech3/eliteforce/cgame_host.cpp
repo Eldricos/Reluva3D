@@ -135,12 +135,13 @@ constexpr int32_t kJk2CapsuleTrace = 27;
 constexpr int32_t kJk2TransformedCapsuleTrace = 29;
 
 // Quake III's trace_t (56 bytes), as the game logic's traces, then (Jedi
-// Outcast's) its Ghoul2 collision records, each with no entity (-1).
+// Outcast's) its Ghoul2 collision records, all 0 as jk2mp.exe's traces
+// leave them (CM_Trace clears them, 0x426aa1).
 void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNum, const GameLayout &layout) {
     if (!vm.checkWrite(address, layout.traceSize + 64 * layout.g2Collisions))
         return;
-    for (int i = 0; i < layout.g2Collisions; ++i)
-        vm.writeInt(address + layout.traceSize + 64 * i + 4, -1);
+    for (int i = 0; i < 16 * layout.g2Collisions; ++i)
+        vm.writeInt(address + layout.traceSize + 4 * i, 0);
     vm.writeInt(address + 0, t.allSolid);
     vm.writeInt(address + 4, t.startSolid);
     vm.writeInt(address + 8, Qvm::fromFloat(t.fraction));

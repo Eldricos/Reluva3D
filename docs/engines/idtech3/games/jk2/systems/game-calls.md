@@ -31,7 +31,7 @@ them.
 | `entityState_t` | 296 | Quake III's start (number, type, flags, two trajectories, times, origin 92, origin2 104, angles), then Raven's: bolts, force, saber, Ghoul2 fields; `modelindex` 212, `solid` 248 |
 | `entityShared_t` | 112, from 296 | `linked` 296, `linkcount` 300, `svFlags` 304, `singleClient` 308, `bmodel` 312, `mins` 316, `maxs` 328, `contents` 340, `absmin` 344, `absmax` 356, `currentOrigin` 368, `currentAngles` 380, `mIsRoffing` 392, `ownerNum` 396, `broadcastClients` 400 |
 | `playerState_t` | 1,368 | `origin` 20, `viewheight` 168 (the eye the server sees from) |
-| `trace_t` | 1,080 | Quake III's 56 bytes, then 16 Ghoul2 collision records of 64 bytes, each with its entity number in its second word: -1 for none |
+| `trace_t` | 1,080 | Quake III's 56 bytes, then 16 Ghoul2 collision records of 64 bytes, which 1.02a's engine leaves all 0: it never collides with Ghoul2 models ([UNCONFIRMED.md](../UNCONFIRMED.md), Settled) |
 | `usercmd_t` | 28 | server time, angles 4, buttons 16, then a byte each: weapon, force power, item, generic command, forward, right, up |
 | `bot_input_t` | 40 | think time, direction, speed, view angles, action bits 32, weapon 36 |
 

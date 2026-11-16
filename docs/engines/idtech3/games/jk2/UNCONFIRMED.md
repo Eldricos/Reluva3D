@@ -58,6 +58,19 @@ None yet.
 
 ## Settled
 
+- Multiplayer 1.02a has no Ghoul2 collision: hits and the saber's
+  contacts are the entities' boxes. `jk2mp.exe`'s trace call (game call
+  24, 0x44ae57) passes the game's ninth and tenth arguments on as the
+  trace flags and level of detail, but the QVM pushes only seven, and
+  the engine never reads them: its entity clipping (0x4508f0) and
+  `SV_ClipToEntity` (0x450840) only trace the boxes and keep the
+  nearest, and `CM_Trace` clears the trace's 16 Ghoul2 records
+  (0x426aa1), so they come back all 0. Neither module makes a Ghoul2
+  collision call (`qvm-info`: the client game's 278–299 and the game's
+  582–599 are the instance, bolt and animation calls). The GPL source's
+  Ghoul2 collision in `SV_ClipMoveToEntities` and the client game's
+  `CG_G2TraceCollide` come from a later version.
+
 - Multiplayer 1.02a speaks network protocol 15: `jk2mp.exe` registers
   `protocol` as 15 (the value pushed at 0x44dde9), as its recording's
   name (`demos/JK2FFA.dm_15`) suggested.
