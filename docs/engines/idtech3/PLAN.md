@@ -80,7 +80,8 @@ Every game built on the Quake III Arena engine, Elite Force first (see
    (with a delay unless `g_doWarmup`, counted down in the warmup
    configstring) restarts the game code in place, a game type or player
    count change making it a full change; `vstr`, `kick`, `clientkick` and
-   `set` are the engine's as well. Played Reluva to Reluva, and solo, on the retail data
+   `set` are the engine's as well; `devmap` and `spdevmap` start a level
+   with cheats on (`sv_cheats` 1), `map` and `spmap` with them off. Played Reluva to Reluva, and solo, on the retail data
    patched to 1.2 (which also confirms 1.2's layouts), and against the
    retail game both ways (October 2026). Reluva answers a pure server's
    check (`cp`, with pk3 checksums as the original's), tried against a

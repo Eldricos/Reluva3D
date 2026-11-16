@@ -86,6 +86,7 @@ public:
     // spmap and spdevmap make it a solo match (g_gametype 2, no warmup,
     // room for 8), and the bots already there leave; map and devmap end a
     // solo match's game type (free for all), devmap's bots leaving too.
+    // The dev kinds turn cheats on (sv_cheats 1), the others off.
     // Whether the bots leave.
     static bool applyMapCommand(CvarStore &cvars, std::string_view verb);
     bool levelRequested() const { return !_requestedMap.empty(); }

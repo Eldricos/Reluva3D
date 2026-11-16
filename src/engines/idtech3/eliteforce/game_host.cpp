@@ -279,6 +279,8 @@ Error GameHost::restartLevel() {
 
 bool GameHost::applyMapCommand(CvarStore &cvars, std::string_view verb) {
     cvars.create("g_gametype", "0", CvarStore::kServerInfo | CvarStore::kLatch);
+    cvars.create("sv_cheats", "0", CvarStore::kServerInfo | CvarStore::kReadOnly);
+    cvars.set("sv_cheats", verb.ends_with("devmap") ? "1" : "0", true);
     if (verb.substr(0, 2) == "sp") {
         cvars.set("g_gametype", "2", true);
         cvars.set("g_doWarmup", "0", true);

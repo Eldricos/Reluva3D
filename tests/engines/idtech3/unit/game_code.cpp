@@ -134,6 +134,18 @@ static void testSaveKind() {
 // The game logic starting a level: its entities handed over token by
 // token, as the original server does, by a QVM the Quake III compiler
 // made from tests/engines/idtech3/data/qvm/fake_game.c.
+static void testMapCommands() {
+    // devmap and spdevmap turn cheats on for the level; map and spmap off.
+    using eliteforce::GameHost;
+    CvarStore cvars;
+    CHECK(GameHost::applyMapCommand(cvars, "devmap") && cvars.integer("sv_cheats") == 1);
+    CHECK(!GameHost::applyMapCommand(cvars, "map") && cvars.integer("sv_cheats") == 0);
+    GameHost::applyMapCommand(cvars, "spdevmap");
+    CHECK(cvars.integer("sv_cheats") == 1 && cvars.integer("g_gametype") == 2);
+    GameHost::applyMapCommand(cvars, "spmap");
+    CHECK(cvars.integer("sv_cheats") == 0);
+}
+
 static void testGameHost(const std::filesystem::path &tmp) {
     namespace ef = eliteforce;
     std::filesystem::remove_all(tmp);
@@ -439,6 +451,7 @@ static const reluva::test::Suite
                {"server game", [](const std::filesystem::path &tmp) { testGameHost(tmp / "game"); }},
                {"client game", [](const std::filesystem::path &tmp) { testCgameHost(tmp / "cgame"); }},
                {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
+               {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
                {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
                {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
            });
