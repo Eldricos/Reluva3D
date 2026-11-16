@@ -106,8 +106,8 @@ void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profi
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAY (ENTER)",true);
 }
 
-void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const FrontendRosterDialog& dialog,const std::string& error) {
-    if(dialog.installed()){dialog.draw(s,roster,error);return;}
+void rosterScreen(Surface& s,const std::array<std::string,4>& roster,const std::array<ComputerLevel,4>& kinds,const FrontendRosterDialog& dialog,const std::string& error) {
+    if(dialog.installed()){dialog.draw(s,roster,kinds,error);return;}
     fill(s,{32,96,576,354},gold);fill(s,{34,98,572,350},dark);
     text(s,60,112,"LOCAL PLAYERS",white,2);
     for(size_t i=0;i<4;++i)button(s,{72,142+int(i)*50,496,38},std::to_string(i+1)+": "+(roster[i].empty()?"NO PLAYER":roster[i])+"  v");
@@ -389,7 +389,7 @@ Error FrontendGame::run() {
         else if(page==Page::Players) {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable(),optionsDialog.installed());
             if(optionsOpen)optionsDialog.draw(screen,options,backgroundAvailable(),cursorAvailable());
-            if(rosterOpen)rosterScreen(screen,roster,rosterDialog,nameError);
+            if(rosterOpen)rosterScreen(screen,roster,kinds,rosterDialog,nameError);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);
         }

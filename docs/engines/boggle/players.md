@@ -148,3 +148,12 @@ Players exposes an installed-layout [Classic options panel](frontend.md#classic-
 when its resource is available and artwork is enabled. Its timing, turn mode,
 computer settings and auto-orient changes apply only on Done; Cancel restores
 the entry state. The player roster and human-name profile are unaffected.
+
+## Roster portraits
+
+The installed roster now displays the DLL's human, computer and empty-slot
+portraits in its template controls. Portraits follow draft participant types and
+restore on Cancel. A human with a computer-looking name still gets the human
+portrait. [Frontend details](frontend.md#installed-roster-portraits) document the
+bounded reader, bundle validation and native placement policy. No re-import or
+profile/save migration is needed.

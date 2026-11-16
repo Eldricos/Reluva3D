@@ -336,7 +336,7 @@ void rosterLayouts(){
     for(bool extended:{false,true}){
         const auto f=fixtures::rosterDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10000),own));
         CHECK(!layout.read(own) && layout.installed());CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
-        Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,{"ABCDEFGHIJKLMNOPQR","CPU Mr. Boggle","Sam",""},{});const auto before=screen.pixels;layout.draw(screen,{"Alex","CPU Mr. Boggle","Sam",""},{});CHECK(before!=screen.pixels);
+        Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,{"ABCDEFGHIJKLMNOPQR","CPU Mr. Boggle","Sam",""},{ComputerLevel::Human,ComputerLevel::MrBoggle,ComputerLevel::Human,ComputerLevel::Human},{});const auto before=screen.pixels;layout.draw(screen,{"Alex","CPU Mr. Boggle","Sam",""},{ComputerLevel::Human,ComputerLevel::MrBoggle,ComputerLevel::Human,ComputerLevel::Human},{});CHECK(before!=screen.pixels);
         auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),4107);CHECK(bool(layout.read(bad)) && !layout.installed());
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?24:18)+2,0x81);CHECK(bool(layout.read(bad)));
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8)+6,513);CHECK(bool(layout.read(bad))); // unreasonable popup size

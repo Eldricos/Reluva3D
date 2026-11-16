@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 #include "engines/boggle/frontend/roster_dialog.h"
 #include "engines/boggle/formats/dialog.h"
+#include "engines/boggle/formats/bitmap.h"
 #include "common/font.h"
 #include <algorithm>
 namespace reluva::boggle {
@@ -36,9 +37,23 @@ Error FrontendRosterDialog::read(const std::vector<PeResource>& resources,uint16
            (i && (f.y!=result.fields_[i-1].y || result.fields_[i-1].x+result.fields_[i-1].w+4>f.x)))return fail();
         result.fields_[i]=f;
     }
-    result.installed_=true;*this=result;return Error::success();
+    bool any=false;for(unsigned id=1300;id<=1302;++id)any|=findPeResource(resources,2,id,language)!=nullptr;
+    if(any){
+        for(unsigned i=0;i<3;++i){
+            const auto* image=findPeResource(resources,2,1300+i,language);if(!image)return Error::fail("Incomplete roster portrait artwork");
+            if(auto error=readBitmapResource(image->data,result.portraitsImages_[i]))return error;
+            if(result.portraitsImages_[i].w!=64 || result.portraitsImages_[i].h!=64)return fail();
+        }
+        for(size_t i=0;i<4;++i){
+            const auto* icon=control(uint32_t(4111+i),0x82);if(!icon)return fail();const auto p=placed(icon->rect),f=result.fields_[i];
+            if(p.w<32 || p.h<32 || p.x<f.x || p.x+p.w>f.x+f.w || p.y<m.y+m.h || p.y+p.h>f.y-10)return fail();
+            result.portraitsRects_[i]=p;
+        }
+        result.portraits_=true;
+    }
+    result.installed_=true;*this=std::move(result);return Error::success();
 }
-void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>& roster,std::string_view error) const {
+void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>& roster,const std::array<ComputerLevel,4>& kinds,std::string_view error) const {
     if(!installed_ || screen.format!=PixelFormat::RGBA32 || screen.w!=640 || screen.h!=480 || screen.pitch<2560 || screen.pixels.size()<size_t(screen.pitch)*480)return;
     auto box=[&](SelectionRect b,Color color){for(int y=b.y;y<b.y+b.h;++y)for(int x=b.x;x<b.x+b.w;++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     const Color white{245,245,255},muted{170,181,205},dark{17,15,35},gold{224,189,99};
@@ -46,7 +61,13 @@ void FrontendRosterDialog::draw(Surface& screen,const std::array<std::string,4>&
     font::drawText(screen,message_.x,message_.y,"LOCAL PLAYERS",white,2);
     font::drawText(screen,message_.x,message_.y+22,"1-4 / click: choose a human or computer",muted);
     for(size_t i=0;i<4;++i){
-        const auto f=fields_[i];font::drawText(screen,f.x,f.y-18,"PLAYER "+std::to_string(i+1),gold);
+        const auto f=fields_[i];
+        if(portraits_){
+            const auto p=portraitsRects_[i];const auto& picture=portraitsImages_[roster[i].empty()?2:kinds[i]==ComputerLevel::Human?0:1];
+            const int side=std::min({p.w,p.h,picture.w}),left=p.x+(p.w-side)/2,top=p.y+(p.h-side)/2;
+            for(int y=0;y<side;++y)for(int x=0;x<side;++x){const auto* src=picture.pixel(x*64/side,y*64/side);auto* dst=screen.row(top+y)+(left+x)*4;std::copy_n(src,4,dst);}
+        }
+        font::drawText(screen,f.x,f.y-(portraits_?10:18),"PLAYER "+std::to_string(i+1),gold);
         box(f,{88,81,105});box({f.x+2,f.y+2,f.w-4,f.h-4},{41,34,64});
         std::string name=roster[i].empty()?"NO PLAYER":roster[i];const auto columns=size_t((f.w-24)/6);
         if(name.size()>columns)name=name.substr(0,columns-3)+"...";

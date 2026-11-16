@@ -112,13 +112,13 @@ inline DialogFixture nameDialog(bool extended=false){
     }
     return f;
 }
-inline DialogFixture rosterDialog(bool extended=false){
+inline DialogFixture rosterDialog(bool extended=false,bool portraits=false){
     DialogFixture f;auto& b=f.bytes;
     auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
     auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
     auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
     if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
-    word(7);word(0);word(0);word(360);word(160);word(0);word(0);f.caption=b.size();text(u"Own roster");
+    word(portraits?11:7);word(0);word(0);word(360);word(160);word(0);word(0);f.caption=b.size();text(u"Own roster");
     auto control=[&](unsigned id,unsigned klass,int x,int y,int w,int h){
         while(b.size()%4)b.push_back(0);
         f.controls.push_back(b.size());
@@ -128,7 +128,9 @@ inline DialogFixture rosterDialog(bool extended=false){
     };
     control(1344,0x82,12,10,336,26);
     for(unsigned i=0;i<4;++i)control(4107+i,0x85,12+int(i)*86,80,68,200); // popup extends beyond client
-    control(1,0x80,150,126,58,16);control(2,0x80,218,126,58,16);return f;
+    control(1,0x80,150,126,58,16);control(2,0x80,218,126,58,16);
+    if(portraits)for(unsigned i=0;i<4;++i)control(4111+i,0x82,26+int(i)*86,37,40,35);
+    return f;
 }
 inline DialogFixture optionsDialog(bool extended=false){
     DialogFixture f;auto& b=f.bytes;

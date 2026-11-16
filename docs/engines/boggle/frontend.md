@@ -137,8 +137,9 @@ full-width dropdown shows complete names and difficulty labels, with its existin
 scrolling and keyboard controls. All four human/computer selectors, optional empty
 slots and roster compaction retain their existing rules. A human first-slot
 choice updates the active profile only when Done succeeds.
-Native player labels replace portrait artwork; editable Windows combo widgets
-and original popup metrics/skins are not reconstructed in this pass.
+Installed portraits now accompany the native labels when the complete bitmap
+bundle is available; see below. Editable Windows combo widgets and exact popup
+metrics/skins remain outside this placement pass.
 
 The owner confirmed in the original VM that Cancel discards all player-dialog
 changes. Done/Enter applies the draft choices; Cancel/Escape restores the names
@@ -214,6 +215,38 @@ Timer also stops dragging and disables further ruler changes. Done/Cancel stop
 dragging; Cancel restores both options and the remembered timed length as before.
 Reopening starts without a held drag. The frontend does not add OS mouse capture
 or claim matching the original Windows capture behavior outside its window.
+
+## Installed roster portraits
+
+The roster now reads the three installed RT_BITMAP resources 1300 (human),
+1301 (computer) and 1302 (empty slot), exact language 0x0409. The original loads
+these images at `0x44b780..0x44b7e7` and selects the appropriate handle for each
+participant at `0x44bc13..0x44bc45`, with selection updates including
+`0x44bdad..0x44bddf`. This read-only evidence identifies image roles; the native
+engine does not execute or translate those routines.
+
+An independently written [DIB reader](formats/bitmap.md) decodes the resources.
+All selected portraits must be 64x64. The corresponding static controls
+4111..4114 supply placement inside the installed roster client. Required icon
+IDs/classes, bounds, own-column placement and separation from the message and
+selector labels are checked. Images retain their square aspect ratio, stay at
+natural size when space permits, and shrink using native nearest-neighbor
+sampling when necessary. They remain opaque, including their original matte.
+
+The displayed portrait follows the draft participant type, with empty slots
+taking priority; names are not parsed to infer computer status. Cancel restores
+the portrait along with the previous names/types. Done, profile history,
+computer difficulty, scoring and turn order are unchanged. The native labels
+remain below the portraits. Exact Windows static-control metrics/skinning are
+not claimed.
+
+No portrait bundle retains the existing native labels. A partial bundle,
+malformed selected bitmap, wrong dimensions or invalid required icon geometry
+reports an explicit error. Unrelated bitmap resources do not gate the roster.
+Missing roster templates or disabled installed artwork retain their earlier
+fallbacks. The existing imported English DLL supplies the images; no new game
+files, re-import or save migration are required. Retail images and resource bytes
+are never embedded in source, tests or Git.
 
 ## Evidence and missing-file correction
 
@@ -412,3 +445,17 @@ install; the full suite passes 66 checks and skips 10 optional idtech3 data
 checks. Frontend/options suites pass ASan/UBSan with LeakSanitizer disabled for
 the execution tracer. All 737 installed files retain their manifest hashes.
 Windows owner testing of dragging and interruption behavior is pending.
+
+Portrait fixtures verify indexed/true-color DIB decoding, top/bottom row order,
+opaque palettes, exact role selection (including human names resembling computer
+labels), empty-slot precedence, missing/partial bundles and invalid placement.
+Existing fallback checksums remain unchanged. External SDL software-backend runs
+inspect installed human/computer/empty portraits and compare the reopened roster
+with its initial pixels after cancelling all four draft selections in both
+versions. Retail captures and the preview harness remain outside Git.
+
+The portrait stage passes all 44 Boggle CTest checks with the supplied install;
+the full suite passes 67 checks and skips 10 optional idtech3 data checks.
+Bitmap, frontend and Traditional suites pass ASan/UBSan with LeakSanitizer
+disabled for the execution tracer. All 737 installed files retain their manifest
+hashes. Windows owner testing of the installed portraits is pending.

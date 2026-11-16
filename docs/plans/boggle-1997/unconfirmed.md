@@ -467,8 +467,8 @@ The owner confirmed the installed name editor works. The next
 [roster pass](../../engines/boggle/frontend.md#installed-local-player-roster)
 uses the installed four selector positions and action buttons, with explicit
 handling of combo popup heights outside the client. Native labels, dropdowns,
-Original portraits, editable combo widgets and popup/font metrics remain
-separate comparison work. The owner subsequently confirmed that Cancel discards
+Installed roster portraits are now supported as described below. Editable combo
+widgets and exact popup/font metrics remain comparison work. The owner subsequently confirmed that Cancel discards
 all player-dialog changes. Native roster edits are now provisional until Done;
 Cancel/Escape restores the previous names/types without profile/history writes.
 
@@ -489,3 +489,13 @@ uses the existing nine-step duration mapping with final-release, focus, window
 exit, No Timer and Cancel guards; see
 [frontend interaction](../../engines/boggle/frontend.md#round-length-ruler-dragging).
 Exact original Windows capture behavior and settings persistence remain open.
+
+### Roster portrait resources
+
+The owner confirmed round-length dragging works. The next
+[portrait pass](../../engines/boggle/frontend.md#installed-roster-portraits)
+adds a bounded independent DIB reader and uses the installed human/computer/empty
+bitmap resources in their roster template controls. Draft type selection and
+Cancel restoration drive the pictures without name heuristics. Native labels,
+sampling and dialog metrics remain explicit policies; exact Windows static
+control/skinning behavior remains comparison work.
