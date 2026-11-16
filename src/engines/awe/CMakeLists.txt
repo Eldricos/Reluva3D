@@ -115,7 +115,7 @@ reluva_add_gamedata_test(awe
     GAME attwn
     ENV RELUVA_ATTWN
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files scripts route-search route)
+    STEPS release files scripts route-search route endings)
 # The route's search can take more than the hour each step is given.
 if(RELUVA_BUILD_TESTS)
     set_tests_properties(awe.gamedata.route-search awe.attwn.gamedata.route-search PROPERTIES TIMEOUT 7200)

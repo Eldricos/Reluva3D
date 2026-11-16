@@ -441,8 +441,13 @@ void ScenePage::playLooping(const std::string &file, bool music) {
 
 bool ScenePage::startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
     std::string name = fs::toLower(e.arg(1));
-    if (_ctx.game && _ctx.game->movie)
-        name = _ctx.game->movie(_state, name);
+    if (_ctx.game && _ctx.game->movie) {
+        // The game's own choice ("coda": one of four), shown in the log.
+        const std::string chosen = _ctx.game->movie(_state, name);
+        if (chosen != name)
+            logScript("    (" + name + ": " + chosen + ")");
+        name = chosen;
+    }
     auto flag = [&](const char *f) { return fs::toLower(e.arg(2)) == f || fs::toLower(e.arg(3)) == f; };
     // FMV\, then Movies\ (0x42ac70); none: the event ends at once.
     std::string path;

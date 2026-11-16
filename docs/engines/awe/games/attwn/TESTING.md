@@ -42,6 +42,7 @@ the same script (`tests/engines/awe/gamedata.cmake`), with
 | `awe.attwn.gamedata.scripts` | Every script's commands counted, and the verbs Reluva doesn't know (`awe script-check`) |
 | `awe.attwn.gamedata.route-search` | A way from a new game to the credits, searched for (`awe game-run -solve`), kept in the build (`gamedata/awe.attwn/route.txt`) |
 | `awe.attwn.gamedata.route` | The whole game by it, four ways (`awe game-check -quick`) |
+| `awe.attwn.gamedata.endings` | The four codas: the route played back, and changed to let Lombard die in 9A (his five minutes waited out before the rescue), Vera in 10A (another of her room's hotspots clicked for the marble chunk), and both, each to the credits with the coda its movie names (`awe game-run -play -v`) |
 
 The records are in `tests/engines/awe/data/gamedata/attwn-english/`.
 
@@ -71,9 +72,9 @@ drawers above it are shut).
 
 ### What the automated checks don't cover
 
-Anything off the route but what wandering finds; the four codas but the
-one the route comes to; the original game played beside it, for want of
-recordings of it.
+Anything off the route but what wandering finds, and the codas' other
+ways (other hotspots in Vera's room); the original game played beside it,
+for want of recordings of it.
 
 ## A playthrough by hand
 
@@ -83,6 +84,7 @@ Not yet.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 16 November 2026 | English (retail, two CDs) | Linux | The four endings by the `endings` step: each plays to the credits with its own coda |
 | 15 November 2026 | English (retail, two CDs) | Linux | `awe.engine` with this game's half added; Orient Express's game-files steps again after the night pictures (all five passed) |
 | 15 November 2026 | English (retail, two CDs) | Linux | Scene by scene against gameplay footage: the footage's frames every 2 seconds matched to the scenes by their backgrounds (2,103 visits, 170 scenes), each scene shown by `awe page-shot` at the start of each of the chapter's acts, and 1,820 frames compared by the colour of a grid of cells: within 3% overall in every chapter. Fixed: the night's own pictures in 2A and 4C. The other differences were the story's state (the flashlight, the generator off, a movie on the screen) or a frame mid-fade |
 | 15 November 2026 | English (retail, two CDs) | Linux | Against gameplay footage (two playthroughs, by chapter): the logos, main menu, options, in-game menu and save screen, the title card, the dialogue box and its colours, the journal and the inventory, the flashlight, the safe and the deposit boxes, the front entrance at night (its pictures' night colour, fixed), the journal's back arrow (fixed), an ending |

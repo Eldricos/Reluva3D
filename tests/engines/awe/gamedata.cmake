@@ -28,6 +28,12 @@
 #   route    the whole game by that route, four ways: by the mouse with
 #            sound, by the hand alone, saved and loaded after every action,
 #            and wandering off it (game-check -quick).
+#   endings  And Then There Were None's four codas: the route played back
+#            as it is, and changed to let Lombard die in 9A (its five
+#            minutes waited out before his rescue), Vera in 10A (another
+#            of her room's hotspots clicked for the marble chunk's use),
+#            and both (game-run -play), each to the credits, with the coda
+#            its movie names.
 # A command that fails fails the step. What each prints (paths and timings
 # taken out) is checksummed, with a summary line, into a record:
 # tests/engines/awe/data/gamedata/<release>/<step>.txt. The step passes when
@@ -97,6 +103,42 @@ elseif(STEP STREQUAL "route")
         message(FATAL_ERROR "No route: the route-search step makes it (ctest -R gamedata.route-search)")
     endif()
     record_run(route "all passed|FAILED" awe game-check "${game_dir}" "${route}" -quick)
+elseif(STEP STREQUAL "endings")
+    if(NOT GAME STREQUAL "attwn")
+        message(FATAL_ERROR "Only And Then There Were None has endings to choose")
+    endif()
+    set(route "${OUTPUT}/route.txt")
+    if(NOT EXISTS "${route}")
+        message(FATAL_ERROR "No route: the route-search step makes it (ctest -R gamedata.route-search)")
+    endif()
+    file(READ "${route}" both)
+    # Lombard's rescue in 9A (its listB: "timer >300" lets him die) and
+    # Vera's in 10A (the act's other hotspots over her room's: the second
+    # of the name, in front).
+    set(rescue "click|easternpaths03.ac1|SPOT@557,444|0|\n")
+    set(marble "use|verasroom01.ac1|unknown_model.gr2|0||marblechunk\n")
+    string(FIND "${both}" "${rescue}" at1)
+    string(FIND "${both}" "${marble}" at2)
+    if(at1 EQUAL -1 OR at2 EQUAL -1)
+        message(FATAL_ERROR "The route hasn't the rescues the endings change (${route})")
+    endif()
+    string(REPLACE "${rescue}" "wait|easternpaths03.ac1|301||\n${rescue}" lombardDies "${both}")
+    string(REPLACE "${marble}" "click|verasroom01.ac1|SPOT@10,239|1|\n" veraDies "${both}")
+    string(REPLACE "${marble}" "click|verasroom01.ac1|SPOT@10,239|1|\n" neither "${lombardDies}")
+    file(WRITE "${OUTPUT}/ending-vera.txt" "${lombardDies}")
+    file(WRITE "${OUTPUT}/ending-lombard.txt" "${veraDies}")
+    file(WRITE "${OUTPUT}/ending-neither.txt" "${neither}")
+    foreach(ending both lombard vera neither)
+        set(file "${OUTPUT}/ending-${ending}.txt")
+        if(ending STREQUAL "both")
+            set(file "${route}")
+        endif()
+        run_tool(out awe game-run "${game_dir}" -play "${file}" -v)
+        string(REGEX MATCH "\\(coda: [^)]*\\)" coda "${out}")
+        string(REGEX MATCH "[0-9]+ of [0-9]+ actions[^\n]*" summary "${out}")
+        string(REGEX REPLACE "; [0-9.]+ minutes of game time" "" summary "${summary}")
+        set(record "${record}${ending} alive: ${coda} ${summary}\n")
+    endforeach()
 else()
     message(FATAL_ERROR "Unknown step ${STEP}")
 endif()

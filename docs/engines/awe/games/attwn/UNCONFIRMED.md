@@ -32,10 +32,6 @@ None yet.
   darkening after it: inferred from the scenes' pictures clearing the
   stencil, the interface's pictures' draw not read.
   [systems/shadows.md](systems/shadows.md).
-- **An act's version over its base** is merged as Orient Express merges
-  them: an object the base has already isn't added again. `ac.exe` reads
-  the base, then the rest of the file (`0x42ca40`); whether it skips
-  duplicates isn't read yet. [formats/ac1.md](formats/ac1.md).
 - **Wargrave's "Anything else you'd like to add?" in 4A strands
   Narracott** in Blore's close-up, as Reluva plays it: the thread's line
   `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
@@ -54,6 +50,10 @@ None yet.
 
 ## Settled
 
+- **An act's version over its base**: `ac.exe` adds every object, with
+  no test for one the base has (`0x423ef0`); Reluva's merge, Orient
+  Express's, drops none of the install's objects.
+  [formats/ac1.md](formats/ac1.md).
 - **A character's extra, once heard, isn't offered again** (Wargrave's
   "Can you help me build a parachute?"): read in `ac.exe`, which saves a
   borrowed extra under the generic name and act `0` and reads the

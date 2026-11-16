@@ -24,7 +24,13 @@ what differs.
   is built on. The loader reads that scene first (`0x42ca40`), then the
   rest of this file. While a base is loaded, this file's `FAKE`, `OUTD`
   and `NVNT` are read and dropped (`0x42c84f`, `0x42c901`, `0x42c92c`):
-  the base's stay.
+  the base's stay. Every object of the file is added after the base's,
+  with no test for one the base has (the factory, `0x423bc0`, appends:
+  `0x423ef0`); where two hit at a point, the pick takes the one in front,
+  of equal depth the later (`0x42ce30`: sorted by depth keeping their
+  order, `0x42cdc0`, tried from the end). In 10A Vera's room's act
+  version covers the room's hotspots with its own, in front, that let
+  her die.
 - **The camera** (`0x4085e0`) has the same fields, its walk grid's size
   and bytes being two of them, then only `1240`: no whiteout. Its records
   have 21 fields.
@@ -66,6 +72,9 @@ records above, and the camera's fields counted as the game counts them
 (as Orient Express's camera does too). The data viewer's Scenes page lists
 the scenes of both kinds, merges an act's version over the scene its
 `BASE` names, and draws them at the game's 800×600, its characters too.
+The merge drops an object the base has already, as Orient Express's
+does; of the install's, that would only be scene settings it passes
+over anyway, so every object is kept, as `ac.exe` keeps them.
 
 ## Sources and checks
 

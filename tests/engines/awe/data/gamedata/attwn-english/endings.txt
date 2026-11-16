@@ -1,0 +1,4 @@
+both alive: (coda: coda#2bothalive) 2162 of 2162 actions; act 01a, scene mainmenu01.ac1; the credits were reached
+lombard alive: (coda: coda#3lombardalive) 2162 of 2162 actions; act 01a, scene mainmenu01.ac1; the credits were reached
+vera alive: (coda: coda#4veraalive) 2163 of 2163 actions; act 01a, scene mainmenu01.ac1; the credits were reached
+neither alive: (coda: coda#1neitheralive) 2163 of 2163 actions; act 01a, scene mainmenu01.ac1; the credits were reached

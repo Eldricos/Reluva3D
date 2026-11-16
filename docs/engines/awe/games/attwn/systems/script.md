@@ -55,7 +55,11 @@ The runner tells a verb by its first word, compared ignoring case
   `coda#2bothalive` with the tags `9a_lombardsaved` and `10a_verasaved`,
   `coda#3lombardalive` or `coda#4veraalive` with one, else
   `coda#1neitheralive`; played as any other movie. It's played before
-  act 10B, not at the game's end.
+  act 10B, not at the game's end. Lombard is saved in 9A by reaching
+  `easternpaths03`'s way out within five minutes of the act's timer (its
+  `listB`: `timer >300` plays `lombardperishes` instead); Vera in 10A by
+  using the marble chunk on her, any other hotspot of her room playing
+  `veraperishes`. The scene page logs the coda it picks.
 
 - **`timer <word>`** (`0x40d9dd`): one clock, `[0x485f2c]`, set to 0,
   whatever the word (`start`, `reset`); the main runner adds each frame's
