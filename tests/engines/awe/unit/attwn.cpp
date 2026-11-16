@@ -497,6 +497,24 @@ void testLighting() {
     CHECK(nightPictureFile("rooms\\door.tga", state, has) == "rooms\\door.tga");
     state.game = nullptr;
     CHECK(nightPictureFile("rooms\\room03.jpg", state, has) == "rooms\\room03.jpg");
+    // Particles and OLDS: at night outdoors only, not FAKE's case
+    // (0x425a28, 0x43017e).
+    state.game = &attwn::game();
+    Rgb tint{};
+    CHECK(nightOutdoorTint(scene, state, tint) && tint[2] == 0.78125f);
+    Ac2Scene fake;
+    fake.records.push_back({"FAKE", {{"value", whole(1)}}, {}});
+    CHECK(!nightOutdoorTint(fake, state, tint) && nightPictureTint(fake, state, tint));
+    state.values["time"] = 0;
+    CHECK(!nightOutdoorTint(scene, state, tint));
+    // A light with its 25th field set changes the first of its index
+    // (0x42c9a4); none of the install's is.
+    Ac2Scene lights;
+    lights.records.push_back({"LITE", {{"index", whole(2)}, {"y", num(1)}}, {}});
+    lights.records.push_back({"LITE", {{"index", whole(3)}, {"y", num(2)}}, {}});
+    lights.records.push_back({"LITE", {{"index", whole(3)}, {"b6c", whole(1)}, {"y", num(9)}}, {}});
+    replaceLights(lights);
+    CHECK(lights.records.size() == 2 && lights.records[0].f("y") == 1 && lights.records[1].f("y") == 9);
 }
 
 void testSaves() {

@@ -75,8 +75,11 @@ replaced by a third night colour, red 0.5078125, green 0.625, blue 0.78125
   out against the darkened scene.
 
 The `lighting` field and the scene's `LITE`s play no part in pictures:
-only characters are lit (`0x42116b`). The same night colour tints
-particles and `OLDS` outdoors at night (`0x425a28`, `0x4300d0`). Seen in
+only characters are lit (`0x42116b`). Particles and `OLDS` take the same
+night colour, but by the first rule alone, time 1 or more outdoors: a
+particle's colour is the night's instead of its own, its alpha kept
+(`0x425a28`), and an `OLDS`'s the night's instead of its diffuse
+(`0x43017e`). Seen in
 the footage of the front entrance at night in 1A: the picture's colours
 are halved in red, about 0.6 in green, 0.8 in blue.
 
@@ -114,9 +117,12 @@ by it as it draws it (`nightPictureTint`, `render/lighting.cpp`).
 (`nightPictureFile`); the scene page finds each picture's file once, and
 again when the time of day changes.
 
-Not followed: the 25th field's change of a base light, which no light
-uses; the pictures' own diffuse by day (all 1 but a few); the night
-colour on particles and `OLDS`.
+`LightingRules::lightsReplace` has a light with its 25th field set change
+the first of its index (`replaceLights`), though no light of the install
+sets it. Particles and `OLDS` take the night colour by the outdoor rule
+alone (`nightOutdoorTint`). The pictures' own diffuse by day isn't
+applied: all 930 of the install's pictures, `OLDS` and movie loops have
+1, which draws them as they are.
 
 ## Sources and checks
 
@@ -125,8 +131,9 @@ colour on particles and `OLDS`.
   `LightEnable` +0xb8), and compared with `motoe.exe`'s; the scene loader
   (`0x42c680`) and its base loader (`0x42ca40`).
 - **How it's checked:** `awe.unit.attwn` lights a base scene and an act's
-  version at night, indoors and out, and a scene without a camera, and
-  finds a picture's night file. The
+  version at night, indoors and out, and a scene without a camera, finds
+  a picture's night file, tells the particles' night rule from the
+  pictures', and has a light with its 25th field change another. The
   lights were counted with `awe ac2-dump` over the 537 scenes. The front
   entrance at night in 1A against a frame of gameplay footage: its
   pictures' colours within a few levels of the footage's. Armstrong's

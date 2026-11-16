@@ -286,6 +286,8 @@ void ScenePage::load() {
                 continue;
             _scene.records.push_back(r);
         }
+        if (_ctx.game && _ctx.game->lighting.lightsReplace)
+            replaceLights(_scene);
         // The act it's for: "salon_01_06a.ac2" is act 06a's, and
         // ".../Act05b/kitchen04.ac1" act 05b's.
         if (!_playing) {
@@ -829,6 +831,7 @@ void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
     const gfx::Vec3 eye = cam.eye();
     std::vector<ParticleSystem::Point> points;
     system.points(points);
+    nightParticles(points);
     for (const ParticleSystem::Point &p : points) {
         float x;
         float y;
@@ -852,6 +855,17 @@ void ScenePage::drawParticles(const ParticleSystem &system, bool keepAlpha) {
     }
 }
 
+void ScenePage::nightParticles(std::vector<ParticleSystem::Point> &points) const {
+    // At night outdoors, And Then There Were None's particles are drawn in
+    // the night colour instead of their own (ac.exe 0x425a53).
+    Rgb night{};
+    if (!nightOutdoorTint(_scene, _state, night))
+        return;
+    for (ParticleSystem::Point &p : points)
+        for (size_t k = 0; k < 3; k++)
+            p.rgba[k] = uint8_t(std::clamp(night[k], 0.0f, 1.0f) * 255 + 0.5f);
+}
+
 void ScenePage::drawPointSprites(const ParticleSystem &system) {
     // drawParticles' squares as quads for the GPU, one mesh for the frame:
     // the texture (nearest, as the game's point sprites sample it) times
@@ -864,6 +878,7 @@ void ScenePage::drawPointSprites(const ParticleSystem &system) {
     const gfx::Vec3 eye = cam.eye();
     std::vector<ParticleSystem::Point> points;
     system.points(points);
+    nightParticles(points);
     std::vector<gfx::Vertex> verts;
     std::vector<uint32_t> indices;
     for (const ParticleSystem::Point &p : points) {
@@ -1221,6 +1236,10 @@ void ScenePage::draw() {
         std::string file = fs::toLower(o->text("file"));
         std::replace(file.begin(), file.end(), '/', '\\');
         if (!tinted || file.find("elements\\lights") != std::string::npos)
+            return img;
+        // An OLDS has the outdoor rule alone (0x43017e).
+        Rgb outdoor{};
+        if (o->tag == "OLDS" && !nightOutdoorTint(_scene, _state, outdoor))
             return img;
         auto [it, made] = _nightTinted.try_emplace(&img);
         if (made || _loops.count(o)) {

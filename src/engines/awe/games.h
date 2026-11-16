@@ -162,6 +162,11 @@ struct LightingRules {
      * "x_night.jpg" instead when the game has that file.
      */
     bool nightFiles = false;
+    /**
+     * A light with its 25th field (b6c) set changes the scene's first
+     * light whose index is its own, and isn't added itself.
+     */
+    bool lightsReplace = false;
 };
 
 /**

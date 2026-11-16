@@ -1,6 +1,6 @@
 # And Then There Were None: the script runner
 
-> **Status:** partial · **Code:** `src/engines/awe/game/script.cpp`, `conditions.cpp` (shared); `src/engines/awe/attwn/script.cpp` (this game's own words) · **Checked against:** the code (`ac.exe`); `awe script-check` over the English install's 5,622 commands · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/script.cpp`, `conditions.cpp` (shared); `src/engines/awe/attwn/script.cpp` (this game's own words) · **Checked against:** the code (`ac.exe`); `awe script-check` over the English install's 5,622 commands · **Confidence:** from the code unless marked
 
 ## Overview
 

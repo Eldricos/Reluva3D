@@ -61,6 +61,34 @@ bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) 
     return true;
 }
 
+bool nightOutdoorTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) {
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
+    if (rules.nightPictures[0] == 0 && rules.nightPictures[1] == 0 && rules.nightPictures[2] == 0)
+        return false;
+    const auto t = state.values.find("time");
+    if (t == state.values.end() || t->second < 1 || !sceneFlag(scene, "OUTD"))
+        return false;
+    tint = {rules.nightPictures[0], rules.nightPictures[1], rules.nightPictures[2]};
+    return true;
+}
+
+void replaceLights(Ac2Scene &scene) {
+    // Found by 0x42d2e0, copied by the light's vtable +0x38.
+    for (size_t i = 0; i < scene.records.size();) {
+        const Ac2Record &r = scene.records[i];
+        if (r.tag != "LITE" || r.i("b6c") == 0) {
+            i++;
+            continue;
+        }
+        for (size_t j = 0; j < i; j++)
+            if (scene.records[j].tag == "LITE" && scene.records[j].i("index") == r.i("index")) {
+                scene.records[j].fields = r.fields;
+                break;
+            }
+        scene.records.erase(scene.records.begin() + std::ptrdiff_t(i));
+    }
+}
+
 std::string nightPictureFile(const std::string &file, const GameState &state,
                              const std::function<bool(const std::string &)> &has) {
     // Time exactly 2; "_night" before the last four characters, kept only

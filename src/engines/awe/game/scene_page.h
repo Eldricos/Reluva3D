@@ -826,6 +826,7 @@ private:
     std::map<const Ac2Record *, ObjectFade> _objectFades;
     std::map<const Ac2Record *, std::pair<int, image::Image>> _fadedPictures;
     void updateObjectFades(float dt);
+    void nightParticles(std::vector<ParticleSystem::Point> &points) const;
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).

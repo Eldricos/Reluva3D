@@ -71,6 +71,16 @@ bool nightLighting(const Ac2Scene &scene, int timeOfDay);
 // are.
 bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
 
+// The night colour particles and OLDS pictures are drawn in now: time 1
+// or more outdoors alone, without nightPictureTint's FAKE case (ac.exe
+// 0x425a28, 0x43017e); false by day, indoors or for a game without one.
+bool nightOutdoorTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
+
+// And Then There Were None's lights with their 25th field (b6c) set, each
+// copied over the scene's first light of its index and itself taken out
+// (LightingRules::lightsReplace; ac.exe 0x42c9a4).
+void replaceLights(Ac2Scene &scene);
+
 // The file a scene's picture `file` is drawn from now: late at night, for
 // a game with night pictures (LightingRules::nightFiles), "x_night.jpg"
 // for "x.jpg" when `has` says there is one; else `file`.

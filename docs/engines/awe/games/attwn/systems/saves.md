@@ -1,6 +1,6 @@
 # And Then There Were None: saved games
 
-> **Status:** partial · **Code:** `src/engines/awe/formats/savegame.cpp` (shared), `src/engines/awe/games.h` (`GameSaves`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`) · **Confidence:** from the code
+> **Status:** done · **Code:** `src/engines/awe/formats/savegame.cpp` (shared), `src/engines/awe/games.h` (`GameSaves`), `src/engines/awe/attwn/attwn.cpp` (this game's) · **Checked against:** the code (`ac.exe`) · **Confidence:** from the code
 
 ## Overview
 
