@@ -119,7 +119,10 @@ private:
         float sort = 3;
         int material = 0;
         int lightmap = -1; // index into _lightmaps, or -1
-        int fog = -1;      // index into _fogs, or -1
+        // Its surfaces' other lightmap styles (Raven's), kNoStyle for none:
+        // each drawn as a pass of its own.
+        std::array<uint8_t, kLightStyles - 1> styles{kNoStyle, kNoStyle, kNoStyle};
+        int fog = -1; // index into _fogs, or -1
         uint32_t firstIndex = 0;
         uint32_t indexCount = 0;
         int model = 0; // the map's model the surfaces belong to (0: the world)
@@ -131,8 +134,8 @@ private:
     };
 
     void buildSky(const ShaderDef &sky);
-    // Lightmap `index` as its styles' colours make it now.
-    std::vector<uint8_t> composeLightmap(size_t index) const;
+    // The passes for a batch's other styles, as their colours are now.
+    std::vector<ShaderCache::StyledLightmap> stylePasses(const Batch &b) const;
     // A vertex of a surface lit by styles other than 0 alone: kept with its
     // styles' colours, to light it again as they change.
     void noteStyledVertex(const BspVertex &v, const BspSurface &s, uint32_t index);
@@ -142,22 +145,14 @@ private:
     ShaderCache &_shaders;
     gfx::MeshId _mesh = 0;
     std::vector<gfx::TextureId> _lightmaps;
-    // Light styles: each lightmap's own pixels, brightened (style 0's, and
-    // the extra styles' in places of their own); each extra style's place,
-    // added over its surface's style 0 place scaled by the style's colour;
-    // the mesh's vertices, and those of multi-style surfaces with each
-    // style's colour.
+    // Light styles (Raven's): for each lightmap, and each surface's second,
+    // third and fourth style, that style's light laid where the surface's
+    // first is, so the same coordinates find it (0: no surface has one);
+    // the styles' colours now; the mesh's vertices, and those of
+    // multi-style surfaces with each style's light.
+    std::vector<std::array<gfx::TextureId, kLightStyles - 1>> _styleLightmaps;
     LightStyleColors _styles = fullLightStyles();
-    std::vector<uint8_t> _lightmapBase;
-    struct StyleLayer {
-        int target = 0; // lightmaps
-        int source = 0;
-        std::array<int, 2> to{};
-        std::array<int, 2> from{};
-        std::array<int, 2> size{};
-        uint8_t style = 0;
-    };
-    std::vector<StyleLayer> _styleLayers;
+    bool _raven = false;
     std::vector<gfx::Vertex> _vertices;
     struct StyledVertex {
         uint32_t vertex = 0;

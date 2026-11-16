@@ -1075,6 +1075,7 @@ static void testLightStyles() {
     s.lightmapPos[0] = {0, 0};
     s.lightmapPos[1] = {4, 4};
     s.lightmapSize = {2, 2};
+    s.fog = -1;
     bsp.surfaces.push_back(s);
     for (int i = 0; i < 4; ++i) {
         BspVertex v;
@@ -1084,37 +1085,55 @@ static void testLightStyles() {
         bsp.vertices.push_back(v);
     }
     bsp.indices = {0, 1, 2, 2, 1, 3};
+    bsp.raven = true;
     SearchSet files;
     ShaderLibrary library;
     StyleRenderer r;
     ShaderCache shaders(r, files, library);
     WorldRenderer world(r, shaders);
     CHECK(!world.load(bsp, library));
-    const auto lightmap0 = [&]() -> const std::vector<uint8_t> * {
-        // Lightmap 0 is the first texture made after the shader cache's own.
-        for (const auto &[id, px] : r.textures)
-            if (px.size() == size_t(kLightmapSize) * kLightmapSize * 4 && px[0] != 0)
-                return &px;
-        return nullptr;
+    // Lightmap 0 holds style 0's light alone (80); style 6's (60) has a
+    // lightmap of its own, at style 0's place.
+    gfx::TextureId lightmap0 = 0;
+    gfx::TextureId style6 = 0;
+    for (const auto &[id, px] : r.textures)
+        if (px.size() == size_t(kLightmapSize) * kLightmapSize * 4 && px[0] == 80)
+            lightmap0 = id;
+        else if (px.size() == size_t(kLightmapSize) * kLightmapSize * 4 && px[0] == 60)
+            style6 = id;
+    CHECK(lightmap0 && style6);
+    // Drawn as the original's shader: the lightmap stage, then style 6's
+    // copy of it, added, coloured by the style, then the texture over both.
+    auto stylePass = [&]() -> const gfx::DrawCall * {
+        r.drawn.clear();
+        world.drawSurfaces(0);
+        if (r.drawn.size() != 3 || r.drawn[0].texture != lightmap0 || r.drawn[1].texture != style6)
+            return nullptr;
+        return &r.drawn[1];
     };
-    // At full, both styles add up: 80 + 60; the vertices 100 + 40.
-    CHECK(lightmap0() && (*lightmap0())[0] == 140);
-    CHECK(r.vertices.size() == 4 && r.vertices[0].color[0] == 140);
-    // Style 6 dark: only style 0's light is left, in both.
+    const gfx::DrawCall *pass = stylePass();
+    CHECK(pass && pass->state.src == gfx::Blend::kOne && pass->state.dst == gfx::Blend::kOne &&
+          pass->rgbSource == gfx::ColorSource::kConstant && pass->color[0] == 1);
+    // The vertices: each style's light times its colour, over 256:
+    // (100 + 40) x 255 / 256.
+    CHECK(r.vertices.size() == 4 && r.vertices[0].color[0] == 140 * 255 / 256);
+    // Style 6 dark: its pass adds nothing; the vertices keep style 0's.
     LightStyleColors styles = fullLightStyles();
     styles[6] = {0, 0, 0, 255};
     world.setLightStyles(styles);
-    CHECK(lightmap0() && (*lightmap0())[0] == 80);
-    CHECK(r.verticesSet == 1 && r.vertices[0].color[0] == 100);
+    pass = stylePass();
+    CHECK(pass && pass->color[0] == 0);
+    CHECK(r.verticesSet == 1 && r.vertices[0].color[0] == 100 * 255 / 256);
     // A style no surface uses changes nothing.
     styles[9] = {1, 2, 3, 255};
     world.setLightStyles(styles);
     CHECK(r.verticesSet == 1);
-    // Half: 80 + 60 * 128 / 255; 100 + 40 * 128 / 255.
+    // Half: the pass at 128 / 255; the vertices (100 x 255 + 40 x 128) / 256.
     styles[6] = {128, 128, 128, 255};
     world.setLightStyles(styles);
-    CHECK(lightmap0() && (*lightmap0())[0] == 80 + 60 * 128 / 255);
-    CHECK(r.vertices[0].color[0] == 100 + 40 * 128 / 255);
+    pass = stylePass();
+    CHECK(pass && std::fabs(pass->color[0] - 128.0f / 255) < 1e-6f);
+    CHECK(r.vertices[0].color[0] == (100 * 255 + 40 * 128) / 256);
 }
 
 static void testLightGrid() {

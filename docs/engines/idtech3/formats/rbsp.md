@@ -102,26 +102,21 @@ same are stored once (kejim_post: 496,800 cells, 32,993 points). A point:
 one style (0) on every surface, vertex and grid point, and their grid an
 index of one point each.
 
-The renderer adds each surface's extra styles' lightmaps into its first
-style's, each scaled by its style's colour, and keeps what it needs to do
-it again: each lightmap's own pixels and where each extra style's light
-goes. When the game's code changes a style, the lightmaps holding it are
-made again, and the colours of the vertices of surfaces lit by styles
-other than 0 alone (`WorldRenderer::setLightStyles`); the grid scales each
-point's styles as it's sampled. In multiplayer only `ffa_ns_streets` has
-such surfaces (45, style 6, a flicker); single player's levels many more.
+The renderer draws each surface's extra styles as the original does: the
+lightmap stage again for each, added, coloured by the style
+(`ShaderCache::draw`'s style passes). Each extra style slot (second,
+third, fourth) has a lightmap of its own per lightmap, holding the
+style's light at the surface's first style's place, so the surface's one
+set of lightmap coordinates finds it; surfaces are batched by their
+styles. When the game's code changes a style, only the passes' colours
+change, and the vertices of surfaces lit by styles other than 0 alone are
+lit again, each style's light times its colour over 256
+(`WorldRenderer::setLightStyles`); the grid scales each point's styles as
+it's sampled. In multiplayer only `ffa_ns_streets` has such surfaces
+(45, style 6, a flicker); single player's levels many more.
 
-Two differences remain:
-
-- Adding into one lightmap draws as the original's passes do where the
-  lightmap's stage is the shader's first, as it is in all but 7 of the 250
-  shaders on multi-style surfaces (`textures/cairn/basewall`,
-  `textures/imp_mine/grating` and others put a texture first): on those
-  the extra styles' light is multiplied by the texture, where the original
-  adds it on top.
-- A vertex's styles are scaled by colour / 255, not 256, so that full
-  light stays as the level loaded it; and vertices lit by style 0 alone
-  aren't lit again if a game dims style 0 (none of Jedi Outcast's does).
+One difference remains: vertices lit by style 0 alone aren't lit again
+if a game changes style 0 (none of Jedi Outcast's does).
 
 `reluva-viewer`'s World and Maps pages show the maps (all styles full);
 `reluva-tool idtech3 bsp-check` reads them all.
@@ -149,3 +144,10 @@ Two differences remain:
   (recorded by the game-files step `jk2-game`). The maps drawn in
   `reluva-viewer` look lit as expected; the styles changing haven't been
   seen on screen yet, nor compared with the original running.
+
+### Open questions
+
+- The GPL renderer gives a surface with a lightmap white vertex colours
+  (`ComputeFinalVertexColor`), so a stage of its shader that uses vertex
+  colour sees white; Reluva gives such stages the surface's vertex light.
+  Not found in jk2mp.exe yet, so not followed.

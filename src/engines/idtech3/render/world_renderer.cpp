@@ -27,7 +27,7 @@ constexpr float kSkySort = -1; // the sky surfaces' batches: never drawn as surf
 // A vertex as drawn. Its colour adds up its surface's light styles: until
 // a game's code sets them, each is full, as Raven's engines start them
 // (rbsp.md). A Quake III map's surfaces have only style 0.
-gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s) {
+gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven) {
     gfx::Vertex g;
     for (int i = 0; i < 3; ++i) {
         g.pos[i] = v.pos[size_t(i)];
@@ -37,6 +37,8 @@ gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s) {
         g.uv[i] = v.st[size_t(i)];
         g.uv2[i] = v.lightmap[0][size_t(i)];
     }
+    // Each style's light added up: Raven's scaled by the style's colour
+    // (full, as a level starts) over 256, as its renderer does.
     int rgb[3] = {};
     for (size_t k = 0; k < kLightStyles; ++k) {
         if (s.vertexStyles[k] == kNoStyle)
@@ -44,10 +46,10 @@ gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s) {
         uint8_t c[3] = {v.color[k][0], v.color[k][1], v.color[k][2]};
         brightenLight(c);
         for (int i = 0; i < 3; ++i)
-            rgb[i] += c[i];
+            rgb[i] += raven ? c[i] * 255 : c[i];
     }
     for (int i = 0; i < 3; ++i)
-        g.color[i] = static_cast<uint8_t>(std::min(rgb[i], 255));
+        g.color[i] = static_cast<uint8_t>(std::min(raven ? rgb[i] >> 8 : rgb[i], 255));
     g.color[3] = v.color[0][3];
     return g;
 }
@@ -82,9 +84,13 @@ void WorldRenderer::clear() {
     for (gfx::TextureId t : _lightmaps)
         _r.destroyTexture(t);
     _lightmaps.clear();
+    for (const auto &slots : _styleLightmaps)
+        for (gfx::TextureId t : slots)
+            if (t)
+                _r.destroyTexture(t);
+    _styleLightmaps.clear();
     _styles = fullLightStyles();
-    _lightmapBase.clear();
-    _styleLayers.clear();
+    _raven = false;
     _vertices.clear();
     _styledVertices.clear();
     _fogs.clear();
@@ -166,36 +172,60 @@ void WorldRenderer::buildSky(const ShaderDef &sky) {
 
 Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     clear();
-    // The lightmaps brightened; each surface's other styles' places to add
-    // over its first's (rbsp.md: the original draws them as passes added
-    // after the lightmap's, which is the same where the lightmap's pass is
-    // the shader's first). Each surface has its own place in each lightmap
-    // (true of every Jedi Outcast map), so nothing is added twice.
+    // The lightmaps brightened. Raven's other styles each get a lightmap of
+    // their own per slot, their light where the surface's first style's is
+    // (each surface has its own place in each lightmap, true of every Jedi
+    // Outcast map), drawn as passes added after the lightmap stage's, as
+    // the original's FinishShader adds them (rbsp.md).
+    _raven = bsp.raven;
     constexpr size_t kPixels = size_t(kLightmapSize) * kLightmapSize;
-    _lightmapBase.assign(bsp.lightmapCount() * kPixels * 4, 0);
+    std::vector<uint8_t> base(bsp.lightmapCount() * kPixels * 4, 0);
     for (size_t i = 0; i < bsp.lightmapCount() * kPixels; ++i) {
-        std::copy_n(&bsp.lightmaps[i * 3], 3, &_lightmapBase[i * 4]);
-        brightenLight(&_lightmapBase[i * 4]);
-        _lightmapBase[i * 4 + 3] = 255;
+        std::copy_n(&bsp.lightmaps[i * 3], 3, &base[i * 4]);
+        brightenLight(&base[i * 4]);
+        base[i * 4 + 3] = 255;
     }
-    for (const BspSurface &s : bsp.surfaces) {
-        if (s.lightmap[0] < 0 || size_t(s.lightmap[0]) >= bsp.lightmapCount() || s.lightmapStyles[0] == kNoStyle)
-            continue;
-        for (size_t k = 1; k < kLightStyles && s.lightmapStyles[k] != kNoStyle; ++k)
-            if (s.lightmap[k] >= 0 && size_t(s.lightmap[k]) < bsp.lightmapCount())
-                _styleLayers.push_back({s.lightmap[0], s.lightmap[k], s.lightmapPos[0], s.lightmapPos[k],
-                                        s.lightmapSize, s.lightmapStyles[k]});
-    }
+    gfx::TextureParams lightmapParams;
+    lightmapParams.clamp = true;
+    lightmapParams.mipmaps = false;
     for (size_t l = 0; l < bsp.lightmapCount(); ++l) {
-        gfx::TextureParams p;
-        p.clamp = true;
-        p.mipmaps = false;
         gfx::TextureId t = 0;
-        const std::vector<uint8_t> rgba = composeLightmap(l);
-        if (Error err = _r.createTexture(kLightmapSize, kLightmapSize, rgba.data(), p, t))
+        if (Error err =
+                _r.createTexture(kLightmapSize, kLightmapSize, base.data() + l * kPixels * 4, lightmapParams, t))
             return err;
         _lightmaps.push_back(t);
     }
+    std::vector<std::array<std::vector<uint8_t>, kLightStyles - 1>> slots(bsp.lightmapCount());
+    for (const BspSurface &s : bsp.surfaces) {
+        if (s.lightmap[0] < 0 || size_t(s.lightmap[0]) >= bsp.lightmapCount() || s.lightmapStyles[0] == kNoStyle)
+            continue;
+        for (size_t k = 1; k < kLightStyles && s.lightmapStyles[k] != kNoStyle; ++k) {
+            if (s.lightmap[k] < 0 || size_t(s.lightmap[k]) >= bsp.lightmapCount())
+                continue;
+            std::vector<uint8_t> &to = slots[size_t(s.lightmap[0])][k - 1];
+            if (to.empty())
+                to.assign(kPixels * 4, 0);
+            for (int y = 0; y < s.lightmapSize[1]; ++y)
+                for (int x = 0; x < s.lightmapSize[0]; ++x) {
+                    const int tx = s.lightmapPos[0][0] + x;
+                    const int ty = s.lightmapPos[0][1] + y;
+                    const int fx = s.lightmapPos[k][0] + x;
+                    const int fy = s.lightmapPos[k][1] + y;
+                    if (tx < 0 || ty < 0 || fx < 0 || fy < 0 || tx >= kLightmapSize || ty >= kLightmapSize ||
+                        fx >= kLightmapSize || fy >= kLightmapSize)
+                        continue;
+                    std::copy_n(&base[(size_t(s.lightmap[k]) * kPixels + size_t(fy) * kLightmapSize + size_t(fx)) * 4],
+                                4, &to[(size_t(ty) * kLightmapSize + size_t(tx)) * 4]);
+                }
+        }
+    }
+    _styleLightmaps.assign(bsp.lightmapCount(), {});
+    for (size_t l = 0; l < slots.size(); ++l)
+        for (size_t k = 0; k + 1 < kLightStyles; ++k)
+            if (!slots[l][k].empty())
+                if (Error err = _r.createTexture(kLightmapSize, kLightmapSize, slots[l][k].data(), lightmapParams,
+                                                 _styleLightmaps[l][k]))
+                    return err;
 
     for (const BspFog &f : bsp.fogs) {
         Fog fog;
@@ -217,8 +247,8 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
     // Every surface's triangles, grouped by what they're drawn with and
     // ordered by sort key.
     std::vector<gfx::Vertex> vertices;
-    using GroupKey = std::tuple<float, int, int, int, int>;
-    std::map<GroupKey, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog, model)
+    using GroupKey = std::tuple<float, int, int, int, int, uint32_t>;
+    std::map<GroupKey, std::vector<uint32_t>> groups; // (sort, material, lightmap, fog, model, other styles)
     // Opaque surfaces, for dynamic lights: their group, where their
     // triangles start in it and how many indices, and their bounds.
     struct Pending {
@@ -280,14 +310,23 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 sp.kind = mat.autosprite;
                 const BspVertex *sv = &bsp.vertices[size_t(s.firstVertex)];
                 for (int i = 0; i < s.numVertices; ++i)
-                    sp.vertices.push_back(toGfx(sv[i], s));
+                    sp.vertices.push_back(toGfx(sv[i], s, _raven));
                 for (int i = 0; i < s.numIndices; ++i)
                     sp.indices.push_back(uint32_t(bsp.indices[size_t(s.firstIndex + i)]));
                 _sprites.push_back(std::move(sp));
                 continue;
             }
-            const GroupKey key{sky ? kSkySort : mat.sort, materialIndex, lightmapped ? s.lightmap[0] : -1, s.fog,
-                               int(mi)};
+            // Other styles, packed a byte each (their passes differ).
+            uint32_t otherStyles = 0xffffff;
+            if (lightmapped)
+                otherStyles = uint32_t(s.lightmapStyles[1]) | uint32_t(s.lightmapStyles[2]) << 8 |
+                              uint32_t(s.lightmapStyles[3]) << 16;
+            const GroupKey key{sky ? kSkySort : mat.sort,
+                               materialIndex,
+                               lightmapped ? s.lightmap[0] : -1,
+                               s.fog,
+                               int(mi),
+                               otherStyles};
             std::vector<uint32_t> &out = groups[key];
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
@@ -298,14 +337,14 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
                 triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
                 for (const BspVertex &pv : patchVerts) {
                     noteStyledVertex(pv, s, uint32_t(vertices.size()));
-                    vertices.push_back(toGfx(pv, s));
+                    vertices.push_back(toGfx(pv, s, _raven));
                 }
                 for (uint32_t i : patchIndices)
                     out.push_back(base + i);
             } else {
                 for (int i = 0; i < s.numVertices; ++i) {
                     noteStyledVertex(v[i], s, uint32_t(vertices.size()));
-                    vertices.push_back(toGfx(v[i], s));
+                    vertices.push_back(toGfx(v[i], s, _raven));
                 }
                 for (int i = 0; i + 2 < s.numIndices; i += 3)
                     for (int k = 0; k < 3; ++k)
@@ -346,8 +385,17 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             continue;
         groupStart[key] = uint32_t(indices.size());
         groupBatch[key] = int(_batches.size());
-        _batches.push_back({std::get<0>(key), std::get<1>(key), std::get<2>(key), std::get<3>(key),
-                            uint32_t(indices.size()), uint32_t(list.size()), std::get<4>(key)});
+        Batch b;
+        b.sort = std::get<0>(key);
+        b.material = std::get<1>(key);
+        b.lightmap = std::get<2>(key);
+        for (size_t k = 0; k < b.styles.size(); ++k)
+            b.styles[k] = uint8_t(std::get<5>(key) >> (8 * k));
+        b.fog = std::get<3>(key);
+        b.firstIndex = uint32_t(indices.size());
+        b.indexCount = uint32_t(list.size());
+        b.model = std::get<4>(key);
+        _batches.push_back(b);
         indices.insert(indices.end(), list.begin(), list.end());
     }
     _triangles = indices.size() / 3;
@@ -428,33 +476,18 @@ void WorldRenderer::noteStyledVertex(const BspVertex &v, const BspSurface &s, ui
     _styledVertices.push_back(sv);
 }
 
-std::vector<uint8_t> WorldRenderer::composeLightmap(size_t index) const {
-    constexpr size_t kPixels = size_t(kLightmapSize) * kLightmapSize;
-    std::vector<uint8_t> rgba(_lightmapBase.begin() + std::ptrdiff_t(index * kPixels * 4),
-                              _lightmapBase.begin() + std::ptrdiff_t((index + 1) * kPixels * 4));
-    // Style 0's light as it is (the original's first lightmap pass is never
-    // coloured); each other style's added, scaled by its colour.
-    for (const StyleLayer &l : _styleLayers) {
-        if (size_t(l.target) != index)
+std::vector<ShaderCache::StyledLightmap> WorldRenderer::stylePasses(const Batch &b) const {
+    std::vector<ShaderCache::StyledLightmap> out;
+    if (b.lightmap < 0 || size_t(b.lightmap) >= _styleLightmaps.size())
+        return out;
+    for (size_t k = 0; k < b.styles.size() && b.styles[k] != kNoStyle; ++k) {
+        const gfx::TextureId t = _styleLightmaps[size_t(b.lightmap)][k];
+        if (!t)
             continue;
-        const std::array<uint8_t, 4> &color = _styles[l.style % kStyleCount];
-        for (int y = 0; y < l.size[1]; ++y)
-            for (int x = 0; x < l.size[0]; ++x) {
-                const int tx = l.to[0] + x;
-                const int ty = l.to[1] + y;
-                const int fx = l.from[0] + x;
-                const int fy = l.from[1] + y;
-                if (tx < 0 || ty < 0 || fx < 0 || fy < 0 || tx >= kLightmapSize || ty >= kLightmapSize ||
-                    fx >= kLightmapSize || fy >= kLightmapSize)
-                    continue;
-                uint8_t *to = &rgba[(size_t(ty) * kLightmapSize + size_t(tx)) * 4];
-                const uint8_t *from =
-                    &_lightmapBase[((size_t(l.source) * kPixels) + size_t(fy) * kLightmapSize + size_t(fx)) * 4];
-                for (size_t c = 0; c < 3; ++c)
-                    to[c] = uint8_t(std::min(255, to[c] + from[c] * color[c] / 255));
-            }
+        const std::array<uint8_t, 4> &c = _styles[b.styles[k] % kStyleCount];
+        out.push_back({t, {float(c[0]) / 255, float(c[1]) / 255, float(c[2]) / 255, float(c[3]) / 255}});
     }
-    return rgba;
+    return out;
 }
 
 void WorldRenderer::setLightStyles(const LightStyleColors &colors) {
@@ -465,28 +498,10 @@ void WorldRenderer::setLightStyles(const LightStyleColors &colors) {
             any = changed[i] = true;
     if (!any)
         return;
+    // Lightmaps' passes take the colours as they're drawn.
     _styles = colors;
-    // The lightmaps holding a changed style's light, made again.
-    std::vector<bool> dirty(_lightmaps.size());
-    for (const StyleLayer &l : _styleLayers)
-        if (changed[l.style % kStyleCount] && size_t(l.target) < dirty.size())
-            dirty[size_t(l.target)] = true;
-    for (size_t i = 0; i < dirty.size(); ++i) {
-        if (!dirty[i])
-            continue;
-        gfx::TextureParams p;
-        p.clamp = true;
-        p.mipmaps = false;
-        gfx::TextureId t = 0;
-        const std::vector<uint8_t> rgba = composeLightmap(i);
-        if (_r.createTexture(kLightmapSize, kLightmapSize, rgba.data(), p, t))
-            continue;
-        _r.destroyTexture(_lightmaps[i]);
-        _lightmaps[i] = t;
-    }
     // The vertices lit by one, each style's colour times its light added
-    // up. (Raven's renderer divides by 256, a touch darker than the colour
-    // says; 255 keeps full light as it was loaded.)
+    // up over 256, as Raven's renderer does (ComputeFinalVertexColor).
     bool vertices = false;
     for (const StyledVertex &sv : _styledVertices) {
         bool touched = false;
@@ -498,10 +513,10 @@ void WorldRenderer::setLightStyles(const LightStyleColors &colors) {
         for (size_t k = 0; k < kLightStyles && sv.styles[k] != kNoStyle; ++k) {
             const std::array<uint8_t, 4> &color = _styles[sv.styles[k] % kStyleCount];
             for (size_t c = 0; c < 3; ++c)
-                rgb[c] += sv.rgb[k][c] * color[c] / 255;
+                rgb[c] += sv.rgb[k][c] * color[c];
         }
         for (size_t c = 0; c < 3; ++c)
-            _vertices[sv.vertex].color[c] = uint8_t(std::min(rgb[c], 255));
+            _vertices[sv.vertex].color[c] = uint8_t(std::min(rgb[c] >> 8, 255));
         vertices = true;
     }
     if (vertices && _mesh)
@@ -609,7 +624,9 @@ void WorldRenderer::drawSurfaces(float time, float sortMin, float sortMax, bool 
             base.firstIndex = view->batchRanges[i].first;
             base.indexCount = view->batchRanges[i].second;
         }
-        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time);
+        const std::vector<ShaderCache::StyledLightmap> styles = stylePasses(b);
+        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time, false, nullptr,
+                      styles.empty() ? nullptr : &styles);
         if (b.fog >= 0)
             drawFog(b.material, base, b.fog, time);
     }
@@ -1019,7 +1036,9 @@ void WorldRenderer::drawModel(int model, const gfx::Mat4 &transform, float time,
         // From the frame's list while culling (setView), else as loaded.
         base.firstIndex = view ? view->batchRanges[i].first : b.firstIndex;
         base.indexCount = b.indexCount;
-        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time);
+        const std::vector<ShaderCache::StyledLightmap> styles = stylePasses(b);
+        _shaders.draw(b.material, base, b.lightmap >= 0 ? _lightmaps[size_t(b.lightmap)] : 0, time, false, nullptr,
+                      styles.empty() ? nullptr : &styles);
         if (b.fog >= 0)
             drawFog(b.material, base, b.fog, time);
     }

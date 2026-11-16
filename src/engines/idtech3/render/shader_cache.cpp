@@ -507,7 +507,7 @@ void ShaderCache::remap(const std::string &from, const std::string &to, float ti
 }
 
 void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky,
-                       const std::array<float, 4> *entity) const {
+                       const std::array<float, 4> *entity, const std::vector<StyledLightmap> *styles) const {
     if (const auto r = _remapped.find(material); r != _remapped.end()) {
         material = r->second.first;
         time -= r->second.second;
@@ -632,6 +632,18 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
             call.deforms = {};
         }
         _r.draw(call);
+        // Raven's other light styles: the lightmap stage again for each,
+        // its own lightmap added, coloured by the style (FinishShader's
+        // copies, CGEN_LIGHTMAP1 to 3, blended one, one).
+        if (st.lightmap && lightmap && styles)
+            for (const StyledLightmap &style : *styles) {
+                gfx::DrawCall extra = call;
+                extra.texture = style.texture;
+                extra.rgbSource = extra.alphaSource = gfx::ColorSource::kConstant;
+                extra.color = style.color;
+                extra.state.src = extra.state.dst = gfx::Blend::kOne;
+                _r.draw(extra);
+            }
     }
 }
 

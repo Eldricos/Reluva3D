@@ -99,8 +99,14 @@ public:
     // around the camera, behind everything.
     // `entity`: the colour rgbGen and alphaGen entity ask for (white if
     // not given).
+    // A light style's lightmap over the first (Raven's): drawn after the
+    // lightmap stage as a copy of it, added, coloured by the style.
+    struct StyledLightmap {
+        gfx::TextureId texture = 0;
+        std::array<float, 4> color{};
+    };
     void draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky = false,
-              const std::array<float, 4> *entity = nullptr) const;
+              const std::array<float, 4> *entity = nullptr, const std::vector<StyledLightmap> *styles = nullptr) const;
     // A fog pass over geometry drawn with `material`.
     // `distance`: the fog's depth for opaque; `plane`: its surface (see
     // gfx::DrawCall::fogPlane).

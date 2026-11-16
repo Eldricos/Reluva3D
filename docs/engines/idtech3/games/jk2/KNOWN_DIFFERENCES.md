@@ -15,13 +15,8 @@ None yet.
 
 The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
-- **Light styles** ([rbsp.md](../../formats/rbsp.md), In Reluva): each
-  surface's styles are added into one lightmap, scaled by their colours,
-  where the original draws a pass for each. On 7 shaders whose lightmap
-  pass isn't their first, that lights the extra styles through the
-  texture, where the original adds them on top. A vertex's styles are
-  scaled by colour / 255, the original's by 256. Outside a match (the
-  World and Maps pages) every style is held full.
+- **Light styles** ([rbsp.md](../../formats/rbsp.md), In Reluva):
+  outside a match (the World and Maps pages) every style is held full.
 - **Surface sprites** (grass, ferns, vines) stand where Reluva's own
   random draws put them, not where the original's do: the same density
   and look, other spots. Wind and weather sprites wait for the game's
