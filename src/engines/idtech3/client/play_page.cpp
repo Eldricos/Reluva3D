@@ -92,6 +92,7 @@ bool PlayPage::setUpGraphics() {
     }
     _overlay.create(_frameW, _frameH, PixelFormat::kRGBA32);
     _shaders = std::make_unique<ShaderCache>(*_renderer, _ctx.files, _ctx.shaders);
+    _consoleShadersLoaded = false;
     _world = std::make_unique<WorldRenderer>(*_renderer, *_shaders);
     _models = std::make_unique<ModelCache>(*_renderer, *_shaders, _ctx.files);
     applyVideoSettings(video, *_shaders, _world.get(), _models.get());
@@ -1621,6 +1622,8 @@ void PlayPage::update(uint64_t nowMs) {
         }
     }
 
+    if (!_ctx.game.consoleVersion.empty())
+        drawConsole(nowMs, time);
     drawOverlay(nowMs, haveView);
     _renderer->endFrame(&_overlay);
     if (_screenshot.wanted)
@@ -1727,6 +1730,49 @@ void PlayPage::drawColoured(int x, int y, const std::string &line) {
     flush();
 }
 
+void PlayPage::drawConsole(uint64_t nowMs, float time) {
+    // Sliding at scr_conspeed screens a second towards half open or shut.
+    const float dt = _consoleFrameMs ? float(nowMs - _consoleFrameMs) / 1000.0f : 0.0f;
+    _consoleFrameMs = nowMs;
+    const float speed = _cvars.find("scr_conspeed") ? _cvars.value("scr_conspeed") : 3.0f;
+    const float target = _typing == Typing::kConsole ? 0.5f : 0.0f;
+    _consoleFrac = _consoleFrac < target ? std::min(target, _consoleFrac + speed * dt)
+                                         : std::max(target, _consoleFrac - speed * dt);
+    if (!_consoleShadersLoaded) {
+        _consoleShaders.charSet = _shaders->material("gfx/2d/charsgrid_med", Lighting::kTwoD);
+        _consoleShaders.console = _shaders->material("console", Lighting::kTwoD);
+        _consoleShaders.white = _shaders->material("white", Lighting::kTwoD);
+        _consoleShadersLoaded = true;
+    }
+    ConsoleFrame f;
+    f.screenW = _frameW;
+    f.screenH = _frameH;
+    f.frac = _consoleFrac;
+    f.version = _ctx.game.consoleVersion;
+    f.lines = &_consoleLines;
+    f.scroll = _consoleScroll;
+    f.typing = _typing == Typing::kConsole;
+    f.input = _field;
+    f.cursor = _cursor;
+    f.cursorOn = ((nowMs >> 8) & 1) == 0;
+    // Over the game only while no menu (the game's or the client game's)
+    // has the keys.
+    constexpr int32_t kMenuCatchers = 2 | 8;
+    const bool menu = _menuOpen || (_cgame && (_cgame->catcher() & kMenuCatchers));
+    if (!menu) {
+        const float notifyMs = 1000.0f * (_cvars.find("con_notifytime") ? _cvars.value("con_notifytime") : 3.0f);
+        for (const auto &[when, line] : _notify)
+            if (float(nowMs - std::min(nowMs, when)) <= notifyMs)
+                f.notify.push_back(line);
+        if (_typing == Typing::kSay || _typing == Typing::kTell || _typing == Typing::kSayTeam) {
+            f.chat = _typing == Typing::kSayTeam ? ConsoleFrame::Chat::kSayTeam : ConsoleFrame::Chat::kSay;
+            f.chatInput = _field;
+            f.chatCursor = _cursor;
+        }
+    }
+    _scene->drawMaterialPictures(consolePictures(f, _consoleShaders), 640, 480, time);
+}
+
 void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     // (A line printed during this frame is stamped a little after nowMs.)
@@ -1734,7 +1780,8 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
         _notify.pop_front();
     const int lh = font::kLineHeight;
     const bool blink = (nowMs / 250) % 2 == 0;
-    if (_typing == Typing::kConsole) {
+    const bool ownConsole = _ctx.game.consoleVersion.empty();
+    if (ownConsole && _typing == Typing::kConsole) {
         // The console over the top half: the lines printed, newest at the
         // bottom (PageUp/PageDown scroll), and what's being typed.
         const int height = _frameH / 2;
@@ -1779,11 +1826,11 @@ void PlayPage::drawOverlay(uint64_t nowMs, bool haveView) {
         }
         // The notify lines at the top, then a chat line being typed.
         int notifyY = 4;
-        for (const auto &[when, line] : _notify) {
+        for (const auto &[when, line] : ownConsole ? _notify : decltype(_notify){}) {
             drawColoured(4, notifyY, line);
             notifyY += lh;
         }
-        if (_typing != Typing::kNone) {
+        if (ownConsole && _typing != Typing::kNone) {
             const char *prompt = _typing == Typing::kSay       ? "Say: "
                                  : _typing == Typing::kSayTeam ? "Say Team: "
                                                                : "Tell: ";

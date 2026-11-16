@@ -20,6 +20,9 @@ What Reluva does that hasn't been checked against the running original.
   been compared with the original running
   ([shader.md](../../formats/shader.md), [rbsp.md](../../formats/rbsp.md)).
 
+- The console's chat line (its big characters and widths) and its
+  typing line's scroll follow the GPL source, not traced in `jk2mp.exe`
+  ([systems/console.md](systems/console.md)).
 - The multiplayer menus' text: a number of letters as `R_Font_DrawString`'s
   limit, and the drop shadow's offset and grey, as the GPL multiplayer
   renderer has them; the menus read right, but haven't been compared

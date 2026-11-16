@@ -64,6 +64,9 @@ public:
     // (screenW x screenH, scaled to the frame); `time` in seconds.
     void drawPictures(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW, int screenH,
                       float time);
+    // Pictures whose shader is one of the renderer's materials (the
+    // engine's own, as its console), the same way.
+    void drawMaterialPictures(const std::vector<Picture> &pictures, int screenW, int screenH, float time);
 
     // An RGBA image (cols x rows, rows top first) over (x, y, w, h) of the
     // program's screen: a movie's frame, a saved game's picture.
@@ -117,6 +120,8 @@ private:
     // The level of detail to draw `model` at, where it is in the view.
     int lodLevel(int model, int frame, const gfx::Vec3 &origin) const;
     int material(std::vector<int> &cache, int32_t handle, Lighting lighting);
+    void drawQuads(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW, int screenH,
+                   float time, const std::function<int(int32_t)> &materialOf);
     void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
     // A Ghoul2 entity's models, posed at `viewTime` (ms).
     void placeGhoul2(const std::vector<uint8_t> &entity, int32_t viewTime, const LightGrid &grid, float time);

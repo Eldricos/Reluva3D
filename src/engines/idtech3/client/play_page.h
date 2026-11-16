@@ -8,6 +8,7 @@
 #include "engines/idtech3/client/menu_layer.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
+#include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/scene_drawer.h"
 #include "engines/idtech3/eliteforce/cgame_host.h"
 #include "engines/idtech3/eliteforce/game_host.h"
@@ -133,6 +134,13 @@ private:
     uint32_t _swallowChar = 0;    // the character of the key that opened the typing
     uint32_t _bindingKeyChar = 0; // the character of the key whose binding is running
     int _consoleScroll = 0;       // lines back from the newest
+    // The original's console (GameInfo::consoleVersion): dropped down and
+    // drawn as its engine draws it, over everything else.
+    void drawConsole(uint64_t nowMs, float time);
+    float _consoleFrac = 0; // of the screen it covers, sliding to 0.5 open or 0 shut
+    uint64_t _consoleFrameMs = 0;
+    ConsoleShaders _consoleShaders;
+    bool _consoleShadersLoaded = false;
     std::vector<std::string> _history;
     size_t _historyPos = 0;
     void openTyping(Typing t, int32_t client = -1, uint32_t key = 0);

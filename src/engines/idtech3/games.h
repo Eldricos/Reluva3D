@@ -65,6 +65,9 @@ struct GameInfo {
     std::map<std::string, int> namedButtons;
     // What its multiplayer is called, on the Start page.
     std::string multiplayerName = "Multiplayer";
+    // The console's version line, for a game whose console Reluva draws
+    // as its original does (client/console_drawer.h); empty: Reluva's own.
+    std::string consoleVersion;
     // The config of default keys and settings run before the player's own.
     std::string defaultConfig = "default.cfg";
     // The server's settings its engine registers as it starts, before any

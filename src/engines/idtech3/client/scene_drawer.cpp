@@ -156,6 +156,16 @@ int SceneDrawer::material(std::vector<int> &cache, int32_t handle, Lighting ligh
 
 void SceneDrawer::drawPictures(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW,
                                int screenH, float time) {
+    drawQuads(pictures, first, last, screenW, screenH, time,
+              [this](int32_t handle) { return material(_pictureMaterials, handle, Lighting::kTwoD); });
+}
+
+void SceneDrawer::drawMaterialPictures(const std::vector<Picture> &pictures, int screenW, int screenH, float time) {
+    drawQuads(pictures, 0, pictures.size(), screenW, screenH, time, [](int32_t m) { return int(m); });
+}
+
+void SceneDrawer::drawQuads(const std::vector<Picture> &pictures, size_t first, size_t last, int screenW, int screenH,
+                            float time, const std::function<int(int32_t)> &materialOf) {
     last = std::min(last, pictures.size());
     if (first >= last)
         return;
@@ -217,7 +227,7 @@ void SceneDrawer::drawPictures(const std::vector<Picture> &pictures, size_t firs
     _r.setDepthRange(1);
     _r.setView(ortho, {0, 0, 0});
     for (size_t n = first; n < last; ++n) {
-        const int m = material(_pictureMaterials, pictures[n].shader, Lighting::kTwoD);
+        const int m = materialOf(pictures[n].shader);
         if (m < 0 || _shaders.get(m).skip)
             continue;
         gfx::DrawCall call;

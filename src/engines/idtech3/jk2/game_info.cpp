@@ -23,6 +23,7 @@ GameInfo gameInfo() {
     g.multiplayerName = "Multiplayer";
     // The multiplayer engine's (default.cfg is single player's).
     g.defaultConfig = "mpdefault.cfg";
+    g.consoleVersion = "JK2MP: v1.02a"; // as jk2mp.exe draws it (0x4ef690)
     // Kyle Katarn, as its menus start a new player.
     g.playerModel = "kyle/default";
     // Its buttons, as jk2mp.exe names them: attack 0, alt attack 7, use 5,

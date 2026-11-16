@@ -5,6 +5,7 @@
 
 #include "common/fs.h"
 #include "engines/idtech3/client/bindings.h"
+#include "engines/idtech3/client/console_drawer.h"
 #include "engines/idtech3/client/joystick_input.h"
 #include "engines/idtech3/client/player_input.h"
 #include "engines/idtech3/botlib/aas.h"
@@ -203,8 +204,60 @@ void testVideoSettings() {
     CHECK(coarse >= 2 && fine > coarse && fine <= 16);
 }
 
+static void testConsole() {
+    // Wrapping: a word that would reach the edge moves down, one as long
+    // as a line is cut, and the colour carries over. The original counts
+    // the word from each character, so the rest of a cut word that no
+    // longer fits moves down too.
+    CHECK((wrapConsoleLine("abc ^2defg hi", 8) == std::vector<std::string>{"abc ^2", "^2defg hi"}));
+    CHECK((wrapConsoleLine("abcdefghij", 4) == std::vector<std::string>{"abcd", "efg", "hij"}));
+    CHECK((wrapConsoleLine("", 10) == std::vector<std::string>{""}));
+
+    // Half open on a 640 x 480 screen: the background down to 238, the
+    // line under it, the version at the foot's right, the newest line
+    // 48 pixels up from the foot and the input line 32 up.
+    std::deque<std::string> lines{"one", "^1two"};
+    ConsoleFrame f;
+    f.frac = 0.5f;
+    f.version = "V1";
+    f.lines = &lines;
+    f.typing = true;
+    f.input = "ab";
+    f.cursor = 2;
+    const ConsoleShaders shaders{1, 2, 3};
+    std::vector<Picture> p = consolePictures(f, shaders);
+    CHECK(p.size() >= 2 && p[0].shader == 2 && p[0].h == 238 && p[1].shader == 3 && p[1].y == 238 && p[1].h == 2);
+    auto find = [&](float x, float y) -> const Picture * {
+        for (const Picture &q : p)
+            if (q.shader == 1 && q.x == x && q.y == y)
+                return &q;
+        return nullptr;
+    };
+    const Picture *v = find(640 - 16, 240 - 24);
+    CHECK(v && v->w == 8 && v->h == 16 && v->color[0] < 0.6f);
+    // 'V' (86): column 6, row 5 of the grid, the cell's left half.
+    CHECK(v && v->s1 == 6 * 0.0625f && v->t1 == 5 * 0.0625f && v->s2 == v->s1 + 0.03125f);
+    // Each x has the original's 640 / width scale added before rounding:
+    // 1 here.
+    const Picture *two = find(9, 240 - 48);
+    CHECK(two && two->color[0] == 1 && two->color[1] == 0);
+    CHECK(find(9, 240 - 64) != nullptr);                                          // "one", above it
+    CHECK(find(9, 240 - 32) != nullptr && find(17 + 2 * 8, 240 - 32) != nullptr); // ']', the cursor
+    // Shut: the notify lines from the top, then the chat line in big
+    // characters with their shadows.
+    f.frac = 0;
+    f.notify = {"hi"};
+    f.chat = ConsoleFrame::Chat::kSay;
+    f.chatInput = "x";
+    f.chatCursor = 1;
+    p = consolePictures(f, shaders);
+    CHECK(find(9, 0) != nullptr);
+    CHECK(find(8, 16) != nullptr && find(10, 18) != nullptr && find(8, 16)->w == 16);
+}
+
 static const reluva::test::Suite
     kSuite("idtech3.unit.input", {
+                                     {"console", [](const std::filesystem::path &) { testConsole(); }},
                                      {"joystick", [](const std::filesystem::path &) { testJoystick(); }},
                                      {"key bindings", [](const std::filesystem::path &) { testKeyBindings(); }},
                                      {"video settings", [](const std::filesystem::path &) { testVideoSettings(); }},
