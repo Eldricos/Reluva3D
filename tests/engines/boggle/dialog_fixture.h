@@ -130,6 +130,25 @@ inline DialogFixture rosterDialog(bool extended=false){
     for(unsigned i=0;i<4;++i)control(4107+i,0x85,12+int(i)*86,80,68,200); // popup extends beyond client
     control(1,0x80,150,126,58,16);control(2,0x80,218,126,58,16);return f;
 }
+inline DialogFixture optionsDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(7);word(0);word(0);word(280);word(145);word(0);word(0);f.caption=b.size();text(u"Own options");
+    const unsigned ids[]={1312,1313,1311,1299,1300,1907,15303};
+    const int rects[][4]={{10,10,120,10},{10,28,120,10},{150,10,120,10},{150,62,100,10},{150,82,110,10},{10,64,125,24},{35,110,70,10}};
+    for(unsigned i=0;i<7;++i){
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        for(auto n:rects[i])word(uint16_t(n));
+        if(extended)integer(ids[i]);else word(uint16_t(ids[i]));
+        if(i==5)text(u"msctls_trackbar32");else {word(0xffff);word(0x80);}text(u"Own option");word(0);
+    }
+    return f;
+}
 inline std::vector<uint8_t> dialogLanguage(const std::vector<uint8_t>& payload,uint32_t id=16003){
     using namespace test::fixtures;
     std::array<std::u16string,16> text{};text[1]=u"Own menu";const auto strings=stringBlock(text);

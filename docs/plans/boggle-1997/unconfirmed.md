@@ -471,3 +471,12 @@ Original portraits, editable combo widgets and popup/font metrics remain
 separate comparison work. The owner subsequently confirmed that Cancel discards
 all player-dialog changes. Native roster edits are now provisional until Done;
 Cancel/Escape restores the previous names/types without profile/history writes.
+
+### Classic setup options panel
+
+The owner confirmed the roster Cancel correction works. The next
+[options panel](../../engines/boggle/frontend.md#classic-options-panel) uses the
+installed full Classic property page for timing, turn mode, computer settings
+and auto-orient. Native Done/Cancel, keyboard controls and session-only storage
+wrap that layout. Exact Windows metrics/skins, original property-sheet behavior,
+trackbar dragging and original settings persistence remain comparison work.

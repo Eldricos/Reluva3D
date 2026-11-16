@@ -5,6 +5,8 @@
 #include "engines/boggle/frontend/layout.h"
 #include "engines/boggle/frontend/name_dialog.h"
 #include "engines/boggle/frontend/roster_dialog.h"
+#include "engines/boggle/frontend/options_dialog.h"
+#include "engines/boggle/classic/highscores.h"
 #include "engines/boggle/classic/player.h"
 #include "engines/boggle/frontend/media.h"
 #include "tests/engines/boggle/dialog_fixture.h"
@@ -411,6 +413,96 @@ void rosterCancellation(const std::filesystem::path& tmp){
     }
 }
 
+void optionsLayouts(){
+    FrontendOptionsDialog layout;CHECK(!layout.read({}) && !layout.installed());
+    for(bool extended:{false,true}){
+        const auto f=fixtures::optionsDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10834),own));CHECK(!layout.read(own) && layout.installed());
+        const auto slider=layout.control(FrontendOptionsDialog::Slider);for(int i=0;i<9;++i)CHECK(layout.durationAt(slider.x+8+((slider.w-16)*i+4)/8)==60000+uint64_t(i)*30000);
+        CHECK(layout.durationAt(std::numeric_limits<int>::min())==60000 && layout.durationAt(std::numeric_limits<int>::max())==300000);
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        ClassicOptions o;Surface screen;screen.create(640,480,PixelFormat::RGBA32);layout.draw(screen,o,true,true);const auto timed=screen.pixels;o.duration=0;layout.draw(screen,o,false,false);CHECK(timed!=screen.pixels);
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?20:16),1312);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?24:18)+2,0x82);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8),10);CHECK(bool(layout.read(bad))); // overlaps cursor
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[5]+(extended?12:8)+4,100);CHECK(bool(layout.read(bad))); // narrow slider
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[6]+(extended?12:8),279);CHECK(bool(layout.read(bad)));
+        bad=own;bad[0].data.resize(19);CHECK(bool(layout.read(bad)));
+    }
+}
+void optionsNavigation(const std::filesystem::path& tmp){
+    for(bool extended:{false,true}){
+        auto t=target(tmp/(extended?"extended":"standard"));const auto f=fixtures::optionsDialog(extended);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10834));
+        std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10834),own));FrontendOptionsDialog layout;CHECK(!layout.read(own));
+        auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==10 || f==16 || f==21)return {keyEvent('o'),keyEvent(key::Return)};
+            if(f==3)return {keyEvent('v')};
+            if(f==4)return {keyEvent('b')};
+            if(f==5 || f==17){auto b=layout.control(FrontendOptionsDialog::Orient);return {mouseEvent(EventType::MouseMove,b.x,b.y),click(b)};}
+            if(f==6)return {click(layout.control(FrontendOptionsDialog::Chess))};
+            if(f==7){auto b=layout.control(FrontendOptionsDialog::Slider);return {mouseEvent(EventType::MouseDown,b.x+b.w-8,b.y+10)};}
+            if(f==8 || f==11 || f==13 || f==19 || f==22)return {keyEvent('t')};
+            if(f==9)return {click(layout.cancel()),keyEvent(key::Return)};
+            if(f==12)return {keyEvent(key::Right)};
+            if(f==14)return {keyEvent(key::Left)};
+            if(f==15 || f==24)return {keyEvent(key::Escape)};
+            if(f==20 || f==23)return {keyEvent(key::Return),keyEvent(key::Return)};
+            if(f==25)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==25 && sys.w==640);
+        if(sys.hashes.size()==25){CHECK(sys.hashes[2]==sys.hashes[3] && sys.hashes[2]==sys.hashes[4] && sys.hashes[2]==sys.hashes[10] && sys.hashes[2]==sys.hashes[13] && sys.hashes[2]==sys.hashes[16]);CHECK(sys.hashes[11]==sys.hashes[12]);CHECK(sys.hashes[1]==sys.hashes[9] && sys.hashes[1]==sys.hashes[15]);CHECK(sys.hashes[19]==sys.hashes[21] && sys.hashes[1]!=sys.hashes[20]);}
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},10834));fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
+void optionsGame(const std::filesystem::path& tmp){
+    for(bool master:{false,true}){
+        auto t=target(tmp/(master?"master":"original"));t.settings["classic_variant"]=master?"master":"original";const auto f=fixtures::optionsDialog(master);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10834));
+        fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==1 || f==6 || f==7 || f==11 || f==12)return {keyEvent(key::Return)};
+            if(f==2 || f==13)return {keyEvent('o')};
+            if(f==3)return {keyEvent(key::Left)};
+            if(f==4)return {keyEvent('a')};
+            if(f==5)return {keyEvent('c')};
+            if(f==8)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==9)return {keyEvent(key::F1)};
+            if(f==10)return {keyEvent(key::F1+2)};
+            if(f==14 || f==15)return {keyEvent(key::Escape)};
+            if(f==16)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==16);
+        if(sys.hashes.size()==16)CHECK(sys.hashes[5]==sys.hashes[13]);
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();CHECK(rows.size()==1);if(rows.size()==1)CHECK(rows[0].duration==150000 && rows[0].score==1 && rows[0].variant==(master?ClassicVariant::Master:ClassicVariant::Original));
+    }
+}
+
+void optionsComputers(const std::filesystem::path& tmp){
+    auto t=target(tmp);const auto f=fixtures::optionsDialog();fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,10834));std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10834),own));FrontendOptionsDialog layout;CHECK(!layout.read(own));
+    auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+    fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+        if(f==0 || f==1 || f==5)return {keyEvent(key::Return)};
+        if(f==2)return {keyEvent('m')};
+        if(f==3)return {keyEvent('2')};
+        if(f==4)return {keyEvent(key::End),keyEvent(key::Up),keyEvent(key::Return)};
+        if(f==6 || f==18)return {keyEvent('o')};
+        if(f==7 || f==9)return {click(layout.control(FrontendOptionsDialog::Cursor))};
+        if(f==8 || f==10)return {click(layout.control(FrontendOptionsDialog::Background))};
+        if(f==11 || f==13)return {click(layout.control(FrontendOptionsDialog::Traditional))};
+        if(f==12)return {click(layout.control(FrontendOptionsDialog::Chess))};
+        if(f==14 || f==16)return {keyEvent('t')};
+        if(f==15)return {click(layout.control(FrontendOptionsDialog::Slider))};
+        if(f==17)return {click(layout.done()),keyEvent(key::Return)};
+        if(f==19)return {click(layout.cancel()),keyEvent(key::Return)};
+        if(f==20)return {keyEvent(key::Escape)};
+        if(f==21)return {keyEvent('l')};
+        return {};
+    };
+    auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==21 && sys.w==640);
+    if(sys.hashes.size()==21){CHECK(sys.hashes[7]!=sys.hashes[6] && sys.hashes[8]!=sys.hashes[7] && sys.hashes[8]==sys.hashes[9]);CHECK(sys.hashes[7]==sys.hashes[10] && sys.hashes[11]==sys.hashes[13] && sys.hashes[11]==sys.hashes[16] && sys.hashes[11]==sys.hashes[18]);CHECK(sys.hashes[14]==sys.hashes[15] && sys.hashes[17]==sys.hashes[19]);}
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -438,6 +530,10 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"Classic options control IDs, ranges, encodings and malformed layouts",[](const auto&){optionsLayouts();}},
+    {"Classic options editing, disabled controls, remembered timer and Cancel",optionsNavigation},
+    {"Classic options computer availability and background/cursor interaction",optionsComputers},
+    {"Classic options apply to both versions and survive menu return",optionsGame},
     {"roster Cancel/Escape restores names/kinds, defers profile writes and handles failed Done",rosterCancellation},
     {"roster fields, popup geometry, exact language and malformed controls",[](const auto&){rosterLayouts();}},
     {"installed roster, all four selectors, humans/computers, empty slots and close guards",rosterNavigation},

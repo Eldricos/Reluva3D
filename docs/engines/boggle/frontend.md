@@ -17,7 +17,8 @@ Keyboard controls:
   restores the last timed duration. Enter/keypad Enter advances to Players.
   Escape or Main Menu returns to selection.
 - Players: shows the current human name, chosen version, duration and local
-  roster/turn controls. Change Name / N opens the native name editor; save or cancel returns
+  roster/turn controls. Options / O opens the installed Classic options panel
+  when available. Change Name / N opens the native name editor; save or cancel returns
   to Players. Enter/keypad Enter plays. Escape or Main Menu returns directly to
   selection, rather than to version selection.
 - During a menu-launched game, Escape does nothing. The explicit native Menu
@@ -155,6 +156,47 @@ the previous geometry with the same Done/Cancel behavior;
 a present malformed selected layout fails explicitly. No new imports or save
 migration are required. Source and fixtures contain no retail resource bytes,
 portraits, text or copied control rectangles.
+
+## Classic options panel
+
+With installed artwork enabled and the template available, Players now exposes
+native Options / O. The panel selects exact RT_DIALOG 10834 / language 0x0409;
+the original Classic property-page construction requests it at `0x42b807` and
+`0x42b8ce`. The related 10823 template omits background play and is not selected
+for this full native panel. The executable/DLL identities below identify the
+read-only source of these layout observations.
+
+Required controls bind by ID: computer cursor 1312, background play 1313,
+auto-orient 1311, Chess Timer 1299, Traditional 1300, round-length trackbar 1907
+and No Timer 15303. The bounded standard/extended reader supplies the rectangles.
+The consumer requires unique IDs, button classes or the named trackbar class,
+readable dimensions, in-client bounds and non-overlap. The page is centered at
+two native pixels per template unit. Native Done/Cancel buttons, labels, colors,
+fonts and footer surround this property-page layout; the original Windows
+property-sheet frame, group boxes and skin are not reproduced.
+
+Click the length ruler or use Left/Right to choose 1:00..5:00 in 30-second steps.
+T / No Timer toggles timing and remembers the last timed length. The ruler and
+Left/Right are inactive while No Timer is on. A toggles auto-orient; C selects
+Chess Timer; R selects Traditional; B toggles available background play; V toggles
+available computer cursor movement. Computer controls use the same roster-based
+availability rules as the existing Players controls. Background play disables
+cursor movement without clearing its stored choice.
+
+The panel edits session options provisionally. Done/Enter applies them;
+Cancel/Escape restores both the options and remembered timed length from panel
+entry. Each recognized action consumes its navigation batch; ordinary mouse
+movement does not swallow a subsequent click. Applying or cancelling cannot
+also start a round from queued Enter input. Applied values feed the next Classic
+round, including auto-orient, and persist through menu re-entry for this engine
+session. They do not change launcher configuration, original registry data or
+retail files. No new save format, files or re-import are required.
+
+If the template is missing or installed artwork is disabled, the prior setup
+controls remain available and the new Options entry is omitted. A malformed
+present selected template reports an explicit error. This native setup panel
+uses installed relative placement; exact Windows trackbar interaction/dragging,
+original modal timing and original settings persistence are not claimed.
 
 ## Evidence and missing-file correction
 
@@ -324,3 +366,19 @@ supplied install; the full suite passes 66 checks and skips 10 optional idtech3
 data checks. Frontend, player and Traditional suites pass ASan/UBSan with
 LeakSanitizer disabled for the execution tracer. All 737 installed files retain
 their manifest hashes. Windows owner testing of the correction is pending.
+
+Options fixtures test standard/extended templates, named trackbar classes, exact
+language, all nine time steps, extreme click coordinates and malformed/overlapping
+controls. Scripted editing covers disabled controls, mouse movement plus clicks,
+No Timer, remembered duration, Done/Cancel, computer/background interactions,
+menu return and input-batch guards. Original/Master rounds record the applied
+2:30 duration and correct score. Existing fallback checksums remain unchanged.
+External SDL software-backend runs inspect supplied options, enter oriented-off
+Chess with No Timer, then verify the saved session choices and remembered 2:30
+length after menu return. Retail captures and preview code remain outside Git.
+
+For the options-panel stage, all 43 Boggle CTest checks pass with the supplied
+install; the full suite passes 66 checks and skips 10 optional idtech3 data
+checks. Frontend, options and seed suites pass ASan/UBSan with LeakSanitizer
+disabled for the execution tracer. All 737 installed files retain their manifest
+hashes. Windows owner testing of the new setup panel is pending.

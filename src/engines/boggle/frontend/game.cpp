@@ -4,6 +4,7 @@
 #include "engines/boggle/frontend/media.h"
 #include "engines/boggle/frontend/name_dialog.h"
 #include "engines/boggle/frontend/roster_dialog.h"
+#include "engines/boggle/frontend/options_dialog.h"
 #include "engines/boggle/classic/game.h"
 #include "engines/boggle/classic/options.h"
 #include "engines/boggle/classic/player.h"
@@ -18,6 +19,7 @@ using Box=SelectionRect;
 constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
               less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
+constexpr Box optionsButton{344,100,248,36};
 constexpr size_t nameRows=8;
 constexpr Box turnMode{48,352,544,28},backgroundPlay{48,224,544,28},computerCursor{48,280,544,24};
 constexpr Box localPlayers{324,310,268,40};
@@ -88,10 +90,11 @@ void setup(Surface& s,const ClassicOptions& options) {
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAYERS (ENTER)",true);
     text(s,48,458,"1/2: board   Left/Right: duration   T: timer",muted);
 }
-void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profile,const std::array<std::string,4>& roster,bool backgroundAvailable,bool cursorAvailable) {
+void players(Surface& s,const ClassicOptions& options,const PlayerProfile& profile,const std::array<std::string,4>& roster,bool backgroundAvailable,bool cursorAvailable,bool optionsAvailable) {
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"PLAYERS",white,3);
     text(s,48,110,options.variant==ClassicVariant::Master ? "CLASSIC MASTER" : "CLASSIC ORIGINAL",gold,2);
+    if(optionsAvailable)button(s,optionsButton,"OPTIONS (O)");
     button(s,playerChoice,"HUMAN NAME: "+profile.name()+"  v (P)");
     button(s,backgroundPlay,backgroundAvailable?(options.background?"COMPUTER BACKGROUND PLAY: ON (B)":"COMPUTER BACKGROUND PLAY: OFF (B)"):"BACKGROUND PLAY NEEDS A HUMAN AND COMPUTER",options.background && backgroundAvailable,backgroundAvailable);
     text(s,48,260,options.duration ? "Round length: "+duration(options.duration) : "Round length: Not Timed",white,2);
@@ -153,11 +156,13 @@ Error FrontendGame::run() {
     FrontendSelectionLayout selectionLayout;
     FrontendNameDialog nameDialog;
     FrontendRosterDialog rosterDialog;
+    FrontendOptionsDialog optionsDialog;
     if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
         if(auto err=selectionLayout.read(language.resources))return err;
         if(auto err=nameDialog.read(language.resources))return err;
         if(auto err=rosterDialog.read(language.resources))return err;
+        if(auto err=optionsDialog.read(language.resources))return err;
     }
     FrontendMedia media;
     if(auto err=media.open(resources,target_.path,options.movies))return err;
@@ -197,6 +202,7 @@ Error FrontendGame::run() {
         return false;
     };
     uint64_t timedDuration=options.duration ? options.duration : 180000;
+    bool optionsOpen=false;ClassicOptions savedOptions=options;uint64_t savedTimedDuration=timedDuration;
     for(;;) {
         bool launch=false, changed=false;
         Event event;
@@ -206,6 +212,22 @@ Error FrontendGame::run() {
             const bool isKey=event.type==EventType::KeyDown && !event.repeat;
             const bool click=event.type==EventType::MouseDown && event.button==MouseButton::Left;
             auto pressed=[&](Box box){return click && box.contains(event.mouseX,event.mouseY);};
+            if(optionsOpen) {
+                bool handled=true;
+                if((isKey && event.key==key::Escape) || pressed(optionsDialog.cancel())) {options=savedOptions;timedDuration=savedTimedDuration;optionsOpen=false;}
+                else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(optionsDialog.done()))optionsOpen=false;
+                else if(((isKey && event.key=='v') || pressed(optionsDialog.control(FrontendOptionsDialog::Cursor))) && cursorAvailable())options.cursor=!options.cursor;
+                else if(((isKey && event.key=='b') || pressed(optionsDialog.control(FrontendOptionsDialog::Background))) && backgroundAvailable())options.background=!options.background;
+                else if((isKey && event.key=='a') || pressed(optionsDialog.control(FrontendOptionsDialog::Orient)))options.autoOrient=!options.autoOrient;
+                else if((isKey && event.key=='c') || pressed(optionsDialog.control(FrontendOptionsDialog::Chess)))options.turns=ClassicTurnMode::Chess;
+                else if((isKey && event.key=='r') || pressed(optionsDialog.control(FrontendOptionsDialog::Traditional)))options.turns=ClassicTurnMode::Traditional;
+                else if((isKey && event.key=='t') || pressed(optionsDialog.control(FrontendOptionsDialog::Untimed)))options.duration=options.duration?0:timedDuration;
+                else if(options.duration && pressed(optionsDialog.control(FrontendOptionsDialog::Slider)))timedDuration=options.duration=optionsDialog.durationAt(event.mouseX);
+                else if(options.duration && isKey && event.key==key::Left)timedDuration=options.duration=std::max<uint64_t>(60000,options.duration-30000);
+                else if(options.duration && isKey && event.key==key::Right)timedDuration=options.duration=std::min<uint64_t>(300000,options.duration+30000);
+                else handled=false;
+                changed=handled;continue;
+            }
             if(selectingName) {
                 const auto last=choices.size()-1;
                 auto choose=[&]() {
@@ -309,7 +331,8 @@ Error FrontendGame::run() {
                     page=Page::Players;changed=true;
                 }
             } else {
-                if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
+                if(optionsDialog.installed() && ((isKey && event.key=='o') || pressed(optionsButton))) {savedOptions=options;savedTimedDuration=timedDuration;optionsOpen=true;changed=true;}
+                else if((isKey && event.key=='c') || pressed(turnMode)) {options.turns=options.turns==ClassicTurnMode::Chess?ClassicTurnMode::Traditional:ClassicTurnMode::Chess;changed=true;}
                 else if(((isKey && event.key=='b') || pressed(backgroundPlay)) && backgroundAvailable()) {options.background=!options.background;changed=true;}
                 else if(((isKey && event.key=='v') || pressed(computerCursor)) && cursorAvailable()) {options.cursor=!options.cursor;changed=true;}
                 else if((isKey && event.key=='m') || pressed(localPlayers)) {savedRoster=roster;savedKinds=kinds;rosterOpen=true;nameError.clear();changed=true;}
@@ -325,6 +348,7 @@ Error FrontendGame::run() {
         if(launch) {
             system_.setTextInput(false);
             GameTarget selected=target_;
+            selected.settings["classic_auto_orient"]=options.autoOrient?"1":"0";
             selected.settings["classic_cursor"]=options.cursor?"1":"0";
             selected.settings["classic_background"]=options.background?"1":"0";
             selected.settings["classic_turns"]=options.turns==ClassicTurnMode::Chess?"chess":"traditional";
@@ -346,7 +370,8 @@ Error FrontendGame::run() {
         }
         if(page==Page::Version) setup(screen,options);
         else if(page==Page::Players) {
-            players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable());
+            players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable(),optionsDialog.installed());
+            if(optionsOpen)optionsDialog.draw(screen,options,backgroundAvailable(),cursorAvailable());
             if(rosterOpen)rosterScreen(screen,roster,rosterDialog,nameError);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
             if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);

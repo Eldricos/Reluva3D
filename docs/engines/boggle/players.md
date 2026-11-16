@@ -141,3 +141,10 @@ height handling, missing-template fallback and owner-confirmed Cancel behavior.
 Done applies draft choices; Cancel/Escape discards them. First-slot profile and
 history writes occur only on a successful Done, with safe retry/cancellation
 after a save error. Roster state remains session-only.
+
+## Session options
+
+Players exposes an installed-layout [Classic options panel](frontend.md#classic-options-panel)
+when its resource is available and artwork is enabled. Its timing, turn mode,
+computer settings and auto-orient changes apply only on Done; Cancel restores
+the entry state. The player roster and human-name profile are unaffected.
