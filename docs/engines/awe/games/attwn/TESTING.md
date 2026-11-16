@@ -80,6 +80,8 @@ for want of recordings of it.
 Things to try in a real window, on real hardware, that the checks don't
 or can't. Note the act and scene for anything that looks or sounds
 wrong, and if possible compare with the same moment of the footage.
+None of it has been played by a person yet; what a virtual display can
+show is in [Last checked](#last-checked).
 
 ### Throughout
 
@@ -151,6 +153,7 @@ wrong, and if possible compare with the same moment of the footage.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 16 November 2026 | English (retail, two CDs) | Linux, a virtual display | The route played by the mouse in a window (`awe game-run -play <route> -mouse -3d -draw -sound`, Vulkan on llvmpipe): all 2,162 actions to the credits, every frame drawn, the "both alive" coda, nothing but `sounda sfx\knock` missing (no such sound in the install); in about 3.5 hours. A save made through Escape, Save, a slot and OK, listed on the load screen with its 200 by 150 picture in the row |
 | 16 November 2026 | English (retail, two CDs) | Linux | Timings against the footage, at its 30 frames a second: the inventory panel's slide (0.63 s both ways, as Reluva's), the deposit boxes' swap (0.73 to 0.77 s after the second drawer, eight times; 0.75 in the code and Reluva), a chapter's title card (in 1.1 s, held 5.2, out 1.1; Reluva's 1.2, 5, 1.0), the screen's fades (0.75 to 0.9 s, one step a frame: fixed, Reluva's took as many steps as the time allowed); the object fades `fade in <object>` (fixed: Reluva's were at once) |
 | 16 November 2026 | English (retail, two CDs) | Linux | The four endings by the `endings` step: each plays to the credits with its own coda |
 | 15 November 2026 | English (retail, two CDs) | Linux | `awe.engine` with this game's half added; Orient Express's game-files steps again after the night pictures (all five passed) |
