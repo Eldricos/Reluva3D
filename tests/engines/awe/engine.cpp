@@ -3,10 +3,10 @@
 
 // The AWE engine as a whole, without the game's files: the basic engine
 // test, run by ctest and CI. It makes a small install of its own (stand-ins
-// for motoe.exe and granny2.dll, an acts.txt of one act, the main menu's
-// scene with its Play hotspot, two scenes of a place of its own and their
-// pictures), finds it as the launcher does, and plays it through the
-// engine: the main menu, Play, a click on a hotspot that sets a tag and
+// for motoe.exe and granny2.dll, an acts.txt of one act, interface.txt's
+// title, the main menu's scene with its Play hotspot, two scenes of a
+// place of its own and their pictures), finds it as the launcher does,
+// and plays it through the engine: the main menu, Play, a click on a hotspot that sets a tag and
 // goes to the next scene, a quick save, then back to the launcher. Then
 // the same in the data viewer, from its Scenes page with N. What happens
 // goes into a record (counts and checksums of the screens, the titles and
@@ -158,6 +158,9 @@ void makeInstall(const std::filesystem::path &dir) {
     putFile(dir / "motoe.exe", {'M', 'Z', 0, 0});
     putFile(dir / "granny2.dll", {'M', 'Z', 0, 0});
     putFile(dir / "Text" / "itemlist.txt", utf16File("Item Name\tIn-game Item Description\n"));
+    // The window's title, as the game's own names it.
+    putFile(dir / "Text" / "interface.txt",
+            utf16File("Tag\tText\tTranslation\ntitle\tOrient Express, the test's\t0\n"));
     // One act: its place, then its first scene.
     putFile(dir / "Text" / "acts.txt",
             utf16File("Act\tPreLoad\tLocation to Load\tPost Load\tTime of Day\tWeather\tTrain Moving\t"

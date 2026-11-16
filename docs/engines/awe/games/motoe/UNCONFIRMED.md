@@ -58,13 +58,6 @@ capture's video range read as full range. What's left after that:
   camera's `238`, `23a` and `1240`: nothing in the executable reads them, so what they
   were for can't be told. [formats/ac2.md](formats/ac2.md).
 
-- **The window's title.** The original's is its command line (WinMain
-  `0x4018f0`, `CreateWindowExW` at `0x401a13`; the same text names its
-  registry key), which the installer's shortcut supplies. The install
-  doesn't hold the shortcut, so Reluva titles the window with the name
-  the readme gives the game, "Agatha Christie: Murder on the Orient
-  Express". [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
-
 ## Guessed
 
 None: the one guess, the place of a camera's roll in its rotation, has
@@ -73,6 +66,14 @@ been checked against `granny2.dll` ([formats/ac2.md](formats/ac2.md)).
 ## Settled
 
 Moved to their format pages; kept here so the reasoning can be found:
+
+- **The window's title:** not the command line, as was thought, but
+  `Text/interface.txt`'s `title` row: `0x4017c0` reads the table and
+  copies the row's Translation, or its Text when that's empty or `0`,
+  for WinMain's `CreateWindowExW` (`0x401a13`). The English install's is
+  "Agatha Christie - Murder on the Orient Express" (the same as the CD's
+  `setup.ini` names the game). Reluva now reads it the same way.
+  [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
 
 - **The order of the dialogue's updates within a frame:** read in full
   from 0x43d430. (A line of dialogue has three columns of commands in its

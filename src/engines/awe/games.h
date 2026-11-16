@@ -329,8 +329,14 @@ struct DialogueBoxLayout {
  * engine asks of it.
  */
 struct GameInfo {
-    const char *id;                    ///< as the launcher stores it: "motoe"
-    const char *title;                 ///< the window's, as the original's
+    const char *id;    ///< as the launcher stores it: "motoe"
+    const char *title; ///< the window's, as the original's
+    /**
+     * Whether the window's title is interface.txt's "title" row instead
+     * (its Translation, else its Text), `title` being that row's text for
+     * an install without it.
+     */
+    bool titleFromInterface = false;
     std::vector<GameVariant> variants; ///< its releases, by their files' signatures
     std::vector<GameVariant> fallback; ///< any other release: the same files, whatever their contents
     bool playable = false;             ///< whether reluva plays it yet (else the data viewer's only)

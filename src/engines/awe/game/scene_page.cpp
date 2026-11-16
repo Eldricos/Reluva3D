@@ -1818,7 +1818,19 @@ void ScenePage::draw() {
     if (_browser)
         _ctx.setTitle("Scenes: " + (_names.empty() ? std::string() : _names[size_t(_index)]));
     else
-        _ctx.setTitle(_gameTitle);
+        _ctx.setTitle(gameTitle());
+}
+
+const std::string &ScenePage::gameTitle() {
+    // Orient Express's names its window by interface.txt (0x4017c0), read
+    // once; not the viewer's, whose title names the page.
+    if (!_titleRead && _ctx.game && _ctx.game->titleFromInterface && !_gameTitle.empty()) {
+        interfaceText(""); // read the table
+        if (const auto it = _interfaceTexts.find("title"); it != _interfaceTexts.end() && !it->second.empty())
+            _gameTitle = it->second;
+    }
+    _titleRead = true;
+    return _gameTitle;
 }
 
 void ScenePage::update(uint64_t nowMs) {

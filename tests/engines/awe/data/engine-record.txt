@@ -4,7 +4,7 @@ detect: motoe Agatha Christie: Murder on the Orient Express (unknown release)
 run.result: ok
 run.size: 1024x768
 run.screens: 1064 348d127ba37a2f25
-run.titles: Agatha Christie: Murder on the Orient Express
+run.titles: Orient Express, the test's
 run.files: Saved.Games/quick.ac2 (test, Locations\Test\test_02.ac2; tags opened=1)
 viewer.result: ok
 viewer.size: 1024x768

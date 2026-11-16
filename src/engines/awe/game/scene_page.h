@@ -549,6 +549,8 @@ private:
     void drawYesNo();
     int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
     std::string interfaceText(const std::string &tag);
+    /** The window's title when playing: the game's, as it names its window. */
+    const std::string &gameTitle();
     // The game's own window (GameInfo::overlay), made afresh for a game.
     void makeOverlay();
     // Whether the scene is one of the game's menus, and the main menu's.
@@ -809,6 +811,7 @@ private:
     bool _playing = false;
     bool _browser = true; // Browser::kOn
     std::string _gameTitle;
+    bool _titleRead = false;
     std::map<std::string, audio::SoundHandle> _music;
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
     float _fade = 0;

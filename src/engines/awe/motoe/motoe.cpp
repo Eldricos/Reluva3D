@@ -8,11 +8,10 @@ namespace reluva::awe::motoe {
 const GameInfo &game() {
     static const GameInfo kGame{
         .id = "motoe",
-        // The original's title is its command line (WinMain 0x4018f0,
-        // CreateWindowExW at 0x401a13), given by the installer's shortcut,
-        // which the install doesn't hold: the name is the one its readme and
-        // shortcut go by.
-        .title = "Agatha Christie: Murder on the Orient Express",
+        // interface.txt's "title" row, read by 0x4017c0 for WinMain's
+        // CreateWindowExW (0x401a13).
+        .title = "Agatha Christie - Murder on the Orient Express",
+        .titleFromInterface = true,
         // Built with `reluva --hash`: each entry needs the size and the MD5
         // of the first kDetectionHashBytes bytes. Detection keys on the item
         // list: a patch is likelier to replace the executable than the text.

@@ -32,6 +32,7 @@ const GameInfo &game() {
         // ac.exe's own, given to CreateWindowExA at 0x401980 (through
         // [0x47c0c0]).
         .title = "Agatha Christie - And Then There Were None",
+        .titleFromInterface = false,
         // Built with `reluva --hash`, as Orient Express's: the executable and
         // the item list.
         .variants = {{"attwn",
