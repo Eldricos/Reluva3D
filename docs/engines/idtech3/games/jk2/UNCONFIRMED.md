@@ -35,7 +35,12 @@ What Reluva does that hasn't been checked against the running original.
   (in a window the original never brightens it,
   [rbsp.md](../../formats/rbsp.md#in-reluva)), the saber's glow not
   drawn ([efx.md](../../formats/efx.md)), and the video settings'
-  defaults. Not yet seen again with those fixes.
+  defaults. Seen again with those fixes, both games started on their
+  default settings: the level's brightness and the saber's glow match,
+  and Create Server matches line for line. The Video page still differed
+  in texture detail and filter; `r_picmip` (1) and the filter (bilinear)
+  now come from their registration (0x47edcf, 0x47f18c), not a quality
+  preset, but that page hasn't been seen again.
 - The network protocol beyond its tables and Huffman code (which are
   jk2mp.exe's own): a match played against the retail game both ways,
   on Windows (November 2026), Reluva hosting and joining

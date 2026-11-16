@@ -87,14 +87,14 @@ GameInfo gameInfo() {
     constexpr int32_t kUA = CvarStore::kUserInfo | CvarStore::kArchive;
     g.clientCvars = {
         {"name", "Padawan", kUA},
-        // The renderer's, where they differ from Quake III's (0x47ee19 on);
+        // The renderer's, where they differ from Quake III's (0x47edcf on);
         // not latched, as Reluva applies its video settings when a page shows.
         {"r_overBrightBits", "1", CvarStore::kArchive},
         {"r_mode", "3", CvarStore::kArchive},
         {"r_colorbits", "0", CvarStore::kArchive},
         {"r_texturebits", "0", CvarStore::kArchive},
         {"r_detailtextures", "1", CvarStore::kArchive},
-        {"r_texturemode", "GL_LINEAR_MIPMAP_LINEAR", CvarStore::kArchive},
+        {"r_picmip", "1", CvarStore::kArchive},
         {"rate", "4000", kUA},
         {"snaps", "20", kUA},
         {"model", "kyle/default", kUA},
