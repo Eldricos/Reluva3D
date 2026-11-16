@@ -53,12 +53,15 @@ private:
     struct Triangle {
         std::array<std::array<float, 3>, 3> pos{};
         std::array<float, 3> light{};
-        float step = 0; // the sprites' spacing, as a fraction of the triangle
+        float step = 0;       // the sprites' spacing, as a fraction of the triangle
+        uint8_t interval = 0; // how far its walk through the random table steps
         uint32_t firstSprite = 0;
         uint32_t spriteCount = 0;
     };
-    // One sprite: where in its triangle (weights of its corners), or for
-    // an effect the cell it starts each life in; and its own random draws.
+    // One sprite: where in its triangle (weights of its corners) and its
+    // draws from the random table; for an effect, the cell it starts each
+    // life in and where the table's walk stood there, the rest worked out
+    // each frame.
     struct Sprite {
         std::array<float, 3> weights{};
         std::array<float, 2> cell{};
@@ -67,8 +70,7 @@ private:
         float sizeRandom = 0; // how much of the variance
         bool flipped = false;
         std::array<float, 2> skew{}; // ssVertSkew's lean, as a fraction of its height
-        float lifeOffset = 0;        // an effect's, in milliseconds
-        uint32_t seed = 0;
+        uint8_t index = 0;           // an effect's place in the table
     };
     struct Group {
         int surface = -1;

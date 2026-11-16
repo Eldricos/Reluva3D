@@ -131,9 +131,23 @@ surfaces (not doors' and lifts'), and each frame those within reach of
 the eye are turned, swayed and faded. Where they differ from the
 original's:
 
-- Each sprite's place, size and fade point come from Reluva's own random
-  draws, so a field has the same density and look but its sprites don't
-  stand where the original's do.
+- Each sprite's place, size, flip, lean and fade point come from the
+  original's table of 256 random numbers (jk2mp.exe, 0x4ead20), walked as
+  it walks it: from a place in the table (the low byte of the sum of the
+  triangle's corners' x and y) by a step (the low byte of corner 1's x,
+  corner 2's y and corner 3's z, made odd and at least 3), each sprite's
+  cell on a grid spaced by the density over Quake III's fast inverse
+  square root of the triangle's area (`Q_rsqrt`, 0x4339e0, whose small
+  error sets how many cells there are). As the GPL source has it,
+  vertical sprites draw both their cell's draws before checking them,
+  oriented ones check each as drawn and step once more after the fade's
+  draw, and effects find a new spot each life from the time. jk2mp.exe's
+  three routines read the same table, make the step odd (0x496615,
+  0x49738f, 0x497c51), cut floats to bytes with `_ftol` and space by
+  `Q_rsqrt`; the order of their draws wasn't traced. So sprites stand where the
+  original's do, save where the original's sums, in the x87's longer
+  floats, round otherwise (a point right on a triangle's edge), and on
+  curves, which Reluva cuts into triangles its own way.
 - The wind (`r_windSpeed` and the game's weather) and weather effects
   wait for the game's code: with it off, as the original starts, sprites
   only sway (`ssWindidle`) and weather sprites aren't shown.

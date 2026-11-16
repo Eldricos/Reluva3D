@@ -2,10 +2,11 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // How sprites are spread, sized, swayed and faded follows the GPL Jedi
-// Outcast renderer (tr_surfacesprites.cpp), read as a description;
-// docs/engines/idtech3/formats/shader.md says what's the same and what
-// isn't. The random draws are Reluva's own, so each sprite stands where
-// the original's would stand only by chance.
+// Outcast renderer (tr_surfacesprites.cpp), read as a description and
+// checked against jk2mp.exe's; docs/engines/idtech3/formats/shader.md says
+// what's the same and what isn't. Their random draws come from the
+// original's own table, walked as it walks it, so each stands where the
+// original's does.
 
 #include "engines/idtech3/render/surface_sprites.h"
 
@@ -25,30 +26,46 @@ using Facing = SurfaceSprites::Facing;
 // fading at its own point within it.
 constexpr float kFadeRange = 250;
 
-uint32_t mix(uint32_t h) {
-    h ^= h >> 16;
-    h *= 0x7feb352dU;
-    h ^= h >> 15;
-    h *= 0x846ca68bU;
-    h ^= h >> 16;
-    return h;
+// The renderer's table of random numbers in 0..1, which every sprite's
+// place, size and fade come from (jk2mp.exe, 0x4ead20).
+constexpr std::array<float, 256> kRandomChart{{
+    0.6554f, 0.6909f, 0.4806f, 0.6218f, 0.5717f, 0.3896f, 0.0677f, 0.7356f, 0.8333f, 0.1105f, 0.4445f, 0.8161f, 0.4689f,
+    0.0433f, 0.7152f, 0.0336f, 0.0186f, 0.914f,  0.1626f, 0.6553f, 0.834f,  0.7094f, 0.202f,  0.8087f, 0.9119f, 0.8009f,
+    0.1339f, 0.8492f, 0.9173f, 0.5003f, 0.6012f, 0.6117f, 0.5525f, 0.5787f, 0.1586f, 0.3293f, 0.9273f, 0.7791f, 0.8589f,
+    0.4985f, 0.0883f, 0.8545f, 0.2634f, 0.4727f, 0.3624f, 0.1631f, 0.7825f, 0.0662f, 0.6704f, 0.351f,  0.7525f, 0.9486f,
+    0.4685f, 0.1535f, 0.1545f, 0.1121f, 0.4724f, 0.8483f, 0.3833f, 0.1917f, 0.8207f, 0.3885f, 0.9702f, 0.92f,   0.8348f,
+    0.7501f, 0.6675f, 0.4994f, 0.0301f, 0.5225f, 0.8011f, 0.1696f, 0.5351f, 0.2752f, 0.2962f, 0.755f,  0.5762f, 0.7303f,
+    0.2835f, 0.4717f, 0.1818f, 0.2739f, 0.6914f, 0.7748f, 0.764f,  0.8355f, 0.7314f, 0.5288f, 0.734f,  0.6692f, 0.6813f,
+    0.281f,  0.8057f, 0.0648f, 0.8749f, 0.9199f, 0.1462f, 0.5237f, 0.3014f, 0.4994f, 0.0278f, 0.4268f, 0.7238f, 0.5107f,
+    0.1378f, 0.7303f, 0.72f,   0.3819f, 0.2034f, 0.7157f, 0.5552f, 0.4887f, 0.0871f, 0.3293f, 0.2892f, 0.4545f, 0.0088f,
+    0.1404f, 0.0275f, 0.0238f, 0.0515f, 0.4494f, 0.7206f, 0.2893f, 0.606f,  0.5785f, 0.4182f, 0.5528f, 0.9118f, 0.8742f,
+    0.3859f, 0.603f,  0.3495f, 0.455f,  0.9875f, 0.69f,   0.6416f, 0.2337f, 0.7431f, 0.9788f, 0.6181f, 0.2464f, 0.4661f,
+    0.7621f, 0.702f,  0.8203f, 0.8869f, 0.2145f, 0.7724f, 0.6093f, 0.6692f, 0.9686f, 0.5609f, 0.031f,  0.2248f, 0.295f,
+    0.2365f, 0.1347f, 0.2342f, 0.1668f, 0.3378f, 0.433f,  0.2775f, 0.9901f, 0.7053f, 0.7266f, 0.484f,  0.282f,  0.5733f,
+    0.4555f, 0.6049f, 0.077f,  0.476f,  0.606f,  0.4159f, 0.3427f, 0.1234f, 0.7062f, 0.8569f, 0.1878f, 0.9057f, 0.9399f,
+    0.8139f, 0.1407f, 0.1794f, 0.9123f, 0.9493f, 0.2827f, 0.9934f, 0.0952f, 0.4879f, 0.516f,  0.4118f, 0.4873f, 0.3642f,
+    0.747f,  0.0866f, 0.5172f, 0.6365f, 0.2676f, 0.2407f, 0.7223f, 0.5761f, 0.1143f, 0.7137f, 0.2342f, 0.3353f, 0.688f,
+    0.2296f, 0.6023f, 0.6027f, 0.4138f, 0.5408f, 0.9859f, 0.1503f, 0.7238f, 0.6054f, 0.2477f, 0.6804f, 0.1432f, 0.454f,
+    0.9776f, 0.8762f, 0.7607f, 0.9025f, 0.9807f, 0.0652f, 0.8661f, 0.7663f, 0.2586f, 0.3994f, 0.0335f, 0.7328f, 0.0166f,
+    0.9589f, 0.4348f, 0.5493f, 0.7269f, 0.6867f, 0.6614f, 0.68f,   0.7804f, 0.5591f, 0.8381f, 0.091f,  0.7573f, 0.8985f,
+    0.3083f, 0.3188f, 0.8481f, 0.2356f, 0.6736f, 0.477f,  0.456f,  0.6266f, 0.4677f,
+}};
+
+// A float as the original's renderer makes a byte of it: cut to a whole
+// number (_ftol, 0x4d4f00), its lowest 8 bits kept.
+uint8_t toByte(float f) {
+    return uint8_t(int64_t(f));
 }
 
-// The next of a sequence of draws in 0..1.
-float unit(uint32_t &state) {
-    state = mix(state + 0x9e3779b9U);
-    return float(state >> 8) * (1.0f / 16777216.0f);
-}
-
-uint32_t seedOf(const std::array<Vec3, 3> &pos) {
-    uint32_t h = 0x2545f491U;
-    for (const Vec3 &p : pos)
-        for (float f : p) {
-            uint32_t bits = 0;
-            std::memcpy(&bits, &f, 4);
-            h = mix(h ^ bits);
-        }
-    return h;
+// Quake III's fast 1 / sqrt, one refinement (Q_rsqrt, jk2mp.exe 0x4339e0):
+// its small error decides how many sprites a triangle gets.
+float fastInverseRoot(float number) {
+    uint32_t i = 0;
+    float y = number;
+    std::memcpy(&i, &y, 4);
+    i = 0x5f3759dfU - (i >> 1);
+    std::memcpy(&y, &i, 4);
+    return y * (1.5f - number * 0.5f * y * y);
 }
 
 // Whether a triangle's corners all face the way its sprites need: up (or,
@@ -134,34 +151,60 @@ void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool 
                                      (t.pos[2][1] - t.pos[0][1]) * (t.pos[1][0] - t.pos[0][0]));
         if (area <= 1)
             continue;
-        t.step = parms.density / std::sqrt(area);
+        t.step = parms.density * fastInverseRoot(area);
         t.firstSprite = uint32_t(_sprites.size());
         // A grid of cells over the triangle's two weights, a sprite each
-        // somewhere in its cell; one falling outside the triangle is
-        // dropped (an effect's is tried again each life).
-        uint32_t state = seedOf(t.pos);
+        // somewhere in its cell, its draws walking the random table from a
+        // place and by a step (odd, at least 3) its corners give, as the
+        // original's (jk2mp.exe 0x496615); one falling outside the
+        // triangle is dropped (an effect's is tried again each life).
+        const auto &p = t.pos;
+        auto index = toByte(p[0][0] + p[0][1] + p[1][0] + p[1][1] + p[2][0] + p[2][1]);
+        t.interval = uint8_t(toByte(p[0][0] + p[1][1] + p[2][2]) | 3);
+        auto next = [&] {
+            const float r = kRandomChart[index];
+            index = uint8_t(index + t.interval);
+            return r;
+        };
         uint8_t turn = 0;
         for (float a = 0; a < 1; a += t.step)
             for (float b = 0; b < 1 - a; b += t.step) {
                 Sprite s;
                 s.cell = {a, b};
-                turn = uint8_t((turn + 1) & 3);
-                s.turn = turn;
-                const float fa = a + unit(state) * t.step;
-                const float fb = b + unit(state) * t.step;
-                s.fadeStart = fadeRange + (1 - fadeRange) * unit(state);
-                s.sizeRandom = unit(state);
-                s.flipped = unit(state) > 0.5f;
-                const float skewX = unit(state);
-                const float skewY = unit(state);
-                s.skew = {parms.vertSkew * (2 * skewX - 1), parms.vertSkew * (2 * skewY - 1)};
-                s.lifeOffset = 10000 * unit(state);
-                s.seed = mix(state);
-                if (!effect) {
+                if (effect) {
+                    s.index = index;
+                    index = uint8_t(index + t.interval);
+                    _sprites.push_back(s);
+                    continue;
+                }
+                float fa = 0;
+                float fb = 0;
+                if (parms.type == Type::kVertical) {
+                    // Both draws made before either is checked.
+                    fa = a + next() * t.step;
+                    fb = b + next() * t.step;
+                    turn = uint8_t((turn + 1) & 3);
                     if (fa > 1 || fb > 1 - fa)
                         continue;
-                    s.weights = {fa, fb, 1 - fa - fb};
+                    s.fadeStart = fadeRange + (1 - fadeRange) * next();
+                } else {
+                    fa = a + next() * t.step;
+                    if (fa > 1)
+                        continue;
+                    fb = b + next() * t.step;
+                    if (fb > 1 - fa)
+                        continue;
+                    s.fadeStart = fadeRange + (1 - fadeRange) * next();
+                    next(); // the oriented kind steps once more
                 }
+                s.turn = turn;
+                // The size and the rest read on from there, without moving
+                // the walk.
+                s.sizeRandom = kRandomChart[index];
+                s.flipped = kRandomChart[uint8_t(index + 1)] > 0.5f;
+                s.skew = {parms.vertSkew * 2 * kRandomChart[uint8_t(index + 2)] - parms.vertSkew,
+                          parms.vertSkew * 2 * kRandomChart[uint8_t(index + 3)] - parms.vertSkew};
+                s.weights = {fa, fb, 1 - fa - fb};
                 _sprites.push_back(s);
             }
         t.spriteCount = uint32_t(_sprites.size()) - t.firstSprite;
@@ -233,19 +276,30 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                 const Sprite &s = _sprites[si];
                 std::array<float, 3> w = s.weights;
                 float life = 0;
+                float fadeStart = s.fadeStart;
+                float sizeRandom = s.sizeRandom;
+                bool flipped = s.flipped;
                 if (effect) {
-                    // Each life somewhere else in its cell.
-                    const float lives = (timeMs + s.lifeOffset) / p.fxDuration;
-                    life = lives - std::floor(lives);
-                    uint32_t state = mix(s.seed ^ uint32_t(int64_t(std::floor(lives))));
-                    const float fa = s.cell[0] + unit(state) * t.step;
-                    const float fb = s.cell[1] + unit(state) * t.step;
-                    if (fa > 1 || fb > 1 - fa)
+                    // Each life somewhere else in its cell: its time on
+                    // from a draw, and the walk from there by the lives
+                    // (jk2mp.exe 0x497c51).
+                    const float lives = float((double(timeMs) + 10000.0 * kRandomChart[s.index]) / p.fxDuration);
+                    life = lives - float(int64_t(lives));
+                    auto at = toByte(float(s.index) + lives);
+                    const float fa = s.cell[0] + kRandomChart[at++] * t.step;
+                    if (fa > 1)
+                        continue;
+                    const float fb = s.cell[1] + kRandomChart[at++] * t.step;
+                    if (fb > 1 - fa)
                         continue;
                     w = {fa, fb, 1 - fa - fb};
+                    fadeStart = fadeRange + (1 - fadeRange) * kRandomChart[at];
+                    const auto size = uint8_t(s.index + t.interval);
+                    sizeRandom = kRandomChart[size];
+                    flipped = kRandomChart[uint8_t(size + 1)] > 0.5f;
                 }
                 const float along = near[0] * w[0] + near[1] * w[1] + near[2] * w[2];
-                float alpha = std::min(1 - (s.fadeStart - along) / fadeRange, 1.0f);
+                float alpha = std::min(1 - (fadeStart - along) / fadeRange, 1.0f);
                 if (alpha <= 0)
                     continue;
                 Vec3 at{};
@@ -253,8 +307,8 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                     for (size_t k = 0; k < 3; ++k)
                         at[k] += t.pos[c][k] * w[c];
                 float light = t.light[0] * w[0] + t.light[1] * w[1] + t.light[2] * w[2];
-                float width = p.width * (1 + p.variance[0] * s.sizeRandom);
-                float height = p.height * (1 + p.variance[1] * s.sizeRandom);
+                float width = p.width * (1 + p.variance[0] * sizeRandom);
+                float height = p.height * (1 + p.variance[1] * sizeRandom);
                 if (effect) {
                     width += life * p.fxGrow[0] * width;
                     height += life * p.fxGrow[1] * height;
@@ -269,7 +323,7 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                     light = (128 + light * 0.5f) * alpha;
                     alpha = 1;
                 }
-                if (s.flipped)
+                if (flipped)
                     width = -width;
                 if (p.fadeScale != 0 && along < 1)
                     width *= 1 + p.fadeScale * (1 - along);

@@ -347,7 +347,9 @@ static void testSurfaceSprites() {
     float top = 0;
     for (const gfx::Vertex &v : out)
         top = std::max(top, v.pos[2]);
-    CHECK(top >= 16 && top <= 16 * 3 && out[0].color[0] == 200);
+    // The corners' light weighted by where the sprite stands, cut to a
+    // byte as the original cuts it: 200, or just under.
+    CHECK(top >= 16 && top <= 16 * 3 && out[0].color[0] >= 199 && out[0].color[0] <= 200);
     out.clear();
     parts.clear();
     set.build({128, 2000, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, all, out, outIdx, parts);

@@ -17,13 +17,12 @@ The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
 - **Light styles** ([rbsp.md](../../formats/rbsp.md), In Reluva):
   outside a match (the World and Maps pages) every style is held full.
-- **Surface sprites** (grass, ferns, vines) stand where Reluva's own
-  random draws put them, not where the original's do: the same density
-  and look, other spots. Wind and weather sprites wait for the game's
-  code; until then they sway as with no wind, as the original's do when
-  it starts, and weather ones don't show. Their fade distances don't
-  lengthen with a narrower field of view yet
-  ([shader.md](../../formats/shader.md), In Reluva).
+- **Surface sprites** (grass, ferns, vines) on curved surfaces stand
+  elsewhere than the original's, which cuts curves into triangles its own
+  way. Wind and weather sprites wait for the game's code; until then they
+  sway as with no wind, as the original's do when it starts, and weather
+  ones don't show. Their fade distances don't lengthen with a narrower
+  field of view yet ([shader.md](../../formats/shader.md), In Reluva).
 - **Video textures** whose video the paks don't hold (9 of 13
   `videoMap` stages) aren't drawn; the rest of their shaders is.
 
