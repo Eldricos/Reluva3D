@@ -76,6 +76,10 @@ private:
     bool runLocal(uint64_t nowMs, int32_t dt);
     void runRemote(uint64_t nowMs, int32_t dt);
     eliteforce::GameHost::UserCommand buildCommand();
+    // Jedi Outcast's client game's limits on the view's yaw, applied to
+    // the command for `serverTime`.
+    void applyViewLimits(int32_t serverTime);
+    float _lastViewYaw = 0;
     void drawLoadingScreen();
     bool _loadingFailed = false; // the client game couldn't draw its loading screen
     void sendServerCommands();

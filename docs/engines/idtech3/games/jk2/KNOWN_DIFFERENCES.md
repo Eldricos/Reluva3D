@@ -39,9 +39,9 @@ In the multiplayer game:
 
 In the multiplayer menus:
 
-- **Recorded paths** ([roff.md](../../formats/roff.md)): their notes
-  aren't handed to the game's code yet, and the client game's side follows
-  its own clock where the original's follows the server's.
+- **Recorded paths** ([roff.md](../../formats/roff.md)): the client
+  game's side follows its own clock where the original's follows the
+  server's.
 - **Network play** ([systems/network.md](systems/network.md)): a server's
   map change notices all go at once, where the original's go at steps of
   its loading; it looks its masters' names up once, where the original
@@ -57,7 +57,8 @@ In the multiplayer menus:
   but searched again, as the menus do on opening.
 - **The Internet list** asks the community's masters after Raven's,
   which has long been gone.
-- **`R_RemapShader`** isn't answered yet, and no menu plays a video
+- **The menus' `R_RemapShader`** isn't answered (no 1.02a menu uses the
+  script command that calls it), and no menu plays a video
   ([systems/syscalls.md](systems/syscalls.md)).
 
 Left for after the rest is done and tested (its phase 11):

@@ -178,6 +178,8 @@ int32_t CgameHost::jk2SharedCall(int32_t n) {
 int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
     auto str = [&](int i, size_t max = 1024) { return vm.string(a[i], max); };
     auto f = [&](int i) { return Qvm::asFloat(a[i]); };
+    // Word k of the vector argument i points at.
+    auto f3 = [&](int i, int k) { return Qvm::asFloat(vm.readInt(a[i] + 4 * k)); };
     if (number >= kRegisterFont && number <= kReadCharFromString)
         return _fonts.call(vm, jk2::FontSet::Call(number - kRegisterFont), a, _time,
                            [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2,
@@ -225,8 +227,13 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         _commands.erase(std::remove(_commands.begin(), _commands.end(), name), _commands.end());
         return 0;
     }
-    case kMuteSound:
-    case kStopLoopingSound:
+    case kMuteSound: // (entityNum, channel)
+        if (soundSystem)
+            soundSystem->muteSound(a[0], a[1]);
+        return 0;
+    case kStopLoopingSound: // (entityNum)
+        if (soundSystem)
+            soundSystem->stopLoopingSound(a[0]);
         return 0;
     case kCeil:
         return Qvm::fromFloat(std::ceil(f(0)));
@@ -234,8 +241,20 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
         for (int32_t i = 0; i < a[3]; ++i)
             _scene.addPoly(vm, a[0], a[1], a[2] + i * a[1] * 24);
         return 0;
-    case kLightForPoint: // (point, ambient, directed, direction) -> whether the level has light there
-        return 0;
+    case kLightForPoint: { // (point, ambient, directed, direction) -> whether the level has a light grid
+        // The light as the grid has it, without the models' least light,
+        // as the original's renderer gives it the games.
+        if (!_lightGrid || _lightGrid->empty() || !vm.valid(a[0], 12) || !vm.checkWrite(a[1], 12) ||
+            !vm.checkWrite(a[2], 12) || !vm.checkWrite(a[3], 12))
+            return 0;
+        const PointLight light = _lightGrid->sample({f3(0, 0), f3(0, 1), f3(0, 2)}, false);
+        for (int i = 0; i < 3; ++i) {
+            vm.writeInt(a[1] + 4 * i, Qvm::fromFloat(light.ambient[size_t(i)]));
+            vm.writeInt(a[2] + 4 * i, Qvm::fromFloat(light.directed[size_t(i)]));
+            vm.writeInt(a[3] + 4 * i, Qvm::fromFloat(light.direction[size_t(i)]));
+        }
+        return 1;
+    }
     case kDrawRotatePic:
     case kDrawRotatePic2: { // (x, y, w, h, s1, t1, s2, t2, degrees, shader)
         Picture p{f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), a[9], _color};
@@ -253,11 +272,88 @@ int32_t CgameHost::jk2Call(Qvm &vm, int number, const int32_t *a) {
             for (int i = 0; i < 4; ++i)
                 _lightStyles[size_t(a[0])][size_t(i)] = uint8_t(uint32_t(a[1]) >> (8 * i));
         return 0;
-    case kRemapShader:
-    case kGetBmodelVerts:
-    case kSetClientForceAngle:
-    case kSetClientTurnExtent:
-        ++_unhandled[number];
+    case kRemapShader: // (old shader, new shader, time offset as text)
+        _shaderRemaps.push_back({str(0, 64), str(1, 64), float(std::atof(str(2, 32).c_str()))});
+        return 0;
+    case kGetBmodelVerts: { // (inline model "*n", verts[4] out, normal): a breaking pane's corners
+        // As the GPL renderer's RE_GetBModelVerts: of the model's two
+        // largest faces (each quad's two triangles' areas, squared and
+        // quartered, summed and cut to whole numbers), the one facing the
+        // last view, else the largest; its first four corners. The normal
+        // isn't written.
+        const std::string &name = _models.name(a[0]);
+        if (!_map || name.size() < 2 || name[0] != '*' || !vm.checkWrite(a[1], 48))
+            return 0;
+        const auto index = size_t(std::atoi(name.c_str() + 1));
+        if (index >= _map->models.size())
+            return 0;
+        const BspModel &model = _map->models[index];
+        auto corner = [&](const BspSurface &s, int k) {
+            const size_t at = size_t(s.firstVertex + std::min(k, std::max(0, s.numVertices - 1)));
+            return at < _map->vertices.size() ? _map->vertices[at].pos : std::array<float, 3>{};
+        };
+        auto area = [&](const BspSurface &s) {
+            const auto v1 = corner(s, 0);
+            const auto v2 = corner(s, 1);
+            const auto v3 = corner(s, 2);
+            const auto v4 = corner(s, 3);
+            auto quarterCrossSquared = [](const std::array<float, 3> &o, const std::array<float, 3> &p,
+                                          const std::array<float, 3> &q) {
+                const float a1[3] = {o[0] - p[0], o[1] - p[1], o[2] - p[2]};
+                const float a2[3] = {o[0] - q[0], o[1] - q[1], o[2] - q[2]};
+                const float c[3] = {(a1[1] * a2[2] - a1[2] * a2[1]) * 0.25f, (a1[2] * a2[0] - a1[0] * a2[2]) * 0.25f,
+                                    (a1[0] * a2[1] - a1[1] * a2[0]) * 0.25f};
+                return c[0] * c[0] + c[1] * c[1] + c[2] * c[2];
+            };
+            return int32_t(quarterCrossSquared(v1, v2, v4) + quarterCrossSquared(v3, v2, v4));
+        };
+        std::array<int32_t, 2> best{};
+        std::array<int32_t, 2> bestIndex{};
+        for (int32_t i = 0; i < model.numSurfaces; ++i) {
+            const size_t s = size_t(model.firstSurface + i);
+            if (s >= _map->surfaces.size())
+                break;
+            const int32_t d = area(_map->surfaces[s]);
+            if (d > best[0]) {
+                best[1] = best[0];
+                bestIndex[1] = bestIndex[0];
+                best[0] = d;
+                bestIndex[0] = i;
+            } else if (d >= best[1]) {
+                best[1] = d;
+                bestIndex[1] = i;
+            }
+        }
+        auto facing = [&](int32_t i) {
+            const size_t s = size_t(model.firstSurface + i);
+            if (s >= _map->surfaces.size())
+                return 0.0f;
+            const auto &n = _map->surfaces[s].lightmapVecs[2];
+            return n[0] * _lastViewForward[0] + n[1] * _lastViewForward[1] + n[2] * _lastViewForward[2];
+        };
+        const float dot1 = facing(bestIndex[0]);
+        const float dot2 = facing(bestIndex[1]);
+        const int32_t chosen = dot2 < dot1 && dot2 < 0 ? bestIndex[1] : bestIndex[0];
+        const size_t s = size_t(model.firstSurface + chosen);
+        if (s >= _map->surfaces.size())
+            return 0;
+        for (int k = 0; k < 4; ++k) {
+            const auto p = corner(_map->surfaces[s], k);
+            for (int c = 0; c < 3; ++c)
+                vm.writeInt(a[1] + 12 * k + 4 * c, Qvm::fromFloat(p[size_t(c)]));
+        }
+        return 0;
+    }
+    case kSetClientForceAngle: // (time, angles): the yaw taken, as jk2mp.exe keeps it (0x401200)
+        if (vm.valid(a[1], 12)) {
+            _viewLimits.forceTime = a[0];
+            _viewLimits.forceYaw = f3(1, 1);
+        }
+        return 0;
+    case kSetClientTurnExtent: // (add, sub, time) (0x401230)
+        _viewLimits.turnAdd = f(0);
+        _viewLimits.turnSub = f(1);
+        _viewLimits.turnTime = a[2];
         return 0;
     case kOpenUiMenu: // (menu): the menus' to open (the force powers...)
         _uiMenus.push_back(a[0]);
@@ -417,6 +513,13 @@ raven::RoffSystem::Side CgameHost::roffSide() {
         };
         set(kGetOriginTrajectory, origin, originDelta);
         set(kGetAngleTrajectory, angles, anglesDelta);
+    };
+    // A frame's note: CG_ROFF_NOTETRACK_CALLBACK (22), (entity, text).
+    side.note = [this](int32_t entity, const std::string &note) {
+        constexpr int32_t kRoffNotetrack = 22;
+        int32_t ignored = 0;
+        if (Error err = _vm.callWithText(kRoffNotetrack, {entity, 0}, 1, note, ignored); err && print)
+            print("ROFF note \"" + note + "\": " + err.message + "\n");
     };
     return side;
 }

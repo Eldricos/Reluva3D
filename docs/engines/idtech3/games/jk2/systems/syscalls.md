@@ -63,7 +63,7 @@ the screen, as for Elite Force.
 | 70, 71 | `S_StopBackgroundTrack`, `S_StartBackgroundTrack(intro, loop)` | the Menu page's music |
 | 72 | `RealTime(qtime)` | the local time |
 | 83–87 | the cinematic calls (`CIN_*`) | none plays: `CIN_PlayCinematic` returns -1, which the menus take as no video |
-| 88 | `R_RemapShader` | not yet |
+| 88 | `R_RemapShader` | not yet: only a menu script's `remap` command calls it, and no 1.02a menu has one |
 | 100–106 | `memset`, `memcpy`, `strncpy`, `sin`, `cos`, `atan2`, `sqrt` | the interpreter's own |
 | 200, 201 | `SP_Register(package)`, `SP_GetStringTextString(reference, buffer, size)` | the string packages, in `sp_language`'s language ([strings.md](../../../formats/strings.md)) |
 

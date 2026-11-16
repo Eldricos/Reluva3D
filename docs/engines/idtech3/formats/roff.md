@@ -74,8 +74,9 @@ Differences:
   for the origin and angles, where the original engine passes a pointer
   of its own, which only its client game DLL could use; with the QVM
   Reluva runs, the client's side works where the original's couldn't.
-- Notes aren't handed to either module yet (no file of Jedi Outcast's has
-  one).
+- A note's text is handed to the module on its stack (`Qvm::callWithText`):
+  the original engine passed a pointer of its own there too, which a QVM
+  couldn't read.
 - The client game's side runs on the client game's clock; the original
   uses the server's even there.
 
@@ -91,4 +92,6 @@ Differences:
   "roff") reads a made-up file with a note and a long-way turn, plays it
   (frames due and not, the other side's untouched, the end, a translated
   move, purging, cleaning). Nothing has played one in a match: no
-  multiplayer map has a trigger with a ROFF.
+  multiplayer map has a trigger with a ROFF. A note's text reaching a
+  QVM is checked by the QVM unit test (`callWithText`), not with a note
+  in a match (no file of Jedi Outcast's has one).

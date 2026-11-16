@@ -233,6 +233,30 @@ static void testSoundSystem(const std::filesystem::path &tmp) {
     sounds.clearLoopingSounds();
     sounds.endFrame();
     CHECK(effects() == 0);
+    // Jedi Outcast's: an entity's loop stopped at once, though added
+    // this frame; the first sound on an entity's channel silenced, and
+    // nothing for channel 0 or another entity's.
+    sounds.clearLoopingSounds();
+    sounds.addLoopingSound(5, {100, 0, 0}, "sound/a.wav");
+    sounds.addLoopingSound(6, {100, 0, 0}, "sound/b.wav");
+    sounds.endFrame();
+    CHECK(effects() == 2);
+    sounds.stopLoopingSound(5);
+    CHECK(effects() == 1);
+    sounds.endFrame();
+    CHECK(effects() == 1);
+    sounds.clearLoopingSounds();
+    sounds.endFrame();
+    sounds.setTime(2000);
+    sounds.startSound(std::nullopt, 7, 1, "sound/a.wav");
+    sounds.startSound(std::nullopt, 7, 2, "sound/b.wav");
+    CHECK(effects() == 2);
+    sounds.muteSound(7, 0);
+    sounds.muteSound(8, 1);
+    CHECK(effects() == 2);
+    sounds.muteSound(7, 1);
+    CHECK(effects() == 1);
+    sounds.stopAll();
 
     // Music: the intro, then the loop (names without an extension found).
     sounds.startBackgroundTrack("music/intro", "music/loop");

@@ -62,6 +62,29 @@ public:
     // The configstrings the server has set, as the client receives them
     // (its game state).
     void setConfigstrings(std::map<int32_t, std::string> configstrings) { _configstrings = std::move(configstrings); }
+    // The level's light grid, which R_LightForPoint samples (Jedi
+    // Outcast's); null: no light anywhere.
+    void setLightGrid(const LightGrid *grid) { _lightGrid = grid; }
+    // R_RemapShader's since the last call, in order, for the renderer.
+    struct ShaderRemap {
+        std::string from;
+        std::string to;
+        float timeOffset = 0; // seconds
+    };
+    std::vector<ShaderRemap> takeShaderRemaps() { return std::exchange(_shaderRemaps, {}); }
+    // Jedi Outcast's limits on the player's view yaw for the next command
+    // (SetClientForceAngle, SetClientTurnExtent): each applies once, if its
+    // time is still ahead of the command's (see applyViewLimits).
+    struct ViewLimits {
+        int32_t forceTime = 0;
+        float forceYaw = 0;
+        float turnAdd = 0;
+        float turnSub = 0;
+        int32_t turnTime = 0;
+    };
+    ViewLimits &viewLimits() { return _viewLimits; }
+    // The newest snapshot's player state (empty before the first).
+    const std::vector<uint8_t> &latestPlayerState() const;
     // CG_INIT for the player `clientNum`.
     Error init(int32_t clientNum, int32_t serverMessageNum = 0, int32_t serverCommandSequence = 0);
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
@@ -190,6 +213,12 @@ private:
     std::string _worldMap;
     std::pair<std::string, std::string> _music;
     std::shared_ptr<const Bsp> _map;
+    const LightGrid *_lightGrid = nullptr;
+    std::vector<ShaderRemap> _shaderRemaps;
+    ViewLimits _viewLimits;
+    // The last RenderScene's forward axis (its refdef's at 36), as the
+    // original's renderer keeps its last view.
+    std::array<float, 3> _lastViewForward{1, 0, 0};
     std::string _log;
     std::map<int, int> _unhandled;
     std::vector<std::string> _clientCommands;

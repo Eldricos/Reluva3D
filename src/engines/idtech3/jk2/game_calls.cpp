@@ -435,6 +435,13 @@ raven::RoffSystem::Side GameHost::roffSide() {
         if (const int32_t e = entityAddress(entity); e >= 0 && _layout.isRoffing >= 0)
             _vm.writeInt(e + _layout.isRoffing, 0);
     };
+    // A frame's note: GAME_ROFF_NOTETRACK_CALLBACK (11), (entity, text).
+    side.note = [this](int32_t entity, const std::string &note) {
+        constexpr int32_t kRoffNotetrack = 11;
+        int32_t ignored = 0;
+        if (Error err = _vm.callWithText(kRoffNotetrack, {entity, 0}, 1, note, ignored); err && print)
+            print("ROFF note \"" + note + "\": " + err.message + "\n");
+    };
     return side;
 }
 

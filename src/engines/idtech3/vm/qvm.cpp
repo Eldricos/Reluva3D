@@ -271,6 +271,22 @@ Error Qvm::call(int32_t command, const std::vector<int32_t> &args, int32_t &resu
     return callAt(0, all, result);
 }
 
+Error Qvm::callWithText(int32_t command, std::vector<int32_t> args, size_t textArg, std::string_view text,
+                        int32_t &result) {
+    const auto size = int32_t((text.size() + 4) & ~size_t(3));
+    if (_programStack - size - 8 - 4 * kMainArgs < _stackBottom)
+        return Error::fail("QVM stack overflow on entry");
+    const int32_t saved = _programStack;
+    _programStack -= size;
+    writeString(_programStack, text, size);
+    if (args.size() <= textArg)
+        args.resize(textArg + 1);
+    args[textArg] = _programStack;
+    Error err = call(command, args, result);
+    _programStack = saved;
+    return err;
+}
+
 Error Qvm::callAt(int32_t instruction, const std::vector<int32_t> &args, int32_t &result) {
     result = 0;
     if (_code.empty())

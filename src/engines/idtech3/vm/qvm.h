@@ -36,6 +36,11 @@ public:
     // (bad address, bad jump, stack overflow, division by zero...), naming
     // the instruction.
     Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
+    // call(), with `text` put on the VM's stack for the call (below the
+    // frame it runs on, where its own locals would be) and its address
+    // given as argument `textArg`.
+    Error callWithText(int32_t command, std::vector<int32_t> args, size_t textArg, std::string_view text,
+                       int32_t &result);
     // A function of the program other than vmMain, by its first
     // instruction (for diagnosis: reluva-tool's -vmcall).
     Error callAt(int32_t instruction, const std::vector<int32_t> &args, int32_t &result);

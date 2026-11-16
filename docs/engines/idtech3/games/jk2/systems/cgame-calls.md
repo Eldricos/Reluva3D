@@ -48,16 +48,18 @@ system and Ghoul2 (4 to 24).
 | # | Call | What Reluva does |
 |---|---|---|
 | 16 | `RemoveCommand` | as it says |
-| 31, 38 | `S_MuteSound`, `S_StopLoopingSound` | nothing yet |
+| 31, 38 | `S_MuteSound`, `S_StopLoopingSound` | (entity, channel): the first sound the entity plays on that channel (1 and up) silenced; (entity): its looping sound stopped at once |
 | 47–52 | the text calls | as the menus' ([syscalls.md](syscalls.md)): the HUD's numbers and names |
 | 111 | ceil | |
 | 203 | `R_AddPolysToScene` | each polygon added |
-| 204 | `R_LightForPoint` | no light yet |
+| 204 | `R_LightForPoint` | the level's light grid at the point (ambient, directed and its direction, with the light styles as set), without the minimum models get; 0 without a grid |
 | 212, 213 | `R_DrawRotatePic`, `R_DrawRotatePic2` | a turned picture |
-| 214 | `R_RemapShader` | not yet |
+| 214 | `R_RemapShader` | (old, new, time offset as text): from then on, what's drawn with the old shader is drawn with the new, its time that many seconds behind; new the same as old undoes it, a new level forgets them (`ShaderCache::remap`) |
 | 215, 216 | `R_GetLightStyle`, `R_SetLightStyle` | a style's colour (RGBA, red the word's lowest byte) read and set; the level's lightmaps, vertices and light grid follow ([rbsp.md](../../../formats/rbsp.md)) |
-| 217 | `R_GetBModelVerts` | not yet |
+| 217 | `R_GetBModelVerts` | (inline model, four corners out, normal): as the GPL renderer's: of the model's two largest faces, the one facing away from the last view's forward axis, else the largest; its first four corners; the normal isn't written. jk2mp.exe calls its renderer for it through a table filled as it runs, so 1.02a's own version isn't read |
 | 218 | `FX_AddLine` | a line added to the effects system |
+| 227 | `SetClientForceAngle` | (time, angles): jk2mp.exe keeps the time and angles (0x401200); the next command made before that time takes the yaw, less the player state's turn (`delta_angles[1]`, at 72), once (0x407700) |
+| 228 | `SetClientTurnExtent` | (add, sub, time) (0x401230): unless a yaw was forced, the next command made before that time can't turn across either extent (each less the player state's turn): the yaw goes back to the last command's |
 | 229 | `OpenUIMenu` | the page opens that menu over the match (6, the force powers, when the game sends `nfr` to a new player) |
 | 233–236 | the key calls | the catcher kept |
 | 237–243 | the script calls | as the menus': the HUD is a menu script |

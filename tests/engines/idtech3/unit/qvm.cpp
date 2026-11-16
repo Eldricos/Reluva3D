@@ -291,6 +291,15 @@ static void testCompiledQvm() {
             return 0;
         }
     });
+    // Text for a call: on the stack below the frame, its address the
+    // argument asked for (command 0 gives back arg0 + arg1 * arg2), and the
+    // stack as it was afterwards, so a second call puts it in the same place.
+    {
+        int32_t at = 0;
+        CHECK(!vm.callWithText(0, {0, 0, 1}, 1, "loop", at) && at > 0 && vm.string(at) == "loop");
+        int32_t again = 0;
+        CHECK(!vm.callWithText(0, {0, 0, 1}, 1, "loop", again) && again == at);
+    }
     for (const QvmCase &c : kQvmCases) {
         int32_t r = 0;
         err = vm.call(c.command, {c.arg0, c.arg1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 100}, r);

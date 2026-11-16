@@ -199,6 +199,12 @@ std::vector<std::string> tokenize(const std::string &line) {
 
 } // namespace
 
+const std::vector<uint8_t> &CgameHost::latestPlayerState() const {
+    static const std::vector<uint8_t> kNone;
+    const auto it = _snapshots.find(_snapshotNumber);
+    return it == _snapshots.end() ? kNone : it->second.playerState;
+}
+
 void CgameHost::newSnapshot(GameHost::Snapshot snapshot) {
     // Numbered as the original's client numbers them, by the message they
     // came in: Init's serverMessageNum is the game state's, and the client
@@ -627,6 +633,9 @@ int32_t CgameHost::systemCall(Qvm &vm, int number, const int32_t *a) {
         return 0;
     case kRRenderScene:
         _scene.render(vm, a[0], _pictures.size());
+        if (vm.valid(a[0], 48))
+            for (int i = 0; i < 3; ++i)
+                _lastViewForward[size_t(i)] = Qvm::asFloat(vm.readInt(a[0] + 36 + 4 * i));
         return 0;
     case kRLerpTag: { // (orientation_t*, model, startFrame, endFrame, frac, tagName) -> found
         auto [it, added] = _md3s.try_emplace(a[1]);

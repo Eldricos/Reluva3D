@@ -248,6 +248,7 @@ Error PlayPage::startClientGame(const std::map<int32_t, std::string> &configstri
                                 int32_t commandSequence) {
     _cgame = std::make_unique<eliteforce::CgameHost>(_ctx.files, _cvars, _ctx.game.code);
     _cgame->print = [this](const std::string &text) { addPrint(text, true); };
+    _cgame->setLightGrid(&_grid);
     _scene->setHandles({&_cgame->models(), &_cgame->skins(), &_cgame->shaders()});
     // Its Ghoul2 players and weapons, posed as it has set them.
     _scene->ghoul2Poses = [this](int32_t instance, int32_t time, std::vector<Ghoul2Pose> &out) {
@@ -1396,6 +1397,7 @@ eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
     // The player's command for this moment, as a client sends one each
     // frame: where they look, how they move, what they press.
     eliteforce::GameHost::UserCommand cmd;
+    applyViewLimits(_clientTime);
     const PlayerInput::Command c = _input.command(_cvars, _ctx.game);
     cmd.angles = c.angles;
     cmd.buttons = c.buttons;
@@ -1406,6 +1408,52 @@ eliteforce::GameHost::UserCommand PlayPage::buildCommand() {
     cmd.right = c.right;
     cmd.up = c.up;
     return cmd;
+}
+
+void PlayPage::applyViewLimits(int32_t serverTime) {
+    // As jk2mp.exe's client builds a command (0x407700): a forced yaw is
+    // taken once, less the player state's turn (delta_angles[1], at 72);
+    // the yaw is kept within 0 to 360; and, unless forced, a turn that
+    // crosses either extent is undone. Each lasts one command.
+    if (!_cgame)
+        return;
+    eliteforce::CgameHost::ViewLimits &v = _cgame->viewLimits();
+    const std::vector<uint8_t> &ps = _cgame->latestPlayerState();
+    int32_t delta = 0;
+    if (ps.size() >= 76)
+        std::memcpy(&delta, ps.data() + 72, 4);
+    const float deltaYaw = float(delta) * 360.0f / 65536.0f;
+    float &yaw = _input.yaw;
+    bool forced = false;
+    if (v.forceTime > serverTime) {
+        v.forceYaw -= deltaYaw;
+        yaw = v.forceYaw;
+        v.forceTime = 0;
+        forced = true;
+    }
+    if (yaw < 0) {
+        yaw += 360;
+        _lastViewYaw += 360;
+    }
+    if (yaw > 360) {
+        yaw -= 360;
+        _lastViewYaw -= 360;
+    }
+    if (!forced && v.turnTime > serverTime) {
+        float add = v.turnAdd - deltaYaw;
+        float sub = v.turnSub - deltaYaw;
+        if (add < 0)
+            add += 360;
+        if (sub < 0)
+            sub += 360;
+        auto crossed = [&](float extent) {
+            return (yaw > extent && _lastViewYaw < extent) || (yaw < extent && _lastViewYaw > extent);
+        };
+        if (crossed(add) || crossed(sub))
+            yaw = _lastViewYaw;
+        v.turnTime = 0;
+    }
+    _lastViewYaw = yaw;
 }
 
 bool PlayPage::runLocal(uint64_t nowMs, int32_t dt) {
@@ -1513,6 +1561,8 @@ void PlayPage::update(uint64_t nowMs) {
         // Raven's light styles as the client game set them this frame.
         _world->setLightStyles(_cgame->lightStyles());
         _grid.setStyles(_cgame->lightStyles());
+        for (const eliteforce::CgameHost::ShaderRemap &r : _cgame->takeShaderRemaps())
+            _shaders->remap(r.from, r.to, r.timeOffset);
         size_t drawn = 0;
         bool first = true;
         // r_drawentities 0: the level alone; r_drawEffects 0 (Reluva's):

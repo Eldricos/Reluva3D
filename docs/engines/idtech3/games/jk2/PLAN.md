@@ -143,6 +143,9 @@ behind the DLL's own tables.
    mods: 1.02a's own code never uses them
    ([bsp.md](../../formats/bsp.md), Collision). Ghoul2's animations blend
    into each other ([ghoul2.md](../../formats/ghoul2.md), Animation).
+   The client game's last calls are answered (the light at a point,
+   shader remaps, a pane's corners, forced view angles and turn limits,
+   muting sounds), and ROFF notes reach both modules.
    The deltas, user commands and XOR agree with jk2mp.exe's own
    routines, run in the x86 interpreter (`delta-check`); next: a match
    played against the retail game, either way, on Windows

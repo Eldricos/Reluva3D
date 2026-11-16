@@ -51,6 +51,10 @@ public:
     // endFrame() play; the rest stop.
     void clearLoopingSounds();
     void addLoopingSound(int entity, const Vec3f &origin, const std::string &name);
+    // Jedi Outcast's: the entity's looping sounds stop now, and its sound
+    // on `channel` (1 and up) is silenced.
+    void stopLoopingSound(int entity);
+    void muteSound(int entity, int channel);
     void updateEntityPosition(int entity, const Vec3f &origin);
     // Ambient set sounds (AmbientSets): at a volume of their own (0 to 1)
     // rather than faded by distance, though still panned to where they

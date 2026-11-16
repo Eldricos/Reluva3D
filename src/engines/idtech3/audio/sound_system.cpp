@@ -185,6 +185,31 @@ void SoundSystem::addLoopingSound(int entity, const Vec3f &origin, const std::st
     _loopsAdded[{entity, name}] = origin;
 }
 
+void SoundSystem::stopLoopingSound(int entity) {
+    for (auto it = _loopsAdded.begin(); it != _loopsAdded.end();)
+        it = it->first.first == entity ? _loopsAdded.erase(it) : std::next(it);
+    for (auto it = _loops.begin(); it != _loops.end();) {
+        if (it->first.first != entity) {
+            ++it;
+            continue;
+        }
+        _mixer.stop(it->second);
+        it = _loops.erase(it);
+    }
+}
+
+void SoundSystem::muteSound(int entity, int channel) {
+    // The first on that channel, as the original finds one.
+    if (channel < 1)
+        return;
+    for (Playing &p : _playing)
+        if (p.entity == entity && p.channel == channel && p.handle != audio::kNoSound) {
+            _mixer.stop(p.handle);
+            p.handle = audio::kNoSound;
+            return;
+        }
+}
+
 void SoundSystem::updateEntityPosition(int entity, const Vec3f &origin) {
     _entities[entity] = origin;
 }

@@ -933,6 +933,7 @@ public:
     std::map<gfx::TextureId, std::vector<uint8_t>> textures;
     std::vector<gfx::Vertex> vertices;
     int verticesSet = 0;
+    std::vector<gfx::DrawCall> drawn;
     Error createTexture(int w, int h, const uint8_t *rgba, const gfx::TextureParams &, gfx::TextureId &out) override {
         out = gfx::TextureId(++_next);
         textures[out].assign(rgba, rgba + size_t(w) * size_t(h) * 4);
@@ -959,7 +960,7 @@ public:
     int height() const override { return 64; }
     std::string deviceName() const override { return "styles"; }
     void beginFrame(const gfx::Mat4 &, const gfx::Vec3 &, Color) override {}
-    void draw(const gfx::DrawCall &) override {}
+    void draw(const gfx::DrawCall &call) override { drawn.push_back(call); }
     void setView(const gfx::Mat4 &, const gfx::Vec3 &) override {}
     void setDynamicLights(const std::vector<gfx::DynamicLight> &) override {}
     void setViewport(int, int, int, int) override {}
@@ -976,6 +977,44 @@ public:
 private:
     uint32_t _next = 0;
 };
+
+// R_RemapShader: what's drawn with one shader drawn with another, behind
+// in time by its offset, from then on, for materials made before and
+// after; remapping to itself undoes it.
+static void testShaderRemap() {
+    SearchSet files;
+    ShaderLibrary library;
+    auto def = [](const std::string &name, int stages) {
+        ShaderDef d;
+        d.name = name;
+        for (int i = 0; i < stages; ++i) {
+            ShaderStage st;
+            st.maps = {"textures/x"};
+            d.stages.push_back(st);
+        }
+        return d;
+    };
+    library.add(def("a", 1));
+    library.add(def("b", 2));
+    library.add(def("c", 1));
+    StyleRenderer r;
+    ShaderCache shaders(r, files, library);
+    auto drawn = [&](int material, float time) {
+        r.drawn.clear();
+        shaders.draw(material, {}, 0, time);
+        return r.drawn.size() == 0 ? 0.0f : float(r.drawn.size()) * 100 + r.drawn[0].time;
+    };
+    const int a = shaders.material("a", Lighting::kVertex);
+    CHECK(drawn(a, 10) == 110);
+    shaders.remap("A", "b", 2.5f);
+    CHECK(drawn(a, 10) == 207.5f);
+    shaders.remap("c", "b", 0);
+    CHECK(drawn(shaders.material("c", Lighting::kVertex), 10) == 210);
+    shaders.remap("a", "a", 0);
+    CHECK(drawn(a, 10) == 110);
+    shaders.clear();
+    CHECK(drawn(shaders.material("c", Lighting::kVertex), 10) == 110);
+}
 
 static void testLightStyles() {
     // One quad lit by style 0 and style 6: its first lightmap at (0, 0) of
@@ -1332,6 +1371,7 @@ static const reluva::test::Suite
                {"skins and placement", [](const std::filesystem::path &) { testSkinAndPlacement(); }},
                {"light grid", [](const std::filesystem::path &) { testLightGrid(); }},
                {"light styles", [](const std::filesystem::path &) { testLightStyles(); }},
+               {"shader remap", [](const std::filesystem::path &) { testShaderRemap(); }},
                {"roff", [](const std::filesystem::path &) { testRoff(); }},
                {"mdr", [](const std::filesystem::path &) { testMdr(); }},
                {"player animation", [](const std::filesystem::path &) { testPlayerAnimation(); }},

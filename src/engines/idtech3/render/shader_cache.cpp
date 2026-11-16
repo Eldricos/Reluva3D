@@ -140,6 +140,8 @@ void ShaderCache::clear() {
     _videos.clear();
     _materials.clear();
     _byName.clear();
+    _remaps.clear();
+    _remapped.clear();
     _implicit.clear();
     _unsupported.clear();
     _missing = 0;
@@ -474,11 +476,42 @@ int ShaderCache::material(const std::string &name, Lighting lighting) {
     }
     const int index = material(*def, lighting);
     _byName[key] = index;
+    // Made after its remap: remapped too (not again from inside one, so
+    // two shaders remapped to each other stop there).
+    if (const auto r = _remaps.find(key.first); r != _remaps.end() && !_remapping) {
+        _remapping = true;
+        const Remap remap = r->second;
+        _remapped[index] = {material(remap.to, lighting), remap.timeOffset};
+        _remapping = false;
+    }
     return index;
+}
+
+void ShaderCache::remap(const std::string &from, const std::string &to, float timeOffset) {
+    const std::string name = normalizeArchiveName(from);
+    std::vector<std::pair<int, Lighting>> made;
+    for (const auto &[key, index] : _byName)
+        if (key.first == name)
+            made.emplace_back(index, key.second);
+    if (normalizeArchiveName(to) == name) {
+        _remaps.erase(name);
+        for (const auto &[index, lighting] : made)
+            _remapped.erase(index);
+        return;
+    }
+    _remaps[name] = {to, timeOffset};
+    _remapping = true;
+    for (const auto &[index, lighting] : made)
+        _remapped[index] = {material(to, lighting), timeOffset};
+    _remapping = false;
 }
 
 void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky,
                        const std::array<float, 4> *entity) const {
+    if (const auto r = _remapped.find(material); r != _remapped.end()) {
+        material = r->second.first;
+        time -= r->second.second;
+    }
     const std::array<float, 4> ent = entity ? *entity : std::array<float, 4>{1, 1, 1, 1};
     const Material &m = _materials[size_t(material)];
     for (const Stage &st : m.stages) {
@@ -604,6 +637,10 @@ void ShaderCache::draw(int material, const gfx::DrawCall &base, gfx::TextureId l
 
 void ShaderCache::drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
                           const std::array<float, 4> &plane, float time) const {
+    if (const auto r = _remapped.find(material); r != _remapped.end()) {
+        material = r->second.first;
+        time -= r->second.second;
+    }
     const Material &m = _materials[size_t(material)];
     if (m.stages.empty() || distance <= 0)
         return;

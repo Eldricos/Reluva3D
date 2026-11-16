@@ -73,6 +73,10 @@ public:
     // sky shaders).
     int material(const ShaderDef &def, Lighting lighting, bool sky = false);
     const Material &get(int material) const { return _materials[size_t(material)]; }
+    // Quake III's R_RemapShader: what's drawn with `from` is drawn with
+    // `to` instead, its time `timeOffset` seconds behind; `to` the same as
+    // `from` undoes it. Until clear().
+    void remap(const std::string &from, const std::string &to, float timeOffset);
 
     // `picmip`: the texture detail setting may make it smaller.
     gfx::TextureId image(const std::string &name, bool clamp, bool mipmaps, bool picmip = false);
@@ -118,6 +122,14 @@ private:
     const ShaderLibrary &_shaders;
     std::vector<Material> _materials;
     std::map<std::pair<std::string, Lighting>, int> _byName;
+    struct Remap {
+        std::string to;
+        float timeOffset = 0;
+    };
+    std::map<std::string, Remap> _remaps; // by the name remapped
+    // Each remapped material's replacement and time offset.
+    std::map<int, std::pair<int, float>> _remapped;
+    bool _remapping = false;
     std::deque<ShaderDef>
         _implicit; // the original's shaders for names without a script, and pictures' copies (stable addresses)
     std::unordered_map<std::string, gfx::TextureId> _images; // by normalized name and flags
