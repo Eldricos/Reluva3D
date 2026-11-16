@@ -117,8 +117,8 @@ Moved to their format pages; kept here so the reasoning can be found:
   section 6.
 - **Fade lengths:** the recordings' 0.27 to 0.47 s are the game's fade
   of at most one step a frame (0.32 s at the least; the 0.27 s within
-  the video's measurement); listed with the known differences.
-  [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
+  the video's measurement), which Reluva's fades now follow, a step an
+  update. [systems/acts.md](systems/acts.md).
 - **The save's thumbnail:** a 24-bit BMP. D3DX's BMP writer in the game
   writes only 24- and 8-bit files; Reluva wrote 32-bit and now writes
   24. [systems/saves.md](systems/saves.md).
