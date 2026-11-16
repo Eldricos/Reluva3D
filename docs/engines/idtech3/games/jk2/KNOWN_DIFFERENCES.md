@@ -9,6 +9,11 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
   style full, showing a level's light as compiled. In a match they change
   as the client game sets them, as the original's do
   ([rbsp.md](../../formats/rbsp.md), In Reluva).
+- **The console key**: `~` (or `` ` ``) opens the console on its own. The
+  original's multiplayer engine opens it only with Shift held (0x4099dc:
+  the key alone, with the console shut, goes on to the bindings and
+  menus). Its default config binds nothing to the key, so only a
+  player's own binding on it is lost.
 
 ## Bugs fixed
 
