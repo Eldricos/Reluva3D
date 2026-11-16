@@ -42,10 +42,10 @@ In the multiplayer menus:
 - **Recorded paths** ([roff.md](../../formats/roff.md)): their notes
   aren't handed to the game's code yet, and the client game's side follows
   its own clock where the original's follows the server's.
-- **Network play** ([systems/network.md](systems/network.md)): a server
-  Reluva hosts doesn't announce itself to the masters. Its map change
-  notices all go at once, where the original's go at steps of its
-  loading.
+- **Network play** ([systems/network.md](systems/network.md)): a server's
+  map change notices all go at once, where the original's go at steps of
+  its loading; it looks its masters' names up once, where the original
+  looks again when one's cvar changes.
 - **Effects** ([efx.md](../../formats/efx.md)): electricity is drawn
   without its taper and branches, and effects bolted to a model aren't
   played (1.02a's client game doesn't ask). The second triangle of a

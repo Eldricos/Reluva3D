@@ -88,15 +88,15 @@ NetServer::~NetServer() {
 
 void NetServer::heartbeat(uint64_t now, bool force) {
     // Only a public Internet server (dedicated 2) tells the masters it's
-    // there, as the original: every 5 minutes, in Elite Force's words.
+    // there, as the original: every 5 minutes, in its game's words.
     if (_cvars.integer("dedicated") != 2 || !resolveHost || (!force && now < _nextHeartbeat) ||
-        _protocol.gameName != "EliteForce")
+        !_protocol.masterServers)
         return;
     _nextHeartbeat = now + 300000;
     if (!_mastersResolved) {
         _mastersResolved = true;
-        for (const std::string &name : masterServerNames(_cvars, masterServers())) {
-            const auto [host, port] = reluva::net::splitHostPort(name, ServerBrowser::kMasterPort);
+        for (const std::string &name : masterServerNames(_cvars, _protocol.masterServers())) {
+            const auto [host, port] = reluva::net::splitHostPort(name, _protocol.masterPort);
             uint32_t ip = 0;
             if (resolveHost(host, ip))
                 _masters.push_back({ip, port});
@@ -105,7 +105,10 @@ void NetServer::heartbeat(uint64_t now, bool force) {
         }
     }
     for (const reluva::net::Address &m : _masters) {
-        sendText(m, "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
+        // Quake III's names its game only (jk2mp.exe's "heartbeat %s\n",
+        // 0x44e587).
+        sendText(m, _protocol.quakeHeartbeat ? std::string("heartbeat QuakeArena-1\n")
+                                             : "\\heartbeat\\" + std::to_string(port()) + "\\gamename\\STEF1\\");
         if (print)
             print("Heartbeat to the master at " + m.toString() + "\n");
     }
@@ -237,6 +240,10 @@ void NetServer::levelStarted() {
     _restartsSeen = _game.restarts();
     _restartedIds.clear();
     _serverId = _cvars.integer("sv_serverid");
+    // Quake III's tells the masters of each new level at once (jk2mp.exe's
+    // level start runs its heartbeat command, 0x44dcc4).
+    if (_protocol.quakeHeartbeat)
+        _nextHeartbeat = 0;
     for (Client &c : _clients)
         if (c.state >= State::kConnected) {
             c.state = State::kConnected;
@@ -1017,7 +1024,7 @@ Error NetServer::frame(uint64_t now) {
         int players = 0;
         for (int32_t n = 0; n < maxClients; ++n)
             players += !_game.clientSlotFree(n);
-        const bool changed = _lastPlayerCount >= 0 && players != _lastPlayerCount &&
+        const bool changed = !_protocol.quakeHeartbeat && _lastPlayerCount >= 0 && players != _lastPlayerCount &&
                              (players == 0 || _lastPlayerCount == 0 || players == maxClients);
         heartbeat(now, _lastPlayerCount < 0 || changed);
         _lastPlayerCount = players;

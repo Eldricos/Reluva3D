@@ -3,7 +3,9 @@
 
 #include "engines/idtech3/eliteforce/net_protocol.h"
 
+#include "engines/idtech3/eliteforce/game_info.h"
 #include "engines/idtech3/eliteforce/net_fields.h"
+#include "engines/idtech3/jk2/game_info.h"
 #include "engines/idtech3/jk2/net_fields.h"
 
 namespace reluva::idtech3::eliteforce {
@@ -23,6 +25,7 @@ GameHost::UserCommand readEliteForceCommand(wire::MessageReader &r, int32_t, con
 NetProtocol makeEliteForce() {
     NetProtocol p;
     p.gameName = "EliteForce";
+    p.masterServers = masterServers;
     p.writeEntityDelta = writeEntityDelta;
     p.writeEntityRemoved = writeEntityRemoved;
     p.readEntityDelta = readEntityDelta;
@@ -45,6 +48,11 @@ NetProtocol makeJediOutcast() {
     p.compressedConnect = true;
     p.quotedInfo = false;
     p.downloadReason = true;
+    // jk2mp.exe's: sv_master1 masterjk2.ravensoft.com (gone; the
+    // community's follow), port 28060 when a name has none (0x44e52c).
+    p.masterServers = jk2::masterServers;
+    p.masterPort = 28060;
+    p.quakeHeartbeat = true;
     p.scoreOffset = 280;
     p.entityStateSize = jk2::kNetEntityStateSize;
     p.playerStateSize = jk2::kNetPlayerStateSize;

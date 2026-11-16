@@ -42,8 +42,16 @@ except:
 - The `connect` packet is compressed after its first 12 bytes (the four
   `0xff` and `connect `): the rest (the quoted userinfo) is an adaptive
   Huffman code, below, with its length in two bytes, high first.
-- A server that sends heartbeats sends `heartbeat QuakeArena-1` (not yet
-  in Reluva: its server doesn't announce itself to masters).
+- **Heartbeats**, Quake III 1.32's (jk2mp.exe, 0x44e460): only a public
+  server (`dedicated 2`) sends them, an out-of-band `heartbeat
+  QuakeArena-1` and a newline to each of `sv_master1` to `sv_master5`
+  (the first `masterjk2.ravensoft.com`, Raven's, long gone; the others
+  empty), port 28060 where a name gives none. One goes every 5 minutes,
+  one at once when a level starts (0x44dcc4 runs the `heartbeat`
+  command), and two as the server shuts down, so the masters ask, get no
+  answer and drop it. A master's name is looked up again when its cvar
+  changes. Not, as Elite Force's, when the server empties, gets its first
+  player or fills.
 
 ### The netchan
 
@@ -204,7 +212,13 @@ The Play page's server sends the map change five times before it loads
 another level (`NetServer::levelChanging`), and its client hands each one
 to the client game.
 
-Not yet: heartbeats to Jedi Outcast's masters; the CD key's authorization (Reluva lets everyone in, as
+A public server (`dedicated 2`: `net-run -public`) sends Quake III's
+heartbeats to Jedi Outcast's masters; Reluva's defaults after Raven's are
+the community's `master.ouned.de` and `master.jkhub.org`. It looks the
+masters' names up once, at the first heartbeat, where the original looks
+again when one's cvar changes.
+
+Not yet: the CD key's authorization (Reluva lets everyone in, as
 every server has since Raven's authorize server went).
 
 ## Sources and checks
@@ -247,13 +261,19 @@ every server has since Raven's authorize server went).
     It found Reluva's messages a byte short when their bits ended on a
     byte boundary (above), which the retail game would have read as past
     their end.
-  - Not yet played against the retail game, either way: the handshake,
-    the game state and snapshots as whole messages, and the netchan's
-    headers and fragments are checked only between Reluva's ends.
+  - A unit test (`idtech3.unit.network`, "jedi outcast heartbeat"): the
+    heartbeat's text and port, none again within 5 minutes, one at a new
+    level and two at shutdown. Not seen reaching a real master: in
+    November 2026 none of the community masters' names
+    (`master.ouned.de`, `master.jkhub.org`) could be looked up from where
+    Reluva was tested.
+  - Against the retail game on Windows, by hand, November 2026: the
+    retail client joined a match Reluva hosted, and Reluva's client a
+    retail server, and both played (players drawn facing the right way
+    once Ghoul2's root turn was in, [ghoul2.md](../../../formats/ghoul2.md)).
 
 ### Open questions
 
-- Whether the retail game takes Reluva's server and client as they are:
-  every table, the Huffman code, the deltas, the commands and the
-  client's XOR agree with its own routines, but nothing has been played
-  against it yet.
+- A level change, downloads and long matches haven't been tried against
+  the retail game yet, nor a Reluva server's heartbeats against a real
+  master.

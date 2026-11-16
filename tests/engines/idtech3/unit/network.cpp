@@ -508,6 +508,68 @@ static void testNetworkPlay(const std::filesystem::path &tmp, bool systemSockets
     std::filesystem::remove_all(tmp);
 }
 
+// Jedi Outcast's public server tells its masters as jk2mp.exe does:
+// Quake III's heartbeat, to port 28060, every 5 minutes and at once when a
+// level starts, and twice as it shuts down.
+static void testJk2Heartbeat(const std::filesystem::path &tmp) {
+    namespace ef = eliteforce;
+    std::filesystem::remove_all(tmp);
+    test::writeFile(
+        tmp / "BaseEF" / "pak0.pk3",
+        test::buildZip(
+            {{"vm/qagame.qvm", std::vector<uint8_t>(std::begin(kFakeGameQvm), std::end(kFakeGameQvm)), {}}}));
+    SearchSet set;
+    std::vector<std::string> warnings;
+    CHECK(!mountGameDir(set, tmp, "BaseEF", 0, warnings));
+    CvarStore cvars;
+    ef::GameHost game(set, cvars);
+    CHECK(!game.load());
+    auto map = collisionMap();
+    map->entities = "{\n\"classname\" \"worldspawn\"\n}\n{\n\"classname\" \"info_player_deathmatch\"\n"
+                    "\"origin\" \"0 0 300\"\n}\n";
+    if (game.startLevel("borg2", map, 1234)) {
+        CHECK(false);
+        return;
+    }
+    auto network = net::LoopbackNetwork::create();
+    auto master = network->open(28060);
+    cvars.set("sv_master1", "127.0.0.1");
+    for (const char *name : {"sv_master2", "sv_master3"})
+        cvars.set(name, "");
+    cvars.create("dedicated", "0", 0);
+    cvars.set("dedicated", "2", true); // (latched: forced, as at a new level)
+    auto server = std::make_unique<ef::NetServer>(game, cvars, network->open(28070), ef::jediOutcastProtocol());
+    server->resolveHost = [](const std::string &host, uint32_t &ip) {
+        net::Address a;
+        if (!net::parseAddress(host, 0, a))
+            return false;
+        ip = a.ip;
+        return true;
+    };
+    server->levelStarted();
+    const std::string expected = "\xff\xff\xff\xffheartbeat QuakeArena-1\n";
+    auto beats = [&] {
+        int n = 0;
+        net::Address from;
+        std::vector<uint8_t> beat;
+        while (master->receive(from, beat)) {
+            CHECK(std::string(beat.begin(), beat.end()) == expected && from.port == 28070);
+            ++n;
+        }
+        return n;
+    };
+    uint64_t now = 1000;
+    CHECK(!server->frame(now));
+    CHECK(beats() == 1);
+    CHECK(!server->frame(now + 1000) && beats() == 0); // not again for 5 minutes
+    CHECK(!server->frame(now + 300000) && beats() == 1);
+    server->levelStarted(); // a new level: at once
+    CHECK(!server->frame(now + 301000) && beats() == 1);
+    server.reset();
+    CHECK(beats() == 2);
+    std::filesystem::remove_all(tmp);
+}
+
 static void testNetMessages() {
     using reluva::idtech3::wire::MessageReader;
     using reluva::idtech3::wire::MessageWriter;
@@ -997,21 +1059,22 @@ static void testServerLists(const std::filesystem::path &tmp) {
           status == "\\sv_hostname\\Local\\\\5 40 \"Kyle\"\\0 999 \"Jan\"\\");
 }
 
-static const reluva::test::Suite
-    kSuite("idtech3.unit.network",
-           {
-               {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
-               {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
-               {"jedi outcast wire", [](const std::filesystem::path &) { testJk2Wire(); }},
-               {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
-               {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
-               {"server lists", [](const std::filesystem::path &tmp) { testServerLists(tmp / "lists"); }},
-               {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
-               {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
-               {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},
-               {"network play", [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay", false); }},
-               {"network play over sockets",
-                [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
-               {"network play at a rate",
-                [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
-           });
+static const reluva::test::Suite kSuite(
+    "idtech3.unit.network",
+    {
+        {"messages", [](const std::filesystem::path &) { testNetMessages(); }},
+        {"deltas", [](const std::filesystem::path &) { testNetDeltas(); }},
+        {"jedi outcast wire", [](const std::filesystem::path &) { testJk2Wire(); }},
+        {"pure check", [](const std::filesystem::path &tmp) { testPureCheck(tmp / "pure"); }},
+        {"server browser", [](const std::filesystem::path &) { testServerBrowser(); }},
+        {"server lists", [](const std::filesystem::path &tmp) { testServerLists(tmp / "lists"); }},
+        {"downloads", [](const std::filesystem::path &tmp) { testDownloads(tmp / "downloads"); }},
+        {"pure server", [](const std::filesystem::path &tmp) { testPureServer(tmp / "pure"); }},
+        {"snapshot culling", [](const std::filesystem::path &tmp) { testSnapshotCulling(tmp / "culling"); }},
+        {"network play", [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay", false); }},
+        {"jedi outcast heartbeat", [](const std::filesystem::path &tmp) { testJk2Heartbeat(tmp / "heartbeat"); }},
+        {"network play over sockets",
+         [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-udp", true); }},
+        {"network play at a rate",
+         [](const std::filesystem::path &tmp) { testNetworkPlay(tmp / "netplay-rate", false, true); }},
+    });

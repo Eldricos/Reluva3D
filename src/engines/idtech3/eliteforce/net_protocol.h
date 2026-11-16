@@ -44,6 +44,14 @@ struct NetProtocol {
     bool quotedInfo = true;
     // Put in the info string ("gamename"), if not empty.
     std::string gameName;
+    // The masters a public server (dedicated 2) tells it's there: their
+    // names by default (sv_master1 on) and port. Quake III 1.32's way
+    // (`heartbeat QuakeArena-1`, and at once when a level starts), or
+    // Elite Force's (its port and game named, and at once when the server
+    // empties, gets its first player or fills).
+    std::vector<std::string> (*masterServers)() = nullptr;
+    uint16_t masterPort = 27953;
+    bool quakeHeartbeat = false;
     // A refused download says why (Quake III's), or not (protocol 24).
     bool downloadReason = false;
     // Where a player's score is in the player state (persistant[0]).
