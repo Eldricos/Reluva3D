@@ -3516,10 +3516,14 @@ bool ScenePage::start(ScriptRunner &runner, const ScriptEvent &e, bool wait) {
         Character *c = scriptCharacter(runner);
         if (v == "pause" || v == "resume" || v == "loop" || v == "attach" || v == "detach")
             c = v == "loop" ? nullptr : characterNamed(e.arg(1)) ? characterNamed(e.arg(1)) : c;
-        if (v == "loop")
+        // "loop" queues the routine of the runner's character (0x40a6a4 →
+        // 0x405940): a routine's own, else setchar's or the player's.
+        if (v == "loop") {
+            c = scriptCharacter(runner);
             for (Character &ch : _characters)
                 if (ch.routine.get() == &runner)
                     c = &ch;
+        }
         if (c) {
             const bool waits = startCharacterVerb(runner, *c, e, wait, handled);
             if (handled)

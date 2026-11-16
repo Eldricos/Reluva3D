@@ -1,1 +1,1 @@
-scripts: 5d5ea14ca7491421 | 5622 commands of 56 verbs
+scripts: 8994de5e3730f285 | 5622 commands of 56 verbs

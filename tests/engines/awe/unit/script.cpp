@@ -127,6 +127,11 @@ void testScript() {
     r3.fastForward();
     CHECK(state3.itemState("waterglass") == 2 && state3.itemState("hammer") == 0 && state3.itemState("keysmall") == 0);
     CHECK(!state3.tags.count("securityunlocked"));
+    // "clear": every item used up, the passports and cards kept (0x41c220).
+    r3.run("add hammer, clear");
+    r3.fastForward();
+    CHECK(state3.itemState("hammer") == 4 && state3.itemState("waterglass") == 4 &&
+          state3.itemState("passmasterman") == 5 && testCondition("used hammer", state3));
     // Clicks are refused while it runs, but during a walk, or after
     // "unlock".
     host3.started.clear();

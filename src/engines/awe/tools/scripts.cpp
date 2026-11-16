@@ -35,8 +35,8 @@ const std::set<std::string> kVerbs = {
     "playa", "previous", "quit", "remove", "removetag", "removestate", "reset", "restore", "resume", "rotate",
     "rotatea", "run", "runa", "savepos", "savescene", "scene", "gotoscene", "setchar", "show", "showshadow", "sound",
     "sounda", "startpass", "endpass", "startprint", "endprint", "stop", "tag", "take", "talk", "talka", "terminate",
-    "test", "texture", "lasttexture", "time", "timer", "turn", "turna", "unlock", "update", "updatemusic", "use",
-    "wait", "walk", "walka", "wear", "weather", "web", "yesno", "head", "nogen", "forcegen", "nogreet",
+    "test", "texture", "time", "timer", "turn", "turna", "unlock", "update", "updatemusic", "use", "wait", "walk",
+    "walka", "wear", "weather", "web", "yesno",
     // expanded or read as they're added (0x409024)
     "dooropen", "doorlocked", "script"};
 

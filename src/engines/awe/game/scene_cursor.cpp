@@ -57,15 +57,15 @@ bool ScenePage::objectShown(const Ac2Record &o) const {
 
 bool ScenePage::globallyHidden(const Ac2Record &o) const {
     // "globalhide" (0x40e9d6; ac.exe 0x410558): the tag hide_<its file's
-    // name, less its extension>, else hide_<that up to its '_'>.
+    // name, less its last 4 characters>, else hide_<that up to its last
+    // '_'> (wcsrchr at 0x40ea04; ac.exe's strrchr at 0x410583).
     std::string name = fs::toLower(fileNameOf(normalizeArchiveName(o.text("file"))));
-    if (name.empty())
+    if (name.size() < 4)
         return false;
-    if (const size_t dot = name.rfind('.'); dot != std::string::npos)
-        name.resize(dot);
+    name.resize(name.size() - 4);
     if (_state.tags.count("hide_" + name))
         return true;
-    const size_t cut = name.find('_');
+    const size_t cut = name.rfind('_');
     return cut != std::string::npos && _state.tags.count("hide_" + name.substr(0, cut));
 }
 

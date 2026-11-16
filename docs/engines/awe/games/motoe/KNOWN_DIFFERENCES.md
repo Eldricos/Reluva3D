@@ -108,12 +108,14 @@ install meets it.
 
 Kept for the other AWE games, where they may be needed:
 
-- the lights' flicker and the `light` command;
+- the lights' flicker;
 - objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`: empty or
   0 in every scene);
 - animated pictures (`2DAN`, `NING`: in no scene);
-- about 25 script verbs no script calls (most are only logged; see
-  [systems/script.md](systems/script.md)).
+- six script verbs no script calls: `play` and `playa` (animated
+  pictures, which no scene has), `texture`, `wear`, `removestate` and
+  `web`; logged and over at once
+  ([systems/script.md](systems/script.md#verbs-nothing-uses)).
 
 ### Only one release checked
 
