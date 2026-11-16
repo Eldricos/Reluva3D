@@ -334,7 +334,8 @@ In `motoe.exe`: `0x439ca0`.
   (`0x407ae0`, an empty Condition holds).
 * None: if fwd, try nest+1, nest+2... while lines with that Nest code exist
   (a whole nest level whose conditions all fail is skipped). Stop with null at
-  the first missing nest code. Without fwd, return null.
+  the first missing nest code after the one asked for: the one asked for may
+  be missing, and is passed over. Without fwd, return null.
 * One: return it.
 * Several (alternatives): index `i = +0x560`. If `i == +0x55e` and i≠-1, keep
   it. If i == -1, pick `rand()%count` different from +0x55e. Else use i-1.

@@ -267,7 +267,7 @@ bool DialogueManager::boxShown() const {
 // The line of a thread at `nest` whose condition holds; several: an
 // alternative, the one asked for or another at random (0x439ca0).
 int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
-    for (;; nest++) {
+    for (const int asked = nest;; nest++) {
         bool any = false;
         std::vector<int> ok;
         for (size_t i = 0; i < t.lines.size(); i++)
@@ -276,7 +276,12 @@ int DialogueManager::pickLine(Thread &t, int nest, bool forward) {
                 if (testCondition(t.lines[i].condition, _state))
                     ok.push_back(int(i));
             }
-        if (!any)
+        // Going on, a nest after the one asked for that has no lines ends
+        // the search; the one asked for may have none (motoe.exe
+        // 0x439ca0, ac.exe 0x431ee5): And Then There Were None's 4A table
+        // is missing Wargrave's line between two others, and the game
+        // plays on past it.
+        if (!any && (!forward || nest != asked))
             return -1;
         if (ok.size() == 1)
             return ok[0];

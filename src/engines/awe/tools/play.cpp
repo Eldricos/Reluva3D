@@ -1354,11 +1354,9 @@ int aweCommandSolve(int argc, char **argv) {
         }
         std::vector<Action> todo = player.actions();
         // A scene with nothing to click, only the inventory: a dead end,
-        // without trying every combination there first. And Then There
-        // Were None's conversations cut to close-ups, and one whose way
-        // back is a line cut from the table (coldwargrave 04a, thread c)
-        // leaves Narracott in one. (Not Orient Express's: its route was
-        // searched without this.)
+        // without trying every combination there first (And Then There
+        // Were None's conversations cut to close-ups). (Not Orient
+        // Express's: its route was searched without this.)
         const GameInfo *playing = player.page().gameState().game;
         if (playing && playing->overlay && std::none_of(todo.begin(), todo.end(), [](const Action &a) {
                 return a.kind == "click" || a.kind == "use";

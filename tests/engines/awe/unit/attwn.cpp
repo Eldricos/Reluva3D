@@ -391,6 +391,36 @@ void testDialogueManager() {
     CHECK(!plus.plus && plus.greet && plus.number == 0 && plus.thread == '+' - 'A');
 }
 
+void testMissingNest() {
+    // A nest missing from a thread is passed over, as Wargrave's line f in
+    // 4A (0x431ee5); two missing in a row end it.
+    std::string table = "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTone\tLine\n";
+    for (const char *line :
+         {"wargrave\t04a\ta\ta\ta\twargrave\t0\tOne.", "wargrave\t04a\ta\ta\tb\twargrave\t0\tTwo.",
+          "wargrave\t04a\ta\ta\td\twargrave\t0\tFour.", "wargrave\t04a\ta\tb\ta\twargrave\t0\tFirst.",
+          "wargrave\t04a\ta\tb\td\twargrave\t0\tUnheard."})
+        table += std::string(line) + "\t0\t0\t0\t0\t0\t0\n";
+    GameState state;
+    testing::FakeHost scripts;
+    QuietHost host;
+    DialogueManager d(state, scripts, host);
+    d.setGame(attwn::game());
+    d.book().add(parseTable(table));
+    ScriptRunner runner(state, scripts);
+    auto said = [&](int thread) {
+        std::vector<std::string> lines;
+        CHECK(d.talk(runner, "wargrave", 0, thread, -1, false, -1, false, true));
+        for (int i = 0; i < 400 && d.active(); i++) {
+            if (d.line() && (lines.empty() || lines.back() != d.line()->text))
+                lines.push_back(d.line()->text);
+            d.update(0.05f);
+        }
+        return lines;
+    };
+    CHECK((said(0) == std::vector<std::string>{"One.", "Two.", "Four."}));
+    CHECK((said(1) == std::vector<std::string>{"First."}));
+}
+
 void testNothingToSay() {
     // A talk that finds nothing, whatever started it: Narracott's line,
     // "her" or "him" by the last character talked to (0x4325a0).
@@ -738,6 +768,7 @@ static const reluva::test::Suite
                                  {"dialogue tables", [](const std::filesystem::path &) { testDialogueTables(); }},
                                  {"dialogue manager", [](const std::filesystem::path &) { testDialogueManager(); }},
                                  {"nothing to say", [](const std::filesystem::path &) { testNothingToSay(); }},
+                                 {"missing nest", [](const std::filesystem::path &) { testMissingNest(); }},
                                  {"lighting", [](const std::filesystem::path &) { testLighting(); }},
                                  {"saves", [](const std::filesystem::path &) { testSaves(); }},
                                  {"chapters", [](const std::filesystem::path &tmp) { testChapters(tmp); }},

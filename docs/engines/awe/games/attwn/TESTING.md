@@ -64,9 +64,8 @@ The tools stop the timer and let time pass by a wait, tried before an
 action whose conditions tested the timer (Brent's "It's done" thirty
 seconds after the fishing line), so a route plays the same however fast
 its lines go by. The search gives up a scene with nothing to click but
-the inventory, and a state with the player hidden once all is over:
-Wargrave's thread `c` in 4A leaves Narracott in a close-up, or hidden,
-as the table has it ([UNCONFIRMED.md](UNCONFIRMED.md)); and it counts
+the inventory (a conversation's close-up), and a state with the player
+hidden once all is over; and it counts
 something newly clickable as new (the projector's bulb shows once the
 drawers above it are shut).
 

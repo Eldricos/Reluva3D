@@ -119,7 +119,13 @@ The test is a "contains" (`0x402a20`), so with no one talked to yet it's
 "her". The name is the last talk's that found its part, as in Orient
 Express.
 
-**Choosing a line** (`0x431e70`): with several that may be said, the one
+**Choosing a line** (`0x431e70`): going on from a line, the next nest's
+lines, or if none of them may be said the nest after, and so on while
+there are lines; the nest asked for may have none, a later one with
+none ends the thread (`0x431ee5`), as in Orient Express. So Wargrave's
+"Anything else you'd like to add?" in 4A plays on past its line `f`,
+taken out of the table (`coldwargraveTEMPCUT`), as gameplay footage
+shows. With several that may be said, the one
 the talk's number asks for, else one at random other than the last; it
 isn't kept for the rest of the talk, as Orient Express keeps it, and its
 place counts among all the nest's lines, said or not. The voice's `_n` is

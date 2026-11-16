@@ -23,24 +23,20 @@ None yet.
   are (below); the rest (`alpha`, `lighting`, the scales, `b54`, `flat`,
   the sound's, `pickFirst` and each class's own parts) are taken to be
   as there. [formats/ac1.md](formats/ac1.md).
-- **Wargrave's "Anything else you'd like to add?" in 4A strands
-  Narracott** in Blore's close-up, as Reluva plays it: the thread's line
-  `f` was taken out of the table (it's `coldwargraveTEMPCUT`), and a
-  thread ends at its first missing line (`0x431e70`, read), so the lines
-  after it, the last of which goes back to the dining room, never play.
-  Taken before thread `b`, which goes back to the dining room, it leaves
-  Narracott hidden everywhere (its line `b` says `globalhide narracott`,
-  the cut-off `k` the `globalshow`): he can't be clicked again, and 6C
-  wants the embrocation used on him. Whether the original strands the
-  player there too isn't seen in the game itself. The route search keeps
-  out of both.
-
 ## Guessed
 
 None yet.
 
 ## Settled
 
+- **Wargrave's "Anything else you'd like to add?" in 4A** plays to its
+  end and back to the dining room, Narracott shown again, though its
+  line `f` was taken out of the table (`coldwargraveTEMPCUT`): seen in
+  gameplay footage of chapter 4, and so in the code read again, which
+  passes over a missing nest asked for (`0x431ee5`; Orient Express's
+  `0x439ca0` too). Reluva stopped the thread there, leaving Narracott in
+  Blore's close-up and hidden; it plays on now.
+  [systems/dialogue.md](systems/dialogue.md).
 - **The objects' fields the code is seen to use** mean what Orient
   Express's do: the file `+0xbc` (`0x407ed0`), the name `+0x2bc`
   (`0x410250`), the script `+0x3bc` and `listB` `+0x5cc` (`0x40fff0`),
