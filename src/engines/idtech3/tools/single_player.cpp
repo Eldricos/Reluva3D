@@ -349,7 +349,7 @@ int cmdSpRun(int argc, char **argv) {
     const auto started = std::chrono::steady_clock::now();
     if (reluva::Error e = game.load(dll, jedi))
         return failed("loading", e);
-    std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
+    std::printf("%s loaded at 0x%08x\n", jedi ? "jk2gamex86.dll" : "efgamex86.dll", game.module()->base);
     game.cpu().trace = [&](reluva::x86::Cpu &c) { recent[recentAt++ % recent.size()] = c.eip; };
     game.setSaveStream(nullptr, save.get());
     if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0, loadMode))

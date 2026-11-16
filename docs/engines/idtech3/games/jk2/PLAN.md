@@ -165,10 +165,13 @@ behind the DLL's own tables.
    engine's table (103 slots, the first 42 as the Elite Force Expansion
    Pack engine's), the game's, the entity layout and the version are
    read from `jk2sp.exe`; Elite Force's single-player host loads the DLL
-   in a Jedi Outcast mode, and `sp-run` gets as far as `dllEntry`'s first
-   client game call. Next: the client game's 112 calls from
-   `jk2sp.exe`'s jump table, then Ghoul2's slots and the engine-owned
-   instance array the game reaches through `TheGhoul2InfoArray`.
+   in a Jedi Outcast mode. The client game's 112 calls are mapped from
+   `jk2sp.exe`'s jump table and most answered, sharing Elite Force's
+   handling where they match; `sp-run` runs the game's `Init` (NPCs,
+   ICARUS) to its first Ghoul2 call. Next: Ghoul2's slots and the
+   engine-owned instance array the game reaches through
+   `TheGhoul2InfoArray`; then the rest of the client game's (the menus'
+   parser, cinematics) as the level needs them.
 8. **Single player's menus**: the Team Arena style menu system run natively
    (`ui/menus.txt`, every item type, the owner draws and `uiScript`
    commands that `jk2sp.exe` provides: new game, load and save lists,

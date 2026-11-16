@@ -171,6 +171,7 @@ Error SpGameHost::load(const std::vector<uint8_t> &dll, bool jedi) {
     }
     _jedi = jedi;
     _entity = jedi ? kJediEntity : kEntity;
+    _cg = jedi ? kJediCgame : CgameLayout{};
     if (Error e = _process->load(jedi ? "jk2gamex86.dll" : "efgamex86.dll", dll, _module))
         return e;
     if (Error e = _process->attach(*_module))
@@ -430,7 +431,7 @@ uint32_t SpGameHost::playerState() const {
     if (!entities())
         return 0;
     const uint32_t ps = _cpu->read32(entityAddress(0) + uint32_t(_entity.client));
-    return _cpu->valid(ps, kPlayerStateSize) ? ps : 0;
+    return _cpu->valid(ps, uint32_t(_cg.playerState)) ? ps : 0;
 }
 
 int32_t SpGameHost::playerHealth() const {
@@ -728,11 +729,11 @@ int32_t SpGameHost::registerSkin(const std::string &name) {
     return it->second ? -handle : handle;
 }
 
-uint32_t SpGameHost::cgameCall(x86::Cpu &c) {
+uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
     // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
-    const int number = int(c.arg(0));
+    const int number = as >= 0 ? as : int(c.arg(0));
     _cgameCallCounts.add(number);
     switch (number) {
     case 0: // Print(text)
@@ -925,8 +926,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c) {
         _scene.clear();
         return 0; // R_ClearScene
     case 44:      // R_AddRefEntityToScene(refEntity)
-        if (c.valid(a(0), kRefEntitySize))
-            _scene.addEntity(c.memory().data() + a(0), kRefEntitySize, 0);
+        if (c.valid(a(0), uint32_t(_cg.refEntity)))
+            _scene.addEntity(c.memory().data() + a(0), uint32_t(_cg.refEntity), 0);
         return 0;
     case 45: { // R_LightForPoint(point, ambient, directed, direction) -> whether the level has a light grid
         if (_lightGrid.empty())
@@ -1158,6 +1159,10 @@ void SpGameHost::tokenize(const std::string &text) {
 }
 
 void SpGameHost::writeGlconfig(uint32_t address) {
+    if (_jedi) {
+        writeJediGlconfig(address);
+        return;
+    }
     writeGlconfigTo(*_cpu, address);
 }
 
@@ -1228,20 +1233,19 @@ void SpGameHost::writeSnapshot(uint32_t address, const Snapshot &snap) {
     // time 8, the area mask 12 (32 bytes), the command number 44, the
     // player state 48 (544), the entity count 592, the entities 596 (256
     // of 232 bytes), the server command sequence 60000.
-    constexpr uint32_t kSize = 0xea64;
-    if (!_cpu->valid(address, kSize))
+    if (!_cpu->valid(address, _cg.snapshotSize))
         return;
     _cpu->write32(address, 0);
     _cpu->write32(address + 4, 0);
     _cpu->write32(address + 8, uint32_t(snap.serverTime));
     std::memcpy(_cpu->memory().data() + address + 12, snap.areaMask.data(), 32);
     _cpu->write32(address + 44, uint32_t(snap.commandNumber));
-    std::memcpy(_cpu->memory().data() + address + 48, snap.playerState.data(), kPlayerStateSize);
-    _cpu->write32(address + 0x250, uint32_t(snap.entities.size()));
+    std::memcpy(_cpu->memory().data() + address + 48, snap.playerState.data(), size_t(_cg.playerState));
+    _cpu->write32(address + _cg.snapshotCount, uint32_t(snap.entities.size()));
     for (size_t i = 0; i < snap.entities.size(); ++i)
-        std::memcpy(_cpu->memory().data() + address + 0x254 + kEntityStateSize * i, snap.entities[i].data(),
-                    kEntityStateSize);
-    _cpu->write32(address + 0xea60, uint32_t(snap.serverCommandSequence));
+        std::memcpy(_cpu->memory().data() + address + _cg.snapshotEntities + uint32_t(_cg.entityState) * i,
+                    snap.entities[i].data(), size_t(_cg.entityState));
+    _cpu->write32(address + _cg.snapshotSequence, uint32_t(snap.serverCommandSequence));
 }
 
 std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
@@ -1291,11 +1295,11 @@ void SpGameHost::makeSnapshot() {
     snap.number = ++_snapshotNumber;
     snap.serverTime = _levelTime;
     snap.commandNumber = _commandNumber;
-    snap.playerState.assign(kPlayerStateSize, 0);
+    snap.playerState.assign(size_t(_cg.playerState), 0);
     // The player's state: where the player's entity's client points.
     const uint32_t ps = uint32_t(entityInt(0, _entity.client));
-    if (ps && _cpu->valid(ps, kPlayerStateSize))
-        std::memcpy(snap.playerState.data(), _cpu->memory().data() + ps, kPlayerStateSize);
+    if (ps && _cpu->valid(ps, uint32_t(_cg.playerState)))
+        std::memcpy(snap.playerState.data(), _cpu->memory().data() + ps, size_t(_cg.playerState));
     // From the client game's camera if one's running, else the player's
     // eye: origin (20) raised by the view height (168).
     Vec3f eye{};
@@ -1320,7 +1324,7 @@ void SpGameHost::makeSnapshot() {
         // server does (see GameHost::snapshot).
         if (_cpu->read32(a + uint32_t(_entity.number)) != uint32_t(n))
             _cpu->write32(a + uint32_t(_entity.number), uint32_t(n));
-        snap.entities.emplace_back(_cpu->memory().data() + a, _cpu->memory().data() + a + kEntityStateSize);
+        snap.entities.emplace_back(_cpu->memory().data() + a, _cpu->memory().data() + a + _cg.entityState);
     }
     snap.serverCommandSequence = int32_t(_toClient.size());
     if (_world && _areaPortals && !(_cvars.find("cm_noAreas") && _cvars.integer("cm_noAreas"))) {

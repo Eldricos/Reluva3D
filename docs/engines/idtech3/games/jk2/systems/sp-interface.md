@@ -1,6 +1,6 @@
 # Jedi Outcast: how single player's DLL and the engine talk
 
-> **Status:** partial · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp` (shared with Elite Force), `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; `jk2gamex86.dll` loading in Reluva · **Confidence:** from the code unless marked
+> **Status:** partial · **Code:** `src/engines/idtech3/eliteforce/sp_game_host.cpp` (shared with Elite Force), `src/engines/idtech3/jk2/sp_game_calls.cpp` · **Checked against:** `jk2sp.exe` 1.02a's code; `jk2gamex86.dll` running in Reluva up to its first Ghoul2 call · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -83,9 +83,46 @@ and solid (0xb4) are where Elite Force's are.
 ### The client game's calls
 
 Numbered 0 to 111 (0x401577 rejects any higher), through `dllEntry`'s
-handler. The GPL source's `cgameImport_t` has 118, so 1.02a's numbering
-differs from it somewhere; it's to be read from the handler's jump table
-(0x401fd0).
+handler; read from its jump table (0x401fd0), each case's code and what
+it calls (the renderer's through its table at 0x7ff770, in the GPL
+source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
+1.02a has four force feedback calls where it has ten, no
+`AnyLanguage_ReadFromString`, and one call it lacks (81).
+
+| Number | Calls | As Elite Force's |
+|---|---|---|
+| 0–25 | print, error, time, settings, arguments, files, commands, screen update, collision (load, models, contents, traces, marks) | the same numbers |
+| 26 | `CM_SnapPVS(origin, buffer)`: the clusters seen from there, a bit each | — |
+| 27–34 | sound: start, start local, clear and add looping, entity position, respatialize, register, background track | 26–33 |
+| 35–38 | force feedback: three of one argument, one of none | 34–37 |
+| 39–43 | `R_LoadWorldMap`, `R_RegisterModel`, `R_RegisterSkin`, `R_RegisterShader`, `R_RegisterShaderNoMip` | 38–42 |
+| 44–48 | fonts: register, width in pixels, letters, height, draw (Raven's, as multiplayer's) | — |
+| 49, 50 | `Language_IsAsian`, `Language_UsesSpaces` | — |
+| 51–62 | clear scene, add entity, lighting at a point, polygon, light, render, colour, picture, screenshot picture, model bounds, tag, turned picture | 43–54 |
+| 63 | `R_DrawRotatePic2`: a picture turned about its centre | — |
+| 64, 65 | `R_LAGoggles`, `R_Scissor` | — (55) |
+| 66 | `GetGlconfig`: 84 bytes (0x401020), four text pointers then the numbers, the screen size at 56 and 60 | 56, its own layout |
+| 67–73 | game state (20,100 bytes, 0x401000), snapshot number, snapshot, server command, command number, user command (28 bytes), `SetUserCmdValue` | 57–63 |
+| 74 | `SetUserCmdAngles(pitch, yaw, roll)` | — |
+| 75–80 | ambient sets: update, local set, parse, add entry, brush model sound; `S_GetSampleLength` | 65–70 |
+| 81 | two points (0x415ba0) the engine writes out as six numbers, to record a path | — |
+| 82–85 | Ghoul2: list bones, list surfaces, `HaveWeGhoul2Models`, `SetModels` | — |
+| 86–89 | light styles get and set, a brush model's corners, `R_WorldEffectCommand` | — |
+| 90–94 | cinematics: play, stop, run, draw, set extents | — |
+| 95, 96 | `Z_Malloc(size, tag)` (0x414960, zeroed), `Z_Free` | — |
+| 97–107 | the menus' parser: reset, new menu, parse int, string and float, start and end a session, `PC_ParseExt`, paint all, string init, menu info | — |
+| 108 | `SP_Register(package, flags)` (0x431e40; the second argument made 1 or 12) | — |
+| 109, 110 | the same case (0x401f63): text by reference, or (110) by number (0x432290: its high byte the package's number, its low byte the entry's), copied into a buffer; the length returned | — |
+| 111 | `UI_GetItemText(menu, item, buffer)` | — |
+
+The structures handed over: a snapshot (0x401120) has its flags, ping,
+server time and area mask as Elite Force's, the command number at 44,
+the player state at 48 (948 bytes), the entity count at 0x3e4, up to 256
+entity states of 252 bytes from 0x3e8 and the server command sequence
+at 0xfff4; a scene entity (`refEntity_t`) is 168 bytes *(from the GPL
+source's layout)*, Elite Force's 136 then the Ghoul2 angles, model scale
+and instance pointer; the view (`refdef_t`) is Quake III's, without
+Elite Force's text.
 
 ## In Reluva
 
@@ -95,8 +132,16 @@ asked, the entity layout above, the export table's longer list.
 `reluva-tool idtech3 sp-run <base folder> <map>` finds `jk2gamex86.dll`
 beside the game's folder and runs it.
 
-Not yet: Ghoul2's slots and the client game's calls stop the game with
-the name or number of the call, the first being `dllEntry`'s call 3.
+The client game's calls are answered as the table above says, Elite
+Force's handling shared where the call and what it passes are the same
+(`SpGameHost::cgameCall` with Elite Force's number), the snapshot and
+scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
+answered: the Ghoul2 calls (84, 85), a brush model's corners (88), the
+cinematics (90–94), the menus' parser (97–107) and item text (111),
+which stop the game with their number, as Ghoul2's engine slots do with
+their names. With them, `sp-run` on `kejim_post` runs `dllEntry`, the
+game's `Init` (its NPC definitions and ICARUS start) and stops at its
+first Ghoul2 call, `G2API_CleanGhoul2Models`.
 
 ## Sources and checks
 
@@ -107,4 +152,7 @@ the name or number of the call, the first being `dllEntry`'s call 3.
   `cg_public.h`, `q_shared.h`) as a guide to the tables' order and the
   structures, *(published)* for the Ghoul2 slots' names.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its
-  version is 6, and `dllEntry` runs until its first client game call.
+  version is 6, `dllEntry`'s client game calls are answered and the
+  game's `Init` runs until its first Ghoul2 call. The client game's own
+  start (`CG_Init`) needs the level started, so its calls beyond
+  `dllEntry`'s haven't run yet.

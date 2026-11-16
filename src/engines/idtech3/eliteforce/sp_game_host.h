@@ -7,7 +7,9 @@
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
+#include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/raven/ambient_sets.h"
+#include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
@@ -205,6 +207,21 @@ public:
     static constexpr int32_t kEntityStateSize = 232;
     static constexpr int32_t kUserCmdSize = 28;
     static constexpr int32_t kRefEntitySize = 152; // refEntity_t, as the original renderer copies it
+    // The structures the client game is handed, as each engine lays them
+    // out: Elite Force's sizes above, or Jedi Outcast's (jk2sp.exe's
+    // GetSnapshot at 0x401120: a 948-byte player state at 48, the count at
+    // 0x3e4, 252-byte entity states from 0x3e8, the command sequence at
+    // 0xfff4; a 168-byte refEntity_t).
+    struct CgameLayout {
+        int32_t playerState = kPlayerStateSize;
+        int32_t entityState = kEntityStateSize;
+        int32_t refEntity = kRefEntitySize;
+        uint32_t snapshotSize = 0xea64;
+        uint32_t snapshotCount = 0x250;
+        uint32_t snapshotEntities = 0x254;
+        uint32_t snapshotSequence = 0xea60;
+    };
+    static constexpr CgameLayout kJediCgame{948, 252, 168, 0xfff8, 0x3e4, 0x3e8, 0xfff4};
     // Starts the client game on the level (its CG_INIT: it registers what
     // it will draw), once the player has joined.
     Error startClientGame();
@@ -321,7 +338,10 @@ private:
     Error callGame(int exportIndex, const std::vector<uint32_t> &args, uint32_t *result = nullptr);
     void addImports();
     // The client game's system calls (dllEntry's function): syscall(number, args...).
-    uint32_t cgameCall(x86::Cpu &c);
+    // The client game's call (its number from the stack, or `number`: a
+    // Jedi Outcast call handled as Elite Force's of that number).
+    uint32_t cgameCall(x86::Cpu &c, int number = -1);
+    CgameLayout _cg;
     void playAmbient(const std::vector<raven::AmbientSets::Sound> &sounds);
     void writeVmCvar(uint32_t address, const CvarStore::Cvar &cv);
     uint32_t fsOpen(x86::Cpu &c, uint32_t path, uint32_t handleAddress, uint32_t mode);
@@ -369,6 +389,12 @@ private:
     SpEntityLayout _entity = kEntity;
     void addJediImports();
     uint32_t jediCgameCall(x86::Cpu &c);
+    void writeJediGlconfig(uint32_t address);
+    std::unique_ptr<jk2::FontSet> _fonts; // made with the first font
+    raven::StringTable _strings;
+    bool _stringsLoaded = false;
+    std::array<std::array<uint8_t, 4>, 32> _lightStyles{}; // as the client game sets them, full to start
+    std::array<float, 3> _cmdAngles{};                     // SetUserCmdAngles
     int importPosition(int slot) const;
     std::shared_ptr<const Bsp> _map;
     LightGrid _lightGrid;

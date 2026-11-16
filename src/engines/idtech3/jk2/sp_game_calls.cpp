@@ -7,6 +7,11 @@
 
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 
+#include "common/fs.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <string>
 
 namespace reluva::idtech3::eliteforce {
@@ -80,9 +85,19 @@ constexpr const char *kGhoul2Slots[] = {
 };
 constexpr int kFirstGhoul2Slot = 42;
 
+uint32_t floatBits(float v) {
+    uint32_t u;
+    std::memcpy(&u, &v, 4);
+    return u;
+}
+
 } // namespace
 
 void SpGameHost::addJediImports() {
+    // Each light style full until the client game sets it, as Raven's
+    // engines start them.
+    for (auto &style : _lightStyles)
+        style = {255, 255, 255, 255};
     // Not answered yet: the game stops there, saying which.
     for (int i = 0; i < int(std::size(kGhoul2Slots)); ++i) {
         const int slot = kFirstGhoul2Slot + i;
@@ -99,10 +114,210 @@ void SpGameHost::addJediImports() {
 }
 
 uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
-    // syscall(number, ...): numbered as jk2sp.exe's handler (0x401570) has
-    // them, 0 to 111. None is answered yet.
-    c.abort("jk2gamex86.dll's client game made call " + std::to_string(c.arg(0)) + ", which Reluva doesn't answer yet");
-    return 0;
+    // syscall(number, args...), numbered as jk2sp.exe's handler (0x401570,
+    // its jump table at 0x401fd0) has them. Where a call and what it
+    // passes are Elite Force's, its handling is shared: Jedi Outcast's
+    // number n is Elite Force's n - 1 from 27 to 43 (CM_SnapPVS at 26 is
+    // new), and n - 8 from 51 to 62 and n - 10 from 66 to 80 (the fonts,
+    // and three more at 63, 64 and 74, in between).
+    auto a = [&c](int n) { return c.arg(n + 1); };
+    auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
+    auto f = [&](int n) {
+        const uint32_t u = a(n);
+        float v;
+        std::memcpy(&v, &u, 4);
+        return v;
+    };
+    const int number = int(c.arg(0));
+    if (number <= 25)
+        return cgameCall(c, number);
+    if ((number >= 27 && number <= 34) || (number >= 39 && number <= 43))
+        return cgameCall(c, number - 1);
+    if (number >= 51 && number <= 62)
+        return cgameCall(c, number - 8);
+    if ((number >= 66 && number <= 73) || (number >= 75 && number <= 80))
+        return cgameCall(c, number - 10);
+    auto fonts = [&]() -> jk2::FontSet & {
+        if (!_fonts)
+            _fonts = std::make_unique<jk2::FontSet>(_files, _shaders);
+        return *_fonts;
+    };
+    auto strings = [&]() -> raven::StringTable & {
+        if (!_stringsLoaded) {
+            _strings.load(_files);
+            _stringsLoaded = true;
+        }
+        return _strings;
+    };
+    switch (number) {
+    case 26: { // CM_SnapPVS(origin, buffer): the clusters seen from there, a bit each
+        if (!_world || !_map)
+            return 0;
+        const int leaf = _world->leafAt(readVec(a(0)));
+        const int from = leaf >= 0 && size_t(leaf) < _map->leafs.size() ? _map->leafs[size_t(leaf)].cluster : -1;
+        const uint32_t bytes = uint32_t(std::max(_map->visClusters, 0) + 7) / 8;
+        if (!c.valid(a(1), bytes))
+            return 0;
+        for (uint32_t i = 0; i < bytes; ++i)
+            c.write8(a(1) + i, 0);
+        for (int to = 0; to < _map->visClusters; ++to)
+            if (_map->clusterVisible(from, to))
+                c.write8(a(1) + uint32_t(to >> 3), uint8_t(c.read8(a(1) + uint32_t(to >> 3)) | (1u << (to & 7))));
+        return 0;
+    }
+    case 35: // force feedback (three of one argument, one of none): none
+    case 36:
+    case 37:
+    case 38:
+        return 0;
+    case 44: // R_RegisterFont(name) -> handle, 0 if there's none
+        return uint32_t(fonts().registerFont(str(0, 64)));
+    case 45: { // R_Font_StrLenPixels(text, font, scale)
+        const raven::Font *ft = fonts().font(int32_t(a(1)));
+        return ft ? uint32_t(ft->textWidth(str(0, 4096), f(2))) : 0;
+    }
+    case 46: { // R_Font_StrLenChars(text): colour codes and line breaks left out
+        const std::string text = str(0, 4096);
+        uint32_t n = 0;
+        for (size_t i = 0; i < text.size(); ++i) {
+            if (text[i] == '^')
+                ++i;
+            else if (text[i] != '\n' && text[i] != '\r')
+                ++n;
+        }
+        return n;
+    }
+    case 47: { // R_Font_HeightPixels(font, scale)
+        const raven::Font *ft = fonts().font(int32_t(a(0)));
+        return ft ? uint32_t(int32_t(std::floor(float(ft->pointSize) * f(1) + 0.5f))) : 0;
+    }
+    case 48: { // R_Font_DrawString(x, y, text, rgba, font, letters at most or -1, scale)
+        std::array<float, 4> colour{1, 1, 1, 1};
+        if (a(3) && c.valid(a(3), 16))
+            for (int i = 0; i < 4; ++i)
+                colour[size_t(i)] = readFloat(a(3) + 4 * uint32_t(i));
+        fonts().drawString(int32_t(a(0)), int32_t(a(1)), str(2, 4096), colour, int32_t(a(4)), int32_t(a(5)), f(6),
+                           int32_t(_process->milliseconds()),
+                           [this](float x, float y, float w, float h, float s1, float t1, float s2, float t2,
+                                  int32_t shader, const std::array<float, 4> &col) {
+                               _pictures.push_back({x, y, w, h, s1, t1, s2, t2, shader, col});
+                           });
+        return 0;
+    }
+    case 49: // Language_IsAsian()
+        return 0;
+    case 50: // Language_UsesSpaces()
+        return 1;
+    case 63: { // R_DrawRotatePic2(x, y, w, h, s1, t1, s2, t2, angle, shader): turned about its centre
+        // A picture turns about its top-right corner; moved so that turn is
+        // one about its centre.
+        const float x = f(0);
+        const float y = f(1);
+        const float w = f(2);
+        const float h = f(3);
+        const float angle = f(8);
+        const float rad = angle * 3.14159265358979f / 180.0f;
+        const float cs = std::cos(rad);
+        const float sn = std::sin(rad);
+        const float dx = -w / 2;
+        const float dy = h / 2;
+        const float tx = dx - (cs * dx - sn * dy);
+        const float ty = dy - (sn * dx + cs * dy);
+        _pictures.push_back(
+            {x - w / 2 + tx, y - h / 2 + ty, w, h, f(4), f(5), f(6), f(7), int32_t(a(9)), _color, angle});
+        return 0;
+    }
+    case 64: // R_LAGoggles(): the light amplification goggles' look
+    case 65: // R_Scissor(x, y, w, h)
+        return 0;
+    case 74: // SetUserCmdAngles(pitch, yaw, roll): added to the player's view, as a ride's
+        _cmdAngles = {f(0), f(1), f(2)};
+        return 0;
+    case 81: // two points the engine writes out for recording a path
+    case 82: // G2_ListModelBones, G2_ListModelSurfaces: printing for developers
+    case 83:
+        return 0;
+    case 86: { // R_GetLightStyle(style, rgba out)
+        const uint32_t style = a(0);
+        if (style < _lightStyles.size() && c.valid(a(1), 4))
+            for (uint32_t i = 0; i < 4; ++i)
+                c.write8(a(1) + i, _lightStyles[style][i]);
+        return 0;
+    }
+    case 87: { // R_SetLightStyle(style, rgba as an int)
+        const uint32_t style = a(0);
+        if (style < _lightStyles.size())
+            for (uint32_t i = 0; i < 4; ++i)
+                _lightStyles[style][i] = uint8_t(a(1) >> (8 * i));
+        return 0;
+    }
+    case 89: // R_WorldEffectCommand(text): the weather system's
+        return 0;
+    case 95: { // Z_Malloc(size, tag), zeroed
+        const uint32_t p = _process->memory().alloc(std::max(a(0), 1u));
+        if (!p)
+            c.abort("Z_Malloc: out of memory (" + std::to_string(a(0)) + " bytes)");
+        else
+            std::memset(c.memory().data() + p, 0, a(0));
+        return p;
+    }
+    case 96: // Z_Free(pointer)
+        _process->memory().free(a(0));
+        return 0;
+    case 108: { // SP_Register(package, flags) -> whether it's there
+        const std::string name = fs::toLower(str(0, 256));
+        for (const raven::StringPackage &p : strings().packages())
+            if (fs::toLower(p.reference) == name)
+                return 1;
+        return 0;
+    }
+    case 109:   // SP_GetStringTextString(reference, buffer, size) -> its length
+    case 110: { // SP_GetStringText(id, buffer, size): the id the package's number, then the entry's
+        const int language = std::clamp(_cvars.integer("sp_language"), 0, 2);
+        std::string out;
+        if (number == 109) {
+            if (const std::string *text = strings().find(str(0, 256), raven::StringTable::Language(language)))
+                out = *text;
+        } else {
+            const uint32_t id = a(0) & 0xffff;
+            for (const raven::StringPackage &p : strings().packages())
+                if (uint32_t(p.id) == id >> 8)
+                    for (const raven::StringPackage::Entry &e : p.entries)
+                        if (uint32_t(e.index) == (id & 0xff))
+                            out = e.text[size_t(language)].empty() ? e.text[0] : e.text[size_t(language)];
+        }
+        if (a(1))
+            c.writeString(a(1), out, a(2));
+        return uint32_t(out.size());
+    }
+    default:
+        c.abort("jk2gamex86.dll's client game made call " + std::to_string(number) +
+                ", which Reluva doesn't answer yet");
+        return 0;
+    }
+}
+
+void SpGameHost::writeJediGlconfig(uint32_t address) {
+    // glconfig_t as jk2sp.exe copies it (84 bytes, 0x401020): four text
+    // pointers, then the numbers.
+    if (!_cpu->valid(address, 84))
+        return;
+    std::memset(_cpu->memory().data() + address, 0, 84);
+    _cpu->write32(address, text("Reluva"));
+    _cpu->write32(address + 4, text("Reluva"));
+    _cpu->write32(address + 8, text("1.0"));
+    _cpu->write32(address + 12, text(""));
+    _cpu->write32(address + 16, 2048); // maxTextureSize
+    _cpu->write32(address + 20, 2);    // texture units
+    _cpu->write32(address + 24, 32);   // colour bits
+    _cpu->write32(address + 28, 24);   // depth bits
+    _cpu->write32(address + 32, 8);    // stencil bits
+    _cpu->write32(address + 36, 1);    // deviceSupportsGamma
+    _cpu->write32(address + 44, 1);    // textureEnvAddAvailable
+    _cpu->write32(address + 56, 640);  // vidWidth
+    _cpu->write32(address + 60, 480);  // vidHeight
+    _cpu->write32(address + 64, floatBits(640.0f / 480.0f));
+    _cpu->write32(address + 68, 60); // displayFrequency
 }
 
 } // namespace reluva::idtech3::eliteforce
