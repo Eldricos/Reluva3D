@@ -48,6 +48,9 @@ public:
         kShutdown = 1,
         kConsoleCommand = 2,
         kDrawActiveFrame = 3, // (serverTime, stereoView, demoPlayback)
+        // Jedi Outcast's: the server is about to change levels (its client
+        // game shows "Server changing maps").
+        kJk2MapChange = 24,
     };
 
     // `game`: whose client game it runs, Elite Force's or Jedi Outcast's

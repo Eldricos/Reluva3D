@@ -175,9 +175,17 @@ As Quake III 1.32's:
 - **The game state** ends its list of configstrings and baselines with 9,
   then the player's client number and the checksum feed (Elite Force's
   ends with 0 and has no client number). In jk2mp.exe: 0x449568.
-- **`svc_mapchange` (8)**: sent before the server loads another level; the
-  client tells its client game (`CG_MAP_CHANGE`). Reluva's client takes it
-  and does nothing yet.
+- **`svc_mapchange` (8)**: the server's notice that it's about to load
+  another level, alone in a message after the commands. jk2mp.exe sends
+  it (0x4495c0) to every player at least connected and not a bot
+  (0x44d7d0), five times as it spawns the new level (calls from 0x44d83e
+  to 0x44d9ed), at its steps before the new map loads, in case some are
+  lost. The client
+  hands it to its client game (export 24, `CG_MAP_CHANGE`), as often as it
+  comes; 1.02a's `cgame.qvm` sets a flag (vmMain's case at instruction
+  271) that has it show "Server changing maps" (`INGAMETEXT`
+  `SERVER_CHANGING_MAPS`) until the new level's game state starts it
+  again.
 - **A refused download** is block 0 with the size −1, then a string saying
   why.
 - **Client messages** are Elite Force's (the level's id, the message and
@@ -192,8 +200,11 @@ and port, and Join Server connects with them; `reluva-tool idtech3
 net-run` hosts or joins either game's servers, or (`-loopback`) runs a
 player joining a server in memory.
 
-Not yet: heartbeats to Jedi Outcast's masters; `svc_mapchange` handed to
-the client game; the CD key's authorization (Reluva lets everyone in, as
+The Play page's server sends the map change five times before it loads
+another level (`NetServer::levelChanging`), and its client hands each one
+to the client game.
+
+Not yet: heartbeats to Jedi Outcast's masters; the CD key's authorization (Reluva lets everyone in, as
 every server has since Raven's authorize server went).
 
 ## Sources and checks
@@ -218,7 +229,10 @@ every server has since Raven's authorize server went).
     commands and the XOR, each back as it went.
   - `net-run -loopback` on ffa_bespin, recorded by the game-files step
     `jk2-game`: a player joins in memory, gets the game state (player 0)
-    and 117 snapshots, joins the game and runs 527 units forward.
+    and 117 snapshots, joins the game and runs 527 units forward. With
+    `-mapchange ffa_deathstar` (recorded too), the server changes levels
+    halfway: the player gets the notice, then the new level's game state
+    the frame after, and plays on.
   - Live, November 2026: the Play page's match found and joined over the
     system's sockets by `net-run -join`, and a `net-run` server found by
     Join Server's local list (on 28070), joined from it, and played.

@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <thread>
@@ -44,10 +45,11 @@ using namespace reluva::idtech3::tool;
 // what it sends while walking forward.
 // A player joining the server in memory on fixed 50 ms steps, running
 // forward once in the level: what each side reports, for a record that
-// repeats.
+// repeats. With `changeLevel`, the server changes levels halfway.
 int loopbackPlayer(reluva::idtech3::eliteforce::GameHost &game, reluva::idtech3::eliteforce::NetServer &server,
                    reluva::net::LoopbackNetwork &memory, const reluva::idtech3::eliteforce::NetProtocol &protocol,
-                   const std::string &userinfo, const std::vector<std::string> &clientCommands, int frames) {
+                   const std::string &userinfo, const std::vector<std::string> &clientCommands, int frames,
+                   const std::function<reluva::Error()> &changeLevel = {}) {
     namespace ef = reluva::idtech3::eliteforce;
     server.print = [](const std::string &text) { std::printf("server: %s", text.c_str()); };
     ef::NetClient client(memory.open(0), {0x7f000001u, server.port()}, userinfo, 77, protocol);
@@ -58,7 +60,20 @@ int loopbackPlayer(reluva::idtech3::eliteforce::GameHost &game, reluva::idtech3:
     float firstX = 0;
     float lastX = 0;
     size_t entities = 0;
+    int gamestates = 0;
+    int mapChanges = 0;
     for (int frame = 0; frame < frames; ++frame) {
+        if (changeLevel && frame == frames / 2) {
+            // As the Play page's: the players told, then the level loaded
+            // and the game started on it, and the players sent it anew.
+            server.levelChanging();
+            if (reluva::Error e = changeLevel()) {
+                std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
+                return 1;
+            }
+            server.levelStarted();
+            std::printf("frame %d: the server changes levels\n", frame);
+        }
         client.frame(now);
         if (reluva::Error e = server.receive(now); e || (e = game.runFrame()) || (e = server.frame(now))) {
             std::fprintf(stderr, "net-run: %s\n", e.message.c_str());
@@ -72,7 +87,13 @@ int loopbackPlayer(reluva::idtech3::eliteforce::GameHost &game, reluva::idtech3:
             if (state == ef::NetClient::State::kDisconnected)
                 return 1;
         }
+        if (client.takeMapChange()) {
+            if (!mapChanges)
+                std::printf("frame %d: the server says it's changing maps\n", frame);
+            ++mapChanges;
+        }
         if (client.takeNewGamestate()) {
+            ++gamestates;
             std::printf("frame %d: game state: %zu configstrings, player %d, checksum feed given\n", frame,
                         client.configstrings().size(), client.clientNum());
             client.setLoaded();
@@ -102,7 +123,10 @@ int loopbackPlayer(reluva::idtech3::eliteforce::GameHost &game, reluva::idtech3:
     }
     std::printf("%zu snapshots, the last with %zu entities; the player went from x %.0f to %.0f\n", snapshots, entities,
                 double(firstX), double(lastX));
-    return snapshots && client.state() == ef::NetClient::State::kActive ? 0 : 1;
+    if (changeLevel)
+        std::printf("frames with a map change notice: %d; game states: %d\n", mapChanges, gamestates);
+    const bool changed = !changeLevel || (gamestates == 2 && (mapChanges > 0) == protocol.keyed);
+    return snapshots && changed && client.state() == ef::NetClient::State::kActive ? 0 : 1;
 }
 
 int cmdNetRun(int argc, char **argv) {
@@ -113,7 +137,7 @@ int cmdNetRun(int argc, char **argv) {
             stderr,
             "usage: reluva-tool idtech3 net-run <game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot <name>]...\n"
             "       reluva-tool idtech3 net-run <game folder> <map> -loopback [frames] [-set name value]... "
-            "[-clientcmd text]...\n"
+            "[-clientcmd text]... [-mapchange <map>]\n"
             "       reluva-tool idtech3 net-run <game folder> -join <host[:port]> [seconds] [-name <name>]\n");
         return 1;
     }
@@ -134,9 +158,12 @@ int cmdNetRun(int argc, char **argv) {
     bool loopback = false;     // a player joining in memory, on fixed steps
     std::vector<std::pair<std::string, std::string>> sets;
     std::vector<std::string> clientCommands;
+    std::string nextMap; // -mapchange: the loopback server's second level
     for (int i = join ? 5 : 4; i < argc; ++i) {
         if (std::strcmp(argv[i], "-loopback") == 0)
             loopback = true;
+        else if (std::strcmp(argv[i], "-mapchange") == 0 && i + 1 < argc)
+            nextMap = argv[++i];
         else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             sets.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
@@ -305,9 +332,20 @@ int cmdNetRun(int argc, char **argv) {
     std::printf("hosting %s on port %u for %d s%s\n", map.c_str(), server.port(), seconds,
                 server.pure() ? ", pure" : "");
     std::printf("the level's paks: %s\n", cvars.string("sv_referencedPakNames").c_str());
+    std::function<reluva::Error()> change;
+    if (loopback && !nextMap.empty())
+        change = [&]() -> reluva::Error {
+            auto next = std::make_shared<q3::Bsp>();
+            Bytes nextData;
+            if (reluva::Error e = set.read("maps/" + nextMap + ".bsp", nextData);
+                e || (e = q3::parseBsp(nextData, *next)))
+                return e;
+            std::vector<int32_t> players;
+            return game.changeLevel(nextMap, next, 4321, players);
+        };
     if (loopback)
         return loopbackPlayer(game, server, *memory, protocol, userinfoFor("Remote"), clientCommands,
-                              seconds == 60 ? 200 : seconds);
+                              seconds == 60 ? 200 : seconds, change);
     const int32_t startTime = game.levelTime();
     while (nowMs() < uint64_t(seconds) * 1000) {
         const uint64_t now = nowMs();
@@ -983,7 +1021,7 @@ const Commands kCommands(
     {
         {"net-run",
          "<game folder> <map> [seconds] [-port N] [-public] [-pure] [-addbot name]... | -join <host[:port]> [seconds] [-name name] "
-         "| <map> -loopback [frames] [-set name value]... [-clientcmd text]...",
+         "| <map> -loopback [frames] [-set name value]... [-clientcmd text]... [-mapchange map]",
          "host a level as a server, with no player of its own, for others to join; or (-join) join a "
          "server and report what it sends; or (-loopback) both, a player joining in memory on fixed steps",
          cmdNetRun},

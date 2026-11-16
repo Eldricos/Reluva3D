@@ -62,6 +62,9 @@ public:
     // The level has (re)started: baselines and configstrings taken anew,
     // and every player waits for the new game state.
     void levelStarted();
+    // Another level is about to load: keyed protocols (Jedi Outcast's)
+    // tell every player first, so their client game says so.
+    void levelChanging();
     // Reads and answers everything that has come; `now` in ms.
     Error receive(uint64_t now);
     // After a frame of the game's: what changed, and snapshots to those

@@ -104,6 +104,13 @@ public:
         _newGamestate = false;
         return got;
     }
+    // Whether the server said (Jedi Outcast's svc_mapchange) it's about to
+    // load another level, since the last call.
+    bool takeMapChange() {
+        const bool got = _mapChange;
+        _mapChange = false;
+        return got;
+    }
     // Snapshots that came since the last call, oldest first.
     std::vector<GameHost::Snapshot> takeSnapshots() { return std::move(_newSnapshots); }
     // The commands the server sent, by sequence from 1 (those before the
@@ -164,6 +171,7 @@ private:
     // keyed protocols key what's sent with them.
     std::array<std::string, 64> _commandRing;
     bool _newGamestate = false;
+    bool _mapChange = false;
     std::vector<std::string> _serverCommands;
     std::string _bigConfigstring;       // one coming in pieces (bcs0, bcs1, bcs2)
     int32_t _serverCommandSequence = 0; // the last received

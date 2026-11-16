@@ -89,6 +89,8 @@ elseif(STEP STREQUAL "jk2-game")
     record_run(ffa_bespin-cgame "start level" idtech3 game-run "${base}" ffa_bespin -frames 10 ${join} -cgame -fire)
     record_run(ffa_bespin-net "game code" idtech3 net-run "${base}" ffa_bespin -loopback 120 -set sv_pure 0
                -set g_maxForceRank 7 -clientcmd "team free")
+    record_run(ffa_bespin-mapchange "game code" idtech3 net-run "${base}" ffa_bespin -loopback 160 -set sv_pure 0
+               -set g_maxForceRank 7 -clientcmd "team free" -mapchange ffa_deathstar)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

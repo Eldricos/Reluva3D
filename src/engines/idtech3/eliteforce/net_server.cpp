@@ -30,6 +30,7 @@ constexpr uint32_t kSvcConfigstring = 3;
 constexpr uint32_t kSvcBaseline = 4;
 constexpr uint32_t kSvcServerCommand = 5;
 constexpr uint32_t kSvcSnapshot = 7;
+constexpr uint32_t kSvcMapChange = 8; // Jedi Outcast's
 // Client message opcodes.
 constexpr int32_t kClcNop = 1;
 constexpr int32_t kClcMove = 2;
@@ -245,6 +246,22 @@ void NetServer::levelStarted() {
             c.begun = false;
             c.pureAnswered = c.pureValid = false; // answered again for this level's feed
         }
+}
+
+void NetServer::levelChanging() {
+    if (!_protocol.keyed)
+        return;
+    // Five times, as jk2mp.exe sends it at the steps of loading a level
+    // (0x44d83e to 0x44d9ed), in case some are lost; the client game takes
+    // it as often as it comes.
+    constexpr int kSends = 5;
+    for (int i = 0; i < kSends; ++i)
+        for (Client &c : _clients)
+            if (c.state >= State::kConnected) {
+                wire::MessageWriter w = startMessage(c);
+                w.byte(kSvcMapChange);
+                transmit(c, w);
+            }
 }
 
 std::vector<std::pair<int32_t, std::string>> NetServer::players() const {

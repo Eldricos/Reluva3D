@@ -219,7 +219,9 @@ void NetClient::parseMessage(wire::MessageReader &r, uint64_t now) {
             parseSnapshot(r, now);
         } else if (op == kSvcDownload) {
             parseDownload(r, now);
-        } else if (op == kSvcNop || (_protocol.keyed && op == kSvcMapChange)) {
+        } else if (_protocol.keyed && op == kSvcMapChange) {
+            _mapChange = true;
+        } else if (op == kSvcNop) {
             continue;
         } else {
             break; // the end marker, or (protocol 24) the end of the data

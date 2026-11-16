@@ -353,6 +353,8 @@ bool PlayPage::changeLevel(const std::string &map) {
         addPrint("Can't find map " + path + "\n", false);
         return true;
     }
+    if (_server)
+        _server->levelChanging();
     _cgame.reset();
     stopSounds();
     if (_scene)
@@ -648,6 +650,15 @@ void PlayPage::runRemote(uint64_t nowMs, int32_t dt) {
         std::vector<uint8_t> data;
         if (_client->takeDownload(name, data) && !finishDownload(name, data))
             return;
+    }
+    // The server is changing levels: the client game told, as often as it
+    // comes, until the new level's game state.
+    if (_client->takeMapChange() && _cgame) {
+        int32_t ignored = 0;
+        if (Error err = _cgame->call(eliteforce::CgameHost::kJk2MapChange, {}, ignored)) {
+            stop("The client game stopped: " + err.message);
+            return;
+        }
     }
     if (_client->takeNewGamestate()) {
         // A server playing a mod (fs_game in its system info) other than
