@@ -17,12 +17,8 @@ None yet.
 
 ## Inferred
 
-- **Some of the scenes' objects' fields mean what Orient Express's do**:
-  the common loader (`0x411390`) reads them in Orient Express's order and
-  sizes, and the code reads those it's seen to use as Orient Express's
-  are (below); the rest (`alpha`, `lighting`, the scales, `b54`, `flat`,
-  the sound's, `pickFirst` and each class's own parts) are taken to be
-  as there. [formats/ac1.md](formats/ac1.md).
+None yet.
+
 ## Guessed
 
 None yet.
@@ -37,8 +33,9 @@ None yet.
   `0x439ca0` too). Reluva stopped the thread there, leaving Narracott in
   Blore's close-up and hidden; it plays on now.
   [systems/dialogue.md](systems/dialogue.md).
-- **The objects' fields the code is seen to use** mean what Orient
-  Express's do: the file `+0xbc` (`0x407ed0`), the name `+0x2bc`
+- **The objects' fields** mean what Orient Express's do, each the code
+  reads ([formats/ac1.md](formats/ac1.md)); the rest are the editor's or
+  unread. Among them: the file `+0xbc` (`0x407ed0`), the name `+0x2bc`
   (`0x410250`), the script `+0x3bc` and `listB` `+0x5cc` (`0x40fff0`),
   `listA` `+0x5c0`, the position from `+0x10` and the depth `+0xb8`
   (`0x4122b0`), the rectangle `+0x608` (the pick, `0x42cea0`), the

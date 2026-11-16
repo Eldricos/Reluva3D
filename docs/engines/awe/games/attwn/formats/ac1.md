@@ -81,11 +81,22 @@ over anyway, so every object is kept, as `ac.exe` keeps them.
 - **Where the facts come from:** `ac.exe`'s scene loader (`0x42c740` to
   `0x42ca13`), its camera's (`0x4085e0`), and `OLDS`'s (`0x430910`).
   The objects' fields are read by Orient Express's lists, and the common
-  loader (`0x411390`) reads them in that order and those sizes. Those the
-  code is seen to use mean what Orient Express's do: the file, name,
-  script, `listA` and `listB`, position, depth, rectangle, material and
-  cursor ([../UNCONFIRMED.md](../UNCONFIRMED.md#settled)); the rest's
-  meanings are Orient Express's *(inferred)*.
+  loader (`0x411390`) reads them in that order and those sizes. Each the
+  code reads means what Orient Express's does: the file, name, script,
+  `listA`, `listB`, position, depth, rectangle, material and cursor
+  ([../UNCONFIRMED.md](../UNCONFIRMED.md#settled)); `alpha` (`+0x5f0`) a
+  particle system's blending (`0x42559d`); `lighting` (`+0x5f4`) Direct3D
+  lighting on a character (`0x42116b`); `player` (`+0x5f8`, `0x42d4a9`);
+  the scales (`+0x630`, `+0x638`, `+0x63c`, the sprite's draw); the
+  `condition` (`+0x4bc`, `0x410495`); the sound played at an animation's
+  frame (`sound`, `soundLoops`, `soundFrame`: `+0x660`, `+0x760`,
+  `+0x764`, `0x40535d`); and a hotspot's name and hover and click
+  sounds (`0x414cc0`). `b54` (`+0x64c`) locks the object against the
+  developers' editor moving it by mouse or keys (`0x410960`,
+  `0x407bc0`): all 2,504 that have it are locked. `b58`, `flat` and `b68`
+  are read only by the loader and the copy. `pickFirst` has no pass in
+  this game's pick (`0x42ce30`: the characters, then everything), and no
+  object of the install sets it.
 - **How it's checked:** `reluva-tool awe files-check <game folder> -ac2`:
   all 537 scenes read, none with bytes after `DONE`; all 316 cameras the
   same as the game's `granny2.dll` builds them (in the x86 interpreter);
