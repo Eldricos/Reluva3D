@@ -43,6 +43,11 @@ public:
     // lightmaps and vertex colours that use a style that changed are made
     // again (docs/engines/idtech3/formats/rbsp.md). All full after load().
     void setLightStyles(const LightStyleColors &colors);
+    // Raven's surface sprites: the wind and weather settings, and once
+    // for each frame's time its first view's horizontal field of view
+    // (SurfaceSpriteSet::frame).
+    void setSurfaceSpriteWeather(const SurfaceSpriteWeather &weather) { _spriteWeather = weather; }
+    void surfaceSpriteFrame(int32_t timeMs, float fovX) { _surfaceSprites.frame(timeMs, fovX, _spriteWeather); }
     // The sky, then the map's surfaces whose shaders sort in sortMin..sortMax,
     // `time` seconds into the map; call between beginFrame() and endFrame().
     // Drawing opaque surfaces, then models, then translucent surfaces keeps
@@ -243,6 +248,7 @@ private:
     // Raven's surface sprites on the level's surfaces, and the shaders
     // their materials are made from (each a sprite stage alone).
     SurfaceSpriteSet _surfaceSprites;
+    SurfaceSpriteWeather _spriteWeather;
     std::deque<ShaderDef> _spriteShaders;
     void addSurfaceSprites(int surface, const ShaderDef &def, int fog, float sort,
                            const std::vector<gfx::Vertex> &vertices, const uint32_t *indices, size_t indexCount);

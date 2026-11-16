@@ -148,11 +148,29 @@ original's:
   original's do, save where the original's sums, in the x87's longer
   floats, round otherwise (a point right on a triangle's edge), and on
   curves, which Reluva cuts into triangles its own way.
-- The wind (`r_windSpeed` and the game's weather) and weather effects
-  wait for the game's code: with it off, as the original starts, sprites
-  only sway (`ssWindidle`) and weather sprites aren't shown.
-- The original lengthens the fade distances when the field of view is
-  narrower than the first one it drew; Reluva doesn't yet.
+- On curves, sprites are placed on the original's triangles at full
+  detail: the grid turned on its side when taller than wide, each row
+  reversed (`R_SubdividePatchToGrid`'s flip), each square's two triangles
+  with their corners in the original's order (`RB_SurfaceGrid`); Reluva
+  draws the curve with triangles of its own. Far off, the original drops
+  rows and columns of a curve (its level of detail), and with them the
+  sprites move; Reluva doesn't.
+- The wind is Jedi Outcast's renderer settings', as its
+  `R_SurfaceSpriteFrameUpdate` works it out once for each frame's time:
+  `r_windSpeed` blowing towards `r_windAngle`, damped towards each change
+  by `r_windDampFactor` per 50 ms, gusting every `r_windGust` seconds or
+  more (the gaps and strengths random, Reluva's own draws), and
+  `r_windPointForce` pushing grass within 750 units of `r_windPointX`,
+  `r_windPointY` away and down. Grass leans with it and bobs; effects
+  drift along it over their lives. Weather sprites show as much as
+  `r_surfaceWeather` says (their density divided by it), none at 0.
+  jk2mp.exe registers all of these with no wind and no weather
+  (`r_windDampFactor` 0.1), as Reluva does. Its rain and snow (`r_we`)
+  would set them too; Reluva hasn't that weather system.
+- With a field of view narrower than the first ordinary one drawn
+  (between 50 and 135 degrees), sprites reach farther: their fade
+  distances times the tangent of half the first's over the tangent of
+  half this one's.
 
 ## Sources and checks
 

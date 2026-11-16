@@ -279,6 +279,7 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
             std::copy(refdef.begin() + 80, refdef.begin() + 112, areaMask.begin());
         world->setView(0, _eye, areaMask, viewProj);
         world->setCamera(readVec(refdef, 48), up, forward, false);
+        world->surfaceSpriteFrame(readInt(refdef, 72), readFloat(refdef, 16));
         // The sky behind everything, unless it can be drawn only where its
         // surfaces are seen (drawLayers).
         if (!_r.hasStencil())

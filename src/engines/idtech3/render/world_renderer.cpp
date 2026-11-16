@@ -54,6 +54,31 @@ gfx::Vertex toGfx(const BspVertex &v, const BspSurface &s, bool raven) {
     return g;
 }
 
+// A curve's triangles as the original's renderer lists them at full
+// detail, for its surface sprites (whose places hang on each triangle's
+// corners and their order): the grid turned on its side if taller than
+// wide, each row then reversed (R_SubdividePatchToGrid's flip for longer
+// strips), and each square's triangles top left, below it, right of it;
+// then right of it, below it, diagonally (RB_SurfaceGrid).
+std::vector<uint32_t> originalGridTriangles(const PatchGrid &grid, uint32_t base) {
+    std::vector<uint32_t> out;
+    const int w = grid.width;
+    const int h = grid.height;
+    const bool flipped = h > w;
+    const int rows = flipped ? w : h;
+    const int cols = flipped ? h : w;
+    auto at = [&](int r, int c) { return base + uint32_t(flipped ? (h - 1 - c) * w + r : r * w + c); };
+    for (int i = 0; i + 1 < rows; ++i)
+        for (int j = 0; j + 1 < cols; ++j) {
+            const uint32_t v1 = at(i, j + 1);
+            const uint32_t v2 = at(i, j);
+            const uint32_t v3 = at(i + 1, j);
+            const uint32_t v4 = at(i + 1, j + 1);
+            out.insert(out.end(), {v2, v3, v1, v1, v3, v4});
+        }
+    return out;
+}
+
 } // namespace
 
 void brightenLight(uint8_t *rgb) {
@@ -331,16 +356,19 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             const auto offset = uint32_t(out.size());
             const uint32_t base = uint32_t(vertices.size());
             const BspVertex *v = &bsp.vertices[size_t(s.firstVertex)];
+            std::vector<uint32_t> spriteTriangles; // a curve's, as the original's renderer lists them
             if (s.type == SurfaceType::kPatch) {
                 patchVerts.clear();
                 patchIndices.clear();
-                triangulateGrid(grids[size_t(si)], patchVerts, patchIndices);
+                const PatchGrid &grid = grids[size_t(si)];
+                triangulateGrid(grid, patchVerts, patchIndices);
                 for (const BspVertex &pv : patchVerts) {
                     noteStyledVertex(pv, s, uint32_t(vertices.size()));
                     vertices.push_back(toGfx(pv, s, _raven));
                 }
                 for (uint32_t i : patchIndices)
                     out.push_back(base + i);
+                spriteTriangles = originalGridTriangles(grid, base);
             } else {
                 for (int i = 0; i < s.numVertices; ++i) {
                     noteStyledVertex(v[i], s, uint32_t(vertices.size()));
@@ -352,7 +380,9 @@ Error WorldRenderer::load(const Bsp &bsp, const ShaderLibrary &library) {
             }
             if (mi == 0 && !sky && out.size() > offset)
                 if (const ShaderDef *def = library.find(bsp.shaders[size_t(s.shader)].name))
-                    addSurfaceSprites(si, *def, s.fog, mat.sort, vertices, &out[offset], out.size() - offset);
+                    addSurfaceSprites(si, *def, s.fog, mat.sort, vertices,
+                                      spriteTriangles.empty() ? &out[offset] : spriteTriangles.data(),
+                                      spriteTriangles.empty() ? out.size() - offset : spriteTriangles.size());
             // Solid, unmoving surfaces take dynamic lights (the world's:
             // brush entities move).
             const bool deformed = mat.deforms[0].type != gfx::Deform::Type::kNone;

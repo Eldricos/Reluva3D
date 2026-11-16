@@ -79,6 +79,8 @@ private:
     // Jedi Outcast's client game's limits on the view's yaw, applied to
     // the command for `serverTime`.
     void applyViewLimits(int32_t serverTime);
+    // The surface sprites' wind and weather, from the renderer's settings.
+    SurfaceSpriteWeather surfaceSpriteWeather();
     float _lastViewYaw = 0;
     void drawLoadingScreen();
     bool _loadingFailed = false; // the client game couldn't draw its loading screen

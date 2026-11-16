@@ -151,7 +151,8 @@ void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool 
                                      (t.pos[2][1] - t.pos[0][1]) * (t.pos[1][0] - t.pos[0][0]));
         if (area <= 1)
             continue;
-        t.step = parms.density * fastInverseRoot(area);
+        t.inverseRoot = fastInverseRoot(area);
+        t.step = parms.density * t.inverseRoot;
         t.firstSprite = uint32_t(_sprites.size());
         // A grid of cells over the triangle's two weights, a sprite each
         // somewhere in its cell, its draws walking the random table from a
@@ -160,6 +161,7 @@ void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool 
         // triangle is dropped (an effect's is tried again each life).
         const auto &p = t.pos;
         auto index = toByte(p[0][0] + p[0][1] + p[1][0] + p[1][1] + p[2][0] + p[2][1]);
+        t.firstIndex = index;
         t.interval = uint8_t(toByte(p[0][0] + p[1][1] + p[2][2]) | 3);
         auto next = [&] {
             const float r = kRandomChart[index];
@@ -167,16 +169,12 @@ void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool 
             return r;
         };
         uint8_t turn = 0;
-        for (float a = 0; a < 1; a += t.step)
+        // Effects' cells are laid each frame (their spacing follows the
+        // weather).
+        for (float a = 0; a < 1 && !effect; a += t.step)
             for (float b = 0; b < 1 - a; b += t.step) {
                 Sprite s;
                 s.cell = {a, b};
-                if (effect) {
-                    s.index = index;
-                    index = uint8_t(index + t.interval);
-                    _sprites.push_back(s);
-                    continue;
-                }
                 float fa = 0;
                 float fb = 0;
                 if (parms.type == Type::kVertical) {
@@ -208,7 +206,7 @@ void SurfaceSpriteSet::add(int surface, int material, int fog, float sort, bool 
                 _sprites.push_back(s);
             }
         t.spriteCount = uint32_t(_sprites.size()) - t.firstSprite;
-        if (!t.spriteCount)
+        if (!t.spriteCount && !effect)
             continue;
         for (const Vec3 &p : t.pos)
             for (size_t k = 0; k < 3; ++k) {
@@ -229,6 +227,65 @@ std::vector<float> SurfaceSpriteSet::sorts() const {
     return out;
 }
 
+void SurfaceSpriteSet::frame(int32_t timeMs, float fovX, const SurfaceSpriteWeather &w) {
+    // As the original's R_SurfaceSpriteFrameUpdate: once for each time.
+    if (timeMs == _lastTime)
+        return;
+    if (timeMs < _lastTime) {
+        _windGust = 5;
+        _windSpeed = w.windSpeed;
+        _nextGust = 0;
+        _gustLeft = 0;
+        _grass = {};
+    }
+    constexpr float kPi = 3.14159265358979f;
+    // The first ordinary field of view drawn is the standard; a narrower
+    // one sees as far as it's magnified (at most as for 135 degrees).
+    if (!_standardFovSet) {
+        _standardScale = std::tan((fovX > 50 && fovX < 135 ? fovX : 90) * 0.5f * kPi / 180);
+        _standardFovSet = fovX > 50 && fovX < 135;
+        _rangeScale = 1;
+    } else {
+        _rangeScale = _standardScale / std::tan(std::min(fovX, 135.0f) * 0.5f * kPi / 180);
+    }
+    // No rain or snow system: the weather sprites' amount and the wind
+    // come from the settings.
+    _weatherAmount = w.surfaceWeather;
+    float target = w.windSpeed;
+    _windGust = w.windGust;
+    auto random = [&](float lo, float hi) {
+        _gustRandom = _gustRandom * 1103515245u + 12345u;
+        return lo + (hi - lo) * float((_gustRandom >> 8) & 0xffff) / 65535.0f;
+    };
+    if (target > 0 && _windGust != 0) {
+        if (_gustLeft > 0) {
+            target *= 1 + _gustLeft;
+            _gustLeft -= float(timeMs - _lastTime) / 2500.0f;
+            if (_gustLeft <= 0)
+                _nextGust = timeMs + int32_t(_windGust * 1000 * random(1, 4));
+        } else if (timeMs >= _nextGust) {
+            _gustLeft = random(0.75f, 1.5f);
+        }
+    }
+    // Grass leans towards the wind, more the faster it blows (from straight
+    // down at none to 45 degrees off it); effects drift along it.
+    const float yaw = w.windAngle * kPi / 180;
+    const float pitch = std::min(-90 + target, -45.0f) * kPi / 180;
+    const Vec3 targetGrass{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), -std::sin(pitch) - 1};
+    // Damped towards the targets, as much as 50 ms of damping would.
+    const float ratio = std::pow(1 - w.windDampFactor, float(timeMs - _lastTime) / 50.0f);
+    _windSpeed = target - ratio * (target - _windSpeed);
+    const Vec3 targetBlow{std::cos(yaw) * _windSpeed, std::sin(yaw) * _windSpeed, 0};
+    for (size_t k = 0; k < 3; ++k) {
+        _blow[k] = targetBlow[k] - ratio * (targetBlow[k] - _blow[k]);
+        _grass[k] = targetGrass[k] - ratio * (targetGrass[k] - _grass[k]);
+    }
+    _lastTime = timeMs;
+    _windPointForce = w.windPointForce - ratio * (w.windPointForce - _windPointForce);
+    _windPointActive = _windPointForce >= 0.01f;
+    _windPoint = {w.windPointX, w.windPointY};
+}
+
 void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, float timeMs, float sortMin,
                              float sortMax, const std::function<bool(int surface)> &visible,
                              std::vector<gfx::Vertex> &vertices, std::vector<uint32_t> &indices,
@@ -241,28 +298,35 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
     for (size_t i = 0; i < 4; ++i)
         for (size_t k = 0; k < 3; ++k)
             sideways[i][k] = left[k] * kTurns[i][0] + forward[k] * kTurns[i][1];
+    constexpr float kWindPointRadius = 750;
 
     for (const Group &g : _groups) {
         const SurfaceSprites &p = g.parms;
-        // Weather shows only while it rains or snows, which the game's
-        // code starts.
-        if (g.sort < sortMin || g.sort > sortMax || p.type == Type::kWeather || !visible(g.surface))
+        // Weather shows only as much as the settings (or rain) say.
+        const bool weather = p.type == Type::kWeather;
+        if (g.sort < sortMin || g.sort > sortMax || (weather && _weatherAmount < 0.01f) || !visible(g.surface))
             continue;
-        // Nothing past fadeMax shows: a group wholly beyond it is skipped.
+        // Nothing past fadeMax shows (farther with a narrower view): a
+        // group wholly beyond it is skipped.
+        const float cut = p.fadeMax * _rangeScale;
+        const float fade = p.fadeDist * _rangeScale;
         float outside = 0;
         for (size_t k = 0; k < 3; ++k) {
             const float d = std::max({g.mins[k] - eye[k], 0.0f, eye[k] - g.maxs[k]});
             outside += d * d;
         }
-        const float cut2 = p.fadeMax * p.fadeMax;
-        const float fade2 = p.fadeDist * p.fadeDist;
+        const float cut2 = cut * cut;
+        const float fade2 = fade * fade;
         if (outside >= cut2)
             continue;
         const float invFade = 1 / (cut2 - fade2);
-        const float fadeRange = std::min(kFadeRange / (p.fadeMax - p.fadeDist), 1.0f);
-        const bool effect = p.type == Type::kEffect;
+        const float fadeRange = std::min(kFadeRange / (cut - fade), 1.0f);
+        const bool effect = p.type == Type::kEffect || weather;
+        const float density = weather ? p.density / _weatherAmount : p.density;
         // An effect fading out from a size of its own fades in too.
         const bool fadeInOut = p.fxAlphaEnd < 0.05f && p.height >= 0.1f && p.width >= 0.1f;
+        const bool windPoint = _windPointActive && p.wind > 0 && p.type == Type::kVertical;
+        const bool windy = p.wind > 0 && _windSpeed > 0.001f;
         const auto first = uint32_t(indices.size());
         for (uint32_t ti = g.firstTriangle; ti < g.firstTriangle + g.triangleCount; ++ti) {
             const Triangle &t = _triangles[ti];
@@ -272,36 +336,32 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                 near[c] = 1 - (lengthSquared(eye, t.pos[c]) - fade2) * invFade;
             if (near[0] <= 0 && near[1] <= 0 && near[2] <= 0)
                 continue;
-            for (uint32_t si = t.firstSprite; si < t.firstSprite + t.spriteCount; ++si) {
-                const Sprite &s = _sprites[si];
-                std::array<float, 3> w = s.weights;
-                float life = 0;
-                float fadeStart = s.fadeStart;
-                float sizeRandom = s.sizeRandom;
-                bool flipped = s.flipped;
-                if (effect) {
-                    // Each life somewhere else in its cell: its time on
-                    // from a draw, and the walk from there by the lives
-                    // (jk2mp.exe 0x497c51).
-                    const float lives = float((double(timeMs) + 10000.0 * kRandomChart[s.index]) / p.fxDuration);
-                    life = lives - float(int64_t(lives));
-                    auto at = toByte(float(s.index) + lives);
-                    const float fa = s.cell[0] + kRandomChart[at++] * t.step;
-                    if (fa > 1)
+            // The wind point's push at each corner: away from it, fading to
+            // nothing 750 units out.
+            std::array<std::array<float, 2>, 3> pushDir{};
+            std::array<float, 3> pushForce{};
+            if (windPoint)
+                for (size_t c = 0; c < 3; ++c) {
+                    const float dx = t.pos[c][0] - _windPoint[0];
+                    const float dy = t.pos[c][1] - _windPoint[1];
+                    const float d2 = dx * dx + dy * dy;
+                    if (d2 >= kWindPointRadius * kWindPointRadius)
                         continue;
-                    const float fb = s.cell[1] + kRandomChart[at++] * t.step;
-                    if (fb > 1 - fa)
+                    if (d2 < 1) {
+                        pushForce[c] = _windPointForce * p.wind;
                         continue;
-                    w = {fa, fb, 1 - fa - fb};
-                    fadeStart = fadeRange + (1 - fadeRange) * kRandomChart[at];
-                    const auto size = uint8_t(s.index + t.interval);
-                    sizeRandom = kRandomChart[size];
-                    flipped = kRandomChart[uint8_t(size + 1)] > 0.5f;
+                    }
+                    const float inv = fastInverseRoot(d2);
+                    pushDir[c] = {dx * inv, dy * inv};
+                    pushForce[c] = _windPointForce * p.wind * (1 - 1 / (inv * kWindPointRadius));
                 }
+            // A sprite's quad, given where in the triangle and its draws.
+            auto draw = [&](const std::array<float, 3> &w, float fadeStart, float sizeRandom, bool flipped,
+                            const std::array<float, 2> &skew, uint8_t turn, float life) {
                 const float along = near[0] * w[0] + near[1] * w[1] + near[2] * w[2];
                 float alpha = std::min(1 - (fadeStart - along) / fadeRange, 1.0f);
                 if (alpha <= 0)
-                    continue;
+                    return;
                 Vec3 at{};
                 for (size_t c = 0; c < 3; ++c)
                     for (size_t k = 0; k < 3; ++k)
@@ -317,6 +377,10 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                         alpha *= p.fxAlphaStart + span * std::fabs(life - 0.5f) * 2;
                     else
                         alpha *= p.fxAlphaStart + span * life;
+                    // Drifting with the wind over its life.
+                    if (windy)
+                        for (size_t k = 0; k < 3; ++k)
+                            at[k] += life * p.wind * _blow[k];
                 }
                 // Added light: brighter rather than more opaque.
                 if (g.additive) {
@@ -332,23 +396,57 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
 
                 std::array<Vec3, 4> corners{};
                 if (p.type == Type::kVertical) {
-                    // Its top swaying in a little circle, each spot in its
-                    // own phase.
-                    Vec3 top{at[0] + s.skew[0] * height, at[1] + s.skew[1] * height,
-                             at[2] + (p.facing != Facing::kNormal ? -height : height)};
-                    if (p.windIdle > 0) {
-                        const float angle = (at[0] + at[1]) * 0.02f + timeMs * 0.0015f;
-                        const float sway = height * p.windIdle * 0.075f;
-                        top[0] += std::cos(angle) * sway;
-                        top[1] += std::sin(angle) * sway;
+                    const float down = p.facing != Facing::kNormal ? -height : height;
+                    const float angle = (at[0] + at[1]) * 0.02f + timeMs * 0.0015f;
+                    Vec3 top{at[0] + skew[0] * height, at[1] + skew[1] * height, at[2] + down};
+                    float lean = 0.2f; // the top's far corner, forward, of the width
+                    float force = 0;
+                    std::array<float, 2> push{};
+                    if (windPoint)
+                        for (size_t c = 0; c < 3; ++c) {
+                            force += pushForce[c] * w[c];
+                            push[0] += pushDir[c][0] * w[c];
+                            push[1] += pushDir[c][1] * w[c];
+                        }
+                    if (windPoint && force > 0) {
+                        // Blown from the wind point: swaying more, bent
+                        // away and pressed down.
+                        force = std::min(force, 1.0f);
+                        if (_windSpeed < 80) {
+                            const float sway = height * p.windIdle * 0.1f * (1 + force);
+                            top[0] += std::cos(angle) * sway;
+                            top[1] += std::sin(angle) * sway;
+                        }
+                        if (_windSpeed > 0.001f)
+                            for (size_t k = 0; k < 3; ++k)
+                                top[k] += height * p.wind * _grass[k];
+                        top[0] += height * push[0] * force;
+                        top[1] += height * push[1] * force;
+                        top[2] -= height * force * (0.75f + 0.15f * std::sin((timeMs + 500 * force) * 0.01f));
+                        lean = 0.15f;
+                    } else {
+                        // Its top swaying in a little circle, each spot in
+                        // its own phase; in the wind, leaning with it and
+                        // bobbing.
+                        if (p.windIdle > 0) {
+                            const float sway = height * p.windIdle * 0.075f;
+                            top[0] += std::cos(angle) * sway;
+                            top[1] += std::sin(angle) * sway;
+                        }
+                        if (windy) {
+                            for (size_t k = 0; k < 3; ++k)
+                                top[k] += height * p.wind * _grass[k];
+                            const float bob = height * p.wind * 0.075f * (_windSpeed < 40 ? _windSpeed / 100 : 0.4f);
+                            top[2] += std::sin(angle * 2.5f) * bob;
+                        }
                     }
                     Vec3 r{};
                     for (size_t k = 0; k < 3; ++k)
-                        r[k] = sideways[s.turn][k] * width * 0.5f;
+                        r[k] = sideways[turn][k] * width * 0.5f;
                     for (size_t k = 0; k < 3; ++k) {
                         corners[0][k] = at[k] + r[k];
                         corners[1][k] = top[k] + r[k];
-                        corners[2][k] = top[k] - r[k] + forward[k] * width * 0.2f;
+                        corners[2][k] = top[k] - r[k] + forward[k] * width * lean;
                         corners[3][k] = at[k] - r[k];
                     }
                 } else if (p.facing != Facing::kNormal) {
@@ -367,7 +465,39 @@ void SurfaceSpriteSet::build(const Vec3 &eye, const Vec3 &left, const Vec3 &up, 
                     }
                 }
                 quad(corners, lightByte, alphaByte, vertices, indices);
+            };
+            if (!effect) {
+                for (uint32_t si = t.firstSprite; si < t.firstSprite + t.spriteCount; ++si) {
+                    const Sprite &s = _sprites[si];
+                    draw(s.weights, s.fadeStart, s.sizeRandom, s.flipped, s.skew, s.turn, 0);
+                }
+                continue;
             }
+            // Effects: the cells laid now (spaced by the density, which the
+            // weather divides), each life somewhere else in its cell: its
+            // time on from a draw, and the walk from there by the lives
+            // (jk2mp.exe 0x497c51).
+            const float step = density * t.inverseRoot;
+            if (!(step > 0))
+                continue;
+            uint8_t index = t.firstIndex;
+            for (float a = 0; a < 1; a += step)
+                for (float b = 0; b < 1 - a; b += step) {
+                    const uint8_t cell = index;
+                    index = uint8_t(index + t.interval);
+                    const float lives = float((double(timeMs) + 10000.0 * kRandomChart[cell]) / p.fxDuration);
+                    const float life = lives - float(int64_t(lives));
+                    auto at = toByte(float(cell) + lives);
+                    const float fa = a + kRandomChart[at++] * step;
+                    if (fa > 1)
+                        continue;
+                    const float fb = b + kRandomChart[at++] * step;
+                    if (fb > 1 - fa)
+                        continue;
+                    const float fadeStart = fadeRange + (1 - fadeRange) * kRandomChart[at];
+                    draw({fa, fb, 1 - fa - fb}, fadeStart, kRandomChart[index], kRandomChart[uint8_t(index + 1)] > 0.5f,
+                         {}, 0, life);
+                }
         }
         if (indices.size() > first)
             parts.push_back({g.material, g.fog, first, uint32_t(indices.size()) - first});

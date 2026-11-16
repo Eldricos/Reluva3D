@@ -5,7 +5,10 @@ hasn't been settled goes in [UNCONFIRMED.md](UNCONFIRMED.md).
 
 ## By choice
 
-None yet.
+- **Light styles in the viewer**: the World and Maps pages hold every
+  style full, showing a level's light as compiled. In a match they change
+  as the client game sets them, as the original's do
+  ([rbsp.md](../../formats/rbsp.md), In Reluva).
 
 ## Bugs fixed
 
@@ -15,14 +18,12 @@ None yet.
 
 The game isn't playable yet ([PLAN.md](PLAN.md)). In the maps:
 
-- **Light styles** ([rbsp.md](../../formats/rbsp.md), In Reluva):
-  outside a match (the World and Maps pages) every style is held full.
-- **Surface sprites** (grass, ferns, vines) on curved surfaces stand
-  elsewhere than the original's, which cuts curves into triangles its own
-  way. Wind and weather sprites wait for the game's code; until then they
-  sway as with no wind, as the original's do when it starts, and weather
-  ones don't show. Their fade distances don't lengthen with a narrower
-  field of view yet ([shader.md](../../formats/shader.md), In Reluva).
+- **Surface sprites** (grass, ferns, vines) on far curves stay where
+  they stand up close, where the original's move as it drops the curve's
+  detail; the wind's gusts come at Reluva's own random times; and the
+  rain and snow system (`r_we`), which would also set the wind and the
+  weather sprites, isn't there ([shader.md](../../formats/shader.md),
+  In Reluva).
 
 In the multiplayer game:
 

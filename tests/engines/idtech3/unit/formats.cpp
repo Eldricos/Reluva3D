@@ -356,6 +356,46 @@ static void testSurfaceSprites() {
     CHECK(parts.empty() && out.empty());
     set.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, 0, 0, 10, [](int s) { return s != 7; }, out, outIdx, parts);
     CHECK(parts.empty());
+
+    // The wind (r_windSpeed, blowing towards +x) leans the grass that way.
+    auto sumX = [&](int32_t time, const SurfaceSpriteWeather &w) {
+        set.frame(time, 90, w);
+        out.clear();
+        outIdx.clear();
+        parts.clear();
+        set.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, float(time), 0, 10, all, out, outIdx, parts);
+        float sum = 0;
+        for (const gfx::Vertex &v : out)
+            sum += v.pos[0];
+        return sum;
+    };
+    const float calm = sumX(1000, {});
+    SurfaceSpriteWeather windy;
+    windy.windSpeed = 30;
+    CHECK(sumX(5000, windy) > calm + 10);
+    // A narrower view than the first sees farther: 30 degrees after 90,
+    // about 3.7 times as far, so grass beyond its fadeMax from here shows.
+    auto drawnFrom = [&](int32_t time, float fov) {
+        set.frame(time, fov, {});
+        out.clear();
+        parts.clear();
+        set.build({128, 1000, 40}, {0, 1, 0}, {0, 0, 1}, float(time), 0, 10, all, out, outIdx, parts);
+        return !out.empty();
+    };
+    CHECK(!drawnFrom(6000, 90) && drawnFrom(7000, 30));
+    // Weather sprites show only with r_surfaceWeather above 0.
+    SurfaceSpriteSet rain;
+    rain.add(1, 4, -1, 6, false, bubbles, verts, idx, 9);
+    auto rained = [&](int32_t time, float amount) {
+        SurfaceSpriteWeather w;
+        w.surfaceWeather = amount;
+        rain.frame(time, 90, w);
+        out.clear();
+        parts.clear();
+        rain.build({128, 128, 40}, {0, 1, 0}, {0, 0, 1}, float(time), 0, 10, all, out, outIdx, parts);
+        return !out.empty();
+    };
+    CHECK(!rained(1000, 0) && rained(2000, 1));
 }
 
 static void testGhoul2() {
