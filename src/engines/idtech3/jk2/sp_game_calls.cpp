@@ -206,10 +206,21 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
                            });
         return 0;
     }
-    case 49: // Language_IsAsian()
+    case 49: // Language_IsAsian() (0x462900): Korean, Chinese and Japanese, which Reluva hasn't
         return 0;
-    case 50: // Language_UsesSpaces()
-        return 1;
+    case 50: { // AnyLanguage_ReadCharFromString(&text, &isTrailingPunctuation) (0x462700)
+        // A western language's: a byte, the text moved past it; trailing
+        // punctuation is what a line may not start with.
+        const uint32_t at = a(0);
+        if (!c.valid(at, 4))
+            return 0;
+        const uint32_t text = c.read32(at);
+        const uint8_t ch = c.read8(text);
+        c.write32(at, text + 1);
+        if (const uint32_t flag = a(1); flag && c.valid(flag, 4))
+            c.write32(flag, std::strchr("!?,.;:", ch) && ch ? 1u : 0u);
+        return ch;
+    }
     case 63: { // R_DrawRotatePic2(x, y, w, h, s1, t1, s2, t2, angle, shader): turned about its centre
         // A picture turns about its top-right corner; moved so that turn is
         // one about its centre.

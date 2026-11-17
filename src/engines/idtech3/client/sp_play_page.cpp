@@ -163,6 +163,16 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
         return;
     }
     c->inGame = inGame;
+    // Jedi Outcast's opening crawl: its movie held at its end, the crawl
+    // over it and its music (jk2sp.exe, 0x404ad5).
+    const GameInfo::TextCrawl &crawl = _ctx.game.textCrawl;
+    c->crawl = !crawl.movie.empty() && base == crawl.movie;
+    c->hold = c->crawl;
+    if (c->crawl) {
+        const int language = _cvars.find("sp_language") ? _cvars.integer("sp_language") : 0;
+        _crawlShaders = HandleTable{};
+        _crawlShaders.add(crawl.picture + std::to_string(language));
+    }
     if (!inGame) {
         // The game ends, the menus close.
         endGame();
@@ -177,7 +187,10 @@ void SpPlayPage::startCinematic(const std::string &name, bool inGame) {
     std::vector<int16_t> sound;
     int rate = 0;
     int channels = 0;
-    if (!c->movie.decodeAllAudio(sound, rate, channels) && !sound.empty() && _ctx.mixer) {
+    if (c->crawl) {
+        if (auto music = _soundLibrary.find(crawl.music); music && _ctx.mixer)
+            c->sound = _ctx.mixer->play(music, audio::SoundType::kMusic, audio::kMaxVolume);
+    } else if (!c->movie.decodeAllAudio(sound, rate, channels) && !sound.empty() && _ctx.mixer) {
         auto s = std::make_shared<audio::Sound>();
         s->rate = rate;
         s->channels = channels;
@@ -220,12 +233,74 @@ void SpPlayPage::runCinematic(uint64_t nowMs) {
         if (Error err = c.movie.nextFrame(more); err || !more) {
             if (err)
                 _lastCommand = "Cinematic: " + err.message;
+            if (!err && c.hold)
+                break;
             return endCinematic();
         }
         decoded = true;
     }
     if (decoded)
         c.movie.toRgba(c.rgba);
+}
+
+void SpPlayPage::drawTextCrawl(uint64_t elapsedMs) {
+    // As jk2sp.exe draws it (0x404cc0): from 9 s, a view with no world as
+    // wide as the screen and twice as high, 50 pixels above it, 130
+    // degrees across and up, looking along x at one slanted polygon (its
+    // near edge at x 90, y -250 to 250, its far edge at x 715, 1100 up).
+    // Its picture scrolls 0.000015 of itself a millisecond; its colour
+    // (255, 235, 127), a tenth of that at the far edge, fades out from
+    // 78.5 s until it ends.
+    constexpr uint64_t kStartMs = 9000;
+    constexpr uint64_t kFadeMs = 78500;
+    if (elapsedMs < kStartMs)
+        return;
+    const float fade =
+        elapsedMs < kFadeMs ? 1.0f : std::clamp(float(kCrawlEndMs) - float(elapsedMs), 0.0f, 2480.0f) / 2480.0f;
+    const float scroll = float(elapsedMs - kStartMs) * 0.000015f;
+    struct Corner {
+        float x;
+        float y;
+        float z;
+        float s;
+        float t;
+        bool far;
+    };
+    const Corner corners[4] = {{90, -250, 0, 1, scroll, false},
+                               {90, 250, 0, 0, scroll, false},
+                               {715, 250, 1100, 0, scroll - 1, true},
+                               {715, -250, 1100, 1, scroll - 1, true}};
+    std::vector<uint8_t> vertices(4 * 24);
+    for (size_t i = 0; i < 4; ++i) {
+        const Corner &c = corners[i];
+        const float xyzst[5] = {c.x, c.y, c.z, c.s, c.t};
+        std::memcpy(&vertices[i * 24], xyzst, sizeof xyzst);
+        const float shade = c.far ? 0.1f : 1.0f;
+        vertices[i * 24 + 20] = uint8_t(255 * fade * shade);
+        vertices[i * 24 + 21] = uint8_t(235 * fade * shade);
+        vertices[i * 24 + 22] = uint8_t(127 * fade * shade);
+        vertices[i * 24 + 23] = uint8_t(255 * fade);
+    }
+    // refdef_t: the rectangle in the 640 x 480 screen (the 50 pixels the
+    // original's are in the screen's own), fov across and up, the eye at
+    // the origin with Quake's axes, no world.
+    std::array<uint8_t, kRefdefSize> refdef{};
+    auto put = [&refdef](size_t at, auto value) { std::memcpy(refdef.data() + at, &value, sizeof value); };
+    put(0, int32_t(0));
+    put(4, int32_t(-50 * 480 / std::max(_frameH, 1)));
+    put(8, int32_t(640));
+    put(12, int32_t(960));
+    put(16, 130.0f);
+    put(20, 130.0f);
+    put(36, 1.0f);
+    put(52, 1.0f);
+    put(68, 1.0f);
+    put(76, int32_t(1));
+    Scene scene;
+    scene.addPoly(1, 4, vertices.data());
+    scene.render(refdef.data(), 0);
+    _scene->setHandles({nullptr, nullptr, &_crawlShaders});
+    _scene->drawView(scene, scene.views[0], 640, 480, float(elapsedMs) / 1000.0f, false, nullptr, nullptr, false);
 }
 
 void SpPlayPage::startMenus() {
@@ -465,6 +540,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     showLoadingScreen(map);
     _map = map;
     _gameCommandsRun = 0;
+    _gameLines.clear();
     _pendingMenu.clear();
     _capturing = false;
     setTitle(map);
@@ -810,15 +886,16 @@ void SpPlayPage::runGameCommands() {
     if (!_game)
         return;
     const auto &all = _game->consoleCommands();
-    if (_gameCommandsRun >= all.size())
-        return;
-    std::vector<std::string> lines;
     for (size_t i = _gameCommandsRun; i < all.size(); ++i)
         for (const std::string &line : splitCommands(all[i]))
-            lines.push_back(line);
+            _gameLines.push_back(line);
     _gameCommandsRun = all.size();
-    for (const std::string &line : lines)
-        runCommand(line, true);
+    // A cinematic started holds the rest, as the original's game is paused
+    // under it (cl_paused) before it sends any more.
+    size_t run = 0;
+    while (run < _gameLines.size() && !_cinematic)
+        runCommand(_gameLines[run++], true);
+    _gameLines.erase(_gameLines.begin(), _gameLines.begin() + std::ptrdiff_t(run));
 }
 
 void SpPlayPage::runBinding(const std::string &line, int32_t key, bool down) {
@@ -1073,12 +1150,16 @@ void SpPlayPage::update(uint64_t nowMs) {
     if (_cinematic) {
         // A cinematic has the screen (the game waits under one in game).
         runCinematic(nowMs);
+        if (_cinematic && _cinematic->crawl && nowMs - _cinematic->startMs >= kCrawlEndMs)
+            endCinematic();
         if (_cinematic) {
             _renderer->setGamma(brightness(_ctx));
             _renderer->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
             if (!_cinematic->rgba.empty())
                 _scene->drawImage(_cinematic->rgba.data(), _cinematic->movie.width(), _cinematic->movie.height(), 0, 0,
                                   640, 480, 640, 480);
+            if (_cinematic->crawl)
+                drawTextCrawl(nowMs - _cinematic->startMs);
             std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
             _renderer->endFrame(&_overlay);
             return;

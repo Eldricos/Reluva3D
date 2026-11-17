@@ -315,6 +315,16 @@ Error SpGameHost::connectPlayer(const std::string &userinfo, std::string &refuse
         refused = _cpu->string(reason, 1024);
         return Error::success();
     }
+    // Jedi Outcast's server runs on while its client game loads, up to a
+    // second at a time (0x437dbc): the frames before the player begins,
+    // in which the level's NPCs spawn (at 1550 ms) before the scripts the
+    // player's arrival starts look for them.
+    if (_jedi)
+        for (int32_t ms = 0; ms < kLoadingMs; ms += kFrameMs) {
+            _levelTime += kFrameMs;
+            if (Error e = callGame(kRunFrame, {uint32_t(_levelTime)}))
+                return e;
+        }
     // ClientBegin(client, usercmd, saved game loaded): an empty command.
     const uint32_t cmd = _process->memory().alloc(64);
     _cpu->write32(cmd, uint32_t(_levelTime));

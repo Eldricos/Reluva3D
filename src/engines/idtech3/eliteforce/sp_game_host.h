@@ -96,6 +96,7 @@ public:
     static constexpr int32_t kFrameMs = 50;        // 20 frames a second, as the original's server
     static constexpr int32_t kSettleFrameMs = 100; // the frames run before anyone joins
     static constexpr int32_t kStartTimeMs = 1000;  // a level's time as the game starts
+    static constexpr int32_t kLoadingMs = 1000;    // Jedi Outcast's: run while the player loads
     static constexpr uint32_t kMemory = 256u << 20;
 
     static constexpr SpEntityLayout kEntity{};

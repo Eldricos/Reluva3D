@@ -126,7 +126,10 @@ custom skin, Jan was drawn with Kyle's first-person skin).
 **Drawing:** a scene entity's Ghoul2 pointer (164) is the
 `CGhoul2Info_v`'s address; the Play page asks the host for that
 instance's models posed at the view's time (`SpGameHost::ghoul2Drawn`),
-the same posing as the bolts'.
+the same posing as the bolts'. The client game sets the pointer for
+every entity, one with no Ghoul2 models too (the opening's cockpit, an
+MD3): then the entity's own model is drawn, as the original's renderer
+draws one whose instance has no models.
 
 Not yet answered (they stop the game, by name): collision, the matrix
 overrides, adding and removing surfaces and bones, copying an instance,

@@ -107,6 +107,16 @@ struct GameInfo {
     PlayerModels femalePlayer;
     // Its movies: video/<name> and their file type.
     std::string cinematicExtension;
+    // Single player's opening text crawl, drawn by the engine over a movie
+    // (Jedi Outcast's): that movie, the crawl's shader without its
+    // language's number (sp_language's) and the music played instead of the
+    // movie's sound. An empty movie: none.
+    struct TextCrawl {
+        std::string movie;
+        std::string picture;
+        std::string music;
+    };
+    TextCrawl textCrawl;
 };
 
 // Every game the engine knows; nullptr if `gameId` isn't one.

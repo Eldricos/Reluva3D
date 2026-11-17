@@ -29,6 +29,9 @@ Mat4 identity();
 Mat4 multiply(const Mat4 &a, const Mat4 &b); // a * b
 // fovY in radians; depth 0 at zNear, 1 at zFar.
 Mat4 perspective(float fovY, float aspect, float zNear, float zFar);
+// An off-centre perspective: the view's edges as tangents (x or y over
+// distance) left, right, bottom and top; depth as perspective()'s.
+Mat4 frustum(float left, float right, float bottom, float top, float zNear, float zFar);
 // A view matrix looking from `eye` along `forward`, `up` roughly up.
 Mat4 lookAlong(const Vec3 &eye, const Vec3 &forward, const Vec3 &up);
 // The point after M * (x, y, z, 1) and the divide by w.

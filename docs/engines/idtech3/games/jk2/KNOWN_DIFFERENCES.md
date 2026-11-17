@@ -25,9 +25,8 @@ None yet.
 ## Not yet as the original
 
 Single player isn't playable yet ([PLAN.md](PLAN.md)): the first level
-runs on the Play page, but its opening cutscene stops, the opening text
-crawl isn't drawn, games aren't saved (the automatic save at a level's
-start included) and the page has no console
+runs on the Play page, its opening included, but games aren't saved (the
+automatic save at a level's start included) and the page has no console
 ([systems/sp-interface.md](systems/sp-interface.md)). In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where

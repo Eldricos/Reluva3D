@@ -78,6 +78,7 @@ files; what comes next is in the [plan](PLAN.md).
 | [systems/sp-interface.md](systems/sp-interface.md) | How single player's DLL and the engine talk |
 | [systems/sp-ghoul2.md](systems/sp-ghoul2.md) | Single player's Ghoul2 instances, shared in memory |
 | [systems/sp-menus.md](systems/sp-menus.md) | Single player's menus, which the engine runs |
+| [systems/sp-cinematics.md](systems/sp-cinematics.md) | Single player's movies and the opening text crawl |
 
 ## Terms
 

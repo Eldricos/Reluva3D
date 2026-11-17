@@ -31,6 +31,18 @@ cdecl; pointers are addresses in the emulated process.
    kept (0x440740). `dllEntry` itself already calls the handler: it
    registers settings (call 3).
 
+### Starting a level (0x437250 on)
+
+The level's clock starts at 1000 ms; the game's `Init`, then three
+frames 100 ms apart, a player still connected from the last level
+connected again, then one more frame. The player joins
+(`ClientBegin`) only once their client game has loaded, and the server
+frame (0x437d60) doesn't wait for that: it runs the time gone by, up to
+a second a call (0x437dbc), in 50 ms frames. So about a second of
+frames runs before the player begins, in which the level's NPCs spawn
+(at 1550 ms, after the frames before the player connects); the scripts
+the player's arrival starts look for them as they load.
+
 ### The engine's functions (import table)
 
 103 slots, the same count as the GPL source's `game_import_t`:
@@ -87,7 +99,7 @@ handler; read from its jump table (0x401fd0), each case's code and what
 it calls (the renderer's through its table at 0x7ff770, in the GPL
 source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 1.02a has four force feedback calls where it has ten, no
-`AnyLanguage_ReadFromString`, and one call it lacks (81).
+`Language_UsesSpaces`, and one call it lacks (81).
 
 | Number | Calls | As Elite Force's |
 |---|---|---|
@@ -97,7 +109,8 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | 35–38 | force feedback: three of one argument, one of none | 34–37 |
 | 39–43 | `R_LoadWorldMap`, `R_RegisterModel`, `R_RegisterSkin`, `R_RegisterShader`, `R_RegisterShaderNoMip` | 38–42 |
 | 44–48 | fonts: register, width in pixels, letters, height, draw (Raven's, as multiplayer's) | — |
-| 49, 50 | `Language_IsAsian`, `Language_UsesSpaces` | — |
+| 49 | `Language_IsAsian()` (0x462900): Korean, Chinese or Japanese | — |
+| 50 | `AnyLanguage_ReadCharFromString(&text, &isTrailingPunctuation)` (0x462700): the next letter, the text moved past it (a byte, but two in those three languages); whether it's one of `!?,.;:`, which a line may not start with | — |
 | 51–62 | clear scene, add entity, lighting at a point, polygon, light, render, colour, picture, screenshot picture, model bounds, tag, turned picture | 43–54 |
 | 63 | `R_DrawRotatePic2`: a picture turned about its centre | — |
 | 64, 65 | `R_LAGoggles`, `R_Scissor` | — (55) |
@@ -159,14 +172,15 @@ own settings (`jk2config.cfg`, `jk2mpconfig.cfg`) and the same names
 mean different things in them (`cg_hudFiles`: multiplayer's 0 or 1,
 single player's a file), so single player's are kept apart: read from
 `default.cfg` and Reluva's `reluva-sp.cfg`, swapped in while its page
-runs. The player's name starts as `Kyle` (0x409965). Not yet: saving
-(the game asks for its Ghoul2 instances' records, `G2API_SaveGhoul2Models`),
-the opening text crawl (`jk2sp.exe` draws `video/jk0101_sw.roq` itself, from
-`menu/video/tc_<language>.tga` and `music/cinematic_1`, 0x404ad5), and
-a console on the page. On `kejim_post` the opening cutscene's script
-stops after its first steps: it waits on its actors
-(`cinematic1_kyle`, `cinematic1_jan`), which are spawned and drawn but
-not found by name; why isn't known yet.
+runs. The player's name starts as `Kyle` (0x409965). For Jedi
+Outcast the host runs the second of frames above between the player's
+`ClientConnect` and `ClientBegin`. The movies, the opening crawl and the
+game waiting under them are as [sp-cinematics.md](sp-cinematics.md)
+says. With these, `kejim_post`'s opening plays through: the crawl, the
+approach, the cutscene in the cockpit and Mon Mothma's message, then the
+player in the level. Not yet: saving (the game asks for its Ghoul2
+instances' records, `G2API_SaveGhoul2Models`) and a console on the
+page.
 
 ## Sources and checks
 
@@ -179,7 +193,11 @@ not found by name; why isn't known yet.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its
   version is 6, the game's `Init` runs, the player joins and 100 server
   frames run, the client game drawing each (a game-data step records
-  it). The Play page run on the first level, on screen: the level and
-  Kyle and Jan drawn with their skins. A wrong `CM_SnapPVS` (a bit per
+  it). The Play page run on the first level, on screen: its opening to
+  the player's first steps. A wrong `CM_SnapPVS` (a bit per
   cluster, overrunning the 32 bytes into the snapshot's player state)
-  showed as the client game reading client -1.
+  showed as the client game reading client -1. Call 50 taken for
+  `Language_UsesSpaces` left the subtitles' letters unread, the client
+  game breaking lines past its buffer into its copy of the engine's
+  table. Without the second of frames, the cutscene's script found its
+  actors before they'd spawned and waited for ever.

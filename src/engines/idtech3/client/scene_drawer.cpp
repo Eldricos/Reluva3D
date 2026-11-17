@@ -249,24 +249,42 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
     _eye = readVec(refdef, 24);
     const gfx::Vec3 forward = readVec(refdef, 36);
     const gfx::Vec3 up = readVec(refdef, 60);
-    const float fovY = std::clamp(readFloat(refdef, 20), 1.0f, 170.0f) * kPi / 180.0f;
     // Where on the screen (x, y, width, height in the program's screen):
-    // smaller with a smaller screen size setting, or a box in a menu.
+    // smaller with a smaller screen size setting, a box in a menu, or past
+    // the screen's edges (Jedi Outcast's opening crawl), only the part on
+    // it drawn. Across, the game's fov_x widened as much as the frame is
+    // wider than the program's screen, so a wide window sees more.
     const int frameW = _r.width();
     const int frameH = _r.height();
-    int vx = 0;
-    int vy = 0;
-    int vw = frameW;
-    int vh = frameH;
-    if (const int32_t w = readInt(refdef, 8), h = readInt(refdef, 12); w > 0 && h > 0 && w <= screenW && h <= screenH) {
-        vx = readInt(refdef, 0) * frameW / screenW;
-        vy = readInt(refdef, 4) * frameH / screenH;
-        vw = w * frameW / screenW;
-        vh = h * frameH / screenH;
+    float x = 0;
+    float y = 0;
+    float w = float(screenW);
+    float h = float(screenH);
+    if (const int32_t rw = readInt(refdef, 8), rh = readInt(refdef, 12); rw > 0 && rh > 0) {
+        x = float(readInt(refdef, 0));
+        y = float(readInt(refdef, 4));
+        w = float(rw);
+        h = float(rh);
     }
-    const float aspect = float(vw) / float(std::max(vh, 1));
-    const gfx::Mat4 viewProj =
-        gfx::multiply(gfx::perspective(fovY, aspect, 4, 32768), gfx::lookAlong(_eye, forward, up));
+    const float x0 = std::max(x, 0.0f);
+    const float x1 = std::min(x + w, float(screenW));
+    const float y0 = std::max(y, 0.0f);
+    const float y1 = std::min(y + h, float(screenH));
+    if (x1 <= x0 || y1 <= y0)
+        return;
+    const float widen = float(frameW) * float(screenH) / (float(std::max(frameH, 1)) * float(screenW));
+    const float ty = std::tan(std::clamp(readFloat(refdef, 20), 1.0f, 170.0f) * kPi / 360.0f);
+    const float fovX = readFloat(refdef, 16);
+    const float tx = (fovX > 0 && fovX < 180 ? std::tan(fovX * kPi / 360.0f) : ty * w / h) * widen;
+    const float cx = x + w / 2;
+    const float cy = y + h / 2;
+    const int vx = int(x0 * float(frameW) / float(screenW));
+    const int vy = int(y0 * float(frameH) / float(screenH));
+    const int vw = std::max(1, int(x1 * float(frameW) / float(screenW)) - vx);
+    const int vh = std::max(1, int(y1 * float(frameH) / float(screenH)) - vy);
+    const gfx::Mat4 viewProj = gfx::multiply(gfx::frustum((x0 - cx) / (w / 2) * tx, (x1 - cx) / (w / 2) * tx,
+                                                          (cy - y1) / (h / 2) * ty, (cy - y0) / (h / 2) * ty, 4, 32768),
+                                             gfx::lookAlong(_eye, forward, up));
     if (!firstView)
         _r.clearDepth();
     _r.setView(viewProj, _eye);
@@ -297,7 +315,7 @@ void SceneDrawer::drawView(const Scene &scene, const View &view, int screenW, in
         // A mirror or portal in view: what's seen through it first, inside
         // its shape; then the rest over it, past its depth.
         if (_r.hasStencil())
-            drawPortalView(*world, areaMask, readVec(refdef, 48), fovY, aspect, viewProj, time);
+            drawPortalView(*world, areaMask, readVec(refdef, 48), 2 * std::atan(ty), tx / ty, viewProj, time);
     }
     drawLayers(time, world && withWorld ? world : nullptr, false);
 }
@@ -977,10 +995,12 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
             _brushes.push_back({std::atoi(n.c_str() + 1), placement(readVec(e, _layout.origin), axes)});
             continue;
         }
-        if (_layout.ghoul2 && readInt(e, _layout.ghoul2) && ghoul2Poses) {
-            placeGhoul2(e, readInt(view.refdef, 72), grid, time);
+        // A Ghoul2 instance with models (single player's client game points
+        // every entity at its instance, even one with none: then its model
+        // is drawn, as the original's renderer does).
+        if (_layout.ghoul2 && readInt(e, _layout.ghoul2) && ghoul2Poses &&
+            placeGhoul2(e, readInt(view.refdef, 72), grid, time))
             continue;
-        }
         const int model = modelId(readInt(e, _layout.model));
         if (model < 0)
             continue;
@@ -1011,13 +1031,13 @@ void SceneDrawer::placeEntities(const Scene &scene, const View &view, const Ligh
     }
 }
 
-void SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, const LightGrid &grid, float time) {
+bool SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, const LightGrid &grid, float time) {
     // Each of the instance's models, posed by its game at the view's time:
     // placed by the entity (scaled as it says), then where it hangs in the
     // instance.
     std::vector<Ghoul2Pose> poses;
-    if (!ghoul2Poses(readInt(e, _layout.ghoul2), viewTime, poses))
-        return;
+    if (!ghoul2Poses(readInt(e, _layout.ghoul2), viewTime, poses) || poses.empty())
+        return false;
     const gfx::Vec3 origin = readVec(e, _layout.origin);
     gfx::Mat4 entity =
         placement(origin, {readVec(e, _layout.axes), readVec(e, _layout.axes + 12), readVec(e, _layout.axes + 24)});
@@ -1058,6 +1078,7 @@ void SceneDrawer::placeGhoul2(const std::vector<uint8_t> &e, int32_t viewTime, c
         p.pose = std::make_shared<const Ghoul2Pose>(std::move(pose));
         _placed.push_back(std::move(p));
     }
+    return true;
 }
 
 void SceneDrawer::addDynamicLights(PointLight &light, const gfx::Vec3 &at) const {

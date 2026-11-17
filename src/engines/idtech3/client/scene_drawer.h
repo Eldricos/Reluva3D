@@ -124,7 +124,8 @@ private:
                    float time, const std::function<int(int32_t)> &materialOf);
     void addDynamicLights(PointLight &light, const gfx::Vec3 &at) const;
     // A Ghoul2 entity's models, posed at `viewTime` (ms).
-    void placeGhoul2(const std::vector<uint8_t> &entity, int32_t viewTime, const LightGrid &grid, float time);
+    // False if the instance has no models to draw.
+    bool placeGhoul2(const std::vector<uint8_t> &entity, int32_t viewTime, const LightGrid &grid, float time);
     static const std::string &name(const HandleTable *table, int32_t handle);
 
     gfx::Renderer3D &_r;

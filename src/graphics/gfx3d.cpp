@@ -50,6 +50,18 @@ Mat4 perspective(float fovY, float aspect, float zNear, float zFar) {
     return m;
 }
 
+Mat4 frustum(float left, float right, float bottom, float top, float zNear, float zFar) {
+    Mat4 m{};
+    m[0] = 2 / (right - left);
+    m[5] = 2 / (top - bottom);
+    m[8] = (right + left) / (right - left);
+    m[9] = (top + bottom) / (top - bottom);
+    m[10] = zFar / (zNear - zFar);
+    m[11] = -1;
+    m[14] = zNear * zFar / (zNear - zFar);
+    return m;
+}
+
 Mat4 lookAlong(const Vec3 &eye, const Vec3 &forward, const Vec3 &up) {
     const Vec3 f = normalize(forward);
     const Vec3 s = normalize(cross(f, up));

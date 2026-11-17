@@ -178,11 +178,12 @@ behind the DLL's own tables.
    `kejim_post`, the level drawn with its light styles, the client
    game's scene entities and Ghoul2 models posed from the records, with
    single player's own settings and keys (`default.cfg`, kept apart from
-   multiplayer's as the original's two programs keep theirs). Next: the
-   opening cutscene, whose script waits on its actors
-   (`cinematic1_kyle`, `cinematic1_jan`) though they're spawned; then
-   the opening text crawl and the cinematics' calls (90–94), saving
-   (`G2API_SaveGhoul2Models`), and a console on the page.
+   multiplayer's as the original's two programs keep theirs). The
+   opening plays through: the text crawl, the movie, the cutscene, then
+   the player in the level ([systems/sp-cinematics.md](systems/sp-cinematics.md)).
+   Next: playing the level on (the client game's cinematic calls 90–94
+   among what it may need), saving (`G2API_SaveGhoul2Models`), and a
+   console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

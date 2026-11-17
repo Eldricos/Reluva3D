@@ -73,8 +73,16 @@ private:
         std::vector<uint8_t> rgba;
         uint64_t startMs = 0;
         bool inGame = false;
+        // The movie's last frame kept once it ends (the text crawl's, which
+        // ends the cinematic itself).
+        bool hold = false;
+        bool crawl = false;
         audio::SoundHandle sound = audio::kNoSound;
     };
+    // The text crawl over the cinematic, at `elapsedMs` from its start.
+    void drawTextCrawl(uint64_t elapsedMs);
+    static constexpr uint64_t kCrawlEndMs = 81000; // it ends the cinematic then
+    HandleTable _crawlShaders;                     // the crawl's shader, for the scene drawer
     std::unique_ptr<Cinematic> _cinematic;
     bool _introShown = false;
     void endGame();
@@ -114,8 +122,9 @@ private:
     KeyBindings _otherBindings;
     bool _ownSettings = false; // single player's are in the context
     bool _ownSettingsRead = false;
-    bool _expansion = false;     // the Expansion Pack's game code is running
-    size_t _gameCommandsRun = 0; // of the game's console commands
+    bool _expansion = false;             // the Expansion Pack's game code is running
+    size_t _gameCommandsRun = 0;         // of the game's console commands
+    std::vector<std::string> _gameLines; // their lines not run yet: a cinematic holds them
     // The in-game menu waits a frame while the game is captured for the
     // save menu's picture.
     std::string _pendingMenu;
