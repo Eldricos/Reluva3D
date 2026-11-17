@@ -218,4 +218,9 @@ yet: a console on the page.
   the level change (`maptransition kejim_base`). It found the brush
   models' contents (a shot at a breakable took it for a lightsaber,
   `CONTENTS_LIGHTSABER`, and the game crashed on its missing wielder)
-  and call 88.
+  and call 88. `kejim_base -tour 5000 -spare cinematic3` plays the
+  second level to `maptransition artus_mine`, its ending cinematic
+  (Mon Mothma's) included. `-next` then starts the level changed to as
+  the Play page does, with the player stored as `maptransition` stores
+  them: from `kejim_post`, `kejim_base` receives the same health,
+  armour, weapons and ammunition, the inventory's two keys emptied.

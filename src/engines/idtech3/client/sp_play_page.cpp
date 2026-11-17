@@ -405,7 +405,9 @@ void SpPlayPage::runCommand(const std::string &line, bool fromGame) {
             return;
         }
         _nextSpawnTarget = cmd == "maptransition" && w.size() >= 3 ? w[2] : std::string();
-        _nextLoadTransition = cmd == "maptransition";
+        // Jedi Outcast's game is told of a level change only by
+        // loadtransition (0x435293), which isn't done yet.
+        _nextLoadTransition = cmd == "maptransition" && !jedi();
         start(int(it - _names.begin()));
     } else if (cmd == "disconnect") {
         endGame();

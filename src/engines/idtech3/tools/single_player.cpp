@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -343,13 +344,14 @@ int cmdSpRun(int argc, char **argv) {
         std::fprintf(
             stderr,
             "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-            "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
+            "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-next] [-fixedclock] [-skippak pak]...\n"
             "       [-replay <name>.input | -tour <ms> [-spare name]...]\n"
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon]\" the same command every 50 ms until\n"
             "then; \"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
-            "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n");
+            "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n"
+            "-next: then the level the game changed to, started as the Play page starts it.\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -364,6 +366,7 @@ int cmdSpRun(int argc, char **argv) {
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
     bool fixedClock = false;           // -fixedclock: the game's clock moves with its level time, for runs that repeat
     bool saveLoad = false;             // -saveload: save at the end, load into a fresh game
+    bool followNext = false;           // -next: the level change the game asked for, followed
     std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
     int tourFrom = 0;                  // -tour ms: from then, a route through the level's triggers (tourRoute)
     std::vector<std::string> spare;    // -spare name: not shot at, nor its triggers touched, on a tour
@@ -394,6 +397,8 @@ int cmdSpRun(int argc, char **argv) {
             fixedClock = true;
         else if (std::strcmp(argv[i], "-saveload") == 0)
             saveLoad = true;
+        else if (std::strcmp(argv[i], "-next") == 0)
+            followNext = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
             loadName = argv[++i];
         else if (std::strcmp(argv[i], "-tour") == 0 && i + 1 < argc) {
@@ -564,15 +569,14 @@ int cmdSpRun(int argc, char **argv) {
     game.setSaveStream(nullptr, nullptr);
     std::printf("Init done: %d entities (%d bytes each), %zu linked, %zu configstrings\n", game.entityCount(),
                 game.entitySize(), game.linked().size(), game.configstrings().size());
+    // The player as the Play page describes them (the sex's models).
+    const bool male = reluva::fs::toLower(cvars.string("sex")).rfind('f', 0) != 0;
+    const std::string userinfo = std::string("\\name\\Munro\\snaps\\20\\sex\\") + (male ? "male" : "female") +
+                                 "\\headModel\\" + (male ? "munro/default" : "alexandria/default") + "\\torsoModel\\" +
+                                 (male ? "hazard/default" : "hazardfemale/default") + "\\legsModel\\" +
+                                 (male ? "hazard/default" : "hazardfemale/default") + "\\handicap\\100";
     if (!noClient) {
         std::string refused;
-        // The player as the Play page describes them (the sex's models).
-        const bool male = reluva::fs::toLower(cvars.string("sex")).rfind('f', 0) != 0;
-        const std::string userinfo = std::string("\\name\\Munro\\snaps\\20\\sex\\") + (male ? "male" : "female") +
-                                     "\\headModel\\" + (male ? "munro/default" : "alexandria/default") +
-                                     "\\torsoModel\\" + (male ? "hazard/default" : "hazardfemale/default") +
-                                     "\\legsModel\\" + (male ? "hazard/default" : "hazardfemale/default") +
-                                     "\\handicap\\100";
         if (reluva::Error e = game.connectPlayer(userinfo, refused, loadMode))
             return failed("the player joining", e);
         if (!refused.empty())
@@ -965,6 +969,82 @@ int cmdSpRun(int argc, char **argv) {
     for (const auto &[n, count] : game.cgameCallCounts())
         std::printf(" %d:%d%s", n, count, game.cgameUnhandled().count(n) ? "?" : "");
     std::printf("  (? not answered yet)\n");
+    if (!followNext)
+        return 0;
+    // -next: the last level change the game asked for, as the Play page
+    // follows it: the player stored for a maptransition (forgotten for a
+    // map), the next level started, the player joining, 100 frames run.
+    std::string next;
+    std::string target;
+    bool carry = false;
+    for (const std::string &c : game.consoleCommands()) {
+        std::istringstream words(c);
+        std::string command;
+        std::string first;
+        std::string second;
+        words >> command >> first >> second;
+        command = reluva::fs::toLower(command);
+        if ((command == "maptransition" || command == "map") && !first.empty()) {
+            next = reluva::fs::toLower(first);
+            carry = command == "maptransition";
+            target = carry ? second : std::string();
+        }
+    }
+    if (next.empty()) {
+        std::printf("next: the game asked for no level change\n");
+        return 1;
+    }
+    if (carry)
+        game.savePlayer();
+    else
+        cvars.set("playersave", "");
+    std::printf("next: %s%s, the player carried over: %s |%s |%s |%s\n", next.c_str(),
+                target.empty() ? "" : (" at " + target).c_str(), cvars.string("playersave").c_str(),
+                cvars.string("playerammo").c_str(), cvars.string("playerinv").c_str(),
+                cvars.string("playerfplvl").c_str());
+    Bytes nextData;
+    auto nextBsp = std::make_shared<q3::Bsp>();
+    if (reluva::Error err = set.read("maps/" + next + ".bsp", nextData);
+        err || (err = q3::parseBsp(nextData, *nextBsp)))
+        return std::printf("maps/%s.bsp: %s\n", next.c_str(), err.message.c_str()), 1;
+    ef::SpGameHost arrived(set, cvars);
+    if (fixedClock)
+        arrived.clock = [&arrived] { return 10000u + uint32_t(arrived.levelTime()); };
+    std::tie(arrived.modInstall, arrived.modBaseDir) = idTech3Folders(argv[2]);
+    arrived.print = game.print;
+    arrived.spawnTarget = target;
+    // Elite Force's Expansion Pack tells its game of the change; Jedi
+    // Outcast's only for loadtransition (0x435293).
+    arrived.loadTransition = carry && !jedi;
+    std::string refused;
+    if (reluva::Error e = arrived.load(dll, jedi))
+        return std::printf("next: loading the DLL failed: %s\n", e.message.c_str()), 1;
+    if (reluva::Error e = arrived.startLevel(next, nextBsp, ef::SpGameHost::mapChecksum(nextData), 0, 0))
+        return std::printf("next: Init failed: %s\n", e.message.c_str()), 1;
+    if (reluva::Error e = arrived.connectPlayer(userinfo, refused, 0))
+        return std::printf("next: the player joining failed: %s\n", e.message.c_str()), 1;
+    if (runCgame)
+        if (reluva::Error e = arrived.startClientGame())
+            return std::printf("next: the client game's start-up failed: %s\n", e.message.c_str()), 1;
+    for (int f = 0; f < 100; ++f) {
+        if (reluva::Error e = arrived.runFrame())
+            return std::printf("next: frame %d failed: %s\n", f + 1, e.message.c_str()), 1;
+        if (arrived.clientGameRunning()) {
+            ef::SpGameHost::UserCommand cmd;
+            cmd.serverTime = arrived.levelTime();
+            if (reluva::Error e = arrived.clientThink(cmd))
+                return std::printf("next: command %d failed: %s\n", f + 1, e.message.c_str()), 1;
+            if (reluva::Error e = arrived.drawClientFrame(cmd.serverTime))
+                return std::printf("next: client frame %d failed: %s\n", f + 1, e.message.c_str()), 1;
+        }
+    }
+    // The player as they stand now, stored the same way, to set beside
+    // what was carried over.
+    arrived.savePlayer();
+    std::printf("next: %s ran 100 frames (level time %d ms), %d entities; the player: %s |%s |%s |%s\n", next.c_str(),
+                arrived.levelTime(), arrived.entityCount(), cvars.string("playersave").c_str(),
+                cvars.string("playerammo").c_str(), cvars.string("playerinv").c_str(),
+                cvars.string("playerfplvl").c_str());
     return 0;
 }
 

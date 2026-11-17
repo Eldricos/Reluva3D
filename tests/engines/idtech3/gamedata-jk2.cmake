@@ -102,8 +102,10 @@ elseif(STEP STREQUAL "jk2-game")
 elseif(STEP STREQUAL "jk2-single-player")
     record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame -saveload)
 elseif(STEP STREQUAL "jk2-sp-tour")
-    record_run(kejim_post "played to" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
-               -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1)
+    record_run(kejim_post "ran 100 frames" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
+               -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1 -next)
+    record_run(kejim_base "ran 100 frames" idtech3 sp-run "${base}" kejim_base -tour 5000 -spare cinematic3
+               -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

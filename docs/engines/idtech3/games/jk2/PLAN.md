@@ -187,8 +187,10 @@ behind the DLL's own tables.
    save and load: the automatic saves, `save` and `load` (`F12`, `F9`)
    and `load *respawn` after a death, compressed chunks and JPEG
    pictures, the game's Ghoul2 instances with them
-   ([systems/sp-saves.md](systems/sp-saves.md)). Next: the next levels
-   the same way, and a console on the page.
+   ([systems/sp-saves.md](systems/sp-saves.md)). `kejim_base` plays
+   through the same way, the player carried over from `kejim_post` and
+   on into `artus_mine` (`sp-run -next`). Next: the next levels the same
+   way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

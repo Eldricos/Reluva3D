@@ -31,10 +31,12 @@
   single-player game DLL on kejim_post, its `Init`, the player joining
   and 100 server frames, the client game drawing each, on a fixed
   clock; then the level saved and loaded into a new game, which runs on),
-  `jk2-sp-tour` (`sp-run -tour`: kejim_post played through with
-  cheats from the end of its opening, every trigger touched and the
-  nearest stormtroopers fought between them with every direct-fire
-  weapon, to its level change; about six minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  `jk2-sp-tour` (`sp-run -tour`: kejim_post, then kejim_base, played
+  through with cheats from the end of the opening, every trigger
+  touched and the nearest stormtroopers fought between them with every
+  direct-fire weapon, to the level change; then `-next`: the next level
+  started with the player carried over, its weapons, ammunition and
+  health recorded; about seven minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

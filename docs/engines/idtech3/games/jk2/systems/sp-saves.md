@@ -89,7 +89,9 @@ reads its own, `ReadLevel(autosave, loadTransition)`.
 - **`map`** (0x435510) clears `playersave` and the spawn target.
 - **`maptransition <map> <target>`** (0x4354d0) takes the screen, stores
   the player (above), sets the spawn target, and (0x435310) deletes
-  `auto` but on a `_` map before starting the level.
+  `auto` but on a `_` map before starting the level. The game's `Init`
+  is told of a level change (its last argument, 0x126b6d8) only by
+  `loadtransition`, not by this.
 - **`loadtransition`** (0x435280), for hubs: stores the player, saves
   the level left as `hub/<map>`, sets the spawn target, then loads
   `hub/<next map>` if there is one, else starts it.
