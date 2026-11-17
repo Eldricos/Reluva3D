@@ -61,6 +61,30 @@ Load, Options, Main Menu), `save`, `load`, `options`. Escape opens
 `menu ingame`, or at the main menu asks `quit2` (`0x416f0c`); there are
 no P, S or L keys.
 
+### The yes/no box
+
+`yesno <text> <value>` asks as Orient Express's does
+([../../motoe/systems/saves.md](../../motoe/systems/saves.md#the-yesno-box)),
+over the same `interface\mainmenuwin.tga` centred, but drawn in its own
+font and colours, not `fonts.txt`'s (it opens at `0x42a730`, is drawn
+by `0x42a9a0`, hit by `0x42ad10`, keyed by `0x42a570`):
+
+- The question in font 8 (`innswfte.ttf` at 24) and `0xffd2aa6e`, centred
+  across, its foot at y = 280.
+- Yes and No at y = 310, in `0xfff2e7bd` while the mouse is over one,
+  else `0xffd2aa6e`. With m the wider of the two, Yes is centred in m
+  pixels ending at x = 370, No in m pixels starting at x = 430. Each is
+  clicked within its own box, edges included.
+- The mouse coming onto one plays `sound\interface\mouseover1.wav`; a
+  click, and Enter, play `sound\interface\click4.wav`. Enter and Escape
+  answer yes and no.
+
+What yes does (`0x42a910`): 0 `fade out, quit`; 1 `fade out, reset,
+scene mainmenu01`; 2 `action save confirmed, fade out, previous, fade
+in`. The same box has two more ways of being drawn (a line typed under
+the question with a blinking picture beside it, and an OK alone), which
+no script uses.
+
 ### The save and load screens
 
 Their scenes' `PUZZ save` and `PUZZ load` make the screen as Orient

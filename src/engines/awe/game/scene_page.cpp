@@ -3746,22 +3746,23 @@ void ScenePage::handleEvent(const Event &event) {
     if (_yesNo) {
         // The yes/no box takes every click and key while it's up.
         if (ev.type == EventType::kMouseMove) {
-            // The word under the mouse lights up, with mouseover2.wav as it
-            // comes onto one (0x4325b0).
+            // The word under the mouse lights up, with a sound as it comes
+            // onto one.
             const int at = yesNoAt(ev.mouseX, ev.mouseY);
             if (at != _yesNo->highlighted) {
                 _yesNo->highlighted = at;
                 if (at >= 0)
-                    playSound("mouseover2");
+                    playSound(yesNoLayout().over);
                 draw();
             }
         } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
-            // select2.wav as one is clicked (0x43274b).
             if (const int at = yesNoAt(ev.mouseX, ev.mouseY); at >= 0) {
-                playSound("select2");
+                playSound(yesNoLayout().click);
                 return answer(at == 0);
             }
         } else if (ev.type == EventType::kKeyDown && (ev.key == key::kReturn || ev.key == key::kEscape)) {
+            if (ev.key == key::kReturn && yesNoLayout().enterClicks)
+                playSound(yesNoLayout().click);
             answer(ev.key == key::kReturn);
         }
         return;

@@ -252,6 +252,29 @@ struct OptionsLayout {
 };
 
 /**
+ * The yes/no popup (quit, back to the main menu, overwrite a save) as a
+ * game draws and answers it, centred on its frame over
+ * interface/mainmenuwin.tga. Orient Express's are the defaults (motoe.exe
+ * 0x432630, 0x432d60, 0x4330c0, 0x4325b0, 0x432cb1): fonts.txt's style and
+ * colours.
+ */
+struct YesNoLayout {
+    const char *font = "popup dialogs"; ///< the style, by its use
+    /** 0xAARRGGBB: the words and the one the mouse is over; zeros: fonts.txt's. */
+    uint32_t plain = 0;
+    uint32_t lit = 0;
+    int questionFoot = 364;          ///< the question's foot, centred across
+    int row = 394;                   ///< Yes's and No's top, and their boxes' for clicks
+    int yesEnd = 482;                ///< with m the wider word, Yes centred in m pixels ending here...
+    int noStart = 542;               ///< ... and No in m pixels from here
+    const char *over = "mouseover2"; ///< the sound as the mouse comes onto a word
+    const char *click = "select2";   ///< and as one is clicked
+    bool enterClicks = false;        ///< whether Enter (a yes) plays the click too
+    /** The script a yes to leaving the game runs. */
+    const char *toMenu = "fade out, reset, scene menu.main_01, fade in";
+};
+
+/**
  * The safe's puzzle screen as a game has it: a dial turned left and right
  * to three numbers. Orient Express's baggage car safe is the default
  * (motoe.exe 0x434390); And Then There Were None's is "safecombo"
@@ -372,6 +395,7 @@ struct GameInfo {
     GameSaves saves;               ///< its saved games' files
     GameFlow flow;                 ///< how it starts, its acts and scenes
     OptionsLayout options;         ///< its options screen
+    YesNoLayout yesNo;             ///< its yes/no popup
     InventoryRules inventory;      ///< its items
     SafeRules safe;                ///< its safe's puzzle screen
     /** Its own window over its scenes (the journal); null: none. */

@@ -644,47 +644,52 @@ void ScenePage::drawSlots() {
     }
 }
 
+YesNoLayout ScenePage::yesNoLayout() const {
+    return _ctx.game ? _ctx.game->yesNo : YesNoLayout{};
+}
+
 void ScenePage::drawYesNo() {
-    // 0x432630, 0x432d60: interface\mainmenuwin.tga centred on the
-    // screen; the question in the popup font (font 8) and the popup text
-    // colour (11), centred, its foot at y 364; Yes and No below at y 394,
-    // in the highlighted colour (12) when the mouse is over them. With m
-    // the wider of the two, Yes is centred in m pixels ending at x 482,
-    // No in m pixels from x 542.
+    // interface\mainmenuwin.tga centred on the screen; the question
+    // centred across above Yes and No, which are in the highlighted colour
+    // when the mouse is over them; where, the game's (YesNoLayout).
     const image::Image &box = picture("interface/mainmenuwin.tga");
     if (box.w)
         image::blitOver(_ctx.screen, box, (frameW() - box.w) / 2, (frameH() - box.h) / 2);
-    const TextStyle *style = _ctx.fonts->style("popup dialogs");
+    const YesNoLayout l = yesNoLayout();
+    const TextStyle *style = _ctx.fonts->style(l.font);
     if (!style || !style->font)
         return;
-    const Color plain = _ctx.fonts->colour("popup menu text", {255, 230, 230});
-    const Color lit = _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
+    const Color plain = l.plain ? dialogueColour(l.plain) : _ctx.fonts->colour("popup menu text", {255, 230, 230});
+    const Color lit =
+        l.lit ? dialogueColour(l.lit) : _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
     const int lineH = style->font->lineHeight(style->pixels);
     const int qw = style->font->width(_yesNo->text, style->pixels);
-    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - qw) / 2, 364 - lineH, _yesNo->text, plain);
+    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - qw) / 2, l.questionFoot - lineH, _yesNo->text, plain);
     const std::string words[2] = {interfaceText("yes"), interfaceText("no")};
     for (int i = 0; i < 2; i++)
         _yesNo->w[i] = style->font->width(words[i], style->pixels), _yesNo->h[i] = lineH;
     const int m = std::max(_yesNo->w[0], _yesNo->w[1]);
-    _yesNo->x[0] = (m - _yesNo->w[0]) / 2 - m + 482;
-    _yesNo->x[1] = (m - _yesNo->w[1]) / 2 + 542;
+    _yesNo->x[0] = (m - _yesNo->w[0]) / 2 - m + l.yesEnd;
+    _yesNo->x[1] = (m - _yesNo->w[1]) / 2 + l.noStart;
     _yesNo->drawn = true;
     for (int i = 0; i < 2; i++)
-        _ctx.fonts->draw(_ctx.screen, *style, _yesNo->x[i], 394, words[i], _yesNo->highlighted == i ? lit : plain);
+        _ctx.fonts->draw(_ctx.screen, *style, _yesNo->x[i], l.row, words[i], _yesNo->highlighted == i ? lit : plain);
 }
 
 int ScenePage::yesNoAt(int x, int y) const {
-    // Each word's own box, edges included, from y 394 (0x4330c0).
+    // Each word's own box, edges included, from the row's top.
     if (!_yesNo || !_yesNo->drawn)
         return -1;
+    const int row = yesNoLayout().row;
     for (int i = 0; i < 2; i++)
-        if (x >= _yesNo->x[i] && x <= _yesNo->x[i] + _yesNo->w[i] && y >= 394 && y <= 394 + _yesNo->h[i])
+        if (x >= _yesNo->x[i] && x <= _yesNo->x[i] + _yesNo->w[i] && y >= row && y <= row + _yesNo->h[i])
             return i;
     return -1;
 }
 
 void ScenePage::answer(bool yes) {
-    // 0x432cb1: 0 quits the program, 1 the game, 2 overwrites the save.
+    // 0 quits the program, 1 the game (the game's script), 2 overwrites the
+    // save (motoe.exe 0x432cb1, ac.exe 0x42a910).
     const int kind = _yesNo->kind;
     _yesNo.reset();
     draw();
@@ -694,7 +699,7 @@ void ScenePage::answer(bool yes) {
     if (kind == 0)
         _runner->run("fade out, quit");
     else if (kind == 1)
-        _runner->run("fade out, reset, scene menu.main_01, fade in");
+        _runner->run(yesNoLayout().toMenu);
     else
         _runner->run("action save confirmed, fade out, previous, fade in");
 }

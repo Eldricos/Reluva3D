@@ -1852,7 +1852,7 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
             drawNow();
         if (!_yesNo->drawn)
             return In{};
-        return In{In::Kind::kClick, _yesNo->x[0] + _yesNo->w[0] / 2, 394 + _yesNo->h[0] / 2, 0};
+        return In{In::Kind::kClick, _yesNo->x[0] + _yesNo->w[0] / 2, yesNoLayout().row + _yesNo->h[0] / 2, 0};
     }
     if (!_dialogue->active() || !_dialogue->ready())
         return In{};

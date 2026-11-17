@@ -41,6 +41,7 @@ const GameInfo &game() {
         .saves = {},       // and its saves
         .flow = {},        // and its acts and scenes
         .options = {},     // and its options screen
+        .yesNo = {},       // and its yes/no popup
         .inventory = {},   // and its items
         .safe = {},        // its safe
         .exe = "motoe.exe",

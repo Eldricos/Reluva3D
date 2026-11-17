@@ -199,6 +199,19 @@ const GameInfo &game() {
                     .sliderRows = {80, 145, 210},
                     .boxLabels = 645,
                     .boxRows = {255, 305, 355, 405, 455, 505}},
+        // Its yes/no popup (0x42a730, draw 0x42a9a0, mouse 0x42a380 and
+        // 0x42ad10, keys 0x42a570, a yes 0x42a910).
+        .yesNo = {.font = "font 8",
+                  .plain = 0xffd2aa6e,
+                  .lit = 0xfff2e7bd,
+                  .questionFoot = 280,
+                  .row = 310,
+                  .yesEnd = 370,
+                  .noStart = 430,
+                  .over = "mouseover1",
+                  .click = "click4",
+                  .enterClicks = true,
+                  .toMenu = "fade out, reset, scene mainmenu01"},
         // Its items: no passports or cards; pictures in Inventory\<item>;
         // the characters' table, the line for nothing, the take's sound
         // (0x418bf6, 0x4194f0, 0x419380, 0x40d56e); its states 1 just

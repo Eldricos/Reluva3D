@@ -559,6 +559,7 @@ private:
     std::unique_ptr<YesNo> _yesNo;
     void answer(bool yes);
     void drawYesNo();
+    YesNoLayout yesNoLayout() const;
     int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
     std::string interfaceText(const std::string &tag);
     /** The window's title when playing: the game's, as it names its window. */
