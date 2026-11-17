@@ -2554,6 +2554,20 @@ void ScenePage::walkTo(int sx, int sy) {
         if (const Ac2Record *modl = who->record->part("MODL");
             modl && modl->field("clickToWalk") && modl->i("clickToWalk") == 0)
             return;
+    // The cell it's walking to clicked again (a double click): it runs
+    // the rest of the way, the walk under way handing over to "run" or a
+    // turn on the spot running after (0x440af0; ac.exe 0x435f70, which
+    // swaps only a "walk" playing).
+    if (who && who->player && who->actor && !who->path.empty() && goal == who->clickedGoal) {
+        if (!who->running) {
+            who->running = true;
+            const Animator::Slot *base = who->actor->animator().base();
+            if (!who->turningFirst && who->leg >= 0 && base && base->name.find("walk") != std::string::npos)
+                startWalk(*who, true);
+        }
+        draw();
+        return;
+    }
     WalkGrid::Cell start{32, 32};
     if (who)
         start = _grid.cellAt(who->x, who->z);
@@ -2573,6 +2587,7 @@ void ScenePage::walkTo(int sx, int sy) {
             who->path.push_back({px, pz});
         }
         beginWalk(*who, false);
+        who->clickedGoal = goal;
     }
     draw();
 }

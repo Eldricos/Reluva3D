@@ -296,6 +296,9 @@ private:
         bool turnFirst = false;
         bool turningFirst = false;
         bool running = false;
+        // The cell a click sent it to: clicked again while it walks there,
+        // it runs (0x440de5, ac.exe 0x436169).
+        WalkGrid::Cell clickedGoal;
         bool follower = false; // follows the player (FLLW, its COND holding)
         bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
         float walkIn = 0;      // walking in: the distance left
