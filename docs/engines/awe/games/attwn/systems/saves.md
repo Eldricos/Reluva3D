@@ -88,8 +88,9 @@ no script uses.
 ### The save and load screens
 
 Their scenes' `PUZZ save` and `PUZZ load` make the screen as Orient
-Express's do; its rows are drawn otherwise (`0x41eca0`, clicks
-`0x41ef80`):
+Express's do; its rows are drawn otherwise, the same on both (the
+load screen's `0x41eca0`, clicks `0x41ef80`; the save screen's
+`0x42b840`):
 
 | | And Then There Were None | Orient Express |
 |---|---|---|
@@ -98,7 +99,7 @@ Express's do; its rows are drawn otherwise (`0x41eca0`, clicks
 | Thumbnail | x 522, a pixel down; alpha 92 unless picked | x 704 |
 | Name | centred on x 404, in the row's middle | x 624 |
 | Date; time | x 526; ending at x 716, at the row's foot | x 708; 952 |
-| Font, colours | font 7 (Arial Narrow 10); white picked, `0xff808080` the rest | `fonts.txt`'s |
+| Font, colours | font 7 (Industrial, `innswfte.ttf`, 18); white picked, `0xff808080` the rest | `fonts.txt`'s |
 | An empty row | `EMPTY` (`0x41ed4a`) | `interface.txt`'s `empty` |
 | The glow | `Interface\Scenes\Cutouts\glow.tga` on the picked row | the menu's |
 

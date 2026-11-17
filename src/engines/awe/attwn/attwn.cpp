@@ -120,8 +120,10 @@ const GameInfo &game() {
                      .nightPictures = {0.5078125f, 0.625f, 0.78125f}, // 0x4010f0, used at 0x42e89c
                      .nightFiles = true,                              // 0x4080f9
                      .lightsReplace = true},                          // 0x42c9a4
-        // Its fonts, made in its code (0x4151fc on); the dialogue's is the
-        // second (0x431caa). The rest's uses aren't read yet.
+        // Its fonts, made in its code (0x4151fc on); what each is for is in
+        // docs/engines/awe/games/attwn/systems/interface.md. Font 0 (an
+        // object's name) and 3 (the developers' tag list) show only in
+        // their debug mode, so Reluva has no use for them.
         .fonts = {{"font 0", "interface/fonts/arial.ttf", 12, true},
                   {"dialogue", "interface/fonts/arialn.ttf", 12, false},
                   {"font 2", "interface/fonts/innswfte.ttf", 38, false},
@@ -144,7 +146,7 @@ const GameInfo &game() {
                         .colours = {0xffd2aa6e, 0xfff2e7bd, 0xffd2aa6e, 0xffc08a6f, 0xff8f9cb0}},
         // Saved Games\slot%d.ac1 and .bmp (0x41e917, 0x41ebb4), written by
         // 0x412e9f.
-        // Its screens' rows (0x41eca0, 0x41ef80).
+        // Its screens' rows (load 0x41eca0, clicks 0x41ef80; save 0x42b840).
         .saves = {.layout = {.narrow = true, .moving = false, .act = false, .timers = false, .shortCodes = true},
                   .extension = ".ac1",
                   .screen = {.rows = {57, 222, 389},
