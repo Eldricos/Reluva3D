@@ -611,7 +611,7 @@ ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
     return _serverWorld.place(entityVec(n, _entity.absMin), entityVec(n, _entity.absMax));
 }
 
-void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit) {
+void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit, const std::vector<jk2::Ghoul2Hit> *hits) {
     // Quake III's trace_t (56 bytes), as the original's engine fills it.
     if (!_cpu->valid(r, 56))
         return;
@@ -633,6 +633,28 @@ void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit) {
     _cpu->write32(r + 44, uint32_t(t.surfaceFlags));
     _cpu->write32(r + 48, uint32_t(t.contents));
     _cpu->write32(r + 52, uint32_t(hit));
+    // Jedi Outcast's records (0x43af90): each 64 bytes; a free one is 100000
+    // away and of entity -1.
+    constexpr uint32_t kRecords = 56;
+    constexpr uint32_t kRecordSize = 64;
+    if (!hits || !_cpu->valid(r, kRecords + uint32_t(jk2::kMaxGhoul2Hits) * kRecordSize))
+        return;
+    for (uint32_t i = 0; i < jk2::kMaxGhoul2Hits; ++i) {
+        const uint32_t at = r + kRecords + i * kRecordSize;
+        const jk2::Ghoul2Hit h = i < hits->size() ? (*hits)[i] : jk2::Ghoul2Hit{};
+        _cpu->write32(at, floatBits(h.distance));
+        _cpu->write32(at + 4, uint32_t(h.entity));
+        _cpu->write32(at + 8, uint32_t(h.model));
+        _cpu->write32(at + 12, uint32_t(h.polygon));
+        _cpu->write32(at + 16, uint32_t(h.surface));
+        writeVec(at + 20, h.position);
+        writeVec(at + 32, h.normal);
+        _cpu->write32(at + 44, uint32_t(h.flags));
+        _cpu->write32(at + 48, 0); // material and hit location: not looked up (sp-ghoul2.md)
+        _cpu->write32(at + 52, 0);
+        _cpu->write32(at + 56, floatBits(h.baryI));
+        _cpu->write32(at + 60, floatBits(h.baryJ));
+    }
 }
 
 std::string SpGameHost::infoString(int32_t flag) const {
@@ -1507,6 +1529,15 @@ Error SpGameHost::clientConsoleCommand(const std::string &text) {
     }
     if (handled)
         return Error::success();
+    // Jedi Outcast's engine gives the game's own console commands (npc,
+    // use, runscript...) their turn next (0x436e00, from 0x413f48).
+    if (_jedi) {
+        bool own = false;
+        if (Error e = consoleCommand(text, &own))
+            return e;
+        if (own)
+            return Error::success();
+    }
     tokenize(text);
     return callGame(kClientCommand, {0});
 }
@@ -1733,10 +1764,22 @@ void SpGameHost::addImports() {
     import(kTrace, [this](x86::Cpu &c) {
         const Vec3f zero{};
         int32_t hit = kEntityNone;
-        const TraceResult t = _serverWorld.trace(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
-                                                 c.arg(3) ? readVec(c.arg(3)) : zero, readVec(c.arg(4)),
-                                                 int32_t(c.arg(5)), int32_t(c.arg(6)), hit);
-        writeTrace(c.arg(0), t, hit);
+        const Vec3f start = readVec(c.arg(1));
+        const Vec3f mins = c.arg(2) ? readVec(c.arg(2)) : zero;
+        const Vec3f maxs = c.arg(3) ? readVec(c.arg(3)) : zero;
+        const Vec3f end = readVec(c.arg(4));
+        // Jedi Outcast's two more: the Ghoul2 trace type and level of detail.
+        const auto type = _jedi ? jk2::Ghoul2Trace(int32_t(c.arg(7))) : jk2::Ghoul2Trace::kNone;
+        const int lod = _jedi ? int(c.arg(8)) : 0;
+        std::vector<jk2::Ghoul2Hit> hits;
+        ServerWorld::Accept accept;
+        if (type != jk2::Ghoul2Trace::kNone)
+            accept = [&](int32_t n, TraceResult &t, bool replaced) {
+                return ghoul2Collide(n, start, end, mins, maxs, type, lod, replaced, hits, t);
+            };
+        const TraceResult t =
+            _serverWorld.trace(start, mins, maxs, end, int32_t(c.arg(5)), int32_t(c.arg(6)), hit, true, false, accept);
+        writeTrace(c.arg(0), t, hit, _jedi ? &hits : nullptr);
         return 0u;
     });
     import(kPointContents,

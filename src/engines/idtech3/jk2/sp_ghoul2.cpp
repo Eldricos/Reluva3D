@@ -223,6 +223,56 @@ bool SpGameHost::ghoul2Drawn(uint32_t handleAddress, int32_t time, std::vector<G
     return _g2Pose->drawn(handle, time, out);
 }
 
+bool SpGameHost::ghoul2Collide(int32_t n, const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                               jk2::Ghoul2Trace type, int lod, bool replaced, std::vector<jk2::Ghoul2Hit> &hits,
+                               TraceResult &t) {
+    // The entity's instance (0x160), its model scale (0xe8); not a saber's
+    // blade (CONTENTS_LIGHTSABER), which keeps its box.
+    constexpr uint32_t kGhoul2 = 0x160;
+    constexpr uint32_t kModelScale = 0xe8;
+    constexpr uint32_t kLightsaber = 0x40000;
+    const uint32_t ent = entityAddress(n);
+    if (!ent || (_cpu->read32(ent + uint32_t(_entity.contents)) & kLightsaber))
+        return true;
+    std::vector<Ghoul2Pose> models;
+    if (!ghoul2Drawn(ent + kGhoul2, _levelTime, models) || models.empty())
+        return true;
+    // A client's model stands on its player's origin, turned only by its
+    // yaw (0xac); anything else's by its own angles.
+    Vec3 angles{};
+    Vec3 origin{};
+    if (const uint32_t ps = _cpu->read32(ent + uint32_t(_entity.client))) {
+        angles[1] = readFloat(ps + 0xac);
+        const Vec3f o = readVec(ps + 0x14);
+        origin = {o[0], o[1], o[2]};
+    } else {
+        const Vec3f a = readVec(ent + uint32_t(_entity.currentAngles));
+        const Vec3f o = readVec(ent + uint32_t(_entity.currentOrigin));
+        angles = {a[0], a[1], a[2]};
+        origin = {o[0], o[1], o[2]};
+    }
+    const Vec3f scale = readVec(ent + kModelScale);
+    // A box's half width counts as the ray's (0x43ae47).
+    const float radius = (maxs[0] - mins[0]) * 0.5f;
+    // A nearer box brings fresh records; one only started in adds to them.
+    const std::vector<jk2::Ghoul2Hit> before = hits;
+    if (replaced)
+        hits.clear();
+    const size_t count = hits.size();
+    jk2::traceGhoul2(models, jk2::Ghoul2Instances::worldMatrix(angles, origin), {scale[0], scale[1], scale[2]},
+                     {start[0], start[1], start[2]}, {end[0], end[1], end[2]}, n, type, lod, radius, hits);
+    if (hits.size() == count) {
+        hits = before;
+        return false;
+    }
+    for (const jk2::Ghoul2Hit &h : hits)
+        if (h.entity == n) {
+            t.normal = {h.normal[0], h.normal[1], h.normal[2]};
+            break;
+        }
+    return true;
+}
+
 const SpGameHost::Ghoul2Files *SpGameHost::ghoul2Files(const std::string &name) {
     std::string key = fs::toLower(name);
     if (key.size() < 4 || key.compare(key.size() - 4, 4, ".glm") != 0)
@@ -708,6 +758,21 @@ void SpGameHost::addGhoul2Imports() {
         // (CGhoul2Info *, name) -> the mesh's surface of that name, or -1
         const Ghoul2Files *files = ghoul2FilesOf(c.arg(0));
         return uint32_t(files ? surfaceNamed(files->mesh, c.string(c.arg(1), 64)) : -1);
+    });
+    slot("G2API_GetSurfaceName", [this](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info *, surface) -> its name, text the engine keeps; ""
+        // if there's no such surface (0x453780).
+        const uint32_t info = c.arg(0);
+        const Ghoul2Files *files = ghoul2FilesOf(info);
+        const int surface = int(c.arg(1));
+        const bool found = files && surface >= 0 && size_t(surface) < files->mesh.surfaces.size();
+        const auto key = std::pair{found ? int32_t(_cpu->read32(info + kModel)) : 0, found ? surface : -1};
+        if (const auto it = _g2SurfaceNames.find(key); it != _g2SurfaceNames.end())
+            return it->second;
+        const std::string name = found ? files->mesh.surfaces[size_t(surface)].name : std::string();
+        const uint32_t a = _process->memory().alloc(uint32_t(name.size()) + 1);
+        _cpu->writeString(a, name, uint32_t(name.size()) + 1);
+        return _g2SurfaceNames[key] = a;
     });
     slot("G2API_GetSurfaceRenderStatus", [this](x86::Cpu &c) -> uint32_t {
         // (CGhoul2Info *, name) -> its flags: the override's, else the

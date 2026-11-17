@@ -667,10 +667,7 @@ bool Ghoul2Instances::boltMatrix(int32_t handle, int32_t modelIndex, int32_t bol
     for (int r = 0; r < 3; ++r)
         if (scale[size_t(r)] != 0)
             use[size_t(r * 4 + 3)] *= scale[size_t(r)];
-    Bone34 world = anglesMatrix(angles);
-    for (int r = 0; r < 3; ++r)
-        world[size_t(r * 4 + 3)] = origin[size_t(r)];
-    Bone34 placed = mul(world, use);
+    Bone34 placed = mul(worldMatrix(angles, origin), use);
     // The original turns the result's axes a further 270 degrees of yaw.
     const Vec3 at{placed[3], placed[7], placed[11]};
     placed[3] = placed[7] = placed[11] = 0;
@@ -679,6 +676,13 @@ bool Ghoul2Instances::boltMatrix(int32_t handle, int32_t modelIndex, int32_t bol
     out[7] = at[1];
     out[11] = at[2];
     return true;
+}
+
+Bone34 Ghoul2Instances::worldMatrix(const Vec3 &angles, const Vec3 &origin) {
+    Bone34 world = anglesMatrix(angles);
+    for (int r = 0; r < 3; ++r)
+        world[size_t(r * 4 + 3)] = origin[size_t(r)];
+    return world;
 }
 
 bool Ghoul2Instances::drawn(int32_t handle, int32_t time, std::vector<Drawn> &out) {

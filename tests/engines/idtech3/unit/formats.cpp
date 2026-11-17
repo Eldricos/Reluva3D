@@ -28,6 +28,7 @@
 #include "engines/idtech3/eliteforce/ui_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/formats/ghoul2.h"
+#include "engines/idtech3/jk2/ghoul2_collision.h"
 #include "engines/idtech3/jk2/ghoul2_instances.h"
 #include "engines/idtech3/jk2/menu_defs.h"
 #include "engines/idtech3/filesystem.h"
@@ -684,6 +685,51 @@ static void testMenuDefs() {
     // Malformed: no opening brace.
     Lexer bad("name x }");
     CHECK(!menus.parse(bad) && menus.menus().size() == 2);
+}
+
+static void testGhoul2Collision() {
+    // One triangle, upright in the plane x = 0 (y 0 to 10, z 0 to 10), on
+    // the identity bone.
+    auto glm = std::make_shared<GlmModel>();
+    glm->surfaces.push_back({"body", 0, "", -1, {}});
+    GlmSurface surface;
+    surface.boneRefs = {0};
+    for (const Vec3 &p : {Vec3{0, 0, 0}, Vec3{0, 10, 0}, Vec3{0, 0, 10}}) {
+        GlmVertex v;
+        v.pos = p;
+        v.weight[0] = 1;
+        surface.vertices.push_back(v);
+    }
+    surface.indices = {0, 1, 2};
+    glm->lods = {{surface}};
+    Ghoul2Pose pose;
+    pose.glm = glm;
+    pose.bones = {Bone34{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}};
+    pose.surfaceOn = {true};
+    const std::vector<Ghoul2Pose> models{pose};
+    // Placed at (100, 0, 0), unturned.
+    const Bone34 world = jk2::Ghoul2Instances::worldMatrix({0, 0, 0}, {100, 0, 0});
+    std::vector<jk2::Ghoul2Hit> hits;
+    // Through the triangle along x: met 10 from the start, its normal along x.
+    jk2::traceGhoul2(models, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
+    CHECK(hits.size() == 1);
+    CHECK(hits[0].entity == 7 && hits[0].surface == 0 && hits[0].polygon == 0);
+    CHECK(std::fabs(hits[0].distance - 10) < 1e-3f);
+    CHECK(std::fabs(hits[0].position[0] - 100) < 1e-3f && std::fabs(std::fabs(hits[0].normal[0]) - 1) < 1e-3f);
+    // Beside it (the hypotenuse's far side), nothing; with a width of 3,
+    // near enough.
+    hits.clear();
+    jk2::traceGhoul2(models, world, {0, 0, 0}, {90, 6, 6}, {110, 6, 6}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
+    CHECK(hits.empty());
+    jk2::traceGhoul2(models, world, {0, 0, 0}, {90, 6, 6}, {110, 6, 6}, 7, jk2::Ghoul2Trace::kCollide, 0, 3, hits);
+    CHECK(hits.size() == 1);
+    // A surface turned off isn't met; neither is a segment short of it.
+    hits.clear();
+    std::vector<Ghoul2Pose> off = models;
+    off[0].surfaceOn = {false};
+    jk2::traceGhoul2(off, world, {0, 0, 0}, {90, 2, 2}, {110, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
+    jk2::traceGhoul2(models, world, {0, 0, 0}, {90, 2, 2}, {95, 2, 2}, 7, jk2::Ghoul2Trace::kCollide, 0, 0, hits);
+    CHECK(hits.empty());
 }
 
 static void testGhoul2Instances() {
@@ -1535,6 +1581,7 @@ static const reluva::test::Suite
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
+               {"ghoul2 collision", [](const std::filesystem::path &) { testGhoul2Collision(); }},
                {"menu definitions", [](const std::filesystem::path &) { testMenuDefs(); }},
                {"effects", [](const std::filesystem::path &) { testEffects(); }},
                {"electricity", [](const std::filesystem::path &) { testElectricity(); }},

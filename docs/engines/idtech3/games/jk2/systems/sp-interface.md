@@ -162,9 +162,14 @@ Force's handling shared where the call and what it passes are the same
 scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
 answered: the cinematics (90–94), which stop the game with their
 number; the weather's `R_WorldEffectCommand` (89) is taken and does
-nothing. The Ghoul2 trace type and level of detail `trace` is given are
-left out: a shot or saber hits an entity's box, not its Ghoul2 model's
-triangles *(guessed)*. Ghoul2's engine slots and calls
+nothing. The Ghoul2 trace type and level of detail `trace` is given
+decide whether a trace meets a Ghoul2 body's triangles or only its box
+([sp-ghoul2.md](sp-ghoul2.md), Collision): with the box alone, a
+rocket stopped at an AT-ST's box and stayed there, neither bursting nor
+flying on. A line typed (or a key's command) goes,
+after the client game's turn, to the game's own console commands (`npc`,
+`use`, `runscript`...; 0x436e00 from the command executor at 0x413f48)
+before it's sent to the game as the player's. Ghoul2's engine slots and calls
 84 and 85 are answered as [sp-ghoul2.md](sp-ghoul2.md) says, the menus'
 (97–107, 111) as [sp-menus.md](sp-menus.md) says. With them, `sp-run`
 on `kejim_post` runs the game's `Init`, the player joins, and the level
@@ -233,3 +238,9 @@ yet: a console on the page.
   health is the game's field at 0x218 (the most it can have at 0x21c),
   which the tour reads to leave corpses alone. `artus_detention -tour
   16000` plays to `maptransition artus_topside` with nothing more.
+  `artus_topside`'s AT-STs found the Ghoul2 collision: a rocket stopped
+  at an AT-ST's box and stayed there. With it, the rockets meet the
+  AT-ST and the game knows which part they hit. The
+  AT-STs take damage only from heavy weapons (`SET_DMG_BY_HEAVY_WEAP_ONLY`
+  in their scripts), which by the GPL source *(published)* are only the
+  emplaced guns' and AT-STs' own shots, not rockets.

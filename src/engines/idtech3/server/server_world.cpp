@@ -200,7 +200,7 @@ void ServerWorld::entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vecto
 }
 
 TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
-                               int32_t mask, int32_t &hit, bool entities, bool capsule) const {
+                               int32_t mask, int32_t &hit, bool entities, bool capsule, const Accept &accept) const {
     TraceResult best;
     hit = kNone;
     if (_world) {
@@ -244,16 +244,23 @@ TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3
             t = s.capsule ? CollisionWorld::traceCapsule(start, end, mins, maxs, boxMin, boxMax, s.contents, capsule)
                           : CollisionWorld::traceBox(start, end, mins, maxs, boxMin, boxMax, s.contents, capsule);
         }
+        const TraceResult before = best;
+        const int32_t hitBefore = hit;
         if (t.allSolid || t.startSolid) {
             best.allSolid |= t.allSolid;
             best.startSolid = true;
             hit = n;
         }
-        if (t.fraction < best.fraction) {
+        const bool replaced = t.fraction < best.fraction;
+        if (replaced) {
             const bool startSolid = best.startSolid;
             best = t;
             best.startSolid |= startSolid;
             hit = n;
+        }
+        if (accept && hit == n && !accept(n, best, replaced)) {
+            best = before;
+            hit = hitBefore;
         }
     }
     for (int i = 0; i < 3; ++i)

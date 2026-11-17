@@ -7,6 +7,7 @@
 #include "common/types.h"
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
+#include "engines/idtech3/jk2/ghoul2_collision.h"
 #include "engines/idtech3/jk2/font_set.h"
 #include "engines/idtech3/jk2/ghoul2_instances.h"
 #include "engines/idtech3/jk2/menu_defs.h"
@@ -380,7 +381,15 @@ private:
     float readFloat(uint32_t address) const;
     void linkEntity(uint32_t address);
     void unlinkEntity(uint32_t address);
-    void writeTrace(uint32_t results, const TraceResult &t, int32_t hit);
+    // A trace's result in the game's memory: Quake III's trace_t, and for
+    // Jedi Outcast its Ghoul2 records after it (`hits`, the rest free).
+    void writeTrace(uint32_t results, const TraceResult &t, int32_t hit,
+                    const std::vector<jk2::Ghoul2Hit> *hits = nullptr);
+    // A trace stopped at entity `n`'s box, tried against its Ghoul2 models'
+    // triangles as jk2sp.exe's clip does (0x43abc0): false if none is met.
+    bool ghoul2Collide(int32_t n, const Vec3f &start, const Vec3f &end, const Vec3f &mins, const Vec3f &maxs,
+                       jk2::Ghoul2Trace type, int lod, bool replaced, std::vector<jk2::Ghoul2Hit> &hits,
+                       TraceResult &t);
     // Entity `n` as the server's world sees it (its shape, its place).
     bool entityShape(int32_t n, EntityShape &out) const;
     ServerWorld::Placement entityPlacement(int32_t n) const;
@@ -467,7 +476,8 @@ private:
     std::map<std::string, std::unique_ptr<Ghoul2Files>> _g2Files; // by name, lower case; none if unreadable
     uint32_t _g2Array = 0;
     std::map<int32_t, uint32_t> _g2AnimNames; // model handle -> its skeleton's name, in the game's memory
-    std::map<int32_t, uint32_t> _g2Instances; // handle -> vector
+    std::map<std::pair<int32_t, int>, uint32_t> _g2SurfaceNames; // (model, surface): its name, in the game's memory
+    std::map<int32_t, uint32_t> _g2Instances;                    // handle -> vector
     int32_t _g2Next = 1;
     int importPosition(int slot) const;
     std::shared_ptr<const Bsp> _map;

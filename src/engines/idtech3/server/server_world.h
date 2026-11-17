@@ -84,11 +84,17 @@ public:
     // the level and the linked entities whose contents are in `mask`, but
     // `pass` and what it owns or owns it (-1: none). `hit` gets the entity
     // stopped at (kWorld, or kNone). `capsule`: the capsule in the box moves
-    // (collision.h).
+    // (collision.h). `accept`, if given, is asked as an entity becomes what
+    // the move stops at (`replaced`: its box nearer than what was; else it
+    // was only started in) and may change the result; refusing passes the
+    // entity by, the result as it was (Jedi Outcast's Ghoul2 models,
+    // whose triangles must be met, not only their boxes).
     static constexpr int32_t kWorld = 1022;
     static constexpr int32_t kNone = 1023;
+    using Accept = std::function<bool(int32_t entity, TraceResult &result, bool replaced)>;
     TraceResult trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
-                      int32_t mask, int32_t &hit, bool entities = true, bool capsule = false) const;
+                      int32_t mask, int32_t &hit, bool entities = true, bool capsule = false,
+                      const Accept &accept = nullptr) const;
     // The contents at a point: the level's and the entities' it's in, but
     // `pass`'s.
     int32_t pointContents(const Vec3f &point, int32_t pass) const;

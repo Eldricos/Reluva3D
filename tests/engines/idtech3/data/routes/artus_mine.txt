@@ -95,11 +95,111 @@
 @until 52500 1 4
 @nearest gen_room_death -target_counter
 @until 53000 1 4
+@nearest gen_room_death -target_counter
+@until 53500 1 4
+@nearest gen_room_death -target_counter
+@until 54000 1 4
+@nearest gen_room_death -target_counter
+@until 54500 1 4
+@nearest gen_room_death -target_counter
+@until 55000 1 4
+@nearest gen_room_death -target_counter
+@until 55500 1 4
+@nearest gen_room_death -target_counter
+@until 56000 1 4
+@nearest gen_room_death -target_counter
+@until 56500 1 4
+@nearest gen_room_death -target_counter
+@until 57000 1 4
+@nearest gen_room_death -target_counter
+@until 57500 1 4
+@nearest gen_room_death -target_counter
+@until 58000 1 4
+@nearest gen_room_death -target_counter
+@until 58500 1 4
+@nearest gen_room_death -target_counter
+@until 59000 1 4
+@nearest gen_room_death -target_counter
+@until 59500 1 4
+@nearest gen_room_death -target_counter
+@until 60000 1 4
+@nearest gen_room_death -target_counter
+@until 60500 1 4
+@nearest gen_room_death -target_counter
+@until 61000 1 4
+@nearest gen_room_death -target_counter
+@until 61500 1 4
+@nearest gen_room_death -target_counter
+@until 62000 1 4
+@nearest gen_room_death -target_counter
+@until 62500 1 4
+@nearest gen_room_death -target_counter
+@until 63000 1 4
+@nearest gen_room_death -target_counter
+@until 63500 1 4
+@nearest gen_room_death -target_counter
+@until 64000 1 4
+@nearest gen_room_death -target_counter
+@until 64500 1 4
+@nearest gen_room_death -target_counter
+@until 65000 1 4
+@nearest gen_room_death -target_counter
+@until 65500 1 4
+@nearest gen_room_death -target_counter
+@until 66000 1 4
+@nearest gen_room_death -target_counter
+@until 66500 1 4
+@nearest gen_room_death -target_counter
+@until 67000 1 4
+@nearest gen_room_death -target_counter
+@until 67500 1 4
+@nearest gen_room_death -target_counter
+@until 68000 1 4
+@nearest gen_room_death -target_counter
+@until 68500 1 4
+@nearest gen_room_death -target_counter
+@until 69000 1 4
+@nearest gen_room_death -target_counter
+@until 69500 1 4
+@nearest gen_room_death -target_counter
+@until 70000 1 4
+@nearest gen_room_death -target_counter
+@until 70500 1 4
+@nearest gen_room_death -target_counter
+@until 71000 1 4
+@nearest gen_room_death -target_counter
+@until 71500 1 4
+@nearest gen_room_death -target_counter
+@until 72000 1 4
+@nearest gen_room_death -target_counter
+@until 72500 1 4
+@nearest gen_room_death -target_counter
+@until 73000 1 4
+@nearest gen_room_death -target_counter
+@until 73500 1 4
+@nearest gen_room_death -target_counter
+@until 74000 1 4
+@nearest gen_room_death -target_counter
+@until 74500 1 4
+@nearest gen_room_death -target_counter
+@until 75000 1 4
+@nearest gen_room_death -target_counter
+@until 75500 1 4
+@nearest gen_room_death -target_counter
+@until 76000 1 4
+@nearest gen_room_death -target_counter
+@until 76500 1 4
+@nearest gen_room_death -target_counter
+@until 77000 1 4
+@nearest gen_room_death -target_counter
+@until 77500 1 4
+@nearest gen_room_death -target_counter
+@until 78000 1 4
 # the generator's trigger: its cinematic, about 40 s
 /setviewpos 1620 580 330 270
-@until 54000 32 0
-@until 114000 0 0
+@until 79000 32 0
+@until 139000 0 0
 # the tram
 /setviewpos -582 3968 650 0
-@until 115000 32 0
-@until 145000 0 0
+@until 140000 32 0
+@until 170000 0 0

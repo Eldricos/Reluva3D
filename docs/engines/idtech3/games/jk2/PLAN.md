@@ -195,8 +195,12 @@ behind the DLL's own tables.
    trigger's angle and leave corpses and pits alone, and the page runs
    the game's `wait` (its checkpoint saves, `wait 2;save auto*`).
    `artus_detention` plays through by the tour to `artus_topside`, with
-   nothing new needed. Next: the next levels the same way, and a console
-   on the page.
+   nothing new needed. `artus_topside`'s AT-STs brought the Ghoul2
+   collision in traces ([systems/sp-ghoul2.md](systems/sp-ghoul2.md),
+   Collision) and the game's own console commands (`npc`, `use`); its
+   way out needs the AT-STs destroyed with an emplaced gun, which
+   `sp-run` can't man yet. Next: that, the next levels the same way, and
+   a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

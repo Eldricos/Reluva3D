@@ -122,6 +122,9 @@ public:
     // (0 for 1), at `time`. False if there's no such bolt.
     bool boltMatrix(int32_t handle, int32_t modelIndex, int32_t bolt, int32_t time, const Vec3 &angles,
                     const Vec3 &origin, const Vec3 &scale, Bone34 &out);
+    // Where an instance turned by `angles` at `origin` places its models
+    // (their own space, scaled, to the world's).
+    static Bone34 worldMatrix(const Vec3 &angles, const Vec3 &origin);
 
     using Drawn = Ghoul2Pose;
     // The instance's models to draw at `time`.

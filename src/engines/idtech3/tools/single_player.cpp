@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -68,8 +69,9 @@ bool entityHasText(ef::SpGameHost &game, int32_t n, const std::string &text) {
     return false;
 }
 
-// For "@face name" and "@nearest name -other...": a setviewpos putting
-// the player 96 units to one side of the living entity with that name
+// For "@face name" and "@nearest name -other... [+distance]": a setviewpos
+// putting the player 96 units (or the distance given: an AT-ST's box is
+// wider than that) to one side of the living entity with that name
 // (the nearest, for @nearest, but those with the other names), facing it;
 // the first side not over a trigger_hurt, a pit, which kills through god
 // mode. One over a pit (falling into it) isn't followed, nor, in Jedi
@@ -85,9 +87,12 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
     std::string want;
     in >> want;
     std::vector<std::string> skip;
+    float away = 96;
     for (std::string w; in >> w;)
         if (w.size() > 1 && w[0] == '-')
             skip.push_back(w.substr(1));
+        else if (w.size() > 1 && w[0] == '+')
+            away = float(std::atof(w.c_str() + 1));
     const ef::SpEntityLayout &layout = game.entityLayout();
     const q3::Vec3f me = game.entityVec(0, layout.currentOrigin);
     std::vector<std::pair<q3::Vec3f, q3::Vec3f>> hurts;
@@ -123,7 +128,7 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
     if (picked)
         *picked = found;
     const q3::Vec3f at = game.entityVec(found, layout.currentOrigin);
-    const float sides[4][3] = {{-96, 0, 0}, {96, 0, 180}, {0, -96, 90}, {0, 96, 270}};
+    const float sides[4][3] = {{-away, 0, 0}, {away, 0, 180}, {0, -away, 90}, {0, away, 270}};
     const float *side = sides[0];
     for (const float *s : sides) {
         if (!overPit(at[0] + s[0], at[1] + s[1], at[2])) {
@@ -372,8 +377,8 @@ int cmdSpRun(int argc, char **argv) {
             "       [-replay <name>.input | -tour <ms> [-rounds n] [-spare name]...]\n"
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
-            "\"/command\" typed at the console; \"@until ms [buttons] [weapon]\" the same command every 50 ms until\n"
-            "then; \"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
+            "\"/command\" typed at the console; \"@until ms [buttons] [weapon] [pitch]\" the same command every 50 ms until\n"
+            "then, looking pitch degrees down (up negative); \"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
             "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n"
             "-next: then the level the game changed to, started as the Play page starts it.\n");
         return 2;
@@ -702,10 +707,13 @@ int cmdSpRun(int argc, char **argv) {
                 int until = 0;
                 int buttons = 0;
                 int weapon = 0;
-                std::sscanf(line.c_str() + 7, "%d %d %d", &until, &buttons, &weapon);
+                float pitch = 0;
+                std::sscanf(line.c_str() + 7, "%d %d %d %f", &until, &buttons, &weapon, &pitch);
+                // The pitch in the command's units (65536 a turn), up negative.
+                const int pitchUnits = int(std::lround(pitch * 65536 / 360)) & 0xffff;
                 for (int32_t t = std::max(lastTime + 50, game.levelTime()); t < until; t += 50)
                     generated.push_back(std::to_string(t) + " " + std::to_string(buttons) + " " +
-                                        std::to_string(weapon) + " 0 0 0 0 0 0");
+                                        std::to_string(weapon) + " " + std::to_string(pitchUnits) + " 0 0 0 0 0");
                 continue;
             }
             // "@face name": the player put beside the living entity with

@@ -103,6 +103,60 @@ removing bolts and models, attaching a model to another's bolt (the
 model's place times 1024 plus the bolt) or an entity (the entity times
 2^20 added), and a matrix's origin or axis.
 
+### Collision
+
+The game's `trace` (import 29) takes two more arguments than Quake III's:
+a Ghoul2 trace type (0 none, 1 every triangle met, 2 the first) and a
+level of detail. Its result is 1,080 bytes: Quake III's 56, then 16
+collision records of 64 bytes, each set to distance 100000 and entity -1
+before the trace (0x43af90):
+
+| Offset | Field |
+|---|---|
+| 0 | distance from the trace's start |
+| 4 | entity (-1: free) |
+| 8 | model, in the instance |
+| 12 | triangle, in its surface |
+| 16 | surface |
+| 20 | where it was met |
+| 32 | the triangle's normal, one long |
+| 44 | 1 for the front face, 0 for the back |
+| 48, 52 | material and hit location |
+| 56, 60 | the point's barycentric coordinates |
+
+The clip against entities (0x43abc0) runs each entity's box as Quake
+III's does. When an entity's box becomes what the trace stops at, a type
+other than 0 was asked for, the entity has Ghoul2 models, and its
+contents aren't a saber's blade (0x40000), `G2API_CollisionDetect`
+(0x4532a0) tries its models' triangles:
+
+- **Where they stand:** a client's models on its player's origin, turned
+  only by its yaw; anything else's on its own origin and angles; scaled
+  by its model scale (0xe8). The ray is brought into the models' own
+  space (0x458c90, 0x458b40) rather than the triangles out of it.
+- **The ray's width:** half the traced box's size across (0x43ae47).
+- **If no record is added,** the trace before this entity is put back:
+  the trace passes through the box's empty space. If one is, the trace
+  keeps the box's stop and takes the triangle's normal from this
+  entity's record. The records end sorted nearest first (0x4b4da1).
+
+From the GPL source, not traced in 1.02a *(published)*: each valid model
+not flagged "no collide" (1) is tried at the larger of the level of
+detail asked for and its own bias, its surfaces from the root down,
+each surface tried only while on, its children whether it's on or not.
+Without a width, a triangle counts when the segment crosses it, either
+face (the front when the ray runs along its normal). With one, the test
+is looser: a triangle counts unless its corners all lie beyond the same
+side of a box around the ray, across it, before its start or past its
+end; its first corner stands for where it was met. A type 2 trace stops
+at the first triangle; any stops when the 16 records are full. The
+material and hit location are left 0 (the source's texture lookup is
+commented out).
+
+`G2API_GetSurfaceName` (slot 86, 0x453780) gives the game a surface's
+name from its number, which it turns into the part of the body hit;
+"" if there's no such surface.
+
 ## In Reluva
 
 `SpGameHost` (in Jedi Outcast's mode) makes the array object and its
@@ -131,10 +185,15 @@ every entity, one with no Ghoul2 models too (the opening's cockpit, an
 MD3): then the entity's own model is drawn, as the original's renderer
 draws one whose instance has no models.
 
-Not yet answered (they stop the game, by name): collision, the matrix
-overrides, adding and removing surfaces and bones, copying an instance,
-the new origin, and surface names and parents. Saving and loading
-instances (entries 95 to 98) are as [sp-saves.md](sp-saves.md) says.
+Collision is done as above (`jk2/ghoul2_collision`): the game's traces
+reach a Ghoul2 body only where they meet its triangles, posed as they're
+drawn, and the game reads which part was hit from the records. A model's
+"no collide" flag and a surface's "no descendants" aren't heeded yet.
+Not yet answered (they stop the game, by name): `G2API_CollisionDetect`
+called by the game itself, the matrix overrides, adding and removing
+surfaces and bones, copying an instance, the new origin, and surface
+parents. Saving and loading instances (entries 95 to 98) are as
+[sp-saves.md](sp-saves.md) says.
 
 ## Sources and checks
 
