@@ -69,6 +69,20 @@ own program run.
   confirmed against FreeType's interpreter and the original's screen;
   the smoothing's 1/2.2 seen, not traced.
 
+## Left to do
+
+- **The same pixels on every platform.** The interpreter keeps its
+  vectors in doubles, made with `std::hypot`, and the smoothing's table
+  is made with `std::pow`. Fused multiply-adds are off everywhere
+  (`CMakeLists.txt`), but maths libraries needn't agree to the last bit,
+  so where a distance falls exactly on a rounding's edge a stroke could
+  land a pixel apart from one platform to another (rarely). Checked on
+  Linux only. To make it exact: the vectors in 2.14 fixed point and the
+  arithmetic in whole numbers, as the specification has them (and
+  Windows' rasterizer works), and the table written out as its 256
+  values; then the FreeType comparison and the options screen measured
+  again.
+
 ## Used by
 
 - **`awe`**: both games' text: the dialogue, the interface, the menus
