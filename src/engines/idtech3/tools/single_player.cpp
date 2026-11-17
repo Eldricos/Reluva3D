@@ -77,10 +77,38 @@ bool entityHasText(ef::SpGameHost &game, int32_t n, const std::string &text) {
 // mode. One over a pit (falling into it) isn't followed, nor, in Jedi
 // Outcast, a dead one (its corpse stays in use). Empty if there's no such
 // entity.
+// The player's eye over its origin, near enough to aim by.
+constexpr double kEyeHeight = 26;
+
+// The nearest entity with the name (any of its text fields) that's
+// living, if the game says (Jedi Outcast's health); -1 if none.
+int32_t nearestNamed(ef::SpGameHost &game, const std::string &name);
+
 // Jedi Outcast's entity's health: the game's own field, past what the
 // engine shares (a stormtrooper's 30, 0 once dead; the most it can have
 // follows it).
 constexpr int32_t kJediHealth = 0x218;
+
+int32_t nearestNamed(ef::SpGameHost &game, const std::string &name) {
+    const std::string want = reluva::fs::toLower(name);
+    const ef::SpEntityLayout &layout = game.entityLayout();
+    const q3::Vec3f me = game.entityVec(0, layout.currentOrigin);
+    int32_t found = -1;
+    float best = 0;
+    for (int32_t n = 1; n < game.entityCount(); ++n) {
+        if (!game.entityInt(n, layout.inUse) || !entityHasText(game, n, want) ||
+            (game.jedi() && game.entityInt(n, kJediHealth) <= 0))
+            continue;
+        const q3::Vec3f at = game.entityVec(n, layout.currentOrigin);
+        const float d =
+            (at[0] - me[0]) * (at[0] - me[0]) + (at[1] - me[1]) * (at[1] - me[1]) + (at[2] - me[2]) * (at[2] - me[2]);
+        if (found < 0 || d < best) {
+            found = n;
+            best = d;
+        }
+    }
+    return found;
+}
 
 std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest, int32_t *picked = nullptr) {
     std::istringstream in(reluva::fs::toLower(words));
@@ -378,7 +406,8 @@ int cmdSpRun(int argc, char **argv) {
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon] [pitch]\" the same command every 50 ms until\n"
-            "then, looking pitch degrees down (up negative); \"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
+            "then, looking pitch degrees down (up negative); \"@aim name\" the view turned to that entity for the @until lines after (\"@aim none\" level again);\n"
+            "\"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
             "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n"
             "-next: then the level the game changed to, started as the Play page starts it.\n");
         return 2;
@@ -691,6 +720,11 @@ int cmdSpRun(int argc, char **argv) {
         std::vector<std::string> generated;
         size_t nextGenerated = 0;
         int32_t lastTime = 0;
+        // "@aim name": the command's angles (65536 a turn) that turn the
+        // view to it, kept for the "@until" lines after; 0 again once the
+        // view is set some other way.
+        int aimPitch = 0;
+        int aimYaw = 0;
         auto nextLine = [&](std::string &out) {
             if (nextGenerated < generated.size()) {
                 out = generated[nextGenerated++];
@@ -710,19 +744,59 @@ int cmdSpRun(int argc, char **argv) {
                 float pitch = 0;
                 std::sscanf(line.c_str() + 7, "%d %d %d %f", &until, &buttons, &weapon, &pitch);
                 // The pitch in the command's units (65536 a turn), up negative.
-                const int pitchUnits = int(std::lround(pitch * 65536 / 360)) & 0xffff;
+                const int pitchUnits = (aimPitch + int(std::lround(pitch * 65536 / 360))) & 0xffff;
                 for (int32_t t = std::max(lastTime + 50, game.levelTime()); t < until; t += 50)
                     generated.push_back(std::to_string(t) + " " + std::to_string(buttons) + " " +
-                                        std::to_string(weapon) + " " + std::to_string(pitchUnits) + " 0 0 0 0 0");
+                                        std::to_string(weapon) + " " + std::to_string(pitchUnits) + " " +
+                                        std::to_string(aimYaw & 0xffff) + " 0 0 0 0");
                 continue;
             }
             // "@face name": the player put beside the living entity with
             // that name (any of its text fields), facing it. "@nearest name
             // -other...": the nearest such, but those with the other names.
+            if (line == "@aim none") {
+                // Level again: needed before a setviewpos, which turns the
+                // view from the command's angles as they are.
+                aimPitch = aimYaw = 0;
+                continue;
+            }
+            if (line.rfind("@aim ", 0) == 0) {
+                // From the player's eye (Jedi Outcast's player state: the
+                // origin at 0x14, delta_angles at 0x48) to the middle of
+                // the nearest living entity with that name.
+                const ef::SpEntityLayout &layout = game.entityLayout();
+                const uint32_t ps = uint32_t(game.entityInt(0, layout.client));
+                const int32_t target = nearestNamed(game, line.substr(5));
+                if (ps && target >= 0) {
+                    q3::Vec3f eye{};
+                    for (uint32_t i = 0; i < 3; ++i) {
+                        const uint32_t bits = game.cpu().read32(ps + 0x14 + 4 * i);
+                        std::memcpy(&eye[i], &bits, 4);
+                    }
+                    const q3::Vec3f lo = game.entityVec(target, layout.absMin);
+                    const q3::Vec3f hi = game.entityVec(target, layout.absMax);
+                    const double dx = (lo[0] + hi[0]) / 2 - eye[0];
+                    const double dy = (lo[1] + hi[1]) / 2 - eye[1];
+                    const double dz = (lo[2] + hi[2]) / 2 - (eye[2] + kEyeHeight);
+                    const double yaw = std::atan2(dy, dx) * 180 / 3.14159265358979;
+                    const double pitch = -std::atan2(dz, std::sqrt(dx * dx + dy * dy)) * 180 / 3.14159265358979;
+                    aimPitch = int(std::lround(pitch * 65536 / 360)) - int32_t(game.cpu().read32(ps + 0x48));
+                    aimYaw = int(std::lround(yaw * 65536 / 360)) - int32_t(game.cpu().read32(ps + 0x4c));
+                }
+                if (watch)
+                    std::printf(
+                        "[%5d ms] %s: entity %d, health %d, at %.0f %.0f %.0f\n", game.levelTime(), line.c_str(),
+                        target, target >= 0 && jedi ? game.entityInt(target, kJediHealth) : 0,
+                        target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[0]) : 0.0,
+                        target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[1]) : 0.0,
+                        target >= 0 ? double(game.entityVec(target, game.entityLayout().currentOrigin)[2]) : 0.0);
+                continue;
+            }
             const bool nearest = line.rfind("@nearest ", 0) == 0;
             if (line.rfind("@face ", 0) == 0 || nearest) {
                 int32_t picked = -1;
                 const std::string command = facingCommand(game, line.substr(nearest ? 9 : 6), nearest, &picked);
+                aimPitch = aimYaw = 0;
                 if (watch)
                     std::printf("[%5d ms] %s: %s (entity %d, health %d)\n", game.levelTime(), line.c_str(),
                                 command.empty() ? "none" : command.c_str(), picked,
@@ -735,6 +809,8 @@ int cmdSpRun(int argc, char **argv) {
             // "/text": typed at the console then (cheats to test a level
             // with: god, give all, setviewpos...).
             if (line[0] == '/') {
+                if (line.rfind("/setviewpos", 0) == 0)
+                    aimPitch = aimYaw = 0;
                 if (watch)
                     std::printf("[%5d ms] %s\n", game.levelTime(), line.c_str());
                 if (reluva::Error e = game.clientConsoleCommand(line.substr(1)))

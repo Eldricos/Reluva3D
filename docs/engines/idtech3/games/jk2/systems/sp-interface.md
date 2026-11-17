@@ -243,4 +243,11 @@ yet: a console on the page.
   AT-ST and the game knows which part they hit. The
   AT-STs take damage only from heavy weapons (`SET_DMG_BY_HEAVY_WEAP_ONLY`
   in their scripts), which by the GPL source *(published)* are only the
-  emplaced guns' and AT-STs' own shots, not rockets.
+  emplaced guns' and AT-STs' own shots, not rockets. The ion cannons
+  are the same, and shielded and invincible until the shield trigger
+  (use, facing south) runs `shields_down`. On an emplaced gun the
+  player's view aims it (`sp-run`'s `@aim name` turns the commands'
+  angles to an entity, from the player state's `delta_angles` at 0x48);
+  a held use takes the player off and on again at once (1.02a's
+  `RunEmplacedWeapon`, 0x2007dc00 in `jk2gamex86.dll`, which also takes
+  a step back or a jump), so one press leaves.

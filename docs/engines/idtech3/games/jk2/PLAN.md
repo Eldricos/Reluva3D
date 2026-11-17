@@ -198,9 +198,11 @@ behind the DLL's own tables.
    nothing new needed. `artus_topside`'s AT-STs brought the Ghoul2
    collision in traces ([systems/sp-ghoul2.md](systems/sp-ghoul2.md),
    Collision) and the game's own console commands (`npc`, `use`); its
-   way out needs the AT-STs destroyed with an emplaced gun, which
-   `sp-run` can't man yet. Next: that, the next levels the same way, and
-   a console on the page.
+   way out needs the shields lowered, both ion cannons and three AT-STs
+   destroyed with the emplaced guns (`sp-run`'s `@aim` mans and aims
+   them). A written route does all but the last AT-ST, which stands in
+   the bay beyond gun C's shots. Next: that, the next levels the same
+   way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
