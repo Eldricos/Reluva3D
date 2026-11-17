@@ -3,12 +3,14 @@
 
 // The TrueType instructions, as the specification describes them: the
 // graphics state, the zones, the stack machine and its instructions.
-// Distances are 26.6 fixed point; vectors are unit vectors in doubles.
+// Distances are 26.6 fixed point and vectors unit vectors in 2.14, as the
+// specification has them, and all the arithmetic is in whole numbers: the
+// same points on every platform.
 
 #include "graphics/truetype_hinting.h"
 
 #include <algorithm>
-#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <string>
@@ -31,16 +33,51 @@ uint32_t u32(const uint8_t *p) {
     return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
 }
 
+constexpr int32_t kOne14 = 0x4000; // 1 in 2.14
+
+// a / b, rounded half away from zero.
+int64_t divRound(int64_t a, int64_t b) {
+    if (b < 0)
+        a = -a, b = -b;
+    return a >= 0 ? (a + b / 2) / b : -((-a + b / 2) / b);
+}
+
+// v * f, f in 2.14, rounded half away from zero.
+int32_t mul14(int64_t v, int32_t f) {
+    return int32_t(divRound(v * f, kOne14));
+}
+
+// The whole part of the square root.
+uint64_t isqrt(uint64_t n) {
+    uint64_t r = 0;
+    for (uint64_t bit = uint64_t(1) << 62; bit; bit >>= 2) {
+        if (n >= r + bit) {
+            n -= r + bit;
+            r = (r >> 1) + bit;
+        } else {
+            r >>= 1;
+        }
+    }
+    return r;
+}
+
+// A unit vector, x and y in 2.14.
 struct Vec {
-    double x = 1;
-    double y = 0;
+    int32_t x = kOne14;
+    int32_t y = 0;
 };
 
-Vec unit(double x, double y) {
-    const double l = std::hypot(x, y);
-    if (l == 0)
-        return {1, 0};
-    return {x / l, y / l};
+Vec unit(int64_t x, int64_t y) {
+    if (x == 0 && y == 0)
+        return {};
+    // Scaled up until the larger is at least 2^29, for the length's
+    // precision; the squares' sum stays under 2^63.
+    while (std::llabs(x) < (int64_t(1) << 29) && std::llabs(y) < (int64_t(1) << 29))
+        x *= 2, y *= 2;
+    while (std::llabs(x) >= (int64_t(1) << 30) || std::llabs(y) >= (int64_t(1) << 30))
+        x /= 2, y /= 2;
+    const int64_t l = int64_t(isqrt(uint64_t(x * x + y * y)));
+    return {int32_t(divRound(x * kOne14, l)), int32_t(divRound(y * kOne14, l))};
 }
 
 // A zone's points: where each is now and where it was before hinting.
@@ -122,7 +159,9 @@ struct Hinter::Tables {
 
 struct Hinter::Size {
     int ppem = 0;
-    double scale = 0; // 26.6 units per font unit
+    int unitsPerEm = 0;
+    /** Font units in 26.6 at this size. */
+    int32_t scaled(int64_t v) const { return int32_t(divRound(v * ppem * 64, unitsPerEm)); }
     std::vector<int32_t> cvt;
     std::vector<int32_t> storage;
     GraphicsState gs; // the glyphs' default, as prep left it
@@ -174,25 +213,27 @@ private:
     Zone *zone(int z) const { return z == 0 || z == 1 ? _zones[z] : nullptr; }
     static bool valid(const Zone *z, int32_t p) { return z && p >= 0 && size_t(p) < z->size(); }
 
-    int32_t project(double dx, double dy) const { return int32_t(std::llround(dx * gs.pv.x + dy * gs.pv.y)); }
-    int32_t dualProject(double dx, double dy) const { return int32_t(std::llround(dx * gs.dv.x + dy * gs.dv.y)); }
+    int32_t project(int64_t dx, int64_t dy) const { return int32_t(divRound(dx * gs.pv.x + dy * gs.pv.y, kOne14)); }
+    int32_t dualProject(int64_t dx, int64_t dy) const { return int32_t(divRound(dx * gs.dv.x + dy * gs.dv.y, kOne14)); }
     int32_t projectCur(const Zone &z, int p) const { return project(z.x[size_t(p)], z.y[size_t(p)]); }
     int32_t projectOrg(const Zone &z, int p) const { return dualProject(z.ox[size_t(p)], z.oy[size_t(p)]); }
 
     // Moves the point by `d` measured along the projection vector, the
     // move made along the freedom vector; marks it touched there.
     void move(Zone &z, int p, int32_t d, bool touch = true) const {
-        double dot = gs.fv.x * gs.pv.x + gs.fv.y * gs.pv.y;
-        if (std::abs(dot) < 1.0 / 16384)
-            dot = 1;
+        // In 2.28. Near 0 (the vectors at right angles) it's taken as 1,
+        // not divided by.
+        int64_t dot = int64_t(gs.fv.x) * gs.pv.x + int64_t(gs.fv.y) * gs.pv.y;
+        if (std::llabs(dot) < kOne14)
+            dot = int64_t(kOne14) * kOne14;
         const size_t i = size_t(p);
         if (gs.fv.x != 0) {
-            z.x[i] += int32_t(std::llround(double(d) * gs.fv.x / dot));
+            z.x[i] += int32_t(divRound(int64_t(d) * gs.fv.x * kOne14, dot));
             if (touch)
                 z.touchX[i] = true;
         }
         if (gs.fv.y != 0) {
-            z.y[i] += int32_t(std::llround(double(d) * gs.fv.y / dot));
+            z.y[i] += int32_t(divRound(int64_t(d) * gs.fv.y * kOne14, dot));
             if (touch)
                 z.touchY[i] = true;
         }
@@ -236,22 +277,10 @@ private:
     }
 
     void setSuperRound(int32_t n, bool diagonal) {
-        const double unitPeriod = diagonal ? 45.254834 : 64.0; // sqrt(2)/2 of a pixel
-        double period = unitPeriod;
-        switch ((n >> 6) & 3) {
-        case 0:
-            period = unitPeriod / 2;
-            break;
-        case 1:
-            period = unitPeriod;
-            break;
-        case 2:
-            period = unitPeriod * 2;
-            break;
-        default:
-            break;
-        }
-        gs.period = int32_t(std::lround(period));
+        // Half a pixel, one, two (3 is reserved: one); S45ROUND's are
+        // those times sqrt(2)/2, rounded to 64ths.
+        static constexpr int32_t kPeriods[2][4] = {{32, 64, 128, 64}, {23, 45, 91, 45}};
+        gs.period = kPeriods[diagonal ? 1 : 0][(n >> 6) & 3];
         switch ((n >> 4) & 3) {
         case 0:
             gs.phase = 0;
@@ -325,17 +354,17 @@ private:
         const Zone *b = zone(gs.zp1);
         if (!valid(a, p1) || !valid(b, p2))
             return false;
-        double dx = 0;
-        double dy = 0;
+        int64_t dx = 0;
+        int64_t dy = 0;
         if (original) {
-            dx = double(a->ox[size_t(p1)]) - b->ox[size_t(p2)];
-            dy = double(a->oy[size_t(p1)]) - b->oy[size_t(p2)];
+            dx = int64_t(a->ox[size_t(p1)]) - b->ox[size_t(p2)];
+            dy = int64_t(a->oy[size_t(p1)]) - b->oy[size_t(p2)];
         } else {
-            dx = double(a->x[size_t(p1)]) - b->x[size_t(p2)];
-            dy = double(a->y[size_t(p1)]) - b->y[size_t(p2)];
+            dx = int64_t(a->x[size_t(p1)]) - b->x[size_t(p2)];
+            dy = int64_t(a->y[size_t(p1)]) - b->y[size_t(p2)];
         }
         if (perpendicular) {
-            const double t = dx;
+            const int64_t t = dx;
             dx = -dy;
             dy = t;
         }
@@ -399,7 +428,7 @@ private:
         else if (o1 == o2)
             cur[p] = c1;
         else
-            cur[p] = c1 + int32_t(std::llround(double(o - o1) * double(c2 - c1) / double(o2 - o1)));
+            cur[p] = c1 + int32_t(divRound(int64_t(o - o1) * (c2 - c1), o2 - o1));
     }
 
     bool delta(int which) {
@@ -460,15 +489,15 @@ private:
             switch (op) {
             case 0x00: // SVTCA[a]
             case 0x01:
-                gs.pv = gs.fv = gs.dv = op == 1 ? Vec{1, 0} : Vec{0, 1};
+                gs.pv = gs.fv = gs.dv = op == 1 ? Vec{kOne14, 0} : Vec{0, kOne14};
                 break;
             case 0x02: // SPVTCA
             case 0x03:
-                gs.pv = gs.dv = op == 3 ? Vec{1, 0} : Vec{0, 1};
+                gs.pv = gs.dv = op == 3 ? Vec{kOne14, 0} : Vec{0, kOne14};
                 break;
             case 0x04: // SFVTCA
             case 0x05:
-                gs.fv = op == 5 ? Vec{1, 0} : Vec{0, 1};
+                gs.fv = op == 5 ? Vec{kOne14, 0} : Vec{0, kOne14};
                 break;
             case 0x06: // SPVTL
             case 0x07:
@@ -493,7 +522,7 @@ private:
             case 0x0c:   // GPV
             case 0x0d: { // GFV
                 const Vec &v = op == 0x0c ? gs.pv : gs.fv;
-                if (!push(int32_t(std::lround(v.x * 16384))) || !push(int32_t(std::lround(v.y * 16384))))
+                if (!push(v.x) || !push(v.y))
                     return false;
                 break;
             }
@@ -513,31 +542,34 @@ private:
                 const Zone *zb = zone(gs.zp0);
                 if (!valid(zp, p) || !valid(za, a0) || !valid(za, a1) || !valid(zb, b0) || !valid(zb, b1))
                     return false;
-                const double ax0 = za->x[size_t(a0)];
-                const double ay0 = za->y[size_t(a0)];
-                const double ax1 = za->x[size_t(a1)];
-                const double ay1 = za->y[size_t(a1)];
-                const double bx0 = zb->x[size_t(b0)];
-                const double by0 = zb->y[size_t(b0)];
-                const double bx1 = zb->x[size_t(b1)];
-                const double by1 = zb->y[size_t(b1)];
-                const double dax = ax1 - ax0;
-                const double day = ay1 - ay0;
-                const double dbx = bx1 - bx0;
-                const double dby = by1 - by0;
-                const double den = dax * dby - day * dbx;
-                double x = 0;
-                double y = 0;
-                if (std::abs(den) < 1e-9) {
-                    x = (ax0 + ax1 + bx0 + bx1) / 4;
-                    y = (ay0 + ay1 + by0 + by1) / 4;
+                const int64_t ax0 = za->x[size_t(a0)];
+                const int64_t ay0 = za->y[size_t(a0)];
+                const int64_t ax1 = za->x[size_t(a1)];
+                const int64_t ay1 = za->y[size_t(a1)];
+                const int64_t bx0 = zb->x[size_t(b0)];
+                const int64_t by0 = zb->y[size_t(b0)];
+                const int64_t bx1 = zb->x[size_t(b1)];
+                const int64_t by1 = zb->y[size_t(b1)];
+                const int64_t dax = ax1 - ax0;
+                const int64_t day = ay1 - ay0;
+                const int64_t dbx = bx1 - bx0;
+                const int64_t dby = by1 - by0;
+                const int64_t den = dax * dby - day * dbx;
+                int64_t x = 0;
+                int64_t y = 0;
+                if (den == 0) {
+                    // Parallel: the middle of the four.
+                    x = divRound(ax0 + ax1 + bx0 + bx1, 4);
+                    y = divRound(ay0 + ay1 + by0 + by1, 4);
                 } else {
-                    const double t = ((bx0 - ax0) * dby - (by0 - ay0) * dbx) / den;
-                    x = ax0 + t * dax;
-                    y = ay0 + t * day;
+                    // A's start plus t of A, t = num / den; 26.6 points
+                    // keep the products well inside 64 bits.
+                    const int64_t num = (bx0 - ax0) * dby - (by0 - ay0) * dbx;
+                    x = ax0 + divRound(num * dax, den);
+                    y = ay0 + divRound(num * day, den);
                 }
-                zp->x[size_t(p)] = int32_t(std::llround(x));
-                zp->y[size_t(p)] = int32_t(std::llround(y));
+                zp->x[size_t(p)] = int32_t(x);
+                zp->y[size_t(p)] = int32_t(y);
                 zp->touchX[size_t(p)] = zp->touchY[size_t(p)] = true;
                 break;
             }
@@ -598,7 +630,7 @@ private:
             case 0x1f: // SSW, in font units
                 if (!pop(a))
                     return false;
-                gs.singleWidth = int32_t(std::llround(a * _size.scale));
+                gs.singleWidth = _size.scaled(a);
                 break;
             case 0x20: // DUP
                 if (!pop(a) || !push(a) || !push(a))
@@ -713,8 +745,8 @@ private:
                 const int32_t rp = rp1 ? gs.rp1 : gs.rp2;
                 if (!valid(rz, rp))
                     return false;
-                const int32_t d = project(double(rz->x[size_t(rp)]) - rz->ox[size_t(rp)],
-                                          double(rz->y[size_t(rp)]) - rz->oy[size_t(rp)]);
+                const int32_t d = project(int64_t(rz->x[size_t(rp)]) - rz->ox[size_t(rp)],
+                                          int64_t(rz->y[size_t(rp)]) - rz->oy[size_t(rp)]);
                 if (op <= 0x33) {
                     Zone *z = zone(gs.zp2);
                     for (; gs.loop > 0; gs.loop--) {
@@ -755,9 +787,9 @@ private:
                         return false;
                     const size_t i = size_t(a);
                     if (gs.fv.x != 0)
-                        z->x[i] += int32_t(std::llround(c * gs.fv.x)), z->touchX[i] = true;
+                        z->x[i] += mul14(c, gs.fv.x), z->touchX[i] = true;
                     if (gs.fv.y != 0)
-                        z->y[i] += int32_t(std::llround(c * gs.fv.y)), z->touchY[i] = true;
+                        z->y[i] += mul14(c, gs.fv.y), z->touchY[i] = true;
                 }
                 gs.loop = 1;
                 break;
@@ -770,17 +802,18 @@ private:
                     return false;
                 const size_t r1 = size_t(gs.rp1);
                 const size_t r2 = size_t(gs.rp2);
-                const int32_t orgRange = dualProject(double(z2->ox[r2]) - z1->ox[r1], double(z2->oy[r2]) - z1->oy[r1]);
-                const int32_t curRange = project(double(z2->x[r2]) - z1->x[r1], double(z2->y[r2]) - z1->y[r1]);
+                const int32_t orgRange =
+                    dualProject(int64_t(z2->ox[r2]) - z1->ox[r1], int64_t(z2->oy[r2]) - z1->oy[r1]);
+                const int32_t curRange = project(int64_t(z2->x[r2]) - z1->x[r1], int64_t(z2->y[r2]) - z1->y[r1]);
                 for (; gs.loop > 0; gs.loop--) {
                     if (!pop(a) || !valid(z, a))
                         return false;
                     const size_t i = size_t(a);
-                    const int32_t orgDist = dualProject(double(z->ox[i]) - z1->ox[r1], double(z->oy[i]) - z1->oy[r1]);
-                    const int32_t curDist = project(double(z->x[i]) - z1->x[r1], double(z->y[i]) - z1->y[r1]);
+                    const int32_t orgDist = dualProject(int64_t(z->ox[i]) - z1->ox[r1], int64_t(z->oy[i]) - z1->oy[r1]);
+                    const int32_t curDist = project(int64_t(z->x[i]) - z1->x[r1], int64_t(z->y[i]) - z1->y[r1]);
                     int32_t want = orgDist;
                     if (orgRange != 0)
-                        want = int32_t(std::llround(double(orgDist) * double(curRange) / double(orgRange)));
+                        want = int32_t(divRound(int64_t(orgDist) * curRange, orgRange));
                     move(*z, a, want - curDist);
                 }
                 gs.loop = 1;
@@ -802,7 +835,7 @@ private:
                     z->x[i] = z->ox[i];
                     z->y[i] = z->oy[i];
                 }
-                const int32_t now = project(double(z->x[i]) - r->x[r0], double(z->y[i]) - r->y[r0]);
+                const int32_t now = project(int64_t(z->x[i]) - r->x[r0], int64_t(z->y[i]) - r->y[r0]);
                 move(*z, a, c - now);
                 gs.rp1 = gs.rp0;
                 gs.rp2 = a;
@@ -820,7 +853,7 @@ private:
                     if (!pop(a) || !valid(z, a))
                         return false;
                     const size_t i = size_t(a);
-                    move(*z, a, -project(double(z->x[i]) - r->x[r0], double(z->y[i]) - r->y[r0]));
+                    move(*z, a, -project(int64_t(z->x[i]) - r->x[r0], int64_t(z->y[i]) - r->y[r0]));
                 }
                 gs.loop = 1;
                 break;
@@ -838,8 +871,8 @@ private:
                 const size_t i = size_t(a);
                 int32_t d = _cvt[size_t(b)];
                 if (gs.zp0 == 0) {
-                    z->ox[i] = z->x[i] = int32_t(std::llround(d * gs.pv.x));
-                    z->oy[i] = z->y[i] = int32_t(std::llround(d * gs.pv.y));
+                    z->ox[i] = z->x[i] = mul14(d, gs.pv.x);
+                    z->oy[i] = z->y[i] = mul14(d, gs.pv.y);
                 }
                 const int32_t now = projectCur(*z, a);
                 if (op == 0x3f) {
@@ -880,7 +913,7 @@ private:
             case 0x70: // WCVTF, in font units
                 if (!pop(b) || !pop(a) || a < 0 || size_t(a) >= _cvt.size())
                     return false;
-                _cvt[size_t(a)] = op == 0x44 ? b : int32_t(std::llround(b * _size.scale));
+                _cvt[size_t(a)] = op == 0x44 ? b : _size.scaled(b);
                 break;
             case 0x45: // RCVT
                 if (!pop(a) || a < 0 || size_t(a) >= _cvt.size() || !push(_cvt[size_t(a)]))
@@ -919,8 +952,8 @@ private:
                 const size_t i = size_t(a);
                 const size_t j = size_t(b);
                 const int32_t d = op == 0x49
-                                      ? project(double(za->x[i]) - zb->x[j], double(za->y[i]) - zb->y[j])
-                                      : dualProject(double(za->ox[i]) - zb->ox[j], double(za->oy[i]) - zb->oy[j]);
+                                      ? project(int64_t(za->x[i]) - zb->x[j], int64_t(za->y[i]) - zb->y[j])
+                                      : dualProject(int64_t(za->ox[i]) - zb->ox[j], int64_t(za->oy[i]) - zb->oy[j]);
                 if (!push(d))
                     return false;
                 break;
@@ -1197,14 +1230,14 @@ private:
             if (std::abs(std::abs(cvtDistance) - gs.singleWidth) < gs.singleWidthCutIn)
                 cvtDistance = cvtDistance >= 0 ? gs.singleWidth : -gs.singleWidth;
             if (gs.zp1 == 0) {
-                z->ox[i] = r->ox[r0] + int32_t(std::llround(cvtDistance * gs.fv.x));
-                z->oy[i] = r->oy[r0] + int32_t(std::llround(cvtDistance * gs.fv.y));
+                z->ox[i] = r->ox[r0] + mul14(cvtDistance, gs.fv.x);
+                z->oy[i] = r->oy[r0] + mul14(cvtDistance, gs.fv.y);
                 z->x[i] = z->ox[i];
                 z->y[i] = z->oy[i];
             }
         }
-        const int32_t orgDistance = dualProject(double(z->ox[i]) - r->ox[r0], double(z->oy[i]) - r->oy[r0]);
-        const int32_t curDistance = project(double(z->x[i]) - r->x[r0], double(z->y[i]) - r->y[r0]);
+        const int32_t orgDistance = dualProject(int64_t(z->ox[i]) - r->ox[r0], int64_t(z->oy[i]) - r->oy[r0]);
+        const int32_t curDistance = project(int64_t(z->x[i]) - r->x[r0], int64_t(z->y[i]) - r->y[r0]);
         int32_t d = 0;
         if (indirect) {
             if (gs.autoFlip && (orgDistance ^ cvtDistance) < 0)
@@ -1331,10 +1364,10 @@ Hinter::Size &Hinter::size(int ppem) {
     Size &s = *slot;
     const Tables &t = *_tables;
     s.ppem = ppem;
-    s.scale = double(ppem) * 64.0 / double(_unitsPerEm);
+    s.unitsPerEm = _unitsPerEm;
     s.cvt.resize(t.cvt.size());
     for (size_t i = 0; i < t.cvt.size(); i++)
-        s.cvt[i] = int32_t(std::llround(t.cvt[i] * s.scale));
+        s.cvt[i] = s.scaled(t.cvt[i]);
     s.storage.assign(size_t(std::max(t.maxStorage, 64)), 0);
     s.functions.resize(size_t(std::max(t.maxFunctionDefs, 0)));
     Zone twilight;
@@ -1464,7 +1497,7 @@ bool Hinter::glyph(int index, int ppem, HintedGlyph &out) {
             contours = s16(g);
             xMin = s16(g + 2);
         }
-        auto scaled = [&](int v) { return int32_t(std::llround(v * s.scale)); };
+        auto scaled = [&](int v) { return s.scaled(v); };
         o.pp1Original = scaled(xMin - lsb);
         o.pp2Original = o.pp1Original + scaled(advance);
         o.pp1 = (o.pp1Original + 32) & ~63;
@@ -1558,39 +1591,39 @@ bool Hinter::glyph(int index, int ppem, HintedGlyph &out) {
                 arg2 = (flags & 2) ? int8_t(p[1]) : p[1];
                 p += 2;
             }
-            double m[4] = {1, 0, 0, 1};
+            int32_t m[4] = {kOne14, 0, 0, kOne14}; // 2.14
             if (flags & 8) {
                 if (p + 2 > end)
                     return false;
-                m[0] = m[3] = s16(p) / 16384.0;
+                m[0] = m[3] = s16(p);
                 p += 2;
             } else if (flags & 0x40) {
                 if (p + 4 > end)
                     return false;
-                m[0] = s16(p) / 16384.0;
-                m[3] = s16(p + 2) / 16384.0;
+                m[0] = s16(p);
+                m[3] = s16(p + 2);
                 p += 4;
             } else if (flags & 0x80) {
                 if (p + 8 > end)
                     return false;
                 for (int k = 0; k < 4; k++)
-                    m[k] = s16(p + 2 * k) / 16384.0;
+                    m[k] = s16(p + 2 * k);
                 p += 8;
             }
             Outline c;
             if (!load(part, depth + 1, c))
                 return false;
-            const bool transformed = m[0] != 1 || m[1] != 0 || m[2] != 0 || m[3] != 1;
+            const bool transformed = m[0] != kOne14 || m[1] != 0 || m[2] != 0 || m[3] != kOne14;
             if (transformed)
                 for (size_t k = 0; k < c.x.size(); k++) {
-                    const double x = c.x[k];
-                    const double y = c.y[k];
-                    c.x[k] = int32_t(std::llround(x * m[0] + y * m[2]));
-                    c.y[k] = int32_t(std::llround(x * m[1] + y * m[3]));
-                    const double ox = c.ox[k];
-                    const double oy = c.oy[k];
-                    c.ox[k] = int32_t(std::llround(ox * m[0] + oy * m[2]));
-                    c.oy[k] = int32_t(std::llround(ox * m[1] + oy * m[3]));
+                    const int64_t x = c.x[k];
+                    const int64_t y = c.y[k];
+                    c.x[k] = int32_t(divRound(x * m[0] + y * m[2], kOne14));
+                    c.y[k] = int32_t(divRound(x * m[1] + y * m[3], kOne14));
+                    const int64_t ox = c.ox[k];
+                    const int64_t oy = c.oy[k];
+                    c.ox[k] = int32_t(divRound(ox * m[0] + oy * m[2], kOne14));
+                    c.oy[k] = int32_t(divRound(ox * m[1] + oy * m[3], kOne14));
                 }
             int32_t dx = 0;
             int32_t dy = 0;

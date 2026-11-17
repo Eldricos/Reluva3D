@@ -157,6 +157,15 @@ void testHinting() {
                           0xb0, 0,    0x5f,    // SDS 0: whole steps
                           0xb2, 0x78, 0,    1, // arg (16 - 9 = 7, step +1), point 0, n 1
                           0x5d};               // DELTAP1
+    // Glyph 4: the vectors set from (3, 4) by SPVFS, the freedom vector to
+    // it, then point 0 shifted a pixel along it (SHPIX): (0.6, 0.8) in 2.14
+    // is 9830 and 13107 of 16384, so 64 moves it 38 across and 51 up.
+    TestGlyph diagonal;
+    diagonal.points = {{100, 0}, {100, 100}};
+    diagonal.contourEnds = {1};
+    diagonal.instructions = {0xb1, 3, 4,  0x0a,  // SPVFS (3, 4)
+                             0x0e,               // SFVTPV
+                             0xb1, 0, 64, 0x38}; // SHPIX point 0 by 64
     // fpgm: function 0 adds a pixel to the control value whose index is
     // on the stack.
     const std::vector<uint8_t> fpgm = {0xb0, 0, 0x2c, 0x20, 0x45, 0xb0, 64, 0x60, 0x44, 0x2d};
@@ -168,7 +177,7 @@ void testHinting() {
                                        0xb1, 3,    0,  0x2b,              //   CALL 0 on cvt 3
                                        0x59,                              // EIF
                                        0xb4, 4,    4,  4,    3, 0, 0x2a}; // LOOPCALL 0, 3 times, on cvt 4
-    const std::vector<uint8_t> font = testFont({stem, probe, delta}, {70, 100, 200, 300, 400}, fpgm, prep);
+    const std::vector<uint8_t> font = testFont({stem, probe, delta, diagonal}, {70, 100, 200, 300, 400}, fpgm, prep);
 
     ttf::Hinter h;
     CHECK(h.load(font) && h.hasPrograms() && h.unitsPerEm() == 1024);
@@ -189,6 +198,7 @@ void testHinting() {
         CHECK(g.x[0] == 139 && g.x[1] == 150 && g.x[2] == 289 && g.x[3] == 492);
     CHECK(h.glyph(3, 16, g) && g.x.size() == 2 && g.x[0] == 164 && g.x[1] == 100);
     CHECK(h.glyph(3, 12, g) && g.x.size() == 2 && g.x[0] == 75);
+    CHECK(h.glyph(4, 16, g) && g.x.size() == 2 && g.x[0] == 138 && g.y[0] == 51 && g.x[1] == 100);
     // An empty glyph: no points, its advance.
     CHECK(h.glyph(0, 16, g) && g.x.empty() && g.advance == 3);
     // Not a font.

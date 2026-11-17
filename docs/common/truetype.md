@@ -40,18 +40,36 @@ as the rasterizer does. Composite glyphs have their parts hinted on their
 own, placed (their offsets rounded to the grid where they ask), then their
 own program run.
 
+All of it is in whole numbers, as the specification has it: distances in
+26.6 fixed point, the vectors unit vectors in 2.14 (made from a line's
+direction with a whole-number square root), products and quotients in
+64 bits, rounded half away from zero; a font unit is scaled to the size
+as `units * ppem * 64 / unitsPerEm`, rounded. The smoothing's table is
+written out, its 256 values. So the same font draws the same pixels on
+every platform: the only other sums, in stb_truetype's filling and the
+sizes, are single-precision `+ - * /`, square roots and floors, which
+IEEE 754 fixes to the bit (fused multiply-adds are off,
+`CMakeLists.txt`).
+
 ## Sources and checks
 
 - **Against FreeType**, as a black box: a program using the system's
   FreeType library (its version 35 interpreter, the one that follows the
   Windows rasterizer of the time) and Reluva's interpreter each hinted
   every glyph of the four fonts above at every size from 8 to 40 pixels
-  to the em, and their points were compared. They agree to within an
-  eighth of a pixel on all but 0 to 5 glyphs of 168 to 400 at almost
-  every size, those a pixel apart; and on all of their advances but a
-  handful. The one size where they part more, `rulyrrg_.ttf` at 24
-  pixels, is where a control value falls on exactly half a pixel. Its
-  source wasn't read.
+  to the em, and their points were compared: 90,156 glyphs. They agree
+  to within an eighth of a pixel on all but 1,119, and on all but 40
+  advances. By font: Arial (1,674 glyphs) 16 to 46 a size; Arial Narrow
+  (658) 1 to 8; Industrial (232) 0 to 10; RulyRG (168) 0 to 4 but at 24
+  pixels, 47, where a control value falls on exactly half a pixel. Most
+  of those are a pixel and a half apart or less; the ones further are seventeen of
+  Arial's combining accents and private-use marks (U+0300, U+0301,
+  U+0323, U+F01D to U+F02B: none in the games' text) at every size, and
+  four of Industrial's and Arial Narrow's at a few. FreeType's source
+  wasn't read. Moving the
+  arithmetic from doubles to whole numbers moved 496 of the glyphs by a
+  64th or two and left these counts as they were, and the options
+  screen's text pixel for pixel the same.
 - **Against the original game**: And Then There Were None's options screen
   in a screenshot of the original, its labels (`innswfte.ttf` at 18) in
   the same places, the same width, solid where the original's are. The
@@ -63,25 +81,12 @@ own program run.
 - **The unit tests** (`common.unit.truetype`) build a font of their own:
   a stem rounded to the grid by MDAP and MIRP and the rest moved with it by
   IUP, control values changed by the control value program through a
-  function, IF and ELSE on the size, and LOOPCALL; and a DELTAP at one size.
+  function, IF and ELSE on the size, and LOOPCALL; a DELTAP at one size;
+  and a point shifted along a vector set to (3, 4), its 2.14 values.
 
 - **Confidence:** published (the specification) for the instructions,
   confirmed against FreeType's interpreter and the original's screen;
   the smoothing's 1/2.2 seen, not traced.
-
-## Left to do
-
-- **The same pixels on every platform.** The interpreter keeps its
-  vectors in doubles, made with `std::hypot`, and the smoothing's table
-  is made with `std::pow`. Fused multiply-adds are off everywhere
-  (`CMakeLists.txt`), but maths libraries needn't agree to the last bit,
-  so where a distance falls exactly on a rounding's edge a stroke could
-  land a pixel apart from one platform to another (rarely). Checked on
-  Linux only. To make it exact: the vectors in 2.14 fixed point and the
-  arithmetic in whole numbers, as the specification has them (and
-  Windows' rasterizer works), and the table written out as its 256
-  values; then the FreeType comparison and the options screen measured
-  again.
 
 ## Used by
 
