@@ -201,8 +201,10 @@ behind the DLL's own tables.
    way out needs the shields lowered, both ion cannons and three AT-STs
    destroyed with the emplaced guns (`sp-run`'s `@aim` mans and aims
    them), then Desann's fight lost as the script means; a written route
-   plays it to `valley`. Next: the next levels the same way, and a
-   console on the page.
+   plays it to `valley`. `valley`, a cutscene, plays itself to the movie
+   `jk02` and `yavin_temple`, Kyle given back his health and his first
+   Force powers. Next: the next levels the same way, and a console on
+   the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

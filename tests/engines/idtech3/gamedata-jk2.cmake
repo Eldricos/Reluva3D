@@ -42,8 +42,9 @@
 #                 then the next level started with the player carried over
 #                 (-next). About seven minutes.
 #   jk2-sp-artus  the same for artus_mine and artus_topside (their ways out
-#                 by written routes, data/routes/) and artus_detention.
-#                 About eight minutes.
+#                 by written routes, data/routes/) and artus_detention;
+#                 then valley, a cutscene, left to play. About eight
+#                 minutes.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -118,6 +119,7 @@ elseif(STEP STREQUAL "jk2-sp-artus")
                -set helpUsObi 1 -next)
     record_run(artus_topside "ran 100 frames" idtech3 sp-run "${base}" artus_topside
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/artus_topside.txt" -fixedclock -set helpUsObi 1 -next)
+    record_run(valley "ran 100 frames" idtech3 sp-run "${base}" valley -frames 4000 -fixedclock -cgame -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

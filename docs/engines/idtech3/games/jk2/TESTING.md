@@ -41,8 +41,8 @@
   `tests/engines/idtech3/data/routes/`: artus_mine's generator room's
   squad, the generator's cinematic and the tram; artus_topside's
   shields, ion cannons and AT-STs from the emplaced guns, cinematic 9
-  and Desann's fight; and artus_detention by the tour; about eight
-  minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  and Desann's fight; artus_detention by the tour; then valley, a
+  cutscene, left to play to its level change; about eight minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover
