@@ -446,7 +446,8 @@ uint32_t SpGameHost::playerState() const {
 
 int32_t SpGameHost::playerHealth() const {
     const uint32_t ps = playerState();
-    return ps ? int32_t(_cpu->read32(ps + kPsHealth)) : 0;
+    // (Jedi Outcast's at 0xc4: its save command, 0x438418.)
+    return ps ? int32_t(_cpu->read32(ps + (_jedi ? 0xc4 : kPsHealth))) : 0;
 }
 
 void SpGameHost::savePlayer() {
@@ -461,6 +462,25 @@ void SpGameHost::savePlayer() {
     auto i = [&](uint32_t at) { return int32_t(_cpu->read32(ps + at)); };
     auto f = [&](uint32_t at) { return double(readFloat(ps + at)); };
     char buf[256];
+    if (_jedi) {
+        // Jedi Outcast's (0x4350f0): health, armour, weapons and more, the
+        // view angles and more; then ammunition, inventory and Force power
+        // levels, each " n" after the last.
+        std::snprintf(buf, sizeof buf, "%i %i %i %i %i %i %i %f %f %f %i %i %i %i %i %i", i(0xc4), i(0xd0), i(0xcc),
+                      i(0xc8), i(0x94), i(0x98), i(0x9c), f(0xa0), f(0xa4), f(0xa8), i(0x2e8), i(0x344), i(0x270),
+                      i(0x2d4), i(0x2e0), i(0x2dc));
+        _cvars.set("playersave", buf);
+        auto list = [&](const char *name, uint32_t at, uint32_t count) {
+            std::string text;
+            for (uint32_t n = 0; n < count; ++n)
+                text += " " + std::to_string(i(at + 4 * n));
+            _cvars.set(name, text);
+        };
+        list("playerammo", 0x184, 10);
+        list("playerinv", 0x1ac, 7);
+        list("playerfplvl", 0x350, 11);
+        return;
+    }
     std::snprintf(buf, sizeof buf, "%i %i %i %i %i %f %f %f", i(0xbc), i(0xc8), i(0xc4), i(0x94), i(0x98), f(0x9c),
                   f(0xa0), f(0xa4));
     _cvars.set("playersave", buf);
@@ -1299,6 +1319,26 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
     look(eye, look, 0);
     std::sort(out.begin(), out.end());
     return out;
+}
+
+std::vector<uint8_t> SpGameHost::areaPortalState() const {
+    std::vector<uint8_t> out;
+    if (!_areaPortals)
+        return out;
+    for (const int n : _areaPortals->openCounts())
+        for (int i = 0; i < 4; ++i)
+            out.push_back(uint8_t(uint32_t(n) >> (8 * i)));
+    return out;
+}
+
+bool SpGameHost::setAreaPortalState(const std::vector<uint8_t> &state) {
+    if (!_areaPortals || state.size() % 4)
+        return false;
+    std::vector<int> counts(state.size() / 4);
+    for (size_t i = 0; i < counts.size(); ++i)
+        counts[i] = int(uint32_t(state[4 * i]) | uint32_t(state[4 * i + 1]) << 8 | uint32_t(state[4 * i + 2]) << 16 |
+                        uint32_t(state[4 * i + 3]) << 24);
+    return _areaPortals->setOpenCounts(counts);
 }
 
 int32_t SpGameHost::brushModelContents(int model) const {

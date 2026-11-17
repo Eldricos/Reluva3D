@@ -655,6 +655,14 @@ void AreaPortals::adjust(int area1, int area2, bool open) {
     flood();
 }
 
+bool AreaPortals::setOpenCounts(const std::vector<int> &counts) {
+    if (counts.size() != _open.size())
+        return false;
+    _open = counts;
+    flood();
+    return true;
+}
+
 bool AreaPortals::connected(int area1, int area2) const {
     if (area1 < 0 || area2 < 0 || area1 >= _count || area2 >= _count)
         return false;

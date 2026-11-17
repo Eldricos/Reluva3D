@@ -20,6 +20,9 @@ What Reluva does that hasn't been checked against the running original.
   the GPL source; Ghoul2 models are seen drawn in `kejim_post`, the
   other kinds (its effects' sprites, lines, electricity and cylinders)
   not yet ([systems/sp-interface.md](systems/sp-interface.md)).
+- Saved games are written in `jk2sp.exe`'s order and form, read from
+  its code; none written by Reluva has been loaded in the original yet,
+  nor one of the original's loaded here ([systems/sp-saves.md](systems/sp-saves.md)).
 - The network protocol's level changes, downloads and long matches, and
   a Reluva server's heartbeats to a real master, haven't been tried
   against the retail game ([systems/network.md](systems/network.md)).

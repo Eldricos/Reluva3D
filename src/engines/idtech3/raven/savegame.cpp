@@ -34,6 +34,70 @@ uint32_t get32(const uint8_t *p) {
 
 } // namespace
 
+std::vector<uint8_t> compressRle(const uint8_t *in, size_t length) {
+    std::vector<uint8_t> out;
+    size_t i = 0;
+    while (i < length) {
+        // A run of one byte, up to 127 long.
+        size_t j = i + 1;
+        while (j < length && j - i < 127 && in[j] == in[i])
+            ++j;
+        if (j - i > 1) {
+            out.push_back(uint8_t(j - i));
+            out.push_back(in[i]);
+            i = j;
+            continue;
+        }
+        // Else bytes as they are, up to 127, stopping at three equal ones
+        // in a row (or at 127), then giving back the equal ones taken at
+        // the end (which can start the next run).
+        if (j < length) {
+            bool stopped = false;
+            for (size_t count = 1;;) {
+                if (count >= 127 || (in[j] == in[j - 1] && (j <= 1 || in[j] == in[j - 2]))) {
+                    stopped = true;
+                    break;
+                }
+                ++j;
+                ++count;
+                if (j >= length)
+                    break;
+            }
+            if (stopped)
+                while (j < length && in[j] == in[j - 1])
+                    --j;
+        }
+        out.push_back(uint8_t(-int(j - i)));
+        out.insert(out.end(), in + i, in + j);
+        i = j;
+    }
+    return out;
+}
+
+bool decompressRle(const uint8_t *data, size_t size, size_t length, std::vector<uint8_t> &out) {
+    out.clear();
+    out.reserve(length);
+    size_t p = 0;
+    while (out.size() < length) {
+        if (p >= size)
+            return false;
+        const int n = int8_t(data[p++]);
+        if (n > 0) {
+            if (p >= size)
+                return false;
+            out.insert(out.end(), size_t(n), data[p++]);
+        } else if (n < 0) {
+            if (p + size_t(-n) > size)
+                return false;
+            out.insert(out.end(), data + p, data + p + size_t(-n));
+            p += size_t(-n);
+        } else {
+            return false; // the original's would never finish
+        }
+    }
+    return out.size() == length;
+}
+
 std::string chunkName(uint32_t id) {
     std::string s;
     for (int i = 3; i >= 0; --i) {
@@ -45,6 +109,19 @@ std::string chunkName(uint32_t id) {
 
 void SaveWriter::add(uint32_t id, const void *data, size_t length) {
     const auto *p = static_cast<const uint8_t *>(data);
+    if (compress) {
+        // Only where it's shorter (0x439430).
+        const std::vector<uint8_t> packed = compressRle(p, length);
+        if (packed.size() < length) {
+            put32(_bytes, id);
+            put32(_bytes, uint32_t(-int32_t(length)));
+            put32(_bytes, uint32_t(packed.size()));
+            put32(_bytes, blockChecksum(p, length));
+            _bytes.insert(_bytes.end(), packed.begin(), packed.end());
+            put32(_bytes, kMarker);
+            return;
+        }
+    }
     put32(_bytes, id);
     put32(_bytes, uint32_t(length));
     put32(_bytes, blockChecksum(p, length));
@@ -68,20 +145,34 @@ Error SaveReader::next(uint32_t id, std::vector<uint8_t> &out, size_t length) {
         return Error::fail("The saved game ends before its " + chunkName(id) + " chunk");
     const uint8_t *p = _bytes.data() + _position;
     const uint32_t found = get32(p);
-    const uint32_t size = get32(p + 4);
-    const uint32_t checksum = get32(p + 8);
+    const int32_t stated = int32_t(get32(p + 4));
+    // A negative length: compressed, its stored length next.
+    const bool packed = stated < 0;
+    const size_t header = packed ? 16 : 12;
+    if (_position + header > _bytes.size())
+        return Error::fail("The saved game ends before its " + chunkName(id) + " chunk");
+    const uint32_t size = packed ? uint32_t(-int64_t(stated)) : uint32_t(stated);
+    const uint32_t stored = packed ? get32(p + 8) : size;
+    const uint32_t checksum = get32(p + header - 4);
     if (found != id)
         return Error::fail("Expected a " + chunkName(id) + " chunk, found " + chunkName(found));
     if (length && size != length)
         return Error::fail("The " + chunkName(id) + " chunk is " + std::to_string(size) + " bytes, not " +
                            std::to_string(length));
-    if (_position + 16 + size_t(size) > _bytes.size())
+    if (_position + header + 4 + size_t(stored) > _bytes.size())
         return Error::fail("The " + chunkName(id) + " chunk runs past the end of the file");
-    const uint8_t *data = p + 12;
-    if (blockChecksum(data, size) != checksum || get32(data + size) != kMarker)
+    const uint8_t *data = p + header;
+    if (get32(data + stored) != kMarker)
         return Error::fail("The " + chunkName(id) + " chunk is damaged");
-    out.assign(data, data + size);
-    _position += 16 + size_t(size);
+    if (packed) {
+        if (!decompressRle(data, stored, size, out))
+            return Error::fail("The " + chunkName(id) + " chunk is damaged");
+    } else {
+        out.assign(data, data + size);
+    }
+    if (blockChecksum(out.data(), out.size()) != checksum)
+        return Error::fail("The " + chunkName(id) + " chunk is damaged");
+    _position += header + 4 + size_t(stored);
     return Error::success();
 }
 

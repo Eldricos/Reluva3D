@@ -34,6 +34,10 @@ std::vector<uint8_t> encodeTga(const Image &img, bool alpha = false);
 // compression: larger than a compressing encoder's, read by every program).
 std::vector<uint8_t> encodePng(const Image &img);
 
+// Encode the image as a baseline JPEG at `quality` (1-100), alpha dropped.
+// Uses stb_image_write (third_party/stb).
+std::vector<uint8_t> encodeJpeg(const Image &img, int quality);
+
 // Copy the image into an RGBA32 surface with its top-left corner at (x, y),
 // clipped to it, blending by alpha over what's there; opacity (0-255) makes
 // the whole image that much see-through on top.

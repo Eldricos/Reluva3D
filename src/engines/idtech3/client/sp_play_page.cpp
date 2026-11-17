@@ -4,6 +4,7 @@
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/games.h"
+#include "engines/idtech3/jk2/sp_savegame.h"
 #include "engines/idtech3/client/sp_play_page.h"
 #include "engines/idtech3/formats/shader.h"
 
@@ -542,6 +543,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _gameCommandsRun = 0;
     _gameLines.clear();
     _pendingMenu.clear();
+    _pendingSave.clear();
     _capturing = false;
     setTitle(map);
 
@@ -588,9 +590,12 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _game->loadTransition = std::exchange(_nextLoadTransition, false);
     if ((err = _game->startLevel(map, bsp, eliteforce::SpGameHost::mapChecksum(data), 0, loadMode)))
         return stop("The game couldn't start the level: " + err.message);
-    if (save)
-        if ((err = eliteforce::readSaveLevel(*save, *_game, loadMode == 2)))
+    if (save) {
+        err = _game->jedi() ? jk2::readSaveLevel(*save, *_game, loadMode == 2)
+                            : eliteforce::readSaveLevel(*save, *_game, loadMode == 2);
+        if (err)
             return stop("The saved game couldn't be read: " + err.message);
+    }
     _game->setSaveStream(nullptr, nullptr);
     std::string refused;
     // The player as the original's engine describes them: the userinfo
@@ -627,8 +632,12 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _clientTime = _game->levelTime();
     // A new level (not one loaded) is saved as "auto" as the player joins,
     // as the original's (but the holodeck's and the brig's, "_" maps).
-    if (loadMode == 0 && !map.empty() && map[0] != '_')
+    if (loadMode == 0 && !map.empty() && map[0] != '_') {
         saveGame("auto", true);
+        // Jedi Outcast's also as auto_<map> (0x43621e).
+        if (_game && _game->jedi())
+            saveGame("auto_" + map, true);
+    }
 }
 
 bool SpPlayPage::readSave(const std::string &name, std::vector<uint8_t> &file) const {
@@ -680,6 +689,57 @@ void SpPlayPage::sortSaves() const {
     }
 }
 
+namespace {
+
+// The picture at size x size, each pixel the average of those it covers,
+// opaque (as it is if it's that size already).
+image::Image boxScaled(const image::Image &img, int size) {
+    if (img.w == size && img.h == size)
+        return img;
+    image::Image out;
+    out.w = size;
+    out.h = size;
+    out.rgba.resize(size_t(size) * size_t(size) * 4);
+    for (int y = 0; y < size; ++y)
+        for (int x = 0; x < size; ++x) {
+            const int x0 = x * img.w / size;
+            const int x1 = std::max(x0 + 1, (x + 1) * img.w / size);
+            const int y0 = y * img.h / size;
+            const int y1 = std::max(y0 + 1, (y + 1) * img.h / size);
+            int sum[3] = {};
+            for (int sy = y0; sy < y1; ++sy)
+                for (int sx = x0; sx < x1; ++sx)
+                    for (int c = 0; c < 3; ++c)
+                        sum[c] += img.pixel(sx, sy)[c];
+            const int n = (x1 - x0) * (y1 - y0);
+            uint8_t *px = out.pixel(x, y);
+            for (int c = 0; c < 3; ++c)
+                px[c] = uint8_t(sum[c] / n);
+            px[3] = 255;
+        }
+    return out;
+}
+
+// A Jedi Outcast saved game's picture (a JPEG) as the loading screens
+// here take one: 256 x 256, rows bottom first. Empty if it won't decode.
+std::vector<uint8_t> loadingShot(const std::vector<uint8_t> &jpeg) {
+    image::Image img;
+    if (jpeg.empty() || image::decode(jpeg, img) || img.w <= 0 || img.h <= 0)
+        return {};
+    const image::Image small = boxScaled(img, 256);
+    std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize);
+    for (int y = 0; y < 256; ++y)
+        std::memcpy(&out[size_t(255 - y) * 256 * 4], small.pixel(0, y), 256 * 4);
+    return out;
+}
+
+bool badSaveName(const std::string &name) {
+    return name.empty() || fs::toLower(name) == "current" || name.find("..") != std::string::npos ||
+           name.find_first_of("/\\:") != std::string::npos;
+}
+
+} // namespace
+
 std::vector<uint8_t> SpPlayPage::levelShot(const std::string &map) const {
     // levelshots/<map>.tga at 256 x 256, as the original's engine makes an
     // autosave's picture (renderer entry 23, docs/engines/idtech3/games/stvef/systems/sp-interface.md):
@@ -692,42 +752,17 @@ std::vector<uint8_t> SpPlayPage::levelShot(const std::string &map) const {
     const std::string file = findImage(_ctx.files, "levelshots/" + map + ".tga");
     if (file.empty() || _ctx.files.read(file, data) || image::decode(data, img) || img.w <= 0 || img.h <= 0)
         return {};
+    // Jedi Outcast's: 512 x 512, as a JPEG.
+    if (jedi())
+        return image::encodeJpeg(boxScaled(img, jk2::kShotSize), jk2::kShotQuality);
+    const image::Image small = boxScaled(img, 256);
     std::vector<uint8_t> out(eliteforce::SpUiHost::kShotSize, 0);
-    const bool same = img.w == 256 && img.h == 256;
     for (int y = 0; y < 256; ++y)
-        for (int x = 0; x < 256; ++x) {
-            uint8_t *px = &out[size_t((255 - y) * 256 + x) * 4];
-            if (same) {
-                std::memcpy(px, img.pixel(x, y), 4);
-                continue;
-            }
-            const int x0 = x * img.w / 256;
-            const int x1 = std::max(x0 + 1, (x + 1) * img.w / 256);
-            const int y0 = y * img.h / 256;
-            const int y1 = std::max(y0 + 1, (y + 1) * img.h / 256);
-            int sum[3] = {};
-            for (int sy = y0; sy < y1; ++sy)
-                for (int sx = x0; sx < x1; ++sx)
-                    for (int c = 0; c < 3; ++c)
-                        sum[c] += img.pixel(sx, sy)[c];
-            const int n = (x1 - x0) * (y1 - y0);
-            for (int c = 0; c < 3; ++c)
-                px[c] = uint8_t(sum[c] / n);
-            px[3] = 255;
-        }
+        std::memcpy(&out[size_t(255 - y) * 256 * 4], small.pixel(0, y), 256 * 4);
     return out;
 }
 
-namespace {
-
-bool badSaveName(const std::string &name) {
-    return name.empty() || fs::toLower(name) == "current" || name.find("..") != std::string::npos ||
-           name.find_first_of("/\\:") != std::string::npos;
-}
-
-} // namespace
-
-void SpPlayPage::saveGame(const std::string &name, bool autosave) {
+void SpPlayPage::saveGame(const std::string &name, bool autosave, const std::vector<uint8_t> &picture) {
     // As the original's save command: the engine's chunks, then the
     // game's (WriteLevel), to saves/<name>.sav.
     using raven::chunkId;
@@ -735,10 +770,8 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave) {
         _lastCommand = "You must be in a game to save.";
         return;
     }
-    // Jedi Outcast's saved games aren't written yet: its game asks for
-    // its Ghoul2 instances' records, which the host can't give.
     if (_game->jedi()) {
-        _lastCommand = "Saving Jedi Outcast games isn't done yet.";
+        saveJediGame(name, autosave, picture);
         return;
     }
     if (!autosave) {
@@ -793,44 +826,131 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave) {
     eliteforce::writeSaveHeader(w, _cvars, header);
     if (Error err = eliteforce::writeSaveLevel(w, *_game, autosave))
         return stop("The game couldn't save: " + err.message);
+    if (writeSaveFile(name, w.bytes()) && !autosave)
+        _lastCommand = "Saved " + name;
+}
+
+bool SpPlayPage::writeSaveFile(const std::string &name, const std::vector<uint8_t> &bytes) {
     // Written as "current", then renamed, as the original's.
     std::error_code ec;
-    std::filesystem::create_directories(_saveDir, ec);
     const std::filesystem::path file = _saveDir / (name + ".sav");
+    std::filesystem::create_directories(file.parent_path(), ec);
     const std::filesystem::path temp = _saveDir / "current.sav";
     {
         std::ofstream out(temp, std::ios::binary);
-        out.write(reinterpret_cast<const char *>(w.bytes().data()), std::streamsize(w.bytes().size()));
+        out.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size()));
         if (!out) {
             _lastCommand = "Failed to create savegame " + temp.string();
-            return;
+            return false;
         }
     }
     std::filesystem::rename(temp, file, ec); // replaces the old one, which is kept if this fails
     if (ec) {
         _lastCommand = "Couldn't write " + file.string() + ": " + ec.message();
+        return false;
+    }
+    return true;
+}
+
+void SpPlayPage::saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture) {
+    // As jk2sp.exe's save command (0x438390) and its saver (0x438aa0).
+    if (!autosave) {
+        if (_game->playerHealth() <= 0) {
+            _lastCommand = "Can't savegame while dead!";
+            return;
+        }
+        if (fs::toLower(name) == "current") {
+            _lastCommand = "Can't save to 'current'";
+            return;
+        }
+        if (badSaveName(name)) {
+            _lastCommand = "Bad savegame name.";
+            return;
+        }
+        // Its checks before saving (0x438a20): not on a "_" map, and
+        // where the game allows it.
+        if ((!_map.empty() && _map[0] == '_') || !_game->allowedToSaveHere(0))
+            return;
+        // The menus' quick save and autosave names, "quik*" and "auto*",
+        // save as quik and auto.
+        if (const std::string lower = fs::toLower(name); lower == "quik*" || lower == "auto*")
+            name.resize(4);
+    }
+    if (_saveDir.empty()) {
+        _lastCommand = "There's nowhere to save games.";
         return;
     }
+    // The picture: an autosave's is the level's own, else the screen,
+    // which is taken as the next frame is drawn (see update()).
+    std::vector<uint8_t> shot = picture;
+    if (shot.empty() && autosave)
+        shot = levelShot(_map);
+    if (shot.empty() && !autosave) {
+        _pendingSave = name;
+        return;
+    }
+    if (shot.empty()) {
+        image::Image black;
+        black.w = jk2::kShotSize;
+        black.h = jk2::kShotSize;
+        black.rgba.assign(size_t(black.w) * size_t(black.h) * 4, 0);
+        shot = image::encodeJpeg(black, jk2::kShotQuality);
+    }
+    if (autosave)
+        _game->savePlayer();
+    raven::SaveWriter w;
+    jk2::SaveHeader header;
+    header.comment = _ui && !autosave ? _ui->saveComment : std::string();
+    if (header.comment.empty())
+        header.comment = "---> " + _map;
+    header.time = int32_t(std::time(nullptr));
+    header.map = _map;
+    header.shot = std::move(shot);
+    header.autosave = autosave;
+    jk2::writeSaveHeader(w, _cvars, header);
+    if (Error err = jk2::writeSaveLevel(w, *_game, autosave))
+        return stop("The game couldn't save: " + err.message);
+    if (!writeSaveFile(name, w.bytes()))
+        return;
     if (!autosave)
-        _lastCommand = "Saved " + name;
+        _lastCommand = "Saving game \"" + name + "\"... Done.";
+}
+
+std::string SpPlayPage::savedMap(const std::string &name) const {
+    std::vector<uint8_t> file;
+    if (!readSave(name, file))
+        return {};
+    raven::SaveReader r(std::move(file));
+    if (jedi()) {
+        CvarStore ignored;
+        jk2::SaveHeader header;
+        return jk2::readSaveHeader(r, ignored, header) ? std::string() : header.map;
+    }
+    using raven::chunkId;
+    std::vector<uint8_t> skip;
+    std::string map;
+    if (!r.next(chunkId("COMM"), skip) && !r.next(chunkId("SHOT"), skip))
+        r.nextText(chunkId("MPCM"), map);
+    return map;
 }
 
 void SpPlayPage::loadGame(std::string name) {
     // As the original's load command: the engine's chunks, then the level
     // started for them and the game's own (start()).
     using raven::chunkId;
-    if (name == "*respawn") {
+    if (name == "*respawn" && jedi()) {
+        // After dying (0x438230): the level's autosave if it's of this
+        // level or nothing was loaded; else the saved game last loaded.
+        // In the brig, the autosave if it can be read at all.
+        const std::string autoMap = savedMap("auto");
+        if (_lastLoaded.empty() || (_map == "_brig" ? !autoMap.empty() : autoMap == _map))
+            name = "auto";
+        else
+            name = _lastLoaded;
+    } else if (name == "*respawn") {
         // After dying: the saved game last loaded, if it's of this level;
         // else the level's start.
-        std::string loadedMap;
-        std::vector<uint8_t> file;
-        if (!_lastLoaded.empty() && readSave(_lastLoaded, file)) {
-            raven::SaveReader r(std::move(file));
-            std::vector<uint8_t> skip;
-            if (!r.next(chunkId("COMM"), skip) && !r.next(chunkId("SHOT"), skip))
-                r.nextText(chunkId("MPCM"), loadedMap);
-        }
-        name = !_lastLoaded.empty() && loadedMap == _map ? _lastLoaded : "auto";
+        name = !_lastLoaded.empty() && savedMap(_lastLoaded) == _map ? _lastLoaded : "auto";
     }
     if (badSaveName(name)) {
         _lastCommand = "Bad loadgame name.";
@@ -847,14 +967,27 @@ void SpPlayPage::loadGame(std::string name) {
         return;
     }
     raven::SaveReader r(std::move(file));
-    eliteforce::SaveHeader header;
-    if (Error err = eliteforce::readSaveHeader(r, _cvars, header)) {
+    std::string map;
+    bool autosave = false;
+    std::vector<uint8_t> shot;
+    Error err;
+    if (jedi()) {
+        jk2::SaveHeader header;
+        err = jk2::readSaveHeader(r, _cvars, header);
+        map = header.map;
+        autosave = header.autosave;
+        shot = loadingShot(header.shot);
+    } else {
+        eliteforce::SaveHeader header;
+        err = eliteforce::readSaveHeader(r, _cvars, header);
+        map = header.map;
+        autosave = header.autosave;
+        shot = std::move(header.shot);
+    }
+    if (err) {
         _lastCommand = "Couldn't read " + name + ": " + err.message;
         return;
     }
-    const std::string &map = header.map;
-    const bool autosave = header.autosave;
-    std::vector<uint8_t> &shot = header.shot;
     const auto it = std::find(_names.begin(), _names.end(), "maps/" + fs::toLower(map) + ".bsp");
     if (it == _names.end()) {
         _lastCommand = name + " is of a map that isn't here: " + map;
@@ -899,11 +1032,9 @@ void SpPlayPage::runGameCommands() {
 }
 
 void SpPlayPage::runBinding(const std::string &line, int32_t key, bool down) {
-    _input.runBinding(line, key, down, [this](const std::string &text) {
-        if (_game)
-            if (Error err = _game->clientConsoleCommand(text))
-                stop("The game stopped: " + err.message);
-    });
+    // As typed at the original's console: the engine's own commands (save,
+    // load...) first, then the menus' and the game's.
+    _input.runBinding(line, key, down, [this](const std::string &text) { runCommand(text); });
 }
 
 bool SpPlayPage::takesKey(const Event &ev) const {
@@ -1181,6 +1312,22 @@ void SpPlayPage::update(uint64_t nowMs) {
                     std::memcpy(&shot[size_t((255 - y) * 256 + x) * 4],
                                 &rgba[(size_t(y * h / 256) * size_t(w) + size_t(x * w / 256)) * 4], 4);
         }
+        if (!_pendingSave.empty()) {
+            // Jedi Outcast's picture: 512 x 512, as a JPEG.
+            std::vector<uint8_t> jpeg;
+            if (!shot.empty()) {
+                image::Image frame;
+                frame.w = w;
+                frame.h = h;
+                frame.rgba = std::move(rgba);
+                jpeg = image::encodeJpeg(boxScaled(frame, jk2::kShotSize), jk2::kShotQuality);
+            }
+            const std::string name = std::exchange(_pendingSave, std::string());
+            if (!jpeg.empty())
+                saveGame(name, false, jpeg);
+            else
+                _lastCommand = "Failed to save " + name + ": the screen couldn't be taken";
+        }
         if (!_pendingTransition.empty()) {
             _nextScreenShot = shot;
             runPendingTransition();
@@ -1274,7 +1421,7 @@ void SpPlayPage::update(uint64_t nowMs) {
         drawMenus(float(nowMs - _startMs) / 1000.0f);
     _timing.draw = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - drawStart).count();
     drawOverlay();
-    if ((!_pendingMenu.empty() || !_pendingTransition.empty()) && !_capturing) {
+    if ((!_pendingMenu.empty() || !_pendingTransition.empty() || !_pendingSave.empty()) && !_capturing) {
         _renderer->captureNextFrame();
         _capturing = true;
     }

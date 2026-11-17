@@ -79,6 +79,44 @@ namespace q3 = reluva::idtech3;
 using namespace reluva::idtech3::fixtures;
 
 // Saved games' chunks: written and read back in order, checked.
+// Jedi Outcast's chunk compression: the encoder's choices (the
+// original's, 0x439220) and a compressed chunk read back.
+static void testCompressedSaveChunks() {
+    using namespace reluva::idtech3::raven;
+    auto rle = [](std::string_view text) {
+        return compressRle(reinterpret_cast<const uint8_t *>(text.data()), text.size());
+    };
+    CHECK((rle("AAAAB") == std::vector<uint8_t>{4, 'A', 0xff, 'B'}));
+    CHECK((rle("ABC") == std::vector<uint8_t>{0xfd, 'A', 'B', 'C'}));
+    // Bytes as they are stop before three equal ones, which make a run.
+    CHECK((rle("ABBB") == std::vector<uint8_t>{0xff, 'A', 3, 'B'}));
+    CHECK((rle("ABB") == std::vector<uint8_t>{0xfd, 'A', 'B', 'B'}));
+    // Runs and stretches of at most 127.
+    const std::vector<uint8_t> zeros(300, 0);
+    CHECK((compressRle(zeros.data(), zeros.size()) == std::vector<uint8_t>{127, 0, 127, 0, 46, 0}));
+    std::vector<uint8_t> mixed;
+    for (int i = 0; i < 1000; ++i)
+        mixed.push_back(uint8_t(i % 7 == 0 ? 9 : (i * 37) % 251));
+    mixed.insert(mixed.end(), 50, 3);
+    const std::vector<uint8_t> packed = compressRle(mixed.data(), mixed.size());
+    std::vector<uint8_t> back;
+    CHECK(decompressRle(packed.data(), packed.size(), mixed.size(), back) && back == mixed);
+    CHECK(!decompressRle(packed.data(), packed.size() - 1, mixed.size(), back));
+
+    SaveWriter w;
+    w.compress = true;
+    w.add(chunkId("ZERO"), zeros);
+    w.addInt(chunkId("GAME"), 7); // longer compressed: stored as it is
+    // id, minus the length, the stored length, checksum, data, marker.
+    CHECK(w.bytes().size() == (20 + 6) + (16 + 4));
+    CHECK(w.bytes()[4] == uint8_t(-300 & 0xff) && w.bytes()[8] == 6);
+    SaveReader r(w.bytes());
+    std::vector<uint8_t> data;
+    int32_t v = 0;
+    CHECK(!r.next(chunkId("ZERO"), data, 300) && data == zeros);
+    CHECK(!r.nextInt(chunkId("GAME"), v) && v == 7 && r.atEnd());
+}
+
 static void testSaveChunks() {
     using namespace reluva::idtech3::raven;
     CHECK(chunkId("COMM") == 0x434f4d4d && chunkName(chunkId("SHOT")) == "SHOT");
@@ -453,5 +491,6 @@ static const reluva::test::Suite
                {"menus", [](const std::filesystem::path &tmp) { testUiHost(tmp / "ui"); }},
                {"map commands", [](const std::filesystem::path &) { testMapCommands(); }},
                {"save chunks", [](const std::filesystem::path &) { testSaveChunks(); }},
+               {"compressed save chunks", [](const std::filesystem::path &) { testCompressedSaveChunks(); }},
                {"save kind", [](const std::filesystem::path &) { testSaveKind(); }},
            });

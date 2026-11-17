@@ -569,6 +569,16 @@ static void testImage() {
     // And with alpha kept.
     CHECK(!image::decode(image::encodeTga(two, true), back));
     CHECK(back.w == 2 && back.h == 2 && back.rgba == two.rgba);
+    // A JPEG read back: its size, and flat colours close to what they were.
+    image::Image flat;
+    flat.w = 16;
+    flat.h = 8;
+    for (int i = 0; i < flat.w * flat.h; ++i)
+        flat.rgba.insert(flat.rgba.end(), {200, 120, 40, 255});
+    const std::vector<uint8_t> jpeg = image::encodeJpeg(flat, 95);
+    CHECK(jpeg.size() > 4 && jpeg[0] == 0xff && jpeg[1] == 0xd8);
+    CHECK(!image::decode(jpeg, back) && back.w == 16 && back.h == 8);
+    CHECK(std::abs(back.pixel(5, 5)[0] - 200) < 4 && std::abs(back.pixel(5, 5)[2] - 40) < 4);
 
     // Blending half-transparent red over black.
     Surface s;

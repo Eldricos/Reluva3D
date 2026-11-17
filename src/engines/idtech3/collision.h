@@ -164,6 +164,11 @@ public:
     void adjust(int area1, int area2, bool open);
     // Whether the areas join up (never for -1).
     bool connected(int area1, int area2) const;
+    // How many times each portal is open, area by area (count x count), as
+    // a saved game keeps them; setting them floods again. False if there
+    // aren't count x count.
+    const std::vector<int> &openCounts() const { return _open; }
+    bool setOpenCounts(const std::vector<int> &counts);
 
 private:
     void flood();

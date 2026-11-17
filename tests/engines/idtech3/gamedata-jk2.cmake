@@ -100,7 +100,7 @@ elseif(STEP STREQUAL "jk2-game")
     record_run(ffa_bespin-mapchange "game code" idtech3 net-run "${base}" ffa_bespin -loopback 160 -set sv_pure 0
                -set g_maxForceRank 7 -clientcmd "team free" -mapchange ffa_deathstar)
 elseif(STEP STREQUAL "jk2-single-player")
-    record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame)
+    record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame -saveload)
 elseif(STEP STREQUAL "jk2-sp-tour")
     record_run(kejim_post "played to" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
                -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1)

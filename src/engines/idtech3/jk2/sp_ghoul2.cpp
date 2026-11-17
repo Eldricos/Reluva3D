@@ -900,6 +900,128 @@ void SpGameHost::addGhoul2Imports() {
         _cpu->write8(info + kValid, 1);
         return index;
     });
+    // Saved games: an instance as one buffer (jk2sp.exe's, 0x458d10), its
+    // model count then for each its record from the model index to the
+    // flags (112 bytes), and its surface overrides, bone overrides and
+    // bolts, each list's count then its records as they are.
+    constexpr uint32_t kSavedInfo = kFlags + 4 - kModelIndex;
+    const std::array<std::pair<uint32_t, uint32_t>, 3> lists = {
+        {{kSurfaces, kSurfaceRecordSize}, {kBones, kBoneSize}, {kBolts, kBoltSize}}};
+    slot("G2API_SaveGhoul2Models", [this, lists](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info_v &, &buffer out, &size out) -> 1. The buffer is
+        // the engine's; the game appends it to the save and gives it back
+        // (G2API_FreeSaveBuffer).
+        const uint32_t vector = ghoul2Vector(c.arg(0));
+        const uint32_t count = vector ? vectorCount(vector, kInfoSize) : 0;
+        std::vector<uint8_t> out;
+        auto put32 = [&out](uint32_t v) {
+            for (int i = 0; i < 4; ++i)
+                out.push_back(uint8_t(v >> (8 * i)));
+        };
+        auto copy = [&out, this](uint32_t from, uint32_t bytes) {
+            const uint8_t *p = _cpu->memory().data() + from;
+            out.insert(out.end(), p, p + bytes);
+        };
+        put32(count);
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t info = vectorAt(vector, kInfoSize, i);
+            copy(info + kModelIndex, kSavedInfo);
+            for (const auto &[list, size] : lists) {
+                const uint32_t n = vectorCount(info + list, size);
+                put32(n);
+                if (n)
+                    copy(vectorAt(info + list, size, 0), n * size);
+            }
+        }
+        const uint32_t buffer = _process->memory().alloc(uint32_t(out.size()));
+        if (!buffer || !c.valid(c.arg(1), 4) || !c.valid(c.arg(2), 4)) {
+            c.abort("G2API_SaveGhoul2Models: no memory for the instance");
+            return 0;
+        }
+        std::memcpy(_cpu->memory().data() + buffer, out.data(), out.size());
+        c.write32(c.arg(1), buffer);
+        c.write32(c.arg(2), uint32_t(out.size()));
+        return 1;
+    });
+    slot("G2API_LoadGhoul2Models", [this, lists](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info_v &, buffer): the instance made as saved (0x4592e0);
+        // each model with a file set up again, its index its place.
+        const uint32_t handle = c.arg(0);
+        uint32_t at = c.arg(1);
+        if (!c.valid(handle, 4) || !c.valid(at, 4))
+            return 0;
+        const uint32_t count = c.read32(at);
+        at += 4;
+        if (!count)
+            return 0;
+        if (!ghoul2Vector(handle)) {
+            const auto it = _g2Instances.emplace(_g2Next, _process->memory().alloc(kVectorSize)).first;
+            std::memset(_cpu->memory().data() + it->second, 0, kVectorSize);
+            c.write32(handle, uint32_t(_g2Next++));
+        }
+        const uint32_t vector = ghoul2Vector(handle);
+        for (uint32_t i = count, n = vectorCount(vector, kInfoSize); i < n; ++i) {
+            const uint32_t info = vectorAt(vector, kInfoSize, i);
+            for (const auto &[list, size] : lists)
+                vectorFree(info + list);
+        }
+        if (!vectorGrow(vector, kInfoSize, count)) {
+            c.abort("G2API_LoadGhoul2Models: no memory for the instance");
+            return 0;
+        }
+        for (uint32_t i = 0; i < count; ++i) {
+            const uint32_t info = vectorAt(vector, kInfoSize, i);
+            if (!c.valid(at, kSavedInfo))
+                break;
+            _cpu->write8(info + kValid, 0);
+            std::memcpy(_cpu->memory().data() + info + kModelIndex, _cpu->memory().data() + at, kSavedInfo);
+            at += kSavedInfo;
+            const std::string file = _cpu->string(info + kFileName, 64);
+            if (int32_t(_cpu->read32(info + kModelIndex)) != -1 && !file.empty()) {
+                _cpu->write32(info + kModelIndex, i);
+                ghoul2Files(file);
+                _cpu->write32(info + kModel, uint32_t(_models.add(file)));
+                _cpu->write8(info + kValid, 1);
+            }
+            for (const auto &[list, size] : lists) {
+                if (!c.valid(at, 4))
+                    break;
+                const uint32_t n = c.read32(at);
+                at += 4;
+                vectorFree(info + list);
+                if (!n)
+                    continue;
+                const uint32_t first = c.valid(at, n * size) ? vectorGrow(info + list, size, n) : 0;
+                if (!first) {
+                    c.abort("G2API_LoadGhoul2Models: a damaged instance");
+                    return 0;
+                }
+                std::memcpy(_cpu->memory().data() + first, _cpu->memory().data() + at, n * size);
+                at += n * size;
+            }
+        }
+        _g2PoseHashes.erase(int32_t(c.read32(handle)));
+        return 0;
+    });
+    slot("G2API_LoadSaveCodeDestructGhoul2Info", [this](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info_v &): the instance given back, its handle 0 (0x453900).
+        const uint32_t handle = c.arg(0);
+        if (!c.valid(handle, 4) || !c.read32(handle))
+            return 0;
+        if (const auto it = _g2Instances.find(int32_t(c.read32(handle))); it != _g2Instances.end()) {
+            freeGhoul2Models(it->second);
+            _process->memory().free(it->second);
+            _g2Instances.erase(it);
+        }
+        c.write32(handle, 0);
+        return 0;
+    });
+    slot("G2API_FreeSaveBuffer", [this](x86::Cpu &c) -> uint32_t {
+        // (buffer): one G2API_SaveGhoul2Models made (0x4538f0).
+        if (const uint32_t buffer = c.arg(0))
+            _process->memory().free(buffer);
+        return 0;
+    });
     slot("G2API_CleanGhoul2Models", [this](x86::Cpu &c) {
         // (CGhoul2Info_v &): the instance given back, its handle 0.
         const uint32_t handle = c.arg(0);

@@ -49,7 +49,14 @@ private:
     void stop(const std::string &why);
     // Saved games (saves/<name>.sav), as the original's save, load and
     // wipe commands; an autosave ("auto") as each new level starts.
-    void saveGame(const std::string &name, bool autosave);
+    // A save the player makes takes the screen as its picture unless
+    // given one (Jedi Outcast's: the next frame drawn, `_pendingSave`).
+    void saveGame(const std::string &name, bool autosave, const std::vector<uint8_t> &picture = {});
+    void saveJediGame(std::string name, bool autosave, const std::vector<uint8_t> &picture);
+    bool writeSaveFile(const std::string &name, const std::vector<uint8_t> &bytes);
+    // The map a saved game is of; empty if it can't be read.
+    std::string savedMap(const std::string &name) const;
+    bool jedi() const { return _ctx.game.code == GameCode::kJediOutcast; }
     void loadGame(std::string name);
     bool readSave(const std::string &name, std::vector<uint8_t> &file) const;
     // Whether the game code running can read a saved game: 1.x's and the
@@ -168,6 +175,7 @@ private:
     std::string _nextSpawnTarget;
     bool _nextLoadTransition = false;
     std::string _pendingTransition;
+    std::string _pendingSave; // a saved game waiting for the next frame, its picture
     bool _runningTransition = false;
     float _menuMouseX = 0;
     float _menuMouseY = 0;

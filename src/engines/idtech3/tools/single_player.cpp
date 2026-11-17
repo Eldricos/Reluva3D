@@ -14,6 +14,7 @@
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
+#include "engines/idtech3/jk2/sp_savegame.h"
 #include "engines/idtech3/raven/savegame.h"
 
 #include <algorithm>
@@ -771,10 +772,21 @@ int cmdSpRun(int argc, char **argv) {
     // (ReadLevel), as a check that what it writes reads back.
     if (saveLoad) {
         namespace efs = reluva::idtech3::eliteforce;
+        namespace jk2 = reluva::idtech3::jk2;
         efs::SaveWriter w;
-        game.setSaveStream(&w, nullptr);
-        reluva::Error e = game.writeLevel(false);
-        game.setSaveStream(nullptr, nullptr);
+        reluva::Error e;
+        if (game.jedi()) {
+            // The whole saved game, as the engine writes it.
+            jk2::SaveHeader header;
+            header.comment = "---> " + map;
+            header.map = map;
+            jk2::writeSaveHeader(w, cvars, header);
+            e = jk2::writeSaveLevel(w, game, false);
+        } else {
+            game.setSaveStream(&w, nullptr);
+            e = game.writeLevel(false);
+            game.setSaveStream(nullptr, nullptr);
+        }
         if (e)
             return failed("WriteLevel", e), 1;
         std::printf("saved: %zu bytes from the game\n", w.bytes().size());
@@ -786,9 +798,18 @@ int cmdSpRun(int argc, char **argv) {
             std::map<std::string, std::tuple<int, uint32_t, uint32_t>> seen;
             for (size_t at = 0; at + 12 <= out.size();) {
                 uint32_t id;
-                uint32_t length;
+                int32_t stored;
                 std::memcpy(&id, out.data() + at, 4);
-                std::memcpy(&length, out.data() + at + 4, 4);
+                std::memcpy(&stored, out.data() + at + 4, 4);
+                // A compressed chunk: its length negated, then the length
+                // compressed, which is what follows.
+                uint32_t length = uint32_t(stored);
+                size_t data = at + 12;
+                if (stored < 0) {
+                    length = uint32_t(-stored);
+                    std::memcpy(&stored, out.data() + at + 8, 4);
+                    data = at + 16;
+                }
                 const std::string name = reluva::idtech3::raven::chunkName(id);
                 auto [it, added] = seen.try_emplace(name, 0, length, length);
                 if (added)
@@ -797,7 +818,7 @@ int cmdSpRun(int argc, char **argv) {
                 ++count;
                 low = std::min(low, length);
                 high = std::max(high, length);
-                at += 16 + length;
+                at = data + (data == at + 16 ? uint32_t(stored) : length) + 4;
             }
             std::printf("chunks:");
             for (const std::string &name : order) {
@@ -814,12 +835,16 @@ int cmdSpRun(int argc, char **argv) {
             loaded.clock = [&loaded] { return 10000u + uint32_t(loaded.levelTime()); };
         loaded.print = game.print;
         efs::SaveReader r(w.bytes());
-        if ((e = loaded.load(dll)))
+        jk2::SaveHeader header;
+        if (game.jedi() && (e = jk2::readSaveHeader(r, cvars, header)))
+            return failed("Reading the saved game's header", e), 1;
+        if ((e = loaded.load(dll, jedi)))
             return failed("Loading the DLL again", e), 1;
         loaded.setSaveStream(nullptr, &r);
         if ((e = loaded.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0, 1)))
             return failed("Starting the level to load", e), 1;
-        if ((e = loaded.readLevel(false)))
+        e = game.jedi() ? jk2::readSaveLevel(r, loaded, false) : loaded.readLevel(false);
+        if (e)
             return failed("ReadLevel", e), 1;
         loaded.setSaveStream(nullptr, nullptr);
         std::printf("loaded: %s\n", r.atEnd() ? "every chunk read back" : "chunks left over");

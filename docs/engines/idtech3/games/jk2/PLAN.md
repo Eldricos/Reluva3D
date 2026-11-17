@@ -183,10 +183,12 @@ behind the DLL's own tables.
    the player in the level ([systems/sp-cinematics.md](systems/sp-cinematics.md)).
    `kejim_post` plays through to its level change with cheats
    (`sp-run -tour`: every trigger, fighting with every direct-fire
-   weapon); the brush models' contents and call 88 came of it. Next:
-   saving and loading (`G2API_SaveGhoul2Models`, and `load *respawn`
-   after a death), the next levels the same way, and a console on the
-   page.
+   weapon); the brush models' contents and call 88 came of it. Games
+   save and load: the automatic saves, `save` and `load` (`F12`, `F9`)
+   and `load *respawn` after a death, compressed chunks and JPEG
+   pictures, the game's Ghoul2 instances with them
+   ([systems/sp-saves.md](systems/sp-saves.md)). Next: the next levels
+   the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

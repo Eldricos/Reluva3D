@@ -25,10 +25,11 @@ None yet.
 ## Not yet as the original
 
 Single player isn't playable yet ([PLAN.md](PLAN.md)): the first level
-runs on the Play page, its opening included, and plays through, but
-games aren't saved (the automatic save at a level's start included), a
-death doesn't reload the last save, and the page has no console
-([systems/sp-interface.md](systems/sp-interface.md)). In the maps:
+runs on the Play page, its opening included, plays through, and saves
+and loads, but the page has no console nor menus
+([systems/sp-interface.md](systems/sp-interface.md)); `loadtransition`'s
+hub saves aren't made, and a save isn't refused while a cinematic plays
+([systems/sp-saves.md](systems/sp-saves.md)). In the maps:
 
 - **Surface sprites** (grass, ferns, vines) on far curves stay where
   they stand up close, where the original's move as it drops the curve's

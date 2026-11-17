@@ -23,14 +23,27 @@ namespace reluva::idtech3::raven {
 // Chunks are read back in the order they were written; the engine's and
 // the game's (AppendToSaveGame / ReadFromSaveGame) are interleaved in one
 // file.
+//
+// Jedi Outcast's engine compresses a chunk where that makes it shorter
+// (docs/engines/idtech3/games/jk2/systems/sp-saves.md): its length is
+// then negated, followed by the compressed length; the checksum is the
+// uncompressed data's, and the data compressed by compressRle().
 constexpr uint32_t chunkId(const char (&s)[5]) {
     return uint32_t(uint8_t(s[0])) << 24 | uint32_t(uint8_t(s[1])) << 16 | uint32_t(uint8_t(s[2])) << 8 |
            uint32_t(uint8_t(s[3]));
 }
 std::string chunkName(uint32_t id);
 
+// Jedi Outcast's run-length coding (jk2sp.exe, 0x439220): a control byte,
+// then n > 0: the next byte n times; n < 0: the next -n bytes as they are.
+std::vector<uint8_t> compressRle(const uint8_t *data, size_t length);
+// False if the data ends early or doesn't make `length` bytes exactly.
+bool decompressRle(const uint8_t *data, size_t size, size_t length, std::vector<uint8_t> &out);
+
 class SaveWriter {
 public:
+    // Chunks compressed where it makes them shorter, as Jedi Outcast's.
+    bool compress = false;
     void add(uint32_t id, const void *data, size_t length);
     void add(uint32_t id, const std::vector<uint8_t> &data) { add(id, data.data(), data.size()); }
     void addInt(uint32_t id, int32_t v) { add(id, &v, 4); }

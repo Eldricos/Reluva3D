@@ -188,9 +188,8 @@ game waiting under them are as [sp-cinematics.md](sp-cinematics.md)
 says. With these, `kejim_post`'s opening plays through: the crawl, the
 approach, the cutscene in the cockpit and Mon Mothma's message, then the
 player in the level, which plays through to its end (`sp-run -tour`,
-below). Not yet: saving (the game asks for its Ghoul2 instances'
-records, `G2API_SaveGhoul2Models`), loading after the player dies
-(`load *respawn`), and a console on the page.
+below). Games save and load as [sp-saves.md](sp-saves.md) says. Not
+yet: a console on the page.
 
 ## Sources and checks
 

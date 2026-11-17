@@ -133,8 +133,8 @@ draws one whose instance has no models.
 
 Not yet answered (they stop the game, by name): collision, the matrix
 overrides, adding and removing surfaces and bones, copying an instance,
-the new origin, surface names and parents, and saving and loading
-instances.
+the new origin, and surface names and parents. Saving and loading
+instances (entries 95 to 98) are as [sp-saves.md](sp-saves.md) says.
 
 ## Sources and checks
 

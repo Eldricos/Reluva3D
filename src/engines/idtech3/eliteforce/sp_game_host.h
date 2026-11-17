@@ -184,6 +184,10 @@ public:
     int32_t playerHealth() const;
     static constexpr uint32_t kPsHealth = 0xbc; // stats[STAT_HEALTH]
     void setLevelTime(int32_t ms) { _levelTime = ms; }
+    // The area portals' open counts, as Jedi Outcast's saves keep them
+    // (PRTS: areas x areas ints); setting them false if they don't fit.
+    std::vector<uint8_t> areaPortalState() const;
+    bool setAreaPortalState(const std::vector<uint8_t> &state);
     void replaceConfigstrings(const std::map<int32_t, std::string> &strings);
 
     // The game's GameAllowedToSaveHere(flag), which the menus ask through
