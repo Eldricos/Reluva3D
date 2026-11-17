@@ -58,6 +58,12 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Guessed
 
+- Single player's shots and saber hit an entity's box: the Ghoul2 trace
+  type and level of detail the game passes `trace` are left out, so
+  Ghoul2 models aren't hit by their triangles; `kejim_post` plays
+  through this way, but hits may land where the original's miss
+  ([systems/sp-interface.md](systems/sp-interface.md)).
+
 - A paused Ghoul2 animation in single player is posed as if it went on;
   the original's poses it where it was paused
   ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)).

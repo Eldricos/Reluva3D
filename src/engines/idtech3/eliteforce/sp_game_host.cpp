@@ -1301,6 +1301,22 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
     return out;
 }
 
+int32_t SpGameHost::brushModelContents(int model) const {
+    if (!_map || model < 0 || size_t(model) >= _map->models.size())
+        return 0;
+    const BspModel &m = _map->models[size_t(model)];
+    auto shaderContents = [this](int32_t shader) {
+        return shader >= 0 && size_t(shader) < _map->shaders.size() ? _map->shaders[size_t(shader)].contentFlags : 0;
+    };
+    int32_t contents = 0;
+    for (int32_t b = m.firstBrush; b < m.firstBrush + m.numBrushes && size_t(b) < _map->brushes.size(); ++b)
+        contents |= shaderContents(_map->brushes[size_t(b)].shader);
+    for (int32_t s = m.firstSurface; s < m.firstSurface + m.numSurfaces && size_t(s) < _map->surfaces.size(); ++s)
+        if (_map->surfaces[size_t(s)].type == SurfaceType::kPatch)
+            contents |= shaderContents(_map->surfaces[size_t(s)].shader);
+    return contents;
+}
+
 std::array<uint8_t, 32> SpGameHost::hiddenAreas(const Vec3f &eye) const {
     std::array<uint8_t, 32> mask{};
     if (!_world || !_areaPortals || (_cvars.find("cm_noAreas") && _cvars.integer("cm_noAreas")))
@@ -1666,7 +1682,11 @@ void SpGameHost::addImports() {
         writeVec(ent + _entity.mins, mins);
         writeVec(ent + _entity.maxs, maxs);
         c.write32(ent + _entity.bmodel, 1);
-        c.write32(ent + _entity.contents, 0xffffffffu); // whatever its brushes hold
+        // Elite Force's engine, as Quake III's: everything (-1), not knowing
+        // what its brushes hold. Jedi Outcast's: what they and its curves
+        // hold (0x40d290), or a brush model counts as a lightsaber
+        // (CONTENTS_LIGHTSABER) to a shot that hits it.
+        c.write32(ent + _entity.contents, _jedi ? uint32_t(brushModelContents(model)) : 0xffffffffu);
         linkEntity(ent);
         return 0u;
     });

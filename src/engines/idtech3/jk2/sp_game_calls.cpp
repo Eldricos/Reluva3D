@@ -269,6 +269,72 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
                 _lightStyles[style][i] = uint8_t(a(1) >> (8 * i));
         return 0;
     }
+    case 88: { // R_GetBModelVerts(model, vec3_t points[4] out, normal) (0x48ae20)
+        // Of the brush model's two largest faces (by their four points'
+        // two triangles, a quarter of each cross product, squared lengths
+        // summed, cut to whole numbers), the one facing the last scene's
+        // view more, if it faces it at all; else the largest. Its first
+        // four points; the normal isn't written.
+        const int model = int(a(0));
+        if (!_map || model < 0 || size_t(model) >= _map->models.size() || !c.valid(a(1), 48))
+            return 0;
+        const BspModel &m = _map->models[size_t(model)];
+        auto point = [this](const BspSurface &surface, int k) {
+            const int32_t v = surface.firstVertex + std::min(k, std::max(surface.numVertices - 1, 0));
+            return v >= 0 && size_t(v) < _map->vertices.size() ? _map->vertices[size_t(v)].pos : std::array<float, 3>{};
+        };
+        auto cross2 = [](const std::array<float, 3> &p, const std::array<float, 3> &q, const std::array<float, 3> &r) {
+            const float u[3] = {p[0] - q[0], p[1] - q[1], p[2] - q[2]};
+            const float v[3] = {p[0] - r[0], p[1] - r[1], p[2] - r[2]};
+            const float x = (u[1] * v[2] - u[2] * v[1]) * 0.25f;
+            const float y = (u[2] * v[0] - u[0] * v[2]) * 0.25f;
+            const float z = (u[0] * v[1] - u[1] * v[0]) * 0.25f;
+            return x * x + y * y + z * z;
+        };
+        int largest = 0;
+        int second = 0;
+        int largestArea = 0;
+        int secondArea = 0;
+        for (int i = 0; i < m.numSurfaces; ++i) {
+            const int32_t at = m.firstSurface + i;
+            if (at < 0 || size_t(at) >= _map->surfaces.size())
+                break;
+            const BspSurface &f = _map->surfaces[size_t(at)];
+            const int area =
+                int(cross2(point(f, 0), point(f, 1), point(f, 3)) + cross2(point(f, 2), point(f, 1), point(f, 3)));
+            if (area > largestArea) {
+                secondArea = largestArea;
+                second = largest;
+                largestArea = area;
+                largest = i;
+            } else if (area >= secondArea) {
+                secondArea = area;
+                second = i;
+            }
+        }
+        // The last scene's view: its forward axis (refdef_t's at 36).
+        std::array<float, 3> forward{};
+        if (_scene.view.size() >= 48)
+            std::memcpy(forward.data(), _scene.view.data() + 36, 12);
+        auto facing = [&](int i) {
+            const int32_t at = m.firstSurface + i;
+            if (at < 0 || size_t(at) >= _map->surfaces.size())
+                return 0.0f;
+            const auto &n = _map->surfaces[size_t(at)].lightmapVecs[2];
+            return n[0] * forward[0] + n[1] * forward[1] + n[2] * forward[2];
+        };
+        const float d1 = facing(largest);
+        const float d2 = facing(second);
+        const int chosen = d2 < d1 && d2 < 0 ? second : largest;
+        const int32_t at = m.firstSurface + chosen;
+        if (at < 0 || size_t(at) >= _map->surfaces.size())
+            return 0;
+        for (int k = 0; k < 4; ++k) {
+            const std::array<float, 3> p = point(_map->surfaces[size_t(at)], k);
+            writeVec(a(1) + uint32_t(12 * k), {p[0], p[1], p[2]});
+        }
+        return 0;
+    }
     case 89: // R_WorldEffectCommand(text): the weather system's
         return 0;
     // The menus, as jk2sp.exe's (0x49f970 on): a file read in a parse

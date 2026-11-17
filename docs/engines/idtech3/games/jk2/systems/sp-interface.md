@@ -56,6 +56,10 @@ the player's arrival starts look for them as they load.
   Two differ in their arguments: `trace` 29 takes two more after the
   content mask (a Ghoul2 trace type and level of detail), and `Malloc`
   40 takes a tag and whether to zero what it gives, before `Free` 41.
+  One differs in what it does: `SetBrushModel` 26 (0x4364f0) sets the
+  entity's contents to what its model's brushes and curves hold, ORed
+  (0x40d290), where Quake III's and Elite Force's set every bit (-1),
+  then links it.
 - **42–102:** Ghoul2's, in the GPL source's order: from
   `G2API_PrecacheGhoul2Model` 42 and `G2API_InitGhoul2Model` 43 to
   `RE_RegisterSkin` 101 and `RE_GetAnimationCFG` 102 (the names in
@@ -120,7 +124,9 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | 75–80 | ambient sets: update, local set, parse, add entry, brush model sound; `S_GetSampleLength` | 65–70 |
 | 81 | two points (0x415ba0) the engine writes out as six numbers, to record a path | — |
 | 82–85 | Ghoul2: list bones, list surfaces, `HaveWeGhoul2Models`, `SetModels` | — |
-| 86–89 | light styles get and set, a brush model's corners, `R_WorldEffectCommand` | — |
+| 86, 87 | light styles get and set | — |
+| 88 | `R_GetBModelVerts(model, points out, normal)` (0x48ae20): of the brush model's two largest faces (each's area its first four points' two triangles, a quarter of each cross product, squared lengths summed, cut to whole numbers), the second if it faces the last scene's view more (its normal against the view's forward axis, smaller) and faces it at all (below 0), else the largest; its first four points written; the normal isn't | — |
+| 89 | `R_WorldEffectCommand(text)` | — |
 | 90–94 | cinematics: play, stop, run, draw, set extents | — |
 | 95, 96 | `Z_Malloc(size, tag)` (0x414960, zeroed), `Z_Free` | — |
 | 97–107 | the menus' parser: reset, new menu, parse int, string and float, start and end a session, `PC_ParseExt`, paint all, string init, menu info | — |
@@ -154,8 +160,11 @@ The client game's calls are answered as the table above says, Elite
 Force's handling shared where the call and what it passes are the same
 (`SpGameHost::cgameCall` with Elite Force's number), the snapshot and
 scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
-answered: a brush model's corners (88) and the cinematics (90–94),
-which stop the game with their number. Ghoul2's engine slots and calls
+answered: the cinematics (90–94), which stop the game with their
+number; the weather's `R_WorldEffectCommand` (89) is taken and does
+nothing. The Ghoul2 trace type and level of detail `trace` is given are
+left out: a shot or saber hits an entity's box, not its Ghoul2 model's
+triangles *(guessed)*. Ghoul2's engine slots and calls
 84 and 85 are answered as [sp-ghoul2.md](sp-ghoul2.md) says, the menus'
 (97–107, 111) as [sp-menus.md](sp-menus.md) says. With them, `sp-run`
 on `kejim_post` runs the game's `Init`, the player joins, and the level
@@ -178,9 +187,10 @@ Outcast the host runs the second of frames above between the player's
 game waiting under them are as [sp-cinematics.md](sp-cinematics.md)
 says. With these, `kejim_post`'s opening plays through: the crawl, the
 approach, the cutscene in the cockpit and Mon Mothma's message, then the
-player in the level. Not yet: saving (the game asks for its Ghoul2
-instances' records, `G2API_SaveGhoul2Models`) and a console on the
-page.
+player in the level, which plays through to its end (`sp-run -tour`,
+below). Not yet: saving (the game asks for its Ghoul2 instances'
+records, `G2API_SaveGhoul2Models`), loading after the player dies
+(`load *respawn`), and a console on the page.
 
 ## Sources and checks
 
@@ -201,3 +211,12 @@ page.
   game breaking lines past its buffer into its copy of the engine's
   table. Without the second of frames, the cutscene's script found its
   actors before they'd spawned and waited for ever.
+- **Playing a level through:** `sp-run <base> kejim_post -tour 100000
+  -spare jan -spare cinematic1_jan -spare cinematic1_kyle -set
+  helpUsObi 1` plays the level with cheats from 100 s (the opening
+  over): every trigger touched in turn, fighting the nearest NPCs
+  between them with every direct-fire weapon, the saber included, to
+  the level change (`maptransition kejim_base`). It found the brush
+  models' contents (a shot at a breakable took it for a lightsaber,
+  `CONTENTS_LIGHTSABER`, and the game crashed on its missing wielder)
+  and call 88.

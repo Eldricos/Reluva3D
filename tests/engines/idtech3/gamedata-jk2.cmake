@@ -35,6 +35,10 @@
 #                 the player joining and 100 server frames, the client game
 #                 (its HUD menus read) drawing each, on a clock that moves
 #                 with the level's so the run repeats (sp-run)
+#   jk2-sp-tour   kejim_post played through with cheats once its opening
+#                 is over: every trigger touched, fighting between them
+#                 with every direct-fire weapon, to the level change; Jan
+#                 spared (her death fails the mission). About six minutes.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -97,6 +101,9 @@ elseif(STEP STREQUAL "jk2-game")
                -set g_maxForceRank 7 -clientcmd "team free" -mapchange ffa_deathstar)
 elseif(STEP STREQUAL "jk2-single-player")
     record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame)
+elseif(STEP STREQUAL "jk2-sp-tour")
+    record_run(kejim_post "played to" idtech3 sp-run "${base}" kejim_post -tour 100000 -spare jan
+               -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

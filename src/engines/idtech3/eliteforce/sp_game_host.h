@@ -126,6 +126,7 @@ public:
     Error load(const std::vector<uint8_t> &dll, bool jedi = false);
     bool jedi() const { return _jedi; }
     const char *dllName() const { return _jedi ? "jk2gamex86.dll" : "efgamex86.dll"; }
+    const SpEntityLayout &entityLayout() const { return _entity; }
     // Jedi Outcast's light styles, as its client game last set them.
     const LightStyleColors &lightStyles() const { return _lightStyles; }
     // Jedi Outcast's: the models to draw of the Ghoul2 instance whose
@@ -518,6 +519,8 @@ private:
     // The snapshot's area mask for a view from `eye`: a bit for each area
     // not joined to the one it's in.
     std::array<uint8_t, 32> hiddenAreas(const Vec3f &eye) const;
+    // What a brush model's brushes and curves hold, together.
+    int32_t brushModelContents(int model) const;
     std::vector<int32_t> visibleEntities(const Vec3f &eye);
     void writeSnapshot(uint32_t address, const Snapshot &snap);
     void writeGameState(uint32_t address);

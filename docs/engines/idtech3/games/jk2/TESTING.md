@@ -30,7 +30,10 @@
   and Join Server by way of Play), `jk2-single-player` (`sp-run`: the
   single-player game DLL on kejim_post, its `Init`, the player joining
   and 100 server frames, the client game drawing each, on a fixed
-  clock). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  clock), `jk2-sp-tour` (`sp-run -tour`: kejim_post played through with
+  cheats from the end of its opening, every trigger touched and the
+  nearest stormtroopers fought between them with every direct-fire
+  weapon, to its level change; about six minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

@@ -10,6 +10,7 @@
 #include "common/fs.h"
 #include "emulation/x86/cpu.h"
 #include "engines/idtech3/formats/bsp.h"
+#include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
@@ -35,6 +36,182 @@ namespace {
 
 using namespace reluva::tool;
 using namespace reluva::idtech3::tool;
+
+namespace {
+
+namespace q3 = reluva::idtech3;
+namespace ef = reluva::idtech3::eliteforce;
+
+// An entity's text fields (pointers to printable text), quoted.
+std::string entityTexts(ef::SpGameHost &game, int32_t n) {
+    reluva::x86::Cpu &cpu = game.cpu();
+    std::string out;
+    for (int32_t off = 0; off + 4 <= game.entitySize() && out.size() < 200; off += 4) {
+        const uint32_t p = uint32_t(game.entityInt(n, off));
+        const std::string t = cpu.valid(p, 1) ? cpu.string(p, 64) : std::string();
+        if (t.size() >= 3 && std::all_of(t.begin(), t.end(), [](char c) { return c > 32 && c < 127; }))
+            out += " \"" + t + "\"";
+    }
+    return out;
+}
+
+// Whether one of an entity's text fields is `text` (lower case).
+bool entityHasText(ef::SpGameHost &game, int32_t n, const std::string &text) {
+    reluva::x86::Cpu &cpu = game.cpu();
+    for (int32_t off = 0; off + 4 <= game.entitySize(); off += 4) {
+        const uint32_t p = uint32_t(game.entityInt(n, off));
+        if (cpu.valid(p, 1) && reluva::fs::toLower(cpu.string(p, 64)) == text)
+            return true;
+    }
+    return false;
+}
+
+// For "@face name" and "@nearest name -other...": a setviewpos putting
+// the player 96 units to one side of the living entity with that name
+// (the nearest, for @nearest, but those with the other names), facing it;
+// the first side not over a trigger_hurt, a pit, which kills through god
+// mode. Empty if there's no such entity.
+std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest) {
+    std::istringstream in(reluva::fs::toLower(words));
+    std::string want;
+    in >> want;
+    std::vector<std::string> skip;
+    for (std::string w; in >> w;)
+        if (w.size() > 1 && w[0] == '-')
+            skip.push_back(w.substr(1));
+    const ef::SpEntityLayout &layout = game.entityLayout();
+    const q3::Vec3f me = game.entityVec(0, layout.currentOrigin);
+    int32_t found = -1;
+    float best = 0;
+    std::vector<std::pair<q3::Vec3f, q3::Vec3f>> hurts;
+    for (int32_t n = 1; n < game.entityCount(); ++n) {
+        if (!game.entityInt(n, layout.inUse))
+            continue;
+        if (entityHasText(game, n, "trigger_hurt"))
+            hurts.emplace_back(game.entityVec(n, layout.absMin), game.entityVec(n, layout.absMax));
+        if ((!nearest && found >= 0) || !entityHasText(game, n, want) ||
+            std::any_of(skip.begin(), skip.end(), [&](const std::string &s) { return entityHasText(game, n, s); }))
+            continue;
+        const q3::Vec3f at = game.entityVec(n, layout.currentOrigin);
+        const float d =
+            (at[0] - me[0]) * (at[0] - me[0]) + (at[1] - me[1]) * (at[1] - me[1]) + (at[2] - me[2]) * (at[2] - me[2]);
+        if (found < 0 || d < best) {
+            found = n;
+            best = d;
+        }
+    }
+    if (found < 0)
+        return {};
+    const q3::Vec3f at = game.entityVec(found, layout.currentOrigin);
+    const float sides[4][3] = {{-96, 0, 0}, {96, 0, 180}, {0, -96, 90}, {0, 96, 270}};
+    const float *side = sides[0];
+    for (const float *s : sides) {
+        const float x = at[0] + s[0];
+        const float y = at[1] + s[1];
+        const bool over = std::any_of(hurts.begin(), hurts.end(), [&](const auto &h) {
+            return x > h.first[0] - 32 && x < h.second[0] + 32 && y > h.first[1] - 32 && y < h.second[1] + 32 &&
+                   h.first[2] < at[2] + 64;
+        });
+        if (!over) {
+            side = s;
+            break;
+        }
+    }
+    char command[128];
+    std::snprintf(command, sizeof command, "setviewpos %.0f %.0f %.0f %.0f", double(at[0] + side[0]),
+                  double(at[1] + side[1]), double(at[2]) + 8, double(side[2]));
+    return command;
+}
+
+// -tour: a replay (as -replay reads) playing a level through with cheats.
+// At `fromMs` (the opening over), god and undying modes and every weapon;
+// then each trigger in the level touched in turn (its middle, a little up
+// from its floor), and three seconds of fighting the nearest NPC, the
+// weapon changing each time. Left out: trigger_hurt, triggers in or over
+// one, and triggers naming a spared entity (an ally they'd move into
+// the fighting); spared entities aren't shot at. Only direct fire (the
+// saber, pistol, blaster, disruptor, bowcaster, repeater): splash would
+// hurt the allies, whose death fails the mission. Last, the triggers
+// that change the level.
+std::string tourRoute(const q3::Bsp &bsp, int fromMs, const std::vector<std::string> &spare) {
+    std::vector<q3::Entity> entities;
+    if (q3::parseEntities(bsp.entities, entities))
+        return {};
+    auto bounds = [&bsp](const q3::Entity &e, std::array<float, 6> &out) {
+        const std::string m = e.get("model");
+        if (m.size() < 2 || m[0] != '*')
+            return false;
+        const int n = std::atoi(m.c_str() + 1);
+        if (n <= 0 || size_t(n) >= bsp.models.size())
+            return false;
+        const q3::BspModel &model = bsp.models[size_t(n)];
+        out = {model.mins[0], model.mins[1], model.mins[2], model.maxs[0], model.maxs[1], model.maxs[2]};
+        return true;
+    };
+    std::vector<std::array<float, 6>> hurts;
+    for (const q3::Entity &e : entities)
+        if (std::array<float, 6> b{}; e.classname() == "trigger_hurt" && bounds(e, b))
+            hurts.push_back(b);
+    std::set<std::string> levelChanges;
+    for (const q3::Entity &e : entities)
+        if (e.classname() == "target_level_change" && e.has("targetname"))
+            levelChanges.insert(e.get("targetname"));
+    std::vector<std::array<float, 6>> exits;
+    std::string skip;
+    for (const std::string &s : spare)
+        skip += " -" + s;
+    std::string out = "@until " + std::to_string(fromMs) + " 0 0\n/god\n/undying\n/give all\n";
+    const int weapons[] = {4, 3, 4, 1, 4, 2, 4, 5, 4, 6}; // mostly the disruptor, which kills at a shot
+    int t = fromMs;
+    int count = 0;
+    for (const q3::Entity &e : entities) {
+        std::array<float, 6> b{};
+        const std::string cls = e.classname();
+        if (cls.rfind("trigger_", 0) != 0 || cls == "trigger_hurt" || !bounds(e, b))
+            continue;
+        if (levelChanges.count(e.get("target"))) {
+            exits.push_back(b);
+            continue;
+        }
+        bool named = false;
+        for (const auto &[key, value] : e.pairs)
+            for (const std::string &s : spare)
+                named = named || reluva::fs::toLower(value).find(s) != std::string::npos;
+        const float x = (b[0] + b[3]) / 2;
+        const float y = (b[1] + b[4]) / 2;
+        const float z = b[2] + 24;
+        const bool hurt = std::any_of(hurts.begin(), hurts.end(), [&](const std::array<float, 6> &h) {
+            return h[0] - 48 < x && x < h[3] + 48 && h[1] - 48 < y && y < h[4] + 48 && h[2] - 64 < z && z < h[5] + 64;
+        });
+        if (named || hurt)
+            continue;
+        const int w = weapons[count % int(std::size(weapons))];
+        char line[160];
+        std::snprintf(line, sizeof line, "# %d %s\n/setviewpos %.0f %.0f %.0f 0\n", count, cls.c_str(), double(x),
+                      double(y), double(z));
+        out += line;
+        t += 300;
+        out += "@until " + std::to_string(t) + " 0 " + std::to_string(w) + "\n";
+        for (int k = 0; k < 6; ++k) {
+            out += "@nearest npc" + skip + "\n";
+            t += 500;
+            // The saber swung and thrown in turn; the guns' main fire.
+            const int buttons = w == 1 && k % 2 ? 128 : 1;
+            out += "@until " + std::to_string(t) + " " + std::to_string(buttons) + " " + std::to_string(w) + "\n";
+        }
+        ++count;
+    }
+    for (const std::array<float, 6> &b : exits) {
+        char line[128];
+        std::snprintf(line, sizeof line, "# the level change\n/setviewpos %.0f %.0f %.0f 0\n",
+                      double((b[0] + b[3]) / 2), double((b[1] + b[4]) / 2), double(b[2] + 24));
+        out += line;
+    }
+    out += "@until " + std::to_string(t + 3000) + " 0 0\n";
+    return out;
+}
+
+} // namespace
 
 // Runs Elite Force's single-player menus (efuix86.dll, in the x86
 // interpreter): GetUIAPI, Init, the main menu, then frames, with keys
@@ -166,7 +343,12 @@ int cmdSpRun(int argc, char **argv) {
             stderr,
             "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
-            "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
+            "       [-replay <name>.input | -tour <ms> [-spare name]...]\n"
+            "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
+            "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
+            "\"/command\" typed at the console; \"@until ms [buttons] [weapon]\" the same command every 50 ms until\n"
+            "then; \"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
+            "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -182,7 +364,10 @@ int cmdSpRun(int argc, char **argv) {
     bool fixedClock = false;           // -fixedclock: the game's clock moves with its level time, for runs that repeat
     bool saveLoad = false;             // -saveload: save at the end, load into a fresh game
     std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
-    std::string replayPath;            // -replay file: the player's commands, as the Play page records them
+    int tourFrom = 0;                  // -tour ms: from then, a route through the level's triggers (tourRoute)
+    std::vector<std::string> spare;    // -spare name: not shot at, nor its triggers touched, on a tour
+    std::string replayPath;            // -replay file: the player's commands, as the Play page records them,
+                                       // "/command" lines typed at the console and "@" lines (see below)
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = firstOption; i < argc; ++i) {
@@ -210,6 +395,11 @@ int cmdSpRun(int argc, char **argv) {
             saveLoad = true;
         else if (std::strcmp(argv[i], "-load") == 0 && i + 1 < argc)
             loadName = argv[++i];
+        else if (std::strcmp(argv[i], "-tour") == 0 && i + 1 < argc) {
+            tourFrom = std::atoi(argv[++i]);
+            runCgame = true;
+        } else if (std::strcmp(argv[i], "-spare") == 0 && i + 1 < argc)
+            spare.push_back(reluva::fs::toLower(argv[++i]));
         else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc) {
             replayPath = argv[++i];
             runCgame = true; // the commands go through the client game, as recorded
@@ -332,6 +522,17 @@ int cmdSpRun(int argc, char **argv) {
         std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n",
                     cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4],
                     cpu.faultReg[5], cpu.faultReg[6], cpu.faultReg[7]);
+        // Registers pointing into an entity: which, its owner and its text.
+        if (const uint32_t first = game.entities(); first && game.entitySize() > 0)
+            for (int r = 0; r < 8; ++r) {
+                const uint32_t v = cpu.faultReg[size_t(r)];
+                const uint32_t size = uint32_t(game.entitySize());
+                if (v < first || v >= first + size * uint32_t(game.entityCount()))
+                    continue;
+                const int32_t n = int32_t((v - first) / size);
+                std::printf("  register %d: entity %d (+0x%x), owner %08x:%s\n", r, n, (v - first) % size,
+                            uint32_t(game.entityInt(n, game.entityLayout().owner)), entityTexts(game, n).c_str());
+            }
         // Return addresses on the stack: words pointing into the DLL's code.
         std::printf("stack (words pointing into the DLL):");
         int shown = 0;
@@ -420,7 +621,7 @@ int cmdSpRun(int argc, char **argv) {
                               bytesFloat(r, 32));
                 view = b;
             }
-            const uint32_t ps = uint32_t(game.entityInt(0, ef::SpEntityLayout{}.client));
+            const uint32_t ps = uint32_t(game.entityInt(0, game.entityLayout().client));
             std::printf("[%5d ms] camera %s (%.0f %.0f %.0f); %s; player at %.0f %.0f %.0f, pm_type %d; "
                         "%zu scene entities, %zu pictures; cg_thirdPerson %s\n",
                         game.levelTime(), camera ? "on" : "off", cam[0], cam[1], cam[2], view.c_str(), f(ps + 20),
@@ -432,20 +633,72 @@ int cmdSpRun(int argc, char **argv) {
         }
         return 0;
     };
-    if (!replayPath.empty()) {
+    if (!replayPath.empty() || tourFrom > 0) {
         // -replay: the recorded commands in order, the server's frames run
-        // up to each as the Play page ran them.
-        std::ifstream in(replayPath);
-        if (!in) {
-            std::fprintf(stderr, "can't read %s\n", replayPath.c_str());
-            return 1;
+        // up to each as the Play page ran them. -tour: a route made here.
+        std::ifstream file;
+        std::istringstream route(tourFrom > 0 ? tourRoute(*bsp, tourFrom, spare) : std::string());
+        if (tourFrom <= 0) {
+            file.open(replayPath);
+            if (!file) {
+                std::fprintf(stderr, "can't read %s\n", replayPath.c_str());
+                return 1;
+            }
         }
+        std::istream &in = tourFrom > 0 ? static_cast<std::istream &>(route) : file;
         std::string line;
         int f = 0;
         int lastButtons = 0;
-        while (std::getline(in, line)) {
+        // The commands for "@until": empty but for the buttons and weapon
+        // given, every 50 ms up to that level time.
+        std::vector<std::string> generated;
+        size_t nextGenerated = 0;
+        int32_t lastTime = 0;
+        auto nextLine = [&](std::string &out) {
+            if (nextGenerated < generated.size()) {
+                out = generated[nextGenerated++];
+                return true;
+            }
+            generated.clear();
+            nextGenerated = 0;
+            return bool(std::getline(in, out));
+        };
+        while (nextLine(line)) {
             if (line.empty() || line[0] == '#')
                 continue;
+            if (line.rfind("@until ", 0) == 0) {
+                int until = 0;
+                int buttons = 0;
+                int weapon = 0;
+                std::sscanf(line.c_str() + 7, "%d %d %d", &until, &buttons, &weapon);
+                for (int32_t t = std::max(lastTime + 50, game.levelTime()); t < until; t += 50)
+                    generated.push_back(std::to_string(t) + " " + std::to_string(buttons) + " " +
+                                        std::to_string(weapon) + " 0 0 0 0 0 0");
+                continue;
+            }
+            // "@face name": the player put beside the living entity with
+            // that name (any of its text fields), facing it. "@nearest name
+            // -other...": the nearest such, but those with the other names.
+            const bool nearest = line.rfind("@nearest ", 0) == 0;
+            if (line.rfind("@face ", 0) == 0 || nearest) {
+                const std::string command = facingCommand(game, line.substr(nearest ? 9 : 6), nearest);
+                if (watch)
+                    std::printf("[%5d ms] %s: %s\n", game.levelTime(), line.c_str(),
+                                command.empty() ? "none" : command.c_str());
+                if (!command.empty())
+                    if (reluva::Error e = game.clientConsoleCommand(command))
+                        return failed(("command " + line).c_str(), e);
+                continue;
+            }
+            // "/text": typed at the console then (cheats to test a level
+            // with: god, give all, setviewpos...).
+            if (line[0] == '/') {
+                if (watch)
+                    std::printf("[%5d ms] %s\n", game.levelTime(), line.c_str());
+                if (reluva::Error e = game.clientConsoleCommand(line.substr(1)))
+                    return failed(("command " + line).c_str(), e);
+                continue;
+            }
             ef::SpGameHost::UserCommand cmd;
             int weapon = 0;
             int forward = 0;
@@ -454,6 +707,7 @@ int cmdSpRun(int argc, char **argv) {
             if (std::sscanf(line.c_str(), "%d %d %d %d %d %d %d %d %d", &cmd.serverTime, &cmd.buttons, &weapon,
                             &cmd.angles[0], &cmd.angles[1], &cmd.angles[2], &forward, &right, &up) != 9)
                 continue;
+            lastTime = cmd.serverTime;
             cmd.weapon = uint8_t(weapon);
             cmd.forward = int8_t(forward);
             cmd.right = int8_t(right);
@@ -477,7 +731,7 @@ int cmdSpRun(int argc, char **argv) {
         }
         std::printf("replayed %d commands, to level time %d\n", f, game.levelTime());
     }
-    for (int f = 0; replayPath.empty() && f < frames; ++f) {
+    for (int f = 0; replayPath.empty() && tourFrom <= 0 && f < frames; ++f) {
         if (reluva::Error e = game.runFrame())
             return failed(("frame " + std::to_string(f + 1)).c_str(), e);
         if (game.clientGameRunning()) {
@@ -506,9 +760,12 @@ int cmdSpRun(int argc, char **argv) {
             std::printf("  picture %3d x %s\n", count, name.c_str());
     }
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-    std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
-                game.levelTime(), game.entityCount(), game.linked().size(), (unsigned long long)game.cpu().executed(),
-                seconds);
+    if (replayPath.empty() && tourFrom <= 0)
+        std::printf("%d frames run (level time %d ms): ", frames, game.levelTime());
+    else
+        std::printf("played to level time %d ms: ", game.levelTime());
+    std::printf("%d entities, %zu linked; %llu instructions in %.2f s\n", game.entityCount(), game.linked().size(),
+                (unsigned long long)game.cpu().executed(), seconds);
     // -saveload: the game's own part of a saved game (WriteLevel), then a
     // fresh copy of the game started on the level as for loading it
     // (ReadLevel), as a check that what it writes reads back.
@@ -597,9 +854,8 @@ int cmdSpRun(int argc, char **argv) {
             }
             if (!match)
                 continue;
-            std::printf("entity %d (in use %d, linked %d, sequencer %08x, task manager %08x):", n,
-                        game.entityInt(n, ef::SpEntityLayout{}.inUse), game.entityInt(n, ef::SpEntityLayout{}.linked),
-                        uint32_t(game.entityInt(n, 0x2b8)), uint32_t(game.entityInt(n, 0x2bc)));
+            std::printf("entity %d (in use %d, linked %d):", n, game.entityInt(n, game.entityLayout().inUse),
+                        game.entityInt(n, game.entityLayout().linked));
             for (const auto &[off, t] : texts)
                 std::printf(" +0x%x=\"%s\"", off, t.c_str());
             std::printf("\n");
@@ -795,9 +1051,9 @@ const Commands kCommands(
          "report what they draw and run",
          cmdSpMenus},
         {"sp-run",
-         "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-replay file.input] [-fixedclock] [-skippak pak]...",
-         "run Elite Force's single-player game code (efgamex86.dll, in the x86 interpreter) on a map, with "
-         "a player; report what it does",
+         "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-replay file.input | -tour ms [-spare name]...] [-fixedclock] [-skippak pak]...",
+         "run Elite Force's or Jedi Outcast's single-player game code (efgamex86.dll, jk2gamex86.dll, in the "
+         "x86 interpreter) on a map, with a player; report what it does",
          cmdSpRun},
         {"ibi-dump", "<game folder> <script>",
          "print a compiled ICARUS script (.IBI): its blocks (commands) and their members", cmdIbiDump},
