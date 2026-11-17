@@ -32,6 +32,11 @@ gives their detail.
   letter can differ by a pixel now and then, and the edges' smoothing is
   matched by measure. Lines wrap where the game's do (past 750
   pixels, `0x434960`; [systems/dialogue.md](systems/dialogue.md)).
+- **A window that isn't a whole multiple of the 800 by 600 frame** (the
+  game itself only fills a screen of that size) is filled with the
+  frame's pixels each as wide as the next, a stroke's edge a little soft
+  where it falls between two (SDL's pixel-art scaling); the launcher's
+  *Whole multiples only* keeps every pixel sharp, *Smoothed* blurs them.
 
 ### Characters and animation
 
