@@ -187,7 +187,7 @@ Error FrontendGame::run() {
     auto savedRoster=roster;auto savedKinds=kinds;
     std::vector<ComputerLevel> choiceKinds;std::optional<size_t> emptyChoice;
     size_t nameSelection=0,nameScroll=0;
-    NameEdit nameEdit;std::string nameError;
+    NameEdit nameEdit;std::string nameError;bool nameDragging=false;
     auto backgroundAvailable=[&]() {
         bool human=false,computer=false;
         for(size_t i=0;i<roster.size();++i)if(!roster[i].empty()) {
@@ -211,11 +211,19 @@ Error FrontendGame::run() {
             // action consumed this event batch. Motion/release samples may be
             // coalesced with the initial press in the same polling batch.
             if(event.type==EventType::FocusLost || event.type==EventType::FocusGained) {
-                menuFocused=event.type==EventType::FocusGained;optionsDragging=false;
-                if(optionsOpen)changed=true;
+                menuFocused=event.type==EventType::FocusGained;optionsDragging=false;nameDragging=false;
+                if(optionsOpen || editingName)changed=true;
                 continue;
             }
             if(optionsOpen && event.type==EventType::MouseLeave){optionsDragging=false;continue;}
+            if(editingName && event.type==EventType::MouseLeave){nameDragging=false;continue;}
+            if(editingName && !menuFocused)continue;
+            if(editingName && nameDragging && (event.type==EventType::MouseMove ||
+               (event.type==EventType::MouseUp && event.button==MouseButton::Left))) {
+                nameEdit.pointer(event.mouseX,nameDialog.field(),nameDialog.installed()?8:12,true);
+                if(event.type==EventType::MouseUp)nameDragging=false;
+                continue;
+            }
             if(optionsOpen && !menuFocused)continue;
             if(optionsOpen && optionsDragging && (event.type==EventType::MouseMove ||
                (event.type==EventType::MouseUp && event.button==MouseButton::Left))) {
@@ -278,12 +286,17 @@ Error FrontendGame::run() {
                 continue;
             }
             if(editingName) {
+                if(click || event.type==EventType::KeyDown || event.type==EventType::TextInput)nameDragging=false;
                 if((isKey && event.key==key::Escape) || pressed(nameDialog.cancel())) {
                     editingName=false;system_.setTextInput(false);changed=true;
                 } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(nameDialog.save())) {
                     if(auto error=profile.rename(nameEdit.text()))nameError=error.message;
                     else {roster[0]=profile.name();kinds[0]=ComputerLevel::Human;editingName=false;system_.setTextInput(false);changed=true;}
-                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameDialog.field())) {nameEdit.selectAll();nameError.clear();}
+                } else if(isKey && event.key=='a' && (event.mods&keymod::Ctrl)) {nameEdit.selectAll();nameError.clear();}
+                else if(pressed(nameDialog.field())) {
+                    nameEdit.pointer(event.mouseX,nameDialog.field(),nameDialog.installed()?8:12,event.mods&keymod::Shift);
+                    nameDragging=true;nameError.clear();
+                }
                 else if(event.type==EventType::KeyDown) {
                     const bool extend=event.mods&keymod::Shift;
                     if(event.key==key::Left)nameEdit.move(-1,extend);
@@ -358,7 +371,7 @@ Error FrontendGame::run() {
                     fromRoster=false;choices=profile.history();choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
                 } else if((isKey && event.key=='n') || pressed(changeName)) {
                     if(auto error=nameEdit.begin(profile.name()))return error;
-                    nameError.clear();editingName=true;
+                    nameError.clear();nameDragging=false;editingName=true;
                     system_.setTextInput(true);changed=true;
                 } else if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
                 else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) launch=true;

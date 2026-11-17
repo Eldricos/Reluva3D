@@ -101,14 +101,18 @@ retail resources and captions are not embedded in source or fixtures.
 
 Save and field drawing/picking share those rectangles. Native Cancel remains
 available to the left of Save; help and validation errors use the bottom footer,
-clear of the setup controls. Enter/Save, Escape/Cancel, Ctrl+A, field-click
-select-all, trimming and the 18-printable-ASCII-character limit remain. Both
+clear of the setup controls. Enter/Save, Escape/Cancel, Ctrl+A, trimming and the
+18-printable-ASCII-character limit remain. Both
 installed and fallback fields now use the independent `NameEdit` model: a steady
 visible caret, Left/Right and Home/End movement, Shift selection, insertion or
 selection replacement, Backspace before the caret and Delete after it. Movement
 and deletion accept held-key repeats. Invalid edits preserve the draft and
-selection. Mouse caret placement, drag selection, clipboard and IME support
-remain unfinished. Save/Cancel consume their navigation batch
+selection. Click now places the caret, Shift-click extends the selection and
+a left-button drag selects a range, with the same text origin/stride used by
+drawing. Final release applies its position; focus changes, window exit and
+keyboard/text actions end dragging. Unfocused events and the focus-return batch
+cannot edit or save. Mouse positions beyond the text clamp to its ends.
+Clipboard, double-click word selection and IME support remain unfinished. Save/Cancel consume their navigation batch
 so queued Enter cannot start a round. Text input stops when the editor closes.
 Profile persistence, name history, round/high-score naming and safe save-directory
 rules are unchanged; no re-import or save migration is required.
@@ -474,3 +478,13 @@ gameplay snapshots remain unchanged. External SDL runs verify partial selection
 and caret editing against both installed variants; captures remain outside Git.
 All 737 installed files retain their manifest hashes. Windows testing of this
 refinement is pending; the owner confirmed the preceding portrait stage works.
+
+The mouse-editing refinement passes all 44 Boggle checks; the full suite passes
+67 checks and skips 10 optional idtech3 checks. Frontend/player suites pass
+ASan/UBSan with LeakSanitizer disabled for the execution tracer. Synthetic checks
+exercise both layouts, Shift-click, forward/reverse and coalesced drags, final
+release, extreme positions, focus/window interruption and Save/Cancel. External
+SDL runs inspect caret/selection against both supplied variants; captures remain
+outside Git. Existing checksum records are unchanged. All 737 installed files
+retain their manifest hashes. The owner confirmed keyboard editing works;
+Windows testing of mouse editing is pending.

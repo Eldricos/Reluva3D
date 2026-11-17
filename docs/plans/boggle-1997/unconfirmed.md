@@ -507,5 +507,15 @@ The owner confirmed installed roster portraits work. The next
 adds a visible caret, movement, Shift selection and insertion/deletion within
 the name in both installed and fallback fields. Save/Cancel and profile/history
 policies remain. These are independently implemented native controls; exact
-original edit-widget behavior, mouse caret/drag selection, clipboard, IME and
-Windows metrics remain comparison work.
+original edit-widget behavior, clipboard, IME and Windows metrics remain
+comparison work. Native mouse caret/drag selection is implemented below.
+
+### Player-name mouse editing
+
+The owner confirmed keyboard name editing works. The next
+[mouse-editing refinement](../../engines/boggle/players.md#mouse-caret-and-selection)
+adds click placement, Shift-click and drag selection in installed and fallback
+fields, with final-release and focus/window interruption guards. Ctrl+A retains
+select-all; field-click now places the caret. Save/Cancel and native name/history
+policies remain. Exact original edit-widget behavior, double-click selection,
+clipboard, IME and Windows metrics remain comparison work.

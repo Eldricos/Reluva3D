@@ -24,6 +24,12 @@ void NameEdit::move(int direction,bool extend){
     if(!extend && first()!=last()){place(direction<0?first():last(),false);return;}
     place(direction<0?(caret_?caret_-1:0):std::min(caret_+1,text_.size()),extend);
 }
+void NameEdit::pointer(int x,SelectionRect field,int padding,bool extend){
+    // Use the same glyph origin/stride as draw(), rounding to the nearest
+    // insertion boundary. Wide arithmetic also handles out-of-window samples.
+    const auto position=std::clamp<int64_t>((int64_t(x)-field.x-padding+6)/12,0,int64_t(text_.size()));
+    place(size_t(position),extend);
+}
 void NameEdit::erase(bool forward){
     if(first()!=last()){const size_t begin=first();text_.erase(begin,last()-begin);place(begin,false);}
     else if(forward){if(caret_<text_.size())text_.erase(caret_,1);}

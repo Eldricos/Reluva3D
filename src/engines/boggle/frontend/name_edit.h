@@ -13,6 +13,7 @@ public:
     void move(int direction,bool extend);
     void home(bool extend){place(0,extend);}
     void end(bool extend){place(text_.size(),extend);}
+    void pointer(int x,SelectionRect field,int padding,bool extend);
     void erase(bool forward);
     const std::string& text() const {return text_;}
     size_t caret() const {return caret_;}

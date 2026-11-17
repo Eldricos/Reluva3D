@@ -306,17 +306,18 @@ void nameNavigation(const std::filesystem::path& tmp){
         fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,1600));std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,1600),own));FrontendNameDialog layout;CHECK(!layout.read(own));
         auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
         fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            auto all=keyEvent('a');all.mods=keymod::Ctrl;
             if(f==0 || f==1)return {keyEvent(key::Return)};
             if(f==2 || f==7 || f==10)return {keyEvent('n')};
             if(f==3)return {textEvent("ABCDEFGHIJKLMNOPQR")};
             if(f==4)return {mouseEvent(EventType::MouseDown,280,310)}; // retired Save target
-            if(f==5)return {click(layout.field()),textEvent("New Name")};
+            if(f==5)return {click(layout.field()),all,textEvent("New Name")};
             if(f==6)return {click(layout.save()),keyEvent(key::Return)}; // save cannot also start a round
             if(f==8)return {textEvent("Discarded")};
             if(f==9)return {click(layout.cancel()),keyEvent(key::Return)};
             if(f==11)return {textEvent("  ")};
             if(f==12)return {keyEvent(key::Return)};
-            if(f==13)return {click(layout.field()),textEvent("Second Name")};
+            if(f==13)return {click(layout.field()),all,textEvent("Second Name")};
             if(f==14)return {keyEvent(key::Return)};
             if(f==15)return {keyEvent(key::Escape)};
             if(f==16)return {keyEvent('l')};
@@ -575,6 +576,41 @@ void nameCaretNavigation(const std::filesystem::path& tmp){
     }
 }
 
+void nameMouseEditing(const std::filesystem::path& tmp){
+    NameEdit edit;CHECK(!edit.begin("ABCDEF"));const SelectionRect field{100,20,240,24};
+    edit.pointer(100+8+2*12+5,field,8,false);CHECK(edit.caret()==2 && edit.first()==edit.last());
+    edit.pointer(100+8+2*12+6,field,8,true);CHECK(edit.first()==2 && edit.last()==3);
+    edit.pointer(std::numeric_limits<int>::min(),field,8,true);CHECK(edit.caret()==0 && edit.last()==2);
+    edit.pointer(std::numeric_limits<int>::max(),field,8,true);CHECK(edit.caret()==6 && edit.first()==2);
+    for(bool installed:{false,true})for(const auto interrupt:{EventType::MouseLeave,EventType::FocusLost}) {
+        auto t=target(tmp/((installed?"installed":"fallback")+std::to_string(int(interrupt))));FrontendNameDialog layout;
+        if(installed){const auto f=fixtures::nameDialog(true);auto dll=fixtures::dialogLanguage(f.bytes,1600);fixtures::write(t.path/"Language/English.dll",dll);std::vector<PeResource> resources;CHECK(!readPeResources(dll,resources) && !layout.read(resources));}
+        PlayerProfile profile;CHECK(!profile.load(t.savePath,t.path) && !profile.rename("ABCDEF"));
+        const auto box=layout.field();const int origin=box.x+(installed?8:12),y=box.y+box.h/2;
+        auto mouse=[&](EventType type,int index){return fixtures::mouseEvent(type,origin+index*12,y);};
+        using namespace fixtures;
+        std::vector<std::vector<Event>> steps{{keyEvent(key::Return)},{keyEvent(key::Return)},{keyEvent('n')},
+            {mouse(EventType::MouseDown,2),mouse(EventType::MouseUp,2),textEvent("X")}, // ABXCDEF
+            {mouse(EventType::MouseDown,1),mouse(EventType::MouseMove,2),mouse(EventType::MouseUp,4),textEvent("QQ")}}; // AQQDEF
+        auto shift=mouse(EventType::MouseDown,6);shift.mods=keymod::Shift;
+        steps.push_back({shift,mouse(EventType::MouseUp,6),textEvent("Z")}); // AQQZ
+        steps.push_back({mouse(EventType::MouseDown,2)});
+        Event stop;stop.type=interrupt;steps.push_back({stop,mouse(EventType::MouseMove,4),mouse(EventType::MouseUp,4)});
+        if(interrupt==EventType::FocusLost){Event regain;regain.type=EventType::FocusGained;steps.push_back({regain,mouse(EventType::MouseDown,4),textEvent("IGNORED")});}
+        steps.push_back({mouse(EventType::MouseMove,4),textEvent("R")}); // AQRQZ, interrupted drag cannot select QQZ
+        steps.push_back({mouse(EventType::MouseDown,1),mouse(EventType::MouseUp,1),mouse(EventType::MouseMove,5),textEvent("S")}); // ASQRQZ, release ended drag
+        steps.push_back({mouse(EventType::MouseDown,6),mouse(EventType::MouseUp,3),textEvent("T")}); // ASQT, reverse selection
+        steps.push_back({mouse(EventType::MouseDown,4),keyEvent(key::Return),keyEvent(key::Return)}); // save while dragging, stay in Players
+        steps.push_back({keyEvent('n')});
+        steps.push_back({mouse(EventType::MouseDown,0),mouse(EventType::MouseMove,4),keyEvent(key::Escape),keyEvent(key::Return)});
+        steps.push_back({mouse(EventType::MouseMove,0),mouse(EventType::MouseUp,0),keyEvent(key::Escape)});
+        steps.push_back({keyEvent('l')});
+        fixtures::ScriptedSystem sys;sys.events=[steps](size_t f){return f<steps.size()?steps[f]:std::vector<Event>{};};
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==steps.size()-1 && sys.w==640 && sys.textStopped);
+        CHECK(!profile.load(t.savePath,t.path) && profile.name()=="ASQT" && profile.history().size()==3);
+    }
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -602,6 +638,7 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"mouse name caret, Shift/drag selection, release, focus and Cancel in both layouts",nameMouseEditing},
     {"ASCII name caret/selection, insertion, deletion, bounds and rejected edits",[](const auto&){nameCaretState();}},
     {"keyboard name editing in installed/fallback dialogs, repeat, Save/Cancel and history",nameCaretNavigation},
     {"options ruler dragging, coalesced release, bounds, focus, No Timer and Cancel",optionsDragging},

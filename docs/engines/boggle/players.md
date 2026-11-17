@@ -5,7 +5,9 @@ or press N to open the name editor. Typing replaces the initially selected
 name. Left/Right and Home/End move the visible caret; hold Shift to select a
 range. Typing inserts at the caret or replaces the selection. Backspace removes
 the preceding character and Delete the following character; either removes a
-selection. Ctrl+A or clicking the field selects the whole name. Enter / Save confirms the change and returns to Players.
+selection. Ctrl+A selects the whole name. Click places the caret at the nearest
+character boundary; Shift-click extends the selection, and a left-button drag
+selects a range. Releasing the button uses its final position and ends the drag. Enter / Save confirms the change and returns to Players.
 Escape / Cancel discards the draft. A separate Enter / Play starts the round,
 so saving does not accidentally skip the Players screen.
 
@@ -27,8 +29,8 @@ but those exact policies have not been established.
 Names use 1–18 printable ASCII characters with outer spaces trimmed. Case is
 preserved. Unsupported characters, an empty name or excess length keep the
 editor open with a message. This is a native English input limit, not a verified
-original name-length or multilingual contract. Mouse caret positioning, drag
-selection, IME names and clipboard editing are unfinished. The caret is steady
+original name-length or multilingual contract. IME names and clipboard editing
+are unfinished. The caret is steady
 rather than blinking; its rendering and keyboard controls are native policies.
 
 The name appears in the artwork's player strip and word-panel header, and in
@@ -178,3 +180,27 @@ SDL runs exercise supplied installed layouts in both variants. Eight synthetic
 editor snapshots changed; gameplay snapshots did not. All 737 installed files
 retain their manifest hashes. Windows testing of this editing refinement is
 pending; the owner confirmed the preceding portrait stage works.
+
+## Mouse caret and selection
+
+Installed and fallback fields use the same glyph origin and spacing for drawing
+and mouse placement. Dragging beyond the text clamps to its beginning/end;
+vertical movement outside the field keeps the drag active until left release.
+Focus changes and leaving the window end the drag without changing the draft.
+Events while unfocused are ignored; the focus-return batch cannot edit or save.
+A new click, keyboard action or text insertion also ends a held drag. Opening
+the editor starts with the full name selected, and Ctrl+A still selects all.
+Save/Cancel, navigation-batch guards and profile/history storage are unchanged.
+These controls are native policies, not verified original Windows edit behavior.
+Double-click word selection, clipboard and IME support remain unfinished.
+
+Synthetic checks cover nearest-boundary rounding, extreme pointer coordinates,
+click/Shift-click, coalesced and reverse drags, final release, stale motion,
+window exit/focus return and Save/Cancel while dragging in both layouts. All 44
+Boggle checks pass; the full suite passes 67 checks and skips 10 optional
+idtech3 checks. Frontend/player suites pass ASan/UBSan with LeakSanitizer disabled
+for the execution tracer. External SDL runs exercise both supplied installed
+variants and preserve Save/Cancel and text-input cleanup. Existing snapshot
+records are unchanged. All 737 installed files retain their manifest hashes.
+The owner confirmed keyboard editing works; Windows testing of mouse editing
+is pending. No new imports or save migration are required.
