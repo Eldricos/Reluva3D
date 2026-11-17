@@ -1,0 +1,2 @@
+artus_mine: f1b4277d3e71dc48 | next: artus_detention ran 100 frames (level time 7400 ms), 919 entities, the player: 999 999 16383 127 0 1 2500 0.000000 0.000000 0.000000 0 100 0 2 1023 0 | 0 100 300 198 400 10 999 10 5 5 | 1 5 5 1 5 0 0 | 0 0 0 0 0 0 0 0 0 0 0
+artus_detention: 420c6d2118eca026 | next: artus_topside ran 100 frames (level time 7400 ms), 649 entities, the player: 999 999 16383 127 0 1 2500 0.000000 0.000000 0.000000 0 100 0 2 1023 0 | 0 100 300 0 244 10 999 10 5 5 | 1 5 5 1 5 0 0 | 0 0 0 0 0 0 0 0 0 0 0

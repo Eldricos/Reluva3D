@@ -38,11 +38,12 @@
 #   jk2-sp-tour   kejim_post and kejim_base played through with cheats once
 #                 their openings are over: every trigger touched, fighting
 #                 between them with every direct-fire weapon, to the level
-#                 change; Jan spared (her death fails the mission); then
-#                 artus_mine's way out by a written route
-#                 (data/routes/artus_mine.txt). Each then the next level
-#                 started with the player carried over (-next). About ten
-#                 minutes.
+#                 change; Jan spared (her death fails the mission). Each
+#                 then the next level started with the player carried over
+#                 (-next). About seven minutes.
+#   jk2-sp-artus  the same for artus_mine (its way out by a written route,
+#                 data/routes/artus_mine.txt) and artus_detention. About
+#                 seven minutes.
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -110,8 +111,11 @@ elseif(STEP STREQUAL "jk2-sp-tour")
                -spare cinematic1_jan -spare cinematic1_kyle -fixedclock -set helpUsObi 1 -next)
     record_run(kejim_base "ran 100 frames" idtech3 sp-run "${base}" kejim_base -tour 5000 -spare cinematic3
                -fixedclock -set helpUsObi 1 -next)
+elseif(STEP STREQUAL "jk2-sp-artus")
     record_run(artus_mine "ran 100 frames" idtech3 sp-run "${base}" artus_mine
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/artus_mine.txt" -fixedclock -set helpUsObi 1 -next)
+    record_run(artus_detention "ran 100 frames" idtech3 sp-run "${base}" artus_detention -tour 16000 -fixedclock
+               -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

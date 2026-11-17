@@ -231,4 +231,5 @@ yet: a console on the page.
   trigger's angle, and `sp-run -replay tests/engines/idtech3/data/routes/artus_mine.txt`
   plays that way out to `maptransition artus_detention`. An entity's
   health is the game's field at 0x218 (the most it can have at 0x21c),
-  which the tour reads to leave corpses alone.
+  which the tour reads to leave corpses alone. `artus_detention -tour
+  16000` plays to `maptransition artus_topside` with nothing more.

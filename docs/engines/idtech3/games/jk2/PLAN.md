@@ -193,8 +193,10 @@ behind the DLL's own tables.
    `artus_detention` by a written route (its way out waits on a squad
    killed and two triggers used); the tour learned to hold use, face a
    trigger's angle and leave corpses and pits alone, and the page runs
-   the game's `wait` (its checkpoint saves, `wait 2;save auto*`). Next:
-   the next levels the same way, and a console on the page.
+   the game's `wait` (its checkpoint saves, `wait 2;save auto*`).
+   `artus_detention` plays through by the tour to `artus_topside`, with
+   nothing new needed. Next: the next levels the same way, and a console
+   on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
