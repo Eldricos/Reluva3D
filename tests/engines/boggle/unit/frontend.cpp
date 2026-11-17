@@ -288,9 +288,9 @@ void nameLayouts(){
         const auto f=fixtures::nameDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,1600),own));
         CHECK(!layout.read(own) && layout.installed() && layout.save().contains(480,300) && layout.cancel().contains(100,300) && !layout.save().contains(280,310));
         CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
-        Surface screen;screen.create(640,480,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);layout.draw(screen,"ABCDEFGHIJKLMNOPQR",true,"Own validation error");CHECK(screen.row(0)[0]==17 && screen.row(184)[320*4+3]==255);
+        Surface screen;screen.create(640,480,PixelFormat::RGBA32);std::fill(screen.pixels.begin(),screen.pixels.end(),17);NameEdit edit;CHECK(!edit.begin("ABCDEFGHIJKLMNOPQR"));layout.draw(screen,edit,"Own validation error");CHECK(screen.row(0)[0]==17 && screen.row(184)[320*4+3]==255);
         CHECK(screen.row(400)[100*4+3]==17 && screen.row(444)[40*4+3]==255); // help stays in the footer
-        const auto selected=screen.pixels;layout.draw(screen,"ABCDEFGHIJKLMNOPQR",false,"Own validation error");CHECK(selected!=screen.pixels);
+        const auto selected=screen.pixels;edit.end(false);layout.draw(screen,edit,"Own validation error");CHECK(selected!=screen.pixels);
         auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),1601);CHECK(bool(layout.read(bad)) && !layout.installed());
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?24:18)+2,0x82);CHECK(bool(layout.read(bad)));
         bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?12:8),259);CHECK(bool(layout.read(bad)));
@@ -538,6 +538,43 @@ void optionsDragging(const std::filesystem::path& tmp){
     }
 }
 
+void nameCaretState(){
+    NameEdit e;CHECK(!e.begin("ALPHA") && e.first()==0 && e.last()==5);e.move(1,false);CHECK(e.caret()==5 && e.first()==e.last());e.home(false);e.move(1,false);CHECK(!e.insert("x") && e.text()=="AxLPHA" && e.caret()==2);e.erase(true);CHECK(e.text()=="AxPHA");e.erase(false);CHECK(e.text()=="APHA" && e.caret()==1);e.end(true);CHECK(e.first()==1 && e.last()==4);CHECK(!e.insert("BC") && e.text()=="ABC" && e.caret()==3);e.home(true);CHECK(!e.insert("Z") && e.text()=="Z");e.erase(true);CHECK(e.text()=="Z");e.erase(false);CHECK(e.text().empty() && e.caret()==0);
+    CHECK(!e.begin("ABCDE"));e.move(-1,false);CHECK(e.caret()==0);e.end(false);e.move(-1,true);e.move(-1,true);CHECK(e.first()==3 && e.last()==5);e.move(1,false);CHECK(e.caret()==5 && e.first()==e.last());e.home(false);e.move(1,true);e.move(1,true);e.erase(false);CHECK(e.text()=="CDE" && e.caret()==0);
+    CHECK(!e.begin("ABCDEFGHIJKLMNOPQR"));e.end(false);CHECK(bool(e.insert("X")) && e.text()=="ABCDEFGHIJKLMNOPQR" && e.caret()==18);e.home(true);CHECK(!e.insert("XYZ") && e.text()=="XYZ");e.selectAll();CHECK(bool(e.insert("\xc3\xa9")) && e.text()=="XYZ" && e.first()==0 && e.last()==3);CHECK(bool(e.begin("ABCDEFGHIJKLMNOPQRS")) && e.text()=="XYZ");CHECK(bool(e.begin("\n")) && e.text()=="XYZ");
+    e.home(false);for(int i=0;i<100;++i)e.move(-1,true);CHECK(e.caret()==0);for(int i=0;i<100;++i)e.move(1,true);CHECK(e.caret()==3);CHECK(!e.insert({}) && e.text()=="XYZ");
+    Surface screen;screen.create(640,480,PixelFormat::RGBA32);CHECK(!e.begin("ABCDEFGHIJKLMNOPQR"));e.end(false);e.draw(screen,{10,10,240,24});CHECK(screen.row(14)[234*4]==245);const auto before=screen.pixels;e.draw(screen,{-1,10,240,24});CHECK(screen.pixels==before);
+}
+void nameCaretNavigation(const std::filesystem::path& tmp){
+    for(bool installed:{false,true}){
+        auto t=target(tmp/(installed?"installed":"fallback"));if(installed){const auto f=fixtures::nameDialog(true);fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(f.bytes,1600));}
+        PlayerProfile profile;CHECK(!profile.load(t.savePath,t.path) && !profile.rename("ALPHA"));
+        fixtures::ScriptedSystem sys;sys.events=[](size_t f)->std::vector<Event>{using namespace fixtures;
+            auto shift=[](uint32_t key){auto e=keyEvent(key);e.mods=keymod::Shift;return e;};
+            if(f==0 || f==1)return {keyEvent(key::Return)};
+            if(f==2 || f==13)return {keyEvent('n')};
+            if(f==3)return {keyEvent(key::End)};
+            if(f==4)return {keyEvent(key::Left)};
+            if(f==5)return {textEvent("X")};
+            if(f==6 || f==14)return {keyEvent(key::Home)};
+            if(f==7){auto repeat=shift(key::Right);repeat.repeat=true;return {shift(key::Right),repeat};}
+            if(f==8)return {textEvent("BE")};
+            if(f==9)return {keyEvent(key::Delete),keyEvent(key::Backspace)};
+            if(f==10)return {shift(key::End)};
+            if(f==11)return {textEvent("ETA")};
+            if(f==12)return {keyEvent(key::Return),keyEvent(key::Return)};
+            if(f==15)return {shift(key::End),textEvent("DRAFT")};
+            if(f==16)return {keyEvent(key::Escape),keyEvent(key::Return)};
+            if(f==17)return {keyEvent(key::Escape)};
+            if(f==18)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==18 && sys.w==640 && sys.textStopped);
+        CHECK(!profile.load(t.savePath,t.path) && profile.name()=="BETA" && profile.history().size()==3);CHECK(std::find(profile.history().begin(),profile.history().end(),"DRAFT")==profile.history().end());
+        if(sys.hashes.size()==18)CHECK(sys.hashes[12]==sys.hashes[16] && sys.hashes[3]!=sys.hashes[4] && sys.hashes[6]!=sys.hashes[7]);
+    }
+}
+
 void timerAndErrors(const std::filesystem::path& tmp) {
     auto t=target(tmp);t.settings["classic_seconds"]="60";
     fixtures::ScriptedSystem sys;
@@ -565,6 +602,8 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"ASCII name caret/selection, insertion, deletion, bounds and rejected edits",[](const auto&){nameCaretState();}},
+    {"keyboard name editing in installed/fallback dialogs, repeat, Save/Cancel and history",nameCaretNavigation},
     {"options ruler dragging, coalesced release, bounds, focus, No Timer and Cancel",optionsDragging},
     {"Classic options control IDs, ranges, encodings and malformed layouts",[](const auto&){optionsLayouts();}},
     {"Classic options editing, disabled controls, remembered timer and Cancel",optionsNavigation},

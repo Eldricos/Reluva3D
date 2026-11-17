@@ -2,8 +2,10 @@
 
 The Players screen now shows the human player's name. Choose **Change Name**
 or press N to open the name editor. Typing replaces the initially selected
-name; Ctrl+A selects the whole name, and Backspace/Delete removes the selection
-or the last character. Enter / Save confirms the change and returns to Players.
+name. Left/Right and Home/End move the visible caret; hold Shift to select a
+range. Typing inserts at the caret or replaces the selection. Backspace removes
+the preceding character and Delete the following character; either removes a
+selection. Ctrl+A or clicking the field selects the whole name. Enter / Save confirms the change and returns to Players.
 Escape / Cancel discards the draft. A separate Enter / Play starts the round,
 so saving does not accidentally skip the Players screen.
 
@@ -25,8 +27,9 @@ but those exact policies have not been established.
 Names use 1–18 printable ASCII characters with outer spaces trimmed. Case is
 preserved. Unsupported characters, an empty name or excess length keep the
 editor open with a message. This is a native English input limit, not a verified
-original name-length or multilingual contract. Editing is at the end of the
-field; arbitrary caret movement, IME names and clipboard editing are unfinished.
+original name-length or multilingual contract. Mouse caret positioning, drag
+selection, IME names and clipboard editing are unfinished. The caret is steady
+rather than blinking; its rendering and keyboard controls are native policies.
 
 The name appears in the artwork's player strip and word-panel header, and in
 the prototype round view. Longer artwork headers use smaller text or a shortened
@@ -157,3 +160,21 @@ restore on Cancel. A human with a computer-looking name still gets the human
 portrait. [Frontend details](frontend.md#installed-roster-portraits) document the
 bounded reader, bundle validation and native placement policy. No re-import or
 profile/save migration is needed.
+
+## Keyboard caret and selection
+
+The installed and fallback editors share a bounded native editing model. Left/Right
+without Shift collapses a selection to its corresponding edge; Home/End moves to
+the beginning/end. Held movement and deletion keys repeat. Invalid or overlong
+insertions preserve the draft, caret and selection. Save still trims and validates
+the name through the profile; Cancel leaves saved names and history intact.
+
+State and scripted frontend checks cover partial/reversed selection, replacement,
+mid-name insertion, forward/backward deletion, bounds, held keys, failed edits,
+Save/Cancel and text-input cleanup. All 44 Boggle checks pass; the full suite
+passes 67 checks and skips 10 optional idtech3 checks. Frontend/player suites
+pass ASan/UBSan with LeakSanitizer disabled for the execution tracer. External
+SDL runs exercise supplied installed layouts in both variants. Eight synthetic
+editor snapshots changed; gameplay snapshots did not. All 737 installed files
+retain their manifest hashes. Windows testing of this editing refinement is
+pending; the owner confirmed the preceding portrait stage works.

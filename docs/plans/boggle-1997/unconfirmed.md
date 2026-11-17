@@ -499,3 +499,13 @@ bitmap resources in their roster template controls. Draft type selection and
 Cancel restoration drive the pictures without name heuristics. Native labels,
 sampling and dialog metrics remain explicit policies; exact Windows static
 control/skinning behavior remains comparison work.
+
+### Player-name keyboard editing
+
+The owner confirmed installed roster portraits work. The next
+[keyboard-editing refinement](../../engines/boggle/players.md#keyboard-caret-and-selection)
+adds a visible caret, movement, Shift selection and insertion/deletion within
+the name in both installed and fallback fields. Save/Cancel and profile/history
+policies remain. These are independently implemented native controls; exact
+original edit-widget behavior, mouse caret/drag selection, clipboard, IME and
+Windows metrics remain comparison work.

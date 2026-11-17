@@ -127,13 +127,12 @@ void nameDropdown(Surface& s,const std::vector<std::string>& names,size_t select
     if(!error.empty())text(s,60,416,error.substr(0,84),{255,150,130});
     else text(s,60,416,std::to_string(selected+1)+" / "+std::to_string(names.size())+"   PgUp/PgDn: page",muted);
 }
-void nameEditor(Surface& s,const std::string& draft,bool selected,const std::string& error,const FrontendNameDialog& dialog) {
-    if(dialog.installed()){dialog.draw(s,draft,selected,error);return;}
+void nameEditor(Surface& s,const NameEdit& edit,const std::string& error,const FrontendNameDialog& dialog) {
+    if(dialog.installed()){dialog.draw(s,edit,error);return;}
     fill(s,{64,120,512,234},gold);fill(s,{66,122,508,230},dark);
     text(s,88,143,"PLAYER NAME",white,2);
-    fill(s,nameField,gold);fill(s,{90,190,460,38},selected?Color{43,83,112}:Color{28,31,49});
-    text(s,100,201,draft,white,2);
-    text(s,88,244,"Up to 18 characters. Ctrl+A: replace name",muted);
+    edit.draw(s,nameField,12);
+    text(s,88,244,"18 chars. Arrows/Home/End: move. Shift: select.",muted);
     if(!error.empty())text(s,88,265,error.substr(0,76),{255,150,130});
     button(s,saveName,"SAVE (ENTER)",true);button(s,cancelName,"CANCEL (ESC)");
 }
@@ -181,14 +180,14 @@ Error FrontendGame::run() {
     uint64_t menuStarted=system_.getMillis();
     Surface screen;screen.create(640,480,PixelFormat::RGBA32);
     Page page=Page::Selection;
-    bool editingName=false,selectAll=false,selectingName=false,rosterOpen=false,fromRoster=false;
+    bool editingName=false,selectingName=false,rosterOpen=false,fromRoster=false;
     std::array<std::string,4> roster{profile.name(),"","",""};size_t rosterSlot=0;
     std::vector<std::string> choices;
     std::array<ComputerLevel,4> kinds; kinds.fill(ComputerLevel::Human);
     auto savedRoster=roster;auto savedKinds=kinds;
     std::vector<ComputerLevel> choiceKinds;std::optional<size_t> emptyChoice;
     size_t nameSelection=0,nameScroll=0;
-    std::string draftName,nameError;
+    NameEdit nameEdit;std::string nameError;
     auto backgroundAvailable=[&]() {
         bool human=false,computer=false;
         for(size_t i=0;i<roster.size();++i)if(!roster[i].empty()) {
@@ -282,20 +281,22 @@ Error FrontendGame::run() {
                 if((isKey && event.key==key::Escape) || pressed(nameDialog.cancel())) {
                     editingName=false;system_.setTextInput(false);changed=true;
                 } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(nameDialog.save())) {
-                    if(auto error=profile.rename(draftName))nameError=error.message;
+                    if(auto error=profile.rename(nameEdit.text()))nameError=error.message;
                     else {roster[0]=profile.name();kinds[0]=ComputerLevel::Human;editingName=false;system_.setTextInput(false);changed=true;}
-                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameDialog.field()))selectAll=true;
-                else if(event.type==EventType::KeyDown && (event.key==key::Backspace || event.key==key::Delete)) {
-                    if(selectAll)draftName.clear();else if(!draftName.empty())draftName.pop_back();
-                    selectAll=false;nameError.clear();
+                } else if((isKey && event.key=='a' && (event.mods&keymod::Ctrl)) || pressed(nameDialog.field())) {nameEdit.selectAll();nameError.clear();}
+                else if(event.type==EventType::KeyDown) {
+                    const bool extend=event.mods&keymod::Shift;
+                    if(event.key==key::Left)nameEdit.move(-1,extend);
+                    else if(event.key==key::Right)nameEdit.move(1,extend);
+                    else if(event.key==key::Home)nameEdit.home(extend);
+                    else if(event.key==key::End)nameEdit.end(extend);
+                    else if(event.key==key::Backspace || event.key==key::Delete)nameEdit.erase(event.key==key::Delete);
+                    else continue;
+                    nameError.clear();
                 } else if(event.type==EventType::TextInput) {
                     const auto end=std::find(std::begin(event.text),std::end(event.text),'\0');
-                    const std::string text(event.text,end);
-                    if(text.empty())continue;
-                    const bool printable=std::all_of(text.begin(),text.end(),[](unsigned char c){return c>=32 && c<=126;});
-                    if(!printable)nameError="Use printable English characters.";
-                    else if((selectAll?0:draftName.size())+text.size()>18)nameError="Use at most 18 characters.";
-                    else {if(selectAll)draftName.clear();draftName+=text;selectAll=false;nameError.clear();}
+                    const auto error=nameEdit.insert(std::string_view(event.text,size_t(end-std::begin(event.text))));
+                    nameError=error.message;
                 }
                 continue;
             }
@@ -356,7 +357,8 @@ Error FrontendGame::run() {
                 else if((isKey && event.key=='p') || pressed(playerChoice)) {
                     fromRoster=false;choices=profile.history();choiceKinds.assign(choices.size(),ComputerLevel::Human);emptyChoice.reset();selectingName=true;nameSelection=0;nameScroll=0;nameError.clear();changed=true;
                 } else if((isKey && event.key=='n') || pressed(changeName)) {
-                    draftName=profile.name();nameError.clear();selectAll=true;editingName=true;
+                    if(auto error=nameEdit.begin(profile.name()))return error;
+                    nameError.clear();editingName=true;
                     system_.setTextInput(true);changed=true;
                 } else if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
                 else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) launch=true;
@@ -391,7 +393,7 @@ Error FrontendGame::run() {
             if(optionsOpen)optionsDialog.draw(screen,options,backgroundAvailable(),cursorAvailable());
             if(rosterOpen)rosterScreen(screen,roster,kinds,rosterDialog,nameError);
             if(selectingName)nameDropdown(screen,choices,nameSelection,nameScroll,nameError,fromRoster);
-            if(editingName)nameEditor(screen,draftName,selectAll,nameError,nameDialog);
+            if(editingName)nameEditor(screen,nameEdit,nameError,nameDialog);
         }
         else {const auto now=system_.getMillis();selection(screen,background,media,now>=menuStarted ? now-menuStarted : 0,selectionLayout); }
         system_.updateScreen(screen);system_.delayMillis(16);

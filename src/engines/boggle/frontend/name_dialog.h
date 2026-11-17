@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
-#include "engines/boggle/frontend/layout.h"
+#include "engines/boggle/frontend/name_edit.h"
 #include <string_view>
 namespace reluva::boggle {
 class FrontendNameDialog {
@@ -11,7 +11,7 @@ public:
     const SelectionRect& field() const {return field_;}
     const SelectionRect& save() const {return save_;}
     const SelectionRect& cancel() const {return cancel_;}
-    void draw(Surface& screen,std::string_view draft,bool selected,std::string_view error) const;
+    void draw(Surface& screen,const NameEdit& edit,std::string_view error) const;
 private:
     bool installed_=false;
     SelectionRect bounds_{},caption_{},field_{88,188,464,42},save_{88,296,210,40},cancel_{318,296,210,40};

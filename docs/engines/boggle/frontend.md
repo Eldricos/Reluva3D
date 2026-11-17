@@ -102,8 +102,13 @@ retail resources and captions are not embedded in source or fixtures.
 Save and field drawing/picking share those rectangles. Native Cancel remains
 available to the left of Save; help and validation errors use the bottom footer,
 clear of the setup controls. Enter/Save, Escape/Cancel, Ctrl+A, field-click
-selection, text entry, deletion, trimming and the 18-printable-ASCII-character
-limit retain their existing behavior. Save/Cancel consume their navigation batch
+select-all, trimming and the 18-printable-ASCII-character limit remain. Both
+installed and fallback fields now use the independent `NameEdit` model: a steady
+visible caret, Left/Right and Home/End movement, Shift selection, insertion or
+selection replacement, Backspace before the caret and Delete after it. Movement
+and deletion accept held-key repeats. Invalid edits preserve the draft and
+selection. Mouse caret placement, drag selection, clipboard and IME support
+remain unfinished. Save/Cancel consume their navigation batch
 so queued Enter cannot start a round. Text input stops when the editor closes.
 Profile persistence, name history, round/high-score naming and safe save-directory
 rules are unchanged; no re-import or save migration is required.
@@ -459,3 +464,13 @@ the full suite passes 67 checks and skips 10 optional idtech3 data checks.
 Bitmap, frontend and Traditional suites pass ASan/UBSan with LeakSanitizer
 disabled for the execution tracer. All 737 installed files retain their manifest
 hashes. Windows owner testing of the installed portraits is pending.
+
+The keyboard-editing refinement passes all 44 Boggle checks; the full suite
+passes 67 checks and skips 10 optional idtech3 checks. Frontend/player suites
+pass ASan/UBSan with LeakSanitizer disabled for the execution tracer. Synthetic
+checks cover both layouts, caret/selection state, invalid edits, repeat events,
+Save/Cancel, history and text-input cleanup. Eight editor snapshots changed;
+gameplay snapshots remain unchanged. External SDL runs verify partial selection
+and caret editing against both installed variants; captures remain outside Git.
+All 737 installed files retain their manifest hashes. Windows testing of this
+refinement is pending; the owner confirmed the preceding portrait stage works.

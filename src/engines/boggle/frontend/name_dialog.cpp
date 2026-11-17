@@ -27,18 +27,17 @@ Error FrontendNameDialog::read(const std::vector<PeResource>& resources,uint16_t
     if(result.cancel_.x+result.cancel_.w+8>b.x)return fail();
     result.installed_=true;*this=result;return Error::success();
 }
-void FrontendNameDialog::draw(Surface& screen,std::string_view draft,bool selected,std::string_view error) const {
+void FrontendNameDialog::draw(Surface& screen,const NameEdit& edit,std::string_view error) const {
     if(!installed_ || screen.format!=PixelFormat::RGBA32 || screen.w!=640 || screen.h!=480 || screen.pitch<2560 || screen.pixels.size()<size_t(screen.pitch)*480)return;
     auto box=[&](SelectionRect b,Color color){for(int y=b.y;y<b.y+b.h;++y)for(int x=b.x;x<b.x+b.w;++x){auto* p=screen.row(y)+x*4;p[0]=color.r;p[1]=color.g;p[2]=color.b;p[3]=255;}};
     const Color white{245,245,255},muted{170,181,205},dark{17,15,35},gold{224,189,99};
     box(bounds_,gold);box({bounds_.x+2,bounds_.y+2,bounds_.w-4,bounds_.h-4},dark);
     font::drawText(screen,caption_.x,caption_.y,"PLAYER NAME",white);
-    box(field_,gold);box({field_.x+2,field_.y+2,field_.w-4,field_.h-4},selected?Color{43,83,112}:Color{28,31,49});
-    font::drawText(screen,field_.x+8,field_.y+(field_.h-16)/2,std::string(draft.substr(0,18)),white,2);
+    edit.draw(screen,field_);
     auto button=[&](SelectionRect b,const char* title){box(b,{88,81,105});box({b.x+2,b.y+2,b.w-4,b.h-4},{41,34,64});font::drawText(screen,b.x+(b.w-int(std::char_traits<char>::length(title))*6)/2,b.y+(b.h-8)/2,title,white);};
     button(save_,"SAVE (ENTER)");button(cancel_,"CANCEL (ESC)");
     // Keep native help outside the compact template and the setup controls.
-    box({0,440,640,40},dark);font::drawText(screen,40,444,"Up to 18 characters. Ctrl+A: replace name",muted);
+    box({0,440,640,40},dark);font::drawText(screen,40,444,"18 chars. Arrows/Home/End: move. Shift: select. Ctrl+A: all",muted);
     if(!error.empty())font::drawText(screen,40,462,std::string(error.substr(0,76)),{255,150,130});
 }
 } // namespace reluva::boggle

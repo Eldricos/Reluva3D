@@ -7,6 +7,7 @@ reluva_add_engine(boggle
     ACCESSOR boggleMetaEngine
     SOURCES
         boggle.cpp
+        frontend/name_edit.cpp
         frontend/options_dialog.cpp
         frontend/roster_dialog.cpp
         frontend/name_dialog.cpp
