@@ -14,9 +14,13 @@
 
 namespace reluva::ttf {
 
+class Hinter;
+
 // A TrueType font (a game's own .ttf), drawn anti-aliased into RGBA32
-// surfaces. Uses stb_truetype (third_party/stb). Glyphs are rendered once
-// per size and kept.
+// surfaces. Uses stb_truetype (third_party/stb) for the outlines and their
+// coverage; a font with hinting programs is fitted to the pixel grid by
+// them first, at a whole number of pixels to the em, as Windows draws it
+// (truetype_hinting.h). Glyphs are rendered once per size and kept.
 class Font {
 public:
     Font();
@@ -56,11 +60,14 @@ private:
         std::vector<uint8_t> coverage;
     };
     const Glyph &glyph(uint32_t codepoint, float pixels);
+    // The glyph hinted, if the hinter can: false to draw it as scaled.
+    bool hintedGlyph(uint32_t codepoint, float pixels, Glyph &out);
     float scale(float pixels) const;
 
     std::vector<uint8_t> _data;
     struct Info;
     std::unique_ptr<Info> _info;
+    std::unique_ptr<Hinter> _hinter; // null: the font isn't hinted
     int _ascent = 0;
     int _descent = 0;
     int _lineGap = 0;

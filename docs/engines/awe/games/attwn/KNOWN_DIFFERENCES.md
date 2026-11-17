@@ -27,8 +27,10 @@ gives their detail.
   fixed-function pipeline would light them: the same colours, by the same
   per-vertex formula.
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows', from
-  the game's fonts sized as Windows sizes them: letters can differ a
-  little at their edges. Lines wrap where the game's do (past 750
+  the game's fonts sized and hinted as Windows does
+  ([../../../../common/truetype.md](../../../../common/truetype.md)): a
+  letter can differ by a pixel now and then, and the edges' smoothing is
+  matched by measure. Lines wrap where the game's do (past 750
   pixels, `0x434960`; [systems/dialogue.md](systems/dialogue.md)).
 
 ### Characters and animation

@@ -32,9 +32,11 @@ The format pages give the detail; this page gathers them.
   [systems/lighting.md](systems/lighting.md) and
   [../../README.md](README.md#frame-time).
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
-  The game's fonts are used, sized as Windows sizes them, but letters can
-  differ a little in their edges: in the walkthrough the dialogue's lines
-  come out about 2 % wider than Reluva's. Where the lines break is the
+  The game's fonts are used, sized and hinted as Windows sizes and hints
+  them ([../../../../common/truetype.md](../../../../common/truetype.md)),
+  but a letter can differ from Windows' by a pixel now and then, and the
+  smoothing of their edges is matched by measure, not by Windows' own
+  code. Where the lines break is the
   same everywhere text is wrapped: the spoken line, the choices and a
   movie's subtitles (`0x43db80`) and the interface's text (`0x414720`)
   all use the game's rule, two spaces put after a sentence's end in

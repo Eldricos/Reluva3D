@@ -4,15 +4,36 @@
 #include "graphics/truetype.h"
 
 #include "common/text.h"
+#include "graphics/truetype_hinting.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
 #include "stb_truetype.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace reluva::ttf {
+
+namespace {
+
+// Coverage as Windows' smoothed text comes out: heavier than the share of
+// the pixel the outline covers, as if raised to 1/2.2. Measured on And Then
+// There Were None's options screen against a screenshot of the original
+// (the text's mean difference 9.4 levels plain, 6.2 at 2.2, the best of
+// 1.8 to 3.0): seen, not traced in Windows' code.
+uint8_t smoothed(uint8_t coverage) {
+    static const auto kTable = [] {
+        std::array<uint8_t, 256> t{};
+        for (int i = 0; i < 256; i++)
+            t[size_t(i)] = uint8_t(std::lround(255.0 * std::pow(i / 255.0, 1 / 2.2)));
+        return t;
+    }();
+    return kTable[coverage];
+}
+
+} // namespace
 
 struct Font::Info {
     stbtt_fontinfo font;
@@ -34,6 +55,9 @@ Error Font::load(std::vector<uint8_t> data) {
     // stbtt keeps a pointer to the data: point it at our copy.
     stbtt_InitFont(&_info->font, _data.data(), offset);
     stbtt_GetFontVMetrics(&_info->font, &_ascent, &_descent, &_lineGap);
+    _hinter = std::make_unique<Hinter>();
+    if (!_hinter->load(_data) || !_hinter->hasPrograms())
+        _hinter.reset();
     return Error::success();
 }
 
@@ -64,6 +88,8 @@ const Font::Glyph &Font::glyph(uint32_t cp, float pixels) {
     Glyph &g = _glyphs[key];
     if (!_info)
         return g;
+    if (_hinter && hintedGlyph(cp, pixels, g))
+        return g;
     const float s = scale(pixels);
     int advance = 0;
     int bearing = 0;
@@ -81,8 +107,106 @@ const Font::Glyph &Font::glyph(uint32_t cp, float pixels) {
     if (g.width && g.height) {
         g.coverage.resize(size_t(g.width) * size_t(g.height));
         stbtt_MakeCodepointBitmap(&_info->font, g.coverage.data(), g.width, g.height, g.width, s, s, int(cp));
+        for (uint8_t &c : g.coverage)
+            c = smoothed(c);
     }
     return g;
+}
+
+bool Font::hintedGlyph(uint32_t cp, float pixels, Glyph &g) {
+    // At the size's whole number of pixels to the em, as Windows scales a
+    // hinted font (its 'head' asks for it).
+    const int ppem = int(std::lround(pixels * float(_hinter->unitsPerEm()) / float(_ascent - _descent)));
+    HintedGlyph h;
+    if (ppem <= 0 || !_hinter->glyph(stbtt_FindGlyphIndex(&_info->font, int(cp)), ppem, h))
+        return false;
+    g.advance = float(h.advance);
+    if (h.contourEnds.empty())
+        return true;
+    // Its contours as stb_truetype's vertices, in 64ths of a pixel: an
+    // off-curve point between two others makes the curve's control, two
+    // off-curve points in a row have an on-curve one between them.
+    std::vector<stbtt_vertex> v;
+    int32_t minX = INT32_MAX;
+    int32_t minY = INT32_MAX;
+    int32_t maxX = INT32_MIN;
+    int32_t maxY = INT32_MIN;
+    for (size_t k = 0; k < h.x.size(); k++) {
+        minX = std::min(minX, h.x[k]);
+        maxX = std::max(maxX, h.x[k]);
+        minY = std::min(minY, h.y[k]);
+        maxY = std::max(maxY, h.y[k]);
+    }
+    auto add = [&](uint8_t type, int32_t x, int32_t y, int32_t cx, int32_t cy) {
+        stbtt_vertex e{};
+        e.type = type;
+        e.x = stbtt_vertex_type(x);
+        e.y = stbtt_vertex_type(y);
+        e.cx = stbtt_vertex_type(cx);
+        e.cy = stbtt_vertex_type(cy);
+        v.push_back(e);
+    };
+    size_t start = 0;
+    for (const int endPoint : h.contourEnds) {
+        const size_t end = size_t(endPoint);
+        if (end >= h.x.size() || end < start)
+            break;
+        const size_t n = end - start + 1;
+        auto at = [&](size_t k) { return start + k % n; };
+        // Start on an on-curve point, or between two off-curve ones.
+        size_t first = 0;
+        while (first < n && !h.onCurve[at(first)])
+            first++;
+        int32_t sx = 0;
+        int32_t sy = 0;
+        if (first < n) {
+            sx = h.x[at(first)];
+            sy = h.y[at(first)];
+        } else {
+            first = 0;
+            sx = (h.x[at(0)] + h.x[at(1)]) / 2;
+            sy = (h.y[at(0)] + h.y[at(1)]) / 2;
+        }
+        add(STBTT_vmove, sx, sy, 0, 0);
+        bool control = false;
+        int32_t cx = 0;
+        int32_t cy = 0;
+        for (size_t k = 1; k <= n; k++) {
+            const size_t i = at(first + k);
+            const int32_t x = h.x[i];
+            const int32_t y = h.y[i];
+            if (h.onCurve[i]) {
+                if (control)
+                    add(STBTT_vcurve, x, y, cx, cy);
+                else
+                    add(STBTT_vline, x, y, 0, 0);
+                control = false;
+            } else {
+                if (control)
+                    add(STBTT_vcurve, (cx + x) / 2, (cy + y) / 2, cx, cy);
+                cx = x, cy = y, control = true;
+            }
+        }
+        if (control)
+            add(STBTT_vcurve, sx, sy, cx, cy);
+        start = end + 1;
+    }
+    const int x0 = int(std::floor(minX / 64.0));
+    const int x1 = int(std::ceil(maxX / 64.0));
+    const int y0 = int(std::floor(-maxY / 64.0));
+    const int y1 = int(std::ceil(-minY / 64.0));
+    g.width = std::max(0, x1 - x0);
+    g.height = std::max(0, y1 - y0);
+    g.xoff = x0;
+    g.yoff = y0;
+    if (g.width && g.height) {
+        g.coverage.assign(size_t(g.width) * size_t(g.height), 0);
+        stbtt__bitmap bitmap{g.width, g.height, g.width, g.coverage.data()};
+        stbtt_Rasterize(&bitmap, 0.35f, v.data(), int(v.size()), 1.0f / 64, 1.0f / 64, 0, 0, x0, y0, 1, nullptr);
+        for (uint8_t &c : g.coverage)
+            c = smoothed(c);
+    }
+    return true;
 }
 
 int Font::width(std::string_view utf8, float pixels) {

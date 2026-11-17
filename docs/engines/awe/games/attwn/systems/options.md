@@ -25,7 +25,7 @@ compared with the field offsets set aside:
 - **The labels** (`0x424290`, `0x42c090`): `options1` to `options9` from
   `interface.txt` (Music Volume, Effects Volume, Brightness, Captions,
   Shadows, Animated Water, Fog, Rain and Lightning, Anti-Aliasing), in
-  font 7 (Arial Narrow 10), white, at fixed places rather than by the
+  font 7 (`innswfte.ttf` at 18), white, at fixed places rather than by the
   scene's pictures: the sliders' centred in 200 pixels from x 512, at y
   45, 110 and 175 (35 above their rows, 80, 145, 210); the boxes' ending
   at x 645, at y 258 to 508, 50 apart, the tick drawn at x 645 on the row
