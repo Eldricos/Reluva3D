@@ -176,6 +176,7 @@ private:
     bool _nextLoadTransition = false;
     std::string _pendingTransition;
     std::string _pendingSave; // a saved game waiting for the next frame, its picture
+    int _waitFrames = 0;      // frames before the game's next console lines run ("wait")
     bool _runningTransition = false;
     float _menuMouseX = 0;
     float _menuMouseY = 0;

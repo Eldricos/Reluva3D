@@ -189,8 +189,12 @@ behind the DLL's own tables.
    pictures, the game's Ghoul2 instances with them
    ([systems/sp-saves.md](systems/sp-saves.md)). `kejim_base` plays
    through the same way, the player carried over from `kejim_post` and
-   on into `artus_mine` (`sp-run -next`). Next: the next levels the same
-   way, and a console on the page.
+   on into `artus_mine` (`sp-run -next`). `artus_mine` plays to
+   `artus_detention` by a written route (its way out waits on a squad
+   killed and two triggers used); the tour learned to hold use, face a
+   trigger's angle and leave corpses and pits alone, and the page runs
+   the game's `wait` (its checkpoint saves, `wait 2;save auto*`). Next:
+   the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

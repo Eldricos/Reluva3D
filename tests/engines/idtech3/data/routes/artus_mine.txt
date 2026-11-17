@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# artus_mine's way out, for sp-run -replay with cheats (set helpUsObi 1):
+# from the end of the opening (28 s), the generator room's squad spawned
+# and fought until all seven are dead (gen_room_death counts them), which
+# switches on the generator's trigger (cin5_trig: facing south, use held);
+# its cinematic blows the generator and calls the tram, whose trigger
+# (use held) changes the level to artus_detention.
+@until 32000 0 0
+/god
+/undying
+/give all
+# the squad's trigger, over the generator room
+/setviewpos 1108 796 560 0
+@until 33000 32 4
+# the squad, with the disruptor
+@nearest gen_room_death -target_counter
+@until 33500 1 4
+@nearest gen_room_death -target_counter
+@until 34000 1 4
+@nearest gen_room_death -target_counter
+@until 34500 1 4
+@nearest gen_room_death -target_counter
+@until 35000 1 4
+@nearest gen_room_death -target_counter
+@until 35500 1 4
+@nearest gen_room_death -target_counter
+@until 36000 1 4
+@nearest gen_room_death -target_counter
+@until 36500 1 4
+@nearest gen_room_death -target_counter
+@until 37000 1 4
+@nearest gen_room_death -target_counter
+@until 37500 1 4
+@nearest gen_room_death -target_counter
+@until 38000 1 4
+@nearest gen_room_death -target_counter
+@until 38500 1 4
+@nearest gen_room_death -target_counter
+@until 39000 1 4
+@nearest gen_room_death -target_counter
+@until 39500 1 4
+@nearest gen_room_death -target_counter
+@until 40000 1 4
+@nearest gen_room_death -target_counter
+@until 40500 1 4
+@nearest gen_room_death -target_counter
+@until 41000 1 4
+@nearest gen_room_death -target_counter
+@until 41500 1 4
+@nearest gen_room_death -target_counter
+@until 42000 1 4
+@nearest gen_room_death -target_counter
+@until 42500 1 4
+@nearest gen_room_death -target_counter
+@until 43000 1 4
+@nearest gen_room_death -target_counter
+@until 43500 1 4
+@nearest gen_room_death -target_counter
+@until 44000 1 4
+@nearest gen_room_death -target_counter
+@until 44500 1 4
+@nearest gen_room_death -target_counter
+@until 45000 1 4
+@nearest gen_room_death -target_counter
+@until 45500 1 4
+@nearest gen_room_death -target_counter
+@until 46000 1 4
+@nearest gen_room_death -target_counter
+@until 46500 1 4
+@nearest gen_room_death -target_counter
+@until 47000 1 4
+@nearest gen_room_death -target_counter
+@until 47500 1 4
+@nearest gen_room_death -target_counter
+@until 48000 1 4
+@nearest gen_room_death -target_counter
+@until 48500 1 4
+@nearest gen_room_death -target_counter
+@until 49000 1 4
+@nearest gen_room_death -target_counter
+@until 49500 1 4
+@nearest gen_room_death -target_counter
+@until 50000 1 4
+@nearest gen_room_death -target_counter
+@until 50500 1 4
+@nearest gen_room_death -target_counter
+@until 51000 1 4
+@nearest gen_room_death -target_counter
+@until 51500 1 4
+@nearest gen_room_death -target_counter
+@until 52000 1 4
+@nearest gen_room_death -target_counter
+@until 52500 1 4
+@nearest gen_room_death -target_counter
+@until 53000 1 4
+# the generator's trigger: its cinematic, about 40 s
+/setviewpos 1620 580 330 270
+@until 54000 32 0
+@until 114000 0 0
+# the tram
+/setviewpos -582 3968 650 0
+@until 115000 32 0
+@until 145000 0 0

@@ -72,8 +72,15 @@ bool entityHasText(ef::SpGameHost &game, int32_t n, const std::string &text) {
 // the player 96 units to one side of the living entity with that name
 // (the nearest, for @nearest, but those with the other names), facing it;
 // the first side not over a trigger_hurt, a pit, which kills through god
-// mode. Empty if there's no such entity.
-std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest) {
+// mode. One over a pit (falling into it) isn't followed, nor, in Jedi
+// Outcast, a dead one (its corpse stays in use). Empty if there's no such
+// entity.
+// Jedi Outcast's entity's health: the game's own field, past what the
+// engine shares (a stormtrooper's 30, 0 once dead; the most it can have
+// follows it).
+constexpr int32_t kJediHealth = 0x218;
+
+std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest, int32_t *picked = nullptr) {
     std::istringstream in(reluva::fs::toLower(words));
     std::string want;
     in >> want;
@@ -83,18 +90,27 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
             skip.push_back(w.substr(1));
     const ef::SpEntityLayout &layout = game.entityLayout();
     const q3::Vec3f me = game.entityVec(0, layout.currentOrigin);
+    std::vector<std::pair<q3::Vec3f, q3::Vec3f>> hurts;
+    for (int32_t n = 1; n < game.entityCount(); ++n)
+        if (game.entityInt(n, layout.inUse) && entityHasText(game, n, "trigger_hurt"))
+            hurts.emplace_back(game.entityVec(n, layout.absMin), game.entityVec(n, layout.absMax));
+    auto overPit = [&hurts](float x, float y, float z) {
+        return std::any_of(hurts.begin(), hurts.end(), [&](const auto &h) {
+            return x > h.first[0] - 32 && x < h.second[0] + 32 && y > h.first[1] - 32 && y < h.second[1] + 32 &&
+                   h.first[2] < z + 64;
+        });
+    };
     int32_t found = -1;
     float best = 0;
-    std::vector<std::pair<q3::Vec3f, q3::Vec3f>> hurts;
     for (int32_t n = 1; n < game.entityCount(); ++n) {
         if (!game.entityInt(n, layout.inUse))
             continue;
-        if (entityHasText(game, n, "trigger_hurt"))
-            hurts.emplace_back(game.entityVec(n, layout.absMin), game.entityVec(n, layout.absMax));
         if ((!nearest && found >= 0) || !entityHasText(game, n, want) ||
             std::any_of(skip.begin(), skip.end(), [&](const std::string &s) { return entityHasText(game, n, s); }))
             continue;
         const q3::Vec3f at = game.entityVec(n, layout.currentOrigin);
+        if (nearest && (overPit(at[0], at[1], at[2]) || (game.jedi() && game.entityInt(n, kJediHealth) <= 0)))
+            continue;
         const float d =
             (at[0] - me[0]) * (at[0] - me[0]) + (at[1] - me[1]) * (at[1] - me[1]) + (at[2] - me[2]) * (at[2] - me[2]);
         if (found < 0 || d < best) {
@@ -104,17 +120,13 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
     }
     if (found < 0)
         return {};
+    if (picked)
+        *picked = found;
     const q3::Vec3f at = game.entityVec(found, layout.currentOrigin);
     const float sides[4][3] = {{-96, 0, 0}, {96, 0, 180}, {0, -96, 90}, {0, 96, 270}};
     const float *side = sides[0];
     for (const float *s : sides) {
-        const float x = at[0] + s[0];
-        const float y = at[1] + s[1];
-        const bool over = std::any_of(hurts.begin(), hurts.end(), [&](const auto &h) {
-            return x > h.first[0] - 32 && x < h.second[0] + 32 && y > h.first[1] - 32 && y < h.second[1] + 32 &&
-                   h.first[2] < at[2] + 64;
-        });
-        if (!over) {
+        if (!overPit(at[0] + s[0], at[1] + s[1], at[2])) {
             side = s;
             break;
         }
@@ -128,14 +140,16 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
 // -tour: a replay (as -replay reads) playing a level through with cheats.
 // At `fromMs` (the opening over), god and undying modes and every weapon;
 // then each trigger in the level touched in turn (its middle, a little up
-// from its floor), and three seconds of fighting the nearest NPC, the
-// weapon changing each time. Left out: trigger_hurt, triggers in or over
+// from its floor) facing its angle and holding use (Jedi Outcast's button
+// 5), as some triggers wait for, and three seconds of fighting the nearest NPC, the weapon
+// changing each time; `rounds` times over, for triggers switched on by
+// what happens later in the level. Left out: trigger_hurt, triggers in or over
 // one, and triggers naming a spared entity (an ally they'd move into
 // the fighting); spared entities aren't shot at. Only direct fire (the
 // saber, pistol, blaster, disruptor, bowcaster, repeater): splash would
 // hurt the allies, whose death fails the mission. Last, the triggers
 // that change the level.
-std::string tourRoute(const q3::Bsp &bsp, int fromMs, const std::vector<std::string> &spare) {
+std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vector<std::string> &spare) {
     std::vector<q3::Entity> entities;
     if (q3::parseEntities(bsp.entities, entities))
         return {};
@@ -166,43 +180,53 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, const std::vector<std::str
     const int weapons[] = {4, 3, 4, 1, 4, 2, 4, 5, 4, 6}; // mostly the disruptor, which kills at a shot
     int t = fromMs;
     int count = 0;
+    std::vector<const q3::Entity *> visits;
     for (const q3::Entity &e : entities) {
         std::array<float, 6> b{};
         const std::string cls = e.classname();
         if (cls.rfind("trigger_", 0) != 0 || cls == "trigger_hurt" || !bounds(e, b))
             continue;
-        if (levelChanges.count(e.get("target"))) {
+        if (levelChanges.count(e.get("target")))
             exits.push_back(b);
-            continue;
-        }
-        bool named = false;
-        for (const auto &[key, value] : e.pairs)
-            for (const std::string &s : spare)
-                named = named || reluva::fs::toLower(value).find(s) != std::string::npos;
-        const float x = (b[0] + b[3]) / 2;
-        const float y = (b[1] + b[4]) / 2;
-        const float z = b[2] + 24;
-        const bool hurt = std::any_of(hurts.begin(), hurts.end(), [&](const std::array<float, 6> &h) {
-            return h[0] - 48 < x && x < h[3] + 48 && h[1] - 48 < y && y < h[4] + 48 && h[2] - 64 < z && z < h[5] + 64;
-        });
-        if (named || hurt)
-            continue;
-        const int w = weapons[count % int(std::size(weapons))];
-        char line[160];
-        std::snprintf(line, sizeof line, "# %d %s\n/setviewpos %.0f %.0f %.0f 0\n", count, cls.c_str(), double(x),
-                      double(y), double(z));
-        out += line;
-        t += 300;
-        out += "@until " + std::to_string(t) + " 0 " + std::to_string(w) + "\n";
-        for (int k = 0; k < 6; ++k) {
-            out += "@nearest npc" + skip + "\n";
-            t += 500;
-            // The saber swung and thrown in turn; the guns' main fire.
-            const int buttons = w == 1 && k % 2 ? 128 : 1;
-            out += "@until " + std::to_string(t) + " " + std::to_string(buttons) + " " + std::to_string(w) + "\n";
-        }
-        ++count;
+        else
+            visits.push_back(&e);
     }
+    for (int round = 0; round < rounds; ++round)
+        for (const q3::Entity *visit : visits) {
+            const q3::Entity &e = *visit;
+            std::array<float, 6> b{};
+            bounds(e, b);
+            const std::string cls = e.classname();
+            bool named = false;
+            for (const auto &[key, value] : e.pairs)
+                for (const std::string &s : spare)
+                    named = named || reluva::fs::toLower(value).find(s) != std::string::npos;
+            const float x = (b[0] + b[3]) / 2;
+            const float y = (b[1] + b[4]) / 2;
+            const float z = b[2] + 24;
+            const bool hurt = std::any_of(hurts.begin(), hurts.end(), [&](const std::array<float, 6> &h) {
+                return h[0] - 48 < x && x < h[3] + 48 && h[1] - 48 < y && y < h[4] + 48 && h[2] - 64 < z &&
+                       z < h[5] + 64;
+            });
+            if (named || hurt)
+                continue;
+            const int w = weapons[count % int(std::size(weapons))];
+            char line[160];
+            // Facing its angle: some are only set off looking that way.
+            std::snprintf(line, sizeof line, "# %d %s\n/setviewpos %.0f %.0f %.0f %d\n", count, cls.c_str(), double(x),
+                          double(y), double(z), std::atoi(e.get("angle").c_str()));
+            out += line;
+            t += 300;
+            out += "@until " + std::to_string(t) + " 32 " + std::to_string(w) + "\n";
+            for (int k = 0; k < 6; ++k) {
+                out += "@nearest npc" + skip + "\n";
+                t += 500;
+                // The saber swung and thrown in turn; the guns' main fire.
+                const int buttons = w == 1 && k % 2 ? 128 : 1;
+                out += "@until " + std::to_string(t) + " " + std::to_string(buttons) + " " + std::to_string(w) + "\n";
+            }
+            ++count;
+        }
     for (const std::array<float, 6> &b : exits) {
         char line[128];
         std::snprintf(line, sizeof line, "# the level change\n/setviewpos %.0f %.0f %.0f 0\n",
@@ -345,7 +369,7 @@ int cmdSpRun(int argc, char **argv) {
             stderr,
             "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-next] [-fixedclock] [-skippak pak]...\n"
-            "       [-replay <name>.input | -tour <ms> [-spare name]...]\n"
+            "       [-replay <name>.input | -tour <ms> [-rounds n] [-spare name]...]\n"
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon]\" the same command every 50 ms until\n"
@@ -369,6 +393,7 @@ int cmdSpRun(int argc, char **argv) {
     bool followNext = false;           // -next: the level change the game asked for, followed
     std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
     int tourFrom = 0;                  // -tour ms: from then, a route through the level's triggers (tourRoute)
+    int tourRounds = 1;                // -rounds n: the route that many times
     std::vector<std::string> spare;    // -spare name: not shot at, nor its triggers touched, on a tour
     std::string replayPath;            // -replay file: the player's commands, as the Play page records them,
                                        // "/command" lines typed at the console and "@" lines (see below)
@@ -404,6 +429,8 @@ int cmdSpRun(int argc, char **argv) {
         else if (std::strcmp(argv[i], "-tour") == 0 && i + 1 < argc) {
             tourFrom = std::atoi(argv[++i]);
             runCgame = true;
+        } else if (std::strcmp(argv[i], "-rounds") == 0 && i + 1 < argc) {
+            tourRounds = std::max(1, std::atoi(argv[++i]));
         } else if (std::strcmp(argv[i], "-spare") == 0 && i + 1 < argc)
             spare.push_back(reluva::fs::toLower(argv[++i]));
         else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc) {
@@ -642,7 +669,7 @@ int cmdSpRun(int argc, char **argv) {
         // -replay: the recorded commands in order, the server's frames run
         // up to each as the Play page ran them. -tour: a route made here.
         std::ifstream file;
-        std::istringstream route(tourFrom > 0 ? tourRoute(*bsp, tourFrom, spare) : std::string());
+        std::istringstream route(tourFrom > 0 ? tourRoute(*bsp, tourFrom, tourRounds, spare) : std::string());
         if (tourFrom <= 0) {
             file.open(replayPath);
             if (!file) {
@@ -686,10 +713,12 @@ int cmdSpRun(int argc, char **argv) {
             // -other...": the nearest such, but those with the other names.
             const bool nearest = line.rfind("@nearest ", 0) == 0;
             if (line.rfind("@face ", 0) == 0 || nearest) {
-                const std::string command = facingCommand(game, line.substr(nearest ? 9 : 6), nearest);
+                int32_t picked = -1;
+                const std::string command = facingCommand(game, line.substr(nearest ? 9 : 6), nearest, &picked);
                 if (watch)
-                    std::printf("[%5d ms] %s: %s\n", game.levelTime(), line.c_str(),
-                                command.empty() ? "none" : command.c_str());
+                    std::printf("[%5d ms] %s: %s (entity %d, health %d)\n", game.levelTime(), line.c_str(),
+                                command.empty() ? "none" : command.c_str(), picked,
+                                picked >= 0 && jedi ? game.entityInt(picked, kJediHealth) : 0);
                 if (!command.empty())
                     if (reluva::Error e = game.clientConsoleCommand(command))
                         return failed(("command " + line).c_str(), e);

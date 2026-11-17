@@ -224,3 +224,11 @@ yet: a console on the page.
   the Play page does, with the player stored as `maptransition` stores
   them: from `kejim_post`, `kejim_base` receives the same health,
   armour, weapons and ammunition, the inventory's two keys emptied.
+  `artus_mine`'s way out waits on its generator room's squad (a
+  `target_counter` of seven deaths) switching on a trigger that's set
+  off only facing its angle with use held (spawn flags 2 and 4), as the
+  tram's is with use; the tour holds use (button 5) facing each
+  trigger's angle, and `sp-run -replay tests/engines/idtech3/data/routes/artus_mine.txt`
+  plays that way out to `maptransition artus_detention`. An entity's
+  health is the game's field at 0x218 (the most it can have at 0x21c),
+  which the tour reads to leave corpses alone.

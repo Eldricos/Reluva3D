@@ -34,9 +34,11 @@
   `jk2-sp-tour` (`sp-run -tour`: kejim_post, then kejim_base, played
   through with cheats from the end of the opening, every trigger
   touched and the nearest stormtroopers fought between them with every
-  direct-fire weapon, to the level change; then `-next`: the next level
-  started with the player carried over, its weapons, ammunition and
-  health recorded; about seven minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  direct-fire weapon, to the level change; artus_mine by the route in
+  `tests/engines/idtech3/data/routes/`, its generator room's squad, the
+  generator's cinematic and the tram; after each, `-next`: the next
+  level started with the player carried over, its weapons, ammunition
+  and health recorded; about ten minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

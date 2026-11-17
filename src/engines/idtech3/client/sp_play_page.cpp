@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -546,6 +547,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     _gameLines.clear();
     _pendingMenu.clear();
     _pendingSave.clear();
+    _waitFrames = 0;
     _capturing = false;
     setTitle(map);
 
@@ -1026,10 +1028,20 @@ void SpPlayPage::runGameCommands() {
             _gameLines.push_back(line);
     _gameCommandsRun = all.size();
     // A cinematic started holds the rest, as the original's game is paused
-    // under it (cl_paused) before it sends any more.
+    // under it (cl_paused) before it sends any more; "wait n" holds them n
+    // frames (one if no number), as the console's command buffer does.
+    if (_waitFrames > 0)
+        --_waitFrames;
     size_t run = 0;
-    while (run < _gameLines.size() && !_cinematic)
+    while (run < _gameLines.size() && !_cinematic && _waitFrames == 0) {
+        const std::vector<std::string> words = splitCommand(_gameLines[run]);
+        if (!words.empty() && fs::toLower(words[0]) == "wait") {
+            _waitFrames = words.size() >= 2 ? std::max(1, std::atoi(words[1].c_str())) : 1;
+            ++run;
+            continue;
+        }
         runCommand(_gameLines[run++], true);
+    }
     _gameLines.erase(_gameLines.begin(), _gameLines.begin() + std::ptrdiff_t(run));
 }
 
