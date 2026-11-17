@@ -16,8 +16,10 @@ What Reluva does that hasn't been checked against the running original.
   code; Yavin's levels look as expected in `reluva-viewer`, but haven't
   been compared with the original running
   ([shader.md](../../formats/shader.md), [rbsp.md](../../formats/rbsp.md)).
-
-
+- Single player's scene entity layout and its kinds of entity follow
+  the GPL source; Ghoul2 models are seen drawn in `kejim_post`, the
+  other kinds (its effects' sprites, lines, electricity and cylinders)
+  not yet ([systems/sp-interface.md](systems/sp-interface.md)).
 - The network protocol's level changes, downloads and long matches, and
   a Reluva server's heartbeats to a real master, haven't been tried
   against the retail game ([systems/network.md](systems/network.md)).

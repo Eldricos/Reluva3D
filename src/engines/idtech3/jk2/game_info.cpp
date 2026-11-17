@@ -44,6 +44,9 @@ GameInfo gameInfo() {
     // its menus are in jk2sp.exe, not a DLL.
     g.spGameDll = "jk2gamex86.dll";
     g.firstMap = "kejim_post";
+    g.spDefaultConfig = "default.cfg"; // jk2sp.exe's; multiplayer's is mpdefault.cfg
+    g.spRefEntity = kSpRefEntityLayout;
+    g.spPlayerName = "Kyle"; // jk2sp.exe's (0x409965)
     g.multiplayerMapPrefixes = {"ffa_", "duel_", "ctf_"};
     g.cinematicExtension = ".roq";
     // As jk2mp.exe's server registers them at start (0x44dcfc on).

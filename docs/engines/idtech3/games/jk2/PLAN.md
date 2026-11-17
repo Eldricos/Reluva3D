@@ -174,8 +174,15 @@ behind the DLL's own tables.
    runs, its scripts starting the opening cinematic; the client game
    runs too, its HUD's menus read by the engine's menu reader
    ([systems/sp-menus.md](systems/sp-menus.md)) and bolts posed from the
-   records. Next: the Play page for single player's Jedi Outcast (its
-   scene entities and Ghoul2 models drawn), and the cinematics.
+   records. The Play page runs it: the start page's Single Player loads
+   `kejim_post`, the level drawn with its light styles, the client
+   game's scene entities and Ghoul2 models posed from the records, with
+   single player's own settings and keys (`default.cfg`, kept apart from
+   multiplayer's as the original's two programs keep theirs). Next: the
+   opening cutscene, whose script waits on its actors
+   (`cinematic1_kyle`, `cinematic1_jan`) though they're spawned; then
+   the opening text crawl and the cinematics' calls (90–94), saving
+   (`G2API_SaveGhoul2Models`), and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

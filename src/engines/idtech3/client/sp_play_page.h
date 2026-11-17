@@ -106,8 +106,16 @@ private:
     // play back; closed as the game ends.
     std::ofstream _recording;
     std::filesystem::path _saveDir; // where saved games are written
-    bool _expansion = false;        // the Expansion Pack's game code is running
-    size_t _gameCommandsRun = 0;    // of the game's console commands
+    // A game whose single player keeps its own settings
+    // (GameInfo::spDefaultConfig): the other side's, swapped out of the
+    // context while this page runs.
+    void swapSettings();
+    CvarStore _otherCvars;
+    KeyBindings _otherBindings;
+    bool _ownSettings = false; // single player's are in the context
+    bool _ownSettingsRead = false;
+    bool _expansion = false;     // the Expansion Pack's game code is running
+    size_t _gameCommandsRun = 0; // of the game's console commands
     // The in-game menu waits a frame while the game is captured for the
     // save menu's picture.
     std::string _pendingMenu;

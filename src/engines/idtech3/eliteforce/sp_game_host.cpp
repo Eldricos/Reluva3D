@@ -742,7 +742,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
             print(str(0, 4096));
         return 0;
     case 1: // Error(text)
-        c.abort("efgamex86.dll (client game): " + str(0, 4096));
+        c.abort(std::string(dllName()) + " (client game): " + str(0, 4096));
         return 0;
     case 2:
         return _process->milliseconds();
@@ -1291,6 +1291,18 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
     return out;
 }
 
+std::array<uint8_t, 32> SpGameHost::hiddenAreas(const Vec3f &eye) const {
+    std::array<uint8_t, 32> mask{};
+    if (!_world || !_areaPortals || (_cvars.find("cm_noAreas") && _cvars.integer("cm_noAreas")))
+        return mask;
+    const int area = _world->leafArea(_world->leafAt(eye));
+    if (area >= 0)
+        for (int a = 0; a < std::min(_world->areaCount(), 256); ++a)
+            if (!_areaPortals->connected(area, a))
+                mask[size_t(a >> 3)] |= uint8_t(1 << (a & 7));
+    return mask;
+}
+
 void SpGameHost::makeSnapshot() {
     Snapshot snap;
     snap.number = ++_snapshotNumber;
@@ -1302,7 +1314,7 @@ void SpGameHost::makeSnapshot() {
     if (ps && _cpu->valid(ps, uint32_t(_cg.playerState)))
         std::memcpy(snap.playerState.data(), _cpu->memory().data() + ps, size_t(_cg.playerState));
     // From the client game's camera if one's running, else the player's
-    // eye: origin (20) raised by the view height (168).
+    // eye: origin (20) raised by the view height.
     Vec3f eye{};
     const uint32_t camera = _process->memory().alloc(16);
     uint32_t cameraOn = 0;
@@ -1314,7 +1326,7 @@ void SpGameHost::makeSnapshot() {
         eye = readVec(camera);
     } else if (ps) {
         eye = readVec(ps + 20);
-        eye[2] += float(int32_t(_cpu->read32(ps + 168)));
+        eye[2] += float(int32_t(_cpu->read32(ps + _cg.viewHeight)));
     }
     _process->memory().free(camera);
     for (const int32_t n : visibleEntities(eye)) {
@@ -1328,13 +1340,7 @@ void SpGameHost::makeSnapshot() {
         snap.entities.emplace_back(_cpu->memory().data() + a, _cpu->memory().data() + a + _cg.entityState);
     }
     snap.serverCommandSequence = int32_t(_toClient.size());
-    if (_world && _areaPortals && !(_cvars.find("cm_noAreas") && _cvars.integer("cm_noAreas"))) {
-        const int area = _world->leafArea(_world->leafAt(eye));
-        if (area >= 0)
-            for (int a = 0; a < std::min(_world->areaCount(), 256); ++a)
-                if (!_areaPortals->connected(area, a))
-                    snap.areaMask[size_t(a >> 3)] |= uint8_t(1 << (a & 7));
-    }
+    snap.areaMask = hiddenAreas(eye);
     _snapshots.push_back(std::move(snap));
     if (_snapshots.size() > 32)
         _snapshots.erase(_snapshots.begin());
@@ -1343,7 +1349,7 @@ void SpGameHost::makeSnapshot() {
 Error SpGameHost::startClientGame() {
     _cgameVmMain = _module->exportAddress("vmMain");
     if (!_cgameVmMain)
-        return Error::fail("efgamex86.dll has no vmMain");
+        return Error::fail(std::string(dllName()) + " has no vmMain");
     _cgameRunning = true;
     makeSnapshot();
     syncCvars();
@@ -1453,8 +1459,8 @@ void SpGameHost::addImports() {
         return 0u;
     });
     import(kWriteCam, [](x86::Cpu &) { return 0u; });
-    import(kError, [](x86::Cpu &c) {
-        c.abort("efgamex86.dll: " + x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
+    import(kError, [this](x86::Cpu &c) {
+        c.abort(std::string(dllName()) + ": " + x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
         return 0u;
     });
     import(kMilliseconds, [this](x86::Cpu &) { return _process->milliseconds(); });

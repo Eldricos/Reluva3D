@@ -160,19 +160,11 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         return _strings;
     };
     switch (number) {
-    case 26: { // CM_SnapPVS(origin, buffer): the clusters seen from there, a bit each
-        if (!_world || !_map)
-            return 0;
-        const int leaf = _world->leafAt(readVec(a(0)));
-        const int from = leaf >= 0 && size_t(leaf) < _map->leafs.size() ? _map->leafs[size_t(leaf)].cluster : -1;
-        const uint32_t bytes = uint32_t(std::max(_map->visClusters, 0) + 7) / 8;
-        if (!c.valid(a(1), bytes))
-            return 0;
-        for (uint32_t i = 0; i < bytes; ++i)
-            c.write8(a(1) + i, 0);
-        for (int to = 0; to < _map->visClusters; ++to)
-            if (_map->clusterVisible(from, to))
-                c.write8(a(1) + uint32_t(to >> 3), uint8_t(c.read8(a(1) + uint32_t(to >> 3)) | (1u << (to & 7))));
+    case 26: { // CM_SnapPVS(origin, area mask out): the snapshot's mask as seen
+        // from there (0x412360): 32 bytes, the areas not joined to its own
+        const std::array<uint8_t, 32> mask = hiddenAreas(readVec(a(0)));
+        if (c.valid(a(1), uint32_t(mask.size())))
+            std::memcpy(c.memory().data() + a(1), mask.data(), mask.size());
         return 0;
     }
     case 35: // force feedback (three of one argument, one of none): none

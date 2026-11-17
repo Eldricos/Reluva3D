@@ -98,13 +98,16 @@ struct PageContext {
 /**
  * Reads the settings: the game's default.cfg, then the player's own
  * (Reluva's config file in the save folder), then autoexec.cfg.
+ * @param singlePlayer single player's own settings (GameInfo::spDefaultConfig
+ *        and its own file), for a game that keeps them apart.
  */
-void loadConfig(PageContext &ctx);
+void loadConfig(PageContext &ctx, bool singlePlayer = false);
 /**
  * Writes the player's config file back with the bindings and the settings
  * to keep (Archive cvars), if any changed.
+ * @param singlePlayer single player's own file, as for loadConfig().
  */
-void saveConfig(PageContext &ctx);
+void saveConfig(PageContext &ctx, bool singlePlayer = false);
 /**
  * The brightness setting (r_gamma, the menus' brightness slider; 1 unless
  * set), which 3D pages show their frames with.

@@ -46,7 +46,8 @@ bool shaderFound(const ShaderLibrary &shaders, const SearchSet &files, const std
 
 SpPlayPage::SpPlayPage(PageContext &ctx) : Page(ctx) {
     // A game with its single-player game code beside the game folder.
-    if (ctx.game.code != GameCode::kEliteForce || ctx.game.spGameDll.empty() || ctx.singlePlayerPath.empty())
+    if ((ctx.game.code != GameCode::kEliteForce && ctx.game.code != GameCode::kJediOutcast) ||
+        ctx.game.spGameDll.empty() || ctx.singlePlayerPath.empty())
         return;
     // (By name in any case: copied from a CD, they may be in capitals.)
     const auto dll = fs::findFile(ctx.singlePlayerPath, ctx.game.spGameDll);
@@ -78,7 +79,23 @@ SpPlayPage::~SpPlayPage() {
     deactivate();
 }
 
+void SpPlayPage::swapSettings() {
+    std::swap(_ctx.cvars, _otherCvars);
+    std::swap(_ctx.bindings, _otherBindings);
+    _ownSettings = !_ownSettings;
+}
+
 void SpPlayPage::activate() {
+    if (!_ctx.game.spDefaultConfig.empty() && !_ownSettings) {
+        saveConfig(_ctx);
+        const std::string gameDir = _ctx.cvars.string("fs_game");
+        swapSettings();
+        if (!std::exchange(_ownSettingsRead, true)) {
+            loadConfig(_ctx, true);
+            _ctx.cvars.create("fs_game", gameDir, CvarStore::kSystemInfo | CvarStore::kInit);
+            _ctx.cvars.set("fs_game", gameDir, true);
+        }
+    }
     JoystickInput::registerCvars(_cvars);
     const VideoSettings video = videoSettings(_ctx.cvars);
     _frameW = video.width;
@@ -399,6 +416,10 @@ void SpPlayPage::deactivate() {
     _shaders.reset();
     _renderer = nullptr;
     _input.releaseAll();
+    if (_ownSettings) {
+        saveConfig(_ctx, true);
+        swapSettings();
+    }
 }
 
 void SpPlayPage::stop(const std::string &why) {
@@ -454,6 +475,10 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     Error err = _ctx.files.read(path, data);
     if (!err)
         err = parseBsp(data, *bsp);
+    // Jedi Outcast's light is doubled only by its fullscreen gamma ramp.
+    const bool overbright = !_ctx.game.overbrightFullscreenOnly ||
+                            (videoSettings(_cvars).fullscreen && _cvars.integer("r_overBrightBits") > 0);
+    _world->setOverbright(overbright);
     if (!err)
         err = _world->load(*bsp, _ctx.shaders);
     if (err)
@@ -463,7 +488,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     std::vector<Entity> entities;
     if (!parseEntities(bsp->entities, entities) && !entities.empty())
         entities[0].vector("gridsize", cell);
-    _grid.build(*bsp, {cell[0], cell[1], cell[2]});
+    _grid.build(*bsp, {cell[0], cell[1], cell[2]}, overbright);
 
     // The game: the server half started on the level, the player joined,
     // then the client half.
@@ -477,7 +502,7 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     // own: the saved game's, the last level's last frame, or nothing.
     _game->screenShot = std::move(_nextScreenShot);
     _nextScreenShot.clear();
-    if ((err = _game->load(_dll)))
+    if ((err = _game->load(_dll, _ctx.game.code == GameCode::kJediOutcast)))
         return stop(_ctx.game.spGameDll + ": " + err.message);
     // A saved game's chunks are read on as the original's loader does:
     // the level started, then (but for an autosave) its time and
@@ -508,6 +533,11 @@ void SpPlayPage::start(int index, int32_t loadMode, raven::SaveReader *save) {
     if (!refused.empty())
         return stop("The game refused the player: " + refused);
     _scene->setHandles({&_game->models(), &_game->skins(), &_game->shaders()});
+    // Jedi Outcast's Ghoul2 models, posed as its records in the game's
+    // memory say.
+    _scene->ghoul2Poses = [this](int32_t instance, int32_t time, std::vector<Ghoul2Pose> &out) {
+        return _game && _game->ghoul2Drawn(uint32_t(instance), time, out);
+    };
     // As it loads, the client game asks for the screen: its loading screen
     // (the level's picture, what's loading) under the menus' text.
     _game->updateScreen = [this] { showClientLoading(); };
@@ -627,6 +657,12 @@ void SpPlayPage::saveGame(const std::string &name, bool autosave) {
     using raven::chunkId;
     if (!_game || !_game->clientGameRunning()) {
         _lastCommand = "You must be in a game to save.";
+        return;
+    }
+    // Jedi Outcast's saved games aren't written yet: its game asks for
+    // its Ghoul2 instances' records, which the host can't give.
+    if (_game->jedi()) {
+        _lastCommand = "Saving Jedi Outcast games isn't done yet.";
         return;
     }
     if (!autosave) {
@@ -1139,6 +1175,10 @@ void SpPlayPage::update(uint64_t nowMs) {
         const Scene &scene = _game->scene();
         const auto &pictures = _game->pictures();
         const bool dynamicLights = !_cvars.find("r_dynamiclight") || _cvars.integer("r_dynamiclight") != 0;
+        if (_game->jedi()) {
+            _world->setLightStyles(_game->lightStyles());
+            _grid.setStyles(_game->lightStyles());
+        }
         size_t drawn = 0;
         size_t shots = 0;
         bool first = true;

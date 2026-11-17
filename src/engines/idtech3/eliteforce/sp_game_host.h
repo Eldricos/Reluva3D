@@ -124,6 +124,13 @@ public:
     // version.
     Error load(const std::vector<uint8_t> &dll, bool jedi = false);
     bool jedi() const { return _jedi; }
+    const char *dllName() const { return _jedi ? "jk2gamex86.dll" : "efgamex86.dll"; }
+    // Jedi Outcast's light styles, as its client game last set them.
+    const LightStyleColors &lightStyles() const { return _lightStyles; }
+    // Jedi Outcast's: the models to draw of the Ghoul2 instance whose
+    // handle (a CGhoul2Info_v) is at `handleAddress`, posed for `time`
+    // (ms); false if it has none.
+    bool ghoul2Drawn(uint32_t handleAddress, int32_t time, std::vector<Ghoul2Pose> &out);
     // Starts a level: the map's cvars, then the game's Init with the map's
     // entity text. `checksum`: the map file's (mapChecksum()).
     // `loadMode`: 0 a new level, 1 a saved game being loaded, 2 an
@@ -223,8 +230,10 @@ public:
         uint32_t snapshotCount = 0x250;
         uint32_t snapshotEntities = 0x254;
         uint32_t snapshotSequence = 0xea60;
+        uint32_t viewHeight = 168; // in the player state
     };
-    static constexpr CgameLayout kJediCgame{948, 252, 168, 0xfff8, 0x3e4, 0x3e8, 0xfff4};
+    // (Its view height: 0x2000e11c in jk2gamex86.dll adds it to the origin.)
+    static constexpr CgameLayout kJediCgame{948, 252, 168, 0xfff8, 0x3e4, 0x3e8, 0xfff4, 176};
     // Starts the client game on the level (its CG_INIT: it registers what
     // it will draw), once the player has joined.
     Error startClientGame();
@@ -396,8 +405,8 @@ private:
     std::unique_ptr<jk2::FontSet> _fonts; // made with the first font
     raven::StringTable _strings;
     bool _stringsLoaded = false;
-    std::array<std::array<uint8_t, 4>, 32> _lightStyles{}; // as the client game sets them, full to start
-    std::array<float, 3> _cmdAngles{};                     // SetUserCmdAngles
+    LightStyleColors _lightStyles{};   // as the client game sets them, full to start
+    std::array<float, 3> _cmdAngles{}; // SetUserCmdAngles
     // The engine's menus (calls 97-107, 111) and the menu file being read:
     // its text (kept for the lexer), the copy the client game is handed,
     // and where each token it asks for is put.
@@ -505,6 +514,9 @@ private:
         std::vector<std::vector<uint8_t>> entities;
     };
     void makeSnapshot();
+    // The snapshot's area mask for a view from `eye`: a bit for each area
+    // not joined to the one it's in.
+    std::array<uint8_t, 32> hiddenAreas(const Vec3f &eye) const;
     std::vector<int32_t> visibleEntities(const Vec3f &eye);
     void writeSnapshot(uint32_t address, const Snapshot &snap);
     void writeGameState(uint32_t address);

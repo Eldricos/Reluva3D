@@ -51,9 +51,11 @@ void Page::setTitle(const std::string &detail) {
 
 namespace {
 constexpr const char *kConfigName = "reluva.cfg";
-}
+constexpr const char *kSpConfigName = "reluva-sp.cfg";
+} // namespace
 
-void loadConfig(PageContext &ctx) {
+void loadConfig(PageContext &ctx, bool singlePlayer) {
+    const char *configName = singlePlayer ? kSpConfigName : kConfigName;
     auto readFile = [&](const std::string &name, std::string &out) {
         // The player's own files first, then the game's.
         if (!ctx.savePath.empty()) {
@@ -108,18 +110,20 @@ void loadConfig(PageContext &ctx) {
     };
     // The game's own first: where it gives an engine setting another
     // default (Jedi Outcast's video settings), that one stands.
-    for (const GameInfo::StartCvar &c : ctx.game.serverCvars)
-        ctx.cvars.create(c.name, c.value, c.flags);
+    // (The server's are multiplayer's.)
+    if (!singlePlayer)
+        for (const GameInfo::StartCvar &c : ctx.game.serverCvars)
+            ctx.cvars.create(c.name, c.value, c.flags);
     for (const GameInfo::StartCvar &c : ctx.game.clientCvars)
         ctx.cvars.create(c.name, c.value, c.flags);
     for (const auto &[name, value] : kEngineCvars)
         ctx.cvars.create(name, value, CvarStore::kArchive);
     std::string text;
     std::vector<uint8_t> data;
-    if (!ctx.files.read(ctx.game.defaultConfig, data))
+    if (!ctx.files.read(singlePlayer ? ctx.game.spDefaultConfig : ctx.game.defaultConfig, data))
         ctx.bindings.execute(std::string(data.begin(), data.end()), ctx.cvars, nullptr, readFile);
     if (!ctx.savePath.empty()) {
-        std::ifstream in(ctx.savePath / kConfigName, std::ios::binary);
+        std::ifstream in(ctx.savePath / configName, std::ios::binary);
         if (in) {
             text.assign(std::istreambuf_iterator<char>(in), {});
             ctx.bindings.execute(text, ctx.cvars, nullptr, readFile);
@@ -190,7 +194,7 @@ void applyVideoSettings(const VideoSettings &v, ShaderCache &shaders, WorldRende
         models->setLodBias(v.lodBias);
 }
 
-void saveConfig(PageContext &ctx) {
+void saveConfig(PageContext &ctx, bool singlePlayer) {
     if (ctx.savePath.empty())
         return;
     std::string text = "// Reluva's settings for this game: key bindings and kept settings\n";
@@ -200,7 +204,7 @@ void saveConfig(PageContext &ctx) {
             text += "seta " + cv.name + " \"" + (cv.hasLatched ? cv.latched : cv.value) + "\"\n";
     std::error_code ec;
     std::filesystem::create_directories(ctx.savePath, ec);
-    std::ofstream out(ctx.savePath / kConfigName, std::ios::binary);
+    std::ofstream out(ctx.savePath / (singlePlayer ? kSpConfigName : kConfigName), std::ios::binary);
     out << text;
     ctx.bindings.changed = false;
 }

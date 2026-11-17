@@ -59,4 +59,37 @@ constexpr RefEntityLayout kRefEntityLayout = [] {
     return l;
 }();
 
+// Single player's refEntity_t (168 bytes), as the GPL Jedi Outcast
+// single-player source lays it out: Quake III's up to the shader's time,
+// then a sprite's radius and rotation (or a saber glow's length, 136),
+// the Ghoul2 angles, the model's scale (152) and a pointer to its
+// CGhoul2Info_v (164). Its entity types: model 0, sprite 2, oriented quad
+// 3, line 4, electricity 5, cylinder 6, beam 8, saber glow 9, portal
+// camera 10. Its effects keep their sizes in the common part as
+// multiplayer's do (the effects code is the same), in its own places.
+constexpr RefEntityLayout kSpRefEntityLayout = [] {
+    RefEntityLayout l;
+    l.size = 168;
+    l.radius = 132;
+    l.rotation = 136;
+    l.width = 132;
+    l.endWidth = 136;
+    l.jitter = 28;
+    l.cylinderBase = 84;
+    l.quadFacesAxis = true;
+    l.modelScale = 152;
+    l.ghoul2 = 164;
+    l.typeSprite = 2;
+    l.typeQuad = 3;
+    l.typeLine = 4;
+    l.typeBolt = 5;
+    l.ravenBolt = true;
+    l.typeCylinder = 6;
+    l.typeBeam = 8;
+    l.typeSaberGlow = 9;
+    l.saberLength = 136;
+    l.typePortal = 10;
+    return l;
+}();
+
 } // namespace reluva::idtech3::jk2

@@ -96,6 +96,11 @@ struct GameInfo {
     std::string spPlayerName;
     std::string spGameDll;
     std::string spUiDll;
+    // Single player's default config, when its settings and keys are kept
+    // apart from multiplayer's (Jedi Outcast's two programs each have
+    // their own: the same cvar names mean different things in them).
+    // Empty: one set of settings for both.
+    std::string spDefaultConfig;
     std::string firstMap;
     std::vector<std::string> multiplayerMapPrefixes;
     PlayerModels malePlayer;

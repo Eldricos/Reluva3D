@@ -214,6 +214,15 @@ uint32_t SpGameHost::ghoul2Vector(uint32_t handleAddress) const {
     return it == _g2Instances.end() ? 0 : it->second;
 }
 
+bool SpGameHost::ghoul2Drawn(uint32_t handleAddress, int32_t time, std::vector<Ghoul2Pose> &out) {
+    const uint32_t vector = ghoul2Vector(handleAddress);
+    if (!vector)
+        return false;
+    const int32_t handle = int32_t(_cpu->read32(handleAddress));
+    syncGhoul2Pose(handle, vector);
+    return _g2Pose->drawn(handle, time, out);
+}
+
 const SpGameHost::Ghoul2Files *SpGameHost::ghoul2Files(const std::string &name) {
     std::string key = fs::toLower(name);
     if (key.size() < 4 || key.compare(key.size() - 4, 4, ".glm") != 0)
@@ -424,7 +433,9 @@ void SpGameHost::syncGhoul2Pose(int32_t handle, uint32_t vector) {
         if (int32_t(_cpu->read32(info + kModelIndex)) == -1)
             continue;
         m.file = _cpu->string(info + kFileName, 64);
-        m.customSkin = int32_t(_cpu->read32(info + kCustomSkin));
+        // The skin G2_SetModels gave it (its custom skin is the game's
+        // number for it, which the client game's list turns into this).
+        m.customSkin = int32_t(_cpu->read32(info + kSkin));
         m.boltLink = int32_t(_cpu->read32(info + kModelBoltLink));
         for (uint32_t b = 0, n = vectorCount(info + kBolts, kBoltSize); b < n; ++b) {
             const uint32_t r = vectorAt(info + kBolts, kBoltSize, b);

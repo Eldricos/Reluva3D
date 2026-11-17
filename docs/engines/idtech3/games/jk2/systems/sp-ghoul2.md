@@ -119,13 +119,19 @@ records' bytes have changed, so a frame's many bolt questions pose each
 model once. A paused animation is posed as if it went on *(guessed)*.
 The client game's `G2_SetModels` (its call 85) gives each model in use
 its skin: the skin list's entry at its custom skin (0x453180, into the
-model at 0xa8).
+model at 0xa8). The custom skin is the game's number for the skin, not
+the renderer's, so a model is drawn with the skin at 0xa8 (with the
+custom skin, Jan was drawn with Kyle's first-person skin).
+
+**Drawing:** a scene entity's Ghoul2 pointer (164) is the
+`CGhoul2Info_v`'s address; the Play page asks the host for that
+instance's models posed at the view's time (`SpGameHost::ghoul2Drawn`),
+the same posing as the bolts'.
 
 Not yet answered (they stop the game, by name): collision, the matrix
 overrides, adding and removing surfaces and bones, copying an instance,
 the new origin, surface names and parents, and saving and loading
-instances. The client game's Ghoul2 entities aren't drawn yet: that's
-the Play page's.
+instances.
 
 ## Sources and checks
 

@@ -92,7 +92,7 @@ source's `refexport_t` order). The GPL source's `cgameImport_t` has 118:
 | Number | Calls | As Elite Force's |
 |---|---|---|
 | 0–25 | print, error, time, settings, arguments, files, commands, screen update, collision (load, models, contents, traces, marks) | the same numbers |
-| 26 | `CM_SnapPVS(origin, buffer)`: the clusters seen from there, a bit each | — |
+| 26 | `CM_SnapPVS(origin, mask)` (0x412360): the snapshot's area mask as seen from there, 32 bytes: a bit for each area not joined to the one the point is in (0x4122d0 sets the joined ones, then every word is inverted); none set if the point is in no area | — |
 | 27–34 | sound: start, start local, clear and add looping, entity position, respatialize, register, background track | 26–33 |
 | 35–38 | force feedback: three of one argument, one of none | 34–37 |
 | 39–43 | `R_LoadWorldMap`, `R_RegisterModel`, `R_RegisterSkin`, `R_RegisterShader`, `R_RegisterShaderNoMip` | 38–42 |
@@ -119,10 +119,15 @@ The structures handed over: a snapshot (0x401120) has its flags, ping,
 server time and area mask as Elite Force's, the command number at 44,
 the player state at 48 (948 bytes), the entity count at 0x3e4, up to 256
 entity states of 252 bytes from 0x3e8 and the server command sequence
-at 0xfff4; a scene entity (`refEntity_t`) is 168 bytes *(from the GPL
-source's layout)*, Elite Force's 136 then the Ghoul2 angles, model scale
-and instance pointer; the view (`refdef_t`) is Quake III's, without
-Elite Force's text.
+at 0xfff4; the player state's view height is at 176 (0x2000e11c adds it
+to the origin's height), Elite Force's at 168. A scene entity
+(`refEntity_t`) is 168 bytes, laid out as the GPL source has it: Quake
+III's 140 (a sprite's radius at 132, its rotation or a saber glow's
+length at 136), then the Ghoul2 angles, the model's scale (152) and a
+pointer to its `CGhoul2Info_v` (164); its kinds are model 0, sprite 2,
+oriented quad 3, line 4, electricity 5, cylinder 6, beam 8, saber glow
+9, portal 10 *(published)*. The view (`refdef_t`) is Quake III's, without Elite
+Force's text.
 
 ## In Reluva
 
@@ -144,6 +149,25 @@ on `kejim_post` runs the game's `Init`, the player joins, and the level
 and (with `-cgame`) the client game run, the client game drawing a
 scene each frame.
 
+**The Play page:** the start page's Single Player runs the DLL as
+Elite Force's does, from the first level: the level drawn with the light
+styles the client game sets (its calls 86 and 87), brightened only in
+fullscreen as multiplayer's, and the scene entities in the layout above,
+Ghoul2 ones posed from the instance's records
+([sp-ghoul2.md](sp-ghoul2.md)). The original's two programs keep their
+own settings (`jk2config.cfg`, `jk2mpconfig.cfg`) and the same names
+mean different things in them (`cg_hudFiles`: multiplayer's 0 or 1,
+single player's a file), so single player's are kept apart: read from
+`default.cfg` and Reluva's `reluva-sp.cfg`, swapped in while its page
+runs. The player's name starts as `Kyle` (0x409965). Not yet: saving
+(the game asks for its Ghoul2 instances' records, `G2API_SaveGhoul2Models`),
+the opening text crawl (`jk2sp.exe` draws `video/jk0101_sw.roq` itself, from
+`menu/video/tc_<language>.tga` and `music/cinematic_1`, 0x404ad5), and
+a console on the page. On `kejim_post` the opening cutscene's script
+stops after its first steps: it waits on its actors
+(`cinematic1_kyle`, `cinematic1_jan`), which are spawned and drawn but
+not found by name; why isn't known yet.
+
 ## Sources and checks
 
 - **Where the facts come from:** `jk2sp.exe` 1.02a: the table's fill
@@ -155,4 +179,7 @@ scene each frame.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its
   version is 6, the game's `Init` runs, the player joins and 100 server
   frames run, the client game drawing each (a game-data step records
-  it).
+  it). The Play page run on the first level, on screen: the level and
+  Kyle and Jan drawn with their skins. A wrong `CM_SnapPVS` (a bit per
+  cluster, overrunning the 32 bytes into the snapshot's player state)
+  showed as the client game reading client -1.
