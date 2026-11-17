@@ -32,8 +32,9 @@
 #                 g_maxForceRank 7, as the player's default force powers
 #                 are rank 7 and the force menu isn't there to lower them)
 #   jk2-single-player  the single-player game DLL on kejim_post: its Init,
-#                 the player joining and 100 server frames, on a clock that
-#                 moves with the level's so the run repeats (sp-run)
+#                 the player joining and 100 server frames, the client game
+#                 (its HUD menus read) drawing each, on a clock that moves
+#                 with the level's so the run repeats (sp-run)
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -95,7 +96,7 @@ elseif(STEP STREQUAL "jk2-game")
     record_run(ffa_bespin-mapchange "game code" idtech3 net-run "${base}" ffa_bespin -loopback 160 -set sv_pure 0
                -set g_maxForceRank 7 -clientcmd "team free" -mapchange ffa_deathstar)
 elseif(STEP STREQUAL "jk2-single-player")
-    record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock)
+    record_run(kejim_post "frames run" idtech3 sp-run "${base}" kejim_post -frames 100 -fixedclock -cgame)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

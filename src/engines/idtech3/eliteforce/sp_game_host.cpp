@@ -734,7 +734,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu &c, int as) {
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
     const int number = as >= 0 ? as : int(c.arg(0));
-    _cgameCallCounts.add(number);
+    if (as < 0) // a Jedi Outcast call is counted by its own number
+        _cgameCallCounts.add(number);
     switch (number) {
     case 0: // Print(text)
         if (print)

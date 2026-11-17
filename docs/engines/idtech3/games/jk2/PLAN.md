@@ -171,12 +171,15 @@ behind the DLL's own tables.
    memory with 1.02a's layouts, the engine's array object and most of its
    Ghoul2 functions answered ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)):
    `sp-run` runs `kejim_post`'s `Init`, the player joins and the level
-   runs, its scripts starting the opening cinematic. Next: the client
-   game's start, which needs the menus' parser (calls 97–107, the HUD's
-   menus: phase 8's system, which `jk2sp.exe` holds); then drawing Ghoul2
-   models from the records, the bolt matrix, and the Play page.
+   runs, its scripts starting the opening cinematic; the client game
+   runs too, its HUD's menus read by the engine's menu reader
+   ([systems/sp-menus.md](systems/sp-menus.md)) and bolts posed from the
+   records. Next: the Play page for single player's Jedi Outcast (its
+   scene entities and Ghoul2 models drawn), and the cinematics.
 
-8. **Single player's menus**: the Team Arena style menu system run natively
+8. **Single player's menus**: started with the menu files read, which
+   the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
+   The Team Arena style menu system run natively
    (`ui/menus.txt`, every item type, the owner draws and `uiScript`
    commands that `jk2sp.exe` provides: new game, load and save lists,
    controls, the datapad's force powers, weapons, inventory and mission).

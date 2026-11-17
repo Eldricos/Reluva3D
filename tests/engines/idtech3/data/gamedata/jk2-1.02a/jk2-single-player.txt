@@ -1,1 +1,1 @@
-kejim_post: 49700f2ba624c38c | 100 frames run (level time 6400 ms): 992 entities, 710 linked, 427084458 instructions
+kejim_post: 234e599a9a159b6c | 100 frames run (level time 6400 ms): 992 entities, 710 linked, 522327783 instructions

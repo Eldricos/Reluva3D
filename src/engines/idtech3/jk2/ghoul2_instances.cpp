@@ -132,6 +132,36 @@ int32_t Ghoul2Instances::addModel(int32_t &handle, const std::string &file, int3
     return int32_t(at);
 }
 
+void Ghoul2Instances::setInstance(int32_t handle, const std::vector<ModelState> &models,
+                                  const std::vector<std::map<int, Animation>> &animations) {
+    Instance inst;
+    for (size_t i = 0; i < models.size(); ++i) {
+        const ModelState &s = models[i];
+        Model m;
+        m.used = false;
+        if (!s.file.empty()) {
+            if (std::shared_ptr<const GlmModel> glm = loadMesh(s.file)) {
+                m.file = s.file;
+                m.glm = std::move(glm);
+                m.skeleton = loadSkeleton(m.glm->animName);
+                m.used = true;
+            }
+        }
+        m.customSkin = s.customSkin;
+        m.boltLink = s.boltLink;
+        for (const auto &[bone, surface] : s.bolts)
+            m.bolts.push_back({std::string(), bone, surface});
+        m.surfaceFlags = s.surfaceFlags;
+        m.angles = s.angles;
+        m.angleFlags = s.angleFlags;
+        if (i < animations.size())
+            m.animations = animations[i];
+        inst.models.push_back(std::move(m));
+    }
+    _instances[handle] = std::move(inst);
+    _next = std::max(_next, handle + 1);
+}
+
 bool Ghoul2Instances::hasModel(int32_t handle, int32_t modelIndex) const {
     const auto it = _instances.find(handle);
     return it != _instances.end() && modelIndex >= 0 && size_t(modelIndex) < it->second.models.size() &&

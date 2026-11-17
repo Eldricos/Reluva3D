@@ -68,6 +68,7 @@ reluva_add_engine(idtech3
         jk2/game_calls.cpp
         jk2/sp_game_calls.cpp
         jk2/sp_ghoul2.cpp
+        jk2/menu_defs.cpp
         jk2/ghoul2_instances.cpp
         jk2/net_fields.cpp
         jk2/ui_host.cpp

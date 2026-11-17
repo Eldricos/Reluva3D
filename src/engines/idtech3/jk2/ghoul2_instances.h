@@ -147,6 +147,22 @@ public:
     // and looping or held.
     static Animation makeAnimation(const Animation *old, int32_t startFrame, int32_t endFrame, int32_t flags,
                                    float speed, int32_t time, float setFrame, int32_t blendTime);
+    // A model's whole state at once, as single player's engine keeps it
+    // in the game's own records (jk2/sp_ghoul2.cpp): set with
+    // setInstance(), then posed and drawn as any instance.
+    struct ModelState {
+        std::string file; // "" for a free place
+        int32_t customSkin = 0;
+        int32_t boltLink = -1;
+        std::vector<std::pair<int, int>> bolts; // bone, surface (-1: none)
+        std::map<int, int32_t> surfaceFlags;    // by surface
+        std::map<int, Bone34> angles;           // by bone: the override's matrix
+        std::map<int, int32_t> angleFlags;
+    };
+    // The instance at `handle` made (or replaced) from `models`; their
+    // animations, by bone, follow in `animations` (one map a model).
+    void setInstance(int32_t handle, const std::vector<ModelState> &models,
+                     const std::vector<std::map<int, Animation>> &animations);
 
 private:
     struct Bolt {

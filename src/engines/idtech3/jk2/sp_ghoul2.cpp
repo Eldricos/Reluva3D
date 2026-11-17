@@ -99,6 +99,7 @@ constexpr uint32_t kAnimFrameDefault = 144;
 constexpr uint32_t kSkelFrameNum = 148;
 constexpr uint32_t kMeshFrameNum = 152;
 constexpr uint32_t kFlags = 156;
+constexpr uint32_t kSkin = 168;
 constexpr uint32_t kValid = 172;
 
 } // namespace
@@ -378,6 +379,90 @@ bool SpGameHost::ghoul2ClearBone(uint32_t info, int32_t record, int32_t mask) {
         _cpu->write32(r, 0xffffffffu);
     _cpu->write32(info + kSkelFrameNum, 0);
     return true;
+}
+
+void SpGameHost::ghoul2SetSkins(uint32_t handleAddress, uint32_t skinList) {
+    const uint32_t vector = ghoul2Vector(handleAddress);
+    for (uint32_t i = 0, n = vector ? vectorCount(vector, kInfoSize) : 0; i < n; ++i) {
+        const uint32_t info = vectorAt(vector, kInfoSize, i);
+        if (int32_t(_cpu->read32(info + kModelIndex)) == -1)
+            continue;
+        const uint32_t entry = skinList + 4 * _cpu->read32(info + kCustomSkin);
+        if (_cpu->valid(entry, 4))
+            _cpu->write32(info + kSkin, _cpu->read32(entry));
+    }
+}
+
+void SpGameHost::syncGhoul2Pose(int32_t handle, uint32_t vector) {
+    if (!_g2Pose)
+        _g2Pose = std::make_unique<jk2::Ghoul2Instances>(_files);
+    // A hash of the models' records and their lists' contents.
+    uint64_t hash = 1469598103934665603ull;
+    auto add = [&hash, this](uint32_t from, uint32_t bytes) {
+        const uint8_t *p = _cpu->memory().data() + from;
+        for (uint32_t i = 0; i < bytes; ++i)
+            hash = (hash ^ p[i]) * 1099511628211ull;
+    };
+    const uint32_t count = vectorCount(vector, kInfoSize);
+    add(_cpu->read32(vector + kFirst), count * kInfoSize);
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint32_t info = vectorAt(vector, kInfoSize, i);
+        add(_cpu->read32(info + kSurfaces + kFirst),
+            vectorCount(info + kSurfaces, kSurfaceRecordSize) * kSurfaceRecordSize);
+        add(_cpu->read32(info + kBolts + kFirst), vectorCount(info + kBolts, kBoltSize) * kBoltSize);
+        add(_cpu->read32(info + kBones + kFirst), vectorCount(info + kBones, kBoneSize) * kBoneSize);
+    }
+    if (const auto it = _g2PoseHashes.find(handle); it != _g2PoseHashes.end() && it->second == hash)
+        return;
+    _g2PoseHashes[handle] = hash;
+    using G2 = jk2::Ghoul2Instances;
+    std::vector<G2::ModelState> models(count);
+    std::vector<std::map<int, G2::Animation>> animations(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint32_t info = vectorAt(vector, kInfoSize, i);
+        G2::ModelState &m = models[i];
+        if (int32_t(_cpu->read32(info + kModelIndex)) == -1)
+            continue;
+        m.file = _cpu->string(info + kFileName, 64);
+        m.customSkin = int32_t(_cpu->read32(info + kCustomSkin));
+        m.boltLink = int32_t(_cpu->read32(info + kModelBoltLink));
+        for (uint32_t b = 0, n = vectorCount(info + kBolts, kBoltSize); b < n; ++b) {
+            const uint32_t r = vectorAt(info + kBolts, kBoltSize, b);
+            m.bolts.emplace_back(int32_t(_cpu->read32(r)), int32_t(_cpu->read32(r + 4)));
+        }
+        for (uint32_t s = 0, n = vectorCount(info + kSurfaces, kSurfaceRecordSize); s < n; ++s) {
+            const uint32_t r = vectorAt(info + kSurfaces, kSurfaceRecordSize, s);
+            m.surfaceFlags[int32_t(_cpu->read32(r + 4))] = int32_t(_cpu->read32(r));
+        }
+        for (uint32_t b = 0, n = vectorCount(info + kBones, kBoneSize); b < n; ++b) {
+            const uint32_t r = vectorAt(info + kBones, kBoneSize, b);
+            const int32_t bone = int32_t(_cpu->read32(r));
+            const int32_t flags = int32_t(_cpu->read32(r + kBoneFlags));
+            if (bone < 0)
+                continue;
+            if (flags & kAngleFlags) {
+                Bone34 matrix{};
+                for (uint32_t k = 0; k < 12; ++k)
+                    matrix[k] = asFloat(_cpu->read32(r + kBoneMatrix + 4 * k));
+                m.angles[bone] = matrix;
+                m.angleFlags[bone] = flags & kAngleFlags;
+            }
+            if (flags & (0x8 | 0x10)) {
+                G2::Animation a;
+                a.startFrame = int32_t(_cpu->read32(r + kBoneStartFrame));
+                a.endFrame = int32_t(_cpu->read32(r + kBoneEndFrame));
+                a.flags = flags & kAnimFlags;
+                a.speed = asFloat(_cpu->read32(r + kBoneSpeed));
+                a.startTime = int32_t(_cpu->read32(r + kBoneStartTime));
+                a.blendStart = int32_t(_cpu->read32(r + kBoneBlendStart));
+                a.blendTime = int32_t(_cpu->read32(r + kBoneBlendTime));
+                a.blendFrame = asFloat(_cpu->read32(r + kBoneBlendFrame));
+                a.blendLerpFrame = int32_t(_cpu->read32(r + kBoneBlendLerpFrame));
+                animations[i][bone] = a;
+            }
+        }
+    }
+    _g2Pose->setInstance(handle, models, animations);
 }
 
 // --- The engine's functions ------------------------------------------------------
@@ -705,6 +790,30 @@ void SpGameHost::addGhoul2Imports() {
             c.write32(out + 4 * i, floatWord(negate ? -v : v));
         }
         return 0u;
+    });
+    slot("G2API_GetBoltMatrix", [this](x86::Cpu &c) -> uint32_t {
+        // (CGhoul2Info_v &, model, bolt, &matrix out, angles, origin, time,
+        // models, scale): the bolt in the world, posed as the instance's
+        // records say at that time.
+        const uint32_t handleAddress = c.arg(0);
+        const uint32_t vector = ghoul2Vector(handleAddress);
+        const uint32_t out = c.arg(3);
+        if (!vector || !c.valid(out, 48))
+            return 0;
+        const int32_t handle = int32_t(c.read32(handleAddress));
+        syncGhoul2Pose(handle, vector);
+        auto vec = [this](uint32_t a) -> Vec3 {
+            if (!a || !_cpu->valid(a, 12))
+                return {};
+            return {asFloat(_cpu->read32(a)), asFloat(_cpu->read32(a + 4)), asFloat(_cpu->read32(a + 8))};
+        };
+        Bone34 m{};
+        if (!_g2Pose->boltMatrix(handle, int32_t(c.arg(1)), int32_t(c.arg(2)), int32_t(c.arg(6)), vec(c.arg(4)),
+                                 vec(c.arg(5)), vec(c.arg(8)), m))
+            return 0;
+        for (uint32_t k = 0; k < 12; ++k)
+            c.write32(out + 4 * k, floatWord(m[k]));
+        return 1;
     });
     slot("G2API_SetSurfaceOnOff", [this](x86::Cpu &c) -> uint32_t {
         // (CGhoul2Info *, name, flags) -> whether the model has it. As

@@ -56,7 +56,9 @@ What Reluva does that hasn't been checked against the running original.
 
 ## Guessed
 
-None yet.
+- A paused Ghoul2 animation in single player is posed as if it went on;
+  the original's poses it where it was paused
+  ([systems/sp-ghoul2.md](systems/sp-ghoul2.md)).
 
 ## Settled
 

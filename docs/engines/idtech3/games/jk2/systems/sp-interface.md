@@ -136,13 +136,13 @@ The client game's calls are answered as the table above says, Elite
 Force's handling shared where the call and what it passes are the same
 (`SpGameHost::cgameCall` with Elite Force's number), the snapshot and
 scene entity sizes per game (`SpGameHost::CgameLayout`). Not yet
-answered: Ghoul2's `SetModels` (85), a brush model's corners (88), the
-cinematics (90–94), the menus' parser (97–107) and item text (111),
-which stop the game with their number. Ghoul2's engine slots are
-answered as [sp-ghoul2.md](sp-ghoul2.md) says, those not yet stopping
-the game by name. With them, `sp-run` on `kejim_post` runs the game's
-`Init`, the player joins and the level runs; with `-cgame`, the client
-game's start stops at the menus' parser (call 102).
+answered: a brush model's corners (88) and the cinematics (90–94),
+which stop the game with their number. Ghoul2's engine slots and calls
+84 and 85 are answered as [sp-ghoul2.md](sp-ghoul2.md) says, the menus'
+(97–107, 111) as [sp-menus.md](sp-menus.md) says. With them, `sp-run`
+on `kejim_post` runs the game's `Init`, the player joins, and the level
+and (with `-cgame`) the client game run, the client game drawing a
+scene each frame.
 
 ## Sources and checks
 
@@ -154,5 +154,5 @@ game's start stops at the menus' parser (call 102).
   structures, *(published)* for the Ghoul2 slots' names.
 - **How it was checked:** `sp-run` on `kejim_post` loads the DLL, its
   version is 6, the game's `Init` runs, the player joins and 100 server
-  frames run; with `-cgame`, the client game's start runs until the
-  menus' parser.
+  frames run, the client game drawing each (a game-data step records
+  it).

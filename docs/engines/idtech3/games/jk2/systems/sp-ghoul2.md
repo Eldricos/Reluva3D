@@ -111,11 +111,21 @@ the game's memory, its own vectors' buffers from the process heap.
 Each mesh and skeleton is read once (`parseGlm`, `parseGla`) for its
 surface and bone names.
 
-Not yet answered (they stop the game, by name): the bolt matrix,
-collision, the matrix overrides, adding and removing surfaces and bones,
-copying an instance, the new origin, surface names and parents, and
-saving and loading instances. Nothing draws these models in single
-player yet: the client game needs the menus' parser for its HUD first.
+**Posing:** for a bolt's matrix (`GetBoltMatrix`), an instance's records
+are handed to multiplayer's posing code (`Ghoul2Instances::setInstance`:
+each model's file, skin, bolt link, bolts, surface flags, angle
+overrides with their matrices, and animations), again only when the
+records' bytes have changed, so a frame's many bolt questions pose each
+model once. A paused animation is posed as if it went on *(guessed)*.
+The client game's `G2_SetModels` (its call 85) gives each model in use
+its skin: the skin list's entry at its custom skin (0x453180, into the
+model at 0xa8).
+
+Not yet answered (they stop the game, by name): collision, the matrix
+overrides, adding and removing surfaces and bones, copying an instance,
+the new origin, surface names and parents, and saving and loading
+instances. The client game's Ghoul2 entities aren't drawn yet: that's
+the Play page's.
 
 ## Sources and checks
 
@@ -127,4 +137,5 @@ player yet: the client game needs the menus' parser for its HUD first.
 - **How it was checked:** `sp-run` on `kejim_post` runs the game's
   `Init` (its NPCs' models, bolts, bones and surfaces set up through
   these functions), the player joins, and 100 server frames run, the
-  level's scripts starting its opening cinematic.
+  level's scripts starting its opening cinematic; with `-cgame` the
+  client game's frames place bolts through `GetBoltMatrix`.

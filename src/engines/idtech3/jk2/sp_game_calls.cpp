@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -137,6 +138,7 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         return v;
     };
     const int number = int(c.arg(0));
+    _cgameCallCounts.add(number);
     if (number <= 25)
         return cgameCall(c, number);
     if ((number >= 27 && number <= 34) || (number >= 39 && number <= 43))
@@ -247,6 +249,9 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
         return 0;
     case 84: // G2_HaveWeGhoul2Models(CGhoul2Info_v &)
         return ghoul2HasModels(a(0)) ? 1u : 0u;
+    case 85: // G2_SetModels(CGhoul2Info_v &, models, skins)
+        ghoul2SetSkins(a(0), a(2));
+        return 0;
     case 86: { // R_GetLightStyle(style, rgba out)
         const uint32_t style = a(0);
         if (style < _lightStyles.size() && c.valid(a(1), 4))
@@ -263,6 +268,83 @@ uint32_t SpGameHost::jediCgameCall(x86::Cpu &c) {
     }
     case 89: // R_WorldEffectCommand(text): the weather system's
         return 0;
+    // The menus, as jk2sp.exe's (0x49f970 on): a file read in a parse
+    // session, its tokens asked for one at a time, each menuDef read from
+    // where the session is.
+    case 97: // Menu_Reset()
+        _menuDefs.reset();
+        return 0;
+    case 98: // Menu_New(buffer): the menuDef at the session's place
+        if (_menuLexer)
+            _menuDefs.parse(*_menuLexer);
+        return 0;
+    case 99:    // PC_ParseInt(int *)
+    case 101: { // PC_ParseFloat(float *)
+        const std::string t = _menuLexer ? std::string(_menuLexer->next().value_or("")) : std::string();
+        if (c.valid(a(0), 4))
+            c.write32(a(0), number == 99 ? uint32_t(std::atoi(t.c_str())) : floatBits(std::strtof(t.c_str(), nullptr)));
+        return 0;
+    }
+    case 100: { // PC_ParseString(char *): the next token, quotes taken off
+        const std::string t = _menuLexer ? std::string(_menuLexer->next().value_or("")) : std::string();
+        c.writeString(a(0), t, 1024);
+        return 0;
+    }
+    case 102: { // PC_StartParseSession(file, char **buffer) -> the file's length, 0 if there's none
+        std::vector<uint8_t> data;
+        if (_files.read(str(0, 64), data) || data.empty())
+            return 0;
+        _menuText.assign(data.begin(), data.end());
+        _menuLexer = std::make_unique<Lexer>(_menuText);
+        if (_menuBuffer)
+            _process->memory().free(_menuBuffer);
+        _menuBuffer = _process->memory().alloc(uint32_t(_menuText.size()) + 1);
+        c.writeString(_menuBuffer, _menuText, uint32_t(_menuText.size()) + 1);
+        if (c.valid(a(1), 4))
+            c.write32(a(1), _menuBuffer);
+        return uint32_t(_menuText.size());
+    }
+    case 103: // PC_EndParseSession(buffer)
+        _menuLexer.reset();
+        if (_menuBuffer)
+            _process->memory().free(_menuBuffer);
+        _menuBuffer = 0;
+        return 0;
+    case 104: { // PC_ParseExt(char **token): the next token, "" at the end
+        if (!_menuToken)
+            _menuToken = _process->memory().alloc(1024);
+        const std::string t = _menuLexer ? std::string(_menuLexer->next().value_or("")) : std::string();
+        c.writeString(_menuToken, t, 1024);
+        if (c.valid(a(0), 4))
+            c.write32(a(0), _menuToken);
+        return 0;
+    }
+    case 105: // Menu_PaintAll(): the visible menus' items (the HUD's have none)
+    case 106: // String_Init()
+        return 0;
+    case 107: { // Menu_GetInfo(name, int *x, int *y) -> whether there's such a menu; its place, whole
+        const jk2::MenuDef *menu = _menuDefs.find(str(0, 64));
+        if (!menu)
+            return 0;
+        if (c.valid(a(1), 4))
+            c.write32(a(1), uint32_t(int32_t(menu->rect[0])));
+        if (c.valid(a(2), 4))
+            c.write32(a(2), uint32_t(int32_t(menu->rect[1])));
+        return 1;
+    }
+    case 111: { // UI_GetItemText(menu, item, buffer) -> whether there's such an item; its text
+        const jk2::MenuDef *menu = _menuDefs.find(str(0, 64));
+        const std::string itemName = fs::toLower(str(1, 64));
+        if (!menu)
+            return 0;
+        for (const jk2::MenuItemDef &item : menu->items)
+            if (fs::toLower(item.name()) == itemName) {
+                const jk2::MenuEntry *text = item.find("text");
+                c.writeString(a(2), text && !text->args.empty() ? text->args[0] : std::string(), 256);
+                return 1;
+            }
+        return 0;
+    }
     case 95: { // Z_Malloc(size, tag), zeroed
         const uint32_t p = _process->memory().alloc(std::max(a(0), 1u));
         if (!p)

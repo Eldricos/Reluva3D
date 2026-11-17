@@ -8,6 +8,8 @@
 #include "emulation/x86/cpu.h"
 #include "emulation/x86/win32.h"
 #include "engines/idtech3/jk2/font_set.h"
+#include "engines/idtech3/jk2/ghoul2_instances.h"
+#include "engines/idtech3/jk2/menu_defs.h"
 #include "engines/idtech3/raven/ambient_sets.h"
 #include "engines/idtech3/raven/strings.h"
 #include "engines/idtech3/formats/bsp.h"
@@ -396,6 +398,14 @@ private:
     bool _stringsLoaded = false;
     std::array<std::array<uint8_t, 4>, 32> _lightStyles{}; // as the client game sets them, full to start
     std::array<float, 3> _cmdAngles{};                     // SetUserCmdAngles
+    // The engine's menus (calls 97-107, 111) and the menu file being read:
+    // its text (kept for the lexer), the copy the client game is handed,
+    // and where each token it asks for is put.
+    jk2::MenuDefs _menuDefs;
+    std::string _menuText;
+    std::unique_ptr<Lexer> _menuLexer;
+    uint32_t _menuBuffer = 0;
+    uint32_t _menuToken = 0;
     // Ghoul2 (jk2/sp_ghoul2.cpp): the instances the engine owns, each a
     // Visual C++ 6 vector of CGhoul2Info in the game's memory, handed out
     // through the array object at _g2Array.
@@ -407,6 +417,14 @@ private:
     uint32_t ghoul2Vector(uint32_t handleAddress) const;
     // Whether a CGhoul2Info_v has a model in use (model index not -1).
     bool ghoul2HasModels(uint32_t handleAddress) const;
+    // G2_SetModels(CGhoul2Info_v &, models, skins): each model in use
+    // given its skin, the skin list's entry at its custom skin (0x453180).
+    void ghoul2SetSkins(uint32_t handleAddress, uint32_t skinList);
+    // The records of instance `handle` (its vector at `vector`) given to the
+    // posing code (_g2Pose), when they've changed since last time.
+    void syncGhoul2Pose(int32_t handle, uint32_t vector);
+    std::unique_ptr<jk2::Ghoul2Instances> _g2Pose;
+    std::map<int32_t, uint64_t> _g2PoseHashes; // handle -> its records' hash when last given
     uint32_t vectorCount(uint32_t vector, uint32_t elementSize) const;
     uint32_t vectorAt(uint32_t vector, uint32_t elementSize, uint32_t index) const;
     uint32_t vectorGrow(uint32_t vector, uint32_t elementSize, uint32_t count);

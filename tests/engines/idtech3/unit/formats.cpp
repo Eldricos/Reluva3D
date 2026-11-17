@@ -29,6 +29,7 @@
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/formats/ghoul2.h"
 #include "engines/idtech3/jk2/ghoul2_instances.h"
+#include "engines/idtech3/jk2/menu_defs.h"
 #include "engines/idtech3/filesystem.h"
 #include "engines/idtech3/info_string.h"
 #include "engines/idtech3/games.h"
@@ -645,6 +646,44 @@ static void testEffects() {
     fx.clear();
     CHECK(fx.live() == 0 && fx.registered() == 0);
     std::filesystem::remove(path);
+}
+
+static void testMenuDefs() {
+    // Two menus as jk2sp.exe's parser reads them from its session: the
+    // rest of each line as a keyword's arguments, a script's block on the
+    // next line or the same one, an item's own entries.
+    const std::string text = "menuDef {\n"
+                             "  name \"lefthud\" // its name\n"
+                             "  rect 0 400.5 80 80\n"
+                             "  visible 1\n"
+                             "  onOpen\n"
+                             "  { show item1 ; play \"sound/a.wav\" }\n"
+                             "  itemDef {\n"
+                             "    name item1\n"
+                             "    text \"@MENUS0_HELLO\"\n"
+                             "    action { close lefthud }\n"
+                             "  }\n"
+                             "}\n"
+                             "menuDef { name second }\n";
+    Lexer lexer(text);
+    jk2::MenuDefs menus;
+    CHECK(lexer.next() == std::optional<std::string_view>("menuDef") && menus.parse(lexer));
+    CHECK(lexer.next() == std::optional<std::string_view>("menuDef") && menus.parse(lexer));
+    CHECK(menus.menus().size() == 2);
+    const jk2::MenuDef *left = menus.find("LEFTHUD");
+    CHECK(left && left->visible && left->rect[1] == 400.5f && left->rect[3] == 80);
+    if (left) {
+        const jk2::MenuEntry *open = left->find("onopen");
+        CHECK(open && open->hasBlock && open->block.size() == 5 && open->block[4] == "sound/a.wav");
+        CHECK(left->items.size() == 1 && left->items[0].name() == "item1");
+        const jk2::MenuEntry *action = left->items.empty() ? nullptr : left->items[0].find("action");
+        CHECK(action && action->hasBlock && action->block.size() == 2);
+    }
+    const jk2::MenuDef *second = menus.find("second");
+    CHECK(second && !second->visible && second->items.empty());
+    // Malformed: no opening brace.
+    Lexer bad("name x }");
+    CHECK(!menus.parse(bad) && menus.menus().size() == 2);
 }
 
 static void testGhoul2Instances() {
@@ -1496,6 +1535,7 @@ static const reluva::test::Suite
                {"surface sprites", [](const std::filesystem::path &) { testSurfaceSprites(); }},
                {"ghoul2", [](const std::filesystem::path &) { testGhoul2(); }},
                {"ghoul2 instances", [](const std::filesystem::path &) { testGhoul2Instances(); }},
+               {"menu definitions", [](const std::filesystem::path &) { testMenuDefs(); }},
                {"effects", [](const std::filesystem::path &) { testEffects(); }},
                {"electricity", [](const std::filesystem::path &) { testElectricity(); }},
                {"raven text", [](const std::filesystem::path &) { testRavenText(); }},
