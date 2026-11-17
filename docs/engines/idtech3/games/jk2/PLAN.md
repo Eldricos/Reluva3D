@@ -200,9 +200,9 @@ behind the DLL's own tables.
    Collision) and the game's own console commands (`npc`, `use`); its
    way out needs the shields lowered, both ion cannons and three AT-STs
    destroyed with the emplaced guns (`sp-run`'s `@aim` mans and aims
-   them). A written route does all but the last AT-ST, which stands in
-   the bay beyond gun C's shots. Next: that, the next levels the same
-   way, and a console on the page.
+   them), then Desann's fight lost as the script means; a written route
+   plays it to `valley`. Next: the next levels the same way, and a
+   console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

@@ -37,10 +37,12 @@
   direct-fire weapon, to the level change; after each, `-next`: the
   next level started with the player carried over, its weapons,
   ammunition and health recorded; about seven minutes), `jk2-sp-artus`
-  (the same for artus_mine, by the route in
-  `tests/engines/idtech3/data/routes/`: its generator room's squad, the
-  generator's cinematic and the tram; and artus_detention by the tour;
-  about seven minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  (the same for artus_mine and artus_topside, by the routes in
+  `tests/engines/idtech3/data/routes/`: artus_mine's generator room's
+  squad, the generator's cinematic and the tram; artus_topside's
+  shields, ion cannons and AT-STs from the emplaced guns, cinematic 9
+  and Desann's fight; and artus_detention by the tour; about eight
+  minutes). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

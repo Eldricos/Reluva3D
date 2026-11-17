@@ -1,0 +1,388 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# artus_topside's way out, for sp-run -replay with cheats (set helpUsObi 1):
+# from the end of the opening (15 s), the shields lowered (their trigger:
+# use, facing south), then from the emplaced guns (use to man one, a
+# single press to leave; @aim turns the view to a target) the first
+# AT-ST and both ion cannons, which take only heavy-weapon shots; the
+# prisoners' AT-ST once its timer's trigger has brought it; the AT-ST
+# that guards the bay from gun B, the one with a line to it. Then the
+# trigger that brings the closing cinematic's actors, the extraction
+# point (cinematic 9), and Desann's fight, lost as the script means:
+# Kyle undying, his death script the level's end. God mode is turned
+# off for it, and health isn't given (/give all would make it 999).
+@until 16000 0 0
+/god
+/give weapons
+/give ammo
+# the shields
+/setviewpos 2944 -1028 130 270
+@until 17000 32 0 0
+@until 25000 0 0 0
+# gun A: ion cannon 1, and the first AT-ST
+/setviewpos 3704 1070 680 90
+@until 27000 0 0 0
+@until 27500 32 0 0
+@until 28500 0 0 0
+@aim atst1
+@until 29000 1 0 0
+@aim atst1
+@until 29500 1 0 0
+@aim atst1
+@until 30000 1 0 0
+@aim atst1
+@until 30500 1 0 0
+@aim atst1
+@until 31000 1 0 0
+@aim atst1
+@until 31500 1 0 0
+@aim atst1
+@until 32000 1 0 0
+@aim atst1
+@until 32500 1 0 0
+@aim atst1
+@until 33000 1 0 0
+@aim atst1
+@until 33500 1 0 0
+@aim atst1
+@until 34000 1 0 0
+@aim atst1
+@until 34500 1 0 0
+@aim atst1
+@until 35000 1 0 0
+@aim atst1
+@until 35500 1 0 0
+@aim atst1
+@until 36000 1 0 0
+@aim atst1
+@until 36500 1 0 0
+@aim atst1
+@until 37000 1 0 0
+@aim atst1
+@until 37500 1 0 0
+@aim atst1
+@until 38000 1 0 0
+@aim atst1
+@until 38500 1 0 0
+@aim ion_cannon1
+@until 39000 1 0 0
+@aim ion_cannon1
+@until 39500 1 0 0
+@aim ion_cannon1
+@until 40000 1 0 0
+@aim ion_cannon1
+@until 40500 1 0 0
+@aim ion_cannon1
+@until 41000 1 0 0
+@aim ion_cannon1
+@until 41500 1 0 0
+@aim ion_cannon1
+@until 42000 1 0 0
+@aim ion_cannon1
+@until 42500 1 0 0
+@aim none
+@until 43500 0 0 0
+@until 43550 32 0 0
+@until 44550 0 0 0
+# gun C: ion cannon 2
+/setviewpos 6624 1518 680 90
+@until 46550 0 0 0
+@until 47050 32 0 0
+@until 48050 0 0 0
+@aim ion_cannon2
+@until 48550 1 0 0
+@aim ion_cannon2
+@until 49050 1 0 0
+@aim ion_cannon2
+@until 49550 1 0 0
+@aim ion_cannon2
+@until 50050 1 0 0
+@aim ion_cannon2
+@until 50550 1 0 0
+@aim ion_cannon2
+@until 51050 1 0 0
+@aim ion_cannon2
+@until 51550 1 0 0
+@aim ion_cannon2
+@until 52050 1 0 0
+@aim none
+@until 53050 0 0 0
+@until 53100 32 0 0
+@until 54100 0 0 0
+# the timer's trigger: the prisoners' AT-ST comes
+/setviewpos 2404 2740 440 0
+@until 55100 32 0 0
+@until 85100 0 0 0
+# the prisoners' gun
+/setviewpos 2336 2626 470 270
+@until 87100 0 0 0
+@until 87600 32 0 0
+@until 88600 0 0 0
+@aim prisoner_atst
+@until 89100 1 0 0
+@aim prisoner_atst
+@until 89600 1 0 0
+@aim prisoner_atst
+@until 90100 1 0 0
+@aim prisoner_atst
+@until 90600 1 0 0
+@aim prisoner_atst
+@until 91100 1 0 0
+@aim prisoner_atst
+@until 91600 1 0 0
+@aim prisoner_atst
+@until 92100 1 0 0
+@aim prisoner_atst
+@until 92600 1 0 0
+@aim prisoner_atst
+@until 93100 1 0 0
+@aim prisoner_atst
+@until 93600 1 0 0
+@aim prisoner_atst
+@until 94100 1 0 0
+@aim prisoner_atst
+@until 94600 1 0 0
+@aim prisoner_atst
+@until 95100 1 0 0
+@aim prisoner_atst
+@until 95600 1 0 0
+@aim prisoner_atst
+@until 96100 1 0 0
+@aim prisoner_atst
+@until 96600 1 0 0
+@aim prisoner_atst
+@until 97100 1 0 0
+@aim prisoner_atst
+@until 97600 1 0 0
+@aim prisoner_atst
+@until 98100 1 0 0
+@aim prisoner_atst
+@until 98600 1 0 0
+@aim prisoner_atst
+@until 99100 1 0 0
+@aim prisoner_atst
+@until 99600 1 0 0
+@aim prisoner_atst
+@until 100100 1 0 0
+@aim prisoner_atst
+@until 100600 1 0 0
+@aim prisoner_atst
+@until 101100 1 0 0
+@aim prisoner_atst
+@until 101600 1 0 0
+@aim prisoner_atst
+@until 102100 1 0 0
+@aim prisoner_atst
+@until 102600 1 0 0
+@aim prisoner_atst
+@until 103100 1 0 0
+@aim prisoner_atst
+@until 103600 1 0 0
+@aim prisoner_atst
+@until 104100 1 0 0
+@aim prisoner_atst
+@until 104600 1 0 0
+@aim prisoner_atst
+@until 105100 1 0 0
+@aim prisoner_atst
+@until 105600 1 0 0
+@aim prisoner_atst
+@until 106100 1 0 0
+@aim prisoner_atst
+@until 106600 1 0 0
+@aim prisoner_atst
+@until 107100 1 0 0
+@aim prisoner_atst
+@until 107600 1 0 0
+@aim prisoner_atst
+@until 108100 1 0 0
+@aim prisoner_atst
+@until 108600 1 0 0
+@aim prisoner_atst
+@until 109100 1 0 0
+@aim prisoner_atst
+@until 109600 1 0 0
+@aim prisoner_atst
+@until 110100 1 0 0
+@aim prisoner_atst
+@until 110600 1 0 0
+@aim prisoner_atst
+@until 111100 1 0 0
+@aim prisoner_atst
+@until 111600 1 0 0
+@aim prisoner_atst
+@until 112100 1 0 0
+@aim prisoner_atst
+@until 112600 1 0 0
+@aim prisoner_atst
+@until 113100 1 0 0
+@aim prisoner_atst
+@until 113600 1 0 0
+@aim prisoner_atst
+@until 114100 1 0 0
+@aim prisoner_atst
+@until 114600 1 0 0
+@aim prisoner_atst
+@until 115100 1 0 0
+@aim prisoner_atst
+@until 115600 1 0 0
+@aim prisoner_atst
+@until 116100 1 0 0
+@aim prisoner_atst
+@until 116600 1 0 0
+@aim prisoner_atst
+@until 117100 1 0 0
+@aim prisoner_atst
+@until 117600 1 0 0
+@aim prisoner_atst
+@until 118100 1 0 0
+@aim prisoner_atst
+@until 118600 1 0 0
+@aim none
+@until 119600 0 0 0
+@until 119650 32 0 0
+@until 120650 0 0 0
+# the defence trigger: the third AT-ST
+/setviewpos 6128 2356 90 0
+@until 121650 32 0 0
+@until 126650 0 0 0
+/setviewpos 4960 1070 680 90
+@until 128650 0 0 0
+@until 129150 32 0 0
+@until 130150 0 0 0
+@aim atst_death
+@until 130650 1 0 0
+@aim atst_death
+@until 131150 1 0 0
+@aim atst_death
+@until 131650 1 0 0
+@aim atst_death
+@until 132150 1 0 0
+@aim atst_death
+@until 132650 1 0 0
+@aim atst_death
+@until 133150 1 0 0
+@aim atst_death
+@until 133650 1 0 0
+@aim atst_death
+@until 134150 1 0 0
+@aim atst_death
+@until 134650 1 0 0
+@aim atst_death
+@until 135150 1 0 0
+@aim atst_death
+@until 135650 1 0 0
+@aim atst_death
+@until 136150 1 0 0
+@aim atst_death
+@until 136650 1 0 0
+@aim atst_death
+@until 137150 1 0 0
+@aim atst_death
+@until 137650 1 0 0
+@aim atst_death
+@until 138150 1 0 0
+@aim atst_death
+@until 138650 1 0 0
+@aim atst_death
+@until 139150 1 0 0
+@aim atst_death
+@until 139650 1 0 0
+@aim atst_death
+@until 140150 1 0 0
+@aim atst_death
+@until 140650 1 0 0
+@aim atst_death
+@until 141150 1 0 0
+@aim atst_death
+@until 141650 1 0 0
+@aim atst_death
+@until 142150 1 0 0
+@aim atst_death
+@until 142650 1 0 0
+@aim atst_death
+@until 143150 1 0 0
+@aim atst_death
+@until 143650 1 0 0
+@aim atst_death
+@until 144150 1 0 0
+@aim atst_death
+@until 144650 1 0 0
+@aim atst_death
+@until 145150 1 0 0
+@aim atst_death
+@until 145650 1 0 0
+@aim atst_death
+@until 146150 1 0 0
+@aim atst_death
+@until 146650 1 0 0
+@aim atst_death
+@until 147150 1 0 0
+@aim atst_death
+@until 147650 1 0 0
+@aim atst_death
+@until 148150 1 0 0
+@aim atst_death
+@until 148650 1 0 0
+@aim atst_death
+@until 149150 1 0 0
+@aim atst_death
+@until 149650 1 0 0
+@aim atst_death
+@until 150150 1 0 0
+@aim atst_death
+@until 150650 1 0 0
+@aim atst_death
+@until 151150 1 0 0
+@aim atst_death
+@until 151650 1 0 0
+@aim atst_death
+@until 152150 1 0 0
+@aim atst_death
+@until 152650 1 0 0
+@aim atst_death
+@until 153150 1 0 0
+@aim atst_death
+@until 153650 1 0 0
+@aim atst_death
+@until 154150 1 0 0
+@aim atst_death
+@until 154650 1 0 0
+@aim atst_death
+@until 155150 1 0 0
+@aim atst_death
+@until 155650 1 0 0
+@aim atst_death
+@until 156150 1 0 0
+@aim atst_death
+@until 156650 1 0 0
+@aim atst_death
+@until 157150 1 0 0
+@aim atst_death
+@until 157650 1 0 0
+@aim atst_death
+@until 158150 1 0 0
+@aim atst_death
+@until 158650 1 0 0
+@aim atst_death
+@until 159150 1 0 0
+@aim atst_death
+@until 159650 1 0 0
+@aim atst_death
+@until 160150 1 0 0
+@aim none
+@until 161150 0 0 0
+@until 161200 32 0 0
+@until 162200 0 0 0
+# on the way: the trigger that brings the cinematic's actors (tom_spawn)
+/setviewpos 2176 600 650 0
+@until 164200 0 0 0
+# the extraction point: cinematic 9, about a minute
+/setviewpos 1784 344 780 0
+@until 165200 32 0 0
+@until 225200 0 0 0
+# Desann's fight, lost as the script means (Kyle undying, his death
+# script the end): god mode off for it
+/god
+@until 345200 0 0 0

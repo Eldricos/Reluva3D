@@ -7,6 +7,7 @@
 #include "engines/idtech3/tools/game_folder.h"
 
 #include "common/fs.h"
+#include "engines/idtech3/collision.h"
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/formats/entities.h"
 #include "engines/idtech3/formats/shader.h"
@@ -360,6 +361,69 @@ int cmdPortalCheck(int argc, char **argv) {
     return 0;
 }
 
+// A point traced through a map from one place to another, against what's
+// solid to shots (as a missile's mask: solid, bodies, corpses): where the
+// world stops it, then each brush entity that would, where it stands in
+// the map (movers at rest), nearest first.
+int cmdBspTrace(int argc, char **argv) {
+    if (argc < 10) {
+        std::fprintf(stderr, "usage: reluva-tool idtech3 bsp-trace <game folder> <map> x y z x y z [mask]\n");
+        return 2;
+    }
+    namespace q3 = reluva::idtech3;
+    reluva::SearchSet set;
+    if (!mountIdTech3(argv[2], set))
+        return 1;
+    std::string map = argv[3];
+    if (map.size() > 4 && map.compare(map.size() - 4, 4, ".bsp") == 0)
+        map.resize(map.size() - 4);
+    Bytes data;
+    q3::Bsp bsp;
+    if (reluva::Error err = set.read("maps/" + map + ".bsp", data); err || (err = q3::parseBsp(data, bsp))) {
+        std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
+        return 1;
+    }
+    const q3::Vec3f start{float(std::atof(argv[4])), float(std::atof(argv[5])), float(std::atof(argv[6]))};
+    const q3::Vec3f end{float(std::atof(argv[7])), float(std::atof(argv[8])), float(std::atof(argv[9]))};
+    const int32_t mask = argc > 10 ? int32_t(std::strtol(argv[10], nullptr, 0))
+                                   : q3::contents::kSolid | q3::contents::kBody | q3::contents::kCorpse;
+    const q3::CollisionWorld world(bsp);
+    const q3::Vec3f zero{};
+    auto report = [&](const std::string &what, const q3::TraceResult &t) {
+        std::printf(
+            "%s: %s at %.4f (%.0f %.0f %.0f), contents 0x%x, surface flags 0x%x, normal %.2f %.2f %.2f\n", what.c_str(),
+            t.startSolid     ? "starts solid"
+            : t.fraction < 1 ? "stopped"
+                             : "clear",
+            double(t.fraction), double(t.endPos[0]), double(t.endPos[1]), double(t.endPos[2]), uint32_t(t.contents),
+            uint32_t(t.surfaceFlags), double(t.normal[0]), double(t.normal[1]), double(t.normal[2]));
+    };
+    report("world", world.trace(start, end, zero, zero, 0, mask));
+    std::vector<q3::Entity> entities;
+    if (reluva::Error err = q3::parseEntities(bsp.entities, entities))
+        return 0;
+    std::vector<std::pair<float, std::string>> hits;
+    for (size_t n = 0; n < entities.size(); ++n) {
+        const std::string model = entities[n].get("model");
+        if (model.size() < 2 || model[0] != '*')
+            continue;
+        const int index = std::atoi(model.c_str() + 1);
+        if (index <= 0 || size_t(index) >= bsp.models.size())
+            continue;
+        float origin[3] = {0, 0, 0};
+        entities[n].vector("origin", origin);
+        const q3::TraceResult t =
+            world.transformedTrace(start, end, zero, zero, index, mask, {origin[0], origin[1], origin[2]}, {0, 0, 0});
+        if (t.fraction < 1 || t.startSolid) {
+            char what[160];
+            std::snprintf(what, sizeof what, "#%zu %s %s", n, entities[n].classname().c_str(), model.c_str());
+            hits.emplace_back(t.fraction, what);
+            report(what, t);
+        }
+    }
+    return 0;
+}
+
 const Commands kCommands(
     "idtech3",
     {
@@ -372,6 +436,8 @@ const Commands kCommands(
          "every entity class and key in the game's maps, written to a file; report failures and "
          "corrections",
          cmdEntitySurvey},
+        {"bsp-trace", "<game folder> <map> x y z x y z [mask]",
+         "a point traced through a map: where the world stops it, and each brush entity that would", cmdBspTrace},
         {"portal-check", "<game folder>", "each map's portal and mirror surfaces and portal entities", cmdPortalCheck},
     });
 

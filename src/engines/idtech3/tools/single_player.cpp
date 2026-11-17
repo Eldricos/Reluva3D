@@ -762,8 +762,8 @@ int cmdSpRun(int argc, char **argv) {
             }
             if (line.rfind("@aim ", 0) == 0) {
                 // From the player's eye (Jedi Outcast's player state: the
-                // origin at 0x14, delta_angles at 0x48) to the middle of
-                // the nearest living entity with that name.
+                // origin at 0x14, delta_angles at 0x48) to the nearest
+                // living entity with that name.
                 const ef::SpEntityLayout &layout = game.entityLayout();
                 const uint32_t ps = uint32_t(game.entityInt(0, layout.client));
                 const int32_t target = nearestNamed(game, line.substr(5));
@@ -777,7 +777,8 @@ int cmdSpRun(int argc, char **argv) {
                     const q3::Vec3f hi = game.entityVec(target, layout.absMax);
                     const double dx = (lo[0] + hi[0]) / 2 - eye[0];
                     const double dy = (lo[1] + hi[1]) / 2 - eye[1];
-                    const double dz = (lo[2] + hi[2]) / 2 - (eye[2] + kEyeHeight);
+                    // Three quarters up its box: an AT-ST's middle is between its legs.
+                    const double dz = lo[2] + (hi[2] - lo[2]) * 0.75 - (eye[2] + kEyeHeight);
                     const double yaw = std::atan2(dy, dx) * 180 / 3.14159265358979;
                     const double pitch = -std::atan2(dz, std::sqrt(dx * dx + dy * dy)) * 180 / 3.14159265358979;
                     aimPitch = int(std::lround(pitch * 65536 / 360)) - int32_t(game.cpu().read32(ps + 0x48));

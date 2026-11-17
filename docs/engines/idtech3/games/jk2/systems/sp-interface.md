@@ -250,4 +250,13 @@ yet: a console on the page.
   angles to an entity, from the player state's `delta_angles` at 0x48);
   a held use takes the player off and on again at once (1.02a's
   `RunEmplacedWeapon`, 0x2007dc00 in `jk2gamex86.dll`, which also takes
-  a step back or a jump), so one press leaves.
+  a step back or a jump), so one press leaves. Which gun reaches a
+  target, `reluva-tool idtech3 bsp-trace` shows (the map's solid parts
+  along a line): gun C's line to the AT-ST guarding the bay meets the
+  wall it stands on, gun B's is clear; and an AT-ST's middle is between
+  its legs, so `@aim` aims three quarters up a box. The way out ends in
+  cinematic 9 (its actors brought by a trigger on the way) and Desann's
+  fight, which Kyle is meant to lose: undying, his death script
+  (`cinematic9_run_end`) is the level's end. `sp-run artus_topside
+  -replay tests/engines/idtech3/data/routes/artus_topside.txt -set
+  helpUsObi 1 -next` plays it to `maptransition valley`.
