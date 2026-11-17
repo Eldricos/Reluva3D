@@ -321,7 +321,7 @@ OverlayHand Inventory::hand(OverlayWant want, const std::vector<std::string> &it
     using K = OverlayHand::Kind;
     const GameState &s = _host.state;
     const int bx = int(kOpenX);
-    auto at = [](int x, int y, K k = K::kClick) { return OverlayHand{k, x, y}; };
+    auto at = [](int x, int y, OverlayHand::Kind k = OverlayHand::Kind::kClick) { return OverlayHand{k, x, y}; };
     auto centre = [&](int slot) {
         const int box = slot >= kTray ? slot - kTray : slot % kPerPage;
         const int y = slot >= kTray ? kTrayTop : kGridTop + kStep * (box / 4);
