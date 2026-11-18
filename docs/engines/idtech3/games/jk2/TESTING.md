@@ -46,7 +46,7 @@
   `jk2-sp-yavin` (the Yavin levels: yavin_temple by its route, Luke's
   scene then the level change; yavin_trial by the tour),
   `jk2-sp-nar-shaddaa` (ns_streets: the tour, then its route, the scrap
-  car and its two switches). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
+  car and its two switches; ns_hideout by the tour). Records: `tests/engines/idtech3/data/gamedata/jk2-1.02a/`. See
   [DEVELOPMENT.md](../../../../DEVELOPMENT.md#engine-tests).
 
 ### What the automated checks don't cover

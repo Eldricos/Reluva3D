@@ -208,8 +208,11 @@ behind the DLL's own tables.
    level change; `yavin_trial` by the tour to `ns_streets`. `ns_streets`
    plays to `ns_hideout` by the tour then a route: the scrap car, its two
    switches force-pushed, through the tunnel (the server world now gives
-   the game the entities in a box in the original's order). Next: the
-   next levels the same way, and a console on the page.
+   the game the entities in a box in the original's order). `ns_hideout`
+   plays to `ns_starpad` by the tour, which keeps out of a kill
+   trigger's box as out of a `trigger_hurt`'s (the level starts with
+   the player standing in one). Next: the next levels the same way,
+   and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

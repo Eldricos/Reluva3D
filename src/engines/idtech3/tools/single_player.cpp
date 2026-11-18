@@ -175,12 +175,13 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
 // At `fromMs` (the opening over), god and undying modes and every weapon;
 // then each trigger in the level touched in turn (its middle, a little up
 // from its floor) facing its angle, holding use (Jedi Outcast's button
-// 5) if it waits for it, and three seconds of fighting the nearest NPC, the weapon
-// changing each time; `rounds` times over, for triggers switched on by
-// what happens later in the level. Left out: triggers firing a
-// target_kill or a misc_camera, trigger_hurt, triggers in or over
-// one, and triggers naming a spared entity (an ally they'd move into
-// the fighting); spared entities aren't shot at. Only direct fire (the
+// 5) if it waits for it, and three seconds of fighting the nearest NPC,
+// the weapon changing each time; `rounds` times over, for triggers
+// switched on by what happens later in the level. Left out: triggers
+// firing a target_kill or a misc_camera, trigger_hurt, triggers in or
+// over one or a target_kill's trigger, and triggers naming a spared
+// entity (an ally they'd move into the fighting); spared entities
+// aren't shot at. Only direct fire (the
 // saber, pistol, blaster, disruptor, bowcaster, repeater): splash would
 // hurt the allies, whose death fails the mission. Last, with `withExits`,
 // the triggers that change the level.
@@ -215,6 +216,12 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
         if ((e.classname() == "target_kill" || e.classname() == "misc_camera") && e.has("targetname"))
             kills.insert(e.get("targetname"));
     }
+    // A target_kill's trigger kills as a trigger_hurt does: not stood in.
+    for (const q3::Entity &e : entities)
+        for (const q3::Entity &k : entities)
+            if (std::array<float, 6> b{}; k.classname() == "target_kill" && k.has("targetname") &&
+                                          k.get("targetname") == e.get("target") && bounds(e, b))
+                hurts.push_back(b);
     std::vector<std::array<float, 6>> exits;
     std::string skip;
     for (const std::string &s : spare)

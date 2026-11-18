@@ -280,6 +280,11 @@ yet: a console on the page.
   -tour 45000 -spare kyle -replay
   tests/engines/idtech3/data/routes/ns_streets.txt -set helpUsObi 1
   -next` plays it to `maptransition ns_hideout`.
+- **ns_hideout:** the player starts inside an electrical
+  `target_kill`'s trigger and comes to no harm standing still, as
+  above; the tour keeps out of such a trigger's box, as it does a
+  `trigger_hurt`'s. `sp-run ns_hideout -tour 5000 -set helpUsObi 1
+  -next` plays it to `maptransition ns_starpad`.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split
