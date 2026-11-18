@@ -6,9 +6,9 @@ in your external game library. The launcher previews the copy plan before
 copying. **Add Game** can still use the original installed folder directly.
 Neither operation runs the Windows installer or original executable.
 
-The plan now copies 55 files (15,941,518 bytes for the supplied release): the current
+The plan now copies 56 files (16,002,596 bytes for the supplied release): the current
 U.S. English Classic Original/Master dependencies plus the existing detection
-markers, the optional game-selection background, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
+markers, the optional game-selection and version-selection backgrounds, publisher intro, five mode-button clips and six optional Classic artwork files plus the handwriting font, optional computer vocabulary and two optional cube scripts. This supports all native Classic options, including both lid clips,
 eight effects and fifteen music tracks. Source paths are matched without regard
 to case and destination names are consistent across platforms. The plan is
 stable and does not recursively copy unknown files.
@@ -23,7 +23,7 @@ stable and does not recursively copy unknown files.
 | Classic panels and hourglasses (when present) | The six paths in [Classic layout](layout.md) |
 | Word-list handwriting (when present) | `Fonts/KPSI.TTF`; see [font support](fonts.md) |
 | Round clips | `Anims/ClsO1All.avi`, `Anims/ClsM1All.avi` |
-| Game-selection background and buttons (when present) | `Bitmaps/Select1.bmp`, plus the five clips listed in [movie playback](movies.md) |
+| Game-selection background and buttons (when present) | `Bitmaps/Select1.bmp`, `Bitmaps/GS1CS.bmp`, plus the five clips listed in [movie playback](movies.md) |
 | Effects and music | The eight cues in [presentation](presentation.md) and fifteen paths established in [music](music.md) |
 | Additional detection markers | `Boggle.exe`, `Palettes/Title.pal`, `Scripts/Die.x`, `Anims/INTRO.AVI`, `Fonts/TARA.TTF`, `Bitmaps/ClsM1CS.bmp` |
 
@@ -160,3 +160,9 @@ The 64-plan computer validator also runs on the imported copy.
 
 Background play adds no import files. Fresh-copy validation also checks hidden
 computer schedules at coarse and fine service intervals; see [background validation](background.md).
+
+The optional [version-selection background](frontend.md#installed-version-selection-background)
+is included when present. Older imports without `GS1CS.bmp` keep the plain
+version panel; profiles and saved dictionaries need no migration. The supplied
+copy-plan and frontend checksum entries changed for this addition; copied-game
+play, audio and other metadata entries remain unchanged.

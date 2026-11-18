@@ -58,6 +58,12 @@ void selection(const std::filesystem::path& tmp) {
     fixtures::write(root/"Scripts/Die.x",fixtures::mesh());
     ImportPlan meshes;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},meshes));
     CHECK(meshes.files.size()==ai.files.size()+2);
+    fixtures::write(root/"Bitmaps/gs1cs.BMP",fixtures::bitmap());
+    ImportPlan backdrop;CHECK(!classicImportPlan(root,synthetic,{{"Identity.bin","",-1}},backdrop));
+    CHECK(backdrop.files.size()==meshes.files.size()+1);
+    CHECK(std::count_if(backdrop.files.begin(),backdrop.files.end(),[](const auto& f){return f.to=="Bitmaps/GS1CS.bmp";})==1);
+    CHECK(!runImport(backdrop,tmp/"with-backdrop",{}));
+    CHECK(fs::md5File(root/"Bitmaps/gs1cs.BMP",0)==fs::md5File(tmp/"with-backdrop/Bitmaps/GS1CS.bmp",0));
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(std::count_if(meshes.files.begin(),meshes.files.end(),[&](const auto& f){return f.to==path;})==1);
     CHECK(!runImport(meshes,tmp/"with-meshes",{}));
     for(const auto* path:{"Scripts/Rounded.x","Scripts/Die.x"})CHECK(fs::md5File(root/path,0)==fs::md5File(tmp/"with-meshes"/path,0));

@@ -2,8 +2,11 @@
 // Copyright (C) 2026 The Reluva contributors
 #pragma once
 #include "common/pe_resources.h"
+#include "common/image.h"
+#include <filesystem>
 #include <array>
 namespace reluva::boggle {
+class Resources;
 struct SelectionRect {
     int x,y,w,h;
     bool contains(int px,int py) const {return px>=x && py>=y && int64_t(px)<int64_t(x)+w && int64_t(py)<int64_t(y)+h;}
@@ -20,6 +23,9 @@ private:
 class FrontendVersionLayout {
 public:
     Error read(const std::vector<PeResource>& resources,uint16_t language=0x0409);
+    Error readBackground(const Resources& resources,const std::filesystem::path& root);
+    bool drawBackground(Surface& screen) const;
+    const image::Image& background() const {return background_;}
     bool installed() const {return installed_;}
     const std::array<SelectionRect,2>& modes() const {return modes_;}
     const SelectionRect& bounds() const {return bounds_;}
@@ -30,6 +36,7 @@ public:
 private:
     bool installed_=false;
     SelectionRect bounds_{},prompt_{};
+    image::Image background_;
     std::array<SelectionRect,2> modes_{{{48,155,252,65},{340,155,252,65}}};
 };
 } // namespace reluva::boggle

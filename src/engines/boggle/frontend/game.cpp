@@ -78,7 +78,8 @@ void setup(Surface& s,const ClassicOptions& options,const FrontendVersionLayout&
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"CLASSIC",white,3);
     if(layout.installed()) {
-        const auto b=layout.bounds(),p=layout.prompt();fill(s,b,gold);fill(s,{b.x+2,b.y+2,b.w-4,b.h-4},dark);
+        const auto b=layout.bounds(),p=layout.prompt();
+        if(!layout.drawBackground(s)){fill(s,b,gold);fill(s,{b.x+2,b.y+2,b.w-4,b.h-4},dark);}
         text(s,p.x,p.y,"CHOOSE A GAME",gold,2);
     } else {text(s,48,91,"1-4 players  |  U.S. English",muted);text(s,48,129,"CHOOSE YOUR BOARD",gold);}
     const auto original=layout.modes()[0],master=layout.modes()[1];
@@ -163,6 +164,7 @@ Error FrontendGame::run() {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
         if(auto err=selectionLayout.read(language.resources))return err;
         if(auto err=versionLayout.read(language.resources))return err;
+        if(auto err=versionLayout.readBackground(resources,target_.path))return err;
         if(auto err=nameDialog.read(language.resources))return err;
         if(auto err=rosterDialog.read(language.resources))return err;
         if(auto err=optionsDialog.read(language.resources))return err;

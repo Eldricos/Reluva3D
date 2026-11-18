@@ -539,6 +539,27 @@ void optionsDragging(const std::filesystem::path& tmp){
     }
 }
 
+void versionBackground(const std::filesystem::path& tmp){
+    auto t=target(tmp);const auto f=fixtures::versionDialog(true);const auto dll=fixtures::dialogLanguage(f.bytes,10002);fixtures::write(t.path/"Language/English.dll",dll);
+    std::vector<PeResource> own;CHECK(!readPeResources(dll,own));FrontendVersionLayout layout;CHECK(!layout.read(own));
+    Resources resources;CHECK(!resources.open(t.path));CHECK(!layout.readBackground(resources,t.path) && layout.background().rgba.empty());
+    auto bitmap=fixtures::bitmap();bitmap.resize(54+300*200*3);test::fixtures::put32(bitmap,2,uint32_t(bitmap.size()));test::fixtures::put32(bitmap,18,300);test::fixtures::put32(bitmap,22,200);
+    for(size_t i=54;i<bitmap.size();i+=3){bitmap[i]=37;bitmap[i+1]=61;bitmap[i+2]=89;}
+    fixtures::write(t.path/"Bitmaps/GS1CS.bmp",bitmap);CHECK(!resources.open(t.path));CHECK(!layout.readBackground(resources,t.path));
+    Surface screen;screen.create(640,480,PixelFormat::RGBA32);CHECK(layout.drawBackground(screen));const auto b=layout.bounds();const auto* pixel=screen.row(b.y)+b.x*4;
+    CHECK(pixel[0]==89 && pixel[1]==61 && pixel[2]==37 && pixel[3]==255 && screen.row(0)[0]==0);
+    CHECK(screen.row(b.y+b.h-1)[(b.x+b.w-1)*4]==89 && screen.row(b.y+b.h)[b.x*4]==0);
+    auto bad=screen;bad.pixels.resize(7);CHECK(!layout.drawBackground(bad));bad=screen;bad.pitch=1;CHECK(!layout.drawBackground(bad));
+    fixtures::ScriptedSystem sys;sys.events=[](size_t n)->std::vector<Event>{using namespace fixtures;if(n==0 || n==1 || n==3 || n==4)return {keyEvent(key::Return)};if(n==2 || n==5)return {keyEvent(key::Escape)};if(n==6)return {keyEvent('l')};return {};};
+    sys.present=[&](const Surface& s,size_t n){if(n==0 || n==3){const auto* p=s.row(b.y+b.h-5)+(b.x+5)*4;CHECK(p[0]==89 && p[1]==61 && p[2]==37);}};
+    auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==6 && sys.textStopped);if(sys.hashes.size()==6)CHECK(sys.hashes[0]==sys.hashes[3] && sys.hashes[1]==sys.hashes[4]);
+    fixtures::write(t.path/"Bitmaps/GS1CS.bmp",fixtures::bitmap());CHECK(bool(layout.readBackground(resources,t.path)) && layout.background().rgba.empty());
+    fixtures::write(t.path/"Bitmaps/GS1CS.bmp",std::vector<uint8_t>{1,2,3});CHECK(bool(layout.readBackground(resources,t.path)));
+    fixtures::ScriptedSystem quit;quit.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};game=findEngine("boggle")->create(quit,t);CHECK(bool(game->run()));
+    t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(quit,t);CHECK(!game->run());
+    CHECK(!layout.read({}) && !layout.readBackground(resources,t.path) && !layout.drawBackground(screen));
+    fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage(fixtures::nameDialog().bytes,1600));t.settings.erase("classic_artwork");game=findEngine("boggle")->create(quit,t);CHECK(!game->run()); // no version template: ignore unrelated malformed art
+}
 void versionLayouts(){
     FrontendVersionLayout layout;CHECK(!layout.read({}) && !layout.installed() && layout.modes()[1].contains(360,180) && layout.more().y==258);
     for(bool extended:{false,true}){
@@ -680,6 +701,7 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"version backdrop loading, sampling, missing/malformed data, navigation and opt-out",versionBackground},
     {"version template encodings, control IDs, geometry, fallback and malformed layouts",[](const auto&){versionLayouts();}},
     {"installed version picking, duration/no timer, Players gate, reentry and opt-out",versionNavigation},
     {"mouse name caret, Shift/drag selection, release, focus and Cancel in both layouts",nameMouseEditing},

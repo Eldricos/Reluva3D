@@ -529,3 +529,14 @@ controls sit below the template; existing keyboard navigation, Players gate,
 remembered duration and fallback remain. Original bitmap skins, exact Windows
 metrics and modal behavior remain comparison work. This changes presentation,
 not board rules, player configuration or persistence.
+
+### Version-selection background
+
+The owner confirmed Original/Master selection placement works. The next
+[background pass](../../engines/boggle/frontend.md#installed-version-selection-background)
+uses the external `Bitmaps/GS1CS.bmp` loaded by original initialization. Ordinal
+214 in the template does not prove an embedded bitmap exists. Runtime reads the
+external file only; new imports include it optionally and old imports retain the
+plain panel. Native scaling, control skins, fonts and original Windows metrics
+remain comparison work. Board rules, clocks, Players navigation and persistence
+are unchanged.

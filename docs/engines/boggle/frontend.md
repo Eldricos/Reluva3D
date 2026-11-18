@@ -103,9 +103,9 @@ The Players summary, roster, profiles and session option storage are unchanged.
 No re-import or save migration is required.
 
 This implements template-relative placement with native labels, colors, fonts,
-board hints, time controls and actions. It does not implement the template's
-background bitmap/Windows skin, original font-dependent dialog-unit conversion,
-or claim exact original modal/navigation behavior. The original constructor
+board hints, time controls and actions. The supplied external background is now
+supported as described below. Original Windows control skins, font-dependent
+dialog-unit conversion and exact modal/navigation behavior remain unverified. The original constructor
 requests 10002 at `0x427a7e`; bindings reference 1800 at `0x427c91`, 1801 at
 `0x427ca3` and 1337 at `0x427cb5`. The supplied DLL places this extended template
 at file offset `0x5524`, 256 bytes. Executable/DLL identities are recorded below;
@@ -533,3 +533,47 @@ checks and skips 10 optional idtech3 checks. Frontend/dialog suites pass ASan/UB
 with LeakSanitizer disabled for the execution tracer. All 737 installed files
 retain their manifest hashes. The owner confirmed mouse name editing works;
 Windows testing of this version-layout stage is pending.
+
+## Installed version-selection background
+
+The version panel now loads optional `Bitmaps/GS1CS.bmp` when installed artwork
+and RT_DIALOG 10002 are available. The supplied 300x200 indexed BMP is decoded
+by the existing image reader and mapped to the resolved panel bounds with
+nearest-neighbor sampling. Native buttons, labels, hints, time controls and
+navigation remain above/around it. Missing files, missing version templates or
+artwork opt-out preserve the preceding plain-panel/fallback presentation. A
+selected malformed file or dimensions other than 300x200 report an explicit
+error. Failed reads clear previously loaded artwork; rendering checks surface
+format, dimensions, pitch and storage before drawing.
+
+The template's bitmap ordinal 214 is a placeholder, not a packed bitmap present
+in the supplied EXE/DLL. Original version initialization at `0x427cd0` requests
+the external filename at `0x427cef` and `0x427d1f`, through loader `0x461d60`,
+then assigns the loaded image to static control 16002. The file SHA-256 is
+`c3a90f5dabe13f87182b18d5ed290dbbede8a4f8a37d05b5b0cdf7db1c22debf`.
+This corroborates which image belongs to this dialog; native scaling, fonts,
+control skins and original Windows pixel matching remain separate comparisons.
+No original executable code runs in the engine.
+
+New imports copy the optional file, increasing the supplied plan from 55 files /
+15,941,518 bytes to 56 files / 16,002,596 bytes. Existing imports still work
+without it; re-import into a new external library folder or copy this one file
+from the owner's original installation to enable the picture. No native save
+migration is needed. `frontend-check` now reports both selection/version images:
+2 backgrounds, 367,200 pixels, decoded checksum
+`bc5aa1aa4789d3128a015c93f36237b3`. Only the import-plan and frontend checksum
+entries changed; copied-game Classic, AI, audio, movie, dialog and artwork
+entries remain unchanged. The ordinary synthetic snapshots are unchanged.
+
+Synthetic tests cover missing/malformed/wrong-size images, failed-read cleanup,
+panel bounds, sampling, invalid surfaces, navigation/reentry, artwork opt-out,
+missing-template fallback and case-insensitive import/copy. The normal full suite
+passes 49 checks with 28 optional data checks skipped. With the restored English
+Classic file set, all 42 applicable Boggle checks pass. The full multilingual
+resource/dictionary surveys are not run against this partial restoration.
+Frontend/import suites also pass ASan/UBSan with LeakSanitizer disabled for the
+execution tracer. External SDL software runs inspect both supplied variants,
+enter rounds and return through Players/selection. All 56 restored original
+files match their committed manifest hashes; raw originals, captures and probe
+output stay outside Git. The owner confirmed version placement works; Windows
+testing of the new background is pending.

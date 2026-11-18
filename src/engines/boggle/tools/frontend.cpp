@@ -18,7 +18,13 @@ int check(int argc,char**argv) {
         if(image.w!=640 || image.h!=480){std::fprintf(stderr,"Unsupported game-selection bitmap dimensions\n");return 1;}
         images=1;pixels=size_t(image.w)*image.h;digest.update(image.rgba.data(),image.rgba.size());
     }
-    std::printf("Selection backgrounds %zu, pixels %zu\n",images,pixels);
+    if(reluva::fs::findFile(argv[2],"Bitmaps/GS1CS.bmp")) {
+        reluva::image::Image image;
+        if(auto err=resources.image("Bitmaps/GS1CS.bmp",image)){std::fprintf(stderr,"%s\n",err.message.c_str());return 1;}
+        if(image.w!=300 || image.h!=200){std::fprintf(stderr,"Unsupported Classic version background dimensions\n");return 1;}
+        ++images;pixels+=size_t(image.w)*image.h;digest.update(image.rgba.data(),image.rgba.size());
+    }
+    std::printf("Frontend backgrounds %zu, pixels %zu\n",images,pixels);
     std::printf("decoded frontend: %s\n",digest.hexDigest().c_str());return 0;
 }
 int movies(int argc,char**argv) {

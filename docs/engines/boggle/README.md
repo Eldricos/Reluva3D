@@ -17,7 +17,8 @@ The default game-selection screen opens Classic with Enter. Choose Original
 or Master and a duration, advance to Players, then Play / Enter to start.
 With installed artwork enabled, Original/Master buttons follow the supplied
 [version dialog layout](frontend.md#installed-version-selection); duration
-controls remain below them.
+controls remain below them. When present, `Bitmaps/GS1CS.bmp` supplies the
+[version panel background](frontend.md#installed-version-selection-background).
 Change Name / N on Players edits the human name, remembered for this game.
 Click the player-name dropdown or press P to recall a previous human name.
 Local Players / M assigns up to four humans or computer opponents;
@@ -100,7 +101,7 @@ Game ID: `boggle1997`. Add the installed folder containing `Boggle.exe`, or
 its equivalent expanded `Boggle/` directory on the supplied CD. The CD root
 and compressed-only installers are not recognized as runnable directories.
 **Import Game** accepts the install, the expanded CD folder, or the CD root
-containing it, and copies the English Classic set (54 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
+containing it, and copies the English Classic set (56 files with Classic/menu artwork, clips, handwriting font and computer vocabulary) into your external
 library. See [import scope and validation](import.md).
 
 Detection requires measured prefix-MD5/size signatures for `Boggle.exe`,
