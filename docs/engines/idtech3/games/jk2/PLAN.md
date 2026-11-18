@@ -203,7 +203,9 @@ behind the DLL's own tables.
    them), then Desann's fight lost as the script means; a written route
    plays it to `valley`. `valley`, a cutscene, plays itself to the movie
    `jk02` and `yavin_temple`, Kyle given back his health and his first
-   Force powers. Next: the next levels the same way, and a console on
+   Force powers. `yavin_temple` plays to `yavin_trial` by a short route:
+   the meeting with Luke (a scene of two and a half minutes), then the
+   level change. Next: the next levels the same way, and a console on
    the page.
 
 8. **Single player's menus**: started with the menu files read, which

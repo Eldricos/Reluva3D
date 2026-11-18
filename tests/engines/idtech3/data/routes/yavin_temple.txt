@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# yavin_temple's way through, for sp-run -replay with cheats (set
+# helpUsObi 1): after the opening movie (jk03), the trigger in the hall
+# that starts Kyle's meeting with Luke, a scene of two and a half minutes
+# that leaves him in the training rooms; then the trigger that changes
+# the level to yavin_trial. (Touched while the scene runs, it does
+# nothing.)
+@until 10000 0 0
+/god
+# the meeting with Luke
+/setviewpos -1424 288 728 0
+@until 165000 0 0
+# the level change
+/setviewpos -784 6104 -120 0
+@until 180000 0 0

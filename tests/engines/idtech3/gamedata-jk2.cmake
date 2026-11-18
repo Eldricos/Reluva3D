@@ -45,6 +45,8 @@
 #                 by written routes, data/routes/) and artus_detention;
 #                 then valley, a cutscene, left to play. About eight
 #                 minutes.
+#   jk2-sp-yavin  the same for the Yavin levels: yavin_temple by its route
+#                 (Luke's scene, then the level change).
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -120,6 +122,9 @@ elseif(STEP STREQUAL "jk2-sp-artus")
     record_run(artus_topside "ran 100 frames" idtech3 sp-run "${base}" artus_topside
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/artus_topside.txt" -fixedclock -set helpUsObi 1 -next)
     record_run(valley "ran 100 frames" idtech3 sp-run "${base}" valley -frames 4000 -fixedclock -cgame -next)
+elseif(STEP STREQUAL "jk2-sp-yavin")
+    record_run(yavin_temple "ran 100 frames" idtech3 sp-run "${base}" yavin_temple
+               -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/yavin_temple.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)
