@@ -15,6 +15,9 @@ See [scope and rule evidence](classic.md) and the
 
 The default game-selection screen opens Classic with Enter. Choose Original
 or Master and a duration, advance to Players, then Play / Enter to start.
+With installed artwork enabled, Original/Master buttons follow the supplied
+[version dialog layout](frontend.md#installed-version-selection); duration
+controls remain below them.
 Change Name / N on Players edits the human name, remembered for this game.
 Click the player-name dropdown or press P to recall a previous human name.
 Local Players / M assigns up to four humans or computer opponents;

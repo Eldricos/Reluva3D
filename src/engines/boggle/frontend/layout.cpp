@@ -27,4 +27,28 @@ Error FrontendSelectionLayout::read(const std::vector<PeResource>& resources,uin
     }
     result.installed_=true;*this=result;return Error::success();
 }
+Error FrontendVersionLayout::read(const std::vector<PeResource>& resources,uint16_t language){
+    *this={};const auto* resource=findPeResource(resources,5,10002,language);if(!resource)return Error::success();
+    DialogTemplate dialog;if(auto error=readDialog(resource->data,dialog))return error;
+    auto fail=[] {return Error::fail("Unsupported Classic version dialog layout");};
+    if(dialog.rect.w<180 || dialog.rect.w>280 || dialog.rect.h<100 || dialog.rect.h>130)return fail();
+    FrontendVersionLayout result;result.bounds_={(640-dialog.rect.w*2)/2,80,dialog.rect.w*2,dialog.rect.h*2};
+    auto control=[&](uint32_t id,uint16_t klass)->const DialogControl* {
+        const DialogControl* found=nullptr;
+        for(const auto& c:dialog.controls)if(c.id==id){if(found)return nullptr;found=&c;}
+        if(!found || !found->windowClass.ordinal || found->windowClass.id!=klass)return nullptr;
+        const auto r=found->rect;
+        if(r.x<0 || r.y<0 || r.w<=0 || r.h<=0 || r.x+r.w>dialog.rect.w || r.y+r.h>dialog.rect.h)return nullptr;
+        return found;
+    };
+    auto placed=[&](DialogRect r){return SelectionRect{result.bounds_.x+r.x*2,result.bounds_.y+r.y*2,r.w*2,r.h*2};};
+    for(size_t i=0;i<2;++i){const auto* c=control(1800+uint32_t(i),0x80);if(!c)return fail();result.modes_[i]=placed(c->rect);}
+    const auto* caption=control(1337,0x82);if(!caption)return fail();result.prompt_=placed(caption->rect);
+    const auto p=result.prompt_,a=result.modes_[0],b=result.modes_[1];
+    // Reserve each native board hint below its button, and leave the native
+    // duration/actions outside the supplied template's client area.
+    if(p.w<156 || p.h<16 || a.w<164 || b.w<164 || a.h<28 || b.h<28 ||
+       p.y+p.h+4>a.y || a.y+a.h+14>b.y || b.y+b.h+14>result.bounds_.y+result.bounds_.h)return fail();
+    result.installed_=true;*this=result;return Error::success();
+}
 } // namespace reluva::boggle

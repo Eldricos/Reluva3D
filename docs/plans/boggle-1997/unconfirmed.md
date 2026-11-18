@@ -519,3 +519,13 @@ fields, with final-release and focus/window interruption guards. Ctrl+A retains
 select-all; field-click now places the caret. Save/Cancel and native name/history
 policies remain. Exact original edit-widget behavior, double-click selection,
 clipboard, IME and Windows metrics remain comparison work.
+
+### Original/Master selection placement
+
+The owner confirmed mouse name editing works. The next
+[version-layout pass](../../engines/boggle/frontend.md#installed-version-selection)
+uses the installed Original/Master button and prompt rectangles. Native duration
+controls sit below the template; existing keyboard navigation, Players gate,
+remembered duration and fallback remain. Original bitmap skins, exact Windows
+metrics and modal behavior remain comparison work. This changes presentation,
+not board rules, player configuration or persistence.

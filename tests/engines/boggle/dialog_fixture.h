@@ -96,6 +96,22 @@ inline DialogFixture handoffDialog(bool extended=false){
     }
     return f;
 }
+inline DialogFixture versionDialog(bool extended=false){
+    DialogFixture f;auto& b=f.bytes;
+    auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};
+    auto integer=[&](uint32_t n){word(uint16_t(n));word(uint16_t(n>>16));};
+    auto text=[&](std::u16string_view s){for(auto c:s)word(c);word(0);};
+    if(extended){word(1);word(0xffff);integer(0);integer(0);integer(0);}else{integer(0);integer(0);}
+    word(3);word(0);word(0);word(220);word(128);word(0);word(0);f.caption=b.size();text(u"Own version");
+    auto control=[&](unsigned id,unsigned klass,int x,int y,int w,int h){
+        while(b.size()%4)b.push_back(0);
+        f.controls.push_back(b.size());
+        if(extended){integer(0);integer(0);integer(0x50000000);}else{integer(0x50000000);integer(0);}
+        word(uint16_t(x));word(uint16_t(y));word(uint16_t(w));word(uint16_t(h));
+        if(extended)integer(id);else word(uint16_t(id));word(0xffff);word(uint16_t(klass));text(u"Own choice");word(0);
+    };
+    control(1801,0x80,30,78,140,18);control(1337,0x82,18,10,100,12);control(1800,0x80,30,40,140,18);return f;
+}
 inline DialogFixture nameDialog(bool extended=false){
     DialogFixture f;auto& b=f.bytes;
     auto word=[&](uint16_t n){b.push_back(uint8_t(n));b.push_back(uint8_t(n>>8));};

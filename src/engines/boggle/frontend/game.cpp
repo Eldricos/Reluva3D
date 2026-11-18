@@ -16,8 +16,7 @@
 namespace reluva::boggle {
 namespace {
 using Box=SelectionRect;
-constexpr Box classic{40,288,112,112}, original{48,155,252,65}, master{340,155,252,65},
-              less{174,258,48,36}, more{418,258,48,36}, untimed{224,312,192,36},
+constexpr Box classic{40,288,112,112},
               play{340,388,252,48}, back{48,388,252,48}, exit{462,420,140,36};
 constexpr Box optionsButton{344,100,248,36};
 constexpr size_t nameRows=8;
@@ -75,18 +74,21 @@ void selection(Surface& s,const image::Image& background,const FrontendMedia& me
     }
     text(s,40,425,"Enter: Classic",white,2);button(s,exit,"LAUNCHER (L)");
 }
-void setup(Surface& s,const ClassicOptions& options) {
+void setup(Surface& s,const ClassicOptions& options,const FrontendVersionLayout& layout) {
     fill(s,{0,0,640,480},dark);fill(s,{24,26,592,2},gold);
     text(s,48,48,"CLASSIC",white,3);
-    text(s,48,91,"1-4 players  |  U.S. English",muted);
-    text(s,48,129,"CHOOSE YOUR BOARD",gold);
+    if(layout.installed()) {
+        const auto b=layout.bounds(),p=layout.prompt();fill(s,b,gold);fill(s,{b.x+2,b.y+2,b.w-4,b.h-4},dark);
+        text(s,p.x,p.y,"CHOOSE A GAME",gold,2);
+    } else {text(s,48,91,"1-4 players  |  U.S. English",muted);text(s,48,129,"CHOOSE YOUR BOARD",gold);}
+    const auto original=layout.modes()[0],master=layout.modes()[1];
     button(s,original,"ORIGINAL (1)",options.variant==ClassicVariant::Original);
     button(s,master,"MASTER (2)",options.variant==ClassicVariant::Master);
-    text(s,64,230,"4 x 4 / minimum 3 letters",muted);
-    text(s,356,230,"5 x 5 / minimum 4 letters",muted);
-    button(s,less,"-",false,options.duration!=0);button(s,more,"+",false,options.duration!=0);
-    text(s,252,270,options.duration ? duration(options.duration) : "NOT TIMED",white,2);
-    button(s,untimed,"NO TIMER (T)",options.duration==0);
+    text(s,layout.installed()?original.x:64,layout.installed()?original.y+original.h+3:230,"4 x 4 / minimum 3 letters",muted);
+    text(s,layout.installed()?master.x:356,layout.installed()?master.y+master.h+3:230,"5 x 5 / minimum 4 letters",muted);
+    button(s,layout.less(),"-",false,options.duration!=0);button(s,layout.more(),"+",false,options.duration!=0);
+    text(s,252,layout.installed()?356:270,options.duration ? duration(options.duration) : "NOT TIMED",white,2);
+    button(s,layout.untimed(),"NO TIMER (T)",options.duration==0);
     button(s,back,"MAIN MENU (ESC)");button(s,play,"PLAYERS (ENTER)",true);
     text(s,48,458,"1/2: board   Left/Right: duration   T: timer",muted);
 }
@@ -153,12 +155,14 @@ Error FrontendGame::run() {
         if(background.w!=640 || background.h!=480) return Error::fail("Unsupported game-selection bitmap dimensions");
     }
     FrontendSelectionLayout selectionLayout;
+    FrontendVersionLayout versionLayout;
     FrontendNameDialog nameDialog;
     FrontendRosterDialog rosterDialog;
     FrontendOptionsDialog optionsDialog;
     if(options.artwork && fs::findFile(target_.path,"Language/English.dll")) {
         Language language;if(auto err=resources.language("Language/English.dll",language))return err;
         if(auto err=selectionLayout.read(language.resources))return err;
+        if(auto err=versionLayout.read(language.resources))return err;
         if(auto err=nameDialog.read(language.resources))return err;
         if(auto err=rosterDialog.read(language.resources))return err;
         if(auto err=optionsDialog.read(language.resources))return err;
@@ -350,13 +354,13 @@ Error FrontendGame::run() {
                 }
             } else if(page==Page::Version) {
                 if((isKey && event.key==key::Escape) || pressed(back)) { page=Page::Selection;changed=true; }
-                else if((isKey && event.key=='1') || pressed(original)) options.variant=ClassicVariant::Original;
-                else if((isKey && event.key=='2') || pressed(master)) options.variant=ClassicVariant::Master;
-                else if((isKey && event.key=='t') || pressed(untimed)) {
+                else if((isKey && event.key=='1') || pressed(versionLayout.modes()[0])) options.variant=ClassicVariant::Original;
+                else if((isKey && event.key=='2') || pressed(versionLayout.modes()[1])) options.variant=ClassicVariant::Master;
+                else if((isKey && event.key=='t') || pressed(versionLayout.untimed())) {
                     options.duration=options.duration ? 0 : timedDuration;
-                } else if(options.duration && ((isKey && event.key==key::Left) || pressed(less))) {
+                } else if(options.duration && ((isKey && event.key==key::Left) || pressed(versionLayout.less()))) {
                     options.duration=std::max<uint64_t>(60000,options.duration-30000);timedDuration=options.duration;
-                } else if(options.duration && ((isKey && event.key==key::Right) || pressed(more))) {
+                } else if(options.duration && ((isKey && event.key==key::Right) || pressed(versionLayout.more()))) {
                     options.duration=std::min<uint64_t>(300000,options.duration+30000);timedDuration=options.duration;
                 } else if((isKey && (event.key==key::Return || event.key==key::KpEnter)) || pressed(play)) {
                     page=Page::Players;changed=true;
@@ -400,7 +404,7 @@ Error FrontendGame::run() {
                 if(event.type==EventType::Quit || event.type==EventType::ReturnToLauncher) return Error::success();
             page=Page::Selection;menuStarted=system_.getMillis();
         }
-        if(page==Page::Version) setup(screen,options);
+        if(page==Page::Version) setup(screen,options,versionLayout);
         else if(page==Page::Players) {
             players(screen,options,profile,roster,backgroundAvailable(),cursorAvailable(),optionsDialog.installed());
             if(optionsOpen)optionsDialog.draw(screen,options,backgroundAvailable(),cursorAvailable());

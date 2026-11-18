@@ -539,6 +539,48 @@ void optionsDragging(const std::filesystem::path& tmp){
     }
 }
 
+void versionLayouts(){
+    FrontendVersionLayout layout;CHECK(!layout.read({}) && !layout.installed() && layout.modes()[1].contains(360,180) && layout.more().y==258);
+    for(bool extended:{false,true}){
+        const auto f=fixtures::versionDialog(extended);std::vector<PeResource> own;CHECK(!readPeResources(test::fixtures::resourcePe(f.bytes,5,10002),own));
+        CHECK(!layout.read(own) && layout.installed() && layout.modes()[0].contains(180,180) && layout.modes()[1].contains(180,250));
+        CHECK(!layout.modes()[1].contains(360,180) && layout.less().y==344 && layout.untimed().x==48);
+        CHECK(!layout.read(own,0x0411) && !layout.installed());CHECK(!layout.read(own));
+        auto bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?20:16),1801);CHECK(bool(layout.read(bad)) && !layout.installed());
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?24:18)+2,0x82);CHECK(bool(layout.read(bad)));
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[2]+(extended?12:8),210);CHECK(bool(layout.read(bad))); // outside client
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[0]+(extended?14:10),50);CHECK(bool(layout.read(bad))); // overlapping choices
+        bad=own;test::fixtures::put16(bad[0].data,f.controls[1]+(extended?16:12),30);CHECK(bool(layout.read(bad))); // prompt too narrow
+        bad=own;bad[0].data.resize(25);CHECK(bool(layout.read(bad)));
+    }
+}
+void versionNavigation(const std::filesystem::path& tmp){
+    for(bool extended:{false,true}){
+        auto t=target(tmp/(extended?"extended":"standard"));const auto f=fixtures::versionDialog(extended);const auto dll=fixtures::dialogLanguage(f.bytes,10002);fixtures::write(t.path/"Language/English.dll",dll);
+        std::vector<PeResource> own;CHECK(!readPeResources(dll,own));FrontendVersionLayout layout;CHECK(!layout.read(own));
+        auto click=[](SelectionRect b){return fixtures::mouseEvent(EventType::MouseDown,b.x+b.w/2,b.y+b.h/2);};
+        fixtures::ScriptedSystem sys;sys.events=[&](size_t f)->std::vector<Event>{using namespace fixtures;
+            if(f==0 || f==7 || f==10 || f==11)return {keyEvent(key::Return)};
+            if(f==1)return {mouseEvent(EventType::MouseDown,360,180)}; // obsolete Master target
+            if(f==2)return {click(layout.modes()[1])};
+            if(f==3)return {click(layout.less())}; // 2:30
+            if(f==4 || f==6)return {click(layout.untimed())};
+            if(f==5)return {click(layout.more())}; // no change when untimed
+            if(f==8)return {keyEvent(key::Escape)}; // Players to selection
+            if(f==9)return {mouseEvent(EventType::MouseDown,50,300)}; // Classic again
+            if(f==12)return {textEvent("AAAA"),keyEvent(key::Return)};
+            if(f==13)return {keyEvent(key::F1)};
+            if(f==14)return {keyEvent(key::F1+2)};
+            if(f==15)return {keyEvent('l')};
+            return {};
+        };
+        auto game=findEngine("boggle")->create(sys,t);CHECK(!game->run() && sys.frame==15 && sys.w==640);
+        if(sys.hashes.size()==15){CHECK(sys.hashes[0]==sys.hashes[1]);CHECK(sys.hashes[2]!=sys.hashes[0]);CHECK(sys.hashes[4]==sys.hashes[5]);CHECK(sys.hashes[3]==sys.hashes[6] && sys.hashes[3]==sys.hashes[9]);}
+        HighScores scores;CHECK(!scores.load(t.savePath,t.path));const auto rows=scores.table();CHECK(rows.size()==1);if(rows.size()==1)CHECK(rows[0].duration==150000 && rows[0].score==1 && rows[0].variant==ClassicVariant::Master);
+        fixtures::write(t.path/"Language/English.dll",fixtures::dialogLanguage({1,2,3},10002));fixtures::ScriptedSystem bad;bad.events=[](size_t){return std::vector<Event>{fixtures::keyEvent('l')};};
+        game=findEngine("boggle")->create(bad,t);CHECK(bool(game->run()));t.settings["classic_artwork"]="0";game=findEngine("boggle")->create(bad,t);CHECK(!game->run());
+    }
+}
 void nameCaretState(){
     NameEdit e;CHECK(!e.begin("ALPHA") && e.first()==0 && e.last()==5);e.move(1,false);CHECK(e.caret()==5 && e.first()==e.last());e.home(false);e.move(1,false);CHECK(!e.insert("x") && e.text()=="AxLPHA" && e.caret()==2);e.erase(true);CHECK(e.text()=="AxPHA");e.erase(false);CHECK(e.text()=="APHA" && e.caret()==1);e.end(true);CHECK(e.first()==1 && e.last()==4);CHECK(!e.insert("BC") && e.text()=="ABC" && e.caret()==3);e.home(true);CHECK(!e.insert("Z") && e.text()=="Z");e.erase(true);CHECK(e.text()=="Z");e.erase(false);CHECK(e.text().empty() && e.caret()==0);
     CHECK(!e.begin("ABCDE"));e.move(-1,false);CHECK(e.caret()==0);e.end(false);e.move(-1,true);e.move(-1,true);CHECK(e.first()==3 && e.last()==5);e.move(1,false);CHECK(e.caret()==5 && e.first()==e.last());e.home(false);e.move(1,true);e.move(1,true);e.erase(false);CHECK(e.text()=="CDE" && e.caret()==0);
@@ -638,6 +680,8 @@ void timerAndErrors(const std::filesystem::path& tmp) {
 }
 }
 static const test::Suite suite("boggle.unit.frontend",{
+    {"version template encodings, control IDs, geometry, fallback and malformed layouts",[](const auto&){versionLayouts();}},
+    {"installed version picking, duration/no timer, Players gate, reentry and opt-out",versionNavigation},
     {"mouse name caret, Shift/drag selection, release, focus and Cancel in both layouts",nameMouseEditing},
     {"ASCII name caret/selection, insertion, deletion, bounds and rejected edits",[](const auto&){nameCaretState();}},
     {"keyboard name editing in installed/fallback dialogs, repeat, Save/Cancel and history",nameCaretNavigation},

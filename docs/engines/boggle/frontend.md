@@ -77,9 +77,39 @@ their existing behavior. Other resource controls, network/chat, original font
 metrics, skinning and original hover-trigger behavior are outside this pass.
 
 This is a native canvas mapping, not Windows font-dependent dialog-unit
-conversion or a claim of complete original frontend fidelity. Later Players and
-version setup screens retain their existing native layouts. The player-name
-editor now has its own installed-template consumer; see below.
+conversion or a claim of complete original frontend fidelity. The Players summary
+retains its native layout. Version selection and the player-name editor now have
+their own installed-template consumers; see below.
+
+## Installed version selection
+
+With installed artwork enabled, the version screen binds exact RT_DIALOG 10002 /
+language 0x0409 from the English DLL. Buttons 1800/1801 supply Original/Master
+positions; static 1337 supplies the prompt position. The independent consumer
+maps the client at two native pixels per template unit, centers it horizontally
+and places its top at 80 in the 640x480 canvas. The client is bounded to
+180..280 by 100..130 units, reserving the existing title and navigation areas.
+Required IDs must be unique, classes must match, and controls must stay within
+the client. Validation leaves room below each button for native board/minimum
+hints, rejects overlap and keeps the duration row clear.
+
+Drawing and mouse picking share the resolved rectangles. The native duration
+controls move below the panel: Left/Right and minus/plus still adjust 30-second
+steps from 1:00 to 5:00; T/No Timer restores the remembered timed duration.
+1/2, Enter/Players, Escape/Main Menu and the separate Players confirmation retain
+their behavior. Missing templates or disabled installed artwork use the earlier
+layout and mouse targets. A present malformed selected template fails explicitly.
+The Players summary, roster, profiles and session option storage are unchanged.
+No re-import or save migration is required.
+
+This implements template-relative placement with native labels, colors, fonts,
+board hints, time controls and actions. It does not implement the template's
+background bitmap/Windows skin, original font-dependent dialog-unit conversion,
+or claim exact original modal/navigation behavior. The original constructor
+requests 10002 at `0x427a7e`; bindings reference 1800 at `0x427c91`, 1801 at
+`0x427ca3` and 1337 at `0x427cb5`. The supplied DLL places this extended template
+at file offset `0x5524`, 256 bytes. Executable/DLL identities are recorded below;
+raw templates, analysis and preview captures remain outside every Git worktree.
 
 ## Installed player-name editor
 
@@ -120,7 +150,7 @@ rules are unchanged; no re-import or save migration is required.
 The original small name-entry template supplies relative placement. Native
 fonts, colors, wording, footer and added Cancel remain explicit presentation
 policies. This does not claim original Windows metrics, skins or name-storage
-interoperability; the surrounding version/Players screens remain native UI.
+interoperability; the surrounding Players summary remains native UI.
 
 ## Installed local-player roster
 
@@ -488,3 +518,18 @@ SDL runs inspect caret/selection against both supplied variants; captures remain
 outside Git. Existing checksum records are unchanged. All 737 installed files
 retain their manifest hashes. The owner confirmed keyboard editing works;
 Windows testing of mouse editing is pending.
+
+Version-layout fixtures cover standard/extended templates, shuffled control order,
+exact-language and missing fallback, class/ID mismatches, invalid bounds, overlap,
+small prompts and truncation. Scripted menus check both encodings, obsolete mouse
+target rejection, duration/No Timer, the Players gate and menu reentry. A played
+Master round records the chosen 2:30 duration and score. Artwork opt-out preserves
+the fallback, and existing checksum records are unchanged. External SDL runs
+inspect both supplied variants and traverse version, Players, play, results and
+menu return with unchanged remembered duration. Captures stay outside Git.
+
+The version-layout stage passes all 44 Boggle checks; the full suite passes 67
+checks and skips 10 optional idtech3 checks. Frontend/dialog suites pass ASan/UBSan
+with LeakSanitizer disabled for the execution tracer. All 737 installed files
+retain their manifest hashes. The owner confirmed mouse name editing works;
+Windows testing of this version-layout stage is pending.
