@@ -205,8 +205,11 @@ behind the DLL's own tables.
    `jk02` and `yavin_temple`, Kyle given back his health and his first
    Force powers. `yavin_temple` plays to `yavin_trial` by a short route:
    the meeting with Luke (a scene of two and a half minutes), then the
-   level change; `yavin_trial` by the tour to `ns_streets`. Next: the next levels the same way, and a console on
-   the page.
+   level change; `yavin_trial` by the tour to `ns_streets`. `ns_streets`
+   plays to `ns_hideout` by the tour then a route: the scrap car, its two
+   switches force-pushed, through the tunnel (the server world now gives
+   the game the entities in a box in the original's order). Next: the
+   next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

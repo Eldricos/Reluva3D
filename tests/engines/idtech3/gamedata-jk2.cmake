@@ -48,6 +48,8 @@
 #   jk2-sp-yavin  the same for the Yavin levels: yavin_temple by its route
 #                 (Luke's scene, then the level change), yavin_trial by the
 #                 tour.
+#   jk2-sp-nar-shaddaa  ns_streets: the tour, then its route (the scrap
+#                 car, two switches pushed, through the tunnel).
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -128,6 +130,9 @@ elseif(STEP STREQUAL "jk2-sp-yavin")
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/yavin_temple.txt" -fixedclock -set helpUsObi 1 -next)
     record_run(yavin_trial "ran 100 frames" idtech3 sp-run "${base}" yavin_trial -tour 10000 -spare npc -fixedclock
                -set helpUsObi 1 -next)
+elseif(STEP STREQUAL "jk2-sp-nar-shaddaa")
+    record_run(ns_streets "ran 100 frames" idtech3 sp-run "${base}" ns_streets -tour 45000 -spare kyle
+               -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/ns_streets.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

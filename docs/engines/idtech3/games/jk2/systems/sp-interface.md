@@ -260,3 +260,29 @@ yet: a console on the page.
   (`cinematic9_run_end`) is the level's end. `sp-run artus_topside
   -replay tests/engines/idtech3/data/routes/artus_topside.txt -set
   helpUsObi 1 -next` plays it to `maptransition valley`.
+- **ns_streets:** the tour leaves out triggers that fire a
+  `target_kill` or a `misc_camera`, and holds use only at triggers
+  that wait for it (in the original's order, holding it at kejim_post's
+  squad trigger also set off the security camera's over it, whose view
+  holds the player). The level locks weapons and the Force until the bar's
+  conversation (`bartender_talk`); before it, a push only has Kyle say
+  he doesn't want trouble yet. Its way out is the scrap car: standing
+  on it starts it, and two switches (`func_static`s that a push uses)
+  must be pushed while it waits, at c2 and then c5, each for three
+  seconds; its last branch carries the player through `last_doors` to
+  the level change. The tunnel there is inside an electrical
+  `target_kill`'s trigger, but a rider who doesn't move doesn't touch
+  it: the game sweeps a player's own movement for triggers, not a
+  mover's push (the GPL source's `G_TouchTriggersLerped`, read as a
+  guide). `sp-run`'s `@aim x y z` aims at the switches, `@until +ms`
+  times the route from the tour's end, and `-tour` with `-replay` plays
+  the route in place of the tour's level change: `sp-run ns_streets
+  -tour 45000 -spare kyle -replay
+  tests/engines/idtech3/data/routes/ns_streets.txt -set helpUsObi 1
+  -next` plays it to `maptransition ns_hideout`.
+- **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
+  sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
+  puts an entity at its head, 0x43a9fa), then the side below the split
+  if the box reaches it, then the side above. The game handles
+  overlapping triggers, and what a move meets at once, in that order;
+  Reluva's server world gives them the same.

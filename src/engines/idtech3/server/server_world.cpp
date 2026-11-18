@@ -141,7 +141,7 @@ void ServerWorld::link(int32_t n, const EntityShape &s, Vec3f &absMin, Vec3f &ab
         else
             break;
     }
-    _nodes[size_t(node)].entities.push_back(n);
+    _nodes[size_t(node)].entities.push_back(n); // the newest last: collect() reads them backwards
     _nodeOf[n] = node;
 }
 
@@ -177,22 +177,26 @@ void ServerWorld::collect(const Vec3f &mins, const Vec3f &maxs, std::vector<int3
     int stack[2 * kTreeDepth + 2];
     int top = 0;
     stack[top++] = 0;
+    // In the original's order (jk2sp.exe's SV_AreaEntities, 0x43aa20; Quake
+    // III's): each node's entities the last linked first, then the side
+    // above its split before the side below. The game takes touched
+    // triggers in this order: where two overlap, the first decides (a
+    // level change before the fall's kill around it, ns_streets).
     while (top) {
         const Node &node = _nodes[size_t(stack[--top])];
-        for (const int32_t n : node.entities) {
-            const Placement &p = _placements.at(n);
+        for (auto it = node.entities.rbegin(); it != node.entities.rend(); ++it) {
+            const Placement &p = _placements.at(*it);
             if (overlaps(p.absMin, p.absMax, mins, maxs))
-                out.push_back(n);
+                out.push_back(*it);
         }
         if (node.axis < 0)
             continue;
-        if (maxs[size_t(node.axis)] > node.dist)
-            stack[top++] = node.children[0];
         if (mins[size_t(node.axis)] < node.dist)
             stack[top++] = node.children[1];
+        if (maxs[size_t(node.axis)] > node.dist)
+            stack[top++] = node.children[0];
     }
     out.insert(out.end(), _unplaced.begin(), _unplaced.end());
-    std::sort(out.begin(), out.end());
 }
 
 void ServerWorld::entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const {

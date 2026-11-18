@@ -36,8 +36,9 @@ struct EntityShape {
 // level in two four times over, as the original's; and moves, points and
 // boxes tested against the level and those entities.
 //
-// Entities are looked at in order of their numbers, whatever the tree
-// gives, so which one a move hits first doesn't depend on where it is.
+// Entities are looked at in the tree's order, as the original's are: the
+// game takes overlapping triggers, and a move two boxes it meets at once,
+// in that order.
 class ServerWorld {
 public:
     // Reads entity `n`'s shape now; false if it has none.
@@ -98,7 +99,7 @@ public:
     // The contents at a point: the level's and the entities' it's in, but
     // `pass`'s.
     int32_t pointContents(const Vec3f &point, int32_t pass) const;
-    // The linked entities whose boxes touch [mins, maxs], in order.
+    // The linked entities whose boxes touch [mins, maxs], in the tree's order.
     void entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const;
 
     // An entity's size as the original's server tells the client game

@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <iterator>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -173,16 +174,18 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
 // -tour: a replay (as -replay reads) playing a level through with cheats.
 // At `fromMs` (the opening over), god and undying modes and every weapon;
 // then each trigger in the level touched in turn (its middle, a little up
-// from its floor) facing its angle and holding use (Jedi Outcast's button
-// 5), as some triggers wait for, and three seconds of fighting the nearest NPC, the weapon
+// from its floor) facing its angle, holding use (Jedi Outcast's button
+// 5) if it waits for it, and three seconds of fighting the nearest NPC, the weapon
 // changing each time; `rounds` times over, for triggers switched on by
-// what happens later in the level. Left out: trigger_hurt, triggers in or over
+// what happens later in the level. Left out: triggers firing a
+// target_kill or a misc_camera, trigger_hurt, triggers in or over
 // one, and triggers naming a spared entity (an ally they'd move into
 // the fighting); spared entities aren't shot at. Only direct fire (the
 // saber, pistol, blaster, disruptor, bowcaster, repeater): splash would
-// hurt the allies, whose death fails the mission. Last, the triggers
-// that change the level.
-std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vector<std::string> &spare) {
+// hurt the allies, whose death fails the mission. Last, with `withExits`,
+// the triggers that change the level.
+std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vector<std::string> &spare,
+                      bool withExits) {
     std::vector<q3::Entity> entities;
     if (q3::parseEntities(bsp.entities, entities))
         return {};
@@ -202,9 +205,16 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
         if (std::array<float, 6> b{}; e.classname() == "trigger_hurt" && bounds(e, b))
             hurts.push_back(b);
     std::set<std::string> levelChanges;
-    for (const q3::Entity &e : entities)
+    // Targets whose triggers are left out: a target_kill (a drop's trigger
+    // kills whoever's in it, god mode or not) and a misc_camera (a
+    // security camera's view, which holds the player until left).
+    std::set<std::string> kills;
+    for (const q3::Entity &e : entities) {
         if (e.classname() == "target_level_change" && e.has("targetname"))
             levelChanges.insert(e.get("targetname"));
+        if ((e.classname() == "target_kill" || e.classname() == "misc_camera") && e.has("targetname"))
+            kills.insert(e.get("targetname"));
+    }
     std::vector<std::array<float, 6>> exits;
     std::string skip;
     for (const std::string &s : spare)
@@ -221,7 +231,7 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
             continue;
         if (levelChanges.count(e.get("target")))
             exits.push_back(b);
-        else
+        else if (!kills.count(e.get("target")))
             visits.push_back(&e);
     }
     for (int round = 0; round < rounds; ++round)
@@ -250,7 +260,12 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
                           double(y), double(z), std::atoi(e.get("angle").c_str()));
             out += line;
             t += 300;
-            out += "@until " + std::to_string(t) + " 32 " + std::to_string(w) + "\n";
+            // Use held only for the triggers that wait for it (a
+            // trigger_multiple's 4): it would set off one that overlaps,
+            // as a security camera's (kejim_post's *212 over *51).
+            const bool multiple = cls == "trigger_multiple" || cls == "trigger_once";
+            const int use = !multiple || (std::atoi(e.get("spawnflags").c_str()) & 4) ? 32 : 0;
+            out += "@until " + std::to_string(t) + " " + std::to_string(use) + " " + std::to_string(w) + "\n";
             for (int k = 0; k < 6; ++k) {
                 out += "@nearest npc" + skip + "\n";
                 t += 500;
@@ -261,6 +276,8 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
             ++count;
         }
     for (const std::array<float, 6> &b : exits) {
+        if (!withExits)
+            break;
         char line[128];
         std::snprintf(line, sizeof line, "# the level change\n/setviewpos %.0f %.0f %.0f 0\n",
                       double((b[0] + b[3]) / 2), double((b[1] + b[4]) / 2), double(b[2] + 24));
@@ -406,9 +423,11 @@ int cmdSpRun(int argc, char **argv) {
             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n"
             "A replay's lines: \"time buttons weapon pitch yaw roll forward right up\" as the Play page records them;\n"
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon] [pitch]\" the same command every 50 ms until\n"
-            "then, looking pitch degrees down (up negative); \"@aim name\" the view turned to that entity for the @until lines after (\"@aim none\" level again);\n"
-            "\"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it.\n"
-            "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1).\n"
+            "then (\"+ms\": that long from now), looking pitch degrees down (up negative); \"@aim name\" (\"@aim x y z\") the view turned to that entity (point) for the @until lines after (\"@aim none\" level again);\n"
+            "\"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it;\n"
+            "\"@where [name]\" where the player is, and that entity.\n"
+            "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1);\n"
+            "with -replay, the replay's lines after the tour in place of its level change.\n"
             "-next: then the level the game changed to, started as the Play page starts it.\n");
         return 2;
     }
@@ -702,15 +721,20 @@ int cmdSpRun(int argc, char **argv) {
     if (!replayPath.empty() || tourFrom > 0) {
         // -replay: the recorded commands in order, the server's frames run
         // up to each as the Play page ran them. -tour: a route made here.
+        // Both: the tour without its level change, then the route (the
+        // way out a level only gives by a ride, as ns_streets's car).
         std::ifstream file;
-        std::istringstream route(tourFrom > 0 ? tourRoute(*bsp, tourFrom, tourRounds, spare) : std::string());
-        if (tourFrom <= 0) {
+        std::string tour = tourFrom > 0 ? tourRoute(*bsp, tourFrom, tourRounds, spare, replayPath.empty()) : "";
+        if (!replayPath.empty()) {
             file.open(replayPath);
             if (!file) {
                 std::fprintf(stderr, "can't read %s\n", replayPath.c_str());
                 return 1;
             }
+            if (tourFrom > 0)
+                tour += std::string(std::istreambuf_iterator<char>(file), {});
         }
+        std::istringstream route(tour);
         std::istream &in = tourFrom > 0 ? static_cast<std::istream &>(route) : file;
         std::string line;
         int f = 0;
@@ -743,6 +767,9 @@ int cmdSpRun(int argc, char **argv) {
                 int weapon = 0;
                 float pitch = 0;
                 std::sscanf(line.c_str() + 7, "%d %d %d %f", &until, &buttons, &weapon, &pitch);
+                // "@until +ms": that long from now, for a route following a tour.
+                if (line[7] == '+')
+                    until += std::max(lastTime, game.levelTime());
                 // The pitch in the command's units (65536 a turn), up negative.
                 const int pitchUnits = (aimPitch + int(std::lround(pitch * 65536 / 360))) & 0xffff;
                 for (int32_t t = std::max(lastTime + 50, game.levelTime()); t < until; t += 50)
@@ -754,6 +781,21 @@ int cmdSpRun(int argc, char **argv) {
             // "@face name": the player put beside the living entity with
             // that name (any of its text fields), facing it. "@nearest name
             // -other...": the nearest such, but those with the other names.
+            // "@where [name]": where the player is, with its health, and
+            // the nearest living entity with that name.
+            if (line.rfind("@where", 0) == 0) {
+                const ef::SpEntityLayout &layout = game.entityLayout();
+                const auto show = [&](int32_t n) {
+                    const q3::Vec3f at = game.entityVec(n, layout.currentOrigin);
+                    std::printf("[%5d ms] entity %d at %.0f %.0f %.0f, health %d\n", game.levelTime(), n, double(at[0]),
+                                double(at[1]), double(at[2]), jedi ? game.entityInt(n, kJediHealth) : 0);
+                };
+                show(0);
+                if (line.size() > 7)
+                    if (const int32_t n = nearestNamed(game, line.substr(7)); n >= 0)
+                        show(n);
+                continue;
+            }
             if (line == "@aim none") {
                 // Level again: needed before a setviewpos, which turns the
                 // view from the command's angles as they are.
@@ -766,15 +808,18 @@ int cmdSpRun(int argc, char **argv) {
                 // living entity with that name.
                 const ef::SpEntityLayout &layout = game.entityLayout();
                 const uint32_t ps = uint32_t(game.entityInt(0, layout.client));
-                const int32_t target = nearestNamed(game, line.substr(5));
-                if (ps && target >= 0) {
+                // Or a point, "@aim x y z": a switch has no health to be found by.
+                q3::Vec3f point{};
+                const bool atPoint = std::sscanf(line.c_str() + 5, "%f %f %f", &point[0], &point[1], &point[2]) == 3;
+                const int32_t target = atPoint ? -1 : nearestNamed(game, line.substr(5));
+                if (ps && (atPoint || target >= 0)) {
                     q3::Vec3f eye{};
                     for (uint32_t i = 0; i < 3; ++i) {
                         const uint32_t bits = game.cpu().read32(ps + 0x14 + 4 * i);
                         std::memcpy(&eye[i], &bits, 4);
                     }
-                    const q3::Vec3f lo = game.entityVec(target, layout.absMin);
-                    const q3::Vec3f hi = game.entityVec(target, layout.absMax);
+                    const q3::Vec3f lo = atPoint ? point : game.entityVec(target, layout.absMin);
+                    const q3::Vec3f hi = atPoint ? point : game.entityVec(target, layout.absMax);
                     const double dx = (lo[0] + hi[0]) / 2 - eye[0];
                     const double dy = (lo[1] + hi[1]) / 2 - eye[1];
                     // Three quarters up its box: an AT-ST's middle is between its legs.
@@ -839,6 +884,15 @@ int cmdSpRun(int argc, char **argv) {
             }
             if (ran)
                 game.sendSnapshot(); // one for the frames run, as the Play page
+            // A level change ends the replay there, as the engine changes
+            // level at once (what -next carries over is the player then).
+            bool changing = false;
+            for (const std::string &c : game.consoleCommands()) {
+                const std::string word = reluva::fs::toLower(c.substr(0, c.find(' ')));
+                changing = changing || word == "maptransition" || word == "map";
+            }
+            if (changing)
+                break;
             if (cmd.buttons != lastButtons && watch)
                 std::printf("[%5d ms] buttons %d\n", cmd.serverTime, cmd.buttons);
             lastButtons = cmd.buttons;

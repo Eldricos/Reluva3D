@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# ns_streets's way out, for sp-run -tour 45000 -replay (with -spare kyle,
+# set helpUsObi 1): after the tour, which lifts the lock on weapons and the
+# Force at the bar (Kyle "doesn't want to start any trouble" before),
+# the scrap car. Standing on it starts it; where it stops, two switches
+# are force-pushed in their three seconds (the first at c2, the second
+# at c5), and its last branch carries the player through the tunnel's
+# doors to the level change. On foot the tunnel kills (its trigger fires
+# an electrical target_kill); riding, the player doesn't move to touch
+# it. Times are from the tour's end.
+/setviewpos -864 2600 1160 270
+@until +8800 0 0
+# switch 1, the car waiting at c2
+@aim -996 1740 1188
+@until +500 0 0
+/force_throw
+@until +1000 0 0
+/force_throw
+# switch 2, at c5
+@until +6800 0 0
+@aim -996 588 1188
+@until +500 0 0
+/force_throw
+@until +1000 0 0
+/force_throw
+@until +20000 0 0

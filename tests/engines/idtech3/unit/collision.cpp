@@ -122,6 +122,11 @@ static void testServerWorld() {
                 return false;
         return true;
     };
+    // Every entity in the tree's order: a smaller box's are the same, in
+    // the same order, less those it doesn't reach.
+    std::vector<int32_t> treeOrder;
+    world.entitiesInBox({-1e6f, -1e6f, -1e6f}, {1e6f, 1e6f, 1e6f}, treeOrder);
+    CHECK(treeOrder.size() == world.linked().size());
     bool boxesAgree = true;
     bool movesAgree = true;
     bool pointsAgree = true;
@@ -131,7 +136,7 @@ static void testServerWorld() {
         std::vector<int32_t> found;
         std::vector<int32_t> expected;
         world.entitiesInBox(lo, hi, found);
-        for (const int32_t n : world.linked())
+        for (const int32_t n : treeOrder)
             if (touches(n, lo, hi))
                 expected.push_back(n);
         boxesAgree &= found == expected;
@@ -145,7 +150,7 @@ static void testServerWorld() {
         const TraceResult t = world.trace(a, mins, maxs, b, pass, 1, hit);
         float bestFraction = 1;
         int32_t bestHit = ServerWorld::kNone;
-        for (const int32_t n : world.linked()) {
+        for (const int32_t n : treeOrder) {
             const EntityShape &s = shapes[n];
             if (n == pass || s.owner == pass || (shapes.count(pass) && shapes[pass].owner == n) || !(s.contents & 1))
                 continue;
