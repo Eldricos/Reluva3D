@@ -205,7 +205,7 @@ behind the DLL's own tables.
    `jk02` and `yavin_temple`, Kyle given back his health and his first
    Force powers. `yavin_temple` plays to `yavin_trial` by a short route:
    the meeting with Luke (a scene of two and a half minutes), then the
-   level change. Next: the next levels the same way, and a console on
+   level change; `yavin_trial` by the tour to `ns_streets`. Next: the next levels the same way, and a console on
    the page.
 
 8. **Single player's menus**: started with the menu files read, which
