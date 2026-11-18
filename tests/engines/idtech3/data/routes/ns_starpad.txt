@@ -1,0 +1,212 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 The Reluva contributors
+#
+# ns_starpad's way out, for sp-run -tour 5000 -replay (with -spare lando
+# -spare cinematic20_kyle -spare cinematic20_lando, set helpUsObi 1). The
+# tour rides the elevator up with Lando, sets off the hangar attack and
+# brings him to the Lady Luck; here, from the tour's end:
+#
+# - The squads attacking the hangars, whose deaths send Lando on to the
+#   ship (their death targets name hangar_dead...): the saber, close up,
+#   as they keep behind cover.
+# - The roof doors: each side's four use triggers, then the door's.
+# - The fuel lines: two panels, each a number the other must match;
+#   every pair is tried (a press only counts once the player has stood
+#   still a moment), and the right one locks them.
+# - The cockpit, where Reelo arrives, and the ship's gun, a panel
+#   turret: taken at its panel (use, facing east), it turns from its own
+#   facing (south) by the command's angles. Reelo and his eight thugs
+#   must die within a minute; then the closing cinematics, the last of
+#   which changes the level.
+@repeat 120
+@nearest hangar_dead -lando +40
+@until +500 1 1
+@nearest hangar_dead2 -lando +40
+@until +500 1 1
+@nearest hangar_dead3 -lando +40
+@until +500 1 1
+@nearest hangar_dead4 -lando +40
+@until +500 1 1
+@end
+# the roof doors
+/setviewpos -1520 56 -616 180
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos -1520 264 -616 180
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos -1808 264 -616 0
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos -1808 56 -616 0
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos -1400 -72 -616 315
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos 2000 56 -616 180
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos 2000 264 -616 180
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos 1712 264 -616 0
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos 1712 56 -616 0
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+/setviewpos 1656 -72 -616 315
+@until +300 0 0
+@until +300 32 0
+@until +1500 0 0
+@until +6000 0 0
+# the fuel code: the second panel four times, then the first once
+@repeat 4
+/setviewpos -1124 1352 -488 270
+@until +300 0 0
+@until +100 32 0
+@until +700 0 0
+@until +100 32 0
+@until +700 0 0
+@until +100 32 0
+@until +700 0 0
+@until +100 32 0
+@until +700 0 0
+/setviewpos -1220 1261 -488 0
+@until +300 0 0
+@until +100 32 0
+@until +700 0 0
+@end
+@until +8000 0 0
+# the cockpit, and Reelo's arrival
+/setviewpos 132 -68 -488 90
+@until +32000 0 0
+# the gun
+/setviewpos 250 28 -516 0
+@until +300 0 0
+@until +300 32 0
+@until +5000 0 0
+@aimfrom 128 -736 -652 270 0
+# six passes, a degree or two up and down: some keep behind cover
+@aim reelo
+@until +800 1 0 0
+@aim end_thug1
+@until +800 1 0 0
+@aim end_thug2
+@until +800 1 0 0
+@aim end_thug3
+@until +800 1 0 0
+@aim end_thug4
+@until +800 1 0 0
+@aim end_thug5
+@until +800 1 0 0
+@aim end_thug6
+@until +800 1 0 0
+@aim end_thug7
+@until +800 1 0 0
+@aim end_thug8
+@until +800 1 0 0
+@aim reelo
+@until +800 1 0 -1
+@aim end_thug1
+@until +800 1 0 -1
+@aim end_thug2
+@until +800 1 0 -1
+@aim end_thug3
+@until +800 1 0 -1
+@aim end_thug4
+@until +800 1 0 -1
+@aim end_thug5
+@until +800 1 0 -1
+@aim end_thug6
+@until +800 1 0 -1
+@aim end_thug7
+@until +800 1 0 -1
+@aim end_thug8
+@until +800 1 0 -1
+@aim reelo
+@until +800 1 0 1
+@aim end_thug1
+@until +800 1 0 1
+@aim end_thug2
+@until +800 1 0 1
+@aim end_thug3
+@until +800 1 0 1
+@aim end_thug4
+@until +800 1 0 1
+@aim end_thug5
+@until +800 1 0 1
+@aim end_thug6
+@until +800 1 0 1
+@aim end_thug7
+@until +800 1 0 1
+@aim end_thug8
+@until +800 1 0 1
+@aim reelo
+@until +800 1 0 -2
+@aim end_thug1
+@until +800 1 0 -2
+@aim end_thug2
+@until +800 1 0 -2
+@aim end_thug3
+@until +800 1 0 -2
+@aim end_thug4
+@until +800 1 0 -2
+@aim end_thug5
+@until +800 1 0 -2
+@aim end_thug6
+@until +800 1 0 -2
+@aim end_thug7
+@until +800 1 0 -2
+@aim end_thug8
+@until +800 1 0 -2
+@aim reelo
+@until +800 1 0 2
+@aim end_thug1
+@until +800 1 0 2
+@aim end_thug2
+@until +800 1 0 2
+@aim end_thug3
+@until +800 1 0 2
+@aim end_thug4
+@until +800 1 0 2
+@aim end_thug5
+@until +800 1 0 2
+@aim end_thug6
+@until +800 1 0 2
+@aim end_thug7
+@until +800 1 0 2
+@aim end_thug8
+@until +800 1 0 2
+@aim reelo
+@until +800 1 0 0
+@aim end_thug1
+@until +800 1 0 0
+@aim end_thug2
+@until +800 1 0 0
+@aim end_thug3
+@until +800 1 0 0
+@aim end_thug4
+@until +800 1 0 0
+@aim end_thug5
+@until +800 1 0 0
+@aim end_thug6
+@until +800 1 0 0
+@aim end_thug7
+@until +800 1 0 0
+@aim end_thug8
+@until +800 1 0 0
+@aimfrom none
+@aim none
+# the closing cinematics
+@until +120000 0 0

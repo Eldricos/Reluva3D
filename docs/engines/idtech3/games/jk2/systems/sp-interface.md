@@ -285,6 +285,31 @@ yet: a console on the page.
   above; the tour keeps out of such a trigger's box, as it does a
   `trigger_hurt`'s. `sp-run ns_hideout -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition ns_starpad`.
+- **ns_starpad:** a chain of scripted jobs. Lando rides the elevator up
+  with the player and must be done talking before the hangar attack
+  starts, or his talk cuts the attack's script short; the squads that
+  attack then send him on to the Lady Luck as they die (their death
+  targets count up `lando_path`). The roof doors want four use triggers
+  a side, then the door's; the fuel lines two panels set to a code (the
+  route tries every pair, and the right one locks them); then the
+  cockpit, Reelo's arrival, and the ship's gun, a `misc_panel_turret`.
+  It aims at its own facing plus the command's angles since it was
+  taken, not the player's view (the GPL source's
+  `panel_turret_think`, read as a guide); Reelo and his eight thugs must
+  die within a minute, and the closing cinematics change the level.
+  Three things in `sp-run` came of it: `@nearest` takes a side the
+  player fits in with a line to the target (given the map: one side of
+  thug13 is inside a wall), and a spot over a `trigger_hurt` counts as
+  over a pit only with nothing solid between (the whole landing pad is
+  over a drop); `@aimfrom x y z yaw pitch` measures `@aim` from a turret
+  and turns from its facing; `@where name` lists any entity of that
+  name with its server flags and frame (how the panels were seen to
+  take presses: not the first after a `setviewpos`). Two hidden
+  cinematic actors that can't be hurt are spared by name, or the tour
+  fights them. `sp-run ns_starpad -tour 5000 -spare lando -spare
+  cinematic20_kyle -spare cinematic20_lando -replay
+  tests/engines/idtech3/data/routes/ns_starpad.txt -set helpUsObi 1
+  -next` plays it to `maptransition bespin_undercity`.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split

@@ -11,6 +11,7 @@
 #include "emulation/x86/cpu.h"
 #include "engines/idtech3/formats/bsp.h"
 #include "engines/idtech3/formats/entities.h"
+#include "engines/idtech3/collision.h"
 #include "engines/idtech3/cvars.h"
 #include "engines/idtech3/eliteforce/sp_game_host.h"
 #include "engines/idtech3/eliteforce/sp_ui_host.h"
@@ -25,8 +26,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <filesystem>
 #include <iterator>
+#include <optional>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -75,7 +78,7 @@ bool entityHasText(ef::SpGameHost &game, int32_t n, const std::string &text) {
 // wider than that) to one side of the living entity with that name
 // (the nearest, for @nearest, but those with the other names), facing it;
 // the first side not over a trigger_hurt, a pit, which kills through god
-// mode. One over a pit (falling into it) isn't followed, nor, in Jedi
+// mode, and (given the map) not in a wall. One over a pit (falling into it) isn't followed, nor, in Jedi
 // Outcast, a dead one (its corpse stays in use). Empty if there's no such
 // entity.
 // The player's eye over its origin, near enough to aim by.
@@ -111,7 +114,8 @@ int32_t nearestNamed(ef::SpGameHost &game, const std::string &name) {
     return found;
 }
 
-std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest, int32_t *picked = nullptr) {
+std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool nearest,
+                          const q3::CollisionWorld *world = nullptr, int32_t *picked = nullptr) {
     std::istringstream in(reluva::fs::toLower(words));
     std::string want;
     in >> want;
@@ -128,10 +132,17 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
     for (int32_t n = 1; n < game.entityCount(); ++n)
         if (game.entityInt(n, layout.inUse) && entityHasText(game, n, "trigger_hurt"))
             hurts.emplace_back(game.entityVec(n, layout.absMin), game.entityVec(n, layout.absMax));
-    auto overPit = [&hurts](float x, float y, float z) {
+    // Over one with nothing solid between, given the map (a landing pad
+    // over a drop isn't a pit).
+    auto overPit = [&hurts, world](float x, float y, float z) {
         return std::any_of(hurts.begin(), hurts.end(), [&](const auto &h) {
-            return x > h.first[0] - 32 && x < h.second[0] + 32 && y > h.first[1] - 32 && y < h.second[1] + 32 &&
-                   h.first[2] < z + 64;
+            if (!(x > h.first[0] - 32 && x < h.second[0] + 32 && y > h.first[1] - 32 && y < h.second[1] + 32 &&
+                  h.first[2] < z + 64))
+                return false;
+            if (!world || h.second[2] >= z)
+                return true;
+            const q3::Vec3f zero{};
+            return world->trace({x, y, z}, {x, y, h.second[2]}, zero, zero, 0, q3::contents::kSolid).fraction == 1;
         });
     };
     int32_t found = -1;
@@ -158,9 +169,23 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
         *picked = found;
     const q3::Vec3f at = game.entityVec(found, layout.currentOrigin);
     const float sides[4][3] = {{-away, 0, 0}, {away, 0, 180}, {0, -away, 90}, {0, away, 270}};
+    // With the map: a side the player fits in, its eye with a line to
+    // the entity's middle (shots from inside a wall stay there).
+    auto clear = [&](const float *s) {
+        if (!world)
+            return true;
+        const q3::Vec3f spot{at[0] + s[0], at[1] + s[1], at[2] + 8};
+        const q3::Vec3f eye{spot[0], spot[1], spot[2] + float(kEyeHeight)};
+        const q3::Vec3f middle{at[0], at[1], at[2] + 8};
+        const q3::Vec3f mins{-15, -15, -24};
+        const q3::Vec3f maxs{15, 15, 40};
+        const q3::Vec3f zero{};
+        return !world->trace(spot, spot, mins, maxs, 0, q3::contents::kSolid).startSolid &&
+               world->trace(eye, middle, zero, zero, 0, q3::contents::kSolid).fraction == 1;
+    };
     const float *side = sides[0];
     for (const float *s : sides) {
-        if (!overPit(at[0] + s[0], at[1] + s[1], at[2])) {
+        if (!overPit(at[0] + s[0], at[1] + s[1], at[2]) && clear(s)) {
             side = s;
             break;
         }
@@ -432,7 +457,8 @@ int cmdSpRun(int argc, char **argv) {
             "\"/command\" typed at the console; \"@until ms [buttons] [weapon] [pitch]\" the same command every 50 ms until\n"
             "then (\"+ms\": that long from now), looking pitch degrees down (up negative); \"@aim name\" (\"@aim x y z\") the view turned to that entity (point) for the @until lines after (\"@aim none\" level again);\n"
             "\"@face name\", \"@nearest name -other...\" the player put beside that entity, facing it;\n"
-            "\"@where [name]\" where the player is, and that entity.\n"
+            "\"@where [name]\" where the player is, and that entity; \"@aimfrom x y z [yaw pitch]\" @aim measured from there\n"
+            "(and turning from those angles: a panel turret; none: the eye); \"@repeat n\" ... \"@end\" those lines n times.\n"
             "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1);\n"
             "with -replay, the replay's lines after the tour in place of its level change.\n"
             "-next: then the level the game changed to, started as the Play page starts it.\n");
@@ -569,6 +595,7 @@ int cmdSpRun(int argc, char **argv) {
         std::fprintf(stderr, "maps/%s.bsp: %s\n", map.c_str(), err.message.c_str());
         return 1;
     }
+    const q3::CollisionWorld mapWorld(*bsp);
     ef::SpGameHost game(set, cvars);
     if (fixedClock)
         game.clock = [&game] { return 10000u + uint32_t(game.levelTime()); };
@@ -756,6 +783,15 @@ int cmdSpRun(int argc, char **argv) {
         // view is set some other way.
         int aimPitch = 0;
         int aimYaw = 0;
+        // "@aimfrom x y z [yaw pitch]": the place @aim measures from
+        // instead of the player's eye, and with angles, what the command's
+        // angles turn from instead of the view's: a panel turret's facing,
+        // as its aim is that plus the command's angles since it was taken
+        // (with them 0 then). "@aimfrom none" the eye again.
+        std::optional<q3::Vec3f> aimFrom;
+        std::optional<std::array<float, 2>> aimBase;
+        // "@repeat n" ... "@end": the lines between, n times over.
+        std::deque<std::string> repeated;
         auto nextLine = [&](std::string &out) {
             if (nextGenerated < generated.size()) {
                 out = generated[nextGenerated++];
@@ -763,7 +799,22 @@ int cmdSpRun(int argc, char **argv) {
             }
             generated.clear();
             nextGenerated = 0;
-            return bool(std::getline(in, out));
+            for (;;) {
+                if (!repeated.empty()) {
+                    out = repeated.front();
+                    repeated.pop_front();
+                } else if (!std::getline(in, out)) {
+                    return false;
+                }
+                if (out.rfind("@repeat ", 0) != 0)
+                    return true;
+                const int times = std::atoi(out.c_str() + 8);
+                std::vector<std::string> block;
+                for (std::string l; std::getline(in, l) && l != "@end";)
+                    block.push_back(l);
+                for (int k = 0; k < times; ++k)
+                    repeated.insert(repeated.end(), block.begin(), block.end());
+            }
         };
         while (nextLine(line)) {
             if (line.empty() || line[0] == '#')
@@ -789,18 +840,37 @@ int cmdSpRun(int argc, char **argv) {
             // that name (any of its text fields), facing it. "@nearest name
             // -other...": the nearest such, but those with the other names.
             // "@where [name]": where the player is, with its health, and
-            // the nearest living entity with that name.
+            // each entity with that name (living or not: a switch), with
+            // its server flags and frame (a switch's setting).
             if (line.rfind("@where", 0) == 0) {
                 const ef::SpEntityLayout &layout = game.entityLayout();
                 const auto show = [&](int32_t n) {
                     const q3::Vec3f at = game.entityVec(n, layout.currentOrigin);
-                    std::printf("[%5d ms] entity %d at %.0f %.0f %.0f, health %d\n", game.levelTime(), n, double(at[0]),
-                                double(at[1]), double(at[2]), jedi ? game.entityInt(n, kJediHealth) : 0);
+                    std::printf("[%5d ms] entity %d at %.0f %.0f %.0f, health %d, flags 0x%x, frame %d\n",
+                                game.levelTime(), n, double(at[0]), double(at[1]), double(at[2]),
+                                jedi ? game.entityInt(n, kJediHealth) : 0, uint32_t(game.entityInt(n, layout.svFlags)),
+                                game.entityInt(n, layout.modelIndex + 16));
                 };
                 show(0);
-                if (line.size() > 7)
-                    if (const int32_t n = nearestNamed(game, line.substr(7)); n >= 0)
-                        show(n);
+                if (line.size() > 7) {
+                    const std::string want = reluva::fs::toLower(line.substr(7));
+                    for (int32_t n = 1; n < game.entityCount(); ++n)
+                        if (game.entityInt(n, layout.inUse) && entityHasText(game, n, want))
+                            show(n);
+                }
+                continue;
+            }
+            if (line.rfind("@aimfrom ", 0) == 0) {
+                q3::Vec3f from{};
+                std::array<float, 2> base{};
+                const int n =
+                    std::sscanf(line.c_str() + 9, "%f %f %f %f %f", &from[0], &from[1], &from[2], &base[0], &base[1]);
+                aimFrom.reset();
+                aimBase.reset();
+                if (n >= 3)
+                    aimFrom = from;
+                if (n == 5)
+                    aimBase = base;
                 continue;
             }
             if (line == "@aim none") {
@@ -825,6 +895,8 @@ int cmdSpRun(int argc, char **argv) {
                         const uint32_t bits = game.cpu().read32(ps + 0x14 + 4 * i);
                         std::memcpy(&eye[i], &bits, 4);
                     }
+                    if (aimFrom)
+                        eye = {(*aimFrom)[0], (*aimFrom)[1], (*aimFrom)[2] - float(kEyeHeight)};
                     const q3::Vec3f lo = atPoint ? point : game.entityVec(target, layout.absMin);
                     const q3::Vec3f hi = atPoint ? point : game.entityVec(target, layout.absMax);
                     const double dx = (lo[0] + hi[0]) / 2 - eye[0];
@@ -833,8 +905,12 @@ int cmdSpRun(int argc, char **argv) {
                     const double dz = lo[2] + (hi[2] - lo[2]) * 0.75 - (eye[2] + kEyeHeight);
                     const double yaw = std::atan2(dy, dx) * 180 / 3.14159265358979;
                     const double pitch = -std::atan2(dz, std::sqrt(dx * dx + dy * dy)) * 180 / 3.14159265358979;
-                    aimPitch = int(std::lround(pitch * 65536 / 360)) - int32_t(game.cpu().read32(ps + 0x48));
-                    aimYaw = int(std::lround(yaw * 65536 / 360)) - int32_t(game.cpu().read32(ps + 0x4c));
+                    const int32_t basePitch = aimBase ? int32_t(std::lround((*aimBase)[1] * 65536 / 360))
+                                                      : int32_t(game.cpu().read32(ps + 0x48));
+                    const int32_t baseYaw = aimBase ? int32_t(std::lround((*aimBase)[0] * 65536 / 360))
+                                                    : int32_t(game.cpu().read32(ps + 0x4c));
+                    aimPitch = int(std::lround(pitch * 65536 / 360)) - basePitch;
+                    aimYaw = int(std::lround(yaw * 65536 / 360)) - baseYaw;
                 }
                 if (watch)
                     std::printf(
@@ -848,7 +924,8 @@ int cmdSpRun(int argc, char **argv) {
             const bool nearest = line.rfind("@nearest ", 0) == 0;
             if (line.rfind("@face ", 0) == 0 || nearest) {
                 int32_t picked = -1;
-                const std::string command = facingCommand(game, line.substr(nearest ? 9 : 6), nearest, &picked);
+                const std::string command =
+                    facingCommand(game, line.substr(nearest ? 9 : 6), nearest, &mapWorld, &picked);
                 aimPitch = aimYaw = 0;
                 if (watch)
                     std::printf("[%5d ms] %s: %s (entity %d, health %d)\n", game.levelTime(), line.c_str(),

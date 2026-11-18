@@ -211,8 +211,10 @@ behind the DLL's own tables.
    the game the entities in a box in the original's order). `ns_hideout`
    plays to `ns_starpad` by the tour, which keeps out of a kill
    trigger's box as out of a `trigger_hurt`'s (the level starts with
-   the player standing in one). Next: the next levels the same way,
-   and a console on the page.
+   the player standing in one). `ns_starpad` plays to
+   `bespin_undercity` by the tour then a route: the hangar squads, the
+   roof doors, the fuel code, the cockpit and the Lady Luck's gun.
+   Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).
