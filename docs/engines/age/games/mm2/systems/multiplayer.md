@@ -186,7 +186,6 @@ The descriptions at the bottom left are the game's pictures:
 - **What the host can't see**: a car is held to its own top speed, but
   not to its acceleration, grip or weight: one tuned to corner or pull
   away better than it should, within its top speed, isn't caught.
-- **Computer players over a change of host**: they go with the old host.
 
 ## How it's tested
 

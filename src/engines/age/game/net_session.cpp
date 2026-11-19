@@ -596,16 +596,19 @@ void NetSession::leave() {
         return;
     if (_host) {
         // The player who's been in longest (the lowest id) takes over, if
-        // two are left to play on (computer players go with the host).
+        // two are left to play on, or one with the computer players.
         uint8_t successor = kNoPlayer;
         int left = 0;
-        for (const NetPlayer &p : _players)
+        bool bots = false;
+        for (const NetPlayer &p : _players) {
+            bots = bots || p.bot;
             if (p.id != _myId && !p.bot && p.address.port) {
                 ++left;
                 successor = std::min(successor, p.id);
             }
+        }
         Writer w(kBye);
-        w.u8(left >= 2 ? successor : kNoPlayer);
+        w.u8(left >= 2 || (left == 1 && bots) ? successor : kNoPlayer);
         for (const auto &peer : _peers)
             for (int i = 0; i < 3; ++i)
                 _socket->send(peer->address, w.out);
@@ -1151,14 +1154,18 @@ bool NetSession::plausible(uint8_t id, const NetCarState &s) {
 
 void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
     // The players left (not the host, nor its computer players) play on
-    // if there are two of them, under the one the host named, else the
-    // one who's been in longest; each knows the others' addresses from
-    // the lobby.
+    // under the one the host named, else the one who's been in longest;
+    // each knows the others' addresses from the lobby. The computer
+    // players stay, driven now by the new host: so one player left with
+    // them plays on, and with none two are needed.
     std::vector<uint8_t> left;
-    for (const NetPlayer &p : _players)
+    bool bots = false;
+    for (const NetPlayer &p : _players) {
+        bots = bots || p.bot;
         if (p.id != _hostId && !p.bot && (p.address.port || p.id == _myId))
             left.push_back(p.id);
-    if (left.size() < 2) {
+    }
+    if (left.empty() || (left.size() < 2 && !bots)) {
         _closed = true;
         notice(NetNotice::Kind::kHostQuit);
         return;
@@ -1167,16 +1174,10 @@ void NetSession::hostGone(uint64_t nowMs, uint8_t successor) {
                              ? successor
                              : *std::min_element(left.begin(), left.end());
     const uint8_t oldHost = _hostId;
-    std::vector<uint8_t> gone;
-    for (const NetPlayer &p : _players)
-        if (p.id == oldHost || p.bot)
-            gone.push_back(p.id);
-    for (uint8_t id : gone) {
-        _players.erase(
-            std::remove_if(_players.begin(), _players.end(), [id](const NetPlayer &q) { return q.id == id; }),
-            _players.end());
-        _cars.erase(id);
-    }
+    _players.erase(
+        std::remove_if(_players.begin(), _players.end(), [oldHost](const NetPlayer &q) { return q.id == oldHost; }),
+        _players.end());
+    _cars.erase(oldHost);
     _hostId = next;
     const NetPlayer *now = player(next);
     notice(NetNotice::Kind::kHostMoved, now ? now->name : std::string());
@@ -1200,6 +1201,8 @@ void NetSession::becomeHost(uint64_t nowMs) {
     for (uint8_t &b : _secret)
         b = uint8_t(random());
     for (NetPlayer &p : _players) {
+        if (p.bot) // ours to drive now; nobody to hear from
+            continue;
         if (p.id == _myId) {
             p.address = {};
             p.name = _wish.name;

@@ -75,12 +75,20 @@ itself goes in the clear.
   - The host leaving names who takes over: the player who's been in
     longest (the lowest id). A host that just stops answering is replaced
     the same way, by each player's own reckoning, after 5 seconds.
-  - It happens only if two players are left; otherwise the session ends
-    ("The Host has quit").
+  - It happens only if two players are left, or one with the old host's
+    computer players; otherwise the session ends ("The Host has quit").
   - The new host keeps the session as it was: the settings, the players,
     the phase, the race clock (its own copy of the old host's), the chat,
-    and in Cops & Robbers the gold as last heard. The old host's computer
-    players go with it.
+    and in Cops & Robbers the gold as last heard.
+  - The old host's computer players stay, and the new host drives them
+    on from where their cars were last heard: in a race through the
+    checkpoints they hadn't reached, along the roads; in Cops & Robbers
+    or a cruise with their minds started afresh. Their cars come to the
+    others from the new host, with the count of times put back carried
+    on, so taking them over doesn't look like a jump. In a race in any
+    order, the new host knows only how many checkpoints each had
+    cleared, not which, so it sends them through those after that many
+    in the race's order.
   - The new host sees the game's "You are now the Host" (39); the others
     "*name* is the host now".
   - The players' addresses are those the old host saw: on one network

@@ -478,9 +478,81 @@ void testGoldGame() {
 
 } // namespace
 
+// The host's computer players outlive it: the new host drives them on,
+// and one player left with them plays on.
+void testNetBotsOutliveHost() {
+    auto network = net::LoopbackNetwork::create();
+    NetSettings settings;
+    settings.mode = NetMode::kCruise;
+    auto host = NetSession::host(network->open(kNetPort), "Hosting", settings);
+    const uint8_t bot = host->addBot("Opponent 1", "vpbug");
+    const net::Address at{0x7f000001, kNetPort};
+    std::vector<NetSession *> players;
+    uint64_t t = 1000;
+    auto run = [&](int ms) {
+        for (int i = 0; i < ms / 10; ++i) {
+            t += 10;
+            if (host)
+                host->update(t);
+            for (NetSession *p : players)
+                p->update(t);
+        }
+    };
+    auto ann = NetSession::join(network->open(0), at, "Ann");
+    auto bob = NetSession::join(network->open(0), at, "Bob");
+    players = {ann.get(), bob.get()};
+    run(600);
+    ann->setReady(true);
+    bob->setReady(true);
+    run(500);
+    CHECK(!host->start(t));
+    run(300);
+    host->setLoaded();
+    ann->setLoaded();
+    bob->setLoaded();
+    run(3500);
+    CHECK(host->phase() == NetSession::Phase::kPlaying && ann->player(bot) && ann->player(bot)->bot);
+
+    // The host goes: Ann takes over with the computer player, and its car
+    // reaches Bob from her now.
+    host->leave();
+    host.reset();
+    run(300);
+    CHECK(ann->isHost() && ann->player(bot) && bob->player(bot) && ann->players().size() == 3);
+    NetCarState s;
+    s.position = {10, 0, 20};
+    s.clock = ann->clock(t);
+    ann->sendBotCar(bot, s);
+    run(200);
+    CHECK(bob->cars().count(bot) && std::fabs(bob->cars().at(bot).back().position[2] - 20) < 1e-3f);
+
+    // Bob goes too: Ann plays on alone with it.
+    bob->leave();
+    players = {ann.get()};
+    run(300);
+    CHECK(!ann->closed() && ann->isHost() && ann->players().size() == 2 && ann->player(bot));
+
+    // Without computer players, one left alone ends the session, as before.
+    auto host2 = NetSession::host(network->open(kNetPort + 1), "Alone", settings);
+    auto cal = NetSession::join(network->open(0), {0x7f000001, uint16_t(kNetPort + 1)}, "Cal");
+    for (int i = 0; i < 60; ++i) {
+        t += 10;
+        host2->update(t);
+        cal->update(t);
+    }
+    host2->leave();
+    for (int i = 0; i < 30; ++i) {
+        t += 10;
+        cal->update(t);
+    }
+    CHECK(cal->closed());
+}
+
 static const reluva::test::Suite
-    kSuite("age.unit.network", {
-                                   {"net session", [](const std::filesystem::path &) { testNetSession(); }},
-                                   {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
-                                   {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
-                               });
+    kSuite("age.unit.network",
+           {
+               {"net session", [](const std::filesystem::path &) { testNetSession(); }},
+               {"net session more", [](const std::filesystem::path &) { testNetSessionMore(); }},
+               {"bots outlive the host", [](const std::filesystem::path &) { testNetBotsOutliveHost(); }},
+               {"gold game", [](const std::filesystem::path &) { testGoldGame(); }},
+           });

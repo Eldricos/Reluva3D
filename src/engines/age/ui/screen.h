@@ -432,6 +432,7 @@ private:
     uint8_t netIdOf(const Racer &r) const;
     std::vector<GoldGame::Car> netCars() const;
     void syncNetRacers();                                      // the cars as the session's players come and go
+    void takeOverBot(Racer &r);                                // an old host's computer player, now ours to drive
     void remoteLook(Racer &r, const NetCarState &s, float dt); // another's engine and damage
     void checkProgress(Racer &r, const NetCarState &s);        // the host's count of its checkpoints
     std::set<uint8_t> _unloadable;                             // players whose cars couldn't be loaded
