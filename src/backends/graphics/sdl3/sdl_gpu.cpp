@@ -49,7 +49,10 @@ struct VertexUniforms {
     float fillDir[2][4];
     float matAmbient[4]; // w: 1 to light as Direct3D does
     float matEmissive[4];
-    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none)
+    float linearFog[4];                      // x, y: where the fog starts and is complete (y 0: none)
+    float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
+    float vlColor[gfx::kMaxVertexLights][4]; // rgb
+    float vlParams[4];                       // count, scale, specular
 };
 struct FragmentUniforms {
     float params[4];
@@ -401,24 +404,53 @@ void SdlGpuRenderer::setDepthRange(float maxDepth) {
     SDL_SetGPUViewport(_pass, &_viewport);
 }
 
+void SdlGpuRenderer::clearDepthAndStencil() {
+    _clearStencil = true;
+    clearDepth();
+    _clearStencil = false;
+}
+
 void SdlGpuRenderer::clearDepth() {
     if (!_pass || !_cmd)
         return;
     // A new pass over the same frame: its colours kept, its depth cleared,
     // the marks kept.
     SDL_EndGPURenderPass(_pass);
-    _pass = beginPass(nullptr, true);
+    _pass = beginPass(nullptr, !_clearStencil);
     _boundPipeline = nullptr;
     _boundMesh = 0;
     if (_pass && _viewport.w > 0 && _viewport.h > 0)
         SDL_SetGPUViewport(_pass, &_viewport);
     if (_pass)
-        SDL_SetGPUStencilReference(_pass, _stencilRef); // both kinds of mark, unless set
+        SDL_SetGPUStencilReference(_pass, currentStencilReference());
 }
 
 void SdlGpuRenderer::setStencilMode(StencilMode mode) {
-    if (_hasStencil)
-        _stencilMode = mode;
+    if (!_hasStencil)
+        return;
+    _stencilMode = mode;
+    if (_pass)
+        SDL_SetGPUStencilReference(_pass, currentStencilReference());
+}
+
+void SdlGpuRenderer::setStencilLevel(uint8_t level) {
+    _stencilLevel = level;
+    if (_pass && _hasStencil)
+        SDL_SetGPUStencilReference(_pass, currentStencilReference());
+}
+
+uint8_t SdlGpuRenderer::currentStencilReference() const {
+    switch (_stencilMode) {
+    case StencilMode::kLevelMark:
+        return uint8_t(_stencilLevel - 1);
+    case StencilMode::kOnce:
+        return 1;
+    case StencilMode::kLevelInside:
+    case StencilMode::kUnmark:
+        return _stencilLevel;
+    default:
+        return _stencilRef;
+    }
 }
 
 void SdlGpuRenderer::setStencilReference(uint8_t ref) {
@@ -581,6 +613,53 @@ Error SdlGpuRenderer::createTexture(int width, int height, const uint8_t *rgba, 
     return Error::success();
 }
 
+Error SdlGpuRenderer::updateTextures(const std::vector<gfx::TextureRegion> &regions) {
+    // One transfer buffer holding them all, copied in one pass.
+    uint32_t size = 0;
+    for (const gfx::TextureRegion &r : regions)
+        if (r.w > 0 && r.h > 0 && _textures.count(r.texture))
+            size += uint32_t(r.w) * uint32_t(r.h) * 4;
+    if (size == 0)
+        return Error::success();
+    SDL_GPUTransferBufferCreateInfo ti{};
+    ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    ti.size = size;
+    SDL_GPUTransferBuffer *tb = SDL_CreateGPUTransferBuffer(_device, &ti);
+    auto *mapped = static_cast<uint8_t *>(tb ? SDL_MapGPUTransferBuffer(_device, tb, false) : nullptr);
+    if (!mapped) {
+        if (tb)
+            SDL_ReleaseGPUTransferBuffer(_device, tb);
+        return sdlError("Cannot update a texture");
+    }
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(_device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
+    uint32_t offset = 0;
+    for (const gfx::TextureRegion &r : regions) {
+        auto it = _textures.find(r.texture);
+        if (r.w <= 0 || r.h <= 0 || it == _textures.end())
+            continue;
+        const uint32_t bytes = uint32_t(r.w) * uint32_t(r.h) * 4;
+        std::memcpy(mapped + offset, r.rgba, bytes);
+        SDL_GPUTextureTransferInfo src{};
+        src.transfer_buffer = tb;
+        src.offset = offset;
+        SDL_GPUTextureRegion dst{};
+        dst.texture = it->second.texture;
+        dst.x = uint32_t(r.x);
+        dst.y = uint32_t(r.y);
+        dst.w = uint32_t(r.w);
+        dst.h = uint32_t(r.h);
+        dst.d = 1;
+        SDL_UploadToGPUTexture(copy, &src, &dst, false);
+        offset += bytes;
+    }
+    SDL_UnmapGPUTransferBuffer(_device, tb);
+    SDL_EndGPUCopyPass(copy);
+    const bool ok = SDL_SubmitGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(_device, tb);
+    return ok ? Error::success() : sdlError("Cannot update a texture");
+}
+
 std::string SdlGpuRenderer::deviceName() const {
     const SDL_PropertiesID props = SDL_GetGPUDeviceProperties(_device);
     std::string name = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown GPU");
@@ -727,8 +806,8 @@ void SdlGpuRenderer::destroyMesh(gfx::MeshId id) {
 }
 
 SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
-    const uint32_t key = packState(state) | uint32_t(_stencilMode) << 14 | uint32_t(_mirrored) << 17 |
-                         uint32_t(_stencilWhole) << 18 | uint32_t(_passSamples) << 19;
+    const uint32_t key = packState(state) | uint32_t(_stencilMode) << 14 | uint32_t(_mirrored) << 18 |
+                         uint32_t(_stencilWhole) << 19 | uint32_t(_passSamples) << 20;
     if (auto it = _pipelines.find(key); it != _pipelines.end())
         return it->second;
 
@@ -780,6 +859,8 @@ SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
     info.depth_stencil_state.enable_depth_write = state.depthWrite;
     info.depth_stencil_state.compare_op = state.depthEqual ? SDL_GPU_COMPAREOP_EQUAL : SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     if (_stencilMode != StencilMode::kNone) {
+        const bool level = _stencilMode == StencilMode::kLevelMark || _stencilMode == StencilMode::kLevelInside ||
+                           _stencilMode == StencilMode::kOnce || _stencilMode == StencilMode::kUnmark;
         // Mark: 1 wherever drawn (and the depth test passed); Inside:
         // drawn only where it's 1. Mirrors' and portals' marks are the
         // stencil's bit 1, the sky's bit 2: the reference has both, each
@@ -791,11 +872,22 @@ SDL_GPUGraphicsPipeline *SdlGpuRenderer::pipeline(const gfx::DrawState &state) {
         op.fail_op = op.depth_fail_op = SDL_GPU_STENCILOP_KEEP;
         op.pass_op = mark ? SDL_GPU_STENCILOP_REPLACE : SDL_GPU_STENCILOP_KEEP;
         op.compare_op = mark ? SDL_GPU_COMPAREOP_ALWAYS : SDL_GPU_COMPAREOP_EQUAL;
+        if (level) {
+            // The level modes compare the whole value with the reference
+            // (currentStencilReference): LevelMark raises it by one where
+            // it's level - 1, LevelInside draws where it's level, Unmark
+            // lowers it there, Once sets 1 where it isn't 1.
+            op.pass_op = _stencilMode == StencilMode::kLevelMark ? SDL_GPU_STENCILOP_INCREMENT_AND_CLAMP
+                         : _stencilMode == StencilMode::kUnmark  ? SDL_GPU_STENCILOP_DECREMENT_AND_CLAMP
+                         : _stencilMode == StencilMode::kOnce    ? SDL_GPU_STENCILOP_REPLACE
+                                                                 : SDL_GPU_STENCILOP_KEEP;
+            op.compare_op = _stencilMode == StencilMode::kOnce ? SDL_GPU_COMPAREOP_NOT_EQUAL : SDL_GPU_COMPAREOP_EQUAL;
+        }
         info.depth_stencil_state.enable_stencil_test = true;
         info.depth_stencil_state.front_stencil_state = info.depth_stencil_state.back_stencil_state = op;
-        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = _stencilWhole ? 0xff
-                                                                                      : sky         ? 2
-                                                                                                    : 1;
+        info.depth_stencil_state.compare_mask = info.depth_stencil_state.write_mask = _stencilWhole || level ? 0xff
+                                                                                      : sky                  ? 2
+                                                                                                             : 1;
     }
     info.multisample_state.sample_count = _passSamples;
     info.target_info.color_target_descriptions = &target;
@@ -827,6 +919,7 @@ void SdlGpuRenderer::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
     _stencilMode = StencilMode::kNone;
     _stencilRef = kStencilMarks;
     _stencilWhole = false;
+    _stencilLevel = 1;
     _mirrored = false;
     // No marks to start with.
     const SDL_FColor c = {clear.r / 255.0f, clear.g / 255.0f, clear.b / 255.0f, 1.0f};
@@ -904,6 +997,23 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     put(vu.ambient, call.ambientLight);
     put(vu.directed, call.directedLight);
     put(vu.lightDir, call.lightDirection);
+    vu.vlParams[0] = float(call.rgbSource == gfx::ColorSource::kLighting ? call.vertexLightCount : 0);
+    vu.vlParams[1] = call.vertexLightScale;
+    vu.vlParams[2] = call.specular;
+    vu.vlParams[3] = call.surfaceLighting ? 1.0f : 0.0f;
+    for (int i = 0; i < call.vertexLightCount && i < gfx::kMaxVertexLights; ++i) {
+        const gfx::VertexLight &l = call.vertexLights[size_t(i)];
+        put(vu.vlPos[i], l.position);
+        vu.vlPos[i][3] = l.radius;
+        put(vu.vlColor[i], l.color);
+        vu.vlColor[i][3] = l.cylinder ? 1.0f : 0.0f;
+    }
+    if (call.rgbSource == gfx::ColorSource::kShadow) {
+        put(vu.ambient, call.shadowLight);
+        vu.ambient[3] = call.shadowReach;
+        vu.directed[0] = call.shadowStrength;
+        vu.directed[1] = call.shadowMax;
+    }
     put(vu.eye, _eye);
     vu.eye[3] = call.time;
     put(vu.preRow0, call.preRow0);
@@ -918,7 +1028,7 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
     vu.mode[0] = float(call.texGen);
     vu.mode[1] = float(call.rgbSource);
     vu.mode[2] = float(call.alphaSource);
-    vu.mode[3] = call.fogDistance;
+    vu.mode[3] = call.fogByViewDepth ? -call.fogDistance : call.fogDistance;
     vu.mode2[0] = call.followCamera ? 1.0f : 0.0f;
     vu.mode2[1] = call.backLerp;
     vu.mode2[2] = call.fogDepth;
@@ -964,8 +1074,18 @@ void SdlGpuRenderer::draw(const gfx::DrawCall &call) {
         fu.params[1] = 2; // the brightness pass
         fu.params[2] = 1.0f / _gamma;
     }
-    if (call.dynamicLights) {
-        fu.params[1] = 1;
+    if (call.volumeLights) {
+        fu.params[1] = 4;
+        fu.lightCount[0] = float(_volumes.size());
+        std::copy(_eye.begin(), _eye.end(), fu.lightCount + 1);
+        for (size_t i = 0; i < _volumes.size(); ++i) {
+            std::copy(_volumes[i].origin.begin(), _volumes[i].origin.end(), fu.lightPos[i]);
+            fu.lightPos[i][3] = _volumes[i].radius;
+            std::copy(_volumes[i].color.begin(), _volumes[i].color.end(), fu.lightColor[i]);
+            fu.lightColor[i][3] = _volumes[i].fog;
+        }
+    } else if (call.dynamicLights || call.dynamicLightsTextured) {
+        fu.params[1] = call.dynamicLightsTextured ? 3 : 1;
         fu.lightCount[0] = float(_lights.size());
         for (size_t i = 0; i < _lights.size(); ++i) {
             std::copy(_lights[i].origin.begin(), _lights[i].origin.end(), fu.lightPos[i]);

@@ -35,6 +35,7 @@ public:
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
                         gfx::TextureId &out) override;
     void destroyTexture(gfx::TextureId id) override;
+    Error updateTextures(const std::vector<gfx::TextureRegion> &regions) override;
     Error createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
                      gfx::MeshId &out) override;
     void destroyMesh(gfx::MeshId id) override;
@@ -52,11 +53,17 @@ public:
         _lights.assign(lights.begin(),
                        lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()), gfx::kMaxDynamicLights));
     }
+    void setVolumeLights(const std::vector<gfx::DynamicLight> &lights) override {
+        _volumes.assign(lights.begin(),
+                        lights.begin() + std::min<ptrdiff_t>(ptrdiff_t(lights.size()), gfx::kMaxDynamicLights));
+    }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override;
     void clearDepth() override;
+    void clearDepthAndStencil() override;
     bool hasStencil() const override { return _hasStencil; }
     void setStencilMode(StencilMode mode) override;
+    void setStencilLevel(uint8_t level) override;
     void setStencilReference(uint8_t ref) override;
     void setMirrored(bool mirrored) override { _mirrored = mirrored; }
     void setGamma(float gamma) override { _gamma = gamma > 0.05f ? gamma : 1.0f; }
@@ -142,6 +149,10 @@ private:
     StencilMode _stencilMode = StencilMode::kNone;
     uint8_t _stencilRef = 3;    // kStencilMarks: both kinds of mark
     bool _stencilWhole = false; // a reference set this frame: written and compared whole
+    uint8_t _stencilLevel = 1;  // the level modes' level
+    bool _clearStencil = false; // clearDepth clears the marks too
+    // The reference the pass compares with: the level modes' own, else _stencilRef.
+    uint8_t currentStencilReference() const;
     bool _mirrored = false;
     bool _keepFrame = false;          // frames begin with the last one's contents
     bool _frameAlphaUnused = false;   // source-alpha blends share a pipeline (draw)
@@ -190,6 +201,7 @@ private:
     int32_t _boundOffset = 0;
     int32_t _boundOldOffset = 0;
     std::vector<gfx::DynamicLight> _lights;
+    std::vector<gfx::DynamicLight> _volumes;
 };
 
 } // namespace reluva

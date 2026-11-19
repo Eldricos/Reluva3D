@@ -1,0 +1,89 @@
+# The Fallen: unconfirmed items
+
+What Reluva does that hasn't been checked against the running original.
+Nothing has yet been compared side by side with The Fallen running; a
+full playthrough's recording has been
+([research/playthrough.md](research/playthrough.md)).
+
+## Read from the code, not seen running
+
+- **Lightmaps, movers, the sky and the light effects' patterns** on The
+  Fallen's maps: not compared with the original running
+  ([lighting.md](systems/lighting.md), [actors.md](systems/actors.md)).
+- **The effects:** swarms, lava, water rings, scripted paths. SR-III's
+  firefly swarms are too small to see in the recording's opening scenes,
+  and Jeraddo's bugs appear only in play ([effects.md](systems/effects.md)).
+- **The transporter's look.** By the code (Render.dll and the shipped
+  drivers) the beamed-in body's skin starts unseen and fades in as glow²,
+  as Reluva draws it, and its column runs from the feet to 20 over the
+  head. The recording shows the skin from the start and a lower, shorter
+  column. Still to settle from closer footage
+  ([research/playthrough.md](research/playthrough.md)).
+- **Fire and water speed:** no fixed view of a fire or water texture
+  found in the recording yet ([texture.md](formats/texture.md)).
+- **Sound:** the reverb, Doppler and the provider's side, as read from
+  Miles.dll ([sound.md](systems/sound.md)).
+
+## Seen running, not traced in the code
+
+- **Hass'terral's snowfield, evenly lit** in the recording, against the
+  code's shadows: the fitted rule for large cylinder lights
+  ([lighting.md](systems/lighting.md), [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md)).
+  Why the recording's field is evenly lit isn't known.
+- **A gain left against the recording:** shown as the original's display
+  shows it (the gamma ramp its Direct3D renderer sets from `Brightness`),
+  Reluva is within 10-20% of the recording's cut scenes at every
+  brightness; what's left is about the same everywhere, a gain rather
+  than a curve, not found yet ([lighting.md](systems/lighting.md)).
+- **Overall brightness:** the recording runs brighter than Reluva by 1.2
+  to 2.3 times in mean level, varying by scene (a brightness setting, its
+  renderer, or both) ([research/playthrough.md](research/playthrough.md)).
+- **What lights the credits station** (CM_SpaceStation): neither "no
+  lights means unlit" nor "an empty list means unlit" matches the
+  recording ([lighting.md](systems/lighting.md)).
+
+## Inferred
+
+- **The Fallen's own physics modes** other than the player's climbing,
+  hanging and clambering, and the effects: Reluva's reading of what the
+  scripts set and leave undone ([movement.md](systems/movement.md),
+  [effects.md](systems/effects.md)).
+- **Noises the AI hears:** UE1's own rule isn't in the scripts; this is
+  Reluva's ([ai.md](systems/ai.md)).
+- **UnrealEd's cameras** (`Camera` actors) are left out of a level: the
+  original must drop them too, or every login would become an editor
+  camera ([level.md](systems/level.md)).
+- **The animated textures' settings:** Reluva's own reading of their
+  names and of the values in The Fallen's textures, checked where noted
+  against Fire.dll and Engine.dll ([texture.md](formats/texture.md)).
+
+## Guessed
+
+- **The bone axis order and the IK natives** are Reluva's own readings
+  until compared with the original running ([bones.md](systems/bones.md),
+  [animation.md](systems/animation.md)).
+- **Meshes with no float copy** are given the usual import turn
+  (KiraCellLight's) ([mesh.md](formats/mesh.md)).
+- **Which MP3 the game plays when:** the music cues in
+  `Sounds/Music.uax` and the maps' scripts, presumably
+  ([sound.md](formats/sound.md), [sound.md](systems/sound.md)).
+
+## Settled
+
+- **Character normals** (November 2026): Render.dll makes each vertex's
+  normal from the triangles' winding alone; Reluva had guessed which way
+  was out from each mesh's middle, which turned the EVA suit's inward.
+  Now as Render.dll, and lit as in the recording
+  ([research/playthrough.md](research/playthrough.md)).
+- **Type 2 attachment points** (November 2026): Engine.dll settles that
+  the stored matrix is in the skeleton's posed space
+  ([mesh.md](formats/mesh.md)).
+- **Each zone's own sky** (November 2026): as `ZoneInfo.LinkToSkybox`
+  links it, as Arduria's opening in the recording shows
+  ([research/playthrough.md](research/playthrough.md)).
+- **Cylinder lights on actors** (November 2026): shaded from the actor's
+  own height, after Sisko was drawn black in the SR-III capture
+  ([research/playthrough.md](research/playthrough.md)).
+- **The fits to the first recording** for light colours, characters'
+  light, the falloff and the display curve were replaced by what the
+  original's code does ([lighting.md](systems/lighting.md)).
