@@ -135,6 +135,19 @@ Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
     return Error::success();
 }
 
+Error decodeImaAdpcm(const uint8_t *data, size_t size, int channels, int rate, size_t blockAlign, size_t frameLimit,
+                     Sound &out) {
+    out = Sound{};
+    if (channels < 1 || channels > 2 || rate <= 0)
+        return Error::fail("IMA ADPCM with " + std::to_string(channels) + " channels at " + std::to_string(rate) +
+                           " Hz");
+    out.channels = channels;
+    out.rate = rate;
+    out.format = 0x11;
+    const std::vector<uint8_t> blocks(data, data + size);
+    return decodeIma(blocks, 0, size, channels, blockAlign, frameLimit, out.samples);
+}
+
 std::vector<uint8_t> encodePcmWav(const Sound &s) {
     std::vector<uint8_t> b;
     auto put16 = [&](uint32_t v) {
