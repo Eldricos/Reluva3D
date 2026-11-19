@@ -236,9 +236,14 @@ inline CarSetup testCar() {
 // junction to another: `lanes` lanes on side 1 (one-way, first to last)
 // and `back` on side 0, `n` points along it.
 struct BaiRoad {
-    Vec3 from, to;
-    uint32_t j0, j1; // junctions at the first and the last point
-    int lanes = 1, back = 0, n = 3;
+    Vec3 from;
+    Vec3 to;
+    // junctions at the first and the last point
+    uint32_t j0;
+    uint32_t j1;
+    int lanes = 1;
+    int back = 0;
+    int n = 3;
     uint16_t control = 1; // at both ends
 };
 

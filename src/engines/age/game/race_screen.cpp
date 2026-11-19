@@ -20,14 +20,17 @@ namespace reluva::age {
 
 namespace {
 
-constexpr int kFrameW = 640, kFrameH = 480;
+constexpr int kFrameW = 640;
+constexpr int kFrameH = 480;
 constexpr float kPi = 3.14159265358979f;
-constexpr float kBigAir = 1;                      // seconds off the ground that count as big air (Reluva's)
-constexpr float kCountdown = 3;                   // seconds before the start
-constexpr float kStartHigh = 28, kStartBack = 14; // metres: the camera over the grid at the countdown's start
-constexpr float kCircuitRadius = 15;              // circuits' waypoints give no radius
-constexpr float kOpponentReach = 10;              // opponents count a checkpoint this much wider
-constexpr float kSkill[2] = {0.85f, 0.95f};       // amateur, professional: opponents' share of top speed
+constexpr float kBigAir = 1;    // seconds off the ground that count as big air (Reluva's)
+constexpr float kCountdown = 3; // seconds before the start
+// metres: the camera over the grid at the countdown's start
+constexpr float kStartHigh = 28;
+constexpr float kStartBack = 14;
+constexpr float kCircuitRadius = 15;        // circuits' waypoints give no radius
+constexpr float kOpponentReach = 10;        // opponents count a checkpoint this much wider
+constexpr float kSkill[2] = {0.85f, 0.95f}; // amateur, professional: opponents' share of top speed
 const RaceKind kKinds[] = {RaceKind::kBlitz, RaceKind::kCircuit, RaceKind::kCheckpoint, RaceKind::kCrashCourse,
                            RaceKind::kCruise};
 constexpr int kKindCount = kRacePageKinds;
@@ -37,8 +40,12 @@ constexpr float kMph = 2.23694f;
 // screen (measured on its own screens): the list's lines 24 apart from
 // y 23, its labels green; the countdown and messages over the road at
 // y 110; the time after a checkpoint under the car.
-constexpr int kListTop = 23, kListStep = 24, kMessageY = 110, kSplitY = 394;
-constexpr Color kListLabel{130, 230, 120}, kMessage{255, 230, 120};
+constexpr int kListTop = 23;
+constexpr int kListStep = 24;
+constexpr int kMessageY = 110;
+constexpr int kSplitY = 394;
+constexpr Color kListLabel{130, 230, 120};
+constexpr Color kMessage{255, 230, 120};
 
 // A lap's or a split's time as the game shows it: "0:45:21".
 std::string splitText(float seconds) {
@@ -1208,7 +1215,11 @@ void RaceScreen::drawOpponentMarkers() {
     std::stable_sort(order.begin(), order.end(),
                      [&](const Racer *a, const Racer *b) { return progressOf(*a) > progressOf(*b); });
     struct Marker {
-        float depth, x, tipY, topY, pixelsPerMetre;
+        float depth;
+        float x;
+        float tipY;
+        float topY;
+        float pixelsPerMetre;
         int place;
     };
     std::vector<Marker> markers;
