@@ -804,14 +804,12 @@ void writePlaythrough(const std::string &file, const std::vector<Action> &path) 
         out << toLine(a) << "\n";
 }
 
-// Plays a playthrough from its start; false if an action can't be done
-// or the game sticks. `print` shows where each action leaves the game.
-// -reloadeach: after every action the game is saved and loaded again, as
-// the save and load screens do, and played on from the loaded game; what
-// the loaded game lacks or has more of is listed.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables): counted over a whole playthrough, across actions
 size_t g_reloadDiffs = 0;
 
+// -reloadeach: after an action the game is saved and loaded again, as the
+// save and load screens do, to be played on from the loaded game; what
+// the loaded game lacks or has more of is listed.
 void reloadAndCompare(Player &player, size_t n, const Action &a) {
     const std::set<std::string> before = player.features(true);
     const std::vector<uint8_t> save = player.snapshot();
@@ -917,6 +915,10 @@ void wander(Player &player, size_t at, Wander &w) {
         problem("couldn't go back to the route");
 }
 
+// Plays a playthrough from its start; false if an action can't be done
+// or the game sticks. `print` shows where each action leaves the game;
+// with `reloadEach`, every action out of the menus is followed by
+// reloadAndCompare().
 bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done, size_t logFrom = SIZE_MAX,
             const std::map<size_t, std::string> &shots = {}, const std::string &shotsDir = {}, bool reloadEach = false,
             Wander *w = nullptr) {
@@ -973,9 +975,9 @@ int aweCommandSolve(int argc, char **argv) {
     g_reloadDiffs = 0; // (awe game-check runs several in one process)
     // reluva-tool awe game-run <game> -solve <out> [-from <file>] [-budget n] [-level n] [-noclimb]
     //     [-goal text] [-t s] [-v]
-    // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
-    // [-sound] [-wav file]
-    //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
+    // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse]
+    //     [-3d [-draw] | -characters] [-sound] [-wav file] [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
+
     // As the game opens them (attwn's renamed and scrambled ones).
     std::unique_ptr<reluva::Archive> archive;
     const GameInfo *game = nullptr;

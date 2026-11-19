@@ -227,7 +227,7 @@ bool ScenePage::puzzleDraws(const Ac2Record &o) const {
     return file.find("topopen") != std::string::npos || file.find("exalocket") != std::string::npos;
 }
 
-// --- Torn letter ---------------------------------------------------------------------
+// The torn letter.
 
 void ScenePage::saveTornPiece(int i) {
     const Ac2Record *o = _torn->pieces[size_t(i)];
@@ -294,7 +294,7 @@ bool ScenePage::checkTornLetter() {
     return true;
 }
 
-// --- Safe ------------------------------------------------------------------------------
+// The safe.
 
 void ScenePage::turnDial(int direction) {
     // A number a step (3.6 degrees): right counts down, left up.
@@ -314,7 +314,7 @@ void ScenePage::writeSafeTags() {
     _state.tags["safecombo_dir"] = _safe->expected;
 }
 
-// --- Puzzle box -----------------------------------------------------------------------
+// The puzzle box.
 
 std::string ScenePage::boxEndPicture() const {
     // 0x433f80: the near end as its two halves stand.
@@ -471,7 +471,7 @@ void ScenePage::drawPuzzleBox() {
             image::blitOver(_ctx.screen, picture(o->text("file")), int(o->f("x")), int(o->f("y")));
 }
 
-// --- Input -------------------------------------------------------------------------------
+// Input.
 
 void ScenePage::puzzleClick(int x, int y) {
     if (_deposit) {
@@ -730,7 +730,7 @@ void ScenePage::puzzleAction(const std::string &word, const std::string &arg) {
     }
 }
 
-// --- For tools: the puzzle solved as a player would ------------------------------------
+// For tools: the puzzle solved as a player would.
 
 std::string ScenePage::puzzleOpen() const {
     // (Not the bookcase: its shelves are hotspots, its books items.)

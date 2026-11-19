@@ -420,7 +420,7 @@ bool ScenePage::gameKey(uint32_t key) {
     return key == key::kEscape;
 }
 
-// --- The save and load screens ---------------------------------------------------
+// The save and load screens.
 
 void ScenePage::openSlots(bool save) {
     _slots = std::make_unique<SlotMenu>();

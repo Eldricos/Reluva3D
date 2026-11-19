@@ -21,8 +21,6 @@
 
 namespace reluva::awe {
 
-// --- Pictures ---------------------------------------------------------------------
-
 PicturePage::PicturePage(ViewerContext &ctx) : Page(ctx) {
     _names = listFiles(ctx.files, {"locations/", "interface/", "inventory/", "elements/", "models/", "cutscenes/"},
                        {".jpg", ".png", ".tga", ".bmp"});
@@ -75,7 +73,6 @@ void PicturePage::handleEvent(const Event &ev) {
         show();
     }
 }
-// --- Movies ---------------------------------------------------------------------
 
 MoviePage::MoviePage(ViewerContext &ctx) : Page(ctx), _player(ctx.mixer) {
     _names = listFiles(ctx.files, {"movies/", "elements/", "locations/", "fmv/", "inventory/"}, {".bik"});
@@ -166,8 +163,6 @@ void MoviePage::handleEvent(const Event &ev) {
         _player.pause(!_player.paused(), _ctx.sys.getMillis());
     }
 }
-
-// --- Text ---------------------------------------------------------------------
 
 TextPage::TextPage(ViewerContext &ctx) : Page(ctx) {
     _names = listFiles(ctx.files, {"text/", "dialogue/"}, {".txt"});
@@ -261,8 +256,6 @@ void TextPage::handleEvent(const Event &ev) {
         draw();
     }
 }
-
-// --- Sounds ---------------------------------------------------------------------
 
 SoundPage::SoundPage(ViewerContext &ctx) : Page(ctx) {
     _names = listFiles(ctx.files, {"sound/", "models/", "people/"}, {".wav", ".mp3"});
