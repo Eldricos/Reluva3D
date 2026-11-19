@@ -2,8 +2,8 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // What each PSDL attribute draws, worked out by drawing them and comparing
-// with the game (docs/engines/age/games/mm2/formats/psdl.md). Texture coordinates are
-// Reluva's own choice where the file doesn't give them.
+// with the game (docs/engines/age/games/mm2/formats/psdl.md). Texture
+// coordinates are Reluva's own choice where the file doesn't give them.
 
 #include "engines/age/render/city_mesh.h"
 

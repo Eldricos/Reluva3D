@@ -465,7 +465,7 @@ std::string GameMenus::choiceText(const std::string &w) const {
 void GameMenus::step(const Item &item, int dir) {
     const std::string &w = item.widget;
     if (item.kind == Kind::kBar && _screen == Screen::kRaceOptions)
-        setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; a police car
+        setShare(w, share(w) + (w == "COP DENSITY" ? 0.25f : 0.1f) * float(dir)); // a tenth; the police, a car of four
     else if (item.kind == Kind::kBar)
         setShare(w, share(w) + 0.05f * float(dir));
     else if (_screen == Screen::kRaceOptions && (w == "TIME" || w == "WEATHER"))
