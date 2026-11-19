@@ -16,7 +16,7 @@
 
 namespace reluva {
 
-// A game the user has added, as stored in the config file.
+/** A game the user has added, as stored in the config file. */
 struct GameTarget {
     std::string target; // config section name, unique per install
     std::string engineId;
@@ -33,8 +33,10 @@ struct GameTarget {
     std::map<std::string, std::string> settings;
 };
 
-// A choice the launcher offers for a game, stored with it as `key` = "1"
-// or "0".
+/**
+ * A choice the launcher offers for a game, stored with it as `key` = "1"
+ * or "0".
+ */
 struct GameOption {
     std::string key;
     std::string label;
@@ -45,47 +47,63 @@ struct GameOption {
     std::vector<std::pair<std::string, std::string>> choices;
 };
 
-// A running game. Created by its MetaEngine, run once, then destroyed.
+/** A running game. Created by its MetaEngine, run once, then destroyed. */
 class Engine {
 public:
     virtual ~Engine() = default;
 
-    // Runs the game until the player quits or asks to return to the launcher.
+    /** Runs the game until the player quits or asks to return to the launcher. */
     virtual Error run() = 0;
 };
 
-// Static description of an engine: its name, how to recognise its games,
-// and how to create an instance.
+/**
+ * Static description of an engine: its name, how to recognise its games,
+ * and how to create an instance.
+ */
 class MetaEngine {
 public:
     virtual ~MetaEngine() = default;
 
+    /**
+     * The engine's short id, as in engines.cfg and the config file's
+     * "engine" keys, and its name as shown to the user.
+     */
+    ///@{
     virtual const char *id() const = 0;
     virtual const char *name() const = 0;
+    ///@}
 
+    /** Its games found in `dir`, each release that matches: none if there are none. */
     virtual std::vector<DetectedGame> detect(const std::filesystem::path &dir) const = 0;
-    // The games in `source` that can be imported (copied into a folder of
-    // their own to run from): none unless the engine knows how.
+    /**
+     * The games in `source` that can be imported (copied into a folder of
+     * their own to run from): none unless the engine knows how.
+     */
     virtual std::vector<ImportPlan> planImport(const std::filesystem::path & /*source*/) const { return {}; }
-    // The choices it offers for the game in `dir` (none by default).
+    /** The choices it offers for the game in `dir` (none by default). */
     virtual std::vector<GameOption> options(const std::string & /*gameId*/,
                                             const std::filesystem::path & /*dir*/) const {
         return {};
     }
-    // Settings for all of the engine's games, which each game can also set
-    // for itself: the launcher shows them under Settings (for all its
-    // games) and with each game, and the game gets them in its
-    // GameTarget::settings, merged (Config::settingsFor). Each GameOption's
-    // first choice (or defaultOn) is what it is when set nowhere.
+    /**
+     * Settings for all of the engine's games, which each game can also set
+     * for itself: the launcher shows them under Settings (for all its
+     * games) and with each game, and the game gets them in its
+     * GameTarget::settings, merged (Config::settingsFor). Each GameOption's
+     * first choice (or defaultOn) is what it is when set nowhere.
+     */
     virtual std::vector<GameOption> engineOptions() const { return {}; }
-    // Adds what `file` holds for `plan`'s game (its patch: the patched
-    // files, in place of the plan's own); false, with why in `message`, if
-    // it isn't one the engine knows.
+    /**
+     * Adds what `file` holds for `plan`'s game (its patch: the patched
+     * files, in place of the plan's own).
+     * @return False, with why in `message`, if it isn't one the engine knows.
+     */
     virtual bool addToImport(ImportPlan & /*plan*/, const std::filesystem::path & /*file*/,
                              std::string &message) const {
         message = "not a file Reluva can use for this game";
         return false;
     }
+    /** The game in `target`, ready to run; `system` must outlive it. */
     virtual std::unique_ptr<Engine> create(System &system, const GameTarget &target) const = 0;
 };
 
