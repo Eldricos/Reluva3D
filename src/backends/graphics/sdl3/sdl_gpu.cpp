@@ -49,7 +49,7 @@ struct VertexUniforms {
     float fillDir[2][4];
     float matAmbient[4]; // w: 1 to light as Direct3D does
     float matEmissive[4];
-    float linearFog[4]; // x, y: where the fog starts and is complete (y 0: none)
+    float linearFog[4];                      // x, y: where the fog starts and is complete (y 0: none)
     float vlPos[gfx::kMaxVertexLights][4];   // xyz, radius
     float vlColor[gfx::kMaxVertexLights][4]; // rgb
     float vlParams[4];                       // count, scale, specular
