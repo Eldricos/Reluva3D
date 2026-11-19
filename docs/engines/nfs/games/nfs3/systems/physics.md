@@ -40,8 +40,8 @@ checked at run time (below).
 ### The clock, the tick and the units of spin
 
 Read from the code (November 2026: `asm`, `xref`, `callers`, capstone
-over the exe; the constants read from the exe). This settles two
-things that had been deduced from runs: the computer controllers'
+over the exe; the constants read from the exe). It settles two things
+first deduced from runs: the computer controllers'
 yaw rates are in **turns a second**, and a `-watch` or `-watchmem`
 sample taken once per call of a 32 Hz car task comes **32 times a
 second** of game time.
@@ -584,7 +584,7 @@ will reach next tick, so the zeroed up is not quite the world's: the
 `0x4a1210` tests eight points of the body box (the four bottom
 corners, two points at (∓0.75, 0.5, 0.8) of the half sizes and the two
 top corners at −0.8 of the half length; the loop stops at 8,
-`0x4a151a`, where twelve were read before), each against the road
+`0x4a151a`, not twelve), each against the road
 polygon under it, and pushes the car out with an impulse at each point
 under its polygon (`0x42ee10`); frd.md, The air ticks and the landing,
 has the details, the air's drag and gravity, and the checks against
@@ -983,9 +983,9 @@ vector at +0x124 × 8 × (+0x7B4 − +0x7B8) (`0x406880`), the spin zeroed,
   `0x40e000` keeps the loaded file's own address at `0x552558` and that
   plus (slices + 1) / 2 at `0x55255c` (`0x40e040`-`0x40e057`), and each
   track's file is exactly (slices + 1) / 2 + slices bytes (Hometown 959
-  slices, 1,439 bytes; tracks 1-8 likewise). Until November 2026 the
-  page skipped 16 bytes, so its speeds and lines were 32 slices late
-  (frd.md, The decisions recorded per call).
+  slices, 1,439 bytes; tracks 1-8 likewise). Skipping 16 bytes would
+  put the speeds and lines 32 slices late (frd.md, The decisions
+  recorded per call).
 - **The slice nibble is the best line's lane.** Lanes are numbered as
   +0x638 (the car's lane, from `0x40e2b0`), 7 the middle.
   `0x4096b0` (from the cop states `0x4057db`, the AI driver `0x409ca6`
@@ -1377,9 +1377,9 @@ then gives the car +0x200 bit 0x20.
     ticket" below (`c3-spch`).
   Earlier tries: `cq-ram1` (steering right until 62.4 s, braking from
   63.2 s) and `cq-ram3` (no brake) missed: car 1 went by 4-9 m away at 40 m/s. Their H came
-  late: the host then took keys from a queue in the order written, so an
-  H written after a later key waited for it. It now queues each key at
-  its time (November 2026), so the order written doesn't matter.
+  late, from a host that took keys from a queue in the order written, so
+  an H written after a later key waited for it. The host queues each key
+  at its time, so the order written doesn't matter.
 
   **A stop after a bump, run** (`c3-bumpA`, November 2026, the cop
   pokes, nothing else poked). The cop's car was driven by
@@ -1799,8 +1799,8 @@ range), both with the siren on (+0x710 bit 0x10). Then by state:
   once as its racer is past it by less than 30 slices (`0x403df0`:
   strip slice − racer slice from −1 to −29, `0x40bca0`, kind 0x1D, the
   officer's "missed the strip"), and clears it when the racer is 50
-  slices past (November 2026: the test's sign read again; it was written
-  up as the racer coming within 30).
+  slices past (November 2026: the test's sign read again), not as it
+  comes within 30.
 - **7**, **8**: the siren on, the section's speed × 2. 7 (a call for
   help, below) goes back to 1 with the siren off once in the order's
   slices. 8 goes to **9** there (6 m/s) and, at 6.5 m/s or less, **10**
@@ -2378,7 +2378,7 @@ and `asm` of `0x4310c0`, `0x430c80`, `0x42fee0`, `0x42f550`,
   dynamics' landing clears it (every spin under 0.6, each × 0.6 a tick
   meanwhile with a computer car's e = 0.1).
 
-The Track page's computer cars now do this (`aiCollide`, after every
+The Track page's computer cars do this (`aiCollide`, after every
 car's step on the even steps): each car's box from its place on the
 road (its centre the half height over it), its velocity (the speed
 along its way and across the slice) and its yaw rate as the spin; the
@@ -3084,15 +3084,13 @@ second. The HUD there has the racer list on (other layouts hide it).
   cross-correlation of each slot over the whole clip found nothing
   over 0.15, where the user's clip below gives 0.37-0.38). So the
   player never laid a strip, and the clips say nothing about the
-  icon. An earlier reading here had the row "dim" for 2.90-2.97 s
-  before each stop and took it for another build: that was a fault
-  of the measuring script, not of the clips. It cut a strip 25 pixels
-  high from the 4:2:0 video, which ffmpeg made 24, and read the raw
-  frames 25 rows at a time, so its frame count ran 4% slow (6,278
-  frames for `Empire_City_Night`'s 6,540): each 3.03 s ticket scene,
-  where the HUD goes, came out as 2.91 s of "no spikes" 4% early,
-  while the HUD test it was set against was timed right. Read with
-  the right size, every gap in the row is a ticket scene
+  icon. The row isn't "dim" for 2.90-2.97 s before each stop, as a
+  strip read at the wrong size makes it look: a strip 25 pixels high
+  cut from the 4:2:0 video comes out 24 from ffmpeg, and read as raw
+  frames 25 rows at a time the frame count runs 4% slow (6,278 frames
+  for `Empire_City_Night`'s 6,540), so each 3.03 s ticket scene, where
+  the HUD goes, shows as 2.91 s of "no spikes" 4% early. Read with the
+  right size, every gap in the row is a ticket scene
   (`Empire_City_Night` clip 35.13, 66.47, 91.43, 101.13, 114.53,
   202.00, each 3.03-3.07 s).
 - **The racer list's "over".** `0x485180` writes "%d %s - %d %s %s"

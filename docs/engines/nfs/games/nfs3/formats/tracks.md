@@ -493,17 +493,16 @@ page's computer cars take the speed limits from `trackSectionSpeed`
   7), each with zone 5 second from the line, so driven backward its
   last change is 5 to 4, as run (November 2026, Music laps). That
   those backward changes were driven and not caused by the test's
-  progress-check moves (`0x429100` from `0x409bbf`) is now seen in the
+  progress-check moves (`0x429100` from `0x409bbf`) is seen in the
   same runs on Redrock Ridge, Rocky Pass, Lost Canyons and Summit
   (`e12-zs`, Music laps): the second move came after the change each
   time (by 52 ms on Redrock Ridge) and neither move crossed a zone.
   Hometown's and Country Woods' 186 were the move's (`e8-zq0`,
-  `e8-zr4`). Run since with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
+  `e8-zr4`). Run with +0x208 poked to 0 (`g3-zp0r`, `g3-zp4r`,
   Music laps): the race distance moved, no move happened at all, and
-  both changed 5 to 4 at slice 190. Why +0x8 stayed 0 on the poked
-  slice until the car drove off it is settled too (`h3-zf0r`, Music
-  laps). `0x42ce70` works the race distance out only on a step whose
-  slice changed (car +0x74), and the placing's pokes are not such a
-  step.
+  both changed 5 to 4 at slice 190. +0x8 stays 0 on the poked slice
+  until the car drives off it (`h3-zf0r`, Music laps): `0x42ce70` works
+  the race distance out only on a step whose slice changed (car +0x74),
+  and the placing's pokes are not such a step.
   Atlantica would count too, but its row is −1, and Empire City's
   second zone is its one-slice 7.

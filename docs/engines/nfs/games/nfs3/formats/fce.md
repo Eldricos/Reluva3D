@@ -121,13 +121,13 @@ against their vertices' normals; the exceptions are the insides of the
 wheel arches, which face down and out (the Diablo's part 0 has 45 of its
 528 triangles wound against its smoothed normals, all flag `0x1` or
 `0x80` round the wheels; the F355's 53 of 484, all flag `0x1`). Seen
-from the side away from them, those are the thin black wedges the Track
-page showed sticking out by the wheels, at a car's corner (`d8-day1`'s
-F355 from behind: two thin black lines either side of it, gone in the
-game's frame; the arch triangles' texture there is black, `0.146,
-0.549` on the Diablo's skin), with or without the shadow, until it
-culled as the game does (November 2026:
-`carTriangleCorners`, a two-sided triangle in its mesh both ways round).
+from the side away from them, those show as thin black wedges sticking
+out by the wheels, at a car's corner, unless they're culled as the game
+does (`d8-day1`'s F355 from behind: two thin black lines either side of
+it, gone in the game's frame; the arch triangles' texture there is
+black, `0.146, 0.549` on the Diablo's skin), with or without the shadow.
+The Track page culls them so (`carTriangleCorners`, a two-sided triangle
+in its mesh both ways round).
 
 **Which parts at which distance** (`0x4bb5d0` → `0x4bb4c0`,
 `carDetailParts`). The car's detail is its box's mean view depth (the
@@ -138,8 +138,7 @@ night; 1 `car_draw_wheels` `0x4bab70` parts 5, 12, 6-9; 2 `0x4baa50`
 part 10; 3 `0x4ba960` part 11; past the last, not drawn. A model of
 fewer than 12 parts (traffic, police) takes parts 0-4 at 0-2
 (`0x4bb200`) and part 5 at 3 (`0x4bb110`). The reflection goes with the
-detail's body part (0, 5, 10 or 11) and the headlights. The Track page
-drew parts 0-4 and 12 at every distance until November 2026.
+detail's body part (0, 5, 10 or 11) and the headlights.
 
 **The reflection** (`0x49db70`, drawn at `0x43400f`): each reflecting
 triangle is drawn again with a sphere map of the track's sky (`CHRD`,
@@ -320,8 +319,8 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   the car does. The roof lights pass 0 and −0.75: their own depth less
   0.75. The Tracks page does the same: each quad is moved along its ray
   to that depth and scaled with it, which leaves it on the same pixels.
-  Until November 2026 it pulled the T and H glows 0.3 towards the
-  camera instead, which let the body hide them when seen from the side.
+  A glow pulled a fixed 0.3 towards the camera instead is hidden by the
+  body when seen from the side.
 - **The rain's flares** (`0x491bc0`, November 2026; `rainFlare`). For
   each T or H glow drawn whose dummy's fifth letter isn't N, with the
   Special Effects option not Off, in the weather (`0x6fd4cc`), the car's
@@ -348,7 +347,7 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   polygon's vertex 1), drop the part along the up, and take the point
   back: the height is point.y + ((p − point) · right) right.y +
   ((p − point) · forward) forward.y. On a cambered road that isn't the
-  height straight below, which the page took until November 2026
+  height straight below; the page takes it the same way
   (`polygonRoadFrame`, `roadFrameHeight`). Without a polygon there is
   no flare. On Hometown and Lost Canyons the vector a road polygon's
   record picks is the polygon's own normal or its negative (a wall's),
@@ -397,7 +396,7 @@ From nfs3.exe (November 2026), the drawing of a car (`car_draw_wheels`
   The reflection's pass, the glows and the rain's flares come with the
   same fog: an added picture is mixed towards the fog's colour and then
   added, so in fog a glow's dark edges add the fog's colour. The page
-  fogged the car so, but not its glows, flares and beams; now it does.
+  fogs the car, its glows, flares and beams so.
 
 The page compared with the game's frames (November 2026), its cars
 placed from the frame's car dump (`RELUVA_NFS_TRACK_CARS`) and its
@@ -405,9 +404,9 @@ camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
 - **The fog** (`t5-fog`, sky draw 500, frame 2700): the car facing the
   camera 36 ahead shows two white headlight glows, their short flares on
   the wet road below and no beam on both, the glows of the same size.
-  The page's car was paler, more fogged (145, 140, 141 on its lower
-  body against the game's 171, 168, 166): it was the Corvette, the
-  game's the F355 in silver (set-up key 2). With its own model and paint
+  With the Corvette in place of the game's F355 in silver (set-up key 2)
+  the page's car is paler, more fogged (145, 140, 141 on its lower
+  body against the game's 171, 168, 166). With its own model and paint
   (`RELUVA_NFS_TRACK_CARS_SETUP`, `d5-fog2`'s set-up dump) and the skin
   the right way up (below), the car's box (21 × 12 pixels) is 140, 134,
   128 on the page put through the host's 16-bit frame (frd.md,
@@ -415,7 +414,7 @@ camera from the same sky draw (`RELUVA_NFS_TRACK_CAMERA`):
   130, its lower body 100, 97, 94 against 103, 99, 92. The game's car
   has the sharper contrast of point-sampled textures.
 - **By day** (`t6-day`, Hometown on the grid, sky draw 150, frame 2345;
-  four cars 19-74 ahead; `d5-day`'s set-up dump): the page now draws the
+  four cars 19-74 ahead; `d5-day`'s set-up dump): the page draws the
   game's models, the F355 19 ahead in silver, the `Cout` 37 ahead and
   two Corvettes, so the reflections compare on the same model. The
   F355's reflection colours are the game's exactly (`b7b7b4aa` and
@@ -457,10 +456,9 @@ those kept; the skin as stored is 13.5 and 84.6 off there.
 pixel data from its start), whatever the header's origin bit: texture
 row 0 is the first row stored, the bottom one of every `car00.tga` but
 `Knoc`'s (byte 17 bit 5 clear). Reluva decodes images top row first, so
-until November 2026 the Track and Cars pages drew every skin upside
-down: the Corvette from behind showed no tail lights, the F355 its
-lights below its grille. Both pages now turn the rows back
-(`skinRowsAsStored`). Checked on the Cars page from behind and in front
+the Track and Cars pages turn the rows back (`skinRowsAsStored`): upside
+down, the Corvette from behind shows no tail lights, the F355 its
+lights below its grille. Checked on the Cars page from behind and in front
 (`RELUVA_NFS_CARS_VIEW`, November 2026): the Corvette's four round tail
 lights, the F355's and the Diablos' at the back with the plate below
 them, the F355's badge on its nose, the CLK-GTR's grille and lamps in

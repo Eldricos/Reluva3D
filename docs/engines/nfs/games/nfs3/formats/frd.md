@@ -203,7 +203,7 @@ also decoded (October 2026, from a survey of all nine tracks):
   heard.
 
 The rest (positions, the road polygons' records, the virtual road,
-object references and polygon objects) is still kept as stored. Object
+object references and polygon objects) is kept as stored. Object
 references begin with a 16.16 position near their block. The positions
 are one record per slice of the track (8 per block; the block's first
 slice is its start position): a u16 first polygon and a u8 count, the
@@ -242,8 +242,8 @@ come at the run's end, after the right wall, so the check finds those
 runs in order. The roof and wall polygons' road records have surface
 14 (record byte 1 & 0xF).
 
-What the road finding does there (read from `0x41e990`; corrected
-November 2026, below): its inside tests are on x and z only; a polygon
+What the road finding does there (read from `0x41e990`, November
+2026): its inside tests are on x and z only; a polygon
 of surface 14 is never taken as found; and each walk, up from the middle
 and down from the one below it, goes on while the sum |dx| + |dz| from
 the point to the polygon's vertices 1 and 3 (`+0x54`, `+0x5c`) shrinks,
@@ -359,9 +359,9 @@ table above has it, none with the Special Effects option Off (key Q),
 and each sound as a cyan diamond. Its view is the game's (`viewScreen`,
 hrz.md): x scaled by 320 and y by 330.33, so `glw0`'s corners, 0.025 ×
 size × z units from the centre across and up, land on the game's pixels,
-3 % taller than wide. Until November 2026 the page's pixels were square
-(the view 2 atan 0.75 high instead of 72°), so everything stood 3 %
-lower than in the game. It plays the sounds as the game does:
+3 % taller than wide. With square pixels (the view 2 atan 0.75 high
+instead of 72°) everything would stand 3 % lower than in the game.
+It plays the sounds as the game does:
 only each block's first, louder by the game's inverse square and panned
 by side; the nearest loop within 300 units (the game takes the first of
 the blocks seen) and one-shots when the timer picks a frame, counting
@@ -517,11 +517,10 @@ no text); `tr050`'s 67-69 have the text and no entry. On Hometown it's
 two entries: the light shafts through the covered bridge's windows
 (picture 21, object layer 3 of blocks 21-27) and picture 105 on a
 moving object. The Tracks page draws flagged polygons so (source alpha
-and one, vertex colour `0x7F7F7F7F`, without the ambient light); it
-drew them added in full (`<additive>`) or blended over before. An
+and one, vertex colour `0x7F7F7F7F`, without the ambient light). An
 `reluva-tool nfs host` frame driving through the bridge by day (`r1-on2`, frame
 3342 at 0:42.79 on the race clock) shows the shafts as faint grey
-wedges from the right-hand windows across the floor, as the page now
+wedges from the right-hand windows across the floor, as the page
 draws them from block 21. Compared pixel for pixel (November 2026,
 `t5-br`: the car held on slice 207 inside the bridge, frame 2646 with
 the camera dumped at that sky draw; `t5-brg`, its THRASH list): the
@@ -596,15 +595,14 @@ raise (the human's high beams and racer 1's low beams, `carHeadlight`
 without projection), 98 have the list's colour exactly (the light's grey
 replacing the vertex's, `ff474747`, `ffdcdcdc`...) and the other 2 keep
 their own red there, byte by byte the higher, as the page draws them;
-the 23 left unlit match the list's unlit `ff030306`. The Track page drew
-the projected picture by default (Shift+E), which doubled the pool's
-brightness against the game's frame: the road in front 112, 102, 91
-against the game's 62, 58, 57 (mean of x 300-400, y 250-262 at 640 ×
-480), the lit wall on the left 35, 28, 22 against 54, 46, 35. It now
-starts with the z-buffer and the projection off, as reluva-tool nfs host has them
-(65, 60, 60 and 58, 48, 39: within the 16-bit frame's truncation);
-Shift+E turns both on, as a 3D card's game with the projtex option
-would draw.
+the 23 left unlit match the list's unlit `ff030306`. The Track page
+starts with the z-buffer and the projection off, as reluva-tool nfs host has them:
+the road in front 65, 60, 60 against the game's 62, 58, 57 (mean of x
+300-400, y 250-262 at 640 × 480), the lit wall on the left 58, 48, 39
+against 54, 46, 35, within the 16-bit frame's truncation. Shift+E turns
+both on, as a 3D card's game with the projtex option would draw; the
+projected picture then doubles the pool's brightness (112, 102, 91 and
+35, 28, 22).
 
 The picture is the shape at that place in the track's sheet,
 `trNN0.qfs` (or `trNN1.qfs`, an alternative set that differs in a few
@@ -618,27 +616,26 @@ at that index. The names don't always follow the order: `tr010` has no
 Hometown, Atlantica and Empire City skip a name too. For a lane texture
 it's `linN` in `GameData/Render/pc/sfx.fsh`, by name.
 
-Found from footage: at Redrock Ridge's start the Tracks page showed a
-red tiled square on the Taco Den sign's pole and lightning-patterned
-roofs on the motel, where `Redrock_Ridge_Day` (0:12) and an `reluva-tool nfs host`
-race show the Taco Den sign and red tiled roofs: the page had taken
-`0135` (the tiles) for number 135, which the game takes as place 135,
-`0136`. Summit was the worst: from place 26 nearly every picture was
-wrong, which made its forest start look like a town of planks. The page
-takes pictures by place since.
+Taken by name, the pictures go wrong (found from footage): at Redrock
+Ridge's start the Taco Den sign's pole gets a red tiled square and the
+motel lightning-patterned roofs, where `Redrock_Ridge_Day` (0:12) and an
+`reluva-tool nfs host` race show the Taco Den sign and red tiled roofs:
+by name, number 135 is `0135` (the tiles), which the game takes as place
+135, `0136`. On Summit nearly every picture from place 26 is wrong,
+which makes its forest start look like a town of planks. The page takes
+pictures by place.
 
-**Signs read backwards on the page (found, November 2026).**
+**Signs drawn from both sides** (November 2026).
 `Redrock_Ridge_Day` (0:12) and an `reluva-tool nfs host` race (no mirror) both
-show "CACTUS MOTEL" and "TACO DEN" readable, from set 0, where the
-Tracks page showed set 0's signs mirrored and set 1's readable. The
-pictures aren't the cause: set 0's read the right way round in the
+show "CACTUS MOTEL" and "TACO DEN" readable, from set 0. The pictures
+don't make a sign read backwards: set 0's read the right way round in the
 sheet, and set 1's 14 to 31 differing pictures a track are the same
 signs flipped left to right (or turned over), for the mirrored track
 (`0x41dbc0` loads `trNN1.qfs` when `0x6fd4c4` is set, else
 `trNN0.qfs`). The Taco Den sign is two one-sided quads back to back in
 a block's object layer (flags `0x60`, entry 193), each readable from
-its own front. The page drew both, with no culling, and the one meant
-for the far side was drawn last, mirrored as seen from the near side.
+its own front. Drawn both, with no culling, the one meant for the far
+side comes last, mirrored as seen from the near side.
 
 How the game draws a polygon (nfs3.exe):
 
@@ -762,11 +759,11 @@ option: placed objects never get the projected picture. Hometown's lamp
 posts in the town centre are such objects (8 vertices each, two crossed
 two-sided quads of picture 101, block 65's first group): in `reluva-tool nfs host`'s
 night race (`t4-town`, frame 2720) they stand bright green in the
-player's high beams, where the page drew them nearly black. The page
-now lights its still objects so, and draws a raised colour over a
-two-sided polygon without culling it (it culled the far side of every
-two-sided polygon's raise, so a crossed quad seen from its back got
-none); with `projtex` off (Shift+E) as `reluva-tool nfs host` has it, the posts,
+player's high beams. The page lights its still objects so, and draws a
+raised colour over a two-sided polygon without culling it (culling the
+far side of a two-sided polygon's raise would leave a crossed quad seen
+from its back with none, nearly black); with `projtex` off (Shift+E) as
+`reluva-tool nfs host` has it, the posts,
 fences and shop fronts there match the frame.
 
 Moving objects are lit too (`0x41ca40`, November 2026): for a type-3
@@ -790,26 +787,26 @@ THRASH list). The wheel's 30 vertices placed by the page's key matrix
 and projected with the game's camera land on the list's within 0.24
 pixels at step 1606 (the frame is drawn three steps after the sky draw's
 dump; `RELUVA_NFS_TRACK_STEP=1606`), so the matrix is the game's. Two
-differences, both fixed:
-- **The lit object was the mirror image.** The page keeps a moving
-  object's vertices unmirrored in its mesh (z as stored, the key's matrix
-  mirroring them into the world) but put them through the matrix with z
-  negated for the light, so the light was worked out at the object's
-  mirror image and its raised colours drawn there: a bright copy of the
-  wheel beside the real one, which stayed dark. It now lights them where
-  they are drawn. The game's list has the wheel's wood and paddles at
+things matter:
+- **The lit object is the one drawn, not its mirror image.** The page
+  keeps a moving object's vertices unmirrored in its mesh (z as stored,
+  the key's matrix mirroring them into the world), and lights them where
+  they are drawn. Put through the matrix with z negated for the light,
+  the light would be worked out at the object's mirror image and its
+  raised colours drawn there: a bright copy of the wheel beside the real
+  one, which stays dark. The game's list has the wheel's wood and paddles at
   0xC3-0xE4 grey (`0x41c310`'s raise), what the page's light gives at
   those places within 1-10.
-- **The raised colours weren't fogged.** At night nearly all the lit
+- **The raised colours are fogged.** At night nearly all the lit
   scenery's brightness is the raise, which the page adds as a pass of its
   own; the game raises the corners' colours and fogs the polygon with
   them (Hometown's night fog there: value 200, density 60, black, as
-  the list's batches have it). The page drew the pass unfogged: 25-35 %
-  too bright at 43 m (the mill's wall 74, 68, 58 against the game's 56,
-  53, 44). The raise is now fogged towards black (it is added over the
+  the list's batches have it). Unfogged, the pass is 25-35 % too
+  bright at 43 m (the mill's wall 74, 68, 58 against the game's 56, 53,
+  44). The raise is fogged towards black (it is added over the
   fogged polygon) and the projected picture, a polygon of its own that
   Glide mixes towards the fog colour before adding, towards the fog's
-  colour. After both: the mill's wall 60, 56, 48 and 64, 58, 50 against
+  colour. With both: the mill's wall 60, 56, 48 and 64, 58, 50 against
   56, 53, 44 and 62, 57, 47; the trough's front 106, 99, 90 against 103,
   96, 86; the grass 71, 57, 40 against 68, 56, 36, the 2-4 of the host's
   16-bit frame (below, Brightness against the host's frames).
@@ -917,7 +914,7 @@ tail lights on both. The brightest quarter of each car's pixels: the
 light car 59, 50, 51 in the game against 50, 50, 56 on the page, the
 black one 42, 28, 24 against 42, 39, 35; the game's are a little redder
 (its tail lights take more of so few pixels, and its 5:6:5 colour rounds
-blue and red to 8 levels). Nothing was found to fix at that size; a
+blue and red to 8 levels). Nothing differs at that size; a
 nearer car in a night frame would settle it.
 
 **Night cars at size** (November 2026, `d7-runs`). Two deterministic
@@ -932,13 +929,13 @@ ahead, 85 pixels wide, a Diablo 24 m ahead coming the other way) and
 558). The list gives each car's lit colour exactly: its vertices' colours
 are `carShade`'s base (a third, a third, a half) and top, so the colour is
 three times the darkest vertex's red and green and twice its blue
-(`0x49d8f0`). Found and fixed:
-- **The camera's car's headlights** were put at the camera (in the
-  cockpit, or behind the car) with the Corvette's length; the game's are
-  the human's car's own (`0x42d160`: its position, rows and half length).
-  With a dump the page now takes the human's car from it for that light.
-  The F355: the game 156-158, 168-170, 182-183, the page 163, 176, 189
-  before, 157, 170, 183 after; the Diablo 75-77, 87-89, 100-101 against
+(`0x49d8f0`). Three things matter for the page:
+- **The camera's car's headlights** are the human's car's own
+  (`0x42d160`: its position, rows and half length), not at the camera
+  (in the cockpit, or behind the car) with the Corvette's length. With a
+  dump the page takes the human's car from it for that light. The F355:
+  the game 156-158, 168-170, 182-183, the page 157, 170, 183 (163, 176,
+  189 with the light at the camera); the Diablo 75-77, 87-89, 100-101 against
   74, 87, 100.
 - **The track's lights on near cars** (`0x4b9550`, `carLitByTrackLights`).
   The nearest detail's drawing (`0x4bae00`, detail level 0 of `0x4bb5d0`,
@@ -953,22 +950,23 @@ three times the darkest vertex's red and green and twice its blue
   `0x496550`'s distance (on 16.16 integers: the largest of |dx|, |dy|
   plus a quarter of the other, then the same with |dz|), adds its colour
   × (1 − d / 16) (`0x10000 − (d >> 4)`, each channel `>> 16`); the
-  sums over their count are added, at most 255. The page left this out.
-  By the red light (`d7-lamp2`) the game's cars were 174-176, 174-176,
-  180-181 and 132-134, 135-137, 142-143; the page now gives 174, 175, 181
-  and 134, 137, 142 with the light on (166, 175, 181 and 132, 144, 149
-  while it blinks off): that is the red the game's night cars had more.
-- **The glows** were filtered; they are point-sampled now (thrash.md,
+  sums over their count are added, at most 255. By the red light
+  (`d7-lamp2`) the game's cars are 174-176, 174-176, 180-181 and
+  132-134, 135-137, 142-143; the page gives 174, 175, 181 and 134, 137,
+  142 with the light on (166, 175, 181 and 132, 144, 149 while it blinks
+  off): without these lights the game's night cars would be redder
+  than the page's.
+- **The glows** are point-sampled (thrash.md,
   Texture filtering), their corners from texel centre to texel centre as
   `0x492370` has them (u, v 1/64 to 63/64 of `glw3`'s 32).
 
-The tail lights' glows then match: the F355's left one's red pixels
+The tail lights' glows match: the F355's left one's red pixels
 centred 1.7 pixels higher on the page (the page's cars are placed from
 the dump, taken at the sky draw before the frame's poke; from the raw
 dump they were 6 pixels higher), their mean 93, 24, 32 against 92, 22,
 27; the box of the F355's back 57, 41, 49 against 52, 39, 45, the
-Diablo's 61, 57, 68 against 54, 56, 68. The reflection's colours were
-already the list's (`7e63637e`, `88626288`, `845f5f84`).
+Diablo's 61, 57, 68 against 54, 56, 68. The reflection's colours are
+the list's (`7e63637e`, `88626288`, `845f5f84`).
 
 **The car's shadow** (`0x4b81a0`, November 2026; `carShadowQuad`,
 `drawShadows`). Each car's drawing at every detail calls it
@@ -1002,7 +1000,7 @@ In a race's THRASH list (`d8-day1`: Hometown by day, the player and two
 cars held as `d7-night1`'s, `-gpudump 2700`) each car's shadow is a
 batch of two triangles of texture `shad`, blend on in mode 0 (source
 alpha, inverse source alpha), the corners `6fffffff` with u, v from 1/64
-to 63/64 in the corner order above. The page now draws it so, over the
+to 63/64 in the corner order above. The page draws it so, over the
 road and its markings without writing the depth; its corners put
 through the game's camera (`d8-runs/proj.py`) land within 0.2 pixels of
 the list's for both cars (the F355's (206.2, 284.0), (267.7, 283.5),
@@ -1017,9 +1015,10 @@ mirror view.
 Pursuit, racer 1 held 18 m ahead and an officer poked beside it as
 `d8-t8g0`'s, frame 2816, the page from the 400th sky draw's dumps;
 `t8o`, and `t8d` without the officer, whose list 2818 was written). The
-road round the officer's red light was 1-2.6 brighter on the page, but
-the strip under the held car's shadow (440-500, 258-263) 8.0, 9.1, 10.4
-in red, green and blue. The road itself is drawn alike: of the 346
+road round the officer's red light is 1-2.6 brighter on the page; the
+strip under the held car's shadow (440-500, 258-263), with the shadow's
+picture at full depth, 8.0, 9.1, 10.4 in red, green and blue. The road
+itself is drawn alike: of the 346
 corners of the road texture's polygons taken back to the track with the
 dumped camera (`e6-runs/vc`), 341 have the `.frd`'s colour exactly (the
 other 5 are clipped corners); the road pictures are `tr080.qfs`'s within
@@ -1036,9 +1035,9 @@ rows tall between the car and the road, and there the difference
 changes sign from row to row (the page's window, 800 rows, scaled to
 480), so part of what is left is the comparison's.
 The road beyond it is 0.4-2.6 over (0.1-1.6 over the rounding host).
-Part of the strip's excess in `t8o` was the smoke drawn over it with its
-picture mirrored (col.md, Its spread over the car): with the picture's
-corners as the game sets them the strip is +3.9, +4.3, +5.9 (`e7-runs`).
+Part of the strip's excess in `t8o` is the smoke drawn over it: with the
+smoke picture's corners as the game sets them (col.md, Its spread over
+the car), not mirrored, the strip is +3.9, +4.3, +5.9 (`e7-runs`).
 
 **The police car's driving** (`aiCopStep`, November 2026). The page's
 police car drives as a computer cop (`car_driver_cop`, `0x4032e0`;
@@ -1075,7 +1074,7 @@ racer with no tickets) the chase is given up: patrol, siren off.
 
 **The police car's orders, strips, roadblocks, reversing and stops**
 (November 2026; `aiCopStep`; physics.md, The computer cops' driver).
-The page's police car now runs the driver's other states as the code
+The page's police car runs the driver's other states as the code
 has them:
 - **The chase** (`cop_ai_chase`, `0x4025c0`): within 16 slices, or with
   the target pulled over, `0x402420`; 16 or more behind it, the top
@@ -1142,19 +1141,19 @@ has them:
     sphere map (`0x563a90` → `0x6ff9a0`, +4 its handle) as the last
     argument of `0x49d5c0` → `0x49de20`, so the triangles without fce
     flag 1 reflect it: only cop2 has any (12 of 439; the other four
-    models' triangles all have flag 1). The page had taken the two
-    reflection colours for his light and dark.
+    models' triangles all have flag 1). The two are the reflection's
+    colours, not his light and dark.
   - **Track 8's red light**: with the model's dummy count (+0x34) not 0
     (cop4's one dummy at 0.03, 0.80, 0.24), the dummy (+0x38) through his
     frame and place (`0x4e0430`), and d = his forward · the view's
     forward (view +0x2C): when d < 0 (he faces the camera) a glow
     (`0x492370`) in 0xFFFF0000, size −d × 0.1 (`0x5400f8`), at his nearest
     depth (the least view depth `0x49d5c0` returns).
-  The page now does all three.
+  The page does all three.
   - **Checked on screen** (November 2026, `d8-runs`). `draw_cars`
     (`0x4bbba0`) calls `draw_officer` for each car drawn (+0x8B4, its
     detail, not −1) with +0x8E4 and +0x8E8 both set, whoever set them;
-    a dump's car records hold him (+0x8E4-+0x918), and the page now
+    a dump's car records hold him (+0x8E4-+0x918), and the page
     draws a dump's officer where it has him (`DumpedCar::officer`).
     - Hometown by day, a stop by keys alone (`d8-stop`: `r1-ram4`'s
       keys, the player's cop ramming racer 1, H at 64.4 s; Hot Pursuit
@@ -1179,7 +1178,7 @@ has them:
       on the page. By night the list has `ff2d2939` (0x877B72: the
       road's 0x261A11 plus 97 from the player's headlights, the only
       light reaching him, `0x4b97b0` dividing by the lights that
-      reach); the page gave 0x7C7067 with its projected headlights on,
+      reach); the page gives 0x7C7067 with its projected headlights on,
       and exactly 0x877B72 with them off (Shift+E), as `reluva-tool nfs host`'s
       `config.dat` has them, so for a comparison the page is to be set
       so. Nothing on the officer or the red light differs.
@@ -1294,12 +1293,11 @@ it with the officer standing at the racer's road side, and gave the
 ticket ("1 ticket", radio "suspect ticketed"). In runs where the racer
 stayed out of lane 6 it went past ("missed the strip"), and when the
 cop's wait for its racer ran out it took it as a target and took the
-strip up, as `0x4018b0` does. Two faults of the page's were found and
-fixed on the way: a cop's step changed the racers stepped before it only
-for that step (a racer it pulled over was let go again), and the strip
-watch counted slices the slices' way where the game counts them the
-race's (`g_backward`): the page's racers may run either way, so it is
-taken by the watched racer's way.
+strip up, as `0x4018b0` does. A cop's step changes the racers stepped
+before it for good, not only for that step (else a racer it pulled over
+is let go again), and the strip watch counts slices the race's way
+(`g_backward`), not the slices': the page's racers may run either way,
+so it is taken by the watched racer's way.
 
 **The computer cars' driving** (nfs3.exe, November 2026; `aiStep`).
 An AI racer runs `car_driver_ai` (`0x409c00`, state 1) every 8 steps and
@@ -1318,8 +1316,8 @@ them along the slices at the speed that leaves:
   × the track's `0x40ee80` × the catch-up `0x4090a0`, at most 1: the
   page takes the camera's car as the race's human, at race distance 0,
   and each racer's distance as the slices from the camera's slice along
-  its way). Until November 2026 the page held the scaled speed under the
-  cap (below, Why car 3 didn't overtake). The page's two Corvettes
+  its way). The cap holds the table's byte, not the scaled speed (below,
+  Why car 3 didn't overtake). The page's two Corvettes
   have Lead Foot's (skill 2) and, ahead of him, Mulligan's (skill 0, a
   surging driver), from the drivers' table (`0x55226c`).
 - **Flashing** (`0x404840`): first the flash is undone when its 64 steps
@@ -1366,7 +1364,7 @@ them along the slices at the speed that leaves:
   at +0x34, a lane at +0x38), are the strips `spike_lay` (`0x4c9dd0`)
   lays: a lane holding one 1 to 5 slices ahead in the car's direction
   gets −50 in row 5 (`0x56eecc`), and in the car's own lane its +0x7B0
-  is × 0.9 (`0x536724`). The page has them since its police car lays
+  is × 0.9 (`0x536724`). The page has them, as its police car lays
   strips (below). Left out, as the page has nothing they act on (read
   November 2026):
   - the grudge (`0x409840`): a driver of personality over 2 with
@@ -1391,7 +1389,7 @@ them along the slices at the speed that leaves:
   grudge after a crash (`0x404a00`, from `car_impacts_task`) asks with
   100 more. With eight racers that is the first 302 to 400 slices: in
   `t6-log` (Hometown, eight racers, the dumps' +8 1-205 and +0x1FC 0-7)
-  the whole of the window. The page had applied them from the start.
+  the whole of the window.
   **Checked** (`d8-votes`, November 2026: `t6-log`'s run again, with
   `-watch 0x40daf0` and the votes `0x56ee90` (14 rows × 3), the nearest
   cars `0x56ef38`, the pick `0x56ef74` and the car's +0, +0x1C,
@@ -1407,11 +1405,10 @@ them along the slices at the speed that leaves:
   middle 1.5 widths out reckons itself a lane further on (1.5 rounds to
   2), so the lanes' votes are taken from there; next to a lane without
   a strip it is nudged back.
-- **Its speed** (the force model since November 2026, below; before,
-  `0x4066c0`'s): towards the speed wanted, up by the
+- **Its speed** (the force model, below): towards the speed wanted, up by the
   acceleration table of its `carp.txt` (P +0x2EC, one value a m/s at
   round(speed − 0.5), × 0.9 with ai Normal past race distance 100 (only
-  then: the page took it from the start until November 2026) and
+  then, not from the start) and
   × 0.9 in the weather under 45 m/s; nothing over the top speed cap ×
   its scale), down by the maximum braking deceleration × 1.25 for an AI
   racer (× 2 for a police car instead; `0x4063e0`). **The brake** (+0x505,
@@ -1428,8 +1425,7 @@ them along the slices at the speed that leaves:
   `car_ai_model` `0x408600`) is a 32 Hz task too, its time step
   `0x56ec58` 1/32 s: the aim moves 0.2 a call (`ai_lane_ramp`), 3.2 m in
   half a second, as the `t6-log` dumps show (car 1's +0x7C8 from 5.0 to
-  8.2 to 11.4), and the speed changes by the acceleration × 1/32. The
-  page ran both every step, the aim at twice the game's rate.
+  8.2 to 11.4), and the speed changes by the acceleration × 1/32.
 - **The side offset as measured** (November 2026). +0x7B8 is not the
   car's own place across the road but `0x4a2bc0`'s (from `0x42ce70`
   each step): the car's position less its slice's road point, along the
@@ -1441,7 +1437,7 @@ them along the slices at the speed that leaves:
   steers by that. A car aimed at a lane's middle sits on the rounding
   boundary of `0x40e2b0` (½ a width), so its +0x638 flips between the two
   lanes with every few centimetres: in the dumps car 6 at +0x7B8 3.86 to
-  4.20, lane 7 below 4 and 8 above. The page now keeps the car's own
+  4.20, lane 7 below 4 and 8 above. The page keeps the car's own
   place (`lateral`, drawn) and the offset as measured (`side`, +0x7B8:
   `lateral` + how far it is along the slice × the slice's chord,
   `aiChord`), steers the spring by the measured one and takes the lanes
@@ -1450,9 +1446,8 @@ them along the slices at the speed that leaves:
 - **The side offset as driven** (+0x7B8, `aiMove`, `aiSteerStep`): the
   game's car is moved across the road by its controllers and its lanes
   (`0x40e350`) are taken at +0x7B8, the car's own offset, not at the aim.
-  The page drove each car exactly on its aim until November 2026, then
-  by a fitted spring, and since by the game's model (below, The
-  controllers).
+  The page moves each car by the game's model (below, The
+  controllers), not exactly on its aim.
 
 **Against the game's racers** (November 2026, `t6-log`: Hometown by
 day, the human left on the grid, the cars' records dumped every 0.5 s
@@ -1478,16 +1473,16 @@ game's 17-23); the gate and the 32 Hz model alone gave 5-18, so it is
 the measured offset flipping at the lanes' middles that makes the
 weaving. Mean speeds 36.5-38.0 m/s (the game's 34.8-38.3), braking in
 one sample for five cars (the game's one car), flashing 1-3 times for
-two cars (none in the game). The page's cars now aim at lane 7's middle
+two cars (none in the game). The page's cars aim at lane 7's middle
 (4 m) most of the time as the game's do, but cross to lane 8 less often
 (3-14 samples aimed at 12 m against the game's 7-40): the rest of the
 difference is the game's own steering, which the spring stands for.
 
-**The bend's cut** (`aiBendCut`, November 2026, `d6-runs/sim`; taken
-out again). The page had read `0x406e50`'s point ahead as what the car
-follows, and pulled its spring to the aim plus the point's offset across
-the car's slice (at most 6 m). The controllers (below) show the point
-only turns the car, and only the slow and sliding controllers make it go
+**The bend's cut** (November 2026, `d6-runs/sim`). `0x406e50`'s point
+ahead isn't what the car follows, as it may be read: the cut, the aim
+plus the point's offset across the car's slice (at most 6 m), is wrong.
+The controllers (below) show the point only turns the car, and only the
+slow and sliding controllers make it go
 where it points: replayed against the game's own +0x7B8 (`d7-watch2`,
 below) the aim plus the cut is 5.14 m rms off, the aim alone 0.67.
 
@@ -1530,13 +1525,12 @@ in turns a second: in radians the road's bends (Hometown's slices
 car slides off; in turns `d7-watch2` uses the three controllers 1,109,
 59 and 140 times in 1,308 calls, as `gh1-ai` counted 1,166, 63 and 65.
 
-The page kept this in each slice's frame until `e11`; it now keeps the
-world velocity and the body's yaw as the game does (below, **The world
-velocity**): the car runs straight on in the world, so it is carried
-wide of a bend, which the rails' velocity two slices on pushes back
-against, and it stays within the slice's walls (the car against the
-track, `0x4304b0`: a stopped or blocked car no longer slides past
-them).
+The page keeps the world velocity and the body's yaw as the game does
+(below, **The world velocity**): the car runs straight on in the world,
+so it is carried wide of a bend, which the rails' velocity two slices on
+pushes back against, and it stays within the slice's walls (the car
+against the track, `0x4304b0`: a stopped or blocked car doesn't slide
+past them).
 
 **Checked against the game** (`d7-watch2`, November 2026: Hometown by
 day as `t6-watch`, `-watchmem` of car 1's +0x1C-+0x7CC, its slice and
@@ -1562,7 +1556,7 @@ car, 120 in all (cars 1-7: 14, 20, 10, 18, 18, 21, 19; the game's 17,
 m/s, braking in one sample for four cars, no flashing, as the game's.
 Without the best line's +10 and the empty lanes' +5 a car keeps right
 (row 0) until the edge's −30 + 22 holds it in lane 8, as the game's.
-Over the 1,568 decisions of the window the votes' rows now agree with
+Over the 1,568 decisions of the window the votes' rows agree with
 the game's 1,570 (`d8-runs/sim/cmpvotes.py`): row 3 in 81 % of them (the
 game's 77 %), row 7 in 48 % (59 %), row 8 in 17 % (27 %), row 1 in 26 %
 (14 %); the pick left of the car's lane 747 times (707), its own 688
@@ -1572,50 +1566,51 @@ the cars meet: the game's car 3 overtakes on the left lanes at slices
 94-107 (+0x7B8 to −11.7), the page's stays right, and the lane changes
 counted are mostly +0x638 flipping at a lane's middle (4 and 12 m are
 lane boundaries), which the page's cars sit on a little less often. The
-replay of `d7-watch2` is unchanged (0.62 m rms; the controllers rails
-1,109, slow 59, slide 140), and the roadside cop (`park`, 120 stops)
-still never parks past a wall.
+replay of `d7-watch2` gives 0.62 m rms (the controllers rails 1,109,
+slow 59, slide 140), and the roadside cop (`park`, 120 stops) never
+parks past a wall.
 
 **Why car 3 didn't overtake** (November 2026). In the game (`d8-votes`,
 `0x40daf0` watched) car 3 comes up behind car 4 at slices 91-94 at
 64.0-64.5 s, the two a slice apart: car 4's speed wanted falls 42.3 →
 31.4 (row 8 and the keeping behind), car 3 brakes from 42.4 to 31.4 and
 its votes (row 7 for car 4 in its lane, row 3) pick lane 7, then 6, and
-it swings out to −11.7 m before coming back at 107. On the page the two
-never met: its cars had run faster from the start, car 4 three slices
-ahead of the game's by 61.5 s. Two causes, both from the code:
+it swings out to −11.7 m before coming back at 107. Two things from the
+code bring the page's cars there at the game's time (without them they
+run faster from the start, car 4 three slices ahead of the game's by
+61.5 s):
 - **The speed wanted** (`0x409330`) is the table's byte held under the
   top speed cap × the track's factor first (`0x4093ab`-`0x4093ca`, into
-  +0x7B0), and only then × the scale (`0x409464`). The page took the
-  table × the scale and held that under the cap, so a racer on a stretch
-  where the table is over the cap (88 at Hometown's start, 69 further
-  on; the cap 78.23 × 0.82 = 64.15 for the Corvette) wanted 63.0 instead
-  of 45.9. With the order fixed (`aiStep`, and the cars the page places)
-  the page's values are the game's +0x7B0 to the 0.1: per car 44.0, 44.0,
+  +0x7B0), and only then × the scale (`0x409464`). The table × the scale
+  held under the cap would have a racer on a stretch where the table is
+  over the cap (88 at Hometown's start, 69 further on; the cap 78.23 ×
+  0.82 = 64.15 for the Corvette) want 63.0 instead of 45.9. In the
+  game's order (`aiStep`, and the cars the page places) the page's
+  values are the game's +0x7B0 to the 0.1: per car 44.0, 44.0,
   45.9, 44.5 and 46.8, 46.5 and 48.9, 49.5, 46.5 and 48.9 (the f355 and
   Countach, serials 2 and 15, have the cap 81.81: 67.08 × the scale).
-  `aisim` now takes each car's own `carp.txt` by the set-up's key, as
-  the page does; it had given every car the Corvette's.
+  `aisim` takes each car's own `carp.txt` by the set-up's key, as the
+  page does.
 - **The acceleration** (`ai_accel` `0x4064f0`) is × 0.9 only with the
   AI level Normal (`0x6fd4f0` 0) and the race distance (+8) over 100
-  (`0x406591`); the page took it always. Through the window the dumps'
-  +8 run 1-205, so the cars accelerated 10 % too little at the start;
-  now the speeds from the 50 s dump follow the game's within 0.8 m/s for
+  (`0x406591`). Through the window the dumps' +8 run 1-205, so taken
+  always the cars accelerate 10 % too little at the start; taken so, the
+  speeds from the 50 s dump follow the game's within 0.8 m/s for
   the first 4 s (car 3: 8.0, 11.3, 14.7, 18.1 against 8.8, 12.1, 15.2,
   18.5 at 0.5 s steps; the dump's first speed is 0.4 low). Past that the
   game's cars accelerate by their force model on the hills (car 4: 3.5
-  to 6.9 m/s² against the table's 4.5-6.9), which the page doesn't have.
+  to 6.9 m/s² against the table's 4.5-6.9; below, The force model).
 
-Re-measured (`e1-runs/sim/aisim`, the same window): +0x638 changes in
+Measured with `e1-runs/sim/aisim` (the same window): +0x638 changes in
 14-24 samples per car, 130 in all (cars 1-7: 15, 21, 14, 24, 22, 16, 18;
 the game's 17, 23, 23, 19, 21, 21, 19), the aim past 8 m 193 (43, 29,
 24, 23, 19, 11, 44; the game's 162). The speed scales (+0x7BC) agree
 with the game's to the end of the window but where the places change
 (from 68 s: car 2's 0.656 → 0.738 and car 4's × 0.889, the catch-up),
-and the cars still don't meet as the game's do: car 3 reaches slice 94
+and the cars don't meet as the game's do: car 3 reaches slice 94
 when the game's does (64.5 s), but car 4 is 3 slices ahead of the
 game's (its hills), so car 3 isn't held up and doesn't overtake. The
-replay of `d7-watch2` stays at 0.62 m rms (rails 1,109, slow 59, slide
+replay of `d7-watch2` gives 0.62 m rms (rails 1,109, slow 59, slide
 140) and `park` at 120 stops, none past a wall.
 
 **The force model** (November 2026, `aiMove`). `0x4066c0` (towards the
@@ -1646,22 +1641,20 @@ set at `0x46681e` only; +0x88 was 0 for all eight cars in every
   −0.3065625 (`0x53c8dc`) × the road's forward's rise (+0x1AC) along
   that forward, while the car is upright.
 
-The page now does this (the speed along the way, + the force × 1/32,
+The page does this (the speed along the way, + the force × 1/32,
 less 0.3065625 × the slice's forward's rise the way it runs). Measured
 with `e5-runs/sim/aisim` (`t6-log`'s 50 s dump; each car's own
-`carp.txt`; November 2026 the sim also seeds each car's speed wanted
-(+0x7B0) and its place along its slice from the dump, where it had
-started every car at its slice's point with nothing wanted until its
-driver's first call, so a car braked on the first tick and was up to a
-slice behind; with that alone the old model gives 146 lane changes, 179
-samples past 8 m): from 50 to 64 s, before the game's cars meet, the
-speeds are within 0.86 m/s rms of the dumps' (1.50 before; the mean
-excess +0.32, was +1.07), car 4 at the end of it 2 slices from the
-game's (4 before) and car 3 1 behind; over the whole window 3.08 m/s
-rms (3.22). +0x638 changes in 149 samples (cars 1-7: 21, 24, 26, 16,
+`carp.txt`; the sim also seeds each car's speed wanted (+0x7B0) and
+its place along its slice from the dump: started at its slice's point
+with nothing wanted until its driver's first call, a car brakes on the
+first tick and is up to a slice behind): from 50 to 64 s, before the
+game's cars meet, the speeds are within 0.86 m/s rms of the dumps' (the
+mean excess +0.32), car 4 at the end of it 2 slices from the game's and
+car 3 1 behind; over the whole window 3.08 m/s rms. +0x638 changes in
+149 samples (cars 1-7: 21, 24, 26, 16,
 21, 20, 21; the game's 143) and the aim is past 8 m in 167 (11, 32, 28,
-25, 16, 11, 44; the game's 162). Car 4 now holds 44.1-44.5 at
-Hometown's slices 69-83 as the game's does. Car 3 still doesn't go
+25, 16, 11, 44; the game's 162). Car 4 holds 44.1-44.5 at
+Hometown's slices 69-83 as the game's does. Car 3 doesn't go
 past car 4 on the left: in the game the two meet at slices 90-91 at
 64 s side by side (+0x7B8 13.65 and 12.19) and both lose about 10 m/s
 in half a second (42.4 → 31.4, 41.3 → 33.2), a hit, after which car 4
@@ -1670,7 +1663,7 @@ them as the game's does (slice 90 at 64 s) but in lane 7 (+0x7B8 3.8):
 from 61.5 s it aimed at 4 m where the game's aimed past the edge (17.18,
 then 12), so the two pass side by side; and the page's cars don't hit
 each other. The replay of
-`d7-watch2` is unchanged (0.62 m rms; rails 1,109, slow 59, slide 140)
+`d7-watch2` gives 0.62 m rms (rails 1,109, slow 59, slide 140)
 and `park` stops 120 times, none past a wall.
 
 **Car 3's lane at 61.5 s, the votes** (November 2026, `e6-runs`:
@@ -1693,12 +1686,12 @@ whose pick doesn't (`firstdiff.py`), the cars part at 51.7-53.4 s, each
 time on row 7's halving for a car not centred in the lane
 (`0x40d17d`: the word flags at `0x56ef68`, ahead, and `0x56ef6e`,
 behind; read with `capstone`), that is on where another car sits across
-the road at 4-17 m/s. The page's rule is the game's. Three things in
-the model were not, from the code:
+the road at 4-17 m/s. The page's rule is the game's, and three things
+in the model are as the code has them:
 - **The point steered at** (`0x406d40`): the vector is from the car's
-  own place (+0x98) to the road point moved by the aim along +0x124; the
-  page had put the car at its measured offset plus the line's move across
-  the slice (`along` × the chord), twice the latter. And on Hometown
+  own place (+0x98) to the road point moved by the aim along +0x124, not
+  from its measured offset plus the line's move across the slice
+  (`along` × the chord), which counts the latter twice. And on Hometown
   (`0x6fd4ac` 0) with the steered slice in 0x205-0x20F and the aim under
   0 the aim is 10 more to the left (`0x406d5c`-`0x406d85`).
 - **The slice steered at** (`0x406980`): the look-ahead count is
@@ -1711,20 +1704,19 @@ the model were not, from the code:
   on Hometown slices 0x225-0x235 it is the look-ahead slice as it is.
 - **The slow and sliding controllers** (`0x407c30`, `0x407fa0`) compare
   the speed wanted with +0x4F4, the speed along the car's own forward,
-  and push along +0x4E8; the page had used and pushed the speed along
-  the road. A car turned off its way (after a hit, sliding) so runs
+  and push along +0x4E8, not the speed along the road. A car turned off
+  its way (after a hit, sliding) so runs
   slower along the road.
-Re-measured (`e6-runs`, `aisim` as `e5-runs/sim`'s, also seeding each
+Measured (`e6-runs`, `aisim` as `e5-runs/sim`'s, also seeding each
 car's aim +0x7C8, target +0x7B4, lanes +0x638-+0x640, heading, side
-speed and yaw from the 50 s dump, where it had taken the aim and target
-as +0x7B8; with the car-to-car hits, `aiCollide`): +0x638 changes in 121
-samples (the game's 143; 139 with `e5`'s seeding), the aim past 8 m in 155
-(162; 149), speeds 3.13 m/s rms (3.08 before); the page's car 3 still
-doesn't go past car 4 on the left (its +0x7B8 at least 2.67 from 64 to
-70.6 s; the game's −11.7). The replay of `d7-watch2` is 0.66 m rms (was
-0.62; rails 1,113, slow 59, slide 136): the steered slice from the code
-moves the error on slices 129-151 from 0.64 to 1.12 m; with the old slice
-it is 0.61. `park`: 120 stops, none past a wall.
+speed and yaw from the 50 s dump; with the car-to-car hits, `aiCollide`):
++0x638 changes in 121 samples (the game's 143; 139 with `e5`'s
+seeding), the aim past 8 m in 155 (162; 149), speeds 3.13 m/s rms; the
+page's car 3 doesn't go past car 4 on the left (its +0x7B8 at least
+2.67 from 64 to 70.6 s; the game's −11.7). The replay of `d7-watch2` is
+0.66 m rms (rails 1,113, slow 59, slide 136): with the steered slice
+from the code the error on slices 129-151 is 1.12 m, with the slice
+before it 0.64 (0.61 overall). `park`: 120 stops, none past a wall.
 
 **Where the cars part: the slice, the side offset and the lanes'
 length** (November 2026, `e7-runs`). The parting at 51.7-53.4 s (row
@@ -1737,22 +1729,22 @@ part from the game's, `t6-log`'s run was made again with the car
 records dumped every 16 ms from 50 to 53.2 s (`e7-runs/early.sh`; the
 50 s dump is byte for byte `t6-log`'s; the set-up pokes were left out,
 since they write the 0s already there and an `at=` poke makes `reluva-tool nfs host`
-test every instruction against every poke). Three differences in how
-the page placed and measured its cars, all from the code:
+test every instruction against every poke). Three things in how the
+page places and measures its cars, all from the code:
 - **The slice is the track position's.** +0x1C is the slice whose run
   of road polygons the car is in (the track position's search,
   `0x41e990`, from `0x49fe70` each tick), not the road point behind it:
   the point lies inside the run, so a car is often already on the next
   slice up to 2.5 m before its point (`t6-log`: the place less the
-  point, along the forward, −2.5 to +3.2 m). The page had the point
-  behind; in the 16 ms dumps its slices agreed with the game's in 684 of
-  1,400 samples. Its cars now keep that slice (`AiCar::roadSlice`, from
+  point, along the forward, −2.5 to +3.2 m). The page's cars keep that
+  slice (`AiCar::roadSlice`, from
   `aiRoadFrame`'s search, read through `aiSlice`) for everything the
   driving reads by slice: the lanes and the lane test, the cars ahead
   and behind (`0x40cfc0`), the speed table, the look-ahead, the slice
   steered at, the road 2 slices on and the side offset's point; the
-  road points before and after the car still place it. Now 1,312 of
-  1,400 agree.
+  road points before and after the car still place it. Their slices
+  agree with the game's in 1,312 of the 16 ms dumps' 1,400 samples (684
+  with the point behind).
 - **The side offset is measured along the road polygon's right.**
   +0x7B8 is written by the race task `0x42ce70` (each tick, for each car
   in play, before the lane `0x40e2b0`, +0x7C0 and the wrong-way test) as
@@ -1761,12 +1753,12 @@ the page placed and measured its cars, all from the code:
   `0x420230`): inside a road polygon of the slice's run (+0x14 set,
   +0x6C 0) up and forward are that polygon's virtual road vector and
   right their cross product; only off the run's side the road point's
-  own bytes. The page measured along the slice's right. On Hometown's
+  own bytes, not the slice's right. On Hometown's
   first bends the two differ by up to 2.7° and the offsets by up to
   0.9 m. Against `t6-log`'s dumps (each car's place taken a tick of 32
   back, when the side was measured; `e7-runs/rchk`), the polygon's right
   gives +0x7B8 to 1 cm in 336 of 427 samples, the slice's in 58 (the
-  rest are dumps taken at another point of the tick). The page now finds
+  rest are dumps taken at another point of the tick). The page finds
   each car's road polygon each step (`aiRoadFrame`: `roadSearch` from
   the slice it was on, `polygonRoadFrame`) and measures along its right
   (`aiMeasuredSide`, `aiLateralFor`).
@@ -1774,11 +1766,11 @@ the page placed and measured its cars, all from the code:
   slices by their speed, a slice's line at a time, and keeps a car's
   `lateral` from one slice to the next (its place the slice's point plus
   that much along the slice's right), so between two slices a car runs
-  from one such place to the other. It had taken the centre line's
-  length for that whatever the lane, so on a bend a car on the outside
-  covered its lane in the time the centre takes and ran ahead of the
-  game's (whose cars move in the world), and one on the inside fell
-  behind. Now the length is |next point − point + lateral × (next right
+  from one such place to the other. With the centre line's length for
+  that whatever the lane, a car on the outside of a bend would cover its
+  lane in the time the centre takes and run ahead of the game's (whose
+  cars move in the world), and one on the inside fall behind. So the
+  length is |next point − point + lateral × (next right
   − right)| (`aiSegmentLength`), also in the rate the line moves across
   (`aiSteerStep`).
 - Two smaller ones: `ai_ctl_slow`'s side speed wanted is sin(2π e) ×
@@ -1786,34 +1778,33 @@ the page placed and measured its cars, all from the code:
   under 0 (`0x407d09`-`0x407d35`, 2π a double at `0x536374`), the same
   size and sign, so it never asks for the left; and the controllers'
   clamps by the ground speed take +0xB8, max(|vx|, |vz|) + min / 4 of the
-  world velocity, where the page had the speed.
+  world velocity, not the speed.
 
 Against the 16 ms dumps (`aisim` seeded from the 50 s dump, each car
 placed from its dumped position): over 50-51.7 s, before any decision
-differs, +0x7B8 is within 0.068 m rms of the game's (0.161 with
-`e6-runs`' model); over the whole 3.2 s 0.82 (0.68), as two cars then
-pick other lanes. Car 4's move to lane 7 and back at 51-53 s now
-follows the game's within 0.2-0.5 m (it had lagged by a slice and 0.6
-m). The first decisions that differ (`firstdiff.py`) are still at
+differs, +0x7B8 is within 0.068 m rms of the game's; over the whole
+3.2 s 0.82, as two cars then pick other lanes. Car 4's move to lane 7
+and back at 51-53 s follows the game's within 0.2-0.5 m. The first
+decisions that differ (`firstdiff.py`) are at
 51.2-52.7 s, row 7's centring of a car near 4.0. Over `t6-log`'s window
 (`aisim` as `e6-runs`'s, with `tr00.frd`): +0x638 changes in 92 samples
-(cars 1-7: 14, 17, 15, 15, 11, 11, 9; the game's 143; 121 before; the
+(cars 1-7: 14, 17, 15, 15, 11, 11, 9; the game's 143; the
 page's cars on the lanes' edges at 4 and 12 m sit on one side of them
 where the game's flip across), the aim past 8 m in 189 (the game's
-162; 155 before), speeds 3.18 m/s rms (3.13) and 0.91 from 50 to 64 s
-(0.85). Cars 3 and 4 come to Hometown's slice 76 at 62 s within a slice
+162), speeds 3.18 m/s rms and 0.91 from 50 to 64 s. Cars 3 and 4 come to
+Hometown's slice 76 at 62 s within a slice
 of the game's, both on the right, but in one lane (+0x7B8 11.8 and
 12.3) where the game's run side by side (14.7 and 7.3) to slice 91 at
 64 s: the page's car 3 is already 1-3 slices ahead of car 4 there (slices
 76-92), and from 64.5 s it moves left to 2-5 m and stays ahead (3-4
 slices at slices 96-120). The game's car 3, turned by the hits, swings
-out to −11.7 and is ahead of car 4 from slice 97. So car 3 now passes
+out to −11.7 and is ahead of car 4 from slice 97. So car 3 passes
 car 4 at slices 90-107 on the page, but not as the game's does. The
-replay of `d7-watch2` is 0.60 m rms (0.66; rails 1,117, slow 59, slide
+replay of `d7-watch2` is 0.60 m rms (rails 1,117, slow 59, slide
 132); `park` stops 120 times, none past a wall.
 
 **The hits between cars** (November 2026; physics.md, The hit's
-arithmetic). The page's computer cars now run `car_collisions_task`'s
+arithmetic). The page's computer cars run `car_collisions_task`'s
 box test and impulse each even step (`aiCollide`). With an optional `hits`
 list, `aiCollide` reports each car a hit gave a strength, with the
 strength and the point (`AiHit`; `CarBox::hitPoint` is the point
@@ -1861,9 +1852,9 @@ cleared; at most that, more than 8 starts put the car back on the road
 more than 4, in a lane off the road's (+0x638 under 6 − left lanes or
 over right lanes + 7), it steers at its own slice's point
 (`ai_point_own_slice` `0x406c00`). The page does all of it, the put
-back too since `e9` (below; `aiReverseSet`, `aiCollide`, `aiMove`,
+back too (below; `aiReverseSet`, `aiCollide`, `aiMove`,
 `aiSteerStep`, `aiPutBack`). A hit's spin is
-a vector: the page took only its part about the car's up; it now keeps
+a vector: besides its part about the car's up, the page keeps
 the parts about its forward and right as roll and pitch rates (turns a
 second), turns the body by them, and brings them back as the dynamics
 does (`aiTilt`): while a hard hit has it in the air (+0x164) every spin
@@ -1873,7 +1864,7 @@ body's up less the road's up along that axis, held to ±0.5 turn/s
 (`0x53c84c`, `0x53c854`), and to 0 once both are within 0.02
 (`0x53c844`); the computer's model (`car_ai_model`) doesn't touch them.
 The page draws its cars with the roll and pitch. In `t6-log`'s window
-no hit comes under 10 m/s, so the sims are unchanged by this.
+no hit comes under 10 m/s, so this doesn't change the sims.
 
 **The tick's order and the lanes a car spans** (November 2026,
 `e9-runs`). Where the cars part at 51-53 s (row 7's halving of a car
@@ -1889,9 +1880,9 @@ code (`capstone` on the exe) and one run:
   (`0x4e01f0` a dot product). So a car turned off its way spans more of
   the road: in the 50 s dump the eight cars' +0x21C are 1.18-1.44 (the
   formula on the same dump gives each to 0.02; the dump's +0x21C is the
-  tick before), where the page had taken the half width 1.14-1.18. The
-  lane votes (`0x40daf0`, `0x40d3d0`) do use +0x114. The page now keeps
-  it (`AiCar::extent`, `aiCarExtent`: the body's axes as the hits have
+  tick before), not the half width 1.14-1.18. The lane votes
+  (`0x40daf0`, `0x40d3d0`) do use +0x114. The page keeps it
+  (`AiCar::extent`, `aiCarExtent`: the body's axes as the hits have
   them, turned by the roll and pitch); against the 16 ms dumps it
   follows the game's within about 0.05 (car 7 at 51.0-51.4 s 1.56-1.70
   against 1.58-1.73).
@@ -1913,15 +1904,14 @@ code (`capstone` on the exe) and one run:
   Sc64) last. So a driver reads every other car's +0x7B8, +0x638 and
   +0x7C0 as they were at the tick's start, before any model of that
   tick; and the model's controllers read +0x7B8 as the race task
-  measured it, not the car's place after it moved. The page had run
-  each car's driver and then its model before the next car's driver,
-  and measured +0x7B8 in the driver. Now the page and the sims run
-  `aiRaceTick` (the race task's part), then every car's `aiStep` /
-  `aiCopStep` with `AiPhase::kDrive`, then each with `AiPhase::kMove`
-  and its motion, then `aiCollide`.
+  measured it, not the car's place after it moved. The page and the
+  sims run `aiRaceTick` (the race task's part), then every car's
+  `aiStep` / `aiCopStep` with `AiPhase::kDrive`, then each with
+  `AiPhase::kMove` and its motion, then `aiCollide`, not each car's
+  driver and model before the next car's driver.
 - The reach of the cars ahead and behind (`0x40cfd0`) is +0x7C4 × 2 ×
   0.1667 rounded towards 0 (`0x4dfd56` sets the chop mode for its
-  `frndint`), at least 10, as the page had it; `0x40e2b0` rounds to the
+  `frndint`), at least 10, as the page has it; `0x40e2b0` rounds to the
   nearest, even on a tie (`fistp`), so a car at exactly 4.000 with lanes
   8 wide is in lane 7 (car 1 at 51.3 s: 4.000 and +0x638 7 in the dump).
 
@@ -1937,9 +1927,8 @@ its 143 lane changes 47 are between two samples within 0.3 m of an edge
 Measured (`e9-runs`, `aisim` and `aisim_fine` as `e7-runs`', with the
 order above): over the decisions to 56 s (`agree.py` against
 `d8-votes`) the lane and the pick agree with the game's in 281 of 338
-(242 before), and the first differing pick per car moves from 52.37,
-51.60, 52.07, 51.77, 52.73, 51.21 s to 52.37, 51.73, 52.42, 51.90,
-52.73, 51.34 (cars 1-6; car 7 at 67.8, was 67.3). Those that still
+and the first differing pick per car is at 52.37, 51.73, 52.42,
+51.90, 52.73, 51.34 s (cars 1-6; car 7 at 67.8). Those that
 differ are the model's, not a rule's: car 6 at 51.34 s doesn't see car 7
 in the lane to its right because the game's car 7 voted at 51.31 s with
 +0x7B8 5.24 and +0x21C 1.69, so its left edge in lane 8 (4.05), where
@@ -1953,19 +1942,19 @@ up to 2° off square to the forward (forward · right 0.028-0.042), so the
 velocity along the car's own right (+0x4EC) jumps at the slice change
 (car 4 at 51.04 s: −0.68 to −0.04 m/s; the game's −0.75, −0.78). Turning
 the velocity as a true rotation there instead makes +0x7B8 worse
-(0.144 m rms over 50-51.7 s against 0.064), so it was left. Over the
-first 3.2 s +0x7B8 is now within 0.35 m rms of the game's (0.82 before;
-0.064 over the first 1.7 s, 0.068 before).
+(0.144 m rms over 50-51.7 s against 0.064), so the page doesn't. Over
+the first 3.2 s +0x7B8 is within 0.35 m rms of the game's (0.064 over
+the first 1.7 s).
 
 **The rails controller's force** (`ai_integrate` `0x4071a0`): the
 controller's force 0x56ec6c-0x56ec74 goes through the transposed rows
 at +0x124, so its side part is along the road polygon's right and its
 forward part along the polygon's forward (+0x13C); the car-frame part
-+0x4E0 through the body's rows. The page now pushes along
++0x4E0 through the body's rows. The page pushes along
 `AiCar::roadRight` and `roadForward` (`aiRoadFrame`), into the world
-velocity since `e11` (**The world velocity**, below). The `d7-watch2` replay doesn't
-move (0.60 m rms with the slices' frames; given the polygons' frames
-as well, 0.72 m both before and after: the replay's places are rough).
+velocity (**The world velocity**, below). The `d7-watch2` replay gives
+0.60 m rms with the slices' frames, 0.72 m given the polygons' frames
+as well, whichever way the force goes: the replay's places are rough.
 
 **The put back** (`0x429100`, read with `capstone`). `ai_target_point`
 (`0x406e50`), for a car with no target (+0x624 0) and +0x621 bit 8
@@ -1999,27 +1988,27 @@ this (`aiPutBack`, `aiSpotFree`, `AiCar::offRoadTicks`, `ghostTicks`):
 the surface test is left to the lanes' strips, and the way is the car's
 (a racer's is the race's). In `t6-log`'s window no car is put back.
 
-Re-measured with all of the above (`e9-runs/measure.sh m4`): +0x638
+Measured with all of the above (`e9-runs/measure.sh m4`): +0x638
 changes in 86 samples (cars 1-7: 10, 13, 14, 13, 11, 15, 10; the
-game's 143; 92 before), the aim past 8 m in 168 (the game's 162; 189
-before), speeds 3.92 m/s rms over the window (3.18) but 0.75 from 50 to
-64 s (0.91): past 65 s the page's cars 6 and 7 are held up behind the
+game's 143), the aim past 8 m in 168 (the game's 162), speeds 3.92 m/s
+rms over the window but 0.75 from 50 to 64 s: past 65 s the page's cars
+6 and 7 are held up behind the
 others where the game's aren't (13 and 16 slices behind at the end).
-Cars 3 and 4 part from the game's earlier than before: from 60 s the
+Cars 3 and 4 part from the game's early: from 60 s the
 page's car 3 runs at 4 m and car 4 at −4 m to slice 90, where the
 game's run at 12 m side by side, so the hit at 64 s and car 3's swing
 to −11.7 don't come. The `d7-watch2` replay is 0.60 m rms (rails 1,117,
-slow 59, slide 132) and the roadside cop (`park`, now in the tick's
+slow 59, slide 132) and the roadside cop (`park`, in the tick's
 order) stops 120 times, none past a wall.
 
 **The world velocity** (November 2026, `e11-runs`, read with
-`gdecomp` and `capstone`). The page had kept a racer's velocity as a
-speed along the road and a velocity along the slice's right, carried
-from slice to slice by rebuilding the vector in one slice's frame and
-measuring it in the next. On Hometown's slices 14-16 a slice's right is
+`gdecomp` and `capstone`). A racer's velocity can't be kept as a speed
+along the road and a velocity along the slice's right, carried from
+slice to slice by rebuilding the vector in one slice's frame and
+measuring it in the next: on Hometown's slices 14-16 a slice's right is
 up to 2° off square to its forward (forward · right 0.028-0.042), so
-that rebuild was not the vector the projections came from, and the
-velocity along the car's right jumped at a slice change (car 4 at
+that rebuild isn't the vector the projections came from, and the
+velocity along the car's right jumps at a slice change (car 4 at
 51.04 s: −0.68 to −0.04 m/s where the game's runs −0.75, −0.78). The
 game keeps no such frame:
 - **The velocity is the world's** (+0xA4). `ai_integrate` (`0x4071a0`)
@@ -2054,7 +2043,7 @@ game keeps no such frame:
   with +0x4F4 under 0, the sliding one when +0xB8 is over 2.5
   (`0x5363bc`) and |+0x4EC| over +0x4F4 × 0.5 (`0x5363c4`).
 
-The page now does the same: `AiCar::vel` is the world velocity and
+The page does the same: `AiCar::vel` is the world velocity and
 `AiCar::yaw` the body's heading in the world; `speed` (+0x7C0 along
 the way), `sideSpeed` and `heading` are views of them (`aiViews`),
 taken again when the race task runs (`aiRaceTick`) and after each
@@ -2069,27 +2058,25 @@ slice, `along` and `lateral` again for the new place (`aiLocate`). A
 slice's run is its point + lateral × its right + along × the chord, so
 on the outside of a bend there is a gap between two runs (the place is
 past the one's end and before the next's start): the place stays on
-the first run with `along` a little over 1 until it is in the next. The
-page had clamped `along` to 1 there, which held a car still on the
-outside of Hometown's first bend until the gap closed (car 4 on slice
-13 at 50.5 s, 2-4 m behind its own velocity in half a second).
+the first run with `along` a little over 1 until it is in the next.
+Clamping `along` to 1 there would hold a car still on the outside of
+Hometown's first bend until the gap closed (car 4 on slice 13 at
+50.5 s, 2-4 m behind its own velocity in half a second).
 
 Measured (`e11-runs`, `aisim` and `aisim_fine` as `e9`'s, each car
 seeded with its dumped +0xA4 and body forward, `aiAdvance` after
 `aiCollide`): over the 16 ms dumps +0x7B8 is within 0.020 m rms of the
-game's over 50-51.7 s (0.064 before) and 0.128 m over 50-53.2 s (0.35),
-and the slice +0x1C agrees in 726 of 742 samples to 51.7 s (716) and
-1,350 of 1,400 to 53.2 s (1,312). Over `t6-log`'s window +0x638 changes
-in 116 samples (cars 1-7: 16, 14, 17, 11, 20, 21, 17; the game's 143;
-86 before), 44 of them across a 4 or 12 m edge between samples within
-0.3 m of it (the game's 47; 21 before); the aim is past 8 m in 182
-samples (162; 168). The decisions to 56 s agree in lane and pick with
-`d8-votes` in 295 of 338 (281), and the first differing pick per car is
-at 53.25, 53.21, 52.29, 52.90, 53.10, 73.96 and 66.67 s (52.37, 51.73,
-52.42, 51.90, 52.73, 51.34, 67.8): each is still row 7's halving for a
+game's over 50-51.7 s and 0.128 m over 50-53.2 s, and the slice +0x1C
+agrees in 726 of 742 samples to 51.7 s and 1,350 of 1,400 to 53.2 s.
+Over `t6-log`'s window +0x638 changes in 116 samples (cars 1-7: 16, 14,
+17, 11, 20, 21, 17; the game's 143), 44 of them across a 4 or 12 m edge
+between samples within 0.3 m of it (the game's 47); the aim is past 8 m
+in 182 samples (162). The decisions to 56 s agree in lane and pick with
+`d8-votes` in 295 of 338, and the first differing pick per car is
+at 53.25, 53.21, 52.29, 52.90, 53.10, 73.96 and 66.67 s: each is row 7's halving for a
 car ahead whose +0x7B8 sits within 1-2 cm of 4.0 (car 5 at 52.30 s:
 the game's 3.991, lane 7; the page's 4.003, lane 8). Speeds: 1.57 m/s
-rms over 50-64 s (0.75) and 4.41 over the window (3.92); the cars now
+rms over 50-64 s and 4.41 over the window; the cars
 part at 57.5 s (car 5 moves left where the page's goes right, and car 3
 then stays at 4 m where the game's goes out to 11-12), so cars 3 and 4
 are not side by side at 64 s and their hits don't come; instead the
@@ -2099,13 +2086,14 @@ cars hit 9 times in the whole window, all cars 3 and 4 at 63.6-64.2
 s); on the same slice each takes the other's speed as its speed wanted
 (keeping behind it, `0x4094d0`) while the hits and the sliding they
 start slow both, so the two fall to 24-25 m/s; at the end cars 6 and
-7 are 5 and 6 slices behind the game's (13 and 16 before), car 2 9.
-The `d7-watch2` replay is 0.40 m rms (0.60; rails 1,229, slow 59, slide
+7 are 5 and 6 slices behind the game's, car 2 9.
+The `d7-watch2` replay is 0.40 m rms (rails 1,229, slow 59, slide
 20) and `park` stops 120 times, none past a wall.
 
 **Gravity along the body's own forward** (November 2026, `g1-runs`,
-read with `asm` and `gdecomp`). From about 51 s the page's cars 5-7 ran
-0.2-0.5 m/s faster than the game's. Per 32 Hz call, from `t6-log`'s 16
+read with `asm` and `gdecomp`). With gravity along the road polygon's
+forward, from about 51 s the page's cars 5-7 run 0.2-0.5 m/s faster
+than the game's. Per 32 Hz call, from `t6-log`'s 16
 ms dumps (`resg.py`: the step in +0x7C4 less the acceleration table's
 a / 32): car 7 at 7.3 m/s on slice 23 gains 0.2228 m/s a call in the
 game, 0.2267 on the page; the difference is gravity's. `car_dynamics`
@@ -2127,9 +2115,9 @@ within 0.02 with the body upright; `car_integrate_turn` (`0x4a2e20`)
 turns the rows by the spins about the world's axes. Within 0.02 nothing
 lays the body on the road: in the dumps car 7's forward's y (+0xDC)
 stays 0.0450 from 50.0 to 50.6 s while the road's forward's y goes
-0.045 → 0.034 → 0.024. The page had pulled along the road polygon's
-forward and kept the roll and pitch against the slice's up. Now
-(`aiModelSteer`, `aiTilt` with the track, `aiAdvance`, `aiTiltedAxes`,
+0.045 → 0.034 → 0.024. The page does the same, not pulling along the
+road polygon's forward or keeping the roll and pitch against the
+slice's up (`aiModelSteer`, `aiTilt` with the track, `aiAdvance`, `aiTiltedAxes`,
 `aiSetTilt`) the forward part goes along the body's forward (its yaw
 laid on its tilted up), `aiTilt` takes the world spins from the road
 polygon's up, and `aiAdvance` keeps the body's up in the world across
@@ -2137,28 +2125,25 @@ slices (turned with the yaw), taking the roll and pitch again against
 the new slice. The sims seed the roll and pitch from the dumped +0xCC.
 Against the 16 ms dumps the page's forward's y follows the game's within
 about 0.005 (car 7 at 52.0 s 0.0001/0.0046, car 4 0.0470/0.0432) and
-car 7's step is 0.2248. The hits had put a spin about the right in as a
-pitch the other way from `aiTiltedAxes`' (which pitches the up towards
-−forward); they now agree.
+car 7's step is 0.2248. The hits put a spin about the right in as a
+pitch the same way as `aiTiltedAxes`' (which pitches the up towards
+−forward).
 
 Measured (`g1-runs/all.sh`, the sims as `e11`'s): the speeds 3.09 m/s
-rms over `t6-log`'s window (4.41) and 1.06 from 50 to 64 s (1.57); over
-the 16 ms dumps cars 5-7 within 0.06 m/s to 53.2 s (0.2-0.3 before),
-cars 1-4 up to 0.22 over (0.1 under before: they had been held back by
-the road's forward's rise where their bodies were level); +0x638
-changes in 128 samples (the game's 143; 116 before), 56 of them at a 4
-or 12 m edge (47; 44), the aim past 8 m in 172 (162; 182); +0x7B8
-within 0.017 m rms over 50-51.7 s and 0.105 over 50-53.2 s (0.020,
-0.128); the decisions to 56 s as before (295 of 338, the first
-differing picks the same), to 78 s 767 of 1,568. The page's cars no
-longer run on one slice within a lane of each other: no hits (45 before;
-the game's 9, cars 3 and 4 at 63.6-64.2 s). Cars 3 and 4 now come to
+rms over `t6-log`'s window and 1.06 from 50 to 64 s; over the 16 ms
+dumps cars 5-7 within 0.06 m/s to 53.2 s, cars 1-4 up to 0.22 over;
++0x638 changes in 128 samples (the game's 143), 56 of them at a 4 or
+12 m edge (47), the aim past 8 m in 172 (162); +0x7B8 within 0.017 m
+rms over 50-51.7 s and 0.105 over 50-53.2 s; the decisions to 56 s 295
+of 338, to 78 s 767 of 1,568. The page's cars don't run on one slice
+within a lane of each other: no hits (the game's 9, cars 3 and 4 at
+63.6-64.2 s). Cars 3 and 4 come to
 slices 86-91 at 63.5-64 s at 11.8-12.2 m with car 4 a slice ahead, where
 the game's run side by side (car 3 at 13.7-16.8 m); car 4 moves across
 from −4 m about a second after the game's (2.9 m at 62 s, the game's
 7.3), and car 5 parts at 56.7 s on the 4 m edge (the game's 3.98, lane
-7; the page's 4.00, lane 8). The `d7-watch2` replay (0.40 m rms) and
-`park` (120 stops, none past a wall) are unchanged.
+7; the page's 4.00, lane 8). The `d7-watch2` replay gives 0.40 m rms
+and `park` 120 stops, none past a wall.
 
 **The road frame where the search finds nothing** (`0x41f018`-
 `0x41f078`). Unfound, the track position's search walks +0x10 back to
@@ -2167,11 +2152,11 @@ the slice it started from and clears +0x14 and +0x18, so
 vectors (its bytes +0x0D-+0x17) and point, whatever +0x6C is; and inside
 a polygon it takes the polygon's road vector only with +0x64 2 (set by
 the search when it finds one, `0x41eb4b`, `0x41ee00`; 2 in all 427 of
-`t6-log`'s samples). The page had kept the last polygon's frame when
-the search found nothing on the run, and had taken the frame of the
-point behind the car (`slice`) off the run's side; it now takes the
-searched slice's (`aiRoadFrame`). In `t6-log`'s window the search always
-finds a polygon, so nothing measured changes. The jump in car 1's
+`t6-log`'s samples). The page takes the searched slice's
+(`aiRoadFrame`), not the last polygon's frame when the search finds
+nothing on the run, nor the frame of the point behind the car (`slice`)
+off the run's side. In `t6-log`'s window the search always finds a
+polygon, so this changes nothing measured. The jump in car 1's
 +0x7B8 the `e11` sims had at 63.78 s (22.84 → 14.96 m, the car at 22.8
 m on Hometown's slice 89-90) is not this: the polygon found there is
 slice 90's run's polygon 11, the bank past the road, whose road vector's
@@ -2193,7 +2178,7 @@ whose road vector's up y, read as an int (s16 × 2), is at least 0.8
 (`0x5371b0`, a double): any up y above 0. `0x429100` goes 5 slices
 (`0x5efdcc`) on the race's way, +1 or −1 on a backward track
 (`g_backward`), and `0x428d60` walks on the same way, for every car,
-racer or cop. The page now does both (`aiSpotOnRoad`, applied by
+racer or cop. The page does both (`aiSpotOnRoad`, applied by
 `aiSpotFree` once the car has searched the track; `AiCar::raceBackward`,
 false on the page's tracks). In `t6-log`'s window no car is put back.
 
@@ -2204,7 +2189,7 @@ over 0: within 2 slices (`0x56ef48` under 2) +0x7B0 becomes its +0x7C0,
 at 2 lowered by half (`0x536424`) the difference.
 
 **Where +0x7B8 parts by a centimetre** (November 2026, `g1-runs`). The
-first differing picks (53.25, 53.21, 52.29, 52.90, 53.10 s) are still
+first differing picks (53.25, 53.21, 52.29, 52.90, 53.10 s) are
 cars on the 4 m edge to the centimetre (car 5 at 52.30 s the game's
 3.991, the page's 4.003). Over 50-52.3 s, with the aim at 4 m, the page's
 +0x7B8 less the game's has means of −0.006 to +0.003 m for cars 1, 3
@@ -2233,7 +2218,7 @@ read with `gdecomp` and `asm`).
   the slice's plane (its right and the chord to the next point; the sims
   seed it as the dumped +0x98 brought square onto that plane), so the
   centre is above it along that plane's normal by H, with (place + H ×
-  normal − +0x148) · +0x130 = the box's reach, and `aiMeasuredSide` now
+  normal − +0x148) · +0x130 = the box's reach, and `aiMeasuredSide`
   adds H × (normal · the polygon's right) (`aiCentreLift`; `aiRoadFrame`
   keeps the polygon's up and point, `AiCar::roadUp`, `roadPoint`).
   Checked (`h1-runs/sidechk`): from each dumped +0x98 (moved back by the
@@ -2251,7 +2236,7 @@ read with `gdecomp` and `asm`).
   `0x4a1aaf`), so what is left is along the road where the body is
   pitched on it: about −0.0009 m/s a call for cars 1 and 2 (bodies
   nose-down 1-2 degrees on the road), +0.0006 for cars 5-7. The page
-  now does both (`AiCar::downforce`, `groundSpeed`, `AiCarData::downforce`);
+  does both (`AiCar::downforce`, `groundSpeed`, `AiCarData::downforce`);
   the removal is along the road polygon's own up where the game's is the
   road frame turned half way (`0x4b7680`) to the frame at the box's
   front-bottom one tick ahead (in the dumps the velocity is left with
@@ -2263,7 +2248,7 @@ read with `gdecomp` and `asm`).
   s the game's cars 1-7 have −0.0062, −0.0096, −0.0151, −0.0172,
   −0.0203, −0.0156 and +0.0002 m/s; the page's (`frd_pc`) −0.0021,
   −0.0065, −0.0121, −0.0139, −0.0198, −0.0137 and −0.0015. So cars 1-4
-  still gain about 0.003 a call, about 0.2 m/s by 53 s. Neither gravity
+  gain about 0.003 a call, about 0.2 m/s by 53 s. Neither gravity
   along the road's forward nor along the body's own explains all seven
   (the residual less body gravity and downforce is −0.0010 to −0.0031 a
   call for every car); the table's lookup, its rounding (`fistp` in the
@@ -2274,17 +2259,16 @@ read with `gdecomp` and `asm`).
   run without `-native`; not done.
 
 Measured (`h1-runs/all.sh f1`): +0x638 changes in 132 samples (the
-game's 143; 128 before), 55 at an edge (47; 56), the aim past 8 m in
-168 (162; 172); speeds 3.54 m/s rms over the window (3.09) and 1.60 over
-50-64 s (1.06): past 56 s the cars run in other places, car 3 at 40.5
-m/s and 3-4 slices behind the game's at 61.5-64.5 s (45.2 before);
-+0x7B8 within 0.0177 m rms over 50-51.7 s (0.0172) and 0.106 over
-50-53.2 s (0.105); the decisions to 56 s 296 of 338 (295), to 78 s 750
-of 1,568 (767), the first differing picks 53.25, 53.21, 52.29, 52.90,
-53.10, 65.08 and 66.92 s; no hits (the game's 9). Over the 16 ms dumps
-cars 1, 2 and 4 are 0.15, 0.11 and 0.10 m/s fast at 52.6 s (0.21, 0.17,
-0.16), car 6 0.26 (0.19). The `d7-watch2` replay (0.40 m) and `park`
-(120 stops, none past a wall) are unchanged.
+game's 143), 55 at an edge (47), the aim past 8 m in 168 (162); speeds
+3.54 m/s rms over the window and 1.60 over 50-64 s: past 56 s the cars
+run in other places, car 3 at 40.5 m/s and 3-4 slices behind the
+game's at 61.5-64.5 s; +0x7B8 within 0.0177 m rms over 50-51.7 s and
+0.106 over 50-53.2 s; the decisions to 56 s 296 of 338, to 78 s 750 of
+1,568, the first differing picks 53.25, 53.21, 52.29, 52.90, 53.10,
+65.08 and 66.92 s; no hits (the game's 9). Over the 16 ms dumps cars 1,
+2 and 4 are 0.15, 0.11 and 0.10 m/s fast at 52.6 s, car 6 0.26. The
+`d7-watch2` replay gives 0.40 m and `park` 120 stops, none past a
+wall.
 
 **The contact's frame, recorded a step at a time** (November 2026,
 `i1-runs`, read with `gdecomp`, `asm` and `capstone`). `t6-log`'s run
@@ -2296,17 +2280,17 @@ around gravity, `0x4a2b7d` after `car_on_road`, at `0x4088f0`,
 `0x4a2c60` and the race task `0x42ce70`, with `-watchread` of 53 fields
 of four cars and 0x56ec58-0x56ec78): run `w2` cars 1-4 and `w3` cars
 5-7 (and 1 again) from 51.4 to 52.7 s, 42 rails calls each, 13 minutes
-a run. `-native` doesn't hide anything from `-watch`; the earlier count
+a run. `-native` doesn't hide anything from `-watch`; the `-count`
 of 296 is `car_dynamics`' own gate: it does nothing before `g_step`
 (`0x7d3684`) 0x200, and runs once per car each even step. From 50.0 to
 50.5 s the cars are still under 13.4 m/s, so on the slow controller
 (`0x408848`). Per call, along +0x13C:
 - `ai_integrate` is exact: the velocity gains the force through the
   rows / 32 to the last bit; `0x56ec68` is 0.
-- The downforce is the page's to the bit for cars 2-7; car 1's differs
-  until 51.77 s because its body rows are not unit (|right|² 1 − 2.3e-4,
-  from the grid) until the first turn makes them again; the page's are.
-  (Since ported: "Out of the race, tipped, the grid and the rows".)
+- The downforce is the page's to the bit. Car 1's body rows are not
+  unit (|right|² 1 − 2.3e-4, from the grid) until the first turn makes
+  them so, at 51.77 s; the page keeps them as the game does ("Out of the
+  race, tipped, the grid and the rows").
 - Gravity is the +0x190 rows' (the body's forward part, −0.0019 to
   −0.0198 a call by car), as the page has it.
 - `car_on_road` took −0.0018 to −0.0025 m/s a call (cars 1-4) along the
@@ -2336,7 +2320,7 @@ of 296 is `car_dynamics`' own gate: it does nothing before `g_step`
   car's own rows unturned. Those are 16.16 fixed point and not of unit
   length (|forward|² 1 − 1.0e-4, |right|² 1 − 1.9e-4 in the trace), so the
   rebuild scales the velocity: about −0.002 m/s a call at 20 m/s. That
-  is the drift the page lacked; the turned frame (2-3 ticks a slice)
+  is the drift; the turned frame (2-3 ticks a slice)
   adds the road ahead's tilt.
 - Checked (`cchk`, the page's search and quaternions on the game's own
   state at `0x4a2b28`, the car's polygon found from +0x98): of 119
@@ -2350,14 +2334,15 @@ of 296 is `car_dynamics`' own gate: it does nothing before `g_step`
   frame: the +0x130 copy it was passed is replaced by the frame's up row
   when the clearance is 0 or less.
 
-The page now does this (`aiContactFrame`, `aiContactVelocity`,
+The page does this (`aiContactFrame`, `aiContactVelocity`,
 `aiHalfTurn`; `AiCar::contactUp` for `aiTilt`), from the body's centre
 (`aiCentreHeight`) and the car's search (`AiCar::road`); the clearance
 is not modelled, so the step runs every tick. Per accelerating rails
 call over 51.4-52.7 s, the sum of the downforce, gravity and the
-contact along +0x13C (`mkss.sh`, `ss.py`; the game's from `sub.py`):
+contact along +0x13C (`mkss.sh`, `ss.py`; the game's from `sub.py`),
+and the page's with only the velocity's part along +0x130 taken out:
 
-| car | game | page before | page now |
+| car | game | page, +0x130 only | page |
 |---|---|---|---|
 | 1 | −0.0054 | −0.0028 | −0.0051 |
 | 2 | −0.0094 | −0.0070 | −0.0096 |
@@ -2371,28 +2356,28 @@ Cars 6 and 7 differ in the contact itself (the game's −0.0006 and
 +0.0005, the page's −0.0019 and −0.0018), from their own states (the
 port gives the game's on the game's state). Along +0x124 the sub-steps
 agree to 0.0001 a call except car 3's (−0.0010 against the page's
-−0.0005). Over the 16 ms dumps each car's +0x7C4 is now within 0.05 m/s
-of the game's to 53.2 s (cars 1, 2, 4 were 0.15, 0.11, 0.10 fast).
+−0.0005). Over the 16 ms dumps each car's +0x7C4 is within 0.05 m/s
+of the game's to 53.2 s (cars 1, 2, 4 0.15, 0.11, 0.10 fast with +0x130
+only).
 
 Measured (`h1-runs/all.sh`): with the contact's frame only (`i1a`)
-+0x638 changes in 136 samples (the game's 143; 132 before), 51 at an
-edge (47; 55), the aim past 8 m in 166 (162; 168); speeds 3.03 m/s rms
-over the window (3.54) and 0.67 over 50-64 s (1.60); +0x7B8 within
-0.0168 m rms over 50-51.7 s (0.0177) and 0.0484 over 50-53.2 s (0.106);
-the decisions to 56 s 328 of 338 (296), to 78 s 820 of 1,568 (750). With
++0x638 changes in 136 samples (the game's 143), 51 at an edge (47), the
+aim past 8 m in 166 (162); speeds 3.03 m/s rms over the window and 0.67
+over 50-64 s; +0x7B8 within 0.0168 m rms over 50-51.7 s and 0.0484 over
+50-53.2 s; the decisions to 56 s 328 of 338, to 78 s 820 of 1,568. With
 the spins against the frame's up as well (`i1c`, kept): the body's
 forward's y within 0.0020 rms of the dumps' +0xDC over 50-53.2 s (0.0035
 without), +0x7B8 0.0168 and 0.0404, the decisions 328 and 799; +0x638
 changes 125, 41 at an edge, the aim past 8 m 174; speeds 4.24 over the
 window and 0.68 over 50-64 s (past 64 s the cars are in other places
-either way). The first differing picks are now 55.58 (car 2), 53.40
+either way). The first differing picks are 55.58 (car 2), 53.40
 (car 4) and 55.73 s (car 5), none to 56 s for cars 1, 3, 6 and 7 (to 78
 s 56.35, 56.05, 65.45, 66.92). Hits: 7, cars 2 and 3 at 76.7 s and car
 4 at 75.8 s (the game's 9, cars 3 and 4 at 63.6-64.2 s). The `d7-watch2`
-replay (0.40 m) and `park` (120 stops, none past a wall) are unchanged.
+replay gives 0.40 m and `park` 120 stops, none past a wall.
 
-Where the cars still part: on the 4 m lane edge to a few centimetres,
-as before. Car 4 at 53.40 s: the game's sees no car ahead in the lane
+Where the cars part: on the 4 m lane edge to a few centimetres. Car 4 at
+53.40 s: the game's sees no car ahead in the lane
 to its right, the page's sees car 6 there: car 6's left edge at its
 53.33 s decision is +0x7B8 4.921 less its span, on 4.0, where the
 page's is at 4.900. Car 5 at 55.73 s (+0x7B8 4.097 against 4.120)
@@ -2423,7 +2408,7 @@ the controller's +0x2F4-+0x2FC and +0x4E0-+0x4E8, +0x4EC-+0x500, and
 is `aisim_l1` (`aisim_fine` with each car's state logged every step).
 - **The rails' yaw** is the game's formula to the bit on all 618 calls
   when it is taken from +0x4FC, and +0x210 is the body's forward
-  (+0xD8) chopped to 1/1024 turn on all 644, as the page had it. But
+  (+0xD8) chopped to 1/1024 turn on all 644, as the page has it. But
   +0x4FC is not the yaw spin +0xE8: `car_ai_physics` (`0x4088f0`) puts
   the spins (+0xE4, +0xE8, +0xEC) along the body's up row (+0xCC), and
   the spins about x and z that `car_on_road` sets (up to 0.045 turn/s
@@ -2432,25 +2417,25 @@ is `aisim_l1` (`aisim_fine` with each car's state logged every step).
   mean). The force (+0x2F8, about the body's up) goes back through the
   body's rows (`ai_integrate`): +0xE8 gains it × the up's y, to 2e-9
   (4.8e-6 without), and +0xE4 and +0xEC its x and z (up to 2e-4 a call,
-  set again by `car_on_road` the next tick; since ported, "Out of the
-  race, tipped, the grid and the rows"). The page now keeps
-  those two spins (`AiCar::spinX`, `spinZ`, from `aiTilt`) and steers
+  set again by `car_on_road` the next tick; "Out of the race, tipped,
+  the grid and the rows"). The page keeps those two spins
+  (`AiCar::spinX`, `spinZ`, from `aiTilt`) and steers
   all three controllers by them along the tilted body's up.
 - **Off the lanes.** `car_ai_model`'s test for the slide (`0x408703`-
   `0x40876f`) builds the lanes' edge as lanes × the width byte ×
   0x8000, which is 16.16 fixed point, and loads it with `fild` as an
   integer against +0x7B8 in metres: it is never passed but on a side of
   the slice with no lanes (or a width of 0), where any side offset that
-  way is. The page had the edge in metres, so a car past the lanes' edge
-  (the lane past the road's lanes, at 9 m and more) slid; in the
-  `d7-watch2` replay that was 137 of its 140 slides (now rails 1,246,
-  slow 59, slide 3; the replay 0.37 m rms, 0.40 before). The game's
+  way is. With the edge in metres a car past the lanes' edge (the lane
+  past the road's lanes, at 9 m and more) slides: in the `d7-watch2`
+  replay 137 of 140 slides; with the game's test, rails 1,246, slow 59,
+  slide 3 and the replay 0.37 m rms. The game's
   `gh1-ai` slides (65 for car 1) must then come from the heading error
   or the slip; `r1` has none for cars 3-6 in 5 s.
 - **The gain's speed.** The side force's 1 + 0.0015 × the speed reads
   +0x4F4, the velocity along the body's forward (`0x4078ea`), not
-  +0x7C4 as the page had it: in a lane change at 23 m/s the two differ
-  by 1-2 m/s and the page's force was 0.2 low (car 6, 52.6 s).
+  +0x7C4: in a lane change at 23 m/s the two differ by 1-2 m/s, and
+  with +0x7C4 the page's force is 0.2 low (car 6, 52.6 s).
 - **The clearance.** Per call, `car_dynamics`' sub-steps along +0x13C
   agree but for `car_on_road` above 20 m/s: the game's −0.0012 to
   −0.0028, the page's −0.0027 to −0.0040 (`dyn2.py`). `car_dynamics`
@@ -2460,23 +2445,23 @@ is `aisim_l1` (`aisim_fine` with each car's state logged every step).
   (`0x4a1a2a`); the spins are set either way. In `r2` +0x15C is over 0
   on 20 % of the calls at 12-24 m/s, 30 % at 24-28 and about half over
   28: the car runs on over each crest between polygons until gravity's
-  part along the up row (`0x4a2a4c`-`0x4a2aa5`, always added, which the
-  page had left out as the contact took it back) brings it down. On those
+  part along the up row (`0x4a2a4c`-`0x4a2aa5`, always added, though
+  the contact takes it back) brings it down. On those
   calls the game's contact takes nothing, on the others more (−0.0052 a
-  call at 28-36 m/s). The page now keeps the clearance (`AiCar::lift`:
+  call at 28-36 m/s). The page keeps the clearance (`AiCar::lift`:
   the moves of `car_move` since the last tick along the road polygon's
   up, 0 when the contact runs; the box's reach turning with the body and
-  the polygon's plane changing were added later, "Out of the race,
-  tipped, the grid and the rows") and runs the contact only at 0 or less; gravity's up
-  part is always added. By speed band the contact is now the game's to
+  the polygon's plane changing in "Out of the race, tipped, the grid and
+  the rows") and runs the contact only at 0 or less; gravity's up
+  part is always added. By speed band the contact is the game's to
   0.0002 a call (12-36 m/s by 4: −0.0022, −0.0018, −0.0021, −0.0011, −0.0022,
   −0.0029 against −0.0024, −0.0017, −0.0019, −0.0012, −0.0022, −0.0028).
 - What is left along the road is gravity's forward part, the page's
   0.0003-0.0005 a call more (its body's forward's y is 0.0003-0.0011
   over the game's on average, 0.0023-0.0028 rms: the pitch). Over the 5
-  s the page's |v| is now 0.01-0.12 m/s under the game's (0.03-0.20
-  before). Car 4 still parts at 52.70 s: its +0x7C4 crosses 22.35 m/s
-  (`0x56ebf4`, the side speed wanted no longer held to 0.129 × it) one
+  s the page's |v| is 0.01-0.12 m/s under the game's. Car 4 parts at
+  52.70 s: its +0x7C4 crosses 22.35 m/s (`0x56ebf4`, past which the
+  side speed wanted isn't held to 0.129 × it) one
   call after the game's (22.319 against 22.367), so for that call it
   pushes with −11.5 where the game's has −23.4, and it is 4 cm behind
   the game's across the road through its lane change; car 6, which
@@ -2485,27 +2470,25 @@ is `aisim_l1` (`aisim_fine` with each car's state logged every step).
   and 6 over the 5 s, 0.07 for car 4).
 
 Measured (`h1-runs/all.sh l1b`; each change on its own in order, the
-table's columns as before): with the off-lanes test only, +0x638 changes
+columns as in the contact's measure): with the off-lanes test only, +0x638 changes
 127, 42 at an edge, the aim past 8 m 168, speeds 3.03 and 0.68 m/s rms,
 decisions 328 and 811, no hits; with the spin about the body's up as
 well, 132, 46, 160, 3.16 and 0.67, 328 and 816; with the clearance, 122,
 43, 139, 3.18 and 0.80, 329 and 978, and the hits come back; with the
 gain's speed (kept, all four): +0x638 changes in 132 samples (the
-game's 143; 125 before), 41 at an edge (47; 41), the aim past 8 m 155
-(162; 174); speeds 3.23 m/s rms over the window (4.24) and 0.80 over
-50-64 s (0.68: from 61.5 s the page's cars 3 and 4 slow, 37.9 m/s at 64
-s where the game's run at 42); +0x7B8 0.0166 and 0.0404 m rms (0.0168,
-0.0404); the decisions to 56 s 329 of 338 (328), to 78 s 1,000 of 1,568
-(799); the first differing picks 61.12, 55.58, 59.43, 53.40, 56.73,
-71.32 and 67.17 s for cars 1-7 (56.35, 55.58, 56.05, 53.40, 55.73,
-65.45, 66.92): car 3's split at 56.05 s and car 5's at 55.73 s are gone.
-**Hits**: cars 3 and 4 now meet as the game's do, from 63.69 s at
+game's 143), 41 at an edge (47), the aim past 8 m 155 (162); speeds
+3.23 m/s rms over the window and 0.80 over 50-64 s (from 61.5 s the
+page's cars 3 and 4 slow, 37.9 m/s at 64 s where the game's run at 42);
++0x7B8 0.0166 and 0.0404 m rms; the decisions to 56 s 329 of 338, to
+78 s 1,000 of 1,568; the first differing picks 61.12, 55.58, 59.43,
+53.40, 56.73, 71.32 and 67.17 s for cars 1-7.
+**Hits**: cars 3 and 4 meet as the game's do, from 63.69 s at
 slices 86-95 (the game's nine impulses between them at 63.58-64.18 s),
 the page's car 3 at 12.3-14.7 m (the game's 13.7-16.8); 32 hit lines in
 all (both cars each), cars 3 and 4 again at 66.5 s, cars 6 and 7 at
 67.6-68.5 s and cars 1 and 2 at 70 s, which the game doesn't have. The
-`d7-watch2` replay 0.37 m (0.40) and `park` (120 stops, none past a
-wall) as before.
+`d7-watch2` replay gives 0.37 m and `park` 120 stops, none past a
+wall.
 
 **Skid levels** (+0x5C0 front, +0x5C4 rear) for computer cars:
 `ai_ctl_rails` `0x4076b0` sets the front to (|v · right of slice + 2| −
@@ -2516,7 +2499,7 @@ leaves them; `car_ai_physics` `0x4088f0` zeroes them in the air or below
 upright 0.9 (`0x5363d4`). The page: `aiSkid`, called from `aiMove`; the
 start's wheelspin is `aiStartSpin` (physics.md). `car_ai_physics`
 zeroes both levels and skips `car_ai_model` when the car is in the air or
-+0x10C is under 0.9; so does the page now (below).
++0x10C is under 0.9; so does the page (below).
 
 **Out of the race, tipped, the grid and the rows** (November 2026,
 `n1-runs`, read with `gdecomp`, `asm`, `field` and `xref`; the table
@@ -2529,9 +2512,9 @@ from `h1-runs/all.sh`).
   (`0x53dcc4`), takes the velocity's part along the road's plane × 0.94
   and the spin about its normal × 0.98. `car_ai_model` itself does the
   same for a body up row's y (+0xD0) under 0.3 (`0x408613`). The page
-  (`aiModelSteer`, `aiBodyFriction`) now runs no controller for a tipped
-  car, only the friction. No car tips in `t6-log`'s window: the table is
-  unchanged by it (`n1c`).
+  (`aiModelSteer`, `aiBodyFriction`) runs no controller for a tipped
+  car, only the friction. No car tips in `t6-log`'s window, so it
+  changes nothing measured (`n1c`).
 - **Finished and busted.** +0x2C4 is set to 3 by `car_laps_task`
   (`0x4ce280`, per car): when a racer's lap (+0x204) differs from the one
   last counted (+0x234) and equals the race's laps (`0x6fd4b4`), not for
@@ -2620,9 +2603,9 @@ from `h1-runs/all.sh`).
   car 4 50.594 against 50.608 s, 5 50.625/50.624, 2 50.656/50.656, 7
   50.750/50.752, 3 50.812/50.800, 1 51.750/51.744, 6 52.031/52.032). The
   body's forward's y is then within 0.00146 rms of the dumps' +0xDC over
-  50-53.2 s (0.00168 before), its mean +0.00006 over the game's (it was
-  +0.00049: the pitch named above as gravity's forward part's 0.0003-
-  0.0005 a call).
+  50-53.2 s, its mean +0.00006 over the game's (+0.00049 with unit
+  rows: the pitch named above as gravity's forward part's 0.0003-0.0005
+  a call).
 - **The clearance follows the body and the plane.** `car_clearance`
   (`0x4a0440`) is taken each call from the centre against the current
   polygon's plane: (+0x98 − +0x148) · +0x130 less |up · right| × the
@@ -2630,7 +2613,7 @@ from `h1-runs/all.sh`).
   length, with the body's rows. So besides `car_move`'s moves along the
   up it changes as the body turns (the reach) and when the polygon
   under the car changes (another plane under the same centre). The page
-  now does both (`AiCar::liftRows`, `liftUp`, `liftPoint` in
+  does both (`AiCar::liftRows`, `liftUp`, `liftPoint` in
   `aiModelSteer`): the reach's change with the rows since the last call,
   along the plane's up as it is now, and on a new polygon the same
   centre's height over the new plane (the page's centre has the box's
@@ -2651,26 +2634,25 @@ from `h1-runs/all.sh`).
   roll and pitch by them; about 6e-6 turn a call.
 
 Measured (`h1-runs/all.sh`, each change on its own in order; the
-columns as before): tipped only (`n1c`): the table as before (no car
-tips). With the rows (`n1rows`): +0x638 changes 121 (the game's 143;
-132 before), 47 at an edge (47; 41), the aim past 8 m 151 (162; 155);
-speeds 3.28 m/s rms over the window (3.23) and **0.42** over 50-64 s
-(0.80); +0x7B8 0.0167 and 0.0521 m rms (0.0166, 0.0404: car 6 alone,
-0.057 to 0.104, its speed 0.01-0.04 m/s higher crossing 22.35 m/s a
-call earlier in its lane change); decisions 324 of 338 and 933 of
-1,568 (329, 1,000); hits 7. With the reach (`n1reach`): 126, 48, 165;
+columns as in the contact's measure): tipped only (`n1c`): nothing
+changes (no car tips). With the rows (`n1rows`): +0x638 changes 121
+(the game's 143), 47 at an edge (47), the aim past 8 m 151 (162);
+speeds 3.28 m/s rms over the window and **0.42** over 50-64 s; +0x7B8
+0.0167 and 0.0521 m rms (car 6 alone 0.104, its speed 0.01-0.04 m/s
+higher crossing 22.35 m/s a call earlier in its lane change);
+decisions 324 of 338 and 933 of 1,568; hits 7. With the reach (`n1reach`): 126, 48, 165;
 3.46 and 0.95; 0.0167 and 0.1036; decisions 297 and 780; hits 21. With
 the yaw force's x and z (`n1leak`): 131, 52, 174; 3.29 and 0.90; the
 same side rms; 297 and 787; hits 14. With the plane (`n1plane`, kept,
 all of them; `n1final` the same): +0x638 changes 122, 45 at an edge,
 the aim past 8 m 160; speeds 3.32 and 1.15 m/s rms (0.43 over 50-56 s:
-cars 1 and 2 0.82 and 0.58, the others 0.20-0.30 as before); +0x7B8
+cars 1 and 2 0.82 and 0.58, the others 0.20-0.30); +0x7B8
 0.0167 and 0.1036 m rms; the decisions to 56 s 297 of 338, to 78 s 843
 of 1,568; the first differing picks 53.25, 53.21, 52.29, 52.90, 53.10,
-69.83 and 67.17 s; hits 29. The `d7-watch2` replay (0.37 m) and `park`
-(120 stops, none past a wall) are unchanged. So the clearance and the
-rows each follow the game's better call by call, while the table's
-decisions part earlier: car 3 at 52.29 s goes back to lane 4 (+0x7B4
+69.83 and 67.17 s; hits 29. The `d7-watch2` replay gives 0.37 m and
+`park` 120 stops, none past a wall. So the clearance and the rows each
+follow the game's call by call, while the table's decisions part
+early: car 3 at 52.29 s goes back to lane 4 (+0x7B4
 4) one decision before the game's, and car 1 from 54.5 s is not held
 behind a slower car (its speed wanted 44.0 where the game's is 38.1),
 which is the speed difference over 50-60 s. Both are the knife-edge
@@ -2710,9 +2692,8 @@ compares them stage by stage.
   itself (`0x40e047`; `0x4e0ec0`'s second argument, 0x10, is not an
   offset), and the lane nibbles start (slices + 1) / 2 on
   (`0x40e040`-`0x40e057`); every track's file is exactly (slices + 1) /
-  2 + slices bytes. The page had skipped a 16-byte header, so on
-  Hometown it read the speeds 32 slices on. Fixed (`aiSlicesSpeed`,
-  `aiLineLane`).
+  2 + slices bytes. Skipping a 16-byte header would read Hometown's
+  speeds 32 slices on (`aiSlicesSpeed`, `aiLineLane` don't).
 - With that, **the page's decision on the game's inputs is the game's on
   all 1,584 decisions** (49.9-78.2 s): lanes, the speed wanted before
   and after the keeping behind (applied in 295), the nearest cars, all
@@ -2721,7 +2702,7 @@ compares them stage by stage.
   never are (no strips, no car coming the other way, and the whole run
   is within the race's start, `0x40f050`), so those rules are checked
   against the code only.
-- **Where the sim still parts** (`aisim` logging the same inputs at each
+- **Where the sim parts** (`aisim` logging the same inputs at each
   decision, `why.py`): each car's first differing pick is an input a
   few millimetres to centimetres off at the 4 m lane edge, not a rule.
   Car 3 at 52.29 s: car 5's +0x7B8 is 3.991 in the game (lane 7, so not
@@ -2745,15 +2726,14 @@ compares them stage by stage.
   decision took that way. State 2 (`0x409a90`, the cops' list
   `0x5efc08`) needs a cop, so is never used on `t6-log`.
 
-Measured (`h1-runs/all.sh o1fix`, the columns as before; `n1final` in
-brackets): +0x638 changes in 124 samples (the game's 143; 122), 46 at an
-edge (47; 45), the aim past 8 m 163 (162; 160); speeds **2.82** m/s rms
-over the window (3.32) and 1.15 over 50-64 s (1.15); +0x7B8 0.0167 and
-0.1036 m rms (the same: the first 3.2 s are on slices under 136); the
-decisions to 56 s 297 of 338 (297), to 78 s **920** of 1,568 (843); the
-first differing picks 53.25, 53.21, 52.29, 52.90, 53.10, 74.32 and
-66.67 s (car 6 69.83, car 7 67.17); hits 24 (29). The `d7-watch2`
-replay (0.37 m) and `park` (120 stops, none past a wall) are unchanged.
+Measured (`h1-runs/all.sh o1fix`, the columns as in the contact's
+measure): +0x638 changes in 124 samples (the game's 143), 46 at an
+edge (47), the aim past 8 m 163 (162); speeds **2.82** m/s rms over the
+window and 1.15 over 50-64 s; +0x7B8 0.0167 and 0.1036 m rms (the first
+3.2 s are on slices under 136); the decisions to 56 s 297 of 338, to
+78 s **920** of 1,568; the first differing picks 53.25, 53.21, 52.29,
+52.90, 53.10, 74.32 and 66.67 s; hits 24. The `d7-watch2` replay gives
+0.37 m and `park` 120 stops, none past a wall.
 
 **The road's vectors are byte / 128** (November 2026, `s4-runs`, read
 with `asm` and `capstone`). The partings above are a car's +0x7B8 a few
@@ -2768,60 +2748,59 @@ and rounding:
 - The lane (`0x40e2b0`): the width byte << 15, × 1/65536 (`0x5367bc`)
   to a float, × 4 (`0x5367c4`) and `fistp` gives the index of a float
   table of 1 / (k / 4) (`0x56f0e0`, `0x40e483`-`0x40e494`, 0.25 at
-  `0x5367e0`); that × +0x7B8 goes to `fistp` unrounded. The page had
-  rounded the product to a float first; it now takes it in double
-  (`aiLaneAt`). No sample in `t6-log`'s window falls between the two.
+  `0x5367e0`); that × +0x7B8 goes to `fistp` unrounded, not rounded to
+  a float first. The page takes it in double (`aiLaneAt`). No sample in
+  `t6-log`'s window falls between the two.
 - **The point's vectors.** Every reader of the points (`0x5dd948`) loads
   a vector's byte as the top byte of a dword and does `sar 0x18`, `shl
   9`: 16.16 fixed point, byte / 128 (`0x406a80`, `0x420230`, `0x4a0aa0`,
   `0x41ffd0`, `0x4304b0`, `0x428ad0`, `0x42ce70`, `0x40ef70`, `0x4a2690`
-  among them; `bytescale.sh`). Reluva's `.col` reader divided by 127
-  (col.md). Where it shows: `ai_ctl_rails`' velocity across the road 2
-  slices on (`0x406a80`, +0xA4 · that slice's right) was 0.8 % large.
+  among them; `bytescale.sh`; col.md), not / 127. Where it shows:
+  `ai_ctl_rails`' velocity across the road 2 slices on (`0x406a80`,
+  +0xA4 · that slice's right) is 0.8 % large with / 127.
   Checked on `l1-runs` r1 (618 rails calls, cars 3-6, 51-56 s;
   `railsck.py`: the formula on the state read at `0x40868b` against
   `0x56ec6c` read at `ai_integrate`): with byte / 128 the side force is
-  the game's on all 618 (median 7e-7, at most 5e-6); with / 127 it was
-  off by a median 0.062 and up to 0.40. The reader now divides by 128.
+  the game's on all 618 (median 7e-7, at most 5e-6); with / 127 it is
+  off by a median 0.062 and up to 0.40. The reader divides by 128.
 - **The polygon's right is 16.16.** `trackpos_road_frame` keeps the up
   and forward as the record's words × 2 and makes the right their cross
   product in 16.16 (`0x4203eb`-`0x42045b`: each product `imul`, `shr
   0x10` with bit 15's carry added by `adc`, so rounded half up), which
-  `car_road_frame` (`0x49ffa0`) turns to floats. The page had crossed
-  the floats; it now does the integer arithmetic (`polygonRoadFrame`).
-  Up to 1.5e-5 a component.
+  `car_road_frame` (`0x49ffa0`) turns to floats. The page does the
+  integer arithmetic (`polygonRoadFrame`); crossing the floats differs
+  by up to 1.5e-5 a component.
 - What is left is not a conversion: `sidechk` (each dumped +0x98
-  measured by the page) is still within 0.04 mm rms of the dumped +0x7B8
+  measured by the page) is within 0.04 mm rms of the dumped +0x7B8
   over 1,391 samples. The page keeps its place as the slice, `along`
   and `lateral` and solves for them again each step where the game adds
   +0xA4 / 64 to a float +0x98; at Hometown's 700-800 m that is a float's
   6e-5 m either way, well under the centimetres.
 
-Measured (`s4-runs/all.sh`, the columns as before; `o1fix` before, with
-byte / 128 alone `b128`, with the 16.16 right as well `fx`, with the
-lane product `a3`, the same as `fx`): +0x638 changes in 121 samples (the
-game's 143; 124 before; 130 with byte / 128 alone), 44 at an edge (47;
-46), the aim past 8 m 162 (162; 163); speeds 2.65 m/s rms over the
-window (2.82) and **0.44** over 50-64 s (1.15); +0x7B8 0.0169 m rms over
-50-51.7 s (0.0167) and **0.0548** over 50-53.2 s (0.1036: car 3 0.020,
-was 0.237); the decisions to 56 s **324 of 338** (297), to 78 s 896 of
-1,568 (920; 904 with byte / 128 alone: the later partings come at other
-places, kept as the code's); the first differing picks: cars 1, 6 and 7
-none to 56 s (56.73, 69.45 and 66.67 s to 78 s), car 2 54.47, car 3
-54.05, car 4 52.90 and car 5 53.10 s (53.25, 53.21, 52.29, 52.90, 53.10).
+Measured (`s4-runs/all.sh`, the columns as in the contact's measure;
+with byte / 128 alone `b128`, with the 16.16 right as well `fx`, with
+the lane product `a3`, the same as `fx`): +0x638 changes in 121 samples
+(the game's 143; 130 with byte / 128 alone), 44 at an edge (47), the
+aim past 8 m 162 (162); speeds 2.65 m/s rms over the window and
+**0.44** over 50-64 s; +0x7B8 0.0169 m rms over 50-51.7 s and
+**0.0548** over 50-53.2 s (car 3 0.020); the decisions to 56 s **324
+of 338**, to 78 s 896 of 1,568 (904 with byte / 128 alone: the later
+partings come at other places, kept as the code's); the first
+differing picks: cars 1, 6 and 7 none to 56 s (56.73, 69.45 and 66.67 s
+to 78 s), car 2 54.47, car 3 54.05, car 4 52.90 and car 5 53.10 s.
 Hit lines 38 (both cars each), all but two cars 3 and 4 at 64.9-68.9 s (the game's
-nine at 63.6-64.2 s). The `d7-watch2` replay (0.37 m) and `park` (120
-stops, none past a wall) are unchanged.
+nine at 63.6-64.2 s). The `d7-watch2` replay gives 0.37 m and `park`
+120 stops, none past a wall.
 
-Where they part now, per call against `l1-runs` r1 (`pc.py`, the fine
+Where they part, per call against `l1-runs` r1 (`pc.py`, the fine
 sim run to 56 s): car 6's +0x7B8 is within 0.013 m of the game's to
 52.53 s, when its +0x7C4 crosses 22.35 m/s (`0x56ebf4`) one call before
-the game's (22.364 against 22.347) and the side speed wanted is no
-longer held to 0.129 × it; through the rest of its lane change it leads
+the game's (22.364 against 22.347) and the side speed wanted stops
+being held to 0.129 × it; through the rest of its lane change it leads
 by up to 0.25 m. The speeds drift by up to 0.03-0.04 m/s in 1.5 s (car
 4 0.03 slow, car 6 0.03-0.04 fast), the 0.0003-0.0005 m/s a call of
 gravity's forward part (The contact's frame, above). Car 5 parts at
-its 53.10 s pick on the edge as before.
+its 53.10 s pick on the edge.
 
 **The air ticks and the landing** (November 2026, `s5-runs`; read with
 `gdecomp` and `asm` of `car_dynamics` `0x4a2830`, `car_downforce`
@@ -2836,7 +2815,7 @@ itself (`0x4a28a5`-`0x4a28cb`) when `car_flat_or_roof` finds the body
 tipped (|+0x10C| at most 0.9, the float `0x53c79c`) or the road
 polygon's up y (+0x130) is under 0.6 (`0x53c8c4`). Then each tick:
 
-- `car_downforce` (still only upright over 0.75 and over 10 m/s), then
+- `car_downforce` (only upright over 0.75 and over 10 m/s), then
   its **air drag**: x and z only, each less its own square × (0.006 ×
   |the up row's part along it| + 0.004 × |the right's| + 0.002 ×
   |the forward's|; 0.004 for traffic, +0x200 bit 0x10) / 32
@@ -2857,7 +2836,7 @@ polygon's up y (+0x130) is under 0.6 (`0x53c8c4`). Then each tick:
   0.5, every spin under 0.6, the body flat and the clearance 0 or less.
   Nothing turns the speed into the road round.
 - `car_body_under_road` tests **eight** points of the box, not twelve
-  as read before (it fills 24 floats, and the loop stops at 8: `cmp
+  (it fills 24 floats, and the loop stops at 8: `cmp
   [ebp+0x76], 8` at `0x4a151a`): the four bottom corners, (∓0.75 w, 0.5 h, 0.8 l) and the
   two top corners at −0.8 l (`0x53c7fc`, `0x53c804`, `0x53c80c`), each
   through the rows from the centre as pushed so far (`0x4e0430`: x ×
@@ -2892,17 +2871,18 @@ polygon's up y (+0x130) is under 0.6 (`0x53c8c4`). Then each tick:
 The page does all of this (`aiModelSteer`, `aiLanding`,
 `aiBodyUnderRoad`, `aiRoadContact`, `aiAirDrag`, `aiAirTurn`,
 `aiBodyFriction`; `AiCarData::suspStiffness` from carp field 64).
-`airTicks` no longer skips the dynamics, and the stub that took every
-spin × 0.6 a tick until all were under 0.6 is gone (in the game the
-spins stay as they are in the air: `u1-a4`'s cop B kept −0.245, −0.073,
-0.295 for three ticks before it touched). The hits (`aiCollide`) work on
+`airTicks` doesn't skip the dynamics, and the spins aren't damped in
+the air (in the game they stay as they are: `u1-a4`'s cop B kept
+−0.245, −0.073, 0.295 for three ticks before it touched). The hits (`aiCollide`) work on
 the spins on the world's axes (+0xE4, +0xE8, +0xEC: `spinX`, `yawRate`,
 `spinZ`, not the yaw about the body's up and rates about its forward
 and right), with the box's centre over the road by its clearance and
 turned by its roll and pitch, as the game's +0x98 and +0xC0 are; the
 drawn car is over the road by its clearance. What the page can't do as
 the game does: its place stays on the slice's plane with the height in
-`lift` (the clearance), so a contact's push changed `lift` only (since `s7r` its rest moves the place across the slice's plane: A landing on a corner, below); and
+`lift` (the clearance), so a contact's push along the polygon's up
+changes `lift` only (its rest moves the place across the slice's plane:
+A landing on a corner, below); and
 with no track polygons (the tests) all eight points are tested against
 the car's own plane.
 
@@ -2940,25 +2920,23 @@ stepped by `aiSteerStep` and `aiCollide`):
 In `t6-log` (cars dumped every 0.5 s) the only air ticks of the racers
 to 78 s are a jump: car 7 at 77.5 s with +0x164 13, clearance 2.78,
 vy −8.18 at slice 202 and car 6 at 78.0 s (13, 2.83, −8.71, slice 202),
-off the crest at slices 199-200. The page now flies them there too
-(before, they ran on along the slope with the clearance only over the
-road): its car 7 at +0x164 13 has clearance 2.71 and vy −8.17, 0.19 s
+off the crest at slices 199-200. The page flies them there too: its
+car 7 at +0x164 13 has clearance 2.71 and vy −8.17, 0.19 s
 later than the game's, as far behind as the car is (two slices). The
 hits put cars 6 and 7 in the air for 3 ticks at 67.75 s and cars 1 and
 4 for 1 at 69.34 s.
 
-The comparison (`s5-runs/all.sh`, the t6-log window from 50 s), before
-and after: decisions to 56 s 324 of 338 both; to 78 s 896 → 872 of
-1,568; lane changes 121 → 125 (the game's 143); speed rms 50-64 s 0.44
-both, the whole window 2.65 → 3.99 m/s; the page's cars 3 and 4 still
-first meet at 64.94 s (the game's 63.6 s). Nothing before the first hit
-changes; after it the hits differ (38 → 66 in all: the boxes now have
-the cars' clearance and tilt, and the hits' spins are the world's), and
-cars 1 and 4 rub along each other from 73.8 s and fall to 20-30 m/s
-(the game's 35-40). In steps: the air and landing alone gave 131 lane
-changes, 895 decisions and 3.35 m/s; the boxes' height and tilt 125, 875
-and 3.30; the air's turn after the dynamics 125, 872 and 3.99. Each is
-the game's code, so all are kept.
+The comparison (`s5-runs/all.sh`, the t6-log window from 50 s):
+decisions to 56 s 324 of 338; to 78 s 872 of 1,568; lane changes 125
+(the game's 143); speed rms 50-64 s 0.44, the whole window 3.99 m/s;
+the page's cars 3 and 4 first meet at 64.94 s (the game's 63.6 s).
+After the first hit the hits differ from the game's (66 in all: the
+boxes have the cars' clearance and tilt, and the hits' spins are the
+world's), and cars 1 and 4 rub along each other from 73.8 s and fall to
+20-30 m/s (the game's 35-40). In steps: the air and landing alone give
+131 lane changes, 895 decisions and 3.35 m/s; with the boxes' height
+and tilt 125, 875 and 3.30; with the air's turn after the dynamics 125,
+872 and 3.99. Each is the game's code, so all are kept.
 
 **Gravity's up row** (November 2026, `s7r-runs`; read with `asm` of
 `car_dynamics` `0x4a2a0c`-`0x4a2b22`, `car_road_dots` `0x4a2690`,
@@ -2966,9 +2944,9 @@ the game's code, so all are kept.
 `i1-runs` `w2`, which reads +0x130 and the gravity rows +0x190-+0x1B0
 at `0x4a2a0c` and the velocity there and at `0x4a2b28`, cars 1-4, 42
 calls each, 51.4-52.7 s; `gup.py`, `gchk.py`). The speeds' drift of
-0.0003-0.0005 m/s a call (The road's vectors are byte / 128, above) was
-put down to gravity's forward part. The forward part is the page's to
-the bit; the up part is not:
+0.0003-0.0005 m/s a call (The road's vectors are byte / 128, above)
+isn't gravity's forward part, which is the page's to the bit; the up
+part matters:
 
 - +0x190-+0x1B0 are written only by `0x4a0f30`, from `car_road_dots`,
   which `car_integrate_turn` calls at the end of the tick's turn. For a
@@ -2981,11 +2959,11 @@ the bit; the up part is not:
 - +0x19C is the polygon record's 16.16 up, not square to the record's
   forward (+0x13C): g × its y × it has a part along the road, which
   `car_on_road` (taking out the part along its own frame's up) leaves.
-  The page took the unit cross product of +0x13C and +0x124, square to
-  the forward by construction, so it had no such part.
+  The unit cross product of +0x13C and +0x124, square to the forward by
+  construction, has no such part.
 - With +0x19C as the game's, gravity's change of the velocity along +0x13C
-  is the game's on all 168 calls to 2e-6 m/s. With the page's up it was
-  off by −0.0003 to −0.0011 m/s on every call between polygon changes
+  is the game's on all 168 calls to 2e-6 m/s. With the cross product
+  it is off by −0.0003 to −0.0011 m/s on every call between polygon changes
   (the mean by car +0.00006, −0.00017, −0.00061, −0.00034, rms
   0.0005-0.0009), and up to 0.0027 on a change.
 - +0x10C, which `car_downforce`, `car_flat_or_roof` and gravity's forward
@@ -2994,23 +2972,24 @@ the bit; the up part is not:
   +0x134 (`0x4a2aab`, the copy made at `0x4a2894`).
 
 The page (`AiCar::gravityUp`, set where `aiAdvance` does the tick's turn;
-used in `aiModelSteer`) now does this. A put back or reset leaves it, as
+used in `aiModelSteer`) does this. A put back or reset leaves it, as
 `car_place_on_slice` (`0x4a0aa0`) doesn't call `car_road_dots`.
 
 Over the fine dumps (`early`, 51.0 to 53.0 s, same dump phase) the
-page's +0x7C4 less the game's changed by −0.043, −0.080, −0.072,
+page's +0x7C4 less the game's changes by −0.043, −0.080, −0.072,
 −0.057, −0.043, −0.006 and −0.039 m/s for cars 1-7 (−0.041, −0.095,
-−0.087, −0.071, −0.042, −0.029, −0.044 before): flatter for five cars,
-so most of the drift is elsewhere (the contact's frame, matched to about
-0.0003 m/s a call in `i1`, is the candidate left). Car 6 still reads
-22.35 m/s at 52.496 s on the page, 52.544 s in the game. The table
-(`all.sh`) is **worse**, kept as the code's: decisions to 56 s 320 of 338
+−0.087, −0.071, −0.042, −0.029, −0.044 with the cross product):
+flatter for five cars, so most of the drift is elsewhere (the contact's
+frame, matched to about 0.0003 m/s a call in `i1`, is the candidate
+left). Car 6 reads 22.35 m/s at 52.496 s on the page, 52.544 s in the
+game. The table (`all.sh`) is **worse** with it (the cross product's
+figures in brackets), kept as the code's: decisions to 56 s 320 of 338
 (324; car 1 picks differently at 55.85 s), to 78 s 906 of 1,568 (913),
-lane changes 126 (120), speeds 2.34 m/s rms over 50-64 s (0.44) and 3.10
-over the window (3.05): after car 1's other pick, cars 1 and 2 meet at
-60.4 s (no hit there in the game) and fall 5-12 m/s behind the game's
-by 62-64 s; hits 23 (38), the first now cars 1 and 2 at 60.38 s instead
-of cars 3 and 4 at 64.94 s (the game's 63.6 s).
+lane changes 126 (120), speeds 2.34 m/s rms over 50-64 s (0.44) and
+3.10 over the window (3.05): after car 1's other pick, cars 1 and 2
+meet at 60.4 s (no hit there in the game) and fall 5-12 m/s behind the
+game's by 62-64 s; hits 23 (38), the first cars 1 and 2 at 60.38 s, not
+cars 3 and 4 at 64.94 s (the game's 63.6 s).
 
 **A landing on a corner, the position and the turn** (November 2026,
 `s7r-runs`; read with `gdecomp` and `asm` of `car_landing` `0x4a1ce0`,
@@ -3021,10 +3000,9 @@ against `r1-runs/u1` `u1-a5` and `s5-runs/u1-l5`):
 - `car_contact_impulse` moves +0x98 by −depth × the polygon's up
   (`0x42ee68`-`0x42ee9b`) **before** it tests the momentum (`0x42ef2d`), so a point
   under the road moving away is pushed out too (in `u1-l5` point 2 at
-  62.016 s), and the push is the whole vector. The page had added only
-  the push's part along the car's polygon's up to `lift`, and only when an
-  impulse was taken. Now (`aiMoveCentre`, from `aiLanding` and
-  `aiCollide`) the part along the polygon's up goes to `lift` and the rest
+  62.016 s), and the push is the whole vector. In the page
+  (`aiMoveCentre`, from `aiLanding` and `aiCollide`) the part along the
+  polygon's up goes to `lift` and the rest
   moves the place across the slice's plane (`aiLocate`), whether or not an
   impulse followed. On Hometown's slice 1 the polygons' ups are within
   0.008 of the slice's, so this moves the place by under a millimetre in
@@ -3032,21 +3010,21 @@ against `r1-runs/u1` `u1-a5` and `s5-runs/u1-l5`):
 - **The turn in the air is the rows' turn.** `0x4a2cc0` multiplies all
   three rows by turns about the world's y, x and z (the spins / 32), so a
   spin about x or z with a part along the body's up turns the car's
-  forward across the world as well. The page turned its roll and pitch by
-  the spin's parts along its forward and right only (`aiAirTurn`) and so
-  lost that part: seeded from `u1-l5` at 61.837 s (cop B at 47°, spins
-  −0.105, 0.001, 0.113), its forward was 0.03 off the game's +0xD8 one
-  tick after the first touch. Now the unit axes are turned about the spin
+  forward across the world as well. Turning the roll and pitch by the
+  spin's parts along the forward and right only loses that part: seeded
+  from `u1-l5` at 61.837 s (cop B at 47°, spins −0.105, 0.001, 0.113),
+  the forward is then 0.03 off the game's +0xD8 one tick after the first
+  touch. The page (`aiAirTurn`) turns the unit axes about the spin
   vector by |w| × 2π / 32 (to first order the game's three turns) and the
   yaw, roll and pitch are taken from the turned forward and up
   (`aiSetFrame`, which also seeds a dumped car's yaw so its forward is
   the dump's; `aiSetWorld`'s yaw is the forward's direction, which for a
   tilted body isn't the page's yaw).
 - **The hits' boxes are centred on the body's centre.** `car_collisions_task`
-  takes +0x98; the page put its box at the place + (half height +
-  `lift`) along the slice's normal, which for a body tilted 48° is 0.6 m
-  under its centre (the box's reach along the up is 1.37 m, not 0.74).
-  Now the box's centre is the one the landing uses (`aiBodyCentre`: the
+  takes +0x98, not the place + (half height + `lift`) along the slice's
+  normal, which for a body tilted 48° is 0.6 m under its centre (the
+  box's reach along the up is 1.37 m, not 0.74). The page's box centre
+  is the one the landing uses (`aiBodyCentre`: the
   box's lowest corner on the road polygon's plane, the clearance over
   it), and the push apart goes through `aiMoveCentre`.
 
@@ -3062,16 +3040,16 @@ both cars' spins to 0.001 (B 0.067, 0.007, 0.111; A −0.029, −0.004,
 second hit comes a tick after the game's. Over the next 1.2 s B's
 +0x10C follows the game's within 0.01-0.02 (0.651 at its lowest, the
 game's 0.653) and it comes out of air mode on its wheels at 62.74 s
-(62.83 s); before, it rocked at 0.58-0.68 against the game's 0.65-0.78.
+(62.83 s).
 
 The comparison (`s7r-runs/all.sh`): the pushes in full alone (with the
-hits' push apart through `aiMoveCentre`) gave lane changes 129, decisions
-to 78 s 884, the whole window's speeds 3.28 m/s rms, hits 55; the turn
-changed nothing in this window; with the boxes on the body's centre 120
-lane changes (the game's 143; 125 before), decisions to 56 s 324 of 338
-and to 78 s **913** of 1,568 (872), speeds 0.44 m/s rms over 50-64 s and
-**3.05** over the window (3.99), hits 38 (66). The first hit is still
-cars 3 and 4 at 64.94 s.
+hits' push apart through `aiMoveCentre`) give lane changes 129,
+decisions to 78 s 884, the whole window's speeds 3.28 m/s rms, hits 55;
+the turn changes nothing in this window; with the boxes on the body's
+centre 120 lane changes (the game's 143), decisions to 56 s 324 of 338
+and to 78 s **913** of 1,568, speeds 0.44 m/s rms over 50-64 s and
+**3.05** over the window, hits 38. The first hit is cars 3 and 4 at
+64.94 s.
 
 **The reset of a tipped car** (November 2026, `s7r-runs`; read with
 `gdecomp` and `asm` of `car_impacts_task` `0x42b900`, `car_reset_timer`
@@ -3105,16 +3083,15 @@ put it back at 65.132 s):
   `0x429100`'s gates (+0x524, a racer finished, the race not started, a
   pulled-over car) and leaves +0x524 0 where `0x429100` sets 0x20.
 - **The put back is raised too.** `0x429100` adds the same 1.5 m to +0x9C
-  after `0x428d60`; the page had put the car on the road. In `u1-a1`
+  after `0x428d60`, not putting the car on the road. In `u1-a1`
   three ticks after the reset cop 2 has +0x164 4, clearance 1.47 and vy
   −0.92 (three ticks of gravity), on slice 6 (slice 1 + 5).
 - **On its roof the body is held there.** `car_on_road` sets the spins
   about x and z from the body's up × the sign of +0x10C (1 over 0, else
-  −1) against the road's up, and zeroes them with |+0x10C| over 0.9;
-  the page had taken the up as it is, so a car on its roof was turned
-  back over on to its wheels (seeded from `u1-a1` at 62.271 s it was
-  upright again 1.5 s later; the game's lay on its roof, +0x10C −1.000,
-  until the reset).
+  −1) against the road's up, and zeroes them with |+0x10C| over 0.9.
+  Taken as it is, the up would turn a car on its roof back over on to
+  its wheels (seeded from `u1-a1` at 62.271 s, upright again 1.5 s
+  later; the game's lay on its roof, +0x10C −1.000, until the reset).
 
 In `u1-a1`'s dumps (31 ms apart, 84 pairs with the timer running), 75
 steps of +0x8A0 are one tick of the rule on either dump's state (1 in
@@ -3127,19 +3104,20 @@ roof's side in `aiTilt`), seeded with `landchk` from cop 2's dumps at
 page's car came to rest sooner); after it +0x164 4, clearance 1.471, vy
 −0.92 three ticks on and 12, 0.93, −3.37 eleven on (the game's 4, 1.47,
 −0.92 and 12, 0.97, −3.37). In `t6-log`'s window no car tips or is put
-back, so the table (`s7r-runs/all.sh`) is as before: decisions to 56 s
+back, so the table (`s7r-runs/all.sh`) is the same: decisions to 56 s
 324 of 338, to 78 s 872 of 1,568, lane changes 125, speeds 0.44 m/s rms
 over 50-64 s and 3.99 over the window, hits 66.
 
 **The roadside cop** (`d7-runs/sim/park`,
 the police car ordered to lay a strip from every 8th slice of Hometown,
-120 stops): with the spring and the cut it parked past a wall 81 times,
-by up to 5 m (it was pulled on to lane 5 − L's aim at the wall less its
-half width, the cut on top, and kept moving across once stopped); now
-never, a median 3.3 m inside the road's edge (at most 4.8 past it, at
-least 4.6 from the wall): `car_off_lanes` (`0x402f70`) stops it as soon
-as +0x7B8 rounds into the lane past the road's lanes (past the outer
-lane's middle), and stopped (`car_stop_hard`) it no longer moves across.
+120 stops): it never parks past a wall, a median 3.3 m inside the road's
+edge (at most 4.8 past it, at least 4.6 from the wall): `car_off_lanes`
+(`0x402f70`) stops it as soon as +0x7B8 rounds into the lane past the
+road's lanes (past the outer lane's middle), and stopped
+(`car_stop_hard`) it doesn't move across. Pulled by a spring to lane
+5 − L's aim at the wall less its half width, with the bend's cut on top
+and moving across once stopped, it parks past a wall 81 times, by up to
+5 m.
 The roadside order itself is the game's: kind 0, `cop_ai_vote_roadside`
 (`0x402d90`: +100 for the nearer edge's lane while within lanes 6 − L to
 7 + R, its own beyond), its aim clamped to the walls less its half width

@@ -277,10 +277,10 @@ full-range BT.601 matrix in floating point, each pixel shown twice).
   frames between 32 and 61, key and inter, and at most points one more
   being decoded. With the game arithmetic every sample of each whole
   frame is identical to Reluva's, Y, U and V, and each frame being
-  decoded is too as far as it had got. Before the three fixes above (the
-  transposed matrix, the copies' clamp, the chroma vector's rounding)
-  94-98% of the samples of the key frames were, most of the rest ±1 and
-  none more than ±7.
+  decoded is too as far as it had got. Without three of the points above
+  (the transposed matrix, the copies' clamp, the chroma vector's
+  rounding) only 94-98% of the samples of the key frames are, most of
+  the rest ±1 and none more than ±7.
 - **The screen.** Every frame the game showed of `demoav1` was captured
   (`-frames dir -every 1 -framesfrom 2950`: captures 2968-3084, movie
   frames 3 to 445, 114 of them) and compared in 5:6:5 with Reluva's mode
@@ -299,8 +299,8 @@ full-range BT.601 matrix in floating point, each pixel shown twice).
   Against the other mode the same captures match only about half
   of their non-black pixels.
 
-Before the fixes, the best mode 3 matches had been 67.8%, 36% and 82.7%
-of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
+Without those three points, the best mode 3 matches are 67.8%, 36% and
+82.7% of pixels exact (frames 3, 6 and 10), against 66%, 35% and 69% for the
 reference arithmetic and 51%, 10% and 65% for mode 2. So mode 3 is
 right, with its layout (each line's last 4 pixels and the last line
 black), and the chroma lines are used as they are for both luma lines
@@ -370,5 +370,5 @@ October 2026.
 - **Copies from outside the picture.** The game doesn't test the source
   and would read whatever lies beside its picture; Reluva skips them. The
   four movies have none.
-- Modes 1 and 2 have now been compared with the game too (above),
-  on the intro only; the demo movies weren't captured in those modes.
+- Modes 1 and 2 are compared with the game on the intro only (above);
+  the demo movies weren't captured in those modes.

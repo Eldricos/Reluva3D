@@ -25,7 +25,7 @@ size.
 
 Two files, in the install and again on the CD, start `32 FB` instead:
 `trk007/tr070_8.qfs` and `tr071_8.qfs`, that track's 8-bit texture sets.
-They're read since October 2026 (`decompressEaHuffman`, `refpack.cpp`).
+They're read (`decompressEaHuffman`, `refpack.cpp`).
 
 **How it was worked out.** No public description of the scheme turned
 up, so it comes from the game's own routine (`nfs3.exe` at `0x50ed50`,

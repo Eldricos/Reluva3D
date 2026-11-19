@@ -30,11 +30,11 @@ and +0x0C for version 2 (`0x50265b`-`0x5026d9`; other versions get a
 warning and are read as 2). Checked in October 2026: so read,
 `Gen3d.bnk` (version 4) has its sounds in the same slots as `Gen.bnk`
 (0, 1, 5, 10, 11, 15, 18, 24, 25, 29-35, 37, 40-47). Reluva's
-`parseSoundBank` reads them so too. Until October 2026 it read every
-bank's slots from 12, so for the 74 version-4 banks (car engines,
-`gen3d`, `siren3d`, `tr3d*`, `tram*`) its slot numbers were two too high
-and the last two slots were lost; the Tracks page's placed sounds,
-which name slots of `tr3d*`, played the wrong ones.
+`parseSoundBank` reads them so too. Read from 12 in every bank, the 74
+version-4 banks (car engines, `gen3d`, `siren3d`, `tr3d*`, `tram*`)
+would have their slot numbers two too high and lose their last two
+slots, and the Tracks page's placed sounds, which name slots of
+`tr3d*`, would play the wrong ones.
 
 A slot of 0 or −1 is empty. A few slots (a couple of hundred) point
 into the audio data, at no header: leftovers by the look of them, and
@@ -289,10 +289,9 @@ result, MMX at L = 127 differs by RMS 78 steps (max 255), nearly all
 the 127/128 gain (−42 dB); with the gain taken out, by a mean of −1.0
 and RMS 1.15 steps (max 2), at L = 64 −0.75 and 0.93.
 
-**Run on the interpreter** (November 2026). Until then Reluva's x86 core
-had no MMX, so the comparison above stayed numerical, from the
-transcription (checked against the disassembly again at `0x51f774`,
-`0x52092d`). Extended to mixes, with the Corvette's `car.bnk` 0 and 1
+**Run on the interpreter** (November 2026), against the transcription
+(checked against the disassembly again at `0x51f774`, `0x52092d`), and
+extended to mixes, with the Corvette's `car.bnk` 0 and 1
 and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
 - **Rounding adds up.** With the gain taken out, 1, 2, 3 and 5 voices at
   L = 32 differ from the float mix by a mean of −0.8, −1.8, −2.6 and
@@ -309,7 +308,7 @@ and `Gen.bnk` 29, 32 and 41 (a scratch script, not in the repo):
   apart. In the other order the two agree (RMS 211, the gain). So only
   then does the order of the voices matter, and only with MMX.
 
-The interpreter now decodes MMX ([x86.md](../../../../../common/x86/README.md)), and
+The interpreter decodes MMX ([x86.md](../../../../../common/x86/README.md)), and
 `reluva-tool nfs host -mmx` has CPUID report it. Every MMX instruction in
 `nfs3.exe` was found by a scan of the code database (`tools/nfs-re`,
 358 instructions in 19 routines; a linear sweep of `.text` with

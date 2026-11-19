@@ -21,7 +21,7 @@ falls behind, at most 4 frames wait and the game slows down.
 ### The timer
 
 `0x48eff0(rate)` starts it (`timeGetDevCaps`, `timeBeginPeriod(1)`). It
-is called with rate 128 from start-up (`0x4b6160`). It was also called
+is called with rate 128 from start-up (`0x4b6160`). It is also called
 earlier (`0x4f8a93`) with 0, which means 100 Hz.
 
 - **A one-shot timer, re-armed each time**: `timeSetEvent(delay, 1,

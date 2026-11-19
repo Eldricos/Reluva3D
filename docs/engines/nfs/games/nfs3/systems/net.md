@@ -475,7 +475,7 @@ bytes: the race's variables, then 16 cars of 0x6C bytes at `0x6fd52c` +
 car × 0x6C (the record a race car points to at +0x220, `0x42c780`; the
 host keeps a copy of all 16, `0x4c5ee9`), then the starting order (8
 u32 at +0x850, `0x6fdbec`). The table of cars below counts from
-`0x6fd53c`, 0x10 into each record, as it was first read; add 0x10 for
+`0x6fd53c`, 0x10 into each record; add 0x10 for
 the record's own offsets. The header's
 words are the variables at `0x6fd39c` + offset: +0x18 the seed
 (`0x6fd3b4`), +0x14 the kind of play (`0x6fd3b0`, 4), +0x118 the laps,

@@ -100,8 +100,8 @@ game's calls to it (`0x4131xx`-`0x4136c6`, `0x418990`):
     look-ahead from the car's velocity ((|x| + |z|) × 65536, +0xA4 and +0xAC) and then
     replaces it with 0 (`0x421227`); the ±16 slices left after it
     (`0x42122b`, `0x421232`, the sign by the wrong-way flag +0x998)
-    are reached by no jump (November 2026, read again; before then
-    this page said 16 ahead). In the runs of
+    are reached by no jump (November 2026, read again), so it isn't 16
+    ahead. In the runs of
     [tracks.md](tracks.md) (Music laps) each zone change came with
     +0x1C on the zone's first slice (driven backward, on the slice
     just below it: the lookup and the slice numbers are the same both
