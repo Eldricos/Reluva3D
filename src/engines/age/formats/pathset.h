@@ -15,7 +15,7 @@ namespace reluva::age {
 // Paths for things that move about a city by themselves (.pathset,
 // "PTH1", race/<city>/): ferries, boats and ducks on the water, the
 // leaves of drawbridges, parked cars and trains. See
-// docs/formats/age/pathset.md.
+// docs/engines/age/games/mm2/formats/pathset.md.
 struct PathsetPath {
     std::string name;  // as stored: a model, maybe after "open:" or "inactive:"
     std::string model; // without the prefix

@@ -8,7 +8,7 @@
 // (the UPnP Device Architecture's discovery, SSDP, and its
 // WANIPConnection service's AddPortMapping), else NAT-PMP (RFC 6886).
 // Both are published standards; Reluva's own code. See
-// docs/engines/age-multiplayer.md.
+// docs/engines/age/games/mm2/systems/network-protocol.md.
 
 #include "common/net.h"
 

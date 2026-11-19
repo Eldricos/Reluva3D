@@ -31,14 +31,14 @@ struct PropPlacement {
 // low byte is 0 is a prop at each point; 1, a prop at every other point
 // facing the next (a point a metre or two away); 2, props along the line
 // every (end word's second byte / 10) metres, along it. See
-// docs/formats/age/pathset.md.
+// docs/engines/age/games/mm2/formats/pathset.md.
 std::vector<PropPlacement> placeProps(const std::vector<PathsetPath> &paths);
 
 // The street furniture along the roads' sidewalks: city/<city>/propdefs.csv
 // names the kinds (a street light, a meter...), proprules.csv which kinds
 // line each side of a road under rules n01left... and each road block's
 // second byte (PsdlBlock::extra) is its rule's number. See
-// docs/formats/age/pathset.md.
+// docs/engines/age/games/mm2/formats/pathset.md.
 struct StreetPropKind {
     float start = 0;   // metres along the side to the first
     float spacing = 0; // and between them
@@ -79,7 +79,7 @@ Error parseBangerData(const std::string &text, BangerData &out);
 // The city's props and its traffic lights, as things a car can knock
 // down: standing, collided with (their bounds, else their models' boxes);
 // knocked hard enough (CarSim::broke), they fall over where they were
-// pushed and are no longer in the way. See docs/engines/age-traffic.md.
+// pushed and are no longer in the way. See docs/engines/age/games/mm2/systems/props.md.
 class Props {
 public:
     void clear() { _props.clear(); }

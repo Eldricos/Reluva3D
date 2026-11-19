@@ -6,7 +6,7 @@
 // The game's help (MM2HELP.HLP in its folder, a Windows Help file), shown
 // when the menus' navigation bar's Help is pressed: its topics listed,
 // and a topic's text to read, with its pictures and its links to other
-// topics. See docs/engines/age-menus.md.
+// topics. See docs/engines/age/games/mm2/systems/menus.md.
 
 #include "common/archive.h"
 #include "common/events.h"

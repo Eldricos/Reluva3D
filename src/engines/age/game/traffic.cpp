@@ -3,7 +3,7 @@
 
 // Ambient traffic on the road map (bai.h) as the aimap settles it
 // (aimap.h); the rules are Reluva's, described in
-// docs/engines/age-traffic.md.
+// docs/engines/age/games/mm2/systems/traffic.md.
 
 #include "engines/age/game/traffic.h"
 
@@ -205,7 +205,8 @@ int Traffic::kindOf(const SearchSet &files, const std::string &model) {
     std::vector<uint8_t> data;
     TuneNode root;
     Pkg pkg;
-    Vec3 low, high;
+    Vec3 low;
+    Vec3 high;
     if (!files.read("tune/vehicle/" + model + ".aiVehicleData", data) &&
         !parseTune(std::string(data.begin(), data.end()), root) && !root.children.empty()) {
         const TuneNode &n = root.children.front();
@@ -351,13 +352,16 @@ void Traffic::enterJunction(Car &c) {
     // as the gap between, slowed for how sharply it turns.
     const TrafficLane &from = _network.lanes()[size_t(c.lane)];
     const TrafficLane &to = _network.lanes()[size_t(c.nextLane)];
-    const Vec3 p0 = from.points.back(), p1 = to.points.front();
+    const Vec3 p0 = from.points.back();
+    const Vec3 p1 = to.points.front();
     Vec3 d0 = normalized(from.points.back() - from.points[from.points.size() - 2]);
     Vec3 d1 = normalized(to.points[1] - to.points[0]);
     const float span = std::max(1.0f, length(p1 - p0));
     std::vector<Vec3> curve;
     for (int i = 0; i <= 10; ++i) {
-        const float t = float(i) / 10, t2 = t * t, t3 = t2 * t;
+        const float t = float(i) / 10;
+        const float t2 = t * t;
+        const float t3 = t2 * t;
         curve.push_back(p0 * (2 * t3 - 3 * t2 + 1) + d0 * ((t3 - 2 * t2 + t) * span) + p1 * (-2 * t3 + 3 * t2) +
                         d1 * ((t3 - t2) * span));
     }
@@ -537,7 +541,8 @@ void Traffic::update(float dt, const Vec3 &focus, const std::vector<RoadUser> &o
         // How fast it may go: its lane's limit (or the curve's), what's
         // ahead, and whether the junction ahead is its to cross.
         float target = c.maxSpeed;
-        float nearest = kLook, nearestSpeed = 0;
+        float nearest = kLook;
+        float nearestSpeed = 0;
         {
             // Held up for long, it goes on through what's in its way, but
             // for what's solid.
@@ -649,15 +654,20 @@ float Traffic::collide(const std::vector<Vec3> &spheres, float radius, float ma,
         if (flat(c.position - position) > k.size[2] + reach + 4)
             continue;
         const Mat3 turn = Mat3::rotationY(c.yaw);
-        const Vec3 right = turn.x, back = turn.z;
-        const float hw = k.size[0] / 2, hl = k.size[2] / 2;
+        const Vec3 right = turn.x;
+        const Vec3 back = turn.z;
+        const float hw = k.size[0] / 2;
+        const float hl = k.size[2] / 2;
         for (const Vec3 &p : spheres) {
             const Vec3 d = p - c.position;
             if (d[1] < -1 || d[1] > k.size[1] + 1.5f)
                 continue;
-            const float lx = dot(d, right), lz = dot(d, back);
-            const float cx = std::clamp(lx, -hw, hw), cz = std::clamp(lz, -hl, hl);
-            float nx = lx - cx, nz = lz - cz;
+            const float lx = dot(d, right);
+            const float lz = dot(d, back);
+            const float cx = std::clamp(lx, -hw, hw);
+            const float cz = std::clamp(lz, -hl, hl);
+            float nx = lx - cx;
+            float nz = lz - cz;
             float dist = std::sqrt(nx * nx + nz * nz);
             float depth;
             if (dist > 1e-4f) {
@@ -665,7 +675,8 @@ float Traffic::collide(const std::vector<Vec3> &spheres, float radius, float ma,
                 nx /= dist;
                 nz /= dist;
             } else { // the middle inside: out the nearest side
-                const float ox = hw - std::fabs(lx), oz = hl - std::fabs(lz);
+                const float ox = hw - std::fabs(lx);
+                const float oz = hl - std::fabs(lz);
                 if (ox < oz) {
                     nx = lx < 0 ? -1.0f : 1.0f;
                     nz = 0;

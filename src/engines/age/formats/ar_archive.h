@@ -15,7 +15,7 @@ namespace reluva::age {
 
 // An Angel Game Engine .ar archive ("DAVE"), as Midtown Madness 2's
 // mm2core.ar, mm2tex.ar, mm2aud.ar and mm2audex.ar. See
-// docs/formats/age/ar.md. Folder entries are left out of list().
+// docs/engines/age/games/mm2/formats/ar.md. Folder entries are left out of list().
 class ArArchive : public Archive {
 public:
     struct Entry {

@@ -14,7 +14,7 @@
 
 namespace reluva::age {
 
-// The pixel formats .tex files use. See docs/formats/age/tex.md.
+// The pixel formats .tex files use. See docs/engines/age/games/mm2/formats/tex.md.
 namespace texformat {
 constexpr uint16_t kPalette = 1;       // 8-bit indices, 256 BGRA colours, opaque
 constexpr uint16_t kPaletteAlpha = 14; // the same, the colours' alpha used

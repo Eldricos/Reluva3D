@@ -8,7 +8,7 @@
 // The setup's numbers are the game's own (tune/vehicle/<car>.vehCarSim,
 // the wheels' .mtx placements, bound/<car>_BOUND.bnd); how they're used is
 // Reluva's model, worked out to drive like the game rather than taken
-// from it (its program is encrypted). See docs/engines/age-driving.md for
+// from it (its program is encrypted). See docs/engines/age/games/mm2/systems/car-simulation.md for
 // what each number does here and what's still to compare with the game.
 
 #include "common/archive.h"
@@ -40,7 +40,7 @@ struct CarSetup {
     // Aero's angular damping about the car's x (pitch) and z (roll): a
     // constant, one with the turning and one with its square (AngCDamp,
     // AngVelDamp, AngVel2Damp), read as a torque of the car's mass times
-    // that; yaw's isn't used (see docs/engines/age-driving.md).
+    // that; yaw's isn't used (see docs/engines/age/games/mm2/systems/car-simulation.md).
     Vec3 angDampC{};
     Vec3 angDampV{};
     Vec3 angDampV2{};

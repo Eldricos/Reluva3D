@@ -199,8 +199,10 @@ void Gizmos::update(float dt, CollisionWorld &world, const Vec3 &listener) {
             Vec3 center;
             const Mat3 axes = leafAxes(b, l, center);
             const float half = length(l.tip - l.hinge) / 2;
-            const Vec3 a = center - axes.z * half - axes.x * l.width, bb = center - axes.z * half + axes.x * l.width;
-            const Vec3 c = center + axes.z * half + axes.x * l.width, d = center + axes.z * half - axes.x * l.width;
+            const Vec3 a = center - axes.z * half - axes.x * l.width;
+            const Vec3 bb = center - axes.z * half + axes.x * l.width;
+            const Vec3 c = center + axes.z * half + axes.x * l.width;
+            const Vec3 d = center + axes.z * half - axes.x * l.width;
             surfaces.push_back({a, bb, c});
             surfaces.push_back({a, c, d});
         }
@@ -273,8 +275,10 @@ void Gizmos::placeTrain(Train &t) {
     t.carriages.resize(kCarriages);
     const float inset = std::min(1.5f, t.length / 4);
     for (int k = 0; k < kCarriages; ++k) {
-        const float a = t.u + float(k) * (t.length + t.gap), b = a + t.length;
-        const Vec3 pa = pointAlong(t.points, t.at, a + inset), pb = pointAlong(t.points, t.at, b - inset);
+        const float a = t.u + float(k) * (t.length + t.gap);
+        const float b = a + t.length;
+        const Vec3 pa = pointAlong(t.points, t.at, a + inset);
+        const Vec3 pb = pointAlong(t.points, t.at, b - inset);
         const Vec3 z = length(pa - pb) > 1e-3f ? normalized(pa - pb) : Vec3{0, 0, 1};
         Vec3 x = cross(Vec3{0, 1, 0}, z);
         x = length(x) > 1e-3f ? normalized(x) : Vec3{1, 0, 0};
@@ -302,7 +306,8 @@ std::vector<Vec3> Gizmos::Train::spheres(float radius) const {
 }
 
 float Gizmos::collide(CarSim &car) const {
-    float hardest = 0, radius;
+    float hardest = 0;
+    float radius;
     for (const Train &t : _trains) {
         const Vec3 v = t.velocity();
         for (const Carriage &c : t.carriages) {
@@ -314,10 +319,15 @@ float Gizmos::collide(CarSim &car) const {
                 const float ly = dot(d, c.axes.y);
                 if (ly < -1 || ly > t.height + 1)
                     continue;
-                const float hw = t.width / 2, hl = t.length / 2;
-                const float lx = dot(d, c.axes.x), lz = dot(d, c.axes.z);
-                const float cx = std::clamp(lx, -hw, hw), cz = std::clamp(lz, -hl, hl);
-                float nx = lx - cx, nz = lz - cz, depth;
+                const float hw = t.width / 2;
+                const float hl = t.length / 2;
+                const float lx = dot(d, c.axes.x);
+                const float lz = dot(d, c.axes.z);
+                const float cx = std::clamp(lx, -hw, hw);
+                const float cz = std::clamp(lz, -hl, hl);
+                float nx = lx - cx;
+                float nz = lz - cz;
+                float depth;
                 const float dist = std::sqrt(nx * nx + nz * nz);
                 if (dist > 1e-4f) {
                     depth = radius - dist;
@@ -355,7 +365,8 @@ void Gizmos::push(Traffic &traffic) const {
     for (const Train &t : _trains) {
         if (t.carriages.empty())
             continue;
-        Vec3 position = t.carriages[kCarriages / 2].center, velocity = t.velocity();
+        Vec3 position = t.carriages[kCarriages / 2].center;
+        Vec3 velocity = t.velocity();
         traffic.collide(t.spheres(t.width / 2), t.width / 2, 1e9f, position, velocity);
     }
 }

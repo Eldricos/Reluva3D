@@ -51,7 +51,7 @@ using SmokeRule = BirthRule;
 // From a rule's block (the fields above; the others aren't used).
 BirthRule parseBirthRule(const TuneNode &n);
 
-// tune/vehicle/<car>.vehCarDamage: see docs/engines/age-driving.md.
+// tune/vehicle/<car>.vehCarDamage: see docs/engines/age/games/mm2/systems/damage.md.
 struct DamageSetup {
     float maxDamage = 300000;     // wrecked
     float medDamage = 150000;     // smoking
@@ -135,7 +135,7 @@ public:
     void burst(const BirthRule &rule, const Vec3 &at, const Vec3 &velocity, const Look &look);
     // What a car's wheels throw up from what they're on (the surfaces'
     // particles): tune/effects/*.asBirthRule, by Reluva's reading of the
-    // materials' effect numbers (see docs/engines/age-driving.md).
+    // materials' effect numbers (see docs/engines/age/games/mm2/systems/damage.md).
     void loadWheelEffects(const SearchSet &files);
     void wheels(float dt, const CarSim &car);
     void update(float dt);

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Angel Game Engine's unit tests: the city's life: roads, traffic, its lights and rules, police, boats, bridges, trains, props, ambient sounds.
+// The Angel Game Engine's unit tests: the city's life: roads, traffic, its
+// lights and rules, police, boats, bridges, trains, props, ambient sounds.
 // Every file is built in the test.
 
 #include "tests/engines/age/support.h"
@@ -55,7 +56,8 @@ void testPathDriver() {
         vertex.pos = v;
         pkg.meshes[0].groups[0].vertices.push_back(vertex);
     }
-    Vec3 low{-99, -99, -99}, high{99, 99, 99};
+    Vec3 low{-99, -99, -99};
+    Vec3 high{99, 99, 99};
     CHECK(bodyBounds(pkg, low, high) && low == Vec3({-1, 0, 3}) && high == Vec3({1, 2, 5}));
 }
 
@@ -138,7 +140,9 @@ void testTraffic(const std::filesystem::path &tmp) {
     }
     if (t.count() != 1)
         return;
-    float minZ = 0, maxZ = -20, travelled = 0;
+    float minZ = 0;
+    float maxZ = -20;
+    float travelled = 0;
     std::vector<RoadUser> u;
     t.users(u);
     Vec3 last = u[0].position;
@@ -203,11 +207,15 @@ void testTrafficLights() {
     CHECK(lights.count() == 8 && lights.has(0, 0) && !lights.has(9, 0));
     // Opposite roads together, the crossing ones the other way; each turn
     // green, then amber, then red.
-    int greenTogether = 0, conflicts = 0, ambers = 0;
+    int greenTogether = 0;
+    int conflicts = 0;
+    int ambers = 0;
     for (float t = 0; t < 64; t += 0.5f) {
         lights.setClock(t);
-        const Signal n = lights.signal(0, 0), e = lights.signal(1, 0);
-        const Signal so = lights.signal(2, 0), w = lights.signal(3, 0);
+        const Signal n = lights.signal(0, 0);
+        const Signal e = lights.signal(1, 0);
+        const Signal so = lights.signal(2, 0);
+        const Signal w = lights.signal(3, 0);
         CHECK(n == so && e == w);
         greenTogether += n == Signal::kGreen;
         conflicts += n != Signal::kRed && e != Signal::kRed;
@@ -491,7 +499,8 @@ void testParkedCars(const std::filesystem::path &tmp) {
     t.parkedPlaces(places);
     CHECK(std::fabs(places[0].first[1]) < 1e-3f);
     // Knocked, one slides off and is to be kept clear of.
-    Vec3 position = places[0].first, velocity{0, 0, -8};
+    Vec3 position = places[0].first;
+    Vec3 velocity{0, 0, -8};
     CHECK(t.collide({places[0].first + Vec3{0, 0.5f, 1.5f}}, 1, 1e9f, position, velocity) > 0);
     for (int i = 0; i < 10; ++i)
         t.update(0.05f, {0, 0, 5000}, {}, flat);
@@ -560,7 +569,8 @@ void testTrains(const std::filesystem::path &tmp) {
     across.name = across.model = "PATH01";
     across.points = {{20, 0, 1}, {20, 0, -1}};
     t.park(files, {across}, {});
-    std::vector<std::pair<Vec3, Vec3>> before, after;
+    std::vector<std::pair<Vec3, Vec3>> before;
+    std::vector<std::pair<Vec3, Vec3>> after;
     t.parkedPlaces(before);
     CHECK(before.size() <= 1);
     for (int i = 0; i < 400; ++i) {

@@ -16,7 +16,7 @@ namespace reluva::age {
 // A city's streets and buildings (.psdl, "PSD0"): shared vertices and
 // heights, and blocks, each a list of attributes (road strips, sidewalks,
 // building fronts, roofs...) the geometry is generated from. See
-// docs/formats/age/psdl.md.
+// docs/engines/age/games/mm2/formats/psdl.md.
 
 namespace psdlattr {
 constexpr uint8_t kRoadStrip = 0;     // sections of 4: sidewalk, road, road, sidewalk

@@ -18,7 +18,7 @@ enum : int { kKeyRoot = 1, kChordRoot = 2, kScaleIntervals = 4, kChordIntervals 
 // DMUS_COMMANDT types.
 enum : int { kGroove = 0, kCommandFill = 1, kCommandIntro = 2, kCommandBreak = 3, kCommandEnd = 4, kEndAndIntro = 5 };
 // Curve types and shapes as the game's files use them
-// (docs/formats/directmusic.md).
+// (docs/common/audio/directmusic.md).
 enum : int { kCurvePitchBend = 3, kCurveController = 4 };
 enum : int { kShapeLinear = 0, kShapeInstant = 1, kShapeExp = 2, kShapeLog = 3, kShapeSine = 4 };
 
@@ -367,7 +367,10 @@ int dmMusicToMidi(uint16_t value, int mode, const DmChord &chord) {
         else if (mode & kKeyRoot)
             key += chord.scaleRoot % 12;
     } else {
-        int octave = value >> 12, chordPos = value >> 8 & 15, scalePos = value >> 4 & 15, accidental = value & 15;
+        int octave = value >> 12;
+        int chordPos = value >> 8 & 15;
+        int scalePos = value >> 4 & 15;
+        int accidental = value & 15;
         if (octave > 14)
             octave -= 16; // -2 and -1
         if (accidental > 7)
@@ -799,7 +802,8 @@ void DmPerformance::composeMeasure(double start) {
         _playing.reset(); // finished
         return;
     }
-    const double from = p.segmentTick, to = from + measureTicks;
+    const double from = p.segmentTick;
+    const double to = from + measureTicks;
     // Bands due.
     while (p.bandIndex < s.bands.size() && s.bands[p.bandIndex].time < to)
         applyBand(s.bands[p.bandIndex++]);

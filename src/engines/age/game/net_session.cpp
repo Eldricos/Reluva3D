@@ -5,7 +5,7 @@
 // its fields (little-endian). Nothing is sent once and trusted to arrive:
 // the lobby, the game's state and the cars are sent again and again, the
 // newest replacing the last, and chat lines are sent until the host says
-// it has them. See docs/engines/age-multiplayer.md.
+// it has them. See docs/engines/age/games/mm2/systems/network-protocol.md.
 
 #include "engines/age/game/net_session.h"
 
@@ -228,9 +228,15 @@ Vec3 lerp(const Vec3 &a, const Vec3 &b, float t) {
 std::array<float, 4> quaternionOf(const Mat3 &m) {
     // The matrix's columns are where X, Y and Z go: element (row r,
     // column c) is the column's r'th.
-    const float r00 = m.x[0], r10 = m.x[1], r20 = m.x[2];
-    const float r01 = m.y[0], r11 = m.y[1], r21 = m.y[2];
-    const float r02 = m.z[0], r12 = m.z[1], r22 = m.z[2];
+    const float r00 = m.x[0];
+    const float r10 = m.x[1];
+    const float r20 = m.x[2];
+    const float r01 = m.y[0];
+    const float r11 = m.y[1];
+    const float r21 = m.y[2];
+    const float r02 = m.z[0];
+    const float r12 = m.z[1];
+    const float r22 = m.z[2];
     std::array<float, 4> q;
     const float trace = r00 + r11 + r22;
     if (trace > 0) {
@@ -253,7 +259,10 @@ std::array<float, 4> quaternionOf(const Mat3 &m) {
 }
 
 Mat3 matrixOfQuaternion(const std::array<float, 4> &q) {
-    const float x = q[0], y = q[1], z = q[2], w = q[3];
+    const float x = q[0];
+    const float y = q[1];
+    const float z = q[2];
+    const float w = q[3];
     Mat3 m;
     m.x = {1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)};
     m.y = {2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)};
@@ -269,7 +278,8 @@ bool carStateAt(const std::deque<NetCarState> &states, float clock, NetCarState 
         return true;
     }
     for (size_t i = 0; i + 1 < states.size(); ++i) {
-        const NetCarState &a = states[i], &b = states[i + 1];
+        const NetCarState &a = states[i];
+        const NetCarState &b = states[i + 1];
         if (clock > b.clock)
             continue;
         const float span = b.clock - a.clock;
@@ -806,10 +816,14 @@ void NetSession::handleHost(const net::Address &from, const std::vector<uint8_t>
     case kStatus: {
         r.u8(); // the id: the address says who
         const uint32_t round = r.u32();
-        const std::string name = r.str(), car = r.str();
-        const uint8_t paint = r.u8(), team = r.u8(), flags = r.u8();
+        const std::string name = r.str();
+        const std::string car = r.str();
+        const uint8_t paint = r.u8();
+        const uint8_t team = r.u8();
+        const uint8_t flags = r.u8();
         const uint16_t ping = r.u16();
-        const uint32_t time = r.u32(), chatSeq = r.u32();
+        const uint32_t time = r.u32();
+        const uint32_t chatSeq = r.u32();
         const std::string text = r.str();
         if (!r.ok)
             return;
@@ -957,7 +971,8 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
     switch (type) {
     case kLobby: {
         const Phase phase = Phase(std::min<uint8_t>(r.u8(), uint8_t(Phase::kPlaying)));
-        const uint32_t round = r.u32(), seed = r.u32();
+        const uint32_t round = r.u32();
+        const uint32_t seed = r.u32();
         const std::string name = r.str();
         const NetSettings settings = readSettings(r);
         const uint8_t you = r.u8();
@@ -983,7 +998,8 @@ void NetSession::handlePlayer(const net::Address &from, const std::vector<uint8_
             c.from = r.str();
             c.text = r.str();
         }
-        const uint32_t taken = r.u32(), echo = r.u32();
+        const uint32_t taken = r.u32();
+        const uint32_t echo = r.u32();
         const uint16_t held = r.u16();
         if (!r.ok || you != _myId)
             return;

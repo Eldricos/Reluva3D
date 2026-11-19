@@ -13,7 +13,7 @@ namespace reluva::age {
 
 namespace {
 
-std::string lower(std::string s) {
+std::string lower(const std::string &s) {
     return fs::toLower(s);
 }
 
@@ -27,7 +27,8 @@ std::string withoutFrame(std::string s) {
 } // namespace
 
 Error PhysicsMaterials::load(const SearchSet &files) {
-    std::vector<uint8_t> mtl, csv;
+    std::vector<uint8_t> mtl;
+    std::vector<uint8_t> csv;
     if (Error err = files.read("city/materials.mtl", mtl))
         return err;
     files.read("city/materials.csv", csv);

@@ -5,7 +5,7 @@
 // words for the game's in-race menu; the results screens after a race or
 // lesson (jpg/rshi_bk "Event Results", crshi_bk "Crash Course Results",
 // with the texture/RESULT_* buttons); and the menus' music (UI.sgt) and
-// voices (aud/aud22/UI*.wav). See docs/engines/age-menus.md.
+// voices (aud/aud22/UI*.wav). See docs/engines/age/games/mm2/systems/menus.md.
 
 #include "engines/age/ui/screen.h"
 
@@ -294,10 +294,12 @@ void RaceScreen::drawResults() {
     // What the race opened, in the box beside the description (as on the
     // game's screens), wrapped.
     if (!_unlockMessage.empty()) {
-        constexpr int kX = 290, kY = 404;
+        constexpr int kX = 290;
+        constexpr int kY = 404;
         constexpr size_t kWide = 44;
         std::istringstream words(_unlockMessage);
-        std::string word, text;
+        std::string word;
+        std::string text;
         int lineY = kY;
         while (words >> word) {
             if (!text.empty() && text.size() + 1 + word.size() > kWide) {

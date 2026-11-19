@@ -12,7 +12,7 @@
 namespace reluva::age {
 
 // The game's strings: mmlang.dll's string tables (its only resources),
-// by id. See docs/formats/age/mmlang.md.
+// by id. See docs/engines/age/games/mm2/formats/mmlang.md.
 class GameStrings {
 public:
     Error load(const SearchSet &files);

@@ -76,7 +76,8 @@ void HudPictures::blit(Surface &overlay, const image::Image &im, int x, int y, i
             const uint8_t *s = im.pixel(std::clamp(sx, 0, im.w - 1), sy);
             uint8_t *d = row + xx * 4;
             // Over what's there, both with straight alpha.
-            const float a = float(s[3]) / 255, da = float(d[3]) / 255;
+            const float a = float(s[3]) / 255;
+            const float da = float(d[3]) / 255;
             const float out = a + da * (1 - a);
             if (out <= 0)
                 continue;
@@ -125,7 +126,11 @@ void HudPictures::gauges(Surface &overlay, const CarSim &sim, float damage) cons
 
 bool HudPictures::cdPlayer(Surface &overlay, int x, int y, bool playing, int pressed, const std::string &text) const {
     // The buttons' places in CD_BG: play, stop, then previous and next.
-    constexpr int kButtonY = 73, kPlayX = 18, kStopX = 48, kPrevX = 98, kNextX = 128;
+    constexpr int kButtonY = 73;
+    constexpr int kPlayX = 18;
+    constexpr int kStopX = 48;
+    constexpr int kPrevX = 98;
+    constexpr int kNextX = 128;
     auto get = [&](const char *n) -> const image::Image * {
         auto it = _cd.find(n);
         return it == _cd.end() ? nullptr : &it->second;
@@ -148,7 +153,9 @@ bool HudPictures::place(Surface &overlay, int place, int x, int y, int size) con
     // stored upside down (the game draws them flipped).
     if (_places.w < 4 || place < 1 || place > 9 || size <= 0)
         return false;
-    const int cell = _places.w / 4, cx = (place - 1) % 4 * cell, cy = (place - 1) / 4 * cell;
+    const int cell = _places.w / 4;
+    const int cx = (place - 1) % 4 * cell;
+    const int cy = (place - 1) / 4 * cell;
     for (int yy = std::max(0, y - size / 2); yy < std::min(overlay.h, y - size / 2 + size); ++yy) {
         const int sy = cy + cell - 1 - std::min(cell - 1, (yy - (y - size / 2)) * cell / size);
         uint8_t *row = overlay.row(yy);

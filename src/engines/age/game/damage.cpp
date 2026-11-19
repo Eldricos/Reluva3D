@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The .vehCarDamage fields are read from the files; what they do is
-// Reluva's reading. See docs/engines/age-driving.md.
+// Reluva's reading. See docs/engines/age/games/mm2/systems/damage.md.
 
 #include "engines/age/game/damage.h"
 
@@ -155,7 +155,8 @@ SmokePuffs::Look SmokePuffs::look(const std::string &texture) {
     bool translucent;
     l.texture = _textures.get(texture, translucent, true);
     // The game's sheets of four are its 128-pixel particle textures.
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     l.grid = _textures.size(texture, w, h) && w >= 128 && h >= 128 ? 2 : 1;
     return _looks[texture] = l;
 }
@@ -304,7 +305,8 @@ void SmokePuffs::draw(const Vec3 &eye) const {
         right = length(right) > 1e-3f ? normalized(right) : Vec3{1, 0, 0};
         const Vec3 up = cross(toEye, right);
         const float size = p.radius * 2;
-        const Vec3 x = right * size, y = up * size;
+        const Vec3 x = right * size;
+        const Vec3 y = up * size;
         gfx::DrawCall call;
         call.mesh = _quad;
         call.indexCount = 6;
@@ -312,7 +314,8 @@ void SmokePuffs::draw(const Vec3 &eye) const {
                       toEye[0], toEye[1], toEye[2], 0, p.position[0], p.position[1], p.position[2], 1};
         call.texture = p.look.texture;
         // The frame's part of the texture: across, then down.
-        const int g = std::max(1, p.look.grid), f = p.frame % (g * g);
+        const int g = std::max(1, p.look.grid);
+        const int f = p.frame % (g * g);
         const float part = 1.0f / float(g);
         call.postRow0 = {part, 0, part * float(f % g)};
         call.postRow1 = {0, part, part * float(f / g)};

@@ -46,7 +46,10 @@ void Md5::block(const uint8_t *p) {
         m[i] = uint32_t(p[i * 4]) | uint32_t(p[i * 4 + 1]) << 8 | uint32_t(p[i * 4 + 2]) << 16 |
                uint32_t(p[i * 4 + 3]) << 24;
 
-    uint32_t a = _state[0], b = _state[1], c = _state[2], d = _state[3];
+    uint32_t a = _state[0];
+    uint32_t b = _state[1];
+    uint32_t c = _state[2];
+    uint32_t d = _state[3];
     for (int i = 0; i < 64; ++i) {
         uint32_t f;
         int g;

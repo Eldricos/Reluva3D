@@ -8,7 +8,7 @@
 // them: everything in it (the opponents, the traffic, the pedestrians,
 // the police) is the same race, as it all follows from the race's seeds
 // and the player's driving. Saved in Reluva's own file, <name>.rpl in the
-// save folder's replays/. See docs/engines/age-racing.md.
+// save folder's replays/. See docs/engines/age/games/mm2/systems/replays.md.
 
 #include "common/types.h"
 #include "engines/age/vecmath.h"

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Angel Game Engine's unit tests: the game's files read: archives, textures, models, cities, races, road maps, path sets.
+// The Angel Game Engine's unit tests: the game's files read: archives,
+// textures, models, cities, races, road maps, path sets.
 // Every file is built in the test.
 
 #include "tests/engines/age/support.h"
@@ -264,7 +265,9 @@ void testPsdl() {
     buildCityMesh(psdl, mesh);
     CHECK(mesh.batches.size() == 1 && mesh.batches[0].texture == "r2_f");
     CHECK(mesh.batches[0].indices.size() == 4 * 3); // two roof triangles, two facade triangles
-    float lowest = 1e9f, highest = -1e9f, maxU = 0;
+    float lowest = 1e9f;
+    float highest = -1e9f;
+    float maxU = 0;
     for (const gfx::Vertex &v : mesh.vertices) {
         lowest = std::min(lowest, v.pos[1]);
         highest = std::max(highest, v.pos[1]);
@@ -605,7 +608,8 @@ void testTunnels() {
     CHECK(!readPsdl(buildPsdl(tube), psdl));
     CityMesh mesh;
     buildCityMesh(psdl, mesh);
-    float crown = -1, wallTop = -1;
+    float crown = -1;
+    float wallTop = -1;
     for (const gfx::Vertex &v : mesh.vertices) {
         crown = std::max(crown, v.pos[1]);
         if (v.pos[0] == 0)
@@ -613,7 +617,8 @@ void testTunnels() {
     }
     CHECK(std::fabs(crown - 7) < 1e-4f && std::fabs(wallTop - 5.5f) < 1e-4f);
     // The walls' texture runs up them from its first row at the foot.
-    int foot = 0, head = 0;
+    int foot = 0;
+    int head = 0;
     for (const gfx::Vertex &v : mesh.vertices)
         if (std::fabs(v.normal[1]) < 1e-3f && std::fabs(v.normal[0]) > 0.999f) {
             if (v.pos[1] == 0)
@@ -651,7 +656,8 @@ void testTunnels() {
         10 << 3, 1, 9 << 3, 10, 0xb, 0x580, 0x700, 0, 0b1010, 0, 0, 0, 0, 0, 0x80 | 6 << 3 | 2, 0, 1, 2, 3};
     CHECK(!readPsdl(buildPsdl(junction, 2, {{0, 0}, {1, 7}, {2, 0}, {3, 7}}), psdl));
     buildCityMesh(psdl, mesh);
-    size_t ceiling = 0, walls = 0;
+    size_t ceiling = 0;
+    size_t walls = 0;
     for (size_t i = 0; i + 2 < mesh.batches[0].indices.size(); i += 3) {
         const gfx::Vertex &a = mesh.vertices[mesh.batches[0].indices[i]];
         if (a.normal[1] != 0 && a.pos[1] > 5)
@@ -683,7 +689,8 @@ void testCityExtras() {
     const std::vector<uint16_t> road = {10 << 3, 1, 0x80 | 0 << 3 | 2, 4, 0, 1, 5, 4, 3, 2, 5};
     CHECK(!readPsdl(buildPsdl(road, 2, {{0, 0}, {1, 5}}, {"r2_f", "swalk_f", "r2_lo_f"}), psdl));
     buildCityMesh(psdl, mesh);
-    int near = -1, far = -1;
+    int near = -1;
+    int far = -1;
     for (size_t i = 0; i < mesh.batches.size(); ++i) {
         if (mesh.batches[i].detail == 1)
             near = int(i);
@@ -711,7 +718,8 @@ void testCityExtras() {
     // A divided road whose divider (texture 2, a barrier 1 m high) runs
     // from vertices 0-1 to 3-2: raised to its height with sides, its ends
     // closed only where 0x40 and 0x80 say; a flat one stays on the road.
-    size_t open = 0, closed = 0;
+    size_t open = 0;
+    size_t closed = 0;
     for (const uint16_t kind : {uint16_t(3), uint16_t(0xc3), uint16_t(1)}) {
         const std::vector<uint16_t> divided = {
             10 << 3, 1, 0x80 | 8 << 3 | 2, uint16_t(2 << 8 | kind), 0x100, 0, 0, 0, 1, 1, 1, 3, 3, 3, 2, 2, 2};

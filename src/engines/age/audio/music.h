@@ -35,7 +35,7 @@ std::vector<MusicSet> parseMusicSets(const std::string &text, bool race);
 
 // The game's music: one tune's segments, switched (at the next measure)
 // by what's going on: started, stopped a while, chased by the police,
-// back on the move, paused, the results. See docs/engines/age-racing.md.
+// back on the move, paused, the results. See docs/engines/age/games/mm2/systems/music.md.
 class GameMusic {
 public:
     ~GameMusic() { stop(); }

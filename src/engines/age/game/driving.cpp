@@ -147,7 +147,10 @@ void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damag
     // The revs as a bar, red past the optimum.
     const CarSetup &setup = sim.setup();
     const float revs = std::clamp(sim.rpm / setup.maxRpm, 0.0f, 1.0f);
-    const int barX = speedX, barY = h - 22, barW = right - speedX, barH = 8;
+    const int barX = speedX;
+    const int barY = h - 22;
+    const int barW = right - speedX;
+    const int barH = 8;
     for (int yy = barY; yy < barY + barH; ++yy) {
         uint8_t *p = overlay.row(yy) + barX * 4;
         for (int x = 0; x < barW; ++x, p += 4) {
@@ -174,7 +177,10 @@ void drawSpeedometer(Surface &overlay, const CarSim &sim, int right, float damag
 
 void drawRearMirror(gfx::Renderer3D &renderer, const CarSim &sim, float farClip,
                     const std::function<void(const gfx::Mat4 &viewProj, const Vec3 &eye)> &world) {
-    constexpr int kX = 447, kY = 0, kW = 193, kH = 77;
+    constexpr int kX = 447;
+    constexpr int kY = 0;
+    constexpr int kW = 193;
+    constexpr int kH = 77;
     constexpr float kFov = 25; // degrees, up and down
     // From the driver's head, looking back level.
     const Vec3 eye = sim.position + sim.orientation * Vec3{0, 1.2f, 0};

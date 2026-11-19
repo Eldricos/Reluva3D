@@ -275,7 +275,8 @@ CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, Ca
         reset ? slope : follow.slope + (slope - follow.slope) * std::min(1.0f, cam.hillLerp * kFrameRate * dt);
     Vec3 offset = cam.offset;
     if (follow.slope != 0) {
-        const float s = follow.slope, c = std::sqrt(std::max(0.0f, 1 - s * s));
+        const float s = follow.slope;
+        const float c = std::sqrt(std::max(0.0f, 1 - s * s));
         offset = {offset[0], offset[1] * c - offset[2] * s, offset[2] * c + offset[1] * s};
     }
     const Vec3 wanted = sim.position + heading * offset;
@@ -302,8 +303,10 @@ CameraView updateCarCamera(const CarCamera &cam, const CarSim &sim, float dt, Ca
     // Across, round the car: its bearing and distance from the point it
     // looks at each eased, the distance kept within the camera's.
     const float pull = std::min(1.0f, dt * across);
-    const float nowX = follow.position[0] - v.target[0], nowZ = follow.position[2] - v.target[2];
-    const float wantX = wanted[0] - v.target[0], wantZ = wanted[2] - v.target[2];
+    const float nowX = follow.position[0] - v.target[0];
+    const float nowZ = follow.position[2] - v.target[2];
+    const float wantX = wanted[0] - v.target[0];
+    const float wantZ = wanted[2] - v.target[2];
     float bearing = std::atan2(nowX, nowZ);
     float turn = std::atan2(wantX, wantZ) - bearing;
     turn = std::remainder(turn, 6.2831853f);

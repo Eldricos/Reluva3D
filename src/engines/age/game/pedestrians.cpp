@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Pedestrians on the road map's sidewalks; the rules are Reluva's,
-// described in docs/engines/age-traffic.md.
+// described in docs/engines/age/games/mm2/systems/pedestrians.md.
 
 #include "engines/age/game/pedestrians.h"
 

@@ -8,7 +8,7 @@
 // reached by address. The host keeps the session (its settings, the
 // players, the chat, when the game starts) and passes each car's state on
 // to the others. It's Reluva's own protocol: the original's (DirectPlay)
-// isn't spoken. See docs/engines/age-multiplayer.md.
+// isn't spoken. See docs/engines/age/games/mm2/systems/network-protocol.md.
 
 #include "common/net.h"
 #include "common/types.h"

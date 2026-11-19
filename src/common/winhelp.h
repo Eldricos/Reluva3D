@@ -6,7 +6,7 @@
 // Windows Help files (.hlp): their topics' titles, text, links and
 // pictures, from the format's public description (Manfred Winterhoff's
 // helpfile.txt, which documents helpdeco). Fonts, macros and pictures'
-// hot spots are skipped. See docs/formats/winhelp.md.
+// hot spots are skipped. See docs/common/winhelp.md.
 
 #include "common/types.h"
 

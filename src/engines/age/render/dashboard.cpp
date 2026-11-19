@@ -19,7 +19,8 @@ constexpr float kPi = 3.14159265358979f;
 // `angle` (anticlockwise as seen), then at `at` in the camera's space,
 // then by the camera into the world.
 gfx::Mat4 placed(const Mat3 &camera, const Vec3 &eye, const Vec3 &at, const Vec3 &pivot, float angle, float widen) {
-    const float c = std::cos(angle), s = std::sin(angle);
+    const float c = std::cos(angle);
+    const float s = std::sin(angle);
     // Local: p' = R (p - pivot) + pivot + at, stretched across by `widen`;
     // world: camera * p' + eye.
     const Mat3 turn{{c, s, 0}, {-s, c, 0}, {0, 0, 1}};

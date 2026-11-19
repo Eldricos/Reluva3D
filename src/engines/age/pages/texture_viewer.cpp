@@ -115,8 +115,11 @@ void TextureViewer::draw() {
     text(4, 4 + lh, info, {180, 180, 180});
 
     // Fit the space below the text (zoom 0), or that many times the size.
-    const int top = 4 + 3 * lh, areaW = _ctx.screen.w - 8, areaH = _ctx.screen.h - top - 4;
-    int w = img.w, h = img.h;
+    const int top = 4 + 3 * lh;
+    const int areaW = _ctx.screen.w - 8;
+    const int areaH = _ctx.screen.h - top - 4;
+    int w = img.w;
+    int h = img.h;
     if (_zoom > 0) {
         w *= _zoom;
         h *= _zoom;
@@ -125,7 +128,8 @@ void TextureViewer::draw() {
         w = std::max(1, int(float(w) * s));
         h = std::max(1, int(float(h) * s));
     }
-    const int x0 = 4 + std::max(0, (areaW - w) / 2), y0 = top + std::max(0, (areaH - h) / 2);
+    const int x0 = 4 + std::max(0, (areaW - w) / 2);
+    const int y0 = top + std::max(0, (areaH - h) / 2);
     Surface &s = _ctx.screen;
     for (int y = 0; y < h && y0 + y < s.h; ++y) {
         uint8_t *row = s.row(y0 + y);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Worked out from the retail files; see docs/formats/age/pvs.md.
+// Worked out from the retail files; see docs/engines/age/games/mm2/formats/pvs.md.
 
 #include "engines/age/formats/pvs.h"
 

@@ -3,7 +3,7 @@
 
 // The .mmHudMap fields are read from the files; how they're used (the
 // field of view, icon sizes as lengths, the map turning with the car) is
-// Reluva's reading. See docs/engines/age-driving.md.
+// Reluva's reading. See docs/engines/age/games/mm2/systems/hud.md.
 
 #include "engines/age/ui/hud_map.h"
 
@@ -113,7 +113,10 @@ void HudMap::draw(gfx::Renderer3D &renderer, ModelCache &models, const Vec3 &cen
                   const std::vector<HudMapIcon> &icons, int frameW, int frameH) const {
     if (!_ok || !shown())
         return;
-    int x, y, w, h;
+    int x;
+    int y;
+    int w;
+    int h;
     if (_full) {
         h = int(float(frameH) * kFullScreen);
         w = h;
@@ -129,7 +132,8 @@ void HudMap::draw(gfx::Renderer3D &renderer, ModelCache &models, const Vec3 &cen
         h = std::min(frameH - y, int(_setup.height * kShown * float(frameH)));
         if (_size == 1) {
             constexpr float kLarger = 1.6f;
-            const int right = x + w, bottom = y + h;
+            const int right = x + w;
+            const int bottom = y + h;
             w = int(float(w) * kLarger);
             h = int(float(h) * kLarger);
             x = std::max(0, right - w);

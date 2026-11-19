@@ -6,7 +6,7 @@
 // The rest of the game's menus, redrawn as the others are (front_end.h):
 // the Options (audio, graphics, controls and their keys, about), and the
 // dialogs the main menu opens. Each screen is tune/widget.csv's controls
-// on its jpg/ background. See docs/engines/age-menus.md.
+// on its jpg/ background. See docs/engines/age/games/mm2/systems/menus.md.
 
 #include "common/system.h"
 #include "engines/age/ui/front_end.h"

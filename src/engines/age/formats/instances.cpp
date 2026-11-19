@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's cities; see
-// docs/formats/age/inst.md.
+// docs/engines/age/games/mm2/formats/inst.md.
 
 #include "engines/age/formats/instances.h"
 
@@ -45,7 +45,8 @@ Error readInstances(const std::vector<uint8_t> &data, std::vector<Instance> &out
         if (turnOnly) {
             // Turned about the vertical only: the X axis's x and z, then the
             // position.
-            const float x = f32(f), z = f32(f + 4);
+            const float x = f32(f);
+            const float z = f32(f + 4);
             inst.matrix = {x, 0, z, 0, 1, 0, -z, 0, x, f32(f + 8), f32(f + 12), f32(f + 16)};
         } else {
             for (size_t i = 0; i < 12; ++i)

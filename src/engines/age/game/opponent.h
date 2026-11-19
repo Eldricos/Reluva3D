@@ -14,7 +14,7 @@ namespace reluva::age {
 // along the roads): steers (pure pursuit) for a point a little way along
 // the path, slows for each corner ahead in time, backs out when stuck.
 // Reluva's stand-in for the game's opponents, whose driving is in its
-// encrypted program. See docs/engines/age-racing.md.
+// encrypted program. See docs/engines/age/games/mm2/systems/races.md.
 class PathDriver {
 public:
     // `laps` > 0 drives the path round that many times, from its end back

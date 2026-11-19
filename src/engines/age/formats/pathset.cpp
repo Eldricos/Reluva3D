@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// Worked out from the 57 retail files; see docs/formats/age/pathset.md.
+// Worked out from the 57 retail files; see docs/engines/age/games/mm2/formats/pathset.md.
 
 #include "engines/age/formats/pathset.h"
 
@@ -71,7 +71,9 @@ Error readPathset(const std::vector<uint8_t> &data, std::vector<PathsetPath> &ou
 std::vector<PathsetPath> readCityPaths(const SearchSet &files, const std::string &map, const std::string &kind,
                                        const std::string &variant) {
     std::vector<uint8_t> data;
-    std::vector<PathsetPath> city, race, out;
+    std::vector<PathsetPath> city;
+    std::vector<PathsetPath> race;
+    std::vector<PathsetPath> out;
     const std::string base = "race/" + map + "/" + map + "_" + kind;
     if (!files.read(base + ".pathset", data))
         readPathset(data, city);

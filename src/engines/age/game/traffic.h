@@ -80,7 +80,7 @@ Vec3 pointAlong(const std::vector<Vec3> &points, const std::vector<float> &at, f
 // lamps show: brake lights, indicators, and headlights at night. And the
 // city's parked cars, which stay where they are until knocked.
 // Reluva's own driving (the game's is in its encrypted program); see
-// docs/engines/age-traffic.md.
+// docs/engines/age/games/mm2/systems/traffic.md.
 class Traffic {
 public:
     // tune/vehicle/<model>.aiVehicleData for each kind the aimap lists.

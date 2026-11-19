@@ -6,7 +6,7 @@
 // on their own machine and sends where it is; the others' cars are drawn
 // where they were a tenth of a second ago, between the states that came.
 // The host keeps the clock, says when it's over, and runs the gold. See
-// docs/engines/age-multiplayer.md.
+// docs/engines/age/games/mm2/systems/multiplayer.md.
 
 #include "engines/age/ui/screen.h"
 
@@ -333,8 +333,9 @@ void RaceScreen::checkProgress(Racer &r, const NetCarState &s) {
         const std::vector<size_t> gates = anyOrder() ? remaining(r) : std::vector<size_t>{r.next};
         for (size_t k : gates) {
             const Waypoint &w = targetPoint(k);
-            const Vec3 a{r.seenAt[0], 0, r.seenAt[2]}, b{s.position[0], 0, s.position[2]},
-                c{w.position[0], 0, w.position[2]};
+            const Vec3 a{r.seenAt[0], 0, r.seenAt[2]};
+            const Vec3 b{s.position[0], 0, s.position[2]};
+            const Vec3 c{w.position[0], 0, w.position[2]};
             const Vec3 ab = b - a;
             const float t = dot(ab, ab) > 1e-6f ? std::clamp(dot(c - a, ab) / dot(ab, ab), 0.0f, 1.0f) : 0;
             const Vec3 nearest = a + ab * t;

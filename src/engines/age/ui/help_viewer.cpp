@@ -81,7 +81,8 @@ const winhelp::Picture *HelpViewer::picture(int number) const {
 }
 
 int HelpViewer::pictureLines(const winhelp::Picture &p) const {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     shownSize(p, w, h);
     return (h + kRow - 1) / kRow + 1;
 }
@@ -324,9 +325,11 @@ void HelpViewer::draw(Surface &o) const {
         const winhelp::Picture *p = l.picture >= 0 ? picture(l.picture) : nullptr;
         if (!p)
             continue;
-        int w = 0, h = 0;
+        int w = 0;
+        int h = 0;
         shownSize(*p, w, h);
-        const int y0 = kTop + (i - _line) * kRow, x0 = kLeft;
+        const int y0 = kTop + (i - _line) * kRow;
+        const int x0 = kLeft;
         for (int y = std::max(0, kTop - y0); y < h && y0 + y < kBottom; ++y) {
             uint8_t *to = o.row(y0 + y) + x0 * 4;
             const int sy = y * p->height / h;

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // The messages are mmlang.dll's, in groups by event (ids 192-245); what
-// each lesson asks is read from them. See docs/engines/age-racing.md.
+// each lesson asks is read from them. See docs/engines/age/games/mm2/systems/crash-course.md.
 
 #include "engines/age/game/lesson.h"
 

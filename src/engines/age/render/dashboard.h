@@ -15,7 +15,7 @@ namespace reluva::age {
 // Where a car's dashboard goes in front of the in-car camera
 // (tune/<car>_dash.asnode): the dash, roof and steering wheel's places
 // (camera space: x right, y up, z back), the needles' and wheel's pivots
-// and how far each turns. See docs/engines/age-driving.md.
+// and how far each turns. See docs/engines/age/games/mm2/systems/cameras.md.
 struct DashSetup {
     Vec3 dashPos{};
     Vec3 roofPos{};

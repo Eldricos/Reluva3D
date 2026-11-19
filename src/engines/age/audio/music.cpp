@@ -208,7 +208,7 @@ void GameMusic::update(float dt, const State &s) {
         want(s.chased ? _set.idleCops : _set.idle);
     } else if (s.chased || s.lastStretch) {
         // The race's last stretch speeds up too: the chase segment (see
-        // docs/engines/age-footage.md).
+        // docs/engines/age/games/mm2/research/footage.md).
         want(_set.cops);
     } else if (wasIdle || _wasChased || _wasPaused) {
         // On the move again, out of a chase or back from the pause.

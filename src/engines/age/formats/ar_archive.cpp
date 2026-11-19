@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's archives; see
-// docs/formats/age/ar.md.
+// docs/engines/age/games/mm2/formats/ar.md.
 
 #include "engines/age/formats/ar_archive.h"
 
@@ -50,7 +50,8 @@ Error ArArchive::open(const std::filesystem::path &path) {
     if (uint64_t(count) * kEntrySize > dirSize || kHeaderSize + uint64_t(dirSize) + namesSize > fileSize)
         return Error::fail(where + ": directory runs past the end of the file");
 
-    std::vector<uint8_t> dir(dirSize), names(namesSize);
+    std::vector<uint8_t> dir(dirSize);
+    std::vector<uint8_t> names(namesSize);
     if ((dirSize && !readAt(in, kHeaderSize, dir.data(), dirSize)) ||
         (namesSize && !readAt(in, kHeaderSize + dirSize, names.data(), namesSize)))
         return Error::fail("Cannot read " + where);

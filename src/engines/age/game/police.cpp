@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The police as Reluva runs them; see docs/engines/age-traffic.md.
+// The police as Reluva runs them; see docs/engines/age/games/mm2/systems/police.md.
 
 #include "engines/age/game/police.h"
 
@@ -25,7 +25,8 @@ constexpr float kPatrolLength = 1000; // metres of lanes a patrol is planned ahe
 constexpr float kKeepBack = 18;       // metres a patrolling car keeps behind what's ahead
 
 float flatDistance(const Vec3 &a, const Vec3 &b) {
-    const float dx = a[0] - b[0], dz = a[2] - b[2];
+    const float dx = a[0] - b[0];
+    const float dz = a[2] - b[2];
     return std::sqrt(dx * dx + dz * dz);
 }
 
@@ -258,7 +259,8 @@ void Police::update(float dt, CarSim &player, const CollisionWorld &world, const
             // in once it's slow.
             Vec3 aim = player.position + player.velocity * 0.4f - sim.position;
             aim[1] = 0;
-            Vec3 fwd = -sim.orientation.z, right = sim.orientation.x;
+            Vec3 fwd = -sim.orientation.z;
+            Vec3 right = sim.orientation.x;
             fwd[1] = right[1] = 0;
             const float angle = std::atan2(dot(aim, normalized(right)), dot(aim, normalized(fwd)));
             c.steer = std::clamp(angle * 2, -1.0f, 1.0f);

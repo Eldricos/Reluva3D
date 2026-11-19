@@ -6,7 +6,7 @@
 // The player's options, as the game's Options menus set them: sound,
 // graphics and the controls, the keys among them. Kept in Reluva's own
 // text file (options.txt) in the game's save folder; the game's own
-// settings are in the Windows registry. See docs/engines/age-menus.md.
+// settings are in the Windows registry. See docs/engines/age/games/mm2/systems/options.md.
 
 #include "audio/mixer.h"
 #include "common/types.h"

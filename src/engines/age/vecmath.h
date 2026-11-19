@@ -57,13 +57,18 @@ struct Mat3 {
     Vec3 inverseTimes(const Vec3 &v) const { return {dot(x, v), dot(y, v), dot(z, v)}; }
 
     static Mat3 rotationY(float angle) {
-        const float c = std::cos(angle), s = std::sin(angle);
+        const float c = std::cos(angle);
+        const float s = std::sin(angle);
         return {{c, 0, -s}, {0, 1, 0}, {s, 0, c}};
     }
     // Turned by `angle` (radians) about the unit `axis`.
     static Mat3 rotation(const Vec3 &axis, float angle) {
-        const float c = std::cos(angle), s = std::sin(angle), t = 1 - c;
-        const float x = axis[0], y = axis[1], z = axis[2];
+        const float c = std::cos(angle);
+        const float s = std::sin(angle);
+        const float t = 1 - c;
+        const float x = axis[0];
+        const float y = axis[1];
+        const float z = axis[2];
         return {{t * x * x + c, t * x * y + s * z, t * x * z - s * y},
                 {t * x * y - s * z, t * y * y + c, t * y * z + s * x},
                 {t * x * z + s * y, t * y * z - s * x, t * z * z + c}};

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's textures; see
-// docs/formats/age/tex.md.
+// docs/engines/age/games/mm2/formats/tex.md.
 
 #include "engines/age/formats/texture.h"
 
@@ -43,14 +43,16 @@ Error decodeTex(const std::vector<uint8_t> &data, Tex &out) {
     if (data.size() < kHeaderSize)
         return Error::fail("too small for a .tex header");
     const uint8_t *h = data.data();
-    const int w = le16(h), height = le16(h + 2);
+    const int w = le16(h);
+    const int height = le16(h + 2);
     out.format = le16(h + 4);
     out.levels = le16(h + 6);
     out.flags = le32(h + 10);
     if (w == 0 || height == 0 || out.levels == 0)
         return Error::fail("empty texture");
 
-    size_t bytesPerPixel = 0, palette = 0;
+    size_t bytesPerPixel = 0;
+    size_t palette = 0;
     switch (out.format) {
     case texformat::kPalette:
     case texformat::kPaletteAlpha:

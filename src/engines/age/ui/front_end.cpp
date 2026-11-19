@@ -4,7 +4,7 @@
 // The game's menus, redrawn: tune/widget.csv places each control on its
 // menu's jpg/ background; the buttons are texture/ pictures of their
 // states. What each screen shows and does is Reluva's reading of the
-// pictures; see docs/engines/age-menus.md.
+// pictures; see docs/engines/age/games/mm2/systems/menus.md.
 
 #include "engines/age/ui/front_end.h"
 
@@ -145,7 +145,8 @@ void drawPicture(Surface &overlay, const image::Image &im, int x, int y, int w, 
         for (int xx = std::max(0, x); xx < std::min(overlay.w, x + w); ++xx) {
             const uint8_t *s = im.pixel(std::min(im.w - 1, (xx - x) * im.w / w), sy);
             uint8_t *d = row + xx * 4;
-            const float a = float(s[3]) / 255, da = float(d[3]) / 255;
+            const float a = float(s[3]) / 255;
+            const float da = float(d[3]) / 255;
             const float out = a + da * (1 - a);
             if (out <= 0)
                 continue;
@@ -484,7 +485,8 @@ bool FrontEnd::hit(const Item &item, int x, int y) {
     const Widget *w = widget(item.widget);
     if (!w)
         return false;
-    int width = w->w, height = w->h;
+    int width = w->w;
+    int height = w->h;
     if (item.button)
         if (const image::Image *im = _pictures.texture(item.pictureName())) {
             const int states = statesOf(item, *w);
@@ -613,7 +615,9 @@ void FrontEnd::bar(Surface &o, const std::string &name, float share) const {
     // pixels lower than widget.csv says, from x 148, 130 wide (measured on
     // jpg/veh_bk).
     const bool garage = w->h < 10;
-    const int x0 = garage ? 148 : w->x, y0 = w->y + (garage ? 18 : 0), width = garage ? 130 : w->w;
+    const int x0 = garage ? 148 : w->x;
+    const int y0 = w->y + (garage ? 18 : 0);
+    const int width = garage ? 130 : w->w;
     const int lit = int(std::clamp(share, 0.0f, 1.0f) * float(width));
     for (int y = y0; y < y0 + std::max(w->h, 4) && y < o.h; ++y) {
         uint8_t *p = o.row(y) + x0 * 4;
@@ -792,7 +796,8 @@ void FrontEnd::draw(Surface &o) {
         }
     } else if (_screen == Screen::kGarage) {
         const CarInfo &car = _cars[size_t(_choice.car)];
-        const bool open = carOpen(_choice.car), paint = paintOpen(_choice.car, _choice.paintJob);
+        const bool open = carOpen(_choice.car);
+        const bool paint = paintOpen(_choice.car, _choice.paintJob);
         text(o, "VEHICLES", car.description);
         std::string color = size_t(_choice.paintJob) < car.colors.size() ? car.colors[size_t(_choice.paintJob)]
                                                                          : std::to_string(_choice.paintJob + 1);

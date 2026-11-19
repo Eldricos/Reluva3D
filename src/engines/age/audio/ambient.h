@@ -51,7 +51,7 @@ float ambientGain(const Ambience &a, float distance);
 
 // A city's ambiences (its aud/ambient/<city>ambientcontainer.csv) round
 // the listener: each one's loops and its one-shots now and then, as loud
-// as its nearest point is near. See docs/engines/age-traffic.md.
+// as its nearest point is near. See docs/engines/age/games/mm2/systems/ambient-sounds.md.
 class AmbientSounds {
 public:
     AmbientSounds() = default;

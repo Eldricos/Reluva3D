@@ -674,7 +674,9 @@ std::vector<uint32_t> systemGateways() {
             if (std::exchange(heading, false))
                 continue;
             char name[64];
-            unsigned destination = 0, gateway = 0, flags = 0;
+            unsigned destination = 0;
+            unsigned gateway = 0;
+            unsigned flags = 0;
             if (std::sscanf(line, "%63s %x %x %x", name, &destination, &gateway, &flags) == 4 && destination == 0 &&
                 gateway && (flags & 2))
                 out.push_back(ntohl(gateway));

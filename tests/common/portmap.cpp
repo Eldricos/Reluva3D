@@ -55,7 +55,8 @@ void testPortMap() {
     CHECK(mapRequest.size() == 12 && mapRequest[1] == 1 && mapRequest[4] == 0x6F && mapRequest[5] == 0x68 &&
           mapRequest[11] == 0x20 && mapRequest[10] == 0x1C);
     uint16_t external = 0;
-    uint32_t lifetime = 0, ip = 0;
+    uint32_t lifetime = 0;
+    uint32_t ip = 0;
     int result = -1;
     CHECK(natPmpMapReply({0, 129, 0, 0, 0, 0, 0, 1, 0x6F, 0x68, 0x6F, 0x69, 0, 0, 0x1C, 0x20}, external, lifetime,
                          result) &&

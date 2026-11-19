@@ -16,7 +16,7 @@ namespace reluva::age {
 
 // A car's engine sound (aud/cardata/player/<car>.csv): looped recordings,
 // each faded in and out over a range of RPM and pitched up with it. See
-// docs/engines/age-driving.md.
+// docs/engines/age/games/mm2/systems/car-sounds.md.
 struct EngineSample {
     std::string wave; // aud/aud22/engines/<wave>.22k.wav
     float minVolume = 0;
@@ -142,7 +142,7 @@ Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 // The rest of a driven car's sounds: its horn, its clutch on changing
 // gear, its tyres on what they're on and skidding, its knocks (as the
 // WALL sounds) and its suspension bumping (aud/cardata/player/
-// suspensionaudio.csv). See docs/engines/age-driving.md.
+// suspensionaudio.csv). See docs/engines/age/games/mm2/systems/car-sounds.md.
 class CarSounds {
 public:
     ~CarSounds() { stop(); }

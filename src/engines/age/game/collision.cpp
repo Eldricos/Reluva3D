@@ -14,19 +14,24 @@ namespace {
 // triangle's plane: the textbook method of Ericson's Real-Time Collision
 // Detection, section 5.1.5).
 Vec3 closestOnTriangle(const Vec3 &p, const Vec3 &a, const Vec3 &b, const Vec3 &c) {
-    const Vec3 ab = b - a, ac = c - a, ap = p - a;
-    const float d1 = dot(ab, ap), d2 = dot(ac, ap);
+    const Vec3 ab = b - a;
+    const Vec3 ac = c - a;
+    const Vec3 ap = p - a;
+    const float d1 = dot(ab, ap);
+    const float d2 = dot(ac, ap);
     if (d1 <= 0 && d2 <= 0)
         return a;
     const Vec3 bp = p - b;
-    const float d3 = dot(ab, bp), d4 = dot(ac, bp);
+    const float d3 = dot(ab, bp);
+    const float d4 = dot(ac, bp);
     if (d3 >= 0 && d4 <= d3)
         return b;
     const float vc = d1 * d4 - d3 * d2;
     if (vc <= 0 && d1 >= 0 && d3 <= 0)
         return a + ab * (d1 / (d1 - d3));
     const Vec3 cp = p - c;
-    const float d5 = dot(ab, cp), d6 = dot(ac, cp);
+    const float d5 = dot(ab, cp);
+    const float d6 = dot(ac, cp);
     if (d6 >= 0 && d5 <= d6)
         return c;
     const float vb = d5 * d2 - d1 * d6;
@@ -80,8 +85,10 @@ void CollisionWorld::forEachNear(float x0, float z0, float x1, float z1, F &&f) 
         std::fill(_seen.begin(), _seen.end(), 0);
         _query = 1;
     }
-    const int ix0 = int(std::floor(x0 / _cellSize)), ix1 = int(std::floor(x1 / _cellSize));
-    const int iz0 = int(std::floor(z0 / _cellSize)), iz1 = int(std::floor(z1 / _cellSize));
+    const int ix0 = int(std::floor(x0 / _cellSize));
+    const int ix1 = int(std::floor(x1 / _cellSize));
+    const int iz0 = int(std::floor(z0 / _cellSize));
+    const int iz1 = int(std::floor(z1 / _cellSize));
     for (int ix = ix0; ix <= ix1; ++ix)
         for (int iz = iz0; iz <= iz1; ++iz) {
             auto it = _grid.find(cellOf(ix, iz));
@@ -106,7 +113,8 @@ bool CollisionWorld::raycast(const Vec3 &origin, const Vec3 &direction, float ma
     forEachNear(std::min(origin[0], end[0]), std::min(origin[2], end[2]), std::max(origin[0], end[0]),
                 std::max(origin[2], end[2]), [&](const Triangle &t) {
                     // Moller and Trumbore's ray-triangle intersection.
-                    const Vec3 e1 = t.b - t.a, e2 = t.c - t.a;
+                    const Vec3 e1 = t.b - t.a;
+                    const Vec3 e2 = t.c - t.a;
                     const Vec3 p = cross(direction, e2);
                     const float det = dot(e1, p);
                     if (std::fabs(det) < 1e-9f)

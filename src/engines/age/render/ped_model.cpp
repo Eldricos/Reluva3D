@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Worked out from Midtown Madness 2's pedestrian files (text, but for the
-// animations); see docs/formats/age/ped.md.
+// animations); see docs/engines/age/games/mm2/formats/ped.md.
 
 #include "engines/age/render/ped_model.h"
 
@@ -118,7 +118,8 @@ Error parsePedMesh(const std::string &text, PedMesh &out) {
     // triangles (the women). Either way the vertices come in bone order,
     // as many for each bone as "mtxv" says, in the bone's own space.
     out = PedMesh{};
-    std::vector<Vec3> positions, normals;
+    std::vector<Vec3> positions;
+    std::vector<Vec3> normals;
     std::vector<std::array<float, 2>> uvs;
     std::vector<int> perBone;
     struct Adjunct {
@@ -192,7 +193,8 @@ Error parsePedMesh(const std::string &text, PedMesh &out) {
     if (boneOf.size() != positions.size())
         return Error::fail("mtxv doesn't account for the vertices");
     if (packets.empty()) { // the one list, shared out in order
-        size_t a = 0, t = 0;
+        size_t a = 0;
+        size_t t = 0;
         for (const Range &r : ranges) {
             if (a + r.adjuncts > adj.size() || (t + r.triangles) * 3 > tris.size())
                 return Error::fail("the materials want more corners or triangles than there are");
@@ -341,7 +343,8 @@ Error PedModel::load(gfx::Renderer3D &renderer, const SearchSet &files, const st
         _moves.push_back(out);
     }
     for (const PedMove &m : moves) {
-        const auto it = _moveIndex.find(m.name), next = _moveIndex.find(m.next);
+        const auto it = _moveIndex.find(m.name);
+        const auto next = _moveIndex.find(m.next);
         if (it != _moveIndex.end())
             _moves[size_t(it->second)].next = next != _moveIndex.end() ? next->second : it->second;
     }
@@ -415,7 +418,8 @@ void PedModel::draw(const gfx::Mat4 &model, int move, float time, uint32_t paint
         return;
     const Move &m = _moves[size_t(move)];
     const float f = std::max(0.0f, time) * kFrameRate;
-    const int a = int(f) % m.frames, b = (a + 1) % m.frames;
+    const int a = int(f) % m.frames;
+    const int b = (a + 1) % m.frames;
     const auto &colors = _paints[paintJob % _paints.size()];
     for (size_t i = 0; i < _ranges.size(); ++i) {
         gfx::DrawCall call;

@@ -16,7 +16,7 @@
 namespace reluva::age {
 
 // tune/<city>.mmHudMap: where the HUD's map goes and how near it looks.
-// See docs/engines/age-driving.md.
+// See docs/engines/age/games/mm2/systems/hud.md.
 struct HudMapSetup {
     // Size: shares of the screen
     float width = 0.21f;

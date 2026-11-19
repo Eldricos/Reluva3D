@@ -46,7 +46,8 @@ std::vector<PropPlacement> placeProps(const std::vector<PathsetPath> &paths) {
             const float spacing = std::max(0.5f, float(p.end >> 8 & 0xff) / 10);
             float carry = 0;
             for (size_t i = 0; i + 1 < p.points.size(); ++i) {
-                const Vec3 a = p.points[i], b = p.points[i + 1];
+                const Vec3 a = p.points[i];
+                const Vec3 b = p.points[i + 1];
                 const float len = length(b - a);
                 if (len < 1e-3f)
                     continue;
@@ -230,7 +231,8 @@ void Props::load(const SearchSet &files, const std::string &map, const std::stri
         Prop prop;
         prop.model = p.model;
         prop.at = p.at;
-        const Vec3 x = p.along, y{0, 1, 0};
+        const Vec3 x = p.along;
+        const Vec3 y{0, 1, 0};
         prop.axes = {x, y, cross(x, y)};
         _props.push_back(prop);
     }
@@ -238,7 +240,8 @@ void Props::load(const SearchSet &files, const std::string &map, const std::stri
 
 void Props::addStreetProps(const SearchSet &files, const std::string &map, const AiRoadMap &roads,
                            const std::vector<uint8_t> &blockRules) {
-    std::vector<uint8_t> defs, rules;
+    std::vector<uint8_t> defs;
+    std::vector<uint8_t> rules;
     if (files.read("city/" + map + "/propdefs.csv", defs) || files.read("city/" + map + "/proprules.csv", rules))
         return;
     for (const PropPlacement &p :
@@ -247,7 +250,8 @@ void Props::addStreetProps(const SearchSet &files, const std::string &map, const
         Prop prop;
         prop.model = p.model;
         prop.at = p.at;
-        const Vec3 x = p.along, y{0, 1, 0};
+        const Vec3 x = p.along;
+        const Vec3 y{0, 1, 0};
         prop.axes = {x, y, cross(x, y)};
         _props.push_back(prop);
     }
@@ -291,7 +295,8 @@ void Props::prepare(const SearchSet &files, const ModelBox &box) {
     std::map<std::string, int> effectOf; // a model's or piece's, shared
     for (size_t i = 0; i < _props.size(); ++i) {
         Prop &p = _props[i];
-        Vec3 low, high;
+        Vec3 low;
+        Vec3 high;
         if (!box(p.model, low, high))
             continue;
         p.lift = -low[1];
@@ -363,7 +368,8 @@ void Props::prepare(const SearchSet &files, const ModelBox &box) {
                                            place(bound.vertices[poly.vertices[3]])});
             }
         } else {
-            Vec3 lo = low, hi = high;
+            Vec3 lo = low;
+            Vec3 hi = high;
             if (p.light >= 0) { // the pole at its foot, not the arm
                 lo[0] = lo[2] = -0.2f;
                 hi[0] = hi[2] = 0.2f;
@@ -513,7 +519,8 @@ void Props::draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight
 }
 
 size_t Props::pieces(size_t *resting, float *lowest) const {
-    size_t n = 0, still = 0;
+    size_t n = 0;
+    size_t still = 0;
     float low = 1e30f;
     for (const Prop &p : _props)
         if (p.apart)
@@ -536,7 +543,8 @@ size_t Props::loose() const {
 void Props::drawGlows(const FlareDrawer &flares, const Vec3 &eye) const {
     // A street lamp's light: warm, the size of the city's beacons'
     // smaller ones.
-    constexpr float kSize = 2, kDistance = 600;
+    constexpr float kSize = 2;
+    constexpr float kDistance = 600;
     constexpr std::array<float, 3> kColor{1, 0.9f, 0.7f};
     for (const Prop &p : _props) {
         if (p.loose)

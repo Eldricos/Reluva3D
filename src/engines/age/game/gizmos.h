@@ -23,7 +23,7 @@ namespace reluva::age {
 // ferries, tugs, water taxis, sailboards and ducks going round their
 // paths, drawbridges whose leaves rise and fall (and the gates that stand
 // still), and London's Underground trains. The way they move is Reluva's;
-// see docs/engines/age-traffic.md.
+// see docs/engines/age/games/mm2/systems/boats-and-bridges.md.
 class Gizmos {
 public:
     Gizmos() = default;

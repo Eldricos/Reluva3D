@@ -28,7 +28,7 @@ namespace reluva::age {
 //   quad 0 1 2 3 0      (four vertices, then the material)
 //   tri 4 5 6 0
 //
-// See docs/formats/age/bnd.md.
+// See docs/engines/age/games/mm2/formats/bnd.md.
 struct BoundMaterial {
     std::string name; // also a city physics material's (grass, water...: materials.h)
     float elasticity = 0.1f;

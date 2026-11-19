@@ -5,7 +5,7 @@
 // frame (its time and the keys); a replay runs the race again from the
 // recording, with the game's replay controls (Play, Step, Rew, Stop, Cam,
 // Save, Quit: mmlang.dll's REPLAY MENU) and a roadside camera besides
-// the car's own. See docs/engines/age-racing.md.
+// the car's own. See docs/engines/age/games/mm2/systems/replays.md.
 
 #include "engines/age/ui/screen.h"
 
@@ -77,7 +77,9 @@ void RaceScreen::startReplay(Replay replay) {
         return;
     // The race as it was started, then run again from its frames.
     _playback = std::move(replay);
-    int city = -1, kind = -1, car = -1;
+    int city = -1;
+    int kind = -1;
+    int car = -1;
     for (size_t i = 0; i < _cities.size(); ++i)
         if (_cities[i].map == _playback.city)
             city = int(i);
@@ -199,7 +201,8 @@ void RaceScreen::replayButton(int which) {
         size_t target = _replayFrame;
         while (target > 0 && back > 0)
             back -= _playback.frames[--target].dt;
-        const int cam = _replayCam, focus = _replayFocus;
+        const int cam = _replayCam;
+        const int focus = _replayFocus;
         const bool paused = _replayPaused;
         startReplay(_playback);
         if (!_replaying)

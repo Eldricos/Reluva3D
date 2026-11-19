@@ -127,8 +127,10 @@ Error CityScene::load(const std::string &map) {
                 const Vec3 r = _psdl.vertices[std::min<size_t>(a.words[section * 4 + 2], last)];
                 return Vec3{(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2};
             };
-            const Vec3 m = middle(0), next = middle(1);
-            const float dx = m[0] - _psdl.center[0], dz = m[2] - _psdl.center[2];
+            const Vec3 m = middle(0);
+            const Vec3 next = middle(1);
+            const float dx = m[0] - _psdl.center[0];
+            const float dz = m[2] - _psdl.center[2];
             if (nearest < 0 || dx * dx + dz * dz < nearest) {
                 nearest = dx * dx + dz * dz;
                 start = m;
@@ -465,7 +467,9 @@ size_t CityScene::draw(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, bool mod
     for (const Placed &p : _placed) {
         if (_viewBlock && !_pvs.sees(_viewBlock, p.block))
             continue;
-        const float dx = p.center[0] - eye[0], dy = p.center[1] - eye[1], dz = p.center[2] - eye[2];
+        const float dx = p.center[0] - eye[0];
+        const float dy = p.center[1] - eye[1];
+        const float dz = p.center[2] - eye[2];
         const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (distance - p.radius > std::min(kModelDistance, _modelDistance) || !visible(p.center, p.radius))
             continue;
@@ -486,7 +490,9 @@ void CityScene::drawDynamicLights(std::vector<gfx::DynamicLight> lights, const g
     if (lights.empty() || !_cityMesh)
         return;
     auto distance = [&](const gfx::DynamicLight &l) {
-        const float dx = l.origin[0] - eye[0], dy = l.origin[1] - eye[1], dz = l.origin[2] - eye[2];
+        const float dx = l.origin[0] - eye[0];
+        const float dy = l.origin[1] - eye[1];
+        const float dz = l.origin[2] - eye[2];
         return dx * dx + dy * dy + dz * dz;
     };
     std::sort(lights.begin(), lights.end(),
@@ -570,7 +576,8 @@ void CityScene::rebuildIndices() {
 }
 
 void CityScene::drawBeacons(const FlareDrawer &flares, const Vec3 &eye) const {
-    constexpr float kSize = 3, kDistance = 1500;
+    constexpr float kSize = 3;
+    constexpr float kDistance = 1500;
     if (!lampsLit())
         return;
     for (const Beacon &b : _beacons) {

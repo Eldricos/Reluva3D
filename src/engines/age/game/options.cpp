@@ -65,7 +65,7 @@ constexpr ControlInfo kInfo[kControls] = {
     {309, "Enter Chat Msg", 'y', 0},
 };
 
-const char *g_kNames[kControls] = {
+const char *const kControlNames[kControls] = {
     "throttle",     "brakes",   "left",      "right",    "handbrake",   "horn", "shiftup",   "shiftdown", "reverse",
     "transmission", "camera",   "mapzoom",   "fullmap",  "maptoggle",   "hud",  "mirror",    "nextcheck", "prevcheck",
     "thrill",       "lookleft", "lookright", "lookback", "lookforward", "wide", "dashboard", "rotatemap", "cd",
@@ -213,7 +213,7 @@ std::string GameOptions::text() const {
       << textureQuality << "\ncloudshadows " << cloudShadows << "\nautoreverse " << autoReverse << "\nforcefeedback "
       << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\n";
     for (int i = 0; i < kControls; ++i)
-        o << "key " << g_kNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
+        o << "key " << kControlNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
 }
 
@@ -223,7 +223,8 @@ Error GameOptions::parse(const std::string &text) {
     std::string line;
     while (std::getline(in, line)) {
         std::istringstream l(line);
-        std::string name, value;
+        std::string name;
+        std::string value;
         if (!(l >> name) || name[0] == '#' || !(l >> value))
             continue;
         const bool on = value == "1";
@@ -275,12 +276,12 @@ Error GameOptions::parse(const std::string &text) {
             std::string second;
             l >> second;
             for (int i = 0; i < kControls; ++i)
-                if (value == g_kNames[i])
+                if (value == kControlNames[i])
                     keys[size_t(i)] = {uint32_t(std::strtoul(second.c_str(), nullptr, 10)), 0};
             uint32_t other = 0;
             if (l >> other)
                 for (int i = 0; i < kControls; ++i)
-                    if (value == g_kNames[i])
+                    if (value == kControlNames[i])
                         keys[size_t(i)][1] = other;
         }
     }

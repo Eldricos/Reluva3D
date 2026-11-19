@@ -103,7 +103,8 @@ inline std::vector<uint8_t> buildAr(const std::vector<ArFile> &files) {
         names += f.name;
         names += '\0';
     }
-    const size_t dirSize = roundUp(files.size() * 16), namesSize = roundUp(names.size());
+    const size_t dirSize = roundUp(files.size() * 16);
+    const size_t namesSize = roundUp(names.size());
     std::vector<uint8_t> out(2048 + dirSize + namesSize);
     std::copy(names.begin(), names.end(), out.begin() + std::ptrdiff_t(2048 + dirSize));
     out[0] = 'D', out[1] = 'A', out[2] = 'V', out[3] = 'E';
@@ -231,7 +232,7 @@ inline CarSetup testCar() {
     return s;
 }
 
-// A road map (docs/formats/age/bai.md) of straight roads, each from one
+// A road map (docs/engines/age/games/mm2/formats/bai.md) of straight roads, each from one
 // junction to another: `lanes` lanes on side 1 (one-way, first to last)
 // and `back` on side 0, `n` points along it.
 struct BaiRoad {
@@ -292,7 +293,8 @@ inline std::vector<uint8_t> buildBai(const std::vector<BaiRoad> &roads, const st
             // On the curb on the right of the way in, and a metre across.
             const Vec3 in = normalized(e == 0 ? r.to - r.from : r.from - r.to);
             const Vec3 right{-in[2], 0, in[0]};
-            const Vec3 a = (e == 0 ? r.to : r.from) + right * 8.0f, bb = a - right;
+            const Vec3 a = (e == 0 ? r.to : r.from) + right * 8.0f;
+            const Vec3 bb = a - right;
             b.f32(a[0]).f32(a[1]).f32(a[2]).f32(bb[0]).f32(bb[1]).f32(bb[2]);
         }
     }
@@ -338,7 +340,8 @@ inline std::vector<uint8_t> buildPathset(const std::vector<TestPath> &paths) {
 }
 
 inline bool sameMatrix(const Mat3 &a, const Mat3 &b) {
-    const Vec3 ca[3] = {a.x, a.y, a.z}, cb[3] = {b.x, b.y, b.z};
+    const Vec3 ca[3] = {a.x, a.y, a.z};
+    const Vec3 cb[3] = {b.x, b.y, b.z};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 3; ++k)
             if (std::fabs(ca[i][size_t(k)] - cb[i][size_t(k)]) > 1e-4f)

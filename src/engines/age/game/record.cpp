@@ -98,15 +98,20 @@ Error PlayerRecord::parse(const std::string &text) {
         if (!(words >> what) || what[0] == '#')
             continue;
         if (what == "race") {
-            std::string city, kind, level;
-            int index = 0, place = 0;
+            std::string city;
+            std::string kind;
+            std::string level;
+            int index = 0;
+            int place = 0;
             if (words >> city >> kind >> index >> level >> place && place > 0) {
                 int &best = _places[city + " " + kind + " " + std::to_string(index) + " " + level];
                 if (best == 0 || place < best)
                     best = place;
             }
         } else if (what == "time") {
-            std::string city, kind, level;
+            std::string city;
+            std::string kind;
+            std::string level;
             int index = 0;
             float seconds = -1;
             if (words >> city >> kind >> index >> level >> seconds && seconds > 0) {
@@ -116,7 +121,8 @@ Error PlayerRecord::parse(const std::string &text) {
                     _times[key] = seconds;
             }
         } else if (what == "last") {
-            std::string city, kind;
+            std::string city;
+            std::string kind;
             int index = 0;
             if (words >> city >> kind >> index)
                 _last = city + " " + kind + " " + std::to_string(index);
@@ -351,7 +357,8 @@ Error DriverRoster::load(const std::filesystem::path &folder) {
             continue;
         }
         // <file> TAB <a|p> TAB <name>
-        const size_t a = line.find('\t'), b = a == std::string::npos ? a : line.find('\t', a + 1);
+        const size_t a = line.find('\t');
+        const size_t b = a == std::string::npos ? a : line.find('\t', a + 1);
         if (b == std::string::npos || line[0] == '#')
             continue;
         _drivers.push_back({line.substr(b + 1), line.substr(a + 1, b - a - 1) == "p", line.substr(0, a)});

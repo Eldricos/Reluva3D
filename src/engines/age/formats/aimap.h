@@ -16,7 +16,7 @@ namespace reluva::age {
 // (.aimap text: city/<map>.aimap for the city, race/<city>/<race>.aimap
 // and .aimap_p for each race's amateur and professional runs,
 // race/<city>/roam.aimap for cruising). Sections a file leaves out keep
-// the values given. See docs/formats/age/aimap.md.
+// the values given. See docs/engines/age/games/mm2/formats/aimap.md.
 struct AiMapSettings {
     struct Ambient {
         std::string model; // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData

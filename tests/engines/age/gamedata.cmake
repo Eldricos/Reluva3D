@@ -4,7 +4,7 @@
 # The Angel Game Engine's test with the game's own files: one step each
 # time ctest runs this script (cmake -P), as registered by
 # reluva_add_gamedata_test in src/engines/age/CMakeLists.txt. See
-# docs/DEVELOPMENT.md (Engine tests) and docs/engines/age/TESTING.md.
+# docs/DEVELOPMENT.md (Engine tests) and docs/engines/age/games/mm2/TESTING.md.
 #
 # The game's folder (Midtown Madness 2 installed: the one holding
 # Midtown2.exe and mm2core.ar) comes from the environment variable named by
@@ -27,7 +27,7 @@
 # tests/engines/age/data/gamedata/<release>/<step>.txt. The step passes when
 # its record is the same as the committed one. Records so far, made on
 # Linux: en (the English release); make others with
-# RELUVA_GAMEDATA_UPDATE=1, and check them (docs/engines/age/TESTING.md).
+# RELUVA_GAMEDATA_UPDATE=1, and check them (docs/engines/age/games/mm2/TESTING.md).
 #
 # Environment: RELUVA_MM2, the game's folder; and those of the shared
 # helpers (cmake/ReluvaGamedata.cmake): RELUVA_GAMEDATA_UPDATE=1,

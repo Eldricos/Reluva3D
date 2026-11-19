@@ -14,7 +14,7 @@ namespace reluva::audio {
 // A DLS (Downloadable Sounds, Level 1) collection: instruments made of
 // regions of keys and velocities, each playing one of the collection's
 // waves, with articulations (envelopes, LFO) as connection blocks. See
-// docs/formats/dls.md.
+// docs/common/audio/dls.md.
 
 // How a wave is played: its root key and tuning, gain and loop.
 struct DlsSampleInfo {

@@ -16,11 +16,11 @@ namespace reluva::age {
 // settings (mm<kind>data.csv), checkpoints (<file><n>waypoints.csv) and
 // the opponents' paths (<file><n>-<a|p>-<i>.opp); and its Crash Course
 // lessons (crash<n>data.csv, named in mmlang.dll). See
-// docs/formats/age/race.md.
+// docs/engines/age/games/mm2/formats/race.md.
 
 // Cruise: the race menu's driving about the city, with no race; and,
 // under it where the city has one, the game's "Stunt Mode: Acceleration"
-// (race/<city>/accel0waypoints.csv). See docs/engines/age-racing.md.
+// (race/<city>/accel0waypoints.csv). See docs/engines/age/games/mm2/systems/races.md.
 enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
 // A Cruise's "races": the cruise itself, then the stunt where there's one.
 // Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
@@ -53,7 +53,7 @@ struct Waypoint {
 };
 
 // What a Crash Course lesson asks (its Event column), as Reluva reads the
-// lessons' names and messages (docs/engines/age-racing.md).
+// lessons' names and messages (docs/engines/age/games/mm2/systems/races.md).
 enum class LessonEvent : int {
     kJump = 0,         // the checkpoints in time, over a jump
     kFollow = 2,       // keep up with a car for the time, or to its end

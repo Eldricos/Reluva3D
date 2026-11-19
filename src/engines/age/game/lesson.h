@@ -12,7 +12,7 @@ namespace reluva::age {
 // Judges a Crash Course lesson as it's driven: passed, failed or going,
 // and which of the game's messages (mmlang.dll string ids) to show. The
 // rules are Reluva's reading of each event's messages; see
-// docs/engines/age-racing.md.
+// docs/engines/age/games/mm2/systems/crash-course.md.
 class LessonJudge {
 public:
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped

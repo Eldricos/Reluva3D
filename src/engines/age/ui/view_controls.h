@@ -6,7 +6,7 @@
 // The game's view controls a driving page keeps, as its help's keyboard
 // table has them: Thrill Cam, looking round in the car, Wide Angle, the
 // dashboard, Camera Pan, Opponent Position and the controls' list (F1).
-// See docs/engines/age-menus.md.
+// See docs/engines/age/games/mm2/systems/cameras.md.
 
 #include "engines/age/game/car.h"
 #include "engines/age/render/car_actor.h"

@@ -6,7 +6,7 @@
 // Francisco's "Stunt Mode: Acceleration" (mmlang.dll 199-204: "Race to the
 // end of the pier! But don't fall in!", "Put the pedal to the metal!",
 // "Great job! You can stop on a dime!") along race/sf/accel0waypoints.csv.
-// See docs/engines/age-racing.md.
+// See docs/engines/age/games/mm2/systems/cruise-and-stunt.md.
 
 #include "engines/age/ui/screen.h"
 
@@ -51,14 +51,16 @@ void RaceScreen::startCruise() {
         // Faced along the road: the file's first heading is some 25
         // degrees off it, towards the buildings.
         if (_race.waypoints.size() > 1) {
-            const Vec3 a = _race.waypoints[0].position, b = _race.waypoints[1].position;
+            const Vec3 a = _race.waypoints[0].position;
+            const Vec3 b = _race.waypoints[1].position;
             _race.waypoints[0].heading = std::atan2(b[0] - a[0], -(b[2] - a[2])) * 180 / kPi;
         }
         // The end of the pier: on along the last leg until there's no
         // ground under it (some 140 m past the last point).
         _pierEnd = {};
         if (_race.waypoints.size() > 1) {
-            const Vec3 a = _race.waypoints[_race.waypoints.size() - 2].position, b = _race.waypoints.back().position;
+            const Vec3 a = _race.waypoints[_race.waypoints.size() - 2].position;
+            const Vec3 b = _race.waypoints.back().position;
             const float len = std::hypot(b[0] - a[0], b[2] - a[2]);
             for (float d = 0; d < 500 && len > 0; d += 1) {
                 const Vec3 p{b[0] + (b[0] - a[0]) / len * d, b[1] + 20, b[2] + (b[2] - a[2]) / len * d};

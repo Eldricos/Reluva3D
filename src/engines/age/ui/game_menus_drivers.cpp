@@ -5,7 +5,7 @@
 // duplicate name's warning (dupp_dlg), deleting one (delp_dlg, or
 // lstp_dlg for the only one), the Driver's Stats (drec_dlg) and the Race
 // Records (hoff_dlg), at tune/widget.csv's places in tune/menu.csv's.
-// See docs/engines/age-menus.md.
+// See docs/engines/age/games/mm2/systems/drivers-and-records.md.
 
 #include "engines/age/ui/game_menus.h"
 
@@ -211,7 +211,9 @@ void GameMenus::drawConditionIcons(Surface &o, const std::string &w, bool focuse
         const image::Image *im = _pictures.texture(time ? kTimeIcons[i] : kWeatherIcons[i]);
         if (!im)
             continue;
-        const int states = 5, h = im->h / states, state = i == chosen ? 3 : focused ? 0 : 4;
+        const int states = 5;
+        const int h = im->h / states;
+        const int state = i == chosen ? 3 : focused ? 0 : 4;
         image::Image band;
         band.w = im->w;
         band.h = h;
@@ -402,7 +404,8 @@ void GameMenus::buildTable() {
 }
 
 void GameMenus::drawTable(Surface &o) const {
-    const int x = originX() + kTableX, y = originY() + kTableY;
+    const int x = originX() + kTableX;
+    const int y = originY() + kTableY;
     if (_screen == Screen::kDriverStats && _roster)
         font::drawText(o, x, y - 30,
                        _roster->driver().name + (_roster->driver().professional ? " (Professional)" : " (Amateur)"),

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Angel Game Engine's unit tests: the cars: collision, the simulation, engine sounds, their files, a game controller, texture quality.
+// The Angel Game Engine's unit tests: the cars: collision, the simulation,
+// engine sounds, their files, a game controller, texture quality.
 // Every file is built in the test.
 
 #include "common/headless_system.h"
@@ -133,7 +134,8 @@ void testEngineSound() {
     CHECK(e.horn == "VWHORN" && e.samples.size() == 2 && e.samples[1].wave == "VWHIGH");
     CHECK(e.hornVolume == 0.95f && e.clutch == "REVERSE" && e.clutchVolume == 0.93f);
     CHECK(e.samples[0].fadeOutStart == 2500 && e.samples[1].pitchEnd == 12000);
-    float volume, pitch;
+    float volume;
+    float pitch;
     // Idle: faded in by 800 RPM, out from 2500 to 7000; pitched 0.85 to 2 over 1-7000.
     engineSampleMix(e.samples[0], 800, 0, volume, pitch);
     CHECK(std::fabs(volume - 0.55f) < 1e-4f && pitch > 0.85f && pitch < 1.0f);
@@ -308,7 +310,8 @@ void testTextureQuality(const std::filesystem::path &tmp) {
     CHECK(cache.get("plain", translucent) && cache.get("near", translucent) && cache.get("tiny", translucent));
     // Halved down to 16 at least; the flagged one and the small one kept.
     CHECK(renderer.sizes == (std::vector<std::pair<int, int>>{{16, 16}, {64, 64}, {16, 16}}));
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     CHECK(cache.size("plain", w, h) && w == 64 && h == 64); // its own size, as stored
 }
 

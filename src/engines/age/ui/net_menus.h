@@ -7,7 +7,7 @@
 // the sessions found and the net name, joining by address, the host's
 // options and race settings, and the lobby with its players, teams, chat
 // and readiness. They run a NetSession (net_session.h). See
-// docs/engines/age-menus.md and docs/engines/age-multiplayer.md.
+// docs/engines/age/games/mm2/systems/multiplayer.md and docs/engines/age/games/mm2/systems/multiplayer.md.
 
 #include "common/system.h"
 #include "engines/age/ui/front_end.h"

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's two road maps (city/sf.bai,
-// city/london.bai); see docs/formats/age/bai.md.
+// city/london.bai); see docs/engines/age/games/mm2/formats/bai.md.
 
 #include "engines/age/formats/bai.h"
 
@@ -47,7 +47,9 @@ struct Reader {
         return f;
     }
     Vec3 vec3() {
-        const float x = f32(), y = f32(), z = f32();
+        const float x = f32();
+        const float y = f32();
+        const float z = f32();
         return {x, y, z};
     }
     std::vector<Vec3> row(size_t n) {

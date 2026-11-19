@@ -343,7 +343,8 @@ void testGoldGame() {
 
     // A takes the gold from its home; B rams A and knocks it loose; A
     // can't take it straight back; B can.
-    GoldGame::Car a{1, 0, g.home(), {}}, b{2, 1, g.home() + Vec3{100, 0, 0}, {}};
+    GoldGame::Car a{1, 0, g.home(), {}};
+    GoldGame::Car b{2, 1, g.home() + Vec3{100, 0, 0}, {}};
     float clock = 0;
     auto step = [&](float dt) {
         clock += dt;
@@ -404,8 +405,9 @@ void testGoldGame() {
         t2.limit = GoldLimit::kNone;
         GoldGame h;
         h.start(t2, points, 5);
-        GoldGame::Car me{1, 0, h.base(1), {}}, mate{2, 0, h.base(1) + Vec3{40, 0, 0}, {}},
-            them{3, 1, h.home(), {5, 0, 0}};
+        GoldGame::Car me{1, 0, h.base(1), {}};
+        GoldGame::Car mate{2, 0, h.base(1) + Vec3{40, 0, 0}, {}};
+        GoldGame::Car them{3, 1, h.home(), {5, 0, 0}};
         bool chasing = true;
         CHECK(flatDist(GoldBot::goal(1, 0, h, {me, mate, them}, chasing), h.home()) < 1e-3f && !chasing);
         h.step(1, 0.1f, {me, mate, them}, -100); // them: on the gold

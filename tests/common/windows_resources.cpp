@@ -115,10 +115,12 @@ void testWinHelp() {
     // "Hello" (a font) " world" (paragraph's end) "" (the end), with a
     // Windows apostrophe.
     const uint32_t topic = uint32_t(f.size());
-    const std::string ld2a("Driving\0", 8), ld2b("Hello\0 world\x92s\0\0", 16);
+    const std::string ld2a("Driving\0", 8);
+    const std::string ld2b("Hello\0 world\x92s\0\0", 16);
     const std::vector<uint8_t> ld1b = {0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00,
                                        0x00, 0x00, 0x80, 0x01, 0x00, 0x82, 0xFF};
-    const uint32_t first = 12, second = first + 21 + 28 + uint32_t(ld2a.size());
+    const uint32_t first = 12;
+    const uint32_t second = first + 21 + 28 + uint32_t(ld2a.size());
     const uint32_t topicBytes = 12 + (second - 12) + 21 + uint32_t(ld1b.size() + ld2b.size());
     fileHeader(topicBytes);
     u32(0xFFFFFFFF), u32(first), u32(first); // the block's header

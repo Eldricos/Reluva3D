@@ -24,7 +24,7 @@ namespace reluva::age {
 // speeds past one or runs into one, along the roads and then straight at
 // it, sirens going; a player held stopped beside a chasing car for a few
 // seconds is busted. They give up once left far behind. Reluva's own
-// rules; see docs/engines/age-traffic.md.
+// rules; see docs/engines/age/games/mm2/systems/police.md.
 class Police {
 public:
     static constexpr float kNotice = 40;  // metres within which a cop sees the player speed

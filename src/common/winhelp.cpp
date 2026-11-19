@@ -124,20 +124,24 @@ struct Phrases {
     std::vector<std::string> list;
 
     Error load(const HelpFile &help) {
-        const uint8_t *index = nullptr, *image = nullptr;
-        size_t indexSize = 0, imageSize = 0;
+        const uint8_t *index = nullptr;
+        const uint8_t *image = nullptr;
+        size_t indexSize = 0;
+        size_t imageSize = 0;
         if (!help.get("|PhrIndex", index, indexSize) || !help.get("|PhrImage", image, imageSize))
             return help.files.count("|Phrases") ? Error::fail("this help's phrases (|Phrases) aren't read")
                                                 : Error::success(); // none: the text isn't compressed
         if (indexSize < 28)
             return Error::fail("|PhrIndex is too short");
         const uint32_t entries = le32(index + 4);
-        const uint32_t unpacked = le32(index + 12), packed = le32(index + 16);
+        const uint32_t unpacked = le32(index + 12);
+        const uint32_t packed = le32(index + 16);
         const int bits = le16(index + 24) & 0xF;
         // The phrases' lengths, in a stream of bits read from 32-bit words,
         // lowest bit first.
         Reader r{index + 28, index + indexSize};
-        uint32_t mask = 0, value = 0;
+        uint32_t mask = 0;
+        uint32_t value = 0;
         auto bit = [&] {
             mask <<= 1;
             if (!mask) {
@@ -335,7 +339,8 @@ std::string recordText(uint8_t type, const uint8_t *ld1, size_t n1, const std::s
                 if (size < 0) {
                     r.bad = true;
                 } else if ((kind == 0x03 || kind == 0x22) && size >= 4) {
-                    const uint16_t from = r.u16(), number = r.u16();
+                    const uint16_t from = r.u16();
+                    const uint16_t number = r.u16();
                     r.skip(size_t(size) - 4);
                     if (from == 0)
                         out += "\n" + std::string(1, kPictureMark) + std::to_string(number) + kPictureMark + "\n";
@@ -432,7 +437,8 @@ std::vector<uint8_t> decompressLz77(const uint8_t *data, size_t size) {
                     return out;
                 const uint16_t w = le16(data + i);
                 i += 2;
-                const size_t length = (w >> 12) + 3, distance = (w & 0x0FFF) + 1u;
+                const size_t length = (w >> 12) + 3;
+                const size_t distance = (w & 0x0FFF) + 1u;
                 if (distance > out.size())
                     return out;
                 for (size_t k = 0; k < length; ++k)
@@ -448,7 +454,8 @@ std::vector<uint8_t> decompressLz77(const uint8_t *data, size_t size) {
 Error openHelp(const std::vector<uint8_t> &file, HelpFile &help) {
     if (file.size() < 16 || le32(file.data()) != kMagic)
         return Error::fail("not a Windows Help file");
-    size_t dirStart = 0, dirSize = 0;
+    size_t dirStart = 0;
+    size_t dirSize = 0;
     if (!help.body(le32(&file[4]), dirStart, dirSize))
         return Error::fail("its directory is past its end");
     const bool listed = forEachLeaf(file.data() + dirStart, dirSize, [&](const uint8_t *p, int n, const uint8_t *end) {
@@ -457,7 +464,8 @@ Error openHelp(const std::vector<uint8_t> &file, HelpFile &help) {
             if (!zero || end - zero < 5)
                 return;
             const std::string name(reinterpret_cast<const char *>(p), size_t(zero - p));
-            size_t start = 0, size = 0;
+            size_t start = 0;
+            size_t size = 0;
             if (help.body(le32(zero + 1), start, size))
                 help.files[name] = {start, size};
             p = zero + 5;
@@ -512,7 +520,8 @@ Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out) {
     size_t systemSize = 0;
     if (!help.get("|SYSTEM", system, systemSize) || systemSize < 12 || le16(system) != kSystemMagic)
         return Error::fail("no |SYSTEM");
-    const uint16_t minor = le16(system + 2), flags = le16(system + 10);
+    const uint16_t minor = le16(system + 2);
+    const uint16_t flags = le16(system + 10);
     if (minor <= 16)
         return Error::fail("Windows 3.0 help files aren't read");
     const bool compressed = flags == 4 || flags == 8;
@@ -542,7 +551,8 @@ Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out) {
     }
     const uint32_t perBlock = compressed ? kDecompressedBlock : uint32_t(blockSize);
     auto offsetOf = [&](uint32_t pos, size_t &at) {
-        const size_t block = pos / perBlock, offset = pos % perBlock;
+        const size_t block = pos / perBlock;
+        const size_t offset = pos % perBlock;
         if (block >= starts.size() || offset < kBlockHeader)
             return false;
         at = starts[block] + offset - kBlockHeader;
@@ -556,7 +566,10 @@ Error readHelp(const std::vector<uint8_t> &file, std::vector<Topic> &out) {
         if (!offsetOf(pos, at))
             break;
         const uint8_t *link = stream.data() + at;
-        const uint32_t size = le32(link), length2 = le32(link + 4), next = le32(link + 12), length1 = le32(link + 16);
+        const uint32_t size = le32(link);
+        const uint32_t length2 = le32(link + 4);
+        const uint32_t next = le32(link + 12);
+        const uint32_t length1 = le32(link + 16);
         const uint8_t type = link[20];
         if (length1 < kLinkHeader || length1 > size || at + size > stream.size())
             break;
@@ -637,14 +650,18 @@ Error readPicture(const std::vector<uint8_t> &file, int number, Picture &out) {
     // numbers: resolution, planes and bits a pixel, size, colours, the
     // packed data's size, the hot spots' size; then where the data and hot
     // spots are (from the picture's start); a DIB's colours follow.
-    const uint8_t type = picture[0], packing = picture[1];
+    const uint8_t type = picture[0];
+    const uint8_t packing = picture[1];
     if (type != 5 && type != 6)
         return Error::fail(name + ": a kind of picture that isn't read");
     Reader r{picture + 2, data + size};
     r.longWord();
     r.longWord();
-    const uint32_t planes = r.word(), bits = r.word();
-    const uint32_t width = r.longWord(), height = r.longWord(), colorsUsed = r.longWord();
+    const uint32_t planes = r.word();
+    const uint32_t bits = r.word();
+    const uint32_t width = r.longWord();
+    const uint32_t height = r.longWord();
+    const uint32_t colorsUsed = r.longWord();
     r.longWord(); // colours important
     const uint32_t packedSize = r.longWord();
     r.longWord(); // hot spots' size

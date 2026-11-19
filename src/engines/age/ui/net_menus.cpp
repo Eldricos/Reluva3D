@@ -5,7 +5,7 @@
 // Address, Host Options, Host Race Menu, Network Arena and their dialogs,
 // on the game's jpg/ backgrounds with its texture/ buttons. Which picture
 // is which control, and what it does, is Reluva's reading of the
-// pictures; see docs/engines/age-menus.md.
+// pictures; see docs/engines/age/games/mm2/systems/multiplayer.md.
 
 #include "engines/age/ui/net_menus.h"
 
@@ -310,7 +310,8 @@ std::vector<NetMenus::Item> NetMenus::items() const {
         i.text = typed;
         return i;
     };
-    const Item cancel = button("dlg_cancel", "dlg_can", 4), done = button("dlg_done", "dlg_done", 4);
+    const Item cancel = button("dlg_cancel", "dlg_can", 4);
+    const Item done = button("dlg_done", "dlg_done", 4);
     switch (_screen) {
     case Screen::kSessions:
         // TCP/IP only: the zone, IPX, serial and modem are the past's.
@@ -609,7 +610,8 @@ bool NetMenus::hit(const Item &item, int x, int y) const {
     const Widget *w = widget(item.widget);
     if (!w)
         return false;
-    int width = w->w, height = w->h;
+    int width = w->w;
+    int height = w->h;
     if (item.button)
         if (const image::Image *im = _pictures.texture(item.picture)) {
             width = im->w;
@@ -931,7 +933,8 @@ void NetMenus::drawLobby(Surface &o) const {
                 if (c.base == car)
                     car = c.description;
             // The host marked with a star; it's ready when it starts.
-            const std::string name = p.name + (p.id == 0 ? "*" : ""), ready = p.ready || p.id == 0 ? "yes" : "-";
+            const std::string name = p.name + (p.id == 0 ? "*" : "");
+            const std::string ready = p.ready || p.id == 0 ? "yes" : "-";
             char row[160];
             if (s.teams())
                 std::snprintf(row, sizeof row, "%-15.15s %-19.19s %-9.9s %-6s %d", name.c_str(), car.c_str(),

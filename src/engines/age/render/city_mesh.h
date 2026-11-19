@@ -12,7 +12,7 @@
 namespace reluva::age {
 
 // A city's streets and buildings as triangles, generated from its PSDL
-// blocks (see docs/formats/age/psdl.md for what each attribute makes),
+// blocks (see docs/engines/age/games/mm2/formats/psdl.md for what each attribute makes),
 // grouped by texture.
 struct CityMesh {
     struct Batch {
@@ -37,7 +37,7 @@ void buildCityMesh(const Psdl &psdl, CityMesh &out);
 // the two edges of a strip; drawn a little over the road. Unnamed paths
 // ("PATH44") are left out. Each point is put on the city's surface under
 // it in its block (its first word), whatever height the file gives it.
-// See docs/formats/age/pathset.md.
+// See docs/engines/age/games/mm2/formats/pathset.md.
 struct PathsetPath;
 void addCityDecals(const std::vector<PathsetPath> &paths, CityMesh &out);
 

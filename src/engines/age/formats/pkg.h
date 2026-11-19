@@ -15,7 +15,7 @@ namespace reluva::age {
 
 // An Angel Game Engine model (.pkg, "PKG3"): named meshes (a car's BODY_H,
 // WHL0_M..., a building's H, M, L, VL), the shaders they draw with, and
-// models placed in it. See docs/formats/age/pkg.md.
+// models placed in it. See docs/engines/age/games/mm2/formats/pkg.md.
 
 using Vec3 = std::array<float, 3>;
 

@@ -18,7 +18,7 @@ namespace reluva::age {
 // What the city's surfaces are made of, for driving on them
 // (city/materials.mtl: "mtl grass { elasticity: ... }" blocks), and which
 // texture is which (city/materials.csv: "texture,physics"). See
-// docs/engines/age-driving.md.
+// docs/engines/age/games/mm2/systems/collisions.md.
 struct PhysicsMaterial {
     std::string name;
     float elasticity = 0.9f;

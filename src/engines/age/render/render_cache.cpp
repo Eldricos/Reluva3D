@@ -219,7 +219,8 @@ Error buildModelMesh(gfx::Renderer3D &renderer, TextureCache &textures, const Se
             d.translucent = d.glow || d.translucent || d.color[3] < 1;
             d.lit = lit && !d.glow;
             const uint32_t first = uint32_t(vertices.size());
-            Vec3 groupLo{1e30f, 1e30f, 1e30f}, groupHi{-1e30f, -1e30f, -1e30f};
+            Vec3 groupLo{1e30f, 1e30f, 1e30f};
+            Vec3 groupHi{-1e30f, -1e30f, -1e30f};
             for (const PkgVertex &v : g.vertices) {
                 gfx::Vertex o{};
                 for (size_t k = 0; k < 3; ++k) {
@@ -466,7 +467,10 @@ void FlareDrawer::draw(const Vec3 &at, float size, const std::array<float, 3> &c
 ViewFrustum::ViewFrustum(const gfx::Mat4 &viewProj) {
     const float *m = viewProj.data();
     auto row = [&](int r) { return std::array<float, 4>{m[r], m[4 + r], m[8 + r], m[12 + r]}; };
-    const auto r0 = row(0), r1 = row(1), r2 = row(2), r3 = row(3);
+    const auto r0 = row(0);
+    const auto r1 = row(1);
+    const auto r2 = row(2);
+    const auto r3 = row(3);
     for (size_t k = 0; k < 4; ++k) {
         _planes[0][k] = r3[k] + r0[k];
         _planes[1][k] = r3[k] - r0[k];

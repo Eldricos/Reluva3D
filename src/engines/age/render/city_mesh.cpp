@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // What each PSDL attribute draws, worked out by drawing them and comparing
-// with the game (docs/formats/age/psdl.md). Texture coordinates are
+// with the game (docs/engines/age/games/mm2/formats/psdl.md). Texture coordinates are
 // Reluva's own choice where the file doesn't give them.
 
 #include "engines/age/render/city_mesh.h"
@@ -39,7 +39,9 @@ constexpr uint16_t kCurvedCeiling = 0x100;
 } // namespace tunnelflag
 
 float length(const Vec3 &a, const Vec3 &b) {
-    const float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+    const float dx = b[0] - a[0];
+    const float dy = b[1] - a[1];
+    const float dz = b[2] - a[2];
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -106,8 +108,12 @@ private:
 
     // A triangle with its face's normal; `ground` turns it to face up.
     void triangle(uint32_t texture, const Vec3 (&p)[3], const float (&uv)[3][2], bool ground) {
-        const float ax = p[1][0] - p[0][0], ay = p[1][1] - p[0][1], az = p[1][2] - p[0][2];
-        const float bx = p[2][0] - p[0][0], by = p[2][1] - p[0][1], bz = p[2][2] - p[0][2];
+        const float ax = p[1][0] - p[0][0];
+        const float ay = p[1][1] - p[0][1];
+        const float az = p[1][2] - p[0][2];
+        const float bx = p[2][0] - p[0][0];
+        const float by = p[2][1] - p[0][1];
+        const float bz = p[2][2] - p[0][2];
         float n[3] = {ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx};
         const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
         if (len < 1e-6f)
@@ -144,7 +150,9 @@ private:
     void fan(uint32_t texture, const std::vector<Vec3> &p) {
         auto uv = [](const Vec3 &v) { return std::array<float, 2>{v[0] / kGroundTile, v[2] / kGroundTile}; };
         for (size_t i = 1; i + 1 < p.size(); ++i) {
-            const auto a = uv(p[0]), b = uv(p[i]), c = uv(p[i + 1]);
+            const auto a = uv(p[0]);
+            const auto b = uv(p[i]);
+            const auto c = uv(p[i + 1]);
             triangle(texture, {p[0], p[i], p[i + 1]}, {{a[0], a[1]}, {b[0], b[1]}, {c[0], c[1]}}, true);
         }
     }
@@ -211,7 +219,8 @@ private:
             strip(texture, left, right);
             return;
         }
-        std::vector<Vec3> topLeft = left, topRight = right;
+        std::vector<Vec3> topLeft = left;
+        std::vector<Vec3> topRight = right;
         for (Vec3 &v : topLeft)
             v[1] += height;
         for (Vec3 &v : topRight)
@@ -237,8 +246,10 @@ private:
     // A wall from left to right, between two heights at each end.
     void wall(uint32_t texture, const Vec3 &left, const Vec3 &right, float leftBottom, float rightBottom, float top,
               float u, float v) {
-        const Vec3 a{left[0], leftBottom, left[2]}, b{right[0], rightBottom, right[2]};
-        const Vec3 c{right[0], top, right[2]}, d{left[0], top, left[2]};
+        const Vec3 a{left[0], leftBottom, left[2]};
+        const Vec3 b{right[0], rightBottom, right[2]};
+        const Vec3 c{right[0], top, right[2]};
+        const Vec3 d{left[0], top, left[2]};
         quad(texture, a, b, c, d, {{0, v}, {u, v}, {u, 0}, {0, 0}}, false);
     }
 
@@ -316,7 +327,8 @@ private:
         };
         for (size_t i = 0; i + 1 < left.size(); ++i)
             for (int k = 0; k < steps; ++k) {
-                const float u0 = float(k) / float(steps), u1 = float(k + 1) / float(steps);
+                const float u0 = float(k) / float(steps);
+                const float u1 = float(k + 1) / float(steps);
                 quad(t.texture, across(i, k), across(i, k + 1), across(i + 1, k + 1), across(i + 1, k),
                      {{u0, 0}, {u1, 0}, {u1, 1}, {u0, 1}}, false);
             }
@@ -324,9 +336,11 @@ private:
             return;
         // Closed ends: the arch's end above the walls' height, each half.
         auto close = [&](size_t i, bool leftHalf) {
-            const Vec3 l = across(i, 0), r = across(i, steps);
+            const Vec3 l = across(i, 0);
+            const Vec3 r = across(i, steps);
             const Vec3 middle{(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2};
-            const int from = leftHalf ? 0 : steps / 2, to = leftHalf ? steps / 2 : steps;
+            const int from = leftHalf ? 0 : steps / 2;
+            const int to = leftHalf ? steps / 2 : steps;
             for (int k = from; k < to; ++k)
                 triangle(t.texture, {middle, across(i, k), across(i, k + 1)}, {{0.5f, 1}, {0, 0}, {1, 0}}, false);
         };
@@ -371,7 +385,10 @@ private:
         switch (a.type) {
         case psdlattr::kRoadStrip: {
             // Sections of: outer left (sidewalk), inner left, inner right, outer right.
-            std::vector<Vec3> ol, il, ir, orr;
+            std::vector<Vec3> ol;
+            std::vector<Vec3> il;
+            std::vector<Vec3> ir;
+            std::vector<Vec3> orr;
             for (size_t i = 0; i + 3 < w.size(); i += 4) {
                 ol.push_back(vertex(w[i]));
                 il.push_back(vertex(w[i + 1]));
@@ -418,7 +435,8 @@ private:
             // repeating a sidewalk's end where a lane crosses it at road
             // level: the sidewalk's end face, the value saying which side
             // of the section the sidewalk lies on (psdl.md).
-            std::vector<Vec3> inner, outer;
+            std::vector<Vec3> inner;
+            std::vector<Vec3> outer;
             int marker = -1;
             for (size_t i = 0; i + 1 < w.size(); i += 2) {
                 if (w[i] == w[i + 1]) {
@@ -429,7 +447,9 @@ private:
                 outer.push_back(vertex(w[i + 1]));
             }
             if (marker >= 0 && inner.size() == 1) {
-                const Vec3 a = inner[0], top{a[0], outer[0][1], a[2]}, b{outer[0][0], a[1], outer[0][2]};
+                const Vec3 a = inner[0];
+                const Vec3 top{a[0], outer[0][1], a[2]};
+                const Vec3 b{outer[0][0], a[1], outer[0][2]};
                 // Facing away from the sidewalk: so wound, (0, 0) the
                 // other way round.
                 if (top[1] > a[1]) {
@@ -444,7 +464,8 @@ private:
             break;
         }
         case psdlattr::kRectStrip: {
-            std::vector<Vec3> left, right;
+            std::vector<Vec3> left;
+            std::vector<Vec3> right;
             for (size_t i = 0; i + 1 < w.size(); i += 2) {
                 left.push_back(vertex(w[i]));
                 right.push_back(vertex(w[i + 1]));
@@ -479,14 +500,16 @@ private:
             break;
         }
         case psdlattr::kFacade: {
-            const Vec3 l = vertex(w[4]), r = vertex(w[5]);
+            const Vec3 l = vertex(w[4]);
+            const Vec3 r = vertex(w[5]);
             wall(texture, l, r, height(w[0]), height(w[0]), height(w[1]), float(w[2]), float(w[3]));
             break;
         }
         case psdlattr::kSliver: {
             // From the ground up to a height, its texture repeated along it
             // by the second height (a scale).
-            const Vec3 l = vertex(w[2]), r = vertex(w[3]);
+            const Vec3 l = vertex(w[2]);
+            const Vec3 r = vertex(w[3]);
             const float top = height(w[0]);
             const float u = length(l, r) * height(w[1]) / std::max(0.5f, top - (l[1] + r[1]) / 2);
             wall(texture, l, r, l[1], r[1], top, u, 1);
@@ -596,9 +619,11 @@ void addCityDecals(const std::vector<PathsetPath> &paths, CityMesh &out) {
         float along = 0;
         const uint32_t first = uint32_t(out.vertices.size());
         for (size_t k = 0; k + 1 < p.points.size(); k += 2) {
-            const Vec3 a = p.points[k], b = p.points[k + 1];
+            const Vec3 a = p.points[k];
+            const Vec3 b = p.points[k + 1];
             if (k >= 2) {
-                const Vec3 mid = (a + b) * 0.5f, prev = (p.points[k - 2] + p.points[k - 1]) * 0.5f;
+                const Vec3 mid = (a + b) * 0.5f;
+                const Vec3 prev = (p.points[k - 2] + p.points[k - 1]) * 0.5f;
                 const float width = std::max(0.1f, length(b - a));
                 along += length(mid - prev) / width;
             }

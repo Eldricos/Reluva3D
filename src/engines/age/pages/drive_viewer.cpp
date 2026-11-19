@@ -196,7 +196,8 @@ void DriveViewer::handleEvent(const Event &ev) {
             _cameraReset = _cameraReset || control == Control::kThrillCam;
             return;
         }
-        const int cars = int(_cars.size()), cities = int(_cities.size());
+        const int cars = int(_cars.size());
+        const int cities = int(_cities.size());
         if (ev.key == key::kPageUp || ev.key == key::kPageDown) {
             _paintJob = 0;
             loadCar((_carIndex + (ev.key == key::kPageDown ? 1 : cars - 1)) % cars);

@@ -15,7 +15,7 @@ namespace reluva::age {
 // A city's road map for its computer-driven traffic (city/<map>.bai,
 // "CAI1"): roads with their lanes and sidewalks as rows of points, one
 // per point along the road, and the junctions that join them. See
-// docs/formats/age/bai.md.
+// docs/engines/age/games/mm2/formats/bai.md.
 
 // One side of a road: side 0 is on the left going from the road's first
 // point to its last, side 1 on the right.
@@ -34,7 +34,7 @@ struct AiRoadSide {
     std::vector<Vec3> sidewalk;
     std::vector<Vec3> curb;
     std::vector<Vec3> outerEdge;
-    std::array<float, 11> widths{}; // after the lane offsets: see docs/formats/age/bai.md
+    std::array<float, 11> widths{}; // after the lane offsets: see docs/engines/age/games/mm2/formats/bai.md
 };
 
 struct AiRoadEnd {

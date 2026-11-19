@@ -126,7 +126,8 @@ void EngineSound::update(float rpm, float throttle, float gain, float pan) {
     for (size_t i = 0; i < _playing.size(); ++i) {
         if (_playing[i] == audio::kNoSound)
             continue;
-        float volume, pitch;
+        float volume;
+        float pitch;
         engineSampleMix(_setup.samples[i], rpm, throttle, volume, pitch);
         _mixer->setVolume(_playing[i], int(volume * gain * audio::kMaxVolume));
         _mixer->setPan(_playing[i], int(std::clamp(pan, -1.0f, 1.0f) * audio::kMaxPan));

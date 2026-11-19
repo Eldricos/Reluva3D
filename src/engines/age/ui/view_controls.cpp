@@ -95,7 +95,8 @@ CameraView ViewControls::apply(const CameraView &view, const CarCamera &cam, con
     pan = panning ? pan + kPanRate * dt : pan * (1 - std::min(1.0f, dt * 3));
     if (!cam.inside && std::fabs(pan) > 1e-3f) {
         const Vec3 d = v.eye - v.target;
-        const float c = std::cos(pan), s = std::sin(pan);
+        const float c = std::cos(pan);
+        const float s = std::sin(pan);
         v.eye = v.target + Vec3{d[0] * c + d[2] * s, d[1], -d[0] * s + d[2] * c};
     }
     return v;
@@ -134,14 +135,18 @@ bool CdPlayer::press(Control c, GameMusic &music, const SearchSet &files, audio:
 void CdPlayer::draw(Surface &overlay, const HudPictures &pictures) const {
     if (!shown)
         return;
-    constexpr int kX = 230, kY = 372;
+    constexpr int kX = 230;
+    constexpr int kY = 372;
     const std::string text = chosen && track < tracks.size() ? std::to_string(track + 1) + " " + tracks[track] : "";
     pictures.cdPlayer(overlay, kX, kY, playing, pressed, text);
 }
 
 void drawControlsList(Surface &overlay, const GameOptions &options, const std::function<std::string(Control)> &name) {
     // A dark box with two columns: the control, its keys.
-    constexpr int kX = 70, kY = 40, kW = 500, kRow = 12;
+    constexpr int kX = 70;
+    constexpr int kY = 40;
+    constexpr int kW = 500;
+    constexpr int kRow = 12;
     const int rows = kControls;
     const int h = rows * kRow + 30;
     for (int y = kY; y < kY + h && y < overlay.h; ++y) {

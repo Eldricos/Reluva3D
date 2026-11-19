@@ -231,7 +231,8 @@ Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out) {
     // A first point on the far side of the start from the second isn't
     // driven to; the opponent faces the first point it drives to.
     if (out.path.size() >= 2) {
-        Vec3 a = out.path[0] - out.start, b = out.path[1] - out.start;
+        Vec3 a = out.path[0] - out.start;
+        Vec3 b = out.path[1] - out.start;
         a[1] = b[1] = 0;
         if (dot(a, b) < 0) {
             out.path.erase(out.path.begin());

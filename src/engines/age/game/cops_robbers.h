@@ -8,7 +8,7 @@
 // your side's base for a point. The places are the city's
 // race/<city>/multicopwaypoints.csv; the rules are Reluva's reading of the
 // game's menus, messages and announcer lines (the game's program, which
-// has them, is encrypted). See docs/engines/age-multiplayer.md.
+// has them, is encrypted). See docs/engines/age/games/mm2/systems/cops-and-robbers.md.
 
 #include "engines/age/game/net_session.h"
 #include "engines/age/formats/race.h"

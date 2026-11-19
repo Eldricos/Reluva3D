@@ -18,10 +18,10 @@ namespace reluva::age {
 enum class Signal { kGreen, kYellow, kRed };
 
 // The traffic lights the game puts up at road ends: where an end's
-// control is 1 (docs/formats/age/bai.md), at its two points (on the
+// control is 1 (docs/engines/age/games/mm2/formats/bai.md), at its two points (on the
 // curb, and a metre across the road). Each junction's lights take turns:
 // at a crossroads two opposite roads at a time, elsewhere a road at a
-// time. Reluva's timing; see docs/engines/age-traffic.md.
+// time. Reluva's timing; see docs/engines/age/games/mm2/systems/traffic.md.
 class TrafficLights {
 public:
     // seconds

@@ -5,7 +5,7 @@
 // race files (race.h), against opponents driving their paths along the
 // roads (opponent.h), and its Crash Course lessons (lesson.h), chosen in
 // the game's menus (front_end.h; a menu of its own without them). The
-// rules as Reluva plays them are in docs/engines/age-racing.md.
+// rules as Reluva plays them are in docs/engines/age/games/mm2/systems/races.md.
 
 #include "engines/age/ui/screen.h"
 
@@ -57,7 +57,8 @@ std::string clockText(float seconds) {
 }
 
 float flatDistance(const Vec3 &a, const Vec3 &b) {
-    const float dx = a[0] - b[0], dz = a[2] - b[2];
+    const float dx = a[0] - b[0];
+    const float dz = a[2] - b[2];
     return std::sqrt(dx * dx + dz * dz);
 }
 
@@ -1094,7 +1095,8 @@ void RaceScreen::drawGarageCar(float dt) {
     _orbit += dt * 0.5f;
     _showCar->sim.reset(_showCar->setup, {0, 0, 0}, _orbit);
     const bool show = _front->screen() == FrontEnd::Screen::kShowcase;
-    const Vec3 eye = show ? Vec3{0, 2.4f, 13.0f} : Vec3{0, 2.2f, 7.5f}, at{0, 0.7f, 0};
+    const Vec3 eye = show ? Vec3{0, 2.4f, 13.0f} : Vec3{0, 2.2f, 7.5f};
+    const Vec3 at{0, 0.7f, 0};
     const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(35 * kPi / 180, float(r.w) / float(r.h), 0.1f, 100),
                                              gfx::lookAlong(eye, normalized(at - eye), {0, 1, 0}));
     _renderer->setView(viewProj, eye);
@@ -1194,7 +1196,11 @@ void RaceScreen::drawOpponentMarkers() {
     // at it and, once the race is on, its place in opp_icon's digits above
     // (measured on the game's screens: the triangle 1.5 m across, 2.3 m
     // tall, its point 4.5 m over the car; the digit as wide, over it).
-    constexpr float kTip = 4.5f, kTop = 6.8f, kHalfWidth = 0.75f, kDigit = 8.0f, kDigitSize = 1.4f;
+    constexpr float kTip = 4.5f;
+    constexpr float kTop = 6.8f;
+    constexpr float kHalfWidth = 0.75f;
+    constexpr float kDigit = 8.0f;
+    constexpr float kDigitSize = 1.4f;
     constexpr uint8_t kPurple[3] = {192, 16, 255};
     std::vector<const Racer *> order;
     for (const Racer &r : _racers)
@@ -1216,7 +1222,8 @@ void RaceScreen::drawOpponentMarkers() {
         if (tip[2] <= 0 || tip[2] >= 1 || top[2] <= 0 || top[2] >= 1)
             continue; // behind the eye, or too far
         auto px = [](float ndc, int size) { return (ndc * 0.5f + 0.5f) * float(size); };
-        const float tipY = float(kFrameH) - px(tip[1], kFrameH), topY = float(kFrameH) - px(top[1], kFrameH);
+        const float tipY = float(kFrameH) - px(tip[1], kFrameH);
+        const float topY = float(kFrameH) - px(top[1], kFrameH);
         markers.push_back({tip[2], px(tip[0], kFrameW), tipY, topY, (tipY - topY) / (kTop - kTip), int(i + 1)});
     }
     // The farthest first, so the nearer go over them.
@@ -1248,7 +1255,10 @@ void RaceScreen::drawCheckpointMarkers() {
     // 2.2 m across, 5.5 m tall, 13 m up), drawn over everything.
     if (!anyOrder())
         return;
-    constexpr float kMiddle = 13, kHalfHeight = 2.75f, kHalfWidth = 1.1f, kWidest = 0.4f;
+    constexpr float kMiddle = 13;
+    constexpr float kHalfHeight = 2.75f;
+    constexpr float kHalfWidth = 1.1f;
+    constexpr float kWidest = 0.4f;
     constexpr uint8_t kBlue[3] = {10, 230, 240};
     for (size_t k : remaining()) {
         const Vec3 at = targetPoint(k).position;
@@ -1592,8 +1602,11 @@ void RaceScreen::update(uint64_t nowMs) {
     _resultsTime = _results ? _resultsTime + dt : 0;
     _lastMs = nowMs;
 
-    Vec3 eye, target, up{0, 1, 0};
-    float fov = 70, nearClip = 0.1f;
+    Vec3 eye;
+    Vec3 target;
+    Vec3 up{0, 1, 0};
+    float fov = 70;
+    float nearClip = 0.1f;
     if (_state == State::kMenu || _racers.empty()) {
         // Round the chosen race's start.
         _orbit += dt * 0.15f;

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's two cities; see
-// docs/formats/age/psdl.md.
+// docs/engines/age/games/mm2/formats/psdl.md.
 
 #include "engines/age/formats/psdl.h"
 
@@ -47,7 +47,9 @@ struct Reader {
         return f;
     }
     Vec3 vec3() {
-        const float x = f32(), y = f32(), z = f32();
+        const float x = f32();
+        const float y = f32();
+        const float z = f32();
         return {x, y, z};
     }
 };
@@ -145,7 +147,8 @@ Error readPsdl(const std::vector<uint8_t> &data, Psdl &out) {
     out.blocks.resize(blocks);
     for (uint32_t b = 1; b < blocks && r.ok; ++b) {
         PsdlBlock &block = out.blocks[b];
-        const uint32_t perimeter = r.u32(), words = r.u32();
+        const uint32_t perimeter = r.u32();
+        const uint32_t words = r.u32();
         if (!r.need(uint64_t(perimeter) * 4 + uint64_t(words) * 2))
             break;
         block.perimeter.resize(perimeter);

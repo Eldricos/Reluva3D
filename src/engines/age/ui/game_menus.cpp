@@ -5,7 +5,7 @@
 // Options Menu, Audio, Graphics and Control Options, Control Custom,
 // AboutMenu Menu and the dialogs, on the game's jpg/ backgrounds with its
 // texture/ buttons. Which picture is which, and what each control does,
-// is Reluva's reading of them; see docs/engines/age-menus.md.
+// is Reluva's reading of them; see docs/engines/age/games/mm2/systems/menus.md.
 
 #include "engines/age/ui/game_menus.h"
 
@@ -127,7 +127,8 @@ std::string GameMenus::menuName() const {
 
 int GameMenus::originX() const {
     if (driverScreen(_screen)) {
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         driverOrigin(x, y);
         return x;
     }
@@ -147,7 +148,8 @@ int GameMenus::originX() const {
 
 int GameMenus::originY() const {
     if (driverScreen(_screen)) {
-        int x = 0, y = 0;
+        int x = 0;
+        int y = 0;
         driverOrigin(x, y);
         return y;
     }
@@ -653,7 +655,8 @@ bool GameMenus::hit(const Item &item, int x, int y, int &w, int &h) const {
         }
     if (item.kind == Kind::kList)
         h = kListRow * std::min(kControls, kListShown);
-    const int x0 = wd->x + originX(), y0 = wd->y + originY();
+    const int x0 = wd->x + originX();
+    const int y0 = wd->y + originY();
     return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
 }
 
@@ -667,7 +670,8 @@ GameMenus::Action GameMenus::handle(const Event &ev) {
     if (ev.type == EventType::kMouseMove && !_waitingForKey) {
         // Pointed at: focused, as the game's are.
         for (size_t i = 0; i < list.size(); ++i) {
-            int w = 0, h = 0;
+            int w = 0;
+            int h = 0;
             if (list[i].enabled && list[i].kind != Kind::kLabel && hit(list[i], ev.mouseX, ev.mouseY, w, h)) {
                 _focus = int(i);
                 break;
@@ -728,7 +732,8 @@ GameMenus::Action GameMenus::handle(const Event &ev) {
     }
     if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         for (size_t i = 0; i < list.size(); ++i) {
-            int w = 0, h = 0;
+            int w = 0;
+            int h = 0;
             if (!list[i].enabled || !hit(list[i], ev.mouseX, ev.mouseY, w, h))
                 continue;
             _focus = int(i);
@@ -857,7 +862,8 @@ void GameMenus::drawItems(Surface &o, const std::vector<Item> &list, int focus) 
         if (!w)
             continue;
         const bool focused = int(i) == focus;
-        const int x = w->x + originX(), y = w->y + originY();
+        const int x = w->x + originX();
+        const int y = w->y + originY();
         const Color words = !item.enabled ? Color{130, 130, 150}
                             : focused     ? Color{255, 255, 120}
                                           : Color{255, 230, 140};
@@ -876,7 +882,8 @@ void GameMenus::drawItems(Surface &o, const std::vector<Item> &list, int focus) 
         case Kind::kBar: {
             const int lit = int(std::lround(share(item.widget) * kBarWidth));
             // (Change Race Options' rows are 15 high on a grid twice that.)
-            const int inset = barInset(), top = _screen == Screen::kRaceOptions ? -4 : w->h > 20 ? 6 : 2;
+            const int inset = barInset();
+            const int top = _screen == Screen::kRaceOptions ? -4 : w->h > 20 ? 6 : 2;
             if (item.widget == "BALANCE")
                 fill(o, x + inset + std::min(lit, kBarWidth - 4), y + top, 4, w->h - 2 * top, {255, 200, 40});
             else if (item.enabled)
@@ -954,7 +961,8 @@ void GameMenus::drawReplayList(Surface &o) const {
     const Widget *w = widget("CITY");
     if (!w)
         return;
-    const int x = w->x + originX() - 8, y0 = w->y + originY() + 10;
+    const int x = w->x + originX() - 8;
+    const int y0 = w->y + originY() + 10;
     if (_replays.empty())
         font::drawText(o, x + 4, y0, "No replays saved yet", {200, 200, 200});
     const size_t first = _replayRow >= size_t(kReplayRows) ? _replayRow - size_t(kReplayRows) + 1 : 0;

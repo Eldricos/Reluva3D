@@ -5,7 +5,7 @@
 // tyre forces that cancel a share of each wheel's sliding every step up
 // to its grip, an engine and automatic gearbox, aerodynamic drag and
 // collisions of the body's hull with the city. See
-// docs/engines/age-driving.md.
+// docs/engines/age/games/mm2/systems/car-simulation.md.
 
 #include "engines/age/game/car.h"
 
@@ -237,7 +237,8 @@ void CarSim::step(const CarControls &controls, const CollisionWorld &world, floa
 void CarSim::substep(const CarControls &controls, const CollisionWorld &world, float h) {
     const float m = mass();
     const Vec3 com = position + orientation * _setup.centerOfGravity;
-    Vec3 force{0, -kGravity * m, 0}, torque{0, 0, 0};
+    Vec3 force{0, -kGravity * m, 0};
+    Vec3 torque{0, 0, 0};
     auto applyAt = [&](const Vec3 &f, const Vec3 &point) {
         force += f;
         torque += cross(point - com, f);
@@ -336,7 +337,8 @@ void CarSim::substep(const CarControls &controls, const CollisionWorld &world, f
         heading = normalized(heading - n * dot(heading, n));
         const Vec3 side = normalized(cross(heading, n));
         const Vec3 vp = velocity + cross(angularVelocity, hit.point - com);
-        const float along = dot(vp, heading), across = dot(vp, side);
+        const float along = dot(vp, heading);
+        const float across = dot(vp, side);
         const float share = m / 4;
         w.spin += along / radius * h;
 
@@ -442,7 +444,8 @@ void CarSim::collideBody(const CollisionWorld &world) {
     const float m = mass();
     // The spheres inside the hull's box, touching its faces, so the body is
     // as big as its bound (and a low car's clear of the road).
-    Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+    Vec3 lo{1e30f, 1e30f, 1e30f};
+    Vec3 hi{-1e30f, -1e30f, -1e30f};
     for (const Vec3 &v : _setup.hull)
         for (size_t k = 0; k < 3; ++k) {
             lo[k] = std::min(lo[k], v[k]);
@@ -509,7 +512,8 @@ void CarSim::collideBody(const CollisionWorld &world) {
 
 std::array<Vec3, 3> CarSim::bumpers(float &radius) const {
     // Along the body between its wheels, at mid height, as wide as it is.
-    const float front = _setup.wheels[0][2] - 0.4f, back = _setup.wheels[2][2] + 0.4f;
+    const float front = _setup.wheels[0][2] - 0.4f;
+    const float back = _setup.wheels[2][2] + 0.4f;
     radius = std::max(0.6f, std::fabs(_setup.wheels[0][0]) + 0.2f);
     std::array<Vec3, 3> out;
     for (int i = 0; i < 3; ++i) {
@@ -520,9 +524,12 @@ std::array<Vec3, 3> CarSim::bumpers(float &radius) const {
 }
 
 void collideCars(CarSim &a, CarSim &b) {
-    float ra, rb;
-    const auto sa = a.bumpers(ra), sb = b.bumpers(rb);
-    const float ma = a.mass(), mb = b.mass();
+    float ra;
+    float rb;
+    const auto sa = a.bumpers(ra);
+    const auto sb = b.bumpers(rb);
+    const float ma = a.mass();
+    const float mb = b.mass();
     for (const Vec3 &pa : sa)
         for (const Vec3 &pb : sb) {
             Vec3 d = pb - pa;

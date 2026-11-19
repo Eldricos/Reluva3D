@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Layout worked out from Midtown Madness 2's models; see
-// docs/formats/age/pkg.md. The vertex layouts are Direct3D's flexible
+// docs/engines/age/games/mm2/formats/pkg.md. The vertex layouts are Direct3D's flexible
 // vertex format codes (D3DFVF_*), from Microsoft's published DirectX
 // documentation.
 
@@ -76,7 +76,8 @@ struct Reader {
 
 Error readMesh(Reader r, PkgMesh &mesh) {
     const uint32_t groups = r.u32();
-    const uint32_t vertexTotal = r.u32(), indexTotal = r.u32();
+    const uint32_t vertexTotal = r.u32();
+    const uint32_t indexTotal = r.u32();
     const uint32_t groups2 = r.u32();
     mesh.fvf = r.u32();
     if (!r.ok)
@@ -92,7 +93,8 @@ Error readMesh(Reader r, PkgMesh &mesh) {
         (mesh.fvf & kFvfPointSize ? 4 : 0) + (mesh.fvf & kFvfDiffuse ? 4 : 0) + (mesh.fvf & kFvfSpecular ? 4 : 0);
     const size_t stride = 12 + (hasNormal ? 12 : 0) + extra + 8 * texSets;
 
-    uint64_t vertices = 0, indices = 0;
+    uint64_t vertices = 0;
+    uint64_t indices = 0;
     for (uint32_t g = 0; g < groups && r.ok; ++g) {
         const uint32_t strips = r.u32();
         const uint32_t shader = r.u32();

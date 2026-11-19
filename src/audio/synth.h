@@ -14,7 +14,7 @@ namespace reluva::audio {
 // A software synthesizer playing DLS instruments: notes on channels (as
 // MIDI's, but any number), each channel an instrument, volume, expression
 // and pan; voices follow the instruments' articulations (volume envelope,
-// pitch envelope, LFO). Renders 16-bit stereo. See docs/formats/dls.md.
+// pitch envelope, LFO). Renders 16-bit stereo. See docs/common/audio/dls.md.
 class DlsSynth {
 public:
     explicit DlsSynth(int rate) : _rate(rate) {}

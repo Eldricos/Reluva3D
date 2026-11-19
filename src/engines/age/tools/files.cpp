@@ -46,7 +46,9 @@ int cmdArList(int argc, char **argv) {
     }
     const std::string filter = argc > 3 ? argv[3] : "";
     std::vector<uint8_t> data;
-    unsigned listed = 0, deflated = 0, failed = 0;
+    unsigned listed = 0;
+    unsigned deflated = 0;
+    unsigned failed = 0;
     uint64_t total = 0;
     for (const auto &e : ar.entries()) {
         if (e.name.find(filter) == std::string::npos)
@@ -139,7 +141,8 @@ int cmdTexInfo(int argc, char **argv) {
         if (!mountAge(argv[2], files))
             return 1;
         std::map<std::string, unsigned> byKind;
-        unsigned failed = 0, total = 0;
+        unsigned failed = 0;
+        unsigned total = 0;
         std::vector<uint8_t> data;
         for (const std::string &n : files.list()) {
             const std::string key = reluva::normalizeArchiveName(n);
@@ -193,7 +196,11 @@ int cmdPkgInfo(int argc, char **argv) {
         reluva::SearchSet files;
         if (!mountAge(argv[2], files))
             return 1;
-        unsigned total = 0, failed = 0, meshes = 0, shaders = 0, untextured = 0;
+        unsigned total = 0;
+        unsigned failed = 0;
+        unsigned meshes = 0;
+        unsigned shaders = 0;
+        unsigned untextured = 0;
         std::map<std::string, unsigned> missing;
         for (const std::string &n : files.list()) {
             const std::string key = reluva::normalizeArchiveName(n);
@@ -235,7 +242,8 @@ int cmdPkgInfo(int argc, char **argv) {
         return 1;
     }
     for (const PkgMesh &m : pkg.meshes) {
-        size_t verts = 0, tris = 0;
+        size_t verts = 0;
+        size_t tris = 0;
         for (const PkgGroup &g : m.groups) {
             verts += g.vertices.size();
             tris += g.indices.size() / 3;

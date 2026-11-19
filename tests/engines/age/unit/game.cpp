@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Angel Game Engine's unit tests: the game: lessons, the player's record, the menus' layout, music, options, replays, drivers, cruising.
+// The Angel Game Engine's unit tests: the game: lessons, the player's
+// record, the menus' layout, music, options, replays, drivers, cruising.
 // Every file is built in the test.
 
 #include "tests/engines/age/support.h"
@@ -466,10 +467,12 @@ void testCruise(const std::filesystem::path &tmp) {
     auto loose = std::make_unique<DirectoryArchive>();
     CHECK(!loose->open(tmp));
     files.add(std::move(loose), 1);
-    const auto sf = raceNames(files, "sf", RaceKind::kCruise), london = raceNames(files, "london", RaceKind::kCruise);
+    const auto sf = raceNames(files, "sf", RaceKind::kCruise);
+    const auto london = raceNames(files, "london", RaceKind::kCruise);
     CHECK(sf.size() == 2 && sf[0] == "Cruise" && sf[1] == "Stunt Mode: Acceleration");
     CHECK(london.size() == 1);
-    RaceDefinition cruise, stunt;
+    RaceDefinition cruise;
+    RaceDefinition stunt;
     CHECK(!loadRace(files, "london", RaceKind::kCruise, kCruiseRace, cruise));
     CHECK(cruise.waypoints.empty() && cruise.settings[0].cops == 4 && cruise.opponents[0].empty());
     CHECK(!loadRace(files, "sf", RaceKind::kCruise, kStuntRace, stunt));

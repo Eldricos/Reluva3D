@@ -379,7 +379,8 @@ std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::stri
     // <prefix><n> for n after the third column up to the second.
     std::map<std::string, std::vector<std::string>> out;
     std::istringstream in(csv);
-    std::string line, current;
+    std::string line;
+    std::string current;
     while (std::getline(in, line)) {
         while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
             line.pop_back();
@@ -399,7 +400,8 @@ std::map<std::string, std::vector<std::string>> parseSpeechTable(const std::stri
         }
         if (current.empty() || f.size() < 3)
             continue;
-        const int last = std::atoi(f[1].c_str()), before = std::atoi(f[2].c_str());
+        const int last = std::atoi(f[1].c_str());
+        const int before = std::atoi(f[2].c_str());
         std::string prefix = f[0];
         std::replace(prefix.begin(), prefix.end(), '\\', '/');
         for (int n = std::max(0, before) + 1; n <= last && n < 100; ++n) {

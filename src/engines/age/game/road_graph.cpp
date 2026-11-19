@@ -13,7 +13,8 @@ namespace reluva::age {
 namespace {
 
 float flatDistance(const Vec3 &a, const Vec3 &b) {
-    const float dx = a[0] - b[0], dz = a[2] - b[2];
+    const float dx = a[0] - b[0];
+    const float dz = a[2] - b[2];
     return std::sqrt(dx * dx + dz * dz);
 }
 
@@ -39,7 +40,8 @@ size_t RoadGraph::penalizeBlocked(const CollisionWorld &world, float penalty) {
         for (auto &[b, cost] : _links[a]) {
             if (b < a)
                 continue; // each join once, both ways set together
-            const Vec3 from = _nodes[a] + Vec3{0, 0.8f, 0}, to = _nodes[b] + Vec3{0, 0.8f, 0};
+            const Vec3 from = _nodes[a] + Vec3{0, 0.8f, 0};
+            const Vec3 to = _nodes[b] + Vec3{0, 0.8f, 0};
             const float span = length(to - from);
             CollisionWorld::RayHit hit;
             // A wall (not the road rising over a hump) short of the far end.
@@ -81,7 +83,10 @@ void RoadGraph::build(const Psdl &psdl) {
         for (const PsdlAttribute &a : block.attributes) {
             // Road strips' sections are 4 words (the curbs are the middle
             // two); divided roads' 6 after 2 (the curbs are 1 and 4).
-            size_t first = 0, stride = 0, left = 0, right = 0;
+            size_t first = 0;
+            size_t stride = 0;
+            size_t left = 0;
+            size_t right = 0;
             if (a.type == psdlattr::kRoadStrip)
                 first = 0, stride = 4, left = 1, right = 2;
             else if (a.type == psdlattr::kDividedRoad)
@@ -90,7 +95,8 @@ void RoadGraph::build(const Psdl &psdl) {
                 uint32_t previous = 0;
                 bool any = false;
                 for (size_t i = first; i + stride <= a.words.size(); i += stride) {
-                    const Vec3 l = vertex(a.words[i + left]), r = vertex(a.words[i + right]);
+                    const Vec3 l = vertex(a.words[i + left]);
+                    const Vec3 r = vertex(a.words[i + right]);
                     const uint32_t n = add((l + r) * 0.5f);
                     if (any)
                         join(previous, n);
@@ -144,13 +150,15 @@ void RoadGraph::build(const AiRoadMap &map) {
         const float weight = road.flags & 2 ? 4.0f : 1.0f;
         // A point every 20 m at most, so a place beside a long straight
         // road is near one.
-        uint32_t previous = 0, first = 0;
+        uint32_t previous = 0;
+        uint32_t first = 0;
         for (size_t i = 0; i < road.middle.size(); ++i) {
             if (i == 0) {
                 previous = first = add(road.middle[0]);
                 continue;
             }
-            const Vec3 from = road.middle[i - 1], to = road.middle[i];
+            const Vec3 from = road.middle[i - 1];
+            const Vec3 to = road.middle[i];
             const int steps = std::max(1, int(std::ceil(length(to - from) / 20)));
             for (int k = 1; k <= steps; ++k) {
                 const uint32_t n = add(from + (to - from) * (float(k) / float(steps)));
@@ -187,7 +195,8 @@ int RoadGraph::nearest(const Vec3 &p, float reach) const {
 }
 
 std::vector<Vec3> RoadGraph::route(const Vec3 &a, const Vec3 &b, float reach) const {
-    const int from = nearest(a, reach), to = nearest(b, reach);
+    const int from = nearest(a, reach);
+    const int to = nearest(b, reach);
     if (from < 0 || to < 0 || from == to)
         return {b};
     // A* by distance.

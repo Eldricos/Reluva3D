@@ -23,7 +23,7 @@ namespace reluva::age {
 //   }
 //
 // (lighting .lt00-.lt15, cars' .vehCarSim, cameras...). See
-// docs/formats/age/tune.md.
+// docs/engines/age/games/mm2/formats/tune.md.
 struct TuneNode {
     std::string name;
     std::vector<std::string> values;

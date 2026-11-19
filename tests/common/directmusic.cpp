@@ -239,7 +239,8 @@ void testDirectMusic() {
         perf.render(out.data() + 2 * at, int(std::min<size_t>(256, out.size() / 2 - at)));
     auto level = [&](float from, float to) {
         double sum = 0;
-        const size_t a = size_t(from * 22050), b = size_t(to * 22050);
+        const size_t a = size_t(from * 22050);
+        const size_t b = size_t(to * 22050);
         for (size_t i = a; i < b; ++i)
             sum += double(out[2 * i]) * out[2 * i];
         return std::sqrt(sum / double(b - a));

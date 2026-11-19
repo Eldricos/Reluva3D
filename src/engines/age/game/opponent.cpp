@@ -85,7 +85,8 @@ void PathDriver::resetDone() {
 }
 
 void PathDriver::follow(std::vector<Vec3> path, float skill) {
-    const float stuck = _stuckTime, reverse = _reverseTime;
+    const float stuck = _stuckTime;
+    const float reverse = _reverseTime;
     const int resets = _resetsHere;
     start(std::move(path), 0, skill);
     _stuckTime = stuck;
@@ -188,7 +189,8 @@ CarControls PathDriver::drive(const CarSim &car, float dt) {
     float cut = 0;
     Vec3 aim = pointAlong(look, cut);
     if (cut > kMostCut) { // shorter, until the line stays on the road (but not so short it swerves)
-        float lo = std::max(kLookLeast, kLookLeastTime * std::fabs(speed)), hi = std::max(lo, look);
+        float lo = std::max(kLookLeast, kLookLeastTime * std::fabs(speed));
+        float hi = std::max(lo, look);
         aim = pointAlong(lo, cut);
         for (int i = 0; i < 8; ++i) {
             const float mid = (lo + hi) / 2;
@@ -202,7 +204,8 @@ CarControls PathDriver::drive(const CarSim &car, float dt) {
         }
     }
     const Vec3 toAim = flat(aim - pos);
-    const float x = dot(toAim, right), z = dot(toAim, forward);
+    const float x = dot(toAim, right);
+    const float z = dot(toAim, forward);
     const float angle = std::atan2(x, z);
     const CarSetup &setup = car.setup();
     const float wheelbase = std::max(1.0f, std::fabs(setup.wheels[0][2] - setup.wheels[2][2]));
@@ -226,7 +229,8 @@ CarControls PathDriver::drive(const CarSim &car, float dt) {
     float wanted = top;
     {
         // Each point's distance along the way, and each leg's heading.
-        std::vector<float> at(ahead.size(), 0), heading(ahead.size(), 0);
+        std::vector<float> at(ahead.size(), 0);
+        std::vector<float> heading(ahead.size(), 0);
         at[0] = length(flat(ahead[0] - pos));
         for (size_t k = 1; k < ahead.size(); ++k) {
             const Vec3 d = flat(ahead[k] - ahead[k - 1]);

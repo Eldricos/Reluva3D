@@ -169,7 +169,9 @@ void ModelViewer::drawInfo() {
     std::fill(_overlay.pixels.begin(), _overlay.pixels.end(), 0);
     const int lh = font::kLineHeight;
     std::vector<std::pair<std::string, Color>> lines;
-    const Color white{230, 230, 230}, blue{150, 200, 255}, red{255, 120, 120};
+    const Color white{230, 230, 230};
+    const Color blue{150, 200, 255};
+    const Color red{255, 120, 120};
     lines.push_back(
         {_names[size_t(_index)] + "  (" + std::to_string(_index + 1) + "/" + std::to_string(_names.size()) + ")",
          blue});

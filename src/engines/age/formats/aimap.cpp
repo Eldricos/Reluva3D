@@ -2,7 +2,7 @@
 // Copyright (C) 2026 The Reluva contributors
 
 // Worked out from the files, which are commented text; see
-// docs/formats/age/aimap.md.
+// docs/engines/age/games/mm2/formats/aimap.md.
 
 #include "engines/age/formats/aimap.h"
 

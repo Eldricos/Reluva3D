@@ -24,7 +24,7 @@ namespace reluva::audio {
 // DirectMusic's style-based music: segments (.sgt) whose command track
 // asks a style (.sty) for patterns at groove levels, whose parts' notes,
 // as music values, become MIDI notes over the chord, played by bands of
-// DLS instruments. See docs/formats/directmusic.md.
+// DLS instruments. See docs/common/audio/directmusic.md.
 
 constexpr int kDmPulsesPerQuarter = 768; // music time ticks per quarter note
 
@@ -141,7 +141,7 @@ struct DmCommand {
 
 // A chord, as its first subchord: semitones above its root (bit 0 the
 // root), and the scale's, from its root. Without a chord track:
-// C major 7 over the C major scale (docs/formats/directmusic.md).
+// C major 7 over the C major scale (docs/common/audio/directmusic.md).
 struct DmChord {
     int time = 0;
     uint32_t chordPattern = 0x891;

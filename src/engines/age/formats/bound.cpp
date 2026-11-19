@@ -77,7 +77,9 @@ Error readBinaryBound(const std::vector<uint8_t> &data, Bound &out) {
     };
     if (data.size() < 13 || data[0] != 1)
         return Error::fail("not a binary bound (version 1)");
-    const uint64_t vertices = u32(1), materials = u32(5), polygons = u32(9);
+    const uint64_t vertices = u32(1);
+    const uint64_t materials = u32(5);
+    const uint64_t polygons = u32(9);
     if (13 + vertices * 12 + materials * 104 + polygons * 10 != data.size())
         return Error::fail("binary bound's size doesn't match its counts");
     size_t at = 13;

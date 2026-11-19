@@ -189,7 +189,8 @@ void AmbientSounds::update(float dt, const Vec3 &listener, const Vec3 &right, co
         if (_voices[i].sample->type == 0 && _voices[i].sound && gainOf(_voices[i]) > 0.01f)
             loops.push_back(i);
     std::stable_sort(loops.begin(), loops.end(), [&](size_t a, size_t b) {
-        const int pa = _ambiences[_voices[a].ambience].priority, pb = _ambiences[_voices[b].ambience].priority;
+        const int pa = _ambiences[_voices[a].ambience].priority;
+        const int pb = _ambiences[_voices[b].ambience].priority;
         return pa != pb ? pa > pb : gainOf(_voices[a]) > gainOf(_voices[b]);
     });
     if (loops.size() > kMostVoices)
@@ -252,7 +253,8 @@ void AmbientSounds::update(float dt, const Vec3 &listener, const Vec3 &right, co
         v.wait -= dt;
         if (v.wait > 0)
             continue;
-        const float low = std::max(0.5f, v.sample->low), high = std::max(low, v.sample->high);
+        const float low = std::max(0.5f, v.sample->low);
+        const float high = std::max(low, v.sample->high);
         v.wait = std::uniform_real_distribution<float>(low, high)(_random);
         if (gain > 0.01f && _mixer && v.sound && v.handle == audio::kNoSound && busy < kMostVoices) {
             v.handle = _mixer->play(v.sound, audio::SoundType::kEffects, volume, v.heard.pan, false);

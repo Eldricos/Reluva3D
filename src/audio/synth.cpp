@@ -10,7 +10,7 @@ namespace reluva::audio {
 
 namespace {
 
-// DLS connection sources and destinations (docs/formats/dls.md).
+// DLS connection sources and destinations (docs/common/audio/dls.md).
 enum : uint16_t {
     kSrcNone = 0,
     kSrcLfo = 1,
@@ -312,7 +312,8 @@ void DlsSynth::render(float *out, size_t frames, float gain) {
             const double step = double(v.wave->rate) / double(_rate) * std::pow(2.0, double(cents) / 1200.0);
             const float amp = level * lfoGain * v.velocityGain * ch.volume * ch.volume * ch.expression * gain;
             const float pan = std::clamp(ch.pan + v.art.pan, 0.0f, 1.0f);
-            const float left = amp * std::cos(pan * 1.5707963f), right = amp * std::sin(pan * 1.5707963f);
+            const float left = amp * std::cos(pan * 1.5707963f);
+            const float right = amp * std::sin(pan * 1.5707963f);
             for (size_t i = 0; i < n; ++i) {
                 if (loops)
                     while (v.position >= loopEnd)

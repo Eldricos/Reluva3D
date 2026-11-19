@@ -54,7 +54,7 @@ void drawButtonState(Surface &overlay, const image::Image &im, int x, int y, int
 
 // The game's menus as Reluva draws them: the main menu, the races, the
 // Crash Course and the garage, laid out by widget.csv on the jpg/
-// backgrounds. See docs/engines/age-menus.md.
+// backgrounds. See docs/engines/age/games/mm2/systems/menus.md.
 class FrontEnd {
 public:
     // Splash: jpg/splash.jpg, shown first in place of the opening movie

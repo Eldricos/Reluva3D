@@ -17,7 +17,7 @@ namespace reluva::age {
 // What the player has done: each race's best place at each level and the
 // Crash Course lessons passed. Kept as text in the game's save folder
 // (Reluva's own file, not the game's .plr). See
-// docs/engines/age-racing.md.
+// docs/engines/age/games/mm2/systems/record-and-unlocking.md.
 class PlayerRecord {
 public:
     static constexpr const char *kFileName = "record.txt";

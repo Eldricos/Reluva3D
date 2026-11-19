@@ -35,7 +35,8 @@ void readArticulation(const RiffChunk *lart, std::vector<DlsConnection> &out) {
     for (const RiffChunk &art : lart->children) {
         if (art.id != "art1" && art.id != "art2")
             continue;
-        const uint32_t size = art.u32(0), count = art.u32(4);
+        const uint32_t size = art.u32(0);
+        const uint32_t count = art.u32(4);
         for (uint32_t i = 0; i < count && size + 12 * (i + 1) <= art.size; ++i) {
             const size_t at = size + 12 * i;
             out.push_back({art.u16(at), art.u16(at + 2), art.u16(at + 4), art.u16(at + 6), art.s32(at + 8)});
@@ -86,7 +87,8 @@ Error readDls(const std::vector<uint8_t> &data, DlsCollection &out) {
         const RiffChunk *body = w.find("data");
         if (!fmt || !body || fmt->u16(0) != 1)
             return Error::fail("wave " + std::to_string(out.waves.size()) + ": not PCM");
-        const int channels = std::max(1, int(fmt->u16(2))), bits = fmt->u16(14);
+        const int channels = std::max(1, int(fmt->u16(2)));
+        const int bits = fmt->u16(14);
         wave.rate = int(fmt->u32(4));
         const size_t frames = body->size / size_t(channels * (bits / 8));
         wave.samples.resize(frames);
@@ -101,7 +103,8 @@ Error readDls(const std::vector<uint8_t> &data, DlsCollection &out) {
     }
     std::vector<uint32_t> cues; // pool table: wave offsets, by cue
     if (const RiffChunk *ptbl = top.find("ptbl")) {
-        const uint32_t size = ptbl->u32(0), count = ptbl->u32(4);
+        const uint32_t size = ptbl->u32(0);
+        const uint32_t count = ptbl->u32(4);
         for (uint32_t i = 0; i < count; ++i)
             cues.push_back(ptbl->u32(size + 4 * i));
     }

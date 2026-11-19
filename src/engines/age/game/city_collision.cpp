@@ -49,7 +49,10 @@ size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMe
             const Vec3 r = psdl.vertices[std::min<size_t>(a.words[3], lastVertex)];
             const float top = a.words[1] < psdl.heights.size() ? psdl.heights[a.words[1]] : std::max(l[1], r[1]) + 10;
             const float bottom = std::min(l[1], r[1]) - 1;
-            const Vec3 a0{l[0], bottom, l[2]}, b0{r[0], bottom, r[2]}, b1{r[0], top, r[2]}, a1{l[0], top, l[2]};
+            const Vec3 a0{l[0], bottom, l[2]};
+            const Vec3 b0{r[0], bottom, r[2]};
+            const Vec3 b1{r[0], top, r[2]};
+            const Vec3 a1{l[0], top, l[2]};
             out.add(a0, b0, b1);
             out.add(a0, b1, a1);
         }
@@ -87,8 +90,9 @@ size_t buildCityCollision(const SearchSet &files, const Psdl &psdl, const CityMe
                 if (surface.depth >= kSinkDepth)
                     continue;
             }
-            const Vec3 v0 = place(b.vertices[p.vertices[0]]), v1 = place(b.vertices[p.vertices[1]]),
-                       v2 = place(b.vertices[p.vertices[2]]);
+            const Vec3 v0 = place(b.vertices[p.vertices[0]]);
+            const Vec3 v1 = place(b.vertices[p.vertices[1]]);
+            const Vec3 v2 = place(b.vertices[p.vertices[2]]);
             out.add(v0, v1, v2, surface);
             if (p.count == 4)
                 out.add(v0, v2, place(b.vertices[p.vertices[3]]), surface);

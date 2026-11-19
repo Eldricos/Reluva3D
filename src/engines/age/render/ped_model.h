@@ -16,7 +16,7 @@ namespace reluva::age {
 
 // The game's pedestrians: a skinned model (anim/<model>.mod, text), its
 // skeleton (anim/<model>.skel, text), its moves (anim/<model>.csv) and
-// their animations (anim/pedanim_*.anim). See docs/formats/age/ped.md.
+// their animations (anim/pedanim_*.anim). See docs/engines/age/games/mm2/formats/ped.md.
 
 struct Skeleton {
     struct Bone {
