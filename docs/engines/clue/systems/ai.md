@@ -10,8 +10,7 @@ does, and suggests, shows cards and accuses from it.
 
 ## How it works
 
-As `Clue.exe` 2.2 plays them, read from its code (November 2026); before
-that, Reluva's were its own, fitted to the recordings below. A computer
+As `Clue.exe` 2.2 plays them, read from its code (November 2026). A computer
 player (class `AI`) keeps what it knows as the original's notebook does
 (0x42CC20 on), cards as bits: what each player is known to hold and to
 lack, and for each player a list of "holds one of these three". It

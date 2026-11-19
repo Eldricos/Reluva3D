@@ -112,11 +112,10 @@ What the options do in Reluva:
     (which stops a race alone), Tab the map on and off, H the HUD
     (clock, list, speed, gear, revs and damage), Backspace the rear-view
     mirror, S and X the arrow to the next or the one before of the
-    checkpoints left. The help gives no chat key: Y is Reluva's. (Before,
-    Reluva's own defaults had WASD as well as the arrows; a saved
-    `options.txt` keeps its keys.) The help says Tab toggles "between two
-    different sizes of city map, or turn[s] the map on and off"; Reluva's
-    only turns it on and off.
+    checkpoints left. The help gives no chat key: Y is Reluva's. (A saved
+    `options.txt` keeps its own keys.) The help says Tab toggles "between
+    two different sizes of city map, or turn[s] the map on and off";
+    Reluva's does both.
   - The rest of the help's table: V the Thrill Cam, the number pad's 4,
     6, 2 and 8 to look left, right, back and forward in the car, W the
     wide view, D the dashboard, F the rotating map, 2-5 the CD player,
@@ -134,7 +133,7 @@ What the options do in Reluva:
       toggle the Dashboard View"). **Dashboard On/Off**: the car's
       dashboard in the car view.
     - **Rotating Map**: the corner map turned with the player, else north
-      up. **Map Toggle** (Tab) now goes through two sizes and off: the
+      up. **Map Toggle** (Tab) goes through two sizes and off: the
       corner's, 1.6 times it (its bottom right corner kept; the help
       doesn't give the second size), none.
     - **Camera Pan**: held, the follow camera goes round the car (1.2

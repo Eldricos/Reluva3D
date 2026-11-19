@@ -37,9 +37,9 @@ Being busted or wrecked fails any lesson. The checkpoints' fifth column,
 called "poly count" as in the circuits, varies from gate to gate here
 (4-16) and is read as the gate's radius.
 
-Event 8 had been read from the messages 210-216, which `mmlang.dll`
-names "Bonnie & Collide" too ("Drive as cleanly as you can!", "Wait...5
-second penalty"); but the lesson's picture says "Buckle up! It's time to
+Event 8 isn't the messages 210-216, though `mmlang.dll` names them
+"Bonnie & Collide" too ("Drive as cleanly as you can!", "Wait...5
+second penalty"): the lesson's picture says "Buckle up! It's time to
 ram another car into submission!", the walkthrough footage shows the
 pickup rammed until "You did it!" and Midterm 2 as "Destroy that car!"
 then "Get going! Lose the tail", and 616-623 are that lesson's words. No

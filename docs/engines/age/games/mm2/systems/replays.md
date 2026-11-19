@@ -33,9 +33,9 @@ loaded again from the main menu ran its 105 seconds to the same win at
 the same time, with no difference at any of its marks. For that,
 everything random or timed in the city starts afresh with each race:
 the traffic's, pedestrians' and police's random choices from the race's
-seeds, and the traffic lights' clock from 0. (The police's and the
-lights' didn't at first: a cruise's replay drifted from 13 seconds in,
-found by comparing the two runs frame by frame.)
+seeds, and the traffic lights' clock from 0. (Without the police's and
+the lights', a cruise's replay drifts from 13 seconds in, as comparing
+two runs frame by frame shows.)
 
 **Watching.** After a race, **I** starts the instant replay of it. The
 main menu's INSTANT REPLAY (`main_rpl`) opens the game's **Replay**

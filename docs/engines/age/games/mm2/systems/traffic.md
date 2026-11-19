@@ -31,16 +31,13 @@ lanes' capacity:
 - At most 160 cars (Reluva's limit for drawing and steering them); the
   races at 0.5 and over reach it.
 - New cars start on a piece of lane each as likely as its length.
-  (Before, a lane was picked first, so short lanes were overfilled.)
+  (Picking a lane first would overfill short lanes.)
 
 | | Drive page | Race page |
 |---|---|---|
 | Traffic | Y steps through none, light, normal and heavy: 0, 0.05, 0.1 (the cruising file's) and 0.25 | the race's Ambient column; a cruise its `roam.aimap`'s `[Density]` (0.1; San Francisco's has none, so the same) |
 | Pedestrians | 0, 0.05, 0.1 and 0.2 with those, times 300, at most 60 | the race's Peds column (mostly 0-0.1) times 300, at most 60 |
 | Police | `race/<city>/roam.aimap`'s (O turns them off) | as many of the race's aimap police as its Cops column |
-
-Before this, the density was a share of a fixed 60 cars, the same
-downtown as on a bridge: a race at 0.2 had 12.
 
 ### Traffic
 

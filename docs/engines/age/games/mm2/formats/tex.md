@@ -146,7 +146,7 @@ way round they're blue and orange. The 24- and 32-bit formats are R, G,
 B(, A): the US roads' centre lines (`r2_f`, format 17) come out yellow
 that way and cyan the other, and the red traffic light's glow
 (`s_red_glow`, format 18) averages 194, 2, 0 in its first three bytes.
-(The first version of this page had them all B, G, R, from the palette
-textures alone; the city's roads showed it wrong.)
+They aren't all B, G, R, as the palette textures alone suggest: the
+city's roads show it.
 
 - **How it was checked:** all 3,665 decode, in `reluva-tool age check`; `age.unit.formats`.

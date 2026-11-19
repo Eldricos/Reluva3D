@@ -96,17 +96,16 @@ A rigid body stepped 120 times a second.
 
 #### Against the game's figures
 
-On a flat plane at full throttle, every one of the 20 cars now tops out
+On a flat plane at full throttle, every one of the 20 cars tops out
 at its High (within 1%), in 9-22 seconds, and does 0-60 mph in 6-12
 seconds (the Panoz GT 6.7, the Beetle 6.9, the double-decker bus 9.8).
 The `.info` files' Horsepower, Top Speed, Durability and Mass are the
 menus' bars, not the simulation's: the Panoz GT's "240" against High's
-180, its "850" mass against 1,200 kg. Before this, two things held cars
-well below High: a "rolling" drag that grew with speed (as much as the
-air's at 60 mph), and wheelspin that took a car to its sliding friction
-for good (the Bullet's back tyres' is 1.4 / 3, so it crawled). The low
-cars also sat on their hull's spheres. Reluva's AI drivers finish the
-races 15-25% sooner than before, with fewer resets.
+180, its "850" mass against 1,200 kg. Two easy readings hold cars well
+below High, so neither is the game's: a "rolling" drag that grows with
+speed (as much as the air's at 60 mph), and wheelspin that keeps a car
+at its sliding friction for good (the Bullet's back tyres' is 1.4 / 3,
+so it crawls).
 
 Aero's **AngCDamp**, **AngVelDamp** and **AngVel2Damp** are a damper's
 three terms per axis (x pitch, y yaw, z roll): a constant against the

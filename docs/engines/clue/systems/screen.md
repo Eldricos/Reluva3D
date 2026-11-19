@@ -121,12 +121,11 @@ drawn). The shades are `ImageRLE16.dll`'s pixel functions (from its
 subtractions (level 6, 7/8: c − c/8 ...); see-through is its function
 3, half the picture's colours and half what is behind.
 
-Before this was read, the lighting was measured on recordings (VM 0:21
-and 0:28, VM2 0:42-1:12): full near a suspect, falling to about 21%,
-and a pool of light following the squares of a planned move as they are
-clicked. The code accounts for both: 21% is the far shades' 1/4 and
+Measured on recordings (VM 0:21 and 0:28, VM2 0:42-1:12), the lighting
+is full near a suspect, falling to about 21%, and a pool of light
+follows the squares of a planned move as they are clicked. The code accounts for both: 21% is the far shades' 1/4 and
 3/16, and the planned squares are lights of their own. Set beside
-OriginalClue at 0:02, Reluva's frame now matches it to within a few
+OriginalClue at 0:02, Reluva's frame matches it to within a few
 levels of 255 across the view.
 
 ### Fonts

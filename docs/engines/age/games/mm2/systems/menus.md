@@ -132,8 +132,8 @@ Every screen has the navigation bar at the top right, where the
   STUNT DRIVER (`cci_sf`) choose the city's school; BACK is the
   navigation bar's (the screen's own row in `widget.csv` is garbled:
   `2,mnav_prev,4,1,290,415,90`). The Crash Course screen's background
-  names its school, so the city isn't written over its heading any more
-  (where the navigation bar now is).
+  names its school, so the city isn't written over its heading (where
+  the navigation bar is).
 - **Vehicle Showcase** (the garage's VEHICLE SHOWCASE, `veh_show`): the
   car alone, turning, the whole screen, with its name and description;
   DONE (`opt_done`) goes back. The game's `texture/VSDE_*` pictures

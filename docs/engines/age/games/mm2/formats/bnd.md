@@ -93,8 +93,8 @@ polygons every time):
 
 The edges and polygons match the `.bnd`'s polygons in all 184. Cells
 are numbered z × cells across + x; all 48,425 references name a
-polygon whose box overlaps its cell (an earlier reading of the lists as
-edges, at 22%, had them in the wrong order). The edge's vector is, for
+polygon whose box overlaps its cell (the lists aren't of edges: read
+so, only 22% match). The edge's vector is, for
 an edge of one polygon, the outward normal in that polygon's plane; for
 an edge two polygons share, the unit bisector of their normals (10,754
 of about 10,900). Its number is 0 for an edge of one polygon (8,634 of

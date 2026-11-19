@@ -175,11 +175,11 @@ block starts on a 32-bit boundary.
   tried is the same as the DLL's, converted as below; pixels over Y 235
   are counted apart (the DLL's path without MMX, which the interpreter
   takes, clamps there and players' machines' MMX path doesn't).
-- **One decoder for both.** The AWE engine had a decoder of its own
-  (written apart, with FFmpeg's tables) until the merge with main. On the
-  87 files the two gave the same planes on every frame, and sound within
-  1 of each other; this one was kept, with what the AWE engine needed
-  added: the frames' sizes and keyframes, every audio track's form,
+- **One decoder for both.** Checked against a second decoder written
+  apart with FFmpeg's tables: on the 87 files the two give the same
+  planes on every frame, and sound within 1 of each other. The AWE
+  engine uses this one, with what it needs: the frames' sizes and
+  keyframes, every audio track's form,
   `rewind()` for loops, binkw32's colour conversion and the audio cut at
   each packet's declared size.
 - **Confidence:** published unless marked.

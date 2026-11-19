@@ -144,17 +144,14 @@ at 85% (Amateur) or 95% (Professional):
 - Cars bump each other: three spheres along each, pushed apart and
   bounced.
 
-**How it was measured.** Each change was measured on the Race page
-itself: a scratch harness (not in the repository) started a race and
-stepped it, undrawn, for up to 900 or 1500 seconds, with its traffic,
-police, bridges and props. It counted each opponent's finish and resets,
-and where they reset.
+**How it was measured.** On the Race page itself: a scratch harness
+(not in the repository) starts a race and steps it, undrawn, for up to
+900 or 1500 seconds, with its traffic, police, bridges and props. It
+counts each opponent's finish and resets, and where they reset.
 
-- Before this version, at Professional, 62 of the 114 opponents of the
-  20 circuits finished in 900 s, with 11 resets each. Seven circuits had
-  no finishers.
-- Now, 100 finish in 900 s, and all 114 in 1500 s (as do all 113 at
-  Amateur), with about 6 resets each.
+- At Professional, 100 of the 114 opponents of the 20 circuits finish
+  in 900 s, and all 114 in 1500 s (as do all 113 at Amateur), with
+  about 6 resets each.
 - All 147 opponents of the 24 checkpoint races finish, with about 2
   resets each.
 - The long ones are the long races: "Gimme Some Royalties" and "Soho
@@ -163,13 +160,13 @@ and where they reset.
 - "Underground" still resets about 24 times an opponent, in the Tube's
   tunnels and in a pile-up at a tunnel mouth at the start.
 
-**Repeatable.** The same harness found the same race ending two ways
-from one run to the next. Valgrind showed why: a body's bounds were
-measured from uninitialised values (`bodyBounds` took the first vertex's
-Y and Z as the minimum of themselves and whatever was in memory).
-London's parked cars, sized by it, sometimes came out huge, blocking a
-road. Now the same race runs the same way every time (eight runs alike),
-and Valgrind finds nothing in a London or San Francisco race.
+**Repeatable.** The same race runs the same way every time (eight runs
+alike), and Valgrind finds nothing in a London or San Francisco race.
+That needs a body's bounds (`bodyBounds`,
+`src/engines/age/formats/pkg.cpp`) to start from its first vertex, never
+from whatever is in memory: measured against that, London's parked cars,
+sized by them, can come out huge and block a road, and a race end two
+ways from one run to the next.
 
 ## In Reluva
 

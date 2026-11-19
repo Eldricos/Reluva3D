@@ -52,8 +52,7 @@ the file reads: the ambient colour, plus each of the three lights by how
 squarely the surface faces it, at most 1 in all, as Direct3D lights
 vertices; done for every vertex when the lighting changes. That's what
 darkens night: San Francisco's clear night has its second fill (0.7,
-0.5, 0.5) at pitch +1, from below, so it lights almost nothing, where
-Reluva used to add a quarter of each fill to every surface. Placed
+0.5, 0.5) at pitch +1, from below, so it lights almost nothing. Placed
 models, cars and people are lit the same way, by their normals: the
 ambient colour and the key and both fills at their colours (the renderer
 takes a key light and two fills). A model's shader colours are used as
