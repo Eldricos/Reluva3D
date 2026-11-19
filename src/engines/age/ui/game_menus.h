@@ -35,6 +35,7 @@ public:
         kAbout,
         kDefaults,        // odef_dlg: restore the defaults?
         kDuplicateKey,    // ctrl_dlg
+        kControlWarning,  // Control Warning: no game controller connected (Reluva's words)
         kQuit,            // quit_dlg
         kReplayList,      // rpl_bk: choose a replay file
         kReplayName,      // REDIT_BK: save as, or rename
@@ -116,6 +117,7 @@ private:
     bool hit(const Item &item, int x, int y, int &w, int &h) const;
     void drawItems(Surface &o, const std::vector<Item> &list, int focus) const;
     void drawScreenWords(Surface &o, uint64_t nowMs) const;
+    void drawControlWarning(Surface &o) const;
     void text(Surface &o, const std::string &widget, const std::string &s, Color c = {255, 230, 140}) const;
     Action done(); // the options kept, saved and put in force
     Action cancel();
@@ -131,6 +133,7 @@ private:
 
     Screen _screen = Screen::kNone;
     Screen _under = Screen::kNone; // the screen a dialog is over
+    int _controllerBefore = 0;     // CONTROLLERS before Control Warning asked
     int _focus = 0;
     GameOptions _edit;    // as changed on the screens
     GameOptions _entered; // as they were when the Options opened

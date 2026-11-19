@@ -293,6 +293,8 @@ void testOptions(const std::filesystem::path &tmp) {
     o.textureQuality = 2;
     o.cloudShadows = 1;
     o.startInCar = true;
+    o.controller = GameOptions::kSteeringWheel;
+    o.deadZone = 0.6f;
     o.keys[size_t(Control::kHorn)] = {'g', 'j'};
     CHECK(!o.save(tmp));
     GameOptions back;
@@ -300,7 +302,8 @@ void testOptions(const std::filesystem::path &tmp) {
     CHECK(!back.music && back.ambient && std::fabs(back.effectsVolume - 0.25f) < 1e-6f &&
           std::fabs(back.balance + 0.5f) < 1e-6f && back.resolution == 2 && back.objectDetail == 1 &&
           back.textureQuality == 2 && back.cloudShadows == 1 && back.startInCar &&
-          back.controlOf('j') == Control::kHorn && back.controlOf(key::kReturn) == Control::kCount);
+          back.controlOf('j') == Control::kHorn && back.controlOf(key::kReturn) == Control::kCount &&
+          back.controller == GameOptions::kSteeringWheel && std::fabs(back.deadZone - 0.6f) < 1e-6f);
     back.resetControls();
     CHECK(back.controlOf(key::kReturn) == Control::kHorn && !back.startInCar && !back.music); // the audio stays
     GameOptions none;

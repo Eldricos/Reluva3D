@@ -89,8 +89,15 @@ struct GameOptions {
     bool startInCar = false;   // the in-car view first (POV)
     bool forceFeedback = true; // a game controller shakes when the car's knocked
     float steering = 0.5f;     // Steering Sensitivity, 0..1
+    // CONTROLLERS: what drives, as mmlang.dll's 581-584 name it. A game
+    // pad by default, so one plugged in works at once; the keyboard
+    // always does.
+    int controller = kGamePad;
+    float deadZone = 0.3f; // Joystick Dead Zone, 0..1 of the bar: up to half the stick's travel
     // Two keys for each control (0: none).
     std::array<std::array<uint32_t, 2>, kControls> keys{};
+
+    enum : int { kKeyboardOnly = 0, kJoystick = 1, kGamePad = 2, kSteeringWheel = 3 };
 
     GameOptions() { resetControls(); }
     void resetAudio();

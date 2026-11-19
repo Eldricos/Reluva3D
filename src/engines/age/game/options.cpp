@@ -180,6 +180,8 @@ void GameOptions::resetControls() {
     startInCar = false;
     forceFeedback = true;
     steering = 0.5f;
+    controller = kGamePad;
+    deadZone = 0.3f;
     for (int i = 0; i < kControls; ++i)
         keys[size_t(i)] = {kInfo[i].first, kInfo[i].second};
 }
@@ -211,7 +213,8 @@ std::string GameOptions::text() const {
       << vehicleReflections << "\nfullscreen " << fullScreen << "\nresolution " << resolution << "\nvisibility "
       << visibility << "\nlighting " << lightingQuality << "\nobjectdetail " << objectDetail << "\ntexturequality "
       << textureQuality << "\ncloudshadows " << cloudShadows << "\nautoreverse " << autoReverse << "\nforcefeedback "
-      << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\n";
+      << forceFeedback << "\nstartincar " << startInCar << "\nsteering " << steering << "\ncontroller " << controller
+      << "\ndeadzone " << deadZone << "\n";
     for (int i = 0; i < kControls; ++i)
         o << "key " << kControlNames[i] << " " << keys[size_t(i)][0] << " " << keys[size_t(i)][1] << "\n";
     return o.str();
@@ -272,6 +275,10 @@ Error GameOptions::parse(const std::string &text) {
             forceFeedback = on;
         else if (name == "steering")
             steering = number(value, 0, 1);
+        else if (name == "controller")
+            controller = int(number(value, 0, 3));
+        else if (name == "deadzone")
+            deadZone = number(value, 0, 1);
         else if (name == "key") {
             std::string second;
             l >> second;

@@ -46,6 +46,10 @@ None: the game's code isn't read.
   [race.md](formats/race.md)).
 - **The archives' search order** where two hold the same name
   ([ar.md](formats/ar.md#open-questions)).
+- **Cops & Robbers Settings dropped**: its pictures aren't shipped and
+  the Host Race Menu has its choices, so the game likely never shows it
+  ([menus.md](systems/menus.md#not-drawn)). A recording of hosting Cops &
+  Robbers would settle it.
 
 ## Guessed
 
@@ -56,6 +60,10 @@ None: the game's code isn't read.
 - **The path sets' speeds** ([pathset.md](formats/pathset.md)).
 - **The road maps' side kinds** where only where they fall says what they
   are ([bai.md](formats/bai.md)).
+- **Control Warning's use**: the game ships neither its picture nor its
+  words; Reluva shows it for a game controller chosen with none connected
+  ([menus.md](systems/menus.md#control-warning)). A recording of the
+  game's Control Options with no joystick would settle it.
 
 ## Settled
 

@@ -18,7 +18,7 @@ when the Race and Drive pages open. See `engines/age/game/options.h`.
 | Main Options Menu | `opt_bk` | AUDIO, CONTROL, GRAPHICS (`opt_aud`, `opt_ctl`, `opt_gfx`), ABOUT MIDTOWN MADNESS 2 (`opt_abt`), BACK (`mnav_prev`, picture `mnav_prv`) |
 | Audio Options | `aud_bk` | Sound FX, Play Commentary, Play Music, City Sounds (`aud_fx`, `aud_com`, `aud_musc`, `aud_amb`); Device, Stereo FX, Sound Quality (shown, the system's); Sound FX Volume, Music/City Volume, Balance (bars) |
 | Graphics Options | `gfx_bk` | Textured Sky, Vehicle Reflections, Show Pedestrians, Smart Rendering (`gfx_sky`, `gfx_rflx`, `gfx_peds`, `gfx_port`); Display (a window, or full screen), Renderer (shown), Resolution; Visibility and Lighting Quality (bars); Texture Quality, Object Detail, Cloud Shadows (None, Low, High: strings 660-662) |
-| Control Options | `ctrl_bk` | Auto Reverse, Use POV Hat, Force Feedback (`ctrl_aut`, `ctrl_pov`, `ctrl_fbk`); Controller (the keyboard, a game controller beside it); Steering Sensitivity (a bar); the joystick's dead zone, calibration and force feedback (not available); CUSTOMIZE CONTROLS (`ctrl_cus`) |
+| Control Options | `ctrl_bk` | Auto Reverse, Use POV Hat, Force Feedback (`ctrl_aut`, `ctrl_pov`, `ctrl_fbk`); Controller (Keyboard, Joystick, Game Pad, Steering Wheel); Steering Sensitivity and the controller's dead zone (bars); calibration and force feedback's intensities (not available); CUSTOMIZE CONTROLS (`ctrl_cus`) |
 | Control Custom | `cuss_bk` | each control and its two keys (`CW Array`) |
 | AboutMenu Menu | `about_bk` | the credits, `jpg/credits` (215 x 4,582), scrolling up through their box; DONE (`options_done`, picture `opt_done`) |
 
@@ -88,10 +88,16 @@ What the options do in Reluva:
   - Use POV Hat: the in-car view first.
   - Force Feedback: a game controller shakes when the car's knocked
     (from 2 m/s of speed lost, fully by 15, for a fifth of a second).
-- **A game controller** (any SDL knows as a gamepad), beside the
-  keyboard, in Reluva's layout: the left stick steers, the right trigger
-  is the throttle and the left the brakes, each by how far it's pushed
-  (the stick's middle 15% ignored). The buttons press the controls' keys
+- **A game controller** (any SDL knows as a gamepad, a wheel among
+  them), beside the keyboard, in Reluva's layout: the left stick steers,
+  the right trigger is the throttle and the left the brakes, each by how
+  far it's pushed. CONTROLLERS chooses it (`mmlang.dll`'s Keyboard,
+  Joystick, Game Pad and Steering Wheel, 581-584): Keyboard turns the
+  controller off; the other three read it alike, and Game Pad is the
+  default, so one plugged in works at once. Choosing one from Keyboard
+  with none connected asks first (Control Warning, below). Its dead zone
+  is Controller Dead Zone's bar: the stick's middle ignored, up to half
+  its travel, 15% by default. The buttons press the controls' keys
   (so rebinding a key moves its button too): A the handbrake, B the horn,
   X reverse, Y the camera, the shoulders the gears down and up, Back the
   map, Start the pause menu, the sticks' clicks the Thrill Cam and
