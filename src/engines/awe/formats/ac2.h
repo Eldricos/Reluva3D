@@ -5,6 +5,7 @@
 
 #include "common/types.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -54,11 +55,19 @@ struct Ac2Record {
 
 struct Ac2Scene {
     std::string path; // the scene's own name, as SCEN gives it
+    size_t end = 0;   // the bytes read, to the end of DONE
     // Everything in the file, in order, scene settings (LOAD, CAMR,
     // MUSC...) and objects (2DOB, SPOT, NPCX...) alike.
     std::vector<Ac2Record> records;
+    // An act's version merged over its base: where its own records start
+    // (npos: none merged).
+    size_t actFrom = std::string::npos;
 
     const Ac2Record *camera() const;
+    // Whether the record (one of `records`) is the act's version's own.
+    bool fromAct(const Ac2Record *r) const {
+        return actFrom != std::string::npos && r >= records.data() + actFrom && r < records.data() + records.size();
+    }
     // The objects (records the game creates an object for).
     std::vector<const Ac2Record *> objects() const;
 };
@@ -66,6 +75,11 @@ struct Ac2Scene {
 // Reads a scene. Stops with an error at a tag it doesn't know, keeping
 // what came before.
 Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out);
+
+// Reads an .ac1 scene (And Then There Were None's): .ac2's records, with
+// its text a byte a character (Windows-1252) in the same fixed buffers.
+// See docs/engines/awe/games/attwn/formats/ac1.md.
+Error parseAc1(const std::vector<uint8_t> &data, Ac2Scene &out);
 
 // Whether a tag names an object (2DOB, SPOT, NPCX...) rather than a scene
 // setting.

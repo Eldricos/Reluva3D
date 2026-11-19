@@ -110,8 +110,9 @@ against 0.01, the result is about two thirds the gesture.
 The game asks for the mask `TrackMaskTrackMask`. The files spell it
 `TrackMasktrackmask` or `TrackMaskTrackMask`, so Granny matches the name
 whatever its case. An animation without a mask (57 files) plays on every
-bone in full (0x4298f0 logs "No track mask data", and the control gets no
-mask). Other masks some animation files carry (`TrackMasksitidle1`) are
+bone it has a track for in full (0x4298f0 logs "No track mask data", and
+the control gets no mask); a bone it has no track for it leaves alone, as
+Granny binds only the tracks there are ([../../../formats/gr2.md](../../../formats/gr2.md)). Other masks some animation files carry (`TrackMasksitidle1`) are
 never asked for.
 
 #### The pose's mask: sitting
@@ -289,6 +290,15 @@ them as legs (`0x442780` starts one, `0x4422c0` walks it each frame,
   waiting on the walk goes on.
 - **A character with no `walk` animation** moves 0.075 units every half
   millisecond (150 a second), walking or running (`0x4422d9`).
+- **Clicked again where it's going:** the player walking to the cell a
+  click sent it to, clicked on that cell again (a double click), runs
+  the rest of the way rather than starting over (`0x440de5` →
+  `0x440af0`; And Then There Were None's `0x436169` → `0x435f70`): a
+  walk under way hands over to `run` at once (And Then There Were
+  None's only when `walk` is what's playing), a turn on the spot runs
+  when it's done. Nothing in the game happens on the double click as
+  such: it's the second click on the same cell. Reluva does the same
+  (`ScenePage::walkTo`).
 
 Reluva follows this (`ScenePage::beginWalk`, `stepWalk`). It moves the
 character at the walk's average pace, not by its root motion frame by

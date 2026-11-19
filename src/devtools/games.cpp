@@ -64,9 +64,14 @@ int cmdImport(int argc, char **argv) {
                     double(plan.totalBytes()) / (1024 * 1024));
         for (const std::string &note : plan.notes)
             std::printf("  %s\n", note.c_str());
-        for (const reluva::ImportPlan::File &f : plan.files)
-            std::printf("  %-28s <- %s%s\n", f.to.c_str(), f.from.string().c_str(),
-                        f.packed ? (" (packed at " + std::to_string(f.packed->offset) + ")").c_str() : "");
+        for (const reluva::ImportPlan::File &f : plan.files) {
+            std::string where;
+            if (f.packed)
+                where = " (packed at " + std::to_string(f.packed->offset) + ")";
+            else if (f.cabinetFile)
+                where = " (file " + std::to_string(*f.cabinetFile) + ")";
+            std::printf("  %-28s <- %s%s\n", f.to.c_str(), f.from.string().c_str(), where.c_str());
+        }
     }
     if (positional.empty())
         return 0;

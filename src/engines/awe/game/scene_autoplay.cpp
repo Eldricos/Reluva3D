@@ -35,6 +35,8 @@ void ScenePage::startAt(const std::string &where) {
 }
 
 std::string ScenePage::autoplay() {
+    if (_overlay)
+        _overlay->dismiss(true);
     if (_yesNo) {
         _yesNo.reset();
         return "yes/no box closed";
@@ -94,13 +96,15 @@ ScenePage::GameStatus ScenePage::status() const {
 }
 
 std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
-    // The hotspots, characters and pictures (items lying about) a player
-    // could click now, in the scene's order: shown, with something to run,
-    // and an outline or a rectangle the pick can find; and Antoinette,
-    // whom items can be used on (uselist.txt).
+    // The hotspots, characters and pictures (items lying about: And Then
+    // There Were None's are ITEMs) a player could click now, in the
+    // scene's order: shown, with something to run, and an outline or a
+    // rectangle the pick can find; and Antoinette, whom items can be used
+    // on (uselist.txt).
     std::vector<const Ac2Record *> out;
     for (const Ac2Record *o : _scene.objects()) {
-        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || !objectShown(*o))
+        const bool picture = o->tag == "2DOB" || o->tag == "ITEM";
+        if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && !picture) || !objectShown(*o))
             continue;
         if (!scripted(*o) && o->tag != "PCXX")
             continue;
@@ -109,7 +113,7 @@ std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
         int t;
         int r;
         int b;
-        if (o->tag == "2DOB" && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
+        if (picture && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
             continue;
         out.push_back(o);
     }
@@ -153,7 +157,7 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     auto scan = [&](int left, int top, int right, int bottom, int step) {
         for (int sy = std::max(top, 0); sy < std::min(bottom, maxY + 1); sy += step)
             for (int sx = std::max(left, 0); sx < std::min(right, maxX + 1); sx += step)
-                if (pickAllowed(sy) && pickAt(sx, sy) == target) {
+                if (pickAllowed(sy) && !(_overlay && _overlay->covers(sx, sy)) && pickAt(sx, sy) == target) {
                     x = sx, y = sy;
                     return true;
                 }
@@ -167,7 +171,7 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
     int r;
     int b;
     if (const Ac2Value *outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
-        l = kScreenW, t = kScreenH, r = 0, b = 0;
+        l = frameW(), t = frameH(), r = 0, b = 0;
         for (const auto &[ux, uy] : outline->numbers) {
             const int px = int32_t(ux);
             const int py = int32_t(uy);
@@ -185,11 +189,11 @@ bool ScenePage::pointFor(size_t i, int &x, int &y) const {
                 const float feet[3] = {c.x, c.y, c.z};
                 float fx;
                 float fy;
-                if (SceneCamera::fromRecord(*camr).project(feet, kScreenW, kScreenH, fx, fy) &&
+                if (SceneCamera::fromRecord(*camr).project(feet, frameW(), frameH(), fx, fy) &&
                     scan(int(fx) - 200, int(fy) - 500, int(fx) + 200, int(fy) + 20, 2))
                     return true;
             }
-    return scan(0, 0, kScreenW, kScreenH, 4);
+    return scan(0, 0, frameW(), frameH(), 4);
 }
 
 bool ScenePage::pointFor(size_t i, int &x, int &y, const std::string &holding) {
@@ -214,7 +218,7 @@ bool ScenePage::click(size_t i) {
 }
 
 std::vector<uint8_t> ScenePage::saveToMemory() const {
-    return writeSaveGame(captureSave("search"));
+    return writeSaveGame(captureSave("search"), saveLayout());
 }
 
 bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
@@ -222,9 +226,15 @@ bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
     // from the load screen, so it's the menu that's left, not the game's
     // scene (whose "met them here" tags would go to 2: 0x423daa).
     newGame();
-    for (size_t i = 0; i < _names.size(); i++)
-        if (fs::toLower(_names[i]).find("menu.load_01.ac2") != std::string::npos)
+    const GameFlow flow = _ctx.game ? _ctx.game->flow : GameFlow();
+    const std::string format = flow.menu;
+    const size_t at = format.find("%s");
+    const std::string file = "/" + format.substr(0, at) + "load" + format.substr(at + 2) + flow.scenes;
+    for (size_t i = 0; i < _names.size(); i++) {
+        const std::string n = fs::toLower(_names[i]);
+        if (n.size() >= file.size() && n.compare(n.size() - file.size(), file.size(), file) == 0)
             _index = int(i);
+    }
     _runner->clear();
     _autoChoices.clear();
     if (!preloadData(data, "the save in memory"))
@@ -261,7 +271,7 @@ std::vector<int> ScenePage::travelCars() {
     // The bar's cars (0x4177f0) a click would go to now: allowed, and not
     // the one Poirot is in.
     std::vector<int> out;
-    if (!interfaceOn())
+    if (!interfaceOn() || _overlay)
         return out;
     for (int car = 1; car <= 5; car++)
         if (carOn(car) && !inCar(car))

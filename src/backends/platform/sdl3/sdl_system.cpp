@@ -229,7 +229,9 @@ Error SdlSystem::initGraphics(int width, int height, PixelFormat format) {
     _gameTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (!_gameTexture)
         return Error::fail(std::string("SDL_CreateTexture failed: ") + SDL_GetError());
-    SDL_SetTextureScaleMode(_gameTexture, _display.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+    // Unsmoothed, PIXELART rather than nearest: the same as it at a whole
+    // scale, but at one that isn't, each pixel as wide as the next.
+    SDL_SetTextureScaleMode(_gameTexture, _display.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_PIXELART);
 
     _gameW = width;
     _gameH = height;
@@ -597,7 +599,7 @@ void SdlSystem::refreshCursor() {
         }
     }
     if (_cursorTexture)
-        SDL_SetTextureScaleMode(_cursorTexture, _display.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_NEAREST);
+        SDL_SetTextureScaleMode(_cursorTexture, _display.smooth ? SDL_SCALEMODE_LINEAR : SDL_SCALEMODE_PIXELART);
     _softwareCursor = true;
     if (!_mouseInside)
         _mouseInside = SDL_GetMouseFocus() == _window;

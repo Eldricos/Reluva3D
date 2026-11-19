@@ -32,12 +32,15 @@ The format pages give the detail; this page gathers them.
   [systems/lighting.md](systems/lighting.md) and
   [../../README.md](README.md#frame-time).
 - **Text is drawn by Reluva's own TrueType renderer**, not Windows'.
-  The game's fonts are used, sized as Windows sizes them, but letters can
-  differ a little in their edges: in the walkthrough the dialogue's lines
-  come out about 2 % wider than Reluva's. Where the lines break is the
+  The game's fonts are used, sized and hinted as Windows sizes and hints
+  them ([../../../../common/truetype.md](../../../../common/truetype.md)),
+  but a letter can differ from Windows' by a pixel now and then, and the
+  smoothing of their edges is matched by measure, not by Windows' own
+  code. Where the lines break is the
   same everywhere text is wrapped: the spoken line, the choices and a
   movie's subtitles (`0x43db80`) and the interface's text (`0x414720`)
-  all use the game's rule, two spaces kept after a sentence's end
+  all use the game's rule, two spaces put after a sentence's end in
+  what's wrapped, what fits drawn as it's written
   ([systems/dialogue.md](systems/dialogue.md),
   [systems/interface.md](systems/interface.md)).
 - **A choice low in the box is always drawn.** The game leaves out a
@@ -50,8 +53,9 @@ The format pages give the detail; this page gathers them.
 - **A walk's root motion.** The game takes a base animation's root
   motion out of the pose through Granny's track groups and moves the
   model. Reluva takes out the distance the root moves in one loop
-  instead (`Actor::motion`). The character goes the same way at the same
-  pace. See [../../formats/gr2.md](../../formats/gr2.md).
+  instead (`Actor::motion`), from each animation as it's blended. The
+  character goes the same way at the same pace. See
+  [../../formats/gr2.md](../../formats/gr2.md).
 - **An `anim` whose file is missing ends at once.** In the game it waits
   for ever, which would hang the script. No `anim` in the install names a
   missing file. See [systems/characters.md](systems/characters.md).
@@ -62,15 +66,6 @@ The format pages give the detail; this page gathers them.
   other scenes too (`0x43bb60`) and animates them there, off screen.
   Reluva holds only the scene shown and skips those gestures. Nothing is
   seen either way. See [systems/script.md](systems/script.md).
-
-### Time
-
-- **Fades go by the clock.** The game steps a fade by 8/255 every 0.01 s
-  but at most one step a frame, so it fades more slowly when frames are
-  slow. Reluva steps by the time that has passed: 32 steps, 0.32 s. The
-  recordings' fades measured 0.27 to 0.47 s: the longer ones are the
-  game's frame-bound steps; the shortest is under the 0.32 s the game
-  can't go below, within what a 30 fps video can tell of a ramp's ends. See [systems/acts.md](systems/acts.md).
 
 ### Saves and scenes
 
@@ -105,19 +100,29 @@ install meets it.
 
 ### Not done, as nothing in the install uses them
 
-Kept for the other AWE games, where they may be needed:
+Left as they are on purpose: nothing in the game reaches them, so they
+change nothing a player sees. They wait for another AWE game that uses
+them (the handlers are read; each one's addresses are on its page):
 
-- the lights' flicker and the `light` command;
+- the lights' flicker;
 - objects' own sounds (`sound`, `soundLoops`, `hoverSoundLoops`: empty or
   0 in every scene);
 - animated pictures (`2DAN`, `NING`: in no scene);
-- about 25 script verbs no script calls (most are only logged; see
-  [systems/script.md](systems/script.md)).
+- six script verbs no script calls: `play` and `playa` (animated
+  pictures, which no scene has), `texture`, `wear`, `removestate` and
+  `web`; logged and over at once
+  ([systems/script.md](systems/script.md#verbs-nothing-uses)).
 
 ### Only one release checked
 
-Everything was worked out and checked on the English 1.0 install. Other
-languages and patched releases haven't been tried.
+Everything was worked out and checked on the English 1.0 install, the
+only release we have. Other languages and patched releases haven't been
+tried: they wait for someone who owns one. Reluva finds such a release
+by the fallback (the same files, whatever their contents), and the
+game-files test makes it a record of its own (`unknown-release`); its
+steps run as for English 1.0 ([TESTING.md](TESTING.md#the-game-files-test-with-your-own-copy-of-the-game)),
+and what differs goes here. Its detection signature is made with
+`reluva --hash`.
 
 ## Additions outside the game
 
@@ -129,12 +134,10 @@ None of these changes what the game does.
   zoom), Movies, Pictures, Text and Sounds. Tab moves between them; the
   window's title names the page, what it shows and the frames shown in
   the last second. See [README.md](README.md#using-it).
-- **The frame rate in the game's title.** The window is titled
-  "Agatha Christie: Murder on the Orient Express", then the frames shown
-  in the last second. The original's title is its command line (WinMain
-  `0x4018f0`, `CreateWindowExW` at `0x401a13`), which the installer's
-  shortcut gives; the install doesn't hold the shortcut, so the name is
-  the one its readme gives the game *(inferred)*.
+- **The frame rate in the game's title.** The window is titled as the
+  game's, by its `interface.txt`'s `title` row ("Agatha Christie -
+  Murder on the Orient Express"), then the frames shown in the last
+  second.
 - **Screenshots.** F12 saves the screen as a TGA, under `screenshots/` in
   the game's save folder.
 - **Frame time.** `RELUVA_PERF=1` writes where a frame's time goes, every

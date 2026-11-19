@@ -357,7 +357,9 @@ Error SdlGpuRenderer::init(int width, int height) {
     if (!_overlay)
         return sdlError("Cannot create the overlay");
     SDL_SetTextureBlendMode(_overlay, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureScaleMode(_overlay, SDL_SCALEMODE_NEAREST);
+    // Sharp pixels, the same size each at a scale that isn't whole (nearest
+    // makes a one-pixel stroke one pixel or two by where it falls).
+    SDL_SetTextureScaleMode(_overlay, SDL_SCALEMODE_PIXELART);
 
     const uint8_t white[4] = {255, 255, 255, 255};
     gfx::TextureParams wp;

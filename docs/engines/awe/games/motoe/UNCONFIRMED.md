@@ -58,13 +58,6 @@ capture's video range read as full range. What's left after that:
   camera's `238`, `23a` and `1240`: nothing in the executable reads them, so what they
   were for can't be told. [formats/ac2.md](formats/ac2.md).
 
-- **The window's title.** The original's is its command line (WinMain
-  `0x4018f0`, `CreateWindowExW` at `0x401a13`; the same text names its
-  registry key), which the installer's shortcut supplies. The install
-  doesn't hold the shortcut, so Reluva titles the window with the name
-  the readme gives the game, "Agatha Christie: Murder on the Orient
-  Express". [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
-
 ## Guessed
 
 None: the one guess, the place of a camera's roll in its rotation, has
@@ -73,6 +66,14 @@ been checked against `granny2.dll` ([formats/ac2.md](formats/ac2.md)).
 ## Settled
 
 Moved to their format pages; kept here so the reasoning can be found:
+
+- **The window's title:** not the command line, as was thought, but
+  `Text/interface.txt`'s `title` row: `0x4017c0` reads the table and
+  copies the row's Translation, or its Text when that's empty or `0`,
+  for WinMain's `CreateWindowExW` (`0x401a13`). The English install's is
+  "Agatha Christie - Murder on the Orient Express" (the same as the CD's
+  `setup.ini` names the game). Reluva now reads it the same way.
+  [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md#additions-outside-the-game).
 
 - **The order of the dialogue's updates within a frame:** read in full
   from 0x43d430. (A line of dialogue has three columns of commands in its
@@ -116,8 +117,8 @@ Moved to their format pages; kept here so the reasoning can be found:
   section 6.
 - **Fade lengths:** the recordings' 0.27 to 0.47 s are the game's fade
   of at most one step a frame (0.32 s at the least; the 0.27 s within
-  the video's measurement); listed with the known differences.
-  [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md).
+  the video's measurement), which Reluva's fades now follow, a step an
+  update. [systems/acts.md](systems/acts.md).
 - **The save's thumbnail:** a 24-bit BMP. D3DX's BMP writer in the game
   writes only 24- and 8-bit files; Reluva wrote 32-bit and now writes
   24. [systems/saves.md](systems/saves.md).

@@ -42,6 +42,10 @@ public:
         std::vector<float> mask;     // per model bone
         float maskWeight = 0;        // the weight it was played with
         std::vector<float> poseMask; // the pose's mask it was played under (per model bone; empty: none)
+        // How far a loop carries the root (Bip01) along and turns it, taken
+        // out as it plays: a walk's, a run's or a turn's (Actor::motion).
+        float carried[3] = {0, 0, 0};
+        float carriedTurn = 0; // degrees about the model's up
         // Its weight now: eased in and out (Granny's smooth curve).
         float weight() const;
         // Seconds into the animation.
@@ -72,6 +76,9 @@ public:
     // bone without a weight taking its parent's; empty if it has none.
     static std::vector<float> modelMask(const Model &model, std::string_view name);
 
+    // The last animation played carries the root so far each loop (see
+    // Slot::carried).
+    void setCarry(const float carried[3], float turn);
     // Eases out (over `seconds`, or each one's own ease if negative) and
     // stops the slots `which` picks; a stopped slot doesn't report its end.
     void stop(const std::function<bool(const Slot &)> &which, float seconds = -1);
@@ -100,6 +107,10 @@ private:
     // under, by bone name if `model` isn't the character's.
     std::vector<float> buildMask(const Model &model, const Animation *animation, float weight,
                                  const std::vector<float> &poseMask) const;
+    // The slot's motion its loop has carried so far taken out of the
+    // skeleton (its mask and the bones it has tracks for as blend has them).
+    static void carryBack(const Model &model, const Slot &s, const std::vector<float> &mask,
+                          const std::vector<bool> &bound, std::vector<BoneTransform> &local);
     // Blends the layer's slots: each bone's transform weighed by the
     // slots' weights times their masks; bones that weigh nothing stay at
     // rest. The strongest slot is returned through `strongest`.

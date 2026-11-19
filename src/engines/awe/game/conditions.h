@@ -55,7 +55,10 @@ struct TalkProgress {
     int nest = -1;
 };
 
+struct GameInfo;
+
 struct GameState {
+    const GameInfo *game = nullptr;    // its game's own condition words and verbs (games.h)
     std::string act;                   // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
     std::map<std::string, int> tags;   // story tags: numbers set by scripts ("tag name 1")
@@ -81,6 +84,9 @@ struct GameState {
     // "time <n>" added. In order; a name may be there twice (the first
     // counts).
     std::vector<std::pair<std::string, int>> timers;
+    // And Then There Were None's one timer instead (GameInfo::clock): the
+    // seconds since "timer" (ac.exe [0x485f2c]).
+    float clock = 0;
     // Text tags: "savedscene" ("Calais.1-4_1-2.02.ac2 -1 0"), and a tag
     // per scene visited, by its file name, holding the acts it was
     // visited in ("02a 06b").

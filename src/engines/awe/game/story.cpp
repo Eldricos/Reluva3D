@@ -83,7 +83,7 @@ Story::Story(GameState &state, ScriptRunner &main) : _state(state), _main(main) 
     _main.onEmpty = [this] { runnerEmpty(); };
 }
 
-bool Story::startAct(std::string_view arg) {
+bool Story::startAct(std::string_view arg, bool start) {
     // A bare "act" (the main menu's Play) starts the act there is.
     int major;
     int minor;
@@ -100,12 +100,16 @@ bool Story::startAct(std::string_view arg) {
     if (!found)
         return false;
     _row = *found;
+    if (start && given(_row->preLoad))
+        _main.run(_row->preLoad);
+    // A row with no place (And Then There Were None's) loads none: its
+    // start script shows the first scene.
+    if (_row->location.empty())
+        return true;
     _previousLocation = _location;
     _location = _row->location;
     _loading = true;
     _waitingLoad = false;
-    if (given(_row->preLoad))
-        _main.run(_row->preLoad);
     return true;
 }
 

@@ -120,7 +120,7 @@ public:
                         std::error_code ec;
                         const auto size = std::filesystem::file_size(from, ec);
                         if (!ec)
-                            plan.files.push_back({from, to, size, std::nullopt});
+                            plan.files.push_back({from, to, size, std::nullopt, std::nullopt});
                     };
                     // Files in a folder with one of `extensions` (lower case).
                     auto addAll = [&](const std::filesystem::path &dir, const std::string &to,
@@ -199,7 +199,7 @@ public:
                     continue;
                 std::erase_if(plan.files,
                               [&](const ImportPlan::File &p) { return fs::toLower(p.to) == fs::toLower(f.to); });
-                plan.files.push_back({file, f.to, s.size, s});
+                plan.files.push_back({file, f.to, s.size, s, std::nullopt});
                 ++found;
                 if (std::string(f.patch) > patch)
                     patch = f.patch;
@@ -246,7 +246,7 @@ public:
                 std::erase_if(plan.files,
                               [&](const ImportPlan::File &p) { return fs::toLower(p.to) == fs::toLower(to); });
                 std::error_code e;
-                plan.files.push_back({from, to, std::filesystem::file_size(from, e), std::nullopt});
+                plan.files.push_back({from, to, std::filesystem::file_size(from, e), std::nullopt, std::nullopt});
             };
             bool patched = false;
             std::error_code e;

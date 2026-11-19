@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common/archive.h"
+#include "engines/awe/games.h"
 #include "graphics/truetype.h"
 #include "common/types.h"
 
@@ -34,8 +35,9 @@ struct TextStyle {
 
 class GameFonts {
 public:
-    // Reads fonts.txt and loads the fonts it names that the game has.
-    Error load(const Archive &files);
+    // Reads fonts.txt and loads the fonts it names that the game has; or,
+    // for a game whose code sets up its fonts (`fixed`), those.
+    Error load(const Archive &files, const std::vector<GameFont> &fixed = {});
 
     // The style whose use starts with `use` ("dialogue"), or null.
     const TextStyle *style(std::string_view use) const;
@@ -76,5 +78,10 @@ std::vector<Subtitle> moviesOwn(std::vector<Subtitle> all, const std::string &mo
 // Text broken into rows no wider than `width` as the game breaks it: at
 // spaces, two kept after a sentence's end (game_text.cpp).
 std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::string &text, int width);
+// A line, a choice or a subtitle as the game draws it: whole, as written,
+// when it's no wider than `width` (no second space after a sentence: its
+// width measured first, 0x43dbfa, And Then There Were None's 0x434c26);
+// else its gameRows.
+std::vector<std::string> lineRows(ttf::Font &font, float pixels, const std::string &text, int width);
 
 } // namespace reluva::awe

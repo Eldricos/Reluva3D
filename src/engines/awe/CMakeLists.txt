@@ -1,11 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 The Reluva contributors
 
-# The AWE engine: Agatha Christie: Murder on the Orient Express
-# (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md.
+# The AWE engine: Agatha Christie: Murder on the Orient Express, and And
+# Then There Were None (docs/engines/awe/). See docs/ADDING_AN_ENGINE.md.
+# Each game's own code is in its folder (motoe/, attwn/), the rest shared.
 reluva_add_engine(awe
     ACCESSOR aweMetaEngine
     SOURCES
+        attwn/attwn.cpp
+        attwn/files.cpp
+        attwn/inventory.cpp
+        attwn/journal.cpp
+        attwn/overlay.cpp
+        attwn/puzzles.cpp
+        attwn/acts.cpp
+        attwn/script.cpp
         awe.cpp
         formats/ac2.cpp
         formats/bink_dll.cpp
@@ -31,11 +40,13 @@ reluva_add_engine(awe
         game/scene_options.cpp
         game/scene_outdoors.cpp
         game/scene_page.cpp
-        game/scene_puzzles.cpp
         game/scene_saves.cpp
         game/script.cpp
         game/story.cpp
         game/walk_grid.cpp
+        games.cpp
+        motoe/motoe.cpp
+        motoe/puzzles.cpp
         render/lighting.cpp
         render/model_draw.cpp
         render/movie_player.cpp
@@ -58,6 +69,7 @@ reluva_add_engine_viewers(awe
     ACCESSOR aweMetaViewer
     SOURCES
         pages/model_viewer.cpp
+        pages/scene_browser.cpp
         pages/viewers.cpp)
 
 # Its reluva-tool commands (reluva-tool help awe lists them). They play the
@@ -85,19 +97,29 @@ reluva_add_engine_tests(awe
         ${tests}/unit/dialogue.cpp
         ${tests}/unit/characters.cpp
         ${tests}/unit/saves.cpp
+        ${tests}/unit/attwn.cpp
         ${tests}/engine.cpp
     TOPICS
-        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves engine)
+        unit.formats unit.scene unit.script unit.dialogue unit.characters unit.saves unit.attwn engine)
 
 # Its engine test with the game's own files (tests/engines/awe/gamedata.cmake):
-# RELUVA_MOTOE=<the game's folder> ctest -L gamedata. See docs/DEVELOPMENT.md
+# RELUVA_MOTOE=<Orient Express's folder> ctest -L gamedata, and for the import
+# step RELUVA_MOTOE_CDS=<a folder holding its two CDs>. See docs/DEVELOPMENT.md
 # (Engine tests).
 reluva_add_gamedata_test(awe
     GAME motoe
     ENV RELUVA_MOTOE
     SCRIPT ${tests}/gamedata.cmake
-    STEPS release files scripts route-search route)
+    STEPS release files scripts route-search route import)
+# And Then There Were None's: RELUVA_ATTWN=<its folder>, and for the import
+# step RELUVA_ATTWN_CDS=<a folder holding its two CDs>.
+reluva_add_gamedata_test(awe
+    NAME awe.attwn
+    GAME attwn
+    ENV RELUVA_ATTWN
+    SCRIPT ${tests}/gamedata.cmake
+    STEPS release files scripts route-search route endings import)
 # The route's search can take more than the hour each step is given.
 if(RELUVA_BUILD_TESTS)
-    set_tests_properties(awe.gamedata.route-search PROPERTIES TIMEOUT 7200)
+    set_tests_properties(awe.gamedata.route-search awe.attwn.gamedata.route-search PROPERTIES TIMEOUT 7200)
 endif()

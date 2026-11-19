@@ -3,23 +3,29 @@
 
 // The AWE engine as a whole, without the game's files: the basic engine
 // test, run by ctest and CI. It makes a small install of its own (stand-ins
-// for motoe.exe and granny2.dll, an acts.txt of one act, the main menu's
-// scene with its Play hotspot, two scenes of a place of its own and their
-// pictures), finds it as the launcher does, and plays it through the
-// engine: the main menu, Play, a click on a hotspot that sets a tag and
+// for motoe.exe and granny2.dll, an acts.txt of one act, interface.txt's
+// title, the main menu's scene with its Play hotspot, two scenes of a
+// place of its own and their pictures), finds it as the launcher does,
+// and plays it through the engine: the main menu, Play, a click on a hotspot that sets a tag and
 // goes to the next scene, a quick save, then back to the launcher. Then
 // the same in the data viewer, from its Scenes page with N. What happens
 // goes into a record (counts and checksums of the screens, the titles and
 // the files written), compared with tests/engines/awe/data/engine-record.txt.
+// Then And Then There Were None's the same way, from an install of its
+// own kind: ac.exe, its text scrambled, its scenes .ac1, its acts by
+// chapter and its scenes by place.
 //
 //   reluva-tests awe.engine [--update]
 
+#include "common/fs.h"
 #include "common/headless_system.h"
 #include "image/image.h"
+#include "engines/awe/attwn/attwn.h"
 #include "engines/awe/formats/savegame.h"
 #include "engines/registry.h"
 #include "engines/viewer_registry.h"
 #include "tests/engines/awe/fixtures.h"
+#include "tests/support/installshield_writer.h"
 #include "tests/support/record.h"
 #include "tests/support/test.h"
 
@@ -152,6 +158,9 @@ void makeInstall(const std::filesystem::path &dir) {
     putFile(dir / "motoe.exe", {'M', 'Z', 0, 0});
     putFile(dir / "granny2.dll", {'M', 'Z', 0, 0});
     putFile(dir / "Text" / "itemlist.txt", utf16File("Item Name\tIn-game Item Description\n"));
+    // The window's title, as the game's own names it.
+    putFile(dir / "Text" / "interface.txt",
+            utf16File("Tag\tText\tTranslation\ntitle\tOrient Express, the test's\t0\n"));
     // One act: its place, then its first scene.
     putFile(dir / "Text" / "acts.txt",
             utf16File("Act\tPreLoad\tLocation to Load\tPost Load\tTime of Day\tWeather\tTrain Moving\t"
@@ -169,6 +178,88 @@ void makeInstall(const std::filesystem::path &dir) {
     putFile(dir / "Locations" / "Test" / "two.tga", picture(320, 240, {160, 200, 60}));
 }
 
+// And Then There Were None's text as ac.exe stores it (.act): a count of
+// lines, then each line's length and its bytes XORed with 0x30.
+std::vector<uint8_t> scrambled(const std::vector<std::string> &lines) {
+    std::vector<uint8_t> out = {uint8_t(lines.size()), uint8_t(lines.size() >> 8)};
+    for (const std::string &l : lines) {
+        out.push_back(uint8_t(l.size()));
+        out.push_back(uint8_t(l.size() >> 8));
+        for (char c : l)
+            out.push_back(uint8_t(c) ^ 0x30);
+    }
+    return out;
+}
+
+// One of its scenes (.ac1): text a byte a character, no LOAD; as scene(),
+// and `event` run as it's entered.
+std::vector<uint8_t> sceneAc1(const std::string &path, const std::string &picture, const std::string &name,
+                              const std::string &script, const std::string &event = "") {
+    Bytes b;
+    auto text = [&b](const std::string &t) {
+        for (size_t i = 0; i < 256; i++)
+            b.d.push_back(i < t.size() ? uint8_t(t[i]) : i == t.size() ? 0 : 0xcd);
+    };
+    b.tag("SCEN");
+    text(path);
+    b.tag("2DOB");
+    b.u16(4);
+    text(picture);
+    text("");
+    b.u32(0);
+    b.u32(1);
+    if (!script.empty()) {
+        b.tag("SPOT");
+        b.u16(28);
+        text("");
+        text(name);
+        b.u32(0);
+        b.u32(1);
+        for (float v : {0.0f, 0.0f, 5000.0f})
+            b.f32(v);
+        for (int i = 0; i < 13; i++)
+            b.f32(1);
+        b.f32(0);
+        for (uint32_t v : {200u, 200u, 600u, 450u})
+            b.u32(v);
+        text(script);
+        b.u16(0);
+        b.u16(0);
+    }
+    if (!event.empty()) {
+        b.tag("EVNT");
+        b.u16(1);
+        text("");
+        text(event);
+    }
+    b.tag("DONE");
+    return b.d;
+}
+
+void makeAttwnInstall(const std::filesystem::path &dir) {
+    putFile(dir / "ac.exe", {'M', 'Z', 0, 0});
+    putFile(dir / "granny2.dll", {'M', 'Z', 0, 0});
+    putFile(dir / "Text" / "itemlist.act", scrambled({"Item\tItem Name\r\n"}));
+    // Chapter 1, one act: no place to load, its start script shows the
+    // first scene (0x402be0).
+    putFile(dir / "Text" / "Chapter01.act",
+            scrambled({"Act\tEvent\tTime of Day\tWeather\tCharacters in Act\tCompletion Conditions\tEvent\tMusic\r\n",
+                       "1A\t\"scene test01 1 0, fade in\"\t0\t0\t\t0\t0\t\r\n"}));
+    // The main menu as the game's: entering it resets the story (to act
+    // 1A), its New Game ("newover") is "fade out, act".
+    putFile(dir / "Locations" / "Mainmenu" / "Base" / "Mainmenu01.ac1",
+            sceneAc1("Locations\\Mainmenu\\Base\\Mainmenu01.ac1", "locations\\mainmenu\\base\\menu.tga", "newover",
+                     "fade out, act", "reset"));
+    putFile(dir / "Locations" / "Mainmenu" / "Base" / "menu.tga", picture(400, 300, {200, 160, 60}));
+    putFile(dir / "Locations" / "Test" / "Base" / "test01.ac1",
+            sceneAc1("Locations\\Test\\Base\\test01.ac1", "locations\\test\\base\\one.tga", "door",
+                     "tag opened 1, savelast, scene test02 1 0"));
+    putFile(dir / "Locations" / "Test" / "Base" / "test02.ac1",
+            sceneAc1("Locations\\Test\\Base\\test02.ac1", "locations\\test\\base\\two.tga", "", ""));
+    putFile(dir / "Locations" / "Test" / "Base" / "one.tga", picture(400, 300, {60, 160, 200}));
+    putFile(dir / "Locations" / "Test" / "Base" / "two.tga", picture(400, 300, {160, 200, 60}));
+}
+
 // Every file under `dir`, and for a saved game what it holds (not its
 // bytes: it keeps the date and time it was made).
 std::string listFiles(const std::filesystem::path &dir) {
@@ -180,7 +271,9 @@ std::string listFiles(const std::filesystem::path &dir) {
             const std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), {});
             std::string what = it->path().lexically_relative(dir).generic_string();
             awe::SaveGame save;
-            if (it->path().extension() == ".ac2" && !awe::readSaveGame(data, save)) {
+            const std::string ext = it->path().extension().string();
+            if ((ext == ".ac2" && !awe::readSaveGame(data, save)) ||
+                (ext == ".ac1" && !awe::readSaveGame(data, save, awe::attwn::game().saves.layout))) {
                 what += " (" + save.location + ", " + save.scene + "; tags";
                 for (const auto &[tag, value] : save.tags)
                     what += " " + tag + "=" + std::to_string(value);
@@ -219,8 +312,9 @@ void engineTest(const std::filesystem::path &tmp) {
                                                       {6040, mouse(EventType::kMouseUp, 510, 410)},
                                                       {9000, key(key::kF1 + 1)},
                                                       {10000, Event{EventType::kReturnToLauncher}}};
+    GameTarget target{"motoe", "awe", "motoe", "Murder on the Orient Express", install, {}, {}};
     auto play = [&](const std::string &what, auto &&create, std::vector<PlayingSystem::Input> events) {
-        GameTarget target{"motoe", "awe", "motoe", "Murder on the Orient Express", install, tmp / what, {}};
+        target.savePath = tmp / what;
         PlayingSystem sys;
         sys.inputs = std::move(events);
         auto game = create(sys, target);
@@ -245,13 +339,89 @@ void engineTest(const std::filesystem::path &tmp) {
         test::fail("awe has no viewer");
     }
 
+    // And Then There Were None: found, then played the same way, at its
+    // own 800 by 600 (the clicks inside its hotspots there).
+    const std::filesystem::path attwn = tmp / "attwn";
+    makeAttwnInstall(attwn);
+    const auto foundAttwn = engine->detect(attwn);
+    rec.add("attwn.detect", foundAttwn.empty() ? "(none)" : foundAttwn[0].gameId + " " + foundAttwn[0].description);
+    target = {"attwn", "awe", "attwn", "And Then There Were None", attwn, {}, {}};
+    play("attwn.run", [&](System &sys, const GameTarget &t) { return engine->create(sys, t); }, inputs);
+    if (const MetaViewer *viewer = findViewer("awe")) {
+        std::vector<PlayingSystem::Input> withN = {{500, key('n')}};
+        withN.insert(withN.end(), inputs.begin(), inputs.end());
+        play("attwn.viewer", [&](System &sys, const GameTarget &t) { return viewer->create(sys, t); }, withN);
+    }
+
     rec.check(RELUVA_SOURCE_DIR "/tests/engines/awe/data/engine-record.txt", "awe.engine",
               "tests/engines/awe/engine.cpp");
 }
 
+// And Then There Were None's install made into its two CDs' cabinet, as
+// setup would have it: the game's files in its group on the first, ac.exe
+// in "Txt Files" on the second, and setup's own beside them. Imported from
+// the first (nothing to copy until the second is added), then the second
+// added, it comes out as the install.
+void importTest(const std::filesystem::path &tmp) {
+    const std::filesystem::path install = tmp / "install";
+    makeAttwnInstall(install);
+    std::vector<test::CabinetFile> files;
+    files.push_back({"", "setup.dll", {1, 2, 3}});
+    std::vector<std::filesystem::path> paths;
+    for (const auto &e : std::filesystem::recursive_directory_iterator(install))
+        if (e.is_regular_file() && e.path().filename() != "ac.exe")
+            paths.push_back(e.path());
+    std::sort(paths.begin(), paths.end());
+    std::vector<uint8_t> exe;
+    for (const std::filesystem::path &p : paths) {
+        std::ifstream in(p, std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        std::string folder = std::filesystem::relative(p.parent_path(), install).generic_string();
+        std::replace(folder.begin(), folder.end(), '/', '\\');
+        files.push_back({folder == "." ? "" : folder, p.filename().string(), data});
+    }
+    {
+        std::ifstream in(install / "ac.exe", std::ios::binary);
+        exe.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    const uint32_t game = uint32_t(files.size() - 1);
+    files.push_back({"", "ac.exe", exe, true, 2});
+    test::writeCabinet(
+        {tmp / "cd1", tmp / "cd2"}, files,
+        {{"<Support>Setup", 0, 0}, {"Program Executable Files", 1, game}, {"Txt Files", game + 1, game + 1}});
+
+    std::vector<ImportPlan> plans = planImports(tmp / "cd1");
+    CHECK(plans.size() == 1);
+    if (plans.size() != 1)
+        return;
+    ImportPlan &plan = plans[0];
+    CHECK(plan.game.engineId == "awe" && plan.game.gameId == "attwn");
+    CHECK(plan.files.empty() && plan.notes.size() == 1 && plan.addFolderLabel == "Add other disc...");
+    const MetaEngine *engine = findEngine("awe");
+    std::string message;
+    CHECK(engine && !engine->addToImport(plan, tmp / "install", message) && !message.empty());
+    CHECK(engine && engine->addToImport(plan, tmp / "cd2", message));
+    CHECK(plan.files.size() == paths.size() + 1 && plan.notes.empty());
+
+    const std::filesystem::path dest = tmp / "imported";
+    CHECK(!runImport(plan, dest, nullptr));
+    paths.push_back(install / "ac.exe");
+    size_t imported = 0;
+    for (const auto &e : std::filesystem::recursive_directory_iterator(dest))
+        imported += e.is_regular_file() ? 1 : 0;
+    CHECK(imported == paths.size());
+    for (const std::filesystem::path &p : paths) {
+        const std::filesystem::path to = dest / p.lexically_relative(install);
+        CHECK(fs::md5File(to, 0) && fs::md5File(to, 0) == fs::md5File(p, 0));
+    }
+    const auto found = engine ? engine->detect(dest) : std::vector<DetectedGame>{};
+    CHECK(found.size() == 1 && found[0].gameId == "attwn");
+}
+
 } // namespace
 
-static const reluva::test::Suite kSuite("awe.engine",
-                                        {
-                                            {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
-                                        });
+static const reluva::test::Suite
+    kSuite("awe.engine", {
+                             {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                             {"import from CD", [](const std::filesystem::path &tmp) { importTest(tmp); }},
+                         });

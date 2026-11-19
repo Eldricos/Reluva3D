@@ -24,13 +24,6 @@ namespace reluva::awe {
 
 namespace {
 
-// The rows' tops on the save and load screens (0x490b98), and each row's
-// box: x 703..957, 190 high.
-constexpr int kRowTop[3] = {63, 287, 511};
-constexpr int kRowLeft = 703;
-constexpr int kRowRight = 957;
-constexpr int kRowHeight = 190;
-
 bool readAll(const std::filesystem::path &file, std::vector<uint8_t> &out) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
@@ -54,6 +47,14 @@ std::string slotName(int slot) {
 
 } // namespace
 
+std::string ScenePage::saveExtension() const {
+    return _ctx.game ? _ctx.game->saves.extension : ".ac2";
+}
+
+SaveLayout ScenePage::saveLayout() const {
+    return _ctx.game ? _ctx.game->saves.layout : SaveLayout{};
+}
+
 std::filesystem::path ScenePage::savesFolder() const {
     // Reluva's own folder for the game, where the game's Saved.Games is
     // kept (the files are the game's: either can read the other's).
@@ -63,7 +64,20 @@ std::filesystem::path ScenePage::savesFolder() const {
 std::string ScenePage::interfaceText(const std::string &tag) {
     if (_interfaceTexts.empty()) {
         std::vector<uint8_t> data;
-        if (!_ctx.files.read("text/interface.txt", data)) {
+        if (!_ctx.files.read("text/interface.txt", data) && decodeText(data).find('\t') == std::string::npos) {
+            // And Then There Were None's: "tag=text" lines.
+            const std::string text = decodeText(data);
+            size_t at = 0;
+            while (at < text.size()) {
+                const size_t end = std::min(text.find('\n', at), text.size());
+                std::string line = text.substr(at, end - at);
+                at = end + 1;
+                while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+                    line.pop_back();
+                if (const size_t eq = line.find('='); eq != std::string::npos)
+                    _interfaceTexts[fs::toLower(line.substr(0, eq))] = line.substr(eq + 1);
+            }
+        } else if (!data.empty()) {
             const Table t = parseTable(decodeText(data));
             const int text = t.column("Text");
             const int translation = t.column("Translation");
@@ -97,7 +111,7 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     };
     s.timeOfDay = value("time"), s.weather = value("weather"), s.moving = value("moving");
     // The scene: its path as the game writes it ("Locations\Salon\Salon_01_06a.ac2").
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     std::string path = inMenu ? _gameScene : (_names.empty() ? std::string() : _names[size_t(_index)]);
     std::replace(path.begin(), path.end(), '/', '\\');
     s.scene = path;
@@ -139,6 +153,7 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
         s.tags.emplace_back(name, v);
     for (const auto &[name, v] : _state.timers)
         s.timers.emplace_back(name, v);
+    s.clock = _state.clock;
     for (const auto &[name, v] : _state.texts)
         s.texts.emplace_back(name, v);
     for (const auto &[key, progress] : _state.talks) {
@@ -158,7 +173,15 @@ SaveGame ScenePage::captureSave(const std::string &description) const {
     // Each item with its slot and page (0x41c730): passports at 0, 0,
     // fingerprint cards on page 0 in their row's slot.
     s.itemPage = _state.itemPage;
+    const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
     for (const GameState::Item &i : _state.items) {
+        if (!rules.cards) {
+            // The game's own numbers for the states (And Then There Were
+            // None's: 0x412e9f), its pages of 12.
+            s.items.push_back(
+                {i.name, rules.saveStates[size_t(std::clamp(i.state, 0, 7))], i.slot, i.slot / rules.perPage});
+            continue;
+        }
         const int slot = i.state == 6 ? printRow(i.name) : i.state == 5 ? 0 : i.slot;
         s.items.push_back({i.name, i.state, slot, i.state == 5 || i.state == 6 ? 0 : slot / 16});
     }
@@ -177,7 +200,7 @@ bool ScenePage::preload(const std::filesystem::path &file, bool fromGame) {
 
 bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string &what) {
     auto save = std::make_unique<SaveGame>();
-    if (Error e = readSaveGame(data, *save)) {
+    if (Error e = readSaveGame(data, *save, saveLayout())) {
         logScript("    (" + what + ": " + e.message + ")");
         return false;
     }
@@ -195,14 +218,26 @@ bool ScenePage::preloadData(const std::vector<uint8_t> &data, const std::string 
         _state.tags[fs::toLower(name)] = v;
     for (const auto &[name, v] : save->timers)
         _state.timers.emplace_back(fs::toLower(name), v);
+    _state.clock = save->clock;
     for (const auto &[name, v] : save->texts)
         _state.texts[fs::toLower(name)] = v;
     for (const SaveGame::Talk &k : save->talks)
         _state.talks[talkKey(k.name, k.act, k.part, k.thread)] = TalkProgress{k.status, k.nest};
     _state.held.clear();
-    for (const SaveGame::Item &i : save->items)
+    const InventoryRules rules = _ctx.game ? _ctx.game->inventory : InventoryRules{};
+    for (const SaveGame::Item &i : save->items) {
+        if (!rules.cards) {
+            // Back from the game's numbers; one in hand to the bag.
+            int st = 4;
+            for (int k = 7; k >= 1; k--)
+                if (rules.saveStates[size_t(k)] == i.state)
+                    st = k;
+            addItem(_state, i.name, st == 3 ? 2 : st, i.slot);
+            continue;
+        }
         // Each as saved, in its slot (one in hand back in the bag).
         addItem(_state, i.name, i.state == 3 ? 2 : i.state, i.state == 5 || i.state == 6 ? -1 : i.slot);
+    }
     _state.itemPage = std::max(0, save->itemPage);
     _state.fresh.clear();
     for (const SaveGame::Position &p : save->positions)
@@ -233,10 +268,22 @@ void ScenePage::finishRestore() {
     loadDialogue();
 }
 
+bool ScenePage::inMenuScene() const {
+    // Orient Express's menus are "menu.<name>"; And Then There Were None's
+    // in Interface/Scenes.
+    if (_state.scene.rfind("menu.", 0) == 0)
+        return true;
+    return !_names.empty() && fs::toLower(_names[size_t(_index)]).rfind("interface/scenes/", 0) == 0;
+}
+
+bool ScenePage::atMainMenu() const {
+    return _location == (_ctx.game ? _ctx.game->flow.mainMenu : GameFlow().mainMenu);
+}
+
 void ScenePage::openMenu(const std::string &name) {
     // 0x423c00: from the game, the scene to come back to; from a menu, that
     // menu.
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     if (inMenu) {
         _previousMenu = _state.scene.substr(0, _state.scene.size() - 4);
     } else {
@@ -244,7 +291,9 @@ void ScenePage::openMenu(const std::string &name) {
         if (!_names.empty())
             _gameScene = _names[size_t(_index)];
     }
-    changeScene("menu." + name + "_01", 1);
+    const std::string format = _ctx.game ? _ctx.game->flow.menu : GameFlow().menu;
+    const size_t at = format.find("%s");
+    changeScene(format.substr(0, at) + name + format.substr(at + 2), 1);
 }
 
 void ScenePage::previous(bool toScene) {
@@ -264,15 +313,24 @@ void ScenePage::previous(bool toScene) {
 
 bool ScenePage::quickSave() {
     const SaveGame s = captureSave("");
-    if (!writeAll(savesFolder() / "quick.ac2", writeSaveGame(s)))
+    if (!writeAll(savesFolder() / ("quick" + saveExtension()), writeSaveGame(s, saveLayout())))
         return false;
     // 0x4168c0: the message for 1.5 s; its text, once set, stays.
     _messageTime = 1.5f;
     if (_message.empty())
         _message = interfaceText("ingamemenu2");
-    logScript("  (" + _message + ": quick.ac2)");
+    logScript("  (" + _message + ": quick" + saveExtension() + ")");
     draw();
     return true;
+}
+
+void ScenePage::saveLast() {
+    // "savelast" (ac.exe 0x40cdf9): saved as F2 saves (0x412e60), with
+    // nothing shown; "lastgame" holds from then on.
+    if (_ctx.game && _ctx.game->saves.last &&
+        writeAll(savesFolder() / (std::string(_ctx.game->saves.last) + saveExtension()),
+                 writeSaveGame(captureSave(""), saveLayout())))
+        _state.values["lastgame"] = 1;
 }
 
 void ScenePage::drawMessage() {
@@ -282,13 +340,13 @@ void ScenePage::drawMessage() {
     const image::Image &placard = picture("interface/placard.tga");
     const int top = 766 - placard.h;
     if (placard.w)
-        image::blitOver(_ctx.screen, placard, (kScreenW - placard.w) / 2, top);
+        image::blitOver(_ctx.screen, placard, (frameW() - placard.w) / 2, top);
     const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("location descriptions") : nullptr;
     if (!style || !style->font)
         return;
     const int w = style->font->width(_message, style->pixels);
     const int h = style->font->lineHeight(style->pixels);
-    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - w) / 2, (placard.h - h) / 2 + top + 2, _message,
+    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - w) / 2, (placard.h - h) / 2 + top + 2, _message,
                      _ctx.fonts->colour("navigation text", {230, 170, 75}));
 }
 
@@ -298,7 +356,7 @@ bool ScenePage::gameKey(uint32_t key) {
     // options screen's OK has VK_ENTER, which matches nothing, so Enter
     // does nothing there). In the save or load screen the rest are the
     // typed name.
-    const bool inMenu = _state.scene.rfind("menu.", 0) == 0;
+    const bool inMenu = inMenuScene();
     if (hotspotKey(key))
         return true;
     if (_optionsMenu)
@@ -308,25 +366,32 @@ bool ScenePage::gameKey(uint32_t key) {
         draw();
         return true;
     }
+    bool escaped = false;
     if (key == key::kEscape) {
-        if (_location == "menu.main") {
+        if (atMainMenu()) {
             _runner->run("yesno quit2 0");
         } else if (inMenu) {
             // A menu without a hotspot for it: back to the game.
             _runner->run("fade out, previous scene, fade in");
         } else {
             key = 'p';
+            escaped = true;
         }
     }
-    if ((key == 'p' || key == 's' || key == 'l') && !inMenu && _location.find("menu") == std::string::npos) {
+    const bool letters = !_ctx.game || _ctx.game->flow.letterKeys;
+    if (((key == 'p' && (letters || escaped)) || (letters && (key == 's' || key == 'l'))) && !inMenu && !atMainMenu() &&
+        _location.find("menu") == std::string::npos) {
         // 0x417080: the item in hand put back, the view kept for a
-        // thumbnail, then the menu.
+        // thumbnail, then the menu. And Then There Were None's also puts
+        // its close-up away (0x416fa3).
         releaseHeld();
         endFresh();
+        if (_overlay)
+            _overlay->dismiss(false);
         if (_renderer)
             _grabDue = true;
         else
-            _grab = image::Image{kScreenW, kScreenH, _ctx.screen.pixels};
+            _grab = image::Image{frameW(), frameH(), _ctx.screen.pixels};
         _runner->clear();
         for (Character &c : _characters)
             if (c.player)
@@ -340,13 +405,13 @@ bool ScenePage::gameKey(uint32_t key) {
     }
     if (key == key::kF1 + 1) {
         // F2: a quick save, out of the menus.
-        if (_location != "menu.main" && !inMenu)
+        if (!atMainMenu() && !inMenu)
             quickSave();
         return true;
     }
     if (key == key::kF1 + 2) {
         // F3: the quick save, loaded.
-        if (std::filesystem::exists(savesFolder() / "quick.ac2")) {
+        if (std::filesystem::exists(savesFolder() / ("quick" + saveExtension()))) {
             _runner->clear();
             _runner->run("fade out, preload quick, load, fade in");
         }
@@ -362,7 +427,7 @@ void ScenePage::openSlots(bool save) {
     SlotMenu &m = *_slots;
     m.save = save;
     // Slots run from 0 with no gaps.
-    while (std::filesystem::exists(savesFolder() / (slotName(m.count) + ".ac2")))
+    while (std::filesystem::exists(savesFolder() / (slotName(m.count) + saveExtension())))
         m.count++;
     // Save: on a new slot; load: on the newest.
     const int at = save ? m.count : std::max(0, m.count - 1);
@@ -378,8 +443,8 @@ void ScenePage::refreshSlots() {
         row = SlotMenu::Row();
         const int slot = m.page + r;
         std::vector<uint8_t> data;
-        if (slot < m.count && readAll(savesFolder() / (slotName(slot) + ".ac2"), data) &&
-            !readSaveHeader(data, row.description, row.date, row.time)) {
+        if (slot < m.count && readAll(savesFolder() / (slotName(slot) + saveExtension()), data) &&
+            !readSaveHeader(data, row.description, row.date, row.time, saveLayout())) {
             row.exists = true;
             std::vector<uint8_t> bmp;
             if (readAll(savesFolder() / (slotName(slot) + ".bmp"), bmp))
@@ -421,7 +486,7 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
         }
     } else if (word == "save" && m.save) {
         const int slot = std::min(m.page + m.row, m.count);
-        const std::filesystem::path file = savesFolder() / (slotName(slot) + ".ac2");
+        const std::filesystem::path file = savesFolder() / (slotName(slot) + saveExtension());
         if (second != "confirmed" && std::filesystem::exists(file)) {
             // Over an old one: "Overwrite?", the rest of OK's script dropped.
             _runner->clear();
@@ -430,29 +495,34 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
             _yesNo->kind = 2;
             return;
         }
-        writeAll(file, writeSaveGame(captureSave(m.name)));
+        writeAll(file, writeSaveGame(captureSave(m.name), saveLayout()));
         if (_grab.w > 0) {
-            // The thumbnail: the view as the menu was opened, 256x192.
+            // The thumbnail: the view as the menu was opened, shrunk.
             image::Image t;
-            t.w = 256, t.h = 192;
+            t.w = slotLayout().thumbnailSize[0], t.h = slotLayout().thumbnailSize[1];
             t.rgba.resize(size_t(t.w) * t.h * 4);
-            const int fx = _grab.w / t.w;
-            const int fy = _grab.h / t.h;
+            // Each pixel the mean of the frame's pixels it covers (whole
+            // blocks of 4 for Orient Express's).
             for (int y = 0; y < t.h; y++)
-                for (int x = 0; x < t.w; x++)
+                for (int x = 0; x < t.w; x++) {
+                    const int x0 = x * _grab.w / t.w;
+                    const int x1 = std::max(x0 + 1, (x + 1) * _grab.w / t.w);
+                    const int y0 = y * _grab.h / t.h;
+                    const int y1 = std::max(y0 + 1, (y + 1) * _grab.h / t.h);
                     for (int c = 0; c < 3; c++) {
                         int sum = 0;
-                        for (int v = 0; v < fy; v++)
-                            for (int u = 0; u < fx; u++)
-                                sum += _grab.pixel(x * fx + u, y * fy + v)[c];
-                        t.pixel(x, y)[c] = uint8_t(sum / (fx * fy));
+                        for (int v = y0; v < y1; v++)
+                            for (int u = x0; u < x1; u++)
+                                sum += _grab.pixel(u, v)[c];
+                        t.pixel(x, y)[c] = uint8_t(sum / ((x1 - x0) * (y1 - y0)));
                     }
+                }
             writeAll(savesFolder() / (slotName(slot) + ".bmp"), encodeBmp24(t.w, t.h, t.rgba));
         }
         logScript("  (saved " + slotName(slot) + ": \"" + m.name + "\")");
         return;
     } else if (word == "load" && !m.save) {
-        preload(savesFolder() / (slotName(m.page + m.row) + ".ac2"), false);
+        preload(savesFolder() / (slotName(m.page + m.row) + saveExtension()), false);
         return;
     } else {
         return;
@@ -463,7 +533,8 @@ void ScenePage::slotAction(const std::string &word, const std::string &second) {
 bool ScenePage::slotClick(int x, int y) {
     SlotMenu &m = *_slots;
     for (int r = 0; r < 3; r++) {
-        if (x < kRowLeft || x >= kRowRight || y < kRowTop[r] || y >= kRowTop[r] + kRowHeight)
+        const SlotLayout l = slotLayout();
+        if (x < l.left || x >= l.right || y < l.rows[size_t(r)] || y >= l.rows[size_t(r)] + l.height)
             continue;
         const int slot = m.page + r;
         if (m.save ? slot > m.count : slot >= m.count)
@@ -510,33 +581,40 @@ void ScenePage::slotKey(uint32_t key) {
         m.name.pop_back();
 }
 
+SlotLayout ScenePage::slotLayout() const {
+    return _ctx.game ? _ctx.game->saves.screen : SlotLayout{};
+}
+
 void ScenePage::drawSlots() {
-    // 0x434b90, 0x4245e0: three rows: the thumbnail (dimmed unless picked),
-    // the name in the middle, the date and time at the foot.
+    // 0x434b90, 0x4245e0 (the rows' tops at 0x490b98): three rows: the thumbnail (dimmed unless picked),
+    // the name in the middle, the date and time at the foot; where, the
+    // game's (SlotLayout).
     const SlotMenu &m = *_slots;
-    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style("save, load, and options screens") : nullptr;
-    const Color picked = _ctx.fonts
+    const SlotLayout l = slotLayout();
+    const TextStyle *style = _ctx.fonts ? _ctx.fonts->style(l.font) : nullptr;
+    const Color picked = l.picked ? dialogueColour(l.picked)
+                         : _ctx.fonts
                              ? _ctx.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
                              : Color{255, 220, 130};
-    const Color other =
-        _ctx.fonts ? _ctx.fonts->colour("save, load, and options grayed out", {230, 170, 75}) : Color{230, 170, 75};
+    const Color other = l.other      ? dialogueColour(l.other)
+                        : _ctx.fonts ? _ctx.fonts->colour("save, load, and options grayed out", {230, 170, 75})
+                                     : Color{230, 170, 75};
     // The glow on the picked row.
     if (m.save || m.count > 0) {
-        const image::Image &glow =
-            picture(m.save ? "locations/menu.save/cutouts/glow.tga" : "locations/menu.load/cutouts/glow.tga");
+        const image::Image &glow = picture(m.save ? l.glowSave : l.glowLoad);
         if (glow.w)
-            image::blitOver(_ctx.screen, glow, kRowLeft, kRowTop[m.row]);
+            image::blitOver(_ctx.screen, glow, l.left, l.rows[size_t(m.row)]);
     }
     for (int r = 0; r < 3; r++) {
         const SlotMenu::Row &row = m.rows[r];
-        const int top = kRowTop[r];
+        const int top = l.rows[size_t(r)];
         const bool on = r == m.row;
         if (row.thumbnail.w) {
             image::Image t = row.thumbnail;
             if (!on)
                 for (size_t i = 3; i < t.rgba.size(); i += 4)
                     t.rgba[i] = 92;
-            image::blitOver(_ctx.screen, t, 704, top + 1);
+            image::blitOver(_ctx.screen, t, l.thumbnail, top + 1);
         }
         if (!style || !style->font)
             continue;
@@ -547,66 +625,71 @@ void ScenePage::drawSlots() {
             main = m.name;
             colour = picked;
         } else if (!row.exists) {
-            main = interfaceText("empty");
+            main = l.empty ? l.empty : interfaceText("empty");
         } else {
             main = row.description;
             colour = on && !m.save ? picked : other;
         }
         const int w = style->font->width(main, style->pixels);
-        _ctx.fonts->draw(_ctx.screen, *style, 624 - w / 2, top + (kRowHeight - h) / 2, main, colour);
+        _ctx.fonts->draw(_ctx.screen, *style, l.name - w / 2, top + (l.height - h) / 2, main, colour);
         // The caret just after the name, while the blink has it on
         // (0x434c91).
         if (m.save && on && _caretOn)
-            _ctx.fonts->draw(_ctx.screen, *style, 624 + w - w / 2, top + (kRowHeight - h) / 2, "|", colour);
+            _ctx.fonts->draw(_ctx.screen, *style, l.name + w - w / 2, top + (l.height - h) / 2, "|", colour);
         if (row.exists) {
-            _ctx.fonts->draw(_ctx.screen, *style, 708, top + kRowHeight - h, row.date, on ? picked : other);
-            _ctx.fonts->draw(_ctx.screen, *style, 952 - style->font->width(row.time, style->pixels),
-                             top + kRowHeight - h, row.time, on ? picked : other);
+            _ctx.fonts->draw(_ctx.screen, *style, l.date, top + l.height - h, row.date, on ? picked : other);
+            _ctx.fonts->draw(_ctx.screen, *style, l.timeEnd - style->font->width(row.time, style->pixels),
+                             top + l.height - h, row.time, on ? picked : other);
         }
     }
 }
 
+YesNoLayout ScenePage::yesNoLayout() const {
+    return _ctx.game ? _ctx.game->yesNo : YesNoLayout{};
+}
+
 void ScenePage::drawYesNo() {
-    // 0x432630, 0x432d60: interface\mainmenuwin.tga centred on the
-    // screen; the question in the popup font (font 8) and the popup text
-    // colour (11), centred, its foot at y 364; Yes and No below at y 394,
-    // in the highlighted colour (12) when the mouse is over them. With m
-    // the wider of the two, Yes is centred in m pixels ending at x 482,
-    // No in m pixels from x 542.
+    // interface\mainmenuwin.tga centred on the screen; the question
+    // centred across above Yes and No, which are in the highlighted colour
+    // when the mouse is over them; where, the game's (YesNoLayout).
     const image::Image &box = picture("interface/mainmenuwin.tga");
     if (box.w)
-        image::blitOver(_ctx.screen, box, (kScreenW - box.w) / 2, (kScreenH - box.h) / 2);
-    const TextStyle *style = _ctx.fonts->style("popup dialogs");
+        image::blitOver(_ctx.screen, box, (frameW() - box.w) / 2, (frameH() - box.h) / 2);
+    const YesNoLayout l = yesNoLayout();
+    const TextStyle *style = _ctx.fonts->style(l.font);
     if (!style || !style->font)
         return;
-    const Color plain = _ctx.fonts->colour("popup menu text", {255, 230, 230});
-    const Color lit = _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
+    const Color plain = l.plain ? dialogueColour(l.plain) : _ctx.fonts->colour("popup menu text", {255, 230, 230});
+    const Color lit =
+        l.lit ? dialogueColour(l.lit) : _ctx.fonts->colour("highlighted popup menu text", {255, 255, 255});
     const int lineH = style->font->lineHeight(style->pixels);
     const int qw = style->font->width(_yesNo->text, style->pixels);
-    _ctx.fonts->draw(_ctx.screen, *style, (kScreenW - qw) / 2, 364 - lineH, _yesNo->text, plain);
+    _ctx.fonts->draw(_ctx.screen, *style, (frameW() - qw) / 2, l.questionFoot - lineH, _yesNo->text, plain);
     const std::string words[2] = {interfaceText("yes"), interfaceText("no")};
     for (int i = 0; i < 2; i++)
         _yesNo->w[i] = style->font->width(words[i], style->pixels), _yesNo->h[i] = lineH;
     const int m = std::max(_yesNo->w[0], _yesNo->w[1]);
-    _yesNo->x[0] = (m - _yesNo->w[0]) / 2 - m + 482;
-    _yesNo->x[1] = (m - _yesNo->w[1]) / 2 + 542;
+    _yesNo->x[0] = (m - _yesNo->w[0]) / 2 - m + l.yesEnd;
+    _yesNo->x[1] = (m - _yesNo->w[1]) / 2 + l.noStart;
     _yesNo->drawn = true;
     for (int i = 0; i < 2; i++)
-        _ctx.fonts->draw(_ctx.screen, *style, _yesNo->x[i], 394, words[i], _yesNo->highlighted == i ? lit : plain);
+        _ctx.fonts->draw(_ctx.screen, *style, _yesNo->x[i], l.row, words[i], _yesNo->highlighted == i ? lit : plain);
 }
 
 int ScenePage::yesNoAt(int x, int y) const {
-    // Each word's own box, edges included, from y 394 (0x4330c0).
+    // Each word's own box, edges included, from the row's top.
     if (!_yesNo || !_yesNo->drawn)
         return -1;
+    const int row = yesNoLayout().row;
     for (int i = 0; i < 2; i++)
-        if (x >= _yesNo->x[i] && x <= _yesNo->x[i] + _yesNo->w[i] && y >= 394 && y <= 394 + _yesNo->h[i])
+        if (x >= _yesNo->x[i] && x <= _yesNo->x[i] + _yesNo->w[i] && y >= row && y <= row + _yesNo->h[i])
             return i;
     return -1;
 }
 
 void ScenePage::answer(bool yes) {
-    // 0x432cb1: 0 quits the program, 1 the game, 2 overwrites the save.
+    // 0 quits the program, 1 the game (the game's script), 2 overwrites the
+    // save (motoe.exe 0x432cb1, ac.exe 0x42a910).
     const int kind = _yesNo->kind;
     _yesNo.reset();
     draw();
@@ -616,7 +699,7 @@ void ScenePage::answer(bool yes) {
     if (kind == 0)
         _runner->run("fade out, quit");
     else if (kind == 1)
-        _runner->run("fade out, reset, scene menu.main_01, fade in");
+        _runner->run(yesNoLayout().toMenu);
     else
         _runner->run("action save confirmed, fade out, previous, fade in");
 }

@@ -145,9 +145,10 @@ function(reluva_finish_tool)
 endfunction()
 
 # reluva_add_gamedata_test(<engine> GAME <game id> ENV <variable> SCRIPT <file>
-#                          STEPS <step>...)
+#                          [NAME <name>] STEPS <step>...)
 #   The engine test that needs a game's own files: each step a ctest test,
-#   <engine>.gamedata.<step>, labelled gamedata. ctest runs <file> as a CMake
+#   <name>.gamedata.<step> (<name> the engine's, unless a second game of it
+#   needs its own: awe.attwn), labelled gamedata. ctest runs <file> as a CMake
 #   script with:
 #     TOOL     reluva-tool, which runs the game's code and reads its files;
 #     HELPERS  cmake/ReluvaGamedata.cmake, the helpers every such script
@@ -158,7 +159,8 @@ endfunction()
 #              the launcher's list;
 #     RECORDS  the folder of committed records,
 #              tests/engines/<engine>/data/gamedata/;
-#     OUTPUT   a folder in the build for each step's full output.
+#     OUTPUT   a folder in the build for each step's full output,
+#              gamedata/<name>/.
 #   The game's folder comes from the environment variable <variable> when
 #   the tests run, or else from the launcher's entry for the game
 #   (reluva.ini); without either the steps print "SKIPPED:" and count as
@@ -167,9 +169,12 @@ function(reluva_add_gamedata_test name)
     if(NOT RELUVA_BUILD_TESTS)
         return()
     endif()
-    cmake_parse_arguments(G "" "GAME;ENV;SCRIPT" "STEPS" ${ARGN})
+    cmake_parse_arguments(G "" "GAME;ENV;SCRIPT;NAME" "STEPS" ${ARGN})
+    if(NOT G_NAME)
+        set(G_NAME ${name})
+    endif()
     foreach(step IN LISTS G_STEPS)
-        set(test ${name}.gamedata.${step})
+        set(test ${G_NAME}.gamedata.${step})
         add_test(NAME ${test}
             COMMAND ${CMAKE_COMMAND}
                 -DTOOL=$<TARGET_FILE:reluva-tool>
@@ -179,7 +184,7 @@ function(reluva_add_gamedata_test name)
                 -DGAME=${G_GAME}
                 -DGAME_ENV=${G_ENV}
                 -DRECORDS=${PROJECT_SOURCE_DIR}/tests/engines/${name}/data/gamedata
-                -DOUTPUT=${PROJECT_BINARY_DIR}/gamedata/${name}
+                -DOUTPUT=${PROJECT_BINARY_DIR}/gamedata/${G_NAME}
                 -P ${G_SCRIPT})
         set_tests_properties(${test} PROPERTIES
             LABELS "gamedata;${name}"

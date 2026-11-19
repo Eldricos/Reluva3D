@@ -130,6 +130,66 @@ void testAnimator() {
     for (int i = 0; i < Animator::kSlots; i++)
         CHECK(full.play("g" + std::to_string(i), gesture, Animator::kBody, false, 0, 0));
     CHECK(!full.play("more", gesture, Animator::kBody, false, 0, 0));
+
+    // An animation with tracks for some bones only and no mask (the talks:
+    // the head and jaw) leaves the rest to what's under it, not at rest.
+    auto jaw = std::make_shared<Animation>();
+    jaw->duration = 1;
+    AnimationTrack jt;
+    jt.bone = "Jaw_Bones_Master";
+    jt.orientation.knots = {0};
+    jt.orientation.controls = {0, 0, std::sin(0.35f), std::cos(0.35f)};
+    jaw->tracks.push_back(jt);
+    Animator talking(m);
+    talking.play("idle1", idle, Animator::kBody, true, 0, 0);
+    talking.play("talk", jaw, Animator::kBody, false, 0, 0.01f);
+    talking.update(0.5f);
+    talking.pose(p);
+    CHECK(std::abs(boneTurn(p, 0) - 10) < 0.1f && std::abs(boneTurn(p, 1) - 10) < 0.1f);
+
+    // A walk's root carried along its loop is taken out as it plays, each
+    // slot at its own point of the loop: a walk played again over the last
+    // (a click while walking) keeps the body where it was.
+    auto walk = std::make_shared<Animation>();
+    walk->duration = 1;
+    AnimationTrack wt;
+    wt.bone = "Bip01";
+    wt.position.degree = 1;
+    wt.position.knots = {0, 1};
+    wt.position.controls = {0, 0, 0, 100, 0, 0};
+    walk->tracks.push_back(wt);
+    const float stride[3] = {100, 0, 0};
+    Animator walking(m);
+    walking.play("walk", walk, Animator::kBody, true, 0, 0.3f);
+    walking.setCarry(stride, 0);
+    walking.update(0.4f);
+    walking.pose(p);
+    CHECK(std::abs(p.world[0][12]) < 0.5f);
+    walking.play("walk", walk, Animator::kBody, true, 0, 0.3f);
+    walking.setCarry(stride, 0);
+    walking.update(0.1f);
+    walking.pose(p);
+    CHECK(walking.slots().size() == 2 && std::abs(p.world[0][12]) < 0.5f);
+    // A turn that steps aside as it turns (rotater180's): the step taken
+    // out where the turn has put it, the body on the spot.
+    auto turn = std::make_shared<Animation>();
+    turn->duration = 1;
+    AnimationTrack tt;
+    tt.bone = "Bip01";
+    tt.position.degree = 1;
+    tt.position.knots = {0, 1};
+    tt.position.controls = {0, 0, 0, 0, 100, 0};
+    tt.orientation.degree = 1;
+    tt.orientation.knots = {0, 1};
+    tt.orientation.controls = {0, 0, 0, 1, 0, 0, 1, 0};
+    turn->tracks.push_back(tt);
+    const float aside[3] = {0, 100, 0};
+    Animator turning(m);
+    turning.play("rotatel180", turn, Animator::kBody, true, 0, 0.01f);
+    turning.setCarry(aside, 180);
+    turning.update(0.5f);
+    turning.pose(p);
+    CHECK(std::hypot(p.world[0][12], p.world[0][13]) < 0.5f && std::abs(boneTurn(p, 0)) < 1.0f);
 }
 
 void testActor() {

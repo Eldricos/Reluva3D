@@ -56,6 +56,7 @@ the steps show as skipped.
 | `awe.gamedata.scripts` | Every script's commands counted, and any verb Reluva doesn't know (`awe script-check`) |
 | `awe.gamedata.route-search` | A way from a new game to the credits, searched for once (`awe game-run -solve`) |
 | `awe.gamedata.route` | The whole game by it, four ways, as below (`awe game-check -quick`) |
+| `awe.gamedata.import` | The game imported from its two CDs (`import`, with `RELUVA_MOTOE_CDS` naming a folder that holds them, each in a folder of its own), each file compared with the installed game's, names ignoring case; skipped without it |
 
 The search runs the first time only, and keeps the route in the build
 (`gamedata/awe/route.txt`), as it names the game's files; the record holds
@@ -81,7 +82,7 @@ with **Make my baseline**, before making the changes it's to check.
     reluva-tool awe game-check <game folder> <route.txt> [-3d] [-quick]
 
 Plays the whole game four ways, each from a new game, as `reluva` runs it
-(the data viewer's scene browser off: none of its keys or overlays), and
+(the game's page alone, without the data viewer's scene browser), and
 ends with a summary (exit code 1 if anything failed):
 
 1. **The route by the mouse, with sound.** Every click and use is made
@@ -214,6 +215,7 @@ wrong, and if possible compare with the same moment of a recording.
 
 | Date | Release | Platform | What was checked |
 |---|---|---|---|
+| 16 November 2026 | English 1.0 (two CDs) | Linux | The import from the CDs (`import` step): all 7,875 files the same as the installed game's and as `unshield x` gives, in about 10 s; the game's steps again (release, files, scripts, route) passed |
 | 6 November 2026 | English 1.0 | Linux | The game-files test, every step passed and its records made ([above](#the-game-files-test-with-your-own-copy-of-the-game)): the files read, the scripts' 9,797 commands, the route searched twice (the same route both times) and played the four ways |
 | 6 November 2026 | English 1.0 | Linux | The movies by Reluva's one Bink decoder against the game's `binkw32.dll`, all 87 files (`awe bink-check`, [systems/movies.md](systems/movies.md)); the path-finder against the game's code, every scene with a walk grid (`awe path-check -all`) |
 | 28 October 2026 | English 1.0 | Linux, a virtual display | The route played by the mouse with the real renderer, a frame before every action, compared with the walkthrough recordings ([REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md#checking-against-the-recordings)) |

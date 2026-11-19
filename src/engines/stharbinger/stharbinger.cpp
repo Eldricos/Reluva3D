@@ -102,7 +102,8 @@ void addPart(ImportPlan &plan, const GamePart &part) {
             continue;
         const uint64_t size = it->file_size(ec);
         const std::string rel = it->path().lexically_relative(part.folder).generic_string();
-        plan.files.push_back({it->path(), to + "/" + std::string(fs::withoutIsoVersion(rel)), size, std::nullopt});
+        plan.files.push_back(
+            {it->path(), to + "/" + std::string(fs::withoutIsoVersion(rel)), size, std::nullopt, std::nullopt});
     }
     std::sort(plan.files.begin() + std::ptrdiff_t(first), plan.files.end(),
               [](const ImportPlan::File &a, const ImportPlan::File &b) { return fs::windowsNameLess(a.to, b.to); });

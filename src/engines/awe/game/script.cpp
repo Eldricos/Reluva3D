@@ -3,6 +3,8 @@
 
 #include "engines/awe/game/script.h"
 
+#include "engines/awe/games.h"
+
 #include "common/fs.h"
 #include "engines/awe/formats/tables.h"
 
@@ -22,9 +24,10 @@ void addItem(GameState &state, const std::string &item, int st, int slot) {
     const std::string name = fs::toLower(item);
     if (name.empty())
         return;
-    if (name.rfind("pass", 0) == 0)
+    const bool cards = !state.game || state.game->inventory.cards;
+    if (cards && name.rfind("pass", 0) == 0)
         st = 5;
-    else if (name.rfind("print", 0) == 0)
+    else if (cards && name.rfind("print", 0) == 0)
         st = 6;
     GameState::Item added{name, st, 0};
     // Its slot: the one given (a saved game's), else the lowest free one
@@ -303,10 +306,18 @@ bool ScriptRunner::runOwn(const ScriptEvent &e) {
             i->state = 4;
         }
     } else if (v == "clear") {
-        _state.items.clear();
+        // Every item used up but the passports and cards (5 and 6), so
+        // "used" and "restore" still find them, and the inventory's pages
+        // reset (0x40a0f9, 0x419cc0, 0x41c220).
+        for (GameState::Item &i : _state.items)
+            if (i.state != 5 && i.state != 6)
+                i.state = 4;
         _state.held.clear();
         _state.itemPage = 0;
         _state.fresh.clear();
+    } else if (v == "timer" && _state.game && _state.game->clock) {
+        // The clock to 0, whatever the word after (ac.exe 0x40d9f2).
+        _state.clock = 0;
     } else if (v == "timer") {
         // A new timer at 0 (0x410ac0), after any of the same name.
         _state.timers.emplace_back(fs::toLower(e.arg(1)), 0);
@@ -333,17 +344,24 @@ bool ScriptRunner::runOwn(const ScriptEvent &e) {
                                      (e.arg(2).empty() ? "-1" : e.arg(2)) + " " + (e.arg(3).empty() ? "0" : e.arg(3));
     } else if (v == "weather") {
         _state.values["weather"] = number(e.arg(1));
-    } else if (v == "advance" || v == "terminate" || v == "juncture" || v == "leavebox" || v == "nobox") {
+    } else if (v == "advance" || v == "terminate" || v == "juncture" || v == "leavebox" || v == "nobox" ||
+               v == "mainloop") {
         // The dialogue's words, read from a line's Povent where it's set
         // (dialogue.cpp); as events they're over at once (0x409fa3,
-        // 0x40b28a, 0x40a3ae...).
+        // 0x40b28a, 0x40a3ae, 0x40a6e6...).
     } else if (v == "lock" || v == "unlock") {
         // Clicks refused, or taken while what follows runs (0x40a5e4).
         _locked = v == "lock";
     } else if (v == "setchar") {
         _character = fs::toLower(e.arg(1));
     } else {
-        return false;
+        // A verb of the game's own (attwn's "inc", "test"), and what it
+        // runs in its place.
+        std::string then;
+        if (!(_state.game && _state.game->verb && _state.game->verb(_state, e.words, then)))
+            return false;
+        if (!then.empty())
+            runNext(then);
     }
     return true;
 }

@@ -12,6 +12,7 @@ add_library(reluva_graphics STATIC
     gpu_compute.cpp
     palette.cpp
     truetype.cpp
+    truetype_hinting.cpp
     glide/antialias.cpp
     glide/glide2.cpp
     glide/glide3.cpp

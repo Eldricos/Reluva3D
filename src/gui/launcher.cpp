@@ -39,7 +39,7 @@ const std::vector<GameOption> &sharedSettings() {
                       {"4", "4x"}}});
         v.push_back({settings::kIntegerScaling,
                      "Scaling",
-                     "Whole multiples keep every pixel the same size, with black borders.\n"
+                     "Whole multiples keep every pixel sharp, with black borders.\n"
                      "They only show where the picture is scaled by an uneven amount (most full screens).",
                      true,
                      {{"0", "Any size, letterboxed"}, {"1", "Whole multiples only"}}});

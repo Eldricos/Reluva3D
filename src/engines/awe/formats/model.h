@@ -177,9 +177,10 @@ void computePose(const Model &model, const Animation *animation, float time, Pos
 // The same in two steps: each bone's transform relative to its parent
 // (rest where the animation has no track; its curves going on past their
 // ends as `loop` says, but the root bones' only if `loopRoot`), and the
-// pose those make.
+// pose those make. `bound`, if given, says which bones the animation has a
+// track for.
 void sampleLocal(const Model &model, const Animation *animation, float time, std::vector<BoneTransform> &local,
-                 const CurveLoop &loop = {}, bool loopRoot = true);
+                 const CurveLoop &loop = {}, bool loopRoot = true, std::vector<bool> *bound = nullptr);
 void poseFromLocal(const Model &model, std::vector<BoneTransform> local, Pose &out,
                    const std::vector<BoneTurn> *turns = nullptr);
 // Skins a mesh's vertices for the pose: positions and normals.

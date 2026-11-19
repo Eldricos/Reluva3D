@@ -42,7 +42,9 @@
 #include "emulation/x86/win32.h"
 #include "common/zip.h"
 #include "common/inflate.h"
+#include "common/installshield.h"
 #include "common/wise.h"
+#include "tests/support/installshield_writer.h"
 #include "tests/support/test.h"
 #include "tests/support/zip_writer.h"
 
@@ -400,6 +402,66 @@ static void testInflateAndWise(const std::filesystem::path &tmp) {
     exe[0x120] = 'X'; // not Wise's
     test::writeFile(tmp / "other.exe", exe);
     CHECK(readWiseInstaller(tmp / "other.exe", streams));
+}
+
+static void testInstallShield(const std::filesystem::path &tmp) {
+    using test::CabinetFile;
+    using test::toBytes;
+    // Two CDs: a file split across their volumes, one sharing another's
+    // data (with the wrong volume, as found), one stored, an entry for no
+    // file.
+    std::vector<uint8_t> big(0x8000 + 300);
+    for (size_t i = 0; i < big.size(); ++i)
+        big[i] = uint8_t(i * 7 + i / 251);
+    std::vector<CabinetFile> files(6);
+    files[0] = {"", "readme.txt", toBytes("Read me."), false};
+    files[1] = {"Data", "a.bin", toBytes("the first file's bytes")};
+    files[2] = {"Data", "", {}};
+    files[3] = {"Data\\Sub", "big.bin", big, true, 1, -1, true};
+    files[4] = {"Data", "same.bin", {}, true, 2, 1};
+    files[5] = {"Data", "last.bin", toBytes("on the second CD"), true, 2};
+    test::writeCabinet({tmp / "cd1", tmp / "cd2"}, files, {{"Game", 0, 5}, {"Other", 2, 2}});
+
+    InstallShieldCabinet cab;
+    CHECK(!readInstallShieldCabinet(tmp / "cd1" / "data1.hdr", cab));
+    CHECK(cab.files.size() == 6 && cab.files[3].path == "Data/Sub/big.bin" && cab.files[0].path == "readme.txt" &&
+          cab.files[2].path.empty());
+    CHECK(cab.groups.size() == 2 && cab.groups[0].name == "Game" && cab.groups[0].last == 5);
+    CHECK(cab.find(cab.groups[0], "DATA/sub/BIG.bin") == 3 && cab.find(cab.groups[1], "readme.txt") == -1);
+    CHECK(cab.volumeName(2) == "data2.cab");
+    // Only the first CD's volume so far: what's in it, and the shared file.
+    CHECK(cab.reachable(0) && cab.reachable(1) && cab.reachable(4) && !cab.reachable(3) && !cab.reachable(5));
+    std::vector<uint8_t> out;
+    const Error missing = extractInstallShieldFile(cab, 3, out);
+    CHECK(missing && missing.message.find("data2.cab") != std::string::npos);
+    CHECK(!extractInstallShieldFile(cab, 4, out) && out == toBytes("the first file's bytes"));
+    CHECK(extractInstallShieldFile(cab, 2, out)); // no file
+
+    CHECK(findInstallShieldVolumes(cab, tmp / "cd2") == 1 && findInstallShieldVolumes(cab, tmp / "cd2") == 0);
+    CHECK(!extractInstallShieldFile(cab, 0, out) && out == toBytes("Read me."));
+    CHECK(!extractInstallShieldFile(cab, 3, out) && out == big);
+    CHECK(!extractInstallShieldFile(cab, 5, out) && out == toBytes("on the second CD"));
+
+    // A byte changed: its MD5 isn't the header's.
+    std::vector<uint8_t> volume;
+    {
+        std::ifstream in(tmp / "cd1" / "data1.cab", std::ios::binary);
+        volume.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    volume[0x200 + 3] ^= 1;
+    test::writeFile(tmp / "cd1" / "data1.cab", volume);
+    CHECK(extractInstallShieldFile(cab, 0, out));
+
+    // Another cabinet's data2.cab isn't taken for this one's.
+    InstallShieldCabinet other;
+    test::writeCabinet({tmp / "lone"}, {files[0], files[1]}, {{"Game", 0, 1}});
+    test::writeCabinet({tmp / "cd1b", tmp / "cd2b"}, files, {{"Game", 0, 5}});
+    CHECK(!readInstallShieldCabinet(tmp / "lone" / "data1.hdr", other));
+    other.volumes.resize(3);
+    CHECK(findInstallShieldVolumes(other, tmp / "cd2b") == 0);
+
+    test::writeFile(tmp / "bad" / "data1.hdr", toBytes("not a cabinet"));
+    CHECK(readInstallShieldCabinet(tmp / "bad" / "data1.hdr", cab));
 }
 
 static void testZip(const std::filesystem::path &tmp) {
@@ -1233,6 +1295,7 @@ static const reluva::test::Suite
                    {
                        {"zip", [](const std::filesystem::path &tmp) { testZip(tmp / "zip"); }},
                        {"inflate and wise", [](const std::filesystem::path &tmp) { testInflateAndWise(tmp / "wise"); }},
+                       {"installshield", [](const std::filesystem::path &tmp) { testInstallShield(tmp / "is"); }},
                        {"dcl", [](const std::filesystem::path &) { testDcl(); }},
                        {"cd images", [](const std::filesystem::path &tmp) { testCue(tmp / "cue"); }},
                    });

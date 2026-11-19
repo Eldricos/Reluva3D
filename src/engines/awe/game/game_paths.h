@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace reluva::x86 {
@@ -17,16 +18,21 @@ class Win32Process;
 
 namespace reluva::awe {
 
-// motoe.exe's path-finder (0x42e840), run in the x86 interpreter, as
-// granny2.dll is: kept to check Reluva's port of it (WalkGrid::search)
-// against, with reluva-tool awe path-check. See docs/engines/awe/games/motoe/formats/ac2.md.
+struct GameInfo;
+
+// The game's own path-finder (motoe.exe's 0x42e840, ac.exe's 0x426620: the
+// same code), run in the x86 interpreter, as granny2.dll is: kept to check
+// Reluva's port of it (WalkGrid::search) against, with reluva-tool awe
+// path-check. See docs/engines/awe/games/motoe/formats/ac2.md.
 class GamePathFinder {
 public:
     GamePathFinder();
     ~GamePathFinder();
     // `single`: the x87 at 24 bits once the statics are made, as in the
     // game (setSinglePrecision); else at 53 throughout.
-    Error load(const std::vector<uint8_t> &exe, bool single = true);
+    // `exe` is `game`'s executable (GameInfo::exe), whose path-finder is
+    // where `game` says (GameInfo::pathFinder).
+    Error load(const std::vector<uint8_t> &exe, const GameInfo &game, bool single = true);
     struct Point {
         double a = 0;
         double b = 0;
@@ -47,6 +53,8 @@ public:
     void setSinglePrecision(bool on);
 
 private:
+    std::string _exe; // its name, for messages
+    uint32_t _search = 0;
     std::unique_ptr<x86::Cpu> _cpu;
     std::unique_ptr<x86::Win32Process> _process;
     uint32_t _object = 0;

@@ -5,6 +5,8 @@
 // Murder on the Orient Express): see docs/engines/awe/README.md.
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
+#include "engines/awe/attwn/files.h"
 
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/formats/bink_dll.h"
@@ -16,11 +18,14 @@
 #include "engines/awe/game/story.h"
 #include "engines/awe/formats/tables.h"
 #include "engines/awe/game/scene_page.h"
+#include "engines/awe/pages/scene_browser.h"
 #include "engines/awe/pages/viewers.h"
 #include "common/archive.h"
+#include "common/fs.h"
 #include "image/image.h"
 #include "common/system.h"
 #include "video/bink.h"
+#include "backends/platform/sdl3/sdl_system.h"
 #include "devtools/tool.h"
 
 #include <algorithm>
@@ -285,7 +290,7 @@ int cmdGr2Model(int argc, char **argv) {
 // whether each reads to its end.
 int cmdAc2Dump(int argc, char **argv) {
     if (argc < 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe ac2-dump <scene.ac2>...\n");
+        std::fprintf(stderr, "usage: reluva-tool awe ac2-dump <scene.ac2|scene.ac1>...\n");
         return 2;
     }
     int failed = 0;
@@ -296,7 +301,8 @@ int cmdAc2Dump(int argc, char **argv) {
             continue;
         }
         awe::Ac2Scene scene;
-        const reluva::Error err = awe::parseAc2(data, scene);
+        const std::string name = reluva::fs::toLower(argv[i]);
+        const reluva::Error err = name.ends_with(".ac1") ? awe::parseAc1(data, scene) : awe::parseAc2(data, scene);
         if (argc == 3)
             std::fputs(awe::dumpAc2(scene).c_str(), stdout);
         else
@@ -315,12 +321,21 @@ int cmdAc2Dump(int argc, char **argv) {
 // script commands where they parse as some.
 int cmdAweTable(int argc, char **argv) {
     if (argc != 3) {
-        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt>\n");
+        std::fprintf(stderr, "usage: reluva-tool awe table-show <file.txt|file.act>\n");
         return 2;
     }
     std::vector<uint8_t> data;
     if (!readFile(argv[2], data))
         return 1;
+    // And Then There Were None's scrambled text (attwn/files.h).
+    if (const std::string name = reluva::fs::toLower(argv[2]); name.size() > 4 && name.ends_with(".act")) {
+        std::vector<uint8_t> text;
+        if (reluva::Error e = awe::attwn::unscrambleText(data, text)) {
+            std::fprintf(stderr, "%s: %s\n", argv[2], e.message.c_str());
+            return 1;
+        }
+        data = std::move(text);
+    }
     const awe::Table t = awe::parseTable(awe::decodeText(data));
     std::printf("%zu columns, %zu rows\n", t.headings.size(), t.rows.size());
     for (size_t r = 0; r < t.rows.size(); r++) {
@@ -352,29 +367,45 @@ int cmdAweShot(int argc, char **argv) {
                      "  savedir:<folder> for the game\'s saves; ms:N lets N milliseconds pass;\n"
                      "  move:x,y, click:x,y and release:x,y move, click and let go of the mouse, rclick:x,y\n"
                      "  right-clicks; start:<act|slotN> starts a game there, run:<script> runs a script\n"
-                     "  (the scenes page)\n");
+                     "  (the scenes page); -3d draws the scenes' characters, in a window's renderer\n");
         return 2;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    const awe::GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     HeadlessSystem sys;
+    // -3d: a window's renderer (under a display, real or virtual), so the
+    // scenes' characters are drawn.
+    std::unique_ptr<reluva::SdlSystem> window;
+    for (int i = 5; i < argc; i++)
+        if (std::strcmp(argv[i], "-3d") == 0) {
+            window = std::make_unique<reluva::SdlSystem>();
+            if (reluva::Error e = window->init()) {
+                std::fprintf(stderr, "-3d: %s\n", e.message.c_str());
+                return 1;
+            }
+            sys.threeD = window.get();
+        }
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
+    screen.create(game ? game->width : awe::kScreenW, game ? game->height : awe::kScreenH,
+                  reluva::PixelFormat::kRGBA32);
     awe::GameFonts fonts;
-    const bool haveFonts = !fonts.load(files);
+    const bool haveFonts = !fonts.load(files, game ? game->fonts : std::vector<awe::GameFont>());
     // "savedir:<folder>" among the keys: where the game's saves go.
     std::filesystem::path saves;
     for (int i = 5; i < argc; i++)
         if (std::strncmp(argv[i], "savedir:", 8) == 0)
             saves = argv[i] + 8;
-    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1};
+    awe::ViewerContext ctx{sys, files, nullptr, screen, saves, haveFonts ? &fonts : nullptr, {}, -1, game};
     std::unique_ptr<awe::Page> page;
     const std::string which = argv[3];
     if (which == "scenes")
-        page = std::make_unique<awe::ScenePage>(ctx, awe::ScenePage::Browser::kOn);
+        page = std::make_unique<awe::SceneBrowser>(ctx);
     else if (which == "pictures")
         page = std::make_unique<awe::PicturePage>(ctx);
     else if (which == "text")
@@ -400,7 +431,7 @@ int cmdAweShot(int argc, char **argv) {
             }
             continue;
         }
-        if (k.rfind("savedir:", 0) == 0)
+        if (k.rfind("savedir:", 0) == 0 || k == "-3d")
             continue;
         if (k.rfind("run:", 0) == 0) {
             // A script run, as a scene's.
@@ -460,6 +491,13 @@ int cmdAweShot(int argc, char **argv) {
                  : k.size() > 1 && k[0] == 'f' ? key::kF1 + uint32_t(std::atoi(k.c_str() + 1) - 1)
                                                : uint32_t(uint8_t(k[0]));
         page->handleEvent(ev);
+    }
+    if (window) {
+        // The 3D frame and what's drawn over it, as F12 saves them.
+        page->requestScreenshot(argv[4]);
+        sys.now += 10;
+        page->update(sys.now);
+        return 0;
     }
     page->update(sys.now);
     reluva::image::Image img;
@@ -552,11 +590,13 @@ int cmdAweBink(int argc, char **argv) {
         std::fprintf(stderr, "usage: reluva-tool awe bink-check <game folder> <movie.bik>... [-frames n]\n");
         return 1;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     size_t limit = SIZE_MAX;
     bool yuv = false; // -yuv: the planes, before the colour conversion
     std::vector<std::string> movies;
@@ -683,11 +723,13 @@ int cmdAwePose(int argc, char **argv) {
                      "usage: reluva-tool awe pose-check <game folder> <model.gr2> <animation.gr2> [seconds...]\n");
         return 1;
     }
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::vector<uint8_t> dllData;
     std::vector<uint8_t> modelData;
     std::vector<uint8_t> animData;
@@ -759,11 +801,14 @@ int cmdAweActs(int argc, char **argv) {
     for (int i = 3; i < argc; i++)
         if (std::strcmp(argv[i], "-solve") == 0 || std::strcmp(argv[i], "-play") == 0)
             return awe::aweCommandSolve(argc, argv);
-    reluva::DirectoryArchive files;
-    if (reluva::Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    const awe::GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::vector<std::string> targets;
     bool verbose = false;
     bool hotspots = false;
@@ -784,17 +829,25 @@ int cmdAweActs(int argc, char **argv) {
     }
     if (targets.empty()) {
         std::vector<uint8_t> data;
-        if (!files.read("text/acts.txt", data))
-            for (const awe::ActRow &r : awe::readActs(awe::parseTable(awe::decodeText(data))))
-                targets.push_back(r.act);
-        for (int i = 0; i < 15; i++)
-            targets.push_back("slot" + std::to_string(i));
+        std::vector<awe::ActRow> rows;
+        if (game && game->flow.readActs)
+            game->flow.readActs(files, rows);
+        else if (!files.read("text/acts.txt", data))
+            rows = awe::readActs(awe::parseTable(awe::decodeText(data)));
+        for (const awe::ActRow &r : rows)
+            targets.push_back(r.act);
+        // Orient Express's developers' saves (Text\Scripts\slot<n>.ac2).
+        if (!(game && game->flow.readActs))
+            for (int i = 0; i < 15; i++)
+                targets.push_back("slot" + std::to_string(i));
     }
     HeadlessSystem sys;
     reluva::Surface screen;
-    screen.create(awe::kScreenW, awe::kScreenH, reluva::PixelFormat::kRGBA32);
+    screen.create(game ? game->width : awe::kScreenW, game ? game->height : awe::kScreenH,
+                  reluva::PixelFormat::kRGBA32);
     awe::ViewerContext ctx{
-        sys, files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run", nullptr, {}, -1};
+        sys,     files, nullptr, screen, std::filesystem::temp_directory_path() / "reluva-awe game-run",
+        nullptr, {},    -1,      game};
     int problems = 0;
     // Runs the game on till it settles; false if it sticks.
     auto settle = [&](awe::ScenePage &page, std::vector<std::string> &log, const std::string &what) {
@@ -848,7 +901,7 @@ int cmdAweActs(int argc, char **argv) {
     };
     for (const std::string &target : targets) {
         // As reluva runs it: without the scene browser, its overlays or keys.
-        awe::ScenePage page(ctx, awe::ScenePage::Browser::kOff);
+        awe::ScenePage page(ctx);
         std::vector<std::string> log;
         page.onLog = [&](const std::string &l) { log.push_back(l); };
         page.setDrawing(false);
@@ -938,7 +991,7 @@ int cmdAweActs(int argc, char **argv) {
                 tries.emplace_back(i, item);
         }
         for (const auto &[i, item] : tries) {
-            awe::ScenePage again(ctx, awe::ScenePage::Browser::kOn);
+            awe::SceneBrowser again(ctx);
             std::vector<std::string> log2;
             again.onLog = [&](const std::string &l) { log2.push_back(l); };
             again.setDrawing(false);
@@ -1212,7 +1265,7 @@ const reluva::tool::Commands kCommands(
         {"gr2-info", "<file.gr2> [-t] [-n elements]", "a Granny file's sections and elements", cmdGr2Info},
         {"model-dump", "<model.gr2> [-anim <anim.gr2> <seconds>] [-obj out.obj] [-track bone]",
          "a model's meshes and skeleton, posed by an animation, written as OBJ", cmdGr2Model},
-        {"table-show", "<file.txt>", "a text table as the engine reads it", cmdAweTable},
+        {"table-show", "<file.txt|file.act>", "a text table as the engine reads it", cmdAweTable},
         {"page-shot", "<game folder> <scenes|pictures|text|sounds|movies> <out.tga> [key...]",
          "a page of the viewer drawn without a window after the keys, clicks and waits given, saved as a TGA",
          cmdAweShot},
@@ -1233,9 +1286,9 @@ const reluva::tool::Commands kCommands(
          "a model posed by an animation, by Reluva and by granny2.dll, compared bone by bone", cmdAwePose},
         {"bink-check", "<game folder> <movie.bik>... [-frames n] [-yuv]",
          "movies decoded by Reluva and by the game's binkw32.dll, compared pixel by pixel", cmdAweBink},
-        {"ac2-dump", "<scene.ac2>...", "a scene's records and fields", cmdAc2Dump},
-        {"path-check", "<game folder> <scene.ac2> <a0> <b0> <a1> <b1> | -all [pairs]",
-         "paths planned by Reluva's port and by motoe.exe's code, compared", reluva::awe::aweCommandPath},
+        {"ac2-dump", "<scene.ac2|scene.ac1>...", "a scene's records and fields", cmdAc2Dump},
+        {"path-check", "<game folder> <scene.ac2|.ac1> <a0> <b0> <a1> <b1> | -all [pairs]",
+         "paths planned by Reluva's port and by the game's own code, compared", reluva::awe::aweCommandPath},
         {"script-check", "<game folder> [-v]",
          "every script in the install read, and the verbs it uses that Reluva lacks", reluva::awe::aweCommandScripts},
         {"save-check", "<slot.ac2>... [-v]", "a saved game's records, read and written back", cmdAweSave},

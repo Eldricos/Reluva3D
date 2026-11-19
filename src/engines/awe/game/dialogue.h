@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engines/awe/games.h"
 #include "engines/awe/game/conditions.h"
 #include "engines/awe/game/script.h"
 #include "engines/awe/formats/tables.h"
@@ -16,7 +17,8 @@
 // its tables (Text/Dialogue/act<NN><x>.txt for an act, and the gen_ tables
 // for all), and how a conversation plays: the opening, the choices, each
 // line's commands, voice and text, its progress kept for the conditions.
-// See docs/engines/awe/games/motoe/systems/dialogue.md.
+// See docs/engines/awe/games/motoe/systems/dialogue.md. And Then There
+// Were None's (ac.exe) differs as its DialogueRules say (games.h).
 
 namespace reluva::awe {
 
@@ -69,6 +71,8 @@ int dialogueNestCode(std::string_view s);
 // number n the part n + 99, none part 100; a "+" at its end goes on to the
 // next part. Options: nogen, forcegen, nogreet, or an alternative's
 // number. `gen` is the default (a character was clicked; cantalk: on).
+// And Then There Were None's (0x40d5f0) reads one option, and has no
+// nogreet or "+" (`rules`).
 struct TalkArgs {
     std::string name;
     int part = 100;
@@ -79,7 +83,7 @@ struct TalkArgs {
     bool plus = false;
     bool greet = true;
 };
-TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen);
+TalkArgs parseTalkArgs(const std::vector<std::string> &words, bool gen, const DialogueRules &rules = {});
 
 // A conversation's part (one Name and Conver.), its threads in order.
 struct DialoguePart {
@@ -110,6 +114,10 @@ public:
     const std::vector<DialoguePart> &parts() const { return _parts; }
     // All the lines of a conversation, in table order.
     std::vector<const DialogueLine *> conversation(std::string_view name) const;
+
+    // How the game's tables are laid out (games.h): Orient Express's unless
+    // set.
+    DialogueTables tables;
 
 private:
     std::vector<DialoguePart> _parts;
@@ -144,6 +152,12 @@ public:
     // The voice's level now (0x425140): 0 silent, more when it's loud; -1
     // if unknown.
     virtual int voiceLevel() { return -1; }
+    // The rows a line's text takes in the box, wrapped as drawn: for a box
+    // sized by them (And Then There Were None's).
+    virtual int textRows(const std::string &text) {
+        (void)text;
+        return 1;
+    }
     // A conversation found and starting (not a dry run): the inventory
     // window closes and what's in hand goes back (0x43a670).
     virtual void talkStarting(const std::string &name) { (void)name; }
@@ -154,6 +168,10 @@ public:
     DialogueManager(GameState &state, ScriptHost &scripts, DialogueHost &host);
 
     DialogueBook &book() { return _book; }
+    // The game's tables and rules (games.h), and its frame's height, the
+    // box sliding in from its foot: Orient Express's unless set.
+    void setGame(const GameInfo &game);
+    const DialogueRules &rules() const { return _rules; }
 
     // "talk <name> <code> [options]" (0x40ba25 -> 0x43a630): part, thread
     // and nest from the code's letters (-1 for none), `gen` to offer the
@@ -168,6 +186,8 @@ public:
     bool canTalk(const std::string &name, int part, int thread, int nest, bool gen, int number, bool plus, bool greet);
     // The "nothing to say" line (0x43a550), for an NPC with nothing left.
     bool noTalk(ScriptRunner &runner);
+    /** Whatever conversation is on, gone at once, nothing more of it run (a new game, a game loaded). */
+    void drop();
     // Moves things on by `seconds`.
     void update(float seconds);
     // A click: a choice, or the line cut short (after half a second).
@@ -202,10 +222,10 @@ public:
     bool boxShown() const;
     int boxTop() const { return int(_boxY); }
     int boxHeight() const { return _boxHeight; }
-    int window() const { return _window; } // 0: dialoguewin01, 1: dialoguewin02
+    int window() const { return _window; } // 0: dialoguewin01, 1: dialoguewin02, 2: 03
     bool choosing() const { return _choosing; }
-    // The line being said and its colour (fonts.txt's: 8 Antoinette, 9 and
-    // 10 the others).
+    // The line being said and its colour (Orient Express's fonts.txt's: 8
+    // the player, 9 and 10 the others; 6 the choices).
     const DialogueLine *line() const;
     int colour() const { return _colour; }
     // Whether the line's text is drawn now (0x43cf90): not while its
@@ -242,14 +262,16 @@ public:
 private:
     using Thread = DialoguePart::Thread;
     bool start(const std::string &name, int part, int thread, int nest, int number, bool plus, bool greet, bool retry);
-    int pickLine(Thread &t, int nest, bool forward);
+    int pickLine(Thread &t, int nest, bool forward, bool keepLast = false);
     bool available(Thread &t);
     // Whether it has a line to offer as a choice: its current line, else
     // its first nest's (set as its current line); 0x43a9d9, 0x43a4d3.
     bool offered(Thread &t);
     void loadProgress(DialoguePart &p);
     void saveProgress(const DialoguePart &p, const Thread &t);
-    std::string genPrefix(const DialoguePart &p) const;
+    std::string npcOf(const DialoguePart &p) const;
+    // Whether a conversation is one of the character's generic ones.
+    bool isGeneric(const std::string &name) const;
     void addExit(DialoguePart &p);
     void addRegreet(DialoguePart &p, int visit);
     std::vector<std::pair<DialoguePart *, int>> extras();
@@ -262,6 +284,7 @@ private:
     void end(bool keepBox);
     void finishTalk();
     void showBox();
+    void sizeBox(int rows);
     void log(const std::string &s) const {
         if (onLog)
             onLog(s);
@@ -269,6 +292,8 @@ private:
 
     GameState &_state;
     DialogueHost &_host;
+    DialogueRules _rules;
+    int _frameH = 768;
     DialogueBook _book;
     ScriptRunner _prevent;
     ScriptRunner _events;
@@ -301,7 +326,8 @@ private:
     std::string _lastSpeaker;
     std::string _speaker; // whose line plays
     int _level = -1;      // the voice's last level
-    std::string _prefix;  // gen_<npc>_
+    std::string _prefix;  // the character's generic name (gen_<npc>_)
+    std::string _npc;     // and their speaker
     std::vector<std::string> _turned;
     // The box.
     float _boxY = 768;

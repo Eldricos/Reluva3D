@@ -125,7 +125,7 @@ Lookup `0x439c70(part, code)`: the first thread with that code.
 | +0xf08 | Povent |
 | +0x1108 | text width in pixels (`0x414c10(1,text,&w)`, the dialogue font) |
 | +0x110c | row height: the same call's second value (`0x40d6d0` writes the widest row's width, then the height of the text's rows; a line has no line breaks, so one row's) |
-| +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`): the words, split at spaces (runs of spaces count as one), go on a row with a space between, two after a word ending in `.`, `!` or `?`; a word starts the next row when the row's width, the word's and a space's (two after such a word), measured apart, come to more than 944. 0x43db80 draws the rows the same way, the double spaces in them. Checked against the walkthrough: six lines where this rule and single spacing break differently, found by their voices (Parts 2 to 7), break at the same words in the recording as in Reluva, down to Dragomiroff's "...most of the / time." |
+| +0x1110 | number of rows: 1 if width ≤ 0x3b0 (944), else word-wrapped by 0x43d9b0 at 944 px (two spaces after `.`, `!`, `?`): the words, split at spaces (runs of spaces count as one), go on a row with a space between, two after a word ending in `.`, `!` or `?`; a word starts the next row when the row's width, the word's and a space's (two after such a word), measured apart, come to more than 944. 0x43db80 draws the rows the same way, the double spaces in them; a line of one row is drawn as it's written, its spaces as they are (`0x43dbfa`), as And Then There Were None's footage shows of that game's same code. Checked against the walkthrough: six lines where this rule and single spacing break differently, found by their voices (Parts 2 to 7), break at the same words in the recording as in Reluva, down to Dragomiroff's "...most of the / time." |
 | +0x1112 | alternative index: 0, or previous line's index + 1 if the previous line of the same thread has the same Nest code |
 | +0x1114 | Duration, second number (`"a,b"` → b) |
 | +0x1118 | Duration, first number (a) |
@@ -334,7 +334,8 @@ In `motoe.exe`: `0x439ca0`.
   (`0x407ae0`, an empty Condition holds).
 * None: if fwd, try nest+1, nest+2... while lines with that Nest code exist
   (a whole nest level whose conditions all fail is skipped). Stop with null at
-  the first missing nest code. Without fwd, return null.
+  the first missing nest code after the one asked for: the one asked for may
+  be missing, and is passed over. Without fwd, return null.
 * One: return it.
 * Several (alternatives): index `i = +0x560`. If `i == +0x55e` and i≠-1, keep
   it. If i == -1, pick `rand()%count` different from +0x55e. Else use i-1.

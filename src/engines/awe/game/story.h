@@ -34,6 +34,10 @@ struct ActRow {
     int time = 0;    // 1: night
     int weather = 0; // 1: snow, 2: blizzard
     int moving = 0;  // 1: the train is moving
+    // And Then There Were None's: its characters (whose general dialogue
+    // tables it loads); its rows have no place, the start script showing
+    // the first scene.
+    std::vector<std::string> characters;
 };
 
 // An act's name, as "act" takes it ("06a", "6A"): its number and letter
@@ -58,6 +62,13 @@ public:
         _row.reset();
     }
     const ActRow *row() const { return _row ? &*_row : nullptr; }
+    // The act's row in the tables; null if there's none.
+    const ActRow *find(const std::string &act) const {
+        for (const ActRow &r : _acts)
+            if (r.act == act)
+                return &r;
+        return nullptr;
+    }
     // A saved game's act (0x422470): its row as saved (acts.txt isn't read
     // again), its location loaded through onLoadLocation, but neither
     // PreLoad nor Post Load run; done() once loaded.
@@ -69,7 +80,9 @@ public:
     // is loaded when the main runner is next idle. False if there's no
     // row (01A's Event, "act 01b": only the act changes, the last
     // row stays).
-    bool startAct(std::string_view arg);
+    // `start` false: the row is taken but its PreLoad not run
+    // (And Then There Were None's "act <act> 0": 0x40b644).
+    bool startAct(std::string_view arg, bool start = true);
     // Moves time on: timers, and the act's loading.
     void update(float seconds);
     // A scene is being left (0x423390): the act's time of day, weather

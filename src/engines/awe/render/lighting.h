@@ -7,6 +7,9 @@
 #include "engines/awe/game/conditions.h"
 
 #include <array>
+#include <functional>
+#include <map>
+#include <string>
 #include <vector>
 
 // The light on the characters as motoe.exe sets it up: Direct3D 8's
@@ -62,6 +65,28 @@ struct Material {
 // NVNT, at time of day 2, or 1 in a scene marked OUTD (outdoors).
 bool nightLighting(const Ac2Scene &scene, int timeOfDay);
 
+// The colour the scene's pictures are drawn in now, for a game that tints
+// them at night (LightingRules::nightPictures: ac.exe 0x42e89c), with the
+// scene's pictures' own colours by day; false when they're drawn as they
+// are.
+bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
+
+// The night colour particles and OLDS pictures are drawn in now: time 1
+// or more outdoors alone, without nightPictureTint's FAKE case (ac.exe
+// 0x425a28, 0x43017e); false by day, indoors or for a game without one.
+bool nightOutdoorTint(const Ac2Scene &scene, const GameState &state, Rgb &tint);
+
+// And Then There Were None's lights with their 25th field (b6c) set, each
+// copied over the scene's first light of its index and itself taken out
+// (LightingRules::lightsReplace; ac.exe 0x42c9a4).
+void replaceLights(Ac2Scene &scene);
+
+// The file a scene's picture `file` is drawn from now: late at night, for
+// a game with night pictures (LightingRules::nightFiles), "x_night.jpg"
+// for "x.jpg" when `has` says there is one; else `file`.
+std::string nightPictureFile(const std::string &file, const GameState &state,
+                             const std::function<bool(const std::string &)> &has);
+
 // Each of the scene's objects' conditions as they stand (scene.objects()'s
 // order). The game decides whether a light is on when the scene is
 // entered (0x420ee0); "update" retests objects' conditions but not that.
@@ -70,7 +95,8 @@ std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state)
 // The scene's lighting with the story as it stands: the time of day, and
 // the lights' conditions as `conditions` has them (from lightConditions
 // on entering the scene), or as they stand when it's empty.
-SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions = {});
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions = {},
+                            const std::map<const Ac2Record *, bool> &switched = {});
 
 Material materialOf(const Ac2Record &object);
 

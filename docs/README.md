@@ -42,6 +42,10 @@ Laid out as `src/common/` is, a page per component:
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
 - **[wise.md](common/wise.md):** Wise installers, taken apart without
   running them.
+- **[installshield.md](common/installshield.md):** InstallShield
+  cabinets (`data1.hdr`, `data1.cab`...), as games' CDs held their files.
+- **[truetype.md](common/truetype.md):** TrueType fonts drawn as Windows
+  draws them: their hinting programs run by Reluva's own interpreter.
 - **[winhelp.md](common/winhelp.md):** Windows Help files (`.hlp`): their
   topics, links and pictures.
 

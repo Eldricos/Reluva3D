@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 The Reluva contributors
 
-// The Scenes page's puzzle screens (a scene's PUZZ record): the torn letter
-// (0x43ec00), the baggage car's safe (0x434390) and the puzzle box
-// (0x433290). Each sees a click before the hotspot under it, every left
-// button release, the scene's "action" verbs and conditions. See
-// docs/engines/awe/games/motoe/systems/puzzles.md.
+// Murder on the Orient Express's puzzle screens (a scene's PUZZ record), run
+// by ScenePage's puzzle hooks: the torn letter (0x43ec00), the baggage car's
+// safe (0x434390) and the puzzle box (0x433290). Each sees a click before
+// the hotspot under it, every left button release, the scene's "action"
+// verbs and conditions. See docs/engines/awe/games/motoe/systems/puzzles.md.
+
+#include "engines/awe/attwn/puzzles.h"
+#include "engines/awe/motoe/puzzles.h"
 
 #include "engines/awe/game/scene_page.h"
 
@@ -18,6 +21,10 @@
 #include <functional>
 
 namespace reluva::awe {
+
+using motoe::PuzzleBox;
+using motoe::Safe;
+using motoe::TornLetter;
 
 namespace {
 
@@ -72,13 +79,6 @@ const char *const kSideArrows[4] = {nullptr, nullptr, "arrowsideu", "arrowsided"
 const char *const kLidArrows[4] = {"arrowtopf", "arrowtopb", nullptr, nullptr};
 
 } // namespace
-
-const Ac2Record *ScenePage::objectWithFile(const std::string &file, int n) const {
-    for (const Ac2Record *o : _scene.objects())
-        if (fs::toLower(fileNameOf(o->text("file"))) == file && n-- == 0)
-            return o;
-    return nullptr;
-}
 
 bool ScenePage::hitPicture(const Ac2Record *o, float x, float y, int px, int py) const {
     // Inside its picture placed at (px, py), where it isn't transparent
@@ -148,18 +148,30 @@ void ScenePage::openPuzzle(const std::string &kind) {
         } else if (const auto top = _state.texts.find("topz"); top != _state.texts.end()) {
             t.topz = float(std::atof(top->second.c_str()));
         }
-    } else if (kind == "safe") {
+    } else if (kind == safeRules().kind) {
         // 0x434390: the dial, at 0 every visit (the game reads back tags it
-        // never writes).
+        // never writes). And Then There Were None's two read them back,
+        // turned to the number (0x42b020).
+        const SafeRules &rules = safeRules();
         _safe = std::make_unique<Safe>();
-        _safe->dial = objectWithFile("baggage_safe.dial.png");
-        if (_safe->dial) {
+        Safe &s = *_safe;
+        if (rules.kept) {
+            s.number = tagOr0(_state, "safecombo_dial");
+            s.entered = tagOr0(_state, "safecombo_index");
+            s.expected = _state.tags.count("safecombo_dir") ? _state.tags["safecombo_dir"] : 2;
+        }
+        for (size_t i = 0; i < s.dials.size(); i++) {
+            const Ac2Record *dial = rules.dials[i] ? objectWithFile(rules.dials[i]) : nullptr;
+            s.dials[i] = dial;
+            if (!dial)
+                continue;
             PictureOverride p;
-            const image::Image &img = picture(_safe->dial->text("file"));
-            p.x = _safe->dial->f("x"), p.y = _safe->dial->f("y");
-            p.depth = _safe->dial->f("depth") != 0 ? _safe->dial->f("depth") : _safe->dial->f("z");
+            const image::Image &img = picture(dial->text("file"));
+            p.x = dial->f("x"), p.y = dial->f("y");
+            p.depth = dial->f("depth") != 0 ? dial->f("depth") : dial->f("z");
             p.cx = float(img.w / 2), p.cy = float(img.h / 2);
-            _overrides[_safe->dial] = p;
+            p.roll = float(s.number) * -3.6f * kDegree;
+            _overrides[dial] = p;
         }
     } else if (kind == "puzzlebox") {
         // 0x433290: the box's state from its tags.
@@ -173,6 +185,10 @@ void ScenePage::openPuzzle(const std::string &kind) {
         b.selected = tagOr0(_state, "puzzlebox_arrowpiece");
         b.misses = tagOr0(_state, "puzzlebox_misses");
         b.solved = _boxOpenedHere;
+    } else if (kind == "bookcase") {
+        _bookcase = true; // And Then There Were None's (0x42db5b)
+    } else if (kind == "depositbox") {
+        openDepositBox(); // likewise (0x42db90)
     }
 }
 
@@ -180,7 +196,14 @@ void ScenePage::closePuzzle() {
     _torn.reset();
     _safe.reset();
     _box.reset();
+    _bookcase = false;
+    _deposit.reset();
     _overrides.clear();
+}
+
+const SafeRules &ScenePage::safeRules() const {
+    static const SafeRules kDefault;
+    return _ctx.game ? _ctx.game->safe : kDefault;
 }
 
 bool ScenePage::puzzleCondition(const std::string &word) const {
@@ -190,7 +213,9 @@ bool ScenePage::puzzleCondition(const std::string &word) const {
     if (_safe)
         // 0x4345f0: "open" once the three numbers are in.
         return word == "open" ? _safe->entered == 3 : true;
-    return false; // the puzzle box has none
+    // The bookcase's holds for every word (0x408460); the puzzle box and
+    // the deposit boxes have none.
+    return _bookcase;
 }
 
 bool ScenePage::puzzleDraws(const Ac2Record &o) const {
@@ -274,11 +299,10 @@ bool ScenePage::checkTornLetter() {
 void ScenePage::turnDial(int direction) {
     // A number a step (3.6 degrees): right counts down, left up.
     Safe &s = *_safe;
-    PictureOverride &p = _overrides[s.dial];
-    if (direction == 1)
-        p.roll += 3.6f * kDegree, s.number--;
-    else
-        p.roll -= 3.6f * kDegree, s.number++;
+    for (const Ac2Record *dial : s.dials)
+        if (dial)
+            _overrides[dial].roll += (direction == 1 ? 3.6f : -3.6f) * kDegree;
+    s.number += direction == 1 ? -1 : 1;
     s.number = (s.number + 100) % 100;
     playSound("1safeclick");
 }
@@ -450,6 +474,10 @@ void ScenePage::drawPuzzleBox() {
 // --- Input -------------------------------------------------------------------------------
 
 void ScenePage::puzzleClick(int x, int y) {
+    if (_deposit) {
+        depositClick(x, y);
+        return;
+    }
     if (_torn && !_torn->solved) {
         // 0x43ed00: the front-most picture with something under the point,
         // a hotspot first; a piece is picked up (tinted, brought forward).
@@ -613,11 +641,11 @@ void ScenePage::puzzleRelease(int x, int y) {
         // 0x434620: a number counts if the dial was turned the way expected
         // and stopped on it.
         Safe &s = *_safe;
-        static constexpr int kCombination[3] = {6, 6, 6};
-        if (s.spinning == s.expected && s.entered < 3 && s.number == kCombination[s.entered]) {
+        const SafeRules &rules = safeRules();
+        if (s.spinning == s.expected && s.entered < 3 && s.number == rules.combination[size_t(s.entered)]) {
             s.entered++;
             if (s.entered == 3) {
-                _runner->run("sound safeclick, talk gen_safe 2");
+                _runner->run(rules.opened);
                 s.spinning = 0;
                 writeSafeTags();
                 return;
@@ -630,6 +658,10 @@ void ScenePage::puzzleRelease(int x, int y) {
 }
 
 void ScenePage::puzzleUpdate(float seconds) {
+    if (_deposit) {
+        depositUpdate(seconds);
+        placeDepositLetters(); // as the drawers stand, whatever "update" made of their conditions
+    }
     if (_torn && _torn->dragging && _torn->selected >= 0) {
         // The piece follows the mouse (0x43ecc0).
         PictureOverride &p = _overrides[_torn->pieces[size_t(_torn->selected)]];
@@ -655,7 +687,11 @@ void ScenePage::puzzleUpdate(float seconds) {
     }
 }
 
-void ScenePage::puzzleAction(const std::string &word) {
+void ScenePage::puzzleAction(const std::string &word, const std::string &arg) {
+    if (_bookcase) {
+        bookcaseAction(word, arg);
+        return;
+    }
     if (_torn && _torn->selected >= 0) {
         // 0x43eeb0: the picked piece turned a quarter, about its centre.
         PictureOverride &p = _overrides[_torn->pieces[size_t(_torn->selected)]];
@@ -671,7 +707,7 @@ void ScenePage::puzzleAction(const std::string &word) {
         draw();
         return;
     }
-    if (_safe && _safe->dial) {
+    if (_safe && _safe->dials[0]) {
         // 0x434500: right counts down, left up; turning the other way once
         // a number is in starts again.
         Safe &s = *_safe;
@@ -679,9 +715,14 @@ void ScenePage::puzzleAction(const std::string &word) {
         s.spinning = dir;
         turnDial(dir);
         if ((s.spinning != s.expected || s.entered == 3) && s.entered > 0) {
-            _runner->run("talk gen_safe 1");
-            s.spinning = 0, s.entered = 0, s.expected = 2, s.number = 0;
-            _overrides[s.dial].roll = 0;
+            // Started again: Orient Express's dial back to 0; And Then
+            // There Were None's stays where it is (0x42b2a0).
+            _runner->run(safeRules().again);
+            s.spinning = 0, s.entered = 0, s.expected = 2;
+            if (!safeRules().kept) {
+                s.number = 0;
+                _overrides[s.dials[0]].roll = 0;
+            }
         }
         s.timer = 0, s.interval = 0.25f;
         writeSafeTags();
@@ -692,11 +733,13 @@ void ScenePage::puzzleAction(const std::string &word) {
 // --- For tools: the puzzle solved as a player would ------------------------------------
 
 std::string ScenePage::puzzleOpen() const {
-    return _torn ? "tornletter" : _safe ? "safe" : _box ? "puzzlebox" : "";
+    // (Not the bookcase: its shelves are hotspots, its books items.)
+    return _torn ? "tornletter" : _safe ? safeRules().kind : _box ? "puzzlebox" : _deposit ? "depositbox" : "";
 }
 
 bool ScenePage::puzzleSolved() const {
-    return (_torn && _torn->solved) || (_safe && _state.tags.count("safe_solved")) || (_box && _box->solved);
+    return (_torn && _torn->solved) || (_safe && _state.tags.count(safeRules().solved)) ||
+           (_deposit && _state.tags.count("depositboxsolved")) || (_box && _box->solved);
 }
 
 bool ScenePage::puzzleStep() {
@@ -744,6 +787,8 @@ bool ScenePage::puzzleStep() {
     };
     int x = 0;
     int y = 0;
+    if (_deposit)
+        return depositStep();
     if (_box) {
         // The move the solution asks for next.
         PuzzleBox &b = *_box;
@@ -819,7 +864,7 @@ bool ScenePage::puzzleStep() {
         // 6 left, a turn right back to 6, a turn left back to 6: a press
         // and a let go a number.
         Safe &s = *_safe;
-        if (!_runner->idle() || _state.tags.count("safe_solved"))
+        if (!_runner->idle() || _state.tags.count(safeRules().solved))
             return false;
         if (s.entered == 3) {
             // Then the handle: the hotspot that "action open" lets open.

@@ -3,6 +3,8 @@
 
 #include "engines/awe/game/conditions.h"
 
+#include "engines/awe/games.h"
+
 #include "common/fs.h"
 
 #include <algorithm>
@@ -155,6 +157,9 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = within(state.lastScene, arg(1));
     } else if (word == "location") {
         result = within(state.location, arg(1));
+    } else if (word == "lastgame") {
+        // A game's last save is there (GameSaves::last); kept by the page.
+        result = valueOf(state, "lastgame") != 0;
     } else if (word == "master") {
         result = valueOf(state, "master") != 0;
     } else if (word == "moving" || word == "time" || word == "weather") {
@@ -165,6 +170,14 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = n != 0 && std::rand() % n == 0;
     } else if (word == "scene") {
         result = within(state.scene, arg(1));
+    } else if (word == "timer" && state.game && state.game->clock) {
+        // The clock against a number: less, more, or equal (ac.exe
+        // 0x40a965).
+        const std::string a = arg(1);
+        const float n = float(std::atof(a.c_str() + (!a.empty() && (a[0] == '<' || a[0] == '>'))));
+        result = !a.empty() && a[0] == '<'   ? state.clock < n
+                 : !a.empty() && a[0] == '>' ? state.clock > n
+                                             : state.clock == n;
     } else if (word == "tag" || word == "timer") {
         // -99 for one that isn't there (0x4109f0, 0x410b40). "tag <name>
         // nouse": no item may be in hand.
@@ -210,6 +223,11 @@ bool testClause(std::string_view clause, const GameState &state) {
         result = arg(1).empty() || (!state.held.empty() && fs::toLower(state.held) == fs::toLower(arg(1)));
     } else if (word == "used") {
         result = state.findItem(arg(1), {4}) != nullptr; // 0x41ba20
+    } else if (state.game && state.game->condition) {
+        // A word of the game's own (attwn: "suspicion").
+        std::vector<std::string> lowered = w;
+        lowered[0] = word;
+        state.game->condition(state, lowered, result);
     }
     // Anything else (debug, demo, test, words it doesn't know) doesn't
     // hold; nor does "wearing" (what the player's model wears, 0x426260),

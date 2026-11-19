@@ -13,6 +13,7 @@ add_library(reluva_common STATIC
     detection.cpp
     fs.cpp
     inflate.cpp
+    installshield.cpp
     log.cpp
     md4.cpp
     md5.cpp

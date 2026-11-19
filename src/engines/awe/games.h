@@ -1,0 +1,431 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/archive.h"
+#include "common/detection.h"
+#include "common/types.h"
+#include "engines/awe/formats/savegame.h"
+
+#include <array>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+namespace reluva::awe {
+
+struct Table;
+
+struct GameState;
+struct ActRow;
+class GameOverlay;
+struct OverlayHost;
+
+/** A function in a game's executable, and its first bytes there (to be sure it's that release's). */
+struct CodeAt {
+    uint32_t address = 0;
+    uint8_t bytes[8] = {};
+};
+
+/**
+ * Where a game's executable has its path-finder, to run it in the x86
+ * interpreter beside Reluva's port (GamePathFinder, reluva-tool awe
+ * path-check). Both games' is the same code.
+ */
+struct PathFinderCode {
+    CodeAt statics;     ///< a static of its own, made at start-up
+    CodeAt constructor; ///< the object's
+    CodeAt buildTables; ///< its tables, built once
+    CodeAt search;      ///< one search on a grid
+    CodeAt operatorNew; ///< the C library's, replaced by the interpreter's
+    CodeAt operatorDelete;
+    uint32_t objectSize = 0;
+};
+
+/**
+ * How a game's dialogue tables are read: the columns by position, the same
+ * in both games up to Povent (the 14th), and what the rest are. Orient
+ * Express's are the defaults (motoe.exe 0x438f00).
+ */
+struct DialogueTables {
+    bool target = true;      ///< the 7th column the speaker's Target (head turns); else read and dropped
+    bool duration = true;    ///< the 15th a line's time ("a, b"); else unread
+    bool optional = true;    ///< the 16th Optional; else unread
+    bool translation = true; ///< a Line Translation other than "0" said in the line's place
+    int wrap = 944;          ///< the box's width in pixels, past which a line wraps
+    /** The tables always loaded; and an act's, this and the act ("01b") and .txt. */
+    std::vector<const char *> always = {"text/dialogue/gen_antoinette.txt", "text/dialogue/gen_comments.txt",
+                                        "text/dialogue/gen_characters.txt"};
+    const char *acts = "text/dialogue/act";
+    /** Folders whose every table is loaded too. */
+    std::vector<const char *> folders;
+    /**
+     * With an act, the tables of the act's characters alone ("%s" a
+     * name); null: none so.
+     */
+    const char *characters = nullptr;
+    /** A place's table ("%s" it), added as the act first meets the place; null: none so. */
+    const char *places = nullptr;
+    /** Where a line's event file, <name>_<act>_<code>.txt, is looked for, in turn. */
+    std::vector<const char *> events = {"text/dialogue/events/"};
+};
+
+/**
+ * How a game's dialogue manager behaves where the two games' differ.
+ * Orient Express's are the defaults (motoe.exe 0x43a630 on); And Then
+ * There Were None's are read from ac.exe (0x4325e0 on).
+ */
+struct DialogueRules {
+    /** The player's speaker: never the character talked to, and coloured apart. */
+    const char *player = "antoinette";
+    /** A character's own conversations' name, `%s` their speaker: the extras offered beside a talk. */
+    const char *generic = "gen_%s_";
+    bool genericExact = false;             ///< those named exactly so; else any name containing it
+    const char *goodbyes = "gen_%s_exit";  ///< their goodbyes', one of the first four at random
+    const char *goodbyesElse = "gen_exit"; ///< the goodbyes for a character with none of their own; null: none
+    /** While this condition holds, the goodbye is gen_solutionexit's and the box `finaleBox` high; null: never. */
+    const char *finale = "act >07a";
+    /**
+     * Orient Express's second greeting: the visit tags, a regreet thread
+     * copied in, an opening heard to its end replayed if it has a line to
+     * come back to. Without: an opening once heard isn't played again.
+     */
+    bool regreet = true;
+    /**
+     * "Nothing to say" when a talk finds nothing: its conversation and part
+     * code, from the character's `generic` name ("" without one). Null:
+     * that name and "notalk", part 1, else gen_canttalkf.
+     */
+    std::string (*noTalk)(const std::string &generic, int &part) = nullptr;
+    bool noTalkAlways = false;      ///< after any talk that finds nothing; else only one a character's click started
+    int talkOptions = 2;            ///< the words after a talk's code read as options
+    bool greetAndPlus = true;       ///< the option nogreet, and a code's trailing "+" (on to the next part)
+    bool loneChoicePlays = true;    ///< a menu of one choice, not the goodbye, plays it without asking
+    bool repeatsStayOffered = true; ///< a repeatable thread the first menu offers stays offered all the talk
+    bool alternativeKept = true;    ///< an alternative picked at random stays picked for the rest of the talk
+    /**
+     * A thread is offered if any nest has a line that may be said, and a
+     * finished one only if its line to come back to may be; else by its
+     * first nest's alone.
+     */
+    bool offerLooksOn = true;
+    /** A character's generic extra, once heard, is offered as its saved progress says; false: as if never heard. */
+    bool extrasHeard = false;
+    bool advance = true; ///< a Povent's "advance" ends the part
+    /** A Povent keeps the box up if it has `keepBox` or leavebox, but not `dropBox`. */
+    const char *keepBox = "talk";
+    const char *dropBox = "nobox";
+    bool leaveBoxWins = false;       ///< leavebox keeps it even with `dropBox`
+    bool goodbyeLeft = false;        ///< the goodbye counts as a thread left, for where a Povent runs
+    int textRate = 15;               ///< without a voice, a line lasts its length over this, whole seconds
+    float textMin = 1;               ///< and at least this many
+    bool playerResetsColour = false; ///< the player's lines start the others' alternating colours again
+    int box = 160;                   ///< the box's height in pixels
+    int finaleBox = 180;
+    /** Its height by the choices' rows (up to 3, 4, 5 or more), windows 0 to 2; zeros: `box`. */
+    std::array<int, 3> boxByRows{};
+    bool closesInventory = true; ///< a talk's start closes the inventory and puts back what's in hand
+    /** Other names a speaker's character may go by in a scene, tried in turn. */
+    std::vector<std::pair<const char *, const char *>> speakerElse;
+};
+
+/**
+ * How a game lights its characters where the two games differ. Orient
+ * Express's are the defaults (motoe.exe 0x420cb0, 0x420eb0, 0x406960).
+ */
+struct LightingRules {
+    float cameraAmbient = 0.3125f; ///< the ambient grey of a scene without a camera (its constructor's)
+    /** A light's fields the scene doesn't give (its constructor's). */
+    float lightDiffuse = 0.3125f;
+    float att0 = 0.1f;
+    float att1 = 0.001f;
+    /**
+     * At night, a light stays on if it's an act's version's own, if its
+     * 25th field is set, or if the scene is outdoors; else every light is
+     * off.
+     */
+    bool nightSparesLights = false;
+    /**
+     * At night outdoors (time 1 or more, OUTD), or late at night in a
+     * scene marked FAKE (time 2), the scene's pictures are drawn in this
+     * colour instead of their own, the lights' glows (elements\lights)
+     * apart; zeros: never (Orient Express).
+     */
+    std::array<float, 3> nightPictures{0, 0, 0};
+    /**
+     * Late at night (time 2), a scene's picture "x.jpg" is drawn from
+     * "x_night.jpg" instead when the game has that file.
+     */
+    bool nightFiles = false;
+    /**
+     * A light with its 25th field (b6c) set changes the scene's first
+     * light whose index is its own, and isn't added itself.
+     */
+    bool lightsReplace = false;
+};
+
+/**
+ * How a game starts and finds its acts and scenes. Orient Express's are
+ * the defaults (motoe.exe 0x422580 on).
+ */
+struct GameFlow {
+    const char *start = "musica motoetheme, movie logos inscene, scene menu.main_01 1 0"; ///< run as the program starts
+    const char *scenes = ".ac2"; ///< the scenes' files' extension
+    /**
+     * Its acts' rows; null: text/acts.txt's. An error if there are none.
+     */
+    Error (*readActs)(const Archive &files, std::vector<ActRow> &out) = nullptr;
+    /**
+     * A scene's place (its folder in Locations), from its name; null: up
+     * to its first '_'. With `actFolders`, each place has an Act<NN><x>
+     * folder for an act's versions and Base for the rest, the act's first.
+     */
+    std::string (*placeOf)(const std::string &scene) = nullptr;
+    bool actFolders = false;
+    bool actMusic = false;                       ///< the act's Music plays when a scene's music entries name none
+    const char *musica = "sound\\music\\%s.mp3"; ///< what "musica <name>" plays, looping
+    const char *menu = "menu.%s_01";             ///< the scene "menu <name>" shows
+    const char *mainMenu = "menu.main";          ///< the main menu's place
+    bool letterKeys = true;           ///< P, S and L open the in-game, save and load menus (Escape does either way)
+    const char *newGame = "playover"; ///< the main menu's hotspot that starts a new game
+    /**
+     * An act's change: the screen fades in from black to this picture,
+     * the act's characters load one a step under the interface texts
+     * "loading" and "wait" and how far it's got, it fades out, and then
+     * the start script runs; null: the start script at once.
+     */
+    const char *actLoading = nullptr;
+    const char *actLoadingFont = nullptr;     ///< "loading"'s font (GameFonts' name)
+    const char *actLoadingWaitFont = nullptr; ///< "wait"'s and how far's
+    std::array<int, 3> actLoadingRows{};      ///< the three's tops, each centred across
+    /**
+     * "fade in|out <object>": the object's alpha in steps of 8, one an
+     * update at most, this many seconds apart, the script waiting; 0: the
+     * object shown or hidden at once.
+     */
+    float objectFade = 0;
+};
+
+/**
+ * The save and load screens' rows as a game draws them. Orient Express's
+ * are the defaults (motoe.exe 0x434b90, 0x4245e0).
+ */
+struct SlotLayout {
+    std::array<int, 3> rows{63, 287, 511}; ///< each row's top
+    int left = 703;                        ///< the rows' box, for clicks and the glow
+    int right = 957;
+    int height = 190;
+    int thumbnail = 704;                                  ///< the picture's x, a pixel down the row
+    std::array<int, 2> thumbnailSize{256, 192};           ///< the picture saved beside the slot, the view shrunk
+    int name = 624;                                       ///< the name's centre
+    int date = 708;                                       ///< the date's x, at the row's foot
+    int timeEnd = 952;                                    ///< where the time ends, likewise
+    const char *font = "save, load, and options screens"; ///< the style, by its use
+    /** 0xAARRGGBB: the picked row's text and the others'; zeros: fonts.txt's. */
+    uint32_t picked = 0;
+    uint32_t other = 0;
+    const char *glowSave = "locations/menu.save/cutouts/glow.tga"; ///< over the picked row
+    const char *glowLoad = "locations/menu.load/cutouts/glow.tga";
+    const char *empty = nullptr; ///< an empty row's word; null: interface.txt's "empty"
+};
+
+/**
+ * The options screen as a game draws it. Orient Express's are the
+ * defaults (motoe.exe 0x42c090, 0x42c350): its labels placed by the
+ * scene's tracks and boxes, in fonts.txt's style.
+ */
+struct OptionsLayout {
+    int thumbLeft = 694; ///< a slider's thumb at this + step * value (0..10)
+    int thumbStep = 23;
+    int snap = 11;                   ///< a dragged thumb goes on a step once the cursor is this past it
+    const char *font = nullptr;      ///< the labels' style by its use; null: placed by the scene's pictures
+    uint32_t colour = 0;             ///< 0xAARRGGBB
+    int sliderLabels = 0;            ///< the sliders' labels centred in 200 pixels from this x...
+    std::array<int, 3> sliderRows{}; ///< ... 35 above these
+    int boxLabels = 0;               ///< the boxes' labels ending at this x, 3 below their rows; the tick at it
+    std::array<int, 6> boxRows{};
+};
+
+/**
+ * The yes/no popup (quit, back to the main menu, overwrite a save) as a
+ * game draws and answers it, centred on its frame over
+ * interface/mainmenuwin.tga. Orient Express's are the defaults (motoe.exe
+ * 0x432630, 0x432d60, 0x4330c0, 0x4325b0, 0x432cb1): fonts.txt's style and
+ * colours.
+ */
+struct YesNoLayout {
+    const char *font = "popup dialogs"; ///< the style, by its use
+    /** 0xAARRGGBB: the words and the one the mouse is over; zeros: fonts.txt's. */
+    uint32_t plain = 0;
+    uint32_t lit = 0;
+    int questionFoot = 364;          ///< the question's foot, centred across
+    int row = 394;                   ///< Yes's and No's top, and their boxes' for clicks
+    int yesEnd = 482;                ///< with m the wider word, Yes centred in m pixels ending here...
+    int noStart = 542;               ///< ... and No in m pixels from here
+    const char *over = "mouseover2"; ///< the sound as the mouse comes onto a word
+    const char *click = "select2";   ///< and as one is clicked
+    bool enterClicks = false;        ///< whether Enter (a yes) plays the click too
+    /** The script a yes to leaving the game runs. */
+    const char *toMenu = "fade out, reset, scene menu.main_01, fade in";
+};
+
+/**
+ * The safe's puzzle screen as a game has it: a dial turned left and right
+ * to three numbers. Orient Express's baggage car safe is the default
+ * (motoe.exe 0x434390); And Then There Were None's is "safecombo"
+ * (ac.exe 0x42b020).
+ */
+struct SafeRules {
+    const char *kind = "safe";                                           ///< the scene's PUZZ value
+    std::array<int, 3> combination{6, 6, 6};                             ///< left, right, left
+    std::array<const char *, 2> dials{"baggage_safe.dial.png", nullptr}; ///< the pictures turned, by file
+    const char *again = "talk gen_safe 1";                               ///< run on starting again
+    const char *opened = "sound safeclick, talk gen_safe 2";             ///< run when the third number is in
+    /** The dial's number, the numbers in and the way to turn read back from their tags each visit; false: from 0. */
+    bool kept = false;
+    const char *solved = "safe_solved"; ///< the tag the scene sets once it's opened (for the tools)
+};
+
+/**
+ * How a game's items are kept and used where the games differ. Orient
+ * Express's are the defaults (motoe.exe 0x41bc10, 0x419f20).
+ */
+struct InventoryRules {
+    bool cards = true; ///< items named pass... and print... are passports and fingerprint cards, apart
+    const char *cursor = "inventory/items/%s/cur%s.png"; ///< the item in hand's picture, `%s` its name twice
+    std::array<int, 2> cursorAt{26, 26};                 ///< that picture's place from the cursor's corner
+    const char *characters = "uselist.txt";              ///< the table of items used on characters
+    /** How that table is read: its item, character, condition and event first; null: as any table. */
+    Table (*readCharacters)(std::string_view text) = nullptr;
+    const char *combinations = "combinelist.txt"; ///< the table of items put together and taken apart
+    const char *cantUse = "talk gen_cantuse 1";   ///< said when an item is used on nothing that takes it
+    const char *takeSound = nullptr;              ///< played by "take", by its name (sound\<it>.wav)
+    /** The states a save writes for Reluva's (1 just taken, 2 in the bag, 3 in hand, 4 used...), by index. */
+    std::array<int, 8> saveStates{0, 1, 2, 3, 4, 5, 6, 7};
+    int perPage = 16; ///< items a page, for a save's page numbers
+};
+
+/** A game's saved games. Orient Express's are the defaults (motoe.exe 0x411230). */
+struct GameSaves {
+    SaveLayout layout;
+    const char *extension = ".ac2"; ///< slot<n> and this, a slot<n>.bmp beside each
+    SlotLayout screen;              ///< how the save and load screens draw them
+    /**
+     * The save "savelast" writes (with the extension) and the condition
+     * "lastgame" asks is there; null: neither word.
+     */
+    const char *last = nullptr;
+};
+
+/** A font a game sets up in its code, not from text/fonts.txt. */
+struct GameFont {
+    const char *use;  ///< what it's for, as GameFonts finds it ("dialogue")
+    const char *file; ///< in the game's folder
+    float points = 12;
+    bool bold = false;
+};
+
+/**
+ * The dialogue box as a game draws it. Orient Express's are the defaults
+ * (motoe.exe 0x43cf90).
+ */
+struct DialogueBoxLayout {
+    /** The box's pictures, by DialogueManager::window(). */
+    std::vector<const char *> windows = {"interface/dialoguewin01.png", "interface/dialoguewin02.png"};
+    const char *bullet = "interface/dialoguewin04.png";
+    const char *bulletOn = "interface/dialoguewin05.png"; ///< the highlighted choice's
+    int left = 40;                                        ///< the choices' x
+    int first = 25;                                       ///< the first choice's y below the box's top
+    int below = 0; ///< a row starting this far down the frame isn't drawn; 0: no limit
+    /** 0xAARRGGBB: the choices, the highlighted one, the player, the others; zeros: fonts.txt's. */
+    std::array<uint32_t, 5> colours{};
+};
+
+/**
+ * What the shared AWE code needs to know of one game. A game's own code is
+ * in its folder (motoe/, attwn/); everything here is what the rest of the
+ * engine asks of it.
+ */
+struct GameInfo {
+    const char *id;    ///< as the launcher stores it: "motoe"
+    const char *title; ///< the window's, as the original's
+    /**
+     * Whether the window's title is interface.txt's "title" row instead
+     * (its Translation, else its Text), `title` being that row's text for
+     * an install without it.
+     */
+    bool titleFromInterface = false;
+    std::vector<GameVariant> variants; ///< its releases, by their files' signatures
+    std::vector<GameVariant> fallback; ///< any other release: the same files, whatever their contents
+    bool playable = false;             ///< whether reluva plays it yet (else the data viewer's only)
+    /** Its install's files as the game opens them; null: the folder as it is. */
+    Error (*openFiles)(const std::filesystem::path &dir, std::unique_ptr<Archive> &out) = nullptr;
+    /** The file groups its CD's cabinet (data1.hdr) installs to its folder; none: it isn't imported from CD. */
+    std::vector<std::string> setupGroups;
+    int width = 1024; ///< the game's frame: its window, its scenes' pictures and cameras
+    int height = 768;
+    /**
+     * A condition word only this game has (`words[0]`, lower case): sets
+     * `holds` and returns true, or returns false for a word it hasn't.
+     */
+    bool (*condition)(const GameState &state, const std::vector<std::string> &words, bool &holds) = nullptr;
+    /**
+     * A script verb only this game has: done, or false for one it hasn't.
+     * `then` gets the commands it runs in its place, if any.
+     */
+    bool (*verb)(GameState &state, const std::vector<std::string> &words, std::string &then) = nullptr;
+    /**
+     * "timer" is one clock, the seconds since "timer start" (or "reset"),
+     * and "timer <n" "timer >n" compare it (ac.exe 0x40d9dd, 0x40a965);
+     * false: Orient Express's named timers that "time <n>" moves on.
+     */
+    bool clock = false;
+    /** The movie "movie <name>" plays (attwn's "coda", one of four); null: that name. */
+    std::string (*movie)(const GameState &state, const std::string &name) = nullptr;
+    DialogueTables dialogue;       ///< its dialogue tables' layout
+    DialogueRules talk;            ///< how its conversations go
+    LightingRules lighting;        ///< how its characters are lit
+    std::vector<GameFont> fonts;   ///< its fonts if its code sets them up; empty: text/fonts.txt's
+    DialogueBoxLayout dialogueBox; ///< how its dialogue box is drawn
+    GameSaves saves;               ///< its saved games' files
+    GameFlow flow;                 ///< how it starts, its acts and scenes
+    OptionsLayout options;         ///< its options screen
+    YesNoLayout yesNo;             ///< its yes/no popup
+    InventoryRules inventory;      ///< its items
+    SafeRules safe;                ///< its safe's puzzle screen
+    /** Its own window over its scenes (the journal); null: none. */
+    std::unique_ptr<GameOverlay> (*overlay)(OverlayHost &host) = nullptr;
+    const char *exe = nullptr; ///< its executable, in the game's folder
+    PathFinderCode pathFinder; ///< in that executable (the English release's)
+};
+
+/** The AWE games, in the order they're recognised. */
+const std::vector<const GameInfo *> &games();
+
+/** The game whose id is `id`, or nullptr. */
+const GameInfo *findGame(std::string_view id);
+
+/** The AWE games in `dir`: every game's releases first, then the fallbacks. */
+std::vector<DetectedGame> detectGames(const std::filesystem::path &dir);
+
+/** The AWE game on the CD (or a copy of its files) in `source`, as an import from its cabinet. */
+std::vector<ImportPlan> planImport(const std::filesystem::path &source);
+
+/** Adds the volumes of `plan`'s cabinet in `folder` (its other CD's); false, with why in `message`, if none. */
+bool addToImport(ImportPlan &plan, const std::filesystem::path &folder, std::string &message);
+
+/** `game`'s files in `dir`, as it opens them (the folder as it is without a game). */
+Error openGameFiles(const GameInfo *game, const std::filesystem::path &dir, std::unique_ptr<Archive> &out);
+
+/**
+ * The files of the AWE game in `dir`, whichever it is, as it opens them;
+ * the folder as it is if none is recognised (`game` then null).
+ */
+Error openInstall(const std::filesystem::path &dir, std::unique_ptr<Archive> &out, const GameInfo **game = nullptr);
+
+} // namespace reluva::awe

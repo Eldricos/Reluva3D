@@ -1577,6 +1577,47 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
 // it is (the window's fades and the bar's let the next wait). The places
 // are the ones the clicks above test.
 
+ScenePage::HandInput ScenePage::handStepOverlay(HandGoal &goal) {
+    // The game's own inventory (GameOverlay::hand), then the scene.
+    using In = HandInput;
+    using K = OverlayHand::Kind;
+    OverlayWant want = OverlayWant::kNothing;
+    switch (goal.kind) {
+    case HandGoal::Kind::kClick:
+        break;
+    case HandGoal::Kind::kUse:
+        want = OverlayWant::kHold;
+        break;
+    case HandGoal::Kind::kCombine:
+        want = OverlayWant::kCombine;
+        break;
+    case HandGoal::Kind::kExamine:
+        want = OverlayWant::kExamine;
+        break;
+    default:
+        goal.failed = true;
+        return {};
+    }
+    const OverlayHand h = _overlay->hand(want, goal.items);
+    if (h.kind == K::kWait)
+        return {};
+    if (h.kind == K::kClick || h.kind == K::kDone) {
+        goal.done = h.kind == K::kDone;
+        return In{In::Kind::kClick, h.x, h.y, 0};
+    }
+    // Ready: the scene's part, if any.
+    const std::string holding = goal.kind == HandGoal::Kind::kUse ? goal.items.at(0) : std::string();
+    int x;
+    int y;
+    if ((want != OverlayWant::kNothing && want != OverlayWant::kHold) || _state.held != holding ||
+        !pointFor(goal.target, x, y, holding)) {
+        goal.failed = true;
+        return {};
+    }
+    goal.done = true;
+    return In{In::Kind::kClick, x, y, 0};
+}
+
 ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
     using In = HandInput;
     auto click = [](int x, int y) { return In{In::Kind::kClick, x, y, 0}; };
@@ -1584,6 +1625,8 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
     auto none = [] { return In{}; };
     if (goal.done || goal.failed || !canAct())
         return none();
+    if (_overlay)
+        return handStepOverlay(goal);
     const int wx = (kScreenW - picture("inventory/interface/windowblank.png").w) / 2;
     const bool windowSettled = _ui.open && _ui.fade == 0 && _ui.alpha >= 255;
     if (_ui.fade != 0)
@@ -1771,6 +1814,10 @@ ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
         goal.done = true;
         return click(wx + 254, kTop + 258); // the magnifier
     }
+    case HandGoal::Kind::kExamine:
+        // Only a game's own inventory examines so (handStepOverlay).
+        goal.failed = true;
+        return none();
     }
     return none();
 }
@@ -1805,7 +1852,7 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
             drawNow();
         if (!_yesNo->drawn)
             return In{};
-        return In{In::Kind::kClick, _yesNo->x[0] + _yesNo->w[0] / 2, 394 + _yesNo->h[0] / 2, 0};
+        return In{In::Kind::kClick, _yesNo->x[0] + _yesNo->w[0] / 2, yesNoLayout().row + _yesNo->h[0] / 2, 0};
     }
     if (!_dialogue->active() || !_dialogue->ready())
         return In{};

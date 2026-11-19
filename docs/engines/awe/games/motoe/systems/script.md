@@ -1,6 +1,6 @@
 # Murder on the Orient Express: the script runner
 
-> **Status:** done · **Code:** `src/engines/awe/game/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,797 commands · **Confidence:** from the code unless marked
+> **Status:** done · **Code:** `src/engines/awe/game/script.cpp` · **Checked against:** the code (`motoe.exe`); `awe script-check` over the English 1.0 install's 9,798 commands · **Confidence:** from the code unless marked
 
 ## Overview
 
@@ -160,16 +160,39 @@ scenes, menus).
 | `advance`, `terminate`, `juncture`, `leavebox`, `nobox` | 46, 174 | | the dialogue's, read from a line's Povent ([dialogue.md](dialogue.md)); as events they end at once |
 | `reset`, `time`, `test` | 1-2 | | `test` is a leftover of the earlier games (`0x40c650`: an apple press, radios) |
 
-The runner also knows verbs that nothing in the install uses: `animate`
-(only in the `dooropen` macro), `clear`, `globalhide`, `globalshow`,
-`head`, `hideshadow`, `showshadow`, `juncture`, `letterbox`, `light`,
-`loop`, `mainloop`, `musica`, `nogen`, `forcegen`, `nogreet`, `play`,
-`quit`, `removestate`, `savepos`, `texture`, `lasttexture`,
-`updatemusic`, `wear`, `weather`, `web`, and the `a` forms `fadea`,
-`talka`, `turna`, `playa`.
+### Verbs nothing uses
 
-Their arguments are as the install uses them; the handlers of the less
-common verbs are still to be read in detail.
+The runner also knows verbs that nothing in the install uses. Each was
+read in its handler (the runner is `0x409ce0`: the event's verb at +0,
+its words at +0x80, +0x100...; "the character" is `[runner+0xa4]`,
+setchar's or the player). `animate` is used only by the `dooropen`
+macro. An unknown verb is over at once (`0x40bfc0`); so are these unless
+said.
+
+| Verb | What it does | Reluva |
+|---|---|---|
+| `animate <secs>` | the character's animations moved on by that much (`0x409fe3` → `0x425f00`) | same |
+| `clear` | every item but the passports and cards (states 5, 6) used up, state 4, so `used` and `restore` still find them; the inventory's items, examine and combine pages reset (`0x40a0f9` → `0x419cc0`, `0x41c220`) | same |
+| `globalhide`, `globalshow <name>` | the tag `hide_<name>` set or removed (`0x40a1a8`, `0x40a1f4`). Entering a scene, or `update`, hides an object with a file when `hide_<its file name less its last 4 characters>` or `hide_<that up to its last _>` is there (`0x40e980`) | same |
+| `hideshadow`, `showshadow` | the character's shadow off or on (its +0xda0, MODL's `shadow`) | same |
+| `juncture`, `mainloop` | the dialogue's ([dialogue.md](dialogue.md)) | same |
+| `light <name> on\|off` | the first light whose name has the word in it (`0x4368a0`), on or off (`0x420e50`, `0x420e80`), till the scene is entered again; with none, the game would crash (no test) | same, none ignored |
+| `loop` | the character's routine queued again: its first IDLE entry whose condition holds (`0x40a6a4` → `0x405940`) | same |
+| `musica <name>` | `sound\music\<name>.mp3`, looping (`0x40a863`) | same |
+| `play`, `playa [<object>]` | an animated picture (`2DAN`) started again from its first frame: the named object, else the script's own (`0x40a93a` → `0x403750`); `play` waits till it stops (`0x4038b1`, `0x403a16`) | not done: no scene has one |
+| `quit` | the program ends, without asking (`0x40aa13` → `0x401c00`) | same |
+| `removestate <text>`, `removestate wearing <who>` | removes a story text (`0x410b90`); `wearing <who>` removes `wearing <that character's file>` | not done |
+| `savepos` | the character's place and turn kept for the scene, as the saves' POSI (`0x40ac5e` → `0x410db0`) | same |
+| `texture <name>\|none [n]` | the story texts `texture` and `lasttexture`: models read afterwards load `<file>_<texture>.gr2` if there is one, else `_<lasttexture>` (`0x425b80`); `none` takes them off the loaded scenes (`0x40b2d0`, `0x402800`) | not done |
+| `updatemusic` | the scene's music chosen again as on entering it (`0x40b4d1` → `0x436900`) | same |
+| `wear <file>` | the story text `wearing <the character's file>` set, and the file (a path, as it's written) attached as `attach`'s are (`0x40b594` → `0x426290`) | not done |
+| `weather <n>` | the weather the `weather` condition reads (`0x40b624` → `0x402850`) | same |
+| `web` | opens a fixed web address (an Italian shop's page for And Then There Were None, from the earlier game) and quits (`0x40b65c`) | not done: logged |
+| `fadea`, `talka`, `turna` | `fade` and `talk` without waiting; `turna` is `turn`, which doesn't wait either | same |
+
+`head`, `lasttexture`, `nogen`, `forcegen` and `nogreet` aren't verbs:
+`turn up|down` plays the `head<up|down>` animation, `lasttexture` is
+`texture`'s story text, and the other three are `talk`'s words.
 
 `letterbox on|off|start|end` (0x40a3db → the screen's 0x416ef0) puts
 black bars along the top and the bottom, 70 pixels each: `on` and `off`
@@ -282,4 +305,4 @@ From `motoe.exe`'s runner, read in a disassembler:
 (scene scripts and their conditional scripts, scene event lists, the text
 tables, the dialogue event files) and counts them by verb, with their
 argument counts and examples. The numbers above are from the English
-1.0 install: 9,797 commands of 62 verbs.
+1.0 install: 9,798 commands of 62 verbs.

@@ -3,6 +3,8 @@
 
 #include "engines/awe/render/lighting.h"
 
+#include "engines/awe/games.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -45,6 +47,60 @@ bool nightLighting(const Ac2Scene &scene, int timeOfDay) {
     return timeOfDay == 2 || (timeOfDay == 1 && sceneFlag(scene, "OUTD"));
 }
 
+bool nightPictureTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) {
+    // Time 1 or more outdoors, or 2 in a scene marked FAKE (three
+    // close-ups); NVNT isn't asked (ac.exe 0x42e89c).
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
+    if (rules.nightPictures[0] == 0 && rules.nightPictures[1] == 0 && rules.nightPictures[2] == 0)
+        return false;
+    const auto t = state.values.find("time");
+    const int time = t == state.values.end() ? 0 : t->second;
+    if (!((time >= 1 && sceneFlag(scene, "OUTD")) || (time >= 2 && sceneFlag(scene, "FAKE"))))
+        return false;
+    tint = {rules.nightPictures[0], rules.nightPictures[1], rules.nightPictures[2]};
+    return true;
+}
+
+bool nightOutdoorTint(const Ac2Scene &scene, const GameState &state, Rgb &tint) {
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
+    if (rules.nightPictures[0] == 0 && rules.nightPictures[1] == 0 && rules.nightPictures[2] == 0)
+        return false;
+    const auto t = state.values.find("time");
+    if (t == state.values.end() || t->second < 1 || !sceneFlag(scene, "OUTD"))
+        return false;
+    tint = {rules.nightPictures[0], rules.nightPictures[1], rules.nightPictures[2]};
+    return true;
+}
+
+void replaceLights(Ac2Scene &scene) {
+    // Found by 0x42d2e0, copied by the light's vtable +0x38.
+    for (size_t i = 0; i < scene.records.size();) {
+        const Ac2Record &r = scene.records[i];
+        if (r.tag != "LITE" || r.i("b6c") == 0) {
+            i++;
+            continue;
+        }
+        for (size_t j = 0; j < i; j++)
+            if (scene.records[j].tag == "LITE" && scene.records[j].i("index") == r.i("index")) {
+                scene.records[j].fields = r.fields;
+                break;
+            }
+        scene.records.erase(scene.records.begin() + std::ptrdiff_t(i));
+    }
+}
+
+std::string nightPictureFile(const std::string &file, const GameState &state,
+                             const std::function<bool(const std::string &)> &has) {
+    // Time exactly 2; "_night" before the last four characters, kept only
+    // if there is such a file (ac.exe 0x4080f9, 0x403c20).
+    const auto t = state.values.find("time");
+    if (!state.game || !state.game->lighting.nightFiles || t == state.values.end() || t->second != 2 ||
+        file.size() <= 4)
+        return file;
+    const std::string night = file.substr(0, file.size() - 4) + "_night" + file.substr(file.size() - 4);
+    return has(night) ? night : file;
+}
+
 std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state) {
     std::vector<bool> out;
     for (const Ac2Record *o : scene.objects())
@@ -52,15 +108,17 @@ std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state)
     return out;
 }
 
-SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions) {
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions,
+                            const std::map<const Ac2Record *, bool> &switched) {
     const auto time = state.values.find("time");
     const bool night = nightLighting(scene, time == state.values.end() ? 0 : time->second);
+    const LightingRules rules = state.game ? state.game->lighting : LightingRules{};
     SceneLighting out;
-    // The ambient light: the camera's (0.3125 from its constructor without
-    // one); at night a fixed blue, lighter outdoors (0x401100, 0x4010a0).
+    // The ambient light: the camera's (its constructor's grey without one);
+    // at night a fixed blue, lighter outdoors (0x401100, 0x4010a0).
     // (A scene showing "spotlight.tga" would have white instead indoors,
     // and keep its lights at night; none does.)
-    const Rgb fallback{0.3125f, 0.3125f, 0.3125f};
+    const Rgb fallback{rules.cameraAmbient, rules.cameraAmbient, rules.cameraAmbient};
     if (!night)
         out.ambient =
             throughByte(scene.camera() ? rgb(*scene.camera(), "ambientR", "ambientG", "ambientB", fallback) : fallback);
@@ -68,17 +126,24 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
         out.ambient = throughByte({0.2734375f, 0.3515625f, 0.546875f});
     else
         out.ambient = throughByte({0.234375f, 0.2734375f, 0.4296875f});
-    // The lights (0x420ee0): all off at night; otherwise each that's on,
-    // shown (its condition holding) and not just for the shadows. Missing
-    // fields keep the LITE constructor's values (0x420cb0).
-    if (night)
+    // The lights (0x420ee0): all off at night (And Then There Were None
+    // spares some: 0x41d760); otherwise each that's on, shown (its condition
+    // holding) and not just for the shadows. Missing fields keep the LITE
+    // constructor's values (0x420cb0).
+    if (night && !rules.nightSparesLights)
         return out;
+    const bool outdoors = sceneFlag(scene, "OUTD");
     const std::vector<const Ac2Record *> objects = scene.objects();
     for (size_t i = 0; i < objects.size(); i++) {
         const Ac2Record *o = objects[i];
+        // On as its "on" says, or as "light <name> on|off" switched it.
         const Ac2Value *on = o->field("on");
-        if (o->tag != "LITE" || (on && on->i() == 0) || o->i("shadowOnly") != 0 ||
+        const auto sw = switched.find(o);
+        const bool lit = sw != switched.end() ? sw->second : !(on && on->i() == 0);
+        if (o->tag != "LITE" || !lit || o->i("shadowOnly") != 0 ||
             !(i < conditions.size() ? conditions[i] : testCondition(o->text("condition"), state)))
+            continue;
+        if (night && !outdoors && !scene.fromAct(o) && o->i("b6c") == 0)
             continue;
         const Ac2Value *type = o->field("type");
         const int t = type ? type->i() : 1;
@@ -86,14 +151,15 @@ SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const
             continue;
         SceneLight l;
         l.type = SceneLight::Type(t);
-        l.diffuse = rgb(*o, "diffuseR", "diffuseG", "diffuseB", fallback);
+        l.diffuse =
+            rgb(*o, "diffuseR", "diffuseG", "diffuseB", {rules.lightDiffuse, rules.lightDiffuse, rules.lightDiffuse});
         l.ambient = rgb(*o, "ambientR", "ambientG", "ambientB", {});
         l.specular = rgb(*o, "specularR", "specularG", "specularB", {});
         l.position = {num(*o, "x", 0), num(*o, "y", 0), num(*o, "z", 0)};
         l.direction = {num(*o, "dirX", -1), num(*o, "dirY", -1), num(*o, "dirZ", -100)};
         l.range = num(*o, "range", 10000);
-        l.attenuation[0] = num(*o, "att0", 0.1f);
-        l.attenuation[1] = num(*o, "att1", 0.001f);
+        l.attenuation[0] = num(*o, "att0", rules.att0);
+        l.attenuation[1] = num(*o, "att1", rules.att1);
         l.attenuation[2] = num(*o, "att2", 0);
         // No attenuation at all would be refused: a little linear instead.
         if (l.type != SceneLight::Type::kDirectional && l.attenuation[0] + l.attenuation[1] + l.attenuation[2] == 0)

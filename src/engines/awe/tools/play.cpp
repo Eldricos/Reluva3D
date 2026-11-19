@@ -12,6 +12,8 @@
 //   use|<scene>|<object>|<n>|<choices>|<item>
 //   combine|<scene>|||<choices>|<item>+<item>...
 //   flip|<scene>|||<choices>|<item>       an item's back looked at
+//   examine|<scene>|||<choices>|<item>+...  items examined in the game's own inventory (attwn's tray)
+//   wait|<scene>|<seconds>||              time let pass (attwn's timer, stopped otherwise in the tools)
 //   decombine|<scene>|||<choices>|<item>  an item taken apart
 //   travel|<scene>|<car>||<choices>       the bar's car (1 baggage .. 5 Athens)
 //   compare|<scene>|||<choices>|<card>+<card>  two fingerprint cards under the magnifier
@@ -21,7 +23,8 @@
 //
 // A seventh field, "<object>#<n>", clicks that object as soon as it can
 // be clicked while what the action started still runs (the game lets a
-// click in between a script's "unlock" and "lock").
+// click in between a script's "unlock" and "lock"); an eighth, a number
+// of seconds let pass first (attwn's timer).
 //
 // <choices> are the dialogue's choices taken while it ran ("2.1.1": the
 // second offered, then the first...); past them, the choice taken least
@@ -29,6 +32,7 @@
 // settles.
 
 #include "engines/awe/tools/tools.h"
+#include "engines/awe/games.h"
 
 #include "backends/platform/sdl3/sdl_system.h"
 #include "common/archive.h"
@@ -64,6 +68,7 @@ struct Action {
     std::vector<int> choices; // taken (or to take) at each choice
     std::vector<int> offered; // how many there were at each (not written)
     std::string then;         // clicked while it runs ("name#n")
+    int wait = 0;             // seconds let pass first (GameState::clock)
 };
 
 std::vector<std::string> split(const std::string &s, char sep) {
@@ -89,10 +94,12 @@ std::string toLine(const Action &a) {
         choices += (choices.empty() ? "" : ".") + std::to_string(c + 1);
     std::string line =
         a.kind + "|" + a.scene + "|" + a.target + "|" + (a.target.empty() ? "" : std::to_string(a.n)) + "|" + choices;
-    if (!a.item.empty() || !a.then.empty())
+    if (!a.item.empty() || !a.then.empty() || a.wait)
         line += "|" + a.item;
-    if (!a.then.empty())
+    if (!a.then.empty() || a.wait)
         line += "|" + a.then;
+    if (a.wait)
+        line += "|" + std::to_string(a.wait);
     return line;
 }
 
@@ -115,6 +122,8 @@ bool fromLine(const std::string &line, Action &a) {
         a.item = f[5];
     if (f.size() > 6)
         a.then = f[6];
+    if (f.size() > 7)
+        a.wait = std::atoi(f[7].c_str());
     return true;
 }
 
@@ -122,17 +131,18 @@ bool fromLine(const std::string &line, Action &a) {
 // game to settle, and looks at the story state.
 class Player {
 public:
-    Player(DirectoryArchive &files, double limit, System *threeD = nullptr, bool characters = false, bool sound = false)
+    Player(const Archive &files, const GameInfo *game, double limit, System *threeD = nullptr, bool characters = false,
+           bool sound = false)
         : _limit(limit) {
         _sys.threeD = threeD;
         _sys.characters = characters;
-        _screen.create(kScreenW, kScreenH, PixelFormat::kRGBA32);
+        _screen.create(game ? game->width : kScreenW, game ? game->height : kScreenH, PixelFormat::kRGBA32);
         // With sound, a mixer the game's clock drives (no device): voices
         // and waited-for sounds take their own time, and lines play out.
         if (sound)
             _mixer = std::make_unique<audio::Mixer>(kMixRate);
         // The fonts, for -shot's boxes and captions.
-        const bool haveFonts = !_fonts.load(files);
+        const bool haveFonts = !_fonts.load(files, game ? game->fonts : std::vector<GameFont>());
         _ctx =
             std::make_unique<ViewerContext>(ViewerContext{_sys,
                                                           files,
@@ -141,9 +151,10 @@ public:
                                                           std::filesystem::temp_directory_path() / "reluva-awe-solve",
                                                           haveFonts ? &_fonts : nullptr,
                                                           {},
-                                                          -1});
+                                                          -1,
+                                                          game});
         // As reluva runs it: without the scene browser, its overlays or keys.
-        _page = std::make_unique<ScenePage>(*_ctx, ScenePage::Browser::kOff);
+        _page = std::make_unique<ScenePage>(*_ctx);
         _page->cutLines = !sound;
         _page->onLog = [this](const std::string &l) {
             _log.push_back(l);
@@ -166,6 +177,9 @@ public:
         };
         _page->setDrawing(false);
         _page->activate();
+        // The timer stopped but for "wait": the same route the same by the
+        // mouse, by the hand and with sound, whatever time its lines take.
+        _page->clockRuns = false;
         _page->chooser = [this](const std::vector<std::string> &choices) { return choose(choices); };
         _page->watchConditions([this](std::string_view clause, bool holds) {
             if (_watching)
@@ -226,7 +240,8 @@ public:
     }
     std::vector<std::string> &log() { return _log; }
     bool credits() const { return _credits; }
-    std::string problem; // why the last action failed, if it did
+    std::string problem;      // why the last action failed, if it did
+    std::set<int> timerWaits; // the waits the timer's conditions so far ask for, in seconds
     // What could be clicked while the last action's scripts ran
     // ("scene|name#n").
     std::set<std::string> inBetween;
@@ -304,7 +319,7 @@ public:
         std::vector<Action> out;
         ScenePage &p = *_page;
         const std::string scene = p.status().scene;
-        if (scene.rfind("menu.", 0) == 0)
+        if (p.inMenu())
             return out;
         if (!p.puzzleOpen().empty() && !p.puzzleSolved()) {
             Action a;
@@ -361,6 +376,24 @@ public:
             a.item = item;
             out.push_back(a);
         }
+        for (const std::vector<std::string> &items : p.examinable()) {
+            Action a;
+            a.kind = "examine";
+            a.scene = scene;
+            for (const std::string &item : items)
+                a.item += (a.item.empty() ? "" : "+") + item;
+            out.push_back(a);
+        }
+        // Time let pass, as long as the timer's conditions so far ask.
+        for (const int s : timerWaits) {
+            if (p.gameState().clock >= float(s))
+                continue; // waited that long already
+            Action a;
+            a.kind = "wait";
+            a.scene = scene;
+            a.target = std::to_string(s);
+            out.push_back(a);
+        }
         for (const auto &[person, thing] : p.matchingPrints()) {
             Action a;
             a.kind = "compare";
@@ -392,6 +425,8 @@ public:
         _counts.clear();
         ScenePage &p = *_page;
         bool ok = true;
+        if (a.wait)
+            p.passTime(float(a.wait));
         if (a.kind == "new") {
             p.startAt("new");
             _credits = false;
@@ -447,6 +482,12 @@ public:
             ok = p.flipItem(a.item);
             if (!ok)
                 problem = "can't look at the back of " + a.item;
+        } else if (a.kind == "wait") {
+            p.passTime(float(std::atof(a.target.c_str())));
+        } else if (a.kind == "examine") {
+            ok = p.examineItems(split(a.item, '+'));
+            if (!ok)
+                problem = "can't examine " + a.item;
         } else if (a.kind == "run") {
             // A script run as a scene's (for looking into things; not a
             // player's).
@@ -456,6 +497,8 @@ public:
             // scripts are done.
             ok = p.puzzleOpen() == a.target;
             for (int n = 0; ok && n < 1000 && !p.puzzleSolved(); n++) {
+                if (p.puzzleOpen() != a.target)
+                    break; // solved and left (attwn's deposit boxes)
                 if (!p.puzzleStep()) {
                     ok = false;
                     break;
@@ -482,6 +525,15 @@ public:
         if (ok)
             ok = settle();
         _watching = false;
+        // The timer's conditions tested: a wait as long as each asks.
+        for (const auto &[clause, held] : tested) {
+            const size_t at = clause.find("timer ");
+            if (at == std::string::npos)
+                continue;
+            const std::string n = clause.substr(at + 6);
+            if (!n.empty() && (n[0] == '<' || n[0] == '>'))
+                timerWaits.insert(std::atoi(n.c_str() + 1) + 1);
+        }
         if (ok && !_then.empty())
             ok = false, problem = _then + " couldn't be clicked while it ran";
         a.choices = _taken;
@@ -497,6 +549,10 @@ public:
         const GameState &s = _page->gameState();
         out.insert("act " + s.act);
         out.insert("scene " + s.scene);
+        // And Then There Were None's timer, stopped in the tools but for
+        // "wait" (its whole seconds).
+        if (s.game && s.game->clock)
+            out.insert("timer " + std::to_string(int(s.clock)));
         out.insert("last " + s.lastScene); // "lastscene" is tested (where the shoes are compared)
         for (const auto &[name, v] : s.tags)
             out.insert("tag " + name + " " + std::to_string(v));
@@ -607,6 +663,12 @@ private:
             g.car = std::atoi(a.target.c_str());
         } else if (a.kind == "combine") {
             g.kind = ScenePage::HandGoal::Kind::kCombine;
+            g.items = split(a.item, '+');
+        } else if (a.kind == "examine" ||
+                   (a.kind == "decombine" && p.gameState().game && p.gameState().game->overlay)) {
+            // (The game's own inventory takes one item apart as it puts
+            // more together.)
+            g.kind = a.kind == "examine" ? ScenePage::HandGoal::Kind::kExamine : ScenePage::HandGoal::Kind::kCombine;
             g.items = split(a.item, '+');
         } else if (a.kind == "flip") {
             g.kind = ScenePage::HandGoal::Kind::kFlip;
@@ -797,7 +859,7 @@ void wander(Player &player, size_t at, Wander &w) {
     for (size_t k = 0; k < w.steps; k++) {
         std::vector<Action> can = player.actions();
         const ScenePage::GameStatus st = player.page().status();
-        if (st.scene.rfind("menu.", 0) == 0 || player.credits())
+        if (player.page().inMenu() || player.credits())
             break;
         w.scenes.insert(st.scene);
         if (can.empty()) {
@@ -887,9 +949,9 @@ bool replay(Player &player, std::vector<Action> &path, bool print, size_t &done,
             return false;
         }
         done++;
-        if (reloadEach && player.page().status().scene.rfind("menu.", 0) != 0)
+        if (reloadEach && !player.page().inMenu())
             reloadAndCompare(player, done, a);
-        if (w && w->every && done % w->every == 0 && player.page().status().scene.rfind("menu.", 0) != 0)
+        if (w && w->every && done % w->every == 0 && !player.page().inMenu())
             wander(player, done, *w);
     }
     return true;
@@ -914,11 +976,14 @@ int aweCommandSolve(int argc, char **argv) {
     // reluva-tool awe game-run <game> -play <file> [-list] [-reload] [-log n] [-mouse] [-3d [-draw] | -characters]
     // [-sound] [-wav file]
     //     [-shot n|<n>c<k> out.tga]... [-shots dir] [-v]
-    DirectoryArchive files;
-    if (Error e = files.open(argv[2])) {
+    // As the game opens them (attwn's renamed and scrambled ones).
+    std::unique_ptr<reluva::Archive> archive;
+    const GameInfo *game = nullptr;
+    if (reluva::Error e = reluva::awe::openInstall(argv[2], archive, &game)) {
         std::fprintf(stderr, "%s\n", e.message.c_str());
         return 1;
     }
+    const reluva::Archive &files = *archive;
     std::string solveTo;
     std::string playFile;
     std::string fromFile;
@@ -1018,7 +1083,7 @@ int aweCommandSolve(int argc, char **argv) {
     // nowhere), so their routines run and the pick finds them.
     // -sound: the voices and sounds played, by a mixer the game's clock
     // drives, and lines left to play out; -wav <file> keeps what's mixed.
-    Player player(files, limit, window.get(), characters, sound);
+    Player player(files, game, limit, window.get(), characters, sound);
     player.recording = !wavFile.empty();
     player.mouse = mouse;
     if ((player.drawing = draw))
@@ -1109,18 +1174,27 @@ int aweCommandSolve(int argc, char **argv) {
         std::fprintf(stderr, "can't read %s\n", fromFile.c_str());
         return 1;
     }
+    size_t done = 0;
     if (start.empty()) {
+        // A new game, then the main menu's New Game.
         Action n;
         n.kind = "new";
-        start.push_back(n);
+        std::vector<Action> menu{n};
+        if (!replay(player, menu, verbose, done)) {
+            std::printf("a new game doesn't start\n");
+            return 1;
+        }
         Action play;
         play.kind = "click";
-        play.scene = "menu.main_01.ac2";
-        play.target = "playover";
-        start.push_back(play);
-    }
-    size_t done = 0;
-    if (!replay(player, start, verbose, done)) {
+        play.scene = player.page().status().scene;
+        play.target = game ? game->flow.newGame : GameFlow().newGame;
+        start = {n, play};
+        menu = {play};
+        if (!replay(player, menu, verbose, done)) {
+            std::printf("the start doesn't play (%s)\n", play.target.c_str());
+            return 1;
+        }
+    } else if (!replay(player, start, verbose, done)) {
         std::printf("the start doesn't play (%zu of %zu)\n", done, start.size());
         return 1;
     }
@@ -1279,6 +1353,15 @@ int aweCommandSolve(int argc, char **argv) {
                 std::printf("  (restored state differs from the one saved)\n");
         }
         std::vector<Action> todo = player.actions();
+        // A scene with nothing to click, only the inventory: a dead end,
+        // without trying every combination there first (And Then There
+        // Were None's conversations cut to close-ups). (Not Orient
+        // Express's: its route was searched without this.)
+        const GameInfo *playing = player.page().gameState().game;
+        if (playing && playing->overlay && std::none_of(todo.begin(), todo.end(), [](const Action &a) {
+                return a.kind == "click" || a.kind == "use";
+            }))
+            todo.clear();
         const std::string fromAct = player.page().status().act;
         // The story without the scene: what the inventory's actions and
         // the bar's travel do doesn't depend on the scene they're done in
@@ -1294,7 +1377,7 @@ int aweCommandSolve(int argc, char **argv) {
         for (size_t k = 0; k < todo.size() && !advanced; k++) {
             Action a = todo[k];
             if (a.kind == "flip" || a.kind == "combine" || a.kind == "decombine" || a.kind == "compare" ||
-                a.kind == "travel") {
+                a.kind == "travel" || a.kind == "wait") {
                 std::string once = a.kind + "|" + a.target + "|" + a.item;
                 for (int c : a.choices)
                     once += "." + std::to_string(c);
@@ -1352,6 +1435,23 @@ int aweCommandSolve(int argc, char **argv) {
                         v.choices.push_back(alt);
                         todo.push_back(v);
                     }
+            // And after a wait, if it tested the timer and waiting would
+            // change what it found (Brent's "It's done" 30 seconds on).
+            if (todo[k].wait == 0)
+                for (const auto &[clause, held] : player.tested) {
+                    const size_t at = clause.find("timer ");
+                    if (at == std::string::npos)
+                        continue;
+                    const std::string n = clause.substr(at + 6);
+                    const int need = n.empty() || (n[0] != '<' && n[0] != '>') ? 0 : std::atoi(n.c_str() + 1) + 1;
+                    const float clock = player.page().gameState().clock;
+                    if (need > 0 && clock < float(need)) {
+                        Action v = todo[k];
+                        v.wait = need - int(clock);
+                        todo.push_back(v);
+                        break;
+                    }
+                }
             // And with a click while it ran, on each thing that could be
             // clicked then.
             if (todo[k].then.empty())
@@ -1362,8 +1462,16 @@ int aweCommandSolve(int argc, char **argv) {
                     todo.push_back(v);
                 }
             const ScenePage::GameStatus st = player.page().status();
-            if (st.scene.rfind("menu.", 0) == 0 && !player.credits())
+            if (player.page().inMenu() && !player.credits())
                 continue; // a menu: not the way on
+            // The player hidden everywhere once it's all over: a dead end
+            // (And Then There Were None's Wargrave in 4A hides Narracott,
+            // and the line that shows him again was cut from the table:
+            // he couldn't be clicked again, the embrocation of 6C not
+            // used on him).
+            if (const GameInfo *g = player.page().gameState().game;
+                g && g->overlay && player.page().gameState().tags.count(std::string("hide_") + g->talk.player))
+                continue;
             const std::set<std::string> f = player.features(false);
             const std::string key = joinFeatures(f);
             if (verbose && key != node.key) {
@@ -1383,8 +1491,17 @@ int aweCommandSolve(int argc, char **argv) {
                 deadRuns[memoKey] = player.tested, deadCount++;
             int novel = 0;
             for (const std::string &s : player.features(true))
-                if (seenFeatures.insert(s).second)
-                    novel++;
+                if (s.rfind("timer ", 0) != 0 && seenFeatures.insert(s).second)
+                    novel++; // (not the time waited: that's never a reason to go on)
+            // For a game with its own inventory, something clickable never
+            // seen in the scene before is new too (And Then There Were
+            // None's projector bulb, which shows once the drawers above it
+            // are shut).
+            std::vector<std::string> clickNew;
+            if (const GameInfo *g = player.page().gameState().game; g && g->overlay)
+                for (const std::string &c : player.page().clickables())
+                    if (seenFeatures.insert("can " + st.scene + "|" + c).second)
+                        novel++, clickNew.push_back(c);
             if (!seenKeys.insert(key).second)
                 continue;
             steps.push_back({node.path, a});
@@ -1452,8 +1569,12 @@ int aweCommandSolve(int argc, char **argv) {
             // isn't a reason to look round the whole train again.)
             int novelHere = 0;
             for (const std::string &x : player.features(true))
-                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && (x.rfind("tag ", 0) != 0 || storyTag(x)))
+                if (x.rfind("scene ", 0) != 0 && x.rfind("talk ", 0) != 0 && x.rfind("timer ", 0) != 0 &&
+                    (x.rfind("tag ", 0) != 0 || storyTag(x)))
                     novelHere += seenHere.insert(st.scene + "|" + storyOf(x)).second;
+            novelHere += int(clickNew.size());
+            // A wait as long as a condition asked: what it allows is new.
+            novelHere += a.kind == "wait";
             n.tier = novelHere ? 0 : 1;
             for (const Action &next : player.actions())
                 n.promise |= next.kind == "use";

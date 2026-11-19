@@ -9,6 +9,7 @@
 #include "image/image.h"
 #include "common/types.h"
 #include "video/bink.h"
+#include "engines/awe/ui/game_overlay.h"
 #include "engines/awe/formats/ac2.h"
 #include "engines/awe/game/actor.h"
 #include "engines/awe/game/conditions.h"
@@ -53,29 +54,28 @@ struct GameOptions {
 /**
  * The game: its scenes (Locations/<location>/<scene>.ac2) shown and
  * played, with the scripts, the characters, the conversations and the
- * game's screens.
+ * game's screens. A game starts when the page is shown.
  *
- * With the scene browser on (the data viewer's Scenes page, and the
- * tools'), it opens on the scenes' files, each shown with its hotspots and
- * what it holds; Left/Right and the browser's other keys step through them
- * and show more, and N starts a game, where the keys the game doesn't take
- * still go to the browser. With it off (reluva's), a game starts when the
- * page is shown, and nothing reaches the browser.
+ * The data viewer's Scenes page (SceneBrowser, pages/scene_browser.h) is
+ * this page with the scene browser over it, through the hooks below;
+ * reluva has none of it.
  */
+namespace motoe {
+struct TornLetter;
+struct Safe;
+struct PuzzleBox;
+} // namespace motoe
+namespace attwn {
+struct DepositBox;
+} // namespace attwn
+
 class ScenePage : public Page, public ScriptHost, public DialogueHost {
 public:
-    /** Whether the scene browser, a part of the data viewer, is reachable. */
-    enum class Browser { kOn, kOff };
-
-    /**
-     * @param gameTitle The window's title without the browser (reluva's):
-     *                  the game's name. With it, the title is the page's
-     *                  and the scene file's, for the viewer.
-     */
-    ScenePage(ViewerContext &ctx, Browser browser, std::string gameTitle = {});
+    /** @param gameTitle The window's title: the game's name. */
+    explicit ScenePage(ViewerContext &ctx, std::string gameTitle = {});
     ~ScenePage() override;
-    // The viewer's page name, or the game's (its screenshots are named after it).
-    const char *name() const override { return _browser ? "Scenes" : "Game"; }
+    // The game's screenshots are named after it.
+    const char *name() const override { return "Game"; }
     size_t count() const override { return _names.size(); }
     void activate() override;
     void deactivate() override;
@@ -118,6 +118,13 @@ public:
         bool fading = false;
     };
     GameStatus status() const;
+    // For the tools: And Then There Were None's timer (GameState::clock)
+    // stopped, so a route doesn't depend on how fast its lines go by, and
+    // time passed on purpose.
+    bool clockRuns = true;
+    void passTime(float seconds) { _state.clock += seconds; }
+    /** Whether it shows one of the game's menus, the main menu among them. */
+    bool inMenu() const { return inMenuScene() || atMainMenu(); }
     // The hotspots and characters that could be clicked now, and a click
     // on one (its script run, as a click runs it).
     std::vector<std::string> clickables() const;
@@ -148,6 +155,10 @@ public:
     // taken apart (the combine page's right-hand box, then the gears).
     std::vector<std::string> decombinable();
     bool decombineItem(const std::string &item);
+    // The game's own inventory's Examine (GameOverlay::examinable): what
+    // it would do something with now, and those items examined.
+    std::vector<std::vector<std::string>> examinable() const;
+    bool examineItems(const std::vector<std::string> &items);
     // For a player that searches (reluva-tool awe game-run -solve): the story
     // state; the game saved to memory and loaded from it as the save and
     // load screens do; who picks the dialogue's choices (the index, or -1
@@ -201,9 +212,9 @@ public:
     // boxes and turns the gears; and so on. So a route can be played by
     // the mouse and keys alone (awe game-run -hand).
     struct HandGoal {
-        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare } kind = Kind::kClick;
+        enum class Kind { kClick, kUse, kTravel, kCombine, kFlip, kCompare, kExamine } kind = Kind::kClick;
         size_t target = 0;              // Click, Use: the clickable
-        std::vector<std::string> items; // Use, Flip: the item; Combine: the parts; Compare: person, thing
+        std::vector<std::string> items; // Use, Flip: the item; Combine, Examine: the parts; Compare: person, thing
         int car = 0;                    // Travel
         bool done = false;              // the last input made
         bool failed = false;            // no way to do it from here
@@ -215,6 +226,8 @@ public:
         uint32_t key = 0;
     };
     HandInput handStep(HandGoal &goal);
+    // The same through the game's own inventory (GameOverlay::hand).
+    HandInput handStepOverlay(HandGoal &goal);
     // The window and hand as words (for a tool's report).
     std::string handState() const;
     // What the game asks of a player while it runs: a movie skipped
@@ -223,7 +236,27 @@ public:
     // clicked through once a click ends it.
     HandInput handWhileRunning();
 
+protected:
+    // The viewer's hooks (SceneBrowser); the game's do nothing.
+    /** What's shown when the page is: a new game. */
+    virtual void showFirst() { newGame(); }
+    /** A scene about to be loaded. */
+    virtual void sceneLoading() {}
+    /** Drawn over the scene's pictures (`objects` its objects shown), under the interface. */
+    virtual void drawOverlays(const std::vector<const Ac2Record *> & /*objects*/) {}
+    /** Drawn last, under the cursor. */
+    virtual void drawFooter() {}
+    /** The window's title. */
+    virtual std::string windowTitle() { return gameTitle(); }
+    /**
+     * A mouse move, or a key the game didn't take; whether it was used.
+     * The game's own come first.
+     */
+    virtual bool viewerEvent(const Event & /*ev*/) { return false; }
+
 private:
+    friend class SceneBrowser;
+
     // A character placed in the scene, animated as the game animates
     // them (Actor).
     struct Character {
@@ -263,6 +296,9 @@ private:
         bool turnFirst = false;
         bool turningFirst = false;
         bool running = false;
+        // The cell a click sent it to: clicked again while it walks there,
+        // it runs (0x440de5, ac.exe 0x436169).
+        WalkGrid::Cell clickedGoal;
         bool follower = false; // follows the player (FLLW, its COND holding)
         bool shadow = true;    // casts a shadow (MODL shadow, hideshadow/showshadow)
         float walkIn = 0;      // walking in: the distance left
@@ -324,7 +360,6 @@ private:
     void line(int x0, int y0, int x1, int y1, Color c);
     // A convex polygon (screen points), blended over the screen.
     void fillPolygon(const std::vector<std::pair<float, float>> &points, Color c, uint8_t alpha);
-    void drawGrid();
     // Walks the player's character to where the screen point is on the
     // floor, along a path through the grid.
     void walkTo(int sx, int sy);
@@ -362,6 +397,11 @@ private:
     // game's own format: Saved.Games/slot<N>.ac2 and .bmp, quick.ac2,
     // kept in Reluva's save folder for the game.
     std::filesystem::path savesFolder() const;
+    // The game's saves' extension and layout (GameInfo::saves).
+    std::string saveExtension() const;
+    SlotLayout slotLayout() const;
+    OptionsLayout optionsLayout() const;
+    SaveLayout saveLayout() const;
     SaveGame captureSave(const std::string &description) const;
     // "preload": the story state from a save; "load" then goes there.
     bool preload(const std::filesystem::path &file, bool fromGame);
@@ -374,6 +414,7 @@ private:
     // thumbnail), F2 quick save, F3 quick load. False if it isn't one.
     bool gameKey(uint32_t key);
     bool quickSave();
+    void saveLast();
     // The screen's message (0x4168c0): "Save Game" on the placard for 1.5
     // s after F2, put away early by a click or a key; and the caret's
     // blink, on and off every 0.33 s (0x414400).
@@ -412,9 +453,10 @@ private:
         int dragging = 0; // 1..3
     };
     std::unique_ptr<OptionsMenu> _optionsMenu;
-    // The puzzles (scene_puzzles.cpp; docs/engines/awe/games/motoe/systems/puzzles.md): the
-    // torn letter, the baggage car's safe, the puzzle box. Pictures they
-    // move and turn are drawn by overrides.
+    // Orient Express's puzzles (motoe/puzzles.cpp;
+    // docs/engines/awe/games/motoe/systems/puzzles.md): the torn letter, the
+    // baggage car's safe, the puzzle box. Pictures they move and turn are
+    // drawn by overrides.
     struct PictureOverride {
         float x = 0;
         float y = 0;
@@ -425,43 +467,23 @@ private:
         bool tint = false; // picked: blue x 0.75
     };
     std::map<const Ac2Record *, PictureOverride> _overrides;
-    struct TornLetter {
-        std::vector<const Ac2Record *> pieces;
-        int selected = -1;
-        bool dragging = false;
-        bool solved = false;
-        float topz = 0;
-        int dragX = 0;
-        int dragY = 0;
-    };
-    struct Safe {
-        const Ac2Record *dial = nullptr;
-        int spinning = 0; // 1 right, 2 left
-        float timer = 0;
-        float interval = 0.25f;
-        int number = 0;
-        int entered = 0;
-        int expected = 2;
-        bool opening = false; // a tool's step has pulled the handle
-    };
-    struct PuzzleBox {
-        int step = 0;
-        int selected = 0;
-        int misses = 0;
-        int state[5] = {0, 0, 0, 0, 0}; // by piece: 1 upper end, 2 lower end, 3 side, 4 lid
-        bool solved = false;
-    };
-    std::unique_ptr<TornLetter> _torn;
-    std::unique_ptr<Safe> _safe;
-    std::unique_ptr<PuzzleBox> _box;
+    // Orient Express's puzzles (motoe/puzzles.h, .cpp), behind the hooks
+    // below: the scene's PUZZ record opens one by its kind.
+    std::unique_ptr<motoe::TornLetter> _torn;
+    std::unique_ptr<motoe::Safe> _safe;
+    std::unique_ptr<motoe::PuzzleBox> _box;
+    // And Then There Were None's (attwn/puzzles.h, .cpp): the bookcase,
+    // which keeps nothing but its tags; the deposit boxes.
+    bool _bookcase = false;
+    std::unique_ptr<attwn::DepositBox> _deposit;
     unsigned _puzzleSeed = 1; // the game's rand()
-    bool puzzleActive() const { return _torn || _safe || _box; }
+    bool puzzleActive() const { return _torn || _safe || _box || _bookcase || _deposit; }
     void openPuzzle(const std::string &kind);
     void closePuzzle();
     void puzzleClick(int x, int y);
     void puzzleRelease(int x, int y);
     void puzzleUpdate(float seconds);
-    void puzzleAction(const std::string &word);
+    void puzzleAction(const std::string &word, const std::string &arg);
     bool puzzleCondition(const std::string &word) const;
     bool puzzleDraws(const Ac2Record &o) const;
     void drawPuzzleBox();
@@ -469,7 +491,18 @@ private:
     void saveTornPiece(int i);
     void snapTornPiece(int i);
     bool checkTornLetter();
+    // The bookcase and the deposit boxes.
+    void bookcaseAction(const std::string &word, const std::string &arg);
+    void openDepositBox();
+    void placeDepositLetters();
+    void saveDepositBox();
+    int depositSlotAt(int x, int y) const;
+    void depositClick(int x, int y);
+    void depositUpdate(float seconds);
+    bool depositSolved() const;
+    bool depositStep();
     // Safe.
+    const SafeRules &safeRules() const;
     void turnDial(int direction);
     void writeSafeTags();
     // The n-th object of the scene whose file's name is `file` (lower
@@ -526,8 +559,18 @@ private:
     std::unique_ptr<YesNo> _yesNo;
     void answer(bool yes);
     void drawYesNo();
+    YesNoLayout yesNoLayout() const;
     int yesNoAt(int x, int y) const; // 0 Yes, 1 No, -1 neither (0x4330c0)
     std::string interfaceText(const std::string &tag);
+    /** The window's title when playing: the game's, as it names its window. */
+    const std::string &gameTitle();
+    // The game's own window (GameInfo::overlay), made afresh for a game.
+    void makeOverlay();
+    // Whether the scene is one of the game's menus, and the main menu's.
+    bool inMenuScene() const;
+    bool atMainMenu() const;
+    // Whether a character's model (its file) is the one named `who` in the item tables.
+    bool isModel(const std::string &model, const std::string &who) const;
     // "movie <name> [inscene] [silent]" (0x40a725); false if there's no
     // such movie. endMovie: it's over (or skipped).
     bool startMovie(ScriptRunner &runner, const ScriptEvent &e, bool wait);
@@ -708,6 +751,16 @@ private:
     // Where a scene object or character is (x, z); false if there's none.
     bool objectAt(const std::string &name, float &x, float &z) const;
     Character *characterNamed(const std::string &who);
+    // The scene file named so (`_names`' index), as the game finds it for
+    // the act; -1 if none.
+    int sceneIndex(const std::string &name) const;
+    // Whether "globalhide" hides the object (its hide_ tag).
+    bool globallyHidden(const Ac2Record &o) const;
+    // A scene's place, by its name (GameFlow::placeOf).
+    std::string placeOf(const std::string &scene) const;
+    // A line's speaker's character: by name, else by the other names the
+    // game's dialogue tries (DialogueRules::speakerElse).
+    Character *speakerNamed(const std::string &who);
     // A prop's model (models\objects\...), loaded once; null if none.
     std::shared_ptr<GpuModel> propModel(const std::string &file);
     // A character's routine: its first IDLE entry whose condition holds.
@@ -716,16 +769,22 @@ private:
     void lineEnded(const std::string &speaker) override;
     void mouth(const std::string &speaker, bool on) override;
     int voiceLevel() override;
+    int textRows(const std::string &text) override;
 
     std::vector<std::string> _names;
     int _index = 0;
     Ac2Scene _scene;
-    std::vector<bool> _lightConditions; // the objects' conditions on entering (lighting.h)
-    std::string _base;                  // the base scene an act's variant is shown over
+    std::vector<bool> _lightConditions;                // the objects' conditions on entering (lighting.h)
+    std::map<const Ac2Record *, bool> _lightsSwitched; // "light <name> on|off" since entering
+    // The scene's pictures as the night tints them (LightingRules::nightPictures), by the picture.
+    std::map<const image::Image *, image::Image> _nightTinted;
+    std::array<float, 3> _nightTint{};
+    // The file each picture is drawn from (LightingRules::nightFiles), for
+    // the time of day it was found at.
+    std::map<const Ac2Record *, std::string> _pictureFiles;
+    int _pictureFilesTime = -1;
+    std::string _base; // the base scene an act's variant is shown over
     std::string _error;
-    int _selected = -1; // object highlighted, -1 none
-    bool _hotspots = true;
-    bool _info = true;
     bool _showCharacters = true;
     // What the scene's conditions test: the train moving or not (M), the
     // weather (W), the act of the scene's variant.
@@ -741,11 +800,8 @@ private:
     };
     std::map<const Ac2Record *, Scroll> _scrolls;
     bool scrollPictures(float dt); // whether any moved
-    // The camera's walk grid (G shows it), the cell under the mouse and
-    // the last path found.
+    // The camera's walk grid and the last path found.
     WalkGrid _grid;
-    bool _showGrid = false;
-    WalkGrid::Cell _hover;
     std::vector<WalkGrid::Cell> _path;
     // The scripts' state: tags, items and the act are state_'s.
     std::unique_ptr<ScriptRunner> _runner;
@@ -760,12 +816,26 @@ private:
     // and the runner waiting on it.
     std::unique_ptr<Story> _story;
     bool _playing = false;
-    bool _browser = true; // Browser::kOn
     std::string _gameTitle;
+    bool _titleRead = false;
     std::map<std::string, audio::SoundHandle> _music;
     std::map<std::string, std::array<float, 3>> _positions; // the player's x, z and heading, by scene file left
     float _fade = 0;
     float _fadeTarget = 0;
+    float _fadeWait = 0.01f; // till the screen fade's next step
+    // Objects fading in or out (GameFlow::objectFade): their alpha, 0 to
+    // 255, and their faded pictures.
+    struct ObjectFade {
+        int level = 0;
+        int step = 8; // -8 fading out
+        float wait = 0;
+        ScriptRunner *runner = nullptr;
+        std::string name;
+    };
+    std::map<const Ac2Record *, ObjectFade> _objectFades;
+    std::map<const Ac2Record *, std::pair<int, image::Image>> _fadedPictures;
+    void updateObjectFades(float dt);
+    void nightParticles(std::vector<ParticleSystem::Point> &points) const;
     // "movie": the one playing over everything, its subtitles, the runner
     // waiting on it; and whether a scene is shown (one not "inscene" is
     // left for the movie: black until the next scene).
@@ -773,6 +843,18 @@ private:
     // or a scene's in another place (after a fade out). Its scene files
     // are read one an update behind the loading screen; then the act's
     // Post Load runs, or the scene is shown and fades in.
+    // And Then There Were None's act change (GameFlow::actLoading): faded
+    // in to the loading picture, the act's characters a step each, faded
+    // out, then the start script and the "act" event over.
+    struct ActLoad {
+        int phase = 0; // 0 none, 1 fading in, 2 loading, 3 fading out
+        ScriptRunner *runner = nullptr;
+        bool start = true;
+        size_t step = 0;
+        size_t steps = 0;
+    } _actLoad;
+    void updateActLoad();
+    void drawActLoad();
     struct LocationLoad {
         int state = 0; // 0 none, 1 fading out, 2 loading, 3 fading the loading screen out, 4 fading the scene in
         bool forAct = false;
@@ -827,8 +909,15 @@ private:
     bool _grabDue = false;
     bool _quit = false;
     std::map<std::string, std::string> _interfaceTexts;
+    std::unique_ptr<OverlayHost> _overlayHost;
+    std::unique_ptr<GameOverlay> _overlay;
     ScriptRunner *_fadeRunner = nullptr;
-    std::string _dialogueAct = "-";               // the act whose table is loaded
+    std::string _dialogueAct = "-"; // the act whose table is loaded
+    // The places met since the act began, in turn (DialogueTables::places),
+    // and those whose tables are loaded.
+    std::string _placesAct;
+    std::vector<std::string> _actPlaces;
+    size_t _dialoguePlaces = 0;
     std::map<std::string, Table> _dialogueTables; // by file, as read
     audio::SoundHandle _voice = audio::kNoSound;
     std::shared_ptr<audio::Sound> _voiceSound; // for its level: the lips move
@@ -881,6 +970,7 @@ private:
     };
     std::map<const Ac2Record *, AloneTexture> _aloneTextures;
     void aloneTexture(const Ac2Record &o, const image::Image &img);
+    const std::string &pictureFile(const Ac2Record &o);
     std::map<std::string, gfx::TextureId> _pointTextures; // particles' textures, by file
     void drawPointSprites(const ParticleSystem &system);
     uint64_t _layersMade = 0; // a new scene's layers are new

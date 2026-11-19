@@ -1,0 +1,80 @@
+# And Then There Were None
+
+Game id `attwn`, the second game on the [AWE engine](../../README.md),
+after [Murder on the Orient Express](../motoe/README.md); its own code is
+in `src/engines/awe/attwn/`.
+
+## Releases
+
+| Release | Recognised by | State |
+|---|---|---|
+| English (retail, Windows, two CDs, 2005) | `ac.exe` and `Text/itemlist.act` | Playable from a new game to the credits |
+| Other releases | The same files and `granny2.dll`, whatever their contents (a fallback) | Not tried |
+
+## Where it stands
+
+Phases 1 and 2 of [PLAN.md](PLAN.md) are done:
+
+- **Its files:** the game is recognised, and every file of the install
+  is read as the game opens it, its renamed files by their ordinary names
+  and its text unscrambled ([formats/files.md](formats/files.md)).
+- **Its scenes:** all 537 (`.ac1`) are read, their cameras the same as
+  the game's Granny builds them, and the data viewer draws them at the
+  game's 800×600 with their characters ([formats/ac1.md](formats/ac1.md)).
+
+Phase 3, what differs from Orient Express in their shared code, is
+done: its script words ([systems/script.md](systems/script.md)), its
+dialogue tables and dialogue manager
+([systems/dialogue.md](systems/dialogue.md)), the path-finder, the same
+code in both
+([formats/ac1.md](formats/ac1.md#the-walk-grid-and-the-path-finder)),
+[lighting](systems/lighting.md), [shadows](systems/shadows.md), what the
+[interface](systems/interface.md) shares (the fonts, the dialogue box)
+and the [saves](systems/saves.md). What differs is in the per-game table
+(`games.h`), this game's entries in `attwn/attwn.cpp`.
+Phase 4, the game's own systems, is done: its chapters, places,
+cutscenes and title cards ([systems/acts.md](systems/acts.md)), the
+journal ([systems/journal.md](systems/journal.md)), suspicion, the menus,
+the save and load screens ([systems/saves.md](systems/saves.md)), the
+options screen ([systems/options.md](systems/options.md)) and the
+inventory ([systems/inventory.md](systems/inventory.md)). Phase 5 added
+the island's machines ([systems/script.md](systems/script.md#the-machines))
+and the puzzle screens ([systems/puzzles.md](systems/puzzles.md)), and a
+route from a new game to the credits plays by the mouse and by the hand
+([TESTING.md](TESTING.md)): the game is playable in `reluva`.
+
+## Using it
+
+Add the installed game's folder (the one holding `ac.exe`) in the
+launcher. Or import it from its two CDs, without installing: *Import
+Game...* (or *Add Game...*) on the first CD, then *Add other disc...*
+for the second, copies the game's files out of their cabinets
+([installshield.md](../../../../common/installshield.md)) into a folder
+of Reluva's, as the game's setup would install them: its "Program
+Executable Files" group with `ac.exe` and `readme.txt` (its "Txt Files")
+beside them, 5,865 files, 1.36 GB. `reluva-tool import <first CD>
+<folder> -patch <second CD>` does the same.
+
+- **The game:** playable: the launcher starts it at its main menu.
+- **The data viewer:** `reluva-viewer <entry>` or `reluva-viewer <game
+  folder>`: Scenes (the scenes' files, an act's version over its base;
+  their keys at the foot of the screen), Models, Movies, Pictures, Text
+  and Sounds; Tab moves between them.
+
+## This folder
+
+| Page | What's in it |
+|---|---|
+| This page | Where it stands, how to use it |
+| [formats/](formats/) | The game's files: [names and scrambled text](formats/files.md), [scenes (`.ac1`)](formats/ac1.md) |
+| [systems/](systems/) | How the game behaves: [chapters and places](systems/acts.md), [the script runner](systems/script.md), [dialogue](systems/dialogue.md), [the journal](systems/journal.md), [lighting](systems/lighting.md), [shadows](systems/shadows.md), [the interface](systems/interface.md), [saves and menus](systems/saves.md) |
+| [PLAN.md](PLAN.md) | The survey of the install, the phases, the decisions |
+| [KNOWN_DIFFERENCES.md](KNOWN_DIFFERENCES.md) | Where Reluva knowingly differs from the original |
+| [UNCONFIRMED.md](UNCONFIRMED.md) | What hasn't been confirmed against the original |
+| [TESTING.md](TESTING.md) | The tests, and what to check by hand |
+| [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | How it was worked out, and the tools |
+
+What the AWE games share is in the engine's folder:
+[Granny 2](../../formats/gr2.md). Orient Express's pages
+([../motoe/](../motoe/README.md)) describe the rest of the engine as that
+game has it, and are the map for this one.

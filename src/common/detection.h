@@ -3,12 +3,14 @@
 
 #pragma once
 
+#include "common/installshield.h"
 #include "common/types.h"
 #include "common/wise.h"
 
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -56,8 +58,13 @@ struct ImportPlan {
         uint64_t size = 0;
         // When `from` is an installer (a patch) holding the file: where.
         std::optional<WiseStream> packed;
+        // When `from` is `cabinet`'s header (data1.hdr): which of its files.
+        std::optional<size_t> cabinetFile;
     };
     std::vector<File> files;
+    // The cabinet files are taken out of (a game's CDs'), when there is
+    // one: kept while the plan waits for its other volumes, too.
+    std::shared_ptr<const InstallShieldCabinet> cabinet;
     std::vector<std::string> notes;
     // What else the person importing may add (MetaEngine::addToImport): a
     // patch's installer, and a folder (an expansion's CD, say), with how the

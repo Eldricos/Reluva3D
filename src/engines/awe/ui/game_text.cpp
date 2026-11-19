@@ -76,11 +76,7 @@ std::vector<std::filesystem::path> systemFontFiles(const std::string &name, bool
 
 } // namespace
 
-Error GameFonts::load(const Archive &files) {
-    std::vector<uint8_t> data;
-    if (Error e = files.read("text/fonts.txt", data))
-        return e;
-    const Table t = parseTable(decodeText(data));
+Error GameFonts::load(const Archive &files, const std::vector<GameFont> &fixed) {
     auto loadFont = [&](const std::string &file) -> ttf::Font * {
         auto it = _fonts.find(file);
         if (it == _fonts.end()) {
@@ -92,6 +88,23 @@ Error GameFonts::load(const Archive &files) {
         }
         return it->second.get();
     };
+    if (!fixed.empty()) {
+        for (const GameFont &f : fixed) {
+            TextStyle s;
+            s.use = f.use;
+            s.fontName = f.file;
+            s.points = f.points;
+            s.bold = f.bold;
+            s.font = loadFont(f.file);
+            s.pixels = s.font ? s.font->sizeForPoints(s.points) : s.points;
+            _styles.push_back(std::move(s));
+        }
+        return Error::success();
+    }
+    std::vector<uint8_t> data;
+    if (Error e = files.read("text/fonts.txt", data))
+        return e;
+    const Table t = parseTable(decodeText(data));
     // Two kinds of row under the same headings: a font (name, size, "bold"
     // or not, "shadow" or not, its use), then colours (A, R, G, B, use).
     for (const auto &row : t.rows) {
@@ -253,6 +266,12 @@ std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::stri
     }
     rows.push_back(row);
     return rows;
+}
+
+std::vector<std::string> lineRows(ttf::Font &font, float pixels, const std::string &text, int width) {
+    if (font.width(text, pixels) <= width)
+        return {text};
+    return gameRows(font, pixels, text, width);
 }
 
 } // namespace reluva::awe

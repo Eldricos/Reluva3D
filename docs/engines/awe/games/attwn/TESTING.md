@@ -1,0 +1,179 @@
+# And Then There Were None: testing
+
+## Automated checks
+
+### Unit tests
+
+`awe.unit.attwn` (`tests/engines/awe/unit/attwn.cpp`), on files made in
+the test: recognising the game, its file names, unscrambling `.act`
+([formats/files.md](formats/files.md)), reading a scene
+([formats/ac1.md](formats/ac1.md)), its own script words
+([systems/script.md](systems/script.md)), its dialogue tables,
+conversations played by its dialogue manager's rules
+([systems/dialogue.md](systems/dialogue.md)), its lights at night
+([systems/lighting.md](systems/lighting.md)), and its saves' layout
+([systems/saves.md](systems/saves.md)).
+
+### The basic engine test
+
+`awe.engine` (`tests/engines/awe/engine.cpp`), after Orient Express's,
+makes a small install of this game's kind, without any of its files:
+stand-ins for `ac.exe` and `granny2.dll`, its text scrambled as `.act`,
+`Chapter01` of one act, the main menu with its `reset` and New Game, and
+two `.ac1` scenes of a place's `Base` folder. It finds the game as the
+launcher does, then plays it, in the engine and in the data viewer: New
+Game, act 1A's first scene, a click that sets a tag, says `savelast`
+and goes on, a quick save (`last.ac1` and `quick.ac1`, read back in this
+game's layout). Its lines in
+`tests/engines/awe/data/engine-record.txt` start `attwn.`.
+
+Its second case, *import from CD*, puts that install in two CDs'
+cabinets as the game's are laid out (setup's own group, the game's on the
+first, `ac.exe` in "Txt Files" on the second), imports from the first,
+checks the plan says the second is still wanted, adds it, and checks the
+import is the install, file for file, found as the game. The cabinet
+reader's own cases (a file split across the CDs, one sharing another's
+data, a damaged byte) are in `common.unit.archives`.
+
+### The game-files test: with your own copy of the game
+
+As Orient Express's ([../motoe/TESTING.md](../motoe/TESTING.md)), from
+the same script (`tests/engines/awe/gamedata.cmake`), with
+`RELUVA_ATTWN` naming the folder that holds `ac.exe`:
+
+    RELUVA_ATTWN=/path/to/attwn ctest --test-dir build -R awe.attwn.gamedata
+
+| Step | What it runs |
+|---|---|
+| `awe.attwn.gamedata.release` | What the game is (`detect`) |
+| `awe.attwn.gamedata.files` | Every file read (`awe files-check`) |
+| `awe.attwn.gamedata.scripts` | Every script's commands counted, and the verbs Reluva doesn't know (`awe script-check`) |
+| `awe.attwn.gamedata.route-search` | A way from a new game to the credits, searched for (`awe game-run -solve`), kept in the build (`gamedata/awe.attwn/route.txt`) |
+| `awe.attwn.gamedata.route` | The whole game by it, four ways (`awe game-check -quick`) |
+| `awe.attwn.gamedata.endings` | The four codas: the route played back, and changed to let Lombard die in 9A (his five minutes waited out before the rescue), Vera in 10A (another of her room's hotspots clicked for the marble chunk), and both, each to the credits with the coda its movie names (`awe game-run -play -v`) |
+| `awe.attwn.gamedata.import` | The game imported from its two CDs (`import`, with `RELUVA_ATTWN_CDS` naming a folder that holds them, each in a folder of its own), each file compared with the installed game's; skipped without it |
+
+The records are in `tests/engines/awe/data/gamedata/attwn-english/`.
+
+### The whole game: `reluva-tool awe game-check`
+
+`awe game-check <game> <route.txt> -quick` plays a route four ways: by
+the mouse with sound, by the hand alone (every click, the inventory's
+panel and the conversations' choices made as a player's mouse does), saved
+and loaded after every action, and wandering off it. The search's route,
+2,162 actions from New Game to the projector's last film and the
+credits, passes all four.
+
+The search (`awe game-run <game> -solve`) takes some hours here, over
+several runs of the step, each going on from the last. On the way it
+needed what this game has of its own: the machines and the puzzle
+screens, its one timer, items lying about (`ITEM`), its inventory's
+Combine and Examine, the tools' clicks kept off its sack and journal.
+The tools stop the timer and let time pass by a wait, tried before an
+action whose conditions tested the timer (Brent's "It's done" thirty
+seconds after the fishing line), so a route plays the same however fast
+its lines go by. The search gives up a scene with nothing to click but
+the inventory (a conversation's close-up), and a state with the player
+hidden once all is over; and it counts
+something newly clickable as new (the projector's bulb shows once the
+drawers above it are shut).
+
+### What the automated checks don't cover
+
+Anything off the route but what wandering finds, and the codas' other
+ways (other hotspots in Vera's room); the original game played beside it,
+for want of recordings of it.
+
+## A playthrough by hand
+
+Things to try in a real window, on real hardware, that the checks don't
+or can't. Note the act and scene for anything that looks or sounds
+wrong, and if possible compare with the same moment of the footage.
+None of it has been played by a person yet; what a virtual display can
+show is in [Last checked](#last-checked).
+
+### Throughout
+
+- [ ] The window: the 800 by 600 picture keeps its shape at your window
+      or screen size.
+- [ ] Sound: music (the act's and the scenes' own, `musica`'s), effects,
+      voices and the rain; their volume sliders work; nothing crackles
+      or stops.
+- [ ] Frame rate: walking, rain and fog stay smooth; a fade takes a step
+      a frame, so about half a second at 60 frames a second (0.75 to 0.9
+      s in the footage).
+- [ ] The cursor: the verb over hotspots, doors and people; with an item
+      in hand, the empty ring and the item's picture beside it, or the
+      cog where it can be used.
+- [ ] The inventory: the sack opens it, or the right button or I; it
+      slides out in about two thirds of a second; a new item blinks the
+      sack; Examine and Combine.
+- [ ] The journal: the book opens it, its four tabs, the contents and
+      the back arrow, a new entry's blink.
+- [ ] Escape: the in-game menu (Resume, Save, Load, Options, Main Menu),
+      the inventory's close-up put away; at the main menu, the quit
+      question. F2 quick-saves, F3 quick-loads.
+- [ ] Walking: characters walk from their first step, and turn first
+      where they face away.
+
+### Options
+
+- [ ] Each option changes at once and is kept after quitting: music and
+      effects volumes, brightness, captions, shadows, animated water,
+      fog, rain and lightning, anti-aliasing.
+
+### Saving and loading
+
+- [ ] Save in each chapter, in a close-up, and mid-conversation, then
+      load: the scene, items, characters' places, the time of day and the
+      music come back; the journal shows what its entries' conditions
+      give.
+- [ ] A save's slot: its name, date and the 200 by 150 picture.
+- [ ] Load a save made by the original game, if you have one (its
+      threads are in this game's codes).
+- [ ] Leave a game for the main menu and press New Game: the loading
+      screen, chapter 1's title card, a new game.
+
+### Off the route
+
+- [ ] Use items on the wrong things and people: Narracott's "that won't
+      work"; combine the wrong items, take combined ones apart.
+- [ ] Talk to someone twice and in a later act; pick the choices the
+      route doesn't (Wargrave's "Anything else you'd like to add?" in 4A
+      plays to its end).
+- [ ] Wait out the 9A timer (Lombard dies) and let Vera die in 10A: the
+      four endings' codas.
+- [ ] The deposit boxes swapped wrongly; the safe dialed wrongly; the
+      bookcase's books on the wrong shelves.
+
+### Moments worth a close look
+
+- [ ] Chapter 1: the boat to the island, the dinner and the gramophone.
+- [ ] Chapter 2: the night (the rooms' own night pictures), the
+      flashlight.
+- [ ] Chapter 4: the power cut and the generator; the act's loading
+      screen between acts.
+- [ ] Chapter 5: the library's bookcase, the safe and the deposit boxes.
+- [ ] Chapter 6: the storm with the generator off, the embrocation.
+- [ ] Chapters 9 and 10: Lombard's rescue against the clock, Vera's room,
+      the screening room's projector, the coda and the credits.
+
+## Last checked
+
+| Date | Release | Platform | What was checked |
+|---|---|---|---|
+| 16 November 2026 | English (retail, two CDs) | Linux | The import from the CDs (`import` step): all 5,865 files the same as the installed game's and as `unshield x` gives, in about 12 s |
+| 16 November 2026 | English (retail, two CDs) | Linux, a virtual display | The route played by the mouse in a window (`awe game-run -play <route> -mouse -3d -draw -sound`, Vulkan on llvmpipe): all 2,162 actions to the credits, every frame drawn, the "both alive" coda, nothing but `sounda sfx\knock` missing (no such sound in the install); in about 3.5 hours. A save made through Escape, Save, a slot and OK, listed on the load screen with its 200 by 150 picture in the row |
+| 16 November 2026 | English (retail, two CDs) | Linux | Timings against the footage, at its 30 frames a second: the inventory panel's slide (0.63 s both ways, as Reluva's), the deposit boxes' swap (0.73 to 0.77 s after the second drawer, eight times; 0.75 in the code and Reluva), a chapter's title card (in 1.1 s, held 5.2, out 1.1; Reluva's 1.2, 5, 1.0), the screen's fades (0.75 to 0.9 s, one step a frame: fixed, Reluva's took as many steps as the time allowed); the object fades `fade in <object>` (fixed: Reluva's were at once) |
+| 16 November 2026 | English (retail, two CDs) | Linux | The four endings by the `endings` step: each plays to the credits with its own coda |
+| 15 November 2026 | English (retail, two CDs) | Linux | `awe.engine` with this game's half added; Orient Express's game-files steps again after the night pictures (all five passed) |
+| 15 November 2026 | English (retail, two CDs) | Linux | Scene by scene against gameplay footage: the footage's frames every 2 seconds matched to the scenes by their backgrounds (2,103 visits, 170 scenes), each scene shown by `awe page-shot` at the start of each of the chapter's acts, and 1,820 frames compared by the colour of a grid of cells: within 3% overall in every chapter. Fixed: the night's own pictures in 2A and 4C. The other differences were the story's state (the flashlight, the generator off, a movie on the screen) or a frame mid-fade |
+| 15 November 2026 | English (retail, two CDs) | Linux | Against gameplay footage (two playthroughs, by chapter): the logos, main menu, options, in-game menu and save screen, the title card, the dialogue box and its colours, the journal and the inventory, the flashlight, the safe and the deposit boxes, the front entrance at night (its pictures' night colour, fixed), the journal's back arrow (fixed), an ending |
+| 15 November 2026 | English (retail, two CDs) | Linux | Phase 5: the game-files steps, all five, the route the search's own (2,162 actions to the credits), `awe game-check -quick` on it all four ways passed |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 4 so far: `awe game-run <game> -v`, every act started with nothing undone; in the Scenes page a title card, the journal (contents and entries), the main and in-game menus, New Game, a save made, listed and loaded |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the rest: the lights counted over the 537 scenes; the dialogue box in the Scenes page, a line and a menu (`awe page-shot ... "run:act 01a, talk marston a forcegen"`); the fonts' face names from their files |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 3, the dialogue manager: the box's rule over the tables' Povents (three differ from Orient Express's), the codes over the tables, the talk command's words over the scripts (`talka` unused, no `+`) |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 3 so far: `awe script-check`, 5,614 commands; `awe path-check -all`, `ac.exe`'s path-finder against Reluva's, 88,000 searches, 0 mismatches |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 2: `awe files-check -ac2`, all 537 scenes and their cameras against `granny2.dll`; the Scenes page on the main menu, the entry hall and the kitchen in act 1B, with its characters (`awe page-shot -3d`) |
+| 14 November 2026 | English (retail, two CDs) | Linux | Phase 1: recognised by `reluva --detect`; `awe files-check -text -sound -gr2 -bik` read every file; the data viewer's pages |
+| 14 November 2026 | English (retail, two CDs) | Linux | The survey in [PLAN.md](PLAN.md): every Granny file read and its Oodle1 sections against the game's `granny2.dll`; every Bink file decoded, three against `binkw32.dll` |

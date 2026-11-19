@@ -193,15 +193,17 @@ In the market at the start of the game (Sirkeci.Market_03, measured
 under a software GPU, so the present isn't a real card's), the 2D went
 from 5 to 2.3 ms a frame and the characters from 9 to 3.4 ms.
 
-**Left to clean up:** the scene browser (the data viewer's Scenes
-page) is still code inside `ScenePage` (`src/engines/awe/game/`), so it's
-built into `reluva` too, though the game turns it off
-(`ScenePage::Browser::kOff`) and players can't reach it. Moving it out
-means splitting the page's scene loading and drawing into the game's part
-and a viewer layer over it in `pages/`.
-
 ## Using it
 
+- **Adding it.** Add the installed game's folder (the one holding
+  `motoe.exe`) in the launcher, or import it from its two CDs without
+  installing: *Import Game...* (or *Add Game...*) on the first CD, then
+  *Add other disc...* for the second, copies the game's files out of their
+  cabinets ([installshield.md](../../../../common/installshield.md)) into
+  a folder of Reluva's, as the game's setup would install them: its
+  "Program Executable Files" group with `motoe.exe`, `readme.txt` and
+  `ac.ico` (its "Txt Files") beside them, 7,875 files, 1.3 GB.
+  `reluva-tool import <first CD> <folder> -patch <second CD>` does the same.
 - **The game.** `reluva` starts it at its logos and main menu, as the
   original does. Escape is the game's (its menu, or a movie skipped); F12
   saves a screenshot. The window's title is the game's name, then the
@@ -217,6 +219,13 @@ and a viewer layer over it in `pages/`.
   F9 for the info panel, C for the characters, Up/Down for an object's
   fields), are the
   viewer's only: in `reluva` the game has none of them.
+
+The scene browser (the data viewer's Scenes page) is a layer of the
+viewer's over the game's page: `SceneBrowser` (`pages/scene_browser.cpp`)
+is `ScenePage` with its overlays (hotspots, the info, the object chosen,
+the walk grid), its keys, its help line and its title, through the
+page's hooks (`showFirst`, `drawOverlays`, `viewerEvent`...). It's built
+into `reluva-viewer` and `reluva-tool` only, not `reluva`.
 
 ## This folder
 
