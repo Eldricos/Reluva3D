@@ -155,13 +155,13 @@ void writeTrace(Qvm &vm, int32_t address, const TraceResult &t, int32_t entityNu
     vm.writeInt(address + 52, entityNum);
 }
 
-// A command line split into words as Quake III's Cmd_TokenizeString does:
-// at white space, a quoted string as one word, // comments ending it.
 Vec3f readVec3(const Qvm &vm, int32_t address) {
     return {Qvm::asFloat(vm.readInt(address)), Qvm::asFloat(vm.readInt(address + 4)),
             Qvm::asFloat(vm.readInt(address + 8))};
 }
 
+// A command line split into words as Quake III's Cmd_TokenizeString does:
+// at white space, a quoted string as one word, // comments ending it.
 std::vector<std::string> tokenize(const std::string &line) {
     std::vector<std::string> words;
     size_t i = 0;

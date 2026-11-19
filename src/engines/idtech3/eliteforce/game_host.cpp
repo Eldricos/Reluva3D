@@ -157,7 +157,7 @@ Error GameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp
     if (Error err = call(kInit, {_levelTime, randomSeed, 0}, ignored))
         return err;
     updateInfoConfigstrings();
-    // "Run a few frames to allow everything to settle", as the original does.
+    // A few frames to let things settle, as the original's server runs them.
     for (int i = 0; i < 3; ++i)
         if (Error err = runFrame())
             return err;

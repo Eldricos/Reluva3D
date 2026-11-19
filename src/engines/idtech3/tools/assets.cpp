@@ -120,7 +120,7 @@ int cmdModelCheck(int argc, char **argv) {
     Bytes data;
     std::multimap<std::string, std::string> imagesByStem;
     std::vector<std::string> models;
-    // what the maps use: shader names without extension, models
+    // What the maps use: shader names without extension, models.
     std::set<std::string> mapShadersBare;
     std::set<std::string> mapModels;
     std::vector<std::string> maps;
