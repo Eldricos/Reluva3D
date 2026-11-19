@@ -77,6 +77,14 @@ the revolver, the billiard room), read off its ticker:
   disprove it (23:24-23:38), accused at once, in the same turn, and was
   right: the game took 15 minutes, about ten rounds.
 
+## In Reluva
+
+`src/engines/clue/game/ai.h`: `Notebook` keeps what a computer player knows of
+who holds each card, and `ComputerPlayer` (`kNovice`, `kNormal`, `kExpert`)
+takes its turns from it; `Play` (`game/play.h`) runs them. `reluva-tool clue
+board <clue.lvl> <games> [novice|normal|expert players]` plays that many games
+of computer players on the board and reports how they went.
+
 ## Sources and checks
 
 **The recordings.** Read off each game's ticker, every turn and

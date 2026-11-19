@@ -115,6 +115,12 @@ the floor's units), else at volume 100 × (1 − distance / 500) of 127,
 panned 64 + 52 × dx / distance (0-127, 64 the middle) by how far it is
 to the right. Reluva does the same.
 
+## In Reluva
+
+`Play` (`src/engines/clue/game/play.cpp`) does the hot spots, the weather
+and the sounds; `playAsClueExe` (`game/play.h`) sets a sound's rate as
+`Clue.exe` does. The data viewer plays the game's sounds.
+
 ## Sources and checks
 
 - **Where the facts come from:** `clue.lvl` and the objects (`.o`), the

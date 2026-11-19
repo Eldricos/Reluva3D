@@ -29,6 +29,11 @@ at the cursor's centre, the conversation menu at its hotspot. The cursor id is
 the hotspot's cursor byte (0 over nothing, 15 in the reply menu and while lines
 are spoken). Palette entries 1..5 rotate every 300 ms in scenes.
 
+## In Reluva
+
+`Game::loadCursors` (`src/engines/stharbinger/game/game_video.cpp`) reads
+them, and the game draws the cursor over the screen.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

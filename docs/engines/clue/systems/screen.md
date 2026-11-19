@@ -140,6 +140,14 @@ last's and a space its cell and a pixel: "Miss Scarlet, it is your turn."
 is 169 pixels in the longplay (L 3:00) and the VM recording, 189 by
 cells, 172 packed.
 
+## In Reluva
+
+`Mansion` (`src/engines/clue/game/mansion.h`) draws the house, with what
+stands in front and the lighting as `MansionLook` sets them; `Play`
+(`game/play.h`) draws the bar, the panels and the windows over it. The data
+viewer's mansion page shows the house from above, scrolled, with the near
+walls on or off.
+
 ## Sources and checks
 
 - **Where the facts come from:** `Clue.exe` 2.2's code (the layout's run in

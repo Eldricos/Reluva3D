@@ -16,6 +16,13 @@ Most of the game's files are packed in archives of up to three files: an
 Entry *i* is `ALL[offset[i] .. offset[i+1]]`. Without a `.CAT`, entries are used by
 index (dialogue audio, script archives indexed by scene slot).
 
+## In Reluva
+
+`LstArchive` (`src/engines/stharbinger/formats/archive.h`) reads them, and
+`Resources` (`formats/resources.h`) opens them. `reluva-tool stharbinger
+files <game folder>` lists every file and the archive it comes from, and
+`extract <out folder> <game folder>` unpacks them.
+
 ## Sources and checks
 
 *Star Trek: Deep Space Nine – Harbinger* (Viacom New Media, 1996), DOS, two CDs.

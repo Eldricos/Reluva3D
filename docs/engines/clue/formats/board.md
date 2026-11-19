@@ -126,6 +126,13 @@ before its door, and its doors' squares one step from it; no square
 twice in a move, none another suspect stands on; a room ends the move,
 and the one left can't be entered again in the same turn.
 
+## In Reluva
+
+`Board::build` (`src/engines/clue/game/board.h`) reads the board from a
+`clue.lvl` already read as a `Level`; the rules (`game/rules.h`) and the
+computer players move on it. `reluva-tool clue board <clue.lvl>` draws what
+it reads.
+
 ## Sources and checks
 
 - **Where the facts come from:** `clue.lvl` ([level.md](level.md)), read for the board the game is
