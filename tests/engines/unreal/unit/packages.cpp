@@ -107,14 +107,15 @@ void testProperties() {
 
 // A package with a 4x2 P8 texture (masked) and its palette.
 
-void testSearchPathsAndDetection() {
+void testSearchPathsAndDetection(const std::filesystem::path &dir) {
     const std::string ini = "[Engine.Engine]\nPaths=nope\n[Core.System]\nPurgeCacheDays=30\n"
                             "Paths=..\\System\\*.u\r\nPaths=../Maps/*.unr\n  paths = ..\\Textures\\*.utx \n[Other]\n";
     CHECK(parseSearchPaths(ini) ==
           (std::vector<std::string>{"..\\System\\*.u", "../Maps/*.unr", "..\\Textures\\*.utx"}));
 
-    const auto tmp = std::filesystem::temp_directory_path() / "reluva_unreal_test";
-    std::filesystem::remove_all(tmp);
+    // The test's own folder: cleaned up after it, without failing on Windows while
+    // the packages read from it are still open.
+    const std::filesystem::path tmp = dir / "install";
     std::filesystem::create_directories(tmp / "system");
     std::filesystem::create_directories(tmp / "TEXTURES");
     std::ofstream(tmp / "system" / "CORE.U") << "x";
@@ -139,13 +140,13 @@ void testSearchPathsAndDetection() {
         image::Image img;
         CHECK(!decodeTexture(set, *walls, walls->findExport("Brick"), img));
     }
-    std::filesystem::remove_all(tmp);
     CHECK(findEngine("unreal") != nullptr);
 }
 
-void testMapExtension() {
-    const auto tmp = std::filesystem::temp_directory_path() / "reluva_unreal_maps";
-    std::filesystem::remove_all(tmp);
+void testMapExtension(const std::filesystem::path &dir) {
+    // The test's own folder: cleaned up after it, without failing on Windows while
+    // the packages read from it are still open.
+    const std::filesystem::path tmp = dir / "install";
     std::filesystem::create_directories(tmp / "System");
     std::filesystem::create_directories(tmp / "Maps");
     // No DS9.ini yet: the game makes it from Default.ini.
@@ -156,7 +157,6 @@ void testMapExtension() {
     CHECK(!set.open(tmp, "DS9.ini"));
     CHECK(set.iniFile().filename() == "Default.ini");
     CHECK(set.mapNames() == std::vector<std::string>{"Ops"} && set.isMap("ops") && !set.isMap("nothing"));
-    std::filesystem::remove_all(tmp);
 }
 
 void testDialogTable() {
@@ -183,13 +183,13 @@ void testDialogTable() {
 
 } // namespace
 
-static const reluva::test::Suite
-    kSuite("unreal.unit.packages",
-           {
-               {"compact index", [](const std::filesystem::path &) { testCompactIndex(); }},
-               {"package tables", [](const std::filesystem::path &) { testPackageTables(); }},
-               {"properties", [](const std::filesystem::path &) { testProperties(); }},
-               {"search paths and detection", [](const std::filesystem::path &) { testSearchPathsAndDetection(); }},
-               {"map extension", [](const std::filesystem::path &) { testMapExtension(); }},
-               {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},
-           });
+static const reluva::test::Suite kSuite(
+    "unreal.unit.packages",
+    {
+        {"compact index", [](const std::filesystem::path &) { testCompactIndex(); }},
+        {"package tables", [](const std::filesystem::path &) { testPackageTables(); }},
+        {"properties", [](const std::filesystem::path &) { testProperties(); }},
+        {"search paths and detection", [](const std::filesystem::path &tmp) { testSearchPathsAndDetection(tmp); }},
+        {"map extension", [](const std::filesystem::path &tmp) { testMapExtension(tmp); }},
+        {"dialog table", [](const std::filesystem::path &) { testDialogTable(); }},
+    });

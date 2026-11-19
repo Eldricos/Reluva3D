@@ -53,10 +53,11 @@ void testSoundErrors() {
     CHECK(f.isPlaceholder() && decodeEmbeddedSound(f, s).message.find("placeholder") != std::string::npos);
 }
 
-void testStreamedSounds() {
+void testStreamedSounds(const std::filesystem::path &dir) {
     // A placeholder Sound, and the MP3 of its name in the mp3 folder.
-    const auto tmp = std::filesystem::temp_directory_path() / "reluva_unreal_mp3";
-    std::filesystem::remove_all(tmp);
+    // The test's own folder: cleaned up after it, without failing on Windows while
+    // the packages read from it are still open.
+    const std::filesystem::path tmp = dir / "install";
     std::filesystem::create_directories(tmp / "System");
     std::filesystem::create_directories(tmp / "Sounds");
     std::filesystem::create_directories(tmp / "mp3");
@@ -92,14 +93,14 @@ void testStreamedSounds() {
         const Error err = loadSound(set, *p, 1, s, &from);
         CHECK(err && err.message.find("no mp3/Missing.mp3") != std::string::npos);
     }
-    std::filesystem::remove_all(tmp);
 }
 
 } // namespace
 
 static const reluva::test::Suite
-    kSuite("unreal.unit.sounds", {
-                                     {"sounds", [](const std::filesystem::path &) { testSounds(); }},
-                                     {"sound errors", [](const std::filesystem::path &) { testSoundErrors(); }},
-                                     {"streamed sounds", [](const std::filesystem::path &) { testStreamedSounds(); }},
-                                 });
+    kSuite("unreal.unit.sounds",
+           {
+               {"sounds", [](const std::filesystem::path &) { testSounds(); }},
+               {"sound errors", [](const std::filesystem::path &) { testSoundErrors(); }},
+               {"streamed sounds", [](const std::filesystem::path &tmp) { testStreamedSounds(tmp); }},
+           });
