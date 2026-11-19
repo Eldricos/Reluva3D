@@ -52,10 +52,14 @@ int square(int i) {
 }
 
 struct Note {
-    int row, channel;      // rows count on across patterns: row 64 is pattern 1's first
-    int note = 0;          // 61 = C-5 (MOD: a period); 254 cut, 255 off
-    int volume = -1;       // the volume column, -1 none
-    int fx = 0, param = 0; // in the format's own numbering
+    // rows count on across patterns: row 64 is pattern 1's first
+    int row;
+    int channel;
+    int note = 0;    // 61 = C-5 (MOD: a period); 254 cut, 255 off
+    int volume = -1; // the volume column, -1 none
+    // in the format's own numbering
+    int fx = 0;
+    int param = 0;
 };
 
 // 4-channel M.K.; notes are periods.
