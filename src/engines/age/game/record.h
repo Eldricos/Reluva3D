@@ -14,34 +14,42 @@
 
 namespace reluva::age {
 
-// What the player has done: each race's best place at each level and the
-// Crash Course lessons passed. Kept as text in the game's save folder
-// (Reluva's own file, not the game's .plr). See
-// docs/engines/age/games/mm2/systems/record-and-unlocking.md.
+/**
+ * What the player has done: each race's best place at each level and the
+ * Crash Course lessons passed. Kept as text in the game's save folder
+ * (Reluva's own file, not the game's .plr). See
+ * docs/engines/age/games/mm2/systems/record-and-unlocking.md.
+ */
 class PlayerRecord {
 public:
     static constexpr const char *kFileName = "record.txt";
 
-    // From `folder` (nothing yet is an empty record): kFileName, or a
-    // driver's own file.
+    /**
+     * From `folder` (nothing yet is an empty record): kFileName, or a
+     * driver's own file.
+     */
     Error load(const std::filesystem::path &folder, const std::string &file = kFileName);
     Error save() const;
     Error parse(const std::string &text);
     std::string text() const;
 
-    // A race finished in `place` (1 first; a Blitz finished in time is 1);
-    // the best is kept.
-    // `time`, seconds, when it finished (the best is kept too).
+    /**
+     * A race finished in `place` (1 first; a Blitz finished in time is 1);
+     * the best is kept.
+     * `time`, seconds, when it finished (the best is kept too).
+     */
     void raced(const std::string &city, RaceKind kind, int index, bool professional, int place, float time = -1);
-    // The best time, -1 if never finished.
+    /** The best time, -1 if never finished. */
     float bestTime(const std::string &city, RaceKind kind, int index, bool professional) const;
-    // The last race run (Quick Race starts it again).
+    /** The last race run (Quick Race starts it again). */
     void setLastRace(const std::string &city, RaceKind kind, int index);
     bool lastRace(std::string &city, RaceKind &kind, int &index) const;
-    // The best place, 0 if never finished.
+    /** The best place, 0 if never finished. */
     int bestPlace(const std::string &city, RaceKind kind, int index, bool professional) const;
-    // How many of a city's races of a kind were finished at `place` or
-    // better, at that level (professional results count for amateur too).
+    /**
+     * How many of a city's races of a kind were finished at `place` or
+     * better, at that level (professional results count for amateur too).
+     */
     int placedIn(const std::string &city, RaceKind kind, bool professional, int place) const;
 
     void passed(const std::string &city, int lesson);
@@ -55,10 +63,12 @@ private:
     std::string _last;                    // "sf blitz 3"
 };
 
-// The drivers (the main menu's SELECT DRIVER): each a name, a level and
-// a record of their own. Kept in drivers.txt beside the records: a line
-// a driver, its record's file, a or p, its name. The first, from before
-// there were drivers, keeps record.txt.
+/**
+ * The drivers (the main menu's SELECT DRIVER): each a name, a level and
+ * a record of their own. Kept in drivers.txt beside the records: a line
+ * a driver, its record's file, a or p, its name. The first, from before
+ * there were drivers, keeps record.txt.
+ */
 struct DriverEntry {
     std::string name;
     bool professional = false;
@@ -73,11 +83,11 @@ public:
     int current() const { return _current; }
     void setCurrent(int index);
     const DriverEntry &driver() const { return _drivers[size_t(_current)]; }
-    // A name already taken (letters' case aside).
+    /** A name already taken (letters' case aside). */
     bool has(const std::string &name) const;
-    // A new driver, made current; its record starts empty.
+    /** A new driver, made current; its record starts empty. */
     Error add(const std::string &name, bool professional);
-    // Gone, with its record (not the last driver).
+    /** Gone, with its record (not the last driver). */
     Error remove(int index);
     const std::filesystem::path &folder() const { return _folder; }
 
@@ -87,8 +97,10 @@ private:
     int _current = 0;
 };
 
-// What unlocks a car or one of its paint jobs, as its picture says
-// (jpg/<car>_lck<n>.jpg, and _p for a professional's).
+/**
+ * What unlocks a car or one of its paint jobs, as its picture says
+ * (jpg/<car>_lck<n>.jpg, and _p for a professional's).
+ */
 struct UnlockRule {
     std::string car;
     int paintJob = -1; // -1: the car itself
@@ -99,20 +111,24 @@ struct UnlockRule {
 };
 const std::vector<UnlockRule> &unlockRules();
 
-// How many races of a kind a city has.
+/** How many races of a kind a city has. */
 using RaceCount = std::function<int(const std::string &city, RaceKind kind)>;
 
-// Whether the car (paintJob -1) or a paint job is open: amateurs by
-// placing 1st-3rd in the races (or passing the lesson), professionals by
-// finishing first.
+/**
+ * Whether the car (paintJob -1) or a paint job is open: amateurs by
+ * placing 1st-3rd in the races (or passing the lesson), professionals by
+ * finishing first.
+ */
 bool unlocked(const PlayerRecord &record, const std::string &car, int paintJob, bool professional,
               const RaceCount &raceCount);
 
-// race/<city>/<city>_rewards.csv: what a city's races open and the
-// results screen's words for it ("Good Job! You've unlocked the Audi
-// TT!"): the race kind (blitz, circuit, race for Checkpoint, crash), half
-// or all of them (a lesson's number for crash), the car and its paint job
-// (0: the car itself).
+/**
+ * race/<city>/<city>_rewards.csv: what a city's races open and the
+ * results screen's words for it ("Good Job! You've unlocked the Audi
+ * TT!"): the race kind (blitz, circuit, race for Checkpoint, crash), half
+ * or all of them (a lesson's number for crash), the car and its paint job
+ * (0: the car itself).
+ */
 struct Reward {
     std::string kind;
     std::string which;
@@ -122,13 +138,15 @@ struct Reward {
 };
 std::vector<Reward> parseRewards(const std::string &text);
 
-// What it takes, in words (as the pictures put it), for a menu.
+/** What it takes, in words (as the pictures put it), for a menu. */
 std::string unlockText(const UnlockRule &rule, bool professional);
 
-// The races open, by the .cinfo's UnlockGroup and MustPlace: the first
-// group of `group` races, then each next group once every race before it
-// is placed at `mustPlace` or better (Reluva's reading). Lessons open one
-// after another, each once the one before is passed.
+/**
+ * The races open, by the .cinfo's UnlockGroup and MustPlace: the first
+ * group of `group` races, then each next group once every race before it
+ * is placed at `mustPlace` or better (Reluva's reading). Lessons open one
+ * after another, each once the one before is passed.
+ */
 bool raceOpen(const PlayerRecord &record, const std::string &city, RaceKind kind, int index, bool professional,
               int group, int mustPlace);
 

@@ -18,7 +18,7 @@
 
 namespace reluva::age {
 
-// What a key can be bound to (Customize Controls), named by mmlang.dll.
+/** What a key can be bound to (Customize Controls), named by mmlang.dll. */
 enum class Control : int {
     kThrottle,
     kBrakes,
@@ -58,7 +58,7 @@ enum class Control : int {
 constexpr int kControls = int(Control::kCount);
 uint32_t controlStringId(Control c); // its name in mmlang.dll
 const char *controlFallbackName(Control c);
-// A key's name, as Customize Controls shows it ("Up", "A", "Space").
+/** A key's name, as Customize Controls shows it ("Up", "A", "Space"). */
 std::string keyName(uint32_t key);
 
 struct GameOptions {
@@ -102,13 +102,15 @@ struct GameOptions {
     Error parse(const std::string &text);
     std::string text() const;
 
-    // The control a key is bound to, Control::Count if none.
+    /** The control a key is bound to, Control::Count if none. */
     Control controlOf(uint32_t key) const;
-    // Another control with this key, Control::Count if none (for the
-    // "duplicate key" warning).
+    /**
+     * Another control with this key, Control::Count if none (for the
+     * "duplicate key" warning).
+     */
     Control otherWith(uint32_t key, Control except) const;
 
-    // What the options mean in numbers.
+    /** What the options mean in numbers. */
     float farClip() const { return 800 + visibility * 3200; }
     float steerRate() const { return 0.5f + steering; }
 };
@@ -119,14 +121,18 @@ struct Resolution {
 };
 const std::array<Resolution, 5> &resolutions();
 
-// The sound levels into the mixer: each kind's volume, on or off, and
-// the balance.
+/**
+ * The sound levels into the mixer: each kind's volume, on or off, and
+ * the balance.
+ */
 void applySoundOptions(const GameOptions &options, audio::Mixer *mixer);
-// The options file read (none: the defaults) and put in force.
+/** The options file read (none: the defaults) and put in force. */
 GameOptions loadOptions(const std::filesystem::path &folder);
 
-// The options in force, for what reads the keys and the sound levels;
-// the race screen loads them and the menus change them.
+/**
+ * The options in force, for what reads the keys and the sound levels;
+ * the race screen loads them and the menus change them.
+ */
 const GameOptions &currentOptions();
 void setCurrentOptions(const GameOptions &options);
 

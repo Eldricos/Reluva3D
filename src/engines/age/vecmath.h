@@ -46,14 +46,14 @@ inline Vec3 normalized(const Vec3 &a) {
     return l > 1e-9f ? a * (1 / l) : Vec3{0, 0, 0};
 }
 
-// A rotation (or any 3x3 matrix) as its three columns: where X, Y and Z go.
+/** A rotation (or any 3x3 matrix) as its three columns: where X, Y and Z go. */
 struct Mat3 {
     Vec3 x{1, 0, 0};
     Vec3 y{0, 1, 0};
     Vec3 z{0, 0, 1};
 
     Vec3 operator*(const Vec3 &v) const { return x * v[0] + y * v[1] + z * v[2]; }
-    // The transpose's product: a world direction in this frame.
+    /** The transpose's product: a world direction in this frame. */
     Vec3 inverseTimes(const Vec3 &v) const { return {dot(x, v), dot(y, v), dot(z, v)}; }
 
     static Mat3 rotationY(float angle) {
@@ -61,7 +61,7 @@ struct Mat3 {
         const float s = std::sin(angle);
         return {{c, 0, -s}, {0, 1, 0}, {s, 0, c}};
     }
-    // Turned by `angle` (radians) about the unit `axis`.
+    /** Turned by `angle` (radians) about the unit `axis`. */
     static Mat3 rotation(const Vec3 &axis, float angle) {
         const float c = std::cos(angle);
         const float s = std::sin(angle);
@@ -74,7 +74,7 @@ struct Mat3 {
                 {t * x * z + s * y, t * y * z - s * x, t * z * z + c}};
     }
     Mat3 operator*(const Mat3 &m) const { return {*this * m.x, *this * m.y, *this * m.z}; }
-    // Square again after rounding errors build up.
+    /** Square again after rounding errors build up. */
     void orthonormalize() {
         x = normalized(x);
         z = normalized(cross(x, y));

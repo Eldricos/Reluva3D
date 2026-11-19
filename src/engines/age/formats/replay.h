@@ -69,9 +69,9 @@ struct Replay {
 std::vector<uint8_t> encodeReplay(const Replay &replay);
 Error decodeReplay(const std::vector<uint8_t> &data, Replay &out);
 
-// The save folder's replays/.
+/** The save folder's replays/. */
 std::filesystem::path replayFolder(const std::filesystem::path &saveFolder);
-// A name as a file's: letters, digits, spaces, - and _ (else _).
+/** A name as a file's: letters, digits, spaces, - and _ (else _). */
 std::string replayFileName(const std::string &name);
 Error saveReplay(const std::filesystem::path &saveFolder, const Replay &replay);
 Error loadReplay(const std::filesystem::path &file, Replay &out);
@@ -83,7 +83,7 @@ struct ReplayEntry {
     int race = 0;
     float duration = 0;
 };
-// Every replay saved, by name.
+/** Every replay saved, by name. */
 std::vector<ReplayEntry> listReplays(const std::filesystem::path &saveFolder);
 Error renameReplay(const std::filesystem::path &saveFolder, const ReplayEntry &entry, const std::string &name);
 Error deleteReplay(const ReplayEntry &entry);

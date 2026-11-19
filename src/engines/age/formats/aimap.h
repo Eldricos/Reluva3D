@@ -12,11 +12,13 @@
 
 namespace reluva::age {
 
-// The settings for a city's computer-driven cars, people and police
-// (.aimap text: city/<map>.aimap for the city, race/<city>/<race>.aimap
-// and .aimap_p for each race's amateur and professional runs,
-// race/<city>/roam.aimap for cruising). Sections a file leaves out keep
-// the values given. See docs/engines/age/games/mm2/formats/aimap.md.
+/**
+ * The settings for a city's computer-driven cars, people and police
+ * (.aimap text: city/<map>.aimap for the city, race/<city>/<race>.aimap
+ * and .aimap_p for each race's amateur and professional runs,
+ * race/<city>/roam.aimap for cruising). Sections a file leaves out keep
+ * the values given. See docs/engines/age/games/mm2/formats/aimap.md.
+ */
 struct AiMapSettings {
     struct Ambient {
         std::string model; // geometry/<model>.pkg, tune/vehicle/<model>.aiVehicleData
@@ -62,7 +64,7 @@ struct AiMapSettings {
     bool opponentsGiven = false;
 };
 
-// Reads `text` over `out` (so a race's file can follow the city's).
+/** Reads `text` over `out` (so a race's file can follow the city's). */
 Error parseAiMap(const std::string &text, AiMapSettings &out);
 
 } // namespace reluva::age

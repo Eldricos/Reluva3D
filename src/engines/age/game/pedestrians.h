@@ -15,17 +15,19 @@
 
 namespace reluva::age {
 
-// People on the sidewalks: the aimap's models (those for rain when it
-// rains), walking along the road map's sidewalks and on round the
-// corners, diving out of the way of cars coming at them. Reluva's own
-// rules; see docs/engines/age/games/mm2/systems/pedestrians.md.
+/**
+ * People on the sidewalks: the aimap's models (those for rain when it
+ * rains), walking along the road map's sidewalks and on round the
+ * corners, diving out of the way of cars coming at them. Reluva's own
+ * rules; see docs/engines/age/games/mm2/systems/pedestrians.md.
+ */
 class Pedestrians {
 public:
     Error setup(gfx::Renderer3D &renderer, const SearchSet &files, const AiRoadMap &map, const AiMapSettings &settings,
                 bool rain, uint32_t seed);
     void unload();
     void clear() { _peds.clear(); }
-    // 0..1: how many there are about the focus (1 = kPedsAtFull).
+    /** 0..1: how many there are about the focus (1 = kPedsAtFull). */
     void setDensity(float density) { _density = density; }
 
     void update(float dt, const Vec3 &focus, const std::vector<RoadUser> &cars, const CollisionWorld &world,

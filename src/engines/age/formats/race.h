@@ -18,19 +18,23 @@ namespace reluva::age {
 // lessons (crash<n>data.csv, named in mmlang.dll). See
 // docs/engines/age/games/mm2/formats/race.md.
 
-// Cruise: the race menu's driving about the city, with no race; and,
-// under it where the city has one, the game's "Stunt Mode: Acceleration"
-// (race/<city>/accel0waypoints.csv). See docs/engines/age/games/mm2/systems/races.md.
+/**
+ * Cruise: the race menu's driving about the city, with no race; and,
+ * under it where the city has one, the game's "Stunt Mode: Acceleration"
+ * (race/<city>/accel0waypoints.csv). See docs/engines/age/games/mm2/systems/races.md.
+ */
 enum class RaceKind { kBlitz, kCircuit, kCheckpoint, kCrashCourse, kCruise };
-// A Cruise's "races": the cruise itself, then the stunt where there's one.
-// Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
-// unfinished "Stunt Prototype" (stunt0: a start and an aimap).
+/**
+ * A Cruise's "races": the cruise itself, then the stunt where there's one.
+ * Cruise's entries: the cruise, the stunt (accel0), and San Francisco's
+ * unfinished "Stunt Prototype" (stunt0: a start and an aimap).
+ */
 constexpr int kCruiseRace = 0;
 constexpr int kStuntRace = 1;
 constexpr int kPrototypeRace = 2;
 const char *raceKindName(RaceKind kind); // "Blitz"...
 
-// One difficulty's columns of a race's row.
+/** One difficulty's columns of a race's row. */
 struct RaceSettings {
     int carType = 0;
     // as the 16 lightings: time * 4 + weather
@@ -52,8 +56,10 @@ struct Waypoint {
     float radius = 0;  // metres; 0 where the file gives none (circuits)
 };
 
-// What a Crash Course lesson asks (its Event column), as Reluva reads the
-// lessons' names and messages (docs/engines/age/games/mm2/systems/races.md).
+/**
+ * What a Crash Course lesson asks (its Event column), as Reluva reads the
+ * lessons' names and messages (docs/engines/age/games/mm2/systems/races.md).
+ */
 enum class LessonEvent : int {
     kJump = 0,         // the checkpoints in time, over a jump
     kFollow = 2,       // keep up with a car for the time, or to its end
@@ -65,8 +71,10 @@ enum class LessonEvent : int {
     kMap = 9,          // the checkpoints in time, finding the way
 };
 
-// A lesson's row of race/<city>/crash<n>data.csv: Filename, Event,
-// Checkpoints, TimeLimit, AmbDensity and five "extra" columns.
+/**
+ * A lesson's row of race/<city>/crash<n>data.csv: Filename, Event,
+ * Checkpoints, TimeLimit, AmbDensity and five "extra" columns.
+ */
 struct LessonSettings {
     std::string file; // its checkpoints: race/<city>/<file>.csv
     LessonEvent event = LessonEvent::kGates;
@@ -82,8 +90,10 @@ struct RaceDefinition {
     std::string name;
     std::array<RaceSettings, 2> settings{}; // amateur, professional
     std::vector<Waypoint> waypoints;        // the first is the start
-    // Each difficulty's opponents: a start (position and heading) and the
-    // points they drive through.
+    /**
+     * Each difficulty's opponents: a start (position and heading) and the
+     * points they drive through.
+     */
     struct Opponent {
         Vec3 start{};
         float heading = 0; // the first line's fourth value (not a reliable heading)
@@ -97,34 +107,38 @@ struct RaceDefinition {
     LessonSettings lesson; // a Crash Course lesson's
 };
 
-// The .cinfo's MustPlace and UnlockGroup (record.h's raceOpen).
+/** The .cinfo's MustPlace and UnlockGroup (record.h's raceOpen). */
 struct RaceUnlocking {
     int mustPlace = 3;
     int group = 3;
 };
 RaceUnlocking raceUnlocking(const SearchSet &files, const std::string &city);
 
-// How many races of a kind a city has, and their names (.cinfo).
+/** How many races of a kind a city has, and their names (.cinfo). */
 std::vector<std::string> raceNames(const SearchSet &files, const std::string &city, RaceKind kind);
 
 Error loadRace(const SearchSet &files, const std::string &city, RaceKind kind, int index, RaceDefinition &out);
 
-// The race's settings for the computer-driven cars, people and police:
-// race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
-// aimap.h).
+/**
+ * The race's settings for the computer-driven cars, people and police:
+ * race/<city>/<file><n>.aimap, or .aimap_p for a professional run (see
+ * aimap.h).
+ */
 std::string raceAiMapName(const std::string &city, RaceKind kind, int index, bool professional);
-// The race's own name in its files: "blitz3", "circuit0", "race5".
+/** The race's own name in its files: "blitz3", "circuit0", "race5". */
 std::string raceStem(RaceKind kind, int index);
 
-// Parsers for the files, for tests.
+/** Parsers for the files, for tests. */
 Error parseRaceSettings(const std::string &csv, int index, std::array<RaceSettings, 2> &out);
-// `radius`: the fifth column is a radius whatever the heading calls it
-// (Crash Course's files call it "poly count" too, but it varies).
+/**
+ * `radius`: the fifth column is a radius whatever the heading calls it
+ * (Crash Course's files call it "poly count" too, but it varies).
+ */
 Error parseWaypoints(const std::string &csv, std::vector<Waypoint> &out, bool radius = false);
 Error parseOpponentPath(const std::string &csv, RaceDefinition::Opponent &out);
 Error parseLessonSettings(const std::string &csv, LessonSettings &out);
 
-// A waypoint heading (degrees) as a turn about Y, as CarSim::reset takes.
+/** A waypoint heading (degrees) as a turn about Y, as CarSim::reset takes. */
 inline float headingToYaw(float degrees) {
     return -degrees * 3.14159265358979f / 180;
 }

@@ -14,9 +14,11 @@
 
 namespace reluva::age {
 
-// A car's engine sound (aud/cardata/player/<car>.csv): looped recordings,
-// each faded in and out over a range of RPM and pitched up with it. See
-// docs/engines/age/games/mm2/systems/car-sounds.md.
+/**
+ * A car's engine sound (aud/cardata/player/<car>.csv): looped recordings,
+ * each faded in and out over a range of RPM and pitched up with it. See
+ * docs/engines/age/games/mm2/systems/car-sounds.md.
+ */
 struct EngineSample {
     std::string wave; // aud/aud22/engines/<wave>.22k.wav
     float minVolume = 0;
@@ -44,20 +46,26 @@ struct EngineSoundSetup {
 
 Error readEngineSound(std::string_view csv, EngineSoundSetup &out);
 
-// A sample's volume (0..1) and pitch (1 as recorded) at an RPM: faded in
-// and out over its ranges, louder towards its maximum as the throttle
-// opens.
+/**
+ * A sample's volume (0..1) and pitch (1 as recorded) at an RPM: faded in
+ * and out over its ranges, louder towards its maximum as the throttle
+ * opens.
+ */
 void engineSampleMix(const EngineSample &s, float rpm, float throttle, float &volume, float &pitch);
 
-// The samples playing through the mixer.
+/** The samples playing through the mixer. */
 class EngineSound {
 public:
     ~EngineSound() { stop(); }
-    // Loads and starts them (silent until update()); missing recordings
-    // are left out.
+    /**
+     * Loads and starts them (silent until update()); missing recordings
+     * are left out.
+     */
     Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car);
-    // `gain` (0..1) and `pan` (-1 left .. 1 right): another car's, heard
-    // from a way off.
+    /**
+     * `gain` (0..1) and `pan` (-1 left .. 1 right): another car's, heard
+     * from a way off.
+     */
     void update(float rpm, float throttle, float gain = 1, float pan = 0);
     void stop();
 
@@ -67,10 +75,12 @@ private:
     std::vector<audio::SoundHandle> _playing; // one per sample, kNoSound if missing
 };
 
-// A police siren (aud/cardata/opponent/policesiren.csv, or the player's
-// aud/cardata/player/sfpolicesiren.csv and londonpolicesiren.csv): looped
-// recordings, each played for a while before handing over to another, as
-// the table's "play time, next index" lines say.
+/**
+ * A police siren (aud/cardata/opponent/policesiren.csv, or the player's
+ * aud/cardata/player/sfpolicesiren.csv and londonpolicesiren.csv): looped
+ * recordings, each played for a while before handing over to another, as
+ * the table's "play time, next index" lines say.
+ */
 struct SirenSample {
     std::string wave;
     float volume = 1;
@@ -82,7 +92,7 @@ class SirenSound {
 public:
     ~SirenSound() { stop(); }
     Error load(audio::Mixer &mixer, const SearchSet &files, const std::string &table);
-    // Plays at `volume` (0..1); 0 stops it, and it starts afresh next time.
+    /** Plays at `volume` (0..1); 0 stops it, and it starts afresh next time. */
     void update(float dt, float volume);
     void stop();
 
@@ -96,10 +106,12 @@ private:
     size_t _turns = 0; // which of a sample's ways on to take, in turn
 };
 
-// The tyres' sounds on each kind of surface (aud/cardata/player/
-// default_surfacedry.csv, _surfacewet.csv): a rolling sound louder and
-// higher with speed, and skids by how much the tyres slide. A surface's
-// number is its physics material's sound (materials.h).
+/**
+ * The tyres' sounds on each kind of surface (aud/cardata/player/
+ * default_surfacedry.csv, _surfacewet.csv): a rolling sound louder and
+ * higher with speed, and skids by how much the tyres slide. A surface's
+ * number is its physics material's sound (materials.h).
+ */
 struct SkidSample {
     std::string wave;
     float minSlip = 0;
@@ -122,8 +134,10 @@ struct SurfaceSounds {
 };
 Error readSurfaceSounds(std::string_view csv, SurfaceSounds &out);
 
-// Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
-// hit (WALL, LIGHT, SIGN...), samples by how hard.
+/**
+ * Knocks (aud/cardata/player/default_impacts.csv): for each kind of thing
+ * hit (WALL, LIGHT, SIGN...), samples by how hard.
+ */
 struct ImpactSample {
     std::string wave;
     float minVolume = 1;
@@ -139,16 +153,18 @@ struct ImpactSounds {
 };
 Error readImpactSounds(std::string_view csv, std::vector<ImpactSounds> &out);
 
-// The rest of a driven car's sounds: its horn, its clutch on changing
-// gear, its tyres on what they're on and skidding, its knocks (as the
-// WALL sounds) and its suspension bumping (aud/cardata/player/
-// suspensionaudio.csv). See docs/engines/age/games/mm2/systems/car-sounds.md.
+/**
+ * The rest of a driven car's sounds: its horn, its clutch on changing
+ * gear, its tyres on what they're on and skidding, its knocks (as the
+ * WALL sounds) and its suspension bumping (aud/cardata/player/
+ * suspensionaudio.csv). See docs/engines/age/games/mm2/systems/car-sounds.md.
+ */
 class CarSounds {
 public:
     ~CarSounds() { stop(); }
-    // The car's table and the shared ones; `wet` takes the wet roads'.
+    /** The car's table and the shared ones; `wet` takes the wet roads'. */
     Error start(audio::Mixer &mixer, const SearchSet &files, const std::string &car, bool wet);
-    // Follows the car (its gear, wheels and impact); `horn` held sounds it.
+    /** Follows the car (its gear, wheels and impact); `horn` held sounds it. */
     void update(float dt, const CarSim &car, bool horn);
     void stop();
 

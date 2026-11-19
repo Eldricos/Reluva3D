@@ -17,11 +17,13 @@ namespace reluva::age {
 
 enum class Signal { kGreen, kYellow, kRed };
 
-// The traffic lights the game puts up at road ends: where an end's
-// control is 1 (docs/engines/age/games/mm2/formats/bai.md), at its two points (on the
-// curb, and a metre across the road). Each junction's lights take turns:
-// at a crossroads two opposite roads at a time, elsewhere a road at a
-// time. Reluva's timing; see docs/engines/age/games/mm2/systems/traffic.md.
+/**
+ * The traffic lights the game puts up at road ends: where an end's
+ * control is 1 (docs/engines/age/games/mm2/formats/bai.md), at its two points (on the
+ * curb, and a metre across the road). Each junction's lights take turns:
+ * at a crossroads two opposite roads at a time, elsewhere a road at a
+ * time. Reluva's timing; see docs/engines/age/games/mm2/systems/traffic.md.
+ */
 class TrafficLights {
 public:
     // seconds
@@ -33,14 +35,18 @@ public:
     void update(float dt) { _clock += dt; }
     void setClock(float seconds) { _clock = seconds; }
 
-    // The light for traffic arriving at road `road`'s end `end` (0 at its
-    // last point, 1 at its first); Green where there's none.
+    /**
+     * The light for traffic arriving at road `road`'s end `end` (0 at its
+     * last point, 1 at its first); Green where there's none.
+     */
     Signal signal(uint32_t road, int end) const;
     bool has(uint32_t road, int end) const { return _index.count(key(road, end)) > 0; }
     size_t count() const { return _lights.size(); }
-    // Where light `i` stands (its model, the point it's stood on, its
-    // axes), and knocking it down (it's no longer drawn; its signal goes
-    // on, for the traffic).
+    /**
+     * Where light `i` stands (its model, the point it's stood on, its
+     * axes), and knocking it down (it's no longer drawn; its signal goes
+     * on, for the traffic).
+     */
     struct Placement {
         std::string model;
         Vec3 at{};
@@ -49,8 +55,10 @@ public:
     Placement placement(size_t i) const { return {_models[size_t(_lights[i].model)], _lights[i].at, _lights[i].axes}; }
     void knockDown(size_t i) { _lights[i].down = true; }
 
-    // The models with the glows for each light's state (the night glows,
-    // larger, when `night`), within `distance` of the eye.
+    /**
+     * The models with the glows for each light's state (the night glows,
+     * larger, when `night`), within `distance` of the eye.
+     */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const SceneLight &light, const gfx::Mat4 &viewProj,
               const Vec3 &eye, bool night, float distance = 350) const;
 

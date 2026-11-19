@@ -28,8 +28,10 @@ struct Skeleton {
 };
 Error parseSkeleton(const std::string &text, Skeleton &out);
 
-// Frames of 3 + 3 * bones values: the root's position, then each bone's
-// turn about X, Y and Z (radians).
+/**
+ * Frames of 3 + 3 * bones values: the root's position, then each bone's
+ * turn about X, Y and Z (radians).
+ */
 struct PedAnimation {
     int frames = 0;
     int channels = 0;
@@ -38,7 +40,7 @@ struct PedAnimation {
 };
 Error readPedAnimation(const std::vector<uint8_t> &data, PedAnimation &out);
 
-// A move: an animation and the move that follows it.
+/** A move: an animation and the move that follows it. */
 struct PedMove {
     std::string name;
     std::string animation;
@@ -46,8 +48,10 @@ struct PedMove {
 };
 Error parsePedMoves(const std::string &csv, std::vector<PedMove> &out);
 
-// The model: each corner (a position in its bone's space, a normal and
-// texture coordinates) and the triangles of each material.
+/**
+ * The model: each corner (a position in its bone's space, a normal and
+ * texture coordinates) and the triangles of each material.
+ */
 struct PedMesh {
     struct Corner {
         Vec3 position{};
@@ -65,18 +69,22 @@ struct PedMesh {
 };
 Error parsePedMesh(const std::string &text, PedMesh &out);
 
-// Each bone's place in the model for a frame: rotation and position.
+/** Each bone's place in the model for a frame: rotation and position. */
 struct BonePose {
     Mat3 turn;
     Vec3 at{};
 };
-// The root's position across the ground is left out (the walker moves
-// instead), its height kept.
+/**
+ * The root's position across the ground is left out (the walker moves
+ * instead), its height kept.
+ */
 std::vector<BonePose> poseOf(const Skeleton &skeleton, const PedAnimation &anim, int frame);
 
-// A pedestrian model ready to draw: every frame of the moves it uses
-// posed and uploaded, and each paint job's colours (from
-// geometry/<model>.pkg).
+/**
+ * A pedestrian model ready to draw: every frame of the moves it uses
+ * posed and uploaded, and each paint job's colours (from
+ * geometry/<model>.pkg).
+ */
 class PedModel {
 public:
     static constexpr float kFrameRate = 20; // frames a second (assumed)
@@ -94,14 +102,14 @@ public:
     PedModel &operator=(const PedModel &) = delete;
     ~PedModel() { unload(); }
 
-    // `moves`: the names of the moves wanted (and those they lead to).
+    /** `moves`: the names of the moves wanted (and those they lead to). */
     Error load(gfx::Renderer3D &renderer, const SearchSet &files, const std::string &model,
                const std::vector<std::string> &moves);
     void unload();
     int move(const std::string &name) const; // -1 if it hasn't one
     const Move &moveAt(int index) const { return _moves[size_t(index)]; }
     uint32_t paintJobs() const { return uint32_t(_paints.size()); }
-    // `time` seconds into a move (looped by its frames).
+    /** `time` seconds into a move (looped by its frames). */
     void draw(const gfx::Mat4 &model, int move, float time, uint32_t paintJob, const SceneLight &light) const;
 
 private:

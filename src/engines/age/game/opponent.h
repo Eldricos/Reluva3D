@@ -10,36 +10,44 @@
 
 namespace reluva::age {
 
-// Drives a car through a path's points (an opponent's .opp path, routed
-// along the roads): steers (pure pursuit) for a point a little way along
-// the path, slows for each corner ahead in time, backs out when stuck.
-// Reluva's stand-in for the game's opponents, whose driving is in its
-// encrypted program. See docs/engines/age/games/mm2/systems/races.md.
+/**
+ * Drives a car through a path's points (an opponent's .opp path, routed
+ * along the roads): steers (pure pursuit) for a point a little way along
+ * the path, slows for each corner ahead in time, backs out when stuck.
+ * Reluva's stand-in for the game's opponents, whose driving is in its
+ * encrypted program. See docs/engines/age/games/mm2/systems/races.md.
+ */
 class PathDriver {
 public:
-    // `laps` > 0 drives the path round that many times, from its end back
-    // to point `loopFrom` each time; 0 drives it once. `skill` scales the
-    // top speed.
+    /**
+     * `laps` > 0 drives the path round that many times, from its end back
+     * to point `loopFrom` each time; 0 drives it once. `skill` scales the
+     * top speed.
+     */
     void start(std::vector<Vec3> path, int laps, float skill, size_t loopFrom = 0);
-    // A new path driven once, kept stuck or backing out as it was (a
-    // computer player changing its mind as it goes).
+    /**
+     * A new path driven once, kept stuck or backing out as it was (a
+     * computer player changing its mind as it goes).
+     */
     void follow(std::vector<Vec3> path, float skill);
     CarControls drive(const CarSim &car, float dt);
-    // At most this fast (metres a second), as a patrolling police car.
+    /** At most this fast (metres a second), as a patrolling police car. */
     void setSpeedLimit(float limit) { _limit = limit; }
 
     bool finished() const { return _finished; }
     int lap() const { return _lap; }
     size_t next() const { return _index; }
-    // How many of the path's points it's gone on from, laps unrolled.
+    /** How many of the path's points it's gone on from, laps unrolled. */
     size_t passed() const { return _passed; }
     int laps() const { return _laps; }
     size_t loopFrom() const { return _loopFrom; }
     const std::vector<Vec3> &path() const { return _path; }
-    // Stuck for long, or 8 s without getting nearer the next point: the
-    // caller puts the car back at `resetPoint` facing `resetYaw`, and
-    // calls resetDone(). After two at the same point the third puts it on
-    // that point, and it goes on to the next.
+    /**
+     * Stuck for long, or 8 s without getting nearer the next point: the
+     * caller puts the car back at `resetPoint` facing `resetYaw`, and
+     * calls resetDone(). After two at the same point the third puts it on
+     * that point, and it goes on to the next.
+     */
     bool wantsReset() const { return _stuckTime > 6 || _lostTime > 8; }
     Vec3 resetPoint() const;
     float resetYaw() const;
@@ -64,16 +72,20 @@ private:
     int _resetsHere = 0; // at the current point: after two, the next reset skips it
 };
 
-// Where along a driver's path (as passed() counts its points) it's
-// nearest each of `gates` in turn: the race's checkpoints, which an
-// opponent's own path doesn't always go through.
+/**
+ * Where along a driver's path (as passed() counts its points) it's
+ * nearest each of `gates` in turn: the race's checkpoints, which an
+ * opponent's own path doesn't always go through.
+ */
 std::vector<size_t> pathPointsNearest(const PathDriver &driver, const std::vector<Vec3> &gates);
 
-// An opponent's points joined along the roads: from `start` to the first,
-// on through the rest and (for a circuit, `loop`) from the last back to
-// the first. `loopFrom` is set to where the loop begins in the result.
-// `fallback`: another graph (the road map's) for the legs `roads` has no
-// way for.
+/**
+ * An opponent's points joined along the roads: from `start` to the first,
+ * on through the rest and (for a circuit, `loop`) from the last back to
+ * the first. `loopFrom` is set to where the loop begins in the result.
+ * `fallback`: another graph (the road map's) for the legs `roads` has no
+ * way for.
+ */
 std::vector<Vec3> routePath(const RoadGraph &roads, const Vec3 &start, const std::vector<Vec3> &points, bool loop,
                             size_t &loopFrom, const RoadGraph *fallback = nullptr);
 

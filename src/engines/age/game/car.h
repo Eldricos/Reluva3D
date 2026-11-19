@@ -49,7 +49,7 @@ struct CarSetup {
     // 0: none, the Minis').
     float sssValue = 1;
     float sssThreshold = 0;
-    // The full lock's share at a speed (m/s).
+    /** The full lock's share at a speed (m/s). */
     float lockAt(float speed) const;
     Vec3 centerOfGravity{};
     float boundFriction = 0.5f;
@@ -97,14 +97,16 @@ struct CarSetup {
     std::array<float, 4> wheelRadius{0.33f, 0.33f, 0.33f, 0.33f};
     std::vector<Vec3> hull; // the body's collision shape's corners
 
-    // Engine power (watts) at an RPM, full throttle.
+    /** Engine power (watts) at an RPM, full throttle. */
     float power(float rpm) const;
-    // The speed at the top of a gear (1..gears; -1 reverse).
+    /** The speed at the top of a gear (1..gears; -1 reverse). */
     float gearTopSpeed(int gear) const;
 };
 
-// tune/vehicle/<car>.vehCarSim, geometry/<car>_WHL0-3.mtx and
-// bound/<car>_BOUND.bnd.
+/**
+ * tune/vehicle/<car>.vehCarSim, geometry/<car>_WHL0-3.mtx and
+ * bound/<car>_BOUND.bnd.
+ */
 Error loadCarSetup(const SearchSet &files, const std::string &car, CarSetup &out);
 
 struct CarControls {
@@ -130,7 +132,7 @@ public:
     };
 
     void reset(const CarSetup &setup, const Vec3 &position, float yaw);
-    // Advances by `dt` seconds in fixed steps.
+    /** Advances by `dt` seconds in fixed steps. */
     void step(const CarControls &controls, const CollisionWorld &world, float dt);
 
     const CarSetup &setup() const { return _setup; }
@@ -160,7 +162,7 @@ public:
     Vec3 impactAt{};
     // The props it broke loose since last cleared (CollisionSurface::prop).
     std::vector<int32_t> broke;
-    // Records a knock at a point in the world, if it's the hardest.
+    /** Records a knock at a point in the world, if it's the hardest. */
     void knock(float impulse, const Vec3 &at) {
         if (impulse > impact) {
             impact = impulse;
@@ -168,12 +170,14 @@ public:
         }
     }
 
-    // Along the car's nose, metres a second (negative backing up).
+    /** Along the car's nose, metres a second (negative backing up). */
     float forwardSpeed() const { return -dot(velocity, orientation.z); }
-    // Where a wheel's centre is now (its suspension and the body's place).
+    /** Where a wheel's centre is now (its suspension and the body's place). */
     Vec3 wheelCenter(int i) const;
-    // Spheres round the body for bumping into other cars: centres in the
-    // world and their radius.
+    /**
+     * Spheres round the body for bumping into other cars: centres in the
+     * world and their radius.
+     */
     std::array<Vec3, 3> bumpers(float &radius) const;
 
 private:
@@ -192,8 +196,10 @@ private:
     Vec3 _stuckAt{};          // where it was when it turned over
 };
 
-// Two cars bumping: each is three spheres along its length; where they
-// overlap the cars are pushed apart and bounce off each other.
+/**
+ * Two cars bumping: each is three spheres along its length; where they
+ * overlap the cars are pushed apart and bounce off each other.
+ */
 void collideCars(CarSim &a, CarSim &b);
 
 } // namespace reluva::age

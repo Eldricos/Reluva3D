@@ -55,12 +55,16 @@
 
 namespace reluva::age {
 
-// The first part of a name's file name, for jumping between kinds:
-// "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
+/**
+ * The first part of a name's file name, for jumping between kinds:
+ * "geometry/vpbug.pkg" -> "vpbug", "texture/sw_stc_tan.tex" -> "sw".
+ */
 std::string kindOf(const std::string &name);
 
-// A file's contents as lines to show: its text (tabs expanded, CR LF and
-// LF ends) if it looks like text, else a hex dump of 16 bytes a line.
+/**
+ * A file's contents as lines to show: its text (tabs expanded, CR LF and
+ * LF ends) if it looks like text, else a hex dump of 16 bytes a line.
+ */
 std::vector<std::string> fileLines(const std::vector<uint8_t> &data, bool &isText);
 
 class FileViewer : public Page {
@@ -162,9 +166,11 @@ private:
     int _lastY = 0;
 };
 
-// A city flown through: its streets and buildings from the PSDL, the
-// models placed in it, its sky, lit as at one of its 16 times and
-// weathers. Keys in the header's comment.
+/**
+ * A city flown through: its streets and buildings from the PSDL, the
+ * models placed in it, its sky, lit as at one of its 16 times and
+ * weathers. Keys in the header's comment.
+ */
 class WorldViewer : public Page {
 public:
     explicit WorldViewer(ScreenContext &ctx);
@@ -202,9 +208,11 @@ private:
     uint32_t _keys = 0; // movement keys held, bit per kMove*
 };
 
-// A car driven round a city: Reluva's simulation of it (car.h) against
-// the city's collisions, seen from the car's own cameras, with its engine
-// sound and a HUD. Keys in the header's comment.
+/**
+ * A car driven round a city: Reluva's simulation of it (car.h) against
+ * the city's collisions, seen from the car's own cameras, with its engine
+ * sound and a HUD. Keys in the header's comment.
+ */
 class DriveViewer : public Page {
 public:
     explicit DriveViewer(ScreenContext &ctx);

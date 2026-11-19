@@ -13,9 +13,11 @@
 
 namespace reluva::age {
 
-// An Angel Game Engine .ar archive ("DAVE"), as Midtown Madness 2's
-// mm2core.ar, mm2tex.ar, mm2aud.ar and mm2audex.ar. See
-// docs/engines/age/games/mm2/formats/ar.md. Folder entries are left out of list().
+/**
+ * An Angel Game Engine .ar archive ("DAVE"), as Midtown Madness 2's
+ * mm2core.ar, mm2tex.ar, mm2aud.ar and mm2audex.ar. See
+ * docs/engines/age/games/mm2/formats/ar.md. Folder entries are left out of list().
+ */
 class ArArchive : public Archive {
 public:
     struct Entry {
@@ -33,7 +35,7 @@ public:
     Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return _path.string(); }
 
-    // Every file in the archive's order, folders left out.
+    /** Every file in the archive's order, folders left out. */
     const std::vector<Entry> &entries() const { return _entries; }
     const Entry *entry(std::string_view name) const;
     Error read(const Entry &entry, std::vector<uint8_t> &out) const;

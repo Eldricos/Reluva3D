@@ -15,8 +15,10 @@
 
 namespace reluva::age {
 
-// tune/<city>.mmHudMap: where the HUD's map goes and how near it looks.
-// See docs/engines/age/games/mm2/systems/hud.md.
+/**
+ * tune/<city>.mmHudMap: where the HUD's map goes and how near it looks.
+ * See docs/engines/age/games/mm2/systems/hud.md.
+ */
 struct HudMapSetup {
     // Size: shares of the screen
     float width = 0.21f;
@@ -40,10 +42,12 @@ struct HudMapSetup {
 };
 Error parseHudMapSetup(std::string_view text, HudMapSetup &out);
 
-// Something shown on the map: a car (geometry/hudmap_tri, its paint job
-// `color` 0-9, pointing along `forward`) or a dot (hudmap_square, paint
-// job 0-8: RED_DOT, BLUE_DOT, GREEN_DOT, GREY_DOT, YELLOW_DOT, FINISH_DOT,
-// GOLD_DOT, BANK_DOT, HIDEOUT_DOT).
+/**
+ * Something shown on the map: a car (geometry/hudmap_tri, its paint job
+ * `color` 0-9, pointing along `forward`) or a dot (hudmap_square, paint
+ * job 0-8: RED_DOT, BLUE_DOT, GREEN_DOT, GREY_DOT, YELLOW_DOT, FINISH_DOT,
+ * GOLD_DOT, BANK_DOT, HIDEOUT_DOT).
+ */
 struct HudMapIcon {
     Vec3 position{};
     Vec3 forward{0, 0, -1};
@@ -52,19 +56,21 @@ struct HudMapIcon {
 };
 
 namespace hudcolor {
-// hudmap_tri's paint jobs as Reluva uses them.
+/** hudmap_tri's paint jobs as Reluva uses them. */
 constexpr int kPlayer = 5;   // yellow
 constexpr int kOpponent = 4; // red
 constexpr int kPolice = 8;   // blue
-// hudmap_square's.
+/** hudmap_square's. */
 constexpr int kCheckpoint = 0; // RED_DOT
 constexpr int kNext = 2;       // GREEN_DOT
 constexpr int kFinish = 5;     // FINISH_DOT
 } // namespace hudcolor
 
-// The HUD's map: the city's geometry/hudmap_<city> (its map pictures laid
-// flat on the city's ground plan) on the ocean's colour, seen from above
-// the player, turned so the way they face is up.
+/**
+ * The HUD's map: the city's geometry/hudmap_<city> (its map pictures laid
+ * flat on the city's ground plan) on the ocean's colour, seen from above
+ * the player, turned so the way they face is up.
+ */
 class HudMap {
 public:
     HudMap() = default;
@@ -72,7 +78,7 @@ public:
     HudMap &operator=(const HudMap &) = delete;
     ~HudMap() { unload(); }
 
-    // False if the city has none.
+    /** False if the city has none. */
     bool load(gfx::Renderer3D &renderer, const SearchSet &files, ModelCache &models, const std::string &map);
     void unload();
     bool loaded() const { return _ok; }
@@ -81,22 +87,26 @@ public:
     void toggleZoom() { _zoomIn = !_zoomIn; }
     void toggleFullScreen() { _full = !_full; }
     bool fullScreen() const { return _full; }
-    // The corner map's sizes, then off (the game's Map Toggle: "toggle
-    // between two different sizes of city map, or turn the map on and
-    // off"); full screen shows either way. The larger is Reluva's: 1.6
-    // times, its bottom right corner kept.
+    /**
+     * The corner map's sizes, then off (the game's Map Toggle: "toggle
+     * between two different sizes of city map, or turn the map on and
+     * off"); full screen shows either way. The larger is Reluva's: 1.6
+     * times, its bottom right corner kept.
+     */
     void toggleShown() { _size = (_size + 1) % 3; }
     bool shown() const { return _size < 2 || _full; }
-    // Turned with the player (the Rotating Map), else north up.
+    /** Turned with the player (the Rotating Map), else north up. */
     void toggleRotating() { _rotating = !_rotating; }
     bool rotating() const { return _rotating; }
-    // Eases the height towards the zoom's.
+    /** Eases the height towards the zoom's. */
     void update(float dt);
-    // The height it's seen from now.
+    /** The height it's seen from now. */
     float distance() const { return _distance; }
 
-    // Over the frame drawn so far (frameW x frameH pixels), about `center`
-    // facing `forward`; leaves the whole frame as the viewport after.
+    /**
+     * Over the frame drawn so far (frameW x frameH pixels), about `center`
+     * facing `forward`; leaves the whole frame as the viewport after.
+     */
     void draw(gfx::Renderer3D &renderer, ModelCache &models, const Vec3 &center, const Vec3 &forward,
               const std::vector<HudMapIcon> &icons, int frameW, int frameH) const;
 

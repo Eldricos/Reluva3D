@@ -12,7 +12,7 @@
 
 namespace reluva::age {
 
-// What a collision triangle is made of.
+/** What a collision triangle is made of. */
 struct CollisionSurface {
     float friction = 0.5f;
     float elasticity = 0.1f;
@@ -35,8 +35,10 @@ struct CollisionSurface {
     float propMass = 0;
 };
 
-// Triangles to collide with, in a grid over X and Z for finding those
-// near a point or along a short ray. Both sides of a triangle are solid.
+/**
+ * Triangles to collide with, in a grid over X and Z for finding those
+ * near a point or along a short ray. Both sides of a triangle are solid.
+ */
 class CollisionWorld {
 public:
     using Surface = CollisionSurface;
@@ -49,20 +51,24 @@ public:
     };
 
     void add(const Vec3 &a, const Vec3 &b, const Vec3 &c, Surface surface = {});
-    // Files the triangles into the grid; call after adding them all.
+    /** Files the triangles into the grid; call after adding them all. */
     void build(float cellSize = 8);
     size_t size() const { return _triangles.size(); }
-    // A few more triangles, replaced as they move (a drawbridge's leaves),
-    // checked along with those in the grid.
+    /**
+     * A few more triangles, replaced as they move (a drawbridge's leaves),
+     * checked along with those in the grid.
+     */
     void setMoving(const std::vector<std::array<Vec3, 3>> &triangles, Surface surface = {});
-    // Takes out the triangles `drop` says to (after build(); the grid is
-    // built again).
+    /**
+     * Takes out the triangles `drop` says to (after build(); the grid is
+     * built again).
+     */
     template<typename F>
     void removeIf(F &&drop) {
         std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.a, t.b, t.c); });
         build(_cellSize);
     }
-    // The same by surface (a prop's triangles).
+    /** The same by surface (a prop's triangles). */
     template<typename F>
     void removeSurfaces(F &&drop) {
         std::erase_if(_triangles, [&](const Triangle &t) { return drop(t.surface); });
@@ -77,8 +83,10 @@ public:
         Vec3 normal{};
         Surface surface;
     };
-    // The nearest triangle along a ray (`direction` of length 1) within
-    // `maxDistance`.
+    /**
+     * The nearest triangle along a ray (`direction` of length 1) within
+     * `maxDistance`.
+     */
     bool raycast(const Vec3 &origin, const Vec3 &direction, float maxDistance, RayHit &hit) const;
 
     struct Contact {
@@ -86,7 +94,7 @@ public:
         float depth = 0;
         Surface surface;
     };
-    // The deepest overlap of a sphere with the triangles.
+    /** The deepest overlap of a sphere with the triangles. */
     bool sphereContact(const Vec3 &center, float radius, Contact &contact) const;
 
 private:

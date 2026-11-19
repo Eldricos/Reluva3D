@@ -9,10 +9,12 @@
 
 namespace reluva::age {
 
-// Judges a Crash Course lesson as it's driven: passed, failed or going,
-// and which of the game's messages (mmlang.dll string ids) to show. The
-// rules are Reluva's reading of each event's messages; see
-// docs/engines/age/games/mm2/systems/crash-course.md.
+/**
+ * Judges a Crash Course lesson as it's driven: passed, failed or going,
+ * and which of the game's messages (mmlang.dll string ids) to show. The
+ * rules are Reluva's reading of each event's messages; see
+ * docs/engines/age/games/mm2/systems/crash-course.md.
+ */
 class LessonJudge {
 public:
     static constexpr float kEscape = 120;    // metres behind the car to follow, and it's escaped
@@ -20,7 +22,7 @@ public:
 
     enum class Result { kGoing, kPassed, kFailed };
 
-    // What happened this frame.
+    /** What happened this frame. */
     struct Frame {
         float dt = 0;
         float clock = 0;         // seconds since the start
@@ -42,16 +44,20 @@ public:
     Result step(const Frame &f);
     Result result() const { return _result; }
 
-    // Seconds added (none: the penalties' messages, 216, belong to a
-    // group of the game's no lesson uses).
+    /**
+     * Seconds added (none: the penalties' messages, 216, belong to a
+     * group of the game's no lesson uses).
+     */
     float penalty() const { return _penalty; }
-    // Seconds left (penalties counted), or -1 with no limit.
+    /** Seconds left (penalties counted), or -1 with no limit. */
     float timeLeft(float clock) const;
-    // The message to show now (0: none), and the minimum speed for
-    // MinimumSpeed lessons' "Maintain %.0f".
+    /**
+     * The message to show now (0: none), and the minimum speed for
+     * MinimumSpeed lessons' "Maintain %.0f".
+     */
     uint32_t message() const { return _messageFor > 0 ? _message : 0; }
     float minimumSpeed() const { return _lesson.extra[0]; }
-    // A Destroy lesson's car has been rammed into submission.
+    /** A Destroy lesson's car has been rammed into submission. */
     bool destroyed() const { return _destroyed; }
 
 private:

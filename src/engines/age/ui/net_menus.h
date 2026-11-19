@@ -37,31 +37,35 @@ public:
     ~NetMenus();
     bool loaded() const { return _ok; }
 
-    // From the main menu: the sessions on the local network.
+    /** From the main menu: the sessions on the local network. */
     void enter();
     Action handle(const Event &ev);
-    // The session's news (call every frame, in the menus or the game).
+    /** The session's news (call every frame, in the menus or the game). */
     Action update(uint64_t nowMs);
     void draw(Surface &overlay, uint64_t nowMs);
 
     Screen screen() const { return _screen; }
     NetSession *session() { return _session.get(); }
-    // Back from the garage, with the car chosen, or from the game.
+    /** Back from the garage, with the car chosen, or from the game. */
     void carChosen(const std::string &car, int paintJob);
     void showLobby();
     void leave(); // out of the session
-    // What's been said and what's happened (joined, left), newest last,
-    // for the game's screen.
+    /**
+     * What's been said and what's happened (joined, left), newest last,
+     * for the game's screen.
+     */
     struct Line {
         std::string text;
         uint64_t atMs = 0;
         bool system = false; // the game's words, not a player's
     };
     const std::deque<Line> &lines() const { return _lines; }
-    // A notice to show, from the game's strings where it has one.
+    /** A notice to show, from the game's strings where it has one. */
     std::string noticeText(const NetNotice &n) const;
-    // The race of the session's settings: its kind (Cruise and Cops &
-    // Robbers have none).
+    /**
+     * The race of the session's settings: its kind (Cruise and Cops &
+     * Robbers have none).
+     */
     static bool hasRace(NetMode mode) {
         return mode == NetMode::kBlitz || mode == NetMode::kCheckpoint || mode == NetMode::kCircuit;
     }
@@ -71,10 +75,10 @@ public:
     std::string timeLimitName(int minutes) const;
     std::string goldModeName(GoldMode mode) const;
     std::string teamName(uint8_t team) const; // in the session's mode
-    // The car a player drives: its own, but the police car for a cop.
+    /** The car a player drives: its own, but the police car for a cop. */
     std::string carFor(const NetPlayer &p) const;
 
-    // Typing goes to the focused field; the race screen lets Esc through.
+    /** Typing goes to the focused field; the race screen lets Esc through. */
     bool typing() const;
 
 private:
