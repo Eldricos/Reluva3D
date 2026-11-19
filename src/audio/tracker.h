@@ -17,7 +17,7 @@ namespace reluva::audio {
 // Tracker 3), XM (FastTracker 2) and IT (Impulse Tracker). The loaders turn
 // each format into one common form, which renderTrackerModule plays.
 
-enum class TrackerFormat { MOD, S3M, XM, IT };
+enum class TrackerFormat { kMOD, kS3M, kXM, kIT };
 
 // TrackerCell::note: 0 none, 1..120 a note (1 = C-0; 61 = C-5, which plays a
 // sample at its c5speed), or one of these.
@@ -70,7 +70,7 @@ struct TrackerInstrument {
 
 // A tracker module (MOD, S3M, XM or IT) read from its file's bytes.
 struct TrackerModule {
-    TrackerFormat format = TrackerFormat::MOD;
+    TrackerFormat format = TrackerFormat::kMOD;
     std::string title;
     int channels = 0;
     int speed = 6, tempo = 125;

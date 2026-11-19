@@ -54,14 +54,22 @@ public:
     void clearDepth() override;
     void clearDepthAndStencil() override;
     bool hasStencil() const override { return true; }
-    void setStencilMode(StencilMode mode, uint8_t level = 1) override {
-        stencilMode_ = mode;
-        stencilLevel_ = level;
-    }
+    void setStencilMode(StencilMode mode) override { stencilMode_ = mode; }
+    void setStencilLevel(uint8_t level) override { stencilLevel_ = level; }
     uint8_t stencilLevel_ = 1;
+    bool capture_ = false;
     void setMirrored(bool) override {}
     void setGamma(float gamma) override { gamma_ = gamma; }
     void endFrame(const Surface *overlay) override;
+    // Every finished frame is kept (frame()), so the next one is too.
+    void captureNextFrame() override { capture_ = true; }
+    bool takeCapture(std::vector<uint8_t> &rgba) override {
+        if (!capture_ || frame_.pixels.empty())
+            return false;
+        capture_ = false;
+        rgba = frame_.pixels;
+        return true;
+    }
 
     // Whether draws are done (when only some frames are wanted, the rest
     // cost nothing).
@@ -90,7 +98,7 @@ private:
     Surface color_, frame_;
     std::vector<float> depth_;
     std::vector<uint8_t> stencil_; // marks, cleared each frame
-    StencilMode stencilMode_ = StencilMode::None;
+    StencilMode stencilMode_ = StencilMode::kNone;
     std::map<gfx::TextureId, Texture> textures_;
     std::map<gfx::MeshId, Mesh> meshes_;
     uint32_t nextId_ = 1;

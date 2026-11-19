@@ -275,12 +275,12 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
         call.backLerp = pose.next == pose.frame ? 0 : 1 - pose.lerp;
         call.texture =
             b.textureIndex >= 0 && size_t(b.textureIndex) < textures.size() ? textures[size_t(b.textureIndex)] : 0;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         call.color = {exposure, exposure, exposure, 1};
         if (b.polyFlags & polyflag::Unlit) {
-            call.rgbSource = gfx::ColorSource::Constant;
+            call.rgbSource = gfx::ColorSource::kConstant;
         } else {
-            call.rgbSource = gfx::ColorSource::Lighting;
+            call.rgbSource = gfx::ColorSource::kLighting;
             call.ambientLight = light.ambient;
             call.directedLight = light.directed;
             call.lightDirection = light.direction;
@@ -296,14 +296,14 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
             if (pass->texture)
                 call.texture = pass->texture;
             if (pass->envMap)
-                call.texGen = gfx::TexGen::Environment;
+                call.texGen = gfx::TexGen::kEnvironment;
             if (pass->fatness != 0) {
-                call.deforms[0].type = gfx::Deform::Type::Wave;
+                call.deforms[0].type = gfx::Deform::Type::kWave;
                 call.deforms[0].wave.base = pass->fatness;
             }
             if (pass->unlit) {
                 const float g = std::clamp(pass->glow, 0.0f, 1.0f) * exposure;
-                call.rgbSource = gfx::ColorSource::Constant;
+                call.rgbSource = gfx::ColorSource::kConstant;
                 call.vertexLightCount = 0;
                 call.color = {g * pass->unlitColor[0], g * pass->unlitColor[1], g * pass->unlitColor[2], 1};
             } else if (style != kStyleBlended && pass->glow < 1) {
@@ -314,10 +314,10 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
             }
         }
         if (b.polyFlags & polyflag::Masked)
-            call.state.alphaTest = gfx::AlphaTest::Ge128;
+            call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (style == kStyleBlended) {
-            call.state.src = gfx::Blend::SrcAlpha;
-            call.state.dst = gfx::Blend::OneMinusSrcAlpha;
+            call.state.src = gfx::Blend::kSrcAlpha;
+            call.state.dst = gfx::Blend::kOneMinusSrcAlpha;
             call.state.depthWrite = false;
             call.color[3] = std::clamp(pass ? pass->glow : 1.0f, 0.0f, 1.0f);
             // The drivers' blended polygon (D3DDrv's and OpenGLDrv's
@@ -327,18 +327,18 @@ void drawMesh(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &p
                 for (size_t k = 0; k < 3; ++k)
                     call.color[k] *= call.color[3];
         } else if (style == kStyleSubtractive) {
-            call.state.src = gfx::Blend::Zero;
-            call.state.dst = gfx::Blend::SrcColor;
+            call.state.src = gfx::Blend::kZero;
+            call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
         } else if (b.polyFlags & polyflag::Translucent) {
-            call.state.src = gfx::Blend::One;
-            call.state.dst = gfx::Blend::OneMinusSrcColor;
+            call.state.src = gfx::Blend::kOne;
+            call.state.dst = gfx::Blend::kOneMinusSrcColor;
             call.state.depthWrite = false;
         } else if (b.polyFlags & polyflag::Modulated) {
-            call.state.src = gfx::Blend::DstColor;
-            call.state.dst = gfx::Blend::SrcColor;
+            call.state.src = gfx::Blend::kDstColor;
+            call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
-            call.rgbSource = gfx::ColorSource::Constant;
+            call.rgbSource = gfx::ColorSource::kConstant;
             call.color = {1, 1, 1, 1};
         }
         renderer.draw(call);
@@ -366,15 +366,15 @@ void drawMeshShadow(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::M
         call.oldVertexOffset = pose.frame * mesh.frameVertices;
         call.backLerp = pose.next == pose.frame ? 0 : 1 - pose.lerp;
         call.texture = 0;
-        call.rgbSource = gfx::ColorSource::Shadow;
-        call.alphaSource = gfx::ColorSource::Constant;
+        call.rgbSource = gfx::ColorSource::kShadow;
+        call.alphaSource = gfx::ColorSource::kConstant;
         call.shadowLight = shade.light;
         call.shadowReach = shade.reach;
         call.shadowStrength = shade.strength;
         call.shadowMax = shade.most;
-        call.state.cull = gfx::Cull::None;
-        call.state.src = gfx::Blend::Zero;
-        call.state.dst = gfx::Blend::SrcColor;
+        call.state.cull = gfx::Cull::kNone;
+        call.state.src = gfx::Blend::kZero;
+        call.state.dst = gfx::Blend::kSrcColor;
         call.state.depthWrite = false;
         renderer.draw(call);
     }
@@ -394,16 +394,16 @@ gfx::Mat4 planarShadow(const gfx::Vec3 &light, const gfx::Vec3 &n, float d) {
 void drawFogOver(gfx::Renderer3D &renderer, const gfx::DrawCall &drawn, const MeshFog &fog) {
     gfx::DrawCall f = drawn;
     f.texture = 0;
-    f.texGen = gfx::TexGen::Uv;
-    f.rgbSource = f.alphaSource = gfx::ColorSource::Constant;
+    f.texGen = gfx::TexGen::kUv;
+    f.rgbSource = f.alphaSource = gfx::ColorSource::kConstant;
     f.color = {fog.color[0], fog.color[1], fog.color[2], 1};
     f.fogDistance = fog.distance;
     f.dynamicLights = f.dynamicLightsTextured = false;
-    f.state.src = gfx::Blend::SrcAlpha;
-    f.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    f.state.src = gfx::Blend::kSrcAlpha;
+    f.state.dst = gfx::Blend::kOneMinusSrcAlpha;
     f.state.depthEqual = true;
     f.state.depthWrite = false;
-    f.state.alphaTest = gfx::AlphaTest::None;
+    f.state.alphaTest = gfx::AlphaTest::kNone;
     renderer.draw(f);
 }
 
@@ -411,11 +411,11 @@ void drawVolumeOver(gfx::Renderer3D &renderer, const gfx::DrawCall &drawn) {
     gfx::DrawCall v = drawn;
     v.volumeLights = true;
     v.dynamicLights = v.dynamicLightsTextured = false;
-    v.state.src = gfx::Blend::One;
-    v.state.dst = gfx::Blend::OneMinusSrcAlpha;
+    v.state.src = gfx::Blend::kOne;
+    v.state.dst = gfx::Blend::kOneMinusSrcAlpha;
     v.state.depthEqual = true;
     v.state.depthWrite = false;
-    v.state.alphaTest = gfx::AlphaTest::None;
+    v.state.alphaTest = gfx::AlphaTest::kNone;
     renderer.draw(v);
 }
 

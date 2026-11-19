@@ -24,7 +24,7 @@ constexpr float kPi = 3.14159265358979f;
 
 } // namespace
 
-MeshViewer::MeshViewer(ViewerContext &ctx)
+MeshViewer::MeshViewer(ViewContext &ctx)
     : Page(ctx), browser_(
                      ctx.packages,
                      [&] {
@@ -63,14 +63,14 @@ void MeshViewer::unload() {
 void MeshViewer::activate() {
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, renderer_)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Meshes page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
         setTitle("3D rendering not available");
         return;
     }
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     if (!started_) {
         started_ = true;
         browser_.stepPackage(0);
@@ -203,13 +203,13 @@ void MeshViewer::pick(int choice) {
 void MeshViewer::handleEvent(const Event &ev) {
     if (!renderer_)
         return;
-    if (ev.type == EventType::KeyDown && !ev.repeat) {
+    if (ev.type == EventType::kKeyDown && !ev.repeat) {
         const int anims = int(choices_.size());
-        if (ev.key == key::Left || ev.key == key::Right) {
-            browser_.step(ev.key == key::Left ? -1 : 1);
+        if (ev.key == key::kLeft || ev.key == key::kRight) {
+            browser_.step(ev.key == key::kLeft ? -1 : 1);
             show();
-        } else if (ev.key == key::PageUp || ev.key == key::PageDown) {
-            browser_.stepPackage(ev.key == key::PageUp ? -1 : 1);
+        } else if (ev.key == key::kPageUp || ev.key == key::kPageDown) {
+            browser_.stepPackage(ev.key == key::kPageUp ? -1 : 1);
             show();
         } else if (ev.key == 'a') {
             playing_ = !playing_;
@@ -231,18 +231,18 @@ void MeshViewer::handleEvent(const Event &ev) {
             pitch_ = pitch;
             distance_ = distance;
         }
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         dragging_ = true;
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         dragging_ = false;
-    } else if (ev.type == EventType::MouseMove && dragging_) {
+    } else if (ev.type == EventType::kMouseMove && dragging_) {
         yaw_ += float(ev.mouseX - lastX_) * 0.01f;
         pitch_ = std::clamp(pitch_ + float(ev.mouseY - lastY_) * 0.01f, -1.5f, 1.5f);
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseWheel) {
+    } else if (ev.type == EventType::kMouseWheel) {
         distance_ = std::clamp(distance_ * (ev.wheelY > 0 ? 0.9f : 1.1f), 4.0f, 20000.0f);
     }
 }

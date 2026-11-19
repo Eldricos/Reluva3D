@@ -544,7 +544,7 @@ Error loadMod(const Reader &r, TrackerModule &m) {
     const int channels = modChannels(r);
     if (channels < 1 || channels > 32)
         return Error::fail("not a tracker module");
-    m.format = TrackerFormat::MOD;
+    m.format = TrackerFormat::kMOD;
     m.title = r.text(0, 20);
     m.channels = channels;
     const unsigned songLength = r.u8(950);
@@ -607,7 +607,7 @@ Error loadS3m(const Reader &r, TrackerModule &m) {
         return Error::fail("S3M with too many orders, samples or patterns");
     if (!r.has(0x60, orders + 2 * (samples + patterns)))
         return Error::fail("S3M cut short in its order list");
-    m.format = TrackerFormat::S3M;
+    m.format = TrackerFormat::kS3M;
     m.title = r.text(0, 28);
     m.s3mEffects = m.effectMemory = m.orderMarkers = true;
     m.speed = r.u8(0x31) ? int(r.u8(0x31)) : 6;
@@ -718,7 +718,7 @@ Error loadXm(const Reader &r, TrackerModule &m) {
     const unsigned instruments = r.le16(72);
     if (channels < 1 || channels > unsigned(kMaxChannels) || songLength > 256 || patterns > 256 || instruments > 256)
         return Error::fail("XM with an impossible header");
-    m.format = TrackerFormat::XM;
+    m.format = TrackerFormat::kXM;
     m.title = r.text(17, 20);
     m.channels = int(channels);
     m.effectMemory = true;
@@ -879,7 +879,7 @@ Error loadIt(const Reader &r, TrackerModule &m) {
     const size_t insPtrs = 0xC0 + orders, smpPtrs = insPtrs + 4 * instruments, patPtrs = smpPtrs + 4 * samples;
     if (!r.has(0xC0, orders + 4 * (instruments + samples + patterns)))
         return Error::fail("IT cut short in its order list");
-    m.format = TrackerFormat::IT;
+    m.format = TrackerFormat::kIT;
     m.title = r.text(4, 26);
     m.s3mEffects = m.effectMemory = m.orderMarkers = true;
     m.linearSlides = flags & 8;
@@ -1263,9 +1263,9 @@ void Player::keyOff(Channel &ch) {
         return;
     }
     const TrackerEnvelope &e = ch.ins->volumeEnvelope;
-    if (m_.format == TrackerFormat::XM && !e.enabled)
+    if (m_.format == TrackerFormat::kXM && !e.enabled)
         ch.volume = 0;
-    else if (!(m_.format == TrackerFormat::IT && e.enabled && !e.loop)) // IT fades at such an envelope's end
+    else if (!(m_.format == TrackerFormat::kIT && e.enabled && !e.loop)) // IT fades at such an envelope's end
         ch.fading = true;
 }
 
@@ -1311,7 +1311,7 @@ void Player::trigger(Channel &ch) {
         smp = resolve(c.instrument, note, ins);
         if (ins && ch.ins == ins && ch.smp)
             smp = ch.smp;
-        if (smp && m_.format == TrackerFormat::XM) { // XM: the instrument alone restarts its envelopes
+        if (smp && m_.format == TrackerFormat::kXM) { // XM: the instrument alone restarts its envelopes
             ch.keyOn = true;
             ch.fading = false;
             ch.fade = 65536;
@@ -1512,7 +1512,7 @@ void Player::tickEffect(Channel &ch) {
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
     case FxGlobalVolSlide:
-        globalVolume_ = std::clamp(globalVolume_ + slide(p, false) * (m_.format == TrackerFormat::XM ? 2 : 1), 0, 128);
+        globalVolume_ = std::clamp(globalVolume_ + slide(p, false) * (m_.format == TrackerFormat::kXM ? 2 : 1), 0, 128);
         break;
     case FxChanVolSlide:
         ch.chanVol = std::clamp(ch.chanVol + slide(p, false), 0, 64);
@@ -1521,7 +1521,7 @@ void Player::tickEffect(Channel &ch) {
         ch.pan = std::clamp(ch.pan + (m_.s3mEffects ? -4 : 1) * slide(p, false), 0, 255);
         break;
     case FxTempo:
-        if (m_.format == TrackerFormat::IT && p < 0x20) // T0x / T1x: tempo slide
+        if (m_.format == TrackerFormat::kIT && p < 0x20) // T0x / T1x: tempo slide
             tempo_ = std::clamp(tempo_ + (p >> 4 ? 1 : -1) * (p & 15), 32, 255);
         break;
     case FxRetrig:
@@ -1632,7 +1632,7 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
                 ch.playing = false;
                 return;
             }
-            if (ended && m_.format == TrackerFormat::IT && !ch.keyOn)
+            if (ended && m_.format == TrackerFormat::kIT && !ch.keyOn)
                 ch.fading = true;
         }
         const TrackerEnvelope &pe = ch.ins->panEnvelope;
@@ -1759,11 +1759,11 @@ Error loadTrackerModule(const std::vector<uint8_t> &data, TrackerModule &out) {
 
 std::string trackerFormat(const TrackerModule &m) {
     switch (m.format) {
-    case TrackerFormat::S3M:
+    case TrackerFormat::kS3M:
         return "S3M";
-    case TrackerFormat::XM:
+    case TrackerFormat::kXM:
         return "XM";
-    case TrackerFormat::IT:
+    case TrackerFormat::kIT:
         return "IT";
     default:
         return "MOD";

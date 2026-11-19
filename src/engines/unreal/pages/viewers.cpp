@@ -22,38 +22,10 @@
 
 namespace reluva::unreal {
 
-// --- Page ------------------------------------------------------------------------------
-
-void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
-    fill(0, 0, ctx_.screen.w, ctx_.screen.h, r, g, b);
-}
-
-void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
-    Surface &s = ctx_.screen;
-    const int x0 = std::max(x, 0), y0 = std::max(y, 0);
-    const int x1 = std::min(x + w, s.w), y1 = std::min(y + h, s.h);
-    for (int yy = y0; yy < y1; ++yy) {
-        uint8_t *p = s.row(yy) + x0 * 4;
-        for (int xx = x0; xx < x1; ++xx, p += 4) {
-            p[0] = r;
-            p[1] = g;
-            p[2] = b;
-            p[3] = 255;
-        }
-    }
-}
-
-void Page::text(int x, int y, const std::string &s, Color c) {
-    font::drawText(ctx_.screen, x, y, s, c);
-}
-
-void Page::setTitle(const std::string &detail) {
-    ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + " - " + name() + ": " + detail);
-}
 
 // --- PackageViewer ----------------------------------------------------------------------
 
-PackageViewer::PackageViewer(ViewerContext &ctx) : Page(ctx), names_(ctx.packages.names()) {
+PackageViewer::PackageViewer(ViewContext &ctx) : Page(ctx), names_(ctx.packages.names()) {
 }
 
 void PackageViewer::handleEvent(const Event &ev) {
@@ -63,30 +35,30 @@ void PackageViewer::handleEvent(const Event &ev) {
     const int exports = pkg ? int(pkg->exports().size()) : 0;
     const int page = 30;
     int sel = selected_;
-    if (ev.type == EventType::MouseWheel) {
+    if (ev.type == EventType::kMouseWheel) {
         sel -= ev.wheelY * 3;
-    } else if (ev.type != EventType::KeyDown) {
+    } else if (ev.type != EventType::kKeyDown) {
         return;
-    } else if (ev.key == key::Left || ev.key == key::Right) {
+    } else if (ev.key == key::kLeft || ev.key == key::kRight) {
         const int n = int(names_.size());
-        index_ = (index_ + (ev.key == key::Left ? n - 1 : 1)) % n;
+        index_ = (index_ + (ev.key == key::kLeft ? n - 1 : 1)) % n;
         selected_ = top_ = 0;
         showProps_ = false;
         draw();
         return;
-    } else if (ev.key == key::Up) {
+    } else if (ev.key == key::kUp) {
         --sel;
-    } else if (ev.key == key::Down) {
+    } else if (ev.key == key::kDown) {
         ++sel;
-    } else if (ev.key == key::PageUp) {
+    } else if (ev.key == key::kPageUp) {
         sel -= page;
-    } else if (ev.key == key::PageDown) {
+    } else if (ev.key == key::kPageDown) {
         sel += page;
-    } else if (ev.key == key::Home) {
+    } else if (ev.key == key::kHome) {
         sel = 0;
-    } else if (ev.key == key::End) {
+    } else if (ev.key == key::kEnd) {
         sel = exports - 1;
-    } else if (ev.key == key::Return || ev.key == key::KpEnter) {
+    } else if (ev.key == key::kReturn || ev.key == key::kKpEnter) {
         showProps_ = !showProps_;
     } else {
         return;
@@ -256,7 +228,7 @@ std::string ObjectBrowser::where() const {
 
 // --- TextureViewer ----------------------------------------------------------------------
 
-TextureViewer::TextureViewer(ViewerContext &ctx)
+TextureViewer::TextureViewer(ViewContext &ctx)
     : Page(ctx), browser_(ctx.packages, browsedPackages(ctx.packages, ".utx"), isTextureClass) {
 }
 
@@ -269,13 +241,13 @@ void TextureViewer::activate() {
 }
 
 void TextureViewer::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+    if (ev.type != EventType::kKeyDown)
         return;
-    if (ev.key == key::Left || ev.key == key::Right)
-        browser_.step(ev.key == key::Left ? -1 : 1);
-    else if (ev.key == key::PageUp || ev.key == key::PageDown)
-        browser_.stepPackage(ev.key == key::PageUp ? -1 : 1);
-    else if (ev.key == key::Space && anim_)
+    if (ev.key == key::kLeft || ev.key == key::kRight)
+        browser_.step(ev.key == key::kLeft ? -1 : 1);
+    else if (ev.key == key::kPageUp || ev.key == key::kPageDown)
+        browser_.stepPackage(ev.key == key::kPageUp ? -1 : 1);
+    else if (ev.key == key::kSpace && anim_)
         paused_ = !paused_;
     else
         return;
@@ -381,7 +353,7 @@ bool isSoundClass(std::string_view c) {
 }
 } // namespace
 
-SoundViewer::SoundViewer(ViewerContext &ctx)
+SoundViewer::SoundViewer(ViewContext &ctx)
     : Page(ctx), browser_(ctx.packages, soundPackages(ctx.packages), isSoundClass) {
 }
 
@@ -405,17 +377,17 @@ void SoundViewer::deactivate() {
 }
 
 void SoundViewer::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown || ev.repeat)
+    if (ev.type != EventType::kKeyDown || ev.repeat)
         return;
-    if (ev.key == key::Left || ev.key == key::Right)
-        browser_.step(ev.key == key::Left ? -1 : 1);
-    else if (ev.key == key::PageUp || ev.key == key::PageDown)
-        browser_.stepPackage(ev.key == key::PageUp ? -1 : 1);
-    else if (ev.key == key::Space || ev.key == key::Return) {
+    if (ev.key == key::kLeft || ev.key == key::kRight)
+        browser_.step(ev.key == key::kLeft ? -1 : 1);
+    else if (ev.key == key::kPageUp || ev.key == key::kPageDown)
+        browser_.stepPackage(ev.key == key::kPageUp ? -1 : 1);
+    else if (ev.key == key::kSpace || ev.key == key::kReturn) {
         play();
     } else
         return;
-    if (ev.key != key::Space && ev.key != key::Return)
+    if (ev.key != key::kSpace && ev.key != key::kReturn)
         status_.clear();
     draw();
 }
@@ -438,7 +410,7 @@ void SoundViewer::play() {
         if (!from.empty())
             status_ += ", streamed from " + std::filesystem::path(from).filename().string();
         // The Fallen's streamed sounds are its music.
-        const auto type = from.empty() ? audio::SoundType::Effects : audio::SoundType::Music;
+        const auto type = from.empty() ? audio::SoundType::kEffects : audio::SoundType::kMusic;
         if (ctx_.mixer)
             playing_ = ctx_.mixer->play(sound, type);
         else

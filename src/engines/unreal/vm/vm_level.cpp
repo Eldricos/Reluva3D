@@ -1351,7 +1351,7 @@ void registerEngineNatives(Vm &vm) {
             c.vm.level->tickActor(c.self, c.f(0));
     });
     // GetRendererFlags(): what the renderer does itself. Bit 2: it draws
-    // characters' own shadows (the Maps page does, MapViewer::drawShadow),
+    // characters' own shadows (the Maps page does, LevelView::drawShadow),
     // so The Fallen's blob shadows (CTV_Shadow) hide.
     reg("Actor.GetRendererFlags", [](NativeCall &c) { c.result = Value::intValue(2); });
     // UpdateMultiSkins(): its MultiSkins changed. The page reads them each

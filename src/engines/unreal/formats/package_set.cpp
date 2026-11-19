@@ -77,6 +77,30 @@ std::vector<std::string> parseSearchPaths(std::string_view ini) {
     return out;
 }
 
+std::string iniValue(std::string_view ini, std::string_view section, std::string_view key) {
+    const std::string wantSection = "[" + fs::toLower(section) + "]";
+    const std::string wantKey = fs::toLower(key);
+    bool inSection = false;
+    size_t start = 0;
+    while (start < ini.size()) {
+        size_t nl = ini.find('\n', start);
+        if (nl == std::string_view::npos)
+            nl = ini.size();
+        const std::string line = trim(ini.substr(start, nl - start));
+        start = nl + 1;
+        if (line.empty() || line[0] == ';')
+            continue;
+        if (line.front() == '[') {
+            inSection = fs::toLower(line) == wantSection;
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (inSection && eq != std::string::npos && fs::toLower(trim(std::string_view(line).substr(0, eq))) == wantKey)
+            return trim(std::string_view(line).substr(eq + 1));
+    }
+    return {};
+}
+
 Error PackageSet::open(const std::filesystem::path &gameDir, std::string_view iniName,
                        std::vector<std::string> *warnings) {
     entries_.clear();

@@ -28,25 +28,25 @@ ClipVertex mix(const ClipVertex &p, const ClipVertex &q, float t) {
 
 float factor(gfx::Blend f, float src, float dst, float srcA, float dstA) {
     switch (f) {
-    case gfx::Blend::Zero:
+    case gfx::Blend::kZero:
         return 0;
-    case gfx::Blend::One:
+    case gfx::Blend::kOne:
         return 1;
-    case gfx::Blend::SrcColor:
+    case gfx::Blend::kSrcColor:
         return src;
-    case gfx::Blend::OneMinusSrcColor:
+    case gfx::Blend::kOneMinusSrcColor:
         return 1 - src;
-    case gfx::Blend::DstColor:
+    case gfx::Blend::kDstColor:
         return dst;
-    case gfx::Blend::OneMinusDstColor:
+    case gfx::Blend::kOneMinusDstColor:
         return 1 - dst;
-    case gfx::Blend::SrcAlpha:
+    case gfx::Blend::kSrcAlpha:
         return srcA;
-    case gfx::Blend::OneMinusSrcAlpha:
+    case gfx::Blend::kOneMinusSrcAlpha:
         return 1 - srcA;
-    case gfx::Blend::DstAlpha:
+    case gfx::Blend::kDstAlpha:
         return dstA;
-    case gfx::Blend::OneMinusDstAlpha:
+    case gfx::Blend::kOneMinusDstAlpha:
         return 1 - dstA;
     }
     return 1;
@@ -55,8 +55,8 @@ float factor(gfx::Blend f, float src, float dst, float srcA, float dstA) {
 } // namespace
 
 SoftRenderer3D::SoftRenderer3D(int width, int height) : w_(width), h_(height) {
-    color_.create(w_, h_, PixelFormat::RGBA32);
-    frame_.create(w_, h_, PixelFormat::RGBA32);
+    color_.create(w_, h_, PixelFormat::kRGBA32);
+    frame_.create(w_, h_, PixelFormat::kRGBA32);
     depth_.assign(size_t(w_) * size_t(h_), 1.0f);
     stencil_.assign(size_t(w_) * size_t(h_), 0);
     vw_ = w_;
@@ -148,7 +148,7 @@ void SoftRenderer3D::beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
     }
     std::fill(depth_.begin(), depth_.end(), 1.0f);
     std::fill(stencil_.begin(), stencil_.end(), uint8_t(0));
-    stencilMode_ = StencilMode::None;
+    stencilMode_ = StencilMode::kNone;
 }
 
 void SoftRenderer3D::setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) {
@@ -206,13 +206,13 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
         // The waves along the normal and the moves (the GPU's deforms; not
         // the bulge).
         for (const gfx::Deform &d : call.deforms) {
-            if (d.type == gfx::Deform::Type::Wave) {
+            if (d.type == gfx::Deform::Type::kWave) {
                 gfx::Wave w = d.wave;
                 w.phase += (p[0] + p[1] + p[2]) * d.spread;
                 const float by = gfx::evaluate(w, call.time);
                 for (int k = 0; k < 3; ++k)
                     p[k] += n[k] * by;
-            } else if (d.type == gfx::Deform::Type::Move) {
+            } else if (d.type == gfx::Deform::Type::kMove) {
                 const float by = gfx::evaluate(d.wave, call.time);
                 for (int k = 0; k < 3; ++k)
                     p[k] += d.vector[size_t(k)] * by;
@@ -230,7 +230,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             out.wy /= ww;
             out.wz /= ww;
         }
-        const float *uv = call.texGen == gfx::TexGen::Uv2 ? v.uv2 : v.uv;
+        const float *uv = call.texGen == gfx::TexGen::kUv2 ? v.uv2 : v.uv;
         // Through the pre and post rows (the turbulence between them left out).
         auto rows = [](const std::array<float, 3> &r0, const std::array<float, 3> &r1, float &u, float &w) {
             const float nu = r0[0] * u + r0[1] * w + r0[2], nw = r1[0] * u + r1[1] * w + r1[2];
@@ -245,15 +245,15 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
         auto source = [&](gfx::ColorSource s, int k) {
             const float vc = float(v.color[k]) / 255.0f;
             switch (s) {
-            case gfx::ColorSource::Vertex:
+            case gfx::ColorSource::kVertex:
                 return vc;
-            case gfx::ColorSource::OneMinusVertex:
+            case gfx::ColorSource::kOneMinusVertex:
                 return 1 - vc;
             default:
                 return 1.0f;
             }
         };
-        if (call.rgbSource == gfx::ColorSource::Lighting) {
+        if (call.rgbSource == gfx::ColorSource::kLighting) {
             float wn[3];
             for (int k = 0; k < 3; ++k)
                 wn[k] = m[k] * n[0] + m[4 + k] * n[1] + m[8 + k] * n[2];
@@ -307,7 +307,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                 for (int k = 0; k < 3; ++k)
                     c[size_t(k)] *= call.ambientLight[size_t(k)] + call.directedLight[size_t(k)] * facing;
             }
-        } else if (call.rgbSource == gfx::ColorSource::Shadow) {
+        } else if (call.rgbSource == gfx::ColorSource::kShadow) {
             const float dx = out.wx - call.shadowLight[0], dy = out.wy - call.shadowLight[1],
                         dz = out.wz - call.shadowLight[2];
             const float off = std::abs(std::sqrt(dx * dx + dy * dy + dz * dz) - call.shadowReach);
@@ -367,7 +367,7 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
             if (area == 0 || !std::isfinite(area))
                 continue;
             const bool front = area < 0;
-            if ((call.state.cull == gfx::Cull::Back && !front) || (call.state.cull == gfx::Cull::Front && front))
+            if ((call.state.cull == gfx::Cull::kBack && !front) || (call.state.cull == gfx::Cull::kFront && front))
                 continue;
             if (area < 0) {
                 std::swap(v1, v2);
@@ -396,10 +396,10 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     if (call.state.depthTest && (call.state.depthEqual ? std::fabs(z - d) > 1e-5f : z > d))
                         continue;
                     uint8_t &mark = stencil_[size_t(y) * size_t(w_) + size_t(x)];
-                    if ((stencilMode_ == StencilMode::Inside && mark != stencilLevel_) ||
-                        (stencilMode_ == StencilMode::Mark && mark != stencilLevel_ - 1) ||
-                        (stencilMode_ == StencilMode::Unmark && mark != stencilLevel_) ||
-                        (stencilMode_ == StencilMode::Once && mark))
+                    if ((stencilMode_ == StencilMode::kLevelInside && mark != stencilLevel_) ||
+                        (stencilMode_ == StencilMode::kLevelMark && mark != stencilLevel_ - 1) ||
+                        (stencilMode_ == StencilMode::kUnmark && mark != stencilLevel_) ||
+                        (stencilMode_ == StencilMode::kOnce && mark))
                         continue;
                     const float iw = b0 * v0->invW + b1 * v1->invW + b2 * v2->invW;
                     auto attr = [&](float ClipVertex::*f) {
@@ -474,9 +474,9 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     float alpha = src[3];
                     if (call.dynamicLightsTextured)
                         src[3] = 1; // its alpha only tested
-                    if ((call.state.alphaTest == gfx::AlphaTest::Gt0 && alpha <= 0) ||
-                        (call.state.alphaTest == gfx::AlphaTest::Lt128 && alpha >= 0.5f) ||
-                        (call.state.alphaTest == gfx::AlphaTest::Ge128 && alpha < 0.5f))
+                    if ((call.state.alphaTest == gfx::AlphaTest::kGt0 && alpha <= 0) ||
+                        (call.state.alphaTest == gfx::AlphaTest::kLt128 && alpha >= 0.5f) ||
+                        (call.state.alphaTest == gfx::AlphaTest::kGe128 && alpha < 0.5f))
                         continue;
                     uint8_t *out = row + x * 4;
                     float dst[4] = {float(out[0]) / 255.0f, float(out[1]) / 255.0f, float(out[2]) / 255.0f,
@@ -489,11 +489,11 @@ void SoftRenderer3D::draw(const gfx::DrawCall &call) {
                     }
                     if (call.state.depthWrite)
                         d = z;
-                    if (stencilMode_ == StencilMode::Mark)
+                    if (stencilMode_ == StencilMode::kLevelMark)
                         mark = stencilLevel_;
-                    else if (stencilMode_ == StencilMode::Unmark)
+                    else if (stencilMode_ == StencilMode::kUnmark)
                         mark = uint8_t(stencilLevel_ - 1);
-                    else if (stencilMode_ == StencilMode::Once)
+                    else if (stencilMode_ == StencilMode::kOnce)
                         mark = 1;
                 }
             }

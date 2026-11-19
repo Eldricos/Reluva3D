@@ -300,9 +300,9 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
         return std::clamp(v.empty() ? 255.0f : std::strtof(v.c_str(), nullptr), 0.0f, 255.0f) / 255;
     };
     musicSetting_ = setting("MusicVolume");
-    mixer_.setTypeVolume(audio::SoundType::Effects, volumeOf(master * setting("SFXVolume")));
-    mixer_.setTypeVolume(audio::SoundType::Music, volumeOf(master));
-    mixer_.setTypeVolume(audio::SoundType::Speech, volumeOf(master * setting("SpeechVolume")));
+    mixer_.setTypeVolume(audio::SoundType::kEffects, volumeOf(master * setting("SFXVolume")));
+    mixer_.setTypeVolume(audio::SoundType::kMusic, volumeOf(master));
+    mixer_.setTypeVolume(audio::SoundType::kSpeech, volumeOf(master * setting("SpeechVolume")));
 
     if (play.takeKillSounds()) {
         for (const Playing &p : playing_)
@@ -354,7 +354,7 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
             continue;
         const float loud =
             p.everywhere ? float(std::min(100, int(p.volume * 100))) / 127 : loudness(p.at, p.radius, p.volume);
-        p.handle = mixer_.play(sound, r.speech ? audio::SoundType::Speech : audio::SoundType::Effects, volumeOf(loud),
+        p.handle = mixer_.play(sound, r.speech ? audio::SoundType::kSpeech : audio::SoundType::kEffects, volumeOf(loud),
                                p.everywhere ? 0
                                : p.filtered ? panOf(p.at, p.radius)
                                             : positionalPan(p.at),
@@ -363,11 +363,11 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
         if (p.handle == audio::kNoSound)
             continue;
         if (r.pitch != 1)
-            mixer_.setPitch(p.handle, r.pitch);
+            mixer_.setRate(p.handle, r.pitch);
         if (r.highPass != 0)
-            mixer_.setFilter(p.handle, audio::Mixer::Filter::HighPass, r.highPass);
+            mixer_.setFilter(p.handle, audio::Mixer::Filter::kHighPass, r.highPass);
         else if (r.lowPass != 0)
-            mixer_.setFilter(p.handle, audio::Mixer::Filter::LowPass, r.lowPass);
+            mixer_.setFilter(p.handle, audio::Mixer::Filter::kLowPass, r.lowPass);
         if (r.startSeconds > 0)
             mixer_.seek(p.handle, double(r.startSeconds) * sound->rate);
         playing_.push_back(p);
@@ -398,7 +398,7 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
             loud *= behind(p.at);
         mixer_.setVolume(p.handle, volumeOf(loud));
         mixer_.setPan(p.handle, p.filtered ? panOf(p.at, p.radius) : positionalPan(p.at));
-        mixer_.setPitch(p.handle, p.pitch * doppler(p.at, relative(p.actor, p.speech), p.filtered));
+        mixer_.setRate(p.handle, p.pitch * doppler(p.at, relative(p.actor, p.speech), p.filtered));
     }
 
     // The ambient sounds: started when the listener comes within their
@@ -448,7 +448,7 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
             if (a.music)
                 am.fade = 0, am.fadeRate = 1 / kMusicFade;
             am.handle =
-                mixer_.play(sound, a.streamed ? audio::SoundType::Music : audio::SoundType::Effects, 0, 0, true);
+                mixer_.play(sound, a.streamed ? audio::SoundType::kMusic : audio::SoundType::kEffects, 0, 0, true);
             if (am.handle == audio::kNoSound)
                 continue;
             it = ambient_.emplace(a.actor, am).first;
@@ -475,7 +475,7 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
         mixer_.setReverb(am.handle, positional ? reverb_ : audio::Mixer::Reverb{});
         mixer_.setVolume(am.handle, volumeOf(loud));
         mixer_.setPan(am.handle, am.music ? 0 : positional ? positionalPan(a.at) : panOf(a.at, a.radius));
-        mixer_.setPitch(am.handle, a.pitch * doppled);
+        mixer_.setRate(am.handle, a.pitch * doppled);
     }
     // Ambient music faded out, or whose actor is gone.
     for (auto it = ambient_.begin(); it != ambient_.end();) {
@@ -515,7 +515,7 @@ void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &f
                 musicVolume_ = m.serial ? m.volume : 2.0f;
                 const float loud =
                     musicStreamed_ ? streamLoudness(musicVolume_) : float(std::min(100, int(musicVolume_ * 100))) / 127;
-                music_ = mixer_.play(sound, musicStreamed_ ? audio::SoundType::Music : audio::SoundType::Effects,
+                music_ = mixer_.play(sound, musicStreamed_ ? audio::SoundType::kMusic : audio::SoundType::kEffects,
                                      volumeOf(loud));
                 if (m.startSeconds > 0)
                     mixer_.seek(music_, double(m.startSeconds) * sound->rate);

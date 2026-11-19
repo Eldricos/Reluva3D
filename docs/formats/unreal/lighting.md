@@ -601,7 +601,7 @@ each light, `0x10b24210`):
 
 Reluva: a moving light (not `bStatic`) counts while the camera is within
 its radius (in place of the leaf's links), and the line check is its
-own trace through the level (`MapViewer::addCoronas`).
+own trace through the level (`LevelView::addCoronas`).
 
 ## Translucent lit surfaces
 

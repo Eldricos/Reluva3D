@@ -237,8 +237,8 @@ void Mixer::setFilter(SoundHandle handle, Filter kind, float hz) {
         c->biquad = {};
     c->filter = kind;
     c->filterHz = hz;
-    if (kind != Filter::None)
-        butterworth(c->biquad.a0, c->biquad.a1, c->biquad.a2, c->biquad.b1, c->biquad.b2, kind == Filter::HighPass, hz,
+    if (kind != Filter::kNone)
+        butterworth(c->biquad.a0, c->biquad.a1, c->biquad.a2, c->biquad.b1, c->biquad.b2, kind == Filter::kHighPass, hz,
                     double(_outputRate));
 }
 
@@ -370,7 +370,7 @@ void Mixer::mixSound(Channel &c, int frames, int64_t gain) {
             c.lowL = l;
             c.lowR = r;
         }
-        if (c.filter != Filter::None) {
+        if (c.filter != Filter::kNone) {
             l = c.biquad.run(0, l);
             r = ch > 1 ? c.biquad.run(1, r) : l;
         }

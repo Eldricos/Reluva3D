@@ -139,14 +139,14 @@ void drawFogOver(gfx::Renderer3D &renderer, const gfx::DrawCall &drawn, const Me
 void drawVolumeOver(gfx::Renderer3D &renderer, const gfx::DrawCall &drawn);
 // How dark a shadow is at each point it falls (in the renderer's world):
 // 1 - min(strength / |distance from `light` - reach|, most) of what's there
-// is left (gfx::ColorSource::Shadow).
+// is left (gfx::ColorSource::kShadow).
 struct ShadowShade {
     gfx::Vec3 light{};
     float reach = 0, strength = 0, most = 0;
 };
 // A mesh's shadow: drawn through `placement` (its placement, then flattened
 // onto the floor) as a colour multiplying what's there, not written to
-// depth. Overlaps darken once with the renderer's StencilMode::Once.
+// depth. Overlaps darken once with the renderer's StencilMode::kOnce.
 void drawMeshShadow(gfx::Renderer3D &renderer, const GpuMesh &mesh, const gfx::Mat4 &placement, const MeshPose &pose,
                     const ShadowShade &shade);
 // Flattens points onto a plane (n.p = d, in the renderer's axes) along the

@@ -24,6 +24,8 @@ namespace reluva::unreal {
 std::vector<std::string> defaultSearchPaths();
 // The Paths= lines of an .ini's [Core.System] section, in order.
 std::vector<std::string> parseSearchPaths(std::string_view ini);
+// A key's value in an .ini's section (both in any case); empty if it has none.
+std::string iniValue(std::string_view ini, std::string_view section, std::string_view key);
 
 // An export found through a package set.
 struct ObjectRef {

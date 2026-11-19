@@ -148,7 +148,7 @@ public:
     void setMuffle(SoundHandle handle, float muffle);
     // A 2nd-order Butterworth filter on it: low-pass or high-pass at
     // `hz` (clamped to 20 Hz - half the output rate); kind None removes it.
-    enum class Filter { None, LowPass, HighPass };
+    enum class Filter { kNone, kLowPass, kHighPass };
     void setFilter(SoundHandle handle, Filter kind, float hz);
     // A reverb on it (a Schroeder reverb: four combs, two all-passes),
     // `mix` of it wet (0 none): `seconds` for its tail to fall 60 dB,
@@ -207,7 +207,7 @@ private:
             double state[2][4] = {};
             double run(int side, double x);
         };
-        Filter filter = Filter::None;
+        Filter filter = Filter::kNone;
         float filterHz = 0;
         Biquad biquad;
         struct ReverbState {

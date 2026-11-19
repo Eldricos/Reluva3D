@@ -6,7 +6,9 @@
 // own brushes and its sky seen from the sky zone, with a fly camera
 // starting at the level's PlayerStart.
 
-#include "engines/unreal/pages/viewers.h"
+#include "engines/unreal/render/level_view.h"
+
+#include "common/developer.h"
 
 #include "engines/unreal/formats/actors.h"
 #include "engines/unreal/formats/class_defaults.h"
@@ -120,19 +122,19 @@ Vec3f lightAt(const LevelLights &lights, const Vec3f &p, const Vec3f &n) {
 
 } // namespace
 
-MapViewer::MapViewer(ViewerContext &ctx) : Page(ctx), names_(ctx.packages.mapNames()) {
+LevelView::LevelView(ViewContext &ctx) : Page(ctx), names_(ctx.packages.mapNames()) {
 }
 
-MapViewer::~MapViewer() {
+LevelView::~LevelView() {
     deactivate();
 }
 
-void MapViewer::deactivate() {
+void LevelView::deactivate() {
     unload();
     renderer_ = nullptr;
 }
 
-void MapViewer::unload() {
+void LevelView::unload() {
     if (!renderer_)
         return;
     if (mesh_)
@@ -179,11 +181,11 @@ void MapViewer::unload() {
     posers_.clear();
 }
 
-void MapViewer::activate() {
+void LevelView::activate() {
     gfx::Renderer3D *device = nullptr;
     if (Error err = ctx_.sys.init3D(kFrameW, kFrameH, device)) {
         renderer_ = nullptr;
-        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::RGBA32);
+        ctx_.sys.initGraphics(ctx_.screen.w, ctx_.screen.h, PixelFormat::kRGBA32);
         clear(16, 18, 24);
         text(4, 4, "The Maps page needs 3D rendering, which isn't available:", {255, 120, 120});
         text(4, 4 + font::kLineHeight, err.message);
@@ -193,12 +195,12 @@ void MapViewer::activate() {
     }
     recorder_ = std::make_unique<TextureUseRecorder>(*device);
     renderer_ = recorder_.get();
-    overlay_.create(kFrameW, kFrameH, PixelFormat::RGBA32);
+    overlay_.create(kFrameW, kFrameH, PixelFormat::kRGBA32);
     overlayTop_ = overlayBottom_ = 0;
     load(index_);
 }
 
-void MapViewer::load(int index) {
+void LevelView::load(int index) {
     unload();
     index_ = index;
     error_.clear();
@@ -769,7 +771,7 @@ void MapViewer::load(int index) {
         "Not drawn yet: light effects' patterns across surfaces (a torch's waver, water's shimmer: as brightness only)");
 }
 
-bool MapViewer::watchActor(const std::string &name) {
+bool LevelView::watchActor(const std::string &name) {
     if (!play_)
         return false;
     for (VmObject *a : play_->level().actors()) {
@@ -794,13 +796,13 @@ bool MapViewer::watchActor(const std::string &name) {
     return false;
 }
 
-void MapViewer::placeCamera(const Vec3f &at, float yaw, float pitch) {
+void LevelView::placeCamera(const Vec3f &at, float yaw, float pitch) {
     pos_ = toWorld(at);
     yaw_ = -yaw * kPi / 180;
     pitch_ = pitch * kPi / 180;
 }
 
-std::vector<std::pair<std::string, Vec3f>> MapViewer::actorPlaces(const std::string &classPart) {
+std::vector<std::pair<std::string, Vec3f>> LevelView::actorPlaces(const std::string &classPart) {
     std::vector<std::pair<std::string, Vec3f>> out;
     if (!play_)
         return out;
@@ -815,7 +817,7 @@ std::vector<std::pair<std::string, Vec3f>> MapViewer::actorPlaces(const std::str
     return out;
 }
 
-bool MapViewer::teleportPlayer(const std::string &name, const Vec3f &offset, float yaw) {
+bool LevelView::teleportPlayer(const std::string &name, const Vec3f &offset, float yaw) {
     if (!play_ || !play_->player())
         return false;
     Vm &vm = play_->vm();
@@ -843,7 +845,7 @@ bool MapViewer::teleportPlayer(const std::string &name, const Vec3f &offset, flo
     return false;
 }
 
-bool MapViewer::callFunction(const std::string &name, const std::string &function) {
+bool LevelView::callFunction(const std::string &name, const std::string &function) {
     if (!play_)
         return false;
     Vm &vm = play_->vm();
@@ -856,14 +858,14 @@ bool MapViewer::callFunction(const std::string &name, const std::string &functio
     return false;
 }
 
-std::string MapViewer::consoleCommand(const std::string &command) {
+std::string LevelView::consoleCommand(const std::string &command) {
     if (!play_ || !play_->player())
         return "no player";
     const Value v = play_->vm().callEvent(play_->player(), "ConsoleCommand", {Value::stringValue(command)});
     return v.s;
 }
 
-std::string MapViewer::describeActor(const std::string &name) {
+std::string LevelView::describeActor(const std::string &name) {
     if (!play_)
         return "not playing";
     Vm &vm = play_->vm();
@@ -922,7 +924,7 @@ std::string MapViewer::describeActor(const std::string &name) {
     return "no such actor";
 }
 
-std::string MapViewer::describeView() {
+std::string LevelView::describeView() {
     if (!play_)
         return "not playing";
     char buf[200];
@@ -943,7 +945,7 @@ std::string MapViewer::describeView() {
     return out;
 }
 
-std::string MapViewer::actorProperty(const std::string &name, const std::string &property) {
+std::string LevelView::actorProperty(const std::string &name, const std::string &property) {
     if (!play_)
         return "not playing";
     Vm &vm = play_->vm();
@@ -964,7 +966,7 @@ std::string MapViewer::actorProperty(const std::string &name, const std::string 
     return "no such actor";
 }
 
-std::vector<std::string> MapViewer::linesSaid() {
+std::vector<std::string> LevelView::linesSaid() {
     std::vector<std::string> out;
     if (!play_)
         return out;
@@ -979,11 +981,11 @@ std::vector<std::string> MapViewer::linesSaid() {
     return out;
 }
 
-float MapViewer::playTime() const {
+float LevelView::playTime() const {
     return play_ ? play_->time() : 0;
 }
 
-std::string MapViewer::describePlayer() {
+std::string LevelView::describePlayer() {
     if (!play_ || !play_->player())
         return "no player";
     Vm &vm = play_->vm();
@@ -1017,7 +1019,7 @@ std::string MapViewer::describePlayer() {
            (seq ? vm.nameText(seq->i) : std::string("?")) + buf;
 }
 
-bool MapViewer::selectMap(const std::string &name) {
+bool LevelView::selectMap(const std::string &name) {
     for (size_t i = 0; i < names_.size(); ++i)
         if (fs::toLower(names_[i]) == fs::toLower(name)) {
             if (renderer_)
@@ -1029,7 +1031,7 @@ bool MapViewer::selectMap(const std::string &name) {
     return false;
 }
 
-void MapViewer::toStart() {
+void LevelView::toStart() {
     pos_ = start_;
     yaw_ = startYaw_;
     pitch_ = 0;
@@ -1043,42 +1045,42 @@ namespace {
 int inputKey(uint32_t k) {
     if (k >= 'a' && k <= 'z')
         return int(k - 'a' + 'A');
-    if ((k >= '0' && k <= '9') || k == key::Space || k == key::Tab || k == key::Backspace || k == key::Escape)
+    if ((k >= '0' && k <= '9') || k == key::kSpace || k == key::kTab || k == key::kBackspace || k == key::kEscape)
         return int(k);
-    if (k >= key::F1 && k < key::F1 + 12)
-        return int(0x70 + k - key::F1);
+    if (k >= key::kF1 && k < key::kF1 + 12)
+        return int(0x70 + k - key::kF1);
     switch (k) {
-    case key::Return:
-    case key::KpEnter:
+    case key::kReturn:
+    case key::kKpEnter:
         return 13;
-    case key::Left:
+    case key::kLeft:
         return 37;
-    case key::Up:
+    case key::kUp:
         return 38;
-    case key::Right:
+    case key::kRight:
         return 39;
-    case key::Down:
+    case key::kDown:
         return 40;
-    case key::LShift:
-    case key::RShift:
+    case key::kLShift:
+    case key::kRShift:
         return 16;
-    case key::LCtrl:
-    case key::RCtrl:
+    case key::kLCtrl:
+    case key::kRCtrl:
         return 17;
-    case key::LAlt:
-    case key::RAlt:
+    case key::kLAlt:
+    case key::kRAlt:
         return 18;
-    case key::PageUp:
+    case key::kPageUp:
         return 0x21;
-    case key::PageDown:
+    case key::kPageDown:
         return 0x22;
-    case key::End:
+    case key::kEnd:
         return 0x23;
-    case key::Home:
+    case key::kHome:
         return 0x24;
-    case key::Insert:
+    case key::kInsert:
         return 0x2d;
-    case key::Delete:
+    case key::kDelete:
         return 0x2e;
     default:
         return 0;
@@ -1087,19 +1089,23 @@ int inputKey(uint32_t k) {
 
 } // namespace
 
-void MapViewer::handleEvent(const Event &ev) {
+bool LevelView::viewerKeys() const {
+    return !game_ || kDeveloperKeys;
+}
+
+void LevelView::handleEvent(const Event &ev) {
     if (!renderer_ || names_.empty())
         return;
     // Playing with the game's view, each key goes to the game's console
     // first, as the engine hands them on: while its menus show, it takes
     // the arrows and Enter, and the page leaves them be.
-    if (play_ && !freeCam_ && (ev.type == EventType::KeyDown || ev.type == EventType::KeyUp) && !ev.repeat &&
-        !(ev.type == EventType::KeyDown && ev.key == 'v'))
+    if (play_ && !freeCam_ && (ev.type == EventType::kKeyDown || ev.type == EventType::kKeyUp) && !ev.repeat &&
+        !(ev.type == EventType::kKeyDown && ev.key == 'v'))
         if (const int k = inputKey(ev.key)) {
             // The menu's keys (Enter, the arrows) are the game's whatever
             // KeyEvent answers: the HUD's says false having acted on Enter.
             const bool menuKey = play_->menuShowing() && (k == 13 || (k >= 37 && k <= 40));
-            if ((play_->consoleKey(k, ev.type == EventType::KeyDown) || menuKey) && ev.type == EventType::KeyDown) {
+            if ((play_->consoleKey(k, ev.type == EventType::kKeyDown) || menuKey) && ev.type == EventType::kKeyDown) {
                 for (bool &h : held_)
                     h = false;
                 return;
@@ -1108,20 +1114,20 @@ void MapViewer::handleEvent(const Event &ev) {
     auto hold = [&](uint32_t k, bool down) {
         if (play_ && !freeCam_) // playing, the arrows turn and look, and Ctrl or F fires
             switch (k) {
-            case key::Left:
+            case key::kLeft:
                 held_[TurnLeft] = down;
                 return true;
-            case key::Right:
+            case key::kRight:
                 held_[TurnRight] = down;
                 return true;
-            case key::Up:
+            case key::kUp:
                 held_[LookUp] = down;
                 return true;
-            case key::Down:
+            case key::kDown:
                 held_[LookDown] = down;
                 return true;
-            case key::LCtrl:
-            case key::RCtrl:
+            case key::kLCtrl:
+            case key::kRCtrl:
             case 'f':
                 held_[Fire] = down;
                 return true;
@@ -1141,7 +1147,7 @@ void MapViewer::handleEvent(const Event &ev) {
         case 'd':
             held_[Right] = down;
             return true;
-        case key::Space:
+        case key::kSpace:
         case 'e':
             held_[Up] = down;
             return true;
@@ -1149,42 +1155,42 @@ void MapViewer::handleEvent(const Event &ev) {
         case 'q':
             held_[Down] = down;
             return true;
-        case key::LShift:
-        case key::RShift:
+        case key::kLShift:
+        case key::kRShift:
             held_[Fast] = down;
             return true;
         default:
             return false;
         }
     };
-    if (ev.type == EventType::KeyUp) {
-        if (play_ && !freeCam_ && ev.key >= key::F1 && ev.key < key::F1 + 12)
-            play_->pressKey("F" + std::to_string(ev.key - key::F1 + 1), false);
+    if (ev.type == EventType::kKeyUp) {
+        if (play_ && !freeCam_ && ev.key >= key::kF1 && ev.key < key::kF1 + 12)
+            play_->pressKey("F" + std::to_string(ev.key - key::kF1 + 1), false);
         hold(ev.key, false);
-    } else if (ev.type == EventType::KeyDown) {
-        if (play_ && !ev.repeat && ev.key == 'v') { // the camera let loose, or back to the game's
+    } else if (ev.type == EventType::kKeyDown) {
+        if (play_ && !ev.repeat && ev.key == 'v' && viewerKeys()) { // the camera let loose, or back to the game's
             freeCam_ = !freeCam_;
             for (bool &h : held_)
                 h = false;
             return;
         }
         if (play_ && !freeCam_ && !ev.repeat) { // the keys bound to exec functions
-            if (ev.key == key::Space)
+            if (ev.key == key::kSpace)
                 play_->press("Jump");
-            else if (ev.key == key::LCtrl || ev.key == key::RCtrl || ev.key == 'f')
+            else if (ev.key == key::kLCtrl || ev.key == key::kRCtrl || ev.key == 'f')
                 play_->press("Fire");
             else if (ev.key >= '0' && ev.key <= '9') // the weapons, as the game binds them
                 play_->pressKey(std::string(1, char(ev.key)));
-            else if (ev.key >= key::F1 && ev.key < key::F1 + 12) // the communicator, the tricorder...
-                play_->pressKey("F" + std::to_string(ev.key - key::F1 + 1));
-            else if (ev.key == key::Escape) { // the game's menu (ShowMenu)
+            else if (ev.key >= key::kF1 && ev.key < key::kF1 + 12) // the communicator, the tricorder...
+                play_->pressKey("F" + std::to_string(ev.key - key::kF1 + 1));
+            else if (ev.key == key::kEscape) { // the game's menu (ShowMenu)
                 play_->pressKey("Escape");
                 return;
             }
         }
-        if (hold(ev.key, true) || ev.repeat)
+        if (hold(ev.key, true) || ev.repeat || !viewerKeys())
             return;
-        if (ev.key == key::Return || ev.key == key::KpEnter) {
+        if (ev.key == key::kReturn || ev.key == key::kKpEnter) {
             for (bool &h : held_)
                 h = false;
             if (play_)
@@ -1194,8 +1200,8 @@ void MapViewer::handleEvent(const Event &ev) {
             return;
         }
         const int n = int(names_.size());
-        if (ev.key == key::Left || ev.key == key::Right)
-            load((index_ + (ev.key == key::Left ? n - 1 : 1)) % n);
+        if (ev.key == key::kLeft || ev.key == key::kRight)
+            load((index_ + (ev.key == key::kLeft ? n - 1 : 1)) % n);
         else if (ev.key == 'r')
             toStart();
         else if (ev.key == 'i')
@@ -1248,33 +1254,33 @@ void MapViewer::handleEvent(const Event &ev) {
                     m.t = 0;
                 }
     } else if (play_ && !freeCam_ && play_->windowsOpen() &&
-               (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp)) {
+               (ev.type == EventType::kMouseMove || ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp)) {
         // The game's windows (the options) open: the mouse is theirs, its
         // pointer where the page's is, its buttons keys 1 and 2.
         play_->consoleMouse(float(ev.mouseX), float(ev.mouseY));
-        if (ev.type != EventType::MouseMove && (ev.button == MouseButton::Left || ev.button == MouseButton::Right))
-            play_->consoleKey(ev.button == MouseButton::Left ? 1 : 2, ev.type == EventType::MouseDown);
+        if (ev.type != EventType::kMouseMove && (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight))
+            play_->consoleKey(ev.button == MouseButton::kLeft ? 1 : 2, ev.type == EventType::kMouseDown);
     } else if (play_ && !freeCam_ && play_->menuShowing() &&
-               (ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) &&
-               (ev.button == MouseButton::Left || ev.button == MouseButton::Right)) {
+               (ev.type == EventType::kMouseDown || ev.type == EventType::kMouseUp) &&
+               (ev.button == MouseButton::kLeft || ev.button == MouseButton::kRight)) {
         // The HUD's menus: the buttons as the game binds them (LeftMouse
         // Fire selects, RightMouse AltFire steps the choice), not a drag.
-        const bool left = ev.button == MouseButton::Left, down = ev.type == EventType::MouseDown;
+        const bool left = ev.button == MouseButton::kLeft, down = ev.type == EventType::kMouseDown;
         if (!play_->consoleKey(left ? 1 : 2, down))
             play_->pressKey(left ? "LeftMouse" : "RightMouse", down);
-    } else if (ev.type == EventType::MouseDown && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseDown && ev.button == MouseButton::kLeft) {
         dragging_ = true;
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseUp && ev.button == MouseButton::Left) {
+    } else if (ev.type == EventType::kMouseUp && ev.button == MouseButton::kLeft) {
         dragging_ = false;
-    } else if (ev.type == EventType::MouseMove && dragging_ && play_ && !freeCam_) {
+    } else if (ev.type == EventType::kMouseMove && dragging_ && play_ && !freeCam_) {
         // Playing, the mouse's movement goes to the player's input.
         mouseDx_ += float(ev.mouseX - lastX_);
         mouseDy_ -= float(ev.mouseY - lastY_);
         lastX_ = ev.mouseX;
         lastY_ = ev.mouseY;
-    } else if (ev.type == EventType::MouseMove && dragging_) {
+    } else if (ev.type == EventType::kMouseMove && dragging_) {
         yaw_ -= float(ev.mouseX - lastX_) * 0.005f;
         pitch_ = std::clamp(pitch_ - float(ev.mouseY - lastY_) * 0.005f, -1.55f, 1.55f);
         lastX_ = ev.mouseX;
@@ -1282,7 +1288,7 @@ void MapViewer::handleEvent(const Event &ev) {
     }
 }
 
-void MapViewer::update(uint64_t nowMs) {
+void LevelView::update(uint64_t nowMs) {
     if (!renderer_)
         return;
     const float dt = lastMs_ ? std::min(0.1f, float(nowMs - lastMs_) / 1000.0f) : 0.0f;
@@ -1390,11 +1396,11 @@ void MapViewer::update(uint64_t nowMs) {
         call.mesh = mesh_;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         call.color = {0.15f, 0.2f, 0.35f, 1};
         if (sky) {
-            call.state.src = gfx::Blend::Zero;
-            call.state.dst = gfx::Blend::One;
+            call.state.src = gfx::Blend::kZero;
+            call.state.dst = gfx::Blend::kOne;
         }
         renderer_->draw(call);
     }
@@ -1416,7 +1422,7 @@ void MapViewer::update(uint64_t nowMs) {
 // PostRender with the canvas (ScriptLevel::renderHud), then the actors and
 // tiles they drew, in screen pixels: cut out where see-through, translucent ones added,
 // modulated ones multiplied in.
-void MapViewer::drawGameHud() {
+void LevelView::drawGameHud() {
     const int w = renderer_->width(), h = renderer_->height();
     ScriptLevel::HudView v;
     v.location = {view_.location[0], view_.location[1], view_.location[2]};
@@ -1486,18 +1492,18 @@ void MapViewer::drawGameHud() {
         call.preRow0 = {t.ul / tw, 0, t.u / tw};
         call.preRow1 = {0, t.vl / th, t.v / th};
         call.color = {float(t.color[0]) / 255, float(t.color[1]) / 255, float(t.color[2]) / 255, 1};
-        call.state.cull = gfx::Cull::None;
+        call.state.cull = gfx::Cull::kNone;
         call.state.depthTest = false;
         call.state.depthWrite = false;
         // See-through texels stay so in every style (letters are drawn
         // masked however they blend).
-        call.state.alphaTest = gfx::AlphaTest::Ge128;
+        call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (t.style == kStyleTranslucent) {
-            call.state.src = call.state.dst = gfx::Blend::One;
+            call.state.src = call.state.dst = gfx::Blend::kOne;
         } else if (t.style == kStyleModulated) {
             call.color = {1, 1, 1, 1};
-            call.state.src = gfx::Blend::DstColor;
-            call.state.dst = gfx::Blend::SrcColor;
+            call.state.src = gfx::Blend::kDstColor;
+            call.state.dst = gfx::Blend::kSrcColor;
         }
         renderer_->draw(call);
     }
@@ -1506,7 +1512,7 @@ void MapViewer::drawGameHud() {
 
 // An FliTexture's frame for the HUD: its animation shown at that frame and
 // uploaded when it changes (one texture each, and each way of colour 0).
-std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudFliTexture(const ObjectRef &tex, int frame,
+std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudFliTexture(const ObjectRef &tex, int frame,
                                                                        bool seeThrough) {
     auto key = std::make_tuple(tex.package, tex.exportIndex, seeThrough);
     auto it = hudFlis_.find(key);
@@ -1540,7 +1546,7 @@ std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudFliTexture(const Obj
 
 // A texture for the HUD, with its colour 0 see-through if asked (letters,
 // masked tiles), kept by both.
-std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudTexture(const ObjectRef &tex, bool seeThrough) {
+std::pair<gfx::TextureId, std::array<int, 2>> LevelView::hudTexture(const ObjectRef &tex, bool seeThrough) {
     if (!seeThrough)
         return textureOf(tex);
     auto it = seeThroughTextures_.find({tex.package, tex.exportIndex});
@@ -1565,7 +1571,7 @@ std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::hudTexture(const Object
 
 // The sprites, facing the camera: those drawn solid first, then the
 // blended ones over them (not hiding what's behind).
-void MapViewer::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, const gfx::Vec3 &right) {
+void LevelView::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, const gfx::Vec3 &right) {
     const gfx::Vec3 up{right[1] * forward[2] - right[2] * forward[1], right[2] * forward[0] - right[0] * forward[2],
                        right[0] * forward[1] - right[1] * forward[0]};
     for (int blendedPass = 0; blendedPass < 2; ++blendedPass)
@@ -1591,18 +1597,18 @@ void MapViewer::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
                 call.state.depthTest = false;
             call.texture = textured_ ? d.texture : 0;
             call.color = {d.color[0], d.color[1], d.color[2], 1};
-            call.state.cull = gfx::Cull::None;
+            call.state.cull = gfx::Cull::kNone;
             if (d.style == kStyleTranslucent) {
-                call.state.src = call.state.dst = gfx::Blend::One;
+                call.state.src = call.state.dst = gfx::Blend::kOne;
                 call.state.depthWrite = false;
             } else if (d.style == kStyleModulated) {
                 // The background times the texture, doubled: grey leaves it as is.
                 call.color = {1, 1, 1, 1};
-                call.state.src = gfx::Blend::DstColor;
-                call.state.dst = gfx::Blend::SrcColor;
+                call.state.src = gfx::Blend::kDstColor;
+                call.state.dst = gfx::Blend::kSrcColor;
                 call.state.depthWrite = false;
             } else {
-                call.state.alphaTest = gfx::AlphaTest::Ge128; // masked: index 0 see-through
+                call.state.alphaTest = gfx::AlphaTest::kGe128; // masked: index 0 see-through
             }
             renderer_->draw(call);
         }
@@ -1613,7 +1619,7 @@ void MapViewer::drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::V
 // Fire, water and the rest tick as UE1's do: only those drawn (since the
 // last time here), each by the time since it last ticked, so one unseen a
 // while takes that time at once. Their own pace allows one step for it.
-void MapViewer::updateAnimatedTextures(float dt) {
+void LevelView::updateAnimatedTextures(float dt) {
     std::vector<gfx::TextureRegion> regions;
     animatedSince_.resize(animatedTextures_.size(), 0);
     const std::unordered_set<gfx::TextureId> *used = recorder_ ? &recorder_->used() : nullptr;
@@ -1637,7 +1643,7 @@ void MapViewer::updateAnimatedTextures(float dt) {
 // playing, a light the scripts may change as its live actor is (its
 // LightType and LightBrightness: a TriggerLight fading, a light turned
 // off, or destroyed).
-float MapViewer::liveLightLevel(const LightSource &l, bool whole) {
+float LevelView::liveLightLevel(const LightSource &l, bool whole) {
     if (!play_ && l.startsOff)
         return 0; // as the level starts: its scripts haven't turned it on
     if (!play_ || !l.scripted || !l.ref)
@@ -1658,7 +1664,7 @@ float MapViewer::liveLightLevel(const LightSource &l, bool whole) {
 // light's level as a whole (lightLevels_); the lightmaps theirs less a
 // pattern, which lightPattern gives texel by texel (mapLevels_). Only
 // lightmaps in a zone seen are drawn; the others are drawn when it is.
-void MapViewer::updateLightmaps(float dt) {
+void LevelView::updateLightmaps(float dt) {
     lightTime_ += dt;
     std::vector<bool> changed(changingLights_.size(), false);
     patternNow_.resize(changingLights_.size());
@@ -1700,13 +1706,13 @@ void MapViewer::updateLightmaps(float dt) {
 }
 
 // The idle loop a character placed in pose `anim` plays (see load()).
-std::string MapViewer::idleFor(const std::string &anim) {
+std::string LevelView::idleFor(const std::string &anim) {
     return fs::toLower(anim).rfind("baseready", 0) == 0 ? "IdleReady1" : "Idle1";
 }
 
 // Puts the camera before the next placed mesh (or the next whose mesh is
 // posed from bones: the characters), looking at it along X.
-void MapViewer::jumpToMeshActor(bool skeletalOnly) {
+void LevelView::jumpToMeshActor(bool skeletalOnly) {
     const int n = int(meshActors_.size());
     for (int step = 1; step <= n; ++step) {
         const int i = (jump_ + step) % n;
@@ -1726,7 +1732,7 @@ void MapViewer::jumpToMeshActor(bool skeletalOnly) {
     }
 }
 
-gfx::Mat4 MapViewer::moverTransform(const MoverDraw &d) const {
+gfx::Mat4 LevelView::moverTransform(const MoverDraw &d) const {
     const Mover &m = d.mover;
     // Where it is between its two keyframes.
     const Vec3f base = m.basePosition();
@@ -1744,7 +1750,7 @@ gfx::Mat4 MapViewer::moverTransform(const MoverDraw &d) const {
     return moverPlacement(m, location, rot);
 }
 
-gfx::Mat4 MapViewer::moverPlacement(const Mover &m, const Vec3f &location, const Rotator &rot) {
+gfx::Mat4 LevelView::moverPlacement(const Mover &m, const Vec3f &location, const Rotator &rot) {
     // location + postScale * (rotation * (mainScale * (v - prePivot))),
     // then Y negated into the renderer's axes.
     const gfx::Mat4 flip = scaling({1, -1, 1});
@@ -1757,7 +1763,7 @@ gfx::Mat4 MapViewer::moverPlacement(const Mover &m, const Vec3f &location, const
 
 // The zones seen from `eye` (gfx's coordinates) through the portals, for
 // drawBatches to leave out the rest.
-void MapViewer::seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bool mainView) {
+void LevelView::seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bool mainView) {
     const Vec3f at{eye[0], -eye[1], eye[2]}; // Unreal's coordinates have y the other way
     if (!zoneCulling_) {
         zonesSeen_ = ~uint64_t(0);
@@ -1774,7 +1780,7 @@ void MapViewer::seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bo
 
 // The level's batches, playing: with the textures the scripts have swapped
 // for others everywhere (SetSurfaceTexture's bReplaceAllWorld).
-const std::vector<MapViewer::Batch> &MapViewer::levelBatches() {
+const std::vector<LevelView::Batch> &LevelView::levelBatches() {
     if (!play_ || play_->level().surfaceSwaps().world.empty())
         return batches_;
     const ScriptLevel::SurfaceSwaps &swaps = play_->level().surfaceSwaps();
@@ -1792,7 +1798,7 @@ const std::vector<MapViewer::Batch> &MapViewer::levelBatches() {
 // again over themselves with the new one, then its lightmap. The texture
 // coordinates are the old texture's, so a new one of another size would
 // be stretched; The Fallen's switches swap textures of one size.
-void MapViewer::drawSurfaceSwaps() {
+void LevelView::drawSurfaceSwaps() {
     if (!play_)
         return;
     for (const auto &[surf, tex] : play_->level().surfaceSwaps().surfaces) {
@@ -1811,7 +1817,7 @@ void MapViewer::drawSurfaceSwaps() {
     }
 }
 
-Vec3f MapViewer::tintOf(int tint) const {
+Vec3f LevelView::tintOf(int tint) const {
     const std::vector<TintSample> &samples = tints_[size_t(tint)];
     Vec3f sum{};
     for (const TintSample &t : samples) {
@@ -1843,7 +1849,7 @@ Vec3f MapViewer::tintOf(int tint) const {
     return sum;
 }
 
-void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, bool levelLit,
+void LevelView::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, bool levelLit,
                             bool over, const MeshLight *moverLight) {
     auto lit = [&](const Batch &b) {
         return levelLit && lightmaps_ && b.lightmap && !blended(b.polyFlags) &&
@@ -1863,9 +1869,9 @@ void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
             renderer_->hasStencil()) {
             // An opaque mirror shows only what it reflects: its depth, to
             // hide what's behind it.
-            call.state.src = gfx::Blend::Zero;
-            call.state.dst = gfx::Blend::One;
-            call.state.cull = gfx::Cull::None;
+            call.state.src = gfx::Blend::kZero;
+            call.state.dst = gfx::Blend::kOne;
+            call.state.cull = gfx::Cull::kNone;
             renderer_->draw(call);
             continue;
         }
@@ -1878,15 +1884,15 @@ void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
         // A mover's polygons (its brush's) wind the other way round: from
         // inside M04_WorfL1a's turbolift, culled as the level's, all that
         // showed was its brush's untextured outer faces from behind.
-        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::None
-                          : moverLight                       ? gfx::Cull::Back
-                                                             : gfx::Cull::Front;
+        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::kNone
+                          : moverLight                       ? gfx::Cull::kBack
+                                                             : gfx::Cull::kFront;
         call.texture = textured_ ? b.texture : 0;
         // With a lightmap the second pass lights it; else the vertex colours
         // (shading by facing, or a mover's light).
-        call.rgbSource = lit(b) ? gfx::ColorSource::Constant : gfx::ColorSource::Vertex;
+        call.rgbSource = lit(b) ? gfx::ColorSource::kConstant : gfx::ColorSource::kVertex;
         if (moverLight && !(b.polyFlags & polyflag::Unlit) && !blended(b.polyFlags)) {
-            call.rgbSource = gfx::ColorSource::Lighting;
+            call.rgbSource = gfx::ColorSource::kLighting;
             call.ambientLight = moverLight->ambient;
             call.directedLight = moverLight->directed;
             call.lightDirection = moverLight->direction;
@@ -1905,32 +1911,32 @@ void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
                           kExposure * t[2] * lightScale_, 1};
         }
         if (b.polyFlags & polyflag::Masked)
-            call.state.alphaTest = gfx::AlphaTest::Ge128;
+            call.state.alphaTest = gfx::AlphaTest::kGe128;
         if (over) // drawn over what's there already
             call.state.depthEqual = true;
         if (b.polyFlags & polyflag::Translucent) {
-            call.state.src = gfx::Blend::One;
-            call.state.dst = gfx::Blend::OneMinusSrcColor;
+            call.state.src = gfx::Blend::kOne;
+            call.state.dst = gfx::Blend::kOneMinusSrcColor;
             call.state.depthWrite = false;
         } else if (b.polyFlags & polyflag::Modulated) {
-            call.state.src = gfx::Blend::DstColor;
-            call.state.dst = gfx::Blend::SrcColor;
+            call.state.src = gfx::Blend::kDstColor;
+            call.state.dst = gfx::Blend::kSrcColor;
             call.state.depthWrite = false;
-            call.rgbSource = gfx::ColorSource::Constant;
+            call.rgbSource = gfx::ColorSource::kConstant;
         }
         renderer_->draw(call);
         if (lit(b)) {
             // The lightmap over it, doubled (dst * src * 2).
             gfx::DrawCall light = call;
             light.texture = b.lightmap;
-            light.texGen = gfx::TexGen::Uv2;
-            light.rgbSource = gfx::ColorSource::Constant;
+            light.texGen = gfx::TexGen::kUv2;
+            light.rgbSource = gfx::ColorSource::kConstant;
             light.color = {lightScale_, lightScale_, lightScale_, 1};
-            light.state.src = gfx::Blend::DstColor;
-            light.state.dst = gfx::Blend::SrcColor;
+            light.state.src = gfx::Blend::kDstColor;
+            light.state.dst = gfx::Blend::kSrcColor;
             light.state.depthEqual = true;
             light.state.depthWrite = false;
-            light.state.alphaTest = gfx::AlphaTest::None;
+            light.state.alphaTest = gfx::AlphaTest::kNone;
             renderer_->draw(light);
         }
         // The lights that move and change (a spark's flash, an
@@ -1939,8 +1945,8 @@ void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
         if (!dynamic_.empty() && !over && !blended(b.polyFlags) && !(b.polyFlags & polyflag::Unlit) && call.texture) {
             gfx::DrawCall dyn = call;
             dyn.dynamicLightsTextured = true;
-            dyn.state.src = gfx::Blend::One;
-            dyn.state.dst = gfx::Blend::One;
+            dyn.state.src = gfx::Blend::kOne;
+            dyn.state.dst = gfx::Blend::kOne;
             dyn.state.depthEqual = true;
             dyn.state.depthWrite = false;
             renderer_->draw(dyn);
@@ -1958,7 +1964,7 @@ void MapViewer::drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh,
 // straight through the middle); its colour (VolumeBrightness) times that
 // added, and what's there dimmed by its VolumeFog times that (blended
 // One, OneMinusSrcAlpha).
-void MapViewer::drawVolumes(const gfx::Vec3 &eye) {
+void LevelView::drawVolumes(const gfx::Vec3 &eye) {
     if (volumes_.empty() || !lightmaps_)
         return;
     const Vec3f e{eye[0], -eye[1], eye[2]};
@@ -1977,12 +1983,12 @@ void MapViewer::drawVolumes(const gfx::Vec3 &eye) {
                           l.volumeFog});
     }
     renderer_->setVolumeLights(lights);
-    volumesOver(levelBatches(), mesh_, gfx::identity(), gfx::Cull::Front, true);
+    volumesOver(levelBatches(), mesh_, gfx::identity(), gfx::Cull::kFront, true);
 }
 
 // The volume lights over batches drawn (the level's in fog zones, flagged
 // so; or all of a mover's in one), where they left their depth.
-void MapViewer::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, gfx::Cull cull,
+void LevelView::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, gfx::Cull cull,
                             bool flagged) {
     for (const Batch &b : batches) {
         if ((flagged && !(b.polyFlags & kRenderFog)) || (b.polyFlags & polyflag::FakeBackdrop) ||
@@ -1993,12 +1999,12 @@ void MapViewer::volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh,
         call.model = model;
         call.firstIndex = b.firstIndex;
         call.indexCount = b.indexCount;
-        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::None : cull;
+        call.state.cull = (b.polyFlags & polyflag::TwoSided) ? gfx::Cull::kNone : cull;
         drawVolumeOver(*renderer_, call);
     }
 }
 
-bool MapViewer::inFogZone(const Vec3f &at) const {
+bool LevelView::inFogZone(const Vec3f &at) const {
     if (volumes_.empty() || !lightmaps_)
         return false;
     const int z = zones_.zoneAt(at);
@@ -2009,7 +2015,7 @@ bool MapViewer::inFogZone(const Vec3f &at) const {
 // lightmaps) nor static (as in UE1, those light the world only through
 // lightmaps): their light as it is now, the nearest kMaxDynamicLights to
 // the eye given to the renderer.
-void MapViewer::gatherDynamicLights(const gfx::Vec3 &eye) {
+void LevelView::gatherDynamicLights(const gfx::Vec3 &eye) {
     dynamic_.clear();
     if (!play_)
         return;
@@ -2050,7 +2056,7 @@ void MapViewer::gatherDynamicLights(const gfx::Vec3 &eye) {
     renderer_->setDynamicLights(lights);
 }
 
-void MapViewer::drawOverlay(uint64_t nowMs) {
+void LevelView::drawOverlay(uint64_t nowMs) {
     ++frames_;
     if (nowMs - fpsStart_ >= 1000) {
         fps_ = float(frames_) * 1000.0f / float(nowMs - fpsStart_);
@@ -2146,7 +2152,7 @@ void MapViewer::drawOverlay(uint64_t nowMs) {
     }
 }
 
-std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::textureOf(const ObjectRef &tex, bool *unreadable,
+std::pair<gfx::TextureId, std::array<int, 2>> LevelView::textureOf(const ObjectRef &tex, bool *unreadable,
                                                                    bool masked) {
     if (!tex)
         return {0, {64, 64}};
@@ -2193,7 +2199,7 @@ std::pair<gfx::TextureId, std::array<int, 2>> MapViewer::textureOf(const ObjectR
 
 // The lights reaching where an actor stands: some all round, the rest
 // from their average direction.
-MeshLight MapViewer::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, const void *who) const {
+MeshLight LevelView::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, const void *who) const {
     MeshLight light;
     if (actor) {
         // A live actor is lit by its lights per vertex (actorLights), all
@@ -2257,7 +2263,7 @@ MeshLight MapViewer::meshLightAt(const Vec3f &at, const LevelPlay::Look *actor, 
 // The world as seen: the level's surfaces, the volume lights over them,
 // the movers and the actors (or, not playing, the placed meshes and
 // sprites), from `eye` looking along `forward`.
-void MapViewer::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye) {
+void LevelView::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye) {
     drawBatches(levelBatches(), mesh_, gfx::identity(), true);
     drawSurfaceSwaps();
     drawVolumes(eye);
@@ -2285,7 +2291,7 @@ void MapViewer::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, cons
         const MeshLight light = baked ? MeshLight{} : dynamicMoverLight(at, m.reach);
         drawBatches(m.batches, moverMesh_, place, false, false, baked ? nullptr : &light);
         if (inFogZone(at))
-            volumesOver(m.batches, moverMesh_, place, gfx::Cull::Back, false);
+            volumesOver(m.batches, moverMesh_, place, gfx::Cull::kBack, false);
     }
     if (play_) {
         drawLiveActors(forward, right);
@@ -2311,7 +2317,7 @@ void MapViewer::drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, cons
 // it: the mirror's own texture if it's translucent or modulated, else only
 // its depth, and whatever stands before it. Called before the view's own
 // world, with that view (`level` reflections deep, through `through`).
-void MapViewer::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj,
+void LevelView::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj,
                             const gfx::Vec3 &eye, const gfx::Vec3 &forward, const gfx::Vec3 &right, int level,
                             const Batch *through) {
     if (!renderer_->hasStencil() || level >= 3)
@@ -2330,11 +2336,12 @@ void MapViewer::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         mark.mesh = mesh_;
         mark.firstIndex = m.firstIndex;
         mark.indexCount = m.indexCount;
-        mark.state.src = gfx::Blend::Zero;
-        mark.state.dst = gfx::Blend::One;
+        mark.state.src = gfx::Blend::kZero;
+        mark.state.dst = gfx::Blend::kOne;
         mark.state.depthWrite = false;
-        mark.state.cull = gfx::Cull::None;
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Mark, uint8_t(level + 1));
+        mark.state.cull = gfx::Cull::kNone;
+        renderer_->setStencilLevel(uint8_t(level + 1));
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelMark);
         renderer_->draw(mark);
         // The world reflected in the plane: x - 2 (n.x - d) n.
         gfx::Mat4 reflect = gfx::identity();
@@ -2375,7 +2382,8 @@ void MapViewer::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         mirrorThrough_ = &m;
         // The mirrors seen in it first, then its world, only where it is.
         drawMirrors(proj, mirrorView, mirrorViewProj, mirrorEye, mirrorForward, mirrorRight, level + 1, &m);
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Inside, uint8_t(level + 1));
+        renderer_->setStencilLevel(uint8_t(level + 1));
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
         drawWorld(mirrorForward, mirrorRight, mirrorEye);
         mirrorLevel_ = saved;
         mirrorThrough_ = savedThrough;
@@ -2384,13 +2392,16 @@ void MapViewer::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
         renderer_->setMirrored(level % 2 == 1);
         renderer_->setView(viewProj, eye);
         mark.state.depthTest = false;
-        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Unmark, uint8_t(level + 1));
+        renderer_->setStencilLevel(uint8_t(level + 1));
+        renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kUnmark);
         renderer_->draw(mark);
         renderer_->clearDepth();
-        if (level > 0)
-            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Inside, uint8_t(level));
-        else
-            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
+        if (level > 0) {
+            renderer_->setStencilLevel(uint8_t(level));
+            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kLevelInside);
+        } else {
+            renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
+        }
     }
 }
 
@@ -2402,7 +2413,7 @@ void MapViewer::drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const 
 // facing (a cylinder light 1 - f^2 across), with its zone's ambient
 // light, at most 1; without the lights' shadows. Reluva's reading: how
 // the original's moving-brush tracker lights them isn't known.
-MeshLight MapViewer::dynamicMoverLight(const Vec3f &at, float reach) const {
+MeshLight LevelView::dynamicMoverLight(const Vec3f &at, float reach) const {
     MeshLight light;
     struct Candidate {
         const LightSource *l;
@@ -2447,7 +2458,7 @@ MeshLight MapViewer::dynamicMoverLight(const Vec3f &at, float reach) const {
     return light;
 }
 
-MeshLight MapViewer::moverLightAt(const Vec3f &at, float reach, size_t *reaching) const {
+MeshLight LevelView::moverLightAt(const Vec3f &at, float reach, size_t *reaching) const {
     MeshLight light;
     struct Candidate {
         const LightSource *l;
@@ -2502,7 +2513,7 @@ MeshLight MapViewer::moverLightAt(const Vec3f &at, float reach, size_t *reaching
 // by MultiTextureTwoFatness / 16 - 8 world units. A blended pass's glow is
 // its alpha; an unlit one's (bMultiTexture...Unlit) its colour, times
 // ColorFilter; a lit one keeps that much of its light.
-void MapViewer::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, const MeshPose &pose,
+void LevelView::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, const MeshPose &pose,
                               const std::vector<gfx::TextureId> &skins, const MeshLight &light,
                               const LevelPlay::Look &look) {
     const LevelPlay::Look::MultiTexture &m = look.multi;
@@ -2548,7 +2559,7 @@ void MapViewer::drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, co
 // ambient through the engine's colour curve plus AmbientGlow / 255 (255:
 // pulsing, 0.25 + 0.2 sin 8t). Each vertex then adds 1.4 x ScaleGlow x
 // its lights (gfx::DrawCall::vertexLights), at most 1.
-void MapViewer::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLight &light, const void *who) const {
+void LevelView::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLight &light, const void *who) const {
     // As Render.dll's light manager for an actor (SetupForActor): the
     // candidates are the lights it was lit by last frame (kept to fade
     // out), then the level's lights permeating its BSP leaf, then the
@@ -2673,13 +2684,13 @@ void MapViewer::actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLi
 
 // --- Playing --------------------------------------------------------------------------------
 
-Error MapViewer::saveGame(const std::string &name) {
+Error LevelView::saveGame(const std::string &name) {
     if (!play_)
         return Error::fail("not playing");
     return play_->level().saveGame(name);
 }
 
-void MapViewer::travel(const std::string &url, bool items) {
+void LevelView::travel(const std::string &url, bool items) {
     const std::string lower = fs::toLower(url);
     if (items && play_)
         play_->level().travelItems() = true;
@@ -2752,7 +2763,7 @@ void MapViewer::travel(const std::string &url, bool items) {
     startPlay(portal);
 }
 
-void MapViewer::startPlay(const std::string &portal, const std::filesystem::path &saved) {
+void LevelView::startPlay(const std::string &portal, const std::filesystem::path &saved) {
     stopPlay();
     const Package *pkg = names_.empty() ? nullptr : ctx_.packages.get(names_[size_t(index_)]);
     if (!pkg || !error_.empty())
@@ -2785,7 +2796,7 @@ void MapViewer::startPlay(const std::string &portal, const std::filesystem::path
     play_ = std::move(play);
 }
 
-void MapViewer::stopPlay() {
+void LevelView::stopPlay() {
     shadows_.clear(); // keyed by the play's actors
     freeCam_ = false;
     if (renderer_)
@@ -2800,7 +2811,7 @@ void MapViewer::stopPlay() {
     // The live actors' meshes stay uploaded (in meshes_), for playing again.
 }
 
-void MapViewer::updatePlay(float dt) {
+void LevelView::updatePlay(float dt) {
     ScriptLevel::Controls &c = play_->controls();
     if (freeCam_) { // the keys fly the camera: the player stands
         c = {};
@@ -2834,7 +2845,7 @@ void MapViewer::updatePlay(float dt) {
     fov_ = view_.fov;
 }
 
-int MapViewer::liveMesh(const ObjectRef &ref, const std::string &anim) {
+int LevelView::liveMesh(const ObjectRef &ref, const std::string &anim) {
     auto it = liveMeshes_.find({ref.package, ref.exportIndex});
     if (it == liveMeshes_.end()) {
         Mesh mesh;
@@ -2868,7 +2879,7 @@ int MapViewer::liveMesh(const ObjectRef &ref, const std::string &anim) {
 
 // The level's actors as they are now: meshes posed where their animation
 // is (AnimFrame), and sprites.
-void MapViewer::drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
+void LevelView::drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
     std::vector<SpriteDraw> sprites;
     // Only those that may be seen: not hidden, in a zone seen (the rest
     // aren't drawn, so their scripts aren't asked to get them ready).
@@ -2888,7 +2899,7 @@ void MapViewer::drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right)
 // CTV_H20Zone, ViewFog 0.13 0.20 0.17), and the flashes of being hurt or
 // picking things up (ClientFlash). Drawn as one quad before the camera,
 // its colour the fog, its alpha the scale.
-void MapViewer::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
+void LevelView::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right) {
     VmObject *p = play_ ? play_->player() : nullptr;
     if (!p || !spriteQuad_)
         return;
@@ -2917,24 +2928,24 @@ void MapViewer::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
         call.model[12 + k] = pos_[k] + forward[k] * d;
     }
     call.texture = 0;
-    call.rgbSource = call.alphaSource = gfx::ColorSource::Constant;
+    call.rgbSource = call.alphaSource = gfx::ColorSource::kConstant;
     if (s <= 1) { // dst x scale + fog
         call.color = {f[0], f[1], f[2], s};
-        call.state.src = gfx::Blend::One;
-        call.state.dst = gfx::Blend::SrcAlpha;
+        call.state.src = gfx::Blend::kOne;
+        call.state.dst = gfx::Blend::kSrcAlpha;
     } else { // brighter than it is: dst x 1 + dst x (scale - 1), then the fog
         call.color = {s - 1, s - 1, s - 1, 1};
-        call.state.src = gfx::Blend::DstColor;
-        call.state.dst = gfx::Blend::One;
+        call.state.src = gfx::Blend::kDstColor;
+        call.state.dst = gfx::Blend::kOne;
     }
     call.state.depthTest = false;
     call.state.depthWrite = false;
-    call.state.cull = gfx::Cull::None;
+    call.state.cull = gfx::Cull::kNone;
     renderer_->draw(call);
     if (s > 1 && f[0] + f[1] + f[2] >= 0.01f) {
         call.color = {f[0], f[1], f[2], 1};
-        call.state.src = gfx::Blend::One;
-        call.state.dst = gfx::Blend::One;
+        call.state.src = gfx::Blend::kOne;
+        call.state.dst = gfx::Blend::kOne;
         renderer_->draw(call);
     }
 }
@@ -2949,7 +2960,7 @@ void MapViewer::drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right
 // screen, the frame's width x DrawScale x 0.8 pixels across, in its
 // light's hue made whiter by its saturation, times the glow (its
 // brightness not used).
-void MapViewer::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, float dt) {
+void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, float dt) {
     play_->coronas(coronaScratch_);
     const Vec3f eye{pos_[0], -pos_[1], pos_[2]};
     const float tanHalf = std::tan(std::clamp(fov_, 1.0f, 170.0f) * kPi / 360);
@@ -3019,7 +3030,7 @@ void MapViewer::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &fo
 // what they do; docs/engines/unreal/lighting.md): the mesh flattened from
 // one light onto the floor under it, darkest close to its feet, its
 // strength easing in and out as it moves between lights.
-void MapViewer::drawShadow(VmObject *a, const Vec3f &at) {
+void LevelView::drawShadow(VmObject *a, const Vec3f &at) {
     if (mirrorLevel_ > 0) // in a mirror: the stencil is the mirror's
         return;
     Vm &vm = play_->vm();
@@ -3159,14 +3170,14 @@ void MapViewer::drawShadow(VmObject *a, const Vec3f &at) {
     shade.strength = std::min(glow * state.strength * 50, 35.0f);
     shade.most = 0.8f;
     const gfx::Mat4 flatten = planarShadow(shade.light, nw, d);
-    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::Once);
+    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kOnce);
     drawMeshShadow(*renderer_, lastMesh_.gpu, gfx::multiply(flatten, lastMesh_.placement), lastMesh_.pose, shade);
-    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::None);
+    renderer_->setStencilMode(gfx::Renderer3D::StencilMode::kNone);
 }
 
 // One of the level's actors, as it looks now: a mesh drawn, a sprite kept
 // for drawSprites. Hidden ones only if `evenHidden` (the HUD draws some).
-void MapViewer::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud) {
+void LevelView::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud) {
     constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
     const bool evenHidden = hud != nullptr;
     LevelPlay::Look look;
@@ -3265,7 +3276,7 @@ void MapViewer::drawLiveActor(VmObject *a, std::vector<SpriteDraw> &sprites, con
 // AxisScale (along its axes before RotOrigin), in its style, as bright as its ScaleGlow (where it's lit, or
 // wholly if the actor's unlit); or, for a sprite, its texture (the copy's
 // own, else the actor's) facing the camera.
-void MapViewer::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
+void LevelView::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
                            std::vector<SpriteDraw> &sprites) {
     constexpr int kDrawSprite = 1, kDrawMesh = 2, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
     play_->drawn(a);
@@ -3289,7 +3300,7 @@ void MapViewer::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
         for (const LevelPlay::Copy &c : copies) {
             const gfx::Mat4 placement = gfx::multiply(meshPlacement(c.location, c.rotation, c.drawScale, look.prePivot),
                                                       meshAxisScaling(mesh, c.axisScale));
-            MeshLight light = look.unlit ? MeshLight{{1, 1, 1}, {}, {0, 0, 1}} : meshLightAt(c.location);
+            MeshLight light = look.unlit ? MeshLight{} : meshLightAt(c.location);
             for (size_t k = 0; k < 3; ++k) {
                 light.ambient[k] *= c.scaleGlow;
                 light.directed[k] *= c.scaleGlow;
@@ -3318,7 +3329,7 @@ void MapViewer::drawCopies(VmObject *a, const LevelPlay::Look &look, const std::
 // The decals stuck to the world: their texture flat on the surface, its
 // size by their scale, multiplying what's under it (grey leaves it as it
 // is: marks, scorches, footprints).
-void MapViewer::addDecals(std::vector<SpriteDraw> &sprites) {
+void LevelView::addDecals(std::vector<SpriteDraw> &sprites) {
     for (const ScriptLevel::Decal &d : play_->decals()) {
         const auto [texture, size] = textureOf(d.texture);
         if (!texture)
@@ -3341,7 +3352,7 @@ void MapViewer::addDecals(std::vector<SpriteDraw> &sprites) {
 
 // How far through its tween into its animation an actor is (0 at the
 // start, 1 there): AnimFrame rises from -1/frames to 0.
-float MapViewer::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &anim) {
+float LevelView::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &anim) {
     return std::clamp(1 + look.animFrame * float(std::max(1, anim.numFrames)), 0.0f, 1.0f);
 }
 
@@ -3349,7 +3360,7 @@ float MapViewer::tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &a
 // by its scripts, or its face moved: posed now from its own animation and theirs, uploaded as one frame (kept until the next
 // frame is drawn) and drawn. False if it can't be (no skeleton, an
 // animation it hasn't): drawn as its own animation alone then.
-bool MapViewer::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at, const gfx::Mat4 &placement,
+bool LevelView::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at, const gfx::Mat4 &placement,
                             const std::vector<gfx::TextureId> &skins, const MeshLight &light) {
     auto it = posers_.find({look.mesh.package, look.mesh.exportIndex});
     if (it == posers_.end()) {
@@ -3448,7 +3459,7 @@ bool MapViewer::drawLayered(VmObject *actor, const LevelPlay::Look &look, int at
 
 // A line of how the game's going (the cut scene's bars are drawn under
 // the info, drawOverlay).
-void MapViewer::drawPlayHud() {
+void LevelView::drawPlayHud() {
     char line[200];
     const std::string title = play_->title();
     std::snprintf(line, sizeof line, "%s%s%s  health %d  %s  %.0f s played%s%s", title.c_str(),
@@ -3496,7 +3507,7 @@ void MapViewer::drawPlayHud() {
 
 // The lines being said, above the status line: who says it (the main
 // characters by name, the rest by their code) and the line, wrapped.
-void MapViewer::drawSubtitles(int bottom) {
+void LevelView::drawSubtitles(int bottom) {
     static const std::map<std::string, std::string> names = {
         {"KRA", "Kira"},   {"SKO", "Sisko"}, {"WRF", "Worf"},   {"OBN", "O'Brien"}, {"DAX", "Dax"},
         {"BSR", "Bashir"}, {"ODO", "Odo"},   {"OBK", "Obanak"}, {"GRK", "Garak"},   {"CPU", "Computer"},

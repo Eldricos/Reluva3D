@@ -5,11 +5,16 @@
 // Cinepak video and PCM sound). The sound plays through the mixer and the
 // pictures follow it, so they stay together however the frames are paced.
 
-#include "engines/unreal/pages/viewers.h"
+#include "engines/unreal/ui/movie.h"
 
 #include "graphics/font.h"
 
+#include "audio/sound.h"
+#include "common/stream.h"
+
 #include <algorithm>
+#include <fstream>
+#include <iterator>
 #include <cctype>
 #include <system_error>
 
@@ -42,22 +47,22 @@ std::vector<std::filesystem::path> findMovies(const std::filesystem::path &game)
 
 } // namespace
 
-MovieViewer::MovieViewer(ViewerContext &ctx) : Page(ctx), files_(findMovies(ctx.gameFolder)) {
+MoviePlayer::MoviePlayer(ViewContext &ctx) : Page(ctx), files_(findMovies(ctx.gameFolder)) {
 }
 
-MovieViewer::~MovieViewer() {
+MoviePlayer::~MoviePlayer() {
     stop();
 }
 
-void MovieViewer::activate() {
+void MoviePlayer::activate() {
     draw();
 }
 
-void MovieViewer::deactivate() {
+void MoviePlayer::deactivate() {
     stop();
 }
 
-bool MovieViewer::play(const std::string &name) {
+bool MoviePlayer::play(const std::string &name) {
     for (size_t i = 0; i < files_.size(); ++i)
         if (lower(files_[i].filename().string()) == lower(name)) {
             index_ = i;
@@ -67,53 +72,72 @@ bool MovieViewer::play(const std::string &name) {
     return false;
 }
 
-void MovieViewer::play(size_t index) {
+void MoviePlayer::play(size_t index) {
     stop();
     if (index >= files_.size())
         return;
-    if (Error err = video::readAvi(files_[index], movie_)) {
-        status_ = err.message;
+    std::vector<uint8_t> data;
+    {
+        std::ifstream in(files_[index], std::ios::binary);
+        data.assign(std::istreambuf_iterator<char>(in), {});
+    }
+    auto movie = std::make_unique<avi::Decoder>();
+    if (data.empty() || !movie->load(std::make_unique<MemoryReadStream>(std::move(data)))) {
+        status_ = "not an AVI file with a video stream";
         draw();
         return;
     }
-    if (movie_.codec != "cvid" && movie_.codec != "CVID") {
-        status_ = "its video is " + movie_.codec + ", not Cinepak";
+    if (!movie->canDecode()) {
+        status_ = "its video isn't Cinepak";
         draw();
         return;
     }
-    decoder_ = std::make_unique<video::CinepakDecoder>(movie_.width, movie_.height);
+    movie_ = std::move(movie);
     shown_ = -1;
     startMs_ = 0;
-    if (ctx_.mixer && movie_.audio.frames() > 0)
-        sound_ = ctx_.mixer->play(std::make_shared<audio::Sound>(movie_.audio), audio::SoundType::Music);
+    // The sound as recorded: 16-bit little-endian, or 8-bit unsigned.
+    if (ctx_.mixer && movie_->hasAudio() && movie_->audioRate() > 0) {
+        auto sound = std::make_shared<audio::Sound>();
+        sound->rate = movie_->audioRate();
+        sound->channels = std::max(1, movie_->audioChannels());
+        sound->sourceBits = movie_->audioBits();
+        const std::vector<uint8_t> &pcm = movie_->audio();
+        if (movie_->audioBits() == 8)
+            for (uint8_t b : pcm)
+                sound->samples.push_back(int16_t((int(b) - 128) * 256));
+        else
+            for (size_t i = 0; i + 1 < pcm.size(); i += 2)
+                sound->samples.push_back(int16_t(pcm[i] | pcm[i + 1] << 8));
+        audioRate_ = sound->rate;
+        sound_ = ctx_.mixer->play(sound, audio::SoundType::kMusic);
+    }
     clear(0, 0, 0);
     setTitle(files_[index].filename().string());
 }
 
-void MovieViewer::stop() {
+void MoviePlayer::stop() {
     if (ctx_.mixer && sound_ != audio::kNoSound)
         ctx_.mixer->stop(sound_);
     sound_ = audio::kNoSound;
-    if (decoder_) {
-        decoder_.reset();
-        movie_ = video::Avi{};
+    if (movie_) {
+        movie_.reset();
         draw();
     }
 }
 
-void MovieViewer::handleEvent(const Event &ev) {
-    if (ev.type != EventType::KeyDown)
+void MoviePlayer::handleEvent(const Event &ev) {
+    if (ev.type != EventType::kKeyDown)
         return;
-    const bool go = ev.key == key::Space || ev.key == key::Return || ev.key == key::KpEnter;
+    const bool go = ev.key == key::kSpace || ev.key == key::kReturn || ev.key == key::kKpEnter;
     if (playing()) {
-        if (go || ev.key == key::Escape)
+        if (go || ev.key == key::kEscape)
             stop();
         return;
     }
     if (files_.empty())
         return;
-    if (ev.key == key::Left || ev.key == key::Right) {
-        index_ = (index_ + (ev.key == key::Left ? files_.size() - 1 : 1)) % files_.size();
+    if (ev.key == key::kLeft || ev.key == key::kRight) {
+        index_ = (index_ + (ev.key == key::kLeft ? files_.size() - 1 : 1)) % files_.size();
         status_.clear();
         draw();
     } else if (go) {
@@ -123,17 +147,16 @@ void MovieViewer::handleEvent(const Event &ev) {
 
 // The frame due now: by the sound's place while it plays, else by the clock
 // since the movie started.
-void MovieViewer::update(uint64_t nowMs) {
-    if (!decoder_)
+void MoviePlayer::update(uint64_t nowMs) {
+    if (!movie_)
         return;
     if (startMs_ == 0)
         startMs_ = nowMs ? nowMs : 1;
     double seconds = double(nowMs - startMs_) / 1000.0;
-    if (ctx_.mixer && sound_ != audio::kNoSound && ctx_.mixer->isPlaying(sound_) && movie_.audio.rate > 0)
-        seconds = ctx_.mixer->position(sound_) / double(movie_.audio.rate);
-    const double fps = movie_.framesPerSecond > 0 ? movie_.framesPerSecond : 15.0;
-    const int due = int(seconds * fps);
-    if (due >= int(movie_.frames.size())) {
+    if (ctx_.mixer && sound_ != audio::kNoSound && ctx_.mixer->isPlaying(sound_) && audioRate_ > 0)
+        seconds = ctx_.mixer->position(sound_) / double(audioRate_);
+    const int due = int(seconds * 1e6 / double(std::max<uint32_t>(movie_->frameMicros(), 1)));
+    if (due >= movie_->frameCount()) {
         if (!ctx_.mixer || sound_ == audio::kNoSound || !ctx_.mixer->isPlaying(sound_))
             stop();
         return;
@@ -142,32 +165,35 @@ void MovieViewer::update(uint64_t nowMs) {
         return;
     // Frames build on those before, so every one up to it is decoded.
     while (shown_ < due) {
-        ++shown_;
-        if (Error err = decoder_->decode(movie_.frames[size_t(shown_)])) {
-            status_ = "frame " + std::to_string(shown_) + ": " + err.message;
+        if (!movie_->decodeNextFrame()) {
+            status_ = "frame " + std::to_string(shown_ + 1) + " doesn't decode";
             stop();
             return;
         }
+        shown_ = movie_->currentFrame();
     }
     showPicture();
 }
 
 // The picture, scaled to fit the screen and centred on black.
-void MovieViewer::showPicture() {
-    const image::Image &pic = decoder_->picture();
+void MoviePlayer::showPicture() {
+    const Surface &pic = movie_->surface();
     Surface &s = ctx_.screen;
     if (pic.w <= 0 || pic.h <= 0)
         return;
     const double scale = std::min(double(s.w) / pic.w, double(s.h) / pic.h);
-    const int w = std::max(1, int(pic.w * scale)), h = std::max(1, int(pic.h * scale));
-    const int x0 = (s.w - w) / 2, y0 = (s.h - h) / 2;
+    const int w = std::max(1, int(pic.w * scale));
+    const int h = std::max(1, int(pic.h * scale));
+    const int x0 = (s.w - w) / 2;
+    const int y0 = (s.h - h) / 2;
     if (w != s.w || h != s.h)
         clear(0, 0, 0);
     for (int y = 0; y < h; ++y) {
         const int sy = std::min(pic.h - 1, int(y / scale));
+        const uint8_t *row = pic.pixels.data() + size_t(sy) * size_t(pic.pitch);
         uint8_t *out = s.row(y0 + y) + x0 * 4;
         for (int x = 0; x < w; ++x, out += 4) {
-            const uint8_t *in = pic.pixel(std::min(pic.w - 1, int(x / scale)), sy);
+            const uint8_t *in = row + std::min(pic.w - 1, int(x / scale)) * 4;
             out[0] = in[0];
             out[1] = in[1];
             out[2] = in[2];
@@ -176,7 +202,7 @@ void MovieViewer::showPicture() {
     }
 }
 
-void MovieViewer::draw() {
+void MoviePlayer::draw() {
     clear(16, 18, 24);
     if (files_.empty()) {
         text(4, 4, "No movies found");
