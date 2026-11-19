@@ -204,14 +204,16 @@ std::string facingCommand(ef::SpGameHost &game, const std::string &words, bool n
 // the weapon changing each time; `rounds` times over, for triggers
 // switched on by what happens later in the level. Left out: triggers
 // firing a target_kill or a misc_camera, trigger_hurt, triggers in or
-// over one or a target_kill's trigger, and triggers naming a spared
+// over one (nothing solid between) or a target_kill's trigger, and triggers naming a spared
 // entity (an ally they'd move into the fighting); spared entities
-// aren't shot at. Only direct fire (the
-// saber, pistol, blaster, disruptor, bowcaster, repeater): splash would
-// hurt the allies, whose death fails the mission. Last, with `withExits`,
-// the triggers that change the level.
-std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vector<std::string> &spare,
-                      bool withExits) {
+// aren't shot at. Only direct fire (the saber, pistol, blaster,
+// disruptor, bowcaster, repeater): splash would hurt the allies, whose
+// death fails the mission. `commands` (console commands, or a route's
+// "@" lines) follow the cheats. Last, with `withExits`, the triggers
+// that change the level.
+std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vector<std::string> &spare, bool withExits,
+                      const std::vector<std::string> &commands, int commandsMs) {
+    const q3::CollisionWorld world(bsp);
     std::vector<q3::Entity> entities;
     if (q3::parseEntities(bsp.entities, entities))
         return {};
@@ -226,6 +228,14 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
         out = {model.mins[0], model.mins[1], model.mins[2], model.maxs[0], model.maxs[1], model.maxs[2]};
         return true;
     };
+    // Brush entities that move (doors, platforms): a visit's spot is kept
+    // out of their boxes.
+    std::vector<std::array<float, 6>> movers;
+    for (const q3::Entity &e : entities)
+        if (std::array<float, 6> b{}; (e.classname() == "func_door" || e.classname() == "func_plat" ||
+                                       e.classname() == "func_train" || e.classname() == "func_bobbing") &&
+                                      bounds(e, b))
+            movers.push_back(b);
     std::vector<std::array<float, 6>> hurts;
     for (const q3::Entity &e : entities)
         if (std::array<float, 6> b{}; e.classname() == "trigger_hurt" && bounds(e, b))
@@ -251,7 +261,14 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
     std::string skip;
     for (const std::string &s : spare)
         skip += " -" + s;
-    std::string out = "@until " + std::to_string(fromMs) + " 0 0\n/god\n/undying\n/give all\n";
+    // The cheats and the commands at `commandsMs` (0: as the tour starts),
+    // the commands done before it starts (an alarm's runner chased down).
+    std::string out =
+        "@until " + std::to_string(commandsMs > 0 ? commandsMs : fromMs) + " 0 0\n/god\n/undying\n/give all\n";
+    for (const std::string &c : commands)
+        out += (c.rfind('@', 0) == 0 ? c : "/" + c) + "\n";
+    if (commandsMs > 0)
+        out += "@until " + std::to_string(fromMs) + " 0 0\n";
     const int weapons[] = {4, 3, 4, 1, 4, 2, 4, 5, 4, 6}; // mostly the disruptor, which kills at a shot
     int t = fromMs;
     int count = 0;
@@ -276,12 +293,35 @@ std::string tourRoute(const q3::Bsp &bsp, int fromMs, int rounds, const std::vec
             for (const auto &[key, value] : e.pairs)
                 for (const std::string &s : spare)
                     named = named || reluva::fs::toLower(value).find(s) != std::string::npos;
-            const float x = (b[0] + b[3]) / 2;
-            const float y = (b[1] + b[4]) / 2;
+            // Its middle, or a quarter of the way to a side if a door or the
+            // like stands there: one shut on the player kills, god mode
+            // or not (cairn_dock1's *16 and its door).
+            float x = (b[0] + b[3]) / 2;
+            float y = (b[1] + b[4]) / 2;
             const float z = b[2] + 24;
+            const float quarters[5][2] = {{0, 0}, {0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+            for (const auto &q : quarters) {
+                const float cx = (b[0] + b[3]) / 2 + q[0] * (b[3] - b[0]) / 4;
+                const float cy = (b[1] + b[4]) / 2 + q[1] * (b[4] - b[1]) / 4;
+                const bool inside = std::any_of(movers.begin(), movers.end(), [&](const std::array<float, 6> &m) {
+                    return m[0] - 16 < cx && cx < m[3] + 16 && m[1] - 16 < cy && cy < m[4] + 16 && m[2] - 24 < z &&
+                           z < m[5] + 40;
+                });
+                if (!inside) {
+                    x = cx;
+                    y = cy;
+                    break;
+                }
+            }
+            // In one, or over one with nothing solid between: the player
+            // falls in (cairn_dock1's electrified floor under *7).
             const bool hurt = std::any_of(hurts.begin(), hurts.end(), [&](const std::array<float, 6> &h) {
-                return h[0] - 48 < x && x < h[3] + 48 && h[1] - 48 < y && y < h[4] + 48 && h[2] - 64 < z &&
-                       z < h[5] + 64;
+                if (!(h[0] - 48 < x && x < h[3] + 48 && h[1] - 48 < y && y < h[4] + 48 && h[2] - 64 < z))
+                    return false;
+                if (z < h[5] + 64)
+                    return true;
+                const q3::Vec3f zero{};
+                return world.trace({x, y, z}, {x, y, h[5]}, zero, zero, 0, q3::contents::kSolid).fraction == 1;
             });
             if (named || hurt)
                 continue;
@@ -460,6 +500,8 @@ int cmdSpRun(int argc, char **argv) {
             "\"@onto name [+height]\" the player on top of that entity (or that high in it); \"@where [name]\" where the player is, and that entity; \"@aimfrom x y z [yaw pitch]\" @aim measured from there\n"
             "(and turning from those angles: a panel turret; none: the eye); \"@repeat n\" ... \"@end\" those lines n times.\n"
             "-tour: from then, every trigger touched and the nearest NPCs fought, with cheats (set helpUsObi 1);\n"
+            "-dumproute file: the tour's route written there; -cmd text: typed as the tour starts, after the cheats\n"
+            "(a route's line if it starts with @); -before ms: those and the cheats then, before the tour;\n"
             "with -replay, the replay's lines after the tour in place of its level change.\n"
             "-next: then the level the game changed to, started as the Play page starts it.\n");
         return 2;
@@ -478,11 +520,14 @@ int cmdSpRun(int argc, char **argv) {
     bool saveLoad = false;             // -saveload: save at the end, load into a fresh game
     bool followNext = false;           // -next: the level change the game asked for, followed
     std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
-    int tourFrom = 0;                  // -tour ms: from then, a route through the level's triggers (tourRoute)
-    int tourRounds = 1;                // -rounds n: the route that many times
-    std::vector<std::string> spare;    // -spare name: not shot at, nor its triggers touched, on a tour
-    std::string replayPath;            // -replay file: the player's commands, as the Play page records them,
-                                       // "/command" lines typed at the console and "@" lines (see below)
+    std::string dumpRoute;             // -dumproute file: the tour's route written there
+    std::vector<std::string> tourCommands; // -cmd text: typed as the tour starts, or a route's "@" line
+    int commandsFrom = 0;                  // -before ms: the cheats and -cmd lines then, before the tour
+    int tourFrom = 0;                      // -tour ms: from then, a route through the level's triggers (tourRoute)
+    int tourRounds = 1;                    // -rounds n: the route that many times
+    std::vector<std::string> spare;        // -spare name: not shot at, nor its triggers touched, on a tour
+    std::string replayPath;                // -replay file: the player's commands, as the Play page records them,
+                                           // "/command" lines typed at the console and "@" lines (see below)
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = firstOption; i < argc; ++i) {
@@ -519,6 +564,12 @@ int cmdSpRun(int argc, char **argv) {
             tourRounds = std::max(1, std::atoi(argv[++i]));
         } else if (std::strcmp(argv[i], "-spare") == 0 && i + 1 < argc)
             spare.push_back(reluva::fs::toLower(argv[++i]));
+        else if (std::strcmp(argv[i], "-dumproute") == 0 && i + 1 < argc)
+            dumpRoute = argv[++i];
+        else if (std::strcmp(argv[i], "-cmd") == 0 && i + 1 < argc)
+            tourCommands.emplace_back(argv[++i]);
+        else if (std::strcmp(argv[i], "-before") == 0 && i + 1 < argc)
+            commandsFrom = std::atoi(argv[++i]);
         else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc) {
             replayPath = argv[++i];
             runCgame = true; // the commands go through the client game, as recorded
@@ -758,7 +809,14 @@ int cmdSpRun(int argc, char **argv) {
         // Both: the tour without its level change, then the route (the
         // way out a level only gives by a ride, as ns_streets's car).
         std::ifstream file;
-        std::string tour = tourFrom > 0 ? tourRoute(*bsp, tourFrom, tourRounds, spare, replayPath.empty()) : "";
+        std::string tour =
+            tourFrom > 0 ? tourRoute(*bsp, tourFrom, tourRounds, spare, replayPath.empty(), tourCommands, commandsFrom)
+                         : "";
+        // -dumproute: the tour's route written out, to replay part of it.
+        if (!dumpRoute.empty()) {
+            std::ofstream out(dumpRoute);
+            out << tour;
+        }
         if (!replayPath.empty()) {
             file.open(replayPath);
             if (!file) {

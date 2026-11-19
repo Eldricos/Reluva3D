@@ -349,6 +349,19 @@ yet: a console on the page.
   -next` plays it to `maptransition cairn_reactor`, nothing new needed.
 - **cairn_reactor:** `sp-run cairn_reactor -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition cairn_dock1`, nothing new needed.
+- **cairn_dock1 (not through yet):** a stealth level. A guard who sees
+  Kyle sends an officer running to an alarm button; the alarm brings the
+  capture scene (`imprisoned`), which kills Kyle and fails the mission,
+  so the tour's open fighting doesn't get through. Things found on the
+  way: a spot over an electrified floor (a `trigger_hurt` whose damage
+  isn't stopped by god mode) kills a player dropped there, so the tour
+  now counts a spot over a hurt with nothing solid between as in it, and
+  keeps a visit's spot out of a door's or platform's box; the game's
+  `npc kill <name>` also removes every unused NPC spawner (48 here,
+  among them the ending's actors), so it's no use. `sp-run`'s
+  `-dumproute file` writes the tour's route out, to replay part of it;
+  `-cmd text` (a console command, or a route's `@` line) follows the
+  tour's cheats, and `-before ms` runs those before the tour starts.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split
