@@ -5,7 +5,9 @@
 
 #include "common/types.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -104,7 +106,11 @@ enum class TexGen : uint8_t { kUv, kUv2, kEnvironment, kVector };
 // Where colour and alpha come from (times DrawCall::color). Lighting: the
 // draw call's ambient light, plus its directed light times how much the
 // normal faces the light's direction (alpha 1).
-enum class ColorSource : uint8_t { kConstant, kVertex, kOneMinusVertex, kLighting };
+// Shadow: 1 - min(shadowStrength / |distance(position, shadowLight) -
+// shadowReach|, shadowMax) at each vertex, its place in the world (after
+// the model matrix, divided by its w): a projected shadow, darkest where
+// it falls close to its caster.
+enum class ColorSource : uint8_t { kConstant, kVertex, kOneMinusVertex, kLighting, kShadow };
 
 // Moves vertices on the GPU each frame.
 struct Deform {
@@ -129,9 +135,49 @@ struct Deform {
 struct DynamicLight {
     Vec3 origin{};
     float radius = 0;
-    Vec3 color{}; // 1 = full
+    Vec3 color{};  // 1 = full
+    float fog = 0; // a volume light's: how much it hides what's behind it, through its middle
 };
 constexpr int kMaxDynamicLights = 16;
+
+// A light on a mesh's vertices (ColorSource::kLighting with
+// vertexLightCount > 0): UE1's actor lighting, worked out per vertex.
+struct VertexLight {
+    Vec3 position{};
+    float radius = 0;
+    Vec3 color{};          // 1 = full
+    bool cylinder = false; // surfaceLighting: by its distance across, whatever the facing
+};
+constexpr int kMaxVertexLights = 6;
+// How much of a volume light (a glowing sphere, densest at its centre and
+// fading to nothing at its radius, (1 - (d / r)^2)) lies between `eye` and
+// `at`: 1 for a line straight through the whole of it.
+inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) {
+    const float rx = at[0] - eye[0];
+    const float ry = at[1] - eye[1];
+    const float rz = at[2] - eye[2];
+    const float len = std::sqrt(rx * rx + ry * ry + rz * rz);
+    if (len <= 0 || l.radius <= 0)
+        return 0;
+    const float ux = rx / len;
+    const float uy = ry / len;
+    const float uz = rz / len;
+    const float cx = l.origin[0] - eye[0];
+    const float cy = l.origin[1] - eye[1];
+    const float cz = l.origin[2] - eye[2];
+    const float along = cx * ux + cy * uy + cz * uz;
+    const float r2 = l.radius * l.radius;
+    const float b2 = cx * cx + cy * cy + cz * cz - along * along;
+    if (b2 >= r2)
+        return 0;
+    const float half = std::sqrt(r2 - b2);
+    const float s1 = std::max(0.0f, along - half) - along;
+    const float s2 = std::min(len, along + half) - along;
+    if (s2 <= s1)
+        return 0;
+    const float amount = (s2 - s1) * (1 - b2 / r2) - (s2 * s2 * s2 - s1 * s1 * s1) / (3 * r2);
+    return amount * 3 / (4 * l.radius);
+}
 
 struct DrawCall {
     MeshId mesh = 0;
@@ -170,9 +216,45 @@ struct DrawCall {
     Vec3 ambientLight{};
     Vec3 directedLight{};
     Vec3 lightDirection{0, 0, 1}; // towards the light, in world space
+    // Two more directed lights (fills) for ColorSource::Lighting, added
+    // as the first is: each a colour (none by default) and the way to it.
+    std::array<Vec3, 2> fillLight{};
+    std::array<Vec3, 2> fillDirection{};
+    // Lit as Direct3D lights a material (with ColorSource::Lighting):
+    // emissive + materialAmbient x ambientLight + color x the directed
+    // lights, rather than color x (ambient + directed).
+    bool materialLit = false;
+    Vec3 materialAmbient{};
+    Vec3 materialEmissive{};
+    // Fog mixed in after texturing: none nearer than fogNear, all fogColor
+    // from fogFar on (fogFar 0: none). Black fades additive draws out.
+    Vec3 fogColor{};
+    float fogNear = 0;
+    float fogFar = 0;
+    // Instead of the directed light, these lights: each vertex gets
+    // min(1, ambientLight + vertexLightScale x the sum over them of colour
+    // x (1 - distance / radius) x (max(0, (cos + 1)^2 - 1.5) + 6 x
+    // (specular x cos')^2 where cos' > 0)): cos the angle between the
+    // vertex's normal and the light, cos' between the camera's ray to the
+    // vertex and the light mirrored in the vertex's plane.
+    std::array<VertexLight, kMaxVertexLights> vertexLights{};
+    int vertexLightCount = 0;
+    float vertexLightScale = 1;
+    float specular = 0;
+    // The lights as UE1 lights surfaces instead (movers): min(1, ambient +
+    // the sum of colour x (1 - 3 f^2 + 2 f^3) x max(0, cos)), f = distance /
+    // radius; a cylinder light 1 - f^2 by its distance across.
+    bool surfaceLighting = false;
+    Vec3 shadowLight{}; // for ColorSource::kShadow
+    float shadowReach = 0;
+    float shadowStrength = 0;
+    float shadowMax = 0;
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
     float fogDistance = 0;
+    // fogDistance measured by depth in the view instead (Direct3D's table
+    // fog, as UE1's renderer uses).
+    bool fogByViewDepth = false;
     // > 0: the fragment's colour is blended towards tableFogColor by a 3D
     // card's table fog, (1 - e^(-w / tableFog)) / (1 - e^(-52428.8 /
     // tableFog)) clamped to 0..1, w from the vertices' uv2[0] (their
@@ -195,7 +277,26 @@ struct DrawCall {
     // lights (Renderer3D::setDynamicLights) cast on each pixel: for a pass
     // over drawn geometry that adds it.
     bool dynamicLights = false;
+    // The texture times that light (alpha tested as usual): for a pass
+    // that adds it over drawn geometry, so the light adds to what's there
+    // (UE1's texture x (lightmap + dynamic light)).
+    bool dynamicLightsTextured = false;
+    // Instead, the glow of the frame's volume lights (setVolumeLights)
+    // between the camera and each pixel: colour the sum of each colour x
+    // its glow, alpha the sum of each fog x its glow (at most 1), for a
+    // pass blended One, OneMinusSrcAlpha over drawn geometry.
+    bool volumeLights = false;
     DrawState state;
+};
+
+// A rectangle of new pixels for a texture (RGBA, w * h, rows top to bottom).
+struct TextureRegion {
+    TextureId texture = 0;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
+    const uint8_t *rgba = nullptr;
 };
 
 class Renderer3D {
@@ -206,6 +307,13 @@ public:
     virtual Error createTexture(int width, int height, const uint8_t *rgba, const TextureParams &params,
                                 TextureId &out) = 0;
     virtual void destroyTexture(TextureId id) = 0;
+    // Replaces rectangles of textures made without mipmaps (a lightmap as
+    // its lights change), all at once, before the frame's draws use them.
+    // A renderer that can't leaves them as they were.
+    virtual Error updateTextures(const std::vector<TextureRegion> &regions) {
+        (void)regions;
+        return {};
+    }
     // Indices refer to `vertices`; every three make a triangle.
     virtual Error createMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                              MeshId &out) = 0;
@@ -248,6 +356,9 @@ public:
     // The dynamic lights for draws with DrawCall::dynamicLights (at most
     // kMaxDynamicLights; the rest are left out).
     virtual void setDynamicLights(const std::vector<DynamicLight> &lights) = 0;
+    // The volume lights for draws with DrawCall::volumeLights (as many).
+    // A renderer without them draws no glow.
+    virtual void setVolumeLights(const std::vector<DynamicLight> &lights) { (void)lights; }
     // Where the draws that follow land in the frame, in pixels (w or h 0:
     // all of it), within the frame.
     virtual void setViewport(int x, int y, int w, int h) = 0;
@@ -259,6 +370,8 @@ public:
     // hidden by them (a second scene over the first, as the original
     // clears depth for each view).
     virtual void clearDepth() = 0;
+    // The depth and the stencil's marks both cleared (after a mirror's pass).
+    virtual void clearDepthAndStencil() { clearDepth(); }
     // A per-pixel mark (stencil) for drawing one view inside part of
     // another, as a mirror: Mark marks where the draws that follow land
     // (whatever their depth); Inside draws only where marked; None (the
@@ -267,9 +380,28 @@ public:
     // marks. SkyMark and SkyInside do the same with marks of their own (the
     // sky, drawn only where the level's sky surfaces are seen), apart from
     // the others.
-    enum class StencilMode : uint8_t { kNone, kMark, kInside, kSkyMark, kSkyInside };
+    //
+    // The level modes nest views inside views (a mirror seen in a mirror),
+    // at the level setStencilLevel gave: LevelMark raises the mark from level - 1 to level where
+    // the draws that follow land and pass the depth test; LevelInside draws
+    // only where it's level; Unmark lowers it from level to level - 1; Once
+    // (at level 1 only) draws only where not marked yet, marking it
+    // (overlapping shadows darkening once).
+    enum class StencilMode : uint8_t {
+        kNone,
+        kMark,
+        kInside,
+        kSkyMark,
+        kSkyInside,
+        kLevelMark,
+        kLevelInside,
+        kOnce,
+        kUnmark
+    };
     virtual bool hasStencil() const = 0;
     virtual void setStencilMode(StencilMode mode) = 0;
+    // The level the level modes work at (1 by default, again each frame).
+    virtual void setStencilLevel(uint8_t level) { (void)level; }
     // A value of the engine's own for Mark to write (where a draw passes
     // its depth test) and Inside to compare with, whole: the stencil as a
     // number (AWE's shadows: 1 shadowed, 2 the player, 0 the others),

@@ -19,10 +19,13 @@ add_library(reluva_common STATIC
     md5.cpp
     net.cpp
     pe.cpp
+    portmap.cpp
+    riff.cpp
     settings.cpp
     stb_image.cpp
     stream.cpp
     text.cpp
+    winhelp.cpp
     wise.cpp
     zip.cpp)
 target_include_directories(reluva_common PUBLIC ${PROJECT_SOURCE_DIR}/src)

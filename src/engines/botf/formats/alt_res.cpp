@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#include "engines/botf/formats/alt_res.h"
+
+#include <fstream>
+
+namespace reluva::botf {
+
+namespace {
+
+constexpr size_t kHeaderSize = 24;
+constexpr size_t kEntrySize = 40;
+constexpr size_t kWindowSize = 4096;
+// Where writing into the window starts. Found by decoding with each start:
+// only this one gives the copies even (2-byte pixel) distances and the
+// pictures clean colours (docs/engines/botf/formats/alt-res.md).
+constexpr size_t kWindowStart = 1;
+
+uint32_t u32(const uint8_t *p) {
+    return uint32_t(p[0] | p[1] << 8 | p[2] << 16) | uint32_t(p[3]) << 24;
+}
+
+Error readAt(const std::filesystem::path &path, uint64_t offset, size_t size, std::vector<uint8_t> &out) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in)
+        return Error::fail("can't open " + path.string());
+    out.resize(size);
+    in.seekg(std::streamoff(offset));
+    if (!in.read(reinterpret_cast<char *>(out.data()), std::streamsize(size)))
+        return Error::fail(path.string() + ": can't read " + std::to_string(size) + " bytes at " +
+                           std::to_string(offset));
+    return Error::success();
+}
+
+} // namespace
+
+Error decompressLzss(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out, size_t *used) {
+    out.clear();
+    out.reserve(size);
+    uint8_t window[kWindowSize] = {};
+    size_t r = kWindowStart;
+    size_t pos = 0;
+    unsigned flags = 0;
+    auto put = [&](uint8_t c) {
+        out.push_back(c);
+        window[r] = c;
+        r = (r + 1) % kWindowSize;
+    };
+    while (out.size() < size) {
+        flags >>= 1;
+        if (!(flags & 0x100)) {
+            if (pos >= dataSize)
+                break;
+            flags = data[pos++] | 0xFF00u;
+        }
+        if (flags & 1) {
+            if (pos >= dataSize)
+                break;
+            put(data[pos++]);
+        } else {
+            if (pos + 1 >= dataSize)
+                break;
+            const unsigned a = data[pos];
+            const unsigned b = data[pos + 1];
+            pos += 2;
+            const size_t from = (a & 0x0F) << 8 | b;
+            // A reference may overshoot the file's end; the encoder never
+            // makes one that does, but damaged data could.
+            for (size_t k = 0, n = (a >> 4) + 2; k < n && out.size() < size; ++k)
+                put(window[(from + k) % kWindowSize]);
+        }
+    }
+    if (used)
+        *used = pos;
+    if (out.size() < size)
+        return Error::fail("compressed data ends after " + std::to_string(out.size()) + " of " + std::to_string(size) +
+                           " bytes");
+    return Error::success();
+}
+
+Error AltResArchive::open(const std::filesystem::path &path) {
+    _path = path;
+    _entries.clear();
+    _byName.clear();
+    std::error_code ec;
+    _fileSize = std::filesystem::file_size(path, ec);
+    if (ec)
+        return Error::fail("can't open " + path.string());
+    std::vector<uint8_t> header;
+    if (_fileSize < kHeaderSize)
+        return Error::fail(path.string() + " is too small for alt.res");
+    if (Error err = readAt(path, 0, kHeaderSize, header))
+        return err;
+    const uint32_t dirOffset = u32(&header[16]);
+    const uint32_t count = u32(&header[20]);
+    if (dirOffset < kHeaderSize || dirOffset > _fileSize || count > (_fileSize - dirOffset) / kEntrySize)
+        return Error::fail(path.string() + ": directory of " + std::to_string(count) + " entries at " +
+                           std::to_string(dirOffset) + " doesn't fit in the file");
+    std::vector<uint8_t> dir;
+    if (Error err = readAt(path, dirOffset, size_t(count) * kEntrySize, dir))
+        return err;
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint8_t *e = &dir[size_t(i) * kEntrySize];
+        Entry entry;
+        size_t len = 0;
+        while (len < 16 && e[len])
+            ++len;
+        entry.name.assign(reinterpret_cast<const char *>(e), len);
+        entry.offset = u32(e + 16);
+        entry.index = u32(e + 20);
+        entry.size = u32(e + 24);
+        entry.compressedSize = u32(e + 28);
+        entry.flag = u32(e + 32);
+        entry.check = u32(e + 36);
+        if (uint64_t(entry.offset) + entry.compressedSize > _fileSize)
+            return Error::fail(path.string() + ": " + entry.name + " runs past the end of the file");
+        _byName.emplace(normalizeArchiveName(entry.name), _entries.size());
+        _entries.push_back(std::move(entry));
+    }
+    return Error::success();
+}
+
+std::vector<std::string> AltResArchive::list() const {
+    std::vector<std::string> names;
+    for (const Entry &e : _entries)
+        names.push_back(e.name);
+    return names;
+}
+
+bool AltResArchive::has(std::string_view name) const {
+    return _byName.count(normalizeArchiveName(name)) != 0;
+}
+
+Error AltResArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
+    auto it = _byName.find(normalizeArchiveName(name));
+    if (it == _byName.end())
+        return Error::fail(std::string(name) + " isn't in " + _path.string());
+    return read(_entries[it->second], out);
+}
+
+Error AltResArchive::read(const Entry &entry, std::vector<uint8_t> &out) const {
+    std::vector<uint8_t> packed;
+    if (Error err = readAt(_path, entry.offset, entry.compressedSize, packed))
+        return err;
+    if (Error err = decompressLzss(packed.data(), packed.size(), entry.size, out))
+        return Error::fail(_path.string() + ": " + entry.name + ": " + err.message);
+    return Error::success();
+}
+
+} // namespace reluva::botf

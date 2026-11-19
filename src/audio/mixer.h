@@ -143,6 +143,29 @@ public:
     void setPan(SoundHandle handle, int pan);
     // Plays a sound faster or slower (and higher or lower) by `factor`.
     void setRate(SoundHandle handle, double factor);
+    // How muffled it is, 0 (as recorded) to 1: a low-pass filter whose
+    // cutoff falls to about a kilohertz (a sound heard through a wall).
+    void setMuffle(SoundHandle handle, float muffle);
+    // A 2nd-order Butterworth filter on it: low-pass or high-pass at
+    // `hz` (clamped to 20 Hz - half the output rate); kind None removes it.
+    enum class Filter { kNone, kLowPass, kHighPass };
+    void setFilter(SoundHandle handle, Filter kind, float hz);
+    // A reverb on it (a Schroeder reverb: four combs, two all-passes),
+    // `mix` of it wet (0 none): `seconds` for its tail to fall 60 dB,
+    // the wet sound low-passed at `dampHz`, after `predelay` seconds.
+    // `tail`: how long it goes on through silence once the sound has
+    // ended (not looping), its echoes dying away.
+    struct Reverb {
+        float mix = 0;
+        float seconds = 3;
+        float dampHz = 5000;
+        float predelay = 0;
+        float tail = 0;
+    };
+    void setReverb(SoundHandle handle, const Reverb &reverb);
+    // Moves it to `frame` of its own frames (past the end: it ends, or
+    // wraps if it loops).
+    void seek(SoundHandle handle, double frame);
     // A type's volume (the player's music, speech and effects settings),
     // 0 .. kMaxBoostVolume.
     void setTypeVolume(SoundType type, int volume);
@@ -150,6 +173,9 @@ public:
     // Every sound's volume, 0 .. kMaxBoostVolume (kMaxVolume by default).
     void setMasterVolume(int volume);
     int masterVolume() const;
+    // The whole mix towards the left (-kMaxPan) or right (kMaxPan): the
+    // far side quieter, linearly (a game's balance setting).
+    void setBalance(int balance);
 
     int outputRate() const { return _outputRate; }
 
@@ -168,6 +194,10 @@ private:
         bool loop;
         bool paused = false;
         double position = 0; // in the sound's frames
+        float muffle = 0;
+        // the low-pass filter's last output
+        double lowL = 0;
+        double lowR = 0;
         bool done = false;
         // A stream's: the frames either side of `position`, and the next.
         int16_t cur[2] = {0, 0};
@@ -180,6 +210,34 @@ private:
         // An OutputStream's (playOutput), instead of the others.
         std::shared_ptr<OutputStream> output = nullptr;
         double rate = 1; // a factor on a sound's own rate (setRate)
+        // A biquad's coefficients and its state per side (x1 x2 y1 y2).
+        struct Biquad {
+            double a0 = 1;
+            double a1 = 0;
+            double a2 = 0;
+            double b1 = 0;
+            double b2 = 0;
+            double state[2][4] = {};
+            double run(int side, double x);
+        };
+        Filter filter = Filter::kNone;
+        float filterHz = 0;
+        Biquad biquad{};
+        struct ReverbState {
+            Reverb params;
+            Biquad damp;
+            std::vector<double> pre;
+            size_t preAt = 0;
+            std::vector<double> comb[4];
+            size_t combAt[4] = {};
+            double combGain[4] = {};
+            std::vector<double> pass1;
+            std::vector<double> pass2[2];
+            size_t pass1At = 0;
+            size_t pass2At[2] = {};
+        };
+        std::shared_ptr<ReverbState> reverb{}; // none: dry
+        double tailLeft = -1;                  // output frames of reverb tail still to go (-1: not begun)
     };
     void mixOutput(Channel &c, int frames, int64_t gain);
     std::vector<int16_t> _outputBuffer; // an OutputStream's frames, before mixing
@@ -187,6 +245,8 @@ private:
     void mixStream(Channel &c, int frames, int64_t gain);
     void mixQueue(Channel &c, int frames, int64_t gain);
     static bool readFrame(Stream &s, int16_t frame[2]);
+    void setUpReverb(Channel &c, const Reverb &r) const;
+    static void reverbFrame(Channel::ReverbState &rv, double &l, double &r);
     Channel *find(SoundHandle handle);
     const Channel *find(SoundHandle handle) const;
 
@@ -196,6 +256,7 @@ private:
     SoundHandle _nextHandle = 1;
     int _typeVolume[kSoundTypes] = {kMaxVolume, kMaxVolume, kMaxVolume};
     int _masterVolume = kMaxVolume;
+    int _balance = 0;
     bool _allPaused = false;
     std::vector<int32_t> _accumulator; // mix()'s working buffer, stereo
 };

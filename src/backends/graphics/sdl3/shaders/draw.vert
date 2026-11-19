@@ -19,6 +19,7 @@ layout(location = 1) out vec4 outColor;
 layout(location = 2) out vec3 outWorld; // the position in the world, for dynamic lights
 layout(location = 3) out vec2 outFog;   // fog volumes: view depth over the fog's, and the depth under its surface
 layout(location = 4) out float outFogW; // w for table fog: uv2.x, or the depth (mode2.w)
+layout(location = 5) out float outLinearFog; // how far into the linear fog (linearFog), 0-1
 
 struct DeformData {
     vec4 a; // x: type (0 none, 1 wave, 2 bulge, 3 move, 4 normal), y: wave function, z: base, w: amplitude
@@ -39,15 +40,24 @@ layout(set = 1, binding = 0) uniform Draw {
     vec4 texVec1;  // xyz: for v
     vec4 color;
     vec4 mode;     // x: texGen (0 uv, 1 uv2, 2 environment, 3 vector), y: rgb source, z: alpha source
-                   // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting), w: fog distance (0 off)
+                   // (0 constant, 1 vertex, 2 one minus vertex, 3 lighting, 4 shadow), w: fog distance (0 off;
+                   // negative: by depth in the view instead of distance from the eye)
     vec4 mode2;    // x: follow the camera, y: how far towards the old frame's positions,
                    // z: a fog volume's depth for opaque (0: not a fog volume pass),
                    // w: table fog's w from the depth (1) rather than uv2.x
     vec4 fogPlane; // xyz: normal out of the fog volume, w: its distance
-    vec4 ambient;  // xyz: ambient light for the lighting colour source
-    vec4 directed; // xyz: directed light
+    vec4 ambient;  // xyz: ambient light for the lighting colour source; shadow: the light, w its reach
+    vec4 directed; // xyz: directed light; shadow: x strength, y most darkness
     vec4 lightDir; // xyz: towards the light, world space
     DeformData deforms[2];
+    vec4 fillColor[2]; // xyz: two more directed lights (fills), as directed
+    vec4 fillDir[2];   // xyz: towards each, world space
+    vec4 matAmbient;   // xyz: the material's ambient colour; w: 1 to light as Direct3D does
+    vec4 matEmissive;  // xyz: its emissive colour
+    vec4 linearFog;    // x, y: where the fog mixed in starts and is complete (y 0: none)
+    vec4 vlPos[6];   // vertex lights (gfx::kMaxVertexLights): xyz, radius
+    vec4 vlColor[6];
+    vec4 vlParams;   // x: how many, y: scale, z: specular, w: 1 lit as surfaces are
 };
 
 const float TAU = 6.28318530718;
@@ -110,10 +120,56 @@ float noise4(vec4 p) {
     return mix(across[0], across[1], f.w);
 }
 
-vec4 source(float which, vec4 vertexColor, vec3 normal) {
+vec3 directedLight(vec3 normal) {
+    return directed.rgb * max(dot(normal, lightDir.xyz), 0.0) +
+           fillColor[0].rgb * max(dot(normal, fillDir[0].xyz), 0.0) +
+           fillColor[1].rgb * max(dot(normal, fillDir[1].xyz), 0.0);
+}
+
+vec4 source(float which, vec4 vertexColor, vec3 normal, vec3 world) {
     int w = int(which + 0.5);
+    if (w == 4) {
+        float off = abs(distance(world, ambient.xyz) - ambient.w);
+        float dark = off > 0.0 ? min(directed.x / off, directed.y) : directed.y;
+        return vec4(vec3(1.0 - dark), 1.0);
+    }
+    if (w == 3 && vlParams.x > 0.5) {
+        // UE1's actor lighting (gfx::DrawCall::vertexLights).
+        vec3 sum = vec3(0.0);
+        vec3 view = world - eye.xyz;
+        float viewLen = length(view);
+        for (int i = 0; i < 6; ++i) {
+            if (float(i) >= vlParams.x)
+                break;
+            vec3 d = vlPos[i].xyz - world;
+            float dist = length(d);
+            if (vlParams.w > 0.5) { // as surfaces are lit
+                if (vlColor[i].w > 0.5) {
+                    float f = length(d.xy) / vlPos[i].w;
+                    if (f < 1.0)
+                        sum += vlColor[i].rgb * (1.0 - f * f);
+                } else {
+                    float f = dist / vlPos[i].w;
+                    if (f < 1.0 && dist > 0.0)
+                        sum += vlColor[i].rgb * ((1.0 - 3.0 * f * f + 2.0 * f * f * f) * max(dot(d, normal) / dist, 0.0));
+                }
+                continue;
+            }
+            float fall = 1.0 - dist / vlPos[i].w;
+            if (fall <= 0.0 || dist <= 0.0)
+                continue;
+            float c = dot(d, normal) / dist + 1.0;
+            float amount = max(c * c - 1.5, 0.0);
+            vec3 mirrored = vlPos[i].xyz - 2.0 * dot(normal, d) * normal;
+            float s = dot(mirrored - world, view) * vlParams.z;
+            if (s > 0.0 && viewLen > 0.0)
+                amount += 6.0 * s * s / (dist * dist * viewLen * viewLen);
+            sum += vlColor[i].rgb * (amount * fall);
+        }
+        return vec4(min(ambient.rgb + vlParams.y * sum, vec3(1.0)), 1.0);
+    }
     if (w == 3)
-        return vec4(clamp(ambient.rgb + directed.rgb * max(dot(normal, lightDir.xyz), 0.0), 0.0, 1.0), 1.0);
+        return vec4(clamp(ambient.rgb + directedLight(normal), 0.0, 1.0), 1.0);
     return w == 1 ? vertexColor : (w == 2 ? vec4(1.0) - vertexColor : vec4(1.0));
 }
 
@@ -145,6 +201,7 @@ void main() {
     // uses the position as it is, w being 1 for any other model matrix.
     vec4 placed = mode2.x > 0.5 ? vec4(pos + eye.xyz, 1.0) : model * vec4(pos, 1.0);
     vec3 world = placed.xyz;
+    vec3 point = placed.xyz / placed.w; // the place in the world, for lighting and shadows
     vec3 normal = normalize(mat3(model) * baseNormal);
 
     vec2 uv;
@@ -170,10 +227,20 @@ void main() {
     h = vec3(uv, 1.0);
     outUv = vec2(dot(postRow0.xyz, h), dot(postRow1.xyz, h));
 
-    outColor = vec4(source(mode.y, inColor, normal).rgb, source(mode.z, inColor, normal).a) * color;
+    outColor = vec4(source(mode.y, inColor, normal, point).rgb, source(mode.z, inColor, normal, point).a) * color;
+    if (int(mode.y + 0.5) == 3 && matAmbient.w > 0.5)
+        // As Direct3D lights a vertex: emissive, the material's ambient
+        // colour by the ambient light, its diffuse (color) by the others.
+        outColor.rgb = clamp(matEmissive.rgb + matAmbient.rgb * ambient.rgb + color.rgb * directedLight(normal),
+                             0.0, 1.0);
     if (mode.w > 0.0)
         outColor = vec4(color.rgb, clamp(distance(world, eye.xyz) / mode.w, 0.0, 1.0));
+    else if (mode.w < 0.0) // by depth in the view (Direct3D's table fog)
+        outColor = vec4(color.rgb, clamp((viewProj * vec4(point, 1.0)).w / -mode.w, 0.0, 1.0));
     outWorld = world;
+    outLinearFog = 0.0;
+    if (linearFog.y > 0.0)
+        outLinearFog = clamp((distance(world, eye.xyz) - linearFog.x) / max(linearFog.y - linearFog.x, 0.001), 0.0, 1.0);
     gl_Position = viewProj * placed;
     outFogW = mode2.w > 0.5 ? gl_Position.w : inUv2.x;
     outFog = vec2(0.0);

@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+#pragma once
+
+#include "common/types.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+// lexicon.dic in stbof.res (docs/engines/botf/formats/lexicon.md): the words and
+// phrases the interface shows (option values, race and star names, labels),
+// by number. Which number is which comes from the screens; see lexicon.md.
+
+namespace reluva::botf {
+
+/** lexicon.dic's entries, by number. */
+class Lexicon {
+public:
+    Error load(const std::vector<uint8_t> &data);
+    size_t size() const { return _entries.size(); }
+    /** The entry as UTF-8, or empty past the end. */
+    const std::string &operator[](size_t i) const;
+
+private:
+    std::vector<std::string> _entries;
+};
+
+// Entries the screens use, numbered as in the English lexicon.dic. Found by
+// the modding community by changing an entry and seeing which screen
+// changed (Ultimate Editor, ue/edit/res/stbof/files/dic/idx/LexDataIdx.java).
+namespace lex {
+constexpr int kAdvanced = 4;
+constexpr int kAutomatic = 52;
+constexpr int kBeginning = 88;
+constexpr int kDeveloped = 234;
+constexpr int kDomination = 248;
+constexpr int kEarly = 252;
+constexpr int kEasy = 256;
+constexpr int kElliptical = 264;
+constexpr int kExpanded = 312;
+constexpr int kFew = 358;
+constexpr int kHard = 433;
+constexpr int kImpossible = 482;
+constexpr int kIrregular = 555;
+constexpr int kLarge = 596;
+constexpr int kManual = 621;
+constexpr int kMany = 622;
+constexpr int kMedium = 627;
+constexpr int kNone = 872;
+constexpr int kNormal = 873;
+constexpr int kOff = 880;
+constexpr int kOn = 882;
+constexpr int kRing = 1056;
+constexpr int kSimple = 1150;
+constexpr int kSmall = 1158;
+constexpr int kSome = 1161;
+constexpr int kSpiral = 1172;
+constexpr int kTeamPlay = 1253;
+constexpr int kVendetta = 1407;
+} // namespace lex
+
+} // namespace reluva::botf

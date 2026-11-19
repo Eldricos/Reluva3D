@@ -28,11 +28,17 @@ Laid out as `src/common/` is, a page per component:
 - **[graphics/](common/graphics/):** [the Glide stand-in](common/graphics/glide.md),
   3dfx's Glide 2 and 3 in software and on the GPU, for a game's own Voodoo
   renderer.
+- **[audio/](common/audio/):** [DirectMusic](common/audio/directmusic.md)
+  music, played on [DLS](common/audio/dls.md) instruments by a
+  synthesizer of Reluva's own.
 - **[video/](common/video/):** [Bink](common/video/bink.md),
   [Smacker](common/video/smacker.md),
   [Cinepak](common/video/cinepak.md),
   [AVI files](common/video/avi.md) and
   [Intel Indeo 5](common/video/indeo5.md).
+- **[audio/](common/audio/):** [the tracker music player](common/audio/tracker.md)
+  (MOD, S3M, XM, IT) and [the mixer](common/audio/mixer.md)'s filters,
+  reverb and muffling.
 - **[dcl.md](common/dcl.md):** PKWARE DCL ("implode") compression.
 - **[wise.md](common/wise.md):** Wise installers, taken apart without
   running them.
@@ -40,6 +46,8 @@ Laid out as `src/common/` is, a page per component:
   cabinets (`data1.hdr`, `data1.cab`...), as games' CDs held their files.
 - **[truetype.md](common/truetype.md):** TrueType fonts drawn as Windows
   draws them: their hinting programs run by Reluva's own interpreter.
+- **[winhelp.md](common/winhelp.md):** Windows Help files (`.hlp`): their
+  topics, links and pictures.
 
 ## Engines: `engines/<engine>/`
 

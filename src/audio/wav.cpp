@@ -105,6 +105,11 @@ Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
             data = body, dataSize = avail;
         else if (std::memcmp(d.data() + p, "fact", 4) == 0 && avail >= 4)
             factFrames = u32(d, body);
+        else if (std::memcmp(d.data() + p, "smpl", 4) == 0 && avail >= 36 + 24 && u32(d, body + 28) > 0) {
+            // The first loop: its start and its last frame (inclusive).
+            out.loopStart = u32(d, body + 36 + 8);
+            out.loopEnd = size_t(u32(d, body + 36 + 12)) + 1;
+        }
         p = body + size + (size & 1);
     }
     if (!fmt || fmtSize < 16)
@@ -123,6 +128,7 @@ Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
         for (size_t i = 0; i + 1 < dataSize; i += 2)
             out.samples.push_back(int16_t(u16(d, data + i)));
     } else if (out.format == 1 && bits == 8) {
+        out.sourceBits = 8;
         for (size_t i = 0; i < dataSize; ++i)
             out.samples.push_back(int16_t((int(d[data + i]) - 128) << 8));
     } else if (out.format == 0x11 && bits == 4) {
@@ -132,7 +138,22 @@ Error decodeWav(const std::vector<uint8_t> &d, Sound &out) {
         return Error::fail("WAVE format " + std::to_string(out.format) + " with " + std::to_string(bits) +
                            " bits isn't supported");
     }
+    if (out.loopEnd > out.frames() || out.loopStart >= out.loopEnd)
+        out.loopStart = out.loopEnd = 0;
     return Error::success();
+}
+
+Error decodeImaAdpcm(const uint8_t *data, size_t size, int channels, int rate, size_t blockAlign, size_t frameLimit,
+                     Sound &out) {
+    out = Sound{};
+    if (channels < 1 || channels > 2 || rate <= 0)
+        return Error::fail("IMA ADPCM with " + std::to_string(channels) + " channels at " + std::to_string(rate) +
+                           " Hz");
+    out.channels = channels;
+    out.rate = rate;
+    out.format = 0x11;
+    const std::vector<uint8_t> blocks(data, data + size);
+    return decodeIma(blocks, 0, size, channels, blockAlign, frameLimit, out.samples);
 }
 
 std::vector<uint8_t> encodePcmWav(const Sound &s) {

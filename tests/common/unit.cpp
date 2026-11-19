@@ -51,6 +51,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <array>
 #include <cstdio>
 #include <memory>
 #include <fstream>
@@ -70,6 +71,20 @@ static void testMd5() {
     CHECK(md5Of("The quick brown fox jumps over the lazy dog") == "9e107d9d372bb6826bd81d3542a419d6");
     // Crosses the 56-byte padding boundary.
     CHECK(md5Of(std::string(64, 'a')) == "014842d480b571495a4a0363793f7367");
+    // HMAC-MD5: RFC 2104's test cases.
+    auto hex = [](const std::array<uint8_t, 16> &d) {
+        std::string out;
+        for (const uint8_t b : d) {
+            char s[3];
+            std::snprintf(s, sizeof s, "%02x", b);
+            out += s;
+        }
+        return out;
+    };
+    const std::string key(16, '\x0b');
+    CHECK(hex(hmacMd5(key.data(), key.size(), "Hi There", 8)) == "9294727a3638bb1c13f48ef8158bfc9d");
+    const std::string jefe = "what do ya want for nothing?";
+    CHECK(hex(hmacMd5("Jefe", 4, jefe.data(), jefe.size())) == "750c783e6ab0b503eaa86e310a5db738");
 }
 
 static void testFsAndDetection(const std::filesystem::path &tmp) {
@@ -214,6 +229,37 @@ static void testWav() {
     CHECK(pcm.format == 1 && pcm.rate == 22050 && pcm.samples == s.samples);
     b.resize(20);
     CHECK(bool(decodeWav(b, s))); // cut inside the fmt chunk
+}
+
+// IMA ADPCM blocks with no WAV file round them (as Birth of the Federation
+// keeps them): decoded as the same blocks in a WAV file are.
+static void testImaWithoutHeader() {
+    using namespace reluva::audio;
+    // Two 512-byte blocks: a header (first sample, step index 10), then codes.
+    std::vector<uint8_t> blocks;
+    for (const int first : {100, -300}) {
+        blocks.push_back(uint8_t(first));
+        blocks.push_back(uint8_t(first >> 8));
+        blocks.push_back(10);
+        blocks.push_back(0);
+        for (size_t i = 4; i < 512; ++i)
+            blocks.push_back(uint8_t(first + int(i) * 37));
+    }
+    std::vector<uint8_t> wav = {'R', 'I', 'F', 'F', 0, 0,    0,   0,   'W', 'A',  'V',  'E', 'f', 'm',  't',
+                                ' ', 16,  0,   0,   0, 0x11, 0,   1,   0,   0x22, 0x56, 0,   0,   0x44, 0xac,
+                                0,   0,   0,   2,   4, 0,    'd', 'a', 't', 'a',  0,    4,   0,   0};
+    wav.insert(wav.end(), blocks.begin(), blocks.end());
+    Sound bare;
+    Sound wrapped;
+    CHECK(!decodeImaAdpcm(blocks.data(), blocks.size(), 1, 22050, 512, 0, bare));
+    CHECK(!decodeWav(wav, wrapped));
+    CHECK(bare.samples == wrapped.samples);
+    // A block's header sample, then 2 a byte of the 508 after it.
+    CHECK(bare.frames() == 2 * 1017 && bare.rate == 22050 && bare.channels == 1 && bare.format == 0x11);
+    CHECK(bare.samples[0] == 100 && bare.samples[1017] == -300);
+    CHECK(!decodeImaAdpcm(blocks.data(), blocks.size(), 1, 11025, 512, 1500, bare));
+    CHECK(bare.frames() == 1500 && bare.rate == 11025);
+    CHECK(bool(decodeImaAdpcm(blocks.data(), blocks.size(), 3, 22050, 512, 0, bare)));
 }
 
 static void testMp3() {
@@ -1294,14 +1340,16 @@ static void testMixerPause() {
 }
 
 static const reluva::test::Suite
-    kAudioSuite("common.unit.audio", {
-                                         {"wav", [](const std::filesystem::path &) { testWav(); }},
-                                         {"mp3", [](const std::filesystem::path &) { testMp3(); }},
-                                         {"mixer", [](const std::filesystem::path &) { testMixer(); }},
-                                         {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
-                                         {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
-                                         {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
-                                     });
+    kAudioSuite("common.unit.audio",
+                {
+                    {"wav", [](const std::filesystem::path &) { testWav(); }},
+                    {"ima without a header", [](const std::filesystem::path &) { testImaWithoutHeader(); }},
+                    {"mp3", [](const std::filesystem::path &) { testMp3(); }},
+                    {"mixer", [](const std::filesystem::path &) { testMixer(); }},
+                    {"streams", [](const std::filesystem::path &) { testAudioStreams(); }},
+                    {"mixer streams", [](const std::filesystem::path &) { testMixerStreams(); }},
+                    {"mixer pause", [](const std::filesystem::path &) { testMixerPause(); }},
+                });
 
 // Cursors (graphics/cursor.h): made from palette indices or a surface,
 // scaled with their hotspot, and drawn by a backend that has to.

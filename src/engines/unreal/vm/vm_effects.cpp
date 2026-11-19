@@ -1,0 +1,697 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 The Reluva contributors
+
+// The Fallen's effects' engine side, for a running level (ScriptLevel):
+// the copies of an actor its scripts make (CTVE_MultiMesh: particles,
+// sparks, beam sections) moved on each tick and let go when their life
+// runs out; the electric arcs (CTVE_ChainSpark); the beams' sections
+// (CTVE_BeamFX); bursts of sparks (CTVE_Sparks); rain and snow
+// (CTVE_Weather); and decals stuck to the world (Decal). How each moves is
+// Reluva's reading of what the scripts set and expect; the original code
+// isn't known. See docs/engines/unreal_vm.md.
+
+#include "engines/unreal/vm/vm_level.h"
+
+#include "engines/unreal/formats/actors.h"
+
+#include <algorithm>
+#include <cmath>
+#include <random>
+
+namespace reluva::unreal {
+
+namespace {
+
+using Vec = std::array<float, 3>;
+
+std::mt19937 &random() {
+    static std::mt19937 r(54321); // repeatable runs
+    return r;
+}
+float frand() {
+    return std::uniform_real_distribution<float>(0, 1)(random());
+}
+
+Vec add(const Vec &a, const Vec &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec sub(const Vec &a, const Vec &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec mul(const Vec &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float length(const Vec &a) {
+    return std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+}
+Vec cross(const Vec &a, const Vec &b) {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
+}
+Vec normal(const Vec &a) {
+    const float l = length(a);
+    return l > 1e-6f ? mul(a, 1 / l) : Vec{1, 0, 0};
+}
+// A direction as a rotator (Unreal units), as rotator(Vector) gives it.
+std::array<int32_t, 3> rotatorOf(const Vec &d) {
+    const float yaw = std::atan2(d[1], d[0]);
+    const float pitch = std::atan2(d[2], std::sqrt(d[0] * d[0] + d[1] * d[1]));
+    auto units = [](float r) { return int32_t(std::lround(r * 32768.0f / 3.14159265f)); };
+    return {units(pitch), units(yaw), 0};
+}
+
+} // namespace
+
+// Each level starts the same, whatever ran before it (ue-run -all).
+void reseedEffectRandom() {
+    random().seed(54321);
+}
+
+// An actor's copies (its MultiMesh list): the ones in use, in order.
+std::vector<VmObject *> ScriptLevel::multiMeshes(VmObject *actor) {
+    std::vector<VmObject *> out;
+    const Value *head = actor ? prop(actor, "MultiMesh") : nullptr;
+    VmObject *mm = head ? head->asObject() : nullptr;
+    for (int guard = 0; mm && guard < 4096; ++guard) {
+        const Value *next = prop(mm, "Next");
+        mm = next ? next->asObject() : nullptr;
+        if (!mm)
+            break;
+        if (const Value *deleted = prop(mm, "bDeleted"); deleted && deleted->asBool())
+            break; // the ones let go are kept at the end
+        out.push_back(mm);
+    }
+    return out;
+}
+
+// An arc of sparks (CTVE_ChainSpark), as Engine.dll's ChainSparkTick: it
+// grows along its length (bGrows, GrowthRate a second, to 1), travels
+// (bTravels: StartLoc and FinishLoc by StartVelocity and FinishVelocity),
+// fades (bFade, FadeSpeed a second, its light with it; gone below 0) or
+// glows up and down between MinGlow and MaxGlow (bCycleFade); with
+// bUpdate it's laid out again (chainSparkUpdate). Its copies are moved by
+// its physics (Spark: moveMultiMeshes).
+void ScriptLevel::chainSparkTick(VmObject *spark, float seconds) {
+    auto f = [&](const char *name) {
+        const Value *v = prop(spark, name);
+        return v ? v->asFloat() : 0.0f;
+    };
+    auto b = [&](const char *name) {
+        const Value *v = prop(spark, name);
+        return v && v->asBool();
+    };
+    auto vec = [&](const char *name) {
+        const Value *v = prop(spark, name);
+        return v ? Vm::vectorOf(*v) : Vec{};
+    };
+    auto setFloat = [&](const char *name, float v) {
+        if (Value *p = prop(spark, name))
+            *p = Value::floatValue(v);
+    };
+    auto setBool = [&](const char *name, bool v) {
+        if (Value *p = prop(spark, name))
+            *p = Value::boolValue(v);
+    };
+    auto setVec = [&](const char *name, const Vec &v) {
+        if (Value *p = prop(spark, name))
+            _vm.setVector(*p, v[0], v[1], v[2]);
+    };
+    if (b("bGrows")) {
+        float g = f("Growth") + seconds * f("GrowthRate");
+        if (g > 1) {
+            g = 1;
+            setBool("bGrows", false);
+        }
+        setFloat("Growth", g);
+        setBool("bUpdate", true);
+    } else {
+        setFloat("Growth", 1);
+    }
+    if (b("bTravels")) {
+        setVec("StartLoc", add(vec("StartLoc"), mul(vec("StartVelocity"), seconds)));
+        setVec("FinishLoc", add(vec("FinishLoc"), mul(vec("FinishVelocity"), seconds)));
+        setBool("bUpdate", true);
+    }
+    if (b("bFade")) {
+        const float glow = f("ScaleGlow") - seconds * f("FadeSpeed");
+        setFloat("ScaleGlow", glow);
+        if (Value *l = prop(spark, "LightBrightness"))
+            *l = Value::byteValue(uint8_t(std::clamp(int(glow * 100), 0, 255)));
+        if (glow < 0) {
+            destroy(spark);
+            return;
+        }
+    } else if (b("bCycleFade")) {
+        float glow = f("ScaleGlow");
+        if (b("bFadePlus")) {
+            glow += seconds * f("FadeSpeed");
+            if (glow > f("MaxGlow")) {
+                glow = f("MaxGlow");
+                setBool("bFadePlus", false);
+            }
+        } else {
+            glow -= seconds * f("FadeSpeed");
+            if (glow < f("MinGlow")) {
+                glow = f("MinGlow");
+                setBool("bFadePlus", true);
+            }
+        }
+        setFloat("ScaleGlow", glow);
+    }
+    if (b("bUpdate"))
+        chainSparkUpdate(spark);
+}
+
+// Laying the arc out (ChainSpark.Update, ForceUpdate): its base copy
+// holds the curve for its physics. Location startPath, Velocity FinishLoc
+// + FinishPath - StartLoc, Acceleration FinishLoc - StartLoc, Vect2
+// StartLoc (a cubic from StartLoc, as the curve's weights take them),
+// Phase the step along it from one copy to the next (Growth over
+// NumSegments - 1); with bSinVariation (bUse) a wave across it, AxisScale
+// a random way across (Amplitude long) and Angle its frequency
+// (WaveLengths x 6.28). The actor goes to the arc's middle.
+void ScriptLevel::chainSparkUpdate(VmObject *spark) {
+    const Value *head = prop(spark, "MultiMesh");
+    VmObject *base = head ? head->asObject() : nullptr;
+    if (!base)
+        return;
+    auto f = [&](const char *name) {
+        const Value *v = prop(spark, name);
+        return v ? v->asFloat() : 0.0f;
+    };
+    auto vec = [&](const char *name) {
+        const Value *v = prop(spark, name);
+        return v ? Vm::vectorOf(*v) : Vec{};
+    };
+    auto setVec = [&](const char *name, const Vec &v) {
+        if (Value *p = prop(base, name))
+            _vm.setVector(*p, v[0], v[1], v[2]);
+    };
+    auto setFloat = [&](const char *name, float v) {
+        if (Value *p = prop(base, name))
+            *p = Value::floatValue(v);
+    };
+    const Vec start = vec("StartLoc");
+    const Vec finish = vec("FinishLoc");
+    setVec("Location", vec("startPath"));
+    setVec("Velocity", sub(add(finish, vec("FinishPath")), start));
+    setVec("Acceleration", sub(finish, start));
+    setVec("Vect2", start);
+    const Value *count = prop(spark, "NumSegments");
+    const int n = count ? count->asInt() : 0;
+    setFloat("Phase", n > 1 ? f("Growth") / float(n - 1) : 0);
+    const Value *sinVar = prop(spark, "bSinVariation");
+    const bool wave = sinVar && sinVar->asBool();
+    if (Value *u = prop(base, "bUse"))
+        *u = Value::boolValue(wave);
+    if (wave) {
+        // Across the line from P1 to P3 (which nothing sets: the world's
+        // Y and Z), a random way, Amplitude long.
+        const Vec d = sub(vec("P3"), vec("P1"));
+        const auto rot = rotatorOf(d);
+        const auto r3 = rotationAxes({rot[0], rot[1], rot[2]});
+        const Vec ax[3] = {
+            {r3[0][0], r3[0][1], r3[0][2]}, {r3[1][0], r3[1][1], r3[1][2]}, {r3[2][0], r3[2][1], r3[2][2]}};
+        Vec alter = add(mul(ax[1], frand() * 2 - 1), mul(ax[2], frand() * 2 - 1));
+        if (length(alter) > 0)
+            alter = mul(normal(alter), f("Amplitude"));
+        const Value *waves = prop(spark, "WaveLengths");
+        const float sinScale = float(waves ? waves->asInt() : 0) * 6.28f;
+        if (Value *p = prop(spark, "Alter"))
+            _vm.setVector(*p, alter[0], alter[1], alter[2]);
+        if (Value *p = prop(spark, "SinScale"))
+            *p = Value::floatValue(sinScale);
+        setVec("AxisScale", alter);
+        setFloat("Angle", sinScale);
+    }
+    setLocation(spark, mul(add(start, finish), 0.5f));
+}
+
+// A beam's sections (CTVE_BeamFX: copies of its mesh, made and cut by its
+// scripts) laid along it from BeamOrigin, where the weapon's tip is now,
+// each SectionLength on along BeamAxesX and turned as the beam. Each is
+// SectionAxisScale thick, its thickness varying at random by up to
+// SectionAxisYZRandomFactor each tick; the last as long as the head has
+// flown into it (the scripts cut it after, where the beam meets
+// something). With a WaveAmplitude the beam
+// ripples: WaveLength waves a unit along it, travelling WaveTravelVelocity
+// a second.
+void ScriptLevel::updateBeamSections(VmObject *beam, float seconds) {
+    const VmProperty *list = beam->cls->findProperty(_vm.name("BeamSectionList"));
+    if (!list)
+        return;
+    auto f = [&](const char *name) {
+        const Value *v = prop(beam, name);
+        return v ? v->asFloat() : 0.0f;
+    };
+    auto i = [&](const char *name) {
+        const Value *v = prop(beam, name);
+        return v ? v->asInt() : 0;
+    };
+    auto vec = [&](const char *name) {
+        const Value *v = prop(beam, name);
+        return v ? Vm::vectorOf(*v) : Vec{};
+    };
+    const int first = std::max(0, i("BeamSectionIndexFirst"));
+    const int last = std::min(i("BeamSectionIndexLast"), list->arrayDim);
+    const Vec origin = vec("BeamOrigin");
+    const Vec step = vec("BeamSectionAxesX");
+    const Vec axis = normal(vec("BeamAxesX"));
+    const Value *rotation = prop(beam, "BeamRotation");
+    const Vec scale = vec("SectionAxisScale");
+    const float jitter = f("SectionAxisYZRandomFactor");
+    const float amplitude = f("WaveAmplitude");
+    const float waveLength = f("WaveLength");
+    const float travel = f("WaveTravelVelocity") * f("AliveTime");
+    const float sectionLength = f("SectionLength");
+    Vec side = cross(axis, Vec{0, 0, 1});
+    side = length(side) < 1e-3f ? Vec{0, 1, 0} : normal(side);
+    for (int k = first; k < last; ++k) {
+        VmObject *section = beam->values[size_t(list->slot + k)].asObject();
+        if (!section || section->deleted)
+            continue;
+        Vec at = add(origin, mul(step, float(k)));
+        if (amplitude != 0 && waveLength != 0) {
+            const float phase = (float(k) * sectionLength - travel) * waveLength * 6.2831853f;
+            at = add(at, mul(side, amplitude * std::sin(phase)));
+        }
+        if (Value *l = prop(section, "Location"))
+            _vm.setVector(*l, at[0], at[1], at[2]);
+        if (Value *r = prop(section, "Rotation"); r && rotation)
+            *r = *rotation;
+        if (Value *s = prop(section, "AxisScale")) {
+            const Vec now = Vm::vectorOf(*s);
+            auto thick = [&](float base) { return std::max(0.1f, base * (1 + jitter * (frand() - 0.5f))); };
+            // The last grows as the head flies out (HeadTime x HeadVelocity
+            // along); the scripts cut it after, where the beam hits.
+            float x = scale[0];
+            if (k == last - 1 && sectionLength > 0) {
+                const float reach = f("HeadTime") * f("HeadVelocity") / sectionLength - float(k);
+                x = std::clamp(reach, 0.0f, 1.0f) * scale[0];
+            }
+            (void)now;
+            _vm.setVector(*s, x, thick(scale[1]), thick(scale[2]));
+        }
+    }
+    if (Value *count = prop(beam, "FrameCount"))
+        ++count->i;
+    (void)seconds;
+}
+
+namespace {
+
+// A new copy of an actor (its NewMultiMesh: like it to begin with).
+VmObject *newCopy(Vm &vm, VmObject *actor) {
+    VmFunction *make = vm.findFunction(actor, vm.name("NewMultiMesh"));
+    return make ? vm.invoke(make, actor, {}).asObject() : nullptr;
+}
+
+} // namespace
+
+// Sparks (CTVE_Sparks): every so often (BurstDelay, counted down by its
+// scripts, set again here: about AverageBurstTime, else up to MaxWaitTime)
+// a burst of MinSparksPerBurst to MaxSparksPerBurst of them flies out along
+// its X axis at Speed, spread RangeWidth to the sides and RangeHeight up
+// and down, and falls; each Size (give or take SizeVariance) and lasting
+// SparkLife (give or take SparkLifeVariance), fading as it goes. Its light
+// (the one it had, kept in saveLightType) flashes with each burst.
+void ScriptLevel::sparkTick(VmObject *sparks, float seconds) {
+    auto f = [&](const char *name) {
+        const Value *v = prop(sparks, name);
+        return v ? v->asFloat() : 0.0f;
+    };
+    auto vec = [&](const char *name) {
+        const Value *v = prop(sparks, name);
+        return v ? Vm::vectorOf(*v) : Vec{};
+    };
+    auto set = [&](VmObject *o, const char *name, const Value &v) {
+        if (Value *p = prop(o, name))
+            *p = v;
+    };
+    if (auto it = _sparkFlash.find(sparks); it != _sparkFlash.end() && (it->second -= seconds) <= 0) {
+        set(sparks, "LightType", Value::byteValue(0));
+        _sparkFlash.erase(it);
+    }
+    Value *delay = prop(sparks, "BurstDelay");
+    if (!delay || delay->asFloat() > 0)
+        return;
+
+    const Vec x = vec("XAxis");
+    const Vec y = vec("YAxis");
+    const Vec z = vec("ZAxis");
+    const Value *loc = prop(sparks, "Location");
+    const Vec from = loc ? Vm::vectorOf(*loc) : vec("SeedLocation");
+    Vec gravity{0, 0, -950};
+    if (const Value *r = prop(sparks, "Region"); r && !r->fields.empty())
+        if (VmObject *zone = r->fields[0].asObject())
+            if (const Value *g = prop(zone, "ZoneGravity"))
+                gravity = Vm::vectorOf(*g);
+    const Value *minCount = prop(sparks, "MinSparksPerBurst");
+    const Value *maxCount = prop(sparks, "MaxSparksPerBurst");
+    const int least = minCount ? std::max(0, minCount->asInt()) : 0;
+    const int most = std::min(64, std::max(least, maxCount ? maxCount->asInt() : 0));
+    const int count = least + int(frand() * float(most - least + 1) * 0.999f);
+    auto vary = [](float base, float by) { return base + (frand() * 2 - 1) * by; };
+    for (int k = 0; k < count; ++k) {
+        VmObject *mm = newCopy(_vm, sparks);
+        if (!mm)
+            break;
+        const Vec v = add(add(mul(x, f("Speed")), mul(y, (frand() * 2 - 1) * f("RangeWidth"))),
+                          mul(z, (frand() * 2 - 1) * f("RangeHeight")));
+        const float life = std::max(0.05f, vary(f("SparkLife"), f("SparkLifeVariance")));
+        set(mm, "Location", _vm.vectorValue(from[0], from[1], from[2]));
+        set(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
+        set(mm, "Acceleration", _vm.vectorValue(gravity[0], gravity[1], gravity[2]));
+        const auto rot = rotatorOf(v);
+        set(mm, "Rotation", _vm.rotatorValue(rot[0], rot[1], rot[2]));
+        const float size = std::max(0.01f, vary(f("Size"), f("SizeVariance")));
+        set(mm, "DrawScale", Value::floatValue(size));
+        // Its size kept in Phase: the engine's spark physics flickers it
+        // round that (physCTVE_Sparks), its trail timer in Angle.
+        set(mm, "Phase", Value::floatValue(size));
+        set(mm, "Angle", Value::floatValue(0.01f + 0.02f * frand()));
+        set(mm, "LifeSpan", Value::floatValue(life));
+        set(mm, "ScaleGlow", Value::floatValue(f("MaxScaleGlow")));
+    }
+    const float average = f("AverageBurstTime");
+    delay->f = average > 0 ? average * (0.5f + frand()) : std::max(0.05f, frand() * f("MaxWaitTime"));
+    if (const Value *light = prop(sparks, "bLightFX"); light && light->asBool() && count > 0)
+        if (const Value *saved = prop(sparks, "saveLightType"); saved && saved->asInt() != 0) {
+            set(sparks, "LightType", Value::byteValue(saved->asInt()));
+            _sparkFlash[sparks] = 0.1f;
+        }
+}
+
+// Rain and snow (CTVE_Weather): drops (copies of it: its mesh, or its
+// sprite) falling about SeedLocation (where its scripts keep it, ahead of
+// the player), up to SpawnRange around and from DropHeight above, as many
+// as its Intensity asks (which comes up to what it was set to, or down to
+// nothing when it's turned off, at DeltaIntensityRate a second). They fall
+// at FallRate (give or take FallRateVariance), blown by DropVelocity's
+// wind, which drifts with WindActivity to up to MaxLateralMove each way;
+// each lasts until it meets the world (traced as it starts) or one of the
+// weather blockers its scripts gathered (Block: a cylinder or a box,
+// sheltering what's under it; with bInvertWeatherBlockers, the only places
+// it falls). `fill`: started over (InitialSetUp), drops at every height.
+void ScriptLevel::weatherTick(VmObject *weather, float seconds, bool fill) {
+    auto f = [&](const char *name) {
+        const Value *v = prop(weather, name);
+        return v ? v->asFloat() : 0.0f;
+    };
+    auto b = [&](const char *name) {
+        const Value *v = prop(weather, name);
+        return v && v->asBool();
+    };
+    auto vec = [&](const char *name) {
+        const Value *v = prop(weather, name);
+        return v ? Vm::vectorOf(*v) : Vec{};
+    };
+    auto set = [&](VmObject *o, const char *name, const Value &v) {
+        if (Value *p = prop(o, name))
+            *p = v;
+    };
+    // How hard, coming up or down to what's asked.
+    Value *intensity = prop(weather, "Intensity");
+    if (!intensity)
+        return;
+    const float goal = b("bActive") ? f("MaxIntensity") : 0;
+    const float rate = std::max(0.01f, f("DeltaIntensityRate")) * seconds;
+    intensity->f = intensity->asFloat() < goal ? std::min(goal, intensity->asFloat() + rate)
+                                               : std::max(goal, intensity->asFloat() - rate);
+    // The wind: now and then a new one to blow toward, sideways.
+    Value *wind = prop(weather, "DropVelocity");
+    Value *destWind = prop(weather, "DestWind");
+    const float lateral = f("MaxLateralMove");
+    const float fall = f("FallRate");
+    if (wind && destWind) {
+        if (frand() < f("WindActivity") * seconds * 10) {
+            const float angle = frand() * 6.2831853f;
+            const float strength = frand() * lateral;
+            _vm.setVector(*destWind, std::cos(angle) * strength, std::sin(angle) * strength, fall);
+        }
+        Vec w = Vm::vectorOf(*wind);
+        const Vec d = Vm::vectorOf(*destWind);
+        const float k = std::min(1.0f, seconds * 0.5f);
+        w = {w[0] + (d[0] - w[0]) * k, w[1] + (d[1] - w[1]) * k, fall};
+        _vm.setVector(*wind, w[0], w[1], w[2]);
+    }
+    const Vec windNow = wind ? Vm::vectorOf(*wind) : Vec{0, 0, fall};
+
+    // The blockers: inside one (its footprint, under its top).
+    struct Block {
+        Vec at;
+        float radius;
+        float height;
+        bool box;
+        float x;
+        float y;
+        float z;
+    };
+    std::vector<Block> blocks;
+    const Value *numBlocks = prop(weather, "NumBlocks");
+    if (const VmProperty *list = weather->cls->findProperty(_vm.name("Block")); list && numBlocks) {
+        const int n = std::clamp(numBlocks->asInt(), 0, list->arrayDim);
+        for (int k = 0; k < n; ++k) {
+            const Value &v = weather->values[size_t(list->slot + k)];
+            if (!v.st)
+                continue;
+            auto field = [&](const char *name) -> const Value * {
+                const VmProperty *p = v.st->findProperty(_vm.name(name));
+                return p && size_t(p->slot) < v.fields.size() ? &v.fields[size_t(p->slot)] : nullptr;
+            };
+            auto ff = [&](const char *name) {
+                const Value *x = field(name);
+                return x ? x->asFloat() : 0.0f;
+            };
+            const Value *pos = field("Pos");
+            const Value *box = field("bBox");
+            blocks.push_back({pos ? Vm::vectorOf(*pos) : Vec{}, ff("Radius"), ff("Height"), box && box->asInt() != 0,
+                              ff("XSize") / 2, ff("YSize") / 2, ff("ZSize") / 2});
+        }
+    }
+    auto inBlock = [&](const Vec &p) {
+        for (const Block &k : blocks) {
+            const float dx = p[0] - k.at[0];
+            const float dy = p[1] - k.at[1];
+            if (k.box ? std::fabs(dx) <= k.x && std::fabs(dy) <= k.y && p[2] <= k.at[2] + k.z
+                      : dx * dx + dy * dy <= k.radius * k.radius && p[2] <= k.at[2] + k.height)
+                return true;
+        }
+        return false;
+    };
+    const bool inverted = b("bInvertWeatherBlockers");
+    const Vec seed = vec("SeedLocation");
+    const float range = std::max(1.0f, f("SpawnRange"));
+    const float top = std::max(1.0f, f("DropHeight"));
+
+    // Those blown too far from where it's falling now go (it follows the
+    // player); all of them, starting over.
+    std::vector<VmObject *> drops = multiMeshes(weather);
+    size_t alive = 0;
+    for (VmObject *mm : drops) {
+        const Value *l = prop(mm, "Location");
+        const Vec p = l ? Vm::vectorOf(*l) : Vec{};
+        const float dx = p[0] - seed[0];
+        const float dy = p[1] - seed[1];
+        if (fill || dx * dx + dy * dy > range * range * 1.44f)
+            _vm.callEvent(mm, "Delete");
+        else
+            ++alive;
+    }
+    // As many as the intensity asks, new ones from the top.
+    constexpr float kMostDrops = 4000; // at an intensity of 1
+    const size_t wanted = size_t(std::clamp(intensity->asFloat(), 0.0f, 1.0f) * kMostDrops);
+    const Value *rotation = prop(weather, "CurrentRotation");
+    const Value *style = prop(weather, "Style");
+    int tries = 0;
+    for (size_t k = alive; k < wanted && tries < int(wanted) * 2; ++tries) {
+        // Nearer the middle more often: it's seen there.
+        const float angle = frand() * 6.2831853f;
+        const float r = range * frand();
+        Vec at{seed[0] + std::cos(angle) * r, seed[1] + std::sin(angle) * r,
+               seed[2] + (fill ? top * (frand() * 2 - 1) : top - frand() * 20)};
+        if (inBlock(at) != inverted)
+            continue;
+        const float speed = std::min(-10.0f, fall + (frand() * 2 - 1) * f("FallRateVariance"));
+        const Vec v{windNow[0] * (0.8f + 0.4f * frand()), windNow[1] * (0.8f + 0.4f * frand()), speed};
+        // It lasts until it meets the world below (none: as far below as
+        // it starts above).
+        Vec hit{};
+        Vec n{};
+        const Vec to = add(at, mul(v, 2 * top / -speed));
+        float drop = 2 * top;
+        if (trace(weather, at, to, {}, false, hit, n))
+            drop = at[2] - hit[2];
+        if (drop <= 1)
+            continue;
+        VmObject *mm = newCopy(_vm, weather);
+        if (!mm)
+            break;
+        ++k;
+        set(mm, "Location", _vm.vectorValue(at[0], at[1], at[2]));
+        set(mm, "Velocity", _vm.vectorValue(v[0], v[1], v[2]));
+        set(mm, "Acceleration", _vm.vectorValue(0, 0, 0));
+        if (rotation)
+            set(mm, "Rotation", *rotation);
+        set(mm, "LifeSpan", Value::floatValue(drop / -speed));
+        set(mm, "DrawScale", Value::floatValue(std::max(0.01f, f("Size") + (frand() * 2 - 1) * f("SizeVariance"))));
+        set(mm, "ScaleGlow", Value::floatValue(f("MaxScaleGlow")));
+        if (style)
+            set(mm, "Style", Value::intValue(style->asInt()));
+    }
+}
+
+std::array<float, 3> ScriptLevel::waterLine(const std::array<float, 3> &start, const std::array<float, 3> &end) {
+    auto water = [&](const Vec &p) {
+        const Value r = regionAt(p);
+        if (!r.st)
+            return false;
+        const VmProperty *zp = r.st->findProperty(_vm.name("Zone"));
+        VmObject *zone = zp && size_t(zp->slot) < r.fields.size() ? r.fields[size_t(zp->slot)].asObject() : nullptr;
+        const Value *w = zone ? prop(zone, "bWaterZone") : nullptr;
+        return w && w->asBool();
+    };
+    const bool from = water(start);
+    if (water(end) == from)
+        return start;
+    // Halved until it's within a fraction of a unit.
+    Vec a = start;
+    Vec b = end;
+    for (int k = 0; k < 24 && length(sub(b, a)) > 0.1f; ++k) {
+        const Vec mid = mul(add(a, b), 0.5f);
+        (water(mid) == from ? a : b) = mid;
+    }
+    return b;
+}
+
+// A decal stuck to the world (Decal.AttachDecal): the surface found within
+// `distance` behind it (along its rotation's X backwards: it's turned to
+// face out of the surface, rotator(HitNormal)); flat on it, the texture's
+// size by DrawScale, its top along `direction` if given (a footprint's
+// heading), else its rotation's Z. The surface's texture, or None if
+// there's no surface there (and the decal goes).
+VmObject *ScriptLevel::attachDecal(VmObject *decal, float distance, const Vec &direction) {
+    const Value *loc = prop(decal, "Location");
+    const Value *rot = prop(decal, "Rotation");
+    if (!loc || !rot)
+        return nullptr;
+    const Vec at = Vm::vectorOf(*loc);
+    const auto r = Vm::rotatorOf(*rot);
+    const auto ax = rotationAxes(Rotator{r[0], r[1], r[2]});
+    const Vec out{ax[0][0], ax[0][1], ax[0][2]};
+    const Vec from = add(at, mul(out, 2));
+    const Vec to = sub(at, mul(out, std::max(distance, 1.0f)));
+    Vec where{};
+    Vec n{};
+    if (trace(decal, from, to, {}, false, where, n) != _levelInfo)
+        return nullptr;
+    VmObject *surfaceTex = surfaceTexture(from, to);
+    Decal d;
+    d.at = where;
+    d.normal = n;
+    Vec top =
+        (direction[0] != 0 || direction[1] != 0 || direction[2] != 0) ? direction : Vec{ax[2][0], ax[2][1], ax[2][2]};
+    // Its top along the surface.
+    const float along = top[0] * n[0] + top[1] * n[1] + top[2] * n[2];
+    top = sub(top, mul(n, along));
+    if (length(top) < 1e-3f)
+        top = normal(cross(n, std::fabs(n[2]) < 0.9f ? Vec{0, 0, 1} : Vec{1, 0, 0}));
+    d.up = normal(top);
+    if (const Value *t = prop(decal, "Texture"); t && t->asObject() && t->o->package)
+        d.texture = {t->o->package, t->o->exportIndex};
+    const Value *scale = prop(decal, "DrawScale");
+    d.scale = scale ? scale->asFloat() : 1;
+    _decals[decal] = d;
+    if (surfaceTex)
+        return surfaceTex;
+    const Value *t = prop(decal, "Texture");
+    return t && t->asObject() ? t->o : _levelInfo;
+}
+
+void registerEffectNatives(Vm &vm) {
+    auto reg = [&](const char *name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
+    // SpawnChain(): the arc's segments, NumSegments copies of it
+    // (NewMultiMesh), each with SpikeMag (Use1) and EndSpikeMag (Use2) to
+    // jitter by, SparkColor, translucent; then laid out.
+    reg("CTVE_ChainSpark.SpawnChain", [](NativeCall &c) {
+        if (!c.vm.level || !c.self)
+            return;
+        const Value *n = c.self->find(c.vm, "NumSegments");
+        const int count = std::clamp(n ? n->asInt() : 0, 1, 256);
+        VmFunction *make = c.vm.findFunction(c.self, c.vm.name("NewMultiMesh"));
+        auto get = [&](const char *name) { return c.self->find(c.vm, name); };
+        for (int k = 0; make && k < count; ++k) {
+            VmObject *mm = c.vm.invoke(make, c.self, {}).asObject();
+            if (!mm)
+                break;
+            auto set = [&](const char *name, const Value &v) {
+                if (Value *p = mm->find(c.vm, name))
+                    *p = v;
+            };
+            if (const Value *v = get("SpikeMag"))
+                set("Use1", *v);
+            if (const Value *v = get("EndSpikeMag"))
+                set("Use2", *v);
+            if (const Value *v = get("SparkColor"))
+                set("ColorFilter", *v);
+            if (const Value *v = get("AxisScale"))
+                set("AxisScale", *v);
+            set("Style", Value::intValue(3));
+            set("DrawScale", Value::floatValue(1));
+            set("ScaleGlow", Value::floatValue(1));
+        }
+        c.vm.level->chainSparkUpdate(c.self);
+    });
+    // ChainSparkTick(float DeltaTime): ScriptLevel::chainSparkTick.
+    reg("CTVE_ChainSpark.ChainSparkTick", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->chainSparkTick(c.self, c.f(0));
+    });
+    // ForceUpdate(): laid out again now.
+    reg("CTVE_ChainSpark.ForceUpdate", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->chainSparkUpdate(c.self);
+    });
+    // UpdateBeamSections(float DeltaTime): ScriptLevel::updateBeamSections.
+    reg("Actor.UpdateBeamSections", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->updateBeamSections(c.self, c.f(0));
+    });
+    // SparkTick(float DeltaTime): ScriptLevel::sparkTick.
+    reg("CTVE_Sparks.SparkTick", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->sparkTick(c.self, c.f(0));
+    });
+    // WeatherTick(float DeltaTime), InitialSetUp(): ScriptLevel::weatherTick.
+    reg("CTVE_Weather.WeatherTick", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->weatherTick(c.self, c.f(0), false);
+    });
+    reg("CTVE_Weather.InitialSetUp", [](NativeCall &c) {
+        if (c.vm.level && c.self)
+            c.vm.level->weatherTick(c.self, 0, true);
+    });
+    // GetWaterLine(Vector Start, out Vector End): End brought back to the
+    // water's surface between them (ScriptLevel::waterLine).
+    reg("Actor.GetWaterLine", [](NativeCall &c) {
+        if (!c.vm.level || c.args.size() < 2)
+            return;
+        const auto at = c.vm.level->waterLine(Vm::vectorOf(c.args[0]), Vm::vectorOf(c.args[1]));
+        c.args[1] = c.vm.vectorValue(at[0], at[1], at[2]);
+    });
+    // AttachDecal(float TraceDistance, optional Vector DecalDir): stuck to
+    // the surface behind it (ScriptLevel::attachDecal); DetachDecal() off
+    // again.
+    reg("Decal.AttachDecal", [](NativeCall &c) {
+        const bool dir = c.given.size() > 1 && c.given[1];
+        c.result = Value::objectValue(
+            c.vm.level && c.self
+                ? c.vm.level->attachDecal(c.self, c.f(0), dir ? Vm::vectorOf(c.args[1]) : std::array<float, 3>{})
+                : nullptr);
+    });
+    reg("Decal.DetachDecal", [](NativeCall &c) {
+        if (c.vm.level)
+            c.vm.level->detachDecal(c.self);
+    });
+}
+
+} // namespace reluva::unreal
