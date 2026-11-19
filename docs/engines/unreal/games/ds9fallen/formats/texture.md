@@ -1,18 +1,25 @@
-# Unreal Engine 1: textures and palettes
+# The Fallen: textures and palettes
 
-Status: **implemented** (`src/engines/unreal/formats/texture.cpp`) for P8, DXT1,
-RGB8 and RGBA8. **Checked on The Fallen** (`reluva-tool ue-check`,
-October 2026): all 3801 palettes read and 4029 of 4211 textures decode.
-The other 182 were procedural textures (FireTexture, WetTexture...: force
-fields, cloaks, turret beams, explosion waves) that store no pixels at
-all; they now get a stand-in (below). Sources as in [package.md](package.md).
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/texture.cpp`, `render/procedural.cpp` · **Checked on:** the retail release, all 4211 textures and 3801 palettes · **Confidence:** confirmed unless marked
 
-## Palette
+## Overview
+
+Textures and their palettes are exports of the packages
+([package.md](package.md)): in the `.utx` files, and inside maps and
+script packages. Reluva decodes P8 with palettes (masked colour 0), DXT1,
+RGB8 and RGBA8: every one of The Fallen's stored textures. Procedural
+ones play: fire, water, wave (lit as bumps), wet, ice, and The Fallen's
+FLC ones. The fire, wave and wet ones are Fire.dll's (byte for byte, run
+against it in an emulator), and so is every texture's pacing.
+
+## Layout
+
+### Palette
 
 Properties, then a compact colour count (256) and that many colours of
 four bytes: R, G, B, A. The alpha isn't used for P8 textures.
 
-## Texture
+### Texture
 
 Properties (see [package.md](package.md)), then the mipmaps.
 
@@ -30,7 +37,7 @@ Mipmaps: a compact count, then each, largest first:
 |---|---|
 | i32 | from version 63: the file offset just past the pixel data (for skipping it) |
 | compact | size of the pixel data |
-| bytes | the pixels: P8 one palette index each; DXT1 8-byte 4x4 blocks; RGB8 3 bytes and RGBA8 4 bytes, both stored blue first (an assumption; no texture of The Fallen's uses them: all 4,029 are P8, `ue-check`) |
+| bytes | the pixels: P8 one palette index each; DXT1 8-byte 4x4 blocks; RGB8 3 bytes and RGBA8 4 bytes, both stored blue first (an assumption; no texture of The Fallen's uses them: all 4,029 are P8, `unreal check`) |
 | i32 × 2 | width, height |
 | u8 × 2 | log2 of width and height |
 
@@ -38,7 +45,7 @@ When the `bHasComp` property is set, a second list of mipmaps in the same
 layout follows the first, in the format `CompFormat` gives (DXT1 when
 absent); Reluva uses it when the first list's top mipmap has no pixels.
 A texture with neither (no pixels, no `bHasComp`) is reported as such.
-The Fallen has none (`ue-check`, November 2026): every texture of the
+The Fallen has none (`unreal check`, November 2026): every texture of the
 class Texture stores its pixels, none needs its compressed copy, and
 the only ones with no pixels are the 519 procedural ones (below).
 
@@ -52,13 +59,15 @@ meshes page, `decodeTexture()`) fire, water and FLC ones show their
 first picture, and wet, ice and scripted ones their `SourceTexture`
 scaled to their size (or an ice texture's `GlassTexture` without one);
 any other, a gradient through its palette. The Textures page says which
-it is. `ue-check` runs each animated texture for ten seconds: on The
+it is. `unreal check` runs each animated texture for ten seconds: on The
 Fallen all 519 play (337 FLC, 108 fire, 70 wet, 4 wave).
 
 The Fallen has no IceTexture or ScriptedTexture objects: of its 180
 packages, only Fire.u and Engine.u name them, defining the classes.
 
-## Animated textures
+## Behaviour
+
+### Animated textures
 
 The class names and their settings' names come from Fire.u (the enums
 `ESpark` and `WDrop`, the structs `Spark` and `ADrop`). What each
@@ -75,7 +84,7 @@ is taken off so a slow display catches up. Both rates are kept to
 0.01-100, and a texture steps at most once a frame. An ice texture's
 sliding goes by the clock; only its drawing is paced.
 
-### FLC (FliTexture)
+#### FLC (FliTexture)
 
 The Fallen's own class. After the mipmaps: float length, float rate,
 u16 frame count, u16 width, u16 height, a u16 not understood (2 to 173),
@@ -107,11 +116,11 @@ through colour 0.
 
 Playing is script's to ask for: `Mode` (0 stopped, 1 once, 2 looping),
 with `FrameNum` and `FrameTime` where it is. Reluva plays a FliTexture
-by those once the HUD draws it (see [unreal_vm.md](../../engines/unreal_vm.md));
+by those once the HUD draws it (see [hud.md](../systems/hud.md));
 going back to an earlier frame decodes again from the first. A HUD tile
 that sees through colour 0 does so in every frame.
 
-### Fire (FireTexture)
+#### Fire (FireTexture)
 
 As Fire.dll does it. Its routines were run in an x86 emulator against a
 model of them, byte for byte (the heat, the sparks and the random index
@@ -192,7 +201,7 @@ The 108 fire textures hold 26,859 sparks; Sparkle (9,403), Jugglers,
 Burn, Emit, Signal and Blaze are most of them. Many textures are
 pictures painted in sparks (a force field's 1,024 Sparkles).
 
-### Water, wave and wet (WaterTexture and its subclasses)
+#### Water, wave and wet (WaterTexture and its subclasses)
 
 As Fire.dll does them: its routines were run in an x86 emulator on test
 fields and on `FX.Lripple04_a`, and Reluva's output is the same byte for
@@ -250,7 +259,7 @@ turn in 256 steps, 0-255.
 | LeakyTap | A += D; when it wraps past 255, the cell as RainDrops does |
 | DrippyTap | as LeakyTap, A set to a random value each drip, so the drips come unevenly |
 
-### Ice (IceTexture)
+#### Ice (IceTexture)
 
 As Fire.dll's `UIceTexture` makes it (`MoveIcePosition`, `RenderIce`,
 `BlitTexIce`, `BlitIceTex`): each pixel (x, y) shows the `SourceTexture`
@@ -281,8 +290,27 @@ time. It's drawn again only when the position, rounded to whole pixels,
 changes. With no ice textures in The Fallen, tried only on the tests'
 made-up texture.
 
-### Scripted (ScriptedTexture)
+#### Scripted (ScriptedTexture)
 
 Drawn by UnrealScript while the game runs: its `NotifyActor`'s
 `RenderTexture` event calls `DrawTile`, `DrawText` and the like on it
 (Engine.u). Until Reluva runs UnrealScript it shows its `SourceTexture`.
+
+## In Reluva
+
+`formats/texture.cpp` reads the stored textures and palettes;
+`render/procedural.cpp` steps the animated ones. The Textures page of the
+data viewer shows them, and `reluva-tool unreal extract <game folder>
+<package> <export> [steps]` writes one as a `.tga` (a procedural one
+after some steps).
+
+## Sources and checks
+
+- **Where the facts come from:** as for [package.md](package.md); the
+  animated textures' settings as under "Animated textures" above, checked
+  where noted against Fire.dll and Engine.dll.
+- **How it was checked:** `reluva-tool unreal check`, October 2026: all
+  3801 palettes read and 4029 of 4211 textures decode. The other 182 were
+  procedural textures (FireTexture, WetTexture...: force fields, cloaks,
+  turret beams, explosion waves) that store no pixels at all; they now get
+  a stand-in (above).

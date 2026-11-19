@@ -1,19 +1,18 @@
-# Unreal Engine 1: compiled UnrealScript
+# The Fallen: compiled UnrealScript
 
-Status: **read** (`src/engines/unreal/vm/script.cpp`), **written out as
-text** (`script_text.cpp`, `reluva-tool ue-script`); not run yet.
-**Checked on The Fallen** (`reluva-tool ue-check`, October 2026): all
-40,603 script objects in its 175 packages read, 11,911 of them with
-bytecode; every function's, state's and class's bytecode ends exactly at
-its stored size, and nothing is left over after any of them. All 1,442
-classes write out as text with every native call named (334 natives).
+> **Status:** decoded · **Code:** `src/engines/unreal/vm/script.cpp`, `vm/script_text.cpp` · **Checked on:** the retail release, all 40,603 script objects · **Confidence:** confirmed unless marked
 
-Sources: public community documentation of UE1's package format and of
-UnrealScript's bytecode (the token list and the layouts of the field
-classes), checked field by field against The Fallen's data as below.
-None of it comes from Epic's source or the clean-room port's code.
+## Overview
 
-## Objects
+Classes, states, functions, properties, enums and constants, and their
+bytecode, are objects in the packages ([package.md](package.md)). Reluva
+reads every one of The Fallen's and writes them out as text
+(`reluva-tool unreal script`); the VM runs them
+([systems/script-vm.md](../systems/script-vm.md)).
+
+## Layout
+
+### Objects
 
 A class is a tree of UField objects, each an export of its own: classes,
 states, functions and structs (UStruct and below), properties, enums and
@@ -49,10 +48,10 @@ EPhysics); `Actor.Destroy` (no script, native 279, flags final|native);
 `Actor.ZoneChange` (script `04 0b`, `return;`, flags event); the class
 `Light` (to its config name, then its defaults). The class defaults found
 this way differ from the earlier guess at their start
-([actors.md](actors.md#class-defaults)) in 810 of the 1,442 classes,
+([actors.md](../systems/actors.md#class-defaults)) in 810 of the 1,442 classes,
 all where the guess was wrong.
 
-## Bytecode
+### Bytecode
 
 The script size counts bytes as the engine lays the code out in memory,
 where an object reference or a name takes 4 bytes; on disk they're
@@ -120,9 +119,11 @@ assigned to. Every one fits (3a on bytes giving ints, 3f on ints giving
 floats, 4a on strings giving ints, 52-58 giving strings from bytes,
 ints, floats, objects, names and vectors, 39 and 50 between structs).
 
-## As text
+## In Reluva
 
-`reluva-tool ue-script <game folder> <name>` writes a class (its
+### As text
+
+`reluva-tool unreal script <game folder> <name>` writes a class (its
 constants, enums, structs, variables, functions, states and default
 properties), a struct, a function (`Class.Function`) or a state as text
 close to the source; `-all <dir>` writes every class to
@@ -136,3 +137,16 @@ What it has shown so far: `CTV_TriggerLight.PostBeginPlay` sets
 starts, and a trigger light with `bInitiallyOn` off sets its
 `LightBrightness` to 0, so it starts dark (the Maps page lights it, as
 it doesn't run scripts).
+
+## Sources and checks
+
+- **Where the facts come from:** Sources: public community documentation of UE1's package format and of
+  UnrealScript's bytecode (the token list and the layouts of the field
+  classes), checked field by field against The Fallen's data as below.
+  None of it comes from Epic's source or the clean-room port's code.
+
+- **How it was checked:** `reluva-tool unreal check`, October 2026: all
+  40,603 script objects in its 175 packages read, 11,911 of them with
+  bytecode; every function's, state's and class's bytecode ends exactly at
+  its stored size, and nothing is left over after any of them. All 1,442
+  classes write out as text with every native call named (334 natives).

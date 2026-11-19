@@ -1,23 +1,17 @@
-# The Fallen: saved games (.dsa)
+# The Fallen: saved games (`.dsa`)
+
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/game_save.cpp`, `game_save_write.cpp` · **Checked on:** saves of the original's (`Bajoran_Ship_-_Ke'el_Tul-97.dsa`), and every map saved by Reluva · **Confidence:** confirmed unless marked
+
+## Overview
 
 A saved game of the original's is the level itself, written out as an
 ordinary package (version 73) by the engine's `SaveGame`: everything the
 level's `Level` object leads to, its BSP and the movers' brushes
 included. It imports only the game's shared packages and never opens the
 map's `.dsm`. Editor-only objects (brushes, UnrealEd's cameras, text
-buffers) aren't in it. `reluva-tool ue-save <file>` reads one.
+buffers) aren't in it. `reluva-tool unreal save <file>` reads one.
 
-## Names
-
-`SaveGame QuickSave` (F6) writes `QuickSave.dsa`. Saving from the menu
-names the file from the level's `Title` (else its `LevelName`), spaces as
-underscores (64 letters at most), then a dash and the seconds the player
-has played (`GamePlayedTime`), counting up past a file already there:
-`Bajoran_Ship_-_Ke'el_Tul-97.dsa`. They go in `..\Save` (Default.ini's
-`SavePath`). The game's load list shows every `.dsa` there, named by its
-file and dated by it.
-
-## What's in it
+## Layout
 
 - **The actors**, as they were. Each that has a state starts with its
   state frame (the object flag `HasStack`, 0x02000000): its code's node
@@ -77,7 +71,24 @@ in): 1,857 actors, 33 ghosts, 977 dialogue lines (6 said), 2 sounds
 playing (the music, the HUD's confirm click), 118 mesh states, all read
 to their ends.
 
-## Writing one
+## Behaviour
+
+### Names
+
+`SaveGame QuickSave` (F6) writes `QuickSave.dsa`. Saving from the menu
+names the file from the level's `Title` (else its `LevelName`), spaces as
+underscores (64 letters at most), then a dash and the seconds the player
+has played (`GamePlayedTime`), counting up past a file already there:
+`Bajoran_Ship_-_Ke'el_Tul-97.dsa`. They go in `..\Save` (Default.ini's
+`SavePath`). The game's load list shows every `.dsa` there, named by its
+file and dated by it.
+
+## In Reluva
+
+How a game is saved and loaded in play is in
+[systems/saves.md](../systems/saves.md).
+
+### Writing one
 
 Reluva saves as the game does (`game_save_write.cpp`, `SaveGame`), so its
 saves load in the original and the original's in Reluva. The package is
@@ -145,3 +156,11 @@ is the map's data as it is; the rest comes from the running level.
   are left empty), the IK targets and bone adjustments of new mesh
   states, and the Level's model and reach list renumbered (the map's own
   numbering is kept, so references are a byte longer here and there).
+
+## Sources and checks
+
+- **Where the facts come from:** saves written by the original, read
+  against the maps they were saved from, and Engine.dll's `SaveGame` and
+  `LoadMap` where named.
+- **How it was checked:** above, against the original's save; and every
+  map saved by Reluva loads back ([systems/saves.md](../systems/saves.md)).

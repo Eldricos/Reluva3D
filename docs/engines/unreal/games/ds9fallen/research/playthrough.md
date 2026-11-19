@@ -1,5 +1,8 @@
 # The Fallen against a full playthrough
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 A recording of the whole game (all three characters, 9 h 27 min, 1280x720
 at 60 frames a second, with chapters by level) was compared with Reluva
 (November 2026). Each level load in it was found where the frame stops
@@ -25,7 +28,7 @@ differs only in that way, Reluva follows its own scripts.
 - **Cut-scene dialogue timing**: in CM01a_SW Reluva begins the log at
   2.07 s, the distress call at 5.83 s and Worf's "The Bajoran vessel has
   sustained heavy damage" at 21.53 s. The recording shows the same
-  subtitles by 2, 7 and 22 s after its load. `ue-play ... lines` now gives
+  subtitles by 2, 7 and 22 s after its load. `unreal play ... lines` now gives
   each line's start in the level's seconds.
 - **Subtitles and letterbox**: the original's are the HUD scripts' own
   (`CTV_Hud.RenderLetterBox`, bars of `LetterBoxMarginTop`/`Bottom` 0.10;
@@ -54,7 +57,7 @@ differs only in that way, Reluva follows its own scripts.
   starts 105.6 s after its own. M01_SiskoL1A's opening (the shuttle bay)
   then matches frame for frame, and M03_SiskoL1A's descending camera
   (`CM03-SiskoL1A`, Director8 to 6 to 7) matches each recorded frame
-  to within 0.3 s throughout. `ue-play`'s `shot` now gives the level
+  to within 0.3 s throughout. `unreal play`'s `shot` now gives the level
   time it was taken at (each shot plays a frame of its own, 33 ms).
 - **The framing**: the recording keeps the 4:3 picture's height and
   shows more at the sides. Its middle 4:3 lines up with Reluva's whole
@@ -129,7 +132,7 @@ differs only in that way, Reluva follows its own scripts.
       recording's 26 (it was 43).
   - The other large changes are frames where the recording shows
     something else: it arrives by travel, or plays a space scene first.
-  - The scripts (`ue-run -all`) give 89 errors and 2,416 None accessed
+  - The scripts (`unreal run -all`) give 89 errors and 2,416 None accessed
     over all 74 maps, against 258 and 3,860 in October's run.
 - **Again, after the normals, IK, actor lighting and sprite colour
   changes** (November 2026): the same 38 chapters' 152 frames against

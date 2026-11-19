@@ -1,18 +1,17 @@
-# Unreal Engine 1: movers, the sky zone and sprites
+# The Fallen: movers, the sky zone and sprites
 
-Status: **implemented** (`src/engines/unreal/formats/actors.cpp`, drawn by the
-Maps page). **Checked on The Fallen** (`reluva-tool ue-check`, October
-2026): 2103 movers over the 74 maps, all reading (one, M07_SiskoL3A's
-Mover128, has a brush whose own BSP doesn't hold together; its Polys are
-fine, so that BSP is skipped); 58 maps have a sky zone. In the Maps page
-the skies look right in every map, and movers sit, turn and move as in
-the original. The 18 sprites (below) are drawn; whether they look as in
-the original is still to be checked.
+> **Status:** partial · **Code:** `src/engines/unreal/formats/actors.cpp`, `formats/class_defaults.cpp` · **Checked against:** the original running, for the skies and movers; the code only, for the sprites · **Confidence:** confirmed unless marked
 
-Sources: public community documentation of the UE1 formats and of
-UnrealEd's brush, mover and zone properties (as for
-[package.md](package.md)). The rotation formula is the usual one for
-Unreal's rotators (pitch, yaw, roll, 65536 to a turn).
+## Overview
+
+A level's actors that aren't characters: movers (doors, lifts) drawn from
+their own brushes and moved by their scripts, the sky from the level's
+sky zone, and sprites. In the Maps page the skies look right in every
+map, and movers sit, turn and move as in the original. The 18 sprites
+(below) are drawn; whether they look as in the original is still to be
+checked.
+
+## How it works
 
 ## Classes
 
@@ -48,7 +47,7 @@ R's columns, for pitch p, yaw y, roll r: forward
 `(sin r sin p cos y - cos r sin y, sin r sin p sin y + cos r cos y, -sin r cos p)`,
 up `(-(cos r sin p cos y + sin r sin y), cos y sin r - cos r sin p sin y, cos r cos p)`.
 
-A brush's Model has the same layout as a level's ([model.md](model.md)),
+A brush's Model has the same layout as a level's ([model.md](../formats/model.md)),
 its BSP usually empty; its Polys reference is read from there. The BSP
 isn't used for movers, so one that doesn't hold together is dropped
 rather than refusing the mover.
@@ -57,7 +56,7 @@ rather than refusing the mover.
 
 | Type | Meaning |
 |---|---|
-| properties | see [package.md](package.md) |
+| properties | see [package.md](../formats/package.md) |
 | i32 × 2 | polygon count, and the count allocated |
 | polygon each | below |
 
@@ -66,7 +65,7 @@ rather than refusing the mover.
 | compact | vertex count |
 | f32 × 3 × 4 | base point, normal, texture U and V axes |
 | f32 × 3 each | the vertices |
-| u32 | poly flags ([model.md](model.md)) |
+| u32 | poly flags ([model.md](../formats/model.md)) |
 | compact × 2 | actor, texture: object references |
 | compact | item name (name index) |
 | compact × 2 | link, brush polygon |
@@ -123,14 +122,14 @@ scripts run, are tinted the same way.
 Most actors are sprites by default (Engine.Actor's `DrawType`), but
 those only the editor shows are `bHidden`, or hide themselves when the
 game starts: `CTV_TriggerLight.PostBeginPlay` sets `DrawType` to none
-([script.md](script.md#as-text)). As scripts don't run yet, actors whose
+([script.md](../formats/script.md#as-text)). As scripts don't run yet, actors whose
 sprite is an editor icon are left out as well: textures named `S_...`
 (Engine's: S_Light, S_Camera...), `EI_...` (The Fallen's ops station
 icons), containing "icon" (CTVE_Spark_Icon, DS9_Steam_Icon), or named
 after the actor's class (DS9_SparkNode). That leaves 16 sprites in The Fallen's
-74 maps (`ue-check` lists their textures): the disintegration effects
+74 maps (`unreal check` lists their textures): the disintegration effects
 (FX.spark03, a fire texture), snow spawners' flake, a mine's halo (a wet texture) and a blinking smoke marker (a FliTexture,
-below). Their fire, wet and FLC textures play ([texture.md](texture.md#animated-textures)).
+below). Their fire, wet and FLC textures play ([texture.md](../formats/texture.md#animated-textures)).
 
 ## Class defaults
 
@@ -140,11 +139,11 @@ actor's mesh, draw type and scale usually come from its class. The
 defaults are the last thing in a class's data, after its script and
 just after its config name (and before that, the class it's within).
 
-They are read with the rest of the class ([script.md](script.md)):
+They are read with the rest of the class ([script.md](../formats/script.md)):
 after its fields, its config name. (Until classes were read, they were
 found by guessing where the list started from where it ended; on The
 Fallen that went wrong in 810 of 1,442 classes, losing the first
-property (bStatic, in most) and inventing junk ones ("Engine", "System").) `ue-check`
+property (bStatic, in most) and inventing junk ones ("Engine", "System").) `unreal check`
 counts the classes whose defaults were found and weren't. An actor's properties are then
 its own over its class's defaults over each parent's
 (`ClassDefaults::actorProperties()`), each property's object references
@@ -182,3 +181,24 @@ under 1 keeps that much of its light: at least 0.01 in the first pass,
 the glow as it is in the second. A transporter beaming someone in sets the first
 pass blended from 0 and the second its sparkle texture, translucent and
 unlit, crossfading the two (`CTV_TransporterBeamIn`).
+
+## In Reluva
+
+`formats/actors.cpp` reads them and the Maps page draws them;
+`formats/class_defaults.cpp` reads the classes' defaults (above).
+
+## Sources and checks
+
+- **Where the facts come from:** Sources: public community documentation of the UE1 formats and of
+  UnrealEd's brush, mover and zone properties (as for
+  [package.md](../formats/package.md)). The rotation formula is the usual one for
+  Unreal's rotators (pitch, yaw, roll, 65536 to a turn).
+
+- **How it was checked:** `reluva-tool unreal check`, October 2026: 2103
+  movers over the 74 maps, all reading (one, M07_SiskoL3A's Mover128, has
+  a brush whose own BSP doesn't hold together; its Polys are fine, so that
+  BSP is skipped); 58 maps have a sky zone.
+
+## Open questions
+
+- Whether the sprites look as in the original.

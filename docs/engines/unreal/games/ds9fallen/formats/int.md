@@ -1,14 +1,15 @@
-# The Fallen: documents, objectives and map strings (int/*.int)
+# The Fallen: documents, objectives and map strings (`int/*.int`)
 
-Status: **implemented**: the documents, the maps' objectives and titles
-(`src/engines/unreal/vm/vm_documents.cpp`), and the actors' strings
-(`Vm::applyLocalizedActor` in `src/engines/unreal/vm/vm.cpp`).
-**Checked on The Fallen** (October 2026).
+> **Status:** decoded · **Code:** `src/engines/unreal/vm/vm_documents.cpp`, `vm/vm.cpp` · **Checked on:** the retail release (October 2026) · **Confidence:** confirmed unless marked
 
-Beside the dialogue tables ([dialogue.md](dialogue.md)), the install's
+## Overview
+
+Beside the dialogue tables ([dialogue-tables.md](dialogue-tables.md)), the install's
 `int` folder holds `Document.int`, the readable documents, and one `.int`
 per map, named after it (`M01_KiraL1A.int`). Some maps have none (the cut
 scenes'); a few names have no map (`M01_KiraL1.int`, `M10_L2.int`).
+
+## Layout
 
 They're Windows text files, lines ending CR LF, laid out as `.ini` files:
 `[Section]` lines and `Key=Value` lines under them. Some start with a row
@@ -51,8 +52,23 @@ A map's `.int` has:
   later (M01_KiraL1A and M01_KiraL1B; M06_SiskoL1A to C) still name the
   file of the map they came from (`M01_KiraL1.int`), whose own `.int`
   holds only the title and objectives. Actors with no TextInfo take
+
+## Behaviour
+
   nothing from these files.
 
 The class-level strings (a class's `localized` defaults) come from
 `System/<Package>.int` and `int/Classes.int`, under `[ClassName]`
 sections; those are read with the class defaults, not from here.
+
+## In Reluva
+
+The documents and the maps' objectives and titles are read by
+`vm/vm_documents.cpp` ([systems/documents.md](../systems/documents.md)),
+the actors' strings by `Vm::applyLocalizedActor` (`vm/vm.cpp`).
+
+## Sources and checks
+
+- **Where the facts come from:** the install's `int` folder, and The
+  Fallen's scripts (which of them read what).
+- **How it was checked:** on The Fallen (October 2026).

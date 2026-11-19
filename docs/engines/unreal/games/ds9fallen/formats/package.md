@@ -1,18 +1,19 @@
-# Unreal Engine 1: packages (`.u`, `.unr`, `.utx`, `.uax`, `.umx`)
+# The Fallen: packages (`.u`, `.unr`, `.utx`, `.uax`, `.umx`)
 
-Status: **implemented** (`src/engines/unreal/formats/package.cpp`,
-`properties.cpp`). **Checked on The Fallen** (`reluva-tool ue-check`,
-October 2026): all 175 packages open (49 of version 71, 20 of 72, 106 of
-73, licensee 0), and every one of their 3801 palettes reads, so the
-tables, properties and object headers hold for versions 71-73.
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/package.cpp`, `properties.cpp`, `package_set.cpp` · **Checked on:** the retail release, all 175 packages · **Confidence:** confirmed unless marked
 
-Sources: public community documentation of the UE1 package format (the
-format notes accompanying community package tools, and modding wikis).
-No engine source code was used.
+## Overview
+
+Every file of Unreal Engine 1's data is a package: classes and scripts
+(`.u`), levels (`.unr`; The Fallen's are `.dsm`), textures (`.utx`),
+sounds (`.uax`) and music (`.umx`). A package is a header, a name table,
+an import table and an export table, and each export's data.
 
 All values little-endian. Floats IEEE single.
 
-## Compact integers
+## Layout
+
+### Compact integers
 
 Counts, sizes, name indices and most object references are stored as a
 variable-length signed integer of 1 to 5 bytes:
@@ -22,7 +23,7 @@ variable-length signed integer of 1 to 5 bytes:
 - each further byte: bit 7 set if another byte follows, bits 0-6 the
   next 7 bits.
 
-## Header
+### Header
 
 | Offset | Type | Meaning |
 |---|---|---|
@@ -37,17 +38,17 @@ variable-length signed integer of 1 to 5 bytes:
 
 The tables are read at their offsets; nothing else in the header is needed.
 
-## Name table
+### Name table
 
 Each entry is a string then a u32 of flags. Before version 64 a string is
 NUL-terminated; from 64 a compact length (counting the NUL) comes first.
 
-## Object references
+### Object references
 
 A 32-bit or compact integer: 0 none, `n > 0` the export `n - 1`, `n < 0`
 the import `-n - 1`.
 
-## Import table
+### Import table
 
 | Type | Meaning |
 |---|---|
@@ -58,7 +59,7 @@ the import `-n - 1`.
 
 An import's package is found by following outers until one has none.
 
-## Export table
+### Export table
 
 | Type | Meaning |
 |---|---|
@@ -70,7 +71,7 @@ An import's package is found by following outers until one has none.
 | compact | size of the object's data |
 | compact | offset of the object's data, only when the size isn't 0 |
 
-## An object's data
+### An object's data
 
 Objects that aren't classes start with:
 
@@ -104,20 +105,11 @@ Objects that aren't classes start with:
 Classes (class reference 0) are laid out differently: their script
 tree's fields, then their defaults as tagged properties. The script
 reader reads them ([script.md](script.md)), which the VM and
-`ue-script` use; `ue-props` on a class prints its flags and defaults.
+`unreal script` use; `unreal props` on a class prints its flags and defaults.
 
-## Writing one
+## Behaviour
 
-`PackageWriter` (`package_writer.cpp`) writes a version 73 package
-starting from another's tables, so the base's names, imports and exports
-keep their numbers and an export's data copied as it is still refers to
-the right objects; names, imports (with the packages, groups and classes
-they're in) and exports are added after. The file is the header, the
-names (each a string and its flags), the exports' data, the imports and
-the exports, each table entry as above; the generation the export and
-name counts. A saved game is written so ([save.md](save.md)).
-
-## Search path
+### Search path
 
 The engine finds a package by name, in the folders the game's `.ini`
 lists in its `[Core.System]` section, one `Paths=` line each, relative
@@ -129,3 +121,39 @@ folder's line gives, or `.unr`. The Fallen's install has no `Music`
 folder although its `.ini` lists one.
 Without one Reluva uses `*.u`, `../Maps/*.unr`, `../Textures/*.utx`,
 `../Sounds/*.uax`, `../Music/*.umx`.
+
+## In Reluva
+
+`Package` (`formats/package.cpp`) reads the tables and object headers,
+`properties.cpp` the tagged properties, and `package_set.cpp` finds
+packages by name through the search path above and resolves imports to
+the package that defines them. The Packages page of the data viewer
+shows a package's tables and an export's properties;
+`reluva-tool unreal info <package>` prints a package's header, names,
+imports and exports by class, `reluva-tool unreal exports` lists its
+exports, and `reluva-tool unreal props <package> <export>` an export's
+properties.
+
+### Writing one
+
+`PackageWriter` (`package_writer.cpp`) writes a version 73 package
+starting from another's tables, so the base's names, imports and exports
+keep their numbers and an export's data copied as it is still refers to
+the right objects; names, imports (with the packages, groups and classes
+they're in) and exports are added after. The file is the header, the
+names (each a string and its flags), the exports' data, the imports and
+the exports, each table entry as above; the generation the export and
+name counts. A saved game is written so ([save.md](save.md)).
+
+## Sources and checks
+
+- **Where the facts come from:** Sources: public community documentation of the UE1 package format (the
+  format notes accompanying community package tools, and modding wikis).
+  No engine source code was used.
+
+- **How it was checked:** `reluva-tool unreal check`, October 2026: all
+  175 packages open (49 of version 71, 20 of 72, 106 of 73, licensee 0),
+  and every one of their 3801 palettes reads, so the tables, properties
+  and object headers hold for versions 71-73. The older layouts (before
+  versions 64 and 68) are read too, but only The Fallen's, versions
+  71-73, have been checked on real files.

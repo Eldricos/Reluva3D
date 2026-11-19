@@ -1,16 +1,26 @@
-# Unreal Engine 1: meshes (Mesh, LodMesh)
+# The Fallen: meshes (Mesh, LodMesh)
 
-Status: **implemented** for the layout below (`src/engines/unreal/formats/mesh.cpp`,
-drawn by `mesh_render.cpp` in the Maps and Meshes pages), tested on
-meshes built by the unit tests. **The Fallen's meshes are laid out
-differently** (below): read for LodMeshes and its classic Meshes,
-checked on one of its meshes whole. `reluva-tool ue-probe <game folder>
-<mesh>` maps a mesh's data (where its lazy arrays sit, every byte with
--all).
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/mesh.cpp`, `render/mesh_render.cpp` · **Checked on:** the retail release, all 455 LodMeshes and the 6 Meshes with geometry · **Confidence:** layout confirmed unless marked
+
+## Overview
+
+Meshes are the models of everything that isn't the level: characters,
+creatures, weapons, props. Read for LodMeshes and The Fallen's classic
+Meshes, with their animations: vertex animation, and characters posed
+from their skeletons with their own clips and the shared animation sets;
+attachment points, where held things go, checked against the meshes' own
+precomputed places (`reluva-tool unreal points`). How they're animated
+in play is in [systems/animation.md](../systems/animation.md) and
+[systems/bones.md](../systems/bones.md).
+
+The stock UE1 layout is read too, and tested on meshes built by the
+unit tests. **The Fallen's meshes are laid out differently** (below).
+
+## Layout
 
 ### The Fallen's layout: an imported-model block
 
-Worked out from `ue-probe` dumps of ARD.u's ARDSecurityCameraBaseMesh and
+Worked out from `unreal probe` dumps of ARD.u's ARDSecurityCameraBaseMesh and
 ARD_KiraCellLight_On (LodMeshes; the latter dumped whole) and Shared.u's
 Female (a Mesh), version 73, October 2026.
 
@@ -65,7 +75,7 @@ and the people are upside down or flat; turned the **opposite** way (the
 transpose), all stand as in the game. So that's what's drawn. Both are
 compared about their middles, since the float copy can also be moved.
 
-`ue-check` on The Fallen (October 2026) tallied the turns found: 159
+`unreal check` on The Fallen (October 2026) tallied the turns found: 159
 meshes the KiraCellLight one, 8 none, a few each of five others, and 174
 where none fitted, even about the middles. Those have no float copy: their
 `(FrameVerts, FrameVerts, 128)` array holds one float per vertex, all 1.0
@@ -84,18 +94,18 @@ FrameVerts, 1)` vertex arrays than they have frames: ARD_AmmoCrate 2 for
 by a `(9, 9, 64)` array, and every few dozen comes a `(k, k, 5)` header
 whose k is near an animation's frame count. They're the clips' vertex
 keys, timed in seconds (see "Clips by name, and vertex keys" below), and
-every frame is filled from them. Checked: `ue-probe` gives
+every frame is filled from them. Checked: `unreal probe` gives
 ARD_TortureMachine's 400 frames filled from its clips, 399 of them
 unlike the first. ARD_AmmoCrate's 100 frames are its one still pose, as
-no script animates it. `ue-check` counts no mesh left showing its first
+no script animates it. `unreal check` counts no mesh left showing its first
 frame for all of them (`Mesh::keyFrames`).
 
-**`ue-check` on The Fallen** after this layout was added (October 2026):
+**`unreal check` on The Fallen** after this layout was added (October 2026):
 306 of 455 LodMeshes and 4 of 9 Meshes read (all now: see Classic Meshes
 below). JadziaDax failed only for an
 animation (aaThumbTest2) running past its frames; such animations are now
 left out rather than the mesh. All the rest read since (November 2026:
-455 of 455 LodMeshes, the 6 Meshes with geometry). `ue-probe` lists the
+455 of 455 LodMeshes, the 6 Meshes with geometry). `unreal probe` lists the
 block's array headers and every place the standard tail could start.
 
 **Classic Meshes** (not LodMesh): The Fallen has 9.
@@ -116,7 +126,7 @@ block's array headers and every place the standard tail could start.
   `C3DInitAltMeshes` hands them to the C3D code. They're read as sets,
   not drawn, as the game doesn't draw them.
 
-`ue-check` (November 2026): 455 of 455 LodMeshes and the 6 Meshes with
+`unreal check` (November 2026): 455 of 455 LodMeshes and the 6 Meshes with
 geometry read, none failed.
 
 **Meshes built on a skeleton** (BajFanatic, GrigSentryDrone, Obsidian_Snow,
@@ -205,7 +215,6 @@ its BaseReference, Bomb, SuicideLunge and SuicideRun (50 frames; the other
 314 animations it lists run past those and are left out). So every frame
 is posed from the keys, interpolated (slerp for rotations), and drawn as
 ordinary vertex animation.
-
 
 **Shared animation sets.** The humanoids (Leeta, Nog, Rom, the Klingons,
 BajFanatic, Obsidian_Snow...) keep a frame or a few of their own and list
@@ -344,8 +353,8 @@ Checked:
 - **A type 2 point** is the stored matrix as it is, from the
   skeleton's origin; the triangle isn't used. Any other type is the
   identity.
-- **Checked against the precomputed places:** `reluva-tool ue-points`
-  does this, and `ue-check` prints its summary. 65 of the 74 places name
+- **Checked against the precomputed places:** `reluva-tool unreal points`
+  does this, and `unreal check` prints its summary. 65 of the 74 places name
   a type 1 point and an animation (`<Animation><Point>Loc`); two more
   name a `Fire` their meshes haven't. Each animation is posed through
   its frames in 60 steps.
@@ -367,3 +376,18 @@ On Kira, standing:
   height, and her `RightFoot` point 40 units down (her middle is 47
   above the floor).
 - **Face:** her `Face` point is 4 units in front of her head.
+
+## In Reluva
+
+`formats/mesh.cpp` reads them, and `render/mesh_render.cpp` draws them in
+the Maps and Meshes pages. `reluva-tool unreal probe <game folder> <mesh>`
+maps a mesh's data (where its lazy arrays sit, every byte with -all).
+
+## Sources and checks
+
+- **Where the facts come from:** The Fallen's own files, through
+  `reluva-tool unreal probe` dumps (above), and Engine.dll where named.
+- **How it was checked:** checked on one of its meshes whole, then by
+  `reluva-tool unreal check` over every mesh (November 2026: 455 of 455
+  LodMeshes and the 6 Meshes with geometry), and the attachment points
+  by `reluva-tool unreal points` (above).

@@ -1,8 +1,13 @@
-# Unreal Engine 1: fonts
+# The Fallen: fonts
 
-Status: **implemented** (`src/engines/unreal/formats/font.cpp`), drawn by the HUD
-([unreal_vm.md](../../engines/unreal_vm.md)). **Checked on The Fallen**
-(October 2026): every one of Engine.u's fonts reads to its end.
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/font.cpp` · **Checked on:** the retail release, every one of Engine.u's fonts · **Confidence:** confirmed unless marked
+
+## Overview
+
+Font objects are exports of the packages; The Fallen's HUD draws with
+them ([systems/hud.md](../systems/hud.md)).
+
+## Layout
 
 A Font object is pages of characters, each page a texture with the
 characters drawn on it:
@@ -16,9 +21,22 @@ characters drawn on it:
 | per character: 4 × i32 | its rectangle on the texture: start U, start V, width, height in texels |
 | i32 | characters a page holds (256) |
 
+## Behaviour
+
 A character's page is its code over that number, its rectangle the
 remainder's. The Fallen's fonts are one page of 256, most of them
 unused (zero-sized). The textures are 8-bit with a palette, the letters
 drawn on colour 0, which is see-through though the textures aren't
 marked masked. Their colours are drawn in: the HUD's orange, gold,
 purple and blue fonts are separate fonts.
+
+## In Reluva
+
+`formats/font.cpp` reads them; the HUD's canvas draws with them
+([systems/hud.md](../systems/hud.md)).
+
+## Sources and checks
+
+- **Where the facts come from:** as for [package.md](package.md).
+- **How it was checked:** on The Fallen (October 2026), every one of
+  Engine.u's fonts reads to its end.

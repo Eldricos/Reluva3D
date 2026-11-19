@@ -1,13 +1,19 @@
-# Unreal Engine 1: collision against a level
+# The Fallen: collision against a level
+
+> **Status:** done · **Code:** `src/engines/unreal/game/collision.cpp` · **Checked against:** the code (Engine.dll) and the levels' own data · **Confidence:** from the code unless marked
+
+## Overview
 
 How Reluva tells solid from open space in a level, and sweeps points and
 boxes through it (`engines/unreal/game/collision.h`). It reads only what the
-level's model already holds ([model.md](model.md)): its BSP nodes, its
+level's model already holds ([model.md](../formats/model.md)): its BSP nodes, its
 leaf hulls and the "root outside" flag. The boxes follow Engine.dll's
 `UModel::PointCheck` and `LineCheck`, read for what they do and written
 here anew.
 
-## Solid and open
+## How it works
+
+### Solid and open
 
 A level is carved out of solid space by subtractive brushes, with
 additive ones put back into it. Its BSP divides space by the brushes'
@@ -29,7 +35,7 @@ Checked on The Fallen: 540 of its 543 navigation points (path nodes,
 player starts and the like, which UnrealEd puts in open space) come out
 open, and a line down from each finds a floor.
 
-## Boxes
+### Boxes
 
 Actors collide as boxes: half sizes radius × radius × height (UE1's
 cylinders, as boxes for the world). Reach along a normal is
@@ -45,7 +51,7 @@ cylinders, as boxes for the world). Reach along a normal is
     0x40000000 set: the plane flipped), up to −1;
   - then six floats stored as their bits: the hull's bounding box, min
     then max.
-  
+
   A solid leaf counts only if the box, at its true size, overlaps its
   node's hull. A node with no hull has nothing to hit.
 - **What the hull is tested against.** Each plane in turn, and the box
@@ -62,7 +68,7 @@ cylinders, as boxes for the world). Reach along a normal is
   it. Before this, M07_SiskoL1A's player start (by a ramp) fit nowhere,
   and a box stuck in such a sliver on M04_SiskoL1 kept landing in place.
 
-## Sweeps
+### Sweeps
 
 `trace(start, end, extent)` sweeps a box (or a line: extent 0) and
 returns the first time it enters solid space.
@@ -90,9 +96,11 @@ On The Fallen, a box the player's size (17 × 17 × 39) traced down from a
 navigation point stops 39 units above where the line down does, and
 along X and Y 17 units before it.
 
-## How movement uses it
+## In Reluva
 
-`ScriptLevel` ([unreal_vm.md](../../engines/unreal_vm.md)) sweeps each
+### How movement uses it
+
+`ScriptLevel` ([movement.md](movement.md)) sweeps each
 move through the world first, then actors' cylinders and movers. Movers
 are collided with the same way as the world, through their brush's own
 BSP, with the move first turned into the brush's coordinates (a mover
@@ -104,3 +112,16 @@ Spawning first tries straight up as far as the actor's own height: some
 player starts sit closer to the floor than the player's half height
 (M06_SiskoL1B's and M06_WorfL1B's, 16 units over it against 50), and
 with only the 32-unit search the player was left at the world's origin.
+
+`reluva-tool unreal trace <game folder> <map> x y z x2 y2 z2 [ex ey ez]`
+sweeps a box through a level's BSP: where it stops, and the surface it
+hit.
+
+## Sources and checks
+
+- **Where the facts come from:** Engine.dll's `UModel::PointCheck` and
+  `LineCheck`, read for what they do, and the level's model
+  ([model.md](../formats/model.md)).
+- **How it was checked:** sweeps through The Fallen's levels
+  (`reluva-tool unreal trace`), and the moves and placings of every map
+  in `reluva-tool unreal run` ([movement.md](movement.md)).

@@ -1,9 +1,8 @@
-# Unreal Engine 1: models (BSP)
+# The Fallen: models (BSP)
 
-Status: **implemented** (`src/engines/unreal/formats/model.cpp`). Geometry
-**checked on The Fallen** (October 2026): all 74 maps read and draw. The
-lighting data after the vertices is tested on models built by the unit
-tests, **not yet on The Fallen's**. Sources as in [package.md](package.md).
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/model.cpp` · **Checked on:** the retail release, all 74 maps · **Confidence:** confirmed unless marked
+
+## Overview
 
 A level's geometry is a Model object in the map package: of its models,
 Reluva takes the one with the most BSP nodes (each brush also has a Model,
@@ -27,7 +26,7 @@ right, Z up; Reluva negates Y for its right-handed renderer.
 | zone each | zones, below |
 | compact | the Polys object (the brushes' polygons the BSP was built from) |
 | compact + index each | light map indices, below |
-| compact + bytes | light bits: the shadow bitmaps ([lighting.md](lighting.md)) |
+| compact + bytes | light bits: the shadow bitmaps ([lighting.md](../systems/lighting.md)) |
 | compact + 25 bytes each | bounds (boxes) |
 | compact + i32 each | leaf hulls |
 | compact + leaf each | leaves: compact zone, compact permeating lights, compact volumetric lights, u64 visible zones |
@@ -37,7 +36,7 @@ right, Z up; Reluva negates Y for its right-handed renderer.
 
 Brushes' own models stop after the vertices. Everything from the zones
 on is read separately from the geometry: if it doesn't read (or leaves
-bytes over, which `ue-check` reports) the level still draws, without
+bytes over, which `unreal check` reports) the level still draws, without
 lightmaps.
 
 ### Zone
@@ -93,7 +92,7 @@ most on CM06_SW_Capture (Z in the viewer draws them all).
 | i32 | its first light in the lights list (-1: none) |
 
 How the pan and scales place the grid is worked out in
-[lighting.md](lighting.md).
+[lighting.md](../systems/lighting.md).
 
 ### Node
 
@@ -129,4 +128,19 @@ two-sided, 0x800 no smoothing, 0x400000 unlit, 0x4000000 zone portal.
 
 The reader checks every index against its array; when a game's layout
 differs (another version, a licensee's change) that check is what fails,
-and `reluva-tool ue-props <map> <model>` shows the bytes to compare.
+and `reluva-tool unreal props <map> <model>` shows the bytes to compare.
+
+## In Reluva
+
+`formats/model.cpp` reads the model; the Maps page of the data viewer
+draws it, lit as [systems/lighting.md](../systems/lighting.md) describes,
+and [systems/collision.md](../systems/collision.md) sweeps through its BSP.
+
+## Sources and checks
+
+- **Where the facts come from:** as for [package.md](package.md).
+- **How it was checked:** the geometry on The Fallen (October 2026): all
+  74 maps read and draw (the largest, M03_KiraL2, 25619 BSP nodes). The
+  lighting data after the vertices was first tested on models built by
+  the unit tests; every map's lighting now reads with no bytes left over
+  ([systems/lighting.md](../systems/lighting.md)).

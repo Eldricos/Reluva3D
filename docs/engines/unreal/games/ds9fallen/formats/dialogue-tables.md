@@ -1,9 +1,8 @@
-# The Fallen: dialogue tables
+# The Fallen: dialogue tables (`int/*_Dialogue.txt`)
 
-Status: **implemented** (`src/engines/unreal/formats/dialog_table.cpp`), read by
-the level's dialogue (`vm_dialog.cpp`, [unreal_vm.md](../../engines/unreal_vm.md)).
-**Checked on The Fallen** (October 2026): the 12 tables in the install's
-`int` folder give 2040 lines.
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/dialog_table.cpp` · **Checked on:** the retail release, the 12 tables of its `int` folder (2040 lines), and the full CD install's · **Confidence:** confirmed unless marked
+
+## Overview
 
 The lines the characters say are in the install's `int` folder, one
 table per mission or group: `M01_Dialogue.txt` to `M10_Dialogue.txt`,
@@ -11,6 +10,8 @@ table per mission or group: `M01_Dialogue.txt` to `M10_Dialogue.txt`,
 and the Promenade), `CIN_Dialogue.txt` (cut scenes), `GTG_Dialogue.txt`
 and `M00_Dialogue.txt`. A level names its own table in its LevelInfo's
 `DialogFile` (`M01_Dialogue`; some levels name none).
+
+## Layout
 
 Each file is text, Windows-1252, lines ending CR LF, columns separated
 by tabs: a spreadsheet saved as text. A field in double quotes has its
@@ -59,6 +60,8 @@ A line's key is its mission, type, speaker and line ID run together
 (`K01AMBBFC000`); NEXTLINE and RETURNLINE name lines so, across tables
 (`GENHCLSKO0?0`).
 
+### The voices
+
 The voices are ADPCM WAV files ([sound.md](sound.md)); a line lasts as
 long as its WAV's data chunk at its bytes a second. The `.uax`'s
 ScriptText is only the `#EXEC AUDIO IMPORT` lines that built it.
@@ -75,3 +78,16 @@ Each voice's WAV also has a `phnm` chunk, its lip-sync (all 249 of
 
 "Main exit from tower has been sealed off...": `main` 0 to 0.317 s
 (`m` 0, `ih` 0.126, `n` 0.253), `exit` 0.317 to 0.666...
+
+## In Reluva
+
+`formats/dialog_table.cpp` reads the tables; the level's dialogue
+(`vm/vm_dialog.cpp`, [systems/dialogue.md](../systems/dialogue.md)) plays
+them.
+
+## Sources and checks
+
+- **Where the facts come from:** the tables and voices of the install's
+  `int` and `Sounds` folders.
+- **How it was checked:** on The Fallen (October 2026): the 12 tables in
+  the install's `int` folder give 2040 lines.

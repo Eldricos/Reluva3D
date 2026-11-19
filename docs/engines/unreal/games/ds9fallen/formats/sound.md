@@ -1,12 +1,18 @@
-# Unreal Engine 1: sounds and music
+# The Fallen: sounds and music
 
-Status: **implemented** (`src/engines/unreal/formats/sound.cpp`) for Sound; the
-same reader extracts Music. **Checked on The Fallen** (October 2026): 2868 of
-2930 sounds decode. The other 62 (looping ones such as
-`Looping_Fear.moan_fear_lp`, music cues such as `Trks_MagicBeaut.orb_thme`)
-are placeholders: format `wav` but only the 4 bytes `58 20 0d 0a`
-("X \r\n"), nothing to play. Reluva treats anything under 16 bytes that
-isn't RIFF as one.
+> **Status:** decoded · **Code:** `src/engines/unreal/formats/sound.cpp` · **Checked on:** the retail release, all 2930 sounds · **Confidence:** confirmed unless marked
+
+## Overview
+
+Sound and Music objects are exports of the packages (`.uax`, `.umx`, and
+inside maps), each holding a whole file: a WAV for a sound, a tracker
+module for music. The same reader extracts both.
+
+On The Fallen (October 2026), 2868 of 2930 sounds decode. The other 62
+(looping ones such as `Looping_Fear.moan_fear_lp`, music cues such as
+`Trks_MagicBeaut.orb_thme`) are placeholders: format `wav` but only the
+4 bytes `58 20 0d 0a` ("X \r\n"), nothing to play. Reluva treats anything
+under 16 bytes that isn't RIFF as one.
 
 They stand for The Fallen's music. The install's `mp3` folder holds 62
 MP3 files, as many as there are placeholders, named as the placeholder
@@ -20,6 +26,8 @@ install's file listing, October 2026.) How the game picks which to play
 (the music cues in `Sounds/Music.uax` and the maps' script, presumably) is
 for when the script runs. Sources as in [package.md](package.md).
 
+## Layout
+
 Sound and Music objects hold a whole file:
 
 | Type | Meaning |
@@ -31,15 +39,43 @@ Sound and Music objects hold a whole file:
 | bytes | the file: a RIFF WAVE for sounds, decoded by `audio/wav.cpp` |
 
 Whether Music has exactly this layout in every version is to be checked
-(`reluva-tool ue-check` counts music objects read and played).
+(`reluva-tool unreal check` counts music objects read and played).
+
+## Behaviour
 
 A Music object's module plays through Reluva's tracker player
-(`audio/tracker.cpp`, written from the formats' public
-descriptions): MOD (M.K., FLTn, xCHN), S3M, XM (instruments, envelopes,
-delta samples) and IT (samples or instruments, envelopes, compressed
-samples). It renders the song from an order (a UE1 song section) at
-44,100 Hz to where it jumps back to an order already played, at most ten
-minutes, and that point is the sound's loop. Not done: new-note actions
-(a new note cuts the old), auto-vibrato, pitch and filter envelopes,
-tremor, panbrello, 15-sample MODs and S3M's ADPCM samples. The Fallen
-has no modules; checked on modules its tests build.
+([tracker.md](../../../../../common/audio/tracker.md)): it renders the
+song from an order (a UE1 song section) at 44,100 Hz to where it jumps
+back to an order already played, at most ten minutes, and that point is
+the sound's loop. The Fallen has no modules: its music is the MP3s
+(above), which play. Other UE1 games' modules (`.umx`: IT, S3M, XM,
+MOD) play on the Sounds page, rendered from the first order to where the
+song loops back; `reluva-tool unreal check` plays each through. Checked
+only on modules the tests build: not yet on a real song.
+
+A level's `Song` isn't played: The Fallen's audio driver (Miles.dll)
+never reads it (no module player, `RegisterMusic` empty), and the drivers
+that do (Galaxy's) aren't to hand to read their transitions from.
+
+## In Reluva
+
+`formats/sound.cpp` reads Sound and Music objects; the WAV is decoded by
+`src/audio/wav.cpp` and played through `src/audio`'s mixer (how the game
+plays it: [systems/sound.md](../systems/sound.md)). The Sounds page of the
+data viewer plays them, the placeholders' MP3s as music, and
+`reluva-tool unreal extract` writes one as a `.wav`.
+
+## Sources and checks
+
+- **Where the facts come from:** as for [package.md](package.md); the
+  MP3s' names from the install's file listing (October 2026).
+- **How it was checked:** `reluva-tool unreal check` on The Fallen
+  (October 2026): 2868 of 2930 sounds decode, the other 62 the
+  placeholders above.
+
+## Open questions
+
+- How the game picks which MP3 to play: see "Music" in
+  [systems/sound.md](../systems/sound.md).
+- Whether Music has exactly this layout in every version
+  (`reluva-tool unreal check` counts music objects read and played).
