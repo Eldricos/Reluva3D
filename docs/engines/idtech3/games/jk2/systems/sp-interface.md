@@ -359,7 +359,9 @@ yet: a console on the page.
   `jk07` on the way); `-spare cairn_vertical` leaves out a lift's
   trigger where the player was crushed.
 - **doom_comm:** `sp-run doom_comm -tour 5000 -set helpUsObi 1 -next`
-  plays it to `maptransition doom_detention`, nothing new needed. Things found on the
+  plays it to `maptransition doom_detention`, nothing new needed.
+- **doom_detention:** `sp-run doom_detention -tour 5000 -set helpUsObi 1
+  -next` plays it to `maptransition doom_shields`, nothing new needed. Things found on the
   way: a spot over an electrified floor (a `trigger_hurt` whose damage
   isn't stopped by god mode) kills a player dropped there, so the tour
   now counts a spot over a hurt with nothing solid between as in it, and
