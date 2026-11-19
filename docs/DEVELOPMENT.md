@@ -138,10 +138,12 @@ or rename go in `.git-blame-ignore-revs`; run
 ## Tests
 
 - **Names.** Tests come in suites named `<area>.<kind>.<topic>`: the area is
-  `common` (the shared code) or an engine, the kind is `unit`, `engine` or
-  `gamedata`. For example `common.unit.audio`, `idtech3.unit.collision`,
-  `idtech3.engine` (the basic engine test, below) and
-  `idtech3.gamedata.maps`. ctest uses the same names.
+  `common` (the shared code), `devtools` (the developer programs) or an
+  engine, the kind is `unit`, `engine` or `gamedata`. For example
+  `common.unit.audio`, `idtech3.unit.collision`, `idtech3.engine` (the
+  basic engine test, below) and `idtech3.gamedata.maps`. An engine running
+  several games names the game after the engine where the tests are one
+  game's: `awe.attwn.gamedata.route`. ctest uses the same names.
 - **Running them:**
   - `ctest --test-dir build --output-on-failure` runs them all;
   - with Visual Studio's generator, add `-C Release` (or `Debug`);
