@@ -1,4 +1,6 @@
-# Road maps (`.bai`)
+# Midtown Madness 2: Road maps (`.bai`)
+
+> **Status:** partial · **Code:** `src/engines/age/formats/bai.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
 `city/sf.bai` and `city/london.bai` in `mm2core.ar`: each city's roads as
 the computer-driven cars see them, with their lanes, sidewalks and tram
@@ -120,7 +122,7 @@ last (or first) point and as far out as the road's half width, and `b`
 is a metre from it straight across the road. No traffic lights or stop
 signs are placed in the cities' instance files, so the game puts them up
 itself, and these are where (see
-[age-traffic.md](../../engines/age-traffic.md)).
+[traffic.md](../systems/traffic.md)).
 
 The control, by how it falls:
 
@@ -182,10 +184,6 @@ two lanes 2.5 and 7.5 out; a one-way road's lanes across the middle are
 irregular), then the half width. A side with no lanes has the second
 value unset and the half width third.
 
-## Not known yet
-
-Nothing; the table after the junctions is below.
-
 ## After the junctions: roads near each block
 
 A u32, the PSDL's stored block count (1,172 in San Francisco, 1,342 in
@@ -223,3 +221,12 @@ lists are empty.
 Worked out by reading the lists against the roads' sidewalk kinds and
 the junctions' road lists. A lookup of nearby roads for each block, for
 placing traffic and people; Reluva works out its own from the roads.
+
+## Sources and checks
+
+- **Where the facts come from:** None.
+- **How it was checked:** both files parsed to their last byte; `reluva-tool age check`; `age.unit.city`.
+
+## Open questions
+
+Nothing; the table after the junctions is below.

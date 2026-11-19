@@ -1,26 +1,10 @@
-# .tex textures
+# Midtown Madness 2: .tex textures
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/texture.cpp` · **Checked on:** the English release, 3,665 textures · **Confidence:** confirmed unless marked
 
 Midtown Madness 2's textures, `texture/*.tex` in `mm2tex.ar` (3,665 of
 them). Read by `src/engines/age/formats/texture.cpp`; `reluva-tool tex-info`
 shows one or surveys a game's.
-
-## How this was worked out
-
-From the retail files alone. Grouping all 3,665 by their first fields
-showed a width and height, a small set of format numbers (1, 14, 17, 18)
-and a count from 1 to 10 that grew with the file size for the same image
-size. A file's size then came out exactly as 14 bytes of header, 1,024
-bytes of palette for formats 1 and 14, and each mipmap level (each half
-the last, down to 1 pixel) at 1, 3 or 4 bytes a pixel: true of all 3,665.
-The colour order was settled by looking, and differs between the
-formats. The palettes are B, G, R, A: drawn that way the fire truck's
-body (format 1) is red and San Francisco's map has blue water, the other
-way round they're blue and orange. The 24- and 32-bit formats are R, G,
-B(, A): the US roads' centre lines (`r2_f`, format 17) come out yellow
-that way and cyan the other, and the red traffic light's glow
-(`s_red_glow`, format 18) averages 194, 2, 0 in its first three bytes.
-(The first version of this page had them all B, G, R, from the palette
-textures alone; the city's roads showed it wrong.)
 
 ## Layout
 
@@ -136,3 +120,23 @@ texture without the frame number (`s_ocean`), the cities' PSDL with one
 (`s_ocean-0007`, `s_thames-0009`). Reluva loads every frame of a texture
 that has a `.movie` and shows them in turn at that rate, from the one
 named.
+
+## Sources and checks
+
+From the retail files alone. Grouping all 3,665 by their first fields
+showed a width and height, a small set of format numbers (1, 14, 17, 18)
+and a count from 1 to 10 that grew with the file size for the same image
+size. A file's size then came out exactly as 14 bytes of header, 1,024
+bytes of palette for formats 1 and 14, and each mipmap level (each half
+the last, down to 1 pixel) at 1, 3 or 4 bytes a pixel: true of all 3,665.
+The colour order was settled by looking, and differs between the
+formats. The palettes are B, G, R, A: drawn that way the fire truck's
+body (format 1) is red and San Francisco's map has blue water, the other
+way round they're blue and orange. The 24- and 32-bit formats are R, G,
+B(, A): the US roads' centre lines (`r2_f`, format 17) come out yellow
+that way and cyan the other, and the red traffic light's glow
+(`s_red_glow`, format 18) averages 194, 2, 0 in its first three bytes.
+(The first version of this page had them all B, G, R, from the palette
+textures alone; the city's roads showed it wrong.)
+
+- **How it was checked:** all 3,665 decode, in `reluva-tool age check`; `age.unit.formats`.

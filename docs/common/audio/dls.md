@@ -1,25 +1,16 @@
 # DLS collections (`.dls`)
 
-Downloadable Sounds, Level 1: the instrument sets DirectMusic music plays
-on (Midtown Madness 2's `aud/dmusic/*.dls`: 14 collections, 204
-instruments, 368 waves). Read by `audio/dls.cpp`, played by
-`audio/synth.cpp`.
+## What it is
 
-## How this was worked out
+Downloadable Sounds, Level 1: the instrument sets DirectMusic music plays on, a RIFF form. Read by `src/audio/dls.cpp` (`readDls`), played by `src/audio/synth.cpp` (`DlsSynth`).
 
-DLS is a RIFF form published by the MIDI Manufacturers Association: the
-Downloadable Sounds Level 1 specification (v1.1b) gives the chunk grammar,
-the structures, the connection sources and destinations with their values,
-the default articulation and the units (time cents, relative pitch and
-gain, 0.1% units). Each chunk's
-fields below were checked against the game's files: every chunk's size
-is the one the layout gives (`insh` 12 bytes, `rgnh` 12, `wsmp` 20 plus
-16 per loop, `wlnk` 12, `art1` 8 plus 12 per connection), every pool
-table offset finds a wave, and the instruments' tunings, played back,
-give the pitches their keys should (London's strings at keys 45 and 57:
-110 and 220 Hz; its Moog bass at 33 and 45: 54 and 109 Hz).
+## What Reluva supports
 
-## Layout
+Level 1 collections: instruments, their regions and articulation, and their PCM waves, looped or not, played by a synthesizer of Reluva's own (below). Checked only on 16-bit mono waves, the only ones seen.
+
+## The format
+
+### Layout
 
 `RIFF 'DLS '` holds:
 
@@ -47,7 +38,7 @@ An instrument (`LIST 'ins '`):
 tune (cents), s32 gain (1/655360 dB, negative quieter), u32 options, u32 loops; each loop
 u32 size, type, start and length in samples.
 
-## Playing them (Reluva's synthesizer)
+### Playing them (Reluva's synthesizer)
 
 - A note plays the first region whose keys hold it. Level 1 has no
   velocity ranges: the game's files leave them 0-0, taken as any.
@@ -79,3 +70,23 @@ The volume envelope's attack rises evenly; decay and release fall 96 dB
 over their times (the decay holding at the sustain level). Envelope
 stages are at least 4 ms, so notes don't click. Sources 0x002 (velocity)
 and 0x004 (envelope 1) as connections, and transforms, aren't applied.
+
+## Sources and checks
+
+DLS is a RIFF form published by the MIDI Manufacturers Association: the
+Downloadable Sounds Level 1 specification (v1.1b) gives the chunk grammar,
+the structures, the connection sources and destinations with their values,
+the default articulation and the units (time cents, relative pitch and
+gain, 0.1% units). Each chunk's
+fields below were checked against the game's files: every chunk's size
+is the one the layout gives (`insh` 12 bytes, `rgnh` 12, `wsmp` 20 plus
+16 per loop, `wlnk` 12, `art1` 8 plus 12 per connection), every pool
+table offset finds a wave, and the instruments' tunings, played back,
+give the pitches their keys should (London's strings at keys 45 and 57:
+110 and 220 Hz; its Moog bass at 33 and 45: 54 and 109 Hz).
+
+- **Confidence:** published unless marked (docs/DOCUMENTATION_STANDARD.md).
+
+## Used by
+
+- **`age`**: Midtown Madness 2's `aud/dmusic/*.dls` (14 collections, 204 instruments, 368 waves), for its music ([music.md](../../engines/age/games/mm2/systems/music.md)).

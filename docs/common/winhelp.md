@@ -1,29 +1,19 @@
 # Windows Help files (`.hlp`)
 
-The help files of Windows 3.1 to 98, compiled by Microsoft's help
-compilers. Midtown Madness 2's is `MM2HELP.HLP` in its folder (2.7 MB:
-183 topics, 135 with titles, and 24 pictures), opened by the menus'
-Help button. Read by `common/winhelp.cpp`: the topics' titles and text.
+## What it is
 
-## How this was worked out
+The help files of Windows 3.1 to 98, compiled by Microsoft's help compilers. Read by `src/common/winhelp.cpp` (`winhelp::readHelp`, `readPicture`).
 
-The format is described in public by Manfred Winterhoff's `helpfile.txt`,
-the description that comes with his helpdeco decompiler, which Reluva's
-reader follows (Reluva has none of helpdeco's code). The description
-leaves a few things out, or says them in a way that didn't fit this
-file. Those were settled on `MM2HELP.HLP` with a throwaway Python script:
-the reader's output had to read as English all the way through, with no
-command left unknown, and each of the 2,698 records' "previous" had to
-be the record before it (they all are). Those things are:
+## What Reluva supports
 
-- A picture's size is a signed number (the compressed 2-byte form less
-  0x4000): 19 for the windows embedded in the text, 4 for a picture by
-  number (`|bm22`).
-- A table cell is its column (-1 ends the row), then three bytes,
-  then a paragraph as anywhere else. That was measured on the file's six
-  tables.
+Help files of Windows 3.1 and later (minor version above 16): the topics' titles and text, the links between topics, and the pictures stored by number (`|bm<n>`). What it doesn't read:
 
-## Layout
+- The hot spots in pictures, the keywords (`|KWBTREE`...), the fonts
+  (`|FONT`), the macros and the contents.
+
+## The format
+
+### Layout
 
 Little-endian throughout.
 
@@ -137,7 +127,7 @@ The older phrase form (`|Phrases`) isn't read: this file doesn't have it.
 **Text.** It's in Windows' character set. Reluva changes the quotes,
 dashes, ellipsis, bullet and marks to ASCII.
 
-## Links
+### Links
 
 A jump names its topic by the 32-bit hash of the topic's context name.
 Two B+ trees turn that into a topic:
@@ -153,7 +143,7 @@ topics. Reluva's reader marks a link's words in the topic's text with
 the topic it goes to (`winhelp.h`'s marks), and a picture's place with
 its number.
 
-## Pictures
+### Pictures
 
 `|bm<n>`: the help compiler's own bitmap files. Each is:
 
@@ -176,7 +166,26 @@ many times.
 help's banner, the cars, the screens and the HUD, 385 x 206 to 640 x 480)
 and an arrow at 8 bits. Each was checked by eye.
 
-## Not read
+## Sources and checks
 
-- The hot spots in pictures, the keywords (`|KWBTREE`...), the fonts
-  (`|FONT`), the macros and the contents.
+The format is described in public by Manfred Winterhoff's `helpfile.txt`,
+the description that comes with his helpdeco decompiler, which Reluva's
+reader follows (Reluva has none of helpdeco's code). The description
+leaves a few things out, or says them in a way that didn't fit this
+file. Those were settled on `MM2HELP.HLP` with a throwaway Python script:
+the reader's output had to read as English all the way through, with no
+command left unknown, and each of the 2,698 records' "previous" had to
+be the record before it (they all are). Those things are:
+
+- A picture's size is a signed number (the compressed 2-byte form less
+  0x4000): 19 for the windows embedded in the text, 4 for a picture by
+  number (`|bm22`).
+- A table cell is its column (-1 ends the row), then three bytes,
+  then a paragraph as anywhere else. That was measured on the file's six
+  tables.
+
+- **Confidence:** published unless marked (docs/DOCUMENTATION_STANDARD.md).
+
+## Used by
+
+- **`age`**: Midtown Madness 2's `MM2HELP.HLP` (2.7 MB: 183 topics, 135 with titles, and 24 pictures), shown by the menus' Help button ([menus.md](../engines/age/games/mm2/systems/menus.md#the-navigation-bar-and-quit)).

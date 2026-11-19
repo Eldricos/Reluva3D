@@ -1,17 +1,11 @@
-# .bnd collision bounds (and .bbnd, .ter)
+# Midtown Madness 2: .bnd collision bounds (and .bbnd, .ter)
+
+> **Status:** partial · **Code:** `src/engines/age/formats/bound.cpp` · **Checked on:** the English release, 525 `.bnd` and 324 `.bbnd` · **Confidence:** confirmed unless marked
 
 Models' collision shapes, `bound/<model>_BOUND.bnd` in `mm2core.ar` (525
 files: every car, props, landmarks; building fronts have none). Read by
 `src/engines/age/formats/bound.cpp`. `.bbnd` (324) is the same in binary, read
 where there's no `.bnd`; `.ter` (184) is a grid and edge data for a bound, not read.
-
-## How this was worked out
-
-They're text. Every line of all 525 starts with one of `version:`,
-`verts:`, `materials:`, `edges:`, `polys:`, `v`, `mtl`, the material's
-`elasticity:`, `friction:`, `effect:` and `sound:`, a closing `}`,
-`quad` or `tri`; all are version 1.01. The car's (`vpbug_BOUND.bnd`) is
-16 vertices making a hull of 14 quads round the Beetle's body.
 
 ## Layout
 
@@ -41,7 +35,7 @@ tri 4 5 6 0
   files have elasticity 0.1, friction 0.5 and effect `none`, and sound 0
   or `none`: only their names (`default`, `grass`, `cobblestone`,
   `water`, `deepwater`, `sand`, `mud`) say anything, and Reluva takes the
-  city material of that name ([age-driving.md](../../engines/age-driving.md)).
+  city material of that name ([car-simulation.md](../systems/car-simulation.md)).
 - `quad a b c d m` and `tri a b c m`: polygons by vertex number, then
   their material's number.
 
@@ -109,3 +103,13 @@ concave one (3,016 of 3,076); flat shared edges have 1 or 2. So it's
 the game's edge data for colliding with the bound's edges, and a grid
 for finding polygons. Reluva works its own out from the `.bnd` (an 8 m
 grid) and doesn't read it.
+
+## Sources and checks
+
+They're text. Every line of all 525 starts with one of `version:`,
+`verts:`, `materials:`, `edges:`, `polys:`, `v`, `mtl`, the material's
+`elasticity:`, `friction:`, `effect:` and `sound:`, a closing `}`,
+`quad` or `tri`; all are version 1.01. The car's (`vpbug_BOUND.bnd`) is
+16 vertices making a hull of 14 quads round the Beetle's body.
+
+- **How it was checked:** every bound read; `age.unit.formats`.

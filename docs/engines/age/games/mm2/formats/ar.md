@@ -1,20 +1,11 @@
-# .ar archives
+# Midtown Madness 2: .ar archives
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/ar_archive.cpp` · **Checked on:** the English release, all four archives · **Confidence:** confirmed unless marked
 
 The Angel Game Engine keeps a game's data in `.ar` archives. Midtown
 Madness 2 ships four in its install folder (and on the CD's `GAME` folder,
 the same files with upper-case names): `mm2core.ar`, `mm2tex.ar`,
 `mm2aud.ar` and `mm2audex.ar`. Read by `src/engines/age/formats/ar_archive.cpp`.
-
-## How this was worked out
-
-From the retail archives alone. The first 16 bytes read as `DAVE` and
-three plausible counts; the 16-byte records at 2048 had a first field
-that pointed at zero-terminated names (`anim/CVS/Entries`...) once the
-names were found to start right after the directory, and offsets that
-landed on data. Files whose two sizes differed inflated as raw deflate to
-exactly the larger one. Confirmed by unpacking all four archives (13,288
-files) with every size matching, once with a throwaway script and once
-with `reluva-tool ar-extract`, which gave the same bytes.
 
 ## Layout
 
@@ -65,7 +56,20 @@ The archives also carry what the developers had in their working folders:
 CVS bookkeeping (`CVS/Entries`), backups (`.bak`, `Copy of ...`), batch
 files and logs.
 
-## Not known yet
+## Sources and checks
+
+From the retail archives alone. The first 16 bytes read as `DAVE` and
+three plausible counts; the 16-byte records at 2048 had a first field
+that pointed at zero-terminated names (`anim/CVS/Entries`...) once the
+names were found to start right after the directory, and offsets that
+landed on data. Files whose two sizes differed inflated as raw deflate to
+exactly the larger one. Confirmed by unpacking all four archives (13,288
+files) with every size matching, once with a throwaway script and once
+with `reluva-tool ar-extract`, which gave the same bytes.
+
+- **How it was checked:** every file of the four archives unpacked to its size; `reluva-tool age check` and `ar-list` in the game-files test; `age.unit.formats`.
+
+## Open questions
 
 - **Other headers.** Only `DAVE` has been seen; other AGE games or
   versions may differ. Anything else is refused.

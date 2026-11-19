@@ -24,6 +24,7 @@ Each engine is a module that can run a family of games.
 | `clue` | Clue: Murder at Boddy Mansion, and in the UK Cluedo: Murder at Blackwell Grange (Windows, 2.0 and 2.2) | Playable: against computer players at three levels, hot seat, network play; being checked against the original | [docs/engines/clue](docs/engines/clue/README.md) |
 | `netimmerse` | LEGO Alpha Team (English, Windows); later, other NetImmerse games | Playable: menus, saving, options, sound in 3D, every mission; slower than the original in busy scenes; a data viewer of its files | [docs/engines/netimmerse](docs/engines/netimmerse/README.md) |
 | `nfs` | Need for Speed III: Hot Pursuit (US "Classics" CD); later, High Stakes | Playable: the retail game hosted, from its menus through every race type, single player and network (TCP, IPX, serial, modem); a data viewer of its files | [docs/engines/nfs](docs/engines/nfs/README.md) |
+| `age` | Midtown Madness 2 (English, Windows); later, Midtown Madness | Playable: races, Crash Course and cruising in both cities from the game's menus, city life, multiplayer between copies of Reluva; the handling not yet checked against the original; a data viewer of its files | [docs/engines/age](docs/engines/age/README.md) |
 | `testbed` | A test pattern, no game | For checking a system's graphics, sound and input | — |
 
 ## Requirements

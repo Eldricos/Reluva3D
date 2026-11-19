@@ -1,4 +1,6 @@
-# Path sets (`.pathset`)
+# Midtown Madness 2: Path sets (`.pathset`)
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/pathset.cpp` · **Checked on:** the English release, 101 files · **Confidence:** confirmed unless marked
 
 Binary lists of paths, each a model name and its points. A city's
 moving things use them: `race/<city>/<city>_ferry.pathset`,
@@ -82,7 +84,7 @@ before the break.
 
 The ferry, sailboat, bridge, parked-car and train files, for the Drive
 and Race pages
-([age-traffic.md](../../engines/age-traffic.md)):
+([traffic.md](../systems/traffic.md)):
 
 - **Boats**: the model goes round its path (closed back to the first
   point) or back and forth along it, at the speed above (at least 0.3
@@ -132,7 +134,7 @@ and Race pages
   (second byte / 10) metres along it, its X axis along the line
   (barricades every 2 m across dead ends, banners, lamps, freeway
   supports every 16 m). They're drawn standing on their points, and can
-  be knocked down ([age-traffic.md](../../engines/age-traffic.md)).
+  be knocked down ([traffic.md](../systems/traffic.md)).
   The `ids` look like PSDL block numbers here too.
 
 - **Decals** (`city/<city>/decals.pathset`: 79 paths in London): flat
@@ -165,7 +167,7 @@ and Race pages
   heard, in `aud/ambient/<name>.csv` (`trolley` is `trolleycable.csv`,
   `bouys_seals` `buoyseals.csv`, London's `sub_stations`
   `tubevoices.csv`), so Reluva reads those
-  ([age-traffic.md](../../engines/age-traffic.md)). The `.csv`'s
+  ([traffic.md](../systems/traffic.md)). The `.csv`'s
   layout: a header and a row of **Min distance**, **Max distance**,
   **3D priority** and **Audible area** (0, 1 or 2; what it does isn't
   known); a header and a row per sample: its name (a
@@ -223,3 +225,8 @@ each other's way, isn't known.
 | `city/london/decals` | 79 strips |
 | `race/london/circuit0` | 21 barricade lines |
 | `race/london/circuitX` | 73 barricade lines |
+
+## Sources and checks
+
+- **Where the facts come from:** the files: their sizes, counts and the coordinates landing in the city.
+- **How it was checked:** every file read by `reluva-tool age check` (one, `race/london/blitz10.pathset`, has no whole paths); `age.unit.city`.

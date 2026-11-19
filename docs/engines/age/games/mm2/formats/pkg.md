@@ -1,39 +1,11 @@
-# .pkg models and .mtx placements
+# Midtown Madness 2: .pkg models and .mtx placements
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/pkg.cpp` · **Checked on:** the English release, 1,040 models · **Confidence:** confirmed unless marked
 
 Midtown Madness 2's models, `geometry/*.pkg` in `mm2core.ar` (1,040 of
 them: cars, buildings, props, bridges), with `.mtx` files placing their
 parts. Read by `src/engines/age/formats/pkg.cpp`; `reluva-tool pkg-info` shows
 one or reads a game's.
-
-## How this was worked out
-
-From the retail files alone. A hex dump of `vpbug.pkg` (the Beetle)
-showed `PKG3`, then `FILE` and a length-prefixed name (`BODY_H`) with a
-size, then counts and runs of floats in eights whose 4th to 6th made unit
-vectors (normals). The value 0x112 after the counts is Direct3D's
-flexible vertex format code for exactly that layout (position, normal,
-one pair of texture coordinates; Microsoft's DirectX documentation), and
-the vertices were followed by a count and 16-bit indices below the
-vertex count. With that, a parser was run over every model and checked
-that each section ends exactly where its size says and that the vertex
-and index counts add up to the totals in its header: 4,666 of the 4,668
-meshes do (the two that don't are below).
-
-The shaders' layout was found the same way, checked by every one of the
-1,034 shader sections ending exactly at its size. Which colour is which:
-glows (`fxltglow`, the traffic lights' `s_red_glow`...) have no diffuse
-colour and keep theirs in the 4th of the float colours, which in
-Direct3D's material order (diffuse, ambient, specular, emissive) is
-emissive, and in the 3rd of the byte colours. The byte colours' order
-comes from the traffic lights: read as R, G, B the red, amber and green
-glows are red, amber and green; read as B, G, R (Direct3D's own order)
-they're blue, teal and green.
-
-The winding: of 31,330 triangles sampled, 31,168 are counter-clockwise
-seen from the side their vertices' normals point to. The coordinates are
-right-handed with Y up and cars facing -Z: the Beetle's headlights are
-at -Z, its left front wheel at -X, and its steering wheel on the left
-(a left-hand-drive car); text on the bus reads the right way round.
 
 ## Layout
 
@@ -153,7 +125,7 @@ light's glow parts (`REDGLOWDAY_H`...) don't fit its centred body: they
 are placed as if the body stood on its origin. The game puts its traffic
 lights up itself (the cities' `.inst` files have none), and stood on the
 ground, half its height up, the body's signal heads and the glows line up
-([age-traffic.md](../../engines/age-traffic.md)).
+([traffic.md](../systems/traffic.md)).
 
 The small untextured squares in many models, `HEADLIGHT0_H` and
 `HEADLIGHT1_H` (and a police car's `SRN0_H`-`SRN3_H`), placed by their
@@ -186,3 +158,35 @@ Six of the 1,040 files, none used by the game:
   dune buggy is `vpdune.pkg`).
 - `wf_hse_baywin03_stone_wht_5s_12_l.pkg`, `ww_bldg1_stone_tan_t6_20_l.pkg`:
   empty.
+
+## Sources and checks
+
+From the retail files alone. A hex dump of `vpbug.pkg` (the Beetle)
+showed `PKG3`, then `FILE` and a length-prefixed name (`BODY_H`) with a
+size, then counts and runs of floats in eights whose 4th to 6th made unit
+vectors (normals). The value 0x112 after the counts is Direct3D's
+flexible vertex format code for exactly that layout (position, normal,
+one pair of texture coordinates; Microsoft's DirectX documentation), and
+the vertices were followed by a count and 16-bit indices below the
+vertex count. With that, a parser was run over every model and checked
+that each section ends exactly where its size says and that the vertex
+and index counts add up to the totals in its header: 4,666 of the 4,668
+meshes do (the two that don't are below).
+
+The shaders' layout was found the same way, checked by every one of the
+1,034 shader sections ending exactly at its size. Which colour is which:
+glows (`fxltglow`, the traffic lights' `s_red_glow`...) have no diffuse
+colour and keep theirs in the 4th of the float colours, which in
+Direct3D's material order (diffuse, ambient, specular, emissive) is
+emissive, and in the 3rd of the byte colours. The byte colours' order
+comes from the traffic lights: read as R, G, B the red, amber and green
+glows are red, amber and green; read as B, G, R (Direct3D's own order)
+they're blue, teal and green.
+
+The winding: of 31,330 triangles sampled, 31,168 are counter-clockwise
+seen from the side their vertices' normals point to. The coordinates are
+right-handed with Y up and cars facing -Z: the Beetle's headlights are
+at -Z, its left front wheel at -X, and its steering wheel on the left
+(a left-hand-drive car); text on the bus reads the right way round.
+
+- **How it was checked:** 1,034 of 1,040 models load (the 6 that don't are named below, and in the game-files test's record); `age.unit.formats`.

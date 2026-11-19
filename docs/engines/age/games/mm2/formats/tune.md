@@ -1,4 +1,6 @@
-# Tuning text and city lighting
+# Midtown Madness 2: Tuning text and city lighting
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/tune.cpp` · **Checked on:** the English release · **Confidence:** confirmed unless marked
 
 Much of the game's behaviour is in text files of one form, starting with
 a `type: a` line, then named blocks of lines of a name and values, with
@@ -21,7 +23,7 @@ tabs, lines end in CR LF. A few names are two words (`Approach Rate`,
 `Ocean Color` in `.mmHudMap`); the tree has them as the first word with
 the second as the first value. What the cars' and the HUD's files hold,
 and how Reluva uses them, is in
-[age-driving.md](../../engines/age-driving.md).
+[car-simulation.md](../systems/car-simulation.md).
 
 ## City lighting (.lt00-.lt15)
 
@@ -82,3 +84,8 @@ from 10 to 120 m; London's clear noon from 900 to 1,000.
 times and weathers, in the same order: its textures are `sky_ca_f`,
 `sky_pa_f`, `sky_fa_f`, `sky_ra_f`, `sky_cn_f`... with c, p, f and r the
 weathers and a, n, d and m (morning, noon, dusk, midnight) the times.
+
+## Sources and checks
+
+- **Where the facts come from:** the files themselves.
+- **How it was checked:** every car's, camera's, HUD map's and city's file read; `age.unit.formats`.

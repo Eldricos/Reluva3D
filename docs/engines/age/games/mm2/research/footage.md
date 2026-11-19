@@ -1,5 +1,8 @@
 # Midtown Madness 2: what the game's own screens show
 
+> **Working notes**, kept as they were written; not a reference page. See
+> [README.md](README.md).
+
 Some things the game's files don't say (where its HUD goes, how its
 damage meter moves) can be seen on its screens. Six public gameplay
 videos were watched for this; nothing from them is in Reluva but
@@ -37,7 +40,7 @@ race.
   bottom; the clock in `DIGI_*` digits top middle as minutes, seconds
   and hundredths; the race's list top left (Place, Check, Lap, the
   laps' times); the map bottom right. Positions are in
-  [age-driving.md](age-driving.md) and [age-racing.md](age-racing.md).
+  [car-simulation.md](../systems/car-simulation.md) and [races.md](../systems/races.md).
   The game's speedometer panel (`SPEED`, `MPH`, `TACOMETER TICKS_HALF`)
   is never on screen in any of the three.
 - **The damage meter**: `DAMAGE_LABLE` over a label-wide window of the
@@ -63,7 +66,7 @@ race.
 
 - Tyre smoke on the roads, the wheels throwing up dust on grass and
   spray in water, as the materials' particles were read
-  ([age-driving.md](age-driving.md)).
+  ([car-simulation.md](../systems/car-simulation.md)).
 - The street lamps' glows at night, small and warm.
 - In London a traffic light's pole stands on the left curb, where Reluva
   puts it for traffic keeping left.
@@ -77,12 +80,12 @@ race.
 - The loading screens' tips: F1 for the controls, Q to pause on the
   full-screen map, H for the HUD, TAB for the map. They led to the help
   file's keyboard table, now Reluva's default keys
-  ([age-menus.md](age-menus.md)). F1's list of controls is built too.
+  ([menus.md](../systems/menus.md)). F1's list of controls is built too.
 - In Checkpoint and Blitz races, small light blue markers over the
   checkpoints still to reach, which led to the races' checkpoints being
   taken in any order, as the help says, and to the gates themselves:
   the footage shows each as one banner across the road, which is how
-  `pt_check` is made ([age-racing.md](age-racing.md)).
+  `pt_check` is made ([races.md](../systems/races.md)).
 - The results screen's message for what was unlocked ("Congrats! New
   paint job for the New Beetle RSi!"), from the cities' `_rewards.csv`.
 
@@ -90,7 +93,7 @@ race.
 
 - The music's rules for idling, chases and the pause, the props' Flash
   values and the camera's numbers beyond what's in
-  [age-driving.md](age-driving.md): nothing in the videos shows them
+  [car-simulation.md](../systems/car-simulation.md): nothing in the videos shows them
   clearly enough to measure. Stops of 5-13 s in mid-race show no clear
   change of music.
 
@@ -103,7 +106,7 @@ drawbridges, and through its sound:
   `open:` bridge is raised 10-18 s into the race, down about 80 s in
   and raised again about 140 s in. No ships were nearby. Tower Bridge
   was down when crossed in Bridge Bash. Reluva's bridges now cycle every
-  130 s ([age-traffic.md](age-traffic.md)).
+  130 s ([traffic.md](../systems/traffic.md)).
 - **The music's tempo** was measured from the sound: the beat's onsets
   in windows of a few seconds, and the period they repeat at. A race
   starts beatless for about 8-15 s, then the groove comes in, whatever
@@ -112,7 +115,7 @@ drawbridges, and through its sound:
   After Bridge Bash's last checkpoint its 0.43 s groove stops within a
   second and a 0.78 s pattern plays to the finish. Next to the
   segments' own tempos, these fit the race tune's chase segment, and
-  Reluva now plays it there ([age-racing.md](age-racing.md)). After the
+  Reluva now plays it there ([races.md](../systems/races.md)). After the
   finish the beat stops for a few seconds, then the results screen's
   own music plays (0.35 s), then the menu's (0.43 s).
 - The opening movie isn't in any of them.
@@ -133,7 +136,7 @@ speedometer read by digit templates, "Final lap!" found by template.
   after). Restarting a race doesn't restart the tune. The results list
   fills in a racer a second, the opponents named by grid slot
   ("Opponent 1", strings 13-20), over the Results segment's pattern.
-  Reluva does all of these now ([age-racing.md](age-racing.md)).
+  Reluva does all of these now ([races.md](../systems/races.md)).
 - **Follow lessons have no clock** and run past their TimeLimit
   (San Francisco's `crash10`, 36, ran 88 s); they end with the car at
   its end. Reluva's no longer timed. What the lesson table's fourth
@@ -143,7 +146,7 @@ speedometer read by digit templates, "Final lap!" found by template.
 - **Walls**: the freeway's and the Transbay ramp's `s_wall_veg` walls
   have their rubble stone at the foot and plants along the top, so a
   wall's texture runs up from its first row; Reluva drew them upside
-  down until now ([psdl.md](../formats/age/psdl.md)). From below (Gimme
+  down until now ([psdl.md](../formats/psdl.md)). From below (Gimme
   SOMA, under the Transbay ramp) the decks' edges show a plain light
   band about 2 m deep, the tunnel attribute's flag 0x4; from beside the
   ramp its walls (flag 0x4000) show a plain grey face outside.

@@ -1,4 +1,6 @@
-# AI settings (`.aimap`)
+# Midtown Madness 2: AI settings (`.aimap`)
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/aimap.cpp` · **Checked on:** the English release, all 209 files · **Confidence:** confirmed unless marked
 
 Text files saying what the computer-driven cars, the pedestrians and the
 police are: `city/<map>.aimap` for each city, then a file for each race
@@ -39,7 +41,7 @@ leaves out keep the city's values.
 | `Exceptions` | road, density, speed limit (`# Rd Id, Density, Speed Limit`) | the road's share of the traffic's density (0.00 in 337 lines, 1.0 in 16): 0 keeps it off; a speed limit above 0 replaces the default |
 | `Police` | model, x, y, z, heading, then four values (`0 15 0.5 50` in 129 of 227 lines; `0 15 0 50`, `0 15 1 100`, `0 15 0 70`, `0 15 0.5 70` in the rest) | where the police start; the heading in degrees as the race files' (0 faces -Z); the comment names the fields "Geo File, StartLink, Start Dist, Start Mode, Start Lane, Patrol Route", but the lines don't follow it, and what the four values mean isn't known |
 | `Opponent` | model, `.opp` file, skill (0.70-1.00), then nine values | each opponent's car, and its skill as the share of its top speed Reluva's driver aims for |
-| `Density` | a share: London's cruising `roam` 0.1, San Francisco's lesson and stunt files 0-0.13 | the traffic's density, as the races' Ambient column ([age-traffic.md](../../engines/age-traffic.md#how-many)): the race menu's Cruise starts from it |
+| `Density` | a share: London's cruising `roam` 0.1, San Francisco's lesson and stunt files 0-0.13 | the traffic's density, as the races' Ambient column ([traffic.md](../systems/traffic.md#how-many)): the race menu's Cruise starts from it |
 | `CopChaseDistance` | metres (Crash Course 150) | how near the police notice the player |
 | `AmbientLaneChanges` | 0 or 1 (only San Francisco's cruising files: 1) | traffic changes lanes (always on the Drive page) |
 | `Traffic Lights` | two model names, no count (London: `sp_traflitsingle_ped_l` twice) | the traffic lights' models, for narrow and wide roads; San Francisco has none, so Reluva uses `sp_traflitsingle_f` and `sp_traflitdual_f` |
@@ -55,3 +57,8 @@ professional ones 0.93-1.00 in San Francisco's first race.
 Of the 19 police headings in San Francisco's cruising file, 10 are 0 and
 several cars stand off the road, so the headings couldn't be checked
 against the roads; Reluva reads them as the race files' headings.
+
+## Sources and checks
+
+- **Where the facts come from:** the files themselves, which carry their own comments.
+- **How it was checked:** every file read by the reader; `age.unit.formats`.

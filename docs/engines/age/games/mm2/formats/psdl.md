@@ -1,4 +1,6 @@
-# .psdl cities
+# Midtown Madness 2: .psdl cities
+
+> **Status:** partial · **Code:** `src/engines/age/formats/psdl.cpp`, `src/engines/age/render/city_mesh.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
 A city's streets, sidewalks, ground and buildings: `city/sf.psdl` and
 `city/london.psdl` in `mm2core.ar` ("procedural street description", as
@@ -7,32 +9,6 @@ triangles: each block of the city is a list of attributes (a road strip,
 a building front, a roof) that the triangles are generated from. Read by
 `src/engines/age/formats/psdl.cpp`, drawn by `city_mesh.cpp`; `reluva-tool
 psdl-info` shows a city's.
-
-## How this was worked out
-
-From the two retail cities. The header gave counts followed by runs of
-12-byte points (vertices) and floats (heights), then length-prefixed
-names, which were texture names. One more than the stored number of
-names was in the count, and the same turned out true of the blocks.
-
-Each block was then read as two counts (perimeter edges, then 16-bit
-words) and the walk ended exactly at the next block every time. The
-words' first value in a block was always a header whose bits 3-6 took 13
-values; trying a length for each kind until every block of both cities
-(2,418 that aren't empty) ended exactly where its count says gave the
-rules below. Exactly one header in each block has bit 7 set; after it,
-in 98 blocks, only texture attributes follow.
-
-Which texture a texture attribute picks was settled by the names: read
-as 1-based, road strips get `r2_f`, `r4_f`..., building tops get
-`sliver` and roofs get roof textures; read as 0-based they get sidewalk
-and window textures. What each attribute draws, and how heights and
-texture coordinates work, was settled by drawing it and looking (see the
-attributes below). The attributes' names (sliver, facade bound, road
-fan...) and some first guesses at their layouts came from what's
-remembered of the Midtown Madness modding community's public
-descriptions of this format; every rule here was then checked against
-the two cities as above, and no code from anywhere was used.
 
 ## Layout
 
@@ -253,7 +229,6 @@ across the strip in eight pieces.
 | 0x40 | 129, 214 | off the ground's level: the freeway, bridges, the Underground. 120 and 202 of them have another block over or under their middle (more than 3 m away); of the other blocks, 4% and 5% |
 | 0x20, 0x80 | 77, 27; 138, 90 | 0x20 on road blocks that curve and slope (below); 0x80 with the freeway, plazas, parks and London's Embankment: not settled (below) |
 
-
 **0x20** is only on road blocks, never junctions (77 in San Francisco,
 27 in London), and they curve and slope: 76 of the 77 and 25 of the 27
 do both. In San Francisco all 77 have road quads out of plane by more
@@ -400,7 +375,35 @@ rules line its road's sidewalks: 1-20 in San Francisco, which has rules
 Francisco's 379 roads, 407 of London's 540; the rest, ramps and the
 like, none). See [pathset.md](pathset.md).
 
-## Not known yet
+## Sources and checks
+
+From the two retail cities. The header gave counts followed by runs of
+12-byte points (vertices) and floats (heights), then length-prefixed
+names, which were texture names. One more than the stored number of
+names was in the count, and the same turned out true of the blocks.
+
+Each block was then read as two counts (perimeter edges, then 16-bit
+words) and the walk ended exactly at the next block every time. The
+words' first value in a block was always a header whose bits 3-6 took 13
+values; trying a length for each kind until every block of both cities
+(2,418 that aren't empty) ended exactly where its count says gave the
+rules below. Exactly one header in each block has bit 7 set; after it,
+in 98 blocks, only texture attributes follow.
+
+Which texture a texture attribute picks was settled by the names: read
+as 1-based, road strips get `r2_f`, `r4_f`..., building tops get
+`sliver` and roofs get roof textures; read as 0-based they get sidewalk
+and window textures. What each attribute draws, and how heights and
+texture coordinates work, was settled by drawing it and looking (see the
+attributes below). The attributes' names (sliver, facade bound, road
+fan...) and some first guesses at their layouts came from what's
+remembered of the Midtown Madness modding community's public
+descriptions of this format; every rule here was then checked against
+the two cities as above, and no code from anywhere was used.
+
+- **How it was checked:** both cities read whole and drawn on the World page; `reluva-tool age check`; `age.unit.city`.
+
+## Open questions
 
 Block flags 0x80 and 0x20 exactly; bits 6 and 7 of the divider's
 kind; a junction tunnel's word 3 and what its masks in words 6-9 mark;

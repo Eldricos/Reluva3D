@@ -1,4 +1,6 @@
-# Pedestrians (`anim/`)
+# Midtown Madness 2: Pedestrians (`anim/`)
+
+> **Status:** decoded · **Code:** `src/engines/age/render/ped_model.cpp` · **Checked on:** the English release, all four models and 66 animations · **Confidence:** confirmed unless marked
 
 The people on the sidewalks: four models (`pedmodel_man`, `_manw`,
 `_woman`, `_womanw`, the `w` ones dressed for rain), each a skinned mesh
@@ -108,3 +110,8 @@ written down, but its numbers don't fit it as read so far; it isn't used.
 
 `pedmodel_*.rays` and `.shaders`, and `pedmodel_wolf.skel` (a
 four-legged skeleton), aren't read.
+
+## Sources and checks
+
+- **Where the facts come from:** the files (all but the animations are text), and drawing the result with Reluva's renderer until walkers walked.
+- **How it was checked:** every file read; `age.unit.city`.

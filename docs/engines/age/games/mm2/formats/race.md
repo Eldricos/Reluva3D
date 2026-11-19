@@ -1,4 +1,6 @@
-# Race files
+# Midtown Madness 2: Race files
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/race.cpp` · **Checked on:** the English release, both cities' races · **Confidence:** confirmed unless marked
 
 A city's races: their names in `tune/<city>.cinfo`, everything else in
 `race/<city>/` in `mm2core.ar`. Read by `src/engines/age/formats/race.cpp`. Worked
@@ -24,7 +26,7 @@ UnlockGroup=3
 Names are separated by `|`. MustPlace and UnlockGroup are read as
 unlocking's: races open UnlockGroup at a time, each group once those
 before it are placed at MustPlace or better
-([age-racing.md](../../engines/age-racing.md)). The Crash Course's
+([races.md](../systems/races.md)). The Crash Course's
 lessons have no names here; they're in `mmlang.dll`
 ([mmlang.md](mmlang.md)).
 
@@ -41,7 +43,7 @@ columns twice, amateur then professional:
 | Weather | 0-3 | |
 | Opponents | how many | that many of the race's opponent paths |
 | Cops | | how many of the race's aimap police take part ([aimap.md](aimap.md)) |
-| Ambient | traffic density | times 60 cars ([age-traffic.md](../../engines/age-traffic.md)) |
+| Ambient | traffic density | times 60 cars ([traffic.md](../systems/traffic.md)) |
 | Peds | pedestrian density | times 300 people, at most 60 |
 | NumLaps | | a circuit's laps |
 | TimeLimit | seconds | a Blitz's time limit |
@@ -120,7 +122,7 @@ copchase,3,1,180,0.2,0,0,0,0,0,0
   circuits, varies from gate to gate (4-16) and Reluva reads it as the
   gate's radius; the jump lessons' files head it "radius".
 - **Event**: what the lesson asks (0, 2, 3, 4, 5, 7, 8, 9), read from
-  `mmlang.dll`'s messages ([age-racing.md](../../engines/age-racing.md)).
+  `mmlang.dll`'s messages ([races.md](../systems/races.md)).
 - **Checkpoints**: 1 throughout. **TimeLimit** in seconds (0: none).
   **AmbDensity**: its traffic.
 - The extra columns: the first is the minimum speed in mph of the event
@@ -145,7 +147,7 @@ In the waypoint files' form (x, y, z, a heading, then columns that are 0
 throughout): 44 places in San Francisco, 46 in London, spread across the
 city at the roadside, each heading along its road. Reluva plays
 multiplayer Cops & Robbers between them: the gold's home and the bases
-([age-multiplayer.md](../../engines/age-multiplayer.md)). Which the game
+([multiplayer.md](../systems/multiplayer.md)). Which the game
 uses for what isn't in the file.
 
 San Francisco's `cir1_strtpnts` to `cir9_strtpnts` (no extension: one
@@ -158,7 +160,7 @@ grids, but don't match the circuits' starts by number. Not used.
 ([aimap.md](aimap.md)) with no race beside it: police (19 in San
 Francisco, 20 at Professional; 20 in London), no opponents, and in
 London the traffic's density and types. Reluva reads it for the race
-menu's Cruise ([age-racing.md](../../engines/age-racing.md#cruise-and-the-stunt)).
+menu's Cruise ([cruise-and-stunt.md](../systems/cruise-and-stunt.md#cruise-and-the-stunt)).
 
 ## The stunt: accel0waypoints.csv
 
@@ -171,3 +173,8 @@ Reluva runs it as Cruise's second race there.
 Not read: `stunt0waypoints.csv` (one point), `stunt0.aimap`,
 `jump0waypoints.csv`-`jump2waypoints.csv`, `jump0.aimap` and
 `ramp.pathset`.
+
+## Sources and checks
+
+- **Where the facts come from:** the files (CSV and `Key=Value` text), and driving them on the Race page.
+- **How it was checked:** every race loaded; `age.unit.game`.

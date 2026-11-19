@@ -1,33 +1,23 @@
 # DirectMusic segments, styles and bands (`.sgt`, `.sty`, `.bnd`)
 
-Microsoft DirectMusic's interactive music, as Midtown Madness 2 uses it
-(`aud/dmusic`: 62 segments, 17 styles, a band, 14 DLS collections; see
-[dls.md](dls.md)). Read and played by `audio/directmusic.cpp`.
+## What it is
 
-## How this was worked out
+Microsoft DirectMusic's interactive music: segments (`.sgt`), styles (`.sty`) and bands (`.bnd`), composed as they play over DLS instruments ([dls.md](dls.md)). Read and played by `src/audio/directmusic.cpp` (`DmPerformance`, an `OutputStream` for the mixer).
 
-- The forms, chunks and structures are Microsoft's published DirectX SDK
-  documentation (learn.microsoft.com, "previous-versions": DirectMusic
-  File Format, the Segment, Track, Style and Band forms, the Reference
-  List, the track chunks, and the `DMUS_IO_*` structures), as are the
-  music value's fields, the play mode flags, the command types, the
-  embellishment and pattern-repeat values, the grid-to-music-time formula
-  and the randomisation ranges' formula.
-- The game's files are older (DirectX 7) versions of several structures,
-  shorter than the documentation's; each chunk's size says which (below).
-- What the documentation leaves open was settled against the game's own
-  files: which nibble of a music value is which, the chord a segment
-  without a chord track plays over, which variations are in use, the
-  curve types. How each was settled is given where it's used.
+## What Reluva supports
 
-## Music time
+Style-based segments as DirectX 7 wrote them: their tracks (below), styles' parts, patterns and variations, bands, and music values turned into notes over the chord and scale, played by a performance of Reluva's own on its DLS synthesizer. What isn't read is listed under Playing.
+
+## The format
+
+### Music time
 
 768 ticks to a quarter note. A beat is 768 x 4 / (the time signature's
 beat note) ticks; a grid (`wGridsPerBeat` to a beat) a beat's share. A
 note at grid g and offset o is at (g / grids) beats + (g % grids) grids
 + o ticks (Microsoft's formula, in whole numbers).
 
-## Segment (`RIFF DMSG`)
+### Segment (`RIFF DMSG`)
 
 `segh` (24 bytes here, the documented header's first six fields): u32
 repeats, then music times: length, play start, loop start, loop end, and
@@ -54,7 +44,7 @@ tune: start, return, idle, idle with cops, cop chase, pause, results; the
 cruising file has cop chase before idle with cops, and no results).
 They play for long: 99 repeats of their loop for most.
 
-## Style (`RIFF DMST`)
+### Style (`RIFF DMST`)
 
 `styh` (12 bytes: the time signature, then the tempo as a double, packed
 with no padding), then:
@@ -76,7 +66,7 @@ with no padding), then:
 The game's patterns are plain (158), end (14) and motifs (11, played
 over the music by the game, not chosen by the command track).
 
-## Band (`RIFF DMBD`)
+### Band (`RIFF DMBD`)
 
 `LIST lbil` of `LIST lbin`: `bins` (40 bytes, DirectX 7's: patch,
 assigned patch, 128 note bits, channel, flags, pan, volume, u16
@@ -85,7 +75,7 @@ patch is MSB << 16 | LSB << 8 | program: the game's are bank 1 (LSB 1),
 as their DLS instruments are. Instruments with no DLS reference name
 General MIDI ones, which the game's music doesn't play.
 
-## Music values
+### Music values
 
 A part's notes are music values, made a MIDI key over the chord playing
 by the play mode (the part's, unless the note gives its own; 16 means
@@ -112,7 +102,7 @@ of every style's notes land on a key its instrument has a region for
 C, 16,769). The few misses are parts whose band differs in the segment
 from the style's. So: C major 7 in C major.
 
-## Playing (Reluva's performance)
+### Playing (Reluva's performance)
 
 - **Commands**: at each measure the command there, if any, sets the
   groove level (randomised within its range) and the embellishment asked
@@ -149,3 +139,25 @@ from the style's. So: C major 7 in C major.
 
 Not read: `rhtm`, markers, resolutions, anticipations, chordmaps, audio
 paths, scripts. Motifs (the big-air jingle) aren't played yet.
+
+## Sources and checks
+
+- The forms, chunks and structures are Microsoft's published DirectX SDK
+  documentation (learn.microsoft.com, "previous-versions": DirectMusic
+  File Format, the Segment, Track, Style and Band forms, the Reference
+  List, the track chunks, and the `DMUS_IO_*` structures), as are the
+  music value's fields, the play mode flags, the command types, the
+  embellishment and pattern-repeat values, the grid-to-music-time formula
+  and the randomisation ranges' formula.
+- The game's files are older (DirectX 7) versions of several structures,
+  shorter than the documentation's; each chunk's size says which (below).
+- What the documentation leaves open was settled against the game's own
+  files: which nibble of a music value is which, the chord a segment
+  without a chord track plays over, which variations are in use, the
+  curve types. How each was settled is given where it's used.
+
+- **Confidence:** published; what the documentation leaves open inferred from one game's files unless marked (docs/DOCUMENTATION_STANDARD.md).
+
+## Used by
+
+- **`age`**: Midtown Madness 2's `aud/dmusic` (62 segments, 17 styles, a band, 14 DLS collections), for its music ([music.md](../../engines/age/games/mm2/systems/music.md)).

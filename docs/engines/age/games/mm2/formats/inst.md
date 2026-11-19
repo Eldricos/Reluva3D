@@ -1,20 +1,10 @@
-# .inst placed models
+# Midtown Madness 2: .inst placed models
+
+> **Status:** decoded · **Code:** `src/engines/age/formats/instances.cpp` · **Checked on:** the English release, both cities · **Confidence:** confirmed unless marked
 
 The models a city places (buildings, lamp posts, bridges, signs):
 `city/sf.inst` (3,763) and `city/london.inst` (1,997) in `mm2core.ar`.
 Read by `src/engines/age/formats/instances.cpp`.
-
-## How this was worked out
-
-From the two files. The first record was a 16-bit value, another, a
-byte, a model's name and floats; the byte was the name's length (with
-its terminating zero) plus 0x80. Records whose byte had no 0x80 were
-followed by 12 floats, whose first nine made three axes of length about
-1 and whose last three a position in the city; those with 0x80 by 5
-floats, two then a position. With that, both files read to their exact
-end, and every name is a model in `geometry/`. The 16-bit value is a
-PSDL block number (it never exceeds the city's blocks, and neighbouring
-records share it).
 
 ## Layout
 
@@ -43,3 +33,17 @@ ties).
 |---|---|---|
 | records | 3,763 | 1,997 |
 | short form | 211 | 544 |
+
+## Sources and checks
+
+From the two files. The first record was a 16-bit value, another, a
+byte, a model's name and floats; the byte was the name's length (with
+its terminating zero) plus 0x80. Records whose byte had no 0x80 were
+followed by 12 floats, whose first nine made three axes of length about
+1 and whose last three a position in the city; those with 0x80 by 5
+floats, two then a position. With that, both files read to their exact
+end, and every name is a model in `geometry/`. The 16-bit value is a
+PSDL block number (it never exceeds the city's blocks, and neighbouring
+records share it).
+
+- **How it was checked:** both files read, every model they name found; `reluva-tool age check`; `age.unit.city`.
