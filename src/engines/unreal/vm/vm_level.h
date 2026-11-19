@@ -8,7 +8,7 @@
 // spawned, the start-up events sent in order, and the world ticked. The
 // engine side scripts call into (spawning, destroying, iterating over the
 // actors, timers) is in vm_level.cpp, movement in vm_physics.cpp, The
-// Fallen's splines in vm_splines.cpp. See docs/engines/unreal_vm.md.
+// Fallen's splines in vm_splines.cpp. See docs/engines/unreal/games/ds9fallen/systems/level.md.
 
 #include "engines/unreal/formats/actors.h"
 #include "engines/unreal/game/collision.h"

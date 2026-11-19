@@ -4,7 +4,7 @@
 #pragma once
 
 // UE1 fonts (class Font): pages of characters, each page a texture and
-// each character a rectangle on it. See docs/formats/unreal/font.md.
+// each character a rectangle on it. See docs/engines/unreal/games/ds9fallen/formats/font.md.
 
 #include "common/types.h"
 #include "engines/unreal/formats/package_set.h"

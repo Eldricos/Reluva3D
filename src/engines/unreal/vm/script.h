@@ -7,7 +7,7 @@
 // made of (properties, functions, states, structs, enums, constants: the
 // UField subclasses, chained through their Next references), and the
 // functions' and states' bytecode, decoded into expression trees. See
-// docs/formats/unreal/script.md.
+// docs/engines/unreal/games/ds9fallen/formats/script.md.
 
 #include "engines/unreal/formats/package.h"
 #include "engines/unreal/formats/properties.h"

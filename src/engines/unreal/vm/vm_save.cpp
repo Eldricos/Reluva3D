@@ -9,7 +9,7 @@
 // and the engine's own records of them (touching, moves under way,
 // animation layers and waits, skin channels, attachments, bends, the
 // dialogue). The HUD's load list (DrawLoadGameList, LoadByFileID,
-// DeleteByFileID) is here too. See docs/engines/unreal_vm.md.
+// DeleteByFileID) is here too. See docs/engines/unreal/games/ds9fallen/systems/saves.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

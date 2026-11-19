@@ -9,7 +9,7 @@
 // brightness, radius, cone) comes from the light actors, and the engine
 // works out the brightness at each point. This does that once, when a
 // level loads, into lightmap textures packed into pages. See
-// docs/formats/unreal/lighting.md.
+// docs/engines/unreal/games/ds9fallen/systems/lighting.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/actors.h"

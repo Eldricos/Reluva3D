@@ -7,7 +7,7 @@
 // read section by section for CTVE_Document: which documents there are
 // (FindDocument), a section's settings as the actor's properties
 // (LocalizeDocument), and its lines handed to the actor's events to draw
-// (LoadDocument). See docs/engines/unreal_vm.md.
+// (LoadDocument). See docs/engines/unreal/games/ds9fallen/systems/documents.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

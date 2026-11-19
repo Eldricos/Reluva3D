@@ -6,7 +6,7 @@
 // CTVE_MultiMesh list) and, for a few, itself; and the flight and
 // interpolation modes some actors use. Each is Reluva's reading of what
 // the effect's scripts set and leave undone; the original code isn't
-// known. See docs/engines/unreal_vm.md.
+// known. See docs/engines/unreal/games/ds9fallen/systems/effects.md.
 
 #include "engines/unreal/vm/vm_level.h"
 #include "engines/unreal/formats/actors.h"

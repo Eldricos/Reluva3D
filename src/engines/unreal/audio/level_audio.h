@@ -6,7 +6,7 @@
 // A played level's sounds through the mixer (the Maps page's): what its
 // scripts play, heard from where the actor is, the actors' ambient sounds,
 // the music and the dialogue's voices, at the game's volume settings. See
-// docs/engines/unreal_vm.md.
+// docs/engines/unreal/games/ds9fallen/systems/sound.md.
 
 #include "audio/mixer.h"
 #include "engines/unreal/game/level_play.h"

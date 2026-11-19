@@ -5,7 +5,7 @@
 
 // Meshes (Mesh and LodMesh objects): vertex-animated models, every frame
 // keeping every vertex's position. Characters, items and decorations.
-// See docs/formats/unreal/mesh.md.
+// See docs/engines/unreal/games/ds9fallen/formats/mesh.md.
 
 #include "engines/unreal/formats/model.h"
 #include "engines/unreal/formats/properties.h"

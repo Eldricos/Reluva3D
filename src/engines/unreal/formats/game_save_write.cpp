@@ -7,7 +7,7 @@
 // brushes, the lights' surfaces) are the map's data as they are, their
 // references still right; what the level has (its actors, their state,
 // the objects they made) is written from the running level. See
-// docs/formats/unreal/save.md.
+// docs/engines/unreal/games/ds9fallen/formats/save.md.
 
 #include "engines/unreal/vm/vm_level.h"
 

@@ -6,7 +6,7 @@
 // Models (Model objects): BSP geometry, a level's world and each brush's.
 // A level's is the one with nodes; its polygons are the nodes' vertex
 // lists, each drawn with its surface's texture and flags. See
-// docs/formats/unreal/model.md.
+// docs/engines/unreal/games/ds9fallen/formats/model.md.
 
 #include "engines/unreal/formats/package.h"
 

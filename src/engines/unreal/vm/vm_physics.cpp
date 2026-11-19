@@ -7,7 +7,7 @@
 // the physics modes scripts set (walking, falling, swimming, flying,
 // projectiles, rotating, movers gliding between keyframes); and pawns'
 // latent movement. Reluva's own model of UE1's movement, from what the
-// scripts set and expect: see docs/engines/unreal_vm.md.
+// scripts set and expect: see docs/engines/unreal/games/ds9fallen/systems/movement.md.
 
 #include "engines/unreal/vm/vm_level.h"
 
@@ -1357,7 +1357,7 @@ void ScriptLevel::move(VmObject *a, int physics, float dt) {
 }
 
 // Walking, falling, swimming, flying: as Engine.dll's.
-// (read for what they do; see docs/engines/unreal_vm.md, Movement.)
+// (read for what they do; see docs/engines/unreal/games/ds9fallen/systems/movement.md, Movement.)
 
 ScriptLevel::ZoneFeel ScriptLevel::zoneFeel(VmObject *a) {
     ZoneFeel z;

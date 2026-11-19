@@ -7,7 +7,7 @@
 // another's tables: its names, imports and exports keep their numbers, so
 // an export's data copied as it is still refers to the right objects. More
 // names, imports and exports are added after them. See
-// docs/formats/unreal/package.md.
+// docs/engines/unreal/games/ds9fallen/formats/package.md.
 
 #include "common/types.h"
 #include "engines/unreal/formats/package.h"

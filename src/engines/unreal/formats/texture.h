@@ -5,7 +5,7 @@
 
 // Textures and palettes (Texture and Palette objects, mostly in .utx
 // packages; maps carry their own in the MyLevel group). See
-// docs/formats/unreal/texture.md.
+// docs/engines/unreal/games/ds9fallen/formats/texture.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/package_set.h"

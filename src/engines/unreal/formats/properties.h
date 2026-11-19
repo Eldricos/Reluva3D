@@ -6,7 +6,7 @@
 // An object's data starts with its properties: the values that differ
 // from its class's defaults, each tagged with its name and type, ending at
 // the name "None". What follows is the class's own data (a texture's
-// pixels, a level's geometry). See docs/formats/unreal/package.md.
+// pixels, a level's geometry). See docs/engines/unreal/games/ds9fallen/formats/package.md.
 
 #include "engines/unreal/formats/package.h"
 

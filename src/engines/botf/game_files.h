@@ -12,7 +12,7 @@
 namespace reluva::botf {
 
 /**
- * Stbof.ini's KEY=VALUE lines (docs/engines/botf/formats/install.md), keys in upper
+ * Stbof.ini's KEY=VALUE lines (docs/engines/botf/systems/game-files.md), keys in upper
  * case. Lines without '=' are skipped.
  */
 std::map<std::string, std::string> parseStbofIni(std::string_view text);

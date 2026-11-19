@@ -20,7 +20,7 @@ constexpr uint32_t fourcc(const char (&s)[5]) {
 }
 
 /**
- * Video for Windows files (.avi, docs/common/avi.md): the first video
+ * Video for Windows files (.avi, docs/common/video/avi.md): the first video
  * stream, with its frames decoded when it's Cinepak, and the first audio
  * stream when it's PCM, read whole.
  */

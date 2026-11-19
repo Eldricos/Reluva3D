@@ -7,7 +7,7 @@
 // logged in, ticked in fixed steps as real time passes, steered by the
 // controls, seen from where the game's own PlayerCalcView puts the camera.
 // The Maps page draws it; reluva-tool ue-play drives it without a window.
-// See docs/engines/unreal_vm.md.
+// See docs/engines/unreal/games/ds9fallen/systems/playing.md.
 
 #include "engines/unreal/formats/actors.h"
 #include "engines/unreal/formats/package_set.h"

@@ -7,7 +7,7 @@
 // actor stores only the properties that differ from its class's defaults;
 // a class stores only those that differ from its parent's. The defaults
 // are the last thing in a class's data, after its script (script.h reads
-// it). See docs/formats/unreal/actors.md.
+// it). See docs/engines/unreal/games/ds9fallen/systems/actors.md.
 
 #include "engines/unreal/formats/package_set.h"
 #include "engines/unreal/formats/properties.h"

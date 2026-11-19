@@ -7,7 +7,7 @@
 // script (script.h) into a runtime form, objects made from them with
 // their properties' values, and an interpreter for the bytecode, with
 // states, state code that waits (latent functions), timers and native
-// functions written in C++ (vm_natives_*.cpp). See docs/engines/unreal_vm.md.
+// functions written in C++ (vm_natives_*.cpp). See docs/engines/unreal/games/ds9fallen/systems/script-vm.md.
 //
 // Values are kept by property, not in raw memory as the original does: an
 // object holds one Value per property element, a struct value its fields'

@@ -7,7 +7,7 @@
 // as the engine saves it. What's read here is what a map doesn't have:
 // the Level object's ghosts, dialogue table counts and the sounds playing,
 // and the C3D mesh states (each actor's animation groups and face
-// channels). See docs/formats/unreal/save.md.
+// channels). See docs/engines/unreal/games/ds9fallen/formats/save.md.
 
 #include "common/types.h"
 #include "engines/unreal/formats/package.h"

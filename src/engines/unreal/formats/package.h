@@ -7,7 +7,7 @@
 // engine loads is one. A package holds a table of names, the objects it
 // takes from other packages (imports) and the objects it defines
 // (exports), each export's data stored at its own offset. See
-// docs/formats/unreal/package.md.
+// docs/engines/unreal/games/ds9fallen/formats/package.md.
 
 #include "common/types.h"
 

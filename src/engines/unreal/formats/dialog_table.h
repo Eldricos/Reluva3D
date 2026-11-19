@@ -7,7 +7,7 @@
 // (int/M01_Dialogue.txt...), each line a row: who says it, to whom, in
 // which missions, of which type, its text, what follows it, what it
 // needs and what it sets off. Their voices are sounds of the same name
-// in the matching .uax. See docs/formats/unreal/dialogue.md.
+// in the matching .uax. See docs/engines/unreal/games/ds9fallen/formats/dialogue-tables.md.
 
 #include "common/types.h"
 

@@ -6,7 +6,7 @@
 // What a level's actors add to its look, read from their saved
 // properties: movers (doors, lifts: brushes kept out of the level's BSP,
 // drawn from their own polygons) and the sky zone (the room the sky is
-// seen from). See docs/formats/unreal/actors.md.
+// seen from). See docs/engines/unreal/games/ds9fallen/systems/actors.md.
 
 #include "engines/unreal/formats/model.h"
 #include "engines/unreal/formats/package_set.h"

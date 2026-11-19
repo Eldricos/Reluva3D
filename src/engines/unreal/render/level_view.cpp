@@ -3063,7 +3063,7 @@ void LevelView::addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &fo
 // default): its renderer says so (GetRendererFlags bit 2), and its blob
 // shadows (CTV_Shadow) step aside. As the original's renderer does it
 // (Render.dll's PrepareProjectedShadow and DrawProjectedShadow, read for
-// what they do; docs/engines/unreal/lighting.md): the mesh flattened from
+// what they do; docs/engines/unreal/games/ds9fallen/systems/lighting.md): the mesh flattened from
 // one light onto the floor under it, darkest close to its feet, its
 // strength easing in and out as it moves between lights.
 void LevelView::drawShadow(VmObject *a, const Vec3f &at) {

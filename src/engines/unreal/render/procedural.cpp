@@ -174,7 +174,7 @@ FractalRandom &fractalRandom() {
 
 // Fire: a heat value per pixel, shown through the palette, as Fire.dll
 // does it (read for what it does, its sparks checked against it running
-// in an emulator; see docs/formats/unreal/texture.md). Each spark is 8
+// in an emulator; see docs/engines/unreal/games/ds9fallen/formats/texture.md). Each spark is 8
 // bytes after the mipmaps (a compact count first): type, heat, X, Y and
 // the bytes A-D. Each step every spark in turn draws itself (writing its
 // pixels' heat outright) and the emitters add moving sparks to the same

@@ -10,7 +10,7 @@
 // it). The procedural ones store only their settings (fire's sparks,
 // water's drops); the pictures are made here, Reluva's own simulation of
 // what the settings describe, to be compared with the original running.
-// See docs/formats/unreal/texture.md.
+// See docs/engines/unreal/games/ds9fallen/formats/texture.md.
 
 #include "image/image.h"
 #include "engines/unreal/formats/package_set.h"

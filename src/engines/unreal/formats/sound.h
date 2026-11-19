@@ -7,7 +7,7 @@
 // almost always a RIFF WAVE, kept inside the object. Music (.umx) is stored
 // the same way, as tracker modules. The Fallen keeps its music as MP3
 // files in its mp3 folder instead, each with a placeholder Sound of the
-// same name. See docs/formats/unreal/sound.md.
+// same name. See docs/engines/unreal/games/ds9fallen/formats/sound.md.
 
 #include "audio/sound.h"
 #include "engines/unreal/formats/package.h"

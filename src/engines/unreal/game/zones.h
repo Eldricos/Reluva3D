@@ -9,7 +9,7 @@
 // out each frame from the zone portals: from the camera's zone, through
 // each portal it can see into the zone beyond, the view narrowed to the
 // portal's rectangle on screen as it goes. See
-// docs/formats/unreal/model.md.
+// docs/engines/unreal/games/ds9fallen/formats/model.md.
 
 #include "engines/unreal/formats/model.h"
 

@@ -8,7 +8,7 @@
 // reach (times 1.1) to the solid leaves it touches, and each of those
 // tested against the convex hull stored for its node, its planes, its
 // bounding box and bevels along its edges, at the box's true size. Lines
-// and points: the BSP alone. See docs/formats/unreal/collision.md.
+// and points: the BSP alone. See docs/engines/unreal/games/ds9fallen/systems/collision.md.
 
 #include "engines/unreal/formats/model.h"
 
