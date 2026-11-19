@@ -18,7 +18,9 @@ struct GameInfo {
     const char *iniName; // its settings in System/, which list where packages are (else Default.ini)
 };
 
+/** The games this engine knows, the unidentified "ue1" last. */
 const std::vector<GameInfo> &games();
+/** The game with that id, or nullptr. */
 const GameInfo *findGame(std::string_view gameId);
 
 /**

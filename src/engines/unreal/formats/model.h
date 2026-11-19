@@ -17,8 +17,10 @@
 
 namespace reluva::unreal {
 
+/** A point or direction in Unreal's space: X forward, Y right, Z up. */
 using Vec3f = std::array<float, 3>;
 
+/** A node of the BSP: a plane, and the polygon on it if it has one. */
 struct BspNode {
     std::array<float, 4> plane{}; // normal and distance
     uint64_t zoneMask = 0;
@@ -35,10 +37,11 @@ struct BspNode {
     int32_t leaf[2] = {};
 };
 
+/** A surface: what the nodes' polygons on it share (texture, flags, mapping). */
 struct BspSurf {
     int32_t texture = 0; // object reference
     uint32_t polyFlags = 0;
-    /** into points / vectors */
+    // into points / vectors
     int32_t base = 0;
     int32_t normal = 0;
     int32_t textureU = 0;
@@ -50,11 +53,13 @@ struct BspSurf {
     int32_t actor = 0; // object reference: the brush it came from
 };
 
+/** A polygon's vertex: an index into Model::points. */
 struct BspVert {
     int32_t point = 0;
     int32_t side = 0;
 };
 
+/** A zone of the level. */
 struct Zone {
     int32_t actor = 0; // object reference: the ZoneInfo (or LevelInfo for zone 0)
     uint64_t connectivity = 0;
@@ -77,6 +82,7 @@ struct LightMapIndex {
     int32_t lightActors = -1; // into Model::lights: the lights, up to a 0
 };
 
+/** A leaf of the BSP: a convex space, and the zone it's in. */
 struct Leaf {
     int32_t zone = 0;
     int32_t permeating = 0;
@@ -84,6 +90,7 @@ struct Leaf {
     uint64_t visibleZones = 0;
 };
 
+/** A Model object (see the top of this file). */
 struct Model {
     Vec3f boundsMin{};
     Vec3f boundsMax{};
@@ -95,11 +102,9 @@ struct Model {
     int32_t sharedSides = 0;
     int32_t zoneCount = 0;
 
-    /**
-     * After the vertices: what lighting needs. If these don't read (a
-     * layout this reader doesn't know), the geometry still does and
-     * `lightingError` says why.
-     */
+    // After the vertices: what lighting needs. If these don't read (a
+    // layout this reader doesn't know), the geometry still does and
+    // `lightingError` says why.
     std::vector<Zone> zones;
     int32_t polys = 0; // object reference
     std::vector<LightMapIndex> lightMaps;
@@ -110,6 +115,7 @@ struct Model {
     bool rootOutside = true;     // whether what's beyond the BSP's root is open space
     size_t trailingBytes = 0;    // left over after the last field read
     std::string lightingError;
+    /** Whether what follows the vertices read (lightingError is empty). */
     bool hasLighting() const { return lightingError.empty(); }
     /**
      * Read without validating: why the BSP (nodes, surfaces, vertices)
@@ -130,14 +136,13 @@ Error readModel(const Package &package, int exportIndex, Model &out, bool valida
 /**
  * The model a level is drawn from: of the package's models, the one with
  * the most nodes (brushes' own models have none). -1 if there's none.
+ * @param out Set to that model, if given.
+ * @param error Set, if given and empty, to why the first model that didn't
+ *        read didn't.
  */
 int findLevelModel(const Package &package, Model *out = nullptr, std::string *error = nullptr);
 
-/**
- * A level's polygons as triangles, grouped by texture and flags. Positions
- * are the level's own (Unreal's axes: X forward, Y right, Z up); texture
- * coordinates are in texels, for dividing by the texture's size.
- */
+/** One of a level's polygons, as levelPolygons gives them. */
 struct Polygon {
     int32_t surf = 0;
     std::vector<Vec3f> points;
@@ -149,6 +154,12 @@ struct Polygon {
      */
     uint64_t zones = 0;
 };
+/**
+ * A level's polygons, one for each node with one, in node order (invisible
+ * surfaces and portals left out). Positions are the level's own (Unreal's
+ * axes: X forward, Y right, Z up); texture coordinates are in texels, for
+ * dividing by the texture's size.
+ */
 std::vector<Polygon> levelPolygons(const Model &model);
 
 } // namespace reluva::unreal

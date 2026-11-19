@@ -28,23 +28,28 @@ struct LevelExtras {
     std::string urlMap;
     std::string urlPortal;
     std::vector<int32_t> ghosts;
+    /** A dialogue line, and how often it's been said. */
     struct Line {
         std::string key; // TYPE SPEAKER LISTENER ID MISSION
         int said = 0;
     };
     std::vector<Line> lines;
+    /** A sound playing when the level was saved. */
     struct Sound {
         int32_t actor = 0; // object reference
         int32_t id = 0;    // the audio driver's: actor x 16 + slot x 2 + no-override; below 0 slot none
         std::string path;  // Package.Group.Name
-        /** start: in the level's seconds */
         float volume = 1;
         float radius = 0;
         float pitch = 1;
-        float start = 0;
+        float start = 0; // in the level's seconds
     };
     std::vector<Sound> sounds;
 };
+/**
+ * Reads the package's first Level object's extras; a package older than
+ * version 69 or 70 stops short of the ghosts, or of the dialogue and sounds.
+ */
 Error readLevelExtras(const Package &package, LevelExtras &out);
 
 /**
@@ -77,20 +82,24 @@ struct MeshStateGroup {
     std::string bone;               // its InheritBone: what its clears turn
     std::array<int32_t, 3> clear{}; // ClearYaw, ClearPitch, ClearRoll (fairly sure)
 };
+/** A C3DMESHSTATE object: its mesh's name and its animation groups. */
 struct MeshState {
     std::string mesh;
     std::vector<MeshStateGroup> groups;
 };
+/** Reads a C3DMESHSTATE; fails on one of the older format (without its magic number). */
 Error readMeshState(const Package &package, int exportIndex, MeshState &out);
 
 /**
  * Where a C3D mesh state's animation groups are in its export's data
- * (from the start of its count to the end of the last).
+ * (from the start of its count to the end of the last); false if it
+ * doesn't read.
  */
 bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
 /**
  * Where, in a Level object's data, the model reference starts and the
- * reach list ends (copied as they are into a saved game's).
+ * reach list ends (copied as they are into a saved game's); false if it
+ * doesn't read.
  */
 bool levelModelSpan(const std::vector<uint8_t> &data, int version, size_t &begin, size_t &end);
 

@@ -24,10 +24,14 @@
 
 namespace reluva::tools {
 
+/** A gfx::Renderer3D drawing into memory (see the top of this file). */
 class SoftRenderer3D : public gfx::Renderer3D {
 public:
+    /** Frames of `width` x `height` pixels. */
     SoftRenderer3D(int width, int height);
 
+    /** gfx::Renderer3D's, drawn in memory: the top of this file says what isn't done. */
+    ///@{
     Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
                         gfx::TextureId &out) override;
     void destroyTexture(gfx::TextureId id) override;
@@ -57,13 +61,18 @@ public:
     bool hasStencil() const override { return true; }
     void setStencilMode(StencilMode mode) override { _stencilMode = mode; }
     void setStencilLevel(uint8_t level) override { stencilLevel = level; }
-    uint8_t stencilLevel = 1;
-    bool capture = false;
+    ///@}
+    uint8_t stencilLevel = 1; // as setStencilLevel last set it
+    bool capture = false;     // a capture asked for and not yet taken
+    /** gfx::Renderer3D's too; setMirrored does nothing, as mirroring isn't done. */
+    ///@{
     void setMirrored(bool) override {}
     void setGamma(float gamma) override { _gamma = gamma; }
     void endFrame(const Surface *overlay) override;
+    ///@}
     /** Every finished frame is kept (frame()), so the next one is too. */
     void captureNextFrame() override { capture = true; }
+    /** The frame captureNextFrame() asked for, once. */
     bool takeCapture(std::vector<uint8_t> &rgba) override {
         if (!capture || _frame.pixels.empty())
             return false;
@@ -78,11 +87,15 @@ public:
      */
     bool drawing = true;
     /** The last finished frame (RGBA32), and how many frames there were. */
+    ///@{
     const Surface &frame() const { return _frame; }
     int frames() const { return _frames; }
+    ///@}
     /** Draw calls and triangles drawn in the last frame. */
+    ///@{
     int lastDraws() const { return _lastDraws; }
     int lastTriangles() const { return _lastTriangles; }
+    ///@}
 
 private:
     std::vector<gfx::DynamicLight> _lights;

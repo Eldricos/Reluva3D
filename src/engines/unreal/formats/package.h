@@ -23,9 +23,10 @@
 
 namespace reluva::unreal {
 
+/** The first four bytes of every package, read little-endian. */
 constexpr uint32_t kPackageTag = 0x9E2A83C1;
 
-// Object flags that change how an export's data starts.
+/** Object flags that change how an export's data starts. */
 namespace objflag {
 constexpr uint32_t kHasStack = 0x02000000; // a state frame comes before the properties
 } // namespace objflag
@@ -39,17 +40,31 @@ constexpr uint32_t kHasStack = 0x02000000; // a state frame comes before the pro
  */
 class Reader {
 public:
+    /** Over `size` bytes at `data`, which it doesn't copy: they must outlive it. */
+    ///@{
     Reader(const uint8_t *data, size_t size, size_t base = 0) : _data(data), _size(size), _base(base) {}
     explicit Reader(const std::vector<uint8_t> &data, size_t base = 0) : Reader(data.data(), data.size(), base) {}
+    ///@}
 
+    /** Whether every read so far was in bounds, and marking that one wasn't. */
+    ///@{
     bool ok() const { return _ok; }
     void fail() { _ok = false; }
+    ///@}
+    /** Where it is and where the data ends, as file offsets. */
+    ///@{
     size_t pos() const { return _base + _pos; }
     size_t end() const { return _base + _size; }
+    ///@}
+    /** How many bytes are left. */
     size_t remaining() const { return _size - _pos; }
+    /** Moves to a file offset, or past the end and failing if it's outside the data. */
     void seek(size_t absolute);
+    /** Skips `n` bytes, or to the end and failing if there aren't as many. */
     void skip(size_t n);
 
+    /** The next value, little-endian; 0 past the end. */
+    ///@{
     uint8_t u8();
     uint16_t u16();
     int16_t i16() { return static_cast<int16_t>(u16()); }
@@ -57,8 +72,10 @@ public:
     int32_t i32() { return static_cast<int32_t>(u32()); }
     uint64_t u64();
     float f32();
+    ///@}
     /** The engine's compact integer: 1 to 5 bytes, see package.md. */
     int32_t index();
+    /** The next `n` bytes; false, with `out` zeroed, if there aren't as many. */
     bool bytes(void *out, size_t n);
     /**
      * A string as packages of `version` store them: before 64 NUL
@@ -74,6 +91,7 @@ private:
     bool _ok = true;
 };
 
+/** An entry of the name table. */
 struct NameEntry {
     std::string name;
     uint32_t flags = 0;
@@ -102,6 +120,7 @@ struct Export {
  * Object references, as packages store them: > 0 the export at ref - 1,
  * < 0 the import at -ref - 1, 0 none.
  */
+///@{
 inline bool isExport(int32_t ref) {
     return ref > 0;
 }
@@ -114,33 +133,47 @@ inline int exportIndex(int32_t ref) {
 inline int importIndex(int32_t ref) {
     return -ref - 1;
 }
+///@}
 
+/** One package: its tables, and its exports' data read when asked for. */
 class Package {
 public:
     /**
-     * Reads the header and tables from a file; export data is read from the
-     * file when asked for. `name` defaults to the file's stem.
+     * Reads the header and tables from a file, which it keeps for reading
+     * export data when asked for. Its name is the file's stem.
      */
     Error open(const std::filesystem::path &file);
     /** The same from a whole file in memory (kept). */
     Error openMemory(std::vector<uint8_t> data, std::string name);
 
+    /** Its name (no extension), and the file it came from (empty from memory). */
+    ///@{
     const std::string &name() const { return _name; }
     const std::filesystem::path &file() const { return _file; }
+    ///@}
+    /** The header's fields. */
+    ///@{
     int version() const { return _version; }
     int licensee() const { return _licensee; }
     uint32_t flags() const { return _flags; }
+    ///@}
+    /** The file's size in bytes. */
     uint64_t fileSize() const { return _fileSize; }
 
+    /** The name, import and export tables. */
+    ///@{
     const std::vector<NameEntry> &names() const { return _names; }
     const std::vector<Import> &imports() const { return _imports; }
     const std::vector<Export> &exports() const { return _exports; }
+    ///@}
 
     /** A name table entry; "" when out of range. */
     const std::string &name(int32_t index) const;
-    /** An object's own name and its class's name ("Class" for classes). */
+    /** An object's own name and its class's name ("Class" for classes); empty for a bad reference. */
+    ///@{
     std::string objectName(int32_t ref) const;
     std::string className(int32_t ref) const;
+    ///@}
     /**
      * Its outers' names and its own, joined by dots ("Group.Name"); for an
      * import, starting with the package it comes from.
@@ -159,7 +192,11 @@ public:
     /** Every export whose class has that name, ignoring case. */
     std::vector<int> exportsOfClass(std::string_view className) const;
 
-    /** An export's data, and a reader over it at its file offset. */
+    /**
+     * An export's data (empty if it has none); a Reader over it with its
+     * serialOffset as `base` sees the offsets the file stores. Safe to call
+     * from several threads.
+     */
     Error readExport(int index, std::vector<uint8_t> &out) const;
 
 private:

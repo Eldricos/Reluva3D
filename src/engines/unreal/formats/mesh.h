@@ -19,6 +19,7 @@
 
 namespace reluva::unreal {
 
+/** An animation: a run of the mesh's frames, played at its rate. */
 struct MeshAnimSeq {
     std::string name;
     std::string group;
@@ -62,6 +63,7 @@ struct MeshAttachPoint {
     int32_t kind = 0;
 };
 
+/** A Mesh or LodMesh object (see the top of this file). */
 struct Mesh {
     bool lod = false;       // a LodMesh
     int32_t frameVerts = 0; // vertices per frame
@@ -98,11 +100,9 @@ struct Mesh {
      * until the rest is worked out. 0: every frame was found.
      */
     int keyFrames = 0;
-    /**
-     * The Fallen's meshes built on a skeleton: how many bones they were
-     * posed from (0 for the others), and whether every frame was posed
-     * from their animation keys (else all are the pose they're bound in).
-     */
+    // The Fallen's meshes built on a skeleton: how many bones they were
+    // posed from (0 for the others), and whether every frame was posed
+    // from their animation keys (else all are the pose they're bound in).
     int bones = 0;
     bool bonesAnimated = false;
     /**
@@ -121,6 +121,7 @@ struct Mesh {
     std::vector<MeshAttachPoint> precomputedPoints;
     std::vector<std::string> animationSetNames; // the shared sets its animations come from ("shared.Male")
 
+    /** The animation of that name (any case) in `anims`, or nullptr. */
     const MeshAnimSeq *findAnim(std::string_view name) const;
 };
 
@@ -135,20 +136,27 @@ Error readMesh(const Package &package, int exportIndex, Mesh &out);
  */
 class AnimationSet {
 public:
+    /** An empty set; readAnimationSet fills one. */
     AnimationSet();
     ~AnimationSet();
+    /** Sets move (their data is behind `impl`). */
+    ///@{
     AnimationSet(AnimationSet &&) noexcept;
     AnimationSet &operator=(AnimationSet &&) noexcept;
-    int frames() const; // its clips' frames together
+    ///@}
+    /** Its clips' frames together. */
+    int frames() const;
     /**
      * The clip whose frames a sequence's are exactly (and, where the set
      * names its clips, of its name), or -1.
      */
     int clipFor(int32_t startFrame, int32_t numFrames, std::string_view name = {}) const;
 
+    /** Its skeleton and clips (mesh.cpp's). */
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
+/** Reads a Mesh export as an animation set; fails if its bones don't read or their clips don't agree. */
 Error readAnimationSet(const Package &package, int exportIndex, AnimationSet &out);
 
 /**
@@ -160,11 +168,11 @@ Error readAnimationSet(const Package &package, int exportIndex, AnimationSet &ou
 Error borrowAnimation(const Package &package, int exportIndex, const AnimationSet &set, int clip,
                       const MeshAnimSeq &seq, Mesh &mesh);
 
+class PackageSet;
 /**
  * Every animation set in the packages' .u files (Mesh exports with a
  * skeleton, clips and no vertices).
  */
-class PackageSet;
 std::vector<AnimationSet> findAnimationSets(const PackageSet &packages);
 /**
  * The same, read once for a package set while anyone holds them (the
@@ -188,6 +196,7 @@ bool borrowNamedAnimation(const Package &package, int exportIndex, const std::ve
  */
 class LayeredPoser {
 public:
+    /** An empty poser; open() makes one that works. */
     LayeredPoser();
     ~LayeredPoser();
     /**
@@ -206,8 +215,10 @@ public:
      * UpperTorso), by name (-1 if none such), and a group's bones (empty
      * if there's no such group): the bones whose own lists name it.
      */
+    ///@{
     int groupIndex(std::string_view name) const;
     std::vector<bool> groupPart(std::string_view name) const;
+    ///@}
     /**
      * The animation under the layers: its name, and whether it's looping
      * (the engine's sampler then blends its last stretch toward the
@@ -216,10 +227,14 @@ public:
     struct Anim {
         std::string_view name;
         bool loop = false;
+        /** An animation by name; the name isn't copied, and must outlive it. */
+        ///@{
         Anim(std::string_view n, bool l = false) : name(n), loop(l) {}
         Anim(const std::string &n, bool l = false) : name(n), loop(l) {}
         Anim(const char *n, bool l = false) : name(n), loop(l) {}
+        ///@}
     };
+    /** An animation played on a part of the skeleton over what's under it. */
     struct Layer {
         std::string_view anim;
         float fraction = 0; // through it, as an actor's AnimFrame
@@ -295,13 +310,14 @@ public:
         std::vector<Turn> turns;
         std::vector<SpaceTurn> spaceTurns;
         /**
-         * The scripts' bone turns this tick, in the order made, each on
+         * One of the scripts' bone turns this tick, in the order made, each on
          * the pose as the ones before left it (C3DApplyRotation: about the
          * bone's own axis; C3DApplyWorldRotation: `turn` in the skeleton's
          * space, about its origin; C3DRemoveRotation: the bone's yaw (Y),
          * pitch (X) and/or roll (Z) away from its bind pose taken out).
          */
         struct Op {
+            /** C3DApplyRotation's, C3DApplyWorldRotation's or C3DRemoveRotation's. */
             enum Kind { kOwn, kSpace, kRemove } kind = kOwn;
             std::string bone;
             int axis = 0;
@@ -311,13 +327,10 @@ public:
         };
         std::vector<Op> ops;
         std::vector<Reach> reaches;
+        /** Whether there's nothing to do. */
         bool empty() const { return turns.empty() && spaceTurns.empty() && ops.empty() && reaches.empty(); }
     };
     /**
-     * One frame of vertices (FrameVerts, in packed units as Mesh::verts):
-     * every bone placed as `base` has it `fraction` through, then the
-     * bones of each layer's part blended towards where its animation has
-     * them, then `adjust`. False if an animation isn't the mesh's.
      * A face channel (C3DSetSkinAnim): one of the face's vertex-key clips
      * (Blink, EyeBrows, Phonemes) `seconds` into it, by `weight`.
      * While it tweens, `mix` of the way from its last frame and weight
@@ -331,7 +344,13 @@ public:
         float fromWeight = 0;
         float mix = 1;
     };
-    /** ... and the face's channels over that. */
+    /**
+     * One frame of vertices (FrameVerts, in packed units as Mesh::verts):
+     * every bone placed as `base` has it `fraction` through, then the
+     * bones of each layer's part blended towards where its animation has
+     * them, then `adjust`, and the face's channels over that. False if an
+     * animation isn't the mesh's.
+     */
     bool pose(Anim base, float fraction, const std::vector<Layer> &layers, std::vector<Vec3f> &out,
               const Adjust *adjust = nullptr, const std::vector<Face> *faces = nullptr) const;
     /**
@@ -351,16 +370,18 @@ public:
               std::array<Vec3f, 3> &axes, const Adjust *adjust = nullptr) const;
     /**
      * Every bone's place in the skeleton's space in the same pose (rows X,
-     * Y, Z and the origin, each bone in order), and a bone's index (-1 if
-     * there's none), for asking after many bones of one pose.
+     * Y, Z and the origin, each bone in order, as boneIndex numbers them),
+     * for asking after many bones of one pose.
      */
     bool skeleton(Anim base, float fraction, const std::vector<Layer> &layers,
                   std::vector<std::array<float, 12>> &worlds, const Adjust *adjust = nullptr) const;
     /** Every bone's place in the skeleton's space in its bind pose. */
     std::vector<std::array<float, 12>> bindSkeleton() const;
+    /** A bone's index (-1 if there's none of that name). */
     int boneIndex(std::string_view name) const;
     /** Whether it has (or borrows from its shared sets) the IK chain. */
     bool hasChain(const std::string &name) const;
+    /** A bone's name; empty for an index out of range. */
     std::string boneName(int index) const;
     /**
      * The bone that moves these vertices most (by their weights summed): a
@@ -370,14 +391,17 @@ public:
     /** The same in the skeleton's space (as Adjust). */
     bool boneInSkeleton(Anim base, float fraction, const std::vector<Layer> &layers, std::string_view name,
                         Vec3f &origin, std::array<Vec3f, 3> &axes, const Adjust *adjust = nullptr) const;
+    /** Whether it has a bone of that name (any case). */
     bool hasBone(std::string_view name) const;
     /** A bone's parent's name (empty for the root). */
     std::string parentOf(std::string_view name) const;
 
+    /** Its skeleton, animations and the sets it borrows from (mesh.cpp's). */
     struct Impl;
     std::unique_ptr<Impl> impl;
 };
 
+/** Whether a class name is a mesh's (Mesh or LodMesh, any case). */
 bool isMeshClass(std::string_view className);
 
 /**

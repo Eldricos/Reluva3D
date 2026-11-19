@@ -16,10 +16,7 @@
 
 namespace reluva::unreal {
 
-/**
- * The native functions the packages declare, by number (each declared
- * once), for showing native calls by name and operators as operators.
- */
+/** A native function as its declaration in the packages has it. */
 struct NativeFunction {
     std::string name;   // the function's own name ("Not_PreBool")
     std::string symbol; // what scripts write: its friendly name ("!")
@@ -28,10 +25,17 @@ struct NativeFunction {
     int params = 0;
 };
 
+/**
+ * The native functions the packages declare, by number (each declared
+ * once), for showing native calls by name and operators as operators.
+ */
 class NativeTable {
 public:
+    /** Reads every native function of every package in the set. */
     explicit NativeTable(const PackageSet &packages);
+    /** The function with that native number, or nullptr. */
     const NativeFunction *find(int native) const;
+    /** How many there are. */
     size_t size() const { return _natives.size(); }
 
 private:

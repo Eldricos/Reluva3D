@@ -19,8 +19,10 @@
 
 namespace reluva::unreal {
 
+/** A level's zones and portals, for working out which zones the camera sees. */
 class ZoneVisibility {
 public:
+    /** Copies the BSP's nodes and the zone portals out of the model. */
     void build(const Model &model);
     /**
      * The zone a point is in (0 with no BSP); `solid` set if it's inside
@@ -35,6 +37,7 @@ public:
      * has no portals or the eye is in solid, outside it.
      */
     uint64_t visible(const Vec3f &eye, const std::array<float, 16> &clipFromWorld) const;
+    /** How many zone portals the level has. */
     size_t portalCount() const { return _portals.size(); }
 
 private:

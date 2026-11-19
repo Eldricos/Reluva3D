@@ -41,11 +41,13 @@ using NativeFn = std::function<void(NativeCall &)>;
 struct VmState;
 struct VmStruct;
 
-// A name, interned for the whole VM: names compare without case.
+/** A name, interned for the whole VM: names compare without case. */
 using NameId = int32_t;
 
+/** What a Value holds. */
 enum class VType : uint8_t { kNone, kByte, kInt, kBool, kFloat, kName, kString, kObject, kStruct };
 
+/** A value as scripts handle it: of a property, a variable, an expression. */
 struct Value {
     VType type = VType::kNone;
     int32_t i = 0;                // Byte, Int, Bool (0 or 1), Name
@@ -66,6 +68,7 @@ struct Value {
         if (!v.fields.empty())
             fields = v.fields;
     }
+    /** Copied as the constructor copies. */
     Value &operator=(const Value &v) {
         if (this == &v)
             return *this;
@@ -80,9 +83,14 @@ struct Value {
             fields = v.fields;
         return *this;
     }
+    /** Moved as they are. */
+    ///@{
     Value(Value &&) noexcept = default;
     Value &operator=(Value &&) noexcept = default;
+    ///@}
 
+    /** A value of that type (a byte kept to its low 8 bits). */
+    ///@{
     static Value byteValue(int v);
     static Value intValue(int32_t v);
     static Value boolValue(bool v);
@@ -90,14 +98,15 @@ struct Value {
     static Value nameValue(NameId v);
     static Value stringValue(std::string v);
     static Value objectValue(VmObject *v);
+    ///@}
 
     /**
      * Read as a type, converting as UnrealScript does (None reads as 0,
-     * false, "" or None).
-     * Inline for numbers and objects (read all the time); a string's
-     * reading, and the rest, out of line. (Byte to Name takes in Float,
-     * so it's tested first.)
+     * false, "" or None; so does a deleted object). Inline for numbers and
+     * objects (read all the time); a string's reading, and the rest, out
+     * of line. (Byte to Name takes in Float, so it's tested first.)
      */
+    ///@{
     int32_t asInt() const {
         return type == VType::kFloat ? int32_t(f) : (type >= VType::kByte && type <= VType::kName) ? i : asIntSlow();
     }
@@ -108,11 +117,16 @@ struct Value {
         return type == VType::kFloat ? f != 0 : (type >= VType::kByte && type <= VType::kName) ? i != 0 : asBoolSlow();
     }
     inline VmObject *asObject() const;
+    ///@}
+    /** The out-of-line readings: a string's number, or 0, false for the rest. */
+    ///@{
     int32_t asIntSlow() const;
     float asFloatSlow() const;
     bool asBoolSlow() const;
+    ///@}
 };
 
+/** A property of a class or struct, or a function's parameter or local. */
 struct VmProperty {
     std::string name;
     NameId nameId = 0;
@@ -125,10 +139,16 @@ struct VmProperty {
     uint32_t flags = 0; // propflag::
     int slot = 0;       // its first element's index in its owner's values
 
-    Value zero() const; // its type's empty value
+    /** Its type's empty value (a struct's: its defaults). */
+    Value zero() const;
 };
 
+/**
+ * A struct, and what's built on one: a function, a state, a class. Its
+ * properties' values are kept by slot.
+ */
 struct VmStruct {
+    /** Which it is (and so which subclass). */
     enum class Kind { kStruct, kFunction, kState, kClass } kind = Kind::kStruct;
     std::string name;
     NameId nameId = 0;
@@ -147,6 +167,7 @@ struct VmStruct {
     mutable std::vector<const void *> resolved;
 
     virtual ~VmStruct() = default;
+    /** Its property of that name, inherited or its own (the most derived); nullptr if none. */
     VmProperty *findProperty(NameId name) const;
 
 private:
@@ -156,6 +177,7 @@ private:
     mutable size_t _indexed = 0;
 };
 
+/** A function: its parameters, and its code or its native. */
 struct VmFunction : VmStruct {
     uint32_t flags = 0; // funcflag::
     int native = 0;
@@ -164,16 +186,12 @@ struct VmFunction : VmStruct {
     std::vector<VmProperty *> params;
     VmProperty *returnValue = nullptr;
     std::string qualified; // "Class.Name", for natives and messages
-    /**
-     * Its native's code, found once (again if natives are registered
-     * after: the VM's nativeGeneration_).
-     */
+    // Its native's code, found once (again if natives are registered
+    // after: the VM's _nativeGeneration).
     mutable const NativeFn *nativeFn = nullptr;
     mutable int nativeGeneration = -1;
-    /**
-     * Found once: whether it's && or || (their right side may be left
-     * unevaluated: 1 and, 2 or, 0 neither) and has out parameters.
-     */
+    // Found once: whether it's && or || (their right side may be left
+    // unevaluated: 1 and, 2 or, 0 neither) and has out parameters.
     mutable int8_t logicOp = -1;
     mutable bool hasOut = false;
     /**
@@ -183,39 +201,42 @@ struct VmFunction : VmStruct {
     mutable int8_t doesNothing = -1;
 };
 
+/** A state: its own functions and its state code. */
 struct VmState : VmStruct {
     VmClass *owner = nullptr;
     std::map<NameId, VmFunction *> functions; // its own
     std::map<NameId, uint32_t> labels;        // state code labels
     uint32_t stateFlags = 0;
-    /** the events it (or its class) has, and those it doesn't ignore */
+    // the events it (or its class) has, and those it doesn't ignore
     uint64_t probeMask = 0;
     uint64_t ignoreMask = ~0ull;
 };
 
+/** A class: a state (its code outside states) with states of its own. */
 struct VmClass : VmState {
+    /** The class it extends; null for Object. */
     VmClass *parent() const { return static_cast<VmClass *>(super); }
     std::map<NameId, VmState *> states; // its own
     uint32_t classFlags = 0;
     VmObject *object = nullptr; // the class as an object (class values point here)
+    /** Whether it's `other` or a subclass of it. */
     bool isA(const VmClass *other) const;
 };
 
+/** An object: its class, its properties' values, and its state. */
 struct VmObject {
     VmClass *cls = nullptr;
     std::vector<Value> values; // one per slot of cls
     NameId name = 0;
     VmClass *asClass = nullptr; // this object is a class
-    /**
-     * An object loaded from a package that the VM doesn't run (a texture,
-     * a sound, a mesh): where it is.
-     */
+    // An object loaded from a package that the VM doesn't run (a texture,
+    // a sound, a mesh): where it is.
     const Package *package = nullptr;
     int exportIndex = -1;
     bool deleted = false;
     bool isActor = false;
 
-    /** Its state and state code. */
+    // Its state and state code.
     VmState *state = nullptr;
     VmState *codeState = nullptr; // whose state code runs (its state's, or a parent state's it inherits)
     int codeAt = -1;              // the next statement of that code to run; -1 none
@@ -227,6 +248,7 @@ struct VmObject {
     float timerCount = 0;
     bool timerLoop = false;
 
+    /** Its value of the property of that name (any case); nullptr if it has none. */
     Value *find(Vm &vm, std::string_view property);
     /**
      * A property named by a string literal: its slot found once per class
@@ -236,6 +258,7 @@ struct VmObject {
     Value *find(Vm &vm, const char (&property)[N]) {
         return findLiteral(vm, property, N - 1);
     }
+    /** find() for a string literal: `property` must stay where it is for the VM's life. */
     Value *findLiteral(Vm &vm, const char *property, size_t length);
 };
 
@@ -258,22 +281,33 @@ struct NativeCall {
     std::vector<Value> items;  // an iterator's results, put in its first out parameter in turn
     std::vector<Value> items2; // and its second's, item by item, if it has one
 
+    /** Argument `k` read as a type; 0, false, "" or nullptr past the last. */
+    ///@{
     int32_t i(size_t k) const { return k < args.size() ? args[k].asInt() : 0; }
     float f(size_t k) const { return k < args.size() ? args[k].asFloat() : 0; }
     bool b(size_t k) const { return k < args.size() && args[k].asBool(); }
     const std::string &s(size_t k) const;
     VmObject *o(size_t k) const { return k < args.size() ? args[k].asObject() : nullptr; }
+    ///@}
 };
+/**
+ * The UnrealScript VM over a game's packages: the classes it loads, the
+ * objects it makes, and the code it runs.
+ */
 class Vm {
 public:
+    /** Core's natives registered; classes load as they're asked for. `packages` must outlive it. */
     explicit Vm(const PackageSet &packages);
     ~Vm();
     Vm(const Vm &) = delete;
     Vm &operator=(const Vm &) = delete;
 
+    /** The packages it loads from. */
     const PackageSet &packages() const { return _packages; }
 
+    /** A name's id, added if it's new; any case finds the same one ("None" is 0). */
     NameId name(std::string_view text);
+    /** A name's text, as first spelled; "None" for an id that isn't one. */
     const std::string &nameText(NameId id) const;
 
     /**
@@ -281,10 +315,12 @@ public:
      * defining it); nullptr if not found or it doesn't load.
      */
     VmClass *findClass(std::string_view name);
-    /** The class, function, state, struct or property an export is. */
+    /** The class, function, state, struct or property an export is, loaded once; nullptr if it's none. */
+    ///@{
     VmClass *classAt(const Package &package, int exportIndex);
     VmStruct *structAt(const Package &package, int exportIndex);
     VmProperty *propertyAt(const Package &package, int exportIndex);
+    ///@}
     /**
      * The object a reference in `package` names: a class, an object made
      * for a level (registered with adopt()), or one standing for a
@@ -303,6 +339,7 @@ public:
     void applyProperties(VmObject *object, const Package &package, const PropertyList &props);
     /** A tagged property's value as a property's type. */
     Value valueOf(const VmProperty &p, const Package &package, const Property &data);
+    /** Every object it has made, deleted ones too. */
     const std::vector<std::unique_ptr<VmObject>> &objects() const { return _objects; }
 
     /**
@@ -311,7 +348,17 @@ public:
      * an empty value if it has none.
      */
     Value callEvent(VmObject *self, std::string_view function, std::vector<Value> args = {});
+    /**
+     * The function a call by name on an object runs: its state's (unless
+     * `global`), else its class's or a parent's; for a class object, only
+     * the class's or a parent's. nullptr if there's none.
+     */
     VmFunction *findFunction(VmObject *self, NameId name, bool global = false);
+    /**
+     * Runs a function on an object, its arguments converted to its
+     * parameters' types (those not given their empty values); `outs`, by
+     * parameter, get the out parameters' values back. Returns its result.
+     */
     Value invoke(VmFunction *f, VmObject *self, std::vector<Value> args, std::vector<Value *> outs = {});
 
     /**
@@ -331,21 +378,37 @@ public:
      * can be made. Found by name when a reference to it doesn't resolve.
      */
     VmClass *defineIntrinsic(std::string_view name, VmClass *parent);
+    /** An intrinsic class defined already, or nullptr. */
     VmClass *intrinsic(std::string_view name);
-    VmClass *nativeClass(std::string_view className); // made if need be (Mesh, LodMesh, Sound...)
+    /**
+     * A class the engine has with no script (Mesh, LodMesh, Sound...),
+     * defined as an intrinsic if need be, under its parent as UE1 has it.
+     */
+    VmClass *nativeClass(std::string_view className);
 
+    /**
+     * A native function's code, by "Class.Function" (any case); registering
+     * one again replaces it.
+     */
+    ///@{
     void registerNative(std::string_view qualifiedName, NativeFn fn);
     bool hasNative(std::string_view qualifiedName) const { return findNative(qualifiedName) != nullptr; }
     const NativeFn *findNative(std::string_view qualifiedName) const;
+    ///@}
 
     /** Core's structs, and values of them. */
     const VmStruct *coreStruct(std::string_view name);
+    /** A Vector value. */
     Value vectorValue(float x, float y, float z);
     /** A vector value set in place (no new value made, if it's a vector). */
     void setVector(Value &v, float x, float y, float z);
+    /** A Rotator value. */
     Value rotatorValue(int32_t pitch, int32_t yaw, int32_t roll);
+    /** A Vector's or Rotator's fields; zeros for a value with fewer than three. */
+    ///@{
     static std::array<float, 3> vectorOf(const Value &v);
     static std::array<int32_t, 3> rotatorOf(const Value &v);
+    ///@}
     /**
      * Finds an object by its path ("Package.Group.Name"), for
      * DynamicLoadObject.
@@ -364,18 +427,36 @@ public:
      * were set.
      */
     int applyLocalizedActor(VmObject *actor, const std::string &map);
+    /**
+     * A setting: one set while running first, then User.ini's,
+     * DefUser.ini's and the game's .ini's. nullptr if none has it.
+     */
     const std::string *configSetting(const std::string &section, const std::string &key);
+    /**
+     * Changes a setting for as long as the VM lasts (a console command's
+     * "set"); the files aren't written.
+     */
     void setConfig(const std::string &section, const std::string &key, const std::string &value);
+    /**
+     * A property's value from its text as the .ini files and console
+     * commands write it ("True", "0.5", an enum's name, an object's path);
+     * structs and arrays are left as they are.
+     */
     void setFromText(const VmProperty &prop, Value &v, const std::string &text);
     /** An object's name or a class's, as scripts see it. */
     std::string objectName(const VmObject *o) const;
-    std::string pathName(const VmObject *o); // string() of it: "Package.Name"
+    /** What string() of an object gives: its path from its package down ("Package.Name"). */
+    std::string pathName(const VmObject *o);
 
     /** Converts a value to a property's type (assignment). */
     Value convert(const Value &v, const VmProperty &to) const;
+    /** Sets `dst` to `src` converted to `dst`'s type (a struct only from one of its size). */
     void assign(Value &dst, const Value &src) const;
+    /** Whether two values are equal as UnrealScript's == has them (by the first's type, if it has one). */
     bool equal(const Value &a, const Value &b) const;
+    /** A value as string() gives it (floats to two places). */
     std::string toString(const Value &v) const;
+    /** Whether an object's class, or a parent of it, has that name. */
     bool isA(const VmObject *o, std::string_view className);
 
     /** What happened, for diagnostics. */
@@ -398,6 +479,7 @@ public:
      * until the level has begun play (LevelInfo.bBegunPlay).
      */
     bool holdEvents = false;
+    /** Counts a script error in `stats`, logging it the first time. */
     void reportError(const std::string &what);
     /**
      * Whether the script function a native was called from is declared
@@ -448,9 +530,12 @@ public:
     struct LiteralKey {
         const VmClass *cls;
         const char *text;
+        /** Same class and literal. */
         bool operator==(const LiteralKey &o) const { return cls == o.cls && text == o.text; }
     };
+    /** LiteralKey's hash. */
     struct LiteralHash {
+        /** The two addresses' hashes mixed. */
         size_t operator()(const LiteralKey &k) const {
             return std::hash<const void *>()(k.cls) * 31 ^ std::hash<const void *>()(k.text);
         }

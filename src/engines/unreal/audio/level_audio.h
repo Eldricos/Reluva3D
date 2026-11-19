@@ -17,8 +17,10 @@
 
 namespace reluva::unreal {
 
+/** A played level's sounds, music and voices (see the top of this file). */
 class LevelAudio {
 public:
+    /** `mixer` and `packages` must outlive it. */
     LevelAudio(audio::Mixer &mixer, const PackageSet &packages);
     ~LevelAudio();
 
@@ -35,10 +37,12 @@ public:
      */
     void reset();
 
+    /** How many sounds it's keeping track of: one-off, ambient and the music. */
     size_t playingCount() const { return _playing.size() + _ambient.size() + (_music ? 1 : 0); }
     /**
-     * What's playing, a line each (its kind and sound), then how many
-     * one-off sounds have started and the last few.
+     * What's playing, a line each (its kind and sound), then the listener's
+     * room and its reverb, then how many one-off sounds have started and the
+     * last few.
      */
     std::vector<std::string> describe() const;
 

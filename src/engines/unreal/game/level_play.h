@@ -24,10 +24,12 @@
 
 namespace reluva::unreal {
 
+/** A level being played (see the top of this file). */
 class LevelPlay {
 public:
     static constexpr float kTick = 1.0f / 30; // seconds a tick moves the level on
 
+    /** Sets the level's scripts up; start() starts it. `packages` and `map` must outlive it. */
     LevelPlay(const PackageSet &packages, const Package &map);
     /**
      * Starts the level and logs a player in (as the .ini's [URL] says), at
@@ -44,6 +46,7 @@ public:
      * runs slower than real time rather than falling ever further behind.
      */
     void advance(float seconds, int maxTicks = 4);
+    /** The controls held now, for the page to set. */
     ScriptLevel::Controls &controls() { return _level->controls; }
     /** A key bound to an exec function pressed: the player's Jump, Fire... */
     void press(const char *exec);
@@ -90,11 +93,13 @@ public:
 
     /**
      * Sounds, for the page to play (level_audio.cpp): what the scripts
-     * asked for since last time, where an actor is now (false once it's
-     * gone), the actors' ambient sounds, and the music.
+     * asked for since last time, and where an actor is now (false once
+     * it's gone).
      */
+    ///@{
     std::vector<ScriptLevel::SoundRequest> takeSounds();
     bool locationOf(VmObject *actor, Vec3f &out);
+    ///@}
     /** Its Velocity (false once it's gone). */
     bool velocityOf(VmObject *actor, Vec3f &out);
     /**
@@ -111,12 +116,14 @@ public:
         int type = 0;
         float level = 0;
     };
+    /** The Room at a point. */
     Room roomAt(const Vec3f &at);
     /**
      * Whether the level's walls (its BSP, not movers) stand between two
      * points, short of the last 24 units to `to`.
      */
     bool wallBetween(const Vec3f &from, const Vec3f &to);
+    /** An actor's AmbientSound, at the loudness its settings give it. */
     struct Ambient {
         VmObject *actor = nullptr;
         ObjectRef sound;
@@ -127,20 +134,29 @@ public:
         float volume = 0;
         float pitch = 1;
     };
+    /** Every actor's ambient sound now (those at no volume left out). */
     void ambientSounds(std::vector<Ambient> &out);
+    /** The music: the Sound the player's CurrentMusic names, or null. */
     VmObject *currentMusic() { return _level->currentMusic(); }
+    /** Whether a Sound is one of The Fallen's streamed (MP3) ones. */
     bool streamed(VmObject *sound) { return _level->streamedSound(sound); }
+    /** The sounds stopped since last time (an actor and its slot). */
     std::vector<std::pair<VmObject *, int>> takeSoundStops() { return std::exchange(_level->soundStops(), {}); }
+    /** How the music was last started (ScriptLevel::Music). */
     const ScriptLevel::Music &music() { return _level->music(); }
+    /** The music has played to its end: CurrentMusic goes back to None, if it's still that. */
     void musicEnded(VmObject *sound) { _level->musicEnded(sound); }
     /**
      * The audio settings (the .ini's AudioDevice: MasterVolume,
      * SFXVolume, MusicVolume, SpeechVolume 0-255; UseStereo,
      * ReverseStereo) as the options leave them; the master volume as
-     * SetMasterVolume has it for now.
+     * SetMasterVolume has it for now (0-255; else the setting's).
      */
+    ///@{
     std::string audioSetting(const std::string &key);
     float masterVolume();
+    ///@}
+    /** Whether the console's KillSound asked for every sound stopped since last time. */
     bool takeKillSounds();
 
     /**
@@ -154,6 +170,7 @@ public:
         bool letterbox = false;    // the HUD's black bars (a cut scene)
         VmObject *actor = nullptr; // whose eyes, if anyone's
     };
+    /** Where the camera is now; a default View with no player. */
     View view();
 
     /** How an actor looks, as its properties say now. */
@@ -232,6 +249,7 @@ public:
         /** What its scripts do to its bones on top (a back bent, a hand on a gun). */
         LayeredPoser::Adjust adjust;
     };
+    /** An actor's Look now; false if it's gone. */
     bool look(VmObject *actor, Look &out);
     /**
      * Whether an actor may be seen: not hidden, and in one of `zones` (a
@@ -261,14 +279,13 @@ public:
         bool isStatic = true; // bStatic: one of the level's own lights
         int32_t ref = 0;      // its export (object reference) in the level, 0 if spawned
     };
+    /** Every light drawing a corona now. */
     void coronas(std::vector<Corona> &out);
     /**
-     * Its copies (The Fallen's MultiMesh: particles, sparks, a beam's
-     * sections), each drawn as it is, in its place, turned and scaled
-     * (AxisScale, along its own axes), glowing and in its style; with its
-     * own texture, for sprites. False if it has no list of them (it's
-     * drawn as itself); with one, it's drawn as its copies only, even none
-     * yet, unless it asks to be drawn as well (renderInitial).
+     * One of an actor's copies (The Fallen's MultiMesh: particles, sparks, a
+     * beam's sections), drawn as the actor is, in its own place, turned and
+     * scaled (AxisScale, along its own axes), glowing and in its style;
+     * with its own texture, for sprites.
      */
     struct Copy {
         Vec3f location{};
@@ -280,6 +297,11 @@ public:
         ObjectRef texture;
         uint8_t style = 1;
     };
+    /**
+     * An actor's copies. False if it has no list of them (it's drawn as
+     * itself); with one, it's drawn as its copies only, even none yet,
+     * unless it asks to be drawn as well (renderInitial).
+     */
     bool copies(VmObject *actor, std::vector<Copy> &out);
     /**
      * The decals stuck to the world (Decal.AttachDecal), and their size:
@@ -299,25 +321,38 @@ public:
      */
     void preRender(VmObject *actor);
 
+    /** The VM running the scripts, and the level in it. */
+    ///@{
     Vm &vm() { return *_vm; }
     ScriptLevel &level() { return *_level; }
+    ///@}
+    /** The player's pawn; null if none logged in. */
     VmObject *player() const { return _player; }
     /**
      * The live actor an object reference in the level's package names
      * (a placed light...); null if none or destroyed.
      */
     VmObject *actorAt(int32_t ref);
+    /** The map's package. */
     const Package &map() const { return _map; }
+    /** Why logging the player in failed; empty if it didn't. */
     const std::string &loginError() const { return _loginError; }
-    float time() const { return _time; }     // seconds played
-    float behind() const { return _behind; } // real seconds not yet played (it's slower than real time)
+    /** Seconds played, and real seconds not yet played (when it's slower than real time). */
+    ///@{
+    float time() const { return _time; }
+    float behind() const { return _behind; }
+    ///@}
+    /** The player's Health (0 with no player). */
     int health();
     /**
      * The level's title (from its .int, as CTVE_Document sets it) and its
      * objectives that are active now (LevelInfo's Objective_State 0).
      */
+    ///@{
     std::string title();
     std::vector<std::string> activeObjectives();
+    ///@}
+    /** The name of the state the player's pawn is in ("none" if none). */
     std::string playerState();
 
 private:
