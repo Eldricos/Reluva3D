@@ -1,6 +1,6 @@
 # Need for Speed III: its renderers on the Glide stand-in
 
-> **Status:** done · **Code:** `src/engines/nfs/host/game_host.cpp` (`addGlide`), the stand-in in `src/graphics/glide/` and `src/emulation/x86/glide/` · **Checked against:** the game's own frames, natively drawn and in recordings · **Confidence:** confirmed unless marked
+> **Status:** done · **Code:** `src/engines/nfs/host/thrash.cpp` (`GameHost::addGlide`), the stand-in in `src/graphics/glide/` and `src/emulation/x86/glide/` · **Checked against:** the game's own frames, natively drawn and in recordings · **Confidence:** confirmed unless marked
 
 ## Overview
 
