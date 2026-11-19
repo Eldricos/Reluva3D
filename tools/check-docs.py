@@ -15,6 +15,9 @@ and exits with 1 if there is any. CI runs it on every push.
   template's ## headings, in order.
 - Engines' and games' READMEs: their template's ## headings, in order.
 - Headings hold no addresses, but in research/ notes.
+- Paths and commands: a path from the repository's root in backticks
+  (`src/...`) names a file or folder git has, and `reluva-tool <engine>
+  <command>` names a command the source registers.
 - Common pages: their five headings, in order, and a Confidence.
 - research/ folders: a README.md.
 - Names: standard pages and guides in capitals, every other page and
@@ -23,6 +26,7 @@ and exits with 1 if there is any. CI runs it on every push.
 
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,6 +78,16 @@ README_HEADINGS = {
 }
 # An address: four hex digits or more, but for a size ("0x40 bytes").
 ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{4,}\b(?!`? bytes)")
+# A path from the repository's root, in backticks.
+PATH = re.compile(r"`((?:src|tests|tools|cmake|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_-])/?`")
+# Pages whose paths aren't this repository's: a port's table of its source
+# project's files, branch names that look like paths, a plan's examples.
+PATHS_NOT_OURS = ("PORTING.md", "docs/COMMIT_STANDARD.md", "docs/code-style-migration.md")
+# A command, after "reluva-tool": an engine's id and its command, or a shared one.
+TOOL = re.compile(r"reluva-tool ([a-z0-9][a-z0-9-]*)(?: ([a-z0-9][a-z0-9-]*))?")
+# A list of commands in the source: Commands kCommands("<engine or empty>", { {"name", ...
+COMMANDS = re.compile(r'\bCommands\s+\w+\s*\(\s*"([a-z0-9]*)"\s*,\s*\{(.*?)\}\s*\)\s*;', re.S)
+COMMAND = re.compile(r'\{\s*"([a-z0-9][a-z0-9-]*)"\s*,\s*"')
 # The words an italic tag may use: *(inferred)*.
 TAG_WORDS = {"confirmed", "from the code", "seen, not traced", "inferred", "guessed", "published"}
 STATUS_WORDS = {"formats": {"decoded", "partial", "unknown"}, "systems": {"done", "partial", "not started"}}
@@ -338,6 +352,51 @@ def check_headings(path):
             problem(path, f"line {number}: an address in a heading (it goes on the section's first line)")
 
 
+def tracked():
+    """Every file git has, and every folder they're in."""
+    files = subprocess.run(["git", "ls-files"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.split("\n")
+    found = set(f for f in files if f)
+    for f in list(found):
+        while "/" in f:
+            f = f.rsplit("/", 1)[0]
+            found.add(f)
+    return found
+
+
+def tool_commands():
+    """{engine id or "": its reluva-tool commands}, as the source registers them."""
+    found = {}
+    for top, dirs, files in os.walk(os.path.join(ROOT, "src")):
+        for name in files:
+            if name.endswith((".cpp", ".h")):
+                with open(os.path.join(top, name), encoding="utf-8", errors="replace") as f:
+                    for m in COMMANDS.finditer(f.read()):
+                        found.setdefault(m.group(1), set()).update(COMMAND.findall(m.group(2)))
+    return found
+
+
+def check_paths_and_commands(path, paths, commands):
+    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    if "/research/" in rel or rel.startswith(TEMPLATES) or any(rel.startswith(f"docs/engines/{e}/") for e in EXEMPT_ENGINES):
+        return
+    check_paths = not rel.endswith(PATHS_NOT_OURS)
+    engines = set(os.listdir(os.path.join(ROOT, "src", "engines")))
+    for number, line in enumerate(text(path).split("\n"), 1):
+        if check_paths:
+            for m in PATH.finditer(line):
+                if m.group(1) not in paths:
+                    problem(path, f"line {number}: {m.group(1)} isn't in the repository")
+        for m in TOOL.finditer(line):
+            first, second = m.group(1), m.group(2)
+            if first in engines:
+                if second and second not in commands.get(first, set()):
+                    problem(path, f"line {number}: reluva-tool {first} has no command {second}")
+            elif first not in commands.get("", set()) and first not in ("help", "commands", "command"):
+                owner = [e for e, c in commands.items() if e and first in c]
+                hint = f" (it's reluva-tool {owner[0]} {first})" if owner else ""
+                problem(path, f"line {number}: reluva-tool has no command {first}{hint}")
+
+
 def check_names():
     docs = os.path.join(ROOT, "docs")
     for top, dirs, files in os.walk(docs):
@@ -355,10 +414,13 @@ def check_names():
 
 
 def main():
+    paths = tracked()
+    commands = tool_commands()
     for path in markdown_files():
         check_links(path)
         check_tags(path)
         check_headings(path)
+        check_paths_and_commands(path, paths, commands)
     check_engines()
     check_common()
     check_names()
