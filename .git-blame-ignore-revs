@@ -35,3 +35,12 @@ ef4b761f0ae70b1b025454d9baaed21104cd0796 # Split: members declared several to a 
 
 # License lines: tools/check-headers.py --fix on every source file without them
 ed2a34a274a278f2fd4f21eb817ac925b56cdaa7 # tools: license lines on the 114 source files without them
+
+# The Unreal engine brought in from the ReluvaFALLEN repository
+5316d9d777ce4cbb238a7b2f64aa083dc00b7ac6 # build: format as main (the branch's tree before it merged main)
+ab3368833b0fd408a4bcf7c853c0c3d99c0d85e5 # unreal: names as the coding guide has them
+728899fe2b4823b02b27f2349cef66115d353e26 # unreal: formatted
+a80e57a91ceed740314183e911d7ade115826238 # audio: the tracker player's names as the coding guide has them
+0df2d43de9862e27780cd76726ed7ddd95409adf # unreal: one variable per declaration
+07211ac34a16bdca1dd286dbcc415b33c5aa172b # unreal: one member per declaration
+ebd201bee4f3c5a73f2a6d81742b8dc5a5c25332 # tests: one member per declaration in the tracker's test
