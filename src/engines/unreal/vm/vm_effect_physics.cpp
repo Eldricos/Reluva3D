@@ -1089,11 +1089,6 @@ void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
         const Value *p = prop(a, name);
         return p ? p->asFloat() : otherwise;
     };
-    auto hitWall = [&](const MoveHit &h) {
-        if (!a->deleted && h.hit())
-            _vm.callEvent(a, "HitWall",
-                          {_vm.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
-    };
     switch (physics) {
     case kPhysTrailer: {
         // Following its owner (physTrailer), through everything. A sprite

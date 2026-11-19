@@ -209,7 +209,7 @@ private:
         };
         Filter filter = Filter::kNone;
         float filterHz = 0;
-        Biquad biquad;
+        Biquad biquad{};
         struct ReverbState {
             Reverb params;
             Biquad damp;
@@ -221,8 +221,8 @@ private:
             std::vector<double> pass1, pass2[2];
             size_t pass1At = 0, pass2At[2] = {};
         };
-        std::shared_ptr<ReverbState> reverb; // none: dry
-        double tailLeft = -1;                // output frames of reverb tail still to go (-1: not begun)
+        std::shared_ptr<ReverbState> reverb{}; // none: dry
+        double tailLeft = -1;                  // output frames of reverb tail still to go (-1: not begun)
     };
     void mixOutput(Channel &c, int frames, int64_t gain);
     std::vector<int16_t> _outputBuffer; // an OutputStream's frames, before mixing

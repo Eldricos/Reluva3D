@@ -168,7 +168,7 @@ public:
             bool loop = false;
             std::string group; // its animation group's name (FullBody, LowerTorso, UpperTorso)
             // Fading: the pose showing when the fade began, and whether out.
-            std::shared_ptr<const std::vector<std::array<float, 12>>> from;
+            std::shared_ptr<const std::vector<std::array<float, 12>>> from{};
             bool fadingOut = false;
         };
         std::vector<Layer> layers;
