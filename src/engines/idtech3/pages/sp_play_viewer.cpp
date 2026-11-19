@@ -26,11 +26,11 @@ namespace {
 
 constexpr float kServerBudgetMs = 40; // of the game's frames, each page frame
 
-bool badSaveName(const std::string& name); // below
+bool badSaveName(const std::string &name); // below
 
 // Whether a shader the game registers can be drawn: a script of that name,
 // or an image (its own file type, or .tga or .jpg in its place).
-bool shaderFound(const ShaderLibrary& shaders, const SearchSet& files, const std::string& name) {
+bool shaderFound(const ShaderLibrary &shaders, const SearchSet &files, const std::string &name) {
     if (name.empty())
         return false;
     if (shaders.find(name) || files.has(name))
@@ -43,7 +43,7 @@ bool shaderFound(const ShaderLibrary& shaders, const SearchSet& files, const std
 
 } // namespace
 
-SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
+SpPlayViewer::SpPlayViewer(ViewerContext &ctx) : Page(ctx) {
     // A game with its single-player game code beside the game folder.
     if (ctx.game.code != GameCode::EliteForce || ctx.game.spGameDll.empty() || ctx.singlePlayerPath.empty())
         return;
@@ -59,12 +59,12 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
         if (std::ifstream ui{*uiPath, std::ios::binary}; ui)
             uiDll_.assign(std::istreambuf_iterator<char>(ui), std::istreambuf_iterator<char>());
     // Its maps: all but multiplayer's.
-    for (const std::string& n : ctx.files.list()) {
+    for (const std::string &n : ctx.files.list()) {
         const std::string key = normalizeArchiveName(n);
         if (key.rfind("maps/", 0) != 0 || key.size() <= 4 || key.compare(key.size() - 4, 4, ".bsp") != 0)
             continue;
         if (std::none_of(ctx.game.multiplayerMapPrefixes.begin(), ctx.game.multiplayerMapPrefixes.end(),
-                         [&](const std::string& p) { return key.compare(5, p.size(), p) == 0; }))
+                         [&](const std::string &p) { return key.compare(5, p.size(), p) == 0; }))
             names_.push_back(key);
     }
     std::sort(names_.begin(), names_.end());
@@ -73,7 +73,9 @@ SpPlayViewer::SpPlayViewer(ViewerContext& ctx) : Page(ctx) {
             index_ = int(i);
 }
 
-SpPlayViewer::~SpPlayViewer() { deactivate(); }
+SpPlayViewer::~SpPlayViewer() {
+    deactivate();
+}
 
 void SpPlayViewer::activate() {
     JoystickInput::registerCvars(cvars_);
@@ -101,9 +103,9 @@ void SpPlayViewer::activate() {
         soundSystem_ = std::make_unique<SoundSystem>(*ctx_.mixer, soundLibrary_);
     startMs_ = 0;
     // Each version's saved games in a folder of its own (sortSaves).
-    saveDir_ = ctx_.savePath.empty()      ? std::filesystem::path()
-               : expansion_              ? ctx_.savePath / "expansion" / "saves"
-                                          : ctx_.savePath / "saves";
+    saveDir_ = ctx_.savePath.empty() ? std::filesystem::path()
+               : expansion_          ? ctx_.savePath / "expansion" / "saves"
+                                     : ctx_.savePath / "saves";
     sortSaves();
     // The player's userinfo, as the original's client registers it.
     cvars_.create("name", ctx_.game.spPlayerName, CvarStore::Archive | CvarStore::UserInfo);
@@ -124,7 +126,7 @@ void SpPlayViewer::activate() {
     }
 }
 
-void SpPlayViewer::startCinematic(const std::string& name, bool inGame) {
+void SpPlayViewer::startCinematic(const std::string &name, bool inGame) {
     if (inGame && !(game_ && game_->clientGameRunning()))
         return;
     std::string base = fs::toLower(name);
@@ -179,7 +181,7 @@ void SpPlayViewer::endCinematic() {
         const std::string next = cvars_.string("nextmap");
         if (!next.empty()) {
             cvars_.set("nextmap", "");
-            for (const std::string& line : splitCommands(next))
+            for (const std::string &line : splitCommands(next))
                 runCommand(line);
         }
     }
@@ -187,15 +189,15 @@ void SpPlayViewer::endCinematic() {
 
 void SpPlayViewer::runCinematic(uint64_t nowMs) {
     // The frame due now, at the movie's rate from when it started.
-    Cinematic& c = *cinematic_;
+    Cinematic &c = *cinematic_;
     if (!c.startMs)
         c.startMs = nowMs;
-    const int64_t due = int64_t((nowMs - c.startMs) * c.movie.rateNumerator() /
-                                (uint64_t(c.movie.rateDenominator()) * 1000));
+    const int64_t due =
+        int64_t((nowMs - c.startMs) * c.movie.rateNumerator() / (uint64_t(c.movie.rateDenominator()) * 1000));
     bool decoded = false;
     while (c.movie.frameNumber() < due) {
         bool more = false;
-        if (Error err = c.movie.nextFrame(more) ; err || !more) {
+        if (Error err = c.movie.nextFrame(more); err || !more) {
             if (err)
                 lastCommand_ = "Cinematic: " + err.message;
             return endCinematic();
@@ -209,14 +211,14 @@ void SpPlayViewer::runCinematic(uint64_t nowMs) {
 void SpPlayViewer::startMenus() {
     menuError_.clear();
     ui_ = std::make_unique<eliteforce::SpUiHost>(ctx_.files, cvars_);
-    ui_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
-    ui_->shaderExists = [this](const std::string& name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
+    ui_->print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
+    ui_->shaderExists = [this](const std::string &name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
     ui_->bindings = &ctx_.bindings;
-    ui_->startLocalSound = [this](const std::string& sound, int channel) {
+    ui_->startLocalSound = [this](const std::string &sound, int channel) {
         if (soundSystem_)
             soundSystem_->startLocalSound(sound, channel);
     };
-    ui_->configString = [this](int32_t index, std::string& out) {
+    ui_->configString = [this](int32_t index, std::string &out) {
         if (!game_)
             return false;
         const auto it = game_->configstrings().find(index);
@@ -228,8 +230,8 @@ void SpPlayViewer::startMenus() {
     ui_->saveDir = saveDir_;
     ui_->modInstall = ctx_.installPath;
     ui_->modBaseDir = ctx_.game.baseDir;
-    ui_->readSave = [this](const std::string& name, std::vector<uint8_t>& file) { return readSave(name, file); };
-    ui_->listSave = [this](const std::string& name) {
+    ui_->readSave = [this](const std::string &name, std::vector<uint8_t> &file) { return readSave(name, file); };
+    ui_->listSave = [this](const std::string &name) {
         std::vector<uint8_t> file;
         return readSave(name, file) && saveFits(file);
     };
@@ -241,13 +243,15 @@ void SpPlayViewer::startMenus() {
     runMenuCommands();
 }
 
-void SpPlayViewer::menusStopped(const Error& err) {
+void SpPlayViewer::menusStopped(const Error &err) {
     // The game goes on without them (Esc then leaves the page).
     menuError_ = ctx_.game.spUiDll + ": " + err.message;
     ui_.reset();
 }
 
-bool SpPlayViewer::menusHaveKeys() const { return ui_ && (ui_->catcher() & eliteforce::SpUiHost::kCatchUi); }
+bool SpPlayViewer::menusHaveKeys() const {
+    return ui_ && (ui_->catcher() & eliteforce::SpUiHost::kCatchUi);
+}
 
 void SpPlayViewer::menuKey(int32_t key) {
     if (!ui_)
@@ -260,11 +264,11 @@ void SpPlayViewer::menuKey(int32_t key) {
 void SpPlayViewer::runMenuCommands() {
     if (!ui_)
         return;
-    for (const std::string& line : ui_->takeCommands())
+    for (const std::string &line : ui_->takeCommands())
         runCommand(line);
 }
 
-void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
+void SpPlayViewer::runCommand(const std::string &line, bool fromGame) {
     // What the menus and the game run, as the original's console would.
     const std::vector<std::string> w = splitCommand(line);
     if (w.empty())
@@ -327,7 +331,7 @@ void SpPlayViewer::runCommand(const std::string& line, bool fromGame) {
             soundSystem_->startBackgroundTrack(w[1], w.size() >= 3 ? w[2] : w[1]);
     } else if (cmd == "bind" || cmd == "unbind" || cmd == "unbindall" || cmd == "set" || cmd == "seta" ||
                cmd == "sets" || cmd == "setu" || cmd == "exec") {
-        ctx_.bindings.execute(line, cvars_, nullptr, [this](const std::string& name, std::string& text) {
+        ctx_.bindings.execute(line, cvars_, nullptr, [this](const std::string &name, std::string &text) {
             std::vector<uint8_t> data;
             if (ctx_.files.read(name, data))
                 return false;
@@ -394,7 +398,7 @@ void SpPlayViewer::deactivate() {
     input_.releaseAll();
 }
 
-void SpPlayViewer::stop(const std::string& why) {
+void SpPlayViewer::stop(const std::string &why) {
     error_ = why;
     endGame();
 }
@@ -412,7 +416,7 @@ void SpPlayViewer::endGame() {
     input_.releaseAll();
 }
 
-void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
+void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader *save) {
     if (names_.empty() || !renderer_)
         return;
     index_ = index;
@@ -432,7 +436,7 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     input_.yaw = input_.pitch = 0;
     clientTime_ = 0;
     lastMs_ = 0;
-    const std::string& path = names_[size_t(index)];
+    const std::string &path = names_[size_t(index)];
     std::string map = path.substr(5, path.size() - 9);
     showLoadingScreen(map);
     map_ = map;
@@ -461,11 +465,11 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     // The game: the server half started on the level, the player joined,
     // then the client half.
     game_ = std::make_unique<eliteforce::SpGameHost>(ctx_.files, cvars_);
-    game_->print = [](const std::string& text) { std::fputs(text.c_str(), stdout); };
+    game_->print = [](const std::string &text) { std::fputs(text.c_str(), stdout); };
     game_->modInstall = ctx_.installPath;
     game_->modBaseDir = ctx_.game.baseDir;
     game_->soundSystem = soundSystem_.get();
-    game_->shaderExists = [this](const std::string& name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
+    game_->shaderExists = [this](const std::string &name) { return shaderFound(ctx_.shaders, ctx_.files, name); };
     // What the client game shows where the level has no picture of its
     // own: the saved game's, the last level's last frame, or nothing.
     game_->screenShot = std::move(nextScreenShot_);
@@ -488,12 +492,12 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
     // The player as the original's engine describes them: the userinfo
     // cvars, with the models for the sex chosen.
     const bool male = fs::toLower(cvars_.string("sex")).rfind('m', 0) == 0;
-    const PlayerModels& player = male ? ctx_.game.malePlayer : ctx_.game.femalePlayer;
+    const PlayerModels &player = male ? ctx_.game.malePlayer : ctx_.game.femalePlayer;
     cvars_.set("legsmodel", player.legs);
     cvars_.set("torsomodel", player.torso);
     cvars_.set("headmodel", player.head);
     std::string userinfo;
-    for (const CvarStore::Cvar& cv : cvars_.all())
+    for (const CvarStore::Cvar &cv : cvars_.all())
         if (cv.flags & CvarStore::UserInfo)
             userinfo += "\\" + cv.name + "\\" + cv.value;
     if ((err = game_->connectPlayer(userinfo, refused, loadMode)))
@@ -518,7 +522,7 @@ void SpPlayViewer::start(int index, int32_t loadMode, raven::SaveReader* save) {
         saveGame("auto", true);
 }
 
-bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file) const {
+bool SpPlayViewer::readSave(const std::string &name, std::vector<uint8_t> &file) const {
     // Those written here first, then the game folder's own.
     if (!saveDir_.empty()) {
         std::ifstream in(saveDir_ / (name + ".sav"), std::ios::binary);
@@ -530,7 +534,7 @@ bool SpPlayViewer::readSave(const std::string& name, std::vector<uint8_t>& file)
     return !ctx_.files.read("saves/" + name + ".sav", file);
 }
 
-bool SpPlayViewer::saveFits(const std::vector<uint8_t>& file) const {
+bool SpPlayViewer::saveFits(const std::vector<uint8_t> &file) const {
     const auto kind = eliteforce::saveKind(file);
     return !kind || *kind == (expansion_ ? eliteforce::SaveKind::Expansion : eliteforce::SaveKind::Original);
 }
@@ -539,19 +543,19 @@ void SpPlayViewer::sortSaves() const {
     if (ctx_.savePath.empty())
         return;
     const std::filesystem::path original = ctx_.savePath / "saves", expansion = ctx_.savePath / "expansion" / "saves";
-    for (const auto& [from, to, wrong] : {std::tuple{original, expansion, eliteforce::SaveKind::Expansion},
+    for (const auto &[from, to, wrong] : {std::tuple{original, expansion, eliteforce::SaveKind::Expansion},
                                           std::tuple{expansion, original, eliteforce::SaveKind::Original}}) {
         std::error_code ec;
         std::vector<std::filesystem::path> moving;
         for (std::filesystem::directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) {
-            const std::filesystem::path& p = it->path();
+            const std::filesystem::path &p = it->path();
             if (fs::toLower(p.extension().string()) != ".sav" || !it->is_regular_file(ec))
                 continue;
             std::ifstream in(p, std::ios::binary);
             if (eliteforce::saveKind(in) == wrong)
                 moving.push_back(p);
         }
-        for (const std::filesystem::path& p : moving) {
+        for (const std::filesystem::path &p : moving) {
             std::filesystem::create_directories(to, ec);
             // With its recording of the player's commands, if there's one;
             // never over a save of the same name there.
@@ -566,7 +570,7 @@ void SpPlayViewer::sortSaves() const {
     }
 }
 
-std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
+std::vector<uint8_t> SpPlayViewer::levelShot(const std::string &map) const {
     // levelshots/<map>.tga at 256 x 256, as the original's engine makes an
     // autosave's picture (renderer entry 23, docs/engines/idtech3/games/stvef/systems/sp-interface.md):
     // as it is if it's that size, otherwise each pixel the average of the
@@ -582,7 +586,7 @@ std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
     const bool same = img.w == 256 && img.h == 256;
     for (int y = 0; y < 256; ++y)
         for (int x = 0; x < 256; ++x) {
-            uint8_t* px = &out[size_t((255 - y) * 256 + x) * 4];
+            uint8_t *px = &out[size_t((255 - y) * 256 + x) * 4];
             if (same) {
                 std::memcpy(px, img.pixel(x, y), 4);
                 continue;
@@ -604,14 +608,14 @@ std::vector<uint8_t> SpPlayViewer::levelShot(const std::string& map) const {
 
 namespace {
 
-bool badSaveName(const std::string& name) {
+bool badSaveName(const std::string &name) {
     return name.empty() || fs::toLower(name) == "current" || name.find("..") != std::string::npos ||
            name.find_first_of("/\\:") != std::string::npos;
 }
 
 } // namespace
 
-void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
+void SpPlayViewer::saveGame(const std::string &name, bool autosave) {
     // As the original's save command: the engine's chunks, then the
     // game's (WriteLevel), to saves/<name>.sav.
     using raven::chunkId;
@@ -649,7 +653,7 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     } else {
         char when[64] = {};
         const std::time_t t = std::time(nullptr);
-        if (const std::tm* tm = std::localtime(&t))
+        if (const std::tm *tm = std::localtime(&t))
             std::strftime(when, sizeof when, "%m/%d/%y %H:%M", tm);
         comment = std::string(when) + "  " + map_;
     }
@@ -677,7 +681,7 @@ void SpPlayViewer::saveGame(const std::string& name, bool autosave) {
     const std::filesystem::path file = saveDir_ / (name + ".sav"), temp = saveDir_ / "current.sav";
     {
         std::ofstream out(temp, std::ios::binary);
-        out.write(reinterpret_cast<const char*>(w.bytes().data()), std::streamsize(w.bytes().size()));
+        out.write(reinterpret_cast<const char *>(w.bytes().data()), std::streamsize(w.bytes().size()));
         if (!out) {
             lastCommand_ = "Failed to create savegame " + temp.string();
             return;
@@ -729,9 +733,9 @@ void SpPlayViewer::loadGame(std::string name) {
         lastCommand_ = "Couldn't read " + name + ": " + err.message;
         return;
     }
-    const std::string& map = header.map;
+    const std::string &map = header.map;
     const bool autosave = header.autosave;
-    std::vector<uint8_t>& shot = header.shot;
+    std::vector<uint8_t> &shot = header.shot;
     const auto it = std::find(names_.begin(), names_.end(), "maps/" + fs::toLower(map) + ".bsp");
     if (it == names_.end()) {
         lastCommand_ = name + " is of a map that isn't here: " + map;
@@ -741,7 +745,7 @@ void SpPlayViewer::loadGame(std::string name) {
     lastCommand_ = "Loaded " + name;
     if (ui_)
         ui_->setCapture(shot); // the loading screen shows it
-    nextScreenShot_ = shot;   // and so does the client game's
+    nextScreenShot_ = shot;    // and so does the client game's
     start(int(it - names_.begin()), autosave ? 2 : 1, &r);
     if (game_ && !saveDir_.empty()) {
         recording_.open(saveDir_ / (name + ".input"), std::ios::trunc);
@@ -762,31 +766,31 @@ void SpPlayViewer::runGameCommands() {
     // dying...), run as the original's console would.
     if (!game_)
         return;
-    const auto& all = game_->consoleCommands();
+    const auto &all = game_->consoleCommands();
     if (gameCommandsRun_ >= all.size())
         return;
     std::vector<std::string> lines;
     for (size_t i = gameCommandsRun_; i < all.size(); ++i)
-        for (const std::string& line : splitCommands(all[i]))
+        for (const std::string &line : splitCommands(all[i]))
             lines.push_back(line);
     gameCommandsRun_ = all.size();
-    for (const std::string& line : lines)
+    for (const std::string &line : lines)
         runCommand(line, true);
 }
 
-void SpPlayViewer::runBinding(const std::string& line, int32_t key, bool down) {
-    input_.runBinding(line, key, down, [this](const std::string& text) {
+void SpPlayViewer::runBinding(const std::string &line, int32_t key, bool down) {
+    input_.runBinding(line, key, down, [this](const std::string &text) {
         if (game_)
             if (Error err = game_->clientConsoleCommand(text))
                 stop("The game stopped: " + err.message);
     });
 }
 
-bool SpPlayViewer::takesKey(const Event& ev) const {
+bool SpPlayViewer::takesKey(const Event &ev) const {
     return ev.type == EventType::KeyDown && ev.key == key::Escape && !(ev.mods & keymod::Ctrl);
 }
 
-void SpPlayViewer::handleEvent(const Event& ev) {
+void SpPlayViewer::handleEvent(const Event &ev) {
     if (!renderer_)
         return;
     // The joystick, read once a frame (pollJoystick).
@@ -915,7 +919,8 @@ void SpPlayViewer::handleEvent(const Event& ev) {
             input_.addMouse(ev.moveX, ev.moveY);
         }
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -926,12 +931,14 @@ void SpPlayViewer::runGame(uint64_t nowMs) {
     // frame doesn't leave the game's clock behind for long.
     const int32_t dt = lastMs_ ? int32_t(std::min<uint64_t>(nowMs - lastMs_, 200)) : 0;
     lastMs_ = nowMs;
-    auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
+    auto setting = [&](const char *name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
     // Looking: the mouse and keys, as the Play page.
     input_.turn(cvars_, dt);
 
     using Clock = std::chrono::steady_clock;
-    auto ms = [](Clock::time_point from) { return std::chrono::duration<float, std::milli>(Clock::now() - from).count(); };
+    auto ms = [](Clock::time_point from) {
+        return std::chrono::duration<float, std::milli>(Clock::now() - from).count();
+    };
     // timescale speeds the game's clock, as the original's: the game sets
     // it to 100 to fast-forward a scene the player skips.
     const float timescale = std::clamp(setting("timescale", 1), 0.0f, 100.0f);
@@ -990,7 +997,7 @@ void SpPlayViewer::pollJoystick() {
     const JoystickInput::Frame f = joystick_.frame(cvars_);
     const bool menus = menusHaveKeys();
     input_.setJoystick(menus || cinematic_ ? 0 : f.x, menus || cinematic_ ? 0 : f.y);
-    for (const auto& [k, down] : f.keys) {
+    for (const auto &[k, down] : f.keys) {
         if (cinematic_)
             continue; // only typed keys and clicks skip one
         if (ui_) {
@@ -1026,8 +1033,8 @@ void SpPlayViewer::update(uint64_t nowMs) {
             renderer_->setGamma(brightness(ctx_));
             renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
             if (!cinematic_->rgba.empty())
-                scene_->drawImage(cinematic_->rgba.data(), cinematic_->movie.width(), cinematic_->movie.height(), 0,
-                                  0, 640, 480, 640, 480);
+                scene_->drawImage(cinematic_->rgba.data(), cinematic_->movie.width(), cinematic_->movie.height(), 0, 0,
+                                  640, 480, 640, 480);
             std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
             renderer_->endFrame(&overlay_);
             return;
@@ -1079,7 +1086,9 @@ void SpPlayViewer::update(uint64_t nowMs) {
     }
     runGameCommands();
     if (soundSystem_) {
-        auto setting = [&](const char* name, float fallback) { return cvars_.find(name) ? cvars_.value(name) : fallback; };
+        auto setting = [&](const char *name, float fallback) {
+            return cvars_.find(name) ? cvars_.value(name) : fallback;
+        };
         // Effects silent while a scene is skipped (fast-forwarded, its
         // lines would pile up); those playing when the skip starts are
         // stopped, as the original's client does (S_StopSounds), so they
@@ -1117,12 +1126,12 @@ void SpPlayViewer::update(uint64_t nowMs) {
         // Each scene over the pictures drawn before it, the rest (the HUD)
         // over them all, as the Play page draws.
         scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
-        const Scene& scene = game_->scene();
-        const auto& pictures = game_->pictures();
+        const Scene &scene = game_->scene();
+        const auto &pictures = game_->pictures();
         const bool dynamicLights = !cvars_.find("r_dynamiclight") || cvars_.integer("r_dynamiclight") != 0;
         size_t drawn = 0, shots = 0;
         bool first = true;
-        for (const auto& v : scene.views) {
+        for (const auto &v : scene.views) {
             drawGamePictures(drawn, shots, v.picturesBefore, time);
             scene_->drawView(scene, v, 640, 480, time, first, world_.get(), &grid_, dynamicLights);
             first = false;
@@ -1143,19 +1152,19 @@ void SpPlayViewer::update(uint64_t nowMs) {
 void SpPlayViewer::drawMenus(float time) {
     // The menus' last frame, with any models they show and raw pictures.
     scene_->setHandles({&ui_->models(), &ui_->skins(), &ui_->shaders()});
-    const auto& pictures = ui_->pictures();
+    const auto &pictures = ui_->pictures();
     size_t drawn = 0;
-    for (const auto& v : ui_->scene().views) {
+    for (const auto &v : ui_->scene().views) {
         scene_->drawPictures(pictures, drawn, v.picturesBefore, 640, 480, time);
         drawn = std::max(drawn, v.picturesBefore);
         scene_->drawView(ui_->scene(), v, 640, 480, time, false, nullptr, nullptr, true);
     }
     scene_->drawPictures(pictures, drawn, pictures.size(), 640, 480, time);
-    for (const auto& img : ui_->rawImages())
+    for (const auto &img : ui_->rawImages())
         scene_->drawImage(img.rgba.data(), img.cols, img.rows, img.x, img.y, img.w, img.h, 640, 480);
 }
 
-void SpPlayViewer::showLoadingScreen(const std::string& map) {
+void SpPlayViewer::showLoadingScreen(const std::string &map) {
     // As the original's engine while a level loads: the menus' loading
     // screen (a saved game's picture, or theirs), shown at once.
     if (!ui_ || !renderer_)
@@ -1191,7 +1200,7 @@ void SpPlayViewer::showClientLoading() {
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     scene_->setHandles({&game_->models(), &game_->skins(), &game_->shaders()});
     size_t drawn = 0, shots = 0;
-    for (const auto& v : game_->scene().views) {
+    for (const auto &v : game_->scene().views) {
         drawGamePictures(drawn, shots, v.picturesBefore, 0);
         scene_->drawView(game_->scene(), v, 640, 480, 0, true, nullptr, nullptr, false);
     }
@@ -1202,13 +1211,13 @@ void SpPlayViewer::showClientLoading() {
     renderer_->endFrame(&overlay_);
 }
 
-void SpPlayViewer::drawGamePictures(size_t& drawn, size_t& shotsDrawn, size_t to, float time) {
+void SpPlayViewer::drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, float time) {
     // The client game's pictures up to `to`, with the screen capture where
     // it drew that between them.
-    const auto& pictures = game_->pictures();
-    const auto& shots = game_->screenShotDraws();
+    const auto &pictures = game_->pictures();
+    const auto &shots = game_->screenShotDraws();
     for (; shotsDrawn < shots.size() && shots[shotsDrawn].picturesBefore <= to; ++shotsDrawn) {
-        const auto& s = shots[shotsDrawn];
+        const auto &s = shots[shotsDrawn];
         scene_->drawPictures(pictures, drawn, s.picturesBefore, 640, 480, time);
         drawn = std::max(drawn, s.picturesBefore);
         if (game_->screenShot.size() == eliteforce::SpUiHost::kShotSize)
@@ -1220,11 +1229,11 @@ void SpPlayViewer::drawGamePictures(size_t& drawn, size_t& shotsDrawn, size_t to
 
 void SpPlayViewer::drawOverlay() {
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
-    auto line = [&](int y, const std::string& s, Color c) {
+    auto line = [&](int y, const std::string &s, Color c) {
         // Text with a dark band behind it, for reading over the level.
         const int w = int(s.size()) * font::kAdvance + 8;
         for (int yy = std::max(y, 0); yy < std::min(y + font::kLineHeight, frameH_); ++yy) {
-            uint8_t* p = overlay_.row(yy);
+            uint8_t *p = overlay_.row(yy);
             for (int x = 0; x < std::min(w, frameW_); ++x)
                 p[x * 4 + 3] = 160;
         }
@@ -1247,7 +1256,7 @@ void SpPlayViewer::drawOverlay() {
         bottom.push_back("The menus ran: " + lastCommand_);
     if (ui_ && !ui_->unhandled().empty()) {
         std::string calls = "Menu functions not answered yet:";
-        for (const auto& [slot, count] : ui_->unhandled())
+        for (const auto &[slot, count] : ui_->unhandled())
             calls += " " + std::to_string(slot) + " (x" + std::to_string(count) + ")";
         bottom.push_back(calls);
     }

@@ -27,9 +27,9 @@ public:
         reluva::Event event;
     };
 
-    void attachMixer(audio::Mixer* mixer) { mixer_ = mixer; }
+    void attachMixer(audio::Mixer *mixer) { mixer_ = mixer; }
     // At `at` ms: an event (a Quit ends the game).
-    void schedule(uint64_t at, const reluva::Event& e) { events_.push_back({at, e}); }
+    void schedule(uint64_t at, const reluva::Event &e) { events_.push_back({at, e}); }
     void key(uint64_t at, uint32_t code) {
         reluva::Event e;
         e.type = reluva::EventType::KeyDown;
@@ -51,7 +51,7 @@ public:
         schedule(at + 70, e);
     }
     // Typed text, a character at a time, while the game takes text.
-    void type(uint64_t at, const std::string& text) {
+    void type(uint64_t at, const std::string &text) {
         for (char c : text) {
             reluva::Event e;
             e.type = reluva::EventType::TextInput;
@@ -66,24 +66,24 @@ public:
         schedule(at, e);
     }
     // Called with each frame shown, and its time.
-    std::function<void(const Surface& rgba, uint64_t ms)> onFrame;
+    std::function<void(const Surface &rgba, uint64_t ms)> onFrame;
 
     Error initGraphics(int width, int height, PixelFormat format) override {
         format_ = format;
         rgba_.create(width, height, PixelFormat::RGBA32);
         return HeadlessSystem::initGraphics(width, height, format);
     }
-    void setPalette(const Color* colors, int start, int count) override {
+    void setPalette(const Color *colors, int start, int count) override {
         for (int i = 0; i < count && start + i < 256; i++)
             palette_[start + i] = colors[i];
     }
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         if (s.w != rgba_.w || s.h != rgba_.h)
             return;
         for (int y = 0; y < s.h; y++) {
-            const uint8_t* src = s.row(y);
-            uint8_t* dst = rgba_.row(y);
+            const uint8_t *src = s.row(y);
+            uint8_t *dst = rgba_.row(y);
             for (int x = 0; x < s.w; x++) {
                 if (s.format == PixelFormat::CLUT8) {
                     const Color c = palette_[src[x]];
@@ -96,7 +96,7 @@ public:
         if (onFrame)
             onFrame(rgba_, getMillis());
     }
-    bool pollEvent(reluva::Event& e) override {
+    bool pollEvent(reluva::Event &e) override {
         for (auto it = events_.begin(); it != events_.end(); ++it) {
             if (it->at <= getMillis()) {
                 e = it->event;
@@ -129,12 +129,12 @@ public:
         }
     }
     // The last frame shown, as RGBA.
-    const Surface& lastFrame() const { return rgba_; }
+    const Surface &lastFrame() const { return rgba_; }
     bool pending() const { return !events_.empty(); }
 
 private:
     std::deque<Scheduled> events_;
-    audio::Mixer* mixer_ = nullptr;
+    audio::Mixer *mixer_ = nullptr;
     AudioCallback audio_;
     uint64_t pending_ = 0;
     std::vector<int16_t> scratch_;

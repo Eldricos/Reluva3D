@@ -26,18 +26,17 @@ public:
     ~GamePathFinder();
     // `single`: the x87 at 24 bits once the statics are made, as in the
     // game (setSinglePrecision); else at 53 throughout.
-    Error load(const std::vector<uint8_t>& exe, bool single = true);
+    Error load(const std::vector<uint8_t> &exe, bool single = true);
     struct Point {
         double a = 0, b = 0, heading = 0;
     };
     // One search (0x42ef40) on `grid` from one cell to another.
-    Error search(const WalkGrid& grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to, bool allowTwos,
-                 std::vector<Point>& out);
+    Error search(const WalkGrid &grid, bool openThrees, WalkGrid::Cell from, WalkGrid::Cell to, bool allowTwos,
+                 std::vector<Point> &out);
     // A walk's path as the game plans one (0x440ce0): cells from the start
     // to the goal; empty if there's none (or the goal is under 3 cells
     // away). `allowTwos` when walking to a walk point.
-    std::vector<WalkGrid::Cell> findPath(const WalkGrid& grid, WalkGrid::Cell from, WalkGrid::Cell to,
-                                         bool allowTwos);
+    std::vector<WalkGrid::Cell> findPath(const WalkGrid &grid, WalkGrid::Cell from, WalkGrid::Cell to, bool allowTwos);
     bool loaded() const { return object_ != 0; }
     // The x87's precision control while the game's code runs: 53 bits
     // (Windows' default for a program), or 24 bits, as Direct3D 8 leaves

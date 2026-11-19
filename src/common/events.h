@@ -27,7 +27,7 @@ constexpr uint32_t Home = 0x105;
 constexpr uint32_t End = 0x106;
 constexpr uint32_t PageUp = 0x107;
 constexpr uint32_t PageDown = 0x108;
-constexpr uint32_t F1 = 0x110; // F1..F12 are consecutive
+constexpr uint32_t F1 = 0x110;  // F1..F12 are consecutive
 constexpr uint32_t Kp0 = 0x120; // the numeric keypad's 0..9 are consecutive, whatever NumLock says
 constexpr uint32_t KpPeriod = 0x12a;
 constexpr uint32_t KpEnter = 0x12b;
@@ -52,8 +52,8 @@ constexpr uint16_t Alt = 1 << 2;
 
 enum class EventType {
     None,
-    Quit,              // user closed the window: leave the engine and the app
-    ReturnToLauncher,  // user asked to go back to the launcher
+    Quit,             // user closed the window: leave the engine and the app
+    ReturnToLauncher, // user asked to go back to the launcher
     KeyDown,
     KeyUp,
     MouseMove,
@@ -90,13 +90,13 @@ struct Event {
     int mouseX = 0, mouseY = 0;  // mouse events, in game framebuffer pixels
     float moveX = 0, moveY = 0;  // MouseMove: how far the mouse moved, in its own units (System::setRelativeMouse)
     MouseButton button = MouseButton::None;
-    int clicks = 0;              // MouseDown/MouseUp: 1, or 2 for a double click, ...
+    int clicks = 0; // MouseDown/MouseUp: 1, or 2 for a double click, ...
     int wheelY = 0;
-    char text[32] = {};          // TextInput: UTF-8, NUL-terminated
-    int joyButton = 0;           // JoyButtonDown/JoyButtonUp
-    int joyAxis = 0;             // JoyAxis
-    int joyValue = 0;            // JoyAxis: -32768 to 32767
-    uint8_t joyHat = 0;          // JoyHat: joyhat bits held
+    char text[32] = {}; // TextInput: UTF-8, NUL-terminated
+    int joyButton = 0;  // JoyButtonDown/JoyButtonUp
+    int joyAxis = 0;    // JoyAxis
+    int joyValue = 0;   // JoyAxis: -32768 to 32767
+    uint8_t joyHat = 0; // JoyHat: joyhat bits held
 };
 
 } // namespace reluva

@@ -35,9 +35,9 @@ public:
         GetApiVersion = 0,
         Init = 1,
         Shutdown = 2,
-        KeyEvent = 3,      // (key, down)
-        MouseEvent = 4,    // (dx, dy)
-        Refresh = 5,       // (time in ms)
+        KeyEvent = 3,   // (key, down)
+        MouseEvent = 4, // (dx, dy)
+        Refresh = 5,    // (time in ms)
         IsFullscreen = 6,
         SetActiveMenu = 7, // (menu: 0 none, 1 main, ...)
         ConsoleCommand = 8,
@@ -49,13 +49,13 @@ public:
     // screen rectangle, tinted by the colour set before it.
     using Picture = idtech3::Picture;
 
-    UiHost(const SearchSet& files, CvarStore& cvars);
+    UiHost(const SearchSet &files, CvarStore &cvars);
 
     // Reads vm/ui.qvm and checks its API version.
     Error load();
     // vmMain(command, args...).
-    Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
-    Error call(int32_t command, const std::vector<int32_t>& args = {}) {
+    Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
+    Error call(int32_t command, const std::vector<int32_t> &args = {}) {
         int32_t ignored;
         return call(command, args, ignored);
     }
@@ -82,27 +82,27 @@ public:
     // The clock Milliseconds reports.
     void setTime(int32_t ms) { time_ = ms; }
 
-    Qvm& vm() { return vm_; }
-    const std::vector<Picture>& pictures() const { return pictures_; }
+    Qvm &vm() { return vm_; }
+    const std::vector<Picture> &pictures() const { return pictures_; }
     // The 3D scenes drawn among them (the player model in Player
     // settings...), each over the pictures before it.
-    const Scene& scene() const { return scene_; }
+    const Scene &scene() const { return scene_; }
     // Forgets the last frame's pictures and scenes, before the next.
     void clearPictures() {
         pictures_.clear();
         scene_ = Scene{};
     }
-    const HandleTable& shaders() const { return shaders_; }
-    const HandleTable& models() const { return models_; }
-    const HandleTable& skins() const { return skins_; }
-    const HandleTable& sounds() const { return sounds_; }
+    const HandleTable &shaders() const { return shaders_; }
+    const HandleTable &models() const { return models_; }
+    const HandleTable &skins() const { return skins_; }
+    const HandleTable &sounds() const { return sounds_; }
     // Text the menus print; by default, kept in log().
-    std::function<void(const std::string&)> print;
-    const std::string& log() const { return log_; }
+    std::function<void(const std::string &)> print;
+    const std::string &log() const { return log_; }
     // Commands the menus run (Cmd_ExecuteText), in order.
-    const std::vector<std::string>& commands() const { return commands_; }
+    const std::vector<std::string> &commands() const { return commands_; }
     // Calls not implemented yet: number -> how many times.
-    const std::map<int, int>& unhandled() const { return unhandled_; }
+    const std::map<int, int> &unhandled() const { return unhandled_; }
     // The last system calls made (oldest first), with their first
     // arguments and any text they point at, for reports when the menus
     // stop. The CD key is left out.
@@ -110,22 +110,22 @@ public:
     // S_StartLocalSound: a registered sound to play now, not placed in the
     // world, on a channel (a new sound on the same channel, other than 0,
     // replaces the one there). Unset: sounds are only registered.
-    std::function<void(const std::string& sound, int channel)> startLocalSound;
+    std::function<void(const std::string &sound, int channel)> startLocalSound;
     // What keys do, which the Controls menu shows and changes; none if not set.
-    KeyBindings* bindings = nullptr;
+    KeyBindings *bindings = nullptr;
     // The install whose mods the Mods menu lists ("$modlist"), and its base
     // game's folder.
-    void setModRoot(const std::filesystem::path& install, const std::string& baseDir) {
+    void setModRoot(const std::filesystem::path &install, const std::string &baseDir) {
         vmFiles_.setModRoot(install, baseDir);
     }
     // Called by every system call before it's handled, for logging.
-    std::function<void(int number, const int32_t* args)> trace;
+    std::function<void(int number, const int32_t *args)> trace;
     // Finding servers for the server list (calls 46 to 53, and the
     // "localservers" and "ping" commands, run as soon as the menus run
     // them); none: the lists stay empty. `resolveHost` turns a server's
     // name into its address. `now`: the browser's clock, in ms.
-    ServerBrowser* browser = nullptr;
-    std::function<bool(const std::string& host, uint32_t& ip)> resolveHost;
+    ServerBrowser *browser = nullptr;
+    std::function<bool(const std::string &host, uint32_t &ip)> resolveHost;
     uint64_t now = 0;
     // What GetClientState reports (uiClientState_t), for the connecting
     // screen: connState as Quake III's (1 disconnected, 3 connecting, 4
@@ -144,15 +144,15 @@ public:
     int32_t catcher() const { return catcher_; }
 
 private:
-    int32_t systemCall(Qvm& vm, int number, const int32_t* args);
-    const std::string& storedCdKey();
-    static bool cdKeyLooksValid(const std::string& key);
+    int32_t systemCall(Qvm &vm, int number, const int32_t *args);
+    const std::string &storedCdKey();
+    static bool cdKeyLooksValid(const std::string &key);
     void writeGlconfig(int32_t address);
     void writeClientState(int32_t address);
-    bool browserCommand(const std::string& line);
+    bool browserCommand(const std::string &line);
 
-    const SearchSet& files_;
-    CvarStore& cvars_;
+    const SearchSet &files_;
+    CvarStore &cvars_;
     Qvm vm_;
     VmFiles vmFiles_;
     HandleTable shaders_, models_, skins_, sounds_;

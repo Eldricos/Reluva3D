@@ -20,10 +20,10 @@ namespace reluva::idtech3 {
 // surfaces. See docs/engines/idtech3/README.md for what's approximate or missing.
 class WorldRenderer {
 public:
-    WorldRenderer(gfx::Renderer3D& renderer, ShaderCache& shaders) : r_(renderer), shaders_(shaders) {}
+    WorldRenderer(gfx::Renderer3D &renderer, ShaderCache &shaders) : r_(renderer), shaders_(shaders) {}
     ~WorldRenderer() { clear(); }
-    WorldRenderer(const WorldRenderer&) = delete;
-    WorldRenderer& operator=(const WorldRenderer&) = delete;
+    WorldRenderer(const WorldRenderer &) = delete;
+    WorldRenderer &operator=(const WorldRenderer &) = delete;
 
     // The video settings for the next load: the level lit by its vertices
     // instead of its lightmaps; how far curves may stray from round, in
@@ -34,7 +34,7 @@ public:
         fastSky_ = fastSky;
     }
     // Builds the GPU data for `bsp`.
-    Error load(const Bsp& bsp, const ShaderLibrary& library);
+    Error load(const Bsp &bsp, const ShaderLibrary &library);
     void clear();
     // The sky, then the map's surfaces whose shaders sort in sortMin..sortMax,
     // `time` seconds into the map; call between beginFrame() and endFrame().
@@ -44,21 +44,20 @@ public:
     // The level's sky surfaces seen (setView), drawn with `state`: where the
     // sky shows, as the original draws it only there (cracks in the level
     // elsewhere show nothing behind them, not the sky).
-    void drawSkyShape(const gfx::DrawState& state) const;
+    void drawSkyShape(const gfx::DrawState &state) const;
     bool hasSky() const { return skyMesh_ != 0; }
     // `worldOnly`: the level's own surfaces, not its brush entities' (doors,
     // lifts), which the game places (drawModel).
     void drawSurfaces(float time, float sortMin = 0, float sortMax = 1e9f, bool worldOnly = false) const;
     // Brush entity `model` (*1, *2...) placed by `transform`, its surfaces
     // that sort in sortMin..sortMax.
-    void drawModel(int model, const gfx::Mat4& transform, float time, float sortMin = 0,
-                   float sortMax = 1e9f) const;
+    void drawModel(int model, const gfx::Mat4 &transform, float time, float sortMin = 0, float sortMax = 1e9f) const;
     // Adds `lights` to the opaque surfaces within their reach, as the
     // original's dynamic lights: each pixel brightened in proportion to
     // its colour. After the opaque surfaces are drawn.
-    void drawDynamicLights(const std::vector<gfx::DynamicLight>& lights) const;
+    void drawDynamicLights(const std::vector<gfx::DynamicLight> &lights) const;
     // Every sort its shaders have (brush entities' included), in order.
-    const std::vector<float>& sorts() const { return sorts_; }
+    const std::vector<float> &sorts() const { return sorts_; }
     // Where a view is and which areas closed doors hide (refdef_t's area
     // mask: a bit set for each hidden one): from then on the draws are of
     // only the level's surfaces that can be seen from there, as the
@@ -67,12 +66,12 @@ public:
     // surfaces wholly outside the view. Each view `slot` (0 the player's,
     // 1 a mirror's or portal's) keeps its own selection. Without it, every
     // surface is drawn.
-    void setView(int slot, const std::array<float, 3>& eye, const std::array<uint8_t, 32>& areaMask,
-                 const gfx::Mat4& viewProj);
+    void setView(int slot, const std::array<float, 3> &eye, const std::array<uint8_t, 32> &areaMask,
+                 const gfx::Mat4 &viewProj);
     // Which way the current view looks (its left, up and forward axes, and
     // whether it's a mirror's): autosprite surfaces are turned to face it.
-    void setCamera(const std::array<float, 3>& left, const std::array<float, 3>& up,
-                   const std::array<float, 3>& forward, bool mirrored);
+    void setCamera(const std::array<float, 3> &left, const std::array<float, 3> &up,
+                   const std::array<float, 3> &forward, bool mirrored);
     // The mirror and portal surfaces the current view draws, nearest
     // first: the plane they lie in (its normal facing `eye`), bounds, and
     // how far off a portal's view is drawn (0: a mirror's always is).
@@ -83,10 +82,10 @@ public:
         std::array<float, 3> mins{}, maxs{};
         float range = 0;
     };
-    std::vector<Portal> visiblePortals(const std::array<float, 3>& eye) const;
+    std::vector<Portal> visiblePortals(const std::array<float, 3> &eye) const;
     // A mirror or portal surface's triangles in the current view, drawn
     // with `state` (untextured: for marking where it is, or its depth).
-    void drawSurfaceShape(int surface, const gfx::DrawState& state) const;
+    void drawSurfaceShape(int surface, const gfx::DrawState &state) const;
 
     size_t batchCount() const { return batches_.size(); }
     // What the last setView found, for the info line: the eye's cluster
@@ -118,11 +117,11 @@ private:
         std::array<float, 4> plane{0, 0, 0, 1}; // its surface (see gfx::DrawCall::fogPlane)
     };
 
-    void buildSky(const ShaderDef& sky);
-    void drawFog(int material, const gfx::DrawCall& base, int fog, float time) const;
+    void buildSky(const ShaderDef &sky);
+    void drawFog(int material, const gfx::DrawCall &base, int fog, float time) const;
 
-    gfx::Renderer3D& r_;
-    ShaderCache& shaders_;
+    gfx::Renderer3D &r_;
+    ShaderCache &shaders_;
     gfx::MeshId mesh_ = 0;
     std::vector<gfx::TextureId> lightmaps_;
     std::vector<Fog> fogs_;
@@ -143,7 +142,7 @@ private:
         uint32_t firstIndex = 0, count = 0;
         std::array<float, 3> mins{}, maxs{}; // its bounds
     };
-    int leafAt(const std::array<float, 3>& p) const;
+    int leafAt(const std::array<float, 3> &p) const;
     std::vector<SurfaceRange> surfaceRanges_;
     std::vector<uint32_t> allIndices_;
     std::vector<BspPlane> visPlanes_;
@@ -174,7 +173,9 @@ private:
     };
     std::array<ViewSlot, 2> slots_;
     int activeSlot_ = 0;
-    const ViewSlot* culled() const { return slots_[size_t(activeSlot_)].culling ? &slots_[size_t(activeSlot_)] : nullptr; }
+    const ViewSlot *culled() const {
+        return slots_[size_t(activeSlot_)].culling ? &slots_[size_t(activeSlot_)] : nullptr;
+    }
     gfx::MeshId drawMesh() const { return culled() ? culled()->mesh : mesh_; }
     // The level's mirror and portal surfaces.
     std::vector<Portal> portals_;
@@ -205,6 +206,6 @@ private:
 // Doubles a light colour the way the original does on loading (it's
 // stored at half brightness), keeping its hue when a component would pass
 // 255. Used for lightmaps, vertex colours and the light grid.
-void brightenLight(uint8_t* rgb);
+void brightenLight(uint8_t *rgb);
 
 } // namespace reluva::idtech3

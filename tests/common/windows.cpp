@@ -54,7 +54,6 @@ static void testMixerStream() {
     CHECK(m.playStream(nullptr, SoundType::Effects) == kNoSound);
 }
 
-
 static void testThreads() {
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
@@ -67,14 +66,16 @@ static void testThreads() {
         std::copy(bytes.begin(), bytes.end(), cpu.memory().begin() + at);
         return at;
     };
-    auto le = [](uint32_t v) { return std::vector<uint8_t>{uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)}; };
+    auto le = [](uint32_t v) {
+        return std::vector<uint8_t>{uint8_t(v), uint8_t(v >> 8), uint8_t(v >> 16), uint8_t(v >> 24)};
+    };
     std::vector<uint8_t> counting = {0xff, 0x05}; // inc dword [counter]
     for (uint8_t b : le(counter))
         counting.push_back(b);
     counting.insert(counting.end(), {0x6a, 50, 0xff, 0x15}); // push 50; call [Sleep]
     for (uint8_t b : le(slot))
         counting.push_back(b);
-    counting.insert(counting.end(), {0xeb, 0xf0}); // jmp back to the start
+    counting.insert(counting.end(), {0xeb, 0xf0});         // jmp back to the start
     std::vector<uint8_t> sleeping = {0x6a, 0, 0xff, 0x15}; // the main thread: Sleep(0); return
     for (uint8_t b : le(slot))
         sleeping.push_back(b);
@@ -93,7 +94,7 @@ static void testThreads() {
 }
 
 // MSVCRT's stand-ins and KERNEL32's files, called as the program would.
-static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
+static void testMsvcrtAndFiles(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp / "Game");
     {
         std::ofstream(tmp / "Game" / "Data.txt", std::ios::binary) << "hello world";
@@ -103,7 +104,7 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
     process.setProgram("Prog.exe", "C:\\Game\\");
-    process.mapPath = [&](const std::string& path, bool forWriting) -> std::optional<std::filesystem::path> {
+    process.mapPath = [&](const std::string &path, bool forWriting) -> std::optional<std::filesystem::path> {
         if (path.rfind("C:\\Game\\", 0) != 0)
             return std::nullopt;
         if (forWriting)
@@ -114,8 +115,8 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     };
     process.cdLabel = "LEGOATEN";
     x86::addMsvcrt(process);
-    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
-    auto text = [&](const std::string& s) {
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    auto text = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
         cpu.writeString(a, s, uint32_t(s.size() + 1));
         return a;
@@ -155,14 +156,15 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
     CHECK(!cpu.call(fn("MSVCRT.dll", "_EH_prolog"), {}, r));
     const uint32_t frame = cpu.read32(cpu.fsBase);
     CHECK(frame == espBefore - 4 - 12 && cpu.read32(frame) == chain && cpu.read32(frame + 4) == 0x1234 &&
-          cpu.read32(frame + 8) == 0xffffffffu && cpu.read32(frame + 12) == 0x5555 && cpu.reg[x86::Cpu::EBP] == frame + 12);
+          cpu.read32(frame + 8) == 0xffffffffu && cpu.read32(frame + 12) == 0x5555 &&
+          cpu.reg[x86::Cpu::EBP] == frame + 12);
     cpu.write32(cpu.fsBase, chain);
 
     // Files: fopen relative to the program's folder, fread, fclose.
     CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("data.txt"), text("r")}, r) && r != 0);
     const uint32_t file = r;
     CHECK(!cpu.call(fn("MSVCRT.dll", "fread"), {vars, 1, 32, file}, r) && r == 11);
-    CHECK(std::string(reinterpret_cast<const char*>(cpu.memory().data() + vars), 11) == "hello world");
+    CHECK(std::string(reinterpret_cast<const char *>(cpu.memory().data() + vars), 11) == "hello world");
     CHECK(!cpu.call(fn("MSVCRT.dll", "fclose"), {file}, r) && r == 0);
     CHECK(!cpu.call(fn("MSVCRT.dll", "fopen"), {text("nothere.txt"), text("rb")}, r) && r == 0);
     // Text mode: CR-LF read as LF (fgets, fgetc, fread) and written from LF;
@@ -196,8 +198,8 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
           cpu.string(find + 44) == "Data.txt" && cpu.read32(find + 32) == 11);
     CHECK(!cpu.call(fn("KERNEL32.dll", "FindNextFileA"), {r, find}, r) && r == 0);
     const uint32_t label = process.memory().alloc(32);
-    CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) && r == 1 &&
-          cpu.string(label) == "LEGOATEN");
+    CHECK(!cpu.call(fn("KERNEL32.dll", "GetVolumeInformationA"), {text("D:\\"), label, 32, 0, 0, 0, 0, 0}, r) &&
+          r == 1 && cpu.string(label) == "LEGOATEN");
     CHECK(!cpu.call(fn("KERNEL32.dll", "GetDriveTypeA"), {text("D:\\")}, r) && r == 5);
 
     // MulDiv rounds half away from zero; date and time text from a
@@ -223,38 +225,38 @@ static void testMsvcrtAndFiles(const std::filesystem::path& tmp) {
 // Reluva's MSVCP60.dll, called as the games call it: strings in Visual C++
 // 6's layout, a file stream reading lines, a growing string stream buffer
 // and cerr.
-static void testMsvcp60(const std::filesystem::path& tmp) {
+static void testMsvcp60(const std::filesystem::path &tmp) {
     std::filesystem::create_directories(tmp / "Game");
     std::ofstream(tmp / "Game" / "Lines.txt", std::ios::binary) << "first line\nsecond\n";
     x86::Cpu cpu(64u << 20);
     x86::Win32Process process(cpu);
     process.setProgram("Prog.exe", "C:\\Game\\");
-    process.mapPath = [&](const std::string& path, bool forWriting) -> std::optional<std::filesystem::path> {
+    process.mapPath = [&](const std::string &path, bool forWriting) -> std::optional<std::filesystem::path> {
         if (forWriting || path.rfind("C:\\Game\\", 0) != 0)
             return std::nullopt;
         return fs::findFile(tmp / "Game", path.substr(8)).value_or(tmp / "Game" / "missing");
     };
     std::string output;
-    process.output = [&](const std::string& text) { output += text; };
+    process.output = [&](const std::string &text) { output += text; };
     x86::addMsvcrt(process);
-    const x86::Win32Process::Module* lib = nullptr;
+    const x86::Win32Process::Module *lib = nullptr;
     CHECK(!x86::loadMsvcp60(process, lib));
     if (!lib)
         return;
     CHECK(!process.attach(*lib));
     CHECK(process.missingImports().empty());
-    auto fn = [&](const char* name) {
+    auto fn = [&](const char *name) {
         const uint32_t a = lib->exportAddress(name);
         CHECK(a != 0);
         return a;
     };
-    auto text = [&](const std::string& s) {
+    auto text = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
         cpu.writeString(a, s, uint32_t(s.size() + 1));
         return a;
     };
     uint32_t r = 0;
-    auto method = [&](uint32_t self, const char* name, std::vector<uint32_t> args) {
+    auto method = [&](uint32_t self, const char *name, std::vector<uint32_t> args) {
         cpu.reg[x86::Cpu::ECX] = self;
         const bool ok = !cpu.call(fn(name), args, r);
         CHECK(ok);
@@ -262,15 +264,16 @@ static void testMsvcp60(const std::filesystem::path& tmp) {
     };
     // string: the characters at +4, length +8, capacity +12, a 0 count
     // before them.
-    const char* kCtorChars = "??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@PBDABV?$allocator@D@1@@Z";
-    const char* kAppend = "?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@PBDI@Z";
-    const char* kFind = "?find@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
-    const char* kSubstr = "?substr@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBE?AV12@II@Z";
-    const char* kErase = "?erase@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@II@Z";
-    const char* kFreeze = "?_Freeze@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXXZ";
-    const char* kDtor = "??1?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@XZ";
-    const char* kEq = "??8std@@YA_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@PBD@Z";
-    const char* kRfind = "?rfind@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
+    const char *kCtorChars =
+        "??0?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@PBDABV?$allocator@D@1@@Z";
+    const char *kAppend = "?append@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@PBDI@Z";
+    const char *kFind = "?find@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
+    const char *kSubstr = "?substr@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBE?AV12@II@Z";
+    const char *kErase = "?erase@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAEAAV12@II@Z";
+    const char *kFreeze = "?_Freeze@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXXZ";
+    const char *kDtor = "??1?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QAE@XZ";
+    const char *kEq = "??8std@@YA_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@PBD@Z";
+    const char *kRfind = "?rfind@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@QBEIPBDII@Z";
     const uint32_t s1 = process.memory().alloc(16), s2 = process.memory().alloc(16);
     method(s1, kCtorChars, {text("hello world"), 0});
     auto chars = [&](uint32_t s) { return cpu.read32(s + 4) ? cpu.string(cpu.read32(s + 4)) : std::string(); };
@@ -329,7 +332,8 @@ static void testMsvcp60(const std::filesystem::path& tmp) {
     CHECK(method(sb, "?xsputn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPBDH@Z",
                  {text(long_), uint32_t(long_.size())}) == long_.size());
     const uint32_t back = process.memory().alloc(128);
-    CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 128}) == long_.size() &&
+    CHECK(method(sb, "?xsgetn@?$basic_streambuf@DU?$char_traits@D@std@@@std@@MAEHPADH@Z", {back, 128}) ==
+              long_.size() &&
           cpu.string(back, uint32_t(long_.size())) == long_);
     const uint32_t pos = process.memory().alloc(24);
     method(sb, "?seekoff@strstreambuf@std@@MAE?AV?$fpos@H@2@JW4seekdir@ios_base@2@H@Z", {pos, 10, 0, 1});
@@ -358,14 +362,14 @@ static void testMsvcp60(const std::filesystem::path& tmp) {
 static void testWindowsAndRegistry() {
     x86::Cpu cpu(16u << 20);
     x86::Win32Process process(cpu);
-    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
-    auto text = [&](const std::string& s) {
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    auto text = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
         cpu.writeString(a, s, uint32_t(s.size() + 1));
         return a;
     };
     std::vector<uint32_t> seen;
-    const uint32_t proc = cpu.addNative("test!WndProc", [&](x86::Cpu& c) {
+    const uint32_t proc = cpu.addNative("test!WndProc", [&](x86::Cpu &c) {
         seen.push_back(c.arg(1));
         c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0; // WM_NCCREATE goes on
         return 16u;
@@ -376,7 +380,8 @@ static void testWindowsAndRegistry() {
     cpu.write32(wc + 36, text("TestClass"));
     CHECK(!cpu.call(fn("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
     CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
-                    {0, text("testclass"), text("Title"), 0x00cf0000, 10, 20, 648, 507, 0, 0, 0, 0}, r) && r != 0);
+                    {0, text("testclass"), text("Title"), 0x00cf0000, 10, 20, 648, 507, 0, 0, 0, 0}, r) &&
+          r != 0);
     const uint32_t hwnd = r;
     CHECK((seen == std::vector<uint32_t>{0x81, 0x1}));
     CHECK(!cpu.call(fn("USER32.dll", "FindWindowA"), {text("TESTCLASS"), 0}, r) && r == hwnd);
@@ -405,8 +410,8 @@ static void testWindowsAndRegistry() {
           cpu.read32(msg + 8) == 'q');
     CHECK((seen == std::vector<uint32_t>{0x100}));
     CHECK(!cpu.call(fn("USER32.dll", "PostQuitMessage"), {3}, r));
-    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 && cpu.read32(msg + 4) == 0x12 &&
-          cpu.read32(msg + 8) == 3);
+    CHECK(!cpu.call(fn("USER32.dll", "PeekMessageA"), {msg, hwnd, 0, 0, 1}, r) && r == 1 &&
+          cpu.read32(msg + 4) == 0x12 && cpu.read32(msg + 8) == 3);
     // Closing through DefWindowProcA destroys the window.
     seen.clear();
     CHECK(!cpu.call(fn("USER32.dll", "DefWindowProcA"), {hwnd, 0x10, 0, 0}, r));
@@ -416,17 +421,19 @@ static void testWindowsAndRegistry() {
     // locale list enumerated.
     const uint32_t key = process.memory().alloc(4), disposition = process.memory().alloc(4);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCreateKeyExA"),
-                    {0x80000002u, text("Software\\Test\\Game"), 0, 0, 0, 0, 0, key, disposition}, r) && r == 0 &&
-          cpu.read32(disposition) == 1);
+                    {0x80000002u, text("Software\\Test\\Game"), 0, 0, 0, 0, 0, key, disposition}, r) &&
+          r == 0 && cpu.read32(disposition) == 1);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegSetValueExA"), {cpu.read32(key), text("Path"), 0, 1, text("D:\\"), 4}, r) &&
           r == 0);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegCloseKey"), {cpu.read32(key)}, r) && r == 0);
-    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("SOFTWARE\\test"), 0, 1, key}, r) && r == 0);
+    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("SOFTWARE\\test"), 0, 1, key}, r) &&
+          r == 0);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("Software\\Absent"), 0, 1, key}, r) &&
           r == 2);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"), {0x80000002u, text("Software\\Test\\Game"), 0, 1, key}, r) &&
           r == 0);
-    const uint32_t type = process.memory().alloc(4), data = process.memory().alloc(16), size = process.memory().alloc(4);
+    const uint32_t type = process.memory().alloc(4), data = process.memory().alloc(16),
+                   size = process.memory().alloc(4);
     cpu.write32(size, 2);
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegQueryValueExA"), {cpu.read32(key), text("path"), 0, type, data, size}, r) &&
           r == 234 && cpu.read32(size) == 4);
@@ -435,23 +442,27 @@ static void testWindowsAndRegistry() {
           r == 0 && cpu.read32(type) == 1 && cpu.string(data) == "D:\\");
     CHECK(process.registryValue("HKEY_LOCAL_MACHINE\\Software\\Test\\Game", "Path").has_value());
     CHECK(!cpu.call(fn("ADVAPI32.dll", "RegOpenKeyExA"),
-                    {0x80000002u, text("System\\CurrentControlSet\\Control\\Nls\\Locale"), 0, 1, key}, r) && r == 0);
+                    {0x80000002u, text("System\\CurrentControlSet\\Control\\Nls\\Locale"), 0, 1, key}, r) &&
+          r == 0);
     const uint32_t name = process.memory().alloc(32), nameSize = process.memory().alloc(4);
     cpu.write32(nameSize, 32);
     cpu.write32(size, 16);
-    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 1, name, nameSize, 0, type, data, size}, r) &&
-          r == 0 && cpu.string(name) == "00000409" && cpu.read32(nameSize) == 8 && cpu.string(data) == "1");
-    CHECK(!cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 2, name, nameSize, 0, type, data, size}, r) &&
-          r == 259);
+    CHECK(
+        !cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 1, name, nameSize, 0, type, data, size}, r) &&
+        r == 0 && cpu.string(name) == "00000409" && cpu.read32(nameSize) == 8 && cpu.string(data) == "1");
+    CHECK(
+        !cpu.call(fn("ADVAPI32.dll", "RegEnumValueA"), {cpu.read32(key), 2, name, nameSize, 0, type, data, size}, r) &&
+        r == 259);
 
     // COM: no class without the engine's; with it, the class asked for.
     const uint32_t guids = process.memory().alloc(32), out = process.memory().alloc(4);
-    const uint8_t clsid[16] = {0xe0, 0xee, 0xf1, 0xd8, 0x34, 0xf6, 0xcf, 0x11, 0x87, 0, 0, 0xa0, 0x24, 0x5d, 0x91, 0x8b};
+    const uint8_t clsid[16] = {0xe0, 0xee, 0xf1, 0xd8, 0x34, 0xf6, 0xcf, 0x11,
+                               0x87, 0,    0,    0xa0, 0x24, 0x5d, 0x91, 0x8b};
     for (uint32_t i = 0; i < 16; ++i)
         cpu.write8(guids + i, clsid[i]);
     CHECK(!cpu.call(fn("ole32.dll", "CoCreateInstance"), {guids, 0, 1, guids + 16, out}, r) && r == 0x80040154u);
     std::string asked;
-    process.createComObject = [&](const std::string& c, const std::string&, uint32_t) {
+    process.createComObject = [&](const std::string &c, const std::string &, uint32_t) {
         asked = c;
         return 0u;
     };
@@ -469,7 +480,7 @@ static void testDirectX() {
     dx.modes.push_back({64, 48, 16});
     uint32_t r = 0;
     auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
-    auto guid = [&](const char* g) {
+    auto guid = [&](const char *g) {
         const uint32_t a = mem(16);
         x86::ComHost::writeGuid(cpu, a, g);
         return a;
@@ -488,11 +499,12 @@ static void testDirectX() {
     };
     const uint32_t out = mem(4);
     CHECK(!cpu.call(process.provided("DDRAW.dll", "DirectDrawCreateEx"),
-                    {0, out, guid("{15e65ec0-3b9c-11d2-b92f-00609797ea5b}"), 0}, r) && r == 0);
+                    {0, out, guid("{15e65ec0-3b9c-11d2-b92f-00609797ea5b}"), 0}, r) &&
+          r == 0);
     const uint32_t dd = cpu.read32(out);
-    CHECK(call(dd, 20, {0, 0x11}) == 0);                // SetCooperativeLevel: exclusive, fullscreen
-    CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0);       // SetDisplayMode
-    CHECK(call(dd, 21, {65, 48, 16, 0, 0}) != 0);       // a mode not offered
+    CHECK(call(dd, 20, {0, 0x11}) == 0);          // SetCooperativeLevel: exclusive, fullscreen
+    CHECK(call(dd, 21, {64, 48, 16, 0, 0}) == 0); // SetDisplayMode
+    CHECK(call(dd, 21, {65, 48, 16, 0, 0}) != 0); // a mode not offered
     // A flipping primary with one back buffer.
     const uint32_t desc = mem(124);
     auto clearDesc = [&] {
@@ -500,23 +512,23 @@ static void testDirectX() {
         cpu.write32(desc, 124);
     };
     clearDesc();
-    cpu.write32(desc + 4, 0x1 | 0x20);                       // CAPS, BACKBUFFERCOUNT
+    cpu.write32(desc + 4, 0x1 | 0x20); // CAPS, BACKBUFFERCOUNT
     cpu.write32(desc + 20, 1);
-    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000);    // PRIMARY, FLIP, COMPLEX, 3DDEVICE
-    CHECK(call(dd, 6, {desc, out, 0}) == 0);                 // CreateSurface
+    cpu.write32(desc + 104, 0x200 | 0x10 | 0x8 | 0x2000); // PRIMARY, FLIP, COMPLEX, 3DDEVICE
+    CHECK(call(dd, 6, {desc, out, 0}) == 0);              // CreateSurface
     const uint32_t primary = cpu.read32(out);
     const uint32_t caps = mem(16);
-    cpu.write32(caps, 0x4); // BACKBUFFER
-    CHECK(call(primary, 12, {caps, out}) == 0);              // GetAttachedSurface
+    cpu.write32(caps, 0x4);                     // BACKBUFFER
+    CHECK(call(primary, 12, {caps, out}) == 0); // GetAttachedSurface
     const uint32_t back = cpu.read32(out);
     // A 16-bit Z buffer, attached.
     clearDesc();
-    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x40);           // CAPS, HEIGHT, WIDTH, ZBUFFERBITDEPTH
+    cpu.write32(desc + 4, 0x1 | 0x2 | 0x4 | 0x40); // CAPS, HEIGHT, WIDTH, ZBUFFERBITDEPTH
     cpu.write32(desc + 8, 48);
     cpu.write32(desc + 12, 64);
-    cpu.write32(desc + 104, 0x20000);                        // ZBUFFER
+    cpu.write32(desc + 104, 0x20000); // ZBUFFER
     CHECK(call(dd, 6, {desc, out, 0}) == 0);
-    CHECK(call(back, 3, {cpu.read32(out)}) == 0);            // AddAttachedSurface
+    CHECK(call(back, 3, {cpu.read32(out)}) == 0); // AddAttachedSurface
     // Direct3D, from the DirectDraw object, and a device on the back buffer.
     CHECK(call(dd, 0, {guid("{f5049e77-4861-11d2-a407-00a0c90629a8}"), out}) == 0);
     const uint32_t d3d = cpu.read32(out);
@@ -543,8 +555,8 @@ static void testDirectX() {
     vertex(0, 0, 0, 0.5f, 0xffff0000u);
     vertex(1, 32, 0, 0.5f, 0xffff0000u);
     vertex(2, 0, 32, 0.5f, 0xffff0000u);
-    CHECK(call(device, 37, {0, 1, 2}) == 0); // stage 0 COLOROP: SELECTARG1
-    CHECK(call(device, 37, {0, 2, 0}) == 0); // COLORARG1: diffuse
+    CHECK(call(device, 37, {0, 1, 2}) == 0);             // stage 0 COLOROP: SELECTARG1
+    CHECK(call(device, 37, {0, 2, 0}) == 0);             // COLORARG1: diffuse
     CHECK(call(device, 25, {4, fvf, verts, 3, 0}) == 0); // DrawPrimitive: a triangle list
     // A farther green triangle over it is hidden by the depth test.
     vertex(0, 0, 0, 0.9f, 0xff00ff00u);
@@ -557,7 +569,7 @@ static void testDirectX() {
     cpu.write32(desc + 8, 2);
     cpu.write32(desc + 12, 2);
     cpu.write32(desc + 72, 32);
-    cpu.write32(desc + 76, 0x40);    // RGB
+    cpu.write32(desc + 76, 0x40); // RGB
     cpu.write32(desc + 84, 16);
     cpu.write32(desc + 88, 0xf800);
     cpu.write32(desc + 92, 0x07e0);
@@ -567,27 +579,27 @@ static void testDirectX() {
     const uint32_t texture = cpu.read32(out);
     CHECK(call(texture, 25, {0, desc, 1, 0}) == 0); // Lock
     const uint32_t texels = cpu.read32(desc + 36), pitch = cpu.read32(desc + 16);
-    cpu.write16(texels, 0xffff);              // white
-    cpu.write16(texels + 2, 0xf800);          // red
-    cpu.write16(texels + pitch, 0x07e0);      // green
-    cpu.write16(texels + pitch + 2, 0x0000);  // black
-    CHECK(call(texture, 32, {0}) == 0);       // Unlock
-    CHECK(call(device, 35, {0, texture}) == 0);  // SetTexture
-    CHECK(call(device, 37, {0, 1, 4}) == 0);     // COLOROP: MODULATE
-    CHECK(call(device, 37, {0, 2, 2}) == 0);     // COLORARG1: texture
-    CHECK(call(device, 37, {0, 3, 0}) == 0);     // COLORARG2: diffuse
+    cpu.write16(texels, 0xffff);                // white
+    cpu.write16(texels + 2, 0xf800);            // red
+    cpu.write16(texels + pitch, 0x07e0);        // green
+    cpu.write16(texels + pitch + 2, 0x0000);    // black
+    CHECK(call(texture, 32, {0}) == 0);         // Unlock
+    CHECK(call(device, 35, {0, texture}) == 0); // SetTexture
+    CHECK(call(device, 37, {0, 1, 4}) == 0);    // COLOROP: MODULATE
+    CHECK(call(device, 37, {0, 2, 2}) == 0);    // COLORARG1: texture
+    CHECK(call(device, 37, {0, 3, 0}) == 0);    // COLORARG2: diffuse
     vertex(0, 40, 24, 0.5f, 0xffffffffu, 0, 0);
     vertex(1, 64, 24, 0.5f, 0xffffffffu, 1, 0);
     vertex(2, 40, 48, 0.5f, 0xffffffffu, 0, 1);
     vertex(3, 64, 48, 0.5f, 0xffffffffu, 1, 1);
     CHECK(call(device, 25, {5, fvf, verts, 4, 0}) == 0); // a strip
-    CHECK(call(primary, 11, {0, 1}) == 0); // Flip
+    CHECK(call(primary, 11, {0, 1}) == 0);               // Flip
 
-    const x86::DirectX::Frame& f = dx.frame();
+    const x86::DirectX::Frame &f = dx.frame();
     CHECK(f.width == 64 && f.height == 48 && f.number == 1);
     auto at = [&](int x, int y) { return f.pixels[size_t(y * f.width + x)] & 0xffffff; };
-    CHECK(at(5, 5) == 0xff0000);  // the near triangle
-    CHECK(at(40, 5) == 0x0000ff); // the clear colour
+    CHECK(at(5, 5) == 0xff0000);   // the near triangle
+    CHECK(at(40, 5) == 0x0000ff);  // the clear colour
     CHECK(at(31, 31) == 0x0000ff); // past the hypotenuse
     CHECK(at(45, 28) == 0xffffff && at(58, 28) == 0xff0000 && at(45, 44) == 0x00ff00 && at(58, 44) == 0x000000);
     // The display's gamma ramp (IDirectDrawGammaControl, from the primary):
@@ -597,7 +609,7 @@ static void testDirectX() {
     const uint32_t ramp = mem(1536);
     for (uint32_t i = 0; i < 768; ++i)
         cpu.write16(ramp + 2 * i, uint16_t((i < 256 ? 255 - i : i % 256) * 257));
-    CHECK(call(gamma, 4, {0, ramp}) == 0); // SetGammaRamp
+    CHECK(call(gamma, 4, {0, ramp}) == 0);                                   // SetGammaRamp
     CHECK(call(primary, 11, {0, 1}) == 0 && call(primary, 11, {0, 1}) == 0); // the drawing shown again
     CHECK(at(5, 5) == 0x000000 && at(40, 5) == 0xff00ff);
     const uint32_t read = mem(1536);
@@ -659,14 +671,14 @@ static void testInput() {
     x86::DirectInput directInput(process);
     uint32_t now = 1000;
     process.milliseconds = [&] { return now; };
-    auto fn = [&](const char* dll, const char* name) { return process.provided(dll, name); };
-    auto text = [&](const std::string& s) {
+    auto fn = [&](const char *dll, const char *name) { return process.provided(dll, name); };
+    auto text = [&](const std::string &s) {
         const uint32_t a = process.memory().alloc(uint32_t(s.size() + 1));
         cpu.writeString(a, s, uint32_t(s.size() + 1));
         return a;
     };
     uint32_t r = 0;
-    const uint32_t proc = cpu.addNative("test!InputProc", [](x86::Cpu& c) {
+    const uint32_t proc = cpu.addNative("test!InputProc", [](x86::Cpu &c) {
         c.reg[x86::Cpu::EAX] = c.arg(1) == 0x81 ? 1 : 0;
         return 16u;
     });
@@ -676,8 +688,9 @@ static void testInput() {
     cpu.write32(wc + 36, text("Game"));
     CHECK(!cpu.call(fn("USER32.dll", "RegisterClassA"), {wc}, r) && r != 0);
     // A popup window (no frame) at 100,50.
-    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"), {0, text("Game"), 0, 0x80000000u, 100, 50, 320, 200, 0, 0, 0, 0},
-                    r) && r != 0);
+    CHECK(!cpu.call(fn("USER32.dll", "CreateWindowExA"),
+                    {0, text("Game"), 0, 0x80000000u, 100, 50, 320, 200, 0, 0, 0, 0}, r) &&
+          r != 0);
     const uint32_t hwnd = r;
     const uint32_t msg = process.memory().alloc(28);
     auto next = [&]() -> std::array<uint32_t, 4> {
@@ -717,11 +730,10 @@ static void testInput() {
     CHECK(process.cursorX == 419 && process.cursorY == 50);
     CHECK(!cpu.call(fn("USER32.dll", "ClipCursor"), {0}, r));
     process.mouseMoveTo(130, 70);
-    while (next()[1]) {
-    }
+    while (next()[1]) {}
 
     // DirectInput.
-    auto guid = [&](const char* g) {
+    auto guid = [&](const char *g) {
         const uint32_t a = process.memory().alloc(16);
         x86::ComHost::writeGuid(cpu, a, g);
         return a;
@@ -751,15 +763,15 @@ static void testInput() {
     const uint32_t fmt[6] = {24, 16, 2 /* relative axes */, 16, 7, objects};
     for (uint32_t i = 0; i < 6; ++i)
         cpu.write32(format + 4 * i, fmt[i]);
-    CHECK(call(mouse, 11, {format}) == 0);     // SetDataFormat
+    CHECK(call(mouse, 11, {format}) == 0); // SetDataFormat
     const uint32_t state = process.memory().alloc(256);
     CHECK(call(mouse, 9, {16, state}) == 0x8007000cu); // GetDeviceState before Acquire
     const uint32_t prop = process.memory().alloc(20);
     const uint32_t bufferSize[5] = {20, 16, 0, 0, 8};
     for (uint32_t i = 0; i < 5; ++i)
         cpu.write32(prop + 4 * i, bufferSize[i]);
-    CHECK(call(mouse, 6, {1, prop}) == 0);      // SetProperty: DIPROP_BUFFERSIZE
-    CHECK(call(mouse, 7, {}) == 0);             // Acquire
+    CHECK(call(mouse, 6, {1, prop}) == 0); // SetProperty: DIPROP_BUFFERSIZE
+    CHECK(call(mouse, 7, {}) == 0);        // Acquire
     process.mouseMoveTo(140, 65);
     process.mouseButton(1, true);
     CHECK(call(mouse, 9, {16, state}) == 0);
@@ -806,7 +818,7 @@ static void testA3d() {
     a3d.mixer = &mixer;
     uint32_t r = 0;
     auto mem = [&](uint32_t size) { return process.memory().alloc(size); };
-    auto guid = [&](const char* g) {
+    auto guid = [&](const char *g) {
         const uint32_t a = mem(16);
         x86::ComHost::writeGuid(cpu, a, g);
         return a;
@@ -818,13 +830,14 @@ static void testA3d() {
     };
     const uint32_t out = mem(4), out2 = mem(4), out3 = mem(4), out4 = mem(4);
     CHECK(!cpu.call(process.provided("ole32.dll", "CoCreateInstance"),
-                    {guid("{92fa2c24-253c-11d2-90fb-006008a1f441}"), 0, 1, guid("{9ae07221-8ac4-11d3-b6aa-00600879f3ee}"),
-                     out},
-                    r) && r == 0);
+                    {guid("{92fa2c24-253c-11d2-90fb-006008a1f441}"), 0, 1,
+                     guid("{9ae07221-8ac4-11d3-b6aa-00600879f3ee}"), out},
+                    r) &&
+          r == 0);
     const uint32_t api = cpu.read32(out);
-    CHECK(call(api, 15, {0, 0, 0}) == 0); // Init
+    CHECK(call(api, 15, {0, 0, 0}) == 0);                                                               // Init
     CHECK(call(api, 0, {guid("{4730c6c2-b797-11d3-a33d-00104b67d10e}"), out}) == 0 && cpu.read32(out)); // the geometry
-    CHECK(call(api, 0, {guid("{c398e563-d90b-11d1-90fb-006008a1f441}"), out}) == 0);                   // the listener
+    CHECK(call(api, 0, {guid("{c398e563-d90b-11d1-90fb-006008a1f441}"), out}) == 0);                    // the listener
     CHECK(cpu.read32(out) != 0);
     CHECK(call(api, 17, {0x1, out}) == 0); // NewSource, native (not positioned)
     const uint32_t source = cpu.read32(out);
@@ -838,9 +851,9 @@ static void testA3d() {
     cpu.write32(format + 8, 1000);
     cpu.write16(format + 12, 1);
     cpu.write16(format + 14, 8);
-    CHECK(call(source, 7, {format}) == 0);         // SetWaveFormat
-    CHECK(call(source, 5, {1000}) == 0);           // AllocateWaveData
-    CHECK(call(source, 9, {}) == 1000);            // GetWaveSize
+    CHECK(call(source, 7, {format}) == 0);                              // SetWaveFormat
+    CHECK(call(source, 5, {1000}) == 0);                                // AllocateWaveData
+    CHECK(call(source, 9, {}) == 1000);                                 // GetWaveSize
     CHECK(call(source, 11, {900, 200, out, out2, out3, out4, 0}) == 0); // Lock, wrapping round
     CHECK(cpu.read32(out2) == 100 && cpu.read32(out4) == 100 && cpu.read32(out3) + 900 == cpu.read32(out));
     for (uint32_t i = 0; i < 100; ++i)
@@ -865,7 +878,7 @@ static void testA3d() {
     const auto wait = process.provided("KERNEL32.dll", "WaitForSingleObject");
     CHECK(!cpu.call(process.provided("KERNEL32.dll", "CreateEventA"), {0, 0, 0, 0}, event) && event);
     CHECK(!cpu.call(wait, {event, 0}, r) && r == 0); // untracked: reads as set
-    CHECK(call(source, 59, {500, event}) == 0);    // SetWaveEvent
+    CHECK(call(source, 59, {500, event}) == 0);      // SetWaveEvent
     CHECK(!cpu.call(wait, {event, 0}, r) && r == 0x102);
     // Looped: it wraps round, and stops where it's stopped.
     CHECK(call(source, 13, {1}) == 0);
@@ -894,17 +907,17 @@ static void testA3d() {
     };
     CHECK(call(api, 17, {0x0, out}) == 0); // NewSource, 3D
     const uint32_t positioned = cpu.read32(out);
-    CHECK(call(positioned, 8, {mem(18)}) != 0);        // GetWaveFormat: none yet
-    CHECK(call(positioned, 7, {format}) == 0);         // SetWaveFormat
-    CHECK(call(positioned, 5, {1000}) == 0);           // AllocateWaveData
+    CHECK(call(positioned, 8, {mem(18)}) != 0); // GetWaveFormat: none yet
+    CHECK(call(positioned, 7, {format}) == 0);  // SetWaveFormat
+    CHECK(call(positioned, 5, {1000}) == 0);    // AllocateWaveData
     CHECK(call(positioned, 11, {0, 1000, out, out2, out3, out4, 0}) == 0);
     std::memset(cpu.memory().data() + cpu.read32(out), 0xc0, 1000);
     CHECK(call(positioned, 12, {cpu.read32(out), 1000, 0, 0}) == 0);
     CHECK(call(positioned, 38, {bits(1), bits(100), 1}) == 0); // SetMinMaxDistance: muted beyond 100
-    auto heard = [&](float x) { // the loudest left and right while it plays at (x, 0, 0)
-        CHECK(call(positioned, 20, {bits(x), 0, 0}) == 0); // SetPosition3f
-        CHECK(call(positioned, 15, {}) == 0);              // Rewind
-        CHECK(call(positioned, 13, {0}) == 0);             // Play
+    auto heard = [&](float x) {                                // the loudest left and right while it plays at (x, 0, 0)
+        CHECK(call(positioned, 20, {bits(x), 0, 0}) == 0);     // SetPosition3f
+        CHECK(call(positioned, 15, {}) == 0);                  // Rewind
+        CHECK(call(positioned, 13, {0}) == 0);                 // Play
         clock += 600;
         CHECK(call(positioned, 56, {out}) == 0);
         std::vector<int16_t> both(2 * 22050);
@@ -924,22 +937,21 @@ static void testA3d() {
     CHECK(call(positioned, 2, {}) == 0);
 }
 
-
 // Pixel conversion: the quick paths (a table per 16-bit format, the
 // value itself for 32-bit) give what PixelFormat::toArgb does.
 static void testArgbConverter() {
     using reluva::x86::dx::ArgbConverter;
     using reluva::x86::dx::PixelFormat;
     PixelFormat x888{reluva::x86::dx::kPfRgb, 0, 32, 0xff0000, 0xff00, 0xff, 0};
-    PixelFormat a888{reluva::x86::dx::kPfRgb | reluva::x86::dx::kPfAlphaPixels, 0, 32, 0xff0000, 0xff00, 0xff,
-                     0xff000000u};
+    PixelFormat a888{
+        reluva::x86::dx::kPfRgb | reluva::x86::dx::kPfAlphaPixels, 0, 32, 0xff0000, 0xff00, 0xff, 0xff000000u};
     PixelFormat r565{reluva::x86::dx::kPfRgb, 0, 16, 0xf800, 0x07e0, 0x001f, 0};
     PixelFormat a1555{reluva::x86::dx::kPfRgb | reluva::x86::dx::kPfAlphaPixels, 0, 16, 0x7c00, 0x03e0, 0x001f, 0x8000};
     uint32_t seed = 12345;
-    for (const PixelFormat& f : {x888, a888, r565, a1555}) {
+    for (const PixelFormat &f : {x888, a888, r565, a1555}) {
         const ArgbConverter convert(f, nullptr);
         std::vector<uint8_t> bytes(64 * 4);
-        for (uint8_t& b : bytes)
+        for (uint8_t &b : bytes)
             b = uint8_t((seed = seed * 1103515245u + 12345u) >> 16);
         const int n = int(bytes.size() / f.bytes());
         std::vector<uint32_t> out(size_t(n), 0);
@@ -954,15 +966,16 @@ static void testArgbConverter() {
     }
 }
 
-
-static const test::Suite suite("common.unit.windows", {
-    {"sound streams", [](const std::filesystem::path&) { testMixerStream(); }},
-    {"threads", [](const std::filesystem::path&) { testThreads(); }},
-    {"msvcrt and files", [](const std::filesystem::path& tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
-    {"msvcp60", [](const std::filesystem::path& tmp) { testMsvcp60(tmp / "msvcp60"); }},
-    {"windows and registry", [](const std::filesystem::path&) { testWindowsAndRegistry(); }},
-    {"directx", [](const std::filesystem::path&) { testDirectX(); }},
-    {"input", [](const std::filesystem::path&) { testInput(); }},
-    {"a3d", [](const std::filesystem::path&) { testA3d(); }},
-    {"pixel conversion", [](const std::filesystem::path&) { testArgbConverter(); }},
-});
+static const test::Suite
+    suite("common.unit.windows",
+          {
+              {"sound streams", [](const std::filesystem::path &) { testMixerStream(); }},
+              {"threads", [](const std::filesystem::path &) { testThreads(); }},
+              {"msvcrt and files", [](const std::filesystem::path &tmp) { testMsvcrtAndFiles(tmp / "msvcrt"); }},
+              {"msvcp60", [](const std::filesystem::path &tmp) { testMsvcp60(tmp / "msvcp60"); }},
+              {"windows and registry", [](const std::filesystem::path &) { testWindowsAndRegistry(); }},
+              {"directx", [](const std::filesystem::path &) { testDirectX(); }},
+              {"input", [](const std::filesystem::path &) { testInput(); }},
+              {"a3d", [](const std::filesystem::path &) { testA3d(); }},
+              {"pixel conversion", [](const std::filesystem::path &) { testArgbConverter(); }},
+          });

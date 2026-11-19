@@ -26,7 +26,7 @@ namespace {
 using namespace reluva::tool;
 using namespace reluva::idtech3::tool;
 
-int cmdImageCheck(int argc, char** argv) {
+int cmdImageCheck(int argc, char **argv) {
     if (argc != 3 && argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 image-check <game folder> [map name filter]\n");
         return 2;
@@ -38,14 +38,14 @@ int cmdImageCheck(int argc, char** argv) {
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
     shaders.load(set, &warnings);
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::fprintf(stderr, "warning: %s\n", w.c_str());
     const std::string filter = argc == 4 ? reluva::normalizeArchiveName(argv[3]) : std::string();
 
     std::map<std::string, int> missingEverywhere; // image -> maps missing it
     int maps = 0;
     Bytes data;
-    for (const std::string& name : set.list()) {
+    for (const std::string &name : set.list()) {
         const std::string key = reluva::normalizeArchiveName(name);
         if (key.rfind("maps/", 0) != 0 || key.size() < 4 || key.compare(key.size() - 4, 4, ".bsp") != 0 ||
             key.find(filter) == std::string::npos)
@@ -57,22 +57,22 @@ int cmdImageCheck(int argc, char** argv) {
         // Every image each shader names: its stages' maps, or for a shader
         // without a script, the image of its own name.
         std::map<std::string, std::string> missing; // image -> a shader wanting it
-        for (const q3::BspShader& s : bsp.shaders) {
+        for (const q3::BspShader &s : bsp.shaders) {
             std::vector<std::string> images;
-            const q3::ShaderDef* def = shaders.find(s.name);
+            const q3::ShaderDef *def = shaders.find(s.name);
             if (!def)
                 images.push_back(s.name);
             else
-                for (const q3::ShaderStage& st : def->stages)
-                    for (const std::string& m : st.maps)
+                for (const q3::ShaderStage &st : def->stages)
+                    for (const std::string &m : st.maps)
                         if (!m.empty() && m[0] != '$')
                             images.push_back(m);
-            for (const std::string& img : images)
+            for (const std::string &img : images)
                 if (q3::findImage(set, img).empty())
                     missing.emplace(reluva::normalizeArchiveName(img), std::string(def ? "script " : "") + s.name);
         }
         std::printf("%s: %zu shaders, %zu missing images\n", name.c_str(), bsp.shaders.size(), missing.size());
-        for (const auto& [img, shader] : missing) {
+        for (const auto &[img, shader] : missing) {
             std::printf("    %-56s (shader %s)\n", img.c_str(), shader.c_str());
             ++missingEverywhere[img];
         }
@@ -81,7 +81,7 @@ int cmdImageCheck(int argc, char** argv) {
     return 0;
 }
 
-int cmdModelCheck(int argc, char** argv) {
+int cmdModelCheck(int argc, char **argv) {
     if (argc < 3 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 model-check <game folder> [name filter] [-v]\n");
         return 2;
@@ -104,7 +104,7 @@ int cmdModelCheck(int argc, char** argv) {
 
     // Every image by its file name without folder or extension, to say
     // where a missing one might be.
-    auto stem = [](const std::string& path) {
+    auto stem = [](const std::string &path) {
         std::string s = reluva::normalizeArchiveName(path);
         if (const size_t slash = s.find_last_of('/'); slash != std::string::npos)
             s = s.substr(slash + 1);
@@ -112,7 +112,7 @@ int cmdModelCheck(int argc, char** argv) {
             s.resize(dot);
         return s;
     };
-    auto folder = [](const std::string& path) {
+    auto folder = [](const std::string &path) {
         const std::string s = reluva::normalizeArchiveName(path);
         const size_t slash = s.find_last_of('/');
         return slash == std::string::npos ? std::string() : s.substr(0, slash);
@@ -122,7 +122,7 @@ int cmdModelCheck(int argc, char** argv) {
     std::vector<std::string> models;
     std::set<std::string> mapShadersBare, mapModels; // what the maps use: shader names without extension, models
     std::vector<std::string> maps;
-    for (const std::string& n : set.list()) {
+    for (const std::string &n : set.list()) {
         const std::string key = reluva::normalizeArchiveName(n);
         if (key.size() > 4) {
             const std::string ext = key.substr(key.size() - 4);
@@ -135,38 +135,37 @@ int cmdModelCheck(int argc, char** argv) {
         }
     }
     // A shader name as maps store it: without an extension.
-    auto bare = [](const std::string& name) {
+    auto bare = [](const std::string &name) {
         std::string s = reluva::normalizeArchiveName(name);
         const size_t dot = s.find_last_of('.'), slash = s.find_last_of('/');
         if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
             s.resize(dot);
         return s;
     };
-    for (const std::string& n : maps) {
+    for (const std::string &n : maps) {
         q3::Bsp bsp;
         if (set.read(n, data) || q3::parseBsp(data, bsp))
             continue;
-        for (const q3::BspShader& s : bsp.shaders)
+        for (const q3::BspShader &s : bsp.shaders)
             mapShadersBare.insert(bare(s.name));
         std::vector<q3::Entity> entities;
         if (!q3::parseEntities(bsp.entities, entities))
-            for (const q3::Entity& e : entities)
-                for (const char* k : {"model", "model2"})
+            for (const q3::Entity &e : entities)
+                for (const char *k : {"model", "model2"})
                     if (const std::string m = e.get(k); !m.empty() && m[0] != '*')
                         mapModels.insert(reluva::normalizeArchiveName(m));
     }
 
-
     // Kinds of result, with counts and a few examples.
     std::map<std::string, std::pair<int, std::vector<std::string>>> kinds;
-    auto count = [&](const std::string& kind, const std::string& example) {
-        auto& [n, ex] = kinds[kind];
+    auto count = [&](const std::string &kind, const std::string &example) {
+        auto &[n, ex] = kinds[kind];
         ++n;
         if (ex.size() < 3)
             ex.push_back(example);
     };
     int surfaces = 0, unreadable = 0;
-    for (const std::string& path : models) {
+    for (const std::string &path : models) {
         q3::Md3Model m;
         if (set.read(path, data) || q3::parseModel(data, m)) {
             ++unreadable;
@@ -180,13 +179,13 @@ int cmdModelCheck(int argc, char** argv) {
         std::string main = base;
         if (main.size() > 2 && main[main.size() - 2] == '_' && (main.back() == '1' || main.back() == '2'))
             main.resize(main.size() - 2);
-        for (const std::string& n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
+        for (const std::string &n : {base + ".skin", base + "_default.skin", main + ".skin", main + "_default.skin"})
             if (set.has(n)) {
                 skins += " " + n;
                 if (skin.empty() && !set.read(n, data))
-                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+                    skin = q3::parseSkin(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()));
             }
-        for (const q3::Md3Surface& s : m.surfaces) {
+        for (const q3::Md3Surface &s : m.surfaces) {
             ++surfaces;
             std::string name = s.shaders.empty() ? std::string() : s.shaders.front();
             std::string via;
@@ -200,9 +199,9 @@ int cmdModelCheck(int argc, char** argv) {
                 continue;
             }
             std::vector<std::string> wanted; // images it needs
-            if (const q3::ShaderDef* def = shaders.find(name)) {
-                for (const q3::ShaderStage& st : def->stages)
-                    for (const std::string& img : st.maps)
+            if (const q3::ShaderDef *def = shaders.find(name)) {
+                for (const q3::ShaderStage &st : def->stages)
+                    for (const std::string &img : st.maps)
                         if (!img.empty() && img[0] != '$')
                             wanted.push_back(img);
                 if (wanted.empty()) {
@@ -213,7 +212,7 @@ int cmdModelCheck(int argc, char** argv) {
                 wanted.push_back(name);
             }
             bool allFound = true;
-            for (const std::string& img : wanted) {
+            for (const std::string &img : wanted) {
                 if (!q3::findImage(set, img).empty())
                     continue;
                 allFound = false;
@@ -230,8 +229,8 @@ int cmdModelCheck(int argc, char** argv) {
                         sameFolder = true;
                 }
                 kind += found.empty() ? ", no file of that name anywhere"
-                                      : sameFolder ? ", a file of that name in the model's folder"
-                                                   : ", a file of that name elsewhere";
+                        : sameFolder  ? ", a file of that name in the model's folder"
+                                      : ", a file of that name elsewhere";
                 // Does a map show it: built into a map (whose surfaces keep
                 // the model's shader names), or placed by an entity?
                 const bool inMap = mapShadersBare.count(bare(name)) != 0;
@@ -248,16 +247,16 @@ int cmdModelCheck(int argc, char** argv) {
         }
     }
     std::printf("%zu models, %d surfaces, %d models unreadable\n", models.size(), surfaces, unreadable);
-    for (const auto& [kind, info] : kinds) {
+    for (const auto &[kind, info] : kinds) {
         std::printf("%6d  %s\n", info.first, kind.c_str());
         if (kind.find("found") == std::string::npos || kind.find("missing") != std::string::npos)
-            for (const std::string& e : info.second)
+            for (const std::string &e : info.second)
                 std::printf("          e.g. %s\n", e.c_str());
     }
     return 0;
 }
 
-int cmdShaderShow(int argc, char** argv) {
+int cmdShaderShow(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 shader-show <game folder> <shader | model.md3>\n");
         return 2;
@@ -277,7 +276,7 @@ int cmdShaderShow(int argc, char** argv) {
             std::fprintf(stderr, "%s: %s\n", what.c_str(), err.message.c_str());
             return 1;
         }
-        for (const q3::Md3Surface& surface : model.surfaces) {
+        for (const q3::Md3Surface &surface : model.surfaces) {
             const std::string shader = surface.shaders.empty() ? std::string() : surface.shaders.front();
             std::printf("surface %s: %d vertices, %zu triangles, shader %s\n", surface.name.c_str(),
                         surface.vertexCount, surface.indices.size() / 3, shader.empty() ? "(none)" : shader.c_str());
@@ -293,12 +292,12 @@ int cmdShaderShow(int argc, char** argv) {
     }
     // Each shader's text, as its script has it: the name, then the block
     // from its brace to the matching one.
-    for (const std::string& name : names) {
+    for (const std::string &name : names) {
         std::string base = reluva::fs::toLower(name);
         if (base.size() > 4 && (base.substr(base.size() - 4) == ".tga" || base.substr(base.size() - 4) == ".jpg"))
             base.resize(base.size() - 4);
         bool found = false;
-        for (const std::string& file : set.list()) {
+        for (const std::string &file : set.list()) {
             const std::string key = reluva::normalizeArchiveName(file);
             if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.compare(key.size() - 7, 7, ".shader") != 0)
                 continue;
@@ -337,7 +336,7 @@ int cmdShaderShow(int argc, char** argv) {
     return 0;
 }
 
-int cmdShaderCheck(int argc, char** argv) {
+int cmdShaderCheck(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 shader-check <game folder>\n");
         return 2;
@@ -349,23 +348,23 @@ int cmdShaderCheck(int argc, char** argv) {
     std::vector<std::string> warnings;
     q3::ShaderLibrary shaders;
     shaders.load(set, &warnings);
-    for (const std::string& w : warnings)
+    for (const std::string &w : warnings)
         std::printf("problem: %s\n", w.c_str());
 
     // Feature -> (count, a few shaders using it).
     std::map<std::string, std::pair<int, std::vector<std::string>>> found;
-    auto add = [&](const std::string& what, const q3::ShaderDef& d) {
-        auto& [n, examples] = found[what];
+    auto add = [&](const std::string &what, const q3::ShaderDef &d) {
+        auto &[n, examples] = found[what];
         ++n;
         if (examples.size() < 3 && std::find(examples.begin(), examples.end(), d.name) == examples.end())
             examples.push_back(d.name);
     };
-    static const char* const deformNames[] = {"wave", "normal", "bulge", "move", "autosprite", "autosprite2",
+    static const char *const deformNames[] = {"wave", "normal",           "bulge", "move", "autosprite", "autosprite2",
                                               "text", "projectionShadow", "other"};
-    for (const q3::ShaderDef& d : shaders.all()) {
-        for (const std::string& u : d.unknown)
+    for (const q3::ShaderDef &d : shaders.all()) {
+        for (const std::string &u : d.unknown)
             add("unknown directive: " + u, d);
-        for (const q3::ShaderDeform& df : d.deforms) {
+        for (const q3::ShaderDeform &df : d.deforms) {
             using T = q3::ShaderDeform::Type;
             if (df.type == T::Autosprite || df.type == T::Autosprite2)
                 add(std::string("drawn on the level only, not on models: deformVertexes ") +
@@ -376,34 +375,32 @@ int cmdShaderCheck(int argc, char** argv) {
         }
         if (d.deforms.size() > 2)
             add("not drawn: more than two deformVertexes", d);
-        for (const q3::ShaderStage& st : d.stages)
+        for (const q3::ShaderStage &st : d.stages)
             if (st.blendSrc == "gl_src_alpha_saturate")
                 add("not drawn: blendFunc GL_SRC_ALPHA_SATURATE", d);
     }
     std::printf("%zu shaders\n", shaders.size());
-    for (const auto& [what, info] : found) {
+    for (const auto &[what, info] : found) {
         std::printf("%5d  %s  (e.g.", info.first, what.c_str());
-        for (const std::string& e : info.second)
+        for (const std::string &e : info.second)
             std::printf(" %s", e.c_str());
         std::printf(")\n");
     }
     return 0;
 }
 
-const Commands commands("idtech3", {
-    {"image-check", "<game folder> [map name filter]",
-     "list the images maps' shaders use that can't be found (only maps whose name contains map)",
-     cmdImageCheck},
-    {"model-check", "<game folder> [name filter] [-v]",
-     "for every .md3 surface, the shader or image it names and whether it's found; where missing files "
-     "of the same name are; -v lists every miss",
-     cmdModelCheck},
-    {"shader-show", "<game folder> <shader | model.md3>",
-     "a shader's text as its script has it; for a model, its surfaces' shaders and theirs",
-     cmdShaderShow},
-    {"shader-check", "<game folder>",
-     "count the shader directives the engine doesn't know",
-     cmdShaderCheck},
-});
+const Commands commands(
+    "idtech3",
+    {
+        {"image-check", "<game folder> [map name filter]",
+         "list the images maps' shaders use that can't be found (only maps whose name contains map)", cmdImageCheck},
+        {"model-check", "<game folder> [name filter] [-v]",
+         "for every .md3 surface, the shader or image it names and whether it's found; where missing files "
+         "of the same name are; -v lists every miss",
+         cmdModelCheck},
+        {"shader-show", "<game folder> <shader | model.md3>",
+         "a shader's text as its script has it; for a model, its surfaces' shaders and theirs", cmdShaderShow},
+        {"shader-check", "<game folder>", "count the shader directives the engine doesn't know", cmdShaderCheck},
+    });
 
 } // namespace

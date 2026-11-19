@@ -10,7 +10,8 @@
 
 namespace reluva::stgenerations {
 
-Hud::Hud(const EventSink& send) : _send(send) {}
+Hud::Hud(const EventSink &send) : _send(send) {
+}
 
 int Hud::addItem(uint16_t id, int slot) {
     // 0x446DD0: -1 is the first free slot of 1-11; an item already in the
@@ -81,19 +82,19 @@ void Hud::moveItem(int from, int to) {
     _slots[to] = id;
 }
 
-Hud::Panel* Hud::findPanel(uint16_t owner) {
-    for (Panel& panel : _panels) {
+Hud::Panel *Hud::findPanel(uint16_t owner) {
+    for (Panel &panel : _panels) {
         if (panel.owner == owner)
             return &panel;
     }
     return nullptr;
 }
 
-Hud::Button* Hud::findButton(uint16_t owner, int number) {
-    Panel* panel = findPanel(owner);
+Hud::Button *Hud::findButton(uint16_t owner, int number) {
+    Panel *panel = findPanel(owner);
     if (!panel)
         return nullptr;
-    for (Button& button : panel->buttons) {
+    for (Button &button : panel->buttons) {
         if (button.number == number)
             return &button;
     }
@@ -101,7 +102,7 @@ Hud::Button* Hud::findButton(uint16_t owner, int number) {
 }
 
 void Hud::showPanel(uint16_t owner, int16_t image, int frame, double playerX, double playerY) {
-    Panel* panel = findPanel(owner);
+    Panel *panel = findPanel(owner);
     if (!panel) {
         _panels.push_back(Panel());
         panel = &_panels.back();
@@ -116,10 +117,10 @@ void Hud::showPanel(uint16_t owner, int16_t image, int frame, double playerX, do
 }
 
 void Hud::animatePanel(uint16_t owner, int first, int last, int loops, uint32_t ms) {
-    Panel* panel = findPanel(owner);
+    Panel *panel = findPanel(owner);
     if (!panel)
         return;
-    Animation& a = panel->animation;
+    Animation &a = panel->animation;
     a.first = first;
     a.last = std::max(first, last);
     a.remaining = loops ? (a.last - a.first + 1) * loops : 0;
@@ -131,7 +132,7 @@ void Hud::animatePanel(uint16_t owner, int first, int last, int loops, uint32_t 
 }
 
 void Hud::removePanel(uint16_t owner) {
-    Panel* panel = findPanel(owner);
+    Panel *panel = findPanel(owner);
     if (!panel)
         return;
     int index = (int)(panel - _panels.data());
@@ -143,7 +144,7 @@ void Hud::removePanel(uint16_t owner) {
         _visible = std::min(index, (int)_panels.size() - 1);
 }
 
-const Hud::Panel* Hud::getVisiblePanel() const {
+const Hud::Panel *Hud::getVisiblePanel() const {
     return _visible >= 0 && _visible < (int)_panels.size() ? &_panels[_visible] : nullptr;
 }
 
@@ -152,8 +153,8 @@ void Hud::nextPanel() {
         _visible = (_visible + 1) % (int)_panels.size();
 }
 
-void Hud::addButton(uint16_t owner, int number, int16_t image, const Rect& rect, bool hotspot) {
-    Panel* panel = findPanel(owner);
+void Hud::addButton(uint16_t owner, int number, int16_t image, const Rect &rect, bool hotspot) {
+    Panel *panel = findPanel(owner);
     if (!panel)
         return;
     removeButton(owner, number);
@@ -166,7 +167,7 @@ void Hud::addButton(uint16_t owner, int number, int16_t image, const Rect& rect,
 }
 
 void Hud::setButton(uint16_t owner, int number, int16_t image, int frame) {
-    Button* button = findButton(owner, number);
+    Button *button = findButton(owner, number);
     if (!button)
         return;
     button->animation.running = false;
@@ -175,11 +176,11 @@ void Hud::setButton(uint16_t owner, int number, int16_t image, int frame) {
 }
 
 void Hud::animateButton(uint16_t owner, int number, int first, int last, int loops, uint32_t ms) {
-    Button* button = findButton(owner, number);
+    Button *button = findButton(owner, number);
     if (!button)
         return;
     button->frame = first;
-    Animation& a = button->animation;
+    Animation &a = button->animation;
     // A last frame of 0 or the first just shows the first (0x9F).
     if (last == 0 || last == first) {
         a.running = false;
@@ -194,22 +195,22 @@ void Hud::animateButton(uint16_t owner, int number, int first, int last, int loo
 }
 
 void Hud::setButtonKeyed(uint16_t owner, int number, bool keyed) {
-    Button* button = findButton(owner, number);
+    Button *button = findButton(owner, number);
     if (button)
         button->keyed = keyed;
 }
 
 void Hud::removeButton(uint16_t owner, int number) {
-    Panel* panel = findPanel(owner);
+    Panel *panel = findPanel(owner);
     if (!panel)
         return;
     panel->buttons.erase(std::remove_if(panel->buttons.begin(), panel->buttons.end(),
-                                        [number](const Button& b) { return b.number == number; }),
+                                        [number](const Button &b) { return b.number == number; }),
                          panel->buttons.end());
 }
 
 void Hud::clickPanel(int x, int y) {
-    const Panel* panel = getVisiblePanel();
+    const Panel *panel = getVisiblePanel();
     if (!panel)
         return;
     if (panel->buttons.empty()) {
@@ -217,20 +218,20 @@ void Hud::clickPanel(int x, int y) {
         return;
     }
     int16_t hit = 0;
-    for (const Button& button : panel->buttons) {
+    for (const Button &button : panel->buttons) {
         if (button.rect.contains(x, y))
             hit = (int16_t)button.number;
     }
-    _send(panel->owner, kEventButton, { hit });
+    _send(panel->owner, kEventButton, {hit});
 }
 
 void Hud::describePanel() {
-    if (const Panel* panel = getVisiblePanel())
+    if (const Panel *panel = getVisiblePanel())
         _send(panel->owner, kEventDescribe, {});
 }
 
 void Hud::usePanel() {
-    if (const Panel* panel = getVisiblePanel())
+    if (const Panel *panel = getVisiblePanel())
         _send(panel->owner, kEventActivate, {});
 }
 
@@ -245,11 +246,11 @@ void Hud::setMapLevels(const double levels[6]) {
         _levels[i] = levels[i];
 }
 
-void Hud::setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold, uint32_t fadeOut,
-                    uint16_t notify) {
+void Hud::setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint32_t fadeIn, uint32_t hold,
+                    uint32_t fadeOut, uint16_t notify) {
     if (slot < 0 || slot >= kEffectSlots)
         return;
-    Effect& e = _effects[slot];
+    Effect &e = _effects[slot];
     e.active = percent != 0;
     e.r = r;
     e.g = g;
@@ -262,8 +263,8 @@ void Hud::setEffect(int slot, uint8_t r, uint8_t g, uint8_t b, int percent, uint
     e.notify = notify;
 }
 
-int Hud::getEffectWeight(int slot, uint8_t& r, uint8_t& g, uint8_t& b) const {
-    const Effect& e = _effects[slot];
+int Hud::getEffectWeight(int slot, uint8_t &r, uint8_t &g, uint8_t &b) const {
+    const Effect &e = _effects[slot];
     if (!e.active)
         return 0;
     r = e.r;
@@ -287,7 +288,7 @@ void Hud::setShake(int mode) {
     _jolt = mode == 4 ? 8 : 0;
 }
 
-void Hud::getShakeOffset(int& dx, int& dy) {
+void Hud::getShakeOffset(int &dx, int &dy) {
     dx = dy = 0;
     auto random = [this](int range) {
         _seed = _seed * 0x41C64E6D + 0x3039;
@@ -314,7 +315,7 @@ void Hud::getShakeOffset(int& dx, int& dy) {
     }
 }
 
-bool Hud::runAnimation(Animation& a, int& frame, uint32_t ms) {
+bool Hud::runAnimation(Animation &a, int &frame, uint32_t ms) {
     if (!a.running)
         return false;
     a.elapsed += ms;
@@ -332,33 +333,33 @@ bool Hud::runAnimation(Animation& a, int& frame, uint32_t ms) {
 
 void Hud::update(uint32_t ms, double playerX, double playerY) {
     std::vector<std::pair<uint16_t, uint16_t>> events;
-    for (Panel& panel : _panels) {
+    for (Panel &panel : _panels) {
         if (runAnimation(panel.animation, panel.frame, ms) && panel.notifyWhenDone)
-            events.push_back({ panel.owner, kEventPanelDone });
-        for (Button& button : panel.buttons)
+            events.push_back({panel.owner, kEventPanelDone});
+        for (Button &button : panel.buttons)
             runAnimation(button.animation, button.frame, ms);
         // Every frame until the script closes it.
         double dx = playerX - panel.x, dy = playerY - panel.y;
         if (dx * dx + dy * dy > 2.0 * 2.0)
-            events.push_back({ panel.owner, kEventWalkedAway });
+            events.push_back({panel.owner, kEventWalkedAway});
     }
-    for (Effect& e : _effects) {
+    for (Effect &e : _effects) {
         if (!e.active || e.fadeIn + e.hold + e.fadeOut == 0)
             continue;
         e.elapsed += ms;
         if (e.elapsed >= e.fadeIn + e.hold + e.fadeOut) {
             e.active = false;
             if (e.notify)
-                events.push_back({ e.notify, kEventEffectDone });
+                events.push_back({e.notify, kEventEffectDone});
         }
     }
-    for (const auto& event : events)
+    for (const auto &event : events)
         _send(event.first, event.second, {});
 }
 
 namespace {
 
-void syncAnimation(Serializer& s, Hud::Animation& a) {
+void syncAnimation(Serializer &s, Hud::Animation &a) {
     s.syncAsBool(a.running);
     s.syncAsInt(a.first);
     s.syncAsInt(a.last);
@@ -367,7 +368,7 @@ void syncAnimation(Serializer& s, Hud::Animation& a) {
     s.syncAsUint32(a.elapsed);
 }
 
-void syncRect(Serializer& s, Rect& r) {
+void syncRect(Serializer &s, Rect &r) {
     s.syncAsInt(r.left, 2);
     s.syncAsInt(r.top, 2);
     s.syncAsInt(r.right, 2);
@@ -376,16 +377,16 @@ void syncRect(Serializer& s, Rect& r) {
 
 } // namespace
 
-void Hud::sync(Serializer& s) {
-    for (uint16_t& slot : _slots)
+void Hud::sync(Serializer &s) {
+    for (uint16_t &slot : _slots)
         s.syncAsUint16(slot);
-    s.syncVector(_panels, [](Serializer& ser, Panel& panel) {
+    s.syncVector(_panels, [](Serializer &ser, Panel &panel) {
         ser.syncAsUint16(panel.owner);
         ser.syncAsSint16(panel.image);
         ser.syncAsInt(panel.frame);
         ser.syncAsDouble(panel.x);
         ser.syncAsDouble(panel.y);
-        ser.syncVector(panel.buttons, [](Serializer& ser2, Button& button) {
+        ser.syncVector(panel.buttons, [](Serializer &ser2, Button &button) {
             ser2.syncAsInt(button.number);
             ser2.syncAsSint16(button.image);
             ser2.syncAsInt(button.frame);
@@ -413,20 +414,20 @@ void Hud::sync(Serializer& s) {
         s.syncAsInt(kind);
         s.syncAsInt(style);
         if (s.isLoading())
-            _markers[id] = { (MarkerKind)kind, style };
+            _markers[id] = {(MarkerKind)kind, style};
         else
             ++it;
     }
-    for (double& level : _levels)
+    for (double &level : _levels)
         s.syncAsDouble(level);
-    for (double& zoom : _zoom)
+    for (double &zoom : _zoom)
         s.syncAsDouble(zoom);
     s.syncAsBool(_inventoryEnabled);
     std::vector<uint16_t> disabled(_disabledItems.begin(), _disabledItems.end());
-    s.syncVector(disabled, [](Serializer& ser, uint16_t& v) { ser.syncAsUint16(v); });
+    s.syncVector(disabled, [](Serializer &ser, uint16_t &v) { ser.syncAsUint16(v); });
     if (s.isLoading())
         _disabledItems = std::set<uint16_t>(disabled.begin(), disabled.end());
-    for (Effect& e : _effects) {
+    for (Effect &e : _effects) {
         s.syncAsBool(e.active);
         s.syncAsByte(e.r);
         s.syncAsByte(e.g);

@@ -38,7 +38,7 @@ struct LevelExtras {
     };
     std::vector<Sound> sounds;
 };
-Error readLevelExtras(const Package& package, LevelExtras& out);
+Error readLevelExtras(const Package &package, LevelExtras &out);
 
 // A C3DMESHSTATE: an actor's animation groups (its mesh's own, FullBody,
 // LowerTorso, UpperTorso, then its face channels sk3...) as the engine
@@ -56,23 +56,23 @@ struct MeshStateGroup {
     float fromFrame = 0, fromWeight = 0, elapsed = 0, duration = 1;
     std::string pendingSequence;
     float pendingFrame = 0, pendingWeight = 0, pendingTween = 0;
-    std::string bone; // its InheritBone: what its clears turn
+    std::string bone;               // its InheritBone: what its clears turn
     std::array<int32_t, 3> clear{}; // ClearYaw, ClearPitch, ClearRoll (fairly sure)
 };
 struct MeshState {
     std::string mesh;
     std::vector<MeshStateGroup> groups;
 };
-Error readMeshState(const Package& package, int exportIndex, MeshState& out);
+Error readMeshState(const Package &package, int exportIndex, MeshState &out);
 
 // Where a C3D mesh state's animation groups are in its export's data
 // (from the start of its count to the end of the last).
-bool meshStateGroupSpan(const std::vector<uint8_t>& data, size_t& begin, size_t& end);
+bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end);
 // Where, in a Level object's data, the model reference starts and the
 // reach list ends (copied as they are into a saved game's).
-bool levelModelSpan(const std::vector<uint8_t>& data, int version, size_t& begin, size_t& end);
+bool levelModelSpan(const std::vector<uint8_t> &data, int version, size_t &begin, size_t &end);
 
 // Whether a file is a package (a saved game of the original's, not Reluva's own).
-bool isPackageFile(const std::string& path);
+bool isPackageFile(const std::string &path);
 
 } // namespace reluva::unreal

@@ -97,11 +97,11 @@ struct Model {
 // `validate`, a BSP whose indices don't hold together is dropped (see
 // geometryError) rather than failing, for when only what follows is
 // wanted (a mover's Polys: one of The Fallen's movers has such a brush).
-Error readModel(const Package& package, int exportIndex, Model& out, bool validate = true);
+Error readModel(const Package &package, int exportIndex, Model &out, bool validate = true);
 
 // The model a level is drawn from: of the package's models, the one with
 // the most nodes (brushes' own models have none). -1 if there's none.
-int findLevelModel(const Package& package, Model* out = nullptr, std::string* error = nullptr);
+int findLevelModel(const Package &package, Model *out = nullptr, std::string *error = nullptr);
 
 // A level's polygons as triangles, grouped by texture and flags. Positions
 // are the level's own (Unreal's axes: X forward, Y right, Z up); texture
@@ -115,6 +115,6 @@ struct Polygon {
     // zone, and its back zone too if it's seen from both sides.
     uint64_t zones = 0;
 };
-std::vector<Polygon> levelPolygons(const Model& model);
+std::vector<Polygon> levelPolygons(const Model &model);
 
 } // namespace reluva::unreal

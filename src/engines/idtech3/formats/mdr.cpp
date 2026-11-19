@@ -32,25 +32,33 @@ constexpr size_t kPackedBoneSize = 24; // 12 16-bit numbers
 constexpr size_t kLodSize = 12, kSurfaceSize = 168, kVertexHeader = 24, kWeightSize = 20, kTagSize = 36;
 constexpr int kMaxBones = 128;
 
-uint32_t u32(const std::vector<uint8_t>& d, size_t at) {
+uint32_t u32(const std::vector<uint8_t> &d, size_t at) {
     return uint32_t(d[at]) | uint32_t(d[at + 1]) << 8 | uint32_t(d[at + 2]) << 16 | uint32_t(d[at + 3]) << 24;
 }
-int32_t i32(const std::vector<uint8_t>& d, size_t at) { return static_cast<int32_t>(u32(d, at)); }
-float f32(const std::vector<uint8_t>& d, size_t at) {
+int32_t i32(const std::vector<uint8_t> &d, size_t at) {
+    return static_cast<int32_t>(u32(d, at));
+}
+float f32(const std::vector<uint8_t> &d, size_t at) {
     const uint32_t bits = u32(d, at);
     float f;
     std::memcpy(&f, &bits, 4);
     return f;
 }
-uint16_t u16(const std::vector<uint8_t>& d, size_t at) { return uint16_t(d[at] | d[at + 1] << 8); }
-Vec3 vec(const std::vector<uint8_t>& d, size_t at) { return {f32(d, at), f32(d, at + 4), f32(d, at + 8)}; }
-std::string name(const std::vector<uint8_t>& d, size_t at, size_t size) {
+uint16_t u16(const std::vector<uint8_t> &d, size_t at) {
+    return uint16_t(d[at] | d[at + 1] << 8);
+}
+Vec3 vec(const std::vector<uint8_t> &d, size_t at) {
+    return {f32(d, at), f32(d, at + 4), f32(d, at + 8)};
+}
+std::string name(const std::vector<uint8_t> &d, size_t at, size_t size) {
     size_t len = 0;
     while (len < size && d[at + len])
         ++len;
-    return std::string(reinterpret_cast<const char*>(&d[at]), len);
+    return std::string(reinterpret_cast<const char *>(&d[at]), len);
 }
-bool inside(size_t size, int64_t at, int64_t length) { return at >= 0 && length >= 0 && uint64_t(at + length) <= size; }
+bool inside(size_t size, int64_t at, int64_t length) {
+    return at >= 0 && length >= 0 && uint64_t(at + length) <= size;
+}
 
 // A bone: rows of a 3 x 4 matrix, the rotation in the first three columns
 // and the position in the fourth.
@@ -58,7 +66,7 @@ using Bone = std::array<std::array<float, 4>, 3>;
 
 // A packed bone: the position's x, y, z as 16-bit numbers biased by 32768
 // in 64ths of a unit, then the rotation's rows likewise in 32766ths.
-Bone unpack(const std::vector<uint8_t>& d, size_t at) {
+Bone unpack(const std::vector<uint8_t> &d, size_t at) {
     Bone b{};
     for (int r = 0; r < 3; ++r)
         b[size_t(r)][3] = float(int(u16(d, at + 2 * size_t(r))) - 32768) / 64.0f;
@@ -70,7 +78,7 @@ Bone unpack(const std::vector<uint8_t>& d, size_t at) {
 
 } // namespace
 
-Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
+Error parseMdr(const std::vector<uint8_t> &data, Md3Model &out, int lod) {
     out = Md3Model{};
     const size_t size = data.size();
     if (size < kHeaderSize || std::memcmp(data.data(), "RDM5", 4) != 0)
@@ -86,9 +94,8 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
     // The frames: their bones, packed when the offset is negative.
     const bool packed = ofsFrames < 0;
     const int64_t framesAt = packed ? -int64_t(ofsFrames) : ofsFrames;
-    const size_t frameSize =
-        packed ? kFrameHeader + size_t(numBones) * kPackedBoneSize
-               : kFrameHeader + kFrameNameSize + size_t(numBones) * kBoneSize;
+    const size_t frameSize = packed ? kFrameHeader + size_t(numBones) * kPackedBoneSize
+                                    : kFrameHeader + kFrameNameSize + size_t(numBones) * kBoneSize;
     if (!inside(size, framesAt, int64_t(frameSize) * numFrames))
         return Error::fail("MDR frames outside the file");
     std::vector<Bone> bones(size_t(numFrames) * size_t(numBones));
@@ -106,7 +113,7 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
         }
         out.frames.push_back(frame);
         for (int32_t b = 0; b < numBones; ++b) {
-            Bone& bone = bones[size_t(f) * size_t(numBones) + size_t(b)];
+            Bone &bone = bones[size_t(f) * size_t(numBones) + size_t(b)];
             if (packed) {
                 bone = unpack(data, boneAt + size_t(b) * kPackedBoneSize);
             } else {
@@ -184,20 +191,20 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
         surface.vertices.resize(size_t(numFrames) * size_t(numVerts));
         for (int32_t f = 0; f < numFrames; ++f)
             for (int32_t v = 0; v < numVerts; ++v) {
-                Md3Vertex& out = surface.vertices[size_t(f) * size_t(numVerts) + size_t(v)];
-                for (const Weight& w : weights[size_t(v)]) {
-                    const Bone& b = bones[size_t(f) * size_t(numBones) + size_t(w.bone)];
-                    const Vec3& n = normals[size_t(v)];
+                Md3Vertex &out = surface.vertices[size_t(f) * size_t(numVerts) + size_t(v)];
+                for (const Weight &w : weights[size_t(v)]) {
+                    const Bone &b = bones[size_t(f) * size_t(numBones) + size_t(w.bone)];
+                    const Vec3 &n = normals[size_t(v)];
                     for (size_t r = 0; r < 3; ++r) {
-                        out.pos[r] += w.weight * (b[r][0] * w.offset[0] + b[r][1] * w.offset[1] +
-                                                  b[r][2] * w.offset[2] + b[r][3]);
+                        out.pos[r] += w.weight *
+                                      (b[r][0] * w.offset[0] + b[r][1] * w.offset[1] + b[r][2] * w.offset[2] + b[r][3]);
                         out.normal[r] += w.weight * (b[r][0] * n[0] + b[r][1] * n[1] + b[r][2] * n[2]);
                     }
                 }
                 const float len = std::sqrt(out.normal[0] * out.normal[0] + out.normal[1] * out.normal[1] +
                                             out.normal[2] * out.normal[2]);
                 if (len > 1e-6f)
-                    for (float& c : out.normal)
+                    for (float &c : out.normal)
                         c /= len;
             }
         out.surfaces.push_back(std::move(surface));
@@ -216,7 +223,7 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
             Md3Tag tag;
             tag.name = name(data, ta + 4, 32);
             if (boneIndex >= 0 && boneIndex < numBones) {
-                const Bone& b = bones[size_t(f) * size_t(numBones) + size_t(boneIndex)];
+                const Bone &b = bones[size_t(f) * size_t(numBones) + size_t(boneIndex)];
                 for (size_t axis = 0; axis < 3; ++axis)
                     for (size_t k = 0; k < 3; ++k)
                         tag.axis[axis][k] = b[k][axis];
@@ -227,7 +234,7 @@ Error parseMdr(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
     return Error::success();
 }
 
-Error parseModel(const std::vector<uint8_t>& data, Md3Model& out, int lod) {
+Error parseModel(const std::vector<uint8_t> &data, Md3Model &out, int lod) {
     if (data.size() >= 4 && std::memcmp(data.data(), "RDM5", 4) == 0)
         return parseMdr(data, out, lod);
     return parseMd3(data, out);

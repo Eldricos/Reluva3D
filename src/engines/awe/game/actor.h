@@ -25,15 +25,15 @@ namespace reluva::awe {
 class Actor {
 public:
     // How it loads `<who>_<name>.gr2`: null if there's no such file.
-    using Loader = std::function<std::shared_ptr<const Animation>(const std::string& name)>;
+    using Loader = std::function<std::shared_ptr<const Animation>(const std::string &name)>;
     // Whether a condition holds (the renamed animations', MODL's).
-    using Test = std::function<bool(const std::string& condition)>;
+    using Test = std::function<bool(const std::string &condition)>;
 
     // Its settings from the scene's record (MODL, ANIM; defaults else).
-    Actor(const Model& model, const Ac2Record* record, Loader load, Test test, unsigned seed = 1);
+    Actor(const Model &model, const Ac2Record *record, Loader load, Test test, unsigned seed = 1);
 
-    Animator& animator() { return animator_; }
-    const Animator& animator() const { return animator_; }
+    Animator &animator() { return animator_; }
+    const Animator &animator() const { return animator_; }
 
     // A full-body animation (idle1, walk, rotatel...: 0x4049e0), which
     // replaces the last; else one laid over it.
@@ -79,7 +79,7 @@ public:
 
     // Moves on by `seconds`: blinks, idle variations, the animations, a
     // rotation (the heading in degrees is the character's, turned here).
-    void update(float seconds, float& heading);
+    void update(float seconds, float &heading);
 
     // How far a base animation carries the body in one play: along the
     // model's axes, and turned (degrees). From its root bone (Bip01).
@@ -93,34 +93,34 @@ public:
         float carried[3] = {0, 0, 0};
         float carriedTurn = 0;
     };
-    Motion motion(const Animation& animation);
+    Motion motion(const Animation &animation);
 
-    std::function<void(const std::string& name)> onAnimDone;
+    std::function<void(const std::string &name)> onAnimDone;
     std::function<void()> onRotateDone;
 
 private:
-    std::shared_ptr<const Animation> load(const std::string& name);
+    std::shared_ptr<const Animation> load(const std::string &name);
     std::string resolve(std::string_view name);
     int rand();
     void resetIdleTimer();
     void idleVariation();
-    void ending(const Animator::Slot& s);
+    void ending(const Animator::Slot &s);
 
     Animator animator_;
     Loader loader_;
     Test test_;
-    const Ac2Record* record_;
+    const Ac2Record *record_;
     std::map<std::string, std::shared_ptr<const Animation>> loaded_;
-    std::map<const Animation*, Motion> motions_;
+    std::map<const Animation *, Motion> motions_;
     float talkEase_ = 0.15f, blinkMin_ = 5, blinkMax_ = 8, idleMin_ = 8, idleMax_ = 12;
     int chance2_ = 50, chance3_ = 30, chance4_ = 20;
     int idles_ = 0, talkIdles_ = 0;
     float blinkLeft_ = 0, idleLeft_ = 0;
     bool conversation_ = false;
     bool rotating_ = false;
-    float target_ = 0;   // degrees
-    int direction_ = 1;  // +1 left, -1 right
-    float pace_ = 200;   // degrees a second
+    float target_ = 0;  // degrees
+    int direction_ = 1; // +1 left, -1 right
+    float pace_ = 200;  // degrees a second
     unsigned random_;
 };
 

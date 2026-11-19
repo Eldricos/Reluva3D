@@ -37,7 +37,9 @@ enum class PixelFormat {
     RGBA32, // 4 bytes per pixel in memory order R, G, B, A
 };
 
-inline int bytesPerPixel(PixelFormat f) { return f == PixelFormat::CLUT8 ? 1 : 4; }
+inline int bytesPerPixel(PixelFormat f) {
+    return f == PixelFormat::CLUT8 ? 1 : 4;
+}
 
 // A simple owned pixel buffer, used as the game's framebuffer.
 struct Surface {
@@ -53,8 +55,8 @@ struct Surface {
         pixels.assign(static_cast<size_t>(pitch) * height, 0);
     }
 
-    uint8_t* row(int y) { return pixels.data() + static_cast<size_t>(y) * pitch; }
-    const uint8_t* row(int y) const { return pixels.data() + static_cast<size_t>(y) * pitch; }
+    uint8_t *row(int y) { return pixels.data() + static_cast<size_t>(y) * pitch; }
+    const uint8_t *row(int y) const { return pixels.data() + static_cast<size_t>(y) * pitch; }
 };
 
 } // namespace reluva

@@ -43,17 +43,54 @@ namespace {
 
 // Render states.
 enum : uint32_t {
-    kZEnable = 7, kShadeMode = 9, kZWriteEnable = 14, kAlphaTestEnable = 15, kSrcBlend = 19, kDestBlend = 20,
-    kCullMode = 22, kZFunc = 23, kAlphaRef = 24, kAlphaFunc = 25, kAlphaBlendEnable = 27, kFogEnable = 28,
-    kSpecularEnable = 29, kFogColor = 34, kFogTableMode = 35, kFogStart = 36, kFogEnd = 37, kFogDensity = 38,
-    kColorKeyEnable = 41, kRangeFogEnable = 48, kTextureFactor = 60, kClipping = 136, kLighting = 137,
-    kAmbient = 139, kFogVertexMode = 140, kColorVertex = 141, kLocalViewer = 142, kNormalizeNormals = 143,
-    kDiffuseSource = 145, kSpecularSource = 146, kAmbientSource = 147, kEmissiveSource = 148
+    kZEnable = 7,
+    kShadeMode = 9,
+    kZWriteEnable = 14,
+    kAlphaTestEnable = 15,
+    kSrcBlend = 19,
+    kDestBlend = 20,
+    kCullMode = 22,
+    kZFunc = 23,
+    kAlphaRef = 24,
+    kAlphaFunc = 25,
+    kAlphaBlendEnable = 27,
+    kFogEnable = 28,
+    kSpecularEnable = 29,
+    kFogColor = 34,
+    kFogTableMode = 35,
+    kFogStart = 36,
+    kFogEnd = 37,
+    kFogDensity = 38,
+    kColorKeyEnable = 41,
+    kRangeFogEnable = 48,
+    kTextureFactor = 60,
+    kClipping = 136,
+    kLighting = 137,
+    kAmbient = 139,
+    kFogVertexMode = 140,
+    kColorVertex = 141,
+    kLocalViewer = 142,
+    kNormalizeNormals = 143,
+    kDiffuseSource = 145,
+    kSpecularSource = 146,
+    kAmbientSource = 147,
+    kEmissiveSource = 148
 };
 // Texture stage states.
 enum : uint32_t {
-    kColorOp = 1, kColorArg1 = 2, kColorArg2 = 3, kAlphaOp = 4, kAlphaArg1 = 5, kAlphaArg2 = 6, kTexCoordIndex = 11,
-    kAddressU = 13, kAddressV = 14, kBorderColor = 15, kMagFilter = 16, kMinFilter = 17, kMipFilter = 18,
+    kColorOp = 1,
+    kColorArg1 = 2,
+    kColorArg2 = 3,
+    kAlphaOp = 4,
+    kAlphaArg1 = 5,
+    kAlphaArg2 = 6,
+    kTexCoordIndex = 11,
+    kAddressU = 13,
+    kAddressV = 14,
+    kBorderColor = 15,
+    kMagFilter = 16,
+    kMinFilter = 17,
+    kMipFilter = 18,
     kTextureTransformFlags = 24
 };
 constexpr int kAttributes = 8 + 2 * 8; // diffuse, specular, a u and v per stage
@@ -63,12 +100,12 @@ float asFloat(uint32_t v) {
     std::memcpy(&f, &v, 4);
     return f;
 }
-float vertexFloat(const uint8_t* p) {
+float vertexFloat(const uint8_t *p) {
     float f;
     std::memcpy(&f, p, 4);
     return f;
 }
-uint32_t vertexWord(const uint8_t* p) {
+uint32_t vertexWord(const uint8_t *p) {
     uint32_t v;
     std::memcpy(&v, p, 4);
     return v;
@@ -93,26 +130,34 @@ int floorInt(float v) {
 }
 
 Color unpack(uint32_t argb) {
-    const float* f = kFractions.of255;
+    const float *f = kFractions.of255;
     return {f[argb >> 16 & 0xff], f[argb >> 8 & 0xff], f[argb & 0xff], f[argb >> 24]};
 }
 uint32_t pack(float r, float g, float b, float a) {
     auto c = [](float v) { return uint32_t(std::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f); };
     return c(a) << 24 | c(r) << 16 | c(g) << 8 | c(b);
 }
-Color add(const Color& a, const Color& b) { return {a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a}; }
-Color mul(const Color& a, const Color& b) { return {a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a}; }
-Color scale(const Color& a, float k) { return {a.r * k, a.g * k, a.b * k, a.a * k}; }
+Color add(const Color &a, const Color &b) {
+    return {a.r + b.r, a.g + b.g, a.b + b.b, a.a + b.a};
+}
+Color mul(const Color &a, const Color &b) {
+    return {a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a};
+}
+Color scale(const Color &a, float k) {
+    return {a.r * k, a.g * k, a.b * k, a.a * k};
+}
 
-void transformPoint(const Matrix& m, const float in[4], float out[4]) {
+void transformPoint(const Matrix &m, const float in[4], float out[4]) {
     for (int j = 0; j < 4; ++j)
         out[j] = in[0] * m[size_t(j)] + in[1] * m[size_t(4 + j)] + in[2] * m[size_t(8 + j)] + in[3] * m[size_t(12 + j)];
 }
-void transformNormal(const Matrix& m, const float in[3], float out[3]) {
+void transformNormal(const Matrix &m, const float in[3], float out[3]) {
     for (int j = 0; j < 3; ++j)
         out[j] = in[0] * m[size_t(j)] + in[1] * m[size_t(4 + j)] + in[2] * m[size_t(8 + j)];
 }
-float dot3(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+float dot3(const float a[3], const float b[3]) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
 void normalize3(float v[3]) {
     const float l = std::sqrt(dot3(v, v));
     if (l > 0)
@@ -121,45 +166,67 @@ void normalize3(float v[3]) {
 
 bool compare(uint32_t func, float a, float b) { // a (new) against b (stored)
     switch (func) {
-    case 1: return false;
-    case 2: return a < b;
-    case 3: return a == b;
-    case 4: return a <= b;
-    case 5: return a > b;
-    case 6: return a != b;
-    case 7: return a >= b;
-    default: return true;
+    case 1:
+        return false;
+    case 2:
+        return a < b;
+    case 3:
+        return a == b;
+    case 4:
+        return a <= b;
+    case 5:
+        return a > b;
+    case 6:
+        return a != b;
+    case 7:
+        return a >= b;
+    default:
+        return true;
     }
 }
 
-float blendFactor(uint32_t f, const Color& src, const Color& dst, int channel) {
+float blendFactor(uint32_t f, const Color &src, const Color &dst, int channel) {
     const float s[4] = {src.r, src.g, src.b, src.a}, d[4] = {dst.r, dst.g, dst.b, dst.a};
     switch (f) {
-    case 1: return 0;
-    case 2: return 1;
-    case 3: return s[channel];
-    case 4: return 1 - s[channel];
-    case 5: return src.a;
-    case 6: return 1 - src.a;
-    case 7: return dst.a;
-    case 8: return 1 - dst.a;
-    case 9: return d[channel];
-    case 10: return 1 - d[channel];
-    case 11: return channel == 3 ? 1 : std::min(src.a, 1 - dst.a);
-    case 12: return src.a;     // BOTHSRCALPHA: source alpha, destination 1 - it
-    case 13: return 1 - src.a; // BOTHINVSRCALPHA
-    default: return 1;
+    case 1:
+        return 0;
+    case 2:
+        return 1;
+    case 3:
+        return s[channel];
+    case 4:
+        return 1 - s[channel];
+    case 5:
+        return src.a;
+    case 6:
+        return 1 - src.a;
+    case 7:
+        return dst.a;
+    case 8:
+        return 1 - dst.a;
+    case 9:
+        return d[channel];
+    case 10:
+        return 1 - d[channel];
+    case 11:
+        return channel == 3 ? 1 : std::min(src.a, 1 - dst.a);
+    case 12:
+        return src.a; // BOTHSRCALPHA: source alpha, destination 1 - it
+    case 13:
+        return 1 - src.a; // BOTHINVSRCALPHA
+    default:
+        return 1;
     }
 }
 
 // A clip-space vertex between two, `t` of the way.
-ClipVertex lerp(const ClipVertex& a, const ClipVertex& b, float t) {
+ClipVertex lerp(const ClipVertex &a, const ClipVertex &b, float t) {
     ClipVertex r;
     r.x = a.x + (b.x - a.x) * t;
     r.y = a.y + (b.y - a.y) * t;
     r.z = a.z + (b.z - a.z) * t;
     r.w = a.w + (b.w - a.w) * t;
-    auto mix = [t](const Color& p, const Color& q) {
+    auto mix = [t](const Color &p, const Color &q) {
         return Color{p.r + (q.r - p.r) * t, p.g + (q.g - p.g) * t, p.b + (q.b - p.b) * t, p.a + (q.a - p.a) * t};
     };
     r.diffuse = mix(a.diffuse, b.diffuse);
@@ -171,14 +238,20 @@ ClipVertex lerp(const ClipVertex& a, const ClipVertex& b, float t) {
 }
 
 // The distance of a clip-space vertex inside each plane of the view volume.
-float planeDistance(const ClipVertex& v, int plane) {
+float planeDistance(const ClipVertex &v, int plane) {
     switch (plane) {
-    case 0: return v.z;       // near
-    case 1: return v.w - v.z; // far
-    case 2: return v.w + v.x;
-    case 3: return v.w - v.x;
-    case 4: return v.w + v.y;
-    default: return v.w - v.y;
+    case 0:
+        return v.z; // near
+    case 1:
+        return v.w - v.z; // far
+    case 2:
+        return v.w + v.x;
+    case 3:
+        return v.w - v.x;
+    case 4:
+        return v.w + v.y;
+    default:
+        return v.w - v.y;
     }
 }
 
@@ -186,13 +259,13 @@ float planeDistance(const ClipVertex& v, int plane) {
 
 // --- Vertices
 
-void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, uint32_t stride, uint32_t count,
-                               std::vector<ClipVertex>& out) {
-    Cpu& c = s->cpu;
+void Device::transformAndLight(const VertexLayout &layout, uint32_t vertices, uint32_t stride, uint32_t count,
+                               std::vector<ClipVertex> &out) {
+    Cpu &c = s->cpu;
     out.resize(count);
     if (!c.valid(vertices, stride * count))
         return out.clear();
-    const uint8_t* mem = c.memory().data() + vertices;
+    const uint8_t *mem = c.memory().data() + vertices;
     const Matrix world = transforms[1], view = transforms[2], proj = transforms[3];
     const Matrix worldView = multiply(world, view);
     const Matrix all = multiply(worldView, proj);
@@ -206,12 +279,12 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
 
     // The enabled lights in camera space.
     struct EyeLight {
-        const Light* l;
+        const Light *l;
         float pos[3], dir[3];
     };
     std::vector<EyeLight> eyeLights;
     if (lighting)
-        for (const auto& [i, l] : lights)
+        for (const auto &[i, l] : lights)
             if (l.enabled) {
                 EyeLight e{&l, {}, {}};
                 const float p[4] = {l.position[0], l.position[1], l.position[2], 1};
@@ -224,8 +297,8 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
             }
 
     for (uint32_t i = 0; i < count; ++i) {
-        const uint8_t* v = mem + i * stride;
-        ClipVertex& o = out[i];
+        const uint8_t *v = mem + i * stride;
+        ClipVertex &o = out[i];
         const bool hasDiffuse = layout.diffuse, hasSpecular = layout.specular;
         const Color vDiffuse = hasDiffuse ? unpack(vertexWord(v + layout.diffuseAt)) : Color{1, 1, 1, 1};
         const Color vSpecular = hasSpecular ? unpack(vertexWord(v + layout.specularAt)) : Color{0, 0, 0, 0};
@@ -250,7 +323,7 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
                     normalize3(normal);
             }
             if (lighting) {
-                auto source = [&](uint32_t state, const Color& fromMaterial) {
+                auto source = [&](uint32_t state, const Color &fromMaterial) {
                     if (!colorVertex)
                         return fromMaterial;
                     if (renderStates[state] == 1 && hasDiffuse)
@@ -269,8 +342,8 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
                     normalize3(toEye);
                 else
                     toEye[0] = 0, toEye[1] = 0, toEye[2] = -1;
-                for (const EyeLight& e : eyeLights) {
-                    const Light& l = *e.l;
+                for (const EyeLight &e : eyeLights) {
+                    const Light &l = *e.l;
                     float toLight[3];
                     float atten = 1, spot = 1;
                     if (l.type == 3) { // directional
@@ -341,7 +414,7 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
                 }
                 coord[0] = g[0], coord[1] = g[1], coord[2] = g[2], coord[3] = 1;
             } else if (int(set) < layout.texSets) {
-                const uint8_t* t = v + layout.texAt[set];
+                const uint8_t *t = v + layout.texAt[set];
                 coord[0] = vertexFloat(t);
                 if (layout.texSize[set] > 1)
                     coord[1] = vertexFloat(t + 4);
@@ -361,7 +434,7 @@ void Device::transformAndLight(const VertexLayout& layout, uint32_t vertices, ui
     }
 }
 
-ClipVertex Device::project(const ClipVertex& v) const {
+ClipVertex Device::project(const ClipVertex &v) const {
     ClipVertex p = v;
     const float rhw = 1 / v.w;
     p.x = float(viewport.x) + (v.x * rhw + 1) * float(viewport.width) / 2;
@@ -389,7 +462,7 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
     transformAndLight(layout, vertices, stride, vertexCount, v);
     if (v.empty())
         return;
-    Cpu& c = s->cpu;
+    Cpu &c = s->cpu;
     std::vector<uint32_t> order;
     if (indices) {
         if (!c.valid(indices, indexCount * 2))
@@ -435,7 +508,8 @@ void Device::draw(uint32_t primitive, uint32_t fvf, uint32_t vertices, uint32_t 
         for (size_t i = 1; i + 1 < n; ++i)
             triangle(v[order[0]], v[order[i]], v[order[i + 1]]);
         break;
-    default: break;
+    default:
+        break;
     }
     batching_ = false;
     drawBatch();
@@ -474,7 +548,7 @@ struct DrawQueue {
             quit_ = true;
         }
         wake_.notify_all();
-        for (std::thread& t : threads_)
+        for (std::thread &t : threads_)
             t.join();
     }
     void push(Job job) {
@@ -505,12 +579,12 @@ struct DrawQueue {
         done_.wait(lock, [this] { return drawn_ == pushed_; });
     }
     // Draws jobs in order on this thread (DrawThreads::One).
-    static void draw(const std::vector<Job>& jobs, DirectX::DrawThreads) {
+    static void draw(const std::vector<Job> &jobs, DirectX::DrawThreads) {
         Draw::Raster r;
-        for (const Job& j : jobs) {
+        for (const Job &j : jobs) {
             if (j.fill)
                 j.fill(0, 1);
-            for (const auto& t : j.triangles)
+            for (const auto &t : j.triangles)
                 j.draw.rasterize(r, t[0], t[1], t[2]);
         }
     }
@@ -532,7 +606,7 @@ private:
             lock.unlock();
             if (job->fill)
                 job->fill(band, bands);
-            for (const auto& t : job->triangles)
+            for (const auto &t : job->triangles)
                 job->draw.rasterize(r, t[0], t[1], t[2]);
             job.reset();
             lock.lock();
@@ -605,7 +679,7 @@ void Device::drawBatch() {
     if (batch_.empty())
         return;
     double area = 0; // roughly, by bounding boxes
-    for (const auto& t : batch_) {
+    for (const auto &t : batch_) {
         const auto [x0, x1] = std::minmax({t[0].x, t[1].x, t[2].x});
         const auto [y0, y1] = std::minmax({t[0].y, t[1].y, t[2].y});
         area += double(x1 - x0) * double(y1 - y0);
@@ -625,24 +699,24 @@ void Device::drawBatch() {
 
 // Clips a triangle to the view volume, projects it, culls it by its
 // winding, and fills what's left.
-void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) {
+void Device::triangle(const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) {
     // Each plane adds at most one corner: 3 + 6 at most.
     struct Polygon {
         ClipVertex v[9];
         size_t n = 0;
         size_t size() const { return n; }
-        ClipVertex& operator[](size_t i) { return v[i]; }
-        const ClipVertex& operator[](size_t i) const { return v[i]; }
+        ClipVertex &operator[](size_t i) { return v[i]; }
+        const ClipVertex &operator[](size_t i) const { return v[i]; }
     } polys[2];
-    Polygon* poly = &polys[0];
+    Polygon *poly = &polys[0];
     poly->v[0] = a, poly->v[1] = b, poly->v[2] = c, poly->n = 3;
     if (!projected) {
         for (int plane = 0; plane < 6 && poly->n; ++plane) {
-            Polygon& next = poly == &polys[0] ? polys[1] : polys[0];
+            Polygon &next = poly == &polys[0] ? polys[1] : polys[0];
             next.n = 0;
             for (size_t i = 0; i < poly->n; ++i) {
-                const ClipVertex& p = (*poly)[i];
-                const ClipVertex& q = (*poly)[(i + 1) % poly->n];
+                const ClipVertex &p = (*poly)[i];
+                const ClipVertex &q = (*poly)[(i + 1) % poly->n];
                 const float dp = planeDistance(p, plane), dq = planeDistance(q, plane);
                 if (dp >= 0)
                     next.v[next.n++] = p;
@@ -659,12 +733,12 @@ void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex
             poly->v[i] = project(poly->v[i]);
         }
     }
-    const Polygon& shape = *poly;
+    const Polygon &shape = *poly;
     // Winding on the screen (y down): positive is clockwise.
     float area = 0;
     for (size_t i = 0; i < shape.size(); ++i) {
-        const ClipVertex& p = shape[i];
-        const ClipVertex& q = shape[(i + 1) % shape.size()];
+        const ClipVertex &p = shape[i];
+        const ClipVertex &q = shape[(i + 1) % shape.size()];
         area += p.x * q.y - q.x * p.y;
     }
     const uint32_t cull = renderStates[kCullMode];
@@ -676,7 +750,7 @@ void Device::triangle(const ClipVertex& a, const ClipVertex& b, const ClipVertex
         drawBatch();
 }
 
-void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
+void Device::line(const ClipVertex &a0, const ClipVertex &b0) {
     ClipVertex a = a0, b = b0;
     if (!projected) {
         for (int plane = 0; plane < 6; ++plane) {
@@ -708,7 +782,7 @@ void Device::line(const ClipVertex& a0, const ClipVertex& b0) {
     }
 }
 
-void Device::point(const ClipVertex& a0) {
+void Device::point(const ClipVertex &a0) {
     ClipVertex a = a0;
     if (!projected) {
         for (int plane = 0; plane < 6; ++plane)
@@ -730,7 +804,7 @@ void Device::point(const ClipVertex& a0) {
 
 // Fills a projected triangle: every pixel whose centre (whole
 // coordinates) is inside, or on a top or left edge.
-void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const ClipVertex& c) const {
+void Draw::rasterize(Raster &r, const ClipVertex &a, const ClipVertex &b, const ClipVertex &c) const {
     const int left = std::max(viewport.x, 0), top = std::max(viewport.y, 0);
     const int right = std::min(viewport.x + viewport.width, target->d.width);
     const int bottom = std::min(viewport.y + viewport.height, target->d.height);
@@ -751,7 +825,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
     double area = double(b.x - a.x) * (c.y - a.y) - double(c.x - a.x) * (b.y - a.y);
     if (area == 0)
         return;
-    const ClipVertex* v[3] = {&a, &b, &c};
+    const ClipVertex *v[3] = {&a, &b, &c};
     const double sign = area > 0 ? 1 : -1;
     area *= sign;
     struct Edge {
@@ -759,8 +833,8 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
         bool topLeft;
     } e[3];
     for (int i = 0; i < 3; ++i) {
-        const ClipVertex& p = *v[(i + 1) % 3];
-        const ClipVertex& q = *v[(i + 2) % 3];
+        const ClipVertex &p = *v[(i + 1) % 3];
+        const ClipVertex &q = *v[(i + 2) % 3];
         // Positive on the side of v[i].
         e[i].a = sign * (p.y - q.y);
         e[i].b = sign * (q.x - p.x);
@@ -771,9 +845,9 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
     float attr[3][kAttributes];
     const int count = 8 + 2 * stages;
     for (int i = 0; i < 3; ++i) {
-        const ClipVertex& p = *v[i];
+        const ClipVertex &p = *v[i];
         const float rhw = p.w;
-        const float plain[8] = {p.diffuse.r, p.diffuse.g, p.diffuse.b, p.diffuse.a,
+        const float plain[8] = {p.diffuse.r,  p.diffuse.g,  p.diffuse.b,  p.diffuse.a,
                                 p.specular.r, p.specular.g, p.specular.b, p.specular.a};
         for (int k = 0; k < 8; ++k)
             attr[i][k] = plain[k] * rhw;
@@ -783,7 +857,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
     // Each stage's mip level for the triangle: texels per pixel.
     for (int st = 0; st < stages; ++st) {
         r.lod[st] = 0;
-        const DecodedTexture* t = bound[st];
+        const DecodedTexture *t = bound[st];
         if (!t || t->levels.empty())
             continue;
         const double du1 = (b.tex[st][0] - a.tex[st][0]) * t->levels[0].width;
@@ -823,7 +897,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
         // tested exactly.
         double from = x0, to = x1;
         bool empty = false;
-        for (const Edge& ed : e) {
+        for (const Edge &ed : e) {
             const double rest = ed.b * y + ed.c;
             if (ed.a > 0)
                 from = std::max(from, std::floor(-rest / ed.a) - 1);
@@ -840,7 +914,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
         // The pixels inside: each edge's test only changes once along the
         // row, so they run from the first inside to the last.
         auto inside = [&](int x) {
-            for (const Edge& ed : e) {
+            for (const Edge &ed : e) {
                 const double w = ed.a * x + ed.b * y + ed.c;
                 if (!(w > 0 || (w == 0 && ed.topLeft)))
                     return false;
@@ -859,7 +933,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
         if (quick)
             x = span4(r, x, last, y, row, fx, n, count, flatColors);
         for (; x <= last; ++x) {
-            uint8_t* zAt;
+            uint8_t *zAt;
             uint32_t zNew;
             if (depthTest(x, y, row[0], zAt, zNew)) { // the attributes only for pixels that pass
                 const float rhw = row[1];
@@ -878,7 +952,7 @@ void Draw::rasterize(Raster& r, const ClipVertex& a, const ClipVertex& b, const 
 
 bool Draw::span4Fits() const {
 #ifdef RELUVA_SPAN4
-    const PixelConfig& cf = cfg_;
+    const PixelConfig &cf = cfg_;
     return cf.simpleStages && !cf.colorKey &&
            (cf.target == PixelConfig::Target::Rgb565 || cf.target == PixelConfig::Target::Rgb888) &&
            (!cf.blend || (cf.srcBlend == 5 && cf.destBlend == 6)) &&
@@ -898,7 +972,7 @@ __m128i floor4(__m128 v) {
 // Each pixel's weight (0..256) in its four 16-bit channels: pixels 0 and 1
 // (low) or 2 and 3 (high).
 __m128i weights(__m128i w, bool high) {
-    const __m128i w16 = _mm_packs_epi32(w, w); // w0 w1 w2 w3 w0 w1 w2 w3
+    const __m128i w16 = _mm_packs_epi32(w, w);          // w0 w1 w2 w3 w0 w1 w2 w3
     const __m128i pairs = _mm_unpacklo_epi16(w16, w16); // w0 w0 w1 w1 w2 w2 w3 w3
     return high ? _mm_unpackhi_epi32(pairs, pairs) : _mm_unpacklo_epi32(pairs, pairs);
 }
@@ -914,8 +988,8 @@ __m128i mix16(__m128i p, __m128i q, __m128i w) {
 // sample's are (they're the same texels where all four are inside). False
 // for any other, or weights out of 0..256 (u or v beyond an int), left to
 // sample.
-bool Draw::sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out) const {
-    const Sampler& sm = r.samplers[stage];
+bool Draw::sample4(const Raster &r, int stage, __m128 u, __m128 v, __m128i &out) const {
+    const Sampler &sm = r.samplers[stage];
     if (!sm.argb || !sm.wrapPow2)
         return false;
     const __m128 fx = _mm_mul_ps(u, _mm_set1_ps(sm.fw)), fy = _mm_mul_ps(v, _mm_set1_ps(sm.fh));
@@ -923,11 +997,11 @@ bool Draw::sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out)
     alignas(16) int32_t xs[4], ys[4];
     alignas(16) uint32_t t[4][4]; // t00, t10, t01, t11
     if (!sm.linear) {
-        _mm_store_si128(reinterpret_cast<__m128i*>(xs), _mm_and_si128(floor4(fx), mx));
-        _mm_store_si128(reinterpret_cast<__m128i*>(ys), _mm_and_si128(floor4(fy), my));
+        _mm_store_si128(reinterpret_cast<__m128i *>(xs), _mm_and_si128(floor4(fx), mx));
+        _mm_store_si128(reinterpret_cast<__m128i *>(ys), _mm_and_si128(floor4(fy), my));
         for (int i = 0; i < 4; ++i)
             t[0][i] = sm.argb[size_t(ys[i]) * size_t(sm.width) + size_t(xs[i])];
-        out = _mm_load_si128(reinterpret_cast<const __m128i*>(t[0]));
+        out = _mm_load_si128(reinterpret_cast<const __m128i *>(t[0]));
         return true;
     }
     const __m128 gx = _mm_sub_ps(fx, _mm_set1_ps(0.5f)), gy = _mm_sub_ps(fy, _mm_set1_ps(0.5f));
@@ -943,20 +1017,20 @@ bool Draw::sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out)
         return false;
     alignas(16) int32_t x1s[4], y1s[4];
     const __m128i one = _mm_set1_epi32(1);
-    _mm_store_si128(reinterpret_cast<__m128i*>(xs), _mm_and_si128(ix, mx));
-    _mm_store_si128(reinterpret_cast<__m128i*>(x1s), _mm_and_si128(_mm_add_epi32(ix, one), mx));
-    _mm_store_si128(reinterpret_cast<__m128i*>(ys), _mm_and_si128(iy, my));
-    _mm_store_si128(reinterpret_cast<__m128i*>(y1s), _mm_and_si128(_mm_add_epi32(iy, one), my));
+    _mm_store_si128(reinterpret_cast<__m128i *>(xs), _mm_and_si128(ix, mx));
+    _mm_store_si128(reinterpret_cast<__m128i *>(x1s), _mm_and_si128(_mm_add_epi32(ix, one), mx));
+    _mm_store_si128(reinterpret_cast<__m128i *>(ys), _mm_and_si128(iy, my));
+    _mm_store_si128(reinterpret_cast<__m128i *>(y1s), _mm_and_si128(_mm_add_epi32(iy, one), my));
     for (int i = 0; i < 4; ++i) {
-        const uint32_t* r0 = sm.argb + size_t(ys[i]) * size_t(sm.width);
-        const uint32_t* r1 = sm.argb + size_t(y1s[i]) * size_t(sm.width);
+        const uint32_t *r0 = sm.argb + size_t(ys[i]) * size_t(sm.width);
+        const uint32_t *r1 = sm.argb + size_t(y1s[i]) * size_t(sm.width);
         t[0][i] = r0[xs[i]], t[1][i] = r0[x1s[i]], t[2][i] = r1[xs[i]], t[3][i] = r1[x1s[i]];
     }
     const __m128i zero = _mm_setzero_si128();
     __m128i half[2];
     for (int h = 0; h < 2; ++h) {
-        auto unpack16 = [&](const uint32_t* p) {
-            const __m128i v4 = _mm_load_si128(reinterpret_cast<const __m128i*>(p));
+        auto unpack16 = [&](const uint32_t *p) {
+            const __m128i v4 = _mm_load_si128(reinterpret_cast<const __m128i *>(p));
             return h ? _mm_unpackhi_epi8(v4, zero) : _mm_unpacklo_epi8(v4, zero);
         };
         const __m128i wx = weights(ax, h == 1), wy = weights(ay, h == 1);
@@ -971,10 +1045,10 @@ bool Draw::sample4(const Raster& r, int stage, __m128 u, __m128 v, __m128i& out)
 // at a time in SSE: the same operations in the same order on each, so the
 // same results to the bit (no fused multiply-adds either way). Texels and
 // the depth test are still taken one pixel at a time.
-int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float* fx, int n, int count,
-                const float* flatColors) const {
+int Draw::span4(const Raster &r, int x, int last, int y, float *row, const float *fx, int n, int count,
+                const float *flatColors) const {
 #ifdef RELUVA_SPAN4
-    const PixelConfig& cf = cfg_;
+    const PixelConfig &cf = cfg_;
     const __m128 zero = _mm_setzero_ps(), one = _mm_set1_ps(1.0f), half = _mm_set1_ps(0.5f);
     // std::clamp(v, 0, 1), NaN kept as it does: (v < 0) ? 0 : (1 < v) ? 1 : v.
     auto clamp01 = [&](__m128 v) { return _mm_max_ps(zero, _mm_min_ps(one, v)); };
@@ -1000,7 +1074,7 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
                 lane[k][i] = row[k];
                 row[k] += fx[k];
             }
-        uint8_t* zAt[4];
+        uint8_t *zAt[4];
         uint32_t zNew[4];
         bool pass[4];
         int passing = 0;
@@ -1015,24 +1089,40 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
                 return _mm_cvttpd_epi32(_mm_and_pd(d, _mm_cmpord_pd(d, d))); // two, low; a NaN gives 0
             };
             const __m128i zn = _mm_unpacklo_epi64(depth2(z), depth2(_mm_movehl_ps(z, z)));
-            uint8_t* base = cf.depthAt + uint32_t(y * cf.depthPitch) + uint32_t(x) * 2;
+            uint8_t *base = cf.depthAt + uint32_t(y * cf.depthPitch) + uint32_t(x) * 2;
             const __m128i stored = _mm_and_si128(
-                _mm_unpacklo_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i*>(base)), _mm_setzero_si128()),
+                _mm_unpacklo_epi16(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(base)), _mm_setzero_si128()),
                 _mm_set1_epi32(int(cf.zMask)));
             __m128i ok;
             switch (cf.zFunc) { // compare: new against stored, both whole numbers
-            case 1: ok = _mm_setzero_si128(); break;
-            case 2: ok = _mm_cmplt_epi32(zn, stored); break;
-            case 3: ok = _mm_cmpeq_epi32(zn, stored); break;
-            case 4: ok = _mm_xor_si128(_mm_cmpgt_epi32(zn, stored), _mm_set1_epi32(-1)); break;
-            case 5: ok = _mm_cmpgt_epi32(zn, stored); break;
-            case 6: ok = _mm_xor_si128(_mm_cmpeq_epi32(zn, stored), _mm_set1_epi32(-1)); break;
-            case 7: ok = _mm_xor_si128(_mm_cmplt_epi32(zn, stored), _mm_set1_epi32(-1)); break;
-            default: ok = _mm_set1_epi32(-1); break;
+            case 1:
+                ok = _mm_setzero_si128();
+                break;
+            case 2:
+                ok = _mm_cmplt_epi32(zn, stored);
+                break;
+            case 3:
+                ok = _mm_cmpeq_epi32(zn, stored);
+                break;
+            case 4:
+                ok = _mm_xor_si128(_mm_cmpgt_epi32(zn, stored), _mm_set1_epi32(-1));
+                break;
+            case 5:
+                ok = _mm_cmpgt_epi32(zn, stored);
+                break;
+            case 6:
+                ok = _mm_xor_si128(_mm_cmpeq_epi32(zn, stored), _mm_set1_epi32(-1));
+                break;
+            case 7:
+                ok = _mm_xor_si128(_mm_cmplt_epi32(zn, stored), _mm_set1_epi32(-1));
+                break;
+            default:
+                ok = _mm_set1_epi32(-1);
+                break;
             }
             alignas(16) uint32_t zs[4], oks[4];
-            _mm_store_si128(reinterpret_cast<__m128i*>(zs), zn);
-            _mm_store_si128(reinterpret_cast<__m128i*>(oks), ok);
+            _mm_store_si128(reinterpret_cast<__m128i *>(zs), zn);
+            _mm_store_si128(reinterpret_cast<__m128i *>(oks), ok);
             for (int i = 0; i < 4; ++i) {
                 zAt[i] = base + 2 * i, zNew[i] = zs[i];
                 passing += pass[i] = oks[i] != 0;
@@ -1052,14 +1142,14 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
             for (int k = 0; k < 8; ++k)
                 here[k] = _mm_set1_ps(flatColors[k]);
         // Texture stages. Sources: diffuse, current, texture, factor, specular.
-        __m128 src[5][4] = {{here[0], here[1], here[2], here[3]},
-                            {here[0], here[1], here[2], here[3]},
-                            {},
-                            {_mm_set1_ps(cf.factor.r), _mm_set1_ps(cf.factor.g), _mm_set1_ps(cf.factor.b),
-                             _mm_set1_ps(cf.factor.a)},
-                            {here[4], here[5], here[6], here[7]}};
+        __m128 src[5][4] = {
+            {here[0], here[1], here[2], here[3]},
+            {here[0], here[1], here[2], here[3]},
+            {},
+            {_mm_set1_ps(cf.factor.r), _mm_set1_ps(cf.factor.g), _mm_set1_ps(cf.factor.b), _mm_set1_ps(cf.factor.a)},
+            {here[4], here[5], here[6], here[7]}};
         for (int st = 0; st < stages; ++st) {
-            const StageConfig& sc = cf.stage[st];
+            const StageConfig &sc = cf.stage[st];
             if (sc.usesTexture) {
                 __m128i t;
                 if (!sample4(r, st, here[8 + 2 * st], here[9 + 2 * st], t)) {
@@ -1068,13 +1158,13 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
                     _mm_store_ps(v, here[9 + 2 * st]);
                     for (int i = 0; i < 4; ++i)
                         texel[i] = pass[i] ? sample(r, st, u[i], v[i], nullptr) : 0;
-                    t = _mm_load_si128(reinterpret_cast<const __m128i*>(texel));
+                    t = _mm_load_si128(reinterpret_cast<const __m128i *>(texel));
                 }
                 src[2][0] = fractions(t, 16), src[2][1] = fractions(t, 8), src[2][2] = fractions(t, 0);
                 src[2][3] = fractions(t, 24);
             }
             __m128 result[4];
-            auto apply = [&](uint32_t op, const __m128* x1, const __m128* x2, int from, int to) {
+            auto apply = [&](uint32_t op, const __m128 *x1, const __m128 *x2, int from, int to) {
                 for (int i = from; i < to; ++i)
                     result[i] = clamp01(op == 4 ? _mm_mul_ps(x1[i], x2[i]) : op == 2 ? x1[i] : x2[i]);
             };
@@ -1086,7 +1176,7 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
             for (int i = 0; i < 4; ++i)
                 src[1][i] = result[i];
         }
-        __m128* current = src[1];
+        __m128 *current = src[1];
         // finish: specular, alpha test, fog, blending, the write.
         if (cf.specular)
             for (int i = 0; i < 3; ++i)
@@ -1102,9 +1192,9 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
             __m128 f = here[7]; // the specular alpha: the vertices' fog
             if (cf.fogTableMode == 3) {
                 const __m128 d = cf.fogByZ ? _mm_load_ps(lane[0]) : inv;
-                f = cf.fogEnd != cf.fogStart ? _mm_div_ps(_mm_sub_ps(_mm_set1_ps(cf.fogEnd), d),
-                                                          _mm_set1_ps(cf.fogEnd - cf.fogStart))
-                                             : one;
+                f = cf.fogEnd != cf.fogStart
+                        ? _mm_div_ps(_mm_sub_ps(_mm_set1_ps(cf.fogEnd), d), _mm_set1_ps(cf.fogEnd - cf.fogStart))
+                        : one;
             }
             f = clamp01(f);
             const __m128 nf = _mm_sub_ps(one, f);
@@ -1113,17 +1203,18 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
                 current[i] = _mm_add_ps(_mm_mul_ps(current[i], f), _mm_mul_ps(_mm_set1_ps(fog[i]), nf));
         }
         const uint32_t bytes = cf.targetBytes;
-        uint8_t* at[4];
+        uint8_t *at[4];
         for (int i = 0; i < 4; ++i)
             at[i] = cf.targetAt + uint32_t(y * cf.targetPitch) + uint32_t(x + i) * bytes;
         __m128 o[3] = {current[0], current[1], current[2]};
         if (cf.blend) {
-            const Fractions& fr = kFractions;
+            const Fractions &fr = kFractions;
             for (int i = 0; i < 4; ++i) {
                 uint32_t raw = 0;
                 std::memcpy(&raw, at[i], bytes);
                 if (rgb565)
-                    dst[0][i] = fr.of31[raw >> 11 & 31], dst[1][i] = fr.of63[raw >> 5 & 63], dst[2][i] = fr.of31[raw & 31];
+                    dst[0][i] = fr.of31[raw >> 11 & 31], dst[1][i] = fr.of63[raw >> 5 & 63],
+                    dst[2][i] = fr.of31[raw & 31];
                 else
                     dst[0][i] = fr.of255[raw >> 16 & 0xff], dst[1][i] = fr.of255[raw >> 8 & 0xff],
                     dst[2][i] = fr.of255[raw & 0xff];
@@ -1133,12 +1224,12 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
                 o[i] = _mm_add_ps(_mm_mul_ps(current[i], a), _mm_mul_ps(_mm_load_ps(dst[i]), ia));
         }
         if (rgb565) {
-            _mm_store_si128(reinterpret_cast<__m128i*>(out[0]), channel(o[0], 31));
-            _mm_store_si128(reinterpret_cast<__m128i*>(out[1]), channel(o[1], 63));
-            _mm_store_si128(reinterpret_cast<__m128i*>(out[2]), channel(o[2], 31));
+            _mm_store_si128(reinterpret_cast<__m128i *>(out[0]), channel(o[0], 31));
+            _mm_store_si128(reinterpret_cast<__m128i *>(out[1]), channel(o[1], 63));
+            _mm_store_si128(reinterpret_cast<__m128i *>(out[2]), channel(o[2], 31));
         } else
             for (int i = 0; i < 3; ++i)
-                _mm_store_si128(reinterpret_cast<__m128i*>(out[i]), channel(o[i], 255));
+                _mm_store_si128(reinterpret_cast<__m128i *>(out[i]), channel(o[i], 255));
         for (int i = 0; i < 4; ++i) {
             if (!pass[i])
                 continue;
@@ -1165,40 +1256,40 @@ int Draw::span4(const Raster& r, int x, int last, int y, float* row, const float
 
 // --- Textures
 
-const DecodedTexture* Device::texture(int stage) {
-    const std::shared_ptr<Surface>& t = textures[size_t(stage)];
+const DecodedTexture *Device::texture(int stage) {
+    const std::shared_ptr<Surface> &t = textures[size_t(stage)];
     if (!t)
         return nullptr;
     // The surface and its smaller mip levels.
-    std::vector<Surface*> levels{t.get()};
-    for (Surface* l = t.get(); l;) {
-        Surface* next = nullptr;
-        for (const auto& a : l->attached)
+    std::vector<Surface *> levels{t.get()};
+    for (Surface *l = t.get(); l;) {
+        Surface *next = nullptr;
+        for (const auto &a : l->attached)
             if (a->d.caps[0] & kCapsMipMap)
                 next = a.get();
         if (next)
             levels.push_back(next);
         l = next;
     }
-    DecodedTexture& d = decoded[t.get()];
+    DecodedTexture &d = decoded[t.get()];
     bool fresh = d.owner.lock() == t && d.levels.size() == levels.size();
     for (size_t i = 0; fresh && i < levels.size(); ++i)
         fresh = d.versions[i] == levels[i]->d.version;
     if (fresh)
         return &d;
-    finishDraws(); // a draw waiting may use the texture as it was decoded
+    finishDraws();             // a draw waiting may use the texture as it was decoded
     if (decoded.size() > 4096) // forget textures since freed
         for (auto it = decoded.begin(); it != decoded.end();)
             it = it->second.owner.expired() ? decoded.erase(it) : std::next(it);
-    DecodedTexture& fill = decoded[t.get()];
+    DecodedTexture &fill = decoded[t.get()];
     fill.owner = t;
     fill.levels.clear();
     fill.versions.clear();
-    for (Surface* l : levels) {
+    for (Surface *l : levels) {
         DecodedTexture::Level level{l->d.width, l->d.height, {}, {}};
         level.argb.resize(size_t(l->d.width) * size_t(l->d.height));
         level.keyed.assign(level.argb.size(), 0);
-        const uint32_t* pal = l->paletteArgb() ? l->paletteArgb() : t->paletteArgb();
+        const uint32_t *pal = l->paletteArgb() ? l->paletteArgb() : t->paletteArgb();
         const ArgbConverter convert(l->d.format, pal);
         for (int y = 0; y < l->d.height; ++y)
             for (int x = 0; x < l->d.width; ++x) {
@@ -1214,20 +1305,20 @@ const DecodedTexture* Device::texture(int stage) {
     return &fill;
 }
 
-void Draw::prepareSamplers(Raster& r) const {
+void Draw::prepareSamplers(Raster &r) const {
     for (int st = 0; st < stages; ++st) {
-        Sampler& sm = r.samplers[st];
-        const DecodedTexture* t = bound[st];
+        Sampler &sm = r.samplers[st];
+        const DecodedTexture *t = bound[st];
         if (!t || t->levels.empty()) {
             sm.argb = nullptr;
             continue;
         }
-        const StageConfig& sc = cfg_.stage[st];
+        const StageConfig &sc = cfg_.stage[st];
         const float l = r.lod[st];
         size_t level = 0;
         if (sc.mipFilter >= 2 && l > 0)
             level = std::min(t->levels.size() - 1, size_t(sc.mipFilter == 3 ? std::lround(l) : int(l)));
-        const DecodedTexture::Level& tex = t->levels[level];
+        const DecodedTexture::Level &tex = t->levels[level];
         sm.argb = tex.argb.data();
         sm.keyed = tex.keyed.data();
         sm.width = tex.width, sm.height = tex.height;
@@ -1240,11 +1331,11 @@ void Draw::prepareSamplers(Raster& r) const {
     }
 }
 
-RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster& r, int stage, float u, float v, bool* keyed) const {
-    const Sampler& sm = r.samplers[stage];
+RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster &r, int stage, float u, float v, bool *keyed) const {
+    const Sampler &sm = r.samplers[stage];
     if (!sm.argb)
         return 0xffffffffu;
-    auto address = [](int i, int size, uint32_t mode, bool& border) {
+    auto address = [](int i, int size, uint32_t mode, bool &border) {
         if (mode <= 1) // wrap: the common case first
             return i >= 0 && i < size ? i : ((i % size) + size) % size;
         switch (mode) {
@@ -1253,14 +1344,15 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster& r, int stage, float u, flo
             int m = ((i % period) + period) % period;
             return m < size ? m : period - 1 - m;
         }
-        case 3: return std::clamp(i, 0, size - 1); // clamp
-        default:                                    // border
+        case 3:
+            return std::clamp(i, 0, size - 1); // clamp
+        default:                               // border
             if (i < 0 || i >= size)
                 border = true;
             return std::clamp(i, 0, size - 1);
         }
     };
-    auto texel = [&](int x, int y, bool& isKeyed) {
+    auto texel = [&](int x, int y, bool &isKeyed) {
         if (sm.wrapPow2) {
             x &= sm.width - 1;
             y &= sm.height - 1;
@@ -1297,14 +1389,14 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster& r, int stage, float u, flo
         return rb | ag;
     };
     if (!keyed && ix >= 0 && iy >= 0 && ix + 1 < sm.width && iy + 1 < sm.height) { // all four inside: no addressing
-        const uint32_t* p = sm.argb + size_t(iy) * size_t(sm.width) + size_t(ix);
+        const uint32_t *p = sm.argb + size_t(iy) * size_t(sm.width) + size_t(ix);
         return mix(mix(p[0], p[1], ax), mix(p[sm.width], p[sm.width + 1], ax), ay);
     }
     if (!keyed && sm.wrapPow2) { // wrapping across an edge: the texel's addressing, by masks
         const int mx = sm.width - 1, my = sm.height - 1;
         const size_t x0 = size_t(ix & mx), x1 = size_t((ix + 1) & mx);
-        const uint32_t* r0 = sm.argb + size_t(iy & my) * size_t(sm.width);
-        const uint32_t* r1 = sm.argb + size_t((iy + 1) & my) * size_t(sm.width);
+        const uint32_t *r0 = sm.argb + size_t(iy & my) * size_t(sm.width);
+        const uint32_t *r1 = sm.argb + size_t((iy + 1) & my) * size_t(sm.width);
         return mix(mix(r0[x0], r0[x1], ax), mix(r1[x0], r1[x1], ax), ay);
     }
     bool k00 = false, k10 = false, k01 = false, k11 = false;
@@ -1319,11 +1411,11 @@ RELUVA_PIXEL_STEP uint32_t Draw::sample(const Raster& r, int stage, float u, flo
 // --- Pixels
 
 void Device::configure() {
-    PixelConfig& c = cfg_;
+    PixelConfig &c = cfg_;
     c.zTest = renderStates[kZEnable] && depth;
     c.zWrite = c.zTest && renderStates[kZWriteEnable];
     c.zFunc = renderStates[kZFunc];
-    uint8_t* mem = s->cpu.memory().data();
+    uint8_t *mem = s->cpu.memory().data();
     c.targetAt = mem + target->d.memory;
     c.targetWidth = target->d.width, c.targetHeight = target->d.height, c.targetPitch = target->d.pitch;
     c.targetBytes = target->d.format.bytes();
@@ -1355,15 +1447,26 @@ void Device::configure() {
     c.flat = renderStates[kShadeMode] == 1;
     c.factor = unpack(renderStates[kTextureFactor]);
     for (int i = 0; i < stages; ++i) {
-        const auto& st = stageStates[size_t(i)];
-        c.stage[i] = {st[kColorOp],  st[kColorArg1], st[kColorArg2], st[kAlphaOp],   st[kAlphaArg1],
-                      st[kAlphaArg2], st[kAddressU], st[kAddressV], st[kBorderColor], st[kMagFilter],
-                      st[kMinFilter], st[kMipFilter], {},           false};
+        const auto &st = stageStates[size_t(i)];
+        c.stage[i] = {st[kColorOp],
+                      st[kColorArg1],
+                      st[kColorArg2],
+                      st[kAlphaOp],
+                      st[kAlphaArg1],
+                      st[kAlphaArg2],
+                      st[kAddressU],
+                      st[kAddressV],
+                      st[kBorderColor],
+                      st[kMagFilter],
+                      st[kMinFilter],
+                      st[kMipFilter],
+                      {},
+                      false};
     }
     // The quick path's stages.
     c.simpleStages = true;
     for (int i = 0; i < stages; ++i) {
-        StageConfig& sc = c.stage[i];
+        StageConfig &sc = c.stage[i];
         const uint32_t args[4] = {sc.colorArg1, sc.colorArg2, sc.alphaArg1, sc.alphaArg2};
         sc.usesTexture = false;
         for (int k = 0; k < 4; ++k) {
@@ -1373,19 +1476,20 @@ void Device::configure() {
                 c.simpleStages = false;
         }
         const bool alphaUsed = sc.alphaOp != 1;
-        sc.usesTexture = sc.source[0] == 2 || sc.source[1] == 2 || (alphaUsed && (sc.source[2] == 2 || sc.source[3] == 2));
+        sc.usesTexture =
+            sc.source[0] == 2 || sc.source[1] == 2 || (alphaUsed && (sc.source[2] == 2 || sc.source[3] == 2));
         if (sc.colorOp < 2 || sc.colorOp > 4 || sc.alphaOp < 1 || sc.alphaOp > 4)
             c.simpleStages = false;
     }
-    const PixelFormat& f = target->d.format;
-    c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels) ? PixelConfig::Target::Generic
+    const PixelFormat &f = target->d.format;
+    c.target = f.flags & (kPfPaletteIndexed8 | kPfAlphaPixels)                   ? PixelConfig::Target::Generic
                : f.bits == 16 && f.r == 0xf800 && f.g == 0x07e0 && f.b == 0x001f ? PixelConfig::Target::Rgb565
                : f.bits == 32 && f.r == 0xff0000 && f.g == 0xff00 && f.b == 0xff ? PixelConfig::Target::Rgb888
                                                                                  : PixelConfig::Target::Generic;
 }
 
-void Draw::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr) const {
-    uint8_t* zAt;
+void Draw::pixel(Raster &r, int x, int y, float z, float eyeW, const float *attr) const {
+    uint8_t *zAt;
     uint32_t zNew;
     if (depthTest(x, y, z, zAt, zNew))
         shade(r, x, y, z, eyeW, attr, zAt, zNew);
@@ -1393,10 +1497,10 @@ void Draw::pixel(Raster& r, int x, int y, float z, float eyeW, const float* attr
 
 // Whether a pixel is on the target and passes the depth test; where its
 // depth is, and the depth it would write.
-RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uint32_t& zNew) const {
+RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t *&zAt, uint32_t &zNew) const {
     zAt = nullptr;
     zNew = 0;
-    const PixelConfig& cf = cfg_;
+    const PixelConfig &cf = cfg_;
     if (x < 0 || y < 0 || x >= cf.targetWidth || y >= cf.targetHeight)
         return false;
     if (cf.zTest && x < cf.depthWidth && y < cf.depthHeight) {
@@ -1416,9 +1520,9 @@ RELUVA_PIXEL_STEP bool Draw::depthTest(int x, int y, float z, uint8_t*& zAt, uin
 }
 
 // A pixel past the depth test: texture stages, then the rest (finish).
-RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float eyeW, const float* attr, uint8_t* zAt,
-                 uint32_t zNew) const {
-    const PixelConfig& cf = cfg_;
+RELUVA_PIXEL_STEP void Draw::shade(const Raster &r, int x, int y, float z, float eyeW, const float *attr, uint8_t *zAt,
+                                   uint32_t zNew) const {
+    const PixelConfig &cf = cfg_;
     // Texture stages.
     if (cf.simpleStages && !cf.colorKey) {
         // Sources: diffuse, current, texture, factor, specular.
@@ -1428,15 +1532,15 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float
                            {cf.factor.r, cf.factor.g, cf.factor.b, cf.factor.a},
                            {attr[4], attr[5], attr[6], attr[7]}};
         for (int st = 0; st < stages; ++st) {
-            const StageConfig& sc = cf.stage[st];
+            const StageConfig &sc = cf.stage[st];
             if (sc.usesTexture) {
                 const uint32_t t = sample(r, st, attr[8 + 2 * st], attr[9 + 2 * st], nullptr);
-                const float* f = kFractions.of255;
+                const float *f = kFractions.of255;
                 src[2][0] = f[t >> 16 & 0xff], src[2][1] = f[t >> 8 & 0xff], src[2][2] = f[t & 0xff];
                 src[2][3] = f[t >> 24];
             }
             float result[4];
-            auto apply = [&](uint32_t op, const float* x1, const float* x2, int from, int to) {
+            auto apply = [&](uint32_t op, const float *x1, const float *x2, int from, int to) {
                 if (op == 4)
                     for (int i = from; i < to; ++i)
                         result[i] = std::clamp(x1[i] * x2[i], 0.0f, 1.0f);
@@ -1460,19 +1564,29 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float
     Color current = diffuse;
     bool keyed = false;
     for (int st = 0; st < stages; ++st) {
-        const StageConfig& sc = cf.stage[st];
+        const StageConfig &sc = cf.stage[st];
         bool k = false;
         const Color tex = unpack(sample(r, st, attr[8 + 2 * st], attr[9 + 2 * st], cf.colorKey ? &k : nullptr));
         if (bound[st] && k)
             keyed = true;
-        auto arg = [&](uint32_t a, float* v) {
-            const Color* c;
+        auto arg = [&](uint32_t a, float *v) {
+            const Color *c;
             switch (a & 0xf) {
-            case 0: c = &diffuse; break;
-            case 2: c = &tex; break;
-            case 3: c = &cf.factor; break;
-            case 4: c = &specular; break;
-            default: c = &current; break;
+            case 0:
+                c = &diffuse;
+                break;
+            case 2:
+                c = &tex;
+                break;
+            case 3:
+                c = &cf.factor;
+                break;
+            case 4:
+                c = &specular;
+                break;
+            default:
+                c = &current;
+                break;
             }
             v[0] = c->r, v[1] = c->g, v[2] = c->b, v[3] = c->a;
             if (a & 0x10)
@@ -1482,7 +1596,7 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float
                 v[0] = v[1] = v[2] = v[3];
         };
         // One operation on three channels (colour) or one (alpha).
-        auto apply = [&](uint32_t op, uint32_t arg1, uint32_t arg2, float* out, int from, int to) {
+        auto apply = [&](uint32_t op, uint32_t arg1, uint32_t arg2, float *out, int from, int to) {
             float x1[4], x2[4];
             arg(arg1, x1);
             arg(arg2, x2);
@@ -1491,24 +1605,60 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float
                     out[i] = std::clamp(f(i), 0.0f, 1.0f);
             };
             switch (op) {
-            case 2: each([&](int i) { return x1[i]; }); break;
-            case 3: each([&](int i) { return x2[i]; }); break;
-            case 5: each([&](int i) { return 2 * x1[i] * x2[i]; }); break;
-            case 6: each([&](int i) { return 4 * x1[i] * x2[i]; }); break;
-            case 7: each([&](int i) { return x1[i] + x2[i]; }); break;
-            case 8: each([&](int i) { return x1[i] + x2[i] - 0.5f; }); break;
-            case 9: each([&](int i) { return 2 * (x1[i] + x2[i] - 0.5f); }); break;
-            case 10: each([&](int i) { return x1[i] - x2[i]; }); break;
-            case 11: each([&](int i) { return x1[i] + x2[i] - x1[i] * x2[i]; }); break;
-            case 12: each([&](int i) { return x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); }); break;
-            case 13: each([&](int i) { return x1[i] * tex.a + x2[i] * (1 - tex.a); }); break;
-            case 14: each([&](int i) { return x1[i] * cf.factor.a + x2[i] * (1 - cf.factor.a); }); break;
-            case 15: each([&](int i) { return x1[i] + x2[i] * (1 - tex.a); }); break;
-            case 16: each([&](int i) { return x1[i] * current.a + x2[i] * (1 - current.a); }); break;
-            case 18: each([&](int i) { return x1[i] + x1[3] * x2[i]; }); break; // MODULATEALPHA_ADDCOLOR
-            case 19: each([&](int i) { return i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; }); break;
-            case 20: each([&](int i) { return x1[i] + (1 - x1[3]) * x2[i]; }); break; // MODULATEINVALPHA_ADDCOLOR
-            default: each([&](int i) { return x1[i] * x2[i]; }); break;               // MODULATE and the rest
+            case 2:
+                each([&](int i) { return x1[i]; });
+                break;
+            case 3:
+                each([&](int i) { return x2[i]; });
+                break;
+            case 5:
+                each([&](int i) { return 2 * x1[i] * x2[i]; });
+                break;
+            case 6:
+                each([&](int i) { return 4 * x1[i] * x2[i]; });
+                break;
+            case 7:
+                each([&](int i) { return x1[i] + x2[i]; });
+                break;
+            case 8:
+                each([&](int i) { return x1[i] + x2[i] - 0.5f; });
+                break;
+            case 9:
+                each([&](int i) { return 2 * (x1[i] + x2[i] - 0.5f); });
+                break;
+            case 10:
+                each([&](int i) { return x1[i] - x2[i]; });
+                break;
+            case 11:
+                each([&](int i) { return x1[i] + x2[i] - x1[i] * x2[i]; });
+                break;
+            case 12:
+                each([&](int i) { return x1[i] * diffuse.a + x2[i] * (1 - diffuse.a); });
+                break;
+            case 13:
+                each([&](int i) { return x1[i] * tex.a + x2[i] * (1 - tex.a); });
+                break;
+            case 14:
+                each([&](int i) { return x1[i] * cf.factor.a + x2[i] * (1 - cf.factor.a); });
+                break;
+            case 15:
+                each([&](int i) { return x1[i] + x2[i] * (1 - tex.a); });
+                break;
+            case 16:
+                each([&](int i) { return x1[i] * current.a + x2[i] * (1 - current.a); });
+                break;
+            case 18:
+                each([&](int i) { return x1[i] + x1[3] * x2[i]; });
+                break; // MODULATEALPHA_ADDCOLOR
+            case 19:
+                each([&](int i) { return i == 3 ? x1[3] * x2[3] : x1[i] + x2[i]; });
+                break;
+            case 20:
+                each([&](int i) { return x1[i] + (1 - x1[3]) * x2[i]; });
+                break; // MODULATEINVALPHA_ADDCOLOR
+            default:
+                each([&](int i) { return x1[i] * x2[i]; });
+                break; // MODULATE and the rest
             }
         };
         float result[4] = {current.r, current.g, current.b, current.a};
@@ -1524,9 +1674,9 @@ RELUVA_PIXEL_STEP void Draw::shade(const Raster& r, int x, int y, float z, float
 
 // The rest of a pixel's way, from its colour after the texture stages:
 // specular, alpha test, fog, blending, the write.
-RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const float* attr, Color current, uint8_t* zAt,
-                  uint32_t zNew) const {
-    const PixelConfig& cf = cfg_;
+RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const float *attr, Color current, uint8_t *zAt,
+                                    uint32_t zNew) const {
+    const PixelConfig &cf = cfg_;
     const Color specular{attr[4], attr[5], attr[6], attr[7]};
     if (cf.specular)
         current = {std::min(1.0f, current.r + specular.r), std::min(1.0f, current.g + specular.g),
@@ -1547,17 +1697,17 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
                 f = std::exp(-(cf.fogDensity * d) * (cf.fogDensity * d));
         }
         f = std::clamp(f, 0.0f, 1.0f);
-        const Color& fog = cf.fogColor;
+        const Color &fog = cf.fogColor;
         current = {current.r * f + fog.r * (1 - f), current.g * f + fog.g * (1 - f), current.b * f + fog.b * (1 - f),
                    current.a};
     }
     // Blending with what's there, and the write in the target's format.
     const uint32_t bytes = cf.targetBytes;
-    uint8_t* at = cf.targetAt + uint32_t(y * cf.targetPitch) + uint32_t(x) * bytes;
+    uint8_t *at = cf.targetAt + uint32_t(y * cf.targetPitch) + uint32_t(x) * bytes;
     auto readTarget = [&]() -> Color {
         uint32_t raw = 0;
         std::memcpy(&raw, at, bytes);
-        const Fractions& f = kFractions;
+        const Fractions &f = kFractions;
         if (cf.target == PixelConfig::Target::Rgb565)
             return {f.of31[raw >> 11 & 31], f.of63[raw >> 5 & 63], f.of31[raw & 31], 1};
         if (cf.target == PixelConfig::Target::Rgb888)
@@ -1601,7 +1751,7 @@ RELUVA_PIXEL_STEP void Draw::finish(int x, int y, float z, float eyeW, const flo
 // viewport) of the target (flag 1) and the Z buffer (flag 2), within the
 // viewport.
 void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t color, float z) {
-    Cpu& c = s->cpu;
+    Cpu &c = s->cpu;
     const Rect vp{viewport.x, viewport.y, viewport.x + viewport.width, viewport.y + viewport.height};
     std::vector<Rect> areas;
     if (count && rects && c.valid(rects, 16 * count))
@@ -1616,12 +1766,12 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     // Filled in turn with the draws (DrawQueue), by rows: where the surfaces
     // are now, as the draws queued are drawn where they were.
     struct Fill {
-        uint8_t* at;
+        uint8_t *at;
         int width, height, pitch;
         uint32_t bytes, value;
     };
     std::vector<Fill> fills;
-    uint8_t* mem = c.memory().data();
+    uint8_t *mem = c.memory().data();
     if ((flags & 1) && target) {
         fills.push_back({mem + target->d.memory, target->d.width, target->d.height, target->d.pitch,
                          target->d.format.bytes(), target->d.format.fromArgb(color)});
@@ -1629,21 +1779,21 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
     }
     if ((flags & 2) && depth) {
         const double max = double(depth->d.format.g ? depth->d.format.g : 0xffff);
-        fills.push_back({mem + depth->d.memory, depth->d.width, depth->d.height, depth->d.pitch, depth->d.format.bytes(),
-                         uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * max + 0.5))});
+        fills.push_back({mem + depth->d.memory, depth->d.width, depth->d.height, depth->d.pitch,
+                         depth->d.format.bytes(), uint32_t(std::floor(double(std::clamp(z, 0.0f, 1.0f)) * max + 0.5))});
         depth->touched();
     }
     if (fills.empty() || areas.empty())
         return;
     auto fill = [fills, areas](int band, int bands) {
-        for (const Fill& f : fills)
+        for (const Fill &f : fills)
             for (Rect r : areas) {
                 r.left = std::max(r.left, 0), r.top = std::max(r.top, 0);
                 r.right = std::min(r.right, f.width), r.bottom = std::min(r.bottom, f.height);
                 for (int y = r.top; y < r.bottom; ++y) {
                     if (bands > 1 && (y >> 3) % bands != band) // another thread's rows
                         continue;
-                    uint8_t* row = f.at + uint32_t(y * f.pitch) + uint32_t(r.left) * f.bytes;
+                    uint8_t *row = f.at + uint32_t(y * f.pitch) + uint32_t(r.left) * f.bytes;
                     if (f.bytes == 2) {
                         const uint16_t v = uint16_t(f.value);
                         for (int x = r.left; x < r.right; ++x, row += 2)
@@ -1660,7 +1810,7 @@ void Device::clear(uint32_t count, uint32_t rects, uint32_t flags, uint32_t colo
             }
     };
     double area = 0;
-    for (const Rect& r : areas)
+    for (const Rect &r : areas)
         area += double(std::max(0, r.right - r.left)) * double(std::max(0, r.bottom - r.top));
     const DirectX::DrawThreads mode = s->owner.drawThreads;
     if (mode == DirectX::DrawThreads::One) {

@@ -42,19 +42,19 @@ namespace {
 
 namespace awe = reluva::awe;
 
-bool endsWith(const std::string& s, const char* suffix) {
+bool endsWith(const std::string &s, const char *suffix) {
     const size_t n = std::strlen(suffix);
     return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
 }
 
 // What one Granny file turned out to be.
 struct Gr2Result {
-    std::string error;           // empty if it read
+    std::string error; // empty if it read
     std::vector<std::string> warnings;
     bool model = false, animation = false;
     size_t bones = 0, meshes = 0, textures = 0, tracks = 0;
-    std::string vertexLayout;    // the first mesh's vertex members
-    std::set<int> degrees;       // curve degrees used
+    std::string vertexLayout; // the first mesh's vertex members
+    std::set<int> degrees;    // curve degrees used
     std::set<std::string> compressions;
     uint32_t vectorTracks = 0;
     // Curves in compressed formats, by format; each expanded natively and
@@ -80,13 +80,13 @@ struct Gr2Result {
     size_t curvesEvaluated = 0, curveSamples = 0;
 };
 
-std::string layoutOf(const awe::Gr2Object& vertexData) {
+std::string layoutOf(const awe::Gr2Object &vertexData) {
     const awe::Gr2Object::Array a = vertexData.array("Vertices");
     if (!a.type)
         return "";
     const awe::Gr2Object first = vertexData.element("Vertices", 0);
     std::string s;
-    for (const awe::Gr2Member& m : first.members())
+    for (const awe::Gr2Member &m : first.members())
         s += (s.empty() ? "" : " ") + m.name + ":" + awe::gr2TypeName(m.type) +
              (m.arrayWidth > 1 ? "[" + std::to_string(m.arrayWidth) + "]" : "");
     return s;
@@ -94,7 +94,7 @@ std::string layoutOf(const awe::Gr2Object& vertexData) {
 
 // Checks one curve as loaded (plain, or expanded from a compressed
 // format), as Curve::evaluate will read it.
-void checkCurve(const awe::Curve& c, const char* name, int dimension, Gr2Result& r, const std::string& trackName) {
+void checkCurve(const awe::Curve &c, const char *name, int dimension, Gr2Result &r, const std::string &trackName) {
     if (c.knots.empty())
         return;
     r.degrees.insert(c.degree);
@@ -117,15 +117,15 @@ void checkCurve(const awe::Curve& c, const char* name, int dimension, Gr2Result&
 }
 
 // Same bits.
-bool sameFloats(const std::vector<float>& a, const std::vector<float>& b) {
+bool sameFloats(const std::vector<float> &a, const std::vector<float> &b) {
     return a.size() == b.size() && (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
 }
 
 // The animation's compressed curves, as loadAnimation() expanded them,
 // against granny2.dll's expansion: the same knots and controls, bit for
 // bit.
-void checkCompressedCurves(const awe::Gr2File& file, awe::GrannyDll& dll, const awe::Animation& anim, Gr2Result& r) {
-    static const char* const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
+void checkCompressedCurves(const awe::Gr2File &file, awe::GrannyDll &dll, const awe::Animation &anim, Gr2Result &r) {
+    static const char *const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
     const awe::Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
     std::vector<std::pair<size_t, int>> compressed; // track, curve
     for (uint32_t t = 0; t < group.count("TransformTracks") && t < anim.tracks.size(); t++)
@@ -145,10 +145,10 @@ void checkCompressedCurves(const awe::Gr2File& file, awe::GrannyDll& dll, const 
         r.curvesDiffering += compressed.size();
         return;
     }
-    for (const auto& [t, c] : compressed) {
+    for (const auto &[t, c] : compressed) {
         const awe::AnimationTrack &mine = anim.tracks[t], &dlls = reference.tracks[t];
-        const awe::Curve* a[3] = {&mine.position, &mine.orientation, &mine.scaleShear};
-        const awe::Curve* b[3] = {&dlls.position, &dlls.orientation, &dlls.scaleShear};
+        const awe::Curve *a[3] = {&mine.position, &mine.orientation, &mine.scaleShear};
+        const awe::Curve *b[3] = {&dlls.position, &dlls.orientation, &dlls.scaleShear};
         r.curves++;
         if (a[c]->degree != b[c]->degree || !sameFloats(a[c]->knots, b[c]->knots) ||
             !sameFloats(a[c]->controls, b[c]->controls)) {
@@ -165,10 +165,9 @@ void checkCompressedCurves(const awe::Gr2File& file, awe::GrannyDll& dll, const 
 // its knots and between them, in the four ways a control can loop.
 // Orientations are normalised both ways, as Granny's sampling does, and
 // differences are taken relative to the curve's largest value.
-void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const awe::Animation& anim,
-                          Gr2Result& r) {
+void checkCurveEvaluation(const awe::Gr2File &file, awe::GrannyDll &dll, const awe::Animation &anim, Gr2Result &r) {
     static const std::vector<float> kIdentities[3] = {{0, 0, 0}, {0, 0, 0, 1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}};
-    static const char* const kKinds[3] = {"position", "orientation", "scale/shear"};
+    static const char *const kKinds[3] = {"position", "orientation", "scale/shear"};
     awe::GrannyDll::LoadedFile loaded;
     if (reluva::Error e = dll.loadFile(file.bytes(), loaded)) {
         r.warnings.push_back("granny2.dll: " + e.message);
@@ -183,10 +182,10 @@ void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const a
     const float d = anim.duration;
     std::vector<float> theirs, mine(16);
     for (size_t t = 0; t < addresses.size() && t < anim.tracks.size(); t++) {
-        const awe::AnimationTrack& track = anim.tracks[t];
-        const awe::Curve* curves[3] = {&track.position, &track.orientation, &track.scaleShear};
+        const awe::AnimationTrack &track = anim.tracks[t];
+        const awe::Curve *curves[3] = {&track.position, &track.orientation, &track.scaleShear};
         for (int c = 0; c < 3; c++) {
-            const awe::Curve& curve = *curves[c];
+            const awe::Curve &curve = *curves[c];
             if (!addresses[t][size_t(c)] || curve.empty())
                 continue;
             r.curvesEvaluated++;
@@ -208,8 +207,8 @@ void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const a
                 loop.forward = mode == 1 || mode == 2;
                 loop.duration = d;
                 for (float at : times) {
-                    if (reluva::Error e = dll.evaluateCurve(addresses[t][size_t(c)], kIdentities[c], c == 1,
-                                                            loop.back, loop.forward, d, at, theirs)) {
+                    if (reluva::Error e = dll.evaluateCurve(addresses[t][size_t(c)], kIdentities[c], c == 1, loop.back,
+                                                            loop.forward, d, at, theirs)) {
                         r.warnings.push_back(track.bone + " " + kKinds[c] + ": granny2.dll: " + e.message);
                         dll.freeFile(loaded);
                         return;
@@ -220,8 +219,8 @@ void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const a
                     // nearly unit length; the track sampler the game's
                     // controls use normalises exactly (0x500444ff).
                     if (c == 1)
-                        for (std::vector<float>* q : {&mine, &theirs}) {
-                            float* v = q->data();
+                        for (std::vector<float> *q : {&mine, &theirs}) {
+                            float *v = q->data();
                             const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3]);
                             for (int k = 0; k < 4 && len > 0; k++)
                                 v[k] /= len;
@@ -235,7 +234,7 @@ void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const a
                         if (!std::isfinite(diff))
                             most = epsilons = INFINITY;
                     }
-                    Gr2Result::CurveDifference& worst = r.curveDifferences[mode][c];
+                    Gr2Result::CurveDifference &worst = r.curveDifferences[mode][c];
                     worst.most = std::max(worst.most, most);
                     if (epsilons > worst.epsilons) {
                         worst.epsilons = epsilons;
@@ -249,8 +248,7 @@ void checkCurveEvaluation(const awe::Gr2File& file, awe::GrannyDll& dll, const a
     dll.freeFile(loaded);
 }
 
-
-Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::GrannyDll& dll, bool textures,
+Gr2Result checkGr2(const reluva::Archive &files, const std::string &name, awe::GrannyDll &dll, bool textures,
                    bool curveValues) {
     Gr2Result r;
     std::vector<uint8_t> data;
@@ -263,8 +261,8 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         r.error = e.message;
         return r;
     }
-    static const char* const kCompression[] = {"none", "Oodle0", "Oodle1"};
-    for (const awe::Gr2Section& s : file.sections())
+    static const char *const kCompression[] = {"none", "Oodle0", "Oodle1"};
+    for (const awe::Gr2Section &s : file.sections())
         if (s.size)
             r.compressions.insert(s.compression < 3 ? kCompression[s.compression]
                                                     : "format " + std::to_string(s.compression));
@@ -287,10 +285,10 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         for (size_t b = 0; b < model.bones.size(); b++)
             if (model.bones[b].parent >= int(b))
                 r.warnings.push_back("bone " + model.bones[b].name + " has a later parent");
-        for (const awe::ModelMesh& m : model.meshes) {
+        for (const awe::ModelMesh &m : model.meshes) {
             if (m.indices.size() % 3)
                 r.warnings.push_back("mesh " + m.name + ": " + std::to_string(m.indices.size()) + " indices");
-            for (const awe::ModelVertex& v : m.vertices) {
+            for (const awe::ModelVertex &v : m.vertices) {
                 float total = 0;
                 for (int k = 0; k < 4; k++) {
                     total += v.weights[k];
@@ -305,7 +303,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
                 }
             }
         }
-        for (const awe::ModelTexture& t : model.textures)
+        for (const awe::ModelTexture &t : model.textures)
             if (t.rgba.empty())
                 r.warnings.push_back("texture " + t.name + " not decoded");
         // The raw data, for what loadModel might have glossed over.
@@ -317,7 +315,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
                 r.vertexLayout = layoutOf(vd);
             const uint32_t n = vd.count("Vertices");
             const awe::Gr2Object topo = mesh.object("PrimaryTopology");
-            for (const char* list : {"Indices", "Indices16"})
+            for (const char *list : {"Indices", "Indices16"})
                 for (uint32_t k = 0; k < topo.count(list); k++) {
                     const awe::Gr2Object e = topo.element(list, k);
                     const double index = e.number(std::strcmp(list, "Indices") == 0 ? "Int32" : "UInt16");
@@ -388,7 +386,7 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
         checkCompressedCurves(file, dll, anim, r);
         if (curveValues)
             checkCurveEvaluation(file, dll, anim, r);
-        for (const awe::AnimationTrack& t : anim.tracks) {
+        for (const awe::AnimationTrack &t : anim.tracks) {
             checkCurve(t.position, "PositionCurve", 3, r, t.bone);
             checkCurve(t.orientation, "OrientationCurve", 4, r, t.bone);
             checkCurve(t.scaleShear, "ScaleShearCurve", 9, r, t.bone);
@@ -399,9 +397,9 @@ Gr2Result checkGr2(const reluva::Archive& files, const std::string& name, awe::G
     return r;
 }
 
-std::vector<std::string> filesEndingWith(const reluva::Archive& files, const char* ext) {
+std::vector<std::string> filesEndingWith(const reluva::Archive &files, const char *ext) {
     std::vector<std::string> out;
-    for (const std::string& n : files.list())
+    for (const std::string &n : files.list())
         if (endsWith(reluva::fs::toLower(n), ext))
             out.push_back(n);
     std::sort(out.begin(), out.end());
@@ -409,11 +407,11 @@ std::vector<std::string> filesEndingWith(const reluva::Archive& files, const cha
 }
 
 // The .gr2 files whose names contain `filter` (any case).
-std::vector<std::string> gr2Files(const reluva::Archive& files, const std::string& filter) {
+std::vector<std::string> gr2Files(const reluva::Archive &files, const std::string &filter) {
     std::vector<std::string> names = filesEndingWith(files, ".gr2");
     if (!filter.empty())
         names.erase(std::remove_if(names.begin(), names.end(),
-                                   [&](const std::string& n) {
+                                   [&](const std::string &n) {
                                        return reluva::fs::toLower(n).find(reluva::fs::toLower(filter)) ==
                                               std::string::npos;
                                    }),
@@ -421,7 +419,7 @@ std::vector<std::string> gr2Files(const reluva::Archive& files, const std::strin
     return names;
 }
 
-int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& folder, const std::string& filter,
+int checkGr2Files(const reluva::Archive &files, const std::filesystem::path &folder, const std::string &filter,
                   bool textures, bool curveValues, unsigned jobs, bool verbose) {
     const std::vector<std::string> names = gr2Files(files, filter);
     std::printf("== %zu Granny files\n", names.size());
@@ -458,7 +456,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     std::vector<std::thread> threads;
     for (unsigned j = 0; j < std::max(1u, jobs); j++)
         threads.emplace_back(worker);
-    for (std::thread& t : threads)
+    for (std::thread &t : threads)
         t.join();
     if (!startError.empty()) {
         std::printf("FAIL granny2.dll: %s\n", startError.c_str());
@@ -475,20 +473,19 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     size_t curvesEvaluated = 0, curveSamples = 0;
     Gr2Result::CurveDifference curveDifferences[Gr2Result::kLoopModes][3];
     for (size_t i = 0; i < names.size(); i++) {
-        const Gr2Result& r = results[i];
+        const Gr2Result &r = results[i];
         curvesEvaluated += r.curvesEvaluated;
         curveSamples += r.curveSamples;
         for (int loop = 0; loop < Gr2Result::kLoopModes; loop++)
-            for (int c = 0; c < 3; c++)
-{
-                    const Gr2Result::CurveDifference& f = r.curveDifferences[loop][c];
-                    Gr2Result::CurveDifference& all = curveDifferences[loop][c];
-                    all.most = std::max(all.most, f.most);
-                    if (f.epsilons > all.epsilons) {
-                        all.epsilons = f.epsilons;
-                        all.where = names[i] + " " + f.where;
-                    }
+            for (int c = 0; c < 3; c++) {
+                const Gr2Result::CurveDifference &f = r.curveDifferences[loop][c];
+                Gr2Result::CurveDifference &all = curveDifferences[loop][c];
+                all.most = std::max(all.most, f.most);
+                if (f.epsilons > all.epsilons) {
+                    all.epsilons = f.epsilons;
+                    all.where = names[i] + " " + f.where;
                 }
+            }
         if (!r.error.empty()) {
             failed++;
             std::printf("FAIL %s: %s\n", names[i].c_str(), r.error.c_str());
@@ -499,10 +496,10 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
         compressed += r.curves > 0;
         curves += r.curves;
         curvesDiffering += r.curvesDiffering;
-        for (const auto& [f, n] : r.curveFormats)
+        for (const auto &[f, n] : r.curveFormats)
             curveFormats[f] += n;
         withVectors += r.vectorTracks > 0;
-        for (const auto& [flags, n] : r.binkTextures)
+        for (const auto &[flags, n] : r.binkTextures)
             binkTextures[flags] += n;
         binkMismatches += r.binkMismatches;
         nativeSeconds += r.nativeSeconds;
@@ -511,7 +508,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
             layouts[r.vertexLayout]++;
         for (int d : r.degrees)
             degrees[d]++;
-        for (const std::string& c : r.compressions)
+        for (const std::string &c : r.compressions)
             compressions[c]++;
         if (!r.warnings.empty()) {
             warned++;
@@ -527,25 +524,24 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
                         r.meshes, r.textures, r.tracks);
         }
     }
-    const double seconds =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::printf("Granny: %zu files, %zu failed, %zu with warnings; %zu models, %zu animations in %.1f s\n",
                 names.size(), failed, warned, models, animations, seconds);
     std::printf("  %zu animations with compressed curves, %zu with vector tracks (not used)\n", compressed,
                 withVectors);
     std::printf("  compressed curves: %zu, %zu differing from granny2.dll's expansion; by format:", curves,
                 curvesDiffering);
-    for (const auto& [f, n] : curveFormats)
+    for (const auto &[f, n] : curveFormats)
         std::printf(" %s %zu", f.c_str(), n);
     std::printf("\n  section compression:");
-    for (const auto& [c, n] : compressions)
+    for (const auto &[c, n] : compressions)
         std::printf(" %s in %zu files", c.c_str(), n);
     std::printf("\n  curve degrees:");
-    for (const auto& [d, n] : degrees)
+    for (const auto &[d, n] : degrees)
         std::printf(" %d in %zu files", d, n);
     size_t bink = 0;
     std::printf("\n  Bink textures:");
-    for (const auto& [flags, n] : binkTextures) {
+    for (const auto &[flags, n] : binkTextures) {
         std::printf(" %zu with flags %u", n, flags);
         bink += n;
     }
@@ -553,20 +549,20 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
     if (textures)
         std::printf(", by granny2.dll in %.1f s: %zu of %zu differ", dllSeconds, binkMismatches, bink);
     std::printf("\n  vertex layouts:\n");
-    for (const auto& [l, n] : layouts)
+    for (const auto &[l, n] : layouts)
         std::printf("    %5zu  %s\n", n, l.c_str());
     // Beyond float rounding: more than a few floats' epsilons of the values.
     bool curvesOff = false;
     if (curveValues) {
-        static const char* const kKinds[3] = {"position", "orientation", "scale/shear"};
-        static const char* const kModes[Gr2Result::kLoopModes] = {"once", "looping", "first loop", "last loop"};
+        static const char *const kKinds[3] = {"position", "orientation", "scale/shear"};
+        static const char *const kModes[Gr2Result::kLoopModes] = {"once", "looping", "first loop", "last loop"};
         constexpr double kTolerance = 8;
         std::printf("  curve values: %zu curves at %zu times, against GrannyEvaluateCurveAtT; largest differences "
                     "(absolute, and in floats' epsilons of the curve's values):\n",
                     curvesEvaluated, curveSamples);
         for (int loop = 0; loop < Gr2Result::kLoopModes; loop++)
             for (int c = 0; c < 3; c++) {
-                const Gr2Result::CurveDifference& d = curveDifferences[loop][c];
+                const Gr2Result::CurveDifference &d = curveDifferences[loop][c];
                 const bool off = !(d.epsilons <= kTolerance);
                 curvesOff |= off;
                 std::printf("    %-10s %-11s %.3g, %.2f%s%s%s\n", kModes[loop], kKinds[c], d.most, d.epsilons,
@@ -578,7 +574,7 @@ int checkGr2Files(const reluva::Archive& files, const std::filesystem::path& fol
 
 // Decompresses every compressed section of every Granny file both
 // natively and with granny2.dll, and compares them byte for byte.
-int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned jobs, bool verbose) {
+int checkOodle(const reluva::Archive &files, const std::string &filter, unsigned jobs, bool verbose) {
     const std::vector<std::string> names = gr2Files(files, filter);
     std::printf("== %zu Granny files, decompressed natively and by granny2.dll\n", names.size());
     if (names.empty())
@@ -604,23 +600,23 @@ int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned
             startError = e.message;
             return;
         }
-        auto timed = [](std::atomic<int64_t>& total, auto&& f) {
+        auto timed = [](std::atomic<int64_t> &total, auto &&f) {
             const auto start = std::chrono::steady_clock::now();
             reluva::Error e = f();
-            total += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start)
-                         .count();
+            total +=
+                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count();
             return e;
         };
         for (size_t i; (i = next++) < names.size();) {
-            Result& r = results[i];
+            Result &r = results[i];
             std::vector<uint8_t> data;
             if (reluva::Error e = files.read(names[i], data)) {
                 r.failures.push_back(e.message);
                 continue;
             }
             awe::Gr2File file;
-            const reluva::Error e = file.open(data, [&](uint32_t format, const std::vector<uint8_t>& in,
-                                                        uint32_t stop0, uint32_t stop1, std::vector<uint8_t>& out) {
+            const reluva::Error e = file.open(data, [&](uint32_t format, const std::vector<uint8_t> &in, uint32_t stop0,
+                                                        uint32_t stop1, std::vector<uint8_t> &out) {
                 std::vector<uint8_t> theirs(out.size());
                 const std::string section = "section " + std::to_string(r.sections++) + ": ";
                 const reluva::Error de =
@@ -632,9 +628,9 @@ int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned
                 if (ne)
                     r.failures.push_back(section + ne.message);
                 else if (out != theirs)
-                    r.failures.push_back(section + "differs from granny2.dll's from byte " +
-                                         std::to_string(std::mismatch(out.begin(), out.end(), theirs.begin()).first -
-                                                        out.begin()));
+                    r.failures.push_back(
+                        section + "differs from granny2.dll's from byte " +
+                        std::to_string(std::mismatch(out.begin(), out.end(), theirs.begin()).first - out.begin()));
                 r.bytes += out.size();
                 out = std::move(theirs);
                 return reluva::Error::success();
@@ -646,7 +642,7 @@ int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned
     std::vector<std::thread> threads;
     for (unsigned j = 0; j < std::max(1u, jobs); j++)
         threads.emplace_back(worker);
-    for (std::thread& t : threads)
+    for (std::thread &t : threads)
         t.join();
     if (!startError.empty()) {
         std::printf("FAIL granny2.dll: %s\n", startError.c_str());
@@ -654,11 +650,11 @@ int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned
     }
     size_t sections = 0, bytes = 0, failures = 0;
     for (size_t i = 0; i < names.size(); i++) {
-        const Result& r = results[i];
+        const Result &r = results[i];
         sections += r.sections;
         bytes += r.bytes;
         failures += r.failures.size();
-        for (const std::string& f : r.failures)
+        for (const std::string &f : r.failures)
             std::printf("FAIL %s: %s\n", names[i].c_str(), f.c_str());
         if (verbose && r.failures.empty())
             std::printf("ok   %s: %zu sections\n", names[i].c_str(), r.sections);
@@ -673,7 +669,7 @@ int checkOodle(const reluva::Archive& files, const std::string& filter, unsigned
 
 // The scene's camera as Reluva builds it, against granny2.dll's: the
 // largest difference in their view matrices (translations / 100).
-float cameraDifference(const awe::Ac2Record& camr, awe::GrannyDll& dll, std::string& error) {
+float cameraDifference(const awe::Ac2Record &camr, awe::GrannyDll &dll, std::string &error) {
     const awe::SceneCamera native = awe::SceneCamera::fromRecord(camr);
     awe::GrannyDll::Camera c;
     c.fovY = native.fovY, c.nearPlane = native.nearPlane, c.farPlane = native.farPlane;
@@ -691,7 +687,7 @@ float cameraDifference(const awe::Ac2Record& camr, awe::GrannyDll& dll, std::str
     return worst;
 }
 
-int checkScenes(const reluva::Archive& files, bool verbose) {
+int checkScenes(const reluva::Archive &files, bool verbose) {
     const std::vector<std::string> names = filesEndingWith(files, ".ac2");
     size_t failed = 0, scenes = 0, saves = 0, cameras = 0, cameraMismatches = 0;
     awe::GrannyDll dll;
@@ -706,7 +702,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     std::map<int, size_t> cellSizes, cellValues, gridSizes;
     Landing standing, points, walks;
     size_t grids = 0, reachable = 0, unreachable = 0, planned = 0, unplanned = 0;
-    for (const std::string& n : names) {
+    for (const std::string &n : names) {
         // Text/Scripts' slots are saves, with records of their own.
         if (reluva::fs::toLower(n).rfind("text/scripts/", 0) == 0) {
             saves++;
@@ -726,7 +722,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
         } else if (verbose) {
             std::printf("ok   %s: %zu records\n", n.c_str(), scene.records.size());
         }
-        if (const awe::Ac2Record* camr = scene.camera(); camr && haveDll) {
+        if (const awe::Ac2Record *camr = scene.camera(); camr && haveDll) {
             cameras++;
             std::string error;
             const float d = cameraDifference(*camr, dll, error);
@@ -738,7 +734,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
         }
         // A variant (an act's) has no camera of its own: its base's grid.
         awe::WalkGrid grid;
-        const awe::Ac2Record* camr = scene.camera();
+        const awe::Ac2Record *camr = scene.camera();
         awe::Ac2Scene base;
         if (!camr) {
             const size_t u = n.rfind('_'), dot = n.rfind('.');
@@ -750,7 +746,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
         if (camr && grid.load(*camr) && scene.camera()) {
             grids++;
             cellSizes[grid.cellSize()]++;
-            if (const awe::Ac2Value* g = camr->field("grid"))
+            if (const awe::Ac2Value *g = camr->field("grid"))
                 gridSizes[int(g->raw)]++;
             for (int a = 0; a < awe::WalkGrid::kSize; a++)
                 for (int b = 0; b < awe::WalkGrid::kSize; b++)
@@ -759,7 +755,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
         // The cells the player's character can reach from where it stands
         // (3s open, as on the game's later tries).
         std::vector<bool> reach;
-        for (const awe::Ac2Record* o : scene.objects())
+        for (const awe::Ac2Record *o : scene.objects())
             if (o->tag == "PCXX" && !grid.empty() && reach.empty()) {
                 const awe::WalkGrid::Cell from = grid.cellAt(o->f("x"), o->f("z"));
                 if (!from.valid())
@@ -770,7 +766,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                 while (!todo.empty()) {
                     const awe::WalkGrid::Cell c = todo.back();
                     todo.pop_back();
-                    for (const auto& [da, db] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                    for (const auto &[da, db] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
                         const awe::WalkGrid::Cell nb{c.a + da, c.b + db};
                         if (awe::WalkGrid::inside(nb.a, nb.b) && !reach[size_t(nb.a * 64 + nb.b)] &&
                             !grid.blocked(nb, true)) {
@@ -780,7 +776,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                     }
                 }
             }
-        auto land = [&](Landing& l, awe::WalkGrid::Cell c, const std::string& what) {
+        auto land = [&](Landing &l, awe::WalkGrid::Cell c, const std::string &what) {
             if (grid.empty())
                 return;
             if (!c.valid())
@@ -791,29 +787,31 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                 l.open++;
             if (verbose && (!c.valid() || grid.blocked(c, true)))
                 std::printf("WARN %s: %s on %s\n", n.c_str(), what.c_str(),
-                            c.valid() ? ("a blocked cell (" + std::to_string(c.a) + ", " + std::to_string(c.b) + ")").c_str()
-                                      : "no cell");
+                            c.valid()
+                                ? ("a blocked cell (" + std::to_string(c.a) + ", " + std::to_string(c.b) + ")").c_str()
+                                : "no cell");
         };
-        for (const awe::Ac2Record* o : scene.objects()) {
+        for (const awe::Ac2Record *o : scene.objects()) {
             if (o->tag == "NPCX" || o->tag == "PCXX") {
                 land(standing, grid.cellAt(o->f("x"), o->f("z")), o->tag + " " + o->text("file"));
-                if (const awe::Ac2Record* w = o->part("WALK"))
-                    for (const awe::Ac2Record& pt : w->parts)
+                if (const awe::Ac2Record *w = o->part("WALK"))
+                    for (const awe::Ac2Record &pt : w->parts)
                         land(points, grid.cellAt(pt.f("x"), pt.f("z")),
                              "walk point " + std::to_string(pt.i("id")) + " of " + o->text("file"));
             }
             // Scripts: "walk a b" with two numbers walks to cell (a, b).
             std::vector<std::string> scripts{o->text("script")};
-            if (const awe::Ac2Value* lb = o->field("listB"))
-                for (const auto& [cond, run] : lb->pairs)
+            if (const awe::Ac2Value *lb = o->field("listB"))
+                for (const auto &[cond, run] : lb->pairs)
                     scripts.push_back(run);
-            for (const std::string& sc : scripts)
-                for (const awe::Command& c : awe::parseCommands(sc)) {
+            for (const std::string &sc : scripts)
+                for (const awe::Command &c : awe::parseCommands(sc)) {
                     if (c.words.size() != 3 || reluva::fs::toLower(c.verb()) != "walk")
                         continue;
-                    char* e1 = nullptr;
-                    char* e2 = nullptr;
-                    const long a = std::strtol(c.words[1].c_str(), &e1, 10), b = std::strtol(c.words[2].c_str(), &e2, 10);
+                    char *e1 = nullptr;
+                    char *e2 = nullptr;
+                    const long a = std::strtol(c.words[1].c_str(), &e1, 10),
+                               b = std::strtol(c.words[2].c_str(), &e2, 10);
                     if (*e1 || *e2)
                         continue;
                     const awe::WalkGrid::Cell cell{int(a), int(b)};
@@ -822,7 +820,7 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                     if (!reach.empty() && awe::WalkGrid::inside(cell.a, cell.b)) {
                         if (reach[size_t(cell.a * 64 + cell.b)]) {
                             const awe::WalkGrid::Cell from = [&] {
-                                for (const awe::Ac2Record* p : scene.objects())
+                                for (const awe::Ac2Record *p : scene.objects())
                                     if (p->tag == "PCXX")
                                         return grid.cellAt(p->f("x"), p->f("z"));
                                 return awe::WalkGrid::Cell();
@@ -842,14 +840,15 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
                         else {
                             unreachable++;
                             if (verbose)
-                                std::printf("WARN %s: walk %ld %ld can't be reached from the player\n", n.c_str(), a, b);
+                                std::printf("WARN %s: walk %ld %ld can't be reached from the player\n", n.c_str(), a,
+                                            b);
                         }
                     }
                 }
         }
-        for (const awe::Ac2Record& r : scene.records) {
+        for (const awe::Ac2Record &r : scene.records) {
             tags[r.tag]++;
-            for (const awe::Ac2Record& p : r.parts)
+            for (const awe::Ac2Record &p : r.parts)
                 parts[r.tag + "/" + p.tag]++;
         }
     }
@@ -857,38 +856,38 @@ int checkScenes(const reluva::Archive& files, bool verbose) {
     if (haveDll)
         std::printf("  cameras: %zu checked against granny2.dll, %zu differ\n", cameras, cameraMismatches);
     std::printf("  walk grids: %zu; sizes", grids);
-    for (const auto& [v, k] : gridSizes)
+    for (const auto &[v, k] : gridSizes)
         std::printf(" %dx%d in %zu", v, v, k);
     std::printf("; cells of");
-    for (const auto& [v, k] : cellSizes)
+    for (const auto &[v, k] : cellSizes)
         std::printf(" %d in %zu", v, k);
     std::printf("; values");
-    for (const auto& [v, k] : cellValues)
+    for (const auto &[v, k] : cellValues)
         std::printf(" %d: %zu", v, k);
     std::printf("\n");
-    auto landing = [](const char* what, const Landing& l) {
-        std::printf("  %s: %zu on open cells, %zu on blocked ones, %zu off the grid%s\n", what, l.open, l.blocked, l.off,
-                    l.blocked + l.off ? " (-v lists them)" : "");
+    auto landing = [](const char *what, const Landing &l) {
+        std::printf("  %s: %zu on open cells, %zu on blocked ones, %zu off the grid%s\n", what, l.open, l.blocked,
+                    l.off, l.blocked + l.off ? " (-v lists them)" : "");
     };
     landing("characters standing", standing);
     landing("their walk points", points);
     landing("\"walk a b\" commands", walks);
-    std::printf("    of those in scenes with the player: %zu reachable from where the player stands, %zu not\n", reachable,
-                unreachable);
+    std::printf("    of those in scenes with the player: %zu reachable from where the player stands, %zu not\n",
+                reachable, unreachable);
     std::printf("    the game's path-finder plans %zu of the reachable ones, not %zu\n", planned, unplanned);
     std::printf("  records:");
-    for (const auto& [t, n] : tags)
+    for (const auto &[t, n] : tags)
         std::printf(" %s %zu", t.c_str(), n);
     std::printf("\n  parts:");
-    for (const auto& [t, n] : parts)
+    for (const auto &[t, n] : parts)
         std::printf(" %s %zu", t.c_str(), n);
     std::printf("\n");
     return failed ? 1 : 0;
 }
 
-int checkText(const reluva::Archive& files, bool verbose) {
+int checkText(const reluva::Archive &files, bool verbose) {
     size_t count = 0, failed = 0;
-    for (const std::string& n : filesEndingWith(files, ".txt")) {
+    for (const std::string &n : filesEndingWith(files, ".txt")) {
         if (reluva::fs::toLower(n).rfind("text/", 0) != 0)
             continue;
         count++;
@@ -913,7 +912,7 @@ int checkText(const reluva::Archive& files, bool verbose) {
 }
 
 // Decodes every frame and the sound of every Bink file.
-int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
+int checkBink(const reluva::Archive &files, unsigned jobs, bool verbose) {
     const std::vector<std::string> names = filesEndingWith(files, ".bik");
     std::vector<std::string> results(names.size());
     std::atomic<size_t> next{0};
@@ -951,10 +950,10 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
     std::vector<std::thread> threads;
     for (unsigned j = 0; j < std::max(1u, jobs); j++)
         threads.emplace_back(worker);
-    for (std::thread& t : threads)
+    for (std::thread &t : threads)
         t.join();
     size_t failed = 0;
-    for (const std::string& r : results) {
+    for (const std::string &r : results) {
         failed += r.rfind("FAIL", 0) == 0;
         if (!r.empty())
             std::printf("%s\n", r.c_str());
@@ -965,11 +964,11 @@ int checkBink(const reluva::Archive& files, unsigned jobs, bool verbose) {
     return failed ? 1 : 0;
 }
 
-int checkSound(const reluva::Archive& files, unsigned jobs, bool verbose) {
+int checkSound(const reluva::Archive &files, unsigned jobs, bool verbose) {
     // Every sound (Sound\..., the voices, music and effects), decoded as
     // the mixer decodes it; by format, rate and channels.
     std::vector<std::string> names = filesEndingWith(files, ".wav");
-    for (const std::string& n : filesEndingWith(files, ".mp3"))
+    for (const std::string &n : filesEndingWith(files, ".mp3"))
         names.push_back(n);
     std::vector<std::string> results(names.size());
     std::vector<std::string> kinds(names.size());
@@ -988,15 +987,15 @@ int checkSound(const reluva::Archive& files, unsigned jobs, bool verbose) {
                 results[i] = e.message;
                 continue;
             }
-            kinds[i] = std::string(reluva::audio::formatName(sound.format)) + " " + std::to_string(sound.rate) + " Hz " +
-                       (sound.channels == 1 ? "mono" : "stereo");
+            kinds[i] = std::string(reluva::audio::formatName(sound.format)) + " " + std::to_string(sound.rate) +
+                       " Hz " + (sound.channels == 1 ? "mono" : "stereo");
             seconds[i] = double(sound.frames()) / sound.rate;
         }
     };
     std::vector<std::thread> threads;
     for (unsigned t = 0; t < jobs; t++)
         threads.emplace_back(worker);
-    for (std::thread& t : threads)
+    for (std::thread &t : threads)
         t.join();
     size_t failed = 0;
     double total = 0;
@@ -1012,7 +1011,7 @@ int checkSound(const reluva::Archive& files, unsigned jobs, bool verbose) {
         if (verbose)
             std::printf("  %s: %s, %.2f s\n", names[i].c_str(), kinds[i].c_str(), seconds[i]);
     }
-    for (const auto& [kind, n] : byKind)
+    for (const auto &[kind, n] : byKind)
         std::printf("  %zu %s\n", n, kind.c_str());
     std::printf("Sound: %zu files, %zu failed, %.0f minutes in all\n", names.size(), failed, total / 60);
     return failed ? 1 : 0;
@@ -1020,7 +1019,7 @@ int checkSound(const reluva::Archive& files, unsigned jobs, bool verbose) {
 
 } // namespace
 
-int aweCheckCommand(int argc, char** argv) {
+int aweCheckCommand(int argc, char **argv) {
     std::string folder, filter;
     bool gr2 = true, scenes = true, text = true, bink = true, sound = true, oodle = false, textures = false,
          verbose = false;

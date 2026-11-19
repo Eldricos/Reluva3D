@@ -58,6 +58,7 @@ void testSaveGame() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.saves", {
-    {"save games", [](const std::filesystem::path&) { testSaveGame(); }},
-});
+static const reluva::test::Suite suite("awe.unit.saves",
+                                       {
+                                           {"save games", [](const std::filesystem::path &) { testSaveGame(); }},
+                                       });

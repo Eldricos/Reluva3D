@@ -34,13 +34,13 @@ public:
 
     bool hasAudio() const { return decoder_.hasAudio(); }
     // The sound track as samples (8- or 16-bit PCM, mono or stereo).
-    Error audio(audio::Sound& out) const;
+    Error audio(audio::Sound &out) const;
 
     // Show the frame due `seconds` after the start (decoding the ones
     // before it; going back starts again from the first).
     Error seek(double seconds);
     size_t frameShown() const { return shown_; }
-    const image::Image& picture() const { return picture_; }
+    const image::Image &picture() const { return picture_; }
     bool finished(double seconds) const { return seconds >= durationSeconds(); }
 
 private:

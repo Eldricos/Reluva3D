@@ -21,7 +21,7 @@ namespace {
 
 // The settings' names, as the game's registry values, in the order of the
 // screen's controls 1..9 (options1..9); and their defaults (0x42bae0).
-constexpr const char* kNames[GameOptions::kCount] = {"Music", "Sound", "Gamma", "Captions", "Shadows",
+constexpr const char *kNames[GameOptions::kCount] = {"Music", "Sound", "Gamma", "Captions", "Shadows",
                                                      "Water", "Fog",   "Rain",  "AntiAlias"};
 constexpr int kDefaults[GameOptions::kCount] = {7, 7, 5, 1, 1, 1, 1, 1, 0};
 
@@ -30,7 +30,9 @@ constexpr int kThumbLeft = 694, kThumbStep = 23;
 
 } // namespace
 
-GameOptions::GameOptions() { std::copy(std::begin(kDefaults), std::end(kDefaults), std::begin(values)); }
+GameOptions::GameOptions() {
+    std::copy(std::begin(kDefaults), std::end(kDefaults), std::begin(values));
+}
 
 std::filesystem::path ScenePage::optionsFile() const {
     return ctx_.savePath.empty() ? std::filesystem::path() : ctx_.savePath / "options.ini";
@@ -85,7 +87,7 @@ void ScenePage::applyBrightness() {
     applyBrightness(ctx_.screen.pixels);
 }
 
-void ScenePage::applyBrightness(std::vector<uint8_t>& rgba) const {
+void ScenePage::applyBrightness(std::vector<uint8_t> &rgba) const {
     const int g = brightnessLevel();
     if (g == 5)
         return;
@@ -102,22 +104,22 @@ void ScenePage::applyAntiAliasing() {
         renderer_->setMultisampling(options_.get(GameOptions::AntiAlias) ? 4 : 1);
 }
 
-bool ScenePage::fogged(const Ac2Record& o) const {
+bool ScenePage::fogged(const Ac2Record &o) const {
     // "Fog, Haze, and Clouds" off hides the fog and cloud pictures (those
     // with SPRT da4 set: 0x4372e0, 0x437ac0).
     if (options_.get(GameOptions::Fog))
         return false;
     const std::string file = fs::toLower(o.text("file"));
-    const Ac2Record* sprt = o.part("SPRT");
+    const Ac2Record *sprt = o.part("SPRT");
     return sprt && sprt->i("scroll") != 0 &&
            (file.find("elements\\fog") != std::string::npos || file.find("skies\\clouds") != std::string::npos);
 }
 
-bool ScenePage::frozen(const Ac2Record& o) const {
+bool ScenePage::frozen(const Ac2Record &o) const {
     // "Animated Effects" off stops the videos flagged BNKX de4 (0x406230).
     if (options_.get(GameOptions::Water))
         return false;
-    const Ac2Record* bnkx = o.part("BNKX");
+    const Ac2Record *bnkx = o.part("BNKX");
     return bnkx && bnkx->i("effect") != 0;
 }
 
@@ -126,8 +128,8 @@ bool ScenePage::frozen(const Ac2Record& o) const {
 namespace {
 
 // The n-th object of the scene whose file is `name` (0x436660).
-const Ac2Record* nth(const Ac2Scene& scene, const char* name, int n) {
-    for (const Ac2Record* o : scene.objects()) {
+const Ac2Record *nth(const Ac2Scene &scene, const char *name, int n) {
+    for (const Ac2Record *o : scene.objects()) {
         const std::string file = fs::toLower(o->text("file"));
         const size_t slash = file.find_last_of('\\');
         if ((slash == std::string::npos ? file : file.substr(slash + 1)) == name && n-- == 0)
@@ -142,7 +144,7 @@ void ScenePage::openOptions() {
     // 0x42be00: the staged values, and the toggles as they were (Cancel
     // puts them back).
     optionsMenu_ = std::make_unique<OptionsMenu>();
-    OptionsMenu& m = *optionsMenu_;
+    OptionsMenu &m = *optionsMenu_;
     m.staged[0] = options_.get(GameOptions::Music);
     m.staged[1] = options_.get(GameOptions::Sound);
     m.staged[2] = options_.get(GameOptions::Gamma);
@@ -152,7 +154,7 @@ void ScenePage::openOptions() {
 }
 
 int ScenePage::thumbX(int slider) const {
-    const OptionsMenu& m = *optionsMenu_;
+    const OptionsMenu &m = *optionsMenu_;
     if (m.dragging == slider + 1) {
         // While dragged: the step nearest the cursor (0x42c350).
         const int ax = lastMouseX_ - 7;
@@ -165,9 +167,9 @@ int ScenePage::thumbX(int slider) const {
     return kThumbLeft + kThumbStep * m.staged[slider];
 }
 
-void ScenePage::optionsAction(const std::string& word) {
+void ScenePage::optionsAction(const std::string &word) {
     // 0x42c3b0.
-    OptionsMenu& m = *optionsMenu_;
+    OptionsMenu &m = *optionsMenu_;
     if (word == "ok") {
         options_.values[GameOptions::Music] = m.staged[0];
         options_.values[GameOptions::Sound] = m.staged[1];
@@ -199,7 +201,7 @@ void ScenePage::optionsAction(const std::string& word) {
 void ScenePage::optionsRelease() {
     // Mouse up (0x42c220): the dragged slider's value is heard (or seen) at
     // once; the settings change only on OK.
-    OptionsMenu& m = *optionsMenu_;
+    OptionsMenu &m = *optionsMenu_;
     if (!m.dragging)
         return;
     const int slider = m.dragging - 1;
@@ -215,27 +217,27 @@ void ScenePage::optionsRelease() {
 
 void ScenePage::drawOptions() {
     // 0x42c090: the labels (font 7, colour 0), the ticks at the boxes.
-    const OptionsMenu& m = *optionsMenu_;
-    const TextStyle* style = ctx_.fonts ? ctx_.fonts->style("save, load, and options screens") : nullptr;
-    const Color colour =
-        ctx_.fonts ? ctx_.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
-                   : Color{255, 220, 130};
-    const Ac2Record* check = nth(scene_, "check.tga", 0);
+    const OptionsMenu &m = *optionsMenu_;
+    const TextStyle *style = ctx_.fonts ? ctx_.fonts->style("save, load, and options screens") : nullptr;
+    const Color colour = ctx_.fonts
+                             ? ctx_.fonts->colour("save, load, and options selected (argb format)", {255, 220, 130})
+                             : Color{255, 220, 130};
+    const Ac2Record *check = nth(scene_, "check.tga", 0);
     for (int i = 0; i < 9; i++) {
         const std::string label = interfaceText("options" + std::to_string(i + 1));
         const int w = style && style->font ? style->font->width(label, style->pixels) : 0;
         const int h = style && style->font ? style->font->lineHeight(style->pixels) : 0;
         if (i < 3) {
-            const Ac2Record* track = nth(scene_, "sliderbar.jpg", i);
-            const Ac2Record* thumb = nth(scene_, "slider.jpg", i);
+            const Ac2Record *track = nth(scene_, "sliderbar.jpg", i);
+            const Ac2Record *thumb = nth(scene_, "slider.jpg", i);
             if (!track || !thumb || !style || !style->font)
                 continue;
             const int tw = picture(track->text("file")).w;
-            ctx_.fonts->draw(ctx_.screen, *style, int(track->f("x")) + (tw - w) / 2, int(thumb->f("y")) - h - 5,
-                             label, colour);
+            ctx_.fonts->draw(ctx_.screen, *style, int(track->f("x")) + (tw - w) / 2, int(thumb->f("y")) - h - 5, label,
+                             colour);
             continue;
         }
-        const Ac2Record* box = nth(scene_, "checkbox.tga", i - 3);
+        const Ac2Record *box = nth(scene_, "checkbox.tga", i - 3);
         if (!box)
             continue;
         const bool on = i == 3 ? m.staged[3] != 0 : options_.values[GameOptions::Shadows + i - 4] != 0;

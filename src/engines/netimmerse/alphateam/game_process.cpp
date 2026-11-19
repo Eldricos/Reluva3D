@@ -19,9 +19,9 @@ namespace reluva::netimmerse::alphateam {
 
 namespace {
 
-constexpr const char* kProgram = "LEGOATeam.exe";
+constexpr const char *kProgram = "LEGOATeam.exe";
 
-Error readFile(const std::filesystem::path& path, std::vector<uint8_t>& out) {
+Error readFile(const std::filesystem::path &path, std::vector<uint8_t> &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in)
         return Error::fail("Cannot read " + path.string());
@@ -40,7 +40,8 @@ GameProcess::GameProcess(std::filesystem::path gameDir, uint32_t memoryMb) : dir
     // the retail CD's, so its check passes. What the program writes there
     // (Game.txt: its settings and progress) goes to the save folder, and
     // is read back from there first. Nothing else may be written.
-    process_->mapPath = [this](const std::string& windowsPath, bool forWriting) -> std::optional<std::filesystem::path> {
+    process_->mapPath = [this](const std::string &windowsPath,
+                               bool forWriting) -> std::optional<std::filesystem::path> {
         const std::string folder = fs::toLower(kInstallFolder);
         const std::string path = fs::toLower(windowsPath);
         if (path.rfind(folder, 0) != 0)
@@ -87,7 +88,7 @@ Error GameProcess::load() {
         std::vector<std::string> needs; // lower-case names of game modules it imports from
     };
     std::map<std::string, Pending> found; // by lower-case name
-    std::function<Error(const std::string&)> find = [&](const std::string& name) -> Error {
+    std::function<Error(const std::string &)> find = [&](const std::string &name) -> Error {
         const std::string key = fs::toLower(name);
         if (found.count(key))
             return Error::success();
@@ -102,7 +103,7 @@ Error GameProcess::load() {
         if (Error e = parsePe(p.file, pe))
             return Error::fail(p.name + ": " + e.message);
         found[key] = std::move(p);
-        for (const PeImage::ImportedDll& dll : pe.imports) {
+        for (const PeImage::ImportedDll &dll : pe.imports) {
             if (fs::findFile(dir_, dll.name)) {
                 found[key].needs.push_back(fs::toLower(dll.name));
                 if (Error e = find(dll.name))
@@ -118,23 +119,23 @@ Error GameProcess::load() {
 
     // Our C++ library first (the game's DLLs import Visual C++ 6's), then
     // each module after those it imports from.
-    const x86::Win32Process::Module* library = nullptr;
+    const x86::Win32Process::Module *library = nullptr;
     if (Error e = x86::loadMsvcp60(*process_, library))
         return e;
     order_.push_back(library->name);
     modules_.push_back(library);
     std::set<std::string> done;
-    std::function<Error(const std::string&, int)> place = [&](const std::string& key, int depth) -> Error {
+    std::function<Error(const std::string &, int)> place = [&](const std::string &key, int depth) -> Error {
         if (done.count(key))
             return Error::success();
         if (depth > 64)
             return Error::fail("The modules import from each other in a loop");
-        Pending& p = found.at(key);
-        for (const std::string& need : p.needs)
+        Pending &p = found.at(key);
+        for (const std::string &need : p.needs)
             if (Error e = place(need, depth + 1))
                 return e;
         done.insert(key);
-        const x86::Win32Process::Module* m = nullptr;
+        const x86::Win32Process::Module *m = nullptr;
         if (Error e = process_->load(p.name, p.file, m))
             return e;
         order_.push_back(p.name);
@@ -149,23 +150,23 @@ Error GameProcess::load() {
     // its Start and Stop were over a quarter of the instructions run while
     // playing. They're made to return at once (both cdecl, void); the
     // profile then reads zero.
-    if (const auto* lib = process_->module("DDPackedDirFileLib.dll"))
-        for (const char* name : {"?Start@DDCycleCounter@@SAXH@Z", "?Stop@DDCycleCounter@@SAXXZ"})
+    if (const auto *lib = process_->module("DDPackedDirFileLib.dll"))
+        for (const char *name : {"?Start@DDCycleCounter@@SAXH@Z", "?Stop@DDCycleCounter@@SAXXZ"})
             if (const uint32_t at = lib->exportAddress(name))
                 cpu_->write8(at, 0xc3); // RET
     return Error::success();
 }
 
 Error GameProcess::attach() {
-    for (const x86::Win32Process::Module* m : modules_)
+    for (const x86::Win32Process::Module *m : modules_)
         if (fs::toLower(m->name) != fs::toLower(kProgram))
             if (Error e = process_->attach(*m))
                 return e;
     return Error::success();
 }
 
-Error GameProcess::run(uint32_t& exitCode) {
-    const x86::Win32Process::Module* exe = process_->module(kProgram);
+Error GameProcess::run(uint32_t &exitCode) {
+    const x86::Win32Process::Module *exe = process_->module(kProgram);
     if (!exe)
         return Error::fail(std::string(kProgram) + " isn't loaded");
     return process_->start(*exe, exitCode);

@@ -14,21 +14,21 @@ namespace {
 
 constexpr uint32_t kMarker = 0x1234abcd;
 
-uint32_t blockChecksum(const uint8_t* data, size_t length) {
+uint32_t blockChecksum(const uint8_t *data, size_t length) {
     const std::array<uint8_t, 16> d = md4(data, length);
     uint32_t sum = 0;
     for (int i = 0; i < 4; ++i)
-        sum ^= uint32_t(d[size_t(4 * i)]) | uint32_t(d[size_t(4 * i + 1)]) << 8 |
-               uint32_t(d[size_t(4 * i + 2)]) << 16 | uint32_t(d[size_t(4 * i + 3)]) << 24;
+        sum ^= uint32_t(d[size_t(4 * i)]) | uint32_t(d[size_t(4 * i + 1)]) << 8 | uint32_t(d[size_t(4 * i + 2)]) << 16 |
+               uint32_t(d[size_t(4 * i + 3)]) << 24;
     return sum;
 }
 
-void put32(std::vector<uint8_t>& out, uint32_t v) {
+void put32(std::vector<uint8_t> &out, uint32_t v) {
     for (int i = 0; i < 4; ++i)
         out.push_back(uint8_t(v >> (8 * i)));
 }
 
-uint32_t get32(const uint8_t* p) {
+uint32_t get32(const uint8_t *p) {
     return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
 }
 
@@ -43,8 +43,8 @@ std::string chunkName(uint32_t id) {
     return s;
 }
 
-void SaveWriter::add(uint32_t id, const void* data, size_t length) {
-    const auto* p = static_cast<const uint8_t*>(data);
+void SaveWriter::add(uint32_t id, const void *data, size_t length) {
+    const auto *p = static_cast<const uint8_t *>(data);
     put32(bytes_, id);
     put32(bytes_, uint32_t(length));
     put32(bytes_, blockChecksum(p, length));
@@ -63,10 +63,10 @@ bool SaveReader::peek(uint32_t id) const {
     return position_ + 8 <= bytes_.size() && get32(bytes_.data() + position_) == id;
 }
 
-Error SaveReader::next(uint32_t id, std::vector<uint8_t>& out, size_t length) {
+Error SaveReader::next(uint32_t id, std::vector<uint8_t> &out, size_t length) {
     if (position_ + 12 > bytes_.size())
         return Error::fail("The saved game ends before its " + chunkName(id) + " chunk");
-    const uint8_t* p = bytes_.data() + position_;
+    const uint8_t *p = bytes_.data() + position_;
     const uint32_t found = get32(p), size = get32(p + 4), checksum = get32(p + 8);
     if (found != id)
         return Error::fail("Expected a " + chunkName(id) + " chunk, found " + chunkName(found));
@@ -75,7 +75,7 @@ Error SaveReader::next(uint32_t id, std::vector<uint8_t>& out, size_t length) {
                            std::to_string(length));
     if (position_ + 16 + size_t(size) > bytes_.size())
         return Error::fail("The " + chunkName(id) + " chunk runs past the end of the file");
-    const uint8_t* data = p + 12;
+    const uint8_t *data = p + 12;
     if (blockChecksum(data, size) != checksum || get32(data + size) != kMarker)
         return Error::fail("The " + chunkName(id) + " chunk is damaged");
     out.assign(data, data + size);
@@ -83,7 +83,7 @@ Error SaveReader::next(uint32_t id, std::vector<uint8_t>& out, size_t length) {
     return Error::success();
 }
 
-Error SaveReader::nextInt(uint32_t id, int32_t& v) {
+Error SaveReader::nextInt(uint32_t id, int32_t &v) {
     std::vector<uint8_t> data;
     if (Error e = next(id, data, 4))
         return e;
@@ -91,7 +91,7 @@ Error SaveReader::nextInt(uint32_t id, int32_t& v) {
     return Error::success();
 }
 
-Error SaveReader::nextText(uint32_t id, std::string& out, size_t length) {
+Error SaveReader::nextText(uint32_t id, std::string &out, size_t length) {
     std::vector<uint8_t> data;
     if (Error e = next(id, data, length))
         return e;

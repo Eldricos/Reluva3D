@@ -31,13 +31,13 @@ std::string chunkName(uint32_t id);
 
 class SaveWriter {
 public:
-    void add(uint32_t id, const void* data, size_t length);
-    void add(uint32_t id, const std::vector<uint8_t>& data) { add(id, data.data(), data.size()); }
+    void add(uint32_t id, const void *data, size_t length);
+    void add(uint32_t id, const std::vector<uint8_t> &data) { add(id, data.data(), data.size()); }
     void addInt(uint32_t id, int32_t v) { add(id, &v, 4); }
     // Text in a block of `size` bytes, zero-filled (size 0: the text and
     // its NUL).
     void addText(uint32_t id, std::string_view text, size_t size = 0);
-    const std::vector<uint8_t>& bytes() const { return bytes_; }
+    const std::vector<uint8_t> &bytes() const { return bytes_; }
 
 private:
     std::vector<uint8_t> bytes_;
@@ -49,10 +49,10 @@ public:
     explicit SaveReader(std::vector<uint8_t> bytes) : bytes_(std::move(bytes)) {}
     // The next chunk, which must be `id`; `length` (0: any) must match its
     // length. Fails naming what was found instead, or a damaged chunk.
-    Error next(uint32_t id, std::vector<uint8_t>& out, size_t length = 0);
-    Error nextInt(uint32_t id, int32_t& v);
+    Error next(uint32_t id, std::vector<uint8_t> &out, size_t length = 0);
+    Error nextInt(uint32_t id, int32_t &v);
     // Its data up to the first NUL.
-    Error nextText(uint32_t id, std::string& out, size_t length = 0);
+    Error nextText(uint32_t id, std::string &out, size_t length = 0);
     // Whether the next chunk is `id` (without reading it).
     bool peek(uint32_t id) const;
     bool atEnd() const { return position_ >= bytes_.size(); }

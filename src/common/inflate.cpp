@@ -21,13 +21,13 @@ struct Huffman {
 };
 
 struct Inflater {
-    const uint8_t* data;
+    const uint8_t *data;
     size_t size;
     size_t pos = 0;
     uint32_t bitBuf = 0;
     int bitCount = 0;
     bool overrun = false;
-    std::vector<uint8_t>& out;
+    std::vector<uint8_t> &out;
     size_t maxSize;
 
     int bit() {
@@ -50,7 +50,7 @@ struct Inflater {
             v |= uint32_t(bit()) << i;
         return v;
     }
-    int decode(const Huffman& h) {
+    int decode(const Huffman &h) {
         // Codes of each length follow the shorter ones', most significant
         // bit first.
         int code = 0, first = 0, index = 0;
@@ -69,7 +69,7 @@ struct Inflater {
     }
 };
 
-bool build(Huffman& h, const uint8_t* lengths, int n) {
+bool build(Huffman &h, const uint8_t *lengths, int n) {
     h.count.fill(0);
     for (int i = 0; i < n; ++i)
         ++h.count[lengths[i]];
@@ -96,12 +96,13 @@ constexpr uint16_t kLengthBase[29] = {3,  4,  5,  6,  7,  8,  9,  10, 11,  13,  
                                       31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258};
 constexpr uint8_t kLengthExtra[29] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2,
                                       2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0};
-constexpr uint16_t kDistBase[30] = {1,   2,   3,   4,   5,   7,    9,    13,   17,   25,   33,   49,   65,    97,    129,
-                                    193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577};
+constexpr uint16_t kDistBase[30] = {1,    2,    3,    4,    5,    7,    9,    13,    17,    25,
+                                    33,   49,   65,   97,   129,  193,  257,  385,   513,   769,
+                                    1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577};
 constexpr uint8_t kDistExtra[30] = {0, 0, 0, 0, 1, 1, 2, 2,  3,  3,  4,  4,  5,  5,  6,
                                     6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13};
 
-bool codes(Inflater& in, const Huffman& lit, const Huffman& dist) {
+bool codes(Inflater &in, const Huffman &lit, const Huffman &dist) {
     while (true) {
         const int sym = in.decode(lit);
         if (sym < 0 || in.overrun)
@@ -132,8 +133,7 @@ bool codes(Inflater& in, const Huffman& lit, const Huffman& dist) {
 
 } // namespace
 
-Error inflateStream(const uint8_t* data, size_t dataSize, std::vector<uint8_t>& out, size_t& consumed,
-                    size_t maxSize) {
+Error inflateStream(const uint8_t *data, size_t dataSize, std::vector<uint8_t> &out, size_t &consumed, size_t maxSize) {
     out.clear();
     consumed = 0;
     Inflater in{data, dataSize, 0, 0, 0, false, out, maxSize};

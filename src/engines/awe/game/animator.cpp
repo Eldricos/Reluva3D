@@ -49,14 +49,14 @@ CurveLoop Animator::Slot::loop() const {
     return l;
 }
 
-std::vector<float> Animator::buildMask(const Model& model, const Animation* animation, float weight,
-                                      const std::vector<float>& poseMask) const {
+std::vector<float> Animator::buildMask(const Model &model, const Animation *animation, float weight,
+                                       const std::vector<float> &poseMask) const {
     // The file's TrackMask weights by bone (0x42a2d4), a bone at a time
     // from the root: a weight given replaces the file's; a bone without
     // one takes its parent's, except the jaw's and eyes' masters, unless
     // the parent's is the 0.01 of the full-body animations: a gesture's
     // shoulders don't move the face. A file without a mask plays in full.
-    const std::vector<Bone>& bones = model.bones;
+    const std::vector<Bone> &bones = model.bones;
     std::vector<float> mask(bones.size(), 1.0f);
     if (animation && !animation->mask.empty()) {
         for (size_t b = 0; b < bones.size(); b++) {
@@ -89,15 +89,15 @@ std::vector<float> Animator::buildMask(const Model& model, const Animation* anim
     return mask;
 }
 
-std::vector<float> Animator::modelMask(const Model& model, std::string_view name) {
+std::vector<float> Animator::modelMask(const Model &model, std::string_view name) {
     // Granny's ExtractTrackMask on the model's skeleton, then each bone
     // without a weight takes its parent's (0x42a08c). The member's name is
     // matched whatever its case: the animation files spell the game's
     // "TrackMaskTrackMask" both "TrackMasktrackmask" and
     // "TrackMaskTrackMask".
     const std::string n = fs::toLower(name);
-    const std::map<std::string, float>* weights = nullptr;
-    for (const auto& [k, v] : model.masks)
+    const std::map<std::string, float> *weights = nullptr;
+    for (const auto &[k, v] : model.masks)
         if (fs::toLower(k) == n)
             weights = &v;
     if (!weights)
@@ -113,14 +113,14 @@ std::vector<float> Animator::modelMask(const Model& model, std::string_view name
     return mask;
 }
 
-bool Animator::play(std::string_view name, std::shared_ptr<const Animation> animation, int layer, bool base,
-                    int loops, float ease, float weight) {
+bool Animator::play(std::string_view name, std::shared_ptr<const Animation> animation, int layer, bool base, int loops,
+                    float ease, float weight) {
     if (!animation)
         return false;
     // A new base stops the one playing; one already ending (a finite
     // base handing over to idle1) ends as it was, and is told as done.
     if (base)
-        for (Slot& s : slots_)
+        for (Slot &s : slots_)
             if (s.base && s.state == Playing) {
                 s.state = Stopped;
                 s.outStart = s.clock;
@@ -143,8 +143,8 @@ bool Animator::play(std::string_view name, std::shared_ptr<const Animation> anim
     return true;
 }
 
-void Animator::stop(const std::function<bool(const Slot&)>& which, float seconds) {
-    for (Slot& s : slots_)
+void Animator::stop(const std::function<bool(const Slot &)> &which, float seconds) {
+    for (Slot &s : slots_)
         if (s.state != Stopped && which(s)) {
             s.state = Stopped;
             s.outStart = s.clock;
@@ -154,7 +154,7 @@ void Animator::stop(const std::function<bool(const Slot&)>& which, float seconds
 
 void Animator::update(float seconds) {
     std::vector<Slot> ending, finished;
-    for (Slot& s : slots_) {
+    for (Slot &s : slots_) {
         s.clock += seconds;
         const float d = s.animation->duration;
         if (s.loops == 0 || d <= 0)
@@ -182,17 +182,17 @@ void Animator::update(float seconds) {
         it = slots_.erase(it);
     }
     // Told after, as they may play others.
-    for (const Slot& s : ending)
+    for (const Slot &s : ending)
         if (onEnding)
             onEnding(s);
-    for (const Slot& s : finished)
+    for (const Slot &s : finished)
         if (onFinished)
             onFinished(s);
 }
 
-const Animator::Slot* Animator::find(std::string_view name) const {
+const Animator::Slot *Animator::find(std::string_view name) const {
     const std::string n = fs::toLower(name);
-    for (const Slot& s : slots_)
+    for (const Slot &s : slots_)
         if (s.state != Stopped && s.name == n)
             return &s;
     return nullptr;
@@ -200,25 +200,25 @@ const Animator::Slot* Animator::find(std::string_view name) const {
 
 bool Animator::playing(std::string_view part) const {
     const std::string p = fs::toLower(part);
-    for (const Slot& s : slots_)
+    for (const Slot &s : slots_)
         if (s.state != Stopped && s.name.find(p) != std::string::npos)
             return true;
     return false;
 }
 
-const Animator::Slot* Animator::base() const {
-    const Slot* found = nullptr;
-    for (const Slot& s : slots_)
+const Animator::Slot *Animator::base() const {
+    const Slot *found = nullptr;
+    for (const Slot &s : slots_)
         if (s.base && s.state != Stopped)
             found = &s;
     return found;
 }
 
-void Animator::blend(const Model& model, int layer, std::vector<BoneTransform>& out, std::vector<float>& total,
-                     const Slot** strongest) const {
+void Animator::blend(const Model &model, int layer, std::vector<BoneTransform> &out, std::vector<float> &total,
+                     const Slot **strongest) const {
     const size_t n = model.bones.size();
     out.assign(n, BoneTransform());
-    for (BoneTransform& t : out) {
+    for (BoneTransform &t : out) {
         t.position[0] = t.position[1] = t.position[2] = 0;
         t.orientation[3] = 0;
         std::fill(std::begin(t.scaleShear), std::end(t.scaleShear), 0.0f);
@@ -226,7 +226,7 @@ void Animator::blend(const Model& model, int layer, std::vector<BoneTransform>& 
     total.assign(n, 0.0f);
     float best = -1;
     std::vector<BoneTransform> local;
-    for (const Slot& s : slots_) {
+    for (const Slot &s : slots_) {
         if (s.layer != layer)
             continue;
         const float w = s.weight();
@@ -240,14 +240,15 @@ void Animator::blend(const Model& model, int layer, std::vector<BoneTransform>& 
         // the model), Reluva by the drift it measures on the root played
         // once (Actor::motion). So the root doesn't wrap round.
         sampleLocal(model, s.animation.get(), s.time(), local, s.loop(), !s.base);
-        const std::vector<float> other = &model == model_ ? std::vector<float>() : buildMask(model, s.animation.get(), s.maskWeight, s.poseMask);
-        const std::vector<float>& mask = &model == model_ ? s.mask : other;
+        const std::vector<float> other =
+            &model == model_ ? std::vector<float>() : buildMask(model, s.animation.get(), s.maskWeight, s.poseMask);
+        const std::vector<float> &mask = &model == model_ ? s.mask : other;
         for (size_t b = 0; b < n; b++) {
             const float bw = w * mask[b];
             if (bw <= 0)
                 continue;
-            BoneTransform& o = out[b];
-            const BoneTransform& l = local[b];
+            BoneTransform &o = out[b];
+            const BoneTransform &l = local[b];
             // Quaternions on the same side as what's summed so far.
             const float dot = o.orientation[0] * l.orientation[0] + o.orientation[1] * l.orientation[1] +
                               o.orientation[2] * l.orientation[2] + o.orientation[3] * l.orientation[3];
@@ -263,28 +264,28 @@ void Animator::blend(const Model& model, int layer, std::vector<BoneTransform>& 
     }
     // Normalised; below Granny's threshold, the rest pose.
     for (size_t b = 0; b < n; b++) {
-        BoneTransform& o = out[b];
+        BoneTransform &o = out[b];
         if (total[b] < 1e-4f) {
             o = model.bones[b].rest;
             continue;
         }
-        for (float& v : o.position)
+        for (float &v : o.position)
             v /= total[b];
-        for (float& v : o.scaleShear)
+        for (float &v : o.scaleShear)
             v /= total[b];
         float len = 0;
         for (float v : o.orientation)
             len += v * v;
         len = std::sqrt(len);
         if (len > 0)
-            for (float& v : o.orientation)
+            for (float &v : o.orientation)
                 v /= len;
         else
             o.orientation[3] = 1;
     }
 }
 
-void Animator::pose(Pose& out, const std::vector<BoneTurn>* turns) const {
+void Animator::pose(Pose &out, const std::vector<BoneTurn> *turns) const {
     std::vector<BoneTransform> body, layer;
     std::vector<float> total;
     blend(*model_, Body, body, total, nullptr);
@@ -292,12 +293,12 @@ void Animator::pose(Pose& out, const std::vector<BoneTurn>* turns) const {
     // bone toward the layer's, by the strongest slot's mask times how far
     // the layer has eased in (its weight over its ease time, at most 1).
     for (int l : {Head, Eyes}) {
-        const Slot* strongest = nullptr;
+        const Slot *strongest = nullptr;
         blend(*model_, l, layer, total, &strongest);
         if (!strongest)
             continue;
         float factor = 0;
-        for (const Slot& s : slots_)
+        for (const Slot &s : slots_)
             if (s.layer == l)
                 factor = std::max(factor, s.ease > 0 ? s.weight() / s.ease : s.weight());
         factor = std::min(1.0f, factor);
@@ -305,8 +306,8 @@ void Animator::pose(Pose& out, const std::vector<BoneTurn>* turns) const {
             const float t = strongest->mask[b] * factor;
             if (t <= 0)
                 continue;
-            BoneTransform& o = body[b];
-            const BoneTransform& p = layer[b];
+            BoneTransform &o = body[b];
+            const BoneTransform &p = layer[b];
             for (int k = 0; k < 3; k++)
                 o.position[k] += (p.position[k] - o.position[k]) * t;
             float dot = 0;
@@ -320,7 +321,7 @@ void Animator::pose(Pose& out, const std::vector<BoneTurn>* turns) const {
             }
             len = std::sqrt(len);
             if (len > 0)
-                for (float& v : o.orientation)
+                for (float &v : o.orientation)
                     v /= len;
             for (int k = 0; k < 9; k++)
                 o.scaleShear[k] += (p.scaleShear[k] - o.scaleShear[k]) * t;
@@ -329,7 +330,7 @@ void Animator::pose(Pose& out, const std::vector<BoneTurn>* turns) const {
     poseFromLocal(*model_, std::move(body), out, turns);
 }
 
-void Animator::poseFor(const Model& other, Pose& out) const {
+void Animator::poseFor(const Model &other, Pose &out) const {
     std::vector<BoneTransform> body;
     std::vector<float> total;
     blend(other, Body, body, total, nullptr);

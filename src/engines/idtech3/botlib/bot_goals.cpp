@@ -23,12 +23,16 @@ constexpr float kAvoidMinimum = 10, kAvoidDefault = 30, kAvoidDropped = 10;
 constexpr float kDroppedWeight = 1000;
 constexpr int kGameSinglePlayer = 2, kGameTeam = 3;
 
-float length(const Vec3f& v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); }
-Vec3f sub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
+float length(const Vec3f &v) {
+    return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+}
+Vec3f sub(const Vec3f &a, const Vec3f &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
 
 } // namespace
 
-std::shared_ptr<WeightConfig> BotLibrary::weights(const std::string& file) {
+std::shared_ptr<WeightConfig> BotLibrary::weights(const std::string &file) {
     if (const auto it = weightFiles_.find(file); it != weightFiles_.end())
         return it->second;
     std::string error;
@@ -56,11 +60,12 @@ void BotLibrary::loadConfigs() {
     }
     if (print)
         print(std::to_string(items_.size()) + " item infos, " +
-              std::to_string(std::count_if(weapons_.begin(), weapons_.end(), [](const WeaponInfo& w) { return w.valid; })) +
+              std::to_string(
+                  std::count_if(weapons_.begin(), weapons_.end(), [](const WeaponInfo &w) { return w.valid; })) +
               " weapon infos\n");
 }
 
-int BotLibrary::reachabilityArea(const Vec3f& origin) const {
+int BotLibrary::reachabilityArea(const Vec3f &origin) const {
     // The point's area if it leads anywhere; else one just below it
     // (in the air) or around it.
     const int a = aas_.pointArea(origin);
@@ -76,8 +81,9 @@ int BotLibrary::reachabilityArea(const Vec3f& origin) const {
     for (int z = 1; z >= -1; --z)
         for (int x = -1; x <= 1; ++x)
             for (int y = -1; y <= 1; ++y) {
-                aas_.traceAreas(origin, {origin[0] + 8.0f * float(x), origin[1] + 8.0f * float(y), origin[2] + 12.0f * float(z)},
-                                areas, nullptr, 10);
+                aas_.traceAreas(
+                    origin, {origin[0] + 8.0f * float(x), origin[1] + 8.0f * float(y), origin[2] + 12.0f * float(z)},
+                    areas, nullptr, 10);
                 for (const int b : areas)
                     if (aas_.settings(b).numReach)
                         return b;
@@ -85,7 +91,7 @@ int BotLibrary::reachabilityArea(const Vec3f& origin) const {
     return a;
 }
 
-int BotLibrary::bestReachableArea(const Vec3f& origin, const Vec3f& mins, const Vec3f& maxs, Vec3f& goalOrigin) const {
+int BotLibrary::bestReachableArea(const Vec3f &origin, const Vec3f &mins, const Vec3f &maxs, Vec3f &goalOrigin) const {
     // A point where a player standing would touch the item, in an area
     // that leads anywhere: the item's place, raised to a player's height,
     // then round it within its box.
@@ -109,11 +115,11 @@ void BotLibrary::initLevelItems() {
     campSpots_.clear();
     if (!aas_.loaded() || !entityKey)
         return;
-    auto key = [&](int e, const char* k) {
+    auto key = [&](int e, const char *k) {
         std::string v;
         return entityKey(e, k, v) ? v : std::string();
     };
-    auto vec = [&](int e, const char* k, Vec3f& out) {
+    auto vec = [&](int e, const char *k, Vec3f &out) {
         std::string v;
         if (!entityKey(e, k, v))
             return false;
@@ -138,11 +144,11 @@ void BotLibrary::initLevelItems() {
             ++info;
         if (info >= items_.size() || !vec(e, "origin", origin))
             continue;
-        const ItemInfo& item = items_[info];
+        const ItemInfo &item = items_[info];
         LevelItem li;
         li.number = ++number;
         li.itemInfo = int(info);
-        auto flag = [&](const char* k, int f) {
+        auto flag = [&](const char *k, int f) {
             if (std::atoi(key(e, k).c_str()))
                 li.flags |= f;
         };
@@ -170,7 +176,7 @@ void BotLibrary::initLevelItems() {
               " locations, " + std::to_string(campSpots_.size()) + " camp spots\n");
 }
 
-bool BotLibrary::itemAllowed(const LevelItem& li) const {
+bool BotLibrary::itemAllowed(const LevelItem &li) const {
     const int gametype = std::atoi(libVar("g_gametype").c_str());
     const int notHere = gametype == kGameSinglePlayer ? kNotSingle : gametype >= kGameTeam ? kNotTeam : kNotFree;
     return !(li.flags & (notHere | kNotBot));
@@ -179,19 +185,19 @@ bool BotLibrary::itemAllowed(const LevelItem& li) const {
 void BotLibrary::updateEntityItems() {
     // Dropped items gone after their time; then each item entity the game
     // has linked to the level item it stands for, or added as a dropped one.
-    std::erase_if(levelItems_, [&](const LevelItem& li) { return li.timeout && li.timeout < time_; });
+    std::erase_if(levelItems_, [&](const LevelItem &li) { return li.timeout && li.timeout < time_; });
     if (items_.empty())
         return;
     const int maxNumber = int(levelItems_.size());
     for (int ent = 1; ent < kMaxEntities; ++ent) {
-        const BotEntityInfo& e = entities_[size_t(ent)];
+        const BotEntityInfo &e = entities_[size_t(ent)];
         if (!e.valid || e.type != kTypeItem || !e.modelIndex)
             continue;
         // Only once it has stopped moving.
         if (e.origin != e.lastVisOrigin)
             continue;
-        LevelItem* found = nullptr;
-        for (LevelItem& li : levelItems_)
+        LevelItem *found = nullptr;
+        for (LevelItem &li : levelItems_)
             if (li.entity == ent) {
                 found = &li;
                 break;
@@ -199,22 +205,22 @@ void BotLibrary::updateEntityItems() {
         if (found) {
             if (items_[size_t(found->itemInfo)].modelIndex != e.modelIndex) {
                 const int gone = found->number;
-                std::erase_if(levelItems_, [&](const LevelItem& li) { return li.number == gone; });
+                std::erase_if(levelItems_, [&](const LevelItem &li) { return li.number == gone; });
             } else if (found->origin != e.origin) {
                 found->origin = e.origin;
-                const ItemInfo& item = items_[size_t(found->itemInfo)];
+                const ItemInfo &item = items_[size_t(found->itemInfo)];
                 found->goalArea = bestReachableArea(found->origin, item.mins, item.maxs, found->goalOrigin);
             }
             continue;
         }
-        for (LevelItem& li : levelItems_) {
+        for (LevelItem &li : levelItems_) {
             if (li.entity || !itemAllowed(li) || items_[size_t(li.itemInfo)].modelIndex != e.modelIndex)
                 continue;
             if (length(sub(li.origin, e.origin)) < 30) {
                 li.entity = ent;
                 if (li.origin != e.origin) {
                     li.origin = e.origin;
-                    const ItemInfo& item = items_[size_t(li.itemInfo)];
+                    const ItemInfo &item = items_[size_t(li.itemInfo)];
                     li.goalArea = bestReachableArea(li.origin, item.mins, item.maxs, li.goalOrigin);
                 }
                 found = &li;
@@ -254,42 +260,42 @@ void BotLibrary::freeGoalState(int handle) {
 }
 
 void BotLibrary::resetGoalState(int handle) {
-    if (GoalState* gs = state(goalStates_, handle)) {
+    if (GoalState *gs = state(goalStates_, handle)) {
         gs->stack.clear();
         gs->avoid.clear();
     }
 }
 
 void BotLibrary::resetAvoidGoals(int handle) {
-    if (GoalState* gs = state(goalStates_, handle))
+    if (GoalState *gs = state(goalStates_, handle))
         gs->avoid.clear();
 }
 
-void BotLibrary::pushGoal(int handle, const BotGoal& goal) {
-    if (GoalState* gs = state(goalStates_, handle); gs && gs->stack.size() < 8)
+void BotLibrary::pushGoal(int handle, const BotGoal &goal) {
+    if (GoalState *gs = state(goalStates_, handle); gs && gs->stack.size() < 8)
         gs->stack.push_back(goal);
 }
 
 void BotLibrary::popGoal(int handle) {
-    if (GoalState* gs = state(goalStates_, handle); gs && !gs->stack.empty())
+    if (GoalState *gs = state(goalStates_, handle); gs && !gs->stack.empty())
         gs->stack.pop_back();
 }
 
 void BotLibrary::emptyGoalStack(int handle) {
-    if (GoalState* gs = state(goalStates_, handle))
+    if (GoalState *gs = state(goalStates_, handle))
         gs->stack.clear();
 }
 
-bool BotLibrary::topGoal(int handle, BotGoal& goal, int depth) const {
-    const GoalState* gs = state(goalStates_, handle);
+bool BotLibrary::topGoal(int handle, BotGoal &goal, int depth) const {
+    const GoalState *gs = state(goalStates_, handle);
     if (!gs || int(gs->stack.size()) < depth)
         return false;
     goal = gs->stack[gs->stack.size() - size_t(depth)];
     return true;
 }
 
-int BotLibrary::loadItemWeights(int handle, const std::string& file) {
-    GoalState* gs = state(goalStates_, handle);
+int BotLibrary::loadItemWeights(int handle, const std::string &file) {
+    GoalState *gs = state(goalStates_, handle);
     if (!gs)
         return blerr::CannotLoadItemWeights;
     loadConfigs();
@@ -298,20 +304,20 @@ int BotLibrary::loadItemWeights(int handle, const std::string& file) {
         return blerr::CannotLoadItemWeights;
     // Each item description's weight, by its class name.
     gs->weightIndex.clear();
-    for (const ItemInfo& item : items_)
+    for (const ItemInfo &item : items_)
         gs->weightIndex.push_back(gs->weights->find(item.classname));
     return blerr::None;
 }
 
 void BotLibrary::freeItemWeights(int handle) {
-    if (GoalState* gs = state(goalStates_, handle)) {
+    if (GoalState *gs = state(goalStates_, handle)) {
         gs->weights.reset();
         gs->weightIndex.clear();
     }
 }
 
 float BotLibrary::avoidGoalTime(int handle, int number) const {
-    const GoalState* gs = state(goalStates_, handle);
+    const GoalState *gs = state(goalStates_, handle);
     if (!gs)
         return 0;
     const auto it = gs->avoid.find(number);
@@ -319,13 +325,13 @@ float BotLibrary::avoidGoalTime(int handle, int number) const {
 }
 
 void BotLibrary::removeFromAvoidGoals(int handle, int number) {
-    if (GoalState* gs = state(goalStates_, handle))
+    if (GoalState *gs = state(goalStates_, handle))
         gs->avoid.erase(number);
 }
 
-bool BotLibrary::chooseItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
-                            const BotGoal* ltg, float maxTime, bool nearby) {
-    GoalState* gs = state(goalStates_, handle);
+bool BotLibrary::chooseItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
+                            const BotGoal *ltg, float maxTime, bool nearby) {
+    GoalState *gs = state(goalStates_, handle);
     if (!gs || !gs->weights || items_.empty())
         return false;
     int area = reachabilityArea(origin);
@@ -337,9 +343,9 @@ bool BotLibrary::chooseItem(int handle, const Vec3f& origin, const std::vector<i
     const int ltgTime = nearby && ltg ? aas_.travelTime(area, origin, ltg->area, travelFlags) : 99999;
     // The item worth most for the time it takes to get to it, not avoided
     // (for a while after it was last chosen) unless it's nearly there.
-    const LevelItem* best = nullptr;
+    const LevelItem *best = nullptr;
     float bestWeight = 0;
-    for (const LevelItem& li : levelItems_) {
+    for (const LevelItem &li : levelItems_) {
         if (!itemAllowed(li) || !li.goalArea || (!li.entity && !(li.flags & kRoam)))
             continue;
         const int w = size_t(li.itemInfo) < gs->weightIndex.size() ? gs->weightIndex[size_t(li.itemInfo)] : -1;
@@ -360,14 +366,15 @@ bool BotLibrary::chooseItem(int handle, const Vec3f& origin, const std::vector<i
         weight /= float(t) * 0.01f;
         if (weight <= bestWeight)
             continue;
-        if (nearby && ltg && !li.timeout && aas_.travelTime(li.goalArea, li.goalOrigin, ltg->area, travelFlags) > ltgTime)
+        if (nearby && ltg && !li.timeout &&
+            aas_.travelTime(li.goalArea, li.goalOrigin, ltg->area, travelFlags) > ltgTime)
             continue;
         bestWeight = weight;
         best = &li;
     }
     if (!best)
         return false;
-    const ItemInfo& item = items_[size_t(best->itemInfo)];
+    const ItemInfo &item = items_[size_t(best->itemInfo)];
     BotGoal goal;
     goal.origin = best->goalOrigin;
     goal.mins = item.mins;
@@ -386,16 +393,16 @@ bool BotLibrary::chooseItem(int handle, const Vec3f& origin, const std::vector<i
     return true;
 }
 
-bool BotLibrary::chooseLtgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags) {
+bool BotLibrary::chooseLtgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags) {
     return chooseItem(handle, origin, inventory, travelFlags, nullptr, 0, false);
 }
 
-bool BotLibrary::chooseNbgItem(int handle, const Vec3f& origin, const std::vector<int>& inventory, int travelFlags,
-                               const BotGoal* ltg, float maxTime) {
+bool BotLibrary::chooseNbgItem(int handle, const Vec3f &origin, const std::vector<int> &inventory, int travelFlags,
+                               const BotGoal *ltg, float maxTime) {
     return chooseItem(handle, origin, inventory, travelFlags, ltg, maxTime, true);
 }
 
-bool BotLibrary::touchingGoal(const Vec3f& origin, const BotGoal& goal) {
+bool BotLibrary::touchingGoal(const Vec3f &origin, const BotGoal &goal) {
     // Inside the goal's box grown by a standing player's.
     Vec3f mins{}, maxs{};
     AasWorld::presenceBox(presence::Normal, mins, maxs);
@@ -405,7 +412,7 @@ bool BotLibrary::touchingGoal(const Vec3f& origin, const BotGoal& goal) {
     return true;
 }
 
-bool BotLibrary::itemGoalInVisButNotVisible(int viewer, const Vec3f& eye, const BotGoal& goal) {
+bool BotLibrary::itemGoalInVisButNotVisible(int viewer, const Vec3f &eye, const BotGoal &goal) {
     // In plain view, yet the item's entity hasn't been seen for half a
     // second: it has been taken.
     if (!(goal.flags & goalflag::Item) || !trace)
@@ -417,10 +424,10 @@ bool BotLibrary::itemGoalInVisButNotVisible(int viewer, const Vec3f& eye, const 
     return entityInfo(goal.entity).lastTime < time_ - 0.5f;
 }
 
-int BotLibrary::levelItemGoal(int index, const std::string& name, BotGoal& goal) const {
+int BotLibrary::levelItemGoal(int index, const std::string &name, BotGoal &goal) const {
     // The next level item after number `index` with that name.
     auto lower = [](std::string s) {
-        for (char& c : s)
+        for (char &c : s)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         return s;
     };
@@ -431,10 +438,10 @@ int BotLibrary::levelItemGoal(int index, const std::string& name, BotGoal& goal)
         ++i;
     }
     for (; i < levelItems_.size(); ++i) {
-        const LevelItem& li = levelItems_[i];
+        const LevelItem &li = levelItems_[i];
         if (!itemAllowed(li) || lower(items_[size_t(li.itemInfo)].name) != lower(name))
             continue;
-        const ItemInfo& item = items_[size_t(li.itemInfo)];
+        const ItemInfo &item = items_[size_t(li.itemInfo)];
         goal = {};
         goal.area = li.goalArea;
         goal.origin = li.goalOrigin;
@@ -450,13 +457,13 @@ int BotLibrary::levelItemGoal(int index, const std::string& name, BotGoal& goal)
 }
 
 std::string BotLibrary::goalName(int number) const {
-    for (const LevelItem& li : levelItems_)
+    for (const LevelItem &li : levelItems_)
         if (li.number == number)
             return items_[size_t(li.itemInfo)].name;
     return {};
 }
 
-int BotLibrary::nextCampSpotGoal(int num, BotGoal& goal) const {
+int BotLibrary::nextCampSpotGoal(int num, BotGoal &goal) const {
     num = std::max(num, 0);
     if (size_t(num) >= campSpots_.size())
         return 0;
@@ -468,10 +475,9 @@ int BotLibrary::nextCampSpotGoal(int num, BotGoal& goal) const {
     return num + 1;
 }
 
-bool BotLibrary::mapLocationGoal(const std::string& name, BotGoal& goal) const {
-    for (const Spot& s : mapLocations_)
-        if (s.name.size() == name.size() &&
-            std::equal(s.name.begin(), s.name.end(), name.begin(), [](char a, char b) {
+bool BotLibrary::mapLocationGoal(const std::string &name, BotGoal &goal) const {
+    for (const Spot &s : mapLocations_)
+        if (s.name.size() == name.size() && std::equal(s.name.begin(), s.name.end(), name.begin(), [](char a, char b) {
                 return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
             })) {
             goal = {};

@@ -39,39 +39,73 @@ constexpr int kOverGameX = 205, kOverGameY = 11;
 
 // The preferences screen's settings, saved between runs.
 struct Preferences {
-    enum Switch { SuggestMovies, Lighting, Translucency, AutoNotes, ButlerVoice, WalkAnimations, MansionWalls, kSwitches };
+    enum Switch {
+        SuggestMovies,
+        Lighting,
+        Translucency,
+        AutoNotes,
+        ButlerVoice,
+        WalkAnimations,
+        MansionWalls,
+        kSwitches
+    };
     // The original's defaults: all on but Auto Notes, both volumes half.
     std::array<bool, kSwitches> on{true, true, true, false, true, true, true};
     int musicVolume = 50, masterVolume = 50; // 0-100
 
-    void load(const std::filesystem::path& file);
-    void save(const std::filesystem::path& file) const;
+    void load(const std::filesystem::path &file);
+    void save(const std::filesystem::path &file) const;
     // The original's Prefs.ini (16 bytes: the seven switches, a byte, the
     // music's and the master volume 0-10 as 32-bit numbers); false if it
     // isn't one.
-    bool loadOriginal(const std::vector<uint8_t>& bytes);
+    bool loadOriginal(const std::vector<uint8_t> &bytes);
 };
 
 class FrontEnd {
 public:
-    FrontEnd(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer,
-             std::filesystem::path prefsFile);
+    FrontEnd(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer, std::filesystem::path prefsFile);
     ~FrontEnd();
     Error open();
 
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     bool quit() const { return quit_; } // the player chose Exit Game, Yes
-    void leave();                        // stops the sound when the engine switches away
-    void resume();                       // and starts it again
+    void leave();                       // stops the sound when the engine switches away
+    void resume();                      // and starts it again
 
 private:
     enum class Screen {
-        Intro, MainMenu, StartChoice, Connection, NetGame, LoadGame, RulesMenu, Rules, Credits, CreditsText,
-        Exit, Picker, Setup, Variants, Prefs, Loading, Deal, Game, GameMenu, SaveGame, ExitConfirm,
-        GamePrefs, GameRulesMenu, GameRules, // the Esc menu's Preferences and How to Play
+        Intro,
+        MainMenu,
+        StartChoice,
+        Connection,
+        NetGame,
+        LoadGame,
+        RulesMenu,
+        Rules,
+        Credits,
+        CreditsText,
+        Exit,
+        Picker,
+        Setup,
+        Variants,
+        Prefs,
+        Loading,
+        Deal,
+        Game,
+        GameMenu,
+        SaveGame,
+        ExitConfirm,
+        GamePrefs,
+        GameRulesMenu,
+        GameRules, // the Esc menu's Preferences and How to Play
         // Network play (frontend_net.cpp).
-        NetHost, NetJoin, NetAddress, NetLobby, NetSetup, NetMessage
+        NetHost,
+        NetJoin,
+        NetAddress,
+        NetLobby,
+        NetSetup,
+        NetMessage
     };
 
     void go(Screen s);
@@ -84,10 +118,10 @@ private:
     void showDialog(int id, int x = 0, int y = 0);
     void refreshPicker();
     void refreshSetup();
-    void refreshPrefs(DialogView& view, int first, int musicId);
-    void scrollText(DialogView& view, int textId, int knobId, int lines);
-    std::string readText(const std::string& file) const;
-    void startMovie(const std::string& file, Screen after);
+    void refreshPrefs(DialogView &view, int first, int musicId);
+    void scrollText(DialogView &view, int textId, int knobId, int lines);
+    std::string readText(const std::string &file) const;
+    void startMovie(const std::string &file, Screen after);
     void stopMovie();
     void playMusic(bool inGame);
     void playTrack(int track);
@@ -99,7 +133,7 @@ private:
     std::filesystem::path savesFolder() const;
     std::filesystem::path saveFile(int slot) const;
     std::string savedName(int slot) const; // empty for an empty slot
-    Error saveGame(int slot, const std::string& name);
+    Error saveGame(int slot, const std::string &name);
     Error loadGame(int slot);
     void drawCursor();
     void drawStorm();
@@ -114,12 +148,12 @@ private:
     void refreshNetSetup();
     void netLeave();
     void netLost(std::string message);
-    std::unique_ptr<net::UdpSocket> netSocket(uint16_t port, std::string& error);
+    std::unique_ptr<net::UdpSocket> netSocket(uint16_t port, std::string &error);
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
-    audio::Mixer* mixer_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
+    audio::Mixer *mixer_;
     std::filesystem::path prefsFile_;
     Resi resi_;
     std::unique_ptr<Fonts> fonts_;

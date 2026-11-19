@@ -23,14 +23,14 @@ constexpr float kPi = 3.14159265358979f;
 // mipmaps (one list, or two with bHasComp; see texture.md).
 struct TextureData {
     std::vector<uint8_t> data;
-    size_t base = 0;     // the export's offset in the file, as Reader positions count
-    size_t native = 0;   // where the class's own data starts (a Reader position)
+    size_t base = 0;   // the export's offset in the file, as Reader positions count
+    size_t native = 0; // where the class's own data starts (a Reader position)
     PropertyList props;
     int width = 0, height = 0;
     size_t mip0 = 0, mip0Size = 0; // the first mipmap's bytes (an index into data)
 };
 
-Error readTextureData(const Package& package, int index, TextureData& out) {
+Error readTextureData(const Package &package, int index, TextureData &out) {
     if (Error err = package.readExport(index, out.data))
         return err;
     out.base = size_t(package.exports()[size_t(index)].serialOffset);
@@ -71,7 +71,7 @@ Error readTextureData(const Package& package, int index, TextureData& out) {
 }
 
 // The texture's palette, grey if it has none.
-Palette paletteOf(const PackageSet& packages, const Package& package, const PropertyList& props) {
+Palette paletteOf(const PackageSet &packages, const Package &package, const PropertyList &props) {
     Palette p;
     const ObjectRef ref = packages.resolve(package, props.object("Palette"));
     if (!ref || readPalette(*ref.package, ref.exportIndex, p))
@@ -84,7 +84,7 @@ Palette paletteOf(const PackageSet& packages, const Package& package, const Prop
 }
 
 // Palette indices to RGBA; colour 0 see-through when masked.
-void toRgba(const std::vector<uint8_t>& indices, const Palette& palette, bool masked, image::Image& out) {
+void toRgba(const std::vector<uint8_t> &indices, const Palette &palette, bool masked, image::Image &out) {
     out.rgba.resize(indices.size() * 4);
     for (size_t i = 0; i < indices.size(); ++i) {
         std::copy_n(palette.rgba.data() + size_t(indices[i]) * 4, 3, out.rgba.data() + i * 4);
@@ -101,7 +101,7 @@ void toRgba(const std::vector<uint8_t>& indices, const Palette& palette, bool ma
 struct Pace {
     float fastest = 0, slowest = 0; // the shortest and longest time between steps; fastest 0: every frame
     float sum = 0;
-    explicit Pace(const PropertyList& props) {
+    explicit Pace(const PropertyList &props) {
         const float most = props.number("MaxFrameRate");
         if (most != 0) {
             fastest = 1 / std::clamp(most, 0.01f, 100.0f);
@@ -123,7 +123,7 @@ struct Pace {
 };
 
 // Fire.dll's sine table: a turn in 256 steps, 0-255 (127 or 128 at 0).
-const std::array<uint8_t, 256>& sineTable() {
+const std::array<uint8_t, 256> &sineTable() {
     static const std::array<uint8_t, 256> table = [] {
         std::array<uint8_t, 256> t{};
         for (int i = 0; i < 256; ++i)
@@ -140,7 +140,7 @@ class FractalRandom {
 public:
     FractalRandom() {
         uint32_t seed = 1;
-        for (uint8_t& b : table_) {
+        for (uint8_t &b : table_) {
             seed = seed * 214013u + 2531011u;
             b = uint8_t((seed >> 16) & 0x7fff);
         }
@@ -160,7 +160,7 @@ private:
     std::array<uint8_t, 512> table_{};
     uint32_t index_ = 0;
 };
-FractalRandom& fractalRandom() {
+FractalRandom &fractalRandom() {
     static FractalRandom random;
     return random;
 }
@@ -175,16 +175,56 @@ FractalRandom& fractalRandom() {
 // list; then the heat spreads and cools; then the Stars look again.
 
 enum Spark : uint8_t {
-    Burn, Sparkle, Pulse, Signal, Blaze, OzHasSpoken, Cone, BlazeRight, BlazeLeft, Cylinder, Cylinder3D,
-    Lissajous, Jugglers, Emit, Fountain, Flocks, Eels, Organic, WanderOrganic, RandomCloud, CustomCloud,
-    LocalCloud, Stars, LineLightning, RampLightning, SphereLightning, Wheel, Gametes, Sprinkler,
-    LissajousX, LissajousY, // the editor's halves of a Lissajous
+    Burn,
+    Sparkle,
+    Pulse,
+    Signal,
+    Blaze,
+    OzHasSpoken,
+    Cone,
+    BlazeRight,
+    BlazeLeft,
+    Cylinder,
+    Cylinder3D,
+    Lissajous,
+    Jugglers,
+    Emit,
+    Fountain,
+    Flocks,
+    Eels,
+    Organic,
+    WanderOrganic,
+    RandomCloud,
+    CustomCloud,
+    LocalCloud,
+    Stars,
+    LineLightning,
+    RampLightning,
+    SphereLightning,
+    Wheel,
+    Gametes,
+    Sprinkler,
+    LissajousX,
+    LissajousY, // the editor's halves of a Lissajous
     // The moving sparks the emitters make, by what makes them.
-    Dead = 31, BlazeSpark, EmitSpark, ConeSpark, OrganicSpark, CloudSpark, CustomSpark, EelSpark, FlockSpark,
-    SprinklerSpark, CoolingSpark, FountainSpark, GameteSpark,
+    Dead = 31,
+    BlazeSpark,
+    EmitSpark,
+    ConeSpark,
+    OrganicSpark,
+    CloudSpark,
+    CustomSpark,
+    EelSpark,
+    FlockSpark,
+    SprinklerSpark,
+    CoolingSpark,
+    FountainSpark,
+    GameteSpark,
 };
 
-int8_t s8(uint8_t v) { return int8_t(v); }
+int8_t s8(uint8_t v) {
+    return int8_t(v);
+}
 
 class Fire : public AnimatedTexture {
 public:
@@ -192,7 +232,7 @@ public:
         uint8_t type = 0, heat = 0, x = 0, y = 0, a = 0, b = 0, c = 0, d = 0;
     };
 
-    Fire(int w, int h, const PropertyList& props, Palette palette, std::vector<SparkData> sparks)
+    Fire(int w, int h, const PropertyList &props, Palette palette, std::vector<SparkData> sparks)
         : w_(w), h_(h), palette_(palette), pace_(props) {
         ubits_ = 0;
         while ((1 << (ubits_ + 1)) <= w_)
@@ -206,9 +246,9 @@ public:
         // As loaded: sparks off the texture dropped; the list as long as
         // SparksLimit (only if it held more than that is the limit kept to
         // 4-8192 and the list cut).
-        sparks.erase(std::remove_if(sparks.begin(), sparks.end(),
-                                    [&](const SparkData& s) { return s.x > um_ || s.y > vm_; }),
-                     sparks.end());
+        sparks.erase(
+            std::remove_if(sparks.begin(), sparks.end(), [&](const SparkData &s) { return s.x > um_ || s.y > vm_; }),
+            sparks.end());
         int32_t limit = props.integer("SparksLimit");
         if (size_t(std::max(0, limit)) < sparks.size()) {
             limit = std::clamp<int32_t>(limit, 4, 8192);
@@ -226,7 +266,7 @@ public:
         toRgba(heat_, palette_, masked_, image_);
     }
 
-    const char* kind() const override { return "fire"; }
+    const char *kind() const override { return "fire"; }
 
     bool advance(float seconds) override {
         const int n = pace_.due(seconds);
@@ -246,24 +286,24 @@ private:
     }
     // One pixel's chance of a step along an axis: |v| / 128, its sign the
     // way; one random drawn whatever v is.
-    void step(uint8_t& coord, uint8_t v, uint8_t mask) {
+    void step(uint8_t &coord, uint8_t v, uint8_t mask) {
         const int sv = s8(v), roll = int(fractalRandom().next() & 127);
         if (sv < 0 ? roll < -sv : roll < sv)
             coord = uint8_t((coord + (sv < 0 ? -1 : 1)) & mask);
     }
-    void move(SparkData& s, uint8_t dx, uint8_t dy) {
+    void move(SparkData &s, uint8_t dx, uint8_t dy) {
         step(s.x, dx, um_);
         step(s.y, dy, vm_);
     }
-    SparkData* child() { return count_ < limit_ ? &sparks_[count_++] : nullptr; }
+    SparkData *child() { return count_ < limit_ ? &sparks_[count_++] : nullptr; }
     uint8_t near31(uint8_t v, uint8_t mask) { return uint8_t(((fractalRandom().next() & 31) + v) & mask); }
-    void wander15(SparkData& s) {
+    void wander15(SparkData &s) {
         if (fractalRandom().next() & 1)
             s.x = uint8_t(((fractalRandom().next() & 15) + s.x - 7) & um_);
         if (fractalRandom().next() & 1)
             s.y = uint8_t(((fractalRandom().next() & 15) + s.y - 7) & vm_);
     }
-    void wander7(SparkData& s) {
+    void wander7(SparkData &s) {
         uint8_t a = r(), b = r();
         s.x = uint8_t((s.x + (a & 7) - (b & 7)) & um_);
         a = r(), b = r();
@@ -282,7 +322,7 @@ private:
         const int n = std::max(lx, ly) | 1;
         std::vector<int> jitter(static_cast<size_t>(n));
         int total = 0;
-        for (int& j : jitter)
+        for (int &j : jitter)
             total += (j = r());
         const int64_t span = int64_t(c2 - c1) * (1 << 23);
         const int64_t colourStep = span / n; // rounded towards 0
@@ -315,7 +355,7 @@ private:
         if (starsOn_) {
             bool any = false;
             for (size_t i = 0; i < count_; ++i) {
-                SparkData& s = sparks_[i];
+                SparkData &s = sparks_[i];
                 if (s.type != Stars)
                     continue;
                 any = true;
@@ -331,12 +371,14 @@ private:
     }
 
     // One spark's step; true when it dies.
-    bool spark(SparkData& s) {
-        const auto& sine = sineTable();
+    bool spark(SparkData &s) {
+        const auto &sine = sineTable();
         auto sin32 = [&](uint8_t i) { return uint8_t(std::min(255, sine[i] + 32)); };
         const bool room = count_ < limit_;
         switch (s.type) {
-        case Burn: put(s.x, s.y, r()); break;
+        case Burn:
+            put(s.x, s.y, r());
+            break;
         case Sparkle: {
             const int x = s.x + ((s.a * r()) >> 8);
             const int y = s.y + ((s.b * r()) >> 8);
@@ -391,7 +433,7 @@ private:
             const bool often = s.type == Blaze || s.type == OzHasSpoken || s.type == Organic;
             if (r() >= (often ? 0x80 : 0x40))
                 break;
-            SparkData& c = *child();
+            SparkData &c = *child();
             if (s.type == Organic) {
                 c.type = OrganicSpark;
                 c.x = uint8_t((s.x + ((r() * s.c) >> 8)) & um_);
@@ -424,7 +466,7 @@ private:
         }
         case WanderOrganic:
         case RandomCloud:
-            if (SparkData* c = child()) {
+            if (SparkData *c = child()) {
                 c->type = s.type == WanderOrganic ? OrganicSpark : CloudSpark;
                 c->x = near31(s.x, um_), c->y = near31(s.y, vm_);
                 if (s.type == WanderOrganic)
@@ -437,7 +479,7 @@ private:
         case Eels:
         case Gametes:
             if (r() < 0x14 && room) {
-                SparkData& c = *child();
+                SparkData &c = *child();
                 c.type = s.type == Eels ? EelSpark : GameteSpark, c.heat = s.heat;
                 c.x = near31(s.x, um_), c.y = near31(s.y, vm_);
                 c.a = r();
@@ -450,7 +492,7 @@ private:
             break;
         case CustomCloud:
         case LocalCloud:
-            if (SparkData* c = child()) {
+            if (SparkData *c = child()) {
                 c->type = CustomSpark;
                 if (s.type == CustomCloud) {
                     c->x = near31(s.x, um_), c->y = near31(s.y, vm_);
@@ -464,7 +506,7 @@ private:
                 wander7(s);
             break;
         case Flocks:
-            if (SparkData* c = child()) {
+            if (SparkData *c = child()) {
                 c->type = FlockSpark, c->heat = s.heat;
                 c->x = near31(s.x, um_), c->y = near31(s.y, vm_);
                 c->a = 0, c->b = s.a, c->c = s.b, c->d = s.d;
@@ -473,16 +515,18 @@ private:
             wander7(s);
             break;
         case Wheel:
-            if (SparkData* c = child())
+            if (SparkData *c = child())
                 *c = {FlockSpark, s.heat, s.x, s.y, 0, s.a, s.b, s.d};
             s.a = uint8_t(s.a + s.c);
             break;
         case Sprinkler:
-            if (SparkData* c = child())
+            if (SparkData *c = child())
                 *c = {SprinklerSpark, s.heat, s.x, s.y, s.a, s.b, s.c, 2};
             s.a = uint8_t(s.a + s.d);
             break;
-        case Stars: put(s.x, s.y, s.b); break;
+        case Stars:
+            put(s.x, s.y, s.b);
+            break;
         case LineLightning:
         case RampLightning:
             if (!s.heat)
@@ -580,7 +624,8 @@ private:
             }
             break;
         }
-        default: break;
+        default:
+            break;
         }
         return false;
     }
@@ -616,7 +661,7 @@ private:
     bool rising_ = false, masked_ = false, starsOn_ = true;
     int keep_ = 220;
     std::array<uint8_t, 1024> cool_{}; // the heat four pixels sum to, spread and cooled
-    uint32_t phase_ = 0; // GlobalPhase
+    uint32_t phase_ = 0;               // GlobalPhase
     Pace pace_;
 };
 
@@ -643,9 +688,26 @@ private:
 // named depth is a phase, and D a height or speed.
 
 enum Drop : uint8_t {
-    FixedDepth, PhaseSpot, ShallowSpot, HalfAmpl, RandomMover, FixedRandomSpot, WhirlyThing, BigWhirly,
-    HorizontalLine, VerticalLine, DiagonalLine1, DiagonalLine2, HorizontalOsc, VerticalOsc, DiagonalOsc1,
-    DiagonalOsc2, RainDrops, AreaClamp, LeakyTap, DrippyTap,
+    FixedDepth,
+    PhaseSpot,
+    ShallowSpot,
+    HalfAmpl,
+    RandomMover,
+    FixedRandomSpot,
+    WhirlyThing,
+    BigWhirly,
+    HorizontalLine,
+    VerticalLine,
+    DiagonalLine1,
+    DiagonalLine2,
+    HorizontalOsc,
+    VerticalOsc,
+    DiagonalOsc1,
+    DiagonalOsc2,
+    RainDrops,
+    AreaClamp,
+    LeakyTap,
+    DrippyTap,
 };
 
 class Water : public AnimatedTexture {
@@ -656,8 +718,8 @@ public:
 
     // `source`: a wet texture's source picture, already the texture's size;
     // empty for a wave texture (drawn through `palette`).
-    Water(int w, int h, const PropertyList& props, Palette palette, std::vector<DropData> drops, image::Image source,
-          const char* kind)
+    Water(int w, int h, const PropertyList &props, Palette palette, std::vector<DropData> drops, image::Image source,
+          const char *kind)
         : w_(w), h_(std::max(2, h & ~1)), fw_(std::max(1, w / 2)), palette_(palette), drops_(std::move(drops)),
           source_(std::move(source)), kind_(kind), pace_(props) {
         masked_ = props.boolean("bMasked");
@@ -694,7 +756,7 @@ public:
         render();
     }
 
-    const char* kind() const override { return kind_; }
+    const char *kind() const override { return kind_; }
 
     bool advance(float seconds) override {
         const int n = pace_.due(seconds);
@@ -717,14 +779,22 @@ private:
     void set(int x, int y, uint8_t v) { set(x, y, v, v); }
     uint8_t randomByte() { return fractalRandom().byte(); }
 
-    void drop(DropData& d) {
-        const auto& sine = sineTable();
+    void drop(DropData &d) {
+        const auto &sine = sineTable();
         const int x = d.x, y = d.y, n = d.d / 2;
         switch (d.type) {
-        case FixedDepth: set(x, y, d.d); break;
-        case PhaseSpot: set(x, y, sine[d.depth += d.d]); break;
-        case ShallowSpot: set(x, y, uint8_t(sine[d.depth += d.d] / 2 + 64)); break;
-        case HalfAmpl: set(x, y, std::max<uint8_t>(sine[d.depth += d.d], 128)); break;
+        case FixedDepth:
+            set(x, y, d.d);
+            break;
+        case PhaseSpot:
+            set(x, y, sine[d.depth += d.d]);
+            break;
+        case ShallowSpot:
+            set(x, y, uint8_t(sine[d.depth += d.d] / 2 + 64));
+            break;
+        case HalfAmpl:
+            set(x, y, std::max<uint8_t>(sine[d.depth += d.d], 128));
+            break;
         case RandomMover:
             set(x, y, 185, 71);
             d.x = uint8_t(d.x + (randomByte() & 3) - (randomByte() & 3));
@@ -788,18 +858,19 @@ private:
                 set(x, y, d.depth, uint8_t(~d.depth));
             }
             break;
-        default: break;
+        default:
+            break;
         }
     }
 
-    uint8_t& at(int r, int c) {
+    uint8_t &at(int r, int c) {
         r = ((r % h_) + h_) % h_;
         c = ((c % fw_) + fw_) % fw_;
         return field_[size_t(r) * size_t(fw_) + size_t(c)];
     }
 
     void tick() {
-        for (DropData& d : drops_)
+        for (DropData &d : drops_)
             drop(d);
         ++parity_;
         // The rows of this step's parity: half their diagonal neighbours'
@@ -809,9 +880,9 @@ private:
         const size_t fw = size_t(fw_);
         for (int r = parity_ & 1; r < h_; r += 2) {
             const int left = r & 1 ? 0 : -1; // the neighbours' first cell, from c
-            uint8_t* row = &field_[size_t(r) * fw];
-            const uint8_t* up = &field_[size_t((r + h_ - 1) % h_) * fw];
-            const uint8_t* down = &field_[size_t((r + 1) % h_) * fw];
+            uint8_t *row = &field_[size_t(r) * fw];
+            const uint8_t *up = &field_[size_t((r + h_ - 1) % h_) * fw];
+            const uint8_t *down = &field_[size_t((r + 1) % h_) * fw];
             for (int c = 0; c < fw_; ++c) {
                 int a = c + left, b = a + 1;
                 if (a < 0)
@@ -830,7 +901,7 @@ private:
     // difference across it (even); between cells, the two either side's mean.
     // (Each frame's every pixel goes through here: the wrapping is done
     // with a step back or forward, not a remainder.)
-    void slopes(int y, std::vector<int>& out) {
+    void slopes(int y, std::vector<int> &out) {
         const int r = y + 1;
         const bool drawn = (r & 1) != (parity_ & 1);
         const int first = drawn ? r : r - 1; // the row whose cells' columns these are
@@ -843,12 +914,12 @@ private:
         // Each cell's difference across once (they wrap), then per pixel.
         sums_.resize(size_t(fw_));
         if (drawn) {
-            const uint8_t* mid = rowOf(r);
+            const uint8_t *mid = rowOf(r);
             for (int c = 0; c < fw_; ++c)
                 sums_[size_t(c)] = 2 * mid[c];
         } else {
-            const uint8_t* above = rowOf(r - 1);
-            const uint8_t* below = rowOf(r + 1);
+            const uint8_t *above = rowOf(r - 1);
+            const uint8_t *below = rowOf(r + 1);
             for (int c = 0; c < fw_; ++c)
                 sums_[size_t(c)] = above[c] + below[c];
         }
@@ -867,19 +938,19 @@ private:
             int cell = k / 2;
             if (cell >= fw_)
                 cell %= fw_;
-            out[size_t(x)] = k % 2 == 0 ? across_[size_t(cell)]
-                                        : (across_[size_t(cell)] + across_[size_t(cell) + 1]) / 2;
+            out[size_t(x)] =
+                k % 2 == 0 ? across_[size_t(cell)] : (across_[size_t(cell)] + across_[size_t(cell) + 1]) / 2;
         }
     }
 
     void render() {
         image_.rgba.resize(size_t(w_) * size_t(image_.h) * 4);
-        std::vector<int>& slope = slope_;
+        std::vector<int> &slope = slope_;
         const bool wet = !source_.rgba.empty();
         for (int y = 0; y < image_.h; ++y) {
             slopes(y % h_, slope);
-            uint8_t* p = image_.pixel(0, y);
-            const uint8_t* src = wet ? source_.pixel(0, y) : nullptr;
+            uint8_t *p = image_.pixel(0, y);
+            const uint8_t *src = wet ? source_.pixel(0, y) : nullptr;
             for (int x = 0; x < w_; ++x, p += 4) {
                 const int i = std::clamp(512 + slope[size_t(x)], 0, 1023);
                 const uint8_t v = table_[size_t(i)];
@@ -902,10 +973,10 @@ private:
     Palette palette_;
     std::vector<DropData> drops_;
     image::Image source_;
-    const char* kind_;
+    const char *kind_;
     std::vector<uint8_t> field_;
     std::vector<int> sums_, across_, slope_; // slopes' working rows
-    std::array<uint8_t, 1024> table_{}; // the slope + 512: a wave's palette index, a wet's shift (signed)
+    std::array<uint8_t, 1024> table_{};      // the slope + 512: a wave's palette index, a wet's shift (signed)
     uint8_t parity_ = 0;
     bool masked_ = false;
     Pace pace_;
@@ -927,7 +998,7 @@ private:
 // again only when the whole-pixel position changes.
 
 // A referenced texture, decoded and scaled to w x h.
-bool scaledPicture(const PackageSet& packages, const Package& package, int32_t ref, int w, int h, image::Image& out) {
+bool scaledPicture(const PackageSet &packages, const Package &package, int32_t ref, int w, int h, image::Image &out) {
     const ObjectRef obj = packages.resolve(package, ref);
     image::Image img;
     if (!obj || decodeTexture(packages, *obj.package, obj.exportIndex, img) || img.w <= 0 || img.h <= 0)
@@ -942,12 +1013,12 @@ bool scaledPicture(const PackageSet& packages, const Package& package, int32_t r
 }
 
 // A referenced texture's palette indices (its first mipmap), scaled to w x h.
-bool scaledIndices(const PackageSet& packages, const Package& package, int32_t ref, int w, int h,
-                   std::vector<uint8_t>& out) {
+bool scaledIndices(const PackageSet &packages, const Package &package, int32_t ref, int w, int h,
+                   std::vector<uint8_t> &out) {
     const ObjectRef obj = packages.resolve(package, ref);
     TextureData t;
-    if (!obj || readTextureData(*obj.package, obj.exportIndex, t) ||
-        t.mip0Size < size_t(t.width) * size_t(t.height) || t.mip0 + t.mip0Size > t.data.size())
+    if (!obj || readTextureData(*obj.package, obj.exportIndex, t) || t.mip0Size < size_t(t.width) * size_t(t.height) ||
+        t.mip0 + t.mip0Size > t.data.size())
         return false;
     out.resize(size_t(w) * size_t(h));
     for (int y = 0; y < h; ++y)
@@ -961,7 +1032,7 @@ class Ice : public AnimatedTexture {
 public:
     enum Panning : uint8_t { Linear, Circular, Gestation, WavyX, WavyY };
 
-    Ice(const PropertyList& props, image::Image source, std::vector<uint8_t> glass)
+    Ice(const PropertyList &props, image::Image source, std::vector<uint8_t> glass)
         : source_(std::move(source)), glass_(std::move(glass)), pace_(props) {
         panning_ = props.byte("PanningStyle");
         realTime_ = props.byte("TimeMethod") != 0;
@@ -974,7 +1045,7 @@ public:
         render();
     }
 
-    const char* kind() const override { return "ice"; }
+    const char *kind() const override { return "ice"; }
 
     bool advance(float seconds) override {
         seconds = std::max(0.0f, seconds);
@@ -1003,14 +1074,22 @@ private:
         const float f = frequency_ * clock_ * 0.0012f;
         auto whole = [](float x) { return float(int(std::lround(x))); };
         switch (panning_) {
-        case Circular: u_ = uPan_ + whole(amplitude_ * std::sin(f)), v_ = vPan_ + whole(amplitude_ * std::cos(f)); break;
+        case Circular:
+            u_ = uPan_ + whole(amplitude_ * std::sin(f)), v_ = vPan_ + whole(amplitude_ * std::cos(f));
+            break;
         case Gestation:
             u_ = uPan_ + whole(amplitude_ * std::sin(f));
             v_ = vPan_ + whole(amplitude_ * std::cos(frequency_ * clock_ * 0.0011f));
             break;
-        case WavyX: u_ = uPan_ + whole(amplitude_ * std::sin(f) * 0.5f), v_ = vPan_; break;
-        case WavyY: u_ = uPan_, v_ = vPan_ + whole(amplitude_ * std::cos(f) * 0.5f); break;
-        default: u_ = uPan_, v_ = vPan_; break;
+        case WavyX:
+            u_ = uPan_ + whole(amplitude_ * std::sin(f) * 0.5f), v_ = vPan_;
+            break;
+        case WavyY:
+            u_ = uPan_, v_ = vPan_ + whole(amplitude_ * std::cos(f) * 0.5f);
+            break;
+        default:
+            u_ = uPan_, v_ = vPan_;
+            break;
         }
     }
 
@@ -1067,7 +1146,7 @@ public:
         render();
     }
 
-    const char* kind() const override { return "FLC"; }
+    const char *kind() const override { return "FLC"; }
     int frames() const override { return int(spans_.size()) - (ring_ ? 1 : 0); }
     void setBaseFrameSeconds(float s) { baseFrameSeconds_ = s; }
     float frameSeconds() const override { return baseFrameSeconds_; }
@@ -1120,7 +1199,7 @@ private:
         for (int y = 0; y < h_; ++y)
             for (int x = 0; x < w_; ++x) {
                 const uint8_t c = pixels_[size_t(y * fh_ / h_) * size_t(fw_) + size_t(x * fw_ / w_)];
-                uint8_t* p = image_.pixel(x, y);
+                uint8_t *p = image_.pixel(x, y);
                 std::copy_n(palette_.rgba.data() + size_t(c) * 4, 3, p);
                 p[3] = (masked_ || seeThrough_) && c == 0 ? 0 : 255;
             }
@@ -1146,7 +1225,7 @@ private:
         }
     }
 
-    void chunk(uint16_t type, Reader& r) {
+    void chunk(uint16_t type, Reader &r) {
         switch (type) {
         case 4:  // colours, 8 bits each
         case 11: // colours, 6 bits each
@@ -1265,13 +1344,13 @@ private:
     std::vector<uint8_t> pixels_;
     size_t current_ = 0;
     float time_ = 0;
-    Palette firstPalette_;       // the palette before any frame's
+    Palette firstPalette_; // the palette before any frame's
     bool seeThrough_ = false, shown_ = false;
     float baseFrameSeconds_ = 1.0f / 30;
 };
 
-std::unique_ptr<AnimatedTexture> openFlc(const TextureData& t, Palette palette, const std::string& what,
-                                         std::string& error) {
+std::unique_ptr<AnimatedTexture> openFlc(const TextureData &t, Palette palette, const std::string &what,
+                                         std::string &error) {
     Reader r(t.data, t.base);
     r.seek(t.native);
     const float length = r.f32(), rate = r.f32();
@@ -1315,10 +1394,10 @@ bool isAnimatedTextureClass(std::string_view className) {
            c == "icetexture";
 }
 
-std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet& packages, const Package& package,
-                                                     int exportIndex, std::string* error) {
+std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet &packages, const Package &package,
+                                                     int exportIndex, std::string *error) {
     std::string err;
-    auto fail = [&](const std::string& why) -> std::unique_ptr<AnimatedTexture> {
+    auto fail = [&](const std::string &why) -> std::unique_ptr<AnimatedTexture> {
         if (error)
             *error = why;
         return nullptr;
@@ -1352,7 +1431,7 @@ std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet& packages,
         if (!r.ok() || count < 0 || size_t(count) * 8 > r.remaining())
             return fail(what + ": " + std::to_string(count) + " sparks don't fit");
         std::vector<Fire::SparkData> sparks(static_cast<size_t>(count));
-        for (Fire::SparkData& s : sparks) {
+        for (Fire::SparkData &s : sparks) {
             s.type = r.u8(), s.heat = r.u8(), s.x = r.u8(), s.y = r.u8();
             s.a = r.u8(), s.b = r.u8(), s.c = r.u8(), s.d = r.u8();
         }
@@ -1362,7 +1441,7 @@ std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet& packages,
     std::vector<Water::DropData> drops;
     const int32_t numDrops = std::clamp<int32_t>(t.props.integer("NumDrops"), 0, 256);
     for (int32_t i = 0; i < numDrops; ++i) {
-        const Property* p = t.props.find("Drops", i);
+        const Property *p = t.props.find("Drops", i);
         if (!p || p->data.size() < 8)
             continue;
         Water::DropData d;
@@ -1376,7 +1455,9 @@ std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet& packages,
             return fail(what + ": its SourceTexture doesn't read");
     }
     return std::make_unique<Water>(t.width, t.height, t.props, palette, std::move(drops), std::move(source),
-                                   cls == "wettexture" ? "wet" : cls == "wavetexture" ? "wave" : "water");
+                                   cls == "wettexture"    ? "wet"
+                                   : cls == "wavetexture" ? "wave"
+                                                          : "water");
 }
 
 } // namespace reluva::unreal

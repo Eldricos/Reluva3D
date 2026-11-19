@@ -43,7 +43,7 @@ public:
     enum Result { kRunning, kWon, kLost, kDestroyed };
     static const int kWidth = 640, kHeight = 480;
 
-    SpaceCombat(const ResourceManager& resources, Mixer* mixer, RandomSource& random);
+    SpaceCombat(const ResourceManager &resources, Mixer *mixer, RandomSource &random);
     ~SpaceCombat();
 
     // Load combat n (1..25): its briefing, ships and console.
@@ -53,11 +53,11 @@ public:
     void setDifficulty(int difficulty) { _difficulty = difficulty; }
 
     void update(uint32_t ms);
-    void draw(Canvas& screen);
+    void draw(Canvas &screen);
     // The player's starship keys (SGENS.CFG's cfg+0x238).
-    void setKeyMap(const KeyMap& keys) { _keys = keys; }
-    void keyDown(const KeyState& key);
-    void keyUp(const KeyState& key);
+    void setKeyMap(const KeyMap &keys) { _keys = keys; }
+    void keyDown(const KeyState &key);
+    void keyUp(const KeyState &key);
     // Let go of every flight key.
     void releaseKeys();
     void mouseMove(int x, int y);
@@ -80,7 +80,7 @@ private:
         int owner, target;
         uint32_t life;
         int damage;
-        const SprAnimation* sprite;
+        const SprAnimation *sprite;
     };
     struct Beam {
         int from, to;
@@ -94,7 +94,7 @@ private:
         Vec3 position;
         double size;
         uint32_t time;
-        const SprAnimation* sprite;
+        const SprAnimation *sprite;
         // A ship blowing up, which the radar marks.
         bool ship = false;
     };
@@ -102,72 +102,72 @@ private:
     enum Phase { kBriefing, kFight, kEnding };
 
     // Data.
-    std::unique_ptr<SeekableReadStream> open(const std::string& name) const;
-    const CombatImage* image(const std::string& name);
-    const CombatImage* texture(const std::string& name);
-    const SprAnimation* sprite(const std::string& name);
-    const Model3D* model(const std::string& name);
-    const std::vector<CombatMaterial>* materials(const std::string& name);
-    const ShipClass* findClass(const std::string& token) const;
-    void addShip(const MissionShip& line);
+    std::unique_ptr<SeekableReadStream> open(const std::string &name) const;
+    const CombatImage *image(const std::string &name);
+    const CombatImage *texture(const std::string &name);
+    const SprAnimation *sprite(const std::string &name);
+    const Model3D *model(const std::string &name);
+    const std::vector<CombatMaterial> *materials(const std::string &name);
+    const ShipClass *findClass(const std::string &token) const;
+    void addShip(const MissionShip &line);
 
     // Simulation.
-    void updateShip(Ship& ship, double dt);
-    void steer(Ship& ship, const Vec3& point, double dt, bool away = false);
-    void fly(Ship& ship, double dt);
-    void updateAi(Ship& ship, double dt);
+    void updateShip(Ship &ship, double dt);
+    void steer(Ship &ship, const Vec3 &point, double dt, bool away = false);
+    void fly(Ship &ship, double dt);
+    void updateAi(Ship &ship, double dt);
     // Head for a point well off the Enterprise (0x4AFF2A).
-    void runOff(Ship& ship);
-    bool isCollisionImminent(const Ship& a, const Ship& b) const;
+    void runOff(Ship &ship);
+    bool isCollisionImminent(const Ship &a, const Ship &b) const;
     void updateHelm(double dt);
     void firePhasers(int shooter);
     void firePhotons(int shooter);
     void updateWeapons(uint32_t ms);
     // Which shield of target faces a point (0x54E278).
-    int facing(const Ship& target, const Vec3& from) const;
+    int facing(const Ship &target, const Vec3 &from) const;
     // The octant of a point seen from a ship: 4 starboard, 2 aft, 1 dorsal.
-    int octant(const Ship& ship, const Vec3& point) const;
+    int octant(const Ship &ship, const Vec3 &point) const;
     // from: where the hit came from, which the shield's flash faces.
-    void hit(int target, int facing, double damage, int aimed, const Vec3& from);
+    void hit(int target, int facing, double damage, int aimed, const Vec3 &from);
     // A shield still up is hit: its flash and sound (0x497B99).
-    void shieldHit(int index, const Vec3& from, int shield);
+    void shieldHit(int index, const Vec3 &from, int shield);
     // The Enterprise is hit: the screen shakes, and dims if the shield is badly hurt (0x497B00).
     void jolt(int index, int shield);
-    void drawJolt(Canvas& screen);
+    void drawJolt(Canvas &screen);
     void destroy(int ship);
     void nextTarget(bool announce);
     void checkEnd();
     void finish(Result result);
-    double systemFraction(const Ship& ship, int system) const;
-    bool isEnemyAlive(const Ship& ship) const;
+    double systemFraction(const Ship &ship, int system) const;
+    bool isEnemyAlive(const Ship &ship) const;
 
     // Sound.
     void speak(int id, bool force = false);
-    void playEffect(const std::string& name, int volume = 255);
-    void playMusic(const std::string& name, bool loop);
+    void playEffect(const std::string &name, int volume = 255);
+    void playMusic(const std::string &name, bool loop);
 
     // Drawing.
-    void drawView(Canvas& screen);
-    void drawConsole(Canvas& screen);
-    void drawImage(Canvas& screen, const CombatImage* image, int x, int y, const Rect* clip = nullptr);
-    void drawText(Canvas& screen, const std::string& text, int x, int y, bool small = false);
-    void drawBars(Canvas& screen, const Ship& ship, int x, int y);
+    void drawView(Canvas &screen);
+    void drawConsole(Canvas &screen);
+    void drawImage(Canvas &screen, const CombatImage *image, int x, int y, const Rect *clip = nullptr);
+    void drawText(Canvas &screen, const std::string &text, int x, int y, bool small = false);
+    void drawBars(Canvas &screen, const Ship &ship, int x, int y);
     // How a system's part of a schematic looks: 0 working, 1 damaged, 2 destroyed.
-    int systemLook(const Ship& ship, int system) const;
+    int systemLook(const Ship &ship, int system) const;
     // The system display (0x49E232): each system's part of S???_STR from its own picture.
-    void drawSchematic(Canvas& screen, const Ship& ship, int x, int y);
+    void drawSchematic(Canvas &screen, const Ship &ship, int x, int y);
     // The shield facing display (0x49F88F): the ship in 3D, from the other one.
-    void drawShieldView(Canvas& screen, const Ship& ship, const Ship& other, const Rect& panel);
+    void drawShieldView(Canvas &screen, const Ship &ship, const Ship &other, const Rect &panel);
     // One of the starfield's shapes (0x4AE2BF), in STANDARD.PAL colours.
     void drawStar(int x, int y, int type);
     // Flying by hand puts the helm on stand by (0x49557B).
     void flyByHand();
     void steerByMouse(int x, int y);
-    void drawRadar(Canvas& screen);
+    void drawRadar(Canvas &screen);
 
-    const ResourceManager& _resources;
-    Mixer* _mixer;
-    RandomSource& _random;
+    const ResourceManager &_resources;
+    Mixer *_mixer;
+    RandomSource &_random;
     int _mission = 0;
     int _difficulty = 1;
     bool _subtitles = true;
@@ -204,7 +204,7 @@ private:
     // at its foot); off, the system display. 0 the Enterprise, 1 the target.
     bool _shieldView[2] = {};
     // Their buttons: the Enterprise's at the right panel's foot, the target's at the left's.
-    const Rect kViewButton[2] = { Rect(449, 435, 468, 462), Rect(174, 435, 192, 462) };
+    const Rect kViewButton[2] = {Rect(449, 435, 468, 462), Rect(174, 435, 192, 462)};
     // Held on the viewscreen: steering towards the mouse (0x4AEFD4), -1..1.
     bool _steering = false;
     double _mouseTurn[2] = {};
@@ -237,7 +237,7 @@ private:
     // the knob and lit (F) below.
     struct Slider {
         Rect slot;
-        const char* unlit, *lit;
+        const char *unlit, *lit;
         // The row of the slot the mouse last set.
         int row;
         // 0 at the top .. 18 at the bottom.
@@ -245,15 +245,15 @@ private:
     };
     // The viewscreen zoom (hotspot 14): 18 - step, 0..18 (0x4AEDFE,
     // 0x54A0B0), 0 at the start, the slot unlit.
-    Slider _viewSlider = { Rect(618, 127, 634, 181), "SVIEWN.RAS", "SVIEWF.RAS", 54 };
+    Slider _viewSlider = {Rect(618, 127, 634, 181), "SVIEWN.RAS", "SVIEWF.RAS", 54};
     // The radar's range (hotspot 13): (19 - step) x 7500 + 10 (0x4AB7E2),
     // at step 12 to start with (0x49D640), 52510.
-    Slider _radarSlider = { Rect(450, 317, 466, 372), "SRADARN.RAS", "SRADARF.RAS", 36 };
-    Slider* _dragging = nullptr;
+    Slider _radarSlider = {Rect(450, 317, 466, 372), "SRADARN.RAS", "SRADARF.RAS", 36};
+    Slider *_dragging = nullptr;
     int getViewZoom() const { return 18 - _viewSlider.step(); }
     double getRadarRange() const { return (19 - _radarSlider.step()) * 7500.0 + 10; }
-    void moveSlider(Slider& slider, int y);
-    void drawSlider(Canvas& screen, const Slider& slider);
+    void moveSlider(Slider &slider, int y);
+    void drawSlider(Canvas &screen, const Slider &slider);
     double _keepRange = 0;
     bool _enemyView = false;
     bool _phasersOnline = true, _photonsOnline = true;
@@ -282,4 +282,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

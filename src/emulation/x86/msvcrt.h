@@ -18,12 +18,12 @@ namespace reluva::x86 {
 // from Microsoft's documentation of each function; where the documentation
 // leaves a result open, Visual C++'s behaviour of the time is followed and
 // said so.
-void addMsvcrt(Win32Process& process);
+void addMsvcrt(Win32Process &process);
 
 // scanf's conversions applied to `input`, storing through the pointers on
 // the emulated stack from `args` on: d i u o x X f e E g G (with h, l, L,
 // I64), s c [set] n % and *, with widths. Returns the number of items
 // stored, or -1 if the input ended before the first.
-int scanFormat(Cpu& cpu, const std::string& input, const std::string& format, uint32_t args);
+int scanFormat(Cpu &cpu, const std::string &input, const std::string &format, uint32_t args);
 
 } // namespace reluva::x86

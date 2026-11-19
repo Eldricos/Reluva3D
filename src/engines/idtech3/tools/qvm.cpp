@@ -28,7 +28,7 @@ using namespace reluva::tool;
 using namespace reluva::idtech3::tool;
 
 // Loads a QVM from a game folder's search path.
-bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
+bool loadQvm(const char *folder, const char *name, reluva::idtech3::Qvm &vm) {
     reluva::SearchSet set;
     if (!mountIdTech3(folder, set))
         return false;
@@ -45,10 +45,10 @@ bool loadQvm(const char* folder, const char* name, reluva::idtech3::Qvm& vm) {
 
 // One instruction, with what its operand probably means: the text a
 // constant points at, a float, or the system call a call makes.
-void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
+void printQvmInstruction(const reluva::idtech3::Qvm &vm, size_t i, bool mark) {
     namespace q3 = reluva::idtech3;
-    const auto& code = vm.code();
-    const auto& in = code[i];
+    const auto &code = vm.code();
+    const auto &in = code[i];
     std::printf("%s%7zu  %-9s", mark ? "> " : "  ", i, q3::qvmop::name(in.op));
     if (q3::qvmop::operandSize(in.op))
         std::printf(" %d", in.operand);
@@ -76,7 +76,7 @@ void printQvmInstruction(const reluva::idtech3::Qvm& vm, size_t i, bool mark) {
     std::printf("\n");
 }
 
-int cmdQvmInfo(int argc, char** argv) {
+int cmdQvmInfo(int argc, char **argv) {
     if (argc < 4 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-info <game folder> <vm/x.qvm> [-s]\n");
         return 2;
@@ -85,7 +85,7 @@ int cmdQvmInfo(int argc, char** argv) {
     q3::Qvm vm;
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     int functions = 0;
     // System calls in the code: a constant negative target just before a
     // CALL. Per number: how many call sites, and in how many functions.
@@ -101,7 +101,7 @@ int cmdQvmInfo(int argc, char** argv) {
         if (i > 0 && code[i - 1].op == q3::qvmop::Const) {
             const int32_t target = code[i - 1].operand;
             if (target < 0) {
-                auto& [n, fns] = calls[-1 - target];
+                auto &[n, fns] = calls[-1 - target];
                 ++n;
                 fns.insert(function);
             }
@@ -109,20 +109,21 @@ int cmdQvmInfo(int argc, char** argv) {
             ++indirect;
         }
     }
-    std::printf("%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
-                argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
+    std::printf(
+        "%s: %zu instructions in %d functions, %u bytes of initialised data and literals, %zu bytes of memory\n",
+        argv[3], code.size(), functions, unsigned(vm.litEnd()), vm.memory().size());
     std::printf("%d calls through function pointers\n", indirect);
     size_t tableBytes = 0;
-    for (const auto& [first, end] : vm.protectedRanges())
+    for (const auto &[first, end] : vm.protectedRanges())
         tableBytes += end - first;
     std::printf("%zu switch jump tables (%zu bytes), kept from writes while running\n", vm.protectedRanges().size(),
                 tableBytes);
     std::printf("system calls (number: call sites, functions):\n");
-    for (const auto& [number, info] : calls)
+    for (const auto &[number, info] : calls)
         std::printf("  %4d: %4d sites in %3zu functions\n", number, info.first, info.second.size());
     if (argc == 5 && std::strcmp(argv[4], "-s") == 0) {
         // Printable runs in the initialised data, which hold the strings.
-        const auto& mem = vm.memory();
+        const auto &mem = vm.memory();
         std::string run;
         size_t start = 0;
         for (size_t i = 0; i < mem.size() && i < vm.litEnd(); ++i) {
@@ -141,9 +142,10 @@ int cmdQvmInfo(int argc, char** argv) {
     return 0;
 }
 
-int cmdQvmRun(int argc, char** argv) {
+int cmdQvmRun(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool idtech3 qvm-run <game folder> <vm/x.qvm> [command [arg...]] [-limit N]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
@@ -166,7 +168,7 @@ int cmdQvmRun(int argc, char** argv) {
     vm.setInstructionLimit(limit);
     // Log each system call; an argument pointing at text shows the text.
     int logged = 0;
-    vm.setSystemCall([&](q3::Qvm& v, int number, const int32_t* a) -> int32_t {
+    vm.setSystemCall([&](q3::Qvm &v, int number, const int32_t *a) -> int32_t {
         ++logged;
         std::printf("syscall %4d (", number);
         int last = 5;
@@ -192,14 +194,14 @@ int cmdQvmRun(int argc, char** argv) {
     });
     int32_t result = 0;
     reluva::Error err = vm.call(command, args, result);
-    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command,
-                err ? "failed:" : "returned", err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
+    std::printf("vmMain(%d) %s %d after %llu instructions and %d system calls\n", command, err ? "failed:" : "returned",
+                err ? 0 : result, static_cast<unsigned long long>(vm.executed()), logged);
     if (err)
         std::printf("  %s\n", err.message.c_str());
     return err ? 1 : 0;
 }
 
-int cmdQvmRefs(int argc, char** argv) {
+int cmdQvmRefs(int argc, char **argv) {
     if (argc != 6) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-refs <game folder> <vm/x.qvm> <address> <size>\n");
         return 2;
@@ -213,7 +215,7 @@ int cmdQvmRefs(int argc, char** argv) {
     // of the structure itself): per offset, how often, and what the code
     // does with the address next.
     std::map<long long, std::map<std::string, int>> refs;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     for (size_t i = 0; i < code.size(); ++i) {
         if (code[i].op != q3::qvmop::Const || code[i].operand < base || code[i].operand >= base + size)
             continue;
@@ -221,10 +223,10 @@ int cmdQvmRefs(int argc, char** argv) {
         ++refs[code[i].operand - base][next];
     }
     std::printf("constants between %lld and %lld in %s (offset: count followed-by...):\n", base, base + size, argv[3]);
-    for (const auto& [offset, nexts] : refs) {
+    for (const auto &[offset, nexts] : refs) {
         int total = 0;
         std::string what;
-        for (const auto& [op, n] : nexts) {
+        for (const auto &[op, n] : nexts) {
             total += n;
             what += " " + op + "x" + std::to_string(n);
         }
@@ -233,23 +235,24 @@ int cmdQvmRefs(int argc, char** argv) {
     return 0;
 }
 
-int cmdQvmDis(int argc, char** argv) {
+int cmdQvmDis(int argc, char **argv) {
     if (argc < 5) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -func <instruction>\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
-                             "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> <first instruction> [count]\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -ref <address> [size]\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -str <text>\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscall <number>\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -syscalls <first> <last>\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -func <instruction>\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -blockcopies\n"
+                     "       reluva-tool idtech3 qvm-dis <game folder> <vm/x.qvm> -fields <address of a pointer>\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     q3::Qvm vm;
     if (!loadQvm(argv[2], argv[3], vm))
         return 1;
-    const auto& code = vm.code();
+    const auto &code = vm.code();
     // The function holding instruction i: from its ENTER to the next one.
     auto functionAt = [&](size_t i) {
         size_t first = i;
@@ -264,12 +267,12 @@ int cmdQvmDis(int argc, char** argv) {
         // Every function using a string that contains the text, then the
         // functions those call, each listed whole.
         auto lower = [](std::string t) {
-            for (char& c : t)
+            for (char &c : t)
                 c = char(std::tolower(static_cast<unsigned char>(c)));
             return t;
         };
         const std::string needle = lower(argv[5]);
-        const auto& mem = vm.memory();
+        const auto &mem = vm.memory();
         std::map<int32_t, std::string> strings; // address -> text
         for (size_t i = 0; i < vm.litEnd();) {
             size_t j = i;
@@ -281,7 +284,7 @@ int cmdQvmDis(int argc, char** argv) {
             i = j + 1;
         }
         std::set<size_t> users, callees;
-        for (const auto& [address, text] : strings) {
+        for (const auto &[address, text] : strings) {
             std::printf("string at %d: \"%s\"\n", address, text.c_str());
             for (size_t i = 0; i < code.size(); ++i)
                 if (code[i].op == q3::qvmop::Const && code[i].operand == address)
@@ -295,7 +298,7 @@ int cmdQvmDis(int argc, char** argv) {
                     callees.insert(size_t(code[i].operand));
         }
         size_t printed = 0;
-        auto list = [&](size_t f, const char* why) {
+        auto list = [&](size_t f, const char *why) {
             const auto [first, last] = functionAt(f);
             std::printf("=== function at %zu (%s), %zu instructions\n", first, why, last - first);
             if (printed > 4000) {
@@ -328,10 +331,10 @@ int cmdQvmDis(int argc, char** argv) {
                 ++fields[0][q3::qvmop::name(code[i + 2].op)];
         }
         std::printf("fields used through the pointer at %d (offset: count followed-by...):\n", global);
-        for (const auto& [offset, nexts] : fields) {
+        for (const auto &[offset, nexts] : fields) {
             int total = 0;
             std::string what;
-            for (const auto& [op, n] : nexts) {
+            for (const auto &[op, n] : nexts) {
                 total += n;
                 what += " " + op + "x" + std::to_string(n);
             }
@@ -347,7 +350,7 @@ int cmdQvmDis(int argc, char** argv) {
             if (code[i].op == q3::qvmop::BlockCopy)
                 sizes[code[i].operand].push_back(i);
         std::printf("block copies by size (bytes: count, first instructions):\n");
-        for (const auto& [size, at] : sizes) {
+        for (const auto &[size, at] : sizes) {
             std::printf("  %6d: %4zu ", size, at.size());
             for (size_t k = 0; k < at.size() && k < 6; ++k)
                 std::printf(" %zu", at[k]);
@@ -420,7 +423,7 @@ int cmdQvmDis(int argc, char** argv) {
         auto describe = [&](size_t argAt, size_t from) -> std::string {
             if (argAt == 0 || argAt - 1 < from)
                 return "?";
-            const auto& p = code[argAt - 1];
+            const auto &p = code[argAt - 1];
             if (p.op == q3::qvmop::Const) {
                 if (const std::string t = text(p.operand); !t.empty())
                     return "\"" + t + "\"";
@@ -429,7 +432,7 @@ int cmdQvmDis(int argc, char** argv) {
             if (p.op == q3::qvmop::Local)
                 return "&local" + std::to_string(p.operand);
             if (p.op == q3::qvmop::Load4 && argAt >= 2 && argAt - 2 >= from) {
-                const auto& pp = code[argAt - 2];
+                const auto &pp = code[argAt - 2];
                 if (pp.op == q3::qvmop::Local)
                     return "local" + std::to_string(pp.operand);
                 if (pp.op == q3::qvmop::Const)
@@ -466,8 +469,8 @@ int cmdQvmDis(int argc, char** argv) {
                 for (size_t j = i + 2; j < last && j < i + 5; ++j)
                     after += std::string(" ") + q3::qvmop::name(code[j].op) +
                              (q3::qvmop::operandSize(code[j].op) ? " " + std::to_string(code[j].operand) : "");
-                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first, args.empty() ? " none" : args.c_str(),
-                            after.c_str());
+                std::printf("  at %zu (function %zu): args%s; then%s\n", i, first,
+                            args.empty() ? " none" : args.c_str(), after.c_str());
                 std::set<std::string> seen;
                 for (size_t j = first; j < last && seen.size() < 3; ++j)
                     if (code[j].op == q3::qvmop::Const)
@@ -512,27 +515,30 @@ int cmdQvmDis(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("idtech3", {
-    {"qvm-info", "<game folder> <vm/x.qvm> [-s]",
-     "a QVM's sizes, functions, and the system calls its code makes (found in the code, not run); -s "
-     "its strings",
-     cmdQvmInfo},
-    {"qvm-run", "<game folder> <vm/x.qvm> [command [arg...]] [-limit N]",
-     "run vmMain(command, args) answering every system call with 0, and log each call and its "
-     "arguments",
-     cmdQvmRun},
-    {"qvm-refs", "<game folder> <vm/x.qvm> <address> <size>",
-     "the constants in a QVM's code that point into a structure at address, by offset: which fields it "
-     "uses",
-     cmdQvmRefs},
-    {"qvm-dis", "<game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>",
-     "list instructions, with the text, floats and system calls they use; -ref: the code around each "
-     "use of an address; -str: the functions using strings with the text, and the functions they call; "
-     "-syscall: the code before every call to one system call; -blockcopies: the sizes of the "
-     "structures the code copies whole; -fields: the offsets used through a global pointer; -syscalls "
-     "first last: each system call in the range in short (calls, arguments, nearby texts); -func N: "
-     "the function holding instruction N and the functions it calls",
-     cmdQvmDis},
-});
+const Commands commands(
+    "idtech3",
+    {
+        {"qvm-info", "<game folder> <vm/x.qvm> [-s]",
+         "a QVM's sizes, functions, and the system calls its code makes (found in the code, not run); -s "
+         "its strings",
+         cmdQvmInfo},
+        {"qvm-run", "<game folder> <vm/x.qvm> [command [arg...]] [-limit N]",
+         "run vmMain(command, args) answering every system call with 0, and log each call and its "
+         "arguments",
+         cmdQvmRun},
+        {"qvm-refs", "<game folder> <vm/x.qvm> <address> <size>",
+         "the constants in a QVM's code that point into a structure at address, by offset: which fields it "
+         "uses",
+         cmdQvmRefs},
+        {"qvm-dis",
+         "<game folder> <vm/x.qvm> <first instruction> [count] | -ref <address> [size] | -str <text> | -syscall <number> | -syscalls <first> <last> | -func <instruction> | -blockcopies | -fields <address>",
+         "list instructions, with the text, floats and system calls they use; -ref: the code around each "
+         "use of an address; -str: the functions using strings with the text, and the functions they call; "
+         "-syscall: the code before every call to one system call; -blockcopies: the sizes of the "
+         "structures the code copies whole; -fields: the offsets used through a global pointer; -syscalls "
+         "first last: each system call in the range in short (calls, arguments, nearby texts); -func N: "
+         "the function holding instruction N and the functions it calls",
+         cmdQvmDis},
+    });
 
 } // namespace

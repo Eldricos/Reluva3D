@@ -29,21 +29,31 @@ constexpr float kPi = 3.14159265358979f;
 constexpr int kPhysWalking = 1, kPhysFalling = 2, kPhysClambering = 13, kPhysClimbing = 14, kPhysHanging = 15;
 constexpr int kLadderTag = 1; // Texture.TexTag's TT_Ladder
 
-Vec add(const Vec& a, const Vec& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec sub(const Vec& a, const Vec& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec mul(const Vec& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-float length(const Vec& a) { return std::sqrt(dot(a, a)); }
-Vec flat(const Vec& a) {
+Vec add(const Vec &a, const Vec &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec sub(const Vec &a, const Vec &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec mul(const Vec &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float dot(const Vec &a, const Vec &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+float length(const Vec &a) {
+    return std::sqrt(dot(a, a));
+}
+Vec flat(const Vec &a) {
     const float l = std::sqrt(a[0] * a[0] + a[1] * a[1]);
     return l > 1e-4f ? Vec{a[0] / l, a[1] / l, 0} : Vec{0, 0, 0};
 }
-Vec unit(const Vec& a) {
+Vec unit(const Vec &a) {
     const float l = length(a);
     return l > 1e-4f ? mul(a, 1 / l) : Vec{0, 0, 0};
 }
 // A rotator (65536 a turn) facing along a direction, no roll.
-std::array<int32_t, 3> facing(const Vec& d) {
+std::array<int32_t, 3> facing(const Vec &d) {
     const float pitch = std::atan2(d[2], std::sqrt(d[0] * d[0] + d[1] * d[1]));
     const float yaw = std::atan2(d[1], d[0]);
     return {int32_t(std::lround(pitch * 32768 / kPi)) & 0xffff, int32_t(std::lround(yaw * 32768 / kPi)) & 0xffff, 0};
@@ -51,14 +61,13 @@ std::array<int32_t, 3> facing(const Vec& d) {
 
 } // namespace
 
-
-float ScriptLevel::climbFloat(VmObject* a, const char* name, float otherwise) {
-    const Value* v = prop(a, name);
+float ScriptLevel::climbFloat(VmObject *a, const char *name, float otherwise) {
+    const Value *v = prop(a, name);
     return v ? v->asFloat() : otherwise;
 }
 
 // A line or box swept from `from` to `to` against the world and its movers.
-ScriptLevel::Sweep ScriptLevel::sweep(VmObject* a, const Vec& from, const Vec& to, const Vec& extent) {
+ScriptLevel::Sweep ScriptLevel::sweep(VmObject *a, const Vec &from, const Vec &to, const Vec &extent) {
     Sweep s;
     Vec at, n;
     s.actor = trace(a, from, to, extent, false, at, n);
@@ -74,8 +83,8 @@ ScriptLevel::Sweep ScriptLevel::sweep(VmObject* a, const Vec& from, const Vec& t
 }
 
 // The player's view axis X (Rotation, with its pitch).
-std::array<float, 3> ScriptLevel::viewX(VmObject* a) {
-    const Value* r = prop(a, "Rotation");
+std::array<float, 3> ScriptLevel::viewX(VmObject *a) {
+    const Value *r = prop(a, "Rotation");
     if (!r)
         return {1, 0, 0};
     const auto rot = Vm::rotatorOf(*r);
@@ -85,11 +94,11 @@ std::array<float, 3> ScriptLevel::viewX(VmObject* a) {
 
 // The CTVE_PlayerPawn class's own default CollisionRadius (Engine.dll
 // reads the class's defaults, not the subclass's).
-float ScriptLevel::defaultRadius(VmObject* a) {
-    for (const VmClass* c = a->cls; c; c = c->parent())
+float ScriptLevel::defaultRadius(VmObject *a) {
+    for (const VmClass *c = a->cls; c; c = c->parent())
         if (c->name.size() == 15 && std::equal(c->name.begin(), c->name.end(), "ctve_playerpawn",
                                                [](char p, char q) { return std::tolower((unsigned char)p) == q; }))
-            if (VmProperty* p = c->findProperty(vm_.name("CollisionRadius")); p && size_t(p->slot) < c->defaults.size())
+            if (VmProperty *p = c->findProperty(vm_.name("CollisionRadius")); p && size_t(p->slot) < c->defaults.size())
                 return c->defaults[size_t(p->slot)].asFloat();
     return climbFloat(a, "CollisionRadius", 17);
 }
@@ -99,10 +108,10 @@ float ScriptLevel::defaultRadius(VmObject* a) {
 // is told: LedgeHeight (the feet on it), LedgeNormal (its floor's normal),
 // LedgeItem, and with `height` the room over it as a half-height
 // (HeadRoom). How far on it got (0-1), 0 if nowhere.
-float ScriptLevel::testStepUp(VmObject* a, float stepHeight, float height, const Vec& start, const Vec& forward,
-                              const Vec& extent) {
-    auto set = [&](const char* name, const Value& v) {
-        if (Value* p = prop(a, name))
+float ScriptLevel::testStepUp(VmObject *a, float stepHeight, float height, const Vec &start, const Vec &forward,
+                              const Vec &extent) {
+    auto set = [&](const char *name, const Value &v) {
+        if (Value *p = prop(a, name))
             *p = v;
     };
     set("LedgeHeight", Value::floatValue(start[2] - extent[2]));
@@ -129,7 +138,7 @@ float ScriptLevel::testStepUp(VmObject* a, float stepHeight, float height, const
 // TestForStrongLedgeFooting: floor (0.9 or flatter) 2 units under the
 // ledge's top just past the wall: 10, 20 or 24 units in from the player's
 // side.
-bool ScriptLevel::strongFooting(VmObject* a, const Vec& normal, const Vec& at) {
+bool ScriptLevel::strongFooting(VmObject *a, const Vec &normal, const Vec &at) {
     const float radius = climbFloat(a, "CollisionRadius", 17), ledge = climbFloat(a, "LedgeHeight", 0);
     for (const float in : {10.0f, 20.0f, 24.0f}) {
         const Vec p{at[0] - normal[0] * (radius + in), at[1] - normal[1] * (radius + in), ledge + 1};
@@ -143,7 +152,7 @@ bool ScriptLevel::strongFooting(VmObject* a, const Vec& normal, const Vec& at) {
 // TestForHandHold: the wall facing the player 2 under the ledge's top,
 // and floor under the hands 8 units to either side along it; the player's
 // Base becomes what the hands are on.
-bool ScriptLevel::handHold(VmObject* a, const Vec& normal, const Vec& at) {
+bool ScriptLevel::handHold(VmObject *a, const Vec &normal, const Vec &at) {
     const float radius = climbFloat(a, "CollisionRadius", 17), ledge = climbFloat(a, "LedgeHeight", 0);
     const Vec from{at[0], at[1], ledge - 2};
     const Sweep wall = sweep(a, from, sub(from, mul(normal, 1.6f * radius)), {});
@@ -151,7 +160,7 @@ bool ScriptLevel::handHold(VmObject* a, const Vec& normal, const Vec& at) {
         return false;
     const Vec hands = add(sub(wall.at, mul(normal, 0.9f)), {0, 0, 3});
     const Vec side{-normal[1], normal[0], 0};
-    VmObject* on = nullptr;
+    VmObject *on = nullptr;
     for (const float k : {8.0f, -8.0f}) {
         const Vec p = add(hands, mul(side, k));
         const Sweep s = sweep(a, p, add(p, {0, 0, -2}), {});
@@ -159,7 +168,7 @@ bool ScriptLevel::handHold(VmObject* a, const Vec& normal, const Vec& at) {
             return false;
         on = s.actor;
     }
-    const Value* base = prop(a, "Base");
+    const Value *base = prop(a, "Base");
     if (on && (!base || base->asObject() != on))
         setBase(a, on);
     return true;
@@ -168,7 +177,7 @@ bool ScriptLevel::handHold(VmObject* a, const Vec& normal, const Vec& at) {
 // TestForHangLedge: from the hands (`at` raised by StandCollisionHeight +
 // ArmCollisionHeight) up clear by twice the hands' height, 4 units into
 // the wall clear, and down onto the ledge; `at` ends there.
-bool ScriptLevel::hangLedge(VmObject* a, const Vec& normal, Vec& at) {
+bool ScriptLevel::hangLedge(VmObject *a, const Vec &normal, Vec &at) {
     const float radius = climbFloat(a, "CollisionRadius", 17), hand = climbFloat(a, "HandCollisionHeight", 4);
     at[2] += climbFloat(a, "StandCollisionHeight", 49.5f) + climbFloat(a, "ArmCollisionHeight", 7.5f);
     const Vec e{radius, radius, hand};
@@ -193,10 +202,10 @@ bool ScriptLevel::hangLedge(VmObject* a, const Vec& normal, Vec& at) {
 // from the feet if standing. A ledge above a step: deep enough (1.6 of
 // the class's radius over 45 high, else 0.5), flat (0.9), with footing
 // and a hand hold. Smaller steps are left to the walk's own step up.
-bool ScriptLevel::testForLedge(VmObject* a, const Vec& hitNormal, const Vec& dir) {
+bool ScriptLevel::testForLedge(VmObject *a, const Vec &hitNormal, const Vec &dir) {
     if (length(dir) < 1e-4f)
         return false;
-    const Value* loc = prop(a, "Location");
+    const Value *loc = prop(a, "Location");
     if (!loc)
         return false;
     const Vec at = Vm::vectorOf(*loc);
@@ -208,45 +217,45 @@ bool ScriptLevel::testForLedge(VmObject* a, const Vec& hitNormal, const Vec& dir
     const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
     const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
     bool noAction = false;
-    if (VmObject* li = levelInfo_)
-        if (const Value* v = prop(li, "bNoActionLevel"))
+    if (VmObject *li = levelInfo_)
+        if (const Value *v = prop(li, "bNoActionLevel"))
             noAction = v->asBool();
     if (!(std::fabs(hitNormal[2]) < 0.1f && dot(f, hitNormal) < -0.85f && dot(x, hitNormal) < -0.85f && !crouching &&
           (!noAction || physics == kPhysClimbing)))
         return false;
     Vec start = at;
     Vec e{radius, radius, height};
-    const Value* duckStage = prop(a, "DuckStage");
+    const Value *duckStage = prop(a, "DuckStage");
     if (height > duck + 1 && (!duckStage || duckStage->asInt() == 0) && physics == kPhysWalking) {
         start[2] = at[2] - height + duck + 1;
         e[2] = duck + 1;
     }
     const float r = testStepUp(a, 2 * (arm + stand), stand, start, mul(f, s), e);
     const float depth = r * s;
-    if (Value* p = prop(a, "LedgeDepth"))
+    if (Value *p = prop(a, "LedgeDepth"))
         *p = Value::floatValue(depth);
     const float rise = climbFloat(a, "LedgeHeight", 0) - (at[2] - height);
     if (rise <= step + 1 || r <= 0)
         return false;
-    const Value* ln = prop(a, "LedgeNormal");
-    const Value* item = prop(a, "LedgeItem");
-    return depth > dR * (rise > 45 ? 1.6f : 0.5f) && ln && Vm::vectorOf(*ln)[2] > 0.9f && (!item || item->asInt() >= 0) &&
-           strongFooting(a, hitNormal, at) && handHold(a, hitNormal, at);
+    const Value *ln = prop(a, "LedgeNormal");
+    const Value *item = prop(a, "LedgeItem");
+    return depth > dR * (rise > 45 ? 1.6f : 0.5f) && ln && Vm::vectorOf(*ln)[2] > 0.9f &&
+           (!item || item->asInt() >= 0) && strongFooting(a, hitNormal, at) && handHold(a, hitNormal, at);
 }
 
 // ForceDuck: the player made to crouch where it is (its scripts' walking
 // state shrinks it to its ducked height and keeps it so while
 // CollisionHeightOverride is set and it's near ForceDuckLocation).
-void ScriptLevel::forceDuck(VmObject* a) {
+void ScriptLevel::forceDuck(VmObject *a) {
     const float height = climbFloat(a, "CollisionHeight", 49.5f);
     const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f);
-    if (Value* o = prop(a, "CollisionHeightOverride"); o && o->asFloat() == 0)
+    if (Value *o = prop(a, "CollisionHeightOverride"); o && o->asFloat() == 0)
         *o = Value::floatValue(height);
-    if (Value* f = prop(a, "ForceDuckLocation")) {
+    if (Value *f = prop(a, "ForceDuckLocation")) {
         const Vec at = Vm::vectorOf(*prop(a, "Location"));
         vm_.setVector(*f, at[0], at[1], at[2] + duck - height);
     }
-    if (Value* c = prop(a, "bIsCrouching"))
+    if (Value *c = prop(a, "bIsCrouching"))
         *c = Value::boolValue(true);
 }
 
@@ -256,15 +265,15 @@ void ScriptLevel::forceDuck(VmObject* a) {
 // over 0.3 s with no step there, it ducks under (auto-duck). A step it
 // would go up with too little room over it for its height (and not
 // crouching), it ducks to. True if it ducked (the move ends).
-bool ScriptLevel::duckUnder(VmObject* a, const Vec& dir) {
-    const Value* loc = prop(a, "Location");
+bool ScriptLevel::duckUnder(VmObject *a, const Vec &dir) {
+    const Value *loc = prop(a, "Location");
     const Vec f = flat(dir);
     if (!loc || length(f) < 0.5f)
         return false;
     const Vec at = Vm::vectorOf(*loc);
     const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
     const float duck = climbFloat(a, "DuckCollisionHeight", 32.5f), step = climbFloat(a, "MaxStepHeight", 25);
-    const Value* duckStage = prop(a, "DuckStage");
+    const Value *duckStage = prop(a, "DuckStage");
     const int physics = prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0;
     const bool crouching = prop(a, "bIsCrouching") && prop(a, "bIsCrouching")->asBool();
     if (!(height > duck + 1 && (!duckStage || duckStage->asInt() == 0) && physics == kPhysWalking))
@@ -283,8 +292,8 @@ bool ScriptLevel::duckUnder(VmObject* a, const Vec& dir) {
         forceDuck(a);
         return true;
     }
-    if (rise <= step + 1 && r * s > defaultRadius(a) * 0.4f && std::clamp(r * s / 3, 0.0f, 1.0f) > 0.99f && !crouching &&
-        climbFloat(a, "HeadRoom", height) < height) {
+    if (rise <= step + 1 && r * s > defaultRadius(a) * 0.4f && std::clamp(r * s / 3, 0.0f, 1.0f) > 0.99f &&
+        !crouching && climbFloat(a, "HeadRoom", height) < height) {
         forceDuck(a);
         return true;
     }
@@ -295,11 +304,11 @@ bool ScriptLevel::duckUnder(VmObject* a, const Vec& dir) {
 // ahead at the feet (4 over them), the chest and/or the head (4 under
 // it), as asked. With `snap`, ahead is into the wall met (upright, met
 // head on), and the player is put against the ladder, 2 units off it.
-bool ScriptLevel::checkClimbing(VmObject* a, const Vec& wallNormal, const Vec& dir, bool snap, bool feet, bool chest,
+bool ScriptLevel::checkClimbing(VmObject *a, const Vec &wallNormal, const Vec &dir, bool snap, bool feet, bool chest,
                                 bool head) {
-    if (const Value* c = prop(a, "bIsCrouching"); c && c->asBool())
+    if (const Value *c = prop(a, "bIsCrouching"); c && c->asBool())
         return false;
-    const Value* loc = prop(a, "Location");
+    const Value *loc = prop(a, "Location");
     if (!loc)
         return false;
     const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
@@ -313,9 +322,9 @@ bool ScriptLevel::checkClimbing(VmObject* a, const Vec& wallNormal, const Vec& d
         ahead = mul(x, 1.6f * radius);
     }
     const Vec at = Vm::vectorOf(*loc);
-    auto ladderFrom = [&](const Vec& from) {
-        VmObject* t = surfaceTexture(from, add(from, ahead));
-        const Value* tag = t ? prop(t, "TexTag") : nullptr;
+    auto ladderFrom = [&](const Vec &from) {
+        VmObject *t = surfaceTexture(from, add(from, ahead));
+        const Value *tag = t ? prop(t, "TexTag") : nullptr;
         return tag && tag->asInt() == kLadderTag;
     };
     if (feet && !ladderFrom({at[0], at[1], at[2] - height + 4}))
@@ -342,8 +351,8 @@ bool ScriptLevel::checkClimbing(VmObject* a, const Vec& wallNormal, const Vec& d
 
 // Facing into the wall, then the player's scripts asked to change to
 // `physics`; their Rotation put back if they say no.
-bool ScriptLevel::askClimb(VmObject* a, const Vec& wallNormal, int physics) {
-    Value* r = prop(a, "Rotation");
+bool ScriptLevel::askClimb(VmObject *a, const Vec &wallNormal, int physics) {
+    Value *r = prop(a, "Rotation");
     const Value before = r ? *r : Value{};
     if (r) {
         const auto f = facing(mul(wallNormal, -1));
@@ -358,7 +367,7 @@ bool ScriptLevel::askClimb(VmObject* a, const Vec& wallNormal, int physics) {
 // A walking move of the player blocked by a wall (`hit`, with `left` of
 // the move to go): a ledge to pull up onto (Clambering), else a ladder
 // (Climbing). True if its scripts took it.
-bool ScriptLevel::climbBlocked(VmObject* a, VmObject* by, const Vec& hitNormal, const Vec& left) {
+bool ScriptLevel::climbBlocked(VmObject *a, VmObject *by, const Vec &hitNormal, const Vec &left) {
     if (by != levelInfo_ || !vm_.isA(a, "CTVE_PlayerPawn"))
         return false;
     if (testForLedge(a, hitNormal, left))
@@ -375,11 +384,11 @@ bool ScriptLevel::climbBlocked(VmObject* a, VmObject* by, const Vec& hitNormal, 
 // ArmCollisionHeight) moving toward what's 6 units ahead: a ladder there
 // (Climbing), else a ledge its hands can hang from (Hanging), the player
 // put there with the box's top at the ledge.
-void ScriptLevel::climbCheck(VmObject* a, bool falling, float dt) {
+void ScriptLevel::climbCheck(VmObject *a, bool falling, float dt) {
     (void)dt;
     if (!falling || !vm_.isA(a, "CTVE_PlayerPawn"))
         return;
-    const Value* loc = prop(a, "Location");
+    const Value *loc = prop(a, "Location");
     if (!loc)
         return;
     const float radius = climbFloat(a, "CollisionRadius", 17), height = climbFloat(a, "CollisionHeight", 49.5f);
@@ -388,7 +397,7 @@ void ScriptLevel::climbCheck(VmObject* a, bool falling, float dt) {
     if (std::fabs(height - (stand + arm)) > 0.01f)
         return;
     const Vec x = viewX(a), f6 = mul(x, 6);
-    const Value* vel = prop(a, "Velocity");
+    const Value *vel = prop(a, "Velocity");
     if (vel && dot(Vm::vectorOf(*vel), f6) <= -1)
         return;
     const Vec at = Vm::vectorOf(*loc);
@@ -405,9 +414,9 @@ void ScriptLevel::climbCheck(VmObject* a, bool falling, float dt) {
     p[2] -= arm;
     const float got = testStepUp(a, 2 * (arm + hand), stand, p, mul(x, radius), {radius, radius, hand});
     const float depth = got * radius;
-    if (Value* d = prop(a, "LedgeDepth"))
+    if (Value *d = prop(a, "LedgeDepth"))
         *d = Value::floatValue(depth);
-    const Value* ln = prop(a, "LedgeNormal");
+    const Value *ln = prop(a, "LedgeNormal");
     if (got <= 0 || depth < 4 || !ln || Vm::vectorOf(*ln)[2] <= 0.9f)
         return;
     Vec hang{p[0], p[1], climbFloat(a, "LedgeHeight", 0) - stand - arm};
@@ -429,22 +438,22 @@ void ScriptLevel::climbCheck(VmObject* a, bool falling, float dt) {
 // Moved straight there (the climbing moves are the animations'), with the
 // camera's smoothing told so it eases after, as the scripts do for their
 // own jumps of the player (LocationOffset).
-void ScriptLevel::setLocation(VmObject* a, const Vec& to) {
-    Value* loc = prop(a, "Location");
+void ScriptLevel::setLocation(VmObject *a, const Vec &to) {
+    Value *loc = prop(a, "Location");
     if (!loc)
         return;
     const Vec from = Vm::vectorOf(*loc);
     vm_.setVector(*loc, to[0], to[1], to[2]);
     updateRegion(a);
-    if (Value* off = prop(a, "LocationOffset")) {
+    if (Value *off = prop(a, "LocationOffset")) {
         const Vec o = sub(Vm::vectorOf(*off), sub(to, from));
         vm_.setVector(*off, o[0], o[1], o[2]);
     }
 }
 
-void ScriptLevel::climbPhysics(VmObject* a, int physics, float dt) {
-    Value* velocity = prop(a, "Velocity");
-    Value* loc = prop(a, "Location");
+void ScriptLevel::climbPhysics(VmObject *a, int physics, float dt) {
+    Value *velocity = prop(a, "Velocity");
+    Value *loc = prop(a, "Location");
     if (!velocity || !loc || dt <= 0)
         return;
     const Vec accel = prop(a, "Acceleration") ? Vm::vectorOf(*prop(a, "Acceleration")) : Vec{};
@@ -467,7 +476,7 @@ void ScriptLevel::climbPhysics(VmObject* a, int physics, float dt) {
         if (checkClimbing(a, {}, d, false, d[2] < 0, false, d[2] > 0)) {
             const MoveHit h = moveActor(a, d);
             if (!a->deleted && h.hit() && h.normal[2] > 0) {
-                Value* v = prop(a, "Velocity");
+                Value *v = prop(a, "Velocity");
                 if (v) {
                     Vec now = Vm::vectorOf(*v);
                     vm_.setVector(*v, now[0], now[1], 0);
@@ -513,7 +522,7 @@ void ScriptLevel::climbPhysics(VmObject* a, int physics, float dt) {
     // (its scripts set the rise to 0); then forward at 120 a second until
     // something stops it, when it walks. Blocked going up: it falls.
     vm_.setVector(*velocity, 0, 0, 0);
-    if (Value* ac = prop(a, "Acceleration"))
+    if (Value *ac = prop(a, "Acceleration"))
         vm_.setVector(*ac, 0, 0, 0);
     const float rise = climbFloat(a, "DodgeClickTimer", 0);
     if (rise > 0) {
@@ -546,7 +555,7 @@ std::array<float, 3> ScriptLevel::Clamber::to(float height) const {
 
 // A pull up ended (its scripts walk again as its animation ends): on the
 // ledge, wherever the animation had got to.
-void ScriptLevel::endClamber(VmObject* a) {
+void ScriptLevel::endClamber(VmObject *a) {
     auto it = clambers_.find(a);
     if (it == clambers_.end())
         return;

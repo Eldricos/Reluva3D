@@ -54,7 +54,7 @@ public:
 
     // The next frame: its picture into the planes and its sound (the first
     // track's, interleaved) appended to `sound` if given. False at the end.
-    Error nextFrame(bool& more, std::vector<int16_t>* sound = nullptr);
+    Error nextFrame(bool &more, std::vector<int16_t> *sound = nullptr);
     int frameNumber() const { return next_ - 1; } // the last one decoded
     // Back to the first frame, which the next nextFrame() decodes again,
     // from pictures as they were when the movie was opened: for a movie
@@ -62,11 +62,11 @@ public:
     void rewind();
     // The first audio track whole (interleaved), read ahead of the frames
     // (which then skip it).
-    Error decodeAllAudio(std::vector<int16_t>& sound);
+    Error decodeAllAudio(std::vector<int16_t> &sound);
 
     // The last frame decoded's planes: Y full size, U and V half (alpha 3);
     // their pitches.
-    const std::vector<uint8_t>& decodedPlane(int i) const { return old_[size_t(i)]; }
+    const std::vector<uint8_t> &decodedPlane(int i) const { return old_[size_t(i)]; }
     int pitch(int i) const { return i == 0 || i == 3 ? lumaPitch_ : chromaPitch_; }
     // As RGBA, width x height, rows top first (BT.601, studio range), its
     // alpha the alpha plane's if it has one, else 255. Rounded: each pixel
@@ -74,11 +74,11 @@ public:
     // converts (each term truncated on its own; the AWE engine's movies
     // were checked against it frame by frame).
     enum class Rgb { Rounded, Binkw32 };
-    void toRgba(std::vector<uint8_t>& out, Rgb how = Rgb::Rounded) const;
+    void toRgba(std::vector<uint8_t> &out, Rgb how = Rgb::Rounded) const;
 
     // --- Internals (public for the decoder's helpers) -----------------------
     struct Bits {
-        const uint8_t* data = nullptr;
+        const uint8_t *data = nullptr;
         size_t size = 0, pos = 0; // in bits
         uint32_t get(int n);
         uint32_t bit() { return get(1); }
@@ -119,18 +119,18 @@ private:
     enum Source { BlockTypes, SubBlockTypes, Colors, Pattern, XOff, YOff, IntraDC, InterDC, Run, SourceCount };
 
     void clearPictures();
-    void decodePlane(Bits& b, int plane, bool chroma);
-    void readTree(Bits& b, Tree& t);
-    int symbol(Bits& b, const Tree& t);
-    uint32_t bundleCount(Bits& b, Bundle& bundle);
-    void readBundle(Bits& b, Source s);
+    void decodePlane(Bits &b, int plane, bool chroma);
+    void readTree(Bits &b, Tree &t);
+    int symbol(Bits &b, const Tree &t);
+    uint32_t bundleCount(Bits &b, Bundle &bundle);
+    void readBundle(Bits &b, Source s);
     int value(Source s);
-    void readDCTCoefficients(Bits& b, int32_t block[64], bool intra);
-    void readResidue(Bits& b, int32_t block[64], int masks);
-    void decodeAudio(Audio& a, Bits& b, std::vector<int16_t>* sound);
+    void readDCTCoefficients(Bits &b, int32_t block[64], bool intra);
+    void readResidue(Bits &b, int32_t block[64], int masks);
+    void decodeAudio(Audio &a, Bits &b, std::vector<int16_t> *sound);
     // An audio packet (its decoded size, then the blocks) into `sound`.
-    void decodePacket(Audio& a, const uint8_t* packet, uint32_t length, std::vector<int16_t>& sound);
-    void readAudioCoefficients(Audio& a, Bits& b, float* coeffs);
+    void decodePacket(Audio &a, const uint8_t *packet, uint32_t length, std::vector<int16_t> &sound);
+    void readAudioCoefficients(Audio &a, Bits &b, float *coeffs);
 
     std::vector<uint8_t> file_;
     char revision_ = 0;

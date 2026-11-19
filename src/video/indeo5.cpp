@@ -46,7 +46,9 @@ struct Scans {
 const Scans kScans;
 
 // A value with its sign in the lowest bit: odd positive, even negative.
-int toSigned(uint32_t v) { return (v & 1) ? int(v >> 1) + 1 : -int(v >> 1); }
+int toSigned(uint32_t v) {
+    return (v & 1) ? int(v >> 1) + 1 : -int(v >> 1);
+}
 
 // The inverse slant transforms, one row or column of 8 or 4 at a time.
 // `round` halves the results (rounding), as the second pass does.
@@ -57,12 +59,12 @@ void slant8(const int (&s)[8], int (&d)[8], bool round) {
     // Reflections a, b = 1/2, 7/8 and 1/2, 5/4; butterflies.
     t4 = s5 + ((s4 * 4 - s5 + 4) >> 3);
     t5 = s4 + ((-s4 - s5 * 4 + 4) >> 3);
-    auto bfly = [&](int a, int b, int& o1, int& o2) {
+    auto bfly = [&](int a, int b, int &o1, int &o2) {
         t = a - b;
         o1 = a + b;
         o2 = t;
     };
-    auto reflect = [&](int a, int b, int& o1, int& o2) {
+    auto reflect = [&](int a, int b, int &o1, int &o2) {
         t = ((a + b * 2 + 2) >> 2) + a;
         o2 = ((a * 2 - b + 2) >> 2) - b;
         o1 = t;
@@ -102,7 +104,7 @@ void slant4(const int (&s)[4], int (&d)[4], bool round) {
 
 // A block's coefficients (row by row) to pixels at `out`; `cols` marks
 // the columns with any non-zero coefficient.
-void inverse(int kind, const int32_t* in, int16_t* out, ptrdiff_t pitch, const uint8_t* cols) {
+void inverse(int kind, const int32_t *in, int16_t *out, ptrdiff_t pitch, const uint8_t *cols) {
     switch (kind) {
     case 0: { // 2D slant 8x8: columns, then rows
         int tmp[64];
@@ -185,31 +187,47 @@ void inverse(int kind, const int32_t* in, int16_t* out, ptrdiff_t pitch, const u
 }
 
 // A block with only its DC coefficient: what each transform makes of it.
-void inverseDc(int kind, int dc, int16_t* out, ptrdiff_t pitch, int size) {
+void inverseDc(int kind, int dc, int16_t *out, ptrdiff_t pitch, int size) {
     const int16_t v = int16_t((dc + 1) >> 1);
     for (int r = 0; r < size; ++r, out += pitch)
         for (int c = 0; c < size; ++c) {
             switch (kind) {
             case 0:
-            case 4: out[c] = v; break;                                   // the whole block
-            case 1: out[c] = r == 0 ? v : 0; break;                      // the first row
-            case 2: out[c] = c == 0 ? v : 0; break;                      // the first column
-            default: out[c] = r == 0 && c == 0 ? int16_t(dc) : 0; break; // the first pixel, unhalved
+            case 4:
+                out[c] = v;
+                break; // the whole block
+            case 1:
+                out[c] = r == 0 ? v : 0;
+                break; // the first row
+            case 2:
+                out[c] = c == 0 ? v : 0;
+                break; // the first column
+            default:
+                out[c] = r == 0 && c == 0 ? int16_t(dc) : 0;
+                break; // the first pixel, unhalved
             }
         }
 }
 
 // Motion compensation: the block at `ref` (half a pixel on across if
 // type & 1, down if type & 2) put at `out`, or added to it.
-void compensate(int16_t* out, const int16_t* ref, ptrdiff_t pitch, int size, int type, bool add) {
+void compensate(int16_t *out, const int16_t *ref, ptrdiff_t pitch, int size, int type, bool add) {
     for (int r = 0; r < size; ++r, out += pitch, ref += pitch)
         for (int c = 0; c < size; ++c) {
             int v;
             switch (type) {
-            case 1: v = (ref[c] + ref[c + 1]) >> 1; break;
-            case 2: v = (ref[c] + ref[c + pitch]) >> 1; break;
-            case 3: v = (ref[c] + ref[c + 1] + ref[c + pitch] + ref[c + pitch + 1]) >> 2; break;
-            default: v = ref[c]; break;
+            case 1:
+                v = (ref[c] + ref[c + 1]) >> 1;
+                break;
+            case 2:
+                v = (ref[c] + ref[c + pitch]) >> 1;
+                break;
+            case 3:
+                v = (ref[c] + ref[c + 1] + ref[c + pitch] + ref[c + pitch + 1]) >> 2;
+                break;
+            default:
+                v = ref[c];
+                break;
             }
             out[c] = int16_t(add ? out[c] + v : v);
         }
@@ -217,7 +235,9 @@ void compensate(int16_t* out, const int16_t* ref, ptrdiff_t pitch, int size, int
 
 // A motion vector of the first luma band scaled down for a band of
 // smaller macroblocks.
-int scaleMv(int mv, int scale) { return (mv + (mv > 0) + (scale - 1)) >> scale; }
+int scaleMv(int mv, int scale) {
+    return (mv + (mv > 0) + (scale - 1)) >> scale;
+}
 
 } // namespace
 
@@ -225,8 +245,8 @@ int scaleMv(int mv, int scale) { return (mv + (mv > 0) + (scale - 1)) >> scale; 
 // its lowest. Huffman codes are the other way: their first bit is their
 // highest.
 struct Indeo5Decoder::Bits {
-    const uint8_t* data;
-    size_t size; // bytes
+    const uint8_t *data;
+    size_t size;    // bytes
     size_t pos = 0; // bits
     bool overrun = false;
 
@@ -254,7 +274,7 @@ struct Indeo5Decoder::Bits {
     }
     void align() { pos = (pos + 7) & ~size_t(7); }
     // A symbol of the code whose rows are `xbits`; -1 if it's past 255.
-    int symbol(const uint8_t* xbits, int rows) {
+    int symbol(const uint8_t *xbits, int rows) {
         if (rows == 1 && xbits[0] == 0) // a single symbol: coded as one bit
             return bit() ? -1 : 0;
         int row = 0, first = 0;
@@ -280,7 +300,7 @@ void Indeo5Decoder::layOut(int width, int height, int lumaBands, int chromaBands
     tileSize_ = tileSize;
     if (!same) {
         for (int p = 0; p < 3; ++p) {
-            Plane& plane = planes_[size_t(p)];
+            Plane &plane = planes_[size_t(p)];
             plane.width = p ? (width + 3) >> 2 : width;
             plane.height = p ? (height + 3) >> 2 : height;
             const int count = p ? chromaBands : lumaBands;
@@ -289,7 +309,7 @@ void Indeo5Decoder::layOut(int width, int height, int lumaBands, int chromaBands
             const int bh = count == 1 ? plane.height : (plane.height + 1) >> 1;
             const int align = p ? 8 : 16;
             for (int b = 0; b < count; ++b) {
-                Band& band = plane.bands[size_t(b)];
+                Band &band = plane.bands[size_t(b)];
                 band.plane = p;
                 band.number = b;
                 band.width = bw;
@@ -302,7 +322,7 @@ void Indeo5Decoder::layOut(int width, int height, int lumaBands, int chromaBands
     }
 }
 
-Error Indeo5Decoder::decodeGop(Bits& b) {
+Error Indeo5Decoder::decodeGop(Bits &b) {
     gopFlags_ = int(b.get(8));
     if (gopFlags_ & 1)
         b.get(16); // the header's size
@@ -333,7 +353,7 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
 
     for (int p = 0; p < 2; ++p)
         for (int i = 0; i < (p ? chromaBands : lumaBands); ++i) {
-            Band& band = planes_[size_t(p)].bands[size_t(i)];
+            Band &band = planes_[size_t(p)].bands[size_t(i)];
             band.halfPel = b.bit();
             const bool mbSame = b.bit();
             band.blkSize = 8 >> b.bit();
@@ -344,7 +364,7 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
                 return Error::fail("Indeo 5: extended transforms aren't supported");
             static const Transform kTransforms[5] = {Transform::Slant8x8, Transform::RowSlant8, Transform::ColSlant8,
                                                      Transform::Put8x8, Transform::Slant4x4};
-            const uint8_t* const kScanOf[5] = {kZigzag8x8, kScans.vertical, kScans.horizontal, kScans.horizontal,
+            const uint8_t *const kScanOf[5] = {kZigzag8x8, kScans.vertical, kScans.horizontal, kScans.horizontal,
                                                kDirect4x4};
             const int which = (p << 2) + i;
             if (which > 4)
@@ -372,8 +392,8 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
         }
     // The second chroma plane is coded as the first.
     for (size_t i = 0; i < planes_[1].bands.size(); ++i) {
-        const Band& from = planes_[1].bands[i];
-        Band& to = planes_[2].bands[i];
+        const Band &from = planes_[1].bands[i];
+        Band &to = planes_[2].bands[i];
         to.mbSize = from.mbSize;
         to.blkSize = from.blkSize;
         to.halfPel = from.halfPel;
@@ -398,7 +418,7 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
         }
         if (tw <= 0 || th <= 0)
             return Error::fail("Indeo 5: empty tiles");
-        for (Band& band : planes_[size_t(p)].bands) {
+        for (Band &band : planes_[size_t(p)].bands) {
             band.tiles.clear();
             for (int y = 0; y < band.height; y += th)
                 for (int x = 0; x < band.width; x += tw) {
@@ -414,9 +434,9 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
         }
     }
     // Other bands inherit from the first luma band's macroblocks.
-    const std::vector<Tile>& first = planes_[0].bands[0].tiles;
+    const std::vector<Tile> &first = planes_[0].bands[0].tiles;
     for (int p = 0; p < 3; ++p)
-        for (Band& band : planes_[size_t(p)].bands) {
+        for (Band &band : planes_[size_t(p)].bands) {
             if (!p && !band.number)
                 continue;
             if (band.tiles.size() != first.size())
@@ -435,15 +455,14 @@ Error Indeo5Decoder::decodeGop(Bits& b) {
             b.get(24); // the transparent colour
     }
     b.align();
-    b.get(23); // meaning unknown
+    b.get(23);   // meaning unknown
     if (b.bit()) // an extension: 16-bit words while the top bit is set
-        while (b.get(16) & 0x8000 && !b.overrun) {
-        }
+        while (b.get(16) & 0x8000 && !b.overrun) {}
     b.align();
     return Error::success();
 }
 
-Error Indeo5Decoder::decodePictureHeader(Bits& b) {
+Error Indeo5Decoder::decodePictureHeader(Bits &b) {
     if (b.get(5) != 0x1f)
         return Error::fail("Indeo 5: no picture start code");
     prevFrameType_ = frameType_;
@@ -467,7 +486,7 @@ Error Indeo5Decoder::decodePictureHeader(Bits& b) {
         if (frameFlags_ & 1)
             b.get(24); // the header's size
         if (frameFlags_ & 0x10)
-            b.get(16); // a checksum
+            b.get(16);          // a checksum
         if (frameFlags_ & 0x20) // an extension: lengths, then that many bytes, to a 0
             for (uint32_t n; (n = b.get(8)) && !b.overrun;)
                 b.pos += size_t(n) * 8;
@@ -506,20 +525,24 @@ void Indeo5Decoder::switchBuffers() {
         std::swap(dstBuf_, ref2Buf_);
         refBuf_ = ref2Buf_;
         break;
-    default: break;
+    default:
+        break;
     }
     switch (frameType_) {
-    case kIntra: bufSwitch_ = 0; [[fallthrough]];
+    case kIntra:
+        bufSwitch_ = 0;
+        [[fallthrough]];
     case kInter:
         interScalable_ = false;
         dstBuf_ = bufSwitch_;
         refBuf_ = bufSwitch_ ^ 1;
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
-Error Indeo5Decoder::decode(const uint8_t* data, size_t size) {
+Error Indeo5Decoder::decode(const uint8_t *data, size_t size) {
     if (!size)
         return Error::success();
     Bits b{data, size};
@@ -530,12 +553,12 @@ Error Indeo5Decoder::decode(const uint8_t* data, size_t size) {
     switchBuffers();
     if (frameType_ == kNull)
         return Error::success();
-    for (Plane& plane : planes_)
-        for (Band& band : plane.bands) {
-            auto buffer = [&](int i) -> int16_t* {
+    for (Plane &plane : planes_)
+        for (Band &band : plane.bands) {
+            auto buffer = [&](int i) -> int16_t * {
                 if (lumaBands_ <= 1 && i == 2)
                     return nullptr;
-                std::vector<int16_t>& buf = band.bufs[size_t(i)];
+                std::vector<int16_t> &buf = band.bufs[size_t(i)];
                 if (buf.empty())
                     buf.assign(size_t(band.pitch) * size_t(band.alignedHeight), 0);
                 return buf.data();
@@ -555,7 +578,7 @@ Error Indeo5Decoder::decode(const uint8_t* data, size_t size) {
     return Error::success();
 }
 
-Error Indeo5Decoder::decodeBand(Bits& b, Band& band) {
+Error Indeo5Decoder::decodeBand(Bits &b, Band &band) {
     const int flags = int(b.get(8));
     if (flags & 1)
         return Error::fail("Indeo 5: an empty band");
@@ -600,7 +623,7 @@ Error Indeo5Decoder::decodeBand(Bits& b, Band& band) {
     b.align();
 
     size_t pos = b.pos;
-    for (Tile& tile : band.tiles) {
+    for (Tile &tile : band.tiles) {
         if (b.bit()) {
             if (Error err = emptyTile(band, tile))
                 return err;
@@ -627,11 +650,11 @@ Error Indeo5Decoder::decodeBand(Bits& b, Band& band) {
     return Error::success();
 }
 
-Error Indeo5Decoder::decodeMacroblocks(Bits& b, Band& band, Tile& tile) {
-    const std::vector<Macroblock>* ref = tile.ref;
+Error Indeo5Decoder::decodeMacroblocks(Bits &b, Band &band, Tile &tile) {
+    const std::vector<Macroblock> *ref = tile.ref;
     if (!ref && ((band.qDeltaPresent && band.inheritQDelta) || band.inheritMv))
         return Error::fail("Indeo 5: nothing to inherit from");
-    const uint8_t* xbits = mbCodebook_ == 8 ? mbOwnCodebook_.data() : kMacroblockCodebooks[mbCodebook_].xbits;
+    const uint8_t *xbits = mbCodebook_ == 8 ? mbOwnCodebook_.data() : kMacroblockCodebooks[mbCodebook_].xbits;
     const int rows = mbCodebook_ == 8 ? mbOwnRows_ : kMacroblockCodebooks[mbCodebook_].rows;
     auto value = [&]() { return toSigned(uint32_t(std::max(0, b.symbol(xbits, rows)))); };
     const int mvScale = (planes_[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
@@ -640,8 +663,8 @@ Error Indeo5Decoder::decodeMacroblocks(Bits& b, Band& band, Tile& tile) {
     size_t i = 0;
     for (int y = tile.y; y < tile.y + tile.height; y += band.mbSize)
         for (int x = tile.x; x < tile.x + tile.width; x += band.mbSize, ++i) {
-            Macroblock& mb = tile.mbs[i];
-            const Macroblock* from = ref ? &(*ref)[i] : nullptr;
+            Macroblock &mb = tile.mbs[i];
+            const Macroblock *from = ref ? &(*ref)[i] : nullptr;
             mb.x = x;
             mb.y = y;
             mb.offset = y * band.pitch + x;
@@ -701,7 +724,7 @@ Error Indeo5Decoder::decodeMacroblocks(Bits& b, Band& band, Tile& tile) {
     return Error::success();
 }
 
-Error Indeo5Decoder::decodeBlocks(Bits& b, Band& band, Tile& tile) {
+Error Indeo5Decoder::decodeBlocks(Bits &b, Band &band, Tile &tile) {
     // The run-value map, with this band's corrections swapped in.
     RunValueMap map = kRunValueMaps[band.runValueMap];
     for (auto [a, c] : band.corrections) {
@@ -712,7 +735,7 @@ Error Indeo5Decoder::decodeBlocks(Bits& b, Band& band, Tile& tile) {
         if (a == map.escape || c == map.escape)
             map.escape ^= a ^ c;
     }
-    const uint8_t* xbits = band.codebook == 8 ? band.ownCodebook.data() : kBlockCodebooks[band.codebook].xbits;
+    const uint8_t *xbits = band.codebook == 8 ? band.ownCodebook.data() : kBlockCodebooks[band.codebook].xbits;
     const int rows = band.codebook == 8 ? band.ownRows : kBlockCodebooks[band.codebook].rows;
     const int kind = int(band.transform);
     const bool twoD = band.transform == Transform::Slant8x8 || band.transform == Transform::Slant4x4;
@@ -722,11 +745,11 @@ Error Indeo5Decoder::decodeBlocks(Bits& b, Band& band, Tile& tile) {
     const int bufSize = band.pitch * band.alignedHeight;
     int prevDc = 0;
 
-    for (Macroblock& mb : tile.mbs) {
+    for (Macroblock &mb : tile.mbs) {
         const bool intra = !mb.type;
         int quant = std::clamp(band.globalQuant + mb.qDelta, 0, 23);
         quant = (intra ? band.intraScale : band.interScale)[quant];
-        const uint16_t* base = intra ? band.intraBase : band.interBase;
+        const uint16_t *base = intra ? band.intraBase : band.interBase;
         int mvX = mb.mvX, mvY = mb.mvY, mcType = 0;
         if (!intra && band.halfPel) {
             mcType = ((mvY & 1) << 1) | (mvX & 1);
@@ -743,8 +766,9 @@ Error Indeo5Decoder::decodeBlocks(Bits& b, Band& band, Tile& tile) {
             if (offset < 0 || offset + (size - 1) * band.pitch + size > bufSize)
                 return Error::fail("Indeo 5: a block outside the picture");
             const int refOffset = offset + mvY * band.pitch + mvX;
-            if (!intra && (refOffset < 0 || refOffset + (size - 1) * band.pitch + size + (mcType > 1) * band.pitch +
-                                                    (mcType & 1) > bufSize))
+            if (!intra &&
+                (refOffset < 0 ||
+                 refOffset + (size - 1) * band.pitch + size + (mcType > 1) * band.pitch + (mcType & 1) > bufSize))
                 return Error::fail("Indeo 5: a motion vector outside the picture");
             if (!(cbp & 1)) {
                 // Not coded: an intra block is the DC carried on; an inter
@@ -804,15 +828,15 @@ Error Indeo5Decoder::decodeBlocks(Bits& b, Band& band, Tile& tile) {
     return Error::success();
 }
 
-Error Indeo5Decoder::emptyTile(Band& band, Tile& tile) {
-    const std::vector<Macroblock>* ref = tile.ref;
+Error Indeo5Decoder::emptyTile(Band &band, Tile &tile) {
+    const std::vector<Macroblock> *ref = tile.ref;
     const bool clearFirst = !band.qDeltaPresent && !band.plane && !band.number;
     const int mvScale = (planes_[0].bands[0].mbSize >> 3) - (band.mbSize >> 3);
     bool moved = false;
     size_t i = 0;
     for (int y = tile.y; y < tile.y + tile.height; y += band.mbSize)
         for (int x = tile.x; x < tile.x + tile.width; x += band.mbSize, ++i) {
-            Macroblock& mb = tile.mbs[i];
+            Macroblock &mb = tile.mbs[i];
             mb.x = x;
             mb.y = y;
             mb.offset = y * band.pitch + x;
@@ -823,7 +847,7 @@ Error Indeo5Decoder::emptyTile(Band& band, Tile& tile) {
                 mb.mvX = mb.mvY = 0;
             }
             if (ref) {
-                const Macroblock& from = (*ref)[i];
+                const Macroblock &from = (*ref)[i];
                 if (band.inheritQDelta)
                     mb.qDelta = from.qDelta;
                 if (band.inheritMv) {
@@ -841,7 +865,7 @@ Error Indeo5Decoder::emptyTile(Band& band, Tile& tile) {
     const ptrdiff_t pitch = band.pitch;
     if (band.inheritMv && moved) {
         const int size = band.blkSize, blocks = band.mbSize != size ? 4 : 1;
-        for (const Macroblock& mb : tile.mbs) {
+        for (const Macroblock &mb : tile.mbs) {
             int mvX = mb.mvX, mvY = mb.mvY, mcType = 0;
             if (band.halfPel) {
                 mcType = ((mvY & 1) << 1) | (mvX & 1);
@@ -863,8 +887,8 @@ Error Indeo5Decoder::emptyTile(Band& band, Tile& tile) {
     return Error::success();
 }
 
-void Indeo5Decoder::output(int p, std::vector<uint8_t>& out) const {
-    const Plane& plane = planes_[size_t(p)];
+void Indeo5Decoder::output(int p, std::vector<uint8_t> &out) const {
+    const Plane &plane = planes_[size_t(p)];
     out.assign(size_t(plane.width) * size_t(plane.height), 128);
     if (plane.bands.empty() || !plane.bands[0].buf || !decoded_)
         return;
@@ -872,7 +896,7 @@ void Indeo5Decoder::output(int p, std::vector<uint8_t>& out) const {
         recompose53(out);
         return;
     }
-    const Band& band = plane.bands[0];
+    const Band &band = plane.bands[0];
     for (int y = 0; y < plane.height; ++y)
         for (int x = 0; x < plane.width; ++x)
             out[size_t(y) * size_t(plane.width) + size_t(x)] =
@@ -882,15 +906,15 @@ void Indeo5Decoder::output(int p, std::vector<uint8_t>& out) const {
 // The four luma wavelet bands put back together (LL, HL, LH, HH) with the
 // 5/3 filters: each band's samples spread over a 2x2 block, the edges
 // repeated.
-void Indeo5Decoder::recompose53(std::vector<uint8_t>& out) const {
-    const Plane& plane = planes_[0];
+void Indeo5Decoder::recompose53(std::vector<uint8_t> &out) const {
+    const Plane &plane = planes_[0];
     ptrdiff_t pitch = plane.bands[0].pitch, backPitch = 0;
-    const int16_t* b0 = plane.bands[0].buf;
-    const int16_t* b1 = plane.bands[1].buf;
-    const int16_t* b2 = plane.bands[2].buf;
-    const int16_t* b3 = plane.bands[3].buf;
+    const int16_t *b0 = plane.bands[0].buf;
+    const int16_t *b1 = plane.bands[1].buf;
+    const int16_t *b2 = plane.bands[2].buf;
+    const int16_t *b3 = plane.bands[3].buf;
     const int w = plane.width;
-    uint8_t* dst = out.data();
+    uint8_t *dst = out.data();
     auto clip = [](int v) { return uint8_t(std::clamp((v >> 6) + 128, 0, 255)); };
     for (int y = 0; y < plane.height; y += 2) {
         if (y + 2 >= plane.height)
@@ -975,18 +999,18 @@ void Indeo5Decoder::recompose53(std::vector<uint8_t>& out) const {
     }
 }
 
-void Indeo5Decoder::yuv(std::vector<uint8_t>& y, std::vector<uint8_t>& cb, std::vector<uint8_t>& cr) const {
+void Indeo5Decoder::yuv(std::vector<uint8_t> &y, std::vector<uint8_t> &cb, std::vector<uint8_t> &cr) const {
     output(0, y);
     output(2, cb);
     output(1, cr);
 }
 
-void Indeo5Decoder::rgba(uint8_t* out, int pitch) const {
+void Indeo5Decoder::rgba(uint8_t *out, int pitch) const {
     std::vector<uint8_t> y, cb, cr;
     yuv(y, cb, cr);
     const int w = width(), h = height(), cw = planes_[1].width;
     for (int row = 0; row < h; ++row) {
-        uint8_t* d = out + ptrdiff_t(row) * pitch;
+        uint8_t *d = out + ptrdiff_t(row) * pitch;
         for (int x = 0; x < w; ++x, d += 4) {
             const size_t c = size_t(row >> 2) * size_t(cw) + size_t(x >> 2);
             const int l = (int(y[size_t(row) * size_t(w) + size_t(x)]) - 16) * 298;

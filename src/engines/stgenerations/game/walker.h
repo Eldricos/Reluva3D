@@ -55,16 +55,16 @@ public:
 
     static const uint64_t kAllZones = ~(uint64_t)0;
 
-    explicit Walker(const LevelFile& level);
+    explicit Walker(const LevelFile &level);
     // Copies share the level's wall lines, so walkers for actors are cheap.
-    Walker(const Walker& other) = default;
+    Walker(const Walker &other) = default;
 
     // Put the player's feet at (x, y, feet) and settle onto the floor there.
     void place(double x, double y, double feet);
     // Walls a door moved: take their new places, for this walker and every copy of it.
-    void refreshWalls(const std::vector<int>& walls);
+    void refreshWalls(const std::vector<int> &walls);
     // Save or load the position and the settings scripts change.
-    void sync(Serializer& s);
+    void sync(Serializer &s);
 
     // Walk by (dx, dy) over the given time, colliding and following floors.
     void move(double dx, double dy, double seconds);
@@ -77,7 +77,7 @@ public:
 
     // Obstacles to collide with besides walls; the vector must outlive the
     // walker's moves. ignore is an index to skip (the mover itself), or -1.
-    void setObstacles(const std::vector<Obstacle>* obstacles, int ignore = -1) {
+    void setObstacles(const std::vector<Obstacle> *obstacles, int ignore = -1) {
         _obstacles = obstacles;
         _ignoredObstacle = ignore;
     }
@@ -106,7 +106,7 @@ public:
     // The floor the last landing was on (index into the flats), or -1.
     int getLandingFloor() const { return _landingFloor; }
     // How fast a jump hit a ceiling since the last call, or 0; and which ceiling.
-    double takeCeilingHit(int& ceiling) {
+    double takeCeilingHit(int &ceiling) {
         double speed = _ceilingSpeed;
         ceiling = _ceilingFlat;
         _ceilingSpeed = 0;
@@ -162,7 +162,7 @@ public:
     // The same, skipping floors with any of ignoredFlags instead of setIgnoredFloors()'s.
     int findFloor(double x, double y, double maxHeight, uint64_t zones, uint32_t ignoredFlags) const;
     // The lowest ceiling over (x, y) in the zones above minHeight, or a huge height; which in index.
-    double findCeiling(double x, double y, double minHeight, uint64_t zones, int* index = nullptr) const;
+    double findCeiling(double x, double y, double minHeight, uint64_t zones, int *index = nullptr) const;
     // Set _ducked for where the player stands.
     void duck();
     void followFloorOnly(double seconds);
@@ -186,7 +186,7 @@ public:
 
     // Sweep the player from (x, y) by (dx, dy) and report the first wall
     // touched. Returns false if the way is clear.
-    bool sweep(double x, double y, double dx, double dy, Hit& hit) const;
+    bool sweep(double x, double y, double dx, double dy, Hit &hit) const;
 
 private:
     struct WallLine {
@@ -200,11 +200,11 @@ private:
         int index;
     };
 
-    void makeLine(int index, WallLine& line) const;
+    void makeLine(int index, WallLine &line) const;
     void collideAndSlide(double dx, double dy);
     void followFloor(double seconds);
 
-    const LevelFile& _level;
+    const LevelFile &_level;
     std::shared_ptr<std::vector<WallLine>> _walls;
     double _x = 0, _y = 0, _feet = 0;
     double _fallSpeed = 0;
@@ -217,7 +217,7 @@ private:
     int _floor = -1;
     int _contactWall = -1;
     int _contactObstacle = -1;
-    const std::vector<Obstacle>* _obstacles = nullptr;
+    const std::vector<Obstacle> *_obstacles = nullptr;
     int _ignoredObstacle = -1;
     bool _falls = true;
     uint32_t _ignoredFloors = LevelFile::kFlagPassThrough;
@@ -236,4 +236,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

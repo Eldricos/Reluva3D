@@ -9,7 +9,7 @@
 
 namespace reluva::stgenerations {
 
-bool Overlay::load(SeekableReadStream& stream, int key) {
+bool Overlay::load(SeekableReadStream &stream, int key) {
     _surface.free();
     _mask.clear();
 
@@ -26,7 +26,7 @@ bool Overlay::load(SeekableReadStream& stream, int key) {
     }
 
     std::vector<uint32_t> offsets(rows);
-    for (uint32_t& offset : offsets)
+    for (uint32_t &offset : offsets)
         offset = stream.readUint32LE();
     int64_t base = stream.pos();
     int64_t dataSize = stream.size() - base;
@@ -39,8 +39,8 @@ bool Overlay::load(SeekableReadStream& stream, int key) {
             log::warning("Overlay: bad offset for row %u", row);
             return false;
         }
-        uint8_t* pixels = (uint8_t*)_surface.getBasePtr(0, row);
-        uint8_t* mask = &_mask[(size_t)row * width];
+        uint8_t *pixels = (uint8_t *)_surface.getBasePtr(0, row);
+        uint8_t *mask = &_mask[(size_t)row * width];
         uint32_t x = 0;
         while (x < width) {
             int16_t n = stream.readSint16LE();
@@ -71,7 +71,7 @@ bool Overlay::load(SeekableReadStream& stream, int key) {
     return true;
 }
 
-void Overlay::drawFrame(Canvas& dst, int frame, int frameHeight, int x, int y) const {
+void Overlay::drawFrame(Canvas &dst, int frame, int frameHeight, int x, int y) const {
     // Each frame's rows are stored bottom up, like a DIB's; the frames
     // themselves run top down.
     int top = frame * frameHeight;
@@ -79,8 +79,8 @@ void Overlay::drawFrame(Canvas& dst, int frame, int frameHeight, int x, int y) c
         int row = top + frameHeight - 1 - fy;
         if (row < 0 || row >= _surface.h)
             continue;
-        const uint8_t* src = (const uint8_t*)_surface.getBasePtr(0, row);
-        const uint8_t* mask = &_mask[(size_t)row * _surface.w];
+        const uint8_t *src = (const uint8_t *)_surface.getBasePtr(0, row);
+        const uint8_t *mask = &_mask[(size_t)row * _surface.w];
         for (int fx = 0; fx < _surface.w; fx++) {
             if (mask[fx])
                 dst.setPixel(x + fx, y + fy, src[fx]);

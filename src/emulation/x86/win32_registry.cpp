@@ -17,29 +17,34 @@ namespace reluva::x86 {
 
 namespace {
 
-constexpr uint32_t kErrorFileNotFound = 2, kErrorInvalidHandle = 6, kErrorMoreData = 234,
-                   kErrorNoMoreItems = 259;
+constexpr uint32_t kErrorFileNotFound = 2, kErrorInvalidHandle = 6, kErrorMoreData = 234, kErrorNoMoreItems = 259;
 constexpr uint32_t kRegSz = 1;
 constexpr uint32_t kClassNotRegistered = 0x80040154u; // REGDB_E_CLASSNOTREG
 
 std::string lower(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
-const char* rootName(uint32_t key) {
+const char *rootName(uint32_t key) {
     switch (key) {
-    case 0x80000000u: return "HKEY_CLASSES_ROOT";
-    case 0x80000001u: return "HKEY_CURRENT_USER";
-    case 0x80000002u: return "HKEY_LOCAL_MACHINE";
-    case 0x80000003u: return "HKEY_USERS";
-    case 0x80000005u: return "HKEY_CURRENT_CONFIG";
-    default: return nullptr;
+    case 0x80000000u:
+        return "HKEY_CLASSES_ROOT";
+    case 0x80000001u:
+        return "HKEY_CURRENT_USER";
+    case 0x80000002u:
+        return "HKEY_LOCAL_MACHINE";
+    case 0x80000003u:
+        return "HKEY_USERS";
+    case 0x80000005u:
+        return "HKEY_CURRENT_CONFIG";
+    default:
+        return nullptr;
     }
 }
 
-std::string guid(Cpu& c, uint32_t p) {
+std::string guid(Cpu &c, uint32_t p) {
     if (!c.valid(p, 16))
         return "{?}";
     char buf[40];
@@ -51,13 +56,13 @@ std::string guid(Cpu& c, uint32_t p) {
 
 } // namespace
 
-void Win32Process::setRegistryValue(const std::string& key, const std::string& name, uint32_t type,
+void Win32Process::setRegistryValue(const std::string &key, const std::string &name, uint32_t type,
                                     std::vector<uint8_t> data) {
     // The key and those above it come into being.
     for (size_t at = key.find('\\'); at != std::string::npos; at = key.find('\\', at + 1))
         registry_.emplace(lower(key.substr(0, at)), RegistryKey{key.substr(0, at), {}});
-    RegistryKey& k = registry_.emplace(lower(key), RegistryKey{key, {}}).first->second;
-    for (auto& [n, v] : k.values)
+    RegistryKey &k = registry_.emplace(lower(key), RegistryKey{key, {}}).first->second;
+    for (auto &[n, v] : k.values)
         if (lower(n) == lower(name)) {
             v = {type, std::move(data)};
             return;
@@ -65,18 +70,18 @@ void Win32Process::setRegistryValue(const std::string& key, const std::string& n
     k.values.push_back({name, {type, std::move(data)}});
 }
 
-void Win32Process::setRegistryString(const std::string& key, const std::string& name, const std::string& text) {
+void Win32Process::setRegistryString(const std::string &key, const std::string &name, const std::string &text) {
     std::vector<uint8_t> data(text.begin(), text.end());
     data.push_back(0);
     setRegistryValue(key, name, kRegSz, std::move(data));
 }
 
-std::optional<std::vector<uint8_t>> Win32Process::registryValue(const std::string& key, const std::string& name,
-                                                                uint32_t* type) const {
+std::optional<std::vector<uint8_t>> Win32Process::registryValue(const std::string &key, const std::string &name,
+                                                                uint32_t *type) const {
     auto it = registry_.find(lower(key));
     if (it == registry_.end())
         return std::nullopt;
-    for (const auto& [n, v] : it->second.values)
+    for (const auto &[n, v] : it->second.values)
         if (lower(n) == lower(name)) {
             if (type)
                 *type = v.first;
@@ -86,8 +91,8 @@ std::optional<std::vector<uint8_t>> Win32Process::registryValue(const std::strin
 }
 
 void Win32Process::addRegistryStandIns() {
-    const char* a = "ADVAPI32.dll";
-    const char* o = "ole32.dll";
+    const char *a = "ADVAPI32.dll";
+    const char *o = "ole32.dll";
 
     // What every Windows has: the installed locales, English (United
     // States) the system's.
@@ -97,9 +102,9 @@ void Win32Process::addRegistryStandIns() {
 
     // The full path of `sub` under an open key or root; empty if the
     // handle is neither.
-    auto pathOf = [this](Cpu& c, uint32_t key, uint32_t sub) -> std::string {
+    auto pathOf = [this](Cpu &c, uint32_t key, uint32_t sub) -> std::string {
         std::string base;
-        if (const char* root = rootName(key))
+        if (const char *root = rootName(key))
             base = root;
         else if (auto it = openKeys_.find(key); it != openKeys_.end())
             base = registry_.at(it->second).path;
@@ -112,14 +117,14 @@ void Win32Process::addRegistryStandIns() {
             rest.erase(0, 1);
         return rest.empty() ? base : base + "\\" + rest;
     };
-    auto open = [this](const std::string& path) {
+    auto open = [this](const std::string &path) {
         const uint32_t handle = nextKey_;
         nextKey_ += 4;
         openKeys_[handle] = lower(path);
         return handle;
     };
-    auto keyOf = [this](uint32_t handle) -> RegistryKey* {
-        if (const char* root = rootName(handle)) {
+    auto keyOf = [this](uint32_t handle) -> RegistryKey * {
+        if (const char *root = rootName(handle)) {
             auto it = registry_.emplace(lower(root), RegistryKey{root, {}}).first;
             return &it->second;
         }
@@ -128,11 +133,11 @@ void Win32Process::addRegistryStandIns() {
     };
 
     // RegOpenKeyExA(key, sub, options, access, result)
-    stdcall(a, "RegOpenKeyExA", 5, [this, pathOf, open](Cpu& c) {
+    stdcall(a, "RegOpenKeyExA", 5, [this, pathOf, open](Cpu &c) {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));
         if (path.empty())
             return kErrorInvalidHandle;
-        const char* root = rootName(c.arg(0));
+        const char *root = rootName(c.arg(0));
         const bool isRoot = root && lower(path) == lower(root); // a root is always there
         if (!registry_.count(lower(path)) && !isRoot)
             return kErrorFileNotFound;
@@ -140,7 +145,7 @@ void Win32Process::addRegistryStandIns() {
         c.write32(c.arg(4), open(path));
         return 0u;
     });
-    stdcall(a, "RegOpenKeyA", 3, [this, pathOf, open](Cpu& c) {
+    stdcall(a, "RegOpenKeyA", 3, [this, pathOf, open](Cpu &c) {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));
         if (path.empty())
             return kErrorInvalidHandle;
@@ -151,7 +156,7 @@ void Win32Process::addRegistryStandIns() {
     });
     // RegCreateKeyExA(key, sub, reserved, class, options, access, security,
     // result, disposition): 1 made, 2 there already.
-    stdcall(a, "RegCreateKeyExA", 9, [this, pathOf, open](Cpu& c) {
+    stdcall(a, "RegCreateKeyExA", 9, [this, pathOf, open](Cpu &c) {
         const std::string path = pathOf(c, c.arg(0), c.arg(1));
         if (path.empty())
             return kErrorInvalidHandle;
@@ -166,18 +171,18 @@ void Win32Process::addRegistryStandIns() {
             c.write32(c.arg(8), existed ? 2u : 1u);
         return 0u;
     });
-    stdcall(a, "RegCloseKey", 1, [this](Cpu& c) {
+    stdcall(a, "RegCloseKey", 1, [this](Cpu &c) {
         if (rootName(c.arg(0)))
             return 0u;
         return openKeys_.erase(c.arg(0)) ? 0u : kErrorInvalidHandle;
     });
     // RegSetValueExA(key, name, reserved, type, data, size)
-    stdcall(a, "RegSetValueExA", 6, [this, keyOf](Cpu& c) {
-        RegistryKey* k = keyOf(c.arg(0));
+    stdcall(a, "RegSetValueExA", 6, [this, keyOf](Cpu &c) {
+        RegistryKey *k = keyOf(c.arg(0));
         if (!k || !c.valid(c.arg(4), c.arg(5)))
             return kErrorInvalidHandle;
         const std::string name = c.arg(1) ? c.string(c.arg(1)) : std::string();
-        const uint8_t* p = c.memory().data() + c.arg(4);
+        const uint8_t *p = c.memory().data() + c.arg(4);
         const std::string path = k->path;
         setRegistryValue(path, name, c.arg(3), std::vector<uint8_t>(p, p + c.arg(5)));
         if (registryWritten)
@@ -186,8 +191,8 @@ void Win32Process::addRegistryStandIns() {
     });
     // RegQueryValueExA(key, name, reserved, type, data, size): with no
     // buffer, or too small a one, the size needed.
-    stdcall(a, "RegQueryValueExA", 6, [this, keyOf](Cpu& c) {
-        RegistryKey* k = keyOf(c.arg(0));
+    stdcall(a, "RegQueryValueExA", 6, [this, keyOf](Cpu &c) {
+        RegistryKey *k = keyOf(c.arg(0));
         if (!k)
             return kErrorInvalidHandle;
         const std::string name = c.arg(1) ? c.string(c.arg(1)) : std::string();
@@ -212,17 +217,18 @@ void Win32Process::addRegistryStandIns() {
     });
     // RegEnumValueA(key, index, name, name size, reserved, type, data, data
     // size): the sizes are in and out; the name's leaves out its terminator.
-    stdcall(a, "RegEnumValueA", 8, [keyOf](Cpu& c) {
-        RegistryKey* k = keyOf(c.arg(0));
+    stdcall(a, "RegEnumValueA", 8, [keyOf](Cpu &c) {
+        RegistryKey *k = keyOf(c.arg(0));
         if (!k)
             return kErrorInvalidHandle;
         const uint32_t index = c.arg(1);
         if (index >= k->values.size())
             return kErrorNoMoreItems;
-        const auto& [name, value] = k->values[index];
+        const auto &[name, value] = k->values[index];
         const uint32_t nameOut = c.arg(2), nameSize = c.arg(3), typeOut = c.arg(5), data = c.arg(6),
                        dataSize = c.arg(7);
-        if (!c.valid(nameSize, 4) || c.read32(nameSize) < name.size() + 1 || !c.valid(nameOut, uint32_t(name.size() + 1)))
+        if (!c.valid(nameSize, 4) || c.read32(nameSize) < name.size() + 1 ||
+            !c.valid(nameOut, uint32_t(name.size() + 1)))
             return kErrorMoreData;
         c.writeString(nameOut, name, uint32_t(name.size() + 1));
         c.write32(nameSize, uint32_t(name.size()));
@@ -243,11 +249,11 @@ void Win32Process::addRegistryStandIns() {
     });
 
     // --- COM
-    stdcall(o, "CoInitialize", 1, [](Cpu&) { return 0u; }); // S_OK
-    stdcall(o, "CoInitializeEx", 2, [](Cpu&) { return 0u; });
-    stdcall(o, "CoUninitialize", 0, [](Cpu&) { return 0u; });
+    stdcall(o, "CoInitialize", 1, [](Cpu &) { return 0u; }); // S_OK
+    stdcall(o, "CoInitializeEx", 2, [](Cpu &) { return 0u; });
+    stdcall(o, "CoUninitialize", 0, [](Cpu &) { return 0u; });
     // CoCreateInstance(class, outer, context, interface, result)
-    stdcall(o, "CoCreateInstance", 5, [this](Cpu& c) {
+    stdcall(o, "CoCreateInstance", 5, [this](Cpu &c) {
         const uint32_t out = c.arg(4);
         if (out && c.valid(out, 4))
             c.write32(out, 0);

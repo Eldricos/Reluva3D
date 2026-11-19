@@ -14,7 +14,7 @@
 
 namespace reluva::stharbinger {
 
-void fatal(const char* fmt, ...) {
+void fatal(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     char buf[1024];
@@ -23,21 +23,22 @@ void fatal(const char* fmt, ...) {
     throw FatalError(buf);
 }
 
-Harbinger::Harbinger(Platform* system, Options options) : system_(system), options_(std::move(options)) {}
+Harbinger::Harbinger(Platform *system, Options options) : system_(system), options_(std::move(options)) {
+}
 
 void Harbinger::initResources() {
-    for (const std::string& path : options_.paths)
+    for (const std::string &path : options_.paths)
         resources_.addGamePath(path);
     std::string err;
     if (!resources_.loadScenes(scenes_, err))
         fatal("Cannot start Harbinger: %s", err.c_str());
 }
 
-int Harbinger::findScene(const std::string& nameOrSlot) const {
+int Harbinger::findScene(const std::string &nameOrSlot) const {
     for (size_t i = 0; i < scenes_.size(); i++)
         if (text::equalsIgnoreCase(scenes_[i].name, nameOrSlot))
             return int(i);
-    char* end = nullptr;
+    char *end = nullptr;
     long slot = std::strtol(nameOrSlot.c_str(), &end, 10);
     if (!nameOrSlot.empty() && end && !*end) {
         for (size_t i = 0; i < scenes_.size(); i++)
@@ -57,7 +58,7 @@ int Harbinger::findSceneByNumber(int number) const {
 void Harbinger::run() {
     initResources();
 
-    const std::string& mode = options_.mode;
+    const std::string &mode = options_.mode;
     bool viewer = text::equalsIgnoreCase(mode, "viewer");
     if (text::equalsIgnoreCase(mode, "video")) {
         // Developer: play one video from the DS9 folder (start_scene=INTRO/VNM.SMK).
@@ -88,18 +89,18 @@ void Harbinger::run() {
 
 void Harbinger::printInfo() {
     initResources();
-    for (const std::string& path : options_.paths)
+    for (const std::string &path : options_.paths)
         std::printf("path: %s\n", path.c_str());
     std::printf("\n%-4s %-9s %5s %6s  %-11s %-11s %-11s %4s %4s %4s %4s\n", "slot", "scene", "SCENE", "cmds",
                 "backgrounds", "animations", "sounds", "dlg", "tmr", "hot", "var");
 
     int totals[3][2] = {};
-    for (const Scene& scene : scenes_) {
+    for (const Scene &scene : scenes_) {
         std::string cols[3];
         const ListKind kinds[3] = {kListBackgrounds, kListAnims, kListSounds};
         for (int k = 0; k < 3; k++) {
             int found = 0, count = int(scene.lists[kinds[k]].size());
-            for (const NameEntry& e : scene.lists[kinds[k]])
+            for (const NameEntry &e : scene.lists[kinds[k]])
                 found += resources_.hasResource(kinds[k], e.name) ? 1 : 0;
             totals[k][0] += found;
             totals[k][1] += count;
@@ -124,8 +125,8 @@ void Harbinger::printInfo() {
             }
             parsed++;
             lines += int(dialogue.text.size());
-            for (const auto* tree : {&dialogue.npcLines, &dialogue.choices})
-                for (const DialogueGroup& g : *tree)
+            for (const auto *tree : {&dialogue.npcLines, &dialogue.choices})
+                for (const DialogueGroup &g : *tree)
                     items += int(g.size());
         }
         std::printf("%u dialogue scripts in CCB.ALL: %d read, %d items, %d lines of text\n", ccb->size(), parsed, items,
@@ -133,7 +134,7 @@ void Harbinger::printInfo() {
     }
     std::vector<std::string> credits = resources_.loadCredits();
     int headings = 0;
-    for (const std::string& line : credits)
+    for (const std::string &line : credits)
         headings += !line.empty() && line[0] == '*';
     std::printf("%u lines of credits in DEEP.EXE (%d headings)\n", unsigned(credits.size()), headings);
 }

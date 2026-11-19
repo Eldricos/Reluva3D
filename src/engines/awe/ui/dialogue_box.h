@@ -18,9 +18,9 @@
 namespace reluva::awe {
 
 struct DialogueBoxPictures {
-    const image::Image* window = nullptr;
-    const image::Image* bullet = nullptr;
-    const image::Image* bulletOn = nullptr;
+    const image::Image *window = nullptr;
+    const image::Image *bullet = nullptr;
+    const image::Image *bulletOn = nullptr;
 };
 
 struct DialogueChoiceArea {
@@ -38,9 +38,9 @@ struct DialogueChoiceArea {
 // for none: act 8's evidence) has it too, the pictures in a row centred
 // on x = 652, 112 apart, 42 pixels down the box; each is hit 8 pixels
 // either side (0x43cd9e).
-std::vector<DialogueChoiceArea> drawDialogueBox(Surface& dst, const GameFonts& fonts, const DialogueBoxPictures& pictures,
-                                                int top, const std::string& text, Color colour,
-                                                const std::vector<std::string>& choices, int highlighted,
-                                                const std::vector<const image::Image*>& choicePictures = {});
+std::vector<DialogueChoiceArea> drawDialogueBox(Surface &dst, const GameFonts &fonts,
+                                                const DialogueBoxPictures &pictures, int top, const std::string &text,
+                                                Color colour, const std::vector<std::string> &choices, int highlighted,
+                                                const std::vector<const image::Image *> &choicePictures = {});
 
 } // namespace reluva::awe

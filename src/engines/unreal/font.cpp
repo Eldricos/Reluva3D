@@ -12,7 +12,7 @@ namespace reluva::unreal {
 // start V, width and height as 32-bit ints), then how many characters a
 // page holds (an int). Checked on The Fallen's: every one of Engine.u's
 // fonts is one page of 256 characters and reads to its end.
-Error readFont(const PackageSet& packages, const Package& package, int index, Font& out) {
+Error readFont(const PackageSet &packages, const Package &package, int index, Font &out) {
     out = {};
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
@@ -31,7 +31,7 @@ Error readFont(const PackageSet& packages, const Package& package, int index, Fo
         if (!r.ok() || count < 0 || size_t(count) * 16 > r.remaining())
             return Error::fail("font: a page's characters don't fit");
         page.characters.resize(size_t(count));
-        for (FontCharacter& c : page.characters) {
+        for (FontCharacter &c : page.characters) {
             c.u = r.i32();
             c.v = r.i32();
             c.width = r.i32();
@@ -44,7 +44,7 @@ Error readFont(const PackageSet& packages, const Package& package, int index, Fo
     return r.ok() ? Error::success() : Error::fail("font: runs past the end");
 }
 
-const FontCharacter* Font::character(uint32_t c, const FontPage** page) const {
+const FontCharacter *Font::character(uint32_t c, const FontPage **page) const {
     const size_t p = c / uint32_t(charactersPerPage), i = c % uint32_t(charactersPerPage);
     if (p >= pages.size() || i >= pages[p].characters.size())
         return nullptr;

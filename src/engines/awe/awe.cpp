@@ -29,19 +29,25 @@ namespace {
 // the MD5 of the first kDetectionHashBytes bytes. Detection keys on the
 // item list: a patch is likelier to replace the executable than the text.
 const std::vector<GameVariant> kVariants = {
-    {"motoe", "Agatha Christie: Murder on the Orient Express", "en", "windows",
+    {"motoe",
+     "Agatha Christie: Murder on the Orient Express",
+     "en",
+     "windows",
      {{"motoe.exe", "cdfcba4e6c8c7cee637959bc78bd46e7", 684032},
       {"Text/itemlist.txt", "a2a0d2cd331a6fb36ffa79dced219aa5", 37328}}},
 };
 // Any other release: the same files, whatever their contents.
 const std::vector<GameVariant> kFallback = {
-    {"motoe", "Agatha Christie: Murder on the Orient Express (unknown release)", "", "windows",
+    {"motoe",
+     "Agatha Christie: Murder on the Orient Express (unknown release)",
+     "",
+     "windows",
      {{"motoe.exe", "", -1}, {"Text/itemlist.txt", "", -1}, {"granny2.dll", "", -1}}},
 };
 
 class AweEngine : public Engine {
 public:
-    AweEngine(System& system, GameTarget target) : sys_(system), target_(std::move(target)) {}
+    AweEngine(System &system, GameTarget target) : sys_(system), target_(std::move(target)) {}
 
     Error run() override {
         if (Error err = files_.open(target_.path))
@@ -51,7 +57,7 @@ public:
         mixer.setMasterVolume(settings::volume(target_.settings, settings::kMasterVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioStop {
-            System& sys;
+            System &sys;
             bool on;
             ~AudioStop() {
                 if (on)
@@ -60,8 +66,8 @@ public:
         } audioStop{sys_, audioOut};
         awe::GameFonts fonts;
         const bool haveFonts = !fonts.load(files_);
-        awe::ViewerContext ctx{sys_, files_, audioOut ? &mixer : nullptr, screen_, target_.savePath,
-                               haveFonts ? &fonts : nullptr, {}, -1};
+        awe::ViewerContext ctx{
+            sys_, files_, audioOut ? &mixer : nullptr, screen_, target_.savePath, haveFonts ? &fonts : nullptr, {}, -1};
         int shots = 0;
 
         std::vector<std::unique_ptr<awe::Page>> pages;
@@ -124,7 +130,7 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
     DirectoryArchive files_;
     Surface screen_;
@@ -132,24 +138,24 @@ private:
 
 class AweMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "awe"; }
-    const char* name() const override { return "AWE (Agatha Christie)"; }
+    const char *id() const override { return "awe"; }
+    const char *name() const override { return "AWE (Agatha Christie)"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         std::vector<DetectedGame> found = detectFromTable(id(), kVariants, dir);
         if (found.empty())
             found = detectFromTable(id(), kFallback, dir);
         return found;
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<AweEngine>(system, target);
     }
 };
 
 } // namespace
 
-const MetaEngine& aweMetaEngine() {
+const MetaEngine &aweMetaEngine() {
     static const AweMetaEngine instance;
     return instance;
 }

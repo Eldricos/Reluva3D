@@ -53,14 +53,14 @@ struct LevelRenderer::Vertex {
     double u, v;
 };
 
-LevelRenderer::LevelRenderer(const LevelFile& level) : _level(level) {
+LevelRenderer::LevelRenderer(const LevelFile &level) : _level(level) {
     _hasSky = _level.loadSky(_sky);
     buildBlendTable(_level.getPalette(), _blend);
     // The original builds its tables toward black when a level starts.
     setFogColor(0, 0, 0);
 }
 
-void LevelRenderer::buildShadeTables(const Palette& palette, uint8_t r, uint8_t g, uint8_t b,
+void LevelRenderer::buildShadeTables(const Palette &palette, uint8_t r, uint8_t g, uint8_t b,
                                      uint8_t tables[LevelFile::kLightLevels][256]) {
     for (int i = 0; i < 256; i++)
         tables[0][i] = (uint8_t)i;
@@ -87,7 +87,7 @@ void LevelRenderer::buildShadeTables(const Palette& palette, uint8_t r, uint8_t 
     }
 }
 
-void LevelRenderer::buildBlendTable(const Palette& palette, uint8_t table[kBlendColors][256]) {
+void LevelRenderer::buildBlendTable(const Palette &palette, uint8_t table[kBlendColors][256]) {
     for (int k = 0; k < kBlendColors; k++) {
         uint8_t sr, sg, sb;
         palette.getColor(kBlendFirst + k, sr, sg, sb);
@@ -116,7 +116,7 @@ void LevelRenderer::setFogColor(uint8_t r, uint8_t g, uint8_t b) {
     _fogIndex = _level.getPalette().findBestColor(r, g, b);
 }
 
-void LevelRenderer::syncLights(Serializer& s) {
+void LevelRenderer::syncLights(Serializer &s) {
     uint32_t count = (uint32_t)_groupBrightness.size();
     s.syncAsUint32(count);
     if (s.isLoading())
@@ -138,7 +138,7 @@ void LevelRenderer::setGroupBrightness(int16_t group, int percent) {
     _groupBrightness[group] = percent;
 }
 
-const uint8_t* LevelRenderer::getShade(const LevelFile::LightInfo& light) const {
+const uint8_t *LevelRenderer::getShade(const LevelFile::LightInfo &light) const {
     if (!_lighting)
         return nullptr;
     int percent = 100;
@@ -151,9 +151,10 @@ const uint8_t* LevelRenderer::getShade(const LevelFile::LightInfo& light) const 
     return level == 0 ? nullptr : _shades[level];
 }
 
-LevelRenderer::~LevelRenderer() {}
+LevelRenderer::~LevelRenderer() {
+}
 
-const LevelRenderer::Texture* LevelRenderer::getTexture(uint16_t id, uint16_t frames, uint16_t speed, uint32_t time) {
+const LevelRenderer::Texture *LevelRenderer::getTexture(uint16_t id, uint16_t frames, uint16_t speed, uint32_t time) {
     // As the original: the frame advances by speed / 65536 per ms.
     if (frames > 1 && speed)
         id = (uint16_t)(id + ((uint64_t)time * speed >> 16) % frames);
@@ -187,20 +188,20 @@ const LevelRenderer::Texture* LevelRenderer::getTexture(uint16_t id, uint16_t fr
         }
         texture->silhouette = transparent && oneRun;
     }
-    const Texture* result = texture.get();
+    const Texture *result = texture.get();
     _textures[id] = std::move(texture);
     return result;
 }
 
-void LevelRenderer::toCamera(double x, double y, double z, Vertex& out) const {
+void LevelRenderer::toCamera(double x, double y, double z, Vertex &out) const {
     double dx = x - _camX, dy = y - _camY;
     out.x = dx * _sin - dy * _cos;
     out.z = dx * _cos + dy * _sin;
     out.y = z - _camZ;
 }
 
-void LevelRenderer::unproject(const Camera& camera, int w, int h, double x, double y, double depth,
-                              double& worldX, double& worldY, double& worldZ) {
+void LevelRenderer::unproject(const Camera &camera, int w, int h, double x, double y, double depth, double &worldX,
+                              double &worldY, double &worldZ) {
     double focal = w / 2.0;
     double right = (x - (w - 1) / 2.0) * depth / focal;
     double up = ((h - 1) / 2.0 + camera.pitch * focal - y) * depth / focal;
@@ -211,7 +212,7 @@ void LevelRenderer::unproject(const Camera& camera, int w, int h, double x, doub
     worldZ = camera.z + up;
 }
 
-void LevelRenderer::render(const Camera& camera, Canvas& dst, uint32_t time) {
+void LevelRenderer::render(const Camera &camera, Canvas &dst, uint32_t time) {
     _cos = std::cos(camera.yaw);
     _sin = std::sin(camera.yaw);
     _camX = camera.x;
@@ -232,30 +233,30 @@ void LevelRenderer::render(const Camera& camera, Canvas& dst, uint32_t time) {
     drawTranslucent(dst);
 }
 
-void LevelRenderer::queuePolygon(std::vector<Vertex>& poly, const Texture* texture, const uint8_t* shade,
-                                 Canvas& dst, Wrap wrap, bool translucent) {
+void LevelRenderer::queuePolygon(std::vector<Vertex> &poly, const Texture *texture, const uint8_t *shade, Canvas &dst,
+                                 Wrap wrap, bool translucent) {
     if (!translucent) {
         drawPolygon(poly, texture, shade, dst, wrap);
         return;
     }
     double depth = 0;
-    for (const Vertex& v : poly)
+    for (const Vertex &v : poly)
         depth += v.z;
-    _translucent.push_back({ poly, texture, shade, wrap, depth / poly.size(), _owner });
+    _translucent.push_back({poly, texture, shade, wrap, depth / poly.size(), _owner});
 }
 
-void LevelRenderer::drawTranslucent(Canvas& dst) {
+void LevelRenderer::drawTranslucent(Canvas &dst) {
     // The original paints far to near; what is behind must be there first.
     std::stable_sort(_translucent.begin(), _translucent.end(),
-                     [](const Translucent& a, const Translucent& b) { return a.depth > b.depth; });
-    for (Translucent& t : _translucent) {
+                     [](const Translucent &a, const Translucent &b) { return a.depth > b.depth; });
+    for (Translucent &t : _translucent) {
         _owner = t.owner;
         drawPolygon(t.poly, t.texture, t.shade, dst, t.wrap, true);
     }
     _translucent.clear();
 }
 
-void LevelRenderer::drawSky(const Camera& camera, Canvas& dst) {
+void LevelRenderer::drawSky(const Camera &camera, Canvas &dst) {
     if (!_hasSky || !_skyEnabled) {
         dst.fillRect(Rect(0, 0, dst.w, dst.h), _fogIndex);
         return;
@@ -267,8 +268,8 @@ void LevelRenderer::drawSky(const Camera& camera, Canvas& dst) {
     int horizon = (int)std::lround(_centerY);
     for (int y = 0; y < dst.h; y++) {
         int row = std::max(0, std::min<int>(_sky.h - 1, y - (horizon - _sky.h)));
-        const uint8_t* src = (const uint8_t*)_sky.getBasePtr(0, row);
-        uint8_t* out = (uint8_t*)dst.getBasePtr(0, y);
+        const uint8_t *src = (const uint8_t *)_sky.getBasePtr(0, row);
+        uint8_t *out = (uint8_t *)dst.getBasePtr(0, y);
         for (int x = 0; x < dst.w; x++) {
             int column = (x + offset) % _sky.w;
             if (column < 0)
@@ -278,13 +279,14 @@ void LevelRenderer::drawSky(const Camera& camera, Canvas& dst) {
     }
 }
 
-void LevelRenderer::drawFlats(Canvas& dst, uint32_t time) {
-    const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
+void LevelRenderer::drawFlats(Canvas &dst, uint32_t time) {
+    const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
     std::vector<Vertex> poly;
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     for (size_t i = 0; i < flats.size(); i++) {
-        const LevelFile::Sector& flat = flats[i];
-        if (!(flat.flags & LevelFile::kFlagVisible) || (flat.flags & LevelFile::kFlagNotDrawn) || !(flat.zones & _zones))
+        const LevelFile::Sector &flat = flats[i];
+        if (!(flat.flags & LevelFile::kFlagVisible) || (flat.flags & LevelFile::kFlagNotDrawn) ||
+            !(flat.zones & _zones))
             continue;
         _owner = Pick();
         _owner.kind = Pick::kFlat;
@@ -305,8 +307,9 @@ void LevelRenderer::drawFlats(Canvas& dst, uint32_t time) {
         }
 
         // Texture coordinates are in 128ths of the texture, whatever its size.
-        const Texture* texture = getTexture(flat.texture, flat.frames, flat.speed, time);
-        double uUnit = texture ? texture->width / kTextureUnits : 1, vUnit = texture ? texture->height / kTextureUnits : 1;
+        const Texture *texture = getTexture(flat.texture, flat.frames, flat.speed, time);
+        double uUnit = texture ? texture->width / kTextureUnits : 1,
+               vUnit = texture ? texture->height / kTextureUnits : 1;
         poly.clear();
         for (uint16_t index : flat.vertices) {
             double x = fromFixed(vertices[index].x), y = fromFixed(vertices[index].y);
@@ -321,13 +324,14 @@ void LevelRenderer::drawFlats(Canvas& dst, uint32_t time) {
     }
 }
 
-void LevelRenderer::drawWalls(Canvas& dst, uint32_t time) {
-    const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
+void LevelRenderer::drawWalls(Canvas &dst, uint32_t time) {
+    const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
     std::vector<Vertex> poly(4);
-    const std::vector<LevelFile::Wall>& walls = _level.getWalls();
+    const std::vector<LevelFile::Wall> &walls = _level.getWalls();
     for (size_t i = 0; i < walls.size(); i++) {
-        const LevelFile::Wall& wall = walls[i];
-        if (!(wall.flags & LevelFile::kFlagVisible) || (wall.flags & LevelFile::kFlagNotDrawn) || !(wall.zones & _zones))
+        const LevelFile::Wall &wall = walls[i];
+        if (!(wall.flags & LevelFile::kFlagVisible) || (wall.flags & LevelFile::kFlagNotDrawn) ||
+            !(wall.zones & _zones))
             continue;
         _owner = Pick();
         _owner.kind = Pick::kWall;
@@ -364,7 +368,7 @@ void LevelRenderer::drawWalls(Canvas& dst, uint32_t time) {
         double vStart = fromFixed(wall.vStart) + scrollOffset(wall.vScroll, time);
         double v1 = -vStart - fromFixed(wall.vLength), v2 = -vStart;
         // All in 128ths of the texture, whatever its size.
-        const Texture* texture = getTexture(wall.texture, wall.frames, wall.speed, time);
+        const Texture *texture = getTexture(wall.texture, wall.frames, wall.speed, time);
         if (texture) {
             u1 *= texture->width / kTextureUnits;
             u2 *= texture->width / kTextureUnits;
@@ -387,17 +391,18 @@ void LevelRenderer::drawWalls(Canvas& dst, uint32_t time) {
         poly[3].v = v2;
         // Like the original with flag 0x2 (0x4C0AD0), a column that is one
         // run of texels is drawn over that run only, not repeated.
-        Wrap wrap = (wall.flags & LevelFile::kWallTrimColumns) && texture && texture->silhouette ? kWrapOnceDown : kWrapTile;
+        Wrap wrap =
+            (wall.flags & LevelFile::kWallTrimColumns) && texture && texture->silhouette ? kWrapOnceDown : kWrapTile;
         queuePolygon(poly, texture, wall.fullbright ? nullptr : getShade(wall.light), dst, wrap,
                      (wall.flags & LevelFile::kFlagTranslucent) != 0);
     }
 }
 
-void LevelRenderer::drawBillboards(Canvas& dst, uint32_t time) {
+void LevelRenderer::drawBillboards(Canvas &dst, uint32_t time) {
     std::vector<Vertex> poly(4);
-    const std::vector<LevelFile::Billboard>& billboards = _level.getBillboards();
+    const std::vector<LevelFile::Billboard> &billboards = _level.getBillboards();
     for (size_t i = 0; i < billboards.size(); i++) {
-        const LevelFile::Billboard& billboard = billboards[i];
+        const LevelFile::Billboard &billboard = billboards[i];
         if (billboard.hidden || !(billboard.zones & _zones))
             continue;
         _owner = Pick();
@@ -405,7 +410,7 @@ void LevelRenderer::drawBillboards(Canvas& dst, uint32_t time) {
         _owner.index = (int)i;
         // SET_BILLBOARD_UNPICKABLE: the pick test passes over flag 0x400.
         _ownerUnpickable = (billboard.flags & LevelFile::kBillboardUnpickable) != 0;
-        const Texture* texture = getTexture(billboard.texture, billboard.frames, billboard.speed, time);
+        const Texture *texture = getTexture(billboard.texture, billboard.frames, billboard.speed, time);
         if (!texture)
             continue;
         Vertex centre;
@@ -413,8 +418,8 @@ void LevelRenderer::drawBillboards(Canvas& dst, uint32_t time) {
         double half = fromFixed(billboard.halfWidth), height = fromFixed(billboard.height);
 
         poly.resize(4);
-        const double xs[4] = { -half, half, half, -half };
-        const double ys[4] = { height, height, 0, 0 };
+        const double xs[4] = {-half, half, half, -half};
+        const double ys[4] = {height, height, 0, 0};
         for (int i = 0; i < 4; i++) {
             poly[i].x = centre.x + xs[i];
             poly[i].y = centre.y + ys[i];
@@ -429,8 +434,8 @@ void LevelRenderer::drawBillboards(Canvas& dst, uint32_t time) {
     _ownerUnpickable = false;
 }
 
-const LevelRenderer::Texture* LevelRenderer::getSpriteTexture(const Canvas* surface) {
-    std::unique_ptr<Texture>& texture = _spriteTextures[surface];
+const LevelRenderer::Texture *LevelRenderer::getSpriteTexture(const Canvas *surface) {
+    std::unique_ptr<Texture> &texture = _spriteTextures[surface];
     if (!texture) {
         texture.reset(new Texture());
         texture->width = surface->w;
@@ -444,23 +449,23 @@ const LevelRenderer::Texture* LevelRenderer::getSpriteTexture(const Canvas* surf
     return texture.get();
 }
 
-void LevelRenderer::drawSprites(Canvas& dst) {
+void LevelRenderer::drawSprites(Canvas &dst) {
     if (!_sprites)
         return;
     std::vector<Vertex> poly(4);
     for (size_t i = 0; i < _sprites->size(); i++) {
-        const SpriteDraw& sprite = (*_sprites)[i];
+        const SpriteDraw &sprite = (*_sprites)[i];
         if (!sprite.surface || sprite.surface->w == 0 || sprite.surface->h == 0)
             continue;
         _owner = Pick();
         _owner.kind = Pick::kSprite;
         _owner.index = (int)i;
         _owner.object = sprite.object;
-        const Texture* texture = getSpriteTexture(sprite.surface);
+        const Texture *texture = getSpriteTexture(sprite.surface);
         Vertex centre;
         toCamera(sprite.x, sprite.y, sprite.bottom, centre);
-        const double xs[4] = { -sprite.halfWidth, sprite.halfWidth, sprite.halfWidth, -sprite.halfWidth };
-        const double ys[4] = { sprite.height, sprite.height, 0, 0 };
+        const double xs[4] = {-sprite.halfWidth, sprite.halfWidth, sprite.halfWidth, -sprite.halfWidth};
+        const double ys[4] = {sprite.height, sprite.height, 0, 0};
         poly.resize(4);
         for (int i = 0; i < 4; i++) {
             bool right = i == 1 || i == 2;
@@ -475,13 +480,13 @@ void LevelRenderer::drawSprites(Canvas& dst) {
     }
 }
 
-void LevelRenderer::drawPolygon(std::vector<Vertex>& poly, const Texture* texture, const uint8_t* shade,
-                                Canvas& dst, Wrap wrap, bool translucent) {
+void LevelRenderer::drawPolygon(std::vector<Vertex> &poly, const Texture *texture, const uint8_t *shade, Canvas &dst,
+                                Wrap wrap, bool translucent) {
     // Clip against the near plane.
     std::vector<Vertex> clipped;
     clipped.reserve(poly.size() + 2);
     for (size_t i = 0; i < poly.size(); i++) {
-        const Vertex& a = poly[i], &b = poly[(i + 1) % poly.size()];
+        const Vertex &a = poly[i], &b = poly[(i + 1) % poly.size()];
         bool aIn = a.z >= kNear, bIn = b.z >= kNear;
         if (aIn)
             clipped.push_back(a);
@@ -502,7 +507,7 @@ void LevelRenderer::drawPolygon(std::vector<Vertex>& poly, const Texture* textur
     // Project: x and y to the screen; z becomes 1/z and u, v become u/z, v/z
     // so they interpolate linearly across the screen.
     double minY = 1e30, maxY = -1e30, minX = 1e30, maxX = -1e30;
-    for (Vertex& v : clipped) {
+    for (Vertex &v : clipped) {
         double iz = 1.0 / v.z;
         v.x = _centerX + v.x * iz * _focal;
         v.y = _centerY - v.y * iz * _focal;
@@ -526,7 +531,7 @@ void LevelRenderer::drawPolygon(std::vector<Vertex>& poly, const Texture* textur
         bool found = false;
         Vertex left = {}, right = {};
         for (size_t i = 0; i < n; i++) {
-            const Vertex& a = clipped[i], &b = clipped[(i + 1) % n];
+            const Vertex &a = clipped[i], &b = clipped[(i + 1) % n];
             if ((a.y <= sampleY) == (b.y <= sampleY))
                 continue;
             double t = (sampleY - a.y) / (b.y - a.y);
@@ -553,8 +558,8 @@ void LevelRenderer::drawPolygon(std::vector<Vertex>& poly, const Texture* textur
         double dz = (right.z - left.z) / width, du = (right.u - left.u) / width, dv = (right.v - left.v) / width;
         double start = x0 + 0.5 - left.x;
         double iz = left.z + dz * start, uz = left.u + du * start, vz = left.v + dv * start;
-        uint8_t* out = (uint8_t*)dst.getBasePtr(0, y);
-        float* depth = &_depth[(size_t)y * dst.w];
+        uint8_t *out = (uint8_t *)dst.getBasePtr(0, y);
+        float *depth = &_depth[(size_t)y * dst.w];
         for (int x = x0; x <= x1; x++, iz += dz, uz += du, vz += dv) {
             // Ties go to what is drawn later, as with the original's
             // painting: levels put walls on the same line and height
@@ -611,14 +616,14 @@ Camera LevelRenderer::getStartCamera(double eyeHeight) const {
     };
     std::vector<Floor> floors;
     std::map<int32_t, double> areaByHeight, largestByHeight;
-    const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
-    for (const LevelFile::Sector& flat : _level.getSectors()) {
+    const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
+    for (const LevelFile::Sector &flat : _level.getSectors()) {
         if (flat.isCeiling() || flat.vertices.size() < 3)
             continue;
-        Floor floor = { 0, 0, 0, flat.height };
+        Floor floor = {0, 0, 0, flat.height};
         size_t n = flat.vertices.size();
         for (size_t i = 0; i < n; i++) {
-            const LevelFile::Vertex& a = vertices[flat.vertices[i]], &b = vertices[flat.vertices[(i + 1) % n]];
+            const LevelFile::Vertex &a = vertices[flat.vertices[i]], &b = vertices[flat.vertices[(i + 1) % n]];
             floor.area += fromFixed(a.x) * fromFixed(b.y) - fromFixed(b.x) * fromFixed(a.y);
             floor.x += fromFixed(a.x);
             floor.y += fromFixed(a.y);
@@ -636,7 +641,7 @@ Camera LevelRenderer::getStartCamera(double eyeHeight) const {
     // in the middle of its largest piece.
     Camera camera;
     double bestScore = -1, bestArea = -1;
-    for (const Floor& floor : floors) {
+    for (const Floor &floor : floors) {
         double score = areaByHeight[floor.height] - largestByHeight[floor.height];
         if (score > bestScore || (score == bestScore && floor.area > bestArea)) {
             bestScore = score;

@@ -11,9 +11,9 @@
 
 namespace reluva::newworlds {
 
-Metamodels::Metamodels(const Archives& archives) : archives_(archives) {
+Metamodels::Metamodels(const Archives &archives) : archives_(archives) {
     for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto& entries = archives_[a]->entries();
+        const auto &entries = archives_[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
             if (entries[i].tag == cattag::Mdl) {
                 std::string folder, stem, ext;
@@ -23,7 +23,7 @@ Metamodels::Metamodels(const Archives& archives) : archives_(archives) {
     }
 }
 
-bool Metamodels::find(const std::string& modelName, MdlModel& out) const {
+bool Metamodels::find(const std::string &modelName, MdlModel &out) const {
     std::string folder, stem, ext;
     splitName(modelName, folder, stem, ext);
     std::string joined;
@@ -32,11 +32,11 @@ bool Metamodels::find(const std::string& modelName, MdlModel& out) const {
             joined += c;
     const size_t u = stem.rfind('_');
     std::vector<uint8_t> data;
-    for (const std::string& want : {stem, joined, u == std::string::npos ? stem : stem.substr(0, u)}) {
+    for (const std::string &want : {stem, joined, u == std::string::npos ? stem : stem.substr(0, u)}) {
         auto found = metamodels_.find(folder + "/" + want);
         if (found == metamodels_.end())
             continue;
-        CatArchive& cat = *archives_[found->second.archive];
+        CatArchive &cat = *archives_[found->second.archive];
         out = MdlModel{};
         if (!cat.read(cat.entries()[found->second.entry], data) && !parseMdl(data, out))
             return true;
@@ -53,7 +53,7 @@ bool Metamodels::find(const std::string& modelName, MdlModel& out) const {
 // Sets named like the model come first (fconb for fconbee), then those in
 // its folder, then the rest (every side's crewmen use the fed/ sets). The
 // actor archives repeat some sets (fcmwalk in each), so each frame counts once.
-std::vector<Animation> Metamodels::animations(const std::string& modelName, const MdlModel& mdl) const {
+std::vector<Animation> Metamodels::animations(const std::string &modelName, const MdlModel &mdl) const {
     std::vector<Animation> out;
     if (mdl.animated.empty() || mdl.reference.size() != mdl.animated.size())
         return out;
@@ -65,7 +65,7 @@ std::vector<Animation> Metamodels::animations(const std::string& modelName, cons
     };
     std::map<std::string, Set> sets;
     for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto& entries = archives_[a]->entries();
+        const auto &entries = archives_[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i) {
             if (entries[i].tag != cattag::Arf)
                 continue;
@@ -74,21 +74,21 @@ std::vector<Animation> Metamodels::animations(const std::string& modelName, cons
             std::string name = frame;
             while (!name.empty() && std::isdigit(static_cast<unsigned char>(name.back())))
                 name.pop_back();
-            Set& set = sets[name];
+            Set &set = sets[name];
             set.folder = folder;
             set.frames.emplace(frame, EntryRef{a, i}); // the first copy wins
         }
     }
     std::vector<std::string> otherStates;
-    for (const auto& st : mdl.states)
+    for (const auto &st : mdl.states)
         if (!st.empty() && st != "reference")
             otherStates.push_back(st);
     std::vector<std::pair<int, Animation>> found;
     std::vector<uint8_t> data;
-    for (auto& [name, set] : sets) {
+    for (auto &[name, set] : sets) {
         Animation anim{name, {}, {}};
-        for (const auto& [frame, ref] : set.frames) {
-            CatArchive& cat = *archives_[ref.archive];
+        for (const auto &[frame, ref] : set.frames) {
+            CatArchive &cat = *archives_[ref.archive];
             std::vector<PartTransform> t;
             if (cat.read(cat.entries()[ref.entry], data) || parseArf(data, t) || t.size() != mdl.animated.size()) {
                 anim.frames.clear();
@@ -98,7 +98,7 @@ std::vector<Animation> Metamodels::animations(const std::string& modelName, cons
         }
         if (anim.frames.empty())
             continue;
-        for (const auto& st : otherStates)
+        for (const auto &st : otherStates)
             if (name.size() > st.size() && name.compare(name.size() - st.size(), st.size(), st) == 0)
                 anim.state = st;
         if (anim.state.empty() && otherStates.size() == 1)
@@ -106,8 +106,8 @@ std::vector<Animation> Metamodels::animations(const std::string& modelName, cons
         const bool named = name.rfind(stem, 0) == 0 || (name.size() >= 4 && stem.rfind(name, 0) == 0);
         found.push_back({named ? 0 : set.folder == modelFolder ? 1 : 2, std::move(anim)});
     }
-    std::stable_sort(found.begin(), found.end(), [](const auto& x, const auto& y) { return x.first < y.first; });
-    for (auto& f : found)
+    std::stable_sort(found.begin(), found.end(), [](const auto &x, const auto &y) { return x.first < y.first; });
+    for (auto &f : found)
         out.push_back(std::move(f.second));
     return out;
 }
@@ -116,10 +116,10 @@ namespace {
 
 // The animation channel (.mdl animated list) a geometry node is moved by:
 // the node's name in the parts list, then that name's animated entry.
-int channelOfNode(const MdlModel& mdl, uint32_t node) {
-    for (const auto& p : mdl.parts)
+int channelOfNode(const MdlModel &mdl, uint32_t node) {
+    for (const auto &p : mdl.parts)
         if (p.value == int32_t(node))
-            for (const auto& a : mdl.animated)
+            for (const auto &a : mdl.animated)
                 if (a.name == p.name)
                     return a.value;
     return -1;
@@ -127,9 +127,9 @@ int channelOfNode(const MdlModel& mdl, uint32_t node) {
 
 // A node's turret or gun name, if it is one: "turret", "gun_2", ...; the
 // suffix ("", "_2") goes to suffix.
-bool nodeRole(const MdlModel& mdl, uint32_t node, const char* role, std::string& suffix) {
+bool nodeRole(const MdlModel &mdl, uint32_t node, const char *role, std::string &suffix) {
     const std::string r = role;
-    for (const auto& p : mdl.parts) {
+    for (const auto &p : mdl.parts) {
         if (p.value != int32_t(node) || p.name.rfind(r, 0) != 0)
             continue;
         const std::string rest = p.name.substr(r.size());
@@ -142,8 +142,8 @@ bool nodeRole(const MdlModel& mdl, uint32_t node, const char* role, std::string&
 }
 
 // A named attachment point's position (false if there's none).
-bool pointAt(const GeoModel& geo, const MdlModel& mdl, const std::string& name, GeoModel::Vec3& out) {
-    for (const auto& p : mdl.points)
+bool pointAt(const GeoModel &geo, const MdlModel &mdl, const std::string &name, GeoModel::Vec3 &out) {
+    for (const auto &p : mdl.points)
         if (p.name == name && p.value >= 0 && size_t(p.value) < geo.attachments.size()) {
             out = geo.attachments[size_t(p.value)].position;
             return true;
@@ -163,15 +163,15 @@ void multiply(const float a[9], const float b[9], float out[9]) {
 
 } // namespace
 
-Pose framePose(const GeoModel& geo, const MdlModel& mdl, const std::vector<PartTransform>& frame) {
+Pose framePose(const GeoModel &geo, const MdlModel &mdl, const std::vector<PartTransform> &frame) {
     Pose pose(geo.parts.size());
     for (size_t pi = 0; pi < geo.parts.size(); ++pi) {
         const int channel = channelOfNode(mdl, geo.parts[pi].node);
         if (channel < 0 || size_t(channel) >= frame.size() || size_t(channel) >= mdl.reference.size())
             continue;
-        const PartTransform& f = frame[size_t(channel)];
-        const PartTransform& r = mdl.reference[size_t(channel)];
-        PartPose& p = pose[pi];
+        const PartTransform &f = frame[size_t(channel)];
+        const PartTransform &r = mdl.reference[size_t(channel)];
+        PartPose &p = pose[pi];
         p.moved = true;
         // frame rotation × reference rotation transposed
         for (int i = 0; i < 3; ++i)
@@ -187,15 +187,15 @@ Pose framePose(const GeoModel& geo, const MdlModel& mdl, const std::vector<PartT
     return pose;
 }
 
-bool hasTurret(const MdlModel& mdl) {
+bool hasTurret(const MdlModel &mdl) {
     std::string suffix;
-    for (const auto& p : mdl.parts)
+    for (const auto &p : mdl.parts)
         if (p.value > 0 && nodeRole(mdl, uint32_t(p.value), "turret", suffix))
             return true;
     return false;
 }
 
-Pose turretPose(const GeoModel& geo, const MdlModel& mdl, float yaw, float pitch) {
+Pose turretPose(const GeoModel &geo, const MdlModel &mdl, float yaw, float pitch) {
     Pose pose(geo.parts.size());
     const float c = std::cos(yaw), s = std::sin(yaw);
     const float rz[9] = {c, -s, 0, s, c, 0, 0, 0, 1};
@@ -205,7 +205,7 @@ Pose turretPose(const GeoModel& geo, const MdlModel& mdl, float yaw, float pitch
     for (size_t pi = 0; pi < geo.parts.size(); ++pi) {
         const uint32_t node = geo.parts[pi].node;
         std::string suffix;
-        PartPose& p = pose[pi];
+        PartPose &p = pose[pi];
         GeoModel::Vec3 axis{0, 0, 0}, elevate{0, 0, 0};
         if (nodeRole(mdl, node, "turret", suffix)) {
             if (!pointAt(geo, mdl, "turret_axis" + suffix, axis))

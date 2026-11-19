@@ -27,21 +27,39 @@ struct Directive {
 // docs/engines/idtech3/formats/shader.md. Every directive is also kept, as
 // written, in `directives`.
 struct ShaderStage {
-    std::vector<std::string> maps; // one image, or animMap's frames
-    float animFps = 0;             // animMap's rate; 0 = not animated
-    bool clamp = false;            // clampMap
-    bool lightmap = false;         // map $lightmap
-    bool whiteImage = false;       // map $whiteimage
+    std::vector<std::string> maps;  // one image, or animMap's frames
+    float animFps = 0;              // animMap's rate; 0 = not animated
+    bool clamp = false;             // clampMap
+    bool lightmap = false;          // map $lightmap
+    bool whiteImage = false;        // map $whiteimage
     std::string blendSrc, blendDst; // GL_* names, lower case; empty = opaque
 
     enum class RgbGen : uint8_t {
-        Default, Identity, IdentityLighting, Vertex, ExactVertex, OneMinusVertex, LightingDiffuse,
-        Wave, Const, Entity, OneMinusEntity,
+        Default,
+        Identity,
+        IdentityLighting,
+        Vertex,
+        ExactVertex,
+        OneMinusVertex,
+        LightingDiffuse,
+        Wave,
+        Const,
+        Entity,
+        OneMinusEntity,
     } rgbGen = RgbGen::Default;
     gfx::Wave rgbWave;
     std::array<float, 3> rgbConst{1, 1, 1};
     enum class AlphaGen : uint8_t {
-        Default, Identity, Vertex, OneMinusVertex, Wave, Const, Entity, OneMinusEntity, LightingSpecular, Portal,
+        Default,
+        Identity,
+        Vertex,
+        OneMinusVertex,
+        Wave,
+        Const,
+        Entity,
+        OneMinusEntity,
+        LightingSpecular,
+        Portal,
     } alphaGen = AlphaGen::Default;
     gfx::Wave alphaWave;
     float alphaConst = 1;
@@ -66,34 +84,42 @@ struct ShaderStage {
 
 struct ShaderDeform {
     enum class Type : uint8_t {
-        Wave, Normal, Bulge, Move, Autosprite, Autosprite2, Text, ProjectionShadow, Other,
+        Wave,
+        Normal,
+        Bulge,
+        Move,
+        Autosprite,
+        Autosprite2,
+        Text,
+        ProjectionShadow,
+        Other,
     } type = Type::Other;
-    float spread = 0;                // wave: 1 / div
-    gfx::Wave wave;                  // wave, normal (amplitude, frequency), move
-    std::array<float, 3> vector{};   // move
+    float spread = 0;                       // wave: 1 / div
+    gfx::Wave wave;                         // wave, normal (amplitude, frequency), move
+    std::array<float, 3> vector{};          // move
     float width = 0, height = 0, speed = 0; // bulge
 };
 
 struct ShaderDef {
-    std::string name;   // as written, e.g. "textures/borg/borgfloor1"
-    std::string file;   // the .shader file it came from
+    std::string name;                      // as written, e.g. "textures/borg/borgfloor1"
+    std::string file;                      // the .shader file it came from
     std::vector<std::string> surfaceParms; // lower case
     std::vector<ShaderStage> stages;
     std::vector<Directive> directives; // the shader-level ones
 
     enum class Cull : uint8_t { Front, Back, None } cull = Cull::Front; // the side that's hidden
     std::vector<ShaderDeform> deforms;
-    float sort = 0;             // 0 = not given; see sortKey() in world_renderer.cpp
+    float sort = 0; // 0 = not given; see sortKey() in world_renderer.cpp
     bool polygonOffset = false;
     bool noMipmaps = false, noPicmip = false;
     bool portal = false;
 
-    bool sky = false;           // skyParms
-    std::string skyFarBox;      // e.g. "env/space1" for env/space1_rt.tga...; empty for none
+    bool sky = false;      // skyParms
+    std::string skyFarBox; // e.g. "env/space1" for env/space1_rt.tga...; empty for none
     float cloudHeight = 512;
-    bool fog = false;           // fogParms
+    bool fog = false; // fogParms
     std::array<float, 3> fogColor{};
-    float fogDistance = 0;      // where the fog becomes opaque
+    float fogDistance = 0; // where the fog becomes opaque
 
     // Directives this parser doesn't know, lower case, shader and stage
     // ones alike, for finding out what a game adds.
@@ -104,28 +130,28 @@ struct ShaderDef {
 
 // Parse every shader in one .shader file's text, appending to `out`.
 // `file` is recorded in each definition and used in messages.
-Error parseShaderFile(std::string_view text, const std::string& file, std::vector<ShaderDef>& out);
+Error parseShaderFile(std::string_view text, const std::string &file, std::vector<ShaderDef> &out);
 
 // The file an image name refers to: shaders and maps name images with or
 // without an extension, and the original finds the .tga or the .jpg
 // whichever is written (.png too, for mods). Empty if there's none.
-std::string findImage(const SearchSet& files, std::string_view name);
+std::string findImage(const SearchSet &files, std::string_view name);
 
 // Every shader of a game: all scripts/*.shader files in a search set. When
 // two files define a name, the first parsed wins; files are parsed in name
 // order. Problems with single files are collected, not fatal.
 class ShaderLibrary {
 public:
-    void load(const SearchSet& files, std::vector<std::string>* warnings = nullptr);
+    void load(const SearchSet &files, std::vector<std::string> *warnings = nullptr);
     void add(ShaderDef def);
 
     // By name, ignoring case, slash direction and any extension (a model's
     // "models/x/y.tga" finds the script "models/x/y", as in the original);
     // nullptr if undefined (then the engine uses the image of that name,
     // see shader.md).
-    const ShaderDef* find(std::string_view name) const;
+    const ShaderDef *find(std::string_view name) const;
     size_t size() const { return shaders_.size(); }
-    const std::vector<ShaderDef>& all() const { return shaders_; }
+    const std::vector<ShaderDef> &all() const { return shaders_; }
 
 private:
     std::vector<ShaderDef> shaders_;

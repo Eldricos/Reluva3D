@@ -20,26 +20,46 @@ constexpr std::string_view kEndOfFile = "End Of File";
 // Every class seen in the retail models. Objects are found by these names,
 // so a new one has to be added here to be seen at all.
 const std::set<std::string_view, std::less<>> kClasses = {
-    "NiNode", "NiBillboardNode", "NiLODNode", "Ni3dsAnimationNode", "Ni3dsBone",
-    "NiTriShape", "NiEnvMappedTriShape", "Ni3dsMorphShape", "Ni3dsSkin", "NiLight",
-    "NiMaterialProperty", "NiAlphaProperty", "NiTextureProperty", "NiMultiTextureProperty",
-    "NiTextureModeProperty", "NiVertexColorProperty", "NiZBufferProperty", "NiSpecularProperty",
-    "NiShadeProperty", "NiImage", "NiFlipTextures", "Ni3dsColorAnimator", "Ni3dsAlphaAnimator",
-    "DDUnit", "DDEnv", "DDCorona", "DDActorSharedData",
+    "NiNode",
+    "NiBillboardNode",
+    "NiLODNode",
+    "Ni3dsAnimationNode",
+    "Ni3dsBone",
+    "NiTriShape",
+    "NiEnvMappedTriShape",
+    "Ni3dsMorphShape",
+    "Ni3dsSkin",
+    "NiLight",
+    "NiMaterialProperty",
+    "NiAlphaProperty",
+    "NiTextureProperty",
+    "NiMultiTextureProperty",
+    "NiTextureModeProperty",
+    "NiVertexColorProperty",
+    "NiZBufferProperty",
+    "NiSpecularProperty",
+    "NiShadeProperty",
+    "NiImage",
+    "NiFlipTextures",
+    "Ni3dsColorAnimator",
+    "Ni3dsAlphaAnimator",
+    "DDUnit",
+    "DDEnv",
+    "DDCorona",
+    "DDActorSharedData",
 };
 
 // What each node class adds after NiNode's fields (bytes), as far as it's
 // known: a billboard's mode, a DDUnit's or DDEnv's link to its shared data,
 // a 3ds node's animation settings.
 const std::map<std::string_view, uint32_t, std::less<>> kNodeExtra = {
-    {"NiNode", 0}, {"NiBillboardNode", 4}, {"DDUnit", 4}, {"DDEnv", 4},
-    {"Ni3dsAnimationNode", 48}, {"Ni3dsBone", 48},
+    {"NiNode", 0}, {"NiBillboardNode", 4}, {"DDUnit", 4}, {"DDEnv", 4}, {"Ni3dsAnimationNode", 48}, {"Ni3dsBone", 48},
 };
 
 // Reads little-endian fields within an object, failing (and staying
 // failed) on reading past its end.
 struct Reader {
-    const uint8_t* p;
+    const uint8_t *p;
     size_t size, pos = 0;
     bool ok = true;
 
@@ -75,7 +95,7 @@ struct Reader {
         std::memcpy(&f, &u, 4);
         return f;
     }
-    void floats(float* out, size_t n) {
+    void floats(float *out, size_t n) {
         for (size_t i = 0; i < n; ++i)
             out[i] = f32();
     }
@@ -91,7 +111,7 @@ struct Reader {
         const uint32_t n = u32();
         if (!need(n))
             return {};
-        std::string s(reinterpret_cast<const char*>(p + pos), n);
+        std::string s(reinterpret_cast<const char *>(p + pos), n);
         pos += n;
         return s;
     }
@@ -109,7 +129,7 @@ struct Reader {
 // NiObjectNET: the name, extra data written inline (each its class name
 // and fields), then a byte of flags. Bit 0 hides an object (and what's
 // under it): it's set only on effects shown on events.
-std::string readObjectNet(Reader& r, uint8_t* flags = nullptr) {
+std::string readObjectNet(Reader &r, uint8_t *flags = nullptr) {
     std::string name = r.string();
     const uint32_t extras = r.u32();
     for (uint32_t i = 0; i < extras && r.ok; ++i) {
@@ -129,13 +149,21 @@ std::string readObjectNet(Reader& r, uint8_t* flags = nullptr) {
 
 // A bounding volume: its type, then its fields. Sphere, box and capsule
 // end with a byte; a half-space doesn't; types 4 and 6 are lists of others.
-void skipBoundingVolume(Reader& r, int depth = 0) {
+void skipBoundingVolume(Reader &r, int depth = 0) {
     const uint32_t type = r.u32();
     switch (type) {
-    case 0: r.skip(16 + 1); break; // sphere: centre, radius
-    case 1: r.skip(60 + 1); break; // box: centre, three axes, extents
-    case 2: r.skip(28 + 1); break; // capsule
-    case 5: r.skip(16); break;     // half-space: a plane
+    case 0:
+        r.skip(16 + 1);
+        break; // sphere: centre, radius
+    case 1:
+        r.skip(60 + 1);
+        break; // box: centre, three axes, extents
+    case 2:
+        r.skip(28 + 1);
+        break; // capsule
+    case 5:
+        r.skip(16);
+        break; // half-space: a plane
     case 4:
     case 6: {
         const uint32_t n = r.u32();
@@ -147,12 +175,14 @@ void skipBoundingVolume(Reader& r, int depth = 0) {
             skipBoundingVolume(r, depth + 1);
         break;
     }
-    default: r.ok = false; break;
+    default:
+        r.ok = false;
+        break;
     }
 }
 
 // NiAVObject's fields after NiObjectNET's.
-void readAvObject(Reader& r, FinAvObject& o) {
+void readAvObject(Reader &r, FinAvObject &o) {
     uint8_t flags = 0;
     o.name = readObjectNet(r, &flags);
     o.hidden = (flags & 1) != 0;
@@ -161,12 +191,12 @@ void readAvObject(Reader& r, FinAvObject& o) {
     o.scale = r.f32();
     r.skip(12); // velocity
     o.properties = r.links();
-    r.u32(); // 1 to 5, meaning unknown
+    r.u32();          // 1 to 5, meaning unknown
     if (r.u32() != 0) // the collision volume, if it has one
         skipBoundingVolume(r);
 }
 
-void readNode(Reader& r, FinNode& n, uint32_t extra) {
+void readNode(Reader &r, FinNode &n, uint32_t extra) {
     readAvObject(r, n);
     r.skip(9); // the sorting mode, a number and whether it's a visual object
     n.children = r.links();
@@ -176,7 +206,7 @@ void readNode(Reader& r, FinNode& n, uint32_t extra) {
 
 // NiLODNode: a node, five bytes, the number of levels (one per child) and
 // 20 bytes for each (its distances), then a byte.
-void readLodNode(Reader& r, FinNode& n) {
+void readLodNode(Reader &r, FinNode &n) {
     readNode(r, n, 5);
     const uint32_t levels = r.u32();
     if (levels != n.children.size())
@@ -187,7 +217,7 @@ void readLodNode(Reader& r, FinNode& n) {
 
 // A shape's fields; a DDCorona (a glow) stops after the colours, with a
 // link and nine numbers of its own instead of planes and triangles.
-void readShape(Reader& r, FinShape& s, bool corona = false) {
+void readShape(Reader &r, FinShape &s, bool corona = false) {
     readAvObject(r, s);
     // Each array follows a non-zero word (its address when saved) and is
     // left out after a zero one.
@@ -211,7 +241,7 @@ void readShape(Reader& r, FinShape& s, bool corona = false) {
         r.skip(size_t(nt) * 16); // a plane per triangle
     if (r.need(size_t(nt) * 6)) {
         s.triangles.resize(size_t(nt) * 3);
-        for (uint16_t& i : s.triangles)
+        for (uint16_t &i : s.triangles)
             i = r.u16();
     }
     if (std::any_of(s.triangles.begin(), s.triangles.end(), [&](uint16_t i) { return i >= nv; }))
@@ -221,7 +251,7 @@ void readShape(Reader& r, FinShape& s, bool corona = false) {
 // Ni3dsSkin: a shape, two bytes (1 and 1), then for each vertex the number
 // of its influences (16 bits) and each: weight, position in the bone's
 // space (3 floats), the bone's id.
-void readSkin(Reader& r, FinSkin& s) {
+void readSkin(Reader &r, FinSkin &s) {
     readShape(r, s);
     r.skip(2);
     s.firstInfluence.reserve(size_t(s.vertexCount) + 1);
@@ -248,7 +278,7 @@ void readSkin(Reader& r, FinSkin& s) {
 // flags making the "seven bytes" after readObjectNet's byte): the cycle,
 // the default display time (0), frequency, phase, begin and end key
 // times, and here the target.
-void readControllerTail(Reader& r, FinController& c) {
+void readControllerTail(Reader &r, FinController &c) {
     c.cycle = r.u32();
     r.u32();
     c.frequency = r.f32();
@@ -261,7 +291,7 @@ void readControllerTail(Reader& r, FinController& c) {
 // NiFlipTextures: NiObject's fields (no flags byte: readObjectNet's is the
 // first of the out-of-bounds type), then the rate, start time, duration
 // and the texture property.
-void readFlip(Reader& r, FinFlip& f) {
+void readFlip(Reader &r, FinFlip &f) {
     uint8_t low = 0;
     readObjectNet(r, &low);
     f.outOfBounds = low | uint32_t(r.u8()) << 8 | uint32_t(r.u16()) << 16;
@@ -275,7 +305,7 @@ void readFlip(Reader& r, FinFlip& f) {
 // Ni3dsAlphaAnimator: a controller, then the keys: their number and type,
 // each its time and value; type 2 adds tangents (and, for a colour, 24
 // bytes more).
-void readMaterialAnimator(Reader& r, FinMaterialAnimator& a, bool alpha) {
+void readMaterialAnimator(Reader &r, FinMaterialAnimator &a, bool alpha) {
     readObjectNet(r);
     r.skip(7);
     readControllerTail(r, a);
@@ -305,7 +335,7 @@ void readMaterialAnimator(Reader& r, FinMaterialAnimator& a, bool alpha) {
 // time, six numbers, the number of targets again, then a weight, an
 // incoming and an outgoing tangent for each target, all the weights
 // first), and each target's vertices.
-void readMorph(Reader& r, FinMorph& m) {
+void readMorph(Reader &r, FinMorph &m) {
     readShape(r, m);
     FinController c;
     r.skip(8);
@@ -318,7 +348,7 @@ void readMorph(Reader& r, FinMorph& m) {
     r.skip(2);
     const uint32_t targets = r.u32();
     const uint32_t keys = r.u32();
-    r.skip(16); // its bounding sphere (NiBound: centre, radius)
+    r.skip(16);       // its bounding sphere (NiBound: centre, radius)
     if (r.u32() != 5) // the keys' type: NiBaryMorphKey
         r.ok = false;
     if (targets > 64 || keys > 4096) {
@@ -351,7 +381,7 @@ void readMorph(Reader& r, FinMorph& m) {
 // spot angle and exponent, dimmer, ambient, diffuse and specular colours,
 // the attenuation's distance, curve and switch, the type, and the nodes it
 // lights.
-void readLight(Reader& r, FinLight& l) {
+void readLight(Reader &r, FinLight &l) {
     readAvObject(r, l);
     r.floats(l.location.data(), 3);
     r.floats(l.direction.data(), 3);
@@ -372,7 +402,7 @@ void readLight(Reader& r, FinLight& l) {
 }
 
 // DDActorSharedData. See docs/engines/netimmerse/games/legoalphateam/formats/fin.md for the layout.
-void readActor(Reader& r, FinActor& a) {
+void readActor(Reader &r, FinActor &a) {
     a.id = r.string();
     r.string();
     a.name = r.string();
@@ -400,7 +430,7 @@ void readActor(Reader& r, FinActor& a) {
             c.maxDistance = r.f32();
             c.minDistance = r.f32();
         }
-        for (auto* list : {&c.tracks, &c.flips, &c.morphs}) {
+        for (auto *list : {&c.tracks, &c.flips, &c.morphs}) {
             const uint32_t n = r.u32();
             for (uint32_t k = 0; k < n && r.ok && k < 65536; ++k)
                 list->push_back(r.u16());
@@ -413,15 +443,20 @@ void readActor(Reader& r, FinActor& a) {
     // Each key starts with its time and value; the types add more after.
     auto keySize = [](char kind, uint32_t type) -> size_t {
         switch (kind) {
-        case 'r': return type == 1 ? 44 : type == 2 ? 64 : type == 3 ? 96 : 0;
-        case 'p': return type == 1 ? 16 : type == 2 ? 64 : type == 3 ? 76 : 0;
-        case 's': return type == 1 ? 8 : type == 2 ? 16 : 0;
-        case 'f': return type == 1 ? 8 : type == 2 ? 16 : type == 3 ? 20 : 0;
-        default: return 0;
+        case 'r':
+            return type == 1 ? 44 : type == 2 ? 64 : type == 3 ? 96 : 0;
+        case 'p':
+            return type == 1 ? 16 : type == 2 ? 64 : type == 3 ? 76 : 0;
+        case 's':
+            return type == 1 ? 8 : type == 2 ? 16 : 0;
+        case 'f':
+            return type == 1 ? 8 : type == 2 ? 16 : type == 3 ? 20 : 0;
+        default:
+            return 0;
         }
     };
     // A track: the number of keys, then (if any) their type and the keys.
-    auto track = [&](char kind, auto&& read) {
+    auto track = [&](char kind, auto &&read) {
         const uint32_t n = r.u32();
         if (!n)
             return;
@@ -456,7 +491,7 @@ void readActor(Reader& r, FinActor& a) {
         const size_t at = r.pos;
         if (r.u32() == 1 && r.u32() == 4) {
             r.skip(46);
-            for (auto& axis : t.euler)
+            for (auto &axis : t.euler)
                 track('f', [&](uint32_t type, size_t key) { axis.push_back(floatKey(type, key)); });
         } else {
             r.pos = at;
@@ -512,17 +547,19 @@ void readActor(Reader& r, FinActor& a) {
     }
 }
 
-uint32_t le32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
+uint32_t le32(const uint8_t *p) {
+    return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
+}
 
 // The length-prefixed string at `at` (1 to maxLen characters), or an empty
 // view if there's none.
-std::string_view stringAt(const std::vector<uint8_t>& d, size_t at, size_t maxLen) {
+std::string_view stringAt(const std::vector<uint8_t> &d, size_t at, size_t maxLen) {
     if (at + 4 > d.size())
         return {};
     const uint32_t n = le32(&d[at]);
     if (n == 0 || n > maxLen || at + 4 + n > d.size())
         return {};
-    return std::string_view(reinterpret_cast<const char*>(&d[at + 4]), n);
+    return std::string_view(reinterpret_cast<const char *>(&d[at + 4]), n);
 }
 
 } // namespace
@@ -550,7 +587,7 @@ std::string FinFile::typeOf(uint32_t id) const {
     return it == byId_.end() ? std::string() : objects_[it->second].type;
 }
 
-Error FinFile::parse(const std::vector<uint8_t>& data) {
+Error FinFile::parse(const std::vector<uint8_t> &data) {
     *this = FinFile();
     if (data.size() < kHeader.size() || std::memcmp(data.data(), kHeader.data(), kHeader.size()) != 0)
         return Error::fail("not an Alpha Team model (no 'Dweezil 23' header)");
@@ -559,8 +596,8 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
     // header is its class name (one of kClasses, length-prefixed), then
     // its id.
     struct Mark {
-        size_t at;      // the length word
-        size_t fields;  // after the id (objects only)
+        size_t at;             // the length word
+        size_t fields;         // after the id (objects only)
         std::string_view type; // empty for markers
         uint32_t id;
         bool topLevel;
@@ -612,7 +649,7 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
         if (type == "NiLODNode") {
             readLodNode(r, nodes[info.id]);
         } else if (auto extra = kNodeExtra.find(type); extra != kNodeExtra.end()) {
-            FinNode& node = nodes[info.id];
+            FinNode &node = nodes[info.id];
             if (type == "DDUnit" || type == "DDEnv") { // a link to its DDActorSharedData
                 readNode(r, node, 0);
                 node.actor = r.u32();
@@ -636,7 +673,7 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
         } else if (type == "DDCorona") {
             readShape(r, coronas[info.id], true);
         } else if (type == "NiMaterialProperty") {
-            FinMaterial& mat = materials[info.id];
+            FinMaterial &mat = materials[info.id];
             readObjectNet(r);
             r.floats(mat.ambient.data(), 3);
             r.floats(mat.diffuse.data(), 3);
@@ -645,7 +682,7 @@ Error FinFile::parse(const std::vector<uint8_t>& data) {
             mat.glossiness = r.f32();
             mat.alpha = r.f32();
         } else if (type == "NiAlphaProperty") {
-            FinAlpha& a = alphas[info.id];
+            FinAlpha &a = alphas[info.id];
             readObjectNet(r);
             a.blend = r.u8() != 0;
             a.source = r.u32();

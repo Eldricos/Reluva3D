@@ -35,14 +35,16 @@ std::string Movie::videoCodec() const {
     return s;
 }
 
-double Movie::framesPerSecond() const { return decoder_.frameMicros() ? 1e6 / decoder_.frameMicros() : 0; }
+double Movie::framesPerSecond() const {
+    return decoder_.frameMicros() ? 1e6 / decoder_.frameMicros() : 0;
+}
 
 double Movie::durationSeconds() const {
     const double fps = framesPerSecond();
     return fps > 0 ? double(frameCount()) / fps : 0;
 }
 
-Error Movie::audio(audio::Sound& out) const {
+Error Movie::audio(audio::Sound &out) const {
     out = {};
     if (!hasAudio())
         return Error::fail("AVI file without sound");
@@ -52,7 +54,7 @@ Error Movie::audio(audio::Sound& out) const {
     out.rate = decoder_.audioRate();
     out.channels = channels;
     out.format = 1;
-    const std::vector<uint8_t>& p = decoder_.audio();
+    const std::vector<uint8_t> &p = decoder_.audio();
     if (bits == 16)
         for (size_t i = 0; i + 1 < p.size(); i += 2)
             out.samples.push_back(int16_t(p[i] | p[i + 1] << 8));
@@ -67,8 +69,7 @@ Error Movie::audio(audio::Sound& out) const {
 Error Movie::seek(double seconds) {
     if (frameCount() == 0)
         return Error::success();
-    const int target =
-        int(std::min(frameCount() - 1, size_t(std::max(0.0, std::floor(seconds * framesPerSecond())))));
+    const int target = int(std::min(frameCount() - 1, size_t(std::max(0.0, std::floor(seconds * framesPerSecond())))));
     // Frames build on the ones before: going back starts again.
     if (target < decoder_.currentFrame())
         if (Error err = restart())
@@ -79,7 +80,7 @@ Error Movie::seek(double seconds) {
         if (!decoder_.decodeNextFrame())
             return Error::fail("frame " + std::to_string(decoder_.currentFrame() + 1) + " can't be read");
     shown_ = size_t(target);
-    const Surface& s = decoder_.surface();
+    const Surface &s = decoder_.surface();
     picture_.w = s.w;
     picture_.h = s.h;
     picture_.rgba.resize(size_t(s.w) * size_t(s.h) * 4);

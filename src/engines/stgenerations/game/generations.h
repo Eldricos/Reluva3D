@@ -46,7 +46,7 @@ struct Options {
     std::filesystem::path gameDir;  // the installed game (or an import of it, discs in disc1/ and disc2/)
     std::filesystem::path cd1, cd2; // the discs' folders, when not in the game's
     std::string description;        // the release, as detection names it
-    bool unknownVariant = false;     // found by its executable alone, not by kVariants: warned about
+    bool unknownVariant = false;    // found by its executable alone, not by kVariants: warned about
     // Developer: the resource viewer instead of the game; start the story
     // at one of its sections; or straight into space combat n.
     bool viewer = false;
@@ -68,16 +68,16 @@ struct Options {
 class Generations {
 public:
     // `mixer` may be null (no sound).
-    Generations(Platform* system, Options options);
+    Generations(Platform *system, Options options);
     ~Generations();
 
     // Runs the game until the player quits.
     Error run();
 
     Error loadGameState(int slot);
-    Error saveGameState(int slot, const std::string& description);
+    Error saveGameState(int slot, const std::string &description);
 
-    RandomSource& getRandom() { return _random; }
+    RandomSource &getRandom() { return _random; }
     bool shouldQuit() const { return _system->shouldQuit(); }
     void quitGame() { _system->quitGame(); }
     void pauseEngine(bool pause);
@@ -86,7 +86,7 @@ public:
     void syncSoundSettings();
 
     // The game's own settings file (its menu's choices), in its folder.
-    static constexpr const char* kSettingsFile = "settings.ini";
+    static constexpr const char *kSettingsFile = "settings.ini";
     // A save slot's file, in the game's folder.
     static std::string getSaveFileName(int slot);
 
@@ -98,7 +98,7 @@ private:
     void initPalette();
     void initCursor();
     void loadFont();
-    void handleEvent(const Event& event);
+    void handleEvent(const Event &event);
     void drawFrame(uint32_t delta);
     void drawStarfield(uint32_t delta);
     void drawTextPanel();
@@ -108,14 +108,14 @@ private:
     void applyScreenEffects();
 
     void showImage(int index);
-    void showOverlay(const ResourceRef& ref);
-    void showSprites(const ResourceRef& ref);
+    void showOverlay(const ResourceRef &ref);
+    void showSprites(const ResourceRef &ref);
     // Load a level; with run false its scripts are set up but not started (a saved game follows).
-    void showLevel(const ResourceRef& ref, bool run = true);
+    void showLevel(const ResourceRef &ref, bool run = true);
     // Page 0 is the map, page 1 the 3D view, page n + 1 the n-th texture.
     void showLevelPage(int page);
     // Handle a key on the 3D view; returns false if it isn't a movement key.
-    bool handleWalkKey(const KeyState& state, bool down);
+    bool handleWalkKey(const KeyState &state, bool down);
     // An away action from the key map (KeyMap::AwayAction) pressed or released; false if it has no use here.
     bool walkAction(int action, bool down);
     // A mouse button (virtual key 1, 2 or 4) pressed or released over the 3D view.
@@ -123,24 +123,24 @@ private:
     // Let go of every walking key and button (0x43F552).
     void releaseWalkKeys();
     // While Mouse Look is held: the turn (radians a second) and look (pitch a second) the mouse asks for.
-    void mouseLookRates(double& turn, double& look) const;
+    void mouseLookRates(double &turn, double &look) const;
     // Move the camera by the keys held, over delta ms, keeping it on the floor.
     void updateWalk(uint32_t delta);
     void updateWalkStatus();
     // Set up the level's actors, loading their sprite sets.
-    void loadActors(const ResourceRef& levelRef);
+    void loadActors(const ResourceRef &levelRef);
     // Find a sound file (or the subtitle next to it) by file name,
     // preferring archives whose name starts with archivePrefix.
-    bool findSoundFile(const std::string& name, const std::string& archivePrefix, ResourceRef& ref) const;
+    bool findSoundFile(const std::string &name, const std::string &archivePrefix, ResourceRef &ref) const;
     // Load the level's GAME.BIN, if there is one, and start its mission.
-    void startMission(const ResourceRef& levelRef, bool run = true);
+    void startMission(const ResourceRef &levelRef, bool run = true);
     // The briefing and its PROCEED button, until it is clicked.
-    void drawBriefing(Canvas& screen, bool withProceed, bool pressed);
+    void drawBriefing(Canvas &screen, bool withProceed, bool pressed);
     bool isOverProceed(int x, int y) const;
     // PROCEED: its sound, then the mission (event 6).
     void proceed();
     // A mission transition's blends over the screen (0x43E13A).
-    void drawTransition(const Mission::TransitionView& transition, Palette& palette);
+    void drawTransition(const Mission::TransitionView &transition, Palette &palette);
     // Jump to the first image of the next (direction 1) or previous (-1) archive.
     void jumpArchive(int direction);
     // Show the next (1) or previous (-1) 3D level, GAME.LV2.
@@ -152,25 +152,25 @@ private:
     // Start an away mission from the list, in the 3D view.
     void playMission(int index);
     // Back to the list, saying why.
-    void leaveMission(const std::string& message);
+    void leaveMission(const std::string &message);
     // Before rendering a w x h view: where to aim, the item held up, what to pick.
     void prepareAim(int w, int h);
     // After rendering it: the gun held up, or the punch and a crosshair at the centre.
-    void drawHands(Canvas& view, uint32_t delta);
+    void drawHands(Canvas &view, uint32_t delta);
     // The scripts' full-view overlay (SHOW_VIEW_OVERLAY), if any.
-    void drawViewOverlay(Canvas& view);
+    void drawViewOverlay(Canvas &view);
     // The mouse cursor: a crosshair to aim with, or an arrow.
     void setCursor(bool target);
     // The player attacks: fires the weapon in use, or else punches.
     void attack();
     // Run the punch animation by delta ms and draw it over view.
-    void updatePunch(uint32_t delta, Canvas& view);
+    void updatePunch(uint32_t delta, Canvas &view);
     void playSound(int index);
     void playBeep(int frequency);
     // Play one of the movies (e.g. "MOVIE/MOV_01.AVI") full screen, with
     // its sound, until it ends or a key or click skips it. False if it
     // can't be found or read.
-    bool playMovie(const std::string& name);
+    bool playMovie(const std::string &name);
 
     // The front end (frontend.cpp).
     // A line of rolling text: its gap above, and whether to centre it.
@@ -183,7 +183,7 @@ private:
     // the resource viewer) if the data for it isn't there.
     bool startFrontEnd();
     // For testing: the story from one of its sections, as if a new game had got there.
-    void startStoryAt(const std::string& section);
+    void startStoryAt(const std::string &section);
     void loadSettings();
     // Keep the settings and apply the volumes.
     void saveSettings();
@@ -205,32 +205,31 @@ private:
     void setTrueColour(bool on);
     // A frame of space combat.
     void updateCombat(uint32_t delta);
-    void handleMenuEvent(const Event& event);
+    void handleMenuEvent(const Event &event);
     void playMenuSound(int id);
     std::vector<OptionsMenu::Slot> listSaves();
-    bool readSaveHeader(int slot, std::string& description, std::string& date);
+    bool readSaveHeader(int slot, std::string &description, std::string &date);
     // When a game is saved, as the menu shows it ("11/05 21:52").
     std::string saveDate() const;
     // Poll events; true on a key or click (or quitting).
     bool waitForSkip();
     // Show a bitmap full screen in its own palette.
-    bool showPicture(const ResourceRef& ref, BitmapDecoder& decoder);
+    bool showPicture(const ResourceRef &ref, BitmapDecoder &decoder);
     void showIntro();
     // Play a track from MUSIC.1 or MUSIC.2.
-    bool playMusic(const std::string& name);
+    bool playMusic(const std::string &name);
     // Roll lines of text up over a background while the music plays.
-    void rollText(const BitmapDecoder& background, const Font& font, const std::vector<RollLine>& lines,
-                  const std::vector<std::string>& music);
+    void rollText(const BitmapDecoder &background, const Font &font, const std::vector<RollLine> &lines,
+                  const std::vector<std::string> &music);
     // The ending texts, TEXTn.TXT.
     void showScrollText(int number);
-    bool loadCredits(std::vector<RollLine>& lines);
+    bool loadCredits(std::vector<RollLine> &lines);
     void showCredits();
 
-
-    Platform* _system;
-    Platform* _eventMan; // the same Platform: the events and what's held
+    Platform *_system;
+    Platform *_eventMan; // the same Platform: the events and what's held
     std::unique_ptr<Mixer> _mixerWrapper;
-    Mixer* _mixer = nullptr;
+    Mixer *_mixer = nullptr;
     Options _options;
     int _pauseLevel = 0;
     // The menu's settings and the volumes, kept in kSettingsFile.
@@ -282,8 +281,20 @@ private:
     bool _paletteBlended = false;
     Camera _camera;
     uint32_t _levelTime = 0;
-    enum WalkKey { kWalkForward, kWalkBack, kWalkTurnLeft, kWalkTurnRight, kWalkStrafeLeft, kWalkStrafeRight,
-                   kWalkLookUp, kWalkLookDown, kWalkCrouch, kWalkJump, kWalkRun, kWalkKeyCount };
+    enum WalkKey {
+        kWalkForward,
+        kWalkBack,
+        kWalkTurnLeft,
+        kWalkTurnRight,
+        kWalkStrafeLeft,
+        kWalkStrafeRight,
+        kWalkLookUp,
+        kWalkLookDown,
+        kWalkCrouch,
+        kWalkJump,
+        kWalkRun,
+        kWalkKeyCount
+    };
     bool _walkKeys[kWalkKeyCount] = {};
     // A jump asked for, taken at the next step; and the low gravity jump's wait (ms).
     bool _jumpPressed = false;
@@ -353,4 +364,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

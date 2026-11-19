@@ -20,7 +20,7 @@ namespace reluva::awe {
 namespace {
 
 // The letters in UTF-8 text (the game counts its UTF-16 characters).
-size_t letters(const std::string& s) {
+size_t letters(const std::string &s) {
     size_t n = 0;
     for (unsigned char c : s)
         n += (c & 0xc0) != 0x80;
@@ -30,46 +30,49 @@ size_t letters(const std::string& s) {
 // The bar's sections' right ends (0x48d650): the bag, the five cars, the
 // hat; and the cars' words in a location's name (0x417760).
 constexpr int kBarEnds[7] = {75, 250, 422, 595, 771, 950, 1024};
-constexpr const char* kCars[5] = {"baggage", "restaurant", "salon", "calais", "athens"};
+constexpr const char *kCars[5] = {"baggage", "restaurant", "salon", "calais", "athens"};
 
 // The window's top; its pages' pictures (0x41af10, 0x41a110, 0x4182f0,
 // 0x41e5e0, 0x41cea0, 0x41d6d0).
 constexpr int kTop = 10;
-constexpr const char* kPages[6] = {"windowinventory", "windowexamine",   "windowcombine",
+constexpr const char *kPages[6] = {"windowinventory", "windowexamine",   "windowcombine",
                                    "windowscrapbook", "windowpassports", "windowfingerprints"};
 
 // The scrapbook's sections, as contents.txt lists them (0x41ec60).
-constexpr const char* kSections[9] = {"contents", "clippings", "instructions", "suspects", "timetable",
+constexpr const char *kSections[9] = {"contents", "clippings", "instructions", "suspects", "timetable",
                                       "maps",     "docs",      "barnaby",      "challenge"};
 // The suspects' passports and fingerprint cards, by their place in
 // suspects.txt (0x48f268, 0x48f2b4).
-constexpr const char* kSuspectPasses[] = {
-    "passcount",   "passcount",    "passarbuthnot", "passdebenham", "passdragomiroff", "passfoscarelli", "passhardman",
-    "passhubbard", "passmacqueen", "passmasterman", "passohlsson",  "passschmidt",     "passmichel",     "passconstantine",
-    "passklaus",   "passlucien",   "passmatteo",    "passengineer", "passfireman"};
-constexpr const char* kSuspectPrints[] = {
-    "printcount",   "printcountess", "printarbuthnot", "printdebenham", "printdragomiroff", "printfoscarelli",
-    "printhardman", "printhubbard",  "printmacqueen",  "printmasterman", "printohlsson",    "printschmidt",
-    "printmichel",  "printconstantine", "printklaus",  "printlucien",   "printmatteo",     "printengineer",
-    "printfireman"};
+constexpr const char *kSuspectPasses[] = {"passcount",       "passcount",       "passarbuthnot", "passdebenham",
+                                          "passdragomiroff", "passfoscarelli",  "passhardman",   "passhubbard",
+                                          "passmacqueen",    "passmasterman",   "passohlsson",   "passschmidt",
+                                          "passmichel",      "passconstantine", "passklaus",     "passlucien",
+                                          "passmatteo",      "passengineer",    "passfireman"};
+constexpr const char *kSuspectPrints[] = {"printcount",       "printcountess",    "printarbuthnot", "printdebenham",
+                                          "printdragomiroff", "printfoscarelli",  "printhardman",   "printhubbard",
+                                          "printmacqueen",    "printmasterman",   "printohlsson",   "printschmidt",
+                                          "printmichel",      "printconstantine", "printklaus",     "printlucien",
+                                          "printmatteo",      "printengineer",    "printfireman"};
 
 // The window's pages' places (the floats after their vtables).
 constexpr int kArrowBack[4] = {46, 29, 76, 44}, kArrowOn[4] = {435, 29, 464, 44}; // 0x41c980
-constexpr int kBlipLeft = 78, kBlipSpan = 342;                                       // 0x482814, 0x482810
+constexpr int kBlipLeft = 78, kBlipSpan = 342;                                    // 0x482814, 0x482810
 
-bool inside(int x, int y, int l, int t, int r, int b) { return x >= l && x < r && y >= t && y < b; }
+bool inside(int x, int y, int l, int t, int r, int b) {
+    return x >= l && x < r && y >= t && y < b;
+}
 
 // A picture over the screen, faded by `alpha`, between columns clipL and
 // clipR; the screen's alpha kept (it may be an overlay on the 3D).
-void blend(Surface& dst, const image::Image& img, int x, int y, int alpha, int clipL = 0, int clipR = kScreenW) {
+void blend(Surface &dst, const image::Image &img, int x, int y, int alpha, int clipL = 0, int clipR = kScreenW) {
     if (img.w <= 0 || alpha <= 0)
         return;
     const int x0 = std::max({0, clipL - x}), x1 = std::min({img.w, clipR - x, dst.w - x});
     for (int sy = std::max(0, -y); sy < img.h && y + sy < dst.h; sy++) {
-        uint8_t* row = dst.row(y + sy);
+        uint8_t *row = dst.row(y + sy);
         for (int sx = x0; sx < x1; sx++) {
-            const uint8_t* s = img.pixel(sx, sy);
-            uint8_t* d = row + (x + sx) * 4;
+            const uint8_t *s = img.pixel(sx, sy);
+            uint8_t *d = row + (x + sx) * 4;
             const int a = s[3] * std::min(alpha, 255) / 255, da = d[3] * (255 - a) / 255, out = a + da;
             if (out == 0)
                 continue;
@@ -80,11 +83,11 @@ void blend(Surface& dst, const image::Image& img, int x, int y, int alpha, int c
     }
 }
 
-void darken(Surface& dst, int alpha) {
+void darken(Surface &dst, int alpha) {
     for (int y = 0; y < dst.h; y++) {
-        uint8_t* row = dst.row(y);
+        uint8_t *row = dst.row(y);
         for (int x = 0; x < dst.w; x++) {
-            uint8_t* d = row + x * 4;
+            uint8_t *d = row + x * 4;
             for (int c = 0; c < 3; c++)
                 d[c] = uint8_t(d[c] * (255 - alpha) / 255);
             d[3] = uint8_t(alpha + d[3] * (255 - alpha) / 255);
@@ -99,12 +102,14 @@ std::string unquoted(std::string s) {
 }
 
 // A cell, or its translation in the next column if that has one (not "0").
-std::string translated(const Table& t, size_t r, int col) {
+std::string translated(const Table &t, size_t r, int col) {
     const std::string tr = unquoted(t.cell(r, col + 1));
     return tr.empty() || tr == "0" ? unquoted(t.cell(r, col)) : tr;
 }
 
-bool startsWith(const std::string& s, const char* p) { return s.rfind(p, 0) == 0; }
+bool startsWith(const std::string &s, const char *p) {
+    return s.rfind(p, 0) == 0;
+}
 
 } // namespace
 
@@ -114,7 +119,7 @@ bool ScenePage::interfaceOn() const {
     // 0x4143c0: a scene with SHOW on (none: on), "interface on".
     if (!playing_ || interfaceOff_ || movie_ || !sceneShown_ || load_.screen || load_.state)
         return false;
-    for (const Ac2Record& r : scene_.records)
+    for (const Ac2Record &r : scene_.records)
         if (r.tag == "SHOW")
             return r.i("value") != 0;
     return true;
@@ -129,12 +134,12 @@ bool ScenePage::canAct() const {
 
 // --- Items ------------------------------------------------------------------------
 
-ScenePage::ItemInfo ScenePage::itemInfo(const std::string& item) const {
+ScenePage::ItemInfo ScenePage::itemInfo(const std::string &item) const {
     // Text\itemlist.txt (0x420a70): Item Name, In-game Item Description,
     // Translation, Examine Event, Examine Description, Translation,
     // Flipped Description, Translation; "0" is none.
     ItemInfo info;
-    const Table& t = itemTable("itemlist.txt");
+    const Table &t = itemTable("itemlist.txt");
     for (size_t r = 0; r < t.rows.size(); r++)
         if (fs::toLower(unquoted(t.cell(r, 0))) == item) {
             auto none = [](std::string s) { return s == "0" ? std::string() : s; };
@@ -147,7 +152,7 @@ ScenePage::ItemInfo ScenePage::itemInfo(const std::string& item) const {
     return info;
 }
 
-std::string ScenePage::itemPicture(const std::string& item, const char* kind) const {
+std::string ScenePage::itemPicture(const std::string &item, const char *kind) const {
     // inventory\items\<item>\<kind><item>: "inv" a .png or else a .jpg;
     // "exa" and "ex2" the inv picture's path with \inv changed (0x41a1c0),
     // "" if there's none; "cur" a .png, "fol" a .jpg (0x41bc10).
@@ -166,7 +171,7 @@ std::string ScenePage::itemPicture(const std::string& item, const char* kind) co
     return ctx_.files.has(f) ? f : std::string();
 }
 
-int ScenePage::printRow(const std::string& item) const {
+int ScenePage::printRow(const std::string &item) const {
     // A fingerprint card with an Examine Description (whose print it
     // matches) is one lifted from a thing: the second row (0x41bd40).
     return itemInfo(item).examine.size() > 1 ? 1 : 0;
@@ -175,17 +180,17 @@ int ScenePage::printRow(const std::string& item) const {
 std::vector<std::string> ScenePage::bagItems() {
     // In the bag, just taken or in hand, by slot (0x41b7f0).
     std::vector<std::pair<int, std::string>> slots;
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if (i.state >= 1 && i.state <= 3)
             slots.emplace_back(i.slot, i.name);
-    std::stable_sort(slots.begin(), slots.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::stable_sort(slots.begin(), slots.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
     std::vector<std::string> out;
-    for (auto& [slot, name] : slots)
+    for (auto &[slot, name] : slots)
         out.push_back(name);
     return out;
 }
 
-int ScenePage::examinedAt(const std::vector<std::string>& items) const {
+int ScenePage::examinedAt(const std::vector<std::string> &items) const {
     // The examined item's place among them: the game keeps the item itself
     // and steps to the one before or after it (0x41b920), so of several of
     // a name (the water glasses) each is reached in turn.
@@ -196,7 +201,7 @@ int ScenePage::examinedAt(const std::vector<std::string>& items) const {
 
 std::string ScenePage::itemInSlot(int slot) {
     // The item in the bag (or just taken) in that slot (0x41b790).
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if ((i.state == 1 || i.state == 2) && i.slot == slot)
             return i.name;
     return {};
@@ -205,18 +210,18 @@ std::string ScenePage::itemInSlot(int slot) {
 int ScenePage::itemPages() {
     // One empty page after the last used, 2 to 10 (0x41b6c0).
     int last = 0;
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if ((i.state == 1 || i.state == 2) && i.slot / 16 != 10)
             last = std::max(last, i.slot / 16);
     return std::clamp(last + 2, 2, 10);
 }
 
-void ScenePage::holdItem(const std::string& item, int slot) {
+void ScenePage::holdItem(const std::string &item, int slot) {
     // In hand (0x41c000): the one in that slot, else the first in the bag;
     // the item held before goes back.
     releaseHeld();
-    GameState::Item* in = nullptr;
-    for (GameState::Item& i : state_.items)
+    GameState::Item *in = nullptr;
+    for (GameState::Item &i : state_.items)
         if (i.name == item && (i.state == 1 || i.state == 2) && (slot < 0 || i.slot == slot)) {
             in = &i;
             break;
@@ -229,7 +234,7 @@ void ScenePage::holdItem(const std::string& item, int slot) {
 
 void ScenePage::releaseHeld() {
     // Back in the bag (0x41c030).
-    for (GameState::Item& i : state_.items)
+    for (GameState::Item &i : state_.items)
         if (i.state == 3)
             i.state = 2;
     state_.held.clear();
@@ -237,14 +242,14 @@ void ScenePage::releaseHeld() {
 
 void ScenePage::endFresh() {
     // The item just taken stops blinking: in the bag (0x41ba80).
-    for (GameState::Item& i : state_.items)
+    for (GameState::Item &i : state_.items)
         if (i.state == 1)
             i.state = 2;
     state_.fresh.clear();
     ui_.freshItem.clear();
 }
 
-void ScenePage::playItemSound(const std::string& item) {
+void ScenePage::playItemSound(const std::string &item) {
     // sound\items\<item>.wav, or default.wav; none for passports and
     // fingerprint cards (0x419c10).
     if (startsWith(item, "pass") || startsWith(item, "print"))
@@ -252,10 +257,10 @@ void ScenePage::playItemSound(const std::string& item) {
     playSound(ctx_.files.has("sound/items/" + item + ".wav") ? item : "default");
 }
 
-void ScenePage::runFromInventory(const std::string& script, bool fromInventory) {
+void ScenePage::runFromInventory(const std::string &script, bool fromInventory) {
     // 0x419f20: the player stops, what was running is dropped, and the
     // script runs; its talks leave the window open if it's the window's.
-    for (Character& c : characters_)
+    for (Character &c : characters_)
         if (c.player)
             c.path.clear();
     ui_.fromInventory = fromInventory;
@@ -263,7 +268,7 @@ void ScenePage::runFromInventory(const std::string& script, bool fromInventory) 
     runner_->run(script);
 }
 
-void ScenePage::talkStarting(const std::string& name) {
+void ScenePage::talkStarting(const std::string &name) {
     // 0x43a670, once the conversation is found: the window closes unless
     // a script of its own started the talk; then, unless the name has
     // "gen_" or "com_" in it (0x43e750: anywhere, any case), the item in
@@ -325,7 +330,7 @@ void ScenePage::showPage(int page) {
     } else if (page == 4) {
         // Passports (0x41d0b0): 12 a page, up to 3 pages.
         int n = 0;
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             n += i.state == 5;
         if (n > 12)
             ui_.passPages = std::max(ui_.passPages, 2);
@@ -402,13 +407,13 @@ bool ScenePage::interfaceUpdate(float dt) {
     // A card held up (0x417e10, 0x415850): the screen darkens to half, 8
     // every 0.01 s; the pictures fade 8 every 0.025 s (0x40eda0).
     if (ui_.card) {
-        auto finish = [&](const std::string& verb) {
-            if (ScriptRunner* r = ui_.cardRunner) {
+        auto finish = [&](const std::string &verb) {
+            if (ScriptRunner *r = ui_.cardRunner) {
                 ui_.cardRunner = nullptr;
                 r->finished(verb);
             }
         };
-        auto fadeStep = [&](float& alpha, int& mode, float& clock) {
+        auto fadeStep = [&](float &alpha, int &mode, float &clock) {
             if (!mode)
                 return;
             for (clock += dt; clock >= 0.025f; clock -= 0.025f) {
@@ -465,7 +470,7 @@ bool ScenePage::interfaceUpdate(float dt) {
     return changed;
 }
 
-bool ScenePage::startCard(ScriptRunner& runner, const ScriptEvent& e) {
+bool ScenePage::startCard(ScriptRunner &runner, const ScriptEvent &e) {
     const std::string v = fs::toLower(e.verb());
     if (v == "startpass" || v == "startprint") {
         // 0x417ba0: 80 higher with the dialogue box up.
@@ -499,10 +504,10 @@ bool ScenePage::startCard(ScriptRunner& runner, const ScriptEvent& e) {
 
 // --- Text -------------------------------------------------------------------------
 
-int ScenePage::textHeight(int font, int width, const std::string& text, int* lines) {
+int ScenePage::textHeight(int font, int width, const std::string &text, int *lines) {
     if (!ctx_.fonts || font < 0 || size_t(font) >= ctx_.fonts->styles().size())
         return 0;
-    const TextStyle& s = ctx_.fonts->styles()[size_t(font)];
+    const TextStyle &s = ctx_.fonts->styles()[size_t(font)];
     if (!s.font)
         return 0;
     const int lh = s.font->lineHeight(s.pixels);
@@ -512,11 +517,10 @@ int ScenePage::textHeight(int font, int width, const std::string& text, int* lin
     return n * lh;
 }
 
-int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flags, const std::string& text,
-                      int alpha) {
+int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flags, const std::string &text, int alpha) {
     if (!ctx_.fonts || text.empty() || font < 0 || size_t(font) >= ctx_.fonts->styles().size() || alpha <= 0)
         return 0;
-    const TextStyle& s = ctx_.fonts->styles()[size_t(font)];
+    const TextStyle &s = ctx_.fonts->styles()[size_t(font)];
     if (!s.font)
         return 0;
     const Color c = ctx_.fonts->colourAt(size_t(colour));
@@ -530,7 +534,7 @@ int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flag
     const int h = int(lines.size()) * lh;
     int y = flags & 8 ? b - h : flags & 4 ? t + (b - t - h) / 2 : t;
     for (size_t i = 0; i < lines.size(); i++) {
-        const std::string& line = lines[i];
+        const std::string &line = lines[i];
         if (i + 1 == lines.size() && wrapped && letters(line) <= 1)
             break;
         const int w = s.font->width(line, s.pixels);
@@ -539,7 +543,7 @@ int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flag
         if (flags & 0x1000)
             for (int px = x; px < x + w; px++)
                 if (px >= 0 && px < kScreenW && y + lh / 2 >= 0 && y + lh / 2 < kScreenH) {
-                    uint8_t* d = ctx_.screen.row(y + lh / 2) + px * 4;
+                    uint8_t *d = ctx_.screen.row(y + lh / 2) + px * 4;
                     d[0] = uint8_t((c.r * alpha + d[0] * (255 - alpha)) / 255);
                     d[1] = uint8_t((c.g * alpha + d[1] * (255 - alpha)) / 255);
                     d[2] = uint8_t((c.b * alpha + d[2] * (255 - alpha)) / 255);
@@ -552,7 +556,7 @@ int ScenePage::uiText(int font, int colour, int l, int t, int r, int b, int flag
 
 // --- Input ------------------------------------------------------------------------
 
-int ScenePage::pageButton(int x, int y, int* bx, int* by) {
+int ScenePage::pageButton(int x, int y, int *bx, int *by) {
     // The tabs (0x41cc90), then the page's own button (7: examine's eye,
     // combine's gears, 8: the fingerprint cards' magnifier).
     const int wx = (kScreenW - std::max(1, picture("inventory/interface/windowblank.png").w)) / 2;
@@ -576,7 +580,7 @@ int ScenePage::pageButton(int x, int y, int* bx, int* by) {
     return button;
 }
 
-bool ScenePage::blipClick(int x, int y, int row, int count, int& at) {
+bool ScenePage::blipClick(int x, int y, int row, int count, int &at) {
     // The line's arrows (select1.wav, round the ends) and the blip's line
     // (a drag starts: mouseover1.wav). Row 2 is the fingerprint cards'
     // second line, 449 lower.
@@ -602,7 +606,7 @@ bool ScenePage::blipClick(int x, int y, int row, int count, int& at) {
     return false;
 }
 
-bool ScenePage::interfaceEvent(const Event& ev) {
+bool ScenePage::interfaceEvent(const Event &ev) {
     const int x = ev.mouseX, y = ev.mouseY;
     if (ev.type == EventType::MouseMove) {
         if (ui_.dragging) {
@@ -636,7 +640,7 @@ bool ScenePage::interfaceEvent(const Event& ev) {
                     ui_.passPage = p, ui_.passAt = p * 12;
             } else if (ui_.page == 5) {
                 int n[2] = {0, 0};
-                for (const GameState::Item& i : state_.items)
+                for (const GameState::Item &i : state_.items)
                     if (i.state == 6)
                         n[printRow(i.name)]++;
                 ui_.printAt[ui_.dragging - 1] = nearest(n[ui_.dragging - 1]);
@@ -684,10 +688,10 @@ bool ScenePage::interfaceEvent(const Event& ev) {
     const bool on = interfaceOn();
     // The window (0x419d30): its page, its tabs; any click on it is its.
     if (on && ui_.open) {
-        const image::Image& frame = picture("inventory/interface/windowblank.png");
+        const image::Image &frame = picture("inventory/interface/windowblank.png");
         const int wx = (kScreenW - frame.w) / 2;
-        const bool onFrame = inside(x, y, wx, kTop, wx + frame.w, kTop + frame.h) &&
-                             frame.pixel(x - wx, y - kTop)[3] != 0;
+        const bool onFrame =
+            inside(x, y, wx, kTop, wx + frame.w, kTop + frame.h) && frame.pixel(x - wx, y - kTop)[3] != 0;
         if (ui_.fade != 0 && onFrame)
             return true;
         if (pageClick(x, y)) {
@@ -717,7 +721,7 @@ bool ScenePage::interfaceEvent(const Event& ev) {
     // An item in hand: used on what's under it (0x419f10).
     if (!state_.held.empty()) {
         // What the game's pick finds there (0x41613c).
-        const Ac2Record* target = inScene && pickAllowed(y) ? pickAt(x, y) : nullptr;
+        const Ac2Record *target = inScene && pickAllowed(y) ? pickAt(x, y) : nullptr;
         if (target) {
             runner_->setFromCharacter(target->tag == "NPCX");
             if (target->tag == "NPCX")
@@ -759,7 +763,7 @@ int ScenePage::barSection(int x, int y) {
     // first section whose end is past x.
     if (!ui_.barShown || ui_.barAlpha < 255)
         return -1;
-    const image::Image& bar = picture("interface/topmenubar01.png");
+    const image::Image &bar = picture("interface/topmenubar01.png");
     if (x < 0 || y < 0 || x >= bar.w || y >= bar.h || bar.pixel(x, y)[3] == 0)
         return -1;
     int section = 0;
@@ -771,7 +775,7 @@ int ScenePage::barSection(int x, int y) {
 bool ScenePage::carOn(int car) {
     // Where travel is allowed at all (0x417630), and to each car
     // (0x4176a0).
-    auto test = [&](const char* c) { return testCondition(c, state_); };
+    auto test = [&](const char *c) { return testCondition(c, state_); };
     if (car < 1 || car > 5)
         return true;
     if (test("act <04a") || test("act 08a") || test("location exterior.forest | location exterior.train") ||
@@ -804,8 +808,8 @@ std::string ScenePage::carScene(int car) const {
         return inCar(1) || inCar(2) ? "salon_01 1" : "salon_06 2";
     case 4:
         return inCar(5) && !testCondition("tag athensunlocked", state_) ? "calais.10-11_10.02 4"
-               : fromFront                                             ? "calais.hall_01 1"
-                                                                       : "calais.hall_06 2";
+               : fromFront                                              ? "calais.hall_01 1"
+                                                                        : "calais.hall_06 2";
     default:
         return fromFront || inCar(4) ? "athens.hall_01 1" : "athens.hall_06 2";
     }
@@ -844,7 +848,7 @@ bool ScenePage::pageClick(int x, int y) {
             // In hand: put in an empty box, or swapped with the one there
             // (which is then in hand).
             const std::string held = state_.held;
-            GameState::Item* inHand = state_.findItem(held, {3});
+            GameState::Item *inHand = state_.findItem(held, {3});
             if (there.empty()) {
                 playItemSound(held);
                 if (inHand)
@@ -853,7 +857,7 @@ bool ScenePage::pageClick(int x, int y) {
                 return true;
             }
             const int heldSlot = inHand ? inHand->slot : slot;
-            for (GameState::Item& i : state_.items)
+            for (GameState::Item &i : state_.items)
                 if ((i.state == 1 || i.state == 2) && i.slot == slot)
                     i.slot = heldSlot;
             if (inHand)
@@ -914,7 +918,7 @@ bool ScenePage::pageClick(int x, int y) {
                       b = i < 4 ? 151 + 112 * i : 319;
             if (!inside(x, y, wx + l, kTop + t, wx + r, kTop + b))
                 continue;
-            std::string& box = ui_.boxes[i];
+            std::string &box = ui_.boxes[i];
             if (!box.empty() && x >= wx + r - 21 && y <= kTop + t + 21) {
                 playSound("select2");
                 box.clear();
@@ -939,7 +943,7 @@ bool ScenePage::pageClick(int x, int y) {
     case 4: {
         // Passports (0x41d2a0): a passport on the page, the arrows, the blip.
         std::vector<std::string> passes;
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.state == 5)
                 passes.push_back(i.name);
         for (int c = 0; c < 12; c++) {
@@ -963,7 +967,7 @@ bool ScenePage::pageClick(int x, int y) {
         // Fingerprint cards (0x41de80): each row's arrows and blip, then
         // the magnifier.
         int n[2] = {0, 0};
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.state == 6)
                 n[printRow(i.name)]++;
         if (blipClick(x, y, 1, n[0], ui_.printAt[0]) || blipClick(x, y, 2, n[1], ui_.printAt[1]))
@@ -985,25 +989,25 @@ bool ScenePage::combine() {
     for (int i = 0; i < 4; i++)
         sources += !ui_.boxes[i].empty();
     const std::string result = ui_.boxes[4];
-    const Table& t = itemTable("combinelist.txt");
-    auto names = [](const std::string& list) {
+    const Table &t = itemTable("combinelist.txt");
+    auto names = [](const std::string &list) {
         std::vector<std::string> out;
-        for (const Command& c : parseCommands(unquoted(list)))
+        for (const Command &c : parseCommands(unquoted(list)))
             if (!c.words.empty())
                 out.push_back(fs::toLower(c.words[0]));
         return out;
     };
-    auto finish = [&](size_t r, const std::string& list, int first, const char* otherwise) {
+    auto finish = [&](size_t r, const std::string &list, int first, const char *otherwise) {
         // The boxes' items used up (0x418dc0), the new ones given, just
         // taken, into the boxes from `first` (not fingerprint cards:
         // 0x418df0), the Event run.
-        for (std::string& box : ui_.boxes) {
-            if (GameState::Item* i = box.empty() ? nullptr : state_.findItem(box, {1, 2, 3}))
+        for (std::string &box : ui_.boxes) {
+            if (GameState::Item *i = box.empty() ? nullptr : state_.findItem(box, {1, 2, 3}))
                 i->state = 4;
             box.clear();
         }
         int box = first;
-        for (const std::string& item : names(list)) {
+        for (const std::string &item : names(list)) {
             addItem(state_, item, 1);
             if (box < 5 && item.find("print") == std::string::npos)
                 ui_.boxes[box++] = item;
@@ -1040,7 +1044,7 @@ bool ScenePage::combine() {
     for (size_t r = 0; r < t.rows.size(); r++) {
         const std::vector<std::string> parts = names(t.cell(r, 0));
         bool all = int(parts.size()) == sources;
-        for (const std::string& p : parts)
+        for (const std::string &p : parts)
             all = all && std::find(ui_.boxes, ui_.boxes + 4, p) != ui_.boxes + 4;
         if (all && std::atoi(unquoted(t.cell(r, 3)).c_str()) != 0 && testCondition(unquoted(t.cell(r, 4)), state_)) {
             finish(r, t.cell(r, 1), 4, "talk gen_combine");
@@ -1063,7 +1067,7 @@ void ScenePage::comparePrints() {
     // The magnifier (0x41e2e0): the second row's card matches the first's
     // if its Flipped Description names it; the tag "<first>=<second>".
     std::vector<std::string> rows[2];
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if (i.state == 6)
             rows[printRow(i.name)].push_back(i.name);
     if (rows[0].empty() || rows[1].empty())
@@ -1089,8 +1093,8 @@ void ScenePage::drawInterface() {
     if (ui_.open && ui_.barShown && ui_.alpha < 255)
         barAlpha = std::min(barAlpha, 255 - int(ui_.alpha));
     if (barAlpha > 0) {
-        const image::Image& dark = picture("interface/topmenubar01.png");
-        const image::Image& lit = picture("interface/topmenubar02.png");
+        const image::Image &dark = picture("interface/topmenubar01.png");
+        const image::Image &lit = picture("interface/topmenubar02.png");
         const int hover = barSection(lastMouseX_, lastMouseY_);
         for (int s = 0, left = 0; s < 7; left = kBarEnds[s++]) {
             // Lit: the bag or the hat under the mouse, a car that can be
@@ -1108,7 +1112,7 @@ void ScenePage::drawInterface() {
     // before), the highlight on the button under the mouse.
     if (!ui_.open)
         return;
-    const image::Image& frame = picture("inventory/interface/windowblank.png");
+    const image::Image &frame = picture("inventory/interface/windowblank.png");
     const int wx = (kScreenW - frame.w) / 2, a = int(ui_.alpha);
     if (ui_.fade == 3) {
         blend(ctx_.screen, frame, wx, kTop, 255);
@@ -1128,14 +1132,14 @@ void ScenePage::drawInterface() {
     if (!ui_.zoom.empty()) {
         // A scrapbook picture full screen, over the scene darkened (0xc0).
         darken(ctx_.screen, 0xc0);
-        const image::Image& z = picture(ui_.zoom);
+        const image::Image &z = picture(ui_.zoom);
         blend(ctx_.screen, z, (kScreenW - z.w) / 2, (kScreenH - z.h) / 2, 255);
     }
 }
 
 void ScenePage::drawBlip(int row, int count, int at, int alpha) {
     // 0x41cb50: along the line, or under the mouse while dragged.
-    const image::Image& blip = picture("inventory/interface/blip.png");
+    const image::Image &blip = picture("inventory/interface/blip.png");
     const int wx = (kScreenW - picture("inventory/interface/windowblank.png").w) / 2;
     int x = wx + kBlipLeft + (count > 1 ? at * kBlipSpan / (count - 1) : 0);
     if (ui_.dragging == row)
@@ -1146,17 +1150,19 @@ void ScenePage::drawBlip(int row, int count, int at, int alpha) {
 void ScenePage::drawPage(int page, int alpha) {
     if (page < 0 || page > 5 || alpha <= 0)
         return;
-    const image::Image& win = picture(std::string("inventory/interface/") + kPages[page] + ".png");
+    const image::Image &win = picture(std::string("inventory/interface/") + kPages[page] + ".png");
     const int wx = (kScreenW - win.w) / 2;
     blend(ctx_.screen, win, wx, kTop, alpha);
     // The description bar (0x41cae0).
-    auto bar = [&](const std::string& text) { uiText(6, 6, wx + 45, kTop + 520, wx + 465, kTop + 568, 5, text, alpha); };
+    auto bar = [&](const std::string &text) {
+        uiText(6, 6, wx + 45, kTop + 520, wx + 465, kTop + 568, 5, text, alpha);
+    };
     switch (page) {
     case 0: {
         // The items (0x41b080, 0x41bab0): one just taken blinks.
         drawBlip(1, itemPages(), state_.itemPage, alpha);
         std::string hovered;
-        for (const GameState::Item& i : state_.items) {
+        for (const GameState::Item &i : state_.items) {
             if ((i.state != 1 && i.state != 2) || i.slot / 16 != state_.itemPage)
                 continue;
             const int box = i.slot % 16, bx = wx + 38 + 112 * (box % 4), by = kTop + 54 + 112 * (box / 4);
@@ -1180,7 +1186,7 @@ void ScenePage::drawPage(int page, int alpha) {
         std::string pic = itemPicture(ui_.examined, ui_.back ? "ex2" : "exa");
         if (pic.empty())
             pic = itemPicture(ui_.examined, "inv");
-        const image::Image& img = picture(pic);
+        const image::Image &img = picture(pic);
         blend(ctx_.screen, img, wx + 40 + (432 - img.w) / 2, kTop + 56 + (320 - img.h) / 2, alpha);
         const ItemInfo info = itemInfo(ui_.examined);
         bar(ui_.back && !info.flipped.empty() ? info.flipped : !info.examine.empty() ? info.examine : info.description);
@@ -1189,11 +1195,11 @@ void ScenePage::drawPage(int page, int alpha) {
     case 2: {
         // Combine (0x4183f0): the boxes, their Xs; the text of the item
         // under the mouse, else the message.
-        const image::Image& x = picture("inventory/interface/x.jpg");
+        const image::Image &x = picture("inventory/interface/x.jpg");
         std::string hovered;
         for (int i = 0; i < 5; i++) {
-            const int l = wx + (i < 4 ? 56 : 360), t = kTop + (i < 4 ? 56 + 112 * i : 224), r = wx + (i < 4 ? 151 : 454),
-                      b = kTop + (i < 4 ? 151 + 112 * i : 319);
+            const int l = wx + (i < 4 ? 56 : 360), t = kTop + (i < 4 ? 56 + 112 * i : 224),
+                      r = wx + (i < 4 ? 151 : 454), b = kTop + (i < 4 ? 151 + 112 * i : 319);
             if (ui_.boxes[i].empty())
                 continue;
             if (state_.held.empty() && inside(lastMouseX_, lastMouseY_, l, t, r, b))
@@ -1216,13 +1222,13 @@ void ScenePage::drawPage(int page, int alpha) {
         // Passports (0x41d120): the one shown above, the page's twelve
         // below.
         std::vector<std::string> passes;
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.state == 5)
                 passes.push_back(i.name);
         drawBlip(1, ui_.passPages, ui_.passPage, alpha);
         if (ui_.passAt < int(passes.size())) {
-            const std::string& p = passes[size_t(ui_.passAt)];
-            const image::Image& img = picture(itemPicture(p, "exa"));
+            const std::string &p = passes[size_t(ui_.passAt)];
+            const image::Image &img = picture(itemPicture(p, "exa"));
             blend(ctx_.screen, img, wx + 40 + (432 - img.w) / 2, kTop + 216 + (273 - img.h) / 2, alpha);
             bar(itemInfo(p).examine);
         }
@@ -1239,14 +1245,14 @@ void ScenePage::drawPage(int page, int alpha) {
         // Fingerprint cards (0x41d7c0): each row's card and its
         // neighbours, with their names.
         std::vector<std::string> rows[2];
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.state == 6)
                 rows[printRow(i.name)].push_back(i.name);
         for (int r = 0; r < 2; r++) {
             const int n = int(rows[r].size()), at = std::min(ui_.printAt[r], std::max(0, n - 1)),
                       y = kTop + (r == 0 ? 56 : 320);
             auto card = [&](int i, int x) {
-                const std::string& item = rows[r][size_t(i)];
+                const std::string &item = rows[r][size_t(i)];
                 blend(ctx_.screen, picture(itemPicture(item, "inv")), x, y, alpha);
                 uiText(12, 14, x + 5, y, x + 120, y + 136, 9, itemInfo(item).description, alpha);
             };
@@ -1262,9 +1268,10 @@ void ScenePage::drawPage(int page, int alpha) {
         }
         if (!rows[0].empty() && !rows[1].empty()) {
             // A lower card matched: what it matches.
-            const std::string& b = rows[1][size_t(std::min(ui_.printAt[1], int(rows[1].size()) - 1))];
-            for (const auto& [tag, v] : state_.tags)
-                if (tag.size() > b.size() + 1 && tag.compare(tag.size() - b.size() - 1, std::string::npos, "=" + b) == 0) {
+            const std::string &b = rows[1][size_t(std::min(ui_.printAt[1], int(rows[1].size()) - 1))];
+            for (const auto &[tag, v] : state_.tags)
+                if (tag.size() > b.size() + 1 &&
+                    tag.compare(tag.size() - b.size() - 1, std::string::npos, "=" + b) == 0) {
                     bar(itemInfo(b).examine);
                     break;
                 }
@@ -1282,8 +1289,8 @@ void ScenePage::drawCards() {
         return;
     if (ui_.dim > 0)
         darken(ctx_.screen, int(ui_.dim));
-    auto show = [&](const std::string& file, float alpha) {
-        const image::Image& img = picture(file);
+    auto show = [&](const std::string &file, float alpha) {
+        const image::Image &img = picture(file);
         blend(ctx_.screen, img, (kScreenW - img.w) / 2, (kScreenH - img.h - ui_.cardRaise) / 2, int(alpha));
     };
     if (ui_.card >= 2) {
@@ -1304,7 +1311,7 @@ std::vector<ScenePage::ScrapRow> ScenePage::scrapRows() {
     // tick.
     std::vector<ScrapRow> out;
     const std::string file = std::string("scrapbook/") + kSections[std::clamp(ui_.section, 0, 8)] + ".txt";
-    const Table& t = itemTable(file.c_str());
+    const Table &t = itemTable(file.c_str());
     for (size_t r = 0; r < t.rows.size(); r++) {
         ScrapRow row;
         row.heading = ui_.section == 2 ? unquoted(t.cell(r, 0)) : translated(t, r, 0);
@@ -1322,7 +1329,7 @@ std::vector<ScenePage::ScrapRow> ScenePage::scrapRows() {
 void ScenePage::scrapbookBack() {
     // 0x41f140: a page back, else up a level: an entry to its section's
     // list, or to the contents.
-    int& at = ui_.at[ui_.level];
+    int &at = ui_.at[ui_.level];
     if (at > 0) {
         at--;
         return;
@@ -1338,24 +1345,24 @@ void ScenePage::scrapbookBack() {
     ui_.at[0] = 0;
 }
 
-int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std::string* clicked) {
+int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std::string *clicked) {
     // The page shown (0x41e860) or clicked (0x41e940). Text from (x + 50,
     // y + 60), font 4 (journal text), colour 13, rows 5 apart, a new page
     // where a row would end past y 525.
     const int wx = (kScreenW - picture("inventory/interface/windowscrapbook.png").w) / 2, left = wx + 50,
               top = kTop + 60, right = wx + 460;
     const std::vector<ScrapRow> rows = scrapRows();
-    auto holds = [&](const std::string& c) { return testCondition(c, state_); };
+    auto holds = [&](const std::string &c) { return testCondition(c, state_); };
     const int shownPage = ui_.at[ui_.level];
     int page = 0, y = top;
     auto place = [&](int h) {
         if (y + h >= 525)
             y = top, page++;
     };
-    auto lineSize = [&](const std::string& text, int& w, int& h) {
+    auto lineSize = [&](const std::string &text, int &w, int &h) {
         w = h = 0;
         if (ctx_.fonts && ctx_.fonts->styles().size() > 4 && ctx_.fonts->styles()[4].font) {
-            const TextStyle& s = ctx_.fonts->styles()[4];
+            const TextStyle &s = ctx_.fonts->styles()[4];
             w = s.font->width(text, s.pixels);
             h = s.font->lineHeight(s.pixels);
         }
@@ -1384,7 +1391,7 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         // passport and fingerprint card icons (0x41f450).
         std::vector<std::string> seen;
         int suspect = 0;
-        for (const ScrapRow& r : rows) {
+        for (const ScrapRow &r : rows) {
             if (!holds(r.condition) || std::find(seen.begin(), seen.end(), r.heading) != seen.end())
                 continue;
             seen.push_back(r.heading);
@@ -1395,8 +1402,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
                 if (drawIt) {
                     uiText(4, 13, left, y, left + 2000, y + h, 0, r.heading, alpha);
                     if (ui_.section == 3 && suspect < int(std::size(kSuspectPasses))) {
-                        const image::Image& pass = picture("interface/passicon.png");
-                        const image::Image& print = picture("interface/printicon.png");
+                        const image::Image &pass = picture("interface/passicon.png");
+                        const image::Image &print = picture("interface/printicon.png");
                         if (state_.itemState(kSuspectPasses[suspect]))
                             blend(ctx_.screen, pass, left + 225, y + (h - pass.h) / 2, alpha);
                         if (state_.itemState(kSuspectPrints[suspect]))
@@ -1412,10 +1419,10 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
     } else if (ui_.section == 1) {
         // A clipping on the newspaper (0x41f8d0, 0x41fbc0): the date, the
         // headline, the sub-headline, the photograph, its caption.
-        const image::Image& paper = picture("inventory/scrapbook/newspaperbase.png");
+        const image::Image &paper = picture("inventory/scrapbook/newspaperbase.png");
         const int nx = wx + 41, ny = kTop + 56;
         std::vector<std::string> parts;
-        for (const ScrapRow& r : rows)
+        for (const ScrapRow &r : rows)
             if (r.heading == ui_.entry && parts.size() < 5)
                 parts.push_back(r.entry);
         parts.resize(5);
@@ -1436,14 +1443,14 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         // (0x420280, 0x41fff0, 0x41fdc0, 0x420440).
         int column = 0;
         if (ui_.section == 3) {
-            for (const ScrapRow& r : rows)
+            for (const ScrapRow &r : rows)
                 if (r.heading == ui_.entry) {
                     int w, h;
                     lineSize(r.entry, w, h);
                     column = std::max(column, w + 25);
                 }
         } else if (ui_.section == 4) {
-            for (const ScrapRow& r : rows)
+            for (const ScrapRow &r : rows)
                 if (holds(r.condition)) {
                     int w, h;
                     lineSize(r.heading, w, h);
@@ -1451,10 +1458,10 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
                     break;
                 }
         }
-        for (const ScrapRow& r : rows) {
+        for (const ScrapRow &r : rows) {
             if (!holds(r.condition) || (ui_.section == 3 && r.heading != ui_.entry))
                 continue;
-            const std::string& text = ui_.section == 3 ? r.entry2 : r.entry;
+            const std::string &text = ui_.section == 3 ? r.entry2 : r.entry;
             const int h = textHeight(4, right - left - column, text);
             place(h);
             if (page == shownPage && drawIt) {
@@ -1477,8 +1484,8 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
     // The arrows: back while there's a page or a level to go back to,
     // on while there's a page after (0x41f100, 0x41f0b0).
     const bool back = ui_.section > 0 || ui_.at[ui_.level] > 0, on = ui_.at[ui_.level] < pages - 1;
-    const image::Image& backArrow = picture("inventory/interface/scraparrowbackward.png");
-    const image::Image& onArrow = picture("inventory/interface/scraparrowforward.png");
+    const image::Image &backArrow = picture("inventory/interface/scraparrowbackward.png");
+    const image::Image &onArrow = picture("inventory/interface/scraparrowforward.png");
     const int ax = wx + 41, ox = wx + 440, ay = kTop + 520;
     if (drawIt) {
         if (back)
@@ -1504,7 +1511,7 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
         playSound("select1");
         ui_.entry = hit;
         if (ui_.section == 5 || ui_.section == 6) {
-            for (const ScrapRow& r : rows)
+            for (const ScrapRow &r : rows)
                 if (r.heading == hit) {
                     ui_.zoom = "inventory/scrapbook/" + fs::toLower(r.entry);
                     break;
@@ -1533,7 +1540,7 @@ int ScenePage::drawScrapbook(int alpha, bool drawIt, int clickX, int clickY, std
 // it is (the window's fades and the bar's let the next wait). The places
 // are the ones the clicks above test.
 
-ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
+ScenePage::HandInput ScenePage::handStep(HandGoal &goal) {
     using In = HandInput;
     auto click = [](int x, int y) { return In{In::Kind::Click, x, y, 0}; };
     auto rightClick = [](int x, int y) { return In{In::Kind::RightClick, x, y, 0}; };
@@ -1545,7 +1552,10 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
     if (ui_.fade != 0)
         return none(); // the window fading in or out
     auto tab = [&](int i) { return click(wx + 544, kTop + 43 + 78 * i + 30); };
-    auto arrowOn = [&](int row) { return click(wx + (kArrowOn[0] + kArrowOn[2]) / 2, kTop + (row == 2 ? 449 : 0) + (kArrowOn[1] + kArrowOn[3]) / 2); };
+    auto arrowOn = [&](int row) {
+        return click(wx + (kArrowOn[0] + kArrowOn[2]) / 2,
+                     kTop + (row == 2 ? 449 : 0) + (kArrowOn[1] + kArrowOn[3]) / 2);
+    };
     // The window open, with nothing in hand (a right-click: an item in hand
     // is put back first, 0x416450).
     auto openWindow = [&]() -> In {
@@ -1555,11 +1565,11 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
     };
     // An item taken up from the items page: its page turned to, its box
     // clicked.
-    auto takeUpFromPage = [&](const std::string& item) -> In {
+    auto takeUpFromPage = [&](const std::string &item) -> In {
         if (ui_.page != 0)
             return tab(0);
         int slot = -1;
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.name == item && (i.state == 1 || i.state == 2)) {
                 slot = i.slot;
                 break;
@@ -1588,7 +1598,7 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
         return click(x, y);
     }
     case HandGoal::Kind::Use: {
-        const std::string& item = goal.items.at(0);
+        const std::string &item = goal.items.at(0);
         if (state_.held != item) {
             if (!ui_.open)
                 return openWindow();
@@ -1615,7 +1625,7 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
         if (!ui_.barShown || ui_.barAlpha < 255)
             return lastMouseY_ < 5 ? none() : In{In::Kind::Move, x, 2, 0}; // the bar comes down
         // A point on the bar's picture there (its clicks need one).
-        const image::Image& bar = picture("interface/topmenubar01.png");
+        const image::Image &bar = picture("interface/topmenubar01.png");
         for (int y = 30; y < bar.h; y++)
             if (bar.pixel(x, y)[3] != 0) {
                 goal.done = true;
@@ -1652,7 +1662,7 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
             return xOf(stray >= 0 ? stray : 4);
         }
         if (!missing.empty()) {
-            const std::string& want = missing.front();
+            const std::string &want = missing.front();
             if (state_.held != want) {
                 if (!state_.held.empty())
                     return ui_.page == 0 ? takeUpFromPage(state_.held) : tab(0); // put back in its box
@@ -1674,7 +1684,7 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
         return click(wx + 256, kTop + 271); // the gears
     }
     case HandGoal::Kind::Flip: {
-        const std::string& item = goal.items.at(0);
+        const std::string &item = goal.items.at(0);
         if (!state_.held.empty() && !ui_.open)
             return rightClick(lastMouseX_, lastMouseY_);
         if (!ui_.open)
@@ -1706,7 +1716,7 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
         if (ui_.page != 5)
             return tab(5);
         std::vector<std::string> rows[2];
-        for (const GameState::Item& i : state_.items)
+        for (const GameState::Item &i : state_.items)
             if (i.state == 6)
                 rows[printRow(i.name)].push_back(i.name);
         for (int r = 0; r < 2; r++) {
@@ -1727,16 +1737,16 @@ ScenePage::HandInput ScenePage::handStep(HandGoal& goal) {
 
 std::string ScenePage::handState() const {
     std::string boxes;
-    for (const std::string& b : ui_.boxes)
+    for (const std::string &b : ui_.boxes)
         boxes += (boxes.empty() ? "" : ",") + b;
     std::string items;
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if (i.state == 1 || i.state == 2 || i.state == 3)
             items += (items.empty() ? "" : " ") + i.name + ":" + std::to_string(i.state) + "@" + std::to_string(i.slot);
     return std::string("window ") + (ui_.open ? "open" : "shut") + " page " + std::to_string(ui_.page) + " fade " +
            std::to_string(ui_.fade) + " itempage " + std::to_string(state_.itemPage) + " held [" + state_.held +
-           "] examined [" + ui_.examined + "] boxes [" + boxes + "] canact " + (canAct() ? "1" : "0") +
-           " bag {" + items + "}";
+           "] examined [" + ui_.examined + "] boxes [" + boxes + "] canact " + (canAct() ? "1" : "0") + " bag {" +
+           items + "}";
 }
 
 ScenePage::HandInput ScenePage::handWhileRunning() {
@@ -1765,7 +1775,7 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
         int pick = -1;
         if (chooser) {
             std::vector<std::string> texts;
-            for (const DialogueManager::Choice& c : dialogue_->choices())
+            for (const DialogueManager::Choice &c : dialogue_->choices())
                 texts.push_back(c.text);
             pick = chooser(texts);
             if (pick >= n)
@@ -1779,7 +1789,7 @@ ScenePage::HandInput ScenePage::handWhileRunning() {
         if (pick < 0)
             return In{};
         drawNow();
-        for (const DialogueManager::ChoiceArea& a : dialogue_->choiceAreas())
+        for (const DialogueManager::ChoiceArea &a : dialogue_->choiceAreas())
             if (a.choice == pick && !a.picture) {
                 autoChoices_[dialogue_->choices()[size_t(pick)].text]++;
                 return In{In::Kind::Click, 200, a.y + a.h / 2, 0};

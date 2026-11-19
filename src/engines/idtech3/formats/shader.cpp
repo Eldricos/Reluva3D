@@ -15,20 +15,22 @@ namespace reluva::idtech3 {
 namespace {
 
 // The keyword and the rest of its line.
-Directive readDirective(Lexer& lex, std::string_view keyword) {
+Directive readDirective(Lexer &lex, std::string_view keyword) {
     Directive d{fs::toLower(keyword), {}};
     while (auto arg = lex.next(false))
         d.args.emplace_back(*arg);
     return d;
 }
 
-std::string lower(const std::string& s) { return fs::toLower(s); }
+std::string lower(const std::string &s) {
+    return fs::toLower(s);
+}
 
 // A directive's arguments with any "(" and ")" tokens dropped, as vectors
 // are written "( 1 0 0 )".
-std::vector<std::string> plainArgs(const Directive& d) {
+std::vector<std::string> plainArgs(const Directive &d) {
     std::vector<std::string> out;
-    for (const std::string& a : d.args) {
+    for (const std::string &a : d.args) {
         std::string t;
         for (char c : a)
             if (c != '(' && c != ')')
@@ -39,12 +41,12 @@ std::vector<std::string> plainArgs(const Directive& d) {
     return out;
 }
 
-float num(const std::vector<std::string>& args, size_t i, float fallback = 0) {
+float num(const std::vector<std::string> &args, size_t i, float fallback = 0) {
     return i < args.size() ? std::strtof(args[i].c_str(), nullptr) : fallback;
 }
 
-bool waveFunc(const std::string& name, gfx::WaveFunc& out) {
-    static const std::pair<const char*, gfx::WaveFunc> funcs[] = {
+bool waveFunc(const std::string &name, gfx::WaveFunc &out) {
+    static const std::pair<const char *, gfx::WaveFunc> funcs[] = {
         {"sin", gfx::WaveFunc::Sin},
         {"triangle", gfx::WaveFunc::Triangle},
         {"square", gfx::WaveFunc::Square},
@@ -52,7 +54,7 @@ bool waveFunc(const std::string& name, gfx::WaveFunc& out) {
         {"inversesawtooth", gfx::WaveFunc::InverseSawtooth},
         {"noise", gfx::WaveFunc::Noise},
     };
-    for (const auto& [n, f] : funcs)
+    for (const auto &[n, f] : funcs)
         if (lower(name) == n) {
             out = f;
             return true;
@@ -61,7 +63,7 @@ bool waveFunc(const std::string& name, gfx::WaveFunc& out) {
 }
 
 // "<func> <base> <amplitude> <phase> <frequency>" starting at args[i].
-gfx::Wave readWave(const std::vector<std::string>& args, size_t i) {
+gfx::Wave readWave(const std::vector<std::string> &args, size_t i) {
     gfx::Wave w;
     if (i < args.size())
         waveFunc(args[i], w.func);
@@ -73,7 +75,7 @@ gfx::Wave readWave(const std::vector<std::string>& args, size_t i) {
 }
 
 // Returns false for a directive it doesn't know.
-bool applyStageDirective(ShaderStage& stage, const Directive& d) {
+bool applyStageDirective(ShaderStage &stage, const Directive &d) {
     const std::vector<std::string> args = plainArgs(d);
     const std::string a0 = args.empty() ? std::string() : lower(args[0]);
     if (d.keyword == "map" || d.keyword == "clampmap") {
@@ -105,13 +107,19 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
         }
     } else if (d.keyword == "rgbgen") {
         using R = ShaderStage::RgbGen;
-        static const std::pair<const char*, R> gens[] = {
-            {"identity", R::Identity}, {"identitylighting", R::IdentityLighting}, {"vertex", R::Vertex},
-            {"exactvertex", R::ExactVertex}, {"oneminusvertex", R::OneMinusVertex},
-            {"lightingdiffuse", R::LightingDiffuse}, {"wave", R::Wave}, {"const", R::Const},
-            {"entity", R::Entity}, {"oneminusentity", R::OneMinusEntity},
+        static const std::pair<const char *, R> gens[] = {
+            {"identity", R::Identity},
+            {"identitylighting", R::IdentityLighting},
+            {"vertex", R::Vertex},
+            {"exactvertex", R::ExactVertex},
+            {"oneminusvertex", R::OneMinusVertex},
+            {"lightingdiffuse", R::LightingDiffuse},
+            {"wave", R::Wave},
+            {"const", R::Const},
+            {"entity", R::Entity},
+            {"oneminusentity", R::OneMinusEntity},
         };
-        for (const auto& [n, g] : gens)
+        for (const auto &[n, g] : gens)
             if (a0 == n)
                 stage.rgbGen = g;
         if (stage.rgbGen == R::Wave)
@@ -120,12 +128,18 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
             stage.rgbConst = {num(args, 1), num(args, 2), num(args, 3)};
     } else if (d.keyword == "alphagen") {
         using A = ShaderStage::AlphaGen;
-        static const std::pair<const char*, A> gens[] = {
-            {"identity", A::Identity}, {"vertex", A::Vertex}, {"oneminusvertex", A::OneMinusVertex},
-            {"wave", A::Wave}, {"const", A::Const}, {"entity", A::Entity}, {"oneminusentity", A::OneMinusEntity},
-            {"lightingspecular", A::LightingSpecular}, {"portal", A::Portal},
+        static const std::pair<const char *, A> gens[] = {
+            {"identity", A::Identity},
+            {"vertex", A::Vertex},
+            {"oneminusvertex", A::OneMinusVertex},
+            {"wave", A::Wave},
+            {"const", A::Const},
+            {"entity", A::Entity},
+            {"oneminusentity", A::OneMinusEntity},
+            {"lightingspecular", A::LightingSpecular},
+            {"portal", A::Portal},
         };
-        for (const auto& [n, g] : gens)
+        for (const auto &[n, g] : gens)
             if (a0 == n)
                 stage.alphaGen = g;
         if (stage.alphaGen == A::Wave)
@@ -144,7 +158,8 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
             stage.tcGen = T::Environment;
         else if (a0 == "vector") {
             stage.tcGen = T::Vector;
-            stage.tcVectors = {{{num(args, 1), num(args, 2), num(args, 3)}, {num(args, 4), num(args, 5), num(args, 6)}}};
+            stage.tcVectors = {
+                {{num(args, 1), num(args, 2), num(args, 3)}, {num(args, 4), num(args, 5), num(args, 6)}}};
         }
     } else if (d.keyword == "tcmod") {
         using M = ShaderStage::TcMod::Type;
@@ -158,7 +173,8 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
         else if (a0 == "stretch")
             m = {M::Stretch, {}, readWave(args, 1)};
         else if (a0 == "transform")
-            m = {M::Transform, {num(args, 1), num(args, 2), num(args, 3), num(args, 4), num(args, 5), num(args, 6)}, {}};
+            m = {
+                M::Transform, {num(args, 1), num(args, 2), num(args, 3), num(args, 4), num(args, 5), num(args, 6)}, {}};
         else if (a0 == "turb") {
             // "turb [sin] <base> <amplitude> <phase> <frequency>": the
             // function name is optional.
@@ -173,9 +189,10 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
             return false;
         stage.tcMods.push_back(m);
     } else if (d.keyword == "alphafunc") {
-        stage.alphaFunc = a0 == "gt0" ? gfx::AlphaTest::Gt0 : a0 == "lt128" ? gfx::AlphaTest::Lt128
-                                                      : a0 == "ge128" ? gfx::AlphaTest::Ge128
-                                                                      : gfx::AlphaTest::None;
+        stage.alphaFunc = a0 == "gt0"     ? gfx::AlphaTest::Gt0
+                          : a0 == "lt128" ? gfx::AlphaTest::Lt128
+                          : a0 == "ge128" ? gfx::AlphaTest::Ge128
+                                          : gfx::AlphaTest::None;
     } else if (d.keyword == "depthfunc") {
         stage.depthEqual = a0 == "equal";
     } else if (d.keyword == "depthwrite") {
@@ -189,7 +206,7 @@ bool applyStageDirective(ShaderStage& stage, const Directive& d) {
 }
 
 // Returns false for a directive it doesn't know.
-bool applyShaderDirective(ShaderDef& def, const Directive& d) {
+bool applyShaderDirective(ShaderDef &def, const Directive &d) {
     const std::vector<std::string> args = plainArgs(d);
     const std::string a0 = args.empty() ? std::string() : lower(args[0]);
     if (d.keyword == "surfaceparm") {
@@ -243,12 +260,12 @@ bool applyShaderDirective(ShaderDef& def, const Directive& d) {
         }
         def.deforms.push_back(df);
     } else if (d.keyword == "sort") {
-        static const std::pair<const char*, float> keys[] = {
-            {"portal", 1}, {"sky", 2}, {"opaque", 3}, {"decal", 4}, {"seethrough", 5},
+        static const std::pair<const char *, float> keys[] = {
+            {"portal", 1}, {"sky", 2},       {"opaque", 3},   {"decal", 4},      {"seethrough", 5},
             {"banner", 6}, {"additive", 10}, {"nearest", 16}, {"underwater", 8},
         };
         def.sort = num(args, 0);
-        for (const auto& [n, k] : keys)
+        for (const auto &[n, k] : keys)
             if (a0 == n)
                 def.sort = k;
     } else if (d.keyword == "polygonoffset") {
@@ -276,7 +293,7 @@ bool ShaderDef::hasSurfaceParm(std::string_view parm) const {
     return std::find(surfaceParms.begin(), surfaceParms.end(), p) != surfaceParms.end();
 }
 
-Error parseShaderFile(std::string_view text, const std::string& file, std::vector<ShaderDef>& out) {
+Error parseShaderFile(std::string_view text, const std::string &file, std::vector<ShaderDef> &out) {
     Lexer lex(text);
     auto where = [&] { return file + " line " + std::to_string(lex.line()); };
     while (auto name = lex.next()) {
@@ -325,13 +342,13 @@ Error parseShaderFile(std::string_view text, const std::string& file, std::vecto
     return Error::success();
 }
 
-std::string findImage(const SearchSet& files, std::string_view name) {
+std::string findImage(const SearchSet &files, std::string_view name) {
     std::string base(name);
     const size_t dot = base.find_last_of('.');
     const size_t slash = base.find_last_of("/\\");
     if (dot != std::string::npos && (slash == std::string::npos || dot > slash))
         base.resize(dot);
-    for (const char* ext : {".tga", ".jpg", ".png"})
+    for (const char *ext : {".tga", ".jpg", ".png"})
         if (files.has(base + ext))
             return base + ext;
     return {};
@@ -342,7 +359,7 @@ void ShaderLibrary::add(ShaderDef def) {
         shaders_.push_back(std::move(def));
 }
 
-const ShaderDef* ShaderLibrary::find(std::string_view name) const {
+const ShaderDef *ShaderLibrary::find(std::string_view name) const {
     // Like the original, without any extension: models and skins often
     // name "models/x/y.tga" where a script defines "models/x/y".
     std::string key = normalizeArchiveName(name);
@@ -353,11 +370,11 @@ const ShaderDef* ShaderLibrary::find(std::string_view name) const {
     return it == byName_.end() ? nullptr : &shaders_[it->second];
 }
 
-void ShaderLibrary::load(const SearchSet& files, std::vector<std::string>* warnings) {
+void ShaderLibrary::load(const SearchSet &files, std::vector<std::string> *warnings) {
     shaders_.clear();
     byName_.clear();
     std::vector<uint8_t> data;
-    for (const std::string& name : files.list()) {
+    for (const std::string &name : files.list()) {
         const std::string key = normalizeArchiveName(name);
         if (key.rfind("scripts/", 0) != 0 || key.size() < 7 || key.substr(key.size() - 7) != ".shader")
             continue;
@@ -367,12 +384,12 @@ void ShaderLibrary::load(const SearchSet& files, std::vector<std::string>* warni
             continue;
         }
         std::vector<ShaderDef> defs;
-        Error err = parseShaderFile(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), name,
-                                    defs);
+        Error err =
+            parseShaderFile(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), name, defs);
         if (err && warnings)
             warnings->push_back(err.message);
         // Keep what parsed before a problem.
-        for (ShaderDef& d : defs)
+        for (ShaderDef &d : defs)
             add(std::move(d));
     }
 }

@@ -17,7 +17,7 @@ constexpr float kPi = 3.14159265358979f;
 
 } // namespace
 
-std::array<Vec3, 3> anglesToAxes(const Vec3& angles) {
+std::array<Vec3, 3> anglesToAxes(const Vec3 &angles) {
     const float p = angles[0] * kPi / 180, y = angles[1] * kPi / 180, r = angles[2] * kPi / 180;
     const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(r),
                 cr = std::cos(r);
@@ -27,7 +27,7 @@ std::array<Vec3, 3> anglesToAxes(const Vec3& angles) {
     return {forward, Vec3{-right[0], -right[1], -right[2]}, up};
 }
 
-gfx::Mat4 placement(const Vec3& origin, const std::array<Vec3, 3>& axes) {
+gfx::Mat4 placement(const Vec3 &origin, const std::array<Vec3, 3> &axes) {
     gfx::Mat4 m = gfx::identity();
     for (int c = 0; c < 3; ++c)
         for (int r = 0; r < 3; ++r)
@@ -38,10 +38,12 @@ gfx::Mat4 placement(const Vec3& origin, const std::array<Vec3, 3>& axes) {
     return m;
 }
 
-gfx::Mat4 tagPlacement(const Md3Tag& tag) { return placement(tag.origin, tag.axis); }
+gfx::Mat4 tagPlacement(const Md3Tag &tag) {
+    return placement(tag.origin, tag.axis);
+}
 
 void ModelCache::clear() {
-    for (Loaded& m : models_)
+    for (Loaded &m : models_)
         if (m.mesh)
             r_.destroyMesh(m.mesh);
     models_.clear();
@@ -49,18 +51,18 @@ void ModelCache::clear() {
     skins_.clear();
 }
 
-const Skin& ModelCache::skin(const std::string& path) {
+const Skin &ModelCache::skin(const std::string &path) {
     const std::string key = normalizeArchiveName(path);
     if (auto it = skins_.find(key); it != skins_.end())
         return it->second;
     std::vector<uint8_t> data;
     Skin s;
     if (!files_.read(path, data))
-        s = parseSkin(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+        s = parseSkin(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()));
     return skins_[key] = std::move(s);
 }
 
-int ModelCache::load(const std::string& path, std::string* error) {
+int ModelCache::load(const std::string &path, std::string *error) {
     const std::string key = normalizeArchiveName(path);
     if (auto it = byPath_.find(key); it != byPath_.end()) {
         if (it->second < 0 && error)
@@ -102,11 +104,11 @@ int ModelCache::load(const std::string& path, std::string* error) {
 }
 
 float ModelCache::radius(int id, int frame) const {
-    const Md3Model& md3 = models_[size_t(id)].md3;
+    const Md3Model &md3 = models_[size_t(id)].md3;
     if (md3.frames.empty())
         return 0;
     const int frames = int(md3.frames.size());
-    const Md3Frame& f = md3.frames[size_t(((frame % frames) + frames) % frames)];
+    const Md3Frame &f = md3.frames[size_t(((frame % frames) + frames) % frames)];
     float r2 = 0;
     for (size_t k = 0; k < 3; ++k) {
         const float c = std::max(std::fabs(f.mins[k]), std::fabs(f.maxs[k]));
@@ -115,7 +117,7 @@ float ModelCache::radius(int id, int frame) const {
     return std::sqrt(r2);
 }
 
-int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, int level, std::string* error) {
+int ModelCache::add(const std::string &path, const std::vector<uint8_t> &data, int level, std::string *error) {
     Loaded m;
     Error err = parseModel(data, m.md3, level);
 
@@ -124,7 +126,7 @@ int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, i
     std::vector<gfx::Vertex> vertices;
     std::vector<uint32_t> indices;
     if (!err) {
-        for (const Md3Surface& s : m.md3.surfaces) {
+        for (const Md3Surface &s : m.md3.surfaces) {
             Surface out;
             out.firstIndex = uint32_t(indices.size());
             out.indexCount = uint32_t(s.indices.size());
@@ -138,7 +140,7 @@ int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, i
                     v.pos[k] = s.vertices[i].pos[size_t(k)];
                     v.normal[k] = s.vertices[i].normal[size_t(k)];
                 }
-                const auto& st = s.st[i % size_t(s.vertexCount)];
+                const auto &st = s.st[i % size_t(s.vertexCount)];
                 v.uv[0] = st[0];
                 v.uv[1] = st[1];
                 v.color[0] = v.color[1] = v.color[2] = v.color[3] = 255;
@@ -162,9 +164,9 @@ int ModelCache::add(const std::string& path, const std::vector<uint8_t>& data, i
     return static_cast<int>(models_.size()) - 1;
 }
 
-int ModelCache::surfaceMaterial(int id, size_t i, const Skin* skin, const std::string& shader) {
-    Loaded& m = models_[size_t(id)];
-    std::vector<int>& chosen = m.chosen[{skin, shader}];
+int ModelCache::surfaceMaterial(int id, size_t i, const Skin *skin, const std::string &shader) {
+    Loaded &m = models_[size_t(id)];
+    std::vector<int> &chosen = m.chosen[{skin, shader}];
     if (chosen.empty()) {
         chosen.resize(m.surfaces.size());
         for (size_t k = 0; k < chosen.size(); ++k)
@@ -173,44 +175,44 @@ int ModelCache::surfaceMaterial(int id, size_t i, const Skin* skin, const std::s
     return chosen[i];
 }
 
-int ModelCache::chooseMaterial(int id, size_t i, const Skin* skin, const std::string& shader) {
-    Loaded& m = models_[size_t(id)];
+int ModelCache::chooseMaterial(int id, size_t i, const Skin *skin, const std::string &shader) {
+    Loaded &m = models_[size_t(id)];
     int material = shader.empty() ? -1 : shaders_.material(shader, Lighting::Diffuse);
     if (material < 0 && skin)
         if (auto it = skin->find(fs::toLower(m.md3.surfaces[i].name)); it != skin->end())
             material = shaders_.material(it->second, Lighting::Diffuse);
     if (material >= 0)
         return material;
-    Surface& s = m.surfaces[i];
+    Surface &s = m.surfaces[i];
     if (s.material < 0) {
-        const auto& names = m.md3.surfaces[i].shaders;
+        const auto &names = m.md3.surfaces[i].shaders;
         s.material = shaders_.material(names.empty() ? std::string() : names.front(), Lighting::Diffuse);
     }
     return s.material;
 }
 
-void ModelCache::addSorts(int id, const Skin* skin, const std::string& shader, std::vector<float>& out) {
+void ModelCache::addSorts(int id, const Skin *skin, const std::string &shader, std::vector<float> &out) {
     if (id < 0)
         return;
     for (size_t i = 0; i < models_[size_t(id)].surfaces.size(); ++i)
         out.push_back(shaders_.get(surfaceMaterial(id, i, skin, shader)).sort);
 }
 
-void ModelCache::draw(int id, int frame, const gfx::Mat4& transform, const PointLight& light, float time,
-                      const Skin* skin, float sortMin, float sortMax, const std::string& shader,
-                      const std::array<float, 4>* entity, int oldFrame, float backLerp) {
+void ModelCache::draw(int id, int frame, const gfx::Mat4 &transform, const PointLight &light, float time,
+                      const Skin *skin, float sortMin, float sortMax, const std::string &shader,
+                      const std::array<float, 4> *entity, int oldFrame, float backLerp) {
     if (id < 0)
         return;
-    const Loaded& m = models_[size_t(id)];
+    const Loaded &m = models_[size_t(id)];
     const int frames = int(m.md3.frames.size());
     frame = ((frame % frames) + frames) % frames;
     oldFrame = ((oldFrame % frames) + frames) % frames;
     if (oldFrame == frame)
         backLerp = 0;
     for (size_t i = 0; i < m.surfaces.size(); ++i) {
-        const Surface& s = m.surfaces[i];
+        const Surface &s = m.surfaces[i];
         const int material = surfaceMaterial(id, i, skin, shader);
-        const ShaderCache::Material& mat = shaders_.get(material);
+        const ShaderCache::Material &mat = shaders_.get(material);
         if (mat.skip || mat.sort < sortMin || mat.sort > sortMax)
             continue;
         gfx::DrawCall call;

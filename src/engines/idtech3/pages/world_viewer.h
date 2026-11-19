@@ -17,13 +17,13 @@ namespace reluva::idtech3 {
 
 class WorldViewer : public Page {
 public:
-    explicit WorldViewer(ViewerContext& ctx);
+    explicit WorldViewer(ViewerContext &ctx);
     ~WorldViewer() override;
-    const char* name() const override { return "World"; }
+    const char *name() const override { return "World"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
 
@@ -34,8 +34,8 @@ private:
 
     std::vector<std::string> names_;
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr; // valid while this page is shown
-    std::unique_ptr<ShaderCache> shaders_;  // the next three draw through it
+    gfx::Renderer3D *renderer_ = nullptr;  // valid while this page is shown
+    std::unique_ptr<ShaderCache> shaders_; // the next three draw through it
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     LightGrid grid_;

@@ -43,13 +43,19 @@ static void testSaveLoad() {
     for (int s = 0; s < kSuspectCount; ++s)
         if (playing[size_t(s)])
             ai[size_t(s)].reset(game, s, 100u + uint32_t(s), s % 3);
-    const auto step = [](Game& g, std::array<ComputerPlayer, kSuspectCount>& players,
-                         const std::array<bool, kSuspectCount>& in) {
-        ComputerPlayer& me = players[size_t(g.turn())];
+    const auto step = [](Game &g, std::array<ComputerPlayer, kSuspectCount> &players,
+                         const std::array<bool, kSuspectCount> &in) {
+        ComputerPlayer &me = players[size_t(g.turn())];
         switch (me.decide(g)) {
-        case ComputerPlayer::Action::Roll: g.rollDie(); break;
-        case ComputerPlayer::Action::Passage: g.takePassage(); break;
-        case ComputerPlayer::Action::Walk: g.walk(me.chooseWalk(g)); break;
+        case ComputerPlayer::Action::Roll:
+            g.rollDie();
+            break;
+        case ComputerPlayer::Action::Passage:
+            g.takePassage();
+            break;
+        case ComputerPlayer::Action::Walk:
+            g.walk(me.chooseWalk(g));
+            break;
         case ComputerPlayer::Action::Suggest: {
             const Accusation a = me.chooseSuggestion(g);
             g.suggest(a.suspect, a.weapon);
@@ -60,8 +66,12 @@ static void testSaveLoad() {
                     players[size_t(s)].observe(g);
             break;
         }
-        case ComputerPlayer::Action::Accuse: g.accuse(me.chooseAccusation()); break;
-        case ComputerPlayer::Action::EndTurn: g.endTurn(); break;
+        case ComputerPlayer::Action::Accuse:
+            g.accuse(me.chooseAccusation());
+            break;
+        case ComputerPlayer::Action::EndTurn:
+            g.endTurn();
+            break;
         }
     };
     for (int i = 0; i < 60 && game.phase() != Game::Phase::Over; ++i)
@@ -124,7 +134,8 @@ static void testRandomNumbers() {
     CHECK(!b.load(tooMany));
 }
 
-static const reluva::test::Suite suite("clue.unit.saves", {
-    {"save and load", [](const std::filesystem::path&) { testSaveLoad(); }},
-    {"random numbers", [](const std::filesystem::path&) { testRandomNumbers(); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.saves", {
+                                 {"save and load", [](const std::filesystem::path &) { testSaveLoad(); }},
+                                 {"random numbers", [](const std::filesystem::path &) { testRandomNumbers(); }},
+                             });

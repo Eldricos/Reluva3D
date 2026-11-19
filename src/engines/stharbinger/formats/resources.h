@@ -35,38 +35,38 @@ struct Scene {
 class Resources {
 public:
     // Adds a game directory; earlier directories take precedence.
-    void addGamePath(const std::string& nativePath);
+    void addGamePath(const std::string &nativePath);
 
-    const SearchSet& getSearchSet() const { return search_; }
-    bool hasFile(const std::string& name) const { return search_.has(name); }
-    std::unique_ptr<SeekableReadStream> openFile(const std::string& name) const;
+    const SearchSet &getSearchSet() const { return search_; }
+    bool hasFile(const std::string &name) const { return search_.has(name); }
+    std::unique_ptr<SeekableReadStream> openFile(const std::string &name) const;
 
     // NAME.ALL/.LST(/.CAT), cached; nullptr if missing.
-    std::shared_ptr<LstArchive> getArchive(const std::string& name);
+    std::shared_ptr<LstArchive> getArchive(const std::string &name);
 
-    bool hasResource(ListKind kind, const std::string& name) const;
+    bool hasResource(ListKind kind, const std::string &name) const;
 
     // Loads a background. If PALETTES/NAME.PAL exists it is loaded into `palette`
     // and `paletteLoaded` is set; otherwise the current palette stays, as in the game.
-    bool loadBackground(const std::string& name, Surface& surface, Palette& palette, bool& paletteLoaded);
-    bool loadAnimation(const std::string& name, RleAnimation& anim);
-    bool loadSound(const std::string& name, std::vector<uint8_t>& data);
+    bool loadBackground(const std::string &name, Surface &surface, Palette &palette, bool &paletteLoaded);
+    bool loadAnimation(const std::string &name, RleAnimation &anim);
+    bool loadSound(const std::string &name, std::vector<uint8_t> &data);
 
     // Loads dialogue `index` (CCB.ALL order) with its text (CCQ, CCF, CCR).
-    bool loadDialogue(int index, Dialogue& dialogue, std::string& error);
+    bool loadDialogue(int index, Dialogue &dialogue, std::string &error);
     // Opens the speech and lip-sync archives of a dialogue (DIALOGUE/NAME/NAME
     // and PHONEMES/NAME/NAME). The game skips a conversation without them.
-    bool openSpeech(const std::string& dialogueName);
+    bool openSpeech(const std::string &dialogueName);
     // Entry `line` of the open speech / lip-sync archive (empty if none).
-    bool loadSpeech(int line, std::vector<uint8_t>& data);
-    bool loadPhonemes(int line, std::vector<uint8_t>& data);
+    bool loadSpeech(int line, std::vector<uint8_t> &data);
+    bool loadPhonemes(int line, std::vector<uint8_t> &data);
 
     // The linker's tables (DS9.LCC, DS9.LVM, DS9.LDM): scene names in link order,
     // global variable names (their index is the slot in saved games) and the
     // dialogue slot names. Empty if the files are missing.
-    const std::vector<std::string>& getLinkScenes();
-    const std::vector<std::string>& getLinkVariables();
-    const std::vector<std::string>& getLinkDialogues();
+    const std::vector<std::string> &getLinkScenes();
+    const std::vector<std::string> &getLinkVariables();
+    const std::vector<std::string> &getLinkDialogues();
 
     // The 269 credits lines, read from DEEP.EXE (pointer table at 0x55464 in its
     // data object). Empty if the executable is not found.
@@ -74,7 +74,7 @@ public:
 
     // Reads every scene slot that has a script. Returns false (with `error`) if the
     // script archives cannot be found.
-    bool loadScenes(std::vector<Scene>& scenes, std::string& error);
+    bool loadScenes(std::vector<Scene> &scenes, std::string &error);
 
 private:
     SearchSet search_;

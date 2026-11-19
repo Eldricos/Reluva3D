@@ -16,7 +16,7 @@ namespace {
 // next. Out-of-range reads give 0, as the DLL's zeroed padding does.
 class RangeDecoder {
 public:
-    RangeDecoder(const std::vector<uint8_t>& in, size_t at) : in_(in), pos_(at + 1) {
+    RangeDecoder(const std::vector<uint8_t> &in, size_t at) : in_(in), pos_(at + 1) {
         const uint32_t first = byte(at);
         code_ = first >> 1;
         // The DLL keeps the held-back bit in the low bit of a pointer to
@@ -63,7 +63,7 @@ private:
         }
     }
 
-    const std::vector<uint8_t>& in_;
+    const std::vector<uint8_t> &in_;
     size_t pos_;
     uint32_t code_ = 0, range_ = 0x80, scale_ = 1, bit_ = 0;
 };
@@ -71,7 +71,7 @@ private:
 // Raw bits, least significant first, from little-endian 32-bit words.
 class BitReader {
 public:
-    BitReader(const std::vector<uint8_t>& in, size_t at) : in_(in), pos_(at) {}
+    BitReader(const std::vector<uint8_t> &in, size_t at) : in_(in), pos_(at) {}
 
     uint32_t bit() {
         if (count_ == 0) {
@@ -109,7 +109,7 @@ private:
         return w;
     }
 
-    const std::vector<uint8_t>& in_;
+    const std::vector<uint8_t> &in_;
     size_t pos_;
     uint32_t buf_ = 0;
     int count_ = 0;
@@ -141,7 +141,7 @@ public:
     }
 
     // The next value, or kNew.
-    int decode(RangeDecoder& rc) {
+    int decode(RangeDecoder &rc) {
         if (total_ >= threshold_) {
             if (threshold_ >= limit_)
                 rescale();
@@ -254,19 +254,19 @@ int bitLength(uint32_t v) {
     return n;
 }
 
-void fill(int16_t* p, size_t stride, uint32_t w, uint32_t h, uint32_t value) {
+void fill(int16_t *p, size_t stride, uint32_t w, uint32_t h, uint32_t value) {
     for (uint32_t y = 0; y < h; y++)
         std::fill(p + y * stride, p + y * stride + w, int16_t(value));
 }
 
 struct Streams {
-    RangeDecoder& rc;
-    BitReader& bits;
+    RangeDecoder &rc;
+    BitReader &bits;
 };
 
 // A value from `model` (a new one sent uniformly), with a sign bit if
 // it isn't 0.
-int32_t signedValue(Streams& s, Model& model, uint32_t symbols) {
+int32_t signedValue(Streams &s, Model &model, uint32_t symbols) {
     int v = model.decode(s.rc);
     if (v == Model::kNew) {
         v = int(s.rc.uniform(symbols));
@@ -280,7 +280,7 @@ int32_t signedValue(Streams& s, Model& model, uint32_t symbols) {
 // The lowest band: each value predicted from its neighbours (the one to
 // the left on the first row, the one above at the start of a row, else
 // the mean of the two), plus a coded difference.
-void decodeLowest(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h) {
+void decodeLowest(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
     if (s.bits.bit()) {
         fill(p, stride, w, h, s.bits.bits(16));
         return;
@@ -294,8 +294,8 @@ void decodeLowest(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h)
         p[x] = int16_t(left);
     }
     for (uint32_t y = 1; y < h; y++) {
-        int16_t* row = p + y * stride;
-        const int16_t* above = row - stride;
+        int16_t *row = p + y * stride;
+        const int16_t *above = row - stride;
         left = above[0] + signedValue(s, model, symbols);
         row[0] = int16_t(left);
         for (uint32_t x = 1; x < w; x++) {
@@ -308,7 +308,7 @@ void decodeLowest(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h)
 // A band of details: runs of coded values and of zeros. Each value's
 // model is picked by the size of its neighbours (left, above-left, above,
 // above-right), and scaled by the band's quantizer.
-void decodeBand(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h) {
+void decodeBand(Streams &s, int16_t *p, size_t stride, uint32_t w, uint32_t h) {
     static const uint32_t kLongRuns[4] = {0x80, 0x100, 0x200, 0x400};
     static const uint32_t kLongZeros[4] = {0x200, 0x400, 0x800, 0xc00};
     const int32_t quant = int32_t(s.bits.bits(16));
@@ -320,7 +320,7 @@ void decodeBand(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h) {
     std::vector<Model> models(size_t(bitLength(largest * uint32_t(quant))) + 1, Model(largest, symbols));
     Model runs(63, 64), zeroRuns(255, 256);
     auto value = [&](uint32_t context) {
-        Model& model = models[std::min(size_t(bitLength(context)), models.size() - 1)];
+        Model &model = models[std::min(size_t(bitLength(context)), models.size() - 1)];
         const int32_t v = signedValue(s, model, symbols);
         return int32_t(uint32_t(v) * uint32_t(quant));
     };
@@ -328,13 +328,13 @@ void decodeBand(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h) {
     // As the DLL walks it: `up` points at the value above and to the
     // right of the next one (on the first row, the one before it); `a`
     // is above, `b` above-left, `c` to the left.
-    int16_t* out = p;
+    int16_t *out = p;
     int32_t first = int32_t(s.rc.uniform(symbols));
     if (first && s.bits.bit())
         first = -first;
     first = int32_t(uint32_t(first) * uint32_t(quant));
     *out = int16_t(first);
-    const int16_t* up = out++;
+    const int16_t *up = out++;
     int32_t a = first, b = first, c = first;
     uint32_t rows = h, left = w - 1, coded = 0, zeros = 0;
     bool rowDone = w == 1;
@@ -406,7 +406,7 @@ void decodeBand(Streams& s, int16_t* p, size_t stride, uint32_t w, uint32_t h) {
 // One flag per row of the full-size plane: whether its horizontal
 // details are all zero (0) or not. First how many are 0, then each flag
 // with that probability.
-void decodeRowFlags(RangeDecoder& rc, uint8_t* flags, uint32_t count) {
+void decodeRowFlags(RangeDecoder &rc, uint8_t *flags, uint32_t count) {
     const uint32_t zeros = rc.uniform(count + 1);
     for (uint32_t i = 0; i < count; i++) {
         const uint32_t v = rc.decode(count);
@@ -422,7 +422,7 @@ void decodeRowFlags(RangeDecoder& rc, uint8_t* flags, uint32_t count) {
 // of the four levels the band of low frequencies takes the even rows and
 // left half, the others the right half and the odd rows. Returns the
 // bytes used.
-size_t decodePlane(const std::vector<uint8_t>& in, size_t at, int16_t* p, uint32_t w, uint32_t h, uint8_t* rowFlags) {
+size_t decodePlane(const std::vector<uint8_t> &in, size_t at, int16_t *p, uint32_t w, uint32_t h, uint8_t *rowFlags) {
     auto u32 = [&](size_t i) {
         uint32_t v = 0;
         for (int k = 0; k < 4; k++)
@@ -460,7 +460,7 @@ int16_t fixed(uint32_t sum) {
 // high values `hi(i)` to n values. Short ones use a two-tap filter,
 // longer ones a 9/7 filter in 16.16 fixed point, mirrored at the ends.
 // Without `highs` only the low taps count.
-template <typename Lo, typename Hi, typename Put>
+template<typename Lo, typename Hi, typename Put>
 void synthesize(uint32_t n, bool longFilter, Lo lo, Hi hi, bool highs, Put put) {
     const int32_t m = int32_t(n / 2);
     if (!longFilter) {
@@ -507,14 +507,14 @@ void synthesize(uint32_t n, bool longFilter, Lo lo, Hi hi, bool highs, Put put) 
 // One level of the inverse transform, in place: w x h values whose rows
 // are `stride` apart. Rows first (flagged rows without details), then
 // columns.
-void inverseLevel(int16_t* p, size_t stride, uint32_t w, uint32_t h, const uint8_t* rowFlags,
-                  std::vector<int16_t>& scratch) {
+void inverseLevel(int16_t *p, size_t stride, uint32_t w, uint32_t h, const uint8_t *rowFlags,
+                  std::vector<int16_t> &scratch) {
     scratch.resize(stride * h);
     const uint32_t m = w / 2;
     // A row: lows in its left half, highs in its right.
     for (uint32_t y = 0; y < h; y++) {
-        const int16_t* src = p + y * stride;
-        int16_t* dst = scratch.data() + y * stride;
+        const int16_t *src = p + y * stride;
+        int16_t *dst = scratch.data() + y * stride;
         auto lo = [&](int32_t i) { return int32_t(src[i]); };
         auto hi = [&](int32_t i) { return int32_t(src[m + uint32_t(i)]); };
         auto put = [&](int32_t i, int16_t v) { dst[i] = v; };
@@ -522,8 +522,8 @@ void inverseLevel(int16_t* p, size_t stride, uint32_t w, uint32_t h, const uint8
     }
     // A column: lows in its even rows, highs in its odd ones.
     for (uint32_t x = 0; x < w; x++) {
-        const int16_t* src = scratch.data() + x;
-        int16_t* dst = p + x;
+        const int16_t *src = scratch.data() + x;
+        int16_t *dst = p + x;
         auto lo = [&](int32_t i) { return int32_t(src[size_t(2 * i) * stride]); };
         auto hi = [&](int32_t i) { return int32_t(src[size_t(2 * i + 1) * stride]); };
         auto put = [&](int32_t i, int16_t v) { dst[size_t(i) * stride] = v; };
@@ -537,8 +537,8 @@ uint8_t clampByte(int32_t v) {
 
 } // namespace
 
-Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t>& in,
-                        std::vector<uint8_t>& rgba) {
+Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t> &in,
+                        std::vector<uint8_t> &rgba) {
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
         return Error::fail("Bad texture size");
     // Bit 2 picks the codec, bit 1 how the planes become colours.
@@ -571,7 +571,7 @@ Error decodeBinkTexture(int width, int height, uint32_t flags, const std::vector
             const size_t i = size_t(y) * w + x;
             const int32_t luma = plane[0][i], co = plane[1][i], cg = plane[2][i];
             const int32_t g = luma - (co + cg) / 4;
-            uint8_t* px = &rgba[(size_t(y) * size_t(width) + x) * 4];
+            uint8_t *px = &rgba[(size_t(y) * size_t(width) + x) * 4];
             px[0] = clampByte(co + g);
             px[1] = clampByte(g);
             px[2] = clampByte(cg + g);

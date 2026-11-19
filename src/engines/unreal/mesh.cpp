@@ -22,16 +22,16 @@ namespace reluva::unreal {
 
 namespace {
 
-Vec3f readVector(Reader& r) {
+Vec3f readVector(Reader &r) {
     Vec3f v;
-    for (float& f : v)
+    for (float &f : v)
         f = r.f32();
     return v;
 }
 
 // An array's count, checked against what's left (each element taking at
 // least `minSize` bytes).
-bool count(Reader& r, size_t minSize, size_t& n) {
+bool count(Reader &r, size_t minSize, size_t &n) {
     const int32_t c = r.index();
     if (!r.ok() || c < 0 || size_t(c) * minSize > r.remaining()) {
         r.fail();
@@ -43,18 +43,18 @@ bool count(Reader& r, size_t minSize, size_t& n) {
 
 // A lazy array: from version 63 the file offset just past it comes first.
 // Returns that offset (0 before 63) and the count.
-bool lazyCount(Reader& r, int version, size_t minSize, size_t& end, size_t& n) {
+bool lazyCount(Reader &r, int version, size_t minSize, size_t &end, size_t &n) {
     end = version >= 63 ? size_t(uint32_t(r.i32())) : 0;
     return count(r, minSize, n);
 }
 
-void skipArray(Reader& r, size_t elementSize) {
+void skipArray(Reader &r, size_t elementSize) {
     size_t n = 0;
     if (count(r, elementSize, n))
         r.skip(n * elementSize);
 }
 
-void skipLazy(Reader& r, int version, size_t elementSize) {
+void skipLazy(Reader &r, int version, size_t elementSize) {
     size_t end = 0, n = 0;
     if (!lazyCount(r, version, elementSize, end, n))
         return;
@@ -75,8 +75,8 @@ struct MeshTail {
     std::vector<MeshTri> tris;
 };
 
-Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
-    auto fail = [&](const char* why) { return Error::fail(why); };
+Error readTail(Reader &r, int ver, bool lod, MeshTail &out) {
+    auto fail = [&](const char *why) { return Error::fail(why); };
     skipArray(r, 25); // per-frame bounding boxes
     skipArray(r, 16); // and spheres
     out.frameVerts = r.i32();
@@ -105,8 +105,8 @@ Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
     if (!count(r, 8, faces))
         return fail("faces run past the end");
     std::vector<std::array<uint16_t, 4>> faceList(faces);
-    for (auto& f : faceList)
-        for (uint16_t& v : f)
+    for (auto &f : faceList)
+        for (uint16_t &v : f)
             v = r.u16();
     skipArray(r, 2); // collapse wedge thus
     size_t wedges = 0;
@@ -117,7 +117,7 @@ Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
         float u, v;
     };
     std::vector<Wedge> wedgeList(wedges);
-    for (Wedge& w : wedgeList) {
+    for (Wedge &w : wedgeList) {
         w.vertex = r.u16();
         w.u = float(r.u8()) / 256;
         w.v = float(r.u8()) / 256;
@@ -126,7 +126,7 @@ Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
     if (!count(r, 8, materials))
         return fail("materials run past the end");
     std::vector<std::pair<uint32_t, int32_t>> materialList(materials);
-    for (auto& m : materialList) {
+    for (auto &m : materialList) {
         m.first = r.u32();
         m.second = r.i32();
     }
@@ -140,14 +140,14 @@ Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
         return fail("the level-of-detail fields run past the end");
     // Faces through wedges to vertices; a frame's special vertices (for
     // the weapon triangle) come before the model's.
-    for (const auto& f : faceList) {
+    for (const auto &f : faceList) {
         MeshTri t;
         if (f[3] >= materialList.size())
             return fail("a face's material is out of range");
         for (size_t k = 0; k < 3; ++k) {
             if (f[k] >= wedgeList.size())
                 return fail("a face's wedge is out of range");
-            const Wedge& w = wedgeList[f[k]];
+            const Wedge &w = wedgeList[f[k]];
             t.vertex[k] = int32_t(w.vertex) + out.specialVerts;
             t.uv[k] = {w.u, w.v};
         }
@@ -158,11 +158,13 @@ Error readTail(Reader& r, int ver, bool lod, MeshTail& out) {
     return Error::success();
 }
 
-bool sane(float f) { return std::isfinite(f) && std::fabs(f) < 1e6f; }
+bool sane(float f) {
+    return std::isfinite(f) && std::fabs(f) < 1e6f;
+}
 
 // Whether a tail read from somewhere holds together: frame counts,
 // placement, and for a LodMesh the vertex counts.
-bool plausible(const MeshTail& t, bool lod) {
+bool plausible(const MeshTail &t, bool lod) {
     if (t.frameVerts <= 0 || t.animFrames <= 0 || int64_t(t.frameVerts) * t.animFrames > 10000000)
         return false;
     for (float f : t.scale)
@@ -187,13 +189,13 @@ Vec3f unpackVertex(uint32_t p) {
 // have (keyframes, between other arrays not worked out yet): then the
 // first is used for every frame, and `keys` says how many were found
 // (0 when every frame was).
-bool findVertexBlock(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, const MeshTail& t,
-                     std::vector<Vec3f>& out, int& keys, bool& perFrame) {
+bool findVertexBlock(const std::vector<uint8_t> &data, size_t base, size_t from, size_t to, const MeshTail &t,
+                     std::vector<Vec3f> &out, int &keys, bool &perFrame) {
     keys = 0;
     perFrame = false;
     const auto frame = uint32_t(t.frameVerts), total = uint32_t(t.frameVerts) * uint32_t(t.animFrames);
     auto u32At = [&](size_t at) {
-        const uint8_t* p = data.data() + (at - base);
+        const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     };
     auto block = [&](size_t at, uint32_t n) {
@@ -233,11 +235,11 @@ bool findVertexBlock(const std::vector<uint8_t>& data, size_t base, size_t from,
 // 24 axis-aligned turns, the one that takes the first frame's packed
 // vertices (by Scale and Origin) closest onto those, if close; both
 // about their middles, as the float copy can be moved too.
-std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t>& data, size_t base, size_t from,
-                                               size_t to, const Mesh& mesh, const MeshTail& t) {
+std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t> &data, size_t base, size_t from, size_t to,
+                                               const Mesh &mesh, const MeshTail &t) {
     const auto n = uint32_t(t.frameVerts);
     auto u32At = [&](size_t at) {
-        const uint8_t* p = data.data() + (at - base);
+        const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     };
     auto f32At = [&](size_t at) {
@@ -259,11 +261,11 @@ std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t>& data,
         return std::nullopt;
     // Compared about their middles: the float copy can be moved as well.
     Vec3f mid{};
-    for (const Vec3f& v : scaled)
+    for (const Vec3f &v : scaled)
         for (size_t a = 0; a < 3; ++a)
             mid[a] += v[a] / float(n);
     extent = 0;
-    for (Vec3f& v : scaled)
+    for (Vec3f &v : scaled)
         for (size_t a = 0; a < 3; ++a) {
             v[a] -= mid[a];
             extent = std::max(extent, std::fabs(v[a]));
@@ -274,7 +276,7 @@ std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t>& data,
     // determinant +1.
     std::vector<std::array<Vec3f, 3>> turns;
     const int perms[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-    for (const auto& p : perms)
+    for (const auto &p : perms)
         for (int signs = 0; signs < 8; ++signs) {
             std::array<Vec3f, 3> m{};
             for (size_t row = 0; row < 3; ++row)
@@ -294,7 +296,7 @@ std::optional<std::array<Vec3f, 3>> importAxes(const std::vector<uint8_t>& data,
         for (uint32_t k = 0; k < n; ++k)
             for (size_t a = 0; a < 3; ++a)
                 floatMid[a] += f32At(at + 12 + 12 * size_t(k) + 4 * a) / float(n);
-        for (const auto& m : turns) {
+        for (const auto &m : turns) {
             float err = 0;
             for (uint32_t k = 0; k < n && std::isfinite(err); ++k)
                 for (size_t row = 0; row < 3; ++row) {
@@ -350,20 +352,20 @@ struct BoneRecord {
     };
     std::vector<Clip> clipList; // when they read
     std::vector<int> groups;    // the animation groups (body parts) it's in, by index
-    size_t start = 0;   // where its record starts (its name)
-    size_t end = 0;     // past its own fields (before its children); 0: its clips didn't read
+    size_t start = 0;           // where its record starts (its name)
+    size_t end = 0;             // past its own fields (before its children); 0: its clips didn't read
     // Its joint limits for the IK, in radians, from its bind pose: about
     // its Y (min, max), X and Z (the engine's default +-30 degrees).
     std::array<float, 6> limits{-0.5236f, 0.5236f, -0.5236f, 0.5236f, -0.5236f, 0.5236f};
 };
 
 struct BoneReader {
-    const std::vector<uint8_t>& data;
+    const std::vector<uint8_t> &data;
     size_t base, from, to;
     size_t failedAt = 0; // where a record didn't hold together
 
     uint32_t u32(size_t at) const {
-        const uint8_t* p = data.data() + (at - base);
+        const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     }
     float f32(size_t at) const {
@@ -372,21 +374,21 @@ struct BoneReader {
         std::memcpy(&f, &bits, 4);
         return f;
     }
-    bool header(size_t at, uint32_t& n, uint32_t& flags) const {
+    bool header(size_t at, uint32_t &n, uint32_t &flags) const {
         if (at < from || at + 12 > to)
             return false;
         n = u32(at);
         flags = u32(at + 8);
         return u32(at + 4) == n && n < 1000000;
     }
-    bool name(size_t at, std::string& out) const {
+    bool name(size_t at, std::string &out) const {
         if (at < from || at + 2 > to)
             return false;
         // Some are empty (GrigariMarauder's), some end in a tab (VortaFeMale's "Box03").
         const size_t len = size_t(data[at - base]) | size_t(data[at - base + 1]) << 8;
         if (len > 64 || at + 2 + len > to)
             return false;
-        out.assign(reinterpret_cast<const char*>(data.data() + (at - base) + 2), len);
+        out.assign(reinterpret_cast<const char *>(data.data() + (at - base) + 2), len);
         return std::all_of(out.begin(), out.end(), [](char c) { return c == '\t' || (c >= 32 && c < 127); });
     }
 
@@ -411,7 +413,7 @@ struct BoneReader {
     // A bone's own fields from `at` (its name). Its clips' keys are
     // stepped over too, to find its children; if they don't read, `end`
     // stays 0 and its children aren't known, but the bone still is.
-    bool record(size_t at, BoneRecord& b) const {
+    bool record(size_t at, BoneRecord &b) const {
         uint32_t n = 0, flags = 0;
         if (!name(at, b.name))
             return false;
@@ -426,7 +428,7 @@ struct BoneReader {
         // Keyframed meshes' bones (ARD_AmmoCrate's) keep weights and
         // indices but no positions, which their packed frames have: such a
         // bone places no vertices.
-        size_t* arrays[3] = {&b.positions, &b.weights, &b.indices};
+        size_t *arrays[3] = {&b.positions, &b.weights, &b.indices};
         uint32_t counts[3] = {};
         for (int a = 0; a < 3; ++a) {
             if (!header(p, counts[a], flags) || flags != 128 || (a == 2 && counts[2] != counts[1]))
@@ -478,7 +480,7 @@ struct BoneReader {
     // whose clips or children aren't understood keeps its own children
     // unknown (they're placed as if at the root; failedAt says where).
     // Returns whether all were.
-    bool all(std::vector<BoneRecord>& out) {
+    bool all(std::vector<BoneRecord> &out) {
         out.clear();
         for (size_t at = first(); at; at = first(at + 1)) {
             BoneRecord b;
@@ -581,12 +583,12 @@ struct BoneReader {
 // 4x3 matrices as row vectors use them: p * m is p's rows X, Y, Z summed
 // and the origin added.
 using Mat43 = std::array<float, 12>;
-Vec3f times(const Mat43& m, const Vec3f& v) {
+Vec3f times(const Mat43 &m, const Vec3f &v) {
     return {v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9], v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10],
             v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11]};
 }
 // a then b.
-Mat43 then(const Mat43& a, const Mat43& b) {
+Mat43 then(const Mat43 &a, const Mat43 &b) {
     Mat43 out{};
     for (size_t row = 0; row < 4; ++row)
         for (size_t c = 0; c < 3; ++c) {
@@ -608,7 +610,7 @@ Mat43 then(const Mat43& a, const Mat43& b) {
 // and back, its tip 10 to 17 units under the meshes' own precomputed
 // place. Checked: x^2+y^2+z^2+w^2 comes to 1 on every key looked at, and a
 // bone's keys turn it smoothly.
-std::array<float, 4> rotationKey(const uint8_t* p) {
+std::array<float, 4> rotationKey(const uint8_t *p) {
     const uint32_t xyz = uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     const int32_t raw = int32_t(uint16_t(p[4] | p[5] << 8));
     const int32_t w = raw == 0 ? 0 : raw - 65536; // w - 1: 0, or below (wrapped or not, the same)
@@ -624,16 +626,24 @@ Mat43 rotation(std::array<float, 4> q) {
     if (n <= 0)
         return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
     const float x = q[0] / n, y = q[1] / n, z = q[2] / n, w = q[3] / n;
-    return {1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
-            2 * (x * y + z * w),     1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
-            2 * (x * z - y * w),     2 * (y * z + x * w),     1 - 2 * (x * x + y * y),
-            0, 0, 0};
+    return {1 - 2 * (y * y + z * z),
+            2 * (x * y - z * w),
+            2 * (x * z + y * w),
+            2 * (x * y + z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z - x * w),
+            2 * (x * z - y * w),
+            2 * (y * z + x * w),
+            1 - 2 * (x * x + y * y),
+            0,
+            0,
+            0};
 }
 
 std::array<float, 4> slerp(std::array<float, 4> a, std::array<float, 4> b, float t) {
     float dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
     if (dot < 0) {
-        for (float& c : b)
+        for (float &c : b)
             c = -c;
         dot = -dot;
     }
@@ -657,15 +667,15 @@ std::array<float, 4> slerp(std::array<float, 4> a, std::array<float, 4> b, float
 // match the animations' frame counts exactly (BajFanatic's 4 its 50
 // frames, GrigSentryDrone's 30 its 1626).
 struct BonePoser {
-    const BoneReader& r;
-    const std::vector<BoneRecord>& bones;
+    const BoneReader &r;
+    const std::vector<BoneRecord> &bones;
     // A clip's length in frames: its last key's time.
     int clipFrames(size_t c) const {
         float last = 0;
-        for (const BoneRecord& b : bones) {
+        for (const BoneRecord &b : bones) {
             if (c >= b.clipList.size())
                 continue;
-            const BoneRecord::Clip& k = b.clipList[c];
+            const BoneRecord::Clip &k = b.clipList[c];
             if (k.nPositions)
                 last = std::max(last, r.f32(k.positions + 16 * size_t(k.nPositions - 1)));
             if (k.nRotations)
@@ -674,7 +684,7 @@ struct BonePoser {
         return std::max(1, int(std::lround(last * 30)));
     }
     // Bone b's placement in its parent at time t of clip c.
-    Mat43 local(const BoneRecord& b, size_t c, float t) const { return localWith(b, r, b, c, t, false); }
+    Mat43 local(const BoneRecord &b, size_t c, float t) const { return localWith(b, r, b, c, t, false); }
 
     // The same with another skeleton's keys for it (`keys`, read by
     // `kr`): an animation set's (below), the bones matched by name.
@@ -682,12 +692,12 @@ struct BonePoser {
     // the last, the last held, or looping the first; between, blended,
     // a loop's last stretch toward the first key (its last key standing
     // for the first again).
-    static Mat43 localWith(const BoneRecord& b, const BoneReader& r, const BoneRecord& keys, size_t c, float t,
+    static Mat43 localWith(const BoneRecord &b, const BoneReader &r, const BoneRecord &keys, size_t c, float t,
                            bool loop) {
         Mat43 m = b.placement;
         if (c >= keys.clipList.size())
             return m;
-        const BoneRecord::Clip& k = keys.clipList[c];
+        const BoneRecord::Clip &k = keys.clipList[c];
         if (k.nRotations) {
             const uint32_t n = k.staticRotations ? 1 : k.nRotations;
             size_t i = 0;
@@ -742,14 +752,14 @@ struct BonePoser {
 // One frame of a skeleton's vertices into `out` (frameVerts of them, in
 // packed units by Scale and Origin), each bone placed in its parent by
 // `local(i)`. Returns how many vertices some bone placed.
-template <class Local>
-size_t poseVertices(const BoneReader& r, const std::vector<BoneRecord>& bones, size_t frame, const Vec3f& scale,
-                    const Vec3f& origin, Vec3f* out, Local&& local) {
+template<class Local>
+size_t poseVertices(const BoneReader &r, const std::vector<BoneRecord> &bones, size_t frame, const Vec3f &scale,
+                    const Vec3f &origin, Vec3f *out, Local &&local) {
     std::vector<Vec3f> sum(frame, Vec3f{});
     std::vector<float> weight(frame, 0);
     std::vector<Mat43> world(bones.size());
     for (size_t i = 0; i < bones.size(); ++i) {
-        const BoneRecord& b = bones[i];
+        const BoneRecord &b = bones[i];
         const Mat43 m = local(i);
         world[i] = b.parent >= 0 ? then(m, world[size_t(b.parent)]) : m;
         for (uint32_t j = 0; j < b.vertices; ++j) {
@@ -783,8 +793,8 @@ size_t poseVertices(const BoneReader& r, const std::vector<BoneRecord>& bones, s
 // mesh's frames, else every frame in clip 0's first pose. Back into packed
 // units by Scale and Origin. Returns the bones (0 if the block isn't a
 // skeleton); `animated` says whether the frames were posed from the clips.
-int poseFromBones(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, const MeshTail& t,
-                  std::vector<Vec3f>& out, bool& animated) {
+int poseFromBones(const std::vector<uint8_t> &data, size_t base, size_t from, size_t to, const MeshTail &t,
+                  std::vector<Vec3f> &out, bool &animated) {
     BoneReader r{data, base, from, to};
     std::vector<BoneRecord> bones;
     r.all(bones);
@@ -795,7 +805,7 @@ int poseFromBones(const std::vector<uint8_t>& data, size_t base, size_t from, si
     // Which clip and time each frame is.
     const size_t clips = bones[0].clipList.size();
     bool clipsRead = clips > 0;
-    for (const BoneRecord& b : bones)
+    for (const BoneRecord &b : bones)
         clipsRead = clipsRead && b.clipList.size() == clips;
     std::vector<std::pair<size_t, float>> frames;
     if (clipsRead)
@@ -837,8 +847,8 @@ struct NamedClip {
 };
 
 // `keysEnd`: where the vertex keys' runs end (the face table follows).
-std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, size_t* keysEnd = nullptr) {
-    auto header = [&](size_t at, uint32_t flags, uint32_t& n) {
+std::vector<NamedClip> findClipTable(const BoneReader &r, size_t frameVerts, size_t *keysEnd = nullptr) {
+    auto header = [&](size_t at, uint32_t flags, uint32_t &n) {
         uint32_t f = 0;
         return r.header(at, n, f) && f == flags;
     };
@@ -850,7 +860,7 @@ std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, siz
         std::vector<NamedClip> clips(c);
         size_t p = at + 12;
         bool ok = true;
-        for (NamedClip& clip : clips) {
+        for (NamedClip &clip : clips) {
             std::string group;
             if (!r.name(p, clip.name) || clip.name.empty() || p + 2 + clip.name.size() + 8 > r.to) {
                 ok = false;
@@ -874,7 +884,7 @@ std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, siz
                 continue;
             size_t k = q + 12;
             bool runs = true;
-            for (NamedClip& clip : clips) {
+            for (NamedClip &clip : clips) {
                 clip.keys.clear();
                 uint32_t n = 0;
                 if (!header(k, 5, n)) {
@@ -904,7 +914,7 @@ std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, siz
             }
         }
         // The names without vertex keys (an animation set's).
-        for (NamedClip& clip : clips)
+        for (NamedClip &clip : clips)
             clip.keys.clear();
         return clips;
     }
@@ -914,8 +924,7 @@ std::vector<NamedClip> findClipTable(const BoneReader& r, size_t frameVerts, siz
 // Fills the frames of a mesh's own animations from its named clips: each
 // frame at its time in the clip (30 a second), from the clip's vertex keys
 // (between two, blended) or else from its bones. Returns the frames filled.
-int framesFromClips(const std::vector<uint8_t>& data, size_t base, size_t from, size_t to, Mesh& mesh,
-                    int& bonesUsed) {
+int framesFromClips(const std::vector<uint8_t> &data, size_t base, size_t from, size_t to, Mesh &mesh, int &bonesUsed) {
     bonesUsed = 0;
     const BoneReader r{data, base, from, to};
     const std::vector<NamedClip> clips = findClipTable(r, size_t(mesh.frameVerts));
@@ -924,13 +933,13 @@ int framesFromClips(const std::vector<uint8_t>& data, size_t base, size_t from, 
     std::vector<BoneRecord> bones;
     BoneReader(r).all(bones);
     bool bonesUsable = !bones.empty();
-    for (const BoneRecord& b : bones)
+    for (const BoneRecord &b : bones)
         bonesUsable = bonesUsable && b.clipList.size() == clips.size();
     const BonePoser poser{r, bones};
     const auto frame = size_t(mesh.frameVerts);
     int filled = 0;
     std::vector<Vec3f> pose(frame);
-    for (const MeshAnimSeq& a : mesh.anims) {
+    for (const MeshAnimSeq &a : mesh.anims) {
         if (a.startFrame < 0 || a.numFrames <= 0 || a.startFrame + a.numFrames > mesh.animFrames)
             continue;
         size_t c = 0;
@@ -938,10 +947,10 @@ int framesFromClips(const std::vector<uint8_t>& data, size_t base, size_t from, 
             ++c;
         if (c == clips.size())
             continue;
-        const NamedClip& clip = clips[c];
+        const NamedClip &clip = clips[c];
         for (int f = 0; f < a.numFrames; ++f) {
             const float t = float(f) / 30;
-            Vec3f* out = mesh.verts.data() + size_t(a.startFrame + f) * frame;
+            Vec3f *out = mesh.verts.data() + size_t(a.startFrame + f) * frame;
             if (!clip.keys.empty()) {
                 size_t i = 0;
                 while (i + 1 < clip.keys.size() && clip.keys[i + 1].first <= t)
@@ -959,9 +968,10 @@ int framesFromClips(const std::vector<uint8_t>& data, size_t base, size_t from, 
                     out[v] = p;
                 }
                 ++filled;
-            } else if (bonesUsable &&
-                       poseVertices(r, bones, frame, mesh.scale, mesh.origin, pose.data(),
-                                    [&](size_t i) { return poser.local(bones[i], c, t); }) * 10 >= frame * 9) {
+            } else if (bonesUsable && poseVertices(r, bones, frame, mesh.scale, mesh.origin, pose.data(),
+                                                   [&](size_t i) { return poser.local(bones[i], c, t); }) *
+                                              10 >=
+                                          frame * 9) {
                 std::copy(pose.begin(), pose.end(), out);
                 ++filled;
                 // One bone is a prop (a chair's "root"), not a character.
@@ -984,9 +994,9 @@ bool isMeshClass(std::string_view className) {
     return c == "mesh" || c == "lodmesh";
 }
 
-const MeshAnimSeq* Mesh::findAnim(std::string_view name) const {
+const MeshAnimSeq *Mesh::findAnim(std::string_view name) const {
     const std::string wanted = fs::toLower(name);
-    for (const MeshAnimSeq& a : anims)
+    for (const MeshAnimSeq &a : anims)
         if (fs::toLower(a.name) == wanted)
             return &a;
     return nullptr;
@@ -1004,7 +1014,7 @@ const MeshAnimSeq* Mesh::findAnim(std::string_view name) const {
 // phaser rifle's FirePoint a triangle at the end of its barrel.
 namespace {
 
-void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
+void readAttachPoints(const std::vector<uint8_t> &data, Mesh &out) {
     static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
     size_t at = std::string::npos;
     for (size_t i = 0; i + sizeof anchor + 12 <= data.size(); ++i)
@@ -1034,7 +1044,7 @@ void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
         if (len == 0 || p + 2 + len + 4 + 4 + 48 + 4 > data.size())
             return;
         MeshAttachPoint a;
-        a.name.assign(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        a.name.assign(reinterpret_cast<const char *>(data.data() + p + 2), len);
         p += 2 + len;
         a.type = i32(p);
         a.triangle = i32(p + 4);
@@ -1066,7 +1076,7 @@ void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
         const size_t len = size_t(data[p]) | size_t(data[p + 1]) << 8;
         if (p + 2 + len > data.size())
             return;
-        out.animationSetNames.emplace_back(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        out.animationSetNames.emplace_back(reinterpret_cast<const char *>(data.data() + p + 2), len);
         p += 2 + len;
     }
     if (p + 12 > data.size() || i32(p) != i32(p + 4) || i32(p + 8) != 4 || i32(p) < 0 || i32(p) > 1000)
@@ -1081,7 +1091,7 @@ void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
         if (len == 0 || p + 2 + len + 48 + 4 > data.size())
             return;
         MeshAttachPoint a;
-        a.name.assign(reinterpret_cast<const char*>(data.data() + p + 2), len);
+        a.name.assign(reinterpret_cast<const char *>(data.data() + p + 2), len);
         p += 2 + len;
         a.type = 2;
         for (size_t row = 0; row < 3; ++row)
@@ -1100,7 +1110,7 @@ void readAttachPoints(const std::vector<uint8_t>& data, Mesh& out) {
 
 } // namespace
 
-Error readMesh(const Package& package, int index, Mesh& out) {
+Error readMesh(const Package &package, int index, Mesh &out) {
     out = Mesh{};
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
@@ -1112,7 +1122,7 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     if (Error err = beginObject(package, index, r, props))
         return err;
     out.lod = fs::toLower(package.className(index + 1)) == "lodmesh";
-    auto fail = [&](const std::string& why) {
+    auto fail = [&](const std::string &why) {
         return Error::fail(what + ": " + why + " (at file offset " + std::to_string(r.pos()) + ")");
     };
 
@@ -1130,7 +1140,7 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     if (out.vertexBytes != 4 && out.vertexBytes != 8)
         return fail(std::to_string(out.vertexBytes) + "-byte vertices");
     out.verts.resize(n);
-    for (Vec3f& v : out.verts) {
+    for (Vec3f &v : out.verts) {
         if (out.vertexBytes == 4) {
             const uint32_t p = r.u32();
             v = {float(int32_t(p << 21) >> 21), float(int32_t(p << 10) >> 21), float(int32_t(p) >> 22)};
@@ -1150,10 +1160,10 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     if (end && n && end - r.pos() != n * 20)
         return fail("triangles of " + std::to_string((end - r.pos()) / n) + " bytes");
     out.tris.resize(n);
-    for (MeshTri& t : out.tris) {
-        for (int32_t& v : t.vertex)
+    for (MeshTri &t : out.tris) {
+        for (int32_t &v : t.vertex)
             v = r.u16();
-        for (auto& uv : t.uv) {
+        for (auto &uv : t.uv) {
             uv[0] = float(r.u8()) / 256;
             uv[1] = float(r.u8()) / 256;
         }
@@ -1165,7 +1175,7 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     if (!count(r, 16, n))
         return fail("animation sequences run past the end");
     out.anims.resize(n);
-    for (MeshAnimSeq& a : out.anims) {
+    for (MeshAnimSeq &a : out.anims) {
         a.name = package.name(r.index());
         a.group = package.name(r.index());
         a.startFrame = r.i32();
@@ -1191,7 +1201,7 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     if (!count(r, 1, n))
         return fail("textures run past the end");
     out.textures.resize(n);
-    for (int32_t& t : out.textures)
+    for (int32_t &t : out.textures)
         t = r.index();
     const size_t afterTextures = r.pos();
     size_t blockEnd = 0;     // where an imported-model block ends
@@ -1256,8 +1266,8 @@ Error readMesh(const Package& package, int index, Mesh& out) {
             out.vertexBytes = 4;
             out.importBlock = at - afterTextures;
             blockEnd = at;
-            out.importAxes = importAxes(data, size_t(package.exports()[size_t(index)].serialOffset), afterTextures, at,
-                                        out, tail);
+            out.importAxes =
+                importAxes(data, size_t(package.exports()[size_t(index)].serialOffset), afterTextures, at, out, tail);
             if (!out.importAxes) {
                 out.importAxes = kUsualImportAxes;
                 out.importAxesGuessed = !bones;
@@ -1265,7 +1275,8 @@ Error readMesh(const Package& package, int index, Mesh& out) {
             found = true;
         }
         if (!found)
-            return fail("neither the standard layout (" + err.message + ") nor an imported-model block before the "
+            return fail("neither the standard layout (" + err.message +
+                        ") nor an imported-model block before the "
                         "standard fields fits");
     }
     out.frameVerts = tail.frameVerts;
@@ -1283,7 +1294,7 @@ Error readMesh(const Package& package, int index, Mesh& out) {
         size_t(out.frameVerts) * size_t(out.animFrames) != out.verts.size())
         return fail(std::to_string(out.verts.size()) + " vertices for " + std::to_string(out.animFrames) +
                     " frames of " + std::to_string(out.frameVerts));
-    for (const MeshTri& t : out.tris)
+    for (const MeshTri &t : out.tris)
         for (int32_t v : t.vertex)
             if (v < 0 || v >= out.frameVerts)
                 return fail("a triangle's vertex is out of range");
@@ -1307,11 +1318,11 @@ Error readMesh(const Package& package, int index, Mesh& out) {
     // Animations whose frames run past the mesh's are left out (The
     // Fallen's JadziaDax has a test one like that), not the whole mesh.
     // The Fallen's characters list many of those: another mesh's.
-    for (const MeshAnimSeq& a : out.anims)
+    for (const MeshAnimSeq &a : out.anims)
         if (a.startFrame < 0 || a.numFrames < 0 || a.startFrame + a.numFrames > out.animFrames)
             out.otherAnims.push_back(a);
     const size_t anims = out.anims.size();
-    std::erase_if(out.anims, [&](const MeshAnimSeq& a) {
+    std::erase_if(out.anims, [&](const MeshAnimSeq &a) {
         return a.startFrame < 0 || a.numFrames < 0 || a.startFrame + a.numFrames > out.animFrames;
     });
     out.droppedAnims = int(anims - out.anims.size());
@@ -1336,17 +1347,17 @@ struct IkChain {
     float tolerance = 0;
 };
 
-std::vector<IkChain> findIkChains(const BoneReader& r, const std::vector<BoneRecord>& bones) {
+std::vector<IkChain> findIkChains(const BoneReader &r, const std::vector<BoneRecord> &bones) {
     std::vector<IkChain> out;
-    auto limitsOf = [&](const std::string& bone) {
-        for (const BoneRecord& b : bones)
+    auto limitsOf = [&](const std::string &bone) {
+        for (const BoneRecord &b : bones)
             if (fs::toLower(b.name) == fs::toLower(bone))
                 return b.limits;
         return BoneRecord{}.limits;
     };
-    auto known = [&](const std::string& bone) {
+    auto known = [&](const std::string &bone) {
         return std::any_of(bones.begin(), bones.end(),
-                           [&](const BoneRecord& b) { return fs::toLower(b.name) == fs::toLower(bone); });
+                           [&](const BoneRecord &b) { return fs::toLower(b.name) == fs::toLower(bone); });
     };
     for (size_t at = r.from; at + 12 < r.to; ++at) {
         uint32_t n = 0, flags = 0;
@@ -1355,7 +1366,7 @@ std::vector<IkChain> findIkChains(const BoneReader& r, const std::vector<BoneRec
         std::vector<IkChain> chains;
         size_t p = at + 12;
         bool ok = true;
-        auto str = [&](std::string& s) {
+        auto str = [&](std::string &s) {
             if (!r.name(p, s) || s.empty())
                 return false;
             p += 2 + s.size();
@@ -1412,8 +1423,8 @@ struct AnimationSet::Impl {
 
 AnimationSet::AnimationSet() = default;
 AnimationSet::~AnimationSet() = default;
-AnimationSet::AnimationSet(AnimationSet&&) noexcept = default;
-AnimationSet& AnimationSet::operator=(AnimationSet&&) noexcept = default;
+AnimationSet::AnimationSet(AnimationSet &&) noexcept = default;
+AnimationSet &AnimationSet::operator=(AnimationSet &&) noexcept = default;
 
 int AnimationSet::frames() const {
     return impl && !impl->clipStart.empty() ? impl->clipStart.back() + impl->clipFrames.back() : 0;
@@ -1436,8 +1447,8 @@ int AnimationSet::clipFor(int32_t startFrame, int32_t numFrames, std::string_vie
 namespace {
 
 // An export's data after its properties, and the skeleton in it.
-Error readBones(const Package& package, int index, std::vector<uint8_t>& data, size_t& from,
-                std::vector<BoneRecord>& bones) {
+Error readBones(const Package &package, int index, std::vector<uint8_t> &data, size_t &from,
+                std::vector<BoneRecord> &bones) {
     if (Error err = package.readExport(index, data))
         return err;
     const size_t base = size_t(package.exports()[size_t(index)].serialOffset);
@@ -1455,14 +1466,14 @@ Error readBones(const Package& package, int index, std::vector<uint8_t>& data, s
 
 } // namespace
 
-Error readAnimationSet(const Package& package, int index, AnimationSet& out) {
+Error readAnimationSet(const Package &package, int index, AnimationSet &out) {
     auto impl = std::make_unique<AnimationSet::Impl>();
     if (Error err = readBones(package, index, impl->data, impl->from, impl->bones))
         return err;
     impl->base = size_t(package.exports()[size_t(index)].serialOffset);
     impl->to = impl->base + impl->data.size();
     const size_t clips = impl->bones[0].clipList.size();
-    for (const BoneRecord& b : impl->bones)
+    for (const BoneRecord &b : impl->bones)
         if (b.clipList.size() != clips)
             return Error::fail(package.path(index + 1) + ": its bones' clips don't agree");
     const BoneReader r = impl->reader();
@@ -1475,7 +1486,7 @@ Error readAnimationSet(const Package& package, int index, AnimationSet& out) {
     }
     if (clips == 0)
         return Error::fail(package.path(index + 1) + ": no clips");
-    for (const NamedClip& c : findClipTable(r, 0))
+    for (const NamedClip &c : findClipTable(r, 0))
         impl->clipNames.push_back(fs::toLower(c.name));
     if (impl->clipNames.size() != clips)
         impl->clipNames.clear();
@@ -1484,8 +1495,8 @@ Error readAnimationSet(const Package& package, int index, AnimationSet& out) {
     return Error::success();
 }
 
-Error borrowAnimation(const Package& package, int index, const AnimationSet& set, int clip, const MeshAnimSeq& seq,
-                      Mesh& mesh) {
+Error borrowAnimation(const Package &package, int index, const AnimationSet &set, int clip, const MeshAnimSeq &seq,
+                      Mesh &mesh) {
     if (!set.impl || clip < 0 || size_t(clip) >= set.impl->clipFrames.size())
         return Error::fail("no such clip");
     std::vector<uint8_t> data;
@@ -1497,10 +1508,10 @@ Error borrowAnimation(const Package& package, int index, const AnimationSet& set
     const BoneReader r{data, base, from, base + data.size()};
     const BoneReader sr = set.impl->reader();
     // The set's bone for each of the mesh's, by name.
-    std::vector<const BoneRecord*> keys(bones.size(), nullptr);
+    std::vector<const BoneRecord *> keys(bones.size(), nullptr);
     size_t matched = 0;
     for (size_t i = 0; i < bones.size(); ++i)
-        for (const BoneRecord& sb : set.impl->bones)
+        for (const BoneRecord &sb : set.impl->bones)
             if (sb.name == bones[i].name) {
                 keys[i] = &sb;
                 ++matched;
@@ -1513,11 +1524,11 @@ Error borrowAnimation(const Package& package, int index, const AnimationSet& set
     const size_t first = mesh.verts.size();
     mesh.verts.resize(first + frame * size_t(n));
     for (int f = 0; f < n; ++f)
-        poseVertices(r, bones, frame, mesh.scale, mesh.origin, mesh.verts.data() + first + size_t(f) * frame,
-                     [&](size_t i) {
-                         return keys[i] ? BonePoser::localWith(bones[i], sr, *keys[i], size_t(clip), float(f) / 30, false)
-                                        : bones[i].placement;
-                     });
+        poseVertices(
+            r, bones, frame, mesh.scale, mesh.origin, mesh.verts.data() + first + size_t(f) * frame, [&](size_t i) {
+                return keys[i] ? BonePoser::localWith(bones[i], sr, *keys[i], size_t(clip), float(f) / 30, false)
+                               : bones[i].placement;
+            });
     MeshAnimSeq a = seq;
     a.startFrame = mesh.animFrames;
     a.numFrames = n;
@@ -1526,10 +1537,10 @@ Error borrowAnimation(const Package& package, int index, const AnimationSet& set
     return Error::success();
 }
 
-std::vector<AnimationSet> findAnimationSets(const PackageSet& packages) {
+std::vector<AnimationSet> findAnimationSets(const PackageSet &packages) {
     std::vector<AnimationSet> out;
-    for (const std::string& name : packages.names(".u")) {
-        const Package* p = packages.get(name);
+    for (const std::string &name : packages.names(".u")) {
+        const Package *p = packages.get(name);
         if (!p)
             continue;
         for (size_t i = 0; i < p->exports().size(); ++i) {
@@ -1539,7 +1550,7 @@ std::vector<AnimationSet> findAnimationSets(const PackageSet& packages) {
             if (readAnimationSet(*p, int(i), set))
                 continue;
             uint32_t vertices = 0;
-            for (const BoneRecord& b : set.impl->bones)
+            for (const BoneRecord &b : set.impl->bones)
                 vertices += b.vertices;
             if (vertices == 0)
                 out.push_back(std::move(set));
@@ -1548,9 +1559,9 @@ std::vector<AnimationSet> findAnimationSets(const PackageSet& packages) {
     return out;
 }
 
-std::shared_ptr<const std::vector<AnimationSet>> sharedAnimationSets(const PackageSet& packages) {
+std::shared_ptr<const std::vector<AnimationSet>> sharedAnimationSets(const PackageSet &packages) {
     static std::mutex lock;
-    static std::map<const PackageSet*, std::weak_ptr<const std::vector<AnimationSet>>> read;
+    static std::map<const PackageSet *, std::weak_ptr<const std::vector<AnimationSet>>> read;
     std::lock_guard<std::mutex> guard(lock);
     if (auto have = read[&packages].lock())
         return have;
@@ -1559,15 +1570,15 @@ std::shared_ptr<const std::vector<AnimationSet>> sharedAnimationSets(const Packa
     return sets;
 }
 
-bool borrowNamedAnimation(const Package& package, int index, const std::vector<AnimationSet>& sets,
-                          std::string_view name, Mesh& mesh) {
+bool borrowNamedAnimation(const Package &package, int index, const std::vector<AnimationSet> &sets,
+                          std::string_view name, Mesh &mesh) {
     if (!mesh.bones || mesh.findAnim(name))
         return false;
     const std::string wanted = fs::toLower(name);
-    for (const MeshAnimSeq& seq : mesh.otherAnims) {
+    for (const MeshAnimSeq &seq : mesh.otherAnims) {
         if (fs::toLower(seq.name) != wanted)
             continue;
-        for (const AnimationSet& set : sets)
+        for (const AnimationSet &set : sets)
             if (const int clip = set.clipFor(seq.startFrame, seq.numFrames, seq.name); clip >= 0) {
                 const MeshAnimSeq copy = seq; // mesh.otherAnims may not survive the borrowing
                 return !borrowAnimation(package, index, set, clip, copy, mesh);
@@ -1577,14 +1588,14 @@ bool borrowNamedAnimation(const Package& package, int index, const std::vector<A
     return false;
 }
 
-std::vector<std::string> describeMeshLayout(const Package& package, int index) {
+std::vector<std::string> describeMeshLayout(const Package &package, int index) {
     std::vector<std::string> out;
     std::vector<uint8_t> data;
     if (package.readExport(index, data))
         return out;
     const size_t base = size_t(package.exports()[size_t(index)].serialOffset), end = base + data.size();
     auto u32At = [&](size_t at) {
-        const uint8_t* p = data.data() + (at - base);
+        const uint8_t *p = data.data() + (at - base);
         return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
     };
     Reader r(data, base);
@@ -1621,7 +1632,7 @@ std::vector<std::string> describeMeshLayout(const Package& package, int index) {
     return out;
 }
 
-std::vector<std::string> describeBones(const Package& package, int index) {
+std::vector<std::string> describeBones(const Package &package, int index) {
     std::vector<std::string> out;
     std::vector<uint8_t> data;
     if (package.readExport(index, data))
@@ -1646,7 +1657,7 @@ std::vector<std::string> describeBones(const Package& package, int index) {
     char line[512];
     int shown = 0;
     for (size_t i = 0; i < bones.size(); ++i) {
-        const BoneRecord& b = bones[i];
+        const BoneRecord &b = bones[i];
         depth[i] = b.parent >= 0 ? depth[size_t(b.parent)] + 1 : 1;
         const int d = depth[i] * 2;
         std::snprintf(line, sizeof line, "%*s%s: %u vertices, origin (%g %g %g), kind %u, %u clips", d, "",
@@ -1704,35 +1715,56 @@ std::vector<std::string> describeBones(const Package& package, int index) {
 
 namespace {
 
-Vec3f vsub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3f vadd(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3f vmul(const Vec3f& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float vdot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-Vec3f vcross(const Vec3f& a, const Vec3f& b) {
+Vec3f vsub(const Vec3f &a, const Vec3f &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec3f vadd(const Vec3f &a, const Vec3f &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec3f vmul(const Vec3f &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float vdot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+Vec3f vcross(const Vec3f &a, const Vec3f &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-float vlen(const Vec3f& a) { return std::sqrt(vdot(a, a)); }
-Vec3f vunit(const Vec3f& a) {
+float vlen(const Vec3f &a) {
+    return std::sqrt(vdot(a, a));
+}
+Vec3f vunit(const Vec3f &a) {
     const float l = vlen(a);
     return l > 1e-6f ? vmul(a, 1 / l) : Vec3f{0, 0, 0};
 }
 
-Vec3f rowOf(const Mat43& m, size_t row) { return {m[row * 3], m[row * 3 + 1], m[row * 3 + 2]}; }
-void setRow(Mat43& m, size_t row, const Vec3f& v) {
+Vec3f rowOf(const Mat43 &m, size_t row) {
+    return {m[row * 3], m[row * 3 + 1], m[row * 3 + 2]};
+}
+void setRow(Mat43 &m, size_t row, const Vec3f &v) {
     for (size_t c = 0; c < 3; ++c)
         m[row * 3 + c] = v[c];
 }
 
 // The matrix that undoes m (its turn may scale).
-Mat43 inverseOf(const Mat43& m) {
+Mat43 inverseOf(const Mat43 &m) {
     const float a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
     const float det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
     if (std::fabs(det) < 1e-12f)
         return {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
     const float k = 1 / det;
-    Mat43 out{(e * i - f * h) * k, (c * h - b * i) * k, (b * f - c * e) * k,
-              (f * g - d * i) * k, (a * i - c * g) * k, (c * d - a * f) * k,
-              (d * h - e * g) * k, (b * g - a * h) * k, (a * e - b * d) * k, 0, 0, 0};
+    Mat43 out{(e * i - f * h) * k,
+              (c * h - b * i) * k,
+              (b * f - c * e) * k,
+              (f * g - d * i) * k,
+              (a * i - c * g) * k,
+              (c * d - a * f) * k,
+              (d * h - e * g) * k,
+              (b * g - a * h) * k,
+              (a * e - b * d) * k,
+              0,
+              0,
+              0};
     const Vec3f t{m[9], m[10], m[11]};
     for (size_t col = 0; col < 3; ++col)
         out[9 + col] = -(t[0] * out[col] + t[1] * out[3 + col] + t[2] * out[6 + col]);
@@ -1741,18 +1773,26 @@ Mat43 inverseOf(const Mat43& m) {
 
 // A turn by `radians` about `axis` (a unit vector), as a row-vector matrix:
 // p * it is p turned (right-handed about the axis).
-Mat43 turnAbout(const Vec3f& axis, float radians) {
+Mat43 turnAbout(const Vec3f &axis, float radians) {
     const float c = std::cos(radians), s = std::sin(radians), t = 1 - c;
     const float x = axis[0], y = axis[1], z = axis[2];
     // The column-vector matrix's transpose.
-    return {t * x * x + c,     t * x * y + s * z, t * x * z - s * y,
-            t * x * y - s * z, t * y * y + c,     t * y * z + s * x,
-            t * x * z + s * y, t * y * z - s * x, t * z * z + c,
-            0, 0, 0};
+    return {t * x * x + c,
+            t * x * y + s * z,
+            t * x * z - s * y,
+            t * x * y - s * z,
+            t * y * y + c,
+            t * y * z + s * x,
+            t * x * z + s * y,
+            t * y * z - s * x,
+            t * z * z + c,
+            0,
+            0,
+            0};
 }
 
 // The least turn that takes direction u to direction v.
-Mat43 turnFromTo(const Vec3f& u, const Vec3f& v) {
+Mat43 turnFromTo(const Vec3f &u, const Vec3f &v) {
     const Vec3f a = vunit(u), b = vunit(v);
     const Vec3f axis = vcross(a, b);
     const float sine = vlen(axis), cosine = vdot(a, b);
@@ -1769,7 +1809,7 @@ Mat43 turnFromTo(const Vec3f& u, const Vec3f& v) {
 }
 
 // Axes `from` moved `t` of the way to `to`, kept square to each other.
-std::array<Vec3f, 3> blendAxes(const std::array<Vec3f, 3>& from, const std::array<Vec3f, 3>& to, float t) {
+std::array<Vec3f, 3> blendAxes(const std::array<Vec3f, 3> &from, const std::array<Vec3f, 3> &to, float t) {
     std::array<Vec3f, 3> m;
     for (size_t k = 0; k < 3; ++k)
         m[k] = vadd(from[k], vmul(vsub(to[k], from[k]), t));
@@ -1792,17 +1832,17 @@ struct LayeredPoser::Impl {
     // Its animation groups' names (FullBody, LowerTorso, UpperTorso), in
     // order: the bones' group lists index them.
     std::vector<std::string> groupNames;
-    const IkChain* chain(const std::string& name) const {
-        for (const IkChain& c : chains)
+    const IkChain *chain(const std::string &name) const {
+        for (const IkChain &c : chains)
             if (fs::toLower(c.name) == fs::toLower(name))
                 return &c;
         return nullptr;
     }
     std::vector<int> clipStart; // the mesh's own clips: where each one's frames start
     Mesh mesh;                  // its tables (frames dropped)
-    const std::vector<AnimationSet>* sets = nullptr;
+    const std::vector<AnimationSet> *sets = nullptr;
     // Each set's bone for each of the mesh's, by name, worked out once.
-    mutable std::map<const AnimationSet*, std::vector<const BoneRecord*>> keys;
+    mutable std::map<const AnimationSet *, std::vector<const BoneRecord *>> keys;
     // The face's clips (those with vertex keys: Blink, EyeBrows,
     // Phonemes), the neutral face they start from (packed units), and
     // each bone's place in the pose that face is in.
@@ -1820,21 +1860,21 @@ struct LayeredPoser::Impl {
     };
     std::vector<FaceEntry> faceTable;
     std::vector<std::string> clipNames;
-    bool faceFrame(const FaceEntry& e, const std::vector<Vec3f>& bone, Mat43& frame) const;
-    void placeFaces(const std::vector<Face>& faces, std::vector<Vec3f>& out) const;
+    bool faceFrame(const FaceEntry &e, const std::vector<Vec3f> &bone, Mat43 &frame) const;
+    void placeFaces(const std::vector<Face> &faces, std::vector<Vec3f> &out) const;
     // Each vertex's bones and weights.
     std::vector<std::vector<std::pair<uint32_t, float>>> vertexBones;
     // The actor's forward, side and up axes in the skeleton's space.
     std::array<Vec3f, 3> actorAxes{Vec3f{1, 0, 0}, Vec3f{0, 1, 0}, Vec3f{0, 0, 1}};
-    Mat43 cleared(const Mat43& over, const Mat43& parentWorld, const Mat43& bindWorld, std::array<bool, 3> clear,
+    Mat43 cleared(const Mat43 &over, const Mat43 &parentWorld, const Mat43 &bindWorld, std::array<bool, 3> clear,
                   float weight) const;
     mutable std::vector<Mat43> bindWorlds; // each bone's place in the skeleton in its bind pose, once asked for
 
     BoneReader reader() const { return BoneReader{data, base, from, base + data.size()}; }
-    bool locals(Anim base, float fraction, const std::vector<Layer>& layers,
-                std::vector<std::array<float, 12>>& out, const Adjust* adjust = nullptr) const;
-    bool localsUncached(Anim base, float fraction, const std::vector<Layer>& layers,
-                        std::vector<std::array<float, 12>>& out, const Adjust* adjust) const;
+    bool locals(Anim base, float fraction, const std::vector<Layer> &layers, std::vector<std::array<float, 12>> &out,
+                const Adjust *adjust = nullptr) const;
+    bool localsUncached(Anim base, float fraction, const std::vector<Layer> &layers,
+                        std::vector<std::array<float, 12>> &out, const Adjust *adjust) const;
     // The last poses worked out and what each was worked out from (byte
     // for byte): the scripts' bone queries and the drawing ask for the
     // same pose each tick, and its IK is the costliest part. A few, as
@@ -1845,19 +1885,19 @@ struct LayeredPoser::Impl {
     };
     mutable std::array<Cached, 8> cache;
     mutable size_t cacheNext = 0;
-    void adjusted(std::vector<Mat43>& local, const Adjust& adjust) const;
-    void solveChains(std::vector<Mat43>& local, const Adjust::Reach& r, const IkChain& place,
-                     const IkChain* turn) const;
-    void addFaces(const std::vector<Face>& faces, const std::vector<Mat43>& world, std::vector<Vec3f>& out) const;
+    void adjusted(std::vector<Mat43> &local, const Adjust &adjust) const;
+    void solveChains(std::vector<Mat43> &local, const Adjust::Reach &r, const IkChain &place,
+                     const IkChain *turn) const;
+    void addFaces(const std::vector<Face> &faces, const std::vector<Mat43> &world, std::vector<Vec3f> &out) const;
     // Each bone's place in the skeleton (its parents' placements and its own).
-    std::vector<Mat43> worlds(const std::vector<Mat43>& local) const {
+    std::vector<Mat43> worlds(const std::vector<Mat43> &local) const {
         std::vector<Mat43> world(local.size());
         for (size_t i = 0; i < local.size(); ++i)
             world[i] = bones[i].parent >= 0 ? then(local[i], world[size_t(bones[i].parent)]) : local[i];
         return world;
     }
     // A bone placed at `world` in the skeleton: its placement in its parent.
-    Mat43 inParent(size_t i, const Mat43& world, const std::vector<Mat43>& worlds) const {
+    Mat43 inParent(size_t i, const Mat43 &world, const std::vector<Mat43> &worlds) const {
         return bones[i].parent >= 0 ? then(world, inverseOf(worlds[size_t(bones[i].parent)])) : world;
     }
     int indexOf(std::string_view name) const {
@@ -1870,10 +1910,10 @@ struct LayeredPoser::Impl {
 
     // Where an animation's keys are: the clip, and with `set` another
     // skeleton's; false if it isn't the mesh's.
-    bool find(std::string_view anim, const AnimationSet*& set, size_t& clip, int& frames) const {
+    bool find(std::string_view anim, const AnimationSet *&set, size_t &clip, int &frames) const {
         set = nullptr;
         const std::string wanted = fs::toLower(anim);
-        for (const MeshAnimSeq& a : mesh.anims)
+        for (const MeshAnimSeq &a : mesh.anims)
             if (fs::toLower(a.name) == wanted) {
                 const auto it = std::find(clipStart.begin(), clipStart.end(), a.startFrame);
                 if (it == clipStart.end())
@@ -1882,9 +1922,9 @@ struct LayeredPoser::Impl {
                 frames = a.numFrames;
                 return true;
             }
-        for (const MeshAnimSeq& a : mesh.otherAnims)
+        for (const MeshAnimSeq &a : mesh.otherAnims)
             if (fs::toLower(a.name) == wanted && sets)
-                for (const AnimationSet& s : *sets)
+                for (const AnimationSet &s : *sets)
                     if (const int c = s.clipFor(a.startFrame, a.numFrames, a.name); c >= 0) {
                         set = &s;
                         clip = size_t(c);
@@ -1893,12 +1933,12 @@ struct LayeredPoser::Impl {
                     }
         return false;
     }
-    const std::vector<const BoneRecord*>& keysOf(const AnimationSet& set) const {
+    const std::vector<const BoneRecord *> &keysOf(const AnimationSet &set) const {
         auto it = keys.find(&set);
         if (it == keys.end()) {
-            std::vector<const BoneRecord*> k(bones.size(), nullptr);
+            std::vector<const BoneRecord *> k(bones.size(), nullptr);
             for (size_t i = 0; i < bones.size(); ++i)
-                for (const BoneRecord& sb : set.impl->bones)
+                for (const BoneRecord &sb : set.impl->bones)
                     if (sb.name == bones[i].name) {
                         k[i] = &sb;
                         break;
@@ -1915,40 +1955,41 @@ LayeredPoser::~LayeredPoser() = default;
 // The animation groups' names in a skeleton's block: (g, g, 10) and g
 // names (u16 length, text), just before the two empty (0, 0, 10) arrays
 // the attachment points follow. Empty if not found.
-std::vector<std::string> findGroupNames(const std::vector<uint8_t>& data) {
-        static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
-        const std::vector<uint8_t>& d = data;
-        size_t at = std::string::npos;
-        for (size_t i = 0; i + sizeof anchor <= d.size(); ++i)
-            if (std::memcmp(d.data() + i, anchor, sizeof anchor) == 0)
-                at = i;
-        auto u32 = [&](size_t q) {
-            uint32_t v;
-            std::memcpy(&v, d.data() + q, 4);
-            return v;
-        };
-        for (size_t back = 14; at != std::string::npos && back < 512 && back <= at; ++back) {
-            const size_t s0 = at - back;
-            const uint32_t g = u32(s0);
-            if (g == 0 || g > 16 || u32(s0 + 4) != g || u32(s0 + 8) != 10)
-                continue;
-            std::vector<std::string> names;
-            size_t q = s0 + 12;
-            for (uint32_t k = 0; k < g && q + 2 <= at; ++k) {
-                const size_t len = size_t(d[q]) | size_t(d[q + 1]) << 8;
-                if (q + 2 + len > at)
-                    break;
-                names.emplace_back(reinterpret_cast<const char*>(d.data() + q + 2), len);
-                q += 2 + len;
-            }
-            if (names.size() == g && q == at) {
-                return names;
-            }
+std::vector<std::string> findGroupNames(const std::vector<uint8_t> &data) {
+    static const uint8_t anchor[24] = {0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0};
+    const std::vector<uint8_t> &d = data;
+    size_t at = std::string::npos;
+    for (size_t i = 0; i + sizeof anchor <= d.size(); ++i)
+        if (std::memcmp(d.data() + i, anchor, sizeof anchor) == 0)
+            at = i;
+    auto u32 = [&](size_t q) {
+        uint32_t v;
+        std::memcpy(&v, d.data() + q, 4);
+        return v;
+    };
+    for (size_t back = 14; at != std::string::npos && back < 512 && back <= at; ++back) {
+        const size_t s0 = at - back;
+        const uint32_t g = u32(s0);
+        if (g == 0 || g > 16 || u32(s0 + 4) != g || u32(s0 + 8) != 10)
+            continue;
+        std::vector<std::string> names;
+        size_t q = s0 + 12;
+        for (uint32_t k = 0; k < g && q + 2 <= at; ++k) {
+            const size_t len = size_t(d[q]) | size_t(d[q + 1]) << 8;
+            if (q + 2 + len > at)
+                break;
+            names.emplace_back(reinterpret_cast<const char *>(d.data() + q + 2), len);
+            q += 2 + len;
         }
-        return {};
+        if (names.size() == g && q == at) {
+            return names;
+        }
+    }
+    return {};
 }
 
-std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int index, const std::vector<AnimationSet>& sets) {
+std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package &package, int index,
+                                                 const std::vector<AnimationSet> &sets) {
     auto impl = std::make_unique<Impl>();
     if (readMesh(package, index, impl->mesh) || impl->mesh.bones == 0)
         return nullptr;
@@ -1973,7 +2014,7 @@ std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int ind
     const auto frame = size_t(impl->mesh.frameVerts);
     size_t keysEnd = 0;
     const std::vector<NamedClip> clips = findClipTable(r, frame, &keysEnd);
-    for (const NamedClip& c : clips) {
+    for (const NamedClip &c : clips) {
         impl->clipNames.push_back(c.name);
         if (!c.keys.empty())
             impl->faceClips.push_back(c);
@@ -2022,7 +2063,7 @@ std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int ind
     }
     impl->vertexBones.resize(frame);
     for (size_t i = 0; i < impl->bones.size(); ++i) {
-        const BoneRecord& b = impl->bones[i];
+        const BoneRecord &b = impl->bones[i];
         for (uint32_t j = 0; j < b.vertices; ++j) {
             const size_t v = r.u32(b.indices + 4 * size_t(j));
             const float w = r.f32(b.weights + 4 * size_t(j));
@@ -2043,7 +2084,7 @@ std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int ind
                 refClip = c;
         for (size_t i = 0; i < ref.size(); ++i)
             ref[i] = refClip < impl->bones[i].clipList.size() ? poser.local(impl->bones[i], refClip, 0)
-                                                               : impl->bones[i].placement;
+                                                              : impl->bones[i].placement;
         impl->faceWorlds = impl->worlds(ref);
     }
     auto out = std::make_unique<LayeredPoser>();
@@ -2052,7 +2093,7 @@ std::unique_ptr<LayeredPoser> LayeredPoser::open(const Package& package, int ind
 }
 
 std::vector<bool> LayeredPoser::part(std::string_view bone, bool rest) const {
-    const std::vector<BoneRecord>& bones = impl->bones;
+    const std::vector<BoneRecord> &bones = impl->bones;
     const std::string wanted = fs::toLower(bone);
     std::vector<bool> in(bones.size(), false);
     bool found = false;
@@ -2072,22 +2113,22 @@ std::vector<bool> LayeredPoser::part(std::string_view bone, bool rest) const {
 // Each bone's place in its parent: from `base` `fraction` through it, the
 // bones of each layer's part blended towards its animation's. False if an
 // animation isn't the mesh's.
-bool LayeredPoser::Impl::locals(Anim baseAnim, float fraction, const std::vector<Layer>& layers,
-                                std::vector<std::array<float, 12>>& out, const Adjust* adjust) const {
+bool LayeredPoser::Impl::locals(Anim baseAnim, float fraction, const std::vector<Layer> &layers,
+                                std::vector<std::array<float, 12>> &out, const Adjust *adjust) const {
     std::string key;
-    auto bytes = [&](const void* p, size_t n) { key.append(static_cast<const char*>(p), n); };
+    auto bytes = [&](const void *p, size_t n) { key.append(static_cast<const char *>(p), n); };
     auto text = [&](std::string_view t) {
         const size_t n = t.size();
         bytes(&n, sizeof n);
         key.append(t);
     };
-    auto vec = [&](const Vec3f& v) { bytes(v.data(), sizeof(float) * 3); };
+    auto vec = [&](const Vec3f &v) { bytes(v.data(), sizeof(float) * 3); };
     text(baseAnim.name);
     key.push_back(baseAnim.loop ? 'L' : 'H');
     bytes(&fraction, sizeof fraction);
-    for (const Vec3f& a : actorAxes)
+    for (const Vec3f &a : actorAxes)
         vec(a);
-    for (const Layer& l : layers) {
+    for (const Layer &l : layers) {
         text(l.anim);
         bytes(&l.fraction, sizeof l.fraction);
         if (l.part)
@@ -2105,30 +2146,30 @@ bool LayeredPoser::Impl::locals(Anim baseAnim, float fraction, const std::vector
     }
     key.push_back(adjust ? 'A' : '-');
     if (adjust) {
-        for (const Adjust::Turn& t : adjust->turns) {
+        for (const Adjust::Turn &t : adjust->turns) {
             text(t.bone);
             bytes(&t.axis, sizeof t.axis);
             bytes(&t.radians, sizeof t.radians);
         }
         key.push_back('|');
-        for (const Adjust::SpaceTurn& t : adjust->spaceTurns) {
+        for (const Adjust::SpaceTurn &t : adjust->spaceTurns) {
             text(t.bone);
-            for (const Vec3f& v : t.turn)
+            for (const Vec3f &v : t.turn)
                 vec(v);
         }
         key.push_back('|');
-        for (const Adjust::Op& o : adjust->ops) {
+        for (const Adjust::Op &o : adjust->ops) {
             key.push_back(char('0' + o.kind));
             text(o.bone);
             bytes(&o.axis, sizeof o.axis);
             bytes(&o.radians, sizeof o.radians);
-            for (const Vec3f& v : o.turn)
+            for (const Vec3f &v : o.turn)
                 vec(v);
             for (bool c : o.remove)
                 key.push_back(c ? '1' : '0');
         }
         key.push_back('|');
-        for (const Adjust::Reach& r : adjust->reaches) {
+        for (const Adjust::Reach &r : adjust->reaches) {
             text(r.bone);
             text(r.placeChain);
             text(r.turnChain);
@@ -2136,35 +2177,35 @@ bool LayeredPoser::Impl::locals(Anim baseAnim, float fraction, const std::vector
             bytes(&r.turnWeight, sizeof r.turnWeight);
             vec(r.at);
             vec(r.offset);
-            for (const Vec3f& v : r.axes)
+            for (const Vec3f &v : r.axes)
                 vec(v);
             key.push_back(r.onBase ? '1' : '0');
         }
     }
-    for (const Cached& c : cache)
+    for (const Cached &c : cache)
         if (c.key == key && c.locals.size() == bones.size()) {
             out = c.locals;
             return true;
         }
     if (!localsUncached(baseAnim, fraction, layers, out, adjust))
         return false;
-    Cached& slot = cache[cacheNext];
+    Cached &slot = cache[cacheNext];
     cacheNext = (cacheNext + 1) % cache.size();
     slot.key = std::move(key);
     slot.locals = out;
     return true;
 }
 
-bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std::vector<Layer>& layers,
-                                        std::vector<std::array<float, 12>>& out, const Adjust* adjust) const {
+bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std::vector<Layer> &layers,
+                                        std::vector<std::array<float, 12>> &out, const Adjust *adjust) const {
     const BoneReader r = reader();
     struct Source {
-        const AnimationSet* set = nullptr;
+        const AnimationSet *set = nullptr;
         size_t clip = 0;
         float time = 0; // seconds into the clip (its keys are 30 a second)
         bool loop = false;
     };
-    auto sourceOf = [&](std::string_view anim, float f, Source& src, bool loop) {
+    auto sourceOf = [&](std::string_view anim, float f, Source &src, bool loop) {
         src.loop = loop;
         int frames = 0;
         if (!find(anim, src.set, src.clip, frames))
@@ -2173,11 +2214,11 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
         src.time = std::min(std::max(0.0f, f) * float(frames), float(std::max(0, frames - 1))) / 30;
         return true;
     };
-    auto local = [&](const Source& src, size_t i) {
-        const BoneRecord& b = bones[i];
+    auto local = [&](const Source &src, size_t i) {
+        const BoneRecord &b = bones[i];
         if (!src.set)
             return BonePoser::localWith(b, r, b, src.clip, src.time, src.loop);
-        const BoneRecord* k = keysOf(*src.set)[i];
+        const BoneRecord *k = keysOf(*src.set)[i];
         return k ? BonePoser::localWith(b, src.set->impl->reader(), *k, src.clip, src.time, src.loop) : b.placement;
     };
     Source under;
@@ -2198,7 +2239,7 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
         // A reach of the skeleton's own chains is done after the layers
         // (OnBasePose there resets the chain's bones instead); Reluva's
         // stand-in for others reaches from the base animation.
-        for (const Adjust::Reach& reach : adjust->reaches)
+        for (const Adjust::Reach &reach : adjust->reaches)
             (reach.onBase && !chain(reach.placeChain) ? onBase : after).reaches.push_back(reach);
         if (!onBase.reaches.empty())
             adjusted(base, onBase);
@@ -2223,15 +2264,14 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
     for (size_t i = 0; i < bones.size(); ++i) {
         Mat43 placed = base[i];
         for (const size_t l : order) {
-            const Layer& layer = layers[l];
+            const Layer &layer = layers[l];
             if (!layer.part || i >= layer.part->size() || !(*layer.part)[i] || layer.weight <= 0)
                 continue;
             Mat43 theirs = local(over[l], i);
             // Its clear, on its InheritBone (else, with none named, on the
             // part's first bone).
-            const bool target = layer.clearBone >= 0
-                                    ? size_t(layer.clearBone) == i
-                                    : bones[i].parent < 0 || !(*layer.part)[size_t(bones[i].parent)];
+            const bool target = layer.clearBone >= 0 ? size_t(layer.clearBone) == i
+                                                     : bones[i].parent < 0 || !(*layer.part)[size_t(bones[i].parent)];
             if (target && (layer.clear[0] || layer.clear[1] || layer.clear[2])) {
                 Mat43 parentWorld{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
                 for (int p = bones[i].parent; p >= 0; p = bones[size_t(p)].parent)
@@ -2243,7 +2283,7 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
                 // As Engine.dll fades: from the pose showing when the fade
                 // began, held there; in, toward the layer's; out, toward
                 // what's under it now (its weight falling 1 to 0).
-                const Mat43& shown = (*layer.from)[i];
+                const Mat43 &shown = (*layer.from)[i];
                 if (layer.fadingOut)
                     for (size_t k = 0; k < placed.size(); ++k)
                         placed[k] += (shown[k] - placed[k]) * w;
@@ -2269,7 +2309,7 @@ bool LayeredPoser::Impl::localsUncached(Anim baseAnim, float fraction, const std
 // rest. One axis cleared: the turn about it taken off; two: only the turn
 // about the third kept; all three: none, the bone as in its bind pose.
 // Where it is stays; and the result is blended in by the layer's weight.
-Mat43 LayeredPoser::Impl::cleared(const Mat43& over, const Mat43& parentWorld, const Mat43& bindWorld,
+Mat43 LayeredPoser::Impl::cleared(const Mat43 &over, const Mat43 &parentWorld, const Mat43 &bindWorld,
                                   std::array<bool, 3> clear, float weight) const {
     const Mat43 wo = then(over, parentWorld);
     Mat43 bind = bindWorld;
@@ -2301,7 +2341,7 @@ Mat43 LayeredPoser::Impl::cleared(const Mat43& over, const Mat43& parentWorld, c
         const float n = std::sqrt(t[size_t(axis)] * t[size_t(axis)] + t[3] * t[3]);
         if (n < 1e-6f)
             return std::array<float, 4>{0, 0, 0, 1};
-        for (float& c : t)
+        for (float &c : t)
             c /= n;
         return t;
     };
@@ -2334,7 +2374,7 @@ Mat43 LayeredPoser::Impl::cleared(const Mat43& over, const Mat43& parentWorld, c
     return out;
 }
 
-void LayeredPoser::setPlacement(const std::array<Vec3f, 3>& skeletonInActor) {
+void LayeredPoser::setPlacement(const std::array<Vec3f, 3> &skeletonInActor) {
     // The actor's axis k in the skeleton: the k-th parts of where the
     // skeleton's axes go.
     for (size_t k = 0; k < 3; ++k)
@@ -2345,8 +2385,8 @@ void LayeredPoser::setPlacement(const std::array<Vec3f, 3>& skeletonInActor) {
 // middle joint is where the two bones' lengths put it on the way to the
 // target (kept in the plane they bend in now), the middle bone turned to
 // point at the target, and the end bone given its axes.
-void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjust) const {
-    for (const Adjust::Op& op : adjust.ops) {
+void LayeredPoser::Impl::adjusted(std::vector<Mat43> &local, const Adjust &adjust) const {
+    for (const Adjust::Op &op : adjust.ops) {
         const int i = indexOf(op.bone);
         if (i < 0)
             continue;
@@ -2391,7 +2431,8 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
             const float d = v[0] * x[0] + v[1] * x[1] + v[2] * x[2];
             float roll = 0;
             if (d < 0.9999f) {
-                const float cross[3] = {v[1] * x[2] - v[2] * x[1], v[2] * x[0] - v[0] * x[2], v[0] * x[1] - v[1] * x[0]};
+                const float cross[3] = {v[1] * x[2] - v[2] * x[1], v[2] * x[0] - v[0] * x[2],
+                                        v[0] * x[1] - v[1] * x[0]};
                 const float side = cross[0] * x[6] + cross[1] * x[7] + cross[2] * x[8];
                 roll = std::acos(std::clamp(d, -1.0f, 1.0f)) * (side < 0 ? -1.0f : 1.0f);
             }
@@ -2401,7 +2442,8 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
                 yaw = 0;
             if (op.remove[2])
                 roll = 0;
-            const Mat43 kept = then(then(turnAbout({0, 0, 1}, roll), turnAbout({1, 0, 0}, pitch)), turnAbout({0, 1, 0}, yaw));
+            const Mat43 kept =
+                then(then(turnAbout({0, 0, 1}, roll), turnAbout({1, 0, 0}, pitch)), turnAbout({0, 1, 0}, yaw));
             Mat43 bindRot = bindWorld;
             bindRot[9] = bindRot[10] = bindRot[11] = 0;
             w = then(bindRot, kept);
@@ -2410,7 +2452,7 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
             w[9 + c] = world[b][9 + c];
         local[b] = inParent(b, w, world);
     }
-    for (const Adjust::Turn& t : adjust.turns) {
+    for (const Adjust::Turn &t : adjust.turns) {
         const int i = indexOf(t.bone);
         if (i < 0 || t.axis < 0 || t.axis > 2)
             continue;
@@ -2419,14 +2461,14 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
         local[size_t(i)] = then(turnAbout(axis, t.radians), local[size_t(i)]);
     }
     // Turning a bone where it is: its axes turned, its origin kept.
-    auto turnInPlace = [&](size_t i, const Mat43& turn) {
+    auto turnInPlace = [&](size_t i, const Mat43 &turn) {
         const std::vector<Mat43> world = worlds(local);
         Mat43 w = then(world[i], turn);
         for (size_t c = 0; c < 3; ++c)
             w[9 + c] = world[i][9 + c];
         local[i] = inParent(i, w, world);
     };
-    for (const Adjust::SpaceTurn& t : adjust.spaceTurns) {
+    for (const Adjust::SpaceTurn &t : adjust.spaceTurns) {
         const int i = indexOf(t.bone);
         if (i < 0)
             continue;
@@ -2435,8 +2477,8 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
             setRow(turn, k, t.turn[k]);
         turnInPlace(size_t(i), turn);
     }
-    for (const Adjust::Reach& r : adjust.reaches) {
-        if (const IkChain* c = chain(r.placeChain); c && (r.placeWeight > 0 || r.turnWeight > 0)) {
+    for (const Adjust::Reach &r : adjust.reaches) {
+        if (const IkChain *c = chain(r.placeChain); c && (r.placeWeight > 0 || r.turnWeight > 0)) {
             solveChains(local, r, *c, chain(r.turnChain));
             continue;
         }
@@ -2446,11 +2488,10 @@ void LayeredPoser::Impl::adjusted(std::vector<Mat43>& local, const Adjust& adjus
         if (upper < 0)
             continue;
         std::vector<Mat43> world = worlds(local);
-        const Mat43& handNow = world[size_t(end)];
+        const Mat43 &handNow = world[size_t(end)];
         const std::array<Vec3f, 3> axesNow{rowOf(handNow, 0), rowOf(handNow, 1), rowOf(handNow, 2)};
         const bool turning = r.turnWeight > 0;
-        const std::array<Vec3f, 3> axes =
-            turning ? blendAxes(axesNow, r.axes, std::min(1.0f, r.turnWeight)) : axesNow;
+        const std::array<Vec3f, 3> axes = turning ? blendAxes(axesNow, r.axes, std::min(1.0f, r.turnWeight)) : axesNow;
         // Where the end bone's origin should go for its offset to reach.
         const Vec3f from = rowOf(handNow, 3);
         Vec3f target = from;
@@ -2527,14 +2568,14 @@ Mat43 axisTurn(int k, float a) {
     return {c, s, 0, -s, c, 0, 0, 0, 1, 0, 0, 0};
 }
 // Its Euler angles (about Y, X, Z) for E = Rz(c) Rx(b) Ry(a), and back.
-std::array<float, 3> eulerOf(const Mat43& m) {
+std::array<float, 3> eulerOf(const Mat43 &m) {
     const float b = std::asin(std::clamp(-m[7], -1.0f, 1.0f));
     return {std::atan2(m[6], m[8]), b, std::atan2(m[1], m[4])};
 }
-Mat43 fromEuler(const std::array<float, 3>& e) {
+Mat43 fromEuler(const std::array<float, 3> &e) {
     return then(then(axisTurn(2, e[2]), axisTurn(1, e[1])), axisTurn(0, e[0]));
 }
-std::array<float, 4> quatOf(const Mat43& m) {
+std::array<float, 4> quatOf(const Mat43 &m) {
     // The inverse of rotation(): its matrix taken as the usual one of q.
     const float t = m[0] + m[4] + m[8];
     std::array<float, 4> q{};
@@ -2568,8 +2609,8 @@ std::array<float, 4> quatOf(const Mat43& m) {
 // turned that much of the way from where it was by the weight (a
 // quaternion's slerp). The hand's or foot's chain then sets that bone's
 // turn outright (its effector's turn undone), blended the same way.
-void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Reach& r, const IkChain& place,
-                                     const IkChain* turn) const {
+void LayeredPoser::Impl::solveChains(std::vector<Mat43> &local, const Adjust::Reach &r, const IkChain &place,
+                                     const IkChain *turn) const {
     const int root = indexOf(place.root), end = indexOf(place.end);
     if (root < 0 || end < 0)
         return;
@@ -2597,7 +2638,7 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Re
                     continue;
                 const size_t b = size_t(n);
                 std::vector<Mat43> world = worlds(local);
-                const Mat43& bind = bones[b].placement;
+                const Mat43 &bind = bones[b].placement;
                 Mat43 m0 = then(local[b], inverseOf(bind));
                 const Vec3f m0t = rowOf(m0, 3);
                 m0[9] = m0[10] = m0[11] = 0;
@@ -2615,8 +2656,9 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Re
                     effWorld = vadd(effWorld, vmul(rowOf(world[size_t(end)], q), effOffset[q]));
                 const Mat43 own = then(m0, frame);
                 const Mat43 ownInv = inverseOf(own);
-                auto pointIn = [](const Mat43& m, const Vec3f& v) {
-                    return Vec3f{v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9], v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10],
+                auto pointIn = [](const Mat43 &m, const Vec3f &v) {
+                    return Vec3f{v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9],
+                                 v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10],
                                  v[0] * m[2] + v[1] * m[5] + v[2] * m[8] + m[11]};
                 };
                 // u: the effector before the bone's own turn; t: the target
@@ -2645,7 +2687,7 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Re
                 };
                 if (miss(-angle) < miss(angle))
                     angle = -angle;
-                const std::array<float, 6>& lim = place.limits[s];
+                const std::array<float, 6> &lim = place.limits[s];
                 float lo = lim[size_t(2 * k)], hi = lim[size_t(2 * k + 1)];
                 if (k == 1) {
                     lo = std::max(lo, -1.5708f);
@@ -2679,7 +2721,7 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Re
     if (r.turnWeight > 0) {
         // The hand's (or foot's) turn outright: the wanted axes, its
         // effector's turn undone; then blended by the weight.
-        const IkChain* tc = turn;
+        const IkChain *tc = turn;
         const int hb = tc ? indexOf(tc->root) : end;
         if (hb < 0)
             return;
@@ -2702,15 +2744,16 @@ void LayeredPoser::Impl::solveChains(std::vector<Mat43>& local, const Adjust::Re
     }
 }
 
-bool LayeredPoser::pose(Anim base, float fraction, const std::vector<Layer>& layers,
-                        std::vector<Vec3f>& out, const Adjust* adjust, const std::vector<Face>* faces) const {
-    const Impl& m = *impl;
+bool LayeredPoser::pose(Anim base, float fraction, const std::vector<Layer> &layers, std::vector<Vec3f> &out,
+                        const Adjust *adjust, const std::vector<Face> *faces) const {
+    const Impl &m = *impl;
     std::vector<Mat43> local;
     if (!m.locals(base, fraction, layers, local, adjust))
         return false;
     const auto frame = size_t(m.mesh.frameVerts);
     out.assign(frame, Vec3f{});
-    poseVertices(m.reader(), m.bones, frame, m.mesh.scale, m.mesh.origin, out.data(), [&](size_t i) { return local[i]; });
+    poseVertices(m.reader(), m.bones, frame, m.mesh.scale, m.mesh.origin, out.data(),
+                 [&](size_t i) { return local[i]; });
     if (faces && !faces->empty()) {
         if (!m.faceTable.empty())
             m.placeFaces(*faces, out);
@@ -2722,7 +2765,7 @@ bool LayeredPoser::pose(Anim base, float fraction, const std::vector<Layer>& lay
 
 bool LayeredPoser::hasFace() const {
     return !impl->faceClips.empty() ||
-           std::any_of(impl->faceTable.begin(), impl->faceTable.end(), [](const auto& e) { return !e.keys.empty(); });
+           std::any_of(impl->faceTable.begin(), impl->faceTable.end(), [](const auto &e) { return !e.keys.empty(); });
 }
 
 // A face entry's frame, as the engine builds it: its attachment point's
@@ -2731,10 +2774,10 @@ bool LayeredPoser::hasFace() const {
 // posed mesh: X from its first corner to its third, Y the normal (the
 // first edge across the second), Z = X x Y, from its first corner.
 // `bone`: the posed vertices in the skeleton's units.
-bool LayeredPoser::Impl::faceFrame(const FaceEntry& e, const std::vector<Vec3f>& bone, Mat43& frame) const {
+bool LayeredPoser::Impl::faceFrame(const FaceEntry &e, const std::vector<Vec3f> &bone, Mat43 &frame) const {
     if (e.attach < 0 || size_t(e.attach) >= mesh.attachPoints.size())
         return false;
-    const MeshAttachPoint& p = mesh.attachPoints[size_t(e.attach)];
+    const MeshAttachPoint &p = mesh.attachPoints[size_t(e.attach)];
     Mat43 own{1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
     if ((p.kind & 7) != 7) {
         if ((p.kind & 6) != 6)
@@ -2748,7 +2791,7 @@ bool LayeredPoser::Impl::faceFrame(const FaceEntry& e, const std::vector<Vec3f>&
     }
     if (p.triangle < 0 || size_t(p.triangle) >= mesh.tris.size())
         return false;
-    const MeshTri& t = mesh.tris[size_t(p.triangle)];
+    const MeshTri &t = mesh.tris[size_t(p.triangle)];
     Vec3f c[3];
     for (size_t k = 0; k < 3; ++k) {
         if (size_t(t.vertex[k]) >= bone.size())
@@ -2760,7 +2803,7 @@ bool LayeredPoser::Impl::faceFrame(const FaceEntry& e, const std::vector<Vec3f>&
         const float l = std::sqrt(vdot(v, v));
         return l > 0 ? vmul(v, 1 / l) : v;
     };
-    auto cross = [](const Vec3f& a, const Vec3f& b) {
+    auto cross = [](const Vec3f &a, const Vec3f &b) {
         return Vec3f{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
     };
     const Vec3f x = unit(e2), y = unit(cross(e1, e2)), z = cross(x, y);
@@ -2778,16 +2821,16 @@ bool LayeredPoser::Impl::faceFrame(const FaceEntry& e, const std::vector<Vec3f>&
 // frame; each vertex it lists pulled there by the channel's weight, from
 // where the body put it (a tween cross-faded from its last time and
 // weight). Channels go in turn, each from the last's result.
-void LayeredPoser::Impl::placeFaces(const std::vector<Face>& faces, std::vector<Vec3f>& out) const {
-    const Vec3f& scale = mesh.scale;
-    const Vec3f& origin = mesh.origin;
-    auto toBone = [&](const Vec3f& v) {
+void LayeredPoser::Impl::placeFaces(const std::vector<Face> &faces, std::vector<Vec3f> &out) const {
+    const Vec3f &scale = mesh.scale;
+    const Vec3f &origin = mesh.origin;
+    auto toBone = [&](const Vec3f &v) {
         return Vec3f{(v[0] - origin[0]) * scale[0], (v[1] - origin[1]) * scale[1], (v[2] - origin[2]) * scale[2]};
     };
     std::vector<Vec3f> posed(out.size());
     for (size_t v = 0; v < out.size(); ++v)
         posed[v] = toBone(out[v]);
-    for (const Face& f : faces) {
+    for (const Face &f : faces) {
         const std::string wanted = fs::toLower(f.anim);
         size_t clip = SIZE_MAX;
         for (size_t c = 0; c < clipNames.size(); ++c)
@@ -2795,12 +2838,12 @@ void LayeredPoser::Impl::placeFaces(const std::vector<Face>& faces, std::vector<
                 clip = c;
         if (clip >= faceTable.size() || faceTable[clip].keys.empty())
             continue;
-        const FaceEntry& e = faceTable[clip];
+        const FaceEntry &e = faceTable[clip];
         Mat43 frame{};
         if (!faceFrame(e, posed, frame))
             continue;
         auto keyed = [&](float t, size_t j) {
-            const auto& keys = e.keys;
+            const auto &keys = e.keys;
             if (t <= keys.front().first || keys.size() == 1)
                 return keys.front().second[j];
             if (t >= keys.back().first)
@@ -2833,16 +2876,16 @@ void LayeredPoser::Impl::placeFaces(const std::vector<Face>& faces, std::vector<
 // The face: each channel's key at its time (between two, blended) less
 // the neutral face, by its weight; each vertex's share turned as its bones
 // are turned from the neutral face's pose to this one, and added.
-void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vector<Mat43>& world,
-                                  std::vector<Vec3f>& out) const {
+void LayeredPoser::Impl::addFaces(const std::vector<Face> &faces, const std::vector<Mat43> &world,
+                                  std::vector<Vec3f> &out) const {
     const BoneReader r = reader();
     const size_t frame = out.size();
     std::vector<Vec3f> delta(frame, Vec3f{});
     bool any = false;
-    for (const Face& f : faces) {
+    for (const Face &f : faces) {
         const std::string wanted = fs::toLower(f.anim);
-        const NamedClip* clip = nullptr;
-        for (const NamedClip& c : faceClips)
+        const NamedClip *clip = nullptr;
+        for (const NamedClip &c : faceClips)
             if (fs::toLower(c.name) == wanted)
                 clip = &c;
         if (!clip || clip->keys.empty())
@@ -2863,7 +2906,7 @@ void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vec
                                              (clip->keys[a.i + 1].first - clip->keys[a.i].first));
             return a;
         };
-        auto keyed = [&](const At& a, size_t v) {
+        auto keyed = [&](const At &a, size_t v) {
             Vec3f p = unpackVertex(r.u32(clip->keys[a.i].second + 4 * v));
             if (a.blend > 0) {
                 const Vec3f q = unpackVertex(r.u32(clip->keys[a.i + 1].second + 4 * v));
@@ -2893,7 +2936,7 @@ void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vec
         turn[b] = then(inverseOf(faceWorlds[b]), world[b]);
         turn[b][9] = turn[b][10] = turn[b][11] = 0;
     }
-    const Vec3f& scale = mesh.scale;
+    const Vec3f &scale = mesh.scale;
     for (size_t v = 0; v < frame; ++v) {
         if (vdot(delta[v], delta[v]) <= 0 || v >= vertexBones.size())
             continue;
@@ -2901,7 +2944,7 @@ void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vec
         const Vec3f d{delta[v][0] * scale[0], delta[v][1] * scale[1], delta[v][2] * scale[2]};
         Vec3f sum{};
         float weight = 0;
-        for (const auto& [b, w] : vertexBones[v]) {
+        for (const auto &[b, w] : vertexBones[v]) {
             if (b >= turn.size())
                 continue;
             sum = vadd(sum, vmul(times(turn[b], d), w));
@@ -2916,7 +2959,7 @@ void LayeredPoser::Impl::addFaces(const std::vector<Face>& faces, const std::vec
 
 std::string LayeredPoser::parentOf(std::string_view name) const {
     const std::string wanted = fs::toLower(name);
-    for (const BoneRecord& b : impl->bones)
+    for (const BoneRecord &b : impl->bones)
         if (fs::toLower(b.name) == wanted)
             return b.parent >= 0 ? impl->bones[size_t(b.parent)].name : std::string();
     return {};
@@ -2924,14 +2967,14 @@ std::string LayeredPoser::parentOf(std::string_view name) const {
 
 bool LayeredPoser::hasBone(std::string_view name) const {
     const std::string wanted = fs::toLower(name);
-    for (const BoneRecord& b : impl->bones)
+    for (const BoneRecord &b : impl->bones)
         if (fs::toLower(b.name) == wanted)
             return true;
     return false;
 }
 
-bool LayeredPoser::skeleton(Anim base, float fraction, const std::vector<Layer>& layers,
-                            std::vector<std::array<float, 12>>& worlds, const Adjust* adjust) const {
+bool LayeredPoser::skeleton(Anim base, float fraction, const std::vector<Layer> &layers,
+                            std::vector<std::array<float, 12>> &worlds, const Adjust *adjust) const {
     std::vector<Mat43> local;
     if (!impl->locals(base, fraction, layers, local, adjust))
         return false;
@@ -2946,10 +2989,12 @@ std::vector<std::array<float, 12>> LayeredPoser::bindSkeleton() const {
     return impl->worlds(bind);
 }
 
-int LayeredPoser::boneIndex(std::string_view name) const { return impl->indexOf(name); }
+int LayeredPoser::boneIndex(std::string_view name) const {
+    return impl->indexOf(name);
+}
 
-bool LayeredPoser::locals(Anim base, float fraction, const std::vector<Layer>& layers,
-                          std::vector<std::array<float, 12>>& out) const {
+bool LayeredPoser::locals(Anim base, float fraction, const std::vector<Layer> &layers,
+                          std::vector<std::array<float, 12>> &out) const {
     return impl->locals(base, fraction, layers, out, nullptr);
 }
 
@@ -2970,21 +3015,23 @@ std::vector<bool> LayeredPoser::groupPart(std::string_view name) const {
     return in;
 }
 
-bool LayeredPoser::hasChain(const std::string& name) const { return impl->chain(name) != nullptr; }
+bool LayeredPoser::hasChain(const std::string &name) const {
+    return impl->chain(name) != nullptr;
+}
 
 std::string LayeredPoser::boneName(int index) const {
     return index >= 0 && size_t(index) < impl->bones.size() ? impl->bones[size_t(index)].name : std::string();
 }
 
-int LayeredPoser::mainBone(const std::array<int32_t, 3>& vertices) const {
+int LayeredPoser::mainBone(const std::array<int32_t, 3> &vertices) const {
     std::map<uint32_t, float> sum;
     for (const int32_t v : vertices)
         if (v >= 0 && size_t(v) < impl->vertexBones.size())
-            for (const auto& [b, w] : impl->vertexBones[size_t(v)])
+            for (const auto &[b, w] : impl->vertexBones[size_t(v)])
                 sum[b] += w;
     int best = -1;
     float most = 0;
-    for (const auto& [b, w] : sum)
+    for (const auto &[b, w] : sum)
         if (w > most) {
             most = w;
             best = int(b);
@@ -2992,10 +3039,9 @@ int LayeredPoser::mainBone(const std::array<int32_t, 3>& vertices) const {
     return best;
 }
 
-bool LayeredPoser::boneInSkeleton(Anim base, float fraction, const std::vector<Layer>& layers,
-                                  std::string_view name, Vec3f& origin, std::array<Vec3f, 3>& axes,
-                                  const Adjust* adjust) const {
-    const Impl& m = *impl;
+bool LayeredPoser::boneInSkeleton(Anim base, float fraction, const std::vector<Layer> &layers, std::string_view name,
+                                  Vec3f &origin, std::array<Vec3f, 3> &axes, const Adjust *adjust) const {
+    const Impl &m = *impl;
     const int which = m.indexOf(name);
     std::vector<Mat43> local;
     if (which < 0 || !m.locals(base, fraction, layers, local, adjust))
@@ -3010,12 +3056,12 @@ bool LayeredPoser::boneInSkeleton(Anim base, float fraction, const std::vector<L
     return true;
 }
 
-bool LayeredPoser::bone(Anim base, float fraction, const std::vector<Layer>& layers, std::string_view name,
-                        Vec3f& origin, std::array<Vec3f, 3>& axes, const Adjust* adjust) const {
+bool LayeredPoser::bone(Anim base, float fraction, const std::vector<Layer> &layers, std::string_view name,
+                        Vec3f &origin, std::array<Vec3f, 3> &axes, const Adjust *adjust) const {
     if (!boneInSkeleton(base, fraction, layers, name, origin, axes, adjust))
         return false;
     // Into packed units, as the vertices are (by Scale and Origin).
-    const Mesh& mesh = impl->mesh;
+    const Mesh &mesh = impl->mesh;
     for (size_t c = 0; c < 3; ++c) {
         origin[c] = origin[c] / mesh.scale[c] + mesh.origin[c];
         for (size_t row = 0; row < 3; ++row)

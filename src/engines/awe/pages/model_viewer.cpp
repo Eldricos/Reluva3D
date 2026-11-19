@@ -15,39 +15,41 @@ namespace reluva::awe {
 
 namespace {
 
-std::string folderOf(const std::string& name) {
+std::string folderOf(const std::string &name) {
     const size_t slash = name.find_last_of('/');
     return slash == std::string::npos ? std::string() : name.substr(0, slash);
 }
 
-std::string fileOf(const std::string& name) {
+std::string fileOf(const std::string &name) {
     const size_t slash = name.find_last_of('/');
     return slash == std::string::npos ? name : name.substr(slash + 1);
 }
 
 } // namespace
 
-ModelPage::ModelPage(ViewerContext& ctx) : Page(ctx) {
+ModelPage::ModelPage(ViewerContext &ctx) : Page(ctx) {
     // Each folder of Models: its models (<who>_model.gr2, and the detailed
     // <who>_model_1024.gr2), each with the folder's other files as its
     // animations.
     std::map<std::string, std::vector<std::string>> folders;
-    for (const std::string& n : ctx.files.list())
+    for (const std::string &n : ctx.files.list())
         if (fs::toLower(n).rfind("models/", 0) == 0 && fs::toLower(n).size() > 4 &&
             fs::toLower(n).compare(n.size() - 4, 4, ".gr2") == 0)
             folders[fs::toLower(folderOf(n))].push_back(n);
-    for (auto& [folder, files] : folders) {
+    for (auto &[folder, files] : folders) {
         std::sort(files.begin(), files.end(),
-                  [](const std::string& a, const std::string& b) { return fs::toLower(a) < fs::toLower(b); });
+                  [](const std::string &a, const std::string &b) { return fs::toLower(a) < fs::toLower(b); });
         std::vector<std::string> models, animations;
-        for (const std::string& f : files)
+        for (const std::string &f : files)
             (fs::toLower(fileOf(f)).find("_model") != std::string::npos ? models : animations).push_back(f);
-        for (const std::string& m : models)
+        for (const std::string &m : models)
             models_.push_back({m, animations});
     }
 }
 
-ModelPage::~ModelPage() { releaseGpu(); }
+ModelPage::~ModelPage() {
+    releaseGpu();
+}
 
 void ModelPage::releaseGpu() {
     if (renderer_)
@@ -85,7 +87,7 @@ void ModelPage::load() {
     time_ = 0;
     if (models_.empty() || !renderer_)
         return;
-    const Entry& e = models_[size_t(index_)];
+    const Entry &e = models_[size_t(index_)];
     ctx_.setTitle("Models: " + e.model);
     // Decoding the textures in granny2.dll takes a few seconds: say so.
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
@@ -103,11 +105,11 @@ void ModelPage::load() {
         return;
     }
     gpu_ = std::make_unique<GpuModel>(*renderer_, std::move(loaded));
-    const Model& model = gpu_->model();
+    const Model &model = gpu_->model();
     // Look at the middle of the model at rest, from far enough to see it all.
     float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f};
-    for (const ModelMesh& m : model.meshes)
-        for (const ModelVertex& v : m.vertices)
+    for (const ModelMesh &m : model.meshes)
+        for (const ModelVertex &v : m.vertices)
             for (int k = 0; k < 3; k++)
                 lo[k] = std::min(lo[k], v.position[k]), hi[k] = std::max(hi[k], v.position[k]);
     float size = 1;
@@ -124,7 +126,7 @@ void ModelPage::loadAnimation() {
     error_.clear();
     if (animation_ == 0 || models_.empty())
         return;
-    const std::string& name = models_[size_t(index_)].animations[size_t(animation_ - 1)];
+    const std::string &name = models_[size_t(index_)].animations[size_t(animation_ - 1)];
     Gr2File file;
     Error err = openGr2(ctx_.files, name, file);
     if (!err)
@@ -135,7 +137,7 @@ void ModelPage::loadAnimation() {
         hasAnim_ = true;
 }
 
-void ModelPage::handleEvent(const Event& ev) {
+void ModelPage::handleEvent(const Event &ev) {
     if (!renderer_ || models_.empty())
         return;
     if (ev.type == EventType::KeyDown) {
@@ -193,19 +195,19 @@ void ModelPage::update(uint64_t nowMs) {
     meshes_.clear();
     size_t triangles = 0;
     if (gpu_)
-        triangles = gpu_->draw(poseAt(gpu_->model(), hasAnim_ ? &anim_ : nullptr, t), gfx::identity(), helpers_,
-                               meshes_);
+        triangles =
+            gpu_->draw(poseAt(gpu_->model(), hasAnim_ ? &anim_ : nullptr, t), gfx::identity(), helpers_, meshes_);
 
     std::fill(overlay_.pixels.begin(), overlay_.pixels.end(), 0);
     std::vector<std::string> lines;
     if (!models_.empty()) {
-        const Entry& e = models_[size_t(index_)];
+        const Entry &e = models_[size_t(index_)];
         lines.push_back(e.model + "  (" + std::to_string(index_ + 1) + "/" + std::to_string(models_.size()) + ")");
         char buf[200];
         const Model empty;
-        const Model& model = gpu_ ? gpu_->model() : empty;
-        std::snprintf(buf, sizeof buf, "%zu bones, %zu meshes, %zu triangles drawn, %zu textures",
-                      model.bones.size(), model.meshes.size(), triangles, model.textures.size());
+        const Model &model = gpu_ ? gpu_->model() : empty;
+        std::snprintf(buf, sizeof buf, "%zu bones, %zu meshes, %zu triangles drawn, %zu textures", model.bones.size(),
+                      model.meshes.size(), triangles, model.textures.size());
         lines.push_back(buf);
         if (animation_ == 0) {
             lines.push_back("rest pose (" + std::to_string(e.animations.size()) + " animations: Up/Down)");

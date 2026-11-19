@@ -13,11 +13,11 @@ namespace reluva {
 class Md5 {
 public:
     Md5();
-    void update(const void* data, size_t len);
+    void update(const void *data, size_t len);
     std::string hexDigest(); // finalizes; call once
 
 private:
-    void block(const uint8_t* p);
+    void block(const uint8_t *p);
 
     uint32_t state_[4];
     uint64_t length_ = 0; // bytes

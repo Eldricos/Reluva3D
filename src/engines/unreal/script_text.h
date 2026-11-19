@@ -28,8 +28,8 @@ struct NativeFunction {
 
 class NativeTable {
 public:
-    explicit NativeTable(const PackageSet& packages);
-    const NativeFunction* find(int native) const;
+    explicit NativeTable(const PackageSet &packages);
+    const NativeFunction *find(int native) const;
     size_t size() const { return natives_.size(); }
 
 private:
@@ -38,7 +38,6 @@ private:
 
 // A class (its declarations, functions, states and defaults), a struct, a
 // function or a state, as text.
-std::string scriptText(const PackageSet& packages, const Package& package, int exportIndex,
-                       const NativeTable& natives);
+std::string scriptText(const PackageSet &packages, const Package &package, int exportIndex, const NativeTable &natives);
 
 } // namespace reluva::unreal

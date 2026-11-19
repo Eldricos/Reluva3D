@@ -36,14 +36,14 @@ Mat4 rotationZ(float a) {
 
 } // namespace
 
-SceneCamera SceneCamera::fromRecord(const Ac2Record& r) {
+SceneCamera SceneCamera::fromRecord(const Ac2Record &r) {
     SceneCamera c;
     c.fovY = r.f("fov");
     c.nearPlane = r.f("near");
     c.farPlane = r.f("far");
-    const char* const pos[3] = {"x", "y", "z"};
-    const char* const ear[3] = {"pitch", "yaw", "roll"};
-    const char* const off[3] = {"offsetX", "offsetY", "offsetZ"};
+    const char *const pos[3] = {"x", "y", "z"};
+    const char *const ear[3] = {"pitch", "yaw", "roll"};
+    const char *const off[3] = {"offsetX", "offsetY", "offsetZ"};
     for (int k = 0; k < 3; k++) {
         c.position[k] = r.f(pos[k]);
         c.elevAzimRoll[k] = r.f(ear[k]);
@@ -70,7 +70,7 @@ gfx::Vec3 SceneCamera::eye() const {
     return gfx::transformPoint(m, {offset[0], offset[1], offset[2]});
 }
 
-void SceneCamera::ray(float sx, float sy, int width, int height, gfx::Vec3& from, gfx::Vec3& dir) const {
+void SceneCamera::ray(float sx, float sy, int width, int height, gfx::Vec3 &from, gfx::Vec3 &dir) const {
     // The ray through the pixel, in the camera's axes (looking down -Z),
     // turned to the world's.
     const float aspect = float(width) / float(height), t = std::tan(fovY / 2);
@@ -82,7 +82,7 @@ void SceneCamera::ray(float sx, float sy, int width, int height, gfx::Vec3& from
     from = eye();
 }
 
-bool SceneCamera::floorAt(float sx, float sy, int width, int height, float& x, float& z) const {
+bool SceneCamera::floorAt(float sx, float sy, int width, int height, float &x, float &z) const {
     gfx::Vec3 from, dir;
     ray(sx, sy, width, height, from, dir);
     if (dir[1] >= 0)
@@ -97,9 +97,11 @@ Mat4 SceneCamera::projection(float aspect) const {
     return gfx::perspective(fovY, aspect, nearPlane > 0 ? nearPlane : 1, farPlane > nearPlane ? farPlane : 10000);
 }
 
-Mat4 SceneCamera::viewProjection(float aspect) const { return gfx::multiply(projection(aspect), view()); }
+Mat4 SceneCamera::viewProjection(float aspect) const {
+    return gfx::multiply(projection(aspect), view());
+}
 
-bool SceneCamera::project(const float world[3], int width, int height, float& x, float& y) const {
+bool SceneCamera::project(const float world[3], int width, int height, float &x, float &y) const {
     const Mat4 m = viewProjection(float(width) / float(height));
     float clip[4];
     for (int row = 0; row < 4; row++)

@@ -25,10 +25,10 @@ public:
 
     // Take an 8-bit bitmap cut into frames (counted from the bottom, as
     // everywhere in the game); pixels of palette index key are see-through.
-    bool load(const BitmapDecoder& decoder, int frames = 1, int key = kOpaque);
+    bool load(const BitmapDecoder &decoder, int frames = 1, int key = kOpaque);
     // Take an overlay (.RLE) in the given palette, cut into frames of
     // frameHeight rows counted from the top; the last may be short.
-    void load(const Overlay& overlay, const Palette& palette, int frameHeight);
+    void load(const Overlay &overlay, const Palette &palette, int frameHeight);
 
     bool isLoaded() const { return _w > 0; }
     int getWidth() const { return _w; }
@@ -38,14 +38,13 @@ public:
     uint32_t getPixel(int frame, int x, int y) const;
 
     // Draw a frame with its top left at (x, y) on an ARGB8888 surface.
-    void draw(Canvas& dst, int frame, int x, int y, const Rect* clip = nullptr) const;
+    void draw(Canvas &dst, int frame, int x, int y, const Rect *clip = nullptr) const;
     // Draw a frame stretched to w x h (nearest neighbour).
-    void drawScaled(Canvas& dst, int frame, int x, int y, int w, int h,
-                    const Rect* clip = nullptr) const;
+    void drawScaled(Canvas &dst, int frame, int x, int y, int w, int h, const Rect *clip = nullptr) const;
 
 private:
     // Where frame's row y starts in _pixels.
-    const uint32_t* row(int frame, int y) const;
+    const uint32_t *row(int frame, int y) const;
 
     int _w = 0, _h = 0, _frameHeight = 0, _frames = 0;
     // Frames numbered from the bottom of the strip, as bitmaps are.
@@ -54,4 +53,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

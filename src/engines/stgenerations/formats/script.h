@@ -68,13 +68,13 @@ public:
     static const uint16_t kEndOfState = 0x3000;
     static const uint16_t kStateMarker = 0x8000;
 
-    bool load(SeekableReadStream& stream);
+    bool load(SeekableReadStream &stream);
 
     uint16_t getVersion() const { return _version; }
-    const std::vector<uint16_t>& getCode() const { return _code; }
-    const std::vector<uint8_t>& getSection(int index) const { return _sections[index]; }
-    const std::vector<std::string>& getResourceNames() const { return _resourceNames; }
-    const std::vector<ScriptObject>& getObjects() const { return _objects; }
+    const std::vector<uint16_t> &getCode() const { return _code; }
+    const std::vector<uint8_t> &getSection(int index) const { return _sections[index]; }
+    const std::vector<std::string> &getResourceNames() const { return _resourceNames; }
+    const std::vector<ScriptObject> &getObjects() const { return _objects; }
 
 private:
     bool parseProgram();
@@ -87,4 +87,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

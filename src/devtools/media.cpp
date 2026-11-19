@@ -29,7 +29,7 @@ using namespace reluva::tool;
 
 // An AVI's streams, and its video decoded from start to end, timed; the
 // frames asked for written as frame_NNNN.tga.
-int cmdAviFrames(int argc, char** argv) {
+int cmdAviFrames(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool avi-frames <file.avi> [output dir] [frame number... | all]\n");
         return 2;
@@ -76,7 +76,7 @@ int cmdAviFrames(int argc, char** argv) {
         const int f = movie.currentFrame();
         if (dir.empty() || !(all || wanted.count(f)))
             continue;
-        const reluva::Surface& s = movie.surface();
+        const reluva::Surface &s = movie.surface();
         reluva::image::Image picture;
         picture.w = s.w;
         picture.h = s.h;
@@ -87,7 +87,7 @@ int cmdAviFrames(int argc, char** argv) {
         std::snprintf(name, sizeof name, "frame_%04d.tga", f);
         const std::vector<uint8_t> tga = reluva::image::encodeTga(picture);
         std::ofstream(dir / name, std::ios::binary)
-            .write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+            .write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
         ++written;
     }
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -97,7 +97,7 @@ int cmdAviFrames(int argc, char** argv) {
 
 // A CD image's tracks, and its audio tracks written as track02.wav ... in
 // the output folder, the names games' CD music is looked for under.
-int cmdCueRip(int argc, char** argv) {
+int cmdCueRip(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool cue-rip <file.cue> [output dir]\n");
         return 2;
@@ -107,7 +107,7 @@ int cmdCueRip(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    for (const reluva::CueTrack& t : tracks) {
+    for (const reluva::CueTrack &t : tracks) {
         const uint64_t frames = t.size / uint64_t(t.sectorSize);
         std::printf("track %02d  %-10s %8llu sectors  %2llu:%05.2f  %s @ %llu\n", t.number, t.mode.c_str(),
                     static_cast<unsigned long long>(frames), static_cast<unsigned long long>(frames / 75 / 60),
@@ -120,7 +120,7 @@ int cmdCueRip(int argc, char** argv) {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     int written = 0;
-    for (const reluva::CueTrack& t : tracks) {
+    for (const reluva::CueTrack &t : tracks) {
         if (!t.audio)
             continue;
         char name[32];
@@ -135,11 +135,13 @@ int cmdCueRip(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("", {
-    {"avi-frames", "<file.avi> [output dir] [frame number... | all]",
-     "an AVI's streams; decode every frame (Cinepak), timed, writing those asked for as TGA files", cmdAviFrames},
-    {"cue-rip", "<file.cue> [output dir]",
-     "list a CD image's tracks; write each audio track as trackNN.wav (games' CD music)", cmdCueRip},
-});
+const Commands
+    commands("", {
+                     {"avi-frames", "<file.avi> [output dir] [frame number... | all]",
+                      "an AVI's streams; decode every frame (Cinepak), timed, writing those asked for as TGA files",
+                      cmdAviFrames},
+                     {"cue-rip", "<file.cue> [output dir]",
+                      "list a CD image's tracks; write each audio track as trackNN.wav (games' CD music)", cmdCueRip},
+                 });
 
 } // namespace

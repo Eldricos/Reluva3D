@@ -14,49 +14,49 @@ constexpr int kScreenWidth = 640, kScreenHeight = 480;
 // An image of the interface: an animation's frame (its first layer) or,
 // for names of images ("menu:IprefsKnob"), the image itself.
 struct Picture {
-    const Image* image = nullptr;
+    const Image *image = nullptr;
     int dx = 0, dy = 0;
     int frames = 0;
 };
 
-Picture picture(const GameData& data, const std::string& name, int frame) {
+Picture picture(const GameData &data, const std::string &name, int frame) {
     ResourceName n;
     if (!splitResourceName(name, n))
         return {};
     if (n.name[0] == 'I' || n.name[0] == 'i') {
-        const Image* img = data.image(name);
+        const Image *img = data.image(name);
         return {img, img ? img->offsetX : 0, img ? img->offsetY : 0, img ? 1 : 0};
     }
-    const Animation* a = data.animation(name);
+    const Animation *a = data.animation(name);
     if (!a || a->layers.empty() || a->frameCount() == 0)
         return {};
     const int count = int(a->frameCount());
-    const Animation::Part& part = a->layers[0][size_t(std::clamp(frame, 0, count - 1))];
+    const Animation::Part &part = a->layers[0][size_t(std::clamp(frame, 0, count - 1))];
     if (part.image >= a->images.size())
         return {nullptr, 0, 0, count};
-    const Image* img = data.image(a->images[part.image]);
+    const Image *img = data.image(a->images[part.image]);
     if (!img)
         return {nullptr, 0, 0, count};
     return {img, part.x + img->offsetX, part.y + img->offsetY, count};
 }
 
-bool clickable(const ResiControl& c) {
+bool clickable(const ResiControl &c) {
     return c.type == ResiControl::ImageButton || c.type == ResiControl::TextButton || c.type == ResiControl::Edit ||
            c.type == ResiControl::Slider || c.type == ResiControl::ScrollKnob;
 }
 
 } // namespace
 
-BitmapFont::BitmapFont(const GameData& data, const ResiFont& font, bool packed) {
-    const Animation* a = data.animation(font.animation);
+BitmapFont::BitmapFont(const GameData &data, const ResiFont &font, bool packed) {
+    const Animation *a = data.animation(font.animation);
     if (!a || a->layers.empty())
         return;
     lineHeight_ = a->height + font.lineSpacing;
     // Characters without a glyph (the space) take a third of the cell.
     const int blank = std::max(3, a->width / 3);
     for (size_t c = 0; c < glyphs_.size() && c < a->frameCount(); ++c) {
-        const Animation::Part& part = a->layers[0][c];
-        Glyph& g = glyphs_[c];
+        const Animation::Part &part = a->layers[0][c];
+        Glyph &g = glyphs_[c];
         g.advance = blank + font.textSpacing;
         if (part.image >= a->images.size())
             continue;
@@ -72,7 +72,7 @@ BitmapFont::BitmapFont(const GameData& data, const ResiFont& font, bool packed) 
         // 640x480 recording, 189 by the glyphs' cells; the same font's
         // labels in dialogs are drawn by their cells). A glyph without ink
         // (the space) keeps its cell and a pixel.
-        const image::Image& px = g.image->pixels;
+        const image::Image &px = g.image->pixels;
         int first = -1, last = -1;
         for (int x = 0; x < px.w; ++x)
             for (int y = 0; y < px.h; ++y)
@@ -98,21 +98,21 @@ int BitmapFont::width(std::string_view line) const {
     return w;
 }
 
-void BitmapFont::draw(Surface& s, int x, int y, std::string_view line) const {
+void BitmapFont::draw(Surface &s, int x, int y, std::string_view line) const {
     for (char ch : line) {
-        const Glyph& g = glyphs_[uint8_t(ch)];
+        const Glyph &g = glyphs_[uint8_t(ch)];
         if (g.image)
             image::blit(s, g.image->pixels, x + g.dx, y + g.image->offsetY);
         x += g.advance;
     }
 }
 
-Fonts::Fonts(const GameData& data, const Resi& resi) {
-    for (const ResiFont& f : resi.fonts)
+Fonts::Fonts(const GameData &data, const Resi &resi) {
+    for (const ResiFont &f : resi.fonts)
         fonts_[int(f.id)] = std::make_unique<BitmapFont>(data, f);
 }
 
-const BitmapFont* Fonts::get(int id) const {
+const BitmapFont *Fonts::get(int id) const {
     auto it = fonts_.find(id);
     return it == fonts_.end() ? nullptr : it->second.get();
 }
@@ -144,19 +144,19 @@ std::vector<std::string> splitLines(std::string_view text) {
     return lines;
 }
 
-void drawText(Surface& s, const BitmapFont& font, std::string_view text, int x, int y, int w, int h, bool centreX,
+void drawText(Surface &s, const BitmapFont &font, std::string_view text, int x, int y, int w, int h, bool centreX,
               bool centreY) {
     const std::vector<std::string> lines = splitLines(text);
     const int total = int(lines.size()) * font.lineHeight();
     int ly = centreY && h > 0 ? y + (h - total) / 2 : y;
-    for (const std::string& line : lines) {
+    for (const std::string &line : lines) {
         const int lw = font.width(line);
         font.draw(s, centreX && w > 0 ? x + (w - lw) / 2 : x, ly, line);
         ly += font.lineHeight();
     }
 }
 
-DialogView::DialogView(const GameData& data, const Fonts& fonts, const ResiDialog& dialog, int x, int y)
+DialogView::DialogView(const GameData &data, const Fonts &fonts, const ResiDialog &dialog, int x, int y)
     : data_(data), fonts_(fonts), dialog_(dialog), x_(x), y_(y), state_(dialog.controls.size()) {
     for (size_t i = 0; i < state_.size(); ++i)
         state_[i].visible = dialog_.controls[i].group == 0;
@@ -167,7 +167,7 @@ DialogView::DialogView(const GameData& data, const Fonts& fonts, const ResiDialo
         width_ = bg.image->pixels.w + bg.dx;
         height_ = bg.image->pixels.h + bg.dy;
     } else {
-        for (const ResiControl& c : dialog_.controls)
+        for (const ResiControl &c : dialog_.controls)
             if (c.type == ResiControl::Image)
                 if (const Picture p = picture(data_, c.text, 0); p.image) {
                     width_ = std::max(width_, c.left + p.image->pixels.w + p.dx);
@@ -267,16 +267,18 @@ int DialogView::scroll(int id) const {
     return 0;
 }
 
-void DialogView::focus(int id) { focus_ = id; }
+void DialogView::focus(int id) {
+    focus_ = id;
+}
 
 UiRect DialogView::rect(int id) const {
-    const ResiControl* c = dialog_.control(id);
+    const ResiControl *c = dialog_.control(id);
     return c ? rectOf(*c) : UiRect{};
 }
 
-UiRect DialogView::rectOf(const ResiControl& c) const {
+UiRect DialogView::rectOf(const ResiControl &c) const {
     UiRect r{x_ + c.left, y_ + c.top, 0, 0};
-    const std::string& name = c.type == ResiControl::TextButton ? c.animation : c.text;
+    const std::string &name = c.type == ResiControl::TextButton ? c.animation : c.text;
     if (c.type != ResiControl::Text && c.type != ResiControl::Edit) {
         const Picture p = picture(data_, name, 0);
         if (p.image) {
@@ -294,18 +296,18 @@ UiRect DialogView::rectOf(const ResiControl& c) const {
     if (c.bottom == -1)
         r.h = height_ - c.top;
     if (c.type == ResiControl::Edit && r.h == 0)
-        if (const BitmapFont* f = fonts_.get(c.font))
+        if (const BitmapFont *f = fonts_.get(c.font))
             r.h = f->lineHeight();
     return r;
 }
 
-std::vector<std::string> DialogView::wrapped(const ResiControl& c) const {
+std::vector<std::string> DialogView::wrapped(const ResiControl &c) const {
     const size_t i = size_t(&c - dialog_.controls.data());
-    const std::string& text = state_[i].textSet ? state_[i].text : c.text;
-    const BitmapFont* font = fonts_.get(c.font);
+    const std::string &text = state_[i].textSet ? state_[i].text : c.text;
+    const BitmapFont *font = fonts_.get(c.font);
     const UiRect r = rectOf(c);
     std::vector<std::string> out;
-    for (const std::string& line : splitLines(text)) {
+    for (const std::string &line : splitLines(text)) {
         if (!font || r.w <= 0 || font->width(line) <= r.w) {
             out.push_back(line);
             continue;
@@ -333,27 +335,27 @@ std::vector<std::string> DialogView::wrapped(const ResiControl& c) const {
 }
 
 int DialogView::lineCount(int id) const {
-    const ResiControl* c = dialog_.control(id);
+    const ResiControl *c = dialog_.control(id);
     return c ? int(wrapped(*c).size()) : 0;
 }
 
 int DialogView::visibleLines(int id) const {
-    const ResiControl* c = dialog_.control(id);
-    const BitmapFont* f = c ? fonts_.get(c->font) : nullptr;
+    const ResiControl *c = dialog_.control(id);
+    const BitmapFont *f = c ? fonts_.get(c->font) : nullptr;
     if (!c || !f || f->lineHeight() <= 0)
         return 0;
     return std::max(1, rectOf(*c).h / f->lineHeight());
 }
 
-void DialogView::drawBackground(Surface& s) const {
+void DialogView::drawBackground(Surface &s) const {
     if (const Picture bg = picture(data_, dialog_.background, 0); bg.image)
         image::blit(s, bg.image->pixels, x_ + bg.dx, y_ + bg.dy);
 }
 
-void DialogView::drawControls(Surface& s) const {
+void DialogView::drawControls(Surface &s) const {
     for (size_t i = 0; i < dialog_.controls.size(); ++i) {
-        const ResiControl& c = dialog_.controls[i];
-        const State& st = state_[i];
+        const ResiControl &c = dialog_.controls[i];
+        const State &st = state_[i];
         if (!st.visible)
             continue;
         const UiRect r = rectOf(c);
@@ -367,7 +369,7 @@ void DialogView::drawControls(Surface& s) const {
         case ResiControl::TextButton: {
             // Frames: 0 as it is, 1 under the mouse, 2 pressed (or chosen),
             // 3 disabled when the animation has a fourth.
-            const std::string& anim = c.type == ResiControl::TextButton ? c.animation : c.text;
+            const std::string &anim = c.type == ResiControl::TextButton ? c.animation : c.text;
             int frame = 0;
             if (st.chosen || (hot && int(i) == pressed_))
                 frame = 2;
@@ -379,7 +381,7 @@ void DialogView::drawControls(Surface& s) const {
             if (p.image)
                 image::blit(s, p.image->pixels, r.x + p.dx, r.y + p.dy);
             if (c.type == ResiControl::TextButton) {
-                const BitmapFont* f = fonts_.get(hot && st.enabled ? c.otherFont : c.font);
+                const BitmapFont *f = fonts_.get(hot && st.enabled ? c.otherFont : c.font);
                 if (!f)
                     f = fonts_.get(c.font);
                 // centreY 2 (the suggestion window's choices): the name along
@@ -393,7 +395,7 @@ void DialogView::drawControls(Surface& s) const {
             break;
         }
         case ResiControl::Text: {
-            const BitmapFont* f = fonts_.get(c.font);
+            const BitmapFont *f = fonts_.get(c.font);
             if (!f)
                 break;
             const std::vector<std::string> lines = wrapped(c);
@@ -402,7 +404,7 @@ void DialogView::drawControls(Surface& s) const {
             // text a little over its box is drawn whole, as the original's
             // ("Please wait for the Host|to start this game").
             const bool scrolls = std::any_of(dialog_.controls.begin(), dialog_.controls.end(),
-                                             [](const ResiControl& k) { return k.type == ResiControl::ScrollKnob; });
+                                             [](const ResiControl &k) { return k.type == ResiControl::ScrollKnob; });
             if (int(lines.size()) <= fit || !scrolls) {
                 std::string joined;
                 for (size_t k = 0; k < lines.size(); ++k)
@@ -416,7 +418,7 @@ void DialogView::drawControls(Surface& s) const {
             break;
         }
         case ResiControl::Edit: {
-            const BitmapFont* f = fonts_.get(c.font);
+            const BitmapFont *f = fonts_.get(c.font);
             if (!f)
                 break;
             std::string t = st.textSet ? st.text : c.text;
@@ -439,24 +441,25 @@ void DialogView::drawControls(Surface& s) const {
                 image::blit(s, p.image->pixels, r.x, r.y + at);
             break;
         }
-        default: break;
+        default:
+            break;
         }
     }
 }
 
-const ResiControl* DialogView::hit(int mx, int my) const {
+const ResiControl *DialogView::hit(int mx, int my) const {
     for (size_t i = dialog_.controls.size(); i-- > 0;) {
-        const ResiControl& c = dialog_.controls[i];
+        const ResiControl &c = dialog_.controls[i];
         if (state_[i].visible && state_[i].enabled && clickable(c) && rectOf(c).contains(mx, my))
             return &c;
     }
     return nullptr;
 }
 
-int DialogView::handleEvent(const Event& ev) {
-    const auto indexOf = [&](const ResiControl* c) { return c ? int(c - dialog_.controls.data()) : -1; };
+int DialogView::handleEvent(const Event &ev) {
+    const auto indexOf = [&](const ResiControl *c) { return c ? int(c - dialog_.controls.data()) : -1; };
     const auto dragTo = [&](int index, int mx, int my) {
-        const ResiControl& c = dialog_.controls[size_t(index)];
+        const ResiControl &c = dialog_.controls[size_t(index)];
         const UiRect r = rectOf(c);
         const Picture p = picture(data_, c.text, 0);
         const int k = p.image ? (c.type == ResiControl::Slider ? p.image->pixels.w : p.image->pixels.h) : 0;
@@ -478,7 +481,7 @@ int DialogView::handleEvent(const Event& ev) {
         hover_ = pressed_ = i;
         if (i < 0)
             return -1;
-        const ResiControl& c = dialog_.controls[size_t(i)];
+        const ResiControl &c = dialog_.controls[size_t(i)];
         if (c.type == ResiControl::Edit)
             focus_ = c.id;
         if (c.type == ResiControl::Slider || c.type == ResiControl::ScrollKnob) {
@@ -495,7 +498,7 @@ int DialogView::handleEvent(const Event& ev) {
         dragging_ = -1;
         const int i = indexOf(hit(ev.mouseX, ev.mouseY));
         if (was >= 0 && was == i) {
-            const ResiControl& c = dialog_.controls[size_t(i)];
+            const ResiControl &c = dialog_.controls[size_t(i)];
             if (c.type == ResiControl::ImageButton || c.type == ResiControl::TextButton)
                 return c.id;
         }
@@ -506,7 +509,7 @@ int DialogView::handleEvent(const Event& ev) {
             return -1;
         for (size_t i = 0; i < state_.size(); ++i)
             if (dialog_.controls[i].id == focus_) {
-                State& st = state_[i];
+                State &st = state_[i];
                 if (!st.textSet) {
                     st.text = dialog_.controls[i].text;
                     st.textSet = true;
@@ -524,7 +527,8 @@ int DialogView::handleEvent(const Event& ev) {
                 if (dialog_.controls[i].id == focus_ && state_[i].textSet && !state_[i].text.empty())
                     state_[i].text.pop_back();
         return -1;
-    default: return -1;
+    default:
+        return -1;
     }
 }
 

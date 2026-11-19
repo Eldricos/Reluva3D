@@ -77,17 +77,21 @@ std::vector<std::string> fieldsOf(std::string_view text) {
 
 } // namespace
 
-std::string ScriptLevel::travelText(const VmProperty& p, const Value& v) {
+std::string ScriptLevel::travelText(const VmProperty &p, const Value &v) {
     switch (p.type) {
-    case VType::Bool: return v.asBool() ? "True" : "False";
-    case VType::Byte: return std::to_string(v.i & 255);
-    case VType::Int: return std::to_string(v.i);
+    case VType::Bool:
+        return v.asBool() ? "True" : "False";
+    case VType::Byte:
+        return std::to_string(v.i & 255);
+    case VType::Int:
+        return std::to_string(v.i);
     case VType::Float: {
         char b[32];
         std::snprintf(b, sizeof b, "%.6f", double(v.f));
         return b;
     }
-    case VType::Name: return v.i ? vm_.nameText(v.i) : "None";
+    case VType::Name:
+        return v.i ? vm_.nameText(v.i) : "None";
     case VType::String: {
         std::string out = "\"";
         for (char c : v.s)
@@ -95,7 +99,7 @@ std::string ScriptLevel::travelText(const VmProperty& p, const Value& v) {
         return out + "\"";
     }
     case VType::Object: {
-        VmObject* o = v.asObject();
+        VmObject *o = v.asObject();
         if (!o)
             return "None";
         return o->isActor ? vm_.objectName(o) : vm_.pathName(o);
@@ -104,7 +108,7 @@ std::string ScriptLevel::travelText(const VmProperty& p, const Value& v) {
         std::string out = "(";
         bool first = true;
         if (v.st)
-            for (const VmProperty* f : v.st->properties)
+            for (const VmProperty *f : v.st->properties)
                 for (int k = 0; k < f->arrayDim; ++k) {
                     const size_t at = size_t(f->slot + k);
                     if (at >= v.fields.size())
@@ -116,19 +120,30 @@ std::string ScriptLevel::travelText(const VmProperty& p, const Value& v) {
                 }
         return out + ")";
     }
-    default: return {};
+    default:
+        return {};
     }
 }
 
-bool ScriptLevel::travelValue(const VmProperty& p, const std::string& text, Value& v,
-                              const std::map<std::string, VmObject*>& byName) {
+bool ScriptLevel::travelValue(const VmProperty &p, const std::string &text, Value &v,
+                              const std::map<std::string, VmObject *> &byName) {
     const std::string t = trim(text);
     switch (p.type) {
-    case VType::Bool: v = Value::boolValue(same(t, "true") || t == "1"); return true;
-    case VType::Byte: v = Value::byteValue(std::atoi(t.c_str())); return true;
-    case VType::Int: v = Value::intValue(std::atoi(t.c_str())); return true;
-    case VType::Float: v = Value::floatValue(std::strtof(t.c_str(), nullptr)); return true;
-    case VType::Name: v = Value::nameValue(same(t, "None") ? 0 : vm_.name(t)); return true;
+    case VType::Bool:
+        v = Value::boolValue(same(t, "true") || t == "1");
+        return true;
+    case VType::Byte:
+        v = Value::byteValue(std::atoi(t.c_str()));
+        return true;
+    case VType::Int:
+        v = Value::intValue(std::atoi(t.c_str()));
+        return true;
+    case VType::Float:
+        v = Value::floatValue(std::strtof(t.c_str(), nullptr));
+        return true;
+    case VType::Name:
+        v = Value::nameValue(same(t, "None") ? 0 : vm_.name(t));
+        return true;
     case VType::String:
         v = Value::stringValue(t.size() >= 2 && t.front() == '"' && t.back() == '"' ? t.substr(1, t.size() - 2) : t);
         return true;
@@ -139,14 +154,14 @@ bool ScriptLevel::travelValue(const VmProperty& p, const std::string& text, Valu
         }
         // One of the travelled actors, by the name it had; else (not an
         // actor) the object by its path. One not found is left alone.
-        for (const auto& [name, actor] : byName)
+        for (const auto &[name, actor] : byName)
             if (same(name, t)) {
                 v = Value::objectValue(actor);
                 return true;
             }
         if (p.objectClass && p.objectClass->isA(vm_.findClass("Actor")))
             return false;
-        if (VmObject* o = vm_.findObject(t)) {
+        if (VmObject *o = vm_.findObject(t)) {
             v = Value::objectValue(o);
             return true;
         }
@@ -157,7 +172,7 @@ bool ScriptLevel::travelValue(const VmProperty& p, const std::string& text, Valu
             return false;
         if (v.type != VType::Struct)
             v = p.zero();
-        for (const std::string& field : fieldsOf(t)) {
+        for (const std::string &field : fieldsOf(t)) {
             const size_t eq = field.find('=');
             if (eq == std::string::npos)
                 continue;
@@ -167,23 +182,24 @@ bool ScriptLevel::travelValue(const VmProperty& p, const std::string& text, Valu
                 index = std::atoi(key.c_str() + br + 1);
                 key = trim(std::string_view(key).substr(0, br));
             }
-            for (const VmProperty* f : p.structType->properties)
+            for (const VmProperty *f : p.structType->properties)
                 if (same(f->name, key) && index < f->arrayDim && size_t(f->slot + index) < v.fields.size())
                     travelValue(*f, field.substr(eq + 1), v.fields[size_t(f->slot + index)], byName);
         }
         return true;
     }
-    default: return false;
+    default:
+        return false;
     }
 }
 
 std::string ScriptLevel::exportTravel() {
     std::string out;
-    std::set<VmObject*> seen;
-    for (VmObject* a = player_; a && !a->deleted && seen.insert(a).second;) {
+    std::set<VmObject *> seen;
+    for (VmObject *a = player_; a && !a->deleted && seen.insert(a).second;) {
         if (pb(a, "bTravel")) {
             out += "Class=" + vm_.pathName(a->cls->object) + " Name=" + vm_.objectName(a) + "\r\n{\r\n";
-            for (const VmProperty* p : a->cls->properties) {
+            for (const VmProperty *p : a->cls->properties) {
                 if (!(p->flags & propflag::Travel))
                     continue;
                 for (int k = 0; k < p->arrayDim; ++k) {
@@ -198,22 +214,22 @@ std::string ScriptLevel::exportTravel() {
             }
             out += "}\r\n";
         }
-        const Value* next = prop(a, "Inventory");
+        const Value *next = prop(a, "Inventory");
         a = next ? next->asObject() : nullptr;
     }
     return out;
 }
 
-std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
+std::vector<VmObject *> ScriptLevel::acceptTravel(const std::string &text) {
     struct Block {
-        VmObject* actor = nullptr;
+        VmObject *actor = nullptr;
         std::vector<std::string> lines;
     };
     std::vector<Block> blocks;
-    std::map<std::string, VmObject*> byName;
-    VmClass* playerPawn = vm_.findClass("PlayerPawn");
+    std::map<std::string, VmObject *> byName;
+    VmClass *playerPawn = vm_.findClass("PlayerPawn");
     size_t at = 0;
-    Block* open = nullptr;
+    Block *open = nullptr;
     bool skipping = false;
     while (at < text.size()) {
         size_t end = text.find('\n', at);
@@ -223,9 +239,10 @@ std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
         at = end + 1;
         if (line.rfind("Class=", 0) == 0) {
             const size_t name = line.find(" Name=");
-            const std::string className = trim(line.substr(6, name == std::string::npos ? std::string::npos : name - 6));
+            const std::string className =
+                trim(line.substr(6, name == std::string::npos ? std::string::npos : name - 6));
             const std::string actorName = name == std::string::npos ? std::string() : trim(line.substr(name + 6));
-            VmClass* cls = vm_.findClass(className);
+            VmClass *cls = vm_.findClass(className);
             open = nullptr;
             skipping = !cls;
             if (!cls) {
@@ -233,12 +250,12 @@ std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
                     vm_.logger("Cannot accept travelling class " + className);
                 continue;
             }
-            VmObject* actor = nullptr;
+            VmObject *actor = nullptr;
             if (playerPawn && cls->isA(playerPawn)) {
                 actor = player_; // the player's own: onto the pawn logged in
             } else {
-                const Value* loc = prop(player_, "Location");
-                const Value* rot = prop(player_, "Rotation");
+                const Value *loc = prop(player_, "Location");
+                const Value *rot = prop(player_, "Rotation");
                 actor = spawn(cls, player_, 0, loc, rot);
             }
             if (!actor)
@@ -255,8 +272,8 @@ std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
     }
     // Their travel properties put back, by name (any case), the index
     // within its array.
-    for (Block& b : blocks)
-        for (const std::string& line : b.lines) {
+    for (Block &b : blocks)
+        for (const std::string &line : b.lines) {
             const size_t eq = line.find('=');
             if (eq == std::string::npos)
                 continue;
@@ -266,7 +283,7 @@ std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
                 index = std::atoi(key.c_str() + br + 1);
                 key = trim(std::string_view(key).substr(0, br));
             }
-            for (const VmProperty* p : b.actor->cls->properties)
+            for (const VmProperty *p : b.actor->cls->properties)
                 if ((p->flags & propflag::Travel) && same(p->name, key) && index >= 0 && index < p->arrayDim &&
                     size_t(p->slot + index) < b.actor->values.size()) {
                     Value v = b.actor->values[size_t(p->slot + index)];
@@ -275,8 +292,8 @@ std::vector<VmObject*> ScriptLevel::acceptTravel(const std::string& text) {
                     break;
                 }
         }
-    std::vector<VmObject*> accepted;
-    for (const Block& b : blocks)
+    std::vector<VmObject *> accepted;
+    for (const Block &b : blocks)
         accepted.push_back(b.actor);
     return accepted;
 }

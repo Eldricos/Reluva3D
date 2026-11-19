@@ -10,15 +10,16 @@
 
 namespace reluva::unreal {
 
-const char* typeName(PropertyType type) {
-    static const char* const kNames[] = {"None", "Byte",  "Int",    "Bool",  "Float",   "Object", "Name", "String",
-                                         "Class", "Array", "Struct", "Vector", "Rotator", "Str",    "Map",  "FixedArray"};
+const char *typeName(PropertyType type) {
+    static const char *const kNames[] = {"None",    "Byte",   "Int",   "Bool",      "Float",  "Object",
+                                         "Name",    "String", "Class", "Array",     "Struct", "Vector",
+                                         "Rotator", "Str",    "Map",   "FixedArray"};
     return kNames[static_cast<int>(type) & 15];
 }
 
-const Property* PropertyList::find(std::string_view name, int arrayIndex) const {
+const Property *PropertyList::find(std::string_view name, int arrayIndex) const {
     const std::string wanted = fs::toLower(name);
-    for (const Property& p : items)
+    for (const Property &p : items)
         if (p.arrayIndex == arrayIndex && fs::toLower(p.name) == wanted)
             return &p;
     return nullptr;
@@ -26,12 +27,14 @@ const Property* PropertyList::find(std::string_view name, int arrayIndex) const 
 
 namespace {
 
-Reader dataReader(const Property& p) { return Reader(p.data); }
+Reader dataReader(const Property &p) {
+    return Reader(p.data);
+}
 
 } // namespace
 
 int32_t PropertyList::integer(std::string_view name, int32_t fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.size() < 4)
         return fallback;
     Reader r = dataReader(*p);
@@ -39,7 +42,7 @@ int32_t PropertyList::integer(std::string_view name, int32_t fallback, int array
 }
 
 float PropertyList::number(std::string_view name, float fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.size() < 4)
         return fallback;
     Reader r = dataReader(*p);
@@ -47,17 +50,17 @@ float PropertyList::number(std::string_view name, float fallback, int arrayIndex
 }
 
 uint8_t PropertyList::byte(std::string_view name, uint8_t fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     return p && !p->data.empty() ? p->data[0] : fallback;
 }
 
 bool PropertyList::boolean(std::string_view name, bool fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     return p && p->type == PropertyType::Bool ? p->boolValue : fallback;
 }
 
 int32_t PropertyList::object(std::string_view name, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.empty())
         return 0;
     Reader r = dataReader(*p);
@@ -66,7 +69,7 @@ int32_t PropertyList::object(std::string_view name, int arrayIndex) const {
 }
 
 int32_t PropertyList::nameIndex(std::string_view name, int32_t fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.empty())
         return fallback;
     Reader r = dataReader(*p);
@@ -74,18 +77,18 @@ int32_t PropertyList::nameIndex(std::string_view name, int32_t fallback, int arr
     return r.ok() ? v : fallback;
 }
 
-bool PropertyList::vector(std::string_view name, std::array<float, 3>& out, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+bool PropertyList::vector(std::string_view name, std::array<float, 3> &out, int arrayIndex) const {
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.size() < 12)
         return false;
     Reader r = dataReader(*p);
-    for (float& f : out)
+    for (float &f : out)
         f = r.f32();
     return true;
 }
 
-bool PropertyList::rotator(std::string_view name, Rotator& out, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+bool PropertyList::rotator(std::string_view name, Rotator &out, int arrayIndex) const {
+    const Property *p = find(name, arrayIndex);
     if (!p || p->data.size() < 12)
         return false;
     Reader r = dataReader(*p);
@@ -96,7 +99,7 @@ bool PropertyList::rotator(std::string_view name, Rotator& out, int arrayIndex) 
 }
 
 std::string PropertyList::string(std::string_view name, int version, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     if (!p)
         return {};
     if (p->type == PropertyType::String) {
@@ -108,7 +111,7 @@ std::string PropertyList::string(std::string_view name, int version, int arrayIn
     return r.string(version);
 }
 
-Error readProperties(const Package& package, Reader& r, PropertyList& out) {
+Error readProperties(const Package &package, Reader &r, PropertyList &out) {
     out.items.clear();
     // Bounded, so a damaged object can't run away.
     for (int count = 0; count < 100000; ++count) {
@@ -117,7 +120,7 @@ Error readProperties(const Package& package, Reader& r, PropertyList& out) {
             return Error::fail("properties run past the end of the object");
         if (nameIdx < 0 || size_t(nameIdx) >= package.names().size())
             return Error::fail("property name " + std::to_string(nameIdx) + " isn't in the name table");
-        const std::string& name = package.name(nameIdx);
+        const std::string &name = package.name(nameIdx);
         if (fs::toLower(name) == "none")
             return Error::success();
 
@@ -133,14 +136,30 @@ Error readProperties(const Package& package, Reader& r, PropertyList& out) {
         }
         size_t size = 0;
         switch ((info >> 4) & 7) {
-        case 0: size = 1; break;
-        case 1: size = 2; break;
-        case 2: size = 4; break;
-        case 3: size = 12; break;
-        case 4: size = 16; break;
-        case 5: size = r.u8(); break;
-        case 6: size = r.u16(); break;
-        default: size = r.u32(); break;
+        case 0:
+            size = 1;
+            break;
+        case 1:
+            size = 2;
+            break;
+        case 2:
+            size = 4;
+            break;
+        case 3:
+            size = 12;
+            break;
+        case 4:
+            size = 16;
+            break;
+        case 5:
+            size = r.u8();
+            break;
+        case 6:
+            size = r.u16();
+            break;
+        default:
+            size = r.u32();
+            break;
         }
         if (p.type == PropertyType::Bool) {
             p.boolValue = (info & 0x80) != 0;
@@ -153,7 +172,8 @@ Error readProperties(const Package& package, Reader& r, PropertyList& out) {
             else if ((b & 0xc0) == 0x80)
                 p.arrayIndex = (b & 0x7f) << 8 | r.u8();
             else
-                p.arrayIndex = int((uint32_t(b & 0x3f) << 24 | uint32_t(r.u8()) << 16 | uint32_t(r.u8()) << 8 | r.u8()));
+                p.arrayIndex =
+                    int((uint32_t(b & 0x3f) << 24 | uint32_t(r.u8()) << 16 | uint32_t(r.u8()) << 8 | r.u8()));
         }
         if (!r.ok() || size > r.remaining())
             return Error::fail("property " + name + " runs past the end of the object");
@@ -164,10 +184,10 @@ Error readProperties(const Package& package, Reader& r, PropertyList& out) {
     return Error::fail("too many properties");
 }
 
-Error beginObject(const Package& package, int index, Reader& r, PropertyList& out, StateFrame* frame) {
+Error beginObject(const Package &package, int index, Reader &r, PropertyList &out, StateFrame *frame) {
     if (index < 0 || size_t(index) >= package.exports().size())
         return Error::fail("no export " + std::to_string(index));
-    const Export& e = package.exports()[size_t(index)];
+    const Export &e = package.exports()[size_t(index)];
     if (e.classRef == 0)
         return Error::fail(package.name(e.objectName) + " is a class");
     if (e.flags & objflag::HasStack) {
@@ -190,7 +210,7 @@ Error beginObject(const Package& package, int index, Reader& r, PropertyList& ou
     return Error::success();
 }
 
-std::string describe(const Package& package, const Property& p) {
+std::string describe(const Package &package, const Property &p) {
     Reader r(p.data);
     char buf[128];
     switch (p.type) {

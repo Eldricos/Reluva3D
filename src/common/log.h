@@ -21,8 +21,8 @@ int debugLevel();
 
 // A line on the console (stderr): debug() only up to the debug level,
 // warning() always, marked as one.
-void debug(int level, const char* fmt, ...) RELUVA_PRINTF(2, 3);
-void warning(const char* fmt, ...) RELUVA_PRINTF(1, 2);
+void debug(int level, const char *fmt, ...) RELUVA_PRINTF(2, 3);
+void warning(const char *fmt, ...) RELUVA_PRINTF(1, 2);
 
 } // namespace reluva::log
 
@@ -36,10 +36,10 @@ namespace reluva {
 // wherever stderr went before.
 class StderrLog {
 public:
-    explicit StderrLog(const std::filesystem::path& file);
+    explicit StderrLog(const std::filesystem::path &file);
     ~StderrLog();
-    StderrLog(const StderrLog&) = delete;
-    StderrLog& operator=(const StderrLog&) = delete;
+    StderrLog(const StderrLog &) = delete;
+    StderrLog &operator=(const StderrLog &) = delete;
 
 private:
     struct State;

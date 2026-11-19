@@ -20,8 +20,12 @@ namespace reluva::x86 {
 
 namespace {
 
-uint32_t mask(int size) { return size == 4 ? 0xffffffffu : size == 2 ? 0xffffu : 0xffu; }
-uint32_t signBit(int size) { return size == 4 ? 0x80000000u : size == 2 ? 0x8000u : 0x80u; }
+uint32_t mask(int size) {
+    return size == 4 ? 0xffffffffu : size == 2 ? 0xffffu : 0xffu;
+}
+uint32_t signBit(int size) {
+    return size == 4 ? 0x80000000u : size == 2 ? 0x8000u : 0x80u;
+}
 int32_t signExtend(uint32_t v, int size) {
     return size == 4 ? int32_t(v) : size == 2 ? int32_t(int16_t(v)) : int32_t(int8_t(v));
 }
@@ -43,18 +47,18 @@ constexpr uint32_t kReturnSlots = 1;
 
 } // namespace
 
-void* allocatePages(size_t bytes) {
+void *allocatePages(size_t bytes) {
     if (bytes == 0)
         return nullptr;
 #if defined(_WIN32)
     return VirtualAlloc(nullptr, bytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
-    void* p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    void *p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     return p == MAP_FAILED ? nullptr : p;
 #endif
 }
 
-void freePages(void* p, size_t bytes) {
+void freePages(void *p, size_t bytes) {
     if (!p)
         return;
 #if defined(_WIN32)
@@ -70,14 +74,17 @@ void freePages(void* p, size_t bytes) {
 Cpu::Cpu(uint32_t memorySize) : memory_(memorySize), codePages_((size_t(memorySize) >> 12) + 1, 0) {
     span_ = memorySize > kPageSize ? memorySize - kPageSize : 0;
     nativeBase_ = memorySize - kMaxNatives * kNativeStride;
-    std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4, kMaxNatives * kNativeStride + kNativeStride);
+    std::memset(&memory_[nativeBase_ - kNativeStride * kReturnSlots], 0xf4,
+                kMaxNatives * kNativeStride + kNativeStride);
     if (std::getenv("RELUVA_NO_JIT")) // the interpreter's loop alone, to compare
         jitOn = false;
 }
 
 Cpu::~Cpu() = default;
 
-uint16_t Cpu::read16(uint32_t a) const { return valid(a, 2) ? uint16_t(memory_[a] | memory_[a + 1] << 8) : 0; }
+uint16_t Cpu::read16(uint32_t a) const {
+    return valid(a, 2) ? uint16_t(memory_[a] | memory_[a + 1] << 8) : 0;
+}
 uint32_t Cpu::read32(uint32_t a) const {
     if (!valid(a, 4))
         return 0;
@@ -116,8 +123,8 @@ bool Cpu::writeString(uint32_t address, std::string_view text, uint32_t size) {
     return true;
 }
 
-void Cpu::setWritesTracked(const std::string& nativeName) {
-    for (NativeEntry& n : natives_)
+void Cpu::setWritesTracked(const std::string &nativeName) {
+    for (NativeEntry &n : natives_)
         if (n.name == nativeName)
             n.writesTracked = true;
 }
@@ -139,7 +146,7 @@ uint32_t Cpu::addNative(std::string name, Native fn) {
     return nativeBase_ + uint32_t(natives_.size() - 1) * kNativeStride;
 }
 
-const std::string* Cpu::nativeName(uint32_t address) const {
+const std::string *Cpu::nativeName(uint32_t address) const {
     if (address < nativeBase_ || (address - nativeBase_) % kNativeStride)
         return nullptr;
     const uint32_t i = (address - nativeBase_) / kNativeStride;
@@ -150,7 +157,7 @@ void Cpu::memoryFault(uint32_t a, uint32_t size) {
     fault("memory access at " + hex(a) + " (" + std::to_string(size) + " bytes) outside memory");
 }
 
-void Cpu::fault(const std::string& message) {
+void Cpu::fault(const std::string &message) {
     uncountBlock();
     throw Fault{message + " at " + hex(instructionStart_)};
 }
@@ -174,7 +181,7 @@ uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
     uint32_t flags = eflags & ~(CF | OF | AF | ZF | SF | PF);
     const uint32_t carryIn = (eflags & CF) ? 1 : 0;
     switch (op) {
-    case 0: // ADD
+    case 0:   // ADD
     case 2: { // ADC
         const uint64_t wide = uint64_t(a) + b + (op == 2 ? carryIn : 0);
         r = uint32_t(wide) & m;
@@ -186,8 +193,8 @@ uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
             flags |= AF;
         break;
     }
-    case 3: // SBB
-    case 5: // SUB
+    case 3:   // SBB
+    case 5:   // SUB
     case 7: { // CMP
         const uint64_t subtrahend = uint64_t(b) + (op == 3 ? carryIn : 0);
         r = uint32_t(uint64_t(a) - subtrahend) & m;
@@ -199,9 +206,15 @@ uint32_t Cpu::alu(int op, uint32_t a, uint32_t b, int size) {
             flags |= AF;
         break;
     }
-    case 1: r = a | b; break;
-    case 4: r = a & b; break;
-    case 6: r = a ^ b; break;
+    case 1:
+        r = a | b;
+        break;
+    case 4:
+        r = a & b;
+        break;
+    case 6:
+        r = a ^ b;
+        break;
     }
     if (!r)
         flags |= ZF;
@@ -241,7 +254,7 @@ uint32_t Cpu::shift(int op, uint32_t v, uint32_t count, int size) {
             eflags |= OF;
         return r;
     }
-    case 2: // RCL
+    case 2:   // RCL
     case 3: { // RCR
         const uint32_t n = count % uint32_t(bits + 1);
         for (uint32_t i = 0; i < n; ++i) {
@@ -299,14 +312,30 @@ bool Cpu::condition(int cc) const {
     const bool cf = eflags & CF, zf = eflags & ZF, sf = eflags & SF, of = eflags & OF, pf = eflags & PF;
     bool r = false;
     switch (cc >> 1) {
-    case 0: r = of; break;
-    case 1: r = cf; break;
-    case 2: r = zf; break;
-    case 3: r = cf || zf; break;
-    case 4: r = sf; break;
-    case 5: r = pf; break;
-    case 6: r = sf != of; break;
-    case 7: r = zf || sf != of; break;
+    case 0:
+        r = of;
+        break;
+    case 1:
+        r = cf;
+        break;
+    case 2:
+        r = zf;
+        break;
+    case 3:
+        r = cf || zf;
+        break;
+    case 4:
+        r = sf;
+        break;
+    case 5:
+        r = pf;
+        break;
+    case 6:
+        r = sf != of;
+        break;
+    case 7:
+        r = zf || sf != of;
+        break;
     }
     return (cc & 1) ? !r : r;
 }
@@ -321,8 +350,10 @@ void Cpu::group3(int size) {
         setLogicFlags(v & imm, size);
         break;
     }
-    case 2: writeRm(size, ~v & m); break; // NOT
-    case 3: { // NEG
+    case 2:
+        writeRm(size, ~v & m);
+        break; // NOT
+    case 3: {  // NEG
         const uint32_t r = alu(5, 0, v, size);
         if (v & m)
             eflags |= CF;
@@ -331,7 +362,7 @@ void Cpu::group3(int size) {
         writeRm(size, r);
         break;
     }
-    case 4: // MUL
+    case 4:   // MUL
     case 5: { // IMUL
         uint64_t product;
         bool overflow;
@@ -357,7 +388,7 @@ void Cpu::group3(int size) {
             eflags |= CF | OF;
         break;
     }
-    case 6: // DIV
+    case 6:   // DIV
     case 7: { // IDIV
         if (!(v & m))
             fault("division by zero");
@@ -425,8 +456,8 @@ void Cpu::stringOp(uint8_t op) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         const uint32_t src = reg[ESI] + d_.segment, dst = reg[EDI];
         if (bytes <= 0xffffffffu && (uint64_t(dst) + bytes <= src || dst < src)) {
-            uint8_t* to = atWrite(dst, uint32_t(bytes));
-            const uint8_t* from = at(src, uint32_t(bytes));
+            uint8_t *to = atWrite(dst, uint32_t(bytes));
+            const uint8_t *from = at(src, uint32_t(bytes));
             std::memmove(to, from, size_t(bytes));
             reg[ESI] += uint32_t(bytes);
             reg[EDI] += uint32_t(bytes);
@@ -437,7 +468,7 @@ void Cpu::stringOp(uint8_t op) {
     if (repeat && !(eflags & DF) && (op == 0xaa || op == 0xab) && reg[ECX]) {
         const uint64_t bytes = uint64_t(reg[ECX]) * uint32_t(size);
         if (bytes <= 0xffffffffu) {
-            uint8_t* to = atWrite(reg[EDI], uint32_t(bytes));
+            uint8_t *to = atWrite(reg[EDI], uint32_t(bytes));
             const uint32_t v = readReg(size, EAX);
             if (size == 1)
                 std::memset(to, int(v & 0xff), size_t(bytes));
@@ -509,12 +540,14 @@ void Cpu::twoByte() {
         return;
     }
     if (op >= 0xc8) { // BSWAP
-        uint32_t& r = reg[op & 7];
+        uint32_t &r = reg[op & 7];
         r = (r >> 24) | ((r >> 8) & 0xff00) | ((r << 8) & 0xff0000) | (r << 24);
         return;
     }
     switch (op) {
-    case 0x1f: decodeModrm(); return; // NOP r/m
+    case 0x1f:
+        decodeModrm();
+        return;  // NOP r/m
     case 0x31: { // RDTSC
         const uint64_t t = timeStamp ? timeStamp() : executed_;
         reg[EAX] = uint32_t(t);
@@ -535,10 +568,10 @@ void Cpu::twoByte() {
         }
         return;
     }
-    case 0xa3: // BT
-    case 0xab: // BTS
-    case 0xb3: // BTR
-    case 0xbb: // BTC
+    case 0xa3:   // BT
+    case 0xab:   // BTS
+    case 0xb3:   // BTR
+    case 0xbb:   // BTC
     case 0xba: { // BT/BTS/BTR/BTC r/m, imm8
         decodeModrm();
         uint32_t bit;
@@ -568,9 +601,9 @@ void Cpu::twoByte() {
             writeRm(osz, v ^ (1u << bit));
         return;
     }
-    case 0xa4: // SHLD r/m, r, imm8
-    case 0xa5: // SHLD r/m, r, CL
-    case 0xac: // SHRD r/m, r, imm8
+    case 0xa4:   // SHLD r/m, r, imm8
+    case 0xa5:   // SHLD r/m, r, CL
+    case 0xac:   // SHRD r/m, r, imm8
     case 0xad: { // SHRD r/m, r, CL
         decodeModrm();
         const uint32_t count = ((op & 1) ? reg[ECX] : fetch8()) & 31;
@@ -607,7 +640,7 @@ void Cpu::twoByte() {
             eflags |= CF | OF;
         return;
     }
-    case 0xb0: // CMPXCHG r/m8, r8
+    case 0xb0:   // CMPXCHG r/m8, r8
     case 0xb1: { // CMPXCHG r/m, r
         const int size = op == 0xb0 ? 1 : osz;
         decodeModrm();
@@ -619,9 +652,9 @@ void Cpu::twoByte() {
             writeReg(size, EAX, dst);
         return;
     }
-    case 0xb6: // MOVZX r, r/m8
-    case 0xb7: // MOVZX r, r/m16
-    case 0xbe: // MOVSX r, r/m8
+    case 0xb6:   // MOVZX r, r/m8
+    case 0xb7:   // MOVZX r, r/m16
+    case 0xbe:   // MOVSX r, r/m8
     case 0xbf: { // MOVSX r, r/m16
         const int from = (op & 1) ? 2 : 1;
         decodeModrm();
@@ -629,7 +662,7 @@ void Cpu::twoByte() {
         writeReg(osz, d_.regField, op < 0xbe ? v : uint32_t(signExtend(v, from)));
         return;
     }
-    case 0xbc: // BSF
+    case 0xbc:   // BSF
     case 0xbd: { // BSR
         decodeModrm();
         const uint32_t v = readRm(osz) & mask(osz);
@@ -648,7 +681,7 @@ void Cpu::twoByte() {
         writeReg(osz, d_.regField, i);
         return;
     }
-    case 0xc0: // XADD r/m8, r8
+    case 0xc0:   // XADD r/m8, r8
     case 0xc1: { // XADD r/m, r
         const int size = op == 0xc0 ? 1 : osz;
         decodeModrm();
@@ -658,8 +691,10 @@ void Cpu::twoByte() {
         writeRm(size, sum);
         return;
     }
-    case 0x0b: fault("UD2");
-    default: fault("instruction 0f " + std::to_string(op) + " not implemented");
+    case 0x0b:
+        fault("UD2");
+    default:
+        fault("instruction 0f " + std::to_string(op) + " not implemented");
     }
 }
 
@@ -779,7 +814,9 @@ void Cpu::execute() {
     }
 
     switch (op) {
-    case 0x0f: twoByte(); return;
+    case 0x0f:
+        twoByte();
+        return;
     case 0x27: { // DAA
         const uint32_t al = reg[EAX] & 0xff, cf = eflags & CF;
         uint32_t r = al;
@@ -813,8 +850,12 @@ void Cpu::execute() {
                 reg[size_t(r)] = v;
         }
         return;
-    case 0x68: push(fetch32()); return;
-    case 0x6a: push(uint32_t(int32_t(int8_t(fetch8())))); return;
+    case 0x68:
+        push(fetch32());
+        return;
+    case 0x6a:
+        push(uint32_t(int32_t(int8_t(fetch8()))));
+        return;
     case 0x69: // IMUL r, r/m, imm
     case 0x6b: {
         decodeModrm();
@@ -832,8 +873,9 @@ void Cpu::execute() {
     case 0x83: { // ALU r/m, imm
         const int size = (op == 0x81 || op == 0x83) ? osz : 1;
         decodeModrm();
-        const uint32_t imm = op == 0x81 ? (osz == 2 ? fetch16() : fetch32()) : op == 0x83 ? uint32_t(int32_t(int8_t(fetch8())))
-                                                                                         : fetch8();
+        const uint32_t imm = op == 0x81   ? (osz == 2 ? fetch16() : fetch32())
+                             : op == 0x83 ? uint32_t(int32_t(int8_t(fetch8())))
+                                          : fetch8();
         const uint32_t r = alu(d_.regField, readRm(size), imm, size);
         if (d_.regField != 7)
             writeRm(size, r);
@@ -855,10 +897,22 @@ void Cpu::execute() {
         writeReg(size, d_.regField, t);
         return;
     }
-    case 0x88: decodeModrm(); writeRm(1, readReg(1, d_.regField)); return;
-    case 0x89: decodeModrm(); writeRm(osz, readReg(osz, d_.regField)); return;
-    case 0x8a: decodeModrm(); writeReg(1, d_.regField, readRm(1)); return;
-    case 0x8b: decodeModrm(); writeReg(osz, d_.regField, readRm(osz)); return;
+    case 0x88:
+        decodeModrm();
+        writeRm(1, readReg(1, d_.regField));
+        return;
+    case 0x89:
+        decodeModrm();
+        writeRm(osz, readReg(osz, d_.regField));
+        return;
+    case 0x8a:
+        decodeModrm();
+        writeReg(1, d_.regField, readRm(1));
+        return;
+    case 0x8b:
+        decodeModrm();
+        writeReg(osz, d_.regField, readRm(osz));
+        return;
     case 0x8d: // LEA (the offset, without a segment's base)
         decodeModrm();
         if (!d_.memoryOperand)
@@ -871,8 +925,9 @@ void Cpu::execute() {
         writeRm(4, v);
         return;
     }
-    case 0x90: return; // NOP
-    case 0x98: // CWDE / CBW
+    case 0x90:
+        return; // NOP
+    case 0x98:  // CWDE / CBW
         if (osz == 2)
             writeReg(2, EAX, uint32_t(int32_t(int8_t(reg[EAX]))));
         else
@@ -884,18 +939,33 @@ void Cpu::execute() {
         else
             reg[EDX] = (reg[EAX] & 0x80000000u) ? 0xffffffffu : 0;
         return;
-    case 0x9b: return; // FWAIT
-    case 0x9c: push(eflags); return; // PUSHFD
-    case 0x9d: // POPFD: the flags a program may change (ID and AC too, which
-               // tell it the processor has CPUID)
+    case 0x9b:
+        return; // FWAIT
+    case 0x9c:
+        push(eflags);
+        return; // PUSHFD
+    case 0x9d:  // POPFD: the flags a program may change (ID and AC too, which
+                // tell it the processor has CPUID)
         eflags = (pop() & 0x00240fd5u) | 0x2;
         return;
-    case 0x9e: eflags = (eflags & ~0xd5u) | (((reg[EAX] >> 8) & 0xd5u)); return; // SAHF
-    case 0x9f: writeReg(1, 4, (eflags & 0xd5u) | 0x2); return;                  // LAHF
-    case 0xa0: writeReg(1, EAX, load(fetch32() + d_.segment, 1)); return;
-    case 0xa1: writeReg(osz, EAX, load(fetch32() + d_.segment, osz)); return;
-    case 0xa2: store(fetch32() + d_.segment, readReg(1, EAX), 1); return;
-    case 0xa3: store(fetch32() + d_.segment, readReg(osz, EAX), osz); return;
+    case 0x9e:
+        eflags = (eflags & ~0xd5u) | (((reg[EAX] >> 8) & 0xd5u));
+        return; // SAHF
+    case 0x9f:
+        writeReg(1, 4, (eflags & 0xd5u) | 0x2);
+        return; // LAHF
+    case 0xa0:
+        writeReg(1, EAX, load(fetch32() + d_.segment, 1));
+        return;
+    case 0xa1:
+        writeReg(osz, EAX, load(fetch32() + d_.segment, osz));
+        return;
+    case 0xa2:
+        store(fetch32() + d_.segment, readReg(1, EAX), 1);
+        return;
+    case 0xa3:
+        store(fetch32() + d_.segment, readReg(osz, EAX), osz);
+        return;
     case 0xa4:
     case 0xa5:
     case 0xa6:
@@ -905,9 +975,15 @@ void Cpu::execute() {
     case 0xac:
     case 0xad:
     case 0xae:
-    case 0xaf: stringOp(op); return;
-    case 0xa8: setLogicFlags(readReg(1, EAX) & fetch8(), 1); return;
-    case 0xa9: setLogicFlags(readReg(osz, EAX) & (osz == 2 ? fetch16() : fetch32()), osz); return;
+    case 0xaf:
+        stringOp(op);
+        return;
+    case 0xa8:
+        setLogicFlags(readReg(1, EAX) & fetch8(), 1);
+        return;
+    case 0xa9:
+        setLogicFlags(readReg(osz, EAX) & (osz == 2 ? fetch16() : fetch32()), osz);
+        return;
     case 0xc0:
     case 0xc1:
     case 0xd0:
@@ -926,9 +1002,17 @@ void Cpu::execute() {
         reg[ESP] += n;
         return;
     }
-    case 0xc3: eip = pop(); return;
-    case 0xc6: decodeModrm(); writeRm(1, fetch8()); return;
-    case 0xc7: decodeModrm(); writeRm(osz, osz == 2 ? fetch16() : fetch32()); return;
+    case 0xc3:
+        eip = pop();
+        return;
+    case 0xc6:
+        decodeModrm();
+        writeRm(1, fetch8());
+        return;
+    case 0xc7:
+        decodeModrm();
+        writeRm(osz, osz == 2 ? fetch16() : fetch32());
+        return;
     case 0xc8: { // ENTER (nesting level 0)
         const uint32_t size = fetch16(), level = fetch8();
         if (level)
@@ -942,9 +1026,13 @@ void Cpu::execute() {
         reg[ESP] = reg[EBP];
         reg[EBP] = pop();
         return;
-    case 0xcc: fault("breakpoint (INT3)");
-    case 0xcd: fault("software interrupt " + std::to_string(fetch8()));
-    case 0xd7: writeReg(1, EAX, load(reg[EBX] + (reg[EAX] & 0xff) + d_.segment, 1)); return; // XLAT
+    case 0xcc:
+        fault("breakpoint (INT3)");
+    case 0xcd:
+        fault("software interrupt " + std::to_string(fetch8()));
+    case 0xd7:
+        writeReg(1, EAX, load(reg[EBX] + (reg[EAX] & 0xff) + d_.segment, 1));
+        return; // XLAT
     case 0xe0:
     case 0xe1:
     case 0xe2: { // LOOPNE, LOOPE, LOOP
@@ -967,18 +1055,40 @@ void Cpu::execute() {
         eip += rel;
         return;
     }
-    case 0xe9: eip += fetch32(); return;
-    case 0xeb: eip += uint32_t(int32_t(int8_t(fetch8()))); return;
-    case 0xf4: fault("HLT");
-    case 0xf5: eflags ^= CF; return;
-    case 0xf6: decodeModrm(); group3(1); return;
-    case 0xf7: decodeModrm(); group3(osz); return;
-    case 0xf8: eflags &= ~CF; return;
-    case 0xf9: eflags |= CF; return;
+    case 0xe9:
+        eip += fetch32();
+        return;
+    case 0xeb:
+        eip += uint32_t(int32_t(int8_t(fetch8())));
+        return;
+    case 0xf4:
+        fault("HLT");
+    case 0xf5:
+        eflags ^= CF;
+        return;
+    case 0xf6:
+        decodeModrm();
+        group3(1);
+        return;
+    case 0xf7:
+        decodeModrm();
+        group3(osz);
+        return;
+    case 0xf8:
+        eflags &= ~CF;
+        return;
+    case 0xf9:
+        eflags |= CF;
+        return;
     case 0xfa:
-    case 0xfb: return; // CLI, STI: nothing to do
-    case 0xfc: eflags &= ~DF; return;
-    case 0xfd: eflags |= DF; return;
+    case 0xfb:
+        return; // CLI, STI: nothing to do
+    case 0xfc:
+        eflags &= ~DF;
+        return;
+    case 0xfd:
+        eflags |= DF;
+        return;
     case 0xfe: { // INC/DEC r/m8
         decodeModrm();
         if (d_.regField > 1)
@@ -1004,9 +1114,14 @@ void Cpu::execute() {
             eip = target;
             return;
         }
-        case 4: eip = readRm(4); return; // JMP r/m
-        case 6: push(readRm(4)); return; // PUSH r/m
-        default: fault("far call or jump not implemented");
+        case 4:
+            eip = readRm(4);
+            return; // JMP r/m
+        case 6:
+            push(readRm(4));
+            return; // PUSH r/m
+        default:
+            fault("far call or jump not implemented");
         }
     }
     default: {
@@ -1050,7 +1165,7 @@ void Cpu::runUntil(uint32_t returnAddress) {
     }
 }
 
-Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& result) {
+Error Cpu::call(uint32_t address, const std::vector<uint32_t> &args, uint32_t &result) {
     const uint32_t returnAddress = nativeBase_ - kNativeStride; // a HLT that's never run
     const uint32_t savedEsp = reg[ESP], savedEip = eip;
     if (depth_ == 0) {
@@ -1068,7 +1183,7 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
             yield_ = false;
             throw Yield{};
         }
-    } catch (Fault& f) {
+    } catch (Fault &f) {
         if (faultEip == 0 || depth_ == 1) {
             faultReg = reg;
             faultEip = instructionStart_;
@@ -1087,9 +1202,11 @@ Error Cpu::call(uint32_t address, const std::vector<uint32_t>& args, uint32_t& r
     return Error::success();
 }
 
-Cpu::Context Cpu::context() const { return {reg, eip, eflags, fsBase, fpu}; }
+Cpu::Context Cpu::context() const {
+    return {reg, eip, eflags, fsBase, fpu};
+}
 
-void Cpu::setContext(const Context& c) {
+void Cpu::setContext(const Context &c) {
     reg = c.reg;
     eip = c.eip;
     eflags = c.eflags;
@@ -1111,10 +1228,10 @@ Error Cpu::resume() {
             --depth_;
             return Error::success();
         }
-    } catch (Yield&) {
+    } catch (Yield &) {
         --depth_;
         return Error::success();
-    } catch (Fault& f) {
+    } catch (Fault &f) {
         if (faultEip == 0 || depth_ == 1) {
             faultReg = reg;
             faultEip = instructionStart_;

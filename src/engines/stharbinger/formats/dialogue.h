@@ -16,9 +16,9 @@ const int kNumDialogues = 72;
 // The dialogue names in CCB.ALL order (DEEP.EXE table at 0x5DDB0). Scenes name
 // their dialogues in their CD lists; the speech of dialogue NAME is in
 // DIALOGUE/NAME/NAME.ALL.
-const char* getDialogueName(int index);
+const char *getDialogueName(int index);
 // Index of a dialogue name (ignoring case), or -1.
-int findDialogue(const std::string& name);
+int findDialogue(const std::string &name);
 
 // A dialogue script (CCB.ALL entry):
 //   directive list A, directive list B,
@@ -72,12 +72,12 @@ struct Phonemes {
     uint32_t getNodeMillis(size_t i) const;
 };
 
-bool readPhonemes(const uint8_t* data, uint32_t size, Phonemes& out);
+bool readPhonemes(const uint8_t *data, uint32_t size, Phonemes &out);
 
 // Parses a CCB.ALL entry. On failure `error` says why.
-bool readDialogue(const uint8_t* data, uint32_t size, Dialogue& out, std::string* error = nullptr);
+bool readDialogue(const uint8_t *data, uint32_t size, Dialogue &out, std::string *error = nullptr);
 
 // Splits CCQ/CCR entries (NUL-separated) and CCF entries (CRLF-separated).
-std::vector<std::string> splitStrings(const uint8_t* data, uint32_t size, char separator);
+std::vector<std::string> splitStrings(const uint8_t *data, uint32_t size, char separator);
 
 } // namespace reluva::stharbinger

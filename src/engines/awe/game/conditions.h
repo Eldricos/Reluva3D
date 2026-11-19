@@ -56,9 +56,9 @@ struct TalkProgress {
 };
 
 struct GameState {
-    std::string act;                 // "06a"; empty before the first
+    std::string act;                   // "06a"; empty before the first
     std::map<std::string, int> values; // moving, weather, master...
-    std::map<std::string, int> tags; // story tags: numbers set by scripts ("tag name 1")
+    std::map<std::string, int> tags;   // story tags: numbers set by scripts ("tag name 1")
     // The inventory (0x49881c, its list at +0x38): every item Poirot has,
     // whatever its state, in the order taken; "take" adds one each time,
     // so there can be two of a name (the five water glasses). Its state
@@ -91,12 +91,12 @@ struct GameState {
     std::map<std::string, TalkProgress> talks;
     // "talk <name> <act> <part>": whether every line of the part not
     // marked Optional was said (the dialogue's own test, 0x439e40).
-    std::function<bool(const std::string& name, const std::string& act, int part)> partTold;
+    std::function<bool(const std::string &name, const std::string &act, int part)> partTold;
     // "action <word>": what the save or load screen allows (up, down...).
-    std::function<bool(const std::string& word)> action;
+    std::function<bool(const std::string &word)> action;
     // "cantalk <name> <code> [options]": whether that "talk" would start
     // (the dialogue's dry run, 0x407f24).
-    std::function<bool(const std::vector<std::string>& words)> canTalk;
+    std::function<bool(const std::vector<std::string> &words)> canTalk;
     std::string location; // the location's folder ("calais.hall"), for "location"
     // Each clause tested and whether it held, for a tool that follows what
     // the game looks at (reluva-tool awe game-run -solve).
@@ -104,12 +104,12 @@ struct GameState {
 
     // The first item of that name in one of `states` (any if empty), as
     // the game looks them up (0x41b9b0, 0x41ba20, 0x41c160); null if none.
-    Item* findItem(const std::string& name, std::initializer_list<int> states = {});
-    const Item* findItem(const std::string& name, std::initializer_list<int> states = {}) const;
+    Item *findItem(const std::string &name, std::initializer_list<int> states = {});
+    const Item *findItem(const std::string &name, std::initializer_list<int> states = {}) const;
     // The first one's state: 0 if there's none ("has <x>").
-    int itemState(const std::string& item) const;
+    int itemState(const std::string &item) const;
     // Whether one is in the bag or just taken (1, 2): "has <x> available".
-    bool itemAvailable(const std::string& item) const;
+    bool itemAvailable(const std::string &item) const;
     // The lowest slot no item in the bag, just taken or in hand has
     // (0x41bfb0).
     int freeSlot() const;
@@ -120,6 +120,6 @@ std::string talkKey(std::string_view name, std::string_view act, int part, int t
 // Whether `condition` holds. An empty one does, and "1"; "0" never does.
 // "tag name" holds if the tag exists (whatever its value); with a number,
 // by its value (0x408557).
-bool testCondition(std::string_view condition, const GameState& state);
+bool testCondition(std::string_view condition, const GameState &state);
 
 } // namespace reluva::awe

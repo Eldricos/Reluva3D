@@ -12,14 +12,16 @@ namespace reluva::newworlds {
 
 namespace {
 
-constexpr size_t kHeaderSize = 12;       // root chunk header + table chunk header
+constexpr size_t kHeaderSize = 12; // root chunk header + table chunk header
 constexpr size_t kFileEntrySize = 334;
 constexpr size_t kContainerEntrySize = 264;
 constexpr size_t kPathLen = 260;
 constexpr size_t kModifiedOffset = 8 + 0x11e;
 
-uint16_t rd16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
-uint32_t rd32(const uint8_t* p) {
+uint16_t rd16(const uint8_t *p) {
+    return uint16_t(p[0] | p[1] << 8);
+}
+uint32_t rd32(const uint8_t *p) {
     return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
 }
 
@@ -47,7 +49,7 @@ std::string CatArchive::normalizeName(std::string_view originalPath) {
     return s;
 }
 
-Error CatArchive::open(const std::filesystem::path& path) {
+Error CatArchive::open(const std::filesystem::path &path) {
     path_ = path;
     entries_.clear();
     byName_.clear();
@@ -64,7 +66,7 @@ Error CatArchive::open(const std::filesystem::path& path) {
         return Error::fail(where + "too small to be an archive");
 
     uint8_t header[kHeaderSize];
-    file_.read(reinterpret_cast<char*>(header), kHeaderSize);
+    file_.read(reinterpret_cast<char *>(header), kHeaderSize);
     if (!file_ || rd16(header) != cattag::Root || rd32(header + 2) + 6ULL != fileSize ||
         rd16(header + 6) != cattag::Table)
         return Error::fail(where + "not a New Worlds archive");
@@ -73,7 +75,7 @@ Error CatArchive::open(const std::filesystem::path& path) {
     if (kHeaderSize + uint64_t(tableSize) > fileSize || tableSize < 4)
         return Error::fail(where + "table size out of range");
     std::vector<uint8_t> table(tableSize);
-    file_.read(reinterpret_cast<char*>(table.data()), tableSize);
+    file_.read(reinterpret_cast<char *>(table.data()), tableSize);
     if (!file_)
         return Error::fail(where + "cannot read table");
 
@@ -85,7 +87,7 @@ Error CatArchive::open(const std::filesystem::path& path) {
     for (uint32_t i = 0; i < count; ++i) {
         if (pos + 8 > tableSize)
             return Error::fail(where + "table ends inside entry " + std::to_string(i));
-        const uint8_t* e = table.data() + pos;
+        const uint8_t *e = table.data() + pos;
         // Offsets are relative to the file without the table's contents.
         const uint64_t chunk = uint64_t(rd32(e)) + tableSize;
         if (chunk != expectedChunk)
@@ -94,7 +96,7 @@ Error CatArchive::open(const std::filesystem::path& path) {
 
         uint8_t chunkHeader[6];
         file_.seekg(std::streamoff(chunk));
-        file_.read(reinterpret_cast<char*>(chunkHeader), 6);
+        file_.read(reinterpret_cast<char *>(chunkHeader), 6);
         if (!file_)
             return Error::fail(where + "cannot read chunk of entry " + std::to_string(i));
 
@@ -117,7 +119,7 @@ Error CatArchive::open(const std::filesystem::path& path) {
             open.push_back({int(entries_.size()), entry.offset + entry.size});
             expectedChunk = entry.offset;
         } else {
-            const char* name = reinterpret_cast<const char*>(e + 8);
+            const char *name = reinterpret_cast<const char *>(e + 8);
             entry.originalPath.assign(name, strnlen(name, kPathLen));
             entry.name = normalizeName(entry.originalPath);
             entry.modified = rd32(e + kModifiedOffset);
@@ -134,18 +136,18 @@ Error CatArchive::open(const std::filesystem::path& path) {
     return Error::success();
 }
 
-const CatEntry* CatArchive::find(std::string_view name) const {
+const CatEntry *CatArchive::find(std::string_view name) const {
     std::string key = fs::toLower(name);
     std::replace(key.begin(), key.end(), '\\', '/');
     auto it = byName_.find(key);
     return it == byName_.end() ? nullptr : &entries_[it->second];
 }
 
-Error CatArchive::read(const CatEntry& entry, std::vector<uint8_t>& out) {
+Error CatArchive::read(const CatEntry &entry, std::vector<uint8_t> &out) {
     out.resize(entry.size);
     file_.clear();
     file_.seekg(std::streamoff(entry.offset));
-    file_.read(reinterpret_cast<char*>(out.data()), std::streamsize(entry.size));
+    file_.read(reinterpret_cast<char *>(out.data()), std::streamsize(entry.size));
     if (!file_)
         return Error::fail("Cannot read " + entry.name + " from " + path_.filename().string());
     return Error::success();

@@ -22,8 +22,8 @@ struct TexturedModel {
 
 // Reads a model by its full name ("geo/fed/fch.geo") from the first archive
 // holding it. False if none does or it doesn't decode.
-bool loadTexturedModel(const Archives& archives, const std::vector<TextureFile>& textureFiles, const std::string& name,
-                       TexturedModel& out);
+bool loadTexturedModel(const Archives &archives, const std::vector<TextureFile> &textureFiles, const std::string &name,
+                       TexturedModel &out);
 
 // How a model view is lit: its light's colour, and how opaque the model
 // is (below 1, see-through, faces blended in drawing order).
@@ -41,7 +41,7 @@ ModelViewStyle briefingModelStyle(char side);
 // Draws a model over what's in the target, framed by its size, turned by
 // yaw (radians) and seen from pitch above, lit from above: as the
 // briefings' model views show one. False if it has no vertices.
-bool drawModelView(Surface& target, Rasterizer& raster, const TexturedModel& m, float yaw, float pitch = 0.35f,
-                   const ModelViewStyle& style = {});
+bool drawModelView(Surface &target, Rasterizer &raster, const TexturedModel &m, float yaw, float pitch = 0.35f,
+                   const ModelViewStyle &style = {});
 
 } // namespace reluva::newworlds

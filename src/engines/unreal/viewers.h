@@ -69,12 +69,12 @@
 namespace reluva::unreal {
 
 struct ViewerContext {
-    System& sys;
-    Surface& screen; // RGBA32
-    const PackageSet& packages;
-    const GameInfo& game;
-    const std::vector<std::string>& warnings;
-    audio::Mixer* mixer = nullptr; // none if the system has no audio
+    System &sys;
+    Surface &screen; // RGBA32
+    const PackageSet &packages;
+    const GameInfo &game;
+    const std::vector<std::string> &warnings;
+    audio::Mixer *mixer = nullptr; // none if the system has no audio
     // How imported-model meshes are turned, on both 3D pages (M changes it).
     MeshTurn meshTurn = MeshTurn::Reverse;
     int meshYawQuarters = kImportYawQuarters; // and about Z (Y changes it)
@@ -85,7 +85,7 @@ struct ViewerContext {
     std::filesystem::path gameFolder{};
     // The Fallen's shared animation sets, read the first time a page needs them.
     std::shared_ptr<const std::vector<AnimationSet>> animationSets{};
-    const std::vector<AnimationSet>& sets() {
+    const std::vector<AnimationSet> &sets() {
         if (!animationSets)
             animationSets = sharedAnimationSets(packages);
         return *animationSets;
@@ -94,14 +94,14 @@ struct ViewerContext {
 
 class Page {
 public:
-    explicit Page(ViewerContext& ctx) : ctx_(ctx) {}
+    explicit Page(ViewerContext &ctx) : ctx_(ctx) {}
     virtual ~Page() = default;
 
-    virtual const char* name() const = 0;
+    virtual const char *name() const = 0;
     virtual size_t count() const = 0; // pages with nothing to show are skipped
     virtual void activate() = 0;      // redraw and retitle after switching here
     virtual void deactivate() {}
-    virtual void handleEvent(const Event& ev) = 0;
+    virtual void handleEvent(const Event &ev) = 0;
     virtual void update(uint64_t /*nowMs*/) {}
     virtual bool uses3D() const { return false; }
     // A key the page takes before the viewer's own use of it (Escape
@@ -111,19 +111,19 @@ public:
 protected:
     void clear(uint8_t r, uint8_t g, uint8_t b);
     void fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b);
-    void text(int x, int y, const std::string& s, Color c = {230, 230, 230});
-    void setTitle(const std::string& detail);
+    void text(int x, int y, const std::string &s, Color c = {230, 230, 230});
+    void setTitle(const std::string &detail);
 
-    ViewerContext& ctx_;
+    ViewerContext &ctx_;
 };
 
 class PackageViewer : public Page {
 public:
-    explicit PackageViewer(ViewerContext& ctx);
-    const char* name() const override { return "Packages"; }
+    explicit PackageViewer(ViewerContext &ctx);
+    const char *name() const override { return "Packages"; }
     size_t count() const override { return names_.size(); }
     void activate() override { draw(); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void draw();
@@ -138,13 +138,13 @@ private:
 class ObjectBrowser {
 public:
     // Over the named packages, in order.
-    ObjectBrowser(const PackageSet& packages, std::vector<std::string> names, bool (*wanted)(std::string_view));
+    ObjectBrowser(const PackageSet &packages, std::vector<std::string> names, bool (*wanted)(std::string_view));
     size_t packageCount() const { return names_.size(); }
     // Moves within the package (by objects) or between packages (skipping
     // those with none); false if there's nothing.
     bool step(int objects);
     bool stepPackage(int packages);
-    const Package* package() const;
+    const Package *package() const;
     int exportIndex() const;
     // "3/40 in Package (2/12)".
     std::string where() const;
@@ -152,7 +152,7 @@ public:
 private:
     bool load(int package);
 
-    const PackageSet& packages_;
+    const PackageSet &packages_;
     bool (*wanted_)(std::string_view);
     std::vector<std::string> names_;
     int package_ = -1;
@@ -162,11 +162,11 @@ private:
 
 class TextureViewer : public Page {
 public:
-    explicit TextureViewer(ViewerContext& ctx);
-    const char* name() const override { return "Textures"; }
+    explicit TextureViewer(ViewerContext &ctx);
+    const char *name() const override { return "Textures"; }
     size_t count() const override { return browser_.packageCount(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
 
 private:
@@ -184,13 +184,13 @@ private:
 
 class SoundViewer : public Page {
 public:
-    explicit SoundViewer(ViewerContext& ctx);
+    explicit SoundViewer(ViewerContext &ctx);
     ~SoundViewer() override;
-    const char* name() const override { return "Sounds"; }
+    const char *name() const override { return "Sounds"; }
     size_t count() const override { return browser_.packageCount(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void draw();
@@ -203,19 +203,19 @@ private:
 
 class MovieViewer : public Page {
 public:
-    explicit MovieViewer(ViewerContext& ctx);
+    explicit MovieViewer(ViewerContext &ctx);
     ~MovieViewer() override;
-    const char* name() const override { return "Movies"; }
+    const char *name() const override { return "Movies"; }
     size_t count() const override { return files_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool ownsKey(uint32_t key) const override { return key == key::Escape && playing(); }
 
     // Plays the movie whose file is named `name` (any case); false if
     // there's none.
-    bool play(const std::string& name);
+    bool play(const std::string &name);
     bool playing() const { return decoder_ != nullptr; }
 
 private:
@@ -229,20 +229,20 @@ private:
     std::string status_;
     video::Avi movie_;
     std::unique_ptr<video::CinepakDecoder> decoder_;
-    int shown_ = -1;          // the last frame decoded
-    uint64_t startMs_ = 0;    // when it started, by the clock (0: not yet)
+    int shown_ = -1;       // the last frame decoded
+    uint64_t startMs_ = 0; // when it started, by the clock (0: not yet)
     audio::SoundHandle sound_ = audio::kNoSound;
 };
 
 class MeshViewer : public Page {
 public:
-    explicit MeshViewer(ViewerContext& ctx);
+    explicit MeshViewer(ViewerContext &ctx);
     ~MeshViewer() override;
-    const char* name() const override { return "Meshes"; }
+    const char *name() const override { return "Meshes"; }
     size_t count() const override { return browser_.packageCount(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
 
@@ -253,7 +253,7 @@ private:
 
     ObjectBrowser browser_;
     bool started_ = false;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     Mesh mesh_;
     GpuMesh gpu_;
     std::vector<gfx::TextureId> textures_;
@@ -281,40 +281,42 @@ private:
 // was last updated).
 class TextureUseRecorder : public gfx::Renderer3D {
 public:
-    explicit TextureUseRecorder(gfx::Renderer3D& to) : to_(to) {}
-    std::unordered_set<gfx::TextureId>& used() { return used_; }
+    explicit TextureUseRecorder(gfx::Renderer3D &to) : to_(to) {}
+    std::unordered_set<gfx::TextureId> &used() { return used_; }
 
-    Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
-                        gfx::TextureId& out) override {
+    Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
+                        gfx::TextureId &out) override {
         return to_.createTexture(width, height, rgba, params, out);
     }
     void destroyTexture(gfx::TextureId id) override { to_.destroyTexture(id); }
-    Error updateTextures(const std::vector<gfx::TextureRegion>& regions) override { return to_.updateTextures(regions); }
-    Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
-                     gfx::MeshId& out) override {
+    Error updateTextures(const std::vector<gfx::TextureRegion> &regions) override {
+        return to_.updateTextures(regions);
+    }
+    Error createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
+                     gfx::MeshId &out) override {
         return to_.createMesh(vertices, indices, out);
     }
-    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override {
+    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t> &indices, gfx::MeshId &out) override {
         return to_.createIndexedMesh(vertices, indices, out);
     }
-    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override {
+    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) override {
         return to_.setMeshIndices(id, indices);
     }
     void destroyMesh(gfx::MeshId id) override { to_.destroyMesh(id); }
     int width() const override { return to_.width(); }
     int height() const override { return to_.height(); }
     std::string deviceName() const override { return to_.deviceName(); }
-    void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override {
+    void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) override {
         to_.beginFrame(viewProj, eye, clear);
     }
-    void draw(const gfx::DrawCall& call) override {
+    void draw(const gfx::DrawCall &call) override {
         if (call.texture)
             used_.insert(call.texture);
         to_.draw(call);
     }
-    void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override { to_.setView(viewProj, eye); }
-    void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override { to_.setDynamicLights(lights); }
-    void setVolumeLights(const std::vector<gfx::DynamicLight>& lights) override { to_.setVolumeLights(lights); }
+    void setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) override { to_.setView(viewProj, eye); }
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override { to_.setDynamicLights(lights); }
+    void setVolumeLights(const std::vector<gfx::DynamicLight> &lights) override { to_.setVolumeLights(lights); }
     void setViewport(int x, int y, int w, int h) override { to_.setViewport(x, y, w, h); }
     void setDepthRange(float maxDepth) override { to_.setDepthRange(maxDepth); }
     void clearDepth() override { to_.clearDepth(); }
@@ -323,66 +325,66 @@ public:
     void setStencilMode(StencilMode mode, uint8_t level = 1) override { to_.setStencilMode(mode, level); }
     void setMirrored(bool mirrored) override { to_.setMirrored(mirrored); }
     void setGamma(float gamma) override { to_.setGamma(gamma); }
-    void endFrame(const Surface* overlay) override { to_.endFrame(overlay); }
+    void endFrame(const Surface *overlay) override { to_.endFrame(overlay); }
 
 private:
-    gfx::Renderer3D& to_;
+    gfx::Renderer3D &to_;
     std::unordered_set<gfx::TextureId> used_;
 };
 
 class MapViewer : public Page {
 public:
-    explicit MapViewer(ViewerContext& ctx);
+    explicit MapViewer(ViewerContext &ctx);
     ~MapViewer() override;
-    const char* name() const override { return "Maps"; }
+    const char *name() const override { return "Maps"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
     // Shows the map of that name (once active); false if there's none.
-    bool selectMap(const std::string& name);
+    bool selectMap(const std::string &name);
     bool playing() const { return play_ != nullptr; }
     // What the level being played has playing (LevelAudio::describe).
     std::vector<std::string> sounds() const { return audio_ ? audio_->describe() : std::vector<std::string>{}; }
     // The level being played saved now, as the game's SaveGame command does.
-    Error saveGame(const std::string& name);
+    Error saveGame(const std::string &name);
     // The game's ClientTravel ("CM01a_SW/CM01_A_Sisko01?options"): that
     // map loaded and played from the start the portal tags.
     // `items`: as ClientTravel's bItems (else as the level last asked).
-    void travel(const std::string& url, bool items = false);
+    void travel(const std::string &url, bool items = false);
     // Playing with the game's own view, Escape is the game's (its menu).
     bool ownsKey(uint32_t k) const override { return play_ && !freeCam_ && k == key::Escape; }
     // Playing: the camera let loose, in front of the live actor of that
     // name looking at it; false if there's none.
-    bool watchActor(const std::string& name);
-    float liveLightLevel(const LightSource& l, bool whole = true);
+    bool watchActor(const std::string &name);
+    float liveLightLevel(const LightSource &l, bool whole = true);
     // The player put by an actor (`offset` from it, facing `yaw` degrees),
     // falling; and where it is, its state and physics (ue-play's tests).
-    bool teleportPlayer(const std::string& name, const Vec3f& offset, float yaw);
+    bool teleportPlayer(const std::string &name, const Vec3f &offset, float yaw);
     // The fly camera put at a place in Unreal's axes, facing yaw and pitch
     // degrees (when not playing); and the live actors whose class has
     // `classPart` in its name, with where they are (ue-play's tests: views
     // to match against a recording).
-    void placeCamera(const Vec3f& at, float yaw, float pitch);
-    std::vector<std::pair<std::string, Vec3f>> actorPlaces(const std::string& classPart);
+    void placeCamera(const Vec3f &at, float yaw, float pitch);
+    std::vector<std::pair<std::string, Vec3f>> actorPlaces(const std::string &classPart);
     std::string describePlayer();
     // The level's seconds played (0 if not playing).
     float playTime() const;
     // A console command as the player types it (its ConsoleCommand), and
     // what it answers; ue-play's tests.
-    std::string consoleCommand(const std::string& command);
+    std::string consoleCommand(const std::string &command);
     // A live actor's event or function with no arguments run ("player":
     // the player's pawn); ue-play's tests (BeginEvent: the use key).
-    bool callFunction(const std::string& actor, const std::string& function);
+    bool callFunction(const std::string &actor, const std::string &function);
     // A live actor of that name: where it is, its state, physics and
     // collision, whether it's hidden ("no such actor" if there's none).
-    std::string describeActor(const std::string& name);
+    std::string describeActor(const std::string &name);
     // The game's camera now: where, its pitch, yaw and roll (degrees) and field of view.
     std::string describeView();
     // A live actor's property as text ("no such actor/property" else).
-    std::string actorProperty(const std::string& name, const std::string& property);
+    std::string actorProperty(const std::string &name, const std::string &property);
     // The dialogue lines said so far, a key and its text each.
     std::vector<std::string> linesSaid();
 
@@ -397,27 +399,27 @@ private:
         gfx::TextureId texture = 0;
         gfx::TextureId lightmap = 0; // 0: none (unlit, blended, or the level has no lighting)
         uint32_t polyFlags = 0;
-        ObjectRef textureRef{}; // the level's: the texture it's drawn with, for the scripts' swaps
+        ObjectRef textureRef{};        // the level's: the texture it's drawn with, for the scripts' swaps
         uint64_t zones = ~uint64_t(0); // the zones it's seen from (zones.h): drawn when one of them is seen
-        int tint = -1; // a translucent lit batch's: its entry in tints_
-        gfx::Vec3 mirrorNormal{}; // a mirror's plane: normal . x = mirrorD (the renderer's axes)
+        int tint = -1;                 // a translucent lit batch's: its entry in tints_
+        gfx::Vec3 mirrorNormal{};      // a mirror's plane: normal . x = mirrorD (the renderer's axes)
         float mirrorD = 0;
     };
-    void drawMirrors(const gfx::Mat4& proj, const gfx::Mat4& view, const gfx::Mat4& viewProj, const gfx::Vec3& eye,
-                     const gfx::Vec3& forward, const gfx::Vec3& right, int level, const Batch* through);
-    void drawWorld(const gfx::Vec3& forward, const gfx::Vec3& right, const gfx::Vec3& eye);
-    int mirrorLevel_ = 0;                 // how many reflections deep the view drawn is
-    const Batch* mirrorThrough_ = nullptr; // the mirror it's seen through
+    void drawMirrors(const gfx::Mat4 &proj, const gfx::Mat4 &view, const gfx::Mat4 &viewProj, const gfx::Vec3 &eye,
+                     const gfx::Vec3 &forward, const gfx::Vec3 &right, int level, const Batch *through);
+    void drawWorld(const gfx::Vec3 &forward, const gfx::Vec3 &right, const gfx::Vec3 &eye);
+    int mirrorLevel_ = 0;                  // how many reflections deep the view drawn is
+    const Batch *mirrorThrough_ = nullptr; // the mirror it's seen through
     // A translucent surface the level's lights light (The Fallen's logos,
     // flagged translucent and special-lit): drawn in one pass, so its
     // light is a tint, the average over points of it (each polygon's
     // corners and middle) of its lightmaps' light and the dynamic lights'
     // (a TriggerLight, not static, lights as those do), as they change.
     struct TintSample {
-        int anim = -1;       // in animatedLightmaps_, or -1: a lightmap that doesn't change
-        size_t texel = 0;    // in it
-        Vec3f light{};       // the light there, if it doesn't change
-        Vec3f at{};          // where, for the lights that move and change (dynamic_)
+        int anim = -1;    // in animatedLightmaps_, or -1: a lightmap that doesn't change
+        size_t texel = 0; // in it
+        Vec3f light{};    // the light there, if it doesn't change
+        Vec3f at{};       // where, for the lights that move and change (dynamic_)
     };
     std::vector<std::vector<TintSample>> tints_;
     Vec3f tintOf(int tint) const;
@@ -433,7 +435,7 @@ private:
     // swaps), made again when they change.
     std::vector<Batch> swappedBatches_;
     int swappedSerial_ = -1;
-    const std::vector<Batch>& levelBatches();
+    const std::vector<Batch> &levelBatches();
     void drawSurfaceSwaps();
 
     // A mover: its polygons (in its brush's own coordinates, in
@@ -449,16 +451,16 @@ private:
     // A mover's light: the lights reaching its brush, worked out on its
     // vertices as surfaces are lit (no lightmap of its own); `reaching`,
     // how many reach it (the renderer takes six).
-    MeshLight moverLightAt(const Vec3f& at, float reach, size_t* reaching = nullptr) const;
+    MeshLight moverLightAt(const Vec3f &at, float reach, size_t *reaching = nullptr) const;
     // A dynamic light mover's: the lights permeating its leaf (the level
     // model's leaf lists), as Render.dll lights such a mover's surfaces.
-    MeshLight dynamicMoverLight(const Vec3f& at, float reach) const;
+    MeshLight dynamicMoverLight(const Vec3f &at, float reach) const;
     std::vector<int32_t> leafLights_; // each leaf's first entry in Model::lights (-1 none)
-    gfx::Mat4 moverTransform(const MoverDraw& m) const;
-    static gfx::Mat4 moverPlacement(const Mover& m, const Vec3f& location, const Rotator& rotation);
+    gfx::Mat4 moverTransform(const MoverDraw &m) const;
+    static gfx::Mat4 moverPlacement(const Mover &m, const Vec3f &location, const Rotator &rotation);
     // The lights that move and change while playing (lit actors not among
     // the level's own lights), each frame; given to the renderer too.
-    void gatherDynamicLights(const gfx::Vec3& eye);
+    void gatherDynamicLights(const gfx::Vec3 &eye);
     std::vector<LightSource> dynamic_;
     // Each lit actor's lights as they fade (Render.dll keeps them in its
     // cache from frame to frame): by the light's actor, the moving ones
@@ -467,27 +469,27 @@ private:
         std::map<uint64_t, float> lights;
         float time = -1;
     };
-    mutable std::unordered_map<const void*, ActorFade> actorFades_;
-    mutable std::unordered_map<int32_t, const LightSource*> uniqueByRef_; // lights_.unique by their actor
-    std::set<int32_t> staticLightRefs_; // the level's own lights (in its lightmaps)
+    mutable std::unordered_map<const void *, ActorFade> actorFades_;
+    mutable std::unordered_map<int32_t, const LightSource *> uniqueByRef_; // lights_.unique by their actor
+    std::set<int32_t> staticLightRefs_;                                    // the level's own lights (in its lightmaps)
     std::vector<ScriptLevel::LitActor> litScratch_;
     // A light's share of its brightness now (its level, if it changes).
-    float levelOf(const LightSource& l) const {
+    float levelOf(const LightSource &l) const {
         return l.animated >= 0 && size_t(l.animated) < lightLevels_.size() ? lightLevels_[size_t(l.animated)] : 1;
     }
     // over: on top of the same polygons drawn already; moverLight: lit
     // as a whole by it (a mover, where it is now), not by its vertices.
-    void drawBatches(const std::vector<Batch>& batches, gfx::MeshId mesh, const gfx::Mat4& model, bool levelLit,
-                     bool over = false, const MeshLight* moverLight = nullptr);
+    void drawBatches(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, bool levelLit,
+                     bool over = false, const MeshLight *moverLight = nullptr);
 
     std::vector<std::string> names_;
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr; // valid while this page is shown
+    gfx::Renderer3D *renderer_ = nullptr; // valid while this page is shown
     gfx::MeshId mesh_ = 0;
     std::vector<Batch> batches_;
     gfx::MeshId moverMesh_ = 0;
     std::vector<MoverDraw> movers_;
-    std::optional<Vec3f> sky_; // the sky zone's viewpoint, Unreal's coordinates (the first)
+    std::optional<Vec3f> sky_;                    // the sky zone's viewpoint, Unreal's coordinates (the first)
     std::vector<std::optional<Vec3f>> zoneSkies_; // each zone's own (ZoneInfo.LinkToSkybox)
     bool showSky_ = true;
     // The zones seen through the portals from where the view is drawn
@@ -495,7 +497,8 @@ private:
     ZoneVisibility zones_;
     uint64_t zonesSeen_ = ~uint64_t(0);
     bool zoneCulling_ = true;
-    void seeZonesFrom(const gfx::Vec3& eye, const gfx::Mat4& viewProj, bool mainView);
+    void seeZonesFrom(const gfx::Vec3 &eye, const gfx::Mat4 &viewProj, bool mainView);
+
 public:
     // The last frame's times (ms): the level's ticks (its scripts, physics,
     // animation, posing for the scripts) and the renderer's endFrame
@@ -504,14 +507,14 @@ public:
     struct FrameTimes {
         double play = 0, endFrame = 0;
     };
-    const FrameTimes& frameTimes() const { return frameTimes_; }
+    const FrameTimes &frameTimes() const { return frameTimes_; }
 
 private:
     FrameTimes frameTimes_;
     // What goes with the player into the next level started (travel).
     std::string pendingTravel_;
     float pendingPlayedTime_ = -1;
-    static float tweenProgress(const LevelPlay::Look& look, const MeshAnimSeq& anim);
+    static float tweenProgress(const LevelPlay::Look &look, const MeshAnimSeq &anim);
     // Actors drawn as meshes, each mesh uploaded once.
     struct MeshDraw {
         size_t mesh = 0; // into meshes_ / gpuMeshes_
@@ -528,7 +531,7 @@ private:
     // Actors drawn as sprites.
     struct SpriteDraw {
         gfx::TextureId texture = 0;
-        gfx::Vec3 at{};             // its centre, the renderer's axes
+        gfx::Vec3 at{};              // its centre, the renderer's axes
         float width = 0, height = 0; // world units
         std::array<float, 3> color{1, 1, 1};
         uint8_t style = kStyleNormal;
@@ -542,22 +545,22 @@ private:
     };
     // Lights' coronas while playing (bCorona): added to `sprites`, each
     // fading in and out as walls come between it and the camera.
-    void addCoronas(std::vector<SpriteDraw>& sprites, const gfx::Vec3& forward, float dt);
-    void drawScreenFlash(const gfx::Vec3& forward, const gfx::Vec3& right);
-    std::map<VmObject*, float> coronaFade_;
+    void addCoronas(std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, float dt);
+    void drawScreenFlash(const gfx::Vec3 &forward, const gfx::Vec3 &right);
+    std::map<VmObject *, float> coronaFade_;
     MeshFog fog_; // this frame's distance fog (none: distance 0)
     std::vector<LevelPlay::Corona> coronaScratch_;
     float coronaDt_ = 0;
-    void drawCopies(VmObject* actor, const LevelPlay::Look& look, const std::vector<LevelPlay::Copy>& copies,
-                    std::vector<SpriteDraw>& sprites);
-    void addDecals(std::vector<SpriteDraw>& sprites);
-    void drawSprites(const std::vector<SpriteDraw>& sprites, const gfx::Vec3& forward, const gfx::Vec3& right);
+    void drawCopies(VmObject *actor, const LevelPlay::Look &look, const std::vector<LevelPlay::Copy> &copies,
+                    std::vector<SpriteDraw> &sprites);
+    void addDecals(std::vector<SpriteDraw> &sprites);
+    void drawSprites(const std::vector<SpriteDraw> &sprites, const gfx::Vec3 &forward, const gfx::Vec3 &right);
     gfx::MeshId spriteQuad_ = 0;
     std::vector<SpriteDraw> sprites_;
     void jumpToMeshActor(bool skeletalOnly);
-    static std::string idleFor(const std::string& anim);
+    static std::string idleFor(const std::string &anim);
     int animationSetsMs_ = 0; // how long reading the shared animation sets took
-    int jump_ = -1; // the mesh actor last jumped to (G / H)
+    int jump_ = -1;           // the mesh actor last jumped to (G / H)
     std::vector<Mesh> meshes_;
     std::vector<GpuMesh> gpuMeshes_;
     std::vector<MeshDraw> meshActors_;
@@ -566,52 +569,53 @@ private:
     std::vector<gfx::TextureId> textures_;
     // Textures uploaded, each once: its id (0: unreadable) and size.
     // With `masked`, colour 0 see-through (drawn on a masked surface).
-    std::pair<gfx::TextureId, std::array<int, 2>> textureOf(const ObjectRef& texture, bool* unreadable = nullptr,
+    std::pair<gfx::TextureId, std::array<int, 2>> textureOf(const ObjectRef &texture, bool *unreadable = nullptr,
                                                             bool masked = false);
-    std::map<std::tuple<const Package*, int, bool>, std::pair<gfx::TextureId, std::array<int, 2>>> textureCache_;
+    std::map<std::tuple<const Package *, int, bool>, std::pair<gfx::TextureId, std::array<int, 2>>> textureCache_;
     LevelLights lights_; // the level's, for lighting what moves
     // `actor`: an actor's look (its ScaleGlow, AmbientGlow, Specular), lit
     // per vertex as the original lights actors; without, a mover's.
-    MeshLight meshLightAt(const Vec3f& location, const LevelPlay::Look* actor = nullptr, const void* who = nullptr) const;
-    void actorLights(const Vec3f& at, const LevelPlay::Look& look, MeshLight& light, const void* who = nullptr) const;
-    void drawActorMesh(const GpuMesh& gpu, const gfx::Mat4& placement, const MeshPose& pose,
-                       const std::vector<gfx::TextureId>& skins, const MeshLight& light, const LevelPlay::Look& look);
+    MeshLight meshLightAt(const Vec3f &location, const LevelPlay::Look *actor = nullptr,
+                          const void *who = nullptr) const;
+    void actorLights(const Vec3f &at, const LevelPlay::Look &look, MeshLight &light, const void *who = nullptr) const;
+    void drawActorMesh(const GpuMesh &gpu, const gfx::Mat4 &placement, const MeshPose &pose,
+                       const std::vector<gfx::TextureId> &skins, const MeshLight &light, const LevelPlay::Look &look);
     // The level's lights with a volume, in fog zones (drawVolumes).
-    std::vector<const LightSource*> volumes_;
-    void drawVolumes(const gfx::Vec3& eye);
-    void volumesOver(const std::vector<Batch>& batches, gfx::MeshId mesh, const gfx::Mat4& model, gfx::Cull cull,
+    std::vector<const LightSource *> volumes_;
+    void drawVolumes(const gfx::Vec3 &eye);
+    void volumesOver(const std::vector<Batch> &batches, gfx::MeshId mesh, const gfx::Mat4 &model, gfx::Cull cull,
                      bool flagged);
-    bool inFogZone(const Vec3f& at) const;
+    bool inFogZone(const Vec3f &at) const;
 
     // Playing (Enter): the level live, drawn as its scripts have it.
     // From the start the portal tags, or from a saved game.
-    void startPlay(const std::string& portal = {}, const std::filesystem::path& saved = {});
+    void startPlay(const std::string &portal = {}, const std::filesystem::path &saved = {});
     void stopPlay();
     void updatePlay(float dt);
-    void drawLiveActors(const gfx::Vec3& forward, const gfx::Vec3& right);
+    void drawLiveActors(const gfx::Vec3 &forward, const gfx::Vec3 &right);
     void drawPlayHud();
     void drawSubtitles(int bottom);
     void drawGameHud();
-    void drawLiveActor(VmObject* actor, std::vector<SpriteDraw>& sprites, const ScriptLevel::HudActor* hud = nullptr);
-    std::pair<gfx::TextureId, std::array<int, 2>> hudFliTexture(const ObjectRef& texture, int frame, bool seeThrough);
+    void drawLiveActor(VmObject *actor, std::vector<SpriteDraw> &sprites, const ScriptLevel::HudActor *hud = nullptr);
+    std::pair<gfx::TextureId, std::array<int, 2>> hudFliTexture(const ObjectRef &texture, int frame, bool seeThrough);
     struct HudFli {
         std::unique_ptr<AnimatedTexture> anim;
         gfx::TextureId id = 0;
         int frame = 0;
     };
-    std::map<std::tuple<const Package*, int, bool>, HudFli> hudFlis_;
-    std::pair<gfx::TextureId, std::array<int, 2>> hudTexture(const ObjectRef& texture, bool seeThrough);
-    std::map<std::pair<const Package*, int>, std::pair<gfx::TextureId, std::array<int, 2>>> seeThroughTextures_;
+    std::map<std::tuple<const Package *, int, bool>, HudFli> hudFlis_;
+    std::pair<gfx::TextureId, std::array<int, 2>> hudTexture(const ObjectRef &texture, bool seeThrough);
+    std::map<std::pair<const Package *, int>, std::pair<gfx::TextureId, std::array<int, 2>>> seeThroughTextures_;
     // A mesh for live actors (by the mesh object), with the animation
     // they play borrowed from the shared sets if it's not its own: an
     // index into meshes_ / gpuMeshes_, -1 if it doesn't read.
-    int liveMesh(const ObjectRef& mesh, const std::string& anim);
+    int liveMesh(const ObjectRef &mesh, const std::string &anim);
     std::unique_ptr<LevelPlay> play_;
     std::unique_ptr<LevelAudio> audio_; // its sounds, when there's a mixer
     std::string playError_;
-    std::string portal_; // the start playing began at, for the game's ?RESTART
-    std::vector<VmObject*> moverActors_; // each of movers_'s live actor
-    std::map<std::pair<const Package*, int>, int> liveMeshes_;
+    std::string portal_;                  // the start playing began at, for the game's ?RESTART
+    std::vector<VmObject *> moverActors_; // each of movers_'s live actor
+    std::map<std::pair<const Package *, int>, int> liveMeshes_;
     // Meshes posed at draw time for The Fallen's layered animations: each
     // mesh's poser (none if it has no skeleton) and its parts, and the
     // frames posed for the last frame drawn (kept until the next).
@@ -619,7 +623,7 @@ private:
         std::unique_ptr<LayeredPoser> poser;
         std::map<std::pair<std::string, bool>, std::vector<bool>> parts;
     };
-    std::map<std::pair<const Package*, int>, Poser> posers_;
+    std::map<std::pair<const Package *, int>, Poser> posers_;
     std::vector<GpuMesh> posedMeshes_;
     // The character mesh drawLiveActor drew last, for its shadow.
     struct LastMesh {
@@ -628,16 +632,16 @@ private:
         gfx::Mat4 placement{};
         MeshPose pose;
     } lastMesh_;
-    void drawShadow(VmObject* actor, const Vec3f& location);
+    void drawShadow(VmObject *actor, const Vec3f &location);
     // Each caster's shadow: its light (in lights_.unique), how strong.
     struct ShadowState {
         int light = -1;
         float strength = 0, lastSeen = 0;
         bool seen = false;
     };
-    std::map<VmObject*, ShadowState> shadows_;
-    bool drawLayered(VmObject* actor, const LevelPlay::Look& look, int mesh, const gfx::Mat4& placement,
-                     const std::vector<gfx::TextureId>& skins, const MeshLight& light);
+    std::map<VmObject *, ShadowState> shadows_;
+    bool drawLayered(VmObject *actor, const LevelPlay::Look &look, int mesh, const gfx::Mat4 &placement,
+                     const std::vector<gfx::TextureId> &skins, const MeshLight &light);
     float playClock_ = 0, fov_ = 90;
     LevelPlay::View view_;
     float mouseDx_ = 0, mouseDy_ = 0;
@@ -646,8 +650,8 @@ private:
     std::string error_;
     std::vector<std::string> info_;
     bool textured_ = true;
-    bool lightmaps_ = true;  // drawn with the lightmaps (else shaded by facing)
-    float lightScale_ = 1;   // the lightmaps' brightness, [ and ]
+    bool lightmaps_ = true; // drawn with the lightmaps (else shaded by facing)
+    float lightScale_ = 1;  // the lightmaps' brightness, [ and ]
     // How the finished frame is shown: raised to displayGamma_ (- and =).
     // The original's Direct3D renderer sets the display's gamma ramp to
     // 1 / (2.5 x Brightness), Brightness 0.5 (the game's default) giving
@@ -660,17 +664,17 @@ private:
     void updateLightmaps(float dt);
     std::vector<gfx::TextureId> lightmapPages_;
     std::vector<LightSource> changingLights_;
-    std::vector<float> lightLevels_; // each one's brightness now, as a whole (meshes are lit by it)
-    std::vector<float> mapLevels_;   // as the lightmaps were last drawn with it (less a pattern)
-    std::vector<PatternNow> patternNow_; // each one's pattern this frame
-    std::vector<bool> staleLightmaps_;  // changed while out of sight: drawn once seen
+    std::vector<float> lightLevels_;            // each one's brightness now, as a whole (meshes are lit by it)
+    std::vector<float> mapLevels_;              // as the lightmaps were last drawn with it (less a pattern)
+    std::vector<PatternNow> patternNow_;        // each one's pattern this frame
+    std::vector<bool> staleLightmaps_;          // changed while out of sight: drawn once seen
     std::map<int, MeshTopology> posedTopology_; // by meshes_ index: those posed each frame
     std::vector<AnimatedLightmap> animatedLightmaps_;
     float lightTime_ = 0;
     // Fire, water, wet, ice and FLC textures, playing.
     void updateAnimatedTextures(float dt);
     std::vector<std::pair<gfx::TextureId, std::unique_ptr<AnimatedTexture>>> animatedTextures_;
-    std::vector<float> animatedSince_; // each one's time since it was last ticked
+    std::vector<float> animatedSince_;             // each one's time since it was last ticked
     std::unique_ptr<TextureUseRecorder> recorder_; // renderer_ while shown: what's drawn
     // The overlay's rows drawn last frame, cleared before the next: [0,
     // top) and [bottom, the frame's height).

@@ -29,7 +29,7 @@ bool sameName(std::string_view a, std::string_view b) {
 }
 
 // "F1,2,Power Corrupts" -> a level; false if the line isn't one.
-bool parseLine(std::string_view line, Level& out) {
+bool parseLine(std::string_view line, Level &out) {
     const size_t a = line.find(','), b = a == std::string_view::npos ? a : line.find(',', a + 1);
     if (b == std::string_view::npos)
         return false;
@@ -48,7 +48,7 @@ bool parseLine(std::string_view line, Level& out) {
 
 } // namespace
 
-Error parseLevelList(std::string_view text, std::vector<Level>& out) {
+Error parseLevelList(std::string_view text, std::vector<Level> &out) {
     out.clear();
     size_t lineNo = 0;
     while (!text.empty()) {
@@ -73,14 +73,14 @@ Error parseLevelList(std::string_view text, std::vector<Level>& out) {
     return Error::success();
 }
 
-const Level* levelForMap(const std::vector<Level>& levels, std::string_view mapName) {
+const Level *levelForMap(const std::vector<Level> &levels, std::string_view mapName) {
     std::string_view stem = mapName;
     if (const size_t slash = stem.find_last_of("/\\"); slash != std::string_view::npos)
         stem.remove_prefix(slash + 1);
     if (const size_t dot = stem.rfind('.'); dot != std::string_view::npos)
         stem = stem.substr(0, dot);
     for (bool commented : {false, true})
-        for (const Level& l : levels)
+        for (const Level &l : levels)
             if (l.commentedOut == commented && sameName(l.shortName, stem))
                 return &l;
     return nullptr;
@@ -88,9 +88,13 @@ const Level* levelForMap(const std::vector<Level>& levels, std::string_view mapN
 
 namespace {
 
-char upper(char c) { return char(std::toupper(static_cast<unsigned char>(c))); }
+char upper(char c) {
+    return char(std::toupper(static_cast<unsigned char>(c)));
+}
 
-bool isJoint(std::string_view shortName) { return shortName.size() > 1 && upper(shortName[0]) == 'J'; }
+bool isJoint(std::string_view shortName) {
+    return shortName.size() > 1 && upper(shortName[0]) == 'J';
+}
 
 // The mission's number as two digits ("F1" -> "01"); empty if it has none.
 std::string twoDigits(std::string_view shortName) {
@@ -103,12 +107,16 @@ std::string twoDigits(std::string_view shortName) {
     return digits.size() == 1 ? "0" + std::string(digits) : std::string(digits);
 }
 
-const char* sidePrefix(char side) {
+const char *sidePrefix(char side) {
     switch (upper(side)) {
-    case 'F': return "fed";
-    case 'K': return "klg";
-    case 'R': return "rom";
-    default: return nullptr;
+    case 'F':
+        return "fed";
+    case 'K':
+        return "klg";
+    case 'R':
+        return "rom";
+    default:
+        return nullptr;
     }
 }
 
@@ -136,16 +144,19 @@ std::string missionTableName(std::string_view shortName, char side) {
     const std::string number = twoDigits(shortName);
     if (number.empty())
         return {};
-    const char* prefix = sidePrefix(side);
+    const char *prefix = sidePrefix(side);
     switch (upper(shortName[0])) {
     case 'F':
     case 'K':
     case 'R':
         prefix = sidePrefix(shortName[0]);
         return folder + prefix + number + ".stb";
-    case 'J': return prefix ? folder + "jnt" + number + prefix + ".stb" : std::string();
-    case 'C': return folder + "cvr03.stb";
-    default: return {};
+    case 'J':
+        return prefix ? folder + "jnt" + number + prefix + ".stb" : std::string();
+    case 'C':
+        return folder + "cvr03.stb";
+    default:
+        return {};
     }
 }
 
@@ -181,10 +192,10 @@ bool isMissionClip(std::string_view stem, std::string_view shortName, char side)
 }
 
 std::string planetTheme(std::string_view archiveName) {
-    static constexpr std::pair<const char*, const char*> kThemes[] = {
+    static constexpr std::pair<const char *, const char *> kThemes[] = {
         {"alpwrld.cat", "AlpineStart"}, {"deswrld.cat", "DesertStart"}, {"icewrld.cat", "IceStart"},
         {"vlcwrld.cat", "LavaStart"},   {"redwrld.cat", "MarsStart"},   {"alnwrld.cat", "MountainStart"}};
-    for (const auto& [archive, theme] : kThemes)
+    for (const auto &[archive, theme] : kThemes)
         if (sameName(archiveName, archive))
             return theme;
     return {};

@@ -24,13 +24,13 @@ enum class F : uint8_t {
     U16,
     U32,
     F32,
-    Str,        // UTF-16, 256 characters
-    Str32,      // UTF-16, 32 characters
-    StrPairs,   // count (u16), then that many pairs of Str
-    U32Pairs,   // count (u16), then that many pairs of u32
+    Str,      // UTF-16, 256 characters
+    Str32,    // UTF-16, 32 characters
+    StrPairs, // count (u16), then that many pairs of Str
+    U32Pairs, // count (u16), then that many pairs of u32
 };
 struct FieldSpec {
-    const char* name;
+    const char *name;
     F type;
 };
 
@@ -48,7 +48,7 @@ uint32_t classFlags(std::string_view tag) {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t>& d) : d_(d) {}
+    explicit Reader(const std::vector<uint8_t> &d) : d_(d) {}
 
     size_t pos() const { return pos_; }
     void seek(size_t p) { pos_ = p; }
@@ -66,8 +66,8 @@ public:
     uint32_t u32() {
         if (!has(4))
             return fail_ = true, 0;
-        const uint32_t v =
-            uint32_t(d_[pos_]) | uint32_t(d_[pos_ + 1]) << 8 | uint32_t(d_[pos_ + 2]) << 16 | uint32_t(d_[pos_ + 3]) << 24;
+        const uint32_t v = uint32_t(d_[pos_]) | uint32_t(d_[pos_ + 1]) << 8 | uint32_t(d_[pos_ + 2]) << 16 |
+                           uint32_t(d_[pos_ + 3]) << 24;
         pos_ += 4;
         return v;
     }
@@ -152,51 +152,57 @@ public:
     }
 
     // Reads up to `count` fields of `spec` (fewer if the record has fewer).
-    void fields(Ac2Record& r, const FieldSpec* spec, size_t specCount, size_t count) {
+    void fields(Ac2Record &r, const FieldSpec *spec, size_t specCount, size_t count) {
         for (size_t k = 0; k < specCount && k < count && !fail_; k++)
             r.fields.emplace_back(spec[k].name, read(spec[k].type));
     }
     // A counted record: its field count, then the fields.
-    void counted(Ac2Record& r, const FieldSpec* spec, size_t specCount) {
+    void counted(Ac2Record &r, const FieldSpec *spec, size_t specCount) {
         const uint16_t n = u16();
         fields(r, spec, specCount, n);
     }
 
 private:
-    const std::vector<uint8_t>& d_;
+    const std::vector<uint8_t> &d_;
     size_t pos_ = 0;
     bool fail_ = false;
 };
 
-template <size_t N> void counted(Reader& r, Ac2Record& rec, const FieldSpec (&spec)[N]) { r.counted(rec, spec, N); }
+template<size_t N>
+void counted(Reader &r, Ac2Record &rec, const FieldSpec (&spec)[N]) {
+    r.counted(rec, spec, N);
+}
 
 // --- Objects -------------------------------------------------------------------
 
 // Every object's common fields (motoe.exe 0x40fa20), the optional groups
 // as the class has them; one count for all.
-void readObjectBase(Reader& r, Ac2Record& rec) {
+void readObjectBase(Reader &r, Ac2Record &rec) {
     static const FieldSpec kHead[] = {{"file", F::Str}, {"name", F::Str}, {"alpha", F::U32}, {"lighting", F::U32}};
     static const FieldSpec kPositionFields[] = {{"x", F::F32}, {"y", F::F32}, {"z", F::F32}};
     static const FieldSpec kRotationFields[] = {{"rotX", F::F32}, {"rotY", F::F32}, {"rotZ", F::F32}};
     // The object's Direct3D material (D3DMATERIAL8 at 0x8c): its diffuse,
     // ambient, specular and emissive colours, then the specular power.
-    static const FieldSpec kAppearanceFields[] = {
-        {"diffuseR", F::F32},  {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},
-        {"ambientG", F::F32},  {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32},
-        {"specularB", F::F32}, {"emissiveR", F::F32}, {"emissiveG", F::F32}, {"emissiveB", F::F32},
-        {"power", F::F32}};
+    static const FieldSpec kAppearanceFields[] = {{"diffuseR", F::F32},  {"diffuseG", F::F32},  {"diffuseB", F::F32},
+                                                  {"ambientR", F::F32},  {"ambientG", F::F32},  {"ambientB", F::F32},
+                                                  {"specularR", F::F32}, {"specularG", F::F32}, {"specularB", F::F32},
+                                                  {"emissiveR", F::F32}, {"emissiveG", F::F32}, {"emissiveB", F::F32},
+                                                  {"power", F::F32}};
     static const FieldSpec kMiddle[] = {
         {"player", F::U32}, {"left", F::U32}, {"top", F::U32}, {"right", F::U32}, {"bottom", F::U32}};
     static const FieldSpec kScriptFields[] = {{"script", F::Str}, {"listA", F::StrPairs}, {"listB", F::StrPairs}};
-    static const FieldSpec kTail[] = {
-        {"spriteScaleX", F::F32}, {"b58", F::F32}, {"condition", F::Str}, {"spriteScaleY", F::F32}, {"spriteScaleZ", F::F32},
-        {"b54", F::U32},   {"flat", F::U32}, {"b68", F::U32}, {"sound", F::Str},     {"soundLoops", F::U32},
-        {"soundFrame", F::U16}, {"depth", F::F32}, {"cursor", F::U16}, {"conditionalCursors", F::StrPairs},
-        {"listD", F::U32Pairs}, {"pickFirst", F::U32}};
+    static const FieldSpec kTail[] = {{"spriteScaleX", F::F32}, {"b58", F::F32},
+                                      {"condition", F::Str},    {"spriteScaleY", F::F32},
+                                      {"spriteScaleZ", F::F32}, {"b54", F::U32},
+                                      {"flat", F::U32},         {"b68", F::U32},
+                                      {"sound", F::Str},        {"soundLoops", F::U32},
+                                      {"soundFrame", F::U16},   {"depth", F::F32},
+                                      {"cursor", F::U16},       {"conditionalCursors", F::StrPairs},
+                                      {"listD", F::U32Pairs},   {"pickFirst", F::U32}};
     const uint32_t flags = classFlags(rec.tag);
     std::vector<FieldSpec> spec;
-    auto add = [&spec](const auto& fields) {
-        for (const FieldSpec& f : fields)
+    auto add = [&spec](const auto &fields) {
+        for (const FieldSpec &f : fields)
             spec.push_back(f);
     };
     add(kHead);
@@ -214,7 +220,7 @@ void readObjectBase(Reader& r, Ac2Record& rec) {
 }
 
 // An optional part: its tag, else the stream is left where it was.
-bool optionalPart(Reader& r, const char* tag, Ac2Record& rec) {
+bool optionalPart(Reader &r, const char *tag, Ac2Record &rec) {
     const size_t at = r.pos();
     if (r.has(4) && r.tag() == tag) {
         rec.parts.push_back(Ac2Record{tag, {}, {}});
@@ -226,10 +232,10 @@ bool optionalPart(Reader& r, const char* tag, Ac2Record& rec) {
 
 const FieldSpec kSprite[] = {{"scroll", F::U16}, {"scrollSpeed", F::F32}, {"filter", F::U16}, {"dc8", F::U16},
                              {"yaw", F::F32},    {"pitch", F::F32},       {"roll", F::F32}};
-const FieldSpec kHotspot[] = {{"name", F::Str}, {"hoverSound", F::Str}, {"clickSound", F::Str},
-                              {"hoverSoundLoops", F::U32}, {"key", F::Str32}};
-const FieldSpec kAnimSprite[] = {{"flags", F::U32}, {"fps", F::F32},        {"delay", F::F32},
-                                 {"loops", F::U16}, {"frames", F::U16},     {"startFrame", F::U16},
+const FieldSpec kHotspot[] = {
+    {"name", F::Str}, {"hoverSound", F::Str}, {"clickSound", F::Str}, {"hoverSoundLoops", F::U32}, {"key", F::Str32}};
+const FieldSpec kAnimSprite[] = {{"flags", F::U32},         {"fps", F::F32},    {"delay", F::F32},
+                                 {"loops", F::U16},         {"frames", F::U16}, {"startFrame", F::U16},
                                  {"soundDirection", F::U16}};
 const FieldSpec kBink[] = {{"effect", F::U32}, {"yaw", F::F32}, {"pitch", F::F32}, {"roll", F::F32}, {"loop", F::U32}};
 const FieldSpec kItem[] = {{"name", F::Str32}, {"description", F::Str}, {"1610", F::U16}, {"1612", F::U16}};
@@ -238,64 +244,60 @@ const FieldSpec kItem[] = {{"name", F::Str32}, {"description", F::Str}, {"1610",
 // (+0xe40, "sit": TrackMasksit) and the prefix tried on every animation's
 // name (+0xe80, "sit": sitidle1), whether a click on the floor walks the
 // player there (+0xe38), and when the pose and prefix apply (+0xec0).
-const FieldSpec kModel[] = {{"shadow", F::U32}, {"list", F::StrPairs}, {"breath", F::U32}, {"footprints", F::U32},
-                            {"anim", F::Str32},  {"anim2", F::Str32},  {"clickToWalk", F::U32}, {"condition", F::Str}};
+const FieldSpec kModel[] = {{"shadow", F::U32}, {"list", F::StrPairs}, {"breath", F::U32},      {"footprints", F::U32},
+                            {"anim", F::Str32}, {"anim2", F::Str32},   {"clickToWalk", F::U32}, {"condition", F::Str}};
 // ANIM: the talk ease (the base ease is twice it), the blink interval
 // (min, max), the idle variations' interval (min, max) and the chances
 // of variations 2, 3 and 4 on (percent).
-const FieldSpec kAnimation[] = {{"talkEase", F::F32},  {"blinkMin", F::F32}, {"blinkMax", F::F32},
-                                {"idleMin", F::F32},   {"idleMax", F::F32},  {"idle2", F::U16},
-                                {"idle3", F::U16},     {"idle4", F::U16}};
+const FieldSpec kAnimation[] = {{"talkEase", F::F32}, {"blinkMin", F::F32}, {"blinkMax", F::F32}, {"idleMin", F::F32},
+                                {"idleMax", F::F32},  {"idle2", F::U16},    {"idle3", F::U16},    {"idle4", F::U16}};
 const FieldSpec kSystem[] = {
-    {"red", F::F32},       {"green", F::F32},     {"blue", F::F32},     {"velocityX", F::F32},
-    {"velocityY", F::F32}, {"velocityZ", F::F32}, {"burst", F::U16},    {"interval", F::F32},
-    {"copies", F::U16},    {"spread", F::U16},    {"bounce", F::F32},   {"bounces", F::U16},
-    {"size", F::F32},      {"life", F::F32},      {"mode", F::U16},     {"blink", F::F32},
-    {"onTime", F::F32},    {"offTime", F::F32},   {"screenSpace", F::F32}, {"warmUp", F::U32},
-    {"sway", F::F32},      {"swaySpeed", F::F32}, {"gravity", F::F32},  {"fadeIn", F::F32},
-    {"fadeOut", F::F32},   {"signX", F::U16},     {"signY", F::U16},    {"signZ", F::U16}};
+    {"red", F::F32},       {"green", F::F32},     {"blue", F::F32},     {"velocityX", F::F32},   {"velocityY", F::F32},
+    {"velocityZ", F::F32}, {"burst", F::U16},     {"interval", F::F32}, {"copies", F::U16},      {"spread", F::U16},
+    {"bounce", F::F32},    {"bounces", F::U16},   {"size", F::F32},     {"life", F::F32},        {"mode", F::U16},
+    {"blink", F::F32},     {"onTime", F::F32},    {"offTime", F::F32},  {"screenSpace", F::F32}, {"warmUp", F::U32},
+    {"sway", F::F32},      {"swaySpeed", F::F32}, {"gravity", F::F32},  {"fadeIn", F::F32},      {"fadeOut", F::F32},
+    {"signX", F::U16},     {"signY", F::U16},     {"signZ", F::U16}};
 // LITE (0x421ab0): a Direct3D light (D3DLIGHT8 at 0xd9c): its type,
 // position, direction, diffuse, ambient and specular colours, range,
 // attenuation and spot cone. Then whether it's on, a flicker interval
 // (seconds), its light index when saved, its name, the condition it's on
 // under, and whether it only places the shadows.
 const FieldSpec kLight[] = {
-    {"type", F::U16},      {"x", F::F32},         {"y", F::F32},         {"z", F::F32},
-    {"dirX", F::F32},      {"dirY", F::F32},      {"dirZ", F::F32},      {"diffuseR", F::F32},
-    {"diffuseG", F::F32},  {"diffuseB", F::F32},  {"ambientR", F::F32},  {"ambientG", F::F32},
-    {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32}, {"specularB", F::F32},
-    {"range", F::F32},     {"att0", F::F32},      {"att1", F::F32},      {"att2", F::F32},
-    {"theta", F::F32},     {"phi", F::F32},       {"on", F::U32},        {"flicker", F::F32},
-    {"b6c", F::U32},       {"index", F::U16},     {"name", F::Str},      {"condition", F::Str},
-    {"shadowOnly", F::U32}};
+    {"type", F::U16},      {"x", F::F32},        {"y", F::F32},         {"z", F::F32},         {"dirX", F::F32},
+    {"dirY", F::F32},      {"dirZ", F::F32},     {"diffuseR", F::F32},  {"diffuseG", F::F32},  {"diffuseB", F::F32},
+    {"ambientR", F::F32},  {"ambientG", F::F32}, {"ambientB", F::F32},  {"specularR", F::F32}, {"specularG", F::F32},
+    {"specularB", F::F32}, {"range", F::F32},    {"att0", F::F32},      {"att1", F::F32},      {"att2", F::F32},
+    {"theta", F::F32},     {"phi", F::F32},      {"on", F::U32},        {"flicker", F::F32},   {"b6c", F::U32},
+    {"index", F::U16},     {"name", F::Str},     {"condition", F::Str}, {"shadowOnly", F::U32}};
 // CAMR: the scene's ambient light (0x180), then the Granny camera's fields.
-const FieldSpec kCamera[] = {
-    {"ambientR", F::F32}, {"ambientG", F::F32}, {"ambientB", F::F32}, {"x", F::F32},    {"y", F::F32},    {"z", F::F32},
-    {"pitch", F::F32}, {"yaw", F::F32},  {"roll", F::F32},
-    {"offsetX", F::F32}, {"offsetY", F::F32}, {"offsetZ", F::F32},
-    {"fov", F::F32},  {"near", F::F32}, {"far", F::F32},  {"238", F::U16}, {"23a", F::U16},  {"cellSize", F::U16}};
+const FieldSpec kCamera[] = {{"ambientR", F::F32}, {"ambientG", F::F32}, {"ambientB", F::F32}, {"x", F::F32},
+                             {"y", F::F32},        {"z", F::F32},        {"pitch", F::F32},    {"yaw", F::F32},
+                             {"roll", F::F32},     {"offsetX", F::F32},  {"offsetY", F::F32},  {"offsetZ", F::F32},
+                             {"fov", F::F32},      {"near", F::F32},     {"far", F::F32},      {"238", F::U16},
+                             {"23a", F::U16},      {"cellSize", F::U16}};
 const FieldSpec kCameraEnd[] = {{"1240", F::U32}, {"whiteoutStart", F::F32}, {"whiteoutEnd", F::F32}};
 
 // A 2D object (2DOB and the classes built on it): the common fields, then
 // its sprite settings.
-void readSprite(Reader& r, Ac2Record& rec) {
+void readSprite(Reader &r, Ac2Record &rec) {
     readObjectBase(r, rec);
     if (optionalPart(r, "SPRT", rec))
         counted(r, rec.parts.back(), kSprite);
 }
 
 // A 3D model (the characters' base): the common fields, then MODL.
-void readModel(Reader& r, Ac2Record& rec) {
+void readModel(Reader &r, Ac2Record &rec) {
     readObjectBase(r, rec);
     if (optionalPart(r, "MODL", rec))
         counted(r, rec.parts.back(), kModel);
 }
 
 // A character: the model, its animation settings, and where it walks.
-void readCharacter(Reader& r, Ac2Record& rec) {
+void readCharacter(Reader &r, Ac2Record &rec) {
     readModel(r, rec);
     if (optionalPart(r, "ANIM", rec)) {
-        Ac2Record& a = rec.parts.back();
+        Ac2Record &a = rec.parts.back();
         const uint16_t n = r.u16();
         r.fields(a, kAnimation, std::size(kAnimation), n);
         // Fields beyond the eighth: renamed animations, each a condition,
@@ -312,12 +314,12 @@ void readCharacter(Reader& r, Ac2Record& rec) {
         }
     }
     if (optionalPart(r, "WALK", rec)) {
-        Ac2Record& w = rec.parts.back();
+        Ac2Record &w = rec.parts.back();
         const int n = int16_t(r.u16());
         for (int k = 0; k < n && !r.fail(); k++) {
             Ac2Record point{"POINT", {}, {}};
             point.fields.emplace_back("id", r.read(F::U16));
-            for (const char* name : {"x", "y", "z", "rotX", "rotY", "rotZ"})
+            for (const char *name : {"x", "y", "z", "rotX", "rotY", "rotZ"})
                 point.fields.emplace_back(name, r.read(F::F32));
             w.parts.push_back(std::move(point));
         }
@@ -326,7 +328,7 @@ void readCharacter(Reader& r, Ac2Record& rec) {
 
 // A character other than the player: after its own parts, whom it
 // follows, on what condition, and its idle animations.
-void readNpc(Reader& r, Ac2Record& rec) {
+void readNpc(Reader &r, Ac2Record &rec) {
     readCharacter(r, rec);
     if (!r.has(4))
         return;
@@ -346,14 +348,14 @@ void readNpc(Reader& r, Ac2Record& rec) {
     rec.parts.back().fields.emplace_back("idles", r.read(F::StrPairs));
 }
 
-void readParticles(Reader& r, Ac2Record& rec) {
+void readParticles(Reader &r, Ac2Record &rec) {
     readObjectBase(r, rec);
     if (optionalPart(r, "SYST", rec))
         counted(r, rec.parts.back(), kSystem);
 }
 
-bool readObject(Reader& r, Ac2Record& rec) {
-    const std::string& t = rec.tag;
+bool readObject(Reader &r, Ac2Record &rec) {
+    const std::string &t = rec.tag;
     if (t == "2DOB") {
         readSprite(r, rec);
     } else if (t == "SPOT") {
@@ -388,7 +390,7 @@ bool readObject(Reader& r, Ac2Record& rec) {
     return true;
 }
 
-void readCamera(Reader& r, Ac2Record& rec) {
+void readCamera(Reader &r, Ac2Record &rec) {
     const uint16_t n = r.u16();
     r.fields(rec, kCamera, std::size(kCamera), n);
     if (n <= std::size(kCamera))
@@ -431,13 +433,13 @@ std::string Ac2Value::str() const {
         return "\"" + text + "\"";
     case Type::TextPairs: {
         std::string s = "[";
-        for (const auto& [a, b] : pairs)
+        for (const auto &[a, b] : pairs)
             s += (s.size() > 1 ? ", \"" : "\"") + a + "\": \"" + b + "\"";
         return s + "]";
     }
     case Type::NumberPairs: {
         std::string s = "[";
-        for (const auto& [a, b] : numbers)
+        for (const auto &[a, b] : numbers)
             s += (s.size() > 1 ? ", " : "") + std::to_string(a) + ":" + std::to_string(b);
         return s + "]";
     }
@@ -447,45 +449,45 @@ std::string Ac2Value::str() const {
     return "";
 }
 
-const Ac2Value* Ac2Record::field(std::string_view name) const {
-    for (const auto& [n, v] : fields)
+const Ac2Value *Ac2Record::field(std::string_view name) const {
+    for (const auto &[n, v] : fields)
         if (n == name)
             return &v;
     return nullptr;
 }
 
-const Ac2Record* Ac2Record::part(std::string_view t) const {
-    for (const Ac2Record& p : parts)
+const Ac2Record *Ac2Record::part(std::string_view t) const {
+    for (const Ac2Record &p : parts)
         if (p.tag == t)
             return &p;
     return nullptr;
 }
 
 float Ac2Record::f(std::string_view name) const {
-    const Ac2Value* v = field(name);
+    const Ac2Value *v = field(name);
     return v ? v->f() : 0.0f;
 }
 
 int32_t Ac2Record::i(std::string_view name) const {
-    const Ac2Value* v = field(name);
+    const Ac2Value *v = field(name);
     return v ? (v->type == Ac2Value::Type::U16 ? int16_t(v->raw) : v->i()) : 0;
 }
 
 std::string Ac2Record::text(std::string_view name) const {
-    const Ac2Value* v = field(name);
+    const Ac2Value *v = field(name);
     return v ? v->text : "";
 }
 
-const Ac2Record* Ac2Scene::camera() const {
-    for (const Ac2Record& r : records)
+const Ac2Record *Ac2Scene::camera() const {
+    for (const Ac2Record &r : records)
         if (r.tag == "CAMR")
             return &r;
     return nullptr;
 }
 
-std::vector<const Ac2Record*> Ac2Scene::objects() const {
-    std::vector<const Ac2Record*> out;
-    for (const Ac2Record& r : records)
+std::vector<const Ac2Record *> Ac2Scene::objects() const {
+    std::vector<const Ac2Record *> out;
+    for (const Ac2Record &r : records)
         if (isAc2Object(r.tag))
             out.push_back(&r);
     return out;
@@ -494,14 +496,14 @@ std::vector<const Ac2Record*> Ac2Scene::objects() const {
 bool isAc2Object(std::string_view tag) {
     // (The object factory also makes FOOT objects, but a scene's FOOT
     // record is its footstep setting, read before the factory is asked.)
-    for (const char* t : {"2DOB", "2DAN", "NING", "BINK", "SPOT", "ITEM", "LITE", "PART", "RAIN", "SNOW", "NPCX",
-                          "PCXX"})
+    for (const char *t :
+         {"2DOB", "2DAN", "NING", "BINK", "SPOT", "ITEM", "LITE", "PART", "RAIN", "SNOW", "NPCX", "PCXX"})
         if (tag == t)
             return true;
     return false;
 }
 
-Error parseAc2(const std::vector<uint8_t>& data, Ac2Scene& out) {
+Error parseAc2(const std::vector<uint8_t> &data, Ac2Scene &out) {
     out = Ac2Scene();
     Reader r(data);
     while (!r.atEnd()) {
@@ -509,7 +511,7 @@ Error parseAc2(const std::vector<uint8_t>& data, Ac2Scene& out) {
         Ac2Record rec{r.tag(), {}, {}};
         if (r.fail())
             break;
-        const std::string& t = rec.tag;
+        const std::string &t = rec.tag;
         // The scene's own settings (motoe.exe 0x435990).
         if (t == "DONE") {
             out.records.push_back(std::move(rec));
@@ -545,10 +547,10 @@ Error parseAc2(const std::vector<uint8_t>& data, Ac2Scene& out) {
 
 namespace {
 
-void dumpRecord(const Ac2Record& rec, std::string& out, int depth) {
+void dumpRecord(const Ac2Record &rec, std::string &out, int depth) {
     const std::string pad(size_t(depth) * 2, ' ');
     out += pad + rec.tag + "\n";
-    for (const auto& [name, v] : rec.fields) {
+    for (const auto &[name, v] : rec.fields) {
         // Leave out empty text and zeros, which most fields are.
         if ((v.type == Ac2Value::Type::Text && v.text.empty()) ||
             ((v.type == Ac2Value::Type::TextPairs || v.type == Ac2Value::Type::NumberPairs) && v.pairs.empty() &&
@@ -558,15 +560,15 @@ void dumpRecord(const Ac2Record& rec, std::string& out, int depth) {
             continue;
         out += pad + "  " + name + " = " + v.str() + "\n";
     }
-    for (const Ac2Record& p : rec.parts)
+    for (const Ac2Record &p : rec.parts)
         dumpRecord(p, out, depth + 1);
 }
 
 } // namespace
 
-std::string dumpAc2(const Ac2Scene& scene) {
+std::string dumpAc2(const Ac2Scene &scene) {
     std::string out;
-    for (const Ac2Record& r : scene.records)
+    for (const Ac2Record &r : scene.records)
         dumpRecord(r, out, 0);
     return out;
 }

@@ -17,13 +17,13 @@ constexpr uint8_t kNotCsg = 0x01; // a node from a non-solid brush: it doesn't d
 // noise putting it in.
 constexpr float kTouch = 0.03f;
 
-float distance(const BspNode& n, const Vec3f& p) {
+float distance(const BspNode &n, const Vec3f &p) {
     return n.plane[0] * p[0] + n.plane[1] * p[1] + n.plane[2] * p[2] - n.plane[3];
 }
 
 // How far a box reaches along a node's normal from its centre, less the
 // touching tolerance (a line or point keeps none).
-float reach(const BspNode& n, const Vec3f& e) {
+float reach(const BspNode &n, const Vec3f &e) {
     const float r = std::fabs(n.plane[0]) * e[0] + std::fabs(n.plane[1]) * e[1] + std::fabs(n.plane[2]) * e[2];
     return r > kTouch ? r - kTouch : r;
 }
@@ -32,32 +32,38 @@ float reach(const BspNode& n, const Vec3f& e) {
 // CSG node's plane is open space, to its back solid; other nodes leave it
 // as it was. A CSG node has vertices and neither flag 0x01 (not CSG) nor
 // 0x20 (as the engine's collision checks it).
-bool isCsg(const BspNode& n) { return n.vertexCount > 0 && !(n.flags & (kNotCsg | 0x20)); }
-bool outsideAfter(bool outside, const BspNode& n, bool front) {
+bool isCsg(const BspNode &n) {
+    return n.vertexCount > 0 && !(n.flags & (kNotCsg | 0x20));
+}
+bool outsideAfter(bool outside, const BspNode &n, bool front) {
     const bool csg = isCsg(n);
     return front ? (outside || csg) : (outside && !csg);
 }
 
 // The box's reach along a normal (the engine's push-out), exact.
-float pushOut(const Vec3f& n, const Vec3f& e) {
+float pushOut(const Vec3f &n, const Vec3f &e) {
     return std::fabs(n[0] * e[0]) + std::fabs(n[1] * e[1]) + std::fabs(n[2] * e[2]);
 }
-Vec3f cross(const Vec3f& a, const Vec3f& b) {
+Vec3f cross(const Vec3f &a, const Vec3f &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+float dot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
 constexpr float kWiden = 1.1f; // the walk's box, a little bigger than the actor's
 
 } // namespace
 
-bool LevelCollision::csg(const BspNode& n) const { return isCsg(n); }
+bool LevelCollision::csg(const BspNode &n) const {
+    return isCsg(n);
+}
 
-bool LevelCollision::hull(int32_t node, std::vector<Plane>& planes) const {
+bool LevelCollision::hull(int32_t node, std::vector<Plane> &planes) const {
     planes.clear();
     if (node < 0 || size_t(node) >= model_.nodes.size())
         return false;
     const int32_t at = model_.nodes[size_t(node)].collisionBound;
-    const auto& h = model_.leafHulls;
+    const auto &h = model_.leafHulls;
     if (at < 0 || size_t(at) >= h.size())
         return false;
     size_t i = size_t(at);
@@ -66,7 +72,7 @@ bool LevelCollision::hull(int32_t node, std::vector<Plane>& planes) const {
         const int32_t index = h[i] & ~0x40000000;
         if (index < 0 || size_t(index) >= model_.nodes.size())
             return false;
-        const auto& p = model_.nodes[size_t(index)].plane;
+        const auto &p = model_.nodes[size_t(index)].plane;
         const float s = (h[i] & 0x40000000) ? -1.0f : 1.0f;
         planes.push_back({{p[0] * s, p[1] * s, p[2] * s}, p[3] * s, index});
         uint8_t m = 0;
@@ -103,8 +109,8 @@ bool LevelCollision::hull(int32_t node, std::vector<Plane>& planes) const {
                     continue;
                 Vec3f axis{};
                 axis[size_t(k)] = 1;
-                const Vec3f& na = planes[a].n;
-                const Vec3f& nb = planes[b].n;
+                const Vec3f &na = planes[a].n;
+                const Vec3f &nb = planes[b].n;
                 if (dot(cross(axis, na), cross(axis, nb)) <= 0.001f)
                     continue;
                 // Their line: along na x nb, through a point on both.
@@ -129,13 +135,13 @@ bool LevelCollision::hull(int32_t node, std::vector<Plane>& planes) const {
     return true;
 }
 
-bool LevelCollision::solid(const Vec3f& p) const {
+bool LevelCollision::solid(const Vec3f &p) const {
     if (model_.nodes.empty())
         return false;
     bool outside = model_.rootOutside;
     int32_t at = 0;
     for (int guard = 0; guard < 100000; ++guard) {
-        const BspNode& n = model_.nodes[size_t(at)];
+        const BspNode &n = model_.nodes[size_t(at)];
         const bool front = distance(n, p) >= 0;
         outside = outsideAfter(outside, n, front);
         const int32_t child = front ? n.front : n.back;
@@ -146,8 +152,8 @@ bool LevelCollision::solid(const Vec3f& p) const {
     return false;
 }
 
-bool LevelCollision::overlaps(int32_t at, const Vec3f& c, const Vec3f& e, bool outside) const {
-    const BspNode& n = model_.nodes[size_t(at)];
+bool LevelCollision::overlaps(int32_t at, const Vec3f &c, const Vec3f &e, bool outside) const {
+    const BspNode &n = model_.nodes[size_t(at)];
     const Vec3f wide{e[0] * kWiden, e[1] * kWiden, e[2] * kWiden};
     const bool box = e[0] > 0 || e[1] > 0 || e[2] > 0;
     const float d = distance(n, c), r = box ? pushOut({n.plane[0], n.plane[1], n.plane[2]}, wide) : 0;
@@ -167,30 +173,30 @@ bool LevelCollision::overlaps(int32_t at, const Vec3f& c, const Vec3f& e, bool o
     return false;
 }
 
-const std::vector<LevelCollision::Plane>* LevelCollision::hullOf(int32_t node) const {
+const std::vector<LevelCollision::Plane> *LevelCollision::hullOf(int32_t node) const {
     if (node < 0 || size_t(node) >= model_.nodes.size())
         return nullptr;
     if (hullState_.size() != model_.nodes.size()) {
         hullState_.assign(model_.nodes.size(), 0);
         hulls_.assign(model_.nodes.size(), {});
     }
-    uint8_t& state = hullState_[size_t(node)];
+    uint8_t &state = hullState_[size_t(node)];
     if (state == 0)
         state = hull(node, hulls_[size_t(node)]) ? 1 : 2;
     return state == 1 ? &hulls_[size_t(node)] : nullptr;
 }
 
-bool LevelCollision::hullOverlaps(int32_t node, const Vec3f& c, const Vec3f& e) const {
-    const std::vector<Plane>* planes = hullOf(node);
+bool LevelCollision::hullOverlaps(int32_t node, const Vec3f &c, const Vec3f &e) const {
+    const std::vector<Plane> *planes = hullOf(node);
     if (!planes)
         return false; // no hull: nothing there to hit
-    for (const Plane& p : *planes)
+    for (const Plane &p : *planes)
         if (dot(p.n, c) - p.w >= pushOut(p.n, e))
             return false;
     return true;
 }
 
-bool LevelCollision::solid(const Vec3f& c, const Vec3f& e) const {
+bool LevelCollision::solid(const Vec3f &c, const Vec3f &e) const {
     if (model_.nodes.empty())
         return false;
     return overlaps(0, c, e, model_.rootOutside);
@@ -200,16 +206,16 @@ struct LevelCollision::Sweep {
     Vec3f start{}, end{}, extent{};
     Vec3f hullNormal{}; // the hull plane hit, when bestEntry says so
     int32_t hullNode = -1;
-    float best = 2;      // the earliest time solid space was entered
-    int bestEntry = 0;   // and across which plane: +(node+1) into its back, -(node+1) into its front
+    float best = 2;    // the earliest time solid space was entered
+    int bestEntry = 0; // and across which plane: +(node+1) into its back, -(node+1) into its front
 };
 
 // The part of the move [f0, f1] on each side of a node's plane (the box
 // partly on that side), each side's leaves or nodes visited in turn.
-void LevelCollision::sweep(Sweep& s, int32_t at, float f0, float f1, bool outside, int entry) const {
+void LevelCollision::sweep(Sweep &s, int32_t at, float f0, float f1, bool outside, int entry) const {
     if (f0 >= s.best)
         return;
-    const BspNode& n = model_.nodes[size_t(at)];
+    const BspNode &n = model_.nodes[size_t(at)];
     const bool box = s.extent[0] > 0 || s.extent[1] > 0 || s.extent[2] > 0;
     const Vec3f wide{s.extent[0] * kWiden, s.extent[1] * kWiden, s.extent[2] * kWiden};
     const float d0 = distance(n, s.start), d1 = distance(n, s.end),
@@ -255,14 +261,14 @@ void LevelCollision::sweep(Sweep& s, int32_t at, float f0, float f1, bool outsid
 // its planes and leaves the first; a hit if it enters (after -1) before
 // it leaves, the plane entered last the one hit. A hull it starts in and
 // never enters doesn't stop it, so it can move out.
-void LevelCollision::clipHull(Sweep& s, int32_t node) const {
-    const std::vector<Plane>* hullPlanes = hullOf(node);
+void LevelCollision::clipHull(Sweep &s, int32_t node) const {
+    const std::vector<Plane> *hullPlanes = hullOf(node);
     if (!hullPlanes)
         return;
-    const std::vector<Plane>& planes = *hullPlanes;
+    const std::vector<Plane> &planes = *hullPlanes;
     float t0 = -1, t1 = std::min(1.0f, s.best);
-    const Plane* entered = nullptr;
-    for (const Plane& p : planes) {
+    const Plane *entered = nullptr;
+    for (const Plane &p : planes) {
         const float push = pushOut(p.n, s.extent);
         const float ds = dot(p.n, s.start) - p.w, de = dot(p.n, s.end) - p.w;
         const float rate = ds - de;
@@ -291,7 +297,7 @@ void LevelCollision::clipHull(Sweep& s, int32_t node) const {
     }
 }
 
-LevelCollision::Hit LevelCollision::trace(const Vec3f& start, const Vec3f& end, const Vec3f& extent) const {
+LevelCollision::Hit LevelCollision::trace(const Vec3f &start, const Vec3f &end, const Vec3f &extent) const {
     Hit hit;
     hit.location = end;
     if (model_.nodes.empty())
@@ -316,7 +322,7 @@ LevelCollision::Hit LevelCollision::trace(const Vec3f& start, const Vec3f& end, 
         hit.normal = s.hullNormal;
     } else {
         hit.node = std::abs(s.bestEntry) - 1;
-        const BspNode& n = model_.nodes[size_t(hit.node)];
+        const BspNode &n = model_.nodes[size_t(hit.node)];
         const float sign = s.bestEntry > 0 ? 1.0f : -1.0f;
         hit.normal = {n.plane[0] * sign, n.plane[1] * sign, n.plane[2] * sign};
     }

@@ -37,17 +37,60 @@ constexpr uint32_t Final = 0x1, Defined = 0x2, Iterator = 0x4, Latent = 0x8, Pre
 // The bytecode's tokens (the first byte of each expression).
 namespace token {
 enum : uint8_t {
-    LocalVariable = 0x00, InstanceVariable = 0x01, DefaultVariable = 0x02, Return = 0x04, Switch = 0x05,
-    Jump = 0x06, JumpIfNot = 0x07, Stop = 0x08, Assert = 0x09, Case = 0x0a, Nothing = 0x0b, LabelTable = 0x0c,
-    GotoLabel = 0x0d, EatString = 0x0e, Let = 0x0f, DynArrayElement = 0x10, New = 0x11, ClassContext = 0x12,
-    MetaCast = 0x13, LetBool = 0x14, EndFunctionParms = 0x16, Self = 0x17, Skip = 0x18, Context = 0x19,
-    ArrayElement = 0x1a, VirtualFunction = 0x1b, FinalFunction = 0x1c, IntConst = 0x1d, FloatConst = 0x1e,
-    StringConst = 0x1f, ObjectConst = 0x20, NameConst = 0x21, RotationConst = 0x22, VectorConst = 0x23,
-    ByteConst = 0x24, IntZero = 0x25, IntOne = 0x26, True = 0x27, False = 0x28, NativeParm = 0x29,
-    NoObject = 0x2a, IntConstByte = 0x2c, BoolVariable = 0x2d, DynamicCast = 0x2e, Iterator = 0x2f,
-    IteratorPop = 0x30, IteratorNext = 0x31, StructCmpEq = 0x32, StructCmpNe = 0x33, UnicodeStringConst = 0x34,
-    StructMember = 0x36, GlobalFunction = 0x38,
-    FirstConversion = 0x39, LastConversion = 0x5f, // each one expression to convert
+    LocalVariable = 0x00,
+    InstanceVariable = 0x01,
+    DefaultVariable = 0x02,
+    Return = 0x04,
+    Switch = 0x05,
+    Jump = 0x06,
+    JumpIfNot = 0x07,
+    Stop = 0x08,
+    Assert = 0x09,
+    Case = 0x0a,
+    Nothing = 0x0b,
+    LabelTable = 0x0c,
+    GotoLabel = 0x0d,
+    EatString = 0x0e,
+    Let = 0x0f,
+    DynArrayElement = 0x10,
+    New = 0x11,
+    ClassContext = 0x12,
+    MetaCast = 0x13,
+    LetBool = 0x14,
+    EndFunctionParms = 0x16,
+    Self = 0x17,
+    Skip = 0x18,
+    Context = 0x19,
+    ArrayElement = 0x1a,
+    VirtualFunction = 0x1b,
+    FinalFunction = 0x1c,
+    IntConst = 0x1d,
+    FloatConst = 0x1e,
+    StringConst = 0x1f,
+    ObjectConst = 0x20,
+    NameConst = 0x21,
+    RotationConst = 0x22,
+    VectorConst = 0x23,
+    ByteConst = 0x24,
+    IntZero = 0x25,
+    IntOne = 0x26,
+    True = 0x27,
+    False = 0x28,
+    NativeParm = 0x29,
+    NoObject = 0x2a,
+    IntConstByte = 0x2c,
+    BoolVariable = 0x2d,
+    DynamicCast = 0x2e,
+    Iterator = 0x2f,
+    IteratorPop = 0x30,
+    IteratorNext = 0x31,
+    StructCmpEq = 0x32,
+    StructCmpNe = 0x33,
+    UnicodeStringConst = 0x34,
+    StructMember = 0x36,
+    GlobalFunction = 0x38,
+    FirstConversion = 0x39,
+    LastConversion = 0x5f, // each one expression to convert
     ExtendedNative = 0x60, // 0x60-0x6f: native (token - 0x60) * 256 + the next byte
     FirstNative = 0x70,    // 0x70-0xff: native function `token`
 };
@@ -77,7 +120,7 @@ struct Code {
 
 // Decodes `scriptSize` bytes of bytecode (as the engine counts them in
 // memory) from `r`; fails if the tokens don't end exactly there.
-Error decodeCode(const Package& package, Reader& r, uint32_t scriptSize, Code& out);
+Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &out);
 
 // A UField subclass's export, read: which kind it is and what it stores.
 struct ScriptObject {
@@ -135,6 +178,6 @@ struct ScriptObject {
 // Whether an export's class is one of the UField subclasses above.
 bool isScriptClass(std::string_view className);
 
-Error readScriptObject(const Package& package, int exportIndex, ScriptObject& out);
+Error readScriptObject(const Package &package, int exportIndex, ScriptObject &out);
 
 } // namespace reluva::unreal

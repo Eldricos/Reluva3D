@@ -11,7 +11,7 @@ namespace reluva::stharbinger {
 
 namespace {
 
-const char* const kDialogueNames[kNumDialogues] = {
+const char *const kDialogueNames[kNumDialogues] = {
     "COM010",   "COM020",   "COM02X",   "COM02Y",   "COM030",   "COM050",   "COM051",   "COM060",   "COM070",
     "COM080",   "COM090",   "DAX000",   "DAX010",   "DAX011",   "DAX020",   "DAX021",   "DAX030",   "DAX05X",
     "DAX060",   "DAX070",   "HAVIK010", "HAVIK020", "JAN010",   "JAN020",   "JAN030",   "KARLOGS",  "KARPUZ01",
@@ -22,7 +22,7 @@ const char* const kDialogueNames[kNumDialogues] = {
     "WEY010",   "XMIDARC5", "XMIDARC9", "XODO010",  "XOQ010",   "XQD010",   "XSDK030",  "YAR010",   "YAR020",
 };
 
-bool readTree(const uint8_t* data, uint32_t size, uint32_t& pos, std::vector<DialogueGroup>& out, std::string* error) {
+bool readTree(const uint8_t *data, uint32_t size, uint32_t &pos, std::vector<DialogueGroup> &out, std::string *error) {
     if (pos >= size)
         return false;
     int groups = data[pos++];
@@ -64,16 +64,18 @@ bool readTree(const uint8_t* data, uint32_t size, uint32_t& pos, std::vector<Dia
 
 } // namespace
 
-const char* getDialogueName(int index) { return index >= 0 && index < kNumDialogues ? kDialogueNames[index] : ""; }
+const char *getDialogueName(int index) {
+    return index >= 0 && index < kNumDialogues ? kDialogueNames[index] : "";
+}
 
-int findDialogue(const std::string& name) {
+int findDialogue(const std::string &name) {
     for (int i = 0; i < kNumDialogues; i++)
         if (text::equalsIgnoreCase(name, kDialogueNames[i]))
             return i;
     return -1;
 }
 
-bool readDialogue(const uint8_t* data, uint32_t size, Dialogue& out, std::string* error) {
+bool readDialogue(const uint8_t *data, uint32_t size, Dialogue &out, std::string *error) {
     uint32_t pos = 0;
     std::string err;
     bool ok = readDirectiveList(data, size, pos, out.listA, &err) &&
@@ -84,7 +86,7 @@ bool readDialogue(const uint8_t* data, uint32_t size, Dialogue& out, std::string
     return ok;
 }
 
-bool readPhonemes(const uint8_t* data, uint32_t size, Phonemes& out) {
+bool readPhonemes(const uint8_t *data, uint32_t size, Phonemes &out) {
     out = Phonemes();
     if (size < 4)
         return false;
@@ -110,7 +112,7 @@ uint32_t Phonemes::getNodeMillis(size_t i) const {
     return ms ? ms : unitMillis;
 }
 
-std::vector<std::string> splitStrings(const uint8_t* data, uint32_t size, char separator) {
+std::vector<std::string> splitStrings(const uint8_t *data, uint32_t size, char separator) {
     std::vector<std::string> out;
     std::string cur;
     for (uint32_t i = 0; i < size; i++) {
@@ -130,7 +132,7 @@ std::vector<std::string> splitStrings(const uint8_t* data, uint32_t size, char s
 std::string Dialogue::getMenuLabel(int line) const {
     if (line < 0 || line >= int(text.size()))
         return std::string();
-    const std::string& t = text[line];
+    const std::string &t = text[line];
     size_t start = t.find_first_not_of(' ');
     if (start == std::string::npos || t[start] != '[')
         return std::string();
@@ -142,7 +144,7 @@ std::string Dialogue::getSpokenText(int line) const {
     if (line < 0 || line >= int(text.size()))
         return std::string();
     std::string out;
-    const std::string& t = text[line];
+    const std::string &t = text[line];
     size_t i = 0;
     size_t start = t.find_first_not_of(' ');
     if (start != std::string::npos && t[start] == '[') {

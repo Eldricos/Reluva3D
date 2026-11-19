@@ -18,7 +18,9 @@ int volumeOf(float v) {
     return std::clamp(int(std::lround(v * audio::kMaxVolume)), 0, audio::kMaxVolume);
 }
 
-float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+float dot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
 
 // Miles' reverb filter's rooms (its EAX environments, by ZoneRoomType):
 // how much of it is wet, its time in seconds, its damping (0-1 of a
@@ -27,23 +29,23 @@ struct RoomPreset {
     float mix, seconds, damp;
 };
 constexpr RoomPreset kRooms[26] = {
-    {0, 1.493f, .5f},       {.25f, .1f, 0},          {.417f, .4f, .666f},    {.653f, 1.499f, .166f},
-    {.208f, .478f, 0},      {.5f, 2.309f, .888f},    {.403f, 4.279f, .5f},   {.5f, 3.961f, .5f},
-    {.5f, 2.886f, .888f},   {.361f, 7.284f, .332f},  {.5f, 10, .3f},         {.153f, .259f, .999f},
-    {.361f, 1.493f, 0},     {.444f, 2.697f, .638f},  {.25f, 1.752f, .776f},  {.111f, 3.145f, .472f},
-    {.111f, 2.767f, .224f}, {.194f, 7.841f, .472f},  {1, 1.499f, .5f},       {.097f, 2.767f, .224f},
-    {.208f, 1.652f, .999f}, {.652f, 2.886f, .25f},   {1, 1.499f, 0},         {.875f, 8.392f, .999f},
+    {0, 1.493f, .5f},       {.25f, .1f, 0},         {.417f, .4f, .666f},   {.653f, 1.499f, .166f},
+    {.208f, .478f, 0},      {.5f, 2.309f, .888f},   {.403f, 4.279f, .5f},  {.5f, 3.961f, .5f},
+    {.5f, 2.886f, .888f},   {.361f, 7.284f, .332f}, {.5f, 10, .3f},        {.153f, .259f, .999f},
+    {.361f, 1.493f, 0},     {.444f, 2.697f, .638f}, {.25f, 1.752f, .776f}, {.111f, 3.145f, .472f},
+    {.111f, 2.767f, .224f}, {.194f, 7.841f, .472f}, {1, 1.499f, .5f},      {.097f, 2.767f, .224f},
+    {.208f, 1.652f, .999f}, {.652f, 2.886f, .25f},  {1, 1.499f, 0},        {.875f, 8.392f, .999f},
     {.139f, 10, .666f},     {.486f, 7.563f, .806f},
 };
 
 // The room's reverb on a sound: the zone's level of the room's own mix
 // (a room with none, all of it), at the driver's 22,050 Hz for the
 // damping's cutoff.
-audio::Mixer::Reverb reverbOf(const LevelPlay::Room& room) {
+audio::Mixer::Reverb reverbOf(const LevelPlay::Room &room) {
     audio::Mixer::Reverb r;
     if (room.type <= 0 || room.type >= 26 || room.level <= 0)
         return r;
-    const RoomPreset& p = kRooms[room.type];
+    const RoomPreset &p = kRooms[room.type];
     constexpr float kQuarter = 22050.0f / 4;
     r.mix = std::clamp(room.level * (p.mix <= 0.0001f ? 1 : p.mix), 0.0f, 1.0f);
     r.seconds = p.seconds;
@@ -57,7 +59,7 @@ audio::Mixer::Reverb reverbOf(const LevelPlay::Room& room) {
 // listener's axes (x right, y up, z ahead), x the other way with
 // ReverseStereo, z made positive without UseSurround (all ahead), x and
 // y nothing without UseStereo.
-Vec3f LevelAudio::listenerSpace(const Vec3f& at) const {
+Vec3f LevelAudio::listenerSpace(const Vec3f &at) const {
     const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
     Vec3f p{dot(d, right_) * (reverse_ ? -1.0f : 1.0f), dot(d, up_), dot(d, forward_)};
     if (!surround_)
@@ -72,7 +74,7 @@ Vec3f LevelAudio::listenerSpace(const Vec3f& at) const {
 // too), through its table of 127 - acos(...) x 127 / pi, as Miles' pan
 // 0..127; then Miles' pan law, the near side full and the far side
 // 2 x pan / 128 up to the middle. As the mixer's pan.
-int LevelAudio::positionalPan(const Vec3f& at) const {
+int LevelAudio::positionalPan(const Vec3f &at) const {
     const Vec3f p = listenerSpace(at);
     const float len = std::sqrt(dot(p, p));
     int pan = 64;
@@ -93,7 +95,9 @@ int LevelAudio::positionalPan(const Vec3f& at) const {
 
 // The 3D provider's: a sound behind the listener at 71% (only with
 // UseSurround: without it the driver puts every sound ahead).
-float LevelAudio::behind(const Vec3f& at) const { return listenerSpace(at)[2] < 0 ? 0.71f : 1.0f; }
+float LevelAudio::behind(const Vec3f &at) const {
+    return listenerSpace(at)[2] < 0 ? 0.71f : 1.0f;
+}
 
 // Doppler, as the driver has it for a sound it mixes flat: 1 - the
 // sound's speed toward the listener / DopplerSpeed, within 0.5 to 2.
@@ -102,7 +106,7 @@ float LevelAudio::behind(const Vec3f& at) const { return listenerSpace(at)[2] < 
 // units a second (about 62,100), lower moving away, higher toward,
 // unclamped; away or toward from where it's handed the sound (ahead,
 // without UseSurround) and its velocity in the listener's axes.
-float LevelAudio::doppler(const Vec3f& at, const Vec3f& velocity, bool flat) const {
+float LevelAudio::doppler(const Vec3f &at, const Vec3f &velocity, bool flat) const {
     const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
     const float speed2 = dot(velocity, velocity);
     if (speed2 <= 0)
@@ -124,12 +128,13 @@ float LevelAudio::doppler(const Vec3f& at, const Vec3f& velocity, bool flat) con
 // run out: it streams it in 32 KB buffers (of the sound as 16-bit
 // stereo, 8-bit for an 8-bit one), padding with silence until its sixth
 // refill: about five buffers.
-float LevelAudio::reverbTail(const audio::Sound& s) {
+float LevelAudio::reverbTail(const audio::Sound &s) {
     const int bytes = s.sourceBits == 8 ? 1 : 2;
     return s.rate > 0 ? 5 * 32768.0f / (float(s.rate) * 2 * float(bytes)) : 0;
 }
 
-LevelAudio::LevelAudio(audio::Mixer& mixer, const PackageSet& packages) : mixer_(mixer), packages_(packages) {}
+LevelAudio::LevelAudio(audio::Mixer &mixer, const PackageSet &packages) : mixer_(mixer), packages_(packages) {
+}
 
 LevelAudio::~LevelAudio() {
     reset();
@@ -137,32 +142,33 @@ LevelAudio::~LevelAudio() {
 
 std::vector<std::string> LevelAudio::describe() const {
     std::vector<std::string> out;
-    auto name = [](const Package* p, int e) { return p ? p->name() + "." + p->path(e + 1) : std::string("?"); };
-    auto line = [&](const char* kind, audio::SoundHandle h, const std::string& what) {
+    auto name = [](const Package *p, int e) { return p ? p->name() + "." + p->path(e + 1) : std::string("?"); };
+    auto line = [&](const char *kind, audio::SoundHandle h, const std::string &what) {
         if (mixer_.isPlaying(h))
             out.push_back(std::string(kind) + " " + what);
     };
     if (music_)
-        line("music", music_, musicSound_ && musicSound_->package ? name(musicSound_->package, musicSound_->exportIndex) : "?");
-    for (const auto& [actor, a] : ambient_)
+        line("music", music_,
+             musicSound_ && musicSound_->package ? name(musicSound_->package, musicSound_->exportIndex) : "?");
+    for (const auto &[actor, a] : ambient_)
         line(a.music ? "ambient music" : "ambient", a.handle, name(a.sound.first, a.sound.second));
-    for (const Playing& p : playing_)
+    for (const Playing &p : playing_)
         line(p.everywhere ? "voice" : "sound", p.handle, name(p.sound.package, p.sound.exportIndex));
     out.push_back("room " + std::to_string(room_.type) + " at " + std::to_string(room_.level) + " (reverb mix " +
                   std::to_string(reverb_.mix) + ")");
     std::string last = std::to_string(started_) + " started; last:";
-    for (const std::string& r : recent_)
+    for (const std::string &r : recent_)
         last += " " + r;
     out.push_back(last);
     return out;
 }
 
 void LevelAudio::reset() {
-    for (const Playing& p : playing_)
+    for (const Playing &p : playing_)
         mixer_.stop(p.handle);
-    for (const auto& [actor, a] : ambient_)
+    for (const auto &[actor, a] : ambient_)
         mixer_.stop(a.handle);
-    for (const Fade& f : fading_)
+    for (const Fade &f : fading_)
         mixer_.stop(f.handle);
     mixer_.stop(music_);
     playing_.clear();
@@ -172,7 +178,7 @@ void LevelAudio::reset() {
     musicSound_ = nullptr;
 }
 
-std::shared_ptr<const audio::Sound> LevelAudio::load(const ObjectRef& ref) {
+std::shared_ptr<const audio::Sound> LevelAudio::load(const ObjectRef &ref) {
     if (!ref)
         return nullptr;
     const auto key = std::make_pair(ref.package, ref.exportIndex);
@@ -189,7 +195,7 @@ std::shared_ptr<const audio::Sound> LevelAudio::load(const ObjectRef& ref) {
 
 // The audio driver's: (1 - distance / radius) x volume in hundredths,
 // at most 100 of its 127.
-float LevelAudio::loudness(const Vec3f& at, float radius, float volume) const {
+float LevelAudio::loudness(const Vec3f &at, float radius, float volume) const {
     const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
     const float distance = std::sqrt(dot(d, d));
     const float near = radius > 0 ? std::clamp(1 - distance / radius, 0.0f, 1.0f) : 0;
@@ -198,7 +204,7 @@ float LevelAudio::loudness(const Vec3f& at, float radius, float volume) const {
 
 // The driver's side: the angle off straight ahead (one behind as if in
 // front), less within a tenth of the radius, as 0..127 about 63.
-int LevelAudio::panOf(const Vec3f& at, float radius) const {
+int LevelAudio::panOf(const Vec3f &at, float radius) const {
     if (!stereo_)
         return 0;
     const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
@@ -213,7 +219,7 @@ int LevelAudio::panOf(const Vec3f& at, float radius) const {
     return std::clamp((pan - 64) * audio::kMaxPan / 63, -audio::kMaxPan, audio::kMaxPan);
 }
 
-float LevelAudio::priority(const Vec3f& at, float radius, float volume) const {
+float LevelAudio::priority(const Vec3f &at, float radius, float volume) const {
     const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
     const float distance = std::sqrt(dot(d, d));
     return volume * std::max(radius > 0 ? 1 - distance / radius : 0.0f, 0.0001f);
@@ -225,12 +231,12 @@ bool LevelAudio::makeRoom(float wanted) {
         return true;
     // The least important one-off or ambient sound, if no more important.
     float least = wanted;
-    Playing* lowest = nullptr;
-    VmObject* lowestAmbient = nullptr;
-    for (Playing& p : playing_)
+    Playing *lowest = nullptr;
+    VmObject *lowestAmbient = nullptr;
+    for (Playing &p : playing_)
         if (const float q = p.everywhere ? p.volume : priority(p.at, p.radius, p.volume); q <= least)
             least = q, lowest = &p, lowestAmbient = nullptr;
-    for (auto& [actor, a] : ambient_)
+    for (auto &[actor, a] : ambient_)
         if (const float q = a.music ? a.volume : priority(a.at, a.radius, a.volume); q <= least)
             least = q, lowest = nullptr, lowestAmbient = actor;
     if (lowest) {
@@ -252,14 +258,14 @@ float LevelAudio::streamLoudness(float volume) const {
     return std::min(1.0f, v * 2 * musicSetting_ / 127);
 }
 
-void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& facing, float seconds) {
+void LevelAudio::update(LevelPlay &play, const Vec3f &listener, const Rotator &facing, float seconds) {
     listener_ = listener;
     const float yaw = float(facing.yaw) * 6.2831853f / 65536;
     const float pitch = float(facing.pitch) * 6.2831853f / 65536;
     right_ = {-std::sin(yaw), std::cos(yaw), 0};
     forward_ = {std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
     up_ = {-std::sin(pitch) * std::cos(yaw), -std::sin(pitch) * std::sin(yaw), std::cos(pitch)};
-    auto flag = [&](const char* key, bool otherwise) {
+    auto flag = [&](const char *key, bool otherwise) {
         const std::string v = play.audioSetting(key);
         return v.empty() ? otherwise : (v == "1" || v == "True" || v == "true" || v == "TRUE");
     };
@@ -276,7 +282,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     room_ = flag("UseReverb", true) ? play.roomAt(listener) : LevelPlay::Room{};
     reverb_ = reverbOf(room_);
     // A sound's own velocity, the listener's taken off; a voice's none.
-    auto relative = [&](VmObject* actor, bool speech) {
+    auto relative = [&](VmObject *actor, bool speech) {
         Vec3f v{};
         if (!actor || speech || !play.velocityOf(actor, v))
             return Vec3f{};
@@ -289,7 +295,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     // The volumes: each kind's setting (0-255) under the master's. A
     // stream's own is part of its loudness (streamLoudness).
     const float master = std::clamp(play.masterVolume(), 0.0f, 255.0f) / 255;
-    auto setting = [&](const char* key) {
+    auto setting = [&](const char *key) {
         const std::string v = play.audioSetting(key);
         return std::clamp(v.empty() ? 255.0f : std::strtof(v.c_str(), nullptr), 0.0f, 255.0f) / 255;
     };
@@ -299,23 +305,23 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     mixer_.setTypeVolume(audio::SoundType::Speech, volumeOf(master * setting("SpeechVolume")));
 
     if (play.takeKillSounds()) {
-        for (const Playing& p : playing_)
+        for (const Playing &p : playing_)
             mixer_.stop(p.handle);
         playing_.clear();
     }
     // Those stopped (a line cut off: its speaker's talk slot).
-    for (const auto& [actor, slot] : play.takeSoundStops())
-        for (Playing& p : playing_)
+    for (const auto &[actor, slot] : play.takeSoundStops())
+        for (Playing &p : playing_)
             if (p.actor == actor && p.slot == slot)
                 mixer_.stop(p.handle);
-    playing_.erase(std::remove_if(playing_.begin(), playing_.end(),
-                                  [&](const Playing& p) { return !mixer_.isPlaying(p.handle); }),
-                   playing_.end());
+    playing_.erase(
+        std::remove_if(playing_.begin(), playing_.end(), [&](const Playing &p) { return !mixer_.isPlaying(p.handle); }),
+        playing_.end());
 
     // What's played: one at a time in each of an actor's slots (but the
     // none slot). One played with bNoOverride keeps its slot; otherwise a
     // new one takes it.
-    for (const ScriptLevel::SoundRequest& r : play.takeSounds()) {
+    for (const ScriptLevel::SoundRequest &r : play.takeSounds()) {
         Playing p;
         p.actor = r.actor;
         p.slot = r.slot;
@@ -335,7 +341,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
             continue;
         if (r.slot != 0) {
             auto same = std::find_if(playing_.begin(), playing_.end(),
-                                     [&](const Playing& q) { return q.actor == r.actor && q.slot == r.slot; });
+                                     [&](const Playing &q) { return q.actor == r.actor && q.slot == r.slot; });
             if (same != playing_.end()) {
                 if (same->noOverride)
                     continue;
@@ -346,10 +352,13 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
         auto sound = load(r.sound);
         if (!sound || !makeRoom(p.everywhere ? p.volume : priority(p.at, p.radius, p.volume)))
             continue;
-        const float loud = p.everywhere ? float(std::min(100, int(p.volume * 100))) / 127
-                                        : loudness(p.at, p.radius, p.volume);
+        const float loud =
+            p.everywhere ? float(std::min(100, int(p.volume * 100))) / 127 : loudness(p.at, p.radius, p.volume);
         p.handle = mixer_.play(sound, r.speech ? audio::SoundType::Speech : audio::SoundType::Effects, volumeOf(loud),
-                               p.everywhere ? 0 : p.filtered ? panOf(p.at, p.radius) : positionalPan(p.at), r.loop);
+                               p.everywhere ? 0
+                               : p.filtered ? panOf(p.at, p.radius)
+                                            : positionalPan(p.at),
+                               r.loop);
         p.tail = r.loop ? 0 : reverbTail(*sound);
         if (p.handle == audio::kNoSound)
             continue;
@@ -372,7 +381,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     // between them and the listener. A positional one: in the room's
     // reverb, its side, Doppler and 71% from behind (with UseSurround) the
     // 3D provider's; a flat one's side and Doppler the driver's.
-    for (Playing& p : playing_) {
+    for (Playing &p : playing_) {
         if (!p.filtered) {
             audio::Mixer::Reverb rv = reverb_;
             rv.tail = p.tail;
@@ -398,15 +407,15 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     // anywhere in range, fades in and out over 3 seconds, and isn't started
     // while other music plays.
     play.ambientSounds(ambientNow_);
-    std::map<VmObject*, const LevelPlay::Ambient*> now;
-    for (const LevelPlay::Ambient& a : ambientNow_)
+    std::map<VmObject *, const LevelPlay::Ambient *> now;
+    for (const LevelPlay::Ambient &a : ambientNow_)
         now[a.actor] = &a;
-    auto inRange = [&](const Vec3f& at, float radius) {
+    auto inRange = [&](const Vec3f &at, float radius) {
         const Vec3f d{at[0] - listener_[0], at[1] - listener_[1], at[2] - listener_[2]};
         return dot(d, d) < radius * radius;
     };
     for (auto it = ambient_.begin(); it != ambient_.end();) {
-        Ambient& am = it->second;
+        Ambient &am = it->second;
         auto found = now.find(it->first);
         const bool keep = found != now.end() && found->second->sound.package == am.sound.first &&
                           found->second->sound.exportIndex == am.sound.second &&
@@ -424,7 +433,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
         }
     }
     const bool musicOn = music_ != audio::kNoSound || !fading_.empty();
-    for (const LevelPlay::Ambient& a : ambientNow_) {
+    for (const LevelPlay::Ambient &a : ambientNow_) {
         auto it = ambient_.find(a.actor);
         if (it == ambient_.end()) {
             if (!inRange(a.at, a.radius) || (a.music && musicOn))
@@ -438,21 +447,22 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
             am.streamed = a.streamed;
             if (a.music)
                 am.fade = 0, am.fadeRate = 1 / kMusicFade;
-            am.handle = mixer_.play(sound, a.streamed ? audio::SoundType::Music : audio::SoundType::Effects, 0,
-                                    0, true);
+            am.handle =
+                mixer_.play(sound, a.streamed ? audio::SoundType::Music : audio::SoundType::Effects, 0, 0, true);
             if (am.handle == audio::kNoSound)
                 continue;
             it = ambient_.emplace(a.actor, am).first;
         }
-        Ambient& am = it->second;
+        Ambient &am = it->second;
         am.volume = a.volume;
         am.radius = a.radius;
         am.at = a.at;
         if (am.fadeRate != 0)
             am.fade = std::clamp(am.fade + am.fadeRate * seconds, 0.0f, 1.0f);
-        float loud = am.music ? (am.streamed ? streamLoudness(a.volume) : float(std::min(100, int(a.volume * 100))) / 127)
-                              : (am.streamed ? streamLoudness(loudness(a.at, a.radius, a.volume) * 127 / 100)
-                                             : loudness(a.at, a.radius, a.volume));
+        float loud = am.music
+                         ? (am.streamed ? streamLoudness(a.volume) : float(std::min(100, int(a.volume * 100))) / 127)
+                         : (am.streamed ? streamLoudness(loudness(a.at, a.radius, a.volume) * 127 / 100)
+                                        : loudness(a.at, a.radius, a.volume));
         loud *= am.fade;
         // An ambient sound is positional (not music, not streamed): the
         // room's reverb, quieter from behind, and Doppler.
@@ -469,7 +479,7 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     }
     // Ambient music faded out, or whose actor is gone.
     for (auto it = ambient_.begin(); it != ambient_.end();) {
-        Ambient& am = it->second;
+        Ambient &am = it->second;
         if (am.music && now.find(it->first) == now.end() && am.fadeRate < 0) {
             am.fade = std::max(0.0f, am.fade + am.fadeRate * seconds);
             mixer_.setVolume(am.handle, volumeOf(am.fade * (am.streamed ? streamLoudness(am.volume) : am.volume)));
@@ -488,8 +498,8 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
     // CurrentMusic is cleared. Once it ends, CurrentMusic is None again
     // (the filler music waits for that). With CurrentMusic set and nothing
     // playing (a game loaded), it starts at full volume.
-    VmObject* wanted = play.currentMusic();
-    const ScriptLevel::Music& m = play.music();
+    VmObject *wanted = play.currentMusic();
+    const ScriptLevel::Music &m = play.music();
     if (wanted != musicSound_) {
         if (music_ != audio::kNoSound)
             fading_.push_back({music_, musicStreamed_ ? streamLoudness(musicVolume_) : musicVolume_, kMusicFade});
@@ -498,13 +508,13 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
         if (wanted && wanted->package && wanted->exportIndex >= 0)
             if (auto sound = load({wanted->package, wanted->exportIndex})) {
                 // Ambient music gives way.
-                for (auto& [actor, am] : ambient_)
+                for (auto &[actor, am] : ambient_)
                     if (am.music)
                         am.fadeRate = -1 / kMusicFade;
                 musicStreamed_ = play.streamed(wanted);
                 musicVolume_ = m.serial ? m.volume : 2.0f;
-                const float loud = musicStreamed_ ? streamLoudness(musicVolume_)
-                                                  : float(std::min(100, int(musicVolume_ * 100))) / 127;
+                const float loud =
+                    musicStreamed_ ? streamLoudness(musicVolume_) : float(std::min(100, int(musicVolume_ * 100))) / 127;
                 music_ = mixer_.play(sound, musicStreamed_ ? audio::SoundType::Music : audio::SoundType::Effects,
                                      volumeOf(loud));
                 if (m.startSeconds > 0)
@@ -518,13 +528,13 @@ void LevelAudio::update(LevelPlay& play, const Vec3f& listener, const Rotator& f
         mixer_.setVolume(music_, volumeOf(musicStreamed_ ? streamLoudness(musicVolume_)
                                                          : float(std::min(100, int(musicVolume_ * 100))) / 127));
     }
-    for (Fade& f : fading_) {
+    for (Fade &f : fading_) {
         f.left -= seconds;
         mixer_.setVolume(f.handle, volumeOf(f.volume * std::max(0.0f, f.left) / kMusicFade));
         if (f.left <= 0)
             mixer_.stop(f.handle);
     }
-    fading_.erase(std::remove_if(fading_.begin(), fading_.end(), [](const Fade& f) { return f.left <= 0; }),
+    fading_.erase(std::remove_if(fading_.begin(), fading_.end(), [](const Fade &f) { return f.left <= 0; }),
                   fading_.end());
 }
 

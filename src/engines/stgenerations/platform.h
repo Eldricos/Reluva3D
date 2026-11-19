@@ -72,9 +72,9 @@ class Platform {
 public:
     // `mixer` may be null (no sound); `saveDir` is the game's own folder
     // (GameTarget::savePath).
-    Platform(System& system, audio::Mixer* mixer, std::filesystem::path saveDir);
+    Platform(System &system, audio::Mixer *mixer, std::filesystem::path saveDir);
 
-    System& system() { return system_; }
+    System &system() { return system_; }
 
     // --- The screen -------------------------------------------------------
     // The screen's size and colours: 8-bit with a palette, or true colour
@@ -84,14 +84,14 @@ public:
     int getHeight() const { return screen_.h; }
     bool isTrueColour() const { return !screen_.isClut8(); }
     // `num` RGB triplets from `start`, 8 bits per channel.
-    void setPalette(const uint8_t* colors, unsigned start, unsigned num);
-    void grabPalette(uint8_t* colors, unsigned start, unsigned num) const;
+    void setPalette(const uint8_t *colors, unsigned start, unsigned num);
+    void grabPalette(uint8_t *colors, unsigned start, unsigned num) const;
     // Pixels in the screen's format onto it.
-    void copyRectToScreen(const void* buf, int pitch, int x, int y, int w, int h);
+    void copyRectToScreen(const void *buf, int pitch, int x, int y, int w, int h);
     void updateScreen();
-    void setWindowCaption(const std::string& caption);
+    void setWindowCaption(const std::string &caption);
     // The frames shown, for tests.
-    const Canvas& screen() const { return screen_; }
+    const Canvas &screen() const { return screen_; }
 
     // --- The mouse pointer ------------------------------------------------
     // Returns whether it was shown.
@@ -99,12 +99,12 @@ public:
     // The game's pointer: w x h pixels in the screen's format (8-bit:
     // coloured from the palette, as it is when it changes), `keycolor` see-
     // through, the hotspot at (hotspotX, hotspotY).
-    void setMouseCursor(const void* buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor);
+    void setMouseCursor(const void *buf, unsigned w, unsigned h, int hotspotX, int hotspotY, uint32_t keycolor);
 
     // --- Input ------------------------------------------------------------
     // The next event; false when none is pending.
-    bool pollEvent(Event& event);
-    void pushEvent(const Event& event) { queue_.push_back(event); }
+    bool pollEvent(Event &event);
+    void pushEvent(const Event &event) { queue_.push_back(event); }
     Point getMousePos() const { return mouse_; }
     // Bit 0: left, bit 1: right, bit 2: middle.
     int getButtonState() const { return buttons_; }
@@ -120,7 +120,7 @@ public:
     void delayMillis(uint32_t ms);
 
     // --- Sound ------------------------------------------------------------
-    audio::Mixer* getMixer() { return mixer_; }
+    audio::Mixer *getMixer() { return mixer_; }
     // Whether the mixer is heard: without a sound device nothing pulls it,
     // so the game plays nothing (as STG-Engine's mixer, not ready, did).
     void setSoundOutput(bool on) { soundOutput_ = on; }
@@ -128,23 +128,23 @@ public:
 
     // --- Saves and settings -----------------------------------------------
     // The game's own folder for its files (made when written to).
-    const std::filesystem::path& saveDir() const { return saveDir_; }
+    const std::filesystem::path &saveDir() const { return saveDir_; }
     // A file of it read whole into a stream; nullptr if it isn't there.
-    std::unique_ptr<SeekableReadStream> openForLoading(const std::string& name) const;
+    std::unique_ptr<SeekableReadStream> openForLoading(const std::string &name) const;
     // Written whole, made with the folder if needed; false if it can't be.
-    bool saveFile(const std::string& name, const std::vector<uint8_t>& data);
-    bool removeFile(const std::string& name);
-    bool fileExists(const std::string& name) const;
+    bool saveFile(const std::string &name, const std::vector<uint8_t> &data);
+    bool removeFile(const std::string &name);
+    bool fileExists(const std::string &name) const;
     // Names of its files matching a pattern ('*' and '?'), sorted.
-    std::vector<std::string> listFiles(const std::string& pattern) const;
+    std::vector<std::string> listFiles(const std::string &pattern) const;
 
 private:
     void refreshCursor();
     Point clampToScreen(int x, int y) const;
-    bool translate(const reluva::Event& in, Event& out);
+    bool translate(const reluva::Event &in, Event &out);
 
-    System& system_;
-    audio::Mixer* mixer_;
+    System &system_;
+    audio::Mixer *mixer_;
     std::filesystem::path saveDir_;
     Canvas screen_;
     Surface frame_; // screen_ as the System takes it

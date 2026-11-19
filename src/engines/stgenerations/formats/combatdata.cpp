@@ -12,29 +12,39 @@ namespace reluva::stgenerations {
 
 namespace {
 
-uint32_t le32(const uint8_t* p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
-uint16_t le16(const uint8_t* p) { return (uint16_t)(p[0] | p[1] << 8); }
-uint32_t be32(const uint8_t* p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]; }
-uint16_t be16(const uint8_t* p) { return (uint16_t)(p[0] << 8 | p[1]); }
-float f32(const uint8_t* p) {
+uint32_t le32(const uint8_t *p) {
+    return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+uint16_t le16(const uint8_t *p) {
+    return (uint16_t)(p[0] | p[1] << 8);
+}
+uint32_t be32(const uint8_t *p) {
+    return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3];
+}
+uint16_t be16(const uint8_t *p) {
+    return (uint16_t)(p[0] << 8 | p[1]);
+}
+float f32(const uint8_t *p) {
     uint32_t bits = le32(p);
     float f;
     std::memcpy(&f, &bits, 4);
     return f;
 }
 
-uint32_t argb(uint8_t r, uint8_t g, uint8_t b) { return 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | b; }
+uint32_t argb(uint8_t r, uint8_t g, uint8_t b) {
+    return 0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | b;
+}
 
 } // namespace
 
 // Models
 
-bool Model3D::load(SeekableReadStream& stream) {
+bool Model3D::load(SeekableReadStream &stream) {
     std::vector<uint8_t> file = stream.readAll();
     parts.clear();
     if (file.size() < 30 + 0x2C || le16(&file[4]) != 110)
         return false;
-    const uint8_t* block = &file[30];
+    const uint8_t *block = &file[30];
     size_t blockSize = file.size() - 30;
     auto ok = [&](uint32_t offset, size_t bytes) { return offset <= blockSize && bytes <= blockSize - offset; };
 
@@ -48,7 +58,7 @@ bool Model3D::load(SeekableReadStream& stream) {
     if (count > 1000 || !ok(records, (size_t)count * 44))
         return false;
     for (int p = 0; p < count; p++) {
-        const uint8_t* r = block + records + 44 * p;
+        const uint8_t *r = block + records + 44 * p;
         int verts = std::abs((int32_t)le32(r)), faces = (int32_t)le32(r + 4);
         uint32_t vertOff = le32(r + 0x0C), uvOff = le32(r + 0x10), faceOff = le32(r + 0x1C), normOff = le32(r + 0x24);
         if (verts > 5000 || faces < 0 || faces > 5000 || !ok(vertOff, (size_t)verts * 12) ||
@@ -67,7 +77,7 @@ bool Model3D::load(SeekableReadStream& stream) {
             part.vertices.push_back(vertex);
         }
         for (int f = 0; f < faces; f++) {
-            const uint8_t* t = block + faceOff + 8 * f;
+            const uint8_t *t = block + faceOff + 8 * f;
             Triangle tri;
             tri.material = le16(t);
             tri.a = le16(t + 2);
@@ -85,7 +95,7 @@ bool Model3D::load(SeekableReadStream& stream) {
     return true;
 }
 
-bool CombatMaterial::loadList(SeekableReadStream& stream, std::vector<CombatMaterial>& list) {
+bool CombatMaterial::loadList(SeekableReadStream &stream, std::vector<CombatMaterial> &list) {
     std::vector<uint8_t> file = stream.readAll();
     list.clear();
     if (file.size() < 30 || le16(&file[8]) != 110)
@@ -94,7 +104,7 @@ bool CombatMaterial::loadList(SeekableReadStream& stream, std::vector<CombatMate
     if (count > 4096 || file.size() < 30 + (size_t)count * 36)
         return false;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* r = &file[30 + 36 * i];
+        const uint8_t *r = &file[30 + 36 * i];
         CombatMaterial m;
         m.colour = le32(r);
         m.param = le32(r + 4);
@@ -113,7 +123,7 @@ uint32_t CombatMaterial::rgb() const {
 
 // Pictures
 
-bool CombatImage::loadGif(SeekableReadStream& stream) {
+bool CombatImage::loadGif(SeekableReadStream &stream) {
     std::vector<uint8_t> d = stream.readAll();
     if (d.size() < 13 || std::memcmp(d.data(), "GIF8", 4) != 0)
         return false;
@@ -228,7 +238,7 @@ bool CombatImage::loadGif(SeekableReadStream& stream) {
         bool interlaced = (imageFlags & 0x40) != 0;
         int row = 0;
         for (int pass = 0; pass < (interlaced ? 4 : 1); pass++) {
-            static const int start[4] = { 0, 4, 2, 1 }, step[4] = { 8, 8, 4, 2 };
+            static const int start[4] = {0, 4, 2, 1}, step[4] = {8, 8, 4, 2};
             for (int y = interlaced ? start[pass] : 0; y < h; y += interlaced ? step[pass] : 1, row++) {
                 for (int x = 0; x < w; x++)
                     pixels[(size_t)y * w + x] = palette[out[(size_t)row * w + x]];
@@ -239,7 +249,7 @@ bool CombatImage::loadGif(SeekableReadStream& stream) {
     return false;
 }
 
-bool CombatImage::loadLbm(SeekableReadStream& stream) {
+bool CombatImage::loadLbm(SeekableReadStream &stream) {
     std::vector<uint8_t> d = stream.readAll();
     if (d.size() < 12 || std::memcmp(d.data(), "FORM", 4) != 0 || std::memcmp(&d[8], "PBM ", 4) != 0)
         return false;
@@ -247,7 +257,7 @@ bool CombatImage::loadLbm(SeekableReadStream& stream) {
     int compression = 0;
     for (size_t p = 12; p + 8 <= d.size();) {
         uint32_t size = be32(&d[p + 4]);
-        const uint8_t* c = &d[p + 8];
+        const uint8_t *c = &d[p + 8];
         if (p + 8 + size > d.size())
             return false;
         if (!std::memcmp(&d[p], "BMHD", 4) && size >= 20) {
@@ -287,7 +297,7 @@ bool CombatImage::loadLbm(SeekableReadStream& stream) {
     return false;
 }
 
-bool CombatImage::loadRas(SeekableReadStream& stream) {
+bool CombatImage::loadRas(SeekableReadStream &stream) {
     std::vector<uint8_t> d = stream.readAll();
     if (d.size() < 32 || be32(d.data()) != 0x59A66A95)
         return false;
@@ -303,7 +313,7 @@ bool CombatImage::loadRas(SeekableReadStream& stream) {
         palette[i] = r == 255 && g == 0 && b == 163 ? 0 : argb(r, g, b);
     }
     size_t stride = ((size_t)w + 1) & ~(size_t)1;
-    const uint8_t* rows = &d[32 + mapLength];
+    const uint8_t *rows = &d[32 + mapLength];
     size_t available = d.size() - 32 - mapLength;
     pixels.assign((size_t)w * h, 0);
     indices.assign((size_t)w * h, 0);
@@ -319,7 +329,7 @@ bool CombatImage::loadRas(SeekableReadStream& stream) {
     return true;
 }
 
-bool loadStandardPalette(SeekableReadStream& stream, uint32_t palette[256]) {
+bool loadStandardPalette(SeekableReadStream &stream, uint32_t palette[256]) {
     uint8_t data[768];
     if (stream.read(data, 768) != 768)
         return false;
@@ -336,7 +346,7 @@ namespace {
 // The SPR frames' bit reader: MSB first, 32 bits peeked at a time.
 class Bits {
 public:
-    Bits(const std::vector<uint8_t>& d, size_t p) : _d(d), _p(p) {}
+    Bits(const std::vector<uint8_t> &d, size_t p) : _d(d), _p(p) {}
     uint32_t peek() {
         while (_n < 25) {
             uint8_t b = _p < _d.size() ? _d[_p] : 0;
@@ -352,13 +362,13 @@ public:
     }
 
 private:
-    const std::vector<uint8_t>& _d;
+    const std::vector<uint8_t> &_d;
     size_t _p;
     uint32_t _acc = 0;
     int _n = 0;
 };
 
-void decodeSprFrame(const std::vector<uint8_t>& d, size_t q, int w, int h, int mode, std::vector<uint8_t>& out) {
+void decodeSprFrame(const std::vector<uint8_t> &d, size_t q, int w, int h, int mode, std::vector<uint8_t> &out) {
     size_t total = (size_t)w * h;
     uint8_t bg = d[q];
     out.clear();
@@ -439,7 +449,7 @@ void decodeSprFrame(const std::vector<uint8_t>& d, size_t q, int w, int h, int m
         }
     }
     // The background is see-through.
-    for (uint8_t& v : out) {
+    for (uint8_t &v : out) {
         if (v == bg)
             v = 0;
     }
@@ -447,7 +457,7 @@ void decodeSprFrame(const std::vector<uint8_t>& d, size_t q, int w, int h, int m
 
 } // namespace
 
-bool SprAnimation::load(SeekableReadStream& stream) {
+bool SprAnimation::load(SeekableReadStream &stream) {
     std::vector<uint8_t> d = stream.readAll();
     frames.clear();
     if (d.size() < 12 || std::memcmp(d.data(), "TRPS", 4) != 0)
@@ -458,7 +468,7 @@ bool SprAnimation::load(SeekableReadStream& stream) {
     };
     std::vector<Frame> found;
     for (size_t p = 12; p + 8 <= d.size();) {
-        char id[5] = { (char)d[p + 3], (char)d[p + 2], (char)d[p + 1], (char)d[p], 0 };
+        char id[5] = {(char)d[p + 3], (char)d[p + 2], (char)d[p + 1], (char)d[p], 0};
         uint32_t size = le32(&d[p + 4]);
         if (!std::strcmp(id, "LIST")) {
             p += 16;
@@ -467,7 +477,7 @@ bool SprAnimation::load(SeekableReadStream& stream) {
         if (!std::strcmp(id, "TIME") && p + 12 <= d.size())
             frameMillis = std::max<uint32_t>(20, le32(&d[p + 8]));
         if (!std::strcmp(id, "COMP") && p + 20 <= d.size())
-            found.push_back({ (int)le32(&d[p + 8]), (int)le32(&d[p + 12]), p + 16 });
+            found.push_back({(int)le32(&d[p + 8]), (int)le32(&d[p + 12]), p + 16});
         if (size == 0)
             break;
         p += size;
@@ -476,7 +486,7 @@ bool SprAnimation::load(SeekableReadStream& stream) {
         return false;
     w = found[0].w;
     h = found[0].h;
-    for (const Frame& f : found) {
+    for (const Frame &f : found) {
         if (f.w != w || f.h != h || f.w <= 0 || f.h <= 0 || (size_t)w * h > 1 << 22 || f.data + 4 > d.size())
             return false;
         size_t q = f.data;
@@ -501,12 +511,12 @@ bool SprAnimation::load(SeekableReadStream& stream) {
     return true;
 }
 
-bool MetFont::load(SeekableReadStream& stream) {
+bool MetFont::load(SeekableReadStream &stream) {
     uint8_t data[96 * 8];
     if (stream.read(data, sizeof data) != sizeof data)
         return false;
     for (int i = 0; i < 96; i++)
-        cells[i] = { be16(data + 8 * i), be16(data + 8 * i + 2), be16(data + 8 * i + 4), be16(data + 8 * i + 6) };
+        cells[i] = {be16(data + 8 * i), be16(data + 8 * i + 2), be16(data + 8 * i + 4), be16(data + 8 * i + 6)};
     return true;
 }
 
@@ -515,7 +525,7 @@ bool MetFont::load(SeekableReadStream& stream) {
 namespace {
 
 // Lines without comments (#, $ and C-style), split into words.
-std::vector<std::vector<std::string>> words(const std::string& text) {
+std::vector<std::vector<std::string>> words(const std::string &text) {
     std::vector<std::vector<std::string>> lines;
     for (std::string line : text::split(text, '\n')) {
         size_t comment = line.find("/*");
@@ -541,17 +551,17 @@ std::vector<std::vector<std::string>> words(const std::string& text) {
     return lines;
 }
 
-bool isNumber(const std::string& s) {
+bool isNumber(const std::string &s) {
     return !s.empty() && (std::isdigit((uint8_t)s[0]) || ((s[0] == '-' || s[0] == '+') && s.size() > 1));
 }
 
 } // namespace
 
-bool ShipClass::loadAll(const std::string& text, std::vector<ShipClass>& classes) {
+bool ShipClass::loadAll(const std::string &text, std::vector<ShipClass> &classes) {
     classes.clear();
     std::vector<std::vector<std::string>> lines = words(text);
     for (size_t i = 0; i < lines.size(); i++) {
-        const std::vector<std::string>& head = lines[i];
+        const std::vector<std::string> &head = lines[i];
         if (head.size() < 10 || isNumber(head[0]))
             continue;
         ShipClass c;
@@ -567,10 +577,10 @@ bool ShipClass::loadAll(const std::string& text, std::vector<ShipClass>& classes
         c.torpedoes = std::atoi(head[9].c_str());
         size_t j = i + 1;
         for (int s = 0; s < kSystemCount && j < lines.size(); s++, j++) {
-            const std::vector<std::string>& l = lines[j];
+            const std::vector<std::string> &l = lines[j];
             if (l.size() < 4 || !isNumber(l[0]))
                 return false;
-            SystemInfo& info = c.systems[s];
+            SystemInfo &info = c.systems[s];
             info.max = std::atoi(l[0].c_str());
             info.charge = std::atoi(l[1].c_str());
             info.discharge = std::atoi(l[2].c_str());
@@ -614,7 +624,7 @@ bool ShipClass::loadAll(const std::string& text, std::vector<ShipClass>& classes
     return !classes.empty();
 }
 
-bool loadCombatMission(const std::string& text, std::vector<MissionShip>& ships) {
+bool loadCombatMission(const std::string &text, std::vector<MissionShip> &ships) {
     ships.clear();
     int wave = 1;
     for (std::string line : text::split(text, '\n')) {
@@ -630,7 +640,7 @@ bool loadCombatMission(const std::string& text, std::vector<MissionShip>& ships)
         std::vector<std::vector<std::string>> w = words(line);
         if (w.empty() || w[0].size() < 9 || !isNumber(w[0][0]))
             continue;
-        const std::vector<std::string>& f = w[0];
+        const std::vector<std::string> &f = w[0];
         MissionShip ship;
         ship.type = text::toLower(f[1]);
         ship.x = std::atoi(f[2].c_str());

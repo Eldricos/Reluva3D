@@ -26,7 +26,7 @@ namespace {
 // A disc as on the real CDs, in miniature: disc 1 has the scripts (in
 // SSE/SSE.ALL) and both have data under DS9 and their number in
 // DS9/TORPEDOS/CD.
-void makeDisc(const std::filesystem::path& root, int disc, bool lowerCase) {
+void makeDisc(const std::filesystem::path &root, int disc, bool lowerCase) {
     auto name = [&](std::string s) {
         if (lowerCase)
             std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return char(std::tolower(c)); });
@@ -41,9 +41,11 @@ void makeDisc(const std::filesystem::path& root, int disc, bool lowerCase) {
     }
 }
 
-const MetaEngine& engine() { return *findEngine("stharbinger"); }
+const MetaEngine &engine() {
+    return *findEngine("stharbinger");
+}
 
-void testParts(const std::filesystem::path& tmp) {
+void testParts(const std::filesystem::path &tmp) {
     makeDisc(tmp / "cd1", 0, false);
     makeDisc(tmp / "cd2", 1, true);
     std::filesystem::create_directories(tmp / "empty");
@@ -59,7 +61,7 @@ void testParts(const std::filesystem::path& tmp) {
     CHECK(findGameParts(tmp / "empty").empty() && findGameParts(tmp / "missing").empty());
 }
 
-void testDetect(const std::filesystem::path& tmp) {
+void testDetect(const std::filesystem::path &tmp) {
     makeDisc(tmp / "both" / "disc1", 0, true);
     makeDisc(tmp / "both" / "disc2", 1, false);
     makeDisc(tmp / "one", 0, false);
@@ -74,7 +76,7 @@ void testDetect(const std::filesystem::path& tmp) {
     CHECK(engine().detect(tmp / "other").empty());
 }
 
-void testImport(const std::filesystem::path& tmp) {
+void testImport(const std::filesystem::path &tmp) {
     makeDisc(tmp / "cd1", 0, false);
     makeDisc(tmp / "cd2", 1, true);
 
@@ -82,21 +84,21 @@ void testImport(const std::filesystem::path& tmp) {
     CHECK(plans.size() == 1);
     if (plans.empty())
         return;
-    ImportPlan& plan = plans[0];
+    ImportPlan &plan = plans[0];
     CHECK(plan.addPatchLabel.empty() && plan.addFolderLabel == "Add other disc...");
     CHECK(
-        std::all_of(plan.files.begin(), plan.files.end(), [](const auto& f) { return f.to.rfind("disc1/", 0) == 0; }));
+        std::all_of(plan.files.begin(), plan.files.end(), [](const auto &f) { return f.to.rfind("disc1/", 0) == 0; }));
     CHECK(std::any_of(plan.notes.begin(), plan.notes.end(),
-                      [](const std::string& n) { return n.find("Add disc 2") != std::string::npos; }));
+                      [](const std::string &n) { return n.find("Add disc 2") != std::string::npos; }));
     const size_t before = plan.files.size();
 
     // The other disc, as it's planned; the same one again is refused.
     std::string message;
     CHECK(engine().addToImport(plan, tmp / "cd2", message));
     CHECK(plan.files.size() > before && std::any_of(plan.files.begin(), plan.files.end(),
-                                                    [](const auto& f) { return f.to == "disc2/ds9/torpedos/cd"; }));
+                                                    [](const auto &f) { return f.to == "disc2/ds9/torpedos/cd"; }));
     CHECK(std::none_of(plan.notes.begin(), plan.notes.end(),
-                       [](const std::string& n) { return n.find("Add disc") != std::string::npos; }));
+                       [](const std::string &n) { return n.find("Add disc") != std::string::npos; }));
     CHECK(!engine().addToImport(plan, tmp / "cd2", message) && message.find("already") != std::string::npos);
     CHECK(!engine().addToImport(plan, tmp / "nothing", message));
 
@@ -107,7 +109,7 @@ void testImport(const std::filesystem::path& tmp) {
     CHECK(engine().detect(tmp / "library").size() == 1);
 }
 
-void testCdVersions(const std::filesystem::path& tmp) {
+void testCdVersions(const std::filesystem::path &tmp) {
     // Some CD mounts show ISO 9660 versions: "SSE.ALL;1".
     putFile(tmp / "cd" / "DS9" / "TORPEDOS" / "CD;1", bytes("0"));
     putFile(tmp / "cd" / "DS9" / "PALETTES" / "X.PAL;1", std::vector<uint8_t>(768, 0));
@@ -122,18 +124,18 @@ void testCdVersions(const std::filesystem::path& tmp) {
     // Copied without the versions.
     auto plans = engine().planImport(tmp / "cd");
     CHECK(plans.size() == 1 && std::any_of(plans[0].files.begin(), plans[0].files.end(),
-                                           [](const auto& f) { return f.to == "disc1/SSE/SSE.ALL"; }));
+                                           [](const auto &f) { return f.to == "disc1/SSE/SSE.ALL"; }));
 }
 
 // A table entry for a file of one part, as `reluva --hash` gives it.
-FileSignature signature(const std::filesystem::path& part, const std::string& name, int64_t sizeDelta = 0) {
+FileSignature signature(const std::filesystem::path &part, const std::string &name, int64_t sizeDelta = 0) {
     const auto path = fs::findFile(part, name);
     std::error_code ec;
     return {name, path ? fs::md5File(*path, kDetectionHashBytes).value_or("") : "",
             path ? int64_t(std::filesystem::file_size(*path, ec)) + sizeDelta : -1};
 }
 
-void testReleaseTable(const std::filesystem::path& tmp) {
+void testReleaseTable(const std::filesystem::path &tmp) {
     makeDisc(tmp / "cd1", 0, false);
     makeDisc(tmp / "cd2", 1, false);
     makeDisc(tmp / "both" / "first", 0, true);
@@ -144,12 +146,15 @@ void testReleaseTable(const std::filesystem::path& tmp) {
     // Disc 1's release, by its files as they are on the CD; and a disc 2
     // entry, of another release, for the order.
     const std::vector<GameVariant> table = {
-        {"ds9harbinger", "Harbinger (test release)", "de", "dos",
+        {"ds9harbinger",
+         "Harbinger (test release)",
+         "de",
+         "dos",
          {signature(tmp / "cd1", "SSE/SSE.ALL"), signature(tmp / "cd1", "SSE/SSE.LST"),
           signature(tmp / "cd1", "SSE/SSE.CAT")}},
         {"ds9harbinger", "Harbinger (disc 2 entry)", "fr", "dos", {signature(tmp / "cd2", "DS9/INTRO/VNM.SMK")}},
     };
-    auto name = [&](const std::filesystem::path& dir) {
+    auto name = [&](const std::filesystem::path &dir) {
         const auto r = recogniseRelease("stharbinger", findGameParts(dir), table);
         return r ? r->description + " " + r->language : std::string("(none)");
     };
@@ -176,9 +181,9 @@ void testReleaseTable(const std::filesystem::path& tmp) {
 static const reluva::test::Suite
     suite("stharbinger.unit.detection",
           {
-              {"game parts", [](const std::filesystem::path& tmp) { testParts(tmp); }},
-              {"detect", [](const std::filesystem::path& tmp) { testDetect(tmp); }},
-              {"import both discs", [](const std::filesystem::path& tmp) { testImport(tmp); }},
-              {"cd versions", [](const std::filesystem::path& tmp) { testCdVersions(tmp); }},
-    {"release table per part", [](const std::filesystem::path& tmp) { testReleaseTable(tmp); }},
+              {"game parts", [](const std::filesystem::path &tmp) { testParts(tmp); }},
+              {"detect", [](const std::filesystem::path &tmp) { testDetect(tmp); }},
+              {"import both discs", [](const std::filesystem::path &tmp) { testImport(tmp); }},
+              {"cd versions", [](const std::filesystem::path &tmp) { testCdVersions(tmp); }},
+              {"release table per part", [](const std::filesystem::path &tmp) { testReleaseTable(tmp); }},
           });

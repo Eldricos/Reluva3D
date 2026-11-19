@@ -28,11 +28,11 @@ public:
     struct Cell {
         int a = -1, b = -1;
         bool valid() const { return a >= 0 && b >= 0; }
-        bool operator==(const Cell& o) const { return a == o.a && b == o.b; }
+        bool operator==(const Cell &o) const { return a == o.a && b == o.b; }
     };
 
     // From a CAMR record; false if it has no grid.
-    bool load(const Ac2Record& camr);
+    bool load(const Ac2Record &camr);
     bool empty() const { return size_ <= 0; }
     int cellSize() const { return size_; }
     uint8_t at(int a, int b) const { return inside(a, b) ? cells_[size_t(a * kSize + b)] : 1; }
@@ -42,7 +42,7 @@ public:
     }
     static bool inside(int a, int b) { return a >= 0 && b >= 0 && a < kSize && b < kSize; }
 
-    void centre(Cell c, float& x, float& z) const;
+    void centre(Cell c, float &x, float &z) const;
     // The cell holding (x, z), or an invalid one off the grid. A point on
     // a boundary goes to the higher a and the higher b, as in the game.
     Cell cellAt(float x, float z) const;
@@ -67,7 +67,7 @@ public:
     struct Point {
         double a = 0, b = 0, heading = 0;
     };
-    int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point>& out) const;
+    int search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const;
     // The x87's precision the search follows: 24 bits, as in the game
     // (the default), or 53 (for comparing with the game's code run so).
     static void setSinglePrecision(bool on);

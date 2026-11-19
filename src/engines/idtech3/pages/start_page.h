@@ -23,12 +23,12 @@ public:
         std::string label, detail;
         std::string page; // the page it starts on
     };
-    StartPage(ViewerContext& ctx, std::vector<Choice> choices);
+    StartPage(ViewerContext &ctx, std::vector<Choice> choices);
 
-    const char* name() const override { return "Start"; }
+    const char *name() const override { return "Start"; }
     size_t count() const override { return choices_.size(); }
     void activate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void draw();

@@ -28,30 +28,41 @@ constexpr uint8_t kEffectTorchWaver = 1, kEffectFireWaver = 2, kEffectWateryShim
 // step 35 times a second (the engine's tick).
 constexpr float kFrameRate = 35;
 
-Vec3f add(const Vec3f& a, const Vec3f& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec3f sub(const Vec3f& a, const Vec3f& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec3f scale(const Vec3f& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float dot(const Vec3f& a, const Vec3f& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-Vec3f cross(const Vec3f& a, const Vec3f& b) {
+Vec3f add(const Vec3f &a, const Vec3f &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec3f sub(const Vec3f &a, const Vec3f &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec3f scale(const Vec3f &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float dot(const Vec3f &a, const Vec3f &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+Vec3f cross(const Vec3f &a, const Vec3f &b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
 }
-float length(const Vec3f& a) { return std::sqrt(dot(a, a)); }
+float length(const Vec3f &a) {
+    return std::sqrt(dot(a, a));
+}
 // One light's share of a texel, as its palette holds it: at most 1 (127 of
 // the lightmap's 7 bits) in each channel.
-Vec3f capped(const Vec3f& c) { return {std::min(c[0], 1.0f), std::min(c[1], 1.0f), std::min(c[2], 1.0f)}; }
+Vec3f capped(const Vec3f &c) {
+    return {std::min(c[0], 1.0f), std::min(c[1], 1.0f), std::min(c[2], 1.0f)};
+}
 
 // A light actor's light, its classes' defaults under its own properties;
 // false if they don't read (it then lights nothing).
-bool readLight(const PackageSet& packages, const Package& package, int32_t ref, ClassDefaults& defaults,
-               const ScriptedActors* scripted, float levelBrightness, LightSource& l) {
+bool readLight(const PackageSet &packages, const Package &package, int32_t ref, ClassDefaults &defaults,
+               const ScriptedActors *scripted, float levelBrightness, LightSource &l) {
     const ObjectRef obj = packages.resolve(package, ref);
     ActorProperties props;
-    if (!obj || defaults.actorProperties(*obj.package, obj.exportIndex, props) ||
-        !props.vector("Location", l.position))
+    if (!obj || defaults.actorProperties(*obj.package, obj.exportIndex, props) || !props.vector("Location", l.position))
         return false;
     l.ref = ref;
     // What the level's scripts did to it at the start.
-    const ScriptedActor* changed = nullptr;
+    const ScriptedActor *changed = nullptr;
     if (scripted && obj.package == &package)
         if (auto it = scripted->find(obj.exportIndex); it != scripted->end())
             changed = &it->second;
@@ -119,7 +130,7 @@ bool animatedEffect(uint8_t effect) {
            effect == kEffectShock || effect == kEffectDisco || effect == kEffectInterference || effect == kEffectRotor;
 }
 
-bool changes(const LightSource& l) {
+bool changes(const LightSource &l) {
     return l.type == kLightPulse || l.type == kLightBlink || l.type == kLightFlicker || l.type == kLightStrobe ||
            l.type == kLightSubtlePulse || animatedEffect(l.effect) || l.scripted;
 }
@@ -136,10 +147,10 @@ float noise(uint32_t seed, uint32_t step) {
 }
 
 // The zone a surface is in: the zone on the front of its first node.
-std::vector<int> surfaceZones(const Model& model) {
+std::vector<int> surfaceZones(const Model &model) {
     std::vector<int> zones(model.surfs.size(), 0);
     std::vector<bool> seen(model.surfs.size(), false);
-    for (const BspNode& n : model.nodes)
+    for (const BspNode &n : model.nodes)
         if (n.vertexCount >= 3 && !seen[size_t(n.surf)]) {
             seen[size_t(n.surf)] = true;
             zones[size_t(n.surf)] = n.zone[1] ? n.zone[1] : n.zone[0];
@@ -161,14 +172,14 @@ Vec3f engineHsv(uint8_t hue, uint8_t saturation, uint8_t value) {
     else
         c = {(h - 170) / 85, 0, (255 - h) / 84};
     const float white = float(saturation) / 255;
-    for (float& x : c)
+    for (float &x : c)
         x = (x + (1 - x) * white) * level;
     return c;
 }
 
 Vec3f mixedLightColor(uint8_t hue, uint8_t saturation, uint8_t brightness) {
     Vec3f c = engineHsv(hue, saturation, 255);
-    for (float& x : c)
+    for (float &x : c)
         x *= float(brightness) / 255;
     return c;
 }
@@ -179,7 +190,7 @@ Vec3f lightColor(uint8_t hue, uint8_t saturation, uint8_t brightness, float leve
     // doubled (OpenGLDrv's GL_DST_COLOR x GL_SRC_COLOR blend): 127 is the
     // texture as it is, so a level of 255 times the colour is twice it.
     Vec3f c = mixedLightColor(hue, saturation, brightness);
-    for (float& x : c)
+    for (float &x : c)
         x *= 2 * levelBrightness;
     return c;
 }
@@ -187,12 +198,14 @@ Vec3f lightColor(uint8_t hue, uint8_t saturation, uint8_t brightness, float leve
 Vec3f zoneAmbientColor(uint8_t hue, uint8_t saturation, uint8_t brightness) {
     // Filled in as 64 of the 127 before the lights add theirs.
     Vec3f c = engineHsv(hue, saturation, brightness);
-    for (float& x : c)
+    for (float &x : c)
         x *= 64.0f / 127.5f;
     return c;
 }
 
-float lightLevel(const LightSource& l, float time) { return lightLevel(l, l.type, time); }
+float lightLevel(const LightSource &l, float time) {
+    return lightLevel(l, l.type, time);
+}
 
 // 1 - 3 f^2 + 2 f^3 of the way out to its radius, as Render.dll's table
 // of 4096 steps of (distance / radius)^2 (it divides that by f, and
@@ -203,7 +216,7 @@ float lightFalloff(float f) {
     return 1 - 3 * f * f + 2 * f * f * f;
 }
 
-float surfaceFalloff(const LightSource& l, float f) {
+float surfaceFalloff(const LightSource &l, float f) {
     f = std::clamp(f, 0.0f, 1.0f);
     if (l.effect == kEffectShell) // a thin shell from 0.8 to 1 of its radius, whatever the facing
         return f >= 0.8f && f < 1 ? 1 - 10 * std::fabs(f - 0.9f) : 0;
@@ -224,9 +237,11 @@ float surfaceFalloff(const LightSource& l, float f) {
 // its brightness. The indoor cylinder lights (radius 50 to 625) keep their
 // shadows. Reluva's reading: the rule is fitted, the original's code
 // isn't known.
-bool unshadowed(const LightSource& l) { return l.cylinder && l.radius >= 1000; }
+bool unshadowed(const LightSource &l) {
+    return l.cylinder && l.radius >= 1000;
+}
 
-float lightDistance(const LightSource& l, const Vec3f& p) {
+float lightDistance(const LightSource &l, const Vec3f &p) {
     const float dx = l.position[0] - p[0], dy = l.position[1] - p[1], dz = l.cylinder ? 0 : l.position[2] - p[2];
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
@@ -242,7 +257,7 @@ float smoothNoise(uint32_t seed, float time, float rate) {
     return noise(seed, step) * (1 - s) + noise(seed, step + 1) * s;
 }
 
-uint32_t lightSeed(const LightSource& l) {
+uint32_t lightSeed(const LightSource &l) {
     return uint32_t(int32_t(l.position[0] * 3 + l.position[1] * 5 + l.position[2] * 11)) ^ 0x5bd1e995u;
 }
 
@@ -252,16 +267,20 @@ uint32_t lightSeed(const LightSource& l) {
 // The share a light's LightEffect gives as a whole: none. The original's
 // effects all work texel by texel on the lightmaps (lightPattern); the
 // light actors get is its LightType's alone (Render.dll's GlobalLighting).
-float effectLevel(const LightSource&, float) { return 1; }
+float effectLevel(const LightSource &, float) {
+    return 1;
+}
 
 } // namespace
 
-bool hasLightPattern(const LightSource& l) { return animatedEffect(l.effect); }
+bool hasLightPattern(const LightSource &l) {
+    return animatedEffect(l.effect);
+}
 
 // The patterns, as Render.dll's lighting functions make them (read for what
 // they do), each a share of the light's usual falloff and facing there.
 // Angles in the light's own axes: yaw round its vertical, `turn` the time's.
-PatternPoint patternPoint(const Vec3f& o) {
+PatternPoint patternPoint(const Vec3f &o) {
     PatternPoint p;
     p.offset = o;
     const float flat = std::sqrt(o[0] * o[0] + o[1] * o[1]);
@@ -271,7 +290,7 @@ PatternPoint patternPoint(const Vec3f& o) {
     return p;
 }
 
-PatternNow patternNow(const LightSource& l, float time) {
+PatternNow patternNow(const LightSource &l, float time) {
     PatternNow n;
     n.time = time;
     n.frame = uint32_t(std::max(0.0f, time) * kFrameRate);
@@ -285,28 +304,35 @@ PatternNow patternNow(const LightSource& l, float time) {
 namespace {
 
 // sin of an angle in 65536ths of a turn, as the engine's table.
-float sinTurns(float units) { return std::sin(units * 2 * kPi / 65536); }
+float sinTurns(float units) {
+    return std::sin(units * 2 * kPi / 65536);
+}
 
-uint32_t texelSeed(const PatternPoint& p) {
+uint32_t texelSeed(const PatternPoint &p) {
     return uint32_t(int32_t(p.offset[0] * 3.1f) * 73856093 ^ int32_t(p.offset[1] * 3.1f) * 19349663 ^
                     int32_t(p.offset[2] * 3.1f) * 83492791);
 }
 
 } // namespace
 
-float lightPattern(const LightSource& l, const PatternNow& now, const PatternPoint& p) {
-    const Vec3f& o = p.offset;
+float lightPattern(const LightSource &l, const PatternNow &now, const PatternPoint &p) {
+    const Vec3f &o = p.offset;
     const float flat2 = o[0] * o[0] + o[1] * o[1];
     switch (l.effect) {
     // A random number each frame for each texel: 0.95-1 (torch), 0.8-1 (fire).
-    case kEffectTorchWaver: return 0.95f + 0.05f * noise(texelSeed(p), now.frame);
-    case kEffectFireWaver: return 0.8f + 0.2f * noise(texelSeed(p), now.frame);
+    case kEffectTorchWaver:
+        return 0.95f + 0.05f * noise(texelSeed(p), now.frame);
+    case kEffectFireWaver:
+        return 0.8f + 0.2f * noise(texelSeed(p), now.frame);
     // 0.6-1, each texel's number easing towards a new random one (a
     // sixteenth of the way a tick).
-    case kEffectWateryShimmer: return 0.6f + 0.4f * smoothNoise(texelSeed(p), now.time, kFrameRate / 16);
+    case kEffectWateryShimmer:
+        return 0.6f + 0.4f * smoothNoise(texelSeed(p), now.time, kFrameRate / 16);
     // Rings rolling out 35 units a second, 64 (slow) or 32 (fast) apart.
-    case kEffectSlowWave: return 0.7f + 0.3f * sinTurns((p.distance - now.time * 35) * 1024);
-    case kEffectFastWave: return 0.7f + 0.3f * sinTurns((p.distance - now.time * 35) * 2048);
+    case kEffectSlowWave:
+        return 0.7f + 0.3f * sinTurns((p.distance - now.time * 35) * 1024);
+    case kEffectFastWave:
+        return 0.7f + 0.3f * sinTurns((p.distance - now.time * 35) * 2048);
     // One beam a turn, a quarter of it wide, nothing near its axis.
     case kEffectSearchlight: {
         const float a = std::fmod(4 * p.yaw + now.turn, 8 * kPi);
@@ -327,48 +353,56 @@ float lightPattern(const LightSource& l, const PatternNow& now, const PatternPoi
         return 1 - (a + b - a * b) * std::min(1.0f, flat2 * 5e-5f);
     }
     // Bands by height, rolling.
-    case kEffectInterference: return 0.5f * (1 + std::sin(-(11 * std::atan2(o[2], flat2) + 5 * now.time)));
+    case kEffectInterference:
+        return 0.5f * (1 + std::sin(-(11 * std::atan2(o[2], flat2) + 5 * now.time)));
     // Three fine ripples.
     case kEffectShock: {
         const float d = std::round(p.distance * 8), t = now.time * 4000;
         return (0.9f + 0.1f * sinTurns(-16 * (d + t))) * (0.9f + 0.1f * sinTurns(16 * (std::floor(d / 2) - t))) *
                (0.9f + 0.1f * sinTurns(16 * (std::floor(d / 4) - t)));
     }
-    default: return 1;
+    default:
+        return 1;
     }
 }
 
-float lightLevel(const LightSource& l, uint8_t type, float time, bool whole) {
+float lightLevel(const LightSource &l, uint8_t type, float time, bool whole) {
     return (whole || !hasLightPattern(l) ? effectLevel(l, time) : 1.0f) * [&] {
-    // How far through its cycle it is, 0-1.
-    const float cycles = time / std::max(l.period, 1e-3f) + l.phase;
-    const float at = cycles - std::floor(cycles);
-    // As Render.dll's GlobalLighting: a frame's step for the random ones.
-    const uint32_t frame = uint32_t(std::max(0.0f, time) * kFrameRate);
-    const uint32_t seed = lightSeed(l);
-    switch (type) {
-    case kLightPulse: return 0.6f + 0.39f * std::sin(2 * kPi * at);
-    case kLightSubtlePulse: return 0.9f + 0.09f * std::sin(2 * kPi * at);
-    // On or out at random each frame (the parity of its phase in 65536ths).
-    case kLightBlink: return noise(seed, frame) < 0.5f ? 1.0f : 0.0f;
-    // All of them together, on one frame and out the next.
-    case kLightStrobe: return frame % 2 == 0 ? 1.0f : 0.0f;
-    // A random number each frame: out under a half, else that bright.
-    case kLightFlicker: {
-        const float r = noise(seed ^ 0x51ed270bu, frame);
-        return r < 0.5f ? 0.0f : r;
-    }
-    case kLightNone: return 0.0f;
-    default: return 1.0f;
-    }
+        // How far through its cycle it is, 0-1.
+        const float cycles = time / std::max(l.period, 1e-3f) + l.phase;
+        const float at = cycles - std::floor(cycles);
+        // As Render.dll's GlobalLighting: a frame's step for the random ones.
+        const uint32_t frame = uint32_t(std::max(0.0f, time) * kFrameRate);
+        const uint32_t seed = lightSeed(l);
+        switch (type) {
+        case kLightPulse:
+            return 0.6f + 0.39f * std::sin(2 * kPi * at);
+        case kLightSubtlePulse:
+            return 0.9f + 0.09f * std::sin(2 * kPi * at);
+        // On or out at random each frame (the parity of its phase in 65536ths).
+        case kLightBlink:
+            return noise(seed, frame) < 0.5f ? 1.0f : 0.0f;
+        // All of them together, on one frame and out the next.
+        case kLightStrobe:
+            return frame % 2 == 0 ? 1.0f : 0.0f;
+        // A random number each frame: out under a half, else that bright.
+        case kLightFlicker: {
+            const float r = noise(seed ^ 0x51ed270bu, frame);
+            return r < 0.5f ? 0.0f : r;
+        }
+        case kLightNone:
+            return 0.0f;
+        default:
+            return 1.0f;
+        }
     }();
 }
 
-LevelLights gatherLights(const PackageSet& packages, const Package& package, const Model& model,
-                         const ScriptedActors* scripted) {
+LevelLights gatherLights(const PackageSet &packages, const Package &package, const Model &model,
+                         const ScriptedActors *scripted) {
     LevelLights out;
     ClassDefaults defaults(packages);
-    for (const Zone& z : model.zones) {
+    for (const Zone &z : model.zones) {
         ActorProperties props;
         Vec3f ambient{}, actorAmbient{};
         uint8_t ambientBrightness = 0;
@@ -376,7 +410,8 @@ LevelLights gatherLights(const PackageSet& packages, const Package& package, con
         const ObjectRef zone = z.actor ? packages.resolve(package, z.actor) : ObjectRef{};
         if (zone && !defaults.actorProperties(*zone.package, zone.exportIndex, props)) {
             ambientBrightness = props.byte("AmbientBrightness");
-            ambient = zoneAmbientColor(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
+            ambient =
+                zoneAmbientColor(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
             fog = props.boolean("bFogZone");
             actorAmbient = engineHsv(props.byte("AmbientHue"), props.byte("AmbientSaturation", 255), ambientBrightness);
         }
@@ -422,17 +457,18 @@ LevelLights gatherLights(const PackageSet& packages, const Package& package, con
     return out;
 }
 
-void AnimatedLightmap::draw(const std::vector<float>& levels, std::vector<uint8_t>& rgba,
-                            const std::vector<LightSource>* sources, const std::vector<PatternNow>* now) const {
+void AnimatedLightmap::draw(const std::vector<float> &levels, std::vector<uint8_t> &rgba,
+                            const std::vector<LightSource> *sources, const std::vector<PatternNow> *now) const {
     rgba.resize(base.size() * 4);
     for (size_t t = 0; t < base.size(); ++t) {
         Vec3f light = base[t];
-        for (const Light& l : lights) {
-            const Vec3f& share = l.share[t];
+        for (const Light &l : lights) {
+            const Vec3f &share = l.share[t];
             if (share[0] == 0 && share[1] == 0 && share[2] == 0)
                 continue;
             float level = size_t(l.index) < levels.size() ? levels[size_t(l.index)] : 1;
-            if (!l.points.empty() && sources && now && size_t(l.index) < sources->size() && size_t(l.index) < now->size())
+            if (!l.points.empty() && sources && now && size_t(l.index) < sources->size() &&
+                size_t(l.index) < now->size())
                 level *= lightPattern((*sources)[size_t(l.index)], (*now)[size_t(l.index)], l.points[t]);
             light = add(light, capped(scale(share, level)));
         }
@@ -442,13 +478,13 @@ void AnimatedLightmap::draw(const std::vector<float>& levels, std::vector<uint8_
     }
 }
 
-std::array<float, 2> LightmapAtlas::uv(int surf, const Vec3f& p) const {
-    const LightmapPlacement& m = surfs[size_t(surf)];
+std::array<float, 2> LightmapAtlas::uv(int surf, const Vec3f &p) const {
+    const LightmapPlacement &m = surfs[size_t(surf)];
     const float lu = dot(p, m.uAxis) + m.uOffset, lv = dot(p, m.vAxis) + m.vOffset;
     return {(float(m.x) + lu + 0.5f) / float(pageSize), (float(m.y) + lv + 0.5f) / float(pageSize)};
 }
 
-LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int pageSize) {
+LightmapAtlas buildLightmaps(const Model &model, const LevelLights &lights, int pageSize) {
     LightmapAtlas atlas;
     atlas.pageSize = pageSize;
     atlas.surfs.resize(model.surfs.size());
@@ -457,15 +493,15 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
 
     // Each surface's polygon points, to fit its sample grid to.
     std::vector<std::vector<Vec3f>> points(model.surfs.size());
-    for (const BspNode& n : model.nodes)
+    for (const BspNode &n : model.nodes)
         for (int k = 0; k < n.vertexCount; ++k)
             points[size_t(n.surf)].push_back(model.points[size_t(model.verts[size_t(n.vertPool + k)].point)]);
     const std::vector<int> zones = surfaceZones(model);
 
     struct Grid {
         int surf = -1;
-        int w = 0, h = 0;  // samples
-        int zone = 0;      // for ambient-only blocks (surf -1)
+        int w = 0, h = 0; // samples
+        int zone = 0;     // for ambient-only blocks (surf -1)
         Vec3f uAxis{}, vAxis{};
         float uOffset = 0, vOffset = 0;
     };
@@ -487,30 +523,30 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
     };
 
     for (size_t s = 0; s < model.surfs.size(); ++s) {
-        const BspSurf& surf = model.surfs[s];
+        const BspSurf &surf = model.surfs[s];
         if (points[s].empty() || (surf.polyFlags & (polyflag::Unlit | polyflag::Invisible)))
             continue;
         if (surf.lightMap < 0) {
             useAmbient(s);
             continue;
         }
-        const LightMapIndex& m = model.lightMaps[size_t(surf.lightMap)];
+        const LightMapIndex &m = model.lightMaps[size_t(surf.lightMap)];
         ++atlas.stats.lightmaps;
         if (m.uClamp + 2 > pageSize || m.vClamp + 2 > pageSize || m.uClamp <= 0 || m.vClamp <= 0) {
             ++atlas.stats.tooLarge;
             useAmbient(s);
             continue;
         }
-        const Vec3f& base = model.points[size_t(surf.base)];
-        const Vec3f& tu = model.vectors[size_t(surf.textureU)];
-        const Vec3f& tv = model.vectors[size_t(surf.textureV)];
+        const Vec3f &base = model.points[size_t(surf.base)];
+        const Vec3f &tu = model.vectors[size_t(surf.textureU)];
+        const Vec3f &tv = model.vectors[size_t(surf.textureV)];
 
         // The grid runs along the surface's texture axes, uScale and vScale
         // texture units between samples, from the pan (X along U, Y along V)
         // measured from the base point. Where that doesn't cover the polygon
         // (a few degenerate surfaces), from the polygon's own lowest corner.
         float minU = 1e30f, maxU = -1e30f, minV = 1e30f, maxV = -1e30f;
-        for (const Vec3f& p : points[s]) {
+        for (const Vec3f &p : points[s]) {
             const Vec3f d = sub(p, base);
             minU = std::min(minU, dot(d, tu));
             maxU = std::max(maxU, dot(d, tu));
@@ -576,15 +612,15 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
     // lights whose brightness changes are kept apart, each lightmap they
     // reach redrawn with them as they do (drawn at time 0 here).
     std::vector<float> startLevels;
-    for (const LightSource& l : lights.animated)
+    for (const LightSource &l : lights.animated)
         startLevels.push_back(l.startsOff ? 0.0f : lightLevel(l, l.type, 0, false));
     std::vector<PatternNow> startNow;
-    for (const LightSource& l : lights.animated)
+    for (const LightSource &l : lights.animated)
         startNow.push_back(patternNow(l, 0));
     std::vector<uint8_t> rgba;
     for (size_t gi = 0; gi < grids.size(); ++gi) {
-        const Grid& g = grids[gi];
-        image::Image& img = atlas.pages[size_t(placed[gi][0])];
+        const Grid &g = grids[gi];
+        image::Image &img = atlas.pages[size_t(placed[gi][0])];
         const int x0 = placed[gi][1], y0 = placed[gi][2];
         // The samples with their border, (i, j) at (i + 1, j + 1).
         const int bw = g.w + 2, bh = g.h + 2;
@@ -593,12 +629,13 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
         anim.base.assign(size_t(bw) * size_t(bh), Vec3f{});
         std::map<int, size_t> animIndex; // animated light -> its entry in anim.lights
         if (g.surf < 0) {
-            const Vec3f ambient = size_t(g.zone) < lights.zoneAmbient.size() ? lights.zoneAmbient[size_t(g.zone)] : Vec3f{};
+            const Vec3f ambient =
+                size_t(g.zone) < lights.zoneAmbient.size() ? lights.zoneAmbient[size_t(g.zone)] : Vec3f{};
             anim.base.assign(anim.base.size(), ambient);
         } else {
-            const BspSurf& surf = model.surfs[size_t(g.surf)];
-            const LightMapIndex& m = model.lightMaps[size_t(surf.lightMap)];
-            const Vec3f& n = model.vectors[size_t(surf.normal)];
+            const BspSurf &surf = model.surfs[size_t(g.surf)];
+            const LightMapIndex &m = model.lightMaps[size_t(surf.lightMap)];
+            const Vec3f &n = model.vectors[size_t(surf.normal)];
             const Vec3f ambient = size_t(zones[size_t(g.surf)]) < lights.zoneAmbient.size()
                                       ? lights.zoneAmbient[size_t(zones[size_t(g.surf)])]
                                       : Vec3f{};
@@ -621,7 +658,7 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
                              m.lightActors >= 0 && li < model.lights.size() && model.lights[li]; ++li, ++k) {
                             const size_t bit = size_t(m.dataOffset) + size_t(k) * size_t(rowBytes) * size_t(m.vClamp) +
                                                size_t(j) * size_t(rowBytes) + size_t(i / 8);
-                            const LightSource& src = lights.sources[li];
+                            const LightSource &src = lights.sources[li];
                             if (!((model.lightBits[bit] >> (i & 7)) & 1) && !unshadowed(src))
                                 continue;
                             if (src.radius <= 0)
@@ -665,7 +702,7 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
                                     l.points.assign(anim.base.size(), PatternPoint{});
                                 anim.lights.push_back(std::move(l));
                             }
-                            AnimatedLightmap::Light& al = anim.lights[it->second];
+                            AnimatedLightmap::Light &al = anim.lights[it->second];
                             al.share[at(i, j)] = add(al.share[at(i, j)], scale(src.color, amount));
                             if (!al.points.empty())
                                 al.points[at(i, j)] = patternPoint(sub(p, src.position));
@@ -677,14 +714,14 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
                 ++atlas.stats.lit;
             // The border repeats the edges, so filtering at them doesn't
             // reach a neighbour's texels.
-            auto border = [&](std::vector<Vec3f>& v) {
+            auto border = [&](std::vector<Vec3f> &v) {
                 for (int j = -1; j <= g.h; ++j)
                     for (int i = -1; i <= g.w; ++i)
                         if (i < 0 || i >= g.w || j < 0 || j >= g.h)
                             v[at(i, j)] = v[at(std::clamp(i, 0, g.w - 1), std::clamp(j, 0, g.h - 1))];
             };
             border(anim.base);
-            for (auto& l : anim.lights) {
+            for (auto &l : anim.lights) {
                 border(l.share);
                 if (!l.points.empty()) {
                     for (int j = -1; j <= g.h; ++j)
@@ -710,8 +747,8 @@ LightmapAtlas buildLightmaps(const Model& model, const LevelLights& lights, int 
     for (size_t s = 0; s < model.surfs.size(); ++s) {
         if (gridOfSurf[s] < 0)
             continue;
-        const Grid& g = grids[size_t(gridOfSurf[s])];
-        LightmapPlacement& p = atlas.surfs[s];
+        const Grid &g = grids[size_t(gridOfSurf[s])];
+        LightmapPlacement &p = atlas.surfs[s];
         p.page = placed[size_t(gridOfSurf[s])][0];
         p.x = placed[size_t(gridOfSurf[s])][1];
         p.y = placed[size_t(gridOfSurf[s])][2];

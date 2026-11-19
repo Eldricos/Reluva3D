@@ -21,14 +21,14 @@ class Indeo5Decoder {
 public:
     Indeo5Decoder();
     // Decodes a frame. An empty one (a dropped frame) keeps the picture.
-    Error decode(const uint8_t* data, size_t size);
+    Error decode(const uint8_t *data, size_t size);
     int width() const { return planes_[0].width; }
     int height() const { return planes_[0].height; }
     // The picture: luma, then the two chroma planes (Cb, Cr), each
     // width × height bytes, 0..255.
-    void yuv(std::vector<uint8_t>& y, std::vector<uint8_t>& cb, std::vector<uint8_t>& cr) const;
+    void yuv(std::vector<uint8_t> &y, std::vector<uint8_t> &cb, std::vector<uint8_t> &cr) const;
     // The picture as RGBA, `pitch` bytes a row (BT.601 video range).
-    void rgba(uint8_t* out, int pitch) const;
+    void rgba(uint8_t *out, int pitch) const;
 
 private:
     struct Macroblock {
@@ -39,20 +39,20 @@ private:
     struct Tile {
         int x = 0, y = 0, width = 0, height = 0;
         std::vector<Macroblock> mbs;
-        const std::vector<Macroblock>* ref = nullptr; // the first luma band's, for inheriting
+        const std::vector<Macroblock> *ref = nullptr; // the first luma band's, for inheriting
     };
     enum class Transform : uint8_t { Slant8x8, RowSlant8, ColSlant8, Put8x8, Slant4x4 };
     struct Band {
         int plane = 0, number = 0;
         int width = 0, height = 0, pitch = 0, alignedHeight = 0;
         std::array<std::vector<int16_t>, 3> bufs;
-        int16_t* buf = nullptr;
-        const int16_t* ref = nullptr;
+        int16_t *buf = nullptr;
+        const int16_t *ref = nullptr;
         int mbSize = 16, blkSize = 8;
         bool halfPel = false, inheritMv = false, inheritQDelta = false, qDeltaPresent = false;
         int globalQuant = 0;
         Transform transform = Transform::Slant8x8;
-        const uint8_t* scan = nullptr;
+        const uint8_t *scan = nullptr;
         const uint16_t *intraBase = nullptr, *interBase = nullptr;
         const uint8_t *intraScale = nullptr, *interScale = nullptr;
         int codebook = 7; // 0..7, or 8: the band's own
@@ -68,16 +68,16 @@ private:
     };
     struct Bits;
 
-    Error decodeGop(Bits& b);
-    Error decodePictureHeader(Bits& b);
-    Error decodeBand(Bits& b, Band& band);
-    Error decodeMacroblocks(Bits& b, Band& band, Tile& tile);
-    Error decodeBlocks(Bits& b, Band& band, Tile& tile);
-    Error emptyTile(Band& band, Tile& tile);
+    Error decodeGop(Bits &b);
+    Error decodePictureHeader(Bits &b);
+    Error decodeBand(Bits &b, Band &band);
+    Error decodeMacroblocks(Bits &b, Band &band, Tile &tile);
+    Error decodeBlocks(Bits &b, Band &band, Tile &tile);
+    Error emptyTile(Band &band, Tile &tile);
     void layOut(int width, int height, int lumaBands, int chromaBands, int tileSize);
     void switchBuffers();
-    void output(int plane, std::vector<uint8_t>& out) const;
-    void recompose53(std::vector<uint8_t>& out) const;
+    void output(int plane, std::vector<uint8_t> &out) const;
+    void recompose53(std::vector<uint8_t> &out) const;
 
     std::array<Plane, 3> planes_;
     int frameType_ = 0, prevFrameType_ = 0;

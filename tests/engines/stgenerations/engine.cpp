@@ -34,11 +34,11 @@ namespace {
 
 using Bytes = std::vector<uint8_t>;
 
-void be(Bytes& b, uint32_t v, int n) {
+void be(Bytes &b, uint32_t v, int n) {
     for (int i = n - 1; i >= 0; --i)
         b.push_back(uint8_t(v >> (8 * i)));
 }
-void le(Bytes& b, uint32_t v, int n) {
+void le(Bytes &b, uint32_t v, int n) {
     for (int i = 0; i < n; ++i)
         b.push_back(uint8_t(v >> (8 * i)));
 }
@@ -46,7 +46,7 @@ void le(Bytes& b, uint32_t v, int n) {
 // A Cinepak frame, 8 x 4, of one strip: every block V1 from codebook entry
 // `entry`, the codebook's entry `entry` grey `luma`.
 Bytes cinepakFrame(uint8_t luma) {
-    auto chunk = [](int id, const Bytes& body) {
+    auto chunk = [](int id, const Bytes &body) {
         Bytes b{uint8_t(id)};
         be(b, uint32_t(body.size()) + 4, 3);
         b.insert(b.end(), body.begin(), body.end());
@@ -55,7 +55,7 @@ Bytes cinepakFrame(uint8_t luma) {
     Bytes v1 = {luma, luma, luma, luma, 0, 0};
     Bytes image = {0, 0}; // both blocks from entry 0 (0x32: every block V1)
     Bytes chunks;
-    for (const Bytes& c : {chunk(0x22, v1), chunk(0x32, image)})
+    for (const Bytes &c : {chunk(0x22, v1), chunk(0x32, image)})
         chunks.insert(chunks.end(), c.begin(), c.end());
     Bytes strip{0x10};
     be(strip, 12 + uint32_t(chunks.size()), 3);
@@ -75,15 +75,15 @@ Bytes cinepakFrame(uint8_t luma) {
 
 // A movie as the game's: Cinepak frames (10 a second) and 16-bit PCM.
 Bytes makeMovie(int frames) {
-    auto tag = [](Bytes& b, const char* t) { b.insert(b.end(), t, t + 4); };
-    auto riff = [&](Bytes& b, const char* t, const Bytes& body) {
+    auto tag = [](Bytes &b, const char *t) { b.insert(b.end(), t, t + 4); };
+    auto riff = [&](Bytes &b, const char *t, const Bytes &body) {
         tag(b, t);
         le(b, uint32_t(body.size()), 4);
         b.insert(b.end(), body.begin(), body.end());
         if (body.size() & 1)
             b.push_back(0);
     };
-    auto list = [&](const char* type, const Bytes& body) {
+    auto list = [&](const char *type, const Bytes &body) {
         Bytes b;
         tag(b, type);
         b.insert(b.end(), body.begin(), body.end());
@@ -135,7 +135,7 @@ Bytes makeExe() {
 }
 
 // The story: a new game's movie, an automatic save, then the bridge.
-const char* const kStory = "[Start]\r\n"
+const char *const kStory = "[Start]\r\n"
                            "Intro\r\n"
                            "Jump NewGame\r\n"
                            "[NewGame]\r\n"
@@ -144,7 +144,7 @@ const char* const kStory = "[Start]\r\n"
                            "ShowStellar\r\n";
 
 // The star map: one star, as UNIVERSE.INI lays them out.
-const char* const kUniverse = "[Universe]\r\n"
+const char *const kUniverse = "[Universe]\r\n"
                               "NumSuns=1\r\n"
                               "Sun1=Amargosa\r\n"
                               "[Amargosa]\r\n"
@@ -176,7 +176,7 @@ Bytes makeWav(int ms) {
 
 // A picture of the menu's, `frames` 24 rows high; each name a pattern of
 // its own.
-Bytes menuPicture(const std::string& name, int frames, int width = 32) {
+Bytes menuPicture(const std::string &name, int frames, int width = 32) {
     const int h = 24 * frames;
     Bytes px(size_t(width) * h, 0);
     // A seed from the name, the same on every system (unlike std::hash).
@@ -189,16 +189,16 @@ Bytes menuPicture(const std::string& name, int frames, int width = 32) {
 }
 
 // The game, installed, and its two CDs, in `root`.
-void makeGame(const std::filesystem::path& root) {
-    auto write = [&](const std::string& name, const Bytes& data) {
+void makeGame(const std::filesystem::path &root) {
+    auto write = [&](const std::string &name, const Bytes &data) {
         const std::filesystem::path p = root / name;
         std::filesystem::create_directories(p.parent_path());
         writeFile(p, data);
     };
     const Bytes empty = test::buildZip({});
-    for (const char* name : {"AMARGOS1.DAT", "AMARGOS2.DAT", "ANTILIOS.DAT", "ARVADA1.DAT", "BERSUS.DAT",
-                             "ENTERP.DAT", "EPSION.DAT", "GALORN1.DAT", "GALORN2.DAT", "HALEE1.DAT", "QURASH.DAT",
-                             "VERID1.DAT", "COMMON.DAT"})
+    for (const char *name :
+         {"AMARGOS1.DAT", "AMARGOS2.DAT", "ANTILIOS.DAT", "ARVADA1.DAT", "BERSUS.DAT", "ENTERP.DAT", "EPSION.DAT",
+          "GALORN1.DAT", "GALORN2.DAT", "HALEE1.DAT", "QURASH.DAT", "VERID1.DAT", "COMMON.DAT"})
         write(std::string("install/DATA/") + name, empty);
     // The menu's picture (two colours) and the title's.
     Bytes captain(64 * 48, 0);
@@ -206,17 +206,17 @@ void makeGame(const std::filesystem::path& root) {
         captain[i] = uint8_t((i / 64 + i % 64) % 7 == 0);
     std::vector<test::ZipFile> options = {{"CAPTAINS.BMP", stgtest::makeBMP8(64, 48, captain, false), {}},
                                           {"INTRO1.BMP", stgtest::makeBMP8(4, 4, Bytes(16, 1), false), {}}};
-    const std::pair<const char*, int> pictures[] = {
+    const std::pair<const char *, int> pictures[] = {
         {"LOAD.BMP", 3},     {"SAVE.BMP", 3},     {"NEW.BMP", 3},      {"QUIT.BMP", 3},     {"SETTINGS.BMP", 3},
         {"CONTROLS.BMP", 3}, {"RETURN.BMP", 3},   {"ACCEPT.BMP", 2},   {"CANCEL.BMP", 2},   {"AUTOSAVE.BMP", 1},
         {"DIFFICUL.BMP", 3}, {"DIF-OPS.BMP", 3},  {"WINDOW.BMP", 2},   {"WIN-OPS.BMP", 2},  {"SUBTITL.BMP", 2},
         {"SUB-OPS.BMP", 2},  {"STARBTTN.BMP", 2}, {"AWAYBTTN.BMP", 2}, {"LKSPRING.BMP", 2}, {"LKSONOFF.BMP", 2},
         {"OPTSAVE.BMP", 1},  {"OPTSET.BMP", 1},   {"OPTNEW.BMP", 1},   {"OPTQUIT.BMP", 1},  {"AWAY.BMP", 1},
         {"STARSHIP.BMP", 1}, {"NAMEBAR.BMP", 1},  {"VOL-ON.BMP", 1},   {"KEYHIGH.BMP", 1},  {"SAVELOAD.BMP", 4}};
-    for (const auto& [name, frames] : pictures)
+    for (const auto &[name, frames] : pictures)
         options.push_back({name, menuPicture(name, frames), {}});
     // Its sounds: the clicks (X_1000..X_1003) and the menu's music (M_2001).
-    for (const char* name : {"X_1000.WAV", "X_1001.WAV", "X_1002.WAV", "X_1003.WAV", "M_2001.WAV"})
+    for (const char *name : {"X_1000.WAV", "X_1001.WAV", "X_1002.WAV", "X_1003.WAV", "M_2001.WAV"})
         options.push_back({name, makeWav(name[0] == 'M' ? 3000 : 120), {}});
     write("install/DATA/OPTIONS.DAT", test::buildZip(options));
     write("install/sgens.exe", makeExe());
@@ -236,17 +236,19 @@ void makeGame(const std::filesystem::path& root) {
     write("cd1/GENS/MOVIE/MOV_01.AVI", makeMovie(5));
 }
 
-std::string hashOf(const Surface& s) { return test::Hash().bytes(s.pixels).hex(); }
+std::string hashOf(const Surface &s) {
+    return test::Hash().bytes(s.pixels).hex();
+}
 
-std::string fileHash(const std::filesystem::path& p) {
+std::string fileHash(const std::filesystem::path &p) {
     Bytes data;
     return readFile(p, data) ? test::Hash().bytes(data).hex() + " (" + std::to_string(data.size()) + " bytes)"
                              : std::string("none");
 }
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
-    const MetaEngine* engine = findEngine("stgenerations");
+    const MetaEngine *engine = findEngine("stgenerations");
     if (!engine)
         return test::fail("stgenerations isn't registered");
     makeGame(tmp / "src");
@@ -261,7 +263,7 @@ void engineTest(const std::filesystem::path& tmp) {
     if (plans.size() != 1)
         return rec.fail("import.plan", std::to_string(plans.size()) + " plans");
     test::Hash planHash;
-    for (const ImportPlan::File& f : plans[0].files)
+    for (const ImportPlan::File &f : plans[0].files)
         planHash.text(f.to).i32(int32_t(f.size));
     rec.add("import.files", int64_t(plans[0].files.size()));
     rec.add("import.list", planHash.hex());
@@ -276,56 +278,61 @@ void engineTest(const std::filesystem::path& tmp) {
 
     // Played as the launcher runs it.
     // Saves dated the same whenever the test runs.
-    GameTarget target{"stg", found[0].engineId, found[0].gameId, found[0].description,
-                      game, tmp / "saves", {{"fixed_save_date", "01/01 00:00"}}};
+    GameTarget target{"stg",
+                      found[0].engineId,
+                      found[0].gameId,
+                      found[0].description,
+                      game,
+                      tmp / "saves",
+                      {{"fixed_save_date", "01/01 00:00"}}};
     ScriptedSystem sys;
     std::map<uint64_t, std::string> marks; // what each moment shows
     std::vector<std::pair<uint64_t, std::string>> seen;
     int frames = 0;
     std::string last, cursorSeen = "never shown";
-    sys.onFrame = [&](const Surface& s, uint64_t ms) {
+    sys.onFrame = [&](const Surface &s, uint64_t ms) {
         ++frames;
         last = hashOf(s);
         while (!marks.empty() && marks.begin()->first <= ms) {
             if (marks.begin()->second == "menu")
-                cursorSeen = sys.cursor().empty() ? std::string("the system's")
-                                                  : std::to_string(sys.cursor().w) + "x" +
-                                                        std::to_string(sys.cursor().h) + " " +
-                                                        test::Hash().bytes(sys.cursor().rgba).hex();
+                cursorSeen = sys.cursor().empty()
+                                 ? std::string("the system's")
+                                 : std::to_string(sys.cursor().w) + "x" + std::to_string(sys.cursor().h) + " " +
+                                       test::Hash().bytes(sys.cursor().rgba).hex();
             seen.push_back({marks.begin()->first, marks.begin()->second + ": " + last});
             marks.erase(marks.begin());
         }
     };
     marks[2000] = "title";
-    sys.key(3000, key::Space);             // the title skipped: the menu
+    sys.key(3000, key::Space); // the title skipped: the menu
     marks[3500] = "menu";
-    sys.click(4000, 165, 101);             // New
+    sys.click(4000, 165, 101); // New
     marks[4500] = "new game?";
-    sys.click(5000, 418, 404);             // Accept: the story starts, with its movie
+    sys.click(5000, 418, 404); // Accept: the story starts, with its movie
     marks[5150] = "movie, frame 1";
     marks[5450] = "movie, frame 4";
     marks[7000] = "bridge";
-    sys.click(7500, 575, 446);             // OPTIONS
+    sys.click(7500, 575, 446); // OPTIONS
     marks[8000] = "menu over the bridge";
-    sys.click(8500, 165, 71);              // Save
-    sys.click(9000, 280, 73);              // its first slot
+    sys.click(8500, 165, 71); // Save
+    sys.click(9000, 280, 73); // its first slot
     sys.type(9500, "Kirk");
     marks[10000] = "save, named";
-    sys.click(10500, 417, 400);            // Accept: saved, back on the bridge
+    sys.click(10500, 417, 400); // Accept: saved, back on the bridge
     marks[11000] = "saved";
-    sys.click(11500, 575, 446);            // OPTIONS
-    sys.click(12000, 165, 161);            // Settings
+    sys.click(11500, 575, 446); // OPTIONS
+    sys.click(12000, 165, 161); // Settings
     marks[12500] = "settings";
     sys.click(13000, 227 + 190, 29 + 195); // the difficulty, a step round
     sys.click(13500, 418, 404);            // Accept
     sys.click(14000, 165, 41);             // Load
     sys.click(14500, 280, 73);             // the first slot
     marks[15000] = "load";
-    sys.click(15500, 418, 404);            // Accept: back on the bridge as saved
+    sys.click(15500, 418, 404); // Accept: back on the bridge as saved
     marks[17000] = "loaded";
-    sys.click(17500, 575, 446);            // OPTIONS
-    sys.click(18000, 165, 131);            // Quit
-    sys.click(18500, 418, 404);            // Accept: the credits, then out
+    sys.click(17500, 575, 446); // OPTIONS
+    sys.click(18000, 165, 131); // Quit
+    sys.click(18500, 418, 404); // Accept: the credits, then out
     sys.quit(30000);
 
     RandomSource::setFixedSeed(1);
@@ -337,12 +344,12 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("run.frames", frames);
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.title", sys.title());
-    for (const auto& [at, what] : seen)
+    for (const auto &[at, what] : seen)
         rec.add("screen." + std::to_string(at), what);
     rec.add("cursor.menu", cursorSeen);
     rec.add("cursor.after", sys.cursor().empty() ? std::string("the system's") : std::string("the game's"));
     rec.add("run.until", int64_t(sys.getMillis()));
-    for (const char* name : {"stg.s00", "stg.s09"})
+    for (const char *name : {"stg.s00", "stg.s09"})
         rec.add(std::string("save.") + name, fileHash(tmp / "saves" / name));
     rec.add("settings", fileHash(tmp / "saves/settings.ini"));
 
@@ -372,6 +379,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("stgenerations.engine", {
-    {"import and play", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.engine", {
+                                      {"import and play", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                  });

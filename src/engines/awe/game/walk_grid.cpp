@@ -9,10 +9,10 @@
 
 namespace reluva::awe {
 
-bool WalkGrid::load(const Ac2Record& camr) {
+bool WalkGrid::load(const Ac2Record &camr) {
     size_ = 0;
     cells_.fill(0);
-    const Ac2Value* grid = camr.field("grid");
+    const Ac2Value *grid = camr.field("grid");
     if (!grid || camr.i("cellSize") <= 0)
         return false;
     // The game reads size x size bytes into its 64-wide array as they come.
@@ -22,7 +22,7 @@ bool WalkGrid::load(const Ac2Record& camr) {
     return true;
 }
 
-void WalkGrid::centre(Cell c, float& x, float& z) const {
+void WalkGrid::centre(Cell c, float &x, float &z) const {
     x = float((c.a - 32) * size_ + size_ / 2);
     z = float((32 - c.b) * size_ - size_ / 2);
 }
@@ -66,7 +66,9 @@ namespace {
 
 bool single = true;
 
-double x87(double v) { return single ? double(float(v)) : v; }
+double x87(double v) {
+    return single ? double(float(v)) : v;
+}
 
 struct Real {
     double v = 0;
@@ -74,32 +76,64 @@ struct Real {
     Real(double x) : v(x) {}
     explicit operator int() const { return int(v); }
 };
-Real operator+(Real a, Real b) { return x87(a.v + b.v); }
-Real operator-(Real a, Real b) { return x87(a.v - b.v); }
-Real operator*(Real a, Real b) { return x87(a.v * b.v); }
-Real operator/(Real a, Real b) { return x87(a.v / b.v); }
-Real operator-(Real a) { return -a.v; }
-Real& operator+=(Real& a, Real b) { return a = a + b; }
-Real& operator-=(Real& a, Real b) { return a = a - b; }
-bool operator<(Real a, Real b) { return a.v < b.v; }
-bool operator==(Real a, Real b) { return a.v == b.v; }
-bool operator>(Real a, Real b) { return a.v > b.v; }
-Real sqrt(Real a) { return x87(std::sqrt(a.v)); }
-Real sin(Real a) { return std::sin(a.v); }
-Real cos(Real a) { return std::cos(a.v); }
-Real atan2(Real y, Real x) { return std::atan2(y.v, x.v); }
-bool isnan(Real a) { return std::isnan(a.v); }
+Real operator+(Real a, Real b) {
+    return x87(a.v + b.v);
+}
+Real operator-(Real a, Real b) {
+    return x87(a.v - b.v);
+}
+Real operator*(Real a, Real b) {
+    return x87(a.v * b.v);
+}
+Real operator/(Real a, Real b) {
+    return x87(a.v / b.v);
+}
+Real operator-(Real a) {
+    return -a.v;
+}
+Real &operator+=(Real &a, Real b) {
+    return a = a + b;
+}
+Real &operator-=(Real &a, Real b) {
+    return a = a - b;
+}
+bool operator<(Real a, Real b) {
+    return a.v < b.v;
+}
+bool operator==(Real a, Real b) {
+    return a.v == b.v;
+}
+bool operator>(Real a, Real b) {
+    return a.v > b.v;
+}
+Real sqrt(Real a) {
+    return x87(std::sqrt(a.v));
+}
+Real sin(Real a) {
+    return std::sin(a.v);
+}
+Real cos(Real a) {
+    return std::cos(a.v);
+}
+Real atan2(Real y, Real x) {
+    return std::atan2(y.v, x.v);
+}
+bool isnan(Real a) {
+    return std::isnan(a.v);
+}
 
 const Real kTwoPi = 6.283185307179586;
 const Real kHalfPi = 1.5707963267948966;
-const Real kTurnRadius = 0.1;  // 0x1008
-const Real kWidth = 0.1;       // 0x1018: what's tested around each point
-const Real kTestStep = 0.2;    // 0x1020: how far apart the points are
-constexpr int kWindow = 192;         // the search's window, cells a side
-constexpr int kMaxPoints = 127;      // the most a path can have (0x430471)
+const Real kTurnRadius = 0.1;   // 0x1008
+const Real kWidth = 0.1;        // 0x1018: what's tested around each point
+const Real kTestStep = 0.2;     // 0x1020: how far apart the points are
+constexpr int kWindow = 192;    // the search's window, cells a side
+constexpr int kMaxPoints = 127; // the most a path can have (0x430471)
 
 // x87 comparisons treat a NaN as less.
-bool below(Real a, Real b) { return isnan(a) || isnan(b) || a < b; }
+bool below(Real a, Real b) {
+    return isnan(a) || isnan(b) || a < b;
+}
 
 // An angle into [0, 2 pi), snapped to 0 within 1e-8 of either end (the
 // code repeated after every angle sum).
@@ -118,13 +152,15 @@ Real normalize(Real v) {
 }
 
 // The C runtime's acos (0x473650), as it computes it.
-Real runtimeAcos(Real x) { return x == 1.0 ? Real(0.0) : atan2(sqrt((Real(1) + x) * (Real(1) - x)), x); }
+Real runtimeAcos(Real x) {
+    return x == 1.0 ? Real(0.0) : atan2(sqrt((Real(1) + x) * (Real(1) - x)), x);
+}
 
 // sqrt(i^2 + j^2), times 128, truncated (0x42ea40): the distance estimate,
 // a table at each precision.
 int distance(int i, int j) {
     static std::vector<int> tables[2];
-    std::vector<int>& t = tables[single];
+    std::vector<int> &t = tables[single];
     if (t.empty()) {
         t.resize(size_t(kWindow * kWindow));
         for (int a = 0; a < kWindow; a++)
@@ -140,17 +176,17 @@ constexpr int kMoves[8][2] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {1, -1}, {1, 1},
 
 // A turn then a straight line (0x431790's record: a part each).
 struct Turn {
-    bool clockwise = false;  // round the circle, in (a, b)
-    Real cx = 0, cy = 0;   // the circle's centre
-    Real start = 0;        // where on the circle it starts (an angle)
-    Real arc = 0;          // the turn's length
+    bool clockwise = false;                           // round the circle, in (a, b)
+    Real cx = 0, cy = 0;                              // the circle's centre
+    Real start = 0;                                   // where on the circle it starts (an angle)
+    Real arc = 0;                                     // the turn's length
     Real lineX = 0, lineY = 0, heading = 0, line = 0; // the straight part
 };
 
 // From (x0, y0) facing `heading`, round a circle on one side until
 // facing (x1, y1), then straight there (0x431790). False if (x1, y1) is
 // inside the circle.
-bool turnTowards(Real x0, Real y0, Real x1, Real y1, bool clockwise, Real heading, Turn& t) {
+bool turnTowards(Real x0, Real y0, Real x1, Real y1, bool clockwise, Real heading, Turn &t) {
     t.clockwise = clockwise;
     const Real h = normalize(clockwise ? heading + kHalfPi : heading - kHalfPi);
     t.start = h;
@@ -173,7 +209,7 @@ bool turnTowards(Real x0, Real y0, Real x1, Real y1, bool clockwise, Real headin
 
 // The shorter turn (0x430df0), and the heading it ends with: its line's,
 // or its circle's start angle when it has no line.
-Turn bestTurn(Real x0, Real y0, Real x1, Real y1, Real heading, Real& endHeading) {
+Turn bestTurn(Real x0, Real y0, Real x1, Real y1, Real heading, Real &endHeading) {
     Turn turns[2];
     Real best = 9999999.0;
     int chosen = 0;
@@ -185,7 +221,7 @@ Turn bestTurn(Real x0, Real y0, Real x1, Real y1, Real heading, Real& endHeading
             chosen = i;
         }
     }
-    const Turn& t = turns[chosen];
+    const Turn &t = turns[chosen];
     endHeading = t.line > 0 ? t.heading : t.start;
     return t;
 }
@@ -193,7 +229,7 @@ Turn bestTurn(Real x0, Real y0, Real x1, Real y1, Real heading, Real& endHeading
 // Whether the cells under a turn are open: at every 0.2 along it, the
 // cell under the point and those under the corners of a square 0.1 wide
 // round it (0x430b60, with 0x431e30 for the points).
-bool turnClear(const WalkGrid& grid, const Turn& t, bool openThrees, bool allowTwos) {
+bool turnClear(const WalkGrid &grid, const Turn &t, bool openThrees, bool allowTwos) {
     const Real length = t.line + t.arc;
     if (!below(0, length))
         return true;
@@ -224,9 +260,11 @@ bool turnClear(const WalkGrid& grid, const Turn& t, bool openThrees, bool allowT
 
 } // namespace
 
-void WalkGrid::setSinglePrecision(bool on) { single = on; }
+void WalkGrid::setSinglePrecision(bool on) {
+    single = on;
+}
 
-int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point>& out) const {
+int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::vector<Point> &out) const {
     out.clear();
     // 0x42ef40: neither end blocked.
     if (blocked(to, openThrees, allowTwos) || blocked(from, openThrees, allowTwos))
@@ -242,15 +280,15 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
     struct Node {
         uint32_t g = 0, f = 0;
         bool open = false, seen = false;
-        int parent = -1;           // a window cell
-        int prev = -1, next = -1;  // the open list's order
+        int parent = -1;          // a window cell
+        int prev = -1, next = -1; // the open list's order
     };
     std::vector<Node> nodes(size_t(kWindow * kWindow));
     auto at = [](int a, int b) { return a * kWindow + b; };
     // The open list: nodes join at its end, and the first with the least
     // estimate leaves it.
     int head = at(startA, startB), tail = head;
-    Node& start = nodes[size_t(head)];
+    Node &start = nodes[size_t(head)];
     start.f = uint32_t(distance(std::abs(to.a - from.a), std::abs(to.b - from.b)));
     start.open = start.seen = true;
     int found = -1;
@@ -263,20 +301,21 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
             found = best;
             break;
         }
-        Node& b = nodes[size_t(best)];
+        Node &b = nodes[size_t(best)];
         (b.prev >= 0 ? nodes[size_t(b.prev)].next : head) = b.next;
         (b.next >= 0 ? nodes[size_t(b.next)].prev : tail) = b.prev;
         b.open = false;
         const int a = best / kWindow, bb = best % kWindow;
         for (int m = 0; m < 8; m++) {
             const int na = a + kMoves[m][0], nb = bb + kMoves[m][1];
-            if (na < 0 || na >= kWindow || nb < 0 || nb >= kWindow || blocked({na - offA, nb - offB}, openThrees, allowTwos))
+            if (na < 0 || na >= kWindow || nb < 0 || nb >= kWindow ||
+                blocked({na - offA, nb - offB}, openThrees, allowTwos))
                 continue;
             if (na == startA && nb == startB)
                 continue;
             const uint32_t g = b.g + (m >= 4 ? 181u : 128u);
             const int i = at(na, nb);
-            Node& n = nodes[size_t(i)];
+            Node &n = nodes[size_t(i)];
             const bool seen = n.seen;
             if (seen && n.g <= g)
                 continue;
@@ -319,7 +358,7 @@ int WalkGrid::search(Cell from, Cell to, bool openThrees, bool allowTwos, std::v
     bestTurn(kept.a, kept.b, path[0].a, path[0].b, kept.heading, heading0);
     path[0].heading = heading0.v;
     for (size_t i = 0; i + 1 < path.size();) {
-        Point& next = path[i + 1];
+        Point &next = path[i + 1];
         Real heading;
         const Turn turn = bestTurn(kept.a, kept.b, next.a, next.b, kept.heading, heading);
         if (turnClear(*this, turn, openThrees, allowTwos)) {

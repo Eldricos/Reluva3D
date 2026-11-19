@@ -8,7 +8,7 @@
 
 namespace reluva::awe {
 
-ParticleSettings ParticleSettings::fromRecord(const Ac2Record& o) {
+ParticleSettings ParticleSettings::fromRecord(const Ac2Record &o) {
     ParticleSettings s;
     // The class's defaults (the constructors at 0x42c5b0, 0x434290 and
     // 0x436f40), which the record's fields then replace.
@@ -31,15 +31,15 @@ ParticleSettings ParticleSettings::fromRecord(const Ac2Record& o) {
         if (!rain)
             s.sway = 20, s.swaySpeed = 5;
     }
-    auto real = [&](const Ac2Record& r, const char* name, float& out) {
+    auto real = [&](const Ac2Record &r, const char *name, float &out) {
         if (r.field(name))
             out = r.f(name);
     };
-    auto integer = [&](const Ac2Record& r, const char* name, int& out) {
+    auto integer = [&](const Ac2Record &r, const char *name, int &out) {
         if (r.field(name))
             out = r.i(name);
     };
-    auto flag = [&](const Ac2Record& r, const char* name, bool& out) {
+    auto flag = [&](const Ac2Record &r, const char *name, bool &out) {
         if (r.field(name))
             out = r.i(name) != 0;
     };
@@ -59,7 +59,7 @@ ParticleSettings ParticleSettings::fromRecord(const Ac2Record& o) {
         s.depth = o.f("depth");
     else if (o.field("z"))
         s.depth = o.f("z");
-    if (const Ac2Record* p = o.part("SYST")) {
+    if (const Ac2Record *p = o.part("SYST")) {
         real(*p, "red", s.colour[0]);
         real(*p, "green", s.colour[1]);
         real(*p, "blue", s.colour[2]);
@@ -91,7 +91,8 @@ ParticleSettings ParticleSettings::fromRecord(const Ac2Record& o) {
     return s;
 }
 
-ParticleSystem::ParticleSystem(ParticleSettings settings, uint32_t seed) : s_(std::move(settings)), seed_(seed) {}
+ParticleSystem::ParticleSystem(ParticleSettings settings, uint32_t seed) : s_(std::move(settings)), seed_(seed) {
+}
 
 int ParticleSystem::random() {
     seed_ = seed_ * 214013u + 2531011u;
@@ -152,7 +153,7 @@ void ParticleSystem::setEmitter(const float position[3], const float velocity[3]
 
 void ParticleSystem::update(float dt) {
     time_ += dt;
-    for (Particle& p : particles_) {
+    for (Particle &p : particles_) {
         p.swayAngle += dt * s_.swaySpeed;
         const float age = time_ - p.born;
         if (s_.mode == 1) {
@@ -196,7 +197,7 @@ void ParticleSystem::update(float dt) {
             p.dead = true;
         }
     }
-    particles_.erase(std::remove_if(particles_.begin(), particles_.end(), [](const Particle& p) { return p.dead; }),
+    particles_.erase(std::remove_if(particles_.begin(), particles_.end(), [](const Particle &p) { return p.dead; }),
                      particles_.end());
 
     if (s_.blink) {
@@ -217,7 +218,7 @@ void ParticleSystem::update(float dt) {
         emit();
 }
 
-void ParticleSystem::points(std::vector<Point>& out) const {
+void ParticleSystem::points(std::vector<Point> &out) const {
     auto channel = [](float v) {
         if (v >= 1)
             return uint8_t(255);
@@ -225,7 +226,7 @@ void ParticleSystem::points(std::vector<Point>& out) const {
             return uint8_t(0);
         return uint8_t(v * 255 + 0.5f);
     };
-    for (const Particle& p : particles_) {
+    for (const Particle &p : particles_) {
         Point pt;
         std::copy(p.position, p.position + 3, pt.position);
         if (s_.sway > 0)

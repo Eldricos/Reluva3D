@@ -38,30 +38,30 @@ enum class CurveFormat : uint8_t {
     D9I3K8uC8u = 15,
 };
 // "D4nK8uC7u"..., or "" past the table.
-const char* curveFormatName(uint8_t format);
+const char *curveFormatName(uint8_t format);
 
 // A compressed curve's data as the file stores it. Each format uses some
 // of these members.
 struct CurveData {
     uint8_t format = 0, degree = 0;
-    int dimension = 0;            // DaIdentity
+    int dimension = 0; // DaIdentity
     // D4n*: ScaleOffsetTableEntries; D3K*: OneOverKnotScaleTrunc.
     uint16_t packed = 0;
-    float oneOverKnotScale = 0;   // D4n*
+    float oneOverKnotScale = 0;                                        // D4n*
     float controlScales[3] = {0, 0, 0}, controlOffsets[3] = {0, 0, 0}; // D3K*
-    std::vector<float> knots;     // DaK32fC32f
-    std::vector<float> controls;  // DaK32fC32f, DaConstant32f, D3Constant32f
+    std::vector<float> knots;                                          // DaK32fC32f
+    std::vector<float> controls;                                       // DaK32fC32f, DaConstant32f, D3Constant32f
     // D4n* and D3K*: the knots, then the controls (8- or 16-bit values).
     std::vector<uint16_t> knotsControls;
 };
 
 // Reads a curve (a Curve2 object: PositionCurve...) whose CurveData is
 // one of the formats expandCurve() knows.
-Error readCurveData(const Gr2File& file, const Gr2Object& curve, CurveData& out);
+Error readCurveData(const Gr2File &file, const Gr2Object &curve, CurveData &out);
 
 // Its knots and controls, as GrannyCurveExtractKnotValues gives them: an
 // identity curve is `identity` at one knot (time 0), a constant one its
 // value at one knot.
-Error expandCurve(const CurveData& data, const std::vector<float>& identity, Curve& out);
+Error expandCurve(const CurveData &data, const std::vector<float> &identity, Curve &out);
 
 } // namespace reluva::awe

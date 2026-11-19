@@ -23,12 +23,12 @@ public:
     // Decodes a frame onto the picture. An empty frame (a dropped one)
     // leaves it as it was; false if the frame is too short to be one.
     // Damage inside a frame stops that part of it, keeping what was drawn.
-    bool decode(const uint8_t* data, uint32_t size);
+    bool decode(const uint8_t *data, uint32_t size);
 
     int width() const { return width_; }
     int height() const { return height_; }
     // The picture: RGBA32, opaque.
-    const Surface& surface() const { return picture_; }
+    const Surface &surface() const { return picture_; }
 
 private:
     struct Cell {
@@ -39,8 +39,8 @@ private:
         Cell v1[256], v4[256];
     };
 
-    static void decodeCodebook(Cell* codebook, int chunk, const uint8_t* data, const uint8_t* end);
-    bool decodeVectors(const Strip& strip, int chunk, int top, int bottom, const uint8_t* data, const uint8_t* end);
+    static void decodeCodebook(Cell *codebook, int chunk, const uint8_t *data, const uint8_t *end);
+    bool decodeVectors(const Strip &strip, int chunk, int top, int bottom, const uint8_t *data, const uint8_t *end);
 
     int width_, height_;
     Surface picture_;

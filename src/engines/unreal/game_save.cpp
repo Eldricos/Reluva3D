@@ -10,10 +10,10 @@
 
 namespace reluva::unreal {
 
-bool isPackageFile(const std::string& path) {
+bool isPackageFile(const std::string &path) {
     std::ifstream f(path, std::ios::binary);
     uint8_t tag[4] = {};
-    return f.read(reinterpret_cast<char*>(tag), 4) && tag[0] == 0xC1 && tag[1] == 0x83 && tag[2] == 0x2A &&
+    return f.read(reinterpret_cast<char *>(tag), 4) && tag[0] == 0xC1 && tag[1] == 0x83 && tag[2] == 0x2A &&
            tag[3] == 0x9E;
 }
 
@@ -24,7 +24,7 @@ bool isPackageFile(const std::string& path) {
 // level's time when written; the first deleted actor; 16 text blocks; the
 // travel information (string pairs); then The Fallen's: the ghosts, the
 // dialogue engine and the sounds playing; then an i32.
-Error readLevelExtras(const Package& package, LevelExtras& out) {
+Error readLevelExtras(const Package &package, LevelExtras &out) {
     out = {};
     const std::vector<int> levels = package.exportsOfClass("Level");
     if (levels.empty())
@@ -38,7 +38,9 @@ Error readLevelExtras(const Package& package, LevelExtras& out) {
     if (Error err = beginObject(package, index, r, props))
         return err;
     const int v = package.version();
-    auto fail = [&](const char* what) { return Error::fail(package.name() + ": the Level object's " + what + " don't read"); };
+    auto fail = [&](const char *what) {
+        return Error::fail(package.name() + ": the Level object's " + what + " don't read");
+    };
     const int32_t count = r.i32();
     r.i32();
     if (!r.ok() || count < 0 || size_t(count) > r.remaining())
@@ -94,7 +96,7 @@ Error readLevelExtras(const Package& package, LevelExtras& out) {
     for (int32_t n = r.index(); n > 0 && r.ok(); --n) {
         LevelExtras::Line line;
         uint16_t fields[7];
-        for (uint16_t& f : fields)
+        for (uint16_t &f : fields)
             f = r.u16();
         line.said = fields[2];
         r.string(v); // voice
@@ -157,7 +159,7 @@ Error readLevelExtras(const Package& package, LevelExtras& out) {
 // targets; an i32; then the groups, the bones' adjustments and what's
 // attached, and the owner's name. Its strings are a 16-bit length and the
 // letters (no NUL); its arrays a count, the count again and a growth step.
-Error readMeshState(const Package& package, int exportIndex, MeshState& out) {
+Error readMeshState(const Package &package, int exportIndex, MeshState &out) {
     out = {};
     std::vector<uint8_t> data;
     if (Error err = package.readExport(exportIndex, data))
@@ -214,14 +216,14 @@ Error readMeshState(const Package& package, int exportIndex, MeshState& out) {
         g.pendingWeight = r.f32();
         g.pendingTween = r.f32();
         g.bone = str16();
-        for (int32_t& c : g.clear)
+        for (int32_t &c : g.clear)
             c = r.i32();
         out.groups.push_back(std::move(g));
     }
     return r.ok() ? Error::success() : Error::fail("a C3D mesh state cut short");
 }
 
-bool meshStateGroupSpan(const std::vector<uint8_t>& data, size_t& begin, size_t& end) {
+bool meshStateGroupSpan(const std::vector<uint8_t> &data, size_t &begin, size_t &end) {
     Reader r(data);
     r.index(); // no properties
     auto str16 = [&] { r.skip(r.u16()); };
@@ -259,7 +261,7 @@ bool meshStateGroupSpan(const std::vector<uint8_t>& data, size_t& begin, size_t&
     return r.ok();
 }
 
-bool levelModelSpan(const std::vector<uint8_t>& data, int version, size_t& begin, size_t& end) {
+bool levelModelSpan(const std::vector<uint8_t> &data, int version, size_t &begin, size_t &end) {
     Reader r(data);
     r.index(); // its properties: none, the None that ends them
     const int32_t count = r.i32();

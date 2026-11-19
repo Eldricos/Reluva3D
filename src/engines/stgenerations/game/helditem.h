@@ -22,14 +22,14 @@ public:
     static const int kPoses = 6;
 
     struct Style {
-        const char* overlay;
+        const char *overlay;
         // Each pose's hotspot in its frame, poses 6..11.
         int hotspot[kPoses][2];
         // Where shots leave from, in world units: ahead, up and to the side.
         double muzzle[3];
     };
     // The style for an item kind (ATTACH_ITEM_BEHAVIOUR), or null if it isn't held up.
-    static const Style* getStyle(int kind);
+    static const Style *getStyle(int kind);
 
     // Where the gun goes for a cursor at (x, y) in a view w x h (view.vtFC 0x4310B8).
     struct Placement {
@@ -39,26 +39,25 @@ public:
         // Below the gun's line the item can't be used and the cursor is an arrow.
         bool usable;
     };
-    static Placement place(const Style& style, int cursorX, int cursorY, int w, int h);
+    static Placement place(const Style &style, int cursorX, int cursorY, int w, int h);
 
     // Where a shot leaves from, relative to the eye (0x4320D1): ahead, up,
     // and to the left, for a cursor at (x, y) in a view w x h.
-    static void getMuzzle(const Style& style, int cursorX, int cursorY, int w, int h, double& ahead, double& up,
-                          double& left);
+    static void getMuzzle(const Style &style, int cursorX, int cursorY, int w, int h, double &ahead, double &up,
+                          double &left);
 
     // Load the overlay for an item kind, from the mission's folder or COMMON.DAT.
-    void load(const ResourceManager& resources, const ResourceRef& level, int kind);
+    void load(const ResourceManager &resources, const ResourceRef &level, int kind);
     int getKind() const { return _kind; }
 
     // Draw it for a cursor at (x, y); firing shows the flash frames.
-    void draw(Canvas& view, int cursorX, int cursorY, bool firing) const;
+    void draw(Canvas &view, int cursorX, int cursorY, bool firing) const;
 
 private:
     int _kind = 0;
-    const Style* _style = nullptr;
+    const Style *_style = nullptr;
     Overlay _overlay;
     bool _loaded = false;
 };
 
 } // namespace reluva::stgenerations
-

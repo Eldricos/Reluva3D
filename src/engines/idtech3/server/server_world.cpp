@@ -12,7 +12,7 @@ namespace {
 
 constexpr int kTreeDepth = 4; // as the original's (16 leafs)
 
-bool overlaps(const Vec3f& aMin, const Vec3f& aMax, const Vec3f& bMin, const Vec3f& bMax) {
+bool overlaps(const Vec3f &aMin, const Vec3f &aMax, const Vec3f &bMin, const Vec3f &bMax) {
     for (int i = 0; i < 3; ++i)
         if (aMin[size_t(i)] > bMax[size_t(i)] || aMax[size_t(i)] < bMin[size_t(i)])
             return false;
@@ -21,7 +21,7 @@ bool overlaps(const Vec3f& aMin, const Vec3f& aMax, const Vec3f& bMin, const Vec
 
 } // namespace
 
-void ServerWorld::setLevel(const Bsp* map, const CollisionWorld* world, const AreaPortals* portals,
+void ServerWorld::setLevel(const Bsp *map, const CollisionWorld *world, const AreaPortals *portals,
                            std::function<bool()> noAreas) {
     map_ = map;
     world_ = world;
@@ -47,7 +47,7 @@ void ServerWorld::clear() {
     build(0, mins, maxs);
 }
 
-void ServerWorld::build(int depth, const Vec3f& mins, const Vec3f& maxs) {
+void ServerWorld::build(int depth, const Vec3f &mins, const Vec3f &maxs) {
     const int index = int(nodes_.size());
     nodes_.emplace_back();
     if (depth == kTreeDepth)
@@ -65,7 +65,7 @@ void ServerWorld::build(int depth, const Vec3f& mins, const Vec3f& maxs) {
     build(depth + 1, mins, lowerMax);
 }
 
-ServerWorld::Placement ServerWorld::place(const Vec3f& absMin, const Vec3f& absMax) const {
+ServerWorld::Placement ServerWorld::place(const Vec3f &absMin, const Vec3f &absMax) const {
     Placement p;
     p.absMin = absMin;
     p.absMax = absMax;
@@ -84,8 +84,8 @@ ServerWorld::Placement ServerWorld::place(const Vec3f& absMin, const Vec3f& absM
             else
                 p.areas.first = area;
         }
-        const int cluster = map_ && leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster
-                                                                                 : -1;
+        const int cluster =
+            map_ && leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
         if (cluster >= 0 && std::find(p.clusters.begin(), p.clusters.end(), cluster) == p.clusters.end())
             p.clusters.push_back(cluster);
     }
@@ -94,7 +94,7 @@ ServerWorld::Placement ServerWorld::place(const Vec3f& absMin, const Vec3f& absM
 
 void ServerWorld::remove(int32_t n) {
     if (const auto it = nodeOf_.find(n); it != nodeOf_.end()) {
-        auto& list = nodes_[size_t(it->second)].entities;
+        auto &list = nodes_[size_t(it->second)].entities;
         list.erase(std::find(list.begin(), list.end(), n));
         nodeOf_.erase(it);
     }
@@ -102,7 +102,7 @@ void ServerWorld::remove(int32_t n) {
     placements_.erase(n);
 }
 
-void ServerWorld::link(int32_t n, const EntityShape& s, Vec3f& absMin, Vec3f& absMax) {
+void ServerWorld::link(int32_t n, const EntityShape &s, Vec3f &absMin, Vec3f &absMax) {
     remove(n);
     linked_.insert(n);
     if (s.bmodel && (s.angles[0] || s.angles[1] || s.angles[2])) {
@@ -131,7 +131,7 @@ void ServerWorld::link(int32_t n, const EntityShape& s, Vec3f& absMin, Vec3f& ab
     // Into the lowest node of the tree that holds it whole.
     int node = 0;
     while (nodes_[size_t(node)].axis >= 0) {
-        const Node& nd = nodes_[size_t(node)];
+        const Node &nd = nodes_[size_t(node)];
         if (absMin[size_t(nd.axis)] > nd.dist)
             node = nd.children[0];
         else if (absMax[size_t(nd.axis)] < nd.dist)
@@ -157,7 +157,7 @@ void ServerWorld::unlink(int32_t n) {
     linked_.erase(n);
 }
 
-const ServerWorld::Placement* ServerWorld::placement(int32_t n) const {
+const ServerWorld::Placement *ServerWorld::placement(int32_t n) const {
     const auto it = placements_.find(n);
     return it == placements_.end() ? nullptr : &it->second;
 }
@@ -168,7 +168,7 @@ bool ServerWorld::areasConnected(int area1, int area2) const {
     return portals_ && portals_->connected(area1, area2);
 }
 
-void ServerWorld::collect(const Vec3f& mins, const Vec3f& maxs, std::vector<int32_t>& out) const {
+void ServerWorld::collect(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const {
     out.clear();
     if (nodes_.empty())
         return;
@@ -176,9 +176,9 @@ void ServerWorld::collect(const Vec3f& mins, const Vec3f& maxs, std::vector<int3
     int top = 0;
     stack[top++] = 0;
     while (top) {
-        const Node& node = nodes_[size_t(stack[--top])];
+        const Node &node = nodes_[size_t(stack[--top])];
         for (const int32_t n : node.entities) {
-            const Placement& p = placements_.at(n);
+            const Placement &p = placements_.at(n);
             if (overlaps(p.absMin, p.absMax, mins, maxs))
                 out.push_back(n);
         }
@@ -193,12 +193,12 @@ void ServerWorld::collect(const Vec3f& mins, const Vec3f& maxs, std::vector<int3
     std::sort(out.begin(), out.end());
 }
 
-void ServerWorld::entitiesInBox(const Vec3f& mins, const Vec3f& maxs, std::vector<int32_t>& out) const {
+void ServerWorld::entitiesInBox(const Vec3f &mins, const Vec3f &maxs, std::vector<int32_t> &out) const {
     collect(mins, maxs, out);
 }
 
-TraceResult ServerWorld::trace(const Vec3f& start, const Vec3f& mins, const Vec3f& maxs, const Vec3f& end,
-                               int32_t pass, int32_t mask, int32_t& hit, bool entities) const {
+TraceResult ServerWorld::trace(const Vec3f &start, const Vec3f &mins, const Vec3f &maxs, const Vec3f &end, int32_t pass,
+                               int32_t mask, int32_t &hit, bool entities) const {
     TraceResult best;
     hit = kNone;
     if (world_) {
@@ -256,7 +256,7 @@ TraceResult ServerWorld::trace(const Vec3f& start, const Vec3f& mins, const Vec3
     return best;
 }
 
-int32_t ServerWorld::pointContents(const Vec3f& point, int32_t pass) const {
+int32_t ServerWorld::pointContents(const Vec3f &point, int32_t pass) const {
     int32_t result = world_ ? world_->pointContents(point, 0) : 0;
     std::vector<int32_t> near;
     collect(point, point, near);
@@ -279,7 +279,7 @@ int32_t ServerWorld::pointContents(const Vec3f& point, int32_t pass) const {
     return result;
 }
 
-int32_t ServerWorld::packedSolid(const EntityShape& s, int32_t brushModel) {
+int32_t ServerWorld::packedSolid(const EntityShape &s, int32_t brushModel) {
     if (s.bmodel)
         return brushModel;
     constexpr int32_t kSolidOrBody = 1 | 0x2000000;

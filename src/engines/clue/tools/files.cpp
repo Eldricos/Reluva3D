@@ -31,7 +31,7 @@ namespace {
 
 using namespace reluva::tool;
 
-int cmdClueList(int argc, char** argv) {
+int cmdClueList(int argc, char **argv) {
     if (argc != 3) {
         std::fprintf(stderr, "usage: reluva-tool clue list <file.res | file.a | file.o | file.lvl>\n");
         return 2;
@@ -41,7 +41,7 @@ int cmdClueList(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.message.c_str());
         return 1;
     }
-    for (const auto& e : drive.entries()) {
+    for (const auto &e : drive.entries()) {
         const std::vector<uint8_t> bytes = drive.read(e);
         std::string tag;
         for (size_t i = 0; i < 4 && i < bytes.size(); ++i)
@@ -52,7 +52,7 @@ int cmdClueList(int argc, char** argv) {
     return 0;
 }
 
-int cmdClueExtract(int argc, char** argv) {
+int cmdClueExtract(int argc, char **argv) {
     if (argc < 4 || argc > 5) {
         std::fprintf(stderr, "usage: reluva-tool clue extract <file.res> <output dir> [name filter]\n");
         return 2;
@@ -67,7 +67,7 @@ int cmdClueExtract(int argc, char** argv) {
     std::filesystem::create_directories(dir, ec);
     const std::string filter = argc > 4 ? reluva::fs::toLower(argv[4]) : "";
     int written = 0, failed = 0;
-    for (const auto& e : drive.entries()) {
+    for (const auto &e : drive.entries()) {
         if (!filter.empty() && reluva::fs::toLower(e.name).find(filter) == std::string::npos)
             continue;
         reluva::clue::Image img;
@@ -78,7 +78,7 @@ int cmdClueExtract(int argc, char** argv) {
         }
         const std::vector<uint8_t> tga = reluva::image::encodeTga(img.pixels, true);
         std::ofstream f(dir / (e.name + ".tga"), std::ios::binary);
-        f.write(reinterpret_cast<const char*>(tga.data()), std::streamsize(tga.size()));
+        f.write(reinterpret_cast<const char *>(tga.data()), std::streamsize(tga.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", (dir / (e.name + ".tga")).string().c_str());
             return 1;
@@ -92,7 +92,7 @@ int cmdClueExtract(int argc, char** argv) {
 // Opens a Clue install or CD as the engine does and decodes everything:
 // every .res file's images, every .a file's animations and the images
 // they name.
-int cmdClueCheck(int argc, char** argv) {
+int cmdClueCheck(int argc, char **argv) {
     if (argc < 3 || argc > 4) {
         std::fprintf(stderr, "usage: reluva-tool clue check <game folder> [-uk]\n");
         return 2;
@@ -106,16 +106,16 @@ int cmdClueCheck(int argc, char** argv) {
     std::printf("%zu files in %zu folders\n", data.files().size(), data.folders().size());
     int images = 0, imageFails = 0, anims = 0, animFails = 0, refs = 0, refFails = 0;
     std::map<int, int> versions;
-    for (const auto& path : data.withExtension(".res")) {
+    for (const auto &path : data.withExtension(".res")) {
         const std::string drive = path.stem().string();
-        const reluva::clue::DataDrive* d = data.drive(drive, 'I');
+        const reluva::clue::DataDrive *d = data.drive(drive, 'I');
         if (!d) {
             std::printf("  %s\n", data.lastError().c_str()); // it names the file
             continue;
         }
-        for (const auto& e : d->entries()) {
+        for (const auto &e : d->entries()) {
             ++images;
-            const reluva::clue::Image* img = data.image(drive + ":" + e.name);
+            const reluva::clue::Image *img = data.image(drive + ":" + e.name);
             if (!img) {
                 ++imageFails;
                 std::printf("  %s\n", data.lastError().c_str());
@@ -124,22 +124,22 @@ int cmdClueCheck(int argc, char** argv) {
             }
         }
     }
-    for (const auto& path : data.withExtension(".a")) {
+    for (const auto &path : data.withExtension(".a")) {
         const std::string drive = path.stem().string();
-        const reluva::clue::DataDrive* d = data.drive(drive, 'A');
+        const reluva::clue::DataDrive *d = data.drive(drive, 'A');
         if (!d) {
             std::printf("  %s\n", data.lastError().c_str()); // it names the file
             continue;
         }
-        for (const auto& e : d->entries()) {
+        for (const auto &e : d->entries()) {
             ++anims;
-            const reluva::clue::Animation* a = data.animation(drive + ":" + e.name);
+            const reluva::clue::Animation *a = data.animation(drive + ":" + e.name);
             if (!a) {
                 ++animFails;
                 std::printf("  %s\n", data.lastError().c_str());
                 continue;
             }
-            for (const std::string& name : a->images) {
+            for (const std::string &name : a->images) {
                 ++refs;
                 if (!data.image(name)) {
                     ++refFails;
@@ -150,14 +150,14 @@ int cmdClueCheck(int argc, char** argv) {
         }
     }
     int objects = 0, objectFails = 0;
-    for (const auto& path : data.withExtension(".o")) {
+    for (const auto &path : data.withExtension(".o")) {
         const std::string drive = path.stem().string();
-        const reluva::clue::DataDrive* d = data.drive(drive, 'O');
+        const reluva::clue::DataDrive *d = data.drive(drive, 'O');
         if (!d) {
             std::printf("  %s\n", data.lastError().c_str()); // it names the file
             continue;
         }
-        for (const auto& e : d->entries()) {
+        for (const auto &e : d->entries()) {
             ++objects;
             if (!data.object(drive + ":" + e.name)) {
                 ++objectFails;
@@ -167,7 +167,7 @@ int cmdClueCheck(int argc, char** argv) {
     }
     int placements = 0, buildProblems = 0;
     bool levelOk = false;
-    if (const std::filesystem::path* lvl = data.find("clue.lvl")) {
+    if (const std::filesystem::path *lvl = data.find("clue.lvl")) {
         reluva::clue::DataDrive file;
         reluva::clue::Level level;
         reluva::clue::Mansion mansion;
@@ -181,7 +181,7 @@ int cmdClueCheck(int argc, char** argv) {
             levelOk = true;
             placements = int(level.placements.size());
             buildProblems = int(mansion.problems().size());
-            for (const std::string& p : mansion.problems())
+            for (const std::string &p : mansion.problems())
                 std::printf("  clue.lvl: %s\n", p.c_str());
         }
     } else {
@@ -190,7 +190,7 @@ int cmdClueCheck(int argc, char** argv) {
     // dialogInfo.res: every font, background and control picture it names.
     int dialogs = 0, controls = 0, missing = 0;
     bool resiOk = false;
-    if (const std::filesystem::path* path = data.find("dialogInfo.res")) {
+    if (const std::filesystem::path *path = data.find("dialogInfo.res")) {
         std::ifstream in(*path, std::ios::binary);
         const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         reluva::clue::Resi resi;
@@ -198,7 +198,7 @@ int cmdClueCheck(int argc, char** argv) {
             std::printf("  dialogInfo.res: %s\n", err.message.c_str());
         } else {
             resiOk = true;
-            const auto check = [&](const std::string& name, const std::string& where) {
+            const auto check = [&](const std::string &name, const std::string &where) {
                 if (name.empty() || name.find(':') == std::string::npos)
                     return;
                 const size_t colon = name.find(':');
@@ -209,12 +209,12 @@ int cmdClueCheck(int argc, char** argv) {
                                 data.lastError().c_str());
                 }
             };
-            for (const auto& f : resi.fonts)
+            for (const auto &f : resi.fonts)
                 check(f.animation, "font " + std::to_string(f.id));
-            for (const auto& d : resi.dialogs) {
+            for (const auto &d : resi.dialogs) {
                 ++dialogs;
                 check(d.background, "dialog " + std::to_string(d.id));
-                for (const auto& c : d.controls) {
+                for (const auto &c : d.controls) {
                     ++controls;
                     const bool picture = c.type == reluva::clue::ResiControl::Image ||
                                          c.type == reluva::clue::ResiControl::ImageButton ||
@@ -236,17 +236,21 @@ int cmdClueCheck(int argc, char** argv) {
     std::printf("dialogInfo.res: %s, %d dialogs, %d controls; pictures they name: %d missing or failed\n",
                 resiOk ? "read" : "FAILED", dialogs, controls, missing);
     return imageFails || animFails || refFails || objectFails || !levelOk || buildProblems || !resiOk || missing ? 1
-                                                                                                               : 0;
+                                                                                                                 : 0;
 }
 
 // A level's object names and placements: a summary, or each one with -v.
 
-const Commands commands("clue", {
-    {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries", cmdClueList},
-    {"extract", "<file.res> <output dir> [name filter]", "write a Clue .res file's images as 32-bit TGA files",
-     cmdClueExtract},
-    {"check", "<game folder> [-uk]",
-     "decode every image, animation, object and level of a Clue install or CD, and build its mansion", cmdClueCheck},
-});
+const Commands
+    commands("clue",
+             {
+                 {"list", "<file.res | file.a | file.o | file.lvl>", "list a Clue .res, .a, .o or .lvl file's entries",
+                  cmdClueList},
+                 {"extract", "<file.res> <output dir> [name filter]",
+                  "write a Clue .res file's images as 32-bit TGA files", cmdClueExtract},
+                 {"check", "<game folder> [-uk]",
+                  "decode every image, animation, object and level of a Clue install or CD, and build its mansion",
+                  cmdClueCheck},
+             });
 
 } // namespace

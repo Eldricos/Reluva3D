@@ -20,12 +20,22 @@ namespace {
 
 // DDSURFACEDESC(2) fields.
 enum : uint32_t {
-    kSdCaps = 0x1, kSdHeight = 0x2, kSdWidth = 0x4, kSdPitch = 0x8, kSdBackBufferCount = 0x20,
-    kSdLpSurface = 0x800, kSdPixelFormat = 0x1000, kSdCkSrcBlt = 0x10000, kSdMipMapCount = 0x20000
+    kSdCaps = 0x1,
+    kSdHeight = 0x2,
+    kSdWidth = 0x4,
+    kSdPitch = 0x8,
+    kSdBackBufferCount = 0x20,
+    kSdLpSurface = 0x800,
+    kSdPixelFormat = 0x1000,
+    kSdCkSrcBlt = 0x10000,
+    kSdMipMapCount = 0x20000
 };
 // Blt flags.
 enum : uint32_t {
-    kBltColorFill = 0x400, kBltDepthFill = 0x02000000, kBltKeySrc = 0x8000, kBltKeySrcOverride = 0x10000
+    kBltColorFill = 0x400,
+    kBltDepthFill = 0x02000000,
+    kBltKeySrc = 0x8000,
+    kBltKeySrcOverride = 0x10000
 };
 constexpr uint32_t kCkeySrcBlt = 0x8, kCkeyDestBlt = 0x2;
 
@@ -61,7 +71,7 @@ uint32_t unchannel(uint32_t v8, uint32_t mask) {
 
 } // namespace
 
-PixelFormat PixelFormat::read(Cpu& c, uint32_t p) {
+PixelFormat PixelFormat::read(Cpu &c, uint32_t p) {
     PixelFormat f;
     f.flags = c.read32(p + 4);
     f.fourCC = c.read32(p + 8);
@@ -73,13 +83,13 @@ PixelFormat PixelFormat::read(Cpu& c, uint32_t p) {
     return f;
 }
 
-void PixelFormat::write(Cpu& c, uint32_t p) const {
+void PixelFormat::write(Cpu &c, uint32_t p) const {
     const uint32_t v[8] = {32, flags, fourCC, bits, r, g, b, a};
     for (uint32_t i = 0; i < 8; ++i)
         c.write32(p + 4 * i, v[i]);
 }
 
-uint32_t PixelFormat::toArgb(uint32_t value, const uint32_t* palette) const {
+uint32_t PixelFormat::toArgb(uint32_t value, const uint32_t *palette) const {
     if (flags & kPfPaletteIndexed8)
         return palette ? palette[value & 0xff] : 0xff000000u | (value & 0xff) * 0x010101u;
     if (flags & kPfLuminance) {
@@ -99,8 +109,7 @@ uint32_t PixelFormat::fromArgb(uint32_t argb) const {
     return v;
 }
 
-ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
-    : format_(format), palette_(palette) {
+ArgbConverter::ArgbConverter(const PixelFormat &format, const uint32_t *palette) : format_(format), palette_(palette) {
     if (format.flags & (kPfPaletteIndexed8 | kPfLuminance)) {
         general_ = true;
         return;
@@ -130,10 +139,11 @@ ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
         return;
     // Built once per format: a frame or texture is converted many times.
     static std::mutex lock;
-    static std::map<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>, std::shared_ptr<const std::vector<uint32_t>>>
+    static std::map<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>,
+                    std::shared_ptr<const std::vector<uint32_t>>>
         tables;
     const std::lock_guard<std::mutex> hold(lock);
-    auto& table = tables[{format.flags, format.r, format.g, format.b, format.a}];
+    auto &table = tables[{format.flags, format.r, format.g, format.b, format.a}];
     if (!table) {
         auto t = std::make_shared<std::vector<uint32_t>>(65536);
         for (uint32_t v = 0; v < 65536; ++v)
@@ -143,7 +153,7 @@ ArgbConverter::ArgbConverter(const PixelFormat& format, const uint32_t* palette)
     wide_ = table;
 }
 
-void ArgbConverter::row(const uint8_t* bytes, int count, uint32_t* out) const {
+void ArgbConverter::row(const uint8_t *bytes, int count, uint32_t *out) const {
     switch (format_.bytes()) {
     case 1:
         for (int i = 0; i < count; ++i)
@@ -179,9 +189,15 @@ PixelFormat rgbFormat(int bits) {
     f.flags = kPfRgb;
     f.bits = uint32_t(bits);
     switch (bits) {
-    case 8: f.flags |= kPfPaletteIndexed8; break;
-    case 16: f.r = 0xf800, f.g = 0x07e0, f.b = 0x001f; break;
-    default: f.r = 0xff0000, f.g = 0x00ff00, f.b = 0x0000ff; break;
+    case 8:
+        f.flags |= kPfPaletteIndexed8;
+        break;
+    case 16:
+        f.r = 0xf800, f.g = 0x07e0, f.b = 0x001f;
+        break;
+    default:
+        f.r = 0xff0000, f.g = 0x00ff00, f.b = 0x0000ff;
+        break;
     }
     return f;
 }
@@ -201,12 +217,12 @@ std::vector<PixelFormat> textureFormats() {
         f.bits = bits, f.a = a, f.r = r, f.g = g, f.b = b;
         return f;
     };
-    return {argb(16, 0, 0xf800, 0x07e0, 0x001f), argb(16, 0x8000, 0x7c00, 0x03e0, 0x001f),
-            argb(16, 0xf000, 0x0f00, 0x00f0, 0x000f), argb(16, 0, 0x7c00, 0x03e0, 0x001f),
+    return {argb(16, 0, 0xf800, 0x07e0, 0x001f),           argb(16, 0x8000, 0x7c00, 0x03e0, 0x001f),
+            argb(16, 0xf000, 0x0f00, 0x00f0, 0x000f),      argb(16, 0, 0x7c00, 0x03e0, 0x001f),
             argb(32, 0xff000000u, 0xff0000, 0xff00, 0xff), argb(32, 0, 0xff0000, 0xff00, 0xff)};
 }
 
-Rect Rect::read(Cpu& c, uint32_t p) {
+Rect Rect::read(Cpu &c, uint32_t p) {
     return {int32_t(c.read32(p)), int32_t(c.read32(p + 4)), int32_t(c.read32(p + 8)), int32_t(c.read32(p + 12))};
 }
 
@@ -223,33 +239,47 @@ Surface::~Surface() {
 uint32_t Surface::pixel(int x, int y) const {
     const uint32_t at = d.memory + uint32_t(y * d.pitch) + uint32_t(x) * d.format.bytes();
     switch (d.format.bytes()) {
-    case 1: return s->cpu.read8(at);
-    case 2: return s->cpu.read16(at);
-    case 3: return s->cpu.read16(at) | uint32_t(s->cpu.read8(at + 2)) << 16;
-    default: return s->cpu.read32(at);
+    case 1:
+        return s->cpu.read8(at);
+    case 2:
+        return s->cpu.read16(at);
+    case 3:
+        return s->cpu.read16(at) | uint32_t(s->cpu.read8(at + 2)) << 16;
+    default:
+        return s->cpu.read32(at);
     }
 }
 
 void Surface::setPixel(int x, int y, uint32_t v) {
     const uint32_t at = d.memory + uint32_t(y * d.pitch) + uint32_t(x) * d.format.bytes();
     switch (d.format.bytes()) {
-    case 1: s->cpu.write8(at, uint8_t(v)); break;
-    case 2: s->cpu.write16(at, uint16_t(v)); break;
+    case 1:
+        s->cpu.write8(at, uint8_t(v));
+        break;
+    case 2:
+        s->cpu.write16(at, uint16_t(v));
+        break;
     case 3:
         s->cpu.write16(at, uint16_t(v));
         s->cpu.write8(at + 2, uint8_t(v >> 16));
         break;
-    default: s->cpu.write32(at, v); break;
+    default:
+        s->cpu.write32(at, v);
+        break;
     }
 }
 
-const uint32_t* Surface::paletteArgb() const { return palette ? palette->argb.data() : nullptr; }
+const uint32_t *Surface::paletteArgb() const {
+    return palette ? palette->argb.data() : nullptr;
+}
 
-uint32_t Surface::argb(int x, int y) const { return d.format.toArgb(pixel(x, y), paletteArgb()); }
+uint32_t Surface::argb(int x, int y) const {
+    return d.format.toArgb(pixel(x, y), paletteArgb());
+}
 
-const ComInterface* Surface::query(const std::string& iid) {
-    Interfaces& i = s->interfaces;
-    for (ComInterface* f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface, &i.gammaControl})
+const ComInterface *Surface::query(const std::string &iid) {
+    Interfaces &i = s->interfaces;
+    for (ComInterface *f : {&i.surface7, &i.surface4, &i.surface3, &i.surface2, &i.surface, &i.gammaControl})
         if (iid == f->iid)
             return f;
     return nullptr;
@@ -257,10 +287,12 @@ const ComInterface* Surface::query(const std::string& iid) {
 
 namespace {
 
-bool isDesc2(Cpu& c, uint32_t p) { return c.read32(p) == 124; }
+bool isDesc2(Cpu &c, uint32_t p) {
+    return c.read32(p) == 124;
+}
 
 // Fills a DDSURFACEDESC or DDSURFACEDESC2 (by its dwSize) for `s`.
-void writeDesc(Cpu& c, uint32_t p, const Surface& s, uint32_t surfaceAddress) {
+void writeDesc(Cpu &c, uint32_t p, const Surface &s, uint32_t surfaceAddress) {
     const uint32_t size = isDesc2(c, p) ? 124 : 108;
     std::memset(c.memory().data() + p + 4, 0, size - 4);
     c.write32(p, size);
@@ -287,7 +319,7 @@ void writeDesc(Cpu& c, uint32_t p, const Surface& s, uint32_t surfaceAddress) {
 
 } // namespace
 
-std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cpu& c) {
+std::optional<uint32_t> Surface::invoke(const ComInterface &iface, int index, Cpu &c) {
     const std::string_view m = iface.methods[size_t(index)].name;
     // What reads or writes pixels (or what they're made of) waits for the
     // draws still drawing.
@@ -296,9 +328,9 @@ std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cp
         m == "UpdateOverlay" || m == "AddAttachedSurface" || m == "DeleteAttachedSurface")
         if (m != "Flip" || !s->owner.presentLate) // a late flip waits for less (flip)
             s->finishDraws();
-    ComHost& com = s->com;
+    ComHost &com = s->com;
     // The interface this surface's own pointers are handed out as.
-    auto pointerTo = [&](const std::shared_ptr<Surface>& other) { return com.pointer(other, iface); };
+    auto pointerTo = [&](const std::shared_ptr<Surface> &other) { return com.pointer(other, iface); };
 
     // IDirectDrawGammaControl: (flags, DDGAMMARAMP*), the ramp being
     // three arrays of 256 WORDs, red, green, blue.
@@ -364,7 +396,7 @@ std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cp
         return kDDOk;
     if (m == "GetAttachedSurface") {
         const uint32_t caps = c.read32(c.arg(1)), out = c.arg(2);
-        for (const auto& a : attached)
+        for (const auto &a : attached)
             if ((a->d.caps[0] & caps) == caps) {
                 ++a->refs;
                 c.write32(out, pointerTo(a));
@@ -384,10 +416,10 @@ std::optional<uint32_t> Surface::invoke(const ComInterface& iface, int index, Cp
         return kDDOk;
     }
     if (m == "DeleteAttachedSurface") {
-        auto* other = com.as<Surface>(c.arg(2));
-        attached.erase(std::remove_if(attached.begin(), attached.end(),
-                                      [&](const auto& a) { return !other || a.get() == other; }),
-                       attached.end());
+        auto *other = com.as<Surface>(c.arg(2));
+        attached.erase(
+            std::remove_if(attached.begin(), attached.end(), [&](const auto &a) { return !other || a.get() == other; }),
+            attached.end());
         return kDDOk;
     }
     if (m == "SetColorKey") {
@@ -483,9 +515,9 @@ void Surface::fill(Rect r, uint32_t value) {
     if (r.left >= r.right || r.top >= r.bottom)
         return;
     const uint32_t bytes = d.format.bytes();
-    uint8_t* mem = s->cpu.memory().data();
+    uint8_t *mem = s->cpu.memory().data();
     for (int y = r.top; y < r.bottom; ++y) {
-        uint8_t* row = mem + d.memory + uint32_t(y * d.pitch) + uint32_t(r.left) * bytes;
+        uint8_t *row = mem + d.memory + uint32_t(y * d.pitch) + uint32_t(r.left) * bytes;
         for (int x = r.left; x < r.right; ++x, row += bytes)
             for (uint32_t b = 0; b < bytes; ++b)
                 row[b] = uint8_t(value >> (8 * b));
@@ -493,12 +525,12 @@ void Surface::fill(Rect r, uint32_t value) {
     touched();
 }
 
-void Surface::copy(const Surface& src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh) {
+void Surface::copy(const Surface &src, Rect from, Rect to, bool keyed, uint32_t keyLow, uint32_t keyHigh) {
     if (from.width() <= 0 || from.height() <= 0 || to.width() <= 0 || to.height() <= 0)
         return;
     const bool same = src.d.format == d.format && !keyed && from.width() == to.width() &&
                       from.height() == to.height() && !(d.format.flags & kPfPaletteIndexed8 && src.palette != palette);
-    uint8_t* mem = s->cpu.memory().data();
+    uint8_t *mem = s->cpu.memory().data();
     const uint32_t bytes = d.format.bytes();
     // Clipped to both surfaces, keeping the scale.
     const double sx = double(from.width()) / to.width(), sy = double(from.height()) / to.height();
@@ -521,7 +553,7 @@ void Surface::copy(const Surface& src, Rect from, Rect to, bool keyed, uint32_t 
         touched();
         return;
     }
-    const uint32_t* pal = src.paletteArgb();
+    const uint32_t *pal = src.paletteArgb();
     for (int y = y0; y < y1; ++y) {
         const int syi = from.top + int((y - to.top + 0.5) * sy);
         if (syi < 0 || syi >= src.d.height)
@@ -542,7 +574,7 @@ void Surface::copy(const Surface& src, Rect from, Rect to, bool keyed, uint32_t 
 // Blt(destRect, src, srcRect, flags, DDBLTFX*): a colour (or depth) fill,
 // or a copy, stretched to fit and keyed by the source's colour key if
 // asked.
-uint32_t Surface::blt(Cpu& c) {
+uint32_t Surface::blt(Cpu &c) {
     const uint32_t destRect = c.arg(1), srcPtr = c.arg(2), srcRect = c.arg(3), flags = c.arg(4), fx = c.arg(5);
     const Rect to = destRect ? Rect::read(c, destRect) : bounds();
     if (flags & (kBltColorFill | kBltDepthFill)) {
@@ -550,7 +582,7 @@ uint32_t Surface::blt(Cpu& c) {
             return kDDErrInvalidParams;
         fill(to, c.read32(fx + 80));
     } else {
-        Surface* src = s->com.as<Surface>(srcPtr);
+        Surface *src = s->com.as<Surface>(srcPtr);
         if (!src)
             return kDDErrInvalidObject;
         const Rect from = srcRect ? Rect::read(c, srcRect) : src->bounds();
@@ -572,9 +604,9 @@ uint32_t Surface::blt(Cpu& c) {
 
 // BltFast(x, y, src, srcRect, flags): an unstretched copy; flag 1 keys it
 // by the source's colour key.
-uint32_t Surface::bltFast(Cpu& c) {
+uint32_t Surface::bltFast(Cpu &c) {
     const int x = int32_t(c.arg(1)), y = int32_t(c.arg(2));
-    Surface* src = s->com.as<Surface>(c.arg(3));
+    Surface *src = s->com.as<Surface>(c.arg(3));
     if (!src)
         return kDDErrInvalidObject;
     const Rect from = c.arg(4) ? Rect::read(c, c.arg(4)) : src->bounds();
@@ -587,7 +619,7 @@ uint32_t Surface::bltFast(Cpu& c) {
 
 // Flip: each buffer of the chain takes the next one's pixels, the last
 // the front's, so the back buffer drawn becomes what's shown.
-uint32_t Surface::flip(Cpu&, const ComInterface&) {
+uint32_t Surface::flip(Cpu &, const ComInterface &) {
     if (chain.size() < 2)
         return kDDErrNotFlippable;
     const bool late = s->owner.presentLate && (d.caps[0] & kCapsPrimarySurface);
@@ -597,7 +629,7 @@ uint32_t Surface::flip(Cpu&, const ComInterface&) {
         // The frame before, on the front buffer: shown once the draws
         // queued before its flip are done. This frame's go on meanwhile;
         // they're in the back buffer, as are the draws to come.
-        for (dx::Device* dev : s->devices)
+        for (dx::Device *dev : s->devices)
             if (auto it = s->lateDraws.find(dev); it != s->lateDraws.end())
                 dev->finishDrawsThrough(it->second);
         s->presentShown();
@@ -606,11 +638,11 @@ uint32_t Surface::flip(Cpu&, const ComInterface&) {
     for (size_t i = 0; i + 1 < chain.size(); ++i)
         chain[i]->d.memory = chain[i + 1]->d.memory;
     chain.back()->d.memory = first;
-    for (Surface* b : chain)
+    for (Surface *b : chain)
         b->touched();
     if (late) {
         s->lateDraws.clear();
-        for (dx::Device* dev : s->devices)
+        for (dx::Device *dev : s->devices)
             s->lateDraws[dev] = dev->drawsQueued();
         s->latePending = true;
     } else if (d.caps[0] & kCapsPrimarySurface) {
@@ -621,11 +653,11 @@ uint32_t Surface::flip(Cpu&, const ComInterface&) {
 
 // --- Palettes and clippers
 
-const ComInterface* Palette::query(const std::string& iid) {
+const ComInterface *Palette::query(const std::string &iid) {
     return iid == s->interfaces.palette.iid ? &s->interfaces.palette : nullptr;
 }
 
-std::optional<uint32_t> Palette::invoke(const ComInterface& iface, int index, Cpu& c) {
+std::optional<uint32_t> Palette::invoke(const ComInterface &iface, int index, Cpu &c) {
     const std::string_view m = iface.methods[size_t(index)].name;
     if (m == "SetEntries")
         s->finishDraws();
@@ -657,11 +689,11 @@ std::optional<uint32_t> Palette::invoke(const ComInterface& iface, int index, Cp
     return std::nullopt;
 }
 
-const ComInterface* Clipper::query(const std::string& iid) {
+const ComInterface *Clipper::query(const std::string &iid) {
     return iid == s->interfaces.clipper.iid ? &s->interfaces.clipper : nullptr;
 }
 
-std::optional<uint32_t> Clipper::invoke(const ComInterface& iface, int index, Cpu& c) {
+std::optional<uint32_t> Clipper::invoke(const ComInterface &iface, int index, Cpu &c) {
     const std::string_view m = iface.methods[size_t(index)].name;
     if (m == "SetHWnd") {
         window = c.arg(2);
@@ -684,7 +716,7 @@ std::optional<uint32_t> Clipper::invoke(const ComInterface& iface, int index, Cp
 
 namespace reluva::x86 {
 
-uint32_t DirectX::State::allocate(dx::SurfaceData& d) {
+uint32_t DirectX::State::allocate(dx::SurfaceData &d) {
     const uint32_t bytes = d.format.bytes();
     d.pitch = int((uint32_t(d.width) * bytes + 7) & ~7u);
     d.memory = process.memory().alloc(uint32_t(d.pitch * std::max(d.height, 1)), 16);
@@ -693,8 +725,8 @@ uint32_t DirectX::State::allocate(dx::SurfaceData& d) {
     return d.memory;
 }
 
-std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx::PixelFormat& format,
-                                                         const std::array<uint32_t, 4>& caps) {
+std::shared_ptr<dx::Surface> DirectX::State::makeSurface(int w, int h, const dx::PixelFormat &format,
+                                                         const std::array<uint32_t, 4> &caps) {
     auto surface = std::make_shared<dx::Surface>();
     surface->s = this;
     surface->d.width = w, surface->d.height = h;
@@ -735,7 +767,7 @@ void DirectX::State::presentShown() {
         convert.row(cpu.memory().data() + at, to - from, frame.pixels.data() + size_t(y) * size_t(w) + size_t(from));
     }
     if (gamma != identityGamma())
-        for (uint32_t& px : frame.pixels)
+        for (uint32_t &px : frame.pixels)
             px = (px & 0xff000000u) | uint32_t(gamma[(px >> 16) & 0xff] >> 8) << 16 |
                  uint32_t(gamma[256 + ((px >> 8) & 0xff)] >> 8) << 8 | uint32_t(gamma[512 + (px & 0xff)] >> 8);
     ++frame.number;

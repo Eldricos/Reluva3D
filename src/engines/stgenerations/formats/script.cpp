@@ -9,7 +9,7 @@
 
 namespace reluva::stgenerations {
 
-bool ScriptFile::load(SeekableReadStream& stream) {
+bool ScriptFile::load(SeekableReadStream &stream) {
     _code.clear();
     _resourceNames.clear();
 
@@ -23,7 +23,7 @@ bool ScriptFile::load(SeekableReadStream& stream) {
     uint32_t codeSize = stream.readUint32LE();
     uint32_t sectionSizes[kSectionCount];
     uint64_t total = 40 + (uint64_t)codeSize;
-    for (uint32_t& sectionSize : sectionSizes) {
+    for (uint32_t &sectionSize : sectionSizes) {
         sectionSize = stream.readUint32LE();
         total += sectionSize;
     }
@@ -36,7 +36,7 @@ bool ScriptFile::load(SeekableReadStream& stream) {
     }
 
     _code.resize(codeSize / 2);
-    for (uint16_t& word : _code)
+    for (uint16_t &word : _code)
         word = stream.readUint16LE();
     for (int i = 0; i < kSectionCount; i++) {
         _sections[i].resize(sectionSizes[i]);

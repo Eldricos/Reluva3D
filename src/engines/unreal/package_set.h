@@ -27,7 +27,7 @@ std::vector<std::string> parseSearchPaths(std::string_view ini);
 
 // An export found through a package set.
 struct ObjectRef {
-    const Package* package = nullptr;
+    const Package *package = nullptr;
     int exportIndex = -1;
     explicit operator bool() const { return package && exportIndex >= 0; }
 };
@@ -37,24 +37,24 @@ public:
     // Indexes the packages under a game folder: its System folder's .ini
     // (`iniName` first, else any with Paths lines) says where to look.
     // Problems that don't stop the game are added to `warnings`.
-    Error open(const std::filesystem::path& gameDir, std::string_view iniName,
-               std::vector<std::string>* warnings = nullptr);
+    Error open(const std::filesystem::path &gameDir, std::string_view iniName,
+               std::vector<std::string> *warnings = nullptr);
     // Adds one package, from disk or from memory (tests); the first of a
     // name wins, as with the search path.
-    void addFile(const std::filesystem::path& file);
+    void addFile(const std::filesystem::path &file);
     void addMemory(std::string name, std::string extension, std::vector<uint8_t> data);
     // A package found later (a saved game of the original's, opened as the
     // level it is): added under its file's name, which it returns.
-    std::string addLater(const std::filesystem::path& file) const;
+    std::string addLater(const std::filesystem::path &file) const;
 
     // The package of that name (no extension, any case), opened on first
     // use; nullptr if there's none or it won't open (see error()).
-    const Package* get(std::string_view name) const;
+    const Package *get(std::string_view name) const;
     std::string error(std::string_view name) const;
 
     // Where an object reference made in `from` leads: an export of `from`,
     // or for an import the export it names in the package it comes from.
-    ObjectRef resolve(const Package& from, int32_t ref) const;
+    ObjectRef resolve(const Package &from, int32_t ref) const;
 
     // Every package's name, sorted, optionally only those with the
     // extension (".utx").
@@ -64,10 +64,10 @@ public:
     // folder (The Fallen's are .dsm), or .unr.
     bool isMap(std::string_view name) const;
     std::vector<std::string> mapNames() const;
-    const std::vector<std::string>& searchPaths() const { return paths_; }
+    const std::vector<std::string> &searchPaths() const { return paths_; }
     std::filesystem::path iniFile() const { return ini_; }
     // The game folder open() was given (empty for sets built by hand).
-    const std::filesystem::path& gameDir() const { return gameDir_; }
+    const std::filesystem::path &gameDir() const { return gameDir_; }
 
 private:
     struct Entry {

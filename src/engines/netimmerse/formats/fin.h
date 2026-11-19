@@ -47,13 +47,13 @@ struct FinNode : FinAvObject {
 // inline.
 struct FinShape : FinAvObject {
     uint16_t vertexCount = 0;
-    std::vector<float> vertices;      // x, y, z per vertex
-    std::vector<float> normals;       // empty, or x, y, z per vertex
-    std::array<float, 4> bound{};     // centre and radius
+    std::vector<float> vertices;  // x, y, z per vertex
+    std::vector<float> normals;   // empty, or x, y, z per vertex
+    std::array<float, 4> bound{}; // centre and radius
     uint16_t uvSets = 0;
-    std::vector<float> uvw;           // uvSets sets of u, v, w per vertex
-    std::vector<float> colors;        // empty, or r, g, b, a (0..1) per vertex
-    std::vector<uint16_t> triangles;  // three indices each
+    std::vector<float> uvw;          // uvSets sets of u, v, w per vertex
+    std::vector<float> colors;       // empty, or r, g, b, a (0..1) per vertex
+    std::vector<uint16_t> triangles; // three indices each
 };
 
 struct FinMaterial {
@@ -124,7 +124,7 @@ struct FinMaterialAnimator : FinController {
     uint32_t channel = 0; // colour: 0 ambient, 1 diffuse, 3 emissive
     bool alpha = false;
     struct Key {
-        float time = 0; // ticks
+        float time = 0;               // ticks
         std::array<float, 3> value{}; // alpha: the first only
     };
     std::vector<Key> keys;
@@ -139,7 +139,7 @@ struct FinLight : FinAvObject {
     std::array<float, 3> location{}, direction{};
     std::array<float, 3> ambient{}, diffuse{}, specular{};
     float spotAngle = 0, spotExponent = 0; // degrees
-    float dimmer = 1; // each colour is times this
+    float dimmer = 1;                      // each colour is times this
     // When `attenuated`: falling off with distance, to 1/64 at
     // `attenuationDistance`, more steeply the higher the curve.
     bool attenuated = false;
@@ -170,7 +170,7 @@ struct FinActor {
         // order the file holds them).
         std::vector<uint16_t> tracks, flips, morphs;
     };
-    template <typename T>
+    template<typename T>
     struct Key {
         float time = 0; // ticks
         T value{};
@@ -227,11 +227,11 @@ struct FinObjectInfo {
 
 class FinFile {
 public:
-    Error parse(const std::vector<uint8_t>& data);
+    Error parse(const std::vector<uint8_t> &data);
 
-    const std::vector<FinObjectInfo>& objects() const { return objects_; }
+    const std::vector<FinObjectInfo> &objects() const { return objects_; }
     // Objects saved as top-level ones, in order: the model's roots.
-    const std::vector<uint32_t>& roots() const { return roots_; }
+    const std::vector<uint32_t> &roots() const { return roots_; }
 
     // By id.
     std::map<uint32_t, FinNode> nodes;

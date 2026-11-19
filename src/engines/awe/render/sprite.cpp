@@ -8,7 +8,7 @@
 
 namespace reluva::awe {
 
-void SpriteTransform::apply(float u, float v, float& outX, float& outY) const {
+void SpriteTransform::apply(float u, float v, float &outX, float &outY) const {
     // D3DX's row vectors: p * Scale * RotationZ(roll) + position.
     const float c = std::cos(roll), s = std::sin(roll);
     const float px = u * scaleX, py = v * scaleY;
@@ -16,7 +16,7 @@ void SpriteTransform::apply(float u, float v, float& outX, float& outY) const {
     outY = px * s + py * c + y;
 }
 
-void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t, bool keepAlpha) {
+void drawSprite(Surface &dst, const image::Image &img, const SpriteTransform &t, bool keepAlpha) {
     if (img.w <= 0 || img.h <= 0 || t.scaleX == 0 || t.scaleY == 0)
         return;
     // The screen area it covers.
@@ -31,7 +31,7 @@ void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t,
     const int y0 = std::max(0, int(std::floor(minY))), y1 = std::min(dst.h, int(std::ceil(maxY)));
     const float c = std::cos(t.roll), s = std::sin(t.roll);
     for (int y = y0; y < y1; y++) {
-        uint8_t* row = dst.row(y);
+        uint8_t *row = dst.row(y);
         for (int x = x0; x < x1; x++) {
             // Back to the picture, from the pixel's centre; sampled
             // bilinearly between texel centres, as the game's filtering.
@@ -46,11 +46,11 @@ void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t,
             for (int k = 0; k < 4; k++) {
                 const int su = std::clamp(iu + (k & 1), 0, img.w - 1), sv = std::clamp(iv + (k >> 1), 0, img.h - 1);
                 const float w = (k & 1 ? au : 1 - au) * (k & 2 ? av : 1 - av);
-                const uint8_t* p = img.pixel(su, sv);
+                const uint8_t *p = img.pixel(su, sv);
                 for (int ch = 0; ch < 4; ch++)
                     px[ch] += float(p[ch]) * w;
             }
-            uint8_t* d = row + x * 4;
+            uint8_t *d = row + x * 4;
             const float a = px[3] / 255.0f;
             if (a <= 0)
                 continue;
@@ -68,7 +68,7 @@ void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t,
     }
 }
 
-void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, float size, const uint8_t rgba[4],
+void drawPointSprite(Surface &dst, const image::Image &img, float x, float y, float size, const uint8_t rgba[4],
                      bool additive, bool keepAlpha) {
     if (img.w <= 0 || img.h <= 0 || size <= 0)
         return;
@@ -76,7 +76,7 @@ void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, fl
     const int x0 = std::max(0, int(std::floor(left))), x1 = std::min(dst.w, int(std::ceil(left + size)));
     const int y0 = std::max(0, int(std::floor(top))), y1 = std::min(dst.h, int(std::ceil(top + size)));
     for (int py = y0; py < y1; py++) {
-        uint8_t* row = dst.row(py);
+        uint8_t *row = dst.row(py);
         const float v = (float(py) + 0.5f - top) / size * float(img.h);
         if (v < 0 || v >= float(img.h))
             continue;
@@ -84,11 +84,11 @@ void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, fl
             const float u = (float(px) + 0.5f - left) / size * float(img.w);
             if (u < 0 || u >= float(img.w))
                 continue;
-            const uint8_t* t = img.pixel(std::min(img.w - 1, int(u)), std::min(img.h - 1, int(v)));
+            const uint8_t *t = img.pixel(std::min(img.w - 1, int(u)), std::min(img.h - 1, int(v)));
             float c[4];
             for (int ch = 0; ch < 4; ch++)
                 c[ch] = float(t[ch]) * float(rgba[ch]) / 255.0f;
-            uint8_t* d = row + px * 4;
+            uint8_t *d = row + px * 4;
             if (additive) {
                 // ONE, ONE: the colour added whatever its alpha.
                 for (int ch = 0; ch < 3; ch++)

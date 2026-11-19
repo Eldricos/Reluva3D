@@ -27,27 +27,28 @@ class SoftRenderer3D : public gfx::Renderer3D {
 public:
     SoftRenderer3D(int width, int height);
 
-    Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
-                        gfx::TextureId& out) override;
+    Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
+                        gfx::TextureId &out) override;
     void destroyTexture(gfx::TextureId id) override;
-    Error updateTextures(const std::vector<gfx::TextureRegion>& regions) override;
-    Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
-                     gfx::MeshId& out) override;
-    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t>& indices, gfx::MeshId& out) override;
-    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t>& indices) override;
+    Error updateTextures(const std::vector<gfx::TextureRegion> &regions) override;
+    Error createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
+                     gfx::MeshId &out) override;
+    Error createIndexedMesh(gfx::MeshId vertices, const std::vector<uint32_t> &indices, gfx::MeshId &out) override;
+    Error setMeshIndices(gfx::MeshId id, const std::vector<uint32_t> &indices) override;
     void destroyMesh(gfx::MeshId id) override;
 
     int width() const override { return w_; }
     int height() const override { return h_; }
     std::string deviceName() const override { return "software (reluva-tool)"; }
 
-    void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3& eye, Color clear) override;
-    void draw(const gfx::DrawCall& call) override;
-    void setView(const gfx::Mat4& viewProj, const gfx::Vec3& eye) override;
-    void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override {
-        lights_.assign(lights.begin(), lights.begin() + std::ptrdiff_t(std::min<size_t>(lights.size(), gfx::kMaxDynamicLights)));
+    void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye, Color clear) override;
+    void draw(const gfx::DrawCall &call) override;
+    void setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &eye) override;
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override {
+        lights_.assign(lights.begin(),
+                       lights.begin() + std::ptrdiff_t(std::min<size_t>(lights.size(), gfx::kMaxDynamicLights)));
     }
-    void setVolumeLights(const std::vector<gfx::DynamicLight>& lights) override { volumes_ = lights; }
+    void setVolumeLights(const std::vector<gfx::DynamicLight> &lights) override { volumes_ = lights; }
     void setViewport(int x, int y, int w, int h) override;
     void setDepthRange(float maxDepth) override { depthRange_ = maxDepth; }
     void clearDepth() override;
@@ -60,13 +61,13 @@ public:
     uint8_t stencilLevel_ = 1;
     void setMirrored(bool) override {}
     void setGamma(float gamma) override { gamma_ = gamma; }
-    void endFrame(const Surface* overlay) override;
+    void endFrame(const Surface *overlay) override;
 
     // Whether draws are done (when only some frames are wanted, the rest
     // cost nothing).
     bool drawing = true;
     // The last finished frame (RGBA32), and how many frames there were.
-    const Surface& frame() const { return frame_; }
+    const Surface &frame() const { return frame_; }
     int frames() const { return frames_; }
     // Draw calls and triangles drawn in the last frame.
     int lastDraws() const { return lastDraws_; }

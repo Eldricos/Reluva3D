@@ -46,32 +46,32 @@ public:
     Hash textures, meshes, draws;
     int textureCount = 0, meshCount = 0, frames = 0, drawCount = 0;
 
-    Error createTexture(int width, int height, const uint8_t* rgba, const gfx::TextureParams& params,
-                        gfx::TextureId& out) override {
+    Error createTexture(int width, int height, const uint8_t *rgba, const gfx::TextureParams &params,
+                        gfx::TextureId &out) override {
         textures.i32(width).i32(height).bytes(rgba, size_t(width) * size_t(height) * 4).i32(params.clamp);
         ++textureCount;
         out = gfx::TextureId(++next_);
         return Error::success();
     }
     void destroyTexture(gfx::TextureId) override {}
-    Error createMesh(const std::vector<gfx::Vertex>& vertices, const std::vector<uint32_t>& indices,
-                     gfx::MeshId& out) override {
+    Error createMesh(const std::vector<gfx::Vertex> &vertices, const std::vector<uint32_t> &indices,
+                     gfx::MeshId &out) override {
         mesh(vertices);
         meshes.bytes(indices.data(), indices.size() * 4);
         ++meshCount;
         out = gfx::MeshId(++next_);
         return Error::success();
     }
-    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t>& indices, gfx::MeshId& out) override {
+    Error createIndexedMesh(gfx::MeshId, const std::vector<uint32_t> &indices, gfx::MeshId &out) override {
         meshes.bytes(indices.data(), indices.size() * 4);
         out = gfx::MeshId(++next_);
         return Error::success();
     }
-    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t>& indices) override {
+    Error setMeshIndices(gfx::MeshId, const std::vector<uint32_t> &indices) override {
         meshes.bytes(indices.data(), indices.size() * 4);
         return Error::success();
     }
-    Error setMeshVertices(gfx::MeshId, const std::vector<gfx::Vertex>& vertices) override {
+    Error setMeshVertices(gfx::MeshId, const std::vector<gfx::Vertex> &vertices) override {
         mesh(vertices);
         return Error::success();
     }
@@ -79,19 +79,19 @@ public:
     int width() const override { return 640; }
     int height() const override { return 480; }
     std::string deviceName() const override { return "recording"; }
-    void beginFrame(const gfx::Mat4& viewProj, const gfx::Vec3&, Color clear) override {
+    void beginFrame(const gfx::Mat4 &viewProj, const gfx::Vec3 &, Color clear) override {
         matrix(viewProj);
         draws.i32(clear.r).i32(clear.g).i32(clear.b);
         ++frames;
     }
-    void draw(const gfx::DrawCall& call) override {
+    void draw(const gfx::DrawCall &call) override {
         draws.i32(int32_t(call.mesh)).i32(int32_t(call.firstIndex)).i32(int32_t(call.indexCount));
         draws.i32(call.vertexOffset).i32(int32_t(call.texture));
         matrix(call.model);
         ++drawCount;
     }
-    void setView(const gfx::Mat4& viewProj, const gfx::Vec3&) override { matrix(viewProj); }
-    void setDynamicLights(const std::vector<gfx::DynamicLight>& lights) override { draws.i32(int32_t(lights.size())); }
+    void setView(const gfx::Mat4 &viewProj, const gfx::Vec3 &) override { matrix(viewProj); }
+    void setDynamicLights(const std::vector<gfx::DynamicLight> &lights) override { draws.i32(int32_t(lights.size())); }
     void setViewport(int, int, int, int) override {}
     void setDepthRange(float) override {}
     void clearDepth() override {}
@@ -99,22 +99,22 @@ public:
     void setStencilMode(StencilMode) override {}
     void setMirrored(bool) override {}
     void setGamma(float) override {}
-    void endFrame(const Surface* overlay) override {
+    void endFrame(const Surface *overlay) override {
         if (overlay)
             draws.bytes(overlay->pixels);
     }
     void captureNextFrame() override {}
-    bool takeCapture(std::vector<uint8_t>&) override { return false; }
+    bool takeCapture(std::vector<uint8_t> &) override { return false; }
 
 private:
     uint32_t next_ = 0;
     static int32_t rounded(float v) { return int32_t(std::lround(double(v) * 1000)); }
-    void matrix(const gfx::Mat4& m) {
+    void matrix(const gfx::Mat4 &m) {
         for (float v : m)
             draws.i32(rounded(v));
     }
-    void mesh(const std::vector<gfx::Vertex>& vertices) {
-        for (const gfx::Vertex& v : vertices) {
+    void mesh(const std::vector<gfx::Vertex> &vertices) {
+        for (const gfx::Vertex &v : vertices) {
             for (float f : v.pos)
                 meshes.i32(rounded(f));
             for (float f : v.uv)
@@ -139,17 +139,17 @@ public:
     int64_t soundFrames = 0, soundPeak = 0;
     std::vector<std::string> titles;
 
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels);
         shown++;
     }
-    void setWindowTitle(const std::string& t) override {
+    void setWindowTitle(const std::string &t) override {
         HeadlessSystem::setWindowTitle(t);
         if (titles.empty() || titles.back() != t)
             titles.push_back(t);
     }
-    bool pollEvent(Event& ev) override {
+    bool pollEvent(Event &ev) override {
         if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
             ev = inputs[next_++].event;
             return true;
@@ -172,7 +172,7 @@ public:
     }
     // 3D through the recording renderer, for the model page.
     RecordingRenderer renderer;
-    Error init3D(int, int, gfx::Renderer3D*& out) override {
+    Error init3D(int, int, gfx::Renderer3D *&out) override {
         out = &renderer;
         return Error::success();
     }
@@ -222,44 +222,49 @@ std::vector<uint8_t> dds() {
     return d;
 }
 
-PacFile file(const std::string& name, const std::vector<uint8_t>& data) { return {name, asString(data), kFileTime, 0}; }
-PacFile file(const std::string& name, const std::string& text) { return {name, text, kFileTime, 0}; }
+PacFile file(const std::string &name, const std::vector<uint8_t> &data) {
+    return {name, asString(data), kFileTime, 0};
+}
+PacFile file(const std::string &name, const std::string &text) {
+    return {name, text, kFileTime, 0};
+}
 
 // The install: the archives the game has, each with a little of what it
 // holds (docs/engines/netimmerse/games/legoalphateam/formats/install.md), and no program.
-void makeInstall(const std::filesystem::path& dir) {
+void makeInstall(const std::filesystem::path &dir) {
     std::filesystem::create_directories(dir);
     writeFile(dir / "Fin.pac", buildPac({file("THING.FIN", buildFin()), file("U0001.FIN", buildAnimatedFin())}));
-    writeFile(dir / "Map.pac", buildPac({file("Brick.tga", tga(8, 8, [](int x, int y) {
-                                              return (x + y) % 2 ? 0xffc04020u : 0xff2040c0u;
-                                          }))}));
+    writeFile(
+        dir / "Map.pac",
+        buildPac({file("Brick.tga", tga(8, 8, [](int x, int y) { return (x + y) % 2 ? 0xffc04020u : 0xff2040c0u; }))}));
     writeFile(dir / "Etc.pac",
               buildPac({file("ARIAL.DDF", ddfFile(0)),
-                        file("ARIAL_0.TGA", tga(4, 4, [](int x, int y) {
-                                 return x < 2 && y < 2 ? 0xffffffffu : (x == 3 && y == 3 ? 0xffffffffu : 0u);
-                             })),
-                        file("M0010.PUZ", "PUZVER 1\r\nNEARFAR 20 10000\r\n"),
-                        file("EMPTY.TXT", "")}));
+                        file("ARIAL_0.TGA", tga(4, 4,
+                                                [](int x, int y) {
+                                                    return x < 2 && y < 2 ? 0xffffffffu
+                                                                          : (x == 3 && y == 3 ? 0xffffffffu : 0u);
+                                                })),
+                        file("M0010.PUZ", "PUZVER 1\r\nNEARFAR 20 10000\r\n"), file("EMPTY.TXT", "")}));
     writeFile(dir / "Sound.pac", buildPac({file("BEEP.DDS", dds())}));
     writeFile(dir / "Locale_en.pac",
               buildPac({file("Locale_en.txt", "####\r\n# Assorted UI Strings\r\n####\r\n\r\n==MenuExitButton==\r\n"
                                               "Exit Game\r\n\r\n==Brief==\r\n\r\nLine one\r\n\r\nLine two\r\n")}));
 }
 
-std::string joined(const std::vector<std::string>& lines) {
+std::string joined(const std::vector<std::string> &lines) {
     std::string out;
-    for (const std::string& l : lines)
+    for (const std::string &l : lines)
         out += (out.empty() ? "" : " | ") + l;
     return out.empty() ? "(none)" : out;
 }
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
     const auto finish = [&] {
         rec.check(RELUVA_SOURCE_DIR "/tests/engines/netimmerse/data/engine-record.txt", "netimmerse.engine",
                   "tests/engines/netimmerse/engine.cpp");
     };
-    const MetaEngine* engine = findEngine("netimmerse");
+    const MetaEngine *engine = findEngine("netimmerse");
     if (!engine)
         return test::fail("netimmerse isn't registered");
 
@@ -300,8 +305,8 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("run.result", err ? "error: " + err.message : std::string("ok"));
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
-    rec.add("run.sound", std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " +
-                             sys.sound.hex());
+    rec.add("run.sound",
+            std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
     rec.add("run.3d", std::to_string(sys.renderer.frames) + " frames, " + std::to_string(sys.renderer.drawCount) +
                           " draws " + sys.renderer.draws.hex());
     rec.add("run.3d.textures", std::to_string(sys.renderer.textureCount) + " " + sys.renderer.textures.hex());
@@ -312,7 +317,8 @@ void engineTest(const std::filesystem::path& tmp) {
 }
 
 const test::Suite suite("netimmerse.engine", {
-    {"the data viewer on an install of its own", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+                                                 {"the data viewer on an install of its own",
+                                                  [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                             });
 
 } // namespace

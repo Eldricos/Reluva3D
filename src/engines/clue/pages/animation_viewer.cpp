@@ -13,10 +13,10 @@ constexpr int kInfoH = 26;
 
 } // namespace
 
-AnimationViewer::AnimationViewer(System& sys, Surface& screen, const GameData& data)
+AnimationViewer::AnimationViewer(System &sys, Surface &screen, const GameData &data)
     : sys_(sys), screen_(screen), data_(data) {
-    for (const auto& path : data_.withExtension(".a")) {
-        const DataDrive* d = data_.drive(path.stem().string(), 'A');
+    for (const auto &path : data_.withExtension(".a")) {
+        const DataDrive *d = data_.drive(path.stem().string(), 'A');
         if (d && !d->entries().empty()) {
             files_.push_back(path);
             total_ += d->entries().size();
@@ -37,7 +37,7 @@ void AnimationViewer::select() {
     if (files_.empty())
         return;
     const std::string drive = files_[size_t(file_)].stem().string();
-    const DataDrive* d = data_.drive(drive, 'A');
+    const DataDrive *d = data_.drive(drive, 'A');
     name_ = drive + ":" + d->entries()[size_t(anim_)].name;
     current_ = data_.animation(name_);
     error_ = current_ ? std::string() : data_.lastError();
@@ -50,8 +50,14 @@ void AnimationViewer::handleKey(uint32_t key) {
     const int n = int(data_.drive(files_[size_t(file_)].stem().string(), 'A')->entries().size());
     const size_t frames = current_ ? current_->frameCount() : 0;
     switch (key) {
-    case key::Right: anim_ = (anim_ + 1) % n; select(); break;
-    case key::Left: anim_ = (anim_ + n - 1) % n; select(); break;
+    case key::Right:
+        anim_ = (anim_ + 1) % n;
+        select();
+        break;
+    case key::Left:
+        anim_ = (anim_ + n - 1) % n;
+        select();
+        break;
     case key::Down:
         file_ = (file_ + 1) % int(files_.size());
         anim_ = 0;
@@ -62,7 +68,9 @@ void AnimationViewer::handleKey(uint32_t key) {
         anim_ = 0;
         select();
         break;
-    case key::Space: paused_ = !paused_; break;
+    case key::Space:
+        paused_ = !paused_;
+        break;
     case '.':
         paused_ = true;
         if (frames)
@@ -73,13 +81,18 @@ void AnimationViewer::handleKey(uint32_t key) {
         if (frames)
             frame_ = (frame_ + frames - 1) % frames;
         break;
-    case 'z': zoom_ = zoom_ == 1 ? 2 : 1; break;
-    case 'a': showAnchor_ = !showAnchor_; break;
+    case 'z':
+        zoom_ = zoom_ == 1 ? 2 : 1;
+        break;
+    case 'a':
+        showAnchor_ = !showAnchor_;
+        break;
     case 'l':
         if (current_ && !current_->layers.empty())
             layer_ = layer_ + 1 >= int(current_->layers.size()) ? -1 : layer_ + 1;
         break;
-    default: return;
+    default:
+        return;
     }
     frameStart_ = sys_.getMillis();
     dirty_ = true;
@@ -110,7 +123,7 @@ void AnimationViewer::draw() {
         drawInfo(screen_, name_, error_);
         return;
     }
-    const Animation& a = *current_;
+    const Animation &a = *current_;
     const int z = (a.width * 2 <= kScreenW && a.height * 2 <= areaH) ? zoom_ : 1;
     // Isometric animations hang from their anchor point (a character's
     // feet), put low in the middle; the others are centred, among them the
@@ -129,10 +142,10 @@ void AnimationViewer::draw() {
             continue;
         if (frame_ >= a.layers[l].size())
             continue;
-        const Animation::Part& part = a.layers[l][frame_];
+        const Animation::Part &part = a.layers[l][frame_];
         if (part.image >= a.images.size())
             continue;
-        const Image* img = data_.image(a.images[part.image]);
+        const Image *img = data_.image(a.images[part.image]);
         if (!img) {
             missing = data_.lastError();
             continue;
@@ -145,10 +158,10 @@ void AnimationViewer::draw() {
     }
     std::string line2 = "frame " + std::to_string(frame_ + 1) + "/" + std::to_string(a.frameCount());
     if (!a.frames.empty() && a.frames[frame_].solid)
-        line2 += " box " + std::to_string(a.frames[frame_].sizeX) + "x" + std::to_string(a.frames[frame_].sizeY) +
-                 "x" + std::to_string(a.frames[frame_].height);
-    line2 += "  " + std::to_string(a.width) + "x" + std::to_string(a.height) + "  " +
-             std::to_string(a.images.size()) + " images, " + std::to_string(a.layers.size()) + " layer(s)";
+        line2 += " box " + std::to_string(a.frames[frame_].sizeX) + "x" + std::to_string(a.frames[frame_].sizeY) + "x" +
+                 std::to_string(a.frames[frame_].height);
+    line2 += "  " + std::to_string(a.width) + "x" + std::to_string(a.height) + "  " + std::to_string(a.images.size()) +
+             " images, " + std::to_string(a.layers.size()) + " layer(s)";
     if (layer_ >= 0)
         line2 += " showing " + std::to_string(layer_ + 1);
     if (a.isometric)
@@ -157,7 +170,7 @@ void AnimationViewer::draw() {
         line2 += "  paused";
     if (!missing.empty())
         line2 += "  " + missing;
-    const DataDrive* d = data_.drive(files_[size_t(file_)].stem().string(), 'A');
+    const DataDrive *d = data_.drive(files_[size_t(file_)].stem().string(), 'A');
     drawInfo(screen_,
              name_ + "   " + std::to_string(anim_ + 1) + "/" + std::to_string(d->entries().size()) + " (file " +
                  std::to_string(file_ + 1) + "/" + std::to_string(files_.size()) + ")",

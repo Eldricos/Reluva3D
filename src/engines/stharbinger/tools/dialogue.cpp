@@ -42,10 +42,9 @@ using namespace reluva::stharbinger;
 
 // Codes not listed here (set, wey, car, dev ...) are printed as they are.
 const std::map<std::string, std::string> kSpeakers = {
-    {"pro", "Bannik"}, {"com", "Computer"}, {"kir", "Kira"},    {"dax", "Dax"},    {"sis", "Sisko"},
-    {"odo", "Odo"},    {"qrk", "Quark"},    {"jan", "Jani"},    {"kar", "Karrig"}, {"hvk", "Havik"},
-    {"syr", "Syr"},    {"kee", "Keel"},     {"yar", "Yarrow"},  {"ras", "Rasmus"}, {"lyk", "Lykotian"},
-    {"hav", "Havik"},
+    {"pro", "Bannik"}, {"com", "Computer"}, {"kir", "Kira"},     {"dax", "Dax"},   {"sis", "Sisko"}, {"odo", "Odo"},
+    {"qrk", "Quark"},  {"jan", "Jani"},     {"kar", "Karrig"},   {"hvk", "Havik"}, {"syr", "Syr"},   {"kee", "Keel"},
+    {"yar", "Yarrow"}, {"ras", "Rasmus"},   {"lyk", "Lykotian"}, {"hav", "Havik"},
 };
 
 // The game's text is Latin-1; the files written are UTF-8.
@@ -67,7 +66,7 @@ bool isSpace(unsigned char c) {
     return c == ' ' || (c >= 0x09 && c <= 0x0D) || (c >= 0x1C && c <= 0x1F) || c == 0x85 || c == 0xA0;
 }
 
-std::string strip(const std::string& s, bool asciiOnly = false) {
+std::string strip(const std::string &s, bool asciiOnly = false) {
     auto space = [&](unsigned char c) { return asciiOnly ? (c == ' ' || (c >= 0x09 && c <= 0x0D)) : isSpace(c); };
     size_t b = 0, e = s.size();
     while (b < e && space(static_cast<unsigned char>(s[b])))
@@ -77,7 +76,7 @@ std::string strip(const std::string& s, bool asciiOnly = false) {
     return s.substr(b, e - b);
 }
 
-std::vector<std::string> splitOn(const std::string& s, char sep) {
+std::vector<std::string> splitOn(const std::string &s, char sep) {
     std::vector<std::string> out;
     size_t start = 0;
     for (;;) {
@@ -97,7 +96,7 @@ struct Line {
     std::vector<std::string> notes;
 };
 
-Line parseLine(const std::string& t) {
+Line parseLine(const std::string &t) {
     Line out;
     std::string text = t;
     // \s*\[([^\]]*)\] at the start
@@ -128,19 +127,19 @@ Line parseLine(const std::string& t) {
 }
 
 // The archive's entries one after another: the whole .ALL.
-bool wholeArchive(Resources& res, const char* name, std::string& out) {
+bool wholeArchive(Resources &res, const char *name, std::string &out) {
     auto archive = res.getArchive(name);
     if (!archive)
         return false;
     for (uint32_t i = 0; i < archive->size(); i++) {
         auto e = archive->getEntry(i);
-        out.append(reinterpret_cast<const char*>(e->data()), size_t(e->size()));
+        out.append(reinterpret_cast<const char *>(e->data()), size_t(e->size()));
     }
     return true;
 }
 
 // A CSV field as Python's csv module writes it (quoted when it must be).
-std::string csvField(const std::string& s) {
+std::string csvField(const std::string &s) {
     if (s.find_first_of(",\"\r\n") == std::string::npos)
         return s;
     std::string out = "\"";
@@ -152,7 +151,7 @@ std::string csvField(const std::string& s) {
     return out + "\"";
 }
 
-int cmdDialogue(int argc, char** argv) {
+int cmdDialogue(int argc, char **argv) {
     if (argc != 4) {
         std::fprintf(stderr, "usage: reluva-tool stharbinger dialogue <game folder> <out folder>\n");
         return 2;
@@ -163,7 +162,7 @@ int cmdDialogue(int argc, char** argv) {
         return 1;
     }
     Resources res;
-    for (const GamePart& p : parts)
+    for (const GamePart &p : parts)
         res.addGamePath(p.folder.string());
     std::string ccq, ccf;
     if (!wholeArchive(res, "CCQ", ccq) || !wholeArchive(res, "CCF", ccf)) {
@@ -172,7 +171,7 @@ int cmdDialogue(int argc, char** argv) {
     }
     std::vector<std::string> texts = splitOn(ccq, '\0');
     std::vector<std::string> clips;
-    for (const std::string& c : splitOn(ccf, '\n'))
+    for (const std::string &c : splitOn(ccf, '\n'))
         clips.push_back(strip(c, true));
     if (!texts.empty() && texts.back().empty())
         texts.pop_back();
@@ -193,13 +192,13 @@ int cmdDialogue(int argc, char** argv) {
     size_t rows = 0;
     for (size_t i = 0; i < texts.size() && i < clips.size(); i++) {
         // Sliced and parsed as Latin-1, written as UTF-8.
-        const std::string& raw = clips[i];
+        const std::string &raw = clips[i];
         const std::string c = latin1(raw);
         const std::string conv = latin1(fs::toLower(raw.substr(0, 3)));
         const std::string spk = latin1(fs::toLower(raw.size() > 3 ? raw.substr(3, 3) : ""));
         const auto known = kSpeakers.find(spk);
         const std::string who = known != kSpeakers.end() ? known->second : spk;
-        auto it = std::find_if(speakers.begin(), speakers.end(), [&](const auto& e) { return e.first == who; });
+        auto it = std::find_if(speakers.begin(), speakers.end(), [&](const auto &e) { return e.first == who; });
         if (it == speakers.end())
             speakers.push_back({who, 1});
         else
@@ -208,7 +207,7 @@ int cmdDialogue(int argc, char** argv) {
         line.label = latin1(line.label);
         line.spoken = latin1(line.spoken);
         std::string notes;
-        for (const std::string& n : line.notes)
+        for (const std::string &n : line.notes)
             notes += (notes.empty() ? "" : " | ") + latin1(n);
         csv += std::to_string(i) + "," + csvField(c) + "," + csvField(conv) + "," + csvField(who) + "," +
                csvField(line.label) + "," + csvField(line.spoken) + "," + csvField(notes) + "\r\n";
@@ -246,19 +245,22 @@ int cmdDialogue(int argc, char** argv) {
     }
     std::printf("%u lines, %u conversations -> %s\n", unsigned(rows), unsigned(conversations.size()),
                 out.string().c_str());
-    std::stable_sort(speakers.begin(), speakers.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+    std::stable_sort(speakers.begin(), speakers.end(),
+                     [](const auto &a, const auto &b) { return a.second > b.second; });
     std::string per;
-    for (const auto& [who, n] : speakers)
+    for (const auto &[who, n] : speakers)
         per += (per.empty() ? "" : ", ") + who + " " + std::to_string(n);
     std::printf("lines per speaker: %s\n", per.c_str());
     return 0;
 }
 
-const reluva::tool::Commands commands("stharbinger", {
-    {"dialogue", "<game folder> <out folder>",
-     "write the game's dialogue (CCQ.ALL with CCF.ALL's clip names) as dialogue.txt, by conversation, and "
-     "dialogue.csv: line, clip, conversation, speaker, menu label, text and recording notes",
-     cmdDialogue},
-});
+const reluva::tool::Commands
+    commands("stharbinger",
+             {
+                 {"dialogue", "<game folder> <out folder>",
+                  "write the game's dialogue (CCQ.ALL with CCF.ALL's clip names) as dialogue.txt, by conversation, and "
+                  "dialogue.csv: line, clip, conversation, speaker, menu label, text and recording notes",
+                  cmdDialogue},
+             });
 
 } // namespace

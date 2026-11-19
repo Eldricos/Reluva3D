@@ -10,9 +10,11 @@ namespace reluva {
 
 namespace {
 
-uint32_t rotl(uint32_t x, int n) { return (x << n) | (x >> (32 - n)); }
+uint32_t rotl(uint32_t x, int n) {
+    return (x << n) | (x >> (32 - n));
+}
 
-void block(uint32_t h[4], const uint8_t* p) {
+void block(uint32_t h[4], const uint8_t *p) {
     uint32_t x[16];
     for (int i = 0; i < 16; ++i)
         x[i] = uint32_t(p[4 * i]) | uint32_t(p[4 * i + 1]) << 8 | uint32_t(p[4 * i + 2]) << 16 |
@@ -45,9 +47,9 @@ void block(uint32_t h[4], const uint8_t* p) {
 
 } // namespace
 
-std::array<uint8_t, 16> md4(const void* data, size_t len) {
+std::array<uint8_t, 16> md4(const void *data, size_t len) {
     uint32_t h[4] = {0x67452301u, 0xefcdab89u, 0x98badcfeu, 0x10325476u};
-    const auto* p = static_cast<const uint8_t*>(data);
+    const auto *p = static_cast<const uint8_t *>(data);
     size_t i = 0;
     for (; i + 64 <= len; i += 64)
         block(h, p + i);

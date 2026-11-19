@@ -32,17 +32,21 @@ namespace reluva::log {
 namespace {
 std::atomic<int> level{0};
 
-void print(const char* prefix, const char* fmt, va_list args) {
+void print(const char *prefix, const char *fmt, va_list args) {
     char buf[2048];
     std::vsnprintf(buf, sizeof buf, fmt, args);
     std::fprintf(stderr, "%s%s\n", prefix, buf);
 }
 } // namespace
 
-void setDebugLevel(int l) { level = l; }
-int debugLevel() { return level; }
+void setDebugLevel(int l) {
+    level = l;
+}
+int debugLevel() {
+    return level;
+}
 
-void debug(int l, const char* fmt, ...) {
+void debug(int l, const char *fmt, ...) {
     if (l > level)
         return;
     va_list args;
@@ -51,7 +55,7 @@ void debug(int l, const char* fmt, ...) {
     va_end(args);
 }
 
-void warning(const char* fmt, ...) {
+void warning(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     print("WARNING: ", fmt, args);
@@ -63,13 +67,13 @@ void warning(const char* fmt, ...) {
 namespace reluva {
 
 struct StderrLog::State {
-    std::FILE* file = nullptr;
+    std::FILE *file = nullptr;
     int original = -1; // stderr as it was (-1: none, as a program without a console has)
     int readEnd = -1;
     std::thread copier;
 };
 
-StderrLog::StderrLog(const std::filesystem::path& file) : s_(std::make_unique<State>()) {
+StderrLog::StderrLog(const std::filesystem::path &file) : s_(std::make_unique<State>()) {
     std::error_code ec;
     std::filesystem::create_directories(file.parent_path(), ec);
     std::filesystem::path previous = file;
@@ -102,7 +106,7 @@ StderrLog::StderrLog(const std::filesystem::path& file) : s_(std::make_unique<St
         RELUVA_CLOSE(ends[0]), RELUVA_CLOSE(ends[1]);
         return;
     }
-    RELUVA_CLOSE(ends[1]); // stderr (2) holds the write end now
+    RELUVA_CLOSE(ends[1]);                    // stderr (2) holds the write end now
     std::setvbuf(stderr, nullptr, _IONBF, 0); // nothing held back if the program dies
     s_->readEnd = ends[0];
     s_->copier = std::thread([state = s_.get()] {
@@ -114,8 +118,7 @@ StderrLog::StderrLog(const std::filesystem::path& file) : s_(std::make_unique<St
             std::fwrite(buffer, 1, size_t(n), state->file);
             std::fflush(state->file);
             if (state->original >= 0)
-                if (RELUVA_WRITE(state->original, buffer, unsigned(n)) < 0) {
-                } // a console gone: the file still has it
+                if (RELUVA_WRITE(state->original, buffer, unsigned(n)) < 0) {} // a console gone: the file still has it
         }
     });
 }

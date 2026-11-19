@@ -9,10 +9,10 @@
 
 namespace reluva::stgenerations {
 
-void IniFile::load(const std::string& text) {
+void IniFile::load(const std::string &text) {
     _sections.clear();
     _changes.clear();
-    Section* section = nullptr;
+    Section *section = nullptr;
     for (std::string line : text::split(text, '\n')) {
         line = text::trim(line);
         if (line.empty() || line[0] == ';')
@@ -32,17 +32,16 @@ void IniFile::load(const std::string& text) {
     }
 }
 
-bool IniFile::hasSection(const std::string& section) const {
+bool IniFile::hasSection(const std::string &section) const {
     return _sections.count(text::toLower(section)) != 0;
 }
 
-bool IniFile::has(const std::string& section, const std::string& key) const {
+bool IniFile::has(const std::string &section, const std::string &key) const {
     auto s = _sections.find(text::toLower(section));
     return s != _sections.end() && s->second.count(text::toLower(key));
 }
 
-std::string IniFile::get(const std::string& section, const std::string& key,
-                            const std::string& fallback) const {
+std::string IniFile::get(const std::string &section, const std::string &key, const std::string &fallback) const {
     auto s = _sections.find(text::toLower(section));
     if (s == _sections.end())
         return fallback;
@@ -50,30 +49,30 @@ std::string IniFile::get(const std::string& section, const std::string& key,
     return k == s->second.end() ? fallback : k->second;
 }
 
-int IniFile::getInt(const std::string& section, const std::string& key, int fallback) const {
+int IniFile::getInt(const std::string &section, const std::string &key, int fallback) const {
     return has(section, key) ? std::atoi(get(section, key).c_str()) : fallback;
 }
 
-double IniFile::getDouble(const std::string& section, const std::string& key, double fallback) const {
+double IniFile::getDouble(const std::string &section, const std::string &key, double fallback) const {
     return has(section, key) ? std::atof(get(section, key).c_str()) : fallback;
 }
 
-bool IniFile::getBool(const std::string& section, const std::string& key, bool fallback) const {
+bool IniFile::getBool(const std::string &section, const std::string &key, bool fallback) const {
     if (!has(section, key))
         return fallback;
     std::string v = text::toLower(get(section, key));
     return v == "true" || v == "yes" || std::atoi(v.c_str()) != 0;
 }
 
-void IniFile::set(const std::string& section, const std::string& key, const std::string& value) {
+void IniFile::set(const std::string &section, const std::string &key, const std::string &value) {
     _sections[text::toLower(section)][text::toLower(key)] = value;
-    _changes[{ text::toLower(section), text::toLower(key) }] = value;
+    _changes[{text::toLower(section), text::toLower(key)}] = value;
 }
 
-void IniFile::syncChanges(Serializer& s) {
+void IniFile::syncChanges(Serializer &s) {
     std::vector<std::pair<std::string, std::string>> keys;
     std::vector<std::string> values;
-    for (const auto& change : _changes) {
+    for (const auto &change : _changes) {
         keys.push_back(change.first);
         values.push_back(change.second);
     }

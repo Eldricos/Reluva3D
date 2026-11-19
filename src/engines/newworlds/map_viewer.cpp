@@ -13,13 +13,13 @@ namespace reluva::newworlds {
 
 namespace {
 
-constexpr float kTileSize = 8192;          // ground models span -4096..4096 in x and y
+constexpr float kTileSize = 8192; // ground models span -4096..4096 in x and y
 constexpr float kBlockSize = 2 * kTileSize;
 static_assert(kBlockSize == MapViewer::kBlockUnits);
 constexpr float kPi = 3.14159265f;
 constexpr float kMaxPitch = 89.0f * kPi / 180.0f;
 constexpr float kKeyTurn = 10.0f * kPi / 180.0f;
-constexpr float kUnitScale = 4; // see render()
+constexpr float kUnitScale = 4;    // see render()
 constexpr uint64_t kFrameMs = 100; // animation frames: 10 a second (arf.md#open-questions)
 // Where a block's four tiles go, in its record's order: round the square
 // (block 0 of kurt64 numbers its tiles 0, 1, 3, 2). Not confirmed.
@@ -29,18 +29,17 @@ constexpr int kSlotY[4] = {0, 0, 1, 1};
 // of each cell's terrain code (from the tile's layers), or textured and tinted
 // where the grid marks a resource deposit.
 constexpr int kColourings = 3;
-constexpr const char* kColouringNames[kColourings] = {"models' own textures", "terrain codes",
-                                                      "resource deposits"};
+constexpr const char *kColouringNames[kColourings] = {"models' own textures", "terrain codes", "resource deposits"};
 // Tints for the six deposit kinds (which resource each is isn't known).
-constexpr uint8_t kDepositColours[6][3] = {{255, 60, 60}, {255, 230, 40}, {60, 230, 60},
+constexpr uint8_t kDepositColours[6][3] = {{255, 60, 60},  {255, 230, 40}, {60, 230, 60},
                                            {40, 230, 255}, {255, 60, 255}, {255, 255, 255}};
 
 } // namespace
 
-MapViewer::MapViewer(System& sys, Surface& screen, const Archives& archives)
+MapViewer::MapViewer(System &sys, Surface &screen, const Archives &archives)
     : sys_(sys), screen_(screen), archives_(archives), metamodels_(archives) {
     for (size_t a = 0; a < archives_.size(); ++a) {
-        const auto& entries = archives_[a]->entries();
+        const auto &entries = archives_[a]->entries();
         for (size_t i = 0; i < entries.size(); ++i)
             if (entries[i].tag == cattag::Gmf)
                 maps_.push_back({a, i});
@@ -64,8 +63,8 @@ void MapViewer::show(int index) {
     tileModels_.clear();
     tileEdges_.clear();
     archiveModels_.clear();
-    const EntryRef& ref = maps_[size_t(index)];
-    CatArchive& cat = *archives_[ref.archive];
+    const EntryRef &ref = maps_[size_t(index)];
+    CatArchive &cat = *archives_[ref.archive];
     // A tile's model number counts the .geo files of the map's archive, in
     // the order tileModelOrder gives.
     std::vector<size_t> geoEntries;
@@ -135,12 +134,12 @@ void MapViewer::lookAt(int a, int b, bool ground) {
     dirty_ = true;
 }
 
-void MapViewer::minimapPoint(float wx, float wy, int x0, int y0, int w, int h, int& px, int& py) const {
+void MapViewer::minimapPoint(float wx, float wy, int x0, int y0, int w, int h, int &px, int &py) const {
     px = x0 + int(wx / (float(map_.width) * kBlockSize) * float(w));
     py = y0 + h - 1 - int(wy / (float(map_.height) * kBlockSize) * float(h));
 }
 
-void MapViewer::drawMinimap(Surface& s, int x0, int y0, int w, int h) const {
+void MapViewer::drawMinimap(Surface &s, int x0, int y0, int w, int h) const {
     if (map_.width <= 0 || map_.height <= 0)
         return;
     const int tilesW = map_.width * 2, tilesH = map_.height * 2;
@@ -149,7 +148,7 @@ void MapViewer::drawMinimap(Surface& s, int x0, int y0, int w, int h) const {
             continue;
         // Row 0 of the grid at the bottom, as the map is drawn.
         const float fy = (float(h - 1 - y) + 0.5f) / float(h) * float(tilesH);
-        uint8_t* row = s.row(y0 + y);
+        uint8_t *row = s.row(y0 + y);
         for (int x = 0; x < w; ++x) {
             if (x0 + x < 0 || x0 + x >= s.w)
                 continue;
@@ -159,7 +158,7 @@ void MapViewer::drawMinimap(Surface& s, int x0, int y0, int w, int h) const {
             if (t >= 0 && size_t(t) < map_.tiles.size())
                 code = terrainCode(map_.tiles[size_t(t)], std::clamp(int((fx - std::floor(fx)) * 8), 0, 7),
                                    std::clamp(int((fy - std::floor(fy)) * 8), 0, 7));
-            uint8_t* p = row + (x0 + x) * 4;
+            uint8_t *p = row + (x0 + x) * 4;
             if (code && code < map_.palette.size())
                 p[0] = map_.palette[code][0], p[1] = map_.palette[code][1], p[2] = map_.palette[code][2];
             else
@@ -170,14 +169,14 @@ void MapViewer::drawMinimap(Surface& s, int x0, int y0, int w, int h) const {
     const int cx = x0 + int(targetX_ / (float(map_.width) * kBlockSize) * float(w));
     const int cy = y0 + h - 1 - int(targetY_ / (float(map_.height) * kBlockSize) * float(h));
     for (int d = -3; d <= 3; ++d)
-        for (const auto& [px, py] : {std::pair{cx + d, cy}, std::pair{cx, cy + d}})
+        for (const auto &[px, py] : {std::pair{cx + d, cy}, std::pair{cx, cy + d}})
             if (px >= x0 && px < x0 + w && py >= y0 && py < y0 + h && px < s.w && py < s.h) {
-                uint8_t* p = s.row(py) + px * 4;
+                uint8_t *p = s.row(py) + px * 4;
                 p[0] = 255, p[1] = 255, p[2] = 255;
             }
 }
 
-void MapViewer::cameraPosition(int& a, int& b) const {
+void MapViewer::cameraPosition(int &a, int &b) const {
     a = std::clamp(int(targetY_ / kBlockSize * 8), 0, std::max(0, map_.height * 8 - 1));
     b = std::clamp(int(targetX_ / kBlockSize * 8), 0, std::max(0, map_.width * 8 - 1));
 }
@@ -204,11 +203,11 @@ void MapViewer::resetView() {
 // A tile's ground model, decoded once per map, with its textures. Which
 // textures the game gives ground tiles isn't known (see
 // docs/engines/newworlds/gmf.md); chooseGroundTextures picks them by role.
-const MapViewer::TileModel& MapViewer::tileModel(uint32_t index) {
+const MapViewer::TileModel &MapViewer::tileModel(uint32_t index) {
     auto found = tileModels_.find(index);
     if (found != tileModels_.end())
         return found->second;
-    TileModel& m = tileModels_[index];
+    TileModel &m = tileModels_[index];
     if (index >= archiveModels_.size() || archiveModels_[index] == kNoModel)
         m.error = "no model numbered " + std::to_string(index);
     else
@@ -216,9 +215,9 @@ const MapViewer::TileModel& MapViewer::tileModel(uint32_t index) {
     return m;
 }
 
-void MapViewer::loadModel(size_t entryIndex, TileModel& m, bool ground) {
-    CatArchive& cat = *archives_[maps_[size_t(current_)].archive];
-    const auto& entry = cat.entries()[entryIndex];
+void MapViewer::loadModel(size_t entryIndex, TileModel &m, bool ground) {
+    CatArchive &cat = *archives_[maps_[size_t(current_)].archive];
+    const auto &entry = cat.entries()[entryIndex];
     m.name = entry.name;
     std::vector<uint8_t> data;
     if (Error err = cat.read(entry, data)) {
@@ -228,18 +227,18 @@ void MapViewer::loadModel(size_t entryIndex, TileModel& m, bool ground) {
     prepareModel(data, m, ground, false);
 }
 
-void MapViewer::prepareModel(const std::vector<uint8_t>& geoData, TileModel& m, bool ground, bool building) {
+void MapViewer::prepareModel(const std::vector<uint8_t> &geoData, TileModel &m, bool ground, bool building) {
     std::vector<uint8_t> data;
     if (Error err = parseGeo(geoData, m.geo)) {
         m.error = err.message;
         return;
     }
-    for (const auto& face : m.geo.faces) {
-        const auto& verts = m.geo.parts[face.part].vertices;
+    for (const auto &face : m.geo.faces) {
+        const auto &verts = m.geo.parts[face.part].vertices;
         Vec n{0, 0, 0}; // Newell's method
         for (size_t i = 0; i < face.corners.size(); ++i) {
-            const auto& a = verts[face.corners[i].vertex];
-            const auto& b = verts[face.corners[(i + 1) % face.corners.size()].vertex];
+            const auto &a = verts[face.corners[i].vertex];
+            const auto &b = verts[face.corners[(i + 1) % face.corners.size()].vertex];
             n.x += (a.y - b.y) * (a.z + b.z);
             n.y += (a.z - b.z) * (a.x + b.x);
             n.z += (a.x - b.x) * (a.y + b.y);
@@ -249,20 +248,20 @@ void MapViewer::prepareModel(const std::vector<uint8_t>& geoData, TileModel& m, 
     }
 
     size_t needed = 0;
-    for (const auto& face : m.geo.faces)
+    for (const auto &face : m.geo.faces)
         needed = std::max<size_t>(needed, face.corners.back().extra[4] + 1);
     std::string folder, stem, ext;
     splitName(m.name, folder, stem, ext);
-    std::vector<const TextureFile*> slots;
+    std::vector<const TextureFile *> slots;
     if (ground) {
         // Ground tiles: by the role of each slot's faces (ground_textures.h).
         std::vector<std::string> planet;
-        for (const TextureFile& t : textureFiles_)
+        for (const TextureFile &t : textureFiles_)
             if (t.folder == folder)
                 planet.push_back(t.stem);
-        for (const std::string& want : chooseGroundTextures(stem, m.geo, planet)) {
-            const TextureFile* found = nullptr;
-            for (const TextureFile& t : textureFiles_)
+        for (const std::string &want : chooseGroundTextures(stem, m.geo, planet)) {
+            const TextureFile *found = nullptr;
+            for (const TextureFile &t : textureFiles_)
                 if (t.folder == folder && t.stem == want)
                     found = &t;
             slots.push_back(found);
@@ -274,10 +273,10 @@ void MapViewer::prepareModel(const std::vector<uint8_t>& geoData, TileModel& m, 
             addPadTextures(m.geo, m.name, textureFiles_, slots);
         }
     }
-    for (const TextureFile* t : slots) {
+    for (const TextureFile *t : slots) {
         Texture tex;
         if (t) {
-            CatArchive& tcat = *archives_[t->ref.archive];
+            CatArchive &tcat = *archives_[t->ref.archive];
             if (tcat.read(tcat.entries()[t->ref.entry], data) || decodeTexture(data, tex))
                 tex = Texture{};
         }
@@ -292,8 +291,8 @@ float MapViewer::groundHeight(float x, float y) {
     const int t = tileAt(tx, ty);
     if (t < 0)
         return 0;
-    const GmfMap::Tile& tile = map_.tiles[size_t(t)];
-    const TileModel& m = tileModel(tile.model);
+    const GmfMap::Tile &tile = map_.tiles[size_t(t)];
+    const TileModel &m = tileModel(tile.model);
     if (!m.error.empty())
         return 0;
     // Into the model's own frame: undo the tile's turn.
@@ -305,12 +304,12 @@ float MapViewer::groundHeight(float x, float y) {
     }
     bool found = false;
     float best = 0;
-    for (const auto& face : m.geo.faces) {
-        const auto& verts = m.geo.parts[face.part].vertices;
-        const auto& a = verts[face.corners[0].vertex];
+    for (const auto &face : m.geo.faces) {
+        const auto &verts = m.geo.parts[face.part].vertices;
+        const auto &a = verts[face.corners[0].vertex];
         for (size_t i = 1; i + 1 < face.corners.size(); ++i) {
-            const auto& b = verts[face.corners[i].vertex];
-            const auto& c = verts[face.corners[i + 1].vertex];
+            const auto &b = verts[face.corners[i].vertex];
+            const auto &c = verts[face.corners[i + 1].vertex];
             const float d = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
             if (std::fabs(d) < 1e-3f)
                 continue;
@@ -334,19 +333,19 @@ float MapViewer::groundHeight(float x, float y) {
 void MapViewer::makeUnderlay() {
     underlay_ = Texture{};
     std::map<uint32_t, size_t> uses; // tile model: grid squares using it
-    for (const auto& cell : map_.cells)
+    for (const auto &cell : map_.cells)
         for (uint32_t t : map_.blocks[cell.block])
             ++uses[map_.tiles[t].model];
     size_t bestUses = 0;
-    for (const auto& [model, n] : uses) {
-        const TileModel& m = tileModel(model);
+    for (const auto &[model, n] : uses) {
+        const TileModel &m = tileModel(model);
         if (!m.error.empty() || m.textures.empty() || m.textures[0].rgba.empty() || n <= bestUses)
             continue;
         bool fits = true;
-        for (const auto& face : m.geo.faces)
+        for (const auto &face : m.geo.faces)
             fits = fits && face.corners.back().extra[4] == 0;
-        for (const auto& part : m.geo.parts)
-            for (const auto& v : part.vertices)
+        for (const auto &part : m.geo.parts)
+            for (const auto &v : part.vertices)
                 fits = fits && std::fabs(v.z) < 1000;
         if (fits) {
             underlay_ = m.textures[0];
@@ -362,13 +361,13 @@ void MapViewer::makeUnderlay() {
 void MapViewer::placeScenery() {
     placed_.clear();
     sceneryModels_.clear();
-    static constexpr std::pair<int, const char*> kModels[] = {{0, "rock"}, {1, "tree"}, {2, "bush"}, {4, "frn_spec"}};
-    CatArchive& cat = *archives_[maps_[size_t(current_)].archive];
-    for (const auto& [type, name] : kModels)
+    static constexpr std::pair<int, const char *> kModels[] = {{0, "rock"}, {1, "tree"}, {2, "bush"}, {4, "frn_spec"}};
+    CatArchive &cat = *archives_[maps_[size_t(current_)].archive];
+    for (const auto &[type, name] : kModels)
         for (size_t entry : archiveModels_) {
             if (entry == kNoModel)
                 continue;
-            const std::string& full = cat.entries()[entry].name;
+            const std::string &full = cat.entries()[entry].name;
             std::string folder, stem, ext;
             splitName(full, folder, stem, ext);
             if (stem != name || full.find("/lod/") != std::string::npos)
@@ -377,7 +376,7 @@ void MapViewer::placeScenery() {
             break;
         }
     const float square = kBlockSize / 16;
-    for (const auto& o : map_.scenery) {
+    for (const auto &o : map_.scenery) {
         const auto found = sceneryModels_.find(o.type);
         if (found == sceneryModels_.end() || !found->second.error.empty())
             continue;
@@ -386,7 +385,7 @@ void MapViewer::placeScenery() {
     }
 }
 
-void MapViewer::setPaved(const std::vector<std::pair<int, int>>& tiles) {
+void MapViewer::setPaved(const std::vector<std::pair<int, int>> &tiles) {
     paved_ = {tiles.begin(), tiles.end()};
     updateHidden();
     dirty_ = true;
@@ -396,10 +395,10 @@ void MapViewer::setPaved(const std::vector<std::pair<int, int>>& tiles) {
 void MapViewer::updateHidden() {
     hidden_.assign(placed_.size(), false);
     for (size_t i = 0; i < placed_.size(); ++i) {
-        const Vec3& p = placed_[i].position;
+        const Vec3 &p = placed_[i].position;
         if (paved_.count({int(std::floor(p.x / kTileSize)), int(std::floor(p.y / kTileSize))}))
             hidden_[i] = true;
-        for (const auto& [x, y, hw, hh] : buildingAreas_)
+        for (const auto &[x, y, hw, hh] : buildingAreas_)
             if (std::fabs(p.x - x) < hw && std::fabs(p.y - y) < hh)
                 hidden_[i] = true;
     }
@@ -407,7 +406,7 @@ void MapViewer::updateHidden() {
 
 // The planet's concrete texture (lbp/txr/map/<planet>/concrete; the ice
 // world's is in glblgame) on every face: the recordings' colony pads.
-const MapViewer::TileModel& MapViewer::pavedModel(uint32_t index) {
+const MapViewer::TileModel &MapViewer::pavedModel(uint32_t index) {
     auto [it, added] = pavedModels_.try_emplace(index);
     if (added) {
         it->second = tileModel(index);
@@ -415,29 +414,29 @@ const MapViewer::TileModel& MapViewer::pavedModel(uint32_t index) {
         splitName(it->second.name, folder, stem, ext);
         Texture concrete;
         std::vector<uint8_t> data;
-        for (const TextureFile& t : textureFiles_)
+        for (const TextureFile &t : textureFiles_)
             if (t.folder == folder && t.stem == "concrete") {
-                CatArchive& cat = *archives_[t.ref.archive];
+                CatArchive &cat = *archives_[t.ref.archive];
                 if (cat.read(cat.entries()[t.ref.entry], data) || decodeTexture(data, concrete))
                     concrete = Texture{};
                 break;
             }
         if (!concrete.rgba.empty())
-            for (Texture& t : it->second.textures)
+            for (Texture &t : it->second.textures)
                 t = concrete;
     }
     return it->second;
 }
 
-const MapViewer::TileModel& MapViewer::namedModel(const std::string& name, bool building) {
+const MapViewer::TileModel &MapViewer::namedModel(const std::string &name, bool building) {
     auto [it, added] = buildingModels_.try_emplace(name);
-    TileModel& m = it->second;
+    TileModel &m = it->second;
     if (!added)
         return m;
     m.name = name;
     m.error = "not in the archives";
-    for (const auto& a : archives_)
-        if (const CatEntry* e = a->find(name)) {
+    for (const auto &a : archives_)
+        if (const CatEntry *e = a->find(name)) {
             std::vector<uint8_t> data;
             m.error.clear();
             if (Error err = a->read(*e, data))
@@ -450,11 +449,11 @@ const MapViewer::TileModel& MapViewer::namedModel(const std::string& name, bool 
 }
 
 // A model's extent across x and y, and the middle of it.
-static void modelBounds(const GeoModel& geo, float& w, float& h, float& cx, float& cy) {
+static void modelBounds(const GeoModel &geo, float &w, float &h, float &cx, float &cy) {
     float x0 = 0, x1 = 0, y0 = 0, y1 = 0;
     bool any = false;
-    for (const auto& part : geo.parts)
-        for (const auto& v : part.vertices) {
+    for (const auto &part : geo.parts)
+        for (const auto &v : part.vertices) {
             if (!any)
                 x0 = x1 = v.x, y0 = y1 = v.y, any = true;
             x0 = std::min(x0, v.x), x1 = std::max(x1, v.x), y0 = std::min(y0, v.y), y1 = std::max(y1, v.y);
@@ -462,22 +461,22 @@ static void modelBounds(const GeoModel& geo, float& w, float& h, float& cx, floa
     w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
 }
 
-std::pair<float, float> MapViewer::modelSize(const std::string& name) {
-    const TileModel& m = namedModel(name);
+std::pair<float, float> MapViewer::modelSize(const std::string &name) {
+    const TileModel &m = namedModel(name);
     float w = 0, h = 0, cx = 0, cy = 0;
     if (m.error.empty())
         modelBounds(m.geo, w, h, cx, cy);
     return {w, h};
 }
 
-void MapViewer::setBuildings(const std::vector<Building>& buildings) {
+void MapViewer::setBuildings(const std::vector<Building> &buildings) {
     buildings_.clear();
     buildingAreas_.clear();
     // Upgrades stand where the building they upgrade does, in its frame:
     // centred by the first model placed at that spot.
     std::map<std::pair<int, int>, std::pair<float, float>> centres;
-    for (const Building& b : buildings) {
-        const TileModel& m = namedModel(b.model);
+    for (const Building &b : buildings) {
+        const TileModel &m = namedModel(b.model);
         if (!m.error.empty())
             continue;
         float w = 0, h = 0, cx = 0, cy = 0;
@@ -492,14 +491,14 @@ void MapViewer::setBuildings(const std::vector<Building>& buildings) {
         const float ground = groundHeight(float(b.b) / 8 * kBlockSize, float(b.a) / 8 * kBlockSize);
         buildings_.push_back({{x, y, ground}, angle, &m, b.progress, b.builder});
         const bool across = b.turn % 2 != 0;
-        buildingAreas_.push_back({float(b.b) / 8 * kBlockSize, float(b.a) / 8 * kBlockSize,
-                                  (across ? h : w) / 2 + 512, (across ? w : h) / 2 + 512});
+        buildingAreas_.push_back({float(b.b) / 8 * kBlockSize, float(b.a) / 8 * kBlockSize, (across ? h : w) / 2 + 512,
+                                  (across ? w : h) / 2 + 512});
     }
     updateHidden();
     dirty_ = true;
 }
 
-const MapViewer::Motion& MapViewer::motionOf(const std::string& model) {
+const MapViewer::Motion &MapViewer::motionOf(const std::string &model) {
     auto [it, added] = motions_.try_emplace(model);
     if (added && metamodels_.find(model, it->second.mdl)) {
         it->second.animations = metamodels_.animations(model, it->second.mdl);
@@ -515,8 +514,8 @@ void MapViewer::setBuildingProgress(size_t i, float progress) {
     }
 }
 
-void MapViewer::setGhost(const std::string& model, int a, int b, bool valid) {
-    const TileModel* m = model.empty() ? nullptr : &namedModel(model);
+void MapViewer::setGhost(const std::string &model, int a, int b, bool valid) {
+    const TileModel *m = model.empty() ? nullptr : &namedModel(model);
     if (!m || !m->error.empty()) {
         if (ghost_)
             dirty_ = true;
@@ -550,15 +549,17 @@ int MapViewer::depositAmount(int bx, int by) const {
     return map_.cells[size_t(by) * size_t(map_.width) + size_t(bx)].value & 0xfff;
 }
 
-int MapViewer::tileAt(int tx, int ty) const { return newworlds::tileAt(map_, tx, ty); }
+int MapViewer::tileAt(int tx, int ty) const {
+    return newworlds::tileAt(map_, tx, ty);
+}
 
-const MapViewer::TileEdges& MapViewer::tileEdges(uint32_t tileIndex) {
+const MapViewer::TileEdges &MapViewer::tileEdges(uint32_t tileIndex) {
     auto found = tileEdges_.find(tileIndex);
     if (found != tileEdges_.end())
         return found->second;
-    TileEdges& e = tileEdges_[tileIndex];
-    const GmfMap::Tile& tile = map_.tiles[tileIndex];
-    const TileModel& m = tileModel(tile.model);
+    TileEdges &e = tileEdges_[tileIndex];
+    const GmfMap::Tile &tile = map_.tiles[tileIndex];
+    const TileModel &m = tileModel(tile.model);
     if (m.error.empty())
         e = tileSides(m.geo, tile.rotation);
     return e;
@@ -585,7 +586,8 @@ Terrain MapViewer::terrain() {
     for (int ty = 0; ty < t.height; ++ty)
         for (int tx = 0; tx < t.width; ++tx) {
             const int r = tileAt(tx, ty);
-            t.moveClass[size_t(ty) * size_t(t.width) + size_t(tx)] = r < 0 ? 0 : int((map_.tiles[size_t(r)].flags >> 16) & 3);
+            t.moveClass[size_t(ty) * size_t(t.width) + size_t(tx)] =
+                r < 0 ? 0 : int((map_.tiles[size_t(r)].flags >> 16) & 3);
         }
     t.heightAt = [this](float x, float y) { return groundHeight(x, y); };
     return t;
@@ -593,7 +595,7 @@ Terrain MapViewer::terrain() {
 
 void MapViewer::setView(View v) {
     view_ = v;
-    const ViewShape& s = v == View::Sky ? kSky : v == View::FirstPerson ? kFirstPerson : kBirdsEye;
+    const ViewShape &s = v == View::Sky ? kSky : v == View::FirstPerson ? kFirstPerson : kBirdsEye;
     distance_ = s.distance;
     pitch_ = s.pitch;
     targetZ_ = groundHeight(targetX_, targetY_);
@@ -630,12 +632,24 @@ bool MapViewer::gameKey(uint32_t k, int mouseX, int mouseY) {
         centreOn(targetX_ + ax * step, targetY_ + ay * step);
     };
     switch (k) {
-    case key::Up: move(fx, fy); break;
-    case key::Down: move(-fx, -fy); break;
-    case key::Left: move(-fy, fx); break;
-    case key::Right: move(fy, -fx); break;
-    case key::Kp0 + 4: yaw_ -= kKeyTurn; break;
-    case key::Kp0 + 6: yaw_ += kKeyTurn; break;
+    case key::Up:
+        move(fx, fy);
+        break;
+    case key::Down:
+        move(-fx, -fy);
+        break;
+    case key::Left:
+        move(-fy, fx);
+        break;
+    case key::Right:
+        move(fy, -fx);
+        break;
+    case key::Kp0 + 4:
+        yaw_ -= kKeyTurn;
+        break;
+    case key::Kp0 + 6:
+        yaw_ += kKeyTurn;
+        break;
     case key::Kp0 + 8:
     case key::Kp0 + 2: {
         // Targeted zoom: towards the spot under the pointer.
@@ -656,17 +670,26 @@ bool MapViewer::gameKey(uint32_t k, int mouseX, int mouseY) {
         distance_ = std::hypot(height, ground);
         break;
     }
-    case key::Kp0 + 9: pitch_ = std::clamp(pitch_ + kKeyTurn / 2, 0.02f, kMaxPitch); break;
-    case key::Kp0 + 3: pitch_ = std::clamp(pitch_ - kKeyTurn / 2, 0.02f, kMaxPitch); break;
-    case key::F1: setView(view_ == View::FirstPerson ? View::BirdsEye : View::FirstPerson); break;
-    case key::F1 + 1: setView(view_ == View::Sky ? View::BirdsEye : View::Sky); break;
-    default: return false;
+    case key::Kp0 + 9:
+        pitch_ = std::clamp(pitch_ + kKeyTurn / 2, 0.02f, kMaxPitch);
+        break;
+    case key::Kp0 + 3:
+        pitch_ = std::clamp(pitch_ - kKeyTurn / 2, 0.02f, kMaxPitch);
+        break;
+    case key::F1:
+        setView(view_ == View::FirstPerson ? View::BirdsEye : View::FirstPerson);
+        break;
+    case key::F1 + 1:
+        setView(view_ == View::Sky ? View::BirdsEye : View::Sky);
+        break;
+    default:
+        return false;
     }
     dirty_ = true;
     return true;
 }
 
-bool MapViewer::worldToScreen(float x, float y, float z, int& sx, int& sy) const {
+bool MapViewer::worldToScreen(float x, float y, float z, int &sx, int &sy) const {
     const OrbitCamera cam(Vec{targetX_, targetY_, targetZ_}, yaw_, pitch_, distance_, screen_.w, screen_.h);
     const ViewVertex v = cam.toView(Vec{x, y, z});
     if (v.z < cam.nearZ)
@@ -676,7 +699,7 @@ bool MapViewer::worldToScreen(float x, float y, float z, int& sx, int& sy) const
     return true;
 }
 
-bool MapViewer::screenToGround(int sx, int sy, float& x, float& y) {
+bool MapViewer::screenToGround(int sx, int sy, float &x, float &y) {
     if (map_.width <= 0)
         return false;
     const OrbitCamera cam(Vec{targetX_, targetY_, targetZ_}, yaw_, pitch_, distance_, screen_.w, screen_.h);
@@ -691,7 +714,8 @@ bool MapViewer::screenToGround(int sx, int sy, float& x, float& y) {
     float t0 = 0;
     for (float t = stepLen; t < far; t += stepLen) {
         const Vec p = cam.eye + dir * t;
-        if (p.x < -kBlockSize || p.y < -kBlockSize || p.x > worldWidth() + kBlockSize || p.y > worldHeight() + kBlockSize) {
+        if (p.x < -kBlockSize || p.y < -kBlockSize || p.x > worldWidth() + kBlockSize ||
+            p.y > worldHeight() + kBlockSize) {
             if (dir.z >= 0)
                 return false;
             t0 = t;
@@ -712,7 +736,7 @@ bool MapViewer::screenToGround(int sx, int sy, float& x, float& y) {
     return false;
 }
 
-void MapViewer::handleEvent(const Event& ev) {
+void MapViewer::handleEvent(const Event &ev) {
     switch (ev.type) {
     case EventType::MouseDown:
         if (ev.button == MouseButton::Left) {
@@ -738,8 +762,10 @@ void MapViewer::handleEvent(const Event& ev) {
         distance_ = std::clamp(distance_ * std::pow(0.85f, float(ev.wheelY)), kTileSize * 0.5f, 1e8f);
         dirty_ = true;
         return;
-    case EventType::KeyDown: break;
-    default: return;
+    case EventType::KeyDown:
+        break;
+    default:
+        return;
     }
 
     const int n = int(maps_.size());
@@ -747,25 +773,60 @@ void MapViewer::handleEvent(const Event& ev) {
     const float step = distance_ * 0.1f;
     const float fx = -std::sin(yaw_), fy = std::cos(yaw_); // forward along the ground
     switch (ev.key) {
-    case 'w': targetX_ += fx * step, targetY_ += fy * step; break;
-    case 's': targetX_ -= fx * step, targetY_ -= fy * step; break;
-    case 'a': targetX_ -= fy * step, targetY_ += fx * step; break;
-    case 'd': targetX_ += fy * step, targetY_ -= fx * step; break;
-    case 'q': yaw_ -= kKeyTurn; break;
-    case 'e': yaw_ += kKeyTurn; break;
+    case 'w':
+        targetX_ += fx * step, targetY_ += fy * step;
+        break;
+    case 's':
+        targetX_ -= fx * step, targetY_ -= fy * step;
+        break;
+    case 'a':
+        targetX_ -= fy * step, targetY_ += fx * step;
+        break;
+    case 'd':
+        targetX_ += fy * step, targetY_ -= fx * step;
+        break;
+    case 'q':
+        yaw_ -= kKeyTurn;
+        break;
+    case 'e':
+        yaw_ += kKeyTurn;
+        break;
     case '=':
-    case '+': distance_ = std::max(distance_ * 0.8f, kTileSize * 0.5f); break;
-    case '-': distance_ = std::min(distance_ * 1.25f, 1e8f); break;
-    case 'r': resetView(); break;
-    case 't': textured_ = !textured_; break;
-    case 'g': colouring_ = (colouring_ + 1) % kColourings; break;
-    case 'l': outlines_ = !outlines_; break;
-    case 'k': walls_ = !walls_; break;
-    case 'o': scenery_ = !scenery_; break;
-    case 'h': smooth_ = !smooth_; break;
-    case key::Right: show((current_ + 1) % n); return;
-    case key::Left: show((current_ + n - 1) % n); return;
-    default: return;
+    case '+':
+        distance_ = std::max(distance_ * 0.8f, kTileSize * 0.5f);
+        break;
+    case '-':
+        distance_ = std::min(distance_ * 1.25f, 1e8f);
+        break;
+    case 'r':
+        resetView();
+        break;
+    case 't':
+        textured_ = !textured_;
+        break;
+    case 'g':
+        colouring_ = (colouring_ + 1) % kColourings;
+        break;
+    case 'l':
+        outlines_ = !outlines_;
+        break;
+    case 'k':
+        walls_ = !walls_;
+        break;
+    case 'o':
+        scenery_ = !scenery_;
+        break;
+    case 'h':
+        smooth_ = !smooth_;
+        break;
+    case key::Right:
+        show((current_ + 1) % n);
+        return;
+    case key::Left:
+        show((current_ + n - 1) % n);
+        return;
+    default:
+        return;
     }
     dirty_ = true;
 }
@@ -773,7 +834,8 @@ void MapViewer::handleEvent(const Event& ev) {
 void MapViewer::update(uint64_t nowMs) {
     // Construction bees at work: their animation moves on.
     if (nowMs / kFrameMs != animClockMs_ / kFrameMs &&
-        std::any_of(buildings_.begin(), buildings_.end(), [](const Placed& o) { return o.progress < 1 && !o.builder.empty(); }))
+        std::any_of(buildings_.begin(), buildings_.end(),
+                    [](const Placed &o) { return o.progress < 1 && !o.builder.empty(); }))
         dirty_ = true;
     animClockMs_ = nowMs;
     if (dirty_) {
@@ -788,10 +850,10 @@ void MapViewer::update(uint64_t nowMs) {
 void MapViewer::updateTitle() {
     if (maps_.empty())
         return;
-    const EntryRef& ref = maps_[size_t(current_)];
-    std::string title = "New Worlds maps " + std::to_string(current_ + 1) + "/" + std::to_string(maps_.size()) +
-                        ": " + archives_[ref.archive]->entries()[ref.entry].name;
-    if (const Level* level = levelForMap(levels_, archives_[ref.archive]->entries()[ref.entry].name))
+    const EntryRef &ref = maps_[size_t(current_)];
+    std::string title = "New Worlds maps " + std::to_string(current_ + 1) + "/" + std::to_string(maps_.size()) + ": " +
+                        archives_[ref.archive]->entries()[ref.entry].name;
+    if (const Level *level = levelForMap(levels_, archives_[ref.archive]->entries()[ref.entry].name))
         title += " [" + level->shortName + " \"" + level->title + "\", " + std::to_string(level->maxPlayers) +
                  (level->maxPlayers == 1 ? " player" : " players") + (level->commentedOut ? ", not listed" : "") + "]";
     title += " (" + archives_[ref.archive]->path().filename().string();
@@ -819,7 +881,7 @@ void MapViewer::updateTitle() {
 
 // The terrain code of a tile's cell (column cx from the west, row cy from the
 // south, in map orientation): the topmost layer's that isn't 0, or 0.
-unsigned MapViewer::terrainCode(const GmfMap::Tile& tile, int cx, int cy) {
+unsigned MapViewer::terrainCode(const GmfMap::Tile &tile, int cx, int cy) {
     for (int layer = GmfMap::kLayers - 1; layer >= 0; --layer)
         if (const unsigned code = tile.layers[size_t(layer * 64 + cy * 8 + cx)])
             return code;
@@ -829,7 +891,7 @@ unsigned MapViewer::terrainCode(const GmfMap::Tile& tile, int cx, int cy) {
 void MapViewer::render() {
     const int w = screen_.w, h = screen_.h;
     for (int y = 0; y < h; ++y) { // sky: dark blue at the top
-        uint8_t* row = screen_.row(y);
+        uint8_t *row = screen_.row(y);
         const uint8_t v = uint8_t(20 + 30 * y / h);
         for (int x = 0; x < w; ++x, row += 4) {
             row[0] = v;
@@ -855,17 +917,18 @@ void MapViewer::render() {
     };
     // Draw a model turned by an angle with cosine c and sine s (anticlockwise)
     // about origin; ground is the tile it is, for terrain codes, or null.
-    auto drawModel = [&](const TileModel& m, const Vec& origin, float c, float s, const GmfMap::Tile* ground,
-                         const uint8_t* tint = nullptr, float scale = 1, float rise = 1, const Pose* pose = nullptr) {
+    auto drawModel = [&](const TileModel &m, const Vec &origin, float c, float s, const GmfMap::Tile *ground,
+                         const uint8_t *tint = nullptr, float scale = 1, float rise = 1, const Pose *pose = nullptr) {
         for (size_t fi = 0; fi < m.geo.faces.size(); ++fi) {
-            const auto& face = m.geo.faces[fi];
-            const auto& verts = m.geo.parts[face.part].vertices;
-            const auto& normalLists = m.geo.parts[face.part].normalLists;
+            const auto &face = m.geo.faces[fi];
+            const auto &verts = m.geo.parts[face.part].vertices;
+            const auto &normalLists = m.geo.parts[face.part].normalLists;
             // A moving part (a turret, an animated arm) where its pose puts it.
-            const PartPose* pp = pose && face.part < pose->size() && (*pose)[face.part].moved ? &(*pose)[face.part] : nullptr;
+            const PartPose *pp =
+                pose && face.part < pose->size() && (*pose)[face.part].moved ? &(*pose)[face.part] : nullptr;
             const Vec3 fn = pp ? pp->turn(m.faceNormals[fi]) : m.faceNormals[fi];
             poly.clear();
-            for (const auto& corner : face.corners) {
+            for (const auto &corner : face.corners) {
                 const Vec3 v = pp ? pp->apply(verts[corner.vertex]) : verts[corner.vertex];
                 const float x = (c * v.x - s * v.y) * scale, y = (s * v.x + c * v.y) * scale;
                 // For terrain codes, (u, v) is the position across the
@@ -877,39 +940,39 @@ void MapViewer::render() {
                 // Smooth shading: the corner's own normal (its first extra
                 // value numbers the part's second normal list), else the face's.
                 const bool own = smooth_ && normalLists.size() > 1 && corner.extra[0] < normalLists[1].size();
-                const GeoModel::Vec3 n = own ? (pp ? pp->turn(normalLists[1][corner.extra[0]]) : normalLists[1][corner.extra[0]]) : fn;
+                const GeoModel::Vec3 n =
+                    own ? (pp ? pp->turn(normalLists[1][corner.extra[0]]) : normalLists[1][corner.extra[0]]) : fn;
                 poly.back().s = lightLevel(c * n.x - s * n.y, s * n.x + c * n.y, n.z);
             }
             poly = clipNear(poly, cam.nearZ);
             if (poly.size() < 3)
                 continue;
             projected.clear();
-            for (const auto& p : poly)
+            for (const auto &p : poly)
                 projected.push_back(cam.project(p));
             float area = 0; // positive when clockwise on the screen: a front face
             for (size_t i = 0; i < projected.size(); ++i) {
-                const auto& a = projected[i];
-                const auto& b = projected[(i + 1) % projected.size()];
+                const auto &a = projected[i];
+                const auto &b = projected[(i + 1) % projected.size()];
                 area += a.x * b.y - b.x * a.y;
             }
             if (area <= 0)
                 continue;
             ++drawnFaces_;
             const uint32_t textureIndex = face.corners.back().extra[4];
-            const Texture* tex = textured_ && textureIndex < m.textures.size() &&
-                                         !m.textures[textureIndex].rgba.empty()
+            const Texture *tex = textured_ && textureIndex < m.textures.size() && !m.textures[textureIndex].rgba.empty()
                                      ? &m.textures[textureIndex]
                                      : nullptr;
             const bool codes = textured_ && ground && colouring_ == 1;
-            auto shade = [&](float u, float v, float intensity, uint8_t* out) {
+            auto shade = [&](float u, float v, float intensity, uint8_t *out) {
                 static const uint8_t plain[3] = {170, 180, 195};
-                const uint8_t* col = plain;
+                const uint8_t *col = plain;
                 if (codes) {
                     const unsigned code =
                         terrainCode(*ground, std::clamp(int(u * 8), 0, 7), std::clamp(int(v * 8), 0, 7));
                     if (code && code < map_.palette.size())
                         col = map_.palette[code].data();
-                } else if (const Texture* tt = tex) {
+                } else if (const Texture *tt = tex) {
                     int tx = int(std::floor(u * float(tt->width))) % tt->width;
                     int ty = int(std::floor(v * float(tt->height))) % tt->height;
                     tx += tx < 0 ? tt->width : 0;
@@ -926,12 +989,13 @@ void MapViewer::render() {
                                                                         : float(tt->alpha[texel]) / 255;
                     if (a < 1 && ground && ground->underlay && !underlay_.rgba.empty()) {
                         // Ground shows through, at the same texture coordinates.
-                        const Texture& g = underlay_;
+                        const Texture &g = underlay_;
                         const int gx = std::clamp(int(u * float(g.width)), 0, g.width - 1);
                         const int gy = std::clamp(int(v * float(g.height)), 0, g.height - 1);
-                        const uint8_t* gc = &g.rgba[(size_t(gy) * size_t(g.width) + size_t(gx)) * 4];
+                        const uint8_t *gc = &g.rgba[(size_t(gy) * size_t(g.width) + size_t(gx)) * 4];
                         for (int i = 0; i < 3; ++i)
-                            out[i] = uint8_t(std::min(255.0f, (float(col[i]) * a + float(gc[i]) * (1 - a)) * intensity));
+                            out[i] =
+                                uint8_t(std::min(255.0f, (float(col[i]) * a + float(gc[i]) * (1 - a)) * intensity));
                         out[3] = 255;
                         return true;
                     }
@@ -959,9 +1023,9 @@ void MapViewer::render() {
 
     for (int by = 0; by < map_.height; ++by)
         for (int bx = 0; bx < map_.width; ++bx) {
-            const auto& block = map_.blocks[map_.cells[size_t(by) * size_t(map_.width) + size_t(bx)].block];
+            const auto &block = map_.blocks[map_.cells[size_t(by) * size_t(map_.width) + size_t(bx)].block];
             for (int slot = 0; slot < 4; ++slot) {
-                const GmfMap::Tile& tile = map_.tiles[block[size_t(slot)]];
+                const GmfMap::Tile &tile = map_.tiles[block[size_t(slot)]];
                 const Vec origin{(float(bx * 2 + kSlotX[slot]) + 0.5f) * kTileSize,
                                  (float(by * 2 + kSlotY[slot]) + 0.5f) * kTileSize, 0};
                 // Skip tiles behind the camera or well off the screen.
@@ -976,14 +1040,15 @@ void MapViewer::render() {
                 }
                 const bool paved = colouring_ == 0 && !paved_.empty() &&
                                    paved_.count({bx * 2 + kSlotX[slot], by * 2 + kSlotY[slot]}) != 0;
-                const TileModel& m = paved ? pavedModel(tile.model) : tileModel(tile.model);
+                const TileModel &m = paved ? pavedModel(tile.model) : tileModel(tile.model);
                 if (!m.error.empty())
                     continue;
                 ++drawnTiles_;
                 static constexpr float kCos[4] = {1, 0, -1, 0}, kSin[4] = {0, 1, 0, -1};
                 const int deposit = map_.cells[size_t(by) * size_t(map_.width) + size_t(bx)].deposit();
-                const uint8_t* tint =
-                    textured_ && colouring_ == 2 && deposit >= 1 && deposit <= 6 ? kDepositColours[deposit - 1] : nullptr;
+                const uint8_t *tint = textured_ && colouring_ == 2 && deposit >= 1 && deposit <= 6
+                                          ? kDepositColours[deposit - 1]
+                                          : nullptr;
                 drawModel(m, origin, kCos[tile.rotation], kSin[tile.rotation], &tile, tint);
             }
         }
@@ -992,7 +1057,7 @@ void MapViewer::render() {
         for (size_t i = 0; i < placed_.size(); ++i) {
             if (i < hidden_.size() && hidden_[i])
                 continue;
-            const Placed& o = placed_[i];
+            const Placed &o = placed_[i];
             const Vec at{o.position.x, o.position.y, o.position.z};
             const ViewVertex c = cam.toView(at);
             if (c.z < cam.nearZ)
@@ -1008,7 +1073,7 @@ void MapViewer::render() {
     // Under construction: the apron (the model pressed flat) for the
     // first part of the time, then the building rising.
     constexpr float kApron = 0.15f;
-    for (const Placed& o : buildings_) {
+    for (const Placed &o : buildings_) {
         const Vec at{o.position.x, o.position.y, o.position.z};
         if (cam.toView(at).z < cam.nearZ)
             continue;
@@ -1021,14 +1086,14 @@ void MapViewer::render() {
     // opposite corners facing its middle, each playing its manipulate
     // animation, half a cycle apart. How many the game sends isn't known.
     for (size_t i = 0; i < buildings_.size() && i < buildingAreas_.size(); ++i) {
-        const Placed& o = buildings_[i];
+        const Placed &o = buildings_[i];
         if (o.progress >= 1 || o.builder.empty())
             continue;
-        const TileModel& bee = namedModel(o.builder, false);
-        const Motion& motion = motionOf(o.builder);
+        const TileModel &bee = namedModel(o.builder, false);
+        const Motion &motion = motionOf(o.builder);
         if (!bee.error.empty())
             continue;
-        const auto& [bx, by, hw, hh] = buildingAreas_[i];
+        const auto &[bx, by, hw, hh] = buildingAreas_[i];
         for (int k = 0; k < 2; ++k) {
             const float sx = k == 0 ? -1.0f : 1.0f;
             const float x = bx + sx * (hw - 512) * 0.8f, y = by - sx * (hh - 512) * 0.8f;
@@ -1037,7 +1102,7 @@ void MapViewer::render() {
                 continue;
             Pose pose;
             if (!motion.animations.empty()) {
-                const auto& frames = motion.animations[0].frames;
+                const auto &frames = motion.animations[0].frames;
                 const size_t f = size_t(animClockMs_ / kFrameMs) + size_t(k) * frames.size() / 2;
                 pose = framePose(bee.geo, motion.mdl, frames[f % frames.size()]);
             }
@@ -1059,8 +1124,8 @@ void MapViewer::render() {
     // scout drives tall end first), drawn kUnitScale times their models' size: in
     // the tutorial's recording a ground scout is about a quarter as wide as
     // the vehicle yard beside it, against a sixteenth for the models.
-    for (const UnitDraw& u : units_) {
-        const TileModel& m = namedModel(u.model, false);
+    for (const UnitDraw &u : units_) {
+        const TileModel &m = namedModel(u.model, false);
         if (!m.error.empty())
             continue;
         const Vec at{u.x, u.y, groundHeight(u.x, u.y)};
@@ -1070,7 +1135,7 @@ void MapViewer::render() {
         const float a = u.heading + kPi / 2;
         Pose pose;
         if (u.turretYaw != 0 || u.gunPitch != 0)
-            if (const Motion& motion = motionOf(u.model); motion.turret)
+            if (const Motion &motion = motionOf(u.model); motion.turret)
                 pose = turretPose(m.geo, motion.mdl, u.turretYaw, u.gunPitch);
         drawModel(m, at, std::cos(a), std::sin(a), nullptr, nullptr, kUnitScale, 1, &pose);
     }
@@ -1086,8 +1151,8 @@ void MapViewer::render() {
                     const int there = tileAt(tx + (s == 0), ty + (s == 1));
                     if (there < 0)
                         continue;
-                    const TileEdges& a = tileEdges(uint32_t(here));
-                    const TileEdges& b = tileEdges(uint32_t(there));
+                    const TileEdges &a = tileEdges(uint32_t(here));
+                    const TileEdges &b = tileEdges(uint32_t(there));
                     const int other = s == 0 ? 2 : 3; // the neighbour's west or south side
                     if (!a.present[s] || !b.present[other])
                         continue;
@@ -1103,9 +1168,7 @@ void MapViewer::render() {
                         if (std::fabs(z0a - z0b) < 80 && std::fabs(z1a - z1b) < 80)
                             continue;
                         const float t0 = -kTileSize / 2 + float(k) * kTileSize / 4, t1 = t0 + kTileSize / 4;
-                        auto at = [&](float t, float z) {
-                            return s == 0 ? Vec{ex, cy + t, z} : Vec{cx + t, ey, z};
-                        };
+                        auto at = [&](float t, float z) { return s == 0 ? Vec{ex, cy + t, z} : Vec{cx + t, ey, z}; };
                         poly.clear();
                         // (u, v): across the quarter edge, and height above the
                         // wall's lowest point.
@@ -1118,23 +1181,22 @@ void MapViewer::render() {
                         if (poly.size() < 3)
                             continue;
                         projected.clear();
-                        for (const auto& p : poly)
+                        for (const auto &p : poly)
                             projected.push_back(cam.project(p));
                         // Textured with the cliff texture, projected sideways
                         // (or coloured like the higher tile's edge cells);
                         // east- and north-facing walls are shaded differently.
                         const bool aHigher = z0a + z1a > z0b + z1b;
-                        const GmfMap::Tile& high = map_.tiles[size_t(aHigher ? here : there)];
+                        const GmfMap::Tile &high = map_.tiles[size_t(aHigher ? here : there)];
                         const int edgeCell = aHigher ? 7 : 0;
                         const float shadeLevel = s == 0 ? 0.6f : 0.75f;
                         const float zLow = std::min({z0a, z1a, z0b, z1b});
-                        auto wall = [&](float u, float v, uint8_t* out) {
+                        auto wall = [&](float u, float v, uint8_t *out) {
                             static const uint8_t plain[3] = {150, 160, 175};
-                            const uint8_t* col = plain;
+                            const uint8_t *col = plain;
                             const int along = std::clamp(k * 2 + int(u * 2), 0, 7);
-                            const Texture* tt = textured_ && colouring_ == 0 && !wallTexture_.rgba.empty()
-                                                    ? &wallTexture_
-                                                    : nullptr;
+                            const Texture *tt =
+                                textured_ && colouring_ == 0 && !wallTexture_.rgba.empty() ? &wallTexture_ : nullptr;
                             if (textured_ && colouring_ == 1) {
                                 const unsigned code =
                                     terrainCode(high, s == 0 ? edgeCell : along, s == 0 ? along : edgeCell);
@@ -1160,10 +1222,10 @@ void MapViewer::render() {
                 }
             }
 
-    for (const auto& o : outlines)
+    for (const auto &o : outlines)
         for (size_t i = 0; i < o.size(); ++i) {
-            const auto& a = o[i];
-            const auto& b = o[(i + 1) % o.size()];
+            const auto &a = o[i];
+            const auto &b = o[(i + 1) % o.size()];
             const int steps = int(std::ceil(std::max(std::fabs(b.x - a.x), std::fabs(b.y - a.y))));
             if (steps > 4 * (w + h))
                 continue;
@@ -1171,14 +1233,14 @@ void MapViewer::render() {
                 const float t = steps ? float(k) / float(steps) : 0;
                 const int x = int(a.x + (b.x - a.x) * t), y = int(a.y + (b.y - a.y) * t);
                 if (x >= 0 && y >= 0 && x < w && y < h) {
-                    uint8_t* px = screen_.row(y) + x * 4;
+                    uint8_t *px = screen_.row(y) + x * 4;
                     px[0] = 240, px[1] = 240, px[2] = 200;
                 }
             }
         }
     // Selected units: a row of small orange marks above each (as in the
     // recordings).
-    for (const UnitDraw& u : units_) {
+    for (const UnitDraw &u : units_) {
         if (!u.selected)
             continue;
         const ViewVertex v = cam.toView(Vec{u.x, u.y, groundHeight(u.x, u.y) + 1400});
@@ -1190,7 +1252,7 @@ void MapViewer::render() {
                 for (int dx = 0; dx < 4; ++dx) {
                     const int x = int(p.x) + k * 6 + dx - 2, y = int(p.y) + dy - 8;
                     if (x >= 0 && y >= 0 && x < w && y < h) {
-                        uint8_t* px = screen_.row(y) + x * 4;
+                        uint8_t *px = screen_.row(y) + x * 4;
                         px[0] = 255, px[1] = 150, px[2] = 30;
                     }
                 }

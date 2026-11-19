@@ -21,7 +21,7 @@ constexpr uint32_t kPadding = 64;
 
 } // namespace
 
-Error GrannyDll::load(const std::vector<uint8_t>& dll) {
+Error GrannyDll::load(const std::vector<uint8_t> &dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
     // A call that runs away fails instead of hanging: the largest texture
     // takes well under a billion instructions.
@@ -30,25 +30,25 @@ Error GrannyDll::load(const std::vector<uint8_t>& dll) {
     module_ = nullptr;
     // Its start-up asks where Windows is (for a log file it never writes
     // here); a buffer and its size in, the length out.
-    for (const char* fn : {"GetWindowsDirectoryA", "GetSystemDirectoryA"})
-        process_->provide("KERNEL32.dll", fn, [](x86::Cpu& c) {
+    for (const char *fn : {"GetWindowsDirectoryA", "GetSystemDirectoryA"})
+        process_->provide("KERNEL32.dll", fn, [](x86::Cpu &c) {
             const std::string dir = "C:\\WINDOWS";
             c.reg[x86::Cpu::EAX] = c.writeString(c.arg(0), dir, c.arg(1)) ? uint32_t(dir.size()) : 0;
             return 8u;
         });
-    process_->provide("KERNEL32.dll", "QueryPerformanceFrequency", [](x86::Cpu& c) {
+    process_->provide("KERNEL32.dll", "QueryPerformanceFrequency", [](x86::Cpu &c) {
         c.write32(c.arg(0), 1000000);
         c.write32(c.arg(0) + 4, 0);
         c.reg[x86::Cpu::EAX] = 1;
         return 4u;
     });
-    process_->provide("KERNEL32.dll", "QueryPerformanceCounter", [](x86::Cpu& c) {
+    process_->provide("KERNEL32.dll", "QueryPerformanceCounter", [](x86::Cpu &c) {
         c.write32(c.arg(0), 0);
         c.write32(c.arg(0) + 4, 0);
         c.reg[x86::Cpu::EAX] = 1;
         return 4u;
     });
-    const x86::Win32Process::Module* module = nullptr;
+    const x86::Win32Process::Module *module = nullptr;
     if (Error e = process_->load("granny2.dll", dll, module))
         return e;
     if (Error e = process_->attach(*module))
@@ -61,11 +61,11 @@ Error GrannyDll::load(const std::vector<uint8_t>& dll) {
     return Error::success();
 }
 
-Error GrannyDll::decompress(uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                            std::vector<uint8_t>& out) {
+Error GrannyDll::decompress(uint32_t format, const std::vector<uint8_t> &in, uint32_t stop0, uint32_t stop1,
+                            std::vector<uint8_t> &out) {
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
-    x86::Arena& mem = process_->memory();
+    x86::Arena &mem = process_->memory();
     const uint32_t src = mem.alloc(uint32_t(in.size()) + kPadding);
     const uint32_t dst = mem.alloc(uint32_t(out.size()) + kPadding);
     if (!src || !dst) {
@@ -77,8 +77,8 @@ Error GrannyDll::decompress(uint32_t format, const std::vector<uint8_t>& in, uin
     // GrannyDecompressData(Format, FileIsByteReversed, CompressedBytesSize,
     //                      CompressedBytes, Stop0, Stop1, Stop2, DecompressedBytes)
     uint32_t ok = 0;
-    Error e = cpu_->call(decompressData_,
-                         {format, 0, uint32_t(in.size()), src, stop0, stop1, uint32_t(out.size()), dst}, ok);
+    Error e =
+        cpu_->call(decompressData_, {format, 0, uint32_t(in.size()), src, stop0, stop1, uint32_t(out.size()), dst}, ok);
     if (!e && !(ok & 0xff))
         e = Error::fail("GrannyDecompressData failed");
     if (!e)
@@ -88,13 +88,13 @@ Error GrannyDll::decompress(uint32_t format, const std::vector<uint8_t>& in, uin
     return e;
 }
 
-Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t>& in,
-                             std::vector<uint8_t>& rgba) {
+Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::vector<uint8_t> &in,
+                             std::vector<uint8_t> &rgba) {
     if (!module_ || !binkDecompressTexture_)
         return Error::fail("granny2.dll isn't loaded");
     if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
         return Error::fail("Bad texture size");
-    x86::Arena& mem = process_->memory();
+    x86::Arena &mem = process_->memory();
     const uint32_t stride = uint32_t(width) * 4, size = stride * uint32_t(height);
     const uint32_t src = mem.alloc(uint32_t(in.size()) + kPadding);
     const uint32_t dst = mem.alloc(size);
@@ -129,8 +129,8 @@ Error GrannyDll::binkTexture(int width, int height, uint32_t flags, const std::v
     return e;
 }
 
-Error GrannyDll::camera(const Camera& in, int width, int height, float view[16], float projection[16],
-                        const std::vector<float>* points, std::vector<float>* windowPoints) {
+Error GrannyDll::camera(const Camera &in, int width, int height, float view[16], float projection[16],
+                        const std::vector<float> *points, std::vector<float> *windowPoints) {
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
     const uint32_t init = module_->exportAddress("_GrannyInitializeDefaultCamera@4");
@@ -139,7 +139,7 @@ Error GrannyDll::camera(const Camera& in, int width, int height, float view[16],
     const uint32_t toWindow = module_->exportAddress("_GrannyWorldSpaceToWindowSpace@20");
     if (!init || !aspect || !build || !toWindow)
         return Error::fail("granny2.dll has no camera functions");
-    x86::Arena& mem = process_->memory();
+    x86::Arena &mem = process_->memory();
     const uint32_t cam = mem.alloc(0x200), pt = mem.alloc(32);
     auto putFloat = [&](uint32_t a, float f) {
         uint32_t v;
@@ -202,7 +202,7 @@ Error GrannyDll::camera(const Camera& in, int width, int height, float view[16],
     return e;
 }
 
-Error GrannyDll::loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out) {
+Error GrannyDll::loadFile(const std::vector<uint8_t> &gr2, LoadedFile &out) {
     out = LoadedFile();
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
@@ -210,7 +210,7 @@ Error GrannyDll::loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out) {
     const uint32_t info = module_->exportAddress("_GrannyGetFileInfo@4");
     if (!read || !info)
         return Error::fail("granny2.dll can't read files from memory");
-    x86::Arena& mem = process_->memory();
+    x86::Arena &mem = process_->memory();
     out.bytes = mem.alloc(uint32_t(gr2.size()) + kPadding);
     if (!out.bytes)
         return Error::fail("Out of emulated memory");
@@ -229,7 +229,7 @@ Error GrannyDll::loadFile(const std::vector<uint8_t>& gr2, LoadedFile& out) {
     return e;
 }
 
-void GrannyDll::freeFile(LoadedFile& file) {
+void GrannyDll::freeFile(LoadedFile &file) {
     if (!module_)
         return;
     if (file.file) {
@@ -242,12 +242,12 @@ void GrannyDll::freeFile(LoadedFile& file) {
     file = LoadedFile();
 }
 
-Error GrannyDll::worldPose(const LoadedFile& model, const LoadedFile& animation, float t,
-                           std::vector<std::array<float, 16>>& out) {
+Error GrannyDll::worldPose(const LoadedFile &model, const LoadedFile &animation, float t,
+                           std::vector<std::array<float, 16>> &out) {
     out.clear();
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
-    const char* names[] = {"_GrannyInstantiateModel@4",      "_GrannyPlayControlledAnimation@12",
+    const char *names[] = {"_GrannyInstantiateModel@4",       "_GrannyPlayControlledAnimation@12",
                            "_GrannySetModelClock@8",          "_GrannyGetSourceSkeleton@4",
                            "_GrannyNewLocalPose@4",           "_GrannyNewWorldPose@4",
                            "_GrannySampleModelAnimations@16", "_GrannyBuildWorldPose@24",
@@ -300,7 +300,7 @@ Error GrannyDll::worldPose(const LoadedFile& model, const LoadedFile& animation,
     return e;
 }
 
-Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identity, PlainCurve& out) {
+Error GrannyDll::expandCurve(uint32_t address, const std::vector<float> &identity, PlainCurve &out) {
     out = PlainCurve();
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
@@ -322,7 +322,7 @@ Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identit
     const uint32_t knots = std::max<uint32_t>(n, 1);
     if (knots > 100000)
         return Error::fail("curve with " + std::to_string(knots) + " knots");
-    x86::Arena& mem = process_->memory();
+    x86::Arena &mem = process_->memory();
     const uint32_t knotOut = mem.alloc(4 * knots), controlOut = mem.alloc(4 * knots * dim),
                    ident = mem.alloc(4 * uint32_t(identity.size()) + 4);
     Error e;
@@ -359,7 +359,7 @@ Error GrannyDll::expandCurve(uint32_t address, const std::vector<float>& identit
     return e;
 }
 
-uint32_t GrannyDll::type(const char* name) const {
+uint32_t GrannyDll::type(const char *name) const {
     const uint32_t variable = module_ ? module_->exportAddress(name) : 0;
     return variable ? read32(variable) : 0;
 }
@@ -376,7 +376,7 @@ uint32_t GrannyDll::typeSize(uint32_t type) const {
     return size;
 }
 
-bool GrannyDll::memberOffset(uint32_t type, std::string_view name, uint32_t& offset) const {
+bool GrannyDll::memberOffset(uint32_t type, std::string_view name, uint32_t &offset) const {
     offset = 0;
     for (uint32_t m = type; m && read32(m) != 0; m += 32) {
         std::string member;
@@ -395,8 +395,8 @@ bool GrannyDll::memberOffset(uint32_t type, std::string_view name, uint32_t& off
     return false;
 }
 
-Error GrannyDll::evaluateCurve(uint32_t address, const std::vector<float>& identity, bool normalize, bool loopBack,
-                               bool loopForward, float duration, float t, std::vector<float>& out) {
+Error GrannyDll::evaluateCurve(uint32_t address, const std::vector<float> &identity, bool normalize, bool loopBack,
+                               bool loopForward, float duration, float t, std::vector<float> &out) {
     if (!module_)
         return Error::fail("granny2.dll isn't loaded");
     const uint32_t evaluate = module_->exportAddress("_GrannyEvaluateCurveAtT@36");
@@ -419,8 +419,8 @@ Error GrannyDll::evaluateCurve(uint32_t address, const std::vector<float>& ident
     //                        IdentityVector)
     uint32_t ignored = 0;
     if (Error e = cpu_->call(evaluate,
-                             {uint32_t(identity.size()), normalize ? 1u : 0u, loopBack ? 1u : 0u, address, loopForward ? 1u : 0u,
-                              bits(duration), bits(t), result, ident},
+                             {uint32_t(identity.size()), normalize ? 1u : 0u, loopBack ? 1u : 0u, address,
+                              loopForward ? 1u : 0u, bits(duration), bits(t), result, ident},
                              ignored))
         return e;
     out.resize(identity.size());

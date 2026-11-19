@@ -34,29 +34,29 @@ struct ActRow {
 // An act's name, as "act" takes it ("06a", "6A"): its number and letter
 // (A = 1), from the name without its last character and that character
 // (0x43e0a0, 0x43e0f0). False if it's shorter than two characters.
-bool parseActName(std::string_view s, int& major, int& minor);
+bool parseActName(std::string_view s, int &major, int &minor);
 // "%02d%c", lower case: "06a".
 std::string actName(int major, int minor);
 
 // acts.txt's rows (0x423070): the cells' quotes taken off, Time of Day,
 // Weather and Train Moving read as the game reads them ("night", "snow"
 // or "blizzard", "yes", anywhere in the cell, ignoring case).
-std::vector<ActRow> readActs(const Table& table);
+std::vector<ActRow> readActs(const Table &table);
 
 class Story {
 public:
     // `main` is the main runner: the act's scripts go there.
-    Story(GameState& state, ScriptRunner& main);
+    Story(GameState &state, ScriptRunner &main);
 
     void setActs(std::vector<ActRow> acts) {
         acts_ = std::move(acts);
         row_.reset();
     }
-    const ActRow* row() const { return row_ ? &*row_ : nullptr; }
+    const ActRow *row() const { return row_ ? &*row_ : nullptr; }
     // A saved game's act (0x422470): its row as saved (acts.txt isn't read
     // again), its location loaded through onLoadLocation, but neither
     // PreLoad nor Post Load run; done() once loaded.
-    void restore(const ActRow& row, const std::string& location);
+    void restore(const ActRow &row, const std::string &location);
 
     // "act [<act>]" (0x409eaa -> 0x422580): the act changes (or, with no
     // argument, starts again), its dialogue tables are loaded and, if
@@ -74,26 +74,26 @@ public:
     bool loading() const { return loading_; }
 
     // The act's dialogue tables are to be loaded (on every act change).
-    std::function<void(const std::string& act)> onActTables;
+    std::function<void(const std::string &act)> onActTables;
     // The act's location is to be loaded (the scene left first:
     // leavingScene() has been called); `flush` when the scenes kept so far
     // are dropped (a new place: before act 04A and from 08A on). Post Load
     // runs once locationLoaded() is called (at once without a handler).
-    std::function<void(const std::string& location, bool flush)> onLoadLocation;
+    std::function<void(const std::string &location, bool flush)> onLoadLocation;
     void locationLoaded();
-    const std::string& location() const { return location_; }
+    const std::string &location() const { return location_; }
     // A scene in another place is loaded (0x422640: its name up to the
     // '_' becomes the location, the last one kept as before): true if
     // the scenes kept so far are dropped, as for an act's location
     // (0x4229a5). The main menu is a place of its own, so a game left
     // for it starts again with its scenes as in their files.
-    bool sceneLocation(const std::string& location);
+    bool sceneLocation(const std::string &location);
 
 private:
     void runnerEmpty();
 
-    GameState& state_;
-    ScriptRunner& main_;
+    GameState &state_;
+    ScriptRunner &main_;
     std::vector<ActRow> acts_;
     std::optional<ActRow> row_; // the act's row, as it was read (or saved)
     bool restoring_ = false;

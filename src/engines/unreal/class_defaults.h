@@ -27,37 +27,37 @@ namespace reluva::unreal {
 class ActorProperties {
 public:
     struct Layer {
-        const Package* package = nullptr;
+        const Package *package = nullptr;
         PropertyList props;
     };
     std::vector<Layer> layers;
 
-    const Property* find(std::string_view name, int arrayIndex = 0, const Package** from = nullptr) const;
+    const Property *find(std::string_view name, int arrayIndex = 0, const Package **from = nullptr) const;
     uint8_t byte(std::string_view name, uint8_t fallback = 0, int arrayIndex = 0) const;
     float number(std::string_view name, float fallback = 0) const;
     bool boolean(std::string_view name, bool fallback = false) const;
-    bool vector(std::string_view name, std::array<float, 3>& out, int arrayIndex = 0) const;
-    bool rotator(std::string_view name, Rotator& out) const;
+    bool vector(std::string_view name, std::array<float, 3> &out, int arrayIndex = 0) const;
+    bool rotator(std::string_view name, Rotator &out) const;
     std::string nameValue(std::string_view name) const; // Name properties
-    ObjectRef object(const PackageSet& packages, std::string_view name, int arrayIndex = 0) const;
+    ObjectRef object(const PackageSet &packages, std::string_view name, int arrayIndex = 0) const;
 };
 
 class ClassDefaults {
 public:
-    explicit ClassDefaults(const PackageSet& packages) : packages_(packages) {}
+    explicit ClassDefaults(const PackageSet &packages) : packages_(packages) {}
 
     // A class export's own default properties; nullptr if they weren't found.
-    const PropertyList* defaults(const Package& package, int classExport);
+    const PropertyList *defaults(const Package &package, int classExport);
 
     // An actor's properties with its classes' defaults under them.
-    Error actorProperties(const Package& package, int exportIndex, ActorProperties& out);
+    Error actorProperties(const Package &package, int exportIndex, ActorProperties &out);
 
     int found() const { return found_; }
     int missing() const { return missing_; }
 
 private:
-    const PackageSet& packages_;
-    std::map<std::pair<const Package*, int>, std::optional<PropertyList>> cache_;
+    const PackageSet &packages_;
+    std::map<std::pair<const Package *, int>, std::optional<PropertyList>> cache_;
     int found_ = 0, missing_ = 0;
 };
 

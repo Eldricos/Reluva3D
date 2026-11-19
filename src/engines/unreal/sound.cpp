@@ -17,11 +17,11 @@
 
 namespace reluva::unreal {
 
-Error readEmbeddedFile(const Package& package, int index, EmbeddedFile& out) {
+Error readEmbeddedFile(const Package &package, int index, EmbeddedFile &out) {
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
         return err;
-    const Export& e = package.exports()[size_t(index)];
+    const Export &e = package.exports()[size_t(index)];
     const std::string what = package.path(index + 1);
     Reader r(data, size_t(e.serialOffset));
     PropertyList props;
@@ -44,7 +44,7 @@ bool EmbeddedFile::isPlaceholder() const {
     return data.size() < 16 && !(data.size() >= 4 && std::memcmp(data.data(), "RIFF", 4) == 0);
 }
 
-Error decodeEmbeddedSound(const EmbeddedFile& file, audio::Sound& out) {
+Error decodeEmbeddedSound(const EmbeddedFile &file, audio::Sound &out) {
     if (file.isPlaceholder())
         return Error::fail("a placeholder with no sound in it (" + std::to_string(file.data.size()) + " bytes)");
     // A Music object's tracker module (IT, S3M, XM, MOD): played through
@@ -74,13 +74,14 @@ Error decodeEmbeddedSound(const EmbeddedFile& file, audio::Sound& out) {
     return Error::success();
 }
 
-std::optional<std::filesystem::path> streamedFile(const PackageSet& packages, const Package& package, int index) {
+std::optional<std::filesystem::path> streamedFile(const PackageSet &packages, const Package &package, int index) {
     if (packages.gameDir().empty() || index < 0 || size_t(index) >= package.exports().size())
         return std::nullopt;
-    return fs::findFile(packages.gameDir(), "mp3/" + package.name(package.exports()[size_t(index)].objectName) + ".mp3");
+    return fs::findFile(packages.gameDir(),
+                        "mp3/" + package.name(package.exports()[size_t(index)].objectName) + ".mp3");
 }
 
-Error loadSound(const PackageSet& packages, const Package& package, int index, audio::Sound& out, std::string* from) {
+Error loadSound(const PackageSet &packages, const Package &package, int index, audio::Sound &out, std::string *from) {
     EmbeddedFile file;
     if (Error err = readEmbeddedFile(package, index, file))
         return err;

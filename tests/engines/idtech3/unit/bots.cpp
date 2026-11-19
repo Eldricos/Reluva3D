@@ -83,11 +83,11 @@ using namespace reluva::idtech3::fixtures;
 // neighbours; version 5's header scrambled when `scramble`.
 static std::vector<uint8_t> buildAas(bool scramble) {
     std::vector<std::vector<uint8_t>> lumps(14);
-    auto i32 = [](std::vector<uint8_t>& d, int32_t v) {
+    auto i32 = [](std::vector<uint8_t> &d, int32_t v) {
         for (int k = 0; k < 4; ++k)
             d.push_back(uint8_t(uint32_t(v) >> (8 * k)));
     };
-    auto f32 = [&](std::vector<uint8_t>& d, float f) {
+    auto f32 = [&](std::vector<uint8_t> &d, float f) {
         int32_t v;
         std::memcpy(&v, &f, 4);
         i32(d, v);
@@ -114,7 +114,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
         float x0, x1;
     };
     const R reach[] = {{0, 0, 0}, {2, 95, 105}, {1, 105, 95}, {3, 195, 205}, {2, 205, 195}};
-    for (const R& r : reach) {
+    for (const R &r : reach) {
         i32(lumps[9], r.to), i32(lumps[9], 0), i32(lumps[9], 0);
         for (float v : {r.x0, 0.0f, 0.0f, r.x1, 0.0f, 0.0f})
             f32(lumps[9], v);
@@ -130,7 +130,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
     std::vector<uint8_t> header;
     i32(header, 1234); // the BSP's checksum
     int32_t at = 12 + 14 * 8;
-    for (const auto& l : lumps) {
+    for (const auto &l : lumps) {
         i32(header, at), i32(header, int32_t(l.size()));
         at += int32_t(l.size());
     }
@@ -138,7 +138,7 @@ static std::vector<uint8_t> buildAas(bool scramble) {
         for (size_t i = 0; i < header.size(); ++i)
             header[i] ^= uint8_t(i * 119);
     out.insert(out.end(), header.begin(), header.end());
-    for (const auto& l : lumps)
+    for (const auto &l : lumps)
         out.insert(out.end(), l.begin(), l.end());
     return out;
 }
@@ -185,7 +185,7 @@ static void testBotScript() {
                    "#ifndef THREE\n#define THREE 3\n#endif\n"
                    "value $evalint(TWO * THREE + 1) $evalfloat(1 / 2.0) NAME -1.5\n"
                    "/* a comment */ end // another\n"}};
-    BotScript script([&](const std::string& path, std::string& text) {
+    BotScript script([&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -200,10 +200,11 @@ static void testBotScript() {
     if (!script.error().empty())
         std::fprintf(stderr, "%s\n", script.error().c_str());
     CHECK(script.error().empty());
-    const std::vector<std::string> expected = {"first", "2", "square", "(", "(", "3", ")", "*", "(", "3", ")", ")",
-                                               "value", "7.000000", "0.500000", "botname", "-", "1.5", "end"};
+    const std::vector<std::string> expected = {"first",    "2",       "square", "(",   "(",  "3",     ")",
+                                               "*",        "(",       "3",      ")",   ")",  "value", "7.000000",
+                                               "0.500000", "botname", "-",      "1.5", "end"};
     CHECK(words == expected);
-    BotScript bad([](const std::string&, std::string&) { return false; });
+    BotScript bad([](const std::string &, std::string &) { return false; });
     CHECK(!bad.open("missing.c") && !bad.error().empty());
 }
 
@@ -213,7 +214,7 @@ static void testBotCharacter() {
         {"bots/default_c.c", "skill 1 { 0 \"Default\" 1 0.5 2 7 }\nskill 4 { 0 \"Default\" 1 0.8 2 9 }\n"
                              "skill 5 { 0 \"Default\" 1 1.0 2 9 }\n"},
         {"bots/test_c.c", "#define NAME 0\nskill 1 { NAME \"Test\" 1 0.25 }\nskill 4 { NAME \"Test\" 1 0.75 }\n"}};
-    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+    const BotScript::Loader load = [&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -237,14 +238,16 @@ static void testBotCharacter() {
 static void testBotAi() {
     using namespace reluva::idtech3::botlib;
     const std::map<std::string, std::string> files = {
-        {"botfiles/w.c", "weight \"a\" { switch(1) { case 2: return 10; case 5: { switch(2) { default: return 30; } }"
-                         " default: return balance(50, 40, 60); } }\nweight \"b\" return 7;\n"
-                         "weight \"item_armor\" return 100;\nweight \"Phaser\" { switch(3) { case 1: return 0; default: return 20; } }\n"},
+        {"botfiles/w.c",
+         "weight \"a\" { switch(1) { case 2: return 10; case 5: { switch(2) { default: return 30; } }"
+         " default: return balance(50, 40, 60); } }\nweight \"b\" return 7;\n"
+         "weight \"item_armor\" return 100;\nweight \"Phaser\" { switch(3) { case 1: return 0; default: return 20; } }\n"},
         {"botfiles/items.c", "iteminfo \"item_armor\" { name \"Armor\" model \"m.md3\" modelindex 3 type 1 index 2"
                              " respawntime 25 mins {-15,-15,-15} maxs {15,15,15} }\n"},
-        {"botfiles/weapons.c", "projectileinfo { name \"bolt\" damage 20 radius 1.5 }\n"
-                               "weaponinfo { number 2 name \"Phaser\" projectile \"bolt\" speed 0 offset {0, 5, -10} }\n"}};
-    auto read = [&](const std::string& path, std::vector<uint8_t>& data) {
+        {"botfiles/weapons.c",
+         "projectileinfo { name \"bolt\" damage 20 radius 1.5 }\n"
+         "weaponinfo { number 2 name \"Phaser\" projectile \"bolt\" speed 0 offset {0, 5, -10} }\n"}};
+    auto read = [&](const std::string &path, std::vector<uint8_t> &data) {
         if (path == "maps/test.aas") {
             data = buildAas(true);
             return true;
@@ -272,7 +275,7 @@ static void testBotAi() {
 
     // A level with an armour in area 2, its entity seen twice in place.
     lib.entityCount = 1;
-    lib.entityKey = [](int e, const std::string& key, std::string& value) {
+    lib.entityKey = [](int e, const std::string &key, std::string &value) {
         if (e != 1)
             return false;
         if (key == "classname")
@@ -332,7 +335,7 @@ static void testBotAi() {
 
     // Predicting a move: a floor where a standing player's origin is 24
     // above z = 0.
-    lib.trace = [](const Vec3f& start, const Vec3f& mins, const Vec3f&, const Vec3f& end, int, int) {
+    lib.trace = [](const Vec3f &start, const Vec3f &mins, const Vec3f &, const Vec3f &end, int, int) {
         BotLibrary::Trace t;
         const float floor = -mins[2];
         t.end = end;
@@ -355,8 +358,8 @@ static void testBotAi() {
     CHECK(cm.stopEvent == stopevent::None && cm.endPos[0] > 100 && cm.velocity[0] > 250 &&
           std::fabs(cm.endPos[2] - 24) < 1);
     // Entering area 3 on the way.
-    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20,
-                                    0.1f, stopevent::EnterArea, 3));
+    CHECK(lib.predictClientMovement(cm, 1, {150, 0, 24}, presence::Normal, true, {320, 0, 0}, {400, 0, 0}, 20, 20, 0.1f,
+                                    stopevent::EnterArea, 3));
     CHECK(cm.stopEvent == stopevent::EnterArea && cm.endArea == 3 && std::fabs(cm.endPos[0] - 200) < 1);
 }
 
@@ -367,9 +370,10 @@ static void testBotChat() {
         {"rnd.c", "greeting = { \"hey\"; \"yo\"; }\n"},
         {"match.c", "2 { \"hello \", 0 = (5, 1);\n 0, \" says: \", 1 = (6, 0); }\n"},
         {"rchat.c", "[\"hello\", !\"bye\"] = 5 { \"hello yourself, \", 0, \"!\"; }\n"},
-        {"bots/test_t.c", "chat \"other\" { type \"x\" { \"no\"; } }\n"
-                          "chat \"test\" { type \"game_enter\" { \"hi all, I'm \", 0, \".\"; greeting, \" there\"; } }\n"}};
-    const BotScript::Loader load = [&](const std::string& path, std::string& text) {
+        {"bots/test_t.c",
+         "chat \"other\" { type \"x\" { \"no\"; } }\n"
+         "chat \"test\" { type \"game_enter\" { \"hi all, I'm \", 0, \".\"; greeting, \" there\"; } }\n"}};
+    const BotScript::Loader load = [&](const std::string &path, std::string &text) {
         const auto it = files.find(path);
         if (it == files.end())
             return false;
@@ -392,11 +396,11 @@ static void testBotChat() {
     CHECK(text == "hello there, hit it");
 
     std::vector<std::string> said;
-    chat.command = [&](int client, const std::string& c) { said.push_back(std::to_string(client) + " " + c); };
+    chat.command = [&](int client, const std::string &c) { said.push_back(std::to_string(client) + " " + c); };
     const int cs = chat.allocState();
     CHECK(chat.loadChatFile(cs, load, "bots/test_t.c", "TEST") && chat.numInitialChats(cs, "game_enter") == 2);
     chat.setName(cs, "Munro");
-    std::vector<const char*> vars(8, nullptr);
+    std::vector<const char *> vars(8, nullptr);
     vars[0] = "Munro";
     chat.initialChat(cs, "game_enter", 0, vars);
     std::string line = chat.takeChatMessage(cs);
@@ -413,10 +417,11 @@ static void testBotChat() {
     CHECK(chat.nextConsoleMessage(cs)->text == "second");
 }
 
-static const reluva::test::Suite suite("idtech3.unit.bots", {
-    {"aas", [](const std::filesystem::path&) { testAas(); }},
-    {"bot script", [](const std::filesystem::path&) { testBotScript(); }},
-    {"bot character", [](const std::filesystem::path&) { testBotCharacter(); }},
-    {"bot ai", [](const std::filesystem::path&) { testBotAi(); }},
-    {"bot chat", [](const std::filesystem::path&) { testBotChat(); }},
-});
+static const reluva::test::Suite suite("idtech3.unit.bots",
+                                       {
+                                           {"aas", [](const std::filesystem::path &) { testAas(); }},
+                                           {"bot script", [](const std::filesystem::path &) { testBotScript(); }},
+                                           {"bot character", [](const std::filesystem::path &) { testBotCharacter(); }},
+                                           {"bot ai", [](const std::filesystem::path &) { testBotAi(); }},
+                                           {"bot chat", [](const std::filesystem::path &) { testBotChat(); }},
+                                       });

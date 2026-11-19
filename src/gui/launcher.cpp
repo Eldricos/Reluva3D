@@ -19,25 +19,42 @@ namespace {
 
 // The settings every engine has (common/settings.h), as the launcher shows
 // them. Each one's first choice is Reluva's default.
-const std::vector<GameOption>& sharedSettings() {
+const std::vector<GameOption> &sharedSettings() {
     static const std::vector<GameOption> list = [] {
         std::vector<GameOption> v;
-        v.push_back({settings::kFullscreen, "Start in", "Alt+Enter switches between the two in a game.", true,
+        v.push_back({settings::kFullscreen,
+                     "Start in",
+                     "Alt+Enter switches between the two in a game.",
+                     true,
                      {{"0", "A window"}, {"1", "Full screen"}}});
-        v.push_back({settings::kWindowScale, "Window size",
-                     "The window's size for a game, as a multiple of the game's own picture.", true,
-                     {{"", "As it is"}, {"auto", "2x where it fits, else 1x"}, {"1", "1x"}, {"2", "2x"}, {"3", "3x"},
+        v.push_back({settings::kWindowScale,
+                     "Window size",
+                     "The window's size for a game, as a multiple of the game's own picture.",
+                     true,
+                     {{"", "As it is"},
+                      {"auto", "2x where it fits, else 1x"},
+                      {"1", "1x"},
+                      {"2", "2x"},
+                      {"3", "3x"},
                       {"4", "4x"}}});
-        v.push_back({settings::kIntegerScaling, "Scaling",
+        v.push_back({settings::kIntegerScaling,
+                     "Scaling",
                      "Whole multiples keep every pixel the same size, with black borders.\n"
                      "They only show where the picture is scaled by an uneven amount (most full screens).",
-                     true, {{"0", "Any size, letterboxed"}, {"1", "Whole multiples only"}}});
-        v.push_back({settings::kSmooth, "Pixels", "Smoothing only shows where the picture is scaled by an uneven amount.",
-                     true, {{"0", "Sharp"}, {"1", "Smoothed"}}});
-        v.push_back({settings::kVsync, "Vertical sync", "Wait for the display's refresh: no tearing.", true,
+                     true,
+                     {{"0", "Any size, letterboxed"}, {"1", "Whole multiples only"}}});
+        v.push_back({settings::kSmooth,
+                     "Pixels",
+                     "Smoothing only shows where the picture is scaled by an uneven amount.",
+                     true,
+                     {{"0", "Sharp"}, {"1", "Smoothed"}}});
+        v.push_back({settings::kVsync,
+                     "Vertical sync",
+                     "Wait for the display's refresh: no tearing.",
+                     true,
                      {{"1", "On"}, {"0", "Off"}}});
-        GameOption volume{settings::kMasterVolume, "Master volume", "Every sound, as a share of how the game plays it.",
-                          true, {}};
+        GameOption volume{
+            settings::kMasterVolume, "Master volume", "Every sound, as a share of how the game plays it.", true, {}};
         volume.choices.push_back({"100", "100%"});
         for (int p = 0; p <= 200; p += 10)
             if (p != 100)
@@ -49,7 +66,7 @@ const std::vector<GameOption>& sharedSettings() {
 }
 
 // A checkbox option as a list, for showing it beside its inherited value.
-GameOption asChoices(const GameOption& o) {
+GameOption asChoices(const GameOption &o) {
     if (!o.choices.empty())
         return o;
     GameOption c = o;
@@ -58,8 +75,8 @@ GameOption asChoices(const GameOption& o) {
     return c;
 }
 
-std::string shownValue(const GameOption& o, const std::string& value) {
-    for (const auto& [v, text] : o.choices)
+std::string shownValue(const GameOption &o, const std::string &value) {
+    for (const auto &[v, text] : o.choices)
         if (v == value)
             return text;
     return value;
@@ -67,10 +84,10 @@ std::string shownValue(const GameOption& o, const std::string& value) {
 
 } // namespace
 
-Launcher::Launcher(SdlSystem& system, Config& config) : sys_(system), config_(config) {
+Launcher::Launcher(SdlSystem &system, Config &config) : sys_(system), config_(config) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
     io.IniFilename = nullptr; // our layout is fixed; don't litter imgui.ini
 
@@ -99,7 +116,7 @@ Launcher::~Launcher() {
 
 std::optional<GameTarget> Launcher::run() {
     sys_.resetForLauncher();
-    SDL_Renderer* renderer = sys_.renderer();
+    SDL_Renderer *renderer = sys_.renderer();
 
     std::optional<GameTarget> launch;
     bool quit = false;
@@ -124,7 +141,7 @@ std::optional<GameTarget> Launcher::run() {
         drawUi(launch, quit);
         ImGui::Render();
 
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO &io = ImGui::GetIO();
         SDL_SetRenderScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
         SDL_SetRenderDrawColor(renderer, 20, 22, 28, 255);
         SDL_RenderClear(renderer);
@@ -140,13 +157,13 @@ std::optional<GameTarget> Launcher::run() {
     return launch;
 }
 
-void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
-    const ImGuiViewport* vp = ImGui::GetMainViewport();
+void Launcher::drawUi(std::optional<GameTarget> &launch, bool &quit) {
+    const ImGuiViewport *vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos);
     ImGui::SetNextWindowSize(vp->WorkSize);
     ImGui::Begin("Reluva", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     ImGui::TextUnformatted("Reluva");
     ImGui::SameLine();
@@ -161,7 +178,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     const auto targets = config_.targets();
     if (targets.empty())
         ImGui::TextDisabled("No games yet. Use \"Add Game...\" and pick a game's install folder.");
-    for (const std::string& name : targets) {
+    for (const std::string &name : targets) {
         std::string label = listLabel(name) + "##" + name;
         if (ImGui::Selectable(label.c_str(), selected_ == name, ImGuiSelectableFlags_AllowDoubleClick)) {
             selected_ = name;
@@ -206,7 +223,8 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     if (ImGui::Button("Apply Patch...", bsize))
         pickPatch(Pick::PatchForGame);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Update the selected game with its patch's installer\n(e.g. eliteforcepatch1_2.exe), on any system");
+        ImGui::SetTooltip(
+            "Update the selected game with its patch's installer\n(e.g. eliteforcepatch1_2.exe), on any system");
     if (ImGui::Button("Add Expansion...", bsize))
         pickExpansion(Pick::PatchForGame);
     if (ImGui::IsItemHovered())
@@ -249,7 +267,7 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
         ImGui::OpenPopup("Choose game");
         if (ImGui::BeginPopupModal("Choose game", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::TextUnformatted("Several games match this folder:");
-            for (const DetectedGame& g : pendingChoices_) {
+            for (const DetectedGame &g : pendingChoices_) {
                 std::string label = g.description + " (" + g.language + ", " + g.platform + ")";
                 if (ImGui::Selectable(label.c_str())) {
                     addGame(g, pendingPath_);
@@ -269,8 +287,8 @@ void Launcher::drawUi(std::optional<GameTarget>& launch, bool& quit) {
     ImGui::End();
 }
 
-void SDLCALL Launcher::pickFolderCallback(void* userdata, const char* const* files, int) {
-    auto* self = static_cast<Launcher*>(userdata);
+void SDLCALL Launcher::pickFolderCallback(void *userdata, const char *const *files, int) {
+    auto *self = static_cast<Launcher *>(userdata);
     {
         std::lock_guard lock(self->pickMutex_);
         if (!files)
@@ -300,7 +318,7 @@ void Launcher::handlePickedFolder() {
             const std::string path = config_.get(selected_, "path");
             const std::string engine = config_.get(selected_, "engine"), gameId = config_.get(selected_, "gameid");
             ImportPlan plan;
-            for (const DetectedGame& g : detectGames(path))
+            for (const DetectedGame &g : detectGames(path))
                 if (g.engineId == engine && g.gameId == gameId)
                     plan.game = g;
             if (plan.game.gameId.empty()) {
@@ -313,7 +331,7 @@ void Launcher::handlePickedFolder() {
             patchTarget_ = selected_;
         }
         std::string message;
-        const MetaEngine* meta = importPlan_ ? findEngine(importPlan_->game.engineId) : nullptr;
+        const MetaEngine *meta = importPlan_ ? findEngine(importPlan_->game.engineId) : nullptr;
         if (!meta || !meta->addToImport(*importPlan_, *folder, message)) {
             status_ = std::filesystem::path(*folder).filename().string() + ": " + message;
             if (pickFor_ == Pick::PatchForGame) {
@@ -354,7 +372,7 @@ void Launcher::handlePickedFolder() {
     }
 }
 
-void Launcher::addGame(const DetectedGame& game, const std::string& path) {
+void Launcher::addGame(const DetectedGame &game, const std::string &path) {
     std::string name = game.gameId;
     for (int n = 2; config_.hasSection(name); ++n)
         name = game.gameId + "-" + std::to_string(n);
@@ -372,22 +390,22 @@ void Launcher::addGame(const DetectedGame& game, const std::string& path) {
     selected_ = name;
 }
 
-std::string Launcher::listLabel(const std::string& name) {
+std::string Launcher::listLabel(const std::string &name) {
     // The description, and the options turned from their defaults (two
     // entries for one folder, one without the Expansion Pack, told apart).
     auto it = listOptions_.find(name);
     if (it == listOptions_.end()) {
-        const MetaEngine* meta = findEngine(config_.get(name, "engine"));
+        const MetaEngine *meta = findEngine(config_.get(name, "engine"));
         it = listOptions_
                  .emplace(name, meta ? meta->options(config_.get(name, "gameid"), config_.get(name, "path"))
                                      : std::vector<GameOption>{})
                  .first;
     }
     std::string label = config_.get(name, "description", name);
-    for (const GameOption& o : it->second) {
+    for (const GameOption &o : it->second) {
         if (!o.choices.empty()) {
             const std::string value = config_.get(name, o.key, o.choices.front().first);
-            for (const auto& [v, shown] : o.choices)
+            for (const auto &[v, shown] : o.choices)
                 if (v == value && v != o.choices.front().first)
                     label += " [" + o.label + ": " + shown + "]";
             continue;
@@ -404,21 +422,21 @@ void Launcher::drawOptions() {
         optionsFor_ = selected_;
         options_.clear();
         if (config_.hasSection(selected_) && selected_ != Config::kGlobalSection)
-            if (const MetaEngine* meta = findEngine(config_.get(selected_, "engine")))
+            if (const MetaEngine *meta = findEngine(config_.get(selected_, "engine")))
                 options_ = meta->options(config_.get(selected_, "gameid"), config_.get(selected_, "path"));
     }
-    const bool haveGame = config_.hasSection(selected_) && selected_ != Config::kGlobalSection &&
-                          !Config::isEngineSection(selected_);
+    const bool haveGame =
+        config_.hasSection(selected_) && selected_ != Config::kGlobalSection && !Config::isEngineSection(selected_);
     if (!haveGame)
         return;
     ImGui::Spacing();
     ImGui::Separator();
-    for (const GameOption& o : options_) {
+    for (const GameOption &o : options_) {
         if (!o.choices.empty()) {
             // A list: the value kept, or the first (the default).
             const std::string value = config_.get(selected_, o.key, o.choices.front().first);
             std::string shown = o.choices.front().second;
-            for (const auto& [v, text] : o.choices)
+            for (const auto &[v, text] : o.choices)
                 if (v == value)
                     shown = text;
             ImGui::TextUnformatted(o.label.c_str());
@@ -426,7 +444,7 @@ void Launcher::drawOptions() {
                 ImGui::SetTooltip("%s", o.tooltip.c_str());
             ImGui::SetNextItemWidth(-1);
             if (ImGui::BeginCombo(("##" + o.key).c_str(), shown.c_str())) {
-                for (const auto& [v, text] : o.choices)
+                for (const auto &[v, text] : o.choices)
                     if (ImGui::Selectable(text.c_str(), v == value)) {
                         config_.set(selected_, o.key, v);
                         config_.save();
@@ -448,16 +466,16 @@ void Launcher::drawOptions() {
     // game) until changed here.
     const std::string engineId = config_.get(selected_, "engine");
     if (ImGui::CollapsingHeader("This game's settings")) {
-        if (const MetaEngine* meta = findEngine(engineId))
-            for (const GameOption& o : meta->engineOptions())
+        if (const MetaEngine *meta = findEngine(engineId))
+            for (const GameOption &o : meta->engineOptions())
                 drawSetting(selected_, engineId, o);
-        for (const GameOption& o : sharedSettings())
+        for (const GameOption &o : sharedSettings())
             drawSetting(selected_, engineId, o);
     }
 }
 
-std::string Launcher::inheritedValue(const std::string& section, const std::string& engineId,
-                                     const GameOption& option, std::string* from) const {
+std::string Launcher::inheritedValue(const std::string &section, const std::string &engineId, const GameOption &option,
+                                     std::string *from) const {
     const GameOption o = asChoices(option);
     const std::string engineSection = engineId.empty() ? std::string() : Config::engineSection(engineId);
     if (section != engineSection && !engineSection.empty() && config_.has(engineSection, o.key)) {
@@ -475,7 +493,7 @@ std::string Launcher::inheritedValue(const std::string& section, const std::stri
     return o.choices.front().first;
 }
 
-void Launcher::drawSetting(const std::string& section, const std::string& engineId, const GameOption& option) {
+void Launcher::drawSetting(const std::string &section, const std::string &engineId, const GameOption &option) {
     const GameOption o = asChoices(option);
     const bool set = config_.has(section, o.key);
     std::string from;
@@ -495,7 +513,7 @@ void Launcher::drawSetting(const std::string& section, const std::string& engine
             config_.unset(section, o.key);
             config_.save();
         }
-        for (const auto& [v, text] : o.choices)
+        for (const auto &[v, text] : o.choices)
             if (ImGui::Selectable((text + "##" + v).c_str(), set && config_.get(section, o.key) == v)) {
                 config_.set(section, o.key, v);
                 config_.save();
@@ -514,14 +532,14 @@ void Launcher::drawSettingsWindow() {
         return;
     }
     // Whose settings: every game's, or one engine's games' (those it has).
-    const MetaEngine* engine = settingsEngine_.empty() ? nullptr : findEngine(settingsEngine_);
+    const MetaEngine *engine = settingsEngine_.empty() ? nullptr : findEngine(settingsEngine_);
     const std::string current = engine ? std::string("All ") + engine->name() + " games" : "Every game";
     ImGui::TextUnformatted("Settings for");
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##settingsfor", current.c_str())) {
         if (ImGui::Selectable("Every game", !engine))
             settingsEngine_.clear();
-        for (const MetaEngine* e : allEngines()) {
+        for (const MetaEngine *e : allEngines()) {
             if (std::string(e->id()) == "testbed")
                 continue;
             if (ImGui::Selectable((std::string("All ") + e->name() + " games").c_str(), engine == e))
@@ -536,20 +554,20 @@ void Launcher::drawSettingsWindow() {
         const auto own = engine->engineOptions();
         if (!own.empty()) {
             ImGui::SeparatorText(engine->name());
-            for (const GameOption& o : own)
+            for (const GameOption &o : own)
                 drawSetting(section, engine->id(), o);
         }
     }
     ImGui::SeparatorText("Display and sound");
-    for (const GameOption& o : sharedSettings())
+    for (const GameOption &o : sharedSettings())
         drawSetting(section, engine ? engine->id() : "", o);
     ImGui::End();
 }
 
-GameTarget Launcher::launchTarget(const std::string& name) {
+GameTarget Launcher::launchTarget(const std::string &name) {
     // A patch (or more of the game) may have been added to the folder since.
     const std::string engine = config_.get(name, "engine"), gameId = config_.get(name, "gameid");
-    for (const DetectedGame& g : detectGames(config_.get(name, "path")))
+    for (const DetectedGame &g : detectGames(config_.get(name, "path")))
         if (g.engineId == engine && g.gameId == gameId && g.description != config_.get(name, "description")) {
             config_.set(name, "description", g.description);
             config_.save();
@@ -571,7 +589,7 @@ void Launcher::pickExpansion(Pick purpose) {
     SDL_ShowOpenFolderDialog(pickFolderCallback, this, sys_.window(), nullptr, false);
 }
 
-void Launcher::offerImport(std::vector<ImportPlan> plans, const std::string& source) {
+void Launcher::offerImport(std::vector<ImportPlan> plans, const std::string &source) {
     patchTarget_.clear();
     importPlan_ = std::move(plans.front());
     importSource_ = source;
@@ -596,12 +614,12 @@ void Launcher::drawImport() {
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->WorkSize.x * 0.8f, 0));
     if (!ImGui::BeginPopupModal("Import game", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         return;
-    const ImportPlan& plan = *importPlan_;
+    const ImportPlan &plan = *importPlan_;
     const bool patching = !patchTarget_.empty();
     ImGui::TextUnformatted(plan.game.description.c_str());
     ImGui::TextDisabled("%s %s", patching ? "adding from" : "from", importSource_.c_str());
     ImGui::Spacing();
-    for (const std::string& note : plan.notes)
+    for (const std::string &note : plan.notes)
         ImGui::BulletText("%s", note.c_str());
     ImGui::Spacing();
     ImGui::Text("%zu files, %.0f MB, %s:", plan.files.size(), double(plan.totalBytes()) / (1024 * 1024),
@@ -656,7 +674,8 @@ void Launcher::drawImport() {
 
 void Launcher::startImport() {
     std::error_code ec;
-    if (patchTarget_.empty() && std::filesystem::exists(importDest_, ec) && !std::filesystem::is_empty(importDest_, ec)) {
+    if (patchTarget_.empty() && std::filesystem::exists(importDest_, ec) &&
+        !std::filesystem::is_empty(importDest_, ec)) {
         status_ = importDest_.string() + " isn't empty: choose another folder";
         return;
     }
@@ -695,8 +714,8 @@ void Launcher::finishImport() {
     importPlan_.reset();
     const std::string patched = std::exchange(patchTarget_, std::string());
     if (!error.empty()) {
-        status_ = error + (importCancel_ && patched.empty() ? "; the files copied so far are in " + importDest_.string()
-                                                             : "");
+        status_ = error +
+                  (importCancel_ && patched.empty() ? "; the files copied so far are in " + importDest_.string() : "");
         return;
     }
     optionsFor_.clear(); // what the folder holds may have changed
@@ -708,7 +727,7 @@ void Launcher::finishImport() {
         return;
     }
     // Added as the folder it went to, as detected there.
-    for (const DetectedGame& g : detectGames(importDest_))
+    for (const DetectedGame &g : detectGames(importDest_))
         if (g.engineId == plan.game.engineId && g.gameId == plan.game.gameId) {
             addGame(g, importDest_.string());
             status_ = "Imported " + g.description + " to " + importDest_.string();
@@ -717,9 +736,13 @@ void Launcher::finishImport() {
     status_ = "Imported to " + importDest_.string() + ", but the game isn't found there";
 }
 
-GameTarget Launcher::targetFromConfig(const std::string& name) const {
-    return GameTarget{name, config_.get(name, "engine"), config_.get(name, "gameid"),
-                      config_.get(name, "description", name), config_.get(name, "path"), {},
+GameTarget Launcher::targetFromConfig(const std::string &name) const {
+    return GameTarget{name,
+                      config_.get(name, "engine"),
+                      config_.get(name, "gameid"),
+                      config_.get(name, "description", name),
+                      config_.get(name, "path"),
+                      {},
                       config_.settingsFor(name)};
 }
 

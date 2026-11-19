@@ -10,27 +10,27 @@
 
 namespace reluva::stharbinger {
 
-std::shared_ptr<LstArchive> LstArchive::open(const Archive& source, const std::string& base) {
+std::shared_ptr<LstArchive> LstArchive::open(const Archive &source, const std::string &base) {
     return open(
         &source,
-        [](const void* src, const std::string& name, std::vector<uint8_t>& out) {
-            const Archive& a = *static_cast<const Archive*>(src);
+        [](const void *src, const std::string &name, std::vector<uint8_t> &out) {
+            const Archive &a = *static_cast<const Archive *>(src);
             return a.has(name) && !a.read(name, out);
         },
         base);
 }
 
-std::shared_ptr<LstArchive> LstArchive::open(const SearchSet& source, const std::string& base) {
+std::shared_ptr<LstArchive> LstArchive::open(const SearchSet &source, const std::string &base) {
     return open(
         &source,
-        [](const void* src, const std::string& name, std::vector<uint8_t>& out) {
-            const SearchSet& s = *static_cast<const SearchSet*>(src);
+        [](const void *src, const std::string &name, std::vector<uint8_t> &out) {
+            const SearchSet &s = *static_cast<const SearchSet *>(src);
             return s.has(name) && !s.read(name, out);
         },
         base);
 }
 
-std::shared_ptr<LstArchive> LstArchive::open(const void* source, Reader reader, const std::string& base) {
+std::shared_ptr<LstArchive> LstArchive::open(const void *source, Reader reader, const std::string &base) {
     std::vector<uint8_t> all, lst, cat;
     if (!reader(source, base + ".LST", lst) || !reader(source, base + ".ALL", all))
         return nullptr;
@@ -43,8 +43,8 @@ std::shared_ptr<LstArchive> LstArchive::open(const void* source, Reader reader, 
     return archive;
 }
 
-std::shared_ptr<LstArchive> LstArchive::create(std::vector<uint8_t> all, const std::vector<uint8_t>& lst,
-                                               const std::vector<uint8_t>& cat) {
+std::shared_ptr<LstArchive> LstArchive::create(std::vector<uint8_t> all, const std::vector<uint8_t> &lst,
+                                               const std::vector<uint8_t> &cat) {
     std::shared_ptr<LstArchive> archive(new LstArchive());
     uint32_t total = uint32_t(all.size());
     for (size_t i = 0; i + 4 <= lst.size(); i += 4)
@@ -87,15 +87,19 @@ std::unique_ptr<MemoryReadStream> LstArchive::getEntry(uint32_t index) const {
     return std::make_unique<MemoryReadStream>(data_, offsets_[index], entrySize(index));
 }
 
-std::string LstArchive::getName(uint32_t index) const { return index < names_.size() ? names_[index] : std::string(); }
+std::string LstArchive::getName(uint32_t index) const {
+    return index < names_.size() ? names_[index] : std::string();
+}
 
-void LstArchive::setPrefix(const std::string& prefix) {
+void LstArchive::setPrefix(const std::string &prefix) {
     byName_.clear();
     for (uint32_t i = 0; i < names_.size() && i < size(); i++)
         byName_.emplace(fs::normalizeDosPath(prefix + names_[i]), i);
 }
 
-bool LstArchive::has(std::string_view name) const { return byName_.count(fs::normalizeDosPath(name)) != 0; }
+bool LstArchive::has(std::string_view name) const {
+    return byName_.count(fs::normalizeDosPath(name)) != 0;
+}
 
 std::unique_ptr<MemoryReadStream> LstArchive::openMember(std::string_view name) const {
     auto it = byName_.find(fs::normalizeDosPath(name));
@@ -104,7 +108,7 @@ std::unique_ptr<MemoryReadStream> LstArchive::openMember(std::string_view name) 
     return getEntry(it->second);
 }
 
-Error LstArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
+Error LstArchive::read(std::string_view name, std::vector<uint8_t> &out) const {
     auto entry = openMember(name);
     if (!entry)
         return Error::fail(std::string(name) + " not found in " + description_);
@@ -114,12 +118,12 @@ Error LstArchive::read(std::string_view name, std::vector<uint8_t>& out) const {
 
 std::vector<std::string> LstArchive::list() const {
     std::vector<std::string> out;
-    for (const auto& entry : byName_)
+    for (const auto &entry : byName_)
         out.push_back(entry.first);
     return out;
 }
 
-std::unique_ptr<SeekableReadStream> openFile(const SearchSet& search, std::string_view name) {
+std::unique_ptr<SeekableReadStream> openFile(const SearchSet &search, std::string_view name) {
     std::vector<uint8_t> data;
     if (!search.has(name) || search.read(name, data))
         return nullptr;

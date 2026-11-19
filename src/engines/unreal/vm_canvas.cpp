@@ -30,7 +30,7 @@ constexpr uint8_t kStyleNone = 0;
 
 } // namespace
 
-const Font* ScriptLevel::fontOf(VmObject* font) {
+const Font *ScriptLevel::fontOf(VmObject *font) {
     if (!font || !font->package || font->exportIndex < 0)
         return nullptr;
     const auto key = std::make_pair(font->package, font->exportIndex);
@@ -44,9 +44,9 @@ const Font* ScriptLevel::fontOf(VmObject* font) {
     return it->second.get();
 }
 
-VmObject* ScriptLevel::canvas() {
+VmObject *ScriptLevel::canvas() {
     if (!canvas_ || canvas_->deleted) {
-        VmClass* cls = vm_.findClass("Canvas");
+        VmClass *cls = vm_.findClass("Canvas");
         canvas_ = cls ? vm_.create(cls) : nullptr;
     }
     return canvas_;
@@ -57,20 +57,20 @@ VmObject* ScriptLevel::canvas() {
 // PostRender with it (the engine draws the world between them), which
 // hand it to its HUD, then the console's PostRender. What the scripts draw
 // is in hud().
-void ScriptLevel::renderHud(const HudView& view) {
+void ScriptLevel::renderHud(const HudView &view) {
     hud_ = {};
     hudView_ = hudFrame_ = view;
     hudFrameClear_ = false;
-    VmObject* c = canvas();
+    VmObject *c = canvas();
     if (!c || !player_ || player_->deleted)
         return;
     vm_.callEvent(c, "Reset");
-    auto setFloat = [&](const char* name, float v) {
-        if (Value* p = prop(c, name))
+    auto setFloat = [&](const char *name, float v) {
+        if (Value *p = prop(c, name))
             *p = Value::floatValue(v);
     };
-    auto setInt = [&](const char* name, int v) {
-        if (Value* p = prop(c, name))
+    auto setInt = [&](const char *name, int v) {
+        if (Value *p = prop(c, name))
             *p = Value::intValue(v);
     };
     setInt("SizeX", view.width);
@@ -86,16 +86,16 @@ void ScriptLevel::renderHud(const HudView& view) {
     // Then the console's (its messages; the UWindow menus while they're
     // open), on the same canvas as the HUD left it (the engine doesn't
     // reset it in between), its frame the screen.
-    if (VmObject* con = console()) {
-        for (const auto& [name, size] : {std::pair{"FrameX", view.width}, std::pair{"FrameY", view.height}})
-            if (Value* p = prop(con, name))
+    if (VmObject *con = console()) {
+        for (const auto &[name, size] : {std::pair{"FrameX", view.width}, std::pair{"FrameY", view.height}})
+            if (Value *p = prop(con, name))
                 *p = Value::floatValue(float(size));
         hudFrame_ = view;
         vm_.callEvent(con, "PostRender", {Value::objectValue(c)});
     }
 }
 
-void ScriptLevel::trackFli(VmObject* tex) {
+void ScriptLevel::trackFli(VmObject *tex) {
     if (!tex || flis_.count(tex) || !tex->package)
         return;
     Fli f;
@@ -114,22 +114,22 @@ void ScriptLevel::trackFli(VmObject* tex) {
 // with bFinishAtEnd on its last frame. FrameNum is 1 + 30 x FrameTime,
 // whole frames: a frame shows 1/30 s at Rate 1.
 void ScriptLevel::tickFlis(float seconds) {
-    for (auto& [tex, f] : flis_) {
-        Value* mode = prop(tex, "Mode");
+    for (auto &[tex, f] : flis_) {
+        Value *mode = prop(tex, "Mode");
         if (!mode || f.frames <= 0)
             continue;
         const int m = mode->asInt();
         if (m != 1 && m != 2)
             continue;
-        Value* time = prop(tex, "FrameTime");
-        Value* frame = prop(tex, "FrameNum");
-        const Value* rate = prop(tex, "Rate");
-        const Value* lengthValue = prop(tex, "Length");
-        const Value* finish = prop(tex, "bFinishAtEnd");
+        Value *time = prop(tex, "FrameTime");
+        Value *frame = prop(tex, "FrameNum");
+        const Value *rate = prop(tex, "Rate");
+        const Value *lengthValue = prop(tex, "Length");
+        const Value *finish = prop(tex, "bFinishAtEnd");
         if (!time || !frame)
             continue;
-        const float length = lengthValue && lengthValue->asFloat() > 0 ? lengthValue->asFloat()
-                                                                       : float(f.frames) * f.frameSeconds;
+        const float length =
+            lengthValue && lengthValue->asFloat() > 0 ? lengthValue->asFloat() : float(f.frames) * f.frameSeconds;
         if (seconds >= length)
             seconds = 0;
         float t = time->asFloat() + seconds * (rate ? rate->asFloat() : 1);
@@ -158,10 +158,10 @@ struct Pen {
     std::array<uint8_t, 3> color{255, 255, 255};
     uint8_t style = kStyleNormal;
     bool center = false;
-    VmObject* font = nullptr;
+    VmObject *font = nullptr;
 };
 
-std::vector<uint32_t> codePoints(const std::string& s) {
+std::vector<uint32_t> codePoints(const std::string &s) {
     std::vector<uint32_t> out;
     for (size_t i = 0; i < s.size();)
         out.push_back(text::nextUtf8(s, i));
@@ -170,13 +170,13 @@ std::vector<uint32_t> codePoints(const std::string& s) {
 
 } // namespace
 
-void registerCanvasNatives(Vm& vm) {
-    auto reg = [&](const char* name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
-    auto pen = [](NativeCall& c) {
+void registerCanvasNatives(Vm &vm) {
+    auto reg = [&](const char *name, NativeFn fn) { vm.registerNative(name, std::move(fn)); };
+    auto pen = [](NativeCall &c) {
         Pen p;
-        VmObject* o = c.self;
-        auto f = [&](const char* name) {
-            const Value* v = o->find(c.vm, name);
+        VmObject *o = c.self;
+        auto f = [&](const char *name) {
+            const Value *v = o->find(c.vm, name);
             return v ? v->asFloat() : 0.0f;
         };
         p.orgX = f("OrgX");
@@ -188,19 +188,19 @@ void registerCanvasNatives(Vm& vm) {
         p.spaceX = f("SpaceX");
         p.spaceY = f("SpaceY");
         p.curYL = f("CurYL");
-        if (const Value* v = o->find(c.vm, "Style"))
+        if (const Value *v = o->find(c.vm, "Style"))
             p.style = uint8_t(v->asInt());
-        if (const Value* v = o->find(c.vm, "bCenter"))
+        if (const Value *v = o->find(c.vm, "bCenter"))
             p.center = v->asBool();
-        if (const Value* v = o->find(c.vm, "Font"))
+        if (const Value *v = o->find(c.vm, "Font"))
             p.font = v->asObject();
-        if (const Value* v = o->find(c.vm, "DrawColor"); v && v->fields.size() >= 3)
+        if (const Value *v = o->find(c.vm, "DrawColor"); v && v->fields.size() >= 3)
             p.color = {uint8_t(v->fields[0].asInt()), uint8_t(v->fields[1].asInt()), uint8_t(v->fields[2].asInt())};
         return p;
     };
-    auto store = [](NativeCall& c, const Pen& p) {
-        auto set = [&](const char* name, float v) {
-            if (Value* x = c.self->find(c.vm, name))
+    auto store = [](NativeCall &c, const Pen &p) {
+        auto set = [&](const char *name, float v) {
+            if (Value *x = c.self->find(c.vm, name))
                 *x = Value::floatValue(v);
         };
         set("CurX", p.curX);
@@ -211,11 +211,11 @@ void registerCanvasNatives(Vm& vm) {
     // (x, y) in the render frame (SetRenderFrame: from its corner, cut to
     // it); with `clip`, cut to the canvas's clip (from its origin) too, the
     // texture's rectangle cut with it.
-    auto tile = [](NativeCall& c, const Pen& p, VmObject* tex, float x, float y, float xl, float yl, float u, float v,
+    auto tile = [](NativeCall &c, const Pen &p, VmObject *tex, float x, float y, float xl, float yl, float u, float v,
                    float ul, float vl, bool clip, bool text) {
         if (!c.vm.level || !tex || !tex->package || p.style == kStyleNone || xl <= 0 || yl <= 0)
             return;
-        auto cut = [](float& at, float& size, float& tu, float& tul, float lo, float hi) {
+        auto cut = [](float &at, float &size, float &tu, float &tul, float lo, float hi) {
             if (at < lo) {
                 const float d = lo - at;
                 tu += tul * d / size;
@@ -236,7 +236,7 @@ void registerCanvasNatives(Vm& vm) {
             cut(x, xl, u, ul, p.orgX, right);
             cut(y, yl, v, vl, p.orgY, bottom);
         }
-        const ScriptLevel::HudView& frame = c.vm.level->hudFrame();
+        const ScriptLevel::HudView &frame = c.vm.level->hudFrame();
         if (x >= float(frame.width) || y >= float(frame.height) || x + xl <= 0 || y + yl <= 0)
             return;
         cut(x, xl, u, ul, 0, float(frame.width));
@@ -258,40 +258,40 @@ void registerCanvasNatives(Vm& vm) {
         t.seeThrough = text || p.style == kStyleMasked;
         if (c.vm.isA(tex, "FliTexture")) {
             c.vm.level->trackFli(tex);
-            const Value* n = tex->find(c.vm, "FrameNum");
+            const Value *n = tex->find(c.vm, "FrameNum");
             t.frame = std::max(1, n ? n->asInt() : 1);
         }
         c.vm.level->hud().tiles.push_back(t);
     };
     // A line of text's size in its font (each letter's width and SpaceX;
     // the tallest letter and SpaceY), times `scale`.
-    auto measure = [](NativeCall& c, const Pen& p, const std::vector<uint32_t>& text, float scale, float& w, float& h) {
+    auto measure = [](NativeCall &c, const Pen &p, const std::vector<uint32_t> &text, float scale, float &w, float &h) {
         w = h = 0;
-        const Font* font = c.vm.level ? c.vm.level->fontOf(p.font) : nullptr;
+        const Font *font = c.vm.level ? c.vm.level->fontOf(p.font) : nullptr;
         if (!font)
             return;
         for (const uint32_t ch : text)
-            if (const FontCharacter* fc = font->character(ch)) {
+            if (const FontCharacter *fc = font->character(ch)) {
                 w += (float(fc->width) + p.spaceX) * scale;
                 h = std::max(h, (float(fc->height) + p.spaceY) * scale);
             }
         if (h == 0)
-            if (const FontCharacter* fc = font->character('A'))
+            if (const FontCharacter *fc = font->character('A'))
                 h = (float(fc->height) + p.spaceY) * scale;
     };
-    auto drawLine = [=](NativeCall& c, const Pen& p, const std::vector<uint32_t>& text, float x, float y, float scale,
+    auto drawLine = [=](NativeCall &c, const Pen &p, const std::vector<uint32_t> &text, float x, float y, float scale,
                         bool clip) {
-        const Font* font = c.vm.level ? c.vm.level->fontOf(p.font) : nullptr;
+        const Font *font = c.vm.level ? c.vm.level->fontOf(p.font) : nullptr;
         if (!font)
             return;
         for (const uint32_t ch : text) {
-            const FontPage* page = nullptr;
-            const FontCharacter* fc = font->character(ch, &page);
+            const FontPage *page = nullptr;
+            const FontCharacter *fc = font->character(ch, &page);
             if (!fc)
                 continue;
             if (fc->width > 0 && fc->height > 0) {
-                const ObjectRef& ref = page->texture;
-                VmObject* tex = ref ? c.vm.objectAt(*ref.package, ref.exportIndex + 1) : nullptr;
+                const ObjectRef &ref = page->texture;
+                VmObject *tex = ref ? c.vm.objectAt(*ref.package, ref.exportIndex + 1) : nullptr;
                 tile(c, p, tex, x, y, float(fc->width) * scale, float(fc->height) * scale, float(fc->u), float(fc->v),
                      float(fc->width), float(fc->height), clip, true);
             }
@@ -300,11 +300,11 @@ void registerCanvasNatives(Vm& vm) {
     };
     // Lines as wide as fit from the pen to the clip's right, broken between
     // words (DrawText and StrLen wrap so).
-    auto wrapLines = [=](NativeCall& c, const Pen& p, const std::string& s, float scale) {
+    auto wrapLines = [=](NativeCall &c, const Pen &p, const std::string &s, float scale) {
         std::vector<std::vector<uint32_t>> lines;
         const float room = std::max(1.0f, p.clipX - p.curX);
         std::vector<uint32_t> line, word;
-        auto widthOf = [&](const std::vector<uint32_t>& t) {
+        auto widthOf = [&](const std::vector<uint32_t> &t) {
             float w = 0, h = 0;
             measure(c, p, t, scale, w, h);
             return w;
@@ -342,7 +342,7 @@ void registerCanvasNatives(Vm& vm) {
     // float Scale): at the pen, wrapped to the clip, each line starting
     // under the first (or centred in the clip with bCenter); the pen on past
     // it (CR: to the next line's start).
-    auto drawText = [=](NativeCall& c, const std::string& s, float scale, bool cr) {
+    auto drawText = [=](NativeCall &c, const std::string &s, float scale, bool cr) {
         Pen p = pen(c);
         float lineW = 0, lineH = 0;
         const auto lines = wrapLines(c, p, s, scale);
@@ -364,13 +364,13 @@ void registerCanvasNatives(Vm& vm) {
         }
         store(c, p);
     };
-    reg("Canvas.DrawText", [=](NativeCall& c) {
+    reg("Canvas.DrawText", [=](NativeCall &c) {
         drawText(c, c.vm.toString(c.args[0]), 1, c.given.size() > 1 && c.given[1] ? c.b(1) : true);
     });
-    reg("Canvas.DrawScaledText", [=](NativeCall& c) { drawText(c, c.vm.toString(c.args[0]), c.f(1), true); });
+    reg("Canvas.DrawScaledText", [=](NativeCall &c) { drawText(c, c.vm.toString(c.args[0]), c.f(1), true); });
     // DrawTextClipped(coerce string Text, optional bool bCheckHotKey): one
     // line at the pen, cut to the clip ('&' marking a menu's hot key left out).
-    reg("Canvas.DrawTextClipped", [=](NativeCall& c) {
+    reg("Canvas.DrawTextClipped", [=](NativeCall &c) {
         std::string s = c.vm.toString(c.args[0]);
         if (c.given.size() > 1 && c.given[1] && c.b(1))
             s.erase(std::remove(s.begin(), s.end(), '&'), s.end());
@@ -379,10 +379,10 @@ void registerCanvasNatives(Vm& vm) {
     });
     // StrLen(coerce string String, out float XL, out float YL): its size
     // wrapped as DrawText would; TextSize the same on one line.
-    reg("Canvas.StrLen", [=](NativeCall& c) {
+    reg("Canvas.StrLen", [=](NativeCall &c) {
         const Pen p = pen(c);
         float w = 0, h = 0;
-        for (const auto& line : wrapLines(c, p, c.vm.toString(c.args[0]), 1)) {
+        for (const auto &line : wrapLines(c, p, c.vm.toString(c.args[0]), 1)) {
             float lw = 0, lh = 0;
             measure(c, p, line, 1, lw, lh);
             w = std::max(w, lw);
@@ -391,7 +391,7 @@ void registerCanvasNatives(Vm& vm) {
         c.args[1] = Value::floatValue(w);
         c.args[2] = Value::floatValue(h);
     });
-    reg("Canvas.TextSize", [=](NativeCall& c) {
+    reg("Canvas.TextSize", [=](NativeCall &c) {
         const Pen p = pen(c);
         float w = 0, h = 0;
         measure(c, p, codePoints(c.vm.toString(c.args[0])), 1, w, h);
@@ -401,7 +401,7 @@ void registerCanvasNatives(Vm& vm) {
     // DrawTile(Texture Tex, float XL, float YL, float U, float V, float UL, float VL):
     // at the pen; the pen on by its width. DrawTileClipped cut to the clip.
     for (const bool clip : {false, true})
-        reg(clip ? "Canvas.DrawTileClipped" : "Canvas.DrawTile", [=](NativeCall& c) {
+        reg(clip ? "Canvas.DrawTileClipped" : "Canvas.DrawTile", [=](NativeCall &c) {
             Pen p = pen(c);
             tile(c, p, c.o(0), p.orgX + p.curX, p.orgY + p.curY, c.f(1), c.f(2), c.f(3), c.f(4), c.f(5), c.f(6), clip,
                  false);
@@ -416,7 +416,7 @@ void registerCanvasNatives(Vm& vm) {
     // DrawClippedActor(Actor A, bool WireFrame, int X, int Y, int XB, int YB,
     // optional bool ClearZ) the same in a rectangle X by Y at (XB, YB) (as
     // UWindow calls it: width, height, left, top), from the frame's corner.
-    auto drawActor = [](NativeCall& c, VmObject* a, bool clearZ, const ScriptLevel::HudView& view) {
+    auto drawActor = [](NativeCall &c, VmObject *a, bool clearZ, const ScriptLevel::HudView &view) {
         if (!c.vm.level || !a)
             return;
         ScriptLevel::HudActor h;
@@ -425,19 +425,19 @@ void registerCanvasNatives(Vm& vm) {
         c.vm.level->hudFrameClear() = false;
         h.view = view;
         h.afterTiles = c.vm.level->hud().tiles.size();
-        if (const Value* v = a->find(c.vm, "DrawType"))
+        if (const Value *v = a->find(c.vm, "DrawType"))
             h.drawType = v->asInt();
-        if (const Value* v = a->find(c.vm, "Style"))
+        if (const Value *v = a->find(c.vm, "Style"))
             h.style = v->asInt();
-        if (const Value* v = a->find(c.vm, "ScaleGlow"))
+        if (const Value *v = a->find(c.vm, "ScaleGlow"))
             h.scaleGlow = v->asFloat();
         c.vm.level->hud().actors.push_back(h);
     };
-    reg("Canvas.DrawActor", [=](NativeCall& c) {
+    reg("Canvas.DrawActor", [=](NativeCall &c) {
         if (c.vm.level)
             drawActor(c, c.o(0), c.b(2), c.vm.level->hudFrame());
     });
-    reg("Canvas.DrawClippedActor", [=](NativeCall& c) {
+    reg("Canvas.DrawClippedActor", [=](NativeCall &c) {
         if (!c.vm.level)
             return;
         ScriptLevel::HudView v = c.vm.level->hudFrame();
@@ -455,13 +455,13 @@ void registerCanvasNatives(Vm& vm) {
     // are placed from its corner and cut to it, and the canvas's clip
     // (ClipX, ClipY) becomes its size: the star map's blocks scroll inside
     // their window from 0, 0, scaled by the clip it saved before.
-    reg("Canvas.SetRenderFrame", [](NativeCall& c) {
+    reg("Canvas.SetRenderFrame", [](NativeCall &c) {
         if (!c.vm.level)
             return;
-        for (const auto& [name, size] : {std::pair{"ClipX", c.i(2)}, std::pair{"ClipY", c.i(3)}})
-            if (Value* v = c.self ? c.self->find(c.vm, name) : nullptr)
+        for (const auto &[name, size] : {std::pair{"ClipX", c.i(2)}, std::pair{"ClipY", c.i(3)}})
+            if (Value *v = c.self ? c.self->find(c.vm, name) : nullptr)
                 *v = Value::floatValue(float(std::max(1, size)));
-        ScriptLevel::HudView& v = c.vm.level->hudFrame();
+        ScriptLevel::HudView &v = c.vm.level->hudFrame();
         v.x = c.i(0);
         v.y = c.i(1);
         v.width = std::max(1, c.i(2));
@@ -474,8 +474,8 @@ void registerCanvasNatives(Vm& vm) {
         // sets the viewing player's FovAngle to the FOV (90 if none): the
         // HUD's ResetCanvas puts back the FovAngle SaveCanvas kept, with the
         // HUD's own place and rotation, which nothing draws in afterwards.
-        if (VmObject* p = c.vm.level->player())
-            if (Value* f = p->find(c.vm, "FovAngle"))
+        if (VmObject *p = c.vm.level->player())
+            if (Value *f = p->find(c.vm, "FovAngle"))
                 *f = Value::floatValue(c.given.size() > 6 && c.given[6] ? float(c.i(6)) : 90.f);
         c.vm.level->hudFrameClear() = c.given.size() > 7 && c.given[7] && c.b(7);
     });
@@ -483,11 +483,11 @@ void registerCanvasNatives(Vm& vm) {
     // where a place is in the frame's view, from the frame's corner as
     // tiles are placed (the tricorder puts its bracket there, as a share of
     // the clip); false behind it.
-    reg("Canvas.GetScreenCoords", [](NativeCall& c) {
+    reg("Canvas.GetScreenCoords", [](NativeCall &c) {
         c.result = Value::boolValue(false);
         if (!c.vm.level)
             return;
-        const ScriptLevel::HudView& v = c.vm.level->hudFrame();
+        const ScriptLevel::HudView &v = c.vm.level->hudFrame();
         const auto a = rotationAxes({v.rotation[0], v.rotation[1], v.rotation[2]});
         const Vec p = Vm::vectorOf(c.args[0]);
         const float d[3] = {p[0] - v.location[0], p[1] - v.location[1], p[2] - v.location[2]};
@@ -503,7 +503,7 @@ void registerCanvasNatives(Vm& vm) {
     });
     // DrawPortal: the level seen from an actor, into part of the screen.
     // No script calls it.
-    reg("Canvas.DrawPortal", [](NativeCall&) {});
+    reg("Canvas.DrawPortal", [](NativeCall &) {});
 }
 
 } // namespace reluva::unreal

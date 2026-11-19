@@ -23,7 +23,7 @@ const uint32_t kFlagAlwaysActive = 0x400000;
 // Flyers keep their height rather than standing on the floor (0x4C3AC0).
 const uint32_t kFlagFlyer = 0x1000000;
 // Sprite sequence for each animation entry (table at 0x552338).
-const int kSequenceForAnimation[LevelFile::kAnimationCount] = { 0, 2, 0, 3, 4, 5, 1 };
+const int kSequenceForAnimation[LevelFile::kAnimationCount] = {0, 2, 0, 3, 4, 5, 1};
 
 double fromFixed(int32_t v) {
     return v / kFixed;
@@ -52,7 +52,7 @@ int animationIndex(int mode) {
 } // namespace
 
 struct Actors::Actor {
-    explicit Actor(const Walker& prototype) : walker(prototype) {}
+    explicit Actor(const Walker &prototype) : walker(prototype) {}
 
     // The record from the level, with fields the scripts change.
     LevelFile::Actor data;
@@ -89,8 +89,8 @@ struct Actors::Actor {
     double across = 1.0;
 };
 
-Actors::Actors(const LevelFile& level, const Walker& prototype, const SpriteLoader& loader) : _level(level) {
-    for (const LevelFile::Actor& data : level.getActors()) {
+Actors::Actors(const LevelFile &level, const Walker &prototype, const SpriteLoader &loader) : _level(level) {
+    for (const LevelFile::Actor &data : level.getActors()) {
         std::unique_ptr<Actor> actor(new Actor(prototype));
         actor->data = data;
         actor->heading = data.heading;
@@ -99,7 +99,7 @@ Actors::Actors(const LevelFile& level, const Walker& prototype, const SpriteLoad
         actor->homeY = actor->y = fromFixed(data.y);
         // The file's z includes the draw offset (0x4BE361).
         actor->z = fromFixed(data.z) - fromFixed(data.drawOffset);
-        Walker& walker = actor->walker;
+        Walker &walker = actor->walker;
         walker.setRadius(fromFixed(data.radius));
         walker.setStepHeight(fromFixed(data.stepHeight));
         walker.setEyeHeight(fromFixed(data.bodyHeight));
@@ -122,30 +122,31 @@ Actors::Actors(const LevelFile& level, const Walker& prototype, const SpriteLoad
     }
     _obstacles.resize(_actors.size());
     for (size_t i = 0; i < _actors.size(); i++) {
-        const Actor& a = *_actors[i];
-        _obstacles[i] = { a.x, a.y, a.mode == kModeHidden ? 0 : fromFixed(a.data.radius), a.z,
-                          a.z + fromFixed(a.data.bodyHeight) };
+        const Actor &a = *_actors[i];
+        _obstacles[i] = {a.x, a.y, a.mode == kModeHidden ? 0 : fromFixed(a.data.radius), a.z,
+                         a.z + fromFixed(a.data.bodyHeight)};
     }
 }
 
-Actors::~Actors() {}
+Actors::~Actors() {
+}
 
-void Actors::sync(Serializer& s) {
+void Actors::sync(Serializer &s) {
     s.syncCount((uint32_t)_actors.size());
-    for (std::unique_ptr<Actor>& pointer : _actors) {
+    for (std::unique_ptr<Actor> &pointer : _actors) {
         if (s.err())
             return;
-        Actor& a = *pointer;
-        LevelFile::Actor& d = a.data;
-        for (int32_t* v : { &d.reach, &d.scale, &d.height, &d.radius, &d.bodyHeight, &d.outerRadius, &d.innerRadius,
-                          &d.homeRadius, &d.minWalk, &d.maxWalk, &d.stepHeight })
+        Actor &a = *pointer;
+        LevelFile::Actor &d = a.data;
+        for (int32_t *v : {&d.reach, &d.scale, &d.height, &d.radius, &d.bodyHeight, &d.outerRadius, &d.innerRadius,
+                           &d.homeRadius, &d.minWalk, &d.maxWalk, &d.stepHeight})
             s.syncAsSint32(*v);
         s.syncAsUint32(d.flags);
         s.syncAsUint16(d.minTurn);
         s.syncAsUint16(d.maxTurn);
         s.syncAsUint16(d.turnSpeed);
         s.syncAsByte(d.guardMode);
-        for (LevelFile::Animation& animation : d.animations)
+        for (LevelFile::Animation &animation : d.animations)
             s.syncAsUint16(animation.speed);
         d.light.sync(s);
         a.walker.sync(s);
@@ -188,7 +189,7 @@ void Actors::sync(Serializer& s) {
         uint16_t key = s.isSaving() ? proximity->first : 0;
         std::vector<double> radii = s.isSaving() ? proximity->second : std::vector<double>();
         s.syncAsUint16(key);
-        s.syncVector(radii, [](Serializer& ser, double& v) { ser.syncAsDouble(v); });
+        s.syncVector(radii, [](Serializer &ser, double &v) { ser.syncAsDouble(v); });
         if (s.isLoading())
             _proximity[key] = radii;
         else
@@ -204,8 +205,8 @@ void Actors::sync(Serializer& s) {
         uint16_t id = s.isSaving() ? combat->first : 0;
         CombatStats stats = s.isSaving() ? combat->second : CombatStats();
         s.syncAsUint16(id);
-        for (int32_t* v : { &stats.fullThreshold, &stats.stunThreshold, &stats.noticeThreshold, &stats.stunMax,
-                          &stats.stun, &stats.hitPointsMax, &stats.hitPoints })
+        for (int32_t *v : {&stats.fullThreshold, &stats.stunThreshold, &stats.noticeThreshold, &stats.stunMax,
+                           &stats.stun, &stats.hitPointsMax, &stats.hitPoints})
             s.syncAsSint32(*v);
         if (s.isLoading())
             _combat[id] = stats;
@@ -233,9 +234,9 @@ void Actors::sync(Serializer& s) {
     if (s.isLoading()) {
         _shots.clear();
         for (size_t i = 0; i < _actors.size(); i++) {
-            const Actor& a = *_actors[i];
-            _obstacles[i] = { a.x, a.y, a.mode == kModeHidden ? 0 : fromFixed(a.data.radius), a.z,
-                              a.z + fromFixed(a.data.bodyHeight) };
+            const Actor &a = *_actors[i];
+            _obstacles[i] = {a.x, a.y, a.mode == kModeHidden ? 0 : fromFixed(a.data.radius), a.z,
+                             a.z + fromFixed(a.data.bodyHeight)};
         }
     }
 }
@@ -273,7 +274,7 @@ uint16_t Actors::getObstacleObject(int obstacle) const {
 
 void Actors::setMode(uint16_t id, int mode, uint16_t target) {
     for (int index : findAll(id)) {
-        Actor& actor = *_actors[index];
+        Actor &actor = *_actors[index];
         // Every change restarts the animation (0x4B5090).
         actor.mode = mode;
         actor.target = target;
@@ -290,7 +291,7 @@ void Actors::goTo(uint16_t id, double x, double y, double z) {
     // 0x456F96: mode 7 towards a point; arriving is event 37 as before.
     setMode(id, kModeWalkTo);
     for (int index : findAll(id)) {
-        Actor& actor = *_actors[index];
+        Actor &actor = *_actors[index];
         actor.toPoint = true;
         actor.pointX = x;
         actor.pointY = y;
@@ -300,14 +301,14 @@ void Actors::goTo(uint16_t id, double x, double y, double z) {
 
 void Actors::setFlag(uint16_t id, uint32_t flag, bool on) {
     for (int index : findAll(id)) {
-        uint32_t& flags = _actors[index]->data.flags;
+        uint32_t &flags = _actors[index]->data.flags;
         flags = on ? flags | flag : flags & ~flag;
     }
 }
 
 int Actors::getAlertedCount() const {
     int count = 0;
-    for (const std::unique_ptr<Actor>& actor : _actors)
+    for (const std::unique_ptr<Actor> &actor : _actors)
         count += actor->near && actor->mode != kModeHidden;
     return count;
 }
@@ -333,11 +334,11 @@ void Actors::setClimbAngle(uint16_t id, int degrees) {
         _actors[index]->across = std::cos(std::abs(degrees) * kPi / 180);
 }
 
-bool Actors::getPosition(uint16_t id, double& x, double& y, double& z, uint16_t& heading) const {
+bool Actors::getPosition(uint16_t id, double &x, double &y, double &z, uint16_t &heading) const {
     std::vector<int> found = findAll(id);
     if (found.empty())
         return false;
-    const Actor& actor = *_actors[found[0]];
+    const Actor &actor = *_actors[found[0]];
     x = actor.x;
     y = actor.y;
     z = actor.z;
@@ -348,7 +349,7 @@ bool Actors::getPosition(uint16_t id, double& x, double& y, double& z, uint16_t&
 void Actors::setPosition(uint16_t id, double x, double y, double z, uint16_t heading) {
     // As 0x4B64C0: put the actor on the floor at the point.
     for (int index : findAll(id)) {
-        Actor& actor = *_actors[index];
+        Actor &actor = *_actors[index];
         actor.walker.place(x, y, z);
         actor.x = x;
         actor.y = y;
@@ -391,9 +392,9 @@ void Actors::setCombatStats(uint16_t id, const int32_t values[7]) {
     std::vector<int> parts = findAll(id);
     if (parts.empty())
         return;
-    CombatStats& stats = _combat[(uint16_t)(_actors[parts[0]]->data.objectId | kObjectType)];
-    int32_t* fields[7] = { &stats.fullThreshold, &stats.stunThreshold, &stats.noticeThreshold, &stats.stunMax,
-                         &stats.stun, &stats.hitPointsMax, &stats.hitPoints };
+    CombatStats &stats = _combat[(uint16_t)(_actors[parts[0]]->data.objectId | kObjectType)];
+    int32_t *fields[7] = {&stats.fullThreshold, &stats.stunThreshold, &stats.noticeThreshold, &stats.stunMax,
+                          &stats.stun,          &stats.hitPointsMax,  &stats.hitPoints};
     for (int i = 0; i < 7; i++) {
         if (values[i] != kKeep)
             *fields[i] = values[i];
@@ -426,7 +427,7 @@ uint16_t Actors::takeHit(uint16_t id, int damage, int power) {
     std::vector<int> parts = findAll(id);
     if (parts.empty())
         return 0;
-    CombatStats& stats = _combat[(uint16_t)(_actors[parts[0]]->data.objectId | kObjectType)];
+    CombatStats &stats = _combat[(uint16_t)(_actors[parts[0]]->data.objectId | kObjectType)];
     if (power > stats.fullThreshold) {
         stats.hitPoints -= damage;
         stats.stun -= damage;
@@ -470,18 +471,18 @@ void Actors::setAnimationRate(uint16_t id, int mode, uint8_t rate) {
         _actors[index]->data.animations[mode].rate = rate;
 }
 
-void Actors::setWander(uint16_t id, const Wander& wander) {
-    auto set16 = [](uint16_t& field, int value) {
+void Actors::setWander(uint16_t id, const Wander &wander) {
+    auto set16 = [](uint16_t &field, int value) {
         if (value != kKeep)
             field = (uint16_t)value;
     };
-    auto set32 = [](int32_t& field, uint32_t value) {
+    auto set32 = [](int32_t &field, uint32_t value) {
         if (value != kKeep32)
             field = (int32_t)value;
     };
     for (int index : findAll(id)) {
-        Actor& actor = *_actors[index];
-        LevelFile::Actor& data = actor.data;
+        Actor &actor = *_actors[index];
+        LevelFile::Actor &data = actor.data;
         if (wander.guardMode != kKeep)
             data.guardMode = (uint8_t)wander.guardMode;
         set16(actor.guardTarget, wander.guardTarget);
@@ -501,11 +502,11 @@ void Actors::setProximity(int actorClass, int targetClass, const double radii[5]
     _proximity[(uint16_t)((actorClass & 0xFF) << 8 | (targetClass & 0xFF))] = std::vector<double>(radii, radii + 5);
 }
 
-bool Actors::getGuardPosition(int mode, uint16_t target, double& x, double& y) const {
+bool Actors::getGuardPosition(int mode, uint16_t target, double &x, double &y) const {
     // Found by its number, whatever type bits come with it.
     uint16_t number = target & 0x1FFF;
     if (mode == 2) {
-        for (const LevelFile::Billboard& billboard : _level.getBillboards()) {
+        for (const LevelFile::Billboard &billboard : _level.getBillboards()) {
             if ((billboard.objectId & 0x1FFF) == number) {
                 x = fromFixed(billboard.x);
                 y = fromFixed(billboard.y);
@@ -514,7 +515,7 @@ bool Actors::getGuardPosition(int mode, uint16_t target, double& x, double& y) c
         }
         return false;
     }
-    for (const std::unique_ptr<Actor>& other : _actors) {
+    for (const std::unique_ptr<Actor> &other : _actors) {
         if ((other->data.objectId & 0x1FFF) == number) {
             x = other->x;
             y = other->y;
@@ -524,7 +525,7 @@ bool Actors::getGuardPosition(int mode, uint16_t target, double& x, double& y) c
     return false;
 }
 
-bool Actors::getTarget(const Actor& actor, const Walker& player, double& x, double& y, double& z) const {
+bool Actors::getTarget(const Actor &actor, const Walker &player, double &x, double &y, double &z) const {
     if (actor.toPoint) {
         x = actor.pointX;
         y = actor.pointY;
@@ -542,7 +543,7 @@ bool Actors::getTarget(const Actor& actor, const Walker& player, double& x, doub
     return true;
 }
 
-Actors::Shot Actors::aim(const Actor& actor, const Walker& player) const {
+Actors::Shot Actors::aim(const Actor &actor, const Walker &player) const {
     // 0x4C4460: from the muzzle, turned with the actor, at the target: the
     // player's eyes, or halfway up another actor.
     double angle = actor.heading * 2 * kPi / 65536;
@@ -567,23 +568,23 @@ Actors::Shot Actors::aim(const Actor& actor, const Walker& player) const {
     return shot;
 }
 
-void Actors::takeShots(std::vector<Shot>& shots) {
+void Actors::takeShots(std::vector<Shot> &shots) {
     shots.insert(shots.end(), _shots.begin(), _shots.end());
     _shots.clear();
 }
 
-void Actors::getTargets(std::vector<Projectiles::Target>& targets) const {
+void Actors::getTargets(std::vector<Projectiles::Target> &targets) const {
     targets.clear();
     for (size_t i = 0; i < _actors.size(); i++) {
-        const Actor& actor = *_actors[i];
+        const Actor &actor = *_actors[i];
         if (actor.mode == kModeHidden)
             continue;
-        targets.push_back({ (uint16_t)(actor.data.objectId | kObjectType), actor.x, actor.y, _obstacles[i].bottom,
-                            _obstacles[i].top, _obstacles[i].radius });
+        targets.push_back({(uint16_t)(actor.data.objectId | kObjectType), actor.x, actor.y, _obstacles[i].bottom,
+                           _obstacles[i].top, _obstacles[i].radius});
     }
 }
 
-bool Actors::turnTowards(Actor& actor, uint16_t goal, uint32_t ms) {
+bool Actors::turnTowards(Actor &actor, uint16_t goal, uint32_t ms) {
     int32_t limit = (int32_t)((uint32_t)actor.data.turnSpeed * ms / 1024);
     int16_t diff = (int16_t)(goal - actor.heading);
     if (std::abs((int)diff) <= limit) {
@@ -595,7 +596,7 @@ bool Actors::turnTowards(Actor& actor, uint16_t goal, uint32_t ms) {
     return false;
 }
 
-void Actors::moveForward(Actor& actor, double distance, uint32_t ms) {
+void Actors::moveForward(Actor &actor, double distance, uint32_t ms) {
     if (distance <= 0)
         return;
     double angle = actor.heading * 2 * kPi / 65536;
@@ -608,11 +609,11 @@ void Actors::moveForward(Actor& actor, double distance, uint32_t ms) {
     actor.walked += std::sqrt((actor.x - oldX) * (actor.x - oldX) + (actor.y - oldY) * (actor.y - oldY));
 }
 
-double Actors::runAnimation(Actor& actor, uint32_t ms, std::vector<ScriptEvent>& events) {
+double Actors::runAnimation(Actor &actor, uint32_t ms, std::vector<ScriptEvent> &events) {
     // 0x4C4230: about `rate` frames a second. The first pass plays every
     // frame, then it loops from loopStart; loopStart = frames - 1 plays
     // once and holds the last frame.
-    const LevelFile::Animation& anim = actor.data.animations[animationIndex(actor.mode)];
+    const LevelFile::Animation &anim = actor.data.animations[animationIndex(actor.mode)];
     uint32_t span = (uint32_t)(anim.frames - anim.loopStart) * 256;
     uint32_t delta = std::min<uint32_t>((uint32_t)anim.rate * 256 * ms >> 10, span - 1);
     actor.timer += delta;
@@ -621,13 +622,13 @@ double Actors::runAnimation(Actor& actor, uint32_t ms, std::vector<ScriptEvent>&
     if ((actor.timer >> 8) >= anim.frames) {
         actor.timer -= span;
         if (anim.frames > 1)
-            events.push_back({ object, kEventCycle });
+            events.push_back({object, kEventCycle});
         fire = actor.mode == kModeAttack;
     }
     // Attackers fire at the start of each cycle, which is reported like an
     // arrival (engine code 18).
     if (fire) {
-        events.push_back({ object, kEventArrived });
+        events.push_back({object, kEventArrived});
         actor.firing = true;
     }
 
@@ -635,10 +636,10 @@ double Actors::runAnimation(Actor& actor, uint32_t ms, std::vector<ScriptEvent>&
     return (double)anim.speed * delta / (256.0 * 256.0);
 }
 
-void Actors::runWander(Actor& actor, int /*index*/, double step, const Walker& player, uint32_t ms) {
+void Actors::runWander(Actor &actor, int /*index*/, double step, const Walker &player, uint32_t ms) {
     // 0x4C3C10, mode 6. The centre (0x4C4015) is home, or else what it
     // guards: an actor (1) or a billboard (2), the player if none.
-    const LevelFile::Actor& data = actor.data;
+    const LevelFile::Actor &data = actor.data;
     double cx = actor.homeX, cy = actor.homeY;
     if (data.guardMode) {
         cx = player.getX();
@@ -690,14 +691,13 @@ void Actors::runWander(Actor& actor, int /*index*/, double step, const Walker& p
     }
 }
 
-void Actors::runWalkTo(Actor& actor, double step, const Walker& player, uint32_t ms,
-                       std::vector<ScriptEvent>& events) {
+void Actors::runWalkTo(Actor &actor, double step, const Walker &player, uint32_t ms, std::vector<ScriptEvent> &events) {
     // Mode 7: straight at the target. Arrival is reported every tick while
     // within reach; the actor keeps going until a script changes its mode.
     double tx, ty, tz;
     getTarget(actor, player, tx, ty, tz);
     if (distance2D(tx - actor.x, ty - actor.y) < fromFixed(actor.data.reach))
-        events.push_back({ (uint16_t)(actor.data.objectId | kObjectType), kEventArrived });
+        events.push_back({(uint16_t)(actor.data.objectId | kObjectType), kEventArrived});
 
     uint16_t aim = headingTowards(tx - actor.x, ty - actor.y);
     if (actor.turning) {
@@ -722,15 +722,15 @@ void Actors::runWalkTo(Actor& actor, double step, const Walker& player, uint32_t
     }
 }
 
-void Actors::runProximity(Actor& actor, const Walker& player, bool frozen, std::vector<ScriptEvent>& events) {
+void Actors::runProximity(Actor &actor, const Walker &player, bool frozen, std::vector<ScriptEvent> &events) {
     auto it = _proximity.find((uint16_t)((actor.data.spriteSet & 0xFF) << 8));
     if (it == _proximity.end())
         return;
-    const std::vector<double>& r = it->second;
+    const std::vector<double> &r = it->second;
     uint16_t object = (uint16_t)(actor.data.objectId | kObjectType);
     if (frozen) {
         if (actor.near)
-            events.push_back({ object, kEventPlayerLost });
+            events.push_back({object, kEventPlayerLost});
         actor.near = false;
         return;
     }
@@ -750,25 +750,25 @@ void Actors::runProximity(Actor& actor, const Walker& player, bool frozen, std::
     };
     if (!actor.near && r[1] > 0 && d < r[1] && sees()) {
         actor.near = true;
-        events.push_back({ object, kEventPlayerNear });
+        events.push_back({object, kEventPlayerNear});
     } else if (actor.near && (d > r[2] || !sees())) {
         actor.near = false;
-        events.push_back({ object, kEventPlayerLost });
+        events.push_back({object, kEventPlayerLost});
     }
     if (!actor.inRange && r[3] > 0 && d < r[3]) {
         actor.inRange = true;
-        events.push_back({ object, kEventPlayerInRange });
+        events.push_back({object, kEventPlayerInRange});
     } else if (actor.inRange && d > r[4]) {
         actor.inRange = false;
-        events.push_back({ object, kEventPlayerOutOfRange });
+        events.push_back({object, kEventPlayerOutOfRange});
     }
 }
 
-void Actors::update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>& events) {
+void Actors::update(uint32_t ms, const Walker &player, std::vector<ScriptEvent> &events) {
     ms = std::max<uint32_t>(8, std::min<uint32_t>(ms, 1000));
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     for (size_t i = 0; i < _actors.size(); i++) {
-        Actor& actor = *_actors[i];
+        Actor &actor = *_actors[i];
         if (actor.mode == kModeHidden) {
             _obstacles[i].radius = 0;
             continue;
@@ -776,8 +776,8 @@ void Actors::update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>&
 
         // Actors whose floor is in a zone the player can't see are frozen.
         int floor = actor.walker.getFloor();
-        bool frozen = floor >= 0 && !(flats[floor].zones & player.getActiveZones()) &&
-                      !(actor.data.flags & kFlagAlwaysActive);
+        bool frozen =
+            floor >= 0 && !(flats[floor].zones & player.getActiveZones()) && !(actor.data.flags & kFlagAlwaysActive);
         runProximity(actor, player, frozen, events);
         if (frozen)
             continue;
@@ -796,7 +796,7 @@ void Actors::update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>&
             getTarget(actor, player, tx, ty, tz);
             if (turnTowards(actor, headingTowards(tx - actor.x, ty - actor.y), ms) && actor.announce &&
                 actor.mode == kModeFace) {
-                events.push_back({ object, kEventArrived });
+                events.push_back({object, kEventArrived});
                 actor.announce = false;
             }
             break;
@@ -812,7 +812,7 @@ void Actors::update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>&
         }
         actor.fresh = false;
 
-        Walker::Obstacle& o = _obstacles[i];
+        Walker::Obstacle &o = _obstacles[i];
         o.x = actor.x;
         o.y = actor.y;
         o.radius = fromFixed(actor.data.radius);
@@ -821,11 +821,11 @@ void Actors::update(uint32_t ms, const Walker& player, std::vector<ScriptEvent>&
     }
 }
 
-void Actors::getSprites(double cameraX, double cameraY, uint64_t visibleZones, std::vector<SpriteDraw>& sprites) const {
+void Actors::getSprites(double cameraX, double cameraY, uint64_t visibleZones, std::vector<SpriteDraw> &sprites) const {
     sprites.clear();
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
-    for (const std::unique_ptr<Actor>& pointer : _actors) {
-        const Actor& actor = *pointer;
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
+    for (const std::unique_ptr<Actor> &pointer : _actors) {
+        const Actor &actor = *pointer;
         if (actor.mode == kModeHidden || (actor.data.flags & LevelFile::kFlagNotDrawn))
             continue;
         int floor = actor.walker.getFloor();
@@ -838,12 +838,12 @@ void Actors::getSprites(double cameraX, double cameraY, uint64_t visibleZones, s
         // 0x4C3C10: the sequence for the mode, then the view direction from
         // the angle between the camera and the actor's heading.
         int animation = animationIndex(actor.mode);
-        const LevelFile::Animation& anim = actor.data.animations[animation];
-        const std::vector<std::vector<uint8_t>>& sequences = set->second->getSequences();
+        const LevelFile::Animation &anim = actor.data.animations[animation];
+        const std::vector<std::vector<uint8_t>> &sequences = set->second->getSequences();
         int sequence = kSequenceForAnimation[animation];
         if (sequence >= (int)sequences.size() || sequences[sequence].empty())
             continue;
-        const std::vector<uint8_t>& frames = sequences[sequence];
+        const std::vector<uint8_t> &frames = sequences[sequence];
 
         uint16_t seen = (uint16_t)(int32_t)std::lround(std::atan2(actor.x - cameraX, actor.y - cameraY) * 32768 / kPi);
         int octant = (uint16_t)(-seen - actor.heading + 0x1000) >> 13;
@@ -860,7 +860,7 @@ void Actors::getSprites(double cameraX, double cameraY, uint64_t visibleZones, s
         if (frame >= set->second->getFrameCount())
             continue;
 
-        const SpriteSet::Frame& f = set->second->getFrame(frame);
+        const SpriteSet::Frame &f = set->second->getFrame(frame);
         SpriteDraw sprite;
         sprite.x = actor.x;
         sprite.y = actor.y;

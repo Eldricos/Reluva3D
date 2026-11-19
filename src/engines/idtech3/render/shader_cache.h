@@ -38,7 +38,7 @@ public:
         float fps = 0;
         bool lightmap = false;
         gfx::DrawState state;
-        const ShaderStage* def = nullptr;
+        const ShaderStage *def = nullptr;
         gfx::TexGen texGen = gfx::TexGen::Uv;
     };
     struct Material {
@@ -50,28 +50,28 @@ public:
         // deformVertexes autosprite (1: each quad facing the camera) or
         // autosprite2 (2: each turned about its long axis to face it).
         uint8_t autosprite = 0;
-        bool portal = false;    // a mirror or portal surface
-        float portalRange = 0;  // beyond which a portal's view isn't drawn (mirrors: always is)
+        bool portal = false;   // a mirror or portal surface
+        float portalRange = 0; // beyond which a portal's view isn't drawn (mirrors: always is)
     };
 
-    ShaderCache(gfx::Renderer3D& renderer, const SearchSet& files, const ShaderLibrary& shaders);
+    ShaderCache(gfx::Renderer3D &renderer, const SearchSet &files, const ShaderLibrary &shaders);
     ~ShaderCache() { clear(); }
-    ShaderCache(const ShaderCache&) = delete;
-    ShaderCache& operator=(const ShaderCache&) = delete;
+    ShaderCache(const ShaderCache &) = delete;
+    ShaderCache &operator=(const ShaderCache &) = delete;
 
     // Frees every texture; materials handed out before are invalid.
     void clear();
 
     // The material for a shader name lit one way, made on first use.
-    int material(const std::string& name, Lighting lighting);
+    int material(const std::string &name, Lighting lighting);
     // A material from a shader definition, which must outlive the cache.
     // `sky`: a sky shader's stages, its cloud layers (other materials skip
     // sky shaders).
-    int material(const ShaderDef& def, Lighting lighting, bool sky = false);
-    const Material& get(int material) const { return materials_[size_t(material)]; }
+    int material(const ShaderDef &def, Lighting lighting, bool sky = false);
+    const Material &get(int material) const { return materials_[size_t(material)]; }
 
     // `picmip`: the texture detail setting may make it smaller.
-    gfx::TextureId image(const std::string& name, bool clamp, bool mipmaps, bool picmip = false);
+    gfx::TextureId image(const std::string &name, bool clamp, bool mipmaps, bool picmip = false);
     // The video settings for textures loaded from now on: each halved
     // `picmip` times (unless its shader says nopicmip), and how mipmapped
     // ones are filtered (r_texturemode).
@@ -80,7 +80,7 @@ public:
         bool nearest = false, mipmaps = true, mipNearest = false;
         bool anisotropic = false; // r_ext_texture_filter_anisotropic
     };
-    void setTextureOptions(const TextureOptions& options) { textureOptions_ = options; }
+    void setTextureOptions(const TextureOptions &options) { textureOptions_ = options; }
     gfx::TextureId white();
 
     // Draws every stage of `material` over the geometry `base` describes
@@ -89,30 +89,31 @@ public:
     // around the camera, behind everything.
     // `entity`: the colour rgbGen and alphaGen entity ask for (white if
     // not given).
-    void draw(int material, const gfx::DrawCall& base, gfx::TextureId lightmap, float time, bool sky = false,
-              const std::array<float, 4>* entity = nullptr) const;
+    void draw(int material, const gfx::DrawCall &base, gfx::TextureId lightmap, float time, bool sky = false,
+              const std::array<float, 4> *entity = nullptr) const;
     // A fog pass over geometry drawn with `material`.
     // `distance`: the fog's depth for opaque; `plane`: its surface (see
     // gfx::DrawCall::fogPlane).
-    void drawFog(int material, const gfx::DrawCall& base, const std::array<float, 3>& color, float distance,
-                 const std::array<float, 4>& plane, float time) const;
+    void drawFog(int material, const gfx::DrawCall &base, const std::array<float, 3> &color, float distance,
+                 const std::array<float, 4> &plane, float time) const;
 
     size_t imageCount() const { return images_.size(); }
     int missingImages() const { return missing_; }
     // Features met that aren't drawn, with how many shaders use each.
-    const std::map<std::string, int>& unsupported() const { return unsupported_; }
+    const std::map<std::string, int> &unsupported() const { return unsupported_; }
 
 private:
-    Material makeMaterial(const ShaderDef& def, Lighting lighting, bool sky);
-    Stage makeStage(const ShaderStage& def, const ShaderDef& shader);
-    void note(const std::string& feature) { ++unsupported_[feature]; }
+    Material makeMaterial(const ShaderDef &def, Lighting lighting, bool sky);
+    Stage makeStage(const ShaderStage &def, const ShaderDef &shader);
+    void note(const std::string &feature) { ++unsupported_[feature]; }
 
-    gfx::Renderer3D& r_;
-    const SearchSet& files_;
-    const ShaderLibrary& shaders_;
+    gfx::Renderer3D &r_;
+    const SearchSet &files_;
+    const ShaderLibrary &shaders_;
     std::vector<Material> materials_;
     std::map<std::pair<std::string, Lighting>, int> byName_;
-    std::deque<ShaderDef> implicit_; // the original's shaders for names without a script, and pictures' copies (stable addresses)
+    std::deque<ShaderDef>
+        implicit_; // the original's shaders for names without a script, and pictures' copies (stable addresses)
     std::unordered_map<std::string, gfx::TextureId> images_; // by normalized name and flags
     gfx::TextureId missingTexture_ = 0;
     gfx::TextureId whiteTexture_ = 0;

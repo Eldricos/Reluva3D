@@ -15,7 +15,7 @@ struct Point {
     float v[15]; // pos 3, st 2, lightmap 2, normal 3, color 4 (0-255), unused 1
 };
 
-Point toPoint(const BspVertex& b) {
+Point toPoint(const BspVertex &b) {
     Point p{};
     for (int i = 0; i < 3; ++i) {
         p.v[i] = b.pos[size_t(i)];
@@ -30,7 +30,7 @@ Point toPoint(const BspVertex& b) {
     return p;
 }
 
-BspVertex toVertex(const Point& p) {
+BspVertex toVertex(const Point &p) {
     BspVertex b;
     for (int i = 0; i < 3; ++i) {
         b.pos[size_t(i)] = p.v[i];
@@ -45,13 +45,13 @@ BspVertex toVertex(const Point& p) {
     // Blending normals shortens them.
     const float len = std::sqrt(b.normal[0] * b.normal[0] + b.normal[1] * b.normal[1] + b.normal[2] * b.normal[2]);
     if (len > 0)
-        for (float& n : b.normal)
+        for (float &n : b.normal)
             n /= len;
     return b;
 }
 
 // Quadratic Bezier: (1-t)^2 a + 2t(1-t) b + t^2 c.
-Point bezier(const Point& a, const Point& b, const Point& c, float t) {
+Point bezier(const Point &a, const Point &b, const Point &c, float t) {
     const float wa = (1 - t) * (1 - t), wb = 2 * t * (1 - t), wc = t * t;
     Point r;
     for (int i = 0; i < 15; ++i)
@@ -64,16 +64,16 @@ Point bezier(const Point& a, const Point& b, const Point& c, float t) {
 // point: the geometric normal (right-hand rule) should face away from
 // them. Decided once for the grid, from its first triangle that isn't
 // degenerate.
-void appendTriangles(uint32_t base, int cols, int rows, const std::vector<BspVertex>& vertices,
-                     std::vector<uint32_t>& indices) {
+void appendTriangles(uint32_t base, int cols, int rows, const std::vector<BspVertex> &vertices,
+                     std::vector<uint32_t> &indices) {
     auto at = [&](int r, int c) { return base + uint32_t(r * cols + c); };
     bool flip = false;
     for (int r = 0; r + 1 < rows; ++r) {
         bool decided = false;
         for (int c = 0; c + 1 < cols && !decided; ++c) {
-            const BspVertex& a = vertices[at(r, c)];
-            const BspVertex& b = vertices[at(r + 1, c)];
-            const BspVertex& d = vertices[at(r, c + 1)];
+            const BspVertex &a = vertices[at(r, c)];
+            const BspVertex &b = vertices[at(r + 1, c)];
+            const BspVertex &d = vertices[at(r, c + 1)];
             const float e1[3] = {b.pos[0] - a.pos[0], b.pos[1] - a.pos[1], b.pos[2] - a.pos[2]};
             const float e2[3] = {d.pos[0] - a.pos[0], d.pos[1] - a.pos[1], d.pos[2] - a.pos[2]};
             const float n[3] = {e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2],
@@ -99,8 +99,8 @@ void appendTriangles(uint32_t base, int cols, int rows, const std::vector<BspVer
 
 } // namespace
 
-void tessellatePatch(const BspVertex* control, int width, int height, int level, std::vector<BspVertex>& vertices,
-                     std::vector<uint32_t>& indices) {
+void tessellatePatch(const BspVertex *control, int width, int height, int level, std::vector<BspVertex> &vertices,
+                     std::vector<uint32_t> &indices) {
     if (width < 3 || height < 3 || level < 1)
         return;
     const int blocksX = (width - 1) / 2, blocksY = (height - 1) / 2;
@@ -117,7 +117,7 @@ void tessellatePatch(const BspVertex* control, int width, int height, int level,
             const float tu = float(col - bx * level) / float(level);
             Point across[3];
             for (int j = 0; j < 3; ++j) {
-                const BspVertex* r = control + (by * 2 + j) * width + bx * 2;
+                const BspVertex *r = control + (by * 2 + j) * width + bx * 2;
                 across[j] = bezier(toPoint(r[0]), toPoint(r[1]), toPoint(r[2]), tu);
             }
             vertices.push_back(toVertex(bezier(across[0], across[1], across[2], tv)));
@@ -127,8 +127,8 @@ void tessellatePatch(const BspVertex* control, int width, int height, int level,
     appendTriangles(base, cols, rows, vertices, indices);
 }
 
-float patchBend(const BspVertex* control, int width, int height) {
-    auto off = [](const std::array<float, 3>& a, const std::array<float, 3>& m, const std::array<float, 3>& b) {
+float patchBend(const BspVertex *control, int width, int height) {
+    auto off = [](const std::array<float, 3> &a, const std::array<float, 3> &m, const std::array<float, 3> &b) {
         float d2 = 0;
         for (size_t k = 0; k < 3; ++k) {
             const float d = m[k] - (a[k] + b[k]) / 2;
@@ -139,8 +139,8 @@ float patchBend(const BspVertex* control, int width, int height) {
     float bend = 0;
     for (int y = 0; y < height; ++y)
         for (int x = 0; x + 2 < width; x += 2)
-            bend = std::max(bend, off(control[y * width + x].pos, control[y * width + x + 1].pos,
-                                      control[y * width + x + 2].pos));
+            bend = std::max(
+                bend, off(control[y * width + x].pos, control[y * width + x + 1].pos, control[y * width + x + 2].pos));
     for (int x = 0; x < width; ++x)
         for (int y = 0; y + 2 < height; y += 2)
             bend = std::max(bend, off(control[y * width + x].pos, control[(y + 1) * width + x].pos,
@@ -148,7 +148,7 @@ float patchBend(const BspVertex* control, int width, int height) {
     return bend;
 }
 
-int patchLevel(const BspVertex* control, int width, int height, float error) {
+int patchLevel(const BspVertex *control, int width, int height, float error) {
     const float bend = patchBend(control, width, height);
     if (bend < 0.5f)
         return 1;
@@ -167,10 +167,10 @@ constexpr int kMaxGridPoints = 65; // each way, as the original's
 struct Mesh {
     int w = 0, h = 0;
     std::vector<Point> p;
-    Point& at(int x, int y) { return p[size_t(y * w + x)]; }
+    Point &at(int x, int y) { return p[size_t(y * w + x)]; }
 };
 
-Point halfway(const Point& a, const Point& b) {
+Point halfway(const Point &a, const Point &b) {
     Point r;
     for (int i = 0; i < 15; ++i)
         r.v[i] = 0.5f * (a.v[i] + b.v[i]);
@@ -179,7 +179,7 @@ Point halfway(const Point& a, const Point& b) {
 
 // How far `m` is from the line through `a` and `c` (from `a` itself if
 // they're the same point).
-float offLine(const Point& a, const Point& m, const Point& c) {
+float offLine(const Point &a, const Point &m, const Point &c) {
     float d[3], v[3], len2 = 0;
     for (int k = 0; k < 3; ++k) {
         d[k] = c.v[k] - a.v[k];
@@ -194,7 +194,7 @@ float offLine(const Point& a, const Point& m, const Point& c) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
-Mesh transposed(const Mesh& m) {
+Mesh transposed(const Mesh &m) {
     Mesh t;
     t.w = m.h;
     t.h = m.w;
@@ -208,7 +208,7 @@ Mesh transposed(const Mesh& m) {
 // Halves the columns of control points across the mesh as needed (see
 // subdividePatch); `straight` gets, for each column, whether it's a middle
 // one straight on every row.
-void subdivideColumns(Mesh& m, float error, std::vector<bool>& straight) {
+void subdivideColumns(Mesh &m, float error, std::vector<bool> &straight) {
     straight.assign(size_t(m.w), false);
     for (int x = 0; x + 2 < m.w;) {
         float worst = 0;
@@ -249,7 +249,7 @@ void subdivideColumns(Mesh& m, float error, std::vector<bool>& straight) {
     }
 }
 
-bool near(const std::array<float, 3>& a, const std::array<float, 3>& b, float within) {
+bool near(const std::array<float, 3> &a, const std::array<float, 3> &b, float within) {
     return std::fabs(a[0] - b[0]) <= within && std::fabs(a[1] - b[1]) <= within && std::fabs(a[2] - b[2]) <= within;
 }
 
@@ -258,7 +258,7 @@ bool near(const std::array<float, 3>& a, const std::array<float, 3>& b, float wi
 // away; across the seam of a grid that closes on itself), each two
 // neighbouring directions' cross product averaged. Turned to face the way
 // the normal there already does; kept where the shape gives none.
-void meshNormals(PatchGrid& g) {
+void meshNormals(PatchGrid &g) {
     const int w = g.width, h = g.height;
     auto pos = [&](int x, int y) { return g.points[size_t(y * w + x)].pos; };
     bool wrapX = true, wrapY = true;
@@ -287,7 +287,7 @@ void meshNormals(PatchGrid& g) {
                     const float len = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
                     if (len < 0.001f)
                         continue;
-                    for (float& c : d)
+                    for (float &c : d)
                         c /= len;
                     dir[k] = d;
                     good[k] = true;
@@ -298,7 +298,7 @@ void meshNormals(PatchGrid& g) {
                 const int k2 = (k + 1) & 7;
                 if (!good[k] || !good[k2])
                     continue;
-                const std::array<float, 3>&a = dir[k2], &b = dir[k];
+                const std::array<float, 3> &a = dir[k2], &b = dir[k];
                 std::array<float, 3> n{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
                 const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
                 if (len < 0.001f)
@@ -307,15 +307,15 @@ void meshNormals(PatchGrid& g) {
                     sum[size_t(c)] += n[size_t(c)] / len;
             }
             const float len = std::sqrt(sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]);
-            const std::array<float, 3>& old = g.points[size_t(y * w + x)].normal;
+            const std::array<float, 3> &old = g.points[size_t(y * w + x)].normal;
             if (len < 1e-6f) {
                 normals[size_t(y * w + x)] = old;
                 continue;
             }
-            for (float& c : sum)
+            for (float &c : sum)
                 c /= len;
             if (sum[0] * old[0] + sum[1] * old[1] + sum[2] * old[2] < 0)
-                for (float& c : sum)
+                for (float &c : sum)
                     c = -c;
             normals[size_t(y * w + x)] = sum;
         }
@@ -329,7 +329,7 @@ struct Edge {
     int fixed;
 };
 
-std::vector<int> edgePoints(const PatchGrid& g, Edge e) {
+std::vector<int> edgePoints(const PatchGrid &g, Edge e) {
     std::vector<int> out;
     if (e.row)
         for (int x = 0; x < g.width; ++x)
@@ -340,13 +340,13 @@ std::vector<int> edgePoints(const PatchGrid& g, Edge e) {
     return out;
 }
 
-std::array<Edge, 4> edgesOf(const PatchGrid& g) {
+std::array<Edge, 4> edgesOf(const PatchGrid &g) {
     return {Edge{true, 0}, Edge{true, g.height - 1}, Edge{false, 0}, Edge{false, g.width - 1}};
 }
 
 // Whether two of an edge's middle points are the same (an edge pulled
 // to a point, the tip of a cone): such an edge isn't matched.
-bool collapsed(const PatchGrid& g, const std::vector<int>& edge) {
+bool collapsed(const PatchGrid &g, const std::vector<int> &edge) {
     for (size_t i = 1; i + 1 < edge.size(); ++i)
         for (size_t j = i + 1; j + 1 < edge.size(); ++j)
             if (near(g.points[size_t(edge[i])].pos, g.points[size_t(edge[j])].pos, 0.1f))
@@ -354,13 +354,13 @@ bool collapsed(const PatchGrid& g, const std::vector<int>& edge) {
     return false;
 }
 
-BspVertex blend(const BspVertex& a, const BspVertex& b) {
+BspVertex blend(const BspVertex &a, const BspVertex &b) {
     return toVertex(halfway(toPoint(a), toPoint(b)));
 }
 
 // A new column at `x` (between the old x - 1 and x), halfway across every
 // row, but at `at` on row `y`.
-void insertColumn(PatchGrid& g, int x, int y, const std::array<float, 3>& at) {
+void insertColumn(PatchGrid &g, int x, int y, const std::array<float, 3> &at) {
     std::vector<BspVertex> out;
     out.reserve(size_t((g.width + 1) * g.height));
     for (int r = 0; r < g.height; ++r)
@@ -379,7 +379,7 @@ void insertColumn(PatchGrid& g, int x, int y, const std::array<float, 3>& at) {
     ++g.width;
 }
 
-void insertRow(PatchGrid& g, int y, int x, const std::array<float, 3>& at) {
+void insertRow(PatchGrid &g, int y, int x, const std::array<float, 3> &at) {
     std::vector<BspVertex> row;
     for (int c = 0; c < g.width; ++c) {
         row.push_back(blend(g.points[size_t((y - 1) * g.width + c)], g.points[size_t(y * g.width + c)]));
@@ -391,13 +391,13 @@ void insertRow(PatchGrid& g, int y, int x, const std::array<float, 3>& at) {
 }
 
 // Gives `to` one point `from`'s edges have and its own lack, if any.
-bool stitchOne(const PatchGrid& from, PatchGrid& to) {
+bool stitchOne(const PatchGrid &from, PatchGrid &to) {
     for (const Edge eTo : edgesOf(to)) {
         if (eTo.row ? to.width >= kMaxGridPoints : to.height >= kMaxGridPoints)
             continue;
         const std::vector<int> mine = edgePoints(to, eTo);
         for (size_t t = 0; t + 1 < mine.size(); ++t) {
-            const std::array<float, 3>&p = to.points[size_t(mine[t])].pos, &q = to.points[size_t(mine[t + 1])].pos;
+            const std::array<float, 3> &p = to.points[size_t(mine[t])].pos, &q = to.points[size_t(mine[t + 1])].pos;
             if (near(p, q, 0.01f))
                 continue;
             for (const Edge eFrom : edgesOf(from)) {
@@ -430,7 +430,7 @@ bool stitchOne(const PatchGrid& from, PatchGrid& to) {
 
 } // namespace
 
-PatchGrid subdividePatch(const BspVertex* control, int width, int height, float error) {
+PatchGrid subdividePatch(const BspVertex *control, int width, int height, float error) {
     PatchGrid g;
     if (width < 3 || height < 3)
         return g;
@@ -472,14 +472,14 @@ PatchGrid subdividePatch(const BspVertex* control, int width, int height, float 
     return g;
 }
 
-int stitchPatches(std::vector<PatchGrid>& grids) {
+int stitchPatches(std::vector<PatchGrid> &grids) {
     int added = 0;
     std::vector<bool> changed(grids.size(), false);
     // Only grids whose bounds touch can share an edge (points added lie on
     // the edges, so the bounds don't change).
     std::vector<std::array<float, 6>> bounds(grids.size(), {1e30f, 1e30f, 1e30f, -1e30f, -1e30f, -1e30f});
     for (size_t i = 0; i < grids.size(); ++i)
-        for (const BspVertex& v : grids[i].points)
+        for (const BspVertex &v : grids[i].points)
             for (size_t k = 0; k < 3; ++k) {
                 bounds[i][k] = std::min(bounds[i][k], v.pos[k] - 0.2f);
                 bounds[i][k + 3] = std::max(bounds[i][k + 3], v.pos[k] + 0.2f);
@@ -513,19 +513,19 @@ int stitchPatches(std::vector<PatchGrid>& grids) {
     return added;
 }
 
-std::vector<PatchGrid> buildPatchGrids(const Bsp& bsp, float error) {
+std::vector<PatchGrid> buildPatchGrids(const Bsp &bsp, float error) {
     std::vector<PatchGrid> grids(bsp.surfaces.size());
     for (size_t i = 0; i < bsp.surfaces.size(); ++i) {
-        const BspSurface& s = bsp.surfaces[i];
+        const BspSurface &s = bsp.surfaces[i];
         if (s.type != SurfaceType::Patch || s.firstVertex < 0 ||
             size_t(s.firstVertex) + size_t(std::max(s.patchWidth, 0)) * size_t(std::max(s.patchHeight, 0)) >
                 bsp.vertices.size())
             continue;
-        PatchGrid& g = grids[i];
+        PatchGrid &g = grids[i];
         g = subdividePatch(&bsp.vertices[size_t(s.firstVertex)], s.patchWidth, s.patchHeight, error);
         // The group's bounds, which the map keeps in the lightmap vectors.
-        const auto& lo = s.lightmapVecs[0];
-        const auto& hi = s.lightmapVecs[1];
+        const auto &lo = s.lightmapVecs[0];
+        const auto &hi = s.lightmapVecs[1];
         float r2 = 0;
         for (size_t k = 0; k < 3; ++k) {
             g.groupOrigin[k] = (lo[k] + hi[k]) * 0.5f;
@@ -537,7 +537,7 @@ std::vector<PatchGrid> buildPatchGrids(const Bsp& bsp, float error) {
     return grids;
 }
 
-void triangulateGrid(const PatchGrid& grid, std::vector<BspVertex>& vertices, std::vector<uint32_t>& indices) {
+void triangulateGrid(const PatchGrid &grid, std::vector<BspVertex> &vertices, std::vector<uint32_t> &indices) {
     if (grid.width < 2 || grid.height < 2)
         return;
     const auto base = uint32_t(vertices.size());

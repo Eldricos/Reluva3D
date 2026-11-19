@@ -15,11 +15,11 @@ namespace {
 // disk; jumps and the stored script size use the second.
 class Decoder {
 public:
-    Decoder(const Package& package, Reader& r, Code& code) : package_(package), r_(r), code_(code) {}
+    Decoder(const Package &package, Reader &r, Code &code) : package_(package), r_(r), code_(code) {}
 
     uint32_t at() const { return mem_; }
     bool failed() const { return !error_.empty() || !r_.ok(); }
-    const std::string& error() const { return error_; }
+    const std::string &error() const { return error_; }
 
     // One expression; its index in code_.exprs, or -1.
     int expr() {
@@ -31,7 +31,7 @@ public:
         code_.exprs.push_back({});
         code_.exprs.back().token = t;
         code_.exprs.back().offset = start;
-        auto self = [&]() -> Expr& { return code_.exprs[size_t(index)]; };
+        auto self = [&]() -> Expr & { return code_.exprs[size_t(index)]; };
         auto arg = [&] {
             const int a = expr();
             self().args.push_back(a);
@@ -173,11 +173,11 @@ public:
             break;
         }
         case RotationConst:
-            for (int32_t& v : self().rot)
+            for (int32_t &v : self().rot)
                 v = int32_t(u32());
             break;
         case VectorConst:
-            for (float& v : self().f)
+            for (float &v : self().f)
                 v = f32();
             break;
         case ByteConst:
@@ -204,7 +204,7 @@ public:
         return failed() ? -1 : index;
     }
 
-    void fail(const std::string& why) {
+    void fail(const std::string &why) {
         if (error_.empty())
             error_ = why;
     }
@@ -238,16 +238,16 @@ private:
         return n;
     }
 
-    const Package& package_;
-    Reader& r_;
-    Code& code_;
+    const Package &package_;
+    Reader &r_;
+    Code &code_;
     uint32_t mem_ = 0;
     std::string error_;
 };
 
 } // namespace
 
-Error decodeCode(const Package& package, Reader& r, uint32_t scriptSize, Code& out) {
+Error decodeCode(const Package &package, Reader &r, uint32_t scriptSize, Code &out) {
     out = {};
     out.size = scriptSize;
     if (scriptSize > 0x100000)
@@ -268,11 +268,11 @@ bool isScriptClass(std::string_view className) {
            (c.size() > 8 && c.compare(c.size() - 8, 8, "property") == 0);
 }
 
-Error readScriptObject(const Package& package, int index, ScriptObject& out) {
+Error readScriptObject(const Package &package, int index, ScriptObject &out) {
     out = {};
     if (index < 0 || size_t(index) >= package.exports().size())
         return Error::fail("no export " + std::to_string(index));
-    const Export& e = package.exports()[size_t(index)];
+    const Export &e = package.exports()[size_t(index)];
     const std::string what = package.path(index + 1);
     out.className = e.classRef == 0 ? "Class" : package.objectName(e.classRef);
     const std::string cls = fs::toLower(out.className);

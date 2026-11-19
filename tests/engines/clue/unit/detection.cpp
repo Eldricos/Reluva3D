@@ -18,17 +18,17 @@ using namespace reluva;
 
 namespace {
 
-std::string found(const std::filesystem::path& dir) {
-    const MetaEngine* clue = findEngine("clue");
+std::string found(const std::filesystem::path &dir) {
+    const MetaEngine *clue = findEngine("clue");
     if (!clue)
         return "(no engine)";
     std::string out;
-    for (const DetectedGame& g : clue->detect(dir))
+    for (const DetectedGame &g : clue->detect(dir))
         out += (out.empty() ? "" : " | ") + g.gameId + " " + g.language + " " + g.description;
     return out;
 }
 
-void testDetection(const std::filesystem::path& tmp) {
+void testDetection(const std::filesystem::path &tmp) {
     const std::vector<uint8_t> exe = {'M', 'Z'}, wav = {'R', 'I', 'F', 'F'};
     const auto us = tmp / "us", uk = tmp / "uk", cd = tmp / "cd", none = tmp / "none";
     test::writeFile(us / "Clue.exe", exe);
@@ -48,6 +48,7 @@ void testDetection(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("clue.unit.detection", {
-    {"detection", [](const std::filesystem::path& tmp) { testDetection(tmp); }},
-});
+static const reluva::test::Suite suite("clue.unit.detection",
+                                       {
+                                           {"detection", [](const std::filesystem::path &tmp) { testDetection(tmp); }},
+                                       });

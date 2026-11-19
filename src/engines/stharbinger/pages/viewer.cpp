@@ -17,7 +17,7 @@ namespace {
 
 const uint32_t kAnimFrameMillis = 66; // ~15 frames per second
 
-const char* const kHelp = "Scene viewer keys:\n"
+const char *const kHelp = "Scene viewer keys:\n"
                           "  Left/Right       previous/next background of the scene\n"
                           "  Up/Down, PgUp/PgDn  previous/next scene\n"
                           "  H                show hotspot rectangles (hover one to see its name)\n"
@@ -28,8 +28,9 @@ const char* const kHelp = "Scene viewer keys:\n"
 
 } // namespace
 
-SceneViewer::SceneViewer(Harbinger* vm)
-    : vm_(vm), system_(vm->getSystem()), resources_(vm->getResources()), scenes_(vm->getScenes()) {}
+SceneViewer::SceneViewer(Harbinger *vm)
+    : vm_(vm), system_(vm->getSystem()), resources_(vm->getResources()), scenes_(vm->getScenes()) {
+}
 
 SceneViewer::~SceneViewer() {
     if (system_->getMixer())
@@ -37,7 +38,7 @@ SceneViewer::~SceneViewer() {
 }
 
 std::string SceneViewer::listName(ListKind kind, int index) const {
-    const auto& list = scenes_[sceneIndex_].lists[kind];
+    const auto &list = scenes_[sceneIndex_].lists[kind];
     return index >= 0 && index < int(list.size()) ? list[index].name : std::string();
 }
 
@@ -76,10 +77,10 @@ void SceneViewer::enterScene(int index) {
     collectHotspots();
 
     // Start on the scene's first background, as its script normally does.
-    const Scene& scene = scenes_[sceneIndex_];
+    const Scene &scene = scenes_[sceneIndex_];
     int first = 0;
-    for (const Directive& d : scene.script) {
-        const Argument* a = d.getArg(0);
+    for (const Directive &d : scene.script) {
+        const Argument *a = d.getArg(0);
         if (d.command == kCmdBackground && a && a->type == kArgSymbol) {
             first = int(a->value);
             break;
@@ -90,7 +91,7 @@ void SceneViewer::enterScene(int index) {
 }
 
 void SceneViewer::showBackground(int index) {
-    const auto& list = scenes_[sceneIndex_].lists[kListBackgrounds];
+    const auto &list = scenes_[sceneIndex_].lists[kListBackgrounds];
     dirty_ = true;
     if (list.empty()) {
         backgroundIndex_ = 0;
@@ -128,7 +129,7 @@ void SceneViewer::showBackground(int index) {
 }
 
 void SceneViewer::startAnimation(int index) {
-    const auto& list = scenes_[sceneIndex_].lists[kListAnims];
+    const auto &list = scenes_[sceneIndex_].lists[kListAnims];
     dirty_ = true;
     if (list.empty())
         return;
@@ -144,8 +145,8 @@ void SceneViewer::startAnimation(int index) {
 }
 
 void SceneViewer::playSound(int index) {
-    const auto& list = scenes_[sceneIndex_].lists[kListSounds];
-    audio::Mixer* mixer = system_->getMixer();
+    const auto &list = scenes_[sceneIndex_].lists[kListSounds];
+    audio::Mixer *mixer = system_->getMixer();
     if (list.empty() || !mixer)
         return;
     int n = int(list.size());
@@ -166,8 +167,8 @@ void SceneViewer::collectHotspots() {
     // from variables are only known at run time and are left out.
     hotspots_.clear();
     int background = -1;
-    for (const Directive& d : scenes_[sceneIndex_].script) {
-        const Argument* a0 = d.getArg(0);
+    for (const Directive &d : scenes_[sceneIndex_].script) {
+        const Argument *a0 = d.getArg(0);
         if (d.command == kCmdBackground && a0 && a0->type == kArgSymbol) {
             background = int(a0->value);
             continue;
@@ -177,7 +178,7 @@ void SceneViewer::collectHotspots() {
         int v[4];
         bool known = true;
         for (int i = 0; i < 4; i++) {
-            const Argument* a = d.getArg(i + 1);
+            const Argument *a = d.getArg(i + 1);
             known = known && a && a->type == kArgConst;
             v[i] = a ? int(a->value) : 0;
         }
@@ -186,26 +187,42 @@ void SceneViewer::collectHotspots() {
     }
 }
 
-void SceneViewer::handleEvent(const InputEvent& event) {
+void SceneViewer::handleEvent(const InputEvent &event) {
     switch (event.type) {
-    case InputEvent::kQuit: quit_ = true; break;
+    case InputEvent::kQuit:
+        quit_ = true;
+        break;
     case InputEvent::kKeyDown: {
         bool shift = (event.mods & keymod::Shift) != 0;
         switch (event.key) {
         case key::Escape:
-        case 'q': quit_ = true; break;
-        case key::Right: showBackground(backgroundIndex_ + 1); break;
-        case key::Left: showBackground(backgroundIndex_ - 1); break;
+        case 'q':
+            quit_ = true;
+            break;
+        case key::Right:
+            showBackground(backgroundIndex_ + 1);
+            break;
+        case key::Left:
+            showBackground(backgroundIndex_ - 1);
+            break;
         case key::Down:
-        case key::PageDown: enterScene(sceneIndex_ + 1); break;
+        case key::PageDown:
+            enterScene(sceneIndex_ + 1);
+            break;
         case key::Up:
-        case key::PageUp: enterScene(sceneIndex_ - 1); break;
+        case key::PageUp:
+            enterScene(sceneIndex_ - 1);
+            break;
         case 'h':
             showHotspots_ = !showHotspots_;
             dirty_ = true;
             break;
-        case 'a': startAnimation(animIndex_ < 0 ? 0 : animIndex_ + (shift ? -1 : 1)); break;
-        case 's': playSound(soundIndex_ < 0 ? 0 : soundIndex_ + (shift ? -1 : 1)); break;
+        case 'a':
+            startAnimation(animIndex_ < 0 ? 0 : animIndex_ + (shift ? -1 : 1));
+            break;
+        case 's':
+            playSound(soundIndex_ < 0 ? 0 : soundIndex_ + (shift ? -1 : 1));
+            break;
         case key::Space:
             animIndex_ = -1;
             anim_ = RleAnimation();
@@ -214,7 +231,8 @@ void SceneViewer::handleEvent(const InputEvent& event) {
             dirty_ = true;
             updateCaption();
             break;
-        default: break;
+        default:
+            break;
         }
         break;
     }
@@ -222,7 +240,7 @@ void SceneViewer::handleEvent(const InputEvent& event) {
         int hover = -1;
         if (showHotspots_) {
             for (size_t i = 0; i < hotspots_.size(); i++) {
-                const Hotspot& h = hotspots_[i];
+                const Hotspot &h = hotspots_[i];
                 if ((h.background == backgroundIndex_ || h.background < 0) && event.mouse.x >= h.x &&
                     event.mouse.x < h.x + h.w && event.mouse.y >= h.y && event.mouse.y < h.y + h.h)
                     hover = int(i);
@@ -234,7 +252,8 @@ void SceneViewer::handleEvent(const InputEvent& event) {
         }
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -259,7 +278,7 @@ void SceneViewer::drawScreen() {
         uint8_t color = uint8_t(palette_.findBestColor(0, 255, 0));
         uint8_t hoverColor = uint8_t(palette_.findBestColor(255, 255, 0));
         for (size_t i = 0; i < hotspots_.size(); i++) {
-            const Hotspot& h = hotspots_[i];
+            const Hotspot &h = hotspots_[i];
             if (h.background == backgroundIndex_ || h.background < 0)
                 draw::frameRect(screen_, h.x, h.y, h.w, h.h, int(i) == hoverHotspot_ ? hoverColor : color);
         }
@@ -269,7 +288,7 @@ void SceneViewer::drawScreen() {
 }
 
 void SceneViewer::updateCaption() {
-    const Scene& scene = scenes_[sceneIndex_];
+    const Scene &scene = scenes_[sceneIndex_];
     int numBackgrounds = int(scene.lists[kListBackgrounds].size());
     std::string caption =
         text::format("%s [%d/%d] | background %s (%d/%d)%s", scene.name.c_str(), sceneIndex_ + 1, int(scenes_.size()),

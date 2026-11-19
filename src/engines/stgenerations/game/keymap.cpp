@@ -12,15 +12,13 @@
 namespace reluva::stgenerations {
 
 const uint8_t KeyMap::kAwayPanel[kAwayActions] = {
-    kAwayAttack, kAwayForward, kAwayLeft, kAwayRight, kAwayBackward, kAwaySlideLeft, kAwaySlideRight,
-    kAwayJump, kAwayCrouch, kAwayRun, kAwayLookUp, kAwayLookDown, kAwayLookCenter, kAwayMouseLook
-};
+    kAwayAttack, kAwayForward, kAwayLeft, kAwayRight,  kAwayBackward, kAwaySlideLeft,  kAwaySlideRight,
+    kAwayJump,   kAwayCrouch,  kAwayRun,  kAwayLookUp, kAwayLookDown, kAwayLookCenter, kAwayMouseLook};
 
 const uint8_t KeyMap::kStarshipPanel[kStarshipActions] = {
-    kShipPhasers, kShipPhotons, kShipFaster, kShipSlower, kShipLeft, kShipRight, kShipRollLeft, kShipRollRight,
-    kShipClimb, kShipDive, kShipHelm + 0, kShipHelm + 1, kShipHelm + 2, kShipHelm + 3, kShipHelm + 4,
-    kShipHelm + 5, kShipHelm + 6
-};
+    kShipPhasers,  kShipPhotons,   kShipFaster,   kShipSlower,   kShipLeft,     kShipRight,
+    kShipRollLeft, kShipRollRight, kShipClimb,    kShipDive,     kShipHelm + 0, kShipHelm + 1,
+    kShipHelm + 2, kShipHelm + 3,  kShipHelm + 4, kShipHelm + 5, kShipHelm + 6};
 
 void KeyMap::clear() {
     memset(_map, kNone, sizeof(_map));
@@ -70,10 +68,10 @@ KeyMap KeyMap::starshipDefaults() {
     return m;
 }
 
-void KeyMap::findKeys(uint8_t action, int& first, int& second) const {
+void KeyMap::findKeys(uint8_t action, int &first, int &second) const {
     // 0x485CF0 keeps the first key found in the low uint8_t until a second
     // shifts it up; the panel shows the low uint8_t first.
-    int found[2] = { -1, -1 };
+    int found[2] = {-1, -1};
     int count = 0;
     for (int vk = 0; vk < kKeys && count < 2; vk++) {
         if (_map[vk] == action)
@@ -95,16 +93,16 @@ std::string KeyMap::toString() const {
     return out;
 }
 
-bool KeyMap::fromString(const std::string& input) {
+bool KeyMap::fromString(const std::string &input) {
     KeyMap m;
-    for (const std::string& pair : text::split(input, ',')) {
+    for (const std::string &pair : text::split(input, ',')) {
         std::string item = text::trim(pair);
         if (item.empty())
             continue;
         size_t colon = item.find(':');
         if (colon == std::string::npos)
             return false;
-        char* end;
+        char *end;
         long vk = strtol(item.c_str(), &end, 16);
         if (end != item.c_str() + colon || vk < 0 || vk >= kKeys)
             return false;
@@ -117,7 +115,7 @@ bool KeyMap::fromString(const std::string& input) {
     return true;
 }
 
-bool KeyMap::operator==(const KeyMap& o) const {
+bool KeyMap::operator==(const KeyMap &o) const {
     return memcmp(_map, o._map, sizeof(_map)) == 0;
 }
 

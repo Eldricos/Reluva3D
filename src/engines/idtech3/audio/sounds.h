@@ -20,7 +20,7 @@ namespace reluva::idtech3 {
 // rather than tried again.
 class SoundLibrary {
 public:
-    explicit SoundLibrary(const SearchSet& files) : files_(files) {}
+    explicit SoundLibrary(const SearchSet &files) : files_(files) {}
 
     // The sound, or nullptr (missing or undecodable).
     std::shared_ptr<const audio::Sound> get(std::string_view name);
@@ -30,10 +30,10 @@ public:
 
     size_t loaded() const { return sounds_.size(); }
     // Names that failed, with why.
-    const std::vector<std::string>& problems() const { return problems_; }
+    const std::vector<std::string> &problems() const { return problems_; }
 
 private:
-    const SearchSet& files_;
+    const SearchSet &files_;
     std::unordered_map<std::string, std::shared_ptr<const audio::Sound>> sounds_; // by normalized name
     std::vector<std::string> problems_;
 };

@@ -25,11 +25,11 @@ constexpr float kBackdropFace = 1500;
 
 } // namespace
 
-std::string starSystemName(const StringTable& table, const std::vector<std::string>& systems) {
+std::string starSystemName(const StringTable &table, const std::vector<std::string> &systems) {
     std::map<std::string, int> counts;
-    for (const StringTable::String& s : table.strings()) {
+    for (const StringTable::String &s : table.strings()) {
         const std::string text = lettersOnly(s.text);
-        for (const std::string& name : systems) {
+        for (const std::string &name : systems) {
             const std::string want = lettersOnly(name);
             for (size_t at = text.find(want); !want.empty() && at != std::string::npos; at = text.find(want, at + 1))
                 ++counts[name];
@@ -37,13 +37,13 @@ std::string starSystemName(const StringTable& table, const std::vector<std::stri
     }
     std::string best;
     int most = 0;
-    for (const std::string& name : systems) // ties: the first listed
+    for (const std::string &name : systems) // ties: the first listed
         if (counts[name] > most)
             best = name, most = counts[name];
     return best;
 }
 
-StarSystemLayout readStarSystem(const GeoModel& model) {
+StarSystemLayout readStarSystem(const GeoModel &model) {
     StarSystemLayout out;
     out.faceSlot.assign(model.faces.size(), -1);
     out.faceBody.assign(model.faces.size(), -1);
@@ -55,12 +55,12 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
     };
     std::vector<Info> info(model.faces.size());
     for (size_t i = 0; i < model.faces.size(); ++i) {
-        const GeoModel::Face& f = model.faces[i];
+        const GeoModel::Face &f = model.faces[i];
         if (f.corners.empty() || f.part >= model.parts.size())
             continue;
-        const auto& verts = model.parts[f.part].vertices;
+        const auto &verts = model.parts[f.part].vertices;
         float lo[3] = {1e30f, 1e30f, 1e30f}, hi[3] = {-1e30f, -1e30f, -1e30f}, sum[3] = {0, 0, 0};
-        for (const GeoModel::Corner& c : f.corners) {
+        for (const GeoModel::Corner &c : f.corners) {
             if (c.vertex >= verts.size())
                 continue;
             const float p[3] = {verts[c.vertex].x, verts[c.vertex].y, verts[c.vertex].z};
@@ -83,7 +83,7 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
     out.backdropSlots.erase(std::unique(out.backdropSlots.begin(), out.backdropSlots.end()), out.backdropSlots.end());
     for (size_t i = 0; i < info.size(); ++i)
         if (info[i].size >= kBackdropFace)
-            out.faceSlot[i] = info[i].slot != 0 ? info[i].slot
+            out.faceSlot[i] = info[i].slot != 0           ? info[i].slot
                               : out.backdropSlots.empty() ? -1
                                                           : out.backdropSlots.front();
     // The rest in bodies: faces near each other.
@@ -97,9 +97,9 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
     for (size_t i = 0; i < info.size(); ++i) {
         if (info[i].size >= kBackdropFace || model.faces[i].corners.empty())
             continue;
-        const GeoModel::Vec3& c = info[i].centre;
-        Cluster* home = nullptr;
-        for (Cluster& k : clusters)
+        const GeoModel::Vec3 &c = info[i].centre;
+        Cluster *home = nullptr;
+        for (Cluster &k : clusters)
             if (std::hypot(c.x - k.centre.x, c.y - k.centre.y, c.z - k.centre.z) < k.size + 400) {
                 home = &k;
                 break;
@@ -113,7 +113,7 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
         home->faces.push_back(i);
         info[i].cluster = int(home - clusters.data());
     }
-    for (const Cluster& k : clusters) {
+    for (const Cluster &k : clusters) {
         StarSystemLayout::Body b;
         // Its middle: the middle of all its faces.
         GeoModel::Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
@@ -124,7 +124,7 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
         b.centre = {(lo.x + hi.x) / 2, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2};
         b.size = k.size;
         int most = 0;
-        for (const auto& [slot, n] : k.slots) {
+        for (const auto &[slot, n] : k.slots) {
             if (slot == 0)
                 continue;
             if (n == 1)
@@ -147,7 +147,8 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
             for (const size_t j : k.faces) {
                 if (info[j].slot == 0)
                     continue;
-                const float err = std::fabs(info[j].centre.z - info[i].centre.z) + std::fabs(info[j].size - info[i].size);
+                const float err =
+                    std::fabs(info[j].centre.z - info[i].centre.z) + std::fabs(info[j].size - info[i].size);
                 if (err < bestErr)
                     bestErr = err, out.faceSlot[i] = info[j].slot;
             }
@@ -157,7 +158,7 @@ StarSystemLayout readStarSystem(const GeoModel& model) {
     return out;
 }
 
-std::vector<std::string> starSystemTextures(const StarSystemLayout& layout, std::string_view planetWorld,
+std::vector<std::string> starSystemTextures(const StarSystemLayout &layout, std::string_view planetWorld,
                                             std::string_view system) {
     int slots = 0;
     for (const int s : layout.faceSlot)
@@ -169,30 +170,30 @@ std::vector<std::string> starSystemTextures(const StarSystemLayout& layout, std:
     if (!out.empty())
         out[0] = system == "bezouk" || system == "sakuntul" ? "sun3" : "sun"; // yellow, but red in R1, R12, R14
     // Planets in texture-number order: the mission's world first.
-    std::vector<const StarSystemLayout::Body*> planets;
-    for (const StarSystemLayout::Body& b : layout.bodies)
+    std::vector<const StarSystemLayout::Body *> planets;
+    for (const StarSystemLayout::Body &b : layout.bodies)
         if (!b.star && size_t(b.slot) < out.size())
             planets.push_back(&b);
-    std::sort(planets.begin(), planets.end(), [](const auto* a, const auto* b) { return a->slot < b->slot; });
-    static constexpr std::pair<const char*, const char*> kRinged[] = {
+    std::sort(planets.begin(), planets.end(), [](const auto *a, const auto *b) { return a->slot < b->slot; });
+    static constexpr std::pair<const char *, const char *> kRinged[] = {
         {"red", "red_r"}, {"alien3", "alien3_r"}, {"alien7", "alien7_r"}};
     // Durac's recording shows red and magenta planets beside its own.
-    static constexpr const char* kOthers[] = {"red",    "alien2",  "desert", "alien4", "alien6", "volcanic", "alpine2",
-                                              "alien1", "alien5",  "volcani1", "alpine", "ice",  "alien3",   "alien7"};
+    static constexpr const char *kOthers[] = {"red",    "alien2", "desert",   "alien4", "alien6", "volcanic", "alpine2",
+                                              "alien1", "alien5", "volcani1", "alpine", "ice",    "alien3",   "alien7"};
     auto used = [&](std::string_view name) { return std::find(out.begin(), out.end(), name) != out.end(); };
     size_t ringed = 0;
-    for (const auto* p : planets) {
-        std::string& tex = out[size_t(p->slot)];
+    for (const auto *p : planets) {
+        std::string &tex = out[size_t(p->slot)];
         if (!tex.empty())
             continue; // several bodies share a number
         if (p->ringSlot >= 0 && size_t(p->ringSlot) < out.size()) {
-            const auto& [planet, ring] = kRinged[ringed++ % std::size(kRinged)];
+            const auto &[planet, ring] = kRinged[ringed++ % std::size(kRinged)];
             tex = planet;
             out[size_t(p->ringSlot)] = ring;
         } else if (p == planets.front() && !planetWorld.empty()) {
             tex = std::string(planetWorld);
         } else {
-            for (const char* name : kOthers)
+            for (const char *name : kOthers)
                 if (!used(name)) {
                     tex = name;
                     break;
@@ -203,22 +204,22 @@ std::vector<std::string> starSystemTextures(const StarSystemLayout& layout, std:
 }
 
 std::string planetPicture(std::string_view archiveName) {
-    static constexpr std::pair<const char*, const char*> kWorlds[] = {
-        {"icewrld", "ice"}, {"deswrld", "desert"}, {"alpwrld", "alpine"},
-        {"redwrld", "red"}, {"vlcwrld", "volcanic"}, {"alnwrld", "alien4"}};
+    static constexpr std::pair<const char *, const char *> kWorlds[] = {{"icewrld", "ice"},      {"deswrld", "desert"},
+                                                                        {"alpwrld", "alpine"},   {"redwrld", "red"},
+                                                                        {"vlcwrld", "volcanic"}, {"alnwrld", "alien4"}};
     std::string lower;
     for (const char c : archiveName)
         lower += char(std::tolower(static_cast<unsigned char>(c)));
-    for (const auto& [world, picture] : kWorlds)
+    for (const auto &[world, picture] : kWorlds)
         if (lower.find(world) != std::string::npos)
             return picture;
     return {};
 }
 
-int missionBody(const StarSystemLayout& layout) {
+int missionBody(const StarSystemLayout &layout) {
     int best = -1, star = -1;
     for (size_t i = 0; i < layout.bodies.size(); ++i) {
-        const auto& b = layout.bodies[i];
+        const auto &b = layout.bodies[i];
         if (b.star)
             star = star < 0 ? int(i) : star;
         else if (best < 0 || b.slot < layout.bodies[size_t(best)].slot)

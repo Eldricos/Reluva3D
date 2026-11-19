@@ -19,20 +19,20 @@ namespace reluva::stgenerations {
 // holds the keys of both.
 class IniFile {
 public:
-    void load(const std::string& text);
+    void load(const std::string &text);
 
-    bool hasSection(const std::string& section) const;
-    bool has(const std::string& section, const std::string& key) const;
-    std::string get(const std::string& section, const std::string& key,
-                       const std::string& fallback = std::string()) const;
-    int getInt(const std::string& section, const std::string& key, int fallback = 0) const;
-    double getDouble(const std::string& section, const std::string& key, double fallback = 0) const;
+    bool hasSection(const std::string &section) const;
+    bool has(const std::string &section, const std::string &key) const;
+    std::string get(const std::string &section, const std::string &key,
+                    const std::string &fallback = std::string()) const;
+    int getInt(const std::string &section, const std::string &key, int fallback = 0) const;
+    double getDouble(const std::string &section, const std::string &key, double fallback = 0) const;
     // TRUE/FALSE (or a number); fallback when missing.
-    bool getBool(const std::string& section, const std::string& key, bool fallback = false) const;
-    void set(const std::string& section, const std::string& key, const std::string& value);
+    bool getBool(const std::string &section, const std::string &key, bool fallback = false) const;
+    void set(const std::string &section, const std::string &key, const std::string &value);
 
     // Changes made with set(), which saved games keep.
-    void syncChanges(Serializer& s);
+    void syncChanges(Serializer &s);
 
 private:
     typedef std::map<std::string, std::string> Section;
@@ -41,4 +41,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

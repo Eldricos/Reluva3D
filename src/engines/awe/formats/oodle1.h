@@ -16,11 +16,11 @@ namespace reluva::awe {
 
 // Decompresses one section. The data is in three parts, ending at `stop0`,
 // `stop1` and out.size(); `out` is already sized to the section's size.
-Error oodle1Decompress(const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1, std::vector<uint8_t>& out);
+Error oodle1Decompress(const std::vector<uint8_t> &in, uint32_t stop0, uint32_t stop1, std::vector<uint8_t> &out);
 
 // Decompresses a section in any format the game's files use (0 none,
 // 2 Oodle1): a Gr2Decompressor.
-Error gr2Decompress(uint32_t format, const std::vector<uint8_t>& in, uint32_t stop0, uint32_t stop1,
-                    std::vector<uint8_t>& out);
+Error gr2Decompress(uint32_t format, const std::vector<uint8_t> &in, uint32_t stop0, uint32_t stop1,
+                    std::vector<uint8_t> &out);
 
 } // namespace reluva::awe

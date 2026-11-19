@@ -15,7 +15,7 @@ namespace {
 
 Model testSkeleton() {
     Model m;
-    const char* names[] = {"Bip01", "Bip01 Spine", "Bip01 Head", "Jaw_Bones_Master"};
+    const char *names[] = {"Bip01", "Bip01 Spine", "Bip01 Head", "Jaw_Bones_Master"};
     for (int i = 0; i < 4; i++) {
         Bone b;
         b.name = names[i];
@@ -33,7 +33,7 @@ std::shared_ptr<Animation> testTurn(float degrees, float seconds, std::map<std::
     a->duration = seconds;
     a->mask = std::move(mask);
     const float h = degrees / 57.29578f / 2;
-    for (const char* bone : {"Bip01", "Bip01 Spine", "Bip01 Head", "Jaw_Bones_Master"}) {
+    for (const char *bone : {"Bip01", "Bip01 Spine", "Bip01 Head", "Jaw_Bones_Master"}) {
         AnimationTrack t;
         t.bone = bone;
         t.orientation.knots = {0};
@@ -44,8 +44,8 @@ std::shared_ptr<Animation> testTurn(float degrees, float seconds, std::map<std::
 }
 
 // A bone's turn about Z in its parent's axes, in degrees.
-float boneTurn(const Pose& p, size_t bone) {
-    const Mat4& w = p.world[bone];
+float boneTurn(const Pose &p, size_t bone) {
+    const Mat4 &w = p.world[bone];
     float parent = 0;
     if (bone > 0)
         parent = std::atan2(p.world[bone - 1][1], p.world[bone - 1][0]);
@@ -61,12 +61,12 @@ void testAnimator() {
     auto gesture = testTurn(50, 1, {{"Bip01 Spine", 0.99f}});
     CHECK(an.play("idle1", idle, Animator::Body, true, 0, 0));
     CHECK(an.play("agree", gesture, Animator::Body, false, 1, 0.25f));
-    const Animator::Slot* g = an.find("agree");
+    const Animator::Slot *g = an.find("agree");
     CHECK(g && std::abs(g->mask[1] - 0.99f) < 1e-6f && std::abs(g->mask[2] - 0.99f) < 1e-6f && g->mask[3] == 0);
     CHECK(std::abs(an.find("idle1")->mask[3] - 0.01f) < 1e-6f);
     std::vector<std::string> ended, finished;
-    an.onEnding = [&](const Animator::Slot& s) { ended.push_back(s.name); };
-    an.onFinished = [&](const Animator::Slot& s) { finished.push_back(s.name); };
+    an.onEnding = [&](const Animator::Slot &s) { ended.push_back(s.name); };
+    an.onFinished = [&](const Animator::Slot &s) { finished.push_back(s.name); };
     an.update(0.5f);
     Pose p;
     an.pose(p);
@@ -87,11 +87,11 @@ void testAnimator() {
     // is told as done ("anim standup" waits on it).
     Animator standing(m);
     std::vector<std::string> done;
-    standing.onEnding = [&](const Animator::Slot& s) {
+    standing.onEnding = [&](const Animator::Slot &s) {
         if (s.base)
             standing.play("idle1", idle, Animator::Body, true, 0, 0);
     };
-    standing.onFinished = [&](const Animator::Slot& s) { done.push_back(s.name); };
+    standing.onFinished = [&](const Animator::Slot &s) { done.push_back(s.name); };
     CHECK(standing.play("standup", testTurn(0, 1, {{"Bip01", 0.01f}}), Animator::Body, true, 1, 0.3f));
     standing.update(0.8f);
     CHECK(standing.find("idle1") && done.empty());
@@ -145,7 +145,7 @@ void testActor() {
         {"headright", testTurn(-90, 1, {{"Bip01 Head", 0.99f}})},
     };
     std::vector<std::string> asked;
-    auto loader = [&](const std::string& n) -> std::shared_ptr<const Animation> {
+    auto loader = [&](const std::string &n) -> std::shared_ptr<const Animation> {
         asked.push_back(n);
         const auto it = files.find(n);
         return it == files.end() ? nullptr : it->second;
@@ -170,7 +170,7 @@ void testActor() {
     modl.fields.push_back({"condition", when});
     npc.parts.push_back(modl);
     bool seated = false;
-    Actor a(m, &npc, loader, [&](const std::string& c) { return c.empty() || (c == "seated" && seated); });
+    Actor a(m, &npc, loader, [&](const std::string &c) { return c.empty() || (c == "seated" && seated); });
     CHECK(a.play("worried01", 1, 0) == "worried1");
     CHECK(a.play("idle1", 0, 0) == "idle1");
     seated = true;
@@ -183,7 +183,7 @@ void testActor() {
     CHECK(std::abs(a.animator().slots().back().mask[0] - 0.99f) < 1e-6f);
     // anim: what it plays as, and its end.
     std::vector<std::string> done;
-    a.onAnimDone = [&](const std::string& n) { done.push_back(n); };
+    a.onAnimDone = [&](const std::string &n) { done.push_back(n); };
     CHECK(a.anim("nothing", 0, 1, 0).empty() && a.anim("worried01", 0, 1, 0) == "worried1");
     float heading = 0;
     for (int i = 0; i < 20; i++)
@@ -191,7 +191,7 @@ void testActor() {
     CHECK(done.size() == 1 && done[0] == "worried1");
     // The head: the shorter way, a degree in 90 of weight; nothing within 2.
     a.turnHead(30, 0, 0);
-    const Animator::Slot* h = a.animator().find("headleft");
+    const Animator::Slot *h = a.animator().find("headleft");
     CHECK(h && std::abs(h->mask[2] - 30.0f / 90) < 1e-4f);
     a.turnHead(300, 0, 0);
     CHECK(a.animator().find("headright") && !a.animator().find("headleft"));
@@ -212,7 +212,8 @@ void testActor() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.characters", {
-    {"animator", [](const std::filesystem::path&) { testAnimator(); }},
-    {"actor", [](const std::filesystem::path&) { testActor(); }},
-});
+static const reluva::test::Suite suite("awe.unit.characters",
+                                       {
+                                           {"animator", [](const std::filesystem::path &) { testAnimator(); }},
+                                           {"actor", [](const std::filesystem::path &) { testActor(); }},
+                                       });

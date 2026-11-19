@@ -30,8 +30,8 @@ namespace {
 //   Ap           far address (selector:offset)
 //   al ax eAX cl dx 1 es cs ss ds fs gs: themselves
 struct Opcode {
-    const char* name;
-    const char* operands;
+    const char *name;
+    const char *operands;
 };
 
 constexpr Opcode kNone{nullptr, ""};
@@ -360,10 +360,10 @@ const Group kGroups[] = {
 };
 
 // The 0x0F map.
-const Opcode* twoByte(uint8_t op) {
+const Opcode *twoByte(uint8_t op) {
     static const std::array<Opcode, 256> table = [] {
         std::array<Opcode, 256> t{};
-        auto set = [&](int o, const char* n, const char* ops) { t[size_t(o)] = {n, ops}; };
+        auto set = [&](int o, const char *n, const char *ops) { t[size_t(o)] = {n, ops}; };
         set(0x00, "", "Ew"); // group 6
         set(0x01, "", "M");  // group 7
         set(0x02, "lar", "Gv,Ew");
@@ -380,7 +380,7 @@ const Opcode* twoByte(uint8_t op) {
         set(0x31, "rdtsc", "");
         set(0x32, "rdmsr", "");
         set(0x33, "rdpmc", "");
-        static const char* const cc[16] = {"o", "no", "b", "ae", "e", "ne", "be", "a",
+        static const char *const cc[16] = {"o", "no", "b", "ae", "e", "ne", "be", "a",
                                            "s", "ns", "p", "np", "l", "ge", "le", "g"};
         static std::string names[3][16];
         for (int i = 0; i < 16; ++i) {
@@ -439,10 +439,10 @@ const Opcode kGroup7[8] = {{"sgdt", nullptr}, {"sidt", nullptr},  {"lgdt", nullp
                            {"lmsw", "Ew"},    {"invlpg", nullptr}};
 const Opcode kGroup8[8] = {{}, {}, {}, {}, {"bt", nullptr}, {"bts", nullptr}, {"btr", nullptr}, {"btc", nullptr}};
 
-const char* const kReg8[8] = {"al", "cl", "dl", "bl", "ah", "ch", "dh", "bh"};
-const char* const kReg16[8] = {"ax", "cx", "dx", "bx", "sp", "bp", "si", "di"};
-const char* const kReg32[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
-const char* const kSeg[8] = {"es", "cs", "ss", "ds", "fs", "gs", "", ""};
+const char *const kReg8[8] = {"al", "cl", "dl", "bl", "ah", "ch", "dh", "bh"};
+const char *const kReg16[8] = {"ax", "cx", "dx", "bx", "sp", "bp", "si", "di"};
+const char *const kReg32[8] = {"eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"};
+const char *const kSeg[8] = {"es", "cs", "ss", "ds", "fs", "gs", "", ""};
 
 // Numbers as capstone writes them: up to 9 in decimal, else hex.
 std::string number(int64_t v) {
@@ -462,22 +462,29 @@ std::string hexAddress(uint32_t v) {
     return buf;
 }
 
-const char* sizeName(int bytes) {
+const char *sizeName(int bytes) {
     switch (bytes) {
-    case 1: return "byte ptr ";
-    case 2: return "word ptr ";
-    case 4: return "dword ptr ";
-    case 6: return "fword ptr ";
-    case 8: return "qword ptr ";
-    case 10: return "xword ptr ";
-    default: return "";
+    case 1:
+        return "byte ptr ";
+    case 2:
+        return "word ptr ";
+    case 4:
+        return "dword ptr ";
+    case 6:
+        return "fword ptr ";
+    case 8:
+        return "qword ptr ";
+    case 10:
+        return "xword ptr ";
+    default:
+        return "";
     }
 }
 
 // Reads the instruction's bytes, failing once they run out.
 class Reader {
 public:
-    Reader(const uint8_t* code, size_t size) : code_(code), size_(size) {}
+    Reader(const uint8_t *code, size_t size) : code_(code), size_(size) {}
     bool ok() const { return ok_; }
     size_t pos() const { return pos_; }
     uint8_t peek() {
@@ -500,14 +507,14 @@ public:
     }
 
 private:
-    const uint8_t* code_;
+    const uint8_t *code_;
     size_t size_;
     size_t pos_ = 0;
     bool ok_ = true;
 };
 
 struct Decoder {
-    Decoder(const uint8_t* code, size_t size, uint32_t at) : in(code, size), address(at) {}
+    Decoder(const uint8_t *code, size_t size, uint32_t at) : in(code, size), address(at) {}
 
     Reader in;
     uint32_t address;
@@ -534,7 +541,7 @@ struct Decoder {
     // The ModRM memory operand, `bytes` wide (0: no size, as for lea).
     std::string memory(int bytes) {
         std::string inside;
-        auto add = [&](const std::string& part) {
+        auto add = [&](const std::string &part) {
             if (!inside.empty())
                 inside += " + ";
             inside += part;
@@ -542,7 +549,7 @@ struct Decoder {
         int64_t disp = 0;
         bool haveDisp = false;
         if (addrsize16) {
-            static const char* const base16[8] = {"bx + si", "bx + di", "bp + si", "bp + di", "si", "di", "bp", "bx"};
+            static const char *const base16[8] = {"bx + si", "bx + di", "bp + si", "bp + di", "si", "di", "bp", "bx"};
             if (mod() == 0 && rm() == 6) {
                 disp = in.get(2);
                 haveDisp = true;
@@ -603,7 +610,7 @@ struct Decoder {
 
     // One operand from its code; false when it can't be (a register where
     // memory must be).
-    bool operand(std::string_view code, std::string& text, const char* mnemonic, uint8_t opcode) {
+    bool operand(std::string_view code, std::string &text, const char *mnemonic, uint8_t opcode) {
         const int v = opsize16 ? 2 : 4;
         auto reg = [&](int bytes, int n) { return bytes == 1 ? kReg8[n] : bytes == 2 ? kReg16[n] : kReg32[n]; };
         if (code == "Eb")
@@ -678,7 +685,7 @@ struct Decoder {
     }
 
     // Operands from a list of codes.
-    bool operands(const char* list, const char* mnemonic, uint8_t opcode) {
+    bool operands(const char *list, const char *mnemonic, uint8_t opcode) {
         std::string_view codes = list ? list : "";
         while (!codes.empty()) {
             const size_t comma = codes.find(',');
@@ -696,8 +703,8 @@ struct Decoder {
     }
 
     // The name for the operand size: "cwde|cbw".
-    std::string pickName(const char* name) const {
-        const char* bar = std::strchr(name, '|');
+    std::string pickName(const char *name) const {
+        const char *bar = std::strchr(name, '|');
         if (!bar)
             return name;
         return opsize16 ? std::string(bar + 1) : std::string(name, size_t(bar - name));
@@ -710,16 +717,31 @@ struct Decoder {
         const std::string di = addrsize16 ? "di" : "edi", si = addrsize16 ? "si" : "esi";
         const std::string dst = size + "es:[" + di + "]";
         const std::string src = size + (segment >= 0 ? segmentPrefix() : "") + "[" + si + "]";
-        const char* acc = bytes == 1 ? "al" : bytes == 2 ? "ax" : "eax";
+        const char *acc = bytes == 1 ? "al" : bytes == 2 ? "ax" : "eax";
         switch (op & 0xfe) {
-        case 0xa4: out.operands = dst + ", " + src; break;
-        case 0xa6: out.operands = src + ", " + dst; break;
-        case 0xaa: out.operands = dst + ", " + acc; break;
-        case 0xac: out.operands = std::string(acc) + ", " + src; break;
-        case 0xae: out.operands = std::string(acc) + ", " + dst; break;
-        case 0x6c: out.operands = dst + ", dx"; break;
-        case 0x6e: out.operands = "dx, " + src; break;
-        default: return false;
+        case 0xa4:
+            out.operands = dst + ", " + src;
+            break;
+        case 0xa6:
+            out.operands = src + ", " + dst;
+            break;
+        case 0xaa:
+            out.operands = dst + ", " + acc;
+            break;
+        case 0xac:
+            out.operands = std::string(acc) + ", " + src;
+            break;
+        case 0xae:
+            out.operands = std::string(acc) + ", " + dst;
+            break;
+        case 0x6c:
+            out.operands = dst + ", dx";
+            break;
+        case 0x6e:
+            out.operands = "dx, " + src;
+            break;
+        default:
+            return false;
         }
         const bool compares = (op & 0xfe) == 0xa6 || (op & 0xfe) == 0xae;
         if (rep)
@@ -734,7 +756,7 @@ struct Decoder {
         const int row = op - 0xd8;
         if (mod() != 3) {
             struct Mem {
-                const char* name;
+                const char *name;
                 int bytes;
             };
             static const Mem table[8][8] = {
@@ -803,7 +825,7 @@ struct Decoder {
                  {"fbstp", 10},
                  {"fistp", 8}},
             };
-            const Mem& m = table[row][reg()];
+            const Mem &m = table[row][reg()];
             if (!m.name)
                 return false;
             out.mnemonic = m.name;
@@ -811,17 +833,17 @@ struct Decoder {
             return true;
         }
         const std::string sti = "st(" + std::to_string(rm()) + ")";
-        auto both = [&](const char* name, bool stFirst) {
+        auto both = [&](const char *name, bool stFirst) {
             out.mnemonic = name;
             out.operands = stFirst ? "st(0), " + sti : sti + ", st(0)";
             return true;
         };
-        auto one = [&](const char* name) {
+        auto one = [&](const char *name) {
             out.mnemonic = name;
             out.operands = sti;
             return true;
         };
-        auto none = [&](const char* name) {
+        auto none = [&](const char *name) {
             if (!name)
                 return false;
             out.mnemonic = name;
@@ -829,7 +851,7 @@ struct Decoder {
         };
         switch (row) {
         case 0: {
-            static const char* const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsub", "fsubr", "fdiv", "fdivr"};
+            static const char *const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsub", "fsubr", "fdiv", "fdivr"};
             return reg() == 2 || reg() == 3 ? one(n[reg()]) : both(n[reg()], true);
         }
         case 1: {
@@ -840,40 +862,53 @@ struct Decoder {
             if (reg() == 3)
                 return one("fstp1");
             switch (modrm) {
-            case 0xd0: return none("fnop");
-            case 0xe0: return none("fchs");
-            case 0xe1: return none("fabs");
-            case 0xe4: return none("ftst");
-            case 0xe5: return none("fxam");
-            case 0xe8: return none("fld1");
-            case 0xe9: return none("fldl2t");
-            case 0xea: return none("fldl2e");
-            case 0xeb: return none("fldpi");
-            case 0xec: return none("fldlg2");
-            case 0xed: return none("fldln2");
-            case 0xee: return none("fldz");
-            default: break;
+            case 0xd0:
+                return none("fnop");
+            case 0xe0:
+                return none("fchs");
+            case 0xe1:
+                return none("fabs");
+            case 0xe4:
+                return none("ftst");
+            case 0xe5:
+                return none("fxam");
+            case 0xe8:
+                return none("fld1");
+            case 0xe9:
+                return none("fldl2t");
+            case 0xea:
+                return none("fldl2e");
+            case 0xeb:
+                return none("fldpi");
+            case 0xec:
+                return none("fldlg2");
+            case 0xed:
+                return none("fldln2");
+            case 0xee:
+                return none("fldz");
+            default:
+                break;
             }
             if (reg() == 6) {
-                static const char* const n[8] = {"f2xm1",   "fyl2x",  "fptan",   "fpatan",
+                static const char *const n[8] = {"f2xm1",   "fyl2x",  "fptan",   "fpatan",
                                                  "fxtract", "fprem1", "fdecstp", "fincstp"};
                 return none(n[rm()]);
             }
             if (reg() == 7) {
-                static const char* const n[8] = {"fprem",   "fyl2xp1", "fsqrt", "fsincos",
+                static const char *const n[8] = {"fprem",   "fyl2xp1", "fsqrt", "fsincos",
                                                  "frndint", "fscale",  "fsin",  "fcos"};
                 return none(n[rm()]);
             }
             return false;
         }
         case 2: {
-            static const char* const n[4] = {"fcmovb", "fcmove", "fcmovbe", "fcmovu"};
+            static const char *const n[4] = {"fcmovb", "fcmove", "fcmovbe", "fcmovu"};
             if (reg() < 4)
                 return both(n[reg()], true);
             return modrm == 0xe9 ? none("fucompp") : false;
         }
         case 3: {
-            static const char* const n[4] = {"fcmovnb", "fcmovne", "fcmovnbe", "fcmovnu"};
+            static const char *const n[4] = {"fcmovnb", "fcmovne", "fcmovnbe", "fcmovnu"};
             if (reg() < 4)
                 return both(n[reg()], true);
             if (modrm == 0xe2)
@@ -887,17 +922,17 @@ struct Decoder {
             return false;
         }
         case 4: {
-            static const char* const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsubr", "fsub", "fdivr", "fdiv"};
+            static const char *const n[8] = {"fadd", "fmul", "fcom", "fcomp", "fsubr", "fsub", "fdivr", "fdiv"};
             return reg() == 2 || reg() == 3 ? one(n[reg()]) : both(n[reg()], false);
         }
         case 5: {
-            static const char* const n[8] = {"ffree", "fxch", "fst", "fstp", "fucom", "fucomp", nullptr, nullptr};
+            static const char *const n[8] = {"ffree", "fxch", "fst", "fstp", "fucom", "fucomp", nullptr, nullptr};
             return n[reg()] ? one(n[reg()]) : false;
         }
         case 6: {
             if (modrm == 0xd9)
                 return none("fcompp");
-            static const char* const n[8] = {"faddp", "fmulp", nullptr, nullptr, "fsubrp", "fsubp", "fdivrp", "fdivp"};
+            static const char *const n[8] = {"faddp", "fmulp", nullptr, nullptr, "fsubrp", "fsubp", "fdivrp", "fdivp"};
             return n[reg()] ? both(n[reg()], false) : false;
         }
         default: {
@@ -946,7 +981,7 @@ struct Decoder {
             return false;
         if (op >= 0xd8 && op <= 0xdf)
             return fpu(op);
-        const Opcode* entry;
+        const Opcode *entry;
         Opcode chosen;
         if (op == 0x0f) {
             const uint8_t op2 = uint8_t(in.get(1));
@@ -954,10 +989,10 @@ struct Decoder {
             if (!entry->name)
                 return false;
             chosen = *entry;
-            const Opcode* group = op2 == 0x00 ? kGroup6 : op2 == 0x01 ? kGroup7 : op2 == 0xba ? kGroup8 : nullptr;
+            const Opcode *group = op2 == 0x00 ? kGroup6 : op2 == 0x01 ? kGroup7 : op2 == 0xba ? kGroup8 : nullptr;
             if (group) {
                 readModrm();
-                const Opcode& g = group[reg()];
+                const Opcode &g = group[reg()];
                 if (!g.name)
                     return false;
                 chosen.name = g.name;
@@ -978,13 +1013,13 @@ struct Decoder {
         if (*chosen.name == '\0') {
             // A group: the mnemonic from ModRM reg.
             readModrm();
-            const Opcode* by = nullptr;
+            const Opcode *by = nullptr;
             if ((op >= 0x80 && op <= 0x83))
                 by = kArith;
             else if (op == 0xc0 || op == 0xc1 || (op >= 0xd0 && op <= 0xd3))
                 by = kShift;
             else
-                for (const Group& g : kGroups)
+                for (const Group &g : kGroups)
                     if (g.opcode == op)
                         by = g.by;
             if (!by || !by[reg()].name || !*by[reg()].name)
@@ -1016,7 +1051,7 @@ struct Decoder {
 
 } // namespace
 
-Instruction disassemble(const uint8_t* code, size_t size, uint32_t address) {
+Instruction disassemble(const uint8_t *code, size_t size, uint32_t address) {
     Decoder d(code, size, address);
     d.out.address = address;
     if (d.decode() && d.in.ok()) {

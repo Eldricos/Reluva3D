@@ -27,9 +27,9 @@ struct Font {
     std::vector<FontPage> pages;
     int charactersPerPage = 256;
     // A character's page and rectangle; none for one past the pages.
-    const FontCharacter* character(uint32_t c, const FontPage** page = nullptr) const;
+    const FontCharacter *character(uint32_t c, const FontPage **page = nullptr) const;
 };
 
-Error readFont(const PackageSet& packages, const Package& package, int exportIndex, Font& out);
+Error readFont(const PackageSet &packages, const Package &package, int exportIndex, Font &out);
 
 } // namespace reluva::unreal

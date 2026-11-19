@@ -30,21 +30,20 @@ struct EmbeddedFile {
 };
 
 // The file a Sound or Music object holds.
-Error readEmbeddedFile(const Package& package, int exportIndex, EmbeddedFile& out);
+Error readEmbeddedFile(const Package &package, int exportIndex, EmbeddedFile &out);
 
 // Decodes a Sound's file; when it can't, the error says what the file is
 // (its format name, size and first bytes), to work out unknown kinds.
-Error decodeEmbeddedSound(const EmbeddedFile& file, audio::Sound& out);
+Error decodeEmbeddedSound(const EmbeddedFile &file, audio::Sound &out);
 
 // Where a placeholder Sound's audio is: mp3/<its name>.mp3 in the game
 // folder, found ignoring case; nullopt if there's none.
-std::optional<std::filesystem::path> streamedFile(const PackageSet& packages, const Package& package,
-                                                  int exportIndex);
+std::optional<std::filesystem::path> streamedFile(const PackageSet &packages, const Package &package, int exportIndex);
 
 // The sound a Sound object plays: its embedded file, or for a placeholder
 // the MP3 streamedFile() finds. `from`, if given, is set to where it came
 // from (the file, for streamed ones; empty for embedded).
-Error loadSound(const PackageSet& packages, const Package& package, int exportIndex, audio::Sound& out,
-                std::string* from = nullptr);
+Error loadSound(const PackageSet &packages, const Package &package, int exportIndex, audio::Sound &out,
+                std::string *from = nullptr);
 
 } // namespace reluva::unreal

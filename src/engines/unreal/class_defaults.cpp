@@ -5,10 +5,9 @@
 
 #include "engines/unreal/script.h"
 
-
 namespace reluva::unreal {
 
-const PropertyList* ClassDefaults::defaults(const Package& package, int classExport) {
+const PropertyList *ClassDefaults::defaults(const Package &package, int classExport) {
     const auto key = std::make_pair(&package, classExport);
     auto it = cache_.find(key);
     if (it == cache_.end()) {
@@ -22,7 +21,7 @@ const PropertyList* ClassDefaults::defaults(const Package& package, int classExp
     return it->second ? &*it->second : nullptr;
 }
 
-Error ClassDefaults::actorProperties(const Package& package, int index, ActorProperties& out) {
+Error ClassDefaults::actorProperties(const Package &package, int index, ActorProperties &out) {
     out.layers.clear();
     ActorProperties::Layer own;
     own.package = &package;
@@ -34,13 +33,13 @@ Error ClassDefaults::actorProperties(const Package& package, int index, ActorPro
         return err;
     out.layers.push_back(std::move(own));
     // Up the class chain: each class's defaults, then its parent's.
-    const Package* pkg = &package;
+    const Package *pkg = &package;
     int32_t cls = package.exports()[size_t(index)].classRef;
     for (int depth = 0; depth < 32 && cls != 0; ++depth) {
         const ObjectRef def = packages_.resolve(*pkg, cls);
         if (!def)
             break;
-        if (const PropertyList* d = defaults(*def.package, def.exportIndex))
+        if (const PropertyList *d = defaults(*def.package, def.exportIndex))
             out.layers.push_back({def.package, *d});
         pkg = def.package;
         cls = pkg->exports()[size_t(def.exportIndex)].superRef;
@@ -48,9 +47,9 @@ Error ClassDefaults::actorProperties(const Package& package, int index, ActorPro
     return Error::success();
 }
 
-const Property* ActorProperties::find(std::string_view name, int arrayIndex, const Package** from) const {
-    for (const Layer& l : layers)
-        if (const Property* p = l.props.find(name, arrayIndex)) {
+const Property *ActorProperties::find(std::string_view name, int arrayIndex, const Package **from) const {
+    for (const Layer &l : layers)
+        if (const Property *p = l.props.find(name, arrayIndex)) {
             if (from)
                 *from = l.package;
             return p;
@@ -59,45 +58,45 @@ const Property* ActorProperties::find(std::string_view name, int arrayIndex, con
 }
 
 uint8_t ActorProperties::byte(std::string_view name, uint8_t fallback, int arrayIndex) const {
-    const Property* p = find(name, arrayIndex);
+    const Property *p = find(name, arrayIndex);
     return p && !p->data.empty() ? p->data[0] : fallback;
 }
 
 float ActorProperties::number(std::string_view name, float fallback) const {
-    for (const Layer& l : layers)
+    for (const Layer &l : layers)
         if (l.props.find(name))
             return l.props.number(name, fallback);
     return fallback;
 }
 
 bool ActorProperties::boolean(std::string_view name, bool fallback) const {
-    const Property* p = find(name);
+    const Property *p = find(name);
     return p && p->type == PropertyType::Bool ? p->boolValue : fallback;
 }
 
-bool ActorProperties::vector(std::string_view name, std::array<float, 3>& out, int arrayIndex) const {
-    for (const Layer& l : layers)
+bool ActorProperties::vector(std::string_view name, std::array<float, 3> &out, int arrayIndex) const {
+    for (const Layer &l : layers)
         if (l.props.find(name, arrayIndex))
             return l.props.vector(name, out, arrayIndex);
     return false;
 }
 
-bool ActorProperties::rotator(std::string_view name, Rotator& out) const {
-    for (const Layer& l : layers)
+bool ActorProperties::rotator(std::string_view name, Rotator &out) const {
+    for (const Layer &l : layers)
         if (l.props.find(name))
             return l.props.rotator(name, out);
     return false;
 }
 
 std::string ActorProperties::nameValue(std::string_view name) const {
-    for (const Layer& l : layers)
+    for (const Layer &l : layers)
         if (l.props.find(name))
             return l.package->name(l.props.nameIndex(name));
     return {};
 }
 
-ObjectRef ActorProperties::object(const PackageSet& packages, std::string_view name, int arrayIndex) const {
-    for (const Layer& l : layers)
+ObjectRef ActorProperties::object(const PackageSet &packages, std::string_view name, int arrayIndex) const {
+    for (const Layer &l : layers)
         if (l.props.find(name, arrayIndex))
             return packages.resolve(*l.package, l.props.object(name, arrayIndex));
     return {};

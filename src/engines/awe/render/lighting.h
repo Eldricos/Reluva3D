@@ -51,26 +51,25 @@ struct Material {
 
 // Whether the scene is lit for the night (0x4027b0): unless it's marked
 // NVNT, at time of day 2, or 1 in a scene marked OUTD (outdoors).
-bool nightLighting(const Ac2Scene& scene, int timeOfDay);
+bool nightLighting(const Ac2Scene &scene, int timeOfDay);
 
 // Each of the scene's objects' conditions as they stand (scene.objects()'s
 // order). The game decides whether a light is on when the scene is
 // entered (0x420ee0); "update" retests objects' conditions but not that.
-std::vector<bool> lightConditions(const Ac2Scene& scene, const GameState& state);
+std::vector<bool> lightConditions(const Ac2Scene &scene, const GameState &state);
 
 // The scene's lighting with the story as it stands: the time of day, and
 // the lights' conditions as `conditions` has them (from lightConditions
 // on entering the scene), or as they stand when it's empty.
-SceneLighting sceneLighting(const Ac2Scene& scene, const GameState& state,
-                            const std::vector<bool>& conditions = {});
+SceneLighting sceneLighting(const Ac2Scene &scene, const GameState &state, const std::vector<bool> &conditions = {});
 
-Material materialOf(const Ac2Record& object);
+Material materialOf(const Ac2Record &object);
 
 // The colour Direct3D's lighting gives a vertex at `position` with the
 // unit `normal`, both in the world: emissive, plus ambient times the
 // material's, plus each light's (clamped to 0..1). With `specular`, also
 // the specular colour Direct3D adds after the texture (clamped to 0..1).
-Rgb lightVertex(const SceneLighting& lighting, const Material& material, const float position[3],
-                const float normal[3], Rgb* specular = nullptr);
+Rgb lightVertex(const SceneLighting &lighting, const Material &material, const float position[3], const float normal[3],
+                Rgb *specular = nullptr);
 
 } // namespace reluva::awe

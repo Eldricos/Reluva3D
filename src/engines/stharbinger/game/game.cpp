@@ -25,7 +25,7 @@ const uint32_t kStepsPerTimerTick = 5;
 const uint32_t kFadeStepMillis = 50;
 const size_t kMaxAmbients = 2;
 
-const char* const kHelp = "Game keys:\n"
+const char *const kHelp = "Game keys:\n"
                           "  left click       use the hotspot under the mouse, or pick a reply\n"
                           "  F2               show/hide hotspot rectangles\n"
                           "  F10              list the variables that are set (on the console)\n"
@@ -34,8 +34,9 @@ const char* const kHelp = "Game keys:\n"
 
 } // namespace
 
-Game::Game(Harbinger* vm)
-    : vm_(vm), system_(vm->getSystem()), resources_(vm->getResources()), scenes_(vm->getScenes()) {}
+Game::Game(Harbinger *vm)
+    : vm_(vm), system_(vm->getSystem()), resources_(vm->getResources()), scenes_(vm->getScenes()) {
+}
 
 Game::~Game() {
     if (system_->getMixer())
@@ -116,12 +117,12 @@ void Game::click(int x, int y) {
     switchScenes();
 }
 
-int32_t Game::getVariable(const std::string& name) const {
+int32_t Game::getVariable(const std::string &name) const {
     auto it = variables_.find(fs::toLower(name));
     return it == variables_.end() ? 0 : it->second;
 }
 
-const std::string& Game::getSceneName() const {
+const std::string &Game::getSceneName() const {
     static const std::string none;
     return scene_ ? scene_->name : none;
 }
@@ -155,7 +156,7 @@ void Game::leaveScene() {
     hotspots_.clear();
     timers_.clear();
     anims_.clear();
-    if (audio::Mixer* mixer = system_->getMixer()) {
+    if (audio::Mixer *mixer = system_->getMixer()) {
         for (audio::SoundHandle h : ambients_)
             mixer->stop(h);
     }
@@ -164,7 +165,7 @@ void Game::leaveScene() {
 }
 
 bool Game::soundsPlaying() {
-    audio::Mixer* mixer = system_->getMixer();
+    audio::Mixer *mixer = system_->getMixer();
     if (!mixer)
         return false;
     oneShots_.erase(
@@ -187,7 +188,7 @@ void Game::switchScenes() {
 }
 
 void Game::setBackground(int index, bool loadPalette) {
-    const auto& list = scene_->lists[kListBackgrounds];
+    const auto &list = scene_->lists[kListBackgrounds];
     if (index < 0 || index >= int(list.size()))
         return;
     backgroundIndex_ = index;
@@ -219,9 +220,9 @@ void Game::setBackground(int index, bool loadPalette) {
     updateCaption();
 }
 
-void Game::playSound(int index, const Argument* mode) {
-    audio::Mixer* mixer = system_->getMixer();
-    const auto& list = scene_->lists[kListSounds];
+void Game::playSound(int index, const Argument *mode) {
+    audio::Mixer *mixer = system_->getMixer();
+    const auto &list = scene_->lists[kListSounds];
     if (!mixer || index < 0 || index >= int(list.size()))
         return;
     int kind = mode && mode->type == kArgSymbol ? int(mode->value & 0xFF) : -1;
@@ -251,7 +252,7 @@ void Game::playSound(int index, const Argument* mode) {
 }
 
 std::string Game::listName(ListKind kind, int index) const {
-    const auto& list = scene_->lists[kind];
+    const auto &list = scene_->lists[kind];
     return index >= 0 && index < int(list.size()) ? list[index].name : std::string("?");
 }
 
@@ -260,14 +261,14 @@ std::string Game::listName(ListKind kind, int index) const {
 int Game::findHotspotAt(int x, int y) const {
     // The lowest enabled hotspot wins; edges are inclusive (0x18DAB).
     for (int i = 0; i < int(hotspots_.size()); i++) {
-        const Hotspot& h = hotspots_[i];
+        const Hotspot &h = hotspots_[i];
         if (h.defined && h.enabled && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h)
             return i;
     }
     return -1;
 }
 
-void Game::handleEvent(const InputEvent& event) {
+void Game::handleEvent(const InputEvent &event) {
     if (credits_.active) {
         // Esc ends the scroll.
         if (event.type == InputEvent::kQuit)
@@ -292,7 +293,9 @@ void Game::handleEvent(const InputEvent& event) {
         return;
     }
     switch (event.type) {
-    case InputEvent::kQuit: quit_ = true; break;
+    case InputEvent::kQuit:
+        quit_ = true;
+        break;
     case InputEvent::kKeyDown:
         if (event.key == key::Escape) {
             // Esc skips a video; in a scene it also opens the game menu (an added
@@ -313,7 +316,7 @@ void Game::handleEvent(const InputEvent& event) {
             showHotspots_ = !showHotspots_;
         } else if (event.key == (key::F1 + 9) && vm_->getOptions().debug) {
             std::printf("Variables set in %s:\n", scene_->name.c_str());
-            for (const auto& v : variables_)
+            for (const auto &v : variables_)
                 if (v.second)
                     std::printf("  %-16s %u\n", v.first.c_str(), v.second);
         }
@@ -380,7 +383,8 @@ void Game::handleEvent(const InputEvent& event) {
             requestMenu();
         }
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -435,7 +439,7 @@ void Game::step() {
     if (showHotspots_) {
         uint8_t on = uint8_t(palette_.findBestColor(0, 255, 0));
         uint8_t off = uint8_t(palette_.findBestColor(255, 0, 0));
-        for (const Hotspot& h : hotspots_)
+        for (const Hotspot &h : hotspots_)
             if (h.defined && h.w > 0 && h.h > 0)
                 draw::frameRect(screen_, h.x, h.y, h.w + 1, h.h + 1, h.enabled ? on : off);
     }
@@ -468,7 +472,7 @@ void Game::step() {
 
 void Game::tickTimers() {
     // One tick: count down until the first timer fires (0x23E40).
-    for (Timer& t : timers_) {
+    for (Timer &t : timers_) {
         if (!t.defined || !t.active || t.count == 0)
             continue;
         if (--t.count == 0) {
@@ -495,7 +499,7 @@ void Game::updateFade() {
 
 void Game::applyPalette() {
     uint8_t colors[768];
-    const uint8_t* src = palette_.data();
+    const uint8_t *src = palette_.data();
     for (int i = 0; i < 768; i++)
         colors[i] = uint8_t(src[i] * fadeLevel_ / 256);
     system_->setPalette(colors, 0, 256);

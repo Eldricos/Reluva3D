@@ -30,7 +30,7 @@ struct Chunk {
 };
 
 // Build an LV2 file from chunks, laying them out after the directory.
-std::vector<uint8_t> makeLevelFile(const std::vector<Chunk>& chunks) {
+std::vector<uint8_t> makeLevelFile(const std::vector<Chunk> &chunks) {
     const uint32_t headerSize = 48, entrySize = 16;
     std::vector<uint8_t> file(headerSize + chunks.size() * entrySize);
     writeLE32(&file[0], LevelFile::kVersion);
@@ -39,7 +39,7 @@ std::vector<uint8_t> makeLevelFile(const std::vector<Chunk>& chunks) {
     writeLE32(&file[40], (uint32_t)chunks.size());
     writeLE32(&file[44], (uint32_t)chunks.size() * entrySize);
     for (size_t i = 0; i < chunks.size(); i++) {
-        uint8_t* entry = &file[headerSize + i * entrySize];
+        uint8_t *entry = &file[headerSize + i * entrySize];
         writeLE32(entry, (uint32_t)chunks[i].data.size());
         writeLE32(entry + 4, (uint32_t)file.size());
         writeLE16(entry + 8, chunks[i].type);
@@ -54,27 +54,27 @@ std::vector<uint8_t> makeLevelFile(const std::vector<Chunk>& chunks) {
 std::vector<Chunk> makeSquareLevel() {
     std::vector<Chunk> chunks;
 
-    Chunk palette = { LevelFile::kChunkPalette, 1, 256, std::vector<uint8_t>(1024) };
+    Chunk palette = {LevelFile::kChunkPalette, 1, 256, std::vector<uint8_t>(1024)};
     palette.data[4 * 7] = 200; // blue: entries are B, G, R, 0
     chunks.push_back(palette);
 
     // A 2x2 unit square, in 16.16.
-    const int32_t corners[4][2] = { { 0, 0 }, { 2, 0 }, { 2, 2 }, { 0, 2 } };
-    Chunk vertices = { LevelFile::kChunkVertices, 1, 4, std::vector<uint8_t>(32) };
+    const int32_t corners[4][2] = {{0, 0}, {2, 0}, {2, 2}, {0, 2}};
+    Chunk vertices = {LevelFile::kChunkVertices, 1, 4, std::vector<uint8_t>(32)};
     for (int i = 0; i < 4; i++) {
         writeLE32(&vertices.data[i * 8], (uint32_t)(corners[i][0] << 16));
         writeLE32(&vertices.data[i * 8 + 4], (uint32_t)(corners[i][1] << 16));
     }
     chunks.push_back(vertices);
 
-    Chunk sectors = { LevelFile::kChunkSectors, 1, 1, std::vector<uint8_t>(292) };
+    Chunk sectors = {LevelFile::kChunkSectors, 1, 1, std::vector<uint8_t>(292)};
     writeLE32(&sectors.data[108], 0x12345678);
     writeLE16(&sectors.data[266], 4);
     for (int i = 0; i < 4; i++)
         writeLE16(&sectors.data[268 + i * 2], (uint16_t)i);
     chunks.push_back(sectors);
 
-    Chunk walls = { LevelFile::kChunkWalls, 1, 1, std::vector<uint8_t>(152) };
+    Chunk walls = {LevelFile::kChunkWalls, 1, 1, std::vector<uint8_t>(152)};
     // x = 2 from (2, 2) to (2, 0), facing into the square: the normal is
     // on the right of vertex 1 to vertex 2, as in the game's levels.
     writeLE32(&walls.data[28], (uint32_t)-0x10000);
@@ -85,7 +85,7 @@ std::vector<Chunk> makeSquareLevel() {
     chunks.push_back(walls);
 
     // A 2x3 texture, stored column by column.
-    Chunk texture = { LevelFile::kChunkTexture, 9, 0, std::vector<uint8_t>(20 + 6 + 6) };
+    Chunk texture = {LevelFile::kChunkTexture, 9, 0, std::vector<uint8_t>(20 + 6 + 6)};
     writeLE16(&texture.data[12], 9);
     writeLE16(&texture.data[14], 2);
     writeLE16(&texture.data[16], 3);
@@ -96,7 +96,7 @@ std::vector<Chunk> makeSquareLevel() {
     return chunks;
 }
 
-bool loadLevel(LevelFile& level, const std::vector<uint8_t>& bytes) {
+bool loadLevel(LevelFile &level, const std::vector<uint8_t> &bytes) {
     MemoryReadStream stream(bytes);
     return level.load(stream);
 }
@@ -118,14 +118,14 @@ static void level_tables() {
     CHECK_EQUAL(level.getVertices()[3].y, 2 << 16);
 
     CHECK_EQUAL(level.getSectors().size(), (size_t)1);
-    const LevelFile::Sector& sector = level.getSectors()[0];
+    const LevelFile::Sector &sector = level.getSectors()[0];
     CHECK_EQUAL(sector.flags, 0x12345678u);
     CHECK_EQUAL(sector.vertices.size(), (size_t)4);
     CHECK_EQUAL(sector.vertices[3], 3);
     CHECK_EQUAL(sector.raw.size(), (size_t)292);
 
     CHECK_EQUAL(level.getWalls().size(), (size_t)1);
-    const LevelFile::Wall& wall = level.getWalls()[0];
+    const LevelFile::Wall &wall = level.getWalls()[0];
     CHECK_EQUAL(wall.vertex1, 2);
     CHECK_EQUAL(wall.vertex2, 1);
     CHECK_EQUAL(wall.normalX, -0x10000);
@@ -193,7 +193,7 @@ namespace {
 // one unit high along x = 2, both using the 2x3 texture, and a 4x2 sky.
 std::vector<Chunk> makeRenderableLevel() {
     std::vector<Chunk> chunks = makeSquareLevel();
-    uint8_t* sector = chunks[2].data.data();
+    uint8_t *sector = chunks[2].data.data();
     writeLE32(sector + 108, LevelFile::kFlagVisible);
     writeLE32(sector + 0x20, 0);
     writeLE32(sector + 0x48, 0x10000);
@@ -202,7 +202,7 @@ std::vector<Chunk> makeRenderableLevel() {
     writeLE32(sector + 0x3C, 1); // zone 0
     writeLE32(sector + 0x74, 1); // only zone 0 in play
 
-    uint8_t* wall = chunks[3].data.data();
+    uint8_t *wall = chunks[3].data.data();
     writeLE32(wall + 0x2C, 0x10000);
     writeLE32(wall + 0x30, 0);
     writeLE32(wall + 0x48, 128 << 16); // the whole texture once
@@ -211,10 +211,10 @@ std::vector<Chunk> makeRenderableLevel() {
     writeLE16(wall + 0x96, 9);
     writeLE32(wall + 0x3C, 1);
 
-    Chunk billboards = { LevelFile::kChunkBillboards, 1, 1, std::vector<uint8_t>(140) };
+    Chunk billboards = {LevelFile::kChunkBillboards, 1, 1, std::vector<uint8_t>(140)};
     writeLE32(&billboards.data[0x1C], 0x1CCCD);           // x 1.8
     writeLE32(&billboards.data[0x20], 0x4000);            // z 0.25
-    writeLE32(&billboards.data[0x24], (uint32_t)-0x4CCD);   // y -0.3
+    writeLE32(&billboards.data[0x24], (uint32_t)-0x4CCD); // y -0.3
     writeLE32(&billboards.data[0x34], 0x2000);
     writeLE32(&billboards.data[0x38], 0x4000);
     writeLE16(&billboards.data[0x86], 1);
@@ -222,7 +222,7 @@ std::vector<Chunk> makeRenderableLevel() {
     writeLE32(&billboards.data[0x3C], 1);
     chunks.push_back(billboards);
 
-    Chunk sky = { LevelFile::kChunkSky, 0, 1, std::vector<uint8_t>(64 + 8, 0x77) };
+    Chunk sky = {LevelFile::kChunkSky, 0, 1, std::vector<uint8_t>(64 + 8, 0x77)};
     writeLE32(&sky.data[16], 8);
     writeLE32(&sky.data[24], 2);
     chunks.push_back(sky);
@@ -235,12 +235,12 @@ static void level_surfaces_billboards_and_sky() {
     LevelFile level;
     CHECK(loadLevel(level, makeLevelFile(makeRenderableLevel())));
 
-    const LevelFile::Sector& flat = level.getSectors()[0];
+    const LevelFile::Sector &flat = level.getSectors()[0];
     CHECK(!flat.isCeiling());
     CHECK_EQUAL(flat.texture, 9);
     CHECK_EQUAL(flat.uScale, 0x10000);
 
-    const LevelFile::Wall& wall = level.getWalls()[0];
+    const LevelFile::Wall &wall = level.getWalls()[0];
     CHECK_EQUAL(wall.top, 0x10000);
     CHECK_EQUAL(wall.bottom, 0);
     CHECK_EQUAL(wall.vLength, 128 << 16);
@@ -265,7 +265,7 @@ static void level_sky_size_when_the_header_does_not_fit() {
         chunks[0].data[i * 4 + 1] = (uint8_t)i;
         chunks[0].data[i * 4 + 2] = (uint8_t)i;
     }
-    Chunk& sky = chunks.back();
+    Chunk &sky = chunks.back();
     sky.data.assign(64 + 128 * 32, 0);
     writeLE32(&sky.data[16], 128 * 32);
     writeLE32(&sky.data[24], 252);
@@ -337,12 +337,12 @@ static void level_renderer_wall_sides_and_mirroring() {
 }
 
 static void level_light_levels() {
-    LevelFile::LightInfo fixed = { 0, 0, 3 };
+    LevelFile::LightInfo fixed = {0, 0, 3};
     CHECK_EQUAL(fixed.getLevel(100), 3);
     CHECK_EQUAL(fixed.getLevel(0), 3);
 
     // 3200 brightness per level, scaled by the group's percentage.
-    LevelFile::LightInfo grouped = { 1, 7680, 0 };
+    LevelFile::LightInfo grouped = {1, 7680, 0};
     CHECK_EQUAL(grouped.getLevel(100), 5);
     CHECK_EQUAL(grouped.getLevel(50), 6);
     CHECK_EQUAL(grouped.getLevel(0), 7);
@@ -454,7 +454,7 @@ struct LevelBuilder {
     // An actor of sprite set 1 standing at (x, y, z). Animation 0 (stand)
     // has one frame in eight mirrored directions; animation 6 (walk) four
     // frames in one direction at 1 unit per frame.
-    std::vector<uint8_t>& addActor(uint16_t id, double x, double y, double z, int mode, uint16_t heading) {
+    std::vector<uint8_t> &addActor(uint16_t id, double x, double y, double z, int mode, uint16_t heading) {
         std::vector<uint8_t> r(276);
         writeLE16(&r[0x14], id);
         writeLE32(&r[0x1C], (uint32_t)(int32_t)(x * 65536));
@@ -466,9 +466,9 @@ struct LevelBuilder {
         writeLE32(&r[0x54], 1 << 16); // radius
         writeLE32(&r[0x58], 6 << 16); // body height
         writeLE32(&r[0xAC], 2 << 16); // step height
-        const uint8_t stand[8] = { 0, 0, 0, 1, 0, 8, 1, 0 };
+        const uint8_t stand[8] = {0, 0, 0, 1, 0, 8, 1, 0};
         memcpy(&r[0xC4], stand, 8);
-        const uint8_t walk[8] = { 0, 1, 64, 4, 0, 1, 0, 1 };
+        const uint8_t walk[8] = {0, 1, 64, 4, 0, 1, 0, 1};
         memcpy(&r[0xC4 + 6 * 8], walk, 8);
         writeLE16(&r[0xFC], 1);
         writeLE16(&r[0x104], 0xFFFF); // turn speed
@@ -479,7 +479,7 @@ struct LevelBuilder {
     }
 
     uint16_t addVertex(double x, double y) {
-        vertices.push_back({ (int32_t)(x * 65536), (int32_t)(y * 65536) });
+        vertices.push_back({(int32_t)(x * 65536), (int32_t)(y * 65536)});
         return (uint16_t)(vertices.size() - 1);
     }
 
@@ -519,29 +519,29 @@ struct LevelBuilder {
 
     std::vector<uint8_t> build() const {
         std::vector<Chunk> chunks;
-        chunks.push_back({ LevelFile::kChunkPalette, 1, 256, std::vector<uint8_t>(1024) });
-        Chunk v = { LevelFile::kChunkVertices, 1, (uint16_t)vertices.size(), {} };
-        for (const auto& p : vertices) {
+        chunks.push_back({LevelFile::kChunkPalette, 1, 256, std::vector<uint8_t>(1024)});
+        Chunk v = {LevelFile::kChunkVertices, 1, (uint16_t)vertices.size(), {}};
+        for (const auto &p : vertices) {
             uint8_t b[8];
             writeLE32(b, (uint32_t)p.first);
             writeLE32(b + 4, (uint32_t)p.second);
             v.data.insert(v.data.end(), b, b + 8);
         }
         chunks.push_back(v);
-        Chunk f = { LevelFile::kChunkSectors, 1, (uint16_t)flats.size(), {} };
-        for (const auto& r : flats)
+        Chunk f = {LevelFile::kChunkSectors, 1, (uint16_t)flats.size(), {}};
+        for (const auto &r : flats)
             f.data.insert(f.data.end(), r.begin(), r.end());
         chunks.push_back(f);
-        Chunk w = { LevelFile::kChunkWalls, 1, (uint16_t)walls.size(), {} };
-        for (const auto& r : walls)
+        Chunk w = {LevelFile::kChunkWalls, 1, (uint16_t)walls.size(), {}};
+        for (const auto &r : walls)
             w.data.insert(w.data.end(), r.begin(), r.end());
         chunks.push_back(w);
-        Chunk b = { LevelFile::kChunkBillboards, 1, (uint16_t)billboards.size(), {} };
-        for (const auto& r : billboards)
+        Chunk b = {LevelFile::kChunkBillboards, 1, (uint16_t)billboards.size(), {}};
+        for (const auto &r : billboards)
             b.data.insert(b.data.end(), r.begin(), r.end());
         chunks.push_back(b);
-        Chunk a = { LevelFile::kChunkActors, 1, (uint16_t)actors.size(), {} };
-        for (const auto& r : actors)
+        Chunk a = {LevelFile::kChunkActors, 1, (uint16_t)actors.size(), {}};
+        for (const auto &r : actors)
             a.data.insert(a.data.end(), r.begin(), r.end());
         chunks.push_back(a);
         return makeLevelFile(chunks);
@@ -628,9 +628,9 @@ static void walker_wall_sides_heights_and_zones() {
 static void walker_steps_up_and_falls() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 10, 10, 0);
-    builder.addFloor(10, 0, 20, 10, 1.5);  // a step up
-    builder.addFloor(20, 0, 30, 10, 5);    // too high to step onto
-    builder.addFloor(0, 10, 10, 20, -10);  // a drop
+    builder.addFloor(10, 0, 20, 10, 1.5); // a step up
+    builder.addFloor(20, 0, 30, 10, 5);   // too high to step onto
+    builder.addFloor(0, 10, 10, 20, -10); // a drop
     LevelFile level;
     CHECK(loadLevel(level, builder.build()));
     Walker walker(level);
@@ -660,8 +660,8 @@ static void walker_steps_up_and_falls() {
 static void walker_steps_down_jumps_and_passes_through() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 10, 10, 0);
-    builder.addFloor(10, 0, 20, 10, -0.25);  // small enough to step down
-    builder.addFloor(20, 0, 30, 10, -1);     // a drop
+    builder.addFloor(10, 0, 20, 10, -0.25); // small enough to step down
+    builder.addFloor(20, 0, 30, 10, -1);    // a drop
     builder.addFloor(0, 10, 10, 20, -5);
     builder.addFloor(0, 10, 10, 20, -1, 1, 1, LevelFile::kFlagPassThrough);
     LevelFile level;
@@ -700,7 +700,7 @@ static void walker_steps_down_jumps_and_passes_through() {
 namespace {
 
 // Wrap program words in an SGEN file with empty sections.
-std::vector<uint8_t> makeScriptFile(const std::vector<uint16_t>& program) {
+std::vector<uint8_t> makeScriptFile(const std::vector<uint16_t> &program) {
     std::vector<uint8_t> file(40);
     writeBE32(&file[0], tagBE('S', 'G', 'E', 'N'));
     writeLE16(&file[4], 22);
@@ -718,29 +718,19 @@ std::vector<uint8_t> makeScriptFile(const std::vector<uint16_t>& program) {
 
 static void mission_runs_level_scripts() {
     const uint16_t P = OP_PUSH;
-    std::vector<uint16_t> program = {
-        // A logic object: subscribes to broadcasts and starts a 100 ms timer
-        // on entering state 0, counts timer ticks in global 0, stores signals
-        // in global 1, and puts the player at (5, 10) facing +x on the start
-        // broadcast.
-        1, 0xE001,
-        0x8000,
-        kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, P, 100, OP_PUSH_SELF, 0x32, OP_END,
-        Mission::kEventStart, 0xFFFF, OP_PUSH_BLOCK, 90, 0, 0, 0, 10, 0, 5, 0x75, OP_END,
-        Mission::kEventTimer, 0xFFFF, P, 0, OP_GET_GLOBAL, OP_INC, P, 0, OP_SET_GLOBAL, OP_END,
-        Mission::kEventSignal, 0xFFFF, P, 1, OP_SET_GLOBAL, OP_END,
-        0x3000,
-        0x2000,
-        // The wall with id 5: when touched, sets global 2, signals 77 to the
-        // logic object and hides itself.
-        2, 0x4005,
-        0x8000,
-        Mission::kEventTouch, 0xFFFF, P, 1, P, 2, OP_SET_GLOBAL, P, 77, P, 0xE001, OP_SEND_SIGNAL, OP_PUSH_SELF,
-        0x46, OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {// A logic object: subscribes to broadcasts and starts a 100 ms timer
+                                     // on entering state 0, counts timer ticks in global 0, stores signals
+                                     // in global 1, and puts the player at (5, 10) facing +x on the start
+                                     // broadcast.
+                                     1, 0xE001, 0x8000, kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, P, 100,
+                                     OP_PUSH_SELF, 0x32, OP_END, Mission::kEventStart, 0xFFFF, OP_PUSH_BLOCK, 90, 0, 0,
+                                     0, 10, 0, 5, 0x75, OP_END, Mission::kEventTimer, 0xFFFF, P, 0, OP_GET_GLOBAL,
+                                     OP_INC, P, 0, OP_SET_GLOBAL, OP_END, Mission::kEventSignal, 0xFFFF, P, 1,
+                                     OP_SET_GLOBAL, OP_END, 0x3000, 0x2000,
+                                     // The wall with id 5: when touched, sets global 2, signals 77 to the
+                                     // logic object and hides itself.
+                                     2, 0x4005, 0x8000, Mission::kEventTouch, 0xFFFF, P, 1, P, 2, OP_SET_GLOBAL, P, 77,
+                                     P, 0xE001, OP_SEND_SIGNAL, OP_PUSH_SELF, 0x46, OP_END, 0x3000, 0x2000, 0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -784,16 +774,35 @@ static void mission_items_rest_on_floors() {
     const uint16_t P = OP_PUSH;
     // On the start broadcast: item 8 is dropped at the player, and item 7
     // is told to move, which items ignore.
-    std::vector<uint16_t> program = {
-        1, 0xE001,
-        0x8000,
-        kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, OP_END,
-        Mission::kEventStart, 0xFFFF, P, 0, P, 0x2008, 0x71,
-        OP_PUSH_BLOCK, 0, 0, 0, 35, 0, 35, P, 0x2007, 0x4D, OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {1,
+                                     0xE001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     OP_PUSH_SELF,
+                                     0x31,
+                                     OP_END,
+                                     Mission::kEventStart,
+                                     0xFFFF,
+                                     P,
+                                     0,
+                                     P,
+                                     0x2008,
+                                     0x71,
+                                     OP_PUSH_BLOCK,
+                                     0,
+                                     0,
+                                     0,
+                                     35,
+                                     0,
+                                     35,
+                                     P,
+                                     0x2007,
+                                     0x4D,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -816,7 +825,7 @@ static void mission_items_rest_on_floors() {
     Mission mission(level, script, renderer, walker, nullptr);
     // At the start: item 7 settles past the pass-through floor onto
     // the one below, and takes its zones. Item 8 has no floor under it.
-    const LevelFile::Billboard& seven = level.getBillboards()[0], &eight = level.getBillboards()[1];
+    const LevelFile::Billboard &seven = level.getBillboards()[0], &eight = level.getBillboards()[1];
     CHECK(seven.z == 0);
     CHECK_EQUAL(seven.zones, (uint64_t)1);
     CHECK(eight.z == 0);
@@ -836,7 +845,7 @@ namespace {
 // A sprite set of one-pixel frames whose colour is 10 + the frame number:
 // sequence 0 (stand) is frames 0-4, one per view direction, and sequence 1
 // (walk) frames 5-8.
-bool loadTestSprites(uint16_t /*number*/, SpriteSet& set) {
+bool loadTestSprites(uint16_t /*number*/, SpriteSet &set) {
     MemoryWriteStream file;
     file.writeUint32LE(2);
     file.writeUint32LE(9);
@@ -844,13 +853,13 @@ bool loadTestSprites(uint16_t /*number*/, SpriteSet& set) {
     file.writeUint32LE(2);
     file.writeUint32LE(0);
     file.writeUint32LE(0);
-    const uint8_t sequences[] = { 5, 0, 1, 2, 3, 4, 4, 5, 6, 7, 8 };
+    const uint8_t sequences[] = {5, 0, 1, 2, 3, 4, 4, 5, 6, 7, 8};
     file.write(sequences, sizeof(sequences));
     for (int i = 0; i < 9; i++) {
         file.writeUint32LE(1 << 16); // half width 1.0
         file.writeUint32LE(1);
         file.writeUint32LE(1);
-        const uint8_t pixel[4] = { (uint8_t)(10 + i), 0, 0, 3 }; // a solid column
+        const uint8_t pixel[4] = {(uint8_t)(10 + i), 0, 0, 3}; // a solid column
         file.write(pixel, sizeof(pixel));
     }
     std::vector<uint8_t> data = file.data();
@@ -874,14 +883,14 @@ static void actors_headings_and_view_directions() {
     Actors actors(level, walker, loadTestSprites);
 
     std::vector<SpriteDraw> sprites;
-    auto viewFrom = [&](double x, double y, bool& mirrored) {
+    auto viewFrom = [&](double x, double y, bool &mirrored) {
         actors.getSprites(x, y, Walker::kAllZones, sprites);
         mirrored = !sprites.empty() && sprites[0].mirrored;
         return sprites.empty() ? -1 : (int)sprites[0].surface->getPixel(0, 0) - 10;
     };
     bool mirrored;
     CHECK_EQUAL(viewFrom(10, 20, mirrored), 4); // in front
-    CHECK_EQUAL(viewFrom(10, 0, mirrored), 0); // behind
+    CHECK_EQUAL(viewFrom(10, 0, mirrored), 0);  // behind
     CHECK_EQUAL(viewFrom(20, 10, mirrored), 2); // from its right
     CHECK(!mirrored);
     CHECK_EQUAL(viewFrom(0, 10, mirrored), 2); // from its left: the right view flipped
@@ -899,18 +908,62 @@ static void actors_take_hits() {
     const uint16_t P = OP_PUSH;
     // Actor 1: hit points 10, stun 10; hits above power 11 hurt, above 6
     // stun. Global 0 counts "hurt", global 1 "stunned", global 2 "killed".
-    std::vector<uint16_t> program = {
-        1, 0xA001,
-        0x8000,
-        kEventEnterState, 0xFFFF, P, 10, P, 10, P, 10, P, 10, P, 0, P, 6, P, 11, 0x41, P, 5, OP_PUSH_SELF, 0xF1,
-        OP_END,
-        Actors::kEventHurt, 0xFFFF, P, 0, OP_GET_GLOBAL, OP_INC, P, 0, OP_SET_GLOBAL, OP_END,
-        Actors::kEventStunned, 0xFFFF, P, 1, OP_GET_GLOBAL, OP_INC, P, 1, OP_SET_GLOBAL, OP_END,
-        Actors::kEventKilled, 0xFFFF, P, 1, P, 2, OP_SET_GLOBAL, OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {1,
+                                     0xA001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     0,
+                                     P,
+                                     6,
+                                     P,
+                                     11,
+                                     0x41,
+                                     P,
+                                     5,
+                                     OP_PUSH_SELF,
+                                     0xF1,
+                                     OP_END,
+                                     Actors::kEventHurt,
+                                     0xFFFF,
+                                     P,
+                                     0,
+                                     OP_GET_GLOBAL,
+                                     OP_INC,
+                                     P,
+                                     0,
+                                     OP_SET_GLOBAL,
+                                     OP_END,
+                                     Actors::kEventStunned,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     OP_GET_GLOBAL,
+                                     OP_INC,
+                                     P,
+                                     1,
+                                     OP_SET_GLOBAL,
+                                     OP_END,
+                                     Actors::kEventKilled,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     P,
+                                     2,
+                                     OP_SET_GLOBAL,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -928,16 +981,16 @@ static void actors_take_hits() {
     Mission mission(level, script, renderer, walker, &actors);
     mission.start();
 
-    mission.send(0xA001, Mission::kEventHit, { 3, 20, 5 }); // its own team: ignored
+    mission.send(0xA001, Mission::kEventHit, {3, 20, 5}); // its own team: ignored
     CHECK_EQUAL(mission.getVM().getGlobal(0), 0);
-    mission.send(0xA001, Mission::kEventHit, { 3, 9, 2 }); // stuns
+    mission.send(0xA001, Mission::kEventHit, {3, 9, 2}); // stuns
     CHECK_EQUAL(mission.getVM().getGlobal(1), 1);
     CHECK_EQUAL(actors.getCombatStats(0xA001).stun, 7);
     CHECK_EQUAL(actors.getCombatStats(0xA001).hitPoints, 10);
-    mission.send(0xA001, Mission::kEventHit, { 4, 20, 2 }); // hurts
+    mission.send(0xA001, Mission::kEventHit, {4, 20, 2}); // hurts
     CHECK_EQUAL(mission.getVM().getGlobal(0), 1);
     CHECK_EQUAL(actors.getCombatStats(0xA001).hitPoints, 6);
-    mission.send(0xA001, Mission::kEventHit, { 6, 20, 2 }); // kills
+    mission.send(0xA001, Mission::kEventHit, {6, 20, 2}); // kills
     CHECK_EQUAL(mission.getVM().getGlobal(2), 1);
     CHECK(mission.getMissingNatives().empty());
 }
@@ -946,14 +999,14 @@ namespace {
 
 // A section 4 record: kind, speed in units per second, damage and team.
 std::vector<uint8_t> projectileType(int kind, double unitsPerSecond, int damage, int team, int count = 0,
-                                 double spacing = 0, int impact = -1, uint32_t lifetime = 5000) {
+                                    double spacing = 0, int impact = -1, uint32_t lifetime = 5000) {
     std::vector<uint8_t> r(100);
     writeLE32(&r[0x00], (uint32_t)kind);
     writeLE32(&r[0x08], lifetime);
-    writeLE32(&r[0x10], 0x2000);                // half width 1/8
-    writeLE32(&r[0x14], 0x4000);                // height 1/4
-    writeLE32(&r[0x1C], 1);                     // keyed
-    writeLE32(&r[0x34], 1);                     // frames
+    writeLE32(&r[0x10], 0x2000); // half width 1/8
+    writeLE32(&r[0x14], 0x4000); // height 1/4
+    writeLE32(&r[0x1C], 1);      // keyed
+    writeLE32(&r[0x34], 1);      // frames
     writeLE32(&r[0x3C], (uint32_t)(int32_t)(unitsPerSecond * 65.536 * 65536));
     writeLE32(&r[0x40], (uint32_t)-1);
     writeLE32(&r[0x44], (uint32_t)-1);
@@ -972,8 +1025,8 @@ static void projectiles_fly_and_hit() {
     // apart that throws type 2, a burst of 8 sparks lasting 300 ms, where
     // it hits.
     std::vector<uint8_t> section;
-    for (const std::vector<uint8_t>& r : { projectileType(2, 50, 6, 4), projectileType(1, 100, 3, 5, 10, 0.5, 2),
-                                        projectileType(3, 10, 0, 7, 8, 0, -1, 300) })
+    for (const std::vector<uint8_t> &r : {projectileType(2, 50, 6, 4), projectileType(1, 100, 3, 5, 10, 0.5, 2),
+                                          projectileType(3, 10, 0, 7, 8, 0, -1, 300)})
         section.insert(section.end(), r.begin(), r.end());
     section.resize(section.size() + 100); // the end of the table
 
@@ -1019,7 +1072,7 @@ static void projectiles_fly_and_hit() {
 
     // Shooters don't hit themselves.
     reports.clear();
-    std::vector<Projectiles::Target> actors = { { 0xA001, 4, 10, 0, 6, 1 } };
+    std::vector<Projectiles::Target> actors = {{0xA001, 4, 10, 0, 6, 1}};
     shots.fire(0, 4, 10, 5, 0, 0, 0xA001);
     shots.update(40, ~0ull, actors, 100, 10, 6, 1.2, reports);
     CHECK_EQUAL(shots.getCount(), 1);
@@ -1036,23 +1089,89 @@ static void mission_punch() {
     // A logic object sets the punch (damage 3, power 9) and counts hit
     // reports for actor 1 (global 0) and misses (global 1); actor 1 stuns
     // above power 6 and records being stunned in global 2.
-    std::vector<uint16_t> program = {
-        1, 0xE001,
-        0x8000,
-        kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, P, 0, P, 0xFFFF, P, 63, P, 21, P, 9, P, 3, P, 3, P, 100,
-        P, 0xFFFF, 0xC4, OP_END,
-        Mission::kEventHitReport, 0xFFFF, P, 0xA001, OP_IF_EQ, P, 0, OP_GET_GLOBAL, OP_INC, P, 0, OP_SET_GLOBAL,
-        OP_ELSE, P, 1, OP_GET_GLOBAL, OP_INC, P, 1, OP_SET_GLOBAL, OP_ENDIF, OP_END,
-        0x3000,
-        0x2000,
-        1, 0xA001,
-        0x8000,
-        kEventEnterState, 0xFFFF, P, 10, P, 10, P, 10, P, 10, P, 40, P, 6, P, 11, 0x41, OP_END,
-        Actors::kEventStunned, 0xFFFF, P, 1, P, 2, OP_SET_GLOBAL, OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {1,
+                                     0xE001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     OP_PUSH_SELF,
+                                     0x31,
+                                     P,
+                                     0,
+                                     P,
+                                     0xFFFF,
+                                     P,
+                                     63,
+                                     P,
+                                     21,
+                                     P,
+                                     9,
+                                     P,
+                                     3,
+                                     P,
+                                     3,
+                                     P,
+                                     100,
+                                     P,
+                                     0xFFFF,
+                                     0xC4,
+                                     OP_END,
+                                     Mission::kEventHitReport,
+                                     0xFFFF,
+                                     P,
+                                     0xA001,
+                                     OP_IF_EQ,
+                                     P,
+                                     0,
+                                     OP_GET_GLOBAL,
+                                     OP_INC,
+                                     P,
+                                     0,
+                                     OP_SET_GLOBAL,
+                                     OP_ELSE,
+                                     P,
+                                     1,
+                                     OP_GET_GLOBAL,
+                                     OP_INC,
+                                     P,
+                                     1,
+                                     OP_SET_GLOBAL,
+                                     OP_ENDIF,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     1,
+                                     0xA001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     10,
+                                     P,
+                                     40,
+                                     P,
+                                     6,
+                                     P,
+                                     11,
+                                     0x41,
+                                     OP_END,
+                                     Actors::kEventStunned,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     P,
+                                     2,
+                                     OP_SET_GLOBAL,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -1096,21 +1215,76 @@ static void mission_flow() {
     // phase; when that ends (event 7) it marks global 0. Event 8 (all done)
     // marks global 1 and starts the closing transition. Signal 1 marks
     // objective 4 done, signal 2 objective 2.
-    std::vector<uint16_t> program = {
-        1, 0xE001,
-        0x8000,
-        kEventEnterState, 0xFFFF, OP_PUSH_SELF, 0x31, OP_END,
-        Mission::kEventStart, 0xFFFF, OP_PUSH32, 6, 0, 0x99, OP_PUSH32, 100, 0, OP_PUSH32, 100, 0, OP_PUSH32, 100, 0,
-        0x91, OP_END,
-        Mission::kEventBriefingDone, 0xFFFF, P, 1, P, 0, OP_SET_GLOBAL, OP_END,
-        Mission::kEventObjectivesDone, 0xFFFF, P, 1, P, 1, OP_SET_GLOBAL, OP_PUSH32, 100, 0, OP_PUSH32, 100, 0,
-        OP_PUSH32, 100, 0, 0x92, OP_END,
-        Mission::kEventSignal, 0xFFFF, P, 1, OP_IF_EQ, OP_PUSH32, 4, 0, 0x9A, OP_ELSE, OP_PUSH32, 2, 0, 0x9A,
-        OP_ENDIF, OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {1,
+                                     0xE001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     OP_PUSH_SELF,
+                                     0x31,
+                                     OP_END,
+                                     Mission::kEventStart,
+                                     0xFFFF,
+                                     OP_PUSH32,
+                                     6,
+                                     0,
+                                     0x99,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     0x91,
+                                     OP_END,
+                                     Mission::kEventBriefingDone,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     P,
+                                     0,
+                                     OP_SET_GLOBAL,
+                                     OP_END,
+                                     Mission::kEventObjectivesDone,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     P,
+                                     1,
+                                     OP_SET_GLOBAL,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     OP_PUSH32,
+                                     100,
+                                     0,
+                                     0x92,
+                                     OP_END,
+                                     Mission::kEventSignal,
+                                     0xFFFF,
+                                     P,
+                                     1,
+                                     OP_IF_EQ,
+                                     OP_PUSH32,
+                                     4,
+                                     0,
+                                     0x9A,
+                                     OP_ELSE,
+                                     OP_PUSH32,
+                                     2,
+                                     0,
+                                     0x9A,
+                                     OP_ENDIF,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -1139,7 +1313,7 @@ static void mission_flow() {
     CHECK_EQUAL(mission.getVM().getGlobal(0), 1);
 
     // One objective isn't enough...
-    mission.send(0xE001, Mission::kEventSignal, { 1 });
+    mission.send(0xE001, Mission::kEventSignal, {1});
     mission.update(40);
     CHECK(!mission.isAccomplished());
 
@@ -1163,7 +1337,7 @@ static void mission_flow() {
         CHECK_EQUAL(copy.getVM().getGlobal(0), 1);
         CHECK(std::fabs(walker2.getX() - 12) < 1e-9 && std::fabs(walker2.getY() - 7) < 1e-9);
         CHECK_EQUAL(copy.getTime(), mission.getTime());
-        copy.send(0xE001, Mission::kEventSignal, { 2 });
+        copy.send(0xE001, Mission::kEventSignal, {2});
         copy.update(40);
         CHECK(copy.isAccomplished());
         // A save from a different level is refused.
@@ -1181,7 +1355,7 @@ static void mission_flow() {
         CHECK(load3.err());
     }
     // ...both are; event 8 starts the closing transition, which ends it.
-    mission.send(0xE001, Mission::kEventSignal, { 2 });
+    mission.send(0xE001, Mission::kEventSignal, {2});
     mission.update(40);
     CHECK(mission.isAccomplished());
     CHECK_EQUAL(mission.getVM().getGlobal(1), 1);
@@ -1199,20 +1373,72 @@ static void mission_player_settings() {
     // verid1's start-up settings: a cutscene freeze (speed 0, the rest
     // kept), gravity 80 with the third value kept, map zooms of 1, 2 and
     // 4 pixels a unit, and an item that is greyed out and given icon 8.
-    std::vector<uint16_t> program = {
-        1, 0xE001,
-        0x8000,
-        kEventEnterState, 0xFFFF,
-        OP_PUSH32, 1, 0x8000, P, 0x8000, P, 0x8000, OP_PUSH32, 0, 0x8000, P, 0x8000, P, 0x8000, OP_PUSH32, 0, 0, 0xB2,
-        OP_PUSH32, 0, 0x8000, OP_PUSH32, 0, 0x8000, OP_PUSH32, 0, 80, 0xA3,
-        P, 15, P, 2, P, 15, P, 1, P, 16, P, 1, 0xC8,
-        P, 0, P, 0xE001, 0xD7,
-        P, 0, P, 1, P, 0xE001, 0x82, P, 8, OP_PUSH_SELF, 0x83,
-        OP_END,
-        0x3000,
-        0x2000,
-        0x1000
-    };
+    std::vector<uint16_t> program = {1,
+                                     0xE001,
+                                     0x8000,
+                                     kEventEnterState,
+                                     0xFFFF,
+                                     OP_PUSH32,
+                                     1,
+                                     0x8000,
+                                     P,
+                                     0x8000,
+                                     P,
+                                     0x8000,
+                                     OP_PUSH32,
+                                     0,
+                                     0x8000,
+                                     P,
+                                     0x8000,
+                                     P,
+                                     0x8000,
+                                     OP_PUSH32,
+                                     0,
+                                     0,
+                                     0xB2,
+                                     OP_PUSH32,
+                                     0,
+                                     0x8000,
+                                     OP_PUSH32,
+                                     0,
+                                     0x8000,
+                                     OP_PUSH32,
+                                     0,
+                                     80,
+                                     0xA3,
+                                     P,
+                                     15,
+                                     P,
+                                     2,
+                                     P,
+                                     15,
+                                     P,
+                                     1,
+                                     P,
+                                     16,
+                                     P,
+                                     1,
+                                     0xC8,
+                                     P,
+                                     0,
+                                     P,
+                                     0xE001,
+                                     0xD7,
+                                     P,
+                                     0,
+                                     P,
+                                     1,
+                                     P,
+                                     0xE001,
+                                     0x82,
+                                     P,
+                                     8,
+                                     OP_PUSH_SELF,
+                                     0x83,
+                                     OP_END,
+                                     0x3000,
+                                     0x2000,
+                                     0x1000};
     std::vector<uint8_t> scriptBytes = makeScriptFile(program);
     MemoryReadStream scriptStream(scriptBytes);
     ScriptFile script;
@@ -1245,7 +1471,7 @@ static void movers_open_and_close() {
     LevelBuilder builder;
     builder.addFloor(0, 0, 40, 40, 0);
     builder.addWall(20, 0, 20, 40, 0.5, 7.0);
-    std::vector<uint8_t>& r = builder.walls.back();
+    std::vector<uint8_t> &r = builder.walls.back();
     writeLE32(&r[0x6C], readLE32(&r[0x6C]) | LevelFile::kWallMoverReverses);
     writeLE16(&r[0x8A], 5);
     writeLE16(&r[0x8C], 6);
@@ -1358,7 +1584,7 @@ static void actors_walk_and_block() {
     for (int i = 0; i < 15; i++) {
         events.clear();
         actors.update(20, player, events);
-        for (const Actors::ScriptEvent& event : events) {
+        for (const Actors::ScriptEvent &event : events) {
             CHECK_EQUAL(event.object, 0xA001);
             arrived += event.event == Actors::kEventArrived;
             cycles += event.event == Actors::kEventCycle;
@@ -1375,7 +1601,7 @@ static void actors_walk_and_block() {
     for (int i = 0; i < 20 && !arrived; i++) {
         events.clear();
         actors.update(20, player, events);
-        for (const Actors::ScriptEvent& event : events)
+        for (const Actors::ScriptEvent &event : events)
             arrived += event.event == Actors::kEventArrived;
     }
     CHECK(arrived > 0);
@@ -1441,35 +1667,46 @@ static void actors_wander_about_what_they_guard() {
     CHECK(closest(10, 10) < 4);
 }
 
-static const reluva::test::Suite suite("stgenerations.unit.level", {
-    {"level tables", [](const std::filesystem::path&) { level_tables(); }},
-    {"level texture is column major", [](const std::filesystem::path&) { level_texture_is_column_major(); }},
-    {"level rejects bad files", [](const std::filesystem::path&) { level_rejects_bad_files(); }},
-    {"level map draws sectors", [](const std::filesystem::path&) { level_map_draws_sectors(); }},
-    {"level surfaces billboards and sky", [](const std::filesystem::path&) { level_surfaces_billboards_and_sky(); }},
-    {"level sky size when the header does not fit", [](const std::filesystem::path&) { level_sky_size_when_the_header_does_not_fit(); }},
-    {"level renderer draws floor wall and sky", [](const std::filesystem::path&) { level_renderer_draws_floor_wall_and_sky(); }},
-    {"level renderer wall sides and mirroring", [](const std::filesystem::path&) { level_renderer_wall_sides_and_mirroring(); }},
-    {"level light levels", [](const std::filesystem::path&) { level_light_levels(); }},
-    {"level shade tables", [](const std::filesystem::path&) { level_shade_tables(); }},
-    {"level blend table", [](const std::filesystem::path&) { level_blend_table(); }},
-    {"level renderer lighting", [](const std::filesystem::path&) { level_renderer_lighting(); }},
-    {"level renderer draws only visible zones", [](const std::filesystem::path&) { level_renderer_draws_only_visible_zones(); }},
-    {"walker stops at walls", [](const std::filesystem::path&) { walker_stops_at_walls(); }},
-    {"walker wall sides heights and zones", [](const std::filesystem::path&) { walker_wall_sides_heights_and_zones(); }},
-    {"walker steps up and falls", [](const std::filesystem::path&) { walker_steps_up_and_falls(); }},
-    {"walker steps down jumps and passes through", [](const std::filesystem::path&) { walker_steps_down_jumps_and_passes_through(); }},
-    {"mission runs level scripts", [](const std::filesystem::path&) { mission_runs_level_scripts(); }},
-    {"mission items rest on floors", [](const std::filesystem::path&) { mission_items_rest_on_floors(); }},
-    {"actors headings and view directions", [](const std::filesystem::path&) { actors_headings_and_view_directions(); }},
-    {"actors take hits", [](const std::filesystem::path&) { actors_take_hits(); }},
-    {"projectiles fly and hit", [](const std::filesystem::path&) { projectiles_fly_and_hit(); }},
-    {"mission punch", [](const std::filesystem::path&) { mission_punch(); }},
-    {"mission flow", [](const std::filesystem::path&) { mission_flow(); }},
-    {"mission player settings", [](const std::filesystem::path&) { mission_player_settings(); }},
-    {"movers open and close", [](const std::filesystem::path&) { movers_open_and_close(); }},
-    {"walker fits a gap its width", [](const std::filesystem::path&) { walker_fits_a_gap_its_width(); }},
-    {"walker line of sight", [](const std::filesystem::path&) { walker_line_of_sight(); }},
-    {"actors walk and block", [](const std::filesystem::path&) { actors_walk_and_block(); }},
-    {"actors wander about what they guard", [](const std::filesystem::path&) { actors_wander_about_what_they_guard(); }},
-});
+static const reluva::test::Suite
+    suite("stgenerations.unit.level",
+          {
+              {"level tables", [](const std::filesystem::path &) { level_tables(); }},
+              {"level texture is column major", [](const std::filesystem::path &) { level_texture_is_column_major(); }},
+              {"level rejects bad files", [](const std::filesystem::path &) { level_rejects_bad_files(); }},
+              {"level map draws sectors", [](const std::filesystem::path &) { level_map_draws_sectors(); }},
+              {"level surfaces billboards and sky",
+               [](const std::filesystem::path &) { level_surfaces_billboards_and_sky(); }},
+              {"level sky size when the header does not fit",
+               [](const std::filesystem::path &) { level_sky_size_when_the_header_does_not_fit(); }},
+              {"level renderer draws floor wall and sky",
+               [](const std::filesystem::path &) { level_renderer_draws_floor_wall_and_sky(); }},
+              {"level renderer wall sides and mirroring",
+               [](const std::filesystem::path &) { level_renderer_wall_sides_and_mirroring(); }},
+              {"level light levels", [](const std::filesystem::path &) { level_light_levels(); }},
+              {"level shade tables", [](const std::filesystem::path &) { level_shade_tables(); }},
+              {"level blend table", [](const std::filesystem::path &) { level_blend_table(); }},
+              {"level renderer lighting", [](const std::filesystem::path &) { level_renderer_lighting(); }},
+              {"level renderer draws only visible zones",
+               [](const std::filesystem::path &) { level_renderer_draws_only_visible_zones(); }},
+              {"walker stops at walls", [](const std::filesystem::path &) { walker_stops_at_walls(); }},
+              {"walker wall sides heights and zones",
+               [](const std::filesystem::path &) { walker_wall_sides_heights_and_zones(); }},
+              {"walker steps up and falls", [](const std::filesystem::path &) { walker_steps_up_and_falls(); }},
+              {"walker steps down jumps and passes through",
+               [](const std::filesystem::path &) { walker_steps_down_jumps_and_passes_through(); }},
+              {"mission runs level scripts", [](const std::filesystem::path &) { mission_runs_level_scripts(); }},
+              {"mission items rest on floors", [](const std::filesystem::path &) { mission_items_rest_on_floors(); }},
+              {"actors headings and view directions",
+               [](const std::filesystem::path &) { actors_headings_and_view_directions(); }},
+              {"actors take hits", [](const std::filesystem::path &) { actors_take_hits(); }},
+              {"projectiles fly and hit", [](const std::filesystem::path &) { projectiles_fly_and_hit(); }},
+              {"mission punch", [](const std::filesystem::path &) { mission_punch(); }},
+              {"mission flow", [](const std::filesystem::path &) { mission_flow(); }},
+              {"mission player settings", [](const std::filesystem::path &) { mission_player_settings(); }},
+              {"movers open and close", [](const std::filesystem::path &) { movers_open_and_close(); }},
+              {"walker fits a gap its width", [](const std::filesystem::path &) { walker_fits_a_gap_its_width(); }},
+              {"walker line of sight", [](const std::filesystem::path &) { walker_line_of_sight(); }},
+              {"actors walk and block", [](const std::filesystem::path &) { actors_walk_and_block(); }},
+              {"actors wander about what they guard",
+               [](const std::filesystem::path &) { actors_wander_about_what_they_guard(); }},
+          });

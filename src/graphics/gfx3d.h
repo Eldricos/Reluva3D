@@ -28,18 +28,18 @@ using Mat4 = std::array<float, 16>;
 using Vec3 = std::array<float, 3>;
 
 Mat4 identity();
-Mat4 multiply(const Mat4& a, const Mat4& b); // a * b
+Mat4 multiply(const Mat4 &a, const Mat4 &b); // a * b
 // fovY in radians; depth 0 at zNear, 1 at zFar.
 Mat4 perspective(float fovY, float aspect, float zNear, float zFar);
 // A view matrix looking from `eye` along `forward`, `up` roughly up.
-Mat4 lookAlong(const Vec3& eye, const Vec3& forward, const Vec3& up);
+Mat4 lookAlong(const Vec3 &eye, const Vec3 &forward, const Vec3 &up);
 // The point after M * (x, y, z, 1) and the divide by w.
-Vec3 transformPoint(const Mat4& m, const Vec3& p);
+Vec3 transformPoint(const Mat4 &m, const Vec3 &p);
 
 struct Vertex {
     float pos[3];
-    float uv[2];    // first texture coordinates
-    float uv2[2];   // second set, e.g. lightmap coordinates
+    float uv[2];  // first texture coordinates
+    float uv2[2]; // second set, e.g. lightmap coordinates
     float normal[3];
     uint8_t color[4]; // RGBA, 255 = 1.0
 };
@@ -48,17 +48,25 @@ using TextureId = uint32_t; // 0 = none
 using MeshId = uint32_t;    // 0 = none
 
 struct TextureParams {
-    bool clamp = false;   // clamp coordinates to the edge instead of repeating
-    bool mipmaps = true;  // generate mipmaps and filter between them
-    bool nearest = false; // nearest-neighbour instead of linear filtering
-    bool mipNearest = false; // the nearest mipmap instead of blending two (bilinear, not trilinear)
+    bool clamp = false;       // clamp coordinates to the edge instead of repeating
+    bool mipmaps = true;      // generate mipmaps and filter between them
+    bool nearest = false;     // nearest-neighbour instead of linear filtering
+    bool mipNearest = false;  // the nearest mipmap instead of blending two (bilinear, not trilinear)
     bool anisotropic = false; // anisotropic filtering, for mipmapped textures
 };
 
 // Blend factors for result = src * srcFactor + dst * dstFactor.
 enum class Blend : uint8_t {
-    Zero, One, SrcColor, OneMinusSrcColor, DstColor, OneMinusDstColor,
-    SrcAlpha, OneMinusSrcAlpha, DstAlpha, OneMinusDstAlpha,
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
 };
 enum class Cull : uint8_t { None, Back, Front };
 // Discard fragments by their alpha: none, alpha > 0, alpha < 0.5, alpha >= 0.5.
@@ -66,14 +74,14 @@ enum class AlphaTest : uint8_t { None, Gt0, Lt128, Ge128 };
 
 struct DrawState {
     Blend src = Blend::One, dst = Blend::Zero; // One/Zero: opaque
-    bool depthTest = true;  // passes when nearer or equal
+    bool depthTest = true;                     // passes when nearer or equal
     bool depthEqual = false; // with depthTest: passes only when equal, for extra passes over drawn geometry
     bool depthWrite = true;
     bool depthBias = false; // pulled towards the camera, for decals on walls
     Cull cull = Cull::Back;
     AlphaTest alphaTest = AlphaTest::None;
 
-    bool operator==(const DrawState&) const = default;
+    bool operator==(const DrawState &) const = default;
 };
 
 // A periodic function of time: base + amplitude * f(phase + time * frequency),
@@ -84,7 +92,7 @@ struct Wave {
     float base = 0, amplitude = 0, phase = 0, frequency = 0;
 };
 // The wave's value at `time` seconds, as the GPU computes it too.
-float evaluate(const Wave& wave, float time);
+float evaluate(const Wave &wave, float time);
 
 // Where texture coordinates come from: the first or second set, a
 // reflection of the camera off the surface (environment mapping), or the
@@ -120,7 +128,7 @@ struct Deform {
 struct DynamicLight {
     Vec3 origin{};
     float radius = 0;
-    Vec3 color{}; // 1 = full
+    Vec3 color{};  // 1 = full
     float fog = 0; // a volume light's: how much it hides what's behind it, through its middle
 };
 constexpr int kMaxDynamicLights = 16;
@@ -130,14 +138,14 @@ constexpr int kMaxDynamicLights = 16;
 struct VertexLight {
     Vec3 position{};
     float radius = 0;
-    Vec3 color{}; // 1 = full
+    Vec3 color{};          // 1 = full
     bool cylinder = false; // surfaceLighting: by its distance across, whatever the facing
 };
 constexpr int kMaxVertexLights = 6;
 // How much of a volume light (a glowing sphere, densest at its centre and
 // fading to nothing at its radius, (1 - (d / r)^2)) lies between `eye` and
 // `at`: 1 for a line straight through the whole of it.
-inline float volumeGlow(const Vec3& eye, const Vec3& at, const DynamicLight& l) {
+inline float volumeGlow(const Vec3 &eye, const Vec3 &at, const DynamicLight &l) {
     const float rx = at[0] - eye[0], ry = at[1] - eye[1], rz = at[2] - eye[2];
     const float len = std::sqrt(rx * rx + ry * ry + rz * rz);
     if (len <= 0 || l.radius <= 0)
@@ -197,7 +205,7 @@ struct DrawCall {
     // the sum of colour x (1 - 3 f^2 + 2 f^3) x max(0, cos)), f = distance /
     // radius; a cylinder light 1 - f^2 by its distance across.
     bool surfaceLighting = false;
-    Vec3 shadowLight{};                   // for ColorSource::Shadow
+    Vec3 shadowLight{}; // for ColorSource::Shadow
     float shadowReach = 0, shadowStrength = 0, shadowMax = 0;
     // > 0: the fragment's alpha is instead clamp(distance from the camera
     // / fogDistance), for blending a fog colour over drawn geometry.
@@ -213,8 +221,8 @@ struct DrawCall {
     float fogDepth = 0;
     std::array<float, 4> fogPlane{0, 0, 0, 1};
     std::array<Deform, 2> deforms{};
-    float time = 0;              // seconds, for the deforms
-    bool followCamera = false;   // positions are relative to the camera (skies)
+    float time = 0;            // seconds, for the deforms
+    bool followCamera = false; // positions are relative to the camera (skies)
     // Instead of the texture and colour, the light the frame's dynamic
     // lights (Renderer3D::setDynamicLights) cast on each pixel: for a pass
     // over drawn geometry that adds it.
@@ -235,7 +243,7 @@ struct DrawCall {
 struct TextureRegion {
     TextureId texture = 0;
     int x = 0, y = 0, w = 0, h = 0;
-    const uint8_t* rgba = nullptr;
+    const uint8_t *rgba = nullptr;
 };
 
 class Renderer3D {
@@ -243,28 +251,28 @@ public:
     virtual ~Renderer3D() = default;
 
     // RGBA pixels, rows top to bottom.
-    virtual Error createTexture(int width, int height, const uint8_t* rgba, const TextureParams& params,
-                                TextureId& out) = 0;
+    virtual Error createTexture(int width, int height, const uint8_t *rgba, const TextureParams &params,
+                                TextureId &out) = 0;
     virtual void destroyTexture(TextureId id) = 0;
     // Replaces rectangles of textures made without mipmaps (a lightmap as
     // its lights change), all at once, before the frame's draws use them.
     // A renderer that can't leaves them as they were.
-    virtual Error updateTextures(const std::vector<TextureRegion>& regions) {
+    virtual Error updateTextures(const std::vector<TextureRegion> &regions) {
         (void)regions;
         return {};
     }
     // Indices refer to `vertices`; every three make a triangle.
-    virtual Error createMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
-                             MeshId& out) = 0;
+    virtual Error createMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                             MeshId &out) = 0;
     // A mesh of its own indices over another's vertices (shared, not
     // copied; destroyed before that one), for another view's selection.
-    virtual Error createIndexedMesh(MeshId vertices, const std::vector<uint32_t>& indices, MeshId& out) = 0;
+    virtual Error createIndexedMesh(MeshId vertices, const std::vector<uint32_t> &indices, MeshId &out) = 0;
     // Replaces a mesh's indices (its vertices kept), as a level's visible
     // surfaces change.
-    virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t>& indices) = 0;
+    virtual Error setMeshIndices(MeshId id, const std::vector<uint32_t> &indices) = 0;
     // Replaces a mesh's vertices (its indices kept), as a skinned model
     // moves each frame; draws after see the new ones, frames before the old.
-    virtual Error setMeshVertices(MeshId id, const std::vector<Vertex>& vertices) {
+    virtual Error setMeshVertices(MeshId id, const std::vector<Vertex> &vertices) {
         (void)id, (void)vertices;
         return Error::fail("Vertices can't be replaced");
     }
@@ -278,17 +286,17 @@ public:
 
     // A frame: begin, any number of draws (in order), end. `viewProj` maps
     // world positions to clip space; `eye` is the camera's position.
-    virtual void beginFrame(const Mat4& viewProj, const Vec3& eye, Color clear) = 0;
-    virtual void draw(const DrawCall& call) = 0;
+    virtual void beginFrame(const Mat4 &viewProj, const Vec3 &eye, Color clear) = 0;
+    virtual void draw(const DrawCall &call) = 0;
     // A new view for the draws that follow, within the frame (a 2D layer
     // over the 3D view).
-    virtual void setView(const Mat4& viewProj, const Vec3& eye) = 0;
+    virtual void setView(const Mat4 &viewProj, const Vec3 &eye) = 0;
     // The dynamic lights for draws with DrawCall::dynamicLights (at most
     // kMaxDynamicLights; the rest are left out).
-    virtual void setDynamicLights(const std::vector<DynamicLight>& lights) = 0;
+    virtual void setDynamicLights(const std::vector<DynamicLight> &lights) = 0;
     // The volume lights for draws with DrawCall::volumeLights (as many).
     // A renderer without them draws no glow.
-    virtual void setVolumeLights(const std::vector<DynamicLight>& lights) { (void)lights; }
+    virtual void setVolumeLights(const std::vector<DynamicLight> &lights) { (void)lights; }
     // Where the draws that follow land in the frame, in pixels (w or h 0:
     // all of it), within the frame.
     virtual void setViewport(int x, int y, int w, int h) = 0;
@@ -343,13 +351,13 @@ public:
     }
     // Presents the frame, with `overlay` (RGBA32, the frame's size, blended
     // by its alpha) on top if given.
-    virtual void endFrame(const Surface* overlay) = 0;
+    virtual void endFrame(const Surface *overlay) = 0;
     // Keeps a copy of the next finished frame (as shown, brightness
     // included, without the overlay) for takeCapture().
     virtual void captureNextFrame() = 0;
     // The kept frame: width() x height(), RGBA, rows top to bottom; false
     // if none was kept since the last call (or it couldn't be read back).
-    virtual bool takeCapture(std::vector<uint8_t>& rgba) = 0;
+    virtual bool takeCapture(std::vector<uint8_t> &rgba) = 0;
 };
 
 } // namespace reluva::gfx

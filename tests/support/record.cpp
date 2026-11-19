@@ -11,8 +11,8 @@
 
 namespace reluva::test {
 
-Hash& Hash::bytes(const void* data, size_t size) {
-    const auto* p = static_cast<const uint8_t*>(data);
+Hash &Hash::bytes(const void *data, size_t size) {
+    const auto *p = static_cast<const uint8_t *>(data);
     for (size_t i = 0; i < size; ++i) {
         h_ ^= p[i];
         h_ *= 0x100000001b3ull;
@@ -28,7 +28,7 @@ std::string Hash::hex() const {
 
 namespace {
 // A record file's lines, without its comments.
-std::vector<std::string> readLines(const std::filesystem::path& path) {
+std::vector<std::string> readLines(const std::filesystem::path &path) {
     std::vector<std::string> out;
     std::ifstream in(path);
     for (std::string line; std::getline(in, line);)
@@ -38,8 +38,8 @@ std::vector<std::string> readLines(const std::filesystem::path& path) {
 }
 } // namespace
 
-void Record::check(const std::filesystem::path& path, const std::string& suite, const std::string& source) const {
-    for (const std::string& line : lines_)
+void Record::check(const std::filesystem::path &path, const std::string &suite, const std::string &source) const {
+    for (const std::string &line : lines_)
         if (line.find(": FAILED ") != std::string::npos)
             test::fail(line);
 
@@ -48,7 +48,7 @@ void Record::check(const std::filesystem::path& path, const std::string& suite, 
         std::ofstream out(path);
         out << "# The record of " << suite << " (" << source << ").\n"
             << "# Written by `reluva-tests " << suite << " --update`; review its diff before committing.\n";
-        for (const std::string& line : lines_)
+        for (const std::string &line : lines_)
             out << line << "\n";
         std::printf("Record written to %s (%zu lines)\n", path.string().c_str(), lines_.size());
         return;
@@ -71,7 +71,7 @@ void Record::check(const std::filesystem::path& path, const std::string& suite, 
     }
     if (differ)
         test::fail(std::to_string(differ) + " line(s) differ from " + path.string() + ". If the change is meant, run " +
-             "reluva-tests " + suite + " --update and review the record's diff.");
+                   "reluva-tests " + suite + " --update and review the record's diff.");
 }
 
 } // namespace reluva::test

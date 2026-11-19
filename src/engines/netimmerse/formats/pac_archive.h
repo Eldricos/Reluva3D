@@ -24,23 +24,23 @@ namespace reluva::netimmerse {
 class PacArchive : public Archive {
 public:
     struct Entry {
-        std::string name;       // as stored, e.g. "ABADI MT CONDENSED.DDF"
-        uint64_t offset = 0;    // of the data, from the start of the archive (high half 0 in all)
+        std::string name;    // as stored, e.g. "ABADI MT CONDENSED.DDF"
+        uint64_t offset = 0; // of the data, from the start of the archive (high half 0 in all)
         uint32_t size = 0;
-        uint64_t modified = 0;  // Windows FILETIME: 100 ns units since 1601
+        uint64_t modified = 0; // Windows FILETIME: 100 ns units since 1601
     };
 
-    Error open(const std::filesystem::path& path);
+    Error open(const std::filesystem::path &path);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return path_.string(); }
 
     // In the directory's order, which is the data's.
-    const std::vector<Entry>& entries() const { return entries_; }
-    const Entry* entry(std::string_view name) const;
-    Error read(const Entry& entry, std::vector<uint8_t>& out) const;
+    const std::vector<Entry> &entries() const { return entries_; }
+    const Entry *entry(std::string_view name) const;
+    Error read(const Entry &entry, std::vector<uint8_t> &out) const;
     // Where the first file's data starts, as the header gives it.
     uint32_t dataStart() const { return dataStart_; }
 

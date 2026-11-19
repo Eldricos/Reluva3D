@@ -26,14 +26,14 @@ class BitmapFont {
 public:
     // Packed: each glyph's ink a pixel after the last's (the ticker), not
     // by the glyphs' cells.
-    BitmapFont(const GameData& data, const ResiFont& font, bool packed = false);
+    BitmapFont(const GameData &data, const ResiFont &font, bool packed = false);
     int lineHeight() const { return lineHeight_; }
     int width(std::string_view line) const;
-    void draw(Surface& s, int x, int y, std::string_view line) const;
+    void draw(Surface &s, int x, int y, std::string_view line) const;
 
 private:
     struct Glyph {
-        const Image* image = nullptr;
+        const Image *image = nullptr;
         int dx = 0; // where its image goes from the pen
         int advance = 0;
     };
@@ -44,8 +44,8 @@ private:
 // The game's fonts, by their number in dialogInfo.res.
 class Fonts {
 public:
-    Fonts(const GameData& data, const Resi& resi);
-    const BitmapFont* get(int id) const; // nullptr if there's no such font
+    Fonts(const GameData &data, const Resi &resi);
+    const BitmapFont *get(int id) const; // nullptr if there's no such font
 
 private:
     std::map<int, std::unique_ptr<BitmapFont>> fonts_;
@@ -64,16 +64,16 @@ std::vector<std::string> splitLines(std::string_view text);
 
 // Draws text in a rectangle (x, y, w, h): centred across it or from its
 // left, centred down it or from its top.
-void drawText(Surface& s, const BitmapFont& font, std::string_view text, int x, int y, int w, int h, bool centreX,
+void drawText(Surface &s, const BitmapFont &font, std::string_view text, int x, int y, int w, int h, bool centreX,
               bool centreY);
 
 // A dialog of dialogInfo.res on the screen, with what the game changes in
 // it: which controls show, their text, which are disabled or chosen.
 class DialogView {
 public:
-    DialogView(const GameData& data, const Fonts& fonts, const ResiDialog& dialog, int x = 0, int y = 0);
+    DialogView(const GameData &data, const Fonts &fonts, const ResiDialog &dialog, int x = 0, int y = 0);
 
-    const ResiDialog& info() const { return dialog_; }
+    const ResiDialog &info() const { return dialog_; }
     void setVisible(int id, bool visible);
     void setGroupVisible(int group, bool visible); // every control of that group
     bool visible(int id) const;
@@ -99,12 +99,12 @@ public:
     // id): for tools that click the game's own buttons.
     UiRect rect(int id) const;
 
-    void draw(Surface& s) const { drawBackground(s), drawControls(s); }
-    void drawBackground(Surface& s) const;
-    void drawControls(Surface& s) const;
+    void draw(Surface &s) const { drawBackground(s), drawControls(s); }
+    void drawBackground(Surface &s) const;
+    void drawControls(Surface &s) const;
     // What a mouse or key event did: the id of a button clicked or a
     // slider moved, or -1.
-    int handleEvent(const Event& ev);
+    int handleEvent(const Event &ev);
 
 private:
     struct State {
@@ -113,16 +113,16 @@ private:
         std::string text;
         int value = 0, scroll = 0;
     };
-    const ResiControl* hit(int mx, int my) const;
-    UiRect rectOf(const ResiControl& c) const;
-    std::vector<std::string> wrapped(const ResiControl& c) const;
+    const ResiControl *hit(int mx, int my) const;
+    UiRect rectOf(const ResiControl &c) const;
+    std::vector<std::string> wrapped(const ResiControl &c) const;
 
-    const GameData& data_;
-    const Fonts& fonts_;
-    const ResiDialog& dialog_;
+    const GameData &data_;
+    const Fonts &fonts_;
+    const ResiDialog &dialog_;
     int x_, y_;
     int width_ = 0, height_ = 0; // the dialog's size, for controls reaching to its edges
-    std::vector<State> state_; // one per control
+    std::vector<State> state_;   // one per control
     int hover_ = -1, pressed_ = -1, focus_ = -1, dragging_ = -1;
 };
 

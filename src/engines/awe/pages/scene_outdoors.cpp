@@ -52,7 +52,7 @@ ParticleSettings breathSettings() {
 
 // Where a bone of the character is in the world, now; false if it has no
 // such bone (0x42aae0: the world pose's translation).
-bool bonePosition(const Model& model, const Pose& pose, const gfx::Mat4& placement, const char* name, float out[3]) {
+bool bonePosition(const Model &model, const Pose &pose, const gfx::Mat4 &placement, const char *name, float out[3]) {
     for (size_t b = 0; b < model.bones.size() && b < pose.world.size(); b++) {
         if (fs::toLower(model.bones[b].name) != fs::toLower(name))
             continue;
@@ -65,27 +65,27 @@ bool bonePosition(const Model& model, const Pose& pose, const gfx::Mat4& placeme
 
 } // namespace
 
-void ScenePage::updateOutdoors(Character& c, float dt, bool walking) {
-    const Ac2Record* modl = c.record ? c.record->part("MODL") : nullptr;
+void ScenePage::updateOutdoors(Character &c, float dt, bool walking) {
+    const Ac2Record *modl = c.record ? c.record->part("MODL") : nullptr;
     if (!modl || !c.model || !c.actor)
         return;
     Pose pose;
     bool posed = false;
-    auto posedNow = [&]() -> const Pose& {
+    auto posedNow = [&]() -> const Pose & {
         if (!posed)
             c.actor->animator().pose(pose), posed = true;
         return pose;
     };
     // Footprints, only in a scene marked outdoors (OUTD, 0x43ffcd).
     bool outdoors = false;
-    for (const Ac2Record& r : scene_.records)
+    for (const Ac2Record &r : scene_.records)
         if (r.tag == "OUTD")
             outdoors = r.i("value") != 0;
     if (modl->i("footprints") && outdoors) {
-        for (Character::Footprint& f : c.footprints)
+        for (Character::Footprint &f : c.footprints)
             f.age += dt;
         c.footprints.erase(std::remove_if(c.footprints.begin(), c.footprints.end(),
-                                          [](const Character::Footprint& f) { return f.age >= kFootprintLife; }),
+                                          [](const Character::Footprint &f) { return f.age >= kFootprintLife; }),
                            c.footprints.end());
         if (walking) {
             // A foot down at its time in the stride: where its bone is, on
@@ -126,7 +126,7 @@ void ScenePage::updateOutdoors(Character& c, float dt, bool walking) {
     c.breath->update(dt);
 }
 
-void ScenePage::drawFootprint(const Character::Footprint& f, const SceneLighting& lighting, float brightness) {
+void ScenePage::drawFootprint(const Character::Footprint &f, const SceneLighting &lighting, float brightness) {
     // A model like any other (FOOT, 0x40dda0: no shadow; the models'
     // ambient 0.5), its diffuse alpha its fade (+0x98), blended.
     if (!f.model)

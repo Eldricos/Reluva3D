@@ -22,9 +22,9 @@ namespace reluva::awe {
 
 struct ScriptEvent {
     std::vector<std::string> words; // the verb, then its arguments
-    const std::string& verb() const { return words.front(); }
+    const std::string &verb() const { return words.front(); }
     // An argument from 1, "" if there isn't one.
-    const std::string& arg(size_t i) const;
+    const std::string &arg(size_t i) const;
 };
 
 class ScriptRunner;
@@ -32,10 +32,10 @@ class ScriptRunner;
 // Gives Poirot another item in that state (2: in the bag, 1: just taken),
 // in `slot` or the lowest free one; passports and fingerprint cards take
 // their own (5, 6).
-void addItem(GameState& state, const std::string& item, int st, int slot = -1);
+void addItem(GameState &state, const std::string &item, int st, int slot = -1);
 
 // Adds `seconds` to every timer ("time <n>", and each second that passes).
-void addTime(GameState& state, int seconds);
+void addTime(GameState &state, int seconds);
 
 // What scripts do to the world, for the runner to call.
 class ScriptHost {
@@ -46,10 +46,10 @@ public:
     // ScriptRunner::finished() when it's over; false if it's done already.
     // `wait` is false for the "a" verbs: their finishing isn't waited for.
     // `runner` is the one to tell.
-    virtual bool start(ScriptRunner& runner, const ScriptEvent& e, bool wait) = 0;
+    virtual bool start(ScriptRunner &runner, const ScriptEvent &e, bool wait) = 0;
     // The text of text\scripts\<name>.txt, for "script <name>"; "" if
     // there's none.
-    virtual std::string scriptText(const std::string& name) {
+    virtual std::string scriptText(const std::string &name) {
         (void)name;
         return {};
     }
@@ -57,7 +57,7 @@ public:
 
 class ScriptRunner {
 public:
-    ScriptRunner(GameState& state, ScriptHost& host) : state_(state), host_(host) {}
+    ScriptRunner(GameState &state, ScriptHost &host) : state_(state), host_(host) {}
 
     // Queues commands: a script cell's ("walk 31 0, scene salon_02 1") or
     // an event file's, one a line. As the game adds them (0x409024), two
@@ -100,16 +100,16 @@ public:
     void clear();
 
     // The character the events act on (setchar), "" for the player's.
-    const std::string& character() const { return character_; }
+    const std::string &character() const { return character_; }
     // Whose runner this is (a routine's character, a line's speaker): the
     // character each script given to it starts with (0x40598f), "" for
     // the player's.
-    void setCharacter(const std::string& who) { owner_ = character_ = who; }
+    void setCharacter(const std::string &who) { owner_ = character_ = who; }
     // When an event ends and leaves nothing queued (the main runner's
     // acts check their completion then: 0x409a80).
     std::function<void()> onEmpty;
     // Each event as it starts, for a log.
-    std::function<void(const ScriptEvent& e)> onEvent;
+    std::function<void(const ScriptEvent &e)> onEvent;
 
     // The verbs whose "a" form doesn't wait: walk and walka, talk and
     // talka... "" if `verb` isn't one of those forms.
@@ -120,14 +120,14 @@ private:
     void add(std::vector<std::string> words, int depth);
     // The verbs the runner does itself (the game's state); false if
     // `e` isn't one.
-    bool runOwn(const ScriptEvent& e);
+    bool runOwn(const ScriptEvent &e);
 
-    GameState& state_;
-    ScriptHost& host_;
+    GameState &state_;
+    ScriptHost &host_;
     std::deque<ScriptEvent> queue_;
-    bool running_ = false;      // the front event is under way
-    std::string waitingFor_;    // the verb it waits on
-    float waitLeft_ = -1;       // a "wait"'s seconds left
+    bool running_ = false;   // the front event is under way
+    std::string waitingFor_; // the verb it waits on
+    float waitLeft_ = -1;    // a "wait"'s seconds left
     std::string character_, owner_;
     bool fromCharacter_ = false;
     bool locked_ = false;

@@ -24,14 +24,16 @@ namespace reluva::unreal {
 
 // --- Page ------------------------------------------------------------------------------
 
-void Page::clear(uint8_t r, uint8_t g, uint8_t b) { fill(0, 0, ctx_.screen.w, ctx_.screen.h, r, g, b); }
+void Page::clear(uint8_t r, uint8_t g, uint8_t b) {
+    fill(0, 0, ctx_.screen.w, ctx_.screen.h, r, g, b);
+}
 
 void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     const int x0 = std::max(x, 0), y0 = std::max(y, 0);
     const int x1 = std::min(x + w, s.w), y1 = std::min(y + h, s.h);
     for (int yy = y0; yy < y1; ++yy) {
-        uint8_t* p = s.row(yy) + x0 * 4;
+        uint8_t *p = s.row(yy) + x0 * 4;
         for (int xx = x0; xx < x1; ++xx, p += 4) {
             p[0] = r;
             p[1] = g;
@@ -41,20 +43,23 @@ void Page::fill(int x, int y, int w, int h, uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
-void Page::text(int x, int y, const std::string& s, Color c) { font::drawText(ctx_.screen, x, y, s, c); }
+void Page::text(int x, int y, const std::string &s, Color c) {
+    font::drawText(ctx_.screen, x, y, s, c);
+}
 
-void Page::setTitle(const std::string& detail) {
+void Page::setTitle(const std::string &detail) {
     ctx_.sys.setWindowTitle(std::string("Reluva - ") + ctx_.game.name + " - " + name() + ": " + detail);
 }
 
 // --- PackageViewer ----------------------------------------------------------------------
 
-PackageViewer::PackageViewer(ViewerContext& ctx) : Page(ctx), names_(ctx.packages.names()) {}
+PackageViewer::PackageViewer(ViewerContext &ctx) : Page(ctx), names_(ctx.packages.names()) {
+}
 
-void PackageViewer::handleEvent(const Event& ev) {
+void PackageViewer::handleEvent(const Event &ev) {
     if (names_.empty())
         return;
-    const Package* pkg = ctx_.packages.get(names_[size_t(index_)]);
+    const Package *pkg = ctx_.packages.get(names_[size_t(index_)]);
     const int exports = pkg ? int(pkg->exports().size()) : 0;
     const int page = 30;
     int sel = selected_;
@@ -94,12 +99,13 @@ void PackageViewer::draw() {
     clear(16, 18, 24);
     if (names_.empty())
         return;
-    const std::string& name = names_[size_t(index_)];
+    const std::string &name = names_[size_t(index_)];
     setTitle(name + " (" + std::to_string(index_ + 1) + "/" + std::to_string(names_.size()) + ")");
     const int lh = font::kLineHeight;
-    const Package* pkg = ctx_.packages.get(name);
-    text(4, 4, name + ctx_.packages.extension(name) + "  " + std::to_string(index_ + 1) + "/" +
-                   std::to_string(names_.size()));
+    const Package *pkg = ctx_.packages.get(name);
+    text(4, 4,
+         name + ctx_.packages.extension(name) + "  " + std::to_string(index_ + 1) + "/" +
+             std::to_string(names_.size()));
     if (!pkg) {
         text(4, 4 + lh, ctx_.packages.error(name), {255, 120, 120});
         return;
@@ -117,7 +123,7 @@ void PackageViewer::draw() {
         top_ = selected_;
     if (selected_ >= top_ + listRows)
         top_ = selected_ - listRows + 1;
-    const auto& exports = pkg->exports();
+    const auto &exports = pkg->exports();
     for (int i = 0; i < listRows && top_ + i < int(exports.size()); ++i) {
         const int e = top_ + i;
         const int y = listTop + i * lh;
@@ -147,14 +153,15 @@ void PackageViewer::draw() {
         text(4, y, err.message, {255, 120, 120});
         return;
     }
-    for (const Property& p : props.items) {
+    for (const Property &p : props.items) {
         y += lh;
         if (y + lh > ctx_.screen.h)
             break;
         std::string label = p.name;
         if (p.arrayIndex)
             label += "[" + std::to_string(p.arrayIndex) + "]";
-        text(4, y, label + " (" + (p.structName.empty() ? typeName(p.type) : p.structName) + ") = " + describe(*pkg, p));
+        text(4, y,
+             label + " (" + (p.structName.empty() ? typeName(p.type) : p.structName) + ") = " + describe(*pkg, p));
     }
 }
 
@@ -162,17 +169,17 @@ namespace {
 
 // The packages of one kind (".utx"), then the maps, then the code
 // packages, which can carry their own textures and sounds too.
-std::vector<std::string> browsedPackages(const PackageSet& packages, const char* extension) {
+std::vector<std::string> browsedPackages(const PackageSet &packages, const char *extension) {
     std::vector<std::string> out = packages.names(extension);
-    for (std::string& n : packages.mapNames())
+    for (std::string &n : packages.mapNames())
         out.push_back(std::move(n));
-    for (std::string& n : packages.names(".u"))
+    for (std::string &n : packages.names(".u"))
         out.push_back(std::move(n));
     return out;
 }
 
 // The sound packages, then the music ones (.umx), then the rest.
-std::vector<std::string> soundPackages(const PackageSet& packages) {
+std::vector<std::string> soundPackages(const PackageSet &packages) {
     std::vector<std::string> out = browsedPackages(packages, ".uax");
     std::vector<std::string> music = packages.names(".umx");
     out.insert(out.begin() + std::ptrdiff_t(packages.names(".uax").size()), music.begin(), music.end());
@@ -183,15 +190,16 @@ std::vector<std::string> soundPackages(const PackageSet& packages) {
 
 // --- ObjectBrowser ----------------------------------------------------------------------
 
-ObjectBrowser::ObjectBrowser(const PackageSet& packages, std::vector<std::string> names,
+ObjectBrowser::ObjectBrowser(const PackageSet &packages, std::vector<std::string> names,
                              bool (*wanted)(std::string_view))
-    : packages_(packages), wanted_(wanted), names_(std::move(names)) {}
+    : packages_(packages), wanted_(wanted), names_(std::move(names)) {
+}
 
 bool ObjectBrowser::load(int package) {
     package_ = package;
     objects_.clear();
     object_ = 0;
-    const Package* pkg = packages_.get(names_[size_t(package)]);
+    const Package *pkg = packages_.get(names_[size_t(package)]);
     if (!pkg)
         return false;
     for (size_t i = 0; i < pkg->exports().size(); ++i)
@@ -231,24 +239,26 @@ bool ObjectBrowser::step(int step) {
     return true;
 }
 
-const Package* ObjectBrowser::package() const {
+const Package *ObjectBrowser::package() const {
     return package_ < 0 || objects_.empty() ? nullptr : packages_.get(names_[size_t(package_)]);
 }
 
-int ObjectBrowser::exportIndex() const { return objects_.empty() ? -1 : objects_[size_t(object_)]; }
+int ObjectBrowser::exportIndex() const {
+    return objects_.empty() ? -1 : objects_[size_t(object_)];
+}
 
 std::string ObjectBrowser::where() const {
     if (package_ < 0)
         return {};
-    return std::to_string(object_ + 1) + "/" + std::to_string(objects_.size()) + " in " +
-           names_[size_t(package_)] + " (" + std::to_string(package_ + 1) + "/" + std::to_string(names_.size()) +
-           ")";
+    return std::to_string(object_ + 1) + "/" + std::to_string(objects_.size()) + " in " + names_[size_t(package_)] +
+           " (" + std::to_string(package_ + 1) + "/" + std::to_string(names_.size()) + ")";
 }
 
 // --- TextureViewer ----------------------------------------------------------------------
 
-TextureViewer::TextureViewer(ViewerContext& ctx)
-    : Page(ctx), browser_(ctx.packages, browsedPackages(ctx.packages, ".utx"), isTextureClass) {}
+TextureViewer::TextureViewer(ViewerContext &ctx)
+    : Page(ctx), browser_(ctx.packages, browsedPackages(ctx.packages, ".utx"), isTextureClass) {
+}
 
 void TextureViewer::activate() {
     if (!started_) {
@@ -258,7 +268,7 @@ void TextureViewer::activate() {
     select();
 }
 
-void TextureViewer::handleEvent(const Event& ev) {
+void TextureViewer::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     if (ev.key == key::Left || ev.key == key::Right)
@@ -288,7 +298,7 @@ void TextureViewer::select() {
     img_ = {};
     info_ = {};
     error_.clear();
-    if (const Package* pkg = browser_.package()) {
+    if (const Package *pkg = browser_.package()) {
         const int index = browser_.exportIndex();
         if (Error err = decodeTexture(ctx_.packages, *pkg, index, img_, &info_)) {
             error_ = err.message;
@@ -305,18 +315,18 @@ void TextureViewer::select() {
 }
 
 void TextureViewer::draw() {
-    Surface& s = ctx_.screen;
+    Surface &s = ctx_.screen;
     // Checkerboard, so transparency shows.
     for (int y = 0; y < s.h; ++y)
         for (int x = 0; x < s.w; ++x) {
             const uint8_t v = ((x / 16 + y / 16) & 1) ? 70 : 50;
-            uint8_t* p = s.row(y) + x * 4;
+            uint8_t *p = s.row(y) + x * 4;
             p[0] = p[1] = p[2] = v;
             p[3] = 255;
         }
     const int lh = font::kLineHeight;
     fill(0, 0, s.w, 3 * lh, 16, 18, 24);
-    const Package* pkg = browser_.package();
+    const Package *pkg = browser_.package();
     if (!pkg) {
         text(4, 4, "No textures found");
         return;
@@ -330,8 +340,8 @@ void TextureViewer::draw() {
         text(4, 4 + lh, error_, {255, 120, 120});
         return;
     }
-    const image::Image& img = img_;
-    const TextureInfo& info = info_;
+    const image::Image &img = img_;
+    const TextureInfo &info = info_;
     // Whole multiples up to 4x when small, nearest-neighbour shrinking when large.
     const int areaW = s.w, areaH = s.h - 3 * lh;
     float scale = std::min(float(areaW) / float(img.w), float(areaH) / float(img.h));
@@ -371,9 +381,13 @@ bool isSoundClass(std::string_view c) {
 }
 } // namespace
 
-SoundViewer::SoundViewer(ViewerContext& ctx) : Page(ctx), browser_(ctx.packages, soundPackages(ctx.packages), isSoundClass) {}
+SoundViewer::SoundViewer(ViewerContext &ctx)
+    : Page(ctx), browser_(ctx.packages, soundPackages(ctx.packages), isSoundClass) {
+}
 
-SoundViewer::~SoundViewer() { deactivate(); }
+SoundViewer::~SoundViewer() {
+    deactivate();
+}
 
 void SoundViewer::activate() {
     if (!started_) {
@@ -390,7 +404,7 @@ void SoundViewer::deactivate() {
     playing_ = audio::kNoSound;
 }
 
-void SoundViewer::handleEvent(const Event& ev) {
+void SoundViewer::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown || ev.repeat)
         return;
     if (ev.key == key::Left || ev.key == key::Right)
@@ -408,7 +422,7 @@ void SoundViewer::handleEvent(const Event& ev) {
 
 void SoundViewer::play() {
     deactivate();
-    const Package* pkg = browser_.package();
+    const Package *pkg = browser_.package();
     if (!pkg)
         return;
     auto sound = std::make_shared<audio::Sound>();
@@ -434,7 +448,7 @@ void SoundViewer::play() {
 
 void SoundViewer::draw() {
     clear(16, 18, 24);
-    const Package* pkg = browser_.package();
+    const Package *pkg = browser_.package();
     if (!pkg) {
         text(4, 4, "No sounds found");
         return;

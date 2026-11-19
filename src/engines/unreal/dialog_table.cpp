@@ -15,7 +15,7 @@ namespace {
 
 // The files are Windows-1252: its quotes, dashes and ellipsis as plain
 // ASCII, the rest of the upper half as Latin-1 in UTF-8.
-std::string fromWindows1252(const std::string& s) {
+std::string fromWindows1252(const std::string &s) {
     std::string out;
     out.reserve(s.size());
     for (const char ch : s) {
@@ -65,7 +65,7 @@ std::string unquoted(std::string s) {
 // line, return line, tag, event, condition, camera, the speaker's and
 // listener's animations and faces. Rows without a record (the header,
 // the Missions and Speakers lines, blank spacers) are left out.
-void parseDialogTable(const std::string& text, const std::string& table, std::vector<DialogLine>& out) {
+void parseDialogTable(const std::string &text, const std::string &table, std::vector<DialogLine> &out) {
     size_t at = 0;
     int rowNumber = -1; // the rows that aren't blank, from 0 (as the engine numbers them)
     while (at < text.size()) {
@@ -87,8 +87,8 @@ void parseDialogTable(const std::string& text, const std::string& table, std::ve
                 break;
             from = tab + 1;
         }
-        if (c.size() < 8 || c[0].empty() || c[1].empty() || c[0] == "REC ID" || c[0] == "Missions" || c[0] == "Speakers" ||
-            c[0] == "Types" || c[0] == "Faces")
+        if (c.size() < 8 || c[0].empty() || c[1].empty() || c[0] == "REC ID" || c[0] == "Missions" ||
+            c[0] == "Speakers" || c[0] == "Types" || c[0] == "Faces")
             continue;
         c.resize(20);
         DialogLine l;
@@ -126,11 +126,11 @@ void parseDialogTable(const std::string& text, const std::string& table, std::ve
     }
 }
 
-Error readDialogTables(const std::filesystem::path& folder, std::vector<DialogLine>& out) {
+Error readDialogTables(const std::filesystem::path &folder, std::vector<DialogLine> &out) {
     out.clear();
     std::error_code ec;
     std::vector<std::filesystem::path> files;
-    for (const auto& entry : std::filesystem::directory_iterator(folder, ec)) {
+    for (const auto &entry : std::filesystem::directory_iterator(folder, ec)) {
         const std::string name = entry.path().filename().string();
         const std::string lower = fs::toLower(name);
         if (lower.size() > 13 && lower.substr(lower.size() - 13) == "_dialogue.txt")
@@ -139,7 +139,7 @@ Error readDialogTables(const std::filesystem::path& folder, std::vector<DialogLi
     if (ec)
         return Error::fail(folder.string() + ": " + ec.message());
     std::sort(files.begin(), files.end());
-    for (const auto& file : files) {
+    for (const auto &file : files) {
         std::ifstream in(file, std::ios::binary);
         const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         parseDialogTable(text, file.stem().string(), out);
@@ -147,7 +147,7 @@ Error readDialogTables(const std::filesystem::path& folder, std::vector<DialogLi
     return files.empty() ? Error::fail(folder.string() + ": no dialogue tables") : Error::success();
 }
 
-bool dialogKeyMatches(const std::string& pattern, const std::string& key) {
+bool dialogKeyMatches(const std::string &pattern, const std::string &key) {
     if (pattern.size() != key.size())
         return false;
     for (size_t i = 0; i < key.size(); ++i)

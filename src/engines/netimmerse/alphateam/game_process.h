@@ -27,7 +27,7 @@ class GameProcess {
 public:
     // The folder the program believes it was installed in, as the
     // installer puts it.
-    static constexpr const char* kInstallFolder = "C:\\Program Files\\LEGO Media\\Games\\LEGO Alpha Team\\";
+    static constexpr const char *kInstallFolder = "C:\\Program Files\\LEGO Media\\Games\\LEGO Alpha Team\\";
 
     // `memoryMb` of memory for the program (the archives are mapped into it).
     GameProcess(std::filesystem::path gameDir, uint32_t memoryMb = 1024);
@@ -43,14 +43,14 @@ public:
     // Runs each DLL's start-up, in load order; stops at the first that fails.
     Error attach();
     // Runs the program from its entry point.
-    Error run(uint32_t& exitCode);
+    Error run(uint32_t &exitCode);
 
-    x86::Cpu& cpu() { return *cpu_; }
-    x86::Win32Process& process() { return *process_; }
-    x86::DirectX& directX() { return *directX_; }
-    x86::A3d& a3d() { return *a3d_; }
+    x86::Cpu &cpu() { return *cpu_; }
+    x86::Win32Process &process() { return *process_; }
+    x86::DirectX &directX() { return *directX_; }
+    x86::A3d &a3d() { return *a3d_; }
     // Module names in the order they were loaded (the program last).
-    const std::vector<std::string>& loadOrder() const { return order_; }
+    const std::vector<std::string> &loadOrder() const { return order_; }
 
 private:
     std::filesystem::path dir_;
@@ -61,7 +61,7 @@ private:
     std::unique_ptr<x86::DirectInput> directInput_;
     std::unique_ptr<x86::A3d> a3d_;
     std::vector<std::string> order_;
-    std::vector<const x86::Win32Process::Module*> modules_;
+    std::vector<const x86::Win32Process::Module *> modules_;
 };
 
 } // namespace reluva::netimmerse::alphateam

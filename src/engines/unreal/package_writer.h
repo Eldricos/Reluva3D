@@ -30,9 +30,9 @@ public:
     void index(int32_t v);
     // A string as version 64 and later keep them: a compact length,
     // counting the NUL, then the letters and the NUL.
-    void string(const std::string& s);
-    void bytes(const void* p, size_t n);
-    void append(const std::vector<uint8_t>& v) { data.insert(data.end(), v.begin(), v.end()); }
+    void string(const std::string &s);
+    void bytes(const void *p, size_t n);
+    void append(const std::vector<uint8_t> &v) { data.insert(data.end(), v.begin(), v.end()); }
     std::vector<uint8_t> data;
 };
 
@@ -40,19 +40,19 @@ class PackageWriter {
 public:
     // Starts from `base`'s tables, each export's data its own (copied when
     // written unless replaced).
-    explicit PackageWriter(const Package& base);
+    explicit PackageWriter(const Package &base);
 
     // A name's index, added if it's new.
-    int32_t name(const std::string& text);
+    int32_t name(const std::string &text);
     // A reference to an import, added (with the packages and groups it's
     // in) if it's new: `path` "Package.Group.Object", `classPackage` and
     // `className` its class's ("Engine", "Texture").
-    int32_t import(const std::string& path, const std::string& classPackage, const std::string& className);
+    int32_t import(const std::string &path, const std::string &classPackage, const std::string &className);
     // An import of `name` in another import (a state in its class).
-    int32_t importIn(int32_t outer, const std::string& name, const std::string& classPackage,
-                     const std::string& className);
+    int32_t importIn(int32_t outer, const std::string &name, const std::string &classPackage,
+                     const std::string &className);
     // A new export; returns its reference (index + 1).
-    int32_t addExport(int32_t classRef, int32_t outerRef, const std::string& objectName, uint32_t flags);
+    int32_t addExport(int32_t classRef, int32_t outerRef, const std::string &objectName, uint32_t flags);
     void setFlags(int32_t ref, uint32_t flags) { exports_[size_t(ref - 1)].e.flags = flags; }
     // An export's data, in place of what the base has.
     void setData(int32_t ref, std::vector<uint8_t> data);
@@ -60,10 +60,10 @@ public:
     void drop(int32_t ref);
     size_t exportCount() const { return exports_.size(); }
 
-    Error write(const std::string& path) const;
+    Error write(const std::string &path) const;
 
 private:
-    const Package& base_;
+    const Package &base_;
     std::vector<NameEntry> names_;
     std::map<std::string, int32_t> nameIndex_; // lower case
     std::vector<Import> imports_;

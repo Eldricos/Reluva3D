@@ -18,7 +18,7 @@
 
 namespace reluva::awe {
 
-void ScenePage::startAt(const std::string& where) {
+void ScenePage::startAt(const std::string &where) {
     // As a new game, but straight to the act ("act 04a" as 03A's Event
     // has it) or the save ("preload slot7, load, fade in" as the load screen does).
     // "new": a new game as the program starts one, at the main menu.
@@ -54,7 +54,7 @@ std::string ScenePage::autoplay() {
             int pick = -1;
             if (chooser) {
                 std::vector<std::string> texts;
-                for (const DialogueManager::Choice& c : dialogue_->choices())
+                for (const DialogueManager::Choice &c : dialogue_->choices())
                     texts.push_back(c.text);
                 pick = chooser(texts);
                 if (pick >= n)
@@ -93,18 +93,18 @@ ScenePage::GameStatus ScenePage::status() const {
     return s;
 }
 
-std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
+std::vector<const Ac2Record *> ScenePage::clickableObjects() const {
     // The hotspots, characters and pictures (items lying about) a player
     // could click now, in the scene's order: shown, with something to run,
     // and an outline or a rectangle the pick can find; and Antoinette,
     // whom items can be used on (uselist.txt).
-    std::vector<const Ac2Record*> out;
-    for (const Ac2Record* o : scene_.objects()) {
+    std::vector<const Ac2Record *> out;
+    for (const Ac2Record *o : scene_.objects()) {
         if ((o->tag != "SPOT" && o->tag != "NPCX" && o->tag != "PCXX" && o->tag != "2DOB") || !objectShown(*o))
             continue;
         if (!scripted(*o) && o->tag != "PCXX")
             continue;
-        const Ac2Value* outline = o->field("listD");
+        const Ac2Value *outline = o->field("listD");
         int l, t, r, b;
         if (o->tag == "2DOB" && !(outline && outline->numbers.size() >= 3) && !objectRect(*o, l, t, r, b))
             continue;
@@ -116,8 +116,8 @@ std::vector<const Ac2Record*> ScenePage::clickableObjects() const {
 std::vector<std::string> ScenePage::clickables() const {
     // Their names, or their pictures' or models' files.
     std::vector<std::string> out;
-    for (const Ac2Record* o : clickableObjects()) {
-        const Ac2Record* hot = o->part("HOTS");
+    for (const Ac2Record *o : clickableObjects()) {
+        const Ac2Record *hot = o->part("HOTS");
         std::string name = !o->text("name").empty() ? o->text("name") : hot ? hot->text("name") : "";
         if (name.empty() && !o->text("file").empty())
             name = fs::toLower(o->text("file").substr(o->text("file").find_last_of("\\/") + 1));
@@ -128,21 +128,21 @@ std::vector<std::string> ScenePage::clickables() const {
     return out;
 }
 
-bool ScenePage::scripted(const Ac2Record& o) {
-    const Ac2Value* alternatives = o.field("listB");
+bool ScenePage::scripted(const Ac2Record &o) {
+    const Ac2Value *alternatives = o.field("listB");
     return !o.text("script").empty() || (alternatives && !alternatives->pairs.empty());
 }
 
 bool ScenePage::clickRuns(size_t i) const {
-    const std::vector<const Ac2Record*> objects = clickableObjects();
+    const std::vector<const Ac2Record *> objects = clickableObjects();
     return i < objects.size() && scripted(*objects[i]);
 }
 
-bool ScenePage::pointFor(size_t i, int& x, int& y) const {
-    const std::vector<const Ac2Record*> objects = clickableObjects();
+bool ScenePage::pointFor(size_t i, int &x, int &y) const {
+    const std::vector<const Ac2Record *> objects = clickableObjects();
     if (i >= objects.size())
         return false;
-    const Ac2Record* target = objects[i];
+    const Ac2Record *target = objects[i];
     // Where the game's mouse can be (handleEvent: x to 1004, y to 748, or
     // 758 in a conversation).
     const int maxX = 1004, maxY = dialogue_->active() ? 758 : 748;
@@ -159,9 +159,9 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
     // character without either by its bones, about where it stands.
     // (The outline when it has one: 0x40efa9.)
     int l, t, r, b;
-    if (const Ac2Value* outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
+    if (const Ac2Value *outline = target->field("listD"); outline && outline->numbers.size() >= 3) {
         l = kScreenW, t = kScreenH, r = 0, b = 0;
-        for (const auto& [ux, uy] : outline->numbers) {
+        for (const auto &[ux, uy] : outline->numbers) {
             const int px = int32_t(ux), py = int32_t(uy);
             l = std::min(l, px), r = std::max(r, px), t = std::min(t, py), b = std::max(b, py);
         }
@@ -171,9 +171,9 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
         return scan(l, t, r + 1, b + 1, 2);
     if (target->tag != "NPCX" && target->tag != "PCXX")
         return false;
-    for (const Character& c : characters_)
+    for (const Character &c : characters_)
         if (c.record == target)
-            if (const Ac2Record* camr = scene_.camera()) {
+            if (const Ac2Record *camr = scene_.camera()) {
                 const float feet[3] = {c.x, c.y, c.z};
                 float fx, fy;
                 if (SceneCamera::fromRecord(*camr).project(feet, kScreenW, kScreenH, fx, fy) &&
@@ -183,7 +183,7 @@ bool ScenePage::pointFor(size_t i, int& x, int& y) const {
     return scan(0, 0, kScreenW, kScreenH, 4);
 }
 
-bool ScenePage::pointFor(size_t i, int& x, int& y, const std::string& holding) {
+bool ScenePage::pointFor(size_t i, int &x, int &y, const std::string &holding) {
     // Only what the pick sees of the hand (itemInHand), and put back.
     const std::string was = std::exchange(state_.held, holding);
     const bool found = std::as_const(*this).pointFor(i, x, y);
@@ -193,7 +193,7 @@ bool ScenePage::pointFor(size_t i, int& x, int& y, const std::string& holding) {
 
 bool ScenePage::click(size_t i) {
     frame_++;
-    const std::vector<const Ac2Record*> objects = clickableObjects();
+    const std::vector<const Ac2Record *> objects = clickableObjects();
     if (i >= objects.size())
         return false;
     if (!runner_->idle())
@@ -208,7 +208,7 @@ std::vector<uint8_t> ScenePage::saveToMemory() const {
     return writeSaveGame(captureSave("search"));
 }
 
-bool ScenePage::loadFromMemory(const std::vector<uint8_t>& data) {
+bool ScenePage::loadFromMemory(const std::vector<uint8_t> &data) {
     // As the load screen loads a save: "preload", then "load, fade in";
     // from the load screen, so it's the menu that's left, not the game's
     // scene (whose "met them here" tags would go to 2: 0x423daa).
@@ -228,13 +228,13 @@ std::vector<std::string> ScenePage::flippableItems() {
     // The examine page's eye (0x41a860): an item with a back to look at
     // and an Examine Event for it.
     std::vector<std::string> out;
-    for (const std::string& item : bagItems())
+    for (const std::string &item : bagItems())
         if (itemInfo(item).event.size() > 1 && !itemPicture(item, "ex2").empty())
             out.push_back(item);
     return out;
 }
 
-bool ScenePage::flipItem(const std::string& item) {
+bool ScenePage::flipItem(const std::string &item) {
     const std::vector<std::string> items = flippableItems();
     if (std::find(items.begin(), items.end(), item) == items.end())
         return false;
@@ -273,8 +273,8 @@ bool ScenePage::travel(int car) {
 
 std::vector<std::pair<std::string, std::string>> ScenePage::matchingPrints() {
     std::vector<std::pair<std::string, std::string>> out;
-    for (const GameState::Item& card : state_.items)
-        if (const std::string& b = card.name; card.state == 6 && printRow(b) == 1) {
+    for (const GameState::Item &card : state_.items)
+        if (const std::string &b = card.name; card.state == 6 && printRow(b) == 1) {
             const std::string a = fs::toLower(itemInfo(b).flipped);
             if (state_.itemState(a) == 6 && printRow(a) == 0 && !state_.tags.count(a + "=" + b))
                 out.emplace_back(a, b);
@@ -282,11 +282,11 @@ std::vector<std::pair<std::string, std::string>> ScenePage::matchingPrints() {
     return out;
 }
 
-bool ScenePage::comparePrintCards(const std::string& person, const std::string& thing) {
+bool ScenePage::comparePrintCards(const std::string &person, const std::string &thing) {
     // Each row's card shown (0x41e2e0 compares the two shown), then the
     // magnifier.
     std::vector<std::string> rows[2];
-    for (const GameState::Item& i : state_.items)
+    for (const GameState::Item &i : state_.items)
         if (i.state == 6)
             rows[printRow(i.name)].push_back(i.name);
     const auto a = std::find(rows[0].begin(), rows[0].end(), person);

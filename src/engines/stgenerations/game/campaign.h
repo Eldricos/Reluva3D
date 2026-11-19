@@ -25,11 +25,11 @@ public:
     // Run a bridge command: its name in lower case and its arguments as
     // written (SetText's text is the rest of the line). Most bring the
     // bridge up.
-    virtual void bridgeCommand(const std::string& command, const std::vector<std::string>& args) = 0;
+    virtual void bridgeCommand(const std::string &command, const std::vector<std::string> &args) = 0;
     // The bridge is up: a bridge command ran since the last activity.
     virtual bool isBridgeShown() const = 0;
-    virtual bool isEnterpriseAt(const std::string& sun) const = 0;
-    virtual bool getObjectFlag(const std::string& object, int flag) const = 0;
+    virtual bool isEnterpriseAt(const std::string &sun) const = 0;
+    virtual bool getObjectFlag(const std::string &object, int flag) const = 0;
     // The stardate shown.
     virtual double getStardate() const = 0;
     virtual bool isAudioQueueEmpty() const = 0;
@@ -69,22 +69,18 @@ public:
         int number = 0;
     };
     // Space combat results (0x418F7A).
-    enum CombatResult {
-        kCombatLost = 0,
-        kCombatWon = 1,
-        kEnterpriseDestroyed = 2
-    };
+    enum CombatResult { kCombatLost = 0, kCombatWon = 1, kEnterpriseDestroyed = 2 };
 
     // Read the script's text; false if it has no [Start].
-    bool load(const std::string& text);
+    bool load(const std::string &text);
     bool isLoaded() const { return !_sections.empty(); }
-    bool hasSection(const std::string& name) const { return _sections.count(text::toLower(name)) != 0; }
+    bool hasSection(const std::string &name) const { return _sections.count(text::toLower(name)) != 0; }
     // The sections, in lower case.
     std::vector<std::string> getSectionNames() const;
-    void setWorld(CampaignWorld* world) { _world = world; }
+    void setWorld(CampaignWorld *world) { _world = world; }
 
     // Start the script at a section (e.g. "Start" or "NewGame"), with everything reset.
-    void start(const std::string& section);
+    void start(const std::string &section);
     // Run up to the next thing the engine must do.
     Action next();
     // An away mission asked for by next() ended; clue: it left the story a
@@ -101,7 +97,7 @@ public:
 
     bool isRunning() const { return _running; }
     // The section running, for saved games.
-    const std::string& getSection() const { return _section; }
+    const std::string &getSection() const { return _section; }
     // Start the section again from its first line, as loading a game does
     // (0x419703); or, if it was saved in a space combat, that combat again
     // from its start, the original's "save game at start of current
@@ -116,7 +112,7 @@ public:
     // Random choices (JumpRandom); returns 0..count-1. Defaults to the first.
     void setRandom(std::function<int(int count)> random) { _random = random; }
 
-    void sync(Serializer& s);
+    void sync(Serializer &s);
 
 private:
     enum Result {
@@ -125,14 +121,14 @@ private:
         kBlocked, // a Wait that isn't over: run the line again next frame
     };
 
-    void jump(const std::string& section);
-    Result execute(const std::vector<std::string>& words, Action& action);
+    void jump(const std::string &section);
+    Result execute(const std::vector<std::string> &words, Action &action);
     // The conditions in front of a command (IfFlag 5 IfNotFlag 15 Jump X); false if one fails.
-    bool test(const std::vector<std::string>& words, size_t& i) const;
-    bool isWaitOver(const std::string& kind) const;
+    bool test(const std::vector<std::string> &words, size_t &i) const;
+    bool isWaitOver(const std::string &kind) const;
 
     std::map<std::string, std::vector<std::vector<std::string>>> _sections;
-    CampaignWorld* _world = nullptr;
+    CampaignWorld *_world = nullptr;
     std::string _section;
     size_t _line = 0;
     bool _running = false;
@@ -156,4 +152,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

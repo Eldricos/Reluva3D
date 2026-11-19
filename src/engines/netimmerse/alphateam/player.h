@@ -31,23 +31,23 @@ class Player {
 public:
     // What it writes (its settings and progress) goes to `saveDir`; its
     // sound goes to `mixer`, if there's one.
-    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer* mixer = nullptr);
+    Player(std::filesystem::path gameDir, std::filesystem::path saveDir, audio::Mixer *mixer = nullptr);
     ~Player(); // stops the game and waits for it
 
     void start();
     // An input event for the game (mouse movement as relative movement,
     // buttons, the wheel, keys).
-    void input(const Event& event);
+    void input(const Event &event);
     // The newest frame shown, as 0xAARRGGBB, if there's one since the last
     // asked for.
-    bool frame(std::vector<uint32_t>& pixels, int& width, int& height);
+    bool frame(std::vector<uint32_t> &pixels, int &width, int &height);
     // How many frames the game has shown (flipped) so far.
     uint64_t framesShown();
     // Holds the game at its next frame (or lets it go on).
     void pause(bool paused);
     // Whether the program has stopped: by itself (`ended`) or with an error
     // (`error`).
-    bool finished(bool& ended, std::string& error);
+    bool finished(bool &ended, std::string &error);
     // What the program has written (its debug messages), since last asked.
     std::string takeOutput();
 
@@ -57,8 +57,8 @@ private:
 
     std::filesystem::path dir_;
     std::filesystem::path saveDir_;
-    audio::Mixer* mixer_;
-    GameProcess* game_ = nullptr; // the game thread's, while it runs
+    audio::Mixer *mixer_;
+    GameProcess *game_ = nullptr; // the game thread's, while it runs
     std::thread thread_;
     std::mutex mutex_;
     std::condition_variable resume_;

@@ -14,9 +14,9 @@ namespace reluva::soft3d {
 
 // A vertex after projection to the screen.
 struct ScreenVertex {
-    float x, y; // pixels; pixel centres are at +0.5
-    float invZ; // 1 / view-space depth: larger is nearer
-    float u, v; // texture coordinates
+    float x, y;  // pixels; pixel centres are at +0.5
+    float invZ;  // 1 / view-space depth: larger is nearer
+    float u, v;  // texture coordinates
     float s = 1; // light level, interpolated for smooth shading
 };
 
@@ -26,7 +26,7 @@ struct ScreenVertex {
 // correction.
 class Rasterizer {
 public:
-    void begin(Surface& target) {
+    void begin(Surface &target) {
         target_ = &target;
         depth_.assign(size_t(target.w) * size_t(target.h), 0.0f);
     }
@@ -35,11 +35,11 @@ public:
     // (4 bytes, R G B A; it may blend with what's there) and returns whether to
     // record its depth: false for a transparent or translucent texel, so it
     // doesn't hide faces drawn later.
-    template <typename Shade>
-    void drawTriangle(const ScreenVertex& a, const ScreenVertex& b, const ScreenVertex& c, Shade&& shade) {
-        const ScreenVertex* v0 = &a;
-        const ScreenVertex* v1 = &b;
-        const ScreenVertex* v2 = &c;
+    template<typename Shade>
+    void drawTriangle(const ScreenVertex &a, const ScreenVertex &b, const ScreenVertex &c, Shade &&shade) {
+        const ScreenVertex *v0 = &a;
+        const ScreenVertex *v1 = &b;
+        const ScreenVertex *v2 = &c;
         float area = edge(*v0, *v1, v2->x, v2->y);
         if (area == 0 || !std::isfinite(area))
             return;
@@ -56,8 +56,8 @@ public:
         const float inv = 1.0f / area;
         for (int y = y0; y <= y1; ++y) {
             const float py = float(y) + 0.5f;
-            uint8_t* row = target_->row(y);
-            float* depthRow = &depth_[size_t(y) * size_t(w)];
+            uint8_t *row = target_->row(y);
+            float *depthRow = &depth_[size_t(y) * size_t(w)];
             for (int x = x0; x <= x1; ++x) {
                 const float px = float(x) + 0.5f;
                 const float w0 = edge(*v1, *v2, px, py);
@@ -72,9 +72,8 @@ public:
                 const float u = (b0 * v0->u * v0->invZ + b1 * v1->u * v1->invZ + b2 * v2->u * v2->invZ) / invZ;
                 const float v = (b0 * v0->v * v0->invZ + b1 * v1->v * v1->invZ + b2 * v2->v * v2->invZ) / invZ;
                 bool opaque;
-                if constexpr (std::is_invocable_v<Shade, float, float, float, uint8_t*>) {
-                    const float light =
-                        (b0 * v0->s * v0->invZ + b1 * v1->s * v1->invZ + b2 * v2->s * v2->invZ) / invZ;
+                if constexpr (std::is_invocable_v<Shade, float, float, float, uint8_t *>) {
+                    const float light = (b0 * v0->s * v0->invZ + b1 * v1->s * v1->invZ + b2 * v2->s * v2->invZ) / invZ;
                     opaque = shade(u, v, light, row + x * 4);
                 } else {
                     opaque = shade(u, v, row + x * 4);
@@ -88,17 +87,17 @@ public:
 private:
     // Twice the signed area of (p, q, (x, y)); its gradient points into the
     // triangle when the triangle's area is positive.
-    static float edge(const ScreenVertex& p, const ScreenVertex& q, float x, float y) {
+    static float edge(const ScreenVertex &p, const ScreenVertex &q, float x, float y) {
         return (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
     }
     // With y pointing down: a top edge is horizontal with the inside below it,
     // a left edge has the inside to its right.
-    static bool topLeft(const ScreenVertex& p, const ScreenVertex& q) {
+    static bool topLeft(const ScreenVertex &p, const ScreenVertex &q) {
         const float dx = q.x - p.x, dy = q.y - p.y;
         return dy < 0 || (dy == 0 && dx > 0);
     }
 
-    Surface* target_ = nullptr;
+    Surface *target_ = nullptr;
     std::vector<float> depth_;
 };
 

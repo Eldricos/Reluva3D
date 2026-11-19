@@ -28,12 +28,14 @@ constexpr int64_t kNever = std::numeric_limits<int64_t>::min() / 2;
 
 std::string lower(std::string_view s) {
     std::string out(s);
-    for (char& c : out)
+    for (char &c : out)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return out;
 }
 
-bool same(std::string_view a, std::string_view b) { return lower(a) == lower(b); }
+bool same(std::string_view a, std::string_view b) {
+    return lower(a) == lower(b);
+}
 
 std::vector<std::string> words(std::string_view line) {
     std::vector<std::string> out;
@@ -51,14 +53,14 @@ std::vector<std::string> words(std::string_view line) {
     return out;
 }
 
-int toInt(const std::vector<std::string>& w, size_t i) {
+int toInt(const std::vector<std::string> &w, size_t i) {
     return i < w.size() ? std::atoi(w[i].c_str()) : 0;
 }
 
-const char* const kKindWords[] = {"generalSet", "localSet", "bmodelSet"};
+const char *const kKindWords[] = {"generalSet", "localSet", "bmodelSet"};
 
 bool isKindWord(std::string_view word) {
-    for (const char* k : kKindWords)
+    for (const char *k : kKindWords)
         if (same(word, k))
             return true;
     return false;
@@ -83,7 +85,7 @@ void AmbientSets::clear() {
     currentLast_ = oldLast_ = kNever;
 }
 
-bool AmbientSets::parse(std::string_view text, std::vector<std::string>& warnings) {
+bool AmbientSets::parse(std::string_view text, std::vector<std::string> &warnings) {
     clear();
     std::vector<std::vector<std::string>> lines;
     for (size_t at = 0; at <= text.size();) {
@@ -96,7 +98,7 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string>& warning
 
     // The header: "type ambientSet" says what the file is (amsdir, outdir
     // and basedir, the tools' folders, are ignored).
-    for (const auto& w : lines)
+    for (const auto &w : lines)
         if (!w.empty() && same(w[0], "type")) {
             if (w.size() < 2 || !same(w[1], "ambientSet")) {
                 warnings.push_back("set type \"" + (w.size() > 1 ? w[1] : std::string()) +
@@ -111,9 +113,8 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string>& warning
     for (int k = 0; k < 3; ++k) {
         const Kind kind = Kind(k);
         for (size_t i = 0; i < lines.size();) {
-            const auto& head = lines[i];
-            if (head.empty() || !same(head[0], kKindWords[k]) || head.size() < 2 ||
-                !precache_.count(lower(head[1]))) {
+            const auto &head = lines[i];
+            if (head.empty() || !same(head[0], kKindWords[k]) || head.size() < 2 || !precache_.count(lower(head[1]))) {
                 ++i;
                 continue;
             }
@@ -122,7 +123,7 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string>& warning
             set.kind = kind;
             set.id = int(sets_.size());
             for (++i; i < lines.size(); ++i) {
-                const auto& w = lines[i];
+                const auto &w = lines[i];
                 if (w.empty())
                     continue;
                 const std::string key = lower(w[0]);
@@ -160,19 +161,19 @@ bool AmbientSets::parse(std::string_view text, std::vector<std::string>& warning
             sets_.push_back(std::move(set));
         }
     }
-    for (const std::string& name : precache_)
+    for (const std::string &name : precache_)
         if (!byName_.count(name))
             warnings.push_back("unable to find ambient set \"" + name + "\"");
     parsed_ = true;
     return true;
 }
 
-const AmbientSets::Set* AmbientSets::find(std::string_view name) const {
+const AmbientSets::Set *AmbientSets::find(std::string_view name) const {
     const auto it = byName_.find(lower(name));
     return it == byName_.end() ? nullptr : &sets_[it->second];
 }
 
-AmbientSets::Set* AmbientSets::findSet(std::string_view name) {
+AmbientSets::Set *AmbientSets::findSet(std::string_view name) {
     const auto it = byName_.find(lower(name));
     return it == byName_.end() ? nullptr : &sets_[it->second];
 }
@@ -187,13 +188,13 @@ void AmbientSets::fade(int64_t nowMs) {
     // The new set comes up over a second, the one before goes down.
     if (current_ < 0 || current_ >= int(sets_.size()))
         return;
-    Set& current = sets_[size_t(current_)];
+    Set &current = sets_[size_t(current_)];
     if (current.masterVolume < kMaxVolume)
         current.masterVolume = int(float(nowMs - current.fadeStart) / float(kCrossFadeMs) * kMaxVolume);
     current.masterVolume = std::min(current.masterVolume, kMaxVolume);
     if (old_ < 0 || old_ >= int(sets_.size()))
         return;
-    Set& old = sets_[size_t(old_)];
+    Set &old = sets_[size_t(old_)];
     if (old.masterVolume > 0)
         old.masterVolume = kMaxVolume - int(float(nowMs - old.fadeStart) / float(kCrossFadeMs) * kMaxVolume);
     if (old.masterVolume <= 0) {
@@ -202,8 +203,8 @@ void AmbientSets::fade(int64_t nowMs) {
     }
 }
 
-void AmbientSets::playGeneral(const Set& set, const Vec3f& origin, int64_t& lastMs, int64_t nowMs,
-                              std::vector<Sound>& out) {
+void AmbientSets::playGeneral(const Set &set, const Vec3f &origin, int64_t &lastMs, int64_t nowMs,
+                              std::vector<Sound> &out) {
     // Heard everywhere: at the view. Each set's loop is kept apart (its
     // own entity number) so two can cross-fade.
     const int entity = -2 - set.id;
@@ -213,17 +214,16 @@ void AmbientSets::playGeneral(const Set& set, const Vec3f& origin, int64_t& last
         return;
     lastMs = nowMs;
     const float scale = float(set.masterVolume) / kMaxVolume;
-    const int volume = std::min(pick(int(scale * float(set.volumeMin)), int(scale * float(set.volumeMax))),
-                                set.masterVolume);
+    const int volume =
+        std::min(pick(int(scale * float(set.volumeMin)), int(scale * float(set.volumeMax))), set.masterVolume);
     if (!set.subWaves.empty())
         out.push_back({false, 0, origin, float(volume) / kMaxVolume,
                        set.subWaves[size_t(pick(0, int(set.subWaves.size()) - 1))]});
 }
 
-std::vector<AmbientSets::Sound> AmbientSets::updateGeneral(std::string_view name, const Vec3f& origin,
-                                                           int64_t nowMs) {
+std::vector<AmbientSets::Sound> AmbientSets::updateGeneral(std::string_view name, const Vec3f &origin, int64_t nowMs) {
     std::vector<Sound> out;
-    Set* set = findSet(name);
+    Set *set = findSet(name);
     if (!set)
         return out;
     if (set->id != current_) {
@@ -243,11 +243,10 @@ std::vector<AmbientSets::Sound> AmbientSets::updateGeneral(std::string_view name
     return out;
 }
 
-std::vector<AmbientSets::Sound> AmbientSets::addLocal(std::string_view name, const Vec3f& listener,
-                                                      const Vec3f& origin, int entity, int64_t& lastMs,
-                                                      int64_t nowMs) {
+std::vector<AmbientSets::Sound> AmbientSets::addLocal(std::string_view name, const Vec3f &listener, const Vec3f &origin,
+                                                      int entity, int64_t &lastMs, int64_t nowMs) {
     std::vector<Sound> out;
-    const Set* set = find(name);
+    const Set *set = find(name);
     if (!set) {
         lastMs = nowMs;
         return out;
@@ -272,7 +271,7 @@ std::vector<AmbientSets::Sound> AmbientSets::addLocal(std::string_view name, con
 }
 
 std::string AmbientSets::bmodelSound(std::string_view name, int stage) const {
-    const Set* set = find(name);
+    const Set *set = find(name);
     if (!set || stage < 0 || stage >= int(set->subWaves.size()))
         return {};
     return set->subWaves[size_t(stage)];

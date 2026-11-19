@@ -48,20 +48,20 @@ public:
     int64_t soundFrames = 0, soundPeak = 0;
     std::vector<std::string> titles;
 
-    void updateScreen(const Surface& s) override {
+    void updateScreen(const Surface &s) override {
         HeadlessSystem::updateScreen(s);
         screens.bytes(s.pixels);
         shown++;
     }
-    void setPalette(const Color* colors, int start, int count) override {
+    void setPalette(const Color *colors, int start, int count) override {
         palettes.i32(start).i32(count).bytes(colors, size_t(count) * sizeof(Color));
         paletteSets++;
     }
-    void setWindowTitle(const std::string& t) override {
+    void setWindowTitle(const std::string &t) override {
         if (titles.empty() || titles.back() != t)
             titles.push_back(t);
     }
-    bool pollEvent(Event& ev) override {
+    bool pollEvent(Event &ev) override {
         if (next_ < inputs.size() && inputs[next_].at <= getMillis()) {
             ev = inputs[next_++].event;
             return true;
@@ -107,9 +107,9 @@ Event mouse(EventType type, int x, int y) {
 // NAME.ALL, NAME.LST and their bytes, for packing into SSE.ALL.
 struct Packed {
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
-    void archive(const std::string& name, const std::vector<std::vector<uint8_t>>& entries) {
+    void archive(const std::string &name, const std::vector<std::vector<uint8_t>> &entries) {
         std::vector<uint8_t> all, lst;
-        for (const auto& e : entries) {
+        for (const auto &e : entries) {
             putU32(lst, uint32_t(all.size()));
             all.insert(all.end(), e.begin(), e.end());
         }
@@ -118,10 +118,10 @@ struct Packed {
         files.push_back({name + ".LST", lst});
     }
     // SSE.ALL, .LST and .CAT holding them, as disc 1's installer archive.
-    void write(const std::filesystem::path& dir) {
+    void write(const std::filesystem::path &dir) {
         std::vector<uint8_t> all, lst;
         std::string cat = std::to_string(files.size()) + "\r\n";
-        for (const auto& [name, data] : files) {
+        for (const auto &[name, data] : files) {
             putU32(lst, uint32_t(all.size()));
             all.insert(all.end(), data.begin(), data.end());
             cat += name + "\r\n";
@@ -133,7 +133,7 @@ struct Packed {
     }
 };
 
-void makeDiscs(const std::filesystem::path& cd1, const std::filesystem::path& cd2) {
+void makeDiscs(const std::filesystem::path &cd1, const std::filesystem::path &cd2) {
     // Scene S0: the opening video (ACTIONSEQ 28, on disc 2), an animation and
     // a sound, a hotspot to S1. S1 counts its visits.
     ScriptBuilder s0, s1;
@@ -173,7 +173,7 @@ void makeDiscs(const std::filesystem::path& cd1, const std::filesystem::path& cd
             std::vector<uint8_t>(kSmackerTest2, kSmackerTest2 + sizeof kSmackerTest2));
 }
 
-std::string listFiles(const std::filesystem::path& dir) {
+std::string listFiles(const std::filesystem::path &dir) {
     std::vector<std::string> names;
     std::error_code ec;
     for (std::filesystem::recursive_directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec))
@@ -182,14 +182,14 @@ std::string listFiles(const std::filesystem::path& dir) {
                             std::to_string(it->file_size(ec)));
     std::sort(names.begin(), names.end());
     std::string out;
-    for (const std::string& n : names)
+    for (const std::string &n : names)
         out += (out.empty() ? "" : ", ") + n;
     return out.empty() ? "(none)" : out;
 }
 
-void engineTest(const std::filesystem::path& tmp) {
+void engineTest(const std::filesystem::path &tmp) {
     test::Record rec;
-    const MetaEngine* engine = findEngine("stharbinger");
+    const MetaEngine *engine = findEngine("stharbinger");
     if (!engine)
         return test::fail("stharbinger isn't registered");
     makeDiscs(tmp / "cd1", tmp / "cd2");
@@ -203,16 +203,16 @@ void engineTest(const std::filesystem::path& tmp) {
     // Imported from disc 1, with disc 2 added, into the library.
     auto plans = engine->planImport(tmp / "cd1");
     if (plans.size() != 1)
-        return rec.fail("import.plan", std::to_string(plans.size()) + " plans"), rec.check(
-            RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
-            "tests/engines/stharbinger/engine.cpp");
+        return rec.fail("import.plan", std::to_string(plans.size()) + " plans"),
+               rec.check(RELUVA_SOURCE_DIR "/tests/engines/stharbinger/data/engine-record.txt", "stharbinger.engine",
+                         "tests/engines/stharbinger/engine.cpp");
     std::string message;
     const bool added = engine->addToImport(plans[0], tmp / "cd2", message);
     Hash planned;
-    for (const auto& f : plans[0].files)
+    for (const auto &f : plans[0].files)
         planned.text(f.to).i32(int32_t(f.size));
-    rec.add("import.plan", std::to_string(plans[0].files.size()) + " files " + planned.hex() +
-                               (added ? " +disc2" : " " + message));
+    rec.add("import.plan",
+            std::to_string(plans[0].files.size()) + " files " + planned.hex() + (added ? " +disc2" : " " + message));
     const std::filesystem::path library = tmp / "library" / "ds9harbinger";
     if (Error err = runImport(plans[0], library, [](uint64_t, uint64_t) { return true; }))
         rec.fail("import.copy", err.message);
@@ -222,7 +222,12 @@ void engineTest(const std::filesystem::path& tmp) {
     // Played: straight into S0 (the developer setting), the video plays
     // with its sound, then a click on the hotspot after 2 s takes it to S1;
     // back to the launcher after 3 s.
-    GameTarget target{"ds9harbinger", "stharbinger", "ds9harbinger", "Harbinger", library, tmp / "saves",
+    GameTarget target{"ds9harbinger",
+                      "stharbinger",
+                      "ds9harbinger",
+                      "Harbinger",
+                      library,
+                      tmp / "saves",
                       {{"start_scene", "S0"}, {"music_volume", "100"}}};
     PlayingSystem sys;
     sys.inputs = {{2000, mouse(EventType::MouseMove, 150, 150)},
@@ -234,10 +239,10 @@ void engineTest(const std::filesystem::path& tmp) {
     rec.add("run.size", std::to_string(sys.width()) + "x" + std::to_string(sys.height()));
     rec.add("run.screens", std::to_string(sys.shown) + " " + sys.screens.hex());
     rec.add("run.palettes", std::to_string(sys.paletteSets) + " " + sys.palettes.hex());
-    rec.add("run.sound", std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " +
-                             sys.sound.hex());
+    rec.add("run.sound",
+            std::to_string(sys.soundFrames) + " frames, peak " + std::to_string(sys.soundPeak) + " " + sys.sound.hex());
     std::string titles;
-    for (const std::string& t : sys.titles)
+    for (const std::string &t : sys.titles)
         titles += (titles.empty() ? "" : " / ") + t;
     rec.add("run.titles", titles);
     rec.add("run.files", listFiles(tmp / "saves"));
@@ -248,6 +253,7 @@ void engineTest(const std::filesystem::path& tmp) {
 
 } // namespace
 
-static const reluva::test::Suite suite("stharbinger.engine", {
-    {"play through", [](const std::filesystem::path& tmp) { engineTest(tmp); }},
-});
+static const reluva::test::Suite suite("stharbinger.engine",
+                                       {
+                                           {"play through", [](const std::filesystem::path &tmp) { engineTest(tmp); }},
+                                       });

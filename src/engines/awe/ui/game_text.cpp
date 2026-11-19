@@ -18,7 +18,7 @@ namespace {
 // The fonts fonts.txt names, and the files of Interface/Fonts that hold
 // them; Times New Roman and Courier New aren't shipped (Windows has them:
 // systemFontFiles).
-const char* fontFile(const std::string& name) {
+const char *fontFile(const std::string &name) {
     const std::string n = fs::toLower(name);
     if (n == "calisto mt")
         return "interface/fonts/calist.ttf";
@@ -31,7 +31,7 @@ const char* fontFile(const std::string& name) {
 // Windows' own file (the game takes it from Windows), the same file on
 // macOS or from Linux's core fonts packages, then Liberation's, made to the
 // same measurements, so text sets and wraps the same.
-std::vector<std::filesystem::path> systemFontFiles(const std::string& name, bool bold) {
+std::vector<std::filesystem::path> systemFontFiles(const std::string &name, bool bold) {
     const std::string n = fs::toLower(name);
     struct Names {
         const char *win, *mac, *core, *coreLower, *liberation;
@@ -49,20 +49,20 @@ std::vector<std::filesystem::path> systemFontFiles(const std::string& name, bool
     else
         return {};
     std::vector<std::filesystem::path> out;
-    for (const char* var : {"WINDIR", "SystemRoot"})
-        if (const char* dir = std::getenv(var))
+    for (const char *var : {"WINDIR", "SystemRoot"})
+        if (const char *dir = std::getenv(var))
             out.push_back(std::filesystem::path(dir) / "Fonts" / f.win);
-    for (const char* dir : {"/System/Library/Fonts/Supplemental", "/Library/Fonts"})
+    for (const char *dir : {"/System/Library/Fonts/Supplemental", "/Library/Fonts"})
         out.push_back(std::filesystem::path(dir) / f.mac);
-    if (const char* home = std::getenv("HOME"))
+    if (const char *home = std::getenv("HOME"))
         out.push_back(std::filesystem::path(home) / "Library/Fonts" / f.mac);
-    for (const char* dir : {"/usr/share/fonts/truetype/msttcorefonts", "/usr/share/fonts/msttcore",
-                            "/usr/share/fonts/msttcorefonts"})
+    for (const char *dir :
+         {"/usr/share/fonts/truetype/msttcorefonts", "/usr/share/fonts/msttcore", "/usr/share/fonts/msttcorefonts"})
         out.push_back(std::filesystem::path(dir) / f.core);
-    for (const char* dir : {"/usr/share/fonts/TTF", "/usr/share/fonts/truetype/msttcorefonts"})
+    for (const char *dir : {"/usr/share/fonts/TTF", "/usr/share/fonts/truetype/msttcorefonts"})
         out.push_back(std::filesystem::path(dir) / f.coreLower);
     const bool serif = n == "times new roman";
-    for (const char* dir : {"/usr/share/fonts/truetype/liberation", "/usr/share/fonts/truetype/liberation2",
+    for (const char *dir : {"/usr/share/fonts/truetype/liberation", "/usr/share/fonts/truetype/liberation2",
                             serif ? "/usr/share/fonts/liberation-serif" : "/usr/share/fonts/liberation-mono",
                             "/usr/share/fonts/liberation", "/usr/share/fonts/TTF", "/usr/local/share/fonts"})
         out.push_back(std::filesystem::path(dir) / f.liberation);
@@ -71,12 +71,12 @@ std::vector<std::filesystem::path> systemFontFiles(const std::string& name, bool
 
 } // namespace
 
-Error GameFonts::load(const Archive& files) {
+Error GameFonts::load(const Archive &files) {
     std::vector<uint8_t> data;
     if (Error e = files.read("text/fonts.txt", data))
         return e;
     const Table t = parseTable(decodeText(data));
-    auto loadFont = [&](const std::string& file) -> ttf::Font* {
+    auto loadFont = [&](const std::string &file) -> ttf::Font * {
         auto it = fonts_.find(file);
         if (it == fonts_.end()) {
             std::vector<uint8_t> bytes;
@@ -89,10 +89,10 @@ Error GameFonts::load(const Archive& files) {
     };
     // Two kinds of row under the same headings: a font (name, size, "bold"
     // or not, "shadow" or not, its use), then colours (A, R, G, B, use).
-    for (const auto& row : t.rows) {
+    for (const auto &row : t.rows) {
         if (row.size() < 5)
             continue;
-        char* end = nullptr;
+        char *end = nullptr;
         const long first = std::strtol(row[0].c_str(), &end, 10);
         if (end && *end == 0 && !row[0].empty()) {
             const Color c{uint8_t(std::atoi(row[1].c_str())), uint8_t(std::atoi(row[2].c_str())),
@@ -114,14 +114,15 @@ Error GameFonts::load(const Archive& files) {
         // cards' Courier New): this computer's, else Arial.
         if (const auto candidates = systemFontFiles(s.fontName, s.bold); !candidates.empty()) {
             s.font = nullptr;
-            for (const auto& path : candidates) {
+            for (const auto &path : candidates) {
                 const std::string key = path.string();
                 auto it = fonts_.find(key);
                 if (it == fonts_.end()) {
                     std::unique_ptr<ttf::Font> font;
                     std::ifstream in(path, std::ios::binary);
                     if (in) {
-                        std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                        std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)),
+                                                   std::istreambuf_iterator<char>());
                         font = std::make_unique<ttf::Font>();
                         if (font->load(std::move(bytes)))
                             font.reset();
@@ -143,9 +144,9 @@ Error GameFonts::load(const Archive& files) {
     return Error::success();
 }
 
-const TextStyle* GameFonts::style(std::string_view use) const {
+const TextStyle *GameFonts::style(std::string_view use) const {
     const std::string want = fs::toLower(use);
-    for (const TextStyle& s : styles_)
+    for (const TextStyle &s : styles_)
         if (s.use.rfind(want, 0) == 0)
             return &s;
     return nullptr;
@@ -153,7 +154,7 @@ const TextStyle* GameFonts::style(std::string_view use) const {
 
 Color GameFonts::colour(std::string_view use, Color fallback) const {
     const std::string want = fs::toLower(use);
-    for (const auto& [u, c] : colours_)
+    for (const auto &[u, c] : colours_)
         if (u == want)
             return c;
     return fallback;
@@ -163,7 +164,7 @@ Color GameFonts::colourAt(size_t index, Color fallback) const {
     return index < colours_.size() ? colours_[index].second : fallback;
 }
 
-int GameFonts::draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour,
+int GameFonts::draw(Surface &dst, const TextStyle &style, int x, int y, std::string_view utf8, Color colour,
                     uint8_t alpha) const {
     if (!style.font)
         return x;
@@ -191,8 +192,8 @@ std::vector<Subtitle> parseSubtitles(std::string_view text) {
         while (!s.speaker.empty() && s.speaker.back() == ' ')
             s.speaker.pop_back();
         s.line = t.cell(r, line);
-        const std::string& d = t.cell(r, duration);
-        char* end = nullptr;
+        const std::string &d = t.cell(r, duration);
+        char *end = nullptr;
         s.start = std::strtod(d.c_str(), &end);
         if (!end || *end != ',' || s.line.empty())
             continue;
@@ -208,9 +209,9 @@ std::vector<Subtitle> parseSubtitles(std::string_view text) {
 // between, two after a word ending in '.', '!' or '?'; a word that would
 // take the row past `width` (the row, the word and a space, measured
 // apart) starts the next.
-std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width) {
+std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::string &text, int width) {
     const int space = font.width(" ", pixels);
-    auto sentenceEnd = [](const std::string& row) {
+    auto sentenceEnd = [](const std::string &row) {
         return !row.empty() && (row.back() == '.' || row.back() == '!' || row.back() == '?');
     };
     std::vector<std::string> rows;

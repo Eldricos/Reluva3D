@@ -47,34 +47,54 @@ constexpr int kTurnPanMs = 2000;
 // The ticker: a sentence stays centred 8 s, then scrolls left at 3.5 pixels
 // a second, coming round again from the right (as in recordings), between
 // the ticker's ends.
-constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 41, kTickerRight = 599; // its text: Clue.exe 0x435630, 41 in, 558 wide
+constexpr int kTickerStillMs = 8000, kTickerSpeed = 35, kTickerLeft = 41,
+              kTickerRight = 599; // its text: Clue.exe 0x435630, 41 in, 558 wide
 
 // dialogInfo.res's in-game dialogs.
-enum { kChooseDialog = 30, kToldDialog = 31, kPickDialog = 32, kShownDialog = 33, kSolutionDialog = 34,
-       kLoserDialog = 40 };
+enum {
+    kChooseDialog = 30,
+    kToldDialog = 31,
+    kPickDialog = 32,
+    kShownDialog = 33,
+    kSolutionDialog = 34,
+    kLoserDialog = 40
+};
 constexpr int kReturn = 10000, kOk = 10001;
 
 // TickerStrings.txt: 663 lines a suspect, in the suspects' order.
 constexpr int kTickerBlock = 663;
 enum TickerLine {
-    kYourTurn = 0, kRoll = 1, kRollPassage = 2, kRollSuggest = 3, kRollPassageSuggest = 4, kChooseObject = 5,
-    kMakeMove = 6, kMaySuggest = 7, kAccuseOrEnd = 8, kEndTurnLine = 9, kTrapped = 10, kCanDisprove = 11,
-    kCannotDisprove = 12, kAccusedRight = 13, kAccusedWrong = 14, kSuggests = 15, kAccuses = 339,
+    kYourTurn = 0,
+    kRoll = 1,
+    kRollPassage = 2,
+    kRollSuggest = 3,
+    kRollPassageSuggest = 4,
+    kChooseObject = 5,
+    kMakeMove = 6,
+    kMaySuggest = 7,
+    kAccuseOrEnd = 8,
+    kEndTurnLine = 9,
+    kTrapped = 10,
+    kCanDisprove = 11,
+    kCannotDisprove = 12,
+    kAccusedRight = 13,
+    kAccusedWrong = 14,
+    kSuggests = 15,
+    kAccuses = 339,
 };
 
 // The suspects in resource names, in sound and video names, and in the
 // level.
-const char* const kKey[kSuspectCount] = {"sca", "mus", "whi", "gre", "pea", "plu"};
-const char* const kVoice[kSuspectCount] = {"MS", "CM", "MW", "MG", "MP", "PP"};
-const char* const kCharacter[kSuspectCount] = {"character:Oscarlet", "character:Omustard", "character:Owhite",
+const char *const kKey[kSuspectCount] = {"sca", "mus", "whi", "gre", "pea", "plu"};
+const char *const kVoice[kSuspectCount] = {"MS", "CM", "MW", "MG", "MP", "PP"};
+const char *const kCharacter[kSuspectCount] = {"character:Oscarlet", "character:Omustard", "character:Owhite",
                                                "character:Ogreen",   "character:Opeacock", "character:Oplum"};
 const bool kFemale[kSuspectCount] = {true, false, true, false, true, false};
 // The cards in the small cards' names (UI:A<key>card), in card order.
-const char* const kCardKey[kCardCount] = {"sca", "mus", "whi", "gre", "pea", "plu", "kni",
-                                          "can", "rev", "rop", "pip", "wre", "hal", "lou",
-                                          "din", "kit", "bal", "con", "bil", "lib", "stu"};
+const char *const kCardKey[kCardCount] = {"sca", "mus", "whi", "gre", "pea", "plu", "kni", "can", "rev", "rop", "pip",
+                                          "wre", "hal", "lou", "din", "kit", "bal", "con", "bil", "lib", "stu"};
 // The weapons in the videos' names (CM_rope.avi).
-const char* const kVideoWeapon[kWeaponCount] = {"dagger", "candle", "gun", "rope", "pipe", "wrench"};
+const char *const kVideoWeapon[kWeaponCount] = {"dagger", "candle", "gun", "rope", "pipe", "wrench"};
 // The prompts' spoken lines. Clue.exe speaks only the four that offer the
 // die: its one voice queue (0x438F80) takes a turn's "..., it is your turn"
 // (voice 34 + the suspect), a prompt chosen from the turn's options
@@ -84,13 +104,18 @@ const char* const kVideoWeapon[kWeaponCount] = {"dagger", "candle", "gun", "rope
 // alone) and 64 ("choose object") are in its table of names (0x45E698) but
 // nothing plays them, in 2.0 or 2.2; recordings of the original with the
 // butler's voice on have the four prompts and never those three.
-const char* promptVoice(int line) {
+const char *promptVoice(int line) {
     switch (line) {
-    case kRoll: return "roll die.WAV";
-    case kRollPassage: return "roll die or use passage.WAV";
-    case kRollSuggest: return "roll die or suggest.WAV";
-    case kRollPassageSuggest: return "roll die passage or suggest.WAV";
-    default: return nullptr;
+    case kRoll:
+        return "roll die.WAV";
+    case kRollPassage:
+        return "roll die or use passage.WAV";
+    case kRollSuggest:
+        return "roll die or suggest.WAV";
+    case kRollPassageSuggest:
+        return "roll die passage or suggest.WAV";
+    default:
+        return nullptr;
     }
 }
 
@@ -103,11 +128,12 @@ const UiRect kSummarySuspect{8, 40, 65, 173}, kSummaryRoom{89, 104, 98, 76}, kSu
 // two marks and the note's triangle 15 wide from 131: each row's cells are
 // inside those lines.
 const int kNoteRowY[3] = {23, 132, 241}, kNoteHeadY[3] = {4, 113, 223};
-constexpr int kNoteTextX = 16, kNoteColourX = 132, kNoteMarkX[2] = {147, 162}, kNoteTriangleX = 177,
-              kNoteRowH = 14;
-int noteRowY(int kind, int row) { return kNoteRowY[kind] + row * 15; }
+constexpr int kNoteTextX = 16, kNoteColourX = 132, kNoteMarkX[2] = {147, 162}, kNoteTriangleX = 177, kNoteRowH = 14;
+int noteRowY(int kind, int row) {
+    return kNoteRowY[kind] + row * 15;
+}
 // The marks a click goes round, after none.
-const char* const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:Anoteschko", "UI:Anotesxo"};
+const char *const kMark[5] = {"UI:Anoteschk", "UI:Anotesx", "UI:Anoteso", "UI:Anoteschko", "UI:Anotesxo"};
 
 // The board from above (UI:Aoverhead): where it goes, and its squares,
 // 13 pixels each, column 9 and row 9 at (8, 15) in it.
@@ -116,12 +142,11 @@ constexpr int kMapSquare = 13, kMapCol0X = 8, kMapRow0Y = 15, kMapFirst = 9;
 
 // The sounds the objects' reactions play: Clue.exe's table of sounds from
 // its 61st (bear_g.wav) on, numbered as the objects' timings number them.
-const char* const kObjectSound[] = {"bear_g.wav",      "bear_b.wav",    "rhino_b.wav",   "chest_open.wav",
-                                    "chest_close.wav", "pooltbl_n.wav", "rdgtbl_n.wav",  "book_fall.wav",
-                                    "stdesk_close.wav", "stdesk_open.wav", "clock_b.wav", "phono_b.wav",
-                                    "phonetbl_g.wav",  "phonetbl_b.wav", "srvcrt_g.wav", "vase.wav",
-                                    "pot_b.wav",       "trky_b.wav",    "piano_b.wav",   "blsofa_b.wav",
-                                    "pitcher.wav",     "mnky_b.wav"};
+const char *const kObjectSound[] = {
+    "bear_g.wav",     "bear_b.wav",     "rhino_b.wav",      "chest_open.wav",  "chest_close.wav", "pooltbl_n.wav",
+    "rdgtbl_n.wav",   "book_fall.wav",  "stdesk_close.wav", "stdesk_open.wav", "clock_b.wav",     "phono_b.wav",
+    "phonetbl_g.wav", "phonetbl_b.wav", "srvcrt_g.wav",     "vase.wav",        "pot_b.wav",       "trky_b.wav",
+    "piano_b.wav",    "blsofa_b.wav",   "pitcher.wav",      "mnky_b.wav"};
 // A hot spot's reactions: states 20 (good), 21 (bad) and 22 (neutral); the
 // sound of each is the object's timing 1500, 1600 or 1700.
 constexpr uint16_t kReactionFirst = 20, kReactionLast = 22;
@@ -148,26 +173,28 @@ constexpr WeatherStep kWeather[] = {
     {240000, 0, 0, 0},   // still to 300 s
 };
 constexpr int kWeatherCycleMs = 300000, kTickMs = 66;
-const char* const kSmallThunder[] = {"SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
-const char* const kMidThunder[] = {"MidThunder1.wav", "MidThunder2.wav", "MidThunder3.wav"};
-const char* const kBigThunder[] = {"BigThunder4.wav", "BigThunder5.wav"};
-const char* const kGust[] = {"", "wind light gusts.wav", "wind heavy gusts.wav"};
+const char *const kSmallThunder[] = {"SmallThunder6.wav", "SmallThunder7.wav", "SmallThunder8.wav"};
+const char *const kMidThunder[] = {"MidThunder1.wav", "MidThunder2.wav", "MidThunder3.wav"};
+const char *const kBigThunder[] = {"BigThunder4.wav", "BigThunder5.wav"};
+const char *const kGust[] = {"", "wind light gusts.wav", "wind heavy gusts.wav"};
 // Sounds heard near things in the house (furniture with a timing at 1900,
 // its value which), as Clue.exe plays them (0x42F1C6): from the nearest
 // such thing to where the camera looks, at 100 of 127 less 100 * d / 500,
 // silent from 500 away; panned by its x on the floor.
-const char* const kAmbientSound[] = {"LBfirepl_n.wav", "fntn_n.wav"};
+const char *const kAmbientSound[] = {"LBfirepl_n.wav", "fntn_n.wav"};
 
-int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
+int floorDiv(int a, int b) {
+    return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
 
-std::vector<uint8_t> readFile(const std::filesystem::path& p) {
+std::vector<uint8_t> readFile(const std::filesystem::path &p) {
     std::ifstream in(p, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
 }
 
-std::vector<std::string> readLines(const GameData& data, const char* file) {
+std::vector<std::string> readLines(const GameData &data, const char *file) {
     std::vector<std::string> lines;
-    if (const std::filesystem::path* p = data.find(file)) {
+    if (const std::filesystem::path *p = data.find(file)) {
         const auto bytes = readFile(*p);
         std::istringstream in(std::string(bytes.begin(), bytes.end()));
         std::string line;
@@ -193,18 +220,21 @@ int facingOf(int dx, int dy) {
 
 } // namespace
 
-Play::Play(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer, const Resi& resi,
-           const Fonts& fonts, Mansion& mansion, const Level& level)
+Play::Play(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer, const Resi &resi,
+           const Fonts &fonts, Mansion &mansion, const Level &level)
     : sys_(sys), screen_(screen), data_(data), mixer_(mixer), resi_(resi), fonts_(fonts), mansion_(mansion),
-      level_(level) {}
+      level_(level) {
+}
 
-Play::~Play() { stopSounds(); }
+Play::~Play() {
+    stopSounds();
+}
 
-Error Play::startNetwork(netplay::Session& session) {
+Error Play::startNetwork(netplay::Session &session) {
     // The players as the host's lobby has them; the same deal everywhere.
     std::array<Player, kSuspectCount> players;
     for (int s = 0; s < kSuspectCount; ++s) {
-        const netplay::Seat& seat = session.lobby().seats[size_t(s)];
+        const netplay::Seat &seat = session.lobby().seats[size_t(s)];
         players[size_t(s)].kind = seat.kind == netplay::Seat::Human      ? Player::Human
                                   : seat.kind == netplay::Seat::Computer ? Player::Computer
                                                                          : Player::None;
@@ -216,7 +246,7 @@ Error Play::startNetwork(netplay::Session& session) {
     return start(players, session.lobby().noDieRoll, session.seed());
 }
 
-Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRoll, uint32_t seed) {
+Error Play::start(const std::array<Player, kSuspectCount> &players, bool noDieRoll, uint32_t seed) {
     if (Error err = board_.build(level_))
         return err;
     players_ = players;
@@ -238,12 +268,12 @@ Error Play::start(const std::array<Player, kSuspectCount>& players, bool noDieRo
         walkers_[size_t(s)].facing = 4;
     }
     buildWalkGrid();
-    for (auto& m : shownBy_)
+    for (auto &m : shownBy_)
         m.fill(-1);
     // Each player's notepad starts empty, Auto Notes or not (Clue.exe's
     // only use of it is for the cards shown).
-    for (auto& pad : notes_)
-        for (NoteRow& row : pad)
+    for (auto &pad : notes_)
+        for (NoteRow &row : pad)
             row = {};
     readTexts();
     beginTurn();
@@ -257,7 +287,7 @@ void Play::readTexts() {
     kindNames_ = {"Suspects", "Weapons", "Rooms"};
     size_t kind = 0;
     bool heading = true;
-    for (const std::string& l : readLines(data_, "Notepad.txt")) {
+    for (const std::string &l : readLines(data_, "Notepad.txt")) {
         if (l.empty()) {
             heading = true;
             continue;
@@ -278,9 +308,9 @@ bool Play::canSave() const {
            game_.phase() != Game::Phase::Over && game_.phase() != Game::Phase::Disprove;
 }
 
-void Play::save(std::ostream& out) const {
+void Play::save(std::ostream &out) const {
     out << "play 1\n";
-    for (const Player& p : players_) {
+    for (const Player &p : players_) {
         out << int(p.kind) << ' ' << p.level << ' ';
         saveio::putString(out, p.name);
         out << '\n';
@@ -291,10 +321,10 @@ void Play::save(std::ostream& out) const {
         if (players_[size_t(s)].kind != Player::None)
             ai_[size_t(s)].save(out);
     for (int s = 0; s < kSuspectCount; ++s) {
-        const Walker& w = walkers_[size_t(s)];
+        const Walker &w = walkers_[size_t(s)];
         out << autoDisprove_[size_t(s)] << ' ' << w.x << ' ' << w.y << ' ' << w.facing << '\n';
         for (int c = 0; c < kCardCount; ++c) {
-            const NoteRow& row = notes_[size_t(s)][size_t(c)];
+            const NoteRow &row = notes_[size_t(s)][size_t(c)];
             out << row.colour << ' ' << row.marks[0] << ' ' << row.marks[1] << ' ' << shownBy_[size_t(s)][size_t(c)]
                 << ' ';
             saveio::putString(out, row.text);
@@ -303,13 +333,13 @@ void Play::save(std::ostream& out) const {
     }
 }
 
-Error Play::load(std::istream& in) {
+Error Play::load(std::istream &in) {
     const Error damaged = Error::fail("the saved game is damaged");
     std::string tag;
     int version = 0;
     if (!(in >> tag >> version) || tag != "play" || version != 1)
         return Error::fail("not a saved game of Reluva's");
-    for (Player& p : players_) {
+    for (Player &p : players_) {
         int kind = 0;
         if (!(in >> kind >> p.level) || kind < Player::None || kind > Player::Computer || p.level < 0 || p.level > 2 ||
             in.get() != ' ' || !saveio::getString(in, p.name))
@@ -328,7 +358,7 @@ Error Play::load(std::istream& in) {
             if (Error err = ai_[size_t(s)].load(in, game_))
                 return err;
     for (int s = 0; s < kSuspectCount; ++s) {
-        Walker& w = walkers_[size_t(s)];
+        Walker &w = walkers_[size_t(s)];
         bool autoDisprove = false;
         if (!(in >> autoDisprove >> w.x >> w.y >> w.facing) || w.facing < 0 || w.facing > 7)
             return damaged;
@@ -336,11 +366,10 @@ Error Play::load(std::istream& in) {
         w.walking = false;
         w.route.clear();
         for (int c = 0; c < kCardCount; ++c) {
-            NoteRow& row = notes_[size_t(s)][size_t(c)];
+            NoteRow &row = notes_[size_t(s)][size_t(c)];
             if (!(in >> row.colour >> row.marks[0] >> row.marks[1] >> shownBy_[size_t(s)][size_t(c)]) ||
-                in.get() != ' ' || !saveio::getString(in, row.text) || row.colour < -1 ||
-                row.colour >= kSuspectCount || row.marks[0] < 0 || row.marks[0] > 5 || row.marks[1] < 0 ||
-                row.marks[1] > 5)
+                in.get() != ' ' || !saveio::getString(in, row.text) || row.colour < -1 || row.colour >= kSuspectCount ||
+                row.marks[0] < 0 || row.marks[0] > 5 || row.marks[1] < 0 || row.marks[1] > 5)
                 return damaged;
         }
     }
@@ -365,7 +394,7 @@ bool Play::busy() const {
     if (window_ == Window::Pick || window_ == Window::Shown || window_ == Window::Solution ||
         window_ == Window::Loser || awaitingShow_)
         return true;
-    return std::any_of(walkers_.begin(), walkers_.end(), [](const Walker& w) { return w.walking; });
+    return std::any_of(walkers_.begin(), walkers_.end(), [](const Walker &w) { return w.walking; });
 }
 
 void Play::runSteps() {
@@ -376,13 +405,17 @@ void Play::runSteps() {
     }
 }
 
-bool Play::humanTurn() const { return players_[size_t(game_.turn())].kind == Player::Human; }
+bool Play::humanTurn() const {
+    return players_[size_t(game_.turn())].kind == Player::Human;
+}
 
 bool Play::local(int seat) const {
     return players_[size_t(seat)].kind == Player::Human && (!net_ || owner_[size_t(seat)] == net_->me());
 }
 
-bool Play::localTurn() const { return local(game_.turn()); }
+bool Play::localTurn() const {
+    return local(game_.turn());
+}
 
 int Play::viewer() const {
     // Over a network, this machine's player.
@@ -429,9 +462,12 @@ int Play::promptLine() const {
         if (game_.canTakePassage())
             return game_.canSuggest() ? kRollPassageSuggest : kRollPassage;
         return game_.canSuggest() ? kRollSuggest : kRoll;
-    case Game::Phase::Moving: return kMakeMove;
-    case Game::Phase::Moved: return game_.canSuggest() ? kMaySuggest : kAccuseOrEnd;
-    default: return kAccuseOrEnd;
+    case Game::Phase::Moving:
+        return kMakeMove;
+    case Game::Phase::Moved:
+        return game_.canSuggest() ? kMaySuggest : kAccuseOrEnd;
+    default:
+        return kAccuseOrEnd;
     }
 }
 
@@ -439,7 +475,7 @@ void Play::promptHuman() {
     // Spoken only: the ticker keeps "..., it is your turn." through a
     // human's turn, as recorded (the prompts' sentences are in
     // TickerStrings.txt all the same).
-    if (const char* v = promptVoice(promptLine()))
+    if (const char *v = promptVoice(promptLine()))
         sound(v, true);
 }
 
@@ -450,7 +486,7 @@ void Play::afterAction() {
 
 // ---- Actions ----------------------------------------------------------------------
 
-void Play::perform(const netplay::Command& c) {
+void Play::perform(const netplay::Command &c) {
     if (!net_) {
         apply(c);
         return;
@@ -472,7 +508,7 @@ netplay::Command command(netplay::Command::Type type, int seat, std::vector<int1
 
 } // namespace
 
-void Play::apply(const netplay::Command& c) {
+void Play::apply(const netplay::Command &c) {
     using netplay::Command;
     if (c.seat == game_.turn() || c.type == Command::Show)
         pending_ = false;
@@ -532,8 +568,7 @@ void Play::apply(const netplay::Command& c) {
         endTurn();
         break;
     case Command::Show:
-        if (c.args.empty() || game_.phase() != Game::Phase::Disprove || game_.disprover() != s ||
-            game_.show(c.args[0]))
+        if (c.args.empty() || game_.phase() != Game::Phase::Disprove || game_.disprover() != s || game_.show(c.args[0]))
             return;
         awaitingShow_ = false;
         if (window_ == Window::Pick) {
@@ -553,7 +588,7 @@ void Play::apply(const netplay::Command& c) {
             if (local(s))
                 sound("unting.wav");
         }
-        Walker& w = walkers_[size_t(s)];
+        Walker &w = walkers_[size_t(s)];
         w.route = std::move(route);
         if (!look_.walkAnimations) {
             w.x = w.route.back().first;
@@ -589,7 +624,7 @@ void Play::apply(const netplay::Command& c) {
 
 void Play::computerTurn() {
     const int s = game_.turn();
-    ComputerPlayer& me = ai_[size_t(s)];
+    ComputerPlayer &me = ai_[size_t(s)];
     // Clue.exe's computer players wait before each step, 2 on a clock of
     // whole seconds (1-2 s, 0x423775 with 0x462B7C): once before
     // suggesting at the start of a turn, twice before rolling (the turn's
@@ -602,9 +637,9 @@ void Play::computerTurn() {
     }
     using A = ComputerPlayer::Action;
     const bool atStart = game_.phase() == Game::Phase::Start;
-    const int need = pendingAction_ == A::Roll || pendingAction_ == A::Passage ? 2
+    const int need = pendingAction_ == A::Roll || pendingAction_ == A::Passage                ? 2
                      : pendingAction_ == A::Walk || (pendingAction_ == A::Suggest && atStart) ? 1
-                                                                                               : 0;
+                                                                                              : 0;
     if (waits_ < need) {
         ++waits_;
         then([this] { waitUntil_ = (now_ / 1000 + 2) * 1000; });
@@ -636,8 +671,12 @@ void Play::computerTurn() {
         suggestionMade();
         break;
     }
-    case ComputerPlayer::Action::Accuse: accusationMade(me.chooseAccusation()); break;
-    case ComputerPlayer::Action::EndTurn: endTurn(); break;
+    case ComputerPlayer::Action::Accuse:
+        accusationMade(me.chooseAccusation());
+        break;
+    case ComputerPlayer::Action::EndTurn:
+        endTurn();
+        break;
     }
     pause(500);
 }
@@ -651,7 +690,9 @@ void Play::endTurn() {
 namespace {
 
 // Clue.exe's divisions towards 0 (its grids).
-int cell32(int v) { return (v + (v < 0 ? 31 : 0)) >> 5; }
+int cell32(int v) {
+    return (v + (v < 0 ? 31 : 0)) >> 5;
+}
 
 } // namespace
 
@@ -662,14 +703,23 @@ void Play::buildWalkGrid() {
     // height and box's under 6).
     blocked_.clear();
     passages_.clear();
-    for (const Mansion::Item& it : mansion_.items()) {
-        const Animation::Frame& f0 = it.animation->frames[0];
+    for (const Mansion::Item &it : mansion_.items()) {
+        const Animation::Frame &f0 = it.animation->frames[0];
         bool blocks = false;
         switch (it.kind) {
-        case 0: blocks = it.box.z + f0.solid <= 5; break;
-        case 3: blocks = it.subKind != 1; break;
-        case 4: case 5: case 8: blocks = true; break;
-        default: break;
+        case 0:
+            blocks = it.box.z + f0.solid <= 5;
+            break;
+        case 3:
+            blocks = it.subKind != 1;
+            break;
+        case 4:
+        case 5:
+        case 8:
+            blocks = true;
+            break;
+        default:
+            break;
         }
         if (blocks && f0.solid != 0)
             for (int x = it.box.x; x < it.box.x + it.box.sizeX; x += 32)
@@ -681,7 +731,7 @@ void Play::buildWalkGrid() {
             p.y = it.worldY;
             // Its timings: 1000 its room's zone (rooms 1-9), 1300 the way it
             // faces.
-            for (const Timing& t : mansion_.level()->placements[it.placement].timings) {
+            for (const Timing &t : mansion_.level()->placements[it.placement].timings) {
                 if (t.time == 1000)
                     p.room = int(t.raw[3]) - 1;
                 if (t.time == 1300)
@@ -699,15 +749,15 @@ std::deque<std::pair<int, int>> Play::roomRoute(int worldX, int worldY) const {
     // Every machine works the same way out from the same places.
     const int s = game_.turn();
     const int room = game_.place(s).room;
-    for (const Mansion::Item& it : mansion_.items())
+    for (const Mansion::Item &it : mansion_.items())
         if (it.kind == 1 && worldX >= it.box.x && worldX < it.box.x + it.box.sizeX && worldY >= it.box.y &&
             worldY < it.box.y + it.box.sizeY)
-            for (const Timing& t : mansion_.level()->placements[it.placement].timings)
+            for (const Timing &t : mansion_.level()->placements[it.placement].timings)
                 if (t.time == 1100)
                     return {};
     // A click on the floor goes round the others too, with no second try
     // (0x424A38: the cells' mask 0xFF).
-    const Walker& w = walkers_[size_t(s)];
+    const Walker &w = walkers_[size_t(s)];
     return wayFind(s, room, w.x, w.y, worldX, worldY, true);
 }
 
@@ -715,7 +765,7 @@ std::set<std::pair<int, int>> Play::othersCells(int suspect) const {
     std::set<std::pair<int, int>> cells;
     for (int k = 0; k < kSuspectCount; ++k)
         if (k != suspect) {
-            const Walker& w = walkers_[size_t(k)];
+            const Walker &w = walkers_[size_t(k)];
             const int ex = w.route.empty() ? w.x : w.route.back().first;
             const int ey = w.route.empty() ? w.y : w.route.back().second;
             cells.insert({cell32(ex), cell32(ey)});
@@ -740,8 +790,8 @@ std::deque<std::pair<int, int>> Play::wayFind(int suspect, int room, int fromX, 
     // left out.
     using Cell = std::pair<int, int>;
     const std::set<Cell> others = aroundOthers ? othersCells(suspect) : std::set<Cell>{};
-    const auto blocked = [&](const Cell& c) { return blocked_.count(c) != 0 || others.count(c) != 0; };
-    const auto open = [&](const Cell& c) {
+    const auto blocked = [&](const Cell &c) { return blocked_.count(c) != 0 || others.count(c) != 0; };
+    const auto open = [&](const Cell &c) {
         return !blocked(c) && board_.roomAt(Board::squareAt(c.first * 32 + 16, c.second * 32 + 16)) == room;
     };
     static const int kStep[8][2] = {{0, -1}, {0, 1}, {1, 0}, {-1, 0}, {1, -1}, {1, 1}, {-1, 1}, {-1, -1}};
@@ -758,7 +808,7 @@ std::deque<std::pair<int, int>> Play::wayFind(int suspect, int room, int fromX, 
             reached = true;
             break;
         }
-        for (const auto& d : kStep) {
+        for (const auto &d : kStep) {
             const Cell n{c.first + d[0], c.second + d[1]};
             if (steps.count(n) || !open(n))
                 continue;
@@ -780,7 +830,7 @@ std::deque<std::pair<int, int>> Play::wayFind(int suspect, int room, int fromX, 
         if (k == 1)
             break;
         bool back = false;
-        for (const auto& d : kStep) {
+        for (const auto &d : kStep) {
             const Cell n{c.first + d[0], c.second + d[1]};
             const auto it = steps.find(n);
             if (it != steps.end() && it->second == k - 1 && open(n)) {
@@ -810,7 +860,7 @@ std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) 
                 if (board_.roomAt(sq) != room)
                     continue;
                 const bool door = std::any_of(board_.doors().begin(), board_.doors().end(),
-                                              [&](const Board::Door& d) { return d.inside == sq; });
+                                              [&](const Board::Door &d) { return d.inside == sq; });
                 if (!door)
                     return {x, y};
             }
@@ -821,25 +871,25 @@ std::pair<int, int> Play::roomSpot(int suspect, int room, int fromX, int fromY) 
     return {x, y};
 }
 
-void Play::startWalk(const std::vector<Place>& path) {
+void Play::startWalk(const std::vector<Place> &path) {
     // The game has the suspect there already; this walks the picture.
     const int s = game_.turn();
-    Walker& w = walkers_[size_t(s)];
+    Walker &w = walkers_[size_t(s)];
     w.route.clear();
-    const auto point = [](const Square& sq) {
+    const auto point = [](const Square &sq) {
         int x, y;
         Board::standingPoint(sq, x, y);
         return std::pair<int, int>{x, y};
     };
     // Out of a room: to the inside of the door taken first.
     if (!path.empty() && !path.front().inRoom())
-        for (const Board::Door& d : board_.doors())
+        for (const Board::Door &d : board_.doors())
             if (d.outside == path.front().square && board_.roomAt(board_.squareAt(w.x, w.y)) == d.room) {
                 w.route.push_back(point(d.inside));
                 break;
             }
     for (size_t i = 0; i < path.size(); ++i) {
-        const Place& p = path[i];
+        const Place &p = path[i];
         if (!p.inRoom()) {
             w.route.push_back(point(p.square));
             continue;
@@ -850,8 +900,8 @@ void Play::startWalk(const std::vector<Place>& path) {
         // things and suspects, else round things only (0x42434F); straight,
         // if neither finds one.
         int fromX = w.x, fromY = w.y;
-        const Board::Door* door = nullptr;
-        for (const Board::Door& d : board_.doors())
+        const Board::Door *door = nullptr;
+        for (const Board::Door &d : board_.doors())
             if (d.room == p.room && i > 0 && d.outside == path[i - 1].square) {
                 door = &d;
                 w.route.push_back(point(d.inside));
@@ -895,10 +945,10 @@ void Play::placeWalkers(bool walk) {
     // passage, its place looked for from there, the way by the way-finder
     // through 0x424900, round things and suspects; at once if there's none).
     for (int s = 0; s < kSuspectCount; ++s) {
-        Walker& w = walkers_[size_t(s)];
+        Walker &w = walkers_[size_t(s)];
         if (w.walking)
             continue;
-        const Place& p = game_.place(s);
+        const Place &p = game_.place(s);
         if (p.inRoom()) {
             if (board_.roomAt(board_.squareAt(w.x, w.y)) != p.room) {
                 // Through a secret passage: from 32 in front of the one in
@@ -907,7 +957,7 @@ void Play::placeWalkers(bool walk) {
                 int fromX = walkers_[size_t(game_.turn())].x, fromY = walkers_[size_t(game_.turn())].y;
                 bool passage = false;
                 if (s == game_.turn())
-                    for (const Passage& ps : passages_)
+                    for (const Passage &ps : passages_)
                         if (ps.room == p.room) {
                             fromX = ps.x + (ps.facing == 2 ? 32 : ps.facing == 6 ? -32 : 0);
                             fromY = ps.y + (ps.facing == 4 ? 32 : ps.facing == 0 ? -32 : 0);
@@ -998,7 +1048,7 @@ void Play::suggestionMade() {
             shownBy_[size_t(s)][size_t(game_.shown())] = d;
             // Auto Notes, as Clue.exe's (0x43a070, after the card is shown):
             // the card's row in the colour of who showed it, and ticked.
-            NoteRow& row = notes_[size_t(s)][size_t(game_.shown())];
+            NoteRow &row = notes_[size_t(s)][size_t(game_.shown())];
             if (look_.autoNotes) {
                 row.colour = d;
                 row.marks[0] = 1;
@@ -1008,7 +1058,7 @@ void Play::suggestionMade() {
     });
 }
 
-void Play::accusationMade(const Accusation& a) {
+void Play::accusationMade(const Accusation &a) {
     const int s = game_.turn();
     say(line(s, kAccuses + a.suspect * kWeaponCount * kRoomCount + a.weapon * kRoomCount + a.room));
     pause(2000);
@@ -1059,7 +1109,7 @@ void Play::accusationMade(const Accusation& a) {
 
 void Play::showTold(int suspect, bool can) {
     // Dialog 31, with the suspect's own portrait: the box at the top right.
-    const ResiDialog* d = resi_.dialog(kToldDialog);
+    const ResiDialog *d = resi_.dialog(kToldDialog);
     if (!d) {
         told_.reset();
         return;
@@ -1072,7 +1122,7 @@ void Play::showTold(int suspect, bool can) {
 }
 
 void Play::openChoose(bool accuse) {
-    const ResiDialog* d = resi_.dialog(kChooseDialog);
+    const ResiDialog *d = resi_.dialog(kChooseDialog);
     if (!d)
         return;
     dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kRightX, kRightY);
@@ -1094,9 +1144,15 @@ void Play::refreshChoose() {
             dialog_->setVisible(id, true);
     };
     switch (choosePage_) {
-    case 0: show(1, 7); break;
-    case 1: show(8, 15); break;
-    case 2: show(16, 26); break;
+    case 0:
+        show(1, 7);
+        break;
+    case 1:
+        show(8, 15);
+        break;
+    case 2:
+        show(16, 26);
+        break;
     default:
         for (int id : {29, 30, 31, 32, 35})
             dialog_->setVisible(id, true);
@@ -1147,7 +1203,7 @@ void Play::clickChoose(int id) {
 }
 
 void Play::openPick() {
-    const ResiDialog* d = resi_.dialog(kPickDialog);
+    const ResiDialog *d = resi_.dialog(kPickDialog);
     if (!d)
         return;
     const int who = game_.disprover();
@@ -1191,7 +1247,7 @@ void Play::clickPick(int id) {
 }
 
 void Play::openShown() {
-    const ResiDialog* d = resi_.dialog(kShownDialog);
+    const ResiDialog *d = resi_.dialog(kShownDialog);
     if (!d || game_.shown() < 0)
         return;
     dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, kShownX, kShownY);
@@ -1200,7 +1256,7 @@ void Play::openShown() {
 }
 
 void Play::showSolution(int text) {
-    const ResiDialog* d = resi_.dialog(kSolutionDialog);
+    const ResiDialog *d = resi_.dialog(kSolutionDialog);
     if (!d)
         return;
     dialog_ = std::make_unique<DialogView>(data_, fonts_, *d, 0, 0);
@@ -1213,7 +1269,7 @@ void Play::showSolution(int text) {
 }
 
 void Play::openLoser() {
-    const ResiDialog* d = resi_.dialog(kLoserDialog);
+    const ResiDialog *d = resi_.dialog(kLoserDialog);
     if (!d)
         return;
     // As the exit window over the game (Clue.exe 0x435C7F): (205, 11).
@@ -1223,7 +1279,7 @@ void Play::openLoser() {
 
 // ---- Clicks -------------------------------------------------------------------
 
-void Play::handleEvent(const Event& ev) {
+void Play::handleEvent(const Event &ev) {
     if (ev.type == EventType::MouseMove || ev.type == EventType::MouseDown || ev.type == EventType::MouseUp) {
         mouseX_ = ev.mouseX;
         mouseY_ = ev.mouseY;
@@ -1241,7 +1297,7 @@ void Play::handleEvent(const Event& ev) {
     }
     // Typing a note.
     if (editing_ >= 0 && panelOwner_ >= 0) {
-        std::string& text = notes_[size_t(panelOwner_)][size_t(editing_)].text;
+        std::string &text = notes_[size_t(panelOwner_)][size_t(editing_)].text;
         if (ev.type == EventType::TextInput) {
             text += typedText(ev.text);
             if (text.size() > 40)
@@ -1280,8 +1336,12 @@ void Play::handleEvent(const Event& ev) {
         if (id < 0)
             return;
         switch (window_) {
-        case Window::Choose: clickChoose(id); break;
-        case Window::Pick: clickPick(id); break;
+        case Window::Choose:
+            clickChoose(id);
+            break;
+        case Window::Pick:
+            clickPick(id);
+            break;
         case Window::Shown:
         case Window::Solution:
             if (id == kOk) {
@@ -1296,7 +1356,8 @@ void Play::handleEvent(const Event& ev) {
                 dialog_.reset();
             }
             break;
-        default: break;
+        default:
+            break;
         }
         // A click in the window is the window's alone; elsewhere, the view's.
         if (window_ == Window::Choose)
@@ -1388,7 +1449,7 @@ void Play::walkPlan() {
         return;
     }
     std::vector<int16_t> args;
-    for (const Place& p : plan_) {
+    for (const Place &p : plan_) {
         args.push_back(int16_t(p.inRoom() ? -1 : p.square.x));
         args.push_back(int16_t(p.inRoom() ? p.room : p.square.y));
     }
@@ -1405,26 +1466,26 @@ bool Play::reactAt(int x, int y, bool hover) {
     // the others to a click; a click that finds none is the move's.
     if (!localTurn() || busy() || !steps_.empty() || game_.phase() == Game::Phase::Over)
         return false;
-    const Place& at = game_.place(game_.turn());
+    const Place &at = game_.place(game_.turn());
     if (!at.inRoom())
         return false;
     if (map_ && (x < kMapX || x >= kMapX + kMapW || y < kMapY || y >= kMapY + kMapH))
         return false;
-    const auto findTiming = [](const std::vector<Timing>& ts, uint16_t time) -> const Timing* {
-        for (const Timing& t : ts)
+    const auto findTiming = [](const std::vector<Timing> &ts, uint16_t time) -> const Timing * {
+        for (const Timing &t : ts)
             if (t.time == time)
                 return &t;
         return nullptr;
     };
     // The placement's timing, else the object's (0x4280B0, 0x428100).
-    const auto timing = [&](const Mansion::Item& item, uint16_t time) {
-        const Timing* t = findTiming(mansion_.level()->placements[item.placement].timings, time);
+    const auto timing = [&](const Mansion::Item &item, uint16_t time) {
+        const Timing *t = findTiming(mansion_.level()->placements[item.placement].timings, time);
         return t ? t : findTiming(item.object->timings, time);
     };
     for (size_t i = 0; i < mansion_.items().size(); ++i) {
-        const Mansion::Item& item = mansion_.items()[i];
+        const Mansion::Item &item = mansion_.items()[i];
         std::vector<uint16_t> reactions;
-        for (const ObjectDef::State& st : item.object->states)
+        for (const ObjectDef::State &st : item.object->states)
             if (st.id >= kReactionFirst && st.id <= kReactionLast)
                 reactions.push_back(st.id);
         if (reactions.empty() || (timing(item, 2100) != nullptr) != hover || mansion_.playingState(i, now_))
@@ -1435,12 +1496,12 @@ bool Play::reactAt(int x, int y, bool hover) {
             // On the plan from above (0x419980's other branch): the box's
             // footprint, 13 pixels to a square of 64.
             const auto mapX = [](int wx) {
-                return kMapX + kMapCol0X + (wx - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare /
-                                               Board::kSquareSize;
+                return kMapX + kMapCol0X +
+                       (wx - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare / Board::kSquareSize;
             };
             const auto mapY = [](int wy) {
-                return kMapY + kMapRow0Y + (wy - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare /
-                                               Board::kSquareSize;
+                return kMapY + kMapRow0Y +
+                       (wy - Board::kGridOrigin - kMapFirst * Board::kSquareSize) * kMapSquare / Board::kSquareSize;
             };
             if (x < mapX(item.box.x) || x >= mapX(item.box.x + item.box.sizeX) || y < mapY(item.box.y) ||
                 y >= mapY(item.box.y + item.box.sizeY))
@@ -1451,7 +1512,7 @@ bool Play::reactAt(int x, int y, bool hover) {
         const uint16_t state = reactions[ambientRng_() % reactions.size()];
         if (!mansion_.playState(data_, i, state, now_))
             return false;
-        if (const Timing* t = timing(item, uint16_t(1500 + 100 * (state - kReactionFirst))))
+        if (const Timing *t = timing(item, uint16_t(1500 + 100 * (state - kReactionFirst))))
             if (t->state < std::size(kObjectSound))
                 sound(kObjectSound[t->state]);
         return true;
@@ -1474,7 +1535,7 @@ void Play::updateAmbience() {
         const int next = weatherStep_ + 1;
         if (next < int(std::size(kWeather)) && weatherMs_ > kWeather[next].fromMs) {
             weatherStep_ = next;
-            const WeatherStep& w = kWeather[next];
+            const WeatherStep &w = kWeather[next];
             if (w.drapes >= 0)
                 for (size_t i = 0; i < mansion_.items().size(); ++i)
                     if (mansion_.items()[i].kind == ObjectDef::Drapes) {
@@ -1510,10 +1571,10 @@ void Play::updateAmbience() {
     for (size_t k = 0; k < std::size(kAmbientSound); ++k) {
         long best = LONG_MAX;
         int dx = 0;
-        for (const Mansion::Item& item : mansion_.items()) {
-            const auto& pl = mansion_.level()->placements[item.placement];
-            const std::vector<Timing>& ts = pl.timings.empty() ? item.object->timings : pl.timings;
-            for (const Timing& t : ts)
+        for (const Mansion::Item &item : mansion_.items()) {
+            const auto &pl = mansion_.level()->placements[item.placement];
+            const std::vector<Timing> &ts = pl.timings.empty() ? item.object->timings : pl.timings;
+            for (const Timing &t : ts)
                 if (t.time == 1900 && t.raw[3] == k) {
                     const long d2 =
                         long(item.worldX - lx) * (item.worldX - lx) + long(item.worldY - ly) * (item.worldY - ly);
@@ -1523,7 +1584,7 @@ void Play::updateAmbience() {
                     }
                 }
         }
-        audio::SoundHandle& h = ambient_[k];
+        audio::SoundHandle &h = ambient_[k];
         if (best >= 500L * 500L) {
             if (h != audio::kNoSound)
                 mixer_->stop(h);
@@ -1551,7 +1612,7 @@ void Play::clickView(int x, int y) {
     const int s = game_.turn();
     // A secret passage, clicked in a room that has one.
     if (game_.canTakePassage())
-        for (const Mansion::Item& item : mansion_.items())
+        for (const Mansion::Item &item : mansion_.items())
             if (item.object->type == ObjectDef::SecretPassage && item.rect.contains(x + camX_, y + camY_) &&
                 board_.roomAt(Board::squareAt(item.box.x, item.box.y)) == game_.place(s).room) {
                 perform(command(netplay::Command::Passage, s));
@@ -1564,8 +1625,9 @@ void Play::clickView(int x, int y) {
     // The floor of the room the suspect is in: a walk about it (Clue.exe
     // 0x423B5B), whether or not it may move.
     if (game_.place(s).inRoom() && board_.roomAt(sq) == game_.place(s).room &&
-        std::none_of(board_.doors().begin(), board_.doors().end(), [&](const Board::Door& d) { return d.inside == sq; })) {
-        const Walker& w = walkers_[size_t(s)];
+        std::none_of(board_.doors().begin(), board_.doors().end(),
+                     [&](const Board::Door &d) { return d.inside == sq; })) {
+        const Walker &w = walkers_[size_t(s)];
         if (cell32(wx) == cell32(w.x) && cell32(wy) == cell32(w.y))
             return; // where it stands: a way of no steps, nothing to do
         if (roomRoute(wx, wy).empty())
@@ -1602,7 +1664,7 @@ void Play::clickMap(int x, int y) {
         sound("nogo.wav");
 }
 
-void Play::clickSquare(const Place& p) {
+void Play::clickSquare(const Place &p) {
     const int s = game_.turn();
     // A square of the plan: back to it (the last one again: go).
     const auto it = std::find(plan_.begin(), plan_.end(), p);
@@ -1664,7 +1726,7 @@ void Play::clickPanel(int x, int y) {
             if (y < top || y >= top + 15)
                 continue;
             const int card = kFirst[k] + r;
-            NoteRow& row = notes_[size_t(who)][size_t(card)];
+            NoteRow &row = notes_[size_t(who)][size_t(card)];
             if (x >= kNoteColourX && x < kNoteMarkX[0])
                 row.colour = row.colour + 1 < kSuspectCount ? row.colour + 1 : -1;
             else if (x >= kNoteMarkX[0] && x < kNoteMarkX[1])
@@ -1693,7 +1755,7 @@ void Play::update(uint64_t nowMs) {
     updateAmbience();
     // The walks.
     for (int s = 0; s < kSuspectCount; ++s) {
-        Walker& w = walkers_[size_t(s)];
+        Walker &w = walkers_[size_t(s)];
         if (!w.walking)
             continue;
         double left = double(kWalkSpeed) * double(dt) / 1000.0;
@@ -1717,13 +1779,13 @@ void Play::update(uint64_t nowMs) {
         w.y = int(std::lround(w.fy));
         // A footstep on the walk's frames that have key 5000 (Clue.exe
         // 0x426660): one of the five men's or seven women's by chance.
-        if (const ObjectDef* o = data_.object(kCharacter[s]))
-            if (const ObjectDef::State* st = o->state(uint16_t(9 + w.facing)))
-                if (const Animation* a = data_.animation(st->animation); a && a->frameCount() > 0) {
+        if (const ObjectDef *o = data_.object(kCharacter[s]))
+            if (const ObjectDef::State *st = o->state(uint16_t(9 + w.facing)))
+                if (const Animation *a = data_.animation(st->animation); a && a->frameCount() > 0) {
                     const int f = int(a->frameAt(now_ + uint64_t(s) * 337, true));
                     if (f != w.stepFrame) {
                         w.stepFrame = f;
-                        for (const auto& key : a->frames[size_t(f)].extras)
+                        for (const auto &key : a->frames[size_t(f)].extras)
                             if ((key[0] | key[1] << 8) == 5000) {
                                 char step[32];
                                 std::snprintf(step, sizeof step, "%s_step%d.wav", kFemale[s] ? "female" : "male",
@@ -1753,9 +1815,9 @@ void Play::update(uint64_t nowMs) {
         while (net_->nextCommand(c))
             incoming_.push_back(c);
         while (!incoming_.empty() && game_.phase() != Game::Phase::Over) {
-            const netplay::Command& next = incoming_.front();
-            const bool waitedFor = awaitingShow_ && (next.type == netplay::Command::Show ||
-                                                    next.type == netplay::Command::TakeOver);
+            const netplay::Command &next = incoming_.front();
+            const bool waitedFor =
+                awaitingShow_ && (next.type == netplay::Command::Show || next.type == netplay::Command::TakeOver);
             if (!waitedFor && (busy() || !steps_.empty()))
                 break;
             const netplay::Command now = next;
@@ -1764,8 +1826,7 @@ void Play::update(uint64_t nowMs) {
             runSteps();
         }
     }
-    if (!busy() && steps_.empty() && window_ == Window::None && game_.phase() != Game::Phase::Over &&
-        !humanTurn())
+    if (!busy() && steps_.empty() && window_ == Window::None && game_.phase() != Game::Phase::Over && !humanTurn())
         computerTurn();
     runSteps();
 }
@@ -1777,11 +1838,11 @@ std::string Play::line(int suspect, int index) const {
     return n < tickerLines_.size() ? tickerLines_[n] : std::string(); // Windows-1252, as the fonts
 }
 
-std::shared_ptr<audio::Sound> Play::loadSound(const std::string& file) {
+std::shared_ptr<audio::Sound> Play::loadSound(const std::string &file) {
     auto it = sounds_.find(file);
     if (it == sounds_.end()) {
         std::shared_ptr<audio::Sound> s;
-        if (const std::filesystem::path* p = data_.find(file)) {
+        if (const std::filesystem::path *p = data_.find(file)) {
             auto decoded = std::make_shared<audio::Sound>();
             if (!audio::decodeSound(readFile(*p), *decoded)) {
                 playAsClueExe(*decoded);
@@ -1793,7 +1854,7 @@ std::shared_ptr<audio::Sound> Play::loadSound(const std::string& file) {
     return it->second;
 }
 
-void Play::sound(const std::string& file, bool voice) {
+void Play::sound(const std::string &file, bool voice) {
     if (!mixer_ || (voice && !look_.butlerVoice))
         return;
     const auto s = loadSound(file);
@@ -1807,9 +1868,9 @@ void Play::sound(const std::string& file, bool voice) {
         mixer_->play(s, audio::SoundType::Effects, kClueSoundVolume);
 }
 
-void Play::startVideo(const std::string& file) {
+void Play::startVideo(const std::string &file) {
     stopVideo();
-    const std::filesystem::path* p = data_.find(file);
+    const std::filesystem::path *p = data_.find(file);
     auto player = std::make_unique<Movie>();
     if (!p || player->open(readFile(*p)))
         return;
@@ -1834,7 +1895,7 @@ void Play::stopSounds() {
     if (mixer_ && gust_ != audio::kNoSound)
         mixer_->stop(gust_);
     gust_ = audio::kNoSound;
-    for (audio::SoundHandle& h : ambient_) {
+    for (audio::SoundHandle &h : ambient_) {
         if (mixer_ && h != audio::kNoSound)
             mixer_->stop(h);
         h = audio::kNoSound;
@@ -1845,23 +1906,23 @@ void Play::stopSounds() {
 }
 
 void Play::centreOn(int suspect) {
-    const Walker& w = walkers_[size_t(suspect)];
+    const Walker &w = walkers_[size_t(suspect)];
     camX_ = (w.x - w.y) - kW / 2;
     camY_ = floorDiv(w.x + w.y, 2) - 60 - kBarTop / 2;
 }
 
 // ---- Drawing -------------------------------------------------------------------
 
-void Play::drawAnimation(const std::string& name, int x, int y, int frame) {
-    const Animation* a = data_.animation(name);
+void Play::drawAnimation(const std::string &name, int x, int y, int frame) {
+    const Animation *a = data_.animation(name);
     if (!a || a->layers.empty() || a->frameCount() == 0)
         return;
     const size_t f = size_t(std::clamp(frame, 0, int(a->frameCount()) - 1));
-    for (const auto& layer : a->layers) {
-        const Animation::Part& part = layer[f];
+    for (const auto &layer : a->layers) {
+        const Animation::Part &part = layer[f];
         if (part.image >= a->images.size())
             continue;
-        if (const Image* img = data_.image(a->images[part.image]))
+        if (const Image *img = data_.image(a->images[part.image]))
             image::blit(screen_, img->pixels, x + part.x + img->offsetX, y + part.y + img->offsetY);
     }
 }
@@ -1870,13 +1931,13 @@ std::vector<Mansion::Actor> Play::actors() {
     std::vector<Mansion::Actor> out;
     // The suspects: standing (states 1-8) or walking (9-16), by facing.
     for (int s = 0; s < kSuspectCount; ++s) {
-        const Walker& w = walkers_[size_t(s)];
-        const ObjectDef* o = data_.object(kCharacter[s]);
-        const ObjectDef::State* st = o ? o->state(uint16_t((w.walking ? 9 : 1) + w.facing)) : nullptr;
-        const Animation* a = st ? data_.animation(st->animation) : nullptr;
+        const Walker &w = walkers_[size_t(s)];
+        const ObjectDef *o = data_.object(kCharacter[s]);
+        const ObjectDef::State *st = o ? o->state(uint16_t((w.walking ? 9 : 1) + w.facing)) : nullptr;
+        const Animation *a = st ? data_.animation(st->animation) : nullptr;
         if (!a || a->frameCount() == 0)
             continue;
-        const auto* frames = mansion_.frames(data_, *a);
+        const auto *frames = mansion_.frames(data_, *a);
         Mansion::Actor actor;
         const size_t f = a->frameAt(now_ + uint64_t(s) * 337, true) % frames->size();
         actor.frame = &(*frames)[f];
@@ -1895,16 +1956,16 @@ std::vector<Mansion::Actor> Play::actors() {
     // A move being planned: its squares numbered as they are clicked (only
     // they, as the original).
     if (localTurn() && game_.canMove() && !busy()) {
-        const auto number = [&](const Square& sq, int n) {
+        const auto number = [&](const Square &sq, int n) {
             if (n < 1 || n > 9)
                 return;
-            const Animation* a = data_.animation(std::string("tilenum:At_") + char('a' + n - 1));
+            const Animation *a = data_.animation(std::string("tilenum:At_") + char('a' + n - 1));
             if (!a || a->frameCount() == 0)
                 return;
             Mansion::Actor actor;
             actor.frame = &(*mansion_.frames(data_, *a))[0];
-            actor.box = {Board::kGridOrigin + sq.x * Board::kSquareSize,
-                         Board::kGridOrigin + sq.y * Board::kSquareSize, Board::kSquareSize, Board::kSquareSize, 1};
+            actor.box = {Board::kGridOrigin + sq.x * Board::kSquareSize, Board::kGridOrigin + sq.y * Board::kSquareSize,
+                         Board::kSquareSize, Board::kSquareSize, 1};
             actor.flat = true;
             actor.reveal = true; // the numbers are on the corridors
             actor.inCorridor = true;
@@ -1918,7 +1979,7 @@ std::vector<Mansion::Actor> Play::actors() {
 }
 
 void Play::draw() {
-    const ScreenRect& b = mansion_.bounds();
+    const ScreenRect &b = mansion_.bounds();
     camX_ = std::clamp(camX_, b.x - kW / 2, b.x + b.w - kW / 2);
     camY_ = std::clamp(camY_, b.y - kBarTop / 2, b.y + b.h - kBarTop / 2);
     fillRect(screen_, 0, 0, screen_.w, screen_.h, {0, 0, 0});
@@ -1961,7 +2022,7 @@ void Play::drawBar() {
     drawTicker();
 }
 
-void Play::say(const std::string& sentence) {
+void Play::say(const std::string &sentence) {
     if (sentence != ticker_)
         tickerSince_ = now_;
     ticker_ = sentence;
@@ -1970,9 +2031,9 @@ void Play::say(const std::string& sentence) {
 void Play::drawTicker() {
     // The ticker's font, packed as the original draws it.
     if (!tickerFont_)
-        if (const ResiFont* rf = resi_.font(2))
+        if (const ResiFont *rf = resi_.font(2))
             tickerFont_ = std::make_unique<BitmapFont>(data_, *rf, true);
-    const BitmapFont* f = tickerFont_ ? tickerFont_.get() : fonts_.get(2);
+    const BitmapFont *f = tickerFont_ ? tickerFont_.get() : fonts_.get(2);
     if (!f || ticker_.empty())
         return;
     // Drawn into a strip the ticker's width, so as to come round.
@@ -2024,7 +2085,7 @@ void Play::drawPanel() {
     if (panel_ == Panel::None || panelOwner_ < 0)
         return;
     const int who = panelOwner_;
-    const Game::Seat& seat = game_.seat(who);
+    const Game::Seat &seat = game_.seat(who);
     if (panel_ == Panel::Cards) {
         drawAnimation(std::string("UI:A") + kKey[who] + "cardwin", kLeftX, kLeftY);
         for (size_t i = 0; i < seat.hand.size() && i < 6; ++i)
@@ -2034,7 +2095,7 @@ void Play::drawPanel() {
         return;
     }
     drawAnimation(std::string("UI:A") + kKey[who] + "notepad", kLeftX, kLeftY);
-    const BitmapFont* font = fonts_.get(1);
+    const BitmapFont *font = fonts_.get(1);
     static const int kFirst[3] = {suspectCard(0), weaponCard(0), roomCard(0)};
     static const int kCount[3] = {kSuspectCount, kWeaponCount, kRoomCount};
     for (int k = 0; k < 3; ++k) {
@@ -2046,7 +2107,7 @@ void Play::drawPanel() {
             const int y = kLeftY + noteRowY(k, r);
             if (font)
                 drawText(screen_, *font, cardNames_[size_t(card)], kLeftX + kNoteTextX, y, 115, kNoteRowH, false, true);
-            const NoteRow& row = notes_[size_t(who)][size_t(card)];
+            const NoteRow &row = notes_[size_t(who)][size_t(card)];
             if (row.colour >= 0)
                 drawAnimation(std::string("UI:A") + kKey[row.colour] + "noteclr", kLeftX + kNoteColourX, y);
             for (int m = 0; m < 2; ++m)
@@ -2054,13 +2115,13 @@ void Play::drawPanel() {
                     drawAnimation(kMark[row.marks[size_t(m)] - 1], kLeftX + kNoteMarkX[m], y);
             // The triangle: pointing right while its note is open; marked
             // when there is one.
-            const char* tri = editing_ == card ? "notesrt" : row.text.empty() ? "notesup" : "notemark";
+            const char *tri = editing_ == card ? "notesrt" : row.text.empty() ? "notesup" : "notemark";
             drawAnimation(std::string("UI:A") + kKey[who] + tri, kLeftX + kNoteTriangleX, y);
             // The note, beside the notepad: while it is open, or the
             // pointer is on its triangle.
-            const bool hover = mouseX_ >= kLeftX + kNoteTriangleX && mouseX_ < kLeftX + 205 && mouseY_ >= y &&
-                               mouseY_ < y + kNoteRowH;
-            if (const BitmapFont* f = fonts_.get(2); f && (editing_ == card || (hover && !row.text.empty())))
+            const bool hover =
+                mouseX_ >= kLeftX + kNoteTriangleX && mouseX_ < kLeftX + 205 && mouseY_ >= y && mouseY_ < y + kNoteRowH;
+            if (const BitmapFont *f = fonts_.get(2); f && (editing_ == card || (hover && !row.text.empty())))
                 f->draw(screen_, kLeftX + 212, y + (kNoteRowH - f->lineHeight()) / 2,
                         row.text + (editing_ == card && now_ / 500 % 2 ? "|" : ""));
         }
@@ -2072,7 +2133,7 @@ void Play::drawMap() {
     if (!map_)
         return;
     drawAnimation("UI:Aoverhead", kMapX, kMapY);
-    const auto at = [&](double col, double row, int& x, int& y) {
+    const auto at = [&](double col, double row, int &x, int &y) {
         x = kMapX + kMapCol0X + int(std::lround((col - kMapFirst) * kMapSquare));
         y = kMapY + kMapRow0Y + int(std::lround((row - kMapFirst) * kMapSquare));
     };
@@ -2087,11 +2148,11 @@ void Play::drawMap() {
     // The suspects' pawns (their state 19), where they are, walking or not:
     // a square's middle is 40 units on from where they stand on it.
     for (int s = 0; s < kSuspectCount; ++s) {
-        const ObjectDef* o = data_.object(kCharacter[s]);
-        const ObjectDef::State* st = o ? o->state(19) : nullptr;
+        const ObjectDef *o = data_.object(kCharacter[s]);
+        const ObjectDef::State *st = o ? o->state(19) : nullptr;
         if (!st)
             continue;
-        const Walker& w = walkers_[size_t(s)];
+        const Walker &w = walkers_[size_t(s)];
         int x, y;
         at((w.x - 40) / 64.0, (w.y - 40) / 64.0, x, y);
         drawAnimation(st->animation, x, y);
@@ -2105,7 +2166,7 @@ void Play::drawWindows() {
         // In its frame (UI:Isuggframe: black, edged in white), against the
         // screen's right-hand frame, as the original shows its videos.
         drawAnimation("UI:Asuggframe", kVideoFrameX, kVideoFrameY);
-        const image::Image& pic = video_->picture();
+        const image::Image &pic = video_->picture();
         image::blit(screen_, pic, kVideoFrameX + (kVideoFrameW - pic.w) / 2, kVideoFrameY + (kVideoFrameH - pic.h) / 2);
     }
     if (!dialog_ || window_ == Window::None)
@@ -2113,9 +2174,9 @@ void Play::drawWindows() {
     dialog_->drawBackground(screen_);
     if (window_ == Window::Choose && choosePage_ == 3) {
         // The summary: what has been chosen, under the frame with its holes.
-        const auto put = [&](int card, const UiRect& r) {
+        const auto put = [&](int card, const UiRect &r) {
             const std::string name = std::string("dialog:A") + kCardKey[card] + "SugAcs";
-            if (const Animation* a = data_.animation(name); a && a->frameCount() > 0)
+            if (const Animation *a = data_.animation(name); a && a->frameCount() > 0)
                 drawAnimation(name, kRightX + r.x + (r.w - a->width) / 2, kRightY + r.y + (r.h - a->height) / 2);
         };
         put(suspectCard(chosen_.suspect), kSummarySuspect);
@@ -2126,7 +2187,7 @@ void Play::drawWindows() {
     switch (window_) {
     case Window::Pick:
         for (size_t i = 0; i < pickCards_.size() && i < 3; ++i)
-            if (const ResiControl* c = dialog_->info().control(pickSlot(i)))
+            if (const ResiControl *c = dialog_->info().control(pickSlot(i)))
                 drawAnimation(std::string("UI:A") + kCardKey[pickCards_[i]] + "card", kRightX + c->left,
                               kRightY + c->top);
         break;
@@ -2134,14 +2195,15 @@ void Play::drawWindows() {
         drawAnimation("UI:Algcard", kShownX + 23, kShownY + 2, game_.shown());
         break;
     case Window::Solution: {
-        const Accusation& s = game_.solution();
+        const Accusation &s = game_.solution();
         const int cards[3] = {suspectCard(s.suspect), weaponCard(s.weapon), roomCard(s.room)};
         for (int k = 0; k < 3; ++k)
-            if (const ResiControl* c = dialog_->info().control(k))
+            if (const ResiControl *c = dialog_->info().control(k))
                 drawAnimation("UI:Algcard", c->left, c->top, cards[k]);
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 

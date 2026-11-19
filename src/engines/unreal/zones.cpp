@@ -23,31 +23,31 @@ struct Rect {
     bool empty() const { return x0 >= x1 || y0 >= y1; }
 };
 
-Rect intersect(const Rect& a, const Rect& b) {
+Rect intersect(const Rect &a, const Rect &b) {
     return {std::max(a.x0, b.x0), std::max(a.y0, b.y0), std::min(a.x1, b.x1), std::min(a.y1, b.y1)};
 }
 
-bool contains(const Rect& outer, const Rect& inner) {
+bool contains(const Rect &outer, const Rect &inner) {
     return outer.x0 <= inner.x0 && outer.y0 <= inner.y0 && outer.x1 >= inner.x1 && outer.y1 >= inner.y1;
 }
 
 // A polygon's rectangle on screen (-1 to 1 each way): its part in front
 // of the eye, projected. Empty if none of it is.
-Rect screenRect(const std::vector<Vec3f>& points, const std::array<float, 16>& m) {
+Rect screenRect(const std::vector<Vec3f> &points, const std::array<float, 16> &m) {
     using Clip = std::array<float, 4>;
     std::vector<Clip> in, out;
-    for (const Vec3f& p : points) {
+    for (const Vec3f &p : points) {
         Clip c{};
         for (int row = 0; row < 4; ++row)
-            c[size_t(row)] = m[size_t(row)] * p[0] + m[size_t(4 + row)] * p[1] + m[size_t(8 + row)] * p[2] +
-                             m[size_t(12 + row)];
+            c[size_t(row)] =
+                m[size_t(row)] * p[0] + m[size_t(4 + row)] * p[1] + m[size_t(8 + row)] * p[2] + m[size_t(12 + row)];
         in.push_back(c);
     }
     // Cut at w = kNear: what's behind the eye has no place on screen.
     constexpr float kNear = 0.01f;
     for (size_t i = 0; i < in.size(); ++i) {
-        const Clip& a = in[i];
-        const Clip& b = in[(i + 1) % in.size()];
+        const Clip &a = in[i];
+        const Clip &b = in[(i + 1) % in.size()];
         const float da = a[3] - kNear, db = b[3] - kNear;
         if (da >= 0)
             out.push_back(a);
@@ -63,7 +63,7 @@ Rect screenRect(const std::vector<Vec3f>& points, const std::array<float, 16>& m
     if (out.size() < 3)
         return r;
     r = {1e30f, 1e30f, -1e30f, -1e30f};
-    for (const Clip& c : out) {
+    for (const Clip &c : out) {
         const float x = c[0] / c[3], y = c[1] / c[3];
         r.x0 = std::min(r.x0, x);
         r.y0 = std::min(r.y0, y);
@@ -75,13 +75,13 @@ Rect screenRect(const std::vector<Vec3f>& points, const std::array<float, 16>& m
 
 } // namespace
 
-void ZoneVisibility::build(const Model& model) {
+void ZoneVisibility::build(const Model &model) {
     nodes_.clear();
     portals_.clear();
-    for (auto& list : byZone_)
+    for (auto &list : byZone_)
         list.clear();
     nodes_.reserve(model.nodes.size());
-    for (const BspNode& n : model.nodes) {
+    for (const BspNode &n : model.nodes) {
         Node node;
         node.plane = n.plane;
         node.front = n.front;
@@ -92,7 +92,7 @@ void ZoneVisibility::build(const Model& model) {
         node.leaf[1] = n.leaf[1];
         nodes_.push_back(node);
     }
-    auto add = [&](const BspNode& n, int a, int b) {
+    auto add = [&](const BspNode &n, int a, int b) {
         Portal p;
         p.zone[0] = uint8_t(a & 63);
         p.zone[1] = uint8_t(b & 63);
@@ -102,7 +102,7 @@ void ZoneVisibility::build(const Model& model) {
             const size_t v = size_t(n.vertPool + k);
             if (v >= model.verts.size() || size_t(model.verts[v].point) >= model.points.size())
                 return;
-            const Vec3f& pt = model.points[size_t(model.verts[v].point)];
+            const Vec3f &pt = model.points[size_t(model.verts[v].point)];
             p.points.push_back(pt);
             for (size_t c = 0; c < 3; ++c) {
                 p.min[c] = std::min(p.min[c], pt[c]);
@@ -113,7 +113,7 @@ void ZoneVisibility::build(const Model& model) {
         byZone_[p.zone[1]].push_back(uint32_t(portals_.size()));
         portals_.push_back(std::move(p));
     };
-    for (const BspNode& n : model.nodes) {
+    for (const BspNode &n : model.nodes) {
         if (n.vertexCount < 3 || size_t(n.surf) >= model.surfs.size())
             continue;
         const uint32_t flags = model.surfs[size_t(n.surf)].polyFlags;
@@ -134,14 +134,14 @@ void ZoneVisibility::build(const Model& model) {
             const size_t v = size_t(n.vertPool + k);
             if (v >= model.verts.size() || size_t(model.verts[v].point) >= model.points.size())
                 break;
-            const Vec3f& pt = model.points[size_t(model.verts[v].point)];
+            const Vec3f &pt = model.points[size_t(model.verts[v].point)];
             for (size_t c = 0; c < 3; ++c)
                 centre[c] += pt[c];
             ++count;
         }
         if (count < 3)
             continue;
-        for (float& c : centre)
+        for (float &c : centre)
             c /= float(count);
         const int front = n.zone[1] & 63;
         for (float depth = 1; depth <= kWindowDepth; depth *= 1.5f) {
@@ -158,12 +158,12 @@ void ZoneVisibility::build(const Model& model) {
     }
 }
 
-int ZoneVisibility::zoneAt(const Vec3f& p, bool* solid) const {
+int ZoneVisibility::zoneAt(const Vec3f &p, bool *solid) const {
     int zone = 0;
     bool inSolid = true;
     int32_t n = 0;
     for (size_t guard = 0; guard <= nodes_.size() && n >= 0 && size_t(n) < nodes_.size(); ++guard) {
-        const Node& node = nodes_[size_t(n)];
+        const Node &node = nodes_[size_t(n)];
         const bool front = node.plane[0] * p[0] + node.plane[1] * p[1] + node.plane[2] * p[2] - node.plane[3] >= 0;
         zone = node.zone[front ? 1 : 0];
         n = front ? node.front : node.back;
@@ -178,10 +178,10 @@ int ZoneVisibility::zoneAt(const Vec3f& p, bool* solid) const {
     return zone & 63;
 }
 
-int ZoneVisibility::leafAt(const Vec3f& p) const {
+int ZoneVisibility::leafAt(const Vec3f &p) const {
     int32_t n = 0;
     for (size_t guard = 0; guard <= nodes_.size() && n >= 0 && size_t(n) < nodes_.size(); ++guard) {
-        const Node& node = nodes_[size_t(n)];
+        const Node &node = nodes_[size_t(n)];
         const bool front = node.plane[0] * p[0] + node.plane[1] * p[1] + node.plane[2] * p[2] - node.plane[3] >= 0;
         const int32_t next = front ? node.front : node.back;
         if (next <= 0)
@@ -191,7 +191,7 @@ int ZoneVisibility::leafAt(const Vec3f& p) const {
     return -1;
 }
 
-uint64_t ZoneVisibility::visible(const Vec3f& eye, const std::array<float, 16>& clipFromWorld) const {
+uint64_t ZoneVisibility::visible(const Vec3f &eye, const std::array<float, 16> &clipFromWorld) const {
     if (portals_.empty())
         return ~uint64_t(0);
     bool solid = false;
@@ -209,7 +209,7 @@ uint64_t ZoneVisibility::visible(const Vec3f& eye, const std::array<float, 16>& 
         queued &= ~(uint64_t(1) << z);
         const Rect through = view[size_t(z)];
         for (const uint32_t i : byZone_[size_t(z)]) {
-            const Portal& p = portals_[i];
+            const Portal &p = portals_[i];
             const int other = p.zone[0] == z ? p.zone[1] : p.zone[0];
             const bool near = eye[0] >= p.min[0] - kPortalMargin && eye[0] <= p.max[0] + kPortalMargin &&
                               eye[1] >= p.min[1] - kPortalMargin && eye[1] <= p.max[1] + kPortalMargin &&
@@ -217,7 +217,7 @@ uint64_t ZoneVisibility::visible(const Vec3f& eye, const std::array<float, 16>& 
             const Rect r = near ? through : intersect(screenRect(p.points, clipFromWorld), through);
             if (r.empty())
                 continue;
-            Rect& v = view[size_t(other)];
+            Rect &v = view[size_t(other)];
             const uint64_t bit = uint64_t(1) << other;
             if (seen & bit) {
                 if (contains(v, r))

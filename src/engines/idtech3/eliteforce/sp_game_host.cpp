@@ -92,19 +92,19 @@ uint32_t floatBits(float f) {
 }
 
 std::string lower(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
-
 } // namespace
 
-SpGameHost::SpGameHost(const SearchSet& files, CvarStore& cvars)
-    : files_(files), cvars_(cvars), serverWorld_([this](int32_t n, EntityShape& out) { return entityShape(n, out); }),
-      openFiles_(files) {}
+SpGameHost::SpGameHost(const SearchSet &files, CvarStore &cvars)
+    : files_(files), cvars_(cvars), serverWorld_([this](int32_t n, EntityShape &out) { return entityShape(n, out); }),
+      openFiles_(files) {
+}
 
-bool SpGameHost::entityShape(int32_t n, EntityShape& out) const {
+bool SpGameHost::entityShape(int32_t n, EntityShape &out) const {
     const uint32_t a = entityAddress(n);
     if (!a || !cpu_->valid(a, uint32_t(kEntity.owner + 4)))
         return false;
@@ -128,9 +128,9 @@ int SpGameHost::importPosition(int slot) const {
     return slot < SendConsoleCommand ? slot + 1 : slot + 2;
 }
 
-void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
+void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu &)> fn) {
     // cdecl: the caller pops the arguments.
-    const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu& c) {
+    const uint32_t address = cpu_->addNative("engine[" + std::to_string(slot) + "]", [this, slot, fn](x86::Cpu &c) {
         callCounts_.add(slot);
         if (trace)
             trace(slot, c.read32(c.reg[x86::Cpu::ESP]));
@@ -140,7 +140,7 @@ void SpGameHost::import(int slot, std::function<uint32_t(x86::Cpu&)> fn) {
     cpu_->write32(imports_ + 4 * uint32_t(importPosition(slot)), address);
 }
 
-uint32_t SpGameHost::text(const std::string& s) {
+uint32_t SpGameHost::text(const std::string &s) {
     const uint32_t a = process_->memory().alloc(uint32_t(s.size()) + 1);
     if (a)
         cpu_->writeString(a, s, uint32_t(s.size()) + 1);
@@ -148,18 +148,18 @@ uint32_t SpGameHost::text(const std::string& s) {
     return a;
 }
 
-Error SpGameHost::load(const std::vector<uint8_t>& dll) {
+Error SpGameHost::load(const std::vector<uint8_t> &dll) {
     cpu_ = std::make_unique<x86::Cpu>(kMemory);
     process_ = std::make_unique<x86::Win32Process>(*cpu_, kExeName);
-    process_->output = [this](const std::string& s) {
+    process_->output = [this](const std::string &s) {
         if (print)
             print(s);
     };
     if (clock)
         process_->milliseconds = clock;
-    startMs_ = uint64_t(std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now().time_since_epoch())
-                            .count());
+    startMs_ = uint64_t(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+            .count());
     // The Expansion Pack's (its own efgamex86.dll, 999,500 bytes) expects
     // its engine's longer table.
     {
@@ -178,7 +178,7 @@ Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     // The client game's half: dllEntry hands it the system call function.
     // The server game calls into it too, so it's set up from the start.
     if (const uint32_t dllEntry = module_->exportAddress("dllEntry")) {
-        const uint32_t syscall = cpu_->addNative("cgame syscall", [this](x86::Cpu& c) {
+        const uint32_t syscall = cpu_->addNative("cgame syscall", [this](x86::Cpu &c) {
             c.reg[x86::Cpu::EAX] = cgameCall(c);
             return 0u;
         });
@@ -201,7 +201,7 @@ Error SpGameHost::load(const std::vector<uint8_t>& dll) {
     return Error::success();
 }
 
-Error SpGameHost::callGame(int exportIndex, const std::vector<uint32_t>& args, uint32_t* result) {
+Error SpGameHost::callGame(int exportIndex, const std::vector<uint32_t> &args, uint32_t *result) {
     syncCvars();
     uint32_t r = 0;
     const uint32_t fn = cpu_->read32(exports_ + 4 * uint32_t(exportIndex));
@@ -212,7 +212,7 @@ Error SpGameHost::callGame(int exportIndex, const std::vector<uint32_t>& args, u
     return Error::success();
 }
 
-int32_t SpGameHost::mapChecksum(const std::vector<uint8_t>& file) {
+int32_t SpGameHost::mapChecksum(const std::vector<uint8_t> &file) {
     const std::array<uint8_t, 16> digest = md4(file.data(), file.size());
     uint32_t sum = 0;
     for (int i = 0; i < 4; ++i)
@@ -221,7 +221,7 @@ int32_t SpGameHost::mapChecksum(const std::vector<uint8_t>& file) {
     return int32_t(sum);
 }
 
-Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
+Error SpGameHost::startLevel(const std::string &mapName, std::shared_ptr<const Bsp> map, int32_t checksum,
                              int32_t randomSeed, int32_t loadMode) {
     cvars_.applyLatched(); // as the original's server, before the level starts
     if (!map)
@@ -268,11 +268,18 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     // The Expansion Pack's (as Jedi Outcast's): the spawn target after the
     // map's name, and whether this is a level change last.
     const std::vector<uint32_t> args =
-        expansion_ ? std::vector<uint32_t>{text(mapName), text(spawnTarget), uint32_t(checksum), text(map_->entities),
-                                           uint32_t(levelTime_), uint32_t(randomSeed), now, uint32_t(loadMode),
+        expansion_ ? std::vector<uint32_t>{text(mapName),
+                                           text(spawnTarget),
+                                           uint32_t(checksum),
+                                           text(map_->entities),
+                                           uint32_t(levelTime_),
+                                           uint32_t(randomSeed),
+                                           now,
+                                           uint32_t(loadMode),
                                            loadTransition ? 1u : 0u}
-                   : std::vector<uint32_t>{text(mapName), uint32_t(checksum), text(map_->entities), uint32_t(levelTime_),
-                                           uint32_t(randomSeed), now, uint32_t(loadMode)};
+                   : std::vector<uint32_t>{text(mapName),        uint32_t(checksum),   text(map_->entities),
+                                           uint32_t(levelTime_), uint32_t(randomSeed), now,
+                                           uint32_t(loadMode)};
     if (Error e = callGame(Init, args))
         return e;
     // Frames to let the level settle before anyone joins, as the original's
@@ -291,7 +298,7 @@ Error SpGameHost::startLevel(const std::string& mapName, std::shared_ptr<const B
     return Error::success();
 }
 
-Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refused, int32_t loadMode) {
+Error SpGameHost::connectPlayer(const std::string &userinfo, std::string &refused, int32_t loadMode) {
     userinfo_[0] = userinfo;
     uint32_t reason = 0;
     // ClientConnect(client, first time, saved game loaded)
@@ -309,8 +316,8 @@ Error SpGameHost::connectPlayer(const std::string& userinfo, std::string& refuse
     return e;
 }
 
-void SpGameHost::startVoice(int32_t entity, const std::string& name) {
-    auto log = [&](const std::string& text) {
+void SpGameHost::startVoice(int32_t entity, const std::string &name) {
+    auto log = [&](const std::string &text) {
         if (voiceLog)
             voiceLog("[" + std::to_string(levelTime_) + " ms] " + text);
     };
@@ -348,13 +355,13 @@ void SpGameHost::updateVoiceVolumes() {
     if (!voiceVolume_)
         return;
     std::memset(cpu_->memory().data() + voiceVolume_, 0, 4 * kMaxEntities);
-    auto threshold = [&](const char* name, float fallback) {
+    auto threshold = [&](const char *name, float fallback) {
         return cvars_.find(name) ? cvars_.value(name) : fallback;
     };
     const float t1 = threshold("s_threshold1", 0.5f), t2 = threshold("s_threshold2", 4.0f),
                 t3 = threshold("s_threshold3", 7.0f), t4 = threshold("s_threshold4", 8.0f);
     for (auto it = voices_.begin(); it != voices_.end();) {
-        const Voice& v = it->second;
+        const Voice &v = it->second;
         const size_t frames = v.sound->frames();
         const size_t at = size_t(int64_t(levelTime_ - v.startMs) * v.sound->rate / 1000);
         if (at >= frames) {
@@ -393,7 +400,9 @@ Error SpGameHost::runFrame(bool snapshot) {
     return Error::success();
 }
 
-Error SpGameHost::writeLevel(bool autosave) { return callGame(WriteLevel, {autosave ? 1u : 0u}); }
+Error SpGameHost::writeLevel(bool autosave) {
+    return callGame(WriteLevel, {autosave ? 1u : 0u});
+}
 
 Error SpGameHost::readLevel(bool autosave) {
     // (The Expansion Pack's: and whether it's a level change's.)
@@ -402,7 +411,7 @@ Error SpGameHost::readLevel(bool autosave) {
     return callGame(ReadLevel, {autosave ? 1u : 0u});
 }
 
-void SpGameHost::replaceConfigstrings(const std::map<int32_t, std::string>& strings) {
+void SpGameHost::replaceConfigstrings(const std::map<int32_t, std::string> &strings) {
     configstrings_ = strings;
 }
 
@@ -448,7 +457,7 @@ uint32_t SpGameHost::allowedToSaveHere(uint32_t flag) {
     return result;
 }
 
-Error SpGameHost::consoleCommand(const std::string& text, bool* handled) {
+Error SpGameHost::consoleCommand(const std::string &text, bool *handled) {
     args_.clear();
     std::string word;
     bool quoted = false;
@@ -473,9 +482,15 @@ Error SpGameHost::consoleCommand(const std::string& text, bool* handled) {
 
 // --- Entities ---------------------------------------------------------------------
 
-uint32_t SpGameHost::entities() const { return exports_ ? cpu_->read32(exports_ + 14 * 4) : 0; }
-int32_t SpGameHost::entitySize() const { return exports_ ? int32_t(cpu_->read32(exports_ + 15 * 4)) : 0; }
-int32_t SpGameHost::entityCount() const { return exports_ ? int32_t(cpu_->read32(exports_ + 16 * 4)) : 0; }
+uint32_t SpGameHost::entities() const {
+    return exports_ ? cpu_->read32(exports_ + 14 * 4) : 0;
+}
+int32_t SpGameHost::entitySize() const {
+    return exports_ ? int32_t(cpu_->read32(exports_ + 15 * 4)) : 0;
+}
+int32_t SpGameHost::entityCount() const {
+    return exports_ ? int32_t(cpu_->read32(exports_ + 16 * 4)) : 0;
+}
 
 int32_t SpGameHost::entityNumber(uint32_t address) const {
     const uint32_t base = entities();
@@ -483,8 +498,9 @@ int32_t SpGameHost::entityNumber(uint32_t address) const {
     if (!base || size <= 0 || address < base)
         return -1;
     const uint32_t offset = address - base;
-    return offset % uint32_t(size) == 0 && offset / uint32_t(size) < uint32_t(kMaxEntities) ? int32_t(offset / uint32_t(size))
-                                                                                            : -1;
+    return offset % uint32_t(size) == 0 && offset / uint32_t(size) < uint32_t(kMaxEntities)
+               ? int32_t(offset / uint32_t(size))
+               : -1;
 }
 
 uint32_t SpGameHost::entityAddress(int32_t number) const {
@@ -508,7 +524,7 @@ Vec3f SpGameHost::readVec(uint32_t address) const {
     return v;
 }
 
-void SpGameHost::writeVec(uint32_t address, const Vec3f& v) {
+void SpGameHost::writeVec(uint32_t address, const Vec3f &v) {
     for (int i = 0; i < 3; ++i)
         cpu_->write32(address + 4 * uint32_t(i), floatBits(v[size_t(i)]));
 }
@@ -547,12 +563,12 @@ void SpGameHost::unlinkEntity(uint32_t address) {
 ServerWorld::Placement SpGameHost::entityPlacement(int32_t n) const {
     // As linked; or, for one marked linked in a saved game but not linked
     // since, where its box says.
-    if (const ServerWorld::Placement* p = serverWorld_.placement(n))
+    if (const ServerWorld::Placement *p = serverWorld_.placement(n))
         return *p;
     return serverWorld_.place(entityVec(n, kEntity.absMin), entityVec(n, kEntity.absMax));
 }
 
-void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
+void SpGameHost::writeTrace(uint32_t r, const TraceResult &t, int32_t hit) {
     // Quake III's trace_t (56 bytes), as the original's engine fills it.
     if (!cpu_->valid(r, 56))
         return;
@@ -577,7 +593,7 @@ void SpGameHost::writeTrace(uint32_t r, const TraceResult& t, int32_t hit) {
 
 std::string SpGameHost::infoString(int32_t flag) const {
     std::string info;
-    for (const CvarStore::Cvar& cv : cvars_.all())
+    for (const CvarStore::Cvar &cv : cvars_.all())
         if (cv.flags & flag)
             info += "\\" + cv.name + "\\" + cv.value;
     return info;
@@ -585,7 +601,7 @@ std::string SpGameHost::infoString(int32_t flag) const {
 
 // --- Cvars ------------------------------------------------------------------------
 
-uint32_t SpGameHost::cvarStructure(const std::string& name) {
+uint32_t SpGameHost::cvarStructure(const std::string &name) {
     const std::string key = lower(name);
     auto it = cvarMirrors_.find(key);
     if (it == cvarMirrors_.end()) {
@@ -596,8 +612,8 @@ uint32_t SpGameHost::cvarStructure(const std::string& name) {
         cpu_->write32(m.address, nameText);
         it = cvarMirrors_.emplace(key, m).first;
     }
-    MirroredCvar& m = it->second;
-    const CvarStore::Cvar* cv = cvars_.find(name);
+    MirroredCvar &m = it->second;
+    const CvarStore::Cvar *cv = cvars_.find(name);
     if (cv && cv->modificationCount != m.modificationCount) {
         if (m.text)
             process_->memory().free(m.text);
@@ -620,8 +636,8 @@ void SpGameHost::syncCvars() {
     if (cvars_.changes() == cvarChangesSynced_)
         return;
     cvarChangesSynced_ = cvars_.changes();
-    for (auto& [key, m] : cvarMirrors_) {
-        const CvarStore::Cvar* cv = cvars_.find(key);
+    for (auto &[key, m] : cvarMirrors_) {
+        const CvarStore::Cvar *cv = cvars_.find(key);
         if (cv && cv->modificationCount != m.modificationCount)
             cvarStructure(cv->name);
     }
@@ -631,7 +647,7 @@ void SpGameHost::syncCvars() {
 
 // FS_FOpenFile(path, &handle, mode): read from the game's search path; what
 // it writes is kept only until closed, for now.
-uint32_t SpGameHost::fsOpen(x86::Cpu& c, uint32_t pathAddress, uint32_t handleAddress, uint32_t mode) {
+uint32_t SpGameHost::fsOpen(x86::Cpu &c, uint32_t pathAddress, uint32_t handleAddress, uint32_t mode) {
     uint32_t handle = 0;
     const int32_t length = openFiles_.open(c.string(pathAddress, 256), int32_t(mode), handleAddress != 0, true, handle);
     if (handleAddress)
@@ -639,13 +655,13 @@ uint32_t SpGameHost::fsOpen(x86::Cpu& c, uint32_t pathAddress, uint32_t handleAd
     return uint32_t(length);
 }
 
-uint32_t SpGameHost::fsRead(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
+uint32_t SpGameHost::fsRead(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle) {
     if (!c.valid(buffer, length))
         return 0;
     return uint32_t(openFiles_.read(handle, c.memory().data() + buffer, length));
 }
 
-uint32_t SpGameHost::fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint32_t handle) {
+uint32_t SpGameHost::fsWrite(x86::Cpu &c, uint32_t buffer, uint32_t length, uint32_t handle) {
     if (!c.valid(buffer, length))
         return 0;
     return uint32_t(openFiles_.write(handle, c.memory().data() + buffer, length));
@@ -653,7 +669,7 @@ uint32_t SpGameHost::fsWrite(x86::Cpu& c, uint32_t buffer, uint32_t length, uint
 
 // --- The client game's system calls -------------------------------------------------
 
-void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
+void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar &cv) {
     // vmCvar_t: handle, modification count, value, integer, text (256).
     if (!cpu_->valid(address, CvarStore::kVmCvarSize))
         return;
@@ -664,17 +680,17 @@ void SpGameHost::writeVmCvar(uint32_t address, const CvarStore::Cvar& cv) {
     cpu_->writeString(address + 16, cv.value, 256);
 }
 
-void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound>& sounds) {
+void SpGameHost::playAmbient(const std::vector<raven::AmbientSets::Sound> &sounds) {
     if (!soundSystem)
         return;
-    for (const raven::AmbientSets::Sound& s : sounds)
+    for (const raven::AmbientSets::Sound &s : sounds)
         if (s.loop)
             soundSystem->addAmbientLoop(s.entity, s.origin, s.volume, s.name);
         else
             soundSystem->startAmbientSound(s.entity, s.origin, s.volume, s.name);
 }
 
-int32_t SpGameHost::registerSkin(const std::string& name) {
+int32_t SpGameHost::registerSkin(const std::string &name) {
     // As Elite Force's renderer: name.skin, then name-1.skin to name-8.skin
     // (a head's faces: blinking, the mouth's shapes) in the handles after
     // it; the handle negated when there are any. The client game shows a
@@ -698,7 +714,7 @@ int32_t SpGameHost::registerSkin(const std::string& name) {
     return it->second ? -handle : handle;
 }
 
-uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
+uint32_t SpGameHost::cgameCall(x86::Cpu &c) {
     // syscall(number, args...): the arguments after the number.
     auto a = [&c](int n) { return c.arg(n + 1); };
     auto str = [&](int n, size_t max = 1024) { return c.string(a(n), max); };
@@ -712,15 +728,16 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     case 1: // Error(text)
         c.abort("efgamex86.dll (client game): " + str(0, 4096));
         return 0;
-    case 2: return process_->milliseconds();
+    case 2:
+        return process_->milliseconds();
     case 3: { // Cvar_Register(vmCvar, name, value, flags)
-        const CvarStore::Cvar& cv = cvars_.create(str(1, 256), str(2, 256), int32_t(a(3)));
+        const CvarStore::Cvar &cv = cvars_.create(str(1, 256), str(2, 256), int32_t(a(3)));
         if (a(0))
             writeVmCvar(a(0), cv);
         return 0;
     }
     case 4: // Cvar_Update(vmCvar)
-        if (const CvarStore::Cvar* cv = cvars_.byHandle(int32_t(c.read32(a(0))));
+        if (const CvarStore::Cvar *cv = cvars_.byHandle(int32_t(c.read32(a(0))));
             cv && int32_t(c.read32(a(0) + 4)) != cv->modificationCount)
             writeVmCvar(a(0), *cv);
         return 0;
@@ -731,8 +748,9 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             cvarStructure(name);
         return 0;
     }
-    case 6: return uint32_t(args_.size()); // Argc()
-    case 7:                                 // Argv(n, buffer, size)
+    case 6:
+        return uint32_t(args_.size()); // Argc()
+    case 7:                            // Argv(n, buffer, size)
         c.writeString(a(1), a(0) < args_.size() ? args_[a(0)] : "", a(2));
         return 0;
     case 8: { // Args(buffer, size)
@@ -742,13 +760,22 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         c.writeString(a(0), all, a(1));
         return 0;
     }
-    case 9: return fsOpen(c, a(0), a(1), a(2));
-    case 10: return fsRead(c, a(0), a(1), a(2));
-    case 11: return fsWrite(c, a(0), a(1), a(2));
-    case 12: openFiles_.close(a(0)); return 0;
-    case 13: consoleCommands_.push_back(str(0, 4096)); return 0; // SendConsoleCommand
-    case 14: clientCommands_.push_back(str(0, 256)); return 0;    // AddCommand(name)
-    case 15: { // SendClientCommand(text): to the server game, as ClientCommand
+    case 9:
+        return fsOpen(c, a(0), a(1), a(2));
+    case 10:
+        return fsRead(c, a(0), a(1), a(2));
+    case 11:
+        return fsWrite(c, a(0), a(1), a(2));
+    case 12:
+        openFiles_.close(a(0));
+        return 0;
+    case 13:
+        consoleCommands_.push_back(str(0, 4096));
+        return 0; // SendConsoleCommand
+    case 14:
+        clientCommands_.push_back(str(0, 256));
+        return 0; // AddCommand(name)
+    case 15: {    // SendClientCommand(text): to the server game, as ClientCommand
         tokenize(str(0, 4096));
         uint32_t ignored = 0;
         const uint32_t fn = c.read32(exports_ + 4 * ClientCommand);
@@ -764,10 +791,13 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         }
         return 0;
     // Collision, for the client game's prediction: the same map.
-    case 17: return 0;                                                  // CM_LoadMap(name)
-    case 18: return world_ ? uint32_t(world_->modelCount()) : 0;        // CM_NumInlineModels()
-    case 19: return a(0);                                               // CM_InlineModel(n)
-    case 20:                                                            // CM_TempBoxModel(mins, maxs)
+    case 17:
+        return 0; // CM_LoadMap(name)
+    case 18:
+        return world_ ? uint32_t(world_->modelCount()) : 0; // CM_NumInlineModels()
+    case 19:
+        return a(0); // CM_InlineModel(n)
+    case 20:         // CM_TempBoxModel(mins, maxs)
         tempBoxes_.assign(1, {readVec(a(0)), readVec(a(1))});
         return kTempBoxModel;
     case 21:   // CM_PointContents(point, model)
@@ -787,8 +817,12 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         }
         return world_ ? uint32_t(world_->transformedPointContents(point, int(a(1)), origin, angles)) : 0;
     }
-    case 23: clientTrace(c, false); return 0; // CM_BoxTrace
-    case 24: clientTrace(c, true); return 0;  // CM_TransformedBoxTrace
+    case 23:
+        clientTrace(c, false);
+        return 0; // CM_BoxTrace
+    case 24:
+        clientTrace(c, true);
+        return 0; // CM_TransformedBoxTrace
     case 25: { // CM_MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer)
         // -> fragments: the pieces of the level under a mark (scorches,
         // bullet holes), each (first point, point count) into the points.
@@ -849,23 +883,33 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             soundSystem->respatialize(int(a(0)), readVec(a(1)),
                                       {readVec(a(2)), readVec(a(2) + 12), readVec(a(2) + 24)});
         return 0;
-    case 32: return uint32_t(sounds_.add(str(0, 256))); // S_RegisterSound(name)
-    case 33: // S_StartBackgroundTrack(intro, loop)
+    case 32:
+        return uint32_t(sounds_.add(str(0, 256))); // S_RegisterSound(name)
+    case 33:                                       // S_StartBackgroundTrack(intro, loop)
         if (soundSystem)
             soundSystem->startBackgroundTrack(str(0, 256), str(1, 256));
         return 0;
-    case 34: case 35: case 36: case 37: return 0;       // force feedback: none
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+        return 0; // force feedback: none
     // The renderer: what's registered and drawn is recorded.
-    case 38: return 0; // R_LoadWorldMap(name)
-    case 39: return uint32_t(models_.add(str(0, 256)));
-    case 40: return uint32_t(registerSkin(str(0, 256))); // R_RegisterSkin(name)
+    case 38:
+        return 0; // R_LoadWorldMap(name)
+    case 39:
+        return uint32_t(models_.add(str(0, 256)));
+    case 40:
+        return uint32_t(registerSkin(str(0, 256))); // R_RegisterSkin(name)
     case 41:
     case 42: { // R_RegisterShader, R_RegisterShaderNoMip: 0 if it can't be found
         const std::string name = str(0, 256);
         return shaderExists && !shaderExists(name) ? 0 : uint32_t(shaders_.add(name));
     }
-    case 43: scene_.clear(); return 0; // R_ClearScene
-    case 44:                           // R_AddRefEntityToScene(refEntity)
+    case 43:
+        scene_.clear();
+        return 0; // R_ClearScene
+    case 44:      // R_AddRefEntityToScene(refEntity)
         if (c.valid(a(0), kRefEntitySize))
             scene_.addEntity(c.memory().data() + a(0), kRefEntitySize, 0);
         return 0;
@@ -880,7 +924,8 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     }
     case 46: { // R_AddPolyToScene(shader, vertex count, vertices)
         const uint32_t bytes = std::min<uint32_t>(a(1), 256) * 24;
-        scene_.addPoly(int32_t(a(0)), int32_t(a(1)), bytes && c.valid(a(2), bytes) ? c.memory().data() + a(2) : nullptr);
+        scene_.addPoly(int32_t(a(0)), int32_t(a(1)),
+                       bytes && c.valid(a(2), bytes) ? c.memory().data() + a(2) : nullptr);
         return 0;
     }
     case 47: // R_AddLightToScene(origin, intensity, r, g, b)
@@ -914,11 +959,11 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
     }
     case 52: { // R_ModelBounds(model, mins, maxs)
         Vec3f mins{}, maxs{};
-        const std::string& name = models_.name(int32_t(a(0)));
+        const std::string &name = models_.name(int32_t(a(0)));
         if (!name.empty() && name[0] == '*') {
             if (world_)
                 world_->modelBounds(std::atoi(name.c_str() + 1), mins, maxs);
-        } else if (const Md3Model* m = md3(int32_t(a(0))); m && !m->frames.empty()) {
+        } else if (const Md3Model *m = md3(int32_t(a(0))); m && !m->frames.empty()) {
             mins = m->frames[0].mins;
             maxs = m->frames[0].maxs;
         }
@@ -935,9 +980,14 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
                 c.write32(a(0) + 4 * uint32_t(i), floatBits(o[size_t(i)]));
         return found ? 1 : 0;
     }
-    case 55: return 0; // R_Scissor?
-    case 56: writeGlconfig(a(0)); return 0;
-    case 57: writeGameState(a(0)); return 0;
+    case 55:
+        return 0; // R_Scissor?
+    case 56:
+        writeGlconfig(a(0));
+        return 0;
+    case 57:
+        writeGameState(a(0));
+        return 0;
     case 58: // GetCurrentSnapshotNumber(&number, &serverTime)
         c.write32(a(0), uint32_t(snapshotNumber_));
         c.write32(a(1), snapshots_.empty() ? 0u : uint32_t(snapshots_.back().serverTime));
@@ -948,7 +998,7 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
             c.abort("GetSnapshot: " + std::to_string(n) + " is ahead of the latest");
             return 0;
         }
-        for (const Snapshot& snap : snapshots_)
+        for (const Snapshot &snap : snapshots_)
             if (snap.number == n) {
                 writeSnapshot(a(1), snap);
                 return 1;
@@ -962,16 +1012,20 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         tokenize(serverCommands_[toClient_[size_t(n - 1)]].second);
         return 1;
     }
-    case 61: return uint32_t(commandNumber_); // GetCurrentCmdNumber()
-    case 62: { // GetUserCmd(number, out) -> whether it's still kept
+    case 61:
+        return uint32_t(commandNumber_); // GetCurrentCmdNumber()
+    case 62: {                           // GetUserCmd(number, out) -> whether it's still kept
         const int32_t n = int32_t(a(0));
         if (n > commandNumber_ || n <= commandNumber_ - 64)
             return 0;
         writeUserCommand(a(1), commands_[size_t(n & 63)]);
         return 1;
     }
-    case 63: clientWeapon_ = uint8_t(a(0)); return 0; // SetUserCmdValue(weapon, sensitivity)
-    case 64: return 16u << 20;                        // MemoryRemaining()
+    case 63:
+        clientWeapon_ = uint8_t(a(0));
+        return 0; // SetUserCmdValue(weapon, sensitivity)
+    case 64:
+        return 16u << 20; // MemoryRemaining()
     // Ambient sound sets (AmbientSets).
     case 65: // S_UpdateAmbientSet(name, origin): the level's general set, each frame
         playAmbient(ambient_.updateGeneral(str(0, 256), readVec(a(1)), levelTime_));
@@ -987,29 +1041,33 @@ uint32_t SpGameHost::cgameCall(x86::Cpu& c) {
         if (Error e = files_.read("sound/sound.txt", data))
             warnings.push_back("couldn't load ambient sound sets from sound/sound.txt: " + e.message);
         else
-            ambient_.parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()), warnings);
+            ambient_.parse(std::string_view(reinterpret_cast<const char *>(data.data()), data.size()), warnings);
         if (print)
-            for (const std::string& w : warnings)
+            for (const std::string &w : warnings)
                 print("ambient sets: " + w + "\n");
         return 0;
     }
-    case 68: ambient_.addPrecacheEntry(str(0, 256)); return 0; // AS_AddPrecacheEntry(name)
-    case 69: { // AS_GetBModelSound(name, stage) -> sfx, or -1
+    case 68:
+        ambient_.addPrecacheEntry(str(0, 256));
+        return 0; // AS_AddPrecacheEntry(name)
+    case 69: {    // AS_GetBModelSound(name, stage) -> sfx, or -1
         const std::string name = ambient_.bmodelSound(str(0, 256), int32_t(a(1)));
         return name.empty() ? 0xffffffffu : uint32_t(sounds_.add(name));
     }
     case 70: { // S_GetSampleLength(sfx): whole milliseconds in EAX (the cgame's wrapper loads it with fild)
-        const std::string& name = sounds_.name(int32_t(a(0)));
+        const std::string &name = sounds_.name(int32_t(a(0)));
         if (!name.empty())
             if (auto sound = soundLibrary_.find(name); sound && sound->rate > 0)
                 return uint32_t(int64_t(sound->frames()) * 1000 / sound->rate);
         return 0;
     }
-    default: ++cgameUnhandled_[number]; return 0;
+    default:
+        ++cgameUnhandled_[number];
+        return 0;
     }
 }
 
-int32_t SpGameHost::entityModel(const SceneEntity& e) {
+int32_t SpGameHost::entityModel(const SceneEntity &e) {
     if (e.bytes.size() < 12)
         return 0;
     int32_t v;
@@ -1017,10 +1075,10 @@ int32_t SpGameHost::entityModel(const SceneEntity& e) {
     return v;
 }
 
-const Md3Model* SpGameHost::md3(int32_t handle) {
+const Md3Model *SpGameHost::md3(int32_t handle) {
     auto [it, added] = md3s_.try_emplace(handle);
     if (added) {
-        const std::string& name = models_.name(handle);
+        const std::string &name = models_.name(handle);
         std::vector<uint8_t> data;
         auto m = std::make_shared<Md3Model>();
         if (!name.empty() && name[0] != '*' && !files_.read(name, data) && !parseModel(data, *m))
@@ -1029,7 +1087,7 @@ const Md3Model* SpGameHost::md3(int32_t handle) {
     return it->second.get();
 }
 
-void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
+void SpGameHost::clientTrace(x86::Cpu &c, bool transformed) {
     // (results, start, end, mins, maxs, model, brushmask[, origin, angles]):
     // against one model only (the client game adds the entities itself).
     auto a = [&c](int n) { return c.arg(n + 1); };
@@ -1056,7 +1114,7 @@ void SpGameHost::clientTrace(x86::Cpu& c, bool transformed) {
     writeTrace(a(0), t, t.fraction < 1 ? kEntityWorld : kEntityNone);
 }
 
-void SpGameHost::tokenize(const std::string& text) {
+void SpGameHost::tokenize(const std::string &text) {
     // Words split at spaces, with quoted runs kept whole.
     args_.clear();
     std::string word;
@@ -1078,9 +1136,11 @@ void SpGameHost::tokenize(const std::string& text) {
         args_.push_back(word);
 }
 
-void SpGameHost::writeGlconfig(uint32_t address) { writeGlconfigTo(*cpu_, address); }
+void SpGameHost::writeGlconfig(uint32_t address) {
+    writeGlconfigTo(*cpu_, address);
+}
 
-void SpGameHost::writeGlconfigTo(x86::Cpu& cpu, uint32_t address) {
+void SpGameHost::writeGlconfigTo(x86::Cpu &cpu, uint32_t address) {
     // glconfig_t as the original engine fills it (5196 bytes): the
     // renderer's, vendor's and version text (1024 each) and the extensions
     // (2048), then Quake III's numbers from 5120 with two more of Elite
@@ -1115,7 +1175,7 @@ void SpGameHost::writeGameState(uint32_t address) {
         return;
     std::memset(cpu_->memory().data() + address, 0, kSize);
     uint32_t used = 1;
-    for (const auto& [index, value] : configstrings_) {
+    for (const auto &[index, value] : configstrings_) {
         if (index < 0 || uint32_t(index) >= kStrings || value.empty() || used + value.size() + 1 > kChars)
             continue;
         cpu_->write32(address + 4 * uint32_t(index), used);
@@ -1125,7 +1185,7 @@ void SpGameHost::writeGameState(uint32_t address) {
     cpu_->write32(address + 4 * kStrings + kChars, used);
 }
 
-void SpGameHost::writeUserCommand(uint32_t address, const UserCommand& cmd) {
+void SpGameHost::writeUserCommand(uint32_t address, const UserCommand &cmd) {
     if (!cpu_->valid(address, kUserCmdSize))
         return;
     std::memset(cpu_->memory().data() + address, 0, kUserCmdSize);
@@ -1139,7 +1199,7 @@ void SpGameHost::writeUserCommand(uint32_t address, const UserCommand& cmd) {
     cpu_->write8(address + 26, uint8_t(cmd.up));
 }
 
-void SpGameHost::writeSnapshot(uint32_t address, const Snapshot& snap) {
+void SpGameHost::writeSnapshot(uint32_t address, const Snapshot &snap) {
     // snapshot_t as the original engine fills it: flags 0, ping 4, server
     // time 8, the area mask 12 (32 bytes), the command number 44, the
     // player state 48 (544), the entity count 592, the entities 596 (256
@@ -1160,7 +1220,7 @@ void SpGameHost::writeSnapshot(uint32_t address, const Snapshot& snap) {
     cpu_->write32(address + 0xea60, uint32_t(snap.serverCommandSequence));
 }
 
-std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
+std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f &eye) {
     // As the original's server picks them: entities in use and linked, not
     // flagged NOCLIENT (1); BROADCAST (0x20) ones always, the rest in an
     // area joined to the viewer's and a cluster it can see; a PORTAL
@@ -1169,7 +1229,7 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
     std::set<int32_t> added;
     const bool noAreas = cvars_.find("cm_noAreas") && cvars_.integer("cm_noAreas");
     const int32_t count = std::min(entityCount(), kMaxEntities);
-    auto look = [&](const Vec3f& from, auto& self, int depth) -> void {
+    auto look = [&](const Vec3f &from, auto &self, int depth) -> void {
         const int leaf = world_ ? world_->leafAt(from) : -1;
         const int area = leaf >= 0 ? world_->leafArea(leaf) : -1;
         const int cluster = leaf >= 0 && size_t(leaf) < map_->leafs.size() ? map_->leafs[size_t(leaf)].cluster : -1;
@@ -1181,7 +1241,7 @@ std::vector<int32_t> SpGameHost::visibleEntities(const Vec3f& eye) {
                 continue;
             if (!(flags & 0x20) && world_) {
                 const ServerWorld::Placement place = entityPlacement(n);
-                const auto& areas = place.areas;
+                const auto &areas = place.areas;
                 if (!noAreas && area >= 0 && areas.first >= 0 && !serverWorld_.areasConnected(area, areas.first) &&
                     (areas.second < 0 || !serverWorld_.areasConnected(area, areas.second)))
                     continue;
@@ -1271,7 +1331,7 @@ void SpGameHost::addServerCommand(int32_t to, std::string text) {
     serverCommands_.emplace_back(to, std::move(text));
 }
 
-Error SpGameHost::clientThink(const UserCommand& input) {
+Error SpGameHost::clientThink(const UserCommand &input) {
     UserCommand cmd = input;
     cmd.weapon = clientWeapon_;
     commands_[size_t(++commandNumber_ & 63)] = cmd;
@@ -1322,7 +1382,7 @@ Error SpGameHost::drawLoadingFrame() {
     return e;
 }
 
-bool SpGameHost::cameraPosition(Vec3f& at) {
+bool SpGameHost::cameraPosition(Vec3f &at) {
     if (!cgameRunning_)
         return false;
     const uint32_t v = process_->memory().alloc(16);
@@ -1334,7 +1394,7 @@ bool SpGameHost::cameraPosition(Vec3f& at) {
     return on != 0;
 }
 
-Error SpGameHost::clientConsoleCommand(const std::string& text) {
+Error SpGameHost::clientConsoleCommand(const std::string &text) {
     tokenize(text);
     if (args_.empty())
         return Error::success();
@@ -1353,28 +1413,28 @@ Error SpGameHost::clientConsoleCommand(const std::string& text) {
 // --- The engine's functions ---------------------------------------------------------
 
 void SpGameHost::addImports() {
-    auto str = [](x86::Cpu& c, int n, size_t max = 1024) { return c.string(c.arg(n), max); };
-    auto say = [this](const std::string& s) {
+    auto str = [](x86::Cpu &c, int n, size_t max = 1024) { return c.string(c.arg(n), max); };
+    auto say = [this](const std::string &s) {
         if (print)
             print(s);
     };
 
-    import(Printf, [say](x86::Cpu& c) {
+    import(Printf, [say](x86::Cpu &c) {
         say(x86::formatPrintf(c, c.arg(0), c.reg[x86::Cpu::ESP] + 8));
         return 0u;
     });
-    import(WriteCam, [](x86::Cpu&) { return 0u; });
-    import(Error_, [](x86::Cpu& c) {
+    import(WriteCam, [](x86::Cpu &) { return 0u; });
+    import(Error_, [](x86::Cpu &c) {
         c.abort("efgamex86.dll: " + x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
         return 0u;
     });
-    import(Milliseconds, [this](x86::Cpu&) { return process_->milliseconds(); });
-    import(Cvar, [this, str](x86::Cpu& c) {
+    import(Milliseconds, [this](x86::Cpu &) { return process_->milliseconds(); });
+    import(Cvar, [this, str](x86::Cpu &c) {
         const std::string name = str(c, 0, 256);
         cvars_.create(name, str(c, 1, 256), int32_t(c.arg(2)));
         return cvarStructure(name);
     });
-    import(CvarSet, [this, str](x86::Cpu& c) {
+    import(CvarSet, [this, str](x86::Cpu &c) {
         // As the original engine's, forced: the game sets its read-only
         // ones (skippingCinematic) this way.
         const std::string name = str(c, 0, 256);
@@ -1383,13 +1443,13 @@ void SpGameHost::addImports() {
             cvarStructure(name);
         return 0u;
     });
-    import(CvarVariableIntegerValue, [this, str](x86::Cpu& c) { return uint32_t(cvars_.integer(str(c, 0, 256))); });
-    import(CvarVariableStringBuffer, [this, str](x86::Cpu& c) {
+    import(CvarVariableIntegerValue, [this, str](x86::Cpu &c) { return uint32_t(cvars_.integer(str(c, 0, 256))); });
+    import(CvarVariableStringBuffer, [this, str](x86::Cpu &c) {
         c.writeString(c.arg(1), cvars_.string(str(c, 0, 256)), c.arg(2));
         return 0u;
     });
-    import(Argc, [this](x86::Cpu&) { return uint32_t(args_.size()); });
-    import(Argv, [this](x86::Cpu& c) {
+    import(Argc, [this](x86::Cpu &) { return uint32_t(args_.size()); });
+    import(Argv, [this](x86::Cpu &c) {
         const uint32_t n = c.arg(0);
         c.writeString(argvBuffer_, n < args_.size() ? args_[n] : "", kArgvSize);
         return argvBuffer_;
@@ -1398,14 +1458,14 @@ void SpGameHost::addImports() {
     // Files: read from the game's search path; what it writes is kept
     // only until closed, for now.
     // Files.
-    import(FsFOpenFile, [this](x86::Cpu& c) { return fsOpen(c, c.arg(0), c.arg(1), c.arg(2)); });
-    import(FsRead, [this](x86::Cpu& c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
-    import(FsWrite, [this](x86::Cpu& c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
-    import(FsFCloseFile, [this](x86::Cpu& c) {
+    import(FsFOpenFile, [this](x86::Cpu &c) { return fsOpen(c, c.arg(0), c.arg(1), c.arg(2)); });
+    import(FsRead, [this](x86::Cpu &c) { return fsRead(c, c.arg(0), c.arg(1), c.arg(2)); });
+    import(FsWrite, [this](x86::Cpu &c) { return fsWrite(c, c.arg(0), c.arg(1), c.arg(2)); });
+    import(FsFCloseFile, [this](x86::Cpu &c) {
         openFiles_.close(c.arg(0));
         return 0u;
     });
-    import(FsReadFile, [this, str](x86::Cpu& c) -> uint32_t {
+    import(FsReadFile, [this, str](x86::Cpu &c) -> uint32_t {
         std::vector<uint8_t> data;
         if (files_.read(str(c, 0, 256), data)) {
             if (c.arg(1))
@@ -1423,13 +1483,13 @@ void SpGameHost::addImports() {
         }
         return uint32_t(data.size());
     });
-    import(FsFreeFile, [this](x86::Cpu& c) {
+    import(FsFreeFile, [this](x86::Cpu &c) {
         process_->memory().free(c.arg(0));
         return 0u;
     });
 
     // Saved games: kept in memory for now.
-    import(AppendToSaveGame, [this](x86::Cpu& c) -> uint32_t {
+    import(AppendToSaveGame, [this](x86::Cpu &c) -> uint32_t {
         // (id, data, length): into the saved game being written.
         const uint32_t data = c.arg(1), length = c.arg(2);
         if (!saveWriter_ || !c.valid(data, length))
@@ -1442,14 +1502,13 @@ void SpGameHost::addImports() {
     // chunk, which must be this one and (unless the length is 0) this
     // long. Optional (the Expansion Pack's other): a different chunk next
     // is left for later, and 0 returned.
-    auto readChunk = [this](x86::Cpu& c, bool optional) -> uint32_t {
+    auto readChunk = [this](x86::Cpu &c, bool optional) -> uint32_t {
         const uint32_t id = c.arg(0), length = c.arg(2);
         uint32_t buffer = c.arg(1);
         if (optional && (!saveReader_ || !saveReader_->peek(id)))
             return 0;
         std::vector<uint8_t> data;
-        Error e = saveReader_ ? saveReader_->next(id, data, length)
-                              : Error::fail("no saved game is being read");
+        Error e = saveReader_ ? saveReader_->next(id, data, length) : Error::fail("no saved game is being read");
         if (!e && expansion_ && !buffer) {
             buffer = process_->memory().alloc(std::max<uint32_t>(uint32_t(data.size()), 1));
             if (!buffer)
@@ -1466,20 +1525,20 @@ void SpGameHost::addImports() {
         std::memcpy(c.memory().data() + buffer, data.data(), data.size());
         return expansion_ ? uint32_t(data.size()) : 1u;
     };
-    import(ReadFromSaveGame, [readChunk](x86::Cpu& c) { return readChunk(c, false); });
+    import(ReadFromSaveGame, [readChunk](x86::Cpu &c) { return readChunk(c, false); });
     if (expansion_) {
         // Its slots of their own (not through import(), which places the
         // 1.x slots).
-        auto own = [this](int position, const char* name, std::function<uint32_t(x86::Cpu&)> fn) {
-            const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu& c) {
+        auto own = [this](int position, const char *name, std::function<uint32_t(x86::Cpu &)> fn) {
+            const uint32_t address = cpu_->addNative(name, [fn](x86::Cpu &c) {
                 c.reg[x86::Cpu::EAX] = fn(c);
                 return 0u;
             });
             cpu_->write32(imports_ + 4 * uint32_t(position), address);
         };
         own(XpReadFromSaveGameOptional, "engine[ReadFromSaveGameOptional]",
-            [readChunk](x86::Cpu& c) { return readChunk(c, true); });
-        own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu& c) -> uint32_t {
+            [readChunk](x86::Cpu &c) { return readChunk(c, true); });
+        own(XpFsGetFileList, "engine[FS_GetFileList]", [this, str](x86::Cpu &c) -> uint32_t {
             // (path, extension, buffer, size) -> how many, as that
             // engine's (expansionFileList, packFileList); "$modlist": the
             // mods' folders and descriptions (listMods).
@@ -1489,7 +1548,8 @@ void SpGameHost::addImports() {
             const std::string folder = str(c, 0, 256);
             std::vector<uint8_t> list;
             const uint32_t count =
-                folder != "$modlist" ? packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list)
+                folder != "$modlist"
+                    ? packFileList(expansionFileList(files_, folder, c.arg(1) ? str(c, 1, 64) : ""), size, list)
                 : modInstall.empty() ? packModList({}, size, list)
                                      : packModList(listMods(modInstall, modBaseDir), size, list);
             std::memcpy(c.memory().data() + buffer, list.data(), list.size());
@@ -1497,19 +1557,19 @@ void SpGameHost::addImports() {
         });
     }
 
-    import(SendConsoleCommand, [this, str](x86::Cpu& c) {
+    import(SendConsoleCommand, [this, str](x86::Cpu &c) {
         consoleCommands_.push_back(str(c, 0, 4096));
         return 0u;
     });
-    import(DropClient, [say, str](x86::Cpu& c) {
+    import(DropClient, [say, str](x86::Cpu &c) {
         say("DropClient: " + str(c, 1) + "\n");
         return 0u;
     });
-    import(SendServerCommand, [this](x86::Cpu& c) {
+    import(SendServerCommand, [this](x86::Cpu &c) {
         addServerCommand(int32_t(c.arg(0)), x86::formatPrintf(c, c.arg(1), c.reg[x86::Cpu::ESP] + 12));
         return 0u;
     });
-    import(SetConfigstring, [this, str](x86::Cpu& c) {
+    import(SetConfigstring, [this, str](x86::Cpu &c) {
         const int32_t index = int32_t(c.arg(0));
         const std::string value = str(c, 1, 8192);
         configstrings_[index] = value;
@@ -1519,27 +1579,27 @@ void SpGameHost::addImports() {
             addServerCommand(0, "cs " + std::to_string(index) + " \"" + value + "\"");
         return 0u;
     });
-    import(GetConfigstring, [this](x86::Cpu& c) {
+    import(GetConfigstring, [this](x86::Cpu &c) {
         auto it = configstrings_.find(int32_t(c.arg(0)));
         c.writeString(c.arg(1), it == configstrings_.end() ? std::string() : it->second, c.arg(2));
         return 0u;
     });
-    import(GetUserinfo, [this](x86::Cpu& c) {
+    import(GetUserinfo, [this](x86::Cpu &c) {
         auto it = userinfo_.find(int32_t(c.arg(0)));
         c.writeString(c.arg(1), it == userinfo_.end() ? std::string() : it->second, c.arg(2));
         return 0u;
     });
-    import(SetUserinfo, [this, str](x86::Cpu& c) {
+    import(SetUserinfo, [this, str](x86::Cpu &c) {
         userinfo_[int32_t(c.arg(0))] = str(c, 1);
         return 0u;
     });
-    import(GetServerinfo, [this](x86::Cpu& c) {
+    import(GetServerinfo, [this](x86::Cpu &c) {
         c.writeString(c.arg(0), infoString(CvarStore::ServerInfo), c.arg(1));
         return 0u;
     });
 
     // The world.
-    import(SetBrushModel, [this, str](x86::Cpu& c) {
+    import(SetBrushModel, [this, str](x86::Cpu &c) {
         const uint32_t ent = c.arg(0);
         const std::string name = str(c, 1, 64);
         if (name.size() < 2 || name[0] != '*') {
@@ -1560,7 +1620,7 @@ void SpGameHost::addImports() {
         linkEntity(ent);
         return 0u;
     });
-    import(Trace, [this](x86::Cpu& c) {
+    import(Trace, [this](x86::Cpu &c) {
         const Vec3f zero{};
         int32_t hit = kEntityNone;
         const TraceResult t = serverWorld_.trace(readVec(c.arg(1)), c.arg(2) ? readVec(c.arg(2)) : zero,
@@ -1569,10 +1629,9 @@ void SpGameHost::addImports() {
         writeTrace(c.arg(0), t, hit);
         return 0u;
     });
-    import(PointContents, [this](x86::Cpu& c) {
-        return uint32_t(serverWorld_.pointContents(readVec(c.arg(0)), int32_t(c.arg(1))));
-    });
-    auto inPvs = [this](x86::Cpu& c, bool ignorePortals) -> uint32_t {
+    import(PointContents,
+           [this](x86::Cpu &c) { return uint32_t(serverWorld_.pointContents(readVec(c.arg(0)), int32_t(c.arg(1)))); });
+    auto inPvs = [this](x86::Cpu &c, bool ignorePortals) -> uint32_t {
         if (!world_)
             return 1;
         const int l1 = world_->leafAt(readVec(c.arg(0))), l2 = world_->leafAt(readVec(c.arg(1)));
@@ -1582,9 +1641,9 @@ void SpGameHost::addImports() {
             return 0;
         return ignorePortals || serverWorld_.areasConnected(world_->leafArea(l1), world_->leafArea(l2)) ? 1 : 0;
     };
-    import(InPvs, [inPvs](x86::Cpu& c) { return inPvs(c, false); });
-    import(InPvsIgnorePortals, [inPvs](x86::Cpu& c) { return inPvs(c, true); });
-    import(AdjustAreaPortalState, [this](x86::Cpu& c) {
+    import(InPvs, [inPvs](x86::Cpu &c) { return inPvs(c, false); });
+    import(InPvsIgnorePortals, [inPvs](x86::Cpu &c) { return inPvs(c, true); });
+    import(AdjustAreaPortalState, [this](x86::Cpu &c) {
         if (const int32_t n = entityNumber(c.arg(0)); n >= 0 && areaPortals_) {
             const auto [area1, area2] = entityPlacement(n).areas;
             if (area2 != -1)
@@ -1592,18 +1651,17 @@ void SpGameHost::addImports() {
         }
         return 0u;
     });
-    import(AreasConnected, [this](x86::Cpu& c) {
-        return serverWorld_.areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u;
-    });
-    import(LinkEntity, [this](x86::Cpu& c) {
+    import(AreasConnected,
+           [this](x86::Cpu &c) { return serverWorld_.areasConnected(int(c.arg(0)), int(c.arg(1))) ? 1u : 0u; });
+    import(LinkEntity, [this](x86::Cpu &c) {
         linkEntity(c.arg(0));
         return 0u;
     });
-    import(UnlinkEntity, [this](x86::Cpu& c) {
+    import(UnlinkEntity, [this](x86::Cpu &c) {
         unlinkEntity(c.arg(0));
         return 0u;
     });
-    import(EntitiesInBox, [this](x86::Cpu& c) {
+    import(EntitiesInBox, [this](x86::Cpu &c) {
         // (mins, maxs, list of entity pointers, max) -> how many
         const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
         std::vector<int32_t> found;
@@ -1616,7 +1674,7 @@ void SpGameHost::addImports() {
         }
         return count;
     });
-    import(EntityContact, [this](x86::Cpu& c) -> uint32_t {
+    import(EntityContact, [this](x86::Cpu &c) -> uint32_t {
         const Vec3f mins = readVec(c.arg(0)), maxs = readVec(c.arg(1));
         const int32_t n = entityNumber(c.arg(2));
         if (n < 0)
@@ -1625,9 +1683,8 @@ void SpGameHost::addImports() {
         if (entityInt(n, kEntity.bmodel) && world_) {
             // The box against the model where it stands, turned as it is.
             const Vec3f zero{};
-            return world_
-                           ->transformedTrace(zero, zero, mins, maxs, entityInt(n, kEntity.modelIndex), -1, origin,
-                                              entityVec(n, kEntity.currentAngles))
+            return world_->transformedTrace(zero, zero, mins, maxs, entityInt(n, kEntity.modelIndex), -1, origin,
+                                            entityVec(n, kEntity.currentAngles))
                            .startSolid
                        ? 1
                        : 0;
@@ -1640,28 +1697,28 @@ void SpGameHost::addImports() {
     });
     // Not a function: the voices' volumes, one int an entity.
     cpu_->write32(imports_ + 4 * uint32_t(importPosition(VoiceVolume)), voiceVolume_);
-    import(Malloc, [this](x86::Cpu& c) -> uint32_t {
+    import(Malloc, [this](x86::Cpu &c) -> uint32_t {
         const uint32_t p = process_->memory().alloc(std::max(c.arg(0), 1u));
         if (!p)
             c.abort("Malloc: out of memory (" + std::to_string(c.arg(0)) + " bytes)");
         return p;
     });
-    import(Free, [this](x86::Cpu& c) {
+    import(Free, [this](x86::Cpu &c) {
         process_->memory().free(c.arg(0));
         return 0u;
     });
 }
 
-void writeSaveHeader(SaveWriter& w, const CvarStore& cvars, const SaveHeader& header) {
+void writeSaveHeader(SaveWriter &w, const CvarStore &cvars, const SaveHeader &header) {
     w.addText(chunkId("COMM"), header.comment, 128);
     w.add(chunkId("SHOT"), header.shot);
     w.addText(chunkId("MPCM"), header.map, 1024);
-    std::vector<const CvarStore::Cvar*> kept;
-    for (const CvarStore::Cvar& cv : cvars.all())
+    std::vector<const CvarStore::Cvar *> kept;
+    for (const CvarStore::Cvar &cv : cvars.all())
         if (cv.flags & 2)
             kept.push_back(&cv);
     w.addInt(chunkId("CVCN"), int32_t(kept.size()));
-    for (const CvarStore::Cvar* cv : kept) {
+    for (const CvarStore::Cvar *cv : kept) {
         w.addText(chunkId("CVAR"), cv->name);
         w.addText(chunkId("VALU"), cv->value);
     }
@@ -1675,17 +1732,17 @@ void writeSaveHeader(SaveWriter& w, const CvarStore& cvars, const SaveHeader& he
     }
 }
 
-Error writeSaveLevel(SaveWriter& w, SpGameHost& game, bool autosave) {
+Error writeSaveLevel(SaveWriter &w, SpGameHost &game, bool autosave) {
     if (!autosave) {
         w.addInt(chunkId("TIME"), game.levelTime());
         w.addInt(chunkId("TIMR"), 0);
         w.add(chunkId("STRP"), nullptr, 0);
-        std::vector<std::pair<int32_t, const std::string*>> strings;
-        for (const auto& [index, text] : game.configstrings())
+        std::vector<std::pair<int32_t, const std::string *>> strings;
+        for (const auto &[index, text] : game.configstrings())
             if (index != 1 && !text.empty())
                 strings.emplace_back(index, &text);
         w.addInt(chunkId("CSCN"), int32_t(strings.size()));
-        for (const auto& [index, text] : strings) {
+        for (const auto &[index, text] : strings) {
             w.addInt(chunkId("CSIN"), index);
             w.addText(chunkId("CSDA"), *text);
         }
@@ -1696,7 +1753,7 @@ Error writeSaveLevel(SaveWriter& w, SpGameHost& game, bool autosave) {
     return err;
 }
 
-Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out) {
+Error readSaveHeader(SaveReader &r, CvarStore &cvars, SaveHeader &out) {
     int32_t count = 0, autosave = 0;
     if (Error e = r.nextText(chunkId("COMM"), out.comment))
         return e;
@@ -1736,7 +1793,7 @@ Error readSaveHeader(SaveReader& r, CvarStore& cvars, SaveHeader& out) {
     return Error::success();
 }
 
-Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
+Error readSaveLevel(SaveReader &r, SpGameHost &game, bool autosave) {
     if (!autosave) {
         int32_t time = 0, residual = 0, count = 0;
         std::vector<uint8_t> ignored;
@@ -1764,14 +1821,14 @@ Error readSaveLevel(SaveReader& r, SpGameHost& game, bool autosave) {
     return game.readLevel(autosave);
 }
 
-std::vector<std::string> expansionFileList(const SearchSet& files, std::string_view path, std::string_view extension) {
+std::vector<std::string> expansionFileList(const SearchSet &files, std::string_view path, std::string_view extension) {
     // A name's folder depth: its slashes (either kind).
     auto depth = [](std::string_view name) {
         return std::count_if(name.begin(), name.end(), [](char c) { return c == '/' || c == '\\'; });
     };
     auto lower = [](std::string_view text) {
         std::string out(text);
-        for (char& c : out)
+        for (char &c : out)
             c = char(std::tolower(static_cast<unsigned char>(c)));
         return out;
     };
@@ -1785,24 +1842,24 @@ std::vector<std::string> expansionFileList(const SearchSet& files, std::string_v
         if (seen.insert(lower(name)).second)
             out.emplace_back(name);
     };
-    for (const Archive* archive : files.archives()) {
-        if (dynamic_cast<const DirectoryArchive*>(archive)) {
+    for (const Archive *archive : files.archives()) {
+        if (dynamic_cast<const DirectoryArchive *>(archive)) {
             // Loose files: the folder's own, in Windows' order.
             std::vector<std::string> names;
-            for (const std::string& n : archive->list()) {
+            for (const std::string &n : archive->list()) {
                 const std::string key = lower(n);
-                if (key.size() > base.size() + 1 && key.compare(0, base.size(), base) == 0 &&
-                    key[base.size()] == '/' && key.find('/', base.size() + 1) == std::string::npos &&
-                    key.size() - base.size() - 1 >= ext.size() &&
+                if (key.size() > base.size() + 1 && key.compare(0, base.size(), base) == 0 && key[base.size()] == '/' &&
+                    key.find('/', base.size() + 1) == std::string::npos && key.size() - base.size() - 1 >= ext.size() &&
                     key.compare(key.size() - ext.size(), ext.size(), ext) == 0)
                     names.push_back(n.substr(base.size() + 1));
             }
-            std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return reluva::fs::windowsNameLess(a, b); });
-            for (const std::string& n : names)
+            std::sort(names.begin(), names.end(),
+                      [](const std::string &a, const std::string &b) { return reluva::fs::windowsNameLess(a, b); });
+            for (const std::string &n : names)
                 add(n);
             continue;
         }
-        for (const std::string& n : archive->list()) {
+        for (const std::string &n : archive->list()) {
             const std::string key = lower(n);
             const size_t slash = key.find_last_of("/\\");
             // Its folder at least as long as the path and starting with it,
@@ -1818,10 +1875,10 @@ std::vector<std::string> expansionFileList(const SearchSet& files, std::string_v
     return out;
 }
 
-uint32_t packFileList(const std::vector<std::string>& names, uint32_t size, std::vector<uint8_t>& out) {
+uint32_t packFileList(const std::vector<std::string> &names, uint32_t size, std::vector<uint8_t> &out) {
     out.assign(size ? 1 : 0, 0);
     uint32_t count = 0;
-    for (const std::string& n : names) {
+    for (const std::string &n : names) {
         if (count == 0xfff)
             break;
         const size_t used = out.size() - 1;
@@ -1834,13 +1891,13 @@ uint32_t packFileList(const std::vector<std::string>& names, uint32_t size, std:
     return count;
 }
 
-std::optional<SaveKind> saveKind(std::istream& in) {
+std::optional<SaveKind> saveKind(std::istream &in) {
     // The chunks' headers only (id, length, checksum; then the data and
     // the magic word), stepped over to the first GCLI.
     const uint32_t clientId = chunkId("GCLI");
     for (int n = 0; n < 100000; ++n) {
         uint32_t header[3];
-        if (!in.read(reinterpret_cast<char*>(header), sizeof header))
+        if (!in.read(reinterpret_cast<char *>(header), sizeof header))
             return std::nullopt;
         if (header[0] == clientId) {
             if (header[1] == 2720)
@@ -1855,7 +1912,7 @@ std::optional<SaveKind> saveKind(std::istream& in) {
     return std::nullopt;
 }
 
-std::optional<SaveKind> saveKind(const std::vector<uint8_t>& file) {
+std::optional<SaveKind> saveKind(const std::vector<uint8_t> &file) {
     std::istringstream in(std::string(file.begin(), file.end()), std::ios::binary);
     return saveKind(in);
 }

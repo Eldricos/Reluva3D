@@ -16,7 +16,7 @@ namespace reluva::awe {
 
 namespace {
 
-Mat4 multiply(const Mat4& a, const Mat4& b) {
+Mat4 multiply(const Mat4 &a, const Mat4 &b) {
     Mat4 r{};
     for (int c = 0; c < 4; c++)
         for (int row = 0; row < 4; row++) {
@@ -28,9 +28,11 @@ Mat4 multiply(const Mat4& a, const Mat4& b) {
     return r;
 }
 
-Mat4 identityMatrix() { return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; }
+Mat4 identityMatrix() {
+    return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+}
 
-BoneTransform fromGr2(const Gr2Transform& t) {
+BoneTransform fromGr2(const Gr2Transform &t) {
     BoneTransform b;
     std::copy(std::begin(t.position), std::end(t.position), b.position);
     std::copy(std::begin(t.orientation), std::end(t.orientation), b.orientation);
@@ -38,7 +40,7 @@ BoneTransform fromGr2(const Gr2Transform& t) {
     return b;
 }
 
-Curve readCurve(const Gr2Object& o) {
+Curve readCurve(const Gr2Object &o) {
     Curve c;
     if (!o.valid())
         return c;
@@ -54,7 +56,7 @@ Curve readCurve(const Gr2Object& o) {
 }
 
 // The texture a mesh's material draws with: its own, or its diffuse map's.
-Gr2Object materialTexture(const Gr2Object& material) {
+Gr2Object materialTexture(const Gr2Object &material) {
     if (!material.valid())
         return {};
     Gr2Object t = material.object("Texture");
@@ -71,7 +73,7 @@ Gr2Object materialTexture(const Gr2Object& material) {
 
 } // namespace
 
-Mat4 toMatrix(const BoneTransform& t) {
+Mat4 toMatrix(const BoneTransform &t) {
     const float x = t.orientation[0], y = t.orientation[1], z = t.orientation[2], w = t.orientation[3];
     // The rotation's rows.
     const float r[9] = {1 - 2 * (y * y + z * z), 2 * (x * y - z * w),     2 * (x * z + y * w),
@@ -96,14 +98,14 @@ namespace {
 
 // The bones' TrackMask weights (their ExtendedData's "TrackMask<name>"
 // members), by mask name and bone name.
-std::map<std::string, std::map<std::string, float>> readTrackMasks(const Gr2Object& skeleton) {
+std::map<std::string, std::map<std::string, float>> readTrackMasks(const Gr2Object &skeleton) {
     std::map<std::string, std::map<std::string, float>> out;
     for (uint32_t i = 0; i < skeleton.count("Bones"); i++) {
         const Gr2Object b = skeleton.element("Bones", i);
         const Gr2Object extended = b.object("ExtendedData");
         if (!extended.valid())
             continue;
-        for (const Gr2Member& m : extended.members())
+        for (const Gr2Member &m : extended.members())
             if (m.name.rfind("TrackMask", 0) == 0)
                 out[m.name.substr(9)][b.string("Name")] = float(extended.number(m.name));
     }
@@ -112,7 +114,7 @@ std::map<std::string, std::map<std::string, float>> readTrackMasks(const Gr2Obje
 
 } // namespace
 
-std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture) {
+std::vector<uint8_t> textureBytes(const Gr2File &file, const Gr2Object &texture) {
     const Gr2Object::Array pixels = texture.element("Images", 0).element("MIPLevels", 0).array("Pixels");
     if (!pixels.count || pixels.stride != 1 || pixels.address + uint64_t(pixels.count) > file.memory().size())
         return {};
@@ -120,12 +122,12 @@ std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture)
                                 file.memory().begin() + pixels.address + pixels.count);
 }
 
-uint32_t binkTextureFlags(const Gr2Object& texture) {
+uint32_t binkTextureFlags(const Gr2Object &texture) {
     const bool alpha = texture.object("Layout").number("BitsForComponent", 3) > 0;
     return uint32_t(texture.number("SubFormat")) | (alpha ? 1u : 0u);
 }
 
-Error loadModel(const Gr2File& file, Model& out) {
+Error loadModel(const Gr2File &file, Model &out) {
     out = Model();
     const Gr2Object root = file.root();
     if (const Gr2Object art = root.object("ArtToolInfo"); art.valid() && art.number("UnitsPerMeter") > 0)
@@ -152,7 +154,7 @@ Error loadModel(const Gr2File& file, Model& out) {
     out.masks = readTrackMasks(skeleton);
 
     std::map<uint32_t, int> textureByAddress;
-    auto texture = [&](const Gr2Object& t) -> int {
+    auto texture = [&](const Gr2Object &t) -> int {
         if (!t.valid())
             return -1;
         if (auto it = textureByAddress.find(t.address()); it != textureByAddress.end())
@@ -248,7 +250,7 @@ Error loadModel(const Gr2File& file, Model& out) {
             out_mesh.indices.push_back(uint32_t(topology.element("Indices", i).number("Int32")));
         for (uint32_t i = 0; i < n16; i++)
             out_mesh.indices.push_back(uint32_t(topology.element("Indices16", i).number("UInt16")));
-        for (uint32_t& i : out_mesh.indices)
+        for (uint32_t &i : out_mesh.indices)
             if (i >= vertexCount)
                 i = 0;
         for (uint32_t g = 0; g < topology.count("Groups"); g++) {
@@ -269,7 +271,7 @@ Error loadModel(const Gr2File& file, Model& out) {
     return Error::success();
 }
 
-void Curve::evaluate(float t, int dimension, float* out, const CurveLoop& loop) const {
+void Curve::evaluate(float t, int dimension, float *out, const CurveLoop &loop) const {
     constexpr int kMaxDimension = 16;
     const ptrdiff_t n = ptrdiff_t(knots.size());
     if (n == 0 || dimension > kMaxDimension || controls.size() < size_t(n) * size_t(dimension)) {
@@ -292,8 +294,7 @@ void Curve::evaluate(float t, int dimension, float* out, const CurveLoop& loop) 
     // window, 0x50017810): k is the first knot after t (at most the last).
     // Each knot ends its control's interval; the B-spline at t is de
     // Boor's algorithm over controls k - p .. k with knots k - p .. k + p - 1.
-    const ptrdiff_t k =
-        std::min<ptrdiff_t>(std::upper_bound(knots.begin(), knots.end(), t) - knots.begin(), n - 1);
+    const ptrdiff_t k = std::min<ptrdiff_t>(std::upper_bound(knots.begin(), knots.end(), t) - knots.begin(), n - 1);
     const int p = std::clamp(degree, 0, 3);
     if (p == 0) {
         copy(k);
@@ -356,13 +357,13 @@ void Curve::evaluate(float t, int dimension, float* out, const CurveLoop& loop) 
 
 namespace {
 
-const char* const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
+const char *const kCurves[3] = {"PositionCurve", "OrientationCurve", "ScaleShearCurve"};
 const int kDimensions[3] = {3, 4, 9};
 const std::vector<float> kIdentities[3] = {{0, 0, 0}, {0, 0, 0, 1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}};
 
 } // namespace
 
-Error loadAnimation(const Gr2File& file, Animation& out) {
+Error loadAnimation(const Gr2File &file, Animation &out) {
     out = Animation();
     const Gr2Object root = file.root();
     // Its mask: how much each bone follows it (0x4298e2 reads it from the
@@ -370,7 +371,7 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
     // have "TrackMasktrackmask" and "TrackMaskTrackMask"). Others
     // ("TrackMasksitidle1") aren't read by the game.
     if (root.count("Skeletons") > 0)
-        for (auto& [name, weights] : readTrackMasks(root.element("Skeletons", 0)))
+        for (auto &[name, weights] : readTrackMasks(root.element("Skeletons", 0)))
             if (fs::toLower(name) == "trackmask")
                 out.mask = std::move(weights);
     if (root.count("Animations") == 0)
@@ -386,7 +387,7 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
         const Gr2Object t = group.element("TransformTracks", i);
         AnimationTrack track;
         track.bone = t.string("Name");
-        Curve* curves[3] = {&track.position, &track.orientation, &track.scaleShear};
+        Curve *curves[3] = {&track.position, &track.orientation, &track.scaleShear};
         for (int c = 0; c < 3; c++) {
             const Gr2Object curve = t.object(kCurves[c]);
             if (curve.member("Knots")) {
@@ -422,17 +423,17 @@ Error loadAnimation(const Gr2File& file, Animation& out) {
     return Error::success();
 }
 
-Error dllCurveAddresses(const Gr2File& file, GrannyDll& dll, uint32_t fileInfo,
-                        std::vector<std::array<uint32_t, 3>>& out) {
+Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
+                        std::vector<std::array<uint32_t, 3>> &out) {
     out.clear();
     // The DLL's structures are its own types, which it converts the older
     // files to: their members' offsets lead to the curves in its memory.
     const uint32_t infoType = dll.type("GrannyFileInfoType"), animType = dll.type("GrannyAnimationType"),
                    groupType = dll.type("GrannyTrackGroupType"), trackType = dll.type("GrannyTransformTrackType");
     uint32_t animations = 0, groups = 0, tracks = 0, curves[3] = {0, 0, 0};
-    bool found = infoType && animType && groupType && trackType && dll.memberOffset(infoType, "Animations", animations) &&
-                 dll.memberOffset(animType, "TrackGroups", groups) &&
-                 dll.memberOffset(groupType, "TransformTracks", tracks);
+    bool found =
+        infoType && animType && groupType && trackType && dll.memberOffset(infoType, "Animations", animations) &&
+        dll.memberOffset(animType, "TrackGroups", groups) && dll.memberOffset(groupType, "TransformTracks", tracks);
     for (int c = 0; c < 3; c++)
         found = found && dll.memberOffset(trackType, kCurves[c], curves[c]);
     if (!found)
@@ -456,7 +457,7 @@ Error dllCurveAddresses(const Gr2File& file, GrannyDll& dll, uint32_t fileInfo,
     return Error::success();
 }
 
-Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
+Error expandCurvesWithDll(const Gr2File &file, GrannyDll &dll, Animation &out) {
     const Gr2Object group = file.root().element("Animations", 0).element("TrackGroups", 0);
     if (group.count("TransformTracks") != out.tracks.size())
         return Error::fail("the animation wasn't loaded from this file");
@@ -465,8 +466,8 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
     if (Error e = dll.loadFile(file.bytes(), loaded))
         return Error::fail("expanding compressed curves: " + e.message);
     struct Free {
-        GrannyDll& dll;
-        GrannyDll::LoadedFile& f;
+        GrannyDll &dll;
+        GrannyDll::LoadedFile &f;
         ~Free() { dll.freeFile(f); }
     } freeLater{dll, loaded};
     std::vector<std::array<uint32_t, 3>> addresses;
@@ -474,7 +475,7 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
         return Error::fail("expanding compressed curves: " + e.message);
     for (uint32_t i = 0; i < addresses.size(); i++) {
         const Gr2Object t = group.element("TransformTracks", i);
-        Curve* curves[3] = {&out.tracks[i].position, &out.tracks[i].orientation, &out.tracks[i].scaleShear};
+        Curve *curves[3] = {&out.tracks[i].position, &out.tracks[i].orientation, &out.tracks[i].scaleShear};
         for (int c = 0; c < 3; c++) {
             const Gr2Object curve = t.object(kCurves[c]);
             if (!curve.valid() || curve.member("Knots"))
@@ -493,25 +494,25 @@ Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out) {
     return Error::success();
 }
 
-void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local,
-                 const CurveLoop& loop, bool loopRoot) {
+void sampleLocal(const Model &model, const Animation *animation, float time, std::vector<BoneTransform> &local,
+                 const CurveLoop &loop, bool loopRoot) {
     const size_t n = model.bones.size();
     local.resize(n);
     for (size_t i = 0; i < n; i++)
         local[i] = model.bones[i].rest;
     if (!animation)
         return;
-    for (const AnimationTrack& track : animation->tracks) {
+    for (const AnimationTrack &track : animation->tracks) {
         size_t b = 0;
         while (b < n && model.bones[b].name != track.bone)
             b++;
         if (b == n)
             continue;
-        const CurveLoop& l = loopRoot || model.bones[b].parent >= 0 ? loop : CurveLoop();
+        const CurveLoop &l = loopRoot || model.bones[b].parent >= 0 ? loop : CurveLoop();
         if (!track.position.empty())
             track.position.evaluate(time, 3, local[b].position, l);
         if (!track.orientation.empty()) {
-            float* q = local[b].orientation;
+            float *q = local[b].orientation;
             track.orientation.evaluate(time, 4, q, l);
             const float len = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
             if (len > 0)
@@ -525,18 +526,19 @@ void sampleLocal(const Model& model, const Animation* animation, float time, std
     }
 }
 
-void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& out, const std::vector<BoneTurn>* turns) {
+void poseFromLocal(const Model &model, std::vector<BoneTransform> local, Pose &out,
+                   const std::vector<BoneTurn> *turns) {
     const size_t n = model.bones.size();
     local.resize(n);
     out.world.assign(n, identityMatrix());
     out.skinning.assign(n, identityMatrix());
     if (turns)
-        for (const BoneTurn& t : *turns) {
+        for (const BoneTurn &t : *turns) {
             if (t.bone < 0 || size_t(t.bone) >= n)
                 continue;
             // q * turn: the turn in the bone's own axes.
-            float* q = local[size_t(t.bone)].orientation;
-            const float* r = t.rotation;
+            float *q = local[size_t(t.bone)].orientation;
+            const float *r = t.rotation;
             const float x = q[3] * r[0] + q[0] * r[3] + q[1] * r[2] - q[2] * r[1];
             const float y = q[3] * r[1] - q[0] * r[2] + q[1] * r[3] + q[2] * r[0];
             const float z = q[3] * r[2] + q[0] * r[1] - q[1] * r[0] + q[2] * r[3];
@@ -551,25 +553,25 @@ void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& o
     }
 }
 
-void computePose(const Model& model, const Animation* animation, float time, Pose& out,
-                 const std::vector<BoneTurn>* turns) {
+void computePose(const Model &model, const Animation *animation, float time, Pose &out,
+                 const std::vector<BoneTurn> *turns) {
     std::vector<BoneTransform> local;
     sampleLocal(model, animation, time, local);
     poseFromLocal(model, std::move(local), out, turns);
 }
 
-void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,
-          std::vector<std::array<float, 3>>& normals) {
+void skin(const ModelMesh &mesh, const Pose &pose, std::vector<std::array<float, 3>> &positions,
+          std::vector<std::array<float, 3>> &normals) {
     positions.resize(mesh.vertices.size());
     normals.resize(mesh.vertices.size());
     for (size_t v = 0; v < mesh.vertices.size(); v++) {
-        const ModelVertex& src = mesh.vertices[v];
+        const ModelVertex &src = mesh.vertices[v];
         float p[3] = {0, 0, 0}, nrm[3] = {0, 0, 0}, total = 0;
         for (int k = 0; k < 4; k++) {
             const float w = src.weights[k];
             if (w <= 0 || src.bones[k] >= pose.skinning.size())
                 continue;
-            const Mat4& m = pose.skinning[src.bones[k]];
+            const Mat4 &m = pose.skinning[src.bones[k]];
             for (int r = 0; r < 3; r++) {
                 p[r] += w * (m[size_t(r)] * src.position[0] + m[size_t(4 + r)] * src.position[1] +
                              m[size_t(8 + r)] * src.position[2] + m[size_t(12 + r)]);

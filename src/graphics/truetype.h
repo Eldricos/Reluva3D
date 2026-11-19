@@ -21,8 +21,8 @@ class Font {
 public:
     Font();
     ~Font();
-    Font(const Font&) = delete;
-    Font& operator=(const Font&) = delete;
+    Font(const Font &) = delete;
+    Font &operator=(const Font &) = delete;
 
     Error load(std::vector<uint8_t> data);
     bool loaded() const { return !data_.empty(); }
@@ -39,7 +39,7 @@ public:
     // Draws UTF-8 text with the top of its line at (x, y), clipped to the
     // surface, blended by its coverage times `alpha` (the surface's alpha
     // raised as it is, so it can be an overlay); returns the x after it.
-    int draw(Surface& dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha = 255);
+    int draw(Surface &dst, int x, int y, std::string_view utf8, float pixels, Color color, uint8_t alpha = 255);
 
     // The text broken into lines no wider than `maxWidth`, at spaces where
     // it can be (a word too long for a line is left whole), and at line
@@ -52,7 +52,7 @@ private:
         float advance = 0;
         std::vector<uint8_t> coverage;
     };
-    const Glyph& glyph(uint32_t codepoint, float pixels);
+    const Glyph &glyph(uint32_t codepoint, float pixels);
     float scale(float pixels) const;
 
     std::vector<uint8_t> data_;

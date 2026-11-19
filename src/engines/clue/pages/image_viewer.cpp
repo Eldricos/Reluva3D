@@ -16,11 +16,11 @@ constexpr int kInfoH = 26; // two lines of the built-in font
 
 } // namespace
 
-void fillRect(Surface& s, int x, int y, int w, int h, Color c) {
+void fillRect(Surface &s, int x, int y, int w, int h, Color c) {
     const int x0 = std::max(0, x), y0 = std::max(0, y);
     const int x1 = std::min(s.w, x + w), y1 = std::min(s.h, y + h);
     for (int yy = y0; yy < y1; ++yy) {
-        uint8_t* p = s.row(yy) + x0 * 4;
+        uint8_t *p = s.row(yy) + x0 * 4;
         for (int xx = x0; xx < x1; ++xx, p += 4) {
             p[0] = c.r;
             p[1] = c.g;
@@ -30,7 +30,7 @@ void fillRect(Surface& s, int x, int y, int w, int h, Color c) {
     }
 }
 
-void drawCheckerboard(Surface& s, int y0, int y1) {
+void drawCheckerboard(Surface &s, int y0, int y1) {
     for (int y = y0; y < y1; ++y)
         for (int x = 0; x < s.w; x += 8) {
             const uint8_t v = ((x / 8 + y / 8) & 1) ? 96 : 72;
@@ -38,30 +38,29 @@ void drawCheckerboard(Surface& s, int y0, int y1) {
         }
 }
 
-void drawInfo(Surface& s, const std::string& line1, const std::string& line2) {
+void drawInfo(Surface &s, const std::string &line1, const std::string &line2) {
     fillRect(s, 0, s.h - kInfoH, s.w, kInfoH, {16, 16, 24});
     font::drawText(s, 4, s.h - kInfoH + 2, line1, {230, 230, 230});
     if (!line2.empty())
         font::drawText(s, 4, s.h - kInfoH + 14, line2, {170, 170, 190});
 }
 
-void drawImage(Surface& s, const image::Image& img, int x, int y, int scale) {
+void drawImage(Surface &s, const image::Image &img, int x, int y, int scale) {
     if (scale <= 1) {
         image::blit(s, img, x, y);
         return;
     }
     for (int sy = 0; sy < img.h; ++sy)
         for (int sx = 0; sx < img.w; ++sx) {
-            const uint8_t* p = img.pixel(sx, sy);
+            const uint8_t *p = img.pixel(sx, sy);
             if (p[3])
                 fillRect(s, x + sx * scale, y + sy * scale, scale, scale, {p[0], p[1], p[2]});
         }
 }
 
-ImageViewer::ImageViewer(System& sys, Surface& screen, const GameData& data)
-    : sys_(sys), screen_(screen), data_(data) {
-    for (const auto& path : data_.withExtension(".res")) {
-        const DataDrive* d = data_.drive(path.stem().string(), 'I');
+ImageViewer::ImageViewer(System &sys, Surface &screen, const GameData &data) : sys_(sys), screen_(screen), data_(data) {
+    for (const auto &path : data_.withExtension(".res")) {
+        const DataDrive *d = data_.drive(path.stem().string(), 'I');
         // dialogInfo.res isn't a drive of images.
         if (d && !d->entries().empty()) {
             files_.push_back(path);
@@ -70,7 +69,9 @@ ImageViewer::ImageViewer(System& sys, Surface& screen, const GameData& data)
     }
 }
 
-void ImageViewer::activate() { draw(); }
+void ImageViewer::activate() {
+    draw();
+}
 
 void ImageViewer::handleKey(uint32_t key) {
     if (files_.empty())
@@ -80,12 +81,24 @@ void ImageViewer::handleKey(uint32_t key) {
     };
     const int n = imagesIn(file_);
     switch (key) {
-    case key::Right: image_ = std::min(n - 1, image_ + 1); break;
-    case key::Left: image_ = std::max(0, image_ - 1); break;
-    case key::PageDown: image_ = std::min(n - 1, image_ + 10); break;
-    case key::PageUp: image_ = std::max(0, image_ - 10); break;
-    case key::Home: image_ = 0; break;
-    case key::End: image_ = n - 1; break;
+    case key::Right:
+        image_ = std::min(n - 1, image_ + 1);
+        break;
+    case key::Left:
+        image_ = std::max(0, image_ - 1);
+        break;
+    case key::PageDown:
+        image_ = std::min(n - 1, image_ + 10);
+        break;
+    case key::PageUp:
+        image_ = std::max(0, image_ - 10);
+        break;
+    case key::Home:
+        image_ = 0;
+        break;
+    case key::End:
+        image_ = n - 1;
+        break;
     case key::Down:
         file_ = (file_ + 1) % int(files_.size());
         image_ = 0;
@@ -94,9 +107,14 @@ void ImageViewer::handleKey(uint32_t key) {
         file_ = (file_ + int(files_.size()) - 1) % int(files_.size());
         image_ = 0;
         break;
-    case 'z': zoom_ = zoom_ == 4 ? 1 : zoom_ * 2; break;
-    case 'b': background_ = (background_ + 1) % 3; break;
-    default: return;
+    case 'z':
+        zoom_ = zoom_ == 4 ? 1 : zoom_ * 2;
+        break;
+    case 'b':
+        background_ = (background_ + 1) % 3;
+        break;
+    default:
+        return;
     }
     draw();
 }
@@ -112,10 +130,10 @@ void ImageViewer::draw() {
         return;
     }
     const std::string drive = files_[size_t(file_)].stem().string();
-    const DataDrive* d = data_.drive(drive, 'I');
-    const DataDrive::Entry& e = d->entries()[size_t(image_)];
+    const DataDrive *d = data_.drive(drive, 'I');
+    const DataDrive::Entry &e = d->entries()[size_t(image_)];
     const std::string full = drive + ":" + e.name;
-    const Image* img = data_.image(full);
+    const Image *img = data_.image(full);
     std::string detail;
     if (!img) {
         detail = data_.lastError();

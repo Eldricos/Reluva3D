@@ -40,13 +40,12 @@ using namespace reluva::unreal;
 
 static int failures = 0;
 
-#define CHECK(cond)                                                     \
-    do {                                                                \
-        if (!(cond)) {                                                  \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
-                         __LINE__, #cond);                              \
-            ++failures;                                                 \
-        }                                                               \
+#define CHECK(cond)                                                                                                    \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);                              \
+            ++failures;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
 namespace {
@@ -82,13 +81,13 @@ struct Bytes {
             u8(next);
         }
     }
-    void str(const std::string& s, int version) {
+    void str(const std::string &s, int version) {
         if (version >= 64)
             index(int32_t(s.size() + 1));
         b.insert(b.end(), s.begin(), s.end());
         u8(0);
     }
-    void bytes(const std::vector<uint8_t>& d) { b.insert(b.end(), d.begin(), d.end()); }
+    void bytes(const std::vector<uint8_t> &d) { b.insert(b.end(), d.begin(), d.end()); }
     void vec(float x, float y, float z) { f32(x), f32(y), f32(z); }
 };
 
@@ -108,7 +107,7 @@ struct PackageWriter {
     std::vector<Imp> imports;
     std::vector<Exp> exports;
 
-    int32_t name(const std::string& n) {
+    int32_t name(const std::string &n) {
         for (size_t i = 0; i < names.size(); ++i)
             if (names[i] == n)
                 return int32_t(i);
@@ -116,11 +115,11 @@ struct PackageWriter {
         return int32_t(names.size() - 1);
     }
     // Returns the object reference.
-    int32_t addImport(const std::string& pkg, const std::string& cls, int32_t outer, const std::string& obj) {
+    int32_t addImport(const std::string &pkg, const std::string &cls, int32_t outer, const std::string &obj) {
         imports.push_back({name(pkg), name(cls), outer, name(obj)});
         return -int32_t(imports.size());
     }
-    int32_t addExport(int32_t cls, int32_t outer, const std::string& obj, std::vector<uint8_t> data,
+    int32_t addExport(int32_t cls, int32_t outer, const std::string &obj, std::vector<uint8_t> data,
                       uint32_t flags = 0) {
         exports.push_back({cls, 0, outer, name(obj), flags, std::move(data)});
         return int32_t(exports.size());
@@ -130,17 +129,17 @@ struct PackageWriter {
         // Header written last, at a fixed size; the data follows it.
         const size_t headerSize = 36 + (version >= 68 ? 16 + 4 + 8 : 8);
         std::vector<int32_t> offsets;
-        for (const Exp& e : exports) {
+        for (const Exp &e : exports) {
             offsets.push_back(int32_t(headerSize + body.b.size()));
             body.bytes(e.data);
         }
         const auto nameOffset = uint32_t(headerSize + body.b.size());
-        for (const std::string& n : names) {
+        for (const std::string &n : names) {
             body.str(n, version);
             body.u32(0x70010);
         }
         const auto importOffset = uint32_t(headerSize + body.b.size());
-        for (const Imp& i : imports) {
+        for (const Imp &i : imports) {
             body.index(i.classPackage);
             body.index(i.className);
             body.i32(i.package);
@@ -148,7 +147,7 @@ struct PackageWriter {
         }
         const auto exportOffset = uint32_t(headerSize + body.b.size());
         for (size_t k = 0; k < exports.size(); ++k) {
-            const Exp& e = exports[k];
+            const Exp &e = exports[k];
             body.index(e.classRef);
             body.index(e.superRef);
             body.i32(e.package);
@@ -185,8 +184,8 @@ struct PackageWriter {
 };
 
 // A property tag for a value of `size` bytes (sizes the short codes cover).
-void tag(Bytes& o, PackageWriter& w, const std::string& name, PropertyType type, size_t size, int arrayIndex = 0,
-         const std::string& structName = {}) {
+void tag(Bytes &o, PackageWriter &w, const std::string &name, PropertyType type, size_t size, int arrayIndex = 0,
+         const std::string &structName = {}) {
     o.index(w.name(name));
     int code = size <= 1 ? 0 : size == 2 ? 1 : size == 4 ? 2 : size == 12 ? 3 : size == 16 ? 4 : 5;
     o.u8(int(type) | code << 4 | (arrayIndex ? 0x80 : 0));
@@ -198,7 +197,9 @@ void tag(Bytes& o, PackageWriter& w, const std::string& name, PropertyType type,
         o.u8(arrayIndex);
 }
 
-void endProps(Bytes& o, PackageWriter& w) { o.index(w.name("None")); }
+void endProps(Bytes &o, PackageWriter &w) {
+    o.index(w.name("None"));
+}
 
 } // namespace
 
@@ -317,7 +318,7 @@ static std::vector<uint8_t> texturePackage() {
     tex.b.back() |= 0x80;
     endProps(tex, w);
     tex.index(1); // one mipmap
-    tex.i32(0); // where its data ends (the reader doesn't need it)
+    tex.i32(0);   // where its data ends (the reader doesn't need it)
     tex.index(8);
     for (int i = 0; i < 8; ++i)
         tex.u8(i);
@@ -329,7 +330,7 @@ static std::vector<uint8_t> texturePackage() {
 static void testTextures() {
     PackageSet set;
     set.addMemory("Walls", ".utx", texturePackage());
-    const Package* p = set.get("walls");
+    const Package *p = set.get("walls");
     CHECK(p != nullptr);
     if (!p)
         return;
@@ -337,7 +338,7 @@ static void testTextures() {
     TextureInfo info;
     CHECK(!decodeTexture(set, *p, p->findExport("Brick"), img, &info));
     CHECK(img.w == 4 && img.h == 2 && info.masked && info.format == 0 && info.mipCount == 1);
-    CHECK(img.pixel(0, 0)[3] == 0);                                           // colour 0 is see-through
+    CHECK(img.pixel(0, 0)[3] == 0); // colour 0 is see-through
     CHECK(img.pixel(1, 0)[0] == 1 && img.pixel(1, 0)[1] == 254 && img.pixel(1, 0)[3] == 255);
     CHECK(img.pixel(3, 1)[0] == 7 && img.pixel(3, 1)[2] == 7);
 
@@ -347,7 +348,7 @@ static void testTextures() {
     const int32_t ref = map.addImport("Engine", "Texture", walls, "Brick");
     map.addImport("Engine", "Texture", walls, "Missing");
     set.addMemory("Map", ".unr", map.build());
-    const Package* m = set.get("Map");
+    const Package *m = set.get("Map");
     CHECK(m && m->exports().empty());
     if (!m)
         return;
@@ -409,8 +410,8 @@ static void testModel() {
     Bytes o;
     endProps(o, w);
     o.vec(0, 0, 0), o.vec(128, 128, 0), o.u8(1); // box
-    o.vec(64, 64, 0), o.f32(90);                // sphere
-    o.index(3);                                 // vectors: normal, texture U, V
+    o.vec(64, 64, 0), o.f32(90);                 // sphere
+    o.index(3);                                  // vectors: normal, texture U, V
     o.vec(0, 0, 1), o.vec(1, 0, 0), o.vec(0, 1, 0);
     o.index(4); // points
     o.vec(0, 0, 0), o.vec(128, 0, 0), o.vec(128, 128, 0), o.vec(0, 128, 0);
@@ -469,7 +470,7 @@ static void testModel() {
     // The engine's colour: the hue in three straight thirds (channels
     // summing to 1), white by the saturation, the value through its curve
     // (0.821 at 255).
-    auto near = [](const Vec3f& a, const Vec3f& b) {
+    auto near = [](const Vec3f &a, const Vec3f &b) {
         return std::fabs(a[0] - b[0]) < 1e-3f && std::fabs(a[1] - b[1]) < 1e-3f && std::fabs(a[2] - b[2]) < 1e-3f;
     };
     const float top = 0.98f / (std::sqrt(1.4f) + 0.01f);
@@ -494,17 +495,17 @@ static void testModel() {
     if (atlas.pages.size() == 1) {
         const auto uv = atlas.uv(0, {0, 0, 0}), far = atlas.uv(0, {128, 128, 0});
         CHECK(uv[0] * 1024 == 1.5f && uv[1] * 1024 == 1.5f && far[0] * 1024 == 5.5f);
-        const image::Image& page = atlas.pages[0];
+        const image::Image &page = atlas.pages[0];
         // Under the light: ambient + its colour x the falloff, stored halved.
         CHECK(std::abs(int(page.pixel(1, 1)[0]) - under) <= 1);
         CHECK(std::abs(int(page.pixel(5, 5)[0]) - shade) <= 1); // in shadow: ambient alone
-        CHECK(page.pixel(0, 0)[0] == page.pixel(1, 1)[0]);       // the border repeats the edge
-        CHECK(page.pixel(3, 1)[0] < page.pixel(1, 1)[0]);        // further from the light, darker
+        CHECK(page.pixel(0, 0)[0] == page.pixel(1, 1)[0]);      // the border repeats the edge
+        CHECK(page.pixel(3, 1)[0] < page.pixel(1, 1)[0]);       // further from the light, darker
     }
     // A light four times as bright: one light gives at most the texture's
     // own colours (1, stored halved), not brighter.
     LevelLights bright = lights;
-    for (float& c : bright.sources[0].color)
+    for (float &c : bright.sources[0].color)
         c *= 4;
     const LightmapAtlas capped = buildLightmaps(m, bright);
     if (capped.pages.size() == 1)
@@ -518,7 +519,7 @@ static void testModel() {
     const LightmapAtlas changing = buildLightmaps(m, pulsing);
     CHECK(changing.animated.size() == 1);
     if (changing.animated.size() == 1 && atlas.pages.size() == 1) {
-        const AnimatedLightmap& a = changing.animated[0];
+        const AnimatedLightmap &a = changing.animated[0];
         CHECK(a.page == 0 && a.x == 0 && a.y == 0 && a.w == 7 && a.h == 7 && a.lights.size() == 1);
         std::vector<uint8_t> full, off;
         a.draw({1.0f}, full);
@@ -551,7 +552,7 @@ static void testModel() {
         PackageWriter bad = w;
         // The node's vertex count (4) at its place in Model1's data: make
         // it 9, past the 4 vertices.
-        std::vector<uint8_t>& d = bad.exports[3].data;
+        std::vector<uint8_t> &d = bad.exports[3].data;
         const size_t nodesAt = 1 + 25 + 16 + 1 + 36 + 1 + 48 + 1 + 16 + 8 + 1 + 7;
         CHECK(d[nodesAt + 2] == 4);
         d[nodesAt + 2] = 9;
@@ -570,7 +571,8 @@ static void testModel() {
 static void testSearchPathsAndDetection() {
     const std::string ini = "[Engine.Engine]\nPaths=nope\n[Core.System]\nPurgeCacheDays=30\n"
                             "Paths=..\\System\\*.u\r\nPaths=../Maps/*.unr\n  paths = ..\\Textures\\*.utx \n[Other]\n";
-    CHECK(parseSearchPaths(ini) == (std::vector<std::string>{"..\\System\\*.u", "../Maps/*.unr", "..\\Textures\\*.utx"}));
+    CHECK(parseSearchPaths(ini) ==
+          (std::vector<std::string>{"..\\System\\*.u", "../Maps/*.unr", "..\\Textures\\*.utx"}));
 
     const auto tmp = std::filesystem::temp_directory_path() / "reluva_unreal_test";
     std::filesystem::remove_all(tmp);
@@ -585,13 +587,13 @@ static void testSearchPathsAndDetection() {
     {
         const std::vector<uint8_t> pkg = texturePackage();
         std::ofstream(tmp / "TEXTURES" / "Walls.utx", std::ios::binary)
-            .write(reinterpret_cast<const char*>(pkg.data()), std::streamsize(pkg.size()));
+            .write(reinterpret_cast<const char *>(pkg.data()), std::streamsize(pkg.size()));
     }
     PackageSet set;
     std::vector<std::string> warnings;
     CHECK(!set.open(tmp, "DS9.ini", &warnings));
     CHECK(set.names() == (std::vector<std::string>{"CORE", "Engine", "Walls"}));
-    const Package* walls = set.get("walls");
+    const Package *walls = set.get("walls");
     CHECK(walls && walls->findExport("Brick") >= 0);
     CHECK(set.get("core") == nullptr && !set.error("core").empty()); // not a real package
     if (walls) {
@@ -627,7 +629,7 @@ static void testCompressedTexture() {
     w.addExport(cls, 0, "Blank", empty.b);
     PackageSet set;
     set.addMemory("Comp", ".utx", w.build());
-    const Package* p = set.get("Comp");
+    const Package *p = set.get("Comp");
     CHECK(p != nullptr);
     if (!p)
         return;
@@ -663,10 +665,10 @@ static void testStreamedSounds() {
     std::filesystem::create_directories(tmp / "mp3");
     std::ofstream(tmp / "System" / "Default.ini") << "[Core.System]\nPaths=..\\Sounds\\*.uax\n";
     std::ofstream(tmp / "mp3" / "orb_thme.mp3", std::ios::binary)
-        .write(reinterpret_cast<const char*>(kTone440Mp3), sizeof kTone440Mp3);
+        .write(reinterpret_cast<const char *>(kTone440Mp3), sizeof kTone440Mp3);
     PackageWriter w;
     const int32_t cls = w.addImport("Engine", "Class", 0, "Sound");
-    for (const char* name : {"Orb_Thme", "Missing"}) {
+    for (const char *name : {"Orb_Thme", "Missing"}) {
         Bytes o;
         endProps(o, w);
         o.index(w.name("wav"));
@@ -678,11 +680,11 @@ static void testStreamedSounds() {
     {
         const std::vector<uint8_t> pkg = w.build();
         std::ofstream(tmp / "Sounds" / "Trks.uax", std::ios::binary)
-            .write(reinterpret_cast<const char*>(pkg.data()), std::streamsize(pkg.size()));
+            .write(reinterpret_cast<const char *>(pkg.data()), std::streamsize(pkg.size()));
     }
     PackageSet set;
     CHECK(!set.open(tmp, ""));
-    const Package* p = set.get("Trks");
+    const Package *p = set.get("Trks");
     CHECK(p != nullptr);
     if (p) {
         audio::Sound s;
@@ -705,7 +707,7 @@ static void testProceduralTextures() {
     const int32_t pal = w.addImport("Engine", "Palette", walls, "BrickPal");
     const int32_t fire = w.addImport("Fire", "Class", 0, "FireTexture");
     const int32_t wet = w.addImport("Fire", "Class", 0, "WetTexture");
-    auto empty = [&](int32_t ref, const char* prop, int width, int height) {
+    auto empty = [&](int32_t ref, const char *prop, int width, int height) {
         Bytes o;
         tag(o, w, prop, PropertyType::Object, 1);
         o.index(ref);
@@ -720,7 +722,7 @@ static void testProceduralTextures() {
     PackageSet set;
     set.addMemory("Walls", ".utx", texturePackage());
     set.addMemory("Fx", ".utx", w.build());
-    const Package* p = set.get("Fx");
+    const Package *p = set.get("Fx");
     CHECK(p != nullptr);
     if (!p)
         return;
@@ -748,17 +750,17 @@ static void testAnimatedTextures() {
     const int32_t water = w.addImport("Fire", "Class", 0, "WaterTexture");
     const int32_t ice = w.addImport("Fire", "Class", 0, "IceTexture");
     const int32_t brick = w.addImport("Engine", "Texture", walls, "Brick");
-    auto start = [&](Bytes& o) {
+    auto start = [&](Bytes &o) {
         tag(o, w, "Palette", PropertyType::Object, 1);
         o.index(pal);
     };
-    auto mips = [](Bytes& o, int width, int height) {
+    auto mips = [](Bytes &o, int width, int height) {
         o.index(1);
         o.i32(0), o.index(0), o.i32(width), o.i32(height), o.u8(0), o.u8(0);
     };
-    auto frame = [](Bytes& out, const std::vector<std::pair<int, std::vector<uint8_t>>>& chunks) {
+    auto frame = [](Bytes &out, const std::vector<std::pair<int, std::vector<uint8_t>>> &chunks) {
         Bytes f;
-        for (const auto& [type, data] : chunks) {
+        for (const auto &[type, data] : chunks) {
             f.u32(uint32_t(data.size() + 6));
             f.u16(type);
             for (uint8_t b : data)
@@ -773,9 +775,9 @@ static void testAnimatedTextures() {
         out.u16(0);
     };
     Bytes flc;
-    frame(flc, {{16, {0, 1, 2, 3, 4, 5, 6, 7}}});     // the picture as is
-    frame(flc, {{7, {1, 0, 1, 0, 1, 1, 9, 9}}});     // line 0: skip 1, a word of 9s
-    frame(flc, {{7, {1, 0, 1, 0, 1, 1, 1, 2}}});     // and back
+    frame(flc, {{16, {0, 1, 2, 3, 4, 5, 6, 7}}}); // the picture as is
+    frame(flc, {{7, {1, 0, 1, 0, 1, 1, 9, 9}}});  // line 0: skip 1, a word of 9s
+    frame(flc, {{7, {1, 0, 1, 0, 1, 1, 1, 2}}});  // and back
     Bytes f;
     start(f);
     endProps(f, w);
@@ -819,7 +821,7 @@ static void testAnimatedTextures() {
     PackageSet set;
     set.addMemory("Walls", ".utx", texturePackage());
     set.addMemory("Fx", ".utx", w.build());
-    const Package* p = set.get("Fx");
+    const Package *p = set.get("Fx");
     CHECK(p != nullptr);
     if (!p)
         return;
@@ -829,7 +831,7 @@ static void testAnimatedTextures() {
     if (blink) {
         CHECK(std::string(blink->kind()) == "FLC" && blink->image().w == 4 && blink->image().h == 2);
         CHECK(blink->image().pixel(1, 0)[0] == 1 && blink->image().pixel(3, 1)[0] == 7);
-        CHECK(!blink->advance(0.01f));                           // a frame lasts 1/30 s
+        CHECK(!blink->advance(0.01f)); // a frame lasts 1/30 s
         CHECK(blink->advance(0.03f) && blink->image().pixel(1, 0)[0] == 9 && blink->image().pixel(2, 0)[0] == 9);
         CHECK(blink->image().pixel(3, 0)[0] == 3);
         CHECK(blink->advance(1.0f / 30) && blink->image().pixel(1, 0)[0] == 1); // the ring frame: the first again
@@ -967,7 +969,7 @@ static void testActors() {
 
     PackageSet set;
     set.addMemory("Level", ".unr", w.build());
-    const Package* p = set.get("Level");
+    const Package *p = set.get("Level");
     CHECK(p != nullptr);
     if (!p)
         return;
@@ -983,7 +985,7 @@ static void testActors() {
     const std::vector<Mover> movers = findMovers(set, *p, &errors);
     CHECK(errors.empty() && movers.size() == 1);
     if (movers.size() == 1) {
-        const Mover& m = movers[0];
+        const Mover &m = movers[0];
         CHECK(m.polys.size() == 1 && m.numKeys == 2 && m.keyNum == 0 && m.moveTime == 2);
         CHECK((m.basePosition() == Vec3f{10, 20, 30}) && (m.keyPos[1] == Vec3f{0, 0, 64}));
         CHECK((m.mainScale == Vec3f{1, 1, 1}));
@@ -1001,7 +1003,7 @@ static void testActors() {
 // `importBlock`: as The Fallen stores them, the vertices not in their lazy
 // array but in a block after the textures (1: one array of all frames'
 // vertices; 2: one per frame).
-static std::vector<uint8_t> meshData(PackageWriter& w, bool lod, int32_t textureRef, int importBlock = 0) {
+static std::vector<uint8_t> meshData(PackageWriter &w, bool lod, int32_t textureRef, int importBlock = 0) {
     const size_t base = 64;
     Bytes o;
     endProps(o, w);
@@ -1013,7 +1015,7 @@ static std::vector<uint8_t> meshData(PackageWriter& w, bool lod, int32_t texture
         return uint32_t(x & 0x7ff) | uint32_t(y & 0x7ff) << 11 | uint32_t(z & 0x3ff) << 22;
     };
     // A lazy array: the file offset just past it, the count, the elements.
-    auto lazy = [&](int count, const std::vector<uint8_t>& elements) {
+    auto lazy = [&](int count, const std::vector<uint8_t> &elements) {
         Bytes c;
         c.index(count);
         o.u32(uint32_t(base + o.b.size() + 4 + c.b.size() + elements.size()));
@@ -1054,9 +1056,9 @@ static std::vector<uint8_t> meshData(PackageWriter& w, bool lod, int32_t texture
             // A skeleton: "root", no vertices, placed 10 up, and its one
             // child "b", placed 10 up from it, with the first frame's
             // vertices (by Scale 2) 20 below it, their weights and indices.
-            auto bone = [&](const char* name, bool verts, bool child) {
+            auto bone = [&](const char *name, bool verts, bool child) {
                 o.u16(uint16_t(std::strlen(name)));
-                for (const char* c = name; *c; ++c)
+                for (const char *c = name; *c; ++c)
                     o.u8(uint8_t(*c));
                 o.u32(1), o.u32(1), o.u32(8), o.u32(0);
                 const uint32_t k = verts ? 3 : 0;
@@ -1159,7 +1161,7 @@ static void testMeshes() {
         CHECK(m.tris.size() == 1 && m.tris[0].vertex[2] == 2 && m.tris[0].uv[1][0] == 0.5f);
         CHECK(m.tris[0].polyFlags == (lod ? polyflag::Masked : 0u));
         CHECK(m.textures.size() == 1 && m.textures[0] == 2 && (m.scale == Vec3f{2, 2, 2}) && m.trailingBytes == 0);
-        const MeshAnimSeq* wave = m.findAnim("wave");
+        const MeshAnimSeq *wave = m.findAnim("wave");
         CHECK(wave && wave->numFrames == 2 && wave->rate == 10);
     }
 }
@@ -1173,9 +1175,9 @@ static void testAnimationSet() {
     const int32_t lodClass = w.addImport("Engine", "Class", 0, "LodMesh");
     Bytes s;
     endProps(s, w);
-    auto bone = [&](const char* name, bool key, bool child) {
+    auto bone = [&](const char *name, bool key, bool child) {
         s.u16(uint16_t(std::strlen(name)));
-        for (const char* c = name; *c; ++c)
+        for (const char *c = name; *c; ++c)
             s.u8(uint8_t(*c));
         s.u32(1), s.u32(1), s.u32(8), s.u32(0);
         for (int a = 0; a < 3; ++a)
@@ -1184,14 +1186,15 @@ static void testAnimationSet() {
             s.vec(1, 0, 0), s.vec(0, 1, 0), s.vec(0, 0, 1), s.vec(0, 0, m ? 10.0f : 0.0f);
             s.u32(m ? 4 : 7);
         }
-        s.u32(1), s.u32(1), s.u32(1);    // a clip
-        s.u32(0), s.u32(0), s.u32(32);   // no position keys
+        s.u32(1), s.u32(1), s.u32(1);  // a clip
+        s.u32(0), s.u32(0), s.u32(32); // no position keys
         s.u32(key ? 1 : 0), s.u32(key ? 1 : 0), s.u32(32);
         if (key) {
             // A quarter turn about Z: x, y 0 (1023.5 of 2047), z sin 45
             // degrees, w - 1 = cos 45 degrees - 1.
             const uint32_t z = uint32_t(std::lround((0.70710678 + 1) / 2 * 1023));
-            s.f32(0), s.u32(1023u | 1023u << 11 | z << 22), s.u16(uint16_t(int16_t(std::lround((0.70710678 - 1) * 32767))));
+            s.f32(0), s.u32(1023u | 1023u << 11 | z << 22),
+                s.u16(uint16_t(int16_t(std::lround((0.70710678 - 1) * 32767))));
         }
         s.u32(0), s.u32(0);
         s.u32(child ? 1 : 0), s.u32(child ? 1 : 0), s.u32(4);
@@ -1224,7 +1227,7 @@ static void testAnimationSet() {
     CHECK(m.animFrames == 3 && m.verts.size() == 9 && m.findAnim("Turned") && m.findAnim("Turned")->startFrame == 2);
     if (m.verts.size() == 9) {
         // (-3, 0, 0) turned a quarter about Z: (0, +-3, 0).
-        const Vec3f& v = m.verts[6];
+        const Vec3f &v = m.verts[6];
         CHECK(std::fabs(v[0]) < 0.05f && std::fabs(std::fabs(v[1]) - 3) < 0.05f && std::fabs(v[2]) < 0.05f);
     }
 }
@@ -1304,19 +1307,19 @@ static void testImportedMeshBlock() {
 
 // A class's data up to its defaults (script.md): no fields or script,
 // within Object (import -1), config "System".
-static void classRecord(Bytes& b, PackageWriter& w, const char* name) {
-    b.index(0), b.index(0);       // super, next
-    b.index(0), b.index(0);       // script text, children
-    b.index(w.name(name));        // friendly name
+static void classRecord(Bytes &b, PackageWriter &w, const char *name) {
+    b.index(0), b.index(0);         // super, next
+    b.index(0), b.index(0);         // script text, children
+    b.index(w.name(name));          // friendly name
     b.i32(-1), b.i32(-1), b.i32(0); // line, text position, script size
-    b.u64(0), b.u64(~0ull);       // probe and ignore masks
-    b.u16(0xffff), b.i32(0);      // label table, state flags
-    b.i32(0);                     // class flags
-    for (int i = 0; i < 16; ++i)  // GUID
+    b.u64(0), b.u64(~0ull);         // probe and ignore masks
+    b.u16(0xffff), b.i32(0);        // label table, state flags
+    b.i32(0);                       // class flags
+    for (int i = 0; i < 16; ++i)    // GUID
         b.u8(0);
-    b.index(0), b.index(0);       // dependencies, package imports
-    b.index(-1);                  // within
-    b.index(w.name("System"));    // config name
+    b.index(0), b.index(0);    // dependencies, package imports
+    b.index(-1);               // within
+    b.index(w.name("System")); // config name
 }
 
 static void testClassDefaultsAndMeshActors() {
@@ -1345,12 +1348,12 @@ static void testClassDefaultsAndMeshActors() {
 
     PackageSet set;
     set.addMemory("Level", ".unr", w.build());
-    const Package* p = set.get("Level");
+    const Package *p = set.get("Level");
     CHECK(p != nullptr);
     if (!p)
         return;
     ClassDefaults defaults(set);
-    const PropertyList* d = defaults.defaults(*p, int(lampClass) - 1);
+    const PropertyList *d = defaults.defaults(*p, int(lampClass) - 1);
     CHECK(d && d->items.size() == 3 && d->byte("DrawType") == 2 && d->number("DrawScale") == 2);
     MeshActorStats stats;
     const std::vector<MeshActor> actors = findMeshActors(set, *p, defaults, &stats);
@@ -1369,9 +1372,9 @@ static void testScript() {
     const int32_t function = w.addImport("Core", "Class", 0, "Function");
     Bytes prop;
     endProps(prop, w);
-    prop.index(0), prop.index(0);           // super, next
-    prop.i32(1), prop.u32(propflag::Edit);  // array size, flags
-    prop.index(w.name("Lamp"));             // category
+    prop.index(0), prop.index(0);          // super, next
+    prop.i32(1), prop.u32(propflag::Edit); // array size, flags
+    prop.index(w.name("Lamp"));            // category
     const int32_t count = w.addExport(intProp, 0, "Count", prop.b);
     Bytes code;
     code.u8(token::Let), code.u8(token::LocalVariable), code.index(count), code.u8(token::IntConst), code.i32(5);
@@ -1383,8 +1386,8 @@ static void testScript() {
     Bytes fn;
     endProps(fn, w);
     fn.index(0), fn.index(0), fn.index(0), fn.index(count); // super, next, script text, children
-    fn.index(w.name("Lamp")), fn.i32(10), fn.i32(100);       // friendly name, line, text position
-    fn.i32(28);                                              // script size in memory
+    fn.index(w.name("Lamp")), fn.i32(10), fn.i32(100);      // friendly name, line, text position
+    fn.i32(28);                                             // script size in memory
     fn.b.insert(fn.b.end(), code.b.begin(), code.b.end());
     fn.u16(0), fn.u8(0), fn.u32(funcflag::Defined | funcflag::Event); // native, precedence, flags
     w.addExport(function, 0, "Light", fn.b);
@@ -1395,17 +1398,17 @@ static void testScript() {
     CHECK(!err && o.kind == ScriptObject::Kind::Property && o.arrayDim == 1 && o.propertyFlags == propflag::Edit);
     CHECK(!readScriptObject(p, 1, o) && o.kind == ScriptObject::Kind::Function && o.trailing == 0);
     CHECK(o.children == count && o.line == 10 && o.functionFlags == (funcflag::Defined | funcflag::Event));
-    const Code& c = o.code;
+    const Code &c = o.code;
     CHECK(c.size == 28 && c.statements.size() == 5);
     if (c.statements.size() == 5) {
-        const Expr& let = c.exprs[size_t(c.statements[0])];
+        const Expr &let = c.exprs[size_t(c.statements[0])];
         CHECK(let.token == token::Let && let.args.size() == 2 && let.offset == 0);
         CHECK(c.exprs[size_t(let.args[0])].ref == count && c.exprs[size_t(let.args[1])].value == 5);
-        const Expr& jump = c.exprs[size_t(c.statements[1])];
+        const Expr &jump = c.exprs[size_t(c.statements[1])];
         CHECK(jump.offset == 11 && jump.value == 26); // the reference counts 4 bytes, as in memory
-        const Expr& call = c.exprs[size_t(c.statements[2])];
+        const Expr &call = c.exprs[size_t(c.statements[2])];
         CHECK(call.token == token::VirtualFunction && p.name(call.ref) == "Lamp" && call.args.size() == 2);
-        const Expr& native = c.exprs[size_t(c.statements[3])];
+        const Expr &native = c.exprs[size_t(c.statements[3])];
         CHECK(native.native == 0x9a && native.offset == 22 && native.args.size() == 3);
         CHECK(c.exprs[size_t(c.statements[4])].offset == 26);
     }
@@ -1417,7 +1420,7 @@ static void testScript() {
     // its offset, the unknown native by number.
     PackageSet set;
     set.addMemory("Script", ".u", w.build());
-    const Package* sp = set.get("Script");
+    const Package *sp = set.get("Script");
     CHECK(sp != nullptr);
     if (!sp)
         return;
@@ -1451,7 +1454,7 @@ static void testVm() {
         b.index(0), b.index(next), b.i32(1), b.u32(flags), b.index(0);
         return b.b;
     };
-    auto structPart = [&](Bytes& b, int32_t next, int32_t children, const char* name, const Bytes& code, int32_t size) {
+    auto structPart = [&](Bytes &b, int32_t next, int32_t children, const char *name, const Bytes &code, int32_t size) {
         b.index(0), b.index(next), b.index(0), b.index(children), b.index(w.name(name));
         b.i32(0), b.i32(0), b.i32(size);
         b.b.insert(b.b.end(), code.b.begin(), code.b.end());
@@ -1488,14 +1491,15 @@ static void testVm() {
     w.addExport(function, counter, "Wait", waitFn.b);
     w.addExport(floatProp, wait, "S", property(0, propflag::Parm));
     Bytes stateCode; // Count = 1; Wait(1.0); Count = 2; stop; labels
-    stateCode.u8(token::Let), stateCode.u8(token::InstanceVariable), stateCode.index(count), stateCode.u8(token::IntOne);
+    stateCode.u8(token::Let), stateCode.u8(token::InstanceVariable), stateCode.index(count),
+        stateCode.u8(token::IntOne);
     stateCode.u8(token::FinalFunction), stateCode.index(wait), stateCode.u8(token::FloatConst), stateCode.f32(1),
         stateCode.u8(token::EndFunctionParms);
     stateCode.u8(token::Let), stateCode.u8(token::InstanceVariable), stateCode.index(count),
         stateCode.u8(token::IntConstByte), stateCode.u8(2);
     stateCode.u8(token::Stop);
-    stateCode.u8(token::LabelTable), stateCode.index(w.name("Begin")), stateCode.u32(0), stateCode.index(w.name("None")),
-        stateCode.u32(0);
+    stateCode.u8(token::LabelTable), stateCode.index(w.name("Begin")), stateCode.u32(0),
+        stateCode.index(w.name("None")), stateCode.u32(0);
     Bytes st;
     endProps(st, w);
     structPart(st, 0, 0, "Running", stateCode, 7 + 11 + 8 + 1 + 17);
@@ -1504,25 +1508,32 @@ static void testVm() {
 
     PackageSet set;
     set.addMemory("Counting", ".u", w.build());
-    const Package* p = set.get("Counting");
+    const Package *p = set.get("Counting");
     CHECK(p != nullptr);
     if (!p)
         return;
     Vm vm(set);
-    VmClass* c = vm.classAt(*p, counter - 1);
+    VmClass *c = vm.classAt(*p, counter - 1);
     CHECK(c && c->slots == 2 && c->functions.size() == 2 && c->states.size() == 1);
     if (!c)
         return;
-    VmObject* o = vm.create(c);
+    VmObject *o = vm.create(c);
     CHECK(o->find(vm, "Total") && o->find(vm, "Total")->asInt() == 10 && o->find(vm, "Count")->asInt() == 0);
     vm.callEvent(o, "SetCount", {Value::intValue(5)});
     CHECK(o->find(vm, "Count")->asInt() == 5);
     // Rotator * Rotator (The Fallen's): the second turned on in the first's
     // frame; none leaves the first as it is.
-    if (const NativeFn* times = vm.findNative("Object.Multiply_RotatorRotator")) {
+    if (const NativeFn *times = vm.findNative("Object.Multiply_RotatorRotator")) {
         auto multiply = [&](std::array<int32_t, 3> a, std::array<int32_t, 3> b) {
-            NativeCall call{vm, nullptr, nullptr, {vm.rotatorValue(a[0], a[1], a[2]), vm.rotatorValue(b[0], b[1], b[2])},
-                            {true, true}, {}, -1, {}, {}};
+            NativeCall call{vm,
+                            nullptr,
+                            nullptr,
+                            {vm.rotatorValue(a[0], a[1], a[2]), vm.rotatorValue(b[0], b[1], b[2])},
+                            {true, true},
+                            {},
+                            -1,
+                            {},
+                            {}};
             (*times)(call);
             return Vm::rotatorOf(call.result);
         };
@@ -1538,7 +1549,7 @@ static void testVm() {
     } else {
         CHECK(false);
     }
-    vm.registerNative("Counter.Wait", [](NativeCall& call) { call.latentSeconds = call.f(0); });
+    vm.registerNative("Counter.Wait", [](NativeCall &call) { call.latentSeconds = call.f(0); });
     vm.gotoState(o, vm.name("Running"));
     CHECK(o->state && o->state->name == "Running" && o->codeAt == 0);
     vm.tick(o, 0.1f);
@@ -1551,9 +1562,9 @@ static void testVm() {
     // A class with no script (as Viewport is), made up under Counter:
     // found by name, a kind of Counter, its objects with Counter's values
     // and their built-in name.
-    VmClass* made = vm.defineIntrinsic("Tally", c);
+    VmClass *made = vm.defineIntrinsic("Tally", c);
     CHECK(made && made->isA(c) && vm.intrinsic("tally") == made && made->object && made->object->asClass == made);
-    VmObject* t = vm.create(made);
+    VmObject *t = vm.create(made);
     CHECK(t->find(vm, "Total") && t->find(vm, "Total")->asInt() == 10 && vm.nameText(t->name) == "Tally0");
     (void)total;
     (void)setCount;
@@ -1575,7 +1586,7 @@ static void testZoneVisibility() {
     BspSurf s;
     s.polyFlags = polyflag::Portal;
     m.surfs.push_back(s);
-    for (const Vec3f& p : {Vec3f{0, -50, -50}, Vec3f{0, 50, -50}, Vec3f{0, 50, 50}, Vec3f{0, -50, 50}}) {
+    for (const Vec3f &p : {Vec3f{0, -50, -50}, Vec3f{0, 50, -50}, Vec3f{0, 50, 50}, Vec3f{0, -50, 50}}) {
         m.verts.push_back({int32_t(m.points.size()), 0});
         m.points.push_back(p);
     }
@@ -1653,7 +1664,7 @@ static void testCollision() {
     m.rootOutside = false;
     const LevelCollision fresh(m); // its hulls are built once, so a new one for the new model
     const Vec3f box{17, 17, 47};
-    for (const Vec3f& to : {Vec3f{200, 0, 0}, Vec3f{400, -280, 0}}) {
+    for (const Vec3f &to : {Vec3f{200, 0, 0}, Vec3f{400, -280, 0}}) {
         h = fresh.trace({0, 0, 0}, to, box);
         CHECK(h.hit() && !h.startSolid && std::abs(h.normal[0] + s) < 1e-3f && !fresh.solid(h.location, box));
     }
@@ -1683,17 +1694,16 @@ static void testAnimationPose() {
 // A dialogue table's rows: the header and spacer rows left out, quoted
 // fields unquoted, Windows-1252 dashes plain; keys matched with '?'.
 static void testDialogTable() {
-    const std::string text =
-        "Missions\t\tK01 M01\r\n"
-        "REC ID\tREC ID\tMISSION\tTYPE\tSPEAKER\tLISTENER\tLINE ID\tLINE\r\n"
-        "\t\t\t\t\t\t\t\t\r\n"
-        "KRA\t001\tK01\tHAL\tKRA\tOBN\t000\tChief \x97 quickly!\t\t2\tGENHALOBN0?0\t\tTAG1\tEvt\t"
-        "! CommunicationBlocked\t\"CAM(V:1 \"\"x\"\")\"\r\n";
+    const std::string text = "Missions\t\tK01 M01\r\n"
+                             "REC ID\tREC ID\tMISSION\tTYPE\tSPEAKER\tLISTENER\tLINE ID\tLINE\r\n"
+                             "\t\t\t\t\t\t\t\t\r\n"
+                             "KRA\t001\tK01\tHAL\tKRA\tOBN\t000\tChief \x97 quickly!\t\t2\tGENHALOBN0?0\t\tTAG1\tEvt\t"
+                             "! CommunicationBlocked\t\"CAM(V:1 \"\"x\"\")\"\r\n";
     std::vector<DialogLine> lines;
     parseDialogTable(text, "M01_Dialogue", lines);
     CHECK(lines.size() == 1);
     if (lines.size() == 1) {
-        const DialogLine& l = lines[0];
+        const DialogLine &l = lines[0];
         CHECK(l.record == "KRA001" && l.mission == "K01" && l.type == "HAL" && l.listener == "OBN");
         CHECK(l.text == "Chief - quickly!" && l.pause == 2 && l.next == "GENHALOBN0?0");
         CHECK(l.tag == "TAG1" && l.event == "Evt" && l.condition == "! CommunicationBlocked");
@@ -1707,10 +1717,11 @@ static void testDialogTable() {
 
 static void testRotatorFromAxes() {
     // Back from a rotation's axes to the rotation, all three turns at once.
-    for (const Rotator& r : {Rotator{0, 0, 0}, Rotator{2000, 16384, 0}, Rotator{-3000, -12000, 5000},
-                             Rotator{8000, 30000, -9000}}) {
+    for (const Rotator &r :
+         {Rotator{0, 0, 0}, Rotator{2000, 16384, 0}, Rotator{-3000, -12000, 5000}, Rotator{8000, 30000, -9000}}) {
         const Rotator back = rotatorFromAxes(rotationAxes(r));
-        CHECK(std::abs(back.pitch - r.pitch) <= 2 && std::abs(back.yaw - r.yaw) <= 2 && std::abs(back.roll - r.roll) <= 2);
+        CHECK(std::abs(back.pitch - r.pitch) <= 2 && std::abs(back.yaw - r.yaw) <= 2 &&
+              std::abs(back.roll - r.roll) <= 2);
     }
     // Slerped: the ends, halfway round a quarter turn, and the shorter way
     // across the 0/65536 seam.

@@ -14,7 +14,7 @@ using namespace reluva::awe::testing;
 namespace {
 
 void testDialogueBook() {
-    const char* table =
+    const char *table =
         "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
         "Event\tPovent\tDuration\tOptional\tNotes\n"
         "dia_observation\t02a\ta\t1\ta\tpoirot\t0\tOne must look.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
@@ -28,7 +28,8 @@ void testDialogueBook() {
     const auto obs = book.conversation("Dia_Observation");
     CHECK(obs.size() == 2);
     if (obs.size() == 2) {
-        CHECK(obs[0]->thread == "1" && obs[0]->threadCode == 0x60 && obs[0]->speaker == "poirot" && obs[0]->target.empty());
+        CHECK(obs[0]->thread == "1" && obs[0]->threadCode == 0x60 && obs[0]->speaker == "poirot" &&
+              obs[0]->target.empty());
         CHECK(obs[0]->voiceFile() == "sound/vo/dia_observation02aa1a.wav");
         CHECK(obs[1]->text == "Well, yes." && obs[1]->target == "antoinette up" && obs[1]->condition == "has ribbon");
         CHECK(obs[1]->before == "scene restaurant_table.02" && obs[1]->event == "anim no" &&
@@ -36,7 +37,7 @@ void testDialogueBook() {
     }
     // Part "1" is code 100; a line with the nest before it again is an
     // alternative, its recording numbered.
-    DialoguePart* locked = book.find("gen_locked", 100);
+    DialoguePart *locked = book.find("gen_locked", 100);
     CHECK(locked && locked->threads.size() == 1 && locked->threads[0].lines.size() == 2);
     if (locked && locked->threads[0].lines.size() == 2)
         CHECK(locked->threads[0].lines[1].voiceFile() == "sound/vo/gen_locked01aa_1.wav");
@@ -47,24 +48,24 @@ void testDialogueBook() {
     DialogueBook gen;
     gen.add(parseTable("gen_globalhardman\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\n"
                        "gen_arbuthnot_exit\t0\t0\t3\ta\tantoinette\t0\tAu revoir.\t0\t0\t0\t0\t0\t0\t0\tadded\n"));
-    const DialoguePart* exit = gen.find("gen_arbuthnot_exit", 99);
+    const DialoguePart *exit = gen.find("gen_arbuthnot_exit", 99);
     CHECK(exit && exit->threads.size() == 1 && exit->threads[0].code == 0x62);
 }
 
 // A conversation played through: no voices, so each line lasts its
 // length / 15 seconds (at least one).
 struct QuietHost : DialogueHost {
-    bool playVoice(const std::string&) override { return false; }
+    bool playVoice(const std::string &) override { return false; }
     bool voicePlaying() override { return false; }
     void stopVoice() override {}
-    std::string readText(const std::string&) override { return {}; }
+    std::string readText(const std::string &) override { return {}; }
     std::string sceneName() override { return "salon_01"; }
-    void talkStarting(const std::string& name) override { started.push_back(name); }
+    void talkStarting(const std::string &name) override { started.push_back(name); }
     std::vector<std::string> started;
 };
 
 void testDialogue() {
-    const char* table =
+    const char *table =
         "Name\tAct\tConver.\tThread\tNest\tSpeaker\tTarget\tLine\tLine Translation\tCondition\tRepeat\tPrevent\t"
         "Event\tPovent\tDuration\tOptional\tNotes\n"
         "dia_obs\t02a\ta\t1\ta\tpoirot\t0\tLook.\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
@@ -83,8 +84,8 @@ void testDialogue() {
     main.run("talk dia_obs a+");
     // The runner waits on "talk": a stand-in starts the dialogue for it.
     struct TalkHost : ScriptHost {
-        DialogueManager* d = nullptr;
-        bool start(ScriptRunner& r, const ScriptEvent& e, bool) override {
+        DialogueManager *d = nullptr;
+        bool start(ScriptRunner &r, const ScriptEvent &e, bool) override {
             return e.verb() == "talk" && d->talk(r, e.arg(1), 0, -1, -1, false, -1, true, true);
         }
     } talker;
@@ -191,7 +192,8 @@ void testDialogue() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.dialogue", {
-    {"book", [](const std::filesystem::path&) { testDialogueBook(); }},
-    {"manager", [](const std::filesystem::path&) { testDialogue(); }},
-});
+static const reluva::test::Suite suite("awe.unit.dialogue",
+                                       {
+                                           {"book", [](const std::filesystem::path &) { testDialogueBook(); }},
+                                           {"manager", [](const std::filesystem::path &) { testDialogue(); }},
+                                       });

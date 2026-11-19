@@ -39,7 +39,7 @@ struct TrackerPattern {
 struct TrackerSample {
     std::vector<int16_t> data; // mono
     bool loop = false, pingPong = false;
-    size_t loopStart = 0, loopEnd = 0; // frames, loopEnd past the last
+    size_t loopStart = 0, loopEnd = 0;             // frames, loopEnd past the last
     bool sustain = false, sustainPingPong = false; // IT's sustain loop, while the key is held
     size_t sustainStart = 0, sustainEnd = 0;
     double c5speed = 8363; // Hz at C-5 (MOD/XM finetune folded in)
@@ -74,8 +74,8 @@ struct TrackerModule {
     std::string title;
     int channels = 0;
     int speed = 6, tempo = 125;
-    int globalVolume = 128; // 0..128
-    int mixVolume = 64;     // 64 is unity (S3M master volume, IT mix volume)
+    int globalVolume = 128;    // 0..128
+    int mixVolume = 64;        // 64 is unity (S3M master volume, IT mix volume)
     bool linearSlides = false; // pitch in 1/64 semitones (XM/IT flag), else Amiga periods
     bool s3mEffects = false;   // S3M/IT parameter rules: DxF fine slides, shared memories
     bool effectMemory = false; // a zero parameter repeats the last (all but MOD)
@@ -90,15 +90,15 @@ struct TrackerModule {
 };
 
 // Reads a module, its format told by its contents.
-Error loadTrackerModule(const std::vector<uint8_t>& data, TrackerModule& out);
+Error loadTrackerModule(const std::vector<uint8_t> &data, TrackerModule &out);
 
 // "MOD", "S3M", "XM" or "IT".
-std::string trackerFormat(const TrackerModule& m);
+std::string trackerFormat(const TrackerModule &m);
 
 // Renders the song to 16-bit stereo at `rate`, from order `startOrder` (a
 // UE1 "song section"), until it ends or loops back (to a row already played)
 // or `maxSeconds` pass. out.loopStart is where the loop goes back to and
 // out.loopEnd its end, so the sound can be played looped.
-Error renderTrackerModule(const TrackerModule& m, int rate, int startOrder, double maxSeconds, Sound& out);
+Error renderTrackerModule(const TrackerModule &m, int rate, int startOrder, double maxSeconds, Sound &out);
 
 } // namespace reluva::audio

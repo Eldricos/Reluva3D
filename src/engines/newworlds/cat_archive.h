@@ -17,7 +17,7 @@ namespace reluva::newworlds {
 
 // Chunk tags in .cat archives. See docs/engines/newworlds/cat.md.
 namespace cattag {
-constexpr uint16_t Group = 0x00;      // container, purpose unknown
+constexpr uint16_t Group = 0x00; // container, purpose unknown
 constexpr uint16_t Root = 0x01;
 constexpr uint16_t Table = 0x05;
 constexpr uint16_t Gmf = 0x11;        // .gmf
@@ -40,22 +40,22 @@ struct CatEntry {
     std::string name;         // normalized: lower case, '/' separators, build prefix removed
     std::string originalPath; // as stored, e.g. c:\prjs\game\stc\bin\rsc\dat\pc_win32\str\eng\miss\rom01.stb
     uint16_t tag = 0;
-    uint32_t size = 0;        // payload size
-    uint64_t offset = 0;      // absolute file position of the payload
-    int parent = -1;          // index of the containing container entry, or -1
+    uint32_t size = 0;   // payload size
+    uint64_t offset = 0; // absolute file position of the payload
+    int parent = -1;     // index of the containing container entry, or -1
     bool container = false;
-    uint32_t modified = 0;    // Unix time from the stored metadata
+    uint32_t modified = 0; // Unix time from the stored metadata
 };
 
 class CatArchive {
 public:
-    Error open(const std::filesystem::path& path);
+    Error open(const std::filesystem::path &path);
 
-    const std::vector<CatEntry>& entries() const { return entries_; }
-    const std::filesystem::path& path() const { return path_; }
+    const std::vector<CatEntry> &entries() const { return entries_; }
+    const std::filesystem::path &path() const { return path_; }
     // Look up a file by normalized name, ignoring case and slash direction.
-    const CatEntry* find(std::string_view name) const;
-    Error read(const CatEntry& entry, std::vector<uint8_t>& out);
+    const CatEntry *find(std::string_view name) const;
+    Error read(const CatEntry &entry, std::vector<uint8_t> &out);
 
     // "c:\prjs\game\stc\bin\rsc\dat\pc_win32\str\eng\miss\rom01.stb" -> "str/eng/miss/rom01.stb"
     static std::string normalizeName(std::string_view originalPath);

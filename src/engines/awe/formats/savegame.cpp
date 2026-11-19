@@ -20,7 +20,7 @@ constexpr uint32_t tag(const char (&s)[5]) {
 
 class Reader {
 public:
-    explicit Reader(const std::vector<uint8_t>& d) : d_(d) {}
+    explicit Reader(const std::vector<uint8_t> &d) : d_(d) {}
     bool fail() const { return fail_; }
     bool atEnd() const { return pos_ >= d_.size(); }
     size_t pos() const { return pos_; }
@@ -66,7 +66,7 @@ private:
             fail_ = true;
         return !fail_;
     }
-    const std::vector<uint8_t>& d_;
+    const std::vector<uint8_t> &d_;
     size_t pos_ = 0;
     bool fail_ = false;
 };
@@ -91,7 +91,7 @@ public:
         u32(u);
     }
     // w[n], zeros after the text (cut to fit with its 0).
-    void text(const std::string& s, size_t n) {
+    void text(const std::string &s, size_t n) {
         std::vector<uint16_t> units;
         for (size_t i = 0; i < s.size();) {
             uint32_t cp = text::nextUtf8(s, i);
@@ -111,14 +111,14 @@ public:
     }
 };
 
-void readPlacement(Reader& r, SaveGame::Placement& p) {
-    for (float& v : p.position)
+void readPlacement(Reader &r, SaveGame::Placement &p) {
+    for (float &v : p.position)
         v = r.f32();
-    for (float& v : p.rotation)
+    for (float &v : p.rotation)
         v = r.f32();
 }
 
-void writePlacement(Writer& w, const SaveGame::Placement& p) {
+void writePlacement(Writer &w, const SaveGame::Placement &p) {
     for (float v : p.position)
         w.f32(v);
     for (float v : p.rotation)
@@ -136,7 +136,7 @@ std::string tagName(uint32_t t) {
 
 } // namespace
 
-Error readSaveHeader(const std::vector<uint8_t>& data, std::string& description, std::string& date, std::string& time) {
+Error readSaveHeader(const std::vector<uint8_t> &data, std::string &description, std::string &date, std::string &time) {
     // Positionally, as the game does: tag, w[32] three times (DESC, TIME,
     // DATE).
     Reader r(data);
@@ -149,7 +149,7 @@ Error readSaveHeader(const std::vector<uint8_t>& data, std::string& description,
     return r.fail() ? Error::fail("The saved game is too short") : Error::success();
 }
 
-Error readSaveGame(const std::vector<uint8_t>& data, SaveGame& out) {
+Error readSaveGame(const std::vector<uint8_t> &data, SaveGame &out) {
     out = SaveGame();
     Reader r(data);
     while (!r.atEnd() && !r.fail()) {
@@ -175,7 +175,7 @@ Error readSaveGame(const std::vector<uint8_t>& data, SaveGame& out) {
             out.actMajor = r.s16();
             out.actMinor = r.s16();
         } else if (t == tag("ACTI")) {
-            SaveGame::Act& a = out.act;
+            SaveGame::Act &a = out.act;
             a.preLoad = r.text(256);
             a.location = r.text(32);
             a.postLoad = r.text(256);
@@ -190,7 +190,7 @@ Error readSaveGame(const std::vector<uint8_t>& data, SaveGame& out) {
         } else if (t == tag("FLLW")) {
             readPlacement(r, out.follower.emplace());
         } else if (t == tag("TAGS") || t == tag("TIMS")) {
-            auto& list = t == tag("TAGS") ? out.tags : out.timers;
+            auto &list = t == tag("TAGS") ? out.tags : out.timers;
             for (int n = int(uint16_t(r.s16())); n > 0 && !r.fail(); n--) {
                 std::string name = r.text(64);
                 list.emplace_back(std::move(name), r.s16());
@@ -238,7 +238,7 @@ Error readSaveGame(const std::vector<uint8_t>& data, SaveGame& out) {
     return r.fail() ? Error::fail("The saved game ends inside a record") : Error::success();
 }
 
-std::vector<uint8_t> writeSaveGame(const SaveGame& s) {
+std::vector<uint8_t> writeSaveGame(const SaveGame &s) {
     Writer w;
     w.u32(tag("DESC"));
     w.text(s.description, 32);
@@ -277,30 +277,30 @@ std::vector<uint8_t> writeSaveGame(const SaveGame& s) {
         w.u32(tag("FLLW"));
         writePlacement(w, *s.follower);
     }
-    for (const auto* list : {&s.tags, &s.timers}) {
+    for (const auto *list : {&s.tags, &s.timers}) {
         w.u32(list == &s.tags ? tag("TAGS") : tag("TIMS"));
         w.s16(int(list->size()));
-        for (const auto& [name, value] : *list) {
+        for (const auto &[name, value] : *list) {
             w.text(name, 64);
             w.s16(value);
         }
     }
     w.u32(tag("STAT"));
     w.s16(int(s.texts.size()));
-    for (const auto& [name, value] : s.texts) {
+    for (const auto &[name, value] : s.texts) {
         w.text(name, 64);
         w.text(value, 256);
     }
     w.u32(tag("POSI"));
     w.s16(int(s.positions.size()));
-    for (const SaveGame::Position& p : s.positions) {
+    for (const SaveGame::Position &p : s.positions) {
         w.text(p.scene, 64);
         w.text(p.character, 64);
         writePlacement(w, p.at);
     }
     w.u32(tag("TALK"));
     w.s16(int(s.talks.size()));
-    for (const SaveGame::Talk& k : s.talks) {
+    for (const SaveGame::Talk &k : s.talks) {
         w.text(k.name, 32);
         w.text(k.act, 32);
         w.u32(uint32_t(k.part));
@@ -311,7 +311,7 @@ std::vector<uint8_t> writeSaveGame(const SaveGame& s) {
     w.u32(tag("ITEM"));
     w.s16(s.itemPage);
     w.s16(int(s.items.size()));
-    for (const SaveGame::Item& i : s.items) {
+    for (const SaveGame::Item &i : s.items) {
         w.text(i.name, 32);
         w.s16(i.state);
         w.s16(i.slot);
@@ -320,7 +320,7 @@ std::vector<uint8_t> writeSaveGame(const SaveGame& s) {
     return std::move(w.out);
 }
 
-std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t>& rgba) {
+std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_t> &rgba) {
     // BITMAPFILEHEADER, BITMAPINFOHEADER, then BGR rows bottom first, each
     // padded to 4 bytes: as D3DX's BMP writer (0x448d24) writes an
     // R8G8B8 surface, the only colour format it writes.
@@ -339,8 +339,8 @@ std::vector<uint8_t> encodeBmp24(int width, int height, const std::vector<uint8_
     put32(34, imageSize);
     for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++) {
-            const uint8_t* p = rgba.data() + (size_t(y) * size_t(width) + size_t(x)) * 4;
-            uint8_t* q = out.data() + 54 + size_t(height - 1 - y) * stride + size_t(x) * 3;
+            const uint8_t *p = rgba.data() + (size_t(y) * size_t(width) + size_t(x)) * 4;
+            uint8_t *q = out.data() + 54 + size_t(height - 1 - y) * stride + size_t(x) * 3;
             q[0] = p[2], q[1] = p[1], q[2] = p[0];
         }
     return out;

@@ -19,15 +19,14 @@ constexpr float kTau = 6.28318530718f;
 
 class Reader {
 public:
-    Reader(const std::vector<uint8_t>& d, size_t at) : d_(d), at_(at) {}
+    Reader(const std::vector<uint8_t> &d, size_t at) : d_(d), at_(at) {}
     int32_t i32() {
-        const uint8_t* p = &d_[at_];
+        const uint8_t *p = &d_[at_];
         at_ += 4;
-        return static_cast<int32_t>(uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 |
-                                    uint32_t(p[3]) << 24);
+        return static_cast<int32_t>(uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24);
     }
     int16_t i16() {
-        const uint8_t* p = &d_[at_];
+        const uint8_t *p = &d_[at_];
         at_ += 2;
         return static_cast<int16_t>(uint16_t(p[0] | p[1] << 8));
     }
@@ -39,7 +38,7 @@ public:
     }
     Vec3 vec() {
         Vec3 v;
-        for (float& f : v)
+        for (float &f : v)
             f = f32();
         return v;
     }
@@ -47,13 +46,13 @@ public:
         size_t len = 0;
         while (len < size && d_[at_ + len])
             ++len;
-        std::string s(reinterpret_cast<const char*>(&d_[at_]), len);
+        std::string s(reinterpret_cast<const char *>(&d_[at_]), len);
         at_ += size;
         return s;
     }
 
 private:
-    const std::vector<uint8_t>& d_;
+    const std::vector<uint8_t> &d_;
     size_t at_;
 };
 
@@ -63,18 +62,18 @@ bool fits(size_t size, int64_t offset, int64_t count, size_t record) {
 
 } // namespace
 
-const Md3Tag* Md3Model::tag(int frame, std::string_view tagName) const {
+const Md3Tag *Md3Model::tag(int frame, std::string_view tagName) const {
     if (frame < 0 || frame >= int(frames.size()))
         return nullptr;
     for (int i = 0; i < tagCount; ++i) {
-        const Md3Tag& t = tags[size_t(frame * tagCount + i)];
+        const Md3Tag &t = tags[size_t(frame * tagCount + i)];
         if (t.name == tagName)
             return &t;
     }
     return nullptr;
 }
 
-Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
+Error parseMd3(const std::vector<uint8_t> &data, Md3Model &out) {
     out = Md3Model{};
     if (data.size() < kHeaderSize || std::memcmp(data.data(), "IDP3", 4) != 0)
         return Error::fail("Not an MD3 model");
@@ -106,7 +105,7 @@ Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
         Md3Tag t;
         t.name = tr.name(64);
         t.origin = tr.vec();
-        for (Vec3& a : t.axis)
+        for (Vec3 &a : t.axis)
             a = tr.vec();
         out.tags.push_back(t);
     }
@@ -129,13 +128,11 @@ Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
         // draws the chair.
         sr.i32(); // frames
         const int32_t numShaders = sr.i32(), numVerts = sr.i32(), numTris = sr.i32();
-        const int32_t ofsTris = sr.i32(), ofsShaders = sr.i32(), ofsSt = sr.i32(), ofsXyz = sr.i32(),
-                      ofsEnd = sr.i32();
+        const int32_t ofsTris = sr.i32(), ofsShaders = sr.i32(), ofsSt = sr.i32(), ofsXyz = sr.i32(), ofsEnd = sr.i32();
         if (numVerts < 0 || numTris < 0 || numShaders < 0 || ofsEnd < 0 ||
             !fits(data.size(), at + ofsShaders, numShaders, kShaderSize) ||
             !fits(data.size(), at + ofsTris, numTris, 12) || !fits(data.size(), at + ofsSt, numVerts, 8) ||
-            !fits(data.size(), at + ofsXyz, int64_t(numVerts) * numFrames, 8) ||
-            !fits(data.size(), at, ofsEnd, 1))
+            !fits(data.size(), at + ofsXyz, int64_t(numVerts) * numFrames, 8) || !fits(data.size(), at, ofsEnd, 1))
             return Error::fail(where + " has parts outside the file");
 
         Reader shr(data, size_t(at + ofsShaders));
@@ -147,8 +144,8 @@ Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
         for (int i = 0; i < numTris * 3; ++i) {
             const int32_t v = trr.i32();
             if (v < 0 || v >= numVerts)
-                return Error::fail(where + ": triangle " + std::to_string(i / 3) + " uses vertex " +
-                                   std::to_string(v) + " (of " + std::to_string(numVerts) + ")");
+                return Error::fail(where + ": triangle " + std::to_string(i / 3) + " uses vertex " + std::to_string(v) +
+                                   " (of " + std::to_string(numVerts) + ")");
             surf.indices.push_back(uint32_t(v));
         }
         Reader str(data, size_t(at + ofsSt));
@@ -162,7 +159,7 @@ Error parseMd3(const std::vector<uint8_t>& data, Md3Model& out) {
         Reader xr(data, size_t(at + ofsXyz));
         for (int i = 0; i < numVerts * numFrames; ++i) {
             Md3Vertex v;
-            for (float& c : v.pos)
+            for (float &c : v.pos)
                 c = xr.i16() * kXyzScale;
             const uint16_t n = static_cast<uint16_t>(xr.i16());
             const float lat = float((n >> 8) & 0xff) * kTau / 256, lng = float(n & 0xff) * kTau / 256;

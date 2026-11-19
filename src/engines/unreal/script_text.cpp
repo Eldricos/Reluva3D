@@ -15,19 +15,19 @@ namespace {
 
 // What each conversion token converts to (0x39-0x59; see script.md for
 // how the table was checked).
-const char* conversionTarget(uint8_t t) {
-    static const char* const kTargets[] = {
-        "vector",                                    // 0x39 rotator
-        "int", "bool", "float",                      // byte
-        "byte", "bool", "float",                     // int
-        "byte", "int", "float",                      // bool
-        "byte", "int", "bool",                       // float
-        "int", "bool",                               // object
-        "bool",                                      // name
-        "byte", "int", "bool", "float", "vector", "rotator", // string
-        "bool", "rotator",                           // vector
-        "bool",                                      // rotator
-        "string", "string", "string", "string", "string", "string", "string", "string", // to string
+const char *conversionTarget(uint8_t t) {
+    static const char *const kTargets[] = {
+        "vector",                                                                         // 0x39 rotator
+        "int",    "bool",    "float",                                                     // byte
+        "byte",   "bool",    "float",                                                     // int
+        "byte",   "int",     "float",                                                     // bool
+        "byte",   "int",     "bool",                                                      // float
+        "int",    "bool",                                                                 // object
+        "bool",                                                                           // name
+        "byte",   "int",     "bool",   "float",  "vector", "rotator",                     // string
+        "bool",   "rotator",                                                              // vector
+        "bool",                                                                           // rotator
+        "string", "string",  "string", "string", "string", "string",  "string", "string", // to string
     };
     const int i = t - token::FirstConversion;
     return i >= 0 && i < int(sizeof kTargets / sizeof kTargets[0]) ? kTargets[i] : "convert";
@@ -41,7 +41,7 @@ std::string hex4(uint32_t v) {
 
 class Writer {
 public:
-    Writer(const PackageSet& packages, const Package& package, const NativeTable& natives)
+    Writer(const PackageSet &packages, const Package &package, const NativeTable &natives)
         : packages_(packages), package_(package), natives_(natives) {}
 
     std::string out;
@@ -53,20 +53,32 @@ public:
             return;
         }
         switch (o.kind) {
-        case ScriptObject::Kind::Class: classText(index, o); break;
-        case ScriptObject::Kind::State: stateText(index, o, indent); break;
-        case ScriptObject::Kind::Function: functionText(index, o, indent); break;
-        case ScriptObject::Kind::Struct: structText(index, o, indent); break;
-        case ScriptObject::Kind::Enum: enumText(index, o, indent); break;
+        case ScriptObject::Kind::Class:
+            classText(index, o);
+            break;
+        case ScriptObject::Kind::State:
+            stateText(index, o, indent);
+            break;
+        case ScriptObject::Kind::Function:
+            functionText(index, o, indent);
+            break;
+        case ScriptObject::Kind::Struct:
+            structText(index, o, indent);
+            break;
+        case ScriptObject::Kind::Enum:
+            enumText(index, o, indent);
+            break;
         case ScriptObject::Kind::Const:
             line(indent, "const " + name(index) + " = " + o.constValue + ";");
             break;
-        case ScriptObject::Kind::Property: line(indent, varText(index, o, true) + ";"); break;
+        case ScriptObject::Kind::Property:
+            line(indent, varText(index, o, true) + ";");
+            break;
         }
     }
 
 private:
-    void line(int indent, const std::string& text) {
+    void line(int indent, const std::string &text) {
         out.append(size_t(indent) * 4, ' ');
         out += text;
         out += '\n';
@@ -90,34 +102,41 @@ private:
         return out;
     }
 
-    std::string typeOf(const ScriptObject& p) const {
+    std::string typeOf(const ScriptObject &p) const {
         const std::string c = fs::toLower(p.className);
-        if (c == "intproperty") return "int";
-        if (c == "floatproperty") return "float";
-        if (c == "boolproperty") return "bool";
-        if (c == "strproperty") return "string";
-        if (c == "nameproperty") return "name";
-        if (c == "byteproperty") return p.propertyRef ? refName(p.propertyRef) : "byte";
-        if (c == "classproperty") return "class<" + refName(p.metaClass) + ">";
-        if (c == "objectproperty" || c == "structproperty") return refName(p.propertyRef);
+        if (c == "intproperty")
+            return "int";
+        if (c == "floatproperty")
+            return "float";
+        if (c == "boolproperty")
+            return "bool";
+        if (c == "strproperty")
+            return "string";
+        if (c == "nameproperty")
+            return "name";
+        if (c == "byteproperty")
+            return p.propertyRef ? refName(p.propertyRef) : "byte";
+        if (c == "classproperty")
+            return "class<" + refName(p.metaClass) + ">";
+        if (c == "objectproperty" || c == "structproperty")
+            return refName(p.propertyRef);
         if (c == "arrayproperty" || c == "fixedarrayproperty") {
             ScriptObject inner;
-            const std::string of = p.propertyRef > 0 && !readScriptObject(package_, p.propertyRef - 1, inner)
-                                       ? typeOf(inner)
-                                       : "?";
+            const std::string of =
+                p.propertyRef > 0 && !readScriptObject(package_, p.propertyRef - 1, inner) ? typeOf(inner) : "?";
             return "array<" + of + ">";
         }
         return p.className;
     }
 
     // A variable's declaration (without the semicolon).
-    std::string varText(int index, const ScriptObject& p, bool instance) const {
+    std::string varText(int index, const ScriptObject &p, bool instance) const {
         std::string s = instance ? "var" : "local";
         if (instance && (p.propertyFlags & propflag::Edit)) {
             const std::string cat = package_.name(p.category);
             s += "(" + (fs::toLower(cat) == "none" ? std::string() : cat) + ")";
         }
-        const std::pair<uint32_t, const char*> words[] = {
+        const std::pair<uint32_t, const char *> words[] = {
             {propflag::Config, "config"},       {propflag::GlobalConfig, "globalconfig"},
             {propflag::Localized, "localized"}, {propflag::Transient, "transient"},
             {propflag::Travel, "travel"},       {propflag::Const, "const"},
@@ -125,7 +144,7 @@ private:
             {propflag::Input, "input"},         {propflag::ExportObject, "export"},
         };
         if (instance)
-            for (const auto& [flag, word] : words)
+            for (const auto &[flag, word] : words)
                 if (p.propertyFlags & flag)
                     s += std::string(" ") + word;
         s += " " + typeOf(p) + " " + name(index);
@@ -134,14 +153,14 @@ private:
         return s;
     }
 
-    void enumText(int index, const ScriptObject& o, int indent) {
+    void enumText(int index, const ScriptObject &o, int indent) {
         std::string s = "enum " + name(index) + " { ";
         for (size_t i = 0; i < o.enumNames.size(); ++i)
             s += (i ? ", " : "") + package_.name(o.enumNames[i]);
         line(indent, s + " };");
     }
 
-    void structText(int index, const ScriptObject& o, int indent) {
+    void structText(int index, const ScriptObject &o, int indent) {
         const int32_t super = package_.exports()[size_t(index)].superRef;
         line(indent, "struct " + name(index) + (super ? " extends " + refName(super) : std::string()));
         line(indent, "{");
@@ -150,16 +169,16 @@ private:
         line(indent, "};");
     }
 
-    void functionText(int index, const ScriptObject& f, int indent) {
+    void functionText(int index, const ScriptObject &f, int indent) {
         std::string head;
-        const std::pair<uint32_t, const char*> words[] = {
-            {funcflag::Static, "static"},       {funcflag::Final, "final"},     {funcflag::Simulated, "simulated"},
-            {funcflag::Singular, "singular"},   {funcflag::Latent, "latent"},   {funcflag::Iterator, "iterator"},
-            {funcflag::Exec, "exec"},           {funcflag::NetReliable, "reliable"},
+        const std::pair<uint32_t, const char *> words[] = {
+            {funcflag::Static, "static"},     {funcflag::Final, "final"},          {funcflag::Simulated, "simulated"},
+            {funcflag::Singular, "singular"}, {funcflag::Latent, "latent"},        {funcflag::Iterator, "iterator"},
+            {funcflag::Exec, "exec"},         {funcflag::NetReliable, "reliable"},
         };
         if (f.functionFlags & funcflag::Native)
             head += f.native ? "native(" + std::to_string(f.native) + ") " : "native ";
-        for (const auto& [flag, word] : words)
+        for (const auto &[flag, word] : words)
             if (f.functionFlags & flag)
                 head += std::string(word) + " ";
         const bool op = f.functionFlags & funcflag::Operator;
@@ -175,9 +194,12 @@ private:
                 ret = typeOf(p) + " ";
             } else if (p.propertyFlags & propflag::Parm) {
                 std::string s;
-                if (p.propertyFlags & propflag::OptionalParm) s += "optional ";
-                if (p.propertyFlags & propflag::OutParm) s += "out ";
-                if (p.propertyFlags & propflag::CoerceParm) s += "coerce ";
+                if (p.propertyFlags & propflag::OptionalParm)
+                    s += "optional ";
+                if (p.propertyFlags & propflag::OutParm)
+                    s += "out ";
+                if (p.propertyFlags & propflag::CoerceParm)
+                    s += "coerce ";
                 params += (params.empty() ? "" : ", ") + s + typeOf(p) + " " + name(c);
             } else {
                 locals.push_back({c, std::move(p)});
@@ -188,13 +210,13 @@ private:
         if (f.code.statements.empty())
             return;
         line(indent, "{");
-        for (const auto& [c, p] : locals)
+        for (const auto &[c, p] : locals)
             line(indent + 1, varText(c, p, false) + ";");
         code(f.code, indent + 1);
         line(indent, "}");
     }
 
-    void stateText(int index, const ScriptObject& s, int indent) {
+    void stateText(int index, const ScriptObject &s, int indent) {
         const int32_t super = package_.exports()[size_t(index)].superRef;
         std::string head = s.stateFlags & 1 ? "state() " : "state ";
         head += name(index);
@@ -212,8 +234,8 @@ private:
         line(indent, "}");
     }
 
-    void classText(int index, const ScriptObject& c) {
-        const Export& e = package_.exports()[size_t(index)];
+    void classText(int index, const ScriptObject &c) {
+        const Export &e = package_.exports()[size_t(index)];
         std::string head = "class " + name(index);
         if (e.superRef)
             head += " extends " + refName(e.superRef);
@@ -258,22 +280,22 @@ private:
         }
         line(0, "defaultproperties");
         line(0, "{");
-        for (const Property& p : c.defaults.items)
+        for (const Property &p : c.defaults.items)
             line(1, p.name + (p.arrayIndex ? "(" + std::to_string(p.arrayIndex) + ")" : std::string()) + "=" +
                         describe(package_, p));
         line(0, "}");
     }
 
     // Statements with their offsets, and a state's labels where they are.
-    void code(const Code& c, int indent) {
+    void code(const Code &c, int indent) {
         std::multimap<uint32_t, int32_t> labels;
-        for (const Expr& x : c.exprs)
-            for (const auto& [label, offset] : x.labels)
+        for (const Expr &x : c.exprs)
+            for (const auto &[label, offset] : x.labels)
                 labels.insert({offset, label});
         for (int s : c.statements) {
             if (s < 0)
                 continue;
-            const Expr& x = c.exprs[size_t(s)];
+            const Expr &x = c.exprs[size_t(s)];
             for (auto [it, end] = labels.equal_range(x.offset); it != end; ++it)
                 line(indent - 1, package_.name(it->second) + ":");
             if (x.token == token::Nothing || x.token == token::LabelTable)
@@ -282,29 +304,38 @@ private:
         }
     }
 
-    std::string statement(const Code& c, int i) {
-        const Expr& x = c.exprs[size_t(i)];
+    std::string statement(const Code &c, int i) {
+        const Expr &x = c.exprs[size_t(i)];
         auto a = [&](size_t k) { return k < x.args.size() ? expr(c, x.args[k]) : std::string("?"); };
         using namespace token;
         switch (x.token) {
-        case Jump: return "jump " + hex4(uint32_t(x.value));
-        case JumpIfNot: return "if (!(" + a(0) + ")) jump " + hex4(uint32_t(x.value));
+        case Jump:
+            return "jump " + hex4(uint32_t(x.value));
+        case JumpIfNot:
+            return "if (!(" + a(0) + ")) jump " + hex4(uint32_t(x.value));
         case Return: {
             const bool nothing = x.args.empty() || x.args[0] < 0 || c.exprs[size_t(x.args[0])].token == Nothing;
             return nothing ? "return;" : "return " + a(0) + ";";
         }
-        case Stop: return "stop;";
-        case Switch: return "switch (" + a(0) + ")";
+        case Stop:
+            return "stop;";
+        case Switch:
+            return "switch (" + a(0) + ")";
         case Case:
             return x.value == 0xffff ? "default:" : "case " + a(0) + ": (else " + hex4(uint32_t(x.value)) + ")";
-        case Iterator: return "foreach " + a(0) + " (to " + hex4(uint32_t(x.value)) + ")";
-        case IteratorNext: return "next in foreach";
-        case IteratorPop: return "leave foreach";
-        case GotoLabel: return "goto " + a(0) + ";";
-        case Assert: return "assert(" + a(0) + "); // line " + std::to_string(x.value);
+        case Iterator:
+            return "foreach " + a(0) + " (to " + hex4(uint32_t(x.value)) + ")";
+        case IteratorNext:
+            return "next in foreach";
+        case IteratorPop:
+            return "leave foreach";
+        case GotoLabel:
+            return "goto " + a(0) + ";";
+        case Assert:
+            return "assert(" + a(0) + "); // line " + std::to_string(x.value);
         case LabelTable: {
             std::string s = "labels:";
-            for (const auto& [label, offset] : x.labels)
+            for (const auto &[label, offset] : x.labels)
                 s += " " + package_.name(label) + "=" + hex4(offset);
             return s;
         }
@@ -318,7 +349,7 @@ private:
         }
     }
 
-    std::string args(const Code& c, const Expr& x, size_t from = 0) {
+    std::string args(const Code &c, const Expr &x, size_t from = 0) {
         std::vector<std::string> parts;
         for (size_t k = from; k < x.args.size(); ++k) {
             const int a = x.args[k];
@@ -334,14 +365,14 @@ private:
         return s;
     }
 
-    std::string expr(const Code& c, int i) {
+    std::string expr(const Code &c, int i) {
         if (i < 0 || size_t(i) >= c.exprs.size())
             return "?";
-        const Expr& x = c.exprs[size_t(i)];
+        const Expr &x = c.exprs[size_t(i)];
         auto a = [&](size_t k) { return k < x.args.size() ? expr(c, x.args[k]) : std::string("?"); };
         using namespace token;
         if (x.native >= 0) {
-            const NativeFunction* n = natives_.find(x.native);
+            const NativeFunction *n = natives_.find(x.native);
             if (!n)
                 return "native" + std::to_string(x.native) + "(" + args(c, x) + ")";
             if (n->flags & funcflag::Operator) {
@@ -359,36 +390,60 @@ private:
         switch (x.token) {
         case LocalVariable:
         case InstanceVariable:
-        case NativeParm: return refName(x.ref);
-        case DefaultVariable: return "default." + refName(x.ref);
+        case NativeParm:
+            return refName(x.ref);
+        case DefaultVariable:
+            return "default." + refName(x.ref);
         case Let:
-        case LetBool: return a(0) + " = " + a(1);
+        case LetBool:
+            return a(0) + " = " + a(1);
         case EatString:
         case BoolVariable:
-        case Skip: return a(0);
-        case Context: return a(0) + "." + a(1);
-        case ClassContext: return a(0) + ".static." + a(1);
+        case Skip:
+            return a(0);
+        case Context:
+            return a(0) + "." + a(1);
+        case ClassContext:
+            return a(0) + ".static." + a(1);
         case ArrayElement:
-        case DynArrayElement: return a(1) + "[" + a(0) + "]";
-        case StructMember: return a(0) + "." + refName(x.ref);
-        case DynamicCast: return refName(x.ref) + "(" + a(0) + ")";
-        case MetaCast: return "class<" + refName(x.ref) + ">(" + a(0) + ")";
-        case VirtualFunction: return package_.name(x.ref) + "(" + args(c, x) + ")";
-        case GlobalFunction: return "global." + package_.name(x.ref) + "(" + args(c, x) + ")";
-        case FinalFunction: return package_.path(x.ref) + "(" + args(c, x) + ")";
-        case New: return "new(" + a(0) + ", " + a(1) + ", " + a(2) + ") " + a(3);
-        case StructCmpEq: return "(" + a(0) + " == " + a(1) + ")";
-        case StructCmpNe: return "(" + a(0) + " != " + a(1) + ")";
-        case Self: return "self";
-        case NoObject: return "None";
-        case Nothing: return "";
-        case True: return "true";
-        case False: return "false";
-        case IntZero: return "0";
-        case IntOne: return "1";
+        case DynArrayElement:
+            return a(1) + "[" + a(0) + "]";
+        case StructMember:
+            return a(0) + "." + refName(x.ref);
+        case DynamicCast:
+            return refName(x.ref) + "(" + a(0) + ")";
+        case MetaCast:
+            return "class<" + refName(x.ref) + ">(" + a(0) + ")";
+        case VirtualFunction:
+            return package_.name(x.ref) + "(" + args(c, x) + ")";
+        case GlobalFunction:
+            return "global." + package_.name(x.ref) + "(" + args(c, x) + ")";
+        case FinalFunction:
+            return package_.path(x.ref) + "(" + args(c, x) + ")";
+        case New:
+            return "new(" + a(0) + ", " + a(1) + ", " + a(2) + ") " + a(3);
+        case StructCmpEq:
+            return "(" + a(0) + " == " + a(1) + ")";
+        case StructCmpNe:
+            return "(" + a(0) + " != " + a(1) + ")";
+        case Self:
+            return "self";
+        case NoObject:
+            return "None";
+        case Nothing:
+            return "";
+        case True:
+            return "true";
+        case False:
+            return "false";
+        case IntZero:
+            return "0";
+        case IntOne:
+            return "1";
         case IntConst:
         case IntConstByte:
-        case ByteConst: return std::to_string(x.value);
+        case ByteConst:
+            return std::to_string(x.value);
         case FloatConst:
             std::snprintf(buf, sizeof buf, "%g", double(x.f[0]));
             return buf;
@@ -399,27 +454,31 @@ private:
             std::snprintf(buf, sizeof buf, "rot(%d, %d, %d)", x.rot[0], x.rot[1], x.rot[2]);
             return buf;
         case StringConst:
-        case UnicodeStringConst: return "\"" + x.text + "\"";
-        case NameConst: return "'" + package_.name(x.ref) + "'";
-        case ObjectConst: return x.ref ? package_.className(x.ref) + "'" + package_.path(x.ref) + "'" : "None";
-        default: return statement(c, i);
+        case UnicodeStringConst:
+            return "\"" + x.text + "\"";
+        case NameConst:
+            return "'" + package_.name(x.ref) + "'";
+        case ObjectConst:
+            return x.ref ? package_.className(x.ref) + "'" + package_.path(x.ref) + "'" : "None";
+        default:
+            return statement(c, i);
         }
     }
 
-    const PackageSet& packages_;
-    const Package& package_;
-    const NativeTable& natives_;
+    const PackageSet &packages_;
+    const Package &package_;
+    const NativeTable &natives_;
 };
 
 } // namespace
 
-NativeTable::NativeTable(const PackageSet& packages) {
-    for (const std::string& n : packages.names()) {
-        const Package* p = packages.get(n);
+NativeTable::NativeTable(const PackageSet &packages) {
+    for (const std::string &n : packages.names()) {
+        const Package *p = packages.get(n);
         if (!p)
             continue;
         for (size_t i = 0; i < p->exports().size(); ++i) {
-            const Export& e = p->exports()[i];
+            const Export &e = p->exports()[i];
             if (e.classRef == 0 || fs::toLower(p->objectName(e.classRef)) != "function")
                 continue;
             ScriptObject f;
@@ -443,13 +502,13 @@ NativeTable::NativeTable(const PackageSet& packages) {
     }
 }
 
-const NativeFunction* NativeTable::find(int native) const {
+const NativeFunction *NativeTable::find(int native) const {
     auto it = natives_.find(native);
     return it == natives_.end() ? nullptr : &it->second;
 }
 
-std::string scriptText(const PackageSet& packages, const Package& package, int exportIndex,
-                       const NativeTable& natives) {
+std::string scriptText(const PackageSet &packages, const Package &package, int exportIndex,
+                       const NativeTable &natives) {
     Writer w(packages, package, natives);
     w.object(exportIndex, 0);
     return w.out;

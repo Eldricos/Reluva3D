@@ -19,16 +19,16 @@ namespace reluva::stgenerations {
 
 namespace {
 
-constexpr const char* kGameId = "stgenerations";
-constexpr const char* kTitle = "Star Trek: Generations";
+constexpr const char *kGameId = "stgenerations";
+constexpr const char *kTitle = "Star Trek: Generations";
 
-bool isDir(const std::filesystem::path& p) {
+bool isDir(const std::filesystem::path &p) {
     std::error_code ec;
     return std::filesystem::is_directory(p, ec);
 }
 
 // The CD in `dir` (its GENS/ folder holding MUSIC.1 or MUSIC.2), if it is one.
-bool discIn(const std::filesystem::path& dir, GamePart::Kind& kind) {
+bool discIn(const std::filesystem::path &dir, GamePart::Kind &kind) {
     const auto gens = fs::findDirectory(dir, "GENS");
     if (!gens)
         return false;
@@ -43,20 +43,20 @@ bool discIn(const std::filesystem::path& dir, GamePart::Kind& kind) {
 
 // The installed game: DATA/COMMON.DAT and an executable (sgens.exe, or
 // any for a release whose executable is named otherwise).
-bool installIn(const std::filesystem::path& dir) {
+bool installIn(const std::filesystem::path &dir) {
     if (!fs::findFile(dir, "DATA/COMMON.DAT"))
         return false;
     if (fs::findFile(dir, "sgens.exe"))
         return true;
     std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec))
         if (entry.is_regular_file(ec) && text::hasSuffixIgnoreCase(entry.path().filename().string(), ".exe"))
             return true;
     return false;
 }
 
 // Search a buffer for an ASCII string, or its UTF-16LE form, ignoring case.
-bool containsString(const std::vector<uint8_t>& data, const char* needle) {
+bool containsString(const std::vector<uint8_t> &data, const char *needle) {
     const size_t len = std::strlen(needle);
     auto matchAt = [&](size_t pos, size_t stride) {
         for (size_t i = 0; i < len; i++) {
@@ -79,7 +79,7 @@ bool containsString(const std::vector<uint8_t>& data, const char* needle) {
 
 // Every file under `dir`, relative to it with '/', in one order on every
 // system.
-std::vector<std::string> listTree(const std::filesystem::path& dir) {
+std::vector<std::string> listTree(const std::filesystem::path &dir) {
     std::vector<std::string> out;
     std::error_code ec;
     for (auto it = std::filesystem::recursive_directory_iterator(dir, ec);
@@ -87,13 +87,12 @@ std::vector<std::string> listTree(const std::filesystem::path& dir) {
         if (it->is_regular_file(ec))
             out.push_back(std::filesystem::relative(it->path(), dir, ec).generic_string());
     }
-    std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
-        return fs::windowsNameLess(a, b);
-    });
+    std::sort(out.begin(), out.end(),
+              [](const std::string &a, const std::string &b) { return fs::windowsNameLess(a, b); });
     return out;
 }
 
-uint64_t sizeOf(const std::filesystem::path& p) {
+uint64_t sizeOf(const std::filesystem::path &p) {
     std::error_code ec;
     const auto n = std::filesystem::file_size(p, ec);
     return ec ? 0 : uint64_t(n);
@@ -101,12 +100,12 @@ uint64_t sizeOf(const std::filesystem::path& p) {
 
 // How many of an archive's members can't be read as they should (damaged
 // data, or a wrong CRC); -1 if it isn't an archive at all.
-int damagedMembers(const std::filesystem::path& file) {
+int damagedMembers(const std::filesystem::path &file) {
     ZipArchive zip;
     if (zip.open(file))
         return -1;
     int damaged = 0;
-    for (const ZipArchive::Entry& e : zip.entries()) {
+    for (const ZipArchive::Entry &e : zip.entries()) {
         std::vector<uint8_t> data;
         if (!e.name.empty() && e.name.back() != '/' && zip.read(e, data))
             ++damaged;
@@ -114,23 +113,23 @@ int damagedMembers(const std::filesystem::path& file) {
     return damaged;
 }
 
-bool sameFile(const std::filesystem::path& a, const std::filesystem::path& b) {
+bool sameFile(const std::filesystem::path &a, const std::filesystem::path &b) {
     if (sizeOf(a) != sizeOf(b))
         return false;
     std::vector<uint8_t> x, y;
     return readFile(a, x) && readFile(b, y) && x == y;
 }
 
-bool planned(const ImportPlan& plan, const std::string& to) {
+bool planned(const ImportPlan &plan, const std::string &to) {
     return std::any_of(plan.files.begin(), plan.files.end(),
-                       [&](const ImportPlan::File& f) { return text::equalsIgnoreCase(f.to, to); });
+                       [&](const ImportPlan::File &f) { return text::equalsIgnoreCase(f.to, to); });
 }
 
 } // namespace
 
-std::vector<GamePart> findGameParts(const std::filesystem::path& dir) {
+std::vector<GamePart> findGameParts(const std::filesystem::path &dir) {
     std::vector<GamePart> parts;
-    auto look = [&](const std::filesystem::path& d) {
+    auto look = [&](const std::filesystem::path &d) {
         GamePart::Kind kind;
         if (installIn(d))
             parts.push_back({GamePart::kInstall, d});
@@ -142,24 +141,24 @@ std::vector<GamePart> findGameParts(const std::filesystem::path& dir) {
     look(dir);
     std::vector<std::filesystem::path> children;
     std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(dir, ec))
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec))
         if (entry.is_directory(ec))
             children.push_back(entry.path());
-    std::sort(children.begin(), children.end(), [](const auto& a, const auto& b) {
+    std::sort(children.begin(), children.end(), [](const auto &a, const auto &b) {
         return fs::windowsNameLess(a.filename().string(), b.filename().string());
     });
-    for (const auto& child : children)
+    for (const auto &child : children)
         look(child);
     // One of each: the first found.
     std::vector<GamePart> unique;
-    for (const GamePart& p : parts)
-        if (std::none_of(unique.begin(), unique.end(), [&](const GamePart& u) { return u.kind == p.kind; }))
+    for (const GamePart &p : parts)
+        if (std::none_of(unique.begin(), unique.end(), [&](const GamePart &u) { return u.kind == p.kind; }))
             unique.push_back(p);
     return unique;
 }
 
-std::vector<DetectedGame> detectInstall(const std::string& engineId, const std::vector<GameVariant>& variants,
-                                        const std::filesystem::path& dir, bool* unknown) {
+std::vector<DetectedGame> detectInstall(const std::string &engineId, const std::vector<GameVariant> &variants,
+                                        const std::filesystem::path &dir, bool *unknown) {
     if (unknown)
         *unknown = false;
     if (!fs::findFile(dir, "DATA/COMMON.DAT"))
@@ -170,7 +169,7 @@ std::vector<DetectedGame> detectInstall(const std::string& engineId, const std::
     // A release with no signatures listed: an executable mentioning the
     // game's name.
     std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+    for (const auto &entry : std::filesystem::directory_iterator(dir, ec)) {
         if (!entry.is_regular_file(ec) || !text::hasSuffixIgnoreCase(entry.path().filename().string(), ".exe"))
             continue;
         const uint64_t size = sizeOf(entry.path());
@@ -197,7 +196,7 @@ namespace {
 // `planned` copies `candidate` instead when the two differ (a disc read
 // badly when it was copied, say) and `candidate`, an archive, is the more
 // nearly whole of the two; where it's copied to stays as it was.
-void preferWhole(ImportPlan::File& planned, const std::filesystem::path& candidate) {
+void preferWhole(ImportPlan::File &planned, const std::filesystem::path &candidate) {
     if (!text::hasSuffixIgnoreCase(planned.to, ".dat") || sameFile(planned.from, candidate))
         return;
     const int now = damagedMembers(planned.from), other = damagedMembers(candidate);
@@ -207,8 +206,8 @@ void preferWhole(ImportPlan::File& planned, const std::filesystem::path& candida
     }
 }
 
-ImportPlan::File* plannedFile(ImportPlan& plan, const std::string& to) {
-    for (ImportPlan::File& f : plan.files)
+ImportPlan::File *plannedFile(ImportPlan &plan, const std::string &to) {
+    for (ImportPlan::File &f : plan.files)
         if (text::equalsIgnoreCase(f.to, to))
             return &f;
     return nullptr;
@@ -216,10 +215,10 @@ ImportPlan::File* plannedFile(ImportPlan& plan, const std::string& to) {
 
 // The GENS folders of the CDs already in the plan, found from the files
 // planned from them.
-std::vector<std::filesystem::path> plannedCds(const ImportPlan& plan) {
+std::vector<std::filesystem::path> plannedCds(const ImportPlan &plan) {
     std::vector<std::filesystem::path> out;
-    for (const ImportPlan::File& f : plan.files) {
-        for (const char* folder : {"disc1/GENS/", "disc2/GENS/"}) {
+    for (const ImportPlan::File &f : plan.files) {
+        for (const char *folder : {"disc1/GENS/", "disc2/GENS/"}) {
             const std::string prefix = folder;
             if (f.to.size() > prefix.size() && text::equalsIgnoreCase(f.to.substr(0, prefix.size()), prefix) &&
                 f.to.find('/', prefix.size()) == std::string::npos) {
@@ -234,9 +233,9 @@ std::vector<std::filesystem::path> plannedCds(const ImportPlan& plan) {
 
 } // namespace
 
-void addPartToImport(ImportPlan& plan, const GamePart& part) {
+void addPartToImport(ImportPlan &plan, const GamePart &part) {
     if (part.kind == GamePart::kInstall) {
-        for (const std::string& rel : listTree(part.dir)) {
+        for (const std::string &rel : listTree(part.dir)) {
             if (planned(plan, rel))
                 continue;
             plan.files.push_back({part.dir / rel, rel, sizeOf(part.dir / rel), std::nullopt});
@@ -244,11 +243,11 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
         // The data files the setup copied in, which the CDs have too: the
         // whole copy, if the install's isn't.
         const std::vector<std::filesystem::path> cds = plannedCds(plan);
-        for (const DataFileLocation* f = dataFiles(); f->name; f++) {
-            ImportPlan::File* installed = f->installed ? plannedFile(plan, std::string("DATA/") + f->name) : nullptr;
+        for (const DataFileLocation *f = dataFiles(); f->name; f++) {
+            ImportPlan::File *installed = f->installed ? plannedFile(plan, std::string("DATA/") + f->name) : nullptr;
             if (!installed)
                 continue;
-            for (const std::filesystem::path& gens : cds)
+            for (const std::filesystem::path &gens : cds)
                 if (const auto file = fs::findFile(gens, f->name))
                     preferWhole(*installed, *file);
         }
@@ -257,7 +256,7 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
     // From a CD, what the setup leaves on it, once.
     const std::filesystem::path gens = *fs::findDirectory(part.dir, "GENS");
     const std::string folder = part.kind == GamePart::kDisc1 ? "disc1/GENS/" : "disc2/GENS/";
-    for (const DataFileLocation* f = dataFiles(); f->name; f++) {
+    for (const DataFileLocation *f = dataFiles(); f->name; f++) {
         if (part.kind == GamePart::kDisc1 ? !f->onDisc1 : !f->onDisc2)
             continue;
         const auto file = fs::findFile(gens, f->name);
@@ -266,14 +265,14 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
         // One the setup copied in: the CD's copy, in the install's place, if
         // it's whole where the install's isn't.
         if (f->installed) {
-            if (ImportPlan::File* installed = plannedFile(plan, std::string("DATA/") + f->name))
+            if (ImportPlan::File *installed = plannedFile(plan, std::string("DATA/") + f->name))
                 preferWhole(*installed, *file);
             continue;
         }
         // Files on both CDs are the same: one copy, from the first CD added.
         // Unless the copies differ and the other CD's archive is the whole
         // one: then that one.
-        ImportPlan::File* have = plannedFile(plan, std::string("disc1/GENS/") + f->name);
+        ImportPlan::File *have = plannedFile(plan, std::string("disc1/GENS/") + f->name);
         if (!have)
             have = plannedFile(plan, std::string("disc2/GENS/") + f->name);
         if (have) {
@@ -287,20 +286,20 @@ void addPartToImport(ImportPlan& plan, const GamePart& part) {
     }
 }
 
-void noteImport(ImportPlan& plan) {
+void noteImport(ImportPlan &plan) {
     bool install = false;
-    for (const ImportPlan::File& f : plan.files)
+    for (const ImportPlan::File &f : plan.files)
         install = install || text::equalsIgnoreCase(f.to, "DATA/COMMON.DAT");
     plan.notes.clear();
     if (!install)
         plan.notes.push_back("The installed game isn't here: install it with its own setup, then add its folder "
                              "(the one with sgens.exe). Reluva can't install it from the CDs.");
     std::vector<std::string> missing;
-    for (const DataFileLocation* f = dataFiles(); f->name; f++) {
+    for (const DataFileLocation *f = dataFiles(); f->name; f++) {
         if (f->installed)
             continue;
         bool have = false;
-        for (const char* folder : {"disc1/GENS/", "disc2/GENS/"})
+        for (const char *folder : {"disc1/GENS/", "disc2/GENS/"})
             have = have || planned(plan, std::string(folder) + f->name);
         if (!have)
             missing.push_back(f->name);
@@ -311,8 +310,9 @@ void noteImport(ImportPlan& plan) {
             list += (i ? ", " : "") + missing[i];
         if (missing.size() > 4)
             list += ", ...";
-        plan.notes.push_back("From the CDs, still missing: " + list +
-                             ". Add the CDs (or copies of them) for the story, space combat, the music and the movies.");
+        plan.notes.push_back(
+            "From the CDs, still missing: " + list +
+            ". Add the CDs (or copies of them) for the story, space combat, the music and the movies.");
     }
     if (plan.notes.empty())
         plan.notes.push_back("The installed game and both CDs: everything the game needs.");

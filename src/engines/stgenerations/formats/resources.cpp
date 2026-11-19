@@ -17,45 +17,43 @@ namespace reluva::stgenerations {
 
 namespace {
 
-const DataFileLocation kDataFiles[] = {
-    { "COMMON.DAT", true, true, true },
-    { "OPTIONS.DAT", true, true, true },
-    { "AMARGOS1.DAT", true, true, false },
-    { "AMARGOS2.DAT", true, false, true },
-    { "ANTILIOS.DAT", true, true, false },
-    { "ARVADA1.DAT", true, false, true },
-    { "BERSUS.DAT", true, true, false },
-    { "ENTERP.DAT", true, false, true },
-    { "EPSION.DAT", true, true, false },
-    { "GALORN1.DAT", true, false, true },
-    { "GALORN2.DAT", true, false, true },
-    { "HALEE1.DAT", true, false, true },
-    { "QURASH.DAT", true, true, false },
-    { "VERID1.DAT", true, false, true },
-    { "COMBAT.DAT", false, true, true },
-    { "STELLAR.DAT", false, true, true },
-    { "MUSIC.1", false, true, false },
-    { "MUSIC.2", false, false, true },
-    { "MOVIE/MOV_01.AVI", false, true, false },
-    { "MOVIE/MOV_02.AVI", false, true, true },
-    { "MOVIE/MOV_03.AVI", false, true, false },
-    { "MOVIE/MOV_05.AVI", false, true, false },
-    { "MOVIE/MOV_06.AVI", false, false, true },
-    { "MOVIE/MOV_07.AVI", false, true, false },
-    { "MOVIE/MOV_08.AVI", false, true, false },
-    { "MOVIE/MOV_09.AVI", false, false, true },
-    { "MOVIE/MOV_10.AVI", false, false, true },
-    { "MOVIE/MOV_13.AVI", false, false, true },
-    { "MOVIE/MOV_14.AVI", false, false, true },
-    { "MOVIE/MOV_15.AVI", false, false, true },
-    { "MOVIE/MOV_16.AVI", false, false, true },
-    { "MOVIE/MOV_18.AVI", false, true, false },
-    { nullptr, false, false, false }
-};
+const DataFileLocation kDataFiles[] = {{"COMMON.DAT", true, true, true},
+                                       {"OPTIONS.DAT", true, true, true},
+                                       {"AMARGOS1.DAT", true, true, false},
+                                       {"AMARGOS2.DAT", true, false, true},
+                                       {"ANTILIOS.DAT", true, true, false},
+                                       {"ARVADA1.DAT", true, false, true},
+                                       {"BERSUS.DAT", true, true, false},
+                                       {"ENTERP.DAT", true, false, true},
+                                       {"EPSION.DAT", true, true, false},
+                                       {"GALORN1.DAT", true, false, true},
+                                       {"GALORN2.DAT", true, false, true},
+                                       {"HALEE1.DAT", true, false, true},
+                                       {"QURASH.DAT", true, true, false},
+                                       {"VERID1.DAT", true, false, true},
+                                       {"COMBAT.DAT", false, true, true},
+                                       {"STELLAR.DAT", false, true, true},
+                                       {"MUSIC.1", false, true, false},
+                                       {"MUSIC.2", false, false, true},
+                                       {"MOVIE/MOV_01.AVI", false, true, false},
+                                       {"MOVIE/MOV_02.AVI", false, true, true},
+                                       {"MOVIE/MOV_03.AVI", false, true, false},
+                                       {"MOVIE/MOV_05.AVI", false, true, false},
+                                       {"MOVIE/MOV_06.AVI", false, false, true},
+                                       {"MOVIE/MOV_07.AVI", false, true, false},
+                                       {"MOVIE/MOV_08.AVI", false, true, false},
+                                       {"MOVIE/MOV_09.AVI", false, false, true},
+                                       {"MOVIE/MOV_10.AVI", false, false, true},
+                                       {"MOVIE/MOV_13.AVI", false, false, true},
+                                       {"MOVIE/MOV_14.AVI", false, false, true},
+                                       {"MOVIE/MOV_15.AVI", false, false, true},
+                                       {"MOVIE/MOV_16.AVI", false, false, true},
+                                       {"MOVIE/MOV_18.AVI", false, true, false},
+                                       {nullptr, false, false, false}};
 
 // The folder holding the game's data inside an install or a disc, if it
 // has one.
-std::filesystem::path findDataDir(const std::filesystem::path& root, const char* subdir) {
+std::filesystem::path findDataDir(const std::filesystem::path &root, const char *subdir) {
     if (auto dir = fs::findDirectory(root, subdir))
         return *dir;
     return root;
@@ -68,8 +66,8 @@ public:
     std::vector<std::string> list() const override { return zip_->list(); }
     bool has(std::string_view name) const override { return zip_->has(name); }
     // Stored files whatever their CRC says, as ResourceManager::open reads them.
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override {
-        const ZipArchive::Entry* e = zip_->entry(name);
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override {
+        const ZipArchive::Entry *e = zip_->entry(name);
         if (!e)
             return Error::fail(zip_->describe() + ": no " + std::string(name));
         bool crcOk = true;
@@ -87,17 +85,19 @@ private:
 
 } // namespace
 
-const DataFileLocation* dataFiles() { return kDataFiles; }
+const DataFileLocation *dataFiles() {
+    return kDataFiles;
+}
 
-void ResourceManager::addSearchPaths(const std::filesystem::path& gameDir, const std::filesystem::path& cd1Path,
-                                     const std::filesystem::path& cd2Path) {
+void ResourceManager::addSearchPaths(const std::filesystem::path &gameDir, const std::filesystem::path &cd1Path,
+                                     const std::filesystem::path &cd2Path) {
     // Each folder is searched by plain name ("COMMON.DAT",
     // "MOVIE/MOV_01.AVI") wherever the file is. Installed files win over
     // the discs.
     _dataDirs.clear();
     _files.clear();
     _dataDirs.push_back(findDataDir(gameDir, "DATA"));
-    auto addDir = [this](const std::filesystem::path& dir, int priority, int depth) {
+    auto addDir = [this](const std::filesystem::path &dir, int priority, int depth) {
         auto archive = std::make_unique<DirectoryArchive>();
         if (!archive->open(dir, depth))
             _files.add(std::move(archive), priority);
@@ -126,7 +126,7 @@ void ResourceManager::addSearchPaths(const std::filesystem::path& gameDir, const
 
 std::vector<std::string> ResourceManager::missingDataFiles() const {
     std::vector<std::string> missing;
-    for (const DataFileLocation* f = kDataFiles; f->name; f++)
+    for (const DataFileLocation *f = kDataFiles; f->name; f++)
         if (!_files.has(f->name))
             missing.push_back(f->name);
     return missing;
@@ -135,7 +135,7 @@ std::vector<std::string> ResourceManager::missingDataFiles() const {
 bool ResourceManager::checkDataFiles() const {
     std::vector<std::string> missing[2];
     std::vector<std::string> missingInstalled;
-    for (const DataFileLocation* f = kDataFiles; f->name; f++) {
+    for (const DataFileLocation *f = kDataFiles; f->name; f++) {
         if (_files.has(f->name))
             continue;
         if (f->installed)
@@ -162,14 +162,14 @@ bool ResourceManager::checkDataFiles() const {
 
 void ResourceManager::openArchives() {
     _archives.clear();
-    for (const DataFileLocation* f = kDataFiles; f->name; f++) {
+    for (const DataFileLocation *f = kDataFiles; f->name; f++) {
         std::string name = f->name;
         if (!text::hasSuffixIgnoreCase(name, ".dat") && !text::matchGlob(name, "MUSIC.?"))
             continue;
 
         // Installed copies first, then the discs, as in addSearchPaths().
         std::optional<std::filesystem::path> file;
-        for (const std::filesystem::path& dir : _dataDirs)
+        for (const std::filesystem::path &dir : _dataDirs)
             if ((file = fs::findFile(dir, name)))
                 break;
         if (!file)
@@ -185,14 +185,14 @@ void ResourceManager::openArchives() {
 
     // The shared resources are found by name, after the loose files.
     int priority = -1;
-    for (const char* name : {"COMMON.DAT", "OPTIONS.DAT"}) {
+    for (const char *name : {"COMMON.DAT", "OPTIONS.DAT"}) {
         if (std::shared_ptr<ZipArchive> zip = getArchive(name))
             _files.add(std::make_unique<SharedArchive>(zip), priority--);
     }
     debugC(1, "resources", "Opened %d data archives", (int)_archives.size());
 }
 
-std::shared_ptr<ZipArchive> ResourceManager::getArchive(const std::string& name) const {
+std::shared_ptr<ZipArchive> ResourceManager::getArchive(const std::string &name) const {
     auto it = _archives.find(text::toUpper(name));
     return it == _archives.end() ? nullptr : it->second;
 }
@@ -201,7 +201,7 @@ void ResourceManager::scan() {
     _images.clear();
     _sounds.clear();
 
-    auto add = [this](const std::string& archive, const std::string& name) {
+    auto add = [this](const std::string &archive, const std::string &name) {
         if (text::hasSuffixIgnoreCase(name, ".bmp") || text::hasSuffixIgnoreCase(name, ".ovr") ||
             text::hasSuffixIgnoreCase(name, ".gs2") || text::hasSuffixIgnoreCase(name, ".lv2"))
             _images.push_back({archive, name});
@@ -211,24 +211,24 @@ void ResourceManager::scan() {
 
     // Archives in name order, members in archive order, a name repeated in
     // an archive once.
-    for (const auto& entry : _archives) {
+    for (const auto &entry : _archives) {
         std::set<std::string> seen;
-        for (const ZipArchive::Entry& member : entry.second->entries())
+        for (const ZipArchive::Entry &member : entry.second->entries())
             if (!member.name.empty() && member.name.back() != '/' &&
                 seen.insert(normalizeArchiveName(member.name)).second)
                 add(entry.first, member.name);
     }
 
     // Loose files in the data folders, if any, in each folder's order.
-    for (const std::filesystem::path& dir : _dataDirs) {
+    for (const std::filesystem::path &dir : _dataDirs) {
         DirectoryArchive files;
         if (files.open(dir, 1))
             continue;
         std::vector<std::string> names = files.list();
-        std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+        std::sort(names.begin(), names.end(), [](const std::string &a, const std::string &b) {
             return normalizeArchiveName(a) < normalizeArchiveName(b);
         });
-        for (const std::string& name : names)
+        for (const std::string &name : names)
             add("", name);
     }
 
@@ -236,14 +236,14 @@ void ResourceManager::scan() {
 }
 
 void ResourceManager::logInventory() const {
-    for (const auto& entry : _archives) {
+    for (const auto &entry : _archives) {
         std::map<std::string, int> byExtension;
-        for (const ZipArchive::Entry& member : entry.second->entries()) {
+        for (const ZipArchive::Entry &member : entry.second->entries()) {
             size_t dot = member.name.rfind('.');
             byExtension[dot == std::string::npos ? "?" : text::toUpper(member.name.substr(dot + 1))]++;
         }
         std::string summary;
-        for (const auto& ext : byExtension)
+        for (const auto &ext : byExtension)
             summary += text::format(" %d %s,", ext.second, ext.first.c_str());
         if (!summary.empty())
             summary.pop_back();
@@ -251,21 +251,21 @@ void ResourceManager::logInventory() const {
     }
 }
 
-bool ResourceManager::hasResource(const ResourceRef& ref) const {
+bool ResourceManager::hasResource(const ResourceRef &ref) const {
     if (ref.archive.empty())
         return _files.has(ref.name);
     std::shared_ptr<ZipArchive> zip = getArchive(ref.archive);
     return zip && zip->has(ref.name);
 }
 
-std::unique_ptr<SeekableReadStream> ResourceManager::open(const ResourceRef& ref) const {
+std::unique_ptr<SeekableReadStream> ResourceManager::open(const ResourceRef &ref) const {
     std::vector<uint8_t> data;
     if (ref.archive.empty()) {
         if (_files.read(ref.name, data))
             return nullptr;
     } else {
         std::shared_ptr<ZipArchive> zip = getArchive(ref.archive);
-        const ZipArchive::Entry* entry = zip ? zip->entry(ref.name) : nullptr;
+        const ZipArchive::Entry *entry = zip ? zip->entry(ref.name) : nullptr;
         // A stored file whose CRC doesn't match is read all the same, as the
         // original (and STG-Engine) read them: some copies of the game have
         // a few bits wrong in some of their music.
@@ -279,7 +279,7 @@ std::unique_ptr<SeekableReadStream> ResourceManager::open(const ResourceRef& ref
     return std::make_unique<MemoryReadStream>(std::move(data));
 }
 
-bool ResourceManager::loadImage(const ResourceRef& ref, BitmapDecoder& decoder) const {
+bool ResourceManager::loadImage(const ResourceRef &ref, BitmapDecoder &decoder) const {
     std::unique_ptr<SeekableReadStream> stream = open(ref);
     if (!stream) {
         log::warning("Could not open image %s", ref.toString().c_str());
@@ -292,8 +292,8 @@ bool ResourceManager::loadImage(const ResourceRef& ref, BitmapDecoder& decoder) 
     return true;
 }
 
-bool ResourceManager::loadArchivePalette(const std::string& archive, Palette& palette) const {
-    for (const ResourceRef& ref : _images) {
+bool ResourceManager::loadArchivePalette(const std::string &archive, Palette &palette) const {
+    for (const ResourceRef &ref : _images) {
         if (ref.archive != archive || !text::hasSuffixIgnoreCase(ref.name, ".bmp"))
             continue;
         BitmapDecoder decoder;
@@ -305,7 +305,7 @@ bool ResourceManager::loadArchivePalette(const std::string& archive, Palette& pa
     return false;
 }
 
-std::unique_ptr<SoundStream> ResourceManager::loadSound(const ResourceRef& ref) const {
+std::unique_ptr<SoundStream> ResourceManager::loadSound(const ResourceRef &ref) const {
     std::unique_ptr<SeekableReadStream> stream = open(ref);
     if (!stream) {
         log::warning("Could not open sound %s", ref.toString().c_str());
@@ -314,7 +314,7 @@ std::unique_ptr<SoundStream> ResourceManager::loadSound(const ResourceRef& ref) 
     return makeWavStream(*stream);
 }
 
-std::string ResourceManager::loadSubtitle(const ResourceRef& soundRef) const {
+std::string ResourceManager::loadSubtitle(const ResourceRef &soundRef) const {
     size_t dot = soundRef.name.rfind('.');
     if (dot == std::string::npos)
         return std::string();

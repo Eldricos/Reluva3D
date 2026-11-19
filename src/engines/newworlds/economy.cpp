@@ -31,17 +31,17 @@ constexpr double kWarnEvery = 60;
 
 } // namespace
 
-const char* materialName(int m) {
-    static const char* const kNames[] = {"DILITHIUM", "POLYCOMP", "THERMOCONC", "TRANSALUMIN", "NITRIUM", "DURANIUM"};
+const char *materialName(int m) {
+    static const char *const kNames[] = {"DILITHIUM", "POLYCOMP", "THERMOCONC", "TRANSALUMIN", "NITRIUM", "DURANIUM"};
     return m >= 0 && m < kMaterials ? kNames[m] : "";
 }
 
-const char* oreName(int kind) {
-    static const char* const kNames[] = {"dilithium", "talgonite", "silicon", "kelbonite", "magnesite", "dolamide"};
+const char *oreName(int kind) {
+    static const char *const kNames[] = {"dilithium", "talgonite", "silicon", "kelbonite", "magnesite", "dolamide"};
     return kind >= 1 && kind <= kOres ? kNames[kind - 1] : "";
 }
 
-const std::vector<BuildingType>& buildingTypes() {
+const std::vector<BuildingType> &buildingTypes() {
     // Costs as the training missions' build menu shows them, in the
     // stock's order (Dilithium, Polycomp, Thermoconc, Transalumin,
     // Nitrium, Duranium; play-tutorials.md#build-costs-shown). The
@@ -66,24 +66,27 @@ const std::vector<BuildingType>& buildingTypes() {
     return kTypes;
 }
 
-const BuildingType* buildingType(std::string_view id) {
-    for (const BuildingType& t : buildingTypes())
+const BuildingType *buildingType(std::string_view id) {
+    for (const BuildingType &t : buildingTypes())
         if (t.id == id)
             return &t;
     return nullptr;
 }
 
 Economy::Economy(char side, Stock start, int crew, int capacity, ColonyMap map)
-    : side_(side), stock_(start), crew_(crew), capacity_(capacity), map_(std::move(map)) {}
-
-bool Economy::has(const std::string& type) const {
-    return std::any_of(structures_.begin(), structures_.end(),
-                       [&](const ColonyStructure& s) { return s.type == type && s.progress >= 1; });
+    : side_(side), stock_(start), crew_(crew), capacity_(capacity), map_(std::move(map)) {
 }
 
-bool Economy::available(const BuildingType& t) const { return t.needs != "-" && (t.needs.empty() || has(t.needs)); }
+bool Economy::has(const std::string &type) const {
+    return std::any_of(structures_.begin(), structures_.end(),
+                       [&](const ColonyStructure &s) { return s.type == type && s.progress >= 1; });
+}
 
-bool Economy::affordable(const BuildingType& t) const {
+bool Economy::available(const BuildingType &t) const {
+    return t.needs != "-" && (t.needs.empty() || has(t.needs));
+}
+
+bool Economy::affordable(const BuildingType &t) const {
     for (int m = 0; m < kMaterials; ++m)
         if (stock_[size_t(m)] < t.cost[size_t(m)])
             return false;
@@ -92,16 +95,16 @@ bool Economy::affordable(const BuildingType& t) const {
 
 float Economy::powerSupply() const {
     float p = 0;
-    for (const ColonyStructure& s : structures_)
-        if (const BuildingType* t = buildingType(s.type); t && s.progress >= 1 && t->power > 0)
+    for (const ColonyStructure &s : structures_)
+        if (const BuildingType *t = buildingType(s.type); t && s.progress >= 1 && t->power > 0)
             p += t->power;
     return p;
 }
 
 float Economy::powerDemand() const {
     float p = 0;
-    for (const ColonyStructure& s : structures_)
-        if (const BuildingType* t = buildingType(s.type); t && s.progress >= 1 && t->power < 0 && !s.exhausted)
+    for (const ColonyStructure &s : structures_)
+        if (const BuildingType *t = buildingType(s.type); t && s.progress >= 1 && t->power < 0 && !s.exhausted)
             p -= t->power;
     return p;
 }
@@ -111,7 +114,7 @@ float Economy::demandMet() const {
     return d <= 0 ? 1 : std::min(1.0f, powerSupply() / d);
 }
 
-int Economy::addBuilt(const std::string& type, float x, float y) {
+int Economy::addBuilt(const std::string &type, float x, float y) {
     ColonyStructure s;
     s.id = nextId_++;
     s.type = type;
@@ -120,8 +123,8 @@ int Economy::addBuilt(const std::string& type, float x, float y) {
     return s.id;
 }
 
-int Economy::order(const std::string& type, float x, float y, int tx, int ty) {
-    const BuildingType* t = buildingType(type);
+int Economy::order(const std::string &type, float x, float y, int tx, int ty) {
+    const BuildingType *t = buildingType(type);
     if (!t || !available(*t))
         return 0;
     ColonyStructure s;
@@ -151,10 +154,10 @@ std::vector<ScriptEvent> Economy::advance(double seconds) {
     // Construction: paid for when it starts, then up over kBuildSeconds,
     // slower without full power.
     bool waiting = false;
-    for (ColonyStructure& s : structures_) {
+    for (ColonyStructure &s : structures_) {
         if (s.progress >= 1)
             continue;
-        const BuildingType* t = buildingType(s.type);
+        const BuildingType *t = buildingType(s.type);
         if (!s.started) {
             if (!affordable(*t)) {
                 waiting = true;
@@ -176,15 +179,17 @@ std::vector<ScriptEvent> Economy::advance(double seconds) {
     }
     // Mining: each working station digs its block's ore for the processor.
     const bool processor = has("resource-processor");
-    for (ColonyStructure& s : structures_) {
+    for (ColonyStructure &s : structures_) {
         if (s.type != "mining-station" || s.progress < 1 || s.exhausted || !processor)
             continue;
-        auto it = std::find_if(mined_.begin(), mined_.end(), [&](const auto& m) { return m.first == std::pair{s.blockX, s.blockY}; });
+        auto it = std::find_if(mined_.begin(), mined_.end(),
+                               [&](const auto &m) { return m.first == std::pair{s.blockX, s.blockY}; });
         if (it == mined_.end()) {
             mined_.push_back({{s.blockX, s.blockY}, 0});
             it = mined_.end() - 1;
         }
-        const float held = (map_.depositAmount ? float(map_.depositAmount(s.blockX * 2, s.blockY * 2)) : 100) * kOrePerUnit;
+        const float held =
+            (map_.depositAmount ? float(map_.depositAmount(s.blockX * 2, s.blockY * 2)) : 100) * kOrePerUnit;
         const float take = std::min(kMineRate * met * float(seconds), held - it->second);
         it->second += take;
         ore_[size_t(s.deposit - 1)] += take;

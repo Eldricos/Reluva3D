@@ -35,12 +35,12 @@ std::string formatTime(uint32_t t) {
     int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100), mp = (5 * doy + 2) / 153;
     int64_t d = doy - (153 * mp + 2) / 5 + 1, m = mp < 10 ? mp + 3 : mp - 9, y = yoe + era * 400 + (m <= 2);
     char buf[32];
-    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(y), int(m), int(d),
-                  int(secs / 3600), int(secs / 60 % 60));
+    std::snprintf(buf, sizeof buf, "%04d-%02d-%02d %02d:%02d", int(y), int(m), int(d), int(secs / 3600),
+                  int(secs / 60 % 60));
     return buf;
 }
 
-int cmdPacList(int argc, char** argv) {
+int cmdPacList(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool netimmerse pac-list <file.pac>\n");
         return 2;
@@ -51,18 +51,18 @@ int cmdPacList(int argc, char** argv) {
         return 1;
     }
     uint64_t total = 0;
-    for (const auto& e : pac.entries()) {
+    for (const auto &e : pac.entries()) {
         const auto t = reluva::netimmerse::PacArchive::unixTime(e.modified);
         std::printf("%10llu %9u  %-16s %s\n", static_cast<unsigned long long>(e.offset), e.size,
                     formatTime(uint32_t(t)).c_str(), e.name.c_str());
         total += e.size;
     }
-    std::printf("%zu files, %llu bytes, data from %u\n", pac.entries().size(),
-                static_cast<unsigned long long>(total), pac.dataStart());
+    std::printf("%zu files, %llu bytes, data from %u\n", pac.entries().size(), static_cast<unsigned long long>(total),
+                pac.dataStart());
     return 0;
 }
 
-int cmdPacExtract(int argc, char** argv) {
+int cmdPacExtract(int argc, char **argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: reluva-tool netimmerse pac-extract <file.pac> <output dir> [name filter]\n");
         return 2;
@@ -78,13 +78,13 @@ int cmdPacExtract(int argc, char** argv) {
     std::filesystem::create_directories(outDir, ec);
     std::vector<uint8_t> data;
     unsigned written = 0;
-    for (const auto& e : pac.entries()) {
+    for (const auto &e : pac.entries()) {
         if (reluva::fs::toLower(e.name).find(filter) == std::string::npos)
             continue;
         // Names come from the archive: refuse anything that could escape outDir.
         const std::filesystem::path rel(e.name);
         bool safe = !rel.is_absolute() && !rel.has_root_name() && rel.has_filename();
-        for (const auto& part : rel)
+        for (const auto &part : rel)
             safe &= part != "..";
         if (!safe) {
             std::fprintf(stderr, "skipping unsafe name %s\n", e.name.c_str());
@@ -97,7 +97,7 @@ int cmdPacExtract(int argc, char** argv) {
         const std::filesystem::path out = outDir / rel;
         std::filesystem::create_directories(out.parent_path(), ec);
         std::ofstream f(out, std::ios::binary);
-        f.write(reinterpret_cast<const char*>(data.data()), std::streamsize(data.size()));
+        f.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));
         if (!f) {
             std::fprintf(stderr, "cannot write %s\n", out.string().c_str());
             return 1;
@@ -108,7 +108,7 @@ int cmdPacExtract(int argc, char** argv) {
     return 0;
 }
 
-int cmdFinCheck(int argc, char** argv) {
+int cmdFinCheck(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool netimmerse fin-check <Fin.pac> [file.pac...]\n");
         return 2;
@@ -145,7 +145,7 @@ int cmdFinCheck(int argc, char** argv) {
     unsigned flipModes[4] = {}; // loop, reverse, clamp, other
     unsigned clipSounds = 0, soundLoop = 0, soundUnplaced = 0, soundMuted = 0, soundOdd = 0;
     std::vector<uint8_t> data;
-    for (const auto& e : fin.entries()) {
+    for (const auto &e : fin.entries()) {
         if (e.size == 0)
             continue;
         ++files;
@@ -158,56 +158,57 @@ int cmdFinCheck(int argc, char** argv) {
             ++failed;
             continue;
         }
-        for (const auto& o : model.objects()) {
-            Count& c = counts[o.type];
+        for (const auto &o : model.objects()) {
+            Count &c = counts[o.type];
             ++c.total;
             c.read += o.read;
             c.exact += o.exact;
         }
         // Links: children are nodes or shapes, properties are properties,
         // textures' frames are images.
-        auto expect = [&](uint32_t id, bool ok, const char* what) {
+        auto expect = [&](uint32_t id, bool ok, const char *what) {
             if (!ok) {
                 if (++badLinks <= 10)
                     std::printf("%s: link %08x (%s) is not %s\n", e.name.c_str(), id, model.typeOf(id).c_str(), what);
             }
         };
-        for (const auto& [id, node] : model.nodes) {
+        for (const auto &[id, node] : model.nodes) {
             for (uint32_t c : node.children)
-                expect(c, model.nodes.count(c) || model.shapes.count(c) || model.coronas.count(c) || model.skins.count(c) ||
-                              model.typeOf(c) == "NiLight" ||
-                              model.typeOf(c).rfind("Ni3ds", 0) == 0,
+                expect(c,
+                       model.nodes.count(c) || model.shapes.count(c) || model.coronas.count(c) ||
+                           model.skins.count(c) || model.typeOf(c) == "NiLight" ||
+                           model.typeOf(c).rfind("Ni3ds", 0) == 0,
                        "a node or shape");
             for (uint32_t p : node.properties)
                 expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
             if (node.actor)
                 expect(node.actor, model.typeOf(node.actor) == "DDActorSharedData", "an actor's data");
         }
-        for (const auto& [id, shape] : model.shapes) {
+        for (const auto &[id, shape] : model.shapes) {
             ++shapes;
             triangles += unsigned(shape.triangles.size() / 3);
             for (uint32_t p : shape.properties)
                 expect(p, model.typeOf(p).find("Property") != std::string::npos, "a property");
         }
-        for (const auto& [id, skin] : model.skins)
-            for (const auto& in : skin.influences)
+        for (const auto &[id, skin] : model.skins)
+            for (const auto &in : skin.influences)
                 expect(in.bone, model.typeOf(in.bone) == "Ni3dsBone", "a bone");
-        for (const auto& [id, frames] : model.textures)
+        for (const auto &[id, frames] : model.textures)
             for (uint32_t f : frames)
                 expect(f, model.images.count(f) != 0, "an image");
-        for (const auto& [id, image] : model.multiTextures)
+        for (const auto &[id, image] : model.multiTextures)
             expect(image, model.images.count(image) != 0, "an image");
-        for (const auto& [id, flip] : model.flips) {
+        for (const auto &[id, flip] : model.flips) {
             expect(flip.target, model.typeOf(flip.target) == "NiTextureProperty", "a texture property");
             ++flipModes[std::min<uint32_t>(flip.outOfBounds, 3)];
         }
-        for (const auto& [id, a] : model.materialAnimators)
+        for (const auto &[id, a] : model.materialAnimators)
             expect(a.target, model.typeOf(a.target) == "NiMaterialProperty", "a material");
         // An actor's tracks go to the 3ds nodes in depth-first order: there
         // are as many, and each track's first key is where its node was
         // saved.
         const std::vector<uint32_t> animated = model.animatedNodes();
-        for (const auto& [id, actor] : model.actors) {
+        for (const auto &[id, actor] : model.actors) {
             if (actor.tracks.empty())
                 continue;
             ++actorsWithTracks;
@@ -217,8 +218,8 @@ int cmdFinCheck(int argc, char** argv) {
                 continue;
             }
             for (size_t i = 0; i < animated.size(); ++i) {
-                const auto& node = model.nodes.at(animated[i]);
-                const auto& t = actor.tracks[i];
+                const auto &node = model.nodes.at(animated[i]);
+                const auto &t = actor.tracks[i];
                 if (!t.positions.empty()) {
                     ++keysChecked;
                     float d = 0;
@@ -241,16 +242,16 @@ int cmdFinCheck(int argc, char** argv) {
             }
         }
         // A clip's lists name tracks, flip-books and morph shapes by number.
-        for (const auto& [id, actor] : model.actors)
-            for (const auto& c : actor.clips) {
+        for (const auto &[id, actor] : model.actors)
+            for (const auto &c : actor.clips) {
                 if (!c.sound.empty()) {
                     ++clipSounds;
                     soundLoop += c.loop, soundUnplaced += c.unplaced, soundMuted += c.muteBeyondMax;
                     soundOdd += !c.soundNode.empty() || c.delay != 0;
                 }
-                const std::pair<const std::vector<uint16_t>*, size_t> lists[] = {
+                const std::pair<const std::vector<uint16_t> *, size_t> lists[] = {
                     {&c.tracks, animated.size()}, {&c.flips, model.flips.size()}, {&c.morphs, model.morphs.size()}};
-                for (const auto& [list, count] : lists) {
+                for (const auto &[list, count] : lists) {
                     clipLists += !list->empty();
                     for (uint16_t v : *list)
                         if (v >= count) {
@@ -259,8 +260,8 @@ int cmdFinCheck(int argc, char** argv) {
                         }
                 }
             }
-        for (const auto& [id, l] : model.lights) {
-            static const char* const kTypes[] = {"ambient", "directional", "point", "spot"};
+        for (const auto &[id, l] : model.lights) {
+            static const char *const kTypes[] = {"ambient", "directional", "point", "spot"};
             char key[160];
             std::snprintf(key, sizeof key, "%-11s %-3s attenuated %d, distance %g, curve %g",
                           l.type < 4 ? kTypes[l.type] : "?", l.on ? "on" : "off", int(l.attenuated),
@@ -270,19 +271,19 @@ int cmdFinCheck(int argc, char** argv) {
                 expect(n, model.nodes.count(n) != 0, "a node");
         }
         if (images.size())
-            for (const auto& [id, name] : model.images)
+            for (const auto &[id, name] : model.images)
                 if (!images.has(name))
                     missingImages.insert(name);
     }
 
     std::printf("%-24s %7s %7s %7s\n", "class", "objects", "read", "exact");
     unsigned notExact = 0;
-    for (const auto& [type, c] : counts) {
+    for (const auto &[type, c] : counts) {
         std::printf("%-24s %7u %7u %7u\n", type.c_str(), c.total, c.read, c.exact);
         notExact += c.read - c.exact;
     }
-    std::printf("%u models, %u failed; %u shapes, %u triangles; %u read but not exactly; %u bad links\n", files,
-                failed, shapes, triangles, notExact, badLinks);
+    std::printf("%u models, %u failed; %u shapes, %u triangles; %u read but not exactly; %u bad links\n", files, failed,
+                shapes, triangles, notExact, badLinks);
     std::printf("%u clip lists (tracks, flip-books, morph shapes), %u naming more than the model has\n", clipLists,
                 clipListsOut);
     std::printf("flip-books: %u loop, %u back and forth, %u clamp, %u other\n", flipModes[0], flipModes[1],
@@ -292,7 +293,7 @@ int cmdFinCheck(int argc, char** argv) {
                 clipSounds, soundLoop, soundUnplaced, soundMuted, soundOdd);
     if (!lightKinds.empty()) {
         std::printf("lights:\n");
-        for (const auto& [key, n] : lightKinds)
+        for (const auto &[key, n] : lightKinds)
             std::printf("  %4u %s\n", n, key.c_str());
     }
     std::printf("%u models with animation tracks, %u with a track count unlike their 3ds nodes'; %u of %u first keys "
@@ -300,21 +301,23 @@ int cmdFinCheck(int argc, char** argv) {
                 actorsWithTracks, trackMismatches, keysMatching, keysChecked);
     if (images.size()) {
         std::printf("%zu images not found in the archives given", missingImages.size());
-        for (const std::string& m : missingImages)
+        for (const std::string &m : missingImages)
             std::printf(" %s", m.c_str());
         std::printf("\n");
     }
     return failed || notExact || badLinks || !missingImages.empty() ? 1 : 0;
 }
 
-const reluva::tool::Commands commands("netimmerse", {
-    {"pac-list", "<file.pac>", "list a .pac archive's files: offset, size, date and name", cmdPacList},
-    {"pac-extract", "<file.pac> <output dir> [name filter]",
-     "extract a .pac archive's files (those whose name contains the filter)", cmdPacExtract},
-    {"fin-check", "<Fin.pac> [file.pac...]",
-     "read every .FIN model in Fin.pac; count the objects read, and check their links and (in the other "
-     "archives given) their images",
-     cmdFinCheck},
-});
+const reluva::tool::Commands
+    commands("netimmerse",
+             {
+                 {"pac-list", "<file.pac>", "list a .pac archive's files: offset, size, date and name", cmdPacList},
+                 {"pac-extract", "<file.pac> <output dir> [name filter]",
+                  "extract a .pac archive's files (those whose name contains the filter)", cmdPacExtract},
+                 {"fin-check", "<Fin.pac> [file.pac...]",
+                  "read every .FIN model in Fin.pac; count the objects read, and check their links and (in the other "
+                  "archives given) their images",
+                  cmdFinCheck},
+             });
 
 } // namespace

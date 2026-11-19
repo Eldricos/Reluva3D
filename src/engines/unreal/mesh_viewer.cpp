@@ -24,17 +24,24 @@ constexpr float kPi = 3.14159265358979f;
 
 } // namespace
 
-MeshViewer::MeshViewer(ViewerContext& ctx) : Page(ctx), browser_(ctx.packages, [&] {
-    // Code packages first: that's where meshes usually are.
-    std::vector<std::string> names = ctx.packages.names(".u");
-    for (std::string& n : ctx.packages.mapNames())
-        names.push_back(std::move(n));
-    for (std::string& n : ctx.packages.names(".utx"))
-        names.push_back(std::move(n));
-    return names;
-}(), isMeshClass) {}
+MeshViewer::MeshViewer(ViewerContext &ctx)
+    : Page(ctx), browser_(
+                     ctx.packages,
+                     [&] {
+                         // Code packages first: that's where meshes usually are.
+                         std::vector<std::string> names = ctx.packages.names(".u");
+                         for (std::string &n : ctx.packages.mapNames())
+                             names.push_back(std::move(n));
+                         for (std::string &n : ctx.packages.names(".utx"))
+                             names.push_back(std::move(n));
+                         return names;
+                     }(),
+                     isMeshClass) {
+}
 
-MeshViewer::~MeshViewer() { deactivate(); }
+MeshViewer::~MeshViewer() {
+    deactivate();
+}
 
 void MeshViewer::deactivate() {
     unload();
@@ -83,7 +90,7 @@ void MeshViewer::show() {
     info_.clear();
     anim_ = -1;
     time_ = 0;
-    const Package* pkg = browser_.package();
+    const Package *pkg = browser_.package();
     if (!pkg) {
         error_ = "No meshes found";
         return;
@@ -111,13 +118,13 @@ void MeshViewer::show() {
         error_ = err.message;
         return;
     }
-    for (const MeshAnimSeq& a : mesh_.anims)
+    for (const MeshAnimSeq &a : mesh_.anims)
         choices_.push_back(a.name);
     ownAnims_ = choices_.size();
     ownAnimCount_ = mesh_.anims.size();
     ownFrames_ = mesh_.animFrames;
     if (mesh_.bones)
-        for (const MeshAnimSeq& a : mesh_.otherAnims)
+        for (const MeshAnimSeq &a : mesh_.otherAnims)
             if (std::find(choices_.begin(), choices_.end(), a.name) == choices_.end())
                 choices_.push_back(a.name);
     // Its own textures.
@@ -139,16 +146,17 @@ void MeshViewer::show() {
                   mesh_.frameVerts, mesh_.animFrames, mesh_.vertexBytes, mesh_.tris.size(), mesh_.textures.size(),
                   mesh_.anims.size());
     info_.push_back(line);
-    std::snprintf(line, sizeof line, "scale %g %g %g, origin %g %g %g, rotation origin %d %d %d", double(mesh_.scale[0]),
-                  double(mesh_.scale[1]), double(mesh_.scale[2]), double(mesh_.origin[0]), double(mesh_.origin[1]),
-                  double(mesh_.origin[2]), mesh_.rotOrigin.pitch, mesh_.rotOrigin.yaw, mesh_.rotOrigin.roll);
+    std::snprintf(line, sizeof line, "scale %g %g %g, origin %g %g %g, rotation origin %d %d %d",
+                  double(mesh_.scale[0]), double(mesh_.scale[1]), double(mesh_.scale[2]), double(mesh_.origin[0]),
+                  double(mesh_.origin[1]), double(mesh_.origin[2]), mesh_.rotOrigin.pitch, mesh_.rotOrigin.yaw,
+                  mesh_.rotOrigin.roll);
     info_.push_back(line);
     if (mesh_.importAxes) {
-        const auto& a = *mesh_.importAxes;
+        const auto &a = *mesh_.importAxes;
         std::snprintf(line, sizeof line, "%s (rows %g %g %g / %g %g %g / %g %g %g); drawn %s (M), yaw %d (Y)",
-                      mesh_.importAxesGuessed ? "no float copy, usual turn" : "float copy turned",
-                      double(a[0][0]), double(a[0][1]), double(a[0][2]), double(a[1][0]), double(a[1][1]),
-                      double(a[1][2]), double(a[2][0]), double(a[2][1]), double(a[2][2]), meshTurnName(ctx_.meshTurn),
+                      mesh_.importAxesGuessed ? "no float copy, usual turn" : "float copy turned", double(a[0][0]),
+                      double(a[0][1]), double(a[0][2]), double(a[1][0]), double(a[1][1]), double(a[1][2]),
+                      double(a[2][0]), double(a[2][1]), double(a[2][2]), meshTurnName(ctx_.meshTurn),
                       ctx_.meshYawQuarters * 90);
         info_.push_back(line);
     }
@@ -168,13 +176,13 @@ void MeshViewer::show() {
 // shared sets (and uploading the mesh again with its frames) if need be.
 void MeshViewer::pick(int choice) {
     choice_ = choice;
-    const std::string& name = choices_[size_t(choice)];
+    const std::string &name = choices_[size_t(choice)];
     if (!mesh_.findAnim(name)) {
         // Only the mesh's own frames and the one borrowed now are kept.
         mesh_.anims.resize(ownAnimCount_);
         mesh_.animFrames = ownFrames_;
         mesh_.verts.resize(size_t(ownFrames_) * size_t(mesh_.frameVerts));
-        const Package* pkg = browser_.package();
+        const Package *pkg = browser_.package();
         if (!pkg || !borrowNamedAnimation(*pkg, browser_.exportIndex(), ctx_.sets(), name, mesh_)) {
             anim_ = -1;
             return;
@@ -192,7 +200,7 @@ void MeshViewer::pick(int choice) {
     anim_ = int(mesh_.findAnim(name) - mesh_.anims.data());
 }
 
-void MeshViewer::handleEvent(const Event& ev) {
+void MeshViewer::handleEvent(const Event &ev) {
     if (!renderer_)
         return;
     if (ev.type == EventType::KeyDown && !ev.repeat) {
@@ -249,18 +257,19 @@ void MeshViewer::update(uint64_t nowMs) {
     // Orbiting the mesh's middle, in the renderer's axes (Y negated).
     const gfx::Vec3 target{gpu_.center[0], -gpu_.center[1], gpu_.center[2]};
     const gfx::Vec3 eye{target[0] + distance_ * std::cos(pitch_) * std::cos(yaw_),
-                        target[1] + distance_ * std::cos(pitch_) * std::sin(yaw_), target[2] + distance_ * std::sin(pitch_)};
+                        target[1] + distance_ * std::cos(pitch_) * std::sin(yaw_),
+                        target[2] + distance_ * std::sin(pitch_)};
     const gfx::Vec3 forward{target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]};
     const float aspect = float(kFrameW) / float(kFrameH);
-    const gfx::Mat4 viewProj = gfx::multiply(gfx::perspective(kPi / 3, aspect, 1, 65536),
-                                             gfx::lookAlong(eye, forward, {0, 0, 1}));
+    const gfx::Mat4 viewProj =
+        gfx::multiply(gfx::perspective(kPi / 3, aspect, 1, 65536), gfx::lookAlong(eye, forward, {0, 0, 1}));
     renderer_->beginFrame(viewProj, eye, {40, 44, 56});
     if (gpu_.mesh) {
         MeshLight light;
         light.ambient = {0.45f, 0.45f, 0.45f};
         light.directed = {0.6f, 0.6f, 0.6f};
         light.direction = {0.4f, -0.3f, 0.87f};
-        const MeshAnimSeq* anim = anim_ >= 0 ? &mesh_.anims[size_t(anim_)] : nullptr;
+        const MeshAnimSeq *anim = anim_ >= 0 ? &mesh_.anims[size_t(anim_)] : nullptr;
         drawMesh(*renderer_, gpu_, meshPlacement({}, {}, 1, {}), poseAt(mesh_, anim, time_), textures_, light, 1);
     }
 
@@ -269,7 +278,7 @@ void MeshViewer::update(uint64_t nowMs) {
     if (showInfo_) {
         lines = info_;
         if (anim_ >= 0) {
-            const MeshAnimSeq& a = mesh_.anims[size_t(anim_)];
+            const MeshAnimSeq &a = mesh_.anims[size_t(anim_)];
             char line[200];
             std::snprintf(line, sizeof line, "animation %d/%zu: %s (%s), frames %d-%d at %g/s%s%s", choice_ + 1,
                           choices_.size(), a.name.c_str(), a.group.c_str(), a.startFrame,

@@ -20,19 +20,19 @@ struct SpriteTransform {
     float roll = 0;               // radians, clockwise on the screen
     bool plain() const { return scaleX == 1 && scaleY == 1 && roll == 0; }
     // Where the picture's point (u, v) lands.
-    void apply(float u, float v, float& outX, float& outY) const;
+    void apply(float u, float v, float &outX, float &outY) const;
 };
 
 // Draws `img` over `dst`, blended by its alpha. With `keepAlpha`, `dst`'s
 // alpha becomes the coverage (for an overlay that goes over a 3D frame);
 // otherwise `dst` is taken as opaque.
-void drawSprite(Surface& dst, const image::Image& img, const SpriteTransform& t, bool keepAlpha);
+void drawSprite(Surface &dst, const image::Image &img, const SpriteTransform &t, bool keepAlpha);
 
 // A Direct3D point sprite, as the game draws particles: `img` over a
 // square `size` pixels wide centred on (x, y), times `rgba` (the vertex
 // colour: texture times diffuse, alpha too), then blended by its alpha or
 // added. `keepAlpha` as for drawSprite.
-void drawPointSprite(Surface& dst, const image::Image& img, float x, float y, float size, const uint8_t rgba[4],
+void drawPointSprite(Surface &dst, const image::Image &img, float x, float y, float size, const uint8_t rgba[4],
                      bool additive, bool keepAlpha);
 
 } // namespace reluva::awe

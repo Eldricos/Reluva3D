@@ -35,7 +35,7 @@ struct SpriteDraw {
     double x, y, bottom;
     double halfWidth, height;
     // Upright frame; pixels equal to 0xFF are transparent.
-    const Canvas* surface;
+    const Canvas *surface;
     bool mirrored;
     LevelFile::LightInfo light;
     bool fullbright;
@@ -59,11 +59,11 @@ struct SpriteDraw {
 // of each surface comes from the level data and its light group.
 class LevelRenderer {
 public:
-    explicit LevelRenderer(const LevelFile& level);
+    explicit LevelRenderer(const LevelFile &level);
     ~LevelRenderer();
 
     // Draw the view from camera; time (ms) drives animated textures.
-    void render(const Camera& camera, Canvas& dst, uint32_t time);
+    void render(const Camera &camera, Canvas &dst, uint32_t time);
 
     // A starting point until the scripts can place the player: the middle
     // of the largest floor at the height with the most floor area, not
@@ -80,13 +80,7 @@ public:
 
     // What the next frame shows at a point (the original's pick, 0x4BC770).
     struct Pick {
-        enum Kind {
-            kNone,
-            kWall,
-            kFlat,
-            kBillboard,
-            kSprite
-        };
+        enum Kind { kNone, kWall, kFlat, kBillboard, kSprite };
         Kind kind = kNone;
         // Index into the level's walls, flats or billboards, or into the sprites.
         int index = -1;
@@ -101,20 +95,20 @@ public:
         _pickY = y;
     }
     // What the last frame showed at the pick point.
-    const Pick& getPick() const { return _pick; }
+    const Pick &getPick() const { return _pick; }
 
     // The world point that shows at pixel (x, y) of a w x h view, depth
     // ahead of camera: the inverse of the projection render() uses.
-    static void unproject(const Camera& camera, int w, int h, double x, double y, double depth, double& worldX,
-                          double& worldY, double& worldZ);
+    static void unproject(const Camera &camera, int w, int h, double x, double y, double depth, double &worldX,
+                          double &worldY, double &worldZ);
 
     // Mark walls drawn as seen, for the automap: like the original's
     // painter (0x4C8602), set LevelFile::kWallOnMap on each wall that
     // shows. walls is the level's own table, or null to stop.
-    void setMapWalls(std::vector<LevelFile::Wall>* walls) { _mapWalls = walls; }
+    void setMapWalls(std::vector<LevelFile::Wall> *walls) { _mapWalls = walls; }
 
     // Sprites to draw in the next frames; the vector must stay alive.
-    void setSprites(const std::vector<SpriteDraw>* sprites) { _sprites = sprites; }
+    void setSprites(const std::vector<SpriteDraw> *sprites) { _sprites = sprites; }
 
     // Turn lighting off to see the textures' own colours.
     void setLightingEnabled(bool enabled) { _lighting = enabled; }
@@ -126,7 +120,7 @@ public:
     // Back to the brightness the level gives it.
     void resetGroupBrightness(int16_t group) { _groupBrightness.erase(group); }
     // Save or load the groups' brightness.
-    void syncLights(Serializer& s);
+    void syncLights(Serializer &s);
 
     // The first palette entry that see-through things blend; the rest up to 0xFE do too.
     static const int kBlendFirst = 0xF0;
@@ -135,7 +129,7 @@ public:
     // The original's blend table (0x4BD620): for each of the palette
     // entries 0xF0-0xFE drawn over each background colour, the entry
     // nearest their average.
-    static void buildBlendTable(const Palette& palette, uint8_t table[kBlendColors][256]);
+    static void buildBlendTable(const Palette &palette, uint8_t table[kBlendColors][256]);
 
     // Rebuild the shade tables for a new fog colour.
     void setFogColor(uint8_t r, uint8_t g, uint8_t b);
@@ -143,26 +137,26 @@ public:
     // Build the original's shade tables (0x4BFC60): table n maps each
     // colour to the palette entry nearest to it blended n/8 of the way
     // toward the fog colour. Table 0 is the identity.
-    static void buildShadeTables(const Palette& palette, uint8_t r, uint8_t g, uint8_t b,
+    static void buildShadeTables(const Palette &palette, uint8_t r, uint8_t g, uint8_t b,
                                  uint8_t tables[LevelFile::kLightLevels][256]);
 
 private:
     struct Texture;
     struct Vertex;
 
-    const Texture* getTexture(uint16_t id, uint16_t frames, uint16_t speed, uint32_t time);
+    const Texture *getTexture(uint16_t id, uint16_t frames, uint16_t speed, uint32_t time);
     // The shade table for a surface, or null to draw it unshaded.
-    const uint8_t* getShade(const LevelFile::LightInfo& light) const;
-    void drawSky(const Camera& camera, Canvas& dst);
-    void drawFlats(Canvas& dst, uint32_t time);
-    void drawWalls(Canvas& dst, uint32_t time);
-    void drawBillboards(Canvas& dst, uint32_t time);
-    void drawSprites(Canvas& dst);
+    const uint8_t *getShade(const LevelFile::LightInfo &light) const;
+    void drawSky(const Camera &camera, Canvas &dst);
+    void drawFlats(Canvas &dst, uint32_t time);
+    void drawWalls(Canvas &dst, uint32_t time);
+    void drawBillboards(Canvas &dst, uint32_t time);
+    void drawSprites(Canvas &dst);
     // A sprite frame in the renderer's column-major layout.
-    const Texture* getSpriteTexture(const Canvas* surface);
+    const Texture *getSpriteTexture(const Canvas *surface);
 
     // Transform a world point into camera space (x right, y up, z ahead).
-    void toCamera(double x, double y, double z, Vertex& out) const;
+    void toCamera(double x, double y, double z, Vertex &out) const;
     // How a texture continues past its edges.
     enum Wrap {
         kWrapTile,     // repeats both ways
@@ -171,28 +165,28 @@ private:
     };
 
     // Clip a camera-space polygon to the near plane, project and fill it.
-    void drawPolygon(std::vector<Vertex>& poly, const Texture* texture, const uint8_t* shade,
-                     Canvas& dst, Wrap wrap = kWrapTile, bool translucent = false);
+    void drawPolygon(std::vector<Vertex> &poly, const Texture *texture, const uint8_t *shade, Canvas &dst,
+                     Wrap wrap = kWrapTile, bool translucent = false);
     // Draw now, or after everything solid if translucent.
-    void queuePolygon(std::vector<Vertex>& poly, const Texture* texture, const uint8_t* shade,
-                      Canvas& dst, Wrap wrap, bool translucent);
+    void queuePolygon(std::vector<Vertex> &poly, const Texture *texture, const uint8_t *shade, Canvas &dst, Wrap wrap,
+                      bool translucent);
     // The see-through polygons queued this frame, far to near.
-    void drawTranslucent(Canvas& dst);
+    void drawTranslucent(Canvas &dst);
 
     struct Translucent {
         std::vector<Vertex> poly;
-        const Texture* texture;
-        const uint8_t* shade;
+        const Texture *texture;
+        const uint8_t *shade;
         Wrap wrap;
         double depth;
         Pick owner;
     };
     std::vector<Translucent> _translucent;
 
-    const LevelFile& _level;
+    const LevelFile &_level;
     std::map<uint32_t, std::unique_ptr<Texture>> _textures;
     std::map<const Canvas *, std::unique_ptr<Texture>> _spriteTextures;
-    const std::vector<SpriteDraw>* _sprites = nullptr;
+    const std::vector<SpriteDraw> *_sprites = nullptr;
     Canvas _sky;
     bool _hasSky = false;
     bool _skyEnabled = true;
@@ -205,7 +199,7 @@ private:
     std::map<int16_t, int> _groupBrightness;
     std::vector<float> _depth;
     int _pickX = -1, _pickY = -1;
-    std::vector<LevelFile::Wall>* _mapWalls = nullptr;
+    std::vector<LevelFile::Wall> *_mapWalls = nullptr;
     Pick _pick;
     // What is being drawn, for the pick.
     Pick _owner;
@@ -218,4 +212,3 @@ private:
 };
 
 } // namespace reluva::stgenerations
-

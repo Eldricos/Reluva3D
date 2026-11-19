@@ -26,8 +26,8 @@ struct WiseStream {
 };
 
 // The installer's files, in order; fails if `file` isn't a Wise installer.
-Error readWiseInstaller(const std::filesystem::path& file, std::vector<WiseStream>& out);
+Error readWiseInstaller(const std::filesystem::path &file, std::vector<WiseStream> &out);
 // One of them unpacked, its CRC checked.
-Error extractWiseStream(const std::filesystem::path& file, const WiseStream& stream, std::vector<uint8_t>& out);
+Error extractWiseStream(const std::filesystem::path &file, const WiseStream &stream, std::vector<uint8_t> &out);
 
 } // namespace reluva

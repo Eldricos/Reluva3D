@@ -19,10 +19,24 @@
 namespace reluva::unreal {
 
 enum class PropertyType : uint8_t {
-    None = 0, Byte = 1, Int = 2, Bool = 3, Float = 4, Object = 5, Name = 6, String = 7,
-    Class = 8, Array = 9, Struct = 10, Vector = 11, Rotator = 12, Str = 13, Map = 14, FixedArray = 15,
+    None = 0,
+    Byte = 1,
+    Int = 2,
+    Bool = 3,
+    Float = 4,
+    Object = 5,
+    Name = 6,
+    String = 7,
+    Class = 8,
+    Array = 9,
+    Struct = 10,
+    Vector = 11,
+    Rotator = 12,
+    Str = 13,
+    Map = 14,
+    FixedArray = 15,
 };
-const char* typeName(PropertyType type);
+const char *typeName(PropertyType type);
 
 struct Property {
     std::string name;
@@ -41,7 +55,7 @@ class PropertyList {
 public:
     std::vector<Property> items;
 
-    const Property* find(std::string_view name, int arrayIndex = 0) const;
+    const Property *find(std::string_view name, int arrayIndex = 0) const;
 
     // A property's value read as the type asked for; `fallback` when it's
     // missing (the class's default, which packages don't store) or too short.
@@ -54,14 +68,14 @@ public:
     // Name properties: the name table index.
     int32_t nameIndex(std::string_view name, int32_t fallback = -1, int arrayIndex = 0) const;
     // Struct properties holding a Vector (or Vector properties).
-    bool vector(std::string_view name, std::array<float, 3>& out, int arrayIndex = 0) const;
-    bool rotator(std::string_view name, Rotator& out, int arrayIndex = 0) const;
+    bool vector(std::string_view name, std::array<float, 3> &out, int arrayIndex = 0) const;
+    bool rotator(std::string_view name, Rotator &out, int arrayIndex = 0) const;
     // Str and String properties.
     std::string string(std::string_view name, int version, int arrayIndex = 0) const;
 };
 
 // Reads tagged properties up to "None".
-Error readProperties(const Package& package, Reader& r, PropertyList& out);
+Error readProperties(const Package &package, Reader &r, PropertyList &out);
 
 // Reads the start of an export's data up to the class's own data: its
 // state frame, if it has one, and its properties. Classes (whose data is
@@ -75,9 +89,9 @@ struct StateFrame {
     int32_t node = 0, stateNode = 0, latent = 0, offset = -1;
     uint64_t probeMask = 0;
 };
-Error beginObject(const Package& package, int index, Reader& r, PropertyList& out, StateFrame* frame = nullptr);
+Error beginObject(const Package &package, int index, Reader &r, PropertyList &out, StateFrame *frame = nullptr);
 
 // A property's value as text, for viewers and tools.
-std::string describe(const Package& package, const Property& p);
+std::string describe(const Package &package, const Property &p);
 
 } // namespace reluva::unreal

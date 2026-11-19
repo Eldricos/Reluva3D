@@ -12,17 +12,17 @@
 
 namespace reluva::tool {
 
-std::vector<Registered>& registered() {
+std::vector<Registered> &registered() {
     static std::vector<Registered> all;
     return all;
 }
 
-Commands::Commands(const std::string& engine, std::vector<Command> list) {
-    for (Command& c : list)
+Commands::Commands(const std::string &engine, std::vector<Command> list) {
+    for (Command &c : list)
         registered().push_back({engine, std::move(c)});
 }
 
-bool readFile(const char* path, Bytes& out) {
+bool readFile(const char *path, Bytes &out) {
     std::ifstream in(path, std::ios::binary);
     if (!in) {
         std::fprintf(stderr, "cannot open %s\n", path);
@@ -32,14 +32,16 @@ bool readFile(const char* path, Bytes& out) {
     return true;
 }
 
-uint16_t rd16(const Bytes& d, size_t o) { return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0; }
-uint32_t rd32(const Bytes& d, size_t o) {
-    return o + 4 <= d.size() ? uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 |
-                                   uint32_t(d[o + 3]) << 24
-                             : 0;
+uint16_t rd16(const Bytes &d, size_t o) {
+    return o + 2 <= d.size() ? uint16_t(d[o] | d[o + 1] << 8) : 0;
+}
+uint32_t rd32(const Bytes &d, size_t o) {
+    return o + 4 <= d.size()
+               ? uint32_t(d[o]) | uint32_t(d[o + 1]) << 8 | uint32_t(d[o + 2]) << 16 | uint32_t(d[o + 3]) << 24
+               : 0;
 }
 
-void hexdump(const Bytes& d, size_t off, size_t len) {
+void hexdump(const Bytes &d, size_t off, size_t len) {
     size_t end = std::min(d.size(), off + len);
     for (size_t row = off; row < end; row += 16) {
         std::printf("%08zx: ", row);
@@ -61,15 +63,21 @@ void hexdump(const Bytes& d, size_t off, size_t len) {
 }
 
 namespace {
-const char* programPath_ = "reluva-tool";
+const char *programPath_ = "reluva-tool";
 } // namespace
 
-const char* programPath() { return programPath_; }
-void setProgramPath(const char* path) { programPath_ = path; }
+const char *programPath() {
+    return programPath_;
+}
+void setProgramPath(const char *path) {
+    programPath_ = path;
+}
 
-long long parseNumber(const char* s) { return std::strtoll(s, nullptr, 0); }
+long long parseNumber(const char *s) {
+    return std::strtoll(s, nullptr, 0);
+}
 
-std::string extensionOf(const std::string& name) {
+std::string extensionOf(const std::string &name) {
     size_t dot = name.rfind('.');
     return dot == std::string::npos || name.find('\\', dot) != std::string::npos ? "" : name.substr(dot);
 }

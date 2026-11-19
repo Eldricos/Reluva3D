@@ -45,7 +45,7 @@ public:
     static std::string keyName(int32_t key);
     static int32_t keyNumber(std::string_view name);
 
-    const std::string& get(int32_t key) const;
+    const std::string &get(int32_t key) const;
     void set(int32_t key, std::string command);
     void clear();
     bool empty() const;
@@ -54,8 +54,8 @@ public:
     // seta (and sets, setu) into `cvars`; anything else is left out
     // (counted in `ignored` if given). exec runs another file, read by
     // `readFile` if given.
-    void execute(std::string_view text, CvarStore& cvars, int* ignored = nullptr,
-                 const std::function<bool(const std::string&, std::string&)>& readFile = nullptr, int depth = 0);
+    void execute(std::string_view text, CvarStore &cvars, int *ignored = nullptr,
+                 const std::function<bool(const std::string &, std::string &)> &readFile = nullptr, int depth = 0);
     // The bindings as a config file's lines (unbindall first).
     std::string write() const;
 

@@ -25,11 +25,13 @@ constexpr uint64_t kHintMs = 6000;
 
 } // namespace
 
-MenuViewer::MenuViewer(ViewerContext& ctx) : Page(ctx) {
+MenuViewer::MenuViewer(ViewerContext &ctx) : Page(ctx) {
     available_ = ctx.game.code == GameCode::EliteForce && ctx.files.has("vm/ui.qvm");
 }
 
-MenuViewer::~MenuViewer() { deactivate(); }
+MenuViewer::~MenuViewer() {
+    deactivate();
+}
 
 void MenuViewer::activate() {
     const VideoSettings video = videoSettings(ctx_.cvars);
@@ -76,7 +78,7 @@ void MenuViewer::checkCommands() {
     // The commands the menus have run since the last look: one that
     // starts a level (Engage runs "map <name>", after setting the game's
     // cvars) shows it on the Play page.
-    for (const std::string& line : menus_.takeCommands()) {
+    for (const std::string &line : menus_.takeCommands()) {
         lastCommand_ = line;
         while (!lastCommand_.empty() && (lastCommand_.back() == '\n' || lastCommand_.back() == ' '))
             lastCommand_.pop_back();
@@ -84,7 +86,7 @@ void MenuViewer::checkCommands() {
         // Each command of the line: one starting a level takes the menus
         // to the Play page; the ones after it (adding bots...) are run
         // there once the level has started.
-        for (const std::string& command : splitCommands(line)) {
+        for (const std::string &command : splitCommands(line)) {
             const std::vector<std::string> words = splitCommand(command);
             if (words.empty())
                 continue;
@@ -114,7 +116,8 @@ void MenuViewer::checkCommands() {
                 ctx_.requestConnect.clear();
                 ctx_.requestMap.clear();
                 ctx_.requestCommands.clear();
-            } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") && words.size() >= 2) {
+            } else if ((verb == "map" || verb == "devmap" || verb == "spmap" || verb == "spdevmap") &&
+                       words.size() >= 2) {
                 // A solo match (spmap) or not, as the original's map
                 // commands set it; the level starts afresh on the Play page.
                 eliteforce::GameHost::applyMapCommand(cvars_, verb);
@@ -139,12 +142,12 @@ void MenuViewer::deactivate() {
     renderer_ = nullptr;
 }
 
-bool MenuViewer::takesKey(const Event& ev) const {
+bool MenuViewer::takesKey(const Event &ev) const {
     // Esc belongs to the menus; with Ctrl it leaves, as elsewhere.
     return menus_.running() && !(ev.mods & keymod::Ctrl);
 }
 
-void MenuViewer::handleEvent(const Event& ev) {
+void MenuViewer::handleEvent(const Event &ev) {
     if (ev.type == EventType::JoyButtonDown || ev.type == EventType::JoyButtonUp || ev.type == EventType::JoyAxis ||
         ev.type == EventType::JoyHat || ev.type == EventType::JoyRemoved) {
         joystick_.event(ev);
@@ -187,7 +190,7 @@ void MenuViewer::update(uint64_t nowMs) {
     renderer_->beginFrame(gfx::identity(), {0, 0, 0}, {0, 0, 0});
     // The joystick's keys, as the original's engine passes them to the
     // menus (binding JOY1... in the Controls menu, moving with the arrows).
-    for (const auto& [k, down] : joystick_.frame(ctx_.cvars).keys)
+    for (const auto &[k, down] : joystick_.frame(ctx_.cvars).keys)
         menus_.key(k, down);
     menus_.frame(nowMs);
     checkCommands();
@@ -204,7 +207,7 @@ void MenuViewer::update(uint64_t nowMs) {
     if (menus_.running() && !menus_.ui()->unhandled().empty()) {
         // Calls the menus made that Reluva answers with 0 for now.
         std::string calls = "System calls not implemented yet:";
-        for (const auto& [number, count] : menus_.ui()->unhandled())
+        for (const auto &[number, count] : menus_.ui()->unhandled())
             calls += " " + std::to_string(number) + " (x" + std::to_string(count) + ")";
         lines.push_back(calls);
     }
@@ -217,7 +220,7 @@ void MenuViewer::update(uint64_t nowMs) {
         const int y = frameH_ - int(lines.size() - i) * lh - 4;
         const int w = std::min(frameW_, int(font::length(lines[i])) * font::kAdvance + 8);
         for (int yy = y - 2; yy < y + lh; ++yy) {
-            uint8_t* p = overlay_.row(yy);
+            uint8_t *p = overlay_.row(yy);
             for (int x = 0; x < w; ++x)
                 p[x * 4 + 3] = 170;
         }

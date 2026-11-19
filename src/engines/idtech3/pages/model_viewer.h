@@ -16,13 +16,13 @@ namespace reluva::idtech3 {
 
 class ModelViewer : public Page {
 public:
-    explicit ModelViewer(ViewerContext& ctx);
+    explicit ModelViewer(ViewerContext &ctx);
     ~ModelViewer() override;
-    const char* name() const override { return "Models"; }
+    const char *name() const override { return "Models"; }
     size_t count() const override { return entries_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
 
@@ -36,15 +36,15 @@ private:
 
     std::vector<Entry> entries_;
     int index_ = 0;
-    gfx::Renderer3D* renderer_ = nullptr;
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<ModelCache> models_;
     Surface overlay_;
     std::vector<std::string> info_;
     std::string error_;
-    int model_ = -1;                     // a single model
+    int model_ = -1;                          // a single model
     int lower_ = -1, upper_ = -1, head_ = -1; // a player's parts
-    const Skin* skins_[3] = {};
+    const Skin *skins_[3] = {};
     std::array<float, 3> center_{};
     float radius_ = 32;
     float yaw_ = 0, pitch_ = 0, distance_ = 100;

@@ -17,16 +17,16 @@ namespace reluva::stgenerations {
 
 namespace {
 
-const char* const kOptionsArchive = "OPTIONS.DAT";
+const char *const kOptionsArchive = "OPTIONS.DAT";
 // How long the title stays up (CIntroScreen, 0x48DD74).
 const uint32_t kIntroMillis = 5000;
 // How fast the ending texts and the credits roll, in pixels a second.
 const int kScrollSpeed = 30;
 
 int toMenuVolume(int volume) {
-    return std::max(0, std::min((int)GameSettings::kMaxVolume,
-                                (volume * GameSettings::kMaxVolume + Mixer::kMaxMixerVolume / 2) /
-                                    Mixer::kMaxMixerVolume));
+    return std::max(
+        0, std::min((int)GameSettings::kMaxVolume,
+                    (volume * GameSettings::kMaxVolume + Mixer::kMaxMixerVolume / 2) / Mixer::kMaxMixerVolume));
 }
 
 int toMixerVolume(int volume) {
@@ -44,7 +44,7 @@ bool Generations::startFrontEnd() {
         _menu.reset();
         return false;
     }
-    std::unique_ptr<SeekableReadStream> script = _resources.open({ "STELLAR.DAT", "DESIGN/STATES.INI" });
+    std::unique_ptr<SeekableReadStream> script = _resources.open({"STELLAR.DAT", "DESIGN/STATES.INI"});
     if (!script) {
         log::warning("STELLAR.DAT (on disc 1) wasn't found, so there's no story to play; starting the resource viewer");
         _menu.reset();
@@ -80,7 +80,7 @@ bool Generations::startFrontEnd() {
     }
     if (story == "list") {
         std::string names;
-        for (const std::string& name : _campaign.getSectionNames())
+        for (const std::string &name : _campaign.getSectionNames())
             names += " " + name;
         log::debug(1, "The story's sections:%s", names.c_str());
     } else if (!story.empty()) {
@@ -99,7 +99,7 @@ bool Generations::startFrontEnd() {
     return true;
 }
 
-void Generations::startStoryAt(const std::string& section) {
+void Generations::startStoryAt(const std::string &section) {
     // A new game's setup, then the section: the readings the scanner shows
     // (NewGame's SetFlag 1-4) and the Enterprise at the section's star, or
     // at Amargosa.
@@ -116,7 +116,7 @@ void Generations::startStoryAt(const std::string& section) {
                 break;
             }
         }
-        _bridge->bridgeCommand("move", { "Enterprise", sun });
+        _bridge->bridgeCommand("move", {"Enterprise", sun});
     }
     log::debug(1, "Starting the story at [%s]", section.c_str());
     runCampaign();
@@ -135,11 +135,11 @@ void Generations::loadSettings() {
                 _storedSettings[text::trim(line.substr(0, eq))] = text::trim(line.substr(eq + 1));
         }
     }
-    auto number = [this](const char* key, int fallback) {
+    auto number = [this](const char *key, int fallback) {
         auto it = _storedSettings.find(key);
         if (it == _storedSettings.end() || it->second.empty())
             return fallback;
-        char* end = nullptr;
+        char *end = nullptr;
         const long v = std::strtol(it->second.c_str(), &end, 10);
         return *end ? fallback : int(v);
     };
@@ -178,7 +178,7 @@ void Generations::saveSettings() {
     _storedSettings["away_keys"] = _settings.awayKeys.toString();
     _storedSettings["starship_keys"] = _settings.starshipKeys.toString();
     std::string out = "# Star Trek: Generations' own settings, as its menu sets them.\n";
-    for (const auto& [key, value] : _storedSettings)
+    for (const auto &[key, value] : _storedSettings)
         out += key + "=" + value + "\n";
     if (!_system->saveFile(kSettingsFile, std::vector<uint8_t>(out.begin(), out.end())))
         log::warning("The settings couldn't be saved in %s", _system->saveDir().string().c_str());
@@ -188,7 +188,7 @@ void Generations::saveSettings() {
 void Generations::syncSoundSettings() {
     if (!_mixer)
         return;
-    auto stored = [this](const char* key, int fallback) {
+    auto stored = [this](const char *key, int fallback) {
         auto it = _storedSettings.find(key);
         return it == _storedSettings.end() ? fallback : std::atoi(it->second.c_str());
     };
@@ -269,8 +269,7 @@ void Generations::setBridgeMode(bool on) {
 
 void Generations::updateBridge(uint32_t delta) {
     _bridge->update(delta);
-    for (Bridge::Event event = _bridge->takeEvent(); event.type != Bridge::Event::kNone;
-         event = _bridge->takeEvent()) {
+    for (Bridge::Event event = _bridge->takeEvent(); event.type != Bridge::Event::kNone; event = _bridge->takeEvent()) {
         switch (event.type) {
         case Bridge::Event::kTransport:
             _campaign.transport();
@@ -348,7 +347,7 @@ void Generations::updateCombat(uint32_t delta) {
 }
 
 bool Generations::startCampaignMission(int type) {
-    for (const Location& location : getLocations()) {
+    for (const Location &location : getLocations()) {
         if (location.type != type)
             continue;
         for (int i = 0; i < (int)_missions.size(); i++) {
@@ -367,7 +366,7 @@ bool Generations::startCampaignMission(int type) {
 void Generations::campaignMissionEnded() {
     bool accomplished = _mission && _mission->isAccomplished();
     leaveMission(text::format("%s %s", _missions[_missionChoice].name.c_str(),
-                                accomplished ? "accomplished" : "ended, objectives not met"));
+                              accomplished ? "accomplished" : "ended, objectives not met"));
     // Any outcome code the mission set is a clue for the story (IfClue).
     bool clue = _mission && !_mission->getOutcomes().empty();
     _campaign.missionEnded(accomplished, clue);
@@ -428,13 +427,13 @@ void Generations::closeMenu(bool resume) {
 }
 
 void Generations::playMenuSound(int id) {
-    ResourceRef ref = { kOptionsArchive, text::format("%c_%04d.WAV", id >= 2000 ? 'M' : 'X', id) };
+    ResourceRef ref = {kOptionsArchive, text::format("%c_%04d.WAV", id >= 2000 ? 'M' : 'X', id)};
     std::unique_ptr<SoundStream> stream = _resources.loadSound(ref);
     if (stream)
         _mixer->playStream(Mixer::kSFXSoundType, &_menuSound, std::move(stream));
 }
 
-void Generations::handleMenuEvent(const Event& event) {
+void Generations::handleMenuEvent(const Event &event) {
     switch (event.type) {
     case kEventKeydown:
         _menu->keyDown(event.kbd);
@@ -530,14 +529,13 @@ bool Generations::waitForSkip() {
     bool skip = false;
     Event event;
     while (_eventMan->pollEvent(event)) {
-        if (event.type == kEventLbuttondown || event.type == kEventRbuttondown ||
-            event.type == kEventKeydown)
+        if (event.type == kEventLbuttondown || event.type == kEventRbuttondown || event.type == kEventKeydown)
             skip = true;
     }
     return skip || shouldQuit();
 }
 
-bool Generations::showPicture(const ResourceRef& ref, BitmapDecoder& decoder) {
+bool Generations::showPicture(const ResourceRef &ref, BitmapDecoder &decoder) {
     if (!_resources.loadImage(ref, decoder) || !decoder.hasPalette())
         return false;
     _screen->getPalette() = decoder.getPalette();
@@ -550,7 +548,7 @@ bool Generations::showPicture(const ResourceRef& ref, BitmapDecoder& decoder) {
 
 void Generations::showIntro() {
     BitmapDecoder decoder;
-    if (!showPicture({ kOptionsArchive, "INTRO1.BMP" }, decoder))
+    if (!showPicture({kOptionsArchive, "INTRO1.BMP"}, decoder))
         return;
     _system->showMouse(false);
     uint32_t start = _system->getMillis();
@@ -561,10 +559,10 @@ void Generations::showIntro() {
     _system->showMouse(true);
 }
 
-bool Generations::playMusic(const std::string& name) {
+bool Generations::playMusic(const std::string &name) {
     // The music is on the discs, in MUSIC.1 or MUSIC.2.
-    for (const char* archive : { "MUSIC.1", "MUSIC.2" }) {
-        ResourceRef ref = { archive, text::toUpper(name) };
+    for (const char *archive : {"MUSIC.1", "MUSIC.2"}) {
+        ResourceRef ref = {archive, text::toUpper(name)};
         if (!_resources.hasResource(ref))
             continue;
         std::unique_ptr<SoundStream> stream = _resources.loadSound(ref);
@@ -578,14 +576,14 @@ bool Generations::playMusic(const std::string& name) {
     return false;
 }
 
-void Generations::rollText(const BitmapDecoder& background, const Font& font,
-                         const std::vector<RollLine>& lines, const std::vector<std::string>& music) {
+void Generations::rollText(const BitmapDecoder &background, const Font &font, const std::vector<RollLine> &lines,
+                           const std::vector<std::string> &music) {
     _screen->getPalette() = background.getPalette();
     _screen->applyPalette();
     _system->showMouse(false);
 
     int height = 0;
-    for (const RollLine& line : lines)
+    for (const RollLine &line : lines)
         height += line.gap + font.getHeight();
     size_t track = 0;
     bool playing = !music.empty() && playMusic(music[track++]);
@@ -605,7 +603,7 @@ void Generations::rollText(const BitmapDecoder& background, const Font& font,
         _screen->clear(0);
         _screen->drawCentered(background.getSurface());
         int y = Screen::kHeight - offset;
-        for (const RollLine& line : lines) {
+        for (const RollLine &line : lines) {
             y += line.gap;
             if (y > -font.getHeight() && y < Screen::kHeight) {
                 int x = line.centred ? (Screen::kWidth - font.getStringWidth(line.text)) / 2 : 0;
@@ -623,8 +621,7 @@ void Generations::rollText(const BitmapDecoder& background, const Font& font,
 void Generations::showScrollText(int number) {
     // TEXTn.TXT: the background, the music, the font, then the text, its
     // lines centred by hand with spaces.
-    std::unique_ptr<SeekableReadStream> stream =
-        _resources.open({ kOptionsArchive, text::format("TEXT%d.TXT", number) });
+    std::unique_ptr<SeekableReadStream> stream = _resources.open({kOptionsArchive, text::format("TEXT%d.TXT", number)});
     if (!stream)
         return;
     std::vector<std::string> header;
@@ -636,23 +633,23 @@ void Generations::showScrollText(int number) {
         if (header.size() < 3)
             header.push_back(text::trim(line));
         else
-            lines.push_back({ line, 0, false });
+            lines.push_back({line, 0, false});
     }
     if (header.size() < 3)
         return;
     BitmapDecoder background;
     Font font;
-    std::unique_ptr<SeekableReadStream> fontStream = _resources.open({ kOptionsArchive, header[2] });
-    if (!_resources.loadImage({ kOptionsArchive, header[0] }, background) || !background.hasPalette() || !fontStream ||
+    std::unique_ptr<SeekableReadStream> fontStream = _resources.open({kOptionsArchive, header[2]});
+    if (!_resources.loadImage({kOptionsArchive, header[0]}, background) || !background.hasPalette() || !fontStream ||
         !font.load(*fontStream))
         return;
-    rollText(background, font, lines, { header[1] });
+    rollText(background, font, lines, {header[1]});
 }
 
-bool Generations::loadCredits(std::vector<RollLine>& lines) {
+bool Generations::loadCredits(std::vector<RollLine> &lines) {
     // The credits are a table in sgens.exe (0x5401CC): records of a heading,
     // a name and a style, 1 when more names follow, 3 a section's title.
-    std::unique_ptr<SeekableReadStream> exe = _resources.open({ "", "SGENS.EXE" });
+    std::unique_ptr<SeekableReadStream> exe = _resources.open({"", "SGENS.EXE"});
     if (!exe)
         return false;
     std::vector<uint8_t> data = exe->readAll();
@@ -673,7 +670,7 @@ bool Generations::loadCredits(std::vector<RollLine>& lines) {
         }
         return 0;
     };
-    auto text = [&](uint32_t va, std::string& out) {
+    auto text = [&](uint32_t va, std::string &out) {
         size_t o = va ? offset(va) : 0;
         if (va && !o)
             return false;
@@ -693,13 +690,13 @@ bool Generations::loadCredits(std::vector<RollLine>& lines) {
         if (style > 3 || !text(u32(r), heading) || !text(u32(r + 4), name))
             break;
         if (style == 0) {
-            lines.push_back({ "", 0, true });
+            lines.push_back({"", 0, true});
             continue;
         }
         if (!heading.empty())
-            lines.push_back({ heading, style == 3 ? 24 : 0, true });
+            lines.push_back({heading, style == 3 ? 24 : 0, true});
         if (!name.empty())
-            lines.push_back({ name, 0, true });
+            lines.push_back({name, 0, true});
     }
     return !lines.empty();
 }
@@ -712,15 +709,15 @@ void Generations::showCredits() {
     }
     BitmapDecoder background;
     Font font;
-    std::unique_ptr<SeekableReadStream> fontStream = _resources.open({ kOptionsArchive, "CREDITS.FNT" });
-    if (!_resources.loadImage({ kOptionsArchive, "CREDITBK.BMP" }, background) || !background.hasPalette() ||
+    std::unique_ptr<SeekableReadStream> fontStream = _resources.open({kOptionsArchive, "CREDITS.FNT"});
+    if (!_resources.loadImage({kOptionsArchive, "CREDITBK.BMP"}, background) || !background.hasPalette() ||
         !fontStream || !font.load(*fontStream))
         return;
     // The music the credits change through (0x540198).
-    rollText(background, font, lines, { "CREDITS.WAV", "MUSI9022.WAV", "MUSI5003.WAV", "MUSI9024.WAV", "MUSI9020.WAV" });
+    rollText(background, font, lines, {"CREDITS.WAV", "MUSI9022.WAV", "MUSI5003.WAV", "MUSI9024.WAV", "MUSI9020.WAV"});
 }
 
-bool Generations::readSaveHeader(int slot, std::string& description, std::string& date) {
+bool Generations::readSaveHeader(int slot, std::string &description, std::string &date) {
     std::unique_ptr<SeekableReadStream> in = _system->openForLoading(getSaveFileName(slot));
     if (!in || in->readUint32BE() != kSaveMagic)
         return false;

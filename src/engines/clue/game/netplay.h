@@ -32,15 +32,15 @@ using Bytes = std::vector<uint8_t>;
 class Channel {
 public:
     explicit Channel(net::Address peer = {}) : peer_(peer) {}
-    const net::Address& peer() const { return peer_; }
+    const net::Address &peer() const { return peer_; }
 
     void send(Bytes message) { outgoing_.push_back({nextSend_++, std::move(message), 0}); }
     // A datagram of this channel's (Data or Ack) arrived: the messages it
     // completes, in order, are added to `out`.
-    void received(const Bytes& datagram, uint64_t nowMs, std::vector<Bytes>& out);
+    void received(const Bytes &datagram, uint64_t nowMs, std::vector<Bytes> &out);
     // Sends what is due: new messages, those not acknowledged in time,
     // and now and then an acknowledgement, to keep the connection alive.
-    void update(uint64_t nowMs, net::UdpSocket& socket);
+    void update(uint64_t nowMs, net::UdpSocket &socket);
     // Nothing heard from the other machine for this long: it has gone.
     bool timedOut(uint64_t nowMs) const { return lastHeard_ != 0 && nowMs - lastHeard_ > kTimeoutMs; }
     void heard(uint64_t nowMs) { lastHeard_ = nowMs; }
@@ -98,31 +98,31 @@ struct Found {
 class Session {
 public:
     // Hosting: listening on `port` (0 for kDefaultPort).
-    static std::unique_ptr<Session> host(std::unique_ptr<net::UdpSocket> socket, const std::string& gameName,
-                                         const std::string& playerName, int maxHumans);
+    static std::unique_ptr<Session> host(std::unique_ptr<net::UdpSocket> socket, const std::string &gameName,
+                                         const std::string &playerName, int maxHumans);
     // Joining the game at `address`.
-    static std::unique_ptr<Session> join(std::unique_ptr<net::UdpSocket> socket, const net::Address& address,
-                                         const std::string& playerName);
+    static std::unique_ptr<Session> join(std::unique_ptr<net::UdpSocket> socket, const net::Address &address,
+                                         const std::string &playerName);
     // Looking for games on the local network: asks at each address
     // (broadcasts) and lists those that answer in found().
     static std::unique_ptr<Session> browse(std::unique_ptr<net::UdpSocket> socket,
-                                           const std::vector<net::Address>& askAt);
+                                           const std::vector<net::Address> &askAt);
 
     enum class State { Browsing, Connecting, Lobby, Playing, Refused, Lost };
     State state() const { return state_; }
     bool isHost() const { return host_; }
     int me() const { return me_; } // this machine: 0 the host
-    const std::string& refusal() const { return refusal_; }
-    const Lobby& lobby() const { return lobby_; }
-    const std::vector<Found>& found() const { return found_; }
+    const std::string &refusal() const { return refusal_; }
+    const Lobby &lobby() const { return lobby_; }
+    const std::vector<Found> &found() const { return found_; }
     void refresh(); // browsing: ask again
 
     void update(uint64_t nowMs);
 
     // The lobby: talk; take a suspect (or -1 to give it back); the host
     // also sets the suspects nobody has taken, the variant, and starts.
-    void chat(const std::string& text);
-    bool nextChat(std::string& line);
+    void chat(const std::string &text);
+    bool nextChat(std::string &line);
     void take(int seat);
     void setSeat(int seat, Seat::Kind kind, int level);
     void setNoDieRoll(bool on);
@@ -132,8 +132,8 @@ public:
 
     // The game: an action of one of this machine's players, for the host
     // to put in order; and each action in that order, as it comes.
-    void submit(const Command& command);
-    bool nextCommand(Command& command);
+    void submit(const Command &command);
+    bool nextCommand(Command &command);
     // A human's machine gone (they're given to the computer, by the host's
     // TakeOver); -1 when none.
     int nextLeft();
@@ -142,9 +142,9 @@ public:
 private:
     Session() = default;
     void receive(uint64_t nowMs);
-    void handle(int from, const Bytes& message);
-    void sendTo(int peer, const Bytes& message);
-    void broadcast(const Bytes& message);
+    void handle(int from, const Bytes &message);
+    void sendTo(int peer, const Bytes &message);
+    void broadcast(const Bytes &message);
     void sendLobby();
     void dropPeer(int peer);
 
@@ -168,7 +168,7 @@ private:
 };
 
 // Messages as bytes (exposed for tests).
-Bytes encodeCommand(const Command& c);
-bool decodeCommand(const Bytes& b, size_t& at, Command& c);
+Bytes encodeCommand(const Command &c);
+bool decodeCommand(const Bytes &b, size_t &at, Command &c);
 
 } // namespace reluva::clue::netplay

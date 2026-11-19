@@ -30,7 +30,7 @@ using namespace reluva;
 using namespace reluva::stharbinger;
 using namespace reluva::stharbinger::testing;
 
-static void test_script_interpreter(const std::filesystem::path& tmp) {
+static void test_script_interpreter(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "scripts";
 
@@ -116,7 +116,7 @@ static void test_script_interpreter(const std::filesystem::path& tmp) {
 // Dialogue command numbers used by the test.
 const uint8_t kDlgGotoCmd = 0x32, kDlgExitCmd = 0x39, kDlgBackCmd = 0x40;
 
-static void test_conversation(const std::filesystem::path& tmp) {
+static void test_conversation(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "conversation";
 
@@ -126,7 +126,7 @@ static void test_conversation(const std::filesystem::path& tmp) {
     pickYes.cmd(kCmdLet, {num(1), var(0)}).cmd(kDlgGotoCmd, {{kArgByte, 1}});
     pickNo.cmd(kDlgExitCmd);
     std::vector<uint8_t> ccb;
-    auto append = [&](const std::vector<uint8_t>& v) { ccb.insert(ccb.end(), v.begin(), v.end()); };
+    auto append = [&](const std::vector<uint8_t> &v) { ccb.insert(ccb.end(), v.begin(), v.end()); };
     auto u16 = [&](uint16_t v) {
         ccb.push_back(uint8_t(v));
         ccb.push_back(uint8_t(v >> 8));
@@ -230,7 +230,7 @@ static void test_conversation(const std::filesystem::path& tmp) {
     CHECK((game.getVariable("d")) == (6));
 }
 
-static void test_videos_and_cursors(const std::filesystem::path& tmp) {
+static void test_videos_and_cursors(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "video";
 
@@ -341,10 +341,10 @@ std::vector<uint8_t> makeSprite(int start, int hp, int damage, int period, int g
 
 // Runs ACTIONSEQ `type` in a one-scene game with the given sprites; `play`
 // drives it. Returns the result variable.
-template <class Play>
-int runArcade(const std::filesystem::path& tmp, int type, const char* name,
-              const std::vector<std::vector<uint8_t>>& sprites, Play play,
-              const std::map<std::string, std::vector<uint8_t>>& extraFiles = {}) {
+template<class Play>
+int runArcade(const std::filesystem::path &tmp, int type, const char *name,
+              const std::vector<std::vector<uint8_t>> &sprites, Play play,
+              const std::map<std::string, std::vector<uint8_t>> &extraFiles = {}) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "arcade";
     ScriptBuilder s0;
@@ -358,7 +358,7 @@ int runArcade(const std::filesystem::path& tmp, int type, const char* name,
         putFile(dir / "DS9" / "SPRITES" / "PDOOR.RLE", makeSprite(0, 1, 0, 0, 0xFF, 0, 40, 20, 20));
     for (size_t i = 0; i < sprites.size(); i++)
         putFile(dir / "DS9" / "SPRITES" / name / (std::string(1, char('A' + i)) + ".RLE"), sprites[i]);
-    for (const auto& f : extraFiles)
+    for (const auto &f : extraFiles)
         putFile(dir / "DS9" / f.first, f.second);
 
     NullSystem system;
@@ -377,10 +377,10 @@ int runArcade(const std::filesystem::path& tmp, int type, const char* name,
 
 } // namespace
 
-static void test_arcade_sequences(const std::filesystem::path& tmp) {
+static void test_arcade_sequences(const std::filesystem::path &tmp) {
     // LAND (type 2): video rectangle at (120, 12); 100 ms per frame = 5 steps.
     // A boss (id 200, 2 hits) shot twice with the phaser: won 11 frames later.
-    int r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game& g) {
+    int r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game &g) {
         g.runSteps(6);
         g.click(134, 26);
         g.runSteps(5);
@@ -394,7 +394,7 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
     CHECK((r) == (0x8000));
 
     // Missing the boss: the video ends with the player alive (0).
-    r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game& g) {
+    r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game &g) {
         g.click(300, 200);
         g.runSteps(5 * 41);
     });
@@ -402,7 +402,7 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
 
     // SPAC (type 3): an enemy firing every 2 frames for 40 damage kills the
     // player on its third shot.
-    r = runArcade(tmp, 3, "SPAC", {makeSprite(0, 9, 40, 2, 0, 0, 40, 10, 10)}, [](Game& g) {
+    r = runArcade(tmp, 3, "SPAC", {makeSprite(0, 9, 40, 2, 0, 0, 40, 10, 10)}, [](Game &g) {
         g.runSteps(5 * 6);
         CHECK(!g.isArcadeActive());
     });
@@ -413,7 +413,7 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
     std::vector<uint8_t> deathVideo;
     deathVideo.assign(kSmackerTest2, kSmackerTest2 + sizeof kSmackerTest2);
     r = runArcade(tmp, 3, "SPAC", {makeSprite(0, 9, 40, 2, 0, 0, 40, 10, 10)},
-                  [](Game& g) {
+                  [](Game &g) {
                       g.runSteps(5 * 6);
                       CHECK(!g.isArcadeActive());
                       CHECK(g.isScriptRunning()); // the static, then the video
@@ -428,7 +428,7 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
     CHECK((r) == (0xFFFE));
 
     // A torpedo volley hits on its fifth frame and counts 2 against a boss.
-    r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game& g) {
+    r = runArcade(tmp, 2, "LAND", {makeSprite(0, 2, 0, 0, 0xFF, 200, 40, 10, 10)}, [](Game &g) {
         g.runSteps(6);
         g.rightClick(134, 26);
         g.runSteps(5 * 3);
@@ -440,7 +440,7 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
 
     // PLAN (type 6, rectangle at (80, 62)): ten phaser hits destroy the door; the
     // video ends with a win. Without them the door survives: 65533.
-    r = runArcade(tmp, 6, "PLAN", {}, [](Game& g) {
+    r = runArcade(tmp, 6, "PLAN", {}, [](Game &g) {
         for (int i = 0; i < 10; i++) {
             g.click(104, 86);
             g.runSteps(5);
@@ -449,11 +449,11 @@ static void test_arcade_sequences(const std::filesystem::path& tmp) {
         CHECK(!g.isArcadeActive());
     });
     CHECK((r) == (0x8000));
-    r = runArcade(tmp, 6, "PLAN", {}, [](Game& g) { g.runSteps(5 * 41); });
+    r = runArcade(tmp, 6, "PLAN", {}, [](Game &g) { g.runSteps(5 * 41); });
     CHECK((r) == (0xFFFD));
 }
 
-static void test_menu_save_and_load(const std::filesystem::path& tmp) {
+static void test_menu_save_and_load(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "save";
     fs::path saves = tmp / "saves";
@@ -564,7 +564,7 @@ namespace {
 
 // A minimal DEEP.EXE: an MZ stub pointing to an LE header with one data object
 // at 0x50000 whose table at 0x55464 points to 269 lines.
-std::vector<uint8_t> makeExe(const std::vector<std::string>& lines) {
+std::vector<uint8_t> makeExe(const std::vector<std::string> &lines) {
     std::vector<uint8_t> exe(0x40, 0);
     exe[0] = 'M';
     exe[1] = 'Z';
@@ -572,7 +572,7 @@ std::vector<uint8_t> makeExe(const std::vector<std::string>& lines) {
     std::vector<uint8_t> le(0x100, 0);
     le[0] = 'L';
     le[1] = 'E';
-    auto put32 = [](std::vector<uint8_t>& v, size_t o, uint32_t x) {
+    auto put32 = [](std::vector<uint8_t> &v, size_t o, uint32_t x) {
         for (int i = 0; i < 4; i++)
             v[o + i] = uint8_t(x >> (8 * i));
     };
@@ -588,7 +588,7 @@ std::vector<uint8_t> makeExe(const std::vector<std::string>& lines) {
     std::vector<uint8_t> obj(0x8000, 0);
     uint32_t pos = 0x6000;
     for (int i = 0; i < 269; i++) {
-        const std::string& l = lines[i % lines.size()];
+        const std::string &l = lines[i % lines.size()];
         put32(obj, 0x5464 + i * 4, pos);
         std::copy(l.begin(), l.end(), obj.begin() + pos);
         pos += uint32_t(l.size()) + 1;
@@ -599,7 +599,7 @@ std::vector<uint8_t> makeExe(const std::vector<std::string>& lines) {
 
 } // namespace
 
-static void test_credits_and_deck_map(const std::filesystem::path& tmp) {
+static void test_credits_and_deck_map(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "extras";
     ScriptBuilder s0;
@@ -645,7 +645,7 @@ static void test_credits_and_deck_map(const std::filesystem::path& tmp) {
     CHECK(!game.isCreditsActive());
 }
 
-static void test_original_mode(const std::filesystem::path& tmp) {
+static void test_original_mode(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "original";
     ScriptBuilder s0;
@@ -693,7 +693,7 @@ static void test_original_mode(const std::filesystem::path& tmp) {
     }
 }
 
-static void test_special_functions(const std::filesystem::path& tmp) {
+static void test_special_functions(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "special";
     // Countdown: stage 1 at location 0 (25 s + 1 + 2 for normal difficulty = 28 s,
@@ -740,7 +740,7 @@ static void test_special_functions(const std::filesystem::path& tmp) {
     game.runSteps(10);
 }
 
-static void test_anim_composit(const std::filesystem::path& tmp) {
+static void test_anim_composit(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "composit";
     // A: 4x4 colour 5 at (0, 0). B: 4x4 colour 7 at (2, 2), drawn on top. After
@@ -775,14 +775,14 @@ static void test_anim_composit(const std::filesystem::path& tmp) {
     Game game(&engine);
     game.start(0);
     game.runSteps(20);
-    const uint8_t* p = game.getScreen().pixels.data();
+    const uint8_t *p = game.getScreen().pixels.data();
     CHECK(!game.isAnimVisible("blka") && !game.isAnimVisible("blkb"));
     CHECK((p[1 * 640 + 1]) == (5)); // A, baked
     CHECK((p[3 * 640 + 3]) == (7)); // B over A, baked
     CHECK((p[5 * 640 + 5]) == (0)); // B outside A's rectangle: gone
 }
 
-static void test_anim_leftovers(const std::filesystem::path& tmp) {
+static void test_anim_leftovers(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "leftovers";
     // The renderer only erases clear animations and ones turned off. A (not
@@ -822,7 +822,7 @@ static void test_anim_leftovers(const std::filesystem::path& tmp) {
     Game game(&engine);
     game.start(0);
     game.runSteps(2);
-    const uint8_t* p = game.getScreen().pixels.data();
+    const uint8_t *p = game.getScreen().pixels.data();
     CHECK((p[1 * 640 + 1]) == (5));
     CHECK((p[21 * 640 + 1]) == (7));
     CHECK((p[41 * 640 + 1]) == (9));
@@ -839,7 +839,7 @@ static void test_anim_leftovers(const std::filesystem::path& tmp) {
     CHECK((p[61 * 640 + 1]) == (0));  // D erased when turned off
 }
 
-static void test_beam_timing(const std::filesystem::path& tmp) {
+static void test_beam_timing(const std::filesystem::path &tmp) {
     namespace fs = std::filesystem;
     fs::path dir = tmp / "beams";
     // One enemy shot (colours 1..3) from hotspot 0. As in the original (0x22BD4):
@@ -884,15 +884,15 @@ static void test_beam_timing(const std::filesystem::path& tmp) {
 static const reluva::test::Suite
     suite("stharbinger.unit.game",
           {
-              {"script interpreter", [](const std::filesystem::path& tmp) { test_script_interpreter(tmp); }},
-              {"conversation", [](const std::filesystem::path& tmp) { test_conversation(tmp); }},
-              {"videos and cursors", [](const std::filesystem::path& tmp) { test_videos_and_cursors(tmp); }},
-              {"arcade sequences", [](const std::filesystem::path& tmp) { test_arcade_sequences(tmp); }},
-              {"menu save and load", [](const std::filesystem::path& tmp) { test_menu_save_and_load(tmp); }},
-              {"credits and deck map", [](const std::filesystem::path& tmp) { test_credits_and_deck_map(tmp); }},
-              {"original mode", [](const std::filesystem::path& tmp) { test_original_mode(tmp); }},
-              {"special functions", [](const std::filesystem::path& tmp) { test_special_functions(tmp); }},
-              {"anim composit", [](const std::filesystem::path& tmp) { test_anim_composit(tmp); }},
-              {"anim leftovers", [](const std::filesystem::path& tmp) { test_anim_leftovers(tmp); }},
-              {"beam timing", [](const std::filesystem::path& tmp) { test_beam_timing(tmp); }},
+              {"script interpreter", [](const std::filesystem::path &tmp) { test_script_interpreter(tmp); }},
+              {"conversation", [](const std::filesystem::path &tmp) { test_conversation(tmp); }},
+              {"videos and cursors", [](const std::filesystem::path &tmp) { test_videos_and_cursors(tmp); }},
+              {"arcade sequences", [](const std::filesystem::path &tmp) { test_arcade_sequences(tmp); }},
+              {"menu save and load", [](const std::filesystem::path &tmp) { test_menu_save_and_load(tmp); }},
+              {"credits and deck map", [](const std::filesystem::path &tmp) { test_credits_and_deck_map(tmp); }},
+              {"original mode", [](const std::filesystem::path &tmp) { test_original_mode(tmp); }},
+              {"special functions", [](const std::filesystem::path &tmp) { test_special_functions(tmp); }},
+              {"anim composit", [](const std::filesystem::path &tmp) { test_anim_composit(tmp); }},
+              {"anim leftovers", [](const std::filesystem::path &tmp) { test_anim_leftovers(tmp); }},
+              {"beam timing", [](const std::filesystem::path &tmp) { test_beam_timing(tmp); }},
           });

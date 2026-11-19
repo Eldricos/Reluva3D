@@ -54,24 +54,24 @@ bool within(std::string_view text, std::string_view part) {
     return fs::toLower(text).find(fs::toLower(part)) != std::string::npos;
 }
 
-int valueOf(const GameState& state, const char* name) {
+int valueOf(const GameState &state, const char *name) {
     const auto v = state.values.find(name);
     return v == state.values.end() ? 0 : v->second;
 }
 
 // Every passport, and every fingerprint card, for "has all" (0x419560).
-constexpr const char* kPassports[] = {
-    "passarbuthnot", "passconstantine", "passcount",       "passdebenham", "passdragomiroff", "passengineer",
-    "passfireman",   "passfoscarelli",  "passhardman",     "passhardmanreal", "passhubbard",   "passklaus",
-    "passlucien",    "passmacqueen",    "passmasterman",   "passmatteo",   "passmichel",      "passohlsson",
-    "passschmidt"};
-constexpr const char* kPrints[] = {
-    "printarbuthnot", "printconstantine", "printcount",    "printcountess", "printdebenham", "printdragomiroff",
-    "printengineer",  "printfireman",     "printfoscarelli", "printhardman", "printhubbard",  "printklaus",
-    "printlucien",    "printmacqueen",    "printmasterman", "printmatteo",  "printmichel",   "printohlsson",
-    "printschmidt"};
+constexpr const char *kPassports[] = {"passarbuthnot",   "passconstantine", "passcount",     "passdebenham",
+                                      "passdragomiroff", "passengineer",    "passfireman",   "passfoscarelli",
+                                      "passhardman",     "passhardmanreal", "passhubbard",   "passklaus",
+                                      "passlucien",      "passmacqueen",    "passmasterman", "passmatteo",
+                                      "passmichel",      "passohlsson",     "passschmidt"};
+constexpr const char *kPrints[] = {"printarbuthnot",  "printconstantine", "printcount",     "printcountess",
+                                   "printdebenham",   "printdragomiroff", "printengineer",  "printfireman",
+                                   "printfoscarelli", "printhardman",     "printhubbard",   "printklaus",
+                                   "printlucien",     "printmacqueen",    "printmasterman", "printmatteo",
+                                   "printmichel",     "printohlsson",     "printschmidt"};
 
-bool testClause(std::string_view clause, const GameState& state) {
+bool testClause(std::string_view clause, const GameState &state) {
     // '!' first, or a space then '!' (0x407cb0).
     clause = trim(clause);
     bool negate = false;
@@ -138,10 +138,10 @@ bool testClause(std::string_view clause, const GameState& state) {
             if (within(kind, "passport") || within(kind, "fingerprint")) {
                 result = true;
                 if (within(kind, "passport")) {
-                    for (const char* p : kPassports)
+                    for (const char *p : kPassports)
                         result = result && state.itemState(p) != 0;
                 } else {
-                    for (const char* p : kPrints)
+                    for (const char *p : kPrints)
                         result = result && state.itemState(p) != 0;
                 }
             }
@@ -175,7 +175,7 @@ bool testClause(std::string_view clause, const GameState& state) {
             if (it != state.tags.end())
                 v = it->second;
         } else {
-            for (const auto& [n, t] : state.timers)
+            for (const auto &[n, t] : state.timers)
                 if (n == name) {
                     v = t;
                     break;
@@ -197,7 +197,7 @@ bool testClause(std::string_view clause, const GameState& state) {
             } else if (code.size() >= 2) {
                 const auto it = state.talks.find(talkKey(name, act, letter(code[0]), letter(code[1])));
                 if (it != state.talks.end()) {
-                    const TalkProgress& p = it->second;
+                    const TalkProgress &p = it->second;
                     result = p.status != 0 || p.nest == -1 || (code.size() >= 3 && p.nest > letter(code[2]));
                 }
             }
@@ -216,30 +216,32 @@ bool testClause(std::string_view clause, const GameState& state) {
 
 } // namespace
 
-const GameState::Item* GameState::findItem(const std::string& name, std::initializer_list<int> states) const {
+const GameState::Item *GameState::findItem(const std::string &name, std::initializer_list<int> states) const {
     const std::string n = fs::toLower(name);
-    for (const Item& i : items)
+    for (const Item &i : items)
         if (i.name == n && (states.size() == 0 || std::find(states.begin(), states.end(), i.state) != states.end()))
             return &i;
     return nullptr;
 }
 
-GameState::Item* GameState::findItem(const std::string& name, std::initializer_list<int> states) {
-    return const_cast<Item*>(std::as_const(*this).findItem(name, states));
+GameState::Item *GameState::findItem(const std::string &name, std::initializer_list<int> states) {
+    return const_cast<Item *>(std::as_const(*this).findItem(name, states));
 }
 
-int GameState::itemState(const std::string& item) const {
-    const Item* i = findItem(item);
+int GameState::itemState(const std::string &item) const {
+    const Item *i = findItem(item);
     return i ? i->state : 0;
 }
 
-bool GameState::itemAvailable(const std::string& item) const { return findItem(item, {1, 2}) != nullptr; }
+bool GameState::itemAvailable(const std::string &item) const {
+    return findItem(item, {1, 2}) != nullptr;
+}
 
 int GameState::freeSlot() const {
     int slot = 0;
     for (bool taken = true; taken; slot += taken) {
         taken = false;
-        for (const Item& i : items)
+        for (const Item &i : items)
             taken |= i.slot == slot && i.state >= 1 && i.state <= 3;
     }
     return slot;
@@ -249,7 +251,7 @@ std::string talkKey(std::string_view name, std::string_view act, int part, int t
     return fs::toLower(name) + "|" + fs::toLower(act) + "|" + std::to_string(part) + "|" + std::to_string(thread);
 }
 
-bool testCondition(std::string_view condition, const GameState& state) {
+bool testCondition(std::string_view condition, const GameState &state) {
     // 0x407ae0: none, "" or "1" holds.
     std::string s(trim(condition));
     if (s.empty() || s == "1")
@@ -267,7 +269,8 @@ bool testCondition(std::string_view condition, const GameState& state) {
     const bool any = s.find('|') != std::string::npos;
     for (size_t start = 0; start <= s.size();) {
         const size_t at = s.find_first_of(",|", start);
-        const std::string_view clause = trim(std::string_view(s).substr(start, at == std::string::npos ? at : at - start));
+        const std::string_view clause =
+            trim(std::string_view(s).substr(start, at == std::string::npos ? at : at - start));
         if (!clause.empty()) {
             const bool holds = testClause(clause, state);
             if (state.onTest)

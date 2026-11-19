@@ -21,7 +21,7 @@ constexpr int kRows = (kScreenH - kInfoH - 2 * kMargin) / font::kLineHeight;
 
 // Splits UTF-8 text into lines of at most kColumns characters, at spaces
 // where it can.
-void wrap(const std::string& line, std::vector<std::string>& out) {
+void wrap(const std::string &line, std::vector<std::string> &out) {
     std::string rest = line;
     while (font::length(rest) > size_t(kColumns)) {
         // The byte offset of character kColumns, and the last space before it.
@@ -42,8 +42,7 @@ void wrap(const std::string& line, std::vector<std::string>& out) {
 
 } // namespace
 
-TextViewer::TextViewer(System& sys, Surface& screen, const GameData& data)
-    : sys_(sys), screen_(screen), data_(data) {
+TextViewer::TextViewer(System &sys, Surface &screen, const GameData &data) : sys_(sys), screen_(screen), data_(data) {
     files_ = data_.withExtension(".txt");
 }
 
@@ -86,13 +85,26 @@ void TextViewer::handleKey(uint32_t key) {
         current_ = (current_ + int(files_.size()) - 1) % int(files_.size());
         load();
         break;
-    case key::Down: top_ = std::min(maxTop, top_ + 1); break;
-    case key::Up: top_ = std::max(0, top_ - 1); break;
-    case key::PageDown: top_ = std::min(maxTop, top_ + kRows); break;
-    case key::PageUp: top_ = std::max(0, top_ - kRows); break;
-    case key::Home: top_ = 0; break;
-    case key::End: top_ = maxTop; break;
-    default: return;
+    case key::Down:
+        top_ = std::min(maxTop, top_ + 1);
+        break;
+    case key::Up:
+        top_ = std::max(0, top_ - 1);
+        break;
+    case key::PageDown:
+        top_ = std::min(maxTop, top_ + kRows);
+        break;
+    case key::PageUp:
+        top_ = std::max(0, top_ - kRows);
+        break;
+    case key::Home:
+        top_ = 0;
+        break;
+    case key::End:
+        top_ = maxTop;
+        break;
+    default:
+        return;
     }
     draw();
 }
@@ -107,9 +119,8 @@ void TextViewer::draw() {
         font::drawText(screen_, kMargin, kMargin + r * font::kLineHeight, lines_[size_t(top_ + r)], {32, 24, 16});
     const std::string name = files_[size_t(current_)].filename().string();
     drawInfo(screen_, name + "   file " + std::to_string(current_ + 1) + "/" + std::to_string(files_.size()),
-             "lines " + std::to_string(top_ + 1) + "-" +
-                 std::to_string(std::min(int(lines_.size()), top_ + kRows)) + " of " +
-                 std::to_string(lines_.size()));
+             "lines " + std::to_string(top_ + 1) + "-" + std::to_string(std::min(int(lines_.size()), top_ + kRows)) +
+                 " of " + std::to_string(lines_.size()));
     sys_.setWindowTitle(std::string(gameName(data_.language())) + " text: " + name);
 }
 

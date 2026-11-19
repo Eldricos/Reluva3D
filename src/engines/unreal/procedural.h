@@ -25,11 +25,11 @@ class AnimatedTexture {
 public:
     virtual ~AnimatedTexture() = default;
     // The current picture (RGBA, the texture's size).
-    const image::Image& image() const { return image_; }
+    const image::Image &image() const { return image_; }
     // Moves on by `seconds`; true if the picture changed.
     virtual bool advance(float seconds) = 0;
     // What it is: "fire", "water", "wave", "wet", "ice", "FLC".
-    virtual const char* kind() const = 0;
+    virtual const char *kind() const = 0;
     // For one played frame by frame (an FLC: The Fallen's HUD picks its
     // frames itself): how many frames, how long each shows at rate 1, and
     // the picture showing frame `n` (from 1), its colour 0 see-through if
@@ -51,7 +51,7 @@ bool isAnimatedTextureClass(std::string_view className);
 
 // A texture's animation, showing its first picture; nullptr (with
 // `error` set, if given) when it isn't one or doesn't read.
-std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet& packages, const Package& package,
-                                                     int exportIndex, std::string* error = nullptr);
+std::unique_ptr<AnimatedTexture> openAnimatedTexture(const PackageSet &packages, const Package &package,
+                                                     int exportIndex, std::string *error = nullptr);
 
 } // namespace reluva::unreal

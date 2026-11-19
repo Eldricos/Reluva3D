@@ -12,11 +12,11 @@ namespace reluva::idtech3 {
 
 class TextureViewer : public Page {
 public:
-    explicit TextureViewer(ViewerContext& ctx);
-    const char* name() const override { return "Textures"; }
+    explicit TextureViewer(ViewerContext &ctx);
+    const char *name() const override { return "Textures"; }
     size_t count() const override { return names_.size(); }
     void activate() override { show(index_); }
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
 
 private:
     void show(int index);

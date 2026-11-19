@@ -37,8 +37,8 @@ constexpr uint32_t HasStack = 0x02000000; // a state frame comes before the prop
 // offsets the file stores).
 class Reader {
 public:
-    Reader(const uint8_t* data, size_t size, size_t base = 0) : data_(data), size_(size), base_(base) {}
-    explicit Reader(const std::vector<uint8_t>& data, size_t base = 0) : Reader(data.data(), data.size(), base) {}
+    Reader(const uint8_t *data, size_t size, size_t base = 0) : data_(data), size_(size), base_(base) {}
+    explicit Reader(const std::vector<uint8_t> &data, size_t base = 0) : Reader(data.data(), data.size(), base) {}
 
     bool ok() const { return ok_; }
     void fail() { ok_ = false; }
@@ -57,13 +57,13 @@ public:
     float f32();
     // The engine's compact integer: 1 to 5 bytes, see package.md.
     int32_t index();
-    bool bytes(void* out, size_t n);
+    bool bytes(void *out, size_t n);
     // A string as packages of `version` store them: before 64 NUL
     // terminated, from 64 a compact length (counting the NUL) first.
     std::string string(int version);
 
 private:
-    const uint8_t* data_;
+    const uint8_t *data_;
     size_t size_, base_;
     size_t pos_ = 0;
     bool ok_ = true;
@@ -83,9 +83,9 @@ struct Import {
 
 // An object this package defines.
 struct Export {
-    int32_t classRef = 0;  // object reference; 0: the object is a class
-    int32_t superRef = 0;  // object reference: what a class or struct extends
-    int32_t package = 0;   // object reference: the outer (a group), 0 for the package itself
+    int32_t classRef = 0; // object reference; 0: the object is a class
+    int32_t superRef = 0; // object reference: what a class or struct extends
+    int32_t package = 0;  // object reference: the outer (a group), 0 for the package itself
     int32_t objectName = 0;
     uint32_t flags = 0;
     int32_t serialSize = 0, serialOffset = 0;
@@ -93,32 +93,40 @@ struct Export {
 
 // Object references, as packages store them: > 0 the export at ref - 1,
 // < 0 the import at -ref - 1, 0 none.
-inline bool isExport(int32_t ref) { return ref > 0; }
-inline bool isImport(int32_t ref) { return ref < 0; }
-inline int exportIndex(int32_t ref) { return ref - 1; }
-inline int importIndex(int32_t ref) { return -ref - 1; }
+inline bool isExport(int32_t ref) {
+    return ref > 0;
+}
+inline bool isImport(int32_t ref) {
+    return ref < 0;
+}
+inline int exportIndex(int32_t ref) {
+    return ref - 1;
+}
+inline int importIndex(int32_t ref) {
+    return -ref - 1;
+}
 
 class Package {
 public:
     // Reads the header and tables from a file; export data is read from the
     // file when asked for. `name` defaults to the file's stem.
-    Error open(const std::filesystem::path& file);
+    Error open(const std::filesystem::path &file);
     // The same from a whole file in memory (kept).
     Error openMemory(std::vector<uint8_t> data, std::string name);
 
-    const std::string& name() const { return name_; }
-    const std::filesystem::path& file() const { return file_; }
+    const std::string &name() const { return name_; }
+    const std::filesystem::path &file() const { return file_; }
     int version() const { return version_; }
     int licensee() const { return licensee_; }
     uint32_t flags() const { return flags_; }
     uint64_t fileSize() const { return fileSize_; }
 
-    const std::vector<NameEntry>& names() const { return names_; }
-    const std::vector<Import>& imports() const { return imports_; }
-    const std::vector<Export>& exports() const { return exports_; }
+    const std::vector<NameEntry> &names() const { return names_; }
+    const std::vector<Import> &imports() const { return imports_; }
+    const std::vector<Export> &exports() const { return exports_; }
 
     // A name table entry; "" when out of range.
-    const std::string& name(int32_t index) const;
+    const std::string &name(int32_t index) const;
     // An object's own name and its class's name ("Class" for classes).
     std::string objectName(int32_t ref) const;
     std::string className(int32_t ref) const;
@@ -132,15 +140,15 @@ public:
     // case; -1 if none.
     int findExport(std::string_view objectName, std::string_view className = {}) const;
     // Every export of that name, ignoring case, in table order.
-    const std::vector<int>& exportsNamed(std::string_view objectName) const;
+    const std::vector<int> &exportsNamed(std::string_view objectName) const;
     // Every export whose class has that name, ignoring case.
     std::vector<int> exportsOfClass(std::string_view className) const;
 
     // An export's data, and a reader over it at its file offset.
-    Error readExport(int index, std::vector<uint8_t>& out) const;
+    Error readExport(int index, std::vector<uint8_t> &out) const;
 
 private:
-    Error parse(const std::vector<uint8_t>& data);
+    Error parse(const std::vector<uint8_t> &data);
 
     std::string name_;
     std::filesystem::path file_;

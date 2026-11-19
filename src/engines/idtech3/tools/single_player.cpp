@@ -39,7 +39,7 @@ using namespace reluva::idtech3::tool;
 // Runs Elite Force's single-player menus (efuix86.dll, in the x86
 // interpreter): GetUIAPI, Init, the main menu, then frames, with keys
 // pressed along the way; reports what they drew and the commands they ran.
-int cmdSpMenus(int argc, char** argv) {
+int cmdSpMenus(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool idtech3 sp-menus <game folder> [-dll efuix86.dll] [-frames N] "
                              "[-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...\n");
@@ -49,7 +49,7 @@ int cmdSpMenus(int argc, char** argv) {
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 10;
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
-    bool fixedClock = false; // -fixedclock: a clock that only moves with the frames, for runs that repeat
+    bool fixedClock = false;           // -fixedclock: a clock that only moves with the frames, for runs that repeat
     int clockFrame = 0;
     std::string dllPath, menu = "main";
     std::vector<std::pair<int, int32_t>> keys; // (frame, key)
@@ -82,7 +82,7 @@ int cmdSpMenus(int argc, char** argv) {
         std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
         if (!folder.has_filename())
             folder = folder.parent_path();
-        for (const std::filesystem::path& p : {folder.parent_path() / "efuix86.dll", folder / "efuix86.dll"})
+        for (const std::filesystem::path &p : {folder.parent_path() / "efuix86.dll", folder / "efuix86.dll"})
             if (std::filesystem::exists(p)) {
                 dllPath = p.string();
                 break;
@@ -99,19 +99,19 @@ int cmdSpMenus(int argc, char** argv) {
     if (!mountIdTech3(argv[2], set, skipPaks))
         return 1;
     q3::CvarStore cvars;
-    for (const auto& [name, value] : settings)
+    for (const auto &[name, value] : settings)
         cvars.set(name, value);
     q3::KeyBindings bindings;
     ef::SpUiHost ui(set, cvars);
     std::tie(ui.modInstall, ui.modBaseDir) = idTech3Folders(argv[2]);
     ui.bindings = &bindings;
-    ui.print = [](const std::string& text) {
+    ui.print = [](const std::string &text) {
         std::printf("menus: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    ui.startLocalSound = [](const std::string& sound, int channel) {
+    ui.startLocalSound = [](const std::string &sound, int channel) {
         std::printf("sound: %s (channel %d)\n", sound.c_str(), channel);
     };
-    auto failed = [&](const char* what, const reluva::Error& e) {
+    auto failed = [&](const char *what, const reluva::Error &e) {
         std::printf("%s failed: %s\n", what, e.message.c_str());
         std::printf("instructions run: %llu, at 0x%08x\n", (unsigned long long)ui.cpu().executed(), ui.cpu().faultEip);
         return 1;
@@ -125,7 +125,7 @@ int cmdSpMenus(int argc, char** argv) {
         return failed("SetActiveMenu", e);
     for (int f = 0; f < frames; ++f) {
         clockFrame = f;
-        for (const auto& [at, k] : keys)
+        for (const auto &[at, k] : keys)
             if (at == f) {
                 std::printf("[frame %d] key %s (%d)\n", f, q3::KeyBindings::keyName(k).c_str(), k);
                 if (reluva::Error e = ui.keyEvent(k))
@@ -133,21 +133,21 @@ int cmdSpMenus(int argc, char** argv) {
             }
         if (reluva::Error e = ui.refresh(f * 50))
             return failed("Refresh", e);
-        for (const std::string& command : ui.takeCommands())
+        for (const std::string &command : ui.takeCommands())
             std::printf("[frame %d] command: %s\n", f, command.c_str());
         if (f == 0 || f == frames - 1) {
             std::map<std::string, int> shown;
-            for (const auto& p : ui.pictures())
+            for (const auto &p : ui.pictures())
                 ++shown[ui.shaders().name(p.shader)];
             std::printf("[frame %d] %zu pictures, %zu scenes, catcher %d, fullscreen %d:\n", f, ui.pictures().size(),
                         ui.scene().views.size(), ui.catcher(), ui.fullscreen() ? 1 : 0);
-            for (const auto& [name, count] : shown)
+            for (const auto &[name, count] : shown)
                 std::printf("  %4d x %s\n", count, name.empty() ? "(none)" : name.c_str());
         }
     }
     if (!ui.unhandled().empty()) {
         std::printf("engine functions not answered yet:");
-        for (const auto& [slot, count] : ui.unhandled())
+        for (const auto &[slot, count] : ui.unhandled())
             std::printf(" %d (x%d)", slot, count);
         std::printf("\n");
     }
@@ -157,26 +157,28 @@ int cmdSpMenus(int argc, char** argv) {
 // Runs Elite Force's single-player game logic (efgamex86.dll, in the x86
 // interpreter) on a map: GetGameAPI, Init with the map's entities, the
 // player joining, then frames; reports what the game did.
-int cmdSpRun(int argc, char** argv) {
+int cmdSpRun(int argc, char **argv) {
     // The map can be left out with -load (the saved game's).
     const int firstOption = argc >= 4 && argv[3][0] != '-' ? 4 : 3;
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
-                             "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
-                             "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
+        std::fprintf(
+            stderr,
+            "usage: reluva-tool idtech3 sp-run <game folder> <map> [-dll efgamex86.dll] [-frames N] "
+            "[-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-fixedclock] [-skippak pak]...\n"
+            "       reluva-tool idtech3 sp-run <game folder> -load <saved game> [-replay <name>.input] [options as above]\n");
         return 2;
     }
     namespace q3 = reluva::idtech3;
     namespace ef = reluva::idtech3::eliteforce;
     int frames = 20;
     bool traceCalls = false, noClient = false, runCgame = false, watch = false;
-    std::vector<std::string> finds; // -find text: entities with a text field containing it
-    bool icarusNames = false;       // -icarus: the script system's table of entity names
+    std::vector<std::string> finds;    // -find text: entities with a text field containing it
+    bool icarusNames = false;          // -icarus: the script system's table of entity names
     std::vector<std::string> skipPaks; // -skippak name: a pak left out (the Expansion Pack's, say)
-    bool fixedClock = false;        // -fixedclock: the game's clock moves with its level time, for runs that repeat
-    bool saveLoad = false;          // -saveload: save at the end, load into a fresh game
-    std::string loadName;           // -load save: a saved game (its name in saves/, or a file)
-    std::string replayPath;         // -replay file: the player's commands, as the Play page records them
+    bool fixedClock = false;           // -fixedclock: the game's clock moves with its level time, for runs that repeat
+    bool saveLoad = false;             // -saveload: save at the end, load into a fresh game
+    std::string loadName;              // -load save: a saved game (its name in saves/, or a file)
+    std::string replayPath;            // -replay file: the player's commands, as the Play page records them
     std::string dllPath;
     std::vector<std::pair<std::string, std::string>> settings;
     for (int i = firstOption; i < argc; ++i) {
@@ -207,8 +209,7 @@ int cmdSpRun(int argc, char** argv) {
         else if (std::strcmp(argv[i], "-replay") == 0 && i + 1 < argc) {
             replayPath = argv[++i];
             runCgame = true; // the commands go through the client game, as recorded
-        }
-        else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
+        } else if (std::strcmp(argv[i], "-set") == 0 && i + 2 < argc) {
             settings.emplace_back(argv[i + 1], argv[i + 2]);
             i += 2;
         } else
@@ -219,7 +220,7 @@ int cmdSpRun(int argc, char** argv) {
         std::filesystem::path folder = std::filesystem::path(argv[2]).lexically_normal();
         if (!folder.has_filename())
             folder = folder.parent_path();
-        for (const std::filesystem::path& p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
+        for (const std::filesystem::path &p : {folder.parent_path() / "efgamex86.dll", folder / "efgamex86.dll"})
             if (std::filesystem::exists(p)) {
                 dllPath = p.string();
                 break;
@@ -236,7 +237,7 @@ int cmdSpRun(int argc, char** argv) {
     if (!mountIdTech3(argv[2], set, skipPaks))
         return 1;
     q3::CvarStore cvars;
-    for (const auto& [name, value] : settings)
+    for (const auto &[name, value] : settings)
         cvars.set(name, value);
     // -load: the saved game's header read first (it names the map and sets
     // the cvars it kept); the rest as the level starts.
@@ -250,8 +251,8 @@ int cmdSpRun(int argc, char** argv) {
         else
             found = !set.read("saves/" + loadName + ".sav", file);
         if (!found) {
-            std::fprintf(stderr, "no saved game %s (a file, or saves/%s.sav in the game's files)\n",
-                         loadName.c_str(), loadName.c_str());
+            std::fprintf(stderr, "no saved game %s (a file, or saves/%s.sav in the game's files)\n", loadName.c_str(),
+                         loadName.c_str());
             return 1;
         }
         save = std::make_unique<ef::SaveReader>(std::move(file));
@@ -260,7 +261,7 @@ int cmdSpRun(int argc, char** argv) {
             return 1;
         }
         // The command line's settings win over the saved game's.
-        for (const auto& [name, value] : settings)
+        for (const auto &[name, value] : settings)
             cvars.set(name, value);
         std::printf("saved game \"%s\": map %s%s\n", saveHeader.comment.c_str(), saveHeader.map.c_str(),
                     saveHeader.autosave ? " (autosave)" : "");
@@ -284,10 +285,10 @@ int cmdSpRun(int argc, char** argv) {
     if (fixedClock)
         game.clock = [&game] { return 10000u + uint32_t(game.levelTime()); };
     std::tie(game.modInstall, game.modBaseDir) = idTech3Folders(argv[2]);
-    game.print = [](const std::string& text) {
+    game.print = [](const std::string &text) {
         std::printf("game: %s%s", text.c_str(), text.empty() || text.back() != '\n' ? "\n" : "");
     };
-    game.voiceLog = [](const std::string& text) { std::printf("voice: %s\n", text.c_str()); };
+    game.voiceLog = [](const std::string &text) { std::printf("voice: %s\n", text.c_str()); };
     std::printf("(voices logged as they start and end)\n");
     // For a failure's report: the last engine calls, and (set up once the
     // DLL is loaded) the last instructions run.
@@ -300,8 +301,8 @@ int cmdSpRun(int argc, char** argv) {
     };
     std::vector<uint32_t> recent(64);
     size_t recentAt = 0;
-    auto failed = [&](const char* what, const reluva::Error& e) {
-        reluva::x86::Cpu& cpu = game.cpu();
+    auto failed = [&](const char *what, const reluva::Error &e) {
+        reluva::x86::Cpu &cpu = game.cpu();
         std::printf("%s failed: %s\n", what, e.message.c_str());
         std::printf("instructions run: %llu\n", (unsigned long long)cpu.executed());
         // Addresses as the DLL's own (at its preferred base), to look up.
@@ -324,8 +325,8 @@ int cmdSpRun(int argc, char** argv) {
             std::printf(" %d@%s", recentCalls[i % recentCalls.size()].first,
                         dll(recentCalls[i % recentCalls.size()].second).c_str());
         std::printf("\nregisters: eax %08x ecx %08x edx %08x ebx %08x esp %08x ebp %08x esi %08x edi %08x\n",
-                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4], cpu.faultReg[5],
-                    cpu.faultReg[6], cpu.faultReg[7]);
+                    cpu.faultReg[0], cpu.faultReg[1], cpu.faultReg[2], cpu.faultReg[3], cpu.faultReg[4],
+                    cpu.faultReg[5], cpu.faultReg[6], cpu.faultReg[7]);
         // Return addresses on the stack: words pointing into the DLL's code.
         std::printf("stack (words pointing into the DLL):");
         int shown = 0;
@@ -344,7 +345,7 @@ int cmdSpRun(int argc, char** argv) {
     if (reluva::Error e = game.load(dll))
         return failed("loading", e);
     std::printf("efgamex86.dll loaded at 0x%08x\n", game.module()->base);
-    game.cpu().trace = [&](reluva::x86::Cpu& c) { recent[recentAt++ % recent.size()] = c.eip; };
+    game.cpu().trace = [&](reluva::x86::Cpu &c) { recent[recentAt++ % recent.size()] = c.eip; };
     game.setSaveStream(nullptr, save.get());
     if (reluva::Error e = game.startLevel(map, bsp, ef::SpGameHost::mapChecksum(data), 0, loadMode))
         return failed("Init", e);
@@ -376,13 +377,14 @@ int cmdSpRun(int argc, char** argv) {
         const uint64_t before = game.cpu().executed();
         if (reluva::Error e = game.startClientGame())
             return failed("the client game's start-up", e);
-        std::printf("client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
-                    (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
-                    game.skins().size(), game.sounds().size());
+        std::printf(
+            "client game started: %llu instructions; %zu models, %zu shaders, %zu skins, %zu sounds registered\n",
+            (unsigned long long)(game.cpu().executed() - before), game.models().size(), game.shaders().size(),
+            game.skins().size(), game.sounds().size());
     }
     // The player's command for a moment, then the client game's frame: the
     // Play page's order. Empty: none to report; else what failed.
-    auto clientStep = [&](const ef::SpGameHost::UserCommand& cmd, int f) -> int {
+    auto clientStep = [&](const ef::SpGameHost::UserCommand &cmd, int f) -> int {
         if (reluva::Error e = game.clientThink(cmd))
             return failed(("command " + std::to_string(f + 1)).c_str(), e);
         if (reluva::Error e = game.drawClientFrame(cmd.serverTime))
@@ -392,14 +394,14 @@ int cmdSpRun(int argc, char** argv) {
         reluva::idtech3::Vec3f cam{};
         const bool camera = watch && game.cameraPosition(cam);
         if (watch && (game.levelTime() % 5000 == 0 || (camera && game.levelTime() % 250 == 0))) {
-            reluva::x86::Cpu& cpu = game.cpu();
+            reluva::x86::Cpu &cpu = game.cpu();
             auto f = [&cpu](uint32_t at) {
                 const uint32_t u = cpu.read32(at);
                 float v;
                 std::memcpy(&v, &u, 4);
                 return v;
             };
-            auto bytesFloat = [](const std::vector<uint8_t>& b, size_t at) {
+            auto bytesFloat = [](const std::vector<uint8_t> &b, size_t at) {
                 float v = 0;
                 if (at + 4 <= b.size())
                     std::memcpy(&v, b.data() + at, 4);
@@ -407,7 +409,7 @@ int cmdSpRun(int argc, char** argv) {
             };
             std::string view = "no view";
             if (!game.scene().views.empty()) {
-                const auto& r = game.scene().views[0].refdef;
+                const auto &r = game.scene().views[0].refdef;
                 char b[96];
                 std::snprintf(b, sizeof b, "view at %.0f %.0f %.0f", bytesFloat(r, 24), bytesFloat(r, 28),
                               bytesFloat(r, 32));
@@ -477,28 +479,27 @@ int cmdSpRun(int argc, char** argv) {
         }
     }
     if (game.clientGameRunning()) {
-        const q3::Scene& scene = game.scene();
-        std::printf("last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
-                    scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(),
-                    game.pictures().size());
+        const q3::Scene &scene = game.scene();
+        std::printf(
+            "last client frame: %zu scene entities, %zu polygons, %zu lights, %zu scenes rendered, %zu pictures\n",
+            scene.entities.size(), scene.polys.size(), scene.lights.size(), scene.views.size(), game.pictures().size());
         std::map<std::string, int> byModel;
-        for (const q3::SceneEntity& e : scene.entities) {
+        for (const q3::SceneEntity &e : scene.entities) {
             const int32_t m = ef::SpGameHost::entityModel(e);
             ++byModel[m ? game.models().name(m) : std::string("(no model)")];
         }
-        for (const auto& [name, count] : byModel)
+        for (const auto &[name, count] : byModel)
             std::printf("  %3d x %s\n", count, name.c_str());
         std::map<std::string, int> byShader;
-        for (const q3::Picture& p : game.pictures())
+        for (const q3::Picture &p : game.pictures())
             ++byShader[game.shaders().name(p.shader)];
-        for (const auto& [name, count] : byShader)
+        for (const auto &[name, count] : byShader)
             std::printf("  picture %3d x %s\n", count, name.c_str());
     }
-    const double seconds =
-        std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     std::printf("%d frames run (level time %d ms): %d entities, %zu linked; %llu instructions in %.2f s\n", frames,
-                game.levelTime(), game.entityCount(), game.linked().size(),
-                (unsigned long long)game.cpu().executed(), seconds);
+                game.levelTime(), game.entityCount(), game.linked().size(), (unsigned long long)game.cpu().executed(),
+                seconds);
     // -saveload: the game's own part of a saved game (WriteLevel), then a
     // fresh copy of the game started on the level as for loading it
     // (ReadLevel), as a check that what it writes reads back.
@@ -514,7 +515,7 @@ int cmdSpRun(int argc, char** argv) {
         {
             // Its chunks: each id in the order first written, how many and
             // their lengths (one, or the smallest and largest).
-            const Bytes& out = w.bytes();
+            const Bytes &out = w.bytes();
             std::vector<std::string> order;
             std::map<std::string, std::tuple<int, uint32_t, uint32_t>> seen;
             for (size_t at = 0; at + 12 <= out.size();) {
@@ -525,15 +526,15 @@ int cmdSpRun(int argc, char** argv) {
                 auto [it, added] = seen.try_emplace(name, 0, length, length);
                 if (added)
                     order.push_back(name);
-                auto& [count, low, high] = it->second;
+                auto &[count, low, high] = it->second;
                 ++count;
                 low = std::min(low, length);
                 high = std::max(high, length);
                 at += 16 + length;
             }
             std::printf("chunks:");
-            for (const std::string& name : order) {
-                const auto& [count, low, high] = seen[name];
+            for (const std::string &name : order) {
+                const auto &[count, low, high] = seen[name];
                 std::printf(" %s", name.c_str());
                 if (count > 1)
                     std::printf("x%d", count);
@@ -568,7 +569,7 @@ int cmdSpRun(int argc, char** argv) {
     // asked for: each such field's offset and text, and the entity's other
     // text fields, for telling what they are.
     if (!finds.empty()) {
-        reluva::x86::Cpu& cpu = game.cpu();
+        reluva::x86::Cpu &cpu = game.cpu();
         const int32_t size = game.entitySize();
         for (int32_t n = 0; n < game.entityCount(); ++n) {
             std::vector<std::pair<int32_t, std::string>> texts;
@@ -581,7 +582,7 @@ int cmdSpRun(int argc, char** argv) {
                 if (t.size() < 3 || !std::all_of(t.begin(), t.end(), [](char c) { return c > 32 && c < 127; }))
                     continue;
                 texts.emplace_back(off, t);
-                for (const std::string& f : finds)
+                for (const std::string &f : finds)
                     match = match || reluva::fs::toLower(t).find(f) != std::string::npos;
             }
             if (!match)
@@ -589,7 +590,7 @@ int cmdSpRun(int argc, char** argv) {
             std::printf("entity %d (in use %d, linked %d, sequencer %08x, task manager %08x):", n,
                         game.entityInt(n, ef::SpEntityLayout{}.inUse), game.entityInt(n, ef::SpEntityLayout{}.linked),
                         uint32_t(game.entityInt(n, 0x2b8)), uint32_t(game.entityInt(n, 0x2bc)));
-            for (const auto& [off, t] : texts)
+            for (const auto &[off, t] : texts)
                 std::printf(" +0x%x=\"%s\"", off, t.c_str());
             std::printf("\n");
         }
@@ -599,23 +600,23 @@ int cmdSpRun(int argc, char** argv) {
     // right links, then the key (a VC6 string: its text pointer at +4, its
     // length at +8) and the entity number.
     if (icarusNames) {
-        reluva::x86::Cpu& cpu = game.cpu();
+        reluva::x86::Cpu &cpu = game.cpu();
         const uint32_t map = 0x2027d760 - uint32_t(game.module()->image.imageBase) + game.module()->base;
         const uint32_t head = cpu.read32(map + 4);
         // A node's key, or none for the tree's sentinel (no valid text).
-        auto key = [&](uint32_t node, std::string& out) {
+        auto key = [&](uint32_t node, std::string &out) {
             if (!cpu.valid(node, 36) || node == head)
                 return false;
             const uint32_t text = cpu.read32(node + 16), length = cpu.read32(node + 20);
             if (!cpu.valid(text, 1) || length > 255)
                 return false;
-            out.assign(reinterpret_cast<const char*>(cpu.memory().data() + text), length);
+            out.assign(reinterpret_cast<const char *>(cpu.memory().data() + text), length);
             return true;
         };
         // In order (left, node, right), checking each key is after the last.
         std::vector<std::pair<std::string, int32_t>> inOrder;
         std::set<uint32_t> visited;
-        auto walk = [&](uint32_t node, int depth, auto& self) -> void {
+        auto walk = [&](uint32_t node, int depth, auto &self) -> void {
             std::string k;
             if (depth > 64 || !key(node, k) || !visited.insert(node).second)
                 return;
@@ -625,15 +626,15 @@ int cmdSpRun(int argc, char** argv) {
         };
         const uint32_t root = cpu.read32(head + 4);
         walk(root, 0, walk);
-        std::printf("script names (map at %08x, head %08x, root %08x, size %u, %zu found in order):\n", map, head,
-                    root, cpu.read32(map + 12), inOrder.size());
+        std::printf("script names (map at %08x, head %08x, root %08x, size %u, %zu found in order):\n", map, head, root,
+                    cpu.read32(map + 12), inOrder.size());
         for (size_t i = 0; i < inOrder.size(); ++i)
             std::printf("  %s -> %d%s\n", inOrder[i].first.c_str(), inOrder[i].second,
                         i && !(inOrder[i - 1].first < inOrder[i].first) ? "   <-- OUT OF ORDER" : "");
         // The search std::map::find makes, for each name asked for.
-        for (const std::string& f : finds) {
+        for (const std::string &f : finds) {
             std::string want = f;
-            for (char& c : want)
+            for (char &c : want)
                 c = char(std::toupper(static_cast<unsigned char>(c)));
             uint32_t node = root, best = 0;
             std::string k, path;
@@ -653,21 +654,21 @@ int cmdSpRun(int argc, char** argv) {
     }
     std::printf("configstrings:\n");
     int shown = 0;
-    for (const auto& [index, text] : game.configstrings())
+    for (const auto &[index, text] : game.configstrings())
         if (shown++ < 40)
             std::printf("  %4d %s\n", index, text.substr(0, 100).c_str());
-    for (const std::string& c : game.consoleCommands())
+    for (const std::string &c : game.consoleCommands())
         std::printf("console command: %s", c.c_str());
     std::printf("server commands to the player: %zu\n", game.serverCommands().size());
     int commandsShown = 0;
-    for (const auto& [client, text] : game.serverCommands())
+    for (const auto &[client, text] : game.serverCommands())
         if (commandsShown++ < 60)
             std::printf("  to %d: %s\n", client, text.substr(0, 100).c_str());
     std::printf("engine calls:");
-    for (const auto& [slot, count] : game.callCounts())
+    for (const auto &[slot, count] : game.callCounts())
         std::printf(" %d:%d", slot, count);
     std::printf("\nclient game calls:");
-    for (const auto& [n, count] : game.cgameCallCounts())
+    for (const auto &[n, count] : game.cgameCallCounts())
         std::printf(" %d:%d%s", n, count, game.cgameUnhandled().count(n) ? "?" : "");
     std::printf("  (? not answered yet)\n");
     return 0;
@@ -676,9 +677,10 @@ int cmdSpRun(int argc, char** argv) {
 // Prints a compiled ICARUS script (.IBI, Elite Force's single player
 // scripts): its blocks (commands) and their members, the block ids named as
 // the format's GPL release in Jedi Outcast numbers them.
-int cmdIbiDump(int argc, char** argv) {
+int cmdIbiDump(int argc, char **argv) {
     if (argc < 4) {
-        std::fprintf(stderr, "usage: reluva-tool idtech3 ibi-dump <game folder> <script, e.g. real_scripts/borg1/intro>\n");
+        std::fprintf(stderr,
+                     "usage: reluva-tool idtech3 ibi-dump <game folder> <script, e.g. real_scripts/borg1/intro>\n");
         return 2;
     }
     reluva::SearchSet set;
@@ -705,12 +707,13 @@ int cmdIbiDump(int argc, char** argv) {
     float version;
     std::memcpy(&version, d.data() + 4, 4);
     std::printf("%s: IBI version %.2f, %zu bytes\n", name.c_str(), version, d.size());
-    static const char* const kIds[] = {"affect", "sound", "move", "rotate", "wait", "{", "}", "set", "loop",
-                                       "loopend", "print", "use", "flush", "run", "kill", "remove", "camera",
-                                       "get", "random", "if", "else", "rem", "task", "do", "declare", "free",
-                                       "dowait", "signal", "waitsignal", "play", "tag", "eof"};
-    static const char* const kTokens[] = {"undefined", "comment", "eol", "char", "string", "int", "float",
-                                          "identifier", "{", "}", "<", ">", "(", ")", "vector", ">", "<", "=", "!"};
+    static const char *const kIds[] = {"affect",  "sound",   "move",   "rotate", "wait",       "{",    "}",    "set",
+                                       "loop",    "loopend", "print",  "use",    "flush",      "run",  "kill", "remove",
+                                       "camera",  "get",     "random", "if",     "else",       "rem",  "task", "do",
+                                       "declare", "free",    "dowait", "signal", "waitsignal", "play", "tag",  "eof"};
+    static const char *const kTokens[] = {"undefined",  "comment", "eol", "char", "string", "int", "float",
+                                          "identifier", "{",       "}",   "<",    ">",      "(",   ")",
+                                          "vector",     ">",       "<",   "=",    "!"};
     auto idName = [&](int32_t id) -> std::string {
         if (id >= 19 && id < 19 + int32_t(sizeof kIds / sizeof kIds[0]))
             return kIds[id - 19];
@@ -738,7 +741,10 @@ int cmdIbiDump(int argc, char** argv) {
                 break;
             std::string v;
             if (mid == 4 || mid == 7 || mid == 3) {
-                v = "\"" + std::string(reinterpret_cast<const char*>(d.data() + at), strnlen(reinterpret_cast<const char*>(d.data() + at), size_t(size))) + "\"";
+                v = "\"" +
+                    std::string(reinterpret_cast<const char *>(d.data() + at),
+                                strnlen(reinterpret_cast<const char *>(d.data() + at), size_t(size))) +
+                    "\"";
             } else if (mid == 6 && size == 4) {
                 float f;
                 std::memcpy(&f, d.data() + at, 4);
@@ -765,18 +771,21 @@ int cmdIbiDump(int argc, char** argv) {
     return 0;
 }
 
-const Commands commands("idtech3", {
-    {"sp-menus", "<game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...",
-     "run Elite Force's single-player menus (efuix86.dll, in the x86 interpreter), with keys pressed; "
-     "report what they draw and run",
-     cmdSpMenus},
-    {"sp-run", "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-replay file.input] [-fixedclock] [-skippak pak]...",
-     "run Elite Force's single-player game code (efgamex86.dll, in the x86 interpreter) on a map, with "
-     "a player; report what it does",
-     cmdSpRun},
-    {"ibi-dump", "<game folder> <script>",
-     "print a compiled ICARUS script (.IBI): its blocks (commands) and their members",
-     cmdIbiDump},
-});
+const Commands commands(
+    "idtech3",
+    {
+        {"sp-menus",
+         "<game folder> [-dll efuix86.dll] [-frames N] [-menu name] [-key frame key]... [-set name value]... [-fixedclock] [-skippak pak]...",
+         "run Elite Force's single-player menus (efuix86.dll, in the x86 interpreter), with keys pressed; "
+         "report what they draw and run",
+         cmdSpMenus},
+        {"sp-run",
+         "<game folder> <map | -load saved game> [-dll efgamex86.dll] [-frames N] [-set name value]... [-trace] [-noclient] [-cgame] [-watch] [-find text]... [-icarus] [-saveload] [-replay file.input] [-fixedclock] [-skippak pak]...",
+         "run Elite Force's single-player game code (efgamex86.dll, in the x86 interpreter) on a map, with "
+         "a player; report what it does",
+         cmdSpRun},
+        {"ibi-dump", "<game folder> <script>",
+         "print a compiled ICARUS script (.IBI): its blocks (commands) and their members", cmdIbiDump},
+    });
 
 } // namespace

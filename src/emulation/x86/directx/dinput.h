@@ -17,7 +17,7 @@ namespace reluva::x86 {
 // engine passes to the process (Win32Process::rawInput).
 class DirectInput {
 public:
-    explicit DirectInput(Win32Process& process);
+    explicit DirectInput(Win32Process &process);
     ~DirectInput();
 
     struct State;

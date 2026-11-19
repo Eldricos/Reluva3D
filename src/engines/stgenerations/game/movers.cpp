@@ -34,8 +34,8 @@ double distanceToSegment(double px, double py, double x1, double y1, double x2, 
     return std::sqrt(cx * cx + cy * cy);
 }
 
-bool insidePolygon(const LevelFile& level, const LevelFile::Sector& flat, double x, double y) {
-    const std::vector<LevelFile::Vertex>& vertices = level.getVertices();
+bool insidePolygon(const LevelFile &level, const LevelFile::Sector &flat, double x, double y) {
+    const std::vector<LevelFile::Vertex> &vertices = level.getVertices();
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
@@ -49,21 +49,21 @@ bool insidePolygon(const LevelFile& level, const LevelFile::Sector& flat, double
 
 } // namespace
 
-Movers::Movers(LevelFile& level) : _level(level) {
+Movers::Movers(LevelFile &level) : _level(level) {
     // 0x4B7CA0: leaders first, each id one mover...
-    const std::vector<LevelFile::Wall>& walls = level.getWalls();
+    const std::vector<LevelFile::Wall> &walls = level.getWalls();
     for (int i = 0; i < (int)walls.size(); i++) {
-        const LevelFile::Wall& wall = walls[i];
+        const LevelFile::Wall &wall = walls[i];
         if (!wall.moverId || (wall.flags & LevelFile::kFlagMoverFollower))
             continue;
         uint16_t id = (uint16_t)wall.moverId;
         auto it = _byId.find(id);
         if (it == _byId.end()) {
-            it = _byId.insert({ id, (int)_movers.size() }).first;
+            it = _byId.insert({id, (int)_movers.size()}).first;
             _movers.push_back(Mover());
             _movers.back().id = id;
         }
-        Mover& mover = _movers[it->second];
+        Mover &mover = _movers[it->second];
         if (wall.moverSpeed)
             mover.rate = (uint16_t)(wall.moverSpeed * 64 / 100);
         if (wall.moverWait) {
@@ -77,11 +77,11 @@ Movers::Movers(LevelFile& level) : _level(level) {
         mover.leaders.push_back(leader);
     }
     // ...then followers, to the leader of the same mover with their mode.
-    auto attach = [this](uint16_t id, const Part& part) {
-        Mover* mover = find(id);
+    auto attach = [this](uint16_t id, const Part &part) {
+        Mover *mover = find(id);
         if (!mover)
             return;
-        for (Leader& leader : mover->leaders) {
+        for (Leader &leader : mover->leaders) {
             if (leader.part.mode == part.mode) {
                 leader.followers.push_back(part);
                 return;
@@ -89,13 +89,13 @@ Movers::Movers(LevelFile& level) : _level(level) {
         }
     };
     for (int i = 0; i < (int)walls.size(); i++) {
-        const LevelFile::Wall& wall = walls[i];
+        const LevelFile::Wall &wall = walls[i];
         if (wall.moverId && (wall.flags & LevelFile::kFlagMoverFollower))
             attach((uint16_t)wall.moverId, makePart(true, i, wall.moverMode));
     }
-    const std::vector<LevelFile::Sector>& flats = level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = level.getSectors();
     for (int i = 0; i < (int)flats.size(); i++) {
-        const LevelFile::Sector& flat = flats[i];
+        const LevelFile::Sector &flat = flats[i];
         if (flat.moverId && (flat.flags & LevelFile::kFlagMoverFollower))
             attach((uint16_t)flat.moverId, makePart(false, i, flat.moverMode));
     }
@@ -107,8 +107,8 @@ Movers::Part Movers::makePart(bool wall, int index, int mode) const {
     part.index = index;
     part.mode = mode;
     if (wall) {
-        const LevelFile::Wall& w = _level.getWalls()[index];
-        const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
+        const LevelFile::Wall &w = _level.getWalls()[index];
+        const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
         part.x1 = vertices[w.vertex1].x;
         part.y1 = vertices[w.vertex1].y;
         part.x2 = vertices[w.vertex2].x;
@@ -123,27 +123,27 @@ Movers::Part Movers::makePart(bool wall, int index, int mode) const {
     return part;
 }
 
-Movers::Mover* Movers::find(uint16_t id) {
+Movers::Mover *Movers::find(uint16_t id) {
     auto it = _byId.find(id & 0x1FFF);
     return it == _byId.end() ? nullptr : &_movers[it->second];
 }
 
-const Movers::Mover* Movers::find(uint16_t id) const {
+const Movers::Mover *Movers::find(uint16_t id) const {
     auto it = _byId.find(id & 0x1FFF);
     return it == _byId.end() ? nullptr : &_movers[it->second];
 }
 
 int Movers::getState(uint16_t id) const {
-    const Mover* mover = find(id);
+    const Mover *mover = find(id);
     return mover ? mover->state : kIdle;
 }
 
 int Movers::getPosition(uint16_t id) const {
-    const Mover* mover = find(id);
+    const Mover *mover = find(id);
     return mover ? mover->position : 0;
 }
 
-bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>& moved, bool check) {
+bool Movers::apply(Mover &mover, int position, Walker &player, std::vector<int> &moved, bool check) {
     // 0x4B85B0: every part from its original geometry, f from -1 to 1.
     double f = position / (double)kOpenPosition;
     struct WallPlace {
@@ -159,12 +159,12 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
     std::vector<WallPlace> wallPlaces;
     std::vector<FlatPlace> flatPlaces;
 
-    for (const Leader& leader : mover.leaders) {
-        const Part& l = leader.part;
+    for (const Leader &leader : mover.leaders) {
+        const Part &l = leader.part;
         double ax = fromFixed(l.x1), ay = fromFixed(l.y1), bx = fromFixed(l.x2), by = fromFixed(l.y2);
         double h = fromFixed(l.top) - fromFixed(l.bottom);
         double theta = f * kPi / 2;
-        auto place = [&](const Part& p, bool isLeader) {
+        auto place = [&](const Part &p, bool isLeader) {
             if (!p.wall) {
                 // 0x4B8660: flats only rise or sink with the door.
                 int32_t height = p.height;
@@ -172,12 +172,12 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
                     height = p.height + toFixed(f * h);
                 else if (p.mode == 7)
                     height = p.height - toFixed(f * h);
-                flatPlaces.push_back({ p.index, height });
+                flatPlaces.push_back({p.index, height});
                 return;
             }
             // 0x4B8810, by the part's own mode.
-            WallPlace w = { p.index, fromFixed(p.x1), fromFixed(p.y1), fromFixed(p.x2), fromFixed(p.y2),
-                            p.top, p.bottom, p.vStart, p.vLength, false };
+            WallPlace w = {p.index, fromFixed(p.x1), fromFixed(p.y1), fromFixed(p.x2), fromFixed(p.y2),
+                           p.top,   p.bottom,        p.vStart,        p.vLength,       false};
             auto rotate = [&](double cx, double cy, double angle) {
                 double c = std::cos(angle), s = std::sin(angle);
                 double x1 = w.x1 - cx, y1 = w.y1 - cy, x2 = w.x2 - cx, y2 = w.y2 - cy;
@@ -237,7 +237,7 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
             wallPlaces.push_back(w);
         };
         place(l, true);
-        for (const Part& p : leader.followers)
+        for (const Part &p : leader.followers)
             place(p, false);
     }
 
@@ -245,23 +245,23 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
         // 0x4B9180: no part may come nearer the player once within 1 unit;
         // 0x4B8760: no ceiling may come down on the player's head.
         double px = player.getX(), py = player.getY(), feet = player.getFeet(), head = player.getEye();
-        const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
+        const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
         auto distance = [&](double x1, double y1, double x2, double y2, int32_t top, int32_t bottom) {
             double planar = distanceToSegment(px, py, x1, y1, x2, y2);
-            double dz = std::max({ 0.0, fromFixed(bottom) - head, feet - fromFixed(top) });
+            double dz = std::max({0.0, fromFixed(bottom) - head, feet - fromFixed(top)});
             return std::sqrt(planar * planar + dz * dz);
         };
-        for (const WallPlace& w : wallPlaces) {
-            const LevelFile::Wall& wall = _level.getWalls()[w.index];
+        for (const WallPlace &w : wallPlaces) {
+            const LevelFile::Wall &wall = _level.getWalls()[w.index];
             double before = distance(fromFixed(vertices[wall.vertex1].x), fromFixed(vertices[wall.vertex1].y),
-                                     fromFixed(vertices[wall.vertex2].x), fromFixed(vertices[wall.vertex2].y),
-                                     wall.top, wall.bottom);
+                                     fromFixed(vertices[wall.vertex2].x), fromFixed(vertices[wall.vertex2].y), wall.top,
+                                     wall.bottom);
             double after = distance(w.x1, w.y1, w.x2, w.y2, w.top, w.bottom);
             if (after < before && after < kClearance)
                 return false;
         }
-        for (const FlatPlace& p : flatPlaces) {
-            const LevelFile::Sector& flat = _level.getSectors()[p.index];
+        for (const FlatPlace &p : flatPlaces) {
+            const LevelFile::Sector &flat = _level.getSectors()[p.index];
             if (!flat.isCeiling() || p.height >= flat.height)
                 continue;
             if (fromFixed(p.height) < head && fromFixed(flat.height) >= head && insidePolygon(_level, flat, px, py))
@@ -269,10 +269,10 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
         }
     }
 
-    std::vector<LevelFile::Wall>& walls = _level.getWalls();
-    std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
-    for (const WallPlace& w : wallPlaces) {
-        LevelFile::Wall& wall = walls[w.index];
+    std::vector<LevelFile::Wall> &walls = _level.getWalls();
+    std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
+    for (const WallPlace &w : wallPlaces) {
+        LevelFile::Wall &wall = walls[w.index];
         vertices[wall.vertex1].x = toFixed(w.x1);
         vertices[wall.vertex1].y = toFixed(w.y1);
         vertices[wall.vertex2].x = toFixed(w.x2);
@@ -285,8 +285,8 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
             _level.updateWallGeometry(w.index);
         moved.push_back(w.index);
     }
-    std::vector<LevelFile::Sector>& flats = _level.getSectors();
-    for (const FlatPlace& p : flatPlaces) {
+    std::vector<LevelFile::Sector> &flats = _level.getSectors();
+    for (const FlatPlace &p : flatPlaces) {
         if (flats[p.index].height == p.height)
             continue;
         bool riding = check && player.getFloor() == p.index && !flats[p.index].isCeiling();
@@ -298,7 +298,7 @@ bool Movers::apply(Mover& mover, int position, Walker& player, std::vector<int>&
     return true;
 }
 
-void Movers::changed(Mover& mover, std::vector<Notice>& notices) {
+void Movers::changed(Mover &mover, std::vector<Notice> &notices) {
     if (mover.state == mover.lastState)
         return;
     mover.lastState = mover.state;
@@ -307,27 +307,27 @@ void Movers::changed(Mover& mover, std::vector<Notice>& notices) {
     switch (mover.state) {
     case kOpening:
     case kOpeningBack:
-        notices.push_back({ object, kEventOpening });
+        notices.push_back({object, kEventOpening});
         break;
     case kOpen:
     case kOpenBack:
-        notices.push_back({ object, kEventOpen });
+        notices.push_back({object, kEventOpen});
         break;
     case kClosing:
     case kClosingBack:
-        notices.push_back({ object, kEventClosing });
+        notices.push_back({object, kEventClosing});
         break;
     case kClosed:
-        notices.push_back({ object, kEventClosed });
+        notices.push_back({object, kEventClosed});
         break;
     default:
         break;
     }
 }
 
-void Movers::update(uint32_t ms, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices) {
+void Movers::update(uint32_t ms, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices) {
     ms = std::max<uint32_t>(8, std::min<uint32_t>(ms, 1000));
-    for (Mover& mover : _movers) {
+    for (Mover &mover : _movers) {
         if (mover.state == kIdle)
             continue;
         int oldPosition = mover.position, oldState = mover.state;
@@ -406,8 +406,8 @@ void Movers::update(uint32_t ms, Walker& player, std::vector<int>& moved, std::v
     }
 }
 
-void Movers::setState(uint16_t id, int state, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices) {
-    Mover* mover = find(id);
+void Movers::setState(uint16_t id, int state, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices) {
+    Mover *mover = find(id);
     if (!mover)
         return;
     mover->state = state;
@@ -422,8 +422,8 @@ void Movers::setState(uint16_t id, int state, Walker& player, std::vector<int>& 
     changed(*mover, notices);
 }
 
-void Movers::toggle(uint16_t id, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices) {
-    Mover* mover = find(id);
+void Movers::toggle(uint16_t id, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices) {
+    Mover *mover = find(id);
     if (!mover)
         return;
     if (mover->position == 0)
@@ -433,16 +433,16 @@ void Movers::toggle(uint16_t id, Walker& player, std::vector<int>& moved, std::v
 }
 
 void Movers::setLocked(uint16_t id, bool locked) {
-    if (Mover* mover = find(id))
+    if (Mover *mover = find(id))
         mover->flags = locked ? mover->flags | kFlagLocked : mover->flags & ~kFlagLocked;
 }
 
-void Movers::bump(int wall, std::vector<Notice>& notices) {
+void Movers::bump(int wall, std::vector<Notice> &notices) {
     // 0x4B94D0: walking into a wall starts the door it names, by its mode.
     if (wall < 0 || wall >= (int)_level.getWalls().size())
         return;
-    const LevelFile::Wall& w = _level.getWalls()[wall];
-    Mover* mover = w.bumpMover ? find((uint16_t)w.bumpMover) : nullptr;
+    const LevelFile::Wall &w = _level.getWalls()[wall];
+    Mover *mover = w.bumpMover ? find((uint16_t)w.bumpMover) : nullptr;
     if (!mover)
         return;
     bool locked = (mover->flags & kFlagLocked) != 0;
@@ -478,9 +478,9 @@ void Movers::bump(int wall, std::vector<Notice>& notices) {
     }
 }
 
-void Movers::sync(Serializer& s, Walker& player, std::vector<int>& moved) {
+void Movers::sync(Serializer &s, Walker &player, std::vector<int> &moved) {
     s.syncCount((uint32_t)_movers.size());
-    for (Mover& mover : _movers) {
+    for (Mover &mover : _movers) {
         if (s.err())
             return;
         s.syncAsInt(mover.position);
@@ -491,7 +491,7 @@ void Movers::sync(Serializer& s, Walker& player, std::vector<int>& moved) {
     }
     if (s.isLoading()) {
         // The geometry follows from the originals and the positions.
-        for (Mover& mover : _movers)
+        for (Mover &mover : _movers)
             apply(mover, mover.position, player, moved, false);
     }
 }

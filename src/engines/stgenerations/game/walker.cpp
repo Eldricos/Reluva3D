@@ -21,7 +21,7 @@ double fromFixed(int32_t v) {
 }
 
 // Even-odd point in polygon test on the floor plan.
-bool containsPoint(const std::vector<LevelFile::Vertex>& vertices, const LevelFile::Sector& flat, double x, double y) {
+bool containsPoint(const std::vector<LevelFile::Vertex> &vertices, const LevelFile::Sector &flat, double x, double y) {
     bool inside = false;
     size_t n = flat.vertices.size();
     for (size_t i = 0, j = n - 1; i < n; j = i++) {
@@ -34,7 +34,7 @@ bool containsPoint(const std::vector<LevelFile::Vertex>& vertices, const LevelFi
 }
 
 // Whether (x, y) is inside the flat or within margin of its edges.
-bool nearPolygon(const std::vector<LevelFile::Vertex>& vertices, const LevelFile::Sector& flat, double x, double y,
+bool nearPolygon(const std::vector<LevelFile::Vertex> &vertices, const LevelFile::Sector &flat, double x, double y,
                  double margin) {
     if (containsPoint(vertices, flat, x, y))
         return true;
@@ -53,16 +53,16 @@ bool nearPolygon(const std::vector<LevelFile::Vertex>& vertices, const LevelFile
 
 } // namespace
 
-Walker::Walker(const LevelFile& level) : _level(level) {
+Walker::Walker(const LevelFile &level) : _level(level) {
     std::shared_ptr<std::vector<WallLine>> lines(new std::vector<WallLine>(level.getWalls().size()));
     _walls = lines;
     for (size_t i = 0; i < lines->size(); i++)
         makeLine((int)i, (*lines)[i]);
 }
 
-void Walker::makeLine(int index, WallLine& line) const {
-    const std::vector<LevelFile::Vertex>& vertices = _level.getVertices();
-    const LevelFile::Wall& wall = _level.getWalls()[index];
+void Walker::makeLine(int index, WallLine &line) const {
+    const std::vector<LevelFile::Vertex> &vertices = _level.getVertices();
+    const LevelFile::Wall &wall = _level.getWalls()[index];
     line.index = index;
     line.x1 = fromFixed(vertices[wall.vertex1].x);
     line.y1 = fromFixed(vertices[wall.vertex1].y);
@@ -78,13 +78,13 @@ void Walker::makeLine(int index, WallLine& line) const {
     line.passable = (wall.flags & LevelFile::kWallNoCollision) != 0;
 }
 
-void Walker::refreshWalls(const std::vector<int>& walls) {
+void Walker::refreshWalls(const std::vector<int> &walls) {
     // Every copy of this walker (the actors' too) shares the lines.
     for (int index : walls)
         makeLine(index, (*_walls)[index]);
 }
 
-void Walker::sync(Serializer& s) {
+void Walker::sync(Serializer &s) {
     s.syncAsDouble(_x);
     s.syncAsDouble(_y);
     s.syncAsDouble(_feet);
@@ -121,7 +121,7 @@ void Walker::place(double x, double y, double feet) {
     _contactObstacle = -1;
     _floor = findFloor(x, y, feet + _stepHeight, _zones);
     if (_floor >= 0) {
-        const LevelFile::Sector& flat = _level.getSectors()[_floor];
+        const LevelFile::Sector &flat = _level.getSectors()[_floor];
         _feet = fromFixed(flat.height);
         _zones = flat.getActiveZones() ? flat.getActiveZones() : kAllZones;
     }
@@ -139,9 +139,9 @@ void Walker::move(double dx, double dy, double seconds) {
 int Walker::findFloor(double x, double y, double maxHeight, uint64_t zones, uint32_t ignoredFlags) const {
     int best = -1;
     double bestHeight = 0;
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     for (size_t i = 0; i < flats.size(); i++) {
-        const LevelFile::Sector& flat = flats[i];
+        const LevelFile::Sector &flat = flats[i];
         if (flat.isCeiling() || flat.vertices.size() < 3 || !(flat.zones & zones) || (flat.flags & ignoredFlags))
             continue;
         double h = fromFixed(flat.height);
@@ -155,7 +155,7 @@ int Walker::findFloor(double x, double y, double maxHeight, uint64_t zones, uint
     return best;
 }
 
-bool Walker::sweep(double x, double y, double dx, double dy, Hit& hit) const {
+bool Walker::sweep(double x, double y, double dx, double dy, Hit &hit) const {
     double length2 = dx * dx + dy * dy;
     if (length2 == 0)
         return false;
@@ -163,8 +163,8 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit& hit) const {
     hit.t = 2;
     hit.wall = hit.obstacle = -1;
     double low = _feet + _stepHeight, high = getEye() + _headroom;
-    const std::vector<LevelFile::Wall>& walls = _level.getWalls();
-    for (const WallLine& w : *_walls) {
+    const std::vector<LevelFile::Wall> &walls = _level.getWalls();
+    for (const WallLine &w : *_walls) {
         // Like the original, only walls that are drawn get in the way, and
         // scripts can hide them.
         if (!(walls[w.index].flags & LevelFile::kFlagVisible) || w.passable)
@@ -215,9 +215,9 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit& hit) const {
         // The wall's ends, as posts the player's circle can catch on. They
         // are a little slimmer than the player, so a gap exactly as wide as
         // the player (enterp's archways for its width of 3) lets them by.
-        const double ends[2][2] = { { w.x1, w.y1 }, { w.x2, w.y2 } };
+        const double ends[2][2] = {{w.x1, w.y1}, {w.x2, w.y2}};
         double post = std::max(0.0, _radius - kPostSlack);
-        for (const auto& end : ends) {
+        for (const auto &end : ends) {
             double px = x - end[0], py = y - end[1];
             double b = 2 * (dx * px + dy * py);
             double c = px * px + py * py - post * post;
@@ -248,7 +248,7 @@ bool Walker::sweep(double x, double y, double dx, double dy, Hit& hit) const {
 
     if (_obstacles) {
         for (size_t i = 0; i < _obstacles->size(); i++) {
-            const Obstacle& o = (*_obstacles)[i];
+            const Obstacle &o = (*_obstacles)[i];
             if ((int)i == _ignoredObstacle || o.radius <= 0 || o.bottom > high || o.top < low)
                 continue;
             // As a wall end, with the two radii combined.
@@ -338,7 +338,7 @@ void Walker::followFloorOnly(double seconds) {
         return;
     }
 
-    const LevelFile::Sector& flat = _level.getSectors()[floor];
+    const LevelFile::Sector &flat = _level.getSectors()[floor];
     _zones = flat.getActiveZones() ? flat.getActiveZones() : kAllZones;
     double height = fromFixed(flat.height);
     // Standing (not already falling), a small drop is taken in one step.
@@ -371,7 +371,7 @@ void Walker::followFloorOnly(double seconds) {
 }
 
 bool Walker::flatContains(int flat, double x, double y) const {
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     return flat >= 0 && flat < (int)flats.size() && flats[flat].vertices.size() >= 3 &&
            containsPoint(_level.getVertices(), flats[flat], x, y);
 }
@@ -402,11 +402,11 @@ void Walker::moveVertically(double dz) {
     _feet = std::max(floor, std::min(top, _feet + dz));
 }
 
-double Walker::findCeiling(double x, double y, double minHeight, uint64_t zones, int* index) const {
+double Walker::findCeiling(double x, double y, double minHeight, uint64_t zones, int *index) const {
     double best = 1e9;
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     for (size_t i = 0; i < flats.size(); i++) {
-        const LevelFile::Sector& flat = flats[i];
+        const LevelFile::Sector &flat = flats[i];
         // Pass-through ceilings (water surfaces) don't stop the head (0x4B46A0).
         if (!flat.isCeiling() || flat.vertices.size() < 3 || !(flat.zones & zones) ||
             (flat.flags & LevelFile::kFlagPassThrough))
@@ -442,9 +442,9 @@ bool Walker::lineOfSight(double ax, double ay, double az, double bx, double by, 
     if (std::fabs(dz) > 2 * length)
         return false;
 
-    const std::vector<LevelFile::Wall>& walls = _level.getWalls();
+    const std::vector<LevelFile::Wall> &walls = _level.getWalls();
     double lowZ = std::min(az, bz), highZ = std::max(az, bz);
-    for (const WallLine& w : *_walls) {
+    for (const WallLine &w : *_walls) {
         if (!(walls[w.index].flags & LevelFile::kFlagVisible) || w.passable || !(w.zones & zones))
             continue;
         if (highZ < w.bottom - kSlack || lowZ > w.top + kSlack)
@@ -468,8 +468,8 @@ bool Walker::lineOfSight(double ax, double ay, double az, double bx, double by, 
     }
 
     if (dz != 0) {
-        const std::vector<LevelFile::Sector>& flats = _level.getSectors();
-        for (const LevelFile::Sector& flat : flats) {
+        const std::vector<LevelFile::Sector> &flats = _level.getSectors();
+        for (const LevelFile::Sector &flat : flats) {
             if (!(flat.flags & LevelFile::kFlagVisible) || !(flat.zones & zones) || flat.vertices.size() < 3)
                 continue;
             double h = fromFixed(flat.height);

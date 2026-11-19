@@ -19,8 +19,8 @@
 #define RELUVA_JIT_LINUX 1
 #include <cpuid.h>
 #include <sys/mman.h>
-extern "C" void __register_frame(void*);
-extern "C" void __deregister_frame(void*);
+extern "C" void __register_frame(void *);
+extern "C" void __deregister_frame(void *);
 #endif
 
 namespace reluva::x86 {
@@ -35,14 +35,14 @@ constexpr uint8_t kPrologue[] = {0x53, 0x41, 0x54, 0x41, 0x55, 0x48, 0x83, 0xec,
 // add rsp 32, pop r13, pop r12, pop rbx, ret.
 constexpr uint8_t kEpilogue[] = {0x48, 0x83, 0xc4, 0x20, 0x41, 0x5d, 0x41, 0x5c, 0x5b, 0xc3};
 #if defined(RELUVA_JIT_WINDOWS)
-constexpr uint8_t kFirstArgCpu[] = {0x48, 0x89, 0xd9};  // mov rcx, rbx
+constexpr uint8_t kFirstArgCpu[] = {0x48, 0x89, 0xd9};   // mov rcx, rbx
 constexpr uint8_t kSecondArgImm64[] = {0x48, 0xba};      // mov rdx, imm64
 constexpr uint8_t kSecondArgEax[] = {0x89, 0xc2};        // mov edx, eax
 constexpr uint8_t kThirdArgImm32[] = {0x41, 0xb8};       // mov r8d, imm32
 constexpr uint8_t kEntryTakeArgs[] = {0x48, 0x89, 0xcb}; // mov rbx, rcx
 constexpr uint8_t kEntryJump[] = {0xff, 0xe2};           // jmp rdx
 #else
-constexpr uint8_t kFirstArgCpu[] = {0x48, 0x89, 0xdf};  // mov rdi, rbx
+constexpr uint8_t kFirstArgCpu[] = {0x48, 0x89, 0xdf};   // mov rdi, rbx
 constexpr uint8_t kSecondArgImm64[] = {0x48, 0xbe};      // mov rsi, imm64
 constexpr uint8_t kSecondArgEax[] = {0x89, 0xc6};        // mov esi, eax
 constexpr uint8_t kThirdArgImm32[] = {0xba};             // mov edx, imm32
@@ -53,33 +53,33 @@ constexpr uint8_t kEntryJump[] = {0xff, 0xe6};           // jmp rsi
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
 // Executable memory, near this program's code if it can be (calls to the
 // handlers then take 32-bit offsets).
-uint8_t* allocate(size_t size) {
+uint8_t *allocate(size_t size) {
     const uintptr_t here = reinterpret_cast<uintptr_t>(&allocate);
     const uintptr_t step = 64 << 20;
 #if defined(RELUVA_JIT_WINDOWS)
     for (uintptr_t d = step; d < (uintptr_t(1) << 30); d += step)
         for (const uintptr_t at : {here - d, here + d})
-            if (void* p = VirtualAlloc(reinterpret_cast<void*>(at & ~uintptr_t(0xffff)), size,
+            if (void *p = VirtualAlloc(reinterpret_cast<void *>(at & ~uintptr_t(0xffff)), size,
                                        MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE))
-                return static_cast<uint8_t*>(p);
-    return static_cast<uint8_t*>(VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+                return static_cast<uint8_t *>(p);
+    return static_cast<uint8_t *>(VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
 #else
     for (uintptr_t d = step; d < (uintptr_t(1) << 30); d += step) {
-        void* p = mmap(reinterpret_cast<void*>((here - d) & ~uintptr_t(0xfff)), size,
+        void *p = mmap(reinterpret_cast<void *>((here - d) & ~uintptr_t(0xfff)), size,
                        PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (p == MAP_FAILED)
             return nullptr;
         const intptr_t off = intptr_t(reinterpret_cast<uintptr_t>(p) - here);
         if (off > -(intptr_t(1) << 31) + intptr_t(size) && off < (intptr_t(1) << 31) - intptr_t(size))
-            return static_cast<uint8_t*>(p);
+            return static_cast<uint8_t *>(p);
         munmap(p, size); // the hint not taken: further off, try again
     }
-    void* p = mmap(nullptr, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    return p == MAP_FAILED ? nullptr : static_cast<uint8_t*>(p);
+    void *p = mmap(nullptr, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return p == MAP_FAILED ? nullptr : static_cast<uint8_t *>(p);
 #endif
 }
 
-void release(uint8_t* p, size_t size) {
+void release(uint8_t *p, size_t size) {
 #if defined(RELUVA_JIT_WINDOWS)
     (void)size;
     VirtualFree(p, 0, MEM_RELEASE);
@@ -92,12 +92,12 @@ void release(uint8_t* p, size_t size) {
 // Writes x86-64 code. The registers it uses: eax, ecx, edx (scratch), rbx
 // (the Cpu), r12 (memory), r13 (the pages' marks), r11 (far calls).
 struct Emitter {
-    uint8_t* at;
-    void bytes(const uint8_t* b, size_t n) {
+    uint8_t *at;
+    void bytes(const uint8_t *b, size_t n) {
         std::memcpy(at, b, n);
         at += n;
     }
-    template <size_t N>
+    template<size_t N>
     void bytes(const uint8_t (&b)[N]) {
         bytes(b, N);
     }
@@ -118,16 +118,16 @@ struct Emitter {
         u32(uint32_t(disp));
     }
     // A rel32 jump or call's offset, written later.
-    uint8_t* rel32() {
-        uint8_t* p = at;
+    uint8_t *rel32() {
+        uint8_t *p = at;
         u32(0);
         return p;
     }
-    static void patch(uint8_t* field, const uint8_t* target) {
+    static void patch(uint8_t *field, const uint8_t *target) {
         const int32_t rel = int32_t(target - (field + 4));
         std::memcpy(field, &rel, 4);
     }
-    void call(const void* fn) {
+    void call(const void *fn) {
         const intptr_t rel = intptr_t(reinterpret_cast<uintptr_t>(fn)) - intptr_t(reinterpret_cast<uintptr_t>(at + 5));
         if (rel >= INT32_MIN && rel <= INT32_MAX) {
             u8(0xe8), u32(uint32_t(int32_t(rel)));
@@ -168,7 +168,7 @@ bool Jit::supported() {
 #endif
 }
 
-Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask) + 1), data_(kDataSize) {
+Jit::Jit(const Layout &layout) : layout_(layout), index_(size_t(layout.blockMask) + 1), data_(kDataSize) {
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
     base_ = allocate(kBufferSize);
     if (!base_)
@@ -189,19 +189,19 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
     // each below the last) and sub rsp 32 leave the CFA at rsp + 64.
     std::vector<uint8_t> eh;
     auto u32 = [&](uint32_t v) {
-        eh.insert(eh.end(), reinterpret_cast<uint8_t*>(&v), reinterpret_cast<uint8_t*>(&v) + 4);
+        eh.insert(eh.end(), reinterpret_cast<uint8_t *>(&v), reinterpret_cast<uint8_t *>(&v) + 4);
     };
     auto u64 = [&](uint64_t v) {
-        eh.insert(eh.end(), reinterpret_cast<uint8_t*>(&v), reinterpret_cast<uint8_t*>(&v) + 8);
+        eh.insert(eh.end(), reinterpret_cast<uint8_t *>(&v), reinterpret_cast<uint8_t *>(&v) + 8);
     };
     const uint8_t cie[] = {0x01, 0x00, 0x01, 0x78, 0x10, 0x0c, 0x07, 0x08, 0x90, 0x01, 0x00, 0x00};
     u32(4 + sizeof cie);
     u32(0); // a CIE
     eh.insert(eh.end(), cie, cie + sizeof cie);
     const size_t fdeAt = eh.size();
-    const uint8_t fde[] = {0x41, 0x0e, 0x10, 0x83, 0x02, // push rbx
-                           0x42, 0x0e, 0x18, 0x8c, 0x03, // push r12
-                           0x42, 0x0e, 0x20, 0x8d, 0x04, // push r13
+    const uint8_t fde[] = {0x41, 0x0e, 0x10, 0x83, 0x02,  // push rbx
+                           0x42, 0x0e, 0x18, 0x8c, 0x03,  // push r12
+                           0x42, 0x0e, 0x20, 0x8d, 0x04,  // push r13
                            0x44, 0x0e, 0x40, 0x00, 0x00}; // sub rsp 32
     u32(4 + 16 + sizeof fde);
     u32(uint32_t(fdeAt + 4)); // back to the CIE, from this field
@@ -209,12 +209,12 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
     u64(kBufferSize);
     eh.insert(eh.end(), fde, fde + sizeof fde);
     u32(0); // the end
-    uint8_t* frame = new uint8_t[eh.size()];
+    uint8_t *frame = new uint8_t[eh.size()];
     std::memcpy(frame, eh.data(), eh.size());
     __register_frame(frame);
     unwind_ = frame;
 #endif
-    entry_ = reinterpret_cast<void (*)(void*, const uint8_t*)>(w.at);
+    entry_ = reinterpret_cast<void (*)(void *, const uint8_t *)>(w.at);
     w.bytes(kPrologue);
     w.bytes(kEntryTakeArgs);
     w.u8(0x49), w.u8(0xbc), w.u64(reinterpret_cast<uint64_t>(layout_.memory)); // mov r12, memory
@@ -225,63 +225,63 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
     w.at = base_ + ((size_t(w.at - base_) + 15) & ~size_t(15));
     dispatch_ = w.at;
     {
-        const Layout& L = layout_;
-        uint8_t* exits[16];
+        const Layout &L = layout_;
+        uint8_t *exits[16];
         int n = 0;
         auto exitIf = [&](uint8_t cc) { w.u8(0x0f), w.u8(cc), exits[n++] = w.rel32(); };
-        w.rbx({0x8b}, kEax, L.eip);                      // mov eax, [eip]
-        w.rbx({0x3b}, kEax, L.runReturn), exitIf(0x84);  // cmp eax, [return]; je exit
-        w.u8(0x3d), w.u32(L.nativeBase);                 // cmp eax, natives
-        w.u8(0x0f), w.u8(0x83);                          // jae native
-        uint8_t* toNative = w.rel32();
+        w.rbx({0x8b}, kEax, L.eip);                     // mov eax, [eip]
+        w.rbx({0x3b}, kEax, L.runReturn), exitIf(0x84); // cmp eax, [return]; je exit
+        w.u8(0x3d), w.u32(L.nativeBase);                // cmp eax, natives
+        w.u8(0x0f), w.u8(0x83);                         // jae native
+        uint8_t *toNative = w.rel32();
         w.rbx({0x3b}, kEax, L.runNative), exitIf(0x83);  // cmp eax, [natives]; jae exit
         w.rbx({0x80}, 7, L.stop), w.u8(0), exitIf(0x85); // cmp byte [stop], 0; jne exit
         // The slot: Cpu::slotOf, the top bits of eip * 0x9e3779b1.
         int bits = 0;
         while ((uint64_t(1) << bits) <= L.blockMask)
             ++bits;
-        w.u8(0x69), w.u8(0xc8), w.u32(0x9e3779b1u);      // imul ecx, eax, 0x9e3779b1
-        w.u8(0xc1), w.u8(0xe9), w.u8(uint8_t(32 - bits)); // shr ecx, 32 - bits
-        w.u8(0x83), w.u8(0xe1), w.u8(0xfe);              // and ecx, ~1: the pair's first
-        w.u8(0x48), w.u8(0xc1), w.u8(0xe1), w.u8(4);     // shl rcx, 4
+        w.u8(0x69), w.u8(0xc8), w.u32(0x9e3779b1u);                               // imul ecx, eax, 0x9e3779b1
+        w.u8(0xc1), w.u8(0xe9), w.u8(uint8_t(32 - bits));                         // shr ecx, 32 - bits
+        w.u8(0x83), w.u8(0xe1), w.u8(0xfe);                                       // and ecx, ~1: the pair's first
+        w.u8(0x48), w.u8(0xc1), w.u8(0xe1), w.u8(4);                              // shl rcx, 4
         w.u8(0x49), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(index_.data())); // mov r8, index
-        w.u8(0x4c), w.u8(0x01), w.u8(0xc1);              // add rcx, r8: its entry
+        w.u8(0x4c), w.u8(0x01), w.u8(0xc1);                                       // add rcx, r8: its entry
         // Either of the pair (one cache line).
-        w.u8(0x39), w.u8(0x01);                          // cmp [start], eax
-        w.u8(0x74), w.u8(12);                            // je found
-        w.u8(0x48), w.u8(0x83), w.u8(0xc1), w.u8(16);    // add rcx, 16: the other  (4)
-        w.u8(0x39), w.u8(0x01), exitIf(0x85);            // cmp [start], eax; jne exit (2 + 6)
+        w.u8(0x39), w.u8(0x01);                       // cmp [start], eax
+        w.u8(0x74), w.u8(12);                         // je found
+        w.u8(0x48), w.u8(0x83), w.u8(0xc1), w.u8(16); // add rcx, 16: the other  (4)
+        w.u8(0x39), w.u8(0x01), exitIf(0x85);         // cmp [start], eax; jne exit (2 + 6)
         // found:
-        w.rbx({0x44, 0x8b}, 1, L.epoch);                 // mov r9d, [codeEpoch]
-        w.u8(0x44), w.u8(0x39), w.u8(0x49), w.u8(4), exitIf(0x85); // cmp [epoch], r9d; jne exit
-        w.u8(0x44), w.u8(0x8b), w.u8(0x49), w.u8(8);     // mov r9d, [code]
-        w.u8(0x45), w.u8(0x85), w.u8(0xc9), exitIf(0x84); // test r9d, r9d; jz exit
-        w.u8(0x44), w.u8(0x8b), w.u8(0x59), w.u8(12);    // mov r11d, [count]
-        w.u8(0x4d), w.u8(0x89), w.u8(0xd8);              // mov r8, r11
-        w.rbx({0x4c, 0x03}, 0, L.executed);              // add r8, [executed]
-        w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);  // cmp r8, [end]; ja exit
-        w.rbx({0x4c, 0x89}, 0, L.executed);              // mov [executed], r8
+        w.rbx({0x44, 0x8b}, 1, L.epoch);                                  // mov r9d, [codeEpoch]
+        w.u8(0x44), w.u8(0x39), w.u8(0x49), w.u8(4), exitIf(0x85);        // cmp [epoch], r9d; jne exit
+        w.u8(0x44), w.u8(0x8b), w.u8(0x49), w.u8(8);                      // mov r9d, [code]
+        w.u8(0x45), w.u8(0x85), w.u8(0xc9), exitIf(0x84);                 // test r9d, r9d; jz exit
+        w.u8(0x44), w.u8(0x8b), w.u8(0x59), w.u8(12);                     // mov r11d, [count]
+        w.u8(0x4d), w.u8(0x89), w.u8(0xd8);                               // mov r8, r11
+        w.rbx({0x4c, 0x03}, 0, L.executed);                               // add r8, [executed]
+        w.rbx({0x4c, 0x3b}, 0, L.runEnd), exitIf(0x87);                   // cmp r8, [end]; ja exit
+        w.rbx({0x4c, 0x89}, 0, L.executed);                               // mov [executed], r8
         w.u8(0x48), w.u8(0xb9), w.u64(reinterpret_cast<uint64_t>(base_)); // mov rcx, buffer
-        w.u8(0x4c), w.u8(0x01), w.u8(0xc9);              // add rcx, r9: the code
+        w.u8(0x4c), w.u8(0x01), w.u8(0xc9);                               // add rcx, r9: the code
         // The block counted: its entries (the code's header), count, start.
-        w.u8(0x4c), w.u8(0x8b), w.u8(0x41), w.u8(0xf0);  // mov r8, [rcx - 16]
-        w.rbx({0x4c, 0x89}, 0, L.countingOps);           // mov [counting ops], r8
-        w.rbx({0x44, 0x89}, 3, L.countingCount);         // mov [counting count], r11d
-        w.rbx({0x89}, kEax, L.countingStart);            // mov [counting start], eax
+        w.u8(0x4c), w.u8(0x8b), w.u8(0x41), w.u8(0xf0); // mov r8, [rcx - 16]
+        w.rbx({0x4c, 0x89}, 0, L.countingOps);          // mov [counting ops], r8
+        w.rbx({0x44, 0x89}, 3, L.countingCount);        // mov [counting count], r11d
+        w.rbx({0x89}, kEax, L.countingStart);           // mov [counting start], eax
         // A link that missed (r10): it goes here from now, in this epoch.
-        w.u8(0x4d), w.u8(0x85), w.u8(0xd2);              // test r10, r10
-        w.u8(0x74), w.u8(13);                            // jz past
-        w.rbx({0x8b}, kEdx, L.epoch);                    // mov edx, [codeEpoch]   (6)
-        w.u8(0x41), w.u8(0x89), w.u8(0x12);              // mov [r10], edx         (3)
-        w.u8(0x49), w.u8(0x89), w.u8(0x4a), w.u8(8);     // mov [r10 + 8], rcx     (4)
-        w.u8(0xff), w.u8(0xe1);                          // jmp rcx
+        w.u8(0x4d), w.u8(0x85), w.u8(0xd2);          // test r10, r10
+        w.u8(0x74), w.u8(13);                        // jz past
+        w.rbx({0x8b}, kEdx, L.epoch);                // mov edx, [codeEpoch]   (6)
+        w.u8(0x41), w.u8(0x89), w.u8(0x12);          // mov [r10], edx         (3)
+        w.u8(0x49), w.u8(0x89), w.u8(0x4a), w.u8(8); // mov [r10 + 8], rcx     (4)
+        w.u8(0xff), w.u8(0xe1);                      // jmp rcx
         // A native: called (the return address is here, in the part of the
         // buffer reset() keeps), then on to the next block, or out.
         Emitter::patch(toNative, w.at);
         w.bytes(kFirstArgCpu);
-        w.call(reinterpret_cast<const void*>(L.callNative));
-        w.u8(0x85), w.u8(0xc0), exitIf(0x84);            // test eax, eax; jz exit
-        w.u8(0x45), w.u8(0x31), w.u8(0xd2);              // xor r10d, r10d: no link
+        w.call(reinterpret_cast<const void *>(L.callNative));
+        w.u8(0x85), w.u8(0xc0), exitIf(0x84);             // test eax, eax; jz exit
+        w.u8(0x45), w.u8(0x31), w.u8(0xd2);               // xor r10d, r10d: no link
         w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
         for (int i = 0; i < n; ++i)
             Emitter::patch(exits[i], w.at);
@@ -289,7 +289,7 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
     }
     bodyStart_ = used_ = (size_t(w.at - base_) + 15) & ~size_t(15);
 #if defined(RELUVA_JIT_WINDOWS)
-    auto* fn = new RUNTIME_FUNCTION{};
+    auto *fn = new RUNTIME_FUNCTION{};
     fn->BeginAddress = DWORD(entryAt);
     fn->EndAddress = DWORD(kBufferSize);
     fn->UnwindData = 0;
@@ -307,13 +307,13 @@ Jit::Jit(const Layout& layout) : layout_(layout), index_(size_t(layout.blockMask
 Jit::~Jit() {
 #if defined(RELUVA_JIT_WINDOWS)
     if (unwind_) {
-        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION*>(unwind_));
-        delete static_cast<RUNTIME_FUNCTION*>(unwind_);
+        RtlDeleteFunctionTable(static_cast<RUNTIME_FUNCTION *>(unwind_));
+        delete static_cast<RUNTIME_FUNCTION *>(unwind_);
     }
 #elif defined(RELUVA_JIT_LINUX)
     if (unwind_) {
         __deregister_frame(unwind_);
-        delete[] static_cast<uint8_t*>(unwind_);
+        delete[] static_cast<uint8_t *>(unwind_);
     }
 #endif
 #if defined(RELUVA_JIT_WINDOWS) || defined(RELUVA_JIT_LINUX)
@@ -322,27 +322,27 @@ Jit::~Jit() {
 #endif
 }
 
-const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* entries, size_t entrySize) {
+const uint8_t *Jit::compile(const Op *ops, int count, uint32_t end, const void *entries, size_t entrySize) {
     if (!base_)
         return nullptr;
     const size_t most = size_t(count) * 320 + 256;
     const size_t data = (size_t(count) * entrySize + 15) / 16 * 16 + 2 * sizeof(Link);
     if (used_ + most > size_ || dataUsed_ + data > data_.size())
         return nullptr;
-    const Layout& L = layout_;
+    const Layout &L = layout_;
     // The entries' copy, then the exits' links.
-    uint8_t* copies = data_.data() + dataUsed_;
+    uint8_t *copies = data_.data() + dataUsed_;
     std::memcpy(copies, entries, size_t(count) * entrySize);
-    Link* links = reinterpret_cast<Link*>(copies + (size_t(count) * entrySize + 15) / 16 * 16);
+    Link *links = reinterpret_cast<Link *>(copies + (size_t(count) * entrySize + 15) / 16 * 16);
     links[0] = links[1] = Link{};
     dataUsed_ += data;
     // The header, then the code.
-    uint8_t* header = base_ + used_;
+    uint8_t *header = base_ + used_;
     const uint64_t copiesAt = reinterpret_cast<uint64_t>(copies);
     const uint64_t counted = uint64_t(uint32_t(count));
     std::memcpy(header, &copiesAt, 8);
     std::memcpy(header + 8, &counted, 8);
-    uint8_t* code = header + 16;
+    uint8_t *code = header + 16;
     Emitter w{code};
     auto regAt = [&](int r) { return L.reg + 4 * size_t(r); };
     // A register of `size` bytes' place: AL..BL the low bytes, AH..BH the next.
@@ -361,7 +361,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     };
     // eax <- the memory operand's address, as CachedOps::address (LEA's
     // leaves FS's base out, as CachedOps::lea does).
-    auto address = [&](const Op& o, bool withFs = true) {
+    auto address = [&](const Op &o, bool withFs = true) {
         w.u8(0xb8), w.u32(o.disp); // mov eax, disp
         if (o.base >= 0)
             w.rbx({0x03}, kEax, regAt(o.base)); // add eax, [base]
@@ -369,7 +369,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             w.rbx({0x8b}, kEcx, regAt(o.index)); // mov ecx, [index]
             if (o.scale)
                 w.u8(0xc1), w.u8(0xe1), w.u8(o.scale); // shl ecx, scale
-            w.u8(0x01), w.u8(0xc8);                   // add eax, ecx
+            w.u8(0x01), w.u8(0xc8);                    // add eax, ecx
         }
         if (o.fs && withFs)
             w.rbx({0x03}, kEax, L.fsBase); // add eax, [fsBase]
@@ -377,40 +377,40 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     // Faults to make after the block: where to jump from, the instruction,
     // and the access's size.
     struct Fault {
-        uint8_t* from;
-        const Op* op;
+        uint8_t *from;
+        const Op *op;
         uint8_t size;
     };
     struct Mark {
-        uint8_t* from;
-        uint8_t* back;
+        uint8_t *from;
+        uint8_t *back;
     };
     Fault faults[64];
     Mark marks[64];
     int nFaults = 0, nMarks = 0;
     // Cpu::valid(eax, size), else the fault: lea ecx, [rax - 4096];
     // cmp ecx, span - size; ja fault.
-    auto check = [&](const Op& o, int size) {
+    auto check = [&](const Op &o, int size) {
         w.u8(0x8d), w.u8(0x88), w.u32(uint32_t(-4096));
         w.u8(0x81), w.u8(0xf9), w.u32(L.span - uint32_t(size));
         w.u8(0x0f), w.u8(0x87);
         faults[nFaults++] = {w.rel32(), &o, uint8_t(size)};
     };
-    auto load = [&](const Op& o, int dst, int size) { // dst <- memory at eax
+    auto load = [&](const Op &o, int dst, int size) { // dst <- memory at eax
         check(o, size);
         if (size == 4)
             w.u8(0x41), w.u8(0x8b), w.u8(uint8_t(0x04 | dst << 3)), w.u8(0x04); // mov dst, [r12 + rax]
         else
             w.u8(0x41), w.u8(0x0f), w.u8(0xb6), w.u8(uint8_t(0x04 | dst << 3)), w.u8(0x04); // movzx
     };
-    auto store = [&](const Op& o, int src, int size) { // memory at eax <- src (ecx is taken)
+    auto store = [&](const Op &o, int src, int size) { // memory at eax <- src (ecx is taken)
         check(o, size);
         // Cpu::notePageWrite: mov ecx, eax; shr ecx, 12; cmp byte [r13 + rcx], 0; jne mark.
         w.u8(0x89), w.u8(0xc1);
         w.u8(0xc1), w.u8(0xe9), w.u8(12);
         w.u8(0x41), w.u8(0x80), w.u8(0x7c), w.u8(0x0d), w.u8(0x00), w.u8(0x00);
         w.u8(0x0f), w.u8(0x85);
-        uint8_t* from = w.rel32();
+        uint8_t *from = w.rel32();
         marks[nMarks++] = {from, w.at};
         if (size == 4)
             w.u8(0x41), w.u8(0x89), w.u8(uint8_t(0x04 | src << 3)), w.u8(0x04); // mov [r12 + rax], src
@@ -426,7 +426,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     // read it; a handler may read any.
     auto flagsRead = [&](int i) {
         for (int j = i + 1; j < count; ++j) {
-            const Op& n = ops[j];
+            const Op &n = ops[j];
             switch (n.kind) {
             case Kind::MovRegRm:
             case Kind::MovRmReg:
@@ -480,7 +480,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
         w.rbx({0x89}, kEax, L.eflags);                  // mov [eflags], eax
     };
     // eip <- what the instruction makes it, from edx.
-    auto pushValue = [&](const Op& o) { // Cpu::push of edx: ESP down, then the store
+    auto pushValue = [&](const Op &o) { // Cpu::push of edx: ESP down, then the store
         w.rbx({0x8b}, kEax, regAt(4));
         w.u8(0x83), w.u8(0xe8), w.u8(4);
         w.rbx({0x89}, kEax, regAt(4));
@@ -489,9 +489,9 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     // The x87 unit. st(i) is regs[(top + i) & 7]: its index into ecx (st(0))
     // or edx (st(i)), and xmm0 or xmm1 to or from [rbx + index*8 + regs].
     auto st0Index = [&] { w.rbx({0x0f, 0xb6}, kEcx, L.fpuTop); }; // movzx ecx, byte [top]
-    auto stIndex = [&](int i) { // edx <- (ecx + i) & 7
-        w.u8(0x8d), w.u8(0x51), w.u8(uint8_t(i)); // lea edx, [rcx + i]
-        w.u8(0x83), w.u8(0xe2), w.u8(7);          // and edx, 7
+    auto stIndex = [&](int i) {                                   // edx <- (ecx + i) & 7
+        w.u8(0x8d), w.u8(0x51), w.u8(uint8_t(i));                 // lea edx, [rcx + i]
+        w.u8(0x83), w.u8(0xe2), w.u8(7);                          // and edx, 7
     };
     // movsd: `op` 0x10 load, 0x11 store; xmm `x`; index register `idx` (ecx 1, edx 2).
     auto fpuReg = [&](uint8_t op, int x, int idx) {
@@ -499,15 +499,16 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
         w.u32(uint32_t(L.fpuRegs));
     };
     auto round = [&] { // Cpu::fpuRound on xmm0: through float when precision control is 0
-        w.u8(0x66), w.u8(0xf7), w.u8(0x83), w.u32(uint32_t(L.fpuControl)), w.u8(0x00), w.u8(0x03); // test word [control], 0x300
-        w.u8(0x75), w.u8(8);                                                 // jnz past
-        w.u8(0xf2), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0);                      // cvtsd2ss xmm0, xmm0
-        w.u8(0xf3), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0);                      // cvtss2sd xmm0, xmm0
+        w.u8(0x66), w.u8(0xf7), w.u8(0x83), w.u32(uint32_t(L.fpuControl)), w.u8(0x00),
+            w.u8(0x03);                                 // test word [control], 0x300
+        w.u8(0x75), w.u8(8);                            // jnz past
+        w.u8(0xf2), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0); // cvtsd2ss xmm0, xmm0
+        w.u8(0xf3), w.u8(0x0f), w.u8(0x5a), w.u8(0xc0); // cvtss2sd xmm0, xmm0
     };
     // xmm0 <- xmm0 op xmm1, for arith's R (0 ADD, 1 MUL, 4 SUB, 5 SUBR, 6 DIV, 7 DIVR).
     auto fpuOp = [&](int r) {
         static constexpr uint8_t kOp[8] = {0x58, 0x59, 0, 0, 0x5c, 0x5c, 0x5e, 0x5e};
-        if (r == 5 || r == 7) { // y op x
+        if (r == 5 || r == 7) {                               // y op x
             w.u8(0xf2), w.u8(0x0f), w.u8(kOp[r]), w.u8(0xc8); // op xmm1, xmm0
             w.u8(0x66), w.u8(0x0f), w.u8(0x28), w.u8(0xc1);   // movapd xmm0, xmm1
         } else
@@ -516,7 +517,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     };
     // xmm `x` <- the memory operand as a double (Cpu's loadReal: a double
     // as two 32-bit loads, or a float widened).
-    auto loadRealTo = [&](const Op& o, int x) {
+    auto loadRealTo = [&](const Op &o, int x) {
         address(o);
         load(o, kEdx, 4);
         w.u8(0x66), w.u8(0x0f), w.u8(0x6e), w.u8(uint8_t(0xc2 | x << 3)); // movd xmm(x), edx
@@ -530,9 +531,9 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     };
     auto push = [&] { // Cpu::fpuPush of xmm0: top down, the register, its tag cleared
         st0Index();
-        w.u8(0xff), w.u8(0xc9);           // dec ecx
-        w.u8(0x83), w.u8(0xe1), w.u8(7);  // and ecx, 7
-        w.rbx({0x88}, kEcx, L.fpuTop);    // mov [top], cl
+        w.u8(0xff), w.u8(0xc9);          // dec ecx
+        w.u8(0x83), w.u8(0xe1), w.u8(7); // and ecx, 7
+        w.rbx({0x88}, kEcx, L.fpuTop);   // mov [top], cl
         fpuReg(0x11, 0, kEcx);
         w.rbx({0x0f, 0xb6}, kEax, L.fpuTags); // movzx eax, byte [tags]
         w.u8(0x0f), w.u8(0xb3), w.u8(0xc8);   // btr eax, ecx
@@ -542,13 +543,13 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
         w.rbx({0x0f, 0xb6}, kEax, L.fpuTags);
         w.u8(0x0f), w.u8(0xab), w.u8(0xc8); // bts eax, ecx
         w.rbx({0x88}, kEax, L.fpuTags);
-        w.u8(0xff), w.u8(0xc1);             // inc ecx
+        w.u8(0xff), w.u8(0xc1); // inc ecx
         w.u8(0x83), w.u8(0xe1), w.u8(7);
         w.rbx({0x88}, kEcx, L.fpuTop);
     };
     bool eipSet = false; // by the last: a handler sets it
     for (int i = 0; i < count; ++i) {
-        const Op& o = ops[i];
+        const Op &o = ops[i];
         eipSet = false;
         switch (o.kind) {
         case Kind::Alu: {
@@ -589,21 +590,21 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
                 static constexpr uint8_t kShift[3] = {0xe2, 0xea, 0xfa};
                 w.u8(0xc1), w.u8(kShift[o.alu - 11]), w.u8(uint8_t(o.imm)); // shl/shr/sar edx, imm
                 if (flagsRead(i)) {
-                    w.u8(0x9f);                                 // lahf
-                    w.u8(0x0f), w.u8(0xb6), w.u8(0xcc);         // movzx ecx, ah
-                    w.u8(0x81), w.u8(0xe1), w.u32(0xc5);        // and ecx, SF ZF PF CF
+                    w.u8(0x9f);                          // lahf
+                    w.u8(0x0f), w.u8(0xb6), w.u8(0xcc);  // movzx ecx, ah
+                    w.u8(0x81), w.u8(0xe1), w.u32(0xc5); // and ecx, SF ZF PF CF
                     if (o.alu == 11) {
-                        w.u8(0x89), w.u8(0xc8);                 // mov eax, ecx
-                        w.u8(0xc1), w.u8(0xe8), w.u8(7);        // shr eax, 7: SF to bit 0
-                        w.u8(0x31), w.u8(0xc8);                 // xor eax, ecx
-                        w.u8(0x83), w.u8(0xe0), w.u8(1);        // and eax, 1
-                        w.u8(0xc1), w.u8(0xe0), w.u8(11);       // shl eax, 11
-                        w.u8(0x09), w.u8(0xc1);                 // or ecx, eax
+                        w.u8(0x89), w.u8(0xc8);           // mov eax, ecx
+                        w.u8(0xc1), w.u8(0xe8), w.u8(7);  // shr eax, 7: SF to bit 0
+                        w.u8(0x31), w.u8(0xc8);           // xor eax, ecx
+                        w.u8(0x83), w.u8(0xe0), w.u8(1);  // and eax, 1
+                        w.u8(0xc1), w.u8(0xe0), w.u8(11); // shl eax, 11
+                        w.u8(0x09), w.u8(0xc1);           // or ecx, eax
                     } else if (o.alu == 12) {
-                        w.u8(0x44), w.u8(0x89), w.u8(0xd8);     // mov eax, r11d
-                        w.u8(0xc1), w.u8(0xe8), w.u8(31);       // shr eax, 31
-                        w.u8(0xc1), w.u8(0xe0), w.u8(11);       // shl eax, 11
-                        w.u8(0x09), w.u8(0xc1);                 // or ecx, eax
+                        w.u8(0x44), w.u8(0x89), w.u8(0xd8); // mov eax, r11d
+                        w.u8(0xc1), w.u8(0xe8), w.u8(31);   // shr eax, 31
+                        w.u8(0xc1), w.u8(0xe0), w.u8(11);   // shl eax, 11
+                        w.u8(0x09), w.u8(0xc1);             // or ecx, eax
                     }
                     w.rbx({0x8b}, kEax, L.eflags);
                     w.u8(0x25), w.u32(~0x8d5u);
@@ -715,26 +716,26 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             st0Index(), fpuReg(0x10, 0, kEcx);
             if (!o.mem)
                 stIndex(o.rm), fpuReg(0x10, 1, kEdx);
-            w.u8(0x66), w.u8(0x0f), w.u8(0x2e), w.u8(0xc1);    // ucomisd xmm0, xmm1
-            w.u8(0x9f);                                        // lahf
-            w.u8(0x0f), w.u8(0xb6), w.u8(0xc4);                // movzx eax, ah
-            w.u8(0x25), w.u32(0x45);                           // and eax, ZF PF CF
-            w.u8(0xc1), w.u8(0xe0), w.u8(8);                   // shl eax, 8: C3 C2 C0
-            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);            // movzx edx, word [status]
-            w.u8(0x81), w.u8(0xe2), w.u32(~0x4700u);           // and edx, ~(C3 C2 C1 C0)
-            w.u8(0x09), w.u8(0xc2);                            // or edx, eax
-            w.rbx({0x66, 0x89}, kEdx, L.fpuStatus);            // mov [status], dx
+            w.u8(0x66), w.u8(0x0f), w.u8(0x2e), w.u8(0xc1); // ucomisd xmm0, xmm1
+            w.u8(0x9f);                                     // lahf
+            w.u8(0x0f), w.u8(0xb6), w.u8(0xc4);             // movzx eax, ah
+            w.u8(0x25), w.u32(0x45);                        // and eax, ZF PF CF
+            w.u8(0xc1), w.u8(0xe0), w.u8(8);                // shl eax, 8: C3 C2 C0
+            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);         // movzx edx, word [status]
+            w.u8(0x81), w.u8(0xe2), w.u32(~0x4700u);        // and edx, ~(C3 C2 C1 C0)
+            w.u8(0x09), w.u8(0xc2);                         // or edx, eax
+            w.rbx({0x66, 0x89}, kEdx, L.fpuStatus);         // mov [status], dx
             if (o.cc)
                 st0Index(), pop();
             break;
         case Kind::FnstswAx:
             // AX <- (status & ~(7 << 11)) | top << 11.
-            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);   // movzx edx, word [status]
-            w.u8(0x81), w.u8(0xe2), w.u32(~0x3800u);  // and edx, ~(7 << 11)
-            w.rbx({0x0f, 0xb6}, kEcx, L.fpuTop);      // movzx ecx, byte [top]
-            w.u8(0xc1), w.u8(0xe1), w.u8(11);         // shl ecx, 11
-            w.u8(0x09), w.u8(0xca);                   // or edx, ecx
-            w.rbx({0x66, 0x89}, kEdx, regAt(0));      // mov [eax], dx
+            w.rbx({0x0f, 0xb7}, kEdx, L.fpuStatus);  // movzx edx, word [status]
+            w.u8(0x81), w.u8(0xe2), w.u32(~0x3800u); // and edx, ~(7 << 11)
+            w.rbx({0x0f, 0xb6}, kEcx, L.fpuTop);     // movzx ecx, byte [top]
+            w.u8(0xc1), w.u8(0xe1), w.u8(11);        // shl ecx, 11
+            w.u8(0x09), w.u8(0xca);                  // or edx, ecx
+            w.rbx({0x66, 0x89}, kEdx, regAt(0));     // mov [eax], dx
             break;
         case Kind::FArithSti: {
             static constexpr int kSwap[8] = {0, 1, 2, 3, 5, 4, 7, 6};
@@ -754,18 +755,18 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             if (c < 6) {
                 w.u8(0xa9), w.u32(kMask[c]); // test eax, mask
             } else {
-                w.u8(0x89), w.u8(0xc1);           // mov ecx, eax
-                w.u8(0xc1), w.u8(0xe9), w.u8(4);  // shr ecx, 4: OF to SF's place
-                w.u8(0x31), w.u8(0xc1);           // xor ecx, eax: SF != OF
+                w.u8(0x89), w.u8(0xc1);          // mov ecx, eax
+                w.u8(0xc1), w.u8(0xe9), w.u8(4); // shr ecx, 4: OF to SF's place
+                w.u8(0x31), w.u8(0xc1);          // xor ecx, eax: SF != OF
                 if (c == 7) {
-                    w.u8(0xd1), w.u8(0xe0);      // shl eax, 1: ZF to SF's place
-                    w.u8(0x09), w.u8(0xc1);      // or ecx, eax
+                    w.u8(0xd1), w.u8(0xe0); // shl eax, 1: ZF to SF's place
+                    w.u8(0x09), w.u8(0xc1); // or ecx, eax
                 }
                 w.u8(0xf7), w.u8(0xc1), w.u32(0x80); // test ecx, 0x80
             }
             const uint32_t after = o.start + o.length;
-            w.u8(0xba), w.u32(after);                                // mov edx, after
-            w.u8(0x41), w.u8(0xb8), w.u32(after + o.imm);            // mov r8d, target
+            w.u8(0xba), w.u32(after);                                           // mov edx, after
+            w.u8(0x41), w.u8(0xb8), w.u32(after + o.imm);                       // mov r8d, target
             w.u8(0x41), w.u8(0x0f), w.u8((o.cc & 1) ? 0x44 : 0x45), w.u8(0xd0); // cmovz/cmovnz edx, r8d
             w.rbx({0x89}, kEdx, L.eip);
             storeImm32(L.start, o.start);
@@ -792,7 +793,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
             } else
                 loadReg(kEdx, o.rm, 4);
             if (o.kind == Kind::CallRm) {
-                w.u8(0x41), w.u8(0x89), w.u8(0xd1);     // mov r9d, edx: the target
+                w.u8(0x41), w.u8(0x89), w.u8(0xd1);    // mov r9d, edx: the target
                 w.u8(0xba), w.u32(o.start + o.length); // the return address
                 pushValue(o);
                 w.rbx({0x44, 0x89}, 1, L.eip); // mov [eip], r9d
@@ -848,9 +849,9 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
                 loadReg(kEdx, o.rm, 4);
             else
                 w.u8(0xba), w.u32(o.imm);
-            w.rbx({0x8b}, kEax, regAt(4));          // mov eax, [esp]
-            w.u8(0x83), w.u8(0xe8), w.u8(4);         // sub eax, 4
-            w.rbx({0x89}, kEax, regAt(4));          // mov [esp], eax
+            w.rbx({0x8b}, kEax, regAt(4));   // mov eax, [esp]
+            w.u8(0x83), w.u8(0xe8), w.u8(4); // sub eax, 4
+            w.rbx({0x89}, kEax, regAt(4));   // mov [esp], eax
             store(o, kEdx, 4);
             break;
         case Kind::PopReg:
@@ -879,33 +880,33 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
     // code epoch hasn't moved since: none of the code's bytes written),
     // else by the dispatch. (Jumps within the buffer: unwinding from the
     // call before doesn't take them for an epilogue.)
-    auto link = [&](Link* l, uint32_t target) {
+    auto link = [&](Link *l, uint32_t target) {
         w.u8(0x48), w.u8(0xb8), w.u64(reinterpret_cast<uint64_t>(l)); // mov rax, link
         w.rbx({0x8b}, kEcx, L.epoch);                                 // mov ecx, [codeEpoch]
         w.u8(0x39), w.u8(0x08);                                       // cmp [rax], ecx
         w.u8(0x0f), w.u8(0x85);
-        uint8_t* miss1 = w.rel32();                                   // jne miss
-        w.rbx({0x80}, 7, L.stop), w.u8(0);                            // cmp byte [stop], 0
+        uint8_t *miss1 = w.rel32();        // jne miss
+        w.rbx({0x80}, 7, L.stop), w.u8(0); // cmp byte [stop], 0
         w.u8(0x0f), w.u8(0x85);
-        uint8_t* miss2 = w.rel32();                                   // jne miss
-        w.u8(0x48), w.u8(0x8b), w.u8(0x50), w.u8(8);                  // mov rdx, [rax + 8]: the code
-        w.u8(0x44), w.u8(0x8b), w.u8(0x42), w.u8(0xf8);               // mov r8d, [rdx - 8]: its count
-        w.u8(0x44), w.u8(0x89), w.u8(0xc1);                           // mov ecx, r8d
-        w.rbx({0x4c, 0x03}, 0, L.executed);                           // add r8, [executed]
-        w.rbx({0x4c, 0x3b}, 0, L.runEnd);                             // cmp r8, [end]
+        uint8_t *miss2 = w.rel32();                     // jne miss
+        w.u8(0x48), w.u8(0x8b), w.u8(0x50), w.u8(8);    // mov rdx, [rax + 8]: the code
+        w.u8(0x44), w.u8(0x8b), w.u8(0x42), w.u8(0xf8); // mov r8d, [rdx - 8]: its count
+        w.u8(0x44), w.u8(0x89), w.u8(0xc1);             // mov ecx, r8d
+        w.rbx({0x4c, 0x03}, 0, L.executed);             // add r8, [executed]
+        w.rbx({0x4c, 0x3b}, 0, L.runEnd);               // cmp r8, [end]
         w.u8(0x0f), w.u8(0x87);
-        uint8_t* miss3 = w.rel32();                                   // ja miss
-        w.rbx({0x4c, 0x89}, 0, L.executed);                           // mov [executed], r8
-        w.u8(0x4c), w.u8(0x8b), w.u8(0x42), w.u8(0xf0);               // mov r8, [rdx - 16]: its entries
+        uint8_t *miss3 = w.rel32();                     // ja miss
+        w.rbx({0x4c, 0x89}, 0, L.executed);             // mov [executed], r8
+        w.u8(0x4c), w.u8(0x8b), w.u8(0x42), w.u8(0xf0); // mov r8, [rdx - 16]: its entries
         w.rbx({0x4c, 0x89}, 0, L.countingOps);
         w.rbx({0x89}, kEcx, L.countingCount);
         storeImm32(L.countingStart, target);
-        w.u8(0xff), w.u8(0xe2);                                       // jmp rdx
+        w.u8(0xff), w.u8(0xe2); // jmp rdx
         Emitter::patch(miss1, w.at), Emitter::patch(miss2, w.at), Emitter::patch(miss3, w.at);
-        w.u8(0x49), w.u8(0x89), w.u8(0xc2);                           // mov r10, rax: to fill
-        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_);             // jmp dispatch
+        w.u8(0x49), w.u8(0x89), w.u8(0xc2);               // mov r10, rax: to fill
+        w.u8(0xe9), Emitter::patch(w.rel32(), dispatch_); // jmp dispatch
     };
-    const Op& last = ops[count - 1];
+    const Op &last = ops[count - 1];
     if (!eipSet) {
         link(&links[0], end);
     } else if (last.kind == Kind::Jmp || last.kind == Kind::CallRel) {
@@ -914,12 +915,12 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
         const uint32_t after = last.start + last.length, taken = after + last.imm;
         w.u8(0x81), w.u8(0xfa), w.u32(taken); // cmp edx, taken (eip, as the condition made it)
         w.u8(0x0f), w.u8(0x84);
-        uint8_t* toTaken = w.rel32();         // je taken
+        uint8_t *toTaken = w.rel32(); // je taken
         link(&links[0], after);
         Emitter::patch(toTaken, w.at);
         link(&links[1], taken);
     } else {
-        w.u8(0x45), w.u8(0x31), w.u8(0xd2);   // xor r10d, r10d: no link
+        w.u8(0x45), w.u8(0x31), w.u8(0xd2); // xor r10d, r10d: no link
         w.u8(0xe9);
         Emitter::patch(w.rel32(), dispatch_);
     }
@@ -940,7 +941,7 @@ const uint8_t* Jit::compile(const Op* ops, int count, uint32_t end, const void* 
         w.bytes(kFirstArgCpu);
         w.bytes(kSecondArgEax);
         w.bytes(kThirdArgImm32), w.u32(faults[i].size);
-        w.call(reinterpret_cast<const void*>(L.memoryFault));
+        w.call(reinterpret_cast<const void *>(L.memoryFault));
         w.u8(0xcc);
     }
     used_ = (size_t(w.at - base_) + 15) & ~size_t(15);
@@ -954,11 +955,11 @@ void Jit::reset() {
     used_ = bodyStart_;
     dataUsed_ = 0;
     ++generation_;
-    for (Entry& e : index_)
+    for (Entry &e : index_)
         e.code = 0;
 }
 
-void Jit::setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t* code, uint32_t count) {
+void Jit::setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t *code, uint32_t count) {
     index_[slot] = {start, epoch, code ? uint32_t(code - base_) : 0u, count};
 }
 

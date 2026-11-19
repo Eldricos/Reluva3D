@@ -8,7 +8,7 @@
 
 namespace reluva::cursor {
 
-Cursor fromIndexed(const uint8_t* pixels, int w, int h, int pitch, const uint8_t* palette, int transparent, int hotX,
+Cursor fromIndexed(const uint8_t *pixels, int w, int h, int pitch, const uint8_t *palette, int transparent, int hotX,
                    int hotY) {
     Cursor c;
     if (!pixels || !palette || w <= 0 || h <= 0)
@@ -19,12 +19,12 @@ Cursor fromIndexed(const uint8_t* pixels, int w, int h, int pitch, const uint8_t
     c.hotY = hotY;
     c.rgba.assign(size_t(w) * size_t(h) * 4, 0);
     for (int y = 0; y < h; ++y) {
-        const uint8_t* src = pixels + size_t(y) * size_t(pitch);
+        const uint8_t *src = pixels + size_t(y) * size_t(pitch);
         for (int x = 0; x < w; ++x) {
             const int i = src[x];
             if (i == transparent)
                 continue;
-            uint8_t* p = c.pixel(x, y);
+            uint8_t *p = c.pixel(x, y);
             p[0] = palette[i * 3];
             p[1] = palette[i * 3 + 1];
             p[2] = palette[i * 3 + 2];
@@ -34,7 +34,7 @@ Cursor fromIndexed(const uint8_t* pixels, int w, int h, int pitch, const uint8_t
     return c;
 }
 
-Cursor fromSurface(const Surface& surface, const Color* palette, int transparent, int hotX, int hotY) {
+Cursor fromSurface(const Surface &surface, const Color *palette, int transparent, int hotX, int hotY) {
     if (surface.w <= 0 || surface.h <= 0 || surface.pixels.empty())
         return {};
     if (surface.format == PixelFormat::CLUT8) {
@@ -59,7 +59,7 @@ Cursor fromSurface(const Surface& surface, const Color* palette, int transparent
     return c;
 }
 
-Cursor scaled(const Cursor& c, float factor, bool smooth) {
+Cursor scaled(const Cursor &c, float factor, bool smooth) {
     if (c.empty() || !(factor > 0))
         return c;
     Cursor out;
@@ -73,7 +73,7 @@ Cursor scaled(const Cursor& c, float factor, bool smooth) {
     const float sx = float(c.w) / float(out.w), sy = float(c.h) / float(out.h);
     for (int y = 0; y < out.h; ++y) {
         for (int x = 0; x < out.w; ++x) {
-            uint8_t* d = out.pixel(x, y);
+            uint8_t *d = out.pixel(x, y);
             if (!smooth) {
                 const int u = std::min(c.w - 1, int((float(x) + 0.5f) * sx));
                 const int v = std::min(c.h - 1, int((float(y) + 0.5f) * sy));
@@ -87,7 +87,7 @@ Cursor scaled(const Cursor& c, float factor, bool smooth) {
             const int u0 = int(fu), v0 = int(fv);
             const int u1 = std::min(c.w - 1, u0 + 1), v1 = std::min(c.h - 1, v0 + 1);
             const float tu = fu - float(u0), tv = fv - float(v0);
-            const uint8_t* q[4] = {c.pixel(u0, v0), c.pixel(u1, v0), c.pixel(u0, v1), c.pixel(u1, v1)};
+            const uint8_t *q[4] = {c.pixel(u0, v0), c.pixel(u1, v0), c.pixel(u0, v1), c.pixel(u1, v1)};
             const float wt[4] = {(1 - tu) * (1 - tv), tu * (1 - tv), (1 - tu) * tv, tu * tv};
             float rgb[3] = {0, 0, 0}, a = 0;
             for (int k = 0; k < 4; ++k) {
@@ -105,15 +105,15 @@ Cursor scaled(const Cursor& c, float factor, bool smooth) {
     return out;
 }
 
-void draw(Surface& target, const Cursor& c, int x, int y) {
+void draw(Surface &target, const Cursor &c, int x, int y) {
     if (c.empty() || target.format != PixelFormat::RGBA32)
         return;
     const int left = x - c.hotX, top = y - c.hotY;
     for (int v = std::max(0, -top); v < c.h && top + v < target.h; ++v) {
-        uint8_t* row = target.row(top + v);
+        uint8_t *row = target.row(top + v);
         for (int u = std::max(0, -left); u < c.w && left + u < target.w; ++u) {
-            const uint8_t* s = c.pixel(u, v);
-            uint8_t* d = row + size_t(left + u) * 4;
+            const uint8_t *s = c.pixel(u, v);
+            uint8_t *d = row + size_t(left + u) * 4;
             const int a = s[3];
             if (a == 0)
                 continue;

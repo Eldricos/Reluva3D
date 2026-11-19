@@ -52,11 +52,11 @@ const Rect kConfirmBox(120, 162, 520, 318);
 const size_t kMaxNameLength = 67;
 const int kMaxNameWidth = 294;
 
-bool isSaveFile(const std::string& name) {
+bool isSaveFile(const std::string &name) {
     return name.size() > 4 && text::equalsIgnoreCase(name.substr(name.size() - 4), ".ds9");
 }
 
-uint8_t nearest(const Palette& pal, int r, int g, int b) {
+uint8_t nearest(const Palette &pal, int r, int g, int b) {
     return uint8_t(pal.findBestColor(uint8_t(r * 255 / 63), uint8_t(g * 255 / 63), uint8_t(b * 255 / 63)));
 }
 
@@ -138,8 +138,8 @@ void Game::selectSave(int index) {
             menu_.savePalette.setColor(i, info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]);
         // The thumbnail's colours in the menu's own palette (when it keeps it).
         for (int i = 0; i < 256; i++)
-            menu_.thumbnailMap[i] =
-                uint8_t(menu_.artPalette.findBestColor(info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]));
+            menu_.thumbnailMap[i] = uint8_t(
+                menu_.artPalette.findBestColor(info.palette[i * 3], info.palette[i * 3 + 1], info.palette[i * 3 + 2]));
     }
 }
 
@@ -155,13 +155,13 @@ void Game::drawMenuScreen() {
     // without saves), so the menu art changes colour from save to save. As a
     // convenience the menu keeps setup.pal and the thumbnail is recoloured.
     bool savePalette = menu_.infoValid && vm_->getOptions().original;
-    const Palette& pal = savePalette ? menu_.savePalette : menu_.artPalette;
+    const Palette &pal = savePalette ? menu_.savePalette : menu_.artPalette;
     palette_ = pal;
     fadeLevel_ = 256;
     applyPalette();
 
     // Drawn into its own surface; each step copies it to the screen under the cursor.
-    Surface& dst = menu_.frame;
+    Surface &dst = menu_.frame;
     draw::create(dst, kScreenWidth, kScreenHeight);
 
     draw::blit(dst, menu_.art, 0, 0);
@@ -205,9 +205,11 @@ void Game::drawMenuScreen() {
     }
 }
 
-void Game::handleMenuEvent(const InputEvent& event) {
+void Game::handleMenuEvent(const InputEvent &event) {
     switch (event.type) {
-    case InputEvent::kQuit: quit_ = true; break;
+    case InputEvent::kQuit:
+        quit_ = true;
+        break;
     case InputEvent::kMouseMove: {
         mouse_ = event.mouse;
         Point p = cursorHitPoint(false);
@@ -261,13 +263,14 @@ void Game::handleMenuEvent(const InputEvent& event) {
         }
         break;
     }
-    default: break;
+    default:
+        break;
     }
 }
 
 void Game::menuButton(int button) {
     bool canResume = !menu_.first && !dead_;
-    auto confirm = [&](const char* text) {
+    auto confirm = [&](const char *text) {
         menu_.mode = GameMenu::kConfirm;
         menu_.confirmButton = button;
         menu_.confirmText = text;
@@ -275,7 +278,9 @@ void Game::menuButton(int button) {
     };
     int n = int(menu_.saves.size());
     switch (button) {
-    case kButtonNew: confirm("Start a new game?"); return;
+    case kButtonNew:
+        confirm("Start a new game?");
+        return;
     case kButtonSave:
         if (!canResume)
             return;
@@ -288,7 +293,9 @@ void Game::menuButton(int button) {
         if (n)
             confirm("Load this saved game?");
         return;
-    case kButtonQuit: confirm("Quit the game?"); return;
+    case kButtonQuit:
+        confirm("Quit the game?");
+        return;
     case kButtonResume:
         if (!canResume)
             return;
@@ -304,14 +311,29 @@ void Game::menuButton(int button) {
         return;
     case kButtonEasy:
     case kButtonEasy + 1:
-    case kButtonEasy + 2: arcadeDifficulty_ = button - kButtonEasy; break;
-    case kButtonAutosave: autosave_ = !autosave_; break;
-    case kButtonCredits: startCredits(false, true); return;
-    case kButtonPrev: selectSave(menu_.selected - 1); break;
-    case kButtonNext: selectSave(menu_.selected + 1); break;
-    case kButtonPrev10: selectSave(menu_.selected - 10); break;
-    case kButtonNext10: selectSave(menu_.selected + 10); break;
-    default: break;
+    case kButtonEasy + 2:
+        arcadeDifficulty_ = button - kButtonEasy;
+        break;
+    case kButtonAutosave:
+        autosave_ = !autosave_;
+        break;
+    case kButtonCredits:
+        startCredits(false, true);
+        return;
+    case kButtonPrev:
+        selectSave(menu_.selected - 1);
+        break;
+    case kButtonNext:
+        selectSave(menu_.selected + 1);
+        break;
+    case kButtonPrev10:
+        selectSave(menu_.selected - 10);
+        break;
+    case kButtonNext10:
+        selectSave(menu_.selected + 10);
+        break;
+    default:
+        break;
     }
     drawMenuScreen();
 }
@@ -349,7 +371,8 @@ void Game::menuConfirm(bool yes) {
             selectSave(menu_.selected);
         }
         break;
-    default: break;
+    default:
+        break;
     }
     drawMenuScreen();
 }
@@ -378,7 +401,7 @@ void Game::finishNameEntry() {
     drawMenuScreen();
 }
 
-void Game::typeSaveName(const std::string& name) {
+void Game::typeSaveName(const std::string &name) {
     menu_.name = name;
     menu_.typed = true;
     finishNameEntry();

@@ -31,12 +31,7 @@ class Walker;
 // when it starts opening, 23 open, 24 starts closing, 25 closed.
 class Movers {
 public:
-    enum Event {
-        kEventOpening = 22,
-        kEventOpen = 23,
-        kEventClosing = 24,
-        kEventClosed = 25
-    };
+    enum Event { kEventOpening = 22, kEventOpen = 23, kEventClosing = 24, kEventClosed = 25 };
     enum State {
         kIdle = 0,
         kOpen = 1,
@@ -54,29 +49,29 @@ public:
         uint16_t event;
     };
 
-    explicit Movers(LevelFile& level);
+    explicit Movers(LevelFile &level);
 
     int getCount() const { return (int)_movers.size(); }
 
     // Run every moving mover by ms (clamped like the engine's tick),
     // keeping clear of the player. Walls that moved are added to moved.
-    void update(uint32_t ms, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices);
+    void update(uint32_t ms, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices);
 
     // The natives (0x39..0x3F) set the state at once (with no lock check):
     // opening, closing, open, closed. Open and closed also move the door.
-    void setState(uint16_t id, int state, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices);
+    void setState(uint16_t id, int state, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices);
     // 0x3B: open a closed door, close an open one.
-    void toggle(uint16_t id, Walker& player, std::vector<int>& moved, std::vector<Notice>& notices);
+    void toggle(uint16_t id, Walker &player, std::vector<int> &moved, std::vector<Notice> &notices);
     // 0x3C / 0x3D: a locked door doesn't open when walked into.
     void setLocked(uint16_t id, bool locked);
     // The player walked into a wall (0x4B94D0): it may start the door it names.
-    void bump(int wall, std::vector<Notice>& notices);
+    void bump(int wall, std::vector<Notice> &notices);
 
     int getState(uint16_t id) const;
     int getPosition(uint16_t id) const;
 
     // Save or load every mover's position and state; loading puts the parts back.
-    void sync(Serializer& s, Walker& player, std::vector<int>& moved);
+    void sync(Serializer &s, Walker &player, std::vector<int> &moved);
 
 private:
     struct Part {
@@ -102,26 +97,20 @@ private:
         uint32_t counter = 0;
         uint32_t flags = 0;
     };
-    enum {
-        kFlagAutoClose = 1,
-        kFlagLocked = 2,
-        kFlagReverses = 4,
-        kFlagOpenedBack = 8
-    };
+    enum { kFlagAutoClose = 1, kFlagLocked = 2, kFlagReverses = 4, kFlagOpenedBack = 8 };
 
-    Mover* find(uint16_t id);
-    const Mover* find(uint16_t id) const;
+    Mover *find(uint16_t id);
+    const Mover *find(uint16_t id) const;
     Part makePart(bool wall, int index, int mode) const;
     // Move every part to position; with check, false (and nothing moved)
     // if a part would run into the player, who rides a moving floor.
-    bool apply(Mover& mover, int position, Walker& player, std::vector<int>& moved, bool check);
+    bool apply(Mover &mover, int position, Walker &player, std::vector<int> &moved, bool check);
     // Announce a state change, as 0x4B7980 does.
-    void changed(Mover& mover, std::vector<Notice>& notices);
+    void changed(Mover &mover, std::vector<Notice> &notices);
 
-    LevelFile& _level;
+    LevelFile &_level;
     std::vector<Mover> _movers;
     std::map<uint16_t, int> _byId;
 };
 
 } // namespace reluva::stgenerations
-

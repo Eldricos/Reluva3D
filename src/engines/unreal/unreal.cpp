@@ -36,7 +36,7 @@ constexpr int kScreenH = 480;
 
 class UnrealEngine : public Engine {
 public:
-    UnrealEngine(System& system, GameTarget target, const GameInfo& game)
+    UnrealEngine(System &system, GameTarget target, const GameInfo &game)
         : sys_(system), target_(std::move(target)), game_(game) {}
 
     Error run() override {
@@ -51,7 +51,7 @@ public:
         audio::Mixer mixer(sys_.audioRate());
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioOff { // stops the output before the mixer goes
-            System& sys;
+            System &sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
 
@@ -65,7 +65,7 @@ public:
         pages.push_back(std::make_unique<TextureViewer>(ctx));
         pages.push_back(std::make_unique<SoundViewer>(ctx));
         auto movies = std::make_unique<MovieViewer>(ctx);
-        MovieViewer* moviePage = movies.get();
+        MovieViewer *moviePage = movies.get();
         const size_t moviePageIndex = pages.size();
         pages.push_back(std::move(movies));
         pages.push_back(std::make_unique<PackageViewer>(ctx));
@@ -91,7 +91,7 @@ public:
         // to the renderer) and the presenting apart.
         std::string benchMap;
         double benchSeconds = 0;
-        if (const char* bench = std::getenv("RELUVA_BENCH")) {
+        if (const char *bench = std::getenv("RELUVA_BENCH")) {
             std::istringstream in(bench);
             in >> benchMap >> benchSeconds;
             if (benchMap.empty() || benchSeconds <= 0)
@@ -104,7 +104,7 @@ public:
         if (!intro)
             pages[page]->activate();
         if (!benchMap.empty())
-            static_cast<MapViewer*>(pages[0].get())->travel(benchMap);
+            static_cast<MapViewer *>(pages[0].get())->travel(benchMap);
         std::vector<double> benchUpdate, benchPresent, benchPlay, benchEnd;
         const auto benchStart = std::chrono::steady_clock::now();
         auto switchTo = [&](size_t next) -> Error {
@@ -150,11 +150,11 @@ public:
                 const auto t2 = std::chrono::steady_clock::now();
                 benchUpdate.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
                 benchPresent.push_back(std::chrono::duration<double, std::milli>(t2 - t1).count());
-                const MapViewer::FrameTimes& ft = static_cast<MapViewer*>(pages[0].get())->frameTimes();
+                const MapViewer::FrameTimes &ft = static_cast<MapViewer *>(pages[0].get())->frameTimes();
                 benchPlay.push_back(ft.play);
                 benchEnd.push_back(ft.endFrame);
                 if (std::chrono::duration<double>(t2 - benchStart).count() >= benchSeconds) {
-                    auto report = [](const char* what, std::vector<double> v) {
+                    auto report = [](const char *what, std::vector<double> v) {
                         std::sort(v.begin(), v.end());
                         double sum = 0;
                         for (double x : v)
@@ -180,24 +180,24 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
-    const GameInfo& game_;
+    const GameInfo &game_;
     PackageSet packages_;
     Surface screen_;
 };
 
 class UnrealMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "unreal"; }
-    const char* name() const override { return "Unreal Engine 1"; }
+    const char *id() const override { return "unreal"; }
+    const char *name() const override { return "Unreal Engine 1"; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         return unreal::detect(id(), dir);
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
-        const GameInfo* game = findGame(target.gameId);
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
+        const GameInfo *game = findGame(target.gameId);
         if (!game)
             game = &games().back(); // the unidentified game
         return std::make_unique<UnrealEngine>(system, target, *game);
@@ -206,7 +206,7 @@ public:
 
 } // namespace
 
-const MetaEngine& unrealMetaEngine() {
+const MetaEngine &unrealMetaEngine() {
     static const UnrealMetaEngine instance;
     return instance;
 }

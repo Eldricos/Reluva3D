@@ -48,13 +48,13 @@ public:
 
     // Where the Cpu keeps what the code reads and writes.
     struct Layout {
-        size_t reg, eip, start, epoch, fsBase, eflags; // offsets into the Cpu
+        size_t reg, eip, start, epoch, fsBase, eflags;          // offsets into the Cpu
         size_t fpuRegs, fpuTop, fpuTags, fpuControl, fpuStatus; // Cpu::fpu's
-        const uint8_t* memory;                 // its memory
-        const uint8_t* pages;                  // a byte per page, nonzero where code was cached
-        uint32_t span;                         // the memory's size less the first page (Cpu::valid)
+        const uint8_t *memory;                                  // its memory
+        const uint8_t *pages;                                   // a byte per page, nonzero where code was cached
+        uint32_t span;                                          // the memory's size less the first page (Cpu::valid)
         // Throws the fault for an access outside memory: (cpu, address, size).
-        void (*memoryFault)(void*, uint32_t, uint32_t);
+        void (*memoryFault)(void *, uint32_t, uint32_t);
         // For going from block to block (Jit::compile's dispatch): offsets
         // into the Cpu of the count run, the block counted (its instructions,
         // their count and its start),
@@ -65,17 +65,17 @@ public:
         // (Cpu::callNative's way), giving whether to go on (0: the run
         // stops for the thread to yield).
         uint32_t nativeBase;
-        int (*callNative)(void*);
+        int (*callNative)(void *);
         // the blocks (Cpu::Block, `blockSize` bytes each, `blockMask` + 1 of
         // them, a power of two, in pairs, by Cpu::slotOf: eip * 0x9e3779b1's
         // top bits, the low one cleared: a block is in either of the pair).
-        const uint8_t* blocks;
+        const uint8_t *blocks;
         uint32_t blockSize, blockMask;
     };
-    explicit Jit(const Layout& layout);
+    explicit Jit(const Layout &layout);
     ~Jit();
-    Jit(const Jit&) = delete;
-    Jit& operator=(const Jit&) = delete;
+    Jit(const Jit &) = delete;
+    Jit &operator=(const Jit &) = delete;
     bool ready() const { return base_ != nullptr; }
 
     // An instruction, as decoded (Cpu::Cached), with what it becomes.
@@ -88,7 +88,7 @@ public:
         Lea,       // reg <- the address
         PushReg,   // push rm
         PushImm,
-        PopReg,    // pop rm
+        PopReg, // pop rm
         // With flags (Jit::flagsOps: where the host has LAHF). `alu` is
         // the operation: 0-7 ADD OR ADC SBB AND SUB XOR CMP, 8 TEST, 9
         // INC, 10 DEC, 11 SHL, 12 SHR, 13 SAR (32 bits, by imm 1 to 31);
@@ -117,8 +117,8 @@ public:
         FArithSt0, // st(0) <- st(0) op st(i)
         FArithSti, // st(i) <- st(i) op st(0)
         Fxch,
-        FCom,      // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
-        FnstswAx,  // AX <- the status word, with top
+        FCom,     // FCOM/FCOMP: st(0) against the memory operand (mem) or st(i), into the status word
+        FnstswAx, // AX <- the status word, with top
     };
     struct Op {
         Kind kind = Kind::Call;
@@ -128,9 +128,9 @@ public:
         int8_t base = -1, index = -1;
         bool mem = false, fs = false;
         uint32_t disp = 0, imm = 0;
-        uint32_t start = 0;               // its address
-        const void* handler = nullptr;    // for Call
-        const void* entry = nullptr;      // its Cached, for Call
+        uint32_t start = 0;            // its address
+        const void *handler = nullptr; // for Call
+        const void *entry = nullptr;   // its Cached, for Call
     };
     // Code for a block of `count` instructions (after a 16-byte header: its
     // copy of the entries and their count, which the dispatch and the
@@ -140,9 +140,9 @@ public:
     // and for the count's record: the code depends on nothing in the table,
     // so a jump to it stays good while the bytes it was made from are (the
     // code epoch). nullptr if there's no room (reset() makes it).
-    const uint8_t* compile(const Op* ops, int count, uint32_t end, const void* entries, size_t entrySize);
+    const uint8_t *compile(const Op *ops, int count, uint32_t end, const void *entries, size_t entrySize);
     // Runs code compile() made, for the Cpu.
-    void run(void* cpu, const uint8_t* code) const { entry_(cpu, code); }
+    void run(void *cpu, const uint8_t *code) const { entry_(cpu, code); }
     // Forgets all the code made (none may be running): the generation moves
     // on, so code kept from an older one is known to be gone.
     void reset();
@@ -151,14 +151,14 @@ public:
     // starts, the code epoch its bytes were last checked in, its code
     // (nullptr: none to run) and its count. The Cpu sets it as it checks,
     // makes and runs blocks; reset() takes all the code away.
-    void setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t* code, uint32_t count);
+    void setEntry(uint32_t slot, uint32_t start, uint32_t epoch, const uint8_t *code, uint32_t count);
 
 private:
     Layout layout_;
-    uint8_t* base_ = nullptr;
+    uint8_t *base_ = nullptr;
     size_t size_ = 0, used_ = 0, bodyStart_ = 0;
     uint32_t generation_ = 1;
-    const uint8_t* dispatch_ = nullptr; // where each block's code goes at its end
+    const uint8_t *dispatch_ = nullptr; // where each block's code goes at its end
     // The dispatch's index of the table, 16 bytes a slot: a 32nd of the
     // blocks' size, so it stays in the processor's caches where the table
     // doesn't (its first read had been half the dispatch's time).
@@ -173,12 +173,12 @@ private:
     // Filled in order like the buffer, and forgotten with it.
     struct Link {
         uint32_t epoch = 0xffffffffu, unused = 0;
-        const uint8_t* code = nullptr;
+        const uint8_t *code = nullptr;
     };
     std::vector<uint8_t> data_;
     size_t dataUsed_ = 0;
-    void (*entry_)(void*, const uint8_t*) = nullptr;
-    [[maybe_unused]] void* unwind_ = nullptr; // what was registered, to take back (where there's a JIT)
+    void (*entry_)(void *, const uint8_t *) = nullptr;
+    [[maybe_unused]] void *unwind_ = nullptr; // what was registered, to take back (where there's a JIT)
 };
 
 } // namespace reluva::x86

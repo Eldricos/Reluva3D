@@ -11,23 +11,23 @@
 
 namespace reluva::unreal {
 
-const char* formatName(uint8_t format) {
-    static const char* const kNames[] = {"P8", "RGBA7", "RGB16", "DXT1", "RGB8", "RGBA8"};
+const char *formatName(uint8_t format) {
+    static const char *const kNames[] = {"P8", "RGBA7", "RGB16", "DXT1", "RGB8", "RGBA8"};
     return format < 6 ? kNames[format] : "unknown";
 }
 
 bool isTextureClass(std::string_view className) {
     const std::string c = fs::toLower(className);
-    return c == "texture" || c == "firetexture" || c == "watertexture" || c == "wavetexture" ||
-           c == "wettexture" || c == "icetexture" || c == "scriptedtexture" ||
+    return c == "texture" || c == "firetexture" || c == "watertexture" || c == "wavetexture" || c == "wettexture" ||
+           c == "icetexture" || c == "scriptedtexture" ||
            c == "flitexture"; // The Fallen's: frames from an FLC animation (a C3DFLIC object)
 }
 
-Error readPalette(const Package& package, int index, Palette& out) {
+Error readPalette(const Package &package, int index, Palette &out) {
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
         return err;
-    const Export& e = package.exports()[size_t(index)];
+    const Export &e = package.exports()[size_t(index)];
     Reader r(data, size_t(e.serialOffset));
     PropertyList props;
     if (Error err = beginObject(package, index, r, props))
@@ -45,7 +45,7 @@ Error readPalette(const Package& package, int index, Palette& out) {
 
 namespace {
 
-void rgb565(uint16_t c, uint8_t* out) {
+void rgb565(uint16_t c, uint8_t *out) {
     out[0] = uint8_t(((c >> 11) & 31) * 255 / 31);
     out[1] = uint8_t(((c >> 5) & 63) * 255 / 63);
     out[2] = uint8_t((c & 31) * 255 / 31);
@@ -54,14 +54,14 @@ void rgb565(uint16_t c, uint8_t* out) {
 
 // DXT1 (BC1): 4x4 blocks of two 565 colours and 2-bit indices; when the
 // first colour is not greater, index 3 is transparent black.
-void decodeDxt1(const uint8_t* src, size_t size, int w, int h, image::Image& out) {
+void decodeDxt1(const uint8_t *src, size_t size, int w, int h, image::Image &out) {
     const int bw = (w + 3) / 4, bh = (h + 3) / 4;
     for (int by = 0; by < bh; ++by)
         for (int bx = 0; bx < bw; ++bx) {
             const size_t at = (size_t(by) * size_t(bw) + size_t(bx)) * 8;
             if (at + 8 > size)
                 return;
-            const uint8_t* b = src + at;
+            const uint8_t *b = src + at;
             const uint16_t c0 = uint16_t(b[0] | b[1] << 8), c1 = uint16_t(b[2] | b[3] << 8);
             uint8_t pal[4][4];
             rgb565(c0, pal[0]);
@@ -83,7 +83,7 @@ void decodeDxt1(const uint8_t* src, size_t size, int w, int h, image::Image& out
                     const int px = bx * 4 + x, py = by * 4 + y;
                     if (px >= w || py >= h)
                         continue;
-                    const uint8_t* c = pal[(bits >> (2 * (y * 4 + x))) & 3];
+                    const uint8_t *c = pal[(bits >> (2 * (y * 4 + x))) & 3];
                     std::copy_n(c, 4, out.pixel(px, py));
                 }
         }
@@ -92,17 +92,17 @@ void decodeDxt1(const uint8_t* src, size_t size, int w, int h, image::Image& out
 // A stand-in for a procedural texture without pixels, `w` x `h`: the
 // texture it distorts (scaled to its size), or a gradient through its
 // palette, brightest at the bottom as flames rise.
-Error proceduralStandIn(const PackageSet& packages, const Package& package, const PropertyList& props, int w, int h,
-                        int depth, image::Image& out, std::string& what);
+Error proceduralStandIn(const PackageSet &packages, const Package &package, const PropertyList &props, int w, int h,
+                        int depth, image::Image &out, std::string &what);
 
 } // namespace
 
-static Error decodeAt(const PackageSet& packages, const Package& package, int index, image::Image& out, bool seeThroughZero,
-                      TextureInfo* info, int depth) {
+static Error decodeAt(const PackageSet &packages, const Package &package, int index, image::Image &out,
+                      bool seeThroughZero, TextureInfo *info, int depth) {
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
         return err;
-    const Export& e = package.exports()[size_t(index)];
+    const Export &e = package.exports()[size_t(index)];
     const std::string what = package.path(index + 1);
     Reader r(data, size_t(e.serialOffset));
     PropertyList props;
@@ -124,12 +124,12 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
         int32_t size = 0;
         int width = 0, height = 0;
     };
-    auto readMips = [&](std::vector<Mip>& mips) -> Error {
+    auto readMips = [&](std::vector<Mip> &mips) -> Error {
         const int32_t count = r.index();
         if (!r.ok() || count < 0 || count > 16)
             return Error::fail(what + ": " + std::to_string(count) + " mipmaps");
         mips.resize(size_t(count));
-        for (Mip& m : mips) {
+        for (Mip &m : mips) {
             if (package.version() >= 63)
                 r.i32(); // where the data ends, to skip it
             m.size = r.index();
@@ -152,7 +152,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
     if (props.boolean("bHasComp"))
         if (Error err = readMips(compMips))
             return err;
-    const Mip* mip = mips.empty() ? nullptr : &mips[0];
+    const Mip *mip = mips.empty() ? nullptr : &mips[0];
     if ((!mip || mip->size == 0) && !compMips.empty()) {
         mip = &compMips[0];
         ti.format = props.byte("CompFormat", uint8_t(TextureFormat::DXT1));
@@ -172,8 +172,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
         const std::string described = what + " (" + cls + ", " + formatName(ti.format) + " " +
                                       std::to_string(ti.width) + "x" + std::to_string(ti.height) + ")";
         if (!isTextureClass(cls) || fs::toLower(cls) == "texture")
-            return Error::fail(described + ": no pixels stored" +
-                               (props.find("bHasComp") ? "" : ", and no bHasComp"));
+            return Error::fail(described + ": no pixels stored" + (props.find("bHasComp") ? "" : ", and no bHasComp"));
         std::string standIn;
         // Fire, water and FLC textures: their animation's first picture.
         // (Wet and ice ones show their source texture, undistorted, as
@@ -194,7 +193,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
         return Error::success();
     }
     const int32_t size = mip->size;
-    const uint8_t* src = data.data() + (mip->dataAt - size_t(e.serialOffset));
+    const uint8_t *src = data.data() + (mip->dataAt - size_t(e.serialOffset));
     const size_t pixels = size_t(ti.width) * size_t(ti.height);
 
     out.w = ti.width;
@@ -212,7 +211,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
             return err;
         for (size_t i = 0; i < pixels; ++i) {
             const uint8_t c = src[i];
-            uint8_t* p = out.rgba.data() + i * 4;
+            uint8_t *p = out.rgba.data() + i * 4;
             std::copy_n(palette.rgba.data() + size_t(c) * 4, 3, p);
             // The palettes' alpha isn't used for P8 textures; masked ones
             // see through colour 0.
@@ -228,7 +227,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
             return Error::fail(what + ": too little data for RGBA8");
         // Stored blue, green, red, alpha.
         for (size_t i = 0; i < pixels; ++i) {
-            uint8_t* p = out.rgba.data() + i * 4;
+            uint8_t *p = out.rgba.data() + i * 4;
             p[0] = src[i * 4 + 2];
             p[1] = src[i * 4 + 1];
             p[2] = src[i * 4];
@@ -239,7 +238,7 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
         if (size_t(size) < pixels * 3)
             return Error::fail(what + ": too little data for RGB8");
         for (size_t i = 0; i < pixels; ++i) {
-            uint8_t* p = out.rgba.data() + i * 4;
+            uint8_t *p = out.rgba.data() + i * 4;
             p[0] = src[i * 3 + 2];
             p[1] = src[i * 3 + 1];
             p[2] = src[i * 3];
@@ -253,12 +252,12 @@ static Error decodeAt(const PackageSet& packages, const Package& package, int in
 
 namespace {
 
-Error proceduralStandIn(const PackageSet& packages, const Package& package, const PropertyList& props, int w, int h,
-                        int depth, image::Image& out, std::string& what) {
+Error proceduralStandIn(const PackageSet &packages, const Package &package, const PropertyList &props, int w, int h,
+                        int depth, image::Image &out, std::string &what) {
     out.w = w;
     out.h = h;
     out.rgba.assign(size_t(w) * size_t(h) * 4, 0);
-    for (const char* name : {"SourceTexture", "GlassTexture"}) {
+    for (const char *name : {"SourceTexture", "GlassTexture"}) {
         const int32_t ref = props.object(name);
         const ObjectRef src = packages.resolve(package, ref);
         image::Image img;
@@ -280,7 +279,7 @@ Error proceduralStandIn(const PackageSet& packages, const Package& package, cons
     for (int y = 0; y < h; ++y) {
         const int c = h > 1 ? y * 255 / (h - 1) : 255;
         for (int x = 0; x < w; ++x) {
-            uint8_t* p = out.pixel(x, y);
+            uint8_t *p = out.pixel(x, y);
             std::copy_n(palette.rgba.data() + size_t(c) * 4, 3, p);
             p[3] = 255;
         }
@@ -291,8 +290,8 @@ Error proceduralStandIn(const PackageSet& packages, const Package& package, cons
 
 } // namespace
 
-Error decodeTexture(const PackageSet& packages, const Package& package, int index, image::Image& out,
-                    TextureInfo* info, bool seeThroughZero) {
+Error decodeTexture(const PackageSet &packages, const Package &package, int index, image::Image &out, TextureInfo *info,
+                    bool seeThroughZero) {
     return decodeAt(packages, package, index, out, seeThroughZero, info, 0);
 }
 

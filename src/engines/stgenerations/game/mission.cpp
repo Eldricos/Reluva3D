@@ -14,7 +14,7 @@ namespace reluva::stgenerations {
 
 namespace {
 
-const char* const kDebugChannel = "scripts";
+const char *const kDebugChannel = "scripts";
 const double kPi = 3.14159265358979323846;
 const double kFixed = 65536.0;
 // Size of the second word array (F2/F3); the original's bound isn't known.
@@ -37,12 +37,12 @@ bool isObject(uint16_t recordId, uint16_t typeBits, uint16_t id) {
 
 } // namespace
 
-Mission::Mission(LevelFile& level, const ScriptFile& script, LevelRenderer& renderer, Walker& walker, Actors* actors,
-                 Mixer* mixer, const MissionSound::FileOpener& soundFiles)
+Mission::Mission(LevelFile &level, const ScriptFile &script, LevelRenderer &renderer, Walker &walker, Actors *actors,
+                 Mixer *mixer, const MissionSound::FileOpener &soundFiles)
     : _level(level), _script(script), _renderer(renderer), _walker(walker), _random(0x53544721), _actors(actors),
-      _hud([this](uint16_t object, uint16_t event, const std::vector<int16_t>& args) { send(object, event, args); }) {
+      _hud([this](uint16_t object, uint16_t event, const std::vector<int16_t> &args) { send(object, event, args); }) {
     // Sounds that follow a billboard (mode 2) or an actor (mode 3).
-    auto locate = [this](int mode, uint16_t object, double& x, double& y, double& z) {
+    auto locate = [this](int mode, uint16_t object, double &x, double &y, double &z) {
         Position position;
         uint16_t id = (uint16_t)(object | (mode == MissionSound::kPositionActor ? kTypeActor : kTypeBillboard));
         if (!getPosition(id, position))
@@ -57,11 +57,11 @@ Mission::Mission(LevelFile& level, const ScriptFile& script, LevelRenderer& rend
     _movers.reset(new Movers(level));
     _vm.reset(new ScriptVM(script, this));
     _array.assign(kArraySize, 0);
-    for (const LevelFile::Wall& wall : level.getWalls())
+    for (const LevelFile::Wall &wall : level.getWalls())
         _wallTextures.push_back(wall.texture);
-    for (const LevelFile::Sector& flat : level.getSectors())
+    for (const LevelFile::Sector &flat : level.getSectors())
         _flatTextures.push_back(flat.texture);
-    for (LevelFile::Billboard& billboard : level.getBillboards()) {
+    for (LevelFile::Billboard &billboard : level.getBillboards()) {
         _billboardTextures.push_back(billboard.texture);
         if (billboard.flags & LevelFile::kBillboardItem)
             dropBillboard(billboard);
@@ -70,7 +70,8 @@ Mission::Mission(LevelFile& level, const ScriptFile& script, LevelRenderer& rend
     level.getPalette().getColor(0x30, _transitionColour[0], _transitionColour[1], _transitionColour[2]);
 }
 
-Mission::~Mission() {}
+Mission::~Mission() {
+}
 
 std::vector<int> Mission::getStartOrder() const {
     // The original keeps its objects in an MFC CMap with 17 buckets and the
@@ -92,14 +93,15 @@ Mission::TransitionView Mission::getTransitionView() const {
     if (!_transition.active)
         return view;
     view.active = true;
-    view.kind = _transition.ending ? TransitionView::kEnding
-                : _transition.teleport ? TransitionView::kTeleport : TransitionView::kBriefing;
+    view.kind = _transition.ending     ? TransitionView::kEnding
+                : _transition.teleport ? TransitionView::kTeleport
+                                       : TransitionView::kBriefing;
     view.style = _transitionStyle;
     view.r = _transitionColour[0];
     view.g = _transitionColour[1];
     view.b = _transitionColour[2];
     // 0x43E13A: each phase ends at the sum of the times before it.
-    const uint32_t* t = _transition.phase;
+    const uint32_t *t = _transition.phase;
     uint32_t e = _transition.elapsed, end1 = t[0], end2 = end1 + t[1], end3 = end2 + t[2];
     if (e < end1) {
         view.phase = 1;
@@ -115,13 +117,13 @@ Mission::TransitionView Mission::getTransitionView() const {
 }
 
 void Mission::setTextureScroll(uint16_t id, int16_t u, int16_t v) {
-    for (LevelFile::Wall& wall : _level.getWalls()) {
+    for (LevelFile::Wall &wall : _level.getWalls()) {
         if (isObject(wall.objectId, kTypeWall, id)) {
             wall.uScroll = u;
             wall.vScroll = v;
         }
     }
-    for (LevelFile::Sector& flat : _level.getSectors()) {
+    for (LevelFile::Sector &flat : _level.getSectors()) {
         if (isObject(flat.objectId, kTypeFlat, id)) {
             flat.uScroll = u;
             flat.vScroll = v;
@@ -129,7 +131,7 @@ void Mission::setTextureScroll(uint16_t id, int16_t u, int16_t v) {
     }
 }
 
-void Mission::refreshGeometry(const std::vector<int>& walls) {
+void Mission::refreshGeometry(const std::vector<int> &walls) {
     if (walls.empty())
         return;
     _walker.refreshWalls(walls);
@@ -144,10 +146,10 @@ void Mission::moveLift(uint16_t id, int level) {
     auto it = _lifts.find(id);
     if (it == _lifts.end() || level < 1 || level > it->second.count)
         return;
-    const Lift& lift = it->second;
+    const Lift &lift = it->second;
     int32_t height = lift.heights[level - 1];
-    std::vector<LevelFile::Sector>& flats = _level.getSectors();
-    for (LevelFile::Sector& flat : flats) {
+    std::vector<LevelFile::Sector> &flats = _level.getSectors();
+    for (LevelFile::Sector &flat : flats) {
         if (isObject(flat.objectId, kTypeFlat, lift.flat) && !flat.isCeiling())
             flat.height = height;
     }
@@ -160,7 +162,7 @@ void Mission::runPush(uint32_t ms) {
         _push.active = false;
         return;
     }
-    double envelope = t < _push.ramp ? (double)t / std::max<uint32_t>(1, _push.ramp)
+    double envelope = t < _push.ramp   ? (double)t / std::max<uint32_t>(1, _push.ramp)
                       : t < _push.hold ? 1.0
                                        : (double)(_push.end - t) / std::max<uint32_t>(1, _push.end - _push.hold);
     double dx = _push.x - _walker.getX(), dy = _push.y - _walker.getY();
@@ -171,7 +173,7 @@ void Mission::runPush(uint32_t ms) {
     _walker.move(dx / length * step, dy / length * step, 0);
 }
 
-void Mission::sync(Serializer& s) {
+void Mission::sync(Serializer &s) {
     _vm->sync(s);
     _level.syncState(s);
     {
@@ -209,8 +211,8 @@ void Mission::sync(Serializer& s) {
         else
             ++timer;
     }
-    s.syncVector(_listeners, [](Serializer& ser, uint16_t& v) { ser.syncAsUint16(v); });
-    s.syncVector(_array, [](Serializer& ser, int16_t& v) { ser.syncAsSint16(v); });
+    s.syncVector(_listeners, [](Serializer &ser, uint16_t &v) { ser.syncAsUint16(v); });
+    s.syncVector(_array, [](Serializer &ser, int16_t &v) { ser.syncAsSint16(v); });
 
     count = (uint32_t)_items.size();
     s.syncAsUint32(count);
@@ -252,7 +254,7 @@ void Mission::sync(Serializer& s) {
     s.syncAsBool(_accomplished);
     s.syncAsBool(_transition.active);
     s.syncAsBool(_transition.ending);
-    for (uint32_t& phase : _transition.phase)
+    for (uint32_t &phase : _transition.phase)
         s.syncAsUint32(phase);
     s.syncAsUint32(_transition.elapsed);
     s.syncAsInt(_transitionSound);
@@ -277,14 +279,14 @@ void Mission::sync(Serializer& s) {
         s.syncAsUint32(count);
         std::vector<uint16_t> ids(_safeFlats.begin(), _safeFlats.end());
         ids.resize(count);
-        for (uint16_t& id : ids)
+        for (uint16_t &id : ids)
             s.syncAsUint16(id);
         if (s.isLoading())
             _safeFlats = std::set<uint16_t>(ids.begin(), ids.end());
         uint32_t pools = (uint32_t)_pools.size();
         s.syncAsUint32(pools);
         _pools.resize(pools);
-        for (Pool& pool : _pools) {
+        for (Pool &pool : _pools) {
             s.syncAsUint16(pool.below);
             s.syncAsUint16(pool.above);
             s.syncAsUint16(pool.bottom);
@@ -294,7 +296,7 @@ void Mission::sync(Serializer& s) {
         if (s.isLoading()) {
             _flatMark.clear();
             _poolSurface.clear();
-            for (const Pool& pool : _pools)
+            for (const Pool &pool : _pools)
                 setPool(pool.below, pool.above, pool.bottom);
         }
     }
@@ -312,7 +314,7 @@ void Mission::sync(Serializer& s) {
     s.syncAsDouble(_transition.y);
     s.syncAsDouble(_transition.z);
     s.syncAsSint16(_transition.heading);
-    for (uint8_t& c : _transitionColour)
+    for (uint8_t &c : _transitionColour)
         s.syncAsByte(c);
     s.syncAsUint32(_environmentPeriod);
     s.syncAsUint32(_environmentElapsed);
@@ -322,7 +324,7 @@ void Mission::sync(Serializer& s) {
     s.syncAsInt(_spin);
     s.syncString(_viewOverlay.image);
     s.syncAsInt(_viewOverlay.mode);
-    s.syncVector(_outcomes, [](Serializer& ser, int32_t& v) { ser.syncAsSint32(v); });
+    s.syncVector(_outcomes, [](Serializer &ser, int32_t &v) { ser.syncAsSint32(v); });
     s.syncAsUint16(_engaged);
     s.syncAsDouble(_engagedX);
     s.syncAsDouble(_engagedY);
@@ -337,7 +339,7 @@ void Mission::sync(Serializer& s) {
         s.syncAsUint16(id);
         s.syncAsUint16(l.flat);
         s.syncAsInt(l.count);
-        for (int32_t& h : l.heights)
+        for (int32_t &h : l.heights)
             s.syncAsSint32(h);
         if (s.isLoading())
             _lifts[id] = l;
@@ -423,13 +425,13 @@ void Mission::update(uint32_t ms) {
         std::vector<Movers::Notice> notices;
         _movers->update(ms, _walker, moved, notices);
         refreshGeometry(moved);
-        for (const Movers::Notice& notice : notices)
+        for (const Movers::Notice &notice : notices)
             send(notice.object, notice.event);
     }
     // Landing hard, or a jump hitting the ceiling, hurts (0x4357E5,
     // 0x43A662: kind 1), unless the flat is marked safe (SET_FLAT_SAFE).
     {
-        const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+        const std::vector<LevelFile::Sector> &flats = _level.getSectors();
         auto hurt = [&](double speed, int flat) {
             uint16_t id = flat >= 0 && flats[flat].objectId ? (uint16_t)(flats[flat].objectId | kTypeFlat) : 0;
             if (speed <= 0 || _fallDivisor <= 0 || (id && _safeFlats.count(id)))
@@ -466,18 +468,18 @@ void Mission::update(uint32_t ms) {
         while (_environmentElapsed > _environmentPeriod) {
             _environmentElapsed -= _environmentPeriod;
             _health = (int16_t)std::max(1, _health - 1);
-            broadcast(kEventPlayerDamaged, { (int16_t)_environmentSource, 1, 1, 13 });
+            broadcast(kEventPlayerDamaged, {(int16_t)_environmentSource, 1, 1, 13});
         }
     }
 
     if (_actors) {
         _actorEvents.clear();
         _actors->update(ms, _walker, _actorEvents);
-        for (const Actors::ScriptEvent& event : _actorEvents)
+        for (const Actors::ScriptEvent &event : _actorEvents)
             send(event.object, event.event);
         std::vector<Actors::Shot> shots;
         _actors->takeShots(shots);
-        for (const Actors::Shot& shot : shots)
+        for (const Actors::Shot &shot : shots)
             fire(shot.weapon, shot.x, shot.y, shot.z, shot.yaw, shot.pitch, shot.shooter);
     }
     runProjectiles(ms);
@@ -487,10 +489,10 @@ void Mission::update(uint32_t ms) {
     updateWater();
     checkPlayerContacts();
 
-    MissionSound::Listener listener = { _walker.getX(), _walker.getY(), _walker.getEye(), _currentYaw };
+    MissionSound::Listener listener = {_walker.getX(), _walker.getY(), _walker.getEye(), _currentYaw};
     _soundsFinished.clear();
     _sound->update(ms, listener, _soundsFinished);
-    for (const MissionSound::Finished& done : _soundsFinished)
+    for (const MissionSound::Finished &done : _soundsFinished)
         send(done.object, MissionSound::kEventFinished);
 }
 
@@ -516,9 +518,9 @@ void Mission::runProjectiles(uint32_t ms) {
     std::vector<Projectiles::Report> reports;
     _projectiles->update(ms, _walker.getActiveZones(), targets, _walker.getX(), _walker.getY(), _walker.getEye(),
                          _walker.getRadius(), reports);
-    for (const Projectiles::Report& report : reports) {
-        const Projectiles::Hit& hit = report.hit;
-        const Projectiles::Type& type = _projectiles->getType(hit.type);
+    for (const Projectiles::Report &report : reports) {
+        const Projectiles::Hit &hit = report.hit;
+        const Projectiles::Type &type = _projectiles->getType(hit.type);
         if (report.what == Projectiles::Report::kFired) {
             playSoundAt(type.fireSound, hit.x, hit.y, hit.z);
             continue;
@@ -535,8 +537,9 @@ void Mission::runProjectiles(uint32_t ms) {
             id = _level.getWalls()[hit.index].objectId ? _level.getWalls()[hit.index].objectId | kTypeWall : 0;
             break;
         case Projectiles::Hit::kBillboard:
-            id = _level.getBillboards()[hit.index].objectId ? _level.getBillboards()[hit.index].objectId |
-                                                                 kTypeBillboard : 0;
+            id = _level.getBillboards()[hit.index].objectId
+                     ? _level.getBillboards()[hit.index].objectId | kTypeBillboard
+                     : 0;
             break;
         case Projectiles::Hit::kActor:
             id = (uint16_t)hit.index;
@@ -546,8 +549,8 @@ void Mission::runProjectiles(uint32_t ms) {
         }
         if (!id)
             continue;
-        broadcast(kEventHitReport, { (int16_t)id, type.damage, type.damage, type.team });
-        send(id, kEventHit, { type.damage, type.damage, type.team });
+        broadcast(kEventHitReport, {(int16_t)id, type.damage, type.damage, type.team});
+        send(id, kEventHit, {type.damage, type.damage, type.team});
     }
 }
 
@@ -560,7 +563,7 @@ void Mission::swing() {
         _sound->play(_punch.swingSound);
 }
 
-void Mission::punch(const LevelRenderer::Pick& pick) {
+void Mission::punch(const LevelRenderer::Pick &pick) {
     // 0x4364B8: within reach (the player's radius and half a unit, plus
     // the radius of a billboard or actor), what was hit gets event 16 and
     // everyone hears of it (59); out of reach, everyone hears of a miss.
@@ -588,10 +591,10 @@ void Mission::punch(const LevelRenderer::Pick& pick) {
         break;
     }
     bool inReach = pick.depth <= reach;
-    broadcast(kEventHitReport, { (int16_t)(inReach ? id : 0), _punch.damage, _punch.power, kTeam });
+    broadcast(kEventHitReport, {(int16_t)(inReach ? id : 0), _punch.damage, _punch.power, kTeam});
     if (!inReach)
         return;
-    send(id, kEventHit, { _punch.damage, _punch.power, kTeam });
+    send(id, kEventHit, {_punch.damage, _punch.power, kTeam});
     if (_punch.hitSound >= 0) {
         if (_punch.hitVolume >= 0)
             _sound->playSound(_punch.hitSound, _punch.hitVolume);
@@ -600,12 +603,12 @@ void Mission::punch(const LevelRenderer::Pick& pick) {
     }
 }
 
-Mission::FireResult Mission::fireWeapon(const Camera& camera, const LevelRenderer::Pick& pick, int x, int y,
-                                        int w, int h, double ahead, double up, double left) {
+Mission::FireResult Mission::fireWeapon(const Camera &camera, const LevelRenderer::Pick &pick, int x, int y, int w,
+                                        int h, double ahead, double up, double left) {
     auto it = _items.find(_activeItem);
     if (it == _items.end())
         return kNoWeapon;
-    Item& item = it->second;
+    Item &item = it->second;
     if (!isWeapon(_activeItem) || item.c < 0 || item.c >= _projectiles->getTypeCount())
         return kNoWeapon;
     // Each shot costs its damage in charge (vt38, 0x449F20); without
@@ -614,7 +617,7 @@ Mission::FireResult Mission::fireWeapon(const Camera& camera, const LevelRendere
     if (item.charge < cost)
         return kEmpty;
     item.charge -= cost;
-    broadcast(kEventItemUsed, { cost });
+    broadcast(kEventItemUsed, {cost});
 
     // 0x4B4E10: aim at what shows under the cursor, or at a point far
     // ahead if that is nothing or too close.
@@ -637,7 +640,7 @@ void Mission::setItemLevel(int level) {
     auto it = _items.find(_activeItem);
     if (it == _items.end() || it->second.maxLevel <= 0)
         return;
-    Item& item = it->second;
+    Item &item = it->second;
     item.level = std::max(1, std::min<int>(level, item.maxLevel));
     if (item.c >= 0 && item.c < _projectiles->getTypeCount())
         _projectiles->setDamage(item.c, (int16_t)item.level);
@@ -698,10 +701,10 @@ void Mission::damagePlayer(int16_t source, int16_t damage, int16_t kind) {
         return;
     }
     _health = (int16_t)std::max(1, std::min<int>(_maxHealth, _health - damage));
-    broadcast(kEventPlayerDamaged, { source, damage, damage, kind });
+    broadcast(kEventPlayerDamaged, {source, damage, damage, kind});
 }
 
-bool Mission::takePlayerYaw(double& yaw) {
+bool Mission::takePlayerYaw(double &yaw) {
     if (!_hasYaw)
         return false;
     yaw = _yaw;
@@ -709,17 +712,17 @@ bool Mission::takePlayerYaw(double& yaw) {
     return true;
 }
 
-int16_t Mission::send(uint16_t id, uint16_t event, const std::vector<int16_t>& args) {
+int16_t Mission::send(uint16_t id, uint16_t event, const std::vector<int16_t> &args) {
     int index = _vm->findInstance(id);
     if (index < 0)
         return 0;
-    ScriptInstance& target = _vm->getInstance(index);
-    debugC(2, kDebugChannel, "event %u (%d) to %04X in state %d%s", event, args.empty() ? 0 : args[0], id,
-           target.state, target.enabled ? "" : ", disabled");
+    ScriptInstance &target = _vm->getInstance(index);
+    debugC(2, kDebugChannel, "event %u (%d) to %04X in state %d%s", event, args.empty() ? 0 : args[0], id, target.state,
+           target.enabled ? "" : ", disabled");
     return _vm->sendEvent(target, event, args);
 }
 
-void Mission::broadcast(uint16_t event, const std::vector<int16_t>& args) {
+void Mission::broadcast(uint16_t event, const std::vector<int16_t> &args) {
     // Copied: handlers may subscribe or unsubscribe.
     std::vector<uint16_t> listeners = _listeners;
     for (uint16_t id : listeners)
@@ -736,14 +739,14 @@ void Mission::setTimer(uint16_t id, uint32_t ms) {
 void Mission::runTimers() {
     for (int round = 0; round < kMaxTimerCatchUp; round++) {
         std::vector<std::pair<uint32_t, uint16_t>> due;
-        for (const auto& timer : _timers) {
+        for (const auto &timer : _timers) {
             if (timer.second.due <= _time)
-                due.push_back({ timer.second.due, timer.first });
+                due.push_back({timer.second.due, timer.first});
         }
         if (due.empty())
             return;
         std::sort(due.begin(), due.end());
-        for (const auto& entry : due) {
+        for (const auto &entry : due) {
             auto it = _timers.find(entry.second);
             if (it == _timers.end() || it->second.due > _time)
                 continue;
@@ -757,7 +760,7 @@ void Mission::runTimers() {
         }
     }
     // Still behind (a long pause): drop the missed firings.
-    for (auto& timer : _timers) {
+    for (auto &timer : _timers) {
         if (timer.second.due <= _time)
             timer.second.due = _time + timer.second.period;
     }
@@ -776,7 +779,7 @@ void Mission::checkPlayerContacts() {
             // Walking into a wall may start a door (0x4B94D0).
             std::vector<Movers::Notice> notices;
             _movers->bump(wall, notices);
-            for (const Movers::Notice& notice : notices)
+            for (const Movers::Notice &notice : notices)
                 send(notice.object, notice.event);
         }
     }
@@ -823,10 +826,10 @@ void Mission::checkPlayerContacts() {
 
     // Billboards fire when the player enters the box around them (0x4B9940).
     int inside = -1;
-    const std::vector<LevelFile::Billboard>& billboards = _level.getBillboards();
+    const std::vector<LevelFile::Billboard> &billboards = _level.getBillboards();
     double feet = _walker.getFeet(), head = _walker.getEye() + Walker::kHeadroom;
     for (size_t i = 0; i < billboards.size() && inside < 0; i++) {
-        const LevelFile::Billboard& b = billboards[i];
+        const LevelFile::Billboard &b = billboards[i];
         if (b.radius <= 0 || b.hidden || !(b.zones & _walker.getActiveZones()))
             continue;
         double r = fromFixed(b.radius), z = fromFixed(b.z);
@@ -843,25 +846,25 @@ void Mission::checkPlayerContacts() {
     }
 }
 
-double Mission::pop32(ScriptVM& vm) {
+double Mission::pop32(ScriptVM &vm) {
     uint16_t high = (uint16_t)vm.pop();
     uint16_t low = (uint16_t)vm.pop();
     return fromFixed((int32_t)((uint32_t)high << 16 | low));
 }
 
-uint32_t Mission::popRaw32(ScriptVM& vm) {
+uint32_t Mission::popRaw32(ScriptVM &vm) {
     uint16_t high = (uint16_t)vm.pop();
     uint16_t low = (uint16_t)vm.pop();
     return (uint32_t)high << 16 | low;
 }
 
-void Mission::push32(ScriptVM& vm, double value) {
+void Mission::push32(ScriptVM &vm, double value) {
     uint32_t v = (uint32_t)toFixed(value);
     vm.push((int16_t)(v & 0xFFFF));
     vm.push((int16_t)(v >> 16));
 }
 
-Mission::Position Mission::popPosition(ScriptVM& vm) {
+Mission::Position Mission::popPosition(ScriptVM &vm) {
     Position position;
     position.x = pop32(vm);
     position.y = pop32(vm);
@@ -870,14 +873,14 @@ Mission::Position Mission::popPosition(ScriptVM& vm) {
     return position;
 }
 
-void Mission::pushPosition(ScriptVM& vm, const Position& position) {
+void Mission::pushPosition(ScriptVM &vm, const Position &position) {
     vm.push(position.heading);
     push32(vm, position.z);
     push32(vm, position.y);
     push32(vm, position.x);
 }
 
-bool Mission::getPosition(uint16_t id, Position& position) const {
+bool Mission::getPosition(uint16_t id, Position &position) const {
     if (id == 0) {
         position.x = _walker.getX();
         position.y = _walker.getY();
@@ -891,30 +894,30 @@ bool Mission::getPosition(uint16_t id, Position& position) const {
         position.heading = (int16_t)(heading * 360 / 65536);
         return true;
     }
-    for (const LevelFile::Billboard& b : _level.getBillboards()) {
+    for (const LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id)) {
-            position = { fromFixed(b.x), fromFixed(b.y), fromFixed(b.z), 0 };
+            position = {fromFixed(b.x), fromFixed(b.y), fromFixed(b.z), 0};
             return true;
         }
     }
     return false;
 }
 
-void Mission::setPosition(uint16_t id, const Position& position) {
+void Mission::setPosition(uint16_t id, const Position &position) {
     if (_actors && _actors->isActor(id))
         _actors->setPosition(id, position.x, position.y, position.z, (uint16_t)(position.heading * 65536 / 360));
     // Billboards ignore the position (0x4586D0): items just settle onto the
     // floor again.
-    for (LevelFile::Billboard& b : _level.getBillboards()) {
+    for (LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id) && (b.flags & LevelFile::kBillboardItem))
             dropBillboard(b);
     }
 }
 
-void Mission::dropAt(uint16_t id, const Position& position) {
+void Mission::dropAt(uint16_t id, const Position &position) {
     if (_actors && _actors->isActor(id))
         _actors->setPosition(id, position.x, position.y, position.z, (uint16_t)(position.heading * 65536 / 360));
-    for (LevelFile::Billboard& b : _level.getBillboards()) {
+    for (LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id)) {
             b.x = toFixed(position.x);
             b.y = toFixed(position.y);
@@ -926,11 +929,11 @@ void Mission::dropAt(uint16_t id, const Position& position) {
 
 int Mission::findPassThroughFloor() const {
     // The highest one over the player, between the feet and a step above.
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     double feet = _walker.getFeet(), top = feet + _walker.getStepHeight();
     int best = -1;
     for (size_t i = 0; i < flats.size(); i++) {
-        const LevelFile::Sector& flat = flats[i];
+        const LevelFile::Sector &flat = flats[i];
         if (flat.isCeiling() || !(flat.flags & LevelFile::kFlagPassThrough) || !flat.objectId)
             continue;
         double h = fromFixed(flat.height);
@@ -946,7 +949,7 @@ void Mission::setPool(uint16_t surfaceBelow, uint16_t surfaceAbove, uint16_t bot
     // SET_FLAT_GROUPS (0x440D3D): the water's surface seen from below
     // (mark 2), from above (mark 1; a pass-through floor) and the pool's
     // bottom (mark 3, knowing its surface).
-    std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    std::vector<LevelFile::Sector> &flats = _level.getSectors();
     _flatMark.resize(flats.size(), 0);
     _poolSurface.resize(flats.size(), 0);
     for (size_t i = 0; i < flats.size(); i++) {
@@ -973,7 +976,7 @@ void Mission::updateWater() {
     // it; without, half gravity under it.
     if (_flatMark.empty())
         return;
-    const std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    const std::vector<LevelFile::Sector> &flats = _level.getSectors();
     int floor = _walker.getFloor();
     int mark = floor >= 0 && floor < (int)_flatMark.size() ? _flatMark[floor] : 0;
     int state = 0;
@@ -1022,19 +1025,20 @@ void Mission::updateWater() {
 
     if (state != _waterState) {
         _waterState = state;
-        static const uint16_t kEvents[3] = { kEventOutOfWater, kEventInWater, kEventUnderWater };
+        static const uint16_t kEvents[3] = {kEventOutOfWater, kEventInWater, kEventUnderWater};
         broadcast(kEvents[state]);
     }
 }
 
-void Mission::dropBillboard(LevelFile::Billboard& b) {
+void Mission::dropBillboard(LevelFile::Billboard &b) {
     // 0x4B7AA0: the highest floor no more than 2 units above the
     // billboard's base, passing through pass-through floors.
     double z = fromFixed(b.z);
-    int floor = _walker.findFloor(fromFixed(b.x), fromFixed(b.y), z + 2, Walker::kAllZones, LevelFile::kFlagPassThrough);
+    int floor =
+        _walker.findFloor(fromFixed(b.x), fromFixed(b.y), z + 2, Walker::kAllZones, LevelFile::kFlagPassThrough);
     if (floor < 0)
         return;
-    const LevelFile::Sector& flat = _level.getSectors()[floor];
+    const LevelFile::Sector &flat = _level.getSectors()[floor];
     b.zones = flat.zones;
     b.light = flat.light;
     if (!(b.flags & LevelFile::kBillboardFlyer))
@@ -1042,15 +1046,15 @@ void Mission::dropBillboard(LevelFile::Billboard& b) {
 }
 
 void Mission::setVisible(uint16_t id, bool visible) {
-    for (LevelFile::Wall& wall : _level.getWalls()) {
+    for (LevelFile::Wall &wall : _level.getWalls()) {
         if (isObject(wall.objectId, kTypeWall, id))
             wall.flags = visible ? wall.flags | LevelFile::kFlagVisible : wall.flags & ~LevelFile::kFlagVisible;
     }
-    for (LevelFile::Sector& flat : _level.getSectors()) {
+    for (LevelFile::Sector &flat : _level.getSectors()) {
         if (isObject(flat.objectId, kTypeFlat, id))
             flat.flags = visible ? flat.flags | LevelFile::kFlagVisible : flat.flags & ~LevelFile::kFlagVisible;
     }
-    for (LevelFile::Billboard& b : _level.getBillboards()) {
+    for (LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id))
             b.hidden = !visible;
     }
@@ -1059,7 +1063,7 @@ void Mission::setVisible(uint16_t id, bool visible) {
         _actors->setMode(id, visible ? Actors::kModeIdle : Actors::kModeHidden);
 }
 
-void Mission::setActorMode(ScriptVM& vm, int mode, bool popTarget) {
+void Mission::setActorMode(ScriptVM &vm, int mode, bool popTarget) {
     uint16_t id = (uint16_t)vm.pop();
     uint16_t target = popTarget ? (uint16_t)vm.pop() : 0;
     if (_actors)
@@ -1067,21 +1071,21 @@ void Mission::setActorMode(ScriptVM& vm, int mode, bool popTarget) {
 }
 
 void Mission::setTexture(uint16_t id, uint16_t texture, uint16_t frames, uint16_t speed) {
-    for (LevelFile::Wall& wall : _level.getWalls()) {
+    for (LevelFile::Wall &wall : _level.getWalls()) {
         if (isObject(wall.objectId, kTypeWall, id)) {
             wall.texture = texture;
             wall.frames = frames;
             wall.speed = speed;
         }
     }
-    for (LevelFile::Sector& flat : _level.getSectors()) {
+    for (LevelFile::Sector &flat : _level.getSectors()) {
         if (isObject(flat.objectId, kTypeFlat, id)) {
             flat.texture = texture;
             flat.frames = frames;
             flat.speed = speed;
         }
     }
-    for (LevelFile::Billboard& b : _level.getBillboards()) {
+    for (LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id)) {
             b.texture = texture;
             b.frames = frames;
@@ -1091,17 +1095,17 @@ void Mission::setTexture(uint16_t id, uint16_t texture, uint16_t frames, uint16_
 }
 
 void Mission::restoreTexture(uint16_t id) {
-    std::vector<LevelFile::Wall>& walls = _level.getWalls();
+    std::vector<LevelFile::Wall> &walls = _level.getWalls();
     for (size_t i = 0; i < walls.size(); i++) {
         if (isObject(walls[i].objectId, kTypeWall, id))
             walls[i].texture = _wallTextures[i];
     }
-    std::vector<LevelFile::Sector>& flats = _level.getSectors();
+    std::vector<LevelFile::Sector> &flats = _level.getSectors();
     for (size_t i = 0; i < flats.size(); i++) {
         if (isObject(flats[i].objectId, kTypeFlat, id))
             flats[i].texture = _flatTextures[i];
     }
-    std::vector<LevelFile::Billboard>& billboards = _level.getBillboards();
+    std::vector<LevelFile::Billboard> &billboards = _level.getBillboards();
     for (size_t i = 0; i < billboards.size(); i++) {
         if (isObject(billboards[i].objectId, kTypeBillboard, id))
             billboards[i].texture = _billboardTextures[i];
@@ -1109,15 +1113,15 @@ void Mission::restoreTexture(uint16_t id) {
 }
 
 void Mission::setFullbright(uint16_t id, bool on) {
-    for (LevelFile::Wall& wall : _level.getWalls()) {
+    for (LevelFile::Wall &wall : _level.getWalls()) {
         if (isObject(wall.objectId, kTypeWall, id))
             wall.fullbright = on;
     }
-    for (LevelFile::Sector& flat : _level.getSectors()) {
+    for (LevelFile::Sector &flat : _level.getSectors()) {
         if (isObject(flat.objectId, kTypeFlat, id))
             flat.fullbright = on;
     }
-    for (LevelFile::Billboard& b : _level.getBillboards()) {
+    for (LevelFile::Billboard &b : _level.getBillboards()) {
         if (isObject(b.objectId, kTypeBillboard, id))
             b.fullbright = on;
     }
@@ -1130,8 +1134,8 @@ void Mission::setPlayerHeading(int16_t degrees) {
     _hasYaw = true;
 }
 
-void Mission::skipNative(ScriptVM& vm, uint16_t op) {
-    const OpcodeInfo* info = getOpcodeInfo(op);
+void Mission::skipNative(ScriptVM &vm, uint16_t op) {
+    const OpcodeInfo *info = getOpcodeInfo(op);
     if (info) {
         for (int i = 0; i < info->pops; i++)
             vm.pop();
@@ -1142,7 +1146,8 @@ void Mission::skipNative(ScriptVM& vm, uint16_t op) {
         debugC(1, kDebugChannel, "native %02X (%s) is not implemented", op, info ? info->name : "?");
 }
 
-void Mission::unhandledEvent(ScriptVM& /*vm*/, ScriptInstance& self, uint16_t event, const std::vector<int16_t>& args) {
+void Mission::unhandledEvent(ScriptVM & /*vm*/, ScriptInstance &self, uint16_t event,
+                             const std::vector<int16_t> &args) {
     // An actor hit (damage, power, team) without a handler of its own takes
     // it, unless the attacker is on its team (0x457B29).
     if (event == kEventHit && _actors && args.size() >= 3 && _actors->isActor(self.object->id) &&
@@ -1153,12 +1158,12 @@ void Mission::unhandledEvent(ScriptVM& /*vm*/, ScriptInstance& self, uint16_t ev
     }
 }
 
-void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
+void Mission::callNative(ScriptVM &vm, ScriptInstance &self, uint16_t op) {
     switch (op) {
     case OP_SEND_SIGNAL: {
         uint16_t id = (uint16_t)vm.pop();
         int16_t value = vm.pop();
-        send(id, kEventSignal, { value });
+        send(id, kEventSignal, {value});
         break;
     }
     case 0x2B: { // RANDOM
@@ -1169,13 +1174,13 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     case 0x2C: { // SEND_SET_VALUE
         uint16_t id = (uint16_t)vm.pop();
         int16_t value = vm.pop();
-        send(id, kEventSetValue, { value });
+        send(id, kEventSetValue, {value});
         break;
     }
     case 0x2D: // RESET_DEFAULT
         restoreTexture((uint16_t)vm.pop());
         break;
-    case 0x2E: // DISABLE_OBJECT
+    case 0x2E:   // DISABLE_OBJECT
     case 0x2F: { // ENABLE_OBJECT
         int index = _vm->findInstance((uint16_t)vm.pop());
         if (index >= 0)
@@ -1343,7 +1348,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     }
     case 0x82: { // ATTACH_ITEM_BEHAVIOUR
         uint16_t id = (uint16_t)vm.pop();
-        Item& item = _items[id];
+        Item &item = _items[id];
         item.kind = vm.pop();
         item.b = vm.pop();
         item.c = vm.pop();
@@ -1353,12 +1358,11 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
             int32_t charge, maxLevel, level;
         };
         // Kinds 9 (a worn shield) and 14 (a script-driven gauge) hold 30.
-        static const Charge kCharges[] = { { 2, 320, 16, 4 },   { 3, 200, 12, 4 },   { 4, 400, 16, 8 },
-                                           { 5, 1200, 18, 18 }, { 6, 240, 12, 4 },   { 9, 30, 0, 0 },
-                                           { 11, 100, 10, 10 }, { 12, 100, 10, 10 }, { 13, 360, 9, 3 },
-                                           { 14, 30, 0, 0 } };
+        static const Charge kCharges[] = {{2, 320, 16, 4}, {3, 200, 12, 4}, {4, 400, 16, 8},   {5, 1200, 18, 18},
+                                          {6, 240, 12, 4}, {9, 30, 0, 0},   {11, 100, 10, 10}, {12, 100, 10, 10},
+                                          {13, 360, 9, 3}, {14, 30, 0, 0}};
         item.charge = item.maxCharge = item.level = item.maxLevel = 0;
-        for (const Charge& charge : kCharges) {
+        for (const Charge &charge : kCharges) {
             if (charge.kind == item.kind) {
                 item.charge = item.maxCharge = charge.charge;
                 item.maxLevel = charge.maxLevel;
@@ -1414,7 +1418,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     }
     case 0xC4: { // SET_PUNCH
         int16_t image = vm.pop();
-        const std::vector<std::string>& names = _script.getResourceNames();
+        const std::vector<std::string> &names = _script.getResourceNames();
         _punch.image = image >= 0 && image < (int16_t)names.size() ? names[image] : std::string();
         _punch.msPerFrame = (uint32_t)std::max<int16_t>(1, vm.pop());
         _punch.hitFrame = vm.pop();
@@ -1473,7 +1477,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     case 0x89: { // ADD_HEALTH
         int16_t amount = vm.pop();
         _health = (int16_t)std::max(1, std::min<int>(_maxHealth, _health + amount));
-        broadcast(kEventPlayerHealed, { _health });
+        broadcast(kEventPlayerHealed, {_health});
         break;
     }
     case 0xA2: { // SET_STEP_HEADROOM
@@ -1603,7 +1607,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         int16_t zone = vm.pop();
         bool on = vm.pop() != 0;
         uint64_t mask = zone > 0 && zone < 64 ? (uint64_t)1 << zone : ~(uint64_t)0;
-        for (LevelFile::Wall& wall : _level.getWalls()) {
+        for (LevelFile::Wall &wall : _level.getWalls()) {
             if (zone == 0 || (wall.zones & mask) || wall.zones == 0)
                 wall.flags = on ? wall.flags | LevelFile::kWallOnMap : wall.flags & ~LevelFile::kWallOnMap;
         }
@@ -1865,7 +1869,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         auto it = _items.find(id ? id : self.object->id);
         if (it == _items.end())
             break;
-        Item& item = it->second;
+        Item &item = it->second;
         if (most != 0x8000)
             item.maxCharge = op == 0xE6 ? most : (int16_t)most;
         if (charge != 0x8000)
@@ -1879,7 +1883,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         auto it = _items.find(id ? id : self.object->id);
         int16_t value = 0;
         if (it != _items.end()) {
-            const Item& item = it->second;
+            const Item &item = it->second;
             switch (item.kind) {
             case 9:
             case 14:
@@ -1972,7 +1976,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         // 0x4415A7: a script resource's .OVR over the whole view, or -1 to remove it.
         int16_t image = vm.pop();
         int16_t mode = vm.pop();
-        const std::vector<std::string>& names = _script.getResourceNames();
+        const std::vector<std::string> &names = _script.getResourceNames();
         _viewOverlay.image = image >= 0 && image < (int16_t)names.size() ? names[image] : std::string();
         _viewOverlay.mode = mode;
         break;
@@ -1980,7 +1984,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     case 0xC0: { // SET_FLAT_ZONES
         uint16_t id = (uint16_t)vm.pop();
         uint64_t low = popRaw32(vm), high = popRaw32(vm);
-        for (LevelFile::Sector& flat : _level.getSectors()) {
+        for (LevelFile::Sector &flat : _level.getSectors()) {
             if (isObject(flat.objectId, kTypeFlat, id ? id : self.object->id))
                 flat.activeZones = high << 32 | low;
         }
@@ -1991,17 +1995,17 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         uint16_t id = (uint16_t)vm.pop();
         int32_t height = (int32_t)popRaw32(vm);
         uint64_t low = popRaw32(vm), high = popRaw32(vm);
-        for (LevelFile::Sector& flat : _level.getSectors()) {
+        for (LevelFile::Sector &flat : _level.getSectors()) {
             if (!isObject(flat.objectId, kTypeFlat, id ? id : self.object->id))
                 continue;
-            auto& bands = flat.zoneBands;
+            auto &bands = flat.zoneBands;
             if (bands.empty())
-                bands.push_back({ INT32_MIN, flat.activeZones });
+                bands.push_back({INT32_MIN, flat.activeZones});
             if (bands.size() >= 8)
                 continue;
-            bands.push_back({ height, high << 32 | low });
+            bands.push_back({height, high << 32 | low});
             std::stable_sort(bands.begin(), bands.end(),
-                             [](const std::pair<int32_t, uint64_t>& a, const std::pair<int32_t, uint64_t>& b) {
+                             [](const std::pair<int32_t, uint64_t> &a, const std::pair<int32_t, uint64_t> &b) {
                                  return a.first > b.first;
                              });
         }
@@ -2028,8 +2032,8 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         Position to;
         if (getPosition(target, to) && type >= 0 && type < _projectiles->getTypeCount()) {
             double dx = to.x - fromX, dy = to.y - fromY;
-            fire(type, fromX, fromY, fromZ, std::atan2(dy, dx),
-                 std::atan2(to.z - fromZ, std::sqrt(dx * dx + dy * dy)), Projectiles::kShooterNone);
+            fire(type, fromX, fromY, fromZ, std::atan2(dy, dx), std::atan2(to.z - fromZ, std::sqrt(dx * dx + dy * dy)),
+                 Projectiles::kShooterNone);
         }
         break;
     }
@@ -2041,19 +2045,19 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     case 0xEF: // GET_ALERTED_COUNT
         vm.push((int16_t)(_actors ? _actors->getAlertedCount() : 0));
         break;
-    case 0x39: // MOVER_OPEN
-    case 0x3A: // MOVER_CLOSE
-    case 0x3E: // MOVER_SET_OPEN
+    case 0x39:   // MOVER_OPEN
+    case 0x3A:   // MOVER_CLOSE
+    case 0x3E:   // MOVER_SET_OPEN
     case 0x3F: { // MOVER_SET_CLOSED
         // 0x45643E: straight to the state, locked or not.
         uint16_t id = (uint16_t)vm.pop();
-        static const std::map<uint16_t, int> kStates = { { 0x39, Movers::kOpening }, { 0x3A, Movers::kClosing },
-                                                        { 0x3E, Movers::kOpen }, { 0x3F, Movers::kClosed } };
+        static const std::map<uint16_t, int> kStates = {
+            {0x39, Movers::kOpening}, {0x3A, Movers::kClosing}, {0x3E, Movers::kOpen}, {0x3F, Movers::kClosed}};
         std::vector<int> moved;
         std::vector<Movers::Notice> notices;
         _movers->setState(id ? id : self.object->id, kStates.at(op), _walker, moved, notices);
         refreshGeometry(moved);
-        for (const Movers::Notice& notice : notices)
+        for (const Movers::Notice &notice : notices)
             send(notice.object, notice.event);
         break;
     }
@@ -2063,11 +2067,11 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         std::vector<Movers::Notice> notices;
         _movers->toggle(id ? id : self.object->id, _walker, moved, notices);
         refreshGeometry(moved);
-        for (const Movers::Notice& notice : notices)
+        for (const Movers::Notice &notice : notices)
             send(notice.object, notice.event);
         break;
     }
-    case 0x3C: // MOVER_LOCK
+    case 0x3C:   // MOVER_LOCK
     case 0x3D: { // MOVER_UNLOCK
         uint16_t id = (uint16_t)vm.pop();
         _movers->setLocked(id ? id : self.object->id, op == 0x3C);
@@ -2080,7 +2084,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
             _actors->goTo(id ? id : self.object->id, x, y, z);
         break;
     }
-    case 0x5D: // SET_ACTOR_ALWAYS_ACTIVE
+    case 0x5D:   // SET_ACTOR_ALWAYS_ACTIVE
     case 0xEA: { // SET_ACTOR_FLYER
         uint16_t id = (uint16_t)vm.pop();
         bool on = vm.pop() != 0;
@@ -2191,15 +2195,16 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
             uint16_t scale = (uint16_t)vm.pop(), shift = (uint16_t)vm.pop();
             if (scale == 0x8000 || shift == 0x8000)
                 continue;
-            static const double kDefault[3] = { 0.5, 1.0, 2.0 };
-            _hud.setMapZoom(level, scale == 0x8001 ? kDefault[level] : scale * 65536.0 / (double)(1u << std::min<uint16_t>(shift, 31)));
+            static const double kDefault[3] = {0.5, 1.0, 2.0};
+            _hud.setMapZoom(level, scale == 0x8001 ? kDefault[level]
+                                                   : scale * 65536.0 / (double)(1u << std::min<uint16_t>(shift, 31)));
         }
         break;
     }
     case 0xCD: { // SET_FLAT_GROUPS
         uint16_t below = (uint16_t)vm.pop(), above = (uint16_t)vm.pop(), bottom = (uint16_t)vm.pop();
         setPool(below, above, bottom);
-        _pools.push_back({ below, above, bottom });
+        _pools.push_back({below, above, bottom});
         break;
     }
     case 0xD5: // GET_DIFFICULTY
@@ -2229,14 +2234,14 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
     case 0xF4: { // SET_BILLBOARD_UNPICKABLE
         uint16_t id = (uint16_t)vm.pop();
         bool on = vm.pop() != 0;
-        for (LevelFile::Billboard& billboard : _level.getBillboards()) {
+        for (LevelFile::Billboard &billboard : _level.getBillboards()) {
             if (isObject(billboard.objectId, kTypeBillboard, id ? id : self.object->id))
                 billboard.flags = on ? billboard.flags | LevelFile::kBillboardUnpickable
                                      : billboard.flags & ~LevelFile::kBillboardUnpickable;
         }
         break;
     }
-    case 0x91: // BRIEFING_TRANSITION
+    case 0x91:   // BRIEFING_TRANSITION
     case 0x92: { // END_TRANSITION
         // 0x43D8FF / 0x43DC37: three phases, t1 then t2 then t3 ms.
         uint32_t t1 = popRaw32(vm), t2 = popRaw32(vm), t3 = popRaw32(vm);
@@ -2281,7 +2286,7 @@ void Mission::callNative(ScriptVM& vm, ScriptInstance& self, uint16_t op) {
         _walker.setRadius(pop32(vm) / 2);
         break;
     case 0xDB: { // GET_POSITION
-        Position position = { 0, 0, 0, 0 };
+        Position position = {0, 0, 0, 0};
         getPosition((uint16_t)vm.pop(), position);
         pushPosition(vm, position);
         break;

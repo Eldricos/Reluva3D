@@ -89,7 +89,7 @@ struct QvmAsm {
     }
     std::vector<uint8_t> build(int32_t magic = 0x12721444) const {
         std::vector<uint8_t> bytes;
-        for (const auto& [op, v] : code) {
+        for (const auto &[op, v] : code) {
             bytes.push_back(op);
             const int n = qvmop::operandSize(op);
             for (int i = 0; i < n; ++i)
@@ -169,7 +169,7 @@ static void testQvm() {
         CHECK(!inner.load(f.build()));
         std::string seen;
         int calls = 0;
-        s.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+        s.setSystemCall([&](Qvm &v, int number, const int32_t *args) -> int32_t {
             ++calls;
             if (number == 1) {
                 seen = v.string(args[0]) + "/" + std::to_string(args[1]);
@@ -193,12 +193,12 @@ static void testQvm() {
         a.data = {0x80, 0xff, 0x34, 0x12, 1, 2, 3, 4};
         a.bss = 64;
         a.add(Enter, 8);
-        a.add(Const, 0), a.add(Load1), a.add(Sex8);       // -128
+        a.add(Const, 0), a.add(Load1), a.add(Sex8);              // -128
         a.add(Const, 0), a.add(Load2), a.add(Sex16), a.add(Add); // -128 + -128
         a.add(Const, 16), a.add(Const, 4), a.add(BlockCopy, 4);
-        a.add(Const, 16), a.add(Load4), a.add(Add);       // + 0x04030201
+        a.add(Const, 16), a.add(Load4), a.add(Add); // + 0x04030201
         a.add(Const, 20), a.add(Const, 0x55), a.add(Store1);
-        a.add(Const, 20), a.add(Load1), a.add(Add);       // + 0x55
+        a.add(Const, 20), a.add(Load1), a.add(Add); // + 0x55
         a.add(Leave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
@@ -217,9 +217,9 @@ static void testQvm() {
         a.add(Const, 1000), a.add(Add);
         a.code[size_t(b)].second = int32_t(a.code.size());
         a.add(Const, INT32_MIN), a.add(Const, -1), a.add(Divi), a.add(Const, INT32_MIN), a.add(Sub), a.add(Add);
-        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);    // -1
-        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);    // -4
-        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add);   // 15
+        a.add(Const, -7), a.add(Const, 2), a.add(Modi), a.add(Add);  // -1
+        a.add(Const, -8), a.add(Const, 1), a.add(Rshi), a.add(Add);  // -4
+        a.add(Const, -8), a.add(Const, 28), a.add(Rshu), a.add(Add); // 15
         a.add(Leave, 8);
         Qvm m;
         CHECK(!m.load(a.build()));
@@ -238,8 +238,10 @@ static void testQvm() {
         return err ? err.message : std::string();
     };
     CHECK(runs({{Enter, 8}, {Const, -100}, {Load4, 0}, {Leave, 8}}).find("reads outside memory") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") != std::string::npos);
-    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") != std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1 << 29}, {Const, 1}, {Store4, 0}, {Leave, 8}}).find("writes outside") !=
+          std::string::npos);
+    CHECK(runs({{Enter, 8}, {Const, 1}, {Const, 0}, {Divi, 0}, {Leave, 8}}).find("division by zero") !=
+          std::string::npos);
     CHECK(runs({{Enter, 8}, {Const, 99}, {Jump, 0}}).find("jumps to 99") != std::string::npos);
     CHECK(runs({{Enter, 8}, {Const, 1}, {Jump, 0}}, 1000).find("instruction limit") != std::string::npos);
     CHECK(runs({{Enter, 0x20000}, {Leave, 0x20000}}).find("stack overflow") != std::string::npos);
@@ -270,24 +272,29 @@ static void testCompiledQvm() {
     if (err)
         return;
     std::string printed;
-    vm.setSystemCall([&](Qvm& v, int number, const int32_t* args) -> int32_t {
+    vm.setSystemCall([&](Qvm &v, int number, const int32_t *args) -> int32_t {
         switch (number) {
-        case 0: printed = v.string(args[0]); return int32_t(printed.size()) * 3;
-        case 1: return args[0] * 2 + args[1];
+        case 0:
+            printed = v.string(args[0]);
+            return int32_t(printed.size()) * 3;
+        case 1:
+            return args[0] * 2 + args[1];
         case 2: {
             int32_t out = 0;
             return v.call(args[0], {args[1]}, out) ? -999 : out;
         }
-        case 3: return Qvm::fromFloat(Qvm::asFloat(args[0]) / 2.0f);
-        default: return 0;
+        case 3:
+            return Qvm::fromFloat(Qvm::asFloat(args[0]) / 2.0f);
+        default:
+            return 0;
         }
     });
-    for (const QvmCase& c : kQvmCases) {
+    for (const QvmCase &c : kQvmCases) {
         int32_t r = 0;
         err = vm.call(c.command, {c.arg0, c.arg1, 6, 0, 0, 0, 0, 0, 0, 0, 0, 100}, r);
         if (err || r != c.expected)
-            std::fprintf(stderr, "case %d(%d, %d): got %d, expected %d %s\n", c.command, c.arg0, c.arg1, r,
-                         c.expected, err ? err.message.c_str() : "");
+            std::fprintf(stderr, "case %d(%d, %d): got %d, expected %d %s\n", c.command, c.arg0, c.arg1, r, c.expected,
+                         err ? err.message.c_str() : "");
         CHECK(!err && r == c.expected);
     }
     // Case 7 builds a string and prints it.
@@ -297,11 +304,12 @@ static void testCompiledQvm() {
 
 static void testCvars() {
     CvarStore cvars;
-    const CvarStore::Cvar& a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
+    const CvarStore::Cvar &a = cvars.create("Sensitivity", "5.5", CvarStore::Archive);
     CHECK(a.handle == 1 && a.modificationCount == 1);
     CHECK(cvars.value("sensitivity") == 5.5f && cvars.integer("SENSITIVITY") == 5);
     cvars.create("sensitivity", "1", CvarStore::Cheat); // exists: keeps its value, gains the flag
-    CHECK(cvars.string("sensitivity") == "5.5" && cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
+    CHECK(cvars.string("sensitivity") == "5.5" &&
+          cvars.find("sensitivity")->flags == (CvarStore::Archive | CvarStore::Cheat));
     cvars.set("sensitivity", "3");
     CHECK(cvars.find("sensitivity")->modificationCount == 2);
     cvars.set("sensitivity", "3"); // unchanged: not counted
@@ -346,11 +354,11 @@ static void testJumpTableGuard() {
     // exactly their entries, nothing before them.
     // (They may sit side by side, as one range.)
     size_t bytes = 0;
-    for (const auto& [first, end] : vm.protectedRanges())
+    for (const auto &[first, end] : vm.protectedRanges())
         bytes += end - first;
     CHECK(bytes == 4 * (34 + 8));
     const auto table = vm.protectedRanges().front();
-    vm.setSystemCall([&](Qvm& v, int number, const int32_t*) -> int32_t {
+    vm.setSystemCall([&](Qvm &v, int number, const int32_t *) -> int32_t {
         if (number == 1) // Print, during Init
             v.writeString(int32_t(table.first), "-75", 4);
         return 0;
@@ -368,9 +376,10 @@ static void testJumpTableGuard() {
     CHECK(!vm.call(32, {99}, r) && r == 0);
 }
 
-static const reluva::test::Suite suite("idtech3.unit.qvm", {
-    {"qvm", [](const std::filesystem::path&) { testQvm(); }},
-    {"compiled qvm", [](const std::filesystem::path&) { testCompiledQvm(); }},
-    {"jump table guard", [](const std::filesystem::path&) { testJumpTableGuard(); }},
-    {"cvars", [](const std::filesystem::path&) { testCvars(); }},
-});
+static const reluva::test::Suite
+    suite("idtech3.unit.qvm", {
+                                  {"qvm", [](const std::filesystem::path &) { testQvm(); }},
+                                  {"compiled qvm", [](const std::filesystem::path &) { testCompiledQvm(); }},
+                                  {"jump table guard", [](const std::filesystem::path &) { testJumpTableGuard(); }},
+                                  {"cvars", [](const std::filesystem::path &) { testCvars(); }},
+                              });

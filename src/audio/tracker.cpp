@@ -24,29 +24,75 @@ constexpr double kAmigaClock = 14317056.0; // period (x4 Amiga units) to Hz
 
 // The player's effects; each format's letters map onto these.
 enum Fx : uint8_t {
-    FxNone, FxArpeggio, FxPortaUp, FxPortaDown, FxTonePorta, FxVibrato, FxTonePortaVol, FxVibratoVol, FxTremolo,
-    FxPan, FxOffset, FxVolSlide, FxJump, FxVolume, FxBreak, FxSpeed, FxTempo, FxSpeedTempo, FxGlobalVol,
-    FxGlobalVolSlide, FxRetrig, FxFinePortaUp, FxFinePortaDown, FxXFinePortaUp, FxXFinePortaDown, FxFineVolUp,
-    FxFineVolDown, FxPatLoop, FxNoteCut, FxNoteDelay, FxPatDelay, FxKeyOff, FxPanSlide, FxChanVol, FxChanVolSlide,
-    FxFineVibrato, FxVibWave, FxTremWave, FxCount
+    FxNone,
+    FxArpeggio,
+    FxPortaUp,
+    FxPortaDown,
+    FxTonePorta,
+    FxVibrato,
+    FxTonePortaVol,
+    FxVibratoVol,
+    FxTremolo,
+    FxPan,
+    FxOffset,
+    FxVolSlide,
+    FxJump,
+    FxVolume,
+    FxBreak,
+    FxSpeed,
+    FxTempo,
+    FxSpeedTempo,
+    FxGlobalVol,
+    FxGlobalVolSlide,
+    FxRetrig,
+    FxFinePortaUp,
+    FxFinePortaDown,
+    FxXFinePortaUp,
+    FxXFinePortaDown,
+    FxFineVolUp,
+    FxFineVolDown,
+    FxPatLoop,
+    FxNoteCut,
+    FxNoteDelay,
+    FxPatDelay,
+    FxKeyOff,
+    FxPanSlide,
+    FxChanVol,
+    FxChanVolSlide,
+    FxFineVibrato,
+    FxVibWave,
+    FxTremWave,
+    FxCount
 };
 
 // Volume column commands.
 enum Vc : uint8_t {
-    VcNone, VcVolume, VcSlideUp, VcSlideDown, VcFineUp, VcFineDown, VcVibSpeed, VcVibDepth, VcPan, VcPanLeft,
-    VcPanRight, VcTonePorta, VcPortaUp, VcPortaDown
+    VcNone,
+    VcVolume,
+    VcSlideUp,
+    VcSlideDown,
+    VcFineUp,
+    VcFineDown,
+    VcVibSpeed,
+    VcVibDepth,
+    VcPan,
+    VcPanLeft,
+    VcPanRight,
+    VcTonePorta,
+    VcPortaUp,
+    VcPortaDown
 };
 
 // Bounds-checked little/big-endian reads: past the end reads as 0.
 struct Reader {
-    const std::vector<uint8_t>& d;
+    const std::vector<uint8_t> &d;
     size_t size() const { return d.size(); }
     bool has(size_t at, size_t n) const { return at <= d.size() && n <= d.size() - at; }
     unsigned u8(size_t at) const { return at < d.size() ? d[at] : 0; }
     unsigned le16(size_t at) const { return u8(at) | u8(at + 1) << 8; }
     uint32_t le32(size_t at) const { return le16(at) | uint32_t(le16(at + 2)) << 16; }
     unsigned be16(size_t at) const { return u8(at) << 8 | u8(at + 1); }
-    bool tag(size_t at, const char* s) const {
+    bool tag(size_t at, const char *s) const {
         const size_t n = std::strlen(s);
         return has(at, n) && std::memcmp(d.data() + at, s, n) == 0;
     }
@@ -60,8 +106,8 @@ struct Reader {
 
 // Reads up to `frames` PCM frames at `at`, as far as the file (and the
 // decoding budget) goes: 8 or 16-bit, signed or not, plain or delta-coded.
-std::vector<int16_t> readPcm(const Reader& r, size_t at, size_t frames, bool is16, bool isSigned, bool delta,
-                             size_t& budget) {
+std::vector<int16_t> readPcm(const Reader &r, size_t at, size_t frames, bool is16, bool isSigned, bool delta,
+                             size_t &budget) {
     const size_t width = is16 ? 2 : 1;
     const size_t avail = at < r.size() ? (r.size() - at) / width : 0;
     frames = std::min({frames, avail, kMaxSampleFrames, budget});
@@ -82,8 +128,7 @@ std::vector<int16_t> readPcm(const Reader& r, size_t at, size_t frames, bool is1
 // IT 2.14 compressed samples (2.15: twice delta-coded): blocks of a 16-bit
 // byte count then a little-endian bit stream of 0x8000 (8-bit) or 0x4000
 // (16-bit) deltas, whose bit width changes in-band.
-std::vector<int16_t> decompressIt(const Reader& r, size_t at, size_t frames, bool is16, bool it215,
-                                  size_t& budget) {
+std::vector<int16_t> decompressIt(const Reader &r, size_t at, size_t frames, bool is16, bool it215, size_t &budget) {
     frames = std::min({frames, kMaxSampleFrames, budget});
     std::vector<int16_t> out;
     const int top = is16 ? 17 : 9, bits = is16 ? 16 : 8;
@@ -91,10 +136,10 @@ std::vector<int16_t> decompressIt(const Reader& r, size_t at, size_t frames, boo
         size_t bytes = r.le16(at);
         at += 2;
         bytes = std::min(bytes, r.size() - at);
-        const uint8_t* p = r.d.data() + at;
+        const uint8_t *p = r.d.data() + at;
         size_t bit = 0;
         at += bytes;
-        auto read = [&](int n, uint32_t& v) {
+        auto read = [&](int n, uint32_t &v) {
             if (bit + size_t(n) > bytes * 8)
                 return false;
             v = 0;
@@ -152,7 +197,7 @@ std::vector<int16_t> decompressIt(const Reader& r, size_t at, size_t frames, boo
     return out;
 }
 
-void fixLoops(TrackerSample& s) {
+void fixLoops(TrackerSample &s) {
     const size_t n = s.data.size();
     s.loopEnd = std::min(s.loopEnd, n);
     s.sustainEnd = std::min(s.sustainEnd, n);
@@ -162,7 +207,7 @@ void fixLoops(TrackerSample& s) {
         s.sustain = false;
 }
 
-void fixEnvelope(TrackerEnvelope& e) {
+void fixEnvelope(TrackerEnvelope &e) {
     const int n = int(e.points.size());
     if (n == 0)
         e.enabled = false;
@@ -180,127 +225,274 @@ TrackerPattern emptyPattern(int rows, int channels) {
 }
 
 // MOD and XM effects (XM adds G..X).
-void modEffect(unsigned fx, unsigned p, bool xm, TrackerCell& c) {
+void modEffect(unsigned fx, unsigned p, bool xm, TrackerCell &c) {
     uint8_t e = FxNone;
     const unsigned x = p >> 4, y = p & 15;
     switch (fx) {
-    case 0x0: e = p ? FxArpeggio : FxNone; break;
-    case 0x1: e = FxPortaUp; break;
-    case 0x2: e = FxPortaDown; break;
-    case 0x3: e = FxTonePorta; break;
-    case 0x4: e = FxVibrato; break;
-    case 0x5: e = FxTonePortaVol; break;
-    case 0x6: e = FxVibratoVol; break;
-    case 0x7: e = FxTremolo; break;
-    case 0x8: e = FxPan; break;
-    case 0x9: e = FxOffset; break;
-    case 0xA: e = FxVolSlide; break;
-    case 0xB: e = FxJump; break;
-    case 0xC: e = FxVolume, p = std::min(p, 64u); break;
-    case 0xD: e = FxBreak, p = x * 10 + y; break;
+    case 0x0:
+        e = p ? FxArpeggio : FxNone;
+        break;
+    case 0x1:
+        e = FxPortaUp;
+        break;
+    case 0x2:
+        e = FxPortaDown;
+        break;
+    case 0x3:
+        e = FxTonePorta;
+        break;
+    case 0x4:
+        e = FxVibrato;
+        break;
+    case 0x5:
+        e = FxTonePortaVol;
+        break;
+    case 0x6:
+        e = FxVibratoVol;
+        break;
+    case 0x7:
+        e = FxTremolo;
+        break;
+    case 0x8:
+        e = FxPan;
+        break;
+    case 0x9:
+        e = FxOffset;
+        break;
+    case 0xA:
+        e = FxVolSlide;
+        break;
+    case 0xB:
+        e = FxJump;
+        break;
+    case 0xC:
+        e = FxVolume, p = std::min(p, 64u);
+        break;
+    case 0xD:
+        e = FxBreak, p = x * 10 + y;
+        break;
     case 0xE:
         p = y;
         switch (x) {
-        case 0x1: e = FxFinePortaUp; break;
-        case 0x2: e = FxFinePortaDown; break;
-        case 0x4: e = FxVibWave; break;
-        case 0x6: e = FxPatLoop; break;
-        case 0x7: e = FxTremWave; break;
-        case 0x8: e = FxPan, p = y * 17; break;
-        case 0x9: e = FxRetrig; break;
-        case 0xA: e = FxFineVolUp; break;
-        case 0xB: e = FxFineVolDown; break;
-        case 0xC: e = FxNoteCut; break;
-        case 0xD: e = FxNoteDelay; break;
-        case 0xE: e = FxPatDelay; break;
-        default: break;
+        case 0x1:
+            e = FxFinePortaUp;
+            break;
+        case 0x2:
+            e = FxFinePortaDown;
+            break;
+        case 0x4:
+            e = FxVibWave;
+            break;
+        case 0x6:
+            e = FxPatLoop;
+            break;
+        case 0x7:
+            e = FxTremWave;
+            break;
+        case 0x8:
+            e = FxPan, p = y * 17;
+            break;
+        case 0x9:
+            e = FxRetrig;
+            break;
+        case 0xA:
+            e = FxFineVolUp;
+            break;
+        case 0xB:
+            e = FxFineVolDown;
+            break;
+        case 0xC:
+            e = FxNoteCut;
+            break;
+        case 0xD:
+            e = FxNoteDelay;
+            break;
+        case 0xE:
+            e = FxPatDelay;
+            break;
+        default:
+            break;
         }
         break;
-    case 0xF: e = FxSpeedTempo; break;
-    case 16: e = xm ? FxGlobalVol : FxNone, p = std::min(p, 64u) * 2; break;   // G
-    case 17: e = xm ? FxGlobalVolSlide : FxNone; break;                    // H
-    case 20: e = xm ? FxKeyOff : FxNone; break;                            // K
-    case 25: e = xm ? FxPanSlide : FxNone; break;                          // P
-    case 27: e = xm ? FxRetrig : FxNone; break;                            // R
-    case 33: // X1y / X2y: extra fine portamento
+    case 0xF:
+        e = FxSpeedTempo;
+        break;
+    case 16:
+        e = xm ? FxGlobalVol : FxNone, p = std::min(p, 64u) * 2;
+        break; // G
+    case 17:
+        e = xm ? FxGlobalVolSlide : FxNone;
+        break; // H
+    case 20:
+        e = xm ? FxKeyOff : FxNone;
+        break; // K
+    case 25:
+        e = xm ? FxPanSlide : FxNone;
+        break; // P
+    case 27:
+        e = xm ? FxRetrig : FxNone;
+        break; // R
+    case 33:   // X1y / X2y: extra fine portamento
         e = !xm ? FxNone : x == 1 ? FxXFinePortaUp : x == 2 ? FxXFinePortaDown : FxNone, p = y;
         break;
-    default: break;
+    default:
+        break;
     }
     c.effect = e;
     c.param = e == FxNone ? 0 : uint8_t(p);
 }
 
 // S3M and IT effects, by letter (1 = A).
-void s3mEffect(unsigned cmd, unsigned p, bool it, TrackerCell& c) {
+void s3mEffect(unsigned cmd, unsigned p, bool it, TrackerCell &c) {
     uint8_t e = FxNone;
     const unsigned x = p >> 4, y = p & 15;
     switch (cmd) {
-    case 1: e = FxSpeed; break;
-    case 2: e = FxJump; break;
-    case 3: e = FxBreak, p = it ? p : x * 10 + y; break;
-    case 4: e = FxVolSlide; break;
-    case 5: e = FxPortaDown; break;
-    case 6: e = FxPortaUp; break;
-    case 7: e = FxTonePorta; break;
-    case 8: e = FxVibrato; break;
-    case 10: e = FxArpeggio; break;
-    case 11: e = FxVibratoVol; break;
-    case 12: e = FxTonePortaVol; break;
-    case 13: e = it ? FxChanVol : FxNone, p = std::min(p, 64u); break;
-    case 14: e = it ? FxChanVolSlide : FxNone; break;
-    case 15: e = FxOffset; break;
-    case 16: e = it ? FxPanSlide : FxNone; break;
-    case 17: e = FxRetrig; break;
-    case 18: e = FxTremolo; break;
+    case 1:
+        e = FxSpeed;
+        break;
+    case 2:
+        e = FxJump;
+        break;
+    case 3:
+        e = FxBreak, p = it ? p : x * 10 + y;
+        break;
+    case 4:
+        e = FxVolSlide;
+        break;
+    case 5:
+        e = FxPortaDown;
+        break;
+    case 6:
+        e = FxPortaUp;
+        break;
+    case 7:
+        e = FxTonePorta;
+        break;
+    case 8:
+        e = FxVibrato;
+        break;
+    case 10:
+        e = FxArpeggio;
+        break;
+    case 11:
+        e = FxVibratoVol;
+        break;
+    case 12:
+        e = FxTonePortaVol;
+        break;
+    case 13:
+        e = it ? FxChanVol : FxNone, p = std::min(p, 64u);
+        break;
+    case 14:
+        e = it ? FxChanVolSlide : FxNone;
+        break;
+    case 15:
+        e = FxOffset;
+        break;
+    case 16:
+        e = it ? FxPanSlide : FxNone;
+        break;
+    case 17:
+        e = FxRetrig;
+        break;
+    case 18:
+        e = FxTremolo;
+        break;
     case 19:
         p = y;
         switch (x) {
-        case 0x3: e = FxVibWave; break;
-        case 0x4: e = FxTremWave; break;
-        case 0x8: e = FxPan, p = y * 17; break;
-        case 0xB: e = FxPatLoop; break;
-        case 0xC: e = FxNoteCut; break;
-        case 0xD: e = FxNoteDelay; break;
-        case 0xE: e = FxPatDelay; break;
-        default: break;
+        case 0x3:
+            e = FxVibWave;
+            break;
+        case 0x4:
+            e = FxTremWave;
+            break;
+        case 0x8:
+            e = FxPan, p = y * 17;
+            break;
+        case 0xB:
+            e = FxPatLoop;
+            break;
+        case 0xC:
+            e = FxNoteCut;
+            break;
+        case 0xD:
+            e = FxNoteDelay;
+            break;
+        case 0xE:
+            e = FxPatDelay;
+            break;
+        default:
+            break;
         }
         break;
-    case 20: e = FxTempo; break;
-    case 21: e = FxFineVibrato; break;
-    case 22: e = FxGlobalVol, p = it ? std::min(p, 128u) : std::min(p, 64u) * 2; break;
-    case 23: e = it ? FxGlobalVolSlide : FxNone; break;
-    case 24: e = FxPan, p = it ? p : p == 0x80 ? 255 : p > 0x80 ? 128 : p * 2; break;
-    default: break;
+    case 20:
+        e = FxTempo;
+        break;
+    case 21:
+        e = FxFineVibrato;
+        break;
+    case 22:
+        e = FxGlobalVol, p = it ? std::min(p, 128u) : std::min(p, 64u) * 2;
+        break;
+    case 23:
+        e = it ? FxGlobalVolSlide : FxNone;
+        break;
+    case 24:
+        e = FxPan, p = it ? p : p == 0x80 ? 255 : p > 0x80 ? 128 : p * 2;
+        break;
+    default:
+        break;
     }
     c.effect = e;
     c.param = e == FxNone ? 0 : uint8_t(p);
 }
 
-void xmVolume(unsigned v, TrackerCell& c) {
+void xmVolume(unsigned v, TrackerCell &c) {
     const unsigned x = v & 15;
     uint8_t cmd = VcNone, p = uint8_t(x);
     if (v >= 0x10 && v <= 0x50)
         cmd = VcVolume, p = uint8_t(v - 0x10);
     else
         switch (v >> 4) {
-        case 0x6: cmd = VcSlideDown; break;
-        case 0x7: cmd = VcSlideUp; break;
-        case 0x8: cmd = VcFineDown; break;
-        case 0x9: cmd = VcFineUp; break;
-        case 0xA: cmd = VcVibSpeed; break;
-        case 0xB: cmd = VcVibDepth; break;
-        case 0xC: cmd = VcPan, p = uint8_t(x * 17); break;
-        case 0xD: cmd = VcPanLeft; break;
-        case 0xE: cmd = VcPanRight; break;
-        case 0xF: cmd = VcTonePorta, p = uint8_t(x << 4); break;
-        default: break;
+        case 0x6:
+            cmd = VcSlideDown;
+            break;
+        case 0x7:
+            cmd = VcSlideUp;
+            break;
+        case 0x8:
+            cmd = VcFineDown;
+            break;
+        case 0x9:
+            cmd = VcFineUp;
+            break;
+        case 0xA:
+            cmd = VcVibSpeed;
+            break;
+        case 0xB:
+            cmd = VcVibDepth;
+            break;
+        case 0xC:
+            cmd = VcPan, p = uint8_t(x * 17);
+            break;
+        case 0xD:
+            cmd = VcPanLeft;
+            break;
+        case 0xE:
+            cmd = VcPanRight;
+            break;
+        case 0xF:
+            cmd = VcTonePorta, p = uint8_t(x << 4);
+            break;
+        default:
+            break;
         }
     c.volCmd = cmd;
     c.volParam = cmd == VcNone ? 0 : p;
 }
 
-void itVolume(unsigned v, TrackerCell& c) {
+void itVolume(unsigned v, TrackerCell &c) {
     static const uint8_t kPorta[10] = {0, 1, 4, 8, 16, 32, 64, 96, 128, 255};
     uint8_t cmd = VcNone;
     unsigned p = 0;
@@ -330,7 +522,7 @@ void itVolume(unsigned v, TrackerCell& c) {
 
 // --- MOD ---------------------------------------------------------------------
 
-int modChannels(const Reader& r) {
+int modChannels(const Reader &r) {
     if (!r.has(1080, 4))
         return 0;
     const std::string s = r.text(1080, 4);
@@ -348,7 +540,7 @@ int modChannels(const Reader& r) {
     return 0;
 }
 
-Error loadMod(const Reader& r, TrackerModule& m) {
+Error loadMod(const Reader &r, TrackerModule &m) {
     const int channels = modChannels(r);
     if (channels < 1 || channels > 32)
         return Error::fail("not a tracker module");
@@ -371,7 +563,7 @@ Error loadMod(const Reader& r, TrackerModule& m) {
         TrackerPattern pat = emptyPattern(64, channels);
         for (size_t i = 0; i < pat.cells.size(); ++i) {
             const size_t at = 1084 + p * patternBytes + i * 4;
-            TrackerCell& c = pat.cells[i];
+            TrackerCell &c = pat.cells[i];
             const unsigned b0 = r.u8(at), b2 = r.u8(at + 2);
             const unsigned period = (b0 & 15) << 8 | r.u8(at + 1);
             c.instrument = uint8_t((b0 & 0xF0) | b2 >> 4);
@@ -406,7 +598,7 @@ Error loadMod(const Reader& r, TrackerModule& m) {
 
 // --- S3M ---------------------------------------------------------------------
 
-Error loadS3m(const Reader& r, TrackerModule& m) {
+Error loadS3m(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 0x60))
         return Error::fail("S3M header cut short");
     const unsigned orders = r.le16(0x20), samples = r.le16(0x22), patterns = r.le16(0x24);
@@ -506,8 +698,8 @@ Error loadS3m(const Reader& r, TrackerModule& m) {
 
 // --- XM ----------------------------------------------------------------------
 
-void readXmEnvelope(const Reader& r, size_t points, unsigned count, unsigned sustain, unsigned loopStart,
-                    unsigned loopEnd, unsigned type, TrackerEnvelope& e) {
+void readXmEnvelope(const Reader &r, size_t points, unsigned count, unsigned sustain, unsigned loopStart,
+                    unsigned loopEnd, unsigned type, TrackerEnvelope &e) {
     for (unsigned i = 0; i < std::min(count, 12u); ++i)
         e.points.push_back({int(r.le16(points + 4 * i)), int(std::min(r.le16(points + 4 * i + 2), 64u))});
     e.enabled = type & 1;
@@ -519,13 +711,12 @@ void readXmEnvelope(const Reader& r, size_t points, unsigned count, unsigned sus
     fixEnvelope(e);
 }
 
-Error loadXm(const Reader& r, TrackerModule& m) {
+Error loadXm(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 80 + 256))
         return Error::fail("XM header cut short");
     const unsigned songLength = r.le16(64), channels = r.le16(68), patterns = r.le16(70);
     const unsigned instruments = r.le16(72);
-    if (channels < 1 || channels > unsigned(kMaxChannels) || songLength > 256 || patterns > 256 ||
-        instruments > 256)
+    if (channels < 1 || channels > unsigned(kMaxChannels) || songLength > 256 || patterns > 256 || instruments > 256)
         return Error::fail("XM with an impossible header");
     m.format = TrackerFormat::XM;
     m.title = r.text(17, 20);
@@ -553,7 +744,7 @@ Error loadXm(const Reader& r, TrackerModule& m) {
         size_t q = at;
         const size_t end = at + packed;
         for (size_t k = 0; packed && k < pat.cells.size() && q < end; ++k) {
-            TrackerCell& c = pat.cells[k];
+            TrackerCell &c = pat.cells[k];
             unsigned flags = r.u8(q);
             if (flags & 0x80)
                 ++q;
@@ -630,7 +821,7 @@ Error loadXm(const Reader& r, TrackerModule& m) {
 
 // --- IT ----------------------------------------------------------------------
 
-void readItEnvelope(const Reader& r, size_t at, bool pan, TrackerEnvelope& e) {
+void readItEnvelope(const Reader &r, size_t at, bool pan, TrackerEnvelope &e) {
     const unsigned flags = r.u8(at), count = std::min(r.u8(at + 1), 25u);
     for (unsigned i = 0; i < count; ++i) {
         const int v = int8_t(uint8_t(r.u8(at + 6 + 3 * i)));
@@ -646,7 +837,7 @@ void readItEnvelope(const Reader& r, size_t at, bool pan, TrackerEnvelope& e) {
     fixEnvelope(e);
 }
 
-TrackerInstrument readItInstrument(const Reader& r, size_t h, bool oldFormat) {
+TrackerInstrument readItInstrument(const Reader &r, size_t h, bool oldFormat) {
     TrackerInstrument ins;
     for (size_t n = 0; n < 120; ++n) {
         const unsigned note = r.u8(h + 0x40 + 2 * n);
@@ -655,7 +846,7 @@ TrackerInstrument readItInstrument(const Reader& r, size_t h, bool oldFormat) {
     }
     if (oldFormat) {
         ins.fadeout = int(r.le16(h + 0x18)) * 128;
-        TrackerEnvelope& e = ins.volumeEnvelope;
+        TrackerEnvelope &e = ins.volumeEnvelope;
         const unsigned flags = r.u8(h + 0x11);
         for (unsigned i = 0; i < 25 && r.u8(h + 0x1F8 + 2 * i) != 0xFF; ++i)
             e.points.push_back({int(r.u8(h + 0x1F8 + 2 * i)), int(std::min(r.u8(h + 0x1F9 + 2 * i), 64u))});
@@ -678,7 +869,7 @@ TrackerInstrument readItInstrument(const Reader& r, size_t h, bool oldFormat) {
     return ins;
 }
 
-Error loadIt(const Reader& r, TrackerModule& m) {
+Error loadIt(const Reader &r, TrackerModule &m) {
     if (!r.has(0, 0xC0))
         return Error::fail("IT header cut short");
     const unsigned orders = r.le16(0x20), instruments = r.le16(0x22), samples = r.le16(0x24);
@@ -762,8 +953,8 @@ Error loadIt(const Reader& r, TrackerModule& m) {
             if (what & 0x80)
                 mask[c] = uint8_t(r.u8(q++));
             const unsigned mk = mask[c];
-            TrackerCell& cell = pat.cells[size_t(row) * kMaxChannels + size_t(c)];
-            TrackerCell& prev = last[c];
+            TrackerCell &cell = pat.cells[size_t(row) * kMaxChannels + size_t(c)];
+            TrackerCell &prev = last[c];
             if (mk & 1) {
                 const unsigned n = r.u8(q++);
                 prev.note = uint8_t(n < 120 ? n + 1 : n == 255 ? kNoteOff : n == 254 ? kNoteCut : kNoteFade);
@@ -790,7 +981,7 @@ Error loadIt(const Reader& r, TrackerModule& m) {
         full.push_back(std::move(pat));
     }
     m.channels = std::max(used, 1);
-    for (TrackerPattern& f : full) {
+    for (TrackerPattern &f : full) {
         TrackerPattern pat = emptyPattern(f.rows, m.channels);
         for (int row = 0; row < f.rows; ++row)
             for (int c = 0; c < m.channels; ++c)
@@ -811,14 +1002,17 @@ Error loadIt(const Reader& r, TrackerModule& m) {
 int waveform(int type, int pos) {
     pos &= 63;
     switch (type & 3) {
-    case 1: return std::max(255 - pos * 8, -255); // ramp down
-    case 2: return pos < 32 ? 255 : -255;         // square
-    default: return int(std::lround(255 * std::sin(pos * 3.14159265358979 / 32))); // sine (and "random")
+    case 1:
+        return std::max(255 - pos * 8, -255); // ramp down
+    case 2:
+        return pos < 32 ? 255 : -255; // square
+    default:
+        return int(std::lround(255 * std::sin(pos * 3.14159265358979 / 32))); // sine (and "random")
     }
 }
 
-int envelopeValue(const TrackerEnvelope& e, int pos) {
-    const auto& p = e.points;
+int envelopeValue(const TrackerEnvelope &e, int pos) {
+    const auto &p = e.points;
     if (pos <= p.front().tick)
         return p.front().value;
     for (size_t i = 1; i < p.size(); ++i)
@@ -831,9 +1025,9 @@ int envelopeValue(const TrackerEnvelope& e, int pos) {
     return p.back().value;
 }
 
-void envelopeAdvance(const TrackerEnvelope& e, int& pos, bool keyOn) {
+void envelopeAdvance(const TrackerEnvelope &e, int &pos, bool keyOn) {
     ++pos;
-    const auto& p = e.points;
+    const auto &p = e.points;
     if (e.sustain && keyOn) {
         if (pos > p[size_t(e.sustainEnd)].tick)
             pos = p[size_t(e.sustainStart)].tick;
@@ -845,13 +1039,13 @@ void envelopeAdvance(const TrackerEnvelope& e, int& pos, bool keyOn) {
 
 class Player {
 public:
-    Player(const TrackerModule& m, int rate);
-    Error render(int startOrder, double maxSeconds, Sound& out);
+    Player(const TrackerModule &m, int rate);
+    Error render(int startOrder, double maxSeconds, Sound &out);
 
 private:
     struct Channel {
-        const TrackerSample* smp = nullptr;
-        const TrackerInstrument* ins = nullptr;
+        const TrackerSample *smp = nullptr;
+        const TrackerInstrument *ins = nullptr;
         TrackerCell cell;
         int param = 0; // the effect's, after memory
         int lastIns = 0, lastNote = 60;
@@ -867,7 +1061,7 @@ private:
         int retrigCount = 0, loopRow = 0, loopCount = 0, delayTick = 0;
     };
 
-    const TrackerPattern& pattern(int order) const {
+    const TrackerPattern &pattern(int order) const {
         const size_t p = m_.orders[size_t(order)];
         return p < m_.patterns.size() ? m_.patterns[p] : empty_;
     }
@@ -875,21 +1069,21 @@ private:
     void enterOrder(int order, int row);
     void nextRow();
     void startRow();
-    void trigger(Channel& ch);
-    void keyOff(Channel& ch);
-    void rowEffect(Channel& ch);
-    void tickEffect(Channel& ch);
-    int memory(Channel& ch, uint8_t fx, int p);
+    void trigger(Channel &ch);
+    void keyOff(Channel &ch);
+    void rowEffect(Channel &ch);
+    void tickEffect(Channel &ch);
+    int memory(Channel &ch, uint8_t fx, int p);
     int slide(int p, bool tick0) const;
-    void portamento(Channel& ch, double delta) const;
-    void tonePorta(Channel& ch) const;
-    void vibrato(Channel& ch, bool fine) const;
-    void tremolo(Channel& ch) const;
-    double periodOf(int note, const TrackerSample& s) const;
-    const TrackerSample* resolve(int instrument, int& note, const TrackerInstrument*& ins) const;
-    void mixChannel(Channel& ch, std::vector<double>& mix, size_t frames);
+    void portamento(Channel &ch, double delta) const;
+    void tonePorta(Channel &ch) const;
+    void vibrato(Channel &ch, bool fine) const;
+    void tremolo(Channel &ch) const;
+    double periodOf(int note, const TrackerSample &s) const;
+    const TrackerSample *resolve(int instrument, int &note, const TrackerInstrument *&ins) const;
+    void mixChannel(Channel &ch, std::vector<double> &mix, size_t frames);
 
-    const TrackerModule& m_;
+    const TrackerModule &m_;
     const int rate_;
     TrackerPattern empty_;
     std::vector<Channel> ch_;
@@ -901,7 +1095,7 @@ private:
     double gain_;
 };
 
-Player::Player(const TrackerModule& m, int rate)
+Player::Player(const TrackerModule &m, int rate)
     : m_(m), rate_(rate), empty_(emptyPattern(64, m.channels)), ch_(size_t(m.channels)), speed_(m.speed),
       tempo_(m.tempo), globalVolume_(m.globalVolume), visited_(m.orders.size()) {
     for (size_t c = 0; c < ch_.size(); ++c) {
@@ -935,7 +1129,7 @@ void Player::enterOrder(int order, int row) {
     }
     if (row >= pattern(o).rows)
         row = 0;
-    const auto& v = visited_[size_t(o)];
+    const auto &v = visited_[size_t(o)];
     if (size_t(row) < v.size() && v[size_t(row)] >= 0) {
         done_ = true;
         loopFrame_ = size_t(v[size_t(row)]);
@@ -959,19 +1153,39 @@ void Player::nextRow() {
         enterOrder(order_ + 1, 0);
 }
 
-int Player::memory(Channel& ch, uint8_t fx, int p) {
+int Player::memory(Channel &ch, uint8_t fx, int p) {
     int slot = fx;
     bool uses = m_.effectMemory;
     switch (fx) {
-    case FxOffset: uses = true; break;
-    case FxPortaDown: slot = m_.s3mEffects ? int(FxPortaUp) : int(fx); break;
+    case FxOffset:
+        uses = true;
+        break;
+    case FxPortaDown:
+        slot = m_.s3mEffects ? int(FxPortaUp) : int(fx);
+        break;
     case FxTonePortaVol:
-    case FxVibratoVol: slot = FxVolSlide; break;
-    case FxArpeggio: uses = m_.s3mEffects; break;
-    case FxPortaUp: case FxVolSlide: case FxGlobalVolSlide: case FxChanVolSlide: case FxPanSlide: case FxRetrig:
-    case FxFinePortaUp: case FxFinePortaDown: case FxXFinePortaUp: case FxXFinePortaDown: case FxFineVolUp:
-    case FxFineVolDown: break;
-    default: uses = false; break;
+    case FxVibratoVol:
+        slot = FxVolSlide;
+        break;
+    case FxArpeggio:
+        uses = m_.s3mEffects;
+        break;
+    case FxPortaUp:
+    case FxVolSlide:
+    case FxGlobalVolSlide:
+    case FxChanVolSlide:
+    case FxPanSlide:
+    case FxRetrig:
+    case FxFinePortaUp:
+    case FxFinePortaDown:
+    case FxXFinePortaUp:
+    case FxXFinePortaDown:
+    case FxFineVolUp:
+    case FxFineVolDown:
+        break;
+    default:
+        uses = false;
+        break;
     }
     if (!uses)
         return p;
@@ -995,34 +1209,34 @@ int Player::slide(int p, bool tick0) const {
     return lo == 0 ? hi : hi == 0 ? -lo : 0;
 }
 
-double Player::periodOf(int note, const TrackerSample& s) const {
+double Player::periodOf(int note, const TrackerSample &s) const {
     if (m_.linearSlides)
         return 7680.0 - note * 64.0;
     const double c5 = s.c5speed > 0 ? s.c5speed : 8363.0;
     return kAmigaClock / (c5 * std::exp2((note - 60) / 12.0));
 }
 
-void Player::portamento(Channel& ch, double delta) const {
-    ch.period = m_.linearSlides ? std::clamp(ch.period + delta, -1536.0, 9216.0)
-                                : std::clamp(ch.period + delta, 28.0, 1e6);
+void Player::portamento(Channel &ch, double delta) const {
+    ch.period =
+        m_.linearSlides ? std::clamp(ch.period + delta, -1536.0, 9216.0) : std::clamp(ch.period + delta, 28.0, 1e6);
 }
 
-void Player::tonePorta(Channel& ch) const {
+void Player::tonePorta(Channel &ch) const {
     const double step = 4.0 * ch.portaSpeed;
     ch.period = ch.period < ch.target ? std::min(ch.period + step, ch.target) : std::max(ch.period - step, ch.target);
 }
 
-void Player::vibrato(Channel& ch, bool fine) const {
+void Player::vibrato(Channel &ch, bool fine) const {
     ch.vibDelta = waveform(ch.vibWave, ch.vibPos) * ch.vibDepth / (fine ? 128 : 32);
     ch.vibPos = (ch.vibPos + ch.vibSpeed) & 63;
 }
 
-void Player::tremolo(Channel& ch) const {
+void Player::tremolo(Channel &ch) const {
     ch.tremDelta = waveform(ch.tremWave, ch.tremPos) * ch.tremDepth / 64;
     ch.tremPos = (ch.tremPos + ch.tremSpeed) & 63;
 }
 
-const TrackerSample* Player::resolve(int instrument, int& note, const TrackerInstrument*& ins) const {
+const TrackerSample *Player::resolve(int instrument, int &note, const TrackerInstrument *&ins) const {
     ins = nullptr;
     size_t s = size_t(instrument);
     if (instrument < 1)
@@ -1036,19 +1250,19 @@ const TrackerSample* Player::resolve(int instrument, int& note, const TrackerIns
     }
     if (s < 1 || s > m_.samples.size())
         return nullptr;
-    const TrackerSample* smp = &m_.samples[s - 1];
+    const TrackerSample *smp = &m_.samples[s - 1];
     note = std::clamp(note + smp->relativeNote, 0, 119);
     return smp;
 }
 
-void Player::keyOff(Channel& ch) {
+void Player::keyOff(Channel &ch) {
     ch.keyOn = false;
     if (!ch.ins) { // plain samples: only a sustain loop outlives the key
         if (!(ch.smp && ch.smp->sustain))
             ch.playing = false;
         return;
     }
-    const TrackerEnvelope& e = ch.ins->volumeEnvelope;
+    const TrackerEnvelope &e = ch.ins->volumeEnvelope;
     if (m_.format == TrackerFormat::XM && !e.enabled)
         ch.volume = 0;
     else if (!(m_.format == TrackerFormat::IT && e.enabled && !e.loop)) // IT fades at such an envelope's end
@@ -1057,13 +1271,13 @@ void Player::keyOff(Channel& ch) {
 
 // The note, instrument and volume column, on the row's first tick or its
 // note delay's.
-void Player::trigger(Channel& ch) {
-    const TrackerCell& c = ch.cell;
+void Player::trigger(Channel &ch) {
+    const TrackerCell &c = ch.cell;
     const bool porta = c.effect == FxTonePorta || c.effect == FxTonePortaVol || c.volCmd == VcTonePorta;
     if (c.instrument)
         ch.lastIns = c.instrument;
-    const TrackerSample* smp = nullptr;
-    const TrackerInstrument* ins = nullptr;
+    const TrackerSample *smp = nullptr;
+    const TrackerInstrument *ins = nullptr;
     if (c.note >= 1 && c.note <= 120) {
         ch.lastNote = c.note - 1;
         int note = ch.lastNote;
@@ -1120,53 +1334,106 @@ void Player::trigger(Channel& ch) {
 
     const int p = c.volParam;
     switch (c.volCmd) {
-    case VcVolume: ch.volume = std::min(p, 64); break;
-    case VcPan: ch.pan = p; break;
-    case VcFineUp: ch.volume = std::min(ch.volume + p, 64); break;
-    case VcFineDown: ch.volume = std::max(ch.volume - p, 0); break;
-    case VcVibSpeed: ch.vibSpeed = p ? p : ch.vibSpeed; break;
-    case VcVibDepth: ch.vibDepth = p ? p : ch.vibDepth; break;
-    case VcTonePorta: ch.portaSpeed = p ? p : ch.portaSpeed; break;
-    default: break;
+    case VcVolume:
+        ch.volume = std::min(p, 64);
+        break;
+    case VcPan:
+        ch.pan = p;
+        break;
+    case VcFineUp:
+        ch.volume = std::min(ch.volume + p, 64);
+        break;
+    case VcFineDown:
+        ch.volume = std::max(ch.volume - p, 0);
+        break;
+    case VcVibSpeed:
+        ch.vibSpeed = p ? p : ch.vibSpeed;
+        break;
+    case VcVibDepth:
+        ch.vibDepth = p ? p : ch.vibDepth;
+        break;
+    case VcTonePorta:
+        ch.portaSpeed = p ? p : ch.portaSpeed;
+        break;
+    default:
+        break;
     }
 }
 
 // Effects on a row's first tick.
-void Player::rowEffect(Channel& ch) {
+void Player::rowEffect(Channel &ch) {
     const int p = ch.param, x = p >> 4, y = p & 15;
     switch (ch.cell.effect) {
-    case FxSpeed: speed_ = p ? p : speed_; break;
-    case FxTempo: tempo_ = p >= 32 ? p : tempo_; break;
+    case FxSpeed:
+        speed_ = p ? p : speed_;
+        break;
+    case FxTempo:
+        tempo_ = p >= 32 ? p : tempo_;
+        break;
     case FxSpeedTempo:
         if (p && p < 32)
             speed_ = p;
         else if (p >= 32)
             tempo_ = p;
         break;
-    case FxJump: jumpOrder_ = p; break;
-    case FxBreak: breakRow_ = p; break;
-    case FxVolume: ch.volume = std::min(p, 64); break;
-    case FxGlobalVol: globalVolume_ = std::min(p, 128); break;
-    case FxPan: ch.pan = p; break;
-    case FxChanVol: ch.chanVol = std::min(p, 64); break;
-    case FxFinePortaUp: portamento(ch, -4.0 * p); break;
-    case FxFinePortaDown: portamento(ch, 4.0 * p); break;
-    case FxXFinePortaUp: portamento(ch, -p); break;
-    case FxXFinePortaDown: portamento(ch, p); break;
+    case FxJump:
+        jumpOrder_ = p;
+        break;
+    case FxBreak:
+        breakRow_ = p;
+        break;
+    case FxVolume:
+        ch.volume = std::min(p, 64);
+        break;
+    case FxGlobalVol:
+        globalVolume_ = std::min(p, 128);
+        break;
+    case FxPan:
+        ch.pan = p;
+        break;
+    case FxChanVol:
+        ch.chanVol = std::min(p, 64);
+        break;
+    case FxFinePortaUp:
+        portamento(ch, -4.0 * p);
+        break;
+    case FxFinePortaDown:
+        portamento(ch, 4.0 * p);
+        break;
+    case FxXFinePortaUp:
+        portamento(ch, -p);
+        break;
+    case FxXFinePortaDown:
+        portamento(ch, p);
+        break;
     case FxPortaUp:
     case FxPortaDown:
         if (m_.s3mEffects && p >= 0xE0) // FFx fine, FEx extra fine
             portamento(ch, (ch.cell.effect == FxPortaUp ? -1.0 : 1.0) * (p >= 0xF0 ? 4 * y : y));
         break;
-    case FxFineVolUp: ch.volume = std::min(ch.volume + p, 64); break;
-    case FxFineVolDown: ch.volume = std::max(ch.volume - p, 0); break;
+    case FxFineVolUp:
+        ch.volume = std::min(ch.volume + p, 64);
+        break;
+    case FxFineVolDown:
+        ch.volume = std::max(ch.volume - p, 0);
+        break;
     case FxVolSlide:
     case FxTonePortaVol:
-    case FxVibratoVol: ch.volume = std::clamp(ch.volume + slide(p, true), 0, 64); break;
-    case FxGlobalVolSlide: globalVolume_ = std::clamp(globalVolume_ + slide(p, true), 0, 128); break;
-    case FxChanVolSlide: ch.chanVol = std::clamp(ch.chanVol + slide(p, true), 0, 64); break;
-    case FxPanSlide: ch.pan = std::clamp(ch.pan - 4 * slide(p, true), 0, 255); break;
-    case FxTonePorta: ch.portaSpeed = p ? p : ch.portaSpeed; break;
+    case FxVibratoVol:
+        ch.volume = std::clamp(ch.volume + slide(p, true), 0, 64);
+        break;
+    case FxGlobalVolSlide:
+        globalVolume_ = std::clamp(globalVolume_ + slide(p, true), 0, 128);
+        break;
+    case FxChanVolSlide:
+        ch.chanVol = std::clamp(ch.chanVol + slide(p, true), 0, 64);
+        break;
+    case FxPanSlide:
+        ch.pan = std::clamp(ch.pan - 4 * slide(p, true), 0, 255);
+        break;
+    case FxTonePorta:
+        ch.portaSpeed = p ? p : ch.portaSpeed;
+        break;
     case FxVibrato:
     case FxFineVibrato:
         ch.vibSpeed = x ? x : ch.vibSpeed;
@@ -1176,8 +1443,12 @@ void Player::rowEffect(Channel& ch) {
         ch.tremSpeed = x ? x : ch.tremSpeed;
         ch.tremDepth = y ? y : ch.tremDepth;
         break;
-    case FxVibWave: ch.vibWave = p; break;
-    case FxTremWave: ch.tremWave = p; break;
+    case FxVibWave:
+        ch.vibWave = p;
+        break;
+    case FxTremWave:
+        ch.tremWave = p;
+        break;
     case FxPatLoop:
         if (p == 0)
             ch.loopRow = row_;
@@ -1190,20 +1461,25 @@ void Player::rowEffect(Channel& ch) {
         if (p == 0)
             ch.volume = 0;
         break;
-    case FxPatDelay: patDelay_ = patDelay_ ? patDelay_ : p; break;
+    case FxPatDelay:
+        patDelay_ = patDelay_ ? patDelay_ : p;
+        break;
     case FxKeyOff:
         if (p == 0)
             keyOff(ch);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
 // Effects on the ticks after the first.
-void Player::tickEffect(Channel& ch) {
+void Player::tickEffect(Channel &ch) {
     const int p = ch.param, t = tick_ % speed_;
     switch (ch.cell.effect) {
-    case FxArpeggio: ch.arp = t % 3 == 0 ? 0 : t % 3 == 1 ? p >> 4 : p & 15; break;
+    case FxArpeggio:
+        ch.arp = t % 3 == 0 ? 0 : t % 3 == 1 ? p >> 4 : p & 15;
+        break;
     case FxPortaUp:
         if (!m_.s3mEffects || p < 0xE0)
             portamento(ch, -4.0 * p);
@@ -1212,23 +1488,35 @@ void Player::tickEffect(Channel& ch) {
         if (!m_.s3mEffects || p < 0xE0)
             portamento(ch, 4.0 * p);
         break;
-    case FxTonePorta: tonePorta(ch); break;
+    case FxTonePorta:
+        tonePorta(ch);
+        break;
     case FxTonePortaVol:
         tonePorta(ch);
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
-    case FxVibrato: vibrato(ch, false); break;
-    case FxFineVibrato: vibrato(ch, true); break;
+    case FxVibrato:
+        vibrato(ch, false);
+        break;
+    case FxFineVibrato:
+        vibrato(ch, true);
+        break;
     case FxVibratoVol:
         vibrato(ch, false);
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
-    case FxTremolo: tremolo(ch); break;
-    case FxVolSlide: ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64); break;
+    case FxTremolo:
+        tremolo(ch);
+        break;
+    case FxVolSlide:
+        ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
+        break;
     case FxGlobalVolSlide:
         globalVolume_ = std::clamp(globalVolume_ + slide(p, false) * (m_.format == TrackerFormat::XM ? 2 : 1), 0, 128);
         break;
-    case FxChanVolSlide: ch.chanVol = std::clamp(ch.chanVol + slide(p, false), 0, 64); break;
+    case FxChanVolSlide:
+        ch.chanVol = std::clamp(ch.chanVol + slide(p, false), 0, 64);
+        break;
     case FxPanSlide: // XM: x right, y left; IT: x left, y right
         ch.pan = std::clamp(ch.pan + (m_.s3mEffects ? -4 : 1) * slide(p, false), 0, 255);
         break;
@@ -1268,16 +1556,29 @@ void Player::tickEffect(Channel& ch) {
         if (t == p)
             keyOff(ch);
         break;
-    default: break;
+    default:
+        break;
     }
     const int v = ch.cell.volParam;
     switch (ch.cell.volCmd) {
-    case VcSlideUp: ch.volume = std::min(ch.volume + v, 64); break;
-    case VcSlideDown: ch.volume = std::max(ch.volume - v, 0); break;
-    case VcPanLeft: ch.pan = std::max(ch.pan - v, 0); break;
-    case VcPanRight: ch.pan = std::min(ch.pan + v, 255); break;
-    case VcPortaUp: portamento(ch, -4.0 * v); break;
-    case VcPortaDown: portamento(ch, 4.0 * v); break;
+    case VcSlideUp:
+        ch.volume = std::min(ch.volume + v, 64);
+        break;
+    case VcSlideDown:
+        ch.volume = std::max(ch.volume - v, 0);
+        break;
+    case VcPanLeft:
+        ch.pan = std::max(ch.pan - v, 0);
+        break;
+    case VcPanRight:
+        ch.pan = std::min(ch.pan + v, 255);
+        break;
+    case VcPortaUp:
+        portamento(ch, -4.0 * v);
+        break;
+    case VcPortaDown:
+        portamento(ch, 4.0 * v);
+        break;
     case VcVibDepth:
         if (ch.cell.effect != FxVibrato && ch.cell.effect != FxVibratoVol)
             vibrato(ch, false);
@@ -1286,23 +1587,24 @@ void Player::tickEffect(Channel& ch) {
         if (ch.cell.effect != FxTonePorta && ch.cell.effect != FxTonePortaVol)
             tonePorta(ch);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
 void Player::startRow() {
     patDelay_ = 0;
     jumpOrder_ = breakRow_ = loopJump_ = -1;
-    const TrackerPattern& pat = pattern(order_);
+    const TrackerPattern &pat = pattern(order_);
     if (row_ >= pat.rows)
         row_ = 0;
-    auto& v = visited_[size_t(order_)];
+    auto &v = visited_[size_t(order_)];
     if (v.size() < size_t(pat.rows))
         v.resize(size_t(pat.rows), -1);
     if (v[size_t(row_)] < 0)
         v[size_t(row_)] = int64_t(frames_);
     for (size_t c = 0; c < ch_.size(); ++c) {
-        Channel& ch = ch_[c];
+        Channel &ch = ch_[c];
         const size_t i = size_t(row_) * ch_.size() + c;
         ch.cell = i < pat.cells.size() ? pat.cells[i] : TrackerCell{};
         ch.param = memory(ch, ch.cell.effect, ch.cell.param);
@@ -1315,13 +1617,13 @@ void Player::startRow() {
 
 // Mixes a channel's tick: envelopes, fadeout, volumes, pan and pitch, then
 // its sample resampled with linear interpolation.
-void Player::mixChannel(Channel& ch, std::vector<double>& mix, size_t frames) {
+void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
     if (!ch.playing || !ch.smp || ch.smp->data.empty())
         return;
-    const TrackerSample& s = *ch.smp;
+    const TrackerSample &s = *ch.smp;
     int env = 64, panEnv = 32;
     if (ch.ins) {
-        const TrackerEnvelope& ve = ch.ins->volumeEnvelope;
+        const TrackerEnvelope &ve = ch.ins->volumeEnvelope;
         if (ve.enabled) {
             env = envelopeValue(ve, ch.volEnvPos);
             const bool ended = ch.volEnvPos > ve.points.back().tick;
@@ -1333,7 +1635,7 @@ void Player::mixChannel(Channel& ch, std::vector<double>& mix, size_t frames) {
             if (ended && m_.format == TrackerFormat::IT && !ch.keyOn)
                 ch.fading = true;
         }
-        const TrackerEnvelope& pe = ch.ins->panEnvelope;
+        const TrackerEnvelope &pe = ch.ins->panEnvelope;
         if (pe.enabled) {
             panEnv = envelopeValue(pe, ch.panEnvPos);
             envelopeAdvance(pe, ch.panEnvPos, ch.keyOn);
@@ -1346,8 +1648,8 @@ void Player::mixChannel(Channel& ch, std::vector<double>& mix, size_t frames) {
             }
         }
     }
-    double vol = std::clamp(ch.volume + ch.tremDelta, 0, 64) / 64.0 * ch.chanVol / 64.0 * s.globalVolume / 64.0 *
-                 env / 64.0 * ch.fade / 65536.0 * globalVolume_ / 128.0 * gain_;
+    double vol = std::clamp(ch.volume + ch.tremDelta, 0, 64) / 64.0 * ch.chanVol / 64.0 * s.globalVolume / 64.0 * env /
+                 64.0 * ch.fade / 65536.0 * globalVolume_ / 128.0 * gain_;
     if (ch.ins)
         vol *= ch.ins->globalVolume / 128.0;
     const int pan = std::clamp(ch.pan + (panEnv - 32) * (128 - std::abs(ch.pan - 128)) / 32, 0, 255);
@@ -1358,7 +1660,7 @@ void Player::mixChannel(Channel& ch, std::vector<double>& mix, size_t frames) {
     freq *= std::exp2(ch.arp / 12.0);
     const double step = std::min(freq / rate_, 1e4);
 
-    const auto& d = s.data;
+    const auto &d = s.data;
     const bool sustained = s.sustain && ch.keyOn, loop = sustained || s.loop;
     const size_t ls = sustained ? s.sustainStart : s.loopStart, le = sustained ? s.sustainEnd : s.loopEnd;
     const bool ping = sustained ? s.sustainPingPong : s.pingPong;
@@ -1398,7 +1700,7 @@ void Player::mixChannel(Channel& ch, std::vector<double>& mix, size_t frames) {
     }
 }
 
-Error Player::render(int startOrder, double maxSeconds, Sound& out) {
+Error Player::render(int startOrder, double maxSeconds, Sound &out) {
     out = Sound{};
     out.rate = rate_;
     out.channels = 2;
@@ -1410,18 +1712,18 @@ Error Player::render(int startOrder, double maxSeconds, Sound& out) {
     std::vector<double> mix;
     double tickFrames = 0;
     while (!done_ && frames_ < maxFrames) {
-        for (Channel& ch : ch_)
+        for (Channel &ch : ch_)
             ch.vibDelta = ch.tremDelta = ch.arp = 0;
         if (tick_ == 0)
             startRow();
         else
-            for (Channel& ch : ch_)
+            for (Channel &ch : ch_)
                 tickEffect(ch);
         tickFrames += rate_ * 2.5 / tempo_; // samples per tick = rate * 5 / (2 * tempo)
         const size_t n = std::min(size_t(tickFrames), maxFrames - frames_);
         tickFrames -= std::floor(tickFrames);
         mix.assign(n * 2, 0.0);
-        for (Channel& ch : ch_)
+        for (Channel &ch : ch_)
             mixChannel(ch, mix, n);
         for (double v : mix)
             out.samples.push_back(int16_t(std::clamp(std::lround(v), -32768L, 32767L)));
@@ -1436,7 +1738,7 @@ Error Player::render(int startOrder, double maxSeconds, Sound& out) {
 
 } // namespace
 
-Error loadTrackerModule(const std::vector<uint8_t>& data, TrackerModule& out) {
+Error loadTrackerModule(const std::vector<uint8_t> &data, TrackerModule &out) {
     out = TrackerModule{};
     const Reader r{data};
     Error err;
@@ -1455,16 +1757,20 @@ Error loadTrackerModule(const std::vector<uint8_t>& data, TrackerModule& out) {
     return err;
 }
 
-std::string trackerFormat(const TrackerModule& m) {
+std::string trackerFormat(const TrackerModule &m) {
     switch (m.format) {
-    case TrackerFormat::S3M: return "S3M";
-    case TrackerFormat::XM: return "XM";
-    case TrackerFormat::IT: return "IT";
-    default: return "MOD";
+    case TrackerFormat::S3M:
+        return "S3M";
+    case TrackerFormat::XM:
+        return "XM";
+    case TrackerFormat::IT:
+        return "IT";
+    default:
+        return "MOD";
     }
 }
 
-Error renderTrackerModule(const TrackerModule& m, int rate, int startOrder, double maxSeconds, Sound& out) {
+Error renderTrackerModule(const TrackerModule &m, int rate, int startOrder, double maxSeconds, Sound &out) {
     if (rate < 1000 || rate > 384000)
         return Error::fail("can't render at " + std::to_string(rate) + " Hz");
     return Player(m, rate).render(startOrder, maxSeconds, out);

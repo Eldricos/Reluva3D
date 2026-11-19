@@ -69,21 +69,33 @@ enum : int {
     kPhysFishInTank = 54,
 };
 
-Vec add(const Vec& a, const Vec& b) { return {a[0] + b[0], a[1] + b[1], a[2] + b[2]}; }
-Vec sub(const Vec& a, const Vec& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
-Vec mul(const Vec& a, float s) { return {a[0] * s, a[1] * s, a[2] * s}; }
-float dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-float length(const Vec& a) { return std::sqrt(dot(a, a)); }
-Vec normal(const Vec& a) {
+Vec add(const Vec &a, const Vec &b) {
+    return {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+}
+Vec sub(const Vec &a, const Vec &b) {
+    return {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+}
+Vec mul(const Vec &a, float s) {
+    return {a[0] * s, a[1] * s, a[2] * s};
+}
+float dot(const Vec &a, const Vec &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+float length(const Vec &a) {
+    return std::sqrt(dot(a, a));
+}
+Vec normal(const Vec &a) {
     const float l = length(a);
     return l > 1e-6f ? mul(a, 1 / l) : Vec{0, 0, 0};
 }
 
-std::mt19937& random() {
+std::mt19937 &random() {
     static std::mt19937 r(24680); // repeatable runs
     return r;
 }
-float frand() { return std::uniform_real_distribution<float>(0, 1)(random()); }
+float frand() {
+    return std::uniform_real_distribution<float>(0, 1)(random());
+}
 Vec vrand() {
     for (;;) {
         const Vec v{frand() * 2 - 1, frand() * 2 - 1, frand() * 2 - 1};
@@ -93,41 +105,45 @@ Vec vrand() {
     }
 }
 
-int32_t units(float radians) { return int32_t(std::lround(radians * 32768 / kPi)); }
+int32_t units(float radians) {
+    return int32_t(std::lround(radians * 32768 / kPi));
+}
 
 } // namespace
 
 // Each level starts the same, whatever ran before it (ue-run -all).
-void reseedEffectPhysicsRandom() { random().seed(24680); }
+void reseedEffectPhysicsRandom() {
+    random().seed(24680);
+}
 
 // --- An effect's copies ---------------------------------------------------------------------
 
 // A copy's field, read and written.
-float ScriptLevel::copyFloat(VmObject* mm, const char* name, float otherwise) {
-    const Value* v = prop(mm, name);
+float ScriptLevel::copyFloat(VmObject *mm, const char *name, float otherwise) {
+    const Value *v = prop(mm, name);
     return v ? v->asFloat() : otherwise;
 }
-Vec ScriptLevel::copyVec(VmObject* mm, const char* name) {
-    const Value* v = prop(mm, name);
+Vec ScriptLevel::copyVec(VmObject *mm, const char *name) {
+    const Value *v = prop(mm, name);
     return v ? Vm::vectorOf(*v) : Vec{};
 }
-void ScriptLevel::setCopyFloat(VmObject* mm, const char* name, float v) {
-    if (Value* p = prop(mm, name))
+void ScriptLevel::setCopyFloat(VmObject *mm, const char *name, float v) {
+    if (Value *p = prop(mm, name))
         *p = Value::floatValue(v);
 }
-void ScriptLevel::setCopyVec(VmObject* mm, const char* name, const Vec& v) {
-    if (Value* p = prop(mm, name))
+void ScriptLevel::setCopyVec(VmObject *mm, const char *name, const Vec &v) {
+    if (Value *p = prop(mm, name))
         vm_.setVector(*p, v[0], v[1], v[2]);
 }
 
 // How much of a copy's life is gone (0-1): its LifeSpan against what it
 // had when first seen (a copy let go and made again starts over). 0 for
 // one that lasts.
-float ScriptLevel::copyAge(VmObject* mm) {
+float ScriptLevel::copyAge(VmObject *mm) {
     const float life = copyFloat(mm, "LifeSpan");
     if (life <= 0)
         return 0;
-    float& start = copyStarts_[mm];
+    float &start = copyStarts_[mm];
     if (life > start)
         start = life;
     return std::clamp(1 - life / start, 0.0f, 1.0f);
@@ -136,9 +152,9 @@ float ScriptLevel::copyAge(VmObject* mm) {
 // A copy's step: its velocity changed by its acceleration (`accelerate`)
 // and anything `extra`, then moved by it (`move`); its life counted down
 // and let go (Delete) when it runs out. False if it's gone.
-bool ScriptLevel::stepCopy(VmObject* mm, float dt, bool accelerate, bool move, const Vec& extra) {
-    Value* loc = prop(mm, "Location");
-    Value* vel = prop(mm, "Velocity");
+bool ScriptLevel::stepCopy(VmObject *mm, float dt, bool accelerate, bool move, const Vec &extra) {
+    Value *loc = prop(mm, "Location");
+    Value *vel = prop(mm, "Velocity");
     if (loc && vel) {
         Vec v = Vm::vectorOf(*vel);
         Vec a = extra;
@@ -157,8 +173,8 @@ bool ScriptLevel::stepCopy(VmObject* mm, float dt, bool accelerate, bool move, c
 }
 
 // Its life counted down; let go when it runs out. False if it's gone.
-bool ScriptLevel::ageCopy(VmObject* mm, float dt) {
-    Value* life = prop(mm, "LifeSpan");
+bool ScriptLevel::ageCopy(VmObject *mm, float dt) {
+    Value *life = prop(mm, "LifeSpan");
     if (!life || life->asFloat() <= 0)
         return true; // lasts
     copyAge(mm);
@@ -175,46 +191,46 @@ bool ScriptLevel::ageCopy(VmObject* mm, float dt) {
 // Most fly by their velocity and acceleration and go when their lives
 // run out; the modes differ in what else they do (grow, fade, rise to a
 // surface, wander in a tank) and some leave the moving to the scripts.
-void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
+void ScriptLevel::moveMultiMeshes(VmObject *actor, float dt) {
     if (dt <= 0)
         return;
-    const Value* head = prop(actor, "MultiMesh");
-    VmObject* base = head ? head->asObject() : nullptr;
+    const Value *head = prop(actor, "MultiMesh");
+    VmObject *base = head ? head->asObject() : nullptr;
     if (!base)
         return;
-    const Value* physicsValue = prop(actor, "Physics");
+    const Value *physicsValue = prop(actor, "Physics");
     const int physics = physicsValue ? physicsValue->asInt() : 0;
-    const std::vector<VmObject*> copies = multiMeshes(actor);
+    const std::vector<VmObject *> copies = multiMeshes(actor);
     if (copies.empty())
         return;
-    auto f = [&](VmObject* o, const char* name, float otherwise = 0) {
-        const Value* v = o ? prop(o, name) : nullptr;
+    auto f = [&](VmObject *o, const char *name, float otherwise = 0) {
+        const Value *v = o ? prop(o, name) : nullptr;
         return v ? v->asFloat() : otherwise;
     };
-    auto b = [&](VmObject* o, const char* name) {
-        const Value* v = o ? prop(o, name) : nullptr;
+    auto b = [&](VmObject *o, const char *name) {
+        const Value *v = o ? prop(o, name) : nullptr;
         return v && v->asBool();
     };
-    auto vec = [&](VmObject* o, const char* name) {
-        const Value* v = o ? prop(o, name) : nullptr;
+    auto vec = [&](VmObject *o, const char *name) {
+        const Value *v = o ? prop(o, name) : nullptr;
         return v ? Vm::vectorOf(*v) : Vec{};
     };
-    const Value* ownerValue = prop(actor, "Owner");
-    VmObject* owner = ownerValue ? ownerValue->asObject() : nullptr;
+    const Value *ownerValue = prop(actor, "Owner");
+    VmObject *owner = ownerValue ? ownerValue->asObject() : nullptr;
     const Vec origin = vec(actor, "Location");
 
     // As Engine.dll's phys* functions for The Fallen's effect modes (read
     // November 2026): each walks the copies itself. Most fade in the last
     // second (or half) of a copy's LifeSpan, not over its whole life.
-    auto set = [&](VmObject* o, const char* name, float v) { setCopyFloat(o, name, v); };
-    auto setv = [&](VmObject* o, const char* name, const Vec& v) { setCopyVec(o, name, v); };
-    auto gone = [&](VmObject* mm) {
+    auto set = [&](VmObject *o, const char *name, float v) { setCopyFloat(o, name, v); };
+    auto setv = [&](VmObject *o, const char *name, const Vec &v) { setCopyVec(o, name, v); };
+    auto gone = [&](VmObject *mm) {
         copyStarts_.erase(mm);
         vm_.callEvent(mm, "Delete");
     };
     // Its life: always counted down, gone at 0 (a copy given none dies at
     // once), or only counted while it has one.
-    auto lifeAlways = [&](VmObject* mm) {
+    auto lifeAlways = [&](VmObject *mm) {
         const float l = f(mm, "LifeSpan") - dt;
         set(mm, "LifeSpan", l);
         if (l > 0)
@@ -222,48 +238,48 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         gone(mm);
         return false;
     };
-    auto lifeIfAny = [&](VmObject* mm) {
+    auto lifeIfAny = [&](VmObject *mm) {
         const float l = f(mm, "LifeSpan");
         return l > 0 ? lifeAlways(mm) : true;
     };
     // Moved by its velocity, then that changed by its acceleration (and
     // `extra`); or the other way round.
-    auto moveThenAccel = [&](VmObject* mm, const Vec& extra = {}) {
+    auto moveThenAccel = [&](VmObject *mm, const Vec &extra = {}) {
         const Vec v = vec(mm, "Velocity");
         setv(mm, "Location", add(vec(mm, "Location"), mul(v, dt)));
         setv(mm, "Velocity", add(v, mul(add(vec(mm, "Acceleration"), extra), dt)));
     };
-    auto accelThenMove = [&](VmObject* mm, const Vec& extra = {}) {
+    auto accelThenMove = [&](VmObject *mm, const Vec &extra = {}) {
         const Vec v = add(vec(mm, "Velocity"), mul(add(vec(mm, "Acceleration"), extra), dt));
         setv(mm, "Velocity", v);
         setv(mm, "Location", add(vec(mm, "Location"), mul(v, dt)));
     };
-    auto facing = [&](const Vec& v) {
+    auto facing = [&](const Vec &v) {
         return vm_.rotatorValue(units(std::atan2(v[2], std::hypot(v[0], v[1]))), units(std::atan2(v[1], v[0])), 0);
     };
-    auto setRot = [&](VmObject* mm, const Value& r) {
-        if (Value* p = prop(mm, "Rotation"))
+    auto setRot = [&](VmObject *mm, const Value &r) {
+        if (Value *p = prop(mm, "Rotation"))
             *p = r;
     };
-    auto setBool = [&](VmObject* o, const char* name, bool v) {
-        if (Value* p = o ? prop(o, name) : nullptr)
+    auto setBool = [&](VmObject *o, const char *name, bool v) {
+        if (Value *p = o ? prop(o, name) : nullptr)
             *p = Value::boolValue(v);
     };
-    auto texAt = [&](VmObject* o, const char* name, int i) -> VmObject* {
-        const Value* t = o ? prop(o, name) : nullptr;
+    auto texAt = [&](VmObject *o, const char *name, int i) -> VmObject * {
+        const Value *t = o ? prop(o, name) : nullptr;
         return t ? t[i].asObject() : nullptr;
     };
-    auto setTex = [&](VmObject* mm, VmObject* t) {
-        if (Value* p = prop(mm, "Texture"); p && t)
+    auto setTex = [&](VmObject *mm, VmObject *t) {
+        if (Value *p = prop(mm, "Texture"); p && t)
             *p = Value::objectValue(t);
     };
     // A spark's trail: a smaller copy left behind it, lasting a moment.
-    auto newCopy = [&](VmObject* holder) -> VmObject* {
-        VmFunction* make = vm_.findFunction(holder, vm_.name("NewMultiMesh"));
+    auto newCopy = [&](VmObject *holder) -> VmObject * {
+        VmFunction *make = vm_.findFunction(holder, vm_.name("NewMultiMesh"));
         return make ? vm_.invoke(make, holder, {}).asObject() : nullptr;
     };
-    auto trail = [&](VmObject* mm, float size, float life, float glow) {
-        VmObject* c = newCopy(actor);
+    auto trail = [&](VmObject *mm, float size, float life, float glow) {
+        VmObject *c = newCopy(actor);
         if (!c)
             return;
         setv(c, "Location", vec(mm, "Location"));
@@ -271,19 +287,19 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         setv(c, "Velocity", mul(vec(mm, "Velocity"), 0.8f));
         setv(c, "Acceleration", mul(vec(mm, "Acceleration"), 0.8f));
         set(c, "ScaleGlow", glow);
-        if (Value* st = prop(c, "Style"))
+        if (Value *st = prop(c, "Style"))
             *st = Value::intValue(3);
         set(c, "LifeSpan", life);
         setv(c, "ColorFilter", vec(mm, "ColorFilter"));
-        if (const Value* t = prop(mm, "Texture"))
-            if (Value* p = prop(c, "Texture"))
+        if (const Value *t = prop(mm, "Texture"))
+            if (Value *p = prop(c, "Texture"))
                 *p = *t;
         setBool(c, "bUse", true);
     };
     // Turned about `axis` keeping its speed (a trail's or cinder's curl):
     // the axis crossed with the way it goes (axis x direction, as the
     // engine's sums run), added on and scaled back to its speed.
-    auto curl = [&](VmObject* mm, const Vec& axis, float by) {
+    auto curl = [&](VmObject *mm, const Vec &axis, float by) {
         const Vec v = vec(mm, "Velocity");
         const float speed = length(v);
         if (speed <= 0)
@@ -294,8 +310,8 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     };
     // The explosions' smoke textures (CTVE_EXP_Smoke's Tex, FadeTex,
     // TranslucentTex), picked again each tick.
-    auto expTexture = [&](VmObject* mm) {
-        const Value* st = prop(actor, "Style");
+    auto expTexture = [&](VmObject *mm) {
+        const Value *st = prop(actor, "Style");
         const float l = f(mm, "LifeSpan");
         if (st && st->asInt() == 3)
             setTex(mm, texAt(actor, "TranslucentTex", int(frand() * 3.9f)));
@@ -327,7 +343,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
                       p3 = vec(base, "Acceleration"), wave = vec(base, "AxisScale");
             const bool waves = b(base, "bUse");
             const float step = f(base, "Phase"), freq = f(base, "Angle");
-            for (VmObject* mm : copies) {
+            for (VmObject *mm : copies) {
                 const float u = 1 - t;
                 Vec at = add(from, add(add(mul(p1, 3 * t * u * u), mul(p2, 3 * t * t * u)), mul(p3, t * t * t)));
                 if (waves)
@@ -338,9 +354,9 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         }
         const int last = (prop(actor, "NumSegments") ? prop(actor, "NumSegments")->asInt() : int(copies.size())) - 1;
         const float glow = f(actor, "ScaleGlow", 1);
-        VmObject* before = nullptr;
+        VmObject *before = nullptr;
         int k = 0;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             set(mm, "ScaleGlow", glow);
             const float jolt = (k == 0 || k == last) ? f(mm, "Use2") : f(mm, "Use1");
             setv(mm, "Location", add(vec(mm, "Vect1"), mul(vrand(), jolt)));
@@ -367,7 +383,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         const float slow = generator ? f(owner, "DeltaSpeed") : 0, grow = generator ? f(owner, "DeltaSize") : 0;
         const float glow = generator ? f(owner, "MaxScaleGlow", 1) : f(actor, "ScaleGlow", 1);
         const bool fadeSize = !generator || b(owner, "bFadeSize"), fadeGlow = !generator || b(owner, "bFadeGlow");
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             Vec v = vec(mm, "Velocity");
             if (const float speed = length(v); speed > 0 && slow != 0)
                 v = mul(v, std::max(0.0f, speed - slow * dt) / speed);
@@ -390,7 +406,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysSmoke: {
         const Vec forces = generator ? add(vec(owner, "Forces"), vec(owner, "WindForce")) : Vec{};
         const bool fade = !generator || b(owner, "bFadeGlow");
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm, forces);
             const float l = f(mm, "LifeSpan");
             if (fade && l > 0 && l < 1)
@@ -406,7 +422,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysSteamJet:
         if (!generator)
             return;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             moveThenAccel(mm);
             set(mm, "DrawScale", f(mm, "DrawScale") + f(owner, "DeltaSize") * dt);
             if (!b(mm, "bUse")) {
@@ -428,7 +444,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysHotSpark:
         if (!generator)
             return;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             moveThenAccel(mm);
             setRot(mm, facing(vec(mm, "Velocity")));
             if (frand() < 0.3f) {
@@ -449,10 +465,11 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         if (!vm_.isA(actor, "CTVE_Sparks"))
             return;
         const float glow = f(actor, "MaxScaleGlow", 1);
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             moveThenAccel(mm);
             set(mm, "DrawScale", frand() * f(mm, "Phase"));
-            setv(mm, "Location", add(vec(mm, "Location"), {frand() * 0.2f - 0.1f, frand() * 0.2f - 0.1f, frand() * 0.2f - 0.1f}));
+            setv(mm, "Location",
+                 add(vec(mm, "Location"), {frand() * 0.2f - 0.1f, frand() * 0.2f - 0.1f, frand() * 0.2f - 0.1f}));
             Vec v = vec(mm, "Velocity");
             if (const float across = std::hypot(v[0], v[1]); across > 100) {
                 const float k = std::max(0.0f, across - 500 * dt) / across;
@@ -465,7 +482,8 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
             set(mm, "Angle", f(mm, "Angle") - dt);
             if (!b(mm, "bUse") && f(mm, "Angle") < 0) {
                 trail(mm, frand() * f(mm, "Phase") * 0.25f, frand() * 0.6f, glow);
-                setv(mm, "Velocity", add(vec(mm, "Velocity"), {frand() * 30 - 15, frand() * 30 - 15, frand() * 30 - 15}));
+                setv(mm, "Velocity",
+                     add(vec(mm, "Velocity"), {frand() * 30 - 15, frand() * 30 - 15, frand() * 30 - 15}));
                 set(mm, "Angle", 0.01f + 0.02f * frand());
             }
             lifeAlways(mm);
@@ -482,10 +500,10 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         if (!generator)
             return;
         const float surface = vec(owner, "SeedLocation")[2];
-        const Value* popValue = prop(owner, "SpecialTexture");
-        VmObject* pop = popValue ? popValue->asObject() : nullptr;
-        for (VmObject* mm : copies) {
-            const Value* t = prop(mm, "Texture");
+        const Value *popValue = prop(owner, "SpecialTexture");
+        VmObject *pop = popValue ? popValue->asObject() : nullptr;
+        for (VmObject *mm : copies) {
+            const Value *t = prop(mm, "Texture");
             if (pop && t && t->asObject() == pop) {
                 set(mm, "DrawScale", f(mm, "DrawScale") + 0.3f * dt);
                 Vec l = vec(mm, "Location");
@@ -534,7 +552,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysGasCloudM4:
     case kPhysBeamFadeTailCatchup:
     case kPhysBeamFadeTailStationary:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             float l = f(mm, "LifeSpan");
             if (l <= 0)
                 continue;
@@ -562,7 +580,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         const float speed = gen[2];
         const int side = int(gen[0]);
         const Vec from = vec(owner, "Location");
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             float phase = f(mm, "Phase");
             phase += std::max(0.2f, 1 - std::fabs(phase)) * speed * dt;
             set(mm, "Phase", phase);
@@ -572,7 +590,8 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
             set(mm, "ScaleGlow", glow);
             if (std::fabs(phase) > 1 || (side == 1 && phase < 0) || (side == -1 && phase > 0))
                 set(mm, "LifeSpan", 0.001f);
-            setv(mm, "Location", add(add(from, mul(vec(mm, "Vect1"), 1 + 4 * phase * phase)), mul(vec(mm, "Vect2"), phase)));
+            setv(mm, "Location",
+                 add(add(from, mul(vec(mm, "Vect1"), 1 + 4 * phase * phase)), mul(vec(mm, "Vect2"), phase)));
             lifeIfAny(mm);
         }
         return;
@@ -583,13 +602,14 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // the axis (its Phase the distance), round a widening circle (Angle,
     // a turn a second), growing; fading in its last second.
     case kPhysSpiralJet:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             const float out = f(mm, "Phase") + f(base, "Use3") * dt;
             set(mm, "Phase", out);
             const float r = out * f(base, "Phase");
             const float angle = f(mm, "Angle");
-            setv(mm, "Location", add(add(origin, mul(vec(base, "Velocity"), out)),
-                                     add(mul(vec(base, "Vect1"), r * std::sin(angle)), mul(vec(base, "Vect2"), r * std::cos(angle)))));
+            setv(mm, "Location",
+                 add(add(origin, mul(vec(base, "Velocity"), out)),
+                     add(mul(vec(base, "Vect1"), r * std::sin(angle)), mul(vec(base, "Vect2"), r * std::cos(angle)))));
             float next = angle + 6.28f * dt;
             if (next > 6.28f)
                 next -= 6.28f;
@@ -607,7 +627,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysPipePath:
         if (!generator)
             return;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             const float l = f(mm, "LifeSpan") - dt;
             set(mm, "LifeSpan", l);
             const Vec d = sub(vec(mm, "Acceleration"), vec(mm, "Location"));
@@ -632,7 +652,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         if (!generator)
             return;
         const int frames = prop(owner, "NumAnimTextures") ? prop(owner, "NumAnimTextures")->asInt() : 0;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             if (frames == 0) {
                 setRot(mm, facing(vec(mm, "Velocity")));
@@ -665,7 +685,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         const bool feeding = b(base, "bUse");
         Vec before = lo;
         bool first = true;
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             const float speed = 5 + 25 * frand();
             Vec at = vec(mm, "Location");
             float phase = f(mm, "Phase") - dt;
@@ -675,13 +695,15 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
                     setBool(mm, "bUse", true);
                 } else {
                     setBool(mm, "bUse", false);
-                    setv(mm, "Vect1", {lo[0] + (hi[0] - lo[0]) * frand(), lo[1] + (hi[1] - lo[1]) * frand(),
-                                       lo[2] + (hi[2] - lo[2]) * frand()});
+                    setv(mm, "Vect1",
+                         {lo[0] + (hi[0] - lo[0]) * frand(), lo[1] + (hi[1] - lo[1]) * frand(),
+                          lo[2] + (hi[2] - lo[2]) * frand()});
                 }
                 const float top = std::max(lo[2], hi[2]);
                 if (feeding && at[2] < top - 5)
-                    setv(mm, "Vect1", {lo[0] + (hi[0] - lo[0]) * (0.2f + 0.6f * frand()),
-                                       lo[1] + (hi[1] - lo[1]) * (0.2f + 0.6f * frand()), top});
+                    setv(mm, "Vect1",
+                         {lo[0] + (hi[0] - lo[0]) * (0.2f + 0.6f * frand()),
+                          lo[1] + (hi[1] - lo[1]) * (0.2f + 0.6f * frand()), top});
             }
             if (!feeding && b(mm, "bUse"))
                 setv(mm, "Vect1", add(before, {frand() * 4 - 2, frand() * 4 - 2, frand() * 4 - 2}));
@@ -719,8 +741,8 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         const Vec settings = vec(owner, "ColorFilter");
         const bool normalFire = settings[2] == 1;
         const float cap = f(owner, "TweenRate");
-        VmObject* smoke = texAt(actor, "Tex", 0);
-        for (VmObject* mm : copies) {
+        VmObject *smoke = texAt(actor, "Tex", 0);
+        for (VmObject *mm : copies) {
             if (!lifeAlways(mm))
                 continue;
             float phase = f(mm, "Phase") - dt;
@@ -728,7 +750,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
             if (phase < 0) {
                 if (phase < -0.15f)
                     stage = 4;
-                auto begin = [&](float length, float use1, float use2, const Vec& push, const Vec& colour) {
+                auto begin = [&](float length, float use1, float use2, const Vec &push, const Vec &colour) {
                     phase = length;
                     set(mm, "Use1", use1);
                     set(mm, "Use2", use2);
@@ -797,7 +819,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // texture picked again each tick.
     case kPhysExpTrail: {
         const float span = std::max(0.01f, f(base, "Phase", 1));
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             const float t = f(mm, "LifeSpan") / span;
             setv(mm, "ColorFilter", add(vec(base, "Vect2"), mul(sub(vec(base, "Vect1"), vec(base, "Vect2")), t)));
@@ -809,7 +831,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // Explosions' smoke (EXP_Smoke): growing by its Phase; once falling
     // faster than 40, drawn back to the explosion and up.
     case kPhysExpSmoke:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             expTexture(mm);
             set(mm, "DrawScale", f(mm, "DrawScale") + f(mm, "Phase") * dt);
@@ -823,7 +845,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         return;
     // An explosion's column (EXP_Column): growing by its Phase, at least 0.3.
     case kPhysExpColumn:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             expTexture(mm);
             set(mm, "DrawScale", std::max(0.3f, f(mm, "DrawScale") + f(mm, "Phase") * dt));
@@ -839,10 +861,10 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         const bool cinder = physics == kPhysExpCinder;
         const float twist = f(base, "Angle");
         const Vec c1 = vec(base, "Vect1"), c2 = vec(base, "ColorFilter");
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             if (cinder && frand() < 0.1f) {
                 Vec a = vec(mm, "Acceleration");
-                for (float& k : a)
+                for (float &k : a)
                     k += (2 * frand() - 1) * f(mm, "Phase");
                 setv(mm, "Acceleration", a);
                 setv(mm, "Vect2", vrand());
@@ -876,13 +898,13 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         if (!generator)
             return;
         const Vec from = vec(owner, "Location");
-        const Value* rr = prop(owner, "Rotation");
+        const Value *rr = prop(owner, "Rotation");
         const auto ro = rr ? Vm::rotatorOf(*rr) : std::array<int32_t, 3>{};
         const float yaw = float(ro[1]) * kPi / 32768, pitch = float(ro[0]) * kPi / 32768;
         const Vec x{std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)};
         const Vec hit = vec(owner, "MMEventLocation"), n = vec(owner, "WindDir");
         const float reach = length(sub(hit, from));
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             if (f(mm, "DrawScale") < 2)
                 set(mm, "DrawScale", f(mm, "DrawScale") + 10 * dt);
             set(mm, "ScaleGlow", std::min(f(mm, "LifeSpan"), 0.25f));
@@ -910,7 +932,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         if (!generator)
             return;
         const float floor = vec(owner, "Location")[2];
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             if (!b(mm, "bUse")) {
                 accelThenMove(mm);
                 Vec at = vec(mm, "Location");
@@ -932,7 +954,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     }
     // A phaser's disintegration specks: sinking at 30 a second, fading.
     case kPhysDisintegrationPhaser:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             Vec at = vec(mm, "Location");
             at[2] -= 30 * dt;
             setv(mm, "Location", at);
@@ -944,7 +966,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // jet's own Velocity.Z (its speed) pulls it back, growing, fading.
     case kPhysExhaustJet: {
         const float pull = vec(actor, "Velocity")[2];
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             Vec c = vec(mm, "ColorFilter");
             if (c[1] > c[2]) {
                 c[1] -= 8 * dt;
@@ -969,11 +991,12 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysEmPulseRifle:
     case kPhysEmPulseRifleQuad: {
         const float power = std::min(1.0f, vec(actor, "Acceleration")[2]);
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             const float l = f(mm, "LifeSpan");
             if (l <= 0)
                 continue;
-            set(mm, "ScaleGlow", l < 0.5f ? std::max(0.0f, f(mm, "ScaleGlow") - 2 * dt) : std::min(1.0f, f(mm, "ScaleGlow") + 8 * dt));
+            set(mm, "ScaleGlow",
+                l < 0.5f ? std::max(0.0f, f(mm, "ScaleGlow") - 2 * dt) : std::min(1.0f, f(mm, "ScaleGlow") + 8 * dt));
             if (physics == kPhysEmPulseRifle)
                 set(mm, "DrawScale", f(mm, "DrawScale") + (power + 0.5f) * dt);
             lifeIfAny(mm);
@@ -983,7 +1006,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // Water rings (physWaterRing): drifting, spreading by their Angle a
     // second, fading by their Phase a second; gone when dark.
     case kPhysWaterRing:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             setv(mm, "Location", add(vec(mm, "Location"), mul(vec(mm, "Velocity"), dt)));
             const float glow = f(mm, "ScaleGlow") - f(mm, "Phase") * dt;
             set(mm, "ScaleGlow", glow);
@@ -995,13 +1018,13 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     // Explosion cores and rings: by velocity, gone when their life is.
     case kPhysExpCore:
     case kPhysExpRing:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             lifeAlways(mm);
         }
         return;
     case kPhysPlasmaJet:
-        for (VmObject* mm : copies) {
+        for (VmObject *mm : copies) {
             accelThenMove(mm);
             set(mm, "ScaleGlow", f(mm, "LifeSpan"));
             Vec c = vec(mm, "ColorFilter");
@@ -1016,8 +1039,8 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
     case kPhysDisintegration:
         if (!generator)
             return;
-        for (VmObject* mm : copies) {
-            if (Value* r = prop(mm, "Rotation")) {
+        for (VmObject *mm : copies) {
+            if (Value *r = prop(mm, "Rotation")) {
                 auto ro = Vm::rotatorOf(*r);
                 const Vec spin = vec(mm, "Vect1");
                 ro[1] += int32_t(spin[0] * dt);
@@ -1037,7 +1060,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
         return;
     default:
         // Others: by velocity and acceleration, aged.
-        for (VmObject* mm : copies)
+        for (VmObject *mm : copies)
             stepCopy(mm, dt, true, true, {});
         return;
     }
@@ -1045,7 +1068,7 @@ void ScriptLevel::moveMultiMeshes(VmObject* actor, float dt) {
 
 // What a copy's age was a tick ago, for a fade that scales what the
 // scripts set rather than replacing it.
-float ScriptLevel::copyAgeBefore(VmObject* mm, float age, float dt) {
+float ScriptLevel::copyAgeBefore(VmObject *mm, float age, float dt) {
     auto it = copyStarts_.find(mm);
     if (it == copyStarts_.end() || it->second <= 0)
         return age;
@@ -1055,20 +1078,21 @@ float ScriptLevel::copyAgeBefore(VmObject* mm, float age, float dt) {
 // --- Actors moved by The Fallen's modes -----------------------------------------------------
 
 // The modes that move the actor itself.
-void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
-    Value* velocityValue = prop(a, "Velocity");
-    Value* loc = prop(a, "Location");
+void ScriptLevel::fallenPhysics(VmObject *a, int physics, float dt) {
+    Value *velocityValue = prop(a, "Velocity");
+    Value *loc = prop(a, "Location");
     if (!velocityValue || !loc)
         return;
     Vec v = Vm::vectorOf(*velocityValue);
     const Vec accel = prop(a, "Acceleration") ? Vm::vectorOf(*prop(a, "Acceleration")) : Vec{};
-    auto f = [&](const char* name, float otherwise = 0) {
-        const Value* p = prop(a, name);
+    auto f = [&](const char *name, float otherwise = 0) {
+        const Value *p = prop(a, name);
         return p ? p->asFloat() : otherwise;
     };
-    auto hitWall = [&](const MoveHit& h) {
+    auto hitWall = [&](const MoveHit &h) {
         if (!a->deleted && h.hit())
-            vm_.callEvent(a, "HitWall", {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
+            vm_.callEvent(a, "HitWall",
+                          {vm_.vectorValue(h.normal[0], h.normal[1], h.normal[2]), Value::objectValue(h.actor)});
     };
     switch (physics) {
     case kPhysTrailer: {
@@ -1079,20 +1103,20 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
         // to the place and takes the owner's turn (bTrailerSameRotation),
         // else faces away from where the owner's going (straight up when
         // it's still).
-        const Value* o = prop(a, "Owner");
-        VmObject* owner = o ? o->asObject() : nullptr;
+        const Value *o = prop(a, "Owner");
+        VmObject *owner = o ? o->asObject() : nullptr;
         if (!owner || owner->deleted)
             return;
-        const Value* at = prop(owner, "Location");
+        const Value *at = prop(owner, "Location");
         if (!at)
             return;
         Vec to = Vm::vectorOf(*at);
-        auto flag = [&](const char* name) {
-            const Value* p = prop(a, name);
+        auto flag = [&](const char *name) {
+            const Value *p = prop(a, name);
             return p && p->asBool();
         };
-        const Value* drawType = prop(a, "DrawType");
-        const Value* ownerRot = prop(owner, "Rotation");
+        const Value *drawType = prop(a, "DrawType");
+        const Value *ownerRot = prop(owner, "Rotation");
         if (drawType && drawType->asInt() == 1) {
             if (flag("bTrailerPrePivot")) {
                 to = add(to, prop(a, "PrePivot") ? Vm::vectorOf(*prop(a, "PrePivot")) : Vec{});
@@ -1108,7 +1132,7 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
         }
         vm_.setVector(*loc, to[0], to[1], to[2]);
         updateRegion(a);
-        Value* r = prop(a, "Rotation");
+        Value *r = prop(a, "Rotation");
         if (!r)
             return;
         if (flag("bTrailerSameRotation")) {
@@ -1116,7 +1140,7 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
                 *r = *ownerRot;
             return;
         }
-        const Value* ov = prop(owner, "Velocity");
+        const Value *ov = prop(owner, "Velocity");
         const Vec w = ov ? Vm::vectorOf(*ov) : Vec{};
         if (std::fabs(w[0]) < 1e-4f && std::fabs(w[1]) < 1e-4f && std::fabs(w[2]) < 1e-4f)
             *r = vm_.rotatorValue(16384, 0, 0);
@@ -1131,12 +1155,12 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
         // and only with bFixedRotationDir (round and round) or
         // bRotateToDesired (to DesiredRotation, then EndedRotation), by
         // RotationRate a second.
-        Value* r = prop(a, "Rotation");
-        const Value* rate = prop(a, "RotationRate");
+        Value *r = prop(a, "Rotation");
+        const Value *rate = prop(a, "RotationRate");
         if (!r || !rate)
             return;
-        auto flag = [&](const char* name) {
-            const Value* p = prop(a, name);
+        auto flag = [&](const char *name) {
+            const Value *p = prop(a, name);
             return p && p->asBool();
         };
         const bool toDesired = flag("bRotateToDesired"), fixed = flag("bFixedRotationDir");
@@ -1169,7 +1193,7 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
     case kPhysParticle: {
         // Without copies (physParticle): drifting by its velocity and
         // acceleration, through everything (no collision, no events).
-        if (const Value* mm = prop(a, "MultiMesh"); mm && mm->asObject())
+        if (const Value *mm = prop(a, "MultiMesh"); mm && mm->asObject())
             return;
         v = add(v, mul(accel, dt));
         vm_.setVector(*velocityValue, v[0], v[1], v[2]);
@@ -1190,14 +1214,14 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
         // moved (unless it was just teleported).
         const bool pawn = vm_.isA(a, "Pawn");
         if (pawn) {
-            if (Value* t = prop(a, "bJustTeleported"))
+            if (Value *t = prop(a, "bJustTeleported"))
                 *t = Value::boolValue(false);
             Vec ac = accel;
             calcVelocity(a, v, ac, dt, f("AirSpeed", 320), 0, true, false, false, zoneFeel(a).gravity);
             vm_.setVector(*velocityValue, v[0], v[1], v[2]);
         }
         const Vec start = Vm::vectorOf(*loc);
-        if (Value* old = prop(a, "OldLocation"))
+        if (Value *old = prop(a, "OldLocation"))
             vm_.setVector(*old, start[0], start[1], start[2]);
         const Vec delta = mul(v, dt);
         if (length(delta) > 1e-4f) {
@@ -1222,9 +1246,9 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
             }
         }
         if (pawn && !a->deleted && dt > 0) {
-            const Value* jt = prop(a, "bJustTeleported");
+            const Value *jt = prop(a, "bJustTeleported");
             if (!jt || !jt->asBool())
-                if (Value* vv = prop(a, "Velocity")) {
+                if (Value *vv = prop(a, "Velocity")) {
                     const Vec moved = mul(sub(Vm::vectorOf(*prop(a, "Location")), start), 1 / dt);
                     vm_.setVector(*vv, moved[0], moved[1], moved[2]);
                 }
@@ -1249,14 +1273,15 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
             vm_.setVector(*loc, l[0], l[1], l[2]);
             updateRegion(a);
         }
-        if (const Value* head = prop(a, "MultiMesh"); head && head->asObject()) {
-            VmObject* base = head->asObject();
-            const Value* torque = prop(base, "Angle");
+        if (const Value *head = prop(a, "MultiMesh"); head && head->asObject()) {
+            VmObject *base = head->asObject();
+            const Value *torque = prop(base, "Angle");
             const float speed = length(v);
             if (torque && torque->asFloat() != 0 && speed > 0) {
                 const Vec axis = prop(base, "Acceleration") ? Vm::vectorOf(*prop(base, "Acceleration")) : Vec{};
                 const Vec d = normal(v);
-                const Vec c{axis[1] * d[2] - axis[2] * d[1], axis[2] * d[0] - axis[0] * d[2], axis[0] * d[1] - axis[1] * d[0]};
+                const Vec c{axis[1] * d[2] - axis[2] * d[1], axis[2] * d[0] - axis[0] * d[2],
+                            axis[0] * d[1] - axis[1] * d[0]};
                 v = add(v, mul(c, dt * torque->asFloat() * 2500));
                 if (length(v) > 0)
                     v = mul(normal(v), speed);
@@ -1284,45 +1309,46 @@ void ScriptLevel::fallenPhysics(VmObject* a, int physics, float dt) {
 // the actor's, then on to the next (or back to the one before),
 // skipping those with bSkipNextPath, with the time left over. A pawn's
 // ViewRotation follows; the velocity is what it moved.
-void ScriptLevel::interpolate(VmObject* a, float dt) {
-    const Value* on = prop(a, "bInterpolating");
-    Value* target = prop(a, "Target");
-    Value* alpha = prop(a, "PhysAlpha");
-    const Value* rateValue = prop(a, "PhysRate");
+void ScriptLevel::interpolate(VmObject *a, float dt) {
+    const Value *on = prop(a, "bInterpolating");
+    Value *target = prop(a, "Target");
+    Value *alpha = prop(a, "PhysAlpha");
+    const Value *rateValue = prop(a, "PhysRate");
     const float physRate = rateValue ? rateValue->asFloat() : 0;
     if (!on || !on->asBool() || !target || !target->asObject() || !alpha || physRate == 0 || dt <= 0)
         return;
     const bool ctve = (prop(a, "Physics") ? prop(a, "Physics")->asInt() : 0) == kPhysCtveInterpolating;
-    auto obj = [&](VmObject* o, const char* name) -> VmObject* {
-        const Value* v = o ? prop(o, name) : nullptr;
+    auto obj = [&](VmObject *o, const char *name) -> VmObject * {
+        const Value *v = o ? prop(o, name) : nullptr;
         return v ? v->asObject() : nullptr;
     };
-    auto num = [&](VmObject* o, const char* name, float otherwise) {
-        const Value* v = o ? prop(o, name) : nullptr;
+    auto num = [&](VmObject *o, const char *name, float otherwise) {
+        const Value *v = o ? prop(o, name) : nullptr;
         return v ? v->asFloat() : otherwise;
     };
-    auto place = [&](VmObject* o) {
-        const Value* v = o ? prop(o, "Location") : nullptr;
+    auto place = [&](VmObject *o) {
+        const Value *v = o ? prop(o, "Location") : nullptr;
         return v ? Vm::vectorOf(*v) : Vec{};
     };
-    auto turn = [&](VmObject* o) {
-        const Value* v = o ? prop(o, "Rotation") : nullptr;
+    auto turn = [&](VmObject *o) {
+        const Value *v = o ? prop(o, "Rotation") : nullptr;
         return v ? Vm::rotatorOf(*v) : std::array<int32_t, 3>{};
     };
     const Vec start = place(a);
     float left = dt;
     for (int guard = 0; guard < 16 && left > 0; ++guard) {
-        VmObject* from = target->asObject();
+        VmObject *from = target->asObject();
         if (!from)
             break;
-        VmObject* to = obj(from, "Next");
+        VmObject *to = obj(from, "Next");
         if (!to) {
             if (physRate > 0) // the path's end: held there
                 break;
             to = from;
         }
         const float t0 = alpha->asFloat();
-        const float rate = num(from, "RateModifier", 1) + (num(to, "RateModifier", 1) - num(from, "RateModifier", 1)) * t0;
+        const float rate =
+            num(from, "RateModifier", 1) + (num(to, "RateModifier", 1) - num(from, "RateModifier", 1)) * t0;
         const float step = physRate * rate * left;
         float t = t0 + step;
         const bool past = t > 1 || t < 0;
@@ -1334,8 +1360,8 @@ void ScriptLevel::interpolate(VmObject* a, float dt) {
         }
         t = std::clamp(t, 0.0f, 1.0f);
         // Where it is now.
-        VmObject* before = obj(from, "Prev");
-        VmObject* after = obj(to, "Next");
+        VmObject *before = obj(from, "Prev");
+        VmObject *after = obj(to, "Next");
         Vec at;
         std::array<int32_t, 3> rot{};
         const auto r1 = turn(from), r2 = turn(to);
@@ -1343,9 +1369,9 @@ void ScriptLevel::interpolate(VmObject* a, float dt) {
             auto w = [](float x) { return x * x * x * x / 16 - x * x / 2 + 1; };
             float k[4] = {w(t + 1), w(t), w(t - 1), w(t - 2)};
             const float sum = k[0] + k[1] + k[2] + k[3];
-            for (float& q : k)
+            for (float &q : k)
                 q /= sum;
-            VmObject* pts[4] = {before, from, to, after};
+            VmObject *pts[4] = {before, from, to, after};
             at = {};
             for (int i = 0; i < 4; ++i)
                 at = add(at, mul(place(pts[i]), k[i]));
@@ -1368,40 +1394,40 @@ void ScriptLevel::interpolate(VmObject* a, float dt) {
         setLocation(a, at);
         if (a->deleted)
             return;
-        for (const char* name : {"Rotation", "ViewRotation"}) {
+        for (const char *name : {"Rotation", "ViewRotation"}) {
             if (std::string(name) == "ViewRotation" && !vm_.isA(a, "Pawn"))
                 continue;
-            if (Value* p = prop(a, name))
+            if (Value *p = prop(a, name))
                 *p = vm_.rotatorValue(rot[0] & 0xffff, rot[1] & 0xffff, rot[2] & 0xffff);
         }
         alpha->f = t;
         // The points' game speed (the level's TimeDilation), and for a
         // player its view's field (its class's FovAngle times the points'
         // FovModifier) and screen flash, blended by the way along.
-        auto lerp = [&](const char* name, float otherwise) {
+        auto lerp = [&](const char *name, float otherwise) {
             const float a0 = num(from, name, otherwise);
             return a0 + (num(to, name, otherwise) - a0) * t;
         };
-        if (VmObject* li = levelInfo_)
-            if (Value* d = prop(li, "TimeDilation"))
+        if (VmObject *li = levelInfo_)
+            if (Value *d = prop(li, "TimeDilation"))
                 *d = Value::floatValue(lerp("GameSpeedModifier", 1));
         if (vm_.isA(a, "PlayerPawn")) {
             const float flash = lerp("ScreenFlashScale", 1);
-            const Value* f0 = prop(from, "ScreenFlashFog");
-            const Value* f1 = prop(to, "ScreenFlashFog");
+            const Value *f0 = prop(from, "ScreenFlashFog");
+            const Value *f1 = prop(to, "ScreenFlashFog");
             const Vec fog0 = f0 ? Vm::vectorOf(*f0) : Vec{}, fog1 = f1 ? Vm::vectorOf(*f1) : Vec{};
             const Vec fog = add(fog0, mul(sub(fog1, fog0), t));
-            for (const char* name : {"FlashScale"})
-                if (Value* p = prop(a, name))
+            for (const char *name : {"FlashScale"})
+                if (Value *p = prop(a, name))
                     vm_.setVector(*p, flash, flash, flash);
-            if (Value* p = prop(a, "DesiredFlashScale"))
+            if (Value *p = prop(a, "DesiredFlashScale"))
                 *p = Value::floatValue(flash);
-            for (const char* name : {"FlashFog", "DesiredFlashFog"})
-                if (Value* p = prop(a, name))
+            for (const char *name : {"FlashFog", "DesiredFlashFog"})
+                if (Value *p = prop(a, name))
                     vm_.setVector(*p, fog[0], fog[1], fog[2]);
-            if (const VmProperty* fp = a->cls->findProperty(vm_.name("FovAngle"));
+            if (const VmProperty *fp = a->cls->findProperty(vm_.name("FovAngle"));
                 fp && size_t(fp->slot) < a->cls->defaults.size())
-                if (Value* p = prop(a, "FovAngle"))
+                if (Value *p = prop(a, "FovAngle"))
                     *p = Value::floatValue(a->cls->defaults[size_t(fp->slot)].asFloat() * lerp("FovModifier", 1));
         }
         left -= spent;
@@ -1417,9 +1443,9 @@ void ScriptLevel::interpolate(VmObject* a, float dt) {
             vm_.callEvent(a, "InterpolateEnd", {Value::objectValue(from)});
         if (a->deleted || !prop(a, "bInterpolating")->asBool())
             break;
-        VmObject* next = forward ? obj(from, "Next") : obj(from, "Prev");
+        VmObject *next = forward ? obj(from, "Next") : obj(from, "Prev");
         for (int skip = 0; next && skip < 64; ++skip) {
-            const Value* sk = prop(next, "bSkipNextPath");
+            const Value *sk = prop(next, "bSkipNextPath");
             if (!sk || !sk->asBool())
                 break;
             next = forward ? obj(next, "Next") : obj(next, "Prev");
@@ -1428,7 +1454,7 @@ void ScriptLevel::interpolate(VmObject* a, float dt) {
             break;
         *target = Value::objectValue(next);
     }
-    if (Value* vv = prop(a, "Velocity")) {
+    if (Value *vv = prop(a, "Velocity")) {
         const Vec moved = mul(sub(place(a), start), 1 / dt);
         vm_.setVector(*vv, moved[0], moved[1], moved[2]);
     }

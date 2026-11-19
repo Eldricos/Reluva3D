@@ -20,28 +20,28 @@ namespace reluva {
 class ZipArchive : public Archive {
 public:
     struct Entry {
-        std::string name;         // as stored
-        uint16_t method = 0;      // 0 stored, 8 deflate
+        std::string name;    // as stored
+        uint16_t method = 0; // 0 stored, 8 deflate
         uint32_t crc = 0;
         uint32_t compressedSize = 0;
         uint32_t size = 0;
         uint32_t localHeader = 0; // file offset of the local header
     };
 
-    Error open(const std::filesystem::path& path);
+    Error open(const std::filesystem::path &path);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return path_.string(); }
 
-    const std::vector<Entry>& entries() const { return entries_; }
-    const Entry* entry(std::string_view name) const;
-    Error read(const Entry& entry, std::vector<uint8_t>& out) const;
+    const std::vector<Entry> &entries() const { return entries_; }
+    const Entry *entry(std::string_view name) const;
+    Error read(const Entry &entry, std::vector<uint8_t> &out) const;
     // The same, but a stored (uncompressed) entry whose CRC-32 doesn't
     // match is read as it is, `crcOk` false: for games whose own readers
     // never checked, and whose copies have entries damaged that way.
-    Error readUnchecked(const Entry& entry, std::vector<uint8_t>& out, bool& crcOk) const;
+    Error readUnchecked(const Entry &entry, std::vector<uint8_t> &out, bool &crcOk) const;
 
 private:
     std::filesystem::path path_;
@@ -50,14 +50,14 @@ private:
 };
 
 // CRC-32 as zip uses it (polynomial 0xedb88320), continuing from `crc`.
-uint32_t crc32(const uint8_t* data, size_t size, uint32_t crc = 0);
+uint32_t crc32(const uint8_t *data, size_t size, uint32_t crc = 0);
 
 // Inflate raw deflate data (no zlib header) whose size is known. Fails if
 // the data is damaged or doesn't come to exactly `size` bytes.
-Error inflateRaw(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
+Error inflateRaw(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out);
 
 // The same for a zlib stream (RFC 1950: a 2-byte header, deflate data and
 // an Adler-32 of the result, which is checked).
-Error inflateZlib(const uint8_t* data, size_t dataSize, size_t size, std::vector<uint8_t>& out);
+Error inflateZlib(const uint8_t *data, size_t dataSize, size_t size, std::vector<uint8_t> &out);
 
 } // namespace reluva

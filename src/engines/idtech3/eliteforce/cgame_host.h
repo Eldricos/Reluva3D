@@ -44,7 +44,7 @@ public:
         DrawActiveFrame = 3, // (serverTime, stereoView, demoPlayback)
     };
 
-    CgameHost(const SearchSet& files, CvarStore& cvars);
+    CgameHost(const SearchSet &files, CvarStore &cvars);
 
     // Reads vm/cgame.qvm.
     Error load();
@@ -53,7 +53,7 @@ public:
     void setConfigstrings(std::map<int32_t, std::string> configstrings) { configstrings_ = std::move(configstrings); }
     // CG_INIT for the player `clientNum`.
     Error init(int32_t clientNum, int32_t serverMessageNum = 0, int32_t serverCommandSequence = 0);
-    Error call(int32_t command, const std::vector<int32_t>& args, int32_t& result);
+    Error call(int32_t command, const std::vector<int32_t> &args, int32_t &result);
     // A new snapshot from the server, numbered from 1: what
     // GetCurrentSnapshotNumber reports and GetSnapshot hands over (the
     // last 32 are kept).
@@ -63,14 +63,14 @@ public:
     void setServerCommands(std::vector<std::string> commands) { serverCommands_ = std::move(commands); }
     // Its 2D drawing since clearPictures() (the loading screen, the HUD).
     using Picture = idtech3::Picture;
-    const std::vector<Picture>& pictures() const { return pictures_; }
+    const std::vector<Picture> &pictures() const { return pictures_; }
     void clearPictures() { pictures_.clear(); }
     // The weapon the client game last selected (SetUserCmdValue), which
     // the player's next commands carry.
     int32_t weaponSelect() const { return weaponSelect_; }
     // A command the player gave (numbered from 1), for the client game's
     // prediction: GetCurrentCmdNumber, GetUserCmd (the last 64 kept).
-    void addUserCommand(const GameHost::UserCommand& cmd) {
+    void addUserCommand(const GameHost::UserCommand &cmd) {
         userCommands_[++userCommandNumber_] = cmd;
         while (userCommands_.size() > 64)
             userCommands_.erase(userCommands_.begin());
@@ -79,25 +79,25 @@ public:
     using SceneEntity = idtech3::SceneEntity;
     using View = idtech3::View;
     using Scene = idtech3::Scene;
-    const Scene& scene() const { return scene_; }
+    const Scene &scene() const { return scene_; }
     void clearScene() { scene_ = Scene{}; }
     // Where the client game asked for each snapshot (GetSnapshot's
     // number and buffer), in order.
-    const std::vector<std::pair<int32_t, int32_t>>& snapshotRequests() const { return snapshotRequests_; }
+    const std::vector<std::pair<int32_t, int32_t>> &snapshotRequests() const { return snapshotRequests_; }
     // A command typed or bound to a key that the client game may handle
     // itself (CG_CONSOLE_COMMAND: "weapnext", "weapon 3"...): whether it did.
-    Error consoleCommand(const std::string& text, bool& handled);
+    Error consoleCommand(const std::string &text, bool &handled);
 
-    Qvm& vm() { return vm_; }
+    Qvm &vm() { return vm_; }
     // The layout its code was built with (1.0 or patch 1.2's), once loaded.
-    const GameLayout& layout() const { return layout_; }
+    const GameLayout &layout() const { return layout_; }
     // What it registered, by handle.
-    const HandleTable& models() const { return models_; }
-    const HandleTable& skins() const { return skins_; }
-    const HandleTable& shaders() const { return shaders_; }
-    const HandleTable& sounds() const { return sounds_; }
+    const HandleTable &models() const { return models_; }
+    const HandleTable &skins() const { return skins_; }
+    const HandleTable &shaders() const { return shaders_; }
+    const HandleTable &sounds() const { return sounds_; }
     // The console commands it added (AddCommand).
-    const std::vector<std::string>& commands() const { return commands_; }
+    const std::vector<std::string> &commands() const { return commands_; }
     // What it asked to send the server as the player's (SendClientCommand:
     // "score" while the scores are shown...) and to run at the console
     // (SendConsoleCommand), since last taken, in order.
@@ -105,33 +105,33 @@ public:
     std::vector<std::string> takeConsoleCommands() { return std::exchange(consoleCommands_, {}); }
     // The map it asked for, for collision (CM_LoadMap) and drawing
     // (R_LoadWorldMap), and the music (S_StartBackgroundTrack: intro, loop).
-    const std::string& collisionMap() const { return collisionMap_; }
-    const std::string& worldMap() const { return worldMap_; }
-    const std::pair<std::string, std::string>& music() const { return music_; }
+    const std::string &collisionMap() const { return collisionMap_; }
+    const std::string &worldMap() const { return worldMap_; }
+    const std::pair<std::string, std::string> &music() const { return music_; }
     // The loaded collision map, if CM_LoadMap found it.
     std::shared_ptr<const Bsp> map() const { return map_; }
 
     // Where its sounds go (S_StartSound...); none if not set.
-    SoundSystem* soundSystem = nullptr;
+    SoundSystem *soundSystem = nullptr;
     float subdivisions = 4; // r_subdivisions, for marks on curves to lie on them as drawn
 
-    std::function<void(const std::string&)> print;
+    std::function<void(const std::string &)> print;
     // UpdateScreen: while it loads, the client game asks for the screen to
     // be shown as it stands (its loading information); unset, nothing is.
     std::function<void()> updateScreen;
-    const std::string& log() const { return log_; }
-    const std::map<int, int>& unhandled() const { return unhandled_; }
+    const std::string &log() const { return log_; }
+    const std::map<int, int> &unhandled() const { return unhandled_; }
     // The arguments of the first call to each call not implemented.
-    const std::map<int, std::array<int32_t, 6>>& firstUnhandled() const { return firstUnhandled_; }
-    std::function<void(int number, const int32_t* args)> trace;
+    const std::map<int, std::array<int32_t, 6>> &firstUnhandled() const { return firstUnhandled_; }
+    std::function<void(int number, const int32_t *args)> trace;
 
 private:
-    int32_t systemCall(Qvm& vm, int number, const int32_t* args);
+    int32_t systemCall(Qvm &vm, int number, const int32_t *args);
     void writeGameState(int32_t address);
     void writeGlconfig(int32_t address);
 
-    const SearchSet& files_;
-    CvarStore& cvars_;
+    const SearchSet &files_;
+    CvarStore &cvars_;
     Qvm vm_;
     GameLayout layout_ = kLayout10;
     VmFiles vmFiles_;
@@ -149,7 +149,7 @@ private:
     int32_t snapshotNumber_ = 0, snapshotTime_ = 0;
     std::map<int32_t, GameHost::Snapshot> snapshots_; // by number
     std::vector<std::string> serverCommands_;
-    std::string bigConfigstring_; // a long configstring coming in pieces (bcs0, bcs1, bcs2)
+    std::string bigConfigstring_;   // a long configstring coming in pieces (bcs0, bcs1, bcs2)
     std::vector<std::string> args_; // the command being handled, split as Quake III's Cmd_TokenizeString does
     std::vector<Picture> pictures_;
     std::array<float, 4> color_{1, 1, 1, 1};
@@ -157,7 +157,7 @@ private:
     std::map<int32_t, GameHost::UserCommand> userCommands_;
     int32_t userCommandNumber_ = 0;
     Scene scene_;
-    std::map<int32_t, int32_t> cleared_; // memset(address, 0, size): the last size by address
+    std::map<int32_t, int32_t> cleared_;                      // memset(address, 0, size): the last size by address
     std::map<int32_t, std::shared_ptr<const Md3Model>> md3s_; // by model handle, for tags
     std::array<float, 3> tempBoxMins_{}, tempBoxMaxs_{};
     std::unique_ptr<CollisionWorld> world_;

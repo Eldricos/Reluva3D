@@ -11,7 +11,7 @@ namespace reluva::stharbinger {
 namespace {
 
 // Shannon entropy (bits) of every `step`th byte starting at `start`.
-double planeEntropy(const std::vector<uint8_t>& data, size_t start, size_t step) {
+double planeEntropy(const std::vector<uint8_t> &data, size_t start, size_t step) {
     uint32_t counts[256] = {};
     size_t n = 0;
     for (size_t i = start; i < data.size(); i += step, n++)
@@ -30,7 +30,7 @@ double planeEntropy(const std::vector<uint8_t>& data, size_t start, size_t step)
 
 } // namespace
 
-RawFormat detectRawFormat(const std::vector<uint8_t>& data) {
+RawFormat detectRawFormat(const std::vector<uint8_t> &data) {
     double lo = planeEntropy(data, 0, 2);
     double hi = planeEntropy(data, 1, 2);
     // A low byte that never changes is 8-bit audio stored as 16-bit (WHISPER1/2.RAW).
@@ -52,14 +52,20 @@ RawFormat detectRawFormat(const std::vector<uint8_t>& data) {
 std::unique_ptr<audio::Stream> makeRawStream(std::vector<uint8_t> data, int loops) {
     audio::RawStream::Format format;
     switch (detectRawFormat(data)) {
-    case kRawU8: format = audio::RawStream::Format::U8; break;
-    case kRawS8: format = audio::RawStream::Format::S8; break;
+    case kRawU8:
+        format = audio::RawStream::Format::U8;
+        break;
+    case kRawS8:
+        format = audio::RawStream::Format::S8;
+        break;
     case kRawS16BE:
         for (size_t i = 0; i + 1 < data.size(); i += 2)
             std::swap(data[i], data[i + 1]);
         format = audio::RawStream::Format::S16LE;
         break;
-    default: format = audio::RawStream::Format::S16LE; break;
+    default:
+        format = audio::RawStream::Format::S16LE;
+        break;
     }
     return std::make_unique<audio::RawStream>(std::move(data), format, kSampleRate, false, loops);
 }

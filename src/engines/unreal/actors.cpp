@@ -19,15 +19,15 @@ namespace {
 
 constexpr float kPi = 3.14159265358979f;
 
-Vec3f readVector(Reader& r) {
+Vec3f readVector(Reader &r) {
     Vec3f v;
-    for (float& f : v)
+    for (float &f : v)
         f = r.f32();
     return v;
 }
 
 // Exports that aren't actors (the level's own textures, models...).
-bool notAnActor(const Package& package, int32_t classRef) {
+bool notAnActor(const Package &package, int32_t classRef) {
     const std::string c = fs::toLower(package.objectName(classRef));
     return c == "model" || c == "polys" || c == "level" || c == "palette" || c == "sound" || c == "music" ||
            isTextureClass(c) || isMeshClass(c);
@@ -36,7 +36,7 @@ bool notAnActor(const Package& package, int32_t classRef) {
 // A sprite texture only the editor shows: Engine's icons (S_Light,
 // S_Camera...), The Fallen's (EI_Kira02, CTVE_Spark_Icon...), or one named
 // after the actor's class (DS9_SparkNode's).
-bool isEditorIcon(const std::string& texture, const std::string& actorClass) {
+bool isEditorIcon(const std::string &texture, const std::string &actorClass) {
     const std::string t = fs::toLower(texture);
     return t.rfind("s_", 0) == 0 || t.rfind("ei_", 0) == 0 || t.find("icon") != std::string::npos ||
            t == fs::toLower(actorClass);
@@ -44,7 +44,7 @@ bool isEditorIcon(const std::string& texture, const std::string& actorClass) {
 
 } // namespace
 
-Error readPolys(const Package& package, int index, std::vector<Poly>& out, size_t* trailing) {
+Error readPolys(const Package &package, int index, std::vector<Poly> &out, size_t *trailing) {
     out.clear();
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
@@ -61,7 +61,7 @@ Error readPolys(const Package& package, int index, std::vector<Poly>& out, size_
     if (!r.ok() || count < 0 || size_t(count) * 62 > r.remaining())
         return Error::fail(what + ": " + std::to_string(count) + " polygons don't fit");
     out.resize(size_t(count));
-    for (Poly& p : out) {
+    for (Poly &p : out) {
         const int32_t n = r.index();
         if (n < 0 || n > 64 || size_t(n) * 12 > r.remaining())
             return Error::fail(what + ": a polygon with " + std::to_string(n) + " vertices");
@@ -70,7 +70,7 @@ Error readPolys(const Package& package, int index, std::vector<Poly>& out, size_
         p.textureU = readVector(r);
         p.textureV = readVector(r);
         p.vertices.resize(size_t(n));
-        for (Vec3f& v : p.vertices)
+        for (Vec3f &v : p.vertices)
             v = readVector(r);
         p.polyFlags = r.u32();
         p.actor = r.index();
@@ -92,7 +92,7 @@ Error readPolys(const Package& package, int index, std::vector<Poly>& out, size_
     return Error::success();
 }
 
-Error readActorProperties(const Package& package, int index, PropertyList& out) {
+Error readActorProperties(const Package &package, int index, PropertyList &out) {
     std::vector<uint8_t> data;
     if (Error err = package.readExport(index, data))
         return err;
@@ -100,9 +100,9 @@ Error readActorProperties(const Package& package, int index, PropertyList& out) 
     return beginObject(package, index, r, out);
 }
 
-bool isA(const PackageSet& packages, const Package& package, int index, std::string_view className) {
+bool isA(const PackageSet &packages, const Package &package, int index, std::string_view className) {
     const std::string wanted = fs::toLower(className);
-    const Package* pkg = &package;
+    const Package *pkg = &package;
     int32_t cls = package.exports()[size_t(index)].classRef;
     for (int depth = 0; depth < 32 && cls != 0; ++depth) {
         if (fs::toLower(pkg->objectName(cls)) == wanted)
@@ -117,16 +117,16 @@ bool isA(const PackageSet& packages, const Package& package, int index, std::str
 }
 
 Vec3f Mover::basePosition() const {
-    const Vec3f& k = keyPos[size_t(keyNum)];
+    const Vec3f &k = keyPos[size_t(keyNum)];
     return {location[0] - k[0], location[1] - k[1], location[2] - k[2]};
 }
 
 Rotator Mover::baseRotation() const {
-    const Rotator& k = keyRot[size_t(keyNum)];
+    const Rotator &k = keyRot[size_t(keyNum)];
     return {rotation.pitch - k.pitch, rotation.yaw - k.yaw, rotation.roll - k.roll};
 }
 
-std::vector<Mover> findMovers(const PackageSet& packages, const Package& package, std::vector<std::string>* errors) {
+std::vector<Mover> findMovers(const PackageSet &packages, const Package &package, std::vector<std::string> *errors) {
     std::vector<Mover> out;
     std::map<int32_t, bool> moverClass; // by class reference, as many actors share one
     for (size_t i = 0; i < package.exports().size(); ++i) {
@@ -139,7 +139,7 @@ std::vector<Mover> findMovers(const PackageSet& packages, const Package& package
         if (!it->second)
             continue;
         const std::string what = package.path(int32_t(i) + 1);
-        auto fail = [&](const std::string& why) {
+        auto fail = [&](const std::string &why) {
             if (errors)
                 errors->push_back(what + ": " + why);
         };
@@ -178,7 +178,8 @@ std::vector<Mover> findMovers(const PackageSet& packages, const Package& package
         }
         const ObjectRef polys = packages.resolve(*brush.package, model.polys);
         if (!polys) {
-            fail("its brush has no polygons" + (model.hasLighting() ? std::string() : " (" + model.lightingError + ")"));
+            fail("its brush has no polygons" +
+                 (model.hasLighting() ? std::string() : " (" + model.lightingError + ")"));
             continue;
         }
         if (Error err = readPolys(*polys.package, polys.exportIndex, m.polys)) {
@@ -190,7 +191,7 @@ std::vector<Mover> findMovers(const PackageSet& packages, const Package& package
     return out;
 }
 
-std::optional<Vec3f> findSkyZone(const PackageSet& packages, const Package& package) {
+std::optional<Vec3f> findSkyZone(const PackageSet &packages, const Package &package) {
     for (size_t i = 0; i < package.exports().size(); ++i) {
         if (package.exports()[i].classRef == 0 || !isA(packages, package, int(i), "SkyZoneInfo"))
             continue;
@@ -204,7 +205,7 @@ std::optional<Vec3f> findSkyZone(const PackageSet& packages, const Package& pack
 
 // The draw type an actor ends up with: its own, unless its scripts
 // changed it; -2 if they removed it.
-int scriptedDrawType(const ScriptedActors* scripted, int index, int drawType) {
+int scriptedDrawType(const ScriptedActors *scripted, int index, int drawType) {
     if (!scripted)
         return drawType;
     auto it = scripted->find(index);
@@ -216,15 +217,15 @@ int scriptedDrawType(const ScriptedActors* scripted, int index, int drawType) {
 }
 
 // Whether an actor is hidden: as saved, unless its scripts changed it.
-bool scriptedHidden(const ScriptedActors* scripted, int index, bool hidden) {
+bool scriptedHidden(const ScriptedActors *scripted, int index, bool hidden) {
     if (!scripted)
         return hidden;
     auto it = scripted->find(index);
     return it == scripted->end() || it->second.hidden < 0 ? hidden : it->second.hidden == 1;
 }
 
-std::vector<MeshActor> findMeshActors(const PackageSet& packages, const Package& package, ClassDefaults& defaults,
-                                      MeshActorStats* stats, const ScriptedActors* scripted) {
+std::vector<MeshActor> findMeshActors(const PackageSet &packages, const Package &package, ClassDefaults &defaults,
+                                      MeshActorStats *stats, const ScriptedActors *scripted) {
     constexpr uint8_t kDrawMesh = 2; // EDrawType's DT_Mesh
     MeshActorStats st;
     std::vector<MeshActor> out;
@@ -273,8 +274,8 @@ std::vector<MeshActor> findMeshActors(const PackageSet& packages, const Package&
     return out;
 }
 
-std::vector<SpriteActor> findSpriteActors(const PackageSet& packages, const Package& package, ClassDefaults& defaults,
-                                          SpriteActorStats* stats, const ScriptedActors* scripted) {
+std::vector<SpriteActor> findSpriteActors(const PackageSet &packages, const Package &package, ClassDefaults &defaults,
+                                          SpriteActorStats *stats, const ScriptedActors *scripted) {
     // EDrawType's sprites.
     constexpr uint8_t kDrawSprite = 1, kDrawVerticalSprite = 5, kDrawSpriteAnimOnce = 7;
     SpriteActorStats st;
@@ -323,7 +324,7 @@ std::vector<SpriteActor> findSpriteActors(const PackageSet& packages, const Pack
     return out;
 }
 
-std::array<Vec3f, 3> rotationAxes(const Rotator& r) {
+std::array<Vec3f, 3> rotationAxes(const Rotator &r) {
     const float p = float(r.pitch) * 2 * kPi / 65536, y = float(r.yaw) * 2 * kPi / 65536,
                 rl = float(r.roll) * 2 * kPi / 65536;
     const float sp = std::sin(p), cp = std::cos(p), sy = std::sin(y), cy = std::cos(y), sr = std::sin(rl),
@@ -332,7 +333,7 @@ std::array<Vec3f, 3> rotationAxes(const Rotator& r) {
             Vec3f{-(cr * sp * cy + sr * sy), cy * sr - cr * sp * sy, cr * cp}};
 }
 
-Rotator rotatorFromAxes(const std::array<Vec3f, 3>& a) {
+Rotator rotatorFromAxes(const std::array<Vec3f, 3> &a) {
     // From rotationAxes: X = (cp cy, cp sy, sp), Y.z = -sr cp, Z.z = cr cp.
     auto angle = [](float radians) { return int32_t(std::lround(radians * 32768.0f / kPi)); };
     const float sp = std::clamp(a[0][2], -1.0f, 1.0f);
@@ -344,7 +345,7 @@ namespace {
 using Quat = std::array<float, 4>; // x, y, z, w
 
 // The quaternion of a rotation whose matrix has these rows.
-Quat quatOf(const std::array<Vec3f, 3>& m) {
+Quat quatOf(const std::array<Vec3f, 3> &m) {
     const float trace = m[0][0] + m[1][1] + m[2][2];
     Quat q{};
     if (trace > 0) {
@@ -363,7 +364,7 @@ Quat quatOf(const std::array<Vec3f, 3>& m) {
     return q;
 }
 
-std::array<Vec3f, 3> rowsOf(const Quat& q) {
+std::array<Vec3f, 3> rowsOf(const Quat &q) {
     const float x = q[0], y = q[1], z = q[2], w = q[3];
     return {Vec3f{1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)},
             Vec3f{2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)},
@@ -372,12 +373,12 @@ std::array<Vec3f, 3> rowsOf(const Quat& q) {
 
 } // namespace
 
-Rotator slerpRotators(const Rotator& from, const Rotator& to, float t) {
+Rotator slerpRotators(const Rotator &from, const Rotator &to, float t) {
     const Quat a = quatOf(rotationAxes(from));
     Quat b = quatOf(rotationAxes(to));
     float cosine = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
     if (cosine < 0) { // the shorter way round
-        for (float& v : b)
+        for (float &v : b)
             v = -v;
         cosine = -cosine;
     }
@@ -396,7 +397,7 @@ Rotator slerpRotators(const Rotator& from, const Rotator& to, float t) {
     }
     length = std::sqrt(length);
     if (length > 1e-6f)
-        for (float& v : q)
+        for (float &v : q)
             v /= length;
     return rotatorFromAxes(rowsOf(q));
 }

@@ -17,17 +17,17 @@ constexpr size_t kMetricsOffset = 68;
 constexpr size_t kPagesOffset = 78, kGlyphSize = 18;
 constexpr int kMaxPages = 16;
 
-int16_t s16(const std::vector<uint8_t>& d, size_t at) {
+int16_t s16(const std::vector<uint8_t> &d, size_t at) {
     return static_cast<int16_t>(d[at] | d[at + 1] << 8);
 }
 
 } // namespace
 
-Error DdfFont::parse(const std::vector<uint8_t>& data) {
+Error DdfFont::parse(const std::vector<uint8_t> &data) {
     *this = {};
-    if (data.size() < kPagesOffset || std::string_view(reinterpret_cast<const char*>(data.data()), 4) != "FNT2")
+    if (data.size() < kPagesOffset || std::string_view(reinterpret_cast<const char *>(data.data()), 4) != "FNT2")
         return Error::fail("not a DDF font (no \"FNT2\")");
-    const char* n = reinterpret_cast<const char*>(data.data() + kNameOffset);
+    const char *n = reinterpret_cast<const char *>(data.data() + kNameOffset);
     name.assign(n, std::find(n, n + kNameSize, '\0'));
     int m[5];
     for (int i = 0; i < 5; i++)
@@ -59,7 +59,7 @@ Error DdfFont::parse(const std::vector<uint8_t>& data) {
     glyphs.resize(count);
     for (size_t i = 0; i < count; i++) {
         size_t at = kGlyphsOffset + i * kGlyphSize;
-        Glyph& g = glyphs[i];
+        Glyph &g = glyphs[i];
         g.x = s16(data, at);
         g.y = s16(data, at + 2);
         g.above = s16(data, at + 4);
@@ -76,16 +76,18 @@ Error DdfFont::parse(const std::vector<uint8_t>& data) {
 }
 
 double DdfFont::pageScale(int page) const {
-    return page < 0 || page >= pages ? 1.0 : double(lineHeight) / double(pageAscent[size_t(page)] + pageDescent[size_t(page)]);
+    return page < 0 || page >= pages
+               ? 1.0
+               : double(lineHeight) / double(pageAscent[size_t(page)] + pageDescent[size_t(page)]);
 }
 
-const DdfFont::Glyph* DdfFont::glyph(uint8_t c) const {
+const DdfFont::Glyph *DdfFont::glyph(uint8_t c) const {
     if (c < first || c > last)
         return nullptr;
     return &glyphs[c - first];
 }
 
-std::string DdfFont::pageName(const std::string& file, int page) {
+std::string DdfFont::pageName(const std::string &file, int page) {
     size_t dot = file.rfind('.');
     std::string stem = dot == std::string::npos ? file : file.substr(0, dot);
     return stem + "_" + std::to_string(page) + ".TGA";
@@ -94,17 +96,17 @@ std::string DdfFont::pageName(const std::string& file, int page) {
 int DdfFont::measure(std::string_view text) const {
     int w = 0;
     for (char c : text) {
-        const Glyph* g = glyph(static_cast<uint8_t>(c));
+        const Glyph *g = glyph(static_cast<uint8_t>(c));
         w += g ? int(std::lround(g->advance * pageScale(g->page))) : spaceAdvance;
     }
     return w;
 }
 
-int DdfFont::draw(Surface& surface, const std::vector<image::Image>& pageImages, int x, int y,
-                  std::string_view text, Color color) const {
+int DdfFont::draw(Surface &surface, const std::vector<image::Image> &pageImages, int x, int y, std::string_view text,
+                  Color color) const {
     int baseline = y + ascent();
     for (char c : text) {
-        const Glyph* g = glyph(static_cast<uint8_t>(c));
+        const Glyph *g = glyph(static_cast<uint8_t>(c));
         if (!g) {
             x += spaceAdvance;
             continue;
@@ -112,7 +114,7 @@ int DdfFont::draw(Surface& surface, const std::vector<image::Image>& pageImages,
         // Scaled to the line, as the game scales each page (nearest texel).
         const double s = pageScale(g->page);
         if (g->page < static_cast<int>(pageImages.size()) && surface.format == PixelFormat::RGBA32) {
-            const image::Image& page = pageImages[g->page];
+            const image::Image &page = pageImages[g->page];
             const int top = baseline - int(std::lround(g->above * s)), left = int(std::lround(g->left * s));
             const int rows = int(std::lround(g->height() * s)), cols = int(std::lround(g->width() * s));
             for (int row = 0; row < rows; row++) {
@@ -124,7 +126,7 @@ int DdfFont::draw(Surface& surface, const std::vector<image::Image>& pageImages,
                     if (sx < 0 || sx >= page.w || dx < 0 || dx >= surface.w)
                         continue;
                     int a = page.pixel(sx, sy)[3];
-                    uint8_t* p = surface.row(dy) + dx * 4;
+                    uint8_t *p = surface.row(dy) + dx * 4;
                     p[0] = static_cast<uint8_t>((color.r * a + p[0] * (255 - a)) / 255);
                     p[1] = static_cast<uint8_t>((color.g * a + p[1] * (255 - a)) / 255);
                     p[2] = static_cast<uint8_t>((color.b * a + p[2] * (255 - a)) / 255);

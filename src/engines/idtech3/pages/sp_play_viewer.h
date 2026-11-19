@@ -31,41 +31,41 @@ namespace reluva::idtech3 {
 // the x86 interpreter) on its maps, drawn as the Play page draws Holomatch.
 class SpPlayViewer : public Page {
 public:
-    explicit SpPlayViewer(ViewerContext& ctx);
+    explicit SpPlayViewer(ViewerContext &ctx);
     ~SpPlayViewer() override;
-    const char* name() const override { return "Single player"; }
+    const char *name() const override { return "Single player"; }
     size_t count() const override { return names_.size(); }
     void activate() override;
     void deactivate() override;
-    void handleEvent(const Event& ev) override;
+    void handleEvent(const Event &ev) override;
     void update(uint64_t nowMs) override;
     bool uses3D() const override { return renderer_ != nullptr; }
-    bool takesKey(const Event& ev) const override;
+    bool takesKey(const Event &ev) const override;
 
 private:
     // A level: new (loadMode 0), or a saved game's (1, or 2 for an
     // autosave) read on from `save` after its header.
-    void start(int index, int32_t loadMode = 0, raven::SaveReader* save = nullptr);
-    void stop(const std::string& why);
+    void start(int index, int32_t loadMode = 0, raven::SaveReader *save = nullptr);
+    void stop(const std::string &why);
     // Saved games (saves/<name>.sav), as the original's save, load and
     // wipe commands; an autosave ("auto") as each new level starts.
-    void saveGame(const std::string& name, bool autosave);
+    void saveGame(const std::string &name, bool autosave);
     void loadGame(std::string name);
-    bool readSave(const std::string& name, std::vector<uint8_t>& file) const;
+    bool readSave(const std::string &name, std::vector<uint8_t> &file) const;
     // Whether the game code running can read a saved game: 1.x's and the
     // Expansion Pack's can't read each other's (eliteforce::saveKind);
     // one of neither is let through.
-    bool saveFits(const std::vector<uint8_t>& file) const;
+    bool saveFits(const std::vector<uint8_t> &file) const;
     // Saved games in the other version's folder moved to their own (a
     // game played both ways keeps 1.x's in saves/ and the Expansion
     // Pack's in expansion/saves/).
     void sortSaves() const;
-    std::vector<uint8_t> levelShot(const std::string& map) const;
+    std::vector<uint8_t> levelShot(const std::string &map) const;
     void runGameCommands();
     // Cinematics (video/<name>.bik): full screen, the game ended first
     // ("cinematic", then the nextmap cvar's command) or paused under it
     // ("ingamecinematic"). Any typed key or a click skips one.
-    void startCinematic(const std::string& name, bool inGame);
+    void startCinematic(const std::string &name, bool inGame);
     void endCinematic();
     void runCinematic(uint64_t nowMs);
     struct Cinematic {
@@ -79,14 +79,14 @@ private:
     bool introShown_ = false;
     void endGame();
     void runGame(uint64_t nowMs);
-    void runBinding(const std::string& line, int32_t key, bool down);
+    void runBinding(const std::string &line, int32_t key, bool down);
     void drawOverlay();
     void runPendingTransition();
     // The client game's pictures from `drawn` up to `to` (both moved on),
     // its screen captures among them.
-    void drawGamePictures(size_t& drawn, size_t& shotsDrawn, size_t to, float time);
+    void drawGamePictures(size_t &drawn, size_t &shotsDrawn, size_t to, float time);
     void drawMenus(float time);
-    void showLoadingScreen(const std::string& map);
+    void showLoadingScreen(const std::string &map);
     void showClientLoading();
     // The game's menus (efuix86.dll), when it's there: started at the main
     // menu; Esc opens the in-game one. While a menu has the keys, the game
@@ -95,8 +95,8 @@ private:
     bool menusHaveKeys() const;
     void menuKey(int32_t key);
     void runMenuCommands();
-    void runCommand(const std::string& line, bool fromGame = false);
-    void menusStopped(const Error& err);
+    void runCommand(const std::string &line, bool fromGame = false);
+    void menusStopped(const Error &err);
 
     std::vector<std::string> names_; // the single-player maps
     std::string map_;                // the level running
@@ -105,24 +105,24 @@ private:
     // it (<name>.input) for reluva-tool idtech3 sp-run -load <save> -replay to
     // play back; closed as the game ends.
     std::ofstream recording_;
-    std::filesystem::path saveDir_;  // where saved games are written
-    bool expansion_ = false;         // the Expansion Pack's game code is running
-    size_t gameCommandsRun_ = 0;     // of the game's console commands
+    std::filesystem::path saveDir_; // where saved games are written
+    bool expansion_ = false;        // the Expansion Pack's game code is running
+    size_t gameCommandsRun_ = 0;    // of the game's console commands
     // The in-game menu waits a frame while the game is captured for the
     // save menu's picture.
     std::string pendingMenu_;
     bool capturing_ = false;
     int index_ = 0;
-    std::vector<uint8_t> dll_;       // efgamex86.dll
-    std::vector<uint8_t> uiDll_;     // efuix86.dll
-    gfx::Renderer3D* renderer_ = nullptr;
+    std::vector<uint8_t> dll_;   // efgamex86.dll
+    std::vector<uint8_t> uiDll_; // efuix86.dll
+    gfx::Renderer3D *renderer_ = nullptr;
     std::unique_ptr<ShaderCache> shaders_;
     std::unique_ptr<WorldRenderer> world_;
     std::unique_ptr<ModelCache> models_;
     std::unique_ptr<SceneDrawer> scene_;
     LightGrid grid_;
     int frameW_ = 960, frameH_ = 720;
-    CvarStore& cvars_ = ctx_.cvars;
+    CvarStore &cvars_ = ctx_.cvars;
     std::unique_ptr<eliteforce::SpGameHost> game_;
     std::unique_ptr<eliteforce::SpUiHost> ui_;
     SoundLibrary soundLibrary_{ctx_.files};

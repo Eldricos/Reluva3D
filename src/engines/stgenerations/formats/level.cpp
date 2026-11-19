@@ -15,7 +15,7 @@
 
 namespace reluva::stgenerations {
 
-const uint32_t LevelFile::kRecordSizes[kRecordSizeCount] = { 1024, 8, 292, 152, 140, 276, 196, 64, 24 };
+const uint32_t LevelFile::kRecordSizes[kRecordSizeCount] = {1024, 8, 292, 152, 140, 276, 196, 64, 24};
 
 namespace {
 
@@ -23,7 +23,7 @@ const uint32_t kHeaderSize = 48;
 const uint32_t kEntrySize = 16;
 const uint32_t kTextureHeaderSize = 20;
 
-LevelFile::LightInfo readLight(const uint8_t* record) {
+LevelFile::LightInfo readLight(const uint8_t *record) {
     LevelFile::LightInfo light;
     light.group = (int16_t)readLE16(record + 0x64);
     light.brightness = readLE16(record + 0x66);
@@ -34,7 +34,7 @@ LevelFile::LightInfo readLight(const uint8_t* record) {
 } // namespace
 
 void LevelFile::updateWallGeometry(int index) {
-    Wall& wall = _walls[index];
+    Wall &wall = _walls[index];
     double x1 = _vertices[wall.vertex1].x / 65536.0, y1 = _vertices[wall.vertex1].y / 65536.0;
     double x2 = _vertices[wall.vertex2].x / 65536.0, y2 = _vertices[wall.vertex2].y / 65536.0;
     double dx = x2 - x1, dy = y2 - y1, length = std::sqrt(dx * dx + dy * dy);
@@ -46,15 +46,15 @@ void LevelFile::updateWallGeometry(int index) {
     wall.distance = (int32_t)std::lround(-(nx * x2 + ny * y2) * 65536);
 }
 
-void LevelFile::LightInfo::sync(Serializer& s) {
+void LevelFile::LightInfo::sync(Serializer &s) {
     s.syncAsSint16(group);
     s.syncAsUint16(brightness);
     s.syncAsByte(level);
 }
 
-void LevelFile::syncState(Serializer& s) {
+void LevelFile::syncState(Serializer &s) {
     s.syncCount((uint32_t)_walls.size());
-    for (Wall& wall : _walls) {
+    for (Wall &wall : _walls) {
         if (s.err())
             return;
         s.syncAsSint16(wall.uScroll);
@@ -67,14 +67,14 @@ void LevelFile::syncState(Serializer& s) {
         s.syncAsBool(wall.fullbright);
     }
     s.syncCount((uint32_t)_sectors.size());
-    for (Sector& sector : _sectors) {
+    for (Sector &sector : _sectors) {
         if (s.err())
             return;
         s.syncAsSint32(sector.height);
         s.syncAsUint64(sector.activeZones);
         s.syncAsSint16(sector.uScroll);
         s.syncAsSint16(sector.vScroll);
-        s.syncVector(sector.zoneBands, [](Serializer& ser, std::pair<int32_t, uint64_t>& band) {
+        s.syncVector(sector.zoneBands, [](Serializer &ser, std::pair<int32_t, uint64_t> &band) {
             ser.syncAsSint32(band.first);
             ser.syncAsUint64(band.second);
         });
@@ -86,7 +86,7 @@ void LevelFile::syncState(Serializer& s) {
         s.syncAsBool(sector.fullbright);
     }
     s.syncCount((uint32_t)_billboards.size());
-    for (Billboard& billboard : _billboards) {
+    for (Billboard &billboard : _billboards) {
         if (s.err())
             return;
         s.syncAsSint32(billboard.x);
@@ -112,7 +112,7 @@ int LevelFile::LightInfo::getLevel(int percent) const {
     return kLightLevels - 1 - (int)std::min<uint32_t>(scaled, kLightLevels - 1);
 }
 
-bool LevelFile::load(SeekableReadStream& stream) {
+bool LevelFile::load(SeekableReadStream &stream) {
     _directory.clear();
     _data = stream.readAll();
     if (_data.size() < kHeaderSize) {
@@ -138,9 +138,9 @@ bool LevelFile::load(SeekableReadStream& stream) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* p = &_data[kHeaderSize + i * kEntrySize];
-        ChunkEntry entry = { readLE32(p), readLE32(p + 4), readLE16(p + 8),
-                             readLE16(p + 10), readLE16(p + 12), readLE16(p + 14) };
+        const uint8_t *p = &_data[kHeaderSize + i * kEntrySize];
+        ChunkEntry entry = {readLE32(p),      readLE32(p + 4),  readLE16(p + 8),
+                            readLE16(p + 10), readLE16(p + 12), readLE16(p + 14)};
         if ((uint64_t)entry.offset + entry.size > _data.size()) {
             log::warning("LevelFile: chunk %u (type %u) lies outside the file", i, entry.type);
             return false;
@@ -150,8 +150,8 @@ bool LevelFile::load(SeekableReadStream& stream) {
     return loadTables();
 }
 
-const LevelFile::ChunkEntry* LevelFile::findChunk(uint16_t type, uint16_t id) const {
-    for (const ChunkEntry& entry : _directory) {
+const LevelFile::ChunkEntry *LevelFile::findChunk(uint16_t type, uint16_t id) const {
+    for (const ChunkEntry &entry : _directory) {
         if (entry.type == type && entry.id == id)
             return &entry;
     }
@@ -159,7 +159,7 @@ const LevelFile::ChunkEntry* LevelFile::findChunk(uint16_t type, uint16_t id) co
 }
 
 std::vector<uint8_t> LevelFile::getChunkData(uint16_t type, uint16_t id) const {
-    const ChunkEntry* entry = findChunk(type, id);
+    const ChunkEntry *entry = findChunk(type, id);
     if (!entry)
         return {};
     return std::vector<uint8_t>(_data.begin() + entry->offset, _data.begin() + entry->offset + entry->size);
@@ -173,8 +173,8 @@ bool LevelFile::loadTables() {
     _actors.clear();
 
     // Each table's record count is in count B; check it against the size.
-    auto table = [this](uint16_t type, uint32_t recordSize, const uint8_t*& data, uint32_t& count) {
-        const ChunkEntry* entry = findChunk(type, 1);
+    auto table = [this](uint16_t type, uint32_t recordSize, const uint8_t *&data, uint32_t &count) {
+        const ChunkEntry *entry = findChunk(type, 1);
         data = nullptr;
         count = 0;
         if (!entry)
@@ -182,14 +182,14 @@ bool LevelFile::loadTables() {
         count = entry->countB;
         if ((uint64_t)count * recordSize > entry->size) {
             log::warning("LevelFile: table %u has %u records of %u bytes but only %u bytes", type, count, recordSize,
-                    entry->size);
+                         entry->size);
             return false;
         }
         data = &_data[entry->offset];
         return true;
     };
 
-    const uint8_t* p;
+    const uint8_t *p;
     uint32_t count;
 
     if (!table(kChunkPalette, 4, p, count))
@@ -202,12 +202,12 @@ bool LevelFile::loadTables() {
     if (!table(kChunkVertices, kRecordSizes[1], p, count))
         return false;
     for (uint32_t i = 0; i < count; i++)
-        _vertices.push_back({ (int32_t)readLE32(p + i * 8), (int32_t)readLE32(p + i * 8 + 4) });
+        _vertices.push_back({(int32_t)readLE32(p + i * 8), (int32_t)readLE32(p + i * 8 + 4)});
 
     if (!table(kChunkWalls, kRecordSizes[3], p, count))
         return false;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* r = p + i * kRecordSizes[3];
+        const uint8_t *r = p + i * kRecordSizes[3];
         Wall wall;
         wall.vertex1 = readLE16(r + 134);
         wall.vertex2 = readLE16(r + 136);
@@ -245,7 +245,7 @@ bool LevelFile::loadTables() {
     if (!table(kChunkSectors, kRecordSizes[2], p, count))
         return false;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* r = p + i * kRecordSizes[2];
+        const uint8_t *r = p + i * kRecordSizes[2];
         Sector sector;
         sector.flags = readLE32(r + 108);
         sector.height = (int32_t)readLE32(r + 0x20);
@@ -283,7 +283,7 @@ bool LevelFile::loadTables() {
     if (!table(kChunkBillboards, kRecordSizes[4], p, count))
         return false;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* r = p + i * kRecordSizes[4];
+        const uint8_t *r = p + i * kRecordSizes[4];
         Billboard billboard;
         billboard.x = (int32_t)readLE32(r + 0x1C);
         billboard.z = (int32_t)readLE32(r + 0x20);
@@ -305,7 +305,7 @@ bool LevelFile::loadTables() {
     if (!table(kChunkActors, kRecordSizes[5], p, count))
         return false;
     for (uint32_t i = 0; i < count; i++) {
-        const uint8_t* r = p + i * kRecordSizes[5];
+        const uint8_t *r = p + i * kRecordSizes[5];
         Actor actor;
         actor.objectId = readLE16(r + 0x14);
         actor.x = (int32_t)readLE32(r + 0x1C);
@@ -329,8 +329,8 @@ bool LevelFile::loadTables() {
         actor.muzzleZ = (int32_t)readLE32(r + 0x88);
         actor.muzzleY = (int32_t)readLE32(r + 0x8C);
         for (int m = 0; m < kAnimationCount; m++) {
-            const uint8_t* a = r + 0xC4 + m * 8;
-            Animation& anim = actor.animations[m];
+            const uint8_t *a = r + 0xC4 + m * 8;
+            Animation &anim = actor.animations[m];
             // With the original loader's fixes (0x4BE39B..0x4BE3DB).
             anim.speed = readLE16(a) ? readLE16(a) : 0x40;
             anim.rate = a[2];
@@ -351,7 +351,7 @@ bool LevelFile::loadTables() {
     return true;
 }
 
-uint32_t LevelFile::guessSkyHeight(const uint8_t* pixels, uint32_t size) const {
+uint32_t LevelFile::guessSkyHeight(const uint8_t *pixels, uint32_t size) const {
     // The header's height doesn't always fit (halee1: 252 for a 512 x 128
     // sky), so take the width at which neighbouring rows match best. Twice
     // the true width matches nearly as well, two rows side by side, so a
@@ -375,7 +375,7 @@ uint32_t LevelFile::guessSkyHeight(const uint8_t* pixels, uint32_t size) const {
         costs[width] = cost / samples;
     }
     uint32_t best = 0;
-    for (const auto& c : costs) {
+    for (const auto &c : costs) {
         if (!best || c.second < costs[best])
             best = c.first;
     }
@@ -387,10 +387,10 @@ uint32_t LevelFile::guessSkyHeight(const uint8_t* pixels, uint32_t size) const {
     return size / best;
 }
 
-bool LevelFile::loadSky(Canvas& sky) const {
+bool LevelFile::loadSky(Canvas &sky) const {
     const uint32_t headerSize = 64;
-    const ChunkEntry* entry = nullptr;
-    for (const ChunkEntry& e : _directory) {
+    const ChunkEntry *entry = nullptr;
+    for (const ChunkEntry &e : _directory) {
         if (e.type == kChunkSky) {
             entry = &e;
             break;
@@ -399,7 +399,7 @@ bool LevelFile::loadSky(Canvas& sky) const {
     if (!entry || entry->size < headerSize)
         return false;
 
-    const uint8_t* p = &_data[entry->offset];
+    const uint8_t *p = &_data[entry->offset];
     uint32_t size = readLE32(p + 16);
     uint32_t height = readLE32(p + 24);
     if (size == 0 || headerSize + (uint64_t)size > entry->size) {
@@ -420,22 +420,22 @@ bool LevelFile::loadSky(Canvas& sky) const {
 
 std::vector<uint16_t> LevelFile::getTextureIds() const {
     std::vector<uint16_t> ids;
-    for (const ChunkEntry& entry : _directory) {
+    for (const ChunkEntry &entry : _directory) {
         if (entry.type == kChunkTexture && entry.size > kTextureHeaderSize)
             ids.push_back(entry.id);
     }
     return ids;
 }
 
-bool LevelFile::loadTexture(uint16_t id, Texture& texture) const {
-    const ChunkEntry* entry = findChunk(kChunkTexture, id);
+bool LevelFile::loadTexture(uint16_t id, Texture &texture) const {
+    const ChunkEntry *entry = findChunk(kChunkTexture, id);
     if (!entry || entry->size < kTextureHeaderSize)
         return false;
 
     // 12 bytes reserved for pointers, then id, width, height and flags;
     // pixels are column-major, each column bottom first, followed by 3
     // bytes of hints per column.
-    const uint8_t* p = &_data[entry->offset];
+    const uint8_t *p = &_data[entry->offset];
     uint16_t width = readLE16(p + 14);
     uint16_t height = readLE16(p + 16);
     if (width == 0 || height == 0 || kTextureHeaderSize + (uint64_t)width * height > entry->size) {
@@ -446,7 +446,7 @@ bool LevelFile::loadTexture(uint16_t id, Texture& texture) const {
     texture.id = readLE16(p + 12);
     texture.flags = readLE16(p + 18);
     texture.surface.create((int16_t)width, (int16_t)height, Canvas::kClut8);
-    const uint8_t* pixels = p + kTextureHeaderSize;
+    const uint8_t *pixels = p + kTextureHeaderSize;
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++)
             texture.surface.setPixel(x, height - 1 - y, pixels[x * height + y]);
@@ -454,13 +454,13 @@ bool LevelFile::loadTexture(uint16_t id, Texture& texture) const {
     return true;
 }
 
-void drawLevelMap(const LevelFile& level, Canvas& dst) {
-    const std::vector<LevelFile::Vertex>& vertices = level.getVertices();
+void drawLevelMap(const LevelFile &level, Canvas &dst) {
+    const std::vector<LevelFile::Vertex> &vertices = level.getVertices();
     if (vertices.empty())
         return;
 
     int64_t minX = INT32_MAX, minY = INT32_MAX, maxX = INT32_MIN, maxY = INT32_MIN;
-    for (const LevelFile::Vertex& v : vertices) {
+    for (const LevelFile::Vertex &v : vertices) {
         minX = std::min<int64_t>(minX, v.x);
         maxX = std::max<int64_t>(maxX, v.x);
         minY = std::min<int64_t>(minY, v.y);
@@ -473,31 +473,31 @@ void drawLevelMap(const LevelFile& level, Canvas& dst) {
     double scale = std::min((dst.w - 2 * margin) / spanX, (dst.h - 2 * margin) / spanY);
     double offsetX = (dst.w - spanX * scale) / 2;
     double offsetY = (dst.h - spanY * scale) / 2;
-    auto project = [&](const LevelFile::Vertex& v) {
+    auto project = [&](const LevelFile::Vertex &v) {
         // Map y grows upwards; screen y grows downwards.
-        return Point((int16_t)(offsetX + (v.x - minX) * scale + 0.5),
-                             (int16_t)(offsetY + (maxY - v.y) * scale + 0.5));
+        return Point((int16_t)(offsetX + (v.x - minX) * scale + 0.5), (int16_t)(offsetY + (maxY - v.y) * scale + 0.5));
     };
 
-    const Palette& palette = level.getPalette();
+    const Palette &palette = level.getPalette();
     uint8_t outline = palette.findBestColor(0, 0, 0);
     uint8_t wallColor = palette.findBestColor(120, 220, 255);
 
     // Sectors in varied colours so neighbours tend to differ.
-    const std::vector<LevelFile::Sector>& sectors = level.getSectors();
+    const std::vector<LevelFile::Sector> &sectors = level.getSectors();
     for (size_t i = 0; i < sectors.size(); i++) {
         std::vector<Point> points;
         for (uint16_t index : sectors[i].vertices)
             points.push_back(project(vertices[index]));
-        uint8_t r = (uint8_t)(40 + (i * 53) % 100), g = (uint8_t)(60 + (i * 97) % 120), b = (uint8_t)(120 + (i * 31) % 120);
+        uint8_t r = (uint8_t)(40 + (i * 53) % 100), g = (uint8_t)(60 + (i * 97) % 120),
+                b = (uint8_t)(120 + (i * 31) % 120);
         dst.fillPolygon(points.data(), (int)points.size(), palette.findBestColor(r, g, b));
         for (size_t k = 0; k < points.size(); k++) {
-            const Point& a = points[k], &b2 = points[(k + 1) % points.size()];
+            const Point &a = points[k], &b2 = points[(k + 1) % points.size()];
             dst.drawLine(a.x, a.y, b2.x, b2.y, outline);
         }
     }
 
-    for (const LevelFile::Wall& wall : level.getWalls()) {
+    for (const LevelFile::Wall &wall : level.getWalls()) {
         Point a = project(vertices[wall.vertex1]), b = project(vertices[wall.vertex2]);
         dst.drawLine(a.x, a.y, b.x, b.y, wallColor);
     }

@@ -22,7 +22,7 @@ class Harbinger;
 // scripts.
 class SceneViewer {
 public:
-    explicit SceneViewer(Harbinger* vm);
+    explicit SceneViewer(Harbinger *vm);
     ~SceneViewer();
 
     int run(int startScene);
@@ -40,17 +40,17 @@ private:
     void playSound(int index);
     void collectHotspots();
 
-    void handleEvent(const InputEvent& event);
+    void handleEvent(const InputEvent &event);
     void updateAnimation();
     void drawScreen();
     void updateCaption();
 
     std::string listName(ListKind kind, int index) const;
 
-    Harbinger* vm_;
-    Platform* system_;
-    Resources& resources_;
-    const std::vector<Scene>& scenes_;
+    Harbinger *vm_;
+    Platform *system_;
+    Resources &resources_;
+    const std::vector<Scene> &scenes_;
     bool quit_ = false;
 
     int sceneIndex_ = 0;

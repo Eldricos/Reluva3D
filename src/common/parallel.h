@@ -14,8 +14,8 @@ namespace reluva {
 // f(0) .. f(n - 1), spread over the machine's cores (the calling thread
 // one of them); back once all are done. The calls must touch nothing in
 // common but what they only read.
-template <class F>
-void parallelFor(size_t n, F&& f) {
+template<class F>
+void parallelFor(size_t n, F &&f) {
     const size_t workers = std::min<size_t>(n, std::max(1u, std::thread::hardware_concurrency()));
     if (workers <= 1) {
         for (size_t i = 0; i < n; i++)
@@ -32,7 +32,7 @@ void parallelFor(size_t n, F&& f) {
     for (size_t w = 1; w < workers; w++)
         threads.emplace_back(run);
     run();
-    for (std::thread& t : threads)
+    for (std::thread &t : threads)
         t.join();
 }
 

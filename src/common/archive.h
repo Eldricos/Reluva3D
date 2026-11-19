@@ -25,7 +25,7 @@ public:
     // Every file's name, in the archive's own spelling.
     virtual std::vector<std::string> list() const = 0;
     virtual bool has(std::string_view name) const = 0;
-    virtual Error read(std::string_view name, std::vector<uint8_t>& out) const = 0;
+    virtual Error read(std::string_view name, std::vector<uint8_t> &out) const = 0;
     // Where the files come from, for messages ("baseEF/pak0.pk3").
     virtual std::string describe() const = 0;
 };
@@ -40,11 +40,11 @@ std::string normalizeArchiveName(std::string_view name);
 // seen. Names from a CD with a ";1" version are found without it.
 class DirectoryArchive : public Archive {
 public:
-    Error open(const std::filesystem::path& dir, int maxDepth = -1);
+    Error open(const std::filesystem::path &dir, int maxDepth = -1);
 
     std::vector<std::string> list() const override;
     bool has(std::string_view name) const override;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const override;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const override;
     std::string describe() const override { return dir_.string(); }
 
 private:
@@ -62,15 +62,15 @@ public:
 
     bool has(std::string_view name) const { return find(name) != nullptr; }
     // The archive a name would be read from, or nullptr.
-    const Archive* find(std::string_view name) const;
-    Error read(std::string_view name, std::vector<uint8_t>& out) const;
+    const Archive *find(std::string_view name) const;
+    Error read(std::string_view name, std::vector<uint8_t> &out) const;
     // Every name in the set once, sorted by normalized name, in the spelling
     // of the archive that would supply it.
     std::vector<std::string> list() const;
 
     size_t size() const { return members_.size(); }
     // The archives in search order (highest priority first).
-    std::vector<const Archive*> archives() const;
+    std::vector<const Archive *> archives() const;
 
 private:
     struct Member {

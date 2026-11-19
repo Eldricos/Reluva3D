@@ -44,7 +44,7 @@ std::vector<std::string> words(std::string_view line) {
     return out;
 }
 
-bool parseMsf(const std::string& s, int64_t& frames) {
+bool parseMsf(const std::string &s, int64_t &frames) {
     int m = 0, sec = 0, f = 0;
     char c1 = 0, c2 = 0;
     std::istringstream in(s);
@@ -54,7 +54,7 @@ bool parseMsf(const std::string& s, int64_t& frames) {
     return true;
 }
 
-int sectorSizeOf(const std::string& mode) {
+int sectorSizeOf(const std::string &mode) {
     if (mode == "AUDIO" || mode == "MODE1/2352" || mode == "MODE2/2352" || mode == "CDI/2352")
         return 2352;
     if (mode == "MODE1/2048" || mode == "MODE2/2048")
@@ -77,7 +77,7 @@ struct ParsedTrack {
 
 } // namespace
 
-Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std::vector<CueTrack>& out) {
+Error parseCueSheet(std::string_view text, const std::filesystem::path &dir, std::vector<CueTrack> &out) {
     out.clear();
     struct File {
         std::filesystem::path path;
@@ -100,7 +100,7 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
         if (w.empty())
             continue;
         const std::string cmd = fs::toLower(w[0]);
-        const auto bad = [&](const std::string& why) {
+        const auto bad = [&](const std::string &why) {
             return Error::fail("cue sheet line " + std::to_string(lineNumber) + ": " + why);
         };
         if (cmd == "file") {
@@ -121,7 +121,7 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
             ParsedTrack t;
             t.track.number = std::atoi(w[1].c_str());
             t.track.mode = w[2];
-            for (char& c : t.track.mode)
+            for (char &c : t.track.mode)
                 c = char(std::toupper(static_cast<unsigned char>(c)));
             t.track.audio = t.track.mode == "AUDIO";
             t.track.sectorSize = sectorSizeOf(t.track.mode);
@@ -137,7 +137,7 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
             int64_t frames = 0;
             if (!parseMsf(w[2], frames))
                 return bad("bad position " + w[2]);
-            ParsedTrack& t = tracks.back();
+            ParsedTrack &t = tracks.back();
             if (t.fileIndex != files.size() - 1)
                 return bad("track " + std::to_string(t.track.number) + " spans files, which isn't supported");
             const int n = std::atoi(w[1].c_str());
@@ -158,14 +158,14 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
     // before a file's first index are taken to be its first track's.
     std::vector<uint64_t> regionStart(tracks.size());
     for (size_t i = 0; i < tracks.size(); ++i) {
-        const ParsedTrack& t = tracks[i];
+        const ParsedTrack &t = tracks[i];
         if (t.index1 < 0)
             return Error::fail("track " + std::to_string(t.track.number) + " has no INDEX 01");
         const bool firstInFile = i == 0 || tracks[i - 1].fileIndex != t.fileIndex;
         if (firstInFile) {
             regionStart[i] = uint64_t(t.firstIndex) * uint64_t(t.track.sectorSize);
         } else {
-            const ParsedTrack& prev = tracks[i - 1];
+            const ParsedTrack &prev = tracks[i - 1];
             if (t.firstIndex < prev.firstIndex)
                 return Error::fail("track " + std::to_string(t.track.number) + " starts before the one before it");
             regionStart[i] =
@@ -178,8 +178,7 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
         const uint64_t fileSize = std::filesystem::file_size(track.file, ec);
         if (ec)
             return Error::fail("can't read the size of " + track.file.string());
-        track.offset =
-            regionStart[i] + uint64_t(tracks[i].index1 - tracks[i].firstIndex) * uint64_t(track.sectorSize);
+        track.offset = regionStart[i] + uint64_t(tracks[i].index1 - tracks[i].firstIndex) * uint64_t(track.sectorSize);
         const bool lastInFile = i + 1 == tracks.size() || tracks[i + 1].fileIndex != tracks[i].fileIndex;
         const uint64_t end = lastInFile ? fileSize : regionStart[i + 1];
         if (track.offset > end || end > fileSize)
@@ -191,7 +190,7 @@ Error parseCueSheet(std::string_view text, const std::filesystem::path& dir, std
     return Error::success();
 }
 
-Error readCueSheet(const std::filesystem::path& cue, std::vector<CueTrack>& out) {
+Error readCueSheet(const std::filesystem::path &cue, std::vector<CueTrack> &out) {
     std::ifstream f(cue, std::ios::binary);
     if (!f)
         return Error::fail("can't open " + cue.string());
@@ -200,7 +199,7 @@ Error readCueSheet(const std::filesystem::path& cue, std::vector<CueTrack>& out)
     return parseCueSheet(text.str(), cue.parent_path(), out);
 }
 
-Error writeCueTrackWav(const CueTrack& track, const std::filesystem::path& wav) {
+Error writeCueTrackWav(const CueTrack &track, const std::filesystem::path &wav) {
     if (!track.audio)
         return Error::fail("track " + std::to_string(track.number) + " isn't audio");
     std::ifstream in(track.file, std::ios::binary);
@@ -225,12 +224,12 @@ Error writeCueTrackWav(const CueTrack& track, const std::filesystem::path& wav) 
     put32(uint32_t(36 + size));
     out.write("WAVEfmt ", 8);
     put32(16);
-    put16(1);          // PCM
-    put16(2);          // stereo
+    put16(1); // PCM
+    put16(2); // stereo
     put32(44100);
-    put32(44100 * 4);  // bytes per second
-    put16(4);          // bytes per frame
-    put16(16);         // bits per sample
+    put32(44100 * 4); // bytes per second
+    put16(4);         // bytes per frame
+    put16(16);        // bits per sample
     out.write("data", 4);
     put32(uint32_t(size));
     std::vector<char> buf(1 << 20);

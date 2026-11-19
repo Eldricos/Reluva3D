@@ -28,25 +28,25 @@ class LevelPlay {
 public:
     static constexpr float kTick = 1.0f / 30; // seconds a tick moves the level on
 
-    LevelPlay(const PackageSet& packages, const Package& map);
+    LevelPlay(const PackageSet &packages, const Package &map);
     // Starts the level and logs a player in (as the .ini's [URL] says), at
     // the start tagged `portal` if one is given; or, given a saved game of
     // this map, carries on from it. `saveFolder`: where its games are
     // saved and listed.
-    Error start(const std::string& portal = {}, const std::filesystem::path& saved = {},
-                const std::filesystem::path& saveFolder = {});
+    Error start(const std::string &portal = {}, const std::filesystem::path &saved = {},
+                const std::filesystem::path &saveFolder = {});
 
     // Moves the level on by `seconds` of real time, in whole ticks: at
     // most `maxTicks` at once, so when the scripts can't keep up the game
     // runs slower than real time rather than falling ever further behind.
     void advance(float seconds, int maxTicks = 4);
-    ScriptLevel::Controls& controls() { return level_->controls; }
+    ScriptLevel::Controls &controls() { return level_->controls; }
     // A key bound to an exec function pressed: the player's Jump, Fire...
-    void press(const char* exec);
+    void press(const char *exec);
     // A key pressed or let go ("2", "F1"), as the player's .ini binds it
     // ([Engine.Input] in User.ini, else DefUser.ini: "2=Rifle"): the exec
     // functions it names, the buttons it holds. False if it's bound to none.
-    bool pressKey(const std::string& key, bool down = true);
+    bool pressKey(const std::string &key, bool down = true);
     // A key going down or up as the engine first hands it on: to the
     // console's KeyEvent (`inputKey` an EInputKey: 13 Enter, 27 Escape, 37
     // to 40 the arrows, 0x70 F1...). The Fallen's console gives the arrows
@@ -76,9 +76,9 @@ public:
     // asked for since last time, where an actor is now (false once it's
     // gone), the actors' ambient sounds, and the music.
     std::vector<ScriptLevel::SoundRequest> takeSounds();
-    bool locationOf(VmObject* actor, Vec3f& out);
+    bool locationOf(VmObject *actor, Vec3f &out);
     // Its Velocity (false once it's gone).
-    bool velocityOf(VmObject* actor, Vec3f& out);
+    bool velocityOf(VmObject *actor, Vec3f &out);
     // The listener's velocity, as the audio driver takes it: the player's
     // ViewTarget's, else the player's own.
     Vec3f viewerVelocity();
@@ -89,29 +89,29 @@ public:
         int type = 0;
         float level = 0;
     };
-    Room roomAt(const Vec3f& at);
+    Room roomAt(const Vec3f &at);
     // Whether the level's walls (its BSP, not movers) stand between two
     // points, short of the last 24 units to `to`.
-    bool wallBetween(const Vec3f& from, const Vec3f& to);
+    bool wallBetween(const Vec3f &from, const Vec3f &to);
     struct Ambient {
-        VmObject* actor = nullptr;
+        VmObject *actor = nullptr;
         ObjectRef sound;
         bool streamed = false; // one of the MP3s (at the music volume)
         bool music = false;    // named MUSIC: heard alike everywhere in range, faded in and out
         Vec3f at{};
         float radius = 0, volume = 0, pitch = 1;
     };
-    void ambientSounds(std::vector<Ambient>& out);
-    VmObject* currentMusic() { return level_->currentMusic(); }
-    bool streamed(VmObject* sound) { return level_->streamedSound(sound); }
-    std::vector<std::pair<VmObject*, int>> takeSoundStops() { return std::exchange(level_->soundStops(), {}); }
-    const ScriptLevel::Music& music() { return level_->music(); }
-    void musicEnded(VmObject* sound) { level_->musicEnded(sound); }
+    void ambientSounds(std::vector<Ambient> &out);
+    VmObject *currentMusic() { return level_->currentMusic(); }
+    bool streamed(VmObject *sound) { return level_->streamedSound(sound); }
+    std::vector<std::pair<VmObject *, int>> takeSoundStops() { return std::exchange(level_->soundStops(), {}); }
+    const ScriptLevel::Music &music() { return level_->music(); }
+    void musicEnded(VmObject *sound) { level_->musicEnded(sound); }
     // The audio settings (the .ini's AudioDevice: MasterVolume,
     // SFXVolume, MusicVolume, SpeechVolume 0-255; UseStereo,
     // ReverseStereo) as the options leave them; the master volume as
     // SetMasterVolume has it for now.
-    std::string audioSetting(const std::string& key);
+    std::string audioSetting(const std::string &key);
     float masterVolume();
     bool takeKillSounds();
 
@@ -120,9 +120,9 @@ public:
     struct View {
         Vec3f location{};
         Rotator rotation;
-        float fov = 90;          // degrees across
-        bool letterbox = false;  // the HUD's black bars (a cut scene)
-        VmObject* actor = nullptr; // whose eyes, if anyone's
+        float fov = 90;            // degrees across
+        bool letterbox = false;    // the HUD's black bars (a cut scene)
+        VmObject *actor = nullptr; // whose eyes, if anyone's
     };
     View view();
 
@@ -156,9 +156,9 @@ public:
             bool oneUnlit = false, twoUnlit = false;
             std::array<float, 3> colorFilter{1, 1, 1};
         } multi;
-        float specular = 1;      // Specular: its highlights' strength
-        bool unlit = false;            // bUnlit: as bright as its ScaleGlow, not the light where it is
-        bool renderInitial = false;    // bMultiMeshRenderInitial: drawn itself as well as its copies
+        float specular = 1;         // Specular: its highlights' strength
+        bool unlit = false;         // bUnlit: as bright as its ScaleGlow, not the light where it is
+        bool renderInitial = false; // bMultiMeshRenderInitial: drawn itself as well as its copies
         // The Fallen's layered animations on parts of it (C3DPlayAnim).
         struct Layer {
             std::string anim, bone;
@@ -183,19 +183,19 @@ public:
         // What its scripts do to its bones on top (a back bent, a hand on a gun).
         LayeredPoser::Adjust adjust;
     };
-    bool look(VmObject* actor, Look& out);
+    bool look(VmObject *actor, Look &out);
     // Whether an actor may be seen: not hidden, and in one of `zones` (a
     // bit for each of the level's zones seen) if its zone is known. Cheap,
     // to pass over the rest before look().
-    bool mayBeSeen(VmObject* actor, uint64_t zones);
+    bool mayBeSeen(VmObject *actor, uint64_t zones);
     // The Fallen's distance fog where `at` is: its zone's DistanceFogging
     // (units to full fog; 0 none) and DistanceFogColor (0-1).
-    float distanceFog(const Vec3f& at, std::array<float, 3>& color);
+    float distanceFog(const Vec3f &at, std::array<float, 3> &color);
     // The lights drawing a corona (bCorona): where, its texture (the
     // actor's Skin, else its Texture), DrawScale, and its zone (-1 not
     // known). Hidden or not: a light actor is hidden, its corona isn't.
     struct Corona {
-        VmObject* actor = nullptr;
+        VmObject *actor = nullptr;
         Vec3f location{};
         ObjectRef texture; // its Skin
         float drawScale = 1;
@@ -205,7 +205,7 @@ public:
         bool isStatic = true; // bStatic: one of the level's own lights
         int32_t ref = 0;      // its export (object reference) in the level, 0 if spawned
     };
-    void coronas(std::vector<Corona>& out);
+    void coronas(std::vector<Corona> &out);
     // Its copies (The Fallen's MultiMesh: particles, sparks, a beam's
     // sections), each drawn as it is, in its place, turned and scaled
     // (AxisScale, along its own axes), glowing and in its style; with its
@@ -220,29 +220,29 @@ public:
         ObjectRef texture;
         uint8_t style = 1;
     };
-    bool copies(VmObject* actor, std::vector<Copy>& out);
+    bool copies(VmObject *actor, std::vector<Copy> &out);
     // The decals stuck to the world (Decal.AttachDecal), and their size:
     // their texture's, by their scale.
     std::vector<ScriptLevel::Decal> decals() const;
     // It was drawn this frame (its LastRenderTime: The Fallen's heads and
     // faces only move on pawns drawn in the last few seconds).
-    void drawn(VmObject* actor);
+    void drawn(VmObject *actor);
     // The zones drawn this frame (bit n, zone n), the view in `cameraZone`.
     void zonesDrawn(uint64_t zones, int cameraZone) { level_->zonesRendered(zones, cameraZone); }
     // It's about to be drawn: C3DPreRender, as The Fallen's engine sends
     // (the player's weapon works out its tip and the crosshair).
-    void preRender(VmObject* actor);
+    void preRender(VmObject *actor);
 
-    Vm& vm() { return *vm_; }
-    ScriptLevel& level() { return *level_; }
-    VmObject* player() const { return player_; }
+    Vm &vm() { return *vm_; }
+    ScriptLevel &level() { return *level_; }
+    VmObject *player() const { return player_; }
     // The live actor an object reference in the level's package names
     // (a placed light...); null if none or destroyed.
-    VmObject* actorAt(int32_t ref);
-    const Package& map() const { return map_; }
-    const std::string& loginError() const { return loginError_; }
-    float time() const { return time_; }       // seconds played
-    float behind() const { return behind_; }   // real seconds not yet played (it's slower than real time)
+    VmObject *actorAt(int32_t ref);
+    const Package &map() const { return map_; }
+    const std::string &loginError() const { return loginError_; }
+    float time() const { return time_; }     // seconds played
+    float behind() const { return behind_; } // real seconds not yet played (it's slower than real time)
     int health();
     // The level's title (from its .int, as CTVE_Document sets it) and its
     // objectives that are active now (LevelInfo's Objective_State 0).
@@ -251,35 +251,62 @@ public:
     std::string playerState();
 
 private:
-    ObjectRef refOf(const Value* v) const;
-    std::string inputSetting(const std::string& key) const;
+    ObjectRef refOf(const Value *v) const;
+    std::string inputSetting(const std::string &key) const;
     std::map<std::string, std::string> aliases_; // the input aliases, by name (lower case)
     // Where each property look() reads is in a class's values, found
     // once per class (looking properties up by name for every actor every
     // frame took as long as the scripts' ticks).
-    enum Field { Location, PrePivot, Rotation, DrawScale, DrawType, Hidden, MeshField, Skin, Texture, MultiSkins,
-                 AnimSequence, AnimFrame, AnimRate, AnimLoop, Style, ScaleGlow, LastRenderTime, Unlit,
-                 RenderInitial, Region, AmbientSoundField, SoundRadius, SoundVolume, SoundPitch, CoronaField, AmbientGlow,
-                 SpecularField, MultiTextureOn, FieldCount };
-    const std::array<int, FieldCount>& slotsOf(const VmClass* cls);
+    enum Field {
+        Location,
+        PrePivot,
+        Rotation,
+        DrawScale,
+        DrawType,
+        Hidden,
+        MeshField,
+        Skin,
+        Texture,
+        MultiSkins,
+        AnimSequence,
+        AnimFrame,
+        AnimRate,
+        AnimLoop,
+        Style,
+        ScaleGlow,
+        LastRenderTime,
+        Unlit,
+        RenderInitial,
+        Region,
+        AmbientSoundField,
+        SoundRadius,
+        SoundVolume,
+        SoundPitch,
+        CoronaField,
+        AmbientGlow,
+        SpecularField,
+        MultiTextureOn,
+        FieldCount
+    };
+    const std::array<int, FieldCount> &slotsOf(const VmClass *cls);
     int regionZoneField_ = -1; // ZoneNumber's place in PointRegion
-    std::unordered_map<const VmClass*, std::array<int, FieldCount>> slots_;
+    std::unordered_map<const VmClass *, std::array<int, FieldCount>> slots_;
     struct AmbientKind {
         bool known = false, keypoint = false;
     };
-    std::unordered_map<const VmClass*, AmbientKind> ambientKinds_;
+    std::unordered_map<const VmClass *, AmbientKind> ambientKinds_;
     std::array<NameId, FieldCount> names_{};
 
-    const PackageSet& packages_;
-    const Package& map_;
+    const PackageSet &packages_;
+    const Package &map_;
     std::unique_ptr<Vm> vm_;
     std::unique_ptr<ScriptLevel> level_;
     struct WallKey {
         std::array<uint32_t, 6> bits;
-        bool operator==(const WallKey& o) const { return bits == o.bits; }
+        bool operator==(const WallKey &o) const { return bits == o.bits; }
     };
     struct WallHash {
-        size_t operator()(const WallKey& k) const {
+        size_t operator()(const WallKey &k) const {
             size_t h = 1469598103934665603ull;
             for (uint32_t b : k.bits)
                 h = (h ^ b) * 1099511628211ull;
@@ -287,7 +314,7 @@ private:
         }
     };
     std::unordered_map<WallKey, bool, WallHash> walls_; // wallBetween's answers
-    VmObject* player_ = nullptr;
+    VmObject *player_ = nullptr;
     std::string loginError_;
     float time_ = 0, owed_ = 0, behind_ = 0;
 };

@@ -27,26 +27,26 @@ struct TextStyle {
     float points = 12;
     bool bold = false, shadow = false;
     bool boldFace = false;     // the font file is a bold face (not drawn bold by doubling)
-    ttf::Font* font = nullptr; // null if the game doesn't ship it (and Arial doesn't load)
+    ttf::Font *font = nullptr; // null if the game doesn't ship it (and Arial doesn't load)
     float pixels = 16;         // the size for font's draw calls
 };
 
 class GameFonts {
 public:
     // Reads fonts.txt and loads the fonts it names that the game has.
-    Error load(const Archive& files);
+    Error load(const Archive &files);
 
     // The style whose use starts with `use` ("dialogue"), or null.
-    const TextStyle* style(std::string_view use) const;
+    const TextStyle *style(std::string_view use) const;
     // A colour by its use ("dialogue for main character"), or `fallback`.
     Color colour(std::string_view use, Color fallback = {255, 255, 255}) const;
     // A colour by its place in the list (the game's colour numbers).
     Color colourAt(size_t index, Color fallback = {255, 255, 255}) const;
-    const std::vector<TextStyle>& styles() const { return styles_; }
+    const std::vector<TextStyle> &styles() const { return styles_; }
 
     // Draws text in a style: its shadow (one pixel down and right, the
     // shadow colour) first if it has one.
-    int draw(Surface& dst, const TextStyle& style, int x, int y, std::string_view utf8, Color colour,
+    int draw(Surface &dst, const TextStyle &style, int x, int y, std::string_view utf8, Color colour,
              uint8_t alpha = 255) const;
 
 private:
@@ -68,6 +68,6 @@ std::vector<Subtitle> parseSubtitles(std::string_view text);
 
 // Text broken into rows no wider than `width` as the game breaks it: at
 // spaces, two kept after a sentence's end (game_text.cpp).
-std::vector<std::string> gameRows(ttf::Font& font, float pixels, const std::string& text, int width);
+std::vector<std::string> gameRows(ttf::Font &font, float pixels, const std::string &text, int width);
 
 } // namespace reluva::awe

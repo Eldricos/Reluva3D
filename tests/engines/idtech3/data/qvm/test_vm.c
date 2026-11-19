@@ -6,10 +6,10 @@
  * expected results, and to a QVM (with q3lcc and q3asm), which the tests
  * then run. vmMain must be the first function. */
 
-int trap_Print(const char *text);          /* system call 0 */
-int trap_Add(int a, int b);                /* system call 1 */
-int trap_Reenter(int command, int arg);    /* system call 2: calls vmMain(command, arg) */
-float trap_Halve(float f);                 /* system call 3 */
+int trap_Print(const char *text);       /* system call 0 */
+int trap_Add(int a, int b);             /* system call 1 */
+int trap_Reenter(int command, int arg); /* system call 2: calls vmMain(command, arg) */
+float trap_Halve(float f);              /* system call 3 */
 
 static int fib(int n);
 static int structs(int seed);
@@ -26,13 +26,20 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
            int arg9, int arg10, int arg11) {
     int i, sum;
     switch (command) {
-    case 0: return arg0 + arg1 * arg2;
-    case 1: return fib(arg0);
-    case 2: return structs(arg0);
-    case 3: return floats(arg0);
-    case 4: return integers(arg0);
-    case 5: return switches(arg0);
-    case 6: return ops[arg0 % 3](arg1);
+    case 0:
+        return arg0 + arg1 * arg2;
+    case 1:
+        return fib(arg0);
+    case 2:
+        return structs(arg0);
+    case 3:
+        return floats(arg0);
+    case 4:
+        return integers(arg0);
+    case 5:
+        return switches(arg0);
+    case 6:
+        return ops[arg0 % 3](arg1);
     case 7:
         buffer[0] = 0;
         append("value ");
@@ -47,8 +54,10 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4, int ar
         for (i = 0; i < 64; i++)
             sum += table[i];
         return sum;
-    case 9: return trap_Reenter(1, arg0) + 1;
-    case 10: return arg11 - arg0;
+    case 9:
+        return trap_Reenter(1, arg0) + 1;
+    case 10:
+        return arg11 - arg0;
     }
     return -12345;
 }
@@ -63,7 +72,9 @@ typedef struct {
 
 static item_t items[4];
 
-static int fib(int n) { return n < 2 ? n : fib(n - 1) + fib(n - 2); }
+static int fib(int n) {
+    return n < 2 ? n : fib(n - 1) + fib(n - 2);
+}
 
 static int length(const char *s) {
     int n = 0;
@@ -99,9 +110,15 @@ static void append(const char *s) {
     buffer[at] = 0;
 }
 
-static int square(int x) { return x * x; }
-static int negate(int x) { return -x; }
-static int twice(int x) { return x + x; }
+static int square(int x) {
+    return x * x;
+}
+static int negate(int x) {
+    return -x;
+}
+static int twice(int x) {
+    return x + x;
+}
 static int (*ops[3])(int) = {square, negate, twice};
 
 static int structs(int seed) {
@@ -151,15 +168,23 @@ static int integers(int x) {
 static int switches(int x) {
     /* Dense cases compile to a jump table. */
     switch (x) {
-    case 0: return 11;
-    case 1: return 22;
-    case 2: return 33;
-    case 3: return 44;
-    case 4: return 55;
-    case 5: return 66;
-    case 6: return 77;
-    case 100: return 1000;
-    default: return -1;
+    case 0:
+        return 11;
+    case 1:
+        return 22;
+    case 2:
+        return 33;
+    case 3:
+        return 44;
+    case 4:
+        return 55;
+    case 5:
+        return 66;
+    case 6:
+        return 77;
+    case 100:
+        return 1000;
+    default:
+        return -1;
     }
 }
-

@@ -41,7 +41,9 @@ namespace reluva::clue {
 // little faster and higher than recorded. A recording of the original has
 // its weather, voices, steps and menu sounds so (the CD's music, the videos
 // and the loading's loop not).
-inline void playAsClueExe(audio::Sound& s) { s.rate = s.rate * 65 / 64; }
+inline void playAsClueExe(audio::Sound &s) {
+    s.rate = s.rate * 65 / 64;
+}
 // And at volume 100 of Miles' 127 (0x42EB80, 0x42ECB0, 0x42EBC0 pass 0x64),
 // under the master volume.
 constexpr int kClueSoundVolume = audio::kMaxVolume * 100 / 127;
@@ -61,14 +63,14 @@ struct PlayLook {
 
 class Play {
 public:
-    Play(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer, const Resi& resi,
-         const Fonts& fonts, Mansion& mansion, const Level& level);
+    Play(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer, const Resi &resi, const Fonts &fonts,
+         Mansion &mansion, const Level &level);
     ~Play();
 
-    Error start(const std::array<Player, kSuspectCount>& players, bool noDieRoll, uint32_t seed);
+    Error start(const std::array<Player, kSuspectCount> &players, bool noDieRoll, uint32_t seed);
     // A game over a network: the session's lobby and deal; this machine
     // plays its own suspect, the others' actions come through the session.
-    Error startNetwork(netplay::Session& session);
+    Error startNetwork(netplay::Session &session);
     // Saved games: when it's a human's turn and nothing is going on.
     bool canSave() const;
     // What the music is to do, once: -1 stop, 2-4 that track; 0 nothing.
@@ -77,18 +79,18 @@ public:
         musicCue_ = 0;
         return cue;
     }
-    void save(std::ostream& out) const;
-    Error load(std::istream& in); // in place of start()
-    void setLook(const PlayLook& look) { look_ = look; }
+    void save(std::ostream &out) const;
+    Error load(std::istream &in); // in place of start()
+    void setLook(const PlayLook &look) { look_ = look; }
 
-    void handleEvent(const Event& ev);
+    void handleEvent(const Event &ev);
     void update(uint64_t nowMs);
     void draw();
     void stopSounds();
 
     bool finished() const { return finished_; } // the end's Continue clicked
     int turn() const { return game_.turn(); }
-    const Game& game() const { return game_; }
+    const Game &game() const { return game_; }
 
 private:
     enum class Panel { None, Cards, Notepad };
@@ -102,9 +104,9 @@ private:
         Loser,    // dialog 40: out; disproving by hand or not
     };
     struct Walker {
-        int x = 0, y = 0;       // in the world
-        double fx = 0, fy = 0;  // while walking
-        int facing = 2;         // 0 n, 1 ne, 2 e, ... 7 nw
+        int x = 0, y = 0;                      // in the world
+        double fx = 0, fy = 0;                 // while walking
+        int facing = 2;                        // 0 n, 1 ne, 2 e, ... 7 nw
         std::deque<std::pair<int, int>> route; // world points still to walk to
         bool walking = false;
         int stepFrame = -1; // the walk's frame last stepped on
@@ -121,7 +123,7 @@ private:
     void beginTurn();
     void computerTurn();
     void afterAction();
-    void startWalk(const std::vector<Place>& path);
+    void startWalk(const std::vector<Place> &path);
     void walkPlan();
     void placeWalkers(bool walk);
     // Where a suspect stands in a room, looked for from a point (Clue.exe's
@@ -140,7 +142,7 @@ private:
     // The cells the other suspects stand on, or are walking to.
     std::set<std::pair<int, int>> othersCells(int suspect) const;
     void suggestionMade();
-    void accusationMade(const Accusation& a);
+    void accusationMade(const Accusation &a);
     void endTurn();
     void showTold(int suspect, bool can);
     void showSolution(int text);
@@ -157,7 +159,7 @@ private:
     bool reactAt(int x, int y, bool hover); // a hot spot's reaction, if one is there
     void updateAmbience();
     void clickView(int x, int y);
-    void clickSquare(const Place& p);
+    void clickSquare(const Place &p);
     void clickMap(int x, int y);
     void clickPanel(int x, int y);
     int viewer() const; // whose cards and notes the panels show
@@ -166,18 +168,18 @@ private:
     bool localTurn() const;
     // A human's action: played out now, or over a network sent to the host
     // and played out when it comes back in order.
-    void perform(const netplay::Command& c);
-    void apply(const netplay::Command& c);
+    void perform(const netplay::Command &c);
+    void apply(const netplay::Command &c);
 
     std::string line(int suspect, int index) const; // TickerStrings.txt
-    void say(const std::string& sentence);
+    void say(const std::string &sentence);
     void drawTicker();
     void editNote(int card);
-    std::shared_ptr<audio::Sound> loadSound(const std::string& file);
-    void sound(const std::string& file, bool voice = false);
+    std::shared_ptr<audio::Sound> loadSound(const std::string &file);
+    void sound(const std::string &file, bool voice = false);
     int promptLine() const;
     void promptHuman();
-    void startVideo(const std::string& file);
+    void startVideo(const std::string &file);
     void stopVideo();
     void centreOn(int suspect);
 
@@ -186,17 +188,17 @@ private:
     void drawPanel();
     void drawMap();
     void drawWindows();
-    void drawAnimation(const std::string& name, int x, int y, int frame = 0);
+    void drawAnimation(const std::string &name, int x, int y, int frame = 0);
     std::vector<Mansion::Actor> actors();
 
-    System& sys_;
-    Surface& screen_;
-    const GameData& data_;
-    audio::Mixer* mixer_;
-    const Resi& resi_;
-    const Fonts& fonts_;
-    Mansion& mansion_;
-    const Level& level_;
+    System &sys_;
+    Surface &screen_;
+    const GameData &data_;
+    audio::Mixer *mixer_;
+    const Resi &resi_;
+    const Fonts &fonts_;
+    Mansion &mansion_;
+    const Level &level_;
     PlayLook look_;
 
     Board board_;
@@ -206,7 +208,7 @@ private:
     std::array<bool, kSuspectCount> autoDisprove_{}; // humans out who chose Automatically
     // Over a network: the session, each human's machine, the actions to
     // play out, and whether this machine's is on its way.
-    netplay::Session* net_ = nullptr;
+    netplay::Session *net_ = nullptr;
     std::array<int, kSuspectCount> owner_{};
     std::deque<netplay::Command> incoming_;
     bool pending_ = false;
@@ -243,7 +245,7 @@ private:
     Surface tickerStrip_;
     std::unique_ptr<BitmapFont> tickerFont_;
     std::vector<std::string> tickerLines_;
-    std::vector<std::string> cardNames_; // Notepad.txt's, in card order
+    std::vector<std::string> cardNames_;   // Notepad.txt's, in card order
     std::array<std::string, 3> kindNames_; // its headings
     Panel panel_ = Panel::None;
     bool map_ = false; // the board seen from above, over the view

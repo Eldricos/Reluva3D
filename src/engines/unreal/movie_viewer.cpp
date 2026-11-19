@@ -18,21 +18,21 @@ namespace reluva::unreal {
 namespace {
 
 std::string lower(std::string s) {
-    for (char& c : s)
+    for (char &c : s)
         c = char(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
 // The game folder's "movies" (in any case), and the AVI files in it.
-std::vector<std::filesystem::path> findMovies(const std::filesystem::path& game) {
+std::vector<std::filesystem::path> findMovies(const std::filesystem::path &game) {
     std::vector<std::filesystem::path> out;
     std::error_code ec;
     if (game.empty() || !std::filesystem::is_directory(game, ec))
         return out;
-    for (const auto& dir : std::filesystem::directory_iterator(game, ec)) {
+    for (const auto &dir : std::filesystem::directory_iterator(game, ec)) {
         if (!dir.is_directory(ec) || lower(dir.path().filename().string()) != "movies")
             continue;
-        for (const auto& f : std::filesystem::directory_iterator(dir.path(), ec))
+        for (const auto &f : std::filesystem::directory_iterator(dir.path(), ec))
             if (f.is_regular_file(ec) && lower(f.path().extension().string()) == ".avi")
                 out.push_back(f.path());
     }
@@ -42,15 +42,22 @@ std::vector<std::filesystem::path> findMovies(const std::filesystem::path& game)
 
 } // namespace
 
-MovieViewer::MovieViewer(ViewerContext& ctx) : Page(ctx), files_(findMovies(ctx.gameFolder)) {}
+MovieViewer::MovieViewer(ViewerContext &ctx) : Page(ctx), files_(findMovies(ctx.gameFolder)) {
+}
 
-MovieViewer::~MovieViewer() { stop(); }
+MovieViewer::~MovieViewer() {
+    stop();
+}
 
-void MovieViewer::activate() { draw(); }
+void MovieViewer::activate() {
+    draw();
+}
 
-void MovieViewer::deactivate() { stop(); }
+void MovieViewer::deactivate() {
+    stop();
+}
 
-bool MovieViewer::play(const std::string& name) {
+bool MovieViewer::play(const std::string &name) {
     for (size_t i = 0; i < files_.size(); ++i)
         if (lower(files_[i].filename().string()) == lower(name)) {
             index_ = i;
@@ -94,7 +101,7 @@ void MovieViewer::stop() {
     }
 }
 
-void MovieViewer::handleEvent(const Event& ev) {
+void MovieViewer::handleEvent(const Event &ev) {
     if (ev.type != EventType::KeyDown)
         return;
     const bool go = ev.key == key::Space || ev.key == key::Return || ev.key == key::KpEnter;
@@ -147,8 +154,8 @@ void MovieViewer::update(uint64_t nowMs) {
 
 // The picture, scaled to fit the screen and centred on black.
 void MovieViewer::showPicture() {
-    const image::Image& pic = decoder_->picture();
-    Surface& s = ctx_.screen;
+    const image::Image &pic = decoder_->picture();
+    Surface &s = ctx_.screen;
     if (pic.w <= 0 || pic.h <= 0)
         return;
     const double scale = std::min(double(s.w) / pic.w, double(s.h) / pic.h);
@@ -158,9 +165,9 @@ void MovieViewer::showPicture() {
         clear(0, 0, 0);
     for (int y = 0; y < h; ++y) {
         const int sy = std::min(pic.h - 1, int(y / scale));
-        uint8_t* out = s.row(y0 + y) + x0 * 4;
+        uint8_t *out = s.row(y0 + y) + x0 * 4;
         for (int x = 0; x < w; ++x, out += 4) {
-            const uint8_t* in = pic.pixel(std::min(pic.w - 1, int(x / scale)), sy);
+            const uint8_t *in = pic.pixel(std::min(pic.w - 1, int(x / scale)), sy);
             out[0] = in[0];
             out[1] = in[1];
             out[2] = in[2];

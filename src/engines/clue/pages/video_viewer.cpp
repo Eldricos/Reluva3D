@@ -16,7 +16,7 @@ constexpr int kInfoH = 26;
 
 } // namespace
 
-VideoViewer::VideoViewer(System& sys, Surface& screen, const GameData& data, audio::Mixer* mixer)
+VideoViewer::VideoViewer(System &sys, Surface &screen, const GameData &data, audio::Mixer *mixer)
     : sys_(sys), screen_(screen), data_(data), mixer_(mixer) {
     files_ = data_.withExtension(".avi");
 }
@@ -39,7 +39,7 @@ void VideoViewer::load() {
     drawnFrame_ = size_t(-1);
     if (files_.empty())
         return;
-    const auto& path = files_[size_t(current_)];
+    const auto &path = files_[size_t(current_)];
     std::ifstream in(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     if (Error err = player_.open(std::move(bytes))) {
@@ -97,8 +97,11 @@ void VideoViewer::handleKey(uint32_t key) {
             start();
         }
         break;
-    case 'z': zoom_ = zoom_ == 0 ? 1 : zoom_ == 1 ? 2 : 0; break;
-    default: return;
+    case 'z':
+        zoom_ = zoom_ == 0 ? 1 : zoom_ == 1 ? 2 : 0;
+        break;
+    default:
+        return;
     }
     drawnFrame_ = size_t(-1);
     draw();
@@ -133,7 +136,7 @@ void VideoViewer::draw() {
         return;
     }
     drawnFrame_ = player_.frameShown();
-    const image::Image& pic = player_.picture();
+    const image::Image &pic = player_.picture();
     // As large as fits (twice the size for 320x240, which then fills the
     // screen under the info line), or as Z chose; shrunk if it doesn't fit.
     const int areaH = kScreenH - kInfoH;
@@ -144,16 +147,16 @@ void VideoViewer::draw() {
     const int x0 = (kScreenW - w) / 2, y0 = std::max(0, (h > areaH ? kScreenH - h : areaH - h) / 2);
     for (int y = 0; y < h && y0 + y < kScreenH; ++y) {
         const int sy = std::min(pic.h - 1, int(y / scale));
-        uint8_t* d = screen_.row(y0 + y) + x0 * 4;
+        uint8_t *d = screen_.row(y0 + y) + x0 * 4;
         for (int x = 0; x < w; ++x, d += 4) {
-            const uint8_t* p = pic.pixel(std::min(pic.w - 1, int(x / scale)), sy);
+            const uint8_t *p = pic.pixel(std::min(pic.w - 1, int(x / scale)), sy);
             d[0] = p[0];
             d[1] = p[1];
             d[2] = p[2];
             d[3] = 255;
         }
     }
-    const Movie& avi = player_;
+    const Movie &avi = player_;
     char line[160];
     std::snprintf(line, sizeof line, "%dx%d %s, frame %zu/%zu at %.0f a second%s%s", avi.width(), avi.height(),
                   avi.videoCodec().c_str(), player_.frameShown() + 1, avi.frameCount(), avi.framesPerSecond(),

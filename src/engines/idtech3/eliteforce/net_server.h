@@ -28,8 +28,8 @@ namespace reluva::idtech3::eliteforce {
 // `before` to `now`, as the original's server sends them: cs <index>
 // "<text>", or for one of 1000 characters or more, the pieces bcs0,
 // bcs1..., bcs2 (the client game hears of it at the last).
-std::vector<std::string> configstringCommands(const std::map<int32_t, std::string>& before,
-                                              const std::map<int32_t, std::string>& now);
+std::vector<std::string> configstringCommands(const std::map<int32_t, std::string> &before,
+                                              const std::map<int32_t, std::string> &now);
 
 // The server's side of Elite Force's network play (protocol 24, as the
 // retail game patched to 1.2 speaks it: docs/engines/idtech3/games/stvef/systems/network.md): players
@@ -44,15 +44,15 @@ std::vector<std::string> configstringCommands(const std::map<int32_t, std::strin
 // slots) in the game directly.
 class NetServer {
 public:
-    NetServer(GameHost& game, CvarStore& cvars, std::unique_ptr<reluva::net::UdpSocket> socket);
+    NetServer(GameHost &game, CvarStore &cvars, std::unique_ptr<reluva::net::UdpSocket> socket);
     // Tells everyone connected that the server has gone.
     ~NetServer();
-    NetServer(const NetServer&) = delete;
-    NetServer& operator=(const NetServer&) = delete;
+    NetServer(const NetServer &) = delete;
+    NetServer &operator=(const NetServer &) = delete;
 
     // The game's files, for the paks the level uses (which players
     // missing them may download, if sv_allowDownload is on).
-    void setFiles(const SearchSet* files) { files_ = files; }
+    void setFiles(const SearchSet *files) { files_ = files; }
     // Whether this level checks players' paks (sv_pure 1 when it started).
     bool pure() const { return pure_; }
     // Slots the network mustn't give out (the page's own player).
@@ -69,10 +69,10 @@ public:
     uint16_t port() const { return socket_->port(); }
     // The players connected over the network: their slot and name.
     std::vector<std::pair<int32_t, std::string>> players() const;
-    std::function<void(const std::string&)> print;
+    std::function<void(const std::string &)> print;
     // Turns a master server's name into its address (for the heartbeats a
     // public server, dedicated 2, sends them); unset: none are sent.
-    std::function<bool(const std::string& host, uint32_t& ip)> resolveHost;
+    std::function<bool(const std::string &host, uint32_t &ip)> resolveHost;
 
     static constexpr int kPacketBackup = 32;
     static constexpr int kMaxReliable = 64;
@@ -131,26 +131,26 @@ private:
         bool pureAnswered = false, pureValid = false;
     };
 
-    void outOfBand(const reluva::net::Address& from, const std::string& text, uint64_t now);
-    void sendText(const reluva::net::Address& to, const std::string& text);
-    void connect(const reluva::net::Address& from, const std::string& userinfo, uint64_t now);
-    std::string infoString(const std::string& challenge) const;
-    Error packet(Client& c, const std::vector<uint8_t>& datagram, uint64_t now);
-    Error clientCommand(Client& c, const std::string& text);
-    void addReliable(Client& c, const std::string& text);
-    void writeReliable(Client& c, wire::MessageWriter& w);
-    void sendGamestate(Client& c, uint64_t now);
-    void sendSnapshot(Client& c, uint64_t now);
-    void transmit(Client& c, const wire::MessageWriter& w);
-    void sendQueued(Client& c, uint64_t now, bool first);
-    int rateWait(const Client& c, uint64_t now) const;
-    void drop(Client& c, const std::string& reason, uint64_t now);
-    void finalMessage(Client& c, const std::string& reason, uint64_t now);
+    void outOfBand(const reluva::net::Address &from, const std::string &text, uint64_t now);
+    void sendText(const reluva::net::Address &to, const std::string &text);
+    void connect(const reluva::net::Address &from, const std::string &userinfo, uint64_t now);
+    std::string infoString(const std::string &challenge) const;
+    Error packet(Client &c, const std::vector<uint8_t> &datagram, uint64_t now);
+    Error clientCommand(Client &c, const std::string &text);
+    void addReliable(Client &c, const std::string &text);
+    void writeReliable(Client &c, wire::MessageWriter &w);
+    void sendGamestate(Client &c, uint64_t now);
+    void sendSnapshot(Client &c, uint64_t now);
+    void transmit(Client &c, const wire::MessageWriter &w);
+    void sendQueued(Client &c, uint64_t now, bool first);
+    int rateWait(const Client &c, uint64_t now) const;
+    void drop(Client &c, const std::string &reason, uint64_t now);
+    void finalMessage(Client &c, const std::string &reason, uint64_t now);
     void noteServerId();
-    void writeDummySnapshot(Client& c, wire::MessageWriter& w);
-    void sendDownload(Client& c, uint64_t now);
-    bool downloadAllowed(const std::string& name, std::string& why) const;
-    const SearchSet* files_ = nullptr;
+    void writeDummySnapshot(Client &c, wire::MessageWriter &w);
+    void sendDownload(Client &c, uint64_t now);
+    bool downloadAllowed(const std::string &name, std::string &why) const;
+    const SearchSet *files_ = nullptr;
     // Pure for this level (sv_pure as it started): what clients' answers
     // are checked against, with this level's checksum feed.
     bool pure_ = false;
@@ -162,11 +162,11 @@ private:
     bool mastersResolved_ = false;
     uint64_t nextHeartbeat_ = 0;
     int lastPlayerCount_ = -1;
-    void applyUserinfo(Client& c);
-    Client* clientFor(const reluva::net::Address& from, uint16_t qport);
+    void applyUserinfo(Client &c);
+    Client *clientFor(const reluva::net::Address &from, uint16_t qport);
 
-    GameHost& game_;
-    CvarStore& cvars_;
+    GameHost &game_;
+    CvarStore &cvars_;
     std::unique_ptr<reluva::net::UdpSocket> socket_;
     std::vector<Client> clients_;
     std::set<int32_t> reserved_;
@@ -180,9 +180,9 @@ private:
     size_t serverCommandsSeen_ = 0, dropsSeen_ = 0;
     int32_t checksumFeed_ = 0;
     int levelCount_ = 0;
-    int restartsSeen_ = 0; // of the game's map_restarts
-    int32_t serverId_ = 0;             // the level's id (sv_serverid)
-    std::set<int32_t> restartedIds_;   // its ids before each map_restart
+    int restartsSeen_ = 0;           // of the game's map_restarts
+    int32_t serverId_ = 0;           // the level's id (sv_serverid)
+    std::set<int32_t> restartedIds_; // its ids before each map_restart
     uint64_t lastNow_ = 0;
     uint32_t random_ = 0x1234567u;
     uint32_t nextRandom();

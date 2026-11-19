@@ -19,7 +19,7 @@ namespace reluva::unreal {
 
 // How a texture's pixels are stored (its Format property).
 enum class TextureFormat : uint8_t { P8 = 0, RGBA7 = 1, RGB16 = 2, DXT1 = 3, RGB8 = 4, RGBA8 = 5 };
-const char* formatName(uint8_t format);
+const char *formatName(uint8_t format);
 
 // Surface and texture flags (a texture's PolyFlags, a level surface's).
 namespace polyflag {
@@ -42,7 +42,7 @@ struct Palette {
     std::array<uint8_t, 256 * 4> rgba{}; // as stored: R, G, B, A
     int count = 0;
 };
-Error readPalette(const Package& package, int exportIndex, Palette& out);
+Error readPalette(const Package &package, int exportIndex, Palette &out);
 
 struct TextureInfo {
     int width = 0, height = 0; // of the first mipmap
@@ -67,8 +67,8 @@ struct TextureInfo {
 // palette, until their effects are worked out. With `seeThroughZero`, a
 // palette texture's colour 0 is see-through as a masked one's is, whether
 // or not it's marked so (fonts aren't, and draw that way).
-Error decodeTexture(const PackageSet& packages, const Package& package, int exportIndex, image::Image& out,
-                    TextureInfo* info = nullptr, bool seeThroughZero = false);
+Error decodeTexture(const PackageSet &packages, const Package &package, int exportIndex, image::Image &out,
+                    TextureInfo *info = nullptr, bool seeThroughZero = false);
 
 // Whether a class name is a texture's (Texture and its procedural
 // subclasses, which keep a first frame in their mipmaps).

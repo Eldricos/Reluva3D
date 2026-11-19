@@ -19,12 +19,12 @@ class CvarStore {
 public:
     // Flags as the game code passes them (the Quake III values).
     enum Flags : int32_t {
-        Archive = 1,      // saved in the config file
+        Archive = 1, // saved in the config file
         UserInfo = 2,
         ServerInfo = 4,
         SystemInfo = 8,
-        Init = 16,        // only settable from the command line
-        Latch = 32,       // takes effect on restart
+        Init = 16,  // only settable from the command line
+        Latch = 32, // takes effect on restart
         ReadOnly = 64,
         UserCreated = 128,
         Temp = 256,
@@ -47,7 +47,7 @@ public:
 
     // Creates the variable with `defaultValue` if it doesn't exist; an
     // existing one keeps its value and gains the flags.
-    Cvar& create(std::string_view name, std::string_view defaultValue, int32_t flags);
+    Cvar &create(std::string_view name, std::string_view defaultValue, int32_t flags);
     // Sets (creating it, flagged UserCreated, if needed). A ReadOnly or
     // Init variable is only changed with `force`; a Latch one keeps its
     // value until the next level starts, unless forced (Quake III's: the
@@ -60,12 +60,12 @@ public:
     bool hasLatched(std::string_view name) const;
     std::string pending(std::string_view name) const;
 
-    const Cvar* find(std::string_view name) const;
-    const Cvar* byHandle(int32_t handle) const;
+    const Cvar *find(std::string_view name) const;
+    const Cvar *byHandle(int32_t handle) const;
     std::string string(std::string_view name) const; // "" if unset
     float value(std::string_view name) const;        // 0 if unset or not a number
     int32_t integer(std::string_view name) const;
-    const std::vector<Cvar>& all() const { return cvars_; }
+    const std::vector<Cvar> &all() const { return cvars_; }
     // Counts every variable made and every value changed: whether anything
     // changed since it was last looked at.
     uint64_t changes() const { return changes_; }
@@ -74,12 +74,12 @@ public:
     // modificationCount, value (float), integer, then the string, 256
     // bytes. Writes the variable `handle` into it at `address`.
     static constexpr int32_t kVmCvarSize = 16 + 256;
-    void writeVmCvar(Qvm& vm, int32_t address, int32_t handle) const;
+    void writeVmCvar(Qvm &vm, int32_t address, int32_t handle) const;
     // Rewrites the vmCvar_t at `address` if its variable changed since.
-    void updateVmCvar(Qvm& vm, int32_t address) const;
+    void updateVmCvar(Qvm &vm, int32_t address) const;
 
 private:
-    Cvar* findMutable(std::string_view name);
+    Cvar *findMutable(std::string_view name);
 
     // Names compared ignoring case, without making a lower-case copy to
     // look one up (variables are looked up by name all the time).

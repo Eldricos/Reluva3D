@@ -22,8 +22,8 @@ namespace reluva::stharbinger {
 
 namespace {
 
-constexpr const char* kGameId = "ds9harbinger";
-constexpr const char* kTitle = "Star Trek: Deep Space Nine - Harbinger";
+constexpr const char *kGameId = "ds9harbinger";
+constexpr const char *kTitle = "Star Trek: Deep Space Nine - Harbinger";
 
 // The releases it recognises by their files' signatures, as `reluva --hash
 // <files...>` prints them. A release not listed is still recognised by the
@@ -41,26 +41,29 @@ constexpr const char* kTitle = "Star Trek: Deep Space Nine - Harbinger";
 // leave it out.
 const std::vector<GameVariant> kVariants = {
     // The English release, from its disc 1.
-    {"ds9harbinger", "Star Trek: Deep Space Nine - Harbinger", "en", "dos",
+    {"ds9harbinger",
+     "Star Trek: Deep Space Nine - Harbinger",
+     "en",
+     "dos",
      {{"SSE/SSE.ALL", "0919fbe659e77bf6538441e6636039c6", 2865766},
       {"SSE/SSE.LST", "638945e4fb2e7a965da5b6c26a1b649d", 308},
       {"SSE/SSE.CAT", "73439fbcff8912977f44888eae834f38", 779}}},
 };
 
 // The settings (MetaEngine::engineOptions), as kept in reluva.ini.
-constexpr const char* kOriginal = "original";
-constexpr const char* kMusicVolume = "music_volume";
-constexpr const char* kSpeechVolume = "speech_volume";
-constexpr const char* kEffectsVolume = "effects_volume";
+constexpr const char *kOriginal = "original";
+constexpr const char *kMusicVolume = "music_volume";
+constexpr const char *kSpeechVolume = "speech_volume";
+constexpr const char *kEffectsVolume = "effects_volume";
 // Developer settings: not part of the game. A start scene (start_scene, a
 // scene's name or CC.ALL slot; or the video for start_mode=video, e.g.
 // INTRO/VNM.SMK) has no place in the launcher: it's set in reluva.ini.
-constexpr const char* kStartMode = "start_mode";
-constexpr const char* kStartScene = "start_scene";
-constexpr const char* kDebug = "debug";
-constexpr const char* kDebugLevel = "debug_level";
+constexpr const char *kStartMode = "start_mode";
+constexpr const char *kStartScene = "start_scene";
+constexpr const char *kDebug = "debug";
+constexpr const char *kDebugLevel = "debug_level";
 
-GameOption volumeOption(const char* key, const char* label, const char* tooltip) {
+GameOption volumeOption(const char *key, const char *label, const char *tooltip) {
     GameOption o{key, label, tooltip, true, {{"100", "100%"}}};
     for (int p = 0; p <= 200; p += 10)
         if (p != 100)
@@ -68,30 +71,29 @@ GameOption volumeOption(const char* key, const char* label, const char* tooltip)
     return o;
 }
 
-std::string setting(const GameTarget& target, const char* key) {
+std::string setting(const GameTarget &target, const char *key) {
     const auto it = target.settings.find(key);
     return it == target.settings.end() ? std::string() : it->second;
 }
 
-bool flag(const GameTarget& target, const char* key) {
+bool flag(const GameTarget &target, const char *key) {
     const std::string v = setting(target, key);
     return !v.empty() && v != "0";
 }
 
 // Where each part goes in a folder Reluva copies the game into: a folder
 // per CD, or "install", each found again by findGameParts.
-std::string partFolder(const GamePart& part) {
+std::string partFolder(const GamePart &part) {
     return part.disc >= 0 ? "disc" + std::to_string(part.disc + 1) : "install";
 }
 
 // Every file of a part, to be copied under its partFolder, in name order
 // (the same on every system).
-void addPart(ImportPlan& plan, const GamePart& part) {
+void addPart(ImportPlan &plan, const GamePart &part) {
     const std::string to = partFolder(part);
     const size_t first = plan.files.size();
     std::error_code ec;
-    for (std::filesystem::recursive_directory_iterator it(part.folder, ec), end; !ec && it != end;
-         it.increment(ec)) {
+    for (std::filesystem::recursive_directory_iterator it(part.folder, ec), end; !ec && it != end; it.increment(ec)) {
         if (!it->is_regular_file(ec))
             continue;
         const uint64_t size = it->file_size(ec);
@@ -99,24 +101,25 @@ void addPart(ImportPlan& plan, const GamePart& part) {
         plan.files.push_back({it->path(), to + "/" + std::string(fs::withoutIsoVersion(rel)), size, std::nullopt});
     }
     std::sort(plan.files.begin() + std::ptrdiff_t(first), plan.files.end(),
-              [](const ImportPlan::File& a, const ImportPlan::File& b) { return fs::windowsNameLess(a.to, b.to); });
+              [](const ImportPlan::File &a, const ImportPlan::File &b) { return fs::windowsNameLess(a.to, b.to); });
 }
 
-std::string describeParts(const std::vector<GamePart>& parts) {
+std::string describeParts(const std::vector<GamePart> &parts) {
     std::string out;
-    for (const GamePart& p : parts) {
+    for (const GamePart &p : parts) {
         if (!out.empty())
             out += ", ";
-        out += p.disc >= 0 ? "disc " + std::to_string(p.disc + 1) : "an installed copy (" + p.folder.filename().string() + ")";
+        out += p.disc >= 0 ? "disc " + std::to_string(p.disc + 1)
+                           : "an installed copy (" + p.folder.filename().string() + ")";
     }
     return out;
 }
 
-void addNotes(ImportPlan& plan, const std::vector<GamePart>& parts) {
+void addNotes(ImportPlan &plan, const std::vector<GamePart> &parts) {
     plan.notes.clear();
     plan.notes.push_back("Found: " + describeParts(parts) + ".");
-    const bool disc1 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 0; });
-    const bool disc2 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 1; });
+    const bool disc1 = std::any_of(parts.begin(), parts.end(), [](const GamePart &p) { return p.disc == 0; });
+    const bool disc2 = std::any_of(parts.begin(), parts.end(), [](const GamePart &p) { return p.disc == 1; });
     if (!disc1 || !disc2)
         plan.notes.push_back(std::string("Add disc ") + (disc1 ? "2" : "1") +
                              " too (Add other disc...): the game needs both for all of its scenes.");
@@ -127,11 +130,11 @@ void addNotes(ImportPlan& plan, const std::vector<GamePart>& parts) {
 
 class StharbingerEngine : public Engine {
 public:
-    StharbingerEngine(System& system, const GameTarget& target) : sys_(system), target_(target) {}
+    StharbingerEngine(System &system, const GameTarget &target) : sys_(system), target_(target) {}
 
     Error run() override {
         Options options;
-        for (const GamePart& part : findGameParts(target_.path))
+        for (const GamePart &part : findGameParts(target_.path))
             options.paths.push_back(part.folder.string());
         if (options.paths.empty())
             return Error::fail("Harbinger isn't found in " + target_.path.string() + " any more");
@@ -149,7 +152,7 @@ public:
         mixer.setTypeVolume(audio::SoundType::Effects, settings::volume(target_.settings, kEffectsVolume));
         const bool audioOut = !audio::startMixerOutput(sys_, mixer);
         struct AudioOff { // stops the output before the mixer goes
-            System& sys;
+            System &sys;
             ~AudioOff() { sys.stopAudio(); }
         } audioOff{sys_};
 
@@ -157,7 +160,7 @@ public:
         try {
             Harbinger game(&platform, options);
             game.run();
-        } catch (const FatalError& e) {
+        } catch (const FatalError &e) {
             log::setDebugLevel(0);
             return Error::fail(e.what());
         }
@@ -166,38 +169,38 @@ public:
     }
 
 private:
-    System& sys_;
+    System &sys_;
     GameTarget target_;
 };
 
 class StharbingerMetaEngine : public MetaEngine {
 public:
-    const char* id() const override { return "stharbinger"; }
-    const char* name() const override { return kTitle; }
+    const char *id() const override { return "stharbinger"; }
+    const char *name() const override { return kTitle; }
 
-    std::vector<DetectedGame> detect(const std::filesystem::path& dir) const override {
+    std::vector<DetectedGame> detect(const std::filesystem::path &dir) const override {
         // Enough to play from (disc 1, or an install beside the CDs'
         // data); then which release, by its parts' file signatures where
         // they're known, else by the files it has.
         const std::vector<GamePart> parts = findGameParts(dir);
         if (!playable(parts))
             return {};
-        DetectedGame game = recogniseRelease(id(), parts, kVariants)
-                                .value_or(DetectedGame{id(), kGameId, kTitle, "en", "dos"});
-        const bool disc1 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 0; });
-        const bool disc2 = std::any_of(parts.begin(), parts.end(), [](const GamePart& p) { return p.disc == 1; });
+        DetectedGame game =
+            recogniseRelease(id(), parts, kVariants).value_or(DetectedGame{id(), kGameId, kTitle, "en", "dos"});
+        const bool disc1 = std::any_of(parts.begin(), parts.end(), [](const GamePart &p) { return p.disc == 0; });
+        const bool disc2 = std::any_of(parts.begin(), parts.end(), [](const GamePart &p) { return p.disc == 1; });
         if (disc1 != disc2)
             game.description += disc1 ? " (disc 1)" : " (disc 2)";
         return {game};
     }
 
-    std::vector<ImportPlan> planImport(const std::filesystem::path& source) const override {
+    std::vector<ImportPlan> planImport(const std::filesystem::path &source) const override {
         const std::vector<GamePart> parts = findGameParts(source);
         if (parts.empty())
             return {};
         ImportPlan plan;
         plan.game = DetectedGame{id(), kGameId, kTitle, "en", "dos"};
-        for (const GamePart& part : parts)
+        for (const GamePart &part : parts)
             addPart(plan, part);
         addNotes(plan, parts);
         plan.addPatchLabel.clear(); // the game had no patches
@@ -206,7 +209,7 @@ public:
         return {plan};
     }
 
-    bool addToImport(ImportPlan& plan, const std::filesystem::path& file, std::string& message) const override {
+    bool addToImport(ImportPlan &plan, const std::filesystem::path &file, std::string &message) const override {
         std::vector<GamePart> added = findGameParts(file);
         if (added.empty()) {
             message = "not one of Harbinger's CDs, nor a copy of one";
@@ -214,9 +217,9 @@ public:
         }
         // What the plan has already: the parts it copies, by their folders.
         std::vector<GamePart> parts;
-        for (const ImportPlan::File& f : plan.files) {
+        for (const ImportPlan::File &f : plan.files) {
             const std::string folder = f.to.substr(0, f.to.find('/'));
-            if (std::none_of(parts.begin(), parts.end(), [&](const GamePart& p) { return partFolder(p) == folder; })) {
+            if (std::none_of(parts.begin(), parts.end(), [&](const GamePart &p) { return partFolder(p) == folder; })) {
                 GamePart p;
                 p.disc = folder.rfind("disc", 0) == 0 ? std::atoi(folder.c_str() + 4) - 1 : -1;
                 p.folder = folder;
@@ -225,8 +228,9 @@ public:
             }
         }
         bool any = false;
-        for (const GamePart& part : added) {
-            if (std::any_of(parts.begin(), parts.end(), [&](const GamePart& p) { return partFolder(p) == partFolder(part); }))
+        for (const GamePart &part : added) {
+            if (std::any_of(parts.begin(), parts.end(),
+                            [&](const GamePart &p) { return partFolder(p) == partFolder(part); }))
                 continue;
             addPart(plan, part);
             parts.push_back(part);
@@ -242,31 +246,39 @@ public:
 
     std::vector<GameOption> engineOptions() const override {
         return {
-            {kOriginal, "Play exactly as the original",
+            {kOriginal,
+             "Play exactly as the original",
              "Leaves out what Reluva adds: Esc for the game menu (and back), Y/N/Enter/Esc for its\n"
              "questions, M to close the deck map too, the menu on the very first start, and the\n"
              "menu's own colours behind a saved game's picture.",
-             false, {}},
+             false,
+             {}},
             volumeOption(kMusicVolume, "Music volume", "The action sequences' music and the videos' soundtracks"),
             volumeOption(kSpeechVolume, "Speech volume", "The conversations and the action sequences' voices"),
             volumeOption(kEffectsVolume, "Effects volume", "Every other sound"),
             // Developer settings (docs/engines/stharbinger/README.md): not
             // part of the game, for studying it.
-            {kStartMode, "Developer: start with",
+            {kStartMode,
+             "Developer: start with",
              "The scene viewer shows a scene's backgrounds, animations and sounds without its script.\n"
              "Which scene (or video) to start with is start_scene in reluva.ini.",
              true,
              {{"game", "The game"}, {"viewer", "The scene viewer"}, {"video", "One video (start_scene)"}}},
-            {kDebug, "Developer: debug keys",
+            {kDebug,
+             "Developer: debug keys",
              "F2 shows the hotspots, F10 prints the variables that are set, and the title bar\n"
              "names the scene, the hotspot under the mouse and anything skipped.",
-             false, {}},
-            {kDebugLevel, "Developer: console output", "How much the engine prints, with the debug keys on.", true,
+             false,
+             {}},
+            {kDebugLevel,
+             "Developer: console output",
+             "How much the engine prints, with the debug keys on.",
+             true,
              {{"0", "None"}, {"1", "Some"}, {"2", "More"}, {"3", "All"}}},
         };
     }
 
-    std::unique_ptr<Engine> create(System& system, const GameTarget& target) const override {
+    std::unique_ptr<Engine> create(System &system, const GameTarget &target) const override {
         return std::make_unique<StharbingerEngine>(system, target);
     }
 };
@@ -277,7 +289,7 @@ public:
 
 namespace reluva {
 
-const MetaEngine& stharbingerMetaEngine() {
+const MetaEngine &stharbingerMetaEngine() {
     static const stharbinger::StharbingerMetaEngine instance;
     return instance;
 }

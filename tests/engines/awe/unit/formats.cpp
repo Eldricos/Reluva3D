@@ -18,11 +18,10 @@ void testText() {
     CHECK(decodeText(utf16File("Act\tWhat")) == "Act\tWhat");
     CHECK(decodeText({'c', 'a', 'f', 0xe9}) == "caf\xc3\xa9");
 
-    const Table t = parseTable(decodeText(utf16File(
-        "Act\tPreLoad\tLocation to Load\r\n"
-        "01A\t\"fade out, movie teaser\"\tsirkeci.market\r\n"
-        "\t\t\r\n"
-        "02A\t\"say \"\"hello\"\"\"\trestaurant\r\n")));
+    const Table t = parseTable(decodeText(utf16File("Act\tPreLoad\tLocation to Load\r\n"
+                                                    "01A\t\"fade out, movie teaser\"\tsirkeci.market\r\n"
+                                                    "\t\t\r\n"
+                                                    "02A\t\"say \"\"hello\"\"\"\trestaurant\r\n")));
     CHECK(t.headings.size() == 3);
     CHECK(t.rows.size() == 2); // the empty row is left out
     CHECK(t.column("location to load") == 2);
@@ -40,14 +39,15 @@ void testText() {
     CHECK(parseCommands("look left\r\nwait 1.6\r\n").size() == 2);
 
     // A movie's subtitles: the dialogue tables' columns, Duration "start, length".
-    const std::vector<Subtitle> subs = parseSubtitles(decodeText(utf16File(
-        "Name\tAct\tSpeaker\tLine\tDuration\r\n"
-        "intro\t0\tMoinsieur Bouc \t\"I dined with him, Poirot!\"\t\"26.192, 11.016\"\r\n"
-        "intro\t0\tAntoinette\tMonsieur Poirot!\t\"65.387, 1.580\"\r\n"
-        "\t\t\t\t\r\n")));
+    const std::vector<Subtitle> subs = parseSubtitles(
+        decodeText(utf16File("Name\tAct\tSpeaker\tLine\tDuration\r\n"
+                             "intro\t0\tMoinsieur Bouc \t\"I dined with him, Poirot!\"\t\"26.192, 11.016\"\r\n"
+                             "intro\t0\tAntoinette\tMonsieur Poirot!\t\"65.387, 1.580\"\r\n"
+                             "\t\t\t\t\r\n")));
     CHECK(subs.size() == 2);
     if (subs.size() == 2) {
-        CHECK(subs[0].name == "intro" && subs[0].speaker == "Moinsieur Bouc" && subs[0].line == "I dined with him, Poirot!");
+        CHECK(subs[0].name == "intro" && subs[0].speaker == "Moinsieur Bouc" &&
+              subs[0].line == "I dined with him, Poirot!");
         CHECK(std::fabs(subs[0].start - 26.192) < 1e-9 && std::fabs(subs[0].end - 37.208) < 1e-9);
         CHECK(subs[1].line == "Monsieur Poirot!");
     }
@@ -99,20 +99,20 @@ void testAc2() {
     CHECK(!err);
     CHECK(scene.path == "Locations\\Test\\Test_01.ac2");
     CHECK(scene.records.size() == 5);
-    const std::vector<const Ac2Record*> objects = scene.objects();
+    const std::vector<const Ac2Record *> objects = scene.objects();
     CHECK(objects.size() == 2);
     if (objects.size() == 2) {
         CHECK(objects[0]->text("file") == "locations\\test\\backgrounds\\test_01.jpg");
         CHECK(objects[0]->i("lighting") == 1);
         CHECK(objects[0]->field("x") == nullptr); // past its count
-        const Ac2Record* sprite = objects[0]->part("SPRT");
+        const Ac2Record *sprite = objects[0]->part("SPRT");
         CHECK(sprite && sprite->f("scrollSpeed") == 1000);
         CHECK(objects[1]->f("y") == 639);
         CHECK(objects[1]->i("right") == 322);
         CHECK(objects[1]->text("script") == "yesno quit2 0");
-        const Ac2Value* listA = objects[1]->field("listA");
+        const Ac2Value *listA = objects[1]->field("listA");
         CHECK(listA && listA->pairs.size() == 1 && listA->pairs[0].second == "b");
-        const Ac2Record* hot = objects[1]->part("HOTS");
+        const Ac2Record *hot = objects[1]->part("HOTS");
         CHECK(hot && hot->text("name") == "exitover");
     }
 
@@ -128,15 +128,15 @@ void testAc2() {
 // A Granny file of one uncompressed section: an object with a name, a
 // number and an array of floats, described by its type.
 std::vector<uint8_t> makeGr2() {
-    Bytes s; // the section
-    s.u32(0); // 0: Name -> "hello"
+    Bytes s;   // the section
+    s.u32(0);  // 0: Name -> "hello"
     s.u32(42); // 4: Value
-    s.u32(2); // 8: Floats count
-    s.u32(0); // 12: Floats -> 16
+    s.u32(2);  // 8: Floats count
+    s.u32(0);  // 12: Floats -> 16
     s.f32(1.5f);
     s.f32(2.5f);
     const size_t strings = s.d.size(); // 24
-    for (const char* str : {"Name", "Value", "Floats", "Real32", "hello"})
+    for (const char *str : {"Name", "Value", "Floats", "Real32", "hello"})
         s.d.insert(s.d.end(), str, str + std::strlen(str) + 1);
     while (s.d.size() % 8)
         s.d.push_back(0);
@@ -146,16 +146,20 @@ std::vector<uint8_t> makeGr2() {
         for (int i = 0; i < 7; i++)
             s.u32(0);
     };
-    member(8); // String
+    member(8);  // String
     member(19); // Int32
-    member(3); // ReferenceToArray
+    member(3);  // ReferenceToArray
     member(0);
     member(10); // Real32
     member(0);
     // Fixups: where in the section, and what it points at.
-    const std::vector<std::pair<size_t, size_t>> fixups = {
-        {0, strings + 25},  {12, 16},           {type + 4, strings},      {type + 36, strings + 5},
-        {type + 68, strings + 11}, {type + 72, floatType}, {floatType + 4, strings + 18}};
+    const std::vector<std::pair<size_t, size_t>> fixups = {{0, strings + 25},
+                                                           {12, 16},
+                                                           {type + 4, strings},
+                                                           {type + 36, strings + 5},
+                                                           {type + 68, strings + 11},
+                                                           {type + 72, floatType},
+                                                           {floatType + 4, strings + 18}};
 
     Bytes f;
     for (uint8_t m : {0xb8, 0x67, 0xb0, 0xca, 0xf8, 0x6d, 0xb1, 0x0f, 0x84, 0x72, 0x8c, 0x7e, 0x5e, 0x19, 0x00, 0x1e})
@@ -163,9 +167,9 @@ std::vector<uint8_t> makeGr2() {
     const uint32_t headerSize = 0x58 + 44;
     f.u32(headerSize);
     f.u32(0), f.u32(0), f.u32(0);
-    f.u32(6); // 0x20: format
-    f.u32(0); // total size, set below
-    f.u32(0); // CRC
+    f.u32(6);    // 0x20: format
+    f.u32(0);    // total size, set below
+    f.u32(0);    // CRC
     f.u32(0x38); // section table, from 0x20
     f.u32(1);
     f.u32(0), f.u32(uint32_t(type)); // root type: section 0
@@ -176,7 +180,7 @@ std::vector<uint8_t> makeGr2() {
     for (uint32_t v : {0u, dataAt, uint32_t(s.d.size()), uint32_t(s.d.size()), 4u, 0u, 0u, fixupAt,
                        uint32_t(fixups.size()), dataAt, 0u})
         f.u32(v);
-    for (const auto& [at, to] : fixups)
+    for (const auto &[at, to] : fixups)
         f.u32(uint32_t(at)), f.u32(0), f.u32(uint32_t(to));
     f.d.insert(f.d.end(), s.d.begin(), s.d.end());
     f.put32(0x24, uint32_t(f.d.size()));
@@ -370,7 +374,7 @@ void testCurves() {
 // come out exact.
 void testCompressedCurves() {
     const std::vector<float> identity = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-    auto expand = [&](const CurveData& d) {
+    auto expand = [&](const CurveData &d) {
         Curve c;
         CHECK(!expandCurve(d, identity, c));
         return c;
@@ -514,12 +518,13 @@ void testBinkTexture() {
 
 } // namespace
 
-static const reluva::test::Suite suite("awe.unit.formats", {
-    {"text", [](const std::filesystem::path&) { testText(); }},
-    {"ac2", [](const std::filesystem::path&) { testAc2(); }},
-    {"gr2", [](const std::filesystem::path&) { testGr2(); }},
-    {"oodle1", [](const std::filesystem::path&) { testOodle1(); }},
-    {"curves", [](const std::filesystem::path&) { testCurves(); }},
-    {"compressed curves", [](const std::filesystem::path&) { testCompressedCurves(); }},
-    {"bink textures", [](const std::filesystem::path&) { testBinkTexture(); }},
-});
+static const reluva::test::Suite
+    suite("awe.unit.formats", {
+                                  {"text", [](const std::filesystem::path &) { testText(); }},
+                                  {"ac2", [](const std::filesystem::path &) { testAc2(); }},
+                                  {"gr2", [](const std::filesystem::path &) { testGr2(); }},
+                                  {"oodle1", [](const std::filesystem::path &) { testOodle1(); }},
+                                  {"curves", [](const std::filesystem::path &) { testCurves(); }},
+                                  {"compressed curves", [](const std::filesystem::path &) { testCompressedCurves(); }},
+                                  {"bink textures", [](const std::filesystem::path &) { testBinkTexture(); }},
+                              });

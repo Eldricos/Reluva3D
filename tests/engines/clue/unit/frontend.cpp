@@ -31,7 +31,7 @@ using namespace reluva;
 using namespace reluva::clue;
 using namespace reluva::clue::testing;
 
-static void testDialog(const std::filesystem::path& tmp) {
+static void testDialog(const std::filesystem::path &tmp) {
     std::filesystem::remove_all(tmp);
     std::filesystem::create_directories(tmp / "Data" / "Classic");
     GameData data;
@@ -89,7 +89,9 @@ static void testOriginalPrefs() {
     CHECK(!p.loadOriginal({1, 2, 3}));
 }
 
-static const reluva::test::Suite suite("clue.unit.frontend", {
-    {"dialog", [](const std::filesystem::path& tmp) { testDialog(tmp / "dialog"); }},
-    {"original preferences", [](const std::filesystem::path&) { testOriginalPrefs(); }},
-});
+static const reluva::test::Suite
+    suite("clue.unit.frontend",
+          {
+              {"dialog", [](const std::filesystem::path &tmp) { testDialog(tmp / "dialog"); }},
+              {"original preferences", [](const std::filesystem::path &) { testOriginalPrefs(); }},
+          });

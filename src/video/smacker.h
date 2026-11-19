@@ -38,9 +38,9 @@ public:
 
     // Decodes the next frame. Returns false at the end or on a data error.
     bool decodeNextFrame();
-    const Surface& surface() const { return surface_; }
+    const Surface &surface() const { return surface_; }
     // 256 RGB entries, 8 bits per channel.
-    const uint8_t* palette() const { return palette_; }
+    const uint8_t *palette() const { return palette_; }
     bool paletteChanged() const { return paletteChanged_; }
 
     // The first audio track with data, if any.
@@ -54,10 +54,10 @@ private:
     struct BigTree;
     struct BitReader;
 
-    bool readTrees(const std::vector<uint8_t>& data);
-    void decodePalette(const uint8_t* data, uint32_t size);
-    void decodeAudio(const uint8_t* data, uint32_t size);
-    bool decodeVideo(const uint8_t* data, uint32_t size);
+    bool readTrees(const std::vector<uint8_t> &data);
+    void decodePalette(const uint8_t *data, uint32_t size);
+    void decodeAudio(const uint8_t *data, uint32_t size);
+    bool decodeVideo(const uint8_t *data, uint32_t size);
 
     std::unique_ptr<SeekableReadStream> stream_;
     bool smk4_ = false;

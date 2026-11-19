@@ -26,10 +26,10 @@ using Mat4 = std::array<float, 16>; // column-major, as gfx::Mat4
 // A bone's transform relative to its parent.
 struct BoneTransform {
     float position[3] = {0, 0, 0};
-    float orientation[4] = {0, 0, 0, 1}; // quaternion x, y, z, w
+    float orientation[4] = {0, 0, 0, 1};               // quaternion x, y, z, w
     float scaleShear[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // rows
 };
-Mat4 toMatrix(const BoneTransform& t);
+Mat4 toMatrix(const BoneTransform &t);
 
 struct Bone {
     std::string name;
@@ -91,13 +91,13 @@ struct Model {
 };
 
 // Reads the first model in a file, with its textures decoded.
-Error loadModel(const Gr2File& file, Model& out);
+Error loadModel(const Gr2File &file, Model &out);
 
 // A texture's pixels as stored: its first image's first MIP level.
-std::vector<uint8_t> textureBytes(const Gr2File& file, const Gr2Object& texture);
+std::vector<uint8_t> textureBytes(const Gr2File &file, const Gr2Object &texture);
 // The flags a Bink texture (Encoding 3) is decoded with: its SubFormat,
 // plus 1 if its layout has alpha.
-uint32_t binkTextureFlags(const Gr2Object& texture);
+uint32_t binkTextureFlags(const Gr2Object &texture);
 
 // How a curve continues past its ends, as Granny samples a control
 // (GrannyGetControlLoopState, 0x5001bbe0 in granny2.dll): an animation
@@ -118,7 +118,7 @@ struct Curve {
     // The value at time `t` (within the animation) into `out` (`dimension`
     // floats). Quaternions (4 values) are kept on one side where the curve
     // wraps or repeats its ends, as Granny's sampling does.
-    void evaluate(float t, int dimension, float* out, const CurveLoop& loop = {}) const;
+    void evaluate(float t, int dimension, float *out, const CurveLoop &loop = {}) const;
 };
 
 struct AnimationTrack {
@@ -139,17 +139,17 @@ struct Animation {
 // Reads the file's first animation (its first track group). Curves in
 // Granny's compressed formats (CurveData: D4nK8uC7u and the like) are
 // expanded to plain ones (curves.h).
-Error loadAnimation(const Gr2File& file, Animation& out);
+Error loadAnimation(const Gr2File &file, Animation &out);
 // Replaces the animation's compressed curves, as loadAnimation() expanded
 // them from `file`, with granny2.dll's expansion of them
 // (GrannyCurveExtractKnotValues): the reference the native one is checked
 // against (reluva-tool awe files-check).
-Error expandCurvesWithDll(const Gr2File& file, GrannyDll& dll, Animation& out);
+Error expandCurvesWithDll(const Gr2File &file, GrannyDll &dll, Animation &out);
 // Where the first animation's tracks' curves (position, orientation,
 // scale/shear; 0 where a track has none) are in the DLL's copy of `file`,
 // whose file info is at `fileInfo` (GrannyDll::loadFile).
-Error dllCurveAddresses(const Gr2File& file, GrannyDll& dll, uint32_t fileInfo,
-                        std::vector<std::array<uint32_t, 3>>& out);
+Error dllCurveAddresses(const Gr2File &file, GrannyDll &dll, uint32_t fileInfo,
+                        std::vector<std::array<uint32_t, 3>> &out);
 
 // A skeleton's pose: each bone's world matrix and its skinning matrix
 // (world times inverse rest world).
@@ -164,18 +164,18 @@ struct BoneTurn {
 };
 // The rest pose, or the animation at `time` (bones it has no track for
 // stay at rest), with any `turns` added.
-void computePose(const Model& model, const Animation* animation, float time, Pose& out,
-                 const std::vector<BoneTurn>* turns = nullptr);
+void computePose(const Model &model, const Animation *animation, float time, Pose &out,
+                 const std::vector<BoneTurn> *turns = nullptr);
 // The same in two steps: each bone's transform relative to its parent
 // (rest where the animation has no track; its curves going on past their
 // ends as `loop` says, but the root bones' only if `loopRoot`), and the
 // pose those make.
-void sampleLocal(const Model& model, const Animation* animation, float time, std::vector<BoneTransform>& local,
-                 const CurveLoop& loop = {}, bool loopRoot = true);
-void poseFromLocal(const Model& model, std::vector<BoneTransform> local, Pose& out,
-                   const std::vector<BoneTurn>* turns = nullptr);
+void sampleLocal(const Model &model, const Animation *animation, float time, std::vector<BoneTransform> &local,
+                 const CurveLoop &loop = {}, bool loopRoot = true);
+void poseFromLocal(const Model &model, std::vector<BoneTransform> local, Pose &out,
+                   const std::vector<BoneTurn> *turns = nullptr);
 // Skins a mesh's vertices for the pose: positions and normals.
-void skin(const ModelMesh& mesh, const Pose& pose, std::vector<std::array<float, 3>>& positions,
-          std::vector<std::array<float, 3>>& normals);
+void skin(const ModelMesh &mesh, const Pose &pose, std::vector<std::array<float, 3>> &positions,
+          std::vector<std::array<float, 3>> &normals);
 
 } // namespace reluva::awe

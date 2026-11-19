@@ -30,7 +30,7 @@ void Reader::skip(size_t n) {
     pos_ += n;
 }
 
-bool Reader::bytes(void* out, size_t n) {
+bool Reader::bytes(void *out, size_t n) {
     if (n > remaining()) {
         ok_ = false;
         pos_ = size_;
@@ -117,7 +117,7 @@ std::string Reader::string(int version) {
 
 // --- Package ----------------------------------------------------------------------------
 
-Error Package::open(const std::filesystem::path& file) {
+Error Package::open(const std::filesystem::path &file) {
     std::ifstream in(file, std::ios::binary);
     if (!in)
         return Error::fail("Can't open " + file.string());
@@ -127,7 +127,7 @@ Error Package::open(const std::filesystem::path& file) {
     const std::streamoff size = in.tellg();
     in.seekg(0, std::ios::beg);
     std::vector<uint8_t> data(size > 0 ? size_t(size) : 0);
-    if (!data.empty() && !in.read(reinterpret_cast<char*>(data.data()), std::streamsize(data.size())))
+    if (!data.empty() && !in.read(reinterpret_cast<char *>(data.data()), std::streamsize(data.size())))
         return Error::fail("Can't read " + file.string());
     file_ = file;
     name_ = file.stem().string();
@@ -146,7 +146,7 @@ Error Package::openMemory(std::vector<uint8_t> data, std::string name) {
     return Error::success();
 }
 
-Error Package::parse(const std::vector<uint8_t>& data) {
+Error Package::parse(const std::vector<uint8_t> &data) {
     stream_.reset();
     names_.clear();
     imports_.clear();
@@ -171,7 +171,7 @@ Error Package::parse(const std::vector<uint8_t>& data) {
 
     r.seek(nameOffset);
     names_.resize(nameCount);
-    for (NameEntry& n : names_) {
+    for (NameEntry &n : names_) {
         n.name = r.string(version_);
         n.flags = r.u32();
     }
@@ -180,7 +180,7 @@ Error Package::parse(const std::vector<uint8_t>& data) {
 
     r.seek(importOffset);
     imports_.resize(importCount);
-    for (Import& i : imports_) {
+    for (Import &i : imports_) {
         i.classPackage = r.index();
         i.className = r.index();
         i.package = r.i32();
@@ -191,7 +191,7 @@ Error Package::parse(const std::vector<uint8_t>& data) {
 
     r.seek(exportOffset);
     exports_.resize(exportCount);
-    for (Export& e : exports_) {
+    for (Export &e : exports_) {
         e.classRef = r.index();
         e.superRef = r.index();
         e.package = r.i32();
@@ -211,7 +211,7 @@ Error Package::parse(const std::vector<uint8_t>& data) {
     return Error::success();
 }
 
-const std::string& Package::name(int32_t index) const {
+const std::string &Package::name(int32_t index) const {
     static const std::string none;
     return index >= 0 && size_t(index) < names_.size() ? names_[size_t(index)].name : none;
 }
@@ -255,7 +255,7 @@ std::string Package::importPackage(int index) const {
     for (int depth = 0; depth < 64; ++depth) {
         if (!isImport(ref) || size_t(importIndex(ref)) >= imports_.size())
             return {};
-        const Import& imp = imports_[size_t(importIndex(ref))];
+        const Import &imp = imports_[size_t(importIndex(ref))];
         if (imp.package == 0)
             return name(imp.objectName);
         ref = imp.package;
@@ -263,7 +263,7 @@ std::string Package::importPackage(int index) const {
     return {};
 }
 
-const std::vector<int>& Package::exportsNamed(std::string_view objectName) const {
+const std::vector<int> &Package::exportsNamed(std::string_view objectName) const {
     static const std::vector<int> none;
     auto it = byName_.find(fs::toLower(objectName));
     return it == byName_.end() ? none : it->second;
@@ -286,10 +286,10 @@ std::vector<int> Package::exportsOfClass(std::string_view className) const {
     return out;
 }
 
-Error Package::readExport(int index, std::vector<uint8_t>& out) const {
+Error Package::readExport(int index, std::vector<uint8_t> &out) const {
     if (index < 0 || size_t(index) >= exports_.size())
         return Error::fail("no export " + std::to_string(index));
-    const Export& e = exports_[size_t(index)];
+    const Export &e = exports_[size_t(index)];
     out.resize(size_t(e.serialSize));
     if (e.serialSize == 0)
         return Error::success();
@@ -302,7 +302,7 @@ Error Package::readExport(int index, std::vector<uint8_t>& out) const {
         stream_ = std::make_unique<std::ifstream>(file_, std::ios::binary);
     stream_->clear();
     stream_->seekg(e.serialOffset);
-    if (!stream_->read(reinterpret_cast<char*>(out.data()), std::streamsize(out.size())))
+    if (!stream_->read(reinterpret_cast<char *>(out.data()), std::streamsize(out.size())))
         return Error::fail("Can't read " + name(e.objectName) + " from " + file_.string());
     return Error::success();
 }

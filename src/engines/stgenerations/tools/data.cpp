@@ -37,13 +37,13 @@ using namespace reluva::stgenerations;
 // FNV-1a, 64 bits: the same on every machine.
 struct Sum {
     uint64_t h = 0xcbf29ce484222325ull;
-    Sum& bytes(const void* p, size_t n) {
-        const uint8_t* b = static_cast<const uint8_t*>(p);
+    Sum &bytes(const void *p, size_t n) {
+        const uint8_t *b = static_cast<const uint8_t *>(p);
         for (size_t i = 0; i < n; i++)
             h = (h ^ b[i]) * 0x100000001b3ull;
         return *this;
     }
-    Sum& canvas(const Canvas& c) {
+    Sum &canvas(const Canvas &c) {
         for (int y = 0; y < c.h; y++)
             bytes(c.getBasePtr(0, y), size_t(c.w) * c.bytesPerPixel());
         return *this;
@@ -51,13 +51,13 @@ struct Sum {
     std::string hex() const { return text::format("%016llx", static_cast<unsigned long long>(h)); }
 };
 
-const char* kindName(GamePart::Kind k) {
+const char *kindName(GamePart::Kind k) {
     return k == GamePart::kInstall ? "install" : k == GamePart::kDisc1 ? "cd1" : "cd2";
 }
 
 // The game's folder (and its CDs': --cd1 <dir> --cd2 <dir>, when they
 // aren't in it), its resources opened.
-bool openGame(int argc, char** argv, ResourceManager& resources, const char* usage) {
+bool openGame(int argc, char **argv, ResourceManager &resources, const char *usage) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool stgenerations %s <game folder> [--cd1 <dir>] [--cd2 <dir>]\n", usage);
         return false;
@@ -80,52 +80,54 @@ bool openGame(int argc, char** argv, ResourceManager& resources, const char* usa
 // read through. They fail only when the game's folder can't be opened.
 
 // Every member of every archive, and every loose file, by name.
-std::vector<ResourceRef> everyFile(const ResourceManager& resources) {
+std::vector<ResourceRef> everyFile(const ResourceManager &resources) {
     std::vector<ResourceRef> out;
-    for (const auto& [name, zip] : resources.getArchives())
-        for (const ZipArchive::Entry& e : zip->entries())
+    for (const auto &[name, zip] : resources.getArchives())
+        for (const ZipArchive::Entry &e : zip->entries())
             if (!e.name.empty() && e.name.back() != '/')
                 out.push_back({name, e.name});
-    for (const std::filesystem::path& dir : resources.getDataDirs()) {
+    for (const std::filesystem::path &dir : resources.getDataDirs()) {
         DirectoryArchive files;
         if (files.open(dir, 1))
             continue;
         std::vector<std::string> names = files.list();
-        std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) {
+        std::sort(names.begin(), names.end(), [](const std::string &a, const std::string &b) {
             return normalizeArchiveName(a) < normalizeArchiveName(b);
         });
-        for (const std::string& n : names)
+        for (const std::string &n : names)
             out.push_back({"", n});
     }
     return out;
 }
 
-bool hasExtension(const ResourceRef& r, const char* ext) { return text::hasSuffixIgnoreCase(r.name, ext); }
+bool hasExtension(const ResourceRef &r, const char *ext) {
+    return text::hasSuffixIgnoreCase(r.name, ext);
+}
 
 // The parts of the game in a folder: the install and each CD, as an import
 // or the launcher finds them.
-int cmdParts(int argc, char** argv) {
+int cmdParts(int argc, char **argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: reluva-tool stgenerations parts <folder>\n");
         return 2;
     }
     const std::filesystem::path root = argv[2];
-    for (const GamePart& p : findGameParts(root))
+    for (const GamePart &p : findGameParts(root))
         std::printf("%s: %s\n", kindName(p.kind), p.dir.lexically_relative(root).generic_string().c_str());
     return 0;
 }
 
 // Every archive opened, and every file in it read (each checked against
 // its CRC).
-int cmdArchives(int argc, char** argv) {
+int cmdArchives(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "archives"))
         return 2;
     int read = 0, failed = 0, damaged = 0;
-    for (const auto& [name, zip] : resources.getArchives()) {
+    for (const auto &[name, zip] : resources.getArchives()) {
         Sum sum;
         int n = 0;
-        for (const ZipArchive::Entry& e : zip->entries()) {
+        for (const ZipArchive::Entry &e : zip->entries()) {
             if (e.name.empty() || e.name.back() == '/')
                 continue;
             std::vector<uint8_t> data;
@@ -146,7 +148,7 @@ int cmdArchives(int argc, char** argv) {
         read += n;
         std::printf("%-12s %4d files %s\n", name.c_str(), n, sum.hex().c_str());
     }
-    for (const std::string& missing : resources.missingDataFiles())
+    for (const std::string &missing : resources.missingDataFiles())
         std::printf("missing: %s\n", missing.c_str());
     std::printf("%d images, %d sounds found\n", (int)resources.getImages().size(), (int)resources.getSounds().size());
     std::printf("%zu archives, %d files read (%d of them damaged), %d unreadable\n", resources.getArchives().size(),
@@ -155,15 +157,17 @@ int cmdArchives(int argc, char** argv) {
 }
 
 // Every picture decoded: BMPs, overlays, sprite sets, fonts.
-int cmdPictures(int argc, char** argv) {
+int cmdPictures(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "pictures"))
         return 2;
     int counts[4] = {}, failed = 0, unreachable = 0;
-    for (const ResourceRef& ref : everyFile(resources)) {
-        const int kind = hasExtension(ref, ".bmp") ? 0 : hasExtension(ref, ".ovr") ? 1 : hasExtension(ref, ".gs2") ? 2
-                                                    : hasExtension(ref, ".fnt")     ? 3
-                                                                                    : -1;
+    for (const ResourceRef &ref : everyFile(resources)) {
+        const int kind = hasExtension(ref, ".bmp")   ? 0
+                         : hasExtension(ref, ".ovr") ? 1
+                         : hasExtension(ref, ".gs2") ? 2
+                         : hasExtension(ref, ".fnt") ? 3
+                                                     : -1;
         if (kind < 0)
             continue;
         std::unique_ptr<SeekableReadStream> s = resources.open(ref);
@@ -192,8 +196,8 @@ int cmdPictures(int argc, char** argv) {
             SpriteSet set;
             ok = set.load(*s);
             if (ok)
-                line += text::format("%d frames, up to %dx%d", set.getFrameCount(), set.getMaxWidth(),
-                                     set.getMaxHeight());
+                line +=
+                    text::format("%d frames, up to %dx%d", set.getFrameCount(), set.getMaxWidth(), set.getMaxHeight());
         } else if (ok && kind == 3) {
             Font f;
             ok = f.load(*s);
@@ -214,12 +218,12 @@ int cmdPictures(int argc, char** argv) {
 }
 
 // Every away mission's level, its sky and textures, and its script.
-int cmdLevels(int argc, char** argv) {
+int cmdLevels(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "levels"))
         return 2;
     int levels = 0, failed = 0;
-    for (const Location& location : getLocations()) {
+    for (const Location &location : getLocations()) {
         ResourceRef ref;
         if (!findLocationLevel(resources, location, ref)) {
             std::printf("%s: not installed\n", location.folder);
@@ -267,21 +271,21 @@ int cmdLevels(int argc, char** argv) {
 }
 
 // Every sound decoded.
-int cmdSounds(int argc, char** argv) {
+int cmdSounds(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "sounds"))
         return 2;
     int read = 0, failed = 0;
     uint64_t ms = 0;
     Sum all;
-    for (const ResourceRef& ref : resources.getSounds()) {
+    for (const ResourceRef &ref : resources.getSounds()) {
         std::unique_ptr<SoundStream> s = resources.loadSound(ref);
         if (!s) {
             std::printf("%s: FAILED\n", ref.toString().c_str());
             ++failed;
             continue;
         }
-        const audio::Sound& sound = s->sound();
+        const audio::Sound &sound = s->sound();
         all.bytes(sound.samples.data(), sound.samples.size() * 2);
         ms += s->lengthMs();
         ++read;
@@ -292,12 +296,12 @@ int cmdSounds(int argc, char** argv) {
 }
 
 // Every movie: each frame decoded, and its sound.
-int cmdMovies(int argc, char** argv) {
+int cmdMovies(int argc, char **argv) {
     ResourceManager resources;
     if (!openGame(argc, argv, resources, "movies"))
         return 2;
     int read = 0, failed = 0;
-    for (const DataFileLocation* f = dataFiles(); f->name; f++) {
+    for (const DataFileLocation *f = dataFiles(); f->name; f++) {
         if (!text::hasSuffixIgnoreCase(f->name, ".avi"))
             continue;
         std::unique_ptr<SeekableReadStream> s = resources.open({"", f->name});
@@ -329,17 +333,19 @@ int cmdMovies(int argc, char** argv) {
     return 0;
 }
 
-const tool::Commands commands("stgenerations", {
-    {"parts", "<folder>", "the parts of the game a folder holds: the installed game and each CD", cmdParts},
-    {"archives", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
-     "every data archive opened and every file in it read, with a checksum of each archive", cmdArchives},
-    {"pictures", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
-     "every bitmap, overlay, sprite set and font decoded, each with what it holds", cmdPictures},
-    {"levels", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
-     "every away mission's level, sky, textures and script read", cmdLevels},
-    {"sounds", "<game folder> [--cd1 <dir>] [--cd2 <dir>]", "every sound decoded, with a checksum of them all",
-     cmdSounds},
-    {"movies", "<game folder> [--cd1 <dir>] [--cd2 <dir>]", "every movie's frames and sound decoded", cmdMovies},
-});
+const tool::Commands commands(
+    "stgenerations",
+    {
+        {"parts", "<folder>", "the parts of the game a folder holds: the installed game and each CD", cmdParts},
+        {"archives", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
+         "every data archive opened and every file in it read, with a checksum of each archive", cmdArchives},
+        {"pictures", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
+         "every bitmap, overlay, sprite set and font decoded, each with what it holds", cmdPictures},
+        {"levels", "<game folder> [--cd1 <dir>] [--cd2 <dir>]",
+         "every away mission's level, sky, textures and script read", cmdLevels},
+        {"sounds", "<game folder> [--cd1 <dir>] [--cd2 <dir>]", "every sound decoded, with a checksum of them all",
+         cmdSounds},
+        {"movies", "<game folder> [--cd1 <dir>] [--cd2 <dir>]", "every movie's frames and sound decoded", cmdMovies},
+    });
 
 } // namespace

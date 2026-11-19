@@ -34,14 +34,14 @@ struct Poly {
 
 // Reads a Polys object; `trailing`, if given, is set to the bytes left
 // after the last polygon (none expected).
-Error readPolys(const Package& package, int exportIndex, std::vector<Poly>& out, size_t* trailing = nullptr);
+Error readPolys(const Package &package, int exportIndex, std::vector<Poly> &out, size_t *trailing = nullptr);
 
 // An export's properties (its state frame skipped).
-Error readActorProperties(const Package& package, int exportIndex, PropertyList& out);
+Error readActorProperties(const Package &package, int exportIndex, PropertyList &out);
 
 // Whether an export's class is `className` or a subclass of it, following
 // the classes' super references through the packages that define them.
-bool isA(const PackageSet& packages, const Package& package, int exportIndex, std::string_view className);
+bool isA(const PackageSet &packages, const Package &package, int exportIndex, std::string_view className);
 
 struct Mover {
     std::string name;
@@ -65,11 +65,11 @@ struct Mover {
 };
 
 // Every mover in a level package that reads; problems go in `errors`.
-std::vector<Mover> findMovers(const PackageSet& packages, const Package& package, std::vector<std::string>* errors);
+std::vector<Mover> findMovers(const PackageSet &packages, const Package &package, std::vector<std::string> *errors);
 
 // The sky zone's viewpoint: the first SkyZoneInfo (or subclass) actor's
 // location. nullopt when the level has none.
-std::optional<Vec3f> findSkyZone(const PackageSet& packages, const Package& package);
+std::optional<Vec3f> findSkyZone(const PackageSet &packages, const Package &package);
 
 // What a level's scripts changed when it started (runLevelStart() in
 // vm_level.h), for the actors whose look it changed: by the actor's export
@@ -106,8 +106,8 @@ struct MeshActorStats {
 class ClassDefaults;
 // `scripted`: what the level's scripts changed (removed, hidden or turned
 // to another draw type are left out).
-std::vector<MeshActor> findMeshActors(const PackageSet& packages, const Package& package, ClassDefaults& defaults,
-                                      MeshActorStats* stats = nullptr, const ScriptedActors* scripted = nullptr);
+std::vector<MeshActor> findMeshActors(const PackageSet &packages, const Package &package, ClassDefaults &defaults,
+                                      MeshActorStats *stats = nullptr, const ScriptedActors *scripted = nullptr);
 
 // Engine.Actor's ERenderStyle: how an actor's sprite or mesh blends.
 constexpr uint8_t kStyleNormal = 1, kStyleMasked = 2, kStyleTranslucent = 3, kStyleModulated = 4;
@@ -123,7 +123,7 @@ struct SpriteActor {
     ObjectRef texture;
     Vec3f location{}, prePivot{};
     float drawScale = 1;
-    float scaleGlow = 1; // its brightness
+    float scaleGlow = 1;        // its brightness
     Vec3f colorFilter{1, 1, 1}; // ColorFilter: its tint (Render.dll's DrawActorSprite)
     uint8_t style = kStyleNormal;
     bool vertical = false; // turns about the vertical only (DT_VerticalSprite)
@@ -139,18 +139,18 @@ struct SpriteActorStats {
 // The actors drawn as sprites. Those whose sprite is an editor icon are
 // left out: the game hides them, by bHidden or by their scripts when it
 // starts (which don't run yet), and the icon gives them away (actors.md).
-std::vector<SpriteActor> findSpriteActors(const PackageSet& packages, const Package& package, ClassDefaults& defaults,
-                                          SpriteActorStats* stats = nullptr, const ScriptedActors* scripted = nullptr);
+std::vector<SpriteActor> findSpriteActors(const PackageSet &packages, const Package &package, ClassDefaults &defaults,
+                                          SpriteActorStats *stats = nullptr, const ScriptedActors *scripted = nullptr);
 
 // A rotator's axes in Unreal's space: forward, right, up.
-std::array<Vec3f, 3> rotationAxes(const Rotator& r);
+std::array<Vec3f, 3> rotationAxes(const Rotator &r);
 // The rotation whose axes (X forward, Y right, Z up) those are, as near as
 // they're square to each other.
-Rotator rotatorFromAxes(const std::array<Vec3f, 3>& axes);
+Rotator rotatorFromAxes(const std::array<Vec3f, 3> &axes);
 // A fraction t of the way from one rotation to another, the shorter way
 // round, turning evenly (a quaternion slerp, as The Fallen's engine eases
 // rotations: C3DInterpolateRotationX, used by Actor.InterpolateRotation
 // and the splines).
-Rotator slerpRotators(const Rotator& from, const Rotator& to, float t);
+Rotator slerpRotators(const Rotator &from, const Rotator &to, float t);
 
 } // namespace reluva::unreal

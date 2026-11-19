@@ -45,24 +45,24 @@ void ByteWriter::index(int32_t v) {
     }
 }
 
-void ByteWriter::string(const std::string& s) {
+void ByteWriter::string(const std::string &s) {
     index(int32_t(s.size() + 1));
     bytes(s.data(), s.size());
     u8(0);
 }
 
-void ByteWriter::bytes(const void* p, size_t n) {
-    const auto* b = static_cast<const uint8_t*>(p);
+void ByteWriter::bytes(const void *p, size_t n) {
+    const auto *b = static_cast<const uint8_t *>(p);
     data.insert(data.end(), b, b + n);
 }
 
 namespace {
 
 // An import's path in the package that has it: its outers' names and its own.
-std::string importPath(const Package& p, const std::vector<Import>& imports, int32_t ref) {
+std::string importPath(const Package &p, const std::vector<Import> &imports, int32_t ref) {
     std::string path;
     while (ref < 0 && size_t(-ref - 1) < imports.size()) {
-        const Import& i = imports[size_t(-ref - 1)];
+        const Import &i = imports[size_t(-ref - 1)];
         const std::string n = size_t(i.objectName) < p.names().size() ? p.names()[size_t(i.objectName)].name : "";
         path = path.empty() ? n : n + "." + path;
         ref = i.package;
@@ -72,26 +72,26 @@ std::string importPath(const Package& p, const std::vector<Import>& imports, int
 
 } // namespace
 
-PackageWriter::PackageWriter(const Package& base) : base_(base) {
+PackageWriter::PackageWriter(const Package &base) : base_(base) {
     names_ = base.names();
     for (size_t i = 0; i < names_.size(); ++i)
         nameIndex_.emplace(fs::toLower(names_[i].name), int32_t(i));
     imports_ = base.imports();
     for (size_t i = 0; i < imports_.size(); ++i) {
-        const Import& im = imports_[i];
-        const std::string key = fs::toLower(names_[size_t(im.classPackage)].name + "." +
-                                            names_[size_t(im.className)].name + " " +
-                                            importPath(base, imports_, -int32_t(i) - 1));
+        const Import &im = imports_[i];
+        const std::string key =
+            fs::toLower(names_[size_t(im.classPackage)].name + "." + names_[size_t(im.className)].name + " " +
+                        importPath(base, imports_, -int32_t(i) - 1));
         importIndex_.emplace(key, -int32_t(i) - 1);
     }
-    for (const Export& e : base.exports()) {
+    for (const Export &e : base.exports()) {
         Out o;
         o.e = e;
         exports_.push_back(std::move(o));
     }
 }
 
-int32_t PackageWriter::name(const std::string& text) {
+int32_t PackageWriter::name(const std::string &text) {
     const std::string key = fs::toLower(text);
     if (auto it = nameIndex_.find(key); it != nameIndex_.end())
         return it->second;
@@ -101,7 +101,7 @@ int32_t PackageWriter::name(const std::string& text) {
     return n;
 }
 
-int32_t PackageWriter::import(const std::string& path, const std::string& classPackage, const std::string& className) {
+int32_t PackageWriter::import(const std::string &path, const std::string &classPackage, const std::string &className) {
     const std::string key = fs::toLower(classPackage + "." + className + " " + path);
     if (auto it = importIndex_.find(key); it != importIndex_.end())
         return it->second;
@@ -124,10 +124,10 @@ int32_t PackageWriter::import(const std::string& path, const std::string& classP
     return ref;
 }
 
-int32_t PackageWriter::importIn(int32_t outer, const std::string& own, const std::string& classPackage,
-                                const std::string& className) {
+int32_t PackageWriter::importIn(int32_t outer, const std::string &own, const std::string &classPackage,
+                                const std::string &className) {
     for (size_t i = 0; i < imports_.size(); ++i) {
-        const Import& im = imports_[i];
+        const Import &im = imports_[i];
         if (im.package == outer && fs::toLower(names_[size_t(im.objectName)].name) == fs::toLower(own) &&
             fs::toLower(names_[size_t(im.className)].name) == fs::toLower(className))
             return -int32_t(i) - 1;
@@ -141,7 +141,7 @@ int32_t PackageWriter::importIn(int32_t outer, const std::string& own, const std
     return -int32_t(imports_.size());
 }
 
-int32_t PackageWriter::addExport(int32_t classRef, int32_t outerRef, const std::string& objectName, uint32_t flags) {
+int32_t PackageWriter::addExport(int32_t classRef, int32_t outerRef, const std::string &objectName, uint32_t flags) {
     Out o;
     o.e.classRef = classRef;
     o.e.package = outerRef;
@@ -153,14 +153,14 @@ int32_t PackageWriter::addExport(int32_t classRef, int32_t outerRef, const std::
 }
 
 void PackageWriter::setData(int32_t ref, std::vector<uint8_t> data) {
-    Out& o = exports_[size_t(ref - 1)];
+    Out &o = exports_[size_t(ref - 1)];
     o.data = std::move(data);
     o.replaced = true;
     o.dropped = false;
 }
 
 void PackageWriter::drop(int32_t ref) {
-    Out& o = exports_[size_t(ref - 1)];
+    Out &o = exports_[size_t(ref - 1)];
     o.data.clear();
     o.replaced = true;
     o.dropped = true;
@@ -169,19 +169,19 @@ void PackageWriter::drop(int32_t ref) {
 // The header (tag, version, licensee, flags; the names', exports' and
 // imports' counts and places; a GUID; one generation: the export and name
 // counts), the names, the exports' data, the imports, the exports.
-Error PackageWriter::write(const std::string& path) const {
+Error PackageWriter::write(const std::string &path) const {
     ByteWriter w;
     w.data.resize(0x40);
     const size_t nameOffset = w.data.size();
-    for (const NameEntry& n : names_) {
+    for (const NameEntry &n : names_) {
         w.string(n.name);
         w.u32(n.flags);
     }
     std::vector<std::pair<int32_t, int32_t>> placed(exports_.size()); // size, offset
     for (size_t i = 0; i < exports_.size(); ++i) {
-        const Out& o = exports_[i];
+        const Out &o = exports_[i];
         std::vector<uint8_t> copy;
-        const std::vector<uint8_t>* data = &o.data;
+        const std::vector<uint8_t> *data = &o.data;
         if (!o.replaced && o.e.serialSize > 0) {
             if (Error err = base_.readExport(int(i), copy))
                 return err;
@@ -191,7 +191,7 @@ Error PackageWriter::write(const std::string& path) const {
         w.append(*data);
     }
     const size_t importOffset = w.data.size();
-    for (const Import& im : imports_) {
+    for (const Import &im : imports_) {
         w.index(im.classPackage);
         w.index(im.className);
         w.i32(im.package);
@@ -199,7 +199,7 @@ Error PackageWriter::write(const std::string& path) const {
     }
     const size_t exportOffset = w.data.size();
     for (size_t i = 0; i < exports_.size(); ++i) {
-        const Export& e = exports_[i].e;
+        const Export &e = exports_[i].e;
         w.index(e.classRef);
         w.index(e.superRef);
         w.i32(e.package);
@@ -229,7 +229,7 @@ Error PackageWriter::write(const std::string& path) const {
     h.u32(uint32_t(names_.size()));
     std::memcpy(w.data.data(), h.data.data(), h.data.size());
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out.write(reinterpret_cast<const char*>(w.data.data()), std::streamsize(w.data.size())))
+    if (!out.write(reinterpret_cast<const char *>(w.data.data()), std::streamsize(w.data.size())))
         return Error::fail(path + ": can't write");
     return Error::success();
 }

@@ -21,16 +21,16 @@ namespace reluva::unreal {
 
 class ZoneVisibility {
 public:
-    void build(const Model& model);
+    void build(const Model &model);
     // The zone a point is in (0 with no BSP); `solid` set if it's inside
     // solid, in no leaf.
-    int zoneAt(const Vec3f& p, bool* solid = nullptr) const;
+    int zoneAt(const Vec3f &p, bool *solid = nullptr) const;
     // The leaf a point is in, -1 inside solid.
-    int leafAt(const Vec3f& p) const;
+    int leafAt(const Vec3f &p) const;
     // Bit z set for each zone seen from `eye` with `clipFromWorld` (Unreal
     // coordinates to clip space, column-major): every bit when the level
     // has no portals or the eye is in solid, outside it.
-    uint64_t visible(const Vec3f& eye, const std::array<float, 16>& clipFromWorld) const;
+    uint64_t visible(const Vec3f &eye, const std::array<float, 16> &clipFromWorld) const;
     size_t portalCount() const { return portals_.size(); }
 
 private:

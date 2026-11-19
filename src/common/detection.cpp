@@ -10,14 +10,13 @@
 
 namespace reluva {
 
-std::vector<DetectedGame> detectFromTable(const std::string& engineId,
-                                          const std::vector<GameVariant>& table,
-                                          const std::filesystem::path& dir) {
+std::vector<DetectedGame> detectFromTable(const std::string &engineId, const std::vector<GameVariant> &table,
+                                          const std::filesystem::path &dir) {
     // Many variants share files, so cache per-file results.
     std::map<std::string, std::optional<std::filesystem::path>> found;
     std::map<std::string, std::optional<std::string>> hashes;
 
-    auto locate = [&](const std::string& name) -> const std::optional<std::filesystem::path>& {
+    auto locate = [&](const std::string &name) -> const std::optional<std::filesystem::path> & {
         auto it = found.find(name);
         if (it == found.end())
             it = found.emplace(name, fs::findFile(dir, name)).first;
@@ -25,10 +24,10 @@ std::vector<DetectedGame> detectFromTable(const std::string& engineId,
     };
 
     std::vector<DetectedGame> results;
-    for (const GameVariant& variant : table) {
+    for (const GameVariant &variant : table) {
         bool matches = !variant.files.empty();
-        for (const FileSignature& sig : variant.files) {
-            const auto& path = locate(sig.name);
+        for (const FileSignature &sig : variant.files) {
+            const auto &path = locate(sig.name);
             if (!path) {
                 matches = false;
                 break;
@@ -53,18 +52,17 @@ std::vector<DetectedGame> detectFromTable(const std::string& engineId,
             }
         }
         if (matches)
-            results.push_back({engineId, variant.gameId, variant.description, variant.language,
-                               variant.platform});
+            results.push_back({engineId, variant.gameId, variant.description, variant.language, variant.platform});
     }
     return results;
 }
 
-Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
-                const std::function<bool(uint64_t done, uint64_t total)>& progress) {
+Error runImport(const ImportPlan &plan, const std::filesystem::path &dest,
+                const std::function<bool(uint64_t done, uint64_t total)> &progress) {
     const uint64_t total = plan.totalBytes();
     uint64_t done = 0;
     std::vector<char> buffer(1 << 20);
-    for (const ImportPlan::File& f : plan.files) {
+    for (const ImportPlan::File &f : plan.files) {
         const std::filesystem::path to = dest / std::filesystem::path(f.to);
         std::error_code ec;
         std::filesystem::create_directories(to.parent_path(), ec);
@@ -78,7 +76,7 @@ Error runImport(const ImportPlan& plan, const std::filesystem::path& dest,
             if (Error err = extractWiseStream(f.from, *f.packed, bytes))
                 return err;
             std::ofstream out(part, std::ios::binary | std::ios::trunc);
-            if (!out.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size())))
+            if (!out.write(reinterpret_cast<const char *>(bytes.data()), std::streamsize(bytes.size())))
                 return Error::fail("Couldn't write " + part.string() + " (is the disk full?)");
             out.close();
             done += f.size;

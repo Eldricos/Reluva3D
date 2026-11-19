@@ -16,18 +16,22 @@ namespace reluva::clue {
 namespace {
 
 enum Dialog {
-    kNetHostDialog = 11, kNetJoinDialog = 12, kNetLobbyDialog = 13, kSetupFirst = 18, kSessionLost = 27,
+    kNetHostDialog = 11,
+    kNetJoinDialog = 12,
+    kNetLobbyDialog = 13,
+    kSetupFirst = 18,
+    kSessionLost = 27,
     kHostGone = 28,
 };
 constexpr int kReturn = 10000, kOk = 10001;
 constexpr int kSeats = netplay::kSeats;
 // Host Game: the controls by their place (the labels have no ids).
 constexpr size_t kTitleAt = 1, kGameNameLabelAt = 4, kMaxLabelAt = 6;
-const char* const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
+const char *const kLevelName[3] = {"Novice CPU", "Normal CPU", "Expert CPU"};
 
 } // namespace
 
-std::unique_ptr<net::UdpSocket> FrontEnd::netSocket(uint16_t port, std::string& error) {
+std::unique_ptr<net::UdpSocket> FrontEnd::netSocket(uint16_t port, std::string &error) {
     std::unique_ptr<net::UdpSocket> socket;
     if (Error err = sys_.openUdp(port, socket)) {
         error = err.message;
@@ -98,16 +102,17 @@ void FrontEnd::netShow(Screen s) {
         if (netMessage_ != "host")
             dialog_->setTextAt(1, netMessage_);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
 void FrontEnd::refreshLobby() {
     if (!dialog_ || !net_)
         return;
-    const netplay::Lobby& l = net_->lobby();
+    const netplay::Lobby &l = net_->lobby();
     for (int k = 0; k < kSeats; ++k) {
-        const netplay::Seat& seat = l.seats[size_t(k)];
+        const netplay::Seat &seat = l.seats[size_t(k)];
         const bool taken = seat.kind != netplay::Seat::None;
         dialog_->setVisible(5 + k, !taken);
         dialog_->setVisible(11 + k, taken);
@@ -129,7 +134,7 @@ void FrontEnd::refreshLobby() {
 }
 
 void FrontEnd::refreshNetSetup() {
-    const netplay::Seat& d = netDraft_;
+    const netplay::Seat &d = netDraft_;
     dialog_->setChosen(0, d.kind == netplay::Seat::Human);
     dialog_->setChosen(1, d.kind == netplay::Seat::Computer);
     dialog_->setChosen(2, d.kind == netplay::Seat::None);
@@ -233,7 +238,7 @@ void FrontEnd::netClick(int id) {
             break;
         if (id >= 5 && id <= 16) {
             const int seat = (id - 5) % kSeats;
-            const netplay::Seat& s = net_->lobby().seats[size_t(seat)];
+            const netplay::Seat &s = net_->lobby().seats[size_t(seat)];
             if (net_->isHost() && !(s.kind == netplay::Seat::Human && s.owner != 0)) {
                 // The host sets up any suspect not another player's.
                 netSeat_ = seat;
@@ -280,7 +285,8 @@ void FrontEnd::netClick(int id) {
         if (id == kOk)
             go(Screen::MainMenu);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -314,7 +320,7 @@ void FrontEnd::netUpdate() {
     switch (net_->state()) {
     case State::Browsing:
         if (at_ == Screen::NetJoin && dialog_) {
-            const auto& found = net_->found();
+            const auto &found = net_->found();
             for (int slot = 1; slot <= 5; ++slot) {
                 const size_t i = size_t(slot - 1);
                 if (i < found.size())

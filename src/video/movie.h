@@ -16,6 +16,6 @@ namespace reluva::video {
 // skips it. `quit` is set if the window was closed (or the launcher asked
 // for) meanwhile. `mixer` may be nullptr: then it plays silently, by the
 // clock.
-Error playMovie(System& sys, audio::Mixer* mixer, const std::filesystem::path& file, bool& quit);
+Error playMovie(System &sys, audio::Mixer *mixer, const std::filesystem::path &file, bool &quit);
 
 } // namespace reluva::video
