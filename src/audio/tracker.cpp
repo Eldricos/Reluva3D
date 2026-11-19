@@ -24,63 +24,63 @@ constexpr double kAmigaClock = 14317056.0; // period (x4 Amiga units) to Hz
 
 // The player's effects; each format's letters map onto these.
 enum Fx : uint8_t {
-    FxNone,
-    FxArpeggio,
-    FxPortaUp,
-    FxPortaDown,
-    FxTonePorta,
-    FxVibrato,
-    FxTonePortaVol,
-    FxVibratoVol,
-    FxTremolo,
-    FxPan,
-    FxOffset,
-    FxVolSlide,
-    FxJump,
-    FxVolume,
-    FxBreak,
-    FxSpeed,
-    FxTempo,
-    FxSpeedTempo,
-    FxGlobalVol,
-    FxGlobalVolSlide,
-    FxRetrig,
-    FxFinePortaUp,
-    FxFinePortaDown,
-    FxXFinePortaUp,
-    FxXFinePortaDown,
-    FxFineVolUp,
-    FxFineVolDown,
-    FxPatLoop,
-    FxNoteCut,
-    FxNoteDelay,
-    FxPatDelay,
-    FxKeyOff,
-    FxPanSlide,
-    FxChanVol,
-    FxChanVolSlide,
-    FxFineVibrato,
-    FxVibWave,
-    FxTremWave,
-    FxCount
+    kFxNone,
+    kFxArpeggio,
+    kFxPortaUp,
+    kFxPortaDown,
+    kFxTonePorta,
+    kFxVibrato,
+    kFxTonePortaVol,
+    kFxVibratoVol,
+    kFxTremolo,
+    kFxPan,
+    kFxOffset,
+    kFxVolSlide,
+    kFxJump,
+    kFxVolume,
+    kFxBreak,
+    kFxSpeed,
+    kFxTempo,
+    kFxSpeedTempo,
+    kFxGlobalVol,
+    kFxGlobalVolSlide,
+    kFxRetrig,
+    kFxFinePortaUp,
+    kFxFinePortaDown,
+    kFxXFinePortaUp,
+    kFxXFinePortaDown,
+    kFxFineVolUp,
+    kFxFineVolDown,
+    kFxPatLoop,
+    kFxNoteCut,
+    kFxNoteDelay,
+    kFxPatDelay,
+    kFxKeyOff,
+    kFxPanSlide,
+    kFxChanVol,
+    kFxChanVolSlide,
+    kFxFineVibrato,
+    kFxVibWave,
+    kFxTremWave,
+    kFxCount
 };
 
 // Volume column commands.
 enum Vc : uint8_t {
-    VcNone,
-    VcVolume,
-    VcSlideUp,
-    VcSlideDown,
-    VcFineUp,
-    VcFineDown,
-    VcVibSpeed,
-    VcVibDepth,
-    VcPan,
-    VcPanLeft,
-    VcPanRight,
-    VcTonePorta,
-    VcPortaUp,
-    VcPortaDown
+    kVcNone,
+    kVcVolume,
+    kVcSlideUp,
+    kVcSlideDown,
+    kVcFineUp,
+    kVcFineDown,
+    kVcVibSpeed,
+    kVcVibDepth,
+    kVcPan,
+    kVcPanLeft,
+    kVcPanRight,
+    kVcTonePorta,
+    kVcPortaUp,
+    kVcPortaDown
 };
 
 // Bounds-checked little/big-endian reads: past the end reads as 0.
@@ -226,296 +226,296 @@ TrackerPattern emptyPattern(int rows, int channels) {
 
 // MOD and XM effects (XM adds G..X).
 void modEffect(unsigned fx, unsigned p, bool xm, TrackerCell &c) {
-    uint8_t e = FxNone;
+    uint8_t e = kFxNone;
     const unsigned x = p >> 4, y = p & 15;
     switch (fx) {
     case 0x0:
-        e = p ? FxArpeggio : FxNone;
+        e = p ? kFxArpeggio : kFxNone;
         break;
     case 0x1:
-        e = FxPortaUp;
+        e = kFxPortaUp;
         break;
     case 0x2:
-        e = FxPortaDown;
+        e = kFxPortaDown;
         break;
     case 0x3:
-        e = FxTonePorta;
+        e = kFxTonePorta;
         break;
     case 0x4:
-        e = FxVibrato;
+        e = kFxVibrato;
         break;
     case 0x5:
-        e = FxTonePortaVol;
+        e = kFxTonePortaVol;
         break;
     case 0x6:
-        e = FxVibratoVol;
+        e = kFxVibratoVol;
         break;
     case 0x7:
-        e = FxTremolo;
+        e = kFxTremolo;
         break;
     case 0x8:
-        e = FxPan;
+        e = kFxPan;
         break;
     case 0x9:
-        e = FxOffset;
+        e = kFxOffset;
         break;
     case 0xA:
-        e = FxVolSlide;
+        e = kFxVolSlide;
         break;
     case 0xB:
-        e = FxJump;
+        e = kFxJump;
         break;
     case 0xC:
-        e = FxVolume, p = std::min(p, 64u);
+        e = kFxVolume, p = std::min(p, 64u);
         break;
     case 0xD:
-        e = FxBreak, p = x * 10 + y;
+        e = kFxBreak, p = x * 10 + y;
         break;
     case 0xE:
         p = y;
         switch (x) {
         case 0x1:
-            e = FxFinePortaUp;
+            e = kFxFinePortaUp;
             break;
         case 0x2:
-            e = FxFinePortaDown;
+            e = kFxFinePortaDown;
             break;
         case 0x4:
-            e = FxVibWave;
+            e = kFxVibWave;
             break;
         case 0x6:
-            e = FxPatLoop;
+            e = kFxPatLoop;
             break;
         case 0x7:
-            e = FxTremWave;
+            e = kFxTremWave;
             break;
         case 0x8:
-            e = FxPan, p = y * 17;
+            e = kFxPan, p = y * 17;
             break;
         case 0x9:
-            e = FxRetrig;
+            e = kFxRetrig;
             break;
         case 0xA:
-            e = FxFineVolUp;
+            e = kFxFineVolUp;
             break;
         case 0xB:
-            e = FxFineVolDown;
+            e = kFxFineVolDown;
             break;
         case 0xC:
-            e = FxNoteCut;
+            e = kFxNoteCut;
             break;
         case 0xD:
-            e = FxNoteDelay;
+            e = kFxNoteDelay;
             break;
         case 0xE:
-            e = FxPatDelay;
+            e = kFxPatDelay;
             break;
         default:
             break;
         }
         break;
     case 0xF:
-        e = FxSpeedTempo;
+        e = kFxSpeedTempo;
         break;
     case 16:
-        e = xm ? FxGlobalVol : FxNone, p = std::min(p, 64u) * 2;
+        e = xm ? kFxGlobalVol : kFxNone, p = std::min(p, 64u) * 2;
         break; // G
     case 17:
-        e = xm ? FxGlobalVolSlide : FxNone;
+        e = xm ? kFxGlobalVolSlide : kFxNone;
         break; // H
     case 20:
-        e = xm ? FxKeyOff : FxNone;
+        e = xm ? kFxKeyOff : kFxNone;
         break; // K
     case 25:
-        e = xm ? FxPanSlide : FxNone;
+        e = xm ? kFxPanSlide : kFxNone;
         break; // P
     case 27:
-        e = xm ? FxRetrig : FxNone;
+        e = xm ? kFxRetrig : kFxNone;
         break; // R
     case 33:   // X1y / X2y: extra fine portamento
-        e = !xm ? FxNone : x == 1 ? FxXFinePortaUp : x == 2 ? FxXFinePortaDown : FxNone, p = y;
+        e = !xm ? kFxNone : x == 1 ? kFxXFinePortaUp : x == 2 ? kFxXFinePortaDown : kFxNone, p = y;
         break;
     default:
         break;
     }
     c.effect = e;
-    c.param = e == FxNone ? 0 : uint8_t(p);
+    c.param = e == kFxNone ? 0 : uint8_t(p);
 }
 
 // S3M and IT effects, by letter (1 = A).
 void s3mEffect(unsigned cmd, unsigned p, bool it, TrackerCell &c) {
-    uint8_t e = FxNone;
+    uint8_t e = kFxNone;
     const unsigned x = p >> 4, y = p & 15;
     switch (cmd) {
     case 1:
-        e = FxSpeed;
+        e = kFxSpeed;
         break;
     case 2:
-        e = FxJump;
+        e = kFxJump;
         break;
     case 3:
-        e = FxBreak, p = it ? p : x * 10 + y;
+        e = kFxBreak, p = it ? p : x * 10 + y;
         break;
     case 4:
-        e = FxVolSlide;
+        e = kFxVolSlide;
         break;
     case 5:
-        e = FxPortaDown;
+        e = kFxPortaDown;
         break;
     case 6:
-        e = FxPortaUp;
+        e = kFxPortaUp;
         break;
     case 7:
-        e = FxTonePorta;
+        e = kFxTonePorta;
         break;
     case 8:
-        e = FxVibrato;
+        e = kFxVibrato;
         break;
     case 10:
-        e = FxArpeggio;
+        e = kFxArpeggio;
         break;
     case 11:
-        e = FxVibratoVol;
+        e = kFxVibratoVol;
         break;
     case 12:
-        e = FxTonePortaVol;
+        e = kFxTonePortaVol;
         break;
     case 13:
-        e = it ? FxChanVol : FxNone, p = std::min(p, 64u);
+        e = it ? kFxChanVol : kFxNone, p = std::min(p, 64u);
         break;
     case 14:
-        e = it ? FxChanVolSlide : FxNone;
+        e = it ? kFxChanVolSlide : kFxNone;
         break;
     case 15:
-        e = FxOffset;
+        e = kFxOffset;
         break;
     case 16:
-        e = it ? FxPanSlide : FxNone;
+        e = it ? kFxPanSlide : kFxNone;
         break;
     case 17:
-        e = FxRetrig;
+        e = kFxRetrig;
         break;
     case 18:
-        e = FxTremolo;
+        e = kFxTremolo;
         break;
     case 19:
         p = y;
         switch (x) {
         case 0x3:
-            e = FxVibWave;
+            e = kFxVibWave;
             break;
         case 0x4:
-            e = FxTremWave;
+            e = kFxTremWave;
             break;
         case 0x8:
-            e = FxPan, p = y * 17;
+            e = kFxPan, p = y * 17;
             break;
         case 0xB:
-            e = FxPatLoop;
+            e = kFxPatLoop;
             break;
         case 0xC:
-            e = FxNoteCut;
+            e = kFxNoteCut;
             break;
         case 0xD:
-            e = FxNoteDelay;
+            e = kFxNoteDelay;
             break;
         case 0xE:
-            e = FxPatDelay;
+            e = kFxPatDelay;
             break;
         default:
             break;
         }
         break;
     case 20:
-        e = FxTempo;
+        e = kFxTempo;
         break;
     case 21:
-        e = FxFineVibrato;
+        e = kFxFineVibrato;
         break;
     case 22:
-        e = FxGlobalVol, p = it ? std::min(p, 128u) : std::min(p, 64u) * 2;
+        e = kFxGlobalVol, p = it ? std::min(p, 128u) : std::min(p, 64u) * 2;
         break;
     case 23:
-        e = it ? FxGlobalVolSlide : FxNone;
+        e = it ? kFxGlobalVolSlide : kFxNone;
         break;
     case 24:
-        e = FxPan, p = it ? p : p == 0x80 ? 255 : p > 0x80 ? 128 : p * 2;
+        e = kFxPan, p = it ? p : p == 0x80 ? 255 : p > 0x80 ? 128 : p * 2;
         break;
     default:
         break;
     }
     c.effect = e;
-    c.param = e == FxNone ? 0 : uint8_t(p);
+    c.param = e == kFxNone ? 0 : uint8_t(p);
 }
 
 void xmVolume(unsigned v, TrackerCell &c) {
     const unsigned x = v & 15;
-    uint8_t cmd = VcNone, p = uint8_t(x);
+    uint8_t cmd = kVcNone, p = uint8_t(x);
     if (v >= 0x10 && v <= 0x50)
-        cmd = VcVolume, p = uint8_t(v - 0x10);
+        cmd = kVcVolume, p = uint8_t(v - 0x10);
     else
         switch (v >> 4) {
         case 0x6:
-            cmd = VcSlideDown;
+            cmd = kVcSlideDown;
             break;
         case 0x7:
-            cmd = VcSlideUp;
+            cmd = kVcSlideUp;
             break;
         case 0x8:
-            cmd = VcFineDown;
+            cmd = kVcFineDown;
             break;
         case 0x9:
-            cmd = VcFineUp;
+            cmd = kVcFineUp;
             break;
         case 0xA:
-            cmd = VcVibSpeed;
+            cmd = kVcVibSpeed;
             break;
         case 0xB:
-            cmd = VcVibDepth;
+            cmd = kVcVibDepth;
             break;
         case 0xC:
-            cmd = VcPan, p = uint8_t(x * 17);
+            cmd = kVcPan, p = uint8_t(x * 17);
             break;
         case 0xD:
-            cmd = VcPanLeft;
+            cmd = kVcPanLeft;
             break;
         case 0xE:
-            cmd = VcPanRight;
+            cmd = kVcPanRight;
             break;
         case 0xF:
-            cmd = VcTonePorta, p = uint8_t(x << 4);
+            cmd = kVcTonePorta, p = uint8_t(x << 4);
             break;
         default:
             break;
         }
     c.volCmd = cmd;
-    c.volParam = cmd == VcNone ? 0 : p;
+    c.volParam = cmd == kVcNone ? 0 : p;
 }
 
 void itVolume(unsigned v, TrackerCell &c) {
     static const uint8_t kPorta[10] = {0, 1, 4, 8, 16, 32, 64, 96, 128, 255};
-    uint8_t cmd = VcNone;
+    uint8_t cmd = kVcNone;
     unsigned p = 0;
     if (v <= 64)
-        cmd = VcVolume, p = v;
+        cmd = kVcVolume, p = v;
     else if (v <= 74)
-        cmd = VcFineUp, p = v - 65;
+        cmd = kVcFineUp, p = v - 65;
     else if (v <= 84)
-        cmd = VcFineDown, p = v - 75;
+        cmd = kVcFineDown, p = v - 75;
     else if (v <= 94)
-        cmd = VcSlideUp, p = v - 85;
+        cmd = kVcSlideUp, p = v - 85;
     else if (v <= 104)
-        cmd = VcSlideDown, p = v - 95;
+        cmd = kVcSlideDown, p = v - 95;
     else if (v <= 114)
-        cmd = VcPortaDown, p = (v - 105) * 4;
+        cmd = kVcPortaDown, p = (v - 105) * 4;
     else if (v <= 124)
-        cmd = VcPortaUp, p = (v - 115) * 4;
+        cmd = kVcPortaUp, p = (v - 115) * 4;
     else if (v >= 128 && v <= 192)
-        cmd = VcPan, p = std::min((v - 128) * 4, 255u);
+        cmd = kVcPan, p = std::min((v - 128) * 4, 255u);
     else if (v >= 193 && v <= 202)
-        cmd = VcTonePorta, p = kPorta[v - 193];
+        cmd = kVcTonePorta, p = kPorta[v - 193];
     else if (v >= 203 && v <= 212)
-        cmd = VcVibDepth, p = v - 203;
+        cmd = kVcVibDepth, p = v - 203;
     c.volCmd = cmd;
     c.volParam = uint8_t(p);
 }
@@ -681,7 +681,7 @@ Error loadS3m(const Reader &r, TrackerModule &m) {
                 if (what & 64) {
                     const unsigned v = r.u8(at++);
                     if (v <= 64)
-                        cell.volCmd = VcVolume, cell.volParam = uint8_t(v);
+                        cell.volCmd = kVcVolume, cell.volParam = uint8_t(v);
                 }
                 if (what & 128) {
                     s3mEffect(r.u8(at), r.u8(at + 1), false, cell);
@@ -1053,7 +1053,7 @@ private:
         double pos = 0, period = 0, target = 0;
         int volume = 64, chanVol = 64, pan = 128, fade = 65536;
         int volEnvPos = 0, panEnvPos = 0;
-        uint8_t mem[FxCount] = {};
+        uint8_t mem[kFxCount] = {};
         int portaSpeed = 0;
         int vibPos = 0, vibSpeed = 0, vibDepth = 0, vibWave = 0;
         int tremPos = 0, tremSpeed = 0, tremDepth = 0, tremWave = 0;
@@ -1062,8 +1062,8 @@ private:
     };
 
     const TrackerPattern &pattern(int order) const {
-        const size_t p = m_.orders[size_t(order)];
-        return p < m_.patterns.size() ? m_.patterns[p] : empty_;
+        const size_t p = _m.orders[size_t(order)];
+        return p < _m.patterns.size() ? _m.patterns[p] : _empty;
     }
     int playable(int order) const;
     void enterOrder(int order, int row);
@@ -1083,34 +1083,34 @@ private:
     const TrackerSample *resolve(int instrument, int &note, const TrackerInstrument *&ins) const;
     void mixChannel(Channel &ch, std::vector<double> &mix, size_t frames);
 
-    const TrackerModule &m_;
-    const int rate_;
-    TrackerPattern empty_;
-    std::vector<Channel> ch_;
-    int speed_, tempo_, globalVolume_;
-    int order_ = 0, row_ = 0, tick_ = 0, patDelay_ = 0, jumpOrder_ = -1, breakRow_ = -1, loopJump_ = -1;
-    bool done_ = false;
-    size_t frames_ = 0, loopFrame_ = 0;
-    std::vector<std::vector<int64_t>> visited_; // per order and row: the frame it first played at
-    double gain_;
+    const TrackerModule &_m;
+    const int _rate;
+    TrackerPattern _empty;
+    std::vector<Channel> _ch;
+    int _speed, _tempo, _globalVolume;
+    int _order = 0, _row = 0, _tick = 0, _patDelay = 0, _jumpOrder = -1, _breakRow = -1, _loopJump = -1;
+    bool _done = false;
+    size_t _frames = 0, _loopFrame = 0;
+    std::vector<std::vector<int64_t>> _visited; // per order and row: the frame it first played at
+    double _gain;
 };
 
 Player::Player(const TrackerModule &m, int rate)
-    : m_(m), rate_(rate), empty_(emptyPattern(64, m.channels)), ch_(size_t(m.channels)), speed_(m.speed),
-      tempo_(m.tempo), globalVolume_(m.globalVolume), visited_(m.orders.size()) {
-    for (size_t c = 0; c < ch_.size(); ++c) {
-        ch_[c].pan = c < m.channelPan.size() ? m.channelPan[c] : 128;
-        ch_[c].chanVol = c < m.channelVolume.size() ? m.channelVolume[c] : 64;
+    : _m(m), _rate(rate), _empty(emptyPattern(64, m.channels)), _ch(size_t(m.channels)), _speed(m.speed),
+      _tempo(m.tempo), _globalVolume(m.globalVolume), _visited(m.orders.size()) {
+    for (size_t c = 0; c < _ch.size(); ++c) {
+        _ch[c].pan = c < m.channelPan.size() ? m.channelPan[c] : 128;
+        _ch[c].chanVol = c < m.channelVolume.size() ? m.channelVolume[c] : 64;
     }
-    gain_ = 0.5 * std::min(1.0, std::sqrt(4.0 / std::max(m.channels, 1))) * m.mixVolume / 64.0;
+    _gain = 0.5 * std::min(1.0, std::sqrt(4.0 / std::max(m.channels, 1))) * m.mixVolume / 64.0;
 }
 
 int Player::playable(int order) const {
-    for (; order >= 0 && size_t(order) < m_.orders.size(); ++order) {
-        const uint8_t p = m_.orders[size_t(order)];
-        if (m_.orderMarkers && p == 255)
+    for (; order >= 0 && size_t(order) < _m.orders.size(); ++order) {
+        const uint8_t p = _m.orders[size_t(order)];
+        if (_m.orderMarkers && p == 255)
             return -1;
-        if (!(m_.orderMarkers && p == 254))
+        if (!(_m.orderMarkers && p == 254))
             return order;
     }
     return -1;
@@ -1120,68 +1120,68 @@ int Player::playable(int order) const {
 void Player::enterOrder(int order, int row) {
     int o = playable(order);
     if (o < 0)
-        o = playable(m_.restartOrder);
+        o = playable(_m.restartOrder);
     if (o < 0)
         o = playable(0);
     if (o < 0) {
-        done_ = true;
+        _done = true;
         return;
     }
     if (row >= pattern(o).rows)
         row = 0;
-    const auto &v = visited_[size_t(o)];
+    const auto &v = _visited[size_t(o)];
     if (size_t(row) < v.size() && v[size_t(row)] >= 0) {
-        done_ = true;
-        loopFrame_ = size_t(v[size_t(row)]);
+        _done = true;
+        _loopFrame = size_t(v[size_t(row)]);
         return;
     }
-    order_ = o;
-    row_ = row;
+    _order = o;
+    _row = row;
 }
 
 void Player::nextRow() {
-    tick_ = 0;
-    if (loopJump_ >= 0) { // a pattern loop stays in this pattern
-        row_ = loopJump_;
+    _tick = 0;
+    if (_loopJump >= 0) { // a pattern loop stays in this pattern
+        _row = _loopJump;
         return;
     }
-    if (jumpOrder_ >= 0 || breakRow_ >= 0)
-        return enterOrder(jumpOrder_ >= 0 ? jumpOrder_ : order_ + 1, std::max(breakRow_, 0));
-    if (row_ + 1 < pattern(order_).rows)
-        ++row_;
+    if (_jumpOrder >= 0 || _breakRow >= 0)
+        return enterOrder(_jumpOrder >= 0 ? _jumpOrder : _order + 1, std::max(_breakRow, 0));
+    if (_row + 1 < pattern(_order).rows)
+        ++_row;
     else
-        enterOrder(order_ + 1, 0);
+        enterOrder(_order + 1, 0);
 }
 
 int Player::memory(Channel &ch, uint8_t fx, int p) {
     int slot = fx;
-    bool uses = m_.effectMemory;
+    bool uses = _m.effectMemory;
     switch (fx) {
-    case FxOffset:
+    case kFxOffset:
         uses = true;
         break;
-    case FxPortaDown:
-        slot = m_.s3mEffects ? int(FxPortaUp) : int(fx);
+    case kFxPortaDown:
+        slot = _m.s3mEffects ? int(kFxPortaUp) : int(fx);
         break;
-    case FxTonePortaVol:
-    case FxVibratoVol:
-        slot = FxVolSlide;
+    case kFxTonePortaVol:
+    case kFxVibratoVol:
+        slot = kFxVolSlide;
         break;
-    case FxArpeggio:
-        uses = m_.s3mEffects;
+    case kFxArpeggio:
+        uses = _m.s3mEffects;
         break;
-    case FxPortaUp:
-    case FxVolSlide:
-    case FxGlobalVolSlide:
-    case FxChanVolSlide:
-    case FxPanSlide:
-    case FxRetrig:
-    case FxFinePortaUp:
-    case FxFinePortaDown:
-    case FxXFinePortaUp:
-    case FxXFinePortaDown:
-    case FxFineVolUp:
-    case FxFineVolDown:
+    case kFxPortaUp:
+    case kFxVolSlide:
+    case kFxGlobalVolSlide:
+    case kFxChanVolSlide:
+    case kFxPanSlide:
+    case kFxRetrig:
+    case kFxFinePortaUp:
+    case kFxFinePortaDown:
+    case kFxXFinePortaUp:
+    case kFxXFinePortaDown:
+    case kFxFineVolUp:
+    case kFxFineVolDown:
         break;
     default:
         uses = false;
@@ -1198,7 +1198,7 @@ int Player::memory(Channel &ch, uint8_t fx, int p) {
 // tick only), else MOD/XM's (x up, else y down, after the first tick).
 int Player::slide(int p, bool tick0) const {
     const int hi = p >> 4, lo = p & 15;
-    if (!m_.s3mEffects)
+    if (!_m.s3mEffects)
         return tick0 ? 0 : hi ? hi : -lo;
     if (lo == 15 && hi)
         return tick0 ? hi : 0;
@@ -1210,7 +1210,7 @@ int Player::slide(int p, bool tick0) const {
 }
 
 double Player::periodOf(int note, const TrackerSample &s) const {
-    if (m_.linearSlides)
+    if (_m.linearSlides)
         return 7680.0 - note * 64.0;
     const double c5 = s.c5speed > 0 ? s.c5speed : 8363.0;
     return kAmigaClock / (c5 * std::exp2((note - 60) / 12.0));
@@ -1218,7 +1218,7 @@ double Player::periodOf(int note, const TrackerSample &s) const {
 
 void Player::portamento(Channel &ch, double delta) const {
     ch.period =
-        m_.linearSlides ? std::clamp(ch.period + delta, -1536.0, 9216.0) : std::clamp(ch.period + delta, 28.0, 1e6);
+        _m.linearSlides ? std::clamp(ch.period + delta, -1536.0, 9216.0) : std::clamp(ch.period + delta, 28.0, 1e6);
 }
 
 void Player::tonePorta(Channel &ch) const {
@@ -1241,16 +1241,16 @@ const TrackerSample *Player::resolve(int instrument, int &note, const TrackerIns
     size_t s = size_t(instrument);
     if (instrument < 1)
         return nullptr;
-    if (!m_.instruments.empty()) {
-        if (s > m_.instruments.size())
+    if (!_m.instruments.empty()) {
+        if (s > _m.instruments.size())
             return nullptr;
-        ins = &m_.instruments[s - 1];
+        ins = &_m.instruments[s - 1];
         s = ins->sample[size_t(note)];
         note = ins->note[size_t(note)];
     }
-    if (s < 1 || s > m_.samples.size())
+    if (s < 1 || s > _m.samples.size())
         return nullptr;
-    const TrackerSample *smp = &m_.samples[s - 1];
+    const TrackerSample *smp = &_m.samples[s - 1];
     note = std::clamp(note + smp->relativeNote, 0, 119);
     return smp;
 }
@@ -1263,9 +1263,9 @@ void Player::keyOff(Channel &ch) {
         return;
     }
     const TrackerEnvelope &e = ch.ins->volumeEnvelope;
-    if (m_.format == TrackerFormat::kXM && !e.enabled)
+    if (_m.format == TrackerFormat::kXM && !e.enabled)
         ch.volume = 0;
-    else if (!(m_.format == TrackerFormat::kIT && e.enabled && !e.loop)) // IT fades at such an envelope's end
+    else if (!(_m.format == TrackerFormat::kIT && e.enabled && !e.loop)) // IT fades at such an envelope's end
         ch.fading = true;
 }
 
@@ -1273,7 +1273,7 @@ void Player::keyOff(Channel &ch) {
 // note delay's.
 void Player::trigger(Channel &ch) {
     const TrackerCell &c = ch.cell;
-    const bool porta = c.effect == FxTonePorta || c.effect == FxTonePortaVol || c.volCmd == VcTonePorta;
+    const bool porta = c.effect == kFxTonePorta || c.effect == kFxTonePortaVol || c.volCmd == kVcTonePorta;
     if (c.instrument)
         ch.lastIns = c.instrument;
     const TrackerSample *smp = nullptr;
@@ -1298,7 +1298,7 @@ void Player::trigger(Channel &ch) {
                 ch.vibPos = 0;
             if (!(ch.tremWave & 4))
                 ch.tremPos = 0;
-            if (c.effect == FxOffset) {
+            if (c.effect == kFxOffset) {
                 ch.pos = ch.param * 256.0;
                 if (ch.pos >= double(smp->data.size())) {
                     ch.pos = smp->loop ? double(smp->loopStart) : 0;
@@ -1311,7 +1311,7 @@ void Player::trigger(Channel &ch) {
         smp = resolve(c.instrument, note, ins);
         if (ins && ch.ins == ins && ch.smp)
             smp = ch.smp;
-        if (smp && m_.format == TrackerFormat::kXM) { // XM: the instrument alone restarts its envelopes
+        if (smp && _m.format == TrackerFormat::kXM) { // XM: the instrument alone restarts its envelopes
             ch.keyOn = true;
             ch.fading = false;
             ch.fade = 65536;
@@ -1334,25 +1334,25 @@ void Player::trigger(Channel &ch) {
 
     const int p = c.volParam;
     switch (c.volCmd) {
-    case VcVolume:
+    case kVcVolume:
         ch.volume = std::min(p, 64);
         break;
-    case VcPan:
+    case kVcPan:
         ch.pan = p;
         break;
-    case VcFineUp:
+    case kVcFineUp:
         ch.volume = std::min(ch.volume + p, 64);
         break;
-    case VcFineDown:
+    case kVcFineDown:
         ch.volume = std::max(ch.volume - p, 0);
         break;
-    case VcVibSpeed:
+    case kVcVibSpeed:
         ch.vibSpeed = p ? p : ch.vibSpeed;
         break;
-    case VcVibDepth:
+    case kVcVibDepth:
         ch.vibDepth = p ? p : ch.vibDepth;
         break;
-    case VcTonePorta:
+    case kVcTonePorta:
         ch.portaSpeed = p ? p : ch.portaSpeed;
         break;
     default:
@@ -1364,107 +1364,107 @@ void Player::trigger(Channel &ch) {
 void Player::rowEffect(Channel &ch) {
     const int p = ch.param, x = p >> 4, y = p & 15;
     switch (ch.cell.effect) {
-    case FxSpeed:
-        speed_ = p ? p : speed_;
+    case kFxSpeed:
+        _speed = p ? p : _speed;
         break;
-    case FxTempo:
-        tempo_ = p >= 32 ? p : tempo_;
+    case kFxTempo:
+        _tempo = p >= 32 ? p : _tempo;
         break;
-    case FxSpeedTempo:
+    case kFxSpeedTempo:
         if (p && p < 32)
-            speed_ = p;
+            _speed = p;
         else if (p >= 32)
-            tempo_ = p;
+            _tempo = p;
         break;
-    case FxJump:
-        jumpOrder_ = p;
+    case kFxJump:
+        _jumpOrder = p;
         break;
-    case FxBreak:
-        breakRow_ = p;
+    case kFxBreak:
+        _breakRow = p;
         break;
-    case FxVolume:
+    case kFxVolume:
         ch.volume = std::min(p, 64);
         break;
-    case FxGlobalVol:
-        globalVolume_ = std::min(p, 128);
+    case kFxGlobalVol:
+        _globalVolume = std::min(p, 128);
         break;
-    case FxPan:
+    case kFxPan:
         ch.pan = p;
         break;
-    case FxChanVol:
+    case kFxChanVol:
         ch.chanVol = std::min(p, 64);
         break;
-    case FxFinePortaUp:
+    case kFxFinePortaUp:
         portamento(ch, -4.0 * p);
         break;
-    case FxFinePortaDown:
+    case kFxFinePortaDown:
         portamento(ch, 4.0 * p);
         break;
-    case FxXFinePortaUp:
+    case kFxXFinePortaUp:
         portamento(ch, -p);
         break;
-    case FxXFinePortaDown:
+    case kFxXFinePortaDown:
         portamento(ch, p);
         break;
-    case FxPortaUp:
-    case FxPortaDown:
-        if (m_.s3mEffects && p >= 0xE0) // FFx fine, FEx extra fine
-            portamento(ch, (ch.cell.effect == FxPortaUp ? -1.0 : 1.0) * (p >= 0xF0 ? 4 * y : y));
+    case kFxPortaUp:
+    case kFxPortaDown:
+        if (_m.s3mEffects && p >= 0xE0) // FFx fine, FEx extra fine
+            portamento(ch, (ch.cell.effect == kFxPortaUp ? -1.0 : 1.0) * (p >= 0xF0 ? 4 * y : y));
         break;
-    case FxFineVolUp:
+    case kFxFineVolUp:
         ch.volume = std::min(ch.volume + p, 64);
         break;
-    case FxFineVolDown:
+    case kFxFineVolDown:
         ch.volume = std::max(ch.volume - p, 0);
         break;
-    case FxVolSlide:
-    case FxTonePortaVol:
-    case FxVibratoVol:
+    case kFxVolSlide:
+    case kFxTonePortaVol:
+    case kFxVibratoVol:
         ch.volume = std::clamp(ch.volume + slide(p, true), 0, 64);
         break;
-    case FxGlobalVolSlide:
-        globalVolume_ = std::clamp(globalVolume_ + slide(p, true), 0, 128);
+    case kFxGlobalVolSlide:
+        _globalVolume = std::clamp(_globalVolume + slide(p, true), 0, 128);
         break;
-    case FxChanVolSlide:
+    case kFxChanVolSlide:
         ch.chanVol = std::clamp(ch.chanVol + slide(p, true), 0, 64);
         break;
-    case FxPanSlide:
+    case kFxPanSlide:
         ch.pan = std::clamp(ch.pan - 4 * slide(p, true), 0, 255);
         break;
-    case FxTonePorta:
+    case kFxTonePorta:
         ch.portaSpeed = p ? p : ch.portaSpeed;
         break;
-    case FxVibrato:
-    case FxFineVibrato:
+    case kFxVibrato:
+    case kFxFineVibrato:
         ch.vibSpeed = x ? x : ch.vibSpeed;
         ch.vibDepth = y ? y : ch.vibDepth;
         break;
-    case FxTremolo:
+    case kFxTremolo:
         ch.tremSpeed = x ? x : ch.tremSpeed;
         ch.tremDepth = y ? y : ch.tremDepth;
         break;
-    case FxVibWave:
+    case kFxVibWave:
         ch.vibWave = p;
         break;
-    case FxTremWave:
+    case kFxTremWave:
         ch.tremWave = p;
         break;
-    case FxPatLoop:
+    case kFxPatLoop:
         if (p == 0)
-            ch.loopRow = row_;
+            ch.loopRow = _row;
         else if (ch.loopCount == 0)
-            ch.loopCount = p, loopJump_ = ch.loopRow;
+            ch.loopCount = p, _loopJump = ch.loopRow;
         else if (--ch.loopCount > 0)
-            loopJump_ = ch.loopRow;
+            _loopJump = ch.loopRow;
         break;
-    case FxNoteCut:
+    case kFxNoteCut:
         if (p == 0)
             ch.volume = 0;
         break;
-    case FxPatDelay:
-        patDelay_ = patDelay_ ? patDelay_ : p;
+    case kFxPatDelay:
+        _patDelay = _patDelay ? _patDelay : p;
         break;
-    case FxKeyOff:
+    case kFxKeyOff:
         if (p == 0)
             keyOff(ch);
         break;
@@ -1475,56 +1475,56 @@ void Player::rowEffect(Channel &ch) {
 
 // Effects on the ticks after the first.
 void Player::tickEffect(Channel &ch) {
-    const int p = ch.param, t = tick_ % speed_;
+    const int p = ch.param, t = _tick % _speed;
     switch (ch.cell.effect) {
-    case FxArpeggio:
+    case kFxArpeggio:
         ch.arp = t % 3 == 0 ? 0 : t % 3 == 1 ? p >> 4 : p & 15;
         break;
-    case FxPortaUp:
-        if (!m_.s3mEffects || p < 0xE0)
+    case kFxPortaUp:
+        if (!_m.s3mEffects || p < 0xE0)
             portamento(ch, -4.0 * p);
         break;
-    case FxPortaDown:
-        if (!m_.s3mEffects || p < 0xE0)
+    case kFxPortaDown:
+        if (!_m.s3mEffects || p < 0xE0)
             portamento(ch, 4.0 * p);
         break;
-    case FxTonePorta:
+    case kFxTonePorta:
         tonePorta(ch);
         break;
-    case FxTonePortaVol:
+    case kFxTonePortaVol:
         tonePorta(ch);
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
-    case FxVibrato:
+    case kFxVibrato:
         vibrato(ch, false);
         break;
-    case FxFineVibrato:
+    case kFxFineVibrato:
         vibrato(ch, true);
         break;
-    case FxVibratoVol:
+    case kFxVibratoVol:
         vibrato(ch, false);
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
-    case FxTremolo:
+    case kFxTremolo:
         tremolo(ch);
         break;
-    case FxVolSlide:
+    case kFxVolSlide:
         ch.volume = std::clamp(ch.volume + slide(p, false), 0, 64);
         break;
-    case FxGlobalVolSlide:
-        globalVolume_ = std::clamp(globalVolume_ + slide(p, false) * (m_.format == TrackerFormat::kXM ? 2 : 1), 0, 128);
+    case kFxGlobalVolSlide:
+        _globalVolume = std::clamp(_globalVolume + slide(p, false) * (_m.format == TrackerFormat::kXM ? 2 : 1), 0, 128);
         break;
-    case FxChanVolSlide:
+    case kFxChanVolSlide:
         ch.chanVol = std::clamp(ch.chanVol + slide(p, false), 0, 64);
         break;
-    case FxPanSlide: // XM: x right, y left; IT: x left, y right
-        ch.pan = std::clamp(ch.pan + (m_.s3mEffects ? -4 : 1) * slide(p, false), 0, 255);
+    case kFxPanSlide: // XM: x right, y left; IT: x left, y right
+        ch.pan = std::clamp(ch.pan + (_m.s3mEffects ? -4 : 1) * slide(p, false), 0, 255);
         break;
-    case FxTempo:
-        if (m_.format == TrackerFormat::kIT && p < 0x20) // T0x / T1x: tempo slide
-            tempo_ = std::clamp(tempo_ + (p >> 4 ? 1 : -1) * (p & 15), 32, 255);
+    case kFxTempo:
+        if (_m.format == TrackerFormat::kIT && p < 0x20) // T0x / T1x: tempo slide
+            _tempo = std::clamp(_tempo + (p >> 4 ? 1 : -1) * (p & 15), 32, 255);
         break;
-    case FxRetrig:
+    case kFxRetrig:
         if ((p & 15) && ++ch.retrigCount >= (p & 15)) {
             ch.retrigCount = 0;
             ch.pos = 0;
@@ -1544,15 +1544,15 @@ void Player::tickEffect(Channel &ch) {
             ch.volume = std::clamp(v, 0, 64);
         }
         break;
-    case FxNoteCut:
+    case kFxNoteCut:
         if (t == p)
             ch.volume = 0;
         break;
-    case FxNoteDelay:
-        if (t == ch.delayTick && tick_ < speed_)
+    case kFxNoteDelay:
+        if (t == ch.delayTick && _tick < _speed)
             trigger(ch);
         break;
-    case FxKeyOff:
+    case kFxKeyOff:
         if (t == p)
             keyOff(ch);
         break;
@@ -1561,30 +1561,30 @@ void Player::tickEffect(Channel &ch) {
     }
     const int v = ch.cell.volParam;
     switch (ch.cell.volCmd) {
-    case VcSlideUp:
+    case kVcSlideUp:
         ch.volume = std::min(ch.volume + v, 64);
         break;
-    case VcSlideDown:
+    case kVcSlideDown:
         ch.volume = std::max(ch.volume - v, 0);
         break;
-    case VcPanLeft:
+    case kVcPanLeft:
         ch.pan = std::max(ch.pan - v, 0);
         break;
-    case VcPanRight:
+    case kVcPanRight:
         ch.pan = std::min(ch.pan + v, 255);
         break;
-    case VcPortaUp:
+    case kVcPortaUp:
         portamento(ch, -4.0 * v);
         break;
-    case VcPortaDown:
+    case kVcPortaDown:
         portamento(ch, 4.0 * v);
         break;
-    case VcVibDepth:
-        if (ch.cell.effect != FxVibrato && ch.cell.effect != FxVibratoVol)
+    case kVcVibDepth:
+        if (ch.cell.effect != kFxVibrato && ch.cell.effect != kFxVibratoVol)
             vibrato(ch, false);
         break;
-    case VcTonePorta:
-        if (ch.cell.effect != FxTonePorta && ch.cell.effect != FxTonePortaVol)
+    case kVcTonePorta:
+        if (ch.cell.effect != kFxTonePorta && ch.cell.effect != kFxTonePortaVol)
             tonePorta(ch);
         break;
     default:
@@ -1593,22 +1593,22 @@ void Player::tickEffect(Channel &ch) {
 }
 
 void Player::startRow() {
-    patDelay_ = 0;
-    jumpOrder_ = breakRow_ = loopJump_ = -1;
-    const TrackerPattern &pat = pattern(order_);
-    if (row_ >= pat.rows)
-        row_ = 0;
-    auto &v = visited_[size_t(order_)];
+    _patDelay = 0;
+    _jumpOrder = _breakRow = _loopJump = -1;
+    const TrackerPattern &pat = pattern(_order);
+    if (_row >= pat.rows)
+        _row = 0;
+    auto &v = _visited[size_t(_order)];
     if (v.size() < size_t(pat.rows))
         v.resize(size_t(pat.rows), -1);
-    if (v[size_t(row_)] < 0)
-        v[size_t(row_)] = int64_t(frames_);
-    for (size_t c = 0; c < ch_.size(); ++c) {
-        Channel &ch = ch_[c];
-        const size_t i = size_t(row_) * ch_.size() + c;
+    if (v[size_t(_row)] < 0)
+        v[size_t(_row)] = int64_t(_frames);
+    for (size_t c = 0; c < _ch.size(); ++c) {
+        Channel &ch = _ch[c];
+        const size_t i = size_t(_row) * _ch.size() + c;
         ch.cell = i < pat.cells.size() ? pat.cells[i] : TrackerCell{};
         ch.param = memory(ch, ch.cell.effect, ch.cell.param);
-        ch.delayTick = ch.cell.effect == FxNoteDelay ? ch.param : 0;
+        ch.delayTick = ch.cell.effect == kFxNoteDelay ? ch.param : 0;
         if (!ch.delayTick)
             trigger(ch);
         rowEffect(ch);
@@ -1632,7 +1632,7 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
                 ch.playing = false;
                 return;
             }
-            if (ended && m_.format == TrackerFormat::kIT && !ch.keyOn)
+            if (ended && _m.format == TrackerFormat::kIT && !ch.keyOn)
                 ch.fading = true;
         }
         const TrackerEnvelope &pe = ch.ins->panEnvelope;
@@ -1649,16 +1649,16 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
         }
     }
     double vol = std::clamp(ch.volume + ch.tremDelta, 0, 64) / 64.0 * ch.chanVol / 64.0 * s.globalVolume / 64.0 * env /
-                 64.0 * ch.fade / 65536.0 * globalVolume_ / 128.0 * gain_;
+                 64.0 * ch.fade / 65536.0 * _globalVolume / 128.0 * _gain;
     if (ch.ins)
         vol *= ch.ins->globalVolume / 128.0;
     const int pan = std::clamp(ch.pan + (panEnv - 32) * (128 - std::abs(ch.pan - 128)) / 32, 0, 255);
     const double right = vol * std::min(1.0, pan / 128.0), left = vol * std::min(1.0, (255 - pan) / 127.0);
 
     const double c5 = s.c5speed > 0 ? s.c5speed : 8363.0, period = ch.period + ch.vibDelta;
-    double freq = m_.linearSlides ? c5 * std::exp2((3840.0 - period) / 768.0) : kAmigaClock / std::max(period, 1.0);
+    double freq = _m.linearSlides ? c5 * std::exp2((3840.0 - period) / 768.0) : kAmigaClock / std::max(period, 1.0);
     freq *= std::exp2(ch.arp / 12.0);
-    const double step = std::min(freq / rate_, 1e4);
+    const double step = std::min(freq / _rate, 1e4);
 
     const auto &d = s.data;
     const bool sustained = s.sustain && ch.keyOn, loop = sustained || s.loop;
@@ -1702,36 +1702,36 @@ void Player::mixChannel(Channel &ch, std::vector<double> &mix, size_t frames) {
 
 Error Player::render(int startOrder, double maxSeconds, Sound &out) {
     out = Sound{};
-    out.rate = rate_;
+    out.rate = _rate;
     out.channels = 2;
     const int first = playable(startOrder);
-    if (first < 0 || m_.channels < 1)
+    if (first < 0 || _m.channels < 1)
         return Error::fail("nothing to play from order " + std::to_string(startOrder));
-    order_ = first;
-    const size_t maxFrames = size_t(std::clamp(maxSeconds, 0.0, 3600.0) * rate_);
+    _order = first;
+    const size_t maxFrames = size_t(std::clamp(maxSeconds, 0.0, 3600.0) * _rate);
     std::vector<double> mix;
     double tickFrames = 0;
-    while (!done_ && frames_ < maxFrames) {
-        for (Channel &ch : ch_)
+    while (!_done && _frames < maxFrames) {
+        for (Channel &ch : _ch)
             ch.vibDelta = ch.tremDelta = ch.arp = 0;
-        if (tick_ == 0)
+        if (_tick == 0)
             startRow();
         else
-            for (Channel &ch : ch_)
+            for (Channel &ch : _ch)
                 tickEffect(ch);
-        tickFrames += rate_ * 2.5 / tempo_; // samples per tick = rate * 5 / (2 * tempo)
-        const size_t n = std::min(size_t(tickFrames), maxFrames - frames_);
+        tickFrames += _rate * 2.5 / _tempo; // samples per tick = rate * 5 / (2 * tempo)
+        const size_t n = std::min(size_t(tickFrames), maxFrames - _frames);
         tickFrames -= std::floor(tickFrames);
         mix.assign(n * 2, 0.0);
-        for (Channel &ch : ch_)
+        for (Channel &ch : _ch)
             mixChannel(ch, mix, n);
         for (double v : mix)
             out.samples.push_back(int16_t(std::clamp(std::lround(v), -32768L, 32767L)));
-        frames_ += n;
-        if (++tick_ >= speed_ * (1 + patDelay_))
+        _frames += n;
+        if (++_tick >= _speed * (1 + _patDelay))
             nextRow();
     }
-    out.loopStart = done_ ? loopFrame_ : 0;
+    out.loopStart = _done ? _loopFrame : 0;
     out.loopEnd = out.frames();
     return Error::success();
 }
