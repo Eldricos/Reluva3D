@@ -141,7 +141,7 @@ What was planned:
 - VIV reader as an `Archive`, so it joins a `SearchSet` like a pk3.
 - RefPack decompressor, SHPI/FSH decoder (palettes, the 8/16/32-bit
   types used), `text.*` string tables, `FNTF` fonts.
-- `reluva-tool viv-list`, `viv-extract`, `fsh-dump` (to TGA).
+- `reluva-tool nfs viv-list`, `viv-extract`, `fsh-dump` (to TGA).
 - Unit tests with small synthetic files (RefPack's three copy forms, a
   hand-built BIGF).
 - Viewer pages: **Textures** (every FSH/QFS with its name), **Strings**,
@@ -331,7 +331,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
   draws them: the needles' angles, the wheel turning with the steering
   and the speed. They sweep or are set with the keys. A frame from the
   game in `reluva-tool nfs host` agrees with the page.
-- **Tools:** `reluva-tool fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
+- **Tools:** `reluva-tool nfs fce-info`, `fce-obj`, `frd-check`, `frd-obj`.
   `reluva-tool nfs survey` now also reads models, tracks, `.col` and `.hrz` files.
 - **Unit tests** on hand-built data for each reader.
 
@@ -360,7 +360,7 @@ What was planned:
   road, collision), HRZ (sky, fog). A **Track** page flies through each of
   the nine tracks on the GPU renderer, with the sky, day/night and
   weather variants, and the track's objects.
-- `reluva-tool frd-check` validates all nine tracks.
+- `reluva-tool nfs frd-check` validates all nine tracks.
 - Done when all nine tracks and all cars draw correctly against
   screenshots from the original.
 
@@ -391,7 +391,7 @@ What was built, with each format written up in `docs/formats/nfs/`:
   ([mad.md](formats/mad.md)), which matches frames captured from
   the game; key G switches to its other modes or a plain conversion.
 - **The engine** starts the mixer's audio output for the pages.
-- **Tools:** `reluva-tool bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
+- **Tools:** `reluva-tool nfs bnk-info`, `bnk-wav`, `mus-info`, `mus-wav`,
   `mad-info`, `mad-frames`, `mad-wav`. `reluva-tool nfs survey` now also covers
   banks, streams, maps and movies.
 - **Unit tests** on hand-built data, and the MicroTalk decoder against

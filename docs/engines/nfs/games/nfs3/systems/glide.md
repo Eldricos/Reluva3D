@@ -2,9 +2,13 @@
 
 > **Status:** done · **Code:** `src/engines/nfs/host/game_host.cpp` (`addGlide`), the stand-in in `src/graphics/glide/` and `src/emulation/x86/glide/` · **Checked against:** the game's own frames, natively drawn and in recordings · **Confidence:** confirmed unless marked
 
+## Overview
+
 How NFS III's own Voodoo renderer DLLs run on Reluva's Glide stand-in ([docs/common/graphics/glide.md](../../../../../common/graphics/glide.md)): `reluva-tool nfs host -glide`, the Play page's `renderer=glide`.
 
-## NFS III's voodoo2a.dll
+## How it works
+
+### NFS III's voodoo2a.dll
 
 What it uses (RE, the 59 names it looks up and their call sites):
 
@@ -59,7 +63,7 @@ difference, the pixels differing, those off by more than 24, the largest
 difference). A device of its own each time (`gfx::createCompute`), on the
 game's thread.
 
-## NFS III's Voodoo3 patch DLL (Glide 3)
+### NFS III's Voodoo3 patch DLL (Glide 3)
 
 The Classic CD's `Patch/Voodoo3/voodoo2a.dll` (1999-04-21) loads
 `glide3x.dll`. `Options::glideDll` (nfs host `-glidedll <file>`, the Play
@@ -76,7 +80,7 @@ It runs the menus, loading screens and races; what it asks for, and that
 it draws the game without fog, is in
 [thrash.md](thrash.md), The Voodoo3 patch's voodoo2a.dll.
 
-## NFS III's voodooa.dll (Voodoo Graphics)
+### NFS III's voodooa.dll (Voodoo Graphics)
 
 The install's `voodooa.dll` (the module 3D Device Setup gives a Voodoo
 Graphics card; Watcom, as the retail `voodoo2a.dll`) runs unchanged on the
@@ -114,6 +118,16 @@ the alpha-tested title letters: the alpha test), none in the loading
 screen, and 0.13-0.37 in the race's first frames (2,400-3,000), growing
 after as the two runs' game clocks part (0:09.03 against 0:08.98 at frame
 2,600: the DLLs' own instructions count towards the deterministic clock).
+
+## In Reluva
+
+The DLLs run unchanged: `GameHost` loads them on the stand-in
+(`GameHost::addGlide`, `src/engines/nfs/host/thrash.cpp`), whose code is in
+`src/graphics/glide/` and `src/emulation/x86/glide/`. `reluva-tool nfs
+host` runs them with `-glide`, `-glidedll` and `-glideboard`, on the GPU
+with `-glidegpu`, and compares them with `-glidecompare` and
+`-glidegpucompare`; the Play page with `renderer=glide`, `glidedll=` and
+`glideboard=`.
 
 ## Sources and checks
 

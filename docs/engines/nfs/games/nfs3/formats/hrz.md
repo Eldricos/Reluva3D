@@ -2,9 +2,13 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/hrz.cpp` · **Checked on:** every sky file · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/hrz.cpp`), and checked on all
-36 retail files: four per track, `3trNN.hrz` (day), `n` (night), `w`
-(weather) and `nw` (night with weather).
+## Overview
+
+Each track's sky, fog and weather settings, in four files per track:
+`3trNN.hrz` (day), `n` (night), `w` (weather) and `nw` (night with
+weather).
+
+## Layout
 
 The files are plain text: comma-separated numbers, with `/* comments */`
 naming each value. Some comments sit on the same line as numbers
@@ -38,7 +42,9 @@ Every retail file has, in order:
 
 The check is that every file has 6 + 15 × regions + 48 numbers.
 
-## What the game does with it
+## Behaviour
+
+### What the game does with it
 
 Worked out from the game's own drawing: a race frame on Hometown
 recorded in full (`reluva-tool nfs host -gpudump`, every vertex with its texture
@@ -50,7 +56,7 @@ the visual height, the cloud dome offset and the horizon radius, and in
 the `.hrz` reader (`0x478344`), the sky's set-up (`0x478a34`,
 `0x47ab40`, `0x47ae10`) and its drawing (`0x479680` to `0x47b850`).
 
-### Round the horizon: 16 slots
+#### Round the horizon: 16 slots
 
 The game divides the circle into 16 slots of 22.5°. For the camera's
 heading h, in turns (atan2(x, z) / 2π of its forward direction, in the
@@ -67,7 +73,7 @@ on, as above. The track's coordinates are left-handed (the road's
 right is (z, 0, −x) of its forward), so turning right raises h, as the
 tiles show, left to right.
 
-### Flat rows in front of the camera
+#### Flat rows in front of the camera
 
 The game draws the sky's shading, the earth's and the horizon picture
 each as a row of eight flat quads (`0x479160`, `0x479500`, read November
@@ -112,7 +118,7 @@ overhang, and the Tracks page from the game's camera dumped there
 pixels. In the first frames after the poke the sky is still drawn
 (pink): +0xEC follows the car's new slice a little later.
 
-### In the order the game draws them
+#### In the order the game draws them
 
 - **The sky's shading**, unfogged: a band at the horizon radius from the
   midpoint to the top of the shaded area, and the clear colour (THRASH
@@ -236,7 +242,7 @@ pixels. In the first frames after the poke the sky is still drawn
     the picture's heights over the base.
 - **The scenery**, with the scenery's fog value.
 
-### Fog
+#### Fog
 
 The 3D card's table fog ([thrash.md](../systems/thrash.md), Fog): each pixel is
 mixed towards the fog colour by
@@ -268,67 +274,7 @@ colour, fog stays off, and it uses the 8-bit texture set
 `0x7a3a58`; bit 1, softtria, picks the 8-bit set at `0x41dbe8`), and
 sends fog only to the 3dfx renderers.
 
-## How Reluva draws it
-
-The Tracks page draws as the game does, above, with the functions in
-`hrz.h` (`horizonTurn`, `skyBaseColours`, `cloudHeight`,
-`cloudBrightness`, `cloudDrift`, `sceneryFogValue`, `skyFogValue`):
-
-- **The sky's and earth's shading and the horizon picture** as the
-  game's flat rows (`skyRow`, `horizonTile`), remade each frame: eight
-  quads each in a plane at the horizon radius in front of the camera,
-  coloured and tiled by slot as above, the picture's tiles from a strip
-  of the track sheet's first eight pictures (clamped, so no row of one
-  edge bleeds into the other). Until November 2026 they were a dome and
-  a cylindrical band round the camera, which bent the horizon when the
-  view tilted and spaced the tiles differently towards the screen's
-  sides.
-- **The clear colour** is the sky's top colour, and black with no sky
-  drawn where the game has that (`skyBlack`).
-- **The view** is the game's: 90° across and 72° up at 640 × 480
-  (`viewScreen`, from `0x4dbce0` and `0x4bf260`: half angles of 45 and
-  45 × 13 / 16 = 36 whole degrees, so x scaled by 320 and y by 330.33,
-  pixels 3 % taller than wide; with the `viewangle` option, `0x6fbc40`,
-  at 1, 75° across and 60° up). It was 72° across until November 2026,
-  then 90° across with square pixels (2 atan 0.75 up) until the
-  projection was read.
-- **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
-  `SNNW` for night with weather where a track has one, else `SUNW`) at
-  the game's place and size, facing the camera, upright or, with
-  `ROTATE`, turned as the game turns it. Drawn before the clouds, or
-  after them with `INFRONT`.
-- **The clouds.** The game's grid, dome, nimbus and brightness (with
-  the game's random numbers, for a start-up time of 12345 ms), drifting by the game's amount at 64
-  ticks a second and moving by the camera's place over the visual
-  height (`cloudOffset`). The sky's heights, clouds, shaded area and
-  horizon picture, are the world's less the camera's height. The `sky.fsh` pictures have no mipmaps, as THRASH's
-  textures have none: the night's `CLDN` is black with one-texel stars
-  (at most 100), which mipmaps averaged nearly away.
-- **Fog.** The game's curve and values, per pixel over the depth
-  (`DrawCall::tableFog`). Within a dynamic fog region, by the camera's
-  road slice as above (`fogAtSlice`), the colour and density go from the
-  start's to the apex's between the before and centre slices, then to
-  the end's by the after slice. `Y` turns fog off and on. Until November
-  2026 the page looked the regions up by the camera's block, which no
-  region's slices reach on most tracks: in Lost Canyons' covered stretch
-  it fogged at the day's 50 % towards (44, 28, 38) where the game has
-  10 % towards black.
-- **Ambient light.** The percentages scale the track's baked vertex
-  lighting.
-- **Lightning.** The game's bolts, chances, jitter, life and flash,
-  ticked at 64 a second (`lightningStarts`, `makeBolt`, `tickBolt`,
-  `boltFlash`), with Reluva's own random numbers. The bolts are quads a
-  pixel of the game's 640 × 480 wide, added with the bolt's alpha
-  (`boltFlash`), the lines out of the first point left out. Until
-  November 2026 they were drawn opaque at full alpha to the end of their
-  life, a pixel and a half wide, those lines included.
-
-Until November 2026 the page looked the pictures up by name, so Country
-Woods and Aquatica, whose sheets name them `HOR1` to `HOR8`, had no
-horizon picture: a flat band of the earth's colour where
-`Country_Woods_Day` shows hills. It takes them by place now.
-
-## Against footage of the game (November 2026)
+### Against footage of the game (November 2026)
 
 Eighteen recompressed YouTube clips of the retail game, one per track by
 day and by night, from a 3D card at high detail (`<Track>_<Day|Night>`,
@@ -486,7 +432,7 @@ times as m:ss), against the Tracks page and frames from `reluva-tool nfs host`:
   pitch tips the row's top towards it). A world unit is thus a unit of
   w for the scenery, the sky and the fog alike.
 
-## The weather against footage (November 2026)
+### The weather against footage (November 2026)
 
 Three more clips of the retail game (`Rain`: Hometown in the rain, chase
 view; `Snow`: the Summit in snow; `Night`: Hometown then the Summit by
@@ -556,9 +502,9 @@ on the dome, mostly above the top of the screen, and blended clouds
 queued with each (`0x414e10`); not listened for.
 
 The page drew the bolts opaque, a pixel and a half wide, at full
-strength for their whole life; now as above (How Reluva draws it).
+strength for their whole life; now as below (How Reluva draws it).
 
-## The Direct3D renderer (November 2026)
+### The Direct3D renderer (November 2026)
 
 The clips were most likely made with `d3da.dll` (the user's game ran in
 a virtual machine with emulated Direct3D). What the game and the DLL do
@@ -720,6 +666,73 @@ clouds are greyer and more opaque than the Track page's looks (the game's
 own Direct3D path, above, comes much closer to `Rain` than the page's
 Direct3D look, (113, 108, 93) ± 36, by a different region and run, so the
 page's sky may be what differs); and the Summit's greyer scenery.
+
+## In Reluva
+
+Read as `Horizon` (`src/engines/nfs/formats/hrz.cpp`), and checked on all
+36 retail files: four per track, `3trNN.hrz` (day), `n` (night), `w`
+(weather) and `nw` (night with weather). The data
+viewer's Tracks page draws the sky.
+
+### How Reluva draws it
+
+The Tracks page draws as the game does, above, with the functions in
+`hrz.h` (`horizonTurn`, `skyBaseColours`, `cloudHeight`,
+`cloudBrightness`, `cloudDrift`, `sceneryFogValue`, `skyFogValue`):
+
+- **The sky's and earth's shading and the horizon picture** as the
+  game's flat rows (`skyRow`, `horizonTile`), remade each frame: eight
+  quads each in a plane at the horizon radius in front of the camera,
+  coloured and tiled by slot as above, the picture's tiles from a strip
+  of the track sheet's first eight pictures (clamped, so no row of one
+  edge bleeds into the other). Until November 2026 they were a dome and
+  a cylindrical band round the camera, which bent the horizon when the
+  view tilted and spaced the tiles differently towards the screen's
+  sides.
+- **The clear colour** is the sky's top colour, and black with no sky
+  drawn where the game has that (`skyBlack`).
+- **The view** is the game's: 90° across and 72° up at 640 × 480
+  (`viewScreen`, from `0x4dbce0` and `0x4bf260`: half angles of 45 and
+  45 × 13 / 16 = 36 whole degrees, so x scaled by 320 and y by 330.33,
+  pixels 3 % taller than wide; with the `viewangle` option, `0x6fbc40`,
+  at 1, 75° across and 60° up). It was 72° across until November 2026,
+  then 90° across with square pixels (2 atan 0.75 up) until the
+  projection was read.
+- **The sun or moon.** The variant's picture (`SUND`, `SUNN`, `SUNW`, and
+  `SNNW` for night with weather where a track has one, else `SUNW`) at
+  the game's place and size, facing the camera, upright or, with
+  `ROTATE`, turned as the game turns it. Drawn before the clouds, or
+  after them with `INFRONT`.
+- **The clouds.** The game's grid, dome, nimbus and brightness (with
+  the game's random numbers, for a start-up time of 12345 ms), drifting by the game's amount at 64
+  ticks a second and moving by the camera's place over the visual
+  height (`cloudOffset`). The sky's heights, clouds, shaded area and
+  horizon picture, are the world's less the camera's height. The `sky.fsh` pictures have no mipmaps, as THRASH's
+  textures have none: the night's `CLDN` is black with one-texel stars
+  (at most 100), which mipmaps averaged nearly away.
+- **Fog.** The game's curve and values, per pixel over the depth
+  (`DrawCall::tableFog`). Within a dynamic fog region, by the camera's
+  road slice as above (`fogAtSlice`), the colour and density go from the
+  start's to the apex's between the before and centre slices, then to
+  the end's by the after slice. `Y` turns fog off and on. Until November
+  2026 the page looked the regions up by the camera's block, which no
+  region's slices reach on most tracks: in Lost Canyons' covered stretch
+  it fogged at the day's 50 % towards (44, 28, 38) where the game has
+  10 % towards black.
+- **Ambient light.** The percentages scale the track's baked vertex
+  lighting.
+- **Lightning.** The game's bolts, chances, jitter, life and flash,
+  ticked at 64 a second (`lightningStarts`, `makeBolt`, `tickBolt`,
+  `boltFlash`), with Reluva's own random numbers. The bolts are quads a
+  pixel of the game's 640 × 480 wide, added with the bolt's alpha
+  (`boltFlash`), the lines out of the first point left out. Until
+  November 2026 they were drawn opaque at full alpha to the end of their
+  life, a pixel and a half wide, those lines included.
+
+Until November 2026 the page looked the pictures up by name, so Country
+Woods and Aquatica, whose sheets name them `HOR1` to `HOR8`, had no
+horizon picture: a flat band of the earth's colour where
+`Country_Woods_Day` shows hills. It takes them by place now.
 
 ## Sources and checks
 

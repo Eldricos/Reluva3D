@@ -2,12 +2,10 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/text_table.cpp` · **Checked on:** every language's table · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/text_table.cpp`), and checked
-on all 9 retail tables.
+## Overview
 
-Worked out from hex dumps of the retail tables, October 2026, and
-checked with a survey script: every table's offsets are in order and
-inside the file, and every string but the last ends with a 0.
+The front end's strings: one table per language in `FeData/text/`
+(the files below), each a table of offsets and then the strings.
 
 ## Layout
 
@@ -25,7 +23,7 @@ The text is **Windows-1252**. `0x85` (…) and `0xA9` (©) are used, as
 are the accented letters of each language. The game's fonts
 ([ffn.md](ffn.md)) have glyphs for the same code page.
 
-## The files
+### The files
 
 | File | Language |
 |---|---|
@@ -41,12 +39,19 @@ are the accented letters of each language. The game's fonts
 Cars carry their own front-end text in `car.viv` (`fedata.eng`...), not
 studied yet.
 
-## Tools
+## In Reluva
 
-`reluva-tool text-dump <text.xxx>` prints each string with its number,
+Read as `TextTable` (`src/engines/nfs/formats/text_table.cpp`), and checked
+on all 9 retail tables. The data viewer's Strings page shows them.
+
+`reluva-tool nfs text-dump <text.xxx>` prints each string with its number,
 as UTF-8.
 
 ## Sources and checks
 
 - **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
 - **How it was checked:** the reader run on every language's table to its end; the unit tests (`nfs.unit.formats`) and the game-files test (`nfs.gamedata.formats`).
+
+Worked out from hex dumps of the retail tables, October 2026, and
+checked with a survey script: every table's offsets are in order and
+inside the file, and every string but the last ends with a 0.

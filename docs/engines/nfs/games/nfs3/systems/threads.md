@@ -2,13 +2,12 @@
 
 > **Status:** done · **Code:** `src/emulation/x86/win32_threads.cpp`, `src/engines/nfs/host/game_host.cpp` · **Confidence:** from the code unless marked
 
+## Overview
+
 Which threads `nfs3.exe` makes, what its multimedia timer does, and
 where the race simulation runs. Worked out in October 2026 from the
 retail `nfs3.exe` (its disassembly) and a run in `reluva-tool nfs host` with `-log`
-into a Hometown race. See [nfs.md](../PLAN.md) for how Reluva schedules
-them.
-
-## In short
+into a Hometown race.
 
 **The race simulation runs on the game's main thread.** The timer and
 its helper threads only count ticks and wake other threads: one polls
@@ -17,7 +16,9 @@ race loop runs two 64 Hz steps for each control frame the controls
 thread has made (32 a second, woken by the timer), then draws. When it
 falls behind, at most 4 frames wait and the game slows down.
 
-## The timer
+## How it works
+
+### The timer
 
 `0x48eff0(rate)` starts it (`timeGetDevCaps`, `timeBeginPeriod(1)`). It
 is called with rate 128 from start-up (`0x4b6160`). It was also called
@@ -38,7 +39,7 @@ earlier (`0x4f8a93`) with 0, which means 100 Hz.
 - `0x48ef50` stops it (`timeKillEvent`, `timeEndPeriod`). It is
   registered to run at exit (`0x4f2a78`).
 
-## Threads
+### Threads
 
 All of them but the C runtime's are made by `win\threads.c`
 `createthread` (`0x4df7a0`). It calls `CreateThread(0, stack,
@@ -68,7 +69,7 @@ The C runtime's own `_beginthread` (`0x52ec04`, calls `CreateThread`
 at `0x52ec9b`) is reached only through a pointer (`0x56b1c0`). The game
 never called it.
 
-## The tick handler and the game clock
+### The tick handler and the game clock
 
 The race's only tick handler is `0x42dc60`. It is added by `0x42dcb0`
 (called at `0x4c62fa`, as a race starts) and removed by `0x42dd00`
@@ -83,7 +84,7 @@ The race's only tick handler is `0x42dc60`. It is added by `0x42dcb0`
 The steps run 64 a second (two for each 32 Hz control frame), the game
 tick that [frd.md](../formats/frd.md) gives for the keyed objects.
 
-## The race loop, on the main thread
+### The race loop, on the main thread
 
 `0x4c4e40`, called from `0x4a37e3` in a loop, goes round until the
 race ends (`0x7d369c`). Each time round it:
@@ -112,7 +113,7 @@ replay's speed `0x7cd94c` (`0x4c5303`-`0x4c539d`): 0 every 4th step, 1
 every 2nd, 2 every step, 3 twice a step; any other value (paused) runs
 only the camera (`0x426680`).
 
-## The step target, and falling behind
+### The step target, and falling behind
 
 The target is not the 64 Hz tick count. It comes from the **control
 frames**, which the controls thread makes at 32 Hz:
@@ -157,7 +158,7 @@ and at each 32nd step the target was the step or at most 3 ahead
 (`-watch 0x4c5457`: steps 0x20, 0x40, 0x60... with targets 0x20,
 0x41, 0x62, about 500 game ms apart).
 
-## What a step does
+### What a step does
 
 `0x4c48d0(step)` is the world's step. It keeps its own count,
 `0x7d3684` (64 a second, from the race's set-up), and:
@@ -277,7 +278,7 @@ machines agree. A finished local car (+0x2C4 = 3) also sends 0x0d with
 its slot (`0x4c7e50`). Message 0x0b's handler is `0x4c7d30`; the host
 passes it on to the others.
 
-## Checked at run time
+### Checked at run time
 
 `reluva-tool nfs host -log 400000000 -native -deterministic 50000`, the usual keys
 into a Hometown race, 2.5 billion instructions. Its output was summed
@@ -317,7 +318,9 @@ Thread creation seen in the run, in order: `0x4cd4e0`, `0x48eb90`,
 `0x4e53c0` again. With the WINMM thread that is 8 threads in all, 7 of
 them the game's own.
 
-## The IPX game advertiser (`0x512ad0`)
+### The IPX game advertiser
+
+In `nfs3.exe`: `0x512ad0`.
 
 `0x512c80(address, name)` starts it. Its only caller is `0x4f5f70`, an
 entry of the IPX transport's function table (`0x566e4c`, +0x2C from
@@ -375,7 +378,21 @@ more with 0x10, withdrawn, in place of 1. A `select` error also ends
 it. The asking side (`0x5127d0`, broadcast question) is `0x4f5fa0`, the
 table's next entry.
 
-## What isn't known
+## In Reluva
+
+The game's own code runs on its threads. Reluva's
+`src/emulation/x86/win32_threads.cpp` gives it the threads, waits and the
+multimedia timer (each thread on a host thread of its own, one running at
+a time), and `src/engines/nfs/host/game_host.cpp` runs the game on them.
+See [nfs.md](../PLAN.md) for how Reluva schedules
+them.
+
+## Sources and checks
+
+- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
+- **How it was checked:** runs of the hosted game (`reluva-tool nfs host`), as each section above says; the unit tests (`nfs.unit.track`, `nfs.unit.computer`, `nfs.unit.host`).
+
+## Open questions
 
 - The advertiser's restart (`NET_opengame`) and last stop
   (`NET_endgame`) were read from the code, not seen at run time.
@@ -389,8 +406,3 @@ table's next entry.
 - The slow-down when the main thread falls behind was read from the
   code; no run was slow enough to hit it (a run at `-deterministic
   10000` didn't reach the race with the usual keys).
-
-## Sources and checks
-
-- **Where the facts come from:** the game's own files and `nfs3.exe`, read as each section above says, with the addresses it gives.
-- **How it was checked:** runs of the hosted game (`reluva-tool nfs host`), as each section above says; the unit tests (`nfs.unit.track`, `nfs.unit.computer`, `nfs.unit.host`).

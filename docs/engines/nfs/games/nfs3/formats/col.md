@@ -2,35 +2,14 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/col.cpp` · **Checked on:** all 9 tracks' files · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/col.cpp`), and checked on all 9
-retail tracks.
+## Overview
 
-## Sources and checks
-
-October 2026, from hex dumps and survey scripts:
-
-- **Starting point.** The block ids follow the NFS modding community's
-  descriptions of NFS III's COL.
-- **Blocks.** Every block's size field accounts for exactly the space to
-  the next.
-- **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×
-  polygons.
-- **Objects.** Every object's size is 8 + 20 × keys.
-- **Virtual road.** Its fields were read off the data:
-  - the positions step along the road (Hometown's first points, a few
-    metres apart, next to block 0's centre);
-  - the forward vector matches the step to the next point;
-  - the right vector is perpendicular to it.
-- **By eye.** Drawn as barriers on the Tracks page (**G**), the walls
-  follow every bend just outside the shoulders, the right one along the
-  fence.
-- **Mask and side codes.** From the nfs3.exe code that reads bytes 12
-  and 14 (found from every use of the points' pointer, `0x5dd948`), and
-  counts over all nine tracks' points.
-
-All values are little-endian.
+Each track's `.col` file: the virtual road the game drives on and keeps
+cars within, the 3D structures, and the moving objects, in blocks (below).
 
 ## Layout
+
+All values are little-endian.
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -387,6 +366,8 @@ for driving, AI and the camera. Reluva reads it, and uses it for the
 walls guide and the wall hits' particles (below) so far. The walls guide
 (Track page, key G) draws each side red on the left and green on the
 right, blue where the side's code is 3 and white where it is 5.
+
+## Behaviour
 
 ### Particles
 
@@ -1269,3 +1250,33 @@ numbers, so a random pan); a camera jump (N, B, R, Shift+C) is a camera
 change (`Weather::cut`, `Weather::tails`; the page's camera is never in
 a car); the Direct3D look dims the drops and splashes. The random
 numbers are Reluva's.
+
+## In Reluva
+
+Read as `TrackCollision` (`src/engines/nfs/formats/col.cpp`), and checked
+on all 9 retail tracks. The Tracks page draws the walls from the virtual
+road (key G). The wall hits' particles and the weather are in
+`src/engines/nfs/render/particles.cpp` (Particles, Rain and snow, above).
+
+## Sources and checks
+
+October 2026, from hex dumps and survey scripts:
+
+- **Starting point.** The block ids follow the NFS modding community's
+  descriptions of NFS III's COL.
+- **Blocks.** Every block's size field accounts for exactly the space to
+  the next.
+- **Structures.** Every structure's size is 8 + 16 × vertices + 6 ×
+  polygons.
+- **Objects.** Every object's size is 8 + 20 × keys.
+- **Virtual road.** Its fields were read off the data:
+  - the positions step along the road (Hometown's first points, a few
+    metres apart, next to block 0's centre);
+  - the forward vector matches the step to the next point;
+  - the right vector is perpendicular to it.
+- **By eye.** Drawn as barriers on the Tracks page (**G**), the walls
+  follow every bend just outside the shoulders, the right one along the
+  fence.
+- **Mask and side codes.** From the nfs3.exe code that reads bytes 12
+  and 14 (found from every use of the points' pointer, `0x5dd948`), and
+  counts over all nine tracks' points.

@@ -2,6 +2,8 @@
 
 > **Status:** partial · **Code:** `src/engines/nfs/pages/track_viewer.cpp` (the Tracks page's cars; the hosted game runs its own) · **Confidence:** from the code unless marked
 
+## Overview
+
 How `nfs3.exe` turns a car's `carp.txt` into driving: where the file's
 fields go, which per-step tasks use them, and the race settings that
 change them. Worked out in October 2026 from the retail `nfs3.exe` (its
@@ -11,10 +13,7 @@ tasks themselves are listed in
 
 Read from the code, with the steering, tyres, hand brake,
 landing, the computer cars' controllers and the police chase's start
-checked at run time (below). Not
-implemented in Reluva.
-
-## In short
+checked at run time (below).
 
 - `carp.txt` is read into a 0x4AC-byte record (P below). The car record
   keeps a pointer to it at **+0x528**. The race's set-up then changes P
@@ -36,7 +35,9 @@ implemented in Reluva.
   changes are acceleration × 1/32 (`0x53dea0`), gravity is 9.81/32 =
   0.306563 a tick (`0x53c8dc`).
 
-## The clock, the tick and the units of spin
+## How it works
+
+### The clock, the tick and the units of spin
 
 Read from the code (November 2026: `asm`, `xref`, `callers`, capstone
 over the exe; the constants read from the exe). This settles two
@@ -90,7 +91,7 @@ second** of game time.
   the `gh1-ai` counts (about 1,300 controller calls per car by 90 s,
   from the start at 48.9 s) are the same rate.
 
-## The race settings named
+### The race settings named
 
 From the front end's option table (`0x5563fc`, 20-byte rows: name,
 two lists of text numbers, a third, the variable) and `text.eng`:
@@ -122,7 +123,7 @@ from the names at `0x5594e4` (each letter + 9): 1 `GOFAST`, 2 `TDRIVE`,
 4 `MONKEY`, 8 `RUSHHOUR`, 0x10 `BULLHORN`, 0x20 `MADLAND`. `MADLAND`
 makes the tyres slide more in rain and snow (`0x4abde0`, below).
 
-## carp.txt in memory (P, at car +0x528)
+### carp.txt in memory (P, at car +0x528)
 
 The writer `0x4b2340` (the debug dump of a car's values) walks the
 label table at `0x55eddc` (80 names; the "(n)" numbers come from
@@ -184,7 +185,9 @@ seven slide and turn fields (38-44) **do nothing** in this build. The
 brake curves were missed before because they are read with a computed
 index (P + 0x1F0 + 4 × (brake / 32)).
 
-## The race's set-up (`0x4a78d6`)
+### The race's set-up
+
+In `nfs3.exe`: `0x4a78d6`.
 
 Called once per car at set-up (`0x42c3c8`).
 
@@ -223,7 +226,9 @@ Called once per car at set-up (`0x42c3c8`).
   +0x58C = 0.98 × A / ((2/3) × 0.367572 × v³) (with the Aero slider,
   (1 + a)/3 in place of 2/3).
 
-## The engine and gears (`0x4aaed1`)
+### The engine and gears
+
+In `nfs3.exe`: `0x4aaed1`.
 
 Returns the drive acceleration along the road. The car's fields:
 +0x590 rpm (int), +0x50B gear, +0x5F0 throttle 0-1, +0x5EC brake 0-1,
@@ -256,7 +261,7 @@ along the road.
 - The result: on the road, acceleration − D going forward,
   acceleration + 2D going backward; in the air −D/2 or D.
 
-## Gears
+### Gears
 
 The gear is +0x50B (0 reverse, 1 neutral, 2 first...), the gear asked
 for +0x506, the gear before +0x50A, +0x50C 1 for a change down. A
@@ -304,7 +309,9 @@ new gear in al), the changes up came at 5,261 rpm (to second, 55.1 s)
 and 5,265 (to third, 64.9 s): the first tick over 5,250. The 5,237
 seen before was the engine's rpm a tick earlier.
 
-## The human's car each tick (`0x4ad7a3`)
+### The human's car each tick
+
+In `nfs3.exe`: `0x4ad7a3`.
 
 All in the **road's frame**: the matrix at car +0x190 (rows right
 +0x190, up +0x19C, forward +0x1A8, from the road under the car).
@@ -353,7 +360,9 @@ All in the **road's frame**: the matrix at car +0x190 (rows right
 In the air or tipped (+0x8A set, or +0x10C < 0.9, `0x4ae4c1`) the rpm
 falls 500 a tick to the minimum and nothing drives.
 
-## Controls (`0x4a9bc4`, each tick)
+### Controls
+
+In `nfs3.exe`: `0x4a9bc4`, each tick.
 
 The control frame is unpacked into the car at `0x431462`-`0x431545`:
 +0x504 gas (byte), +0x505 brake (byte), +0x518 steering (signed byte,
@@ -389,7 +398,9 @@ other time.
   slow (under 4 m/s, or under 5 in reverse or neutral): velocity and
   spin × 0.8 a tick.
 
-## The front wheels' angle (`0x4ad2e1`)
+### The front wheels' angle
+
+In `nfs3.exe`: `0x4ad2e1`.
 
 In turns (one turn = 2π, as `0x496bf0` and `0x4ea930` take angles).
 s = +0x51C, v = +0x4F4:
@@ -418,7 +429,9 @@ The angle turns the front wheels' slip velocity into the wheel's
 frame (`0x496bf0`) before the tyre and the tyre's force back. The
 yaw comes from the axles' lateral forces (step 8 above).
 
-## Tyres (`0x4aca4f`)
+### Tyres
+
+In `nfs3.exe`: `0x4aca4f`.
 
 Each wheel record (0x30 bytes on the stack at `0x4ad7a3`'s ebp−0x14C,
 front pair first): +0 drive and brake force, +4 load, +8 downforce
@@ -493,7 +506,9 @@ falls with the time held, x = +0x514 / 384: H = 0.75 × (1 − 0.8 / (1 +
 e^(−4π(x − 0.5)))) (1 while +0x514 is 0), from 0.75 to 0.15, half way at 6 s dry (2 s in
 rain, 1.5 s in snow).
 
-## Car dynamics, every car (`0x4a2830`)
+### Car dynamics, every car
+
+In `nfs3.exe`: `0x4a2830`.
 
 Skipped before step 512 (the start) and for a car not in play (+0x89).
 
@@ -577,7 +592,7 @@ has the details, the air's drag and gravity, and the checks against
 road's plane. The pitch and roll seen are the body's drawing (pitch
 roll factor, `0x4295b7`).
 
-## The creep on the grid
+### The creep on the grid
 
 A car standing on the grid after the start moves at 0.1-0.24 m/s with no
 throttle. It is **gravity's along-the-road part** (step 4 above): the
@@ -603,7 +618,9 @@ called from `0x4af221`, which took x from 0.16461 to 0.16295 (×
 0.98992); `-watch 0x4e0050` showed its caller `0x4af226` 583 times for
 the player's car.
 
-## The computer's cars (`0x4088f0`)
+### The computer's cars
+
+In `nfs3.exe`: `0x4088f0`.
 
 Each tick, per car:
 
@@ -1018,7 +1035,9 @@ controls and the assists' driver read neither +0x7B4 nor `0x56ef74`
 steering assist is the pedal driver and nothing more. Hot Pursuit's
 set-up (`0x4746ab`) turns it off.
 
-## The Hot Pursuit states (`0x405740`, car +0x6E0)
+### The Hot Pursuit states
+
+In `nfs3.exe`: `0x405740`, car +0x6E0.
 
 Run by the human's driver (`0x431455`) when there are computer cars or
 cops, or the steering assist is on. A human's car is a cop when its
@@ -1735,7 +1754,9 @@ H pressed at 54.0 s the siren went on (`0x404fce`) and in the same
 step `0x4019a1` targeted car 1 (`0x5e1acc`) and `0x405879` went to
 state 4. Without H (`sw1-cop2`) the player stayed in state 3.
 
-### The computer cops' driver (`0x4032e0`)
+#### The computer cops' driver
+
+In `nfs3.exe`: `0x4032e0`.
 
 The Tracks page's stand-in police car drives by this driver's states 1
 to 11, with the reversing, strips, roadblocks, stops and tickets below
@@ -2923,7 +2944,7 @@ Race clock = run time − 48.9 s.
   2 stayed in its stop test (+0x710 0x50) to the end, 43 s: an artefact
   of driving the player's car that way.
 
-### Seen in footage (Summit_Night)
+#### Seen in footage (Summit_Night)
 
 A YouTube recording of a one-player Hot Pursuit (`Summit_Night`, 2
 laps; menu at 0:00: Aston Martin DB7, Summit (2 Laps), assists on,
@@ -2963,7 +2984,7 @@ code gives. The HUD says "tickets: 0/3", laps + 1, as `0x474640` sets
   never the cop, so the human cop's 3 s stop and the cop's quota
   (+0x2D4) aren't seen either (they are in the next section).
 
-### Seen in footage (the player as the cop)
+#### Seen in footage (the player as the cop)
 
 Three YouTube recordings of a one-player Hot Pursuit with the player
 (OGC) as the cop: `Atlantica_Night` (Pursuit Corvette, 8 laps, track
@@ -3113,7 +3134,7 @@ second. The HUD there has the racer list on (other layouts hide it).
   So the clips' game is not this exe as installed here: another
   release, or a modified one (not known which).
 
-### Seen in the user's own clips (`HP_Spikes`, `HP_RacerList`)
+#### Seen in the user's own clips (`HP_Spikes`, `HP_RacerList`)
 
 Two clips the user recorded in November 2026 from their own copy,
 which is this exe (docs/engines/nfs/games/nfs3/PLAN.md, "The copy studied"), through
@@ -3279,7 +3300,7 @@ in [net.md](net.md), Bit 0x80, holds):
 So the user's copy agrees with the code on every point checked, and
 with the earlier runs (`cp-stop8`, `cp-spike1`, `cop-spike2`).
 
-### The disabled cop seen (`HP_Disabled`)
+#### The disabled cop seen (`HP_Disabled`)
 
 A clip the user recorded in November 2026 from their own copy (the
 same exe as `HP_Spikes`, Direct3D in a virtual machine; 669 s, 30
@@ -3295,7 +3316,7 @@ The sound (mono, 22,050 Hz) was matched against every slot of
 `off00a`-`c` and `disp00` (Hometown's banks), and against the car
 names (slot 0x00 of every colour's bank in the seven cars'
 `IPspchE.viv`, and 0x20 of their red and no-colour banks), decoded
-with `reluva-tool bnk-wav`, two
+with `reluva-tool nfs bnk-wav`, two
 ways: (1) each slot cut into 0.4 s pieces (0.2 s apart), each piece's
 normalised cross-correlation with the clip, a line counting when
 several pieces agree on its start (the dropouts break whole-slot
@@ -3442,7 +3463,7 @@ the roadblock, which put a cop on the record only when it takes the
 racer. A silent join (a full queue) can't be ruled out, so four on one
 record isn't excluded, only not heard.
 
-## The handling, routine by routine
+### The handling, routine by routine
 
 An index of the car-handling code (November 2026), in the order a step
 runs it, with where each is written up. All are Sc32 tasks (32 a
@@ -3504,7 +3525,7 @@ braking `0x4063e0`), `0x4068a0` for a car with +0x88 (no forces),
 from car hits) and **the impacts** `0x42b900` (`0x42ac40`, the reset
 `0x429260` → `0x428f90`).
 
-### Checked in runs
+#### Checked in runs
 
 November 2026, the `e8-h` runs: `reluva-tool nfs host -native -deterministic
 50000` on Hometown (track poke 0 at `0x474ca0`), a single race, dry,
@@ -3718,7 +3739,7 @@ the set-up record at `0x6fd52c` (`-dumpmem` of the record at 55 s,
   skipped) or, on 3-5 calls a car, 1.0 with `0x56ec78` = 1 (one pass
   × 1).
 
-### Camera views (the drawn tilts)
+#### Camera views (the drawn tilts)
 
 Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-lb1`, `h3-tr1`.
 
@@ -3909,7 +3930,7 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
   one from ahead-right looking back at the car's nose, in the pattern of
   the watched sign; after release the view stayed behind.
 
-## Other car fields
+### Other car fields
 
 - **+0x124-+0x154, the road frame at the car.** `0x49ffa0` (from the
   road contact task `0x4a08c0`, and `0x4a0580`) gets nine numbers and
@@ -4063,6 +4084,15 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
   the force-feedback device (`0x471dc0`): the hit point (+0x178) in the
   car's frame, its direction by atan2, and the strength.
 
+## In Reluva
+
+Not implemented in Reluva as a model of its own: the hosted game runs
+its own code. The Tracks page's cars
+(`src/engines/nfs/pages/track_viewer.cpp`) are driven by a model of the
+computer's cars in `src/engines/nfs/formats/frd.cpp` (`AiCar`,
+`AiDriver`), made from this page; it still parts from the game's after
+about a minute ([KNOWN_DIFFERENCES.md](../KNOWN_DIFFERENCES.md)).
+
 ## Sources and checks
 
 - The field offsets of P from the debug writer `0x4b2340`, whose jump
@@ -4074,7 +4104,7 @@ Found November 2026 from the code and run in `g3-cv0`, `g3-cv1`, `h3-cm5`, `h3-l
   `0x4aaed1`, `0x4a78d6`, `0x4aab41`). Constants read from the
   executable.
 - The race settings from the option rows at `0x5563e8`-`0x5566f4` and
-  `text.eng` (`reluva-tool text-dump`).
+  `text.eng` (`reluva-tool nfs text-dump`).
 - The tyre, steering, gear and landing code by a script that folds
   the unoptimised code's register loads into names (car, wheel, P),
   then by hand.
@@ -4112,7 +4142,7 @@ of every access to those offsets):
   Everything else writes them 0 (`0x408950` and `0x4073c8` among the
   computer cars' code, `0x42bf8a`), so for computer cars they stay 0.
 
-## What isn't known
+## Open questions
 
 - The cop's stop and ticket were run five ways: by the 7 m test with
   a computer racer held near the cop by a poke (`cp-stop7b`), by a

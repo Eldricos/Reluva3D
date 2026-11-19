@@ -2,48 +2,14 @@
 
 > **Status:** decoded · **Code:** `src/engines/nfs/formats/frd.cpp` · **Checked on:** all 9 tracks · **Confidence:** confirmed unless marked
 
-Implemented (`src/engines/nfs/formats/frd.cpp`). All 9 retail tracks
-read completely, with every byte accounted for (`reluva-tool frd-check`),
-and draw correctly on the Tracks page.
+## Overview
 
-## Sources and checks
-
-October 2026, with survey scripts over the nine tracks:
-
-- **Starting point.** The overall order (track blocks, then polygons,
-  then objects, then textures) and several field names follow the NFS
-  modding community's descriptions of NFS III's FRD, as T3ED used them.
-- **Track blocks.** Each field was found on the data:
-  - the block count is one less than the blocks: block 0's neighbour list
-    names block 119 of tr00's "119";
-  - the record sizes come from a least-squares fit of each block's size
-    over its eight counts, on all 1,583 blocks with a following block:
-    8, 8, 12, 20, 20, 16 and 16 bytes, exactly.
-- **Polygon section.**
-  - An empty list has no repeated count: block 1's first list is `0`,
-    followed by the next list's count.
-  - There are four object layers: block 0's trailing `0` and `10, 3` fit
-    only as its layers 1-3.
-  - Checks on every block of every track:
-    - each list's count matches its repeat;
-    - each layer's total matches its objects' polygons;
-    - list 4's count equals the block's `nPolygons`, in all 1,592 blocks.
-- **Placed objects.** Type 3's key count is the short at +32: 17 keys of a
-  spinning object on Hometown, after which the usual vertices and
-  polygons follow.
-- **Texture table.** The bytes left after the objects divide exactly by
-  47 on all nine tracks.
-- **By eye.** The tracks drawn on the Tracks page:
-  - roads, lane lines, fences, poles, trees and buildings are where they
-    belong;
-  - billboard text reads the right way round (with z mirrored, as
-    models are, [fce.md](fce.md)), once the page culls back faces and
-    takes placed objects' vertices in the game's order (Textures,
-    below).
-
-All values are little-endian. Floats are 32-bit IEEE.
+Each track's geometry: its blocks of road and roadside, their polygons,
+the objects placed along it, and the table of its textures (below).
 
 ## Layout
+
+All values are little-endian. Floats are 32-bit IEEE.
 
 | Part | Contents |
 |---|---|
@@ -3203,7 +3169,9 @@ Every polygon's texture is in the table, and every picture they use is
 in its sheet. Some entries name pictures past the sheet's end, but no
 polygon uses those.
 
-## Which blocks are drawn
+## Behaviour
+
+### Which blocks are drawn
 
 From nfs3.exe (November 2026). For each view the game goes through
 the neighbour list of the camera's block (`0x41cdc0`) and draws a
@@ -3274,11 +3242,50 @@ polygon whose queued first corner (the file's vertex 1), as placed, is
 more than the view's `+0x30` ahead. The page cuts them the same way,
 each frame from their corners as placed.
 
-## Tools
+## In Reluva
 
-- `reluva-tool frd-check <file.frd>...` reads tracks and counts what's in
+Read as `Track` (`src/engines/nfs/formats/frd.cpp`). All 9 retail tracks
+read completely, with every byte accounted for (`reluva-tool nfs frd-check`),
+and draw correctly on the Tracks page.
+
+- `reluva-tool nfs frd-check <file.frd>...` reads tracks and counts what's in
   them.
-- `reluva-tool frd-obj <file.frd> <out.obj> [detail]` writes the road and
+- `reluva-tool nfs frd-obj <file.frd> <out.obj> [detail]` writes the road and
   objects as OBJ, mirrored as Reluva draws them: each face's corners in
   the game's order (a placed object's 1, 0, 3, 2) with the texture's
   corner k on corner k, wound so that OBJ's front is the game's.
+
+## Sources and checks
+
+October 2026, with survey scripts over the nine tracks:
+
+- **Starting point.** The overall order (track blocks, then polygons,
+  then objects, then textures) and several field names follow the NFS
+  modding community's descriptions of NFS III's FRD, as T3ED used them.
+- **Track blocks.** Each field was found on the data:
+  - the block count is one less than the blocks: block 0's neighbour list
+    names block 119 of tr00's "119";
+  - the record sizes come from a least-squares fit of each block's size
+    over its eight counts, on all 1,583 blocks with a following block:
+    8, 8, 12, 20, 20, 16 and 16 bytes, exactly.
+- **Polygon section.**
+  - An empty list has no repeated count: block 1's first list is `0`,
+    followed by the next list's count.
+  - There are four object layers: block 0's trailing `0` and `10, 3` fit
+    only as its layers 1-3.
+  - Checks on every block of every track:
+    - each list's count matches its repeat;
+    - each layer's total matches its objects' polygons;
+    - list 4's count equals the block's `nPolygons`, in all 1,592 blocks.
+- **Placed objects.** Type 3's key count is the short at +32: 17 keys of a
+  spinning object on Hometown, after which the usual vertices and
+  polygons follow.
+- **Texture table.** The bytes left after the objects divide exactly by
+  47 on all nine tracks.
+- **By eye.** The tracks drawn on the Tracks page:
+  - roads, lane lines, fences, poles, trees and buildings are where they
+    belong;
+  - billboard text reads the right way round (with z mirrored, as
+    models are, [fce.md](fce.md)), once the page culls back faces and
+    takes placed objects' vertices in the game's order (Textures,
+    above).
