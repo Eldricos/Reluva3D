@@ -42,6 +42,6 @@ private:
  * A class (its declarations, functions, states and defaults), a struct, a
  * function or a state, as text.
  */
-std::string scriptText(const PackageSet &packages, const Package &package, int exportIndex, const NativeTable &natives);
+std::string scriptText(const Package &package, int exportIndex, const NativeTable &natives);
 
 } // namespace reluva::unreal

@@ -41,8 +41,7 @@ std::string hex4(uint32_t v) {
 
 class Writer {
 public:
-    Writer(const PackageSet &packages, const Package &package, const NativeTable &natives)
-        : _packages(packages), _package(package), _natives(natives) {}
+    Writer(const Package &package, const NativeTable &natives) : _package(package), _natives(natives) {}
 
     std::string out;
 
@@ -467,7 +466,6 @@ private:
         }
     }
 
-    const PackageSet &_packages;
     const Package &_package;
     const NativeTable &_natives;
 };
@@ -509,9 +507,8 @@ const NativeFunction *NativeTable::find(int native) const {
     return it == _natives.end() ? nullptr : &it->second;
 }
 
-std::string scriptText(const PackageSet &packages, const Package &package, int exportIndex,
-                       const NativeTable &natives) {
-    Writer w(packages, package, natives);
+std::string scriptText(const Package &package, int exportIndex, const NativeTable &natives) {
+    Writer w(package, natives);
     w.object(exportIndex, 0);
     return w.out;
 }

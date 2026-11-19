@@ -767,7 +767,7 @@ int cmdUeScript(int argc, char **argv) {
                     continue;
                 const std::filesystem::path dir = std::filesystem::path(argv[4]) / name;
                 std::filesystem::create_directories(dir);
-                const std::string text = scriptText(set, *p, int(i), natives);
+                const std::string text = scriptText(*p, int(i), natives);
                 std::FILE *f = std::fopen((dir / (p->objectName(int32_t(i) + 1) + ".uc")).string().c_str(), "wb");
                 if (!f) {
                     ++failed;
@@ -802,7 +802,7 @@ int cmdUeScript(int argc, char **argv) {
         return 1;
     }
     std::printf("// %s, in %s\n%s", found->path(index + 1).c_str(), found->file().string().c_str(),
-                scriptText(set, *found, index, natives).c_str());
+                scriptText(*found, index, natives).c_str());
     return 0;
 }
 

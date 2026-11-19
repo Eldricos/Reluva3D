@@ -74,7 +74,7 @@ void testScript() {
     if (!sp)
         return;
     const NativeTable natives(set);
-    const std::string text = scriptText(set, *sp, 1, natives);
+    const std::string text = scriptText(*sp, 1, natives);
     CHECK(text.find("event Light()") != std::string::npos);
     CHECK(text.find("local int Count;") != std::string::npos);
     CHECK(text.find("0x0000: Count = 5;") != std::string::npos);
