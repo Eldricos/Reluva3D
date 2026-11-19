@@ -217,7 +217,11 @@ behind the DLL's own tables.
    `bespin_undercity` plays to `bespin_streets` by the tour (sparing
    the R5 droid, whose death fails the mission), then a short route:
    the droid's drive to the exit lift, then the lift. `bespin_streets`
-   plays to `bespin_platform` by the tour, nothing new needed. Next: the next levels the same way, and a console on the page.
+   plays to `bespin_platform` by the tour, nothing new needed.
+   `bespin_platform` cuts limbs off, which brought two more Ghoul2 slots
+   (copying an instance, the new origin), and plays to `cairn_bay` by
+   the tour then a route: the doors' console, cinematic 22 and Tavion's
+   fight. Next: the next levels the same way, and a console on the page.
 
 8. **Single player's menus**: started with the menu files read, which
    the client game's HUD needs ([systems/sp-menus.md](systems/sp-menus.md)).

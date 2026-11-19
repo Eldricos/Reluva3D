@@ -55,7 +55,8 @@
 #                 code, the Lady Luck's gun). About forty minutes.
 #   jk2-sp-bespin  bespin_undercity: the tour, then its route (the R5
 #                 droid's drive to the exit lift); bespin_streets by the
-#                 tour.
+#                 tour; bespin_platform by the tour, then its route (the
+#                 doors' console, cinematic 22, Tavion).
 #   jk2-menus     the multiplayer menus: the main menu, Setup, Create Server
 #                 by way of Play, and Join Server (ui-run, clicking in the
 #                 menus' 640 x 480, with the engine's server settings)
@@ -149,6 +150,8 @@ elseif(STEP STREQUAL "jk2-sp-bespin")
                -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_undercity.txt" -fixedclock -set helpUsObi 1 -next)
     record_run(bespin_streets "ran 100 frames" idtech3 sp-run "${base}" bespin_streets -tour 5000 -fixedclock
                -set helpUsObi 1 -next)
+    record_run(bespin_platform "ran 100 frames" idtech3 sp-run "${base}" bespin_platform -tour 5000
+               -replay "${CMAKE_CURRENT_LIST_DIR}/data/routes/bespin_platform.txt" -fixedclock -set helpUsObi 1 -next)
 elseif(STEP STREQUAL "jk2-menus")
     record_run(main-menu "" idtech3 ui-run "${base}" -servercvars -frames 30)
     record_run(setup "" idtech3 ui-run "${base}" -servercvars -frames 10 -click 570 125)

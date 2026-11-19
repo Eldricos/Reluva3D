@@ -321,6 +321,17 @@ yet: a console on the page.
 - **bespin_streets:** `sp-run bespin_streets -tour 5000 -set helpUsObi 1
   -next` plays it to `maptransition bespin_platform`, nothing new
   needed.
+- **bespin_platform:** the console that unlocks the platform doors also
+  shows them through a `misc_camera` (its target names both), so the
+  tour leaves it out; in the camera's view the player does nothing until
+  pressing use again. The unlocking switches on the trigger for
+  cinematic 22, at whose end Tavion comes. She blocks the saber and
+  blaster bolts but not rockets or the disruptor, and her death script
+  is cinematic 23, the level's end. The game's dismemberment called two
+  new Ghoul2 slots ([sp-ghoul2.md](sp-ghoul2.md), Cutting off a limb).
+  `sp-run bespin_platform -tour 5000 -replay
+  tests/engines/idtech3/data/routes/bespin_platform.txt -set helpUsObi 1
+  -next` plays it to `maptransition cairn_bay`.
 - **The entities in a box** (`EntitiesInBox`, 0x43ab30, walking the
   sectors at 0x43aa20): each sector's list newest first (`LinkEntity`
   puts an entity at its head, 0x43a9fa), then the side below the split
