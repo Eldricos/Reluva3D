@@ -181,6 +181,7 @@ reluva_add_tests(common
         ${PROJECT_SOURCE_DIR}/tests/common/windows_resources.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/directmusic.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/portmap.cpp
+        ${PROJECT_SOURCE_DIR}/tests/common/crypto.cpp
         ${PROJECT_SOURCE_DIR}/tests/common/truetype.cpp
     TOPICS unit.hashes unit.files unit.archives unit.text unit.audio unit.image unit.video unit.net unit.x86
         unit.jit unit.windows unit.indeo unit.x86_more unit.mmx unit.drives unit.mixer unit.ea_audio unit.prologic

@@ -16,6 +16,7 @@ add_library(reluva_common STATIC
     installshield.cpp
     log.cpp
     md4.cpp
+    crypto.cpp
     md5.cpp
     net.cpp
     pe.cpp
